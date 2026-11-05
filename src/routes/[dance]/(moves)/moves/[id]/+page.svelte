@@ -81,7 +81,23 @@
 	{/snippet}
 	{#snippet right()}
 		{#if data.canEdit}
-			<BandButton focusKey="more" icon="more" label="More" onclick={() => (view = 'menu')} />
+			<!-- The desktop renames from a pencil. The phone keeps the ⋯. -->
+			<span class="hidden desk:contents"
+				><BandButton
+					focusKey="rename"
+					icon="pencil"
+					label="Rename move"
+					onclick={() => (view = 'rename')}
+				/></span
+			>
+			<span class="contents desk:hidden"
+				><BandButton
+					focusKey="more"
+					icon="more"
+					label="More"
+					onclick={() => (view = 'menu')}
+				/></span
+			>
 		{/if}
 	{/snippet}
 

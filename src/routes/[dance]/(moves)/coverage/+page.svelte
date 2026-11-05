@@ -10,6 +10,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { PAGE_WIDTH } from '$lib/nav/frame';
 	import { claimBottom } from '$lib/nav/chrome.svelte';
 	import { longPress } from '$lib/longpress';
 	import { plural } from '$lib/format';
@@ -89,10 +90,17 @@
 	{/snippet}
 	{#snippet right()}
 		{#if !selecting && hasRows}
-			<button
-				type="button"
-				class="h-11 flex-none cursor-pointer px-2.5 text-[16px] font-extrabold text-band-small"
-				onclick={() => (selecting = true)}>Select</button
+			<span class="hidden desk:contents"
+				><button type="button" class={button('tertiary', 'sm')} onclick={() => (selecting = true)}
+					>Select</button
+				></span
+			>
+			<span class="contents desk:hidden"
+				><button
+					type="button"
+					class="h-11 flex-none cursor-pointer px-2.5 text-[16px] font-extrabold text-band-small"
+					onclick={() => (selecting = true)}>Select</button
+				></span
 			>
 		{/if}
 	{/snippet}
@@ -167,21 +175,25 @@
 
 {#if selecting}
 	<div
-		class="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[560px] items-center gap-1 border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5 desk:left-(--pane-left)"
-		style="padding-bottom: calc(12px + var(--safe-bottom))"
+		class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5 desk:left-(--pane-left) desk:max-w-none"
+		style="padding-bottom: calc(12px + var(--safe-bottom)); --bar-w: {PAGE_WIDTH.one}px"
 	>
-		<span role="status" class="flex-1 text-[16px] font-bold text-ink">{picked.length} selected</span
-		>
-		<button type="button" class={button('tertiary', 'sm')} onclick={stopSelecting}>Cancel</button>
-		<button
-			type="button"
-			disabled={picked.length === 0}
-			class={button('primary', 'sm')}
-			onclick={() => {
-				seen = form;
-				naming = true;
-			}}><Icon name="plus" size={20} /> Create routine</button
-		>
+		<!-- On the desk the content is centred in the pane, as wide as the page. -->
+		<div class="mx-auto flex items-center gap-1 desk:max-w-(--bar-w)">
+			<span role="status" class="flex-1 text-[16px] font-bold text-ink"
+				>{picked.length} selected</span
+			>
+			<button type="button" class={button('tertiary', 'sm')} onclick={stopSelecting}>Cancel</button>
+			<button
+				type="button"
+				disabled={picked.length === 0}
+				class={button('primary', 'sm')}
+				onclick={() => {
+					seen = form;
+					naming = true;
+				}}><Icon name="plus" size={20} /> Create routine</button
+			>
+		</div>
 	</div>
 {/if}
 
