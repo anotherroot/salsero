@@ -1119,3 +1119,12 @@ export type CommentCard = {
 	newCount: number;
 	newest: { name: string; teacher: boolean; text: string; at: number } | null;
 };
+
+/** What a page needs to draw the card and open the sheet: the lesson, its group and the card. */
+export type CommentsOn = {
+	lessonId: number;
+	/** The sheet's subtitle. */
+	lessonTitle: string;
+	groupName: string;
+	card: CommentCard;
+};

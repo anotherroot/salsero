@@ -14,6 +14,7 @@ import { popupData } from '$lib/server/popup';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
 import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
 import { fromClassOf } from '$lib/server/from-class';
+import { classLessonOf, commentsOn } from '$lib/server/comments';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
@@ -32,6 +33,8 @@ import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
+
+type FromClass = ReturnType<typeof fromClassOf>;
 
 /** Who acts: History names them on a group's drill. */
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
@@ -78,12 +81,18 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	// previews from the same base (null for an exercise with no live schedule).
 	const starts = scheduleStates(db, wall, tz, today);
 	const scheduleAtStart = (exerciseId: number) => starts.get(exerciseId) ?? null;
+	/** "Comments on the class": the card for the exercise's group lesson, or null (`classLessonOf`). */
+	const commentsFor = (exercise: Parameters<typeof classLessonOf>[2], from: FromClass) => {
+		const lessonId = classLessonOf(db, wall.userId, exercise, from);
+		return lessonId === null ? null : commentsOn(db, wall.userId, lessonId);
+	};
 
 	if (row.teamId === null) {
 		// The person's own row: the page is its log popup's.
 		const own = requireExerciseInWall(db, wall, row.id);
 		const popup = popupData(db, wall, own.id, tz, now);
 		if (!popup) throw error(404, 'No such exercise');
+		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
 			...popup,
 			practice: practicePayload(db, own, tz, now),
@@ -113,7 +122,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			historyHref: null,
 			add: null,
 			// A lesson review's own class (the simple page's "From class …").
-			fromClass: fromClassOf(db, wall.userId, own)
+			fromClass,
+			comments: commentsFor(own, fromClass)
 		};
 	}
 
@@ -147,6 +157,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	// person already added takes just this drill; otherwise its sheet opens.
 	const route = popup ? null : drillAddRoute(db, wall.userId, row);
 	const offer = route && !route.added ? addOffer(db, wall.userId, route.lessonId) : null;
+	// A group drill reached through a lesson: that lesson's class, entry or not.
+	const fromClass = fromClassOf(db, wall.userId, {
+		id: row.id,
+		teamId: row.teamId,
+		lessonId: null,
+		drillId: null
+	});
 	return {
 		exercise: popup?.exercise ?? shown,
 		sets: popup?.sets ?? [],
@@ -183,13 +200,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		copyTo: copyOffer(db, wall.userId, 'drill', row.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
-		// A group drill reached through a lesson: that lesson's class, entry or not.
-		fromClass: fromClassOf(db, wall.userId, {
-			id: row.id,
-			teamId: row.teamId,
-			lessonId: null,
-			drillId: null
-		}),
+		fromClass,
+		comments: commentsFor(row, fromClass),
 		add: route
 			? {
 					lessonId: route.lessonId,

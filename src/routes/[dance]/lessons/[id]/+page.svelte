@@ -73,6 +73,7 @@
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
@@ -1086,6 +1087,7 @@
 			right={watched}
 			leftEnd={editing ? undefined : linked}
 		/>
+		{#if !editing && data.comments}<CommentsCard comments={data.comments} />{/if}
 	</div>
 </Screen>
 

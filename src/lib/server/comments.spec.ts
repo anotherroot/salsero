@@ -5,14 +5,20 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { lessonCommentHearts, lessonComments, opens, teams, users } from './db/schema';
+import { exercises, lessonCommentHearts, lessonComments, opens, teams, users } from './db/schema';
 import { createTeam, deleteTeam, joinTeam } from './teams';
-import { createLesson, publishLesson } from './lessons';
+import { createLesson, linkExercise, linkFigure, linkRoutine, publishLesson } from './lessons';
+import { addLesson, entryFor } from './entries';
+import { createCustomExercise } from './exercises';
+import { createRoutine } from './routines';
+import { createFigure } from './figures';
 import { leaveTeam, setRole } from './membership';
 import { purgeTeams } from './team-purge';
 import { recordOpen } from './whats-new';
 import {
+	classLessonOf,
 	commentCard,
+	commentsOn,
 	deleteComment,
 	listComments,
 	postComment,
@@ -234,6 +240,81 @@ describe('counts and the card', () => {
 		recordOpen(db, 'u2', 'lesson', lesson, 10);
 		ok(post('u1', 'hello', null, 100));
 		expect(whatsNew(db, 'u2', 'salsa').byTeam.size).toBe(0);
+	});
+});
+
+describe('the card on a page', () => {
+	it('carries the lesson’s title and group, only for a group lesson the person reads', () => {
+		ok(post('u1', 'hello', null, 100));
+		expect(commentsOn(db, 'u2', lesson)).toEqual({
+			lessonId: lesson,
+			lessonTitle: 'Tue 3 Nov',
+			groupName: 'Salsa Tuesdays',
+			card: commentCard(db, 'u2', lesson)
+		});
+		expect(commentsOn(db, 'u2', own)).toBeNull();
+		expect(commentsOn(db, 'u4', lesson)).toBeNull();
+		expect(commentsOn(db, 'u2', draft)).toBeNull();
+	});
+});
+
+describe('the lesson of an exercise page’s card', () => {
+	const none = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+	const exerciseRow = (id: number) =>
+		db.select().from(exercises).where(eq(exercises.id, id)).get()!;
+	const lessonOn = (day: string) => {
+		const id = createLesson(db, T1_SALSA, { lessonDay: day, title: day, notes: null }).lesson.id;
+		publishLesson(db, T1_SALSA, id, 6);
+		return id;
+	};
+
+	it('a lesson review is about its own lesson', () => {
+		addLesson(db, 'u2', lesson, { ...none, lesson: true }, 10);
+		const review = entryFor(db, 'u2', { lessonId: lesson })!;
+		expect(classLessonOf(db, 'u2', exerciseRow(review.id))).toBe(lesson);
+	});
+
+	it('a group drill, and an entry on it, are about the lesson holding it', () => {
+		const drill = createCustomExercise(db, T1_SALSA, { name: 'Clave', everyDays: 3, notes: null });
+		linkExercise(db, lesson, drill.id, 'u1');
+		expect(classLessonOf(db, 'u2', exerciseRow(drill.id))).toBe(lesson);
+		addLesson(db, 'u2', lesson, { ...none, drillIds: [drill.id] }, 10);
+		const mine = entryFor(db, 'u2', { drillId: drill.id })!;
+		expect(classLessonOf(db, 'u2', exerciseRow(mine.id))).toBe(lesson);
+	});
+
+	it('a routine entry is about the newest added lesson linking the routine', () => {
+		const routine = createRoutine(db, T1_SALSA, { name: 'Rueda', notes: null }).routine.id;
+		const later = lessonOn('2026-11-10');
+		const latest = lessonOn('2026-11-17');
+		for (const l of [lesson, later, latest]) linkRoutine(db, l, routine, 'u1');
+		addLesson(db, 'u2', lesson, { ...none, routineIds: [routine] }, 10);
+		const entry = entryFor(db, 'u2', { routineId: routine })!;
+		expect(classLessonOf(db, 'u2', exerciseRow(entry.id))).toBe(lesson);
+		addLesson(db, 'u2', later, { ...none, routineIds: [routine] }, 11);
+		// The newest the person added, not the newest that links it.
+		expect(classLessonOf(db, 'u2', exerciseRow(entry.id))).toBe(later);
+	});
+
+	it('a figure entry is about the newest added lesson linking the figure', () => {
+		const fig = createFigure(db, T1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		linkFigure(db, lesson, fig, 'u1');
+		addLesson(db, 'u2', lesson, { ...none, figureIds: [fig] }, 10);
+		const entry = entryFor(db, 'u2', { figureId: fig })!;
+		expect(classLessonOf(db, 'u2', exerciseRow(entry.id))).toBe(lesson);
+	});
+
+	it('a person’s own exercise or routine has none', () => {
+		const mine = createCustomExercise(db, U2_SALSA, { name: 'Own', everyDays: 3, notes: null });
+		expect(classLessonOf(db, 'u2', exerciseRow(mine.id))).toBeNull();
+		const routine = createRoutine(db, U2_SALSA, { name: 'Mine', notes: null });
+		expect(classLessonOf(db, 'u2', exerciseRow(routine.exercise.id))).toBeNull();
 	});
 });
 

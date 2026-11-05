@@ -8,17 +8,20 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import {
+	figures,
 	lessonCommentHearts,
 	lessonComments,
 	lessons,
 	opens,
+	routines,
 	teamMembers,
 	teams
 } from './db/schema';
-import { lessonAccess } from './access';
+import { addedLessonIds, lessonAccess, reachFrom } from './access';
 import { teamNames } from './changes';
+import { fromClassOf } from './from-class';
 import { bodyError } from '$lib/comments/view';
-import type { CommentCard, CommentList, CommentRow, CommentThread } from '$lib/types';
+import type { CommentCard, CommentList, CommentRow, CommentsOn, CommentThread } from '$lib/types';
 
 export type Comment = CommentRow;
 export type CommentRefusal = {
@@ -288,4 +291,60 @@ export function commentCard(db: Db, userId: string, lessonId: number): CommentCa
 			at: top.createdAt
 		}
 	};
+}
+
+/** The card and what its sheet needs (the lesson's title, the group's name), or null: no card. */
+export function commentsOn(db: Db, userId: string, lessonId: number): CommentsOn | null {
+	const card = commentCard(db, userId, lessonId);
+	if (!card) return null;
+	const lesson = db.select().from(lessons).where(eq(lessons.id, lessonId)).get()!;
+	const team = db.select().from(teams).where(eq(teams.id, lesson.teamId!)).get()!;
+	return { lessonId, lessonTitle: lesson.title, groupName: team.name, card };
+}
+
+/**
+ * The lesson whose comments an exercise page shows ("Comments on the class"),
+ * or null: a lesson review's own lesson; a group drill's, and an entry on one,
+ * the lesson `drillAddRoute` names (as `fromClassOf`); a routine or figure
+ * entry's, the newest lesson the person added that holds it. Whether the card
+ * shows is still `commentsOn`'s (a group lesson the person reads). A load that
+ * has `fromClassOf` already passes it as `from`.
+ */
+export function classLessonOf(
+	db: Db,
+	userId: string,
+	exercise: {
+		id: number;
+		teamId: number | null;
+		lessonId: number | null;
+		drillId: number | null;
+		routineId: number | null;
+		figureId: number | null;
+	},
+	from = fromClassOf(db, userId, exercise)
+): number | null {
+	if (from) return from.lessonId;
+	let target: { kind: 'routines' | 'variations'; id: number; teamId: number | null } | null = null;
+	if (exercise.routineId !== null) {
+		const id = exercise.routineId;
+		const r = db.select().from(routines).where(eq(routines.id, id)).get();
+		target = r ? { kind: 'routines', id, teamId: r.teamId } : null;
+	} else if (exercise.figureId !== null) {
+		const id = exercise.figureId;
+		const f = db.select().from(figures).where(eq(figures.id, id)).get();
+		target = f ? { kind: 'variations', id, teamId: f.teamId } : null;
+	}
+	// A person's own routine or figure is no class's.
+	if (!target || target.teamId === null) return null;
+	const { kind, id, teamId } = target;
+	const added = addedLessonIds(db, userId, teamId);
+	if (added.length === 0) return null;
+	const newestFirst = db
+		.select({ id: lessons.id })
+		.from(lessons)
+		.where(inArray(lessons.id, added))
+		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
+		.all();
+	const holding = newestFirst.find((l) => reachFrom(db, teamId, [l.id])[kind].has(id));
+	return holding?.id ?? null;
 }

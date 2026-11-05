@@ -1,5 +1,9 @@
-/** PURE, client-safe: the words of comments, the "@Name" rule and the composer's length check. */
-import type { CommentCard, CommentRow } from '$lib/types';
+/**
+ * PURE, client-safe: the words of comments, the "@Name" rule, the composer's
+ * length check, and how the sheet's list changes as someone posts, hearts and
+ * deletes (each returns a new list, the old one untouched).
+ */
+import type { CommentCard, CommentList, CommentRow } from '$lib/types';
 
 export const COMMENT_MAX = 1000;
 
@@ -50,4 +54,92 @@ export function cardWords(
 		newPill: card.newCount > 0 ? `${card.newCount} new` : null,
 		empty: null
 	};
+}
+
+const MINUTE = 60_000;
+
+/** The name line's "2 d": now, minutes, hours, days, weeks, years. */
+export function shortAgo(at: number, now: number): string {
+	const min = Math.floor(Math.max(0, now - at) / MINUTE);
+	if (min < 1) return 'now';
+	if (min < 60) return `${min} min`;
+	const h = Math.floor(min / 60);
+	if (h < 24) return `${h} h`;
+	const d = Math.floor(h / 24);
+	if (d < 7) return `${d} d`;
+	if (d < 365) return `${Math.floor(d / 7)} w`;
+	return `${Math.floor(d / 365)} y`;
+}
+
+/** The avatar's letter; none for a deleted comment. */
+export function initialOf(name: string | null): string {
+	const first = name ? Array.from(name.trim())[0] : undefined;
+	return first ? first.toLocaleUpperCase() : '';
+}
+
+/** `data-focus` of a comment, for focus after a removal. */
+export const commentKey = (id: number) => `comment-${id}`;
+
+/** What a tap on the heart shows at once, before the server answers. */
+export function heartToggled(row: CommentRow): Pick<CommentRow, 'hearted' | 'hearts'> {
+	return row.hearted
+		? { hearted: false, hearts: Math.max(0, row.hearts - 1) }
+		: { hearted: true, hearts: row.hearts + 1 };
+}
+
+function mapRows(list: CommentList, fn: (row: CommentRow) => CommentRow): CommentList {
+	return {
+		...list,
+		threads: list.threads.map((t) => ({ top: fn(t.top), replies: t.replies.map(fn) }))
+	};
+}
+
+export function withHearts(
+	list: CommentList,
+	id: number,
+	hearts: Pick<CommentRow, 'hearted' | 'hearts'>
+): CommentList {
+	return mapRows(list, (r) => (r.id === id ? { ...r, ...hearts } : r));
+}
+
+/** A new top comment goes first; a reply at the end of its thread (oldest first). */
+export function withPosted(list: CommentList, row: CommentRow): CommentList {
+	if (row.threadId === null) {
+		return { ...list, threads: [{ top: row, replies: [] }, ...list.threads] };
+	}
+	return {
+		...list,
+		threads: list.threads.map((t) =>
+			t.top.id === row.threadId ? { ...t, replies: [...t.replies, row] } : t
+		)
+	};
+}
+
+/**
+ * The list once a comment is deleted, as the server will list it: a top
+ * comment with live replies stays as "Comment deleted"; anything else goes,
+ * and a deleted top goes with its last reply.
+ */
+export function withoutComment(list: CommentList, id: number): CommentList {
+	const threads: CommentList['threads'] = [];
+	for (const t of list.threads) {
+		if (t.top.id === id) {
+			if (t.replies.length === 0) continue;
+			const gone = { body: null, authorName: null, canDelete: false, teacher: false };
+			threads.push({ ...t, top: { ...t.top, ...gone } });
+			continue;
+		}
+		const replies = t.replies.filter((r) => r.id !== id);
+		if (replies.length === 0 && t.top.body === null) continue;
+		threads.push(replies.length === t.replies.length ? t : { ...t, replies });
+	}
+	return { ...list, threads };
+}
+
+/** The comments on screen, top to bottom: every top comment, and the replies of open threads. */
+export function shownIds(list: CommentList, open: ReadonlySet<number>): number[] {
+	return list.threads.flatMap((t) => [
+		t.top.id,
+		...(open.has(t.top.id) ? t.replies.map((r) => r.id) : [])
+	]);
 }

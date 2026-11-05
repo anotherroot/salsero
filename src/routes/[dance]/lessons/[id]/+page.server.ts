@@ -63,6 +63,7 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
+import { commentsOn } from '$lib/server/comments';
 import { lessonNotice } from '$lib/teams/view';
 import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, blockingPositionsByVideo, videoSections } from '$lib/server/spot-links';
@@ -183,6 +184,8 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 			team && canEdit ? `/${wall.dance}/groups/${team.id}/history/lesson/${found.lesson.id}` : null,
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
+		/** The comments card at the page's end: a group's lesson only. */
+		comments: team ? commentsOn(db, wall.userId, found.lesson.id) : null,
 		/** A reader's Edit: Make it mine, what it costs and moves (ruling 12: Make my own copy). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'lesson', found.lesson.id, team),
 		// A published group lesson: Add, or once added "1 new drill · Add" and
