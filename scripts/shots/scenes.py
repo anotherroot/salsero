@@ -1,8 +1,9 @@
 """Scenes for the screenshot rig: a page after some clicks.
 
 A scene is a path (filled with the placeholders, as page lines are), an `act` run once the page has
-loaded, the `masks` (Playwright locators hidden in the shot) and whether it is `desk` only (shot at
-widths >= 1024, never part of a phone baseline).
+loaded, the `masks` (Playwright locators hidden in the shot), whether it is `desk` only (shot at
+widths >= 1024, never part of a phone baseline) and `after`, run once the shot is taken (to answer
+requests the act held, say).
 
 Every `scripts/shots/ext_*.py` may define `SCENES: dict[str, Scene]` and
 `placeholders(db, admin, dance) -> dict[str, object]`. `load_ext()` merges them; a name twice is an error.
@@ -22,6 +23,7 @@ class Scene(NamedTuple):
     act: Callable = lambda p: None
     masks: Callable = lambda p: []
     desk: bool = False
+    after: Callable = lambda p: None
 
 
 def load_ext():

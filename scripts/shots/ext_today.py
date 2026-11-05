@@ -1,5 +1,7 @@
 """Plan 2's scenes (Today: popups, a session, editing) and the placeholders they need. See README "Scenes"."""
+import os
 import re
+from datetime import datetime, timezone
 
 from scenes import Scene
 
@@ -26,9 +28,31 @@ def _group_drill(db, admin, dance):
     ).fetchone()
 
 
+def _quiet_day(db, admin, dance):
+    """1 when Today has nothing to open: every active exercise of the admin has a set on the rig's day
+    (instant.txt, in their zone), or none is active. Gates the scenes of the day so far."""
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "instant.txt")) as fh:
+        now = datetime.strptime(fh.read().strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    tz = (db.execute("select timezone from users where id = ?", (admin,)).fetchone() or [None])[0]
+    try:
+        from zoneinfo import ZoneInfo
+        local = now.astimezone(ZoneInfo(tz or "UTC"))
+    except Exception:  # no tz database: the UTC day
+        local = now
+    start = int(local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+    left = db.execute(
+        "select count(*) from exercises e where e.user_id = ? and e.dance = ? and e.active = 1 "
+        "and e.archived_at is null and not exists (select 1 from sets s where s.exercise_id = e.id "
+        "and s.done_at >= ?)",
+        (admin, dance, start),
+    ).fetchone()[0]
+    return 1 if left == 0 else None
+
+
 def placeholders(db, admin, dance):
     group = _group_drill(db, admin, dance)
     return {
+        "quietday": _quiet_day(db, admin, dance),
         "figex": _ex(db, admin, dance, "figure"),
         "drillex": _ex(db, admin, dance, "custom"),
         "routineex": _ex(db, admin, dance, "routine"),
@@ -365,7 +389,7 @@ def _day_so_far(page):
 SCENES.update({
     "today-open": Scene("/{dance}/figures", _default_open, desk=True),
     "today-again": Scene("/{dance}/exercises/{drillex}", _today_again, desk=True),
-    "today-day-so-far": Scene("/{dance}", _day_so_far, desk=True),
+    "today-day-so-far": Scene("/{dance}#quiet{quietday}", _day_so_far, desk=True),
 })
 
 
@@ -373,8 +397,8 @@ def _pane_loading(page):
     """The side's Today with the swapped exercise's data held: the list beside Today's pane skeleton
     (board today--a-loading's pane). The root's pending overlay is hidden: until plan 2 Task 7 it draws
     the generic pane skeleton over it after 100 ms."""
-    held = []
-    page.route(re.compile(r"/exercises/\d+/__data\.json"), lambda r: held.append(r))
+    _HELD.clear()
+    page.route(re.compile(r"/exercises/\d+/__data\.json"), lambda r: _HELD.append(r))
     _side_today(page)
     page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
     page.wait_for_timeout(800)
@@ -383,8 +407,18 @@ def _pane_loading(page):
         raise RuntimeError("no pane skeleton while the exercise loads")
 
 
+_HELD = []
+
+
+def _release(page):
+    """After the shot: answer the held requests, so closing the page cancels no route handler."""
+    for r in _HELD:
+        r.abort()
+    _HELD.clear()
+
+
 SCENES.update({
-    "today-pane-loading": Scene("/{dance}/figures", _pane_loading, desk=True),
+    "today-pane-loading": Scene("/{dance}/figures", _pane_loading, desk=True, after=_release),
 })
 
 
@@ -413,4 +447,45 @@ def _open_from_elsewhere(page):
 
 SCENES.update({
     "today-open-dropped": Scene("/{dance}", _open_from_elsewhere, desk=True),
+})
+
+
+def _create_from_day_so_far(page):
+    """Nothing to open, then Custom exercise → Add exercise: once the sheet's Back has landed, Today
+    opens the new one in Today's own history slot (the replace never takes the sheet's entry), and one
+    Back leaves Today."""
+    start = page.url
+    _side_today(page)
+    page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1200)
+    if re.search(r"/exercises/", page.url):
+        raise RuntimeError(f"swapped to {page.url} with nothing to open")
+    slot = page.evaluate("history.state?.['sveltekit:history']")
+    length = page.evaluate("history.length")
+    _new(page)
+    page.locator("#new-exercise-name").fill("Shots new drill")
+    page.get_by_role("button", name="Add exercise").click()
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(800)
+    _no_popup(page, "after Add exercise")
+    if not page.get_by_role("heading", name="Shots new drill").count():
+        raise RuntimeError(f"landed on {page.url}, not the new exercise")
+    now = page.evaluate("history.state?.['sveltekit:history']")
+    if now != slot:
+        raise RuntimeError(f"the new exercise is in history slot {now}, Today's was {slot}")
+    grew = page.evaluate("history.length") - length
+    if grew > 1:  # the sheet's own entry may stay ahead as a forward entry, never more
+        raise RuntimeError(f"history grew by {grew}")
+    page.go_back()
+    page.wait_for_url(start, timeout=8000)
+    page.wait_for_timeout(1200)
+    if page.url != start:
+        raise RuntimeError(f"one Back from the new exercise went to {page.url}, not {start}")
+
+
+SCENES.update({
+    # Run it last or alone: it adds an exercise to the copy.
+    "today-create-open": Scene("/{dance}/figures#quiet{quietday}", _create_from_day_so_far, desk=True),
 })

@@ -515,3 +515,22 @@ a[href]:active {
 		position: relative;
 	}
 }
+
+/*
+ * A skeleton's placeholder shape (PageSkeleton, Today's pane skeleton): the
+ * skeleton token, breathing unless reduced motion is asked for. Unlayered, as
+ * the components' own scoped rule was.
+ */
+.bone {
+	background: var(--color-skeleton);
+}
+@media (prefers-reduced-motion: no-preference) {
+	.bone {
+		animation: bone-breathe 1.4s ease-in-out infinite;
+	}
+}
+@keyframes bone-breathe {
+	50% {
+		opacity: 0.55;
+	}
+}

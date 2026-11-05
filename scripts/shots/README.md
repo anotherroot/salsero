@@ -57,7 +57,7 @@ A scene is a page after some clicks (Running, a popup, a dialog). `shots.sh ... 
 `all`) runs `shots.py scene` in place of `shoot`, passing `--group` and `--viewport` on; output is
 `<out>/scene-<name>.png`. Scenes live in `ext_*.py` files (`SCENES: dict[str, Scene]`, `Scene` in `scenes.py`:
 path, `act(page)`, `masks(page)` returning Playwright locators hidden in the shot, `desk` for scenes shot
-only at widths of 1024 or more) with optional `placeholders(db, admin, dance)` that page lines can use too.
+only at widths of 1024 or more, `after(page)` run once the shot is taken) with optional `placeholders(db, admin, dance)` that page lines can use too.
 A scene whose placeholder has no row prints `skip <name>`; an `act` that throws is a failure.
 A db copy with a `<db>.data/` folder beside it (recordings/, audio/ ...) has its files copied into the data dir, so a seeded db can hold real media.
 Chromium gets a fake microphone and may autoplay; the AAC count clips, which its Chromium cannot decode, are served as WAV (converted with ffmpeg at the start). Each plan keeps its own `ext_<name>.py`.

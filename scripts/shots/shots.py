@@ -301,6 +301,7 @@ def scene(a):
                 page.add_style_tag(content=STYLE)
                 page.evaluate(MASK_JS)
                 page.screenshot(path=os.path.join(a.out, f"scene-{name}.png"), full_page=not a.viewport, mask=sc.masks(page))
+                sc.after(page)
                 print(f"ok  {name} {path}")
             except Exception as e:  # an act that fails is a failure, not a skip
                 bad += 1

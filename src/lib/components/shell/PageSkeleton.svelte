@@ -414,19 +414,3 @@
 		</div>
 	{/if}
 </div>
-
-<style>
-	.bone {
-		background: var(--color-skeleton);
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		.bone {
-			animation: breathe 1.4s ease-in-out infinite;
-		}
-	}
-	@keyframes breathe {
-		50% {
-			opacity: 0.55;
-		}
-	}
-</style>

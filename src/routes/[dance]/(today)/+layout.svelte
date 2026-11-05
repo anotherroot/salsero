@@ -18,6 +18,7 @@
 	import { heroFor, shownRows, teamOfRow, todayBands } from '$lib/exercises/today';
 	import { dayTotals, defaultOpen } from '$lib/exercises/today-pane';
 	import { dropOpener } from '$lib/nav/trail.svelte';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { longDayLabel } from '$lib/format';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
@@ -26,10 +27,10 @@
 	 * Today: the list and the exercise beside it (desktop spec, "Today: the list
 	 * and the open exercise (Option A)"). The band, the hero and the list render
 	 * here once, so opening an exercise keeps the list's scroll and the session's
-	 * state; the list route opens one by itself (below), and with nothing to open
-	 * the pane holds the day so far. With no exercise at
-	 * all (the first run) the list is a page of its own. A past day (`?day=`) is
-	 * no list: its page is one column.
+	 * state. On the desktop the list route opens one by itself (below); with
+	 * nothing to open the pane holds the day so far. With no exercise at all (the
+	 * first run) the list is a page of its own. A past day (`?day=`) is no list:
+	 * its page is one column.
 	 *
 	 * On the phone the list route looks as it always has (the hero over the band,
 	 * a row's + opens its log popup) and an exercise's page is the exercise alone.
@@ -102,24 +103,25 @@
 	 * history entry), so every form in the pane posts to its own route, and a
 	 * Back from it goes where /{dance} would have. With nothing to open, the pane
 	 * holds the day so far. The phone never swaps: /{dance} is its list page.
+	 * Not while a sheet of the list's is open (the popup, New exercise): its
+	 * entry is on top of history, and the replace would take its place.
 	 */
-	const target = $derived(isList && !past && !sessionOn ? defaultOpen(bands) : null);
 	const swapTo = $derived.by(() => {
-		if (!isList || past || openId !== null) return null;
-		if (sessionOn) {
-			if (!firstUp) return null;
-			const id = String(firstUp.exercise.id);
-			return resolve('/[dance]/(today)/exercises/[id]', { dance, id }) + '?session=1';
-		}
-		if (target === null) return null;
-		return resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(target) });
+		if (!isList || past || openId !== null || creating) return null;
+		const at = (id: number, search = '') =>
+			resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(id) }) + search;
+		if (sessionOn) return firstUp ? at(firstUp.exercise.id, '?session=1') : null;
+		const id = defaultOpen(bands);
+		return id === null ? null : at(id);
 	});
 
 	/*
 	 * The swap waits for the router to settle: a `goto` while SvelteKit is still
 	 * finishing a navigation (the first mount, its afterNavigate callbacks) aborts
-	 * that navigation, and the trail never hears of the arrival. `swapping` keeps
-	 * the effect from going twice while its own navigation loads.
+	 * that navigation, and the trail never hears of the arrival. It also waits for
+	 * a closing sheet's Back to land (`gotoWhenSettled`), so the replace takes
+	 * /{dance}'s entry, not the sheet's. `swapping` keeps the effect from going
+	 * twice while its own navigation loads, and clears however that ends.
 	 */
 	let settled = $state(false);
 	let swapping = false;
@@ -128,16 +130,16 @@
 	});
 	afterNavigate(() => {
 		settled = true;
-		swapping = false;
 	});
 	$effect(() => {
 		const href = swapTo;
 		if (!settled || !desk.current || href === null || swapping) return;
 		swapping = true;
+		const done = () => (swapping = false);
 		// The list is beside it: no ‹, whatever opened it before.
-		dropOpener(href.split('?')[0]);
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above
-		goto(href, { replaceState: true, keepFocus: true }).catch(() => (swapping = false));
+		gotoWhenSettled(href, { replaceState: true, keepFocus: true }, () =>
+			dropOpener(href.split('?')[0])
+		).then(done, done);
 	});
 
 	/*
