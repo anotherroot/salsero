@@ -54,7 +54,14 @@
 </script>
 
 {#if kind === 'rename' && spot}
-	<PlayerLayer shape="sheet" title="Rename" sub={spotLine(spot)} z="z-40" onclose={oncancel}>
+	<PlayerLayer
+		shape="sheet"
+		size="small"
+		title="Rename"
+		sub={spotLine(spot)}
+		z="z-40"
+		onclose={oncancel}
+	>
 		<form
 			id="spot-rename"
 			onsubmit={(e) => {

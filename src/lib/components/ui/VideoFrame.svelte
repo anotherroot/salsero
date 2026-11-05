@@ -122,7 +122,7 @@
 </script>
 
 {#if kind === 'video'}
-	<div class="{CLIP} relative aspect-video w-full bg-black">
+	<div class="{CLIP} relative aspect-video w-full bg-black desk:max-h-[70dvh]">
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
 			bind:this={inline}

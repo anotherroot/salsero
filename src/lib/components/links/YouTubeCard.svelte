@@ -68,7 +68,7 @@
 		<iframe
 			src={youtubeEmbed(id, start)}
 			title={title ?? 'YouTube video'}
-			class="aspect-video w-full bg-black"
+			class="aspect-video w-full bg-black desk:max-h-[70dvh]"
 			class:mirror
 			allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
 			allowfullscreen
@@ -77,7 +77,7 @@
 	{:else}
 		<button
 			type="button"
-			class="relative block aspect-video w-full cursor-pointer bg-black"
+			class="relative block aspect-video w-full cursor-pointer bg-black desk:max-h-[70dvh]"
 			aria-label="Play {title ?? 'the video'}"
 			onclick={() => (playing = true)}
 		>
@@ -85,7 +85,7 @@
 				src={youtubeThumb(id)}
 				alt=""
 				loading="lazy"
-				class="size-full object-cover"
+				class="size-full object-cover desk:object-contain"
 				class:mirror
 			/>
 			<span class="absolute inset-0 grid place-items-center">

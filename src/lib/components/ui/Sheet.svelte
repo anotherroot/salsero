@@ -54,6 +54,8 @@
 		tall?: boolean;
 		/** Desktop only: a 480 px dialog (a menu, a small form) in place of 560. Below 1024 px it changes nothing. */
 		size?: 'small';
+		/** Desktop only: drawn 480 tall (a Link popup level), so a stacked level covers the one below. */
+		level?: boolean;
 	}
 
 	let {
@@ -68,7 +70,8 @@
 		subtitle,
 		actions,
 		tall,
-		size
+		size,
+		level
 	}: Props = $props();
 	/** The footer's height, so the toast can sit just above it. */
 	let footerH = $state(0);
@@ -142,6 +145,7 @@
 	bind:this={dialog}
 	class:tall
 	class:small={size === 'small'}
+	class:level
 	aria-label={title}
 	onclose={() => {
 		// Closed by the browser itself (a close request it would not let us cancel).
@@ -318,6 +322,10 @@
 
 		dialog.small {
 			width: 480px;
+		}
+
+		dialog.level {
+			height: 480px;
 		}
 
 		dialog.tall {
