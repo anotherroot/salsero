@@ -5,6 +5,7 @@ import { users } from './db/schema';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { setRole } from './membership';
 import { groupChoices, groupModeOf, spaceOf } from './group-mode';
+import { setLevel } from './levels';
 import { U2_SALSA } from './test-walls';
 
 function setup() {
@@ -57,6 +58,17 @@ describe('groupModeOf', () => {
 			expect(groupModeOf(db, u, 'salsa', j.cookies)).toBeNull();
 			expect(j.calls.deleted).toBe(1);
 		}
+	});
+	it('is Everything’s only: a lower level drops the cookie', () => {
+		const db = setup();
+		for (const level of ['follow', 'own'] as const) {
+			setLevel(db, 'u1', level);
+			const j = jar('1');
+			expect(groupModeOf(db, 'u1', 'salsa', j.cookies), level).toBeNull();
+			expect(j.calls.deleted).toBe(1);
+		}
+		setLevel(db, 'u1', 'all');
+		expect(groupModeOf(db, 'u1', 'salsa', jar('1').cookies)?.role).toBe('owner');
 	});
 	it('refuses another dance', () => {
 		const db = setup();

@@ -24,6 +24,8 @@ import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
 import { DAILY_MAX, DAILY_MIN, dailyCountOf, setDailyCount } from '$lib/server/today-picks';
+import { levelOf, setLevel } from '$lib/server/levels';
+import { parseLevel } from '$lib/levels/levels';
 import { isVideoShortSide } from '$lib/video-sizes';
 import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
 import type { Actions, PageServerLoad } from './$types';
@@ -52,6 +54,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		defaultStyle: defaultStyle(db, locals.user.id, dance),
 		device: deviceSettings(db, locals.user.id),
 		dailyCount: dailyCountOf(db, locals.user.id),
+		level: levelOf(db, locals.user.id),
 		devices: listDevices(db, locals.user.id).map((d) => ({
 			id: d.id,
 			label: d.label,
@@ -151,6 +154,15 @@ export const actions: Actions = {
 		const side = int(await request.formData(), 'shortSide');
 		if (!isVideoShortSide(side)) return fail(400, { message: 'Pick one of the sizes.' });
 		setVideoShortSide(getDb(), locals.user.id, side);
+		return { ok: true };
+	},
+
+	/** How much app: one of the three levels. The tabs follow on the next load. */
+	level: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const level = parseLevel((await request.formData()).get('level'));
+		if (level === null) return fail(400, { message: 'Pick one of the three.' });
+		setLevel(getDb(), locals.user.id, level);
 		return { ok: true };
 	},
 

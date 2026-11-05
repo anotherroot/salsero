@@ -32,6 +32,8 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
+	import LevelCards from '$lib/components/levels/LevelCards.svelte';
+	import { LEVEL_WORDS, fewSettings, levelShown, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
@@ -53,7 +55,7 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | 'name' | null>(null);
+	let sheet = $state<'level' | 'style' | 'size' | 'theme' | 'ask' | 'name' | null>(null);
 	let naming = $state(false);
 	let nameError = $state<{ field?: 'firstName' | 'lastName'; message: string } | null>(null);
 	let asking = $state(false);
@@ -127,10 +129,21 @@
 			() => (toast = null),
 			async () => failed(await act('restoreDevice', { id }))
 		);
-		await focusAfterRemoval(keys, `device-${id}`, 'devices-fallback');
+		// Compress videos to is the fallback; at Follow my class it is not drawn, so Name is.
+		await focusAfterRemoval(keys, `device-${id}`, ['devices-fallback', 'name-row']);
 	}
 
 	const savedSize = $derived(String(data.device.shortSide));
+
+	// How much app. At Follow my class Settings draws only what the levels spec lists.
+	const level = $derived(levelShown(data.level));
+	const few = $derived(fewSettings(level));
+
+	/** A tap on the level already chosen only closes the sheet. */
+	function pickLevel(l: Level) {
+		sheet = null;
+		if (l !== data.level) void save('level', { level: l });
+	}
 </script>
 
 <svelte:head><title>Settings · {dance.label}</title></svelte:head>
@@ -142,52 +155,66 @@
 		</span>
 	{/snippet}
 
-	<span class={SECTION_LABEL}>Storage</span>
 	<div class={GROUP}>
-		<div class="flex flex-col gap-2 px-4 py-3">
-			<span class="text-[16px] font-bold text-ink">
-				{usageLine(data.storage.usedBytes, data.storage.limitBytes)}
-			</span>
-			{#if data.storage.limitBytes !== null}
-				<div
-					class="{CLIP} h-2 rounded-full bg-chip"
-					role="meter"
-					aria-label="Space used"
-					aria-valuemin={0}
-					aria-valuemax={data.storage.limitBytes}
-					aria-valuenow={Math.min(data.storage.usedBytes, data.storage.limitBytes)}
-				>
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => (sheet = 'level')}
+		>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">How much app?</span>
+			<span class="truncate text-[15px] font-semibold text-muted">{LEVEL_WORDS[level].title}</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
+	</div>
+
+	{#if !few}
+		<span class="{SECTION_LABEL} mt-[14px]">Storage</span>
+		<div class={GROUP}>
+			<div class="flex flex-col gap-2 px-4 py-3">
+				<span class="text-[16px] font-bold text-ink">
+					{usageLine(data.storage.usedBytes, data.storage.limitBytes)}
+				</span>
+				{#if data.storage.limitBytes !== null}
 					<div
-						class="h-full rounded-full bg-accent"
-						style:width="{barFraction(data.storage.usedBytes, data.storage.limitBytes) * 100}%"
-					></div>
-				</div>
+						class="{CLIP} h-2 rounded-full bg-chip"
+						role="meter"
+						aria-label="Space used"
+						aria-valuemin={0}
+						aria-valuemax={data.storage.limitBytes}
+						aria-valuenow={Math.min(data.storage.usedBytes, data.storage.limitBytes)}
+					>
+						<div
+							class="h-full rounded-full bg-accent"
+							style:width="{barFraction(data.storage.usedBytes, data.storage.limitBytes) * 100}%"
+						></div>
+					</div>
+				{/if}
+			</div>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/settings/storage" class={ROW_TALL}>
+				<LeadTile icon="sliders" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">What uses space</span>
+					<span class="text-[13px] text-muted">Biggest first, with Delete</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+			{#if data.storage.limitBytes !== null}
+				{#if data.asked}
+					<div class="{ROW_TALL} text-[15px] font-semibold text-muted">{data.asked}</div>
+				{:else}
+					<button
+						type="button"
+						class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+						onclick={() => (sheet = 'ask')}
+					>
+						<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Ask for more</span>
+						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</button>
+				{/if}
 			{/if}
 		</div>
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
-		<a href="/settings/storage" class={ROW_TALL}>
-			<LeadTile icon="sliders" />
-			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-[16px] font-bold text-ink">What uses space</span>
-				<span class="text-[13px] text-muted">Biggest first, with Delete</span>
-			</span>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</a>
-		{#if data.storage.limitBytes !== null}
-			{#if data.asked}
-				<div class="{ROW_TALL} text-[15px] font-semibold text-muted">{data.asked}</div>
-			{:else}
-				<button
-					type="button"
-					class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-					onclick={() => (sheet = 'ask')}
-				>
-					<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Ask for more</span>
-					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-				</button>
-			{/if}
-		{/if}
-	</div>
+	{/if}
 
 	<span class="{SECTION_LABEL} mt-[14px]">Practice</span>
 	<div class={GROUP}>
@@ -202,25 +229,28 @@
 				onchange={(count) => void saveDaily(count)}
 			/>
 		</div>
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
-		<a href="/voice" class={ROW_TALL}>
-			<LeadTile icon="mic" />
-			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-[16px] font-bold text-ink">My count</span>
-				<span class="text-[13px] text-muted">{data.ownVoice}</span>
-			</span>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</a>
-		<button
-			type="button"
-			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-			onclick={() => (sheet = 'style')}
-		>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">New figures start on</span>
-			<span class="text-[15px] font-semibold text-muted">{dance.styleLabel[data.defaultStyle]}</span
+		{#if !few}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/voice" class={ROW_TALL}>
+				<LeadTile icon="mic" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">My count</span>
+					<span class="text-[13px] text-muted">{data.ownVoice}</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+			<button
+				type="button"
+				class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+				onclick={() => (sheet = 'style')}
 			>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</button>
+				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">New figures start on</span>
+				<span class="text-[15px] font-semibold text-muted"
+					>{dance.styleLabel[data.defaultStyle]}</span
+				>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</button>
+		{/if}
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">
 		Today shows this many. When they're done, Next {daily} brings more.
@@ -240,7 +270,7 @@
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">For this browser or phone only.</p>
 
-	{#if !data.app}
+	{#if !data.app && !few}
 		<div class="{GROUP} mt-[14px]">
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/app" class={ROW_TALL}>
@@ -256,7 +286,7 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
 	<div class={GROUP}>
-		{#if data.appUpdate}
+		{#if data.appUpdate && !few}
 			<div class="{ROW} min-h-16 pr-3.5">
 				<!-- The installed number, always: the app tells the server only that (its user
 				     agent), and the admin page counts the same way ("Salsa app 2"). -->
@@ -294,16 +324,18 @@
 				class="h-11 w-28 min-w-24 flex-none rounded-full bg-field px-3 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums disabled:bg-disabled-bg disabled:text-disabled-ink"
 			/>
 		</div>
-		<button
-			type="button"
-			data-focus="devices-fallback"
-			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-			onclick={() => (sheet = 'size')}
-		>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Compress videos to</span>
-			<span class="text-[15px] font-semibold text-muted">{savedSize}p</span>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</button>
+		{#if !few}
+			<button
+				type="button"
+				data-focus="devices-fallback"
+				class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+				onclick={() => (sheet = 'size')}
+			>
+				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Compress videos to</span>
+				<span class="text-[15px] font-semibold text-muted">{savedSize}p</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</button>
+		{/if}
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">Read by the phone app when it opens.</p>
 
@@ -329,7 +361,7 @@
 		</ul>
 	{/if}
 
-	{#if data.isAdmin}
+	{#if data.isAdmin && !few}
 		<span class="{SECTION_LABEL} mt-[14px]">Admin</span>
 		<div class={GROUP}>
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
@@ -348,6 +380,7 @@
 	<div class={GROUP}>
 		<button
 			type="button"
+			data-focus="name-row"
 			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
 			onclick={() => {
 				nameError = null;
@@ -376,6 +409,12 @@
 		</div>
 	</div>
 </Screen>
+
+<Sheet title="How much app?" open={sheet === 'level'} onclose={() => (sheet = null)}>
+	<div class="pb-2">
+		<LevelCards value={data.level} onpick={pickLevel} />
+	</div>
+</Sheet>
 
 <ChoiceSheet
 	open={sheet === 'style'}

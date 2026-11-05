@@ -97,6 +97,10 @@ describe('groupsTabLabel', () => {
 		expect(groupsTabLabel(false)).toBe('Groups');
 		expect(groupsTabLabel(true)).toBe('Groups, new in your groups');
 	});
+	it('uses the tab’s own word at Follow my class', () => {
+		expect(groupsTabLabel(false, 'My class')).toBe('My class');
+		expect(groupsTabLabel(true, 'My class')).toBe('My class, something new');
+	});
 });
 
 describe('classSongsHeading', () => {

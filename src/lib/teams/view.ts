@@ -59,9 +59,13 @@ export function newPill(n: number): string | null {
 	return n > 0 ? `${n} new` : null;
 }
 
-/** The Groups tab's accessible name: it says so when something is new. */
-export function groupsTabLabel(isNew: boolean): string {
-	return isNew ? 'Groups, new in your groups' : 'Groups';
+/**
+ * The Groups tab's accessible name: it says so when something is new. `label`
+ * is the tab's own word: "My class" at Follow my class (`tabsFor`).
+ */
+export function groupsTabLabel(isNew: boolean, label = 'Groups'): string {
+	if (!isNew) return label;
+	return label === 'Groups' ? 'Groups, new in your groups' : `${label}, something new`;
 }
 
 export function limitLine(n: number): string {

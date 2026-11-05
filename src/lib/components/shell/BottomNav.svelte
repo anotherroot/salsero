@@ -4,7 +4,8 @@
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { TABS, tabFor } from '$lib/nav/tabs';
+	import { tabFor } from '$lib/nav/tabs';
+	import { levelShown, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
 	import { intend } from '$lib/nav/trail.svelte';
@@ -20,9 +21,11 @@
 	// In group mode Today is not a tab: a plain Mine button back to the personal side.
 	const inGroup = $derived(!!page.data.groupMode);
 	const lit = $derived(tabFor(path, dance));
+	// The person's level's tabs. A page whose tab is not among them lights none.
+	const tabs = $derived(tabsFor(levelShown(page.data.user?.level)));
 
 	// Where each tab leads, and a tap on the lit list's own tab (`$lib/nav/tab-links.svelte.ts`).
-	const targets = $derived(tabTargets(dance, path));
+	const targets = $derived(tabTargets(tabs, dance, path));
 </script>
 
 <!--
@@ -37,11 +40,11 @@
 >
 	<ul
 		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 pt-[10px] pb-2"
-		style="grid-template-columns: {TABS.map((t) =>
-			t.id === lit || (inGroup && t.id === 'today') ? '2fr' : '1fr'
-		).join(' ')}"
+		style="grid-template-columns: {tabs
+			.map((t) => (t.id === lit || (inGroup && t.id === 'today') ? '2fr' : '1fr'))
+			.join(' ')}"
 	>
-		{#each TABS as tab, i (tab.id)}
+		{#each tabs as tab, i (tab.id)}
 			{@const here = tab.id === lit}
 			{@const to = targets[i]}
 			<li class="flex justify-center">
@@ -78,7 +81,7 @@
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
 						aria-label={tab.id === 'groups' && page.data.groupsNew
-							? groupsTabLabel(true)
+							? groupsTabLabel(true, tab.label)
 							: here
 								? undefined
 								: tab.label}

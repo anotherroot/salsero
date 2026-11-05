@@ -15,6 +15,7 @@
 	import GroupList from '$lib/components/teams/GroupList.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import { PICK_GROUP } from '$lib/teams/view';
+	import { canMakeGroup, levelShown } from '$lib/levels/levels';
 
 	/*
 	 * Groups: the list and the group beside it (desktop spec, "A list and the
@@ -31,6 +32,8 @@
 	const openId = $derived(openIdOf(page.url.pathname, 'groups', data.dance.slug));
 	// Opening a group does not switch group mode: Working in marks the mode's group only.
 	const workingIn = $derived(data.groupMode?.teamId ?? null);
+	// New group is drawn only at Everything (levels hide the entry, not the route).
+	const making = $derived(canMakeGroup(levelShown(page.data.user?.level)));
 
 	// The lit row stays in view in the column (desktop: the column scrolls on its own).
 	$effect(() => {
@@ -59,7 +62,13 @@
 {/snippet}
 
 {#snippet list()}
-	<GroupList teams={data.teams} dance={data.dance.slug} {openId} {workingIn} onnew={openSheet} />
+	<GroupList
+		teams={data.teams}
+		dance={data.dance.slug}
+		{openId}
+		{workingIn}
+		onnew={making ? openSheet : undefined}
+	/>
 {/snippet}
 
 {#snippet pick()}
@@ -76,7 +85,7 @@
 		solo={isList && data.teams.length === 0}
 		soloWidth="narrow"
 		{list}
-		{right}
+		right={making ? right : undefined}
 		empty={pick}
 	>
 		{@render children()}

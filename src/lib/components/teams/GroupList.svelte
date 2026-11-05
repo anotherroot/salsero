@@ -33,7 +33,8 @@
 		dance: DanceSlug;
 		openId: number | null;
 		workingIn: number | null;
-		onnew: () => void;
+		/** New group; left out where the level does not make groups (`canMakeGroup`). */
+		onnew?: () => void;
 	} = $props();
 
 	// Restore, on a deleted group's row: its refusal (a live group has the name) shows above the list.
@@ -60,17 +61,25 @@
 
 {#if teams.length === 0}
 	<div class="h-[52px] flex-none"></div>
-	<EmptyState
-		icon="group"
-		title="No groups yet"
-		body="Make a group for your class, then share its code. Everyone in it sees the lessons you publish."
-	>
-		{#snippet action()}
-			<button type="button" class={button('primary')} onclick={onnew}>
-				<Icon name="plus" size={20} /> New group
-			</button>
-		{/snippet}
-	</EmptyState>
+	{#if onnew}
+		<EmptyState
+			icon="group"
+			title="No groups yet"
+			body="Make a group for your class, then share its code. Everyone in it sees the lessons you publish."
+		>
+			{#snippet action()}
+				<button type="button" class={button('primary')} onclick={onnew}>
+					<Icon name="plus" size={20} /> New group
+				</button>
+			{/snippet}
+		</EmptyState>
+	{:else}
+		<EmptyState
+			icon="group"
+			title="No groups yet"
+			body="Open the link your teacher sent to join your class."
+		/>
+	{/if}
 {:else}
 	{#if restoreError}<Banner kind="error">{restoreError}</Banner>{/if}
 	<ul class={GROUP} aria-label="Your groups">

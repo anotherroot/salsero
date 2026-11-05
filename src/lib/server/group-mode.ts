@@ -12,6 +12,8 @@ import type { Db } from './db';
 import { teamMembers, teams } from './db/schema';
 import { wallOf, type Space } from './scope';
 import { getTeam, roleOf } from './teams';
+import { levelOf } from './levels';
+import { groupModeShown } from '$lib/levels/levels';
 
 export function groupChoices(db: Db, userId: string, dance: DanceSlug): GroupChoice[] {
 	return db
@@ -50,6 +52,10 @@ export function groupModeOf(
 		return null;
 	};
 	if (!/^[1-9][0-9]{0,9}$/.test(raw)) return refuse();
+	// The switch is drawn only at Everything: a cookie left from there does not
+	// keep a lower level writing into the group. Null (not chosen yet) is the first run's.
+	const level = levelOf(db, userId);
+	if (level !== null && !groupModeShown(level)) return refuse();
 	const team = getTeam(db, Number(raw));
 	if (!team || team.dance !== dance || team.deletedAt !== null || team.purgedAt !== null)
 		return refuse();

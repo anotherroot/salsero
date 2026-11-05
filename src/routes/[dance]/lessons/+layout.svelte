@@ -10,6 +10,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
+	import { groupModeShown, levelShown } from '$lib/levels/levels';
 	import LessonList from '$lib/components/lessons/LessonList.svelte';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import { button } from '$lib/components/ui/styles';
@@ -70,7 +71,7 @@
 </script>
 
 {#snippet right()}
-	<GroupModeButton />
+	{#if groupModeShown(levelShown(page.data.user?.level))}<GroupModeButton />{/if}
 	<BandButton icon="plus" label="New lesson" onclick={openSheet} />
 {/snippet}
 

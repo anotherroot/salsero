@@ -9,6 +9,7 @@ import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
 import { needsName } from '$lib/names';
+import { parseLevel } from '$lib/levels/levels';
 import { currentRelease } from '$lib/server/releases';
 import { isPublicPath } from '$lib/server/public-paths';
 import { apiDeviceUser } from '$lib/server/request-user';
@@ -32,7 +33,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 				firstName: session.firstName,
 				lastName: session.lastName,
 				timezone: session.timezone,
-				isAdmin: session.isAdmin
+				isAdmin: session.isAdmin,
+				level: parseLevel(session.level)
 			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 

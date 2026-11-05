@@ -22,6 +22,7 @@ import {
 } from '$lib/server/devices';
 import { defaultStylesFor } from '$lib/server/default-styles';
 import { dailyCountOf } from '$lib/server/today-picks';
+import { levelOf } from '$lib/server/levels';
 import { actions, load } from './+page.server';
 
 const USER = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana' };
@@ -119,6 +120,21 @@ describe('dailyCount', () => {
 		}
 		expect(dailyCountOf(db, 'u1')).toBe(8);
 		expect(dailyCountOf(db, 'u2')).toBe(5);
+	});
+});
+
+describe('level', () => {
+	it('stores one of the three and rejects junk', async () => {
+		expect(await call(actions.level, post({ level: 'follow' }))).toEqual({ ok: true });
+		expect(levelOf(db, 'u1')).toBe('follow');
+		const data = (await (load as (e: unknown) => unknown)(post({}))) as { level: unknown };
+		expect(data.level).toBe('follow');
+		for (const level of ['x', '', 'ALL', 'follow ']) {
+			expect(await call(actions.level, post({ level }))).toMatchObject({ status: 400 });
+		}
+		expect(await call(actions.level, post({}))).toMatchObject({ status: 400 });
+		expect(levelOf(db, 'u1')).toBe('follow');
+		expect(levelOf(db, 'u2')).toBeNull();
 	});
 });
 
