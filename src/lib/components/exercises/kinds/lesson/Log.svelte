@@ -7,12 +7,13 @@
 
 <!-- A review is watching and remembering, not dancing along: no practice panel. -->
 <LogShell {...props} run={null} playing={false}>
-	{#snippet body(payload)}
+	{#snippet reference(payload)}
 		<Content
 			dance={props.dance}
 			content={payload.content}
 			timezone={props.timezone}
 			canEdit={props.exercise.team === null}
+			{...props.contentProps}
 		/>
 	{/snippet}
 </LogShell>

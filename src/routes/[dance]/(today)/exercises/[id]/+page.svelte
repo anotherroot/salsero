@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
 	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
@@ -22,6 +22,9 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
+	import LastTime from '$lib/components/exercises/LastTime.svelte';
+	import { desk } from '$lib/nav/desk.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import {
 		FIELD_ERROR,
@@ -33,7 +36,7 @@
 		button
 	} from '$lib/components/ui/styles';
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
-	import { TYPES, typeOf } from '$lib/exercises/kinds';
+	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
 	import { frequencyLabel } from '$lib/frequency';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
@@ -51,6 +54,13 @@
 	);
 	const Content = $derived(contentFor(type));
 	const Log = $derived(logFor(type));
+	/**
+	 * Desktop: the type's content sits by the log form, in the left column (a drill's
+	 * links and sections, a figure's reference), rather than beside the history.
+	 */
+	const contentLeft = $derived(data.canLog && typeInfo(exercise.source).paneContent === 'left');
+	/** The log form posts to this exercise's own route, wherever it is drawn. */
+	const logAction = $derived(`/${data.dance.slug}/exercises/${exercise.id}?/log`);
 	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
 	let logging = $state(page.url.searchParams.get('log') === '1');
 	/**
@@ -75,6 +85,18 @@
 		form && 'action' in form && form.action === action && 'message' in form
 			? String(form.message)
 			: null;
+
+	/** The drill's links editor: the page's content, and the pane's log column (desktop). */
+	const editLinks = $derived(
+		data.canEditContent
+			? {
+					message: failure('addLink'),
+					entered: form && 'urls' in form ? String(form.urls) : '',
+					linkable: data.linkable,
+					unlinkMessage: failure('unlinkSection')
+				}
+			: undefined
+	);
 
 	const owner = $derived(ownerOf(data.practice.content));
 	const ownerHref = $derived.by(() => {
@@ -156,28 +178,355 @@
 		if (!snapshot) return;
 		if (!(await restoreSet(snapshot))) say('Could not put the set back.');
 	}
+
+	/*
+	 * Another exercise opened in this page (a row beside it, on the desktop):
+	 * SvelteKit keeps the page, so what was the last one's goes with it. An edit
+	 * left open would otherwise show the new exercise with the old one's
+	 * frequency, and save it there.
+	 */
+	let shownId = untrack(() => data.exercise.id);
+	$effect.pre(() => {
+		const id = exercise.id;
+		if (id === shownId) return;
+		shownId = id;
+		untrack(() => {
+			editing = false;
+			makingMine = false;
+			updateError = null;
+			adding = null;
+			archiving = false;
+			archiveError = null;
+			notice = null;
+			undoSnapshot = null;
+			logging = page.url.searchParams.get('log') === '1';
+		});
+	});
 </script>
 
 <svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
 
+{#snippet nothing()}{/snippet}
+
+<!--
+	The left column, on the desktop only: the type's log form in its pane frame. Mounted
+	by width, so a popup and a pane are never both on the page; the server's render
+	holds its place with a placeholder the phone never draws.
+-->
+{#snippet logColumn()}
+	{#if desk.current}
+		{#key exercise.id}
+			<Log
+				frame="pane"
+				dance={data.dance}
+				exercise={data.exercise}
+				sets={data.sets}
+				songs={data.songs}
+				takes={data.takes}
+				backfillDay={null}
+				{timezone}
+				message={failure('log')}
+				initial={data.practice}
+				from="exercise"
+				action={logAction}
+				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
+				onclose={() => {}}
+			/>
+		{/key}
+	{:else}
+		<div aria-hidden="true" class="hidden flex-col gap-3 desk:flex">
+			<span class="block h-[70px] rounded-2xl bg-skeleton"></span>
+			<span class="block h-[56px] rounded-[14px] bg-skeleton"></span>
+			<span class="block h-[52px] rounded-[14px] bg-skeleton"></span>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet pageContent()}
+	<Content
+		dance={data.dance}
+		content={data.practice.content}
+		{timezone}
+		onPage
+		canEdit={data.canEditContent}
+		{editLinks}
+	/>
+{/snippet}
+
+<!-- The exercise: the right column on the desktop, the whole page on the phone. -->
+{#snippet about()}
+	{#if owner && ownerHref}
+		<!-- While editing the phone shows the settings alone; the desktop keeps the row. -->
+		<ul class="{GROUP} desk:min-w-0{editing ? ' hidden desk:block' : ''}">
+			<li>
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built with resolve() above -->
+				<a href={ownerHref} class="flex min-h-[60px] items-center gap-3 py-2 pr-3.5 pl-4">
+					<span
+						class="grid size-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-text"
+					>
+						<Icon name={owner.icon} size={20} />
+					</span>
+					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="text-[16px] leading-tight font-bold text-ink">{owner.title}</span>
+						<span class="text-[13px] text-muted">{owner.meta}</span>
+					</span>
+					<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+				</a>
+			</li>
+		</ul>
+	{/if}
+	{#if editing}
+		<section class="flex flex-col gap-2 desk:min-w-0">
+			<h2 class={SECTION_LABEL}>Settings</h2>
+			<div class="rounded-2xl bg-surface p-4">
+				<form
+					id="exercise-settings"
+					method="POST"
+					action="?/update"
+					bind:this={settingsForm}
+					use:guarded={{
+						label: 'Exercise settings',
+						submit: () => {
+							saving = true;
+							updateError = null;
+							return async ({ update, result }) => {
+								try {
+									await update({ reset: false });
+								} finally {
+									saving = false;
+								}
+								if (result.type === 'success') editing = false;
+								// A clash or gone is the clash sheet's, which holds what was typed.
+								else if (result.type === 'failure' && !isClash(result.data))
+									updateError = messageOf(result.data);
+							};
+						}
+					}}
+					class="flex flex-col gap-3.5"
+				>
+					<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+					<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
+					{#if updateError}
+						<Banner kind="error" title={updateError} />
+					{/if}
+					{#if ownsItself}
+						<label class="block">
+							<span class={LABEL}>Name</span>
+							<input name="name" required maxlength="200" value={title} class={FIELD_ON_CARD} />
+						</label>
+					{/if}
+					{#if !drill}
+						<FrequencyField name="everyDays" bind:value={everyDays} tone="field" />
+						<div class="flex min-h-[52px] items-center gap-3">
+							<span class="flex min-w-0 flex-1 flex-col gap-px">
+								<span class="text-[16px] font-bold text-ink">Active</span>
+								<span class="text-[13px] text-muted">Show it in the to-do list</span>
+							</span>
+							<Switch name="active" label="Active" bind:checked={active} />
+						</div>
+					{/if}
+					<label class="block">
+						<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
+						<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA_ON_CARD}
+							>{(drill ? drill.notes : exercise.notes) ?? ''}</textarea
+						>
+					</label>
+					<!-- The desktop's Save and Cancel, in place (the phone's Save is pinned at the bottom). -->
+					<div class="hidden gap-2.5 desk:flex">
+						<button
+							type="submit"
+							class={button('primary', 'md')}
+							aria-busy={saving}
+							disabled={saving}
+						>
+							{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+						</button>
+						<button type="button" class={button('secondary', 'md')} onclick={stopEditing}
+							>Cancel</button
+						>
+					</div>
+				</form>
+			</div>
+			{#if ownsItself}
+				<div class="flex flex-col items-center pt-1">
+					<button
+						type="button"
+						class={button('danger-text')}
+						aria-haspopup="dialog"
+						onclick={() => {
+							archiveError = null;
+							archiving = true;
+						}}>Archive exercise</button
+					>
+					{#if archiveError}
+						<p class={FIELD_ERROR} role="alert">
+							<Icon name="warning" size={16} filled />{archiveError}
+						</p>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{:else}
+		{#if !contentLeft}
+			{@render pageContent()}
+		{:else if !desk.current}
+			<!-- On the desktop this content is the log column's (`paneContent`). -->
+			<div class="contents desk:hidden">{@render pageContent()}</div>
+		{/if}
+
+		{#if data.add}
+			<!-- A group's drill reaches Today through a lesson: one already added takes just this drill. -->
+			<div class="flex items-center gap-3 rounded-2xl bg-surface py-2 pr-2 pl-4 desk:min-w-0">
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="text-[16px] leading-tight font-bold text-ink">Not on your Today</span>
+					<span class="text-[13px] text-muted">From {data.add.title}</span>
+				</span>
+				{#if data.add.added}
+					<form
+						method="POST"
+						action="?/addDrill"
+						use:enhance={() => {
+							addBusy = true;
+							return async ({ update }) => {
+								try {
+									await update();
+								} finally {
+									addBusy = false;
+								}
+							};
+						}}
+					>
+						<button
+							type="submit"
+							class={button('secondary', 'sm')}
+							aria-busy={addBusy}
+							disabled={addBusy}>Add</button
+						>
+					</form>
+				{:else if data.add.offer}
+					<button
+						type="button"
+						class={button('secondary', 'sm')}
+						aria-haspopup="dialog"
+						onclick={() =>
+							(adding = data.add?.offer
+								? { lessonId: data.add.lessonId, title: data.add.title, offer: data.add.offer }
+								: null)}>Add</button
+					>
+				{/if}
+			</div>
+		{/if}
+	{/if}
+
+	<!-- A group's drill without an entry of this person's has nothing of theirs to show. -->
+	{#if data.canLog}
+		<!-- While editing: on the desktop only (the phone shows the settings alone). -->
+		<section class="{editing ? 'hidden desk:flex' : 'flex'} flex-col gap-2 desk:min-w-0">
+			<h2 class={SECTION_LABEL}>History</h2>
+			{#if data.summary.sets === 0}
+				<div class="rounded-2xl bg-surface">
+					<EmptyState
+						icon="clock"
+						title="Nothing logged yet"
+						body="Log a set after you practise — it shows up here, grouped by day."
+					/>
+				</div>
+			{:else}
+				<div class="flex rounded-2xl bg-surface">
+					{#each tiles as tile, i (tile.label)}
+						{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"></span>{/if}
+						<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
+							<span
+								class="flex items-center gap-1 font-display text-[24px] leading-[1.05] font-extrabold text-ink"
+								>{tile.value}{#if tile.star}<Icon name="star" size={20} filled />{/if}</span
+							>
+							<span class="text-[12px] font-bold text-muted">{tile.label}</span>
+						</div>
+					{/each}
+				</div>
+				{#each days as g (g.day)}
+					<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
+					<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
+				{/each}
+				{#if data.history.length < data.summary.sets}
+					<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
+				{/if}
+			{/if}
+		</section>
+
+		{#if !editing}
+			<section class="flex flex-col gap-2 desk:min-w-0">
+				<h2 class={SECTION_LABEL}>Settings</h2>
+				<dl class={GROUP}>
+					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+						<dt class="flex-1 text-[16px] font-bold text-ink">How often</dt>
+						<dd class="text-right text-[15px] font-semibold text-muted">
+							{frequencyLabel(exercise.everyDays)}
+						</dd>
+					</div>
+					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+						<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
+						<dd class="text-right text-[15px] font-semibold text-muted">
+							{exercise.active ? 'Yes' : "No — not on Today's list"}
+						</dd>
+					</div>
+					{#if exercise.notes && !ownsItself}
+						<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
+							<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
+							<dd>
+								<LinkedText
+									text={exercise.notes}
+									class="text-[15px] leading-[1.45] whitespace-pre-line text-ink-2"
+								/>
+							</dd>
+						</div>
+					{/if}
+				</dl>
+			</section>
+		{/if}
+	{/if}
+{/snippet}
+
+{#snippet back()}
+	<BackButton
+		fallback={{
+			href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
+			label: 'Back to Today'
+		}}
+	/>
+{/snippet}
+
+{#snippet lastTime()}
+	<LastTime last={data.practice.last} />
+{/snippet}
+
 <Screen
 	compact
+	width={data.canLog ? 'two' : 'one'}
 	{title}
 	subtitle={editing ? TYPES[type].label : (cloneSubtitle(data.cloneLine) ?? TYPES[type].label)}
+	below={data.canLog ? lastTime : undefined}
 >
+	<!--
+		Editing: the phone's × is on the left, in place of ‹; the desktop's is on the
+		right, in place of the pencil, and its ‹ stays (BackButton gates itself there).
+	-->
 	{#snippet left()}
 		{#if editing}
-			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
+			<span class="contents desk:hidden"
+				><BandButton icon="close" label="Stop editing" onclick={stopEditing} /></span
+			>
+			<span class="hidden desk:contents">{@render back()}</span>
 		{:else}
-			<BackButton
-				fallback={{
-					href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
-					label: 'Back to Today'
-				}}
-			/>
+			{@render back()}
 		{/if}
 	{/snippet}
 	{#snippet right()}
+		{#if editing}
+			<span class="hidden desk:contents"
+				><BandButton icon="close" label="Stop editing" onclick={stopEditing} /></span
+			>
+		{/if}
 		{#if !editing && data.historyHref}
 			<BandButton icon="clock" label="History" href={data.historyHref} />
 		{/if}
@@ -188,7 +537,14 @@
 		{/if}
 	{/snippet}
 
-	<div class="flex flex-col gap-3.5 pb-28">
+	<!--
+		The exercise in its pane (desktop spec, "Today: the list and the open exercise"):
+		from a 780 px pane two columns, 1 : 1, the log form on the left (Log set pinned
+		under it) and the exercise on the right; one column below that, the form first.
+		The phone's page is the right column alone, in its own order. SourceTabs (its
+		toast is `fixed`) sits above the columns: nothing pinned lives in their container.
+	-->
+	<div class="flex flex-col gap-3.5 pb-28 desk:pb-0">
 		{#if !editing}
 			<SourceTabs
 				sources={data.sources}
@@ -204,234 +560,19 @@
 				taking={sourcePlace}
 			/>
 		{/if}
-		{#if editing}
-			<section class="flex flex-col gap-2">
-				<h2 class={SECTION_LABEL}>Settings</h2>
-				<div class="rounded-2xl bg-surface p-4">
-					<form
-						id="exercise-settings"
-						method="POST"
-						action="?/update"
-						bind:this={settingsForm}
-						use:guarded={{
-							label: 'Exercise settings',
-							submit: () => {
-								saving = true;
-								updateError = null;
-								return async ({ update, result }) => {
-									try {
-										await update({ reset: false });
-									} finally {
-										saving = false;
-									}
-									if (result.type === 'success') editing = false;
-									// A clash or gone is the clash sheet's, which holds what was typed.
-									else if (result.type === 'failure' && !isClash(result.data))
-										updateError = messageOf(result.data);
-								};
-							}
-						}}
-						class="flex flex-col gap-3.5"
-					>
-						<!-- What this form saw: a save that saw another version is refused (the clash check). -->
-						<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
-						{#if updateError}
-							<Banner kind="error" title={updateError} />
-						{/if}
-						{#if ownsItself}
-							<label class="block">
-								<span class={LABEL}>Name</span>
-								<input name="name" required maxlength="200" value={title} class={FIELD_ON_CARD} />
-							</label>
-						{/if}
-						{#if !drill}
-							<FrequencyField name="everyDays" bind:value={everyDays} tone="field" />
-							<div class="flex min-h-[52px] items-center gap-3">
-								<span class="flex min-w-0 flex-1 flex-col gap-px">
-									<span class="text-[16px] font-bold text-ink">Active</span>
-									<span class="text-[13px] text-muted">Show it in the to-do list</span>
-								</span>
-								<Switch name="active" label="Active" bind:checked={active} />
-							</div>
-						{/if}
-						<label class="block">
-							<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
-							<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA_ON_CARD}
-								>{(drill ? drill.notes : exercise.notes) ?? ''}</textarea
-							>
-						</label>
-					</form>
-				</div>
-				{#if ownsItself}
-					<div class="flex flex-col items-center pt-1">
-						<button
-							type="button"
-							class={button('danger-text')}
-							aria-haspopup="dialog"
-							onclick={() => {
-								archiveError = null;
-								archiving = true;
-							}}>Archive exercise</button
-						>
-						{#if archiveError}
-							<p class={FIELD_ERROR} role="alert">
-								<Icon name="warning" size={16} filled />{archiveError}
-							</p>
-						{/if}
-					</div>
-				{/if}
-			</section>
-		{:else}
-			{#if owner && ownerHref}
-				<ul class={GROUP}>
-					<li>
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built with resolve() above -->
-						<a href={ownerHref} class="flex min-h-[60px] items-center gap-3 py-2 pr-3.5 pl-4">
-							<span
-								class="grid size-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-text"
-							>
-								<Icon name={owner.icon} size={20} />
-							</span>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-tight font-bold text-ink">{owner.title}</span>
-								<span class="text-[13px] text-muted">{owner.meta}</span>
-							</span>
-							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-						</a>
-					</li>
-				</ul>
-			{/if}
-
-			<Content
-				dance={data.dance}
-				content={data.practice.content}
-				{timezone}
-				onPage
-				canEdit={data.canEditContent}
-				editLinks={data.canEditContent
-					? {
-							message: failure('addLink'),
-							entered: form && 'urls' in form ? String(form.urls) : '',
-							linkable: data.linkable,
-							unlinkMessage: failure('unlinkSection')
-						}
-					: undefined}
-			/>
-
-			{#if data.add}
-				<!-- A group's drill reaches Today through a lesson: one already added takes just this drill. -->
-				<div class="flex items-center gap-3 rounded-2xl bg-surface py-2 pr-2 pl-4">
-					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span class="text-[16px] leading-tight font-bold text-ink">Not on your Today</span>
-						<span class="text-[13px] text-muted">From {data.add.title}</span>
-					</span>
-					{#if data.add.added}
-						<form
-							method="POST"
-							action="?/addDrill"
-							use:enhance={() => {
-								addBusy = true;
-								return async ({ update }) => {
-									try {
-										await update();
-									} finally {
-										addBusy = false;
-									}
-								};
-							}}
-						>
-							<button
-								type="submit"
-								class={button('secondary', 'sm')}
-								aria-busy={addBusy}
-								disabled={addBusy}>Add</button
-							>
-						</form>
-					{:else if data.add.offer}
-						<button
-							type="button"
-							class={button('secondary', 'sm')}
-							aria-haspopup="dialog"
-							onclick={() =>
-								(adding = data.add?.offer
-									? { lessonId: data.add.lessonId, title: data.add.title, offer: data.add.offer }
-									: null)}>Add</button
-						>
-					{/if}
-				</div>
-			{/if}
-
-			<!-- A group's drill without an entry of this person's has nothing of theirs to show. -->
-			{#if data.canLog}
-				<section class="flex flex-col gap-2">
-					<h2 class={SECTION_LABEL}>History</h2>
-					{#if data.summary.sets === 0}
-						<div class="rounded-2xl bg-surface">
-							<EmptyState
-								icon="clock"
-								title="Nothing logged yet"
-								body="Log a set after you practise — it shows up here, grouped by day."
-							/>
-						</div>
-					{:else}
-						<div class="flex rounded-2xl bg-surface">
-							{#each tiles as tile, i (tile.label)}
-								{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"
-									></span>{/if}
-								<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
-									<span
-										class="flex items-center gap-1 font-display text-[24px] leading-[1.05] font-extrabold text-ink"
-										>{tile.value}{#if tile.star}<Icon name="star" size={20} filled />{/if}</span
-									>
-									<span class="text-[12px] font-bold text-muted">{tile.label}</span>
-								</div>
-							{/each}
-						</div>
-						{#each days as g (g.day)}
-							<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
-							<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
-						{/each}
-						{#if data.history.length < data.summary.sets}
-							<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
-						{/if}
-					{/if}
-				</section>
-
-				<section class="flex flex-col gap-2">
-					<h2 class={SECTION_LABEL}>Settings</h2>
-					<dl class={GROUP}>
-						<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-							<dt class="flex-1 text-[16px] font-bold text-ink">How often</dt>
-							<dd class="text-right text-[15px] font-semibold text-muted">
-								{frequencyLabel(exercise.everyDays)}
-							</dd>
-						</div>
-						<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-							<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
-							<dd class="text-right text-[15px] font-semibold text-muted">
-								{exercise.active ? 'Yes' : "No — not on Today's list"}
-							</dd>
-						</div>
-						{#if exercise.notes && !ownsItself}
-							<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
-								<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
-								<dd>
-									<LinkedText
-										text={exercise.notes}
-										class="text-[15px] leading-[1.45] whitespace-pre-line text-ink-2"
-									/>
-								</dd>
-							</div>
-						{/if}
-					</dl>
-				</section>
-			{/if}
-		{/if}
+		<PaneColumns
+			ratio="1:1"
+			class="gap-3.5"
+			top={data.canLog ? undefined : about}
+			left={data.canLog ? logColumn : nothing}
+			right={data.canLog ? about : nothing}
+		/>
 	</div>
 </Screen>
 
 {#if editing || data.canLog}
-	<BottomBar mode={editing}>
+	<!-- The phone's: the desktop logs in the pane's left column and saves in place. -->
+	<BottomBar mode={editing} class="desk:hidden">
 		{#if editing}
 			<button
 				type="submit"
@@ -495,10 +636,13 @@
 					return async ({ update, result }) => {
 						if (result.type === 'redirect') {
 							// Archived: the settings form goes first, so leaving for Today
-							// is not asked about as unsaved changes.
+							// is not asked about as unsaved changes. Then the dialog, with
+							// the move already under way: `leaveRemoved` drops the refresh
+							// its close would owe for the form sent in it, which would
+							// reload this exercise, gone now, as a 404 in place of Today.
 							editing = false;
-							archiving = false;
 							await tick();
+							archiving = false;
 							await leaveRemoved(result.location);
 							archiveBusy = false;
 							return;
@@ -526,7 +670,8 @@
 	</Dialog>
 {/if}
 
-{#if logging && data.canLog}
+<!-- The phone's popup; on the desktop the log form is the pane's (never both). -->
+{#if logging && data.canLog && !desk.current}
 	<Log
 		dance={data.dance}
 		exercise={data.exercise}
@@ -538,6 +683,7 @@
 		message={failure('log')}
 		initial={data.practice}
 		from="exercise"
+		action={logAction}
 		onclose={() => (logging = false)}
 	/>
 {/if}

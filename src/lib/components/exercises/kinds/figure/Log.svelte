@@ -10,7 +10,12 @@
 	let playing = $state(false);
 	/** See drill/Log.svelte: the panel starts fresh after each saved set. */
 	let logged = $state(0);
-	/** The reference folds away so the panel is one tap from the top on a phone. */
+	/*
+	 * The reference folds away so the panel is one tap from the top on a phone.
+	 * The fold's header is its label, so the content never draws the page's own
+	 * ("Reference", Edit links), even in the desktop's pane (`contentProps`): the
+	 * figure is one click away there, in the owner row beside it.
+	 */
 	let showReference = $state(true);
 	const contentId = $derived(`reference-${props.exercise.id}`);
 </script>
@@ -25,52 +30,54 @@
 		props.onlogged?.(d);
 	}}
 >
-	{#snippet body(payload)}
-		<div class="flex flex-col gap-3">
-			<div class="flex items-center justify-between pr-1">
-				<h3 class={SECTION_HEAD}>Reference</h3>
-				<button
-					type="button"
-					class="-my-1.5 flex h-11 cursor-pointer items-center gap-1 px-2.5 text-[14px] font-extrabold text-accent-text"
-					aria-expanded={showReference}
-					aria-controls={contentId}
-					onclick={() => (showReference = !showReference)}
-				>
-					{showReference ? 'Hide' : 'Show'}<Icon
-						name={showReference ? 'chevron-up' : 'chevron-down'}
-						size={18}
-					/>
-				</button>
-			</div>
-			<div id={contentId} class="contents">
-				{#if showReference}
-					<Content
-						dance={props.dance}
-						content={payload.content}
-						timezone={props.timezone}
-						canEdit={props.exercise.team === null}
-					/>
-				{/if}
-			</div>
-			{#if !props.backfillDay}
-				{#key logged}
-					<PracticePanel
-						dance={props.dance}
-						exercise={props.exercise}
-						songs={props.songs}
-						takes={props.takes}
-						cue={payload.content.type === 'figure'
-							? {
-									figureId: payload.content.figure.id,
-									say: payload.content.figure.say,
-									eights: payload.content.figure.eights
-								}
-							: null}
-						onrun={(r) => (run = r)}
-						onactive={(a) => (playing = a)}
-					/>
-				{/key}
+	{#snippet reference(payload)}
+		<div class="flex items-center justify-between pr-1">
+			<h3 class={SECTION_HEAD}>Reference</h3>
+			<button
+				type="button"
+				class="-my-1.5 flex h-11 cursor-pointer items-center gap-1 px-2.5 text-[14px] font-extrabold text-accent-text"
+				aria-expanded={showReference}
+				aria-controls={contentId}
+				onclick={() => (showReference = !showReference)}
+			>
+				{showReference ? 'Hide' : 'Show'}<Icon
+					name={showReference ? 'chevron-up' : 'chevron-down'}
+					size={18}
+				/>
+			</button>
+		</div>
+		<div id={contentId} class="contents">
+			{#if showReference}
+				<Content
+					dance={props.dance}
+					content={payload.content}
+					timezone={props.timezone}
+					canEdit={props.exercise.team === null}
+					{...props.contentProps}
+					onPage={false}
+				/>
 			{/if}
 		</div>
+	{/snippet}
+	{#snippet panel(payload)}
+		{#if !props.backfillDay}
+			{#key logged}
+				<PracticePanel
+					dance={props.dance}
+					exercise={props.exercise}
+					songs={props.songs}
+					takes={props.takes}
+					cue={payload.content.type === 'figure'
+						? {
+								figureId: payload.content.figure.id,
+								say: payload.content.figure.say,
+								eights: payload.content.figure.eights
+							}
+						: null}
+					onrun={(r) => (run = r)}
+					onactive={(a) => (playing = a)}
+				/>
+			{/key}
+		{/if}
 	{/snippet}
 </LogShell>

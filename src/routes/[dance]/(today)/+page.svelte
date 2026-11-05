@@ -100,6 +100,7 @@
 				backfillDay={past.day}
 				{timezone}
 				message={failure('log')}
+				action="/{data.dance.slug}?/log"
 				onclose={() => (openId = null)}
 			/>
 		{/key}

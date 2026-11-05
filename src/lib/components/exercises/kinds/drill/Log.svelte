@@ -23,27 +23,28 @@
 		props.onlogged?.(d);
 	}}
 >
-	{#snippet body(payload)}
-		<div class="flex flex-col gap-3">
-			<Content
-				dance={props.dance}
-				content={payload.content}
-				timezone={props.timezone}
-				canEdit={props.exercise.team === null}
-			/>
-			{#if !props.backfillDay}
-				{#key logged}
-					<PracticePanel
-						dance={props.dance}
-						exercise={props.exercise}
-						songs={props.songs}
-						takes={props.takes}
-						cue={null}
-						onrun={(r) => (run = r)}
-						onactive={(a) => (playing = a)}
-					/>
-				{/key}
-			{/if}
-		</div>
+	{#snippet reference(payload)}
+		<Content
+			dance={props.dance}
+			content={payload.content}
+			timezone={props.timezone}
+			canEdit={props.exercise.team === null}
+			{...props.contentProps}
+		/>
+	{/snippet}
+	{#snippet panel()}
+		{#if !props.backfillDay}
+			{#key logged}
+				<PracticePanel
+					dance={props.dance}
+					exercise={props.exercise}
+					songs={props.songs}
+					takes={props.takes}
+					cue={null}
+					onrun={(r) => (run = r)}
+					onactive={(a) => (playing = a)}
+				/>
+			{/key}
+		{/if}
 	{/snippet}
 </LogShell>

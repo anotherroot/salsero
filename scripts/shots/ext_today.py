@@ -13,12 +13,28 @@ def _ex(db, admin, dance, source):
     return row[0] if row else None
 
 
+def _group_drill(db, admin, dance):
+    """A group's drill in a published lesson of a group the admin is in, with no entry of theirs."""
+    return db.execute(
+        "select e.id, le.lesson_id from exercises e join lesson_exercises le on le.exercise_id = e.id "
+        "join lessons l on l.id = le.lesson_id join team_members m on m.team_id = e.team_id "
+        "where e.team_id is not null and e.source = 'custom' and e.dance = ? and e.archived_at is null "
+        "and l.archived_at is null and l.published_at is not null and m.user_id = ? "
+        "and not exists (select 1 from exercises x where x.drill_id = e.id and x.user_id = ? "
+        "and x.archived_at is null) order by e.id limit 1",
+        (dance, admin, admin),
+    ).fetchone()
+
+
 def placeholders(db, admin, dance):
+    group = _group_drill(db, admin, dance)
     return {
         "figex": _ex(db, admin, dance, "figure"),
         "drillex": _ex(db, admin, dance, "custom"),
         "routineex": _ex(db, admin, dance, "routine"),
         "lessonex": _ex(db, admin, dance, "lesson"),
+        "groupdrill": group[0] if group else None,
+        "groupdrilllesson": group[1] if group else None,
     }
 
 
@@ -75,8 +91,16 @@ def _details_back(page):
     (Back from there does not repaint Today: the sheet's leftover entry takes a second Back that
     aborts SvelteKit's navigation. Pre-desktop behaviour, measured on 5e93248; not this scene's.)"""
     _log_first(page)
+    page.locator("dialog[open]").first.wait_for()
+    page.wait_for_timeout(500)
+    before = page.evaluate("history.length")
     _details(page)
     _no_popup(page, "over the exercise page")
+    # Details pushes one entry over the popup's; the popup closing must not push its own again
+    # (a forward orphan: the layout closed it after the stack re-anchored, Task 3's version).
+    after = page.evaluate("history.length")
+    if after != before + 1:
+        raise RuntimeError(f"history grew by {after - before} on Details, not 1")
     page.go_back()
     page.wait_for_url(re.compile(r"/(salsa|bachata)$"))
     page.wait_for_load_state("networkidle")
@@ -106,6 +130,17 @@ def _session_details_return(page):
         raise RuntimeError(f"the popup came back at {again!r}, not {first!r}")
 
 
+def _open_group_drill(page):
+    """From its lesson (the path's `#open=<id>`), a group's drill with no entry of the admin's."""
+    target = page.url.split("#open=", 1)[1]
+    page.locator(f'a[href$="/exercises/{target}"]').first.click()
+    page.wait_for_url(re.compile(rf"/exercises/{target}$"))
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(600)
+    if page.locator('form[id^="log-"]').count():
+        raise RuntimeError("a log form beside an exercise that cannot be logged")
+
+
 def _session_then(act):
     def go(page):
         _start_session(page)
@@ -130,7 +165,79 @@ SCENES = {
     "pane-logged": Scene("/{dance}/exercises/{drillex}", _logged, desk=True),
     "pane-session": Scene("/{dance}", _start_session, desk=True),
     "pane-skip": Scene("/{dance}", _skip, desk=True),
+    # desk only (Task 4): an exercise that is no row of the list, opened from its lesson
+    "pane-group-drill": Scene(
+        "/{dance}/lessons/{groupdrilllesson}#open={groupdrill}", _open_group_drill, desk=True
+    ),
     # desk only (Task 3): the band's + beside an open exercise, and its refusal there
     "list-new": Scene("/{dance}/exercises/{drillex}", _new, desk=True),
     "list-new-refused": Scene("/{dance}/exercises/{drillex}", _new_refused, desk=True),
 }
+
+
+# ---- desk checks (Task 4): a scene that raises is a failure; the shot is incidental ----
+
+def _lit_band(page):
+    """The band heading over the row marked open (aria-current) in the list column."""
+    return page.locator('[data-list-column] a[aria-current="page"]').evaluate(
+        "a => a.closest('section[aria-labelledby]')?.querySelector('h2')?.textContent?.trim() ?? null"
+    )
+
+
+def _logged_lit(page):
+    """Log set in the pane: Logged, the set under History · Today, the row in Done today and still lit."""
+    path = page.url
+    _logged(page)
+    page.get_by_role("button", name="Logged").first.wait_for()
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(400)
+    if page.url != path:
+        raise RuntimeError(f"logging moved the page to {page.url}")
+    band = _lit_band(page)
+    if not band or not band.startswith("Done today"):
+        raise RuntimeError(f"the open row is lit under {band!r}, not Done today")
+    if not page.get_by_role("heading", name="Today", exact=True).count():
+        raise RuntimeError("no History · Today heading after the log")
+
+
+def _archive_from_pane(page):
+    """Archive the open drill from the pane: Today, no unsaved question, the row gone."""
+    target = re.search(r"/exercises/(\d+)", page.url).group(1)
+    _edit(page)
+    page.get_by_role("button", name="Archive exercise").click()
+    page.locator("dialog[open]").get_by_role("button", name="Archive", exact=True).click()
+    try:
+        page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
+    except Exception:
+        raise RuntimeError(f"archiving left the page at {page.url}, not Today")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(600)
+    _no_popup(page, "after archiving (an unsaved-changes question?)")
+    if page.locator(f'a[href$="/exercises/{target}"]').count():
+        raise RuntimeError("the archived drill's row is still in the list")
+
+
+def _resize(page):
+    """1440 → 800 → 1440 with an exercise open: one log form on the desktop, none at 800, the URL kept."""
+    path = page.url
+
+    def forms():
+        page.wait_for_timeout(500)
+        return page.locator('form[id^="log-"]').count()
+
+    seen = [forms()]
+    page.set_viewport_size({"width": 800, "height": 900})
+    seen.append(forms())
+    page.set_viewport_size({"width": 1440, "height": 900})
+    seen.append(forms())
+    if seen != [1, 0, 1]:
+        raise RuntimeError(f"log forms at 1440, 800, 1440: {seen}")
+    if page.url != path:
+        raise RuntimeError(f"the URL changed to {page.url}")
+
+
+SCENES.update({
+    "pane-logged-lit": Scene("/{dance}/exercises/{drillex}", _logged_lit, desk=True),
+    "pane-archive": Scene("/{dance}/exercises/{drillex}", _archive_from_pane, desk=True),
+    "pane-resize": Scene("/{dance}/exercises/{figex}", _resize, desk=True),
+})

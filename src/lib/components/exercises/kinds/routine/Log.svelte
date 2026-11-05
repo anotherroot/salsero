@@ -14,26 +14,26 @@
 	routine practised away from the app.
 -->
 <LogShell {...props} run={null} playing={false}>
-	{#snippet body(payload)}
-		<div class="flex flex-col gap-3">
-			<Content
-				dance={props.dance}
-				content={payload.content}
-				timezone={props.timezone}
-				canEdit={props.exercise.team === null}
-			/>
-			{#if payload.content.type === 'routine' && !props.backfillDay}
-				<a
-					href={resolve(
-						`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}&from=${props.from ?? 'today'}`
-					)}
-					class={button('secondary', 'md', true)}
-					><Icon name="play" size={20} />Practise in player</a
-				>
-				<p class="-mt-1 px-1 text-[13px] text-muted">
-					A run there saves itself. Log here when you practised away from the app.
-				</p>
-			{/if}
-		</div>
+	{#snippet reference(payload)}
+		<Content
+			dance={props.dance}
+			content={payload.content}
+			timezone={props.timezone}
+			canEdit={props.exercise.team === null}
+			{...props.contentProps}
+		/>
+	{/snippet}
+	{#snippet panel(payload)}
+		{#if payload.content.type === 'routine' && !props.backfillDay}
+			<a
+				href={resolve(
+					`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}&from=${props.from ?? 'today'}`
+				)}
+				class={button('secondary', 'md', true)}><Icon name="play" size={20} />Practise in player</a
+			>
+			<p class="-mt-1 px-1 text-[13px] text-muted">
+				A run there saves itself. Log here when you practised away from the app.
+			</p>
+		{/if}
 	{/snippet}
 </LogShell>

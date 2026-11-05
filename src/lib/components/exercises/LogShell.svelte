@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import type { Dance } from '$lib/dances/dances';
+	import type { ContentProps } from './kinds';
 	import type {
 		CountTakeRow,
 		ExerciseItem,
@@ -45,6 +46,22 @@
 		onclose: () => void;
 		/** Where this popup was opened, so a Practice opened from it can go back there. */
 		from?: 'today' | 'exercise';
+		/**
+		 * The URL the form posts to: the route that owns `log` where it is rendered
+		 * (Today's `/{dance}?/log`, an exercise's `/{dance}/exercises/{id}?/log`), so a
+		 * form drawn by a layout never posts to the page beside it. Default: its own
+		 * page's `?/log` (the figure and lesson pages).
+		 */
+		action?: string;
+		/**
+		 * `sheet`: the log popup. `pane`: the desktop's left column of an open exercise
+		 * (desktop spec, "Today"): no sheet, the form with Log set pinned under it.
+		 */
+		frame?: 'sheet' | 'pane';
+		/** Outside a session: where Next goes after a log (the next due exercise). */
+		follow?: { name: string; onnext: () => void } | null;
+		/** What the type's `Content` gets on the page (spread after the wrapper's own `canEdit`). */
+		contentProps?: Pick<ContentProps, 'onPage' | 'canEdit' | 'editLinks'>;
 	}
 </script>
 
@@ -82,13 +99,15 @@
 		run: { durationS: number; playerJson: string } | null;
 		/** The panel is playing: nothing may close the popup by accident. */
 		playing: boolean;
-		/** The type's own content (and panel), given the loaded payload. */
-		body: Snippet<[PracticePayload]>;
+		/** The type's own content (a figure's with its Hide/Show fold), given the loaded payload. */
+		reference: Snippet<[PracticePayload]>;
+		/** The practice panel, or a routine's Practise in player and its line; a lesson has none. */
+		panel?: Snippet<[PracticePayload]>;
 	}
 
-	// `songs` and `takes` are part of `LogProps` for the type-specific Log
-	// wrappers, which read them straight off their own props for the practice
-	// panel — this shell never touches them itself.
+	// `songs`, `takes`, `from` and `contentProps` are part of `LogProps` for the
+	// type-specific Log wrappers, which read them straight off their own props
+	// for the practice panel and the content — this shell never touches them.
 	// eslint-disable-next-line svelte/no-unused-props
 	let {
 		dance,
@@ -101,14 +120,19 @@
 		session = null,
 		onlogged,
 		onclose,
+		action = '?/log',
+		frame = 'sheet',
+		follow = null,
 		run,
 		playing,
-		body
+		reference,
+		panel
 	}: Props = $props();
 
 	const info = $derived(typeInfo(exercise.source));
 	const has = (f: 'minutes' | 'reps' | 'rating' | 'note') => info.fields.includes(f);
-	const formId = $derived(`log-${exercise.id}`);
+	// The pane's form has its own id, so a popup and a pane never share one.
+	const formId = $derived(frame === 'pane' ? `log-pane-${exercise.id}` : `log-${exercise.id}`);
 	/** The main button just after a log: done colours, primary's size and shape. */
 	const LOGGED =
 		'inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done';
@@ -145,9 +169,19 @@
 			justLogged,
 			busy,
 			playing,
-			backfill: backfillDay !== null
+			backfill: backfillDay !== null,
+			follow: follow?.name ?? null
 		})
 	);
+	/** Next goes on through the session, else to the exercise `follow` names. */
+	const onnext = $derived(session?.onnext ?? follow?.onnext);
+	/**
+	 * A refused log, from the submit's own result: a form posting to a route other
+	 * than the page's (Today's popup beside an open exercise) never reaches
+	 * `page.form`, so `message` would stay empty. Same text as `message` otherwise.
+	 */
+	let refusal = $state<string | null>(null);
+	const shown = $derived(refusal ?? message);
 
 	function load() {
 		fetchPractice(dance.slug, exercise.id)
@@ -220,304 +254,379 @@
 	}
 </script>
 
-<Sheet tall title={exercise.name} open={true} {onclose}>
-	{#snippet subtitle()}
-		{#if payload}
-			<LastTime last={payload.last} />
-		{:else if !loadError}
-			<span class="block h-2.5 w-[190px] max-w-full rounded-[5px] bg-skeleton" aria-hidden="true"
-			></span>
-		{/if}
-	{/snippet}
-
-	{#snippet actions()}
-		{#if session && view.skip}
-			<button
-				type="button"
-				class="flex h-11 flex-none cursor-pointer items-center gap-0.5 px-2.5 text-[15px] font-extrabold text-accent-text"
-				onclick={() => away(session.onskip, 'Skip')}
-			>
-				Skip<Icon name="chevron-right" size={18} />
-			</button>
-		{/if}
-		{#if page.url.pathname !== detailsHref}
-			<a
-				href={detailsHref}
-				aria-label="Details and settings"
-				class="flex h-11 flex-none items-center gap-0.5 pr-1 pl-2.5 text-[15px] font-extrabold text-accent-text"
-			>
-				Details<Icon name="chevron-right" size={18} />
-			</a>
-		{/if}
-	{/snippet}
-
-	<div class="flex flex-col gap-3">
-		{#if backfillDay}
-			<div
-				class="flex items-center gap-2.5 rounded-[14px] bg-accent-soft px-3.5 py-2.5 text-[14px] font-extrabold text-accent-text"
-			>
-				<Icon name="calendar" size={20} />Adding to {longDayLabel(backfillDay)}
-			</div>
-		{/if}
-
-		{#if payload}
-			{@render body(payload)}
-		{:else if loadError}
-			<Banner kind="error" title={loadError}>You can still log a set.</Banner>
-		{:else}
-			<div aria-busy="true" class="flex flex-col gap-2.5 px-1 pt-1">
-				<span role="status" class="sr-only">Loading</span>
-				<span class="block h-3 w-[92%] rounded-md bg-skeleton" aria-hidden="true"></span>
-				<span class="block h-3 w-[80%] rounded-md bg-skeleton" aria-hidden="true"></span>
-				<span class="block h-3 w-[56%] rounded-md bg-skeleton" aria-hidden="true"></span>
-			</div>
-			<div class="h-[150px] flex-none rounded-2xl bg-skeleton" aria-hidden="true"></div>
-			<div class="flex-none overflow-hidden rounded-2xl bg-surface pl-4" aria-hidden="true">
-				<div class="flex min-h-16 items-center gap-3 pr-4">
-					<span class="size-10 flex-none rounded-[10px] bg-skeleton"></span>
-					<span class="flex flex-1 flex-col gap-2">
-						<span class="block h-3 w-[62%] rounded-md bg-skeleton"></span>
-						<span class="block h-2.5 w-[40%] rounded-[5px] bg-skeleton opacity-80"></span>
-					</span>
-				</div>
-			</div>
-		{/if}
-
-		<form
-			id={formId}
-			method="POST"
-			action="?/log"
-			novalidate
-			class="flex flex-col gap-3"
-			bind:this={logForm}
-			use:guarded={{
-				label: 'Practice log',
-				dirty: (changed) => unsaved || changed,
-				blocked: () => (playing ? 'Stop the count to log it.' : null),
-				submit: ({ formData, cancel }) => {
-					// Out of range: the field already says so in red; nothing is sent.
-					if (minutesError !== null || repsError !== null) {
-						cancel();
-						return;
-					}
-					busy = true;
-					// Captured now, not after `update()`: a success resets the bound
-					// fields (Minutes goes back to ''), so reading `exactS`/`minutes`
-					// afterwards lost a hand-typed value — see finding 1. Same rule as
-					// the server's own (log-form.ts): durationS wins over
-					// durationMin*60, else there is nothing to report.
-					const asSeconds = (v: FormDataEntryValue | null) =>
-						v !== null && String(v) !== '' ? Number(v) : null;
-					const fromS = asSeconds(formData.get('durationS'));
-					const fromMin = asSeconds(formData.get('durationMin'));
-					const logged = fromS ?? (fromMin === null ? null : fromMin * 60);
-					return async ({ update, result }) => {
-						await update();
-						busy = false;
-						if (result.type !== 'success') return;
-						rating = null;
-						minutes = '';
-						reps = '';
-						minutesBad = false;
-						repsBad = false;
-						exactS = null;
-						justLogged = true;
-						// In a session "Logged" stays until Next, Skip or Finish — the Next
-						// button hangs off it. Outside one it fades back to "Log set".
-						if (!session) setTimeout(() => (justLogged = false), 2500);
-						onlogged?.(logged);
-						load();
-					};
+<!-- The log form: one element, drawn by the popup and by the pane alike. -->
+{#snippet theForm()}
+	<form
+		id={formId}
+		method="POST"
+		{action}
+		novalidate
+		class="flex flex-col gap-3"
+		bind:this={logForm}
+		use:guarded={{
+			label: 'Practice log',
+			dirty: (changed) => unsaved || changed,
+			blocked: () => (playing ? 'Stop the count to log it.' : null),
+			submit: ({ formData, cancel }) => {
+				// Out of range: the field already says so in red; nothing is sent.
+				if (minutesError !== null || repsError !== null) {
+					cancel();
+					return;
 				}
-			}}
-		>
-			<input type="hidden" name="exerciseId" value={exercise.id} />
-			{#if backfillDay}<input type="hidden" name="day" value={backfillDay} />{/if}
-			<input type="hidden" name="durationS" value={exactS ?? ''} />
-			{#if liveRun && !backfillDay}<input
-					type="hidden"
-					name="run"
-					value={liveRun.playerJson}
-				/>{/if}
+				busy = true;
+				refusal = null;
+				// Captured now, not after `update()`: a success resets the bound
+				// fields (Minutes goes back to ''), so reading `exactS`/`minutes`
+				// afterwards lost a hand-typed value — see finding 1. Same rule as
+				// the server's own (log-form.ts): durationS wins over
+				// durationMin*60, else there is nothing to report.
+				const asSeconds = (v: FormDataEntryValue | null) =>
+					v !== null && String(v) !== '' ? Number(v) : null;
+				const fromS = asSeconds(formData.get('durationS'));
+				const fromMin = asSeconds(formData.get('durationMin'));
+				const logged = fromS ?? (fromMin === null ? null : fromMin * 60);
+				return async ({ update, result }) => {
+					try {
+						await update();
+					} finally {
+						busy = false;
+					}
+					if (result.type === 'failure') {
+						const m = (result.data as { message?: unknown } | undefined)?.message;
+						refusal = typeof m === 'string' ? m : 'It did not save.';
+					}
+					if (result.type !== 'success') return;
+					rating = null;
+					minutes = '';
+					reps = '';
+					minutesBad = false;
+					repsBad = false;
+					exactS = null;
+					justLogged = true;
+					// In a session, or with a `follow`, "Logged" stays until Next, Skip or
+					// Finish — the Next button hangs off it. Otherwise it fades back to "Log set".
+					if (!session && !follow) setTimeout(() => (justLogged = false), 2500);
+					onlogged?.(logged);
+					load();
+				};
+			}
+		}}
+	>
+		<input type="hidden" name="exerciseId" value={exercise.id} />
+		{#if backfillDay}<input type="hidden" name="day" value={backfillDay} />{/if}
+		<input type="hidden" name="durationS" value={exactS ?? ''} />
+		{#if liveRun && !backfillDay}<input type="hidden" name="run" value={liveRun.playerJson} />{/if}
 
-			{#if has('minutes') || has('reps')}
-				<div class="grid grid-cols-2 items-start gap-3">
-					{#if has('minutes')}
-						<div class="min-w-0">
-							<label for="{formId}-minutes" class={LABEL}>Minutes</label>
-							<div
-								class="{minutesError
-									? FIELD_INVALID
-									: FIELD} flex items-center gap-2.5 has-focus-visible:shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
-							>
-								<input
-									id="{formId}-minutes"
-									name="durationMin"
-									type="number"
-									inputmode="numeric"
-									min="0"
-									max="600"
-									placeholder="0"
-									value={minutes}
-									oninput={(e) => {
-										minutes = e.currentTarget.value;
-										minutesBad = e.currentTarget.validity.badInput;
-										exactS = null;
-									}}
-									aria-invalid={minutesError ? 'true' : undefined}
-									aria-describedby={minutesError || exactS !== null
-										? `${formId}-minutes-msg`
-										: undefined}
-									class="h-11 w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted focus-visible:shadow-none! focus-visible:outline-none!"
-								/>
-								<span class="flex-none text-[15px] font-semibold text-muted">min</span>
-							</div>
-							{#if minutesError}
-								<p id="{formId}-minutes-msg" class={FIELD_ERROR}>
-									<Icon name="warning" size={16} />{minutesError}
-								</p>
-							{:else if exactS !== null}
-								<p id="{formId}-minutes-msg" class="mt-1.5 pl-1 text-[13px] text-muted">
-									From the practice: {clock(exactS)}
-								</p>
-							{/if}
-						</div>
-					{/if}
-					{#if has('reps')}
-						<div class="min-w-0">
-							<label for="{formId}-reps" class={LABEL}>Reps</label>
+		{#if has('minutes') || has('reps')}
+			<div class="grid grid-cols-2 items-start gap-3">
+				{#if has('minutes')}
+					<div class="min-w-0">
+						<label for="{formId}-minutes" class={LABEL}>Minutes</label>
+						<div
+							class="{minutesError
+								? FIELD_INVALID
+								: FIELD} flex items-center gap-2.5 has-focus-visible:shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
+						>
 							<input
-								id="{formId}-reps"
-								name="reps"
+								id="{formId}-minutes"
+								name="durationMin"
 								type="number"
 								inputmode="numeric"
 								min="0"
-								max="10000"
+								max="600"
 								placeholder="0"
-								value={reps}
+								value={minutes}
 								oninput={(e) => {
-									reps = e.currentTarget.value;
-									repsBad = e.currentTarget.validity.badInput;
+									minutes = e.currentTarget.value;
+									minutesBad = e.currentTarget.validity.badInput;
+									exactS = null;
 								}}
-								aria-invalid={repsError ? 'true' : undefined}
-								aria-describedby={repsError ? `${formId}-reps-msg` : undefined}
-								class={FIELD}
+								aria-invalid={minutesError ? 'true' : undefined}
+								aria-describedby={minutesError || exactS !== null
+									? `${formId}-minutes-msg`
+									: undefined}
+								class="h-11 w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted focus-visible:shadow-none! focus-visible:outline-none!"
 							/>
-							{#if repsError}
-								<p id="{formId}-reps-msg" class={FIELD_ERROR}>
-									<Icon name="warning" size={16} />{repsError}
-								</p>
-							{/if}
+							<span class="flex-none text-[15px] font-semibold text-muted">min</span>
 						</div>
-					{/if}
-				</div>
-			{/if}
+						{#if minutesError}
+							<p id="{formId}-minutes-msg" class={FIELD_ERROR}>
+								<Icon name="warning" size={16} />{minutesError}
+							</p>
+						{:else if exactS !== null}
+							<p id="{formId}-minutes-msg" class="mt-1.5 pl-1 text-[13px] text-muted">
+								From the practice: {clock(exactS)}
+							</p>
+						{/if}
+					</div>
+				{/if}
+				{#if has('reps')}
+					<div class="min-w-0">
+						<label for="{formId}-reps" class={LABEL}>Reps</label>
+						<input
+							id="{formId}-reps"
+							name="reps"
+							type="number"
+							inputmode="numeric"
+							min="0"
+							max="10000"
+							placeholder="0"
+							value={reps}
+							oninput={(e) => {
+								reps = e.currentTarget.value;
+								repsBad = e.currentTarget.validity.badInput;
+							}}
+							aria-invalid={repsError ? 'true' : undefined}
+							aria-describedby={repsError ? `${formId}-reps-msg` : undefined}
+							class={FIELD}
+						/>
+						{#if repsError}
+							<p id="{formId}-reps-msg" class={FIELD_ERROR}>
+								<Icon name="warning" size={16} />{repsError}
+							</p>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
 
-			{#if has('rating')}
-				<RatingStars question={info.ratingQuestion} value={rating} onchange={(r) => (rating = r)} />
-			{/if}
+		{#if has('rating')}
+			<RatingStars question={info.ratingQuestion} value={rating} onchange={(r) => (rating = r)} />
+		{/if}
 
-			{#if has('note')}
-				<div>
-					<label for="{formId}-note" class={LABEL}
-						>Note<span class="font-medium text-muted">&nbsp;(optional)</span></label
+		{#if has('note')}
+			<div>
+				<label for="{formId}-note" class={LABEL}
+					>Note<span class="font-medium text-muted">&nbsp;(optional)</span></label
+				>
+				<textarea
+					id="{formId}-note"
+					name="note"
+					rows="2"
+					maxlength="2000"
+					placeholder="What went well, what to fix"
+					class={TEXTAREA}></textarea>
+			</div>
+		{/if}
+
+		{#if shown}
+			<Banner kind="error" title={shown} />
+		{/if}
+	</form>
+{/snippet}
+
+{#snippet mainButton(extra: string)}
+	{#if view.main}
+		<!--
+			One element in every state: "Logged" fading back to "Log set" 2.5 s later
+			must not destroy a focused button (focusAfterRemoval's fallback lands
+			here after a keyboard delete). "Logged" is still a submit: tapping it
+			logs another set.
+		-->
+		<button
+			data-focus="sets-add"
+			type="submit"
+			form={formId}
+			class="{view.main.state === 'logged' ? LOGGED : button('primary', 'md', true)}{extra}"
+			disabled={view.main.state !== 'log' && view.main.state !== 'logged'}
+			aria-busy={view.main.state === 'saving' ? 'true' : undefined}
+		>
+			{#if view.main.state === 'saving'}
+				<Spinner size={20} />
+			{:else if view.main.state === 'logged'}
+				<Icon name="check" size={22} stroke={2.5} />
+			{:else if view.main.state === 'log'}
+				<Icon name="check" size={22} />
+			{/if}{view.main.label}
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet hint()}
+	{#if view.hint}
+		<p class="text-center text-[13px] font-bold text-muted">{view.hint}</p>
+	{/if}
+{/snippet}
+
+{#snippet nextButton(kind: 'primary' | 'secondary', extra: string)}
+	{#if view.next && onnext}
+		<button type="button" class="{button(kind, 'md', true)}{extra}" onclick={onnext}>
+			<span class="min-w-0 truncate">{view.next}</span><Icon name="chevron-right" size={20} />
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet doneCard()}
+	{#if session && view.done}
+		<div
+			role="status"
+			class="flex items-center gap-2.5 rounded-2xl bg-done-soft px-3.5 py-3 [--icon-knockout:var(--color-on-done)]"
+		>
+			<span class="flex-none text-done"><Icon name="check-circle" size={28} filled /></span>
+			<span class="flex min-w-0 flex-col gap-px">
+				<span class="text-[15px] font-extrabold text-ink">Session done</span>
+				<span class="text-[13px] font-bold text-done">{session.summary}</span>
+			</span>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet finishButton(extra: string)}
+	{#if session && view.done}
+		<!-- Secondary while Log set is still offered (Skip ran out the list): one primary per footer. -->
+		<button
+			type="button"
+			class="{button(view.main ? 'secondary' : 'primary', 'md', true)}{extra}"
+			onclick={session.onfinish}
+		>
+			Finish
+		</button>
+	{/if}
+{/snippet}
+
+{#if frame === 'pane'}
+	<!--
+		The desktop's left column (desktop spec, "Today"): the form with Log set pinned
+		under it. The title, "Last time", the sets and the toast are the page's own
+		(its header and History), so none of them is here.
+	-->
+	<section aria-label="Log a set" class="flex flex-col gap-3">
+		{@render doneCard()}
+		<h2 class={SECTION_LABEL}>Log a set</h2>
+		{#if payload}
+			{#if panel}{@render panel(payload)}{/if}
+		{:else if loadError}
+			<Banner kind="error" title={loadError}>You can still log a set.</Banner>
+		{/if}
+		{@render theForm()}
+		{#if payload && info.paneContent === 'left'}{@render reference(payload)}{/if}
+		<div
+			class="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-hairline bg-ground pt-3.5 pb-5"
+		>
+			<div class="flex items-center gap-2.5">
+				{#if session && view.skip}
+					<button
+						type="button"
+						class={button('secondary', 'md')}
+						onclick={() => away(session.onskip, 'Skip')}>Skip</button
 					>
-					<textarea
-						id="{formId}-note"
-						name="note"
-						rows="2"
-						maxlength="2000"
-						placeholder="What went well, what to fix"
-						class={TEXTAREA}></textarea>
+				{/if}
+				{@render mainButton(' min-w-0 flex-1')}
+				{@render nextButton('primary', ' min-w-0 flex-1')}
+				{@render finishButton(' min-w-0 flex-1')}
+			</div>
+			{@render hint()}
+		</div>
+	</section>
+{:else}
+	<Sheet tall title={exercise.name} open={true} {onclose}>
+		{#snippet subtitle()}
+			{#if payload}
+				<LastTime last={payload.last} />
+			{:else if !loadError}
+				<span class="block h-2.5 w-[190px] max-w-full rounded-[5px] bg-skeleton" aria-hidden="true"
+				></span>
+			{/if}
+		{/snippet}
+
+		{#snippet actions()}
+			{#if session && view.skip}
+				<button
+					type="button"
+					class="flex h-11 flex-none cursor-pointer items-center gap-0.5 px-2.5 text-[15px] font-extrabold text-accent-text"
+					onclick={() => away(session.onskip, 'Skip')}
+				>
+					Skip<Icon name="chevron-right" size={18} />
+				</button>
+			{/if}
+			{#if page.url.pathname !== detailsHref}
+				<a
+					href={detailsHref}
+					aria-label="Details and settings"
+					class="flex h-11 flex-none items-center gap-0.5 pr-1 pl-2.5 text-[15px] font-extrabold text-accent-text"
+				>
+					Details<Icon name="chevron-right" size={18} />
+				</a>
+			{/if}
+		{/snippet}
+
+		<div class="flex flex-col gap-3">
+			{#if backfillDay}
+				<div
+					class="flex items-center gap-2.5 rounded-[14px] bg-accent-soft px-3.5 py-2.5 text-[14px] font-extrabold text-accent-text"
+				>
+					<Icon name="calendar" size={20} />Adding to {longDayLabel(backfillDay)}
 				</div>
 			{/if}
 
-			{#if message}
-				<Banner kind="error" title={message} />
+			{#if payload}
+				<!-- The type's content and its panel, as one block (a lesson's content alone). -->
+				{#if panel}
+					<div class="flex flex-col gap-3">
+						{@render reference(payload)}
+						{@render panel(payload)}
+					</div>
+				{:else}
+					{@render reference(payload)}
+				{/if}
+			{:else if loadError}
+				<Banner kind="error" title={loadError}>You can still log a set.</Banner>
+			{:else}
+				<div aria-busy="true" class="flex flex-col gap-2.5 px-1 pt-1">
+					<span role="status" class="sr-only">Loading</span>
+					<span class="block h-3 w-[92%] rounded-md bg-skeleton" aria-hidden="true"></span>
+					<span class="block h-3 w-[80%] rounded-md bg-skeleton" aria-hidden="true"></span>
+					<span class="block h-3 w-[56%] rounded-md bg-skeleton" aria-hidden="true"></span>
+				</div>
+				<div class="h-[150px] flex-none rounded-2xl bg-skeleton" aria-hidden="true"></div>
+				<div class="flex-none overflow-hidden rounded-2xl bg-surface pl-4" aria-hidden="true">
+					<div class="flex min-h-16 items-center gap-3 pr-4">
+						<span class="size-10 flex-none rounded-[10px] bg-skeleton"></span>
+						<span class="flex flex-1 flex-col gap-2">
+							<span class="block h-3 w-[62%] rounded-md bg-skeleton"></span>
+							<span class="block h-2.5 w-[40%] rounded-[5px] bg-skeleton opacity-80"></span>
+						</span>
+					</div>
+				</div>
 			{/if}
-		</form>
 
-		{#if sets.length > 0}
-			<div class="flex flex-col gap-2 pt-1">
-				<h3 class={SECTION_LABEL}>{backfillDay ? 'Sets that day' : 'Sets today'}</h3>
-				<SetList
-					{sets}
-					{timezone}
-					ondeleted={deleted}
-					onfailed={(m) => {
-						undoSnapshot = null;
-						say(m);
-					}}
-				/>
-			</div>
-		{/if}
-	</div>
+			{@render theForm()}
 
-	{#snippet footer()}
-		{#if view.main}
-			<!--
-				One element in every state: "Logged" fading back to "Log set" 2.5 s later
-				must not destroy a focused button (focusAfterRemoval's fallback lands
-				here after a keyboard delete). "Logged" is still a submit: tapping it
-				logs another set.
-			-->
-			<button
-				data-focus="sets-add"
-				type="submit"
-				form={formId}
-				class={view.main.state === 'logged' ? LOGGED : button('primary', 'md', true)}
-				disabled={view.main.state !== 'log' && view.main.state !== 'logged'}
-				aria-busy={view.main.state === 'saving' ? 'true' : undefined}
-			>
-				{#if view.main.state === 'saving'}
-					<Spinner size={20} />
-				{:else if view.main.state === 'logged'}
-					<Icon name="check" size={22} stroke={2.5} />
-				{:else if view.main.state === 'log'}
-					<Icon name="check" size={22} />
-				{/if}{view.main.label}
-			</button>
-		{/if}
-		{#if view.hint}
-			<p class="text-center text-[13px] font-bold text-muted">{view.hint}</p>
-		{/if}
-		{#if session && view.next}
-			<button type="button" class={button('secondary', 'md', true)} onclick={session.onnext}>
-				<span class="min-w-0 truncate">{view.next}</span><Icon name="chevron-right" size={20} />
-			</button>
-		{/if}
-		{#if session && view.done}
-			<div
-				role="status"
-				class="flex items-center gap-2.5 rounded-2xl bg-done-soft px-3.5 py-3 [--icon-knockout:var(--color-on-done)]"
-			>
-				<span class="flex-none text-done"><Icon name="check-circle" size={28} filled /></span>
-				<span class="flex min-w-0 flex-col gap-px">
-					<span class="text-[15px] font-extrabold text-ink">Session done</span>
-					<span class="text-[13px] font-bold text-done">{session.summary}</span>
-				</span>
-			</div>
-			<!-- Secondary while Log set is still offered above (Skip ran out the list): one primary per footer. -->
-			<button
-				type="button"
-				class={button(view.main ? 'secondary' : 'primary', 'md', true)}
-				onclick={session.onfinish}
-			>
-				Finish
-			</button>
-		{/if}
-	{/snippet}
+			{#if sets.length > 0}
+				<div class="flex flex-col gap-2 pt-1">
+					<h3 class={SECTION_LABEL}>{backfillDay ? 'Sets that day' : 'Sets today'}</h3>
+					<SetList
+						{sets}
+						{timezone}
+						ondeleted={deleted}
+						onfailed={(m) => {
+							undoSnapshot = null;
+							say(m);
+						}}
+					/>
+				</div>
+			{/if}
+		</div>
 
-	{#snippet toast()}
-		<Toast
-			contained
-			bottom="0"
-			toast={notice}
-			onaction={undo}
-			ondismiss={() => {
-				notice = null;
-				undoSnapshot = null;
-			}}
-		/>
-	{/snippet}
-</Sheet>
+		{#snippet footer()}
+			{@render mainButton('')}
+			{@render hint()}
+			{@render nextButton('secondary', '')}
+			{@render doneCard()}
+			{@render finishButton('')}
+		{/snippet}
+
+		{#snippet toast()}
+			<Toast
+				contained
+				bottom="0"
+				toast={notice}
+				onaction={undo}
+				ondismiss={() => {
+					notice = null;
+					undoSnapshot = null;
+				}}
+			/>
+		{/snippet}
+	</Sheet>
+{/if}

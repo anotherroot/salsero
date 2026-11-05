@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate, goto, onNavigate } from '$app/navigation';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { page } from '$app/state';
 	import { listOf } from '$lib/nav/pane';
@@ -94,21 +94,29 @@
 	/*
 	 * The layout outlives a move between Today and an exercise, where the page it
 	 * replaces used to unmount. So, by hand: leaving for another path (Details ›,
-	 * a row) closes the phone popup, as its unmount did (the sheet's entry is
-	 * behind the new page by then: `navigated`, so it goes without a Back). Going
-	 * to the list keeps it: Start session from an exercise's page (desktop) opens
-	 * it on the way. On the phone, arriving at the list from another path is a
-	 * fresh visit, as the page's own mount was: the tally, the skips and Inactive
-	 * start over and a session picks up at its current first row. The desktop
-	 * keeps them across exercises (the session walks the pane: Task 6).
+	 * a row) closes the phone popup, as its unmount did. It is closed here, before
+	 * the new page renders: the root layout's `onNavigate` has already put the
+	 * sheet's entry behind the new page (`navigated`), so it goes without a Back,
+	 * and by the time `afterNavigate` re-anchors the stack the sheet is gone (closed
+	 * any later, `anchor()` would push its entry again: a forward orphan). Going to
+	 * the list keeps it: Start session from an exercise's page (desktop) opens it
+	 * on the way.
+	 */
+	onNavigate(({ from, to }) => {
+		if (!from || !to || from.url.pathname === to.url.pathname) return;
+		if (listOf(to.route.id)?.open !== false) openId = null;
+	});
+
+	/*
+	 * On the phone, arriving at the list from another path is a fresh visit, as
+	 * the page's own mount was: the tally, the skips and Inactive start over and a
+	 * session picks up at its current first row (after the move, so the URL's
+	 * session flag is the new one). The desktop keeps them across exercises (the
+	 * session walks the pane: Task 6).
 	 */
 	afterNavigate(({ from, to }) => {
 		if (!from || !to || from.url.pathname === to.url.pathname) return;
-		const toList = listOf(to.route.id)?.open === false;
-		if (!toList) {
-			openId = null;
-			return;
-		}
+		if (listOf(to.route.id)?.open !== false) return;
 		if (desk.current) return;
 		skipped = new Set();
 		tally = { count: 0, seconds: 0 };
@@ -269,6 +277,7 @@
 				backfillDay={null}
 				{timezone}
 				message={failure('log')}
+				action="/{dance}?/log"
 				{session}
 				onlogged={(d) => {
 					if (sessionOn) tally = { count: tally.count + 1, seconds: tally.seconds + (d ?? 0) };
