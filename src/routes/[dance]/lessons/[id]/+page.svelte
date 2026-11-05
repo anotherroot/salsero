@@ -75,6 +75,7 @@
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import SimpleLesson from '$lib/components/lessons/SimpleLesson.svelte';
 	import { levelShown } from '$lib/levels/levels';
+	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
@@ -581,6 +582,7 @@
 		canEdit={data.canEdit && level !== 'follow'}
 		app={data.app}
 		practising={data.practising}
+		comments={data.comments}
 		add={data.add}
 		notice={data.notice}
 		linkMessage={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
@@ -1126,6 +1128,7 @@
 				right={watched}
 				leftEnd={editing ? undefined : linked}
 			/>
+			{#if !editing && data.comments}<CommentsCard comments={data.comments} />{/if}
 		</div>
 	</Screen>
 {/if}

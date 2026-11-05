@@ -49,6 +49,7 @@
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -302,11 +303,10 @@
 	/>
 {/snippet}
 
-<!--
-	The class's comments card goes here (the next task), after the type's content on the
-	simple page and on the full one alike. Empty until then.
--->
-{#snippet classCard()}{/snippet}
+<!-- The class's comments, after the type's content on the simple page and on the full one alike. -->
+{#snippet classCard()}
+	{#if data.comments}<CommentsCard comments={data.comments} title="Comments on the class" />{/if}
+{/snippet}
 
 <!-- "From class Tue 3 Nov ›": the simple page's way to the lesson. -->
 {#snippet fromClass()}

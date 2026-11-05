@@ -11,7 +11,8 @@
 	import { lessonBandLine, sectionHeading } from '$lib/lessons/page';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { newLine } from '$lib/teams/add';
-	import type { AddState, LessonVideoRow, LinkRow } from '$lib/types';
+	import type { AddState, CommentsOn, LessonVideoRow, LinkRow } from '$lib/types';
+	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -59,6 +60,8 @@
 		/** In the Android app: uploads go through the app. */
 		app: boolean;
 		practising: { id: number; name: string; when: string }[];
+		/** The class's comments card; null for a person's own lesson. */
+		comments: CommentsOn | null;
 		add: AddState | null;
 		/** The group is being deleted: its words, without Make it mine. */
 		notice: { tone: 'warning'; text: string } | null;
@@ -84,6 +87,7 @@
 		canEdit,
 		app,
 		practising,
+		comments,
 		add,
 		notice,
 		linkMessage,
@@ -375,8 +379,7 @@
 					</ul>
 				</section>
 			{/if}
-			<!-- The class's comments card goes here (the comments task), for a group's lesson only. -->
-			{#if team}{@render commentsCard()}{/if}
+			{#if team && comments}<CommentsCard {comments} />{/if}
 		{/snippet}
 
 		<!--
@@ -393,9 +396,6 @@
 		/>
 	</div>
 </Screen>
-
-<!-- The comments card's slot: empty until the comments task fills it. -->
-{#snippet commentsCard()}{/snippet}
 
 <Toast
 	toast={toast && {
