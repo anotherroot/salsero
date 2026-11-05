@@ -1,5 +1,6 @@
 <script lang="ts">
-	import Stars from '$lib/components/ui/Stars.svelte';
+	import Face from './Face.svelte';
+	import { FEEL_WORD, feelOf } from '$lib/schedule/feel';
 	import { lastTimeParts } from '$lib/exercises/log-view';
 	import type { LastSet } from '$lib/types';
 
@@ -17,7 +18,11 @@
 <p class="line-clamp-2 text-[13px] leading-[1.35] text-muted">
 	{#if parts}
 		{parts.when}{#if parts.rating !== null}
-			{SEP}<Stars rating={parts.rating} size={13} />{/if}{#if parts.note}
+			{SEP}<span class="inline-flex items-center gap-1 align-[-3px]"
+				><Face feel={feelOf(parts.rating) ?? 'gotit'} size={15} />{FEEL_WORD[
+					feelOf(parts.rating) ?? 'gotit'
+				]}</span
+			>{/if}{#if parts.note}
 			{SEP}“{parts.note}”{/if}
 	{:else}
 		First time.

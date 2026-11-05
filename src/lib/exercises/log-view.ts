@@ -13,6 +13,8 @@ export type FooterInput = {
 	backfill: boolean;
 	/** Outside a session: the name Next goes to after a log. */
 	follow?: string | null;
+	/** A face is picked (always true for a type with no rating). */
+	rated: boolean;
 };
 export type MainState = 'log' | 'saving' | 'disabled' | 'logged';
 export interface FooterView {
@@ -33,7 +35,10 @@ export function footerFor(i: FooterInput): FooterView {
 		main = { state: 'disabled', label: 'Log set' };
 		hint = 'Stop the count to log it.';
 	} else if (i.justLogged) main = { state: 'logged', label: 'Logged' };
-	else main = { state: 'log', label: i.backfill ? 'Add set to this day' : 'Log set' };
+	else if (!i.rated) {
+		main = { state: 'disabled', label: i.backfill ? 'Add set to this day' : 'Log set' };
+		hint = 'Pick how it went';
+	} else main = { state: 'log', label: i.backfill ? 'Add set to this day' : 'Log set' };
 	if (done && i.justLogged) main = null;
 	return {
 		skip: s !== null && !i.justLogged && !s.ended,
@@ -55,11 +60,6 @@ export function rangeError(value: string, max: number): string | null {
 	if (value === '') return null;
 	if (/^\d+$/.test(value) && Number(value) <= max) return null;
 	return `0–${max}`;
-}
-
-/** Tapping the rating you already have clears it. */
-export function nextRating(current: number | null, tapped: number): number | null {
-	return current === tapped ? null : tapped;
 }
 
 /** The "Last time" line's parts; null means "First time.". */

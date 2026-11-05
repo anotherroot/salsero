@@ -688,7 +688,7 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		expect(load({ url, params: { dance: 'salsa' }, locals: { user: U1 } }).exercise).not.toBeNull();
 		await refuses(
 			playerPage.actions.save,
-			post(U2, 'salsa', { exerciseId: String(mine), durationS: '60' })
+			post(U2, 'salsa', { exerciseId: String(mine), durationS: '60', rating: '4' })
 		);
 		expect(exerciseHistory(db, mine)).toHaveLength(1);
 	});

@@ -28,7 +28,11 @@ describe('format', () => {
 
 	it('summarises only the fields that were filled', () => {
 		expect(setSummary({ durationS: null, reps: null, rating: null })).toBe('');
-		expect(setSummary({ durationS: 600, reps: 8, rating: 3 })).toBe('10 min · 8 reps · ★★★');
+		expect(setSummary({ durationS: 600, reps: 8, rating: 4 })).toBe(
+			"10 min · 8 reps · I've got it"
+		);
+		expect(setSummary({ durationS: null, reps: null, rating: 1 })).toBe('Still hard');
+		expect(setSummary({ durationS: null, reps: null, rating: 5 })).not.toContain('★');
 	});
 
 	it('rounds a short duration up to 1 min rather than down to 0, like minutesFrom', () => {

@@ -145,6 +145,7 @@ export const actions: Actions = {
 		if (exerciseId === undefined || durationS === undefined || rating === undefined) {
 			return fail(400, { message: 'Could not save that run.', ...entered });
 		}
+		if (rating === null) return fail(400, { message: 'Pick how it went', ...entered });
 		if (note === undefined) {
 			return fail(400, {
 				message: 'That note is too long — keep it under 2000 characters.',
