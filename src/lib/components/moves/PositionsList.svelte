@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
 	import { revealLit } from './moves-context';
+	import { desk } from '$lib/nav/desk.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -89,7 +90,8 @@
 			if (page.url.searchParams.get('new') === '1') creating = true;
 		} else if (!seeded) {
 			held = keptFilter(list);
-			void tick().then(revealLit);
+			// The column scrolls on its own only on the desktop.
+			if (desk.current) void tick().then(revealLit);
 		}
 		seeded = true;
 	});

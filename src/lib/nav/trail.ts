@@ -243,6 +243,15 @@ export function keepFilter(t: Trail, listPath: PageKey, value: string): Trail {
 }
 
 /**
+ * A list column's filter beside an open item (`keepFilter`), and `search` as
+ * the list page's own kept search (`searched`: only for a list page the trail
+ * has), in one: so the list page comes back (`hrefOf`) with what the column shows.
+ */
+export function keepColumn(t: Trail, listPath: PageKey, value: string, search: string): Trail {
+	return searched(keepFilter(t, listPath, value), listPath, search);
+}
+
+/**
  * The pages entered "fresh" this page-load: the one the app was (re)loaded on,
  * and the pages replaced into it from it (the figure steps). Their opener is
  * not where the user came from, so a list beside them is the route's own.

@@ -14,6 +14,7 @@ import {
 	isGone,
 	isRoot,
 	isTrailPage,
+	keepColumn,
 	keepFilter,
 	keptFilter,
 	keptSearch,
@@ -371,18 +372,30 @@ describe('leave and hrefOf', () => {
 	});
 });
 
-describe('a list column kept beside an item', () => {
-	it('gives the list page back with the filter its column keeps', () => {
-		let t = arrive(EMPTY_TRAIL, A({ to: '/salsa/figures', kind: 'enter', index: 1 }));
-		t = searched(
-			keepFilter(t, '/salsa/figures', 'q=enc&style=On1'),
+describe('keepColumn', () => {
+	const seen = () => arrive(EMPTY_TRAIL, A({ to: '/salsa/figures', kind: 'enter', index: 1 }));
+
+	it('keeps the column’s filter and the list page’s search in one', () => {
+		const t = keepColumn(seen(), '/salsa/figures', 'q=enc', 'q=enc');
+		expect(hrefOf(t, '/salsa/figures')).toBe('/salsa/figures?q=enc');
+		expect(keptFilter(t, '/salsa/figures')).toBe('q=enc');
+	});
+
+	it('clears both with an empty filter', () => {
+		const t = keepColumn(
+			keepColumn(seen(), '/salsa/figures', 'q=enc', 'q=enc'),
 			'/salsa/figures',
-			'?q=enc&style=On1'
+			'',
+			''
 		);
-		expect(hrefOf(t, '/salsa/figures')).toBe('/salsa/figures?q=enc&style=On1');
-		expect(keptFilter(t, '/salsa/figures')).toBe('q=enc&style=On1');
-		// The bare query string the lists store is the same search.
-		expect(searched(t, '/salsa/figures', 'q=enc').pages['/salsa/figures'].search).toBe('?q=enc');
+		expect(hrefOf(t, '/salsa/figures')).toBe('/salsa/figures');
+		expect(keptFilter(t, '/salsa/figures')).toBe('');
+	});
+
+	it('keeps the filter but makes no page for a list the trail has not seen', () => {
+		const t = keepColumn(EMPTY_TRAIL, '/salsa/figures', 'q=enc', 'q=enc');
+		expect(keptFilter(t, '/salsa/figures')).toBe('q=enc');
+		expect(t.pages['/salsa/figures']).toBeUndefined();
 	});
 });
 

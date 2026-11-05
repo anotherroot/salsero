@@ -18,7 +18,7 @@ import {
 	hrefOf,
 	isGone,
 	isTrailPage,
-	keepFilter as keepFilterIn,
+	keepColumn,
 	keptFilter as keptFilterIn,
 	leave,
 	pageTitle,
@@ -181,7 +181,7 @@ export function keptFilter(listPath: string): string {
  */
 export function keepFilter(listPath: string, value: string, search = ''): void {
 	load();
-	set(searched(keepFilterIn(trail.value, listPath, value), listPath, search));
+	set(keepColumn(trail.value, listPath, value, search));
 }
 
 /** Where the band's back goes from `current`, and its label. */

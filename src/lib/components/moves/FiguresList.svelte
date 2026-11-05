@@ -8,6 +8,7 @@
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
 	import NavTile from './NavTile.svelte';
 	import { revealLit } from './moves-context';
+	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -119,7 +120,8 @@
 			if (page.url.searchParams.get('new') === '1') creating = true;
 		} else if (!seeded) {
 			held = keptFilter(listPath);
-			void tick().then(revealLit);
+			// The column scrolls on its own only on the desktop.
+			if (desk.current) void tick().then(revealLit);
 		}
 		seeded = true;
 	});
