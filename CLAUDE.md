@@ -262,6 +262,9 @@ src/app.html         a script before the first paint: the theme choice → `data
                      `env()` (class-rules.spec.ts): the app draws the page under its bars.
                      It also wraps `fetch`: every same-origin request carries the page
                      epoch (`src/lib/page-epoch.ts`), and a stale answer fires `salsa:stale`
+scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoot pages.txt;
+                     scenes.py runs a scene (a page after some clicks), ext_*.py hold each
+                     plan's scenes (ext_practice.py: Practice, the player's popups)
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from

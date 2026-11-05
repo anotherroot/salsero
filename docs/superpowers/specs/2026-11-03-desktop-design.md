@@ -601,3 +601,24 @@ What the user settled on the boards, newest last:
 - [Main spec](2026-09-22-salsa-app-design.md): Practice's "a desktop keeps the
   560 px column" now points here.
 - `CLAUDE.md` lists this spec with the others.
+
+## Decided while building
+
+### Plan 5 — Practice, Settings and the rest
+
+- Running keeps the title the app already built (the figure or routine the run
+  is of), not the board's.
+- The running sheet's heading reads "Routine · slot N of M".
+- Settings' back chevron is hidden on the desktop: `BandHeader` hides a header
+  holding a `data-desk-hidden` marker, and Settings sets it.
+- `PAGE_WIDTH` (`src/lib/nav/frame.ts`) is the one table of page column widths:
+  one 720, two 1140, song 640, narrow 560.
+- The ReloadBar sits above a run on the desktop (z 32, over the run column's
+  31), so "This page is out of date" still shows during a run.
+- In a short window the stage is held under the band row, never drawn into it.
+- The Link popup's levels are all 480 tall on the desktop, its picker included:
+  `Sheet`, `PlayerLayer` and `Picker` take a `level` prop, set only by the Link
+  popup.
+- `PlayerLayer` takes `size="small"` for the player's own dialogs.
+- Inline videos (recording, lesson video, YouTube card) are capped at 70 % of
+  the window's height on the desktop.
