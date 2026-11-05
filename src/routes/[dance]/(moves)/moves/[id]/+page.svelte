@@ -119,6 +119,15 @@
 				</li>
 			{/each}
 		</ul>
+		{#if data.canEdit}
+			<span class="hidden desk:block"
+				><button
+					type="button"
+					class={button('secondary', 'md', true)}
+					onclick={() => (view = 'new')}><Icon name="plus" size={20} />New figure</button
+				></span
+			>
+		{/if}
 
 		{#if data.usedIn.length > 0}
 			<h2 class="{SECTION_LABEL} pt-3.5">Used in</h2>
