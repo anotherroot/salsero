@@ -43,8 +43,7 @@ function post(fields: Record<string, string>, user = USER, cookie: string | unde
 		}),
 		locals: { user },
 		cookies: { get: () => cookie },
-		// the root layout's `lastDance`: the cookie's dance, else salsa
-		parent: async () => ({ lastDance: cookie ?? 'salsa' })
+		parent: async () => ({ appDance: user.dance })
 	};
 }
 type Event = ReturnType<typeof post>;

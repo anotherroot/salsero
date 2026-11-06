@@ -38,13 +38,12 @@ import type { Actions, PageServerLoad } from './$types';
 const removed = new Hold<DeviceSnapshot>(UNDO_MS);
 const holdKey = (userId: string, id: number) => `${userId}:${id}`;
 
-export const load: PageServerLoad = async ({ locals, parent }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
 	const tz = locals.user.timezone;
-	// /settings has no dance in its URL and Today links to it plain, so the
-	// dance is the last one visited: the root layout's `lastDance`.
-	const { lastDance: dance } = await parent();
+	// /settings has no dance in its URL: it is the account's (the dance split).
+	const dance = locals.user.dance;
 	const today = localDay(Date.now(), tz);
 	const asked = openRequest(db, locals.user.id);
 	return {

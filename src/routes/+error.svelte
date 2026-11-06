@@ -8,7 +8,7 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { frameOfError } from '$lib/nav/frame';
 
-	const dance = $derived(danceInPath(page.url.pathname) ?? page.data.lastDance ?? 'salsa');
+	const dance = $derived(danceInPath(page.url.pathname) ?? page.data.appDance ?? 'salsa');
 	// The root layout draws the same frame around it (`frameOfError` there too).
 	const card = $derived(frameOfError(page.url.pathname, Boolean(page.data.user)) === 'card');
 </script>

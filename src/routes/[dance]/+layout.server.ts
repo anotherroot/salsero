@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { DANCE_COOKIE, getDance, isDanceSlug } from '$lib/dances/dances';
+import { getDance, isDanceSlug } from '$lib/dances/dances';
 import { getDb } from '$lib/server/db';
 import { whatsNew } from '$lib/server/whats-new';
 import { groupChoices, groupModeOf } from '$lib/server/group-mode';
@@ -10,9 +10,9 @@ import type { LayoutServerLoad } from './$types';
 /**
  * The gate for every dance-scoped page: an unknown slug is a 404, not a
  * silent fall back to salsa, so a typo can never quietly show the wrong
- * dance's data. Visiting a dance also remembers it, which is what `/`
- * redirects to next time. It also says whether group mode is on (never on
- * Today's pages) and which groups the person may switch into.
+ * dance's data, and a dance not the account's own is a 404 too. It also says
+ * whether group mode is on (never on Today's pages) and which groups the
+ * person may switch into.
  *
  * It never sets or deletes the group cookie on its own account: a load also
  * runs on hover and touch preload, so brushing a tab would switch modes
@@ -22,13 +22,8 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = ({ params, cookies, url, locals }) => {
 	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');
 	const dance = params.dance;
-	cookies.set(DANCE_COOKIE, dance, {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		secure: url.protocol === 'https:',
-		maxAge: 60 * 60 * 24 * 365
-	});
+	// An account belongs to one dance (the dance split): the other is a stranger's.
+	if (locals.user && locals.user.dance !== dance) throw error(404, 'Not found');
 	let groupMode: GroupMode | null = null;
 	let choices: GroupChoice[] = [];
 	let groupsNew = false;

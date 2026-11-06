@@ -121,13 +121,6 @@ export function isStyleOf(slug: string, style: string): boolean {
 }
 
 /**
- * The cookie remembering which dance you were last in. Lives here rather than
- * in a route module because both `/` and the `[dance]` layout read it, and a
- * plain constant should not have to be imported across route files.
- */
-export const DANCE_COOKIE = 'dance';
-
-/**
  * The dance a path belongs to: its first segment, when that is a dance. A query
  * or hash is not part of it: login's `next` is `/bachata?app=android` when the
  * bachata app opens signed out.

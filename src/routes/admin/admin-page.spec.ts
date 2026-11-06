@@ -44,7 +44,7 @@ function ev(isAdmin: boolean, fields: Record<string, string> = {}) {
 			body: new URLSearchParams(fields)
 		}),
 		url: new URL('http://localhost/admin'),
-		parent: async () => ({ lastDance: 'salsa' })
+		parent: async () => ({ appDance: 'salsa' })
 	};
 }
 const act = (

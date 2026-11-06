@@ -22,17 +22,18 @@ import type { Actions, PageServerLoad } from './$types';
  * A person who has a level and is not on the join step is sent on, so the page
  * is never a place to get stuck.
  */
-export const load: PageServerLoad = async ({ locals, url, parent }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) throw error(401);
 	const next = safeNext(url.searchParams.get('next'));
 	const joinStep = url.searchParams.get('step') === 'join' && locals.user.level !== null;
 	if (locals.user.level !== null && !joinStep) throw redirect(303, next);
 
-	const { lastDance } = await parent();
 	let invite = null;
 	if (joinStep) {
 		const code = inviteCodeOf(next);
-		const team = code ? teamByCode(getDb(), code) : null;
+		const found = code ? teamByCode(getDb(), code) : null;
+		// Another dance's group is not offered (the dance split).
+		const team = found?.dance === locals.user.dance ? found : null;
 		if (team) {
 			const db = getDb();
 			// Already in that class: nothing to ask.
@@ -51,7 +52,7 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 		next,
 		step: joinStep ? ('join' as const) : ('start' as const),
 		invite,
-		dance: lastDance
+		dance: locals.user.dance
 	};
 };
 

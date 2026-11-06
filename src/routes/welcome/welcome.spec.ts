@@ -27,7 +27,7 @@ const user = (firstName: string | null) => ({
 	timezone: 'UTC',
 	isAdmin: false
 });
-const parent = async () => ({ lastDance: 'salsa' });
+const parent = async () => ({ appDance: 'salsa' });
 const run = (fn: unknown, e: unknown) => (fn as (e: unknown) => Promise<unknown>)(e);
 const post = (fields: Record<string, string>, u = user(null), search = '') => ({
 	locals: { user: u },

@@ -218,12 +218,14 @@ describe('Join', () => {
 		expect((await run(() => joinActions.join!(e))).status).toBe(404);
 		expect(roleOf(db, 'outsider', teamId)).toBeNull();
 	});
-	it('sends a bachata group to the bachata app', async () => {
+	// Catches: a salsa account joining a bachata group by its link (the dance split).
+	it("is a stale code to an account of another dance than the group's", async () => {
 		const b = createTeam(db, 'owner', 'bachata', 'Bachata class', 5);
 		if (!b.ok) throw new Error('setup');
 		const c = getTeam(db, b.teamId)!.code;
 		const e = { params: { dance: 'salsa', code: c }, locals: { user: user('outsider') } } as never;
-		const r = await run(() => joinActions.join!(e));
-		expect(r.location).toBe(`/bachata/groups/${b.teamId}`);
+		expect((await run(() => joinLoad(e))).status).toBe(404);
+		expect((await run(() => joinActions.join!(e))).status).toBe(404);
+		expect(roleOf(db, 'outsider', b.teamId)).toBeNull();
 	});
 });

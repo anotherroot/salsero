@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, or, type SQL } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import type { Db } from './db';
 import { invites, users } from './db/schema';
@@ -7,6 +7,7 @@ import { rejectWeak } from './admin';
 import { hashPassword } from './password';
 import { cleanName } from '$lib/names';
 import { DEFAULT_STORAGE_LIMIT_BYTES, INVITE_TTL_MS } from '$lib/limits';
+import type { DanceSlug } from '$lib/dances/dances';
 
 export type JoinResult =
 	| { ok: true; userId: string }
@@ -20,10 +21,24 @@ export const INVITE_REFUSAL = 'This invite no longer works. Ask for a new one.';
 
 const hashCode = (code: string) => createHash('sha256').update(code).digest('hex');
 
-/** A new one-time code; every other unused, unexpired invite is ended. Only the hash is kept. */
+/**
+ * An invite's dance: its own, or salsa's for one made before the dance split
+ * (they were all made from salsa).
+ */
+function ofDance(dance: DanceSlug): SQL {
+	return dance === 'salsa'
+		? (or(eq(invites.dance, 'salsa'), isNull(invites.dance)) as SQL)
+		: eq(invites.dance, dance);
+}
+
+/**
+ * A new one-time code into one dance (an account belongs to one dance); every
+ * other unused, unexpired invite of that dance is ended. Only the hash is kept.
+ */
 export function createInvite(
 	db: Db,
 	adminId: string,
+	dance: DanceSlug,
 	now: number
 ): { code: string; expiresAt: number } {
 	const code = randomBytes(32).toString('base64url');
@@ -31,7 +46,7 @@ export function createInvite(
 	db.transaction((tx) => {
 		tx.update(invites)
 			.set({ expiresAt: now })
-			.where(and(isNull(invites.usedAt), gt(invites.expiresAt, now)))
+			.where(and(isNull(invites.usedAt), gt(invites.expiresAt, now), ofDance(dance)))
 			.run();
 		tx.insert(invites)
 			.values({
@@ -39,20 +54,27 @@ export function createInvite(
 				codeHash: hashCode(code),
 				createdBy: adminId,
 				createdAt: now,
-				expiresAt
+				expiresAt,
+				dance
 			})
 			.run();
 	});
 	return { code, expiresAt };
 }
 
-export function inviteValid(db: Db, code: string, now: number): boolean {
+/** A live invite of this dance; one of the other dance is as dead as a used one. */
+export function inviteValid(db: Db, code: string, dance: DanceSlug, now: number): boolean {
 	if (!code) return false;
 	const row = db
 		.select({ id: invites.id })
 		.from(invites)
 		.where(
-			and(eq(invites.codeHash, hashCode(code)), isNull(invites.usedAt), gt(invites.expiresAt, now))
+			and(
+				eq(invites.codeHash, hashCode(code)),
+				isNull(invites.usedAt),
+				gt(invites.expiresAt, now),
+				ofDance(dance)
+			)
 		)
 		.get();
 	return !!row;
@@ -78,6 +100,8 @@ export async function redeemInvite(
 		timezone: string;
 		firstName: string;
 		lastName: string;
+		/** The request's dance: the invite must be of it, and the account is made in it. */
+		dance: DanceSlug;
 	},
 	now: number
 ): Promise<JoinResult> {
@@ -100,8 +124,15 @@ export async function redeemInvite(
 	const weak = rejectWeak(input.password);
 	if (weak) return { ok: false, reason: 'weak', message: `Password ${weak}.` };
 	const dead: JoinResult = { ok: false, reason: 'invite', message: INVITE_REFUSAL };
-	if (!inviteValid(db, input.code, now)) return dead;
-	if (db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) {
+	if (!inviteValid(db, input.code, input.dance, now)) return dead;
+	// Unique per dance: the same email may hold an account in the other dance.
+	if (
+		db
+			.select({ id: users.id })
+			.from(users)
+			.where(and(eq(users.dance, input.dance), eq(users.email, email)))
+			.get()
+	) {
 		return { ok: false, reason: 'email-taken', message: 'That email already has an account.' };
 	}
 
@@ -118,7 +149,8 @@ export async function redeemInvite(
 					and(
 						eq(invites.codeHash, hashCode(input.code)),
 						isNull(invites.usedAt),
-						gt(invites.expiresAt, now)
+						gt(invites.expiresAt, now),
+						ofDance(input.dance)
 					)
 				)
 				.run();
@@ -128,6 +160,7 @@ export async function redeemInvite(
 					.values({
 						id,
 						email,
+						dance: input.dance,
 						firstName,
 						lastName,
 						passwordHash,

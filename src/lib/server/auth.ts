@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { and, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { getDb, type Db } from './db';
 import { loginAttempts, sessions, users } from './db/schema';
-import { isDanceSlug } from '$lib/dances/dances';
+import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 
 import { hashPassword, verifyPassword } from './password';
 
@@ -62,29 +62,34 @@ const MAX_PER_USER = 8;
  * alone is a bypass: rotating IPs still trips the per-account limit, and
  * spraying many accounts from one host still trips the per-IP limit.
  */
-export function isRateLimited(ip: string, email: string): boolean {
+/** An account is a dance and an email (the dance split): each counts its own attempts. */
+const userKey = (dance: DanceSlug, email: string) => `user:${dance}:${email.toLowerCase()}`;
+
+export function isRateLimited(ip: string, email: string, dance: DanceSlug): boolean {
 	const since = Date.now() - WINDOW_MS;
 	const ipKey = `ip:${ip}`;
-	const userKey = `user:${email.toLowerCase()}`;
+	const accountKey = userKey(dance, email);
 
 	const rows = getDb()
 		.select({ key: loginAttempts.key, n: sql<number>`count(*)` })
 		.from(loginAttempts)
-		.where(and(gt(loginAttempts.attemptedAt, since), inArray(loginAttempts.key, [ipKey, userKey])))
+		.where(
+			and(gt(loginAttempts.attemptedAt, since), inArray(loginAttempts.key, [ipKey, accountKey]))
+		)
 		.groupBy(loginAttempts.key)
 		.all();
 
 	for (const row of rows) {
 		if (row.key === ipKey && row.n >= MAX_PER_IP) return true;
-		if (row.key === userKey && row.n >= MAX_PER_USER) return true;
+		if (row.key === accountKey && row.n >= MAX_PER_USER) return true;
 	}
 	return false;
 }
 
-export function recordFailedLogin(ip: string, email: string) {
+export function recordFailedLogin(ip: string, email: string, dance: DanceSlug) {
 	const db = getDb();
 	db.insert(loginAttempts)
-		.values([{ key: `ip:${ip}` }, { key: `user:${email.toLowerCase()}` }])
+		.values([{ key: `ip:${ip}` }, { key: userKey(dance, email) }])
 		.run();
 	// Opportunistic prune so the table cannot grow without bound.
 	db.delete(loginAttempts)
@@ -92,9 +97,9 @@ export function recordFailedLogin(ip: string, email: string) {
 		.run();
 }
 
-export function clearLoginAttempts(email: string) {
+export function clearLoginAttempts(email: string, dance: DanceSlug) {
 	getDb()
 		.delete(loginAttempts)
-		.where(eq(loginAttempts.key, `user:${email.toLowerCase()}`))
+		.where(eq(loginAttempts.key, userKey(dance, email)))
 		.run();
 }

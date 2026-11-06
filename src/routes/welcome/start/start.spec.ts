@@ -29,8 +29,8 @@ beforeEach(() => {
 	code = db.select().from(teams).where(eq(teams.id, teamId)).get()!.code;
 });
 
-const user = (level: string | null) => ({ id: 'ana', level, firstName: 'Ana' });
-const parent = async () => ({ lastDance: 'salsa' });
+const user = (level: string | null) => ({ id: 'ana', level, firstName: 'Ana', dance: 'bachata' });
+const parent = async () => ({ appDance: 'bachata' });
 const run = (fn: unknown, e: unknown) => (fn as (e: unknown) => Promise<unknown>)(e);
 const event = (fields: Record<string, string>, level: string | null = null, search = '') => ({
 	locals: { user: user(level) },

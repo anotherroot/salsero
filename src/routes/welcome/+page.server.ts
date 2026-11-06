@@ -11,12 +11,11 @@ import type { Actions, PageServerLoad } from './$types';
  * here). A named person who opens it is sent on, so the page is never a place
  * to get stuck.
  */
-export const load: PageServerLoad = async ({ locals, url, parent }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) throw error(401);
 	const next = safeNext(url.searchParams.get('next'));
 	if (locals.user.firstName) throw redirect(303, next);
-	const { lastDance } = await parent();
-	return { next, dance: lastDance };
+	return { next, dance: locals.user.dance };
 };
 
 export const actions: Actions = {

@@ -111,15 +111,15 @@
 	 * Which dance they lead to is remembered here rather than read from `data` each time.
 	 * The root layout's load depends on a cookie, and SvelteKit's dependency
 	 * tracking does not cover cookies, so it never re-runs on a client-side
-	 * navigation: after switching to bachata and tapping Settings, `lastDance`
-	 * would still say salsa. It is the seed for the first paint; the URL is the
+	 * navigation: after switching to bachata and tapping Settings, `appDance`
+	 * could still say salsa. It is the seed for the first paint; the URL is the
 	 * truth after that.
 	 */
 	let seen = $state<DanceSlug | null>(null);
 	$effect(() => {
 		if (dance) seen = dance.slug;
 	});
-	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
+	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.appDance]);
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 	/*

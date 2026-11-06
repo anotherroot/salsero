@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb } from './db';
 import { lessonAdds, teamMembers, teams, users } from './db/schema';
-import { createTeam, deleteTeam } from './teams';
+import { createTeam, deleteTeam, joinTeam } from './teams';
 import { createLesson, publishLesson } from './lessons';
 import { entryFor } from './entries';
 import { setLevel } from './levels';
-import { danceWithClass, joinWithCode } from './join-code';
+import { joinWithCode } from './join-code';
 
 const addedBy = (db: ReturnType<typeof openDb>, userId: string) =>
 	db
@@ -110,28 +110,14 @@ describe('joinWithCode', () => {
 	});
 });
 
-describe('danceWithClass', () => {
-	const all = ['salsa', 'bachata'] as const;
-	it('keeps the last dance when it has a class', () => {
+describe('a class of the other dance (the dance split)', () => {
+	// Catches: a salsa account joining a bachata class by its code, or learning it exists.
+	it('is an unknown code, and joinTeam refuses it', () => {
 		const db = setup();
-		const s = make(db, 'S');
+		db.update(users).set({ dance: 'salsa' }).where(eq(users.id, 'ana')).run();
 		const b = make(db, 'B', 'bachata');
-		joinWithCode(db, 'ana', s.code, 5);
-		joinWithCode(db, 'ana', b.code, 5);
-		expect(danceWithClass(db, 'ana', 'salsa', all)).toBe('salsa');
-	});
-	it('moves to the dance that has a class when the last has none', () => {
-		const db = setup();
-		const b = make(db, 'B', 'bachata');
-		joinWithCode(db, 'ana', b.code, 5);
-		expect(danceWithClass(db, 'ana', 'salsa', all)).toBe('bachata');
-	});
-	it('keeps the last dance when there is no class anywhere, or only a deleted one', () => {
-		const db = setup();
-		expect(danceWithClass(db, 'ana', 'salsa', all)).toBe('salsa');
-		const b = make(db, 'B', 'bachata');
-		joinWithCode(db, 'ana', b.code, 5);
-		deleteTeam(db, b.id, 'teacher', 9);
-		expect(danceWithClass(db, 'ana', 'salsa', all)).toBe('salsa');
+		expect(joinWithCode(db, 'ana', b.code, 5)).toEqual({ ok: false, reason: 'unknown' });
+		expect(joinTeam(db, 'ana', b.id, 5)).toBe('refused');
+		expect(members(db, b.id, 'ana')).toBe(0);
 	});
 });

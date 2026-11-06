@@ -17,11 +17,17 @@ beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	db.insert(users)
-		.values({ id: 'admin', email: 'a@example.com', passwordHash: 'x', isAdmin: true })
+		.values({
+			id: 'admin',
+			email: 'a@example.com',
+			passwordHash: 'x',
+			isAdmin: true,
+			dance: 'salsa'
+		})
 		.run();
 });
 
-const parent = async () => ({ lastDance: 'salsa' });
+const parent = async () => ({ appDance: 'salsa' });
 
 function post(fields: Record<string, string>, cookie?: string) {
 	const set = vi.fn();
@@ -46,13 +52,13 @@ describe('join', () => {
 		const url = (c: string) => new URL(`http://localhost/join?code=${c}`);
 		const dead = await (load as (e: unknown) => Promise<unknown>)({ url: url('x'), parent });
 		expect(dead).toMatchObject({ valid: false });
-		const { code } = createInvite(db, 'admin', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
 		const live = await (load as (e: unknown) => Promise<unknown>)({ url: url(code), parent });
 		expect(live).toMatchObject({ valid: true });
 	});
 
 	it('the action signs the new person in and redirects to /app', async () => {
-		const { code } = createInvite(db, 'admin', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
 		const { event, set } = post({
 			code,
 			email: 'New@Example.com',
@@ -67,7 +73,7 @@ describe('join', () => {
 	});
 
 	it('no first or last name fails with the field marked and makes no user', async () => {
-		const { code } = createInvite(db, 'admin', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
 		const base = { code, email: 'n@example.com', password: 'Correct-Horse-9' };
 		const noFirst = (await run(post({ ...base, lastName: 'K' }).event)) as {
 			status: number;
@@ -83,7 +89,7 @@ describe('join', () => {
 	});
 
 	it('inside the app the new person goes on to /', async () => {
-		const { code } = createInvite(db, 'admin', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
 		const { event } = post(
 			{
 				code,
@@ -108,6 +114,21 @@ describe('join', () => {
 		});
 		const res = (await run(event)) as { status: number; data: { message: string } };
 		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('This invite no longer works. Ask for a new one.');
+		expect(db.select().from(users).all()).toHaveLength(1);
+	});
+
+	// Catches: Join on one dance's host redeeming the other dance's invite.
+	it("refuses another dance's invite and makes no account", async () => {
+		const { code } = createInvite(db, 'admin', 'bachata', Date.now());
+		const { event } = post({
+			code,
+			firstName: 'Ana',
+			lastName: 'K',
+			email: 'n@example.com',
+			password: 'Correct-Horse-9'
+		});
+		const res = (await run(event)) as { status: number; data: { message: string } };
 		expect(res.data.message).toBe('This invite no longer works. Ask for a new one.');
 		expect(db.select().from(users).all()).toHaveLength(1);
 	});

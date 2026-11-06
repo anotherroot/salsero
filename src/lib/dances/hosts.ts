@@ -56,3 +56,47 @@ export function requestDance(i: {
 		DEFAULT_DANCE
 	);
 }
+
+/** What both hosts serve as they are: the worker, the update check, the APKs, health, assets. */
+const EVERY_HOST = ['/api/worker/', '/api/app-update/', '/releases/', '/_app/'];
+
+/**
+ * What a mapped host does with a request before anything else: pass it,
+ * redirect it (303, a GET or HEAD only) to the host of the dance it belongs
+ * to, or answer it as missing (404). Two cases move a request:
+ *
+ * - a signed-in account of the other dance (a session from before the split)
+ *   goes to its own host, to the same path unless that path is this dance's,
+ *   which would only bounce back, so to `/` there;
+ * - a path under the other dance's prefix goes to that dance's host.
+ *
+ * Cookies are per host, so the other host never sees this session: no loop.
+ * An unmapped host (dev, specs, loopback) passes everything; the wall is the
+ * account's dance (`wallOf`), never the host.
+ */
+export function hostRedirect(i: {
+	hosts: DanceHosts;
+	host: string;
+	path: string;
+	search: string;
+	method: string;
+	userDance: DanceSlug | null;
+}): { kind: 'pass' } | { kind: 'redirect'; to: string } | { kind: 'missing' } {
+	const here = hostDance(i.hosts, i.host);
+	if (here === null) return { kind: 'pass' };
+	if (i.path === '/health' || EVERY_HOST.some((p) => i.path.startsWith(p))) return { kind: 'pass' };
+	const readOnly = i.method === 'GET' || i.method === 'HEAD';
+	const go = (dance: DanceSlug, to: string) => {
+		const host = hostOf(i.hosts, dance);
+		return host && readOnly && !i.path.startsWith('/api/')
+			? ({ kind: 'redirect', to: `https://${host}${to}` } as const)
+			: ({ kind: 'missing' } as const);
+	};
+	const pathDance = danceInPath(i.path);
+	if (i.userDance !== null && i.userDance !== here) {
+		const keep = pathDance === null || pathDance === i.userDance;
+		return go(i.userDance, keep ? i.path + i.search : '/');
+	}
+	if (pathDance !== null && pathDance !== here) return go(pathDance, i.path + i.search);
+	return { kind: 'pass' };
+}

@@ -21,16 +21,15 @@ import {
 } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, parent }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	requireAdmin(locals);
-	const { lastDance } = await parent();
 	const tz = locals.user!.timezone;
 	const db = getDb();
 	const now = Date.now();
 	const today = localDay(now, tz);
 	const seen = listAppsSeen(db);
 	return {
-		dance: lastDance,
+		dance: locals.user!.dance,
 		// Numbers and names only: never a lesson title or anything a person made.
 		limitsTotalBytes: limitsTotal(db),
 		freeBytes: await freeDisk(),
@@ -70,7 +69,12 @@ export const actions: Actions = {
 	/** Makes a new code (and ends the previous unused one); the code is only in this response. */
 	invite: async ({ locals, url }) => {
 		requireAdmin(locals);
-		const { code, expiresAt } = createInvite(getDb(), locals.user!.id, Date.now());
+		const { code, expiresAt } = createInvite(
+			getDb(),
+			locals.user!.id,
+			locals.user!.dance,
+			Date.now()
+		);
 		const link = `${url.origin}/join?code=${code}`;
 		return { url: link, qr: inviteQr(link), expiresAt };
 	},
