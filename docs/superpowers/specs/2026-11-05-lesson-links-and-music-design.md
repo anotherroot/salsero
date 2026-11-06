@@ -135,8 +135,8 @@ rename is part of the link's own History line (no second line).
 **The ones already linked are named once (the user's answer).** A one-time
 step at boot, run once and marked done in `app_flags` as `positions-move.ts`
 does, gives every unnamed section or point that already has a link the same
-name: of its oldest link (by the link's id), figure versions before drills
-before positions when two were made together. It writes no History line (it
+name: of its oldest figure or drill link (lowest `spot_links.id`), else of its
+oldest position link (lowest `spot_position_links.id`). It writes no History line (it
 is no one's edit, like the boot move).
 
 ### A4. A new lesson from a shared video
