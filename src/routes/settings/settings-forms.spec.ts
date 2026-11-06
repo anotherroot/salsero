@@ -52,7 +52,7 @@ beforeEach(() => {
 	handle.db = db;
 	for (const u of [USER, OTHER]) {
 		db.insert(users)
-			.values({ id: u.id, email: u.email, passwordHash: 'x', timezone: u.timezone })
+			.values({ id: u.id, email: u.email, passwordHash: 'x', timezone: u.timezone, dance: 'salsa' })
 			.run();
 	}
 });
