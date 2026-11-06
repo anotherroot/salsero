@@ -169,7 +169,7 @@ and behaviour for every other caller.
 - **Plan 1, now:** the video, the facts card's Positions, Recordings as one list
   with `+ Add` (section and video), the three-row card and its sheets, the
   desktop columns, the specs and docs. Depends on neither slot.
-- **Plan 2, after slot 3's ⋯ menu is in master:** Practice leaves the page. The
+- **Plan 2 (built 2026-11-06, on slot 3's `ItemMenu`):** Practice leaves the page. The
   menu gets this page's own items, first: **Create exercise** ("Put it on Today
   on its own", today's `?/practise`) or, once one exists, **Its exercise** (a
   link to it, with today's practice line as its meta), then **History** (from

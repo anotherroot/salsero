@@ -6,6 +6,7 @@ import { longDayLabel, plural } from '$lib/format';
 import { possessive } from '$lib/clones/view';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
+import type { MenuItem } from '$lib/menu';
 import type { RoutineUse } from '$lib/routines/coverage';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import { dueWords } from '$lib/schedule/words';
@@ -250,4 +251,62 @@ export function filterRows<T extends { name: string }>(rows: T[], q: string): T[
 		const name = fold(r.name);
 		return words.every((w) => name.includes(w));
 	});
+}
+
+/**
+ * The figure page's own ⋯ items (rework plan 2), before slot 3's copy items:
+ * Its exercise or Create exercise, History, Move to another move…, and Archive
+ * (a danger item, so `orderMenu` lists it last). A reader creates nothing here:
+ * their pinned bar has Practise.
+ */
+export function figureMenuItems(
+	i: {
+		canEdit: boolean;
+		reader: boolean;
+		practisable: boolean;
+		exercise: { href: string; line: string } | null;
+		historyHref: string | null;
+		variationName: string;
+		/** Create exercise is on its way: left out, so a second tap cannot send it again. */
+		creating?: boolean;
+	},
+	on: { create: () => void; move: () => void; archive: () => void }
+): MenuItem[] {
+	const items: MenuItem[] = [];
+	if (i.exercise) {
+		items.push({
+			key: 'exercise',
+			icon: 'today',
+			label: 'Its exercise',
+			meta: i.exercise.line,
+			href: i.exercise.href
+		});
+	} else if (i.practisable && !i.reader && !i.creating) {
+		items.push({
+			key: 'create',
+			icon: 'plus',
+			label: 'Create exercise',
+			meta: 'Put it on Today on its own',
+			onclick: on.create
+		});
+	}
+	if (i.historyHref)
+		items.push({ key: 'history', icon: 'clock', label: 'History', href: i.historyHref });
+	if (i.canEdit) {
+		items.push({
+			key: 'moveFigure',
+			icon: 'move-to',
+			label: 'Move to another move…',
+			meta: 'Or a new move of its own',
+			onclick: on.move
+		});
+		items.push({
+			key: 'archive',
+			icon: 'trash',
+			label: `Archive ${i.variationName}`,
+			danger: true,
+			onclick: on.archive
+		});
+	}
+	return items;
 }

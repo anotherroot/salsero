@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import {
 	addVideoRow,
+	figureMenuItems,
 	archiveCopy,
 	filterRows,
 	recordingMetaLine,
@@ -285,5 +286,72 @@ describe('review fixes', () => {
 	it('the add sheet’s video row waits while a video goes up', () => {
 		expect(addVideoRow(true)).toEqual({ disabled: true, meta: 'Wait for the upload to finish' });
 		expect(addVideoRow(false)).toEqual({ disabled: false, meta: null });
+	});
+});
+
+describe('figureMenuItems', () => {
+	const on = { create: vi.fn(), move: vi.fn(), archive: vi.fn() };
+	const base = {
+		canEdit: true,
+		reader: false,
+		practisable: true,
+		exercise: null,
+		historyHref: '/salsa/groups/1/history/figure/7',
+		variationName: 'Doble'
+	};
+	const keys = (i: Parameters<typeof figureMenuItems>[0]) =>
+		figureMenuItems(i, on).map((x) => x.key);
+
+	it('gives an editor Create exercise, History, Move and Archive, in that order', () => {
+		expect(keys(base)).toEqual(['create', 'history', 'moveFigure', 'archive']);
+	});
+	it('links Its exercise, with its practice line, once there is one', () => {
+		const items = figureMenuItems(
+			{ ...base, exercise: { href: '/salsa/exercises/3', line: 'Due Sunday' } },
+			on
+		);
+		expect(items.map((x) => x.key)).toEqual(['exercise', 'history', 'moveFigure', 'archive']);
+		expect(items[0]).toMatchObject({
+			label: 'Its exercise',
+			href: '/salsa/exercises/3',
+			meta: 'Due Sunday'
+		});
+	});
+	it('gives a reader none of the editor’s items, and no Create (their bar has Practise)', () => {
+		expect(keys({ ...base, canEdit: false, reader: true, historyHref: null })).toEqual([]);
+	});
+	it('offers no Create when the figure cannot be practised', () => {
+		expect(keys({ ...base, practisable: false, historyHref: null })).toEqual([
+			'moveFigure',
+			'archive'
+		]);
+	});
+	it('names the variation on Archive, as a danger item, and wires the taps', () => {
+		const items = figureMenuItems(base, on);
+		expect(items.at(-1)).toMatchObject({ label: 'Archive Doble', danger: true });
+		items.find((x) => x.key === 'create')!.onclick!();
+		items.find((x) => x.key === 'moveFigure')!.onclick!();
+		expect(on.create).toHaveBeenCalledOnce();
+		expect(on.move).toHaveBeenCalledOnce();
+		expect(items.find((x) => x.key === 'moveFigure')!.label).toBe('Move to another move…');
+	});
+});
+
+describe('figureMenuItems while Create exercise is on its way', () => {
+	it('leaves Create out, so a second tap cannot send it twice', () => {
+		const on = { create: vi.fn(), move: vi.fn(), archive: vi.fn() };
+		const items = figureMenuItems(
+			{
+				canEdit: true,
+				reader: false,
+				practisable: true,
+				exercise: null,
+				historyHref: null,
+				variationName: 'Doble',
+				creating: true
+			},
+			on
+		);
+		expect(items.map((x) => x.key)).toEqual(['moveFigure', 'archive']);
 	});
 });

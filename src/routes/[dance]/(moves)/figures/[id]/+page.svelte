@@ -4,7 +4,7 @@
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
@@ -44,6 +44,9 @@
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
 	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
 	import { menuLabel } from '$lib/menu';
+	import { act } from '$lib/act';
+	import { refusalMessage } from '$lib/act-toast';
+	import Toast from '$lib/components/ui/Toast.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import {
@@ -59,6 +62,7 @@
 	import {
 		archiveCopy,
 		deleteRecordingBody,
+		figureMenuItems,
 		figureSubtitle,
 		recordingDay,
 		recordingsTitle,
@@ -305,6 +309,49 @@
 		copy: data.copyTo,
 		sameAs: data.sameAs
 	});
+	/** Create exercise is on its way: the menu leaves it out, a toast says so. */
+	let creating = $state(false);
+	const exerciseHref = (id: number) =>
+		resolve('/[dance]/(today)/exercises/[id]', { dance: slug, id: String(id) });
+	/** The page's own ⋯ items (rework plan 2): Its exercise or Create exercise, History, Move, Archive. */
+	const ownMenu = $derived(
+		figureMenuItems(
+			{
+				canEdit: data.canEdit,
+				reader: !!data.makeMine,
+				practisable: data.practisable,
+				exercise: data.exercise
+					? { href: exerciseHref(data.exercise.id), line: data.practice?.text ?? 'Practice' }
+					: null,
+				historyHref: data.historyHref,
+				variationName: variation.name,
+				creating
+			},
+			{
+				create: () => void createExercise(),
+				move: () => (moving = true),
+				archive: () => (archiving = true)
+			}
+		)
+	);
+	/** Create exercise answers here: the menu has closed by then. */
+	let toast = $state<{ id: number; message: string; href?: string } | null>(null);
+	let toastSeq = 0;
+	async function createExercise() {
+		creating = true;
+		toast = { id: ++toastSeq, message: 'Adding to Today…' };
+		let result;
+		try {
+			result = await act('practise', {});
+		} finally {
+			creating = false;
+		}
+		const refused = refusalMessage(result, 'Could not add it to Today.');
+		const id = data.exercise?.id;
+		toast = refused
+			? { id: ++toastSeq, message: refused }
+			: { id: ++toastSeq, message: 'On Today now', href: id ? exerciseHref(id) : undefined };
+	}
 </script>
 
 <svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
@@ -361,15 +408,12 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		{#if !editing && data.historyHref}
-			<BandButton icon="clock" label="History" href={data.historyHref} />
-		{/if}
 		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
 		{#if !editing && data.canEdit}
 			<BandButton focusKey="start-editing" icon="pencil" label="Edit" onclick={startEditing} />
 		{/if}
 		{#if !editing}
-			{#if hasMenu([], offers)}
+			{#if hasMenu(ownMenu, offers)}
 				<BandButton
 					icon="more"
 					label={menuLabel('figure')}
@@ -576,93 +620,6 @@
 				/>
 			{/if}
 		</section>
-
-		<h2 class="{SECTION_LABEL} pt-2">Practice</h2>
-		{#if data.exercise && data.popup}
-			{@const popup = data.popup}
-			<ul class={GROUP}>
-				<li class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
-					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span
-							class="text-[16px] leading-tight font-bold {data.practice?.tone === 'status'
-								? 'text-status'
-								: data.practice?.tone === 'done'
-									? 'text-done'
-									: 'text-ink'}">{data.practice?.text ?? 'Practice'}</span
-						>
-					</span>
-					<button
-						type="button"
-						class={iconButton('bare', 'accent')}
-						aria-label="Log {popup.exercise.name}"
-						aria-haspopup="dialog"
-						onclick={() => (logging = true)}><Icon name="plus" size={24} /></button
-					>
-				</li>
-				<li>
-					<a
-						href={resolve('/[dance]/(today)/exercises/[id]', {
-							dance: slug,
-							id: String(data.exercise.id)
-						})}
-						class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
-					>
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-tight font-bold text-ink">Its exercise</span>
-							<span class="text-[13px] text-muted">History, how often, active</span>
-						</span>
-						<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</a>
-				</li>
-			</ul>
-		{:else if !data.exercise && !data.practisable}
-			<!-- A group's variation is practised from a lesson the person added (R8). -->
-			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
-				Add a lesson with this figure to practise it.
-			</p>
-		{:else if !data.exercise}
-			<form
-				id="practise-form"
-				method="POST"
-				action="?/practise"
-				use:enhance={() => {
-					practising = true;
-					return async ({ update }) => {
-						try {
-							await update();
-						} finally {
-							practising = false;
-						}
-					};
-				}}
-				class={GROUP}
-			>
-				<div class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
-					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span class="text-[16px] leading-tight font-bold text-ink">Via routines</span>
-						<span class="text-[13px] text-muted">No exercise of its own</span>
-					</span>
-					<button
-						type="submit"
-						class={button('secondary', 'sm')}
-						aria-busy={practising}
-						disabled={practising}
-						aria-describedby={failed('practise') ? 'practise-error' : undefined}
-					>
-						<!-- Both in one cell: the label keeps the width while the spinner shows. -->
-						<span class="grid place-items-center">
-							<span class="col-start-1 row-start-1" class:invisible={practising}
-								>Practise on its own</span
-							>
-							{#if practising}<span class="col-start-1 row-start-1"><Spinner /></span>{/if}
-						</span>
-					</button>
-				</div>
-			</form>
-			{#if failed('practise')}
-				<FieldError id="practise-error" message={failed('practise') ?? ''} />
-			{/if}
-		{/if}
 	{/if}
 {/snippet}
 
@@ -821,38 +778,6 @@
 				</li>
 			{/each}
 		</ul>
-	{/if}
-
-	<!-- What changes where the variation lives, kept at the end, out of the way. An editor's only. -->
-	{#if data.canEdit}
-		<div class="mt-[18px] mb-[10px] h-px bg-hairline"></div>
-		<div class={GROUP}>
-			<button
-				type="button"
-				aria-haspopup="dialog"
-				onclick={() => (moving = true)}
-				class="flex min-h-16 w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-			>
-				<span
-					class="flex size-10 flex-none items-center justify-center rounded-full bg-chip text-ink-2"
-					><Icon name="move-to" size={22} /></span
-				>
-				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span class="text-[16px] leading-tight font-bold text-ink">Move {variation.name} to…</span
-					>
-					<span class="text-[13px] text-muted">A new move of its own, or another move</span>
-				</span>
-				<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-			</button>
-		</div>
-		<button
-			type="button"
-			aria-haspopup="dialog"
-			onclick={() => (archiving = true)}
-			class={button('danger-text', 'md', true)}
-			><Icon name="trash" size={20} />Archive {variation.name}</button
-		>
-		<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
 	{/if}
 {/snippet}
 
@@ -1057,6 +982,24 @@
 	title={`${figure.name} · ${variation.name}`}
 	kind="figure"
 	current={variation.id}
-	own={[]}
+	own={ownMenu}
 	{offers}
+/>
+
+<!-- Create exercise's answer: the menu has closed, so it speaks here. -->
+<Toast
+	toast={toast && {
+		id: toast.id,
+		message: toast.message,
+		action: toast.href ? 'Open' : undefined,
+		icon: toast.href ? 'check' : undefined,
+		tone: toast.href ? 'done' : undefined
+	}}
+	onaction={() => {
+		const href = toast?.href;
+		toast = null;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by exerciseHref
+		if (href) void goto(href);
+	}}
+	ondismiss={() => (toast = null)}
 />

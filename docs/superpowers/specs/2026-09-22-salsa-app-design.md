@@ -310,7 +310,8 @@ for the data model, the popups and the panel in full.
   archived; sets keep pointing at them and history stays intact.
 - **A figure's exercise is opt-in** (since 2026-10-01; see the
   [figure coverage design](2026-10-01-figure-coverage-design.md)): creating a
-  figure creates none, and "Practise on its own" calls `addFigureExercise`
+  figure creates none, and Create exercise in the figure's ⋯ menu (since
+  2026-11-06; "Practise on its own" before) calls `addFigureExercise`
   (`source='figure'`, name = figure name). When one exists, renaming the
   figure renames it and archiving the figure archives it, in one transaction.
 - **Creating a routine creates its exercise** in the same transaction — see
