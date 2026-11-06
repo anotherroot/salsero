@@ -547,3 +547,8 @@ in the routine picker, search on Routines.
   was sent inside them; the player's close goes through `refreshWhenSettled()`.
 - **Cleanup, `tone` on `iconButton` only:** `button()`'s kinds are its tones; invalid
   fields use a 1 px border plus a 1 px inset danger shadow, not `border-2`.
+- **Whose version and the ⋯ menu (2026-11-06):** a family page shows one row at
+  the top of its body ("Your version · Also: …", "N ▾") that opens a Versions list,
+  in place of the pill row of sources; Copy to…, Same as…, Move to…, Detach and Drop
+  my copy are items of one shared ⋯ in the band (`ui/MenuSheet.svelte`). See
+  [the versions and menu spec](2026-11-06-versions-and-menu-design.md).

@@ -148,6 +148,20 @@ titled with the item's name.
    hiding `SourceTabs` and its own menu (while editing, while selecting slots),
    and a reader's page shows it when it has an item.
 
+*Built:* the words and the order are PURE, `src/lib/clones/versions.ts`
+(`versionRow`, `versionList`) and `src/lib/menu.ts` (`MenuItem`, `orderMenu`,
+`menuLabel`) with `src/lib/clones/menu.ts` (`cloneMenuItems`). The parts are
+`components/ui/MenuSheet.svelte` (the ⋯ and its sheet; `open` is bindable and
+`button={false}` leaves the ⋯ out, for the simple lesson view, which opens the
+lesson's items from its own button), `components/clones/ItemMenu.svelte` (the
+menu with the copy actions and their sheets), `Versions.svelte` and
+`VersionsSheet.svelte`. Copy to…'s toast is a small store
+(`components/clones/copied.svelte.ts`) drawn by `Versions`, since the menu sits
+in the band. A version opens through `gotoWhenSettled`: the list closes, then
+the version replaces the page. `SourceTabs`, `FamilyList` and `RoutineMenu` are
+gone. A source's place, where no family entry says it, is read from its label
+("Yours", "Yours 2"). Scenes: `scripts/shots/ext_versions.py`.
+
 ## Left to the builder
 
 The component names and where they live (`components/clones/` for the row and

@@ -154,6 +154,11 @@ The desktop has its own (built: the frame and the area pages),
 from 1024 px, one short band row and a band-coloured side with the tabs, a
 list and the opened item side by side, two-column figure and lesson pages, and
 every bottom sheet as a centred dialog.
+Whose version and the ⋯ menu have theirs,
+[`docs/superpowers/specs/2026-11-06-versions-and-menu-design.md`](docs/superpowers/specs/2026-11-06-versions-and-menu-design.md):
+the row at the top of a family page (option D), the Versions list, and one shared
+⋯ in the band holding a page's own items and the copy actions
+(`src/lib/clones/versions.ts` and `menu.ts` are its PURE words and order).
 Today as a number a day has its own,
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md):
 the four faces, the replayed gap and its numbers, the day's list from the start
@@ -573,8 +578,11 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dat
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      exercises/ links/ routines/ moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
-                     (error, offline, choice sheet, status block, lead tile) clones/ (the source
-                     tabs and the clone and twin sheets) teams/ (Add, the code, Leave).
+                     (error, offline, choice sheet, status block, lead tile) clones/ (`Versions`:
+                     the whose-version row and its list; `ItemMenu`: a family page's ⋯ with the
+                     copy actions; the clone and twin sheets) teams/ (Add, the code, Leave).
+                     ui/MenuSheet.svelte is a page's ⋯ and its small sheet (`MenuItem`,
+                     `orderMenu`, `menuLabel` in `src/lib/menu.ts`, PURE)
                      ui/styles.ts holds the class builders: `button(kind, size, full)`,
                      `iconButton(variant, tone)`, `FIELD`/`TEXTAREA`/`SELECT` and their
                      `_INVALID` twins, `CHIP`, `GROUP` and `CLIP` (`focus-inset`: a card that
