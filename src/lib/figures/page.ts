@@ -267,6 +267,8 @@ export function figureMenuItems(
 		exercise: { href: string; line: string } | null;
 		historyHref: string | null;
 		variationName: string;
+		/** Create exercise is on its way: left out, so a second tap cannot send it again. */
+		creating?: boolean;
 	},
 	on: { create: () => void; move: () => void; archive: () => void }
 ): MenuItem[] {
@@ -279,7 +281,7 @@ export function figureMenuItems(
 			meta: i.exercise.line,
 			href: i.exercise.href
 		});
-	} else if (i.practisable && !i.reader) {
+	} else if (i.practisable && !i.reader && !i.creating) {
 		items.push({
 			key: 'create',
 			icon: 'plus',

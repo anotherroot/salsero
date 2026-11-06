@@ -336,3 +336,22 @@ describe('figureMenuItems', () => {
 		expect(items.find((x) => x.key === 'moveFigure')!.label).toBe('Move to another move…');
 	});
 });
+
+describe('figureMenuItems while Create exercise is on its way', () => {
+	it('leaves Create out, so a second tap cannot send it twice', () => {
+		const on = { create: vi.fn(), move: vi.fn(), archive: vi.fn() };
+		const items = figureMenuItems(
+			{
+				canEdit: true,
+				reader: false,
+				practisable: true,
+				exercise: null,
+				historyHref: null,
+				variationName: 'Doble',
+				creating: true
+			},
+			on
+		);
+		expect(items.map((x) => x.key)).toEqual(['moveFigure', 'archive']);
+	});
+});

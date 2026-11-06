@@ -309,6 +309,8 @@
 		copy: data.copyTo,
 		sameAs: data.sameAs
 	});
+	/** Create exercise is on its way: the menu leaves it out, a toast says so. */
+	let creating = $state(false);
 	const exerciseHref = (id: number) =>
 		resolve('/[dance]/(today)/exercises/[id]', { dance: slug, id: String(id) });
 	/** The page's own ⋯ items (rework plan 2): Its exercise or Create exercise, History, Move, Archive. */
@@ -322,7 +324,8 @@
 					? { href: exerciseHref(data.exercise.id), line: data.practice?.text ?? 'Practice' }
 					: null,
 				historyHref: data.historyHref,
-				variationName: variation.name
+				variationName: variation.name,
+				creating
 			},
 			{
 				create: () => void createExercise(),
@@ -335,7 +338,14 @@
 	let toast = $state<{ id: number; message: string; href?: string } | null>(null);
 	let toastSeq = 0;
 	async function createExercise() {
-		const result = await act('practise', {});
+		creating = true;
+		toast = { id: ++toastSeq, message: 'Adding to Today…' };
+		let result;
+		try {
+			result = await act('practise', {});
+		} finally {
+			creating = false;
+		}
 		const refused = refusalMessage(result, 'Could not add it to Today.');
 		const id = data.exercise?.id;
 		toast = refused
