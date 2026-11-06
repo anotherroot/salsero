@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SectionLinkChip, ViaSection } from '$lib/types';
 import {
+	ADD_LABEL,
 	deleteBlock,
 	deleteVideoBody,
 	positionLinkLabel,
@@ -173,5 +174,17 @@ describe('lesson page lines', () => {
 		expect(
 			viaRanges([{ spotId: 1, startMs: 72_000, endMs: null, label: null }, via(1000, 2000)])
 		).toBe('1:12.0, 0:01.0–0:02.0');
+	});
+});
+
+describe("the lists' + Add", () => {
+	it('names what each one adds', () => {
+		expect(ADD_LABEL).toEqual({
+			figure: 'Add a figure',
+			routine: 'Add a routine',
+			exercise: 'Add an exercise',
+			position: 'Add a position',
+			link: 'Add a link'
+		});
 	});
 });

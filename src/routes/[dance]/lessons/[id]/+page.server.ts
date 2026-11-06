@@ -33,6 +33,8 @@ import {
 } from '$lib/server/figures';
 import { createCustomExercise } from '$lib/server/exercises';
 import { createRoutine } from '$lib/server/routines';
+import { createPosition } from '$lib/server/positions';
+import { readNewPosition } from '$lib/server/position-form';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
@@ -601,6 +603,20 @@ export const actions: Actions = {
 			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
 		}
 		return { action: 'unlinkRoutine', ok: true };
+	},
+
+	newPosition: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		const read = readNewPosition(await request.formData(), space.dance);
+		const typed = { action: 'newPosition' as const, ...read.typed };
+		if (!('input' in read)) {
+			return fail(400, { ...typed, field: read.field, message: read.message });
+		}
+		const db = getDb();
+		const made = createPosition(db, space, read.input, Date.now());
+		if ('field' in made) return fail(400, { ...typed, field: made.field, message: made.message });
+		linkPosition(db, lesson.id, made.id, actorOf(space));
+		return { action: 'newPosition' as const, ok: true, positionId: made.id };
 	},
 
 	linkPosition: async ({ params, request, locals }) => {

@@ -184,3 +184,12 @@ export function positionPickGroups(
 		[...teams.values()]
 	).map((g) => ({ ...g, entries: g.entries.map(mark) }));
 }
+
+/** The aria-label of each list's "+ Add" on the lesson page. */
+export const ADD_LABEL = {
+	figure: 'Add a figure',
+	routine: 'Add a routine',
+	exercise: 'Add an exercise',
+	position: 'Add a position',
+	link: 'Add a link'
+} as const;

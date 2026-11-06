@@ -34,20 +34,19 @@ export function nameLinkedSpots(db: Db, now: number): { ran: boolean; named: num
 				.orderBy(asc(spotLinks.id))
 				.limit(1)
 				.get();
-			let name: string | null = null;
-			if (link?.figureId != null) name = targetName(tx, { figureId: link.figureId });
-			else if (link?.exerciseId != null) name = targetName(tx, { exerciseId: link.exerciseId });
-			else {
-				name =
-					tx
-						.select({ name: positions.name })
-						.from(spotPositionLinks)
-						.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
-						.where(eq(spotPositionLinks.spotId, id))
-						.orderBy(asc(spotPositionLinks.id))
-						.limit(1)
-						.get()?.name ?? null;
-			}
+			const name =
+				link?.figureId != null
+					? targetName(tx, { figureId: link.figureId })
+					: link?.exerciseId != null
+						? targetName(tx, { exerciseId: link.exerciseId })
+						: (tx
+								.select({ name: positions.name })
+								.from(spotPositionLinks)
+								.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+								.where(eq(spotPositionLinks.spotId, id))
+								.orderBy(asc(spotPositionLinks.id))
+								.limit(1)
+								.get()?.name ?? null);
 			if (name) {
 				nameIfUnnamed(tx, id, name);
 				named += 1;

@@ -15,7 +15,6 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
-	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
@@ -58,6 +57,7 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { byteSize, fullDateLabel } from '$lib/format';
 	import {
+		ADD_LABEL,
 		deleteBlock,
 		deleteVideoBody,
 		exerciseMeta,
@@ -73,6 +73,7 @@
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
@@ -177,6 +178,7 @@
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
 	let addingRoutine = $state(false);
+	let addingPosition = $state(false);
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 	/** Where focus goes when that row is gone: the list's keys, the row, the list's add control. */
@@ -524,6 +526,9 @@
 			typed = { figureName: '', name: query, notes: '' };
 			addingExercise = true;
 		}
+		// New position: made in the lesson's space and linked to it. Only the
+		// sheet closes; the picker shows the new row as linked once the page refreshes.
+		if (kind === 'position') addingPosition = true;
 	}
 </script>
 
@@ -913,9 +918,7 @@
 			<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
 			<div class="flex flex-col gap-2.5 pt-2.5">
 				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure', () =>
-						openFigureSheet()
-					)}
+					{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure')}
 					{#if data.figures.length > 0}
 						<ul class={GROUP}>
 							{#each data.figures as figure (figure.id)}
@@ -939,18 +942,9 @@
 							{/each}
 						</ul>
 					{/if}
-					{#if data.canEdit}
-						<PickerOpener
-							data-focus="figure-add"
-							label="Link an existing figure…"
-							onclick={() => openPicker('figure')}
-						/>
-					{/if}
 				</section>
 				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
-						createFrom('routine', '', '')
-					)}
+					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine')}
 					{#if data.routines.length > 0}
 						<ul class={GROUP}>
 							{#each data.routines as routine (routine.id)}
@@ -978,18 +972,9 @@
 							{/each}
 						</ul>
 					{/if}
-					{#if data.canEdit}
-						<PickerOpener
-							data-focus="routine-add"
-							label="Link an existing routine…"
-							onclick={() => openPicker('routine')}
-						/>
-					{/if}
 				</section>
 				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
-						createFrom('exercise', '', '')
-					)}
+					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise')}
 					{#if data.exercises.length > 0}
 						<ul class={GROUP}>
 							{#each data.exercises as exercise (exercise.id)}
@@ -1030,16 +1015,9 @@
 							{/each}
 						</ul>
 					{/if}
-					{#if data.canEdit}
-						<PickerOpener
-							data-focus="exercise-add"
-							label="Link an existing exercise…"
-							onclick={() => openPicker('exercise')}
-						/>
-					{/if}
 				</section>
 				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Positions', data.positions.length), 'position', null)}
+					{@render labelRow(sectionHeading('Positions', data.positions.length), 'position')}
 					{#if data.positions.length > 0}
 						<ul class={GROUP}>
 							{#each data.positions as position (position.id)}
@@ -1067,13 +1045,6 @@
 								</li>
 							{/each}
 						</ul>
-					{/if}
-					{#if data.canEdit}
-						<PickerOpener
-							data-focus="position-add"
-							label="Link a position…"
-							onclick={() => openPicker('position')}
-						/>
 					{/if}
 				</section>
 			</div>
@@ -1320,12 +1291,18 @@
 	{/snippet}
 </Dialog>
 
-{#snippet labelRow(heading: string, what: LinkKind, onclick: (() => void) | null)}
+<!-- A list's heading and, for an editor, its one "+ Add": the list's picker, whose last row makes a new one. -->
+{#snippet labelRow(heading: string, kind: LinkKind)}
 	<div class="flex items-center justify-between pr-1">
 		<h2 class={SECTION_LABEL}>{heading}</h2>
-		{#if data.canEdit && onclick}
-			<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
-				><Icon name="plus" size={18} />New</button
+		{#if data.canEdit}
+			<button
+				type="button"
+				data-focus="{kind}-add"
+				class={button('tertiary', 'sm')}
+				aria-label={ADD_LABEL[kind]}
+				aria-haspopup="dialog"
+				onclick={() => openPicker(kind)}><Icon name="plus" size={18} />Add</button
 			>
 		{/if}
 	</div>
@@ -1455,10 +1432,12 @@
 		pending={inFlight}
 		groups={positionPickGroups(data.linkablePositions, styleLabel)}
 		nothingLeft="There are no positions yet."
+		create={[{ key: 'position', label: 'Position' }]}
 		{added}
 		message={picking === 'position' ? pickMessage : null}
 		onpick={(row) => link('position', row, false)}
 		onadd={(row) => link('position', row, true)}
+		oncreate={(key, query) => createFrom('position', key, query)}
 		ondone={closePicker}
 		onclose={closePicker}
 	/>
@@ -1608,6 +1587,17 @@
 			</button>
 		{/snippet}
 	</Sheet>
+{/if}
+
+{#if data.canEdit}
+	<PositionSheet
+		open={addingPosition}
+		onclose={() => (addingPosition = false)}
+		mode="new"
+		action="?/newPosition"
+		dance={data.dance.slug}
+		defaultStyle={data.defaultStyle}
+	/>
 {/if}
 
 <!-- The routine and exercise sheets' form: Name, Notes. A success of
