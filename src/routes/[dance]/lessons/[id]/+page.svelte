@@ -51,6 +51,7 @@
 		LABEL,
 		SECTION_LABEL,
 		STRIP_ACTION,
+		PUBLISH_ACTION,
 		TEXTAREA,
 		button,
 		iconButton
@@ -59,6 +60,7 @@
 	import { byteSize, fullDateLabel } from '$lib/format';
 	import {
 		ADD_LABEL,
+		DRAFT_BAND,
 		deleteBlock,
 		deleteVideoBody,
 		exerciseMeta,
@@ -544,18 +546,25 @@
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
 {#snippet draftBand()}
-	<!-- A group's draft: only its editors see it, until one of them publishes it. On the desktop a soft warn bar under the pane's title. -->
+	<!-- A group's draft: only its editors see it, until one of them publishes it (spec A6, 3A).
+	     On the phone one tinted block on the band; on the desktop a soft warn bar under the pane's title. -->
 	<div
-		class="flex items-center gap-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pr-2 desk:pl-4"
+		class="flex items-center gap-3 rounded-[18px] bg-band-track py-2 pr-2 pl-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pl-4"
 	>
-		<Badge tone="warn" solid>Draft</Badge>
-		<span
-			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
-			>Only the group's editors see it</span
-		>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[15px] font-extrabold text-band-small desk:text-ink"
+				>{DRAFT_BAND.title}</span
+			>
+			<span
+				class="text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
+				>{DRAFT_BAND.line}</span
+			>
+		</span>
 		{#if data.canEdit}
 			<form method="POST" action="?/publish" use:enhance>
-				<button type="submit" class={STRIP_ACTION}>Publish</button>
+				<button type="submit" class={PUBLISH_ACTION}
+					><Icon name="upload" size={18} />{DRAFT_BAND.publish}</button
+				>
 			</form>
 		{/if}
 	</div>

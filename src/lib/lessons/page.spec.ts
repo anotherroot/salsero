@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SectionLinkChip, ViaSection } from '$lib/types';
 import {
 	ADD_LABEL,
+	DRAFT_BAND,
 	deleteBlock,
 	deleteVideoBody,
 	positionLinkLabel,
@@ -185,6 +186,16 @@ describe("the lists' + Add", () => {
 			exercise: 'Add an exercise',
 			position: 'Add a position',
 			link: 'Add a link'
+		});
+	});
+});
+
+describe("a draft's band", () => {
+	it('says what a draft is and what Publish does', () => {
+		expect(DRAFT_BAND).toEqual({
+			title: 'Draft',
+			line: "Members don't see it yet",
+			publish: 'Publish'
 		});
 	});
 });

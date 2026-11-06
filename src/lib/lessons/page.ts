@@ -193,3 +193,10 @@ export const ADD_LABEL = {
 	position: 'Add a position',
 	link: 'Add a link'
 } as const;
+
+/** A group's draft lesson's strip on the band (spec A6). */
+export const DRAFT_BAND = {
+	title: 'Draft',
+	line: "Members don't see it yet",
+	publish: 'Publish'
+} as const;
