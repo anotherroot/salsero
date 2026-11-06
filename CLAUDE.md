@@ -228,7 +228,11 @@ src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      Client-safe
 src/lib/figures/     PURE: a figure page's lines — timing, the practice line, the
                      figure switcher's steps, Move and Archive wording, the
-                     delete question, the length check. Client-safe
+                     delete question, the length check; the top video (`topVideo`),
+                     the Recordings heading and row metas, the three rows (`relationRows`),
+                     their sheets' sort and search (`sortRoutines`, `filterRows`).
+                     Client-safe. Its pieces are components/figures/ (TopVideo,
+                     SectionRow, RecordingRow, RelationsCard, AddRecordingSheet)
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
                      page's lines — via-section badges, row metas, the delete and unlink
                      questions. Client-safe

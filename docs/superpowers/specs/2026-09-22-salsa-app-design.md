@@ -399,17 +399,21 @@ The home page. One page serves both "exercises" and "today".
   style the dance no longer has falls back to the registry's. A lesson's
   "New figure in a move" pre-selects it too; a copy keeps its source's.
   Songs still start on the dance's first style.
-- **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
-  players), link to its exercise, "Log set" shortcut. Starts in and Ends in
-  (any number each, links to the positions' pages; none reads "No position ·
-  fits anywhere"), "Follows from" / "Leads to". In routines · N: the live routines that call this
-  figure, by slot (`routinesUsing`), each opening the routine.
+- **Detail** (reworked 2026-11-06, see
+  [`2026-11-06-figure-page-rework-design.md`](2026-11-06-figure-page-rework-design.md)):
+  the first section (else the first video recording) as a picture that plays
+  full screen; the facts card (partner/solo, style, timing, Positions: Starts
+  in and Ends in, any number each, links to the positions' pages; notes);
+  Recordings, one list of the linked sections and the recordings with `+ Add`;
+  Links; Follows from, Leads to and In routines as three rows with counts, each
+  a sheet with search (In routines: the live routines that call this figure,
+  by slot, `routinesUsing`); Taught in.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
   routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
   [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
-- **Recordings:** upload from the phone camera or mic via
-  `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
-  desktop. Upload shows progress. Stored as-is under
+- **Recordings:** upload a video from Recordings' `+ Add` (Video from the
+  phone; `accept="video/*"`, no new audio since 2026-11-06; old audio
+  recordings still play), or in the Android app its compress-and-upload. Upload shows progress. Stored as-is under
   `/var/lib/salsa/recordings/<uuid>.<ext>`, served by an endpoint that supports
   HTTP range requests (seeking on phones). Max 95 MiB per file — see below.
 
