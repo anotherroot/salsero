@@ -59,7 +59,7 @@
 
 <button
 	type="button"
-	class="{CLIP} relative block aspect-video w-full cursor-pointer rounded-2xl bg-black text-left"
+	class="{CLIP} relative block aspect-video w-full cursor-pointer rounded-2xl bg-black text-left desk:max-h-[70dvh]"
 	aria-label="Play {label}"
 	onclick={() => {
 		prefs = loadVideoPrefs();

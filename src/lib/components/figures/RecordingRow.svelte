@@ -24,6 +24,7 @@
 		canEdit,
 		focusKey,
 		trailing,
+		meta: given,
 		onclosed
 	}: {
 		recording: RecordingRow;
@@ -36,6 +37,8 @@
 		focusKey: string;
 		/** The trash while editing, or Take: replaces the chevron or Download. */
 		trailing?: Snippet;
+		/** Its line under the day, in place of "Video · 24 MB" (a source's recording: "New · 12 MB"). A broken file's line still wins. */
+		meta?: string;
 		onclosed: () => void;
 	} = $props();
 
@@ -50,7 +53,7 @@
 			? 'This file is missing'
 			: problem === 'unplayable'
 				? 'Can’t play here'
-				: recordingMetaLine(recording.kind, byteSize(recording.sizeBytes))
+				: (given ?? recordingMetaLine(recording.kind, byteSize(recording.sizeBytes)))
 	);
 	/** A video that can play opens the player; anything else is a plain row. */
 	const opens = $derived(video && problem === null);
