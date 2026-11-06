@@ -392,7 +392,8 @@ src/lib/server/trash.ts  `team_trash` (30 days, files kept) and `purgeTrash`;
 src/lib/clones/      PURE, client-safe: a member as fields (flat.ts: keys and labels per kind),
                      the three-way compare, default picks and the next snapshot (diff.ts),
                      yours in place of theirs in a view (shadow.ts), twins folded into one
-                     row (twins.ts), and every clone and twin screen's words (view.ts)
+                     row (twins.ts), every clone and twin screen's words (view.ts), and
+                     Send's one rename box (rename.ts)
 src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, `accessTo`,
                      `visibleMembers`), trees.ts (`flatOf`), pairs.ts (pair snapshots, `digest`
                      for `seen`), clone.ts (the copy engine: `planClone`, `cloneInto`/`cloneTx`,

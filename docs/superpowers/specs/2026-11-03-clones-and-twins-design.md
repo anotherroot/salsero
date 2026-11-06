@@ -479,10 +479,14 @@ follows.
 
 ## Decided while building
 
-- **Names never travel by default.** A name or title difference is never
-  preselected, in Compare, Take or Send: a copy renamed on arrival
-  ("Doble (Salsa Tuesdays)") must not be pushed back, and taking the source's
-  name would clash in the receiving move. It travels only when ticked.
+- **Names never travel by default** in Send: a copy renamed on arrival
+  ("Doble (Salsa Tuesdays)") must not be pushed back, and the source's name
+  would clash in the receiving move. It travels only when the rename box is
+  ticked. *(Changed 2026-11-06 for Compare and Take: a name only they changed
+  is picked theirs like any field, unless it is only yours plus a copy's
+  suffix; a name both changed is a pick. And Keep mine, everything left on
+  yours, now writes the pair's snapshot. See
+  [the merge sheets](2026-11-06-merge-sheets-and-update-bubbles-design.md).)*
 - **New practice starts paused.** Whatever a copy brings to practise that the
   person did not practise (a drill, a routine's or lesson's own exercise)
   waits off Today, after Make it mine, the rescue, Keep and a copy of a drill
