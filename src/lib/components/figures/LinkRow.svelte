@@ -41,33 +41,39 @@
 	};
 </script>
 
+{#snippet body()}
+	{#if view.youtube}
+		<span
+			class="grid h-10 w-14 flex-none place-items-center rounded-[9px] bg-band text-band-small"
+			aria-hidden="true"><Icon name="play" size={16} filled /></span
+		>
+	{:else}
+		<span
+			class="grid size-10 flex-none place-items-center rounded-full bg-chip text-ink-2"
+			aria-hidden="true"><Icon name="link" size={20} /></span
+		>
+	{/if}
+	<span class="min-w-0 py-2">
+		<span class="block truncate text-[16px] font-bold">{view.title}</span>
+		<span class="block truncate text-[13px] {view.failed ? 'font-bold text-danger' : 'text-muted'}"
+			>{view.meta}</span
+		>
+	</span>
+{/snippet}
+
 <div class="flex min-h-[60px] items-center pr-1.5 pl-4">
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an outside page, checked by parseLink -->
-	<a
-		href={view.href}
-		target="_blank"
-		rel="external noopener noreferrer"
-		class="flex min-h-[60px] min-w-0 flex-1 items-center gap-3"
-	>
-		{#if view.youtube}
-			<span
-				class="grid h-10 w-14 flex-none place-items-center rounded-[9px] bg-band text-band-small"
-				aria-hidden="true"><Icon name="play" size={16} filled /></span
-			>
-		{:else}
-			<span
-				class="grid size-10 flex-none place-items-center rounded-full bg-chip text-ink-2"
-				aria-hidden="true"><Icon name="link" size={20} /></span
-			>
-		{/if}
-		<span class="min-w-0 py-2">
-			<span class="block truncate text-[16px] font-bold">{view.title}</span>
-			<span
-				class="block truncate text-[13px] {view.failed ? 'font-bold text-danger' : 'text-muted'}"
-				>{view.meta}</span
-			>
-		</span>
-	</a>
+	{#if view.href}
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an outside page; parseLink accepted it -->
+		<a
+			href={view.href}
+			target="_blank"
+			rel="external noopener noreferrer"
+			class="flex min-h-[60px] min-w-0 flex-1 items-center gap-3">{@render body()}</a
+		>
+	{:else}
+		<!-- A stored URL parseLink does not accept is shown, never linked. -->
+		<div class="flex min-h-[60px] min-w-0 flex-1 items-center gap-3">{@render body()}</div>
+	{/if}
 	{#if editing}
 		<form method="POST" action="?/deleteLink" use:enhance={onremove}>
 			<input type="hidden" name="linkId" value={link.id} />
@@ -106,7 +112,7 @@
 				</span>
 			</button>
 		</form>
-	{:else}
+	{:else if view.end === 'open'}
 		<span class="flex size-11 flex-none items-center justify-center text-chevron" aria-hidden="true"
 			><Icon name="external" size={20} /></span
 		>

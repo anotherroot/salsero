@@ -336,16 +336,26 @@ export function linkRowView(
 	title: string;
 	meta: string;
 	failed: boolean;
-	href: string;
-	end: 'save' | 'retry' | 'open';
+	href: string | null;
+	end: 'save' | 'retry' | 'open' | 'none';
 } {
 	const parsed = parseLink(link.url);
-	if (parsed?.kind !== 'youtube') {
-		const host = parsed?.kind === 'web' ? parsed.host : link.url;
+	// Only what parseLink accepts is ever drawn as a link ($lib/links): an old row that does not parse is text.
+	if (!parsed) {
 		return {
 			youtube: false,
-			title: link.title ?? host,
-			meta: host,
+			title: link.title ?? link.url,
+			meta: link.url,
+			failed: false,
+			href: null,
+			end: 'none'
+		};
+	}
+	if (parsed.kind === 'web') {
+		return {
+			youtube: false,
+			title: link.title ?? parsed.host,
+			meta: parsed.host,
 			failed: false,
 			href: link.url,
 			end: 'open'
@@ -353,6 +363,9 @@ export function linkRowView(
 	}
 	const href = youtubeWatch(parsed.id, parsed.start);
 	const title = link.title ?? 'YouTube';
+	// A save is the editor's business: a reader, who cannot save or retry, sees the link only.
+	if (!canSave)
+		return { youtube: true, title, meta: 'youtube.com', failed: false, href, end: 'open' };
 	if (link.saving?.status === 'queued') {
 		return { youtube: true, title, meta: 'Saving at 480p…', failed: false, href, end: 'open' };
 	}
@@ -363,7 +376,7 @@ export function linkRowView(
 			meta: `Couldn’t save: ${link.saving.error ?? 'unknown error'}`,
 			failed: true,
 			href,
-			end: canSave ? 'retry' : 'open'
+			end: 'retry'
 		};
 	}
 	return {
@@ -372,6 +385,6 @@ export function linkRowView(
 		meta: 'youtube.com',
 		failed: false,
 		href,
-		end: canSave ? 'save' : 'open'
+		end: 'save'
 	};
 }

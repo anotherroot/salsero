@@ -382,12 +382,6 @@ describe('link rows in Recordings', () => {
 			true
 		);
 		expect(failed).toMatchObject({ meta: 'Couldn’t save: blocked', failed: true, end: 'retry' });
-		expect(
-			linkRowView({ url: yt, title: null, saving: { status: 'failed', error: null } }, false)
-		).toMatchObject({
-			meta: 'Couldn’t save: unknown error',
-			end: 'open'
-		});
 	});
 	it('shows a web link by its host, and a title wins', () => {
 		const web = 'https://www.facebook.com/share/r/1daKme62TJ/';
@@ -414,5 +408,30 @@ describe('link rows in Recordings', () => {
 				items: recordingsCount({ sections: 0, recordings: 0, links: 1 })
 			})
 		).toBe(true);
+	});
+});
+
+describe('link rows: review fixes', () => {
+	const yt = 'https://m.youtube.com/shorts/7-gpJ0iUxFQ';
+	it('shows a reader no save state: there is nothing for them to do about it', () => {
+		const failed = linkRowView(
+			{ url: yt, title: null, saving: { status: 'failed', error: 'blocked' } },
+			false
+		);
+		expect(failed).toMatchObject({ meta: 'youtube.com', failed: false, end: 'open' });
+		const queued = linkRowView(
+			{ url: yt, title: null, saving: { status: 'queued', error: null } },
+			false
+		);
+		expect(queued.meta).toBe('youtube.com');
+	});
+	it('never makes a link of a stored URL that does not parse', () => {
+		const v = linkRowView({ url: 'javascript:alert(1)', title: null, saving: null }, true);
+		expect(v).toMatchObject({
+			youtube: false,
+			href: null,
+			end: 'none',
+			title: 'javascript:alert(1)'
+		});
 	});
 });

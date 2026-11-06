@@ -320,10 +320,10 @@ rules the boards follow that are not obvious from looking at them.
   badges, the timing as eight counts with the start count filled, Positions,
   notes. Then Recordings, one card of section, recording and link rows with
   `+ Add` (tertiary, at the right of the heading row: Link a section, Video from
-  the phone); Links; Follows from, Leads to and In routines as one card of three
+  the phone, Link); Follows from, Leads to and In routines as one card of three
   rows with counts, each opening a sheet with search; Taught in. The ⋯ menu holds Its exercise (or Create exercise), History, Move to
-  another move…, the copy items and Archive Doble. Links are rows in Recordings (plan 3), added from
-  `+ Add` → Link.
+  another move…, the copy items and Archive Doble. A YouTube link's row ends in Save (Retry when
+  its save failed); a reader sees links without a save state.
 - The figure switcher is pinned directly above the tab bar, on the tab-bar
   surface, and hidden while editing. Its sheet lists
   the move's figures with New figure in the footer, and links to the move's page.
