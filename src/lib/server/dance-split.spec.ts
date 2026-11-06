@@ -41,15 +41,15 @@ beforeEach(() => {
 	};
 });
 
-function addUser(id: string) {
+function addUser(id: string, email = 'me@x.si') {
 	db.insert(users)
-		.values({ id, email: 'me@x.si', passwordHash: 'hash', firstName: 'Me', isAdmin: true })
+		.values({ id, email, passwordHash: 'hash', firstName: 'Me', isAdmin: true })
 		.run();
 }
 
-const figure = (space: Space) =>
+const figure = (space: Space, name = 'F') =>
 	createFigure(db, space, {
-		figureName: `F-${space.dance}`,
+		figureName: `${name}-${space.dance}`,
 		name: 'Basic',
 		partner: 'partner',
 		style: space.dance === 'salsa' ? 'salsa' : 'dominican',
@@ -81,7 +81,7 @@ describe('splitAccounts', () => {
 	it('places an account that owns only one dance in it', async () => {
 		addUser('u2');
 		figure({ userId: 'u2', dance: 'bachata' });
-		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 1, split: 0 });
+		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 1, split: 0, failed: 0 });
 		expect(userRow('u2')?.dance).toBe('bachata');
 	});
 
@@ -120,7 +120,7 @@ describe('splitAccounts', () => {
 		take('u1', 'a');
 		take('u1', 'b');
 
-		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 0, split: 1 });
+		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 0, split: 1, failed: 0 });
 
 		expect(userRow('u1')?.dance).toBe('salsa');
 		const b = others().find((u) => u.id !== 'u1')!;
@@ -172,13 +172,36 @@ describe('splitAccounts', () => {
 		figure({ userId: 'u1', dance: 'bachata' });
 		take('u1', 'a');
 		await splitAccounts(db, files, T);
-		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 0, split: 0 });
+		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 0, split: 0, failed: 0 });
 		expect(others()).toHaveLength(2);
 		expect(db.select().from(countTakes).all()).toHaveLength(2);
 	});
 
 	// Catches: copied files left on disk when the move fails.
-	it('unlinks the copied takes when the move throws', async () => {
+	// Catches: a take whose file is gone on disk failing the whole split, which
+	// would leave the account with no dance, unable to sign in anywhere.
+	it('splits without a take whose file is missing, and says so', async () => {
+		addUser('u1');
+		figure({ userId: 'u1', dance: 'salsa' });
+		figure({ userId: 'u1', dance: 'bachata' });
+		take('u1', 'a');
+		take('u1', 'b');
+		const link = files.link;
+		files.link = async (kind, file) => {
+			if (file.startsWith('a')) throw new Error('ENOENT');
+			return link(kind, file);
+		};
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 0, split: 1, failed: 0 });
+		const b = others().find((u) => u.id !== 'u1')!;
+		expect(db.select().from(countTakes).where(eq(countTakes.userId, b.id)).all()).toHaveLength(1);
+		expect(db.select().from(countTakes).where(eq(countTakes.userId, 'u1')).all()).toHaveLength(2);
+		expect(warn).toHaveBeenCalled();
+	});
+
+	// Catches: one person's failed split taking the whole site down at boot (the
+	// boot awaits it), or leaving copied files behind.
+	it('unlinks the copied takes when the move throws, and goes on to the next person', async () => {
 		addUser('u1');
 		figure({ userId: 'u1', dance: 'salsa' });
 		figure({ userId: 'u1', dance: 'bachata' });
@@ -191,9 +214,14 @@ describe('splitAccounts', () => {
 		db.insert(users)
 			.values({ id: 'x', email: 'me@x.si', passwordHash: 'h', dance: 'bachata' })
 			.run();
-		await expect(splitAccounts(db, files, T)).rejects.toThrow();
+		addUser('u2', 'u2@x.si');
+		figure({ userId: 'u2', dance: 'bachata' }, 'Other');
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 1, split: 0, failed: 1 });
 		expect(unlinked).toEqual(linked);
 		expect(userRow('u1')?.dance).toBeNull();
+		expect(userRow('u2')?.dance).toBe('bachata');
+		expect(warn).toHaveBeenCalled();
 	});
 });
 

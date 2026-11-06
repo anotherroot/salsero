@@ -289,10 +289,12 @@ In `~/.config/nixos-config`, `modules/services/salsa.nix`:
   2026-11-06). Let's Encrypt issues for it on the first switch, the same way
   it did for salsa.
 
-Order: nixos-config first (the second host and the headers), with `ORIGIN`
-still set, since adapter-node prefers `ORIGIN` when it is set. Then the app
-deploy. Then remove `ORIGIN` and switch again. Or do both in one switch right
-after the deploy. *Builder's call,* written into the plan's rollout.
+Order (corrected by the final review): one nixos-config switch carries the
+second host, the three variables and `ORIGIN`'s removal, then the app deploy.
+Never `DANCE_HOSTS` with `ORIGIN` still set: `ORIGIN` makes every request look
+like salsa's host, and the new code would redirect `/bachata/…` to the bachata
+host forever. The old code ignores `DANCE_HOSTS` and builds its CSRF origin
+from `Host` once `ORIGIN` is gone, so it keeps working until the deploy.
 
 ## Docs to update in the same work
 

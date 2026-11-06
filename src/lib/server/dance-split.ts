@@ -87,9 +87,10 @@ export async function splitAccounts(
 	db: Db,
 	files: CloneFiles,
 	now: number
-): Promise<{ assigned: number; split: number }> {
+): Promise<{ assigned: number; split: number; failed: number }> {
 	let assigned = 0;
 	let split = 0;
+	let failed = 0;
 	for (const user of db.select().from(users).where(isNull(users.dance)).all()) {
 		const dances = dancesOf(db, user.id);
 		if (dances.size <= 1) {
@@ -100,10 +101,20 @@ export async function splitAccounts(
 		}
 		// Both dances. The takes' files are linked first: a file operation cannot
 		// sit in the synchronous transaction. Unlinked again if it throws.
-		const takes = db.select().from(countTakes).where(eq(countTakes.userId, user.id)).all();
+		const all = db.select().from(countTakes).where(eq(countTakes.userId, user.id)).all();
+		const takes: typeof all = [];
 		const copies: string[] = [];
 		try {
-			for (const t of takes) copies.push(await files.link('count', t.file));
+			for (const t of all) {
+				// A take whose file is gone is left out of the copy, not the split:
+				// a failed split would leave the account signing in nowhere.
+				try {
+					copies.push(await files.link('count', t.file));
+					takes.push(t);
+				} catch (err) {
+					console.warn(`[accounts] take ${t.file} of ${user.id} not copied`, err);
+				}
+			}
 			db.transaction((tx) => {
 				const neu = randomUUID();
 				tx.update(users).set({ dance: 'salsa' }).where(eq(users.id, user.id)).run();
@@ -117,11 +128,15 @@ export async function splitAccounts(
 						.run();
 				});
 			});
+			split++;
 		} catch (err) {
+			// One person's failure must not keep the site down (the boot awaits this):
+			// the account stays unplaced, so it signs in nowhere, and the next boot
+			// tries again. Logged for a person to look at.
 			for (const c of copies) await files.unlink('count', c);
-			throw err;
+			console.warn(`[accounts] splitting ${user.id} failed`, err);
+			failed++;
 		}
-		split++;
 	}
-	return { assigned, split };
+	return { assigned, split, failed };
 }

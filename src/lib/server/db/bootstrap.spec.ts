@@ -24,7 +24,7 @@ vi.mock('../admin', () => ({
 vi.mock('../dance-split', () => ({
 	splitAccounts: async () => {
 		m.order.push('split');
-		return { assigned: 0, split: 0 };
+		return { assigned: 0, split: 0, failed: 0 };
 	}
 }));
 vi.mock('../clones/files', () => ({ realCloneFiles: () => ({}) }));

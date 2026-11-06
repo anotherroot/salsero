@@ -234,9 +234,8 @@ Rules: the spec, "Splitting existing accounts". The bachata account copies every
 - [ ] **Step 4: STOP and ask the user** for each, in this order, showing what will run:
   1. Merge `dance-split` to master (local merge; no PR).
   2. Delete `1d8846…`: `ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'`, stop `salsa`, run the SQL with the box's `sqlite3`, start `salsa`.
-  3. The nixos-config switch: the vhost plus the env with `ORIGIN` still set. Diff the closures first (memory: the box may run another branch).
+  3. The nixos-config switch, in one go: the vhost, the env, and `ORIGIN` removed from the secret (never `DANCE_HOSTS` with `ORIGIN` still set: a redirect loop). Diff the closures first (memory: the box may run another branch).
   4. `./scripts/deploy.sh prod`. Watch the boot log for `split: 1` and integrity `0`.
-  5. Remove `ORIGIN` from the secret and switch again.
   6. Check that `https://bachata.anotherroot.eu/login` loads and the user can sign in to bachata.
   7. Release bachata 1.6 (`scripts/release.sh`, direct channel). The user installs it from `bachata.anotherroot.eu/app`.
 - [ ] **Step 5:** Tell the user to send `a0a732…` the new address, and that `1d8846…` needs a new bachata invite.

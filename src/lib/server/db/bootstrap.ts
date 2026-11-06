@@ -46,8 +46,10 @@ export function bootstrap(): Promise<void> {
 	// see an unplaced account, and the boot admin counts accounts per dance.
 	ready ??= splitAccounts(getDb(), realCloneFiles(), Date.now())
 		.then((r) => {
-			if (r.assigned || r.split)
-				console.info(`[accounts] dances assigned: ${r.assigned}, split: ${r.split}`);
+			if (r.assigned || r.split || r.failed)
+				console.info(
+					`[accounts] dances assigned: ${r.assigned}, split: ${r.split}, failed: ${r.failed}`
+				);
 		})
 		.then(() => seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD))
 		.then(() => {

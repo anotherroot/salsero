@@ -262,14 +262,19 @@ N, split: M`, and `[integrity] dances: 0 found`). In this order, each step with
 the user's go:
 
 1. A fresh backup (`sudo systemctl start salsa-backup`), and the rehearsal on a
-   copy of it: `node build` with `DATABASE_PATH` on the copy and `DANCE_HOSTS`,
-   `PROTOCOL_HEADER` and `HOST_HEADER` set; check the boot log and the accounts.
-2. nixos-config: the second vhost and the three variables, `ORIGIN` still set
-   (it wins, so salsa keeps working until the deploy). Diff the closures first.
-3. `./scripts/deploy.sh prod`; watch the boot log.
-4. Remove `ORIGIN` from the secret and switch again; now forms work on both
-   hosts. Check `https://bachata.anotherroot.eu/login`.
-5. Release the bachata app 1.6 (its own host). 1.5 and older go to the browser
+   copy of it: `node build` with `DATABASE_PATH` on the copy, a `DATA_DIR` holding
+   the real `count/` files (a missing take fails that person's split), and
+   `DANCE_HOSTS`, `PROTOCOL_HEADER` and `HOST_HEADER` set; check the boot log and
+   the accounts.
+2. nixos-config, **one switch**: the second vhost, the three variables, and
+   `ORIGIN` removed from the secret. Never `DANCE_HOSTS` with `ORIGIN` still set:
+   `ORIGIN` makes every request look like salsa's host, and the new code then
+   redirects `/bachata/…` to the bachata host forever (a loop). The old code
+   ignores `DANCE_HOSTS` and builds its CSRF origin from `Host`, so salsa keeps
+   working until the deploy. Diff the closures first.
+3. `./scripts/deploy.sh prod`; watch the boot log (`failed: 0`). Check
+   `https://bachata.anotherroot.eu/login`.
+4. Release the bachata app 1.6 (its own host). 1.5 and older go to the browser
    on the new host and cannot tell their user to update; install 1.6 by hand
    from `bachata.anotherroot.eu/app`.
 
