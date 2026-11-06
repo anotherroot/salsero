@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import {
 	addVideoRow,
+	linkRowView,
+	recordingsCount,
 	figureMenuItems,
 	archiveCopy,
 	filterRows,
@@ -353,5 +355,83 @@ describe('figureMenuItems while Create exercise is on its way', () => {
 			on
 		);
 		expect(items.map((x) => x.key)).toEqual(['moveFigure', 'archive']);
+	});
+});
+
+describe('link rows in Recordings', () => {
+	const yt = 'https://m.youtube.com/shorts/7-gpJ0iUxFQ';
+	it('shows a YouTube link as YouTube, with Save for an editor', () => {
+		expect(linkRowView({ url: yt, title: null, saving: null }, true)).toEqual({
+			youtube: true,
+			title: 'YouTube',
+			meta: 'youtube.com',
+			failed: false,
+			href: 'https://www.youtube.com/watch?v=7-gpJ0iUxFQ',
+			end: 'save'
+		});
+		expect(linkRowView({ url: yt, title: null, saving: null }, false).end).toBe('open');
+	});
+	it('says a save is on its way, or why it failed, with Retry for an editor', () => {
+		const queued = linkRowView(
+			{ url: yt, title: null, saving: { status: 'queued', error: null } },
+			true
+		);
+		expect(queued).toMatchObject({ meta: 'Saving at 480p…', failed: false, end: 'open' });
+		const failed = linkRowView(
+			{ url: yt, title: null, saving: { status: 'failed', error: 'blocked' } },
+			true
+		);
+		expect(failed).toMatchObject({ meta: 'Couldn’t save: blocked', failed: true, end: 'retry' });
+	});
+	it('shows a web link by its host, and a title wins', () => {
+		const web = 'https://www.facebook.com/share/r/1daKme62TJ/';
+		expect(linkRowView({ url: web, title: null, saving: null }, true)).toEqual({
+			youtube: false,
+			title: 'facebook.com',
+			meta: 'facebook.com',
+			failed: false,
+			href: web,
+			end: 'open'
+		});
+		expect(linkRowView({ url: web, title: 'La policía', saving: null }, true).title).toBe(
+			'La policía'
+		);
+		expect(linkRowView({ url: yt, title: 'Doble tutorial', saving: null }, true).title).toBe(
+			'Doble tutorial'
+		);
+	});
+	it('counts links in Recordings, so a reader with only links sees it', () => {
+		expect(recordingsCount({ sections: 1, recordings: 0, links: 2 })).toBe(3);
+		expect(
+			showRecordings({
+				canEdit: false,
+				items: recordingsCount({ sections: 0, recordings: 0, links: 1 })
+			})
+		).toBe(true);
+	});
+});
+
+describe('link rows: review fixes', () => {
+	const yt = 'https://m.youtube.com/shorts/7-gpJ0iUxFQ';
+	it('shows a reader no save state: there is nothing for them to do about it', () => {
+		const failed = linkRowView(
+			{ url: yt, title: null, saving: { status: 'failed', error: 'blocked' } },
+			false
+		);
+		expect(failed).toMatchObject({ meta: 'youtube.com', failed: false, end: 'open' });
+		const queued = linkRowView(
+			{ url: yt, title: null, saving: { status: 'queued', error: null } },
+			false
+		);
+		expect(queued.meta).toBe('youtube.com');
+	});
+	it('never makes a link of a stored URL that does not parse', () => {
+		const v = linkRowView({ url: 'javascript:alert(1)', title: null, saving: null }, true);
+		expect(v).toMatchObject({
+			youtube: false,
+			href: null,
+			end: 'none',
+			title: 'javascript:alert(1)'
+		});
 	});
 });

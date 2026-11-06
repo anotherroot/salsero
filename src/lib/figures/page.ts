@@ -7,6 +7,8 @@ import { possessive } from '$lib/clones/view';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { MenuItem } from '$lib/menu';
+import { parseLink, youtubeWatch } from '$lib/links';
+import type { LinkRow } from '$lib/types';
 import type { RoutineUse } from '$lib/routines/coverage';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import { dueWords } from '$lib/schedule/words';
@@ -309,4 +311,80 @@ export function figureMenuItems(
 		});
 	}
 	return items;
+}
+
+/** Recordings' count: its sections, recordings and links together. */
+export function recordingsCount(i: {
+	sections: number;
+	recordings: number;
+	links: number;
+}): number {
+	return i.sections + i.recordings + i.links;
+}
+
+/**
+ * A link as a row of Recordings (rework plan 3, option B): its title, the line
+ * under it (a failed save in danger), where a tap goes, and what ends the row —
+ * Save for a YouTube link an editor can save, Retry when its save failed, else
+ * the external icon.
+ */
+export function linkRowView(
+	link: Pick<LinkRow, 'url' | 'title' | 'saving'>,
+	canSave: boolean
+): {
+	youtube: boolean;
+	title: string;
+	meta: string;
+	failed: boolean;
+	href: string | null;
+	end: 'save' | 'retry' | 'open' | 'none';
+} {
+	const parsed = parseLink(link.url);
+	// Only what parseLink accepts is ever drawn as a link ($lib/links): an old row that does not parse is text.
+	if (!parsed) {
+		return {
+			youtube: false,
+			title: link.title ?? link.url,
+			meta: link.url,
+			failed: false,
+			href: null,
+			end: 'none'
+		};
+	}
+	if (parsed.kind === 'web') {
+		return {
+			youtube: false,
+			title: link.title ?? parsed.host,
+			meta: parsed.host,
+			failed: false,
+			href: link.url,
+			end: 'open'
+		};
+	}
+	const href = youtubeWatch(parsed.id, parsed.start);
+	const title = link.title ?? 'YouTube';
+	// A save is the editor's business: a reader, who cannot save or retry, sees the link only.
+	if (!canSave)
+		return { youtube: true, title, meta: 'youtube.com', failed: false, href, end: 'open' };
+	if (link.saving?.status === 'queued') {
+		return { youtube: true, title, meta: 'Saving at 480p…', failed: false, href, end: 'open' };
+	}
+	if (link.saving?.status === 'failed') {
+		return {
+			youtube: true,
+			title,
+			meta: `Couldn’t save: ${link.saving.error ?? 'unknown error'}`,
+			failed: true,
+			href,
+			end: 'retry'
+		};
+	}
+	return {
+		youtube: true,
+		title,
+		meta: 'youtube.com',
+		failed: false,
+		href,
+		end: 'save'
+	};
 }

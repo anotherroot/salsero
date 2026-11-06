@@ -6,7 +6,7 @@
 
 	/**
 	 * What Recordings' `+ Add` offers (figure page rework): a section of a lesson
-	 * video, or a video from the phone. The upload itself stays the page's
+	 * video, a video from the phone, or a link (slot 5's "Add a link"). The upload itself stays the page's
 	 * (`UploadButton` with `bare`): this sheet only starts it, in the same tap that
 	 * closes it, since a file chooser opens only from a user's gesture. In the
 	 * Android app the video row hands over to the app's compress-and-upload.
@@ -19,6 +19,7 @@
 		appHref,
 		onsection,
 		onvideo,
+		onlink,
 		uploading
 	}: {
 		open: boolean;
@@ -29,6 +30,8 @@
 		appHref: string;
 		onsection: () => void;
 		onvideo: () => void;
+		/** Opens slot 5's "Add a link" popup. */
+		onlink: () => void;
 		/** A video is going up: one at a time, so the video row waits. */
 		uploading: boolean;
 	} = $props();
@@ -81,5 +84,17 @@
 				{@render words('Video from the phone', videoRow.meta ?? undefined)}
 			</button>
 		{/if}
+		<button
+			type="button"
+			class={ROW}
+			aria-haspopup="dialog"
+			onclick={() => {
+				onclose();
+				onlink();
+			}}
+		>
+			<span class="flex-none text-accent-text"><Icon name="link" size={22} /></span>
+			{@render words('Link', 'YouTube or any web page')}
+		</button>
 	</div>
 </Sheet>

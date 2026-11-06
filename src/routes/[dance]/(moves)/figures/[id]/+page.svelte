@@ -31,8 +31,8 @@
 	import AddRecordingSheet from '$lib/components/figures/AddRecordingSheet.svelte';
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
-	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
-	import LinkList from '$lib/components/links/LinkList.svelte';
+	import AddLinkSheet from '$lib/components/links/AddLinkSheet.svelte';
+	import LinkRow from '$lib/components/figures/LinkRow.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -65,6 +65,7 @@
 		figureMenuItems,
 		figureSubtitle,
 		recordingDay,
+		recordingsCount,
 		recordingsTitle,
 		showRecordings,
 		timingLine,
@@ -72,6 +73,7 @@
 	} from '$lib/figures/page';
 	import { styleLabelOf, tagsEmpty } from '$lib/positions/view';
 	import { localDay } from '$lib/day/day';
+	import type { SubmitFunction as KitSubmit } from '@sveltejs/kit';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -138,7 +140,13 @@
 	let makingMine = $state(false);
 	let uploading = $state(false);
 	/** Sections and recordings: one list, Recordings. */
-	const items = $derived(variation.sections.length + variation.recordings.length);
+	const items = $derived(
+		recordingsCount({
+			sections: variation.sections.length,
+			recordings: variation.recordings.length,
+			links: data.links.length
+		})
+	);
 	const empty = $derived(items === 0);
 	const top = $derived(topVideo(variation.sections, variation.recordings, new Set(broken)));
 	const today = $derived(localDay(Date.now(), timezone));
@@ -148,8 +156,26 @@
 	const routineHref = (id: number) =>
 		resolve('/[dance]/(moves)/routines/[id]', { dance: slug, id: String(id) });
 
-	const linkFailure = $derived(failed('addLink') ?? failed('saveVideo') ?? failed('retryVideo'));
-	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
+	/** A link row's post refused (Save, Retry, Remove): shown under the card. */
+	const linkFailure = $derived(failed('saveVideo') ?? failed('retryVideo') ?? failed('deleteLink'));
+	/** "Add a link" (slot 5's popup): open, and what a refused addLink hands back. */
+	let addingLink = $state(false);
+	const linkEntered = $derived(
+		failed('addLink') && form && 'urls' in form ? String(form.urls) : ''
+	);
+	$effect(() => {
+		if (failed('addLink')) addingLink = true;
+	});
+	// Removing a link: focus goes to the next link's trash, else the band's stop-editing.
+	const removeLink =
+		(id: number): KitSubmit =>
+		() => {
+			const keys = data.links.map((l) => `link-${l.id}`);
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success') await focusAfterRemoval(keys, `link-${id}`, 'stop-editing');
+			};
+		};
 
 	// --- Edit mode: the band's pencil, × to stop (asks if unsaved), one Save pinned.
 	let editForm: HTMLFormElement | undefined = $state();
@@ -723,26 +749,19 @@
 							{/if}
 						</li>
 					{/each}
+					{#each data.links as link (link.id)}
+						<li>
+							<LinkRow {link} canSave={data.canEdit} {editing} onremove={removeLink(link.id)} />
+						</li>
+					{/each}
 				</ul>
 			{/if}
 			{#if failed('unlinkSection')}
 				<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
 			{/if}
-		</section>
-	{/if}
-
-	{#if !editing}
-		<section class="pt-4">
-			<h2 class={SECTION_LABEL}>
-				{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
-			</h2>
-			<div class="mt-1">
-				{#if data.canEdit}
-					<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
-				{:else}
-					<LinkList links={data.links} />
-				{/if}
-			</div>
+			{#if linkFailure}
+				<FieldError id="link-error" message={linkFailure} />
+			{/if}
 		</section>
 	{/if}
 {/snippet}
@@ -941,6 +960,14 @@
 		hidden={{}}
 	/>
 
+	<AddLinkSheet
+		open={addingLink}
+		onclose={() => (addingLink = false)}
+		action="?/addLink"
+		canSave
+		message={failed('addLink')}
+		entered={linkEntered}
+	/>
 	<AddRecordingSheet
 		open={adding}
 		onclose={() => (adding = false)}
@@ -953,6 +980,7 @@
 		)}
 		onsection={() => (linkingSection = true)}
 		onvideo={() => chooseVideo?.()}
+		onlink={() => (addingLink = true)}
 	/>
 {/if}
 
