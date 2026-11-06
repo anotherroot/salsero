@@ -34,7 +34,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 				lastName: session.lastName,
 				timezone: session.timezone,
 				isAdmin: session.isAdmin,
-				level: parseLevel(session.level)
+				level: parseLevel(session.level),
+				dance: session.dance
 			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 

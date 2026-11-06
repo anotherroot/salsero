@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { and, eq, gt, inArray, lt, sql } from 'drizzle-orm';
-import { getDb } from './db';
+import { getDb, type Db } from './db';
 import { loginAttempts, sessions, users } from './db/schema';
+import { isDanceSlug } from '$lib/dances/dances';
 
 import { hashPassword, verifyPassword } from './password';
 
@@ -12,33 +13,35 @@ export { hashPassword, verifyPassword };
 export const SESSION_COOKIE = 'salsa_session';
 const SESSION_TTL_MS = 30 * 24 * 3_600_000; // 30 days, absolute
 
-export function createSession(userId: string): { id: string; expiresAt: Date } {
+export function createSession(userId: string, db: Db = getDb()): { id: string; expiresAt: Date } {
 	const id = randomBytes(32).toString('base64url');
 	const expiresAt = Date.now() + SESSION_TTL_MS;
-	getDb().insert(sessions).values({ id, userId, expiresAt }).run();
+	db.insert(sessions).values({ id, userId, expiresAt }).run();
 	return { id, expiresAt: new Date(expiresAt) };
 }
 
-export function validateSession(id: string | undefined) {
+export function validateSession(id: string | undefined, db: Db = getDb()) {
 	if (!id) return null;
-	return (
-		getDb()
-			.select({
-				userId: users.id,
-				email: users.email,
-				firstName: users.firstName,
-				lastName: users.lastName,
-				// Carried on the session so the day boundary costs no extra query.
-				timezone: users.timezone,
-				isAdmin: users.isAdmin,
-				// How much app: the layouts draw the tabs from it without a query.
-				level: users.level
-			})
-			.from(sessions)
-			.innerJoin(users, eq(users.id, sessions.userId))
-			.where(and(eq(sessions.id, id), gt(sessions.expiresAt, Date.now())))
-			.get() ?? null
-	);
+	const row = db
+		.select({
+			userId: users.id,
+			email: users.email,
+			firstName: users.firstName,
+			lastName: users.lastName,
+			// Carried on the session so the day boundary costs no extra query.
+			timezone: users.timezone,
+			isAdmin: users.isAdmin,
+			// How much app: the layouts draw the tabs from it without a query.
+			level: users.level,
+			dance: users.dance
+		})
+		.from(sessions)
+		.innerJoin(users, eq(users.id, sessions.userId))
+		.where(and(eq(sessions.id, id), gt(sessions.expiresAt, Date.now())))
+		.get();
+	// An account the dance split has not placed signs in nowhere.
+	if (!row || !row.dance || !isDanceSlug(row.dance)) return null;
+	return { ...row, dance: row.dance };
 }
 
 export function destroySession(id: string | undefined) {
