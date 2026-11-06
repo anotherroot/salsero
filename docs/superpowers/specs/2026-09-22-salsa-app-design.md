@@ -405,8 +405,8 @@ The home page. One page serves both "exercises" and "today".
   the first section (else the first video recording) as a picture that plays
   full screen; the facts card (partner/solo, style, timing, Positions: Starts
   in and Ends in, any number each, links to the positions' pages; notes);
-  Recordings, one list of the linked sections and the recordings with `+ Add`;
-  Links; Follows from, Leads to and In routines as three rows with counts, each
+  Recordings, one list of the linked sections, the recordings and the links
+  with `+ Add` (Link a section, Video from the phone, Link); Follows from, Leads to and In routines as three rows with counts, each
   a sheet with search (In routines: the live routines that call this figure,
   by slot, `routinesUsing`); Taught in.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many

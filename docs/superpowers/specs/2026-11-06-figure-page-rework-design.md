@@ -175,10 +175,11 @@ and behaviour for every other caller.
   link to it, with today's practice line as its meta), then **History** (from
   the band). The "Move … to…" row and Archive leave the page for slot 3's Move
   to and Archive items. A reader's pinned Practise / Edit bar stays as it is.
-- **Plan 3, after slot 5's links popup is in master:** links become rows in
-  Recordings (the YouTube row: title, site, a saved/saving/failed state, an
-  external-link or Save video action as slot 5's row does it), the Links section
-  goes, and `+ Add` gains "YouTube or other link", opening slot 5's popup.
+- **Plan 3 (built 2026-11-06, option B, the user's pick):** links are rows in
+  the Recordings card (`LinkRow`: a band-coloured YouTube tile or a link disc,
+  the title and host, "Saving at 480p…" or why a save failed; Save, Retry or the
+  external icon at the end; Remove while editing). The Links section and its
+  paste box go, and `+ Add` gains "Link", opening slot 5's "Add a link" popup.
 
 ## What stays as it is
 

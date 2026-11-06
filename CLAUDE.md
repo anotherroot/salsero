@@ -269,7 +269,7 @@ src/lib/figures/     PURE: a figure page's lines — timing, the practice line, 
                      delete question, the length check; the top video (`topVideo`),
                      the Recordings heading and row metas, the three rows (`relationRows`),
                      their sheets' sort and search (`sortRoutines`, `filterRows`), the page's own ⋯
-                     items (`figureMenuItems`).
+                     items (`figureMenuItems`), a link row (`linkRowView`, drawn by LinkRow).
                      Client-safe. Its pieces are components/figures/ (TopVideo,
                      SectionRow, RecordingRow, RelationsCard, AddRecordingSheet)
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
