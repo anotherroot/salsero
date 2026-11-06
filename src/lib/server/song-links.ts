@@ -16,6 +16,7 @@ import { exercises, lessons, routines, songLinks, songs } from './db/schema';
 import { logChange } from './changes';
 import { inSpace, isTeam, ownedBy, type Space, type Wall } from './scope';
 import { practiceSong, songAccess } from './access';
+import { memberIn } from './clones/genes';
 import { shareSong } from './song-share';
 import { songChoices, songSample } from './songs';
 import type { ChangeRootKind, MusicParent, MusicRow, PickerSong } from '$lib/types';
@@ -311,4 +312,49 @@ export function ownLinks(db: Db, wall: Wall): SQL {
 			db.select({ id: routines.id }).from(routines).where(ownedBy(routines, wall))
 		)
 	)!;
+}
+
+/**
+ * The song a copy in `place` points at for `songId` (spec B, copies): the song
+ * itself when it is `place`'s; else the place's live member of its family;
+ * else, for a person, the same song when they may practise to it (their
+ * group's shared song). Else null: the Music row is dropped. Never a clone —
+ * a song link never copies audio.
+ */
+export function songInPlace(db: Db, songId: number, place: Space): number | null {
+	const song = db.select().from(songs).where(eq(songs.id, songId)).get();
+	if (!song || song.dance !== place.dance) return null;
+	if (inSpace(song, place) && song.archivedAt === null) return song.id;
+	if (song.geneId) {
+		const member = memberIn(db, 'song', song.geneId, place);
+		if (member && !member.archived) return member.id;
+	}
+	if (!isTeam(place) && practiceSong(db, place.userId, song)) return song.id;
+	return null;
+}
+
+/** A copy's Music: the source's rows, notes and order kept, each song as `songInPlace` finds it. */
+export function copyMusic(
+	db: Db,
+	from: MusicParent,
+	to: MusicParent,
+	place: Space,
+	now: number
+): void {
+	const rows = db
+		.select()
+		.from(songLinks)
+		.where(parentColumn(from))
+		.orderBy(asc(songLinks.sortOrder), asc(songLinks.id))
+		.all();
+	let order = 0;
+	const seen = new Set<number>();
+	for (const r of rows) {
+		const songId = songInPlace(db, r.songId, place);
+		if (songId === null || seen.has(songId)) continue;
+		seen.add(songId);
+		db.insert(songLinks)
+			.values({ songId, ...to, note: r.note, sortOrder: (order += 1), createdAt: now })
+			.run();
+	}
 }

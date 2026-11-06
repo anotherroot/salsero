@@ -71,6 +71,7 @@ import { accessTo, memberIn, stampGene } from './genes';
 import { hashValue, pairBase, writePair } from './pairs';
 import { flatOf } from './trees';
 import type { CloneFileKind, CloneFiles } from './files';
+import { copyMusic } from '../song-links';
 
 export type CloneRequest = {
 	kind: CloneKind;
@@ -1061,6 +1062,7 @@ function copyDrill(m: Mapper, sourceId: number, gene: string): Copied {
 		.get();
 	m.started('drill', src.id, copy.id);
 	copyLinks(tx, { exerciseId: src.id }, { exerciseId: copy.id }, now);
+	copyMusic(tx, { exerciseId: src.id }, { exerciseId: copy.id }, into, now);
 	return {
 		id: copy.id,
 		skip: [],
@@ -1152,6 +1154,7 @@ function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 	tx.update(routines).set({ geneId: gene, clonedFrom: src.id }).where(eq(routines.id, id)).run();
 	m.started('routine', src.id, id);
 	if (made.exercise && practised(tx, into, { routineId: src.id })) pause(tx, made.exercise.id);
+	copyMusic(tx, { routineId: src.id }, { routineId: id }, into, now);
 
 	let position = 0;
 	for (const slot of routineSlots(tx, src.id)) {
@@ -1262,6 +1265,7 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 	m.started('lesson', src.id, id);
 	if (made.exercise && practised(tx, into, { lessonId: src.id })) pause(tx, made.exercise.id);
 	copyLinks(tx, { lessonId: src.id }, { lessonId: id }, now);
+	copyMusic(tx, { lessonId: src.id }, { lessonId: id }, into, now);
 
 	const hand = handLinks(tx, src.id);
 	for (const f of hand.figures) {

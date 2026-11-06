@@ -10,12 +10,14 @@ import { songLinks, songs, teamChanges, users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { setRole } from './membership';
 import { createCustomExercise } from './exercises';
-import { createLesson } from './lessons';
+import { createLesson, linkExercise, publishLesson } from './lessons';
 import { createRoutine } from './routines';
 import { addFigureExercise, createFigure } from './figures';
 import { createSongFromUpload } from './songs';
 import { deleteGroupSong, shareSong, unshareSong } from './song-share';
 import { crossRefs } from './integrity';
+import { cloneInto } from './clones/clone';
+import { NO_FILES } from './test-walls';
 import { deleteSong } from './songs';
 import { purgeTrash } from './trash';
 import { purgeTeams } from './team-purge';
@@ -319,5 +321,93 @@ describe('when a song goes for good', () => {
 		await purgeTeams(db, T + TEAM_PURGE_MS + 1, dirs);
 		expect(db.select().from(songs).where(eq(songs.id, s)).get()).toBeUndefined();
 		expect(db.select().from(songLinks).all()).toEqual([]);
+	});
+});
+
+describe('copies carry Music, never a song', () => {
+	const U3: Wall = { userId: 'u3', dance: 'salsa' };
+	const songCount = () => db.select().from(songs).all().length;
+	const copy = async (kind: 'lesson' | 'drill' | 'routine', id: number, into: Wall | TeamSpace) => {
+		const res = await cloneInto(db, { kind, id, into, recordings: false }, NO_FILES, T + 10);
+		if (!res.ok) throw new Error(`no copy: ${res.reason}`);
+		return res.id;
+	};
+
+	it("a member's copy of a group lesson keeps its shared song, with the note", async () => {
+		const lesson = lessonIn(ED);
+		const s = song(ED, 'Chan Chan');
+		addMusic(db, ED, { lessonId: lesson }, s, 'Count it', T);
+		publishLesson(db, ED, lesson, T);
+		const before = songCount();
+		const mine = await copy('lesson', lesson, U3);
+		expect(listMusic(db, { lessonId: mine }, 'u3')).toEqual([
+			expect.objectContaining({ songId: s, note: 'Count it' })
+		]);
+		expect(songCount()).toBe(before);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('drops a song the new place cannot play', async () => {
+		const lesson = lessonIn(ED);
+		const s = song(ED, 'Chan Chan');
+		addMusic(db, ED, { lessonId: lesson }, s, null, T);
+		unshareSong(db, ED, s, T);
+		publishLesson(db, ED, lesson, T);
+		const mine = await copy('lesson', lesson, U3);
+		expect(db.select().from(songLinks).where(eq(songLinks.lessonId, mine)).all()).toEqual([]);
+	});
+
+	it("a person's lesson copied into a group: their own song is dropped, not copied", async () => {
+		const lesson = lessonIn(U1);
+		addMusic(db, U1, { lessonId: lesson }, song(U1, 'Casa Mía'), null, T);
+		const before = songCount();
+		const theirs = await copy('lesson', lesson, { ...ED, actorId: 'u1' });
+		expect(db.select().from(songLinks).where(eq(songLinks.lessonId, theirs)).all()).toEqual([]);
+		expect(songCount()).toBe(before);
+	});
+
+	it("takes the place's own member of the song's family when it has one", async () => {
+		const lesson = lessonIn(U1);
+		const s = song(U1, 'Casa Mía');
+		addMusic(db, U1, { lessonId: lesson }, s, 'Slow one', T);
+		const groupCopy = await cloneInto(
+			db,
+			{ kind: 'song', id: s, into: { ...ED, actorId: 'u1' }, recordings: false },
+			NO_FILES,
+			T + 5
+		);
+		if (!groupCopy.ok) throw new Error('no song copy');
+		const theirs = await copy('lesson', lesson, { ...ED, actorId: 'u1' });
+		expect(listMusic(db, { lessonId: theirs }, 'u1')).toEqual([
+			expect.objectContaining({ songId: groupCopy.id, note: 'Slow one' })
+		]);
+	});
+
+	it("a group's drill and routine bring their Music too", async () => {
+		const drill = drillIn(ED);
+		const routine = routineIn(ED);
+		const s = song(ED, 'Chan Chan');
+		shareSong(db, ED, s, T);
+		addMusic(db, ED, { exerciseId: drill }, s, 'Shines', T);
+		addMusic(db, ED, { routineId: routine }, s, 'Rueda', T);
+		const lesson = lessonIn(ED);
+		linkExercise(db, lesson, drill, 'u2');
+		publishLesson(db, ED, lesson, T);
+		const myDrill = await copy('drill', drill, U3);
+		expect(listMusic(db, { exerciseId: myDrill }, 'u3')).toEqual([
+			expect.objectContaining({ songId: s, note: 'Shines' })
+		]);
+		const myRoutine = await cloneInto(
+			db,
+			{ kind: 'routine', id: routine, into: U3, recordings: false },
+			NO_FILES,
+			T + 10,
+			undefined,
+			{ trusted: true }
+		);
+		if (!myRoutine.ok) throw new Error('no routine copy');
+		expect(listMusic(db, { routineId: myRoutine.id }, 'u3')).toEqual([
+			expect.objectContaining({ songId: s, note: 'Rueda' })
+		]);
 	});
 });
