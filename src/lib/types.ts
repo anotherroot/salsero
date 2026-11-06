@@ -103,6 +103,24 @@ export interface SampleSong {
 	startS: number;
 }
 
+/** What holds a Music list (spec Part B): a lesson, a drill or a routine. */
+export type MusicParent = { lessonId: number } | { exerciseId: number } | { routineId: number };
+
+/** One song of a Music list, as a page shows it. */
+export interface MusicRow {
+	/** The `song_links` row. */
+	id: number;
+	songId: number;
+	title: string;
+	artist: string | null;
+	bpm: number | null;
+	durationS: number | null;
+	sample: SampleSong;
+	note: string | null;
+	/** Playable now: false for a group song unshared or archived since (only editors get such rows). */
+	shared: boolean;
+}
+
 /** A ready song as the song popup lists it. */
 export interface PickerSong {
 	id: number;

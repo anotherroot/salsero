@@ -1031,6 +1031,35 @@ export const links = sqliteTable(
 );
 
 /**
+ * Music with notes (spec Part B, 2026-11-05): a lesson's, a drill's or a
+ * routine's suggested songs, each with an optional note, in the order added.
+ * Exactly one parent is set — checked in `src/lib/server/song-links.ts`, not
+ * by a CHECK. Owner and dance come through the parent. Hard-deleted on Remove
+ * (bookkeeping, like a lesson's hand link); a song link never copies audio.
+ */
+export const songLinks = sqliteTable(
+	'song_links',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		songId: integer('song_id')
+			.notNull()
+			.references(() => songs.id),
+		lessonId: integer('lesson_id').references(() => lessons.id),
+		exerciseId: integer('exercise_id').references(() => exercises.id),
+		routineId: integer('routine_id').references(() => routines.id),
+		note: text('note'),
+		sortOrder: integer('sort_order').notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [
+		index('song_links_song_idx').on(t.songId),
+		uniqueIndex('song_links_lesson_song_idx').on(t.lessonId, t.songId),
+		uniqueIndex('song_links_exercise_song_idx').on(t.exerciseId, t.songId),
+		uniqueIndex('song_links_routine_song_idx').on(t.routineId, t.songId)
+	]
+);
+
+/**
  * A YouTube link being saved as a video by the home worker. See
  * `docs/superpowers/specs/2026-10-15-youtube-video-save-design.md`.
  *
