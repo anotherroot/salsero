@@ -114,3 +114,26 @@ export function updateNeededNow(
 	if (s.at !== 'refresh') return true;
 	return !s.playerOpen && !s.sheetsOpen && s.unsaved === 0 && s.held === 0;
 }
+
+/* ── The Update row on Today (merge sheets and update bubbles spec, 3B) ─── */
+
+export const UPDATE_ROW_TITLE = 'New version of the app';
+
+/** The × on the row. */
+export const HIDE_UPDATE = 'Hide until tomorrow';
+
+/** The row's second line: what the Update button is doing, else which version is ready. */
+export function updateRowLine(update: AppUpdate, statusLine: string | null): string {
+	if (statusLine) return statusLine;
+	return update.latest ? `Version ${update.latest.versionName} is ready` : 'Ready to install';
+}
+
+/** What × stores (per device): the day it was hidden and the version it hid. */
+export function hideMark(day: string, versionCode: number): string {
+	return `${day}|${versionCode}`;
+}
+
+/** Whether the row stays hidden: hidden today, for this same version. */
+export function hiddenToday(stored: string | null, day: string, versionCode: number): boolean {
+	return stored !== null && stored === hideMark(day, versionCode);
+}

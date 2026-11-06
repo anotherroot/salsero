@@ -1,39 +1,43 @@
 <script lang="ts">
-	import Icon from '$lib/components/ui/Icon.svelte';
-	import { button } from '$lib/components/ui/styles';
-	import { STALE_MESSAGE } from '$lib/page-epoch';
+	import { RELOAD_TITLE, STALE_LINE, STALE_TITLE } from '$lib/nav/fresh';
 	import { reloadOrAsk } from '$lib/unsaved/guard.svelte';
-
 	/*
 	 * A new version is out and the page has not reloaded by itself (something
-	 * was open, unsaved or running). A slim bar directly above the tab bar
-	 * (`--pin-bottom`), or on the bottom edge where none shows. Reload still
-	 * asks about anything unsaved, an upload in flight included.
+	 * was open, unsaved or running). The app's toast look (`ui/Toast.svelte`) at
+	 * the toast's place: above the tab bar (`--pin-bottom`), or above the bottom
+	 * edge where none shows. Its second line (`why`, `reloadWhy` in
+	 * `$lib/nav/fresh.ts`) says what kept the page. Reload still asks about
+	 * anything unsaved, an upload in flight included.
 	 *
 	 * `stale`: the server has refused this page (`$lib/page-epoch.ts`), so
-	 * nothing more it sends will save; the wording says so, and may take two lines.
+	 * nothing more it sends will save; the words say so.
 	 *
 	 * On the desktop it sits over Practice's run column too (`Running`, z-31, above
 	 * the frame's sheet corners), as it sits over the run on the phone.
 	 */
-	let { stale = false }: { stale?: boolean } = $props();
+	let { stale = false, why = '' }: { stale?: boolean; why?: string } = $props();
 </script>
 
 <div
 	role="status"
-	class="fixed inset-x-0 z-30 border-t border-hairline bg-ground px-4 pt-2 desk:left-(--pane-left) desk:z-[32]"
-	style:bottom="var(--pin-bottom, 0px)"
-	style:padding-bottom="calc(8px + var(--pin-safe, var(--safe-bottom)))"
+	class="fixed inset-x-0 z-30 mx-auto max-w-[560px] px-4 desk:left-(--pane-left) desk:z-[32]"
+	style:bottom="calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
 >
-	<div class="mx-auto flex max-w-[560px] items-center gap-3 desk:max-w-[720px]">
-		<span class="flex-none text-accent-text"><Icon name="info" size={20} /></span>
-		{#if stale}
-			<span class="min-w-0 flex-1 text-[15px] leading-snug font-extrabold text-ink"
-				>{STALE_MESSAGE}</span
-			>
-		{:else}
-			<span class="min-w-0 flex-1 truncate text-[15px] font-extrabold text-ink">New version</span>
-		{/if}
-		<button type="button" class={button('secondary', 'sm')} onclick={reloadOrAsk}>Reload</button>
+	<div
+		class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1.5 pr-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)]"
+	>
+		<span class="flex min-w-0 flex-1 flex-col">
+			<span class="text-[15px] leading-[1.35] font-bold">{stale ? STALE_TITLE : RELOAD_TITLE}</span>
+			{#if stale || why}
+				<span class="text-[13px] leading-[1.35] font-semibold opacity-75"
+					>{stale ? STALE_LINE : why}</span
+				>
+			{/if}
+		</span>
+		<button
+			type="button"
+			class="h-11 flex-none cursor-pointer px-3 text-[15px] font-extrabold text-inverse-accent"
+			onclick={reloadOrAsk}>Reload</button
+		>
 	</div>
 </div>
