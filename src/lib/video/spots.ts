@@ -112,6 +112,36 @@ export function edgeViewTime(spot: Pick<Spot, 'startMs' | 'endMs'>, edge: 'start
 		: (spot.endMs - END_PARK_MS) / 1000;
 }
 
+/** How much of a section's end is played to hear it. */
+export const HEAR_END_MS = 2000;
+
+/**
+ * Where a change in the editor is heard, and whether it plays (Start | End,
+ * ±1 s, the whole-section moves, a drag's release, [ and ]). Playing, it plays
+ * from the start, or the 2 s up to the end; paused, it stays paused where the
+ * edge shows. Nothing in the editor starts the video by itself.
+ */
+export function hearAt(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	edge: 'start' | 'end',
+	paused: boolean
+): { atS: number; play: boolean } {
+	if (paused) return { atS: edgeViewTime(spot, edge), play: false };
+	const atMs =
+		edge === 'end' && spot.endMs !== null
+			? Math.max(spot.startMs, spot.endMs - HEAR_END_MS)
+			: spot.startMs;
+	return { atS: atMs / 1000, play: true };
+}
+
+/** Opening the editor: at the spot's start, a section playing on only if the video was playing. */
+export function editOpening(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	paused: boolean
+): { atS: number; play: boolean } {
+	return { atS: spot.startMs / 1000, play: !paused && spot.endMs !== null };
+}
+
 /** Earlier / Later: how far one tap moves a whole section. */
 export const WHOLE_SHIFT_MS = 500;
 /** Shorter / Longer: how far one tap moves each edge. */

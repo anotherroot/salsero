@@ -7,6 +7,7 @@
 		VIDEO_RATES,
 		loadVideoPrefs,
 		saveVideoPrefs,
+		type VideoChoice,
 		type VideoRate
 	} from '$lib/video-prefs';
 	import { inlineBands, inlineParts, lengthText, timeText } from '$lib/video/inline';
@@ -65,14 +66,16 @@
 	// server sent.
 	let mirror = $state(false);
 	let rate = $state<VideoRate>(1);
+	let muted = $state(false);
 	onMount(() => {
-		({ mirror, rate } = loadVideoPrefs());
+		({ mirror, rate, muted } = loadVideoPrefs());
 	});
 
-	function choose(next: { mirror?: boolean; rate?: VideoRate }) {
+	function choose(next: VideoChoice) {
 		mirror = next.mirror ?? mirror;
 		rate = next.rate ?? rate;
-		saveVideoPrefs({ mirror, rate });
+		muted = next.muted ?? muted;
+		saveVideoPrefs(next);
 	}
 
 	/** A slowed teacher should sound slowed, not like a cartoon. */
@@ -133,6 +136,7 @@
 			class="absolute inset-0 size-full"
 			class:mirror
 			bind:playbackRate={rate}
+			bind:muted
 			bind:paused
 			bind:currentTime
 			bind:duration
@@ -240,7 +244,14 @@
 			class={mirror ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name="mirror" size={22} /></button
 		>
-		<span class="text-[13px] font-bold text-muted">Mirror</span>
+		<button
+			type="button"
+			aria-pressed={muted}
+			aria-label="Mute"
+			onclick={() => choose({ muted: !muted })}
+			class={muted ? iconButton('tonal') : iconButton('bare', 'muted')}
+			><Icon name={muted ? 'volume-off' : 'volume'} size={22} /></button
+		>
 		{#if owner && (!caption || action)}{@render fullScreen()}{/if}
 	{/if}
 	<span class="flex-1"></span>
@@ -282,6 +293,7 @@
 		subtitle={'recordingId' in owner ? 'Recording' : 'Lesson video'}
 		{mirror}
 		{rate}
+		{muted}
 		onchoose={choose}
 		onclose={(at) => {
 			if (inline) inline.currentTime = at;

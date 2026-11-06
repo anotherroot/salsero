@@ -43,6 +43,28 @@
 > the landscape panel is 44 % wide. Rename, Delete and Keys are `PlayerLayer`
 > sheets. What each screen shows is decided in `src/lib/video/chrome.ts`.
 >
+> **Player polish, 2026-11-05:** (1) *Pausing is the person's.* Opening the
+> Link popup (the toast's Link, the section's badge, the editor's line) pauses
+> the video; once every sheet is gone (the popup and the Rename it may offer),
+> it plays on only if it was playing when the popup opened. In the editor
+> nothing starts the video by itself: paused, Edit, Start | End, ±1 s, the
+> whole-section moves, a drag's release and [ / ] land where the edge shows
+> and stay paused (`hearAt`, `editOpening` in `spots.ts`); playing, they play
+> the change as before. (2) *Link wherever you may edit.* A section card
+> (`ui/SectionCard.svelte`: a figure page's sections, a drill's, the exercise
+> pages', a position page's) and the exercise pages' videos open the player
+> with `linking` when the person may edit the video, and the page refreshes
+> once it closes. A picker's preview (a position page's linkable spots, the
+> Link section sheet) stays view-only: a peek while choosing. (3) *Mute*, a
+> speaker toggle in the top bar beside Mirror and in the inline row,
+> remembered in `video-prefs.ts` beside mirror and speed (`VideoChoice` is
+> what a control sends). A YouTube embed is not ours to mute. To fit it on an
+> upright phone's section view (390 px needed 405), that bar's Edit is an
+> accent pencil disc (still named Edit), its gaps and sides are tighter, and
+> ‹ Full video is the one part that truncates, so the bar never overflows
+> (measured whole at 360 px). (4) The inline
+> row's "Mirror" word is gone; the button keeps its name for screen readers.
+>
 
 ## Purpose
 
@@ -67,13 +89,14 @@ Audio-only figure recordings keep the inline player only.
 
 `ui/VideoFrame.svelte` is every video that sits in a page: the lesson page,
 the figure page's recordings, the Today log popups and the exercise page.
-Under the picture are Mirror, the speed row (0.25 / 0.5 / 0.75 / 1) and
-**Full screen**, as the redesign board draws them. Mirror and speed are shared
-with the full-screen player through `src/lib/video-prefs.ts`.
+Under the picture are Mirror, Mute, the speed row (0.25 / 0.5 / 0.75 / 1) and
+**Full screen**, as the redesign board draws them, without words beside the
+buttons. Mirror, mute and speed are shared with the full-screen player through
+`src/lib/video-prefs.ts`.
 
 Since 2026-11-01 the picture carries our own controls instead of the
-browser's: no volume, no ⋮ menu, no browser full screen — volume is the
-phone's. Before the first play it is the board's thumbnail: a dark play disc
+browser's: no volume slider, no ⋮ menu, no browser full screen — volume is
+the phone's, and Mute is ours. Before the first play it is the board's thumbnail: a dark play disc
 in the centre and the length in a pill at the bottom right. A tap on the
 picture plays it in place, not full screen; a second tap pauses. Once it has
 played, a dark fade at the bottom holds the time (`0:09 / 1:08`) and the
@@ -180,7 +203,8 @@ the chosen edge), and for a section **Earlier / Shorter / Longer / Later**
 (`shiftSpot` 0.5 s, `resizeSpot` 0.25 s each side). Every button computes the
 new times with the pure functions in `spots.ts` and is disabled when they
 say nothing changes. ±1 s and the whole-section moves play the change (from
-the start, or the 2 s up to the end); ±0.1 s and a drag pause where the edge
+the start, or the 2 s up to the end) while the video plays, and land where the
+edge shows while it is paused (2026-11-05); ±0.1 s and a drag pause where the edge
 shows (`edgeViewTime`: a start itself, an end 10 ms inside); Now sets the
 edge without seeking. A drag snaps to hundredths and writes once, on release.
 The list is not re-sorted while an editor is open.
@@ -335,8 +359,8 @@ list.
 - `trim.spec.ts`, `screens.spec.ts`, `keys.spec.ts`, `layout.spec.ts`,
   `player-history.spec.ts` (a fake port: two quick backs, a forward move, a
   jump), `zoom.spec.ts`, `taps.spec.ts`, `screen-on.spec.ts` (fakes).
-- `src/lib/video-prefs.spec.ts` — Hide is read back and a save merges, so
-  saving mirror or speed never wipes it.
+- `src/lib/video-prefs.spec.ts` — Hide and Mute are read back and a save
+  merges, so saving mirror or speed never wipes them.
 - `src/lib/server/spots.spec.ts` on `openDb(':memory:')` — add, list, rename,
   delete; each validation; the one-owner CHECK; deleting a recording and a
   lesson video takes their spots.
