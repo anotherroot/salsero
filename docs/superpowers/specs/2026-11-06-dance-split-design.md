@@ -48,7 +48,7 @@ Settings, My count and paired phones.
    salsa people. An invite carries a dance, and Join makes an account in it.
 6. Existing data is split, so the one person with both dances (the user) ends
    up with two accounts holding exactly what they had.
-7. The bachata Android app 1.5 points at `bachata.anotherroot.eu`.
+7. The bachata Android app 1.6 points at `bachata.anotherroot.eu`.
 
 ## Non-goals
 
@@ -251,15 +251,15 @@ then shows an unknown name, which is acceptable.
 - The `site` Gradle property becomes per flavor: salsa
   `https://salsa.anotherroot.eu`, bachata `https://bachata.anotherroot.eu`.
   The paths stay `/salsa` and `/bachata`.
-- **1.4 cannot be told "Update needed" after the deploy.** Its WebView opens
+- **1.5 and older cannot be told "Update needed" after the deploy.** Its WebView opens
   `salsa.anotherroot.eu/bachata/…`, the new rule redirects that to
   `bachata.anotherroot.eu`, and `WebShell.kt` sends any host other than
   `BuildConfig.SITE` to the outside browser. The Update needed block is drawn
-  by the page, so 1.4 never sees it. *My call:* accept that. In the backup,
+  by the page, so the old app never sees it. *My call:* accept that. In the backup,
   the only bachata app install is the user's own. So the rollout is: deploy,
-  release bachata 1.5 (direct channel), and the user installs it by hand from
+  release bachata 1.6 (direct channel), and the user installs it by hand from
   `bachata.anotherroot.eu/app` in the phone's browser. The minimum is not
-  raised, and no 1.4 compatibility path is built. A Play release of 1.5
+  raised, and no compatibility path for older apps is built. A Play release of 1.6
   follows whenever the user wants. The salsa app needs no release.
   Releasing is the user's to approve, like a deploy (`scripts/release.sh`,
   docs/deployment.md).
