@@ -88,7 +88,8 @@ def _run_masks(page):
 
 
 def _player_keys(page):
-    page.get_by_role("button", name="Full screen").first.click()
+    # A recording's row opens the full-screen player (figure page rework, 2026-11-06).
+    page.get_by_role("button", name=re.compile(r"^Play the recording from ")).first.click()
     page.wait_for_timeout(500)
     page.keyboard.press("?")
 
