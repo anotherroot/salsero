@@ -97,22 +97,45 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 		.map(({ d }) => d);
 }
 
-/** The fields that name a member: they travel only when ticked. */
-const NAMES = new Set(['name', 'title']);
+/** The fields that name a member. */
+export const NAME_KEYS: ReadonlySet<string> = new Set(['name', 'title']);
+
+/**
+ * Whether `theirs` is only `mine` with a copy's suffix: the " (Salsa
+ * Tuesdays)" or " (Salsa Tuesdays 2)" a copy takes when its place already has
+ * that name (`suffixed`, which may cut the base short to fit).
+ */
+export function isCopySuffix(mine: string, theirs: string): boolean {
+	const m = theirs.match(/^(.*) \([^()]+\)$/);
+	if (!m) return false;
+	const base = m[1].trim();
+	return base !== '' && mine.trim().startsWith(base);
+}
 
 /**
  * What a Take (`mine` receives) or a Send (`theirs` receives) preselects: the
  * changed side, except that a removal is never preselected. `'both'` gets no
- * pick. A name or title keeps the receiver's own, whoever changed it: a copy
- * suffixed on arrival ("Doble (Salsa Tuesdays)") must not be pushed back, and
- * the source's name would clash in the receiving move. It travels only when
+ * pick.
+ *
+ * Names and titles: Take treats them like any field (a merge tool), except
+ * that a name which is only the other's with a copy's suffix stays yours, so
+ * a copy's "Doble (Salsa Tuesdays)" is not pulled in. Send keeps the
+ * receiver's own, whoever changed it: a name goes only when its rename box is
  * ticked.
  */
 export function defaultPicks(diffs: FieldDiff[], mode: 'take' | 'send'): Picks {
 	const picks: Picks = {};
 	for (const d of diffs) {
-		if (NAMES.has(d.key)) {
-			picks[d.key] = mode === 'take' ? 'mine' : 'theirs';
+		if (NAME_KEYS.has(d.key)) {
+			if (mode === 'send') {
+				picks[d.key] = 'theirs';
+				continue;
+			}
+			const mine = d.mine?.value ?? '';
+			const theirs = d.theirs?.value ?? '';
+			if (d.mine === null || d.theirs === null) picks[d.key] = 'mine';
+			else if (isCopySuffix(mine, theirs) || isCopySuffix(theirs, mine)) picks[d.key] = 'mine';
+			else if (d.side !== 'both') picks[d.key] = d.side;
 			continue;
 		}
 		if (d.side === 'both') continue;
