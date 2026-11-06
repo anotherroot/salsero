@@ -23,6 +23,7 @@ import {
 	videoSpots
 } from './db/schema';
 import { positionLinkLabel } from '$lib/lessons/page';
+import { MAX_SPOT_LABEL } from '$lib/limits';
 import type {
 	LinkCreateField,
 	LinkedSection,
@@ -231,7 +232,8 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 export function nameIfUnnamed(tx: Db, spotId: number, name: string | null): void {
 	if (!name) return;
 	tx.update(videoSpots)
-		.set({ label: name })
+		// Cut to what the spots API takes, as the player's Rename does.
+		.set({ label: name.slice(0, MAX_SPOT_LABEL) })
 		.where(and(eq(videoSpots.id, spotId), isNull(videoSpots.label)))
 		.run();
 }

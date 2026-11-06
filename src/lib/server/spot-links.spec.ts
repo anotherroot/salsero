@@ -26,6 +26,7 @@ import { crossRefs } from './integrity';
 import type { Space } from './scope';
 import { createCustomExercise } from './exercises';
 import { addSpot, listSpots } from './spots';
+import { MAX_SPOT_LABEL } from '$lib/limits';
 import {
 	assertUnlinked,
 	getSpotLink,
@@ -166,6 +167,11 @@ describe('a section takes the name of what it is linked to', () => {
 		linkSpot(db, 'u1', unnamed, { figureId: doble });
 		linkSpot(db, 'u1', unnamed, { exerciseId: drill });
 		expect(labelOf(unnamed)).toBe('Enchufla · Doble');
+	});
+	it("cuts a long name to fit a section's name", () => {
+		const long = createVariationFrom(db, figureId, 'y'.repeat(150))!.id;
+		linkSpot(db, 'u1', unnamed, { figureId: long });
+		expect(labelOf(unnamed)).toBe(`Enchufla · ${'y'.repeat(150)}`.slice(0, MAX_SPOT_LABEL));
 	});
 	it('keeps the name after unlinking', () => {
 		const id = linkSpot(db, 'u1', unnamed, { figureId: doble });

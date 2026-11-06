@@ -46,7 +46,8 @@
 		busy = true;
 		return async ({ update, result }) => {
 			try {
-				await update({ reset: false });
+				// A success clears the form: the sheet stays mounted, and the next link must not take this Title.
+				await update({ reset: result.type === 'success' });
 			} finally {
 				busy = false;
 			}

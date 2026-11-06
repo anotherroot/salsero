@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_SPOT_LABEL } from '$lib/limits';
 import {
 	destination,
 	linkHeading,
@@ -11,7 +10,7 @@ import {
 	openingSteps,
 	refusalAt,
 	stacked,
-	suggestedName,
+	nameFromServer,
 	targetKey,
 	unlinkKind
 } from './link-steps';
@@ -141,22 +140,15 @@ describe('positions and points (ruling 10)', () => {
 	});
 });
 
-describe('suggestedName', () => {
-	it('offers the one link’s name to an unnamed section that had none', () => {
-		expect(suggestedName(null, 0, ['Cradle exit · With turn'])).toBe('Cradle exit · With turn');
+describe('nameFromServer', () => {
+	// The server names an unnamed section after its first link (spec A3): the
+	// player asks for that name instead of offering the Rename sheet.
+	it('asks for the name of an unnamed section that now has a link', () => {
+		expect(nameFromServer(null, ['Cradle exit · With turn'])).toBe(true);
+		expect(nameFromServer(null, ['A · B', 'C · D'])).toBe(true);
 	});
-	it('offers nothing to a section with a name of its own', () => {
-		expect(suggestedName('Madrid', 0, ['Paso Madrid · Basic'])).toBeNull();
-	});
-	it('offers nothing when the section already had links', () => {
-		expect(suggestedName(null, 1, ['Paso Madrid · Basic'])).toBeNull();
-	});
-	it('offers nothing for several links, or none', () => {
-		expect(suggestedName(null, 0, ['A · B', 'C · D'])).toBeNull();
-		expect(suggestedName(null, 0, [])).toBeNull();
-	});
-	it('cuts a long name to fit a section’s name', () => {
-		const long = 'x'.repeat(MAX_SPOT_LABEL + 20);
-		expect(suggestedName(null, 0, [long])).toBe(long.slice(0, MAX_SPOT_LABEL));
+	it('asks nothing for a section with a name of its own, or with no link', () => {
+		expect(nameFromServer('Madrid', ['Paso Madrid · Basic'])).toBe(false);
+		expect(nameFromServer(null, [])).toBe(false);
 	});
 });
