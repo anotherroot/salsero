@@ -690,7 +690,7 @@ describe('through sections', () => {
 				id: doble,
 				name: 'Enchufla · Doble',
 				byHand: false,
-				viaSections: [{ spotId: a, startMs: 1000, endMs: 4000, label: null }]
+				viaSections: [{ spotId: a, startMs: 1000, endMs: 4000, label: 'Enchufla · Doble' }]
 			})
 		]);
 		unlinkSpot(db, link, { figureId: doble });
