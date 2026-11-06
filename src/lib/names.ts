@@ -52,3 +52,16 @@ export function needsName(path: string, user: { firstName: string | null } | nul
 	if (PASS_EXACT.includes(path)) return false;
 	return !PASS.some((p) => path.startsWith(p));
 }
+
+/**
+ * Whether a request must first be sent to /welcome/start: a signed-in person
+ * who has not chosen a level (`users.level` null; every account from before
+ * levels is backfilled, so only a new account is asked). Same passes as the
+ * name gate, plus /welcome/start itself. Levels hide entry points, never
+ * routes: this is the one redirect a level causes.
+ */
+export function needsLevel(path: string, user: { level: string | null } | null): boolean {
+	if (!user || user.level) return false;
+	if (path === '/welcome/start' || PASS_EXACT.includes(path)) return false;
+	return !PASS.some((p) => path.startsWith(p));
+}

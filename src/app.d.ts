@@ -1,4 +1,5 @@
 import type { AppAgent } from '$lib/app-update/agent';
+import type { Level } from '$lib/levels/levels';
 
 /** The signed-in user, as carried on `locals` and echoed to the client. */
 interface SessionUser {
@@ -11,6 +12,8 @@ interface SessionUser {
 	timezone: string;
 	/** The admin invites people and sees their storage. */
 	isAdmin: boolean;
+	/** How much app the person sees (`$lib/levels/levels.ts`); null until the first run asks. */
+	level: Level | null;
 }
 
 declare global {

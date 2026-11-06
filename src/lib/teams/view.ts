@@ -1,9 +1,10 @@
 /** What the group screens say. PURE and client-safe. */
 import { localDay } from '$lib/day/day';
-import { byteSize, dayMonth, plural } from '$lib/format';
+import { byteSize, classDayLabel, dayMonth, plural } from '$lib/format';
 import { TEAM_PURGE_MS } from '$lib/limits';
 import type { Role } from '$lib/types';
 import { MAKE_MINE } from '$lib/clones/view';
+import type { Level } from '$lib/levels/levels';
 
 export function roleLabel(role: Role): string {
 	return role === 'owner' ? 'Owner' : role === 'editor' ? 'Editor' : 'Member';
@@ -59,9 +60,13 @@ export function newPill(n: number): string | null {
 	return n > 0 ? `${n} new` : null;
 }
 
-/** The Groups tab's accessible name: it says so when something is new. */
-export function groupsTabLabel(isNew: boolean): string {
-	return isNew ? 'Groups, new in your groups' : 'Groups';
+/**
+ * The Groups tab's accessible name: it says so when something is new. `label`
+ * is the tab's own word: "My class" at Follow my class (`tabsFor`).
+ */
+export function groupsTabLabel(isNew: boolean, label = 'Groups'): string {
+	if (!isNew) return label;
+	return label === 'Groups' ? 'Groups, new in your groups' : `${label}, something new`;
 }
 
 export function limitLine(n: number): string {
@@ -83,6 +88,91 @@ export function groupUsesLine(used: number, limit: number): string {
 /** The group page's songs heading: "Class songs · 3". */
 export function classSongsHeading(n: number): string {
 	return n > 0 ? `Class songs · ${n}` : 'Class songs';
+}
+
+/** My class's words (levels spec, "My class"): the tab's list, the class page, its menu. */
+export const MY_CLASS = {
+	title: 'My class',
+	classes: 'Your classes',
+	earlier: 'Earlier classes',
+	menu: 'Class menu',
+	/** The desktop's empty pane beside a list of two or more classes. */
+	pick: { title: 'Pick a class', body: 'Its classes and songs open here.' }
+};
+
+/** The toast after a one-tap Add in My class; its action is Undo. */
+export const ADDED_TO_TODAY = 'Added to Today';
+
+/**
+ * My class: the newest published class (the big card) and the rest, newest
+ * first (Earlier classes). Drafts are no class yet. Two on one day: the one
+ * made later first, as the lists order them.
+ */
+export function latestAndEarlier<
+	T extends { id: number; lessonDay: string; publishedAt: number | null }
+>(lessons: T[]): { latest: T | null; earlier: T[] } {
+	const published = lessons
+		.filter((l) => l.publishedAt !== null)
+		.sort((a, b) => b.lessonDay.localeCompare(a.lessonDay) || b.id - a.id);
+	return { latest: published[0] ?? null, earlier: published.slice(1) };
+}
+
+/** A class's line in My class: "2 videos · 4 to practise", a zero part left out; null with neither. */
+export function classMeta(videos: number, practise: number): string | null {
+	const parts = [
+		videos > 0 ? plural(videos, 'video', 'videos') : null,
+		practise > 0 ? `${practise} to practise` : null
+	].filter((p) => p !== null);
+	return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/** A row of the group menu, in the order drawn. */
+export type GroupMenuItem = 'people' | 'deleted' | 'code' | 'rename' | 'leave' | 'delete';
+
+/**
+ * A live group's menu. My class's Class menu (`simple`) is People and Leave
+ * only; otherwise the code and Recently deleted for those who edit, Rename and
+ * Delete for the owner, Leave for everyone else.
+ */
+export function groupMenu(role: Role, simple: boolean): GroupMenuItem[] {
+	if (simple) return ['people', 'leave'];
+	const owner = role === 'owner';
+	const edits = role !== 'member';
+	const items: (GroupMenuItem | false)[] = [
+		'people',
+		edits && 'deleted',
+		edits && 'code',
+		owner && 'rename',
+		!owner && 'leave',
+		owner && 'delete'
+	];
+	return items.filter((i) => i !== false);
+}
+
+/**
+ * At Follow my class, whether `teamId` is the person's one live class in this
+ * dance: then it is the tab's own page, whatever their role (no ‹, whose
+ * fallback, the tab, would open it again), and a lesson of theirs opens with no
+ * list column beside it.
+ */
+export function onlyClass(
+	level: Level,
+	teams: { id: number; deletedAt: number | null }[],
+	teamId: number | null
+): boolean {
+	if (level !== 'follow') return false;
+	const live = teams.filter((t) => t.deletedAt === null);
+	return live.length === 1 && live[0].id === teamId;
+}
+
+/** My class with no class here but one in the other dance: "Your bachata class". */
+export function otherClassLine(danceLabel: string): string {
+	return `Your ${danceLabel.toLowerCase()} class`;
+}
+
+/** A class in the list of classes: when it last met ("Last class Tue 3 Nov"). */
+export function lastClassLine(day: string | null, today: string): string {
+	return day === null ? 'No classes yet' : `Last class ${classDayLabel(day, today)}`;
 }
 
 /** The desktop's empty pane beside the Groups list, with no group open. */

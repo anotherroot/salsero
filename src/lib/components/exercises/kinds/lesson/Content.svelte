@@ -13,7 +13,7 @@
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { dance, content, onPage, canEdit = true }: ContentProps = $props();
+	let { dance, content, onPage, canEdit = true, simple = false }: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
@@ -76,8 +76,9 @@
 					<VideoFrame
 						src="/lesson-videos/{video.file}"
 						{canEdit}
-						linking={canEdit}
+						linking={canEdit && !simple}
 						onclosed={() => void refreshWhenSettled()}
+						{simple}
 						sourceUrl={video.sourceUrl}
 						owner={{ lessonVideoId: video.id }}
 						caption={lessonVideoCaption(i, video)}

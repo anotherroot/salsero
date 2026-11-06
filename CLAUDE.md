@@ -60,7 +60,16 @@ work, Gaps and a map; links from sections, points and lessons; see
 and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
 see
-[`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md)).
+[`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
+and levels (how much app a person sees: Follow my class, Practise and keep my
+own, Everything; a first run that asks, with a class code; class lessons that
+come to Today by themselves; My class; a simple lesson page, video player,
+exercise page and log popup; see
+[`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md))
+and comments on a class's lessons (a card at the end of the lesson and the
+exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
+with Undo, "N new"; see
+[`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -150,6 +159,16 @@ Today as a number a day has its own,
 the four faces, the replayed gap and its numbers, the day's list from the start
 of the day, Next N, Not today and Undo, Coming up, the reminder, and what was
 decided while building.
+Levels have theirs,
+[`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
+the three levels and what each draws, the first run, tabs per level, auto-add
+(on publish, on join, on growth), My class, the simple lesson page, player,
+exercise page and log popup, Settings, the desktop, and what was decided while
+building. Levels hide entry points, never routes.
+Comments have theirs,
+[`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md):
+who reads and writes, the soft delete, hearts, "N new" from an `opens` row, the
+card, the sheet, the keyboard, the API, and what was decided while building.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -166,6 +185,15 @@ src/lib/schedule/    PURE, client-safe: the Anki-style schedule (schedule.ts: `r
                      state), the day's picks (picks.ts), Coming up (coming-up.ts: Waiting,
                      dated groups, Paused) and the words (words.ts). `now` and `tz` are
                      arguments
+src/lib/levels/      PURE, client-safe: levels.ts is the level (`'follow' | 'own' | 'all'`), its
+                     words, `levelShown` (null, not chosen yet, draws as `all`), `tabsFor`,
+                     `simple`, `simpleLesson` (a group's lesson the person edits stays full; their own lesson is simple),
+                     `simpleClass`, `autoAddOn` and the other "is this drawn" questions.
+                     Components ask it, never compare level strings. first-run.ts: the
+                     first run's words, refusals and where it ends (`afterJoin`, `afterSkip`)
+src/lib/comments/    PURE, client-safe: view.ts is the comments' words, the 1–1000 body rule,
+                     "@Name", the card's words, and the sheet's list after a post, a heart
+                     or a delete. api.ts is the fetch side of the comments API
 src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
@@ -378,6 +406,23 @@ src/lib/theme/tokens.ts  also `GROUP`, the group look's dance tokens; `layout.cs
                      in `[data-dance][data-group]`
 src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
                      `membership.ts`: leave, remove, roles
+src/lib/server/levels.ts  `users.level` and `team_members.auto_add`: `levelOf`, `setLevel`,
+                     `setAutoAdd`. `locals.user.level` carries the level, so a load never asks
+src/lib/server/auto-add.ts  Add running by itself: `autoAddOnPublish` (in `publishLesson`),
+                     `joinClass` (`joinTeam` + `autoAddOnJoin`: the newest lesson), and
+                     `autoAddPending` (a published lesson that grew: run by the `GROWTH`
+                     mutations listed in `auto-add.spec.ts`)
+src/lib/server/join-code.ts  `joinWithCode` (a typed class code, through `joinClass`) and
+                     `danceWithClass` (`/` at Follow my class prefers a dance with a class)
+src/lib/server/my-class.ts  My class's list: the groups with what is new, each class's last
+                     day; read by the Groups layout and, at Follow my class, the Lessons layout
+src/lib/server/from-class.ts  an exercise's "From class" lesson (`fromClassOf`)
+src/lib/server/comments.ts  comments on a group's lessons: list, post, heart, delete (soft),
+                     restore, the card (`commentsOn`) and an exercise's lesson (`classLessonOf`).
+                     Served flat: api/lessons/[id]/comments, api/comments/[id] (+ heart, restore)
+src/lib/components/comments/  CommentsCard (opens the sheet), CommentsSheet, CommentItem, Composer
+src/lib/sheets/keyboard.ts  PURE `keyboardInsets` and `followKeyboard`: an open Sheet sits above
+                     the on-screen keyboard (`visualViewport`), not in the Android app
 src/lib/server/access.ts  what a person may do with a row: `reach` (what they reach
                      through published lessons; a deleted group's members, until its purge,
                      through the lessons they added; someone who left, nothing),
@@ -500,6 +545,12 @@ src/routes/[dance]/lessons/  the same for Lessons: `+layout.svelte` and `+layout
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
 src/routes/welcome/  asks once for a name: a person whose account was made before names
                      (hooks.server.ts sends anyone signed in without one here)
+src/routes/welcome/start  the first run: three slides, How much app?, Join your class
+                     (`?step=join`). hooks.server.ts sends anyone signed in with no level here
+                     (`needsLevel`, after the name). Drawn in `CardFrame`
+src/lib/components/levels/LevelCards.svelte  the three levels as radio cards (first run, Settings).
+                     components/teams/ClassList, MyClass, ClassCodeField are My class;
+                     components/lessons/SimpleLesson the simple lesson page
 src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archived is the
                      POST behind a picker's "Archived by … · Restore" (a group's figure,
                      routine or drill); it lists nothing
@@ -593,9 +644,12 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   (`spot_position_links`, deleted on unlink, and with their video when a
   group is purged) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes of content;
-  `twins` rows (Separate), `clone_pairs` (Detach) and `today_picks` (Undo of a
-  pick, and an add or next taking the day's skip away) are bookkeeping,
-  deleted too. Drop my copy and Move to… archive the copy, never delete it. A
+  `twins` rows (Separate), `clone_pairs` (Detach), `today_picks` (Undo of a
+  pick, and an add or next taking the day's skip away) and
+  `lesson_comment_hearts` (un-hearting) are bookkeeping, deleted too. A
+  comment (`lesson_comments`) is deleted softly (`deleted_at`, `deleted_by`;
+  Undo clears them); only a group's purge hard-deletes its lessons' comments
+  and hearts (`purgeRows`, `team-purge.ts`), as nobody reaches them after it. Drop my copy and Move to… archive the copy, never delete it. A
   figure's exercise is opt-in (`addFigureExercise`); when one exists it is
   renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot (to a figure, a drill or a
@@ -714,6 +768,12 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `src/lib/scheduler/scheduler.ts` decides WHAT sounds and WHEN in song time and
   never touches audio. Figure names go through `speechSynthesis`, which cannot be
   scheduled and does not need to be.
+- **Levels hide entry points, never routes.** No route 404s or redirects
+  because of a level (the first-run gate for a null level, and My class's tab
+  landing on the one class, are the exceptions). Components ask
+  `src/lib/levels/levels.ts`, never compare level strings, and read the level
+  through `levelShown` (null draws as Everything). A lesson or group the person
+  edits stays the full page at every level (a group's lesson or group; a person's own lesson is read-only at Follow my class).
 - **A dance is the wall through the content.** `figures`, `songs`, `exercises`,
   `lessons` and `positions` carry `dance`; `sets`, `recordings`, the lesson join tables,
   a figure's position tags and `video_spots` derive it through their parent (a
@@ -781,7 +841,8 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   [`docs/superpowers/specs/2026-11-03-groups-follow-ups-design.md`](docs/superpowers/specs/2026-11-03-groups-follow-ups-design.md).
 - **Opens are recorded from the page, never in a load.** What's new clears by
   opening a lesson or song, written by `POST /api/opens` (kind `lesson` or
-  `song`). SvelteKit preloads data on hover and touch, so a load that recorded
+  `song`; `comments`, item the lesson, when the comments sheet opens, for the
+  card's "N new"). SvelteKit preloads data on hover and touch, so a load that recorded
   would clear the dot for a page nobody opened.
 - **Every group mutation is logged, in its own transaction.** `logChange`
   (`src/lib/server/changes.ts`) with a real actor, so History is complete. A
@@ -789,13 +850,23 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   which fails otherwise. Worker state is exempt: the worker's own writes
   (status, audio, beats) and a song's Retry (`retrySong`, which only re-queues
   a failed download) change no field a person edits, so they are not logged.
+  Comments are exempt too: posting, hearting, deleting and restoring a comment
+  are a conversation, not the group's content, so they are not in History or
+  in `MUTATIONS`.
+- **What grows a published lesson runs auto-add.** A group mutation that can
+  give a lesson something new to practise (`newInLesson`: its routines and
+  drills) calls `autoAddPending` for that lesson in its transaction, and is
+  listed in `GROWTH` in `src/lib/server/auto-add.spec.ts` beside the reason;
+  the spec's insert-site scan fails when a new insert into `lesson_routines`,
+  `lesson_exercises` or `spot_links` is not placed. Figure links and routine
+  edits are not growth: Add never adds a figure, and a routine holds no drills.
 - **A save on a group row carries `seen`.** The clash check
   (`src/lib/server/clash.ts`) compares what the editor saw with the row now;
   `seen` must cover every field the save writes, or a quiet overwrite slips
   through.
 - **Reach shrinks, entries follow.** `reconcileEntries` runs in every group
-  change that can shrink someone's reach (unpublish, delete, an unlinked
-  section) and on membership changes, so no entry points at what its person can
+  change that can shrink someone's reach (an archived lesson, an unlinked
+  section or link; a lesson is never unpublished) and on membership changes, so no entry points at what its person can
   no longer reach. It also runs the rescue (`rescueUsed`,
   `src/lib/server/clones/rescue.ts`): what a person's own rows use (a slot, an
   embed, a lesson or section link) and they can no longer read is copied into

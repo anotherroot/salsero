@@ -18,13 +18,16 @@
 		section,
 		unlink,
 		focusKey,
-		canEdit = true
+		canEdit = true,
+		simple = false
 	}: {
 		section: LinkedSection;
 		unlink?: Snippet;
 		focusKey?: string;
 		/** Marking and editing spots in its player: off for a reader of a group's video. */
 		canEdit?: boolean;
+		/** The simple player: the section loops, nothing to mark or edit. */
+		simple?: boolean;
 	} = $props();
 
 	let open = $state(false);
@@ -71,11 +74,12 @@
 		spot={section.spot}
 		from={section.video.from}
 		{canEdit}
-		linking={canEdit}
+		linking={canEdit && !simple}
+		{simple}
 		onclose={() => {
 			open = false;
-			// The player may have renamed, moved or linked the section.
-			if (canEdit) void refreshWhenSettled();
+			// The player may have renamed, moved or linked the section; the simple one cannot.
+			if (canEdit && !simple) void refreshWhenSettled();
 		}}
 	/>
 {/if}

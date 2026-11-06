@@ -35,7 +35,7 @@ export const load: LayoutServerLoad = ({ params, cookies, url, locals }) => {
 	if (locals.user) {
 		const db = getDb();
 		if (!outsideGroupMode(url.pathname, dance))
-			groupMode = groupModeOf(db, locals.user.id, dance, cookies);
+			groupMode = groupModeOf(db, locals.user.id, dance, cookies, locals.user.level);
 		choices = groupChoices(db, locals.user.id, dance);
 		// Read from the path so it reruns on every navigation: the item this
 		// response opens must not count itself (the page records the open).

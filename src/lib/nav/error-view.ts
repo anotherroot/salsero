@@ -1,6 +1,7 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
-import { TABS, tabFor } from '$lib/nav/tabs';
+import { tabFor } from '$lib/nav/tabs';
+import { tabsFor, type Level } from '$lib/levels/levels';
 
 export interface ErrorView {
 	title: string;
@@ -72,9 +73,14 @@ export function errorView(
 	};
 }
 
-/** Where Back goes: the tab the failed path belongs to, else Today. */
-export function errorBack(path: string, dance: DanceSlug): { href: string; label: string } {
-	const tab = TABS.find((t) => t.id === tabFor(path, dance)) ?? TABS[0];
+/** Where Back goes: the tab the failed path belongs to, when the level has it, else Today. */
+export function errorBack(
+	path: string,
+	dance: DanceSlug,
+	level: Level = 'all'
+): { href: string; label: string } {
+	const tabs = tabsFor(level);
+	const tab = tabs.find((t) => t.id === tabFor(path, dance)) ?? tabs[0];
 	// A route id names its groups (`/[dance]/(moves)/figures`); the URL does not.
 	const href = tab.path.replace(/\/\([^)]*\)/g, '').replace('[dance]', dance);
 	return { href, label: `Back to ${tab.label}` };

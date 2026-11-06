@@ -1,6 +1,6 @@
 /** What the exercise page shows: summary tiles, history by day, the owner row. PURE, client-safe. */
 import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
-import { dateLabel, longDayLabel, setSummary } from '$lib/format';
+import { classDayLabel, dateLabel, longDayLabel, setSummary } from '$lib/format';
 import { FEEL_WORD, feelOf, type Feel } from '$lib/schedule/feel';
 import type { IconName } from '$lib/icons/icons';
 import type { ExerciseSummary, HistorySet, PracticeContent } from '$lib/types';
@@ -104,4 +104,44 @@ export function ownerOf(c: PracticeContent): {
 export function archiveBody(name: string, sets: number): string {
 	const head = `${name} leaves Today and every list.`;
 	return sets === 0 ? head : `${head} Its ${sets} ${sets === 1 ? 'set is' : 'sets are'} kept.`;
+}
+
+/**
+ * What the exercise page draws. The simple page (Follow my class, Practise and
+ * keep my own) is the "I practised this" page: the type's content, where it is
+ * from, the pinned button and Not today. Everything else on the full page is
+ * hidden, never the route.
+ */
+export interface PageParts {
+	editSettings: boolean;
+	historyLink: boolean;
+	sourceTabs: boolean;
+	ownerRow: boolean;
+	addBlock: boolean;
+	historyTiles: boolean;
+	setList: boolean;
+	settingsBlock: boolean;
+	fromClass: boolean;
+	/** The pinned button's words. */
+	logButton: string;
+}
+
+export function pageParts(simple: boolean, hasClass: boolean): PageParts {
+	return {
+		editSettings: !simple,
+		historyLink: !simple,
+		sourceTabs: !simple,
+		ownerRow: !simple,
+		addBlock: !simple,
+		historyTiles: !simple,
+		setList: !simple,
+		settingsBlock: !simple,
+		fromClass: simple && hasClass,
+		logButton: simple ? 'I practised this' : 'Log a set'
+	};
+}
+
+/** The line to the class an exercise came from: `From class Tue 3 Nov ›`. */
+export function fromClassLabel(lessonDay: string, today: string): string {
+	return `From class ${classDayLabel(lessonDay, today)} ›`;
 }

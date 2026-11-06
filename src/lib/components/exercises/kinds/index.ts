@@ -29,6 +29,8 @@ export interface ContentProps {
 	 * a reader of a group's things. Defaults to on.
 	 */
 	canEdit?: boolean;
+	/** The simple look (Follow my class, Practise and keep my own): videos in the simple player, no editing. */
+	simple?: boolean;
 	/** Offer the links editor — only the drill's content, whose links are its own, honours it. */
 	editLinks?: {
 		message: string | null;

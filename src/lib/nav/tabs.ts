@@ -3,7 +3,7 @@ import type { IconName } from '$lib/icons/icons';
 
 export type TabId = 'today' | 'moves' | 'lessons' | 'groups' | 'music';
 
-export const TABS: readonly {
+export interface Tab {
 	id: TabId;
 	label: string;
 	icon: IconName;
@@ -13,7 +13,10 @@ export const TABS: readonly {
 		| '/[dance]/lessons'
 		| '/[dance]/groups'
 		| '/[dance]/songs';
-}[] = [
+}
+
+/** The five tabs, in order. A person sees the ones their level gives (`tabsFor`, `$lib/levels/levels.ts`). */
+export const TABS: readonly Tab[] = [
 	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]/(today)' },
 	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/(moves)/figures' },
 	{ id: 'lessons', label: 'Lessons', icon: 'lessons', path: '/[dance]/lessons' },

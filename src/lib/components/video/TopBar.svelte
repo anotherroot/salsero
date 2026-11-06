@@ -24,6 +24,10 @@
 		onedit?: () => void;
 		onclose: () => void;
 		onchoose: (next: VideoChoice) => void;
+		/** The simple player: the whole video loops. */
+		repeat?: boolean;
+		/** A section opened as such always loops: repeat is lit and cannot be turned off. */
+		repeatLocked?: boolean;
 	}
 
 	let {
@@ -35,6 +39,8 @@
 		parts,
 		place,
 		spotsCount = 0,
+		repeat = false,
+		repeatLocked = false,
 		onspots,
 		onback,
 		onedit,
@@ -120,6 +126,24 @@
 	{#if parts.sections && onspots}
 		<button type="button" class={HIT} onclick={onspots}>
 			<span class={glassPill}><Icon name="list" size={20} />Sections ({spotsCount})</span>
+		</button>
+	{/if}
+	{#if parts.repeat}
+		<button
+			type="button"
+			class="grid size-11 flex-none cursor-pointer place-items-center text-white disabled:cursor-default"
+			aria-label="Repeat"
+			aria-pressed={repeat}
+			disabled={repeatLocked}
+			onclick={() => onchoose({ repeat: !repeat })}
+		>
+			{#if repeat}
+				<span class="{DISC} bg-accent text-on-accent"><Icon name="repeat" size={22} /></span>
+			{:else if parts.glass}
+				<span class={GLASS_DISC}><Icon name="repeat" size={22} /></span>
+			{:else}
+				<Icon name="repeat" size={24} />
+			{/if}
 		</button>
 	{/if}
 	<button

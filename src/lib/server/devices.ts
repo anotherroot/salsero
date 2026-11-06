@@ -7,6 +7,7 @@ import { DANCE_SLUGS, type DanceSlug } from '$lib/dances/dances';
 import { dayList } from '$lib/schedule/today-list';
 import { isVideoShortSide, type VideoShortSide } from '$lib/video-sizes';
 import type { DeviceRow } from '$lib/types';
+import { parseLevel } from '$lib/levels/levels';
 
 /**
  * The Android app's side of identity and settings. A device holds a bearer
@@ -46,7 +47,8 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 			firstName: users.firstName,
 			lastName: users.lastName,
 			timezone: users.timezone,
-			isAdmin: users.isAdmin
+			isAdmin: users.isAdmin,
+			level: users.level
 		})
 		.from(deviceTokens)
 		.innerJoin(users, eq(users.id, deviceTokens.userId))
@@ -62,7 +64,8 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 		firstName: row.firstName,
 		lastName: row.lastName,
 		timezone: row.timezone,
-		isAdmin: row.isAdmin
+		isAdmin: row.isAdmin,
+		level: parseLevel(row.level)
 	};
 }
 

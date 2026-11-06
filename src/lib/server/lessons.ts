@@ -7,6 +7,7 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
+	max,
 	ne,
 	notInArray,
 	or,
@@ -62,6 +63,7 @@ import { getTeam, roleOf } from './teams';
 import { addedLessonIds, addedTeams } from './access';
 import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget } from './entries';
 import { actingIn, fieldChange, logChange } from './changes';
+import { autoAddOnPublish, autoAddPending } from './auto-add';
 import { rootTitle, trashRows, type ArchiveRestore } from './trash';
 import type {
 	LessonExerciseRow,
@@ -433,7 +435,11 @@ export function publishLesson(db: Db, space: TeamSpace, id: number, now: number)
 					)
 				)
 				.run().changes > 0;
-		if (moved) logChange(tx, space, { ...ofLesson(id), verb: 'publish', subject: 'lesson' }, now);
+		if (moved) {
+			logChange(tx, space, { ...ofLesson(id), verb: 'publish', subject: 'lesson' }, now);
+			// Its members with auto-add on find it on Today (levels spec, "Auto-add").
+			autoAddOnPublish(tx, id, now);
+		}
 		return moved;
 	});
 }
@@ -469,6 +475,30 @@ export function listTeamLessons(
 		.filter((r) => editor || r.publishedAt !== null)
 		.map((r) => ({ ...r, team: { id: team.id, name: team.name } }));
 	return [...rows.filter((r) => r.publishedAt === null), ...rows.filter((r) => r.publishedAt)];
+}
+
+/**
+ * The day each group's newest published, live lesson was held, by group id
+ * (My class's list of classes: "Last class Tue 3 Nov"). A group with none is
+ * left out.
+ */
+export function latestClassDays(db: Db, teamIds: number[]): Map<number, string> {
+	if (teamIds.length === 0) return new Map();
+	const rows = db
+		.select({ teamId: lessons.teamId, day: max(lessons.lessonDay) })
+		.from(lessons)
+		.where(
+			and(
+				inArray(lessons.teamId, teamIds),
+				isNotNull(lessons.publishedAt),
+				isNull(lessons.archivedAt)
+			)
+		)
+		.groupBy(lessons.teamId)
+		.all();
+	return new Map(
+		rows.flatMap((r) => (r.teamId !== null && r.day !== null ? [[r.teamId, r.day] as const] : []))
+	);
 }
 
 /**
@@ -978,7 +1008,9 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number, by?: st
 				)
 				.run();
 		}
-		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), Date.now());
+		const now = Date.now();
+		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), now);
+		if (isTeam(space)) autoAddPending(tx, space.teamId, [lessonId], now);
 		return true;
 	});
 }
@@ -1074,8 +1106,10 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: 
 			tx.insert(lessonExercises).values({ lessonId, exerciseId }).onConflictDoNothing().run()
 				.changes > 0;
 		if (added) {
+			const now = Date.now();
 			const name = linkedName(tx, { exerciseId });
-			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, Date.now());
+			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, now);
+			if (isTeam(space)) autoAddPending(tx, space.teamId, [lessonId], now);
 		}
 		return added;
 	});

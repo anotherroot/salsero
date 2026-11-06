@@ -11,6 +11,7 @@ import {
 	playerMode,
 	spotLine,
 	toastPlace,
+	portraitBody,
 	topBar
 } from './chrome';
 
@@ -31,46 +32,149 @@ describe('chrome', () => {
 		[
 			'portrait',
 			'full',
-			{ glass: false, back: false, title: true, sub: 'subtitle', edit: null, sections: false }
+			{
+				glass: false,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: false,
+				repeat: false
+			}
 		],
 		[
 			'portrait',
 			'section',
-			{ glass: false, back: true, title: false, sub: 'subtitle', edit: 'accent', sections: false }
+			{
+				glass: false,
+				back: true,
+				title: false,
+				sub: 'subtitle',
+				edit: 'accent',
+				sections: false,
+				repeat: false
+			}
 		],
 		[
 			'portrait',
 			'edit',
-			{ glass: false, back: false, title: true, sub: 'subtitle', edit: null, sections: false }
+			{
+				glass: false,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: false,
+				repeat: false
+			}
 		],
 		[
 			'overlay',
 			'full',
-			{ glass: true, back: false, title: true, sub: 'subtitle', edit: null, sections: true }
+			{
+				glass: true,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: true,
+				repeat: false
+			}
 		],
 		[
 			'overlay',
 			'section',
-			{ glass: true, back: true, title: true, sub: 'looping', edit: 'glass', sections: false }
+			{
+				glass: true,
+				back: true,
+				title: true,
+				sub: 'looping',
+				edit: 'glass',
+				sections: false,
+				repeat: false
+			}
 		],
 		[
 			'panel',
 			'edit',
-			{ glass: false, back: false, title: true, sub: 'subtitle', edit: null, sections: false }
+			{
+				glass: false,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: false,
+				repeat: false
+			}
 		],
 		[
 			'panel',
 			'full',
-			{ glass: false, back: false, title: true, sub: 'subtitle', edit: null, sections: false }
+			{
+				glass: false,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: false,
+				repeat: false
+			}
 		],
 		[
 			'desktop',
 			'section',
-			{ glass: false, back: false, title: true, sub: 'subtitle', edit: null, sections: false }
+			{
+				glass: false,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: false,
+				repeat: false
+			}
 		]
 	] as const)('top bar in %s at %s', (mode, level, parts) =>
 		expect(topBar(mode, level)).toEqual(parts)
 	);
+	it.each([
+		['portrait', 'full', false],
+		['portrait', 'section', false],
+		['overlay', 'full', true],
+		['panel', 'full', false],
+		['desktop', 'full', false]
+	] as const)(
+		'the simple top bar in %s at %s has repeat and nothing to edit',
+		(mode, level, glass) => {
+			expect(topBar(mode, level, { simple: true })).toEqual({
+				glass,
+				back: false,
+				title: true,
+				sub: 'subtitle',
+				edit: null,
+				sections: false,
+				repeat: true
+			});
+		}
+	);
+	it('the portrait body is the slim bar only in the simple player', () => {
+		for (const level of ['full', 'section', 'edit'] as const)
+			for (const listOpen of [false, true])
+				for (const hidden of [false, true])
+					expect(portraitBody(level, { listOpen, hidden, spot: true, simple: true })).toBe('slim');
+		expect(portraitBody('full', { listOpen: false, hidden: false, spot: false })).toBe('full');
+		expect(portraitBody('full', { listOpen: false, hidden: true, spot: false })).toBe('slim');
+		expect(portraitBody('section', { listOpen: false, hidden: false, spot: true })).toBe('section');
+		expect(portraitBody('edit', { listOpen: false, hidden: true, spot: true })).toBe('editor');
+		expect(portraitBody('full', { listOpen: true, hidden: true, spot: false })).toBe('list');
+	});
+	it('without an open spot, the section and edit levels fall back as they always did', () => {
+		// Hide on: the slim bar, as before the simple player (not the full bar).
+		expect(portraitBody('edit', { listOpen: false, hidden: true, spot: false })).toBe('slim');
+		expect(portraitBody('section', { listOpen: false, hidden: true, spot: false })).toBe('slim');
+		// Hide off: the full bar.
+		expect(portraitBody('edit', { listOpen: false, hidden: false, spot: false })).toBe('full');
+		expect(portraitBody('section', { listOpen: false, hidden: false, spot: false })).toBe('full');
+	});
 	it('says speed and mirror on the corner badge', () => {
 		expect(cornerBadge(0.5, true)).toBe('0.5× · Mirrored');
 		expect(cornerBadge(1, true)).toBe('Mirrored');

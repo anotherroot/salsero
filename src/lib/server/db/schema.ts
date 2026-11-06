@@ -55,7 +55,13 @@ export const users = sqliteTable('users', {
 	/** How many groups the person may make; null = `TEAMS_MADE_DEFAULT`. */
 	groupLimit: integer('group_limit'),
 	/** How many exercises Today shows a day, for both dances; null = `DAILY_DEFAULT`. Range-checked in `setDailyCount`. */
-	dailyCount: integer('daily_count')
+	dailyCount: integer('daily_count'),
+	/**
+	 * How much app the person sees: `follow`, `own` or `all` (`$lib/levels/levels.ts`),
+	 * checked in `setLevel`, not by a CHECK. Null until chosen (the first run asks);
+	 * accounts made before levels were backfilled to `all` by migration 0031.
+	 */
+	level: text('level')
 });
 
 /**
@@ -1184,7 +1190,12 @@ export const teamMembers = sqliteTable(
 			.references(() => teams.id),
 		userId: text('user_id').notNull(),
 		role: text('role').notNull(),
-		joinedAt: integer('joined_at').notNull()
+		joinedAt: integer('joined_at').notNull(),
+		/**
+		 * Whether new class lessons reach the member's Today by themselves: null = the
+		 * level's default, 0 or 1 the member's own choice (`autoAddOn`, `setAutoAdd`).
+		 */
+		autoAdd: integer('auto_add')
 	},
 	(t) => [
 		primaryKey({ columns: [t.teamId, t.userId] }),
@@ -1211,6 +1222,49 @@ export const lessonAdds = sqliteTable(
 );
 
 /**
+ * A comment on a group's lesson (lesson comments spec). `author_id`, not
+ * `user_id`: the owner and the dance come through the lesson, like
+ * `lesson_videos`. A reply's `thread_id` is its top comment and `reply_to_id`
+ * the comment it answers, both in the same lesson (checked in the data
+ * function). The body is 1–1000 characters after trim, also checked there.
+ * Delete is soft (`deleted_at`, `deleted_by`).
+ */
+export const lessonComments = sqliteTable(
+	'lesson_comments',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		authorId: text('author_id')
+			.notNull()
+			.references(() => users.id),
+		threadId: integer('thread_id').references((): AnySQLiteColumn => lessonComments.id),
+		replyToId: integer('reply_to_id').references((): AnySQLiteColumn => lessonComments.id),
+		body: text('body').notNull(),
+		createdAt: createdAt(),
+		deletedAt: integer('deleted_at'),
+		deletedBy: text('deleted_by').references(() => users.id)
+	},
+	(t) => [index('lesson_comments_lesson_idx').on(t.lessonId, t.createdAt)]
+);
+
+/** A heart on a comment: bookkeeping, un-hearting deletes the row. */
+export const lessonCommentHearts = sqliteTable(
+	'lesson_comment_hearts',
+	{
+		commentId: integer('comment_id')
+			.notNull()
+			.references(() => lessonComments.id),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		createdAt: createdAt()
+	},
+	(t) => [primaryKey({ columns: [t.commentId, t.userId] })]
+);
+
+/**
  * When a person last opened a group's lesson or song. "What's new" is derived
  * from it (`whats-new.ts`); no unread flag is ever stored.
  */
@@ -1218,7 +1272,7 @@ export const opens = sqliteTable(
 	'opens',
 	{
 		userId: text('user_id').notNull(),
-		/** 'lesson' | 'song'. */
+		/** 'lesson' | 'song' | 'comments' (a lesson's comments, opened separately). */
 		kind: text('kind').notNull(),
 		itemId: integer('item_id').notNull(),
 		openedAt: integer('opened_at').notNull()

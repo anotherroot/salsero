@@ -1,7 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { getDance } from '$lib/dances/dances';
-import { joinTeam, peopleOf, roleOf, teamByCode } from '$lib/server/teams';
+import { peopleOf, roleOf, teamByCode } from '$lib/server/teams';
+import { joinClass } from '$lib/server/auto-add';
 import type { Actions, PageServerLoad } from './$types';
 
 const STALE = 'This code no longer works';
@@ -29,7 +30,8 @@ export const actions: Actions = {
 		const db = getDb();
 		const team = teamByCode(db, params.code);
 		if (!team) throw error(404, STALE);
-		if (joinTeam(db, locals.user.id, team.id, Date.now()) === 'refused') {
+		// A first join brings the class's newest lesson to Today when auto-add is on.
+		if (joinClass(db, locals.user.id, team.id, Date.now()) === 'refused') {
 			return fail(404, { message: STALE });
 		}
 		throw redirect(303, `/${team.dance}/groups/${team.id}`);

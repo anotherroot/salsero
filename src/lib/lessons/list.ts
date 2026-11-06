@@ -21,10 +21,17 @@ export function dateTile(day: string): { weekday: string; day: number; label: st
 	return { weekday: weekdayShort(day), day: Number(day.slice(8, 10)), label: fullDateLabel(day) };
 }
 
-/** `3 videos · 1.2 GB`, or `null` with no videos. */
-export function videoMeta(l: Pick<LessonItem, 'videos' | 'videoBytes'>): string | null {
+/**
+ * `3 videos · 1.2 GB`, or `null` with no videos. `sized` false (a simple person:
+ * simple screens show no sizes): `3 videos`.
+ */
+export function videoMeta(
+	l: Pick<LessonItem, 'videos' | 'videoBytes'>,
+	sized = true
+): string | null {
 	if (l.videos === 0) return null;
-	return `${plural(l.videos, 'video', 'videos')} · ${byteSize(l.videoBytes)}`;
+	const n = plural(l.videos, 'video', 'videos');
+	return sized ? `${n} · ${byteSize(l.videoBytes)}` : n;
 }
 
 /** The three counts of a row, always, in this order. */

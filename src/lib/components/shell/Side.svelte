@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { TABS } from '$lib/nav/tabs';
+	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
@@ -12,7 +12,7 @@
 	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
 
 	/**
-	 * The desktop's main nav (desktop spec, "The side"): the five tabs at the top,
+	 * The desktop's main nav (desktop spec, "The side"): the level's tabs at the top,
 	 * Settings at the bottom, on the band down the left of the window. It is the
 	 * phone's tab bar at desk width (`BottomNav`, hidden there): which tab is lit
 	 * and where a tap goes are the same (`$lib/nav/tab-links.svelte.ts`). `path`
@@ -22,8 +22,16 @@
 
 	// In group mode Today is not a tab: Mine, back to the personal side.
 	const inGroup = $derived(!!page.data.groupMode);
-	const lit = $derived(sideLit(path, dance));
-	const targets = $derived(tabTargets(dance, path));
+	const lit = $derived(
+		litAt(
+			sideLit(path, dance),
+			levelShown(page.data.user?.level),
+			(page.data.lesson?.teamId ?? null) !== null
+		)
+	);
+	// The person's level's tabs (`tabsFor`), as in the tab bar.
+	const tabs = $derived(tabsFor(levelShown(page.data.user?.level)));
+	const targets = $derived(tabTargets(tabs, dance, path));
 
 	const ITEM =
 		'flex h-12 items-center gap-3 rounded-[24px] pr-[18px] pl-[14px] text-[16px] whitespace-nowrap';
@@ -43,7 +51,7 @@
 	data-side
 >
 	<ul class="flex flex-col gap-1">
-		{#each TABS as tab, i (tab.id)}
+		{#each tabs as tab, i (tab.id)}
 			{@const here = tab.id === lit}
 			{@const to = targets[i]}
 			{@const fresh = tab.id === 'groups' && !!page.data.groupsNew}
@@ -74,14 +82,14 @@
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
-						aria-label={fresh ? groupsTabLabel(true) : undefined}
+						aria-label={fresh ? groupsTabLabel(true, tab.label) : undefined}
 						class={here ? ON : OFF}
 					>
 						<Icon name={tab.icon} size={24} filled={here} />
 						{tab.label}
 						{#if fresh}
 							<span
-								class="mt-3 -ml-1 h-[9px] w-[9px] self-start rounded-full {here
+								class="mt-3 -ml-1 h-[9px] w-[9px] flex-none self-start rounded-full {here
 									? 'bg-band'
 									: 'bg-band-ink'}"
 								aria-hidden="true"

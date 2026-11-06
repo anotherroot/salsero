@@ -40,7 +40,8 @@ describe('device tokens', () => {
 			firstName: null,
 			lastName: null,
 			timezone: 'Europe/Ljubljana',
-			isAdmin: false
+			isAdmin: false,
+			level: null
 		});
 	});
 

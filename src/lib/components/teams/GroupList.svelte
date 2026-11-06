@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import ClassCodeField from '$lib/components/teams/ClassCodeField.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -27,13 +28,20 @@
 		dance,
 		openId,
 		workingIn,
-		onnew
+		onnew,
+		onjoin,
+		joinAction
 	}: {
 		teams: (TeamItem & { newCount: number })[];
 		dance: DanceSlug;
 		openId: number | null;
 		workingIn: number | null;
-		onnew: () => void;
+		/** New group; left out where the level does not make groups (`canMakeGroup`). */
+		onnew?: () => void;
+		/** Join with a code, a button that opens the sheet; left out at Follow my class. */
+		onjoin?: () => void;
+		/** The joining action's URL: where there is no New group the empty state holds the code field itself. */
+		joinAction: string;
 	} = $props();
 
 	// Restore, on a deleted group's row: its refusal (a live group has the name) shows above the list.
@@ -60,17 +68,34 @@
 
 {#if teams.length === 0}
 	<div class="h-[52px] flex-none"></div>
-	<EmptyState
-		icon="group"
-		title="No groups yet"
-		body="Make a group for your class, then share its code. Everyone in it sees the lessons you publish."
-	>
-		{#snippet action()}
-			<button type="button" class={button('primary')} onclick={onnew}>
-				<Icon name="plus" size={20} /> New group
-			</button>
-		{/snippet}
-	</EmptyState>
+	{#if onnew}
+		<EmptyState
+			icon="group"
+			title="No groups yet"
+			body="Make a group for your class, then share its code. Everyone in it sees the lessons you publish."
+		>
+			{#snippet action()}
+				<button type="button" class={button('primary')} onclick={onnew}>
+					<Icon name="plus" size={20} /> New group
+				</button>
+				{#if onjoin}
+					<button type="button" class={button('secondary')} onclick={onjoin}
+						>Join with a code</button
+					>
+				{/if}
+			{/snippet}
+		</EmptyState>
+	{:else}
+		<EmptyState
+			icon="group"
+			title="No groups yet"
+			body="Your teacher has the code, or open the link they sent."
+		>
+			{#snippet action()}
+				<div class="w-full max-w-[320px] text-left"><ClassCodeField action={joinAction} /></div>
+			{/snippet}
+		</EmptyState>
+	{/if}
 {:else}
 	{#if restoreError}<Banner kind="error">{restoreError}</Banner>{/if}
 	<ul class={GROUP} aria-label="Your groups">
@@ -149,4 +174,11 @@
 			</li>
 		{/each}
 	</ul>
+	{#if onjoin}
+		<div class="px-4 pt-3">
+			<button type="button" class={button('tertiary', 'md', true)} onclick={onjoin}>
+				Join with a code
+			</button>
+		</div>
+	{/if}
 {/if}

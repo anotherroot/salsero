@@ -1,5 +1,5 @@
 /**
- * Mirror, speed, mute and Hide (the portrait player's folded controls) for videos, remembered per browser. A per-viewer
+ * Mirror, speed, mute, repeat and Hide (the portrait player's folded controls) for videos, remembered per browser. A per-viewer
  * convenience, so `localStorage` is the right place — and every access is
  * wrapped, because private-mode Safari throws on any touch of it. Nothing here
  * ever reaches the database.
@@ -14,13 +14,21 @@ export interface VideoPrefs {
 	hidden: boolean;
 	/** The sound off, in both players. */
 	muted: boolean;
+	/** The simple player: loop the whole video. */
+	repeat: boolean;
 }
 
 /** What a player's controls change: each sends only its own. */
-export type VideoChoice = Partial<Pick<VideoPrefs, 'mirror' | 'rate' | 'muted'>>;
+export type VideoChoice = Partial<Pick<VideoPrefs, 'mirror' | 'rate' | 'muted' | 'repeat'>>;
 
 const KEY = 'video.prefs';
-const DEFAULTS: VideoPrefs = { mirror: false, rate: 1, hidden: false, muted: false };
+const DEFAULTS: VideoPrefs = {
+	mirror: false,
+	rate: 1,
+	hidden: false,
+	muted: false,
+	repeat: false
+};
 
 export function parseVideoPrefs(raw: string | null): VideoPrefs {
 	try {
@@ -31,7 +39,8 @@ export function parseVideoPrefs(raw: string | null): VideoPrefs {
 			mirror: o.mirror === true,
 			rate: (VIDEO_RATES as readonly unknown[]).includes(o.rate) ? (o.rate as VideoRate) : 1,
 			hidden: o.hidden === true,
-			muted: o.muted === true
+			muted: o.muted === true,
+			repeat: o.repeat === true
 		};
 	} catch {
 		return DEFAULTS;

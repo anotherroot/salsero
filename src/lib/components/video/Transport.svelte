@@ -7,15 +7,28 @@
 		paused: boolean;
 		/** compact: the editor's and slim bar's row; normal: the full video; large: a section's view; float: landscape over the picture. */
 		size?: 'compact' | 'normal' | 'large' | 'float';
+		/** fine: ±1 s and ±0.1 s; five: the simple player's −5 s and +5 s only. */
+		steps?: 'fine' | 'five';
 		/** On the picture: the side buttons get the glass fill. */
 		glass?: boolean;
 		ontoggle: () => void;
 		onstep: (s: -1 | 1) => void;
 		/** −0.1 s / +0.1 s: pauses, then steps. */
 		ontenth: (d: -1 | 1) => void;
+		/** −5 s / +5 s (steps="five"). */
+		onfive?: (d: -1 | 1) => void;
 	}
 
-	let { paused, size = 'normal', glass = false, ontoggle, onstep, ontenth }: Props = $props();
+	let {
+		paused,
+		size = 'normal',
+		steps = 'fine',
+		glass = false,
+		ontoggle,
+		onstep,
+		ontenth,
+		onfive
+	}: Props = $props();
 
 	const SIZES = {
 		normal: { side: 54, play: 66, gap: 'gap-2.5', glyph: 28 },
@@ -24,6 +37,7 @@
 	} as const;
 
 	const compact = $derived(size === 'compact');
+	const five = $derived(steps === 'five');
 	const spec = $derived(compact ? null : SIZES[size as 'normal' | 'large' | 'float']);
 	const sideKind = $derived(glass ? 'glass' : 'neutral');
 	// Written out per size: the builder takes literal sizes only.
@@ -41,20 +55,29 @@
 </script>
 
 <div class="flex items-center justify-center {compact ? 'gap-1' : spec?.gap}">
-	{#if !compact}
+	{#if five}
 		<button
 			type="button"
 			class="{side} text-[14px]"
-			aria-label="−1 s, back"
-			onclick={() => onstep(-1)}>−1 s</button
+			aria-label="−5 s, back"
+			onclick={() => onfive?.(-1)}>−5 s</button
+		>
+	{:else}
+		{#if !compact}
+			<button
+				type="button"
+				class="{side} text-[14px]"
+				aria-label="−1 s, back"
+				onclick={() => onstep(-1)}>−1 s</button
+			>
+		{/if}
+		<button
+			type="button"
+			class="{side} text-[13px]"
+			aria-label="−0.1 s, back"
+			onclick={() => ontenth(-1)}>−0.1 s</button
 		>
 	{/if}
-	<button
-		type="button"
-		class="{side} text-[13px]"
-		aria-label="−0.1 s, back"
-		onclick={() => ontenth(-1)}>−0.1 s</button
-	>
 	<button type="button" class={play} aria-label={paused ? 'Play' : 'Pause'} onclick={ontoggle}>
 		{#if paused}
 			<span class="ml-[3px] flex"><Icon name="play" filled size={glyph} /></span>
@@ -62,18 +85,27 @@
 			<Icon name="pause" filled size={glyph} />
 		{/if}
 	</button>
-	<button
-		type="button"
-		class="{side} text-[13px]"
-		aria-label="+0.1 s, forward"
-		onclick={() => ontenth(1)}>+0.1 s</button
-	>
-	{#if !compact}
+	{#if five}
 		<button
 			type="button"
 			class="{side} text-[14px]"
-			aria-label="+1 s, forward"
-			onclick={() => onstep(1)}>+1 s</button
+			aria-label="+5 s, forward"
+			onclick={() => onfive?.(1)}>+5 s</button
 		>
+	{:else}
+		<button
+			type="button"
+			class="{side} text-[13px]"
+			aria-label="+0.1 s, forward"
+			onclick={() => ontenth(1)}>+0.1 s</button
+		>
+		{#if !compact}
+			<button
+				type="button"
+				class="{side} text-[14px]"
+				aria-label="+1 s, forward"
+				onclick={() => onstep(1)}>+1 s</button
+			>
+		{/if}
 	{/if}
 </div>
