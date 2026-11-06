@@ -43,7 +43,6 @@ const pairs: [TokenName, TokenName][] = [
 	['status', 'accent-soft'],
 	['danger', 'danger-soft'],
 	['surface', 'ink-2'],
-	['on-accent', 'status'],
 	['surface', 'warn'],
 	['on-done', 'done'],
 	// A pressed picker row is bg-step: its title is ink, its meta ink-2 (muted is 4.29:1 there in light)
@@ -75,7 +74,7 @@ describe('theme tokens', () => {
 
 	it('mixes accent-soft from accent over surface', () => {
 		expect(THEMES.salsa.light['accent-soft']).toBe(mix('#d2401e', '#ffffff', 0.12));
-		expect(THEMES.salsa.dark['accent-soft']).toBe(mix('#ff6b47', '#1c1c1f', 0.18));
+		expect(THEMES.salsa.dark['accent-soft']).toBe(mix('#d2401e', '#1c1c1f', 0.18));
 	});
 
 	for (const d of DANCE_SLUGS)

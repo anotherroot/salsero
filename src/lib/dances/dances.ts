@@ -71,7 +71,7 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		defaultCountPattern: 'salsa',
 		clave: true,
 		accent: '#d2401e',
-		accentDark: '#ff6b47',
+		accentDark: '#d2401e',
 		band: '#D2401E'
 	},
 	bachata: {

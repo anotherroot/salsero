@@ -38,6 +38,10 @@ data class InsetSplit(
  *
  * Without [underBars] (a WebView too old to hand the page its insets) every
  * bar is padded, as before.
+ *
+ * In [fullscreen] (a page that asked for it: the video player) the bars are
+ * hidden and nothing but the keyboard is padded, so a field in a popup there
+ * still sits above it.
  */
 fun splitInsets(
     left: Int,
@@ -46,8 +50,10 @@ fun splitInsets(
     bottom: Int,
     keyboard: Int,
     underBars: Boolean,
+    fullscreen: Boolean = false,
 ): InsetSplit {
     val typing = keyboard > 0
+    if (fullscreen) return InsetSplit(0, 0, 0, keyboard, safeTop = 0, safeBottom = 0)
     return InsetSplit(
         padLeft = left,
         padTop = if (underBars) 0 else top,

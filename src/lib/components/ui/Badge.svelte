@@ -22,7 +22,8 @@
 	const strong: Record<string, string> = {
 		neutral: 'bg-ink-2 text-surface',
 		accent: 'bg-accent text-on-accent',
-		status: 'bg-status text-on-accent',
+		// salsa's dark status is a light red, too light under white: the fill is the accent
+		status: 'bg-accent text-on-accent',
 		danger: 'bg-danger text-on-danger',
 		warn: 'bg-warn text-surface',
 		done: 'bg-done text-on-done'
