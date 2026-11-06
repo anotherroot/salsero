@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { fullLoadFor, mayReloadNow, typedFields } from './fresh';
+import {
+	RELOAD_TITLE,
+	STALE_LINE,
+	STALE_TITLE,
+	fullLoadFor,
+	mayReloadNow,
+	reloadWhy,
+	typedFields
+} from './fresh';
 
 const QUIET = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
 
@@ -119,4 +127,24 @@ describe('typedFields', () => {
 				field({ type: 'submit', focused: true })
 			])
 		).toBe(0));
+});
+
+describe('reloadWhy: the toast says why the page did not reload by itself', () => {
+	const q = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
+	it('names what kept the page, the unsaved first', () => {
+		expect(reloadWhy({ ...q, unsaved: 1, held: 1, sheetsOpen: true })).toBe(
+			'Kept so nothing unsaved is lost.'
+		);
+		expect(reloadWhy({ ...q, held: 1, sheetsOpen: true })).toBe('Kept while this runs.');
+		expect(reloadWhy({ ...q, sheetsOpen: true })).toBe('Kept while this is open.');
+		expect(reloadWhy({ ...q, playerOpen: true })).toBe('Kept while this is open.');
+	});
+	it('with nothing holding it, says when it comes', () => {
+		expect(reloadWhy(q)).toBe('Your next page loads it.');
+		expect([RELOAD_TITLE, STALE_TITLE, STALE_LINE]).toEqual([
+			'The app was updated',
+			'This page is out of date',
+			'Reload to continue.'
+		]);
+	});
 });

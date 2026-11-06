@@ -6,7 +6,7 @@ import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport, TwinKind } f
 import { byteSize, dayMonth, plural } from '$lib/format';
 import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
-import { sendPicks, unpicked } from './diff';
+import { NAME_KEYS, sendPicks, unpicked } from './diff';
 
 /** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s"; "CLASS" → "CLASS’". Trimmed. */
 export function possessive(name: string): string {
@@ -295,34 +295,87 @@ export function changedLine(place: string, changed: string[]): string {
 	return `${place} changed it since you took it: ${changed.map((c) => c.toLowerCase()).join(', ')}`;
 }
 
-/** The compare sheet's title: "Compare with Salsa Tuesdays’" ("Compare with yours" for your own). */
+/** The merge sheet's title: "Merge with Salsa Tuesdays" ("Merge with yours" for your own). */
 export function compareTitle(place: string): string {
-	return place === 'Yours' ? 'Compare with yours' : `Compare with ${possessive(place)}`;
+	return place === 'Yours' ? 'Merge with yours' : `Merge with ${place}`;
 }
 
-/** Under the title: since the pair's snapshot, or never in step (every difference a pick). */
-export function compareSub(synced: boolean): string {
+/** Under the title: how many differ since the pair's snapshot, or never in step (every difference a pick). */
+export function compareSub(synced: boolean, n: number): string {
 	return synced
-		? 'Since you last took from it. Pick where both of you changed something.'
+		? `${plural(n, 'difference', 'differences')} since you last took from it.`
 		: 'You were never in step with this one. Pick each difference.';
 }
 
-/** A difference's chip: who changed it since the two were in step, and how. */
-export function diffTag(d: FieldDiff): string {
-	if (d.side === 'both') return 'Both changed: pick';
-	if (d.side === 'mine') return 'Only yours changed';
-	if (d.mine === null) return 'New on theirs';
-	if (d.theirs === null) return 'Gone from theirs';
-	return 'Only theirs changed';
+/**
+ * A difference's line beside its label: who changed it since the two were in
+ * step, and how ("they renamed it", "you added it"); a field both changed asks
+ * for a side until it has one.
+ */
+export function diffWhy(
+	d: FieldDiff,
+	picked: boolean
+): { text: string; tone: 'mine' | 'theirs' | 'both' } {
+	if (d.side === 'both')
+		return {
+			text: picked ? 'you both changed it' : 'you both changed it, pick one',
+			tone: 'both'
+		};
+	const who = d.side === 'theirs' ? 'they' : 'you';
+	const [own, other] = d.side === 'theirs' ? [d.theirs, d.mine] : [d.mine, d.theirs];
+	const how =
+		other === null
+			? 'added'
+			: own === null
+				? 'removed'
+				: NAME_KEYS.has(d.key)
+					? 'renamed'
+					: 'changed';
+	return { text: `${who} ${how} it`, tone: d.side };
+}
+
+/** The column headers' second line: a tap picks that whole side. */
+export const ALL_YOURS = 'tap: all yours';
+export const ALL_THEIRS = 'tap: all theirs';
+
+/** A long value's row opens and closes both its tiles. */
+export const SHOW_ALL = 'Show all';
+export const SHOW_LESS = 'Show less';
+
+/** A value too long for a tile's 3 lines: more than 3 lines, or over 90 characters. */
+export function isLong(show: string): boolean {
+	return show.length > 90 || show.split('\n').length > 3;
+}
+
+/** The merge sheet's button: "Keep mine" when nothing is picked theirs, else "Merge · 2 from theirs". */
+export function mergeButton(n: number): string {
+	return n === 0 ? 'Keep mine' : `Merge · ${n} from theirs`;
+}
+
+/** Under the button while a field both changed has no side: "Pick a side for the timing first." */
+export function pickFirst(labels: string[]): string {
+	return `Pick a side for ${listed(lower(labels).map((l) => `the ${l}`))} first.`;
+}
+
+/**
+ * The two columns' names. From a group's row against your own copy the other
+ * side is "Yours", so the page's side is "This one".
+ */
+export function columnNames(place: string): { mine: string; theirs: string } {
+	return place === 'Yours' ? { mine: 'This one', theirs: 'Yours' } : { mine: YOURS, theirs: place };
+}
+
+/** Under Keep mine: which side stays as it is, and how the other will read. */
+export function keepHint(place: string): string {
+	return place === 'Yours'
+		? 'Nothing changes here. Yours will show as behind this one.'
+		: 'Nothing changes in yours. Theirs will show as behind yours.';
 }
 
 /** An option whose side lacks the thing (a recording only theirs has). */
 export function absentLine(side: 'mine' | 'theirs'): string {
 	return side === 'mine' ? 'Not in yours' : 'Not in theirs';
 }
-
-/** The compare sheet's button. */
-export const TAKE_BUTTON = 'Take what’s picked';
 
 /** A Take or Send refused: the receiving member changed since the sheet was opened. */
 export const STALE = 'Changed since you opened this. Compare again.';
@@ -454,10 +507,28 @@ export function differsBanner(place: string, changed: string[]): string {
 
 export const SEND_TITLE = 'Send your changes';
 
-export const SEND_SUB = 'Adds and changes travel. Deletes only if you tick them.';
+export const SEND_SUB = 'Changes travel. The name and deletes only if you tick them.';
 
 /** A target with nothing of yours to bring. */
 export const NOTHING_TO_SEND = 'Nothing to send';
+
+/** A target whose only difference is its name. */
+export const NAME_ONLY = 'Only the name differs';
+
+/** The rename box: one for every copy named differently. */
+export function renameLabel(name: string): string {
+	return `Rename their copies to “${name}”`;
+}
+
+/** The rename box's line: what the copies are called now. */
+export function renameMeta(names: string[]): string {
+	const distinct = [...new Set(names)];
+	if (distinct.length === 1 && names.length > 1)
+		return names.length === 2
+			? `Both are called “${distinct[0]}”`
+			: `All ${names.length} are called “${distinct[0]}”`;
+	return `Called ${listed(distinct.map((n) => `“${n}”`))}`;
+}
 
 /**
  * A target's line in the send sheet, from its diffs (the target's side:
@@ -466,7 +537,12 @@ export const NOTHING_TO_SEND = 'Nothing to send';
  * group) · timing: they changed it too, you’ll pick"). Your deletes have
  * boxes of their own and are not counted here.
  */
-export function sendTargetMeta(diffs: FieldDiff[], bytes: number, team: boolean): string {
+export function sendTargetMeta(
+	diffs: FieldDiff[],
+	bytes: number,
+	team: boolean,
+	renamed = false
+): string {
 	const picks = sendPicks(diffs);
 	const lands = diffs.filter((d) => picks[d.key] === 'theirs');
 	const both = diffs.filter((d) => unpicked(diffs, picks).includes(d.key));
@@ -484,7 +560,11 @@ export function sendTargetMeta(diffs: FieldDiff[], bytes: number, team: boolean)
 	parts.push(...labels.filter(counted));
 	if (both.length > 0)
 		parts.push(`${listed(lower(changedLabels(both)))}: they changed it too, you’ll pick`);
-	if (parts.length === 0) return NOTHING_TO_SEND;
+	if (renamed) parts.push('the name');
+	if (parts.length === 0)
+		return diffs.length > 0 && diffs.every((d) => NAME_KEYS.has(d.key))
+			? NAME_ONLY
+			: NOTHING_TO_SEND;
 	const line = parts.join(' · ');
 	return `${line[0].toUpperCase()}${line.slice(1)}`;
 }

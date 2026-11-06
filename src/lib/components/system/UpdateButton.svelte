@@ -8,11 +8,23 @@
 		onmessage: ((event: { data: string }) => void) | null;
 	}
 
-	let { update }: { update: AppUpdate } = $props();
+	let {
+		update,
+		size = 'md',
+		onstatus
+	}: {
+		update: AppUpdate;
+		/** `sm`: the button alone (Today's row), its status line handed out through `onstatus`. */
+		size?: 'md' | 'sm';
+		onstatus?: (line: string | null) => void;
+	} = $props();
 
 	let status = $state<BridgeStatus>('idle');
 	let bridge = $state<Bridge | null>(null);
 	const view = $derived(updateView(status));
+	$effect(() => {
+		onstatus?.(view.line);
+	});
 
 	onMount(() => {
 		const b = (window as unknown as { salsaUpdate?: Bridge }).salsaUpdate ?? null;
@@ -56,16 +68,17 @@
 	{#if bridge && update.channel !== 'play'}
 		<button
 			type="button"
-			class={button('primary')}
+			class={button('primary', size)}
 			disabled={view.working}
 			aria-busy={view.working}
 			onclick={start}>{view.label}</button
 		>
-		{#if view.line}<span class="px-2.5 text-[13px] font-semibold text-ink-2" role="status"
-				>{view.line}</span
+		{#if view.line && size === 'md'}<span
+				class="px-2.5 text-[13px] font-semibold text-ink-2"
+				role="status">{view.line}</span
 			>{/if}
 	{:else if link}
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file, or the Play store -->
-		<a href={link.href} class={button('primary')}>{link.label}</a>
+		<a href={link.href} class={button('primary', size)}>{link.label}</a>
 	{/if}
 </span>
