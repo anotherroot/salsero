@@ -25,3 +25,12 @@ describe('uploadProblem', () => {
 		expect(uploadProblem({ size: 3 * MiB, type: 'audio/mpeg' }, 'video/*,audio/*')).toBeNull();
 	});
 });
+
+describe('uploadProblem, video only', () => {
+	it('takes a video and refuses an audio file', () => {
+		expect(uploadProblem({ size: 1024, type: 'video/mp4' }, 'video/*')).toBeNull();
+		expect(uploadProblem({ size: 1024, type: 'audio/mpeg' }, 'video/*')).toEqual({
+			title: 'Only video files can be added.'
+		});
+	});
+});
