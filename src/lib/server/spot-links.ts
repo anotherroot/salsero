@@ -23,6 +23,7 @@ import {
 	videoSpots
 } from './db/schema';
 import { positionLinkLabel } from '$lib/lessons/page';
+import { MAX_SPOT_LABEL } from '$lib/limits';
 import type {
 	LinkCreateField,
 	LinkedSection,
@@ -217,6 +218,7 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 			.values({ spotId, ...target })
 			.returning({ id: spotLinks.id })
 			.get().id;
+		nameIfUnnamed(tx, spotId, targetName(tx, target));
 		const now = Date.now();
 		logSectionLink(tx, space, 'add', { id, spotId, target }, now);
 		// A drill on a class lesson's section is new to practise (the Link popup's create runs
@@ -233,8 +235,23 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 	});
 }
 
+/**
+ * A section or point with no name takes `name`, the name of what it was just
+ * linked to (spec A3): only while its label is empty, so a named one keeps its
+ * name and only the first link names it. Part of the link's own transaction
+ * and its History line; the copy paths never call it.
+ */
+export function nameIfUnnamed(tx: Db, spotId: number, name: string | null): void {
+	if (!name) return;
+	tx.update(videoSpots)
+		// Cut to what the spots API takes, as the player's Rename does.
+		.set({ label: name.slice(0, MAX_SPOT_LABEL) })
+		.where(and(eq(videoSpots.id, spotId), isNull(videoSpots.label)))
+		.run();
+}
+
 /** The name History shows for what a section is linked to ("Enchufla · Doble", a drill's). */
-function targetName(db: Db, target: SectionTarget): string | null {
+export function targetName(db: Db, target: SectionTarget): string | null {
 	if ('figureId' in target) {
 		const row = db
 			.select({ figure: figureGroups.name, name: figures.name })

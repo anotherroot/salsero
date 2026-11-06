@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MusicSection from '$lib/components/songs/MusicSection.svelte';
+	import { practiseHref as musicHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
@@ -990,6 +992,23 @@
 					/>
 					{@render groupNote()}
 				</section>
+			{/if}
+
+			{#if !selecting}
+				<!-- Music (spec B): the songs to practise this routine to, each with a note. -->
+				<div class="pt-3.5">
+					<MusicSection
+						rows={data.music}
+						canEdit={data.canEdit}
+						choices={data.musicChoices}
+						practise={(songId) =>
+							musicHref(
+								data.dance.slug,
+								{ routineId: data.routine.id, entryId: data.exerciseId ?? null },
+								songId
+							)}
+					/>
+				</div>
 			{/if}
 
 			{#if !selecting && (data.exerciseId !== null || data.taughtIn.length > 0)}

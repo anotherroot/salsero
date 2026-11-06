@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
+import { localDay } from '$lib/day/day';
 import { groupModeOf } from '$lib/server/group-mode';
 import { figuresLists, positionsLists, routinesList } from '$lib/server/moves-lists';
 import type { LayoutServerLoad } from './$types';
@@ -25,7 +26,7 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, depends }) => 
 	return {
 		lists: {
 			figures: figuresLists(db, wall, mode),
-			routines: routinesList(db, wall, mode),
+			routines: routinesList(db, wall, mode, localDay(Date.now(), locals.user.timezone)),
 			positions: positionsLists(db, wall, mode)
 		}
 	};

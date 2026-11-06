@@ -2,7 +2,6 @@
  * The Link popup's levels. PURE and client-safe.
  */
 import type { LinkCreateField, LinkOptions, LinkTarget } from '$lib/types';
-import { MAX_SPOT_LABEL } from '$lib/limits';
 import { lengthText, spotTime } from '$lib/video/spots';
 
 /** The popup's levels, bottom first. 'links': linked list + the Link button. 'pick': the picker.
@@ -167,15 +166,11 @@ export function refusalAt(step: CreateStep, field: string | undefined): CreateSp
 }
 
 /**
- * The name the Rename sheet offers once the popup closes: the link's own, when
- * an unnamed section went from no links to exactly one. Several links, a
- * section that had some already, or one with a name of its own: nothing.
+ * Whether the player should read a section's name back from the server once
+ * the popup closes: the server names an unnamed section after its first link
+ * (spec A3, 2026-11-06, "name it quietly"), so the player's copy, still
+ * unnamed, would otherwise show it unnamed and send a stale `seen`.
  */
-export function suggestedName(
-	label: string | null,
-	linkedBefore: number,
-	linkedNow: string[]
-): string | null {
-	if (label !== null || linkedBefore !== 0 || linkedNow.length !== 1) return null;
-	return linkedNow[0].slice(0, MAX_SPOT_LABEL);
+export function nameFromServer(label: string | null, linkedNow: string[]): boolean {
+	return label === null && linkedNow.length > 0;
 }

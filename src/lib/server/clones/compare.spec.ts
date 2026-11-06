@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
-import { figures, recordings, teamChanges, users } from '../db/schema';
+import { clonePairs, figures, recordings, teamChanges, users } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson, unlinkFigure } from '../lessons';
@@ -17,7 +17,7 @@ import { insertFixturePositions } from '../test-positions';
 import type { Space } from '../scope';
 import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import type { CloneKind, Picks } from '$lib/types';
-import { diffTag } from '$lib/clones/view';
+import { diffWhy } from '$lib/clones/view';
 import { geneOf } from './genes';
 import { pairAt } from './pairs';
 import { cloneInto } from './clone';
@@ -104,13 +104,13 @@ async function boardCase() {
 }
 
 describe('compareWith', () => {
-	it('the board’s case: Only theirs changed, Both changed: pick, New on theirs', async () => {
+	it('the board’s case: they changed it, you both changed it, they added it', async () => {
 		const { F, C, recKey } = await boardCase();
 		const c = compareWith(db, 'u2', 'figure', C, F)!;
-		expect(c.diffs.map((d) => [d.key, diffTag(d)])).toEqual([
-			['notes', 'Both changed: pick'],
-			['timing', 'Only theirs changed'],
-			[recKey, 'New on theirs']
+		expect(c.diffs.map((d) => [d.key, diffWhy(d, false).text])).toEqual([
+			['notes', 'you both changed it, pick one'],
+			['timing', 'they changed it'],
+			[recKey, 'they added it']
 		]);
 		expect(c.picks).toEqual({ timing: 'theirs', [recKey]: 'theirs' });
 		expect(c).toMatchObject({ synced: true, canTake: true, canSend: false });
@@ -310,13 +310,12 @@ describe('takeTheirs', () => {
 		expect(unlinked).toEqual([['recording', 'copy-second.mp4']]);
 	});
 
-	it('a take with nothing picked theirs does nothing: no History line, the snapshot as it was', async () => {
+	it('Keep mine: nothing taken, no History line, the snapshot now reads theirs as behind', async () => {
 		const { F } = await setenta();
 		const mine = await copy('figure', F, U1_SALSA);
 		updateVariation(db, mine, { name: 'Básico', ...shape, notes: 'Hips first' });
 		const c = compareWith(db, 'u1', 'figure', F, mine)!;
 		const lines = db.select().from(teamChanges).all().length;
-		const at = pairAt(db, 'figure', F, mine);
 		const res = await takeTheirs(
 			db,
 			'u1',
@@ -331,7 +330,34 @@ describe('takeTheirs', () => {
 		);
 		expect(res).toEqual({ ok: true });
 		expect(db.select().from(teamChanges).all()).toHaveLength(lines);
-		expect(pairAt(db, 'figure', F, mine)).toBe(at);
-		expect(compareWith(db, 'u1', 'figure', F, mine)!.diffs.map((d) => d.side)).toEqual(['theirs']);
+		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.notes).toBe(null);
+		expect(pairAt(db, 'figure', F, mine)).toBe(NOW);
+		expect(compareWith(db, 'u1', 'figure', F, mine)!.diffs.map((d) => d.side)).toEqual(['mine']);
+	});
+
+	it('Keep mine with no snapshot: the pair is in step from then on', async () => {
+		const { F } = await setenta();
+		const mine = await copy('figure', F, U1_SALSA);
+		updateVariation(db, mine, { name: 'Básico', ...shape, notes: 'Hips first' });
+		db.delete(clonePairs).run();
+		const c = compareWith(db, 'u1', 'figure', F, mine)!;
+		expect(c.synced).toBe(false);
+		const picks: Picks = Object.fromEntries(c.diffs.map((d) => [d.key, 'mine' as const]));
+		const res = await takeTheirs(
+			db,
+			'u1',
+			'figure',
+			F,
+			mine,
+			picks,
+			c.seen,
+			fakeFiles().files,
+			NOW,
+			ROOMY
+		);
+		expect(res).toEqual({ ok: true });
+		const after = compareWith(db, 'u1', 'figure', F, mine)!;
+		expect(after.synced).toBe(true);
+		expect(after.diffs.every((d) => d.side === 'mine')).toBe(true);
 	});
 });

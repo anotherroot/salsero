@@ -86,6 +86,26 @@ describe('a person’s spots list their positions', () => {
 	});
 });
 
+describe('a spot takes the name of the position it is linked to', () => {
+	const labelOf = (id: number) =>
+		db.select({ label: videoSpots.label }).from(videoSpots).where(eq(videoSpots.id, id)).get()!
+			.label;
+
+	it('names an unnamed point after the position', () => {
+		linkSpotToPosition(db, 'u1', point, cerrada, T);
+		expect(labelOf(point)).toBe('Cerrada');
+	});
+	it("keeps a named point's name", () => {
+		const named = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 80_000, endMs: null, label: 'Hands meet' }
+		)!.id;
+		linkSpotToPosition(db, 'u1', named, cerrada, T);
+		expect(labelOf(named)).toBe('Hands meet');
+	});
+});
+
 describe('linkSpotToPosition', () => {
 	it('links a section and a point, and the position lists both', () => {
 		const a = linkSpotToPosition(db, 'u1', section, cerrada, T);
@@ -237,7 +257,7 @@ describe('a lesson reaches a position through its video', () => {
 	it('a point counts as "via section"', () => {
 		linkSpotToPosition(db, 'u1', point, cerrada, T);
 		const via = viaSections(db, lesson).positions.get(cerrada)!;
-		expect(via).toEqual([{ spotId: point, startMs: 72_000, endMs: null, label: null }]);
+		expect(via).toEqual([{ spotId: point, startMs: 72_000, endMs: null, label: 'Cerrada' }]);
 		expect(lessonsReaching(db, { positionId: cerrada })).toEqual([lesson]);
 		expect(positionTaughtIn(db, U1_SALSA, cerrada)).toEqual([
 			{

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, Flat, PairBase, Picks } from '$lib/types';
-import { defaultPicks, diff, initialBase, nextBase, sendPicks, standing, unpicked } from './diff';
+import {
+	defaultPicks,
+	diff,
+	initialBase,
+	isCopySuffix,
+	nextBase,
+	sendPicks,
+	standing,
+	unpicked
+} from './diff';
 import { fieldLabel, pieceOf } from './flat';
 
 const hash = (v: string) => v;
@@ -254,22 +263,56 @@ describe('diff: three members', () => {
 		expect(defaultPicks(diffs, 'take')).toEqual({ name: 'mine' });
 	});
 
-	it('16: a name or title never travels by default, in either mode, whoever changed it', () => {
+	it('16: Take picks a name only they changed, like any field', () => {
+		const base = initialBase(A0, [], hash);
+		const renamed = diff(base, A0, edit(A0, { name: 'Doble largo' }), hash);
+		expect(only(renamed)).toMatchObject({ key: 'name', side: 'theirs' });
+		expect(defaultPicks(renamed, 'take')).toEqual({ name: 'theirs' });
+	});
+
+	it('17: Take keeps yours when theirs is only yours with a copy’s suffix', () => {
+		const base = initialBase(A0, [], hash);
+		const suffixed = diff(base, A0, edit(A0, { name: 'Doble (Rueda club)' }), hash);
+		expect(defaultPicks(suffixed, 'take')).toEqual({ name: 'mine' });
+	});
+
+	it('18: Take leaves a name both changed open, and keeps one only you changed', () => {
+		const base = initialBase(A0, [], hash);
+		const both = diff(base, edit(A0, { name: 'Mine' }), edit(A0, { name: 'Theirs' }), hash);
+		expect(defaultPicks(both, 'take')).toEqual({});
+		expect(unpicked(both, defaultPicks(both, 'take'))).toEqual(['name']);
+		const mine = diff(base, edit(A0, { name: 'Mine' }), A0, hash);
+		expect(defaultPicks(mine, 'take')).toEqual({ name: 'mine' });
+	});
+
+	it('19: Send never sends a name by default: the receiver keeps its own', () => {
 		const base = initialBase(A0, [], hash);
 		const theirs = edit(A0, { name: 'Doble (Rueda club)' });
-		const renamed = diff(base, A0, theirs, hash);
-		expect(only(renamed)).toMatchObject({ key: 'name', side: 'theirs' });
-		// Take keeps mine; Send (theirs receives) keeps theirs.
-		expect(defaultPicks(renamed, 'take')).toEqual({ name: 'mine' });
 		expect(defaultPicks(diff(base, theirs, A0, hash), 'send')).toEqual({ name: 'theirs' });
-		// Both renamed: still the receiver's own, and nothing is left to pick.
-		const both = diff(base, edit(A0, { name: 'Mine' }), theirs, hash);
-		expect(defaultPicks(both, 'take')).toEqual({ name: 'mine' });
-		expect(unpicked(both, defaultPicks(both, 'take'))).toEqual([]);
 		const titles: FieldDiff[] = [
 			{ key: 'title', label: 'Title', mine: null, theirs: null, side: 'theirs', removal: false }
 		];
 		expect(defaultPicks(titles, 'send')).toEqual({ title: 'theirs' });
+	});
+});
+
+describe('isCopySuffix', () => {
+	it('reads a copy’s " (place)" or " (place N)" after your name', () => {
+		expect(isCopySuffix('Doble', 'Doble (Salsa Tuesdays)')).toBe(true);
+		expect(isCopySuffix('Doble', 'Doble (Salsa Tuesdays 2)')).toBe(true);
+	});
+
+	it('is false for any other rename', () => {
+		expect(isCopySuffix('Doble', 'Doble con giro')).toBe(false);
+		expect(isCopySuffix('Doble', 'Doble (x) y')).toBe(false);
+		expect(isCopySuffix('', ' (x)')).toBe(false);
+		expect(isCopySuffix('Doble', 'Doble')).toBe(false);
+	});
+
+	it('reads a long name the suffix cut short', () => {
+		const long = 'a'.repeat(195);
+		const cut = `${long.slice(0, 200 - ' (Salsa Tuesdays)'.length)} (Salsa Tuesdays)`;
+		expect(isCopySuffix(long, cut)).toBe(true);
 	});
 });
 

@@ -25,6 +25,7 @@ import {
 	ROW_TALL,
 	SELECT_ON_CARD,
 	STRIP_ACTION,
+	PUBLISH_ACTION,
 	TEXTAREA_ON_CARD
 } from './styles';
 
@@ -168,6 +169,16 @@ describe('STRIP_ACTION', () => {
 		expect(button('secondary', 'sm')).not.toContain('desk:');
 		expect(tokens(button('secondary', 'sm')).has('bg-accent-soft')).toBe(true);
 		expect(tokens(button('secondary', 'sm')).has('text-accent-text')).toBe(true);
+	});
+});
+
+describe('PUBLISH_ACTION', () => {
+	const phone = (cls: string) => [...tokens(cls)].filter((c) => !c.startsWith('desk:'));
+	it('is a cream pill with band-coloured text on the phone, the accent fill on the desktop', () => {
+		for (const c of ['bg-band-ink', 'text-on-cream', 'desk:bg-accent', 'desk:text-on-accent'])
+			expect(tokens(PUBLISH_ACTION).has(c)).toBe(true);
+		expect(phone(PUBLISH_ACTION)).not.toContain('bg-accent-soft');
+		expect(phone(PUBLISH_ACTION)).not.toContain('text-accent-text');
 	});
 });
 

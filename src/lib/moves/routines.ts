@@ -28,3 +28,8 @@ export function routineBadges(r: {
 	if (!r.loops && r.slots > 0) out.push({ tone: 'warn', text: 'does not loop' });
 	return out;
 }
+
+/** A routine's class day as a screen reader hears it: "From class Tue 3 Nov". */
+export function fromClass(label: string): string {
+	return `From class ${label}`;
+}

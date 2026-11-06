@@ -14,6 +14,7 @@ import {
 	routineSteps,
 	sets,
 	songs,
+	songLinks,
 	spotLinks,
 	teamMembers,
 	users,
@@ -43,6 +44,7 @@ import { cloneInto } from './clone';
 import type { CloneFileKind, CloneFiles } from './files';
 import { geneOf } from './genes';
 import { keepBytes, keepFromTeam, keepPreview } from './keep';
+import { addMusic } from '../song-links';
 import { pairBase } from './pairs';
 
 const T = Date.UTC(2026, 10, 3, 20);
@@ -585,5 +587,41 @@ describe('keepPreview', () => {
 		expect(p.figures[0]).toMatchObject({ id: s.F, bytes: 100 });
 		expect(p.allBytes).toBe(650);
 		expect(p.allBytes).toBe(keepBytes(db, 'u2', 1, { mode: 'all' }));
+	});
+});
+
+describe("keepFromTeam: Music on u2's own rows", () => {
+	const ownLessonWith = (songId: number) => {
+		const lesson = createLesson(db, U2_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'My notes',
+			notes: null
+		}).lesson.id;
+		expect(addMusic(db, U2_SALSA, { lessonId: lesson }, songId, 'Count it', T)).toMatchObject({
+			ok: true
+		});
+		return lesson;
+	};
+	const linksOf = (lessonId: number) =>
+		db.select().from(songLinks).where(eq(songLinks.lessonId, lessonId)).all();
+
+	it("a kept song's links move to the copy, note and all", async () => {
+		const s = story();
+		const mine = ownLessonWith(s.S);
+		await keepFromTeam(db, 'u2', 1, { mode: 'all' }, fakeFiles().files, NOW);
+		const [S] = copyOf('song', s.S)!;
+		expect(linksOf(mine)).toEqual([expect.objectContaining({ songId: S.id, note: 'Count it' })]);
+		leave();
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a song not kept loses its links', async () => {
+		const s = story();
+		const mine = ownLessonWith(s.S);
+		await keepFromTeam(db, 'u2', 1, { mode: 'used' }, fakeFiles().files, NOW);
+		expect(linksOf(mine)).toEqual([]);
+		leave();
+		// Only Music's lines: the entries a real leave settles are not this test's.
+		expect(crossRefs(db).filter((l) => l.startsWith('song_links'))).toEqual([]);
 	});
 });

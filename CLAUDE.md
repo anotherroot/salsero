@@ -220,6 +220,11 @@ src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, de
                      layout, its `next` action and the reminder (`dueByDance`) read the same
 src/lib/server/positions.ts  owned positions: list (by type, then name), create, edit,
                      archive, restore, Templates (`addTemplates`), "from Week 6" (`positionsFrom`)
+src/lib/server/section-names.ts  the one-time boot step: an unnamed linked section or point
+                     takes its oldest link's name (`nameLinkedSpots`, an `app_flags` marker);
+                     a new link names one by `nameIfUnnamed` (spot-links.ts)
+src/lib/server/position-form.ts  `readNewPosition`: what a New position form posts, read and
+                     checked (the positions list's `create`, the lesson page's `newPosition`)
 src/lib/server/positions-move.ts  the one-time boot move: the old shared positions become
                      the admin's, every other place using one gets a copy of the same
                      gene, `end_position_id` → `figure_end_positions` (an `app_flags` marker)
@@ -270,6 +275,8 @@ src/lib/figures/     PURE: a figure page's lines — timing, the practice line, 
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
                      page's lines — via-section badges, row metas, the delete and unlink
                      questions. Client-safe
+src/lib/components/links/AddLinkSheet.svelte  "Add a link": one link, what it found (`linkFound`),
+                     a title; the lesson page's, and the figure page's to reuse
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
@@ -304,6 +311,14 @@ src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
+src/lib/server/song-links.ts  Music (spec 2026-11-05 part B): a lesson's, drill's or routine's
+                     suggested songs with notes (`song_links`): `listMusic` (what a viewer may
+                     play), `addMusic` (a group's draft is shared by it), `setMusicNote`,
+                     `removeMusic`, `musicChoices`, `songInPlace`/`copyMusic` (copies never copy a
+                     song), and Compare/Take/Send's `musicFits`/`takeMusic`/`dropMusic`.
+                     music-form.ts is the pages' three actions; components/songs/MusicSection.svelte
+                     the list, and SongPickSheet.svelte the "Pick a song" popup (SongPicker's too)
+src/lib/songs/music.ts  PURE: Music's words and "Practise to this" (`practiseHref`)
 src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
                      and its fade. search.ts is PURE: the song popup's folded
                      search, Recent then A-Z (matches marked by picker/model.ts `segments`). sample-player.svelte.ts
@@ -447,7 +462,8 @@ src/lib/server/trash.ts  `team_trash` (30 days, files kept) and `purgeTrash`;
 src/lib/clones/      PURE, client-safe: a member as fields (flat.ts: keys and labels per kind),
                      the three-way compare, default picks and the next snapshot (diff.ts),
                      yours in place of theirs in a view (shadow.ts), twins folded into one
-                     row (twins.ts), and every clone and twin screen's words (view.ts)
+                     row (twins.ts), every clone and twin screen's words (view.ts), and
+                     Send's one rename box (rename.ts)
 src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, `accessTo`,
                      `visibleMembers`), trees.ts (`flatOf`), pairs.ts (pair snapshots, `digest`
                      for `seen`), clone.ts (the copy engine: `planClone`, `cloneInto`/`cloneTx`,
@@ -658,11 +674,14 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   group is purged) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes of content;
   `twins` rows (Separate), `clone_pairs` (Detach), `today_picks` (Undo of a
-  pick, and an add or next taking the day's skip away) and
-  `lesson_comment_hearts` (un-hearting) are bookkeeping, deleted too. A
-  comment (`lesson_comments`) is deleted softly (`deleted_at`, `deleted_by`;
-  Undo clears them); only a group's purge hard-deletes its lessons' comments
-  and hearts (`purgeRows`, `team-purge.ts`), as nobody reaches them after it. Drop my copy and Move to… archive the copy, never delete it. A
+  pick, and an add or next taking the day's skip away), `song_links` (a
+  Music row's Remove, and every link to a song deleted for good, first) and
+  `lesson_comment_hearts` (un-hearting) are bookkeeping, deleted too. A song
+  link never copies a song: a copy keeps it only where the new place can play
+  it (`songInPlace`). A comment (`lesson_comments`) is deleted softly
+  (`deleted_at`, `deleted_by`; Undo clears them); only a group's purge
+  hard-deletes its lessons' comments and hearts (`purgeRows`, `team-purge.ts`),
+  as nobody reaches them after it. Drop my copy and Move to… archive the copy, never delete it. A
   figure's exercise is opt-in (`addFigureExercise`); when one exists it is
   renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot (to a figure, a drill or a

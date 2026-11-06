@@ -33,6 +33,7 @@ import {
 	keepFor,
 	keepUsable,
 	labelled,
+	nameIfUnnamed,
 	ownerKey,
 	sameOwner,
 	sectionSpace,
@@ -108,6 +109,7 @@ export function linkPositionInSpace(
 			.values({ spotId, positionId, createdAt: now })
 			.returning({ id: spotPositionLinks.id })
 			.get().id;
+		nameIfUnnamed(tx, spotId, positionName(tx, positionId));
 		logPositionLink(tx, space, 'add', { id, spotId, positionId }, now);
 		return id;
 	});

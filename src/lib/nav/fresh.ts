@@ -92,3 +92,22 @@ export function mayReloadNow(s: { routeId: string | null } & Quiet): boolean {
 	if (s.routeId !== null && (BUSY_ROUTES as readonly string[]).includes(s.routeId)) return false;
 	return quiet(s);
 }
+
+/* ── The new-version toast (merge sheets and update bubbles spec, 4C) ───── */
+
+export const RELOAD_TITLE = 'The app was updated';
+export const STALE_TITLE = 'This page is out of date';
+export const STALE_LINE = 'Reload to continue.';
+
+/**
+ * The toast's second line: what kept the page from reloading by itself, the
+ * unsaved first. A held page loads the new version on its next page change or
+ * when it comes back into view, never the moment the hold ends, so the words
+ * say "kept", not "reloads when you're done".
+ */
+export function reloadWhy(q: Quiet): string {
+	if (q.unsaved > 0) return 'Kept so nothing unsaved is lost.';
+	if (q.held > 0) return 'Kept while this runs.';
+	if (q.playerOpen || q.sheetsOpen) return 'Kept while this is open.';
+	return 'Your next page loads it.';
+}

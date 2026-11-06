@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MusicSection from '$lib/components/songs/MusicSection.svelte';
+	import { practiseHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
@@ -493,6 +495,21 @@
 				{/if}
 			</div>
 		{/if}
+	{/if}
+
+	<!-- Music (spec B): a drill's suggested songs; an entry reads its group drill's. -->
+	{#if data.musicShown && !editing}
+		<MusicSection
+			rows={data.music}
+			canEdit={data.musicEdit}
+			choices={data.musicChoices}
+			practise={(songId) =>
+				practiseHref(
+					data.dance.slug,
+					data.musicEntryId !== null ? { drillEntryId: data.musicEntryId } : { lesson: true },
+					songId
+				)}
+		/>
 	{/if}
 
 	<!-- A group's drill without an entry of this person's has nothing of theirs to show. -->

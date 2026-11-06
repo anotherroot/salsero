@@ -81,7 +81,7 @@
 />
 
 {#if appUpdate?.state === 'available'}
-	<div class="pt-3"><AppUpdateBar update={appUpdate} /></div>
+	<AppUpdateBar update={appUpdate} />
 {/if}
 
 {#if empty}

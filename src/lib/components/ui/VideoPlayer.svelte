@@ -100,7 +100,7 @@
 		type ClashInfo,
 		type Seen
 	} from '$lib/clash/clash';
-	import { openingSteps, suggestedName, type LinkStep } from '$lib/video/link-steps';
+	import { nameFromServer, openingSteps, type LinkStep } from '$lib/video/link-steps';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -256,10 +256,6 @@
 		return s ? s.endMs === null : undefined;
 	});
 	let linkCreate = $state<LinkCreateStep>('variation');
-	/** How many links the section had when the popup opened: the rename offer is for its first. */
-	let linkedBefore = 0;
-	/** A Rename sheet the Link popup opened, on its section, with the name it offers. */
-	let renaming = $state<{ spotId: number; name: string } | null>(null);
 	/** A page a linked row was tapped for: the player closes, then the app goes there. */
 	let leaving: string | null = null;
 
@@ -273,11 +269,6 @@
 			? (spots.find((s) => s.id === level.spotId) ?? null)
 			: null
 	);
-	/** The Rename sheet's section: the open one, or the one just linked from the Link popup. */
-	const sheetSpot = $derived.by(() => {
-		const id = renaming?.spotId;
-		return id === undefined ? openSpot : (spots.find((s) => s.id === id) ?? null);
-	});
 	/** The simple player has one level: a section it opened on is its fixed loop. */
 	const simpleLoop = $derived(simple && loopSpot && loopSpot.endMs !== null ? loopSpot : null);
 	const loop = $derived(simple ? simpleLoop : loopOf(stack, spots, loopPaused, arriving));
@@ -623,8 +614,7 @@
 	}
 
 	function relabel(label: string) {
-		const spot = sheetSpot;
-		renaming = null;
+		const spot = openSpot;
 		const clean = label.trim() || null;
 		if (spot && clean !== spot.label) change(spot, { label: clean });
 		nav.up();
@@ -717,7 +707,6 @@
 
 	function openSheet(kind: SheetKind) {
 		sheetMessage = null;
-		renaming = null;
 		nav.push({ kind: 'sheet', sheet: kind });
 	}
 
@@ -753,7 +742,6 @@
 		holdForLink();
 		linkSpotId = spotId;
 		const linked = spots.find((s) => s.id === spotId)?.linkedTo.length ?? 0;
-		linkedBefore = linked;
 		for (const step of openingSteps(linked)) linkPush(step);
 	}
 
@@ -765,16 +753,24 @@
 
 	/**
 	 * Finished (a tap, Done, Create and link): every link level goes at once. A
-	 * section that had no name and no links, and now has one link, gets the
-	 * Rename sheet in their place, that link's name filled in.
+	 * section that had no name now has one, the server's (its first link's,
+	 * spec A3): the player reads it back, so the section shows it and a later
+	 * save sends what the server holds.
 	 */
 	function closeLink() {
 		const under = nav.stack.filter((s) => !(s.kind === 'sheet' && LINK_SHEETS.includes(s.sheet)));
 		const spot = spots.find((s) => s.id === linkSpotId);
-		const name = spot ? suggestedName(spot.label, linkedBefore, spot.linkedTo) : null;
 		sheetMessage = null;
-		renaming = spot && name ? { spotId: spot.id, name } : null;
-		nav.jump(renaming ? [...under, { kind: 'sheet', sheet: 'rename' }] : under);
+		nav.jump(under);
+		if (spot && nameFromServer(spot.label, spot.linkedTo)) void readName(spot.id);
+	}
+
+	/** The section's name as the server holds it, into the player's list and what it last saw. */
+	async function readName(id: number) {
+		const fresh = (await fetchSpots(owner).catch(() => [] as Spot[])).find((s) => s.id === id);
+		if (!fresh) return;
+		spots = spots.map((s) => (s.id === id ? { ...s, label: fresh.label } : s));
+		known.set(id, spotSeen(fresh));
 	}
 
 	/**
@@ -796,7 +792,6 @@
 		known.set(spot.id, spotSeen(spot));
 		const under = nav.stack.filter((s) => !(s.kind === 'sheet' && LINK_SHEETS.includes(s.sheet)));
 		linkSpotId = spot.id;
-		linkedBefore = 0;
 		nav.jump([
 			...under,
 			...openingSteps(0).map((step): Screen => ({ kind: 'sheet', sheet: LINK_SHEET[step] }))
@@ -1597,8 +1592,7 @@
 		{:else if sheet && sheet !== 'list'}
 			<PlayerSheet
 				kind={sheet}
-				spot={sheet === 'rename' ? sheetSpot : openSpot}
-				name={sheet === 'rename' ? renaming?.name : undefined}
+				spot={openSpot}
 				message={sheetMessage}
 				oncancel={() => nav.up()}
 				onrename={relabel}

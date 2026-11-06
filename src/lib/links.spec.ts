@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	extractUrls,
+	linkFound,
 	parseLink,
 	parseTime,
 	splitLinkLines,
@@ -140,4 +141,29 @@ describe('youtube urls', () => {
 		expect(youtubeEmbed(ID, null)).toBe(`https://www.youtube-nocookie.com/embed/${ID}?autoplay=1`);
 		expect(youtubeWatch(ID, 90)).toBe(`https://www.youtube.com/watch?v=${ID}&t=90s`);
 	});
+});
+
+describe('linkFound', () => {
+	const youtube = {
+		youtube: true,
+		title: 'YouTube video',
+		line: 'You can save it at 480p after adding'
+	};
+	it('says a youtu.be link is a YouTube video', () => {
+		expect(linkFound(`https://youtu.be/${ID}`)).toEqual(youtube);
+	});
+	it('says a watch link is a YouTube video, around spaces', () => {
+		expect(linkFound(`  https://www.youtube.com/watch?v=${ID}  `)).toEqual(youtube);
+	});
+	it('names a web page by its host', () => {
+		expect(linkFound('https://www.salsa.si/x')).toEqual({
+			youtube: false,
+			title: 'salsa.si',
+			line: 'Web page'
+		});
+	});
+	it.each(['', '   ', 'not a link', `https://youtu.be/${ID}\nhttps://salsa.si`])(
+		'finds nothing in %j',
+		(raw) => expect(linkFound(raw)).toBeNull()
+	);
 });

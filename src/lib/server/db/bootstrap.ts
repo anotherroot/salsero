@@ -4,6 +4,7 @@ import { sweepUploads } from '../files';
 import { crossRefs, familyIntegrity, ownerIntegrity } from '../integrity';
 import { importNoteLinks } from '../links';
 import { movePositionsToOwners } from '../positions-move';
+import { nameLinkedSpots } from '../section-names';
 import { backfillSongSizes } from '../storage';
 import { startTrashPurge } from '../trash';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
@@ -50,6 +51,12 @@ export function bootstrap(): Promise<void> {
 			// existed. Copied out once EVER — `app_flags` remembers — so a link the
 			// user deletes afterwards is never brought back by a restart.
 			importNoteLinks(getDb(), Date.now());
+		})
+		.then(() => {
+			// Sections linked before a link named them take their link's name.
+			// Once EVER (`app_flags`), so a name cleared later stays cleared.
+			const named = nameLinkedSpots(getDb(), Date.now());
+			if (named.ran) console.info(`[sections] named ${named.named}`);
 		})
 		.then(() => backfillSongSizes(getDb(), Date.now()))
 		.then(() => {
