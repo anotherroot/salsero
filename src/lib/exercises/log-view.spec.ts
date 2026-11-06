@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LastSet } from '$lib/types';
-import { footerFor, lastTimeParts, rangeError } from './log-view';
+import { fieldsShown, footerFor, lastTimeParts, rangeError } from './log-view';
 
 const base = {
 	session: null,
@@ -135,6 +135,31 @@ describe('footerFor, a face is required', () => {
 	});
 	it('shows Logged after a log although the face reset', () => {
 		expect(footerFor({ ...base, rated: false, justLogged: true }).main?.state).toBe('logged');
+	});
+});
+
+describe('the simple popup', () => {
+	it('says Done where the full popup says Log set', () => {
+		expect(footerFor({ ...base, simple: true }).main).toEqual({ state: 'log', label: 'Done' });
+		expect(footerFor(base).main).toEqual({ state: 'log', label: 'Log set' });
+	});
+	it('keeps the face requirement and the Done label while disabled', () => {
+		const v = footerFor({ ...base, simple: true, rated: false });
+		expect(v.main).toEqual({ state: 'disabled', label: 'Done' });
+		expect(v.hint).toBe('Pick how it went');
+		expect(footerFor({ ...base, simple: true, playing: true }).main?.label).toBe('Done');
+	});
+	it('still says Logged after a log, and keeps the back-fill words', () => {
+		expect(footerFor({ ...base, simple: true, justLogged: true }).main?.label).toBe('Logged');
+		expect(footerFor({ ...base, simple: true, backfill: true }).main?.label).toBe(
+			'Add set to this day'
+		);
+	});
+	it('shows the faces alone', () => {
+		const all = ['minutes', 'reps', 'rating', 'note'] as const;
+		expect(fieldsShown(true, all)).toEqual(['rating']);
+		expect(fieldsShown(false, all)).toEqual([...all]);
+		expect(fieldsShown(true, ['minutes', 'note'] as const)).toEqual([]);
 	});
 });
 

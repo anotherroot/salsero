@@ -38,7 +38,7 @@ export function watchMedia(url: string, onproblem: (problem: MediaProblem) => vo
  */
 export function uploadProblem(
 	file: { size: number; type: string },
-	accept: 'audio/*' | 'video/*,audio/*'
+	accept: 'audio/*' | 'video/*' | 'video/*,audio/*'
 ): { title: string; body?: string } | null {
 	if (file.size > MAX_RECORDING_BYTES) {
 		return {
@@ -49,6 +49,9 @@ export function uploadProblem(
 		return /^audio\//.test(file.type)
 			? null
 			: { title: 'Only audio files can be added.', body: 'Pick a video with Add video instead.' };
+	}
+	if (accept === 'video/*') {
+		return /^video\//.test(file.type) ? null : { title: 'Only video files can be added.' };
 	}
 	return /^(video|audio)\//.test(file.type)
 		? null

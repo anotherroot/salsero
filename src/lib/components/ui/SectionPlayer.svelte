@@ -17,6 +17,7 @@
 		from,
 		linking = false,
 		canEdit = true,
+		simple = false,
 		onclose
 	}: {
 		src: string;
@@ -28,6 +29,8 @@
 		linking?: boolean;
 		/** Marking and editing spots: off for a reader of a group's video. */
 		canEdit?: boolean;
+		/** The simple player: the section loops with repeat lit, and nothing to mark or edit. */
+		simple?: boolean;
 		onclose: () => void;
 	} = $props();
 
@@ -41,9 +44,11 @@
 	loopSpot={spot}
 	{linking}
 	{canEdit}
+	{simple}
 	mirror={prefs.mirror}
 	rate={prefs.rate}
 	muted={prefs.muted}
+	repeat={prefs.repeat}
 	title={from ? (from.kind === 'lesson' ? from.title : from.figure) : 'Video'}
 	subtitle={from ? (from.kind === 'lesson' ? 'Lesson video' : 'Recording') : ''}
 	onchoose={(next) => {

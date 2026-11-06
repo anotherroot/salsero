@@ -57,6 +57,7 @@
 		linkEntry,
 		playerMode,
 		toastPlace,
+		portraitBody,
 		topBar,
 		type ToastTone
 	} from '$lib/video/chrome';
@@ -132,6 +133,14 @@
 		 * Mark or Section, no editor level, no M or S key.
 		 */
 		canEdit?: boolean;
+		/**
+		 * The simple player (Follow my class, Practise and keep my own): always the folded bar
+		 * with −5 s / +5 s, a top bar of close, title, repeat, mute, mirror and speed, and nothing to
+		 * mark, edit or link. A `loopSpot` plays as a fixed loop with repeat lit.
+		 */
+		simple?: boolean;
+		/** Simple only: loop the whole video when it ends. */
+		repeat?: boolean;
 	}
 
 	let {
@@ -147,8 +156,12 @@
 		title = 'Video',
 		subtitle = '',
 		linking: linkingProp = false,
-		canEdit = true
+		canEdit: canEditProp = true,
+		simple = false,
+		repeat = false
 	}: Props = $props();
+	/** The simple player marks and edits nothing, whoever the reader is. */
+	const canEdit = $derived(canEditProp && !simple);
 	/** A reader links nothing either. */
 	const linking = $derived(linkingProp && canEdit);
 
@@ -256,7 +269,9 @@
 			? (spots.find((s) => s.id === level.spotId) ?? null)
 			: null
 	);
-	const loop = $derived(loopOf(stack, spots, loopPaused, arriving));
+	/** The simple player has one level: a section it opened on is its fixed loop. */
+	const simpleLoop = $derived(simple && loopSpot && loopSpot.endMs !== null ? loopSpot : null);
+	const loop = $derived(simple ? simpleLoop : loopOf(stack, spots, loopPaused, arriving));
 	const currentMs = $derived(current * 1000);
 	const durationMs = $derived(Number.isFinite(duration) ? duration * 1000 : 0);
 
@@ -315,7 +330,7 @@
 
 	onMount(() => {
 		dialog.showModal();
-		nav.open(openingStack(loopSpot?.id));
+		nav.open(openingStack(simple ? undefined : loopSpot?.id));
 		opened = true;
 		stage.requestFullscreen?.().then(
 			() => (wentFullscreen = true),
@@ -845,14 +860,28 @@
 
 	/** A section that ends at (or rounds past) the last frame: the frame check never sees it. */
 	function onended() {
-		if (!loop) return;
-		video.currentTime = loop.startMs / 1000;
-		void video.play();
+		if (loop) {
+			video.currentTime = loop.startMs / 1000;
+			void video.play();
+		} else if (simple && repeat) {
+			// Repeat: the whole video again.
+			video.currentTime = 0;
+			void video.play().catch(() => {});
+		}
+	}
+
+	/** −5 s / +5 s, the simple player's steps. */
+	function five(d: -1 | 1) {
+		nudge(d * 5);
 	}
 
 	/* ---------- keys ---------- */
 
+	/** The simple player answers only to play and the 1 s arrows (as its double-tap jumps). */
+	const SIMPLE_KEYS: readonly KeyAction[] = ['toggle', 'back1', 'fwd1'];
+
 	function act(a: KeyAction) {
+		if (simple && !SIMPLE_KEYS.includes(a)) return;
 		const spot = openSpot;
 		switch (a) {
 			case 'toggle':
@@ -915,6 +944,14 @@
 	const mode = $derived(playerMode(layout, chromeLevel, sheet === 'list'));
 	/** A phone, either way up: a section view carries ‹ Full video and Edit in its top bar. */
 	const phone = $derived(mode === 'portrait' || mode === 'overlay');
+	const portraitPart = $derived(
+		portraitBody(chromeLevel, {
+			listOpen: sheet === 'list',
+			hidden,
+			spot: openSpot !== null,
+			simple
+		})
+	);
 
 	/* Floating controls fade after 3 s of playing; a tap brings them back. */
 	let shown = $state(true);
@@ -946,7 +983,11 @@
 	];
 	/** A reader has no mark, section or edge keys. */
 	const legend = $derived(
-		canEdit ? LEGEND : LEGEND.filter(([k]) => k !== 'M' && k !== 'S' && k !== 'I O')
+		simple
+			? LEGEND.filter(([k]) => k === 'Space' || k === '← →')
+			: canEdit
+				? LEGEND
+				: LEGEND.filter(([k]) => k !== 'M' && k !== 'S' && k !== 'I O')
 	);
 
 	/** A tap on the picture: brings faded controls back, else plays or pauses. */
@@ -1046,7 +1087,7 @@
 		fromMs={0}
 		toMs={durationMs || 1}
 		{currentMs}
-		bands={listSpots.map((s) => ({ ...s, active: false }))}
+		bands={simple ? [] : listSpots.map((s) => ({ ...s, active: false }))}
 		pending={pendingStart === null ? null : { startMs: pendingStart }}
 		{glass}
 		onseek={seek}
@@ -1109,11 +1150,23 @@
 			{/if}
 		</div>
 		<div class="-mx-1 flex items-center">
-			<button type="button" class={HIDE} onclick={() => setHidden(false)}>
-				<UiIcon name="chevron-up" size={18} />Show
-			</button>
+			{#if simple}
+				<span class="w-[92px]"></span>
+			{:else}
+				<button type="button" class={HIDE} onclick={() => setHidden(false)}>
+					<UiIcon name="chevron-up" size={18} />Show
+				</button>
+			{/if}
 			<span class="flex-1"></span>
-			<Transport {paused} size="compact" ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+			<Transport
+				{paused}
+				size="compact"
+				steps={simple ? 'five' : 'fine'}
+				ontoggle={toggle}
+				onstep={nudge}
+				ontenth={tenth}
+				onfive={five}
+			/>
 			<span class="flex-1"></span>
 			<span class="w-[92px] text-right text-[15px] font-extrabold tabular-nums"
 				>{spot ? sectionProgress(spot, currentMs) : preciseTime(currentMs)}</span
@@ -1157,6 +1210,7 @@
 	<div
 		bind:this={stage}
 		class="stage relative h-full w-full overflow-hidden bg-ground text-ink {mode}"
+		class:simple
 		onpointermove={(e) => {
 			if (mode === 'overlay' && e.pointerType === 'mouse') wake();
 		}}
@@ -1174,10 +1228,14 @@
 				{mirror}
 				{rate}
 				{muted}
-				parts={topBar(mode, chromeLevel)}
+				parts={topBar(mode, chromeLevel, { simple })}
 				place={mode === 'overlay' ? 'overlay' : mode === 'panel' ? 'panel' : undefined}
 				spotsCount={spots.length}
-				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
+				repeat={repeat || simpleLoop !== null}
+				repeatLocked={simpleLoop !== null}
+				onspots={mode === 'overlay' && level.kind === 'full' && !simple
+					? () => openSheet('list')
+					: undefined}
 				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
 				onedit={canEdit && phone && level.kind === 'section'
 					? () => openSpot && toEdit(openSpot)
@@ -1272,7 +1330,7 @@
 					>{badge}</span
 				>
 			{/if}
-			{#if loop && mode !== 'overlay'}
+			{#if loop && mode !== 'overlay' && !simple}
 				<div class="absolute top-2.5 left-2.5 z-10">
 					{@render loopBadges(loop, false, level.kind === 'section')}
 				</div>
@@ -1297,7 +1355,7 @@
 				class="area-below flex shrink-0 flex-col overflow-y-auto"
 				style:max-height="calc(100dvh - 176px)"
 			>
-				{#if sheet === 'list'}
+				{#if portraitPart === 'list'}
 					<section
 						aria-label="Sections and points"
 						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(var(--safe-bottom),22px)]"
@@ -1312,11 +1370,11 @@
 							onclose={() => nav.up()}
 						/>
 					</section>
-				{:else if level.kind === 'edit' && openSpot}
+				{:else if portraitPart === 'editor' && openSpot}
 					{@render editor(openSpot, false, true)}
-				{:else if hidden}
+				{:else if portraitPart === 'slim'}
 					{@render slimBar(level.kind === 'section' ? openSpot : null)}
-				{:else if level.kind === 'section' && openSpot}
+				{:else if portraitPart === 'section' && openSpot}
 					<SectionView
 						spot={openSpot}
 						{currentMs}
@@ -1413,9 +1471,11 @@
 								{paused}
 								size="float"
 								glass
+								steps={simple ? 'five' : 'fine'}
 								ontoggle={toggle}
 								onstep={nudge}
 								ontenth={tenth}
+								onfive={five}
 							/>
 							<span class="flex min-w-0 justify-end gap-1.5"
 								>{@render markButtons(true, vw < 760)}</span
@@ -1458,7 +1518,14 @@
 							>/ {durationMs ? preciseTime(durationMs) : '–'}</span
 						>
 						<span class="flex-1"></span>
-						<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+						<Transport
+							{paused}
+							steps={simple ? 'five' : 'fine'}
+							ontoggle={toggle}
+							onstep={nudge}
+							ontenth={tenth}
+							onfive={five}
+						/>
 						<span class="flex-1"></span>
 						{@render markButtons(false)}
 					</div>
@@ -1486,7 +1553,7 @@
 					{@render editor(openSpot, false, false)}
 				{/if}
 			</div>
-		{:else if mode === 'desktop'}
+		{:else if mode === 'desktop' && !simple}
 			<div class="area-side flex min-h-0 flex-col border-l border-surface">
 				<SpotList
 					spots={listSpots}
@@ -1591,6 +1658,13 @@
 	}
 	.stage.desktop > .area-top {
 		grid-column: 1 / span 2;
+	}
+	/* The simple player has no side column. */
+	.stage.desktop.simple {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.stage.desktop.simple > .area-top {
+		grid-column: 1;
 	}
 	.stage.desktop > .area-side {
 		grid-column: 2;

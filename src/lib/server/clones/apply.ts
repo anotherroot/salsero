@@ -83,6 +83,7 @@ import { deleteSpot } from '../spots';
 import { SpotLinkedError, unlinkSpot } from '../spot-links';
 import { dropMusic, musicParentOf, takeMusic } from '../song-links';
 import { reconcileEntries } from '../entries';
+import { autoAddPending } from '../auto-add';
 import { accessTo, geneOf, stampGene } from './genes';
 import { digest, hashValue, pairBase, writePair } from './pairs';
 import { flatOf } from './trees';
@@ -1113,6 +1114,9 @@ export async function syncFrom(
 				const change = fieldChange(applied.before, applied.after, thing) ?? { subject: thing };
 				logChange(tx, space, { ...root, verb: 'change', ...change }, now);
 				if (applied.removals) reconcileEntries(tx, space.teamId, now);
+				// A class lesson that took in a routine or drill: auto-add brings it to Today. Only a
+				// lesson's Take changes what a lesson holds.
+				if (kind === 'lesson') autoAddPending(tx, space.teamId, [intoId], now);
 			}
 			return applied;
 		});

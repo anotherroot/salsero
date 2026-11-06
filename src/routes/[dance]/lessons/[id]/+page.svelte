@@ -1,6 +1,4 @@
 <script lang="ts">
-	import MusicSection from '$lib/components/songs/MusicSection.svelte';
-	import { practiseHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
@@ -79,8 +77,17 @@
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
+	import MusicSection from '$lib/components/songs/MusicSection.svelte';
+	import { practiseHref } from '$lib/songs/music';
+	import SimpleLesson from '$lib/components/lessons/SimpleLesson.svelte';
+	import { levelShown } from '$lib/levels/levels';
+	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
+	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
@@ -148,6 +155,35 @@
 		if (data.add?.offer) adding = { offer: data.add.offer, fresh: data.add.added };
 	}
 	let lessonMenu = $state(false);
+	/** The lesson's own ⋯ items: History, and Remove from my lessons (its Dialog). */
+	const lessonOwn = $derived<MenuItem[]>([
+		...(data.historyHref
+			? [
+					{
+						key: 'history',
+						icon: 'clock' as const,
+						label: 'History',
+						href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
+							dance: data.dance.slug,
+							id: String(data.team?.id),
+							kind: 'lesson',
+							rootId: String(data.lesson.id)
+						})
+					}
+				]
+			: []),
+		...(data.add?.added
+			? [
+					{
+						key: 'remove',
+						icon: 'trash' as const,
+						label: 'Remove from my lessons',
+						danger: true,
+						onclick: () => (removing = true)
+					}
+				]
+			: [])
+	]);
 	/** A reader's Edit, or the deleted group's banner: the Make it mine sheet (ruling 12). */
 	let makingMine = $state(false);
 	let removing = $state(false);
@@ -231,6 +267,7 @@
 	} | null>(null);
 
 	const lesson = $derived(data.lesson);
+	const level = $derived(levelShown(data.user?.level));
 	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
 	const sourcePlace = $derived(
 		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
@@ -543,6 +580,18 @@
 		// sheet closes; the picker shows the new row as linked once the page refreshes.
 		if (kind === 'position') addingPosition = true;
 	}
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>(
+		data.simple && !editing
+			? {}
+			: {
+					drop: data.drop,
+					detach: data.detach,
+					copy: data.copyTo,
+					sameAs: data.sameAs,
+					move: data.move
+				}
+	);
 </script>
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
@@ -585,511 +634,552 @@
 	</div>
 {/snippet}
 
-<Screen
-	compact
-	width={editing ? 'song' : 'two'}
-	title={lesson.title}
-	subtitle={editing
-		? 'Editing'
-		: data.team
-			? `${fullDateLabel(lesson.lessonDay)} · ${data.team.name}`
-			: [fullDateLabel(lesson.lessonDay), cloneSubtitle(data.cloneLine)]
-					.filter((x) => x !== null)
-					.join(' · ')}
-	extra={editing
-		? undefined
-		: data.draft
-			? draftBand
-			: data.add && !data.add.added && data.add.offer
-				? addBand
-				: undefined}
->
-	{#snippet left()}
-		{#if editing}
-			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
-		{:else}
-			<BackButton
-				fallback={{
-					href: resolve('/[dance]/lessons', { dance: data.dance.slug }),
-					label: 'Back to Lessons'
-				}}
-			/>
-		{/if}
-	{/snippet}
-	{#snippet right()}
-		{#if !editing && (data.add?.added || data.historyHref)}
-			<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
-		{/if}
-		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader's pencil makes it theirs. -->
-		{#if !editing && data.canEdit}
-			<BandButton
-				focusKey="start-editing"
-				icon="pencil"
-				label="Edit lesson"
-				onclick={startEditing}
-			/>
-		{:else if !editing && data.makeMine}
-			<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
-			<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
-		{/if}
-	{/snippet}
-	<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
-		{#if !editing}
-			<SourceTabs
-				sources={data.sources}
-				kind="lesson"
-				dance={data.dance.slug}
-				current={lesson.id}
-				mineId={data.mineId}
-				compare={data.compare}
-				family={data.family}
-				drop={data.drop}
-				detach={data.detach}
-				copy={data.copyTo}
-				sameAs={data.sameAs}
-				move={data.move}
-				taking={sourcePlace}
-			/>
-		{/if}
-		<!--
+<!--
+	The simple page (levels spec) below Everything, except a group's lesson the person
+	edits. An own lesson's Edit is this page's own edit mode (title, day, notes), at
+	Practise and keep my own: Follow my class creates and edits nothing, so a lesson of
+	their own from a higher level only plays there. No Remove at Follow my class either.
+-->
+{#if data.simple && !editing}
+	<SimpleLesson
+		dance={data.dance.slug}
+		{level}
+		{lesson}
+		team={data.team}
+		today={data.today}
+		videos={data.videos}
+		links={data.links}
+		canEdit={data.canEdit && level !== 'follow'}
+		app={data.app}
+		practising={data.practising}
+		comments={data.comments}
+		add={data.add}
+		notice={data.notice}
+		linkMessage={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
+		linkEntered={form && 'urls' in form ? String(form.urls) : ''}
+		{videoRefused}
+		onedit={startEditing}
+		ondeletevideo={(id) =>
+			askDeleteVideo(id, data.sections[id] ?? [], data.videoPositions[id] ?? [])}
+		onmenu={level !== 'follow' && data.add?.added ? () => (lessonMenu = true) : null}
+	/>
+{:else}
+	<Screen
+		compact
+		width={editing ? 'song' : 'two'}
+		title={lesson.title}
+		subtitle={editing
+			? 'Editing'
+			: data.team
+				? `${fullDateLabel(lesson.lessonDay)} · ${data.team.name}`
+				: [fullDateLabel(lesson.lessonDay), cloneSubtitle(data.cloneLine)]
+						.filter((x) => x !== null)
+						.join(' · ')}
+		extra={editing
+			? undefined
+			: data.draft
+				? draftBand
+				: data.add && !data.add.added && data.add.offer
+					? addBand
+					: undefined}
+	>
+		{#snippet left()}
+			{#if editing}
+				<BandButton
+					focusKey="stop-editing"
+					icon="close"
+					label="Stop editing"
+					onclick={stopEditing}
+				/>
+			{:else}
+				<BackButton
+					fallback={{
+						href: resolve('/[dance]/lessons', { dance: data.dance.slug }),
+						label: 'Back to Lessons'
+					}}
+				/>
+			{/if}
+		{/snippet}
+		{#snippet right()}
+			<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader's pencil makes it theirs. -->
+			{#if !editing && data.canEdit}
+				<BandButton
+					focusKey="start-editing"
+					icon="pencil"
+					label="Edit lesson"
+					onclick={startEditing}
+				/>
+			{:else if !editing && data.makeMine}
+				<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
+				<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
+			{/if}
+			{#if !editing}
+				{#if hasMenu(lessonOwn, offers)}
+					<BandButton
+						icon="more"
+						label={menuLabel('lesson')}
+						focusKey="item-menu"
+						onclick={() => (lessonMenu = true)}
+					/>
+				{/if}
+			{/if}
+		{/snippet}
+		<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
+			{#if !editing}
+				<Versions
+					sources={data.sources}
+					kind="lesson"
+					dance={data.dance.slug}
+					current={lesson.id}
+					mineId={data.mineId}
+					self={data.cloneLine.self}
+					title={lesson.title}
+					compare={data.compare}
+					family={data.family}
+					taking={sourcePlace}
+				/>
+			{/if}
+			<!--
 			The lesson in its pane (desktop spec, "Two columns"): from a 780 px pane two
 			columns, 5 : 7 — the notes and what it teaches on the left, its videos and
 			links on the right; one column below that and on the phone, in the phone's
-			order. While editing everything is in `top`, one 640 px column. SourceTabs
+			order. While editing everything is in `top`, one 640 px column. Versions
 			(whose toast is `fixed`) sits outside PaneColumns: nothing pinned lives in
 			its size container.
 		-->
-		{#snippet colsTop()}
-			{#if top.publish}<Banner kind="error">{top.publish}</Banner>{/if}
-			{#if editing}
-				{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
-				<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
-				<form
-					id="edit-form"
-					method="POST"
-					action="?/update"
-					novalidate
-					bind:this={editForm}
-					class="flex flex-col gap-3.5"
-					use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
-				>
-					<!-- What this form saw: a save that saw another version is refused (the clash check). -->
-					<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
-					{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
-					<LessonFields
-						lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}
-						title={refusal?.entered?.title ?? lesson.title}
-						notes={refusal?.entered ? refusal.entered.notes : lesson.notes}
-						max={data.today}
-						errors={editErrors}
-						notesRows={7}
-						notesHelp="Links in notes open when tapped."
-					/>
-				</form>
-				<div class="flex justify-center pt-1">
-					<button
-						type="button"
-						class={button('danger-text', 'sm')}
-						aria-haspopup="dialog"
-						onclick={() => {
-							archiveError = null;
-							archiving = true;
-						}}>Archive lesson</button
+			{#snippet colsTop()}
+				{#if top.publish}<Banner kind="error">{top.publish}</Banner>{/if}
+				{#if editing}
+					{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
+					<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
+					<form
+						id="edit-form"
+						method="POST"
+						action="?/update"
+						novalidate
+						bind:this={editForm}
+						class="flex flex-col gap-3.5"
+						use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
 					>
-				</div>
-			{:else}
-				{#if top.notice}
-					{@const notice = top.notice}
-					<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
-					<Banner kind={notice.tone}>
-						{notice.text}
-						{#snippet action()}
-							{#if data.makeMine}
-								<button
-									type="button"
-									class={button('tertiary', 'sm')}
-									aria-haspopup="dialog"
-									onclick={() => (makingMine = true)}>{notice.action}</button
-								>
-							{/if}
-						{/snippet}
-					</Banner>
-				{/if}
-				{#if top.edited}<p class="text-[13px] font-semibold text-muted">{top.edited}</p>{/if}
-				{#if top.offer}
-					<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
-					<div
-						class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
-					>
-						<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
-							>{newLine(top.offer.items)}</span
-						>
-						<form
-							method="POST"
-							action="?/notNow"
-							use:enhance={() => {
-								notNowBusy = true;
-								return async ({ update }) => {
-									try {
-										await update();
-									} finally {
-										notNowBusy = false;
-									}
-								};
-							}}
-						>
-							<button
-								type="submit"
-								class={button('tertiary', 'sm')}
-								aria-busy={notNowBusy}
-								disabled={notNowBusy}>Not now</button
-							>
-						</form>
+						<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+						<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
+						{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
+						<LessonFields
+							lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}
+							title={refusal?.entered?.title ?? lesson.title}
+							notes={refusal?.entered ? refusal.entered.notes : lesson.notes}
+							max={data.today}
+							errors={editErrors}
+							notesRows={7}
+							notesHelp="Links in notes open when tapped."
+						/>
+					</form>
+					<div class="flex justify-center pt-1">
 						<button
 							type="button"
-							class={button('primary', 'sm')}
+							class={button('danger-text', 'sm')}
 							aria-haspopup="dialog"
-							onclick={openAdd}>Add</button
+							onclick={() => {
+								archiveError = null;
+								archiving = true;
+							}}>Archive lesson</button
 						>
 					</div>
-				{/if}
-			{/if}
-		{/snippet}
-		{#snippet about()}
-			{#if !editing}
-				{#if lesson.notes}
-					<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
-						<h2 class="text-[13px] font-bold text-muted">Notes</h2>
-						<LinkedText
-							text={lesson.notes}
-							class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
-						/>
-					</section>
-				{/if}
-
-				{#if data.exercise && data.popup}
-					{@const review = data.exercise}
-					<div class={GROUP}>
-						<div class="flex min-h-16 items-center pr-1.5 pl-4">
-							<a
-								href={resolve('/[dance]/(today)/exercises/[id]', {
-									dance: data.dance.slug,
-									id: String(review.id)
-								})}
-								class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
+				{:else}
+					{#if top.notice}
+						{@const notice = top.notice}
+						<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
+						<Banner kind={notice.tone}>
+							{notice.text}
+							{#snippet action()}
+								{#if data.makeMine}
+									<button
+										type="button"
+										class={button('tertiary', 'sm')}
+										aria-haspopup="dialog"
+										onclick={() => (makingMine = true)}>{notice.action}</button
+									>
+								{/if}
+							{/snippet}
+						</Banner>
+					{/if}
+					{#if top.edited}<p class="text-[13px] font-semibold text-muted">{top.edited}</p>{/if}
+					{#if top.offer}
+						<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
+						<div
+							class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
+						>
+							<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
+								>{newLine(top.offer.items)}</span
 							>
-								<span
-									class="grid size-10 flex-none place-items-center rounded-full bg-accent-soft text-accent-text"
+							<form
+								method="POST"
+								action="?/notNow"
+								use:enhance={() => {
+									notNowBusy = true;
+									return async ({ update }) => {
+										try {
+											await update();
+										} finally {
+											notNowBusy = false;
+										}
+									};
+								}}
+							>
+								<button
+									type="submit"
+									class={button('tertiary', 'sm')}
+									aria-busy={notNowBusy}
+									disabled={notNowBusy}>Not now</button
 								>
-									<Icon name="repeat" size={20} />
-								</span>
-								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-									<span class="text-[16px] leading-[1.3] font-bold text-ink"
-										>Go over this lesson</span
-									>
-									<span class="text-[13px] leading-[1.35] text-muted"
-										>{#each reviewMeta(review, scheduleOf(review.id), data.today) as part, i (i)}{i >
-											0
-												? ' · '
-												: ''}<span class:font-bold={part.strong}>{part.text}</span>{/each}</span
-									>
-								</span>
-							</a>
-							<!-- The "+" is an icon, so bare accent is allowed. -->
+							</form>
 							<button
 								type="button"
-								class={iconButton('bare', 'accent')}
-								aria-label="Log a set of {review.name}"
-								onclick={() => (logging = true)}
+								class={button('primary', 'sm')}
+								aria-haspopup="dialog"
+								onclick={openAdd}>Add</button
 							>
-								<Icon name="plus" size={24} />
-							</button>
 						</div>
-					</div>
+					{/if}
 				{/if}
-			{/if}
-		{/snippet}
-		{#snippet watched()}
-			{#if !editing}
-				<section class="flex flex-col gap-2 pt-2.5 two:pt-0">
-					<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
-						{sectionHeading('Videos', data.videos.length)}
-					</h2>
-					{#if data.videos.length}
-						<ul class="flex flex-col gap-3">
-							{#each data.videos as video, i (video.id)}
-								{@const videoSections = data.sections[video.id] ?? []}
-								{#snippet videoTrash()}
-									{#if data.canEdit}<button
-											data-focus="video-{video.id}"
-											type="button"
-											aria-label="Delete video {i + 1}"
-											aria-haspopup="dialog"
-											class={iconButton('bare', 'danger')}
-											onclick={() =>
-												askDeleteVideo(
-													video.id,
-													videoSections,
-													data.videoPositions[video.id] ?? []
-												)}><Icon name="trash" size={22} /></button
-										>{/if}
-								{/snippet}
-								<li class="{CLIP} rounded-[22px] bg-surface">
-									{#if broken[video.id] === 'missing'}
-										<VideoProblem
-											title="This file is missing"
-											body="The server has no file for this video."
-											meta={byteSize(video.sizeBytes)}
+			{/snippet}
+			{#snippet about()}
+				{#if !editing}
+					{#if lesson.notes}
+						<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
+							<h2 class="text-[13px] font-bold text-muted">Notes</h2>
+							<LinkedText
+								text={lesson.notes}
+								class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
+							/>
+						</section>
+					{/if}
+
+					{#if data.exercise && data.popup}
+						{@const review = data.exercise}
+						<div class={GROUP}>
+							<div class="flex min-h-16 items-center pr-1.5 pl-4">
+								<a
+									href={resolve('/[dance]/(today)/exercises/[id]', {
+										dance: data.dance.slug,
+										id: String(review.id)
+									})}
+									class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
+								>
+									<span
+										class="grid size-10 flex-none place-items-center rounded-full bg-accent-soft text-accent-text"
+									>
+										<Icon name="repeat" size={20} />
+									</span>
+									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+										<span class="text-[16px] leading-[1.3] font-bold text-ink"
+											>Go over this lesson</span
 										>
-											{#snippet action()}{@render videoTrash()}{/snippet}
-										</VideoProblem>
-									{:else if broken[video.id] === 'unplayable'}
-										<VideoProblem
-											title="Can’t play here"
-											body="This browser can’t play this file. Download it or open it on your phone."
-											meta={byteSize(video.sizeBytes)}
+										<span class="text-[13px] leading-[1.35] text-muted"
+											>{#each reviewMeta(review, scheduleOf(review.id), data.today) as part, i (i)}{i >
+												0
+													? ' · '
+													: ''}<span class:font-bold={part.strong}>{part.text}</span>{/each}</span
 										>
-											{#snippet action()}
-												<span class="flex items-center gap-1">
-													<a
-														href={resolve('/lesson-videos/[file]', { file: video.file })}
-														download
-														class={button('tertiary', 'sm')}
-														><Icon name="download" size={18} />Download</a
-													>
-													{@render videoTrash()}
-												</span>
-											{/snippet}
-										</VideoProblem>
-									{:else}
-										<VideoFrame
+									</span>
+								</a>
+								<!-- The "+" is an icon, so bare accent is allowed. -->
+								<button
+									type="button"
+									class={iconButton('bare', 'accent')}
+									aria-label="Log a set of {review.name}"
+									onclick={() => (logging = true)}
+								>
+									<Icon name="plus" size={24} />
+								</button>
+							</div>
+						</div>
+					{/if}
+				{/if}
+			{/snippet}
+			{#snippet watched()}
+				{#if !editing}
+					<section class="flex flex-col gap-2 pt-2.5 two:pt-0">
+						<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
+							{sectionHeading('Videos', data.videos.length)}
+						</h2>
+						{#if data.videos.length}
+							<ul class="flex flex-col gap-3">
+								{#each data.videos as video, i (video.id)}
+									{@const videoSections = data.sections[video.id] ?? []}
+									{#snippet videoTrash()}
+										{#if data.canEdit}<button
+												data-focus="video-{video.id}"
+												type="button"
+												aria-label="Delete video {i + 1}"
+												aria-haspopup="dialog"
+												class={iconButton('bare', 'danger')}
+												onclick={() =>
+													askDeleteVideo(
+														video.id,
+														videoSections,
+														data.videoPositions[video.id] ?? []
+													)}><Icon name="trash" size={22} /></button
+											>{/if}
+									{/snippet}
+									<li class="{CLIP} rounded-[22px] bg-surface">
+										{#if broken[video.id] === 'missing'}
+											<VideoProblem
+												title="This file is missing"
+												body="The server has no file for this video."
+												meta={byteSize(video.sizeBytes)}
+											>
+												{#snippet action()}{@render videoTrash()}{/snippet}
+											</VideoProblem>
+										{:else if broken[video.id] === 'unplayable'}
+											<VideoProblem
+												title="Can’t play here"
+												body="This browser can’t play this file. Download it or open it on your phone."
+												meta={byteSize(video.sizeBytes)}
+											>
+												{#snippet action()}
+													<span class="flex items-center gap-1">
+														<a
+															href={resolve('/lesson-videos/[file]', { file: video.file })}
+															download
+															class={button('tertiary', 'sm')}
+															><Icon name="download" size={18} />Download</a
+														>
+														{@render videoTrash()}
+													</span>
+												{/snippet}
+											</VideoProblem>
+										{:else}
+											<VideoFrame
+												src="/lesson-videos/{video.file}"
+												sourceUrl={video.sourceUrl}
+												owner={{ lessonVideoId: video.id }}
+												title={lesson.title}
+												caption={lessonVideoCaption(i, video)}
+												onproblem={(p) => (broken = { ...broken, [video.id]: p })}
+												onclosed={() => void refreshWhenSettled()}
+												linking={data.canEdit}
+												canEdit={data.canEdit}
+												action={data.canEdit ? videoTrash : undefined}
+												sections={videoSections}
+											/>
+										{/if}
+										{#if videoRefused[video.id]}
+											<div class="px-3 pb-2.5">
+												<Banner kind="error" title="Can’t delete this video"
+													>{videoRefused[video.id]}</Banner
+												>
+											</div>
+										{/if}
+										<VideoSections
+											sections={videoSections}
 											src="/lesson-videos/{video.file}"
-											sourceUrl={video.sourceUrl}
 											owner={{ lessonVideoId: video.id }}
-											title={lesson.title}
-											caption={lessonVideoCaption(i, video)}
-											onproblem={(p) => (broken = { ...broken, [video.id]: p })}
-											onclosed={() => void refreshWhenSettled()}
 											linking={data.canEdit}
 											canEdit={data.canEdit}
-											action={data.canEdit ? videoTrash : undefined}
-											sections={videoSections}
 										/>
-									{/if}
-									{#if videoRefused[video.id]}
-										<div class="px-3 pb-2.5">
-											<Banner kind="error" title="Can’t delete this video"
-												>{videoRefused[video.id]}</Banner
-											>
-										</div>
-									{/if}
-									<VideoSections
-										sections={videoSections}
-										src="/lesson-videos/{video.file}"
-										owner={{ lessonVideoId: video.id }}
-										linking={data.canEdit}
-										canEdit={data.canEdit}
-									/>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if !data.canEdit}
-						{#if data.videos.length === 0}
-							<p class="px-1 text-[15px] text-muted">No videos yet.</p>
+									</li>
+								{/each}
+							</ul>
 						{/if}
-					{:else}<div class={data.videos.length ? 'mt-3' : ''}>
-							{#if data.app}
-								<AppUploadLink
-									kind="dashed"
-									href={uploadLink(
-										{ lesson: lesson.id },
-										{ back: page.url.pathname, name: lesson.title }
-									)}
-									label="Add videos"
-								/>
-							{:else}
-								<ChunkedUploadButton
-									uploadUrl="/api/lessons/{lesson.id}/videos"
-									accept="video/*"
-									label="Add videos"
-									maxBytes={MAX_LESSON_VIDEO_BYTES}
-								/>
+						{#if !data.canEdit}
+							{#if data.videos.length === 0}
+								<p class="px-1 text-[15px] text-muted">No videos yet.</p>
 							{/if}
-						</div>{/if}
-				</section>
-				<section class="flex flex-col gap-2 pt-2.5">
-					{@render labelRow(sectionHeading('Links', data.links.length), 'link')}
-					{#if data.canEdit}
-						{#if failure('saveVideo') ?? failure('retryVideo')}
-							<Banner kind="error">{failure('saveVideo') ?? failure('retryVideo')}</Banner>
+						{:else}<div class={data.videos.length ? 'mt-3' : ''}>
+								{#if data.app}
+									<AppUploadLink
+										kind="dashed"
+										href={uploadLink(
+											{ lesson: lesson.id },
+											{ back: page.url.pathname, name: lesson.title }
+										)}
+										label="Add videos"
+									/>
+								{:else}
+									<ChunkedUploadButton
+										uploadUrl="/api/lessons/{lesson.id}/videos"
+										accept="video/*"
+										label="Add videos"
+										maxBytes={MAX_LESSON_VIDEO_BYTES}
+									/>
+								{/if}
+							</div>{/if}
+					</section>
+					<section class="flex flex-col gap-2 pt-2.5">
+						{@render labelRow(sectionHeading('Links', data.links.length), 'link')}
+						{#if data.canEdit}
+							{#if failure('saveVideo') ?? failure('retryVideo')}
+								<Banner kind="error">{failure('saveVideo') ?? failure('retryVideo')}</Banner>
+							{/if}
+							<LinksEditor
+								compact
+								adding={false}
+								links={data.links}
+								canSave
+								message={null}
+								entered=""
+							/>
+						{:else}
+							<LinkList compact links={data.links} />
 						{/if}
-						<LinksEditor
-							compact
-							adding={false}
-							links={data.links}
-							canSave
-							message={null}
-							entered=""
-						/>
-					{:else}
-						<LinkList compact links={data.links} />
-					{/if}
-				</section>
-			{/if}
-		{/snippet}
-		{#snippet linked()}
-			<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
-			<div class="flex flex-col gap-2.5 pt-2.5">
-				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure')}
-					{#if data.figures.length > 0}
-						<ul class={GROUP}>
-							{#each data.figures as figure (figure.id)}
-								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-									<a
-										data-focus="figure-{figure.id}"
-										href={resolve('/[dance]/(moves)/figures/[id]', {
-											dance: data.dance.slug,
-											id: String(figure.mineId ?? figure.id)
-										})}
-										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-									>
-										{@render itemText(
-											figure.name,
-											viaBadge(figure.viaSections),
-											yoursMeta(figureMeta(figure), figure.mineId)
-										)}
-									</a>
-									{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</section>
-				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine')}
-					{#if data.routines.length > 0}
-						<ul class={GROUP}>
-							{#each data.routines as routine (routine.id)}
-								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-									<a
-										data-focus="routine-{routine.id}"
-										href={resolve('/[dance]/(moves)/routines/[id]', {
-											dance: data.dance.slug,
-											id: String(routine.mineId ?? routine.id)
-										})}
-										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-									>
-										{@render itemText(
-											routine.name,
-											null,
-											yoursMeta(
-												routineMeta(scheduleOf(routine.exerciseId), data.today),
-												routine.mineId
-											)
-										)}
-									</a>
-									<!-- A routine never reaches a lesson through a section. -->
-									{@render unlinkButton('routine', routine.id, routine.name, [])}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</section>
-				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise')}
-					{#if data.exercises.length > 0}
-						<ul class={GROUP}>
-							{#each data.exercises as exercise (exercise.id)}
-								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-									<a
-										data-focus="exercise-{exercise.id}"
-										href={resolve('/[dance]/(today)/exercises/[id]', {
-											dance: data.dance.slug,
-											id: String(exercise.mineId ?? exercise.id)
-										})}
-										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-									>
-										{@render itemText(
-											exercise.name,
-											viaBadge(exercise.viaSections),
-											yoursMeta(
-												exerciseMeta(exercise, scheduleOf(exercise.id), data.today),
-												exercise.mineId
-											)
-										)}
-									</a>
-									<!-- The "+" is an icon, so bare accent is allowed. A group's drill is
-									     logged through each person's own entry, never from here. -->
-									{#if !data.team}
+					</section>
+				{/if}
+			{/snippet}
+			{#snippet linked()}
+				<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
+				<div class="flex flex-col gap-2.5 pt-2.5">
+					<section class="flex flex-col gap-2">
+						{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure')}
+						{#if data.figures.length > 0}
+							<ul class={GROUP}>
+								{#each data.figures as figure (figure.id)}
+									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 										<a
-											href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-											class={iconButton('bare', 'accent')}
-											aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
+											data-focus="figure-{figure.id}"
+											href={resolve('/[dance]/(moves)/figures/[id]', {
+												dance: data.dance.slug,
+												id: String(figure.mineId ?? figure.id)
+											})}
+											class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 										>
-									{/if}
-									{@render unlinkButton(
-										'exercise',
-										exercise.id,
-										exercise.name,
-										exercise.viaSections
-									)}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</section>
-				<section class="flex flex-col gap-2">
-					{@render labelRow(sectionHeading('Positions', data.positions.length), 'position')}
-					{#if data.positions.length > 0}
-						<ul class={GROUP}>
-							{#each data.positions as position (position.id)}
-								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-									<a
-										data-focus="position-{position.id}"
-										href={resolve('/[dance]/(moves)/positions/[id]', {
-											dance: data.dance.slug,
-											id: String(position.mineId ?? position.id)
-										})}
-										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-									>
-										{@render itemText(
-											position.name,
-											viaBadge(position.viaSections),
-											yoursMeta(positionMeta(position, styleLabel), position.mineId)
+											{@render itemText(
+												figure.name,
+												viaBadge(figure.viaSections),
+												yoursMeta(figureMeta(figure), figure.mineId)
+											)}
+										</a>
+										{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</section>
+					<section class="flex flex-col gap-2">
+						{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine')}
+						{#if data.routines.length > 0}
+							<ul class={GROUP}>
+								{#each data.routines as routine (routine.id)}
+									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+										<a
+											data-focus="routine-{routine.id}"
+											href={resolve('/[dance]/(moves)/routines/[id]', {
+												dance: data.dance.slug,
+												id: String(routine.mineId ?? routine.id)
+											})}
+											class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+										>
+											{@render itemText(
+												routine.name,
+												null,
+												yoursMeta(
+													routineMeta(scheduleOf(routine.exerciseId), data.today),
+													routine.mineId
+												)
+											)}
+										</a>
+										<!-- A routine never reaches a lesson through a section. -->
+										{@render unlinkButton('routine', routine.id, routine.name, [])}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</section>
+					<section class="flex flex-col gap-2">
+						{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise')}
+						{#if data.exercises.length > 0}
+							<ul class={GROUP}>
+								{#each data.exercises as exercise (exercise.id)}
+									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+										<a
+											data-focus="exercise-{exercise.id}"
+											href={resolve('/[dance]/(today)/exercises/[id]', {
+												dance: data.dance.slug,
+												id: String(exercise.mineId ?? exercise.id)
+											})}
+											class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+										>
+											{@render itemText(
+												exercise.name,
+												viaBadge(exercise.viaSections),
+												yoursMeta(
+													exerciseMeta(exercise, scheduleOf(exercise.id), data.today),
+													exercise.mineId
+												)
+											)}
+										</a>
+										<!-- The "+" is an icon, so bare accent is allowed. A group's drill is
+									     logged through each person's own entry, never from here. -->
+										{#if !data.team}
+											<a
+												href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
+												class={iconButton('bare', 'accent')}
+												aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
+											>
+										{/if}
+										{@render unlinkButton(
+											'exercise',
+											exercise.id,
+											exercise.name,
+											exercise.viaSections
 										)}
-									</a>
-									{@render unlinkButton(
-										'position',
-										position.id,
-										position.name,
-										position.viaSections
-									)}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</section>
-				<!-- Music (spec B): the songs to practise to, each with a note. -->
-				<MusicSection
-					rows={data.music}
-					canEdit={data.canEdit}
-					choices={data.musicChoices}
-					practise={(songId) => practiseHref(data.dance.slug, { lesson: true }, songId)}
-				/>
-			</div>
-		{/snippet}
-		<PaneColumns
-			ratio="5:7"
-			class="gap-3"
-			top={hasTop ? colsTop : undefined}
-			left={about}
-			right={watched}
-			leftEnd={editing ? undefined : linked}
-		/>
-	</div>
-</Screen>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</section>
+					<section class="flex flex-col gap-2">
+						{@render labelRow(sectionHeading('Positions', data.positions.length), 'position')}
+						{#if data.positions.length > 0}
+							<ul class={GROUP}>
+								{#each data.positions as position (position.id)}
+									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+										<a
+											data-focus="position-{position.id}"
+											href={resolve('/[dance]/(moves)/positions/[id]', {
+												dance: data.dance.slug,
+												id: String(position.mineId ?? position.id)
+											})}
+											class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+										>
+											{@render itemText(
+												position.name,
+												viaBadge(position.viaSections),
+												yoursMeta(positionMeta(position, styleLabel), position.mineId)
+											)}
+										</a>
+										{@render unlinkButton(
+											'position',
+											position.id,
+											position.name,
+											position.viaSections
+										)}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</section>
+					<!-- Music (spec B): the songs to practise to, each with a note. -->
+					<MusicSection
+						rows={data.music}
+						canEdit={data.canEdit}
+						choices={data.musicChoices}
+						practise={(songId) => practiseHref(data.dance.slug, { lesson: true }, songId)}
+					/>
+				</div>
+			{/snippet}
+			<PaneColumns
+				ratio="5:7"
+				class="gap-3"
+				top={hasTop ? colsTop : undefined}
+				left={about}
+				right={watched}
+				leftEnd={editing ? undefined : linked}
+			/>
+			{#if !editing && data.comments}<CommentsCard comments={data.comments} />{/if}
+		</div>
+	</Screen>
+{/if}
 
 {#if editing}
 	<BottomBar mode width="song">
@@ -1175,39 +1265,6 @@
 {/if}
 
 {#if data.add?.added || data.historyHref}
-	<Sheet title={lesson.title} size="small" open={lessonMenu} onclose={() => (lessonMenu = false)}>
-		<div class={GROUP}>
-			{#if data.historyHref}
-				<a
-					href={resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
-						dance: data.dance.slug,
-						id: String(data.team?.id),
-						kind: 'lesson',
-						rootId: String(lesson.id)
-					})}
-					class="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-step"
-				>
-					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
-					<span class="text-[16px] font-bold text-ink">History</span>
-				</a>
-			{/if}
-			{#if data.add?.added}
-				<button
-					type="button"
-					class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
-					aria-haspopup="dialog"
-					onclick={() => {
-						lessonMenu = false;
-						removing = true;
-					}}
-				>
-					<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
-					<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
-				</button>
-			{/if}
-		</div>
-	</Sheet>
-
 	<Dialog
 		open={removing}
 		title="Remove from your lessons?"
@@ -1698,3 +1755,13 @@
 			viaFocus && void focusAfterRemoval(viaFocus.keys, viaFocus.gone, viaFocus.fallback)}
 	/>
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={lessonMenu}
+	title={lesson.title}
+	kind="lesson"
+	current={lesson.id}
+	own={lessonOwn}
+	{offers}
+/>

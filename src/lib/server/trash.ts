@@ -46,6 +46,7 @@ import {
 	teamTrash,
 	videoSpots
 } from './db/schema';
+import { autoAddPending } from './auto-add';
 import { logChange, teamNames } from './changes';
 import { reviveEntries } from './entries';
 import { audioDir, lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
@@ -278,6 +279,23 @@ export function restoreTrash(db: Db, space: TeamSpace, trashId: number, now: num
 			}
 			tx.update(teamTrash).set({ restoredAt: now }).where(eq(teamTrash.id, row.id)).run();
 			reviveEntries(tx, row.teamId, row.deletedAt);
+			// A drill's link on a class lesson's section grows that lesson, as linkInSpace does.
+			const drillLinks = (rows.spot_links ?? []).filter((l) => typeof l.exerciseId === 'number');
+			if (kind === 'spot-link' && drillLinks.length > 0) {
+				const lessonIds = tx
+					.select({ id: lessonVideos.lessonId })
+					.from(videoSpots)
+					.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+					.where(
+						inArray(
+							videoSpots.id,
+							drillLinks.map((l) => l.spotId as number)
+						)
+					)
+					.all()
+					.map((r) => r.id);
+				autoAddPending(tx, row.teamId, lessonIds, now);
+			}
 			logChange(
 				tx,
 				space,

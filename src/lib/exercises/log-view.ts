@@ -15,6 +15,8 @@ export type FooterInput = {
 	follow?: string | null;
 	/** A face is picked (always true for a type with no rating). */
 	rated: boolean;
+	/** The simple log popup (Follow my class, Practise and keep my own): the button says Done. */
+	simple?: boolean;
 };
 export type MainState = 'log' | 'saving' | 'disabled' | 'logged';
 export interface FooterView {
@@ -27,18 +29,19 @@ export interface FooterView {
 
 export function footerFor(i: FooterInput): FooterView {
 	const s = i.session;
+	const logLabel = i.simple ? 'Done' : 'Log set';
 	const done = s !== null && (s.ended || (i.justLogged && s.next === null));
 	let main: FooterView['main'];
 	let hint: string | null = null;
 	if (i.busy) main = { state: 'saving', label: 'Saving…' };
 	else if (i.playing) {
-		main = { state: 'disabled', label: 'Log set' };
+		main = { state: 'disabled', label: logLabel };
 		hint = 'Stop the count to log it.';
 	} else if (i.justLogged) main = { state: 'logged', label: 'Logged' };
 	else if (!i.rated) {
-		main = { state: 'disabled', label: i.backfill ? 'Add set to this day' : 'Log set' };
+		main = { state: 'disabled', label: i.backfill ? 'Add set to this day' : logLabel };
 		hint = 'Pick how it went';
-	} else main = { state: 'log', label: i.backfill ? 'Add set to this day' : 'Log set' };
+	} else main = { state: 'log', label: i.backfill ? 'Add set to this day' : logLabel };
 	if (done && i.justLogged) main = null;
 	return {
 		skip: s !== null && !i.justLogged && !s.ended,
@@ -53,6 +56,14 @@ export function footerFor(i: FooterInput): FooterView {
 				: null,
 		done
 	};
+}
+
+/**
+ * The log form's fields at this level: the simple popup is the four faces
+ * alone (no minutes, reps or note); the type's own list otherwise.
+ */
+export function fieldsShown<F extends string>(simple: boolean, fields: readonly F[]): F[] {
+	return fields.filter((f) => !simple || f === 'rating');
 }
 
 /** The error under Minutes or Reps: empty or an integer 0..max is fine. */

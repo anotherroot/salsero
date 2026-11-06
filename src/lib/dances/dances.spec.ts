@@ -44,7 +44,7 @@ describe('the dance registry', () => {
 	it('carries the redesign accents and bands', () => {
 		const salsa = getDance('salsa');
 		expect(salsa.accent).toBe('#d2401e');
-		expect(salsa.accentDark).toBe('#ff6b47');
+		expect(salsa.accentDark).toBe('#d2401e');
 		expect(salsa.band).toBe('#D2401E');
 		const bachata = getDance('bachata');
 		expect(bachata.accent).toBe('#8e2a66');

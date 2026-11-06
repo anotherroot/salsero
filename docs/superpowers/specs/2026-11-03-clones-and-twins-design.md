@@ -83,7 +83,7 @@ edit a class figure into their own). A teacher uses both.
      Salsa Tuesdays", and you can take one into yours (then charged to you).
      A clone made into a group brings its recordings, charged to the group,
      since members need them.
-3. **The source stays visible** *(user agreed)*. Your clone's page has a
+3. **The source stays visible** *(user agreed)*. *(Since 2026-11-06 the switcher is one "whose version" row that opens a Versions list, and the copy actions sit in the band's ⋯: see [the versions and menu spec](2026-11-06-versions-and-menu-design.md).)* Your clone's page has a
    switcher at the top, one tab per source ("Yours", "Salsa Tuesdays"): the
    same switcher a twin's page has, so there is one way of showing "theirs"
    beside "yours". "Yours" is yours to edit; the source's tab is its version

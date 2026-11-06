@@ -1,5 +1,5 @@
 import type { DanceSlug } from '$lib/dances/dances';
-import { TABS, tapKind } from './tabs';
+import { tapKind, type Tab } from './tabs';
 import { intend, tabHref } from './trail.svelte';
 
 /*
@@ -8,13 +8,18 @@ import { intend, tabHref } from './trail.svelte';
  */
 
 /**
- * Each tab's href from `path`, in `TABS` order. A tab reopens the last page seen
- * in it (`$lib/nav/trail.ts`); null is the lit tab on its own main list, which
- * has nowhere to go: its link keeps the list's href (long-press, new tab) and a
- * tap scrolls the list to the top.
+ * Each tab's href from `path`, in the order of `tabs` (the person's level's,
+ * `tabsFor`). A tab reopens the last page seen in it (`$lib/nav/trail.ts`);
+ * null is the lit tab on its own main list, which has nowhere to go: its link
+ * keeps the list's href (long-press, new tab) and a tap scrolls the list to
+ * the top.
  */
-export function tabTargets(dance: DanceSlug, path: string): (string | null)[] {
-	return TABS.map((t) => tabHref(t.id, dance, path));
+export function tabTargets(
+	tabs: readonly Tab[],
+	dance: DanceSlug,
+	path: string
+): (string | null)[] {
+	return tabs.map((t) => tabHref(t.id, dance, path));
 }
 
 /** A click on a tab's link; `scrollTop` when its target is null (above): the window and a list column. */

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bd6b3116-b396-4401-a06c-60c143eab645",
+  "id": "9b356129-af4b-4f5a-8fea-f8972fba65db",
   "prevId": "d3fcd218-8923-43d1-a288-7e63a13ec649",
   "tables": {
     "app_flags": {
@@ -1333,6 +1333,220 @@
           "name": "lesson_adds_user_id_lesson_id_pk"
         }
       },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "lesson_comment_hearts": {
+      "name": "lesson_comment_hearts",
+      "columns": {
+        "comment_id": {
+          "name": "comment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "lesson_comment_hearts_comment_id_lesson_comments_id_fk": {
+          "name": "lesson_comment_hearts_comment_id_lesson_comments_id_fk",
+          "tableFrom": "lesson_comment_hearts",
+          "tableTo": "lesson_comments",
+          "columnsFrom": [
+            "comment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lesson_comment_hearts_user_id_users_id_fk": {
+          "name": "lesson_comment_hearts_user_id_users_id_fk",
+          "tableFrom": "lesson_comment_hearts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "lesson_comment_hearts_comment_id_user_id_pk": {
+          "columns": [
+            "comment_id",
+            "user_id"
+          ],
+          "name": "lesson_comment_hearts_comment_id_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "lesson_comments": {
+      "name": "lesson_comments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "lesson_id": {
+          "name": "lesson_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reply_to_id": {
+          "name": "reply_to_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "deleted_by": {
+          "name": "deleted_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "lesson_comments_lesson_idx": {
+          "name": "lesson_comments_lesson_idx",
+          "columns": [
+            "lesson_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "lesson_comments_lesson_id_lessons_id_fk": {
+          "name": "lesson_comments_lesson_id_lessons_id_fk",
+          "tableFrom": "lesson_comments",
+          "tableTo": "lessons",
+          "columnsFrom": [
+            "lesson_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lesson_comments_author_id_users_id_fk": {
+          "name": "lesson_comments_author_id_users_id_fk",
+          "tableFrom": "lesson_comments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lesson_comments_thread_id_lesson_comments_id_fk": {
+          "name": "lesson_comments_thread_id_lesson_comments_id_fk",
+          "tableFrom": "lesson_comments",
+          "tableTo": "lesson_comments",
+          "columnsFrom": [
+            "thread_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lesson_comments_reply_to_id_lesson_comments_id_fk": {
+          "name": "lesson_comments_reply_to_id_lesson_comments_id_fk",
+          "tableFrom": "lesson_comments",
+          "tableTo": "lesson_comments",
+          "columnsFrom": [
+            "reply_to_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "lesson_comments_deleted_by_users_id_fk": {
+          "name": "lesson_comments_deleted_by_users_id_fk",
+          "tableFrom": "lesson_comments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "deleted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -2892,157 +3106,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "song_links": {
-      "name": "song_links",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "song_id": {
-          "name": "song_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "lesson_id": {
-          "name": "lesson_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "exercise_id": {
-          "name": "exercise_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "routine_id": {
-          "name": "routine_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "song_links_song_idx": {
-          "name": "song_links_song_idx",
-          "columns": [
-            "song_id"
-          ],
-          "isUnique": false
-        },
-        "song_links_lesson_song_idx": {
-          "name": "song_links_lesson_song_idx",
-          "columns": [
-            "lesson_id",
-            "song_id"
-          ],
-          "isUnique": true
-        },
-        "song_links_exercise_song_idx": {
-          "name": "song_links_exercise_song_idx",
-          "columns": [
-            "exercise_id",
-            "song_id"
-          ],
-          "isUnique": true
-        },
-        "song_links_routine_song_idx": {
-          "name": "song_links_routine_song_idx",
-          "columns": [
-            "routine_id",
-            "song_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "song_links_song_id_songs_id_fk": {
-          "name": "song_links_song_id_songs_id_fk",
-          "tableFrom": "song_links",
-          "tableTo": "songs",
-          "columnsFrom": [
-            "song_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "song_links_lesson_id_lessons_id_fk": {
-          "name": "song_links_lesson_id_lessons_id_fk",
-          "tableFrom": "song_links",
-          "tableTo": "lessons",
-          "columnsFrom": [
-            "lesson_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "song_links_exercise_id_exercises_id_fk": {
-          "name": "song_links_exercise_id_exercises_id_fk",
-          "tableFrom": "song_links",
-          "tableTo": "exercises",
-          "columnsFrom": [
-            "exercise_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "song_links_routine_id_routines_id_fk": {
-          "name": "song_links_routine_id_routines_id_fk",
-          "tableFrom": "song_links",
-          "tableTo": "routines",
-          "columnsFrom": [
-            "routine_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "songs": {
       "name": "songs",
       "columns": {
@@ -3742,6 +3805,13 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "auto_add": {
+          "name": "auto_add",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -4252,6 +4322,13 @@
         "daily_count": {
           "name": "daily_count",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "level": {
+          "name": "level",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

@@ -27,27 +27,63 @@ export type TopBarParts = {
 	sub: 'subtitle' | 'looping';
 	edit: 'accent' | 'glass' | null;
 	sections: boolean;
+	/** The repeat button: only the simple player draws it. */
+	repeat: boolean;
 };
 
 /** A phone (portrait or overlay) puts ‹ Full video and Edit in a section view's top bar. */
-export function topBar(mode: PlayerMode, level: LevelKind): TopBarParts {
+export function topBar(
+	mode: PlayerMode,
+	level: LevelKind,
+	opts: { simple?: boolean } = {}
+): TopBarParts {
 	const plain: TopBarParts = {
 		glass: false,
 		back: false,
 		title: true,
 		sub: 'subtitle',
 		edit: null,
-		sections: false
+		sections: false,
+		repeat: false
 	};
+	// The simple player: close, title, repeat, mute, mirror, speed. No edit, no Sections, no section view.
+	if (opts.simple) return { ...plain, glass: mode === 'overlay', repeat: true };
 	if (mode === 'portrait') {
 		return level === 'section' ? { ...plain, back: true, title: false, edit: 'accent' } : plain;
 	}
 	if (mode === 'overlay') {
 		return level === 'section'
-			? { glass: true, back: true, title: true, sub: 'looping', edit: 'glass', sections: false }
+			? {
+					glass: true,
+					back: true,
+					title: true,
+					sub: 'looping',
+					edit: 'glass',
+					sections: false,
+					repeat: false
+				}
 			: { ...plain, glass: true, sections: level === 'full' };
 	}
 	return plain;
+}
+
+export type PortraitBody = 'list' | 'editor' | 'slim' | 'section' | 'full';
+
+/**
+ * What the portrait player draws under the video. The simple player is the slim bar
+ * and nothing else: no list, no editor, no section view, no Show / Hide.
+ * `spot`: a section or point is open. Without one the edit and section levels
+ * have nothing to draw and fall through to Hide's slim bar or the full bar.
+ */
+export function portraitBody(
+	level: LevelKind,
+	o: { listOpen: boolean; hidden: boolean; spot: boolean; simple?: boolean }
+): PortraitBody {
+	if (o.simple) return 'slim';
+	if (o.listOpen) return 'list';
+	if (level === 'edit' && o.spot) return 'editor';
+	if (o.hidden) return 'slim';
+	return level === 'section' && o.spot ? 'section' : 'full';
 }
 
 /** The corner badge: speed and mirror, as the player has always worded them. */

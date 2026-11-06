@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import {
+	addVideoRow,
 	archiveCopy,
+	filterRows,
+	recordingMetaLine,
+	recordingsTitle,
+	relationRows,
+	relationTitle,
+	showRecordings,
+	sortRoutines,
+	topVideo,
 	deleteRecordingBody,
 	figureSubtitle,
 	lengthError,
@@ -184,5 +193,97 @@ describe('figureSubtitle', () => {
 	it('is just Figure without timing', () => {
 		expect(figureSubtitle({ startCount: null, lengthCounts: null })).toBe('Figure');
 		expect(figureSubtitle({ startCount: 1, lengthCounts: null })).toBe('Figure');
+	});
+});
+
+describe('topVideo', () => {
+	it('is the first section, before any recording', () => {
+		expect(topVideo([{ id: 1 }], [{ id: 9, kind: 'video' as const }])).toEqual({
+			kind: 'section',
+			section: { id: 1 }
+		});
+	});
+	it('falls back to the first video recording, never an audio one', () => {
+		expect(
+			topVideo(
+				[],
+				[
+					{ id: 8, kind: 'audio' as const },
+					{ id: 9, kind: 'video' as const }
+				]
+			)
+		).toEqual({ kind: 'recording', recording: { id: 9, kind: 'video' } });
+		expect(topVideo([], [{ id: 8, kind: 'audio' as const }])).toBeNull();
+	});
+});
+
+describe('the Recordings list', () => {
+	it('counts its items in the heading', () => {
+		expect(recordingsTitle(0)).toBe('Recordings');
+		expect(recordingsTitle(3)).toBe('Recordings · 3');
+	});
+	it('says what a recording is and its size', () => {
+		expect(recordingMetaLine('video', '24 MB')).toBe('Video · 24 MB');
+		expect(recordingMetaLine('audio', '2 MB')).toBe('Audio · 2 MB');
+	});
+	it('is hidden from a reader when it is empty', () => {
+		expect(showRecordings({ canEdit: false, items: 0 })).toBe(false);
+		expect(showRecordings({ canEdit: true, items: 0 })).toBe(true);
+		expect(showRecordings({ canEdit: false, items: 1 })).toBe(true);
+	});
+});
+
+describe('the three rows', () => {
+	it('counts each, and an empty one says None and does not open', () => {
+		expect(relationRows({ follows: 22, leads: 0, routines: 10 })).toEqual([
+			{ key: 'follows', label: 'Follows from', count: '22', opens: true },
+			{ key: 'leads', label: 'Leads to', count: 'None', opens: false },
+			{ key: 'routines', label: 'In routines', count: '10', opens: true }
+		]);
+	});
+	it('titles each sheet', () => {
+		expect(relationTitle('routines', 1)).toBe('In 1 routine');
+		expect(relationTitle('routines', 10)).toBe('In 10 routines');
+		expect(relationTitle('follows', 22)).toBe('Follows from');
+		expect(relationTitle('leads', 3)).toBe('Leads to');
+	});
+	it('puts looping routines first, then by name', () => {
+		const sorted = sortRoutines([
+			{ name: 'slow song', loops: false },
+			{ name: 'Warm-up', loops: true },
+			{ name: 'Competition', loops: true },
+			{ name: 'Adios run', loops: false }
+		]);
+		expect(sorted.map((r) => r.name)).toEqual(['Competition', 'Warm-up', 'Adios run', 'slow song']);
+	});
+	it('searches by every word, ignoring accents and case', () => {
+		const rows = [
+			{ name: 'Dile que no · Basic' },
+			{ name: 'Exhíbela · Basic' },
+			{ name: 'Setenta · Basic' }
+		];
+		expect(filterRows(rows, 'dile').map((r) => r.name)).toEqual(['Dile que no · Basic']);
+		expect(filterRows(rows, 'EXHIBELA').map((r) => r.name)).toEqual(['Exhíbela · Basic']);
+		expect(filterRows(rows, 'basic set').map((r) => r.name)).toEqual(['Setenta · Basic']);
+		expect(filterRows(rows, '  ')).toBe(rows);
+	});
+});
+
+describe('review fixes', () => {
+	it('topVideo skips a recording whose file is missing or will not play', () => {
+		const recs = [
+			{ id: 9, kind: 'video' as const },
+			{ id: 10, kind: 'video' as const }
+		];
+		expect(topVideo([], recs, new Set([9]))).toEqual({ kind: 'recording', recording: recs[1] });
+		expect(topVideo([], recs, new Set([9, 10]))).toBeNull();
+	});
+	it('says a saved YouTube video came from YouTube', () => {
+		expect(recordingMetaLine('video', '24 MB', true)).toBe('From YouTube · 24 MB');
+		expect(recordingMetaLine('video', '24 MB', false)).toBe('Video · 24 MB');
+	});
+	it('the add sheet’s video row waits while a video goes up', () => {
+		expect(addVideoRow(true)).toEqual({ disabled: true, meta: 'Wait for the upload to finish' });
+		expect(addVideoRow(false)).toEqual({ disabled: false, meta: null });
 	});
 });

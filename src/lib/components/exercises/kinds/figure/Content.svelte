@@ -13,7 +13,14 @@
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { dance, content, timezone, onPage = false, canEdit = true }: ContentProps = $props();
+	let {
+		dance,
+		content,
+		timezone,
+		onPage = false,
+		canEdit = true,
+		simple = false
+	}: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
@@ -35,8 +42,9 @@
 					<VideoFrame
 						src="/recordings/{rec.file}"
 						{canEdit}
-						linking={canEdit}
+						linking={canEdit && !simple}
 						onclosed={() => void refreshWhenSettled()}
+						{simple}
 						sourceUrl={rec.sourceUrl}
 						kind={rec.kind}
 						owner={{ recordingId: rec.id }}
@@ -47,7 +55,7 @@
 			</div>
 		{/each}
 		{#each content.sections as s (s.linkId)}
-			<SectionCard section={s} {canEdit} />
+			<SectionCard section={s} {canEdit} {simple} />
 		{/each}
 		<LinkList links={content.links} />
 		{#if !content.figure.notes && content.recordings.length === 0 && content.sections.length === 0 && content.links.length === 0}
@@ -55,7 +63,7 @@
 				No notes, recordings, sections or links yet — add them on the figure page.
 			</p>
 		{/if}
-		{#if onPage}
+		{#if onPage && !simple}
 			<a
 				href={resolve('/[dance]/(moves)/figures/[id]', {
 					dance: dance.slug,

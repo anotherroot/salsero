@@ -3,6 +3,8 @@ import { noonOf } from '$lib/day/day';
 import type { HistorySet, PracticeContent } from '$lib/types';
 import {
 	archiveBody,
+	fromClassLabel,
+	pageParts,
 	historyDays,
 	ownerOf,
 	practisedLabel,
@@ -148,5 +150,41 @@ describe('archiveBody', () => {
 		);
 		expect(archiveBody('Hips', 1)).toBe('Hips leaves Today and every list. Its 1 set is kept.');
 		expect(archiveBody('Hips', 0)).toBe('Hips leaves Today and every list.');
+	});
+});
+
+describe('pageParts', () => {
+	it('the full page keeps everything and says Log a set', () => {
+		expect(pageParts(false, true)).toMatchObject({
+			editSettings: true,
+			historyLink: true,
+			sourceTabs: true,
+			ownerRow: true,
+			addBlock: true,
+			historyTiles: true,
+			setList: true,
+			settingsBlock: true,
+			fromClass: false,
+			logButton: 'Log a set'
+		});
+	});
+	it('the simple page hides the rest and says I practised this', () => {
+		const p = pageParts(true, false);
+		expect(Object.entries(p).filter(([k, v]) => k !== 'logButton' && v === true)).toEqual([]);
+		expect(p.logButton).toBe('I practised this');
+	});
+	it('From class shows only on the simple page, and only with a class', () => {
+		expect(pageParts(true, true).fromClass).toBe(true);
+		expect(pageParts(true, false).fromClass).toBe(false);
+		expect(pageParts(false, true).fromClass).toBe(false);
+	});
+});
+
+describe('fromClassLabel', () => {
+	it('names the class day', () => {
+		expect(fromClassLabel('2026-11-03', '2026-11-05')).toBe('From class Tue 3 Nov ›');
+	});
+	it('adds the year for another year', () => {
+		expect(fromClassLabel('2025-11-04', '2026-11-05')).toBe('From class Tue 4 Nov 2025 ›');
 	});
 });

@@ -14,7 +14,7 @@
 	interface Props {
 		/** Endpoint taking the raw file as the POST body. */
 		url: string;
-		accept: 'audio/*' | 'video/*,audio/*';
+		accept: 'audio/*' | 'video/*' | 'video/*,audio/*';
 		label: string;
 		/** What goes up, for the progress bar's name: "Uploading recording". */
 		noun?: string;
@@ -25,6 +25,10 @@
 		size?: 'sm' | 'md';
 		/** True while a file is going up, for a parent that lays out around it. */
 		busy?: boolean;
+		/** No button of its own: another control opens the file chooser through `chooser`. The progress card and a failure still show. */
+		bare?: boolean;
+		/** Set on mount: opens the file chooser. Call it from a user's tap (a file input opens only from one). */
+		chooser?: () => void;
 	}
 
 	let {
@@ -36,6 +40,9 @@
 		icon = 'upload',
 		kind = 'secondary',
 		size = 'md',
+		bare = false,
+		// eslint-disable-next-line no-useless-assignment -- the parent reads it back
+		chooser = $bindable(),
 		// eslint-disable-next-line no-useless-assignment -- the parent reads it back
 		busy = $bindable(false)
 	}: Props = $props();
@@ -46,6 +53,9 @@
 	});
 	let message = $state<{ title: string; body?: string } | null>(null);
 	let input: HTMLInputElement | undefined = $state();
+	$effect(() => {
+		chooser = () => input?.click();
+	});
 
 	// The request outlives an in-app navigation (the component goes, the XHR
 	// does not), so only a reload or a closed tab would cut it off.
@@ -108,7 +118,7 @@
 		size,
 		true
 	)} has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent {progress !==
-	null
+		null || bare
 		? 'hidden!'
 		: ''}"
 >

@@ -13,7 +13,7 @@ import { usableOf, usablePositions } from './usable';
 import { withoutShadowed } from './clones/shadow';
 import { storedTwinSets } from './twins';
 import { publishedReach } from './access';
-import { latestClassDays } from './lessons';
+import { routineClassDays } from './lessons';
 import { classDayLabel } from '$lib/format';
 import type { GroupMode } from '$lib/types';
 import type { Space, Wall } from './scope';
@@ -102,7 +102,7 @@ export function routinesList(
 	const own = folded ? folded.mine : listRoutines(db, space);
 	const groupRows = folded ? folded.groups : [];
 	// Spec A5: the latest class a routine is from, as its row says it.
-	const days = latestClassDays(
+	const days = routineClassDays(
 		db,
 		[...own.map((r) => r.id), ...groupRows.flatMap((g) => g.rows.map((r) => r.id))],
 		{ userId: wall.userId, editsTeamId: mode?.teamId ?? null }

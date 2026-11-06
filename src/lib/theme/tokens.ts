@@ -184,9 +184,10 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 			band: '#D2401E',
 			'on-cream': '#b3340f',
 			'band-small': '#ffffff',
-			accent: '#ff6b47',
+			// One red for fills, as in light (white on it); the lighter red stays for small text.
+			accent: '#d2401e',
 			'accent-text': '#ff7a59',
-			'on-accent': '#0b0b0d',
+			'on-accent': '#ffffff',
 			status: '#ff8a6b',
 			'inverse-accent': '#b3340f'
 		})

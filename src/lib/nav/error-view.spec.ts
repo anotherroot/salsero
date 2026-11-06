@@ -73,4 +73,23 @@ describe('errorBack', () => {
 	it('falls back to Today', () => {
 		expect(errorBack('/settings', 'salsa')).toEqual({ href: '/salsa', label: 'Back to Today' });
 	});
+	it('goes only to a tab the level has', () => {
+		// Moves is not a tab below Everything: Today instead.
+		expect(errorBack('/salsa/figures/3', 'salsa', 'own')).toEqual({
+			href: '/salsa',
+			label: 'Back to Today'
+		});
+		expect(errorBack('/salsa/lessons/4', 'salsa', 'follow')).toEqual({
+			href: '/salsa',
+			label: 'Back to Today'
+		});
+		expect(errorBack('/salsa/groups/2', 'salsa', 'follow')).toEqual({
+			href: '/salsa/groups',
+			label: 'Back to My class'
+		});
+		expect(errorBack('/salsa/lessons/4', 'salsa', 'own')).toEqual({
+			href: '/salsa/lessons',
+			label: 'Back to Lessons'
+		});
+	});
 });
