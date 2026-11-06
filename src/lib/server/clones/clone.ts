@@ -664,8 +664,9 @@ export class Mapper {
 /** Whether a root field of the kind holds references the engine maps (or drops). */
 function refKey(kind: CloneKind, key: string): boolean {
 	if (kind === 'figure') return /^(start|end):/.test(key);
-	if (kind === 'routine') return key === 'slots';
-	if (kind === 'lesson') return /^(fig|routine|drill|pos):/.test(key);
+	if (kind === 'routine') return key === 'slots' || key.startsWith('song:');
+	if (kind === 'lesson') return /^(fig|routine|drill|pos|song):/.test(key);
+	if (kind === 'drill') return key.startsWith('song:');
 	return false;
 }
 

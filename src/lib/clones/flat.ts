@@ -65,7 +65,16 @@ const ROOT_LABELS: Record<string, string> = {
 };
 
 /** The set members' prefixes, in the order a comparison lists them. */
-export const SET_PREFIXES = ['start', 'end', 'link', 'fig', 'routine', 'drill', 'pos'] as const;
+export const SET_PREFIXES = [
+	'start',
+	'end',
+	'link',
+	'fig',
+	'routine',
+	'drill',
+	'pos',
+	'song'
+] as const;
 
 const SET_LABELS: Record<string, string> = {
 	start: 'Starts in',
@@ -74,7 +83,8 @@ const SET_LABELS: Record<string, string> = {
 	fig: 'Figure',
 	routine: 'Routine',
 	drill: 'Drill',
-	pos: 'Position'
+	pos: 'Position',
+	song: 'Song'
 };
 const PIECE_LABELS: Record<string, string> = { rec: 'Recording', video: 'Video' };
 

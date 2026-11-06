@@ -81,6 +81,7 @@ import { routineSlots } from '../routines';
 import { deleteLink, type LinkOwner } from '../links';
 import { deleteSpot } from '../spots';
 import { SpotLinkedError, unlinkSpot } from '../spot-links';
+import { dropMusic, musicParentOf, takeMusic } from '../song-links';
 import { reconcileEntries } from '../entries';
 import { accessTo, geneOf, stampGene } from './genes';
 import { digest, hashValue, pairBase, writePair } from './pairs';
@@ -556,9 +557,19 @@ class Applier {
 		const adds = Object.hasOwn(this.giverFlat, key);
 		if (Object.hasOwn(this.targetFlat, key) === adds) return;
 		if (prefix === 'link') return adds ? this.addLink(ref) : this.removeLink(ref);
+		if (prefix === 'song') return this.music(adds, ref);
 		if (this.kind !== 'lesson') return;
 		if (adds) this.addHandLink(prefix, ref);
 		else this.removeHandLink(prefix, ref);
+	}
+
+	/** A song of the giver's Music into the target's (when its place can take it), or off it. */
+	private music(adds: boolean, ref: string): void {
+		const target = musicParentOf(this.kind, this.targetId);
+		const giver = musicParentOf(this.kind, this.giverId);
+		if (!target || !giver) return;
+		if (adds) takeMusic(this.tx, giver, target, this.m.into, ref, this.now);
+		else if (dropMusic(this.tx, target, ref)) this.removals = true;
 	}
 
 	private linkOwner(id: number): LinkOwner {
@@ -968,6 +979,7 @@ const REF_TABLES = {
 	routine: routines,
 	drill: exercises,
 	pos: positions,
+	song: songs,
 	rec: recordings,
 	video: lessonVideos,
 	spot: videoSpots
@@ -996,7 +1008,7 @@ function currentKey(db: Db, key: string): string {
 	const prefix = setPrefixOf(key);
 	if (prefix === 'link') return key;
 	if (prefix) {
-		const of = prefix as 'start' | 'end' | 'fig' | 'routine' | 'drill' | 'pos';
+		const of = prefix as 'start' | 'end' | 'fig' | 'routine' | 'drill' | 'pos' | 'song';
 		return `${prefix}:${refNow(db, of, key.slice(prefix.length + 1))}`;
 	}
 	const parts = pieceParts(key);

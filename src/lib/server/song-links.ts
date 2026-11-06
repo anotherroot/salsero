@@ -358,3 +358,94 @@ export function copyMusic(
 			.run();
 	}
 }
+
+/* ── Compare, Take and Send (spec B): a parent's Music by `song:<ref>` ── */
+
+/** The Music holder a root of `kind` is, or null for a kind without Music. */
+export function musicParentOf(kind: string, id: number): MusicParent | null {
+	if (kind === 'lesson') return { lessonId: id };
+	if (kind === 'drill') return { exerciseId: id };
+	if (kind === 'routine') return { routineId: id };
+	return null;
+}
+
+const byRef = (ref: string) =>
+	ref.startsWith('#') ? eq(songs.id, Number(ref.slice(1))) : eq(songs.geneId, ref);
+
+/** The parent's Music row whose song is `ref` (a gene, or `#<id>`), with its song's id. */
+export function musicByRef(
+	db: Db,
+	parent: MusicParent,
+	ref: string
+): { id: number; songId: number; note: string | null } | null {
+	return (
+		db
+			.select({ id: songLinks.id, songId: songLinks.songId, note: songLinks.note })
+			.from(songLinks)
+			.innerJoin(songs, eq(songs.id, songLinks.songId))
+			.where(and(parentColumn(parent), byRef(ref)))
+			.get() ?? null
+	);
+}
+
+/** Take or Send: `from`'s row for `ref` added to `to` in `place`, its note kept; false when `place` cannot take it. */
+export function takeMusic(
+	db: Db,
+	from: MusicParent,
+	to: MusicParent,
+	place: Space,
+	ref: string,
+	now: number
+): boolean {
+	const row = musicByRef(db, from, ref);
+	const songId = row ? songInPlace(db, row.songId, place) : null;
+	if (!row || songId === null) return false;
+	const there = db
+		.select({ id: songLinks.id })
+		.from(songLinks)
+		.where(and(parentColumn(to), eq(songLinks.songId, songId)))
+		.get();
+	if (there) return true;
+	const last =
+		db
+			.select({ n: max(songLinks.sortOrder) })
+			.from(songLinks)
+			.where(parentColumn(to))
+			.get()?.n ?? 0;
+	db.insert(songLinks)
+		.values({ songId, ...to, note: row.note, sortOrder: last + 1, createdAt: now })
+		.run();
+	return true;
+}
+
+/** Take or Send: `parent`'s row for `ref` taken off; false when it had none. */
+export function dropMusic(db: Db, parent: MusicParent, ref: string): boolean {
+	const row = musicByRef(db, parent, ref);
+	if (!row) return false;
+	db.delete(songLinks).where(eq(songLinks.id, row.id)).run();
+	return true;
+}
+
+/**
+ * Whether `toId`'s place could take `fromId`'s song `ref` (Compare offers
+ * nothing it could not: `songInPlace` would drop it). `actorId` acts in a group.
+ */
+export function musicFits(
+	db: Db,
+	kind: string,
+	fromId: number,
+	toId: number,
+	ref: string,
+	actorId: string
+): boolean {
+	const from = musicParentOf(kind, fromId);
+	const to = musicParentOf(kind, toId);
+	const toRow = to ? parentRow(db, to) : null;
+	const row = from ? musicByRef(db, from, ref) : null;
+	if (!toRow || !row) return false;
+	const place: Space =
+		toRow.teamId !== null
+			? { dance: toRow.dance as Space['dance'], teamId: toRow.teamId, actorId }
+			: { dance: toRow.dance as Space['dance'], userId: toRow.userId ?? '' };
+	return songInPlace(db, row.songId, place) !== null;
+}

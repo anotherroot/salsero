@@ -17,6 +17,8 @@ import { createSongFromUpload } from './songs';
 import { deleteGroupSong, shareSong, unshareSong } from './song-share';
 import { crossRefs } from './integrity';
 import { cloneInto } from './clones/clone';
+import { compareWith, takeTheirs } from './clones/compare';
+import { sendMine } from './clones/send';
 import { NO_FILES } from './test-walls';
 import { deleteSong } from './songs';
 import { purgeTrash } from './trash';
@@ -408,6 +410,102 @@ describe('copies carry Music, never a song', () => {
 		if (!myRoutine.ok) throw new Error('no routine copy');
 		expect(listMusic(db, { routineId: myRoutine.id }, 'u3')).toEqual([
 			expect.objectContaining({ songId: s, note: 'Rueda' })
+		]);
+	});
+});
+
+describe('Compare, Take and Send know Music', () => {
+	const U3: Wall = { userId: 'u3', dance: 'salsa' };
+	const songKeys = (c: ReturnType<typeof compareWith>) =>
+		(c?.diffs ?? []).filter((d) => d.key.startsWith('song:'));
+	/** A published group lesson with song S, and `who`'s own copy of it. */
+	async function lessonAndCopy(who: Wall) {
+		const lesson = lessonIn(ED);
+		const S = song(ED, 'Chan Chan');
+		addMusic(db, ED, { lessonId: lesson }, S, 'Count it', T);
+		publishLesson(db, ED, lesson, T);
+		const res = await cloneInto(
+			db,
+			{ kind: 'lesson', id: lesson, into: who, recordings: false },
+			NO_FILES,
+			T + 10
+		);
+		if (!res.ok) throw new Error('no copy');
+		return { lesson, S, mine: res.id };
+	}
+
+	it("offers the group's new song, and Take brings it with its note", async () => {
+		const { lesson, mine } = await lessonAndCopy(U3);
+		const S2 = song(ED, 'Dale Timbal');
+		addMusic(db, ED, { lessonId: lesson }, S2, 'Listen for the bridge', T + 20);
+		const c = compareWith(db, 'u3', 'lesson', mine, lesson);
+		expect(songKeys(c)).toEqual([
+			expect.objectContaining({ key: `song:#${S2}`, mine: null, side: 'theirs' })
+		]);
+		const res = await takeTheirs(
+			db,
+			'u3',
+			'lesson',
+			mine,
+			lesson,
+			{ [`song:#${S2}`]: 'theirs' },
+			c!.seen,
+			NO_FILES,
+			T + 30,
+			Number.POSITIVE_INFINITY
+		);
+		expect(res).toMatchObject({ ok: true });
+		expect(listMusic(db, { lessonId: mine }, 'u3').map((r) => [r.songId, r.note])).toEqual([
+			[expect.any(Number), 'Count it'],
+			[S2, 'Listen for the bridge']
+		]);
+	});
+
+	it("Send takes a song off the group's lesson", async () => {
+		const u2: Wall = { userId: 'u2', dance: 'salsa' };
+		const { lesson, S, mine } = await lessonAndCopy(u2);
+		const [row] = listMusic(db, { lessonId: mine }, 'u2');
+		removeMusic(db, u2, row.id, T + 20);
+		const c = compareWith(db, 'u2', 'lesson', mine, lesson);
+		expect(songKeys(c)).toEqual([expect.objectContaining({ key: `song:#${S}`, side: 'mine' })]);
+		const theirsSeen = compareWith(db, 'u2', 'lesson', lesson, mine)!.seen;
+		await sendMine(
+			db,
+			'u2',
+			'lesson',
+			mine,
+			[{ id: lesson, picks: { [`song:#${S}`]: 'theirs' }, seen: theirsSeen }],
+			NO_FILES,
+			T + 30,
+			Number.POSITIVE_INFINITY
+		);
+		expect(listMusic(db, { lessonId: lesson }, 'u2')).toEqual([]);
+	});
+
+	it('offers nothing the other place could not take', async () => {
+		const u2: Wall = { userId: 'u2', dance: 'salsa' };
+		const { lesson, mine } = await lessonAndCopy(u2);
+		addMusic(db, u2, { lessonId: mine }, song(u2, 'My own'), null, T + 20);
+		expect(songKeys(compareWith(db, 'u2', 'lesson', mine, lesson))).toEqual([]);
+	});
+
+	it("a drill's and a routine's Music are compared too", async () => {
+		const drill = drillIn(ED);
+		const S = song(ED, 'Chan Chan');
+		shareSong(db, ED, S, T);
+		const lesson = lessonIn(ED);
+		linkExercise(db, lesson, drill, 'u2');
+		publishLesson(db, ED, lesson, T);
+		const res = await cloneInto(
+			db,
+			{ kind: 'drill', id: drill, into: U3, recordings: false },
+			NO_FILES,
+			T + 10
+		);
+		if (!res.ok) throw new Error('no copy');
+		addMusic(db, ED, { exerciseId: drill }, S, 'Shines', T + 20);
+		expect(songKeys(compareWith(db, 'u3', 'drill', res.id, drill))).toEqual([
+			expect.objectContaining({ key: `song:#${S}`, side: 'theirs' })
 		]);
 	});
 });
