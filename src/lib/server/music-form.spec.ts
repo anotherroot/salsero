@@ -107,13 +107,13 @@ describe('noteSongFrom and removeSongFrom', () => {
 	it("refuses a group's note without seen, saves one with it", async () => {
 		const { lesson, link } = await groupLink();
 		expect(
-			await noteSongFrom(req({ linkId: String(link.id), note: 'Count it' }), db, ED)
+			await noteSongFrom(req({ linkId: String(link.id), note: 'Count it' }), db, ED, lesson)
 		).toMatchObject({
 			status: 400
 		});
 		const seen = JSON.stringify(musicSeen({ note: null }));
 		expect(
-			await noteSongFrom(req({ linkId: String(link.id), note: 'Count it', seen }), db, ED)
+			await noteSongFrom(req({ linkId: String(link.id), note: 'Count it', seen }), db, ED, lesson)
 		).toEqual({
 			action: 'noteSong',
 			ok: true
@@ -122,14 +122,68 @@ describe('noteSongFrom and removeSongFrom', () => {
 	});
 
 	it('removes once, then says it is gone', async () => {
-		const { link } = await groupLink();
-		expect(await removeSongFrom(req({ linkId: String(link.id) }), db, ED)).toEqual({
+		const { lesson, link } = await groupLink();
+		expect(await removeSongFrom(req({ linkId: String(link.id) }), db, ED, lesson)).toEqual({
 			action: 'removeSong',
 			ok: true
 		});
-		expect(await removeSongFrom(req({ linkId: String(link.id) }), db, ED)).toMatchObject({
+		expect(await removeSongFrom(req({ linkId: String(link.id) }), db, ED, lesson)).toMatchObject({
 			status: 404,
 			data: { action: 'removeSong', message: 'That song was already removed.' }
 		});
+	});
+});
+
+describe("a link that is not the page's", () => {
+	it("refuses another person's link with the missing one's 404, never their note", async () => {
+		const theirs = {
+			lessonId: createLesson(
+				db,
+				{ userId: 'u2', dance: 'salsa' },
+				{ lessonDay: '2026-11-03', title: 'C', notes: null }
+			).lesson.id
+		};
+		const s = song({ userId: 'u2', dance: 'salsa' }, 'Secret');
+		await addSongFrom(
+			req({ songId: String(s), note: 'private note' }),
+			db,
+			{ userId: 'u2', dance: 'salsa' },
+			theirs
+		);
+		const link = listMusic(db, theirs, 'u2')[0];
+		const mine = {
+			lessonId: createLesson(db, U1, { lessonDay: '2026-11-03', title: 'Mine', notes: null }).lesson
+				.id
+		};
+		const res = await noteSongFrom(
+			req({ linkId: String(link.id), note: 'x', seen: JSON.stringify({ note: 'x' }) }),
+			db,
+			U1,
+			mine
+		);
+		expect(res).toMatchObject({ status: 404 });
+		expect(JSON.stringify(res)).not.toContain('private note');
+		expect(await removeSongFrom(req({ linkId: String(link.id) }), db, U1, mine)).toMatchObject({
+			status: 404
+		});
+		expect(listMusic(db, theirs, 'u2')).toHaveLength(1);
+	});
+
+	it('refuses a link of another lesson of the same person', async () => {
+		const a = {
+			lessonId: createLesson(db, U1, { lessonDay: '2026-11-03', title: 'A', notes: null }).lesson.id
+		};
+		const b = {
+			lessonId: createLesson(db, U1, { lessonDay: '2026-11-03', title: 'B', notes: null }).lesson.id
+		};
+		await addSongFrom(req({ songId: String(song(U1, 'Casa')), note: '' }), db, U1, a);
+		const link = listMusic(db, a, 'u1')[0];
+		expect(await removeSongFrom(req({ linkId: String(link.id) }), db, U1, b)).toMatchObject({
+			status: 404
+		});
+		expect(
+			await noteSongFrom(req({ linkId: String(link.id), note: 'x' }), db, U1, b)
+		).toMatchObject({ status: 404 });
+		expect(listMusic(db, a, 'u1')).toHaveLength(1);
 	});
 });

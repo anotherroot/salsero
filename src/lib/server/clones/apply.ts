@@ -1100,12 +1100,12 @@ export async function syncFrom(
 				return { ok: false as const, reason: 'stale' as const, message: STALE };
 			const applied = applyInto(tx, kind, intoId, fromId, keys, linked, actorId, now);
 			if (!applied.ok) return applied;
-			const next = nextBase(
-				flatOf(tx, kind, intoId),
-				flatOf(tx, kind, fromId),
-				base?.skip ?? [],
-				hashValue
-			);
+			const intoAfter = flatOf(tx, kind, intoId);
+			const next = nextBase(intoAfter, flatOf(tx, kind, fromId), base?.skip ?? [], hashValue);
+			// A song this place could not take is not in step: it leaves the
+			// snapshot, as a dropped reference does at a copy (`clone.ts`).
+			for (const key of Object.keys(next.fields))
+				if (key.startsWith('song:') && !Object.hasOwn(intoAfter, key)) delete next.fields[key];
 			writePair(tx, kind, intoId, fromId, next, now);
 			const space = spaceOfRow(into, actorId);
 			if (isTeam(space)) {

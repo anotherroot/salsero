@@ -518,18 +518,16 @@ export const actions: Actions = {
 			routineId: routine.id
 		});
 	},
-	noteSong: async ({ params, request, locals }) =>
-		noteSongFrom(
-			request,
-			getDb(),
-			spaceOfRow(routineOf(params, locals), wallOf(params, locals).userId)
-		),
-	removeSong: async ({ params, request, locals }) =>
-		removeSongFrom(
-			request,
-			getDb(),
-			spaceOfRow(routineOf(params, locals), wallOf(params, locals).userId)
-		),
+	noteSong: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
+		const space = spaceOfRow(routine, wallOf(params, locals).userId);
+		return noteSongFrom(request, getDb(), space, { routineId: routine.id });
+	},
+	removeSong: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
+		const space = spaceOfRow(routine, wallOf(params, locals).userId);
+		return removeSongFrom(request, getDb(), space, { routineId: routine.id });
+	},
 
 	note: async ({ params, request, locals }) => {
 		const db = getDb();

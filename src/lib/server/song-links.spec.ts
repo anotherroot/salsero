@@ -18,7 +18,8 @@ import { deleteGroupSong, shareSong, unshareSong } from './song-share';
 import { crossRefs } from './integrity';
 import { cloneInto } from './clones/clone';
 import { compareWith, takeTheirs } from './clones/compare';
-import { sendMine } from './clones/send';
+import { familyStatus, sendMine } from './clones/send';
+import { sourcesOf } from './clones/sources';
 import { NO_FILES } from './test-walls';
 import { deleteSong } from './songs';
 import { purgeTrash } from './trash';
@@ -486,6 +487,30 @@ describe('Compare, Take and Send know Music', () => {
 		const u2: Wall = { userId: 'u2', dance: 'salsa' };
 		const { lesson, mine } = await lessonAndCopy(u2);
 		addMusic(db, u2, { lessonId: mine }, song(u2, 'My own'), null, T + 20);
+		expect(songKeys(compareWith(db, 'u2', 'lesson', mine, lesson))).toEqual([]);
+	});
+
+	it('a song the other place cannot take leaves no banner, tab status or snapshot behind', async () => {
+		const u2: Wall = { userId: 'u2', dance: 'salsa' };
+		const { lesson, mine } = await lessonAndCopy(u2);
+		const X = song(u2, 'My own');
+		addMusic(db, u2, { lessonId: mine }, X, null, T + 20);
+		// Send something else so a snapshot is written after an apply.
+		const theirsSeen = compareWith(db, 'u2', 'lesson', lesson, mine)!.seen;
+		await sendMine(
+			db,
+			'u2',
+			'lesson',
+			mine,
+			[{ id: lesson, picks: { [`song:#${X}`]: 'theirs' }, seen: theirsSeen }],
+			NO_FILES,
+			T + 30,
+			Number.POSITIVE_INFINITY
+		);
+		const tab = sourcesOf(db, 'u2', 'lesson', mine).find((x) => x.id === lesson);
+		expect(tab?.status).toBe('same');
+		const group = familyStatus(db, 'u2', 'lesson', mine).find((e) => e.member.id === lesson);
+		expect(group?.theirs).toEqual([]);
 		expect(songKeys(compareWith(db, 'u2', 'lesson', mine, lesson))).toEqual([]);
 	});
 

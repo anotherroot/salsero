@@ -614,10 +614,14 @@ export const actions: Actions = {
 		const { lesson, space } = lessonOf(params, locals);
 		return addSongFrom(request, getDb(), space, { lessonId: lesson.id });
 	},
-	noteSong: async ({ params, request, locals }) =>
-		noteSongFrom(request, getDb(), lessonOf(params, locals).space),
-	removeSong: async ({ params, request, locals }) =>
-		removeSongFrom(request, getDb(), lessonOf(params, locals).space),
+	noteSong: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		return noteSongFrom(request, getDb(), space, { lessonId: lesson.id });
+	},
+	removeSong: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		return removeSongFrom(request, getDb(), space, { lessonId: lesson.id });
+	},
 
 	newPosition: async ({ params, request, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);

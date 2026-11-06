@@ -374,10 +374,16 @@ export const actions: Actions = {
 			exerciseId: drill.id
 		});
 	},
-	noteSong: async ({ params, request, locals }) =>
-		noteSongFrom(request, getDb(), spaceOfRow(linkableOf(params, locals), me(params, locals))),
-	removeSong: async ({ params, request, locals }) =>
-		removeSongFrom(request, getDb(), spaceOfRow(linkableOf(params, locals), me(params, locals))),
+	noteSong: async ({ params, request, locals }) => {
+		const drill = linkableOf(params, locals);
+		const space = spaceOfRow(drill, me(params, locals));
+		return noteSongFrom(request, getDb(), space, { exerciseId: drill.id });
+	},
+	removeSong: async ({ params, request, locals }) => {
+		const drill = linkableOf(params, locals);
+		const space = spaceOfRow(drill, me(params, locals));
+		return removeSongFrom(request, getDb(), space, { exerciseId: drill.id });
+	},
 
 	addLink: async ({ params, request, locals }) =>
 		addLinkFrom(

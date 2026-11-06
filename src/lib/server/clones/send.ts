@@ -14,6 +14,7 @@
  * Reads only through `visibleMembers`: another person's own member is never
  * listed, and a member the person only reads is never a target.
  */
+import { fittingDiffs } from '../song-links';
 import type {
 	CloneKind,
 	CompareOffer,
@@ -72,7 +73,14 @@ export function familyStatus(db: Db, userId: string, kind: CloneKind, id: number
 	const pageFlat = flatOf(db, kind, id);
 	const own = new Map<string, FieldDiff>();
 	const rows: FamilyEntry[] = others.map((m) => {
-		const diffs = diff(pairBase(db, kind, id, m.id), pageFlat, flatOf(db, kind, m.id), hashValue);
+		const diffs = fittingDiffs(
+			db,
+			kind,
+			id,
+			m.id,
+			diff(pairBase(db, kind, id, m.id), pageFlat, flatOf(db, kind, m.id), hashValue),
+			userId
+		);
 		for (const d of diffs) if (d.side === 'mine' && !own.has(d.key)) own.set(d.key, d);
 		const tab = tabs.get(m.id);
 		return {

@@ -225,18 +225,25 @@ export function addMusic(
 	});
 }
 
-/** The link, its song's title and its parent, when the link is `space`'s. */
-function linkIn(db: Db, space: Space, linkId: number) {
+/** The parent a Music row is on, as a key: the same for the same lesson, drill or routine. */
+const parentKey = (p: MusicParent) =>
+	'lessonId' in p ? `l${p.lessonId}` : 'exerciseId' in p ? `e${p.exerciseId}` : `r${p.routineId}`;
+
+/**
+ * The link, its song's title and its parent's row, when the link is `space`'s
+ * and, with `on`, on that parent (a page's own lesson, drill or routine).
+ * Anything else is null: a stranger's id and a missing one read the same.
+ */
+export function musicLinkIn(db: Db, space: Space, linkId: number, on?: MusicParent) {
 	const link = db.select().from(songLinks).where(eq(songLinks.id, linkId)).get();
 	const parent = link ? parentOf(link) : null;
-	const row = parent ? parentRow(db, parent) : null;
-	if (!link || !row || row.dance !== space.dance || !inSpace(row, space)) return null;
-	const title = db
-		.select({ title: songs.title })
-		.from(songs)
-		.where(eq(songs.id, link.songId))
-		.get()?.title;
-	return { link, row, title: title ?? null };
+	if (!link || !parent || (on && parentKey(on) !== parentKey(parent))) return null;
+	const row = parentRow(db, parent);
+	if (!row || row.dance !== space.dance || !inSpace(row, space)) return null;
+	const title =
+		db.select({ title: songs.title }).from(songs).where(eq(songs.id, link.songId)).get()?.title ??
+		null;
+	return { link, row, title };
 }
 
 /** A link's note; false when the link is not `space`'s. */
@@ -245,9 +252,10 @@ export function setMusicNote(
 	space: Space,
 	linkId: number,
 	note: string | null,
-	now: number
+	now: number,
+	on?: MusicParent
 ): boolean {
-	const found = linkIn(db, space, linkId);
+	const found = musicLinkIn(db, space, linkId, on);
 	if (!found) return false;
 	db.transaction((tx) => {
 		tx.update(songLinks).set({ note }).where(eq(songLinks.id, linkId)).run();
@@ -270,8 +278,14 @@ export function setMusicNote(
 }
 
 /** Takes a song off a parent's Music; false when the link is gone or not `space`'s. */
-export function removeMusic(db: Db, space: Space, linkId: number, now: number): boolean {
-	const found = linkIn(db, space, linkId);
+export function removeMusic(
+	db: Db,
+	space: Space,
+	linkId: number,
+	now: number,
+	on?: MusicParent
+): boolean {
+	const found = musicLinkIn(db, space, linkId, on);
 	if (!found) return false;
 	db.transaction((tx) => {
 		tx.delete(songLinks).where(eq(songLinks.id, linkId)).run();
@@ -449,4 +463,24 @@ export function musicFits(
 			? { dance: toRow.dance as Space['dance'], teamId: toRow.teamId, actorId }
 			: { dance: toRow.dance as Space['dance'], userId: toRow.userId ?? '' };
 	return songInPlace(db, row.songId, place) !== null;
+}
+
+/**
+ * The differences between two members a person is shown, less a song the
+ * place missing it could not take (`musicFits`): Compare, the source tabs'
+ * status and the family banners read the same list, so none of them shows a
+ * difference nothing can resolve. `mineId` is the diff's `mine` side.
+ */
+export function fittingDiffs<
+	D extends { key: string; side: string; mine: unknown; theirs: unknown }
+>(db: Db, kind: string, mineId: number, theirsId: number, diffs: D[], actorId: string): D[] {
+	return diffs.filter((d) => {
+		if (!d.key.startsWith('song:')) return true;
+		const ref = d.key.slice('song:'.length);
+		if (d.side === 'theirs' && d.mine === null)
+			return musicFits(db, kind, theirsId, mineId, ref, actorId);
+		if (d.side === 'mine' && d.theirs === null)
+			return musicFits(db, kind, mineId, theirsId, ref, actorId);
+		return true;
+	});
 }
