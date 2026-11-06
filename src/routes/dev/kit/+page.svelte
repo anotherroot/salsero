@@ -45,6 +45,41 @@
 		type IconButtonVariant
 	} from '$lib/components/ui/styles';
 	import { ICONS, FILLED, type IconName } from '$lib/icons/icons';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import MenuSheet from '$lib/components/ui/MenuSheet.svelte';
+	import type { MenuItem } from '$lib/menu';
+	import type { CompareOffer, Source } from '$lib/types';
+
+	const kitSource = (id: number, label: string, relation: Source['relation']): Source => ({
+		id,
+		label,
+		relation,
+		access: 'edit',
+		status: null,
+		changed: []
+	});
+	const YOURS_SRC = kitSource(1, 'Yours', 'self');
+	const KIT_VERSIONS: { sources: Source[]; compare: CompareOffer | null }[] = [
+		{ sources: [YOURS_SRC], compare: null },
+		{
+			sources: [
+				YOURS_SRC,
+				kitSource(2, 'Intenziuci poletje 2026', 'clone'),
+				kitSource(3, 'Sreda 17:30', 'clone')
+			],
+			compare: null
+		},
+		{
+			sources: [YOURS_SRC, kitSource(3, 'Sreda 17:30', 'clone')],
+			compare: { id: 3, place: 'Sreda 17:30', changed: ['Notes'] }
+		}
+	];
+	let kitMenu = $state(false);
+	const KIT_MENU: MenuItem[] = [
+		{ key: 'history', icon: 'clock', label: 'History', href: '/dev/kit' },
+		{ key: 'copy', icon: 'copy', label: 'Copy to…', onclick: () => {} },
+		{ key: 'drop', icon: 'undo', label: 'Drop my copy', meta: 'Go back to theirs', danger: true }
+	];
 
 	let dance = $state('salsa');
 	let seg = $state('a');
@@ -404,6 +439,27 @@
 			</section>
 
 			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Whose version (one, three, one out of sync)</h2>
+				{#each KIT_VERSIONS as v, i (i)}
+					<Versions
+						sources={v.sources}
+						kind="position"
+						dance="salsa"
+						current={1}
+						mineId={1}
+						self={{ kind: 'mine' }}
+						title="Cerrada"
+						compare={v.compare}
+					/>
+				{/each}
+				<div class="flex items-center gap-2 rounded-2xl bg-band px-2 py-1">
+					<span class="flex-1 pl-2 text-[15px] font-bold text-band-ink">The band’s ⋯</span>
+					<BandButton icon="more" label="Position menu" onclick={() => (kitMenu = true)} />
+					<MenuSheet title="Cerrada" items={KIT_MENU} bind:open={kitMenu} />
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Group and rows</h2>
 				<div class={GROUP}>
 					<div class={ROW}>
@@ -449,6 +505,15 @@
 						src="/recordings/none.mp4"
 						owner={{ recordingId: 1 }}
 						sourceUrl="https://youtu.be/9bZkp7q19f0"
+						onproblem={() => {}}
+					/>
+				</div>
+				<div class="{CLIP} rounded-2xl bg-surface">
+					<VideoFrame
+						src="/recordings/none.mp4"
+						owner={{ recordingId: 1 }}
+						caption={{ title: 'Simple player · Follow my class', meta: 'no sections' }}
+						simple
 						onproblem={() => {}}
 					/>
 				</div>

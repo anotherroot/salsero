@@ -103,7 +103,11 @@ Now the WebView fills the screen and the page draws under the status bar and
 the navigation bar, as a native screen does. `splitInsets` (`Bars.kt`, tested)
 shares the insets out: the top and bottom go to the page as `--safe-top` /
 `--safe-bottom`; the sides (a cutout, a side navigation bar) and the keyboard
-still pad the WebView. The page is told through `window.appInsets`, set by a
+still pad the WebView. In full screen (the video player asks for it, and
+Android shows it as a custom view with the bars hidden) only the keyboard pads:
+until 2026-11-06 nothing did, so a popup's field in the player (Rename) sat
+under the keyboard, and the page, still told the full height, could not know.
+The page is told through `window.appInsets`, set by a
 document-start script (replaced when the insets change, so the heights are
 there before the first paint) and by `evaluateJavascript` for the page already
 open; `src/app.html` writes them onto `<html>`. Not `env(safe-area-inset-*)`:

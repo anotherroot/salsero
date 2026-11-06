@@ -155,6 +155,18 @@
 	let firstName = $state('Basic');
 	let partner = $state<Partner>('partner');
 	let style = $state('');
+	/** A new figure's Danced and Style: its move's first figure's, refilled when another move is picked. */
+	let variationPartner = $state<Partner>('partner');
+	let variationStyle = $state('');
+	$effect(() => {
+		const id = groupId;
+		untrack(() => {
+			const c = options?.figureChoices.find((f) => f.groupId === id);
+			if (!c || !options) return;
+			variationPartner = c.partner;
+			variationStyle = c.style ?? options.defaults.style;
+		});
+	});
 	let drillName = $state('');
 	let positionName = $state('');
 	/** The new position's type; null: none. Starts on the user's style. */
@@ -448,7 +460,13 @@
 				refusal = { message: 'Pick a move.', at: 'groupId' };
 				return;
 			}
-			body = { kind: 'variation', groupId, name: variationName };
+			body = {
+				kind: 'variation',
+				groupId,
+				name: variationName,
+				partner: variationPartner,
+				style: variationStyle
+			};
 		} else if (step === 'figure') {
 			body = { kind: 'figure', figureName, name: firstName, partner, style };
 		} else if (step === 'position') {
@@ -607,6 +625,29 @@
 					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
 				/>
 				{@render fieldError('name')}
+			</div>
+			<div>
+				<span class={LABEL}>Danced</span>
+				<Segmented
+					name="{formId}-variation-partner"
+					label="Danced"
+					items={partnerItems}
+					value={variationPartner}
+					onchange={(v) => (variationPartner = v as Partner)}
+				/>
+			</div>
+			<div>
+				<span class={LABEL}>Style</span>
+				<Segmented
+					name="{formId}-variation-style"
+					label="Style"
+					items={DANCES[o.dance].styles.map((s) => ({
+						value: s,
+						label: DANCES[o.dance].styleLabel[s]
+					}))}
+					bind:value={variationStyle}
+				/>
+				{@render fieldError('style')}
 			</div>
 		{:else if step === 'figure'}
 			<div>

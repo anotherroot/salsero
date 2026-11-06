@@ -763,3 +763,73 @@ describe("a group's videos, uploads and room on the flat routes", () => {
 
 import { readdir } from 'node:fs/promises';
 import { usedBytes } from '$lib/server/storage';
+import { lessonComments, users } from '$lib/server/db/schema';
+import { publishLesson } from '$lib/server/lessons';
+import { postComment } from '$lib/server/comments';
+import { GET as getComments, POST as postCommentApi } from './lessons/[id]/comments/+server';
+import { DELETE as deleteCommentApi } from './comments/[id]/+server';
+import { POST as heartApi } from './comments/[id]/heart/+server';
+import { POST as restoreApi } from './comments/[id]/restore/+server';
+
+describe("comments stand behind the lesson's group", () => {
+	let lessonId: number;
+	let commentId: number;
+
+	beforeEach(() => {
+		for (const id of ['u1', 'u2']) {
+			db.insert(users)
+				.values({ id, email: `${id}@example.com`, passwordHash: 'x' })
+				.onConflictDoNothing()
+				.run();
+		}
+		// u1 owns a group; u2 is not in it.
+		createTeam(db, 'u1', 'salsa', 'Class', 1);
+		lessonId = createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title: 'C', notes: null })
+			.lesson.id;
+		publishLesson(db, T1_SALSA, lessonId, 5);
+		commentId = (postComment(db, 'u1', lessonId, 'hello', null, 10) as { id: number }).id;
+	});
+
+	const call = (handler: unknown, id: number, user: typeof U1, body?: unknown) =>
+		run(handler, {
+			params: { id: String(id) },
+			locals: { user },
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				body: body === undefined ? undefined : JSON.stringify(body)
+			})
+		});
+
+	it("reading another group's lesson comments is a 404; the owner reads them", async () => {
+		expect(await status(call(getComments, lessonId, U2))).toBe(404);
+		expect(await status(call(getComments, lessonId, U1))).toBe(200);
+	});
+
+	it('posting is a 404 and writes nothing for a stranger', async () => {
+		expect(await status(call(postCommentApi, lessonId, U2, { body: 'hi' }))).toBe(404);
+		expect(await status(call(postCommentApi, 9999, U1, { body: 'hi' }))).toBe(404);
+		expect(await status(call(postCommentApi, lessonId, U1, { body: ' ' }))).toBe(400);
+		expect(await status(call(postCommentApi, lessonId, U1, { body: 'hi' }))).toBe(201);
+	});
+
+	it('hearting, deleting and restoring are a 404 for a stranger and change nothing', async () => {
+		// u2's own comment, deleted by the owner: only the wall keeps u2 from delete/restore
+		// (as an author u2 could delete it, and restore it were u2 inside the group).
+		const theirs = { id: 'u2' };
+		db.update(lessonComments)
+			.set({ authorId: theirs.id })
+			.where(eq(lessonComments.id, commentId))
+			.run();
+		expect(await status(call(heartApi, commentId, U2))).toBe(404);
+		expect(await status(call(deleteCommentApi, commentId, U2))).toBe(404);
+		expect(db.select().from(lessonComments).get()!.deletedAt).toBeNull();
+		db.update(lessonComments).set({ deletedAt: 20, deletedBy: 'u2' }).run();
+		expect(await status(call(restoreApi, commentId, U2))).toBe(404);
+		expect(db.select().from(lessonComments).get()!.deletedAt).toBe(20);
+		db.update(lessonComments).set({ deletedAt: null, deletedBy: null }).run();
+		expect(await status(call(heartApi, 9999, U1))).toBe(404);
+		expect(await status(call(heartApi, commentId, U1))).toBe(200);
+		expect(await status(call(deleteCommentApi, commentId, U1))).toBe(200);
+		expect(await status(call(restoreApi, commentId, U1))).toBe(200);
+	});
+});

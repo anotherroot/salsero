@@ -3,25 +3,31 @@
 	import type { Snippet } from 'svelte';
 	import { dateLabel } from '$lib/format';
 	import { spotLabel } from '$lib/video/spots';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import SectionPlayer from './SectionPlayer.svelte';
 	import Icon from './Icon.svelte';
 	import type { LinkedSection } from '$lib/types';
 
 	/**
 	 * A linked section: where it is from and what it is. A tap plays it full
-	 * screen, looping. `unlink` is the page's own form, when it offers one.
+	 * screen, looping; where the person may edit its video, the player links
+	 * it too, and the page refreshes once it closes. `unlink` is the page's own
+	 * form, when it offers one.
 	 */
 	let {
 		section,
 		unlink,
 		focusKey,
-		canEdit = true
+		canEdit = true,
+		simple = false
 	}: {
 		section: LinkedSection;
 		unlink?: Snippet;
 		focusKey?: string;
 		/** Marking and editing spots in its player: off for a reader of a group's video. */
 		canEdit?: boolean;
+		/** The simple player: the section loops, nothing to mark or edit. */
+		simple?: boolean;
 	} = $props();
 
 	let open = $state(false);
@@ -68,6 +74,12 @@
 		spot={section.spot}
 		from={section.video.from}
 		{canEdit}
-		onclose={() => (open = false)}
+		linking={canEdit && !simple}
+		{simple}
+		onclose={() => {
+			open = false;
+			// The player may have renamed, moved or linked the section; the simple one cannot.
+			if (canEdit && !simple) void refreshWhenSettled();
+		}}
 	/>
 {/if}

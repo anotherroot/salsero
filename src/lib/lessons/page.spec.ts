@@ -8,6 +8,9 @@ import {
 	positionPickGroups,
 	exerciseMeta,
 	figureMeta,
+	lessonBandLine,
+	practiceRows,
+	whenOnToday,
 	reviewMeta,
 	routineMeta,
 	sectionHeading,
@@ -173,5 +176,54 @@ describe('lesson page lines', () => {
 		expect(
 			viaRanges([{ spotId: 1, startMs: 72_000, endMs: null, label: null }, via(1000, 2000)])
 		).toBe('1:12.0, 0:01.0–0:02.0');
+	});
+});
+
+describe('the simple lesson page', () => {
+	// 2026-11-05 is a Thursday.
+	const today = '2026-11-05';
+	const due = (dueDay: string, lastDay: string | null = '2026-11-01') => ({
+		gap: 3,
+		lastDay,
+		dueDay
+	});
+
+	it('the band says the class and its day; an own lesson its day alone', () => {
+		expect(lessonBandLine('2026-11-03', today, true)).toBe('Class · Tue 3 Nov');
+		expect(lessonBandLine('2025-11-04', today, true)).toBe('Class · Tue 4 Nov 2025');
+		expect(lessonBandLine('2026-11-03', today, false)).toBe('Tue 3 Nov');
+	});
+
+	it('when each is next on Today, in the due words', () => {
+		expect(whenOnToday(due('2026-11-02'), true, today)).toBe('On Today today');
+		expect(whenOnToday(due(today), true, today)).toBe('On Today today');
+		expect(whenOnToday(due('2026-11-06'), true, today)).toBe('On Today tomorrow');
+		expect(whenOnToday(due('2026-11-08'), true, today)).toBe('On Today on Sunday');
+		expect(whenOnToday(due('2026-11-11'), true, today)).toBe('On Today on Wednesday');
+		expect(whenOnToday(due('2026-11-12'), true, today)).toBe('On Today next week');
+		expect(whenOnToday(due('2026-11-18'), true, today)).toBe('On Today next week');
+		expect(whenOnToday(due('2026-11-19'), true, today)).toBe('On Today on 19 Nov');
+		expect(whenOnToday(due('2027-01-14'), true, today)).toBe('On Today on 14 Jan 2027');
+		expect(whenOnToday(due(today), false, today)).toBe('Paused');
+	});
+
+	it("what you're practising: the person's live entries, in the page's order", () => {
+		const rows = practiceRows(
+			[
+				{ id: 10, name: 'Salsa 3 Nov', kind: 'lesson', active: true },
+				{ id: 11, name: 'Enchufla routine', kind: 'routine', active: true },
+				{ id: 12, name: 'Footwork drill', kind: 'drill', active: false },
+				// No schedule: archived, or not the person's own: not drawn.
+				{ id: 13, name: 'Gone drill', kind: 'drill', active: true }
+			],
+			{ 10: due(today, null), 11: due('2026-11-08'), 12: due(today) },
+			today
+		);
+		expect(rows).toEqual([
+			{ id: 10, name: 'Go over this lesson', when: 'On Today today' },
+			{ id: 11, name: 'Enchufla routine', when: 'On Today on Sunday' },
+			{ id: 12, name: 'Footwork drill', when: 'Paused' }
+		]);
+		expect(practiceRows([], {}, today)).toEqual([]);
 	});
 });

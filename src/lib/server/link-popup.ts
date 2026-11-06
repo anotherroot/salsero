@@ -355,12 +355,17 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const nearGroups = new Set(
 		variations.filter(near).flatMap((v) => v.groups.filter((g) => g !== null))
 	);
-	const figureChoices = (point ? [] : listMoveTargets(db, space, null)).map((g) => ({
-		groupId: g.id,
-		name: g.name,
-		variations: g.variations,
-		near: nearGroups.has(g.id)
-	}));
+	const figureChoices = (point ? [] : listMoveTargets(db, space, null)).map((g) => {
+		const first = listGroupVariations(db, g.id)[0];
+		return {
+			groupId: g.id,
+			name: g.name,
+			variations: g.variations,
+			near: nearGroups.has(g.id),
+			partner: first?.partner ?? ('partner' as const),
+			style: first?.styleTag ?? null
+		};
+	});
 
 	// Positions in list order (ruling 7), own then the group's; not folded by twins.
 	const positionOptions = offeredPositions.map((p) => {
@@ -452,14 +457,17 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 			if (variationNameTaken(tx, group.id, name, null)) {
 				throw new SpotLinkError(`${group.name} already has a ${name}.`, 400, 'name');
 			}
+			if (create.style !== undefined && !isStyleOf(dance, create.style)) {
+				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
+			}
 			const first = listGroupVariations(tx, group.id)[0];
 			const made = createVariationIn(
 				tx,
 				group.id,
 				{
 					name,
-					partner: first?.partner ?? 'partner',
-					style: first?.styleTag ?? '',
+					partner: create.partner ?? first?.partner ?? 'partner',
+					style: create.style ?? first?.styleTag ?? '',
 					notes: null
 				},
 				actorOf(space)
@@ -526,7 +534,10 @@ export function parseLinkBody(
 	const c = b.create as Record<string, unknown>;
 	if (!isText(c.name)) return null;
 	if (c.kind === 'variation' && isId(c.groupId)) {
-		return { create: { kind: 'variation', groupId: c.groupId, name: c.name } };
+		const create = { kind: 'variation' as const, groupId: c.groupId, name: c.name };
+		if (c.partner === undefined && c.style === undefined) return { create };
+		if (!(PARTNER as readonly unknown[]).includes(c.partner) || !isText(c.style)) return null;
+		return { create: { ...create, partner: c.partner as Partner, style: c.style } };
 	}
 	if (
 		c.kind === 'figure' &&

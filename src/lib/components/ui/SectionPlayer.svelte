@@ -7,7 +7,7 @@
 	/**
 	 * The full-screen player opened straight on a section's view, looping it —
 	 * for anything that shows a section without its own inline video. Mounted on
-	 * a tap, so the stored mirror and speed can be read at once: there is no
+	 * a tap, so the stored mirror, speed and mute can be read at once: there is no
 	 * server render of it to match.
 	 */
 	let {
@@ -17,6 +17,7 @@
 		from,
 		linking = false,
 		canEdit = true,
+		simple = false,
 		onclose
 	}: {
 		src: string;
@@ -28,6 +29,8 @@
 		linking?: boolean;
 		/** Marking and editing spots: off for a reader of a group's video. */
 		canEdit?: boolean;
+		/** The simple player: the section loops with repeat lit, and nothing to mark or edit. */
+		simple?: boolean;
 		onclose: () => void;
 	} = $props();
 
@@ -41,13 +44,16 @@
 	loopSpot={spot}
 	{linking}
 	{canEdit}
+	{simple}
 	mirror={prefs.mirror}
 	rate={prefs.rate}
+	muted={prefs.muted}
+	repeat={prefs.repeat}
 	title={from ? (from.kind === 'lesson' ? from.title : from.figure) : 'Video'}
 	subtitle={from ? (from.kind === 'lesson' ? 'Lesson video' : 'Recording') : ''}
 	onchoose={(next) => {
-		prefs = { ...prefs, mirror: next.mirror ?? prefs.mirror, rate: next.rate ?? prefs.rate };
-		saveVideoPrefs({ mirror: prefs.mirror, rate: prefs.rate });
+		prefs = { ...prefs, ...next };
+		saveVideoPrefs(next);
 	}}
 	{onclose}
 />

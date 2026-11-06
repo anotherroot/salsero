@@ -109,9 +109,9 @@ query, so one copy of the dark colours serves both System and Dark.
 |---|---|---|---|---|
 | band (same in dark since 2026-11-01) | `#D2401E` | `#D2401E` | `#6B1D4F` | `#6B1D4F` |
 | small text on band | `#ffffff` | `#ffffff` | cream `#FFF3E4` | cream `#FFF3E4` |
-| accent | `#d2401e` | `#ff6b47` | `#8e2a66` | `#f07aae` |
+| accent (salsa dark: the band red since 2026-11-05, white on it) | `#d2401e` | `#d2401e` | `#8e2a66` | `#f07aae` |
 | accent_text (small accent text) | `#b3340f` | `#ff7a59` | `#8e2a66` | `#f07aae` |
-| on_accent | `#ffffff` | `#0b0b0d` | `#ffffff` | `#2a0716` |
+| on_accent | `#ffffff` | `#ffffff` | `#ffffff` | `#2a0716` |
 | status | `#b8330f` | `#ff8a6b` | `#8e2a66` | `#f07aae` |
 
 Shared neutrals, light / dark: ground `#f2f2f5` / `#0b0b0d`; surface `#ffffff`
@@ -314,20 +314,25 @@ rules the boards follow that are not obvious from looking at them.
 ### A figure
 
 - Compact band: the label ("Enchufla · Doble") with "Figure · starts on 1 · 16 counts" under it.
-- A facts card: style and partner badges, the timing as eight counts with the
-  start count filled ("Starts on 1 · 16 counts · 2 eights"), handholds, notes.
-  Then Practice (frequency with "+", a row to the exercise), Follows from /
-  Leads to as two lists, recordings (16:9 player, date · size, mirror, speed,
-  full screen) each with its sections, linked sections, links, Taught in,
-  "Move Doble to…", "Archive Doble".
+- Since 2026-11-06 ([figure page rework](2026-11-06-figure-page-rework-design.md)):
+  the first section (else the first video recording) as a 16:9 picture with a
+  play disc and a caption, opening full screen; a facts card: style and partner
+  badges, the timing as eight counts with the start count filled, Positions,
+  notes. Then Practice; Recordings, one card of section and recording rows with
+  `+ Add` (tertiary, at the right of the heading row: Link a section, Video from
+  the phone); Links; Follows from, Leads to and In routines as one card of three
+  rows with counts, each opening a sheet with search; Taught in; "Move Doble
+  to…", "Archive Doble". Pending: Practice, Move and Archive go into the ⋯ menu
+  (plan 2), and links join Recordings (plan 3).
 - The figure switcher is pinned directly above the tab bar, on the tab-bar
   surface, and hidden while editing. Its sheet lists
   the move's figures with New figure in the footer, and links to the move's page.
 - Edit: Starts in and Ends in (any number of positions each, two pickers), a 1–8 "Starts on" grid,
   Counts with 4/8/16 shortcuts; a "Not saved" banner carries the server's
   message.
-- Upload in progress is a card ("Uploading… 42%"). In the app, Add video
-  (compressed in the background) and Add audio are separate buttons.
+- Upload in progress is a card ("Uploading… 42%") at the top of Recordings. In
+  the app, Video from the phone hands over to the app (compressed in the
+  background); no new audio since 2026-11-06.
 - Move to… and archiving the last figure warn in danger ("Move and remove
   move", "Archive and remove move").
 
@@ -547,3 +552,8 @@ in the routine picker, search on Routines.
   was sent inside them; the player's close goes through `refreshWhenSettled()`.
 - **Cleanup, `tone` on `iconButton` only:** `button()`'s kinds are its tones; invalid
   fields use a 1 px border plus a 1 px inset danger shadow, not `border-2`.
+- **Whose version and the ⋯ menu (2026-11-06):** a family page shows one row at
+  the top of its body ("Your version · Also: …", "N ▾") that opens a Versions list,
+  in place of the pill row of sources; Copy to…, Same as…, Move to…, Detach and Drop
+  my copy are items of one shared ⋯ in the band (`ui/MenuSheet.svelte`). See
+  [the versions and menu spec](2026-11-06-versions-and-menu-design.md).

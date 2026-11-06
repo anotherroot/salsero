@@ -16,7 +16,13 @@
 
 	// `editLinks` is honoured here only: a drill is the one type whose links and
 	// sections are its own. The other types' are edited on their owner's page.
-	let { content, editLinks, onPage = false, canEdit = true }: ContentProps = $props();
+	let {
+		content,
+		editLinks,
+		onPage = false,
+		canEdit = true,
+		simple = false
+	}: ContentProps = $props();
 
 	let linking = $state(false);
 
@@ -48,7 +54,7 @@
 		{/if}
 		{#each content.sections as s (s.linkId)}
 			{#if editLinks}
-				<SectionCard section={s} focusKey="section-{s.linkId}" {canEdit}>
+				<SectionCard section={s} focusKey="section-{s.linkId}" {canEdit} {simple}>
 					{#snippet unlink()}
 						<form
 							method="POST"
@@ -68,7 +74,7 @@
 					{/snippet}
 				</SectionCard>
 			{:else}
-				<SectionCard section={s} {canEdit} />
+				<SectionCard section={s} {canEdit} {simple} />
 			{/if}
 		{/each}
 		{#if editLinks?.unlinkMessage}
