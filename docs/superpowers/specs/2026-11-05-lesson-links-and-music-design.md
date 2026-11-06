@@ -14,8 +14,8 @@
 > link with what it found, 3A Publish in the band's strip as a real button, 4B
 > New lesson as the share list's first row, 6C compact Music rows whose note
 > opens on a tap, 7A the note asked right after the pick. 5 (Routines from a
-> class) is being picked from five versions of "A, with the class part in
-> colour". The figure page (slot 1) follows 1A and reuses the 2B popup.
+> class) is A2: the day in the accent text colour, bold, behind the Lessons
+> icon. The figure page (slot 1) follows 1A and reuses the 2B popup.
 
 Two parts, built in this order. Part A is small and touches only lesson and
 linking screens. Part B is a new table that groups, copies and History must
@@ -164,11 +164,12 @@ the form is `use:guarded`.
 ### A5. Routines from a class are marked
 
 On Moves → Routines, a routine linked to a live lesson shows that lesson's day
-in its meta line ("16 slots · From class Tue 3 Nov"); with several, the latest.
+in its meta line: "16 slots · ", then the Lessons icon (15 px) and the day
+("Tue 3 Nov") in `accent-text`, bold (picked: A2); with several, the latest.
 Only lessons the person sees: their own space's lessons, plus for a group's
 routine the published lessons they reach. Same date form as Today's "from
-class …" (`classDayLabel`). The class part is coloured or bold; which of the
-five versions (A1–A5 on the mockup page) is the user's pick, still open.
+class …" (`classDayLabel`). The icon and day carry an accessible name, "From
+class Tue 3 Nov". Not a link: the whole row opens the routine.
 
 ### A6. Publish
 
