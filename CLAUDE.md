@@ -273,6 +273,14 @@ src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
+src/lib/server/song-links.ts  Music (spec 2026-11-05 part B): a lesson's, drill's or routine's
+                     suggested songs with notes (`song_links`): `listMusic` (what a viewer may
+                     play), `addMusic` (a group's draft is shared by it), `setMusicNote`,
+                     `removeMusic`, `musicChoices`, `songInPlace`/`copyMusic` (copies never copy a
+                     song), and Compare/Take/Send's `musicFits`/`takeMusic`/`dropMusic`.
+                     music-form.ts is the pages' three actions; components/songs/MusicSection.svelte
+                     the list, and SongPickSheet.svelte the "Pick a song" popup (SongPicker's too)
+src/lib/songs/music.ts  PURE: Music's words and "Practise to this" (`practiseHref`)
 src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
                      and its fade. search.ts is PURE: the song popup's folded
                      search, Recent then A-Z (matches marked by picker/model.ts `segments`). sample-player.svelte.ts
@@ -600,9 +608,11 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   (`spot_position_links`, deleted on unlink, and with their video when a
   group is purged) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes of content;
-  `twins` rows (Separate), `clone_pairs` (Detach) and `today_picks` (Undo of a
-  pick, and an add or next taking the day's skip away) are bookkeeping,
-  deleted too. Drop my copy and Move to… archive the copy, never delete it. A
+  `twins` rows (Separate), `clone_pairs` (Detach), `today_picks` (Undo of a
+  pick, and an add or next taking the day's skip away) and `song_links` (a
+  Music row's Remove, and every link to a song deleted for good, first) are
+  bookkeeping, deleted too. A song link never copies a song: a copy keeps it
+  only where the new place can play it (`songInPlace`). Drop my copy and Move to… archive the copy, never delete it. A
   figure's exercise is opt-in (`addFigureExercise`); when one exists it is
   renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot (to a figure, a drill or a

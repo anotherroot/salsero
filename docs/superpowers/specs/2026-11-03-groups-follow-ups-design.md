@@ -5,6 +5,12 @@
 same day from branch `groups`. Mockups: the "Salsero group mode" canvas
 (https://claude.ai/artifact/Pqdc9XEXQHjS8poJd6asr8), boards B and E.
 
+**Added 2026-11-06**
+([`2026-11-05-lesson-links-and-music-design.md`](2026-11-05-lesson-links-and-music-design.md),
+part B): a teacher can also suggest class songs on a lesson, a drill or a
+routine, each with a note ("Music"). Adding a draft shares it; unsharing hides
+it from members' Music, and sharing again brings it back.
+
 Four things the user found after using groups on the live site: one bug and
 three gaps. Copying your own lessons, figures and routines into a group is
 **not** here: it needs clones and twins, which have their own design
