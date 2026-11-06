@@ -52,6 +52,52 @@ export function ownerIntegrity(db: Db): string[] {
 	return lines;
 }
 
+/**
+ * Rows on the wrong side of the dance split, one line each: a row whose
+ * account belongs to another dance (or to none), a membership or a lesson
+ * add in another dance's group or lesson, and an account's takes, phones or
+ * sessions while it has no dance. Empty when whole. Reads only.
+ */
+export function danceIntegrity(db: Db): string[] {
+	const lines: string[] = [];
+	const all = (q: string) => db.all<Record<string, unknown>>(sql.raw(q));
+	for (const t of ROOTS) {
+		for (const r of all(
+			`select r.id, r.dance, u.dance as u_dance from ${t} r join users u on u.id = r.user_id
+			 where u.dance is not r.dance order by r.id`
+		)) {
+			lines.push(`${t} ${r.id}: dance ${r.dance}, its account's ${r.u_dance ?? 'none'}`);
+		}
+	}
+	const pairs = [
+		['team_members', 'team_id', 'teams'],
+		['lesson_adds', 'lesson_id', 'lessons']
+	] as const;
+	for (const [t, key, parent] of pairs) {
+		for (const r of all(
+			`select x.user_id, x.${key} as pid from ${t} x join users u on u.id = x.user_id
+			 join ${parent} p on p.id = x.${key} where u.dance is not p.dance order by x.user_id, pid`
+		)) {
+			lines.push(`${t} ${r.user_id}/${r.pid}: in another dance than its account`);
+		}
+	}
+	for (const r of all(
+		`select s.id from storage_requests s join users u on u.id = s.user_id
+		 join teams tm on tm.id = s.team_id where u.dance is not tm.dance order by s.id`
+	)) {
+		lines.push(`storage_requests ${r.id}: for another dance's group`);
+	}
+	for (const t of ['count_takes', 'device_tokens', 'sessions'] as const) {
+		for (const r of all(
+			`select x.user_id, count(*) as n from ${t} x join users u on u.id = x.user_id
+			 where u.dance is null group by x.user_id order by x.user_id`
+		)) {
+			lines.push(`${t}: ${r.n} of account ${r.user_id}, which has no dance`);
+		}
+	}
+	return lines;
+}
+
 /** Pieces whose parent may hold one member of a family each, and how a line names them. */
 const PIECES = [
 	{ table: 'recordings', parent: 'figure_id', parentTable: 'figures', name: 'recordings' },
