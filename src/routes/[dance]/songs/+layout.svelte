@@ -5,6 +5,7 @@
 	import MusicList from '$lib/components/songs/MusicList.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
+	import { groupModeShown, levelShown } from '$lib/levels/levels';
 
 	/*
 	 * Music: the list and the song beside it (desktop spec, "A list and the item
@@ -22,7 +23,7 @@
 </script>
 
 {#snippet right()}
-	<GroupModeButton />
+	{#if groupModeShown(levelShown(page.data.user?.level))}<GroupModeButton />{/if}
 	<BandButton icon="plus" label="Add a song" onclick={() => (adding = true)} />
 {/snippet}
 

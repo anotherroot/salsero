@@ -109,9 +109,9 @@ query, so one copy of the dark colours serves both System and Dark.
 |---|---|---|---|---|
 | band (same in dark since 2026-11-01) | `#D2401E` | `#D2401E` | `#6B1D4F` | `#6B1D4F` |
 | small text on band | `#ffffff` | `#ffffff` | cream `#FFF3E4` | cream `#FFF3E4` |
-| accent | `#d2401e` | `#ff6b47` | `#8e2a66` | `#f07aae` |
+| accent (salsa dark: the band red since 2026-11-05, white on it) | `#d2401e` | `#d2401e` | `#8e2a66` | `#f07aae` |
 | accent_text (small accent text) | `#b3340f` | `#ff7a59` | `#8e2a66` | `#f07aae` |
-| on_accent | `#ffffff` | `#0b0b0d` | `#ffffff` | `#2a0716` |
+| on_accent | `#ffffff` | `#ffffff` | `#ffffff` | `#2a0716` |
 | status | `#b8330f` | `#ff8a6b` | `#8e2a66` | `#f07aae` |
 
 Shared neutrals, light / dark: ground `#f2f2f5` / `#0b0b0d`; surface `#ffffff`

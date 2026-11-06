@@ -6,6 +6,7 @@
 	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { page } from '$app/state';
+	import { levelShown, simple } from '$lib/levels/levels';
 	import { listOf } from '$lib/nav/pane';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
@@ -60,6 +61,8 @@
 	);
 	const past = $derived(isList && !onComing && page.url.searchParams.has('day'));
 	const dance = $derived(data.dance.slug);
+	/** The two lower levels: the log popup is the faces and "Done". */
+	const simpleLog = $derived(simple(levelShown(page.data.user?.level)));
 	const currentId = $derived(isList ? null : Number(page.params.id));
 
 	let openId = $state<number | null>(null);
@@ -637,6 +640,7 @@
 				action="/{dance}?/log"
 				schedule={data.list.schedulesAtStart[open.id]}
 				today={data.list.today}
+				simple={simpleLog}
 				{session}
 				outer={{ toast, ondismiss: () => (toast = null) }}
 				onlogged={(d, setId) => {

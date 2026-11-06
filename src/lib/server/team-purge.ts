@@ -20,6 +20,8 @@ import {
 	figureGroups,
 	figures,
 	lessonAdds,
+	lessonCommentHearts,
+	lessonComments,
 	lessons,
 	lessonVideos,
 	links,
@@ -179,6 +181,14 @@ function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 			.returning({ filesJson: teamTrash.filesJson })
 			.all();
 		for (const t of trashed) files.push(...(JSON.parse(t.filesJson) as TrashFile[]));
+
+		// Comments and their hearts: nobody can reach them after the purge.
+		const commentIds = tx
+			.select({ id: lessonComments.id })
+			.from(lessonComments)
+			.where(inArray(lessonComments.lessonId, lessonIds));
+		tx.delete(lessonCommentHearts).where(inArray(lessonCommentHearts.commentId, commentIds)).run();
+		tx.delete(lessonComments).where(inArray(lessonComments.lessonId, lessonIds)).run();
 
 		tx.delete(lessonAdds).where(inArray(lessonAdds.lessonId, lessonIds)).run();
 		tx.delete(teamMembers).where(eq(teamMembers.teamId, teamId)).run();

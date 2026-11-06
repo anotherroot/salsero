@@ -12,6 +12,8 @@ import type { Db } from './db';
 import { teamMembers, teams } from './db/schema';
 import { wallOf, type Space } from './scope';
 import { getTeam, roleOf } from './teams';
+import { levelOf } from './levels';
+import { groupModeShown, type Level } from '$lib/levels/levels';
 
 export function groupChoices(db: Db, userId: string, dance: DanceSlug): GroupChoice[] {
 	return db
@@ -36,11 +38,16 @@ export function groupChoices(db: Db, userId: string, dance: DanceSlug): GroupCho
 		.filter((r) => r.role === 'owner' || r.role === 'editor') as GroupChoice[];
 }
 
+/**
+ * `level`: the person's level when the caller has it (`locals.user.level`), so
+ * the per-request callers skip the lookup; left out, it is read here.
+ */
 export function groupModeOf(
 	db: Db,
 	userId: string,
 	dance: DanceSlug,
-	cookies: Cookies
+	cookies: Cookies,
+	level?: Level | null
 ): GroupMode | null {
 	const name = groupCookie(dance);
 	const raw = cookies.get(name);
@@ -50,6 +57,10 @@ export function groupModeOf(
 		return null;
 	};
 	if (!/^[1-9][0-9]{0,9}$/.test(raw)) return refuse();
+	// The switch is drawn only at Everything: a cookie left from there does not
+	// keep a lower level writing into the group. Null (not chosen yet) is the first run's.
+	const chosen = level === undefined ? levelOf(db, userId) : level;
+	if (chosen !== null && !groupModeShown(chosen)) return refuse();
 	const team = getTeam(db, Number(raw));
 	if (!team || team.dance !== dance || team.deletedAt !== null || team.purgedAt !== null)
 		return refuse();
@@ -86,6 +97,6 @@ export function spaceOf(
 	cookies: Cookies
 ): Space {
 	const wall = wallOf(params, locals);
-	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	const mode = groupModeOf(db, wall.userId, wall.dance, cookies, locals.user?.level);
 	return mode ? { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId } : wall;
 }

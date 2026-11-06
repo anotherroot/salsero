@@ -1,7 +1,7 @@
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
-import { listMyTeams } from '$lib/server/teams';
-import { whatsNew } from '$lib/server/whats-new';
+import { myClassOf, teamsWithNew } from '$lib/server/my-class';
+import { levelShown } from '$lib/levels/levels';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -11,15 +11,15 @@ import type { LayoutServerLoad } from './$types';
  * page always read them. Reads `params.dance` and `locals` only, so opening
  * another group does not rerun it; a form in the pane reruns it (`invalidateAll`),
  * so renaming, leaving, deleting and restoring refresh the column.
+ *
+ * At Follow my class the tab is My class (`myClass`): each class's last class
+ * day for the list of classes, and with no class in this dance, the other
+ * dance's My class when the person has a class there.
  */
 export const load: LayoutServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const fresh = whatsNew(db, wall.userId, wall.dance).byTeam;
-	return {
-		teams: listMyTeams(db, wall.userId, wall.dance).map((t) => ({
-			...t,
-			newCount: fresh.get(t.id) ?? 0
-		}))
-	};
+	const teams = teamsWithNew(db, wall);
+	if (levelShown(locals.user!.level) !== 'follow') return { teams, myClass: null };
+	return { teams, myClass: myClassOf(db, wall, teams, locals.user!.timezone, Date.now()) };
 };

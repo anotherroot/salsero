@@ -1,6 +1,8 @@
 /** PURE, client-safe: what a lesson's page shows. */
 import type { ScheduleState } from '$lib/schedule/schedule';
-import { dueWords } from '$lib/schedule/words';
+import { dayWords, dueWords } from '$lib/schedule/words';
+import { daysBetween } from '$lib/day/day';
+import { classDayLabel } from '$lib/format';
 import { PARTNER_LABEL } from '$lib/labels';
 import type {
 	LessonExerciseRow,
@@ -15,6 +17,56 @@ import { spotTime } from '$lib/video/spots';
 import { positionGroups } from '$lib/picker/build';
 import type { PickEntry, PickGroup } from '$lib/picker/model';
 import type { StyleLabel } from '$lib/positions/view';
+
+/**
+ * The simple page's line over the title: "Class · Tue 3 Nov" for a class (a
+ * group's lesson), the day alone for a person's own lesson.
+ */
+export function lessonBandLine(day: string, today: string, isClass: boolean): string {
+	const label = classDayLabel(day, today);
+	return isClass ? `Class · ${label}` : label;
+}
+
+/**
+ * When an entry is next on Today, in part 1's due words: "On Today today",
+ * "On Today tomorrow", "On Today on Sunday" (within the week), "On Today next
+ * week" (7 to 13 days), "On Today on 19 Nov". A paused one is "Paused".
+ */
+export function whenOnToday(state: ScheduleState, active: boolean, today: string): string {
+	if (!active) return 'Paused';
+	const d = daysBetween(today, state.dueDay);
+	if (d <= 1) return `On Today ${dayWords(state.dueDay, today)}`;
+	if (d >= 7 && d <= 13) return 'On Today next week';
+	return `On Today on ${dayWords(state.dueDay, today)}`;
+}
+
+/** One of the person's entries from a lesson, as the simple page's load collects them. */
+export interface PracticeEntry {
+	id: number;
+	name: string;
+	kind: 'lesson' | 'routine' | 'drill';
+	active: boolean;
+}
+
+/**
+ * "What you're practising": the person's entries from the lesson, in the
+ * order given, each with when it is next on Today. `states` holds the
+ * person's own live exercises; an entry without one (archived, or not theirs)
+ * is not drawn. The lesson's own entry is "Go over this lesson", as the full
+ * page names it.
+ */
+export function practiceRows(
+	entries: PracticeEntry[],
+	states: Record<number, ScheduleState>,
+	today: string
+): { id: number; name: string; when: string }[] {
+	return entries.flatMap((e) => {
+		const state = states[e.id];
+		if (!state) return [];
+		const name = e.kind === 'lesson' ? 'Go over this lesson' : e.name;
+		return [{ id: e.id, name, when: whenOnToday(state, e.active, today) }];
+	});
+}
 
 /** `Figures · 3`, bare at zero. */
 export function sectionHeading(label: string, n: number): string {

@@ -37,10 +37,19 @@
 		TEXTAREA_ON_CARD,
 		button
 	} from '$lib/components/ui/styles';
-	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
+	import {
+		archiveBody,
+		fromClassLabel,
+		historyDays,
+		ownerOf,
+		pageParts,
+		summaryTiles
+	} from '$lib/exercises/exercise-page';
+	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -48,6 +57,12 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const exercise = $derived(data.exercise);
+	/**
+	 * Follow my class and Practise and keep my own: the "I practised this" page.
+	 * A person who never chose (null) is Everything: unchanged.
+	 */
+	const simple = $derived(simpleOf(levelShown(data.user?.level)));
+	const parts = $derived(pageParts(simple, data.fromClass !== null));
 	const type = $derived(typeOf(exercise.source));
 	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
 	const sourcePlace = $derived(
@@ -115,7 +130,7 @@
 
 	/** The drill's links editor: the page's content, and the pane's log column (desktop). */
 	const editLinks = $derived(
-		data.canEditContent
+		data.canEditContent && !simple
 			? {
 					message: failure('addLink'),
 					entered: form && 'urls' in form ? String(form.urls) : '',
@@ -255,7 +270,8 @@
 				from="exercise"
 				schedule={data.scheduleAtStart ?? undefined}
 				today={data.today}
-				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
+				{simple}
+				contentProps={{ onPage: true, canEdit: data.canEditContent && !simple, editLinks }}
 				session={today?.session ?? null}
 				follow={today?.follow ?? null}
 				onlogged={(d, setId) => {
@@ -281,14 +297,34 @@
 		content={data.practice.content}
 		{timezone}
 		onPage
-		canEdit={data.canEditContent}
+		canEdit={data.canEditContent && !simple}
+		{simple}
 		{editLinks}
 	/>
 {/snippet}
 
+<!-- The class's comments, after the type's content on the simple page and on the full one alike. -->
+{#snippet classCard()}
+	{#if data.comments}<CommentsCard comments={data.comments} title="Comments on the class" />{/if}
+{/snippet}
+
+<!-- "From class Tue 3 Nov ›": the simple page's way to the lesson. -->
+{#snippet fromClass()}
+	{#if parts.fromClass && data.fromClass}
+		<a
+			href={resolve('/[dance]/lessons/[id]', {
+				dance: data.dance.slug,
+				id: String(data.fromClass.lessonId)
+			})}
+			class="flex min-h-11 items-center self-start px-1 text-[15px] font-extrabold text-accent-text desk:min-w-0"
+			>{fromClassLabel(data.fromClass.day, data.today)}</a
+		>
+	{/if}
+{/snippet}
+
 <!-- The exercise: the right column on the desktop, the whole page on the phone. -->
 {#snippet about()}
-	{#if owner && ownerHref}
+	{#if parts.ownerRow && owner && ownerHref}
 		<!-- While editing the phone shows the settings alone; the desktop keeps the row. -->
 		<ul class="{GROUP} desk:min-w-0{editing ? ' hidden desk:block' : ''}">
 			<li>
@@ -405,8 +441,10 @@
 			<!-- On the desktop this content is the log column's (`paneContent`). -->
 			<div class="contents desk:hidden">{@render pageContent()}</div>
 		{/if}
+		{@render fromClass()}
+		{@render classCard()}
 
-		{#if data.add}
+		{#if parts.addBlock && data.add}
 			<!-- A group's drill reaches Today through a lesson: one already added takes just this drill. -->
 			<div class="flex items-center gap-3 rounded-2xl bg-surface py-2 pr-2 pl-4 desk:min-w-0">
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -453,64 +491,69 @@
 	<!-- A group's drill without an entry of this person's has nothing of theirs to show. -->
 	{#if data.canLog}
 		<!-- While editing: on the desktop only (the phone shows the settings alone). -->
-		<section class="{editing ? 'hidden desk:flex' : 'flex'} flex-col gap-2 desk:min-w-0">
-			<h2 class={SECTION_LABEL}>History</h2>
-			{#if data.summary.sets === 0}
-				<div class="rounded-2xl bg-surface">
-					<EmptyState
-						icon="clock"
-						title="Nothing logged yet"
-						body="Log a set after you practise — it shows up here, grouped by day."
-					/>
-				</div>
-			{:else}
-				<div class="flex rounded-2xl bg-surface">
-					{#each tiles as tile, i (tile.label)}
-						{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"></span>{/if}
-						<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
-							<span
-								class="flex items-center gap-1.5 font-display leading-[1.05] font-extrabold text-ink {tile.feel
-									? 'text-[17px]'
-									: 'text-[24px]'}"
-								>{#if tile.feel}<Face feel={tile.feel} size={22} />{/if}{tile.value}</span
-							>
-							<span class="text-[12px] font-bold text-muted">{tile.label}</span>
-						</div>
+		{#if parts.historyTiles}
+			<section class="{editing ? 'hidden desk:flex' : 'flex'} flex-col gap-2 desk:min-w-0">
+				<h2 class={SECTION_LABEL}>History</h2>
+				{#if data.summary.sets === 0}
+					<div class="rounded-2xl bg-surface">
+						<EmptyState
+							icon="clock"
+							title="Nothing logged yet"
+							body="Log a set after you practise — it shows up here, grouped by day."
+						/>
+					</div>
+				{:else}
+					<div class="flex rounded-2xl bg-surface">
+						{#each tiles as tile, i (tile.label)}
+							{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"
+								></span>{/if}
+							<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
+								<span
+									class="flex items-center gap-1.5 font-display leading-[1.05] font-extrabold text-ink {tile.feel
+										? 'text-[17px]'
+										: 'text-[24px]'}"
+									>{#if tile.feel}<Face feel={tile.feel} size={22} />{/if}{tile.value}</span
+								>
+								<span class="text-[12px] font-bold text-muted">{tile.label}</span>
+							</div>
+						{/each}
+					</div>
+					{#each days as g (g.day)}
+						<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
+						<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
 					{/each}
-				</div>
-				{#each days as g (g.day)}
-					<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
-					<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
-				{/each}
-				{#if data.history.length < data.summary.sets}
-					<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
+					{#if data.history.length < data.summary.sets}
+						<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
+					{/if}
 				{/if}
-			{/if}
-		</section>
+			</section>
+		{/if}
 
 		{#if !editing}
-			<section class="flex flex-col gap-2 desk:min-w-0">
-				<h2 class={SECTION_LABEL}>Settings</h2>
-				<dl class={GROUP}>
-					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-						<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
-						<dd class="text-right text-[15px] font-semibold text-muted">
-							{exercise.active ? 'Yes' : "No — not on Today's list"}
-						</dd>
-					</div>
-					{#if exercise.notes && !ownsItself}
-						<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
-							<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
-							<dd>
-								<LinkedText
-									text={exercise.notes}
-									class="text-[15px] leading-[1.45] whitespace-pre-line text-ink-2"
-								/>
+			{#if parts.settingsBlock}
+				<section class="flex flex-col gap-2 desk:min-w-0">
+					<h2 class={SECTION_LABEL}>Settings</h2>
+					<dl class={GROUP}>
+						<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+							<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
+							<dd class="text-right text-[15px] font-semibold text-muted">
+								{exercise.active ? 'Yes' : "No — not on Today's list"}
 							</dd>
 						</div>
-					{/if}
-				</dl>
-			</section>
+						{#if exercise.notes && !ownsItself}
+							<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
+								<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
+								<dd>
+									<LinkedText
+										text={exercise.notes}
+										class="text-[15px] leading-[1.45] whitespace-pre-line text-ink-2"
+									/>
+								</dd>
+							</div>
+						{/if}
+					</dl>
+				</section>
+			{/if}
 			<!-- The very end of the phone's page (the desktop has it under Log set). -->
 			{#if canSkip}
 				<div class="flex flex-col items-center gap-0.5 pt-1 desk:hidden">
@@ -558,7 +601,9 @@
 	compact
 	width={data.canLog ? 'two' : 'one'}
 	{title}
-	subtitle={editing ? TYPES[type].label : (cloneSubtitle(data.cloneLine) ?? TYPES[type].label)}
+	subtitle={editing || simple
+		? TYPES[type].label
+		: (cloneSubtitle(data.cloneLine) ?? TYPES[type].label)}
 	below={data.canLog ? lastTime : undefined}
 >
 	<!--
@@ -581,12 +626,12 @@
 				><BandButton icon="close" label="Stop editing" onclick={stopEditing} /></span
 			>
 		{/if}
-		{#if !editing && data.historyHref}
+		{#if !editing && parts.historyLink && data.historyHref}
 			<BandButton icon="clock" label="History" href={data.historyHref} />
 		{/if}
-		{#if !editing && data.canEdit}
+		{#if !editing && parts.editSettings && data.canEdit}
 			<BandButton icon="pencil" label="Edit settings" onclick={startEditing} />
-		{:else if !editing && data.makeMine}
+		{:else if !editing && parts.editSettings && data.makeMine}
 			<BandButton icon="pencil" label="Edit drill" onclick={() => (makingMine = true)} />
 		{/if}
 	{/snippet}
@@ -599,7 +644,7 @@
 		toast is `fixed`) sits above the columns: nothing pinned lives in their container.
 	-->
 	<div class="flex flex-col gap-3.5 pb-28 desk:pb-0">
-		{#if !editing}
+		{#if !editing && parts.sourceTabs}
 			<SourceTabs
 				sources={data.sources}
 				kind="drill"
@@ -644,7 +689,7 @@
 				class={button('primary', 'md', true)}
 				onclick={() => (logging = true)}
 			>
-				<Icon name="plus" size={20} />Log a set
+				<Icon name={simple ? 'check' : 'plus'} size={20} />{parts.logButton}
 			</button>
 		{/if}
 	</BottomBar>
@@ -739,6 +784,7 @@
 		from="exercise"
 		schedule={data.scheduleAtStart ?? undefined}
 		today={data.today}
+		{simple}
 		onlogged={(_, setId) => today?.undoable(data.exercise.id, setId)}
 		outer={today ? { toast: today.toast, ondismiss: today.dismissToast } : null}
 		onclose={() => (logging = false)}

@@ -6,13 +6,14 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { longDayLabel } from '$lib/format';
 	import type { MediaProblem } from '$lib/media';
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { dance, content, onPage, canEdit = true }: ContentProps = $props();
+	let { dance, content, onPage, canEdit = true, simple = false }: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
@@ -75,6 +76,9 @@
 					<VideoFrame
 						src="/lesson-videos/{video.file}"
 						{canEdit}
+						linking={canEdit && !simple}
+						onclosed={() => void refreshWhenSettled()}
+						{simple}
 						sourceUrl={video.sourceUrl}
 						owner={{ lessonVideoId: video.id }}
 						caption={lessonVideoCaption(i, video)}

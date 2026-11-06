@@ -43,6 +43,23 @@ class BarsTest {
     }
 
     @Test
+    fun `in full screen only the keyboard is padded`() {
+        assertEquals(
+            InsetSplit(padLeft = 0, padTop = 0, padRight = 0, padBottom = 900, safeTop = 0, safeBottom = 0),
+            splitInsets(120, 84, 40, 63, keyboard = 900, underBars = true, fullscreen = true),
+        )
+        assertEquals(900, splitInsets(0, 84, 0, 63, keyboard = 900, underBars = false, fullscreen = true).padBottom)
+    }
+
+    @Test
+    fun `in full screen without the keyboard nothing is padded`() {
+        assertEquals(
+            InsetSplit(padLeft = 0, padTop = 0, padRight = 0, padBottom = 0, safeTop = 0, safeBottom = 0),
+            splitInsets(120, 84, 40, 63, keyboard = 0, underBars = true, fullscreen = true),
+        )
+    }
+
+    @Test
     fun `without page insets every bar is padded`() {
         assertEquals(
             InsetSplit(padLeft = 0, padTop = 84, padRight = 0, padBottom = 63, safeTop = 0, safeBottom = 0),

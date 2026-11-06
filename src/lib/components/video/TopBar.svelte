@@ -1,6 +1,6 @@
 <!-- src/lib/components/video/TopBar.svelte -->
 <script lang="ts">
-	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
+	import { VIDEO_RATES, type VideoChoice, type VideoRate } from '$lib/video-prefs';
 	import type { TopBarParts } from '$lib/video/chrome';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TOP_GLASS, topBack, topEdit } from './styles';
@@ -10,6 +10,7 @@
 		subtitle: string;
 		mirror: boolean;
 		rate: VideoRate;
+		muted: boolean;
 		/** What shows, from `topBar(mode, level.kind)`. */
 		parts: TopBarParts;
 		spotsCount?: number;
@@ -22,7 +23,11 @@
 		/** Edit, from a section's view. */
 		onedit?: () => void;
 		onclose: () => void;
-		onchoose: (next: { mirror?: boolean; rate?: VideoRate }) => void;
+		onchoose: (next: VideoChoice) => void;
+		/** The simple player: the whole video loops. */
+		repeat?: boolean;
+		/** A section opened as such always loops: repeat is lit and cannot be turned off. */
+		repeatLocked?: boolean;
 	}
 
 	let {
@@ -30,9 +35,12 @@
 		subtitle,
 		mirror,
 		rate,
+		muted,
 		parts,
 		place,
 		spotsCount = 0,
+		repeat = false,
+		repeatLocked = false,
 		onspots,
 		onback,
 		onedit,
@@ -49,15 +57,17 @@
 	const HIT = 'grid h-11 flex-none cursor-pointer place-items-center';
 	const pill = $derived(topBack(parts.glass));
 	const glassPill = TOP_GLASS;
-	const editClass = $derived(topEdit(parts.edit === 'accent'));
+	/** Only the glass pill (landscape) carries the word; upright, Edit is a disc. */
+	const editClass = topEdit(false);
 </script>
 
 <div
-	class="relative flex flex-none items-center gap-1 {place === 'overlay'
+	class="relative flex flex-none items-center {place === undefined ? 'gap-0.5' : 'gap-1'} {place ===
+	'overlay'
 		? 'h-14'
 		: place === 'panel'
 			? 'h-[52px] pr-2 pl-10'
-			: 'h-14 px-2'} {parts.glass ? '' : 'bg-ground'}"
+			: 'h-14 px-1'} {parts.glass ? '' : 'bg-ground'}"
 >
 	<button
 		type="button"
@@ -72,8 +82,12 @@
 		{/if}
 	</button>
 	{#if parts.back && onback}
-		<button type="button" class={HIT} onclick={onback}>
-			<span class={pill}><Icon name="chevron-left" size={20} />Full video</span>
+		<!-- The one part that gives way: on a very narrow phone its words truncate rather than the bar overflow. -->
+		<button type="button" class="flex h-11 min-w-0 cursor-pointer items-center" onclick={onback}>
+			<span class="{pill} max-w-full"
+				><Icon name="chevron-left" size={20} /><span class="min-w-0 truncate">Full video</span
+				></span
+			>
 		</button>
 	{/if}
 	{#if parts.title}
@@ -94,7 +108,17 @@
 	{:else}
 		<span class="flex-1"></span>
 	{/if}
-	{#if parts.edit && onedit}
+	{#if parts.edit === 'accent' && onedit}
+		<!-- Upright, the bar has no room for the word beside ‹ Full video, Mute, Mirror and speed. -->
+		<button
+			type="button"
+			class="grid size-11 flex-none cursor-pointer place-items-center"
+			aria-label="Edit"
+			onclick={onedit}
+		>
+			<span class="{DISC} bg-accent text-on-accent"><Icon name="edit" size={20} /></span>
+		</button>
+	{:else if parts.edit && onedit}
 		<button type="button" class={HIT} onclick={onedit}>
 			<span class={editClass}><Icon name="edit" size={18} />Edit</span>
 		</button>
@@ -104,6 +128,39 @@
 			<span class={glassPill}><Icon name="list" size={20} />Sections ({spotsCount})</span>
 		</button>
 	{/if}
+	{#if parts.repeat}
+		<button
+			type="button"
+			class="grid size-11 flex-none cursor-pointer place-items-center text-white disabled:cursor-default"
+			aria-label="Repeat"
+			aria-pressed={repeat}
+			disabled={repeatLocked}
+			onclick={() => onchoose({ repeat: !repeat })}
+		>
+			{#if repeat}
+				<span class="{DISC} bg-accent text-on-accent"><Icon name="repeat" size={22} /></span>
+			{:else if parts.glass}
+				<span class={GLASS_DISC}><Icon name="repeat" size={22} /></span>
+			{:else}
+				<Icon name="repeat" size={24} />
+			{/if}
+		</button>
+	{/if}
+	<button
+		type="button"
+		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
+		aria-label="Mute"
+		aria-pressed={muted}
+		onclick={() => onchoose({ muted: !muted })}
+	>
+		{#if muted}
+			<span class="{DISC} bg-accent text-on-accent"><Icon name="volume-off" size={22} /></span>
+		{:else if parts.glass}
+			<span class={GLASS_DISC}><Icon name="volume" size={22} /></span>
+		{:else}
+			<Icon name="volume" size={24} />
+		{/if}
+	</button>
 	<button
 		type="button"
 		class="grid size-11 flex-none cursor-pointer place-items-center text-white"

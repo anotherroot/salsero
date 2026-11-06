@@ -136,16 +136,15 @@ abstract class WebShell : ComponentActivity() {
         setContentView(root)
         // The page runs under the status and navigation bars and pads itself by
         // what it is told ([splitInsets]); the keyboard and the sides pad the WebView.
+        // In full screen (the video player) only the keyboard pads: without it a
+        // popup's field there sat under the keyboard.
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            if (fullscreen != null) {
-                view.setPadding(0, 0, 0, 0)
-                return@setOnApplyWindowInsetsListener WindowInsetsCompat.CONSUMED
-            }
+            val full = fullscreen != null
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val split = splitInsets(bars.left, bars.top, bars.right, bars.bottom, keyboard, underBars)
+            val split = splitInsets(bars.left, bars.top, bars.right, bars.bottom, keyboard, underBars, full)
             view.setPadding(split.padLeft, split.padTop, split.padRight, split.padBottom)
-            if (underBars) tellInsets(split.safeTop, split.safeBottom)
+            if (underBars && !full) tellInsets(split.safeTop, split.safeBottom)
             WindowInsetsCompat.CONSUMED
         }
 

@@ -40,6 +40,6 @@ describe('bands', () => {
 				expect(src, file).not.toMatch(/<Screen\b/);
 			} else expect(src, file).not.toMatch(/<CardFrame\b/);
 		}
-		expect(card).toHaveLength(6);
+		expect(card).toHaveLength(7);
 	});
 });
