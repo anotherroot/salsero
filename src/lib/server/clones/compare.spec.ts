@@ -17,7 +17,7 @@ import { insertFixturePositions } from '../test-positions';
 import type { Space } from '../scope';
 import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import type { CloneKind, Picks } from '$lib/types';
-import { diffTag } from '$lib/clones/view';
+import { diffWhy } from '$lib/clones/view';
 import { geneOf } from './genes';
 import { pairAt } from './pairs';
 import { cloneInto } from './clone';
@@ -104,13 +104,13 @@ async function boardCase() {
 }
 
 describe('compareWith', () => {
-	it('the board’s case: Only theirs changed, Both changed: pick, New on theirs', async () => {
+	it('the board’s case: they changed it, you both changed it, they added it', async () => {
 		const { F, C, recKey } = await boardCase();
 		const c = compareWith(db, 'u2', 'figure', C, F)!;
-		expect(c.diffs.map((d) => [d.key, diffTag(d)])).toEqual([
-			['notes', 'Both changed: pick'],
-			['timing', 'Only theirs changed'],
-			[recKey, 'New on theirs']
+		expect(c.diffs.map((d) => [d.key, diffWhy(d, false).text])).toEqual([
+			['notes', 'you both changed it, pick one'],
+			['timing', 'they changed it'],
+			[recKey, 'they added it']
 		]);
 		expect(c.picks).toEqual({ timing: 'theirs', [recKey]: 'theirs' });
 		expect(c).toMatchObject({ synced: true, canTake: true, canSend: false });

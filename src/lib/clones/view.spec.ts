@@ -76,13 +76,23 @@ import {
 	PICK_BOTH,
 	RECORDING_GONE,
 	STALE,
-	TAKE_BUTTON,
+	ALL_THEIRS,
+	ALL_YOURS,
+	KEEP_HINT,
+	NAME_ONLY,
+	SHOW_ALL,
+	SHOW_LESS,
+	isLong,
+	mergeButton,
+	pickFirst,
+	renameLabel,
+	renameMeta,
 	VERSIONS,
 	absentLine,
 	changedLine,
 	compareSub,
 	compareTitle,
-	diffTag,
+	diffWhy,
 	nameTaken,
 	ARCHIVED_SONG_COPY,
 	MAKE_MINE,
@@ -362,33 +372,63 @@ describe('sources', () => {
 		expect(COMPARE).toBe('Compare');
 	});
 
-	it('the compare sheet: title, sub, button', () => {
-		expect(compareTitle('Salsa Tuesdays')).toBe('Compare with Salsa Tuesdays’');
-		expect(compareTitle('Rueda club')).toBe('Compare with Rueda club’s');
-		expect(compareTitle('Yours')).toBe('Compare with yours');
-		expect(compareSub(true)).toBe(
-			'Since you last took from it. Pick where both of you changed something.'
+	it('the merge sheet: title, sub, button, hints', () => {
+		expect(compareTitle('Salsa Tuesdays')).toBe('Merge with Salsa Tuesdays');
+		expect(compareTitle('Yours')).toBe('Merge with yours');
+		expect(compareSub(true, 3)).toBe('3 differences since you last took from it.');
+		expect(compareSub(true, 1)).toBe('1 difference since you last took from it.');
+		expect(compareSub(false, 2)).toBe(
+			'You were never in step with this one. Pick each difference.'
 		);
-		expect(compareSub(false)).toBe('You were never in step with this one. Pick each difference.');
-		expect(TAKE_BUTTON).toBe('Take what’s picked');
+		expect(mergeButton(0)).toBe('Keep mine');
+		expect(mergeButton(1)).toBe('Merge · 1 from theirs');
+		expect(mergeButton(3)).toBe('Merge · 3 from theirs');
+		expect(pickFirst(['Timing'])).toBe('Pick a side for the timing first.');
+		expect(pickFirst(['Timing', 'Notes'])).toBe('Pick a side for the timing and the notes first.');
+		expect(KEEP_HINT).toBe('Nothing changes in yours. Theirs will show as behind yours.');
+		expect([ALL_YOURS, ALL_THEIRS, SHOW_ALL, SHOW_LESS]).toEqual([
+			'tap: all yours',
+			'tap: all theirs',
+			'Show all',
+			'Show less'
+		]);
 	});
 
-	it('diffTag: who changed it, and what', () => {
+	it('diffWhy: who changed it, and how', () => {
 		const field = { key: 'k', label: 'L', value: 'v', show: 'v' };
-		const d = (side: FieldDiff['side'], mine: boolean, theirs: boolean): FieldDiff => ({
-			key: 'k',
+		const d = (side: FieldDiff['side'], mine: boolean, theirs: boolean, key = 'k'): FieldDiff => ({
+			key,
 			label: 'L',
 			mine: mine ? field : null,
 			theirs: theirs ? field : null,
 			side,
 			removal: false
 		});
-		expect(diffTag(d('theirs', true, true))).toBe('Only theirs changed');
-		expect(diffTag(d('theirs', false, true))).toBe('New on theirs');
-		expect(diffTag(d('theirs', true, false))).toBe('Gone from theirs');
-		expect(diffTag(d('mine', true, true))).toBe('Only yours changed');
-		expect(diffTag(d('both', true, true))).toBe('Both changed: pick');
-		expect(diffTag(d('both', false, true))).toBe('Both changed: pick');
+		expect(diffWhy(d('theirs', true, true), true)).toEqual({
+			text: 'they changed it',
+			tone: 'theirs'
+		});
+		expect(diffWhy(d('theirs', false, true), true).text).toBe('they added it');
+		expect(diffWhy(d('theirs', true, false), true).text).toBe('they removed it');
+		expect(diffWhy(d('theirs', true, true, 'name'), true).text).toBe('they renamed it');
+		expect(diffWhy(d('theirs', true, true, 'title'), true).text).toBe('they renamed it');
+		expect(diffWhy(d('mine', true, true), true)).toEqual({ text: 'you changed it', tone: 'mine' });
+		expect(diffWhy(d('mine', true, false), true).text).toBe('you added it');
+		expect(diffWhy(d('mine', false, true), true).text).toBe('you removed it');
+		expect(diffWhy(d('mine', true, true, 'name'), true).text).toBe('you renamed it');
+		expect(diffWhy(d('both', true, true), false)).toEqual({
+			text: 'you both changed it, pick one',
+			tone: 'both'
+		});
+		expect(diffWhy(d('both', true, true), true).text).toBe('you both changed it');
+	});
+
+	it('isLong: more than 3 lines or over 90 characters', () => {
+		expect(isLong('short')).toBe(false);
+		expect(isLong('a'.repeat(90))).toBe(false);
+		expect(isLong('a'.repeat(91))).toBe(true);
+		expect(isLong('1\n2\n3')).toBe(false);
+		expect(isLong('1\n2\n3\n4')).toBe(true);
 	});
 
 	it('an option that is not there, and the refusals', () => {
@@ -485,7 +525,6 @@ describe('copies you can see, and Send mine (board C3)', () => {
 
 	it('the send sheet’s words', () => {
 		expect(SEND_TITLE).toBe('Send your changes');
-		expect(SEND_SUB).toBe('Adds and changes travel. Deletes only if you tick them.');
 		const lands = [
 			fd('notes', 'Notes', 'theirs', 'a', 'b'),
 			fd('rec:g1', 'Recording · new', 'theirs', null, 'v')
@@ -509,6 +548,20 @@ describe('copies you can see, and Send mine (board C3)', () => {
 			)
 		).toBe(NOTHING_TO_SEND);
 		expect(NOTHING_TO_SEND).toBe('Nothing to send');
+		// Only the name differs: says so; a ticked rename joins the line.
+		const named = [fd('name', 'Name', 'mine', 'Basic', 'Basic with hips')];
+		expect(sendTargetMeta(named, 0, true)).toBe(NAME_ONLY);
+		expect(NAME_ONLY).toBe('Only the name differs');
+		expect(sendTargetMeta(named, 0, true, true)).toBe('The name');
+		expect(sendTargetMeta([...lands, ...named], 0, true, true)).toBe(
+			'Notes · 1 new recording · the name'
+		);
+		expect(renameLabel('Basic with hips')).toBe('Rename their copies to “Basic with hips”');
+		expect(renameMeta(['Basic'])).toBe('Called “Basic”');
+		expect(renameMeta(['Basic', 'Basic'])).toBe('Both are called “Basic”');
+		expect(renameMeta(['Basic', 'Basic', 'Basic'])).toBe('All 3 are called “Basic”');
+		expect(renameMeta(['Basic', 'Basic 2'])).toBe('Called “Basic” and “Basic 2”');
+		expect(SEND_SUB).toBe('Changes travel. The name and deletes only if you tick them.');
 		expect(deleteRow('old take')).toEqual({
 			text: 'Also delete “old take” there',
 			meta: 'Gone from the copy you’re sending. Refused where a lesson links its section.'
