@@ -6,35 +6,24 @@
 	import MoveToSheet from './MoveToSheet.svelte';
 	import SameAsSheet from './SameAsSheet.svelte';
 	import { copied } from './copied.svelte';
-	import { cloneMenuItems, type CloneSheet } from '$lib/clones/menu';
-	import { menuLabel, orderMenu, type MenuItem } from '$lib/menu';
-	import type {
-		CloneKind,
-		CopyOffer,
-		DetachOffer,
-		DropOptions,
-		MoveOffer,
-		TwinOffer
-	} from '$lib/types';
+	import { cloneMenuItems, type CloneOffers, type CloneSheet } from '$lib/clones/menu';
+	import { orderMenu, type MenuItem } from '$lib/menu';
+	import type { CloneKind } from '$lib/types';
 
 	/**
-	 * A family page's ⋯ (spec 2026-11-06): the page's own items (`own`), then
-	 * Copy to…, Same as…, Move to…, Detach and Drop my copy, each when its offer
-	 * is set, and the sheets they open, as the button row under the tabs had
-	 * them. Put it last in the band's right side. Nothing shows without an item.
+	 * A family page's ⋯ menu (spec 2026-11-06): the page's own items (`own`),
+	 * then Copy to…, Same as…, Move to…, Detach and Drop my copy, each when its
+	 * offer is set, and the sheets they open. Mount it once in the page's body,
+	 * never in the band (the band is drawn twice); the band's ⋯ is the page's
+	 * own `BandButton`, shown when `hasMenu(own, offers)`, setting `open`.
 	 */
 	let {
 		title,
 		kind,
 		current,
 		own = [],
-		copy = null,
-		sameAs = null,
-		move = null,
-		detach = null,
-		drop = null,
-		open = $bindable(false),
-		button = true
+		offers,
+		open = $bindable(false)
 	}: {
 		/** The item's name: the menu's title. */
 		title: string;
@@ -42,15 +31,8 @@
 		/** The page's own row. */
 		current: number;
 		own?: MenuItem[];
-		copy?: CopyOffer | null;
-		sameAs?: TwinOffer | null;
-		move?: MoveOffer | null;
-		detach?: DetachOffer | null;
-		drop?: DropOptions | null;
-		/** The menu is open (bindable: a page may open it from elsewhere). */
+		offers: CloneOffers;
 		open?: boolean;
-		/** Draw the ⋯ in the band; false when the page opens the menu itself. */
-		button?: boolean;
 	} = $props();
 
 	let opened = $state<CloneSheet | null>(null);
@@ -59,31 +41,31 @@
 	const items = $derived(
 		orderMenu(
 			own,
-			cloneMenuItems({ copy, sameAs, move, detach, drop }, (s) => (opened = s))
+			cloneMenuItems(offers, (s) => (opened = s))
 		)
 	);
 </script>
 
-<MenuSheet {title} label={menuLabel(kind)} {items} {button} bind:open focusKey="item-menu" />
+<MenuSheet {title} {items} bind:open />
 
-{#if drop}
-	<DropSheet open={opened === 'drop'} onclose={close} {drop} fromId={current} />
+{#if offers.drop}
+	<DropSheet open={opened === 'drop'} onclose={close} drop={offers.drop} fromId={current} />
 {/if}
-{#if detach}
-	<DetachSheet open={opened === 'detach'} onclose={close} {kind} {detach} />
+{#if offers.detach}
+	<DetachSheet open={opened === 'detach'} onclose={close} {kind} detach={offers.detach} />
 {/if}
-{#if copy}
+{#if offers.copy}
 	<CopyToSheet
 		open={opened === 'copy'}
 		onclose={close}
-		offer={copy}
+		offer={offers.copy}
 		{current}
 		ondone={(message, href) => copied.show(message, href)}
 	/>
 {/if}
-{#if sameAs}
-	<SameAsSheet open={opened === 'sameAs'} onclose={close} offer={sameAs} />
+{#if offers.sameAs}
+	<SameAsSheet open={opened === 'sameAs'} onclose={close} offer={offers.sameAs} />
 {/if}
-{#if move}
-	<MoveToSheet open={opened === 'move'} onclose={close} offer={move} {current} />
+{#if offers.move}
+	<MoveToSheet open={opened === 'move'} onclose={close} offer={offers.move} {current} />
 {/if}

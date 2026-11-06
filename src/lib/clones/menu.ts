@@ -36,3 +36,8 @@ export function cloneMenuItems(o: CloneOffers, open: (s: CloneSheet) => void): M
 		onclick: () => open(i.key)
 	}));
 }
+
+/** Whether a page's ⋯ has anything in it: the band draws the ⋯ only then. */
+export function hasMenu(own: MenuItem[], o: CloneOffers): boolean {
+	return own.length > 0 || ITEMS.some((i) => o[i.key] != null);
+}

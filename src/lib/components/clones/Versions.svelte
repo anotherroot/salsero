@@ -59,7 +59,9 @@
 	} = $props();
 
 	const row = $derived(versionRow({ sources, current, self, compare, family }));
-	const lines = $derived(versionList({ sources, current, family }));
+	const lines = $derived(versionList({ sources, current, family, self }));
+	// Copy to…'s toast belongs to this page: gone with it, so it never shows on a later one.
+	$effect(() => () => copied.clear());
 
 	let listing = $state(false);
 	let sending = $state(false);

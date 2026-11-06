@@ -179,3 +179,31 @@ describe('versionList', () => {
 		expect(lines[1].current).toBe(true);
 	});
 });
+
+describe('versionRow on a group’s page', () => {
+	it('says “Your copy changed” when your own copy is the one that moved', () => {
+		const r = versionRow({
+			sources: [YOURS_SRC, { ...SRE, relation: 'self' }],
+			current: 31,
+			self: SREDA,
+			compare: null,
+			family: { ...FAMILY, banners: [{ id: 15, place: 'Yours', changed: ['Notes', 'Day'] }] }
+		});
+		expect(r?.meta).toBe('Your copy changed: notes, day');
+	});
+});
+
+describe('versionList without a family view', () => {
+	it('on a group’s page, measures against this one, not yours', () => {
+		const lines = versionList({
+			sources: [
+				{ ...SRE, relation: 'self' },
+				{ ...INT, status: 'newer', changed: ['Notes'] }
+			],
+			current: 31,
+			self: SREDA,
+			family: null
+		});
+		expect(lines[1].meta).toBe('Newer than this one: notes');
+	});
+});

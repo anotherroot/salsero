@@ -50,6 +50,8 @@
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { AddOffer } from '$lib/types';
@@ -243,6 +245,10 @@
 			logging = page.url.searchParams.get('log') === '1';
 		});
 	});
+	/** The band's ⋯ is open. */
+	let menuOpen = $state(false);
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>({ drop: data.drop, detach: data.detach, copy: data.copyTo });
 </script>
 
 <svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
@@ -636,14 +642,14 @@
 			<BandButton icon="pencil" label="Edit drill" onclick={() => (makingMine = true)} />
 		{/if}
 		{#if !editing && parts.sourceTabs}
-			<ItemMenu
-				{title}
-				kind="drill"
-				current={data.drill?.id ?? exercise.id}
-				drop={data.drop}
-				detach={data.detach}
-				copy={data.copyTo}
-			/>
+			{#if hasMenu([], offers)}
+				<BandButton
+					icon="more"
+					label={menuLabel('drill')}
+					focusKey="item-menu"
+					onclick={() => (menuOpen = true)}
+				/>
+			{/if}
 		{/if}
 	{/snippet}
 
@@ -804,3 +810,13 @@
 {#if data.makeMine}
 	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={menuOpen}
+	{title}
+	kind="drill"
+	current={data.drill?.id ?? exercise.id}
+	own={[]}
+	{offers}
+/>

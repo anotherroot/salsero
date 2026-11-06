@@ -26,7 +26,7 @@ export type VersionRowView = {
 
 /** "Sreda 17:30 changed: notes, hold". */
 const changedMeta = (o: CompareOffer) =>
-	`${o.place} changed: ${o.changed.map((c) => c.toLowerCase()).join(', ')}`;
+	`${o.place === YOURS ? 'Your copy' : o.place} changed: ${o.changed.map((c) => c.toLowerCase()).join(', ')}`;
 
 /**
  * The row: null with one version. "Your version" or "<Place>’s version",
@@ -77,12 +77,15 @@ export function versionList(i: {
 	sources: Source[];
 	current: number;
 	family: FamilyView | null;
+	/** Whose the page's row is: a copy is measured against "yours" or "this one". */
+	self?: PlaceRef;
 }): VersionLine[] {
 	const entries = new Map<number, FamilyEntry>(
 		(i.family?.entries ?? []).map((e) => [e.member.id, e])
 	);
 	const self = entries.get(i.current);
-	const page = self === undefined || self.member.place.kind === 'mine' ? 'yours' : 'this one';
+	const mine = self ? self.member.place.kind === 'mine' : (i.self?.kind ?? 'mine') === 'mine';
+	const page = mine ? 'yours' : 'this one';
 
 	const lines: VersionLine[] = i.sources.map((s) => {
 		const e = entries.get(s.id);

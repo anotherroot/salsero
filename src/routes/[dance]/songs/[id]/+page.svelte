@@ -19,6 +19,8 @@
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
 	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -70,10 +72,10 @@
 	const withSeen = (): { seen?: string } => (seen ? { seen } : {});
 	const group = $derived(data.group);
 	const canEdit = $derived(data.canEdit);
-	const hasMenu = $derived(group !== null && (data.historyHref || canEdit));
+	const groupMenu = $derived(group !== null && (data.historyHref || canEdit));
 	/** A group song's own ⋯ items: History, Stop sharing, Delete (each as before). */
 	const songOwn = $derived<MenuItem[]>(
-		!hasMenu || !group
+		!groupMenu || !group
 			? []
 			: [
 					...(data.historyHref
@@ -266,6 +268,15 @@
 					await focusAfterRemoval(keys, `anchor-${beat}`, 'count-speed-heading');
 			};
 		};
+	/** The band's ⋯ is open. */
+	let menuOpen = $state(false);
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>({
+		drop: data.drop,
+		detach: data.detach,
+		copy: data.copyTo,
+		sameAs: data.sameAs
+	});
 </script>
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
@@ -285,16 +296,14 @@
 		{:else if data.makeMine}
 			<BandButton icon="edit" label="Edit song" onclick={() => (makingMine = true)} />
 		{/if}
-		<ItemMenu
-			title={name}
-			kind="song"
-			current={song.id}
-			own={songOwn}
-			drop={data.drop}
-			detach={data.detach}
-			copy={data.copyTo}
-			sameAs={data.sameAs}
-		/>
+		{#if hasMenu(songOwn, offers)}
+			<BandButton
+				icon="more"
+				label={menuLabel('song')}
+				focusKey="item-menu"
+				onclick={() => (menuOpen = true)}
+			/>
+		{/if}
 	{/snippet}
 
 	<Versions
@@ -707,3 +716,6 @@
 		</form>
 	{/snippet}
 </Dialog>
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu bind:open={menuOpen} title={name} kind="song" current={song.id} own={songOwn} {offers} />

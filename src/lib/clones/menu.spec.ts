@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cloneMenuItems, type CloneSheet } from './menu';
+import { cloneMenuItems, hasMenu, type CloneSheet } from './menu';
 import type { CopyOffer, DetachOffer, DropOptions, MoveOffer, TwinOffer } from '$lib/types';
 
 const COPY: CopyOffer = { kind: 'position', title: 'Cerrada', fromMine: true, targets: [] };
@@ -43,5 +43,14 @@ describe('cloneMenuItems', () => {
 
 	it('no offers, no items', () => {
 		expect(cloneMenuItems({}, () => {})).toEqual([]);
+	});
+});
+
+describe('hasMenu', () => {
+	it('is true with an own item or any offer, false with neither', () => {
+		expect(hasMenu([], {})).toBe(false);
+		expect(hasMenu([], { copy: null, drop: null })).toBe(false);
+		expect(hasMenu([], { copy: COPY })).toBe(true);
+		expect(hasMenu([{ key: 'history', icon: 'clock', label: 'History' }], {})).toBe(true);
 	});
 });

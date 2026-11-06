@@ -1,33 +1,25 @@
 <script lang="ts">
-	import BandButton from './BandButton.svelte';
 	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 	import { GROUP } from './styles';
 	import type { MenuItem } from '$lib/menu';
 
 	/**
-	 * A page's ⋯ in the band and the small sheet it opens, titled with the
-	 * item's name (spec 2026-11-06). A row is a link (`href`) or a button: the
-	 * menu closes, then its `onclick` runs (it usually opens another sheet).
-	 * Draws nothing at all when there is no item. `open` is bindable, and
-	 * `button={false}` leaves the ⋯ out, for a page that opens the menu from
-	 * elsewhere (the simple lesson view's own button).
+	 * The small sheet a page's ⋯ opens, titled with the item's name (spec
+	 * 2026-11-06). A row is a link (`href`) or a button: the menu closes, then
+	 * its `onclick` runs (it usually opens another sheet). The page draws the ⋯
+	 * itself (a `BandButton icon="more"` that sets `open`) and this sheet once,
+	 * in its body: the band is drawn twice (big and slim), and a sheet inside it
+	 * would be too.
 	 */
 	let {
 		title,
-		label,
 		items,
-		focusKey,
-		open = $bindable(false),
-		button = true
+		open = $bindable(false)
 	}: {
 		title: string;
-		/** The ⋯ button's name: "Position menu". */
-		label: string;
 		items: MenuItem[];
-		focusKey?: string;
 		open?: boolean;
-		button?: boolean;
 	} = $props();
 
 	const ROW =
@@ -35,10 +27,6 @@
 </script>
 
 {#if items.length > 0}
-	{#if button}
-		<BandButton icon="more" {label} {focusKey} onclick={() => (open = true)} />
-	{/if}
-
 	<Sheet {title} size="small" {open} onclose={() => (open = false)}>
 		<div class={GROUP}>
 			{#each items as item (item.key)}

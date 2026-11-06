@@ -74,6 +74,7 @@
 			compare: { id: 3, place: 'Sreda 17:30', changed: ['Notes'] }
 		}
 	];
+	let kitMenu = $state(false);
 	const KIT_MENU: MenuItem[] = [
 		{ key: 'history', icon: 'clock', label: 'History', href: '/dev/kit' },
 		{ key: 'copy', icon: 'copy', label: 'Copy to…', onclick: () => {} },
@@ -453,7 +454,8 @@
 				{/each}
 				<div class="flex items-center gap-2 rounded-2xl bg-band px-2 py-1">
 					<span class="flex-1 pl-2 text-[15px] font-bold text-band-ink">The band’s ⋯</span>
-					<MenuSheet title="Cerrada" label="Position menu" items={KIT_MENU} />
+					<BandButton icon="more" label="Position menu" onclick={() => (kitMenu = true)} />
+					<MenuSheet title="Cerrada" items={KIT_MENU} bind:open={kitMenu} />
 				</div>
 			</section>
 

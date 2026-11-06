@@ -79,6 +79,8 @@
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
 	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import { newLine } from '$lib/teams/add';
@@ -560,6 +562,18 @@
 			addingExercise = true;
 		}
 	}
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>(
+		data.simple && !editing
+			? {}
+			: {
+					drop: data.drop,
+					detach: data.detach,
+					copy: data.copyTo,
+					sameAs: data.sameAs,
+					move: data.move
+				}
+	);
 </script>
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
@@ -675,18 +689,14 @@
 				<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
 			{/if}
 			{#if !editing}
-				<ItemMenu
-					bind:open={lessonMenu}
-					title={lesson.title}
-					kind="lesson"
-					current={lesson.id}
-					own={lessonOwn}
-					drop={data.drop}
-					detach={data.detach}
-					copy={data.copyTo}
-					sameAs={data.sameAs}
-					move={data.move}
-				/>
+				{#if hasMenu(lessonOwn, offers)}
+					<BandButton
+						icon="more"
+						label={menuLabel('lesson')}
+						focusKey="item-menu"
+						onclick={() => (lessonMenu = true)}
+					/>
+				{/if}
 			{/if}
 		{/snippet}
 		<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
@@ -1256,18 +1266,6 @@
 {/if}
 
 {#if data.add?.added || data.historyHref}
-	{#if data.simple && !editing}
-		<!-- The simple view's own button opens the lesson's items; the full page's ⋯ is in its band. -->
-		<ItemMenu
-			bind:open={lessonMenu}
-			button={false}
-			title={lesson.title}
-			kind="lesson"
-			current={lesson.id}
-			own={lessonOwn}
-		/>
-	{/if}
-
 	<Dialog
 		open={removing}
 		title="Remove from your lessons?"
@@ -1730,3 +1728,13 @@
 			viaFocus && void focusAfterRemoval(viaFocus.keys, viaFocus.gone, viaFocus.fallback)}
 	/>
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={lessonMenu}
+	title={lesson.title}
+	kind="lesson"
+	current={lesson.id}
+	own={lessonOwn}
+	{offers}
+/>

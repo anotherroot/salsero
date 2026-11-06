@@ -151,10 +151,13 @@ titled with the item's name.
 *Built:* the words and the order are PURE, `src/lib/clones/versions.ts`
 (`versionRow`, `versionList`) and `src/lib/menu.ts` (`MenuItem`, `orderMenu`,
 `menuLabel`) with `src/lib/clones/menu.ts` (`cloneMenuItems`). The parts are
-`components/ui/MenuSheet.svelte` (the ⋯ and its sheet; `open` is bindable and
-`button={false}` leaves the ⋯ out, for the simple lesson view, which opens the
-lesson's items from its own button), `components/clones/ItemMenu.svelte` (the
-menu with the copy actions and their sheets), `Versions.svelte` and
+`components/ui/MenuSheet.svelte` (the small sheet, `open` bindable) and
+`components/clones/ItemMenu.svelte` (the menu with the copy actions and their
+sheets), mounted ONCE at the end of each page: `Screen` draws the band twice
+(big and slim), so the band holds only a `BandButton icon="more"`, shown when
+`hasMenu(own, offers)` (`src/lib/clones/menu.ts`) and pinned by
+`item-menu-placement.spec.ts`. The simple lesson view opens the same menu from
+its own button, with no copy actions, `Versions.svelte` and
 `VersionsSheet.svelte`. Copy to…'s toast is a small store
 (`components/clones/copied.svelte.ts`) drawn by `Versions`, since the menu sits
 in the band. A version opens through `gotoWhenSettled`: the list closes, then

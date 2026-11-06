@@ -58,6 +58,8 @@
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
 	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
@@ -626,6 +628,13 @@
 				expanded = id;
 			}
 		};
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>({
+		drop: data.drop,
+		detach: data.detach,
+		copy: data.copyTo,
+		sameAs: data.sameAs
+	});
 </script>
 
 <svelte:head><title>{routine.name} · {data.dance.label}</title></svelte:head>
@@ -684,17 +693,14 @@
 
 <!-- The ⋯: Select slots for an editor, then the copy actions. -->
 {#snippet menu()}
-	<ItemMenu
-		bind:open={menuOpen}
-		title={routine.name}
-		kind="routine"
-		current={routine.id}
-		own={routineOwn}
-		drop={data.drop}
-		detach={data.detach}
-		copy={data.copyTo}
-		sameAs={data.sameAs}
-	/>
+	{#if hasMenu(routineOwn, offers)}
+		<BandButton
+			icon="more"
+			label={menuLabel('routine')}
+			focusKey="item-menu"
+			onclick={() => (menuOpen = true)}
+		/>
+	{/if}
 {/snippet}
 
 <!-- A reader's Edit makes the routine theirs (ruling 1). On the desktop it is pinned at the pane's foot instead. -->
@@ -1259,3 +1265,13 @@
 {#if data.makeMine}
 	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={menuOpen}
+	title={routine.name}
+	kind="routine"
+	current={routine.id}
+	own={routineOwn}
+	{offers}
+/>

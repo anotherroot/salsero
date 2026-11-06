@@ -17,6 +17,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import PointStill from '$lib/components/positions/PointStill.svelte';
@@ -245,6 +247,15 @@
 			}
 		}
 	}
+	/** The band's ⋯ is open. */
+	let menuOpen = $state(false);
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>({
+		drop: data.drop,
+		detach: data.detach,
+		copy: data.copyTo,
+		sameAs: data.sameAs
+	});
 </script>
 
 <svelte:head><title>{position.name} · {data.dance.label}</title></svelte:head>
@@ -287,15 +298,14 @@
 					onclick={startEditing}
 				/>
 			{/if}
-			<ItemMenu
-				title={position.name}
-				kind="position"
-				current={position.id}
-				drop={data.drop}
-				detach={data.detach}
-				copy={data.copyTo}
-				sameAs={data.sameAs}
-			/>
+			{#if hasMenu([], offers)}
+				<BandButton
+					icon="more"
+					label={menuLabel('position')}
+					focusKey="item-menu"
+					onclick={() => (menuOpen = true)}
+				/>
+			{/if}
 		{/if}
 	{/snippet}
 
@@ -757,3 +767,13 @@
 		seen={data.seen ?? undefined}
 	/>
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={menuOpen}
+	title={position.name}
+	kind="position"
+	current={position.id}
+	own={[]}
+	{offers}
+/>
