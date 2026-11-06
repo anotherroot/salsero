@@ -77,7 +77,9 @@
 	import { levelShown } from '$lib/levels/levels';
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
@@ -145,6 +147,35 @@
 		if (data.add?.offer) adding = { offer: data.add.offer, fresh: data.add.added };
 	}
 	let lessonMenu = $state(false);
+	/** The lesson's own ⋯ items: History, and Remove from my lessons (its Dialog). */
+	const lessonOwn = $derived<MenuItem[]>([
+		...(data.historyHref
+			? [
+					{
+						key: 'history',
+						icon: 'clock' as const,
+						label: 'History',
+						href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
+							dance: data.dance.slug,
+							id: String(data.team?.id),
+							kind: 'lesson',
+							rootId: String(data.lesson.id)
+						})
+					}
+				]
+			: []),
+		...(data.add?.added
+			? [
+					{
+						key: 'remove',
+						icon: 'trash' as const,
+						label: 'Remove from my lessons',
+						danger: true,
+						onclick: () => (removing = true)
+					}
+				]
+			: [])
+	]);
 	/** A reader's Edit, or the deleted group's banner: the Make it mine sheet (ruling 12). */
 	let makingMine = $state(false);
 	let removing = $state(false);
@@ -631,9 +662,6 @@
 			{/if}
 		{/snippet}
 		{#snippet right()}
-			{#if !editing && (data.add?.added || data.historyHref)}
-				<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
-			{/if}
 			<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader's pencil makes it theirs. -->
 			{#if !editing && data.canEdit}
 				<BandButton
@@ -646,22 +674,33 @@
 				<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
 				<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
 			{/if}
-		{/snippet}
-		<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
 			{#if !editing}
-				<SourceTabs
-					sources={data.sources}
+				<ItemMenu
+					bind:open={lessonMenu}
+					title={lesson.title}
 					kind="lesson"
-					dance={data.dance.slug}
 					current={lesson.id}
-					mineId={data.mineId}
-					compare={data.compare}
-					family={data.family}
+					own={lessonOwn}
 					drop={data.drop}
 					detach={data.detach}
 					copy={data.copyTo}
 					sameAs={data.sameAs}
 					move={data.move}
+				/>
+			{/if}
+		{/snippet}
+		<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
+			{#if !editing}
+				<Versions
+					sources={data.sources}
+					kind="lesson"
+					dance={data.dance.slug}
+					current={lesson.id}
+					mineId={data.mineId}
+					self={data.cloneLine.self}
+					title={lesson.title}
+					compare={data.compare}
+					family={data.family}
 					taking={sourcePlace}
 				/>
 			{/if}
@@ -669,7 +708,7 @@
 			The lesson in its pane (desktop spec, "Two columns"): from a 780 px pane two
 			columns, 5 : 7 — the notes and what it teaches on the left, its videos and
 			links on the right; one column below that and on the phone, in the phone's
-			order. While editing everything is in `top`, one 640 px column. SourceTabs
+			order. While editing everything is in `top`, one 640 px column. Versions
 			(whose toast is `fixed`) sits outside PaneColumns: nothing pinned lives in
 			its size container.
 		-->
@@ -1217,38 +1256,17 @@
 {/if}
 
 {#if data.add?.added || data.historyHref}
-	<Sheet title={lesson.title} size="small" open={lessonMenu} onclose={() => (lessonMenu = false)}>
-		<div class={GROUP}>
-			{#if data.historyHref}
-				<a
-					href={resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
-						dance: data.dance.slug,
-						id: String(data.team?.id),
-						kind: 'lesson',
-						rootId: String(lesson.id)
-					})}
-					class="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-step"
-				>
-					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
-					<span class="text-[16px] font-bold text-ink">History</span>
-				</a>
-			{/if}
-			{#if data.add?.added}
-				<button
-					type="button"
-					class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
-					aria-haspopup="dialog"
-					onclick={() => {
-						lessonMenu = false;
-						removing = true;
-					}}
-				>
-					<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
-					<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
-				</button>
-			{/if}
-		</div>
-	</Sheet>
+	{#if data.simple && !editing}
+		<!-- The simple view's own button opens the lesson's items; the full page's ⋯ is in its band. -->
+		<ItemMenu
+			bind:open={lessonMenu}
+			button={false}
+			title={lesson.title}
+			kind="lesson"
+			current={lesson.id}
+			own={lessonOwn}
+		/>
+	{/if}
 
 	<Dialog
 		open={removing}

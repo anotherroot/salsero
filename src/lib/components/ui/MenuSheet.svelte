@@ -9,29 +9,35 @@
 	 * A page's ⋯ in the band and the small sheet it opens, titled with the
 	 * item's name (spec 2026-11-06). A row is a link (`href`) or a button: the
 	 * menu closes, then its `onclick` runs (it usually opens another sheet).
-	 * Draws nothing at all when there is no item.
+	 * Draws nothing at all when there is no item. `open` is bindable, and
+	 * `button={false}` leaves the ⋯ out, for a page that opens the menu from
+	 * elsewhere (the simple lesson view's own button).
 	 */
 	let {
 		title,
 		label,
 		items,
-		focusKey
+		focusKey,
+		open = $bindable(false),
+		button = true
 	}: {
 		title: string;
 		/** The ⋯ button's name: "Position menu". */
 		label: string;
 		items: MenuItem[];
 		focusKey?: string;
+		open?: boolean;
+		button?: boolean;
 	} = $props();
-
-	let open = $state(false);
 
 	const ROW =
 		'flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step';
 </script>
 
 {#if items.length > 0}
-	<BandButton icon="more" {label} {focusKey} onclick={() => (open = true)} />
+	{#if button}
+		<BandButton icon="more" {label} {focusKey} onclick={() => (open = true)} />
+	{/if}
 
 	<Sheet {title} size="small" {open} onclose={() => (open = false)}>
 		<div class={GROUP}>

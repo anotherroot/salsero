@@ -21,7 +21,6 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
-	import RoutineMenu from '$lib/components/routines/RoutineMenu.svelte';
 	import SlotList from '$lib/components/routines/SlotList.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
@@ -57,7 +56,9 @@
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
@@ -85,6 +86,26 @@
 	let making = $state(false);
 	/** The band's ⋯ sheet. */
 	let menuOpen = $state(false);
+	/** The routine's own ⋯ item: Select slots, the way into selection without a long-press. */
+	const routineOwn = $derived<MenuItem[]>(
+		data.canEdit && data.slots.length > 0
+			? [
+					{
+						key: 'select',
+						icon: 'check-circle',
+						label: 'Select slots',
+						meta: 'Duplicate, delete or make a routine of several',
+						onclick: () => {
+							selecting = true;
+							selected = [];
+							expanded = null;
+							swiped = null;
+							void focusBand('stop-selecting');
+						}
+					}
+				]
+			: []
+	);
 	let editForm = $state<HTMLFormElement>();
 	/**
 	 * The `form` whose page banner was dismissed. Raw, not a deep proxy, so it
@@ -571,7 +592,7 @@
 	/** × or Escape: the band's ⋯ takes the focus the × had. */
 	function leaveSelecting() {
 		stopSelecting();
-		focusBand('more');
+		focusBand('item-menu');
 	}
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
@@ -658,21 +679,32 @@
 		<BandButton icon="clock" label="History" href={data.historyHref} />
 	{/if}
 	<BandButton focusKey="edit" icon="pencil" label="Edit routine" onclick={startEditing} />
-	{#if data.slots.length > 0}
-		<BandButton
-			focusKey="more"
-			icon="more"
-			label="More actions"
-			onclick={() => (menuOpen = true)}
-		/>
-	{/if}
+	{@render menu()}
+{/snippet}
+
+<!-- The ⋯: Select slots for an editor, then the copy actions. -->
+{#snippet menu()}
+	<ItemMenu
+		bind:open={menuOpen}
+		title={routine.name}
+		kind="routine"
+		current={routine.id}
+		own={routineOwn}
+		drop={data.drop}
+		detach={data.detach}
+		copy={data.copyTo}
+		sameAs={data.sameAs}
+	/>
 {/snippet}
 
 <!-- A reader's Edit makes the routine theirs (ruling 1). On the desktop it is pinned at the pane's foot instead. -->
 {#snippet readerActions()}
-	<span class="contents desk:hidden"
-		><BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} /></span
-	>
+	{#if data.makeMine}
+		<span class="contents desk:hidden"
+			><BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} /></span
+		>
+	{/if}
+	{@render menu()}
 {/snippet}
 
 {#snippet practise()}
@@ -686,13 +718,7 @@
 	compact={selecting || (!editing && bandCompact(routine.name))}
 	subtitle={selecting || editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
-	right={selecting || editing
-		? undefined
-		: data.canEdit
-			? actions
-			: data.makeMine
-				? readerActions
-				: undefined}
+	right={selecting || editing ? undefined : data.canEdit ? actions : readerActions}
 	hero={selecting || editing || !danceable ? undefined : practise}
 	heroDesk={!data.makeMine}
 >
@@ -804,18 +830,16 @@
 		{:else}
 			<!-- Selecting shows only the slots. -->
 			{#if !selecting}
-				<SourceTabs
+				<Versions
 					sources={data.sources}
 					kind="routine"
 					dance={data.dance.slug}
 					current={routine.id}
 					mineId={data.mineId}
+					self={data.cloneLine.self}
+					title={routine.name}
 					compare={data.compare}
 					family={data.family}
-					drop={data.drop}
-					detach={data.detach}
-					copy={data.copyTo}
-					sameAs={data.sameAs}
 					taking={sourcePlace}
 				/>
 				{#if bannerMessage}
@@ -1006,20 +1030,6 @@
 		</a>
 	</li>
 {/snippet}
-
-<RoutineMenu
-	open={menuOpen}
-	title={routine.name}
-	canSelect={data.slots.length > 0}
-	onselect={() => {
-		selecting = true;
-		selected = [];
-		expanded = null;
-		swiped = null;
-		focusBand('stop-selecting');
-	}}
-	onclose={() => (menuOpen = false)}
-/>
 
 {#if data.makeMine}
 	<!-- A reader's Edit and Practise, pinned at the pane's foot on the desktop (as a group's

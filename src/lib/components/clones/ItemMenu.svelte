@@ -32,7 +32,9 @@
 		sameAs = null,
 		move = null,
 		detach = null,
-		drop = null
+		drop = null,
+		open = $bindable(false),
+		button = true
 	}: {
 		/** The item's name: the menu's title. */
 		title: string;
@@ -45,6 +47,10 @@
 		move?: MoveOffer | null;
 		detach?: DetachOffer | null;
 		drop?: DropOptions | null;
+		/** The menu is open (bindable: a page may open it from elsewhere). */
+		open?: boolean;
+		/** Draw the ⋯ in the band; false when the page opens the menu itself. */
+		button?: boolean;
 	} = $props();
 
 	let opened = $state<CloneSheet | null>(null);
@@ -58,7 +64,7 @@
 	);
 </script>
 
-<MenuSheet {title} label={menuLabel(kind)} {items} focusKey="item-menu" />
+<MenuSheet {title} label={menuLabel(kind)} {items} {button} bind:open focusKey="item-menu" />
 
 {#if drop}
 	<DropSheet open={opened === 'drop'} onclose={close} {drop} fromId={current} />
