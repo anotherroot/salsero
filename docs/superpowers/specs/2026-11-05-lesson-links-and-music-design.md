@@ -276,8 +276,11 @@ plain unlink is not). A parent archived keeps its rows.
   re-points the person's practice songs onto the copies (`repoint`); song
   links on the person's own rows are re-pointed the same way.
 - **Compare, Take, Send:** a parent's Music is part of what is compared — one
-  field per song (key `song:<ref>`, value its note), so a teacher's new song or
-  changed note can be taken. Order is not compared.
+  entry per song (key `song:<ref>`), so a teacher's new song (with its note)
+  can be taken, and a removed one dropped. A changed note on a song both have
+  is not compared (decided while planning, 2026-11-06: the copy machinery
+  compares links by presence only, and teaching it value changes is more than
+  a note is worth). Order is not compared.
 - **Losing a group song for good:** when a person leaves or is removed and
   does not keep a song (Keep), or the group is purged, their own rows' Music
   links to it are deleted, in the step that clears that song from their
