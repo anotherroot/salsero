@@ -59,7 +59,7 @@
 			<span class="text-[15px] leading-snug font-extrabold text-ink">{UPDATE_ROW_TITLE}</span>
 			<span class="text-[13px] leading-snug text-muted">{updateRowLine(update, line)}</span>
 		</div>
-		<UpdateButton {update} size="sm" bind:line />
+		<UpdateButton {update} size="sm" onstatus={(l) => (line = l)} />
 		<button
 			type="button"
 			class={iconButton('bare', 'muted')}

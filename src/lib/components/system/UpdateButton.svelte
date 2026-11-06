@@ -11,19 +11,19 @@
 	let {
 		update,
 		size = 'md',
-		line = $bindable(null)
+		onstatus
 	}: {
 		update: AppUpdate;
-		/** `sm`: the button alone (Today's row), its status line handed out through `line`. */
+		/** `sm`: the button alone (Today's row), its status line handed out through `onstatus`. */
 		size?: 'md' | 'sm';
-		line?: string | null;
+		onstatus?: (line: string | null) => void;
 	} = $props();
 
 	let status = $state<BridgeStatus>('idle');
 	let bridge = $state<Bridge | null>(null);
 	const view = $derived(updateView(status));
 	$effect(() => {
-		line = view.line;
+		onstatus?.(view.line);
 	});
 
 	onMount(() => {
