@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PickerSong } from '$lib/types';
-import { groupSongs, pickerCount, searchSongs, songSections } from './search';
+import { groupSongs, musicFirst, pickerCount, searchSongs, songMeta, songSections } from './search';
 
 function song(id: number, title: string, over: Partial<PickerSong> = {}): PickerSong {
 	return {
@@ -122,5 +122,49 @@ describe("the groups' songs", () => {
 			['group', 'Class'],
 			['group', 'Class']
 		]);
+	});
+});
+
+describe("songSections with a row's Music first", () => {
+	it('leads with those songs, in the given order, the rest as before', () => {
+		const songs = [song(1, 'Alma'), song(2, 'Bembe'), song(3, 'Casa')];
+		expect(
+			songSections(songs, { label: 'Warmup', ids: [3, 1] }).map((x) => [
+				x.kind,
+				x.label,
+				x.songs.map((s) => s.id)
+			])
+		).toEqual([
+			['first', 'Warmup', [3, 1]],
+			['yours', null, [1, 2, 3]]
+		]);
+	});
+	it('leaves the lead out when none of its songs is offered', () => {
+		const songs = [song(1, 'Alma')];
+		expect(songSections(songs, { label: 'Warmup', ids: [9] }).map((x) => x.kind)).toEqual([
+			'yours'
+		]);
+	});
+});
+
+describe('songMeta', () => {
+	it('reads style, tempo and length, naming the group unless a heading does', () => {
+		const s = song(1, 'Alma', { style: 'salsa', bpm: 94, durationS: 225, group: 'Tuesdays' });
+		expect(songMeta(s, { salsa: 'Salsa' })).toBe('Tuesdays · Salsa · 94 BPM · 3:45');
+		expect(songMeta(s, { salsa: 'Salsa' }, true)).toBe('Salsa · 94 BPM · 3:45');
+	});
+});
+
+describe('musicFirst', () => {
+	it("gathers the marked songs, in the row's order, under its name", () => {
+		const songs = [
+			song(1, 'Alma', { music: { label: 'Shines', rank: 1 } }),
+			song(2, 'Bembe'),
+			song(3, 'Casa', { music: { label: 'Shines', rank: 0 } })
+		];
+		expect(musicFirst(songs)).toEqual({ label: 'Shines', ids: [3, 1] });
+	});
+	it('is null with nothing marked', () => {
+		expect(musicFirst([song(1, 'Alma')])).toBeNull();
 	});
 });

@@ -6,6 +6,7 @@
 	(`loadSongGrid`), since the owner also mounts the `<audio>`.
 -->
 <script lang="ts">
+	import { musicFirst } from '$lib/songs/search';
 	import { RUN_SOURCES } from '$lib/player/view';
 	import type { PickerSong } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -60,7 +61,7 @@
 {#if source === 'song'}
 	<div>
 		<span class={GROUP_LABEL} id="{uid}-song">Song</span>
-		<SongPicker bind:songId {songs} labelId="{uid}-song" />
+		<SongPicker bind:songId {songs} first={musicFirst(songs)} labelId="{uid}-song" />
 		{#if error}
 			<p class={FIELD_ERROR}><Icon name="warning" size={16} />{error}</p>
 		{/if}

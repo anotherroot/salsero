@@ -137,6 +137,8 @@ export interface PickerSong {
 	group: string | null;
 	/** That group's id, which tells two groups of one name apart; null for the person's own. */
 	groupId: number | null;
+	/** In a log popup: one of the row's own Music (spec B), its name and the song's place in it. */
+	music?: { label: string; rank: number };
 }
 
 /**
