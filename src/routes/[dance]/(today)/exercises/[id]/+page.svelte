@@ -48,7 +48,8 @@
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { AddOffer } from '$lib/types';
@@ -634,28 +635,37 @@
 		{:else if !editing && parts.editSettings && data.makeMine}
 			<BandButton icon="pencil" label="Edit drill" onclick={() => (makingMine = true)} />
 		{/if}
+		{#if !editing && parts.sourceTabs}
+			<ItemMenu
+				{title}
+				kind="drill"
+				current={data.drill?.id ?? exercise.id}
+				drop={data.drop}
+				detach={data.detach}
+				copy={data.copyTo}
+			/>
+		{/if}
 	{/snippet}
 
 	<!--
 		The exercise in its pane (desktop spec, "Today: the list and the open exercise"):
 		from a 780 px pane two columns, 1 : 1, the log form on the left (Log set pinned
 		under it) and the exercise on the right; one column below that, the form first.
-		The phone's page is the right column alone, in its own order. SourceTabs (its
+		The phone's page is the right column alone, in its own order. Versions (its
 		toast is `fixed`) sits above the columns: nothing pinned lives in their container.
 	-->
 	<div class="flex flex-col gap-3.5 pb-28 desk:pb-0">
 		{#if !editing && parts.sourceTabs}
-			<SourceTabs
+			<Versions
 				sources={data.sources}
 				kind="drill"
 				dance={data.dance.slug}
 				current={data.drill?.id ?? exercise.id}
 				mineId={data.mineId}
+				self={data.cloneLine.self}
+				{title}
 				compare={data.compare}
 				family={data.family}
-				drop={data.drop}
-				detach={data.detach}
-				copy={data.copyTo}
 				taking={sourcePlace}
 			/>
 		{/if}

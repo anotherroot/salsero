@@ -15,7 +15,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import PointStill from '$lib/components/positions/PointStill.svelte';
@@ -286,6 +287,15 @@
 					onclick={startEditing}
 				/>
 			{/if}
+			<ItemMenu
+				title={position.name}
+				kind="position"
+				current={position.id}
+				drop={data.drop}
+				detach={data.detach}
+				copy={data.copyTo}
+				sameAs={data.sameAs}
+			/>
 		{/if}
 	{/snippet}
 
@@ -316,7 +326,7 @@
 	a gap and the source tabs under the header, then two columns from a 780 px pane,
 	1 : 1 (the picture, the hold, notes and its figures on the left; video, lessons and
 	routines on the right). One column below that and on the phone, in the phone's
-	order. SourceTabs (whose toast is `fixed`) sits outside PaneColumns: nothing pinned
+	order. Versions (whose toast is `fixed`) sits outside PaneColumns: nothing pinned
 	lives in its size container.
 -->
 {#snippet content()}
@@ -375,18 +385,16 @@
 			</Banner>
 		{/if}
 
-		<SourceTabs
+		<Versions
 			sources={data.sources}
 			kind="position"
 			dance={slug}
 			current={position.id}
 			mineId={data.mineId}
+			self={data.cloneLine.self}
+			title={position.name}
 			compare={data.compare}
 			family={data.family}
-			drop={data.drop}
-			detach={data.detach}
-			copy={data.copyTo}
-			sameAs={data.sameAs}
 		/>
 
 		<PaneColumns ratio="1:1" class="gap-2" left={about} right={watched} />
