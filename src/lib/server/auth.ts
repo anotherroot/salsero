@@ -30,7 +30,9 @@ export function validateSession(id: string | undefined) {
 				lastName: users.lastName,
 				// Carried on the session so the day boundary costs no extra query.
 				timezone: users.timezone,
-				isAdmin: users.isAdmin
+				isAdmin: users.isAdmin,
+				// How much app: the layouts draw the tabs from it without a query.
+				level: users.level
 			})
 			.from(sessions)
 			.innerJoin(users, eq(users.id, sessions.userId))

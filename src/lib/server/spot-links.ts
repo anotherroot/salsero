@@ -36,6 +36,7 @@ import type {
 } from '$lib/types';
 import { allows, spotAccess, type Reach } from './access';
 import { reconcileEntries } from './entries';
+import { autoAddPending } from './auto-add';
 import { lessonsReaching } from './lesson-links';
 import { inSpace, isTeam, ownedBy, spaceOfRow, type Space, type Wall } from './scope';
 import { usableBy, usableOf, type Usable } from './usable';
@@ -216,7 +217,18 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 			.values({ spotId, ...target })
 			.returning({ id: spotLinks.id })
 			.get().id;
-		logSectionLink(tx, space, 'add', { id, spotId, target }, Date.now());
+		const now = Date.now();
+		logSectionLink(tx, space, 'add', { id, spotId, target }, now);
+		// A drill on a class lesson's section is new to practise (the Link popup's create runs
+		// here too). A figure is never added by Add, and a recording's section is on no lesson.
+		if (isTeam(space) && 'exerciseId' in target && 'lessonVideoId' in video.owner) {
+			const lesson = tx
+				.select({ id: lessonVideos.lessonId })
+				.from(lessonVideos)
+				.where(eq(lessonVideos.id, video.owner.lessonVideoId))
+				.get();
+			if (lesson) autoAddPending(tx, space.teamId, [lesson.id], now);
+		}
 		return id;
 	});
 }

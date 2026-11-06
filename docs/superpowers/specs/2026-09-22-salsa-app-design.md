@@ -686,6 +686,10 @@ unsaved.
   way to discard.
 
 The look (colours, type, icons, shared components) and the five tabs (Today, Moves, Lessons, Groups, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
+Which of them a person sees depends on their level (`tabsFor`): Everything has
+all five; Practise and keep my own has Today, Lessons, Groups and Music; Follow
+my class has Today and My class (the Groups route under that name). See
+[`2026-11-05-levels-design.md`](2026-11-05-levels-design.md).
 
 ## Where you are
 

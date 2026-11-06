@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const layout = readFileSync('src/routes/[dance]/groups/+layout.svelte', 'utf8');
 const list = readFileSync('src/lib/components/teams/GroupList.svelte', 'utf8');
+const classes = readFileSync('src/lib/components/teams/ClassList.svelte', 'utf8');
 
 // The list lives in a layout, so on a group's route a bare `?/create` would post to the group.
 describe('the Groups layout', () => {
@@ -12,7 +13,7 @@ describe('the Groups layout', () => {
 	});
 
 	it('has no form posting to a bare action, and never reads page.form', () => {
-		for (const src of [layout, list]) {
+		for (const src of [layout, list, classes]) {
 			expect(src).not.toMatch(/<form[^>]*action=["'{`]*\?\//);
 			expect(src).not.toContain('page.form');
 			expect(src).not.toContain('form?.');

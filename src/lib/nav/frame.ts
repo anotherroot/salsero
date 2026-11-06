@@ -10,7 +10,15 @@ export type Frame = 'side' | 'bare' | 'card' | 'none';
 
 const SHARED_SIDE = new Set(['/settings', '/settings/storage', '/voice', '/admin']);
 const BARE = new Set(['/[dance]/player', '/[dance]/share']);
-const CARD = new Set(['/login', '/join', '/welcome', '/app', '/device/pair', '/g/[code]']);
+const CARD = new Set([
+	'/login',
+	'/join',
+	'/welcome',
+	'/welcome/start',
+	'/app',
+	'/device/pair',
+	'/g/[code]'
+]);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the signature the frame's callers use
 export function frameOf(routeId: string | null, _signedIn: boolean): Frame {

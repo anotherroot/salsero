@@ -30,6 +30,7 @@
 	import type { Snippet } from 'svelte';
 	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { refreshIfSent, sheetStack } from '$lib/sheets/history.svelte';
+	import { followKeyboard } from '$lib/sheets/keyboard';
 	import Icon from './Icon.svelte';
 	import { iconButton } from './styles';
 
@@ -116,6 +117,11 @@
 			release();
 			refreshIfSent();
 		}
+	});
+
+	/** While open, the sheet stays above an on-screen keyboard that covers the page (`sheets/keyboard.ts`). */
+	$effect(() => {
+		if (open && dialog) return followKeyboard(dialog);
 	});
 
 	/** Closed by its owner, or unmounted while open: its entry goes too. */
@@ -238,10 +244,15 @@
 
 <style>
 	dialog {
+		/* Above an on-screen keyboard laid over the page (`followKeyboard`): the
+		   dialog's box is the part still visible, and 88 % of that at most.
+		   Without a keyboard none of the three is set. */
+		top: var(--kb-top, 0px);
+		bottom: var(--kb-bottom, 0px);
 		margin: auto auto 0;
 		width: 100%;
 		max-width: 560px;
-		max-height: 88dvh;
+		max-height: calc(0.88 * var(--vvh, 100dvh));
 		padding: 0;
 		border: none;
 		border-radius: 28px 28px 0 0;
@@ -254,7 +265,7 @@
 	}
 
 	dialog.tall {
-		height: 88dvh;
+		height: calc(0.88 * var(--vvh, 100dvh));
 	}
 
 	.fade {

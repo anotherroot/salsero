@@ -35,6 +35,7 @@
 	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
 	import { holdsBack, staleMove } from '$lib/page-epoch';
 	import { errorBack, errorView } from '$lib/nav/error-view';
+	import { levelShown } from '$lib/levels/levels';
 
 	let { data, children } = $props();
 	guardNavigation();
@@ -504,7 +505,7 @@
 			<ErrorScreen
 				view={errorView(0, undefined, true)}
 				back={{
-					label: errorBack(page.url.pathname, navDance.slug).label,
+					label: errorBack(page.url.pathname, navDance.slug, levelShown(data.user?.level)).label,
 					onclick: () => (offline = null)
 				}}
 				todayHref={`/${navDance.slug}`}

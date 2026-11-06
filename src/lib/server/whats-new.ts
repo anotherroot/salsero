@@ -16,7 +16,7 @@ import {
 } from './db/schema';
 import type { DanceSlug } from '$lib/dances/dances';
 
-export type OpenKind = 'lesson' | 'song';
+export type OpenKind = 'lesson' | 'song' | 'comments';
 
 export type WhatsNew = {
 	lessons: Set<number>;

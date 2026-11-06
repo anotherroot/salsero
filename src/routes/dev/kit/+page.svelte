@@ -452,6 +452,15 @@
 						onproblem={() => {}}
 					/>
 				</div>
+				<div class="{CLIP} rounded-2xl bg-surface">
+					<VideoFrame
+						src="/recordings/none.mp4"
+						owner={{ recordingId: 1 }}
+						caption={{ title: 'Simple player · Follow my class', meta: 'no sections' }}
+						simple
+						onproblem={() => {}}
+					/>
+				</div>
 				<SectionCard section={kitSection('Clave on its own')} />
 				<SectionCard section={kitSection(null)}>
 					{#snippet unlink()}

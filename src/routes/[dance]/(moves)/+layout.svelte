@@ -12,6 +12,7 @@
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
+	import { groupModeShown, levelShown } from '$lib/levels/levels';
 	import FiguresList from '$lib/components/moves/FiguresList.svelte';
 	import RoutinesList from '$lib/components/moves/RoutinesList.svelte';
 	import PositionsList from '$lib/components/moves/PositionsList.svelte';
@@ -81,7 +82,7 @@
 </script>
 
 {#snippet right()}
-	<GroupModeButton />
+	{#if groupModeShown(levelShown(page.data.user?.level))}<GroupModeButton />{/if}
 	<BandButton
 		icon="plus"
 		label={segment === 'figures'
