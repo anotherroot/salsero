@@ -40,6 +40,7 @@ import {
 	routineSteps,
 	sets,
 	songDrops,
+	songLinks,
 	songs,
 	spotLinks,
 	spotPositionLinks,
@@ -48,6 +49,7 @@ import {
 	videoSpots
 } from '../db/schema';
 import { inSpace, ownedBy, type Wall } from '../scope';
+import { ownLinks } from '../song-links';
 import { labelFor } from '../figures';
 import { reviewName } from '../lessons';
 import { addLesson } from '../entries';
@@ -165,6 +167,8 @@ type Found = {
 	/** Song: the person's exercises using it, and those whose drop remembers it. */
 	songPicks: number[];
 	songDropIds: number[];
+	/** Song: the Music rows of the person's own lessons, drills and routines suggesting it. */
+	songLinkIds: number[];
 	twin: { setId: string } | null;
 	/** Position: the person's figures starting in it, and ending in it. */
 	starts: number[];
@@ -183,6 +187,7 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 		entries: [],
 		songPicks: [],
 		songDropIds: [],
+		songLinkIds: [],
 		twin: null,
 		starts: [],
 		ends: [],
@@ -309,6 +314,12 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 		}
 	}
 	if (kind === 'song') {
+		found.songLinkIds = db
+			.select({ id: songLinks.id })
+			.from(songLinks)
+			.where(and(ownLinks(db, wall), eq(songLinks.songId, fromId)))
+			.all()
+			.map((r) => r.id);
 		found.songPicks = db
 			.select({ id: exercises.id })
 			.from(exercises)
@@ -747,6 +758,24 @@ export function repoint(
 					.set({ songId: toId })
 					.where(inArray(exercises.id, found.songPicks))
 					.run();
+			}
+			// A Music row moves to the new song, or goes where its parent already suggests that one.
+			for (const linkId of found.songLinkIds) {
+				const link = db.select().from(songLinks).where(eq(songLinks.id, linkId)).get();
+				if (!link) continue;
+				const parent =
+					link.lessonId !== null
+						? eq(songLinks.lessonId, link.lessonId)
+						: link.exerciseId !== null
+							? eq(songLinks.exerciseId, link.exerciseId)
+							: eq(songLinks.routineId, link.routineId!);
+				const there = db
+					.select({ id: songLinks.id })
+					.from(songLinks)
+					.where(and(parent, eq(songLinks.songId, toId)))
+					.get();
+				if (there) db.delete(songLinks).where(eq(songLinks.id, linkId)).run();
+				else db.update(songLinks).set({ songId: toId }).where(eq(songLinks.id, linkId)).run();
 			}
 			if (found.songDropIds.length > 0) {
 				db.delete(songDrops)

@@ -37,11 +37,13 @@ import {
 	routines,
 	routineSteps,
 	songDrops,
+	songLinks,
 	songs
 } from '../db/schema';
 import { reachFrom, type Reach } from '../access';
 import { getTeam } from '../teams';
 import { ownedBy, type Wall } from '../scope';
+import { ownLinks } from '../song-links';
 import { storageOf } from '../storage';
 import { labelFor } from '../figures';
 import { restoreLesson } from '../lessons';
@@ -387,6 +389,10 @@ function keepTx(
 		.run();
 	tx.delete(songDrops)
 		.where(and(inArray(songDrops.exerciseId, mine), inArray(songDrops.songId, teamSongs)))
+		.run();
+	// And off their own rows' Music (spec B): the kept ones were re-pointed onto the copies.
+	tx.delete(songLinks)
+		.where(and(ownLinks(tx, wall), inArray(songLinks.songId, teamSongs)))
 		.run();
 
 	tx.delete(lessonAdds)

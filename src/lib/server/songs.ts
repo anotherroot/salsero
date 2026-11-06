@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, sets, songs, teamMembers, teams, type Song } from './db/schema';
+import { exercises, sets, songLinks, songs, teamMembers, teams, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
@@ -608,6 +608,8 @@ export function deleteSong(
 		const live = users.filter((e) => e.archivedAt === null).map((e) => e.name);
 		if (live.length) return { ok: false as const, usedBy: live };
 		tx.update(exercises).set({ songId: null }).where(eq(exercises.songId, id)).run();
+		// Music rows suggesting it go with it (spec B): they never block a Delete.
+		tx.delete(songLinks).where(eq(songLinks.songId, id)).run();
 		tx.delete(songs).where(eq(songs.id, id)).run();
 		return { ok: true as const, file: song.audioFile };
 	});

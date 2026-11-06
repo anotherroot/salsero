@@ -27,6 +27,7 @@ import {
 	recordings,
 	routines,
 	songDrops,
+	songLinks,
 	songs,
 	spotLinks,
 	spotPositionLinks,
@@ -142,6 +143,7 @@ function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 		const songIds = groupSongs.map((s) => s.id);
 		tx.update(exercises).set({ songId: null }).where(inArray(exercises.songId, songIds)).run();
 		tx.delete(songDrops).where(inArray(songDrops.songId, songIds)).run();
+		tx.delete(songLinks).where(inArray(songLinks.songId, songIds)).run();
 		tx.delete(songs).where(inArray(songs.id, songIds)).run();
 		for (const s of groupSongs) if (s.file) files.push({ dir: 'audio', file: s.file });
 

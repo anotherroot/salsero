@@ -10,11 +10,11 @@
  * sees it marked not `shared`. A group's add, note change and remove are
  * logged (`logChange`, subject `song`). Remove is a hard delete, not trashed.
  */
-import { and, asc, eq, max, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, max, or, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, lessons, routines, songLinks, songs } from './db/schema';
 import { logChange } from './changes';
-import { inSpace, isTeam, type Space } from './scope';
+import { inSpace, isTeam, ownedBy, type Space, type Wall } from './scope';
 import { practiceSong, songAccess } from './access';
 import { shareSong } from './song-share';
 import { songChoices, songSample } from './songs';
@@ -293,4 +293,22 @@ export function removeMusic(db: Db, space: Space, linkId: number, now: number): 
 /** What a note save saw (the clash check): the note. */
 export function musicSeen(link: { note: string | null }): Record<string, string | null> {
 	return { note: link.note };
+}
+
+/** Song links whose parent (a lesson, drill or routine) is the person's own. */
+export function ownLinks(db: Db, wall: Wall): SQL {
+	return or(
+		inArray(
+			songLinks.lessonId,
+			db.select({ id: lessons.id }).from(lessons).where(ownedBy(lessons, wall))
+		),
+		inArray(
+			songLinks.exerciseId,
+			db.select({ id: exercises.id }).from(exercises).where(ownedBy(exercises, wall))
+		),
+		inArray(
+			songLinks.routineId,
+			db.select({ id: routines.id }).from(routines).where(ownedBy(routines, wall))
+		)
+	)!;
 }

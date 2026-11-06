@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq, ne } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { songs, teamChanges, users } from './db/schema';
+import { songLinks, songs, teamChanges, users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { setRole } from './membership';
 import { createCustomExercise } from './exercises';
@@ -14,7 +14,17 @@ import { createLesson } from './lessons';
 import { createRoutine } from './routines';
 import { addFigureExercise, createFigure } from './figures';
 import { createSongFromUpload } from './songs';
-import { shareSong, unshareSong } from './song-share';
+import { deleteGroupSong, shareSong, unshareSong } from './song-share';
+import { crossRefs } from './integrity';
+import { deleteSong } from './songs';
+import { purgeTrash } from './trash';
+import { purgeTeams } from './team-purge';
+import { deleteTeam } from './teams';
+import { TEAM_PURGE_MS, TRASH_MS } from '$lib/limits';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { addMusic, listMusic, musicNote, removeMusic, setMusicNote } from './song-links';
 import type { TeamSpace, Wall } from './scope';
 
@@ -27,15 +37,17 @@ const ED: TeamSpace = { teamId: 1, actorId: 'u2', dance: 'salsa' };
 let db: Db;
 
 const song = (space: Parameters<typeof createSongFromUpload>[1], title: string, ready = true) => {
+	// A stored name, as Keep's copy refuses any other.
+	const file = `${randomUUID()}.mp3`;
 	const s = createSongFromUpload(db, space, {
-		file: `${title}.mp3`,
+		file,
 		mime: 'audio/mpeg',
 		title,
 		style: 'salsa'
 	});
 	if (ready)
 		db.update(songs)
-			.set({ status: 'ready', durationS: 200, beatsJson: '[]', audioFile: `${title}.mp3` })
+			.set({ status: 'ready', durationS: 200, beatsJson: '[]', audioFile: file })
 			.where(eq(songs.id, s.id))
 			.run();
 	return s.id;
@@ -222,5 +234,90 @@ describe('musicNote', () => {
 		expect(musicNote(null)).toBeNull();
 		expect(musicNote('y'.repeat(500))).toBe('y'.repeat(500));
 		expect(musicNote('y'.repeat(501))).toBeUndefined();
+	});
+});
+
+describe('integrity', () => {
+	it("reports a group's row pointing at another group's song", () => {
+		createTeam(db, 'u2', 'salsa', 'Wednesdays', 3);
+		const other: TeamSpace = { teamId: 2, actorId: 'u2', dance: 'salsa' };
+		const theirs = song(other, 'Other class');
+		const lesson = lessonIn(ED);
+		db.insert(songLinks).values({ songId: theirs, lessonId: lesson, sortOrder: 1 }).run();
+		expect(crossRefs(db)).toEqual([
+			`song_links on lessons ${lesson}: song ${theirs} is outside group 1`
+		]);
+	});
+
+	it("reports a person's row pointing at another person's song, or a group they are not in", () => {
+		const theirs = song(U2, 'Theirs');
+		const lesson = lessonIn(U1);
+		db.insert(songLinks).values({ songId: theirs, lessonId: lesson, sortOrder: 1 }).run();
+		createTeam(db, 'u2', 'salsa', 'Wednesdays', 3);
+		const stranger = song({ teamId: 2, actorId: 'u2', dance: 'salsa' }, 'Strangers');
+		const drill = drillIn(U1);
+		db.insert(songLinks).values({ songId: stranger, exerciseId: drill, sortOrder: 1 }).run();
+		expect(crossRefs(db)).toEqual([
+			`song_links on lessons ${lesson}: song ${theirs} is another person's`,
+			`song_links on exercises ${drill}: song ${stranger} is group 2's, which u1 is not in`
+		]);
+	});
+
+	it("accepts a person's link to their group's song, shared or not", () => {
+		const s = song(ED, 'Chan Chan');
+		shareSong(db, ED, s, T);
+		const u3: Wall = { userId: 'u3', dance: 'salsa' };
+		addMusic(db, u3, { lessonId: lessonIn(u3) }, s, null, T);
+		unshareSong(db, ED, s, T + 1);
+		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('when a song goes for good', () => {
+	const scratch = () => {
+		const dir = mkdtempSync(join(tmpdir(), 'song-links-'));
+		return { lessonVideos: dir, recordings: dir, audio: dir };
+	};
+
+	it("a person's Delete takes the song's links with it", () => {
+		const s = song(U1, 'Casa Mía');
+		const lesson = { lessonId: lessonIn(U1) };
+		addMusic(db, U1, lesson, s, null, T);
+		expect(deleteSong(db, 'u1', s)).toMatchObject({ ok: true });
+		expect(db.select().from(songLinks).all()).toEqual([]);
+	});
+
+	it("a group song's purge from Recently deleted takes its links", async () => {
+		const s = song(ED, 'Chan Chan');
+		shareSong(db, ED, s, T);
+		addMusic(db, ED, { lessonId: lessonIn(ED) }, s, null, T);
+		addMusic(
+			db,
+			{ userId: 'u3', dance: 'salsa' },
+			{ lessonId: lessonIn({ userId: 'u3', dance: 'salsa' }) },
+			s,
+			null,
+			T
+		);
+		expect(deleteGroupSong(db, ED, s, T)).toBe(true);
+		await purgeTrash(db, T + TRASH_MS + 1, scratch());
+		expect(db.select().from(songs).where(eq(songs.id, s)).get()).toBeUndefined();
+		expect(db.select().from(songLinks).all()).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("a group's purge takes the links to its songs", async () => {
+		const s = song(ED, 'Chan Chan');
+		shareSong(db, ED, s, T);
+		addMusic(db, ED, { lessonId: lessonIn(ED) }, s, null, T);
+		expect(deleteTeam(db, 1, 'u1', T)).toBe(true);
+		const dirs = scratch();
+		writeFileSync(
+			join(dirs.audio, db.select().from(songs).where(eq(songs.id, s)).get()!.audioFile!),
+			'x'
+		);
+		await purgeTeams(db, T + TEAM_PURGE_MS + 1, dirs);
+		expect(db.select().from(songs).where(eq(songs.id, s)).get()).toBeUndefined();
+		expect(db.select().from(songLinks).all()).toEqual([]);
 	});
 });
