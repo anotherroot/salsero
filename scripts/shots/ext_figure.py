@@ -51,6 +51,20 @@ def _gone_top(page):
         raise AssertionError("a missing recording is still the top video")
 
 
+def _menu(page):
+    page.get_by_role("button", name="Figure menu").first.click()
+    page.wait_for_timeout(300)
+
+
+def _create(page):
+    # Create exercise from the menu: the toast answers, and the menu then links Its exercise.
+    _menu(page)
+    page.get_by_role("dialog").get_by_role("button", name="Create exercise").click()
+    page.get_by_text("On Today now").wait_for(timeout=10000)
+    page.get_by_role("button", name="Figure menu").first.click()
+    page.get_by_role("dialog").get_by_role("link", name="Its exercise").wait_for(timeout=5000)
+
+
 def _follows(page):
     page.get_by_role("button", name="Follows from").click()
     page.get_by_role("dialog").get_by_role("searchbox").fill("dile")
@@ -84,6 +98,8 @@ def _edit(page):
 
 
 SCENES = {
+    "figure-menu": Scene("/{dance}/figures/{goneFigure}", _menu),
+    "figure-create": Scene("/{dance}/figures/{goneFigure}", _create),
     "figure-gone-top": Scene("/{dance}/figures/{goneTopFigure}", _gone_top),
     "figure-missing": Scene("/{dance}/figures/{goneFigure}", _missing),
     "figure-follows": Scene("/{dance}/figures/{goneFigure}", _follows),
