@@ -18,18 +18,17 @@
 	import RemoveWarning from '$lib/components/figures/RemoveWarning.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
-	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
-	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
-	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import { spotLabel } from '$lib/video/spots';
-	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
-	import SectionCard from '$lib/components/ui/SectionCard.svelte';
-	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
+	import TopVideo from '$lib/components/figures/TopVideo.svelte';
+	import SectionRow from '$lib/components/figures/SectionRow.svelte';
+	import RecordingRow from '$lib/components/figures/RecordingRow.svelte';
+	import RelationsCard from '$lib/components/figures/RelationsCard.svelte';
+	import AddRecordingSheet from '$lib/components/figures/AddRecordingSheet.svelte';
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
@@ -46,7 +45,6 @@
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import {
 		button,
-		CLIP,
 		DANGER_SHARED,
 		GROUP,
 		iconButton,
@@ -60,12 +58,13 @@
 		deleteRecordingBody,
 		figureSubtitle,
 		recordingDay,
-		routineUseMeta,
-		timingLine
+		recordingsTitle,
+		showRecordings,
+		timingLine,
+		topVideo
 	} from '$lib/figures/page';
 	import { styleLabelOf, tagsEmpty } from '$lib/positions/view';
 	import { localDay } from '$lib/day/day';
-	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -88,13 +87,11 @@
 		if (failed('move')) moving = true;
 	});
 	const FigureLog = logFor('figure');
-	/**
-	 * Recordings whose player failed, and why. "missing" means the server has no
-	 * file; "unplayable" means the file is there but this browser cannot decode
-	 * it — typically an iPhone HEVC .mov opened in desktop Chrome — so it is
-	 * offered as a download instead of being reported as lost.
-	 */
-	let broken = $state<Record<number, MediaProblem>>({});
+	/** Recordings' `+ Add`: the sheet, and the page's own upload it starts (`UploadButton` with `bare`). */
+	let adding = $state(false);
+	let chooseVideo = $state<(() => void) | undefined>();
+	/** Recordings whose file is missing or will not play here, as their rows found: never the top video. */
+	let broken = $state<number[]>([]);
 
 	const figure = $derived(data.figure);
 	const variation = $derived(data.variation);
@@ -133,7 +130,10 @@
 	/** A reader's Edit: the Make it mine sheet (ruling 1). */
 	let makingMine = $state(false);
 	let uploading = $state(false);
-	const empty = $derived(variation.recordings.length === 0);
+	/** Sections and recordings: one list, Recordings. */
+	const items = $derived(variation.sections.length + variation.recordings.length);
+	const empty = $derived(items === 0);
+	const top = $derived(topVideo(variation.sections, variation.recordings, new Set(broken)));
 	const today = $derived(localDay(Date.now(), timezone));
 
 	const figureHref = (id: number) =>
@@ -483,6 +483,18 @@
 
 {#snippet about()}
 	{#if !editing}
+		{#if top}
+			<TopVideo
+				{top}
+				title="{figure.name} · {variation.name}"
+				day={top.kind === 'recording'
+					? recordingDay(localDay(top.recording.createdAt, timezone), today)
+					: ''}
+				linking={data.canEdit}
+				canEdit={data.canEdit}
+				onclosed={() => void refreshWhenSettled()}
+			/>
+		{/if}
 		<!-- The variation's own facts: style and partner, timing, handholds, notes. -->
 		<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
 			<div class="flex flex-wrap gap-1.5">
@@ -514,7 +526,7 @@
 			</div>
 			<div class="-mx-4 h-px bg-hairline"></div>
 			<div class="flex flex-col gap-[3px]">
-				<span class="text-[13px] font-bold text-muted">Handholds</span>
+				<span class="text-[13px] font-bold text-muted">Positions</span>
 				{#if untagged}
 					<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
 				{:else}
@@ -631,302 +643,114 @@
 				<FieldError id="practise-error" message={failed('practise') ?? ''} />
 			{/if}
 		{/if}
-
-		{#if !(readerTeam && data.routines.length === 0)}
-			<h2 class="{SECTION_LABEL} pt-2">
-				{data.routines.length > 0 ? `In routines · ${data.routines.length}` : 'In routines'}
-			</h2>
-		{/if}
-		{#if data.routines.length === 0}
-			{#if !readerTeam}
-				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] font-bold text-status">
-					Not in a routine yet
-				</p>
-			{/if}
-		{:else}
-			<ul class={GROUP}>
-				{#each data.routines as use (use.id)}
-					<li>
-						<a
-							href={routineHref(use.id)}
-							class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
-						>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
-								<span class="text-[13px] text-muted"
-									>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
-										<span class="font-bold text-done">loops</span>{/if}</span
-								>
-							</span>
-							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		{#if data.myRoutines.length > 0}
-			<h2 class="{SECTION_LABEL} pt-2">In your routines · {data.myRoutines.length}</h2>
-			<ul class={GROUP}>
-				{#each data.myRoutines as use (use.id)}
-					<li>
-						<a
-							href={routineHref(use.id)}
-							class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
-						>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
-								<span class="text-[13px] text-muted"
-									>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
-										<span class="font-bold text-done">loops</span>{/if}</span
-								>
-							</span>
-							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		{#each [{ title: 'Follows from', items: data.followsFrom }, { title: 'Leads to', items: data.leadsTo }] as list, i (list.title)}
-			<h2 class="{SECTION_LABEL} {i === 0 ? 'pt-2' : 'pt-1.5'}">{list.title}</h2>
-			{#if list.items.length === 0}
-				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">Nothing yet</p>
-			{:else}
-				<ul class={GROUP}>
-					{#each list.items as item (item.id)}
-						<li>
-							<a
-								href={figureHref(item.id)}
-								class="flex min-h-12 items-center gap-2.5 py-2 pr-3.5 pl-4"
-							>
-								<span class="min-w-0 flex-1 text-[16px] leading-tight font-bold text-ink"
-									>{item.name}</span
-								>
-								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		{/each}
 	{/if}
 {/snippet}
 
 {#snippet watched()}
-	<!-- While editing: the recordings with their delete, and the linked sections with Unlink. -->
-	<!-- At the right column's top from `two:`, level with the facts card. -->
-	<section
-		class="flex flex-col gap-3 pt-3.5 {editing ? '' : 'two:pt-0'}"
-		class:hidden={editing && empty && !uploading}
-	>
-		{#if !editing || !empty}
-			<h2 class="{SECTION_LABEL} -mb-1.5">
-				{!empty ? `Recordings · ${variation.recordings.length}` : 'Recordings'}
-			</h2>
-		{/if}
-		{#if variation.recordings.length > 0}
-			<ul class="flex flex-col gap-3">
-				{#each variation.recordings as rec (rec.id)}
-					{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
-					{@const refused = deleteRefusal(rec.id)}
-					{@const held = data.taking?.held[rec.id] ?? false}
-					{@const taken = takeRefusal(rec.id)}
-					{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
-					{#snippet recTake()}{@render takeButton(rec)}{/snippet}
-					<li class="{CLIP} rounded-2xl bg-surface">
-						{#if broken[rec.id] === 'missing'}
-							<VideoProblem
-								title="This file is missing"
-								body="The server has no file for this recording."
-								meta="{day} · {byteSize(rec.sizeBytes)}"
-							>
-								{#snippet action()}
-									{#if editing}{@render trash(rec, day)}{/if}
-								{/snippet}
-							</VideoProblem>
-						{:else if broken[rec.id] === 'unplayable'}
-							<VideoProblem
-								title="Can’t play here"
-								body="This browser can’t play this file. Download it or open it on your phone."
-								meta="{day} · {byteSize(rec.sizeBytes)}"
-							>
-								{#snippet action()}
-									{#if editing}
-										{@render trash(rec, day)}
-									{:else}
-										<a
-											href={resolve('/recordings/[file]', { file: rec.file })}
-											download
-											class={button('tertiary', 'sm')}><Icon name="download" size={18} />Download</a
-										>
-									{/if}
-								{/snippet}
-							</VideoProblem>
-						{:else}
-							<VideoFrame
-								src="/recordings/{rec.file}"
-								sourceUrl={rec.sourceUrl}
-								kind={rec.kind}
-								owner={{ recordingId: rec.id }}
-								title="{figure.name} · {variation.name}"
-								caption={{
-									title: day,
-									meta: data.taking
-										? recordingMeta(held, byteSize(rec.sizeBytes))
-										: byteSize(rec.sizeBytes)
-								}}
-								onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
-								onclosed={() => void refreshWhenSettled()}
-								linking={data.canEdit}
-								canEdit={data.canEdit}
-								action={editing ? recTrash : data.taking && !held ? recTake : undefined}
-								sections={variation.recordingSections[rec.id]}
-							/>
-						{/if}
-						{#if refused}
-							<div class="px-4 pb-3">
-								<Banner kind="error" title="Not deleted">{refused}</Banner>
-							</div>
-						{/if}
-						{#if taken}
-							<div class="px-4 pb-3">
-								<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
-							</div>
-						{/if}
-						<!-- Linking is done from the figure or drill a section shows; here a link
-					     can be undone, archived target or not, so the recording can go. -->
-						{#if (variation.recordingSections[rec.id] ?? []).length > 0}
-							<VideoSections
-								sections={variation.recordingSections[rec.id]}
-								src="/recordings/{rec.file}"
-								owner={{ recordingId: rec.id }}
-								linking={data.canEdit}
-								canEdit={data.canEdit}
-								unlink={editing}
-							/>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		<!-- Keyed: the buttons hold upload state, and a step to another variation must not carry it over.
-			     One tree whether or not it sits in the empty card (or is hidden while editing), so a
-			     started upload is not remounted. While a file goes up its own card stands alone. -->
-		{#if !data.canEdit}
-			{#if empty}
-				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No recordings yet</p>
+	<!--
+		Recordings (figure page rework): the linked sections and the recordings in one
+		card, `+ Add` in the heading row. While editing: each recording's delete and each
+		section's Unlink. A reader with nothing here sees nothing. At the right column's
+		top from `two:`, level with the video.
+	-->
+	{#if showRecordings({ canEdit: data.canEdit, items })}
+		<section
+			class="flex flex-col gap-2 pt-3.5 {editing ? '' : 'two:pt-0'}"
+			class:hidden={editing && empty && !uploading}
+		>
+			<div class="flex min-h-11 items-center justify-between">
+				<h2 class={SECTION_LABEL}>{recordingsTitle(items)}</h2>
+				{#if data.canEdit && !editing}
+					<button
+						type="button"
+						data-focus="recordings-add"
+						class={button('tertiary', 'sm')}
+						aria-label="Add to Recordings"
+						aria-haspopup="dialog"
+						onclick={() => (adding = true)}><Icon name="plus" size={20} />Add</button
+					>
+				{/if}
+			</div>
+			<!-- Keyed: the upload's state must not carry over to another variation. Mounted
+			     in and out of edit mode, so a started upload is never remounted; it draws
+			     only its progress card and a failure. -->
+			{#if data.canEdit && !data.app}
+				{#key variation.id}
+					<UploadButton
+						bare
+						bind:chooser={chooseVideo}
+						url="/api/figures/{variation.id}/recordings"
+						accept="video/*"
+						label="Add video"
+						noun="recording"
+						bind:busy={uploading}
+					/>
+				{/key}
 			{/if}
-		{:else}{#key variation.id}
-				<div
-					class={empty && !uploading
-						? 'flex flex-col gap-3 rounded-2xl bg-surface p-4'
-						: 'flex flex-col'}
-					class:hidden={editing && !uploading}
-				>
-					{#if empty && !uploading}
-						<div class="flex items-center gap-3">
-							<span
-								class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
-								><Icon name="video" size={22} /></span
-							>
-							<span class="flex flex-col gap-0.5">
-								<span class="text-[16px] font-bold">No recordings yet</span>
-								<span class="text-[13px] text-muted">Film it after class, or add a voice note</span>
-							</span>
-						</div>
-					{/if}
-					{#if data.app}
-						<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
-						<AppUploadLink
-							href={uploadLink(
-								{ figure: variation.id },
-								{
-									back: page.url.pathname + page.url.search,
-									name: `${figure.name} · ${variation.name}`
-								}
-							)}
-							label="Add video"
-							kind={empty ? 'primary' : 'secondary'}
-						/>
-						<div class="mt-3">
-							<UploadButton
-								url="/api/figures/{variation.id}/recordings"
-								accept="audio/*"
-								icon="mic"
-								label="Add audio"
-								noun="recording"
-								bind:busy={uploading}
+			{#if !empty}
+				<ul class={GROUP}>
+					{#each variation.sections as s (s.linkId)}
+						<!-- Unlinking is an edit, like deleting a recording. -->
+						{#snippet unlink()}
+							<form method="POST" action="?/unlinkSection" use:enhance={unlinkSection(s.linkId)}>
+								<input type="hidden" name="linkId" value={s.linkId} />
+								<button
+									type="submit"
+									class={button('tertiary', 'sm')}
+									aria-label="Unlink {spotLabel(s.spot)} from {figure.name} · {variation.name}"
+									aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
+									>Unlink</button
+								>
+							</form>
+						{/snippet}
+						<li>
+							<SectionRow
+								section={s}
+								focusKey="section-{s.linkId}"
+								canEdit={data.canEdit}
+								trailing={editing ? unlink : undefined}
 							/>
-						</div>
-					{:else}
-						<UploadButton
-							url="/api/figures/{variation.id}/recordings"
-							accept="video/*,audio/*"
-							label="Add video or audio"
-							noun="recording"
-							kind={empty ? 'primary' : 'secondary'}
-							size={empty ? 'sm' : 'md'}
-							bind:busy={uploading}
-						/>
-					{/if}
-				</div>
-			{/key}{/if}
-	</section>
-
-	{#if !editing || variation.sections.length > 0}
-		<section class="pt-4">
-			<div class="flex min-h-11 items-center justify-between pr-1.5">
-				<h2 class={SECTION_LABEL}>
-					{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
-				</h2>
-			</div>
-			<div class="mt-1">
-				{#if variation.sections.length === 0}
-					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
-						{data.canEdit ? 'Point at the part of a lesson video that shows this.' : 'None yet.'}
-					</p>
-				{:else}
-					<ul class="flex flex-col gap-2">
-						{#each variation.sections as s (s.linkId)}
-							<li>
-								<SectionCard section={s} focusKey="section-{s.linkId}" canEdit={data.canEdit}>
-									{#snippet unlink()}
-										<!-- Unlinking is an edit, like deleting a recording. -->
-										{#if editing}
-											<form
-												method="POST"
-												action="?/unlinkSection"
-												use:enhance={unlinkSection(s.linkId)}
-											>
-												<input type="hidden" name="linkId" value={s.linkId} />
-												<button
-													type="submit"
-													class={button('tertiary', 'sm')}
-													aria-label="Unlink {spotLabel(
-														s.spot
-													)} from {figure.name} · {variation.name}"
-													aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
-													>Unlink</button
-												>
-											</form>
-										{/if}
-									{/snippet}
-								</SectionCard>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-				{#if failed('unlinkSection')}
-					<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
-				{/if}
-				<!-- Links are added while reading; editing only takes them away. -->
-				{#if !editing && data.canEdit}
-					<div class="mt-2">
-						<PickerOpener label="Link a section…" onclick={() => (linkingSection = true)} />
-					</div>
-				{/if}
-			</div>
+						</li>
+					{/each}
+					{#each variation.recordings as rec (rec.id)}
+						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
+						{@const refused = deleteRefusal(rec.id)}
+						{@const held = data.taking?.held[rec.id] ?? false}
+						{@const taken = takeRefusal(rec.id)}
+						{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
+						{#snippet recTake()}{@render takeButton(rec)}{/snippet}
+						<li>
+							<RecordingRow
+								recording={rec}
+								{day}
+								title="{figure.name} · {variation.name}"
+								focusKey="recording-open-{rec.id}"
+								linking={data.canEdit}
+								canEdit={data.canEdit}
+								meta={data.taking ? recordingMeta(held, byteSize(rec.sizeBytes)) : undefined}
+								trailing={editing ? recTrash : data.taking && !held ? recTake : undefined}
+								onproblem={() => {
+									if (!broken.includes(rec.id)) broken = [...broken, rec.id];
+								}}
+								onclosed={() => void refreshWhenSettled()}
+							/>
+							{#if refused}
+								<div class="px-4 pb-3">
+									<Banner kind="error" title="Not deleted">{refused}</Banner>
+								</div>
+							{/if}
+							{#if taken}
+								<div class="px-4 pb-3">
+									<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if failed('unlinkSection')}
+				<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
+			{/if}
 		</section>
 	{/if}
 
@@ -947,6 +771,18 @@
 {/snippet}
 
 {#snippet aboutEnd()}
+	<!-- What grows with use: three rows, each opening a sheet with search (option B2). -->
+	<div class="pt-3.5">
+		<RelationsCard
+			follows={data.followsFrom}
+			leads={data.leadsTo}
+			routines={data.routines}
+			mine={data.myRoutines}
+			mineLabel={data.myRoutines.length > 0 ? (readerTeam?.name ?? data.team?.name ?? null) : null}
+			{figureHref}
+			{routineHref}
+		/>
+	</div>
 	{#if data.taughtIn.length > 0}
 		<h2 class="{SECTION_LABEL} pt-3.5">Taught in · {data.taughtIn.length}</h2>
 		<ul class={GROUP}>
@@ -1158,6 +994,20 @@
 		onclose={() => (linkingSection = false)}
 		groups={data.linkable}
 		hidden={{}}
+	/>
+
+	<AddRecordingSheet
+		open={adding}
+		onclose={() => (adding = false)}
+		figureLabel="{figure.name} · {variation.name}"
+		app={!!data.app}
+		{uploading}
+		appHref={uploadLink(
+			{ figure: variation.id },
+			{ back: page.url.pathname + page.url.search, name: `${figure.name} · ${variation.name}` }
+		)}
+		onsection={() => (linkingSection = true)}
+		onvideo={() => chooseVideo?.()}
 	/>
 {/if}
 

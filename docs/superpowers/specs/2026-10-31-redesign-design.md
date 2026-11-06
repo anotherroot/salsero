@@ -314,20 +314,25 @@ rules the boards follow that are not obvious from looking at them.
 ### A figure
 
 - Compact band: the label ("Enchufla · Doble") with "Figure · starts on 1 · 16 counts" under it.
-- A facts card: style and partner badges, the timing as eight counts with the
-  start count filled ("Starts on 1 · 16 counts · 2 eights"), handholds, notes.
-  Then Practice (frequency with "+", a row to the exercise), Follows from /
-  Leads to as two lists, recordings (16:9 player, date · size, mirror, speed,
-  full screen) each with its sections, linked sections, links, Taught in,
-  "Move Doble to…", "Archive Doble".
+- Since 2026-11-06 ([figure page rework](2026-11-06-figure-page-rework-design.md)):
+  the first section (else the first video recording) as a 16:9 picture with a
+  play disc and a caption, opening full screen; a facts card: style and partner
+  badges, the timing as eight counts with the start count filled, Positions,
+  notes. Then Practice; Recordings, one card of section and recording rows with
+  `+ Add` (tertiary, at the right of the heading row: Link a section, Video from
+  the phone); Links; Follows from, Leads to and In routines as one card of three
+  rows with counts, each opening a sheet with search; Taught in; "Move Doble
+  to…", "Archive Doble". Pending: Practice, Move and Archive go into the ⋯ menu
+  (plan 2), and links join Recordings (plan 3).
 - The figure switcher is pinned directly above the tab bar, on the tab-bar
   surface, and hidden while editing. Its sheet lists
   the move's figures with New figure in the footer, and links to the move's page.
 - Edit: Starts in and Ends in (any number of positions each, two pickers), a 1–8 "Starts on" grid,
   Counts with 4/8/16 shortcuts; a "Not saved" banner carries the server's
   message.
-- Upload in progress is a card ("Uploading… 42%"). In the app, Add video
-  (compressed in the background) and Add audio are separate buttons.
+- Upload in progress is a card ("Uploading… 42%") at the top of Recordings. In
+  the app, Video from the phone hands over to the app (compressed in the
+  background); no new audio since 2026-11-06.
 - Move to… and archiving the last figure warn in danger ("Move and remove
   move", "Archive and remove move").
 
