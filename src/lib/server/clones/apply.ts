@@ -1061,8 +1061,19 @@ export async function syncFrom(
 	const picked = currentPicks(db, picks);
 	if (unpicked(diffs, picked).length > 0) return { ok: false, reason: 'pick', message: PICK_BOTH };
 	const keys = diffs.filter((d) => picked[d.key] === 'theirs').map((d) => d.key);
-	// Nothing taken: nothing written, not even the snapshot (the pair stays as it was).
-	if (keys.length === 0) return { ok: true };
+	// Keep mine: no field changes, only the pair's snapshot, so the other now
+	// reads as behind (what differs is the receiver's own). No History line:
+	// nothing a person edits changed.
+	if (keys.length === 0) {
+		return db.transaction((t) => {
+			const tx = t as unknown as Db;
+			if (digest(flatOf(tx, kind, intoId)) !== seen)
+				return { ok: false as const, reason: 'stale' as const, message: STALE };
+			const next = nextBase(intoFlat, fromFlat, base?.skip ?? [], hashValue);
+			writePair(tx, kind, intoId, fromId, next, now);
+			return { ok: true as const };
+		});
+	}
 
 	const plan = filesFor(db, kind, fromId, keys, intoFlat, fromFlat);
 	const bytes = plan.reduce((n, f) => n + f.bytes, 0);
