@@ -17,7 +17,7 @@ import { CLASS_ED, CLASS_T, makeClass, type Class } from '$lib/server/test-class
 import { createLesson, linkExercise, publishLesson } from '$lib/server/lessons';
 import { createCustomExercise } from '$lib/server/exercises';
 import { addState } from '$lib/server/entries';
-import { createTeam, joinTeam } from '$lib/server/teams';
+import { joinTeam } from '$lib/server/teams';
 import type { Level } from '$lib/levels/levels';
 import { load as layoutLoad } from './+layout.server';
 import { load as indexLoad } from './+page.server';

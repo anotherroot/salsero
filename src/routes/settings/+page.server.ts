@@ -20,7 +20,7 @@ import { askForMore, openRequest, storageOf } from '$lib/server/storage';
 import { askedLine } from '$lib/storage-view';
 import { Hold, UNDO_MS } from '$lib/server/undo-hold';
 import { int, optionalText, text } from '$lib/server/form';
-import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
+import { isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
 import { DAILY_MAX, DAILY_MIN, dailyCountOf, setDailyCount } from '$lib/server/today-picks';
