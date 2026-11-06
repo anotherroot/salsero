@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+	HIDE_UPDATE,
+	UPDATE_ROW_TITLE,
+	hiddenToday,
+	hideMark,
 	parseBridge,
 	showsUpdateNeeded,
 	updateNeededNow,
+	updateRowLine,
 	updateView,
 	type AppUpdate,
 	type BridgeStatus
@@ -99,5 +104,23 @@ describe('updateNeededNow', () => {
 		expect(at('available', 'refresh', { shown: true })).toBe(false);
 		expect(at('none', 'navigated', { shown: true })).toBe(false);
 		expect(at(null, 'load', { shown: true })).toBe(false);
+	});
+});
+
+describe('the Update row on Today', () => {
+	it('says which version is ready, or what the Update button is doing', () => {
+		expect(updateRowLine(update('available'), null)).toBe('Version 1.1 is ready');
+		expect(updateRowLine({ ...update('available'), latest: null }, null)).toBe('Ready to install');
+		expect(updateRowLine(update('available'), 'No connection.')).toBe('No connection.');
+		expect(UPDATE_ROW_TITLE).toBe('New version of the app');
+		expect(HIDE_UPDATE).toBe('Hide until tomorrow');
+	});
+
+	it('× hides it for the rest of the day, for that version', () => {
+		expect(hiddenToday(hideMark('2026-11-06', 2), '2026-11-06', 2)).toBe(true);
+		expect(hiddenToday(hideMark('2026-11-06', 2), '2026-11-07', 2)).toBe(false);
+		expect(hiddenToday(hideMark('2026-11-06', 2), '2026-11-06', 3)).toBe(false);
+		expect(hiddenToday(null, '2026-11-06', 2)).toBe(false);
+		expect(hiddenToday('junk', '2026-11-06', 2)).toBe(false);
 	});
 });
