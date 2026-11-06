@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { menuLabel, orderMenu, type MenuItem } from './menu';
 
-const item = (key: string, danger = false): MenuItem => ({ key, icon: 'clock', label: key, danger });
+const item = (key: string, danger = false): MenuItem => ({
+	key,
+	icon: 'clock',
+	label: key,
+	danger
+});
 
 describe('orderMenu', () => {
 	it('puts the page’s own first, the copy actions next, and every danger last', () => {
