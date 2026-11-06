@@ -1,7 +1,8 @@
 /**
  * What a figure's page derives for display. PURE and client-safe.
  */
-import { longDayLabel } from '$lib/format';
+import { fold } from '$lib/fold';
+import { longDayLabel, plural } from '$lib/format';
 import { possessive } from '$lib/clones/view';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
@@ -161,4 +162,78 @@ export function figureSubtitle(
 	const lead = team ? `${possessive(team)} figure` : 'Figure';
 	if (f.startCount === null || f.lengthCounts === null) return lead;
 	return `${lead} · starts on ${f.startCount} · ${f.lengthCounts} counts`;
+}
+
+/** What the top of the page plays: the first section, else the first video recording, else nothing. */
+export type TopVideo<S, R> =
+	{ kind: 'section'; section: S } | { kind: 'recording'; recording: R } | null;
+
+export function topVideo<S, R extends { kind: 'video' | 'audio' }>(
+	sections: S[],
+	recordings: R[]
+): TopVideo<S, R> {
+	if (sections.length > 0) return { kind: 'section', section: sections[0] };
+	const video = recordings.find((r) => r.kind === 'video');
+	return video ? { kind: 'recording', recording: video } : null;
+}
+
+/** "Recordings", or "Recordings · 3" with sections and recordings counted together. */
+export function recordingsTitle(n: number): string {
+	return n === 0 ? 'Recordings' : `Recordings · ${n}`;
+}
+
+/** A recording row's meta: "Video · 24 MB". */
+export function recordingMetaLine(kind: 'video' | 'audio', size: string): string {
+	return `${kind === 'video' ? 'Video' : 'Audio'} · ${size}`;
+}
+
+/** An editor always sees Recordings (it holds + Add); a reader only when there is something in it. */
+export function showRecordings(i: { canEdit: boolean; items: number }): boolean {
+	return i.canEdit || i.items > 0;
+}
+
+export type RelationKey = 'follows' | 'leads' | 'routines';
+
+const RELATION_LABEL: Record<RelationKey, string> = {
+	follows: 'Follows from',
+	leads: 'Leads to',
+	routines: 'In routines'
+};
+
+/** The card of three rows: each with its count, an empty one "None" and not opening. */
+export function relationRows(c: {
+	follows: number;
+	leads: number;
+	routines: number;
+}): { key: RelationKey; label: string; count: string; opens: boolean }[] {
+	return (['follows', 'leads', 'routines'] as const).map((key) => ({
+		key,
+		label: RELATION_LABEL[key],
+		count: c[key] === 0 ? 'None' : String(c[key]),
+		opens: c[key] > 0
+	}));
+}
+
+/** A row's sheet title: "Follows from", "Leads to", "In 10 routines". */
+export function relationTitle(key: RelationKey, n: number): string {
+	return key === 'routines' ? `In ${plural(n, 'routine', 'routines')}` : RELATION_LABEL[key];
+}
+
+/** Routines that loop first, then by name. */
+export function sortRoutines<T extends { name: string; loops: boolean }>(uses: T[]): T[] {
+	return [...uses].sort(
+		(a, b) =>
+			Number(b.loops) - Number(a.loops) ||
+			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+	);
+}
+
+/** The sheet's search: every word, accents and case folded, somewhere in the row's name. */
+export function filterRows<T extends { name: string }>(rows: T[], q: string): T[] {
+	const words = fold(q).split(/\s+/).filter(Boolean);
+	if (words.length === 0) return rows;
+	return rows.filter((r) => {
+		const name = fold(r.name);
+		return words.every((w) => name.includes(w));
+	});
 }
