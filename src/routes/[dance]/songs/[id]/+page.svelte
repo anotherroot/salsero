@@ -15,10 +15,13 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
-	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
+	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SongDetailsSheet from '$lib/components/songs/SongDetailsSheet.svelte';
@@ -35,7 +38,6 @@
 		stopSharingTitle
 	} from '$lib/songs/library';
 	import { reportOpen } from '$lib/teams/opens-api';
-	import type { IconName } from '$lib/icons/icons';
 	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
@@ -59,7 +61,6 @@
 	/** The count speed waiting for an answer to "This clears your 1s." */
 	let tempoAsk: string | null = $state(null);
 	/** A group song's ⋯ menu, and what it opens. */
-	let menu = $state(false);
 	let unsharing = $state(false);
 	let deleting = $state(false);
 	/** A reader's Edit: the Make it mine sheet (ruling 12: once Make my own copy). */
@@ -71,7 +72,50 @@
 	const withSeen = (): { seen?: string } => (seen ? { seen } : {});
 	const group = $derived(data.group);
 	const canEdit = $derived(data.canEdit);
-	const hasMenu = $derived(group !== null && (data.historyHref || canEdit));
+	const groupMenu = $derived(group !== null && (data.historyHref || canEdit));
+	/** A group song's own ⋯ items: History, Stop sharing, Delete (each as before). */
+	const songOwn = $derived<MenuItem[]>(
+		!groupMenu || !group
+			? []
+			: [
+					...(data.historyHref
+						? [
+								{
+									key: 'history',
+									icon: 'clock' as const,
+									label: 'History',
+									href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
+										dance: data.dance.slug,
+										id: String(group.id),
+										kind: 'song',
+										rootId: String(data.song.id)
+									})
+								}
+							]
+						: []),
+					...(canEdit && data.song.sharedAt !== null
+						? [
+								{
+									key: 'unshare',
+									icon: 'eye-off' as const,
+									label: 'Stop sharing',
+									onclick: () => (unsharing = true)
+								}
+							]
+						: []),
+					...(canEdit
+						? [
+								{
+									key: 'delete',
+									icon: 'trash' as const,
+									label: 'Delete',
+									danger: true,
+									onclick: () => (deleting = true)
+								}
+							]
+						: [])
+				]
+	);
 	/** A group's ready draft: its editor shares it from the pinned bar. */
 	const shareBar = $derived(
 		group !== null && canEdit && data.song.sharedAt === null && data.song.status === 'ready'
@@ -224,6 +268,15 @@
 					await focusAfterRemoval(keys, `anchor-${beat}`, 'count-speed-heading');
 			};
 		};
+	/** The band's ⋯ is open. */
+	let menuOpen = $state(false);
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>({
+		drop: data.drop,
+		detach: data.detach,
+		copy: data.copyTo,
+		sameAs: data.sameAs
+	});
 </script>
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
@@ -238,28 +291,31 @@
 		/>
 	{/snippet}
 	{#snippet right()}
-		{#if hasMenu}
-			<BandButton icon="more" label="Song menu" onclick={() => (menu = true)} />
-		{/if}
 		{#if canEdit}
 			<BandButton icon="edit" label="Song details" onclick={() => (detailsOpen = true)} />
 		{:else if data.makeMine}
 			<BandButton icon="edit" label="Edit song" onclick={() => (makingMine = true)} />
 		{/if}
+		{#if hasMenu(songOwn, offers)}
+			<BandButton
+				icon="more"
+				label={menuLabel('song')}
+				focusKey="item-menu"
+				onclick={() => (menuOpen = true)}
+			/>
+		{/if}
 	{/snippet}
 
-	<SourceTabs
+	<Versions
 		sources={data.sources}
 		kind="song"
 		dance={data.dance.slug}
 		current={song.id}
 		mineId={data.mineId}
+		self={data.cloneLine.self}
+		title={name}
 		compare={data.compare}
 		family={data.family}
-		drop={data.drop}
-		detach={data.detach}
-		copy={data.copyTo}
-		sameAs={data.sameAs}
 		taking={sourcePlace}
 	/>
 	{#if group && !canEdit}
@@ -538,58 +594,6 @@
 	</BottomBar>
 {/if}
 
-{#snippet menuRow(icon: IconName, label: string, onclick: () => void, danger = false)}
-	<button
-		type="button"
-		class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
-		aria-haspopup="dialog"
-		{onclick}
-	>
-		<span class="flex-none {danger ? 'text-danger' : 'text-accent-text'}"
-			><Icon name={icon} size={22} /></span
-		>
-		<span class="text-[16px] font-bold {danger ? 'text-danger' : 'text-ink'}">{label}</span>
-	</button>
-{/snippet}
-
-{#if hasMenu && group}
-	<Sheet title={name} open={menu} onclose={() => (menu = false)}>
-		<div class={GROUP}>
-			{#if data.historyHref}
-				<a
-					href={resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
-						dance: data.dance.slug,
-						id: String(group.id),
-						kind: 'song',
-						rootId: String(song.id)
-					})}
-					class="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-step"
-				>
-					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
-					<span class="text-[16px] font-bold text-ink">History</span>
-				</a>
-			{/if}
-			{#if canEdit && song.sharedAt !== null}
-				{@render menuRow('eye-off', 'Stop sharing', () => {
-					menu = false;
-					unsharing = true;
-				})}
-			{/if}
-			{#if canEdit}
-				{@render menuRow(
-					'trash',
-					'Delete',
-					() => {
-						menu = false;
-						deleting = true;
-					},
-					true
-				)}
-			{/if}
-		</div>
-	</Sheet>
-{/if}
-
 {#if data.makeMine}
 	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
@@ -712,3 +716,6 @@
 		</form>
 	{/snippet}
 </Dialog>
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu bind:open={menuOpen} title={name} kind="song" current={song.id} own={songOwn} {offers} />

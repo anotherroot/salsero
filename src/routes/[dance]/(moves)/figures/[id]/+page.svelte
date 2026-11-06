@@ -40,7 +40,10 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { cloneSubtitle, fromLessonNote, NOT_TAKEN, recordingMeta, TAKE } from '$lib/clones/view';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import {
@@ -293,6 +296,15 @@
 			}
 		};
 	};
+	/** The band's ⋯ is open. */
+	let menuOpen = $state(false);
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>({
+		drop: data.drop,
+		detach: data.detach,
+		copy: data.copyTo,
+		sameAs: data.sameAs
+	});
 </script>
 
 <svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
@@ -356,13 +368,23 @@
 		{#if !editing && data.canEdit}
 			<BandButton focusKey="start-editing" icon="pencil" label="Edit" onclick={startEditing} />
 		{/if}
+		{#if !editing}
+			{#if hasMenu([], offers)}
+				<BandButton
+					icon="more"
+					label={menuLabel('figure')}
+					focusKey="item-menu"
+					onclick={() => (menuOpen = true)}
+				/>
+			{/if}
+		{/if}
 	{/snippet}
 
 	<!--
 		The figure in its pane (desktop spec, "Two columns"): the move's figures as tabs
 		and the source tabs under the header, then two columns from a 780 px pane, 5 : 7
 		(about it on the left, what is watched on the right). One column below that and
-		on the phone, in the phone's order. The tabs and SourceTabs (whose toast is
+		on the phone, in the phone's order. The tabs and Versions (whose toast is
 		`fixed`) sit outside PaneColumns: nothing pinned lives in its size container.
 	-->
 	<div class="flex flex-col gap-2 {editing ? 'pb-28' : 'pb-4'}">
@@ -376,18 +398,16 @@
 				canEdit={data.canEdit}
 				onnew={() => (addingFigure = true)}
 			/>
-			<SourceTabs
+			<Versions
 				sources={data.sources}
 				kind="figure"
 				dance={slug}
 				current={variation.id}
 				mineId={data.mineId}
+				self={data.cloneLine.self}
+				title="{figure.name} · {variation.name}"
 				compare={data.compare}
 				family={data.family}
-				drop={data.drop}
-				detach={data.detach}
-				copy={data.copyTo}
-				sameAs={data.sameAs}
 				taking={data.taking ? sourcePlace : null}
 			/>
 		{/if}
@@ -1030,3 +1050,13 @@
 		onclose={() => (logging = false)}
 	/>
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={menuOpen}
+	title={`${figure.name} · ${variation.name}`}
+	kind="figure"
+	current={variation.id}
+	own={[]}
+	{offers}
+/>

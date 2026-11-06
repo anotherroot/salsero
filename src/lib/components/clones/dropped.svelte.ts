@@ -2,7 +2,7 @@
  * The toast Drop my copy leaves for the page it lands on (board C5 p3: "Back
  * on Salsa Tuesdays’. Your copy is archived."). The drop's sheet sets it, tagged
  * with the version's page (`href`) and the page it leaves (`from`), before it
- * navigates. A page's `SourceTabs` shows it only on `href`, once; anywhere else
+ * navigates. A page's `Versions` shows it only on `href`, once; anywhere else
  * but `from` (a landing that failed and a later page) it is dropped unshown.
  * Lost on a full reload, which is fine for a toast.
  */
