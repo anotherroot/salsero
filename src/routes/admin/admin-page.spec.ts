@@ -27,17 +27,31 @@ beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	db.insert(users)
-		.values({ id: 'admin', email: 'a@example.com', passwordHash: 'x', isAdmin: true })
+		.values({
+			id: 'admin',
+			email: 'a@example.com',
+			passwordHash: 'x',
+			isAdmin: true,
+			dance: 'salsa'
+		})
 		.run();
 	db.insert(users)
-		.values({ id: 'p', email: 'p@example.com', passwordHash: 'x', storageLimitBytes: GB })
+		.values({
+			id: 'p',
+			email: 'p@example.com',
+			passwordHash: 'x',
+			storageLimitBytes: GB,
+			dance: 'salsa'
+		})
 		.run();
 });
 
 type Ev = (e: unknown) => Promise<unknown>;
 function ev(isAdmin: boolean, fields: Record<string, string> = {}) {
 	return {
-		locals: { user: { id: isAdmin ? 'admin' : 'p', email: 'x', timezone: 'UTC', isAdmin } },
+		locals: {
+			user: { id: isAdmin ? 'admin' : 'p', email: 'x', timezone: 'UTC', isAdmin, dance: 'salsa' }
+		},
 		request: new Request('http://localhost/admin', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -123,8 +137,7 @@ describe('admin page: apps', () => {
 			people: { email: string; apps: string[] }[];
 		};
 		expect(d.people.find((x) => x.email === 'p@example.com')!.apps).toEqual([
-			'Salsa app 2 · today',
-			'Bachata: no app'
+			'Salsa app 2 · today'
 		]);
 	});
 });
@@ -175,7 +188,7 @@ describe('admin page: groups', () => {
 		expect(d.freeBytes).toBe(8 * GB);
 		expect(d.limitsTotalBytes).toBe(GB + 200 * 1024 ** 2);
 		expect(d.people.find((p) => p.email === 'p@example.com')).toMatchObject({
-			groupsMade: { salsa: 1, bachata: 0 },
+			groupsMade: 1,
 			groupLimit: 2
 		});
 	});
@@ -221,5 +234,53 @@ describe('admin page: groups', () => {
 		expect(await act('setGroupLimit', ev(true, { userId: 'ghost', n: '1' }))).toMatchObject({
 			status: 404
 		});
+	});
+});
+
+describe('the admin of one dance (the dance split)', () => {
+	beforeEach(() => {
+		db.insert(users)
+			.values({
+				id: 'q',
+				email: 'p@example.com',
+				passwordHash: 'x',
+				storageLimitBytes: GB,
+				dance: 'bachata'
+			})
+			.run();
+	});
+
+	// Catches: the salsa admin seeing the bachata app's people and groups.
+	it('lists only its own dance', async () => {
+		createTeam(db, 'q', 'bachata', 'Bachata class', 1);
+		askForMore(db, { userId: 'q' }, 'please', 1);
+		const d = (await (load as unknown as Ev)(ev(true))) as {
+			people: { id: string }[];
+			groups: unknown[];
+			requests: unknown[];
+		};
+		expect(d.people.map((p) => p.id).sort()).toEqual(['admin', 'p']);
+		expect(d.groups).toEqual([]);
+		expect(d.requests).toEqual([]);
+	});
+
+	// Catches: the salsa admin changing a bachata account's limits by its id.
+	it("changes nothing of the other dance's accounts, groups or requests", async () => {
+		const made = createTeam(db, 'q', 'bachata', 'Bachata class', 1);
+		if (!made.ok) throw new Error('setup');
+		askForMore(db, { userId: 'q' }, null, 1);
+		const req = String(db.select().from(storageRequests).all()[0].id);
+		const status = async (p: Promise<unknown>) => ((await p) as { status?: number }).status;
+		expect(await status(act('setLimit', ev(true, { userId: 'q', preset: '5' })))).toBe(404);
+		expect(await status(act('setGroupLimit', ev(true, { userId: 'q', n: '7' })))).toBe(404);
+		expect(
+			await status(act('setTeamLimit', ev(true, { teamId: String(made.teamId), preset: '5' })))
+		).toBe(404);
+		expect(await status(act('grant', ev(true, { id: req, preset: '5' })))).toBe(404);
+		expect(await status(act('decline', ev(true, { id: req })))).toBe(404);
+		const q = db.select().from(users).where(eq(users.id, 'q')).get()!;
+		expect([q.storageLimitBytes, q.groupLimit]).toEqual([GB, null]);
+		expect(db.select().from(teams).get()?.storageLimitBytes).toBeNull();
+		expect(db.select().from(storageRequests).get()?.resolvedAt).toBeNull();
 	});
 });

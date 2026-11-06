@@ -192,7 +192,7 @@
 						>
 							<span class="flex min-w-0 flex-1 flex-col">
 								<span class="text-[16px] font-bold break-words text-ink">{g.name}</span>
-								<span class="text-[13px] text-muted">{g.dance} · {groupMeta(g)}</span>
+								<span class="text-[13px] text-muted">{groupMeta(g)}</span>
 							</span>
 							<span class="flex flex-none text-chevron"
 								><Icon name="chevron-right" size={20} /></span
@@ -290,7 +290,7 @@
 			<input type="hidden" name="userId" value={person.id} />
 			<p class="text-[14px] text-muted">{groupsMadeLine(person.groupsMade, person.groupLimit)}</p>
 			<label class="block">
-				<span class={LABEL}>Groups they may make in each dance</span>
+				<span class={LABEL}>Groups they may make</span>
 				<input name="n" type="number" inputmode="numeric" min="0" step="1" class={FIELD} />
 			</label>
 			<button type="submit" class={button('primary', 'md', true)}>Set group limit</button>

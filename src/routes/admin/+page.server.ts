@@ -1,6 +1,5 @@
 import { fail } from '@sveltejs/kit';
 import { appsLines, gbToBytes } from '$lib/admin-view';
-import { DANCE_SLUGS, type DanceSlug } from '$lib/dances/dances';
 import { localDay } from '$lib/day/day';
 import { listAppsSeen } from '$lib/server/app-seen';
 import { getDb } from '$lib/server/db';
@@ -9,6 +8,7 @@ import { createInvite, inviteQr } from '$lib/server/invites';
 import { requireAdmin } from '$lib/server/scope';
 import { teamLimit, teamsMade } from '$lib/server/teams';
 import {
+	adminReaches,
 	freeDisk,
 	limitsTotal,
 	listOpenRequests,
@@ -24,28 +24,28 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	requireAdmin(locals);
 	const tz = locals.user!.timezone;
+	// The admin of one dance: its people, groups and requests only (the dance split).
+	const dance = locals.user!.dance;
 	const db = getDb();
 	const now = Date.now();
 	const today = localDay(now, tz);
 	const seen = listAppsSeen(db);
 	return {
-		dance: locals.user!.dance,
+		dance,
 		// Numbers and names only: never a lesson title or anything a person made.
 		limitsTotalBytes: limitsTotal(db),
 		freeBytes: await freeDisk(),
-		groups: listTeamsForAdmin(db),
-		requests: listOpenRequests(db).map((r) => ({ ...r, day: localDay(r.createdAt, tz) })),
-		people: listPeople(db).map((p) => ({
+		groups: listTeamsForAdmin(db, dance),
+		requests: listOpenRequests(db, dance).map((r) => ({ ...r, day: localDay(r.createdAt, tz) })),
+		people: listPeople(db, dance).map((p) => ({
 			...p,
 			day: localDay(p.createdAt, tz),
-			groupsMade: Object.fromEntries(DANCE_SLUGS.map((d) => [d, teamsMade(db, p.id, d)])) as Record<
-				DanceSlug,
-				number
-			>,
+			groupsMade: teamsMade(db, p.id, dance),
 			groupLimit: teamLimit(db, p.id),
 			apps: appsLines(
 				seen.filter((s) => s.userId === p.id).map((s) => ({ ...s, day: localDay(s.seenAt, tz) })),
-				today
+				today,
+				dance
 			)
 		}))
 	};
@@ -87,7 +87,8 @@ export const actions: Actions = {
 		const limit = limitFrom(form);
 		if (id === undefined) return fail(400, { message: 'Pick a request.' });
 		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
-		if (!resolveRequest(getDb(), id, 'granted', limit, Date.now())) {
+		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
+		if (!reach || !resolveRequest(getDb(), id, 'granted', limit, Date.now())) {
 			return fail(404, { message: 'That request is already closed.' });
 		}
 		return { ok: true };
@@ -98,7 +99,8 @@ export const actions: Actions = {
 		requireAdmin(locals);
 		const id = int(await request.formData(), 'id');
 		if (id === undefined) return fail(400, { message: 'Pick a request.' });
-		if (!resolveRequest(getDb(), id, 'declined', null, Date.now())) {
+		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
+		if (!reach || !resolveRequest(getDb(), id, 'declined', null, Date.now())) {
 			return fail(404, { message: 'That request is already closed.' });
 		}
 		return { ok: true };
@@ -111,7 +113,8 @@ export const actions: Actions = {
 		const userId = String(form.get('userId') ?? '');
 		const limit = form.get('none') !== null ? null : limitFrom(form);
 		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
-		if (!userId || !setStorageLimit(getDb(), userId, limit)) {
+		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
+		if (!reach || !setStorageLimit(getDb(), userId, limit)) {
 			return fail(404, { message: 'That person is gone.' });
 		}
 		return { ok: true };
@@ -124,7 +127,11 @@ export const actions: Actions = {
 		const teamId = int(form, 'teamId');
 		const limit = form.get('computed') !== null ? null : limitFrom(form);
 		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
-		if (teamId === undefined || !setTeamLimit(getDb(), teamId, limit)) {
+		if (
+			teamId === undefined ||
+			!adminReaches(getDb(), locals.user!.dance, { teamId }) ||
+			!setTeamLimit(getDb(), teamId, limit)
+		) {
 			return fail(404, { message: 'That group is gone.' });
 		}
 		return { ok: true };
@@ -140,7 +147,8 @@ export const actions: Actions = {
 		if (n !== null && !(Number.isInteger(n) && n >= 0 && n <= 1000)) {
 			return fail(400, { message: 'Give a whole number of groups, 0 or more.' });
 		}
-		if (!userId || !setGroupLimit(getDb(), userId, n)) {
+		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
+		if (!reach || !setGroupLimit(getDb(), userId, n)) {
 			return fail(404, { message: 'That person is gone.' });
 		}
 		return { ok: true };

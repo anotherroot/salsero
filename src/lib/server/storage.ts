@@ -18,6 +18,7 @@ import { byteSize, plural } from '$lib/format';
 import { fullName } from '$lib/names';
 import { DISK_FLOOR_BYTES, TEAM_BYTES_PER_PERSON } from '$lib/limits';
 import type { StorageItem } from '$lib/types';
+import type { DanceSlug } from '$lib/dances/dances';
 import type { Db } from './db';
 import { audioDir } from './files';
 import {
@@ -439,7 +440,10 @@ function validLimit(limitBytes: number | null): boolean {
  * Everyone, oldest first. Numbers and the email only: the admin must not see
  * what anyone has (anti-goal), so nothing else is selected.
  */
-export function listPeople(db: Db): {
+export function listPeople(
+	db: Db,
+	dance: DanceSlug
+): {
 	id: string;
 	email: string;
 	createdAt: number;
@@ -456,6 +460,7 @@ export function listPeople(db: Db): {
 			isAdmin: users.isAdmin
 		})
 		.from(users)
+		.where(eq(users.dance, dance))
 		.orderBy(users.createdAt, users.email)
 		.all()
 		.map((u) => ({
@@ -472,7 +477,10 @@ export function listPeople(db: Db): {
  * Open requests, oldest first, with the numbers asked about: the person's, or
  * the group's (with its name) when `teamId` is set. Numbers and names only.
  */
-export function listOpenRequests(db: Db): {
+export function listOpenRequests(
+	db: Db,
+	dance: DanceSlug
+): {
 	id: number;
 	userId: string;
 	email: string;
@@ -483,37 +491,40 @@ export function listOpenRequests(db: Db): {
 	teamId: number | null;
 	teamName: string | null;
 }[] {
-	return db
-		.select({
-			id: storageRequests.id,
-			userId: storageRequests.userId,
-			email: users.email,
-			note: storageRequests.note,
-			createdAt: storageRequests.createdAt,
-			limit: users.storageLimitBytes,
-			teamId: storageRequests.teamId,
-			teamName: teams.name
-		})
-		.from(storageRequests)
-		.innerJoin(users, eq(users.id, storageRequests.userId))
-		.leftJoin(teams, eq(teams.id, storageRequests.teamId))
-		.where(isNull(storageRequests.resolvedAt))
-		.orderBy(storageRequests.createdAt, storageRequests.id)
-		.all()
-		.map((r) => {
-			const owner: Owner = r.teamId === null ? { userId: r.userId } : { teamId: r.teamId };
-			return {
-				id: r.id,
-				userId: r.userId,
-				email: r.email,
-				note: r.note,
-				createdAt: r.createdAt,
-				usedBytes: usedBytesOf(db, owner),
-				limitBytes: r.teamId === null ? r.limit : teamLimitBytes(db, r.teamId),
-				teamId: r.teamId,
-				teamName: r.teamName
-			};
-		});
+	return (
+		db
+			.select({
+				id: storageRequests.id,
+				userId: storageRequests.userId,
+				email: users.email,
+				note: storageRequests.note,
+				createdAt: storageRequests.createdAt,
+				limit: users.storageLimitBytes,
+				teamId: storageRequests.teamId,
+				teamName: teams.name
+			})
+			.from(storageRequests)
+			.innerJoin(users, eq(users.id, storageRequests.userId))
+			.leftJoin(teams, eq(teams.id, storageRequests.teamId))
+			// The account's dance; a group's request is made by its own dance's people.
+			.where(and(isNull(storageRequests.resolvedAt), eq(users.dance, dance)))
+			.orderBy(storageRequests.createdAt, storageRequests.id)
+			.all()
+			.map((r) => {
+				const owner: Owner = r.teamId === null ? { userId: r.userId } : { teamId: r.teamId };
+				return {
+					id: r.id,
+					userId: r.userId,
+					email: r.email,
+					note: r.note,
+					createdAt: r.createdAt,
+					usedBytes: usedBytesOf(db, owner),
+					limitBytes: r.teamId === null ? r.limit : teamLimitBytes(db, r.teamId),
+					teamId: r.teamId,
+					teamName: r.teamName
+				};
+			})
+	);
 }
 
 /** Sets one person's limit (null = no limit). False when nobody has that id or the limit is not valid. */
@@ -602,7 +613,10 @@ export function limitsTotal(db: Db): number {
 }
 
 /** Groups for the admin: names and numbers, never content. */
-export function listTeamsForAdmin(db: Db): {
+export function listTeamsForAdmin(
+	db: Db,
+	dance: DanceSlug
+): {
 	id: number;
 	name: string;
 	dance: string;
@@ -622,7 +636,7 @@ export function listTeamsForAdmin(db: Db): {
 			deletedAt: teams.deletedAt
 		})
 		.from(teams)
-		.where(isNull(teams.purgedAt))
+		.where(and(isNull(teams.purgedAt), eq(teams.dance, dance)))
 		.orderBy(teams.name, teams.id)
 		.all();
 	return rows.map((t) => {
@@ -726,4 +740,38 @@ export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
 		});
 	}
 	return items.sort((a, b) => b.sizeBytes - a.sizeBytes);
+}
+
+/**
+ * Whether an admin of `dance` may change this account, group or request: only
+ * its own dance's (the dance split). Another dance's id is the stranger's 404.
+ */
+export function adminReaches(
+	db: Db,
+	dance: DanceSlug,
+	target: { userId: string } | { teamId: number } | { requestId: number }
+): boolean {
+	if ('userId' in target) {
+		const u = db
+			.select({ dance: users.dance })
+			.from(users)
+			.where(eq(users.id, target.userId))
+			.get();
+		return u?.dance === dance;
+	}
+	if ('teamId' in target) {
+		const t = db
+			.select({ dance: teams.dance })
+			.from(teams)
+			.where(eq(teams.id, target.teamId))
+			.get();
+		return t?.dance === dance;
+	}
+	const r = db
+		.select({ dance: users.dance })
+		.from(storageRequests)
+		.innerJoin(users, eq(users.id, storageRequests.userId))
+		.where(eq(storageRequests.id, target.requestId))
+		.get();
+	return r?.dance === dance;
 }

@@ -1,7 +1,7 @@
 /** PURE: the admin page's wording and the limit presets. Client-safe. */
 import type { Channel } from './app-update/agent';
 import { daysBetween } from './day/day';
-import { DANCES, DANCE_SLUGS, type DanceSlug } from './dances/dances';
+import { DANCES, type DanceSlug } from './dances/dances';
 import { byteSize, dateLabel, dayLabel, plural } from './format';
 
 const GIB = 1024 ** 3;
@@ -62,10 +62,9 @@ export function groupMeta(g: {
 		.join(' · ');
 }
 
-/** A person row's group line, per dance: "Groups made: Salsa 2, Bachata 0 · limit 2 per dance". */
-export function groupsMadeLine(made: Record<DanceSlug, number>, limit: number): string {
-	const counts = DANCE_SLUGS.map((d) => `${DANCES[d].label} ${made[d]}`).join(', ');
-	return `Groups made: ${counts} · limit ${limit} per dance`;
+/** A person row's group line, in the admin's dance: "Groups made: 2 · limit 3". */
+export function groupsMadeLine(made: number, limit: number): string {
+	return `Groups made: ${made} · limit ${limit}`;
 }
 
 /** A request's heading: the person's email, or the group's name with its owner. */
@@ -73,12 +72,16 @@ export function requestTitle(r: { email: string; teamName: string | null }): str
 	return r.teamName === null ? r.email : `${r.teamName} · ${r.email}`;
 }
 
-/** A person's app versions, one line per dance: "Salsa app 2 · today", "Bachata: no app". */
+/**
+ * A person's app version in their dance (an account belongs to one, the dance
+ * split): "Salsa app 2 · today", or "Bachata: no app". One line, as a list.
+ */
 export function appsLines(
 	seen: { dance: DanceSlug; versionCode: number; channel: Channel; day: string }[],
-	today: string
+	today: string,
+	accountDance: DanceSlug
 ): string[] {
-	return DANCE_SLUGS.map((dance) => {
+	return [accountDance].map((dance) => {
 		const label = DANCES[dance].label;
 		const s = seen.find((x) => x.dance === dance);
 		if (!s) return `${label}: no app`;
