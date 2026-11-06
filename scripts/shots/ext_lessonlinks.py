@@ -31,3 +31,13 @@ SCENES = {
     "lesson-add-link": Scene("/{dance}/lessons/{ownlesson}", _add_link),
     "lesson-add-position": Scene("/{dance}/lessons/{ownlesson}", _add_position),
 }
+
+
+def _new_lesson(page):
+    page.get_by_role("button", name="New lesson").first.click()
+    page.wait_for_timeout(400)
+
+
+SCENES["share-new-lesson"] = Scene(
+    "/{dance}/share?key=00000000-0000-4000-8000-000000000000", _new_lesson
+)
