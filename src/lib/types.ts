@@ -408,6 +408,8 @@ export interface RoutineItem {
 	createdAt: number;
 	/** Group mode only: a published lesson reaches it, so members see it. */
 	membersSee?: boolean;
+	/** The latest class it is from, as shown ("Tue 3 Nov"); null when in no lesson (spec A5). */
+	classDay?: string | null;
 }
 
 /**

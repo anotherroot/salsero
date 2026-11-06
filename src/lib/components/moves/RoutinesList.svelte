@@ -14,7 +14,12 @@
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
 	import { plural } from '$lib/format';
 	import { groupHeading } from '$lib/moves/figures';
-	import { routineBadges, type RoutineBadge, type RoutinesLists } from '$lib/moves/routines';
+	import {
+		fromClass,
+		routineBadges,
+		type RoutineBadge,
+		type RoutinesLists
+	} from '$lib/moves/routines';
 	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
 	import type { Dance } from '$lib/dances/dances';
@@ -69,7 +74,13 @@
 </script>
 
 {#snippet routineRow(
-	routine: { id: number; name: string; slots: number; membersSee?: boolean },
+	routine: {
+		id: number;
+		name: string;
+		slots: number;
+		membersSee?: boolean;
+		classDay?: string | null;
+	},
 	badges: RoutineBadge[]
 )}
 	{@const lit = open?.kind === 'routine' && open.id === routine.id}
@@ -88,6 +99,15 @@
 				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
 			>
 				<span>{plural(routine.slots, 'slot', 'slots')}</span>
+				{#if routine.classDay}
+					<!-- Spec A5 (A2): the latest class it is from. Not a link: the row is the one link. -->
+					<span aria-hidden="true" class="-mx-0.5">·</span>
+					<span class="flex items-center gap-1 font-bold whitespace-nowrap text-accent-text"
+						><Icon name="lessons" size={15} /><span class="sr-only"
+							>{fromClass(routine.classDay)}</span
+						><span aria-hidden="true">{routine.classDay}</span></span
+					>
+				{/if}
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if twinned.has(routine.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 				{#each badges as b (b.text)}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { routineBadges } from './routines';
+import { fromClass, routineBadges } from './routines';
 
 describe('routineBadges', () => {
 	it('shows breaks as danger', () => {
@@ -21,5 +21,11 @@ describe('routineBadges', () => {
 
 	it('does not call an empty routine "does not loop"', () => {
 		expect(routineBadges({ slots: 0, breaks: 0, loops: false })).toEqual([]);
+	});
+});
+
+describe('fromClass', () => {
+	it('says which class a routine is from, for a screen reader', () => {
+		expect(fromClass('Tue 3 Nov')).toBe('From class Tue 3 Nov');
 	});
 });

@@ -13,6 +13,8 @@ import { usableOf, usablePositions } from './usable';
 import { withoutShadowed } from './clones/shadow';
 import { storedTwinSets } from './twins';
 import { publishedReach } from './access';
+import { latestClassDays } from './lessons';
+import { classDayLabel } from '$lib/format';
 import type { GroupMode } from '$lib/types';
 import type { Space, Wall } from './scope';
 import { coverage } from '$lib/routines/coverage';
@@ -73,7 +75,12 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 	};
 }
 
-export function routinesList(db: Db, wall: Wall, mode: GroupMode | null): RoutinesLists {
+export function routinesList(
+	db: Db,
+	wall: Wall,
+	mode: GroupMode | null,
+	today: string
+): RoutinesLists {
 	// In group mode the page reads the group's side; the person's own is not shown.
 	const space = mode ? { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId } : wall;
 	const reach = mode ? publishedReach(db, mode.teamId) : null;
@@ -92,14 +99,30 @@ export function routinesList(db: Db, wall: Wall, mode: GroupMode | null): Routin
 				added.map((g) => ({ team: g.team, rows: g.routines })),
 				storedTwinSets(db, wall.userId, 'routine')
 			);
+	const own = folded ? folded.mine : listRoutines(db, space);
+	const groupRows = folded ? folded.groups : [];
+	// Spec A5: the latest class a routine is from, as its row says it.
+	const days = latestClassDays(
+		db,
+		[...own.map((r) => r.id), ...groupRows.flatMap((g) => g.rows.map((r) => r.id))],
+		{ userId: wall.userId, editsTeamId: mode?.teamId ?? null }
+	);
+	const classDay = (id: number) => {
+		const day = days.get(id);
+		return day ? classDayLabel(day, today) : null;
+	};
 	return {
-		groups: folded ? folded.groups.map((g) => ({ team: g.team, routines: g.rows })) : [],
+		groups: groupRows.map((g) => ({
+			team: g.team,
+			routines: g.rows.map((r) => ({ ...r, classDay: classDay(r.id) }))
+		})),
 		/** The routines that stand for their twins: the "Twins" chip. */
 		twinned: folded ? [...folded.twinOf.keys()] : ([] as number[]),
-		routines: (folded ? folded.mine : listRoutines(db, space)).map((r) => {
+		routines: own.map((r) => {
 			const shape = shapes.get(r.id) ?? { slots: [] };
 			return {
 				...r,
+				classDay: classDay(r.id),
 				...(reach ? { membersSee: reach.routines.has(r.id) } : {}),
 				loops: loops(graph, shape),
 				// A seam that breaks in the hands AND on the count is one problem, not two.
