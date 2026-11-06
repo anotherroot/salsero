@@ -7,6 +7,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { act } from '$lib/act';
 	import { staleFailure } from '$lib/page-epoch';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -61,6 +62,7 @@
 	import {
 		ADD_LABEL,
 		DRAFT_BAND,
+		publishItem,
 		deleteBlock,
 		deleteVideoBody,
 		exerciseMeta,
@@ -156,7 +158,15 @@
 	}
 	let lessonMenu = $state(false);
 	/** The lesson's own ⋯ items: History, and Remove from my lessons (its Dialog). */
+	/** Publish from the ⋯ (spec A6): the band's `publish`, then the page as it is now. */
+	async function publishFromMenu() {
+		await act('publish', {});
+		await refreshWhenSettled();
+	}
 	const lessonOwn = $derived<MenuItem[]>([
+		...(data.draft && data.canEdit && data.team
+			? [{ ...publishItem(data.team.name), onclick: () => void publishFromMenu() }]
+			: []),
 		...(data.historyHref
 			? [
 					{

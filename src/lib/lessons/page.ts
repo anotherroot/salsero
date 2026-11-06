@@ -252,3 +252,13 @@ export const DRAFT_BAND = {
 	line: "Members don't see it yet",
 	publish: 'Publish'
 } as const;
+
+/** A group's draft's ⋯ item that publishes it (beside the band's button), naming who will see it. */
+export function publishItem(teamName: string) {
+	return {
+		key: 'publish',
+		icon: 'upload' as const,
+		label: 'Publish',
+		meta: `Members of ${teamName} see it`
+	};
+}

@@ -94,3 +94,11 @@ _base_placeholders = placeholders
 
 def placeholders(db, admin, dance):  # noqa: F811
     return {**_base_placeholders(db, admin, dance), "drill": _drill(db, admin, dance)}
+
+
+def _menu(page):
+    page.get_by_role("button", name="Lesson menu").first.click()
+    page.wait_for_timeout(400)
+
+
+SCENES["lesson-draft-menu"] = Scene("/{dance}/lessons/29", _menu)

@@ -3,6 +3,7 @@ import type { SectionLinkChip, ViaSection } from '$lib/types';
 import {
 	ADD_LABEL,
 	DRAFT_BAND,
+	publishItem,
 	deleteBlock,
 	deleteVideoBody,
 	positionLinkLabel,
@@ -249,5 +250,16 @@ describe('the simple lesson page', () => {
 			{ id: 12, name: 'Footwork drill', when: 'Paused' }
 		]);
 		expect(practiceRows([], {}, today)).toEqual([]);
+	});
+});
+
+describe("Publish in a draft's ⋯ menu", () => {
+	it('names the group that will see it', () => {
+		expect(publishItem('Salsa Tuesdays')).toEqual({
+			key: 'publish',
+			icon: 'upload',
+			label: 'Publish',
+			meta: 'Members of Salsa Tuesdays see it'
+		});
 	});
 });

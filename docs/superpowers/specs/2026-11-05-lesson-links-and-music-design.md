@@ -181,10 +181,10 @@ the selected segment on the band). On the desktop, where the strip is a soft
 warn bar under the title, the button is the accent-filled one it is now with
 the same icon and words.
 
-Publish also goes into the lesson's ⋯ menu, as its first row (upload icon,
-"Publish", "Members of <group> see it" under it), once slot 3's shared ⋯ menu
-is in master. Until then the band's button is the only one. It posts the same
-`publish` action.
+Publish is also the first row of the lesson's ⋯ menu (slot 3's shared menu,
+merged 2026-11-06): upload icon, "Publish", "Members of <group> see it" under
+it (`publishItem` in `src/lib/lessons/page.ts`). It posts the same `publish`
+action (`act`) and refreshes once the menu has closed.
 
 ## Part B — music with notes
 
