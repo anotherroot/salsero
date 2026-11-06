@@ -357,8 +357,20 @@ export function pickFirst(labels: string[]): string {
 	return `Pick a side for ${listed(lower(labels).map((l) => `the ${l}`))} first.`;
 }
 
-/** Under Keep mine. */
-export const KEEP_HINT = 'Nothing changes in yours. Theirs will show as behind yours.';
+/**
+ * The two columns' names. From a group's row against your own copy the other
+ * side is "Yours", so the page's side is "This one".
+ */
+export function columnNames(place: string): { mine: string; theirs: string } {
+	return place === 'Yours' ? { mine: 'This one', theirs: 'Yours' } : { mine: YOURS, theirs: place };
+}
+
+/** Under Keep mine: which side stays as it is, and how the other will read. */
+export function keepHint(place: string): string {
+	return place === 'Yours'
+		? 'Nothing changes here. Yours will show as behind this one.'
+		: 'Nothing changes in yours. Theirs will show as behind yours.';
+}
 
 /** An option whose side lacks the thing (a recording only theirs has). */
 export function absentLine(side: 'mine' | 'theirs'): string {

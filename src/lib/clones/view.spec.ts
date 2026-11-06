@@ -78,7 +78,8 @@ import {
 	STALE,
 	ALL_THEIRS,
 	ALL_YOURS,
-	KEEP_HINT,
+	columnNames,
+	keepHint,
 	NAME_ONLY,
 	SHOW_ALL,
 	SHOW_LESS,
@@ -385,7 +386,6 @@ describe('sources', () => {
 		expect(mergeButton(3)).toBe('Merge · 3 from theirs');
 		expect(pickFirst(['Timing'])).toBe('Pick a side for the timing first.');
 		expect(pickFirst(['Timing', 'Notes'])).toBe('Pick a side for the timing and the notes first.');
-		expect(KEEP_HINT).toBe('Nothing changes in yours. Theirs will show as behind yours.');
 		expect([ALL_YOURS, ALL_THEIRS, SHOW_ALL, SHOW_LESS]).toEqual([
 			'tap: all yours',
 			'tap: all theirs',
@@ -899,5 +899,18 @@ describe('Same as… (board C7)', () => {
 		expect(v.sameAsEmpty('lesson')).toBe('No other lessons match.');
 		expect(v.SAME_AS_SEARCH).toBe('Search your figures');
 		expect(v.SAME_AS_EMPTY).toBe('No other figures match.');
+	});
+});
+
+describe('the merge sheet from a group’s row against your own copy', () => {
+	it('names the two columns apart', () => {
+		expect(columnNames('Sreda 17:30')).toEqual({ mine: 'Yours', theirs: 'Sreda 17:30' });
+		expect(columnNames('Yours')).toEqual({ mine: 'This one', theirs: 'Yours' });
+	});
+	it('says which side stays as it is', () => {
+		expect(keepHint('Sreda 17:30')).toBe(
+			'Nothing changes in yours. Theirs will show as behind yours.'
+		);
+		expect(keepHint('Yours')).toBe('Nothing changes here. Yours will show as behind this one.');
 	});
 });

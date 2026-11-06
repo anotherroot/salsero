@@ -13,15 +13,15 @@
 		CANCEL,
 		COMPARE_FAILED,
 		IN_STEP,
-		KEEP_HINT,
 		SHOW_ALL,
 		SHOW_LESS,
 		TAKE_FAILED,
-		YOURS,
+		columnNames,
 		compareSub,
 		compareTitle,
 		diffWhy,
 		isLong,
+		keepHint,
 		mergeButton,
 		optionShow,
 		pickFirst
@@ -92,6 +92,7 @@
 		return () => ask.abort();
 	});
 
+	const col = $derived(columnNames(place));
 	const diffs = $derived(comparison?.diffs ?? []);
 	const canTake = $derived(comparison?.canTake ?? false);
 	const openKeys = $derived(unpicked(diffs, picks));
@@ -105,7 +106,7 @@
 			: waiting
 				? pickFirst(diffs.filter((d) => openKeys.includes(d.key)).map((d) => d.label))
 				: fromTheirs === 0
-					? KEEP_HINT
+					? keepHint(place)
 					: null
 	);
 
@@ -152,7 +153,7 @@
 			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-ink-2">{IN_STEP}</p>
 		{:else}
 			<div class="grid grid-cols-2 gap-2">
-				{#each [{ side: 'mine' as const, name: YOURS, sub: ALL_YOURS }, { side: 'theirs' as const, name: place, sub: ALL_THEIRS }] as h (h.side)}
+				{#each [{ side: 'mine' as const, name: col.mine, sub: ALL_YOURS }, { side: 'theirs' as const, name: col.theirs, sub: ALL_THEIRS }] as h (h.side)}
 					<button
 						type="button"
 						class="{HEAD} {allOn(h.side) ? 'border-accent' : 'border-hairline'}"
@@ -177,13 +178,12 @@
 						<span class="font-bold {WHY[why.tone]}"> · {why.text}</span>
 					</h3>
 					<div class="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="{uid}-{i}">
-						{#each [{ side: 'mine' as const, field: d.mine }, { side: 'theirs' as const, field: d.theirs }] as o (o.side)}
+						{#each [{ side: 'mine' as const, name: col.mine, field: d.mine }, { side: 'theirs' as const, name: col.theirs, field: d.theirs }] as o (o.side)}
 							<label class="{TILE} {tileLook(d, o.side)}">
 								<input
 									type="radio"
 									class="sr-only"
 									name="{uid}-pick-{i}"
-									aria-label={o.side === 'mine' ? YOURS : place}
 									checked={picks[d.key] === o.side}
 									disabled={!canTake}
 									onchange={() => pick(d, o.side)}
@@ -201,6 +201,7 @@
 											stroke={3}
 										/>{/if}</span
 								>
+								<span class="sr-only">{o.name}: </span>
 								<span
 									class="text-[15px] leading-snug break-words whitespace-pre-line {o.field
 										? 'text-ink'
