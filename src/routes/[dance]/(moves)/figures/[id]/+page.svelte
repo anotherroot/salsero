@@ -90,6 +90,8 @@
 	/** Recordings' `+ Add`: the sheet, and the page's own upload it starts (`UploadButton` with `bare`). */
 	let adding = $state(false);
 	let chooseVideo = $state<(() => void) | undefined>();
+	/** Recordings whose file is missing or will not play here, as their rows found: never the top video. */
+	let broken = $state<number[]>([]);
 
 	const figure = $derived(data.figure);
 	const variation = $derived(data.variation);
@@ -131,7 +133,7 @@
 	/** Sections and recordings: one list, Recordings. */
 	const items = $derived(variation.sections.length + variation.recordings.length);
 	const empty = $derived(items === 0);
-	const top = $derived(topVideo(variation.sections, variation.recordings));
+	const top = $derived(topVideo(variation.sections, variation.recordings, new Set(broken)));
 	const today = $derived(localDay(Date.now(), timezone));
 
 	const figureHref = (id: number) =>
@@ -727,6 +729,9 @@
 								canEdit={data.canEdit}
 								meta={data.taking ? recordingMeta(held, byteSize(rec.sizeBytes)) : undefined}
 								trailing={editing ? recTrash : data.taking && !held ? recTake : undefined}
+								onproblem={() => {
+									if (!broken.includes(rec.id)) broken = [...broken, rec.id];
+								}}
 								onclosed={() => void refreshWhenSettled()}
 							/>
 							{#if refused}
@@ -996,6 +1001,7 @@
 		onclose={() => (adding = false)}
 		figureLabel="{figure.name} · {variation.name}"
 		app={!!data.app}
+		{uploading}
 		appHref={uploadLink(
 			{ figure: variation.id },
 			{ back: page.url.pathname + page.url.search, name: `${figure.name} · ${variation.name}` }

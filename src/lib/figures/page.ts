@@ -168,12 +168,14 @@ export function figureSubtitle(
 export type TopVideo<S, R> =
 	{ kind: 'section'; section: S } | { kind: 'recording'; recording: R } | null;
 
-export function topVideo<S, R extends { kind: 'video' | 'audio' }>(
+export function topVideo<S, R extends { id: number; kind: 'video' | 'audio' }>(
 	sections: S[],
-	recordings: R[]
+	recordings: R[],
+	/** Recordings whose file is missing or will not play here: never the top video. */
+	broken: ReadonlySet<number> = new Set()
 ): TopVideo<S, R> {
 	if (sections.length > 0) return { kind: 'section', section: sections[0] };
-	const video = recordings.find((r) => r.kind === 'video');
+	const video = recordings.find((r) => r.kind === 'video' && !broken.has(r.id));
 	return video ? { kind: 'recording', recording: video } : null;
 }
 
@@ -182,9 +184,21 @@ export function recordingsTitle(n: number): string {
 	return n === 0 ? 'Recordings' : `Recordings · ${n}`;
 }
 
-/** A recording row's meta: "Video · 24 MB". */
-export function recordingMetaLine(kind: 'video' | 'audio', size: string): string {
-	return `${kind === 'video' ? 'Video' : 'Audio'} · ${size}`;
+/** A recording row's meta: "Video · 24 MB", "From YouTube · 24 MB" for a saved one. */
+export function recordingMetaLine(
+	kind: 'video' | 'audio',
+	size: string,
+	fromYouTube = false
+): string {
+	const what = fromYouTube ? 'From YouTube' : kind === 'video' ? 'Video' : 'Audio';
+	return `${what} · ${size}`;
+}
+
+/** The add sheet's Video from the phone while a video goes up: one upload at a time. */
+export function addVideoRow(uploading: boolean): { disabled: boolean; meta: string | null } {
+	return uploading
+		? { disabled: true, meta: 'Wait for the upload to finish' }
+		: { disabled: false, meta: null };
 }
 
 /** An editor always sees Recordings (it holds + Add); a reader only when there is something in it. */

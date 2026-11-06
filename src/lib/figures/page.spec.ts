@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import {
+	addVideoRow,
 	archiveCopy,
 	filterRows,
 	recordingMetaLine,
@@ -265,5 +266,24 @@ describe('the three rows', () => {
 		expect(filterRows(rows, 'EXHIBELA').map((r) => r.name)).toEqual(['Exhíbela · Basic']);
 		expect(filterRows(rows, 'basic set').map((r) => r.name)).toEqual(['Setenta · Basic']);
 		expect(filterRows(rows, '  ')).toBe(rows);
+	});
+});
+
+describe('review fixes', () => {
+	it('topVideo skips a recording whose file is missing or will not play', () => {
+		const recs = [
+			{ id: 9, kind: 'video' as const },
+			{ id: 10, kind: 'video' as const }
+		];
+		expect(topVideo([], recs, new Set([9]))).toEqual({ kind: 'recording', recording: recs[1] });
+		expect(topVideo([], recs, new Set([9, 10]))).toBeNull();
+	});
+	it('says a saved YouTube video came from YouTube', () => {
+		expect(recordingMetaLine('video', '24 MB', true)).toBe('From YouTube · 24 MB');
+		expect(recordingMetaLine('video', '24 MB', false)).toBe('Video · 24 MB');
+	});
+	it('the add sheet’s video row waits while a video goes up', () => {
+		expect(addVideoRow(true)).toEqual({ disabled: true, meta: 'Wait for the upload to finish' });
+		expect(addVideoRow(false)).toEqual({ disabled: false, meta: null });
 	});
 });

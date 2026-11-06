@@ -2,6 +2,7 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP } from '$lib/components/ui/styles';
+	import { addVideoRow } from '$lib/figures/page';
 
 	/**
 	 * What Recordings' `+ Add` offers (figure page rework): a section of a lesson
@@ -17,7 +18,8 @@
 		app,
 		appHref,
 		onsection,
-		onvideo
+		onvideo,
+		uploading
 	}: {
 		open: boolean;
 		onclose: () => void;
@@ -27,8 +29,11 @@
 		appHref: string;
 		onsection: () => void;
 		onvideo: () => void;
+		/** A video is going up: one at a time, so the video row waits. */
+		uploading: boolean;
 	} = $props();
 
+	const videoRow = $derived(addVideoRow(uploading));
 	const ROW =
 		'flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step';
 </script>
@@ -64,7 +69,8 @@
 		{:else}
 			<button
 				type="button"
-				class={ROW}
+				class="{ROW} disabled:cursor-default disabled:opacity-60"
+				disabled={videoRow.disabled}
 				onclick={() => {
 					// The chooser first, inside this tap's user activation; then the sheet goes.
 					onvideo();
@@ -72,7 +78,7 @@
 				}}
 			>
 				<span class="flex-none text-accent-text"><Icon name="video" size={22} /></span>
-				{@render words('Video from the phone')}
+				{@render words('Video from the phone', videoRow.meta ?? undefined)}
 			</button>
 		{/if}
 	</div>

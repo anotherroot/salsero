@@ -7,7 +7,7 @@
 	import { recordingMetaLine } from '$lib/figures/page';
 	import VideoPlayer from '$lib/components/ui/VideoPlayer.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { button } from '$lib/components/ui/styles';
+	import { button, iconButton } from '$lib/components/ui/styles';
 	import type { RecordingRow } from '$lib/types';
 
 	/**
@@ -25,6 +25,7 @@
 		focusKey,
 		trailing,
 		meta: given,
+		onproblem,
 		onclosed
 	}: {
 		recording: RecordingRow;
@@ -39,6 +40,8 @@
 		trailing?: Snippet;
 		/** Its line under the day, in place of "Video · 24 MB" (a source's recording: "New · 12 MB"). A broken file's line still wins. */
 		meta?: string;
+		/** Told when the file turns out missing or unplayable (the page keeps it off the top video). */
+		onproblem?: (problem: MediaProblem) => void;
 		onclosed: () => void;
 	} = $props();
 
@@ -53,10 +56,20 @@
 			? 'This file is missing'
 			: problem === 'unplayable'
 				? 'Can’t play here'
-				: (given ?? recordingMetaLine(recording.kind, byteSize(recording.sizeBytes)))
+				: (given ??
+					recordingMetaLine(
+						recording.kind,
+						byteSize(recording.sizeBytes),
+						recording.sourceUrl !== null
+					))
 	);
 	/** A video that can play opens the player; anything else is a plain row. */
 	const opens = $derived(video && problem === null);
+
+	function found(p: MediaProblem) {
+		problem = p;
+		onproblem?.(p);
+	}
 </script>
 
 {#snippet lead()}
@@ -101,6 +114,17 @@
 				download
 				class={button('tertiary', 'sm')}><Icon name="download" size={18} />Download</a
 			>
+		{:else if recording.sourceUrl && problem === null}
+			<!-- A saved YouTube video: where it came from, as the inline player's "from YouTube" did. -->
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- an outside page -->
+			<a
+				href={recording.sourceUrl}
+				target="_blank"
+				rel="external noopener noreferrer"
+				class={iconButton('bare', 'muted')}
+				aria-label="Open on YouTube"><Icon name="external" size={20} /></a
+			>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else if opens}
 			<span
 				class="flex size-11 flex-none items-center justify-center text-chevron"
@@ -116,7 +140,7 @@
 			muted
 			class="hidden"
 			aria-hidden="true"
-			{@attach watchMedia(src, (p) => (problem = p))}
+			{@attach watchMedia(src, found)}
 		></video>
 	{:else if problem !== 'missing'}
 		<audio
@@ -125,7 +149,7 @@
 			preload="metadata"
 			class="mb-3 w-full"
 			aria-label="The recording from {day}"
-			{@attach watchMedia(src, (p) => (problem = p))}
+			{@attach watchMedia(src, found)}
 		></audio>
 	{/if}
 </div>
