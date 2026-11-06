@@ -30,6 +30,7 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import AddLinkSheet from '$lib/components/links/AddLinkSheet.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
@@ -179,6 +180,13 @@
 	let addingExercise = $state(false);
 	let addingRoutine = $state(false);
 	let addingPosition = $state(false);
+	/** The Add a link sheet, and the `form` there when it opened: an older refusal is not this opening's. */
+	let addingLink = $state(false);
+	let linkSeen: unknown = $state(null);
+	function openAddLink() {
+		linkSeen = form;
+		addingLink = true;
+	}
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 	/** Where focus goes when that row is gone: the list's keys, the row, the list's add control. */
@@ -237,6 +245,7 @@
 	const scheduleOf = (exerciseId: number | null) =>
 		exerciseId === null ? undefined : data.schedule[exerciseId];
 	const failure = (action: string) => (form?.action === action ? form.message : null);
+	const linkRefusal = $derived(form !== linkSeen ? (failure('addLink') ?? null) : null);
 	/**
 	 * What the columns' top row shows besides the edit form, each read from here only
 	 * (outside editing `colsTop` renders these and nothing else; a spec checks it), so
@@ -899,14 +908,18 @@
 						</div>{/if}
 				</section>
 				<section class="flex flex-col gap-2 pt-2.5">
-					<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
+					{@render labelRow(sectionHeading('Links', data.links.length), 'link')}
 					{#if data.canEdit}
+						{#if failure('saveVideo') ?? failure('retryVideo')}
+							<Banner kind="error">{failure('saveVideo') ?? failure('retryVideo')}</Banner>
+						{/if}
 						<LinksEditor
 							compact
+							adding={false}
 							links={data.links}
 							canSave
-							message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
-							entered={form && 'urls' in form ? String(form.urls) : ''}
+							message={null}
+							entered=""
 						/>
 					{:else}
 						<LinkList compact links={data.links} />
@@ -1292,7 +1305,7 @@
 </Dialog>
 
 <!-- A list's heading and, for an editor, its one "+ Add": the list's picker, whose last row makes a new one. -->
-{#snippet labelRow(heading: string, kind: LinkKind)}
+{#snippet labelRow(heading: string, kind: LinkKind | 'link')}
 	<div class="flex items-center justify-between pr-1">
 		<h2 class={SECTION_LABEL}>{heading}</h2>
 		{#if data.canEdit}
@@ -1302,7 +1315,8 @@
 				class={button('tertiary', 'sm')}
 				aria-label={ADD_LABEL[kind]}
 				aria-haspopup="dialog"
-				onclick={() => openPicker(kind)}><Icon name="plus" size={18} />Add</button
+				onclick={() => (kind === 'link' ? openAddLink() : openPicker(kind))}
+				><Icon name="plus" size={18} />Add</button
 			>
 		{/if}
 	</div>
@@ -1590,6 +1604,14 @@
 {/if}
 
 {#if data.canEdit}
+	<AddLinkSheet
+		open={addingLink}
+		onclose={() => (addingLink = false)}
+		action="?/addLink"
+		canSave
+		message={linkRefusal}
+		entered={linkRefusal && form && 'urls' in form ? String(form.urls) : ''}
+	/>
 	<PositionSheet
 		open={addingPosition}
 		onclose={() => (addingPosition = false)}

@@ -31,6 +31,21 @@ export function parseTime(raw: string | null): number | null {
 	return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
 }
 
+/**
+ * What the Add a link popup says it found in what was pasted (spec A2): a
+ * YouTube video, or a web page by its host; null for nothing, several lines or
+ * anything that is not a web link.
+ */
+export function linkFound(raw: string): { youtube: boolean; title: string; line: string } | null {
+	const text = raw.trim();
+	if (!text || /\s/.test(text)) return null;
+	const parsed = parseLink(text);
+	if (!parsed) return null;
+	return parsed.kind === 'youtube'
+		? { youtube: true, title: 'YouTube video', line: 'You can save it at 480p after adding' }
+		: { youtube: false, title: parsed.host, line: 'Web page' };
+}
+
 export function parseLink(raw: string): ParsedLink | null {
 	let url: URL;
 	try {
