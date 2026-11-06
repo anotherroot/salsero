@@ -292,5 +292,44 @@ export function crossRefs(db: Db): string[] {
 			}
 		}
 	}
+	// Music (spec B): a group's row only its group's songs; a person's their own,
+	// or a song of a group they are in, shared or not (an unshared one's link is
+	// kept on purpose, hidden until it is shared again).
+	const music = db.all<{
+		ot: string;
+		oid: number;
+		ou: string | null;
+		oteam: number | null;
+		tid: number;
+		tu: string | null;
+		tteam: number | null;
+		member: number | null;
+	}>(
+		sql.raw(
+			`select case when x.lesson_id is not null then 'lessons'
+			            when x.exercise_id is not null then 'exercises' else 'routines' end as ot,
+			        coalesce(x.lesson_id, x.exercise_id, x.routine_id) as oid,
+			        coalesce(l.user_id, e.user_id, r.user_id) as ou,
+			        coalesce(l.team_id, e.team_id, r.team_id) as oteam,
+			        s.id as tid, s.user_id as tu, s.team_id as tteam,
+			        (select 1 from team_members m where m.team_id = s.team_id
+			           and m.user_id = coalesce(l.user_id, e.user_id, r.user_id)) as member
+			 from song_links x join songs s on s.id = x.song_id
+			      left join lessons l on l.id = x.lesson_id
+			      left join exercises e on e.id = x.exercise_id
+			      left join routines r on r.id = x.routine_id
+			 order by oid, tid`
+		)
+	);
+	for (const r of music) {
+		const at = `song_links on ${r.ot} ${r.oid}: song ${r.tid}`;
+		if (r.oteam !== null) {
+			if (r.tteam !== r.oteam || r.tu !== null) lines.add(`${at} is outside group ${r.oteam}`);
+		} else if (r.tteam === null) {
+			if (r.tu !== r.ou) lines.add(`${at} is ${r.tu === null ? "no one's" : "another person's"}`);
+		} else if (r.tu !== null || !r.member) {
+			lines.add(`${at} is group ${r.tteam}'s, which ${r.ou} is not in`);
+		}
+	}
 	return [...lines];
 }

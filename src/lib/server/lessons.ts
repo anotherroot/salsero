@@ -1487,6 +1487,33 @@ export function taughtIn(db: Db, space: Space, figureId: number) {
 }
 
 /** `taughtIn`, for a routine: the lessons that link it, newest class first. */
+/**
+ * Each routine's latest class (spec A5): the greatest `lesson_day` among the
+ * live lessons linking it that the reader sees — their own, a group's
+ * published one, or any of the group they are editing in group mode
+ * (`editsTeamId`). A routine in no such lesson is absent.
+ */
+export function routineClassDays(
+	db: Db,
+	routineIds: number[],
+	reader: { userId: string; editsTeamId: number | null }
+): Map<number, string> {
+	if (routineIds.length === 0) return new Map();
+	const seen = or(
+		eq(lessons.userId, reader.userId),
+		and(isNotNull(lessons.teamId), isNotNull(lessons.publishedAt)),
+		reader.editsTeamId === null ? undefined : eq(lessons.teamId, reader.editsTeamId)
+	);
+	const rows = db
+		.select({ routineId: lessonRoutines.routineId, day: max(lessons.lessonDay) })
+		.from(lessonRoutines)
+		.innerJoin(lessons, eq(lessons.id, lessonRoutines.lessonId))
+		.where(and(inArray(lessonRoutines.routineId, routineIds), isNull(lessons.archivedAt), seen))
+		.groupBy(lessonRoutines.routineId)
+		.all();
+	return new Map(rows.flatMap((r) => (r.day ? [[r.routineId, r.day] as const] : [])));
+}
+
 export function routineTaughtIn(db: Db, space: Space, routineId: number) {
 	return db
 		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })

@@ -9,6 +9,7 @@ import {
 	figures,
 	positions as positionsTable,
 	songs,
+	songLinks,
 	spotPositionLinks,
 	teamChanges,
 	teamTrash,
@@ -17,7 +18,7 @@ import {
 } from './db/schema';
 import { linkSpotToPosition, unlinkSpotFromPosition } from './position-links';
 import { restoreTrash } from './trash';
-import { actorOf, type Space } from './scope';
+import { actorOf, isTeam, type Space } from './scope';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
 import { createTeam, joinTeam } from './teams';
 import { removeMember, setRole } from './membership';
@@ -105,6 +106,7 @@ import {
 	updateSongMeta
 } from './songs';
 import { deleteGroupSong, shareSong, unshareSong } from './song-share';
+import { addMusic, removeMusic, setMusicNote } from './song-links';
 import { restoreDeleted } from './trash';
 import { eq } from 'drizzle-orm';
 import { HISTORY_MERGE_MS } from '$lib/limits';
@@ -245,6 +247,10 @@ function world(space: Space) {
 	};
 }
 type World = ReturnType<typeof world>;
+
+/** The lesson's one Music link (the mutations' prep added it). */
+const musicLinkOf = (lesson: number) =>
+	db.select({ id: songLinks.id }).from(songLinks).where(eq(songLinks.lessonId, lesson)).get()!.id;
 
 /**
  * Every mutating data function, with where its line is filed. A NEW TEAM
@@ -764,6 +770,37 @@ const MUTATIONS: {
 		rootId: (w) => w.drill2,
 		prep: (w) => archiveExercise(db, w.drill2, 5, w.by),
 		run: (w, s) => restoreDrill(db, s, w.drill2, T).ok
+	},
+	// song-links.ts: a lesson's Music (a group's song shared first, so the add is one line)
+	{
+		name: 'addMusic',
+		root: 'lesson',
+		verb: 'add',
+		rootId: (w) => w.lesson,
+		prep: (w, s) => isTeam(s) && shareSong(db, s, w.song, T),
+		run: (w, s) => addMusic(db, s, { lessonId: w.lesson }, w.song, 'Count it', T).ok
+	},
+	{
+		name: 'setMusicNote',
+		root: 'lesson',
+		verb: 'change',
+		rootId: (w) => w.lesson,
+		prep: (w, s) => {
+			if (isTeam(s)) shareSong(db, s, w.song, T);
+			return addMusic(db, s, { lessonId: w.lesson }, w.song, null, T);
+		},
+		run: (w, s) => setMusicNote(db, s, musicLinkOf(w.lesson), 'Listen for the clave', T)
+	},
+	{
+		name: 'removeMusic',
+		root: 'lesson',
+		verb: 'remove',
+		rootId: (w) => w.lesson,
+		prep: (w, s) => {
+			if (isTeam(s)) shareSong(db, s, w.song, T);
+			return addMusic(db, s, { lessonId: w.lesson }, w.song, null, T);
+		},
+		run: (w, s) => removeMusic(db, s, musicLinkOf(w.lesson), T)
 	},
 	// songs.ts
 	{

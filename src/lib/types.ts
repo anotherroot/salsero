@@ -103,6 +103,26 @@ export interface SampleSong {
 	startS: number;
 }
 
+/** What holds a Music list (spec Part B): a lesson, a drill or a routine. */
+export type MusicParent = { lessonId: number } | { exerciseId: number } | { routineId: number };
+
+/** One song of a Music list, as a page shows it. */
+export interface MusicRow {
+	/** The `song_links` row. */
+	id: number;
+	songId: number;
+	title: string;
+	artist: string | null;
+	bpm: number | null;
+	durationS: number | null;
+	sample: SampleSong;
+	note: string | null;
+	/** Playable now: false for a group song unshared or archived since (only editors get such rows). */
+	shared: boolean;
+	/** What a note save saw (the clash check), as the form posts it. */
+	seen: string;
+}
+
 /** A ready song as the song popup lists it. */
 export interface PickerSong {
 	id: number;
@@ -119,6 +139,8 @@ export interface PickerSong {
 	group: string | null;
 	/** That group's id, which tells two groups of one name apart; null for the person's own. */
 	groupId: number | null;
+	/** In a log popup: one of the row's own Music (spec B), its name and the song's place in it. */
+	music?: { label: string; rank: number };
 }
 
 /**
@@ -408,6 +430,8 @@ export interface RoutineItem {
 	createdAt: number;
 	/** Group mode only: a published lesson reaches it, so members see it. */
 	membersSee?: boolean;
+	/** The latest class it is from, as shown ("Tue 3 Nov"); null when in no lesson (spec A5). */
+	classDay?: string | null;
 }
 
 /**

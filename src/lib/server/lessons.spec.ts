@@ -10,6 +10,7 @@ import {
 	linkExercise,
 	linkFigure,
 	linkRoutine,
+	routineClassDays,
 	listLessons,
 	listLinkableExercises,
 	listLinkableFigures,
@@ -690,7 +691,7 @@ describe('through sections', () => {
 				id: doble,
 				name: 'Enchufla · Doble',
 				byHand: false,
-				viaSections: [{ spotId: a, startMs: 1000, endMs: 4000, label: null }]
+				viaSections: [{ spotId: a, startMs: 1000, endMs: 4000, label: 'Enchufla · Doble' }]
 			})
 		]);
 		unlinkSpot(db, link, { figureId: doble });
@@ -1212,5 +1213,43 @@ describe('linking positions', () => {
 		]);
 		expect(db.select().from(lessonPositions).all()).toHaveLength(3);
 		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('routineClassDays', () => {
+	const own = { userId: 'u1', editsTeamId: null };
+	const lessonOn = (space: Space, lessonDay: string) =>
+		createLesson(db, space, { lessonDay, title: 'Class', notes: null }).lesson.id;
+
+	it("gives each routine its latest live lesson's day", () => {
+		const r = createRoutine(db, U1_SALSA, { name: 'Rueda', notes: null }).routine.id;
+		const unused = createRoutine(db, U1_SALSA, { name: 'Loop', notes: null }).routine.id;
+		linkRoutine(db, lessonOn(U1_SALSA, '2026-10-21'), r);
+		linkRoutine(db, lessonOn(U1_SALSA, '2026-11-03'), r);
+		const archived = lessonOn(U1_SALSA, '2026-11-05');
+		linkRoutine(db, archived, r);
+		archiveLesson(db, archived, Date.now());
+		const days = routineClassDays(db, [r, unused], own);
+		expect(days.get(r)).toBe('2026-11-03');
+		expect(days.has(unused)).toBe(false);
+	});
+
+	it("counts a group's draft only for its editors", () => {
+		expect(createTeam(db, 'u1', 'salsa', 'Tuesdays', Date.now())).toEqual({ ok: true, teamId: 1 });
+		const r = createRoutine(db, T1_SALSA, { name: 'Shines', notes: null }).routine.id;
+		const draft = lessonOn(T1_SALSA, '2026-11-02');
+		linkRoutine(db, draft, r, 'u1');
+		expect(routineClassDays(db, [r], { userId: 'u2', editsTeamId: null }).has(r)).toBe(false);
+		expect(routineClassDays(db, [r], { userId: 'u1', editsTeamId: 1 }).get(r)).toBe('2026-11-02');
+		publishLesson(db, T1_SALSA, draft, Date.now());
+		expect(routineClassDays(db, [r], { userId: 'u2', editsTeamId: null }).get(r)).toBe(
+			'2026-11-02'
+		);
+	});
+
+	it("skips another person's lesson", () => {
+		const r = createRoutine(db, U1_SALSA, { name: 'Rueda', notes: null }).routine.id;
+		linkRoutine(db, lessonOn(U1_SALSA, '2026-11-03'), r);
+		expect(routineClassDays(db, [r], { userId: 'u2', editsTeamId: null }).has(r)).toBe(false);
 	});
 });

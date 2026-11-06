@@ -7,6 +7,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { act } from '$lib/act';
 	import { staleFailure } from '$lib/page-epoch';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -15,7 +16,6 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
-	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
@@ -31,6 +31,7 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import AddLinkSheet from '$lib/components/links/AddLinkSheet.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
@@ -51,6 +52,7 @@
 		LABEL,
 		SECTION_LABEL,
 		STRIP_ACTION,
+		PUBLISH_ACTION,
 		TEXTAREA,
 		button,
 		iconButton
@@ -58,6 +60,9 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { byteSize, fullDateLabel } from '$lib/format';
 	import {
+		ADD_LABEL,
+		DRAFT_BAND,
+		publishItem,
 		deleteBlock,
 		deleteVideoBody,
 		exerciseMeta,
@@ -73,6 +78,9 @@
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
+	import MusicSection from '$lib/components/songs/MusicSection.svelte';
+	import { practiseHref } from '$lib/songs/music';
 	import SimpleLesson from '$lib/components/lessons/SimpleLesson.svelte';
 	import { levelShown } from '$lib/levels/levels';
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
@@ -150,7 +158,15 @@
 	}
 	let lessonMenu = $state(false);
 	/** The lesson's own ⋯ items: History, and Remove from my lessons (its Dialog). */
+	/** Publish from the ⋯ (spec A6): the band's `publish`, then the page as it is now. */
+	async function publishFromMenu() {
+		await act('publish', {});
+		await refreshWhenSettled();
+	}
 	const lessonOwn = $derived<MenuItem[]>([
+		...(data.draft && data.canEdit && data.team
+			? [{ ...publishItem(data.team.name), onclick: () => void publishFromMenu() }]
+			: []),
 		...(data.historyHref
 			? [
 					{
@@ -213,6 +229,14 @@
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
 	let addingRoutine = $state(false);
+	let addingPosition = $state(false);
+	/** The Add a link sheet, and the `form` there when it opened: an older refusal is not this opening's. */
+	let addingLink = $state(false);
+	let linkSeen: unknown = $state(null);
+	function openAddLink() {
+		linkSeen = form;
+		addingLink = true;
+	}
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 	/** Where focus goes when that row is gone: the list's keys, the row, the list's add control. */
@@ -272,6 +296,7 @@
 	const scheduleOf = (exerciseId: number | null) =>
 		exerciseId === null ? undefined : data.schedule[exerciseId];
 	const failure = (action: string) => (form?.action === action ? form.message : null);
+	const linkRefusal = $derived(form !== linkSeen ? (failure('addLink') ?? null) : null);
 	/**
 	 * What the columns' top row shows besides the edit form, each read from here only
 	 * (outside editing `colsTop` renders these and nothing else; a spec checks it), so
@@ -561,6 +586,9 @@
 			typed = { figureName: '', name: query, notes: '' };
 			addingExercise = true;
 		}
+		// New position: made in the lesson's space and linked to it. Only the
+		// sheet closes; the picker shows the new row as linked once the page refreshes.
+		if (kind === 'position') addingPosition = true;
 	}
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
 	const offers = $derived<CloneOffers>(
@@ -579,18 +607,25 @@
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
 {#snippet draftBand()}
-	<!-- A group's draft: only its editors see it, until one of them publishes it. On the desktop a soft warn bar under the pane's title. -->
+	<!-- A group's draft: only its editors see it, until one of them publishes it (spec A6, 3A).
+	     On the phone one tinted block on the band; on the desktop a soft warn bar under the pane's title. -->
 	<div
-		class="flex items-center gap-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pr-2 desk:pl-4"
+		class="flex items-center gap-3 rounded-[18px] bg-band-track py-2 pr-2 pl-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pl-4"
 	>
-		<Badge tone="warn" solid>Draft</Badge>
-		<span
-			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
-			>Only the group's editors see it</span
-		>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[15px] font-extrabold text-band-small desk:text-ink"
+				>{DRAFT_BAND.title}</span
+			>
+			<span
+				class="text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
+				>{DRAFT_BAND.line}</span
+			>
+		</span>
 		{#if data.canEdit}
 			<form method="POST" action="?/publish" use:enhance>
-				<button type="submit" class={STRIP_ACTION}>Publish</button>
+				<button type="submit" class={PUBLISH_ACTION}
+					><Icon name="upload" size={18} />{DRAFT_BAND.publish}</button
+				>
 			</form>
 		{/if}
 	</div>
@@ -982,17 +1017,18 @@
 							</div>{/if}
 					</section>
 					<section class="flex flex-col gap-2 pt-2.5">
-						<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
+						{@render labelRow(sectionHeading('Links', data.links.length), 'link')}
 						{#if data.canEdit}
+							{#if failure('saveVideo') ?? failure('retryVideo')}
+								<Banner kind="error">{failure('saveVideo') ?? failure('retryVideo')}</Banner>
+							{/if}
 							<LinksEditor
 								compact
+								adding={false}
 								links={data.links}
 								canSave
-								message={failure('addLink') ??
-									failure('saveVideo') ??
-									failure('retryVideo') ??
-									null}
-								entered={form && 'urls' in form ? String(form.urls) : ''}
+								message={null}
+								entered=""
 							/>
 						{:else}
 							<LinkList compact links={data.links} />
@@ -1004,9 +1040,7 @@
 				<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
 				<div class="flex flex-col gap-2.5 pt-2.5">
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure', () =>
-							openFigureSheet()
-						)}
+						{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure')}
 						{#if data.figures.length > 0}
 							<ul class={GROUP}>
 								{#each data.figures as figure (figure.id)}
@@ -1030,18 +1064,9 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="figure-add"
-								label="Link an existing figure…"
-								onclick={() => openPicker('figure')}
-							/>
-						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
-							createFrom('routine', '', '')
-						)}
+						{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine')}
 						{#if data.routines.length > 0}
 							<ul class={GROUP}>
 								{#each data.routines as routine (routine.id)}
@@ -1069,18 +1094,9 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="routine-add"
-								label="Link an existing routine…"
-								onclick={() => openPicker('routine')}
-							/>
-						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
-							createFrom('exercise', '', '')
-						)}
+						{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise')}
 						{#if data.exercises.length > 0}
 							<ul class={GROUP}>
 								{#each data.exercises as exercise (exercise.id)}
@@ -1121,16 +1137,9 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="exercise-add"
-								label="Link an existing exercise…"
-								onclick={() => openPicker('exercise')}
-							/>
-						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Positions', data.positions.length), 'position', null)}
+						{@render labelRow(sectionHeading('Positions', data.positions.length), 'position')}
 						{#if data.positions.length > 0}
 							<ul class={GROUP}>
 								{#each data.positions as position (position.id)}
@@ -1159,14 +1168,14 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="position-add"
-								label="Link a position…"
-								onclick={() => openPicker('position')}
-							/>
-						{/if}
 					</section>
+					<!-- Music (spec B): the songs to practise to, each with a note. -->
+					<MusicSection
+						rows={data.music}
+						canEdit={data.canEdit}
+						choices={data.musicChoices}
+						practise={(songId) => practiseHref(data.dance.slug, { lesson: true }, songId)}
+					/>
 				</div>
 			{/snippet}
 			<PaneColumns
@@ -1380,12 +1389,19 @@
 	{/snippet}
 </Dialog>
 
-{#snippet labelRow(heading: string, what: LinkKind, onclick: (() => void) | null)}
+<!-- A list's heading and, for an editor, its one "+ Add": the list's picker, whose last row makes a new one. -->
+{#snippet labelRow(heading: string, kind: LinkKind | 'link')}
 	<div class="flex items-center justify-between pr-1">
 		<h2 class={SECTION_LABEL}>{heading}</h2>
-		{#if data.canEdit && onclick}
-			<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
-				><Icon name="plus" size={18} />New</button
+		{#if data.canEdit}
+			<button
+				type="button"
+				data-focus="{kind}-add"
+				class={button('tertiary', 'sm')}
+				aria-label={ADD_LABEL[kind]}
+				aria-haspopup="dialog"
+				onclick={() => (kind === 'link' ? openAddLink() : openPicker(kind))}
+				><Icon name="plus" size={18} />Add</button
 			>
 		{/if}
 	</div>
@@ -1515,10 +1531,12 @@
 		pending={inFlight}
 		groups={positionPickGroups(data.linkablePositions, styleLabel)}
 		nothingLeft="There are no positions yet."
+		create={[{ key: 'position', label: 'Position' }]}
 		{added}
 		message={picking === 'position' ? pickMessage : null}
 		onpick={(row) => link('position', row, false)}
 		onadd={(row) => link('position', row, true)}
+		oncreate={(key, query) => createFrom('position', key, query)}
 		ondone={closePicker}
 		onclose={closePicker}
 	/>
@@ -1668,6 +1686,25 @@
 			</button>
 		{/snippet}
 	</Sheet>
+{/if}
+
+{#if data.canEdit}
+	<AddLinkSheet
+		open={addingLink}
+		onclose={() => (addingLink = false)}
+		action="?/addLink"
+		canSave
+		message={linkRefusal}
+		entered={linkRefusal && form && 'urls' in form ? String(form.urls) : ''}
+	/>
+	<PositionSheet
+		open={addingPosition}
+		onclose={() => (addingPosition = false)}
+		mode="new"
+		action="?/newPosition"
+		dance={data.dance.slug}
+		defaultStyle={data.defaultStyle}
+	/>
 {/if}
 
 <!-- The routine and exercise sheets' form: Name, Notes. A success of

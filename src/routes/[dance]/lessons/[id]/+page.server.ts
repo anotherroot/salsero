@@ -33,6 +33,10 @@ import {
 } from '$lib/server/figures';
 import { createCustomExercise } from '$lib/server/exercises';
 import { createRoutine } from '$lib/server/routines';
+import { createPosition } from '$lib/server/positions';
+import { readNewPosition } from '$lib/server/position-form';
+import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
+import { listMusic, musicChoices } from '$lib/server/song-links';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
@@ -307,6 +311,9 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
 		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],
 		links: listLinks(db, { lessonId: found.lesson.id }),
+		/** Music (spec B): its suggested songs, and what "+ Add" offers an editor. */
+		music: listMusic(db, { lessonId: found.lesson.id }, wallOf(params, locals).userId),
+		musicChoices: canEdit ? musicChoices(db, space) : [],
 		today,
 		/** The schedule of each exercise the page shows a due word for: the person's own. */
 		schedule: scheduleForShown(db, wall, tz, [
@@ -700,6 +707,33 @@ export const actions: Actions = {
 			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
 		}
 		return { action: 'unlinkRoutine', ok: true };
+	},
+
+	addSong: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		return addSongFrom(request, getDb(), space, { lessonId: lesson.id });
+	},
+	noteSong: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		return noteSongFrom(request, getDb(), space, { lessonId: lesson.id });
+	},
+	removeSong: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		return removeSongFrom(request, getDb(), space, { lessonId: lesson.id });
+	},
+
+	newPosition: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		const read = readNewPosition(await request.formData(), space.dance);
+		const typed = { action: 'newPosition' as const, ...read.typed };
+		if (!('input' in read)) {
+			return fail(400, { ...typed, field: read.field, message: read.message });
+		}
+		const db = getDb();
+		const made = createPosition(db, space, read.input, Date.now());
+		if ('field' in made) return fail(400, { ...typed, field: made.field, message: made.message });
+		linkPosition(db, lesson.id, made.id, actorOf(space));
+		return { action: 'newPosition' as const, ok: true, positionId: made.id };
 	},
 
 	linkPosition: async ({ params, request, locals }) => {

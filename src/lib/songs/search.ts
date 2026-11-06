@@ -3,6 +3,7 @@
  * the matches). Client-safe.
  */
 import { fold } from '$lib/fold';
+import { clock } from '$lib/format';
 
 export const byTitle = (a: { title: string }, b: { title: string }) =>
 	a.title.localeCompare(b.title);
@@ -53,19 +54,23 @@ export function groupSongs<S extends Groupable>(
 }
 
 /** Which list a section of the popup is: rows outside a group's own say which group they are. */
-export type SongSectionKind = 'recent' | 'yours' | 'group';
+export type SongSectionKind = 'first' | 'recent' | 'yours' | 'group';
 
 /**
  * The popup's sections, empty ones left out: Recent, the person's own songs
  * ("Your songs" beside groups, "All songs A–Z" after Recent alone, no heading
  * when they are all there is), then a heading per group.
  */
-export function songSections<S extends Groupable>(
-	songs: S[]
+export function songSections<S extends Groupable & { id: number }>(
+	songs: S[],
+	first?: { label: string; ids: number[] } | null
 ): { kind: SongSectionKind; label: string | null; songs: S[] }[] {
 	const { recent, rest, groups } = groupSongs(songs);
 	const own = groups.length > 0 ? 'Your songs' : recent.length > 0 ? 'All songs A–Z' : null;
+	// A drill's or routine's Music first (spec B), in its order; they stay in their own sections too.
+	const lead = (first?.ids ?? []).flatMap((id) => songs.filter((s) => s.id === id));
 	return [
+		{ kind: 'first' as const, label: first?.label ?? null, songs: lead },
 		{ kind: 'recent' as const, label: 'Recent', songs: recent },
 		{ kind: 'yours' as const, label: own, songs: rest },
 		...groups.map((g) => ({ kind: 'group' as const, label: g.name, songs: g.songs }))
@@ -76,4 +81,36 @@ export function songSections<S extends Groupable>(
 export function pickerCount(n: number, searching: boolean): string {
 	const word = searching ? 'match' : 'song';
 	return n === 1 ? `1 ${word}` : `${n} ${word}${searching ? 'es' : 's'}`;
+}
+
+/**
+ * A song row's line: `Style · 98 BPM · 4:12`, leaving out what is not known;
+ * a group's song names its group first where no heading does (`named`).
+ */
+export function songMeta(
+	s: {
+		style: string;
+		bpm: number | null;
+		durationS: number | null;
+		group?: string | null;
+	},
+	styleLabels: Record<string, string>,
+	named = false
+): string {
+	return [
+		named ? null : s.group,
+		styleLabels[s.style] ?? s.style,
+		s.bpm ? `${s.bpm} BPM` : null,
+		s.durationS ? clock(s.durationS) : null
+	]
+		.filter(Boolean)
+		.join(' · ');
+}
+
+/** The log popup's lead section: the songs marked as the row's own Music, in its order. */
+export function musicFirst(
+	songs: { id: number; music?: { label: string; rank: number } }[]
+): { label: string; ids: number[] } | null {
+	const marked = songs.filter((s) => s.music).sort((a, b) => a.music!.rank - b.music!.rank);
+	return marked.length > 0 ? { label: marked[0].music!.label, ids: marked.map((s) => s.id) } : null;
 }

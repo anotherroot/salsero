@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { NO_FILES, T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, lessons } from './db/schema';
+import { exercises, lessons, videoSpots } from './db/schema';
 import {
 	addRecording,
 	archiveVariation,
@@ -26,6 +26,7 @@ import { crossRefs } from './integrity';
 import type { Space } from './scope';
 import { createCustomExercise } from './exercises';
 import { addSpot, listSpots } from './spots';
+import { MAX_SPOT_LABEL } from '$lib/limits';
 import {
 	assertUnlinked,
 	getSpotLink,
@@ -138,6 +139,44 @@ describe('linkSpot', () => {
 		expect(() => linkSpot(db, 'u1', 999, { figureId })).toThrow(SpotLinkError);
 		expect(() => linkSpot(db, 'u1', section, { figureId: 999 })).toThrow(SpotLinkError);
 		expect(() => linkSpot(db, 'u1', section, { exerciseId: 999 })).toThrow(SpotLinkError);
+	});
+});
+
+describe('a section takes the name of what it is linked to', () => {
+	const labelOf = (id: number) =>
+		db.select({ label: videoSpots.label }).from(videoSpots).where(eq(videoSpots.id, id)).get()!
+			.label;
+	let unnamed: number;
+	beforeEach(() => {
+		unnamed = addSpot(db, { lessonVideoId }, { startMs: 5000, endMs: 9000, label: null })!.id;
+	});
+
+	it('names an unnamed section after the figure it is linked to', () => {
+		linkSpot(db, 'u1', unnamed, { figureId: doble });
+		expect(labelOf(unnamed)).toBe('Enchufla · Doble');
+	});
+	it('names an unnamed section after a drill', () => {
+		linkSpot(db, 'u1', unnamed, { exerciseId: drill });
+		expect(labelOf(unnamed)).toBe('Clave');
+	});
+	it("keeps a named section's name", () => {
+		linkSpot(db, 'u1', section, { figureId: doble });
+		expect(labelOf(section)).toBe('Enchufla');
+	});
+	it('only the first link names it', () => {
+		linkSpot(db, 'u1', unnamed, { figureId: doble });
+		linkSpot(db, 'u1', unnamed, { exerciseId: drill });
+		expect(labelOf(unnamed)).toBe('Enchufla · Doble');
+	});
+	it("cuts a long name to fit a section's name", () => {
+		const long = createVariationFrom(db, figureId, 'y'.repeat(150))!.id;
+		linkSpot(db, 'u1', unnamed, { figureId: long });
+		expect(labelOf(unnamed)).toBe(`Enchufla · ${'y'.repeat(150)}`.slice(0, MAX_SPOT_LABEL));
+	});
+	it('keeps the name after unlinking', () => {
+		const id = linkSpot(db, 'u1', unnamed, { figureId: doble });
+		unlinkSpot(db, id, { figureId: doble });
+		expect(labelOf(unnamed)).toBe('Enchufla · Doble');
 	});
 });
 

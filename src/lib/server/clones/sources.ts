@@ -14,6 +14,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { CloneKind, CompareOffer, Member, PlaceRef, Source, TwinKind } from '$lib/types';
 import { diff, standing } from '$lib/clones/diff';
+import { fittingDiffs } from '../song-links';
 import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
 import { figures, recordings, teamMembers } from '../db/schema';
@@ -104,12 +105,19 @@ function familyOf(db: Db, userId: string, kind: CloneKind, id: number, withTwins
 }
 
 /** Where a copy stands against the page's row, and what differs. */
-function against(db: Db, kind: CloneKind, pageId: number, other: number) {
-	const diffs = diff(
-		pairBase(db, kind, pageId, other),
-		flatOf(db, kind, pageId),
-		flatOf(db, kind, other),
-		hashValue
+function against(db: Db, userId: string, kind: CloneKind, pageId: number, other: number) {
+	const diffs = fittingDiffs(
+		db,
+		kind,
+		pageId,
+		other,
+		diff(
+			pairBase(db, kind, pageId, other),
+			flatOf(db, kind, pageId),
+			flatOf(db, kind, other),
+			hashValue
+		),
+		userId
 	);
 	return { status: standing(diffs), changed: changedLabels(diffs) };
 }
@@ -178,7 +186,7 @@ export function sourcesView(
 				label: named(m.place),
 				relation: 'clone',
 				access: m.access,
-				...against(db, kind, id, m.id),
+				...against(db, userId, kind, id, m.id),
 				...(rejoinedWith(db, userId, kind, id, m) ? { rejoined: true } : {})
 			};
 		}),

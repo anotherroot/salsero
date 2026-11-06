@@ -14,6 +14,7 @@ import { accessTo, geneOf } from './genes';
 import { digest, hashValue, pairBase } from './pairs';
 import { flatOf } from './trees';
 import { syncFrom } from './apply';
+import { fittingDiffs } from '../song-links';
 import type { CloneFiles } from './files';
 
 /**
@@ -42,7 +43,15 @@ export function compareWith(
 	const mine = flatOf(db, kind, mineId, opts);
 	const theirs = flatOf(db, kind, theirsId, opts);
 	const base = pairBase(db, kind, mineId, theirsId);
-	const diffs = diff(base, mine, theirs, hashValue);
+	// A song the other place could not take is not offered (spec B: never a copy of a song).
+	const diffs = fittingDiffs(
+		db,
+		kind,
+		mineId,
+		theirsId,
+		diff(base, mine, theirs, hashValue),
+		userId
+	);
 	return {
 		diffs,
 		picks: defaultPicks(diffs, 'take'),

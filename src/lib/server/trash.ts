@@ -38,6 +38,7 @@ import {
 	recordings,
 	routines,
 	songDrops,
+	songLinks,
 	songs,
 	spotLinks,
 	spotPositionLinks,
@@ -598,6 +599,7 @@ function purgeSongs(db: Db, now: number): { count: number; files: TrashFile[] } 
 		const ids = due.map((s) => s.id);
 		tx.update(exercises).set({ songId: null }).where(inArray(exercises.songId, ids)).run();
 		tx.delete(songDrops).where(inArray(songDrops.songId, ids)).run();
+		tx.delete(songLinks).where(inArray(songLinks.songId, ids)).run();
 		tx.delete(opens)
 			.where(and(eq(opens.kind, 'song'), inArray(opens.itemId, ids)))
 			.run();

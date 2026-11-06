@@ -236,3 +236,29 @@ export function positionPickGroups(
 		[...teams.values()]
 	).map((g) => ({ ...g, entries: g.entries.map(mark) }));
 }
+
+/** The aria-label of each list's "+ Add" on the lesson page. */
+export const ADD_LABEL = {
+	figure: 'Add a figure',
+	routine: 'Add a routine',
+	exercise: 'Add an exercise',
+	position: 'Add a position',
+	link: 'Add a link'
+} as const;
+
+/** A group's draft lesson's strip on the band (spec A6). */
+export const DRAFT_BAND = {
+	title: 'Draft',
+	line: "Members don't see it yet",
+	publish: 'Publish'
+} as const;
+
+/** A group's draft's ⋯ item that publishes it (beside the band's button), naming who will see it. */
+export function publishItem(teamName: string) {
+	return {
+		key: 'publish',
+		icon: 'upload' as const,
+		label: 'Publish',
+		meta: `Members of ${teamName} see it`
+	};
+}
