@@ -1,6 +1,6 @@
 /**
  * My class (levels spec): at Follow my class the Groups tab opens the one
- * class, lists two or more, and with none points to the other dance's class;
+ * class, lists two or more, and with none shows the join step;
  * a member's class page is the simple one, a teacher's stays full. The
  * database is mocked, never set through `process.env` (see CLAUDE.md).
  */
@@ -48,6 +48,7 @@ const user = (id: string, level: Level | null) => ({
 	id,
 	email: `${id}@x.si`,
 	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
 	level
 });
 const event = (id: string, level: Level | null, params: Record<string, string>) => ({
@@ -61,7 +62,6 @@ type Layout = {
 	myClass: {
 		lastDays: Record<number, string>;
 		today: string;
-		other: { dance: string; line: string } | null;
 	} | null;
 };
 const layoutAs = (id: string, level: Level | null, dance = 'salsa') =>
@@ -111,19 +111,6 @@ describe('the My class tab', () => {
 	it('has no My class data at the other levels', () => {
 		expect(layoutAs('u3', 'all').myClass).toBeNull();
 		expect(layoutAs('u3', 'own').myClass).toBeNull();
-	});
-
-	it('points to the class in the other dance when there is none here', async () => {
-		expect(await indexAs('u4', 'follow')).toEqual({});
-		expect(layoutAs('u4', 'follow').myClass?.other).toBeNull();
-		createTeam(db, 'u5', 'bachata', 'Bachata Thursdays', 4);
-		joinTeam(db, 'u4', 3, 5);
-		expect(layoutAs('u4', 'follow').myClass?.other).toEqual({
-			dance: 'bachata',
-			line: 'Your bachata class'
-		});
-		// In the dance that has it, nothing points away.
-		expect(layoutAs('u4', 'follow', 'bachata').myClass?.other).toBeNull();
 	});
 });
 

@@ -165,11 +165,6 @@ export function onlyClass(
 	return live.length === 1 && live[0].id === teamId;
 }
 
-/** My class with no class here but one in the other dance: "Your bachata class". */
-export function otherClassLine(danceLabel: string): string {
-	return `Your ${danceLabel.toLowerCase()} class`;
-}
-
 /** A class in the list of classes: when it last met ("Last class Tue 3 Nov"). */
 export function lastClassLine(day: string | null, today: string): string {
 	return day === null ? 'No classes yet' : `Last class ${classDayLabel(day, today)}`;

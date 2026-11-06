@@ -128,10 +128,10 @@ export const actions: Actions = {
 	/** The style a new figure of one dance starts on. */
 	style: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
-		const form = await request.formData();
-		const dance = text(form, 'dance');
-		const style = text(form, 'style');
-		if (!dance || !isDanceSlug(dance) || !style || !isStyleOf(dance, style)) {
+		// The account's own dance: a form's `dance` (older pages send one) is ignored.
+		const dance = locals.user.dance;
+		const style = text(await request.formData(), 'style');
+		if (!style || !isStyleOf(dance, style)) {
 			return fail(400, { message: 'Pick one of the styles.' });
 		}
 		setDefaultStyle(getDb(), locals.user.id, dance, style);

@@ -39,7 +39,12 @@ afterEach(async () => {
 	await rm(envMock.DATA_DIR, { recursive: true, force: true });
 });
 
-const user = (id: string) => ({ id, email: `${id}@x.si`, timezone: 'Europe/Ljubljana' });
+const user = (id: string) => ({
+	id,
+	email: `${id}@x.si`,
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa'
+});
 
 type Leave = (e: unknown) => Promise<{ status?: number; data?: { message?: string } } | never>;
 async function leave(as: string, fields: Record<string, string | string[] | undefined>) {

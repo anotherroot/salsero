@@ -34,7 +34,13 @@ const figureListLoad = (e: unknown) => {
 };
 import { actions as coverageActions } from './(moves)/coverage/+page.server';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
+const USER = {
+	id: 'u1',
+	email: 'u@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: true
+};
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(dance: string, fields: Record<string, string>, id = '') {
@@ -46,7 +52,7 @@ function post(dance: string, fields: Record<string, string>, id = '') {
 			body: new URLSearchParams(fields)
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user: USER }
+		locals: { user: { ...USER, dance } }
 	};
 }
 

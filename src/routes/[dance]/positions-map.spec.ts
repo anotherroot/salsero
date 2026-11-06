@@ -52,7 +52,9 @@ const jar = (value?: string) =>
 	}) as unknown as Cookies;
 
 const locals = (id: string) =>
-	({ user: { id, timezone: 'Europe/Ljubljana', role: 'user' } }) as unknown as App.Locals;
+	({
+		user: { id, timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
+	}) as unknown as App.Locals;
 
 const loadOf = (user: string, cookies: Cookies = jar()) =>
 	mapData(db, { userId: user, dance: 'salsa' }, groupModeOf(db, user, 'salsa', cookies)) as any;

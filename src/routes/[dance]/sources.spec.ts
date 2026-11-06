@@ -66,7 +66,7 @@ const ev = (
 ) =>
 	({
 		params: { dance: 'salsa', id: String(id) },
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		cookies: jar(opts.group),
 		url: new URL(`http://localhost/salsa/x/${id}${opts.search ?? ''}`),
 		request: new Request('http://localhost/x', {
@@ -211,7 +211,7 @@ describe('Compare and Take theirs', () => {
 			url: new URL(
 				`http://localhost/api/clones/compare?kind=${kind}&mine=${mine}&theirs=${theirs}`
 			),
-			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
 		});
 
 	it('your copy’s page offers Compare once the group changed it; Take lands it and the offer goes', async () => {
@@ -263,7 +263,7 @@ describe('Copies you can see, and Send mine', () => {
 	const preview = (uid: string, from: number, kind = 'figure') =>
 		run(sendApi.GET, {
 			url: new URL(`http://localhost/api/clones/send?kind=${kind}&from=${from}`),
-			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
 		});
 
 	it('an editor’s own copy lists the group’s, behind it, and sends into it', async () => {
@@ -405,7 +405,7 @@ describe('Copy to…', () => {
 	const plan = async (uid: string, id: number, into: string) =>
 		run(copyApi.GET, {
 			url: new URL(`http://localhost/api/clones/copy?kind=figure&id=${id}&into=${into}`),
-			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
 		});
 
 	it('an editor copies a group’s figure into another group; again opens Compare; archived offers Restore', async () => {
@@ -497,7 +497,7 @@ describe('Move to…', () => {
 	const preview = async (uid: string, id: number, into: string) =>
 		run(moveApi.GET, {
 			url: new URL(`http://localhost/api/clones/move?id=${id}&into=${into}`),
-			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
 		});
 	/** A lesson of the person's own, Week 3, with their own Setenta · Básico. */
 	function week3(uid: string) {
@@ -600,7 +600,7 @@ describe('Same as… and Separate on the figure page', () => {
 describe('positions through the clone routes', () => {
 	const as = (uid: string, url: string) => ({
 		url: new URL(`http://localhost${url}`),
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
 	});
 	const own = (uid: string, name: string) =>
 		db

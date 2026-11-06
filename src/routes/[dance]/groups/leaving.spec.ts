@@ -109,7 +109,7 @@ let variation: number;
 let routine: number;
 
 const DAY = 24 * 60 * 60 * 1000;
-const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC' });
+const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC', dance: 'salsa' });
 /** No group mode: the cookie is never set. */
 const cookies = { get: () => undefined, delete: () => {}, set: () => {} } as unknown as Cookies;
 const ev = (uid: string, params: Record<string, string>, extra: Record<string, unknown> = {}) =>

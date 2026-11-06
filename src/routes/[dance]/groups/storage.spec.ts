@@ -33,7 +33,7 @@ const FILE = '0b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
 const ev = (uid: string, id = '1', fields?: Record<string, string>) =>
 	({
 		params: { dance: 'salsa', id },
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		url: new URL('http://localhost/x'),
 		request: new Request('http://localhost/x', {
 			method: 'POST',

@@ -35,7 +35,8 @@ beforeEach(() => {
 
 async function post(
 	user: string | null,
-	body: unknown
+	body: unknown,
+	dance: 'salsa' | 'bachata' = 'salsa'
 ): Promise<{ status: number; body: unknown }> {
 	const request = new Request('http://x/api/positions', {
 		method: 'POST',
@@ -45,7 +46,7 @@ async function post(
 	try {
 		const res = await (POST as (e: unknown) => Promise<Response>)({
 			request,
-			locals: { user: user ? { id: user } : null }
+			locals: { user: user ? { id: user, dance } : null }
 		});
 		return { status: res.status, body: await res.json() };
 	} catch (e) {
@@ -144,13 +145,17 @@ describe('POST /api/positions', () => {
 			figureName: 'Basico',
 			style: 'sensual'
 		})!.figure.id;
-		const res = await post('u1', {
-			figureId: basico,
-			name: 'Closed',
-			styleTag: 'salsa',
-			hands: 'three',
-			crossed: 'yes'
-		});
+		const res = await post(
+			'u1',
+			{
+				figureId: basico,
+				name: 'Closed',
+				styleTag: 'salsa',
+				hands: 'three',
+				crossed: 'yes'
+			},
+			'bachata'
+		);
 		expect(res.status).toBe(201);
 		expect(all()[0]).toMatchObject({
 			dance: 'bachata',

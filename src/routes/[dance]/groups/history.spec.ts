@@ -25,7 +25,7 @@ import { load as lessonLoad } from '../lessons/[id]/+page.server';
 let db: Db;
 let lesson: number;
 
-const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC' });
+const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC', dance: 'salsa' });
 const ev = (uid: string, kind = 'lesson', rootId = lesson, request?: Request) =>
 	({
 		params: { dance: 'salsa', id: '1', kind, rootId: String(rootId) },

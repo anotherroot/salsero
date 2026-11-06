@@ -39,7 +39,13 @@ import { POST as postSong } from './songs/+server';
 import { POST as postTake } from './count-takes/+server';
 
 const MB = 1024 * 1024;
-const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+const U1 = {
+	id: 'u1',
+	email: 'u1@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: false
+};
 
 let db: Db;
 let figureId: number;

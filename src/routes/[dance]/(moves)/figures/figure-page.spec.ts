@@ -25,7 +25,12 @@ import * as figurePage from './[id]/+page.server';
 
 const T = 1_790_000_000_000;
 const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
-const user = (id: string) => ({ id, email: `${id}@example.com`, timezone: 'Europe/Ljubljana' });
+const user = (id: string) => ({
+	id,
+	email: `${id}@example.com`,
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa'
+});
 
 type Data = {
 	fromLesson: string | null;

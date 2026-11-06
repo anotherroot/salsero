@@ -25,8 +25,13 @@ import { dailyCountOf } from '$lib/server/today-picks';
 import { levelOf } from '$lib/server/levels';
 import { actions, load } from './+page.server';
 
-const USER = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana' };
-const OTHER = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana' };
+const USER = {
+	id: 'u1',
+	email: 'u1@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'bachata' as const
+};
+const OTHER = { ...USER, id: 'u2', email: 'u2@example.com' };
 const T0 = 1_760_000_000_000;
 
 function post(fields: Record<string, string>, user = USER, cookie: string | undefined = 'bachata') {
@@ -68,15 +73,16 @@ describe('load', () => {
 });
 
 describe('style', () => {
-	it('saves one dance only', async () => {
+	// Catches: the form's dance writing a row in a dance the account is not of.
+	it("saves the account's own dance, whatever the form says", async () => {
 		const before = defaultStylesFor(db, 'u1');
-		await call(actions.style, post({ dance: 'bachata', style: 'sensual' }));
+		await call(actions.style, post({ dance: 'salsa', style: 'traditional' }));
 		const after = defaultStylesFor(db, 'u1');
-		expect(after.bachata).toBe('sensual');
+		expect(after.bachata).toBe('traditional');
 		expect(after.salsa).toBe(before.salsa);
 	});
 	it('refuses a style the dance does not have', async () => {
-		expect(await call(actions.style, post({ dance: 'bachata', style: 'son' }))).toMatchObject({
+		expect(await call(actions.style, post({ style: 'son' }))).toMatchObject({
 			status: 400
 		});
 	});

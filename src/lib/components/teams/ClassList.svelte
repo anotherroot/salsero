@@ -16,8 +16,7 @@
 	 * the class itself and this list is not drawn.
 	 *
 	 * In none: Join your class, the code field (`joinAction`, the list route's
-	 * explicit URL), and above it the other dance's My class when the person has
-	 * a class there (`other`).
+	 * explicit URL).
 	 */
 	let {
 		teams,
@@ -25,7 +24,6 @@
 		openId,
 		lastDays,
 		today,
-		other,
 		joinAction
 	}: {
 		teams: (TeamItem & { newCount: number })[];
@@ -34,7 +32,6 @@
 		/** Each class's last class day, by group id; a class with none is left out. */
 		lastDays: Record<number, string>;
 		today: string;
-		other: { dance: DanceSlug; line: string } | null;
 		joinAction: string;
 	} = $props();
 
@@ -49,15 +46,6 @@
 			</h2>
 			<p class="text-[15px] leading-[1.45] text-muted">{JOIN_STEP.subtitle}</p>
 		</div>
-		{#if other}
-			<a
-				href={resolve('/[dance]/groups', { dance: other.dance })}
-				class="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3 active:bg-step"
-			>
-				<span class="text-[16px] font-bold text-ink">{other.line}</span>
-				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-			</a>
-		{/if}
 		<div class="rounded-[22px] bg-surface px-4 pt-5 pb-4">
 			<ClassCodeField action={joinAction} />
 		</div>

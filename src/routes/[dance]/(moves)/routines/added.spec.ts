@@ -53,7 +53,9 @@ describe('Routines page', () => {
 		const data = (await load({
 			params: { dance: 'salsa' },
 			cookies: { get: () => undefined, delete: () => {} },
-			locals: { user: { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana' } }
+			locals: {
+				user: { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' }
+			}
 		} as never)) as { routines: unknown[]; groups: { routines: { id: number }[] }[] };
 		expect(data.routines).toEqual([]);
 		expect(data.groups[0].routines[0].id).toBe(R.id);

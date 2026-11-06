@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { inWall, requireAdmin, wallOf, type Wall } from './scope';
 
-const user = (isAdmin = false) =>
-	({ id: 'u1', email: 'a@x.com', timezone: 'UTC', isAdmin }) as NonNullable<App.Locals['user']>;
+const user = (isAdmin = false, dance: 'salsa' | 'bachata' = 'bachata') =>
+	({ id: 'u1', email: 'a@x.com', timezone: 'UTC', isAdmin, dance }) as NonNullable<
+		App.Locals['user']
+	>;
 const status = (fn: () => unknown) => {
 	try {
 		fn();
@@ -32,6 +34,10 @@ describe('wallOf', () => {
 	it('404s a bad slug and 401s no user', () => {
 		expect(status(() => wallOf({ dance: 'kizomba' }, { user: user() }))).toBe(404);
 		expect(status(() => wallOf({ dance: 'salsa' }, { user: null }))).toBe(401);
+	});
+	// Catches: a salsa account reaching bachata pages, the dance split's whole point.
+	it("404s a dance that is not the account's own", () => {
+		expect(status(() => wallOf({ dance: 'bachata' }, { user: user(false, 'salsa') }))).toBe(404);
 	});
 });
 

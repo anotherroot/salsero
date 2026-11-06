@@ -23,7 +23,7 @@ let db: Db;
 let teamId: number;
 let code: string;
 
-const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC' });
+const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC', dance: 'salsa' });
 const ev = (uid: string | null, extra: Record<string, unknown> = {}, dance = 'salsa') =>
 	({
 		params: { dance, id: String(teamId), code },
