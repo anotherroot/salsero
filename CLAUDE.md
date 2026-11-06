@@ -187,6 +187,11 @@ src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, de
                      layout, its `next` action and the reminder (`dueByDance`) read the same
 src/lib/server/positions.ts  owned positions: list (by type, then name), create, edit,
                      archive, restore, Templates (`addTemplates`), "from Week 6" (`positionsFrom`)
+src/lib/server/section-names.ts  the one-time boot step: an unnamed linked section or point
+                     takes its oldest link's name (`nameLinkedSpots`, an `app_flags` marker);
+                     a new link names one by `nameIfUnnamed` (spot-links.ts)
+src/lib/server/position-form.ts  `readNewPosition`: what a New position form posts, read and
+                     checked (the positions list's `create`, the lesson page's `newPosition`)
 src/lib/server/positions-move.ts  the one-time boot move: the old shared positions become
                      the admin's, every other place using one gets a copy of the same
                      gene, `end_position_id` → `figure_end_positions` (an `app_flags` marker)
@@ -232,6 +237,8 @@ src/lib/figures/     PURE: a figure page's lines — timing, the practice line, 
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
                      page's lines — via-section badges, row metas, the delete and unlink
                      questions. Client-safe
+src/lib/components/links/AddLinkSheet.svelte  "Add a link": one link, what it found (`linkFound`),
+                     a title; the lesson page's, and the figure page's to reuse
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and

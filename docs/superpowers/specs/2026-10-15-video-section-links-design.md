@@ -5,6 +5,14 @@
 > spots and [`2026-10-15-youtube-video-save-design.md`](2026-10-15-youtube-video-save-design.md)'s
 > saved videos.
 >
+> **Changed 2026-11-06**
+> ([`2026-11-05-lesson-links-and-music-design.md`](2026-11-05-lesson-links-and-music-design.md),
+> A3): a section or point with no name takes the name of the first thing it is
+> linked to (`nameIfUnnamed` in `linkInSpace` and `linkPositionInSpace`, in the
+> link's transaction and History line). Those linked before were named once at
+> boot (`nameLinkedSpots`, `src/lib/server/section-names.ts`, an `app_flags`
+> marker): their oldest figure or drill link, else their oldest position link.
+>
 > **Changed 2026-10-29** by
 > [`2026-10-29-section-link-popup-design.md`](2026-10-29-section-link-popup-design.md):
 > linking from a video's side is one Link popup, on the lesson page (for a

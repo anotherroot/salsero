@@ -3,6 +3,17 @@
 > **Status:** approved in brainstorming, 2026-09-23. Extends
 > [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md), which
 > stays the overall design; this document owns lessons and the Today bands.
+>
+> **Changed 2026-11-06**
+> ([`2026-11-05-lesson-links-and-music-design.md`](2026-11-05-lesson-links-and-music-design.md),
+> part A): each list on the lesson page (Figures, Routines, Exercises,
+> Positions, Links) has one "+ Add" in its heading, in place of "+ New" and the
+> full-width "Link an existing …" button. It opens the list's picker, whose last
+> row makes a new one; Positions gained "+ New position" (`newPosition`: made
+> in the lesson's space and linked, one action). Links are added in the shared
+> "Add a link" popup (`AddLinkSheet`), one link at a time, not in a form in the
+> page. A group's draft shows "Draft · Members don't see it yet" with a cream
+> Publish button on the band. The share page makes a lesson on the spot.
 
 ## Purpose
 
