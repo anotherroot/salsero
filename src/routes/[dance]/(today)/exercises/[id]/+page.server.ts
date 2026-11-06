@@ -17,7 +17,12 @@ import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
 import { scheduleStates } from '$lib/server/schedule';
-import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
+import {
+	requireExerciseAccess,
+	requireExerciseInWall,
+	spaceOfRow,
+	wallOf
+} from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
@@ -33,6 +38,9 @@ import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Who acts: History names them on a group's drill. */
+import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
+import { listMusic, musicChoices } from '$lib/server/song-links';
+
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
 /**
@@ -83,8 +91,20 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		const own = requireExerciseInWall(db, wall, row.id);
 		const popup = popupData(db, wall, own.id, tz, now);
 		if (!popup) throw error(404, 'No such exercise');
+		// Music (spec B): a drill's own; an entry reads its group drill's, never edits it.
+		const musicParent =
+			own.source === 'custom'
+				? { exerciseId: own.id }
+				: own.source === 'added' && own.drillId !== null
+					? { exerciseId: own.drillId }
+					: null;
 		return {
 			...popup,
+			music: musicParent ? listMusic(db, musicParent, wall.userId) : [],
+			musicChoices: own.source === 'custom' ? musicChoices(db, wall) : [],
+			musicShown: musicParent !== null,
+			musicEdit: own.source === 'custom',
+			musicEntryId: own.id as number | null,
 			practice: practicePayload(db, own, tz, now),
 			history: exerciseHistory(db, own.id),
 			summary: exerciseSummary(db, own.id),
@@ -145,6 +165,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const route = popup ? null : drillAddRoute(db, wall.userId, row);
 	const offer = route && !route.added ? addOffer(db, wall.userId, route.lessonId) : null;
 	return {
+		music: listMusic(db, { exerciseId: row.id }, wall.userId),
+		musicChoices: canEdit ? musicChoices(db, spaceOfRow(row, wall.userId)) : [],
+		musicShown: true,
+		musicEdit: canEdit,
+		musicEntryId: (popup?.exercise.id ?? null) as number | null,
 		exercise: popup?.exercise ?? shown,
 		sets: popup?.sets ?? [],
 		songs: popup?.songs ?? [],
@@ -342,6 +367,17 @@ export const actions: Actions = {
 		}
 		return { action: 'unlinkSection', ok: true };
 	},
+
+	addSong: async ({ params, request, locals }) => {
+		const drill = linkableOf(params, locals);
+		return addSongFrom(request, getDb(), spaceOfRow(drill, me(params, locals)), {
+			exerciseId: drill.id
+		});
+	},
+	noteSong: async ({ params, request, locals }) =>
+		noteSongFrom(request, getDb(), spaceOfRow(linkableOf(params, locals), me(params, locals))),
+	removeSong: async ({ params, request, locals }) =>
+		removeSongFrom(request, getDb(), spaceOfRow(linkableOf(params, locals), me(params, locals))),
 
 	addLink: async ({ params, request, locals }) =>
 		addLinkFrom(

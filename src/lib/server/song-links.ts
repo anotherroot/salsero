@@ -121,7 +121,8 @@ export function listMusic(db: Db, parent: MusicParent, viewerId: string): MusicR
 			durationS: song.durationS,
 			sample,
 			note: link.note,
-			shared: song.archivedAt === null && (song.teamId === null || song.sharedAt !== null)
+			shared: song.archivedAt === null && (song.teamId === null || song.sharedAt !== null),
+			seen: JSON.stringify(musicSeen(link))
 		});
 	}
 	return out;

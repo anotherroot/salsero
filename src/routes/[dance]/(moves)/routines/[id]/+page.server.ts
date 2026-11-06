@@ -41,6 +41,8 @@ import { figureById, nextCountOf, type Graph } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
+import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
+import { listMusic, musicChoices } from '$lib/server/song-links';
 import { isTeam, requireRoutineAccess, spaceOfRow, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
@@ -240,6 +242,9 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
 		canEdit,
+		/** Music (spec B): its suggested songs, and what "+ Add" offers an editor. */
+		music: listMusic(db, { routineId: routine.id }, wall.userId),
+		musicChoices: canEdit ? musicChoices(db, space) : [],
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'routine', routine.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
@@ -505,6 +510,26 @@ export const actions: Actions = {
 		// Handed back so Undo can bring back the entries this remove took (R10).
 		return done(routine.id, { removedAt: now });
 	},
+
+	addSong: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
+		const db = getDb();
+		return addSongFrom(request, db, spaceOfRow(routine, wallOf(params, locals).userId), {
+			routineId: routine.id
+		});
+	},
+	noteSong: async ({ params, request, locals }) =>
+		noteSongFrom(
+			request,
+			getDb(),
+			spaceOfRow(routineOf(params, locals), wallOf(params, locals).userId)
+		),
+	removeSong: async ({ params, request, locals }) =>
+		removeSongFrom(
+			request,
+			getDb(),
+			spaceOfRow(routineOf(params, locals), wallOf(params, locals).userId)
+		),
 
 	note: async ({ params, request, locals }) => {
 		const db = getDb();

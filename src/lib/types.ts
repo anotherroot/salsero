@@ -119,6 +119,8 @@ export interface MusicRow {
 	note: string | null;
 	/** Playable now: false for a group song unshared or archived since (only editors get such rows). */
 	shared: boolean;
+	/** What a note save saw (the clash check), as the form posts it. */
+	seen: string;
 }
 
 /** A ready song as the song popup lists it. */

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MusicSection from '$lib/components/songs/MusicSection.svelte';
+	import { practiseHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
@@ -1069,6 +1071,13 @@
 						</ul>
 					{/if}
 				</section>
+				<!-- Music (spec B): the songs to practise to, each with a note. -->
+				<MusicSection
+					rows={data.music}
+					canEdit={data.canEdit}
+					choices={data.musicChoices}
+					practise={(songId) => practiseHref(data.dance.slug, { lesson: true }, songId)}
+				/>
 			</div>
 		{/snippet}
 		<PaneColumns
