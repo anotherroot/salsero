@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { RATING_OF } from './feel';
-import { nextGap, preview, replay } from './schedule';
+import { FACES } from './comes-back';
+import { nextGap, preview, replay, scheduleOf } from './schedule';
 
 const TZ = 'Europe/Ljubljana';
 /** Noon local on a day, as an instant. */
@@ -10,6 +11,10 @@ const at = (day: string, h = 12, m = 0) =>
 const D0 = '2026-10-01';
 const day = (n: number) => shiftDay(D0, n);
 const gotit = (d: string) => ({ doneAt: at(d), rating: RATING_OF.gotit });
+const getting = (d: string) => ({ doneAt: at(d), rating: RATING_OF.getting });
+const easy = (d: string) => ({ doneAt: at(d), rating: RATING_OF.easy });
+const unrated = (d: string) => ({ doneAt: at(d), rating: null });
+const dayStr = (n: number) => shiftDay(D0, n);
 
 describe('nextGap', () => {
 	it.each([
@@ -156,5 +161,72 @@ describe('preview', () => {
 			);
 			expect(after.gap).toBe(f.gap);
 		}
+	});
+});
+
+describe('scheduleOf', () => {
+	it('faces is replay, with no rhythm and no learning', () => {
+		const sets = [gotit(day(0))];
+		expect(scheduleOf(3, at(D0), sets, FACES, TZ)).toEqual({
+			...replay(3, at(D0), sets, TZ),
+			every: null,
+			learning: null
+		});
+	});
+	it('every 2: due two days after the last set, never "late"', () => {
+		const s = scheduleOf(3, at(D0), [unrated(day(0))], { kind: 'every', days: 2 }, TZ);
+		expect(s).toMatchObject({ dueDay: dayStr(2), gap: 2, every: 2, learning: null });
+	});
+	it('every 1, missed for 5 days: still due on the day after the last set', () => {
+		expect(scheduleOf(3, at(D0), [unrated(day(0))], { kind: 'every', days: 1 }, TZ).dueDay).toBe(
+			dayStr(1)
+		);
+	});
+	it('every N never done: due on its creation day', () => {
+		const s = scheduleOf(3, at('2026-10-05'), [], { kind: 'every', days: 3 }, TZ);
+		expect(s).toMatchObject({ lastDay: null, dueDay: '2026-10-05', gap: 3 });
+	});
+	it('until 3: daily while learning, counting good days from the switch', () => {
+		const since = at(day(2));
+		const sets = [gotit(day(0)), gotit(day(1)), gotit(day(2)), getting(day(3))];
+		const s = scheduleOf(3, at(D0), sets, { kind: 'until', good: 3, since }, TZ);
+		expect(s.learning).toEqual({ good: 1, of: 3 });
+		expect(s.dueDay).toBe(dayStr(4));
+	});
+	it('until 3: a day is good by its last rated set', () => {
+		const sets = [
+			{ doneAt: at(day(0), 9), rating: RATING_OF.getting },
+			{ doneAt: at(day(0), 10), rating: RATING_OF.gotit },
+			{ doneAt: at(day(0), 11), rating: null }
+		];
+		const s = scheduleOf(3, at(D0), sets, { kind: 'until', good: 3, since: at(D0) }, TZ);
+		expect(s.learning).toEqual({ good: 1, of: 3 });
+	});
+	it('until 3: learnt on the third good day, then the faces gap', () => {
+		const sets = [gotit(day(0)), easy(day(1)), gotit(day(2))];
+		const s = scheduleOf(3, at(D0), sets, { kind: 'until', good: 3, since: at(D0) }, TZ);
+		expect(s.learning).toBeNull();
+		expect(s).toMatchObject(replay(3, at(D0), sets, TZ));
+	});
+	it('until, never done: due on the creation day, 0 good', () => {
+		const s = scheduleOf(3, at('2026-10-05'), [], { kind: 'until', good: 5, since: 0 }, TZ);
+		expect(s).toMatchObject({ dueDay: '2026-10-05', learning: { good: 0, of: 5 } });
+	});
+	it('switched back to faces: unrated rhythm sets leave the gap', () => {
+		const sets = [gotit(day(0)), unrated(day(3)), unrated(day(4))];
+		expect(scheduleOf(3, at(D0), sets, FACES, TZ).gap).toBe(
+			replay(3, at(D0), [gotit(day(0))], TZ).gap
+		);
+	});
+	it("beforeDay leaves out that day's sets", () => {
+		const sets = [unrated(day(0)), unrated(day(3))];
+		const every1 = { kind: 'every', days: 1 } as const;
+		expect(scheduleOf(3, at(D0), sets, every1, TZ).dueDay).toBe(dayStr(4));
+		expect(scheduleOf(3, at(D0), sets, every1, TZ, day(3)).dueDay).toBe(dayStr(1));
+	});
+	it('beforeDay leaves out that day from the good days', () => {
+		const sets = [gotit(day(0)), gotit(day(1)), gotit(day(2))];
+		const until3 = { kind: 'until', good: 3, since: at(D0) } as const;
+		expect(scheduleOf(3, at(D0), sets, until3, TZ, day(2)).learning).toEqual({ good: 2, of: 3 });
 	});
 });
