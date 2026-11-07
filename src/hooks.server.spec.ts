@@ -12,6 +12,8 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { Release } from '$lib/app-update/agent';
 
 const handleDb = vi.hoisted(() => ({ db: undefined as unknown }));
+const handleEnv = vi.hoisted(() => ({ env: {} as Record<string, string | undefined> }));
+vi.mock('$env/dynamic/private', () => handleEnv);
 
 vi.mock('$lib/server/db', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
@@ -31,7 +33,7 @@ vi.mock('$lib/server/releases', () => ({
 
 import { createSession } from '$lib/server/auth';
 import { openDb } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { appInstalls, users } from '$lib/server/db/schema';
 import { handle } from './hooks.server';
 
 const OLD_HEADER = '2; salsa; direct';
@@ -136,5 +138,59 @@ describe('the old-app gate', () => {
 
 	it("never refuses the page's own API calls inside an old app's WebView", async () => {
 		expect(await status('/api/count-takes', { 'user-agent': OLD_WEBVIEW_UA })).not.toBe(426);
+	});
+});
+
+describe('the two hosts', () => {
+	const BACHATA_UA =
+		'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36 SalsaApp/7 (bachata; direct)';
+
+	/** A salsa account's session on the bachata host: the status, where it goes, whether it went on. */
+	async function onBachataHost(method: string, path: string) {
+		handleEnv.env.DANCE_HOSTS = 'salsa.example=salsa,bachata.example=bachata';
+		const db = openDb(':memory:');
+		handleDb.db = db;
+		db.insert(users)
+			.values({
+				id: 'u1',
+				email: 'a@example.com',
+				passwordHash: 'x',
+				dance: 'salsa',
+				firstName: 'Ana',
+				lastName: 'K',
+				level: 'all'
+			})
+			.run();
+		const session = createSession('u1');
+		const url = new URL(`https://bachata.example${path}`);
+		const event = {
+			url,
+			request: new Request(url, { method, headers: { 'user-agent': BACHATA_UA } }),
+			cookies: { get: () => session.id, set: () => {} },
+			locals: {}
+		} as unknown as RequestEvent;
+		const resolve = vi.fn(async () => new Response('ok'));
+		try {
+			const res = await handle({ event, resolve });
+			return { status: res.status, resolved: resolve.mock.calls.length, db };
+		} catch (e) {
+			const thrown = e as { status: number; location?: string };
+			return { status: thrown.status, location: thrown.location, resolved: 0, db };
+		} finally {
+			delete handleEnv.env.DANCE_HOSTS;
+		}
+	}
+
+	// Catches: a request sent away from this host still noting the app as seen
+	// for an account of the other dance (a bachata app on a salsa account).
+	it('notes no app for a request it sends to the other host', async () => {
+		const got = await onBachataHost('GET', '/bachata/moves');
+		expect(got).toMatchObject({ status: 303, location: 'https://salsa.example/' });
+		expect(got.db.select().from(appInstalls).all()).toEqual([]);
+	});
+
+	// Catches: a stale session of the other dance that cannot sign out on this host.
+	it("lets the other dance's session sign out here", async () => {
+		expect(await onBachataHost('POST', '/logout')).toMatchObject({ status: 200, resolved: 1 });
 	});
 });

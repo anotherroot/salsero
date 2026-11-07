@@ -172,9 +172,20 @@ describe('splitAccounts', () => {
 		figure({ userId: 'u1', dance: 'bachata' });
 		take('u1', 'a');
 		await splitAccounts(db, files, T);
+		const before = {
+			users: others(),
+			takes: db.select().from(countTakes).all(),
+			figures: db.all(`select id, user_id, dance from figures order by id`)
+		};
+		const linkedBefore = linked.length;
 		expect(await splitAccounts(db, files, T)).toEqual({ assigned: 0, split: 0, failed: 0 });
-		expect(others()).toHaveLength(2);
-		expect(db.select().from(countTakes).all()).toHaveLength(2);
+		expect(others()).toEqual(before.users);
+		expect(db.select().from(countTakes).all()).toEqual(before.takes);
+		expect(db.all(`select id, user_id, dance from figures order by id`)).toEqual(before.figures);
+		expect(before.users).toHaveLength(2);
+		expect(before.takes).toHaveLength(2);
+		expect(linked).toHaveLength(linkedBefore);
+		expect(danceIntegrity(db)).toEqual([]);
 	});
 
 	// Catches: copied files left on disk when the move fails.

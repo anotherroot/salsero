@@ -13,8 +13,8 @@ import type { LayoutServerLoad } from './$types';
  * so renaming, leaving, deleting and restoring refresh the column.
  *
  * At Follow my class the tab is My class (`myClass`): each class's last class
- * day for the list of classes, and with no class in this dance, the other
- * dance's My class when the person has a class there.
+ * day for the list of classes (an account belongs to one dance, so only this
+ * dance's classes).
  */
 export const load: LayoutServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { hostDance, hostOf, hostRedirect, parseDanceHosts, requestDance } from './hosts';
+import {
+	hostDance,
+	hostOf,
+	hostRedirect,
+	inviteLink,
+	parseDanceHosts,
+	requestDance
+} from './hosts';
 
 const MAP = 'salsa.anotherroot.eu=salsa, bachata.anotherroot.eu=bachata';
 
@@ -50,12 +57,18 @@ describe('hostRedirect', () => {
 	const at = (
 		host: string,
 		path: string,
-		over: Partial<{ method: string; search: string; userDance: 'salsa' | 'bachata' | null }> = {}
+		over: Partial<{
+			method: string;
+			search: string;
+			userDance: 'salsa' | 'bachata' | null;
+			protocol: string;
+		}> = {}
 	) =>
 		hostRedirect({
 			hosts,
 			host,
 			path,
+			protocol: over.protocol ?? 'https:',
 			search: over.search ?? '',
 			method: over.method ?? 'GET',
 			userDance: over.userDance ?? null
@@ -117,5 +130,65 @@ describe('hostRedirect', () => {
 		expect(at('wt-1-x.salsa.localhost:5173', '/bachata', { userDance: 'salsa' })).toEqual({
 			kind: 'pass'
 		});
+	});
+});
+
+describe('hostRedirect, signing out and local hosts', () => {
+	// Catches: a stale session of the other dance's account that cannot sign out
+	// on this host (its POST /logout was a 404).
+	it("lets the other dance's account sign out here", () => {
+		const hosts = parseDanceHosts(MAP);
+		for (const method of ['POST', 'GET']) {
+			expect(
+				hostRedirect({
+					hosts,
+					host: 'bachata.anotherroot.eu',
+					protocol: 'https:',
+					path: '/logout',
+					search: '',
+					method,
+					userDance: 'salsa'
+				})
+			).toEqual({ kind: 'pass' });
+		}
+	});
+
+	// Catches: a mapped local host (http, a port) redirected to https without its port.
+	it('keeps the protocol and the port', () => {
+		expect(
+			hostRedirect({
+				hosts: parseDanceHosts('salsa.localhost=salsa,bachata.localhost=bachata'),
+				host: 'bachata.localhost:5173',
+				protocol: 'http:',
+				path: '/salsa/moves',
+				search: '',
+				method: 'GET',
+				userDance: null
+			})
+		).toEqual({ kind: 'redirect', to: 'http://salsa.localhost:5173/salsa/moves' });
+	});
+});
+
+describe('inviteLink', () => {
+	// Catches: an invite opened on the wrong host, or (dev) a bachata invite read as salsa's.
+	it("points at the dance's own host, else names the dance", () => {
+		expect(
+			inviteLink({
+				hosts: parseDanceHosts(MAP),
+				dance: 'bachata',
+				protocol: 'https:',
+				host: 'bachata.anotherroot.eu',
+				code: 'abc'
+			})
+		).toBe('https://bachata.anotherroot.eu/join?code=abc');
+		expect(
+			inviteLink({
+				hosts: parseDanceHosts(undefined),
+				dance: 'bachata',
+				protocol: 'http:',
+				host: 'wt-1-x.salsa.localhost:5173',
+				code: 'abc'
+			})
+		).toBe('http://wt-1-x.salsa.localhost:5173/join?code=abc&dance=bachata');
 	});
 });

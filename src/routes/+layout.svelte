@@ -114,12 +114,9 @@
 	 * aside while a bar claims the bottom (`$lib/nav/chrome.svelte.ts`). Pinned
 	 * bars read `--pin-bottom` / `--pin-safe` to sit above the tab bar or on the edge.
 	 *
-	 * Which dance they lead to is remembered here rather than read from `data` each time.
-	 * The root layout's load depends on a cookie, and SvelteKit's dependency
-	 * tracking does not cover cookies, so it never re-runs on a client-side
-	 * navigation: after switching to bachata and tapping Settings, `appDance`
-	 * could still say salsa. It is the seed for the first paint; the URL is the
-	 * truth after that.
+	 * Which dance they lead to: the page's, else the last dance page seen, else
+	 * `appDance` (the account's dance, or the host's before sign-in), the seed
+	 * for the first paint outside a dance (`/settings`, `/voice`).
 	 */
 	let seen = $state<DanceSlug | null>(null);
 	$effect(() => {

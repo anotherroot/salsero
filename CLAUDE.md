@@ -540,8 +540,8 @@ src/lib/server/storage.ts  what a person uses (computed from size columns, never
                      (refuses at or over the limit), and `listStorageItems` for What uses space
 src/lib/server/invites.ts  one-time invites into one dance, and joining with one
 src/lib/dances/hosts.ts  PURE: which host serves which dance (`parseDanceHosts`, `hostDance`, `hostOf`),
-                     the request's dance (`requestDance`) and the hook's host redirects
-                     (`hostRedirect`). Client-safe. `src/lib/server/hosts.ts` reads `DANCE_HOSTS`
+                     the request's dance (`requestDance`), the hook's host redirects
+                     (`hostRedirect`, `/logout` always passes) and an invite's link (`inviteLink`). Client-safe. `src/lib/server/hosts.ts` reads `DANCE_HOSTS`
                      (`danceHosts`, `requestDanceOf`)
 src/lib/server/dance-split.ts  `splitAccounts`, at boot before the admin: places every account in
                      one dance; one that held both keeps salsa and its bachata half moves to a

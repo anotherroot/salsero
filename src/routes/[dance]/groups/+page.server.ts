@@ -37,7 +37,7 @@ export const actions: Actions = {
 	},
 
 	// Join with a code: the Groups tab's field and the sheet. A class of the
-	// other dance is joined too, and opened in its own dance.
+	// other dance is an unknown code (the dance split).
 	joinCode: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const code = String((await request.formData()).get('code') ?? '').trim();
