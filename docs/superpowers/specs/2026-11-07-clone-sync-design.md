@@ -294,17 +294,35 @@ from mockups** (below).
   and rows, as the status is today. The Moves list asks only for rows with
   more than one visible member *(builder: keep that list's load cheap)*.
 
-## Looks to design first
+## The look *(user, 2026-11-07)*
 
-The look changes go through mockups before anything is built (real
-screenshots of a copy of the latest `~/Backups/salsa/db` backup, 2–4 options
-each, sent to the phone):
+Picked from mockups beside real screenshots of the 6 Nov backup
+(https://claude.ai/artifact/TWB4xPndeGFrxvov2Boxh3, private):
 
-1. The Moves list's out-of-sync mark (the user asked for examples).
-2. The notice on a copy's page.
-3. The Sync sheet (Sync to, the merge rows, Update mine).
-4. Keep in step and its options in the Versions list.
-5. Same names: "Doble · Salsa Tuesdays" in the lists and pickers.
+1. **Moves list: a card at the top** (1A), under Coverage and drawn like
+   it: "3 figures out of sync", "Your copies and the clubs' don't agree";
+   tapping it filters the list to them. Each such row's meta ends in "2
+   copies differ" (warn tone).
+2. **The page: one notice, one Sync** (2A): a warn-soft card under the
+   version row, "Your copies don't agree" with a Sync button, and a line
+   per copy that is off ("Intenziuci poletje 2026 changed timing", "Sreda
+   17:30 is behind yours: notes, 1 recording"). The version row's meta goes
+   back to "Also: …". Replaces both of today's banners.
+3. **Sync sheet: a row per difference, then Sync to** (3A): the merge
+   sheet's tiles, one tile per distinct value, naming the copies that hold
+   it ("Yours · Sreda 17:30"); a label per field saying who changed it;
+   add/remove boxes for pieces; "Sync to" with a box per copy the person
+   edits; the button "Sync N copies". A reader's version is "Update from
+   <club>": what changed, "Your own change to … stays", **Update mine**.
+4. **Keep in step: one quiet line under the Versions list** (4A + 4b A).
+   Versions is for switching (the user's comment), so the list stays on
+   top and under it is one muted row: the sync icon, "Keeps in step ·
+   names, small removals" (or "Not kept in step"), a chevron. Tapping it
+   opens a level of its own in the sheet, Back returning to the list: the
+   switch, "Your edits go to the clubs, theirs come here", and the four
+   options indented beneath (4A's look).
+5. **Same names: quiet text after the name** (5A): "Basic · Sreda 17:30",
+   the suffix in the muted tone.
 
 ## Left to the builder
 
