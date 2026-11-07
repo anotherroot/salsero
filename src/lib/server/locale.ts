@@ -1,16 +1,22 @@
 // The language on the account, on an invite, and in the browser's cookie.
-import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { LOCALE_COOKIE, parseLocale, type Locale } from '$lib/i18n/locale';
 import type { Db } from './db';
 import { invites, users } from './db/schema';
+import { hashInviteCode } from './invites';
 
 /** A person's language. Anything but a known one throws: the column has no CHECK. */
 export function setLocale(db: Db, userId: string, l: Locale): void {
 	const checked = parseLocale(l);
 	if (!checked) throw new Error(`Unknown language: ${String(l)}`);
 	db.update(users).set({ locale: checked }).where(eq(users.id, userId)).run();
+}
+
+/** A person's language as stored; null (English) for none or a value that is no language. */
+export function localeOf(db: Db, userId: string): Locale | null {
+	const row = db.select({ locale: users.locale }).from(users).where(eq(users.id, userId)).get();
+	return parseLocale(row?.locale);
 }
 
 /**
@@ -23,7 +29,7 @@ export function inviteLocaleOf(db: Db, code: string): Locale | null {
 	const row = db
 		.select({ locale: invites.locale })
 		.from(invites)
-		.where(eq(invites.codeHash, createHash('sha256').update(code).digest('hex')))
+		.where(eq(invites.codeHash, hashInviteCode(code)))
 		.get();
 	return parseLocale(row?.locale);
 }

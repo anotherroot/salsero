@@ -11,6 +11,8 @@ import {
 	verifyPassword
 } from '$lib/server/auth';
 import { requestDanceOf } from '$lib/server/hosts';
+import { setLocaleCookie } from '$lib/server/locale';
+import { parseLocale } from '$lib/i18n/locale';
 import { safeNext } from '$lib/safe-next';
 import { adminFirstName } from '$lib/server/teams';
 import { noAccountLine } from '$lib/teams/view';
@@ -81,6 +83,8 @@ export const actions: Actions = {
 			secure: url.protocol === 'https:',
 			expires: session.expiresAt
 		});
+		// The login page after signing out stays in the account's language.
+		setLocaleCookie(cookies, parseLocale(user.locale) ?? 'en');
 
 		throw redirect(303, next);
 	}

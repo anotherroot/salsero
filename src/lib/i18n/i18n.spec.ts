@@ -121,3 +121,14 @@ describe('requestLocale', () => {
 		expect(requestLocale({ user: null, cookie: undefined, invite: null })).toBe('en');
 	});
 });
+
+describe('admin', () => {
+	it('has every English word in Slovenian, and none left in English', () => {
+		const en = catalogOf('en').admin;
+		const sl = catalogOf('sl').admin;
+		expect(Object.keys(sl).sort()).toEqual(Object.keys(en).sort());
+		for (const [key, word] of Object.entries(en)) {
+			expect(sl[key as keyof typeof sl], key).not.toBe(word);
+		}
+	});
+});

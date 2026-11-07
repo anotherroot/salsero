@@ -7,6 +7,7 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
+import { eq } from 'drizzle-orm';
 import { sessions, users } from '$lib/server/db/schema';
 import { createInvite } from '$lib/server/invites';
 import { actions as adminActions, load as adminLoad } from '../admin/+page.server';
@@ -52,13 +53,13 @@ describe('join', () => {
 		const url = (c: string) => new URL(`http://localhost/join?code=${c}`);
 		const dead = await (load as (e: unknown) => Promise<unknown>)({ url: url('x'), parent });
 		expect(dead).toMatchObject({ valid: false });
-		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'en');
 		const live = await (load as (e: unknown) => Promise<unknown>)({ url: url(code), parent });
 		expect(live).toMatchObject({ valid: true });
 	});
 
 	it('the action signs the new person in and redirects to /app', async () => {
-		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'en');
 		const { event, set } = post({
 			code,
 			email: 'New@Example.com',
@@ -73,7 +74,7 @@ describe('join', () => {
 	});
 
 	it('no first or last name fails with the field marked and makes no user', async () => {
-		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'en');
 		const base = { code, email: 'n@example.com', password: 'Correct-Horse-9' };
 		const noFirst = (await run(post({ ...base, lastName: 'K' }).event)) as {
 			status: number;
@@ -89,7 +90,7 @@ describe('join', () => {
 	});
 
 	it('inside the app the new person goes on to /', async () => {
-		const { code } = createInvite(db, 'admin', 'salsa', Date.now());
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'en');
 		const { event } = post(
 			{
 				code,
@@ -120,7 +121,7 @@ describe('join', () => {
 
 	// Catches: Join on one dance's host redeeming the other dance's invite.
 	it("refuses another dance's invite and makes no account", async () => {
-		const { code } = createInvite(db, 'admin', 'bachata', Date.now());
+		const { code } = createInvite(db, 'admin', 'bachata', Date.now(), 'en');
 		const { event } = post({
 			code,
 			firstName: 'Ana',
@@ -140,6 +141,7 @@ describe('admin', () => {
 			user: { id: 'admin', email: 'a@example.com', timezone: 'UTC', isAdmin, dance: 'salsa' }
 		},
 		url: new URL('http://localhost/admin'),
+		request: new Request('http://localhost/admin', { method: 'POST', body: new FormData() }),
 		parent
 	});
 	it('load is a 404 for a non-admin', async () => {
@@ -174,5 +176,44 @@ describe('admin', () => {
 			password: 'Correct-Horse-9'
 		});
 		expect(await run(event)).toMatchObject({ status: 429 });
+	});
+});
+
+describe('join in the invite language', () => {
+	const fields = (code: string, over: Record<string, string> = {}) => ({
+		code,
+		email: 'sl@example.com',
+		firstName: 'Ana',
+		lastName: 'Kranjc',
+		password: 'Correct-Horse-9',
+		timezone: 'UTC',
+		...over
+	});
+
+	// Catches: a Slovenian invite making an English account, or the login after it in English.
+	it("makes the account in a Slovenian invite's language and remembers it in the cookie", async () => {
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'sl');
+		const { event, set } = post(fields(code));
+		await expect(run(event)).rejects.toMatchObject({ status: 303 });
+		const u = db.select().from(users).where(eq(users.email, 'sl@example.com')).get()!;
+		expect(u.locale).toBe('sl');
+		expect(set).toHaveBeenCalledWith('lang', 'sl', expect.objectContaining({ path: '/' }));
+	});
+
+	it('an English invite sets the cookie to English', async () => {
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'en');
+		const { event, set } = post(fields(code));
+		await expect(run(event)).rejects.toMatchObject({ status: 303 });
+		expect(set).toHaveBeenCalledWith('lang', 'en', expect.anything());
+	});
+
+	// Task 6: Join's refusals come back in the invite's language once the `entry` words exist.
+	// Until then: a refused Join makes no account and leaves the cookie alone.
+	it('a refused Join on a Slovenian invite sets no cookie and makes no account', async () => {
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'sl');
+		const { event, set } = post(fields(code, { password: 'short' }));
+		expect(await run(event)).toMatchObject({ status: 400 });
+		expect(set).not.toHaveBeenCalled();
+		expect(db.select().from(users).all()).toHaveLength(1);
 	});
 });

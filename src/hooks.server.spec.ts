@@ -283,10 +283,19 @@ describe('the language', () => {
 		});
 	});
 
-	// Catches: the cookie not read before sign-in; an invite outside /join counting.
+	// Catches: the cookie not read before sign-in.
 	it("draws a signed-out page in the cookie's language", async () => {
 		expect(await draw('/login', { cookie: 'sl' })).toMatchObject({ html: '<html lang="sl">' });
 		expect(await draw('/login', { cookie: 'xx' })).toMatchObject({ html: '<html lang="en">' });
+	});
+
+	// Catches: an invite's code read on a page that is not Join.
+	it('counts an invite only on Join', async () => {
+		expect(await draw('/login?code=the-code', { invite: 'sl' })).toEqual({
+			html: '<html lang="en">',
+			during: 'en',
+			locals: 'en'
+		});
 	});
 
 	// Catches: the cookie overriding a signed-in person's own language.

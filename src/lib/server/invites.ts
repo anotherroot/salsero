@@ -8,9 +8,15 @@ import { hashPassword } from './password';
 import { cleanName } from '$lib/names';
 import { DEFAULT_STORAGE_LIMIT_BYTES, INVITE_TTL_MS } from '$lib/limits';
 import type { DanceSlug } from '$lib/dances/dances';
+import { parseLocale, type Locale } from '$lib/i18n/locale';
 
 export type JoinResult =
-	| { ok: true; userId: string }
+	| {
+			ok: true;
+			userId: string;
+			/** The new account's language: the invite's; null for an invite made before languages. */
+			locale: Locale | null;
+	  }
 	| {
 			ok: false;
 			reason: 'invite' | 'email' | 'email-taken' | 'weak' | 'first-name' | 'last-name';
@@ -19,7 +25,10 @@ export type JoinResult =
 
 export const INVITE_REFUSAL = 'This invite no longer works. Ask for a new one.';
 
-const hashCode = (code: string) => createHash('sha256').update(code).digest('hex');
+/** An invite code as the row keeps it: only the hash is stored. */
+export function hashInviteCode(code: string): string {
+	return createHash('sha256').update(code).digest('hex');
+}
 
 /**
  * An invite's dance: its own, or salsa's for one made before the dance split
@@ -34,12 +43,15 @@ function ofDance(dance: DanceSlug): SQL {
 /**
  * A new one-time code into one dance (an account belongs to one dance); every
  * other unused, unexpired invite of that dance is ended. Only the hash is kept.
+ * The invite carries the language the account will be made in (on the row,
+ * not in the link: a link cannot be edited into another language).
  */
 export function createInvite(
 	db: Db,
 	adminId: string,
 	dance: DanceSlug,
-	now: number
+	now: number,
+	locale: Locale
 ): { code: string; expiresAt: number } {
 	const code = randomBytes(32).toString('base64url');
 	const expiresAt = now + INVITE_TTL_MS;
@@ -51,11 +63,12 @@ export function createInvite(
 		tx.insert(invites)
 			.values({
 				id: randomUUID(),
-				codeHash: hashCode(code),
+				codeHash: hashInviteCode(code),
 				createdBy: adminId,
 				createdAt: now,
 				expiresAt,
-				dance
+				dance,
+				locale
 			})
 			.run();
 	});
@@ -70,7 +83,7 @@ export function inviteValid(db: Db, code: string, dance: DanceSlug, now: number)
 		.from(invites)
 		.where(
 			and(
-				eq(invites.codeHash, hashCode(code)),
+				eq(invites.codeHash, hashInviteCode(code)),
 				isNull(invites.usedAt),
 				gt(invites.expiresAt, now),
 				ofDance(dance)
@@ -140,21 +153,24 @@ export async function redeemInvite(
 	const passwordHash = await hashPassword(input.password);
 	const id = randomUUID();
 	const taken = Symbol('taken');
+	let locale: Locale | null = null;
 	try {
 		const claimed = db.transaction((tx) => {
-			const res = tx
+			const claimedRows = tx
 				.update(invites)
 				.set({ usedAt: now, usedBy: id })
 				.where(
 					and(
-						eq(invites.codeHash, hashCode(input.code)),
+						eq(invites.codeHash, hashInviteCode(input.code)),
 						isNull(invites.usedAt),
 						gt(invites.expiresAt, now),
 						ofDance(input.dance)
 					)
 				)
-				.run();
-			if (res.changes !== 1) return false;
+				.returning({ locale: invites.locale })
+				.all();
+			if (claimedRows.length !== 1) return false;
+			locale = parseLocale(claimedRows[0].locale);
 			try {
 				tx.insert(users)
 					.values({
@@ -166,6 +182,7 @@ export async function redeemInvite(
 						passwordHash,
 						isAdmin: false,
 						storageLimitBytes: DEFAULT_STORAGE_LIMIT_BYTES,
+						locale,
 						...(validZone(input.timezone) ? { timezone: input.timezone } : {})
 					})
 					.run();
@@ -181,7 +198,7 @@ export async function redeemInvite(
 		}
 		throw e;
 	}
-	return { ok: true, userId: id };
+	return { ok: true, userId: id, locale };
 }
 
 /** The QR as plain data, row by row; drawn by `InviteQr.svelte`. Server only. */

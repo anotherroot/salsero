@@ -10,6 +10,8 @@
 		requestTitle,
 		requestUsesLine
 	} from '$lib/admin-view';
+	import { t } from '$lib/i18n/catalog';
+	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import type { PageData } from './$types';
 	import InviteQr from '$lib/components/admin/InviteQr.svelte';
@@ -17,6 +19,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
@@ -33,6 +36,11 @@
 	let busy = $state(false);
 	let error = $state('');
 	let copied = $state(false);
+	/** The invite's language: most people invited are Slovenian. */
+	let inviteLocale = $state<Locale | null>('sl');
+	/** Whose language is being saved; every select waits while one is. */
+	let localeSaving = $state<string | null>(null);
+	let localeError = $state('');
 
 	async function share() {
 		if (!invite) return;
@@ -163,6 +171,15 @@
 					};
 				}}
 			>
+				<div class="flex flex-col p-4">
+					<span class={LABEL}>{t().admin.inviteLanguage}</span>
+					<Segmented
+						name="locale"
+						label={t().admin.inviteLanguage}
+						items={LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }))}
+						bind:value={inviteLocale}
+					/>
+				</div>
 				<button class="{ROW_TALL} w-full text-left" aria-busy={busy}>
 					<LeadTile icon="plus" />
 					<span class="flex min-w-0 flex-1 flex-col">
@@ -203,28 +220,72 @@
 			{/if}
 
 			<span class="{SECTION_LABEL} mt-[14px]">People</span>
+			{#if localeError}<Banner kind="error" title={localeError} />{/if}
 			<div class={GROUP}>
 				{#each data.people as p (p.id)}
-					<button
-						type="button"
-						class="{ROW_TALL} w-full text-left"
-						onclick={() => {
-							formError = '';
-							person = p;
-						}}
-					>
-						<span class="flex min-w-0 flex-1 flex-col">
-							<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
-							<span class="text-[13px] text-muted">{personMeta(p)}</span>
-							<span class="text-[13px] text-muted"
-								>{groupsMadeLine(p.groupsMade, p.groupLimit)}</span
+					<div class="flex items-center">
+						<button
+							type="button"
+							class="{ROW_TALL} min-w-0 flex-1 text-left"
+							onclick={() => {
+								formError = '';
+								person = p;
+							}}
+						>
+							<span class="flex min-w-0 flex-1 flex-col">
+								<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
+								<span class="text-[13px] text-muted">{personMeta(p)}</span>
+								<span class="text-[13px] text-muted"
+									>{groupsMadeLine(p.groupsMade, p.groupLimit)}</span
+								>
+								{#each p.apps as line (line)}
+									<span class="text-[13px] text-muted">{line}</span>
+								{/each}
+							</span>
+							<span class="flex flex-none text-chevron"
+								><Icon name="chevron-right" size={20} /></span
 							>
-							{#each p.apps as line (line)}
-								<span class="text-[13px] text-muted">{line}</span>
-							{/each}
-						</span>
-						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</button>
+						</button>
+						<form
+							method="POST"
+							action="?/setLocale"
+							class="flex-none pr-3"
+							use:enhance={({ formElement }) => {
+								localeSaving = p.id;
+								localeError = '';
+								return async ({ result, update }) => {
+									try {
+										if (result.type === 'failure' || result.type === 'error') {
+											localeError =
+												result.type === 'failure'
+													? String(result.data?.message ?? t().admin.languageFailed)
+													: t().admin.languageFailed;
+											const select = formElement.elements.namedItem('locale');
+											if (select instanceof HTMLSelectElement) select.value = p.locale;
+										}
+										await update({ reset: false });
+									} finally {
+										localeSaving = null;
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="userId" value={p.id} />
+							<select
+								name="locale"
+								aria-label="{t().admin.language}: {p.email}"
+								class="h-10 rounded-full border border-field-line bg-surface px-3 font-sans text-[14px] font-semibold text-ink disabled:text-disabled-ink"
+								value={p.locale}
+								disabled={localeSaving !== null}
+								aria-busy={localeSaving === p.id}
+								onchange={(e) => e.currentTarget.form?.requestSubmit()}
+							>
+								{#each LOCALES as l (l)}
+									<option value={l}>{LOCALE_NAME[l]}</option>
+								{/each}
+							</select>
+						</form>
+					</div>
 				{/each}
 			</div>
 		</div>

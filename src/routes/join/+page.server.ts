@@ -11,6 +11,7 @@ import {
 } from '$lib/server/auth';
 import { INVITE_REFUSAL, inviteValid, redeemInvite } from '$lib/server/invites';
 import { requestDanceOf } from '$lib/server/hosts';
+import { setLocaleCookie } from '$lib/server/locale';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
@@ -90,6 +91,8 @@ export const actions: Actions = {
 			secure: url.protocol === 'https:',
 			expires: session.expiresAt
 		});
+		// The login page after signing out stays in the account's language.
+		setLocaleCookie(cookies, result.locale ?? 'en');
 		throw redirect(303, joinLanding(cookies.get(APP_COOKIE) === APP_VALUE));
 	}
 };

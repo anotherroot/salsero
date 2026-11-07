@@ -34,6 +34,7 @@
 //           Practise and keep my own      Vadim in imam svoje
 //           Everything                    Vse
 import type { Catalog } from '../catalog';
+import { admin } from './admin';
 import { common } from './common';
 
-export const sl: Catalog = { common };
+export const sl: Catalog = { common, admin };
