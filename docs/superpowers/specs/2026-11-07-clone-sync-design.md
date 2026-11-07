@@ -110,9 +110,17 @@ flow **out**. A change flows from copy X into copy Y by itself when:
 A field both changed since the snapshot does not flow. It stays as it is on
 both sides, and the Sync notice shows on both *(user)*.
 
-Changes travel hop by hop in the same transaction as the save that started
-them: your save reaches the club's copy, the club's copy then reaches every
-other copy whose switch is on. Each copy is written at most once per save
+Changes travel hop by hop right after the save that started them, each hop
+in its own transaction (as each target of Send is now; a recording's file
+is linked before its write, which a save's own synchronous transaction
+cannot do): your save reaches the club's copy, the club's copy then reaches
+every other copy whose switch is on. *(Changed while planning: first
+written as "in the save's transaction".)* What "this save changed" is comes
+from a **mark** per copy: the hash per field of what it held after its last
+save or flow (`clone_marks`), so the hook needs only the row, not its
+before-values. Marks are written for every copy in a family once at boot,
+by every copy made, and after every flow and Sync; a copy with no mark
+gets one and flows nothing. Each copy is written at most once per save
 *(my call: a visited set, so nothing loops)*. Every hop writes that pair's
 snapshot for the fields it carried, and only those, so a field still
 disputed keeps reading as disputed.
@@ -228,10 +236,13 @@ One sheet replaces Compare, Take and Send mine. Take a recording stays.
 - Each target lands in its own transaction, as Send does now: one refusal
   (a name clash typed by hand, no room) leaves the others landed and says
   which one did not.
-- Keep mine stays as a choice: nothing picked from the others still writes
-  the snapshots, so they read as behind yours and the notice offers
-  **Sync** to bring them up *(user: "the decision to choose felt like a git
-  merge… that decision is the oldest joint decision")*.
+- Picking yours everywhere is the merge the user made on 2026-11-07, and
+  Sync then sends it: every ticked copy takes your values and every pair
+  among them is in step *(user: "the decision to choose felt like a git
+  merge… that decision is the oldest joint decision")*. To merge without
+  sending, untick the other copies. *(Changed while planning: the old Keep
+  mine only wrote the snapshots; in a sheet that always pushes to what is
+  ticked, a separate Keep mine is not needed.)*
 
 ## The notice *(user)*
 
