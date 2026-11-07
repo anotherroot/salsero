@@ -268,3 +268,15 @@ export function liveGenes(db: Db, kind: CloneKind): { id: number; gene: string }
 		.all() as { id: number; gene: string | null }[];
 	return rows.flatMap((r) => (r.gene === null ? [] : [{ id: r.id, gene: r.gene }]));
 }
+
+/**
+ * Whether the row has a copy: another live member of its family, in any
+ * place (another person's own included, so never shown). A save on such a
+ * row must say what it saw (`seenRefusal`'s `required`): a change may have
+ * flowed in while its form was open.
+ */
+export function hasCopies(db: Db, kind: CloneKind, id: number): boolean {
+	const gene = geneOf(db, kind, id);
+	if (gene === null) return false;
+	return familyRows(db, kind, gene).some((r) => r.id !== id && r.archivedAt === null);
+}

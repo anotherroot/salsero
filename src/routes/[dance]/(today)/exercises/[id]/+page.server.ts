@@ -25,7 +25,13 @@ import {
 	spaceOfRow,
 	wallOf
 } from '$lib/server/scope';
-import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
+import {
+	getSpotLink,
+	linkableSections,
+	linkSpot,
+	SpotLinkError,
+	unlinkSpot
+} from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
@@ -37,6 +43,8 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
+import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 
 type FromClass = ReturnType<typeof fromClassOf>;
@@ -238,7 +246,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	};
 };
 
-export const actions: Actions = {
+/**
+ * Every action runs Keep in step's flow from this drill after it (`flowing`;
+ * an exercise that is no drill is in no family, so nothing runs); a section's
+ * link changes the section's root, so the flow runs from there too.
+ */
+export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
@@ -334,7 +347,7 @@ export const actions: Actions = {
 		const stored = getExercise(db, row.id);
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null,
+			row.teamId !== null || hasCopies(db, 'drill', row.id),
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
 			{ action: 'update' as const },
 			Date.now(),
@@ -375,18 +388,24 @@ export const actions: Actions = {
 			}
 			throw e;
 		}
+		const root = rootOfSpot(getDb(), spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'linkSection', ok: true };
 	},
 
 	unlinkSection: async ({ params, request, locals }) => {
 		const exerciseId = exerciseOf(params, locals).id;
 		const id = int(await request.formData(), 'linkId');
+		// Read before the unlink: the link names its section.
+		const link = id === undefined ? null : getSpotLink(getDb(), id);
 		if (
 			id === undefined ||
 			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
 		) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}
+		const root = link ? rootOfSpot(getDb(), link.spotId) : null;
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'unlinkSection', ok: true };
 	},
 
@@ -421,4 +440,4 @@ export const actions: Actions = {
 			{ exerciseId: exerciseOf(params, locals).id },
 			me(params, locals)
 		)
-};
+} satisfies Actions);

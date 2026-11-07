@@ -67,6 +67,8 @@ import {
 	videoSections
 } from '$lib/server/spot-links';
 import { seenRefusal, variationSeen } from '$lib/server/clash';
+import { flowAfter, flowing, rootOfSpot } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
@@ -484,7 +486,12 @@ function positionForm(
 	};
 }
 
-export const actions: Actions = {
+/**
+ * Every action runs Keep in step's flow from this variation after it
+ * (`flowing`); one that changes another row's piece (a section's link) runs
+ * it from that row too.
+ */
+export const actions: Actions = flowing('figure', (e) => variationId(e.params.id), {
 	/**
 	 * The page's one Save: the figure's name, the variation's details, its
 	 * positions and its timing together.
@@ -534,7 +541,7 @@ export const actions: Actions = {
 		// of the variation or its figure's name is refused with theirs.
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null,
+			row.teamId !== null || hasCopies(db, 'figure', row.id),
 			variationSeen(db, row.id),
 			{ action: 'update' as const },
 			Date.now(),
@@ -775,7 +782,11 @@ export const actions: Actions = {
 			Date.now(),
 			await freeDisk()
 		);
-		if (res.ok) return { action: 'takeRecording', taken: recordingId };
+		if (res.ok) {
+			// The person's own copy gained a recording: it flows from there.
+			await flowAfter(locals.user?.id, 'figure', into);
+			return { action: 'takeRecording', taken: recordingId };
+		}
 		switch (res.reason) {
 			case 'room': {
 				const room = res.room;
@@ -861,6 +872,9 @@ export const actions: Actions = {
 			}
 			throw e;
 		}
+		// The section's links are its video's root's (a lesson's, or a recording's figure's).
+		const root = rootOfSpot(getDb(), spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'linkSection', ok: true };
 	},
 
@@ -886,6 +900,8 @@ export const actions: Actions = {
 		) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}
+		const root = rootOfSpot(getDb(), link.spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'unlinkSection', ok: true };
 	},
 
@@ -919,4 +935,4 @@ export const actions: Actions = {
 			await freeDisk(),
 			me(params, locals)
 		)
-};
+} satisfies Actions);

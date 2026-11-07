@@ -65,6 +65,8 @@ import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
+import { flowing, idParam } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -113,7 +115,9 @@ function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract'
 	}
 	const sent = form.get('fingerprint');
 	if (typeof sent !== 'string' || sent === '') {
-		return routine.teamId !== null ? fail(400, { ...named, message: MISSING_SEEN }) : null;
+		// A group's routine, or one with copies (a change may flow in), must say what it saw.
+		const required = routine.teamId !== null || hasCopies(db, 'routine', routine.id);
+		return required ? fail(400, { ...named, message: MISSING_SEEN }) : null;
 	}
 	if (sent === fingerprintOf(db, routine.id)) return null;
 	return fail(409, { ...named, message: staleRoutine(who().by), stale: true });
@@ -356,7 +360,8 @@ function slotFail(message: string, stepId: number | undefined) {
 	return stepId === undefined ? fail(400, { message }) : fail(400, { message, stepId });
 }
 
-export const actions: Actions = {
+/** Every action runs Keep in step's flow from this routine after it (`flowing`). */
+export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), {
 	rename: async ({ params, request, locals }) => {
 		const db = getDb();
 		const form = await request.formData();
@@ -384,7 +389,7 @@ export const actions: Actions = {
 		}
 		const clash = seenRefusal(
 			form,
-			routine.teamId !== null,
+			routine.teamId !== null || hasCopies(db, 'routine', routine.id),
 			routine.archivedAt === null ? routineSeen(routine) : null,
 			{ action: 'rename' as const, ...typed },
 			Date.now(),
@@ -710,4 +715,4 @@ export const actions: Actions = {
 		}
 		return done(routine.id, { stepId: made.stepId });
 	}
-};
+} satisfies Actions);

@@ -73,6 +73,8 @@ import {
 	videoKey,
 	type VideoPlace
 } from '$lib/positions/view';
+import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -338,7 +340,12 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	};
 };
 
-export const actions: Actions = {
+/**
+ * Every action runs Keep in step's flow from this position after it
+ * (`flowing`); a link on a section or a lesson changes that row, so the flow
+ * runs from there too.
+ */
+export const actions: Actions = flowing('position', (e) => idParam(e.params.id), {
 	/**
 	 * The edit sheet's Save: name, type, hold, notes and picture together. The
 	 * clash check (a group's needs `seen`; an archived one is gone) comes before
@@ -357,7 +364,7 @@ export const actions: Actions = {
 		};
 		const clash = seenRefusal(
 			form,
-			position.teamId !== null,
+			position.teamId !== null || hasCopies(db, 'position', position.id),
 			positionSeen(db, position.id),
 			typed,
 			Date.now(),
@@ -492,6 +499,8 @@ export const actions: Actions = {
 			}
 			throw e;
 		}
+		const root = rootOfSpot(getDb(), spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'linkSpot' as const, ok: true };
 	},
 
@@ -521,6 +530,8 @@ export const actions: Actions = {
 				message: LINK_REFUSED.linkGone
 			});
 		}
+		const root = rootOfSpot(db, link.spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'unlinkSpot' as const, ok: true };
 	},
 
@@ -558,6 +569,7 @@ export const actions: Actions = {
 		if (!linkPosition(db, lesson.id, position.id, actorOf(space))) {
 			return refuse(400, notLinked(lesson.title));
 		}
+		await flowAfter(locals.user?.id, 'lesson', lesson.id);
 		return { action: 'linkLesson' as const, ok: true };
 	},
 
@@ -583,6 +595,7 @@ export const actions: Actions = {
 				message: LINK_REFUSED.lessonGone
 			});
 		}
+		await flowAfter(locals.user?.id, 'lesson', lesson.id);
 		return { action: 'unlinkLesson' as const, ok: true };
 	}
-};
+} satisfies Actions);

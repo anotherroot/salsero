@@ -96,6 +96,8 @@ import { agoText } from '$lib/format';
 import type { Cookies } from '@sveltejs/kit';
 import { pageSources } from '$lib/server/clones/sources';
 import { sameAsOffer } from '$lib/server/twins';
+import { flowing, idParam } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -332,7 +334,8 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 	};
 };
 
-export const actions: Actions = {
+/** Every action runs Keep in step's flow from this lesson after it (`flowing`). */
+export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	/**
 	 * A save carries what its form saw (`seen`): one that saw something else
 	 * since is refused with the other version (409), and one on a lesson
@@ -364,7 +367,7 @@ export const actions: Actions = {
 		const stored = getLessonRow(db, id);
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null,
+			row.teamId !== null || hasCopies(db, 'lesson', id),
 			stored && stored.archivedAt === null ? lessonSeen(stored) : null,
 			{ action: 'update' as const, ...entered },
 			Date.now(),
@@ -846,4 +849,4 @@ export const actions: Actions = {
 		const [owner, by] = linkOwner(params, locals);
 		return retryVideoFrom(request, getDb(), owner, await freeDisk(), by);
 	}
-};
+} satisfies Actions);

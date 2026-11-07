@@ -3,6 +3,7 @@ import { getDb } from '$lib/server/db';
 import { allows, judgeVideo } from '$lib/server/access';
 import { addSpot, listSpots, ownerFrom, SpotError } from '$lib/server/spots';
 import type { SpotOwner } from '$lib/types';
+import { flowAfter, rootOfRecording, rootOfVideo } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
 /**
@@ -33,6 +34,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 	return json(listSpots(getDb(), owner, reach ?? undefined));
 };
 
+/** Adds a section or point; Keep in step's flow then runs from the video's root. */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const body: unknown = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw error(400, 'Bad JSON.');
@@ -40,17 +42,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const owner = ownerFrom({ recordingId: b.recordingId, lessonVideoId: b.lessonVideoId });
 	if (!owner) throw error(400, 'Name one video: recordingId or lessonVideoId.');
 	requireVideo(owner, locals, 'edit');
+	let spot;
 	try {
-		const spot = addSpot(
+		spot = addSpot(
 			getDb(),
 			owner,
 			{ startMs: b.startMs, endMs: b.endMs, label: b.label },
 			locals.user?.id
 		);
-		if (!spot) throw error(404, 'No such video');
-		return json(spot, { status: 201 });
 	} catch (e) {
 		if (e instanceof SpotError) throw error(400, e.message);
 		throw e;
 	}
+	if (!spot) throw error(404, 'No such video');
+	const root =
+		'recordingId' in owner
+			? rootOfRecording(getDb(), owner.recordingId)
+			: rootOfVideo(getDb(), owner.lessonVideoId);
+	if (root) await flowAfter(locals.user?.id, root.kind, root.id);
+	return json(spot, { status: 201 });
 };
