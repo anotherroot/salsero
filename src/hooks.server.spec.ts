@@ -31,9 +31,12 @@ vi.mock('$lib/server/releases', () => ({
 	})
 }));
 
-import { createSession } from '$lib/server/auth';
+import { createHash } from 'node:crypto';
+import { SESSION_COOKIE, createSession } from '$lib/server/auth';
 import { openDb } from '$lib/server/db';
-import { appInstalls, users } from '$lib/server/db/schema';
+import { appInstalls, invites, users } from '$lib/server/db/schema';
+import { locale } from '$lib/i18n/current';
+import { LOCALE_COOKIE } from '$lib/i18n/locale';
 import { handle } from './hooks.server';
 
 const OLD_HEADER = '2; salsa; direct';
@@ -192,5 +195,132 @@ describe('the two hosts', () => {
 	// Catches: a stale session of the other dance that cannot sign out on this host.
 	it("lets the other dance's session sign out here", async () => {
 		expect(await onBachataHost('POST', '/logout')).toMatchObject({ status: 200, resolved: 1 });
+	});
+});
+
+describe('the language', () => {
+	/**
+	 * The page the hook draws: `<html lang>` filled by `transformPageChunk`, and
+	 * the language `locale()` reads while the page renders (inside `resolve`).
+	 */
+	async function draw(
+		path: string,
+		opts: { cookie?: string; userLocale?: string | null; invite?: string | null } = {}
+	) {
+		const db = openDb(':memory:');
+		handleDb.db = db;
+		let session: string | undefined;
+		if (opts.userLocale !== undefined) {
+			db.insert(users)
+				.values({
+					id: 'u1',
+					email: 'a@example.com',
+					passwordHash: 'x',
+					dance: 'salsa',
+					firstName: 'Ana',
+					lastName: 'K',
+					level: 'all',
+					locale: opts.userLocale
+				})
+				.run();
+			session = createSession('u1').id;
+		}
+		if (opts.invite !== undefined) {
+			db.insert(invites)
+				.values({
+					id: 'i1',
+					codeHash: createHash('sha256').update('the-code').digest('hex'),
+					createdBy: 'admin',
+					expiresAt: Date.now() + 60_000,
+					dance: 'salsa',
+					locale: opts.invite
+				})
+				.run();
+		}
+		const url = new URL(`https://salsa.example${path}`);
+		const locals = {} as App.Locals;
+		const event = {
+			url,
+			request: new Request(url),
+			cookies: {
+				get: (name: string) =>
+					name === SESSION_COOKIE ? session : name === LOCALE_COOKIE ? opts.cookie : undefined,
+				set: () => {}
+			},
+			locals
+		} as unknown as RequestEvent;
+		const resolve = vi.fn(
+			async (
+				_e: RequestEvent,
+				o?: { transformPageChunk?: (i: { html: string; done: boolean }) => unknown }
+			) => {
+				const html = await (o?.transformPageChunk?.({
+					html: '<html lang="%salsa.lang%">',
+					done: true
+				}) ?? '<html lang="%salsa.lang%">');
+				return new Response(`${html}|${locale()}`);
+			}
+		);
+		const res = await handle({ event, resolve: resolve as never });
+		const [html, during] = (await res.text()).split('|');
+		return { html, during, locals: locals.locale };
+	}
+
+	// Catches: an invite's language not reaching the Join page drawn before any account.
+	it("draws Join in its invite's language, with no cookie", async () => {
+		expect(await draw('/join?code=the-code', { invite: 'sl' })).toEqual({
+			html: '<html lang="sl">',
+			during: 'sl',
+			locals: 'sl'
+		});
+	});
+
+	// Catches: English pages changing (`lang="en"` exactly as before).
+	it('draws English by default', async () => {
+		expect(await draw('/login')).toEqual({ html: '<html lang="en">', during: 'en', locals: 'en' });
+		expect(await draw('/join?code=the-code', { invite: null })).toMatchObject({
+			html: '<html lang="en">'
+		});
+	});
+
+	// Catches: the cookie not read before sign-in; an invite outside /join counting.
+	it("draws a signed-out page in the cookie's language", async () => {
+		expect(await draw('/login', { cookie: 'sl' })).toMatchObject({ html: '<html lang="sl">' });
+		expect(await draw('/login', { cookie: 'xx' })).toMatchObject({ html: '<html lang="en">' });
+	});
+
+	// Catches: the cookie overriding a signed-in person's own language.
+	it("draws a signed-in person's pages in their own language, never the cookie's", async () => {
+		expect(await draw('/salsa', { userLocale: 'sl', cookie: 'en' })).toEqual({
+			html: '<html lang="sl">',
+			during: 'sl',
+			locals: 'sl'
+		});
+		expect(await draw('/salsa', { userLocale: null, cookie: 'sl' })).toEqual({
+			html: '<html lang="en">',
+			during: 'en',
+			locals: 'en'
+		});
+	});
+
+	// Catches: the worker's requests left without a language on locals.
+	it("keeps the worker's requests in English", async () => {
+		handleEnv.env.SALSA_WORKER_TOKEN = 't';
+		try {
+			const db = openDb(':memory:');
+			handleDb.db = db;
+			const url = new URL('https://salsa.example/api/worker/songs');
+			const locals = {} as App.Locals;
+			const event = {
+				url,
+				request: new Request(url, { headers: { authorization: 'Bearer t' } }),
+				cookies: { get: (n: string) => (n === LOCALE_COOKIE ? 'sl' : undefined), set: () => {} },
+				locals
+			} as unknown as RequestEvent;
+			await handle({ event, resolve: vi.fn(async () => new Response('ok')) });
+			expect(locals.locale).toBe('en');
+		} finally {
+			delete handleEnv.env.SALSA_WORKER_TOKEN;
+		}
 	});
 });

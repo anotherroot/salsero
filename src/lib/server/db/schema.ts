@@ -70,7 +70,12 @@ export const users = sqliteTable(
 		 * checked in `setLevel`, not by a CHECK. Null until chosen (the first run asks);
 		 * accounts made before levels were backfilled to `all` by migration 0031.
 		 */
-		level: text('level')
+		level: text('level'),
+		/**
+		 * The language the app speaks to this person: `en` or `sl` (`$lib/i18n/locale.ts`),
+		 * checked in `setLocale` (`$lib/server/locale.ts`), not by a CHECK. Null is English.
+		 */
+		locale: text('locale')
 	},
 	(t) => [uniqueIndex('users_dance_email_idx').on(t.dance, t.email)]
 );
@@ -1186,7 +1191,12 @@ export const invites = sqliteTable('invites', {
 	usedAt: integer('used_at'),
 	usedBy: text('used_by'),
 	/** The dance Join makes the account in. Null on invites from before the split: salsa's. */
-	dance: text('dance')
+	dance: text('dance'),
+	/**
+	 * The language Join is drawn in and the new account starts with: `en` or `sl`,
+	 * read through `parseLocale` (`inviteLocaleOf`), not a CHECK. Null is English.
+	 */
+	locale: text('locale')
 });
 
 /** A request for more storage. `outcome` is 'granted' | 'declined', validated in code. */

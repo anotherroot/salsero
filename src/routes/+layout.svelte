@@ -42,8 +42,12 @@
 	import { holdsBack, staleMove } from '$lib/page-epoch';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 	import { levelShown } from '$lib/levels/levels';
+	import { setClientLocale } from '$lib/i18n/current';
 
 	let { data, children } = $props();
+	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
+	// Once per page load: changing it in Settings reloads the page.
+	setClientLocale(untrack(() => data.locale));
 	guardNavigation();
 	// Back closes the top sheet, not the page (`$lib/sheets/stack.ts`).
 	syncSheets();
