@@ -1173,3 +1173,12 @@ export type CommentsOn = {
 	/** The load's clock: the card's "2 days ago" reads it, so SSR and hydration agree. */
 	now: number;
 };
+
+/** A copy's Keep in step settings: the switch and the four options. */
+export type SyncSettings = {
+	on: boolean;
+	names: boolean;
+	small: boolean;
+	sections: boolean;
+	media: boolean;
+};

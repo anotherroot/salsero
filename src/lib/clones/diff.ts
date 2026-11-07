@@ -14,7 +14,7 @@
 import type { FieldDiff, Flat, PairBase, Picks, Side } from '$lib/types';
 import { pieceOf, pieceParts, ROOT_KEYS, SET_PREFIXES, setPrefixOf } from './flat';
 
-type Hash = (v: string) => string;
+export type Hash = (v: string) => string;
 
 const PART_RANK = { piece: 0, note: 1, spot: 2, links: 2 } as const;
 
