@@ -28,6 +28,7 @@ import {
 	spotPositionLinks,
 	teamChanges,
 	teamTrash,
+	clonePairs,
 	users,
 	videoSpots
 } from '../db/schema';
@@ -69,7 +70,8 @@ import { digest, hashValue, pairBase } from './pairs';
 import { flatOf } from './trees';
 import { cloneInto, fileKey } from './clone';
 import type { CloneFiles } from './files';
-import { applyInto, syncFrom } from './apply';
+import { applyInto, landKeys, syncFrom } from './apply';
+import { readMark } from './marks';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const NOW = T + 1000;
@@ -734,5 +736,72 @@ describe('positions', () => {
 			db.select().from(spotPositionLinks).where(eq(spotPositionLinks.spotId, mySpot.id)).all()
 		).toEqual([]);
 		expect(differing('lesson', myL, L)).toEqual([]);
+	});
+});
+
+describe('landKeys', () => {
+	const land = (o: { intoId: number; fromId: number; keys: string[]; snapshot: 'full' | 'keys' }) =>
+		landKeys(db, {
+			actorId: 'u1',
+			kind: 'figure',
+			files,
+			now: NOW,
+			freeDiskBytes: 1e12,
+			...o
+		});
+
+	it('a keys landing moves only those keys in the pair, and marks the target', async () => {
+		const { F, M } = await world();
+		db.update(figures)
+			.set({ notes: 'Club notes', startCount: 5, lengthCounts: 16 })
+			.where(eq(figures.id, F))
+			.run();
+		const before = pairBase(db, 'figure', M, F)!;
+		expect(await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' })).toEqual({
+			ok: true
+		});
+		expect(db.select().from(figures).where(eq(figures.id, M)).get()).toMatchObject({
+			notes: 'Club notes'
+		});
+		const after = pairBase(db, 'figure', M, F)!;
+		const giver = flatOf(db, 'figure', F);
+		expect(after.fields.timing).toBe(before.fields.timing);
+		expect(after.fields.timing).not.toBe(hashValue(giver.timing.value));
+		expect(after.fields.notes).toBe(hashValue(giver.notes.value));
+		const mine = flatOf(db, 'figure', M);
+		expect(readMark(db, 'figure', M)).toEqual(
+			Object.fromEntries(Object.entries(mine).map(([k, v]) => [k, hashValue(v.value)]))
+		);
+	});
+
+	it('a keys landing makes no pair when there is none; no keys writes nothing', async () => {
+		const { F, M } = await world();
+		db.update(figures).set({ notes: 'Club notes' }).where(eq(figures.id, F)).run();
+		db.delete(clonePairs).run();
+		const marked = readMark(db, 'figure', M);
+		expect(await land({ intoId: M, fromId: F, keys: [], snapshot: 'keys' })).toEqual({ ok: true });
+		expect(readMark(db, 'figure', M)).toEqual(marked);
+		await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' });
+		expect(pairBase(db, 'figure', M, F)).toBeNull();
+		expect(readMark(db, 'figure', M)).not.toEqual(marked);
+	});
+
+	it('a stale seen refuses and writes nothing', async () => {
+		const { F, M } = await world();
+		db.update(figures).set({ notes: 'Club notes' }).where(eq(figures.id, F)).run();
+		const out = await landKeys(db, {
+			actorId: 'u1',
+			kind: 'figure',
+			intoId: M,
+			fromId: F,
+			keys: ['notes'],
+			snapshot: 'full',
+			files,
+			now: NOW,
+			freeDiskBytes: 1e12,
+			seen: 'nope'
+		});
+		expect(out).toMatchObject({ ok: false, reason: 'stale' });
+		expect(db.select().from(figures).where(eq(figures.id, M)).get()!.notes).not.toBe('Club notes');
 	});
 });

@@ -33,7 +33,7 @@
  */
 import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
-import type { ChangeValues, CloneKind, Flat, Picks, SyncResult } from '$lib/types';
+import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
 import { nameTaken, PICK_BOTH, STALE } from '$lib/clones/view';
@@ -87,6 +87,7 @@ import { autoAddPending } from '../auto-add';
 import { accessTo, geneOf, stampGene } from './genes';
 import { digest, hashValue, pairBase, writePair } from './pairs';
 import { flatOf } from './trees';
+import { markNow } from './marks';
 import {
 	copyRecording,
 	copySpot,
@@ -1030,6 +1031,112 @@ function currentPicks(db: Db, picks: Picks): Picks {
 	return out;
 }
 
+export type LandOptions = {
+	actorId: string;
+	kind: CloneKind;
+	intoId: number;
+	fromId: number;
+	keys: string[];
+	snapshot: 'full' | 'keys';
+	files: CloneFiles;
+	now: number;
+	freeDiskBytes: number;
+	seen?: string;
+};
+
+/**
+ * The write half of `syncFrom`, shared by Take, Send, the automatic flow and
+ * the Sync sheet: the giver's value of `keys` lands in `intoId`. Access and
+ * picks are the caller's. Files are linked first (room checked), then in one
+ * transaction: `seen` re-checked when given, the apply, the pair's snapshot
+ * (`'full'`: `nextBase`; `'keys'`: only the landed keys of the existing base,
+ * no pair made when none exists), History and the reconcile in a group, and
+ * the target's mark last. Nothing is written on a refusal; a person's deleted
+ * pieces' files go once it has landed.
+ */
+export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
+	const { actorId, kind, intoId, fromId, keys, snapshot, files, now, freeDiskBytes, seen } = o;
+	if (keys.length === 0) return { ok: true };
+	const into = rootOf(db, kind, intoId);
+	if (!into) return DENIED;
+	const intoFlat = flatOf(db, kind, intoId);
+	const fromFlat = flatOf(db, kind, fromId);
+	const base = pairBase(db, kind, intoId, fromId);
+	const plan = filesFor(db, kind, fromId, keys, intoFlat, fromFlat);
+	const bytes = plan.reduce((n, f) => n + f.bytes, 0);
+	if (bytes > 0) {
+		const room = roomForOwner(db, ownerOfRow(into), bytes, freeDiskBytes);
+		if (!room.ok) return { ok: false, reason: 'room', message: room.message };
+	}
+
+	const made: [CloneFileKind, string][] = [];
+	const unlinkAll = () => Promise.all(made.map(([k, file]) => files.unlink(k, file)));
+	const linked = new Map<string, string>();
+	let out: ApplyOutcome | { ok: false; reason: 'stale'; message: string };
+	try {
+		for (const f of plan) {
+			const name = await files.link(f.kind, f.file);
+			made.push([f.kind, name]);
+			linked.set(f.key, name);
+		}
+		out = db.transaction((t) => {
+			const tx = t as unknown as Db;
+			// Again inside the write: a save may have landed while the files were linking.
+			if (seen !== undefined && digest(flatOf(tx, kind, intoId)) !== seen)
+				return { ok: false as const, reason: 'stale' as const, message: STALE };
+			const applied = applyInto(tx, kind, intoId, fromId, keys, linked, actorId, now);
+			if (!applied.ok) return applied;
+			const intoAfter = flatOf(tx, kind, intoId);
+			const fromAfter = flatOf(tx, kind, fromId);
+			let next: PairBase | null;
+			if (snapshot === 'full') next = nextBase(intoAfter, fromAfter, base?.skip ?? [], hashValue);
+			else if (!base) next = null;
+			else {
+				const fields = { ...base.fields };
+				for (const key of keys) {
+					if (Object.hasOwn(fromAfter, key)) fields[key] = hashValue(fromAfter[key].value);
+					else delete fields[key];
+				}
+				next = {
+					fields,
+					skip: base.skip.filter(
+						(piece) => !(Object.hasOwn(intoAfter, piece) && Object.hasOwn(fromAfter, piece))
+					)
+				};
+			}
+			if (next) {
+				// A song this place could not take is not in step: it leaves the
+				// snapshot, as a dropped reference does at a copy (`clone.ts`).
+				for (const key of Object.keys(next.fields))
+					if (key.startsWith('song:') && !Object.hasOwn(intoAfter, key)) delete next.fields[key];
+				writePair(tx, kind, intoId, fromId, next, now);
+			}
+			const space = spaceOfRow(into, actorId);
+			if (isTeam(space)) {
+				const { thing, ...root } = logRoot(kind, into as { id: number; groupId?: number | null });
+				const change = fieldChange(applied.before, applied.after, thing) ?? { subject: thing };
+				logChange(tx, space, { ...root, verb: 'change', ...change }, now);
+				if (applied.removals) reconcileEntries(tx, space.teamId, now);
+				// A class lesson that took in a routine or drill: auto-add brings it to Today. Only a
+				// lesson's Take changes what a lesson holds.
+				if (kind === 'lesson') autoAddPending(tx, space.teamId, [intoId], now);
+			}
+			markNow(tx, kind, intoId, now);
+			return applied;
+		});
+	} catch (err) {
+		await unlinkAll();
+		throw err;
+	}
+	if (!out.ok) {
+		await unlinkAll();
+		return { ok: false, reason: out.reason, message: out.message };
+	}
+	// It has landed: removing the deleted pieces' files can no longer undo it, nor fail it.
+	await Promise.all(out.unlink.map(([k, file]) => files.unlink(k, file).catch(() => {})));
+	return { ok: true };
+}
+
 /**
  * One member (`intoId`) receives another's (`fromId`) fields picked
  * `'theirs'`, against a comparison from `intoId`'s side (`compareWith`):
@@ -1088,58 +1195,16 @@ export async function syncFrom(
 		});
 	}
 
-	const plan = filesFor(db, kind, fromId, keys, intoFlat, fromFlat);
-	const bytes = plan.reduce((n, f) => n + f.bytes, 0);
-	if (bytes > 0) {
-		const room = roomForOwner(db, ownerOfRow(into), bytes, freeDiskBytes);
-		if (!room.ok) return { ok: false, reason: 'room', message: room.message };
-	}
-
-	const made: [CloneFileKind, string][] = [];
-	const unlinkAll = () => Promise.all(made.map(([k, file]) => files.unlink(k, file)));
-	const linked = new Map<string, string>();
-	let out: ApplyOutcome | { ok: false; reason: 'stale'; message: string };
-	try {
-		for (const f of plan) {
-			const name = await files.link(f.kind, f.file);
-			made.push([f.kind, name]);
-			linked.set(f.key, name);
-		}
-		out = db.transaction((t) => {
-			const tx = t as unknown as Db;
-			// Again inside the write: a save may have landed while the files were linking.
-			if (digest(flatOf(tx, kind, intoId)) !== seen)
-				return { ok: false as const, reason: 'stale' as const, message: STALE };
-			const applied = applyInto(tx, kind, intoId, fromId, keys, linked, actorId, now);
-			if (!applied.ok) return applied;
-			const intoAfter = flatOf(tx, kind, intoId);
-			const next = nextBase(intoAfter, flatOf(tx, kind, fromId), base?.skip ?? [], hashValue);
-			// A song this place could not take is not in step: it leaves the
-			// snapshot, as a dropped reference does at a copy (`clone.ts`).
-			for (const key of Object.keys(next.fields))
-				if (key.startsWith('song:') && !Object.hasOwn(intoAfter, key)) delete next.fields[key];
-			writePair(tx, kind, intoId, fromId, next, now);
-			const space = spaceOfRow(into, actorId);
-			if (isTeam(space)) {
-				const { thing, ...root } = logRoot(kind, into as { id: number; groupId?: number | null });
-				const change = fieldChange(applied.before, applied.after, thing) ?? { subject: thing };
-				logChange(tx, space, { ...root, verb: 'change', ...change }, now);
-				if (applied.removals) reconcileEntries(tx, space.teamId, now);
-				// A class lesson that took in a routine or drill: auto-add brings it to Today. Only a
-				// lesson's Take changes what a lesson holds.
-				if (kind === 'lesson') autoAddPending(tx, space.teamId, [intoId], now);
-			}
-			return applied;
-		});
-	} catch (err) {
-		await unlinkAll();
-		throw err;
-	}
-	if (!out.ok) {
-		await unlinkAll();
-		return { ok: false, reason: out.reason, message: out.message };
-	}
-	// It has landed: removing the deleted pieces' files can no longer undo it, nor fail it.
-	await Promise.all(out.unlink.map(([k, file]) => files.unlink(k, file).catch(() => {})));
-	return { ok: true };
+	return landKeys(db, {
+		actorId,
+		kind,
+		intoId,
+		fromId,
+		keys,
+		snapshot: 'full',
+		files,
+		now,
+		freeDiskBytes,
+		seen
+	});
 }
