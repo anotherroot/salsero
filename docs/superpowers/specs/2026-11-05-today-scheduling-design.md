@@ -81,16 +81,18 @@ of the two local days; 0 for two sets on one day; for the first set, `e = 0`):
 | Feeling | New gap |
 |---|---|
 | Still hard | 1 |
-| Getting there | max(3, used × 1.2); done early: max(that, gap ÷ 2) |
-| I've got it | max(7, used × 2.5, gap) |
-| Easy | max(21, used × 4, gap × 1.3) |
+| Getting there | max(2, used × 1.3); done early: max(that, gap ÷ 2) |
+| I've got it | max(3, used × 1.5, gap) |
+| Easy | max(7, used × 2, gap × 1.2) |
 | none (older sets) | gap unchanged |
+
+**Slower since the run-the-day design (2026-11-07):** these are the G3 numbers; see [`2026-11-07-run-the-day-design.md`](2026-11-07-run-the-day-design.md). Gotit every time now runs 3, 5, 8, 12, 18, 27, 41, 62, 93; Easy runs 7, 14, 28, 56, 112, 224, 365.
 
 where `used = min(e, gap)`, and "done early" means `e < gap`.
 
 - **`used = min(e, gap)`** is the user's cap: only the days it was meant to
   wait count. Remembering after a month away, for a 10-day gap, counts as 10.
-- **The `gap` term in I've got it** (and `gap × 1.3` in Easy) is the floor for
+- **The `gap` term in I've got it** (and `gap × 1.2` in Easy) is the floor for
   early reviews: an exercise with a 75-day gap, done again the next day through
   Next 5 and rated I've got it, keeps 75 days (counted from now). It does not
   drop to 2 days because `used` was 1.
@@ -102,7 +104,7 @@ where `used = min(e, gap)`, and "done early" means `e < gap`.
   local day it was created (so a class's new exercises queue behind older
   overdue ones, not ahead of them).
 
-The numbers (× 1.2, × 2.5, × 4, the floors 3/7/21, the cap) are a starting
+The numbers (× 1.3, × 1.5, × 2, the floors 2/3/7, the cap) are a starting
 point the user agreed to tune. They live in one table in the pure module.
 
 **Why this one** (the user chose it over the alternatives):

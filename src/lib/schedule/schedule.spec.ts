@@ -13,11 +13,11 @@ const gotit = (d: string) => ({ doneAt: at(d), rating: RATING_OF.gotit });
 
 describe('nextGap', () => {
 	it.each([
-		[10, 10, 'gotit', 25],
-		[10, 40, 'gotit', 25],
+		[10, 10, 'gotit', 15],
+		[10, 40, 'gotit', 15],
 		[75, 1, 'gotit', 75],
-		[10, 1, 'easy', 21],
-		[30, 1, 'easy', 39],
+		[10, 1, 'easy', 12],
+		[30, 1, 'easy', 36],
 		[10, 1, 'getting', 5],
 		[2, 2, 'getting', 3],
 		[75, 1, 'hard', 1],
@@ -26,7 +26,28 @@ describe('nextGap', () => {
 		expect(nextGap(gap, e, feel)).toBe(want);
 	});
 	it('none keeps the gap', () => expect(nextGap(9, 5, null)).toBe(9));
-	it('getting there on time uses used x 1.2', () => expect(nextGap(10, 10, 'getting')).toBe(12));
+	const grow = (feel: 'gotit' | 'easy', start: number, n: number) => {
+		let gap = start;
+		let e = 0;
+		const seen: number[] = [];
+		for (let i = 0; i < n; i++) {
+			gap = nextGap(gap, e, feel);
+			seen.push(gap);
+			e = gap;
+		}
+		return seen;
+	};
+	it("I've got it every time grows 3, 5, 8, 12, 18, 27, 41, 62, 93", () => {
+		expect(grow('gotit', 3, 9)).toEqual([3, 5, 8, 12, 18, 27, 41, 62, 93]);
+	});
+	it('Easy every time grows 7, 14, 28, 56, 112, 224, 365', () => {
+		expect(grow('easy', 1, 7)).toEqual([7, 14, 28, 56, 112, 224, 365]);
+	});
+	it('Getting there on time uses used x 1.3, at least 2', () => {
+		expect(nextGap(10, 10, 'getting')).toBe(13);
+		expect(nextGap(1, 1, 'getting')).toBe(2);
+	});
+	it('caps at 365', () => expect(nextGap(300, 300, 'easy')).toBe(365));
 });
 
 describe('replay', () => {
@@ -39,13 +60,13 @@ describe('replay', () => {
 	});
 	it('on time', () => {
 		const s = replay(10, at(D0), [gotit(day(0)), gotit(day(10))], TZ);
-		expect(s).toEqual({ gap: 25, lastDay: day(10), dueDay: day(35) });
+		expect(s).toEqual({ gap: 15, lastDay: day(10), dueDay: day(25) });
 	});
 	it('early, then on time (sets in any order)', () => {
 		const early = [gotit(day(0)), gotit(day(1))];
 		expect(replay(10, at(D0), early, TZ).dueDay).toBe(day(11));
 		const later = [gotit(day(11)), ...early];
-		expect(replay(10, at(D0), later, TZ)).toEqual({ gap: 25, lastDay: day(11), dueDay: day(36) });
+		expect(replay(10, at(D0), later, TZ)).toEqual({ gap: 15, lastDay: day(11), dueDay: day(26) });
 	});
 	it('counts calendar days across midnight and DST', () => {
 		// 10-11 Oct 2026 is CEST (+02:00): 23:30 on the 10th and 00:30 on the 11th are two days.
@@ -110,19 +131,19 @@ describe('preview', () => {
 	it('on time', () => {
 		const state = { gap: 10, lastDay: day(0), dueDay: day(10) };
 		const p = preview(state, day(10));
-		expect(p.faces.map((f) => f.gap)).toEqual([1, 12, 25, 40]);
+		expect(p.faces.map((f) => f.gap)).toEqual([1, 13, 15, 20]);
 		expect(p.early).toBeNull();
 	});
 	it('early', () => {
 		const state = { gap: 10, lastDay: day(0), dueDay: day(10) };
 		const p = preview(state, day(1));
-		expect(p.faces.map((f) => f.gap)).toEqual([1, 5, 10, 21]);
+		expect(p.faces.map((f) => f.gap)).toEqual([1, 5, 10, 12]);
 		expect(p.early).toEqual({ lastDay: day(0), dueDay: day(10) });
 	});
 	it('is computed from the state before today', () => {
 		const sets = [gotit(day(0)), { doneAt: at(day(3)), rating: RATING_OF.hard }];
 		const before = replay(10, 0, sets, TZ, day(3));
-		expect(preview(before, day(3)).faces.map((f) => f.gap)).toEqual([1, 5, 10, 21]);
+		expect(preview(before, day(3)).faces.map((f) => f.gap)).toEqual([1, 5, 10, 12]);
 	});
 	it('matches replay with that set added', () => {
 		const state = replay(10, 0, [gotit(day(0))], TZ);

@@ -48,7 +48,7 @@ describe('scheduleStates', () => {
 
 		const m = scheduleStates(db, U1_SALSA, TZ);
 		expect([...m.keys()].sort()).toEqual([a.id, b.id].sort());
-		expect(m.get(a.id)).toEqual({ gap: 25, lastDay: '2026-10-11', dueDay: '2026-11-05' });
+		expect(m.get(a.id)).toEqual({ gap: 15, lastDay: '2026-10-11', dueDay: '2026-10-26' });
 		expect(m.get(b.id)!.lastDay).toBeNull();
 		expect(m.get(b.id)!.gap).toBe(10);
 	});
@@ -65,7 +65,7 @@ describe('scheduleStateOf and listScheduleSets', () => {
 		const a = drill(U1_SALSA, 'A');
 		set(a.id, at('2026-10-11'), 4);
 		set(a.id, at('2026-10-01'), 4);
-		expect(scheduleStateOf(db, a.id, TZ).gap).toBe(25);
+		expect(scheduleStateOf(db, a.id, TZ).gap).toBe(15);
 		expect(listScheduleSets(db, U1_SALSA)).toHaveLength(2);
 		expect(listScheduleSets(db, U2_SALSA)).toEqual([]);
 	});

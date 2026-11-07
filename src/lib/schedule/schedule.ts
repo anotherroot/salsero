@@ -7,9 +7,9 @@ import { FEELS, feelOf, type Feel } from './feel';
 
 /** The numbers, in one place. */
 export const STEPS = {
-	getting: { floor: 3, used: 1.2, earlyShare: 0.5 },
-	gotit: { floor: 7, used: 2.5 },
-	easy: { floor: 21, used: 4, gap: 1.3 },
+	getting: { floor: 2, used: 1.3, earlyShare: 0.5 },
+	gotit: { floor: 3, used: 1.5 },
+	easy: { floor: 7, used: 2, gap: 1.2 },
 	hardGap: 1,
 	minGap: 1,
 	maxGap: 365
