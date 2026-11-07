@@ -288,11 +288,46 @@ describe('warm-ups', () => {
 		expect(inLine(x).map((e) => e.name)).toEqual(['f']);
 	});
 
-	it('Next N never takes a warm-up', () => {
-		const w = due('w', { warmup: true, active: true });
-		const skipped = [w];
-		const x = input(skipped, { picks: [pick(w, 'skip')] });
-		expect(inLine(x)).toEqual([]);
+	it('Next N never takes a warm-up, even one that is not due yet', () => {
+		const ahead = ex('ahead', day(-3), { warmup: true });
+		const dueSoon = ex('soon', day(-2));
+		const x = input([ahead, dueSoon], { sets: [set(ahead, day(-1))], daily: 0 });
+		// The warm-up is not a row and not skipped: only the guard keeps it out.
+		expect(dayList(x).rows).toEqual([]);
+		expect(inLine(x).map((e) => e.name)).toEqual(['soon']);
+	});
+
+	it('a done and a picked warm-up leave the daily number untouched', () => {
+		const done = ex('done', day(-20), { warmup: true });
+		const aheadW = ex('ahead', day(-3), { warmup: true });
+		const p = 'abcdef'.split('').map((n, i) => ex(n, day(-8 + i)));
+		const x = input([...p, done, aheadW], {
+			sets: [set(done, TODAY), set(aheadW, day(-1))],
+			picks: [pick(aheadW, 'add')]
+		});
+		const l = dayList(x);
+		expect(l.rows.filter((r) => r.list === 'practice').map((r) => r.exercise.name)).toEqual([
+			'a',
+			'b',
+			'c',
+			'd',
+			'e'
+		]);
+		expect([l.warmups, l.total, l.done, l.left]).toEqual([2, 7, 1, 6]);
+	});
+
+	it('only warm-ups left to do: not nothing left', () => {
+		const w = due('w', { warmup: true });
+		const p = ex('p', day(-2));
+		const l = dayList(input([w, p], { sets: [set(p, TODAY)] }));
+		expect([l.done, l.left, l.nothingLeft]).toEqual([1, 1, null]);
+	});
+
+	it('only practice, no warm-ups: as before', () => {
+		const p = ex('p', day(-2));
+		const l = dayList(input([p], { sets: [set(p, TODAY)] }));
+		expect([l.warmups, l.done, l.left]).toEqual([0, 1, 0]);
+		expect(l.nothingLeft).not.toBeNull();
 	});
 
 	it('go by their order, a null order last, then by due day', () => {
