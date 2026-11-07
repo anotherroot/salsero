@@ -387,7 +387,7 @@ scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoo
                      plan's scenes (ext_practice.py: Practice, the player's popups)
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
-docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
+docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from; its colours are the first, brighter ones (tokens.ts is the source since the warm palette, 2026-11-07)
 src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      port, so Back closes only the top one, with holds while a
                      navigation or a link click is in flight. history.svelte.ts

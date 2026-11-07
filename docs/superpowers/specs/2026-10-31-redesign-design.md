@@ -43,13 +43,14 @@ bottom bar has five tabs with icons (four until groups); nothing the app does to
 ## The icons
 
 - **Salsa:** a flame that is also a dancer (raised arm = the tallest tongue,
-  the skirt flaring into side tongues), cream on chili red `#D2401E`, peach
-  core `#FFC9A8`.
+  the skirt flaring into side tongues), cream `#FFF6EC` on clay `#A8492F`, peach
+  core `#F6C3A6` (the warm palette, 2026-11-07; first chili red `#D2401E`).
 - **Bachata:** a heart split in two by a curved gap — two bodies pressed
   together — with two heads leaning in cheek to cheek, cream and pink
-  (`#F2B8D0`) on wine `#6B1D4F`.
-- Source SVGs: `docs/superpowers/design-kit/icons/salsa.svg` and
-  `bachata.svg` (v4 on the round-3 board). They move to `static/` and replace
+  (`#ECB6CF`) on wine `#64304F` (first `#F2B8D0` on `#6B1D4F`).
+- Source SVGs: `static/icon-salsa.svg` and `static/icon-bachata.svg`, first
+  `docs/superpowers/design-kit/icons/` (v4 on the round-3 board, still the old
+  colours). They moved to `static/` and replaced
   `static/icon.svg`. They are two different drawings, so
   `scripts/make-icons.sh` stops tinting one SVG with the registry accent and
   instead rasterises each dance's own SVG (192 and 512 into `static/icons/`,
@@ -96,8 +97,11 @@ bottom bar has five tabs with icons (four until groups); nothing the app does to
 
 ## Design tokens
 
-The design system board (sections 02–03) is the reference; these are its
-values. `src/routes/layout.css` gets them as CSS custom properties, set per
+The colours are the warm palette (2026-11-07, option D of the palette board,
+picked from real screenshots of the app in five palettes). `src/lib/theme/tokens.ts`
+is their source; the design system board (sections 02–03) keeps the first,
+brighter ones, which the user found too intense, with a few edges below 3:1.
+`src/routes/layout.css` gets them as CSS custom properties, set per
 dance and per scheme by `[data-dance]` and `<html data-theme>`. Since 2026-11-01 the
 scheme is a Settings choice (System, Light, Dark; a cookie per browser,
 `$lib/theme/scheme.ts`): the hook writes it into `<html data-theme-choice>` and
@@ -107,21 +111,28 @@ query, so one copy of the dark colours serves both System and Dark.
 
 | role | salsa light | salsa dark | bachata light | bachata dark |
 |---|---|---|---|---|
-| band (same in dark since 2026-11-01) | `#D2401E` | `#D2401E` | `#6B1D4F` | `#6B1D4F` |
-| small text on band | `#ffffff` | `#ffffff` | cream `#FFF3E4` | cream `#FFF3E4` |
-| accent (salsa dark: the band red since 2026-11-05, white on it) | `#d2401e` | `#d2401e` | `#8e2a66` | `#f07aae` |
-| accent_text (small accent text) | `#b3340f` | `#ff7a59` | `#8e2a66` | `#f07aae` |
-| on_accent | `#ffffff` | `#ffffff` | `#ffffff` | `#2a0716` |
-| status | `#b8330f` | `#ff8a6b` | `#8e2a66` | `#f07aae` |
+| band (a step deeper in dark, so it does not glare at night) | `#A8492F` clay | `#7E3826` | `#64304F` wine | `#4D2640` |
+| band title and icons | cream `#FFF6EC` | cream `#FFF6EC` | cream `#FFF6EC` | cream `#FFF6EC` |
+| small text on band | cream `#FFF6EC` | `#f2d9cc` | `#f4e1ea` | `#ebd3df` |
+| accent (fills: Play, selected chips) | `#a8492f` | `#b0523a` | `#7c3b61` | `#e29abc` |
+| accent_text (small accent text) | `#933f28` | `#f0957a` | `#7c3b61` | `#e29abc` |
+| on_accent | `#ffffff` | `#ffffff` | `#ffffff` | `#2a0f1d` |
+| status | `#933f28` | `#f0957a` | `#7c3b61` | `#e29abc` |
 
-Shared neutrals, light / dark: ground `#f2f2f5` / `#0b0b0d`; surface `#ffffff`
-/ `#1c1c1f`; raised (dialogs) `#ffffff` / `#242428`; bottom sheet `#f2f2f5` /
-`#141416`; hairline `#e3e3e8` / `#2c2c31`; ink `#111114` / `#f4f4f6`; ink2
-`#3d3d44` / `#c8c8ce`; muted `#6e6e76` / `#98989f`; done `#1e7a4f` /
-`#5cc98f`; **danger `#c4183c` / `#ff5c7a`** (crimson, new — the old `#c62828`
-read as the salsa accent); warn `#a34a06` / `#f0a04b`. Derived: accent_soft =
-accent mixed 12 % (light) / 18 % (dark) into surface; tab tint = accent at 12 %.
-Band title and icons are cream `#FFF3E4`.
+Shared neutrals, warm, light / dark: ground `#f5f1eb` / `#12100e`; surface `#fffdfa`
+/ `#1f1b18`; raised (dialogs) `#fffdfa` / `#27221e`; bottom sheet `#f5f1eb` /
+`#181512`; hairline `#e7e0d6` / `#322c27`; ink `#1e1a16` / `#f3eee8`; ink2
+`#45403a` / `#cfc6bc`; muted `#665e55` / `#a39a8f`; chevron `#8e8479` / `#80766b`;
+field-line (a field's edge) `#8f867c` / `#756b61`; track (progress bars, sheet
+grabbers) `#e2dacf` / `#3a332d`; done `#2f7650` / `#79c29a`; danger `#b3343f` /
+`#f0707f`; warn `#975210` / `#e7a25a`; easy `#3a6293` / `#97b6e6`. Derived:
+accent_soft = accent mixed 13 % (light) / 20 % (dark) into surface; tab tint =
+accent_soft. The navy group look keeps its colours (`GROUP`), its soft tint mixed
+over the warm surface.
+
+`field-line` and `track` were one colour until the warm palette: a field's edge
+must reach 3:1 on a card, and at that darkness Today's progress bar read heavy,
+so tracks and grabbers took their own light token.
 
 The segmented switch on the band has a black 15 % track (`BAND_TRACK` in `tokens.ts`) and `band-small` labels, so unselected labels keep 4.5:1 in every theme; the selected pill is cream with `on-cream` text.
 
@@ -132,9 +143,9 @@ The segmented switch on the band has a black 15 % track (`BAND_TRACK` in `tokens
 - **Spacing:** 4, 8, 12, 16, 20, 24, 32, 48. Screen side margin 16 (sheet) /
   20 (band).
 - **Radii:** 8 xs, 12 sm, 14 field, 16 group, 22 card, 28 sheet, pill.
-- **Contrast:** every small text pair ≥ 4.5:1, large ≥ 3:1, checked for all
-  four themes. Cream on the light salsa band is 4.3:1, so small text there is
-  white; the band colour itself does not change.
+- **Contrast:** every small text pair ≥ 4.5:1, large ≥ 3:1, and edges and
+  icons a person must see (a field's edge, a chevron, disabled text) ≥ 3:1,
+  checked for all four themes (`tokens.spec.ts`).
 
 ## Components and states
 

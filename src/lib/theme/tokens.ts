@@ -1,6 +1,7 @@
-// PURE: the redesign's colour tokens, one theme per dance and scheme. The values
-// are docs/superpowers/design-kit/kit.py (_LIGHT, _DARK, THEMES) copied exactly;
-// layout.css repeats them as `--color-<name>`. Client-safe.
+// PURE: the colour tokens, one theme per dance and scheme. This file is the
+// source since the warm palette (2026-11-07, option D); the design board's
+// kit.py holds the redesign's first, brighter colours. layout.css repeats
+// them as `--color-<name>`. Client-safe.
 import { DANCE_SLUGS, type DanceSlug } from '$lib/dances/dances';
 import { mix } from './contrast';
 
@@ -14,6 +15,7 @@ export const TOKEN_NAMES = [
 	'field',
 	'hairline',
 	'field-line',
+	'track',
 	'ink',
 	'ink-2',
 	'muted',
@@ -54,7 +56,7 @@ export const TOKEN_NAMES = [
 export type TokenName = (typeof TOKEN_NAMES)[number];
 export type Theme = Record<TokenName, string>;
 
-const BAND_INK = '#FFF3E4';
+const BAND_INK = '#FFF6EC';
 
 /** The on-band switch track: black at 15 % over the band (ruling R7). Tailwind's `bg-band-track` uses it. */
 export const BAND_TRACK = '#00000026';
@@ -76,72 +78,75 @@ type DanceTokens =
 	| 'inverse-accent';
 
 const LIGHT: Shared = {
-	ground: '#f2f2f5',
-	surface: '#ffffff',
-	raised: '#ffffff',
-	sheet: '#f2f2f5',
-	field: '#f2f2f5',
-	hairline: '#e3e3e8',
-	'field-line': '#cfcfd6',
-	ink: '#111114',
-	'ink-2': '#3d3d44',
-	muted: '#6e6e76',
-	chevron: '#a8a8b0',
-	chip: '#e6e3e6',
-	'chip-ink': '#111114',
-	step: '#ececf0',
-	'tab-bg': '#f9f9fb',
-	'tab-line': '#dcdce2',
-	done: '#1e7a4f',
+	ground: '#f5f1eb',
+	surface: '#fffdfa',
+	raised: '#fffdfa',
+	sheet: '#f5f1eb',
+	field: '#f3eee7',
+	hairline: '#e7e0d6',
+	// A field's edge: 3:1 on a card. Progress tracks and grabbers are `track`.
+	'field-line': '#8f867c',
+	track: '#e2dacf',
+	ink: '#1e1a16',
+	'ink-2': '#45403a',
+	muted: '#665e55',
+	chevron: '#8e8479',
+	chip: '#ece5dc',
+	'chip-ink': '#1e1a16',
+	step: '#eee8e0',
+	'tab-bg': '#fbf8f3',
+	'tab-line': '#e2dacf',
+	done: '#2f7650',
 	'on-done': '#ffffff',
-	'done-soft': '#e3f3ea',
-	danger: '#c4183c',
+	'done-soft': '#e4f0e7',
+	danger: '#b3343f',
 	'on-danger': '#ffffff',
-	'danger-soft': '#fde8ec',
-	warn: '#a34a06',
-	'warn-soft': '#fdf0e1',
-	easy: '#1f5fbf',
-	'easy-soft': '#e6effc',
-	'disabled-bg': '#e6e6ea',
-	'disabled-ink': '#8a8a92',
-	skeleton: '#e6e6ea',
-	'inverse-bg': '#26262b',
-	'inverse-ink': '#f4f4f6',
+	'danger-soft': '#f8e6e6',
+	warn: '#975210',
+	'warn-soft': '#f8ecdc',
+	easy: '#3a6293',
+	'easy-soft': '#e7edf5',
+	'disabled-bg': '#eae4dc',
+	'disabled-ink': '#776f65',
+	skeleton: '#eae4dc',
+	'inverse-bg': '#2a2520',
+	'inverse-ink': '#f5f1eb',
 	'inverse-done': '#5cc98f'
 };
 
 const DARK: Shared = {
-	ground: '#0b0b0d',
-	surface: '#1c1c1f',
-	raised: '#242428',
-	sheet: '#141416',
-	field: '#0b0b0d',
-	hairline: '#2c2c31',
-	'field-line': '#3a3a40',
-	ink: '#f4f4f6',
-	'ink-2': '#c8c8ce',
-	muted: '#98989f',
-	chevron: '#6e6e76',
-	chip: '#2c2c31',
-	'chip-ink': '#f4f4f6',
-	step: '#2c2c31',
-	'tab-bg': '#121214',
-	'tab-line': '#2c2c31',
-	done: '#5cc98f',
+	ground: '#12100e',
+	surface: '#1f1b18',
+	raised: '#27221e',
+	sheet: '#181512',
+	field: '#12100e',
+	hairline: '#322c27',
+	'field-line': '#756b61',
+	track: '#3a332d',
+	ink: '#f3eee8',
+	'ink-2': '#cfc6bc',
+	muted: '#a39a8f',
+	chevron: '#80766b',
+	chip: '#322c27',
+	'chip-ink': '#f3eee8',
+	step: '#322c27',
+	'tab-bg': '#171411',
+	'tab-line': '#322c27',
+	done: '#79c29a',
 	'on-done': '#0b0b0d',
-	'done-soft': '#173226',
-	danger: '#ff5c7a',
+	'done-soft': '#1b2e22',
+	danger: '#f0707f',
 	'on-danger': '#1a0509',
-	'danger-soft': '#3a1520',
-	warn: '#f0a04b',
-	'warn-soft': '#33240f',
-	easy: '#8fb4ff',
-	'easy-soft': '#16243d',
-	'disabled-bg': '#232327',
-	'disabled-ink': '#6a6a72',
-	skeleton: '#2e2e34',
-	'inverse-bg': '#ececf0',
-	'inverse-ink': '#111114',
+	'danger-soft': '#3a1a1e',
+	warn: '#e7a25a',
+	'warn-soft': '#33261a',
+	easy: '#97b6e6',
+	'easy-soft': '#18243a',
+	'disabled-bg': '#26211d',
+	'disabled-ink': '#887f75',
+	skeleton: '#332d28',
+	'inverse-bg': '#ece5dc',
+	'inverse-ink': '#1e1a16',
 	'inverse-done': '#1e7a4f'
 };
 
@@ -162,56 +167,55 @@ function theme(base: Shared, scheme: Scheme, d: DanceInput): Theme {
 		...base,
 		...d,
 		'band-ink': BAND_INK,
-		'accent-soft': mix(d.accent, base.surface, scheme === 'light' ? 0.12 : 0.18)
+		'accent-soft': mix(d.accent, base.surface, scheme === 'light' ? 0.13 : 0.2)
 	};
 }
 
-// The band is the same in light and dark (since 2026-11-01): the darkened bands
-// read as dull, and the light ones hold their contrast on the dark ground.
+// The warm palette (2026-11-07, option D of the palette board): clay for salsa,
+// wine for bachata, a step deeper in dark so the band does not glare at night.
 export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 	salsa: {
 		light: theme(LIGHT, 'light', {
-			band: '#D2401E',
-			'on-cream': '#b3340f',
-			'band-small': '#ffffff',
-			accent: '#d2401e',
-			'accent-text': '#b3340f',
+			band: '#A8492F',
+			'on-cream': '#96402a',
+			'band-small': BAND_INK,
+			accent: '#a8492f',
+			'accent-text': '#933f28',
 			'on-accent': '#ffffff',
-			status: '#b8330f',
-			'inverse-accent': '#ff8a6b'
+			status: '#933f28',
+			'inverse-accent': '#f2a083'
 		}),
 		dark: theme(DARK, 'dark', {
-			band: '#D2401E',
-			'on-cream': '#b3340f',
-			'band-small': '#ffffff',
-			// One red for fills, as in light (white on it); the lighter red stays for small text.
-			accent: '#d2401e',
-			'accent-text': '#ff7a59',
+			band: '#7E3826',
+			'on-cream': '#7e3826',
+			'band-small': '#f2d9cc',
+			accent: '#b0523a',
+			'accent-text': '#f0957a',
 			'on-accent': '#ffffff',
-			status: '#ff8a6b',
-			'inverse-accent': '#b3340f'
+			status: '#f0957a',
+			'inverse-accent': '#933f28'
 		})
 	},
 	bachata: {
 		light: theme(LIGHT, 'light', {
-			band: '#6B1D4F',
-			'on-cream': '#6B1D4F',
-			'band-small': BAND_INK,
-			accent: '#8e2a66',
-			'accent-text': '#8e2a66',
+			band: '#64304F',
+			'on-cream': '#64304f',
+			'band-small': '#f4e1ea',
+			accent: '#7c3b61',
+			'accent-text': '#7c3b61',
 			'on-accent': '#ffffff',
-			status: '#8e2a66',
-			'inverse-accent': '#f07aae'
+			status: '#7c3b61',
+			'inverse-accent': '#e7a0c1'
 		}),
 		dark: theme(DARK, 'dark', {
-			band: '#6B1D4F',
-			'on-cream': '#6B1D4F',
-			'band-small': BAND_INK,
-			accent: '#f07aae',
-			'accent-text': '#f07aae',
-			'on-accent': '#2a0716',
-			status: '#f07aae',
-			'inverse-accent': '#8e2a66'
+			band: '#4D2640',
+			'on-cream': '#4d2640',
+			'band-small': '#ebd3df',
+			accent: '#e29abc',
+			'accent-text': '#e29abc',
+			'on-accent': '#2a0f1d',
+			status: '#e29abc',
+			'inverse-accent': '#7c3b61'
 		})
 	}
 };
@@ -231,7 +235,7 @@ export const GROUP: Record<Scheme, Pick<Theme, DanceTokens>> = {
 		'on-cream': '#26345E',
 		accent: '#3a55a8',
 		'accent-text': '#3a55a8',
-		'accent-soft': mix('#3a55a8', LIGHT.surface, 0.12),
+		'accent-soft': mix('#3a55a8', LIGHT.surface, 0.13),
 		'on-accent': '#ffffff',
 		status: '#3a55a8',
 		'inverse-accent': '#9db4ff'
@@ -243,7 +247,7 @@ export const GROUP: Record<Scheme, Pick<Theme, DanceTokens>> = {
 		'on-cream': '#26345E',
 		accent: '#8fa8ff',
 		'accent-text': '#8fa8ff',
-		'accent-soft': mix('#8fa8ff', DARK.surface, 0.18),
+		'accent-soft': mix('#8fa8ff', DARK.surface, 0.2),
 		'on-accent': '#0b0b0d',
 		status: '#8fa8ff',
 		'inverse-accent': '#3a55a8'

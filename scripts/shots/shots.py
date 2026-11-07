@@ -51,6 +51,9 @@ STYLE = (
     "[data-shots-mask]{visibility:hidden!important}"
     "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
 )
+# SHOTS_CSS=<file>: extra CSS injected into every page (a palette tried over the tokens, say)
+if os.environ.get("SHOTS_CSS"):
+    STYLE += open(os.environ["SHOTS_CSS"]).read()
 
 
 def _scenes_mod():
@@ -70,7 +73,8 @@ def first(db, sql, args=()):
 
 
 def placeholders(db):
-    admin = first(db, "select id from users where is_admin = 1 order by created_at limit 1")
+    # an account belongs to one dance (the dance split): the dance's admin, else its first account
+    admin = first(db, "select id from users where dance = ? order by is_admin desc, created_at limit 1", (DANCE,))
     if admin is None:
         sys.exit("shots: no admin user in the db")
     tz = first(db, "select timezone from users where id = ?", (admin,)) or "UTC"
