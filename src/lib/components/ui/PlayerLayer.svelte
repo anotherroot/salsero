@@ -164,7 +164,7 @@
 					: ''}"
 		>
 			<div
-				class="mx-auto mb-0.5 h-[5px] w-10 flex-none rounded-[3px] bg-field-line desk:hidden"
+				class="mx-auto mb-0.5 h-[5px] w-10 flex-none rounded-[3px] bg-track desk:hidden"
 				aria-hidden="true"
 			></div>
 			<header

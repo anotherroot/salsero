@@ -24,37 +24,38 @@
 	--font-sans: 'Manrope Variable', system-ui, sans-serif;
 	--font-display: 'Bricolage Grotesque Variable', 'Manrope Variable', sans-serif;
 
-	--color-ground: #f2f2f5;
-	--color-surface: #ffffff;
-	--color-raised: #ffffff;
-	--color-sheet: #f2f2f5;
-	--color-field: #f2f2f5;
-	--color-hairline: #e3e3e8;
-	--color-field-line: #cfcfd6;
-	--color-ink: #111114;
-	--color-ink-2: #3d3d44;
-	--color-muted: #6e6e76;
-	--color-chevron: #a8a8b0;
-	--color-chip: #e6e3e6;
-	--color-chip-ink: #111114;
-	--color-step: #ececf0;
-	--color-tab-bg: #f9f9fb;
-	--color-tab-line: #dcdce2;
-	--color-done: #1e7a4f;
+	--color-ground: #f5f1eb;
+	--color-surface: #fffdfa;
+	--color-raised: #fffdfa;
+	--color-sheet: #f5f1eb;
+	--color-field: #f3eee7;
+	--color-hairline: #e7e0d6;
+	--color-field-line: #8f867c;
+	--color-track: #e2dacf;
+	--color-ink: #1e1a16;
+	--color-ink-2: #45403a;
+	--color-muted: #665e55;
+	--color-chevron: #8e8479;
+	--color-chip: #ece5dc;
+	--color-chip-ink: #1e1a16;
+	--color-step: #eee8e0;
+	--color-tab-bg: #fbf8f3;
+	--color-tab-line: #e2dacf;
+	--color-done: #2f7650;
 	--color-on-done: #ffffff;
-	--color-done-soft: #e3f3ea;
-	--color-danger: #c4183c;
+	--color-done-soft: #e4f0e7;
+	--color-danger: #b3343f;
 	--color-on-danger: #ffffff;
-	--color-danger-soft: #fde8ec;
-	--color-warn: #a34a06;
-	--color-warn-soft: #fdf0e1;
-	--color-easy: #1f5fbf;
-	--color-easy-soft: #e6effc;
-	--color-disabled-bg: #e6e6ea;
-	--color-disabled-ink: #8a8a92;
-	--color-skeleton: #e6e6ea;
-	--color-inverse-bg: #26262b;
-	--color-inverse-ink: #f4f4f6;
+	--color-danger-soft: #f8e6e6;
+	--color-warn: #975210;
+	--color-warn-soft: #f8ecdc;
+	--color-easy: #3a6293;
+	--color-easy-soft: #e7edf5;
+	--color-disabled-bg: #eae4dc;
+	--color-disabled-ink: #776f65;
+	--color-skeleton: #eae4dc;
+	--color-inverse-bg: #2a2520;
+	--color-inverse-ink: #f5f1eb;
 	--color-inverse-done: #5cc98f;
 
 	/*
@@ -64,16 +65,16 @@
 	 * `src/lib/dances/dances.ts` — the manifest route reads the registry, this
 	 * stylesheet cannot, and the specs are what tie the two together.
 	 */
-	--color-band: #d2401e;
-	--color-band-ink: #fff3e4;
-	--color-on-cream: #b3340f;
-	--color-band-small: #ffffff;
-	--color-accent: #d2401e;
-	--color-accent-text: #b3340f;
-	--color-accent-soft: #fae8e4;
+	--color-band: #a8492f;
+	--color-band-ink: #fff6ec;
+	--color-on-cream: #96402a;
+	--color-band-small: #fff6ec;
+	--color-accent: #a8492f;
+	--color-accent-text: #933f28;
+	--color-accent-soft: #f4e6e0;
 	--color-on-accent: #ffffff;
-	--color-status: #b8330f;
-	--color-inverse-accent: #ff8a6b;
+	--color-status: #933f28;
+	--color-inverse-accent: #f2a083;
 
 	/* SCRIM behind a sheet or dialog (black at 45 %) and BAND_TRACK, the on-band switch track (black at 15 %). */
 	--color-scrim: #00000073;
@@ -98,16 +99,16 @@
 	 * `src/lib/dances/dances.ts` — see the comment on the light default above.
 	 */
 	[data-dance='bachata'] {
-		--color-band: #6b1d4f;
-		--color-band-ink: #fff3e4;
-		--color-on-cream: #6b1d4f;
-		--color-band-small: #fff3e4;
-		--color-accent: #8e2a66;
-		--color-accent-text: #8e2a66;
-		--color-accent-soft: #f1e5ed;
+		--color-band: #64304f;
+		--color-band-ink: #fff6ec;
+		--color-on-cream: #64304f;
+		--color-band-small: #f4e1ea;
+		--color-accent: #7c3b61;
+		--color-accent-text: #7c3b61;
+		--color-accent-soft: #eee4e6;
 		--color-on-accent: #ffffff;
-		--color-status: #8e2a66;
-		--color-inverse-accent: #f07aae;
+		--color-status: #7c3b61;
+		--color-inverse-accent: #e7a0c1;
 	}
 
 	/*
@@ -122,7 +123,7 @@
 		--color-band-small: #eaf0ff;
 		--color-accent: #3a55a8;
 		--color-accent-text: #3a55a8;
-		--color-accent-soft: #e7ebf5;
+		--color-accent-soft: #e5e7ef;
 		--color-on-accent: #ffffff;
 		--color-status: #3a55a8;
 		--color-inverse-accent: #9db4ff;
@@ -136,50 +137,51 @@
 	 */
 	:root[data-theme='dark'] {
 		color-scheme: dark;
-		--color-ground: #0b0b0d;
-		--color-surface: #1c1c1f;
-		--color-raised: #242428;
-		--color-sheet: #141416;
-		--color-field: #0b0b0d;
-		--color-hairline: #2c2c31;
-		--color-field-line: #3a3a40;
-		--color-ink: #f4f4f6;
-		--color-ink-2: #c8c8ce;
-		--color-muted: #98989f;
-		--color-chevron: #6e6e76;
-		--color-chip: #2c2c31;
-		--color-chip-ink: #f4f4f6;
-		--color-step: #2c2c31;
-		--color-tab-bg: #121214;
-		--color-tab-line: #2c2c31;
-		--color-done: #5cc98f;
+		--color-ground: #12100e;
+		--color-surface: #1f1b18;
+		--color-raised: #27221e;
+		--color-sheet: #181512;
+		--color-field: #12100e;
+		--color-hairline: #322c27;
+		--color-field-line: #756b61;
+		--color-track: #3a332d;
+		--color-ink: #f3eee8;
+		--color-ink-2: #cfc6bc;
+		--color-muted: #a39a8f;
+		--color-chevron: #80766b;
+		--color-chip: #322c27;
+		--color-chip-ink: #f3eee8;
+		--color-step: #322c27;
+		--color-tab-bg: #171411;
+		--color-tab-line: #322c27;
+		--color-done: #79c29a;
 		--color-on-done: #0b0b0d;
-		--color-done-soft: #173226;
-		--color-danger: #ff5c7a;
+		--color-done-soft: #1b2e22;
+		--color-danger: #f0707f;
 		--color-on-danger: #1a0509;
-		--color-danger-soft: #3a1520;
-		--color-warn: #f0a04b;
-		--color-warn-soft: #33240f;
-		--color-easy: #8fb4ff;
-		--color-easy-soft: #16243d;
-		--color-disabled-bg: #232327;
-		--color-disabled-ink: #6a6a72;
-		--color-skeleton: #2e2e34;
-		--color-inverse-bg: #ececf0;
-		--color-inverse-ink: #111114;
+		--color-danger-soft: #3a1a1e;
+		--color-warn: #e7a25a;
+		--color-warn-soft: #33261a;
+		--color-easy: #97b6e6;
+		--color-easy-soft: #18243a;
+		--color-disabled-bg: #26211d;
+		--color-disabled-ink: #887f75;
+		--color-skeleton: #332d28;
+		--color-inverse-bg: #ece5dc;
+		--color-inverse-ink: #1e1a16;
 		--color-inverse-done: #1e7a4f;
 
 		/* Salsa's dark colours (the fallback outside any dance, too). */
-		--color-band: #d2401e;
-		--color-band-ink: #fff3e4;
-		--color-on-cream: #b3340f;
-		--color-band-small: #ffffff;
-		--color-accent: #d2401e;
-		--color-accent-text: #ff7a59;
-		--color-accent-soft: #3d221f;
+		--color-band: #7e3826;
+		--color-band-ink: #fff6ec;
+		--color-on-cream: #7e3826;
+		--color-band-small: #f2d9cc;
+		--color-accent: #b0523a;
+		--color-accent-text: #f0957a;
+		--color-accent-soft: #3c261f;
 		--color-on-accent: #ffffff;
-		--color-status: #ff8a6b;
-		--color-inverse-accent: #b3340f;
+		--color-status: #f0957a;
+		--color-inverse-accent: #933f28;
 	}
 
 	/*
@@ -199,16 +201,16 @@
 	 * (`bg-accent text-on-accent` is Play, Log set, Save, every selected chip).
 	 */
 	:root[data-theme='dark'] [data-dance='bachata'] {
-		--color-band: #6b1d4f;
-		--color-band-ink: #fff3e4;
-		--color-on-cream: #6b1d4f;
-		--color-band-small: #fff3e4;
-		--color-accent: #f07aae;
-		--color-accent-text: #f07aae;
-		--color-accent-soft: #422d39;
-		--color-on-accent: #2a0716;
-		--color-status: #f07aae;
-		--color-inverse-accent: #8e2a66;
+		--color-band: #4d2640;
+		--color-band-ink: #fff6ec;
+		--color-on-cream: #4d2640;
+		--color-band-small: #ebd3df;
+		--color-accent: #e29abc;
+		--color-accent-text: #e29abc;
+		--color-accent-soft: #463439;
+		--color-on-accent: #2a0f1d;
+		--color-status: #e29abc;
+		--color-inverse-accent: #7c3b61;
 	}
 
 	:root[data-theme='dark'] [data-dance][data-group] {
@@ -218,7 +220,7 @@
 		--color-band-small: #eaf0ff;
 		--color-accent: #8fa8ff;
 		--color-accent-text: #8fa8ff;
-		--color-accent-soft: #313547;
+		--color-accent-soft: #353746;
 		--color-on-accent: #0b0b0d;
 		--color-status: #8fa8ff;
 		--color-inverse-accent: #3a55a8;
@@ -237,60 +239,61 @@
 		color-scheme: dark;
 		--icon-knockout: var(--color-surface);
 		--color-ground: #000000;
-		--color-surface: #1c1c1f;
+		--color-surface: #1f1b18;
 		--color-raised: #1c1c1f;
-		--color-sheet: #141416;
-		--color-field: #0b0b0d;
+		--color-sheet: #181512;
+		--color-field: #12100e;
 		--color-hairline: #404043;
-		--color-field-line: #3a3a40;
+		--color-field-line: #756b61;
+		--color-track: #3a332d;
 		--color-ink: #ffffff;
 		--color-ink-2: #d6d6d7;
 		--color-muted: #adadae;
-		--color-chevron: #6e6e76;
-		--color-chip: #2c2c31;
-		--color-chip-ink: #f4f4f6;
-		--color-step: #2c2c31;
-		--color-tab-bg: #121214;
-		--color-tab-line: #2c2c31;
-		--color-done: #5cc98f;
+		--color-chevron: #80766b;
+		--color-chip: #322c27;
+		--color-chip-ink: #f3eee8;
+		--color-step: #322c27;
+		--color-tab-bg: #171411;
+		--color-tab-line: #322c27;
+		--color-done: #79c29a;
 		--color-on-done: #0b0b0d;
-		--color-done-soft: #173226;
-		--color-danger: #ff5c7a;
+		--color-done-soft: #1b2e22;
+		--color-danger: #f0707f;
 		--color-on-danger: #1a0509;
-		--color-danger-soft: #3a1520;
-		--color-warn: #f0a04b;
-		--color-warn-soft: #33240f;
-		--color-easy: #8fb4ff;
-		--color-easy-soft: #16243d;
-		--color-disabled-bg: #232327;
-		--color-disabled-ink: #6a6a72;
-		--color-skeleton: #2e2e34;
-		--color-inverse-bg: #ececf0;
-		--color-inverse-ink: #111114;
+		--color-danger-soft: #3a1a1e;
+		--color-warn: #e7a25a;
+		--color-warn-soft: #33261a;
+		--color-easy: #97b6e6;
+		--color-easy-soft: #18243a;
+		--color-disabled-bg: #26211d;
+		--color-disabled-ink: #887f75;
+		--color-skeleton: #332d28;
+		--color-inverse-bg: #ece5dc;
+		--color-inverse-ink: #1e1a16;
 		--color-inverse-done: #1e7a4f;
-		--color-band: #d2401e;
-		--color-band-ink: #fff3e4;
-		--color-on-cream: #b3340f;
-		--color-band-small: #ffffff;
-		--color-accent: #d2401e;
-		--color-accent-text: #ff7a59;
-		--color-accent-soft: #3d221f;
+		--color-band: #7e3826;
+		--color-band-ink: #fff6ec;
+		--color-on-cream: #7e3826;
+		--color-band-small: #f2d9cc;
+		--color-accent: #b0523a;
+		--color-accent-text: #f0957a;
+		--color-accent-soft: #3c261f;
 		--color-on-accent: #ffffff;
-		--color-status: #ff8a6b;
-		--color-inverse-accent: #b3340f;
+		--color-status: #f0957a;
+		--color-inverse-accent: #933f28;
 	}
 
 	[data-dance='bachata'] .theme-media {
-		--color-band: #6b1d4f;
-		--color-band-ink: #fff3e4;
-		--color-on-cream: #6b1d4f;
-		--color-band-small: #fff3e4;
-		--color-accent: #f07aae;
-		--color-accent-text: #f07aae;
-		--color-accent-soft: #422d39;
-		--color-on-accent: #2a0716;
-		--color-status: #f07aae;
-		--color-inverse-accent: #8e2a66;
+		--color-band: #4d2640;
+		--color-band-ink: #fff6ec;
+		--color-on-cream: #4d2640;
+		--color-band-small: #ebd3df;
+		--color-accent: #e29abc;
+		--color-accent-text: #e29abc;
+		--color-accent-soft: #463439;
+		--color-on-accent: #2a0f1d;
+		--color-status: #e29abc;
+		--color-inverse-accent: #7c3b61;
 	}
 }
 

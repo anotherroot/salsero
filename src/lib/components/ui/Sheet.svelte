@@ -307,7 +307,7 @@
 		flex: none;
 		margin: 0 auto 2px;
 		border-radius: 3px;
-		background: var(--color-field-line);
+		background: var(--color-track);
 	}
 
 	.body {
