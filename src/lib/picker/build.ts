@@ -21,6 +21,7 @@ import type {
 	SectionGroup,
 	TeamRef
 } from '$lib/types';
+import { fromTags } from '$lib/clones/from-tag';
 import { isHeading, type PickEntry, type PickGroup, type PickHeading, type PickRow } from './model';
 
 /** Only a row that says so carries `linked`: field and act pickers have no such idea. */
@@ -59,6 +60,16 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 		);
 	}
 	for (const h of byGroup.values()) h.rows.sort((a, b) => a.value - b.value);
+	// A same-named copy says where it came from ("Basic · Sreda 17:30"), within its heading.
+	for (const [groupId, h] of byGroup) {
+		const own = vs.filter((v) => v.groupId === groupId);
+		const tags = fromTags(own.map((v) => ({ id: v.id, name: v.name, from: v.from ?? null })));
+		if (tags.size === 0) continue;
+		h.rows = h.rows.map((r) => {
+			const tag = tags.get(r.value);
+			return tag ? { ...r, label: `${r.label} ${tag}`, short: `${r.short} ${tag}` } : r;
+		});
+	}
 	return [...byGroup.values()].sort((a, b) => byName(a.heading, b.heading));
 }
 
@@ -260,10 +271,19 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 }
 
 /** A position as a figure's Starts in / Ends in picker shows it: key `position:{id}`, meta its hold. */
-export function positionRow(p: PositionSummary): PickRow {
+export function positionRow(p: PositionSummary, tag?: string): PickRow {
 	const meta = holdLine(p.hold);
-	return { key: `position:${p.id}`, value: p.id, label: p.name, ...(meta ? { meta } : {}) };
+	return {
+		key: `position:${p.id}`,
+		value: p.id,
+		label: tag ? `${p.name} ${tag}` : p.name,
+		...(meta ? { meta } : {})
+	};
 }
+
+/** The tags of one list of positions: a same-named copy and where it came from. */
+const positionTags = (rows: PositionSummary[]) =>
+	fromTags(rows.map((p) => ({ id: p.id, name: p.name, from: p.copiedFrom ?? null })));
 
 /** The title of the type group a position of `styleTag` sits in. */
 const typeTitle = (styleTag: string | null, figureStyle: string | null, styleLabel: StyleLabel) =>
@@ -286,6 +306,7 @@ export function positionGroups(
 	groups: { team: TeamRef; rows: PositionSummary[] }[]
 ): PickGroup[] {
 	const byType = new Map<string, PickGroup>();
+	const tags = positionTags(rows);
 	for (const p of rows) {
 		const title = typeTitle(p.styleTag, figureStyle, styleLabel);
 		let g = byType.get(title);
@@ -293,20 +314,23 @@ export function positionGroups(
 			g = { title, entries: [] };
 			byType.set(title, g);
 		}
-		g.entries.push(positionRow(p));
+		g.entries.push(positionRow(p, tags.get(p.id)));
 	}
 	const types = [...byType.values()];
 	const first = types.findIndex((g) => g.title === figureTypeTitle(styleLabel(figureStyle)));
 	if (figureStyle !== null && first > 0) types.unshift(...types.splice(first, 1));
-	const theirs: PickGroup[] = groups.map((g) => ({
-		title: possessive(g.team.name),
-		entries: g.rows.map((p) => ({
-			key: `position:${p.id}`,
-			value: p.id,
-			label: p.name,
-			meta: tagAsItIs(styleLabel(p.styleTag))
-		}))
-	}));
+	const theirs: PickGroup[] = groups.map((g) => {
+		const theirTags = positionTags(g.rows);
+		return {
+			title: possessive(g.team.name),
+			entries: g.rows.map((p) => ({
+				key: `position:${p.id}`,
+				value: p.id,
+				label: theirTags.has(p.id) ? `${p.name} ${theirTags.get(p.id)}` : p.name,
+				meta: tagAsItIs(styleLabel(p.styleTag))
+			}))
+		};
+	});
 	return [...types, ...theirs].filter((g) => g.entries.length > 0);
 }
 

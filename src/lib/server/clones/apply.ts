@@ -36,11 +36,10 @@ import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
-import { nameTaken, PICK_BOTH, STALE } from '$lib/clones/view';
+import { PICK_BOTH, STALE } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
 	exercises,
-	figureGroups,
 	figures,
 	lessonExercises,
 	figureEndPositions,
@@ -64,7 +63,7 @@ import {
 import { isTeam, spaceOfRow } from '../scope';
 import { roomForOwner, ownerOfRow } from '../storage';
 import { fieldChange, logChange, type ChangeEntry } from '../changes';
-import { deleteRecording, syncExerciseNames, variationNameTaken } from '../figures';
+import { deleteRecording, syncExerciseNames } from '../figures';
 import { figurePositions, writeFigureShape } from '../graph';
 import {
 	ownEntryIds,
@@ -75,7 +74,6 @@ import {
 	unlinkPosition,
 	unlinkRoutine
 } from '../lessons';
-import { nameRefusal as positionNameRefusal, nameTaken as positionNameTaken } from '../positions';
 import { unlinkSpotFromPosition } from '../position-links';
 import { routineSlots } from '../routines';
 import { deleteLink, type LinkOwner } from '../links';
@@ -267,11 +265,7 @@ class Applier {
 		const g = tx.select().from(figures).where(eq(figures.id, this.giverId)).get()!;
 		const set: Partial<typeof figures.$inferInsert> = {};
 		if (has('name') && t.name !== g.name) {
-			if (t.groupId !== null && variationNameTaken(tx, t.groupId, g.name, targetId)) {
-				const move =
-					tx.select().from(figureGroups).where(eq(figureGroups.id, t.groupId)).get()?.name ?? '';
-				throw new Refused({ ok: false, reason: 'name', message: nameTaken(g.name, move) });
-			}
+			// A name lands as it is: a sibling copy may share it (the screen tells them apart).
 			set.name = g.name;
 			this.changed('name', t.name, g.name);
 		}
@@ -339,20 +333,13 @@ class Applier {
 		return { startIds: [...sides.start], endIds: [...sides.end] };
 	}
 
-	/** A position's own fields, as `updatePosition` writes them; a name a live position of the target's place has is refused. */
+	/** A position's own fields, as `updatePosition` writes them. */
 	private positionRoots(has: (k: string) => boolean): void {
 		const { tx, targetId } = this;
 		const t = tx.select().from(positions).where(eq(positions.id, targetId)).get()!;
 		const g = tx.select().from(positions).where(eq(positions.id, this.giverId)).get()!;
 		const set: Partial<typeof positions.$inferInsert> = {};
 		if (has('name') && t.name !== g.name) {
-			const space = spaceOfRow(t, this.actorId);
-			if (positionNameTaken(tx, space, g.name, targetId))
-				throw new Refused({
-					ok: false,
-					reason: 'name',
-					message: positionNameRefusal(tx, space, g.name).message
-				});
 			set.name = g.name;
 			this.changed('name', t.name, g.name);
 		}

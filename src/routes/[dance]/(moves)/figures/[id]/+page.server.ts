@@ -25,7 +25,7 @@ import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
 import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
 import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
-import { listPositions, positionSummary } from '$lib/server/positions';
+import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
@@ -54,7 +54,14 @@ import { practiceLine } from '$lib/figures/page';
 import { figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { inSpace, isTeam, requireFigureAccess, wallOf, type Space } from '$lib/server/scope';
+import {
+	actorOf,
+	inSpace,
+	isTeam,
+	requireFigureAccess,
+	wallOf,
+	type Space
+} from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -447,7 +454,12 @@ function positionForm(
 	positionChoices: PickGroup[];
 } {
 	const current = figurePositions(db, figure.id);
-	const own = listPositions(db, space).map((r) => positionSummary(r, space));
+	const viewer = actorOf(space);
+	const own = withCopiedFrom(
+		db,
+		viewer,
+		listPositions(db, space).map((r) => positionSummary(r, space))
+	);
 	const byTeam = new Map<number, { team: TeamRef; rows: PositionSummary[] }>();
 	const add = (row: PositionRow, team: TeamRef) => {
 		const at = byTeam.get(team.id) ?? { team, rows: [] };
@@ -455,6 +467,7 @@ function positionForm(
 		byTeam.set(team.id, at);
 	};
 	if (!isTeam(space)) for (const r of usablePositions(db, space, usable)) add(r, r.team);
+	for (const g of byTeam.values()) g.rows = withCopiedFrom(db, viewer, g.rows);
 
 	const offered = new Set([
 		...own.map((p) => p.id),
@@ -553,7 +566,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
-		if (variationNameTaken(db, group.id, name, figure.id)) {
+		if (
+			name.trim().toLowerCase() !== figure.name.trim().toLowerCase() &&
+			variationNameTaken(db, group.id, name, figure.id)
+		) {
 			return fail(400, { action: 'update', message: taken(group.name, name) });
 		}
 		// A posted position id is just a number: `setFigureShape` rejects one from

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fromTags } from '$lib/clones/from-tag';
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -103,6 +104,10 @@
 	});
 
 	const view = $derived(positionsView(l, filter));
+	// Two rows of one section that share a name: a copy says where it came from.
+	const tagsOf = (rows: { id: number; name: string; copiedFrom?: string | null }[]) =>
+		fromTags(rows.map((r) => ({ id: r.id, name: r.name, from: r.copiedFrom ?? null })));
+	const mineTags = $derived(tagsOf(view.rows));
 	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
 	const styleLabel = $derived(styleLabelOf(l.styleLabel));
 	const chips = $derived(
@@ -296,6 +301,7 @@
 					row={r}
 					href={positionHref(r.id)}
 					{styleLabel}
+					tag={mineTags.get(r.id)}
 					current={isOpen(r.id)}
 					picked={picked === r.id}
 				/>
@@ -310,6 +316,7 @@
 
 	<!-- Each group's positions the person may use, under a slight heading. -->
 	{#each view.groups as g (g.team.id)}
+		{@const groupTags = tagsOf(g.rows)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
 			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
 				<Icon name="people" size={16} />{groupHeading(g.team.name, g.rows.length)}
@@ -320,6 +327,7 @@
 						row={r}
 						href={positionHref(r.id)}
 						{styleLabel}
+						tag={groupTags.get(r.id)}
 						group
 						current={isOpen(r.id)}
 						picked={picked === r.id}

@@ -195,25 +195,17 @@ describe('root fields', () => {
 		expect(db.select().from(spotLinks).where(eq(spotLinks.spotId, spot)).all()).toHaveLength(1);
 	});
 
-	it('a name lands when free (entries renamed), and is refused, writing nothing, when taken', async () => {
+	it('a name lands as it is, even where a sibling has it (entries renamed)', async () => {
 		const { F, M, move } = await world();
 		createVariationIn(db, move, { name: 'Básico', ...shape }, 'u1');
 		updateVariation(db, M, { name: 'Básico', ...shape, notes: 'n' });
 
-		expect(apply('figure', F, M, ['notes', 'name'])).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'Básico is taken in Enchufla; rename one first.'
-		});
+		expect(apply('figure', F, M, ['notes', 'name']).ok).toBe(true);
 		expect(db.select().from(figures).where(eq(figures.id, F)).get()).toMatchObject({
-			name: 'Doble',
-			notes: null
+			name: 'Básico',
+			notes: 'n'
 		});
-
-		updateVariation(db, M, { name: 'Doble suave', ...shape, notes: 'n' });
-		expect(apply('figure', F, M, ['name']).ok).toBe(true);
-		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.name).toBe('Doble suave');
-		expect(entryFor(db, 'u2', { figureId: F })!.name).toBe('Enchufla · Doble suave');
+		expect(entryFor(db, 'u2', { figureId: F })!.name).toBe('Enchufla · Básico');
 	});
 
 	it('a drill’s practice, a song’s count and a lesson’s title land, with the lesson’s exercise', async () => {
@@ -564,44 +556,7 @@ describe('positions', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('Send a tag whose position cannot be copied (every name taken): refused, nothing written', async () => {
-		const { F, M } = await tagged();
-		const own = db
-			.insert(positions)
-			.values({ ...ownerValues(U1_SALSA), slug: 'p-own', name: 'Mi posición' })
-			.returning()
-			.get().id;
-		tag(M, 'end', own);
-		const taken = ['Mi posición', 'Mi posición (Ana)'];
-		for (let n = 2; n <= 9; n++) taken.push(`Mi posición (Ana ${n})`);
-		for (const name of taken)
-			db.insert(positions)
-				.values({ ...ownerValues(T1_SALSA), slug: `p-${name}`, name })
-				.run();
-		const before = db.select().from(positions).all().length;
-		const out = await syncFrom(
-			db,
-			'u1',
-			'figure',
-			F,
-			M,
-			{ [`end:#${own}`]: 'theirs' },
-			digest(flatOf(db, 'figure', F)),
-			files,
-			NOW,
-			Infinity
-		);
-		expect(out).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'Salsa Tuesdays already has a position called Mi posición.'
-		});
-		expect(db.select().from(positions).all()).toHaveLength(before);
-		expect(figurePositions(db, F).endIds).toEqual([]);
-		expect(crossRefs(db)).toEqual([]);
-	});
-
-	it('a position’s name, type, hold and notes land in place; a taken name is refused', async () => {
+	it('a position’s name, type, hold and notes land in place, a taken name included', async () => {
 		const P = groupPosition('Cerrada');
 		const mineP = await copy('position', P, U1_SALSA);
 		db.update(positions)
@@ -622,11 +577,12 @@ describe('positions', () => {
 		db.insert(positions)
 			.values({ ...ownerValues(U1_SALSA), slug: 'p-taken', name: 'cerrada BAJA' })
 			.run();
-		expect(apply('position', mineP, P, ['notes', 'name'])).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'You already have a position called Cerrada baja.'
-		});
+		// A name lands as it is, though a sibling of the place has it.
+		expect(apply('position', mineP, P, ['name']).ok).toBe(true);
+		expect(db.select().from(positions).where(eq(positions.id, mineP)).get()!.name).toBe(
+			'Cerrada baja'
+		);
+		db.update(positions).set({ name: 'Cerrada' }).where(eq(positions.id, mineP)).run();
 		expect(db.select().from(positions).where(eq(positions.id, mineP)).get()!.notes).toBeNull();
 
 		const out = apply('position', mineP, P, keys.slice(1));

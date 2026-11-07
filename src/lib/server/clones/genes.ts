@@ -8,7 +8,7 @@
  * a family: another person's own member never appears in it.
  */
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import type { CloneKind, Member, PieceKind, PlaceRef } from '$lib/types';
 import type { Db } from '../db';
@@ -279,4 +279,54 @@ export function hasCopies(db: Db, kind: CloneKind, id: number): boolean {
 	const gene = geneOf(db, kind, id);
 	if (gene === null) return false;
 	return familyRows(db, kind, gene).some((r) => r.id !== id && r.archivedAt === null);
+}
+
+/**
+ * Where each copy among `ids` came from, for drawing a same-named pair apart
+ * ("Basic · Sreda 17:30"): the group's name of the row's `cloned_from` when that
+ * row lives in another place and `userId` can read it. A source in the person's
+ * own app is never named ("Yours" is no tag), nor one they cannot read. Only
+ * rows with a source appear in the map.
+ */
+export function copiedFromPlaces(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	ids: number[]
+): Map<number, string> {
+	const out = new Map<number, string>();
+	if (ids.length === 0) return out;
+	const c = ROOTS[kind];
+	const rows = db
+		.select({ id: c.id, teamId: c.teamId, clonedFrom: c.clonedFrom })
+		.from(c.table)
+		.where(kindWhere(kind, inArray(c.id, ids)))
+		.all() as { id: number; teamId: number | null; clonedFrom: number | null }[];
+	const withSource = rows.filter((r) => r.clonedFrom !== null);
+	if (withSource.length === 0) return out;
+	const sources = new Map(
+		(
+			db
+				.select({ id: c.id, teamId: c.teamId })
+				.from(c.table)
+				.where(
+					kindWhere(
+						kind,
+						inArray(
+							c.id,
+							withSource.map((r) => r.clonedFrom!)
+						)
+					)
+				)
+				.all() as { id: number; teamId: number | null }[]
+		).map((s) => [s.id, s.teamId])
+	);
+	for (const r of withSource) {
+		const sourceTeam = sources.get(r.clonedFrom!);
+		if (sourceTeam === undefined || sourceTeam === null || sourceTeam === r.teamId) continue;
+		if (accessTo(db, userId, kind, r.clonedFrom!) === null) continue;
+		const team = getTeam(db, sourceTeam);
+		if (team) out.set(r.id, team.name);
+	}
+	return out;
 }

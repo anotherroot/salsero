@@ -8,6 +8,7 @@ import { defaultStyle } from './default-styles';
 import { listAddedFigures, listFigures, listVersions } from './figures';
 import { canonicalOf, graphFor } from './graph';
 import { listPositions, positionsFrom, positionSummary } from './positions';
+import { copiedFromPlaces } from './clones/genes';
 import { listAddedRoutines, listRoutines, routineShapes } from './routines';
 import { usableOf, usablePositions } from './usable';
 import { withoutShadowed } from './clones/shadow';
@@ -156,10 +157,17 @@ export function positionsLists(db: Db, wall: Wall, mode: GroupMode | null): Posi
 			...new Set([...own, ...theirs].map((p) => canonicalOf(graph, p.id)))
 		]).map((c) => [c.id, c])
 	);
+	const origins = copiedFromPlaces(
+		db,
+		wall.userId,
+		'position',
+		[...own, ...theirs].map((p) => p.id)
+	);
 	const row = (p: PositionRow, from: string | null): PositionListRow => {
 		const c = counts.get(canonicalOf(graph, p.id))!;
 		return {
 			...positionSummary(p, space),
+			copiedFrom: origins.get(p.id) ?? null,
 			inCount: c.inCount,
 			outCount: c.outCount,
 			// The gap report is hidden in group mode.

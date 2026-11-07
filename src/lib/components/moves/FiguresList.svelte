@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fromTags } from '$lib/clones/from-tag';
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -194,8 +195,13 @@
 	const isOpen = (kind: 'figure' | 'move', id: number) => open?.kind === kind && open.id === id;
 </script>
 
-{#snippet figureRow(f: (typeof view.figures)[number]['figures'][number], showLacks: boolean)}
+{#snippet figureRow(
+	f: (typeof view.figures)[number]['figures'][number],
+	showLacks: boolean,
+	tags: Map<number, string>
+)}
 	{@const lit = isOpen('figure', f.id)}
+	{@const tag = tags.get(f.id)}
 	<a
 		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
 		class:bg-accent-soft={lit}
@@ -204,7 +210,9 @@
 	>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-				<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
+				<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
+					>{f.name}{#if tag}<span class="ml-1 font-normal text-muted">{tag}</span>{/if}</span
+				>
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 			</span>
@@ -232,6 +240,8 @@
      that groups' twins folded into says where else it is (board C7 p3). -->
 {#snippet moveSection(m: (typeof view.figures)[number], showLacks: boolean)}
 	{@const lit = isOpen('move', m.id)}
+	<!-- Two figures of one move that share a name: a copy says where it came from. -->
+	{@const tags = fromTags(m.figures)}
 	<section aria-label={m.name} class="flex flex-col gap-1.5">
 		<div class="flex flex-col">
 			<a
@@ -251,7 +261,7 @@
 		</div>
 		<div class={GROUP}>
 			{#each m.figures as f (f.id)}
-				{@render figureRow(f, showLacks)}
+				{@render figureRow(f, showLacks, tags)}
 			{/each}
 		</div>
 	</section>

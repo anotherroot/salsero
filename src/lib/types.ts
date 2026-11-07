@@ -358,6 +358,8 @@ export interface FigureVersion {
 	team?: TeamRef;
 	/** The person's twins of it that this row stands for in a picker (`clones/twins.ts`). */
 	twins?: TwinNote[];
+	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
+	from?: string | null;
 }
 
 /**
@@ -386,6 +388,8 @@ export type FigureRow = {
 	hasLesson: boolean;
 	/** Group mode only: a published lesson reaches it, so members see it. */
 	membersSee?: boolean;
+	/** The place of the copy's source when the viewer reads it ("Sreda 17:30"); drawn beside a same name. */
+	from: string | null;
 };
 
 /** A move (a `figure_groups` row) with the figures the list shows under it. */
@@ -1104,6 +1108,8 @@ export interface PositionSummary {
 	hold: Hold;
 	teamId: number | null; // null: the viewer's own (or the group's own in group mode)
 	archived: boolean;
+	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
+	copiedFrom?: string | null;
 }
 
 /** One row of the Positions list. */

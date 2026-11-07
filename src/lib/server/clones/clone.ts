@@ -31,7 +31,6 @@
 import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import type { CloneKind, PieceKind } from '$lib/types';
 import { initialBase } from '$lib/clones/diff';
-import { shortNames } from '$lib/names';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -54,18 +53,15 @@ import {
 	songs,
 	spotLinks,
 	spotPositionLinks,
-	users,
 	videoSpots
 } from '../db/schema';
 import { inSpace, isTeam, actorOf, ownerValues, type Space } from '../scope';
 import { getTeam, roleOf } from '../teams';
 import { roomForOwner, type Owner, type Room } from '../storage';
 import { logChange, type ChangeEntry } from '../changes';
-import { figureNameTaken, moveFor, variationNameTaken } from '../figures';
+import { figureNameTaken, moveFor } from '../figures';
 import { insertRoutine, routineSlots } from '../routines';
 import { insertLesson } from '../lessons';
-import { nameRefusal, nameTaken as positionNameTaken } from '../positions';
-import { suffixed } from './names';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
 import { hashValue, pairBase, writePair } from './pairs';
@@ -763,36 +759,6 @@ const tagsOf = (db: Db, figureId: number) => [
 	...sideOf(db, figureEndPositions, figureId)
 ];
 
-/** How a source's place is named in a suffix: its group's name, or its person's shown name. */
-function placeName(db: Db, row: { userId: string | null; teamId: number | null }): string {
-	if (row.teamId !== null) return getTeam(db, row.teamId)?.name ?? 'group';
-	const user = row.userId
-		? db.select().from(users).where(eq(users.id, row.userId)).get()
-		: undefined;
-	return (user && shortNames([user]).get(user.id)) || 'copy';
-}
-
-/** How many numbered suffixes are tried ("(Salsa Tuesdays 2)" … "9") before a refusal. */
-const SUFFIX_TRIES = 9;
-
-/**
- * The figure's name in the move: kept when free, else "Doble (Salsa
- * Tuesdays)", then "Doble (Salsa Tuesdays 2)" and on; a refusal once those
- * are all taken.
- */
-function freeName(tx: Db, groupId: number, name: string, place: string, move: string): string {
-	if (!variationNameTaken(tx, groupId, name, null)) return name;
-	for (let n = 1; n <= SUFFIX_TRIES; n++) {
-		const candidate = suffixed(name, n === 1 ? ` (${place})` : ` (${place} ${n})`);
-		if (!variationNameTaken(tx, groupId, candidate, null)) return candidate;
-	}
-	throw new Refusal({
-		ok: false,
-		reason: 'name',
-		message: `${name} is taken in ${move}; rename one first.`
-	});
-}
-
 type LinkOwner = { figureId: number } | { exerciseId: number } | { lessonId: number };
 
 /** A figure's, a drill's or a lesson's URL links, onto its copy. Saves in flight stay behind. */
@@ -828,7 +794,7 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 			: null) ?? src.name;
 	const newMove = !figureNameTaken(tx, into, move, null);
 	const groupId = moveFor(tx, into, move);
-	const name = freeName(tx, groupId, src.name, placeName(tx, src), move);
+	const name = src.name;
 	const copy = tx
 		.insert(figures)
 		.values({
@@ -1344,16 +1310,6 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 
 /* ── Positions ──────────────────────────────────────────────────────────── */
 
-/** A position's name in `into`: kept when free (folded), else "Cerrada (Ana)", then "(Ana 2)" …; a refusal once those are taken. */
-function freePositionName(tx: Db, into: Space, name: string, place: string): string {
-	if (!positionNameTaken(tx, into, name)) return name;
-	for (let n = 1; n <= SUFFIX_TRIES; n++) {
-		const candidate = suffixed(name, n === 1 ? ` (${place})` : ` (${place} ${n})`);
-		if (!positionNameTaken(tx, into, candidate)) return candidate;
-	}
-	throw new Refusal({ ok: false, reason: 'name', message: nameRefusal(tx, into, name).message });
-}
-
 /**
  * A position: its name (kept unless a live one of `into` has it), type, hold
  * and notes. Never its picture: a position's links to sections and points
@@ -1363,7 +1319,7 @@ function freePositionName(tx: Db, into: Space, name: string, place: string): str
 function copyPosition(m: Mapper, sourceId: number, gene: string): Copied {
 	const { tx, into, now } = m;
 	const src = tx.select().from(positions).where(eq(positions.id, sourceId)).get()!;
-	const name = freePositionName(tx, into, src.name, placeName(tx, src));
+	const name = src.name;
 	const copy = tx
 		.insert(positions)
 		.values({
