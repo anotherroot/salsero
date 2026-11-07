@@ -1,5 +1,6 @@
 import type { AppAgent } from '$lib/app-update/agent';
 import type { Level } from '$lib/levels/levels';
+import type { DanceSlug } from '$lib/dances/dances';
 
 /** The signed-in user, as carried on `locals` and echoed to the client. */
 interface SessionUser {
@@ -14,6 +15,8 @@ interface SessionUser {
 	isAdmin: boolean;
 	/** How much app the person sees (`$lib/levels/levels.ts`); null until the first run asks. */
 	level: Level | null;
+	/** The dance this account belongs to: the wall every route compares against (`wallOf`). */
+	dance: DanceSlug;
 }
 
 declare global {

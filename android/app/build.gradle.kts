@@ -34,13 +34,8 @@ android {
     defaultConfig {
         minSdk = 29
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.5"
-        // The site the app shows and talks to: scheme and host, no path or
-        // trailing slash. Override with -Psite=https://… (plain http is
-        // refused: the app allows no cleartext traffic).
-        val site = (project.findProperty("site") ?: "https://salsa.anotherroot.eu").toString()
-        buildConfigField("String", "SITE", "\"$site\"")
+        versionCode = 7
+        versionName = "1.6"
     }
 
     signingConfigs {
@@ -64,6 +59,11 @@ android {
         }
     }
 
+    // The site each app shows and talks to: scheme and host, no path or trailing
+    // slash. Each dance has its own host (the dance split). Override both with
+    // -Psite=https://… (plain http is refused: the app allows no cleartext traffic).
+    fun site(default: String) = (project.findProperty("site") ?: default).toString()
+
     /*
      * One app per dance, from one codebase: each its own package, name, icon,
      * launcher and share-sheet entry, and so its own login, pairing, upload
@@ -77,6 +77,7 @@ android {
             dimension = "dance"
             applicationId = "eu.anotherroot.salsa"
             buildConfigField("String", "DANCE", "\"salsa\"")
+            buildConfigField("String", "SITE", "\"${site("https://salsa.anotherroot.eu")}\"")
             resValue("string", "app_name", "Salsa")
             resValue("string", "share_label", "Salsa lesson")
             manifestPlaceholders["appIcon"] = "@mipmap/ic_salsa"
@@ -86,6 +87,7 @@ android {
             dimension = "dance"
             applicationId = "eu.anotherroot.bachata"
             buildConfigField("String", "DANCE", "\"bachata\"")
+            buildConfigField("String", "SITE", "\"${site("https://bachata.anotherroot.eu")}\"")
             resValue("string", "app_name", "Bachata")
             resValue("string", "share_label", "Bachata lesson")
             manifestPlaceholders["appIcon"] = "@mipmap/ic_bachata"

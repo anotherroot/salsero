@@ -56,7 +56,9 @@ function jar(value?: string) {
 	return { cookies, calls };
 }
 const locals = (id: string) =>
-	({ user: { id, timezone: 'Europe/Ljubljana', role: 'user' } }) as unknown as App.Locals;
+	({
+		user: { id, timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
+	}) as unknown as App.Locals;
 const post = (fields: Record<string, string>) =>
 	({
 		formData: async () => {

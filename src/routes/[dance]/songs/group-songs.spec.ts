@@ -46,7 +46,12 @@ import { history } from '$lib/server/changes';
 import { groupCookie } from '$lib/teams/mode';
 import type { PickerSong } from '$lib/types';
 
-const user = (id: string) => ({ id, email: `${id}@x.si`, timezone: 'Europe/Ljubljana' });
+const user = (id: string) => ({
+	id,
+	email: `${id}@x.si`,
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa'
+});
 
 let db: Db;
 let c: Class;

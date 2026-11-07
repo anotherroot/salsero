@@ -11,7 +11,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in');
 	const db = getDb();
 	const team = teamByCode(db, params.code);
-	if (!team) throw error(404, STALE);
+	// Another dance's group is as stale as no group (the dance split).
+	if (!team || team.dance !== locals.user.dance) throw error(404, STALE);
 	if (roleOf(db, locals.user.id, team.id) !== null) {
 		throw redirect(303, `/${team.dance}/groups/${team.id}`);
 	}
@@ -29,7 +30,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401, 'Sign in');
 		const db = getDb();
 		const team = teamByCode(db, params.code);
-		if (!team) throw error(404, STALE);
+		if (!team || team.dance !== locals.user.dance) throw error(404, STALE);
 		// A first join brings the class's newest lesson to Today when auto-add is on.
 		if (joinClass(db, locals.user.id, team.id, Date.now()) === 'refused') {
 			return fail(404, { message: STALE });

@@ -64,7 +64,9 @@ function jar(value?: string): Cookies {
 }
 
 const locals = (id: string) =>
-	({ user: { id, timezone: 'Europe/Ljubljana', role: 'user' } }) as unknown as App.Locals;
+	({
+		user: { id, timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
+	}) as unknown as App.Locals;
 
 function body(fields: Record<string, string>): Request {
 	return new Request('http://localhost/', {

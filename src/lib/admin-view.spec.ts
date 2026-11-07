@@ -42,9 +42,7 @@ describe('groups on the admin page', () => {
 				deleted: false
 			})
 		).toBe('Ana Kranjc · 3 people · 120 MB of 600 MB');
-		expect(groupsMadeLine({ salsa: 2, bachata: 0 }, 2)).toBe(
-			'Groups made: Salsa 2, Bachata 0 · limit 2 per dance'
-		);
+		expect(groupsMadeLine(2, 3)).toBe('Groups made: 2 · limit 3');
 		expect(requestTitle({ email: 'a@x.si', teamName: null })).toBe('a@x.si');
 		expect(requestTitle({ email: 'a@x.si', teamName: 'Class' })).toBe('Class · a@x.si');
 	});
@@ -56,9 +54,11 @@ describe('appsLines', () => {
 		{ dance: 'salsa' as const, versionCode: 2, channel, day }
 	];
 	it('says the version and the day, one line per dance', () => {
-		expect(appsLines(row(today), today)).toEqual(['Salsa app 2 · today', 'Bachata: no app']);
-		expect(appsLines(row('2026-11-02'), today)[0]).toBe('Salsa app 2 · yesterday');
-		expect(appsLines(row('2025-10-28'), today)[0]).toBe('Salsa app 2 · Tue 28 Oct');
-		expect(appsLines(row(today, 'play'), today)[0]).toBe('Salsa app 2 (Play) · today');
+		// One account, one dance (the dance split): its own app only.
+		expect(appsLines(row(today), today, 'salsa')).toEqual(['Salsa app 2 · today']);
+		expect(appsLines([], today, 'bachata')).toEqual(['Bachata: no app']);
+		expect(appsLines(row('2026-11-02'), today, 'salsa')[0]).toBe('Salsa app 2 · yesterday');
+		expect(appsLines(row('2025-10-28'), today, 'salsa')[0]).toBe('Salsa app 2 · Tue 28 Oct');
+		expect(appsLines(row(today, 'play'), today, 'salsa')[0]).toBe('Salsa app 2 (Play) · today');
 	});
 });

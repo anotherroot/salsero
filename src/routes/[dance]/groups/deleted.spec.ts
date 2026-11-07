@@ -34,7 +34,7 @@ import { actions as figureActions } from '../(moves)/figures/[id]/+page.server';
 let db: Db;
 const FILE = '0b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
 
-const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC' });
+const user = (id: string) => ({ id, isAdmin: false, timezone: 'UTC', dance: 'salsa' });
 const ev = (uid: string, params: Record<string, string>, request?: Request) =>
 	({ params: { dance: 'salsa', ...params }, locals: { user: user(uid) }, request }) as never;
 const post = (fields: Record<string, string>) =>

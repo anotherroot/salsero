@@ -22,7 +22,13 @@ import { createCustomExercise } from '$lib/server/exercises';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { load } from './(today)/+layout.server';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
+const USER = {
+	id: 'u1',
+	email: 'u@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: true
+};
 
 beforeEach(() => {
 	handle.db = openDb(':memory:');

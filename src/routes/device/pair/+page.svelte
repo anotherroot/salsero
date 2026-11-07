@@ -12,9 +12,9 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
 
-	// The app opened this page for one dance; otherwise the one last used.
+	// The app opened this page for one dance; otherwise the account's.
 	const asked = $derived(page.url.searchParams.get('dance') ?? '');
-	const dance = $derived(isDanceSlug(asked) ? asked : data.lastDance);
+	const dance = $derived(isDanceSlug(asked) ? asked : data.appDance);
 
 	// Straight into the app once the token exists; the link below is the
 	// fallback if Chrome wants a tap of its own for an app link.

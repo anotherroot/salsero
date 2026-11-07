@@ -11,7 +11,9 @@ const NOW = 1_760_000_000_000;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	db.insert(users).values({ id: 'u1', email: 'u1@example.com', passwordHash: 'x' }).run();
+	db.insert(users)
+		.values({ id: 'u1', email: 'u1@example.com', passwordHash: 'x', dance: 'salsa' })
+		.run();
 	({ token, id: deviceId } = createDeviceToken(db, 'u1', 'Phone', NOW));
 });
 

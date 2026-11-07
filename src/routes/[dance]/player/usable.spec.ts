@@ -36,7 +36,7 @@ type RoutineData = {
 };
 
 const T = 1_790_000_000_000;
-const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana' };
+const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
 type PlayerData = {
 	routine: { id: number; shape: { slots: unknown[] }; figureIds: number[] } | null;

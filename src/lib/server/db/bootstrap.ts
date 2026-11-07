@@ -1,7 +1,9 @@
 import { env } from '$env/dynamic/private';
 import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
-import { crossRefs, familyIntegrity, ownerIntegrity } from '../integrity';
+import { crossRefs, danceIntegrity, familyIntegrity, ownerIntegrity } from '../integrity';
+import { splitAccounts } from '../dance-split';
+import { realCloneFiles } from '../clones/files';
 import { importNoteLinks } from '../links';
 import { movePositionsToOwners } from '../positions-move';
 import { nameLinkedSpots } from '../section-names';
@@ -19,7 +21,12 @@ let ready: Promise<void> | undefined;
  * requests. A check that throws is logged and the others still run.
  */
 function checkIntegrity(db: Db): void {
-	const checks = { owners: ownerIntegrity, families: familyIntegrity, 'cross-refs': crossRefs };
+	const checks = {
+		owners: ownerIntegrity,
+		families: familyIntegrity,
+		'cross-refs': crossRefs,
+		dances: danceIntegrity
+	};
 	for (const [name, check] of Object.entries(checks)) {
 		try {
 			const lines = check(db);
@@ -36,7 +43,16 @@ function checkIntegrity(db: Db): void {
  * Awaited by the first request so nothing can race an unmigrated schema.
  */
 export function bootstrap(): Promise<void> {
-	ready ??= seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD)
+	// Every account in one dance first (the dance split): a session must never
+	// see an unplaced account, and the boot admin counts accounts per dance.
+	ready ??= splitAccounts(getDb(), realCloneFiles(), Date.now())
+		.then((r) => {
+			if (r.assigned || r.split || r.failed)
+				console.info(
+					`[accounts] dances assigned: ${r.assigned}, split: ${r.split}, failed: ${r.failed}`
+				);
+		})
+		.then(() => seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD))
 		.then(() => {
 			// Today's shared positions become the admin's, and every other person
 			// or group using one gets its own copy. Once EVER (`app_flags`).

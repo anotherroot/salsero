@@ -13,7 +13,7 @@ import { sets } from '$lib/server/db/schema';
 import { createCustomExercise } from '$lib/server/exercises';
 import { actions } from './+page.server';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
 let db: Db;
 let drillId: number;

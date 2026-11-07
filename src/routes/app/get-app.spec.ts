@@ -28,10 +28,11 @@ type Data = {
 	qr: ReturnType<typeof inviteQr> | null;
 	cards: { dance: string; download: { url: string } | null }[];
 };
-const run = (ua: string, origin = 'https://salsa.example') =>
+const run = (ua: string, origin = 'https://salsa.example', dance = 'salsa') =>
 	(load as (e: unknown) => Promise<Data>)({
 		request: new Request(`${origin}/app`, { headers: { 'user-agent': ua } }),
-		url: new URL(`${origin}/app`)
+		url: new URL(`${origin}/app`),
+		parent: async () => ({ appDance: dance })
 	});
 
 beforeEach(() => {
@@ -43,16 +44,19 @@ describe('/app load', () => {
 	it('an iPhone gets the device and cards, no QR', async () => {
 		const d = await run(IPHONE);
 		expect(d.device).toBe('ios');
-		expect(d.cards).toHaveLength(2);
+		expect(d.cards.map((c) => c.dance)).toEqual(['salsa']);
 		expect(d.cards.every((c) => c.download === null)).toBe(true);
 		expect(d.qr).toBeNull();
 	});
-	it('Android gets downloads for released dances only, and no QR', async () => {
+	// Catches: a dance's host offering the other dance's app (the dance split).
+	it("Android gets its dance's app only, a download when released, and no QR", async () => {
 		const d = await run(ANDROID);
 		expect(d.device).toBe('android');
 		expect(d.qr).toBeNull();
-		expect(d.cards.find((c) => c.dance === 'salsa')?.download?.url).toBe('/releases/salsa/7.apk');
-		expect(d.cards.find((c) => c.dance === 'bachata')?.download).toBeNull();
+		expect(d.cards).toHaveLength(1);
+		expect(d.cards[0].download?.url).toBe('/releases/salsa/7.apk');
+		const b = await run(ANDROID, 'https://bachata.example', 'bachata');
+		expect(b.cards.map((c) => [c.dance, c.download])).toEqual([['bachata', null]]);
 	});
 	it('a desktop also gets a QR of the page itself', async () => {
 		const d = await run(DESKTOP);

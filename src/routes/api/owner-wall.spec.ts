@@ -31,8 +31,16 @@ import { recordings } from '$lib/server/db/schema';
 import { POST as uploadRecording } from './figures/[id]/recordings/+server';
 import { GET as getRecording } from '../recordings/[file]/+server';
 
-const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
-const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+const U1 = {
+	id: 'u1',
+	email: 'u1@example.com',
+	timezone: 'Europe/Ljubljana',
+	isAdmin: true,
+	dance: 'salsa' as const
+};
+const U2 = { ...U1, id: 'u2', email: 'u2@example.com', isAdmin: false };
+/** A bachata account: since the dance split, an account of the other dance. */
+const U3 = { ...U1, id: 'u3', email: 'u1@example.com', isAdmin: false, dance: 'bachata' as const };
 const FILE = '00000000-0000-4000-8000-000000000001.mp4';
 
 let db: Db;
@@ -77,7 +85,7 @@ async function status(promise: Promise<Response>): Promise<number> {
 	}
 }
 
-const upload = (user: typeof U1) =>
+const upload = (user: typeof U1 | typeof U3) =>
 	run(uploadRecording, {
 		params: { id: String(figureId) },
 		locals: { user },
@@ -88,7 +96,7 @@ const upload = (user: typeof U1) =>
 		})
 	});
 
-const fetchFile = (user: typeof U1 | null) =>
+const fetchFile = (user: typeof U1 | typeof U3 | null) =>
 	run(getRecording, {
 		params: { file: FILE },
 		locals: { user },
@@ -109,6 +117,11 @@ describe("recordings stand behind the figure's owner", () => {
 	it("another person's recording file is a 404; the owner's is served", async () => {
 		expect(await status(fetchFile(U2))).toBe(404);
 		expect(await status(fetchFile(U1))).toBe(200);
+	});
+
+	// Pins: an account of the other dance, same email, gets the stranger's 404.
+	it("a bachata account gets a 404 for a salsa account's recording", async () => {
+		expect(await status(fetchFile(U3))).toBe(404);
 	});
 });
 
@@ -174,6 +187,23 @@ describe('songs and count takes stand behind their owner on the flat routes', ()
 	it("another person's count take is a 404; the owner's is served", async () => {
 		expect(await status(get(getCount, TAKE_FILE, U2))).toBe(404);
 		expect(await status(get(getCount, TAKE_FILE, U1))).toBe(200);
+	});
+
+	// Catches: a flat route taking its dance from the request, so a salsa account
+	// makes a bachata song (the dance split).
+	it("a song upload into another dance than the account's is a 404 and writes nothing", async () => {
+		const before = db.select().from(songs).all().length;
+		const res = run(uploadSong, {
+			locals: { user: U2 },
+			url: new URL('http://localhost/api/songs?dance=bachata'),
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'audio/mp4', 'x-filename': 'b.m4a' },
+				body: new Uint8Array(5).fill(3)
+			})
+		});
+		expect(await status(res)).toBe(404);
+		expect(db.select().from(songs).all()).toHaveLength(before);
 	});
 
 	it('a song upload carries the signed-in person and the dance', async () => {

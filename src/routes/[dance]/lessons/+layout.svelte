@@ -124,7 +124,6 @@
 			openId={openClass}
 			lastDays={classes.myClass.lastDays}
 			today={classes.myClass.today}
-			other={classes.myClass.other}
 			joinAction={`/${data.dance.slug}/groups?/joinCode`}
 		/>
 	{/if}

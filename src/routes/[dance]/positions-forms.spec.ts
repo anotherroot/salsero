@@ -78,8 +78,10 @@ function jar(value?: string) {
 	return { cookies, calls };
 }
 
-const locals = (id: string) =>
-	({ user: { id, timezone: 'Europe/Ljubljana', role: 'user' } }) as unknown as App.Locals;
+const locals = (id: string, dance: 'salsa' | 'bachata' = 'salsa') =>
+	({
+		user: { id, timezone: 'Europe/Ljubljana', dance, role: 'user' }
+	}) as unknown as App.Locals;
 
 /** A form body; an array value posts the key once per entry. */
 function body(fields: Record<string, string | string[]>): Request {
@@ -522,7 +524,7 @@ describe('the list’s chips and group order', () => {
 		const loadBachata = (search: string) =>
 			(load as (e: any) => unknown)({
 				params: { dance: 'bachata' },
-				locals: locals('u2'),
+				locals: locals('u2', 'bachata'),
 				cookies: jar().cookies,
 				url: new URL(`http://x/bachata/positions${search}`)
 			}) as any;

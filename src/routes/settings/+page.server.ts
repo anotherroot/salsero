@@ -20,7 +20,7 @@ import { askForMore, openRequest, storageOf } from '$lib/server/storage';
 import { askedLine } from '$lib/storage-view';
 import { Hold, UNDO_MS } from '$lib/server/undo-hold';
 import { int, optionalText, text } from '$lib/server/form';
-import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
+import { isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
 import { DAILY_MAX, DAILY_MIN, dailyCountOf, setDailyCount } from '$lib/server/today-picks';
@@ -38,13 +38,12 @@ import type { Actions, PageServerLoad } from './$types';
 const removed = new Hold<DeviceSnapshot>(UNDO_MS);
 const holdKey = (userId: string, id: number) => `${userId}:${id}`;
 
-export const load: PageServerLoad = async ({ locals, parent }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
 	const tz = locals.user.timezone;
-	// /settings has no dance in its URL and Today links to it plain, so the
-	// dance is the last one visited: the root layout's `lastDance`.
-	const { lastDance: dance } = await parent();
+	// /settings has no dance in its URL: it is the account's (the dance split).
+	const dance = locals.user.dance;
 	const today = localDay(Date.now(), tz);
 	const asked = openRequest(db, locals.user.id);
 	return {
@@ -128,10 +127,10 @@ export const actions: Actions = {
 	/** The style a new figure of one dance starts on. */
 	style: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
-		const form = await request.formData();
-		const dance = text(form, 'dance');
-		const style = text(form, 'style');
-		if (!dance || !isDanceSlug(dance) || !style || !isStyleOf(dance, style)) {
+		// The account's own dance: a form's `dance` (older pages send one) is ignored.
+		const dance = locals.user.dance;
+		const style = text(await request.formData(), 'style');
+		if (!style || !isStyleOf(dance, style)) {
 			return fail(400, { message: 'Pick one of the styles.' });
 		}
 		setDefaultStyle(getDb(), locals.user.id, dance, style);

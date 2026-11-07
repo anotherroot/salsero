@@ -30,39 +30,50 @@ const createdAt = () => integer('created_at').notNull().$defaultFn(now);
 
 /* ── Identity ───────────────────────────────────────────────────────────── */
 
-export const users = sqliteTable('users', {
-	id: text('id').primaryKey(),
-	email: text('email').notNull().unique(),
-	passwordHash: text('password_hash').notNull(),
-	/** Asked at Join, or on /welcome for an account made before names. Null until then. */
-	firstName: text('first_name'),
-	lastName: text('last_name'),
-	/** IANA zone that decides when "today" rolls over. See `src/lib/day/day.ts`. */
-	timezone: text('timezone').notNull().default('Europe/Ljubljana'),
-	createdAt: createdAt(),
-	/**
-	 * The Android app's daily reminder, as a minute of the day in the phone's
-	 * local time; null = off. Range-checked in `setReminderMinute`, not by a
-	 * CHECK (see CLAUDE.md on CHECKs and existing tables).
-	 */
-	reminderMinute: integer('reminder_minute'),
-	/** What the Android app compresses a video to. One of `VIDEO_SHORT_SIDES`. */
-	videoShortSide: integer('video_short_side').notNull().default(480),
-	/** The admin invites people and sees their storage. */
-	isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
-	/** Bytes of recordings, videos, songs and takes the account may keep; null = no limit. */
-	storageLimitBytes: integer('storage_limit_bytes'),
-	/** How many groups the person may make; null = `TEAMS_MADE_DEFAULT`. */
-	groupLimit: integer('group_limit'),
-	/** How many exercises Today shows a day, for both dances; null = `DAILY_DEFAULT`. Range-checked in `setDailyCount`. */
-	dailyCount: integer('daily_count'),
-	/**
-	 * How much app the person sees: `follow`, `own` or `all` (`$lib/levels/levels.ts`),
-	 * checked in `setLevel`, not by a CHECK. Null until chosen (the first run asks);
-	 * accounts made before levels were backfilled to `all` by migration 0031.
-	 */
-	level: text('level')
-});
+export const users = sqliteTable(
+	'users',
+	{
+		id: text('id').primaryKey(),
+		/** Unique per dance (`users_dance_email_idx`): one email may hold a salsa and a bachata account. */
+		email: text('email').notNull(),
+		passwordHash: text('password_hash').notNull(),
+		/**
+		 * The dance this account belongs to (`docs/superpowers/specs/2026-11-06-dance-split-design.md`).
+		 * Nullable only for accounts the boot split (`dance-split.ts`) has not placed yet;
+		 * such an account signs in nowhere. No CHECK: see CLAUDE.md.
+		 */
+		dance: text('dance'),
+		/** Asked at Join, or on /welcome for an account made before names. Null until then. */
+		firstName: text('first_name'),
+		lastName: text('last_name'),
+		/** IANA zone that decides when "today" rolls over. See `src/lib/day/day.ts`. */
+		timezone: text('timezone').notNull().default('Europe/Ljubljana'),
+		createdAt: createdAt(),
+		/**
+		 * The Android app's daily reminder, as a minute of the day in the phone's
+		 * local time; null = off. Range-checked in `setReminderMinute`, not by a
+		 * CHECK (see CLAUDE.md on CHECKs and existing tables).
+		 */
+		reminderMinute: integer('reminder_minute'),
+		/** What the Android app compresses a video to. One of `VIDEO_SHORT_SIDES`. */
+		videoShortSide: integer('video_short_side').notNull().default(480),
+		/** The admin invites people and sees their storage. */
+		isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
+		/** Bytes of recordings, videos, songs and takes the account may keep; null = no limit. */
+		storageLimitBytes: integer('storage_limit_bytes'),
+		/** How many groups the person may make; null = `TEAMS_MADE_DEFAULT`. */
+		groupLimit: integer('group_limit'),
+		/** How many exercises Today shows a day, for both dances; null = `DAILY_DEFAULT`. Range-checked in `setDailyCount`. */
+		dailyCount: integer('daily_count'),
+		/**
+		 * How much app the person sees: `follow`, `own` or `all` (`$lib/levels/levels.ts`),
+		 * checked in `setLevel`, not by a CHECK. Null until chosen (the first run asks);
+		 * accounts made before levels were backfilled to `all` by migration 0031.
+		 */
+		level: text('level')
+	},
+	(t) => [uniqueIndex('users_dance_email_idx').on(t.dance, t.email)]
+);
 
 /**
  * What a person chose for one day on Today: an exercise put there by hand
@@ -1173,7 +1184,9 @@ export const invites = sqliteTable('invites', {
 	createdAt: createdAt(),
 	expiresAt: integer('expires_at').notNull(),
 	usedAt: integer('used_at'),
-	usedBy: text('used_by')
+	usedBy: text('used_by'),
+	/** The dance Join makes the account in. Null on invites from before the split: salsa's. */
+	dance: text('dance')
 });
 
 /** A request for more storage. `outcome` is 'granted' | 'declined', validated in code. */

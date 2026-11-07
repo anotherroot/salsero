@@ -32,7 +32,7 @@ let db: Db;
 const ev = (uid: string, id: number, fields: Record<string, string> = {}) =>
 	({
 		params: { dance: 'salsa', id: String(id) },
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		cookies: { get: () => undefined, set: () => {}, delete: () => {} } as unknown as Cookies,
 		url: new URL(`http://localhost/salsa/lessons/${id}`),
 		request: new Request('http://localhost/x', {

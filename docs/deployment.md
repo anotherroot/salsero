@@ -1,7 +1,9 @@
 # Deployment
 
-One environment: production at `salsa.anotherroot.eu`, on the Hetzner VM
-(`cloud`, flake attr `my-hetzner-vm`). Same shape as muscle_model, minus Postgres.
+One environment: production at `salsa.anotherroot.eu` (salsa) and
+`bachata.anotherroot.eu` (bachata), one node process and one database behind
+both (the dance split), on the Hetzner VM (`cloud`, flake attr `my-hetzner-vm`).
+Same shape as muscle_model, minus Postgres.
 
 ```
 browser → Cloudflare (proxied wildcard) → nginx :443 (Let's Encrypt, publicAcme)
@@ -24,6 +26,11 @@ Lives in `~/.config/nixos-config`, not here:
   8 MiB chunks with room to spare. The endpoint answers such a rejection with a
   413 that names this setting, because the symptom otherwise points nowhere near
   the cause.
+- **Two vhosts, one port.** `salsa.anotherroot.eu` and `bachata.anotherroot.eu`
+  are the same `publicAcme { port = salsaPort; }` vhost (each its own
+  certificate). nginx's `recommendedProxySettings` (`nginx-base.nix`) sends
+  `Host` and `X-Forwarded-Proto`, which the app needs to tell the hosts apart.
+  DNS needs nothing: the Cloudflare wildcard already covers the new name.
 - `modules/services/ports.nix` — `salsa = 3060`.
 - `secrets/salsa-prod.env.age` — the unit only exists once this file does.
 
@@ -36,14 +43,22 @@ git add salsa-prod.env.age          # flakes only see tracked files
 ```
 
 ```
-ORIGIN=https://salsa.anotherroot.eu
+DANCE_HOSTS=salsa.anotherroot.eu=salsa,bachata.anotherroot.eu=bachata
+PROTOCOL_HEADER=x-forwarded-proto
+HOST_HEADER=host
 ADMIN_EMAIL=...
 ADMIN_PASSWORD=<12+ chars, three of lower/upper/digit/symbol>
 ```
 
-`ORIGIN` must be the public https URL — SvelteKit checks it for CSRF, and a
-wrong value 403s every form POST while GETs work. The admin is created at first
-boot only; changing `ADMIN_PASSWORD` later does not change an existing account.
+No `ORIGIN`: it names one host, and there are two. adapter-node builds the
+request's origin from `HOST_HEADER` and `PROTOCOL_HEADER` instead, so
+SvelteKit's CSRF check compares a form's `Origin` with the host it was sent to.
+With `ORIGIN` set it wins over both, and every form POST on the other host is a
+403 while GETs work. `DANCE_HOSTS` says which host is which dance; a host not in
+it (loopback, dev) takes the dance from the path. The three may sit in the
+unit's `Environment` instead, being no secrets. An admin is created at boot in
+each dance that has no account; changing `ADMIN_PASSWORD` later does not change
+an existing account.
 
 ## Rollout
 
@@ -238,6 +253,30 @@ so the icon already on the phone pointed at a path that now redirects to
 `/login`. The fix is to add both to the home screen again — `/salsa/` and
 `/bachata/`, which install as two apps with their own names and colours. That
 is the feature, not a regression, but it is invisible until you re-add them.
+
+## The dance split's rollout (once, 2026-11)
+
+The deploy that carries migration `0032` splits every account that holds both
+dances at boot (`splitAccounts`: the boot log says `[accounts] dances assigned:
+N, split: M`, and `[integrity] dances: 0 found`). In this order, each step with
+the user's go:
+
+1. A fresh backup (`sudo systemctl start salsa-backup`), and the rehearsal on a
+   copy of it: `node build` with `DATABASE_PATH` on the copy, a `DATA_DIR` holding
+   the real `count/` files (a missing take fails that person's split), and
+   `DANCE_HOSTS`, `PROTOCOL_HEADER` and `HOST_HEADER` set; check the boot log and
+   the accounts.
+2. nixos-config, **one switch**: the second vhost, the three variables, and
+   `ORIGIN` removed from the secret. Never `DANCE_HOSTS` with `ORIGIN` still set:
+   `ORIGIN` makes every request look like salsa's host, and the new code then
+   redirects `/bachata/…` to the bachata host forever (a loop). The old code
+   ignores `DANCE_HOSTS` and builds its CSRF origin from `Host`, so salsa keeps
+   working until the deploy. Diff the closures first.
+3. `./scripts/deploy.sh prod`; watch the boot log (`failed: 0`). Check
+   `https://bachata.anotherroot.eu/login`.
+4. Release the bachata app 1.6 (its own host). 1.5 and older go to the browser
+   on the new host and cannot tell their user to update; install 1.6 by hand
+   from `bachata.anotherroot.eu/app`.
 
 ## Home worker
 

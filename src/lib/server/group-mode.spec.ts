@@ -109,7 +109,9 @@ describe('groupModeOf', () => {
 describe('spaceOf', () => {
 	it('is the group for a valid cookie, the wall otherwise', () => {
 		const db = setup();
-		const locals = { user: { id: 'u2', isAdmin: false, timezone: 'UTC' } } as App.Locals;
+		const locals = {
+			user: { id: 'u2', isAdmin: false, timezone: 'UTC', dance: 'salsa' }
+		} as App.Locals;
 		expect(spaceOf(db, { dance: 'salsa' }, locals, jar('1').cookies)).toEqual({
 			dance: 'salsa',
 			teamId: 1,

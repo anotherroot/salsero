@@ -168,6 +168,16 @@ export function teamByCode(db: Db, code: string): Team | null {
 	return row && row.deletedAt === null && row.purgedAt === null ? row : null;
 }
 
+/**
+ * Whether an account may join a group of this dance: an account belongs to one
+ * dance (the dance split). An account not placed yet (no dance: specs, or the
+ * moment before the boot split) is not judged here.
+ */
+export function sameDance(db: Db, userId: string, dance: string): boolean {
+	const row = db.select({ dance: users.dance }).from(users).where(eq(users.id, userId)).get();
+	return !row?.dance || row.dance === dance;
+}
+
 export function joinTeam(
 	db: Db,
 	userId: string,
@@ -176,6 +186,7 @@ export function joinTeam(
 ): 'joined' | 'already' | 'refused' {
 	const team = getTeam(db, teamId);
 	if (!team || team.deletedAt !== null || team.purgedAt !== null) return 'refused';
+	if (!sameDance(db, userId, team.dance)) return 'refused';
 	const r = db
 		.insert(teamMembers)
 		.values({ teamId, userId, role: 'member', joinedAt: now })
@@ -290,11 +301,11 @@ export function peopleOf(db: Db, teamId: number): Person[] {
 }
 
 /** The first name of the first admin, for "Ask … for an invite"; "the admin" when there is none. */
-export function adminFirstName(db: Db): string {
+export function adminFirstName(db: Db, dance: DanceSlug): string {
 	const row = db
 		.select({ firstName: users.firstName })
 		.from(users)
-		.where(eq(users.isAdmin, true))
+		.where(and(eq(users.isAdmin, true), eq(users.dance, dance)))
 		.orderBy(asc(users.createdAt), asc(users.id))
 		.get();
 	return row?.firstName?.trim() || 'the admin';

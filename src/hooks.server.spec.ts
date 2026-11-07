@@ -71,6 +71,7 @@ describe('the first-run gate', () => {
 				id: 'u1',
 				email: 'a@example.com',
 				passwordHash: 'x',
+				dance: 'salsa',
 				firstName: 'Ana',
 				lastName: 'K',
 				level

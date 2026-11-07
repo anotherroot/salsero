@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import {
@@ -10,7 +10,7 @@ import {
 	recordFailedLogin,
 	verifyPassword
 } from '$lib/server/auth';
-import { danceInPath, type DanceSlug } from '$lib/dances/dances';
+import { requestDanceOf } from '$lib/server/hosts';
 import { safeNext } from '$lib/safe-next';
 import { adminFirstName } from '$lib/server/teams';
 import { noAccountLine } from '$lib/teams/view';
@@ -28,9 +28,10 @@ const DUMMY_HASH =
 
 export const load: PageServerLoad = async ({ url, parent }) => {
 	const next = safeNext(url.searchParams.get('next'));
-	const dance: DanceSlug = danceInPath(next) ?? (await parent()).lastDance;
+	// The host's dance (the dance split); in dev, `next`'s or `?dance=`.
+	const dance = (await parent()).appDance;
 	// A group link: someone without an account is told who can invite them.
-	const noAccount = next.startsWith('/g/') ? noAccountLine(adminFirstName(getDb())) : null;
+	const noAccount = next.startsWith('/g/') ? noAccountLine(adminFirstName(getDb(), dance)) : null;
 	return { next, dance, noAccount };
 };
 
@@ -42,30 +43,36 @@ export const actions: Actions = {
 			.toLowerCase();
 		const password = String(form.get('password') ?? '');
 		const next = safeNext(String(form.get('next') ?? url.searchParams.get('next') ?? '/'));
+		// An account is a dance and an email: only the host's dance's account signs in here.
+		const dance = requestDanceOf(url, null, next);
 
 		if (!email || !password) {
 			return fail(400, { message: 'Email and password are required.', email });
 		}
 
-		if (isRateLimited(getClientAddress(), email)) {
+		if (isRateLimited(getClientAddress(), email, dance)) {
 			return fail(429, {
 				message: 'Too many attempts. Wait 15 minutes and try again.',
 				email
 			});
 		}
 
-		const user = getDb().select().from(users).where(eq(users.email, email)).get();
+		const user = getDb()
+			.select()
+			.from(users)
+			.where(and(eq(users.dance, dance), eq(users.email, email)))
+			.get();
 
 		// Always do the work, even with no account, so both paths cost the same.
 		const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
 
 		if (!user || !ok) {
-			recordFailedLogin(getClientAddress(), email);
+			recordFailedLogin(getClientAddress(), email, dance);
 			// Deliberately identical for "no such account" and "wrong password".
 			return fail(400, { message: 'Incorrect email or password.', email });
 		}
 
-		clearLoginAttempts(email);
+		clearLoginAttempts(email, dance);
 		const session = createSession(user.id);
 		cookies.set(SESSION_COOKIE, session.id, {
 			path: '/',

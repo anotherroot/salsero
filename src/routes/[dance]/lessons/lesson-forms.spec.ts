@@ -24,7 +24,7 @@ import { actions as listActions } from './+page.server';
 import { actions as lessonActions } from './[id]/+page.server';
 
 const ZONE = 'Europe/Ljubljana';
-const USER = { id: 'u1', email: 'u@example.com', timezone: ZONE };
+const USER = { id: 'u1', email: 'u@example.com', timezone: ZONE, dance: 'salsa' };
 
 function post(dance: string, fields: Record<string, string>, id?: number) {
 	return {
@@ -35,7 +35,7 @@ function post(dance: string, fields: Record<string, string>, id?: number) {
 			body: new URLSearchParams(fields)
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user: USER }
+		locals: { user: { ...USER, dance } }
 	};
 }
 

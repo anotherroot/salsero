@@ -38,7 +38,7 @@ import * as exercisePage from './(today)/exercises/[id]/+page.server';
 import * as spotEndpoint from '../api/video-spots/[id]/+server';
 
 let db: Db;
-const U1 = { id: 'u1', email: 'u1@x.si', timezone: 'UTC', isAdmin: false };
+const U1 = { id: 'u1', email: 'u1@x.si', timezone: 'UTC', dance: 'salsa', isAdmin: false };
 
 function post(fields: Record<string, string | string[]>, id: number) {
 	const body = new URLSearchParams();

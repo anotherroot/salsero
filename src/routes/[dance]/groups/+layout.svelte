@@ -92,7 +92,6 @@
 			{openId}
 			lastDays={myClass.lastDays}
 			today={myClass.today}
-			other={myClass.other}
 			{joinAction}
 		/>
 	{:else}

@@ -24,7 +24,7 @@ function call(uid: string, fields: Record<string, string>) {
 	};
 	const event = {
 		params: { dance: 'salsa' },
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		request: new Request('http://localhost/x', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -107,7 +107,7 @@ function layoutAt(uid: string, path: string, cookie: string | undefined) {
 	};
 	const data = layoutLoad({
 		params: { dance: 'salsa' },
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		cookies,
 		url: new URL(`http://localhost${path}`)
 	} as never) as { groupMode: { teamId: number } | null };

@@ -22,7 +22,9 @@ import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import { actions, load } from './+page.server';
 
 const locals = (id: string) =>
-	({ user: { id, timezone: 'Europe/Ljubljana', role: 'user' } }) as unknown as App.Locals;
+	({
+		user: { id, timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
+	}) as unknown as App.Locals;
 const form = (fields: Record<string, string>) =>
 	({
 		formData: async () => {

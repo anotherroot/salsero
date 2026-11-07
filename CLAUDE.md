@@ -51,7 +51,10 @@ and clones and twins (a gene id and cloned-from on every copyable row; Copy
 to…, Edit makes your copy, Compare, Take, Send, Drop my copy, Detach, Move to…
 a group; your own routines, lessons and sections use a group's things without
 copying; leaving keeps copies; Same as… shows twins as one; see
-[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md))
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and the dance split (two apps on one backend: an account belongs to one dance,
+`salsa.anotherroot.eu` and `bachata.anotherroot.eu`, each with its own login,
+invites, admin, storage, settings and My count; see
+[`docs/superpowers/specs/2026-11-06-dance-split-design.md`](docs/superpowers/specs/2026-11-06-dance-split-design.md))
 and positions as their own things (owned like figures, with copies and twins;
 optional: nobody starts with any and a figure without one fits anywhere; any
 number of starts and ends; a type and a hold; a page, Templates, How positions
@@ -129,7 +132,13 @@ is in `docs/superpowers/design-kit/`.
 Accounts have theirs,
 [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md):
 the owner wall, one-time invites and Join, the storage limit and what counts
-against it, What uses space, Ask for more, and the admin page.
+against it, What uses space, Ask for more, and the admin page. Since the dance
+split an account belongs to one dance; that spec says so first.
+The dance split has its own,
+[`docs/superpowers/specs/2026-11-06-dance-split-design.md`](docs/superpowers/specs/2026-11-06-dance-split-design.md):
+why each dance is its own app with its own accounts, the host map, the wall,
+splitting the accounts that held both dances at boot, invites and the admin per
+dance, and the two hosts.
 Groups have theirs,
 [`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md):
 the group as a wall beside the person, draft and publish, what a member
@@ -529,8 +538,16 @@ src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed pai
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
                      (refuses at or over the limit), and `listStorageItems` for What uses space
-src/lib/server/invites.ts  one-time invites and joining with one
-src/routes/admin/    the admin page: people, limits, invites, requests for more space
+src/lib/server/invites.ts  one-time invites into one dance, and joining with one
+src/lib/dances/hosts.ts  PURE: which host serves which dance (`parseDanceHosts`, `hostDance`, `hostOf`),
+                     the request's dance (`requestDance`) and the hook's host redirects
+                     (`hostRedirect`). Client-safe. `src/lib/server/hosts.ts` reads `DANCE_HOSTS`
+                     (`danceHosts`, `requestDanceOf`)
+src/lib/server/dance-split.ts  `splitAccounts`, at boot before the admin: places every account in
+                     one dance; one that held both keeps salsa and its bachata half moves to a
+                     new account. `danceIntegrity` (integrity.ts) reports what is on the wrong side
+src/routes/admin/    the admin page of one dance: its people, limits, invites, requests for more
+                     space (`adminReaches` before every change)
 src/routes/join/     Join: a person creates their account from an invite link (public)
 src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figures / Routines /
                      Positions switch, the three lists in a 360 column beside the open item,
@@ -806,10 +823,21 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `src/lib/levels/levels.ts`, never compare level strings, and read the level
   through `levelShown` (null draws as Everything). A lesson or group the person
   edits stays the full page at every level (a group's lesson or group; a person's own lesson is read-only at Follow my class).
+- **An account belongs to one dance** (the dance split). `users.dance`; email is
+  unique per dance; each dance is its own app on its own host (`DANCE_HOSTS`,
+  `src/lib/dances/hosts.ts`). The wall is the account's dance, never the host:
+  `wallOf` 404s a route whose dance is not `locals.user.dance`, the `[dance]`
+  layout does too, and a flat route takes the account's dance or a row it owns,
+  never a dance from the request. Login, Join, invites, `/g/<code>`, joining a
+  group (`sameDance`), pairing, Get the app and the admin are per dance. The host
+  only picks the login, the redirects (`hostRedirect` in the hook) and `/`.
+  `appDance` (root layout) is the request's dance. Accounts that held both
+  dances were split at boot (`dance-split.ts`), and `danceIntegrity` reports
+  rows on the wrong side.
 - **A dance is the wall through the content.** `figures`, `songs`, `exercises`,
   `lessons` and `positions` carry `dance`; `sets`, `recordings`, the lesson join tables,
   a figure's position tags and `video_spots` derive it through their parent (a
-  figure, a recording or a lesson video), and `count_takes` is shared by both dances on purpose. Scoping
+  figure, a recording or a lesson video), and `count_takes` belongs to its account, so to one dance. Scoping
   happens in the data-access layer — `src/lib/schedule/` and `src/lib/day/`
   never learn that dances exist. `video_spots`' own API is flat
   (`/api/video-spots`), like the media servers.
@@ -1000,5 +1028,6 @@ and a `beats_json` array — a click track from ffmpeg plus evenly spaced beats 
 enough to check the count, the clave and the calls. Set `dance` too: it defaults
 to `'salsa'`, so a row inserted without it is invisible from `/bachata/player`.
 
-In dev, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first run; the admin is
-created at boot when no user exists.
+In dev, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first run; an admin is
+created at boot in each dance that has no account. `DANCE_HOSTS` is unset in dev,
+so the path decides the dance; sign in to bachata at `/login?dance=bachata`.

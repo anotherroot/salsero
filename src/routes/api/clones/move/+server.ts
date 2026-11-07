@@ -27,7 +27,8 @@ export const GET: RequestHandler = ({ url, locals }) => {
 	const user = locals.user!;
 	const db = getDb();
 	const lesson = getLessonRow(db, lessonId);
-	if (!lesson || !isDanceSlug(lesson.dance)) throw error(404, 'Not found');
+	if (!lesson || !isDanceSlug(lesson.dance) || lesson.dance !== user.dance)
+		throw error(404, 'Not found');
 	const preview = movePreview(
 		db,
 		{ userId: user.id, dance: lesson.dance },

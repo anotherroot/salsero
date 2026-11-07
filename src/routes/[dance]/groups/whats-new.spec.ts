@@ -22,7 +22,7 @@ let db: Db;
 let lessonId: number;
 
 const locals = {
-	user: { id: 'u2', timezone: 'Europe/Ljubljana', role: 'user' }
+	user: { id: 'u2', timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
 } as unknown as App.Locals;
 const cookies = { get: () => undefined, set: () => {}, delete: () => {} } as unknown as Cookies;
 const run = (fn: unknown, params: Record<string, string>, path = '/salsa/groups', who = locals) =>
@@ -62,7 +62,7 @@ describe('new in a person’s groups', () => {
 		const draft = createLesson(db, T1_SALSA, { lessonDay: '2026-11-02', title: 'D', notes: null })
 			.lesson.id;
 		const owner = {
-			user: { id: 'u1', timezone: 'Europe/Ljubljana', role: 'user' }
+			user: { id: 'u1', timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
 		} as unknown as App.Locals;
 		const page = await run(pageLoad, { dance: 'salsa', id: '1' }, '/salsa/groups/1', owner);
 		expect(page.lessons.find((l: { id: number }) => l.id === draft).isNew).toBe(false);

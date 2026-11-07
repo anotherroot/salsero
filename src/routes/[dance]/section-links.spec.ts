@@ -33,7 +33,7 @@ import * as lessonPage from './lessons/[id]/+page.server';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as exercisePage from './(today)/exercises/[id]/+page.server';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
 function post(dance: string, id: number, fields: Record<string, string>) {
 	return {

@@ -69,8 +69,20 @@ const figureList = { load: figuresListLoad, actions: figureListActions.actions }
 import * as coveragePage from './(moves)/coverage/+page.server';
 import * as positionPage from './(moves)/positions/[id]/+page.server';
 
-const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
-const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+const U1 = {
+	id: 'u1',
+	email: 'u1@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: true
+};
+const U2 = {
+	id: 'u2',
+	email: 'u2@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: false
+};
 type User = typeof U1;
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
@@ -354,7 +366,13 @@ import { publishLesson } from '$lib/server/lessons';
 import { crossRefs } from '$lib/server/integrity';
 
 describe('positions are each owner’s', () => {
-	const U3 = { id: 'u3', email: 'u3@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+	const U3 = {
+		id: 'u3',
+		email: 'u3@example.com',
+		timezone: 'Europe/Ljubljana',
+		dance: 'salsa',
+		isAdmin: false
+	};
 	const as = (user: User, dance = 'salsa') => [db, { user } as App.Locals, { dance }] as const;
 
 	it("u2 gets the missing one's 404 reading or editing u1's position", () => {
@@ -1471,8 +1489,20 @@ import * as spotsEndpoint from '../api/video-spots/+server';
 import { addLesson, entryFor } from '$lib/server/entries';
 
 describe('a group lesson: its draft, its publish, and what each person may open', () => {
-	const U3 = { id: 'u3', email: 'u3@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
-	const U4 = { id: 'u4', email: 'u4@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+	const U3 = {
+		id: 'u3',
+		email: 'u3@example.com',
+		timezone: 'Europe/Ljubljana',
+		dance: 'salsa',
+		isAdmin: false
+	};
+	const U4 = {
+		id: 'u4',
+		email: 'u4@example.com',
+		timezone: 'Europe/Ljubljana',
+		dance: 'salsa',
+		isAdmin: false
+	};
 	let T: TeamSpace;
 	let P: number, D: number;
 	let V2: number, V3: number, tGroup: number;

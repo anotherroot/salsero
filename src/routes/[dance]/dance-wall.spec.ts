@@ -73,13 +73,16 @@ import {
 } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
 import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
-import { actions as todayActions } from './(today)/+page.server';
+import { actions as todayActions, load as todayLoad } from './(today)/+page.server';
 import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
 import * as exercisePage from './(today)/exercises/[id]/+page.server';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
-import { actions as figureListActions } from './(moves)/figures/+page.server';
+import {
+	actions as figureListActions,
+	load as figureListLoad
+} from './(moves)/figures/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
@@ -88,7 +91,13 @@ import * as gridEndpoint from './songs/[id]/grid/+server';
 import * as practiceEndpoint from './(today)/exercises/[id]/practice/+server';
 import type { PickerSong } from '$lib/types';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
+const USER = {
+	id: 'u1',
+	email: 'u@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: true
+};
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(dance: string, fields: Record<string, string | string[]>, id = '') {
@@ -105,7 +114,7 @@ function post(dance: string, fields: Record<string, string | string[]>, id = '')
 			body
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user: USER }
+		locals: { user: { ...USER, dance } }
 	};
 }
 
@@ -124,7 +133,7 @@ const loadAt = (load: unknown, dance: string, id: string) =>
 		params: { dance, id },
 		url: new URL('http://localhost/'),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user: USER }
+		locals: { user: { ...USER, dance } }
 	});
 
 const threw404 = expect.objectContaining({ status: 404 });
@@ -316,7 +325,7 @@ describe("the player's song picker stays on its own side", () => {
 		(playerLoad as unknown as PlayerLoad)({
 			params: { dance },
 			url: new URL(`http://localhost/${dance}/player?${query}`),
-			locals: { user: USER }
+			locals: { user: { ...USER, dance } }
 		});
 
 	it("offers only this dance's ready songs, and refuses the other dance's by id", () => {
@@ -494,7 +503,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			(figurePage.load as unknown as (e: unknown) => unknown)({
 				params: { dance, id },
 				url: new URL(`http://localhost/${search}`),
-				locals: { user: USER }
+				locals: { user: { ...USER, dance } }
 			});
 
 		/** What a load or an action threw — a redirect, here — failing loudly when nothing was. */
@@ -1525,7 +1534,7 @@ describe('the JSON endpoints refuse the other dance', () => {
 	const at = (dance: string, id: string, init?: RequestInit) => ({
 		params: { dance, id },
 		request: new Request('http://localhost/', init),
-		locals: { user: USER }
+		locals: { user: { ...USER, dance } }
 	});
 	type Handler = (e: ReturnType<typeof at>) => unknown;
 
@@ -1655,6 +1664,29 @@ describe('the coverage page stays inside its dance', () => {
 			expect.unreachable('a created routine redirects');
 		} catch (thrown) {
 			expect(thrown).toMatchObject({ status: 303 });
+		}
+	});
+});
+
+describe('an account reaches only its own dance', () => {
+	// Catches: a salsa account opening the bachata side through its URL, the
+	// dance split's wall (wallOf compares the account's dance with the route's).
+	it("refuses a salsa account's Today and Moves under /bachata", async () => {
+		const asSalsa = (load: unknown) =>
+			(load as Load)({
+				params: { dance: 'bachata', id: '' },
+				url: new URL('http://localhost/bachata'),
+				cookies: { get: () => undefined, delete: () => {} },
+				locals: { user: { ...USER, dance: 'salsa' } }
+			});
+		for (const load of [todayLoad, figureListLoad]) {
+			let thrown: unknown = null;
+			try {
+				await asSalsa(load);
+			} catch (e) {
+				thrown = e;
+			}
+			expect(thrown).toEqual(threw404);
 		}
 	});
 });

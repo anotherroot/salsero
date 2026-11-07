@@ -30,7 +30,12 @@ import { load as figureLoad } from './[id]/+page.server';
 const T = 1_790_000_000_000;
 const TUE = { teamId: 1, actorId: 'u1', dance: 'salsa' } as const;
 const RUEDA = { teamId: 2, actorId: 'u1', dance: 'salsa' } as const;
-const user = (id: string) => ({ id, email: `${id}@example.com`, timezone: 'Europe/Ljubljana' });
+const user = (id: string) => ({
+	id,
+	email: `${id}@example.com`,
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa'
+});
 const cookies = (mode?: string) => ({
 	get: (n: string) => (n === groupCookie('salsa') ? mode : undefined),
 	set: () => {},

@@ -22,7 +22,7 @@ import { noonOf } from '$lib/day/day';
 import { deleteSetFrom, logSetFrom, parseSetSnapshot, restoreSetFrom } from './log-form';
 
 const TZ = 'Europe/Ljubljana';
-const USER = { id: 'u1', email: 'u@example.com', timezone: TZ };
+const USER = { id: 'u1', email: 'u@example.com', timezone: TZ, dance: 'salsa' };
 
 function post(dance: string, fields: Record<string, string>) {
 	return {

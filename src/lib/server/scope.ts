@@ -84,6 +84,9 @@ export type Wall = { userId: string; dance: DanceSlug };
 export function wallOf(params: { dance: string }, locals: Pick<App.Locals, 'user'>): Wall {
 	const dance = danceOf(params);
 	if (!locals.user) throw error(401, 'Sign in');
+	// An account belongs to one dance (the dance split): the other dance's
+	// pages and rows are a stranger's 404, whatever the host or the URL.
+	if (locals.user.dance !== dance) throw error(404, 'Not found');
 	return { userId: locals.user.id, dance };
 }
 

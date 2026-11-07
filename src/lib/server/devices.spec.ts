@@ -19,9 +19,15 @@ import {
 let db: Db;
 const T0 = 1_760_000_000_000;
 
-function addUser(id: string) {
+function addUser(id: string, dance: 'salsa' | 'bachata' | null = 'salsa') {
 	db.insert(users)
-		.values({ id, email: `${id}@example.com`, passwordHash: 'x', timezone: 'Europe/Ljubljana' })
+		.values({
+			id,
+			email: `${id}@example.com`,
+			passwordHash: 'x',
+			timezone: 'Europe/Ljubljana',
+			dance
+		})
 		.run();
 }
 
@@ -41,8 +47,20 @@ describe('device tokens', () => {
 			lastName: null,
 			timezone: 'Europe/Ljubljana',
 			isAdmin: false,
-			level: null
+			level: null,
+			dance: 'salsa'
 		});
+	});
+
+	// Catches: a device token signing in an account the dance split has not
+	// placed, or the API not learning which dance the account is.
+	it("carry the account's dance, and an account with none does not sign in", () => {
+		addUser('u3', 'bachata');
+		addUser('u4', null);
+		const bachata = createDeviceToken(db, 'u3', 'Phone', T0).token;
+		const none = createDeviceToken(db, 'u4', 'Phone', T0).token;
+		expect(userForDeviceToken(db, bachata, T0)?.dance).toBe('bachata');
+		expect(userForDeviceToken(db, none, T0)).toBeNull();
 	});
 
 	it('are stored only as a hash', () => {

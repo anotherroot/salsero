@@ -50,6 +50,8 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in');
 	const dance = url.searchParams.get('dance') ?? '';
 	if (!isDanceSlug(dance)) return new Response('Unknown dance', { status: 400 });
+	// Only the account's own dance (the dance split): the other is a stranger's.
+	if (dance !== locals.user.dance) throw error(404, 'Not found');
 	const space = uploadSpace(locals.user.id, dance, url.searchParams.get('team'));
 	const owner: Owner = 'teamId' in space ? { teamId: space.teamId } : { userId: locals.user.id };
 

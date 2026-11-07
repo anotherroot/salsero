@@ -73,7 +73,7 @@ function jar(group?: number): Cookies {
 const ev = (uid: string, id: number, group?: number) =>
 	({
 		params: { dance: 'salsa', id: String(id) },
-		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		cookies: jar(group),
 		url: new URL(`http://localhost/salsa/x/${id}`),
 		request: new Request('http://localhost/x', { method: 'POST', body: new URLSearchParams() })

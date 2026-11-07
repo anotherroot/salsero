@@ -1,5 +1,11 @@
 # Accounts: friends get their own app
 
+> **Since 2026-11-06 an account belongs to one dance** (the dance split,
+> [`2026-11-06-dance-split-design.md`](2026-11-06-dance-split-design.md)):
+> salsa and bachata are two apps on two hosts with their own accounts, invites,
+> admin, storage and settings. Where this spec says an account holds both
+> dances, the dance split replaces it.
+
 > Step 1 of opening the app to other people. Brainstormed 2026-11-01/02.
 > Steps 2 (clubs and groups) and 3 (republishing, suggestions, sub-positions,
 > student lessons) are ideas in the salsa note, not designed here. The mockups
@@ -87,7 +93,7 @@ sees anyone else's things. Sharing comes in step 2.
   its link, or scan its code with your camera."
 - The new account is signed in straight away and lands on Today.
 - New accounts start with **both dances** and **nothing in them** but the
-  shared positions. *(My call: the time zone comes from the browser at
+  shared positions. *(Since the dance split: one dance, the invite's.)* *(My call: the time zone comes from the browser at
   sign-up, falling back to the current default.)*
 - Password rules as Sign in's today; the rate limits on login apply to Join
   too.

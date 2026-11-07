@@ -32,7 +32,7 @@ function post(fields: Record<string, string>, user = 'u1') {
 			body: new URLSearchParams(fields)
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user: { id: user, email: `${user}@example.com`, timezone: ZONE } }
+		locals: { user: { id: user, email: `${user}@example.com`, timezone: ZONE, dance: 'salsa' } }
 	};
 }
 type Invoke = (event: ReturnType<typeof post>) => Promise<unknown>;

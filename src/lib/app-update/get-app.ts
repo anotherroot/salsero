@@ -12,10 +12,11 @@ export interface AppCard {
 
 export function getAppCards(
 	device: Device,
-	releases: Record<DanceSlug, Release | null>
+	releases: Partial<Record<DanceSlug, Release | null>>
 ): AppCard[] {
-	return DANCE_SLUGS.map((dance) => {
-		const r = releases[dance];
+	// A card per dance given: a host gives its own dance only (the dance split).
+	return DANCE_SLUGS.filter((dance) => dance in releases).map((dance) => {
+		const r = releases[dance] ?? null;
 		return {
 			dance,
 			label: DANCES[dance].label,

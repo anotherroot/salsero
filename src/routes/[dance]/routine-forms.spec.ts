@@ -43,7 +43,7 @@ import { addPosition } from '$lib/server/test-positions';
 import { danceable, factsOf } from '$lib/routines/page';
 import type { RowEdges } from '$lib/routines/routines';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
 function post(dance: string, fields: Record<string, string>, id = '') {
 	return {

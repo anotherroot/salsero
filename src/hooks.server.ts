@@ -12,6 +12,8 @@ import { needsLevel, needsName } from '$lib/names';
 import { parseLevel } from '$lib/levels/levels';
 import { currentRelease } from '$lib/server/releases';
 import { isPublicPath } from '$lib/server/public-paths';
+import { danceHosts } from '$lib/server/hosts';
+import { hostRedirect } from '$lib/dances/hosts';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
@@ -34,7 +36,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 				lastName: session.lastName,
 				timezone: session.timezone,
 				isAdmin: session.isAdmin,
-				level: parseLevel(session.level)
+				level: parseLevel(session.level),
+				dance: session.dance
 			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 
@@ -74,6 +77,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 		return resolve(event);
 	}
+
+	// Each dance on its own host (the dance split): the other dance's pages, and a
+	// session of the other dance's account, go to their own host.
+	const moved = hostRedirect({
+		hosts: danceHosts(),
+		host: event.url.host,
+		path,
+		search: event.url.search,
+		method: event.request.method,
+		userDance: event.locals.user?.dance ?? null
+	});
+	if (moved.kind === 'redirect') throw redirect(303, moved.to);
+	if (moved.kind === 'missing') return new Response('Not found', { status: 404 });
 
 	// A page older than a breaking deploy (`$lib/page-epoch.ts`): refused before
 	// anything acts on what it sent, so it reloads instead. Full page loads, the

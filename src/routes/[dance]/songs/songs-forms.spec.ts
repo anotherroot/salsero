@@ -40,7 +40,7 @@ import { songSeen } from '$lib/server/clash';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(
@@ -57,7 +57,7 @@ function post(
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
-		locals: { user: as.user ? { ...USER, id: as.user } : USER },
+		locals: { user: { ...USER, dance, ...(as.user ? { id: as.user } : {}) } },
 		cookies: {
 			get: (n: string) => (n === groupCookie(dance as 'salsa' | 'bachata') ? as.group : undefined),
 			set: () => {},

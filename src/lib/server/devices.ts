@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { deviceTokens, users } from './db/schema';
 import { dayInputOf } from './today-picks';
-import { DANCE_SLUGS, type DanceSlug } from '$lib/dances/dances';
+import { DANCE_SLUGS, isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 import { dayList } from '$lib/schedule/today-list';
 import { isVideoShortSide, type VideoShortSide } from '$lib/video-sizes';
 import type { DeviceRow } from '$lib/types';
@@ -48,13 +48,15 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 			lastName: users.lastName,
 			timezone: users.timezone,
 			isAdmin: users.isAdmin,
-			level: users.level
+			level: users.level,
+			dance: users.dance
 		})
 		.from(deviceTokens)
 		.innerJoin(users, eq(users.id, deviceTokens.userId))
 		.where(eq(deviceTokens.tokenHash, hash(token)))
 		.get();
-	if (!row) return null;
+	// An account the dance split has not placed signs in nowhere.
+	if (!row || !row.dance || !isDanceSlug(row.dance)) return null;
 	if (row.lastUsedAt === null || now - row.lastUsedAt >= TOUCH_EVERY_MS) {
 		db.update(deviceTokens).set({ lastUsedAt: now }).where(eq(deviceTokens.id, row.deviceId)).run();
 	}
@@ -65,7 +67,8 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 		lastName: row.lastName,
 		timezone: row.timezone,
 		isAdmin: row.isAdmin,
-		level: parseLevel(row.level)
+		level: parseLevel(row.level),
+		dance: row.dance
 	};
 }
 

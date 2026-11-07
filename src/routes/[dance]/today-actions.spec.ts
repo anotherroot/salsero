@@ -26,8 +26,20 @@ import { undoAddSteps } from '$lib/schedule/picks';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { actions } from './(today)/+page.server';
 
-const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
-const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+const U1 = {
+	id: 'u1',
+	email: 'u1@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: true
+};
+const U2 = {
+	id: 'u2',
+	email: 'u2@example.com',
+	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
+	isAdmin: false
+};
 type User = typeof U1;
 
 let db: Db;

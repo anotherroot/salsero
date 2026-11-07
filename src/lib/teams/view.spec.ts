@@ -20,7 +20,6 @@ import {
 	classMeta,
 	latestAndEarlier,
 	groupMenu,
-	otherClassLine,
 	lastClassLine,
 	MY_CLASS,
 	ADDED_TO_TODAY,
@@ -203,11 +202,6 @@ describe('My class', () => {
 		expect(onlyClass('follow', [], null)).toBe(false);
 		expect(onlyClass('own', [t(1)], 1)).toBe(false);
 		expect(onlyClass('all', [t(1)], 1)).toBe(false);
-	});
-
-	it('points to a class in the other dance', () => {
-		expect(otherClassLine('Bachata')).toBe('Your bachata class');
-		expect(otherClassLine('Salsa')).toBe('Your salsa class');
 	});
 
 	it('says when a class last met, in the list of classes', () => {

@@ -354,7 +354,9 @@ describe('the guards', () => {
 	const as = (id: string, dance = 'salsa') =>
 		[
 			db,
-			{ user: { id, email: `${id}@example.com`, timezone: 'UTC', isAdmin: false } } as App.Locals,
+			{
+				user: { id, email: `${id}@example.com`, timezone: 'UTC', dance: 'salsa', isAdmin: false }
+			} as App.Locals,
 			{ dance }
 		] as const;
 	const threw404 = expect.objectContaining({ status: 404 });
@@ -420,7 +422,9 @@ describe('positions (ruling 12)', () => {
 	const as = (id: string, dance = 'salsa') =>
 		[
 			db,
-			{ user: { id, email: `${id}@example.com`, timezone: 'UTC', isAdmin: false } } as App.Locals,
+			{
+				user: { id, email: `${id}@example.com`, timezone: 'UTC', dance: 'salsa', isAdmin: false }
+			} as App.Locals,
 			{ dance }
 		] as const;
 	const threw404 = expect.objectContaining({ status: 404 });
@@ -606,7 +610,9 @@ describe('song access', () => {
 	const as = (id: string, dance = 'salsa') =>
 		[
 			sdb,
-			{ user: { id, email: `${id}@example.com`, timezone: 'UTC', isAdmin: false } } as App.Locals,
+			{
+				user: { id, email: `${id}@example.com`, timezone: 'UTC', dance: 'salsa', isAdmin: false }
+			} as App.Locals,
 			{ dance }
 		] as const;
 	const threw404 = expect.objectContaining({ status: 404 });

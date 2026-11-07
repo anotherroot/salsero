@@ -11,6 +11,7 @@ import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
 import {
 	askForMore,
+	adminReaches,
 	listOpenRequests,
 	listPeople,
 	listStorageItems,
@@ -38,7 +39,13 @@ let db: Db;
 
 function user(id: string, limit: number | null) {
 	db.insert(users)
-		.values({ id, email: `${id}@example.com`, passwordHash: 'x', storageLimitBytes: limit })
+		.values({
+			id,
+			email: `${id}@example.com`,
+			passwordHash: 'x',
+			storageLimitBytes: limit,
+			dance: 'salsa'
+		})
 		.run();
 }
 
@@ -349,10 +356,10 @@ describe('admin: people, limits and requests', () => {
 	it('listPeople and listOpenRequests expose numbers and email only', () => {
 		recording(U1_SALSA, 'Secret figure', 5 * MB);
 		askForMore(db, { userId: 'a' }, 'a note', 5);
-		expect(Object.keys(listPeople(db)[0]).sort()).toEqual(
+		expect(Object.keys(listPeople(db, 'salsa')[0]).sort()).toEqual(
 			['createdAt', 'email', 'id', 'isAdmin', 'limitBytes', 'usedBytes'].sort()
 		);
-		expect(Object.keys(listOpenRequests(db)[0]).sort()).toEqual(
+		expect(Object.keys(listOpenRequests(db, 'salsa')[0]).sort()).toEqual(
 			[
 				'createdAt',
 				'email',
@@ -365,15 +372,18 @@ describe('admin: people, limits and requests', () => {
 				'userId'
 			].sort()
 		);
-		expect(listOpenRequests(db)[0]).toMatchObject({ email: 'a@example.com', limitBytes: GB });
+		expect(listOpenRequests(db, 'salsa')[0]).toMatchObject({
+			email: 'a@example.com',
+			limitBytes: GB
+		});
 	});
 
 	it('granting sets the limit and closes the request; settings sees none open', () => {
 		askForMore(db, { userId: 'a' }, null, 5);
-		const [req] = listOpenRequests(db);
+		const [req] = listOpenRequests(db, 'salsa');
 		expect(resolveRequest(db, req.id, 'granted', 2 * GB, 9)).toBe(true);
 		expect(storageOf(db, 'a').limitBytes).toBe(2 * GB);
-		expect(listOpenRequests(db)).toEqual([]);
+		expect(listOpenRequests(db, 'salsa')).toEqual([]);
 		expect(openRequest(db, 'a')).toBeNull();
 		expect(askForMore(db, { userId: 'a' }, null, 10)).toBe('asked');
 		const row = db.select().from(storageRequests).all()[0];
@@ -382,7 +392,7 @@ describe('admin: people, limits and requests', () => {
 
 	it('declining closes it and leaves the limit', () => {
 		askForMore(db, { userId: 'a' }, null, 5);
-		const [req] = listOpenRequests(db);
+		const [req] = listOpenRequests(db, 'salsa');
 		expect(resolveRequest(db, req.id, 'declined', null, 9)).toBe(true);
 		expect(storageOf(db, 'a').limitBytes).toBe(GB);
 		expect(db.select().from(storageRequests).all()[0].outcome).toBe('declined');
@@ -391,11 +401,11 @@ describe('admin: people, limits and requests', () => {
 
 	it('refuses bad limits and unknown ids', () => {
 		askForMore(db, { userId: 'a' }, null, 5);
-		const [req] = listOpenRequests(db);
+		const [req] = listOpenRequests(db, 'salsa');
 		for (const bad of [0, -5, 1.5, NaN, null]) {
 			expect(resolveRequest(db, req.id, 'granted', bad as number, 9)).toBe(false);
 		}
-		expect(listOpenRequests(db)).toHaveLength(1);
+		expect(listOpenRequests(db, 'salsa')).toHaveLength(1);
 		expect(setStorageLimit(db, 'a', 0)).toBe(false);
 		expect(setStorageLimit(db, 'a', 2.5)).toBe(false);
 		expect(setStorageLimit(db, 'nobody', GB)).toBe(false);
@@ -457,7 +467,7 @@ describe('groups: requests, limits and the admin numbers', () => {
 		expect(openRequest(db, 'u1', teamId)).toEqual({ createdAt: 11, note: 'class' });
 		expect(openRequest(db, 'u1')).toEqual({ createdAt: 10, note: null });
 		recording(T1_SALSA, 'Team', 5 * MB);
-		const reqs = listOpenRequests(db);
+		const reqs = listOpenRequests(db, 'salsa');
 		const g = reqs.find((r) => r.teamId === teamId)!;
 		expect(g).toMatchObject({
 			teamName: 'Salsa nadaljevalna',
@@ -486,7 +496,7 @@ describe('groups: requests, limits and the admin numbers', () => {
 			{ lessonId: lesson.id, file: 'tv.mp4', mime: 'video/mp4', sizeBytes: 20 * MB },
 			'u1'
 		);
-		const rows = listTeamsForAdmin(db);
+		const rows = listTeamsForAdmin(db, 'salsa');
 		expect(rows).toEqual([
 			{
 				id: teamId,
@@ -544,5 +554,28 @@ describe('groups: requests, limits and the admin numbers', () => {
 		expect(() => ownerOfRow({ userId: null, teamId: null })).toThrow('row has no owner');
 		expect(ownerOfRow({ userId: null, teamId: 3 })).toEqual({ teamId: 3 });
 		expect(ownerOfRow({ userId: 'u1', teamId: null })).toEqual({ userId: 'u1' });
+	});
+});
+
+describe('admin: one dance at a time (the dance split)', () => {
+	beforeEach(() => {
+		db = openDb(':memory:');
+		user('a', GB);
+		user('b', GB);
+		db.update(users).set({ dance: 'bachata' }).where(eq(users.id, 'b')).run();
+	});
+
+	// Catches: an admin's lists or changes reaching the other dance's accounts.
+	it('lists and reaches only its own dance', () => {
+		askForMore(db, { userId: 'b' }, null, 5);
+		const req = db.select().from(storageRequests).get()!.id;
+		expect(listPeople(db, 'salsa').map((p) => p.id)).toEqual(['a']);
+		expect(listOpenRequests(db, 'salsa')).toEqual([]);
+		expect(listOpenRequests(db, 'bachata').map((r) => r.userId)).toEqual(['b']);
+		expect(adminReaches(db, 'salsa', { userId: 'a' })).toBe(true);
+		expect(adminReaches(db, 'salsa', { userId: 'b' })).toBe(false);
+		expect(adminReaches(db, 'salsa', { requestId: req })).toBe(false);
+		expect(adminReaches(db, 'bachata', { requestId: req })).toBe(true);
+		expect(adminReaches(db, 'salsa', { teamId: 999 })).toBe(false);
 	});
 });

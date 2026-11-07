@@ -232,6 +232,13 @@
       "when": 1793981620787,
       "tag": "0032_oval_eddie_brock",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1794041618265,
+      "tag": "0033_material_echo",
+      "breakpoints": true
     }
   ]
 }

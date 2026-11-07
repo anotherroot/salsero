@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import {
 	AUDIO_FILE_RE,
 	audioDir,
+	countDir,
 	LESSON_VIDEO_FILE_RE,
 	lessonVideosDir,
 	linkCopy,
@@ -17,7 +18,7 @@ import {
 	recordingsDir
 } from '../files';
 
-export type CloneFileKind = 'recording' | 'lesson-video' | 'audio';
+export type CloneFileKind = 'recording' | 'lesson-video' | 'audio' | 'count';
 
 export type CloneFiles = {
 	/** The file under a new name in its kind's folder; returns the new name. */
@@ -29,17 +30,27 @@ export type CloneFiles = {
 const PATTERN: Record<CloneFileKind, RegExp> = {
 	recording: RECORDING_FILE_RE,
 	'lesson-video': LESSON_VIDEO_FILE_RE,
-	audio: AUDIO_FILE_RE
+	audio: AUDIO_FILE_RE,
+	// A count take is `<uuid>.wav`, the same shape.
+	count: RECORDING_FILE_RE
 };
 
+/** The folders per kind. `count` only where count takes are copied (the dance split). */
+export type CloneDirs = Omit<Record<CloneFileKind, string>, 'count'> & { count?: string };
+
 /** `CloneFiles` over these folders, one per kind. */
-export function cloneFilesIn(dirs: Record<CloneFileKind, string>): CloneFiles {
+export function cloneFilesIn(dirs: CloneDirs): CloneFiles {
+	const dirOf = (kind: CloneFileKind): string => {
+		const dir = dirs[kind];
+		if (!dir) throw new Error(`no folder for ${kind} files`);
+		return dir;
+	};
 	return {
-		link: (kind, file) => linkCopy(dirs[kind], file, PATTERN[kind]),
+		link: (kind, file) => linkCopy(dirOf(kind), file, PATTERN[kind]),
 		async unlink(kind, file) {
 			// Only our own names, in our own folder: never a path from elsewhere.
 			if (!PATTERN[kind].test(file)) return;
-			await unlink(join(dirs[kind], file)).catch(() => {});
+			await unlink(join(dirOf(kind), file)).catch(() => {});
 		}
 	};
 }
@@ -54,7 +65,8 @@ export function realCloneFiles(): CloneFiles {
 		cloneFilesIn({
 			recording: recordingsDir(),
 			'lesson-video': lessonVideosDir(),
-			audio: audioDir()
+			audio: audioDir(),
+			count: countDir()
 		});
 	return {
 		link: (kind, file) => real().link(kind, file),

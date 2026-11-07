@@ -35,6 +35,7 @@ const user = (id: string, level: Level | null = 'all') => ({
 	id,
 	email: `${id}@x.si`,
 	timezone: 'Europe/Ljubljana',
+	dance: 'salsa',
 	level
 });
 
