@@ -10,13 +10,14 @@
 		src,
 		ms,
 		label,
-		class: extra = ''
+		class: size = 'h-[180px] w-full'
 	}: {
 		src: string;
 		/** The point's moment. */
 		ms: number;
 		/** What a screen reader hears; omitted, the still is decoration beside its caption. */
 		label?: string;
+		/** Its size: 180 px tall across by default; a caller's class replaces it, never adds to it. */
 		class?: string;
 	} = $props();
 
@@ -31,5 +32,5 @@
 	tabindex="-1"
 	aria-hidden={label ? undefined : 'true'}
 	aria-label={label}
-	class="pointer-events-none block h-[180px] w-full bg-chip object-cover {extra}"
+	class="pointer-events-none block bg-chip object-cover {size}"
 ></video>

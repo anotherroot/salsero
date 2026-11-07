@@ -18,6 +18,11 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 	['src/lib/components/exercises/LogShell.svelte', 'aria-hidden', 'skeleton'],
 	['src/lib/components/shell/PageSkeleton.svelte', 'overflow-hidden', 'skeleton, aria-hidden'],
 	[
+		'src/lib/components/positions/PointRow.svelte',
+		'h-10 w-[60px]',
+		'a point row’s still, aria-hidden; nothing focusable inside'
+	],
+	[
 		'src/lib/components/links/YouTubeCard.svelte',
 		'h-16 w-28',
 		'the link itself; its own outline is not clipped'

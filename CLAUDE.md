@@ -246,7 +246,8 @@ src/routes/[dance]/(moves)/positions/  the list (Moves' third segment); [id] a p
                      src/routes/api/positions is the figure picker's New position (JSON)
 src/lib/components/positions/  the New / Edit position sheet and its fields, Templates,
                      How positions work (`HowBody`: the sheet's and the first-run pane's body),
-                     a list row, a point's still and card, the map and its pane (`MapPane`),
+                     a list row, a point's still and its Recordings row (`PointRow`), the position page's
+                     card of three rows and their sheets (`PositionRelations`), the map and its pane (`MapPane`),
                      a position page's link picker. `PositionForm` is one form, drawn in the
                      sheet or in place on the desktop, its edit mode fixed at its start
                      (`mode`, not derived)

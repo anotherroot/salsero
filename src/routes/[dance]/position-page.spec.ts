@@ -235,19 +235,17 @@ describe('the load', () => {
 		});
 		expect(d.canEdit).toBe(true);
 		expect(d.counts).toMatchObject({ inCount: 2, outCount: 2, deadEnd: false, orphan: false });
-		// A figure with two ends is one row naming both; a type unlike Son is named.
+		// A figure with two ends is one row naming both; a position of another type is named with it.
 		expect(d.from).toEqual([
 			{
 				id: o.enchufla,
 				label: 'Enchufla · Complicada',
-				style: 'Son',
 				team: null,
 				ends: ['Abierta, Salsa', 'Setenta, Salsa']
 			},
 			{
 				id: o.kentucky,
 				label: 'Kentucky · Doble',
-				style: 'Son',
 				team: null,
 				ends: ['Manos cruzadas']
 			}
@@ -256,14 +254,12 @@ describe('the load', () => {
 			{
 				id: o.dile,
 				label: 'Dile que no · Cruzado',
-				style: '',
 				team: null,
 				starts: ['Abierta, Salsa']
 			},
 			{
 				id: o.kentucky,
 				label: 'Kentucky · Doble',
-				style: '',
 				team: null,
 				starts: ['Manos cruzadas']
 			}
@@ -313,7 +309,6 @@ describe('the load', () => {
 			{
 				id: g.setenta,
 				label: 'Setenta · Básico',
-				style: 'Salsa',
 				team: 'Tuesdays',
 				ends: ['Abierta']
 			}
@@ -329,9 +324,9 @@ describe('the load', () => {
 		expect(d.historyHref).toBe(`/salsa/groups/1/history/position/${g.hammer}`);
 		const inGroup = loadOf('u2', g.hammer, jar('1'));
 		expect(inGroup.inGroupMode).toBe(true);
-		// The group's own figures; no type lead in the group's own workspace.
+		// The group's own figures; no group lead in the group's own workspace.
 		expect(inGroup.from).toEqual([
-			{ id: g.setenta, label: 'Setenta · Básico', style: '', team: null, ends: ['Abierta'] }
+			{ id: g.setenta, label: 'Setenta · Básico', team: null, ends: ['Abierta'] }
 		]);
 		expect(inGroup.sameAs).toBeNull();
 	});
