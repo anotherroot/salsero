@@ -69,6 +69,7 @@ import { suffixed } from './names';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
 import { hashValue, pairBase, writePair } from './pairs';
+import { markNow } from './marks';
 import { flatOf } from './trees';
 import type { CloneFileKind, CloneFiles } from './files';
 import { copyMusic } from '../song-links';
@@ -510,12 +511,26 @@ export function cloneTx(
 			if (!src) throw new Refusal(DENIED);
 			const m = new Mapper(inner as unknown as Db, req, linked, now, opts);
 			const existing = existingIn(inner, req.kind, src, req.into);
-			let result: CloneResult;
+			let result: Extract<CloneResult, { ok: true }>;
 			if (existing) {
 				if (opts.fill && existing.id !== src.id) m.fill(req.kind, src.id, existing.id);
 				result = { ok: true as const, made: false, ...existing };
 			} else {
 				result = { ok: true as const, id: m.clone(req.kind, src.id), made: true, archived: false };
+			}
+			// Marks: what the source and the copy hold after this write (a restore or fill
+			// lands on `result.id`; roots made inside the copy are marked too).
+			const marked = new Set<string>();
+			const mark = (kind: CloneKind, id: number) => {
+				if (marked.has(`${kind}:${id}`)) return;
+				marked.add(`${kind}:${id}`);
+				markNow(inner as unknown as Db, kind, id, now);
+			};
+			mark(req.kind, src.id);
+			mark(req.kind, result.id);
+			for (const p of m.made) {
+				mark(p.kind, p.from);
+				mark(p.kind, p.id);
 			}
 			opts.made?.push(...m.made);
 			return result;

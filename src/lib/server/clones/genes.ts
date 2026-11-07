@@ -8,7 +8,7 @@
  * a family: another person's own member never appears in it.
  */
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import type { CloneKind, Member, PieceKind, PlaceRef } from '$lib/types';
 import type { Db } from '../db';
@@ -256,4 +256,15 @@ export function visibleMembers(db: Db, userId: string, kind: CloneKind, id: numb
 		});
 	}
 	return out;
+}
+
+/** Every live (not archived) row of a kind that has a gene: its id and gene. Bookkeeping only. */
+export function liveGenes(db: Db, kind: CloneKind): { id: number; gene: string }[] {
+	const c = ROOTS[kind];
+	const rows = db
+		.select({ id: c.id, gene: c.geneId })
+		.from(c.table)
+		.where(kindWhere(kind, isNull(c.archivedAt)))
+		.all() as { id: number; gene: string | null }[];
+	return rows.flatMap((r) => (r.gene === null ? [] : [{ id: r.id, gene: r.gene }]));
 }
