@@ -1,9 +1,10 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, gt, isNull, or, type SQL } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import type { Db } from './db';
 import { invites, users } from './db/schema';
 import { rejectWeak } from './admin';
+import { hashInviteCode } from './invite-code';
 import { hashPassword } from './password';
 import { cleanName } from '$lib/names';
 import { DEFAULT_STORAGE_LIMIT_BYTES, INVITE_TTL_MS } from '$lib/limits';
@@ -24,11 +25,6 @@ export type JoinResult =
 	  };
 
 export const INVITE_REFUSAL = 'This invite no longer works. Ask for a new one.';
-
-/** An invite code as the row keeps it: only the hash is stored. */
-export function hashInviteCode(code: string): string {
-	return createHash('sha256').update(code).digest('hex');
-}
 
 /**
  * An invite's dance: its own, or salsa's for one made before the dance split

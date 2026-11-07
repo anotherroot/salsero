@@ -4,7 +4,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { LOCALE_COOKIE, parseLocale, type Locale } from '$lib/i18n/locale';
 import type { Db } from './db';
 import { invites, users } from './db/schema';
-import { hashInviteCode } from './invites';
+import { hashInviteCode } from './invite-code';
 
 /** A person's language. Anything but a known one throws: the column has no CHECK. */
 export function setLocale(db: Db, userId: string, l: Locale): void {

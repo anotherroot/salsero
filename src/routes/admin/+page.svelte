@@ -38,9 +38,14 @@
 	let copied = $state(false);
 	/** The invite's language: most people invited are Slovenian. */
 	let inviteLocale = $state<Locale | null>('sl');
-	/** Whose language is being saved; every select waits while one is. */
-	let localeSaving = $state<string | null>(null);
+	/** The open person's language: what the Sheet shows, and what the server last took. */
+	let localeChoice = $derived<Locale | null>(person?.locale ?? null);
+	let localeSaved = $derived<Locale | null>(person?.locale ?? null);
+	let localeSaving = $state(false);
 	let localeError = $state('');
+	let localeForm = $state<HTMLFormElement>();
+	/** The language on its way to the server. */
+	let localeSending: Locale | null = null;
 
 	async function share() {
 		if (!invite) return;
@@ -220,79 +225,42 @@
 			{/if}
 
 			<span class="{SECTION_LABEL} mt-[14px]">People</span>
-			{#if localeError}<Banner kind="error" title={localeError} />{/if}
 			<div class={GROUP}>
 				{#each data.people as p (p.id)}
-					<div class="flex items-center">
-						<button
-							type="button"
-							class="{ROW_TALL} min-w-0 flex-1 text-left"
-							onclick={() => {
-								formError = '';
-								person = p;
-							}}
-						>
-							<span class="flex min-w-0 flex-1 flex-col">
-								<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
-								<span class="text-[13px] text-muted">{personMeta(p)}</span>
-								<span class="text-[13px] text-muted"
-									>{groupsMadeLine(p.groupsMade, p.groupLimit)}</span
-								>
-								{#each p.apps as line (line)}
-									<span class="text-[13px] text-muted">{line}</span>
-								{/each}
-							</span>
-							<span class="flex flex-none text-chevron"
-								><Icon name="chevron-right" size={20} /></span
+					<button
+						type="button"
+						class="{ROW_TALL} w-full text-left"
+						onclick={() => {
+							formError = '';
+							person = p;
+						}}
+					>
+						<span class="flex min-w-0 flex-1 flex-col">
+							<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
+							<span class="text-[13px] text-muted">{personMeta(p)}</span>
+							<span class="text-[13px] text-muted"
+								>{groupsMadeLine(p.groupsMade, p.groupLimit)}</span
 							>
-						</button>
-						<form
-							method="POST"
-							action="?/setLocale"
-							class="flex-none pr-3"
-							use:enhance={({ formElement }) => {
-								localeSaving = p.id;
-								localeError = '';
-								return async ({ result, update }) => {
-									try {
-										if (result.type === 'failure' || result.type === 'error') {
-											localeError =
-												result.type === 'failure'
-													? String(result.data?.message ?? t().admin.languageFailed)
-													: t().admin.languageFailed;
-											const select = formElement.elements.namedItem('locale');
-											if (select instanceof HTMLSelectElement) select.value = p.locale;
-										}
-										await update({ reset: false });
-									} finally {
-										localeSaving = null;
-									}
-								};
-							}}
-						>
-							<input type="hidden" name="userId" value={p.id} />
-							<select
-								name="locale"
-								aria-label="{t().admin.language}: {p.email}"
-								class="h-10 rounded-full border border-field-line bg-surface px-3 font-sans text-[14px] font-semibold text-ink disabled:text-disabled-ink"
-								value={p.locale}
-								disabled={localeSaving !== null}
-								aria-busy={localeSaving === p.id}
-								onchange={(e) => e.currentTarget.form?.requestSubmit()}
-							>
-								{#each LOCALES as l (l)}
-									<option value={l}>{LOCALE_NAME[l]}</option>
-								{/each}
-							</select>
-						</form>
-					</div>
+							{#each p.apps as line (line)}
+								<span class="text-[13px] text-muted">{line}</span>
+							{/each}
+						</span>
+						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</button>
 				{/each}
 			</div>
 		</div>
 	</div>
 </Screen>
 
-<Sheet title={person?.email ?? 'Limit'} open={person !== null} onclose={() => (person = null)}>
+<Sheet
+	title={person?.email ?? 'Limit'}
+	open={person !== null}
+	onclose={() => {
+		person = null;
+		localeError = '';
+	}}
+>
 	{#if person}
 		<form
 			method="POST"
@@ -358,6 +326,54 @@
 			<button type="submit" name="default" value="1" class={button('secondary', 'md', true)}>
 				Use the default
 			</button>
+		</form>
+		<form
+			bind:this={localeForm}
+			method="POST"
+			action="?/setLocale"
+			class="flex flex-col gap-2 pb-4"
+			use:enhance={({ formData, cancel }) => {
+				// One at a time: a second pick while one saves goes back to the one saving.
+				if (localeSaving) {
+					localeChoice = localeSending;
+					return cancel();
+				}
+				const sent = formData.get('locale') as Locale;
+				localeSending = sent;
+				localeSaving = true;
+				localeError = '';
+				return async ({ result, update }) => {
+					try {
+						if (result.type === 'success') localeSaved = sent;
+						else {
+							localeError =
+								result.type === 'failure'
+									? String(result.data?.message ?? t().admin.languageFailed)
+									: t().admin.languageFailed;
+							localeChoice = localeSaved;
+						}
+						await update({ reset: false });
+					} finally {
+						localeSaving = false;
+					}
+				};
+			}}
+		>
+			<input type="hidden" name="userId" value={person.id} />
+			<div class="flex items-center gap-2">
+				<span class={LABEL}>{t().admin.language}</span>
+				{#if localeSaving}<Spinner size={14} />{/if}
+			</div>
+			<div aria-busy={localeSaving}>
+				<Segmented
+					name="locale"
+					label={t().admin.language}
+					items={LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }))}
+					bind:value={localeChoice}
+					onchange={() => localeForm?.requestSubmit()}
+				/>
+			</div>
+			{#if localeError}<Banner kind="error" title={localeError} />{/if}
 		</form>
 	{/if}
 </Sheet>

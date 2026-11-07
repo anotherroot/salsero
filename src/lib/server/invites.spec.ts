@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { invites, users } from './db/schema';
-import { createInvite, hashInviteCode, inviteQr, inviteValid, redeemInvite } from './invites';
+import { hashInviteCode } from './invite-code';
+import { createInvite, inviteQr, inviteValid, redeemInvite } from './invites';
 import { DEFAULT_STORAGE_LIMIT_BYTES, INVITE_TTL_MS } from '$lib/limits';
 
 const T0 = 1_760_000_000_000;
