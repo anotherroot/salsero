@@ -67,16 +67,40 @@ export function suffixOnly(d: FieldDiff): boolean {
 }
 
 /**
+ * The link removals of a save a receiver must not take: when the same save
+ * brings a new recording or lesson video (`rec:<g>` / `video:<g>` newly on
+ * the giver's side) that the receiver's options refuse, every `link:` removal
+ * of that save is held back for it. That is a saved YouTube video becoming a
+ * recording: without this, a copy with media off would lose the link and get
+ * nothing in its place. Same arguments as `flowKeys`.
+ */
+export function holdLinkRemovals(saved: string[], pair: FieldDiff[], into: SyncSettings): string[] {
+	const ours = (d: FieldDiff) => saved.includes(d.key) && d.side === 'theirs';
+	const refusedPiece = pair.some(
+		(d) =>
+			ours(d) &&
+			!d.removal &&
+			d.mine === null &&
+			pieceParts(d.key)?.part === 'piece' &&
+			!allows(into, d.key, false)
+	);
+	if (!refusedPiece) return [];
+	return pair.filter((d) => ours(d) && d.removal && d.key.startsWith('link:')).map((d) => d.key);
+}
+
+/**
  * The keys of a save that flow into a receiver. `pair` is
  * `diff(base, receiver as mine, giver as theirs)`: a key flows when this save
  * changed it, only the giver's side moved since the base, the receiver's
- * settings allow it, and it is not just a copy's name suffix.
+ * settings allow it, and it is not just a copy's name suffix; and it is not a
+ * link removal held back for a refused new piece (`holdLinkRemovals`).
  */
 export function flowKeys(saved: string[], pair: FieldDiff[], into: SyncSettings): string[] {
+	const held = new Set(holdLinkRemovals(saved, pair, into));
 	const out: string[] = [];
 	for (const d of pair) {
 		if (!saved.includes(d.key) || d.side !== 'theirs') continue;
-		if (!allows(into, d.key, d.removal) || suffixOnly(d)) continue;
+		if (!allows(into, d.key, d.removal) || suffixOnly(d) || held.has(d.key)) continue;
 		out.push(d.key);
 	}
 	return out;

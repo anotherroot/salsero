@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DANCES } from '$lib/dances/dances';
 import {
+	practiceOf,
+	practiceToPost,
 	defaultPracticeConfig,
 	hourOfBars,
 	minutesFrom,
@@ -179,5 +181,60 @@ describe('practiceStart', () => {
 			songId: null,
 			songGone: true
 		});
+	});
+});
+
+describe('practiceToPost', () => {
+	const row = {
+		practiceMode: 'count' as const,
+		songId: null,
+		countBpm: 180,
+		practiceJson: JSON.stringify({ count: 'salsa', clave: '2-3', speed: 1, callEvery: null })
+	};
+	const config = { count: 'salsa', clave: '2-3', speed: 1, callEvery: null } as const;
+	const loaded = () => practiceOf(row, salsa);
+
+	it('reads what the page loaded as the endpoint would store it', () => {
+		expect(loaded()).toEqual({ mode: 'count', songId: null, countBpm: 180, config });
+		expect(practiceOf({ ...row, practiceMode: 'none' }, salsa)).toBeNull();
+		expect(practiceOf({ ...row, practiceMode: 'song', songId: 4, countBpm: 120 }, salsa)).toEqual({
+			mode: 'song',
+			songId: 4,
+			countBpm: null,
+			config
+		});
+	});
+
+	it('posts nothing when Play keeps what was loaded', () => {
+		// The song picker's songId is not stored for a count run.
+		expect(
+			practiceToPost(loaded(), { source: 'count', songId: 9, bpm: 180, config: { ...config } })
+		).toBeNull();
+	});
+
+	it('posts what differs: the bpm, the source, the song or the config', () => {
+		const next = { source: 'count' as const, songId: null, bpm: 180, config: { ...config } };
+		expect(practiceToPost(loaded(), { ...next, bpm: 150 })).toEqual({
+			mode: 'count',
+			songId: null,
+			countBpm: 150,
+			config
+		});
+		expect(practiceToPost(loaded(), { ...next, source: 'song', songId: 3 })).toEqual({
+			mode: 'song',
+			songId: 3,
+			countBpm: null,
+			config
+		});
+		expect(practiceToPost(loaded(), { ...next, config: { ...config, speed: 0.8 } })).not.toBeNull();
+		expect(
+			practiceToPost(loaded(), { ...next, config: { ...config, clave: null } })
+		).not.toBeNull();
+	});
+
+	it('posts on first practice, when nothing was remembered', () => {
+		expect(
+			practiceToPost(null, { source: 'count', songId: null, bpm: 180, config: { ...config } })
+		).not.toBeNull();
 	});
 });

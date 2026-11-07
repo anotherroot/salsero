@@ -15,12 +15,14 @@ import {
 	recordings,
 	teamChanges,
 	users,
+	videoDownloads,
 	videoSpots
 } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { addLinks, deleteLink } from '../links';
+import { completeVideoJob, requestVideoDownload } from '../video-downloads';
 import { addSpot, deleteSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { crossRefs, familyIntegrity } from '../integrity';
@@ -298,6 +300,43 @@ describe('flowFrom', () => {
 		expect(three.landed).toContain(G2f);
 		expect(row(G2f).notes).toBe('Later');
 		expect(recsOn(G2f)).toHaveLength(0);
+		expect(familyIntegrity(db)).toEqual([]);
+	});
+
+	it('a saved video: media off keeps the link and gets no recording; media on takes both', async () => {
+		const YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+		addLinks(db, { figureId: F }, [YT], null);
+		save(F, { notes: 'With a video' });
+		await flow('u1', F);
+		expect(linksOn(G1f)).toContain(YT);
+		expect(linksOn(G2f)).toContain(YT);
+		settings('u1', G2f, { media: true });
+		// The home worker saves it: one transaction removes the link and adds the recording.
+		const linkId = db
+			.select()
+			.from(links)
+			.where(and(eq(links.figureId, F), eq(links.url, YT)))
+			.get()!.id;
+		expect(requestVideoDownload(db, { figureId: F }, linkId, 'u1')).toBe('ok');
+		const job = db.select().from(videoDownloads).get()!;
+		const done = completeVideoJob(
+			db,
+			job.id,
+			{ file: 'yt.mp4', mime: 'video/mp4', sizeBytes: 50 },
+			ROOMY
+		);
+		expect(done).toHaveProperty('recordingId');
+		expect(linksOn(F)).not.toContain(YT);
+
+		const report = await flow('u1', F);
+		expect(report.refused).toEqual([]);
+		// G1, media off: the link stays, no recording.
+		expect(linksOn(G1f)).toContain(YT);
+		expect(recsOn(G1f)).toHaveLength(0);
+		// G2, media on: the recording comes, the link goes.
+		expect(linksOn(G2f)).not.toContain(YT);
+		expect(recsOn(G2f)).toHaveLength(1);
+		expect(crossRefs(db)).toEqual([]);
 		expect(familyIntegrity(db)).toEqual([]);
 	});
 

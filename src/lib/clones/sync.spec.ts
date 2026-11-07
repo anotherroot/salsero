@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, Flat } from '$lib/types';
 import { fieldLabel } from './flat';
-import { allows, changedKeys, classOf, DEFAULT_SYNC, flowKeys, suffixOnly } from './sync';
+import {
+	allows,
+	changedKeys,
+	classOf,
+	DEFAULT_SYNC,
+	flowKeys,
+	holdLinkRemovals,
+	suffixOnly
+} from './sync';
 
 const h = (v: string) => `h(${v})`;
 
@@ -82,5 +90,48 @@ describe('flowKeys', () => {
 		const real = [d('name', 'Basic', 'Basic step', 'theirs')];
 		expect(suffixOnly(real[0])).toBe(false);
 		expect(flowKeys(['name'], real, DEFAULT_SYNC)).toEqual(['name']);
+	});
+});
+
+describe('holdLinkRemovals', () => {
+	// A saved video: in one save the link goes and the recording (or lesson video) arrives.
+	const became = (piece: string) => [
+		d('link:https://youtu.be/x', '1', null, 'theirs'),
+		d(piece, null, 'video/mp4|1', 'theirs'),
+		d('link:https://other', '1', null, 'theirs')
+	];
+	const saved = (piece: string) => ['link:https://youtu.be/x', piece, 'link:https://other'];
+
+	it("holds back the save's link removals when a new piece it brings is refused", () => {
+		for (const piece of ['rec:g1', 'video:g2']) {
+			expect(holdLinkRemovals(saved(piece), became(piece), DEFAULT_SYNC)).toEqual([
+				'link:https://youtu.be/x',
+				'link:https://other'
+			]);
+			expect(flowKeys(saved(piece), became(piece), DEFAULT_SYNC)).toEqual([]);
+		}
+	});
+	it('holds nothing when the receiver takes the piece', () => {
+		const media = { ...DEFAULT_SYNC, media: true };
+		expect(holdLinkRemovals(saved('rec:g1'), became('rec:g1'), media)).toEqual([]);
+		expect(flowKeys(saved('rec:g1'), became('rec:g1'), media)).toEqual([
+			'link:https://youtu.be/x',
+			'rec:g1',
+			'link:https://other'
+		]);
+	});
+	it('holds nothing without a refused new piece in this save', () => {
+		const pair = became('rec:g1');
+		// The recording is not this save's change (or is not new on the giver's side).
+		expect(holdLinkRemovals(['link:https://youtu.be/x'], pair, DEFAULT_SYNC)).toEqual([]);
+		const gone = [
+			d('link:https://youtu.be/x', '1', null, 'theirs'),
+			d('rec:g1', '1', null, 'theirs')
+		];
+		expect(holdLinkRemovals(['link:https://youtu.be/x', 'rec:g1'], gone, DEFAULT_SYNC)).toEqual([]);
+		// Other removals are not held: only links.
+		const tag = [d('start:p', '1', null, 'theirs'), d('rec:g1', null, 'v', 'theirs')];
+		expect(holdLinkRemovals(['start:p', 'rec:g1'], tag, DEFAULT_SYNC)).toEqual([]);
+		expect(flowKeys(['start:p', 'rec:g1'], tag, DEFAULT_SYNC)).toEqual(['start:p']);
 	});
 });
