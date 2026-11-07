@@ -256,7 +256,7 @@ is the feature, not a regression, but it is invisible until you re-add them.
 
 ## The dance split's rollout (once, 2026-11)
 
-The deploy that carries migration `0032` splits every account that holds both
+The deploy that carries migration `0033` splits every account that holds both
 dances at boot (`splitAccounts`: the boot log says `[accounts] dances assigned:
 N, split: M`, and `[integrity] dances: 0 found`). In this order, each step with
 the user's go:
