@@ -139,24 +139,18 @@ describe('positions view', () => {
 			'Open'
 		]);
 	});
-	it('figureFromRow and figureIntoRow', () => {
-		expect(
-			v.figureFromRow({
-				label: 'Enchufla · Complicada',
-				style: 'Son',
-				ends: ['Abierta (dos manos), Salsa']
-			})
-		).toBe('Son → ends in Abierta (dos manos), Salsa');
-		expect(v.figureFromRow({ label: 'k', style: 'Son', ends: ['A', 'B'] })).toBe(
-			'Son → ends in A or B'
+	it('fromMeta and intoMeta: where each figure ends or starts, never its type', () => {
+		expect(v.fromMeta({ ends: ['Abierta (dos manos), Salsa'] })).toBe(
+			'Ends in Abierta (dos manos), Salsa'
 		);
-		expect(v.figureFromRow({ label: 'k', style: 'Son', ends: [] })).toBe('Son');
-		expect(
-			v.figureIntoRow({ label: 'Dile que no · Cruzado', starts: ['Cerrada'], style: 'Salsa' })
-		).toBe('from Cerrada, Salsa');
-		expect(v.figureIntoRow({ label: 'k', starts: ['Manos cruzadas'], style: '' })).toBe(
-			'from Manos cruzadas'
+		expect(v.fromMeta({ ends: ['A', 'B'] })).toBe('Ends in A or B');
+		expect(v.fromMeta({ ends: [] })).toBe('');
+		expect(v.intoMeta({ starts: ['Cerrada'] })).toBe('From Cerrada');
+		expect(v.intoMeta({ starts: ['Manos cruzadas', 'Cerrada'] })).toBe(
+			'From Manos cruzadas or Cerrada'
 		);
+		// A figure with no start (it fits anywhere) still ends here: no dangling "from".
+		expect(v.intoMeta({ starts: [] })).toBe('');
 	});
 	it('deadEnd', () => {
 		expect(v.deadEnd('Caída', 2)).toEqual({
@@ -191,9 +185,6 @@ describe('positions view', () => {
 				[9, 10]
 			])
 		).toBe('Slots 1 → 2, 5 → 6 and 9 → 10');
-	});
-	it('moreLine', () => {
-		expect(v.moreLine(2)).toBe('and 2 more');
 	});
 	it('pointLabel', () => {
 		expect(v.pointLabel(72_000)).toBe('Point at 1:12');
@@ -399,7 +390,6 @@ describe('words that were in the screens', () => {
 			archiving: 'Archiving position'
 		});
 		expect(v.TEMPLATE_PICK).toBe('Template');
-		expect(v.PAUSE).toBe('Pause');
 	});
 	it('names what an Unlink takes from where', () => {
 		expect(v.unlinkLabel('Point at 1:12', 'Manos cruzadas')).toBe(
@@ -466,21 +456,15 @@ describe('the position sheet’s words', () => {
 });
 
 describe('a position’s page', () => {
-	it('names a group’s figure by its group, and drops the lead in the group’s own workspace', () => {
-		expect(
-			v.figureFromRow({
-				label: 'Setenta · Básico',
-				style: 'Salsa',
-				team: 'Salsa Tuesdays',
-				ends: ['Abierta (dos manos)']
-			})
-		).toBe('Salsa Tuesdays’ · ends in Abierta (dos manos)');
-		expect(v.figureFromRow({ label: 'k', style: 'Salsa', team: 'Club', ends: [] })).toBe('Club’s');
-		expect(v.figureFromRow({ label: 'k', style: '', ends: ['Abierta'] })).toBe('ends in Abierta');
-		expect(v.figureFromRow({ label: 'k', style: '', ends: [] })).toBe('');
-		expect(
-			v.figureIntoRow({ label: 'k', starts: ['Cerrada'], style: '', team: 'Salsa Tuesdays' })
-		).toBe('Salsa Tuesdays’ · from Cerrada');
+	it('names a group’s figure by its group', () => {
+		expect(v.fromMeta({ team: 'Salsa Tuesdays', ends: ['Abierta (dos manos)'] })).toBe(
+			'Salsa Tuesdays’ · ends in Abierta (dos manos)'
+		);
+		expect(v.fromMeta({ team: 'Club', ends: [] })).toBe('Club’s');
+		expect(v.intoMeta({ starts: ['Cerrada'], team: 'Salsa Tuesdays' })).toBe(
+			'Salsa Tuesdays’ · from Cerrada'
+		);
+		expect(v.intoMeta({ starts: ['Cerrada'], team: null })).toBe('From Cerrada');
 	});
 
 	it('leads the subtitle with where a copy came from', () => {
@@ -506,11 +490,45 @@ describe('a position’s page', () => {
 		);
 	});
 
-	it('titles the sections with their counts', () => {
-		expect(v.fromTitle(3)).toBe('Figures from here · 3');
-		expect(v.intoTitle(0)).toBe('Figures into here · 0');
-		expect(v.routinesTitle(4)).toBe('In routines · 4');
-		expect(v.NONE_YET).toBe('None yet.');
+	it('the card of three rows: counts, and an empty one says None and does not open', () => {
+		expect(v.relationRows({ from: 10, into: 0, routines: 1 })).toEqual([
+			{ key: 'from', label: 'Figures from here', count: '10', opens: true },
+			{ key: 'into', label: 'Figures into here', count: 'None', opens: false },
+			{ key: 'routines', label: 'In routines', count: '1', opens: true }
+		]);
+		expect(v.relationTitle('from', 10)).toBe('Figures from here');
+		expect(v.relationTitle('into', 1)).toBe('Figures into here');
+		expect(v.relationTitle('routines', 1)).toBe('In 1 routine');
+		expect(v.relationTitle('routines', 3)).toBe('In 3 routines');
+		expect(v.newFigureLabel('from', 'Cerrada')).toBe('New figure from Cerrada');
+		expect(v.newFigureLabel('into', 'Cerrada')).toBe('New figure into Cerrada');
+	});
+
+	it('the page’s own ⋯ items, each only where its href is given', () => {
+		const all = v.positionMenuItems({
+			name: 'Cerrada',
+			newFrom: '/f?new=1&start=3',
+			newInto: '/f?new=1&end=3',
+			mapHref: '/map?pick=3',
+			historyHref: '/h'
+		});
+		expect(all.map((i) => [i.key, i.label, i.meta ?? null, i.href])).toEqual([
+			['newFrom', 'New figure from here', 'Starts in Cerrada', '/f?new=1&start=3'],
+			['newInto', 'New figure into here', 'Ends in Cerrada', '/f?new=1&end=3'],
+			['map', 'Show on the map', null, '/map?pick=3'],
+			['history', 'History', null, '/h']
+		]);
+		expect(
+			v
+				.positionMenuItems({
+					name: 'Cerrada',
+					newFrom: null,
+					newInto: null,
+					mapHref: '/map?pick=3',
+					historyHref: null
+				})
+				.map((i) => i.key)
+		).toEqual(['map']);
 	});
 
 	it('names a point card’s video, and says when it is the picture', () => {
@@ -619,10 +637,12 @@ describe("a position's Video and Lessons", () => {
 	});
 
 	it('titles and openers', () => {
-		expect(v.videoTitle(3)).toBe('Video · 3');
+		expect(v.recordingsTitle(3)).toBe('Recordings · 3');
+		expect(v.recordingsTitle(0)).toBe('Recordings');
 		expect(v.lessonsTitle(2)).toBe('Lessons · 2');
-		expect(v.LINK_SPOT).toBe('Link a section or point…');
-		expect(v.LINK_LESSON).toBe('Link a lesson…');
+		expect(v.lessonsTitle(0)).toBe('Lessons');
+		expect(v.ADD_SPOT).toEqual({ label: 'Add', aria: 'Add a section or point to Recordings' });
+		expect(v.LINK_LESSON).toEqual({ label: 'Link', aria: 'Link a lesson' });
 		expect(v.linkSpotsTitle('Manos cruzadas')).toBe('Link to Manos cruzadas');
 		expect(v.linkSpotsSub(null)).toBe('Sections and points of your lessons and recordings');
 		expect(v.linkSpotsSub('Salsa Tuesdays')).toBe(
@@ -820,21 +840,21 @@ describe("a position's Video and Lessons", () => {
 	});
 
 	it('unlinkFocus: where focus goes when the list has no row left to take it', () => {
-		// An editor: the list's own opener, then Edit.
+		// An editor: the list's own Add or Link, then Edit.
 		expect(v.unlinkFocus('spot', { canLink: true, canEditPosition: true })).toEqual([
 			'link-spot',
 			'edit-position',
-			'video-heading',
-			'from-heading'
+			'recordings-heading',
+			'relations'
 		]);
 		// A reader unlinking their own: no opener, no Edit; the list's heading, else the page's first.
 		expect(v.unlinkFocus('lesson', { canLink: false, canEditPosition: false })).toEqual([
 			'lessons-heading',
-			'from-heading'
+			'relations'
 		]);
 		expect(v.unlinkFocus('spot', { canLink: false, canEditPosition: false })).toEqual([
-			'video-heading',
-			'from-heading'
+			'recordings-heading',
+			'relations'
 		]);
 	});
 
