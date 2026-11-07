@@ -239,6 +239,13 @@
       "when": 1794041618265,
       "tag": "0033_material_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1794089601952,
+      "tag": "0034_unusual_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }

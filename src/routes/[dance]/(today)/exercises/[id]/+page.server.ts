@@ -37,6 +37,7 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
+import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 import type { Actions, PageServerLoad } from './$types';
 
 type FromClass = ReturnType<typeof fromClassOf>;
@@ -171,6 +172,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		archived: false,
 		notes: row.notes,
 		createdAt: row.createdAt,
+		comesBack: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+		comesBackOwn: parseComesBack(row.comesBack),
+		comesBackTeacher: null,
+		warmup: false,
+		warmupOrder: null,
 		team: { id: row.teamId, name: getTeam(db, row.teamId)?.name ?? '' }
 	};
 	// No entry yet: Add, through a lesson that holds the drill (R7). One the

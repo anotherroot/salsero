@@ -2,7 +2,9 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, sets } from './db/schema';
 import { ownedBy, type Wall } from './scope';
-import { replay, type ScheduleSet, type ScheduleState } from '$lib/schedule/schedule';
+import { alias } from 'drizzle-orm/sqlite-core';
+import { scheduleOf, type DueState, type ScheduleSet } from '$lib/schedule/schedule';
+import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 
 /** Every set of the wall's exercises (archived ones too), with its exercise. */
 export function listScheduleSets(db: Db, wall: Wall): (ScheduleSet & { exerciseId: number })[] {
@@ -20,10 +22,19 @@ export function scheduleStates(
 	wall: Wall,
 	timeZone: string,
 	beforeDay?: string
-): Map<number, ScheduleState> {
+): Map<number, DueState> {
+	const drills = alias(exercises, 'drills');
 	const rows = db
-		.select({ id: exercises.id, everyDays: exercises.everyDays, createdAt: exercises.createdAt })
+		.select({
+			id: exercises.id,
+			source: exercises.source,
+			everyDays: exercises.everyDays,
+			createdAt: exercises.createdAt,
+			own: exercises.comesBack,
+			drill: drills.comesBack
+		})
 		.from(exercises)
+		.leftJoin(drills, eq(drills.id, exercises.drillId))
 		.where(and(isNull(exercises.archivedAt), ownedBy(exercises, wall)))
 		.all();
 	const byExercise = new Map<number, ScheduleSet[]>();
@@ -35,21 +46,50 @@ export function scheduleStates(
 	return new Map(
 		rows.map((r) => [
 			r.id,
-			replay(r.everyDays, r.createdAt, byExercise.get(r.id) ?? [], timeZone, beforeDay)
+			scheduleOf(
+				r.everyDays,
+				r.createdAt,
+				byExercise.get(r.id) ?? [],
+				effectiveComesBack(
+					r.source,
+					parseComesBack(r.own),
+					r.source === 'added' ? parseComesBack(r.drill) : null
+				),
+				timeZone,
+				beforeDay
+			)
 		])
 	);
 }
 
 /** One exercise's schedule, archived or not. Not owner-scoped: callers must check access first. */
-export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): ScheduleState {
+export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): DueState {
 	const row = db.select().from(exercises).where(eq(exercises.id, exerciseId)).get();
 	if (!row) throw new Error(`No exercise ${exerciseId}`);
+	const teacher =
+		row.source === 'added' && row.drillId !== null
+			? db
+					.select({ comesBack: exercises.comesBack })
+					.from(exercises)
+					.where(eq(exercises.id, row.drillId))
+					.get()
+			: undefined;
 	const rows = db
 		.select({ doneAt: sets.doneAt, rating: sets.rating })
 		.from(sets)
 		.where(eq(sets.exerciseId, exerciseId))
 		.all();
-	return replay(row.everyDays, row.createdAt, rows, timeZone);
+	return scheduleOf(
+		row.everyDays,
+		row.createdAt,
+		rows,
+		effectiveComesBack(
+			row.source,
+			parseComesBack(row.comesBack),
+			parseComesBack(teacher?.comesBack)
+		),
+		timeZone
+	);
 }
 
 /**
@@ -63,7 +103,7 @@ export function scheduleForShown(
 	wall: Wall,
 	timeZone: string,
 	rows: { id: number | null | undefined; mineId?: number | null }[]
-): Record<number, ScheduleState> {
+): Record<number, DueState> {
 	const states = scheduleStates(db, wall, timeZone);
 	const entries = new Map(
 		db
@@ -74,7 +114,7 @@ export function scheduleForShown(
 			.filter((e) => e.drillId !== null)
 			.map((e) => [e.drillId as number, e.id])
 	);
-	const out: Record<number, ScheduleState> = {};
+	const out: Record<number, DueState> = {};
 	for (const r of rows) {
 		if (r.id == null) continue;
 		const own = [r.mineId, entries.get(r.id), r.id].find((x) => x != null && states.has(x));

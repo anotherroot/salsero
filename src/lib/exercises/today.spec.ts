@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
 import type { DayPick } from '$lib/schedule/picks';
-import type { ScheduleState } from '$lib/schedule/schedule';
+import { FACES } from '$lib/schedule/comes-back';
+import type { DueState } from '$lib/schedule/schedule';
 import type { DaySet, ExerciseItem } from '$lib/types';
 import {
 	deletedGroupName,
@@ -34,21 +35,28 @@ function ex(id: number, name = `E${id}`): ExerciseItem {
 		archived: false,
 		notes: null,
 		createdAt: 0,
+		comesBack: FACES,
+		comesBackOwn: null,
+		comesBackTeacher: null,
+		warmup: false,
+		warmupOrder: null,
 		team: null
 	};
 }
 
-const st = (dueDay: string, gap = 3, lastDay: string | null = '2026-11-01'): ScheduleState => ({
+const st = (dueDay: string, gap = 3, lastDay: string | null = '2026-11-01'): DueState => ({
 	gap,
 	lastDay,
-	dueDay
+	dueDay,
+	every: null,
+	learning: null
 });
 
 function row(
 	kind: RowKind,
 	o: {
-		start?: ScheduleState;
-		state?: ScheduleState;
+		start?: DueState;
+		state?: DueState;
 		neverDone?: boolean;
 		pick?: DayPick['kind'];
 	} = {}

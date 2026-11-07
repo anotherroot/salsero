@@ -1,3 +1,4 @@
+import { FACES } from './comes-back';
 import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { RATING_OF } from './feel';
@@ -27,6 +28,9 @@ const ex = (name: string, createdDay: string, over: Partial<DayExercise> = {}): 
 	archived: false,
 	createdAt: at(createdDay, 9),
 	everyDays: 3,
+	comesBack: FACES,
+	warmup: false,
+	warmupOrder: null,
 	...over
 });
 const set = (e: DayExercise, d: string, h = 12, rating: number | null = RATING_OF.gotit) => ({

@@ -5,6 +5,7 @@ import { exercises, songDrops } from './db/schema';
 import {
 	archiveExercise,
 	createCustomExercise,
+	listExercises,
 	listPickExercises,
 	setPracticeSettings
 } from './exercises';
@@ -13,6 +14,7 @@ import { shareSong, unshareSong } from './song-share';
 import { CLASS_ED, CLASS_T, makeClass, readyGroupSong, type Class } from './test-class';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
+import { FACES } from '$lib/schedule/comes-back';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
@@ -192,5 +194,55 @@ describe('a song of their own, picked after a drop', () => {
 		shareSong(db, CLASS_ED, c.shared, CLASS_T + 2);
 		const row = db.select().from(exercises).where(eq(exercises.id, c.entry)).get()!;
 		expect([row.practiceMode, row.songId]).toEqual(['song', own]);
+	});
+});
+
+describe('listExercises: comes back and warm-up', () => {
+	const MAJA = { userId: 'u3', dance: 'salsa' as const };
+	const EVERY_2 = JSON.stringify({ kind: 'every', days: 2 });
+	const EVERY_7 = JSON.stringify({ kind: 'every', days: 7 });
+
+	it("gives an entry its class drill's setting, and its own when it has one", () => {
+		const c = makeClass(db);
+		db.update(exercises).set({ comesBack: EVERY_2 }).where(eq(exercises.id, c.drill)).run();
+		const entry = () => listExercises(db, MAJA).find((e) => e.id === c.entry)!;
+		expect(entry().comesBack).toEqual({ kind: 'every', days: 2 });
+		expect(entry().comesBackOwn).toBeNull();
+		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
+
+		db.update(exercises).set({ comesBack: EVERY_7 }).where(eq(exercises.id, c.entry)).run();
+		expect(entry().comesBack).toEqual({ kind: 'every', days: 7 });
+		expect(entry().comesBackOwn).toEqual({ kind: 'every', days: 7 });
+		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
+	});
+
+	it('reads a lesson review as faces whatever the column holds, and junk as faces', () => {
+		const c = makeClass(db);
+		const reviewId = db
+			.insert(exercises)
+			.values({
+				name: 'Review',
+				source: 'lesson',
+				lessonId: c.lesson,
+				userId: 'u3',
+				dance: 'salsa',
+				comesBack: EVERY_2
+			})
+			.returning({ id: exercises.id })
+			.get().id;
+		expect(listExercises(db, MAJA).find((e) => e.id === reviewId)!.comesBack).toEqual(FACES);
+
+		const own = createCustomExercise(db, U1_SALSA, { name: 'Junk', everyDays: 2, notes: null });
+		db.update(exercises).set({ comesBack: 'junk' }).where(eq(exercises.id, own.id)).run();
+		const row = listExercises(db, U1_SALSA).find((e) => e.id === own.id)!;
+		expect(row.comesBack).toEqual(FACES);
+		expect(row.comesBackOwn).toBeNull();
+	});
+
+	it('has no warm-up by default', () => {
+		createCustomExercise(db, U1_SALSA, { name: 'A', everyDays: 2, notes: null });
+		const [row] = listExercises(db, U1_SALSA);
+		expect(row.warmup).toBe(false);
+		expect(row.warmupOrder).toBeNull();
 	});
 });

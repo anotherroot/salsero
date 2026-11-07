@@ -1,3 +1,4 @@
+import { FACES } from './comes-back';
 import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { comingUp } from './coming-up';
@@ -17,6 +18,9 @@ const ex = (name: string, createdDay: string, over: Partial<DayExercise> = {}): 
 	archived: false,
 	createdAt: at(createdDay, 9),
 	everyDays: 3,
+	comesBack: FACES,
+	warmup: false,
+	warmupOrder: null,
 	...over
 });
 const pick = (e: DayExercise, kind: DayPick['kind']): DayPick => ({

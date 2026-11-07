@@ -12,6 +12,7 @@ import {
 	sql,
 	sum
 } from 'drizzle-orm';
+import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
@@ -58,6 +59,10 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 			active: exercises.active,
 			notes: exercises.notes,
 			createdAt: exercises.createdAt,
+			ownComesBack: exercises.comesBack,
+			drillComesBack: drills.comesBack,
+			warmup: exercises.warmup,
+			warmupOrder: exercises.warmupOrder,
 			teamId: sql<
 				number | null
 			>`coalesce(${lessons.teamId}, ${routines.teamId}, ${figures.teamId}, ${drills.teamId})`
@@ -86,11 +91,18 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 					.all()
 					.map((t) => [t.id, t.name] as [number, string])
 	);
-	return rows.map(({ teamId, ...r }) => ({
-		...r,
-		archived: false,
-		team: teamId === null ? null : { id: teamId, name: names.get(teamId) ?? '' }
-	}));
+	return rows.map(({ teamId, ownComesBack, drillComesBack, ...r }) => {
+		const own = parseComesBack(ownComesBack);
+		const teacher = r.source === 'added' ? parseComesBack(drillComesBack) : null;
+		return {
+			...r,
+			comesBack: effectiveComesBack(r.source, own, teacher),
+			comesBackOwn: own,
+			comesBackTeacher: teacher,
+			archived: false,
+			team: teamId === null ? null : { id: teamId, name: names.get(teamId) ?? '' }
+		};
+	});
 }
 
 /** Every live exercise of the dance as a picker offers it, by name. Nothing is linked. */

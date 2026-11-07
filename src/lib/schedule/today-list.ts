@@ -4,7 +4,8 @@
  * sets), so doing something else first never pushes a row off.
  */
 import { localDay, shiftDay } from '$lib/day/day';
-import { replay, type ScheduleSet, type ScheduleState } from './schedule';
+import { scheduleOf, type DueState, type ScheduleSet } from './schedule';
+import type { ComesBack } from './comes-back';
 import type { DayPick, PickKind } from './picks';
 
 export type { DayPick, PickKind };
@@ -16,6 +17,9 @@ export interface DayExercise {
 	archived: boolean;
 	createdAt: number;
 	everyDays: number;
+	comesBack: ComesBack;
+	warmup: boolean;
+	warmupOrder: number | null;
 }
 
 export interface DayInput<E extends DayExercise> {
@@ -34,9 +38,9 @@ export interface DayRow<E> {
 	exercise: E;
 	kind: RowKind;
 	/** With today's sets. */
-	state: ScheduleState;
+	state: DueState;
 	/** At the start of the day. */
-	start: ScheduleState;
+	start: DueState;
 	neverDone: boolean;
 	pick: DayPick | null;
 }
@@ -53,8 +57,8 @@ export interface DayList<E> {
 
 interface Entry<E> {
 	e: E;
-	state: ScheduleState;
-	start: ScheduleState;
+	state: DueState;
+	start: DueState;
 	firstToday: number | null;
 }
 
@@ -67,8 +71,8 @@ export interface Worked<E extends DayExercise> {
 
 /** Due day, then creation, then name. */
 function byDue<E extends DayExercise>(
-	a: { e: E; start: ScheduleState },
-	b: { e: E; start: ScheduleState }
+	a: { e: E; start: DueState },
+	b: { e: E; start: DueState }
 ): number {
 	if (a.start.dueDay !== b.start.dueDay) return a.start.dueDay < b.start.dueDay ? -1 : 1;
 	return a.e.createdAt - b.e.createdAt || a.e.name.localeCompare(b.e.name);
@@ -90,8 +94,8 @@ export function workOf<E extends DayExercise>(input: DayInput<E>): Worked<E> {
 		const todays = sets.filter((s) => localDay(s.doneAt, tz) === today).map((s) => s.doneAt);
 		entry.set(e.id, {
 			e,
-			state: replay(e.everyDays, e.createdAt, sets, tz),
-			start: replay(e.everyDays, e.createdAt, sets, tz, today),
+			state: scheduleOf(e.everyDays, e.createdAt, sets, e.comesBack, tz),
+			start: scheduleOf(e.everyDays, e.createdAt, sets, e.comesBack, tz, today),
 			firstToday: todays.length ? Math.min(...todays) : null
 		});
 	}
