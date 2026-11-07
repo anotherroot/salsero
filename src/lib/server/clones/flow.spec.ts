@@ -37,6 +37,7 @@ import { flatOf } from './trees';
 import { markNow, readMark } from './marks';
 import { setSyncSettings } from './sync-settings';
 import { flowFrom } from './flow';
+import { landKeys } from './apply';
 
 const T = Date.UTC(2026, 10, 7, 12);
 const NOW = T + 1000;
@@ -46,10 +47,16 @@ const URL_A = 'https://example.org/a';
 let db: Db;
 let named = 0;
 let linkedFiles: string[] = [];
+/** Runs once while a file is being linked: a save landing mid-hop. */
+let whileLinking: (() => void) | null = null;
 
 const files: CloneFiles = {
 	async link(_kind, file) {
 		linkedFiles.push(file);
+		await Promise.resolve();
+		const during = whileLinking;
+		whileLinking = null;
+		during?.();
 		return `copy-${++named}-${file}`;
 	},
 	async unlink() {}
@@ -69,6 +76,7 @@ async function copy(id: number, into: Space) {
 beforeEach(async () => {
 	db = openDb(':memory:');
 	linkedFiles = [];
+	whileLinking = null;
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },
@@ -301,6 +309,44 @@ describe('flowFrom', () => {
 		expect(recsOn(G1f)).toHaveLength(1);
 		expect(recsOn(G2f)).toHaveLength(1);
 		expect(familyIntegrity(db)).toEqual([]);
+	});
+
+	it('option A: a recording stamped by a Send outside the flow does not ride a later save', async () => {
+		const rec = recording(F, 'a.mp4');
+		expect(await flow('u1', F)).toEqual({ landed: [], refused: [] });
+		// Send it to G1 by hand: the copy stamps the recording's gene on F.
+		const sent = await landKeys(db, {
+			actorId: 'u1',
+			kind: 'figure',
+			intoId: G1f,
+			fromId: F,
+			keys: [`rec:#${rec}`],
+			snapshot: 'full',
+			files,
+			now: NOW,
+			freeDiskBytes: ROOMY
+		});
+		expect(sent).toEqual({ ok: true });
+		expect(recsOn(G1f)).toHaveLength(1);
+		settings('u1', G2f, { media: true });
+		save(F, { notes: 'Later' });
+		const report = await flow('u1', F);
+		expect(report.landed).toContain(G2f);
+		expect(row(G2f).notes).toBe('Later');
+		expect(recsOn(G2f)).toHaveLength(0);
+	});
+
+	it('a save on the receiver while a hop links its files: the hop is refused as stale', async () => {
+		settings('u1', G1f, { media: true });
+		recording(F, 'b.mp4');
+		save(F, { notes: 'Hips first' });
+		whileLinking = () => save(G1f, { notes: 'Club edit' });
+		const report = await flow('u1', F);
+		expect(report.refused).toEqual([{ id: G1f, reason: 'stale' }]);
+		expect(row(G1f).notes).toBe('Club edit');
+		expect(recsOn(G1f)).toHaveLength(0);
+		expect(report.landed).toContain(G2f);
+		expect(row(G2f).notes).toBe('Hips first');
 	});
 
 	it('suffix: a rename that only adds a copy’s suffix is never pushed', async () => {

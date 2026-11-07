@@ -36,9 +36,11 @@
  *    swallowed.
  * 4. Keys are read as the rows name them at each hop (`currentKey`): a hop
  *    that copies a new recording stamps its gene, so `rec:#7` becomes
- *    `rec:<gene>`. Afterwards every visited copy's mark is renamed the same
- *    way (`rekeyMark`, hashes kept), so a stamp is not mistaken for a change
- *    by the next save.
+ *    `rec:<gene>`. X's mark is read the same way, so a stamp made anywhere
+ *    (a Send, a Sync, a hop that threw) is not mistaken for a change; after a
+ *    flow every visited copy's mark is also renamed (`rekeyMark`, hashes kept).
+ * 5. Each hop carries `seen` (Y's digest when its keys were read): a save
+ *    on Y that lands while the hop's files link refuses the hop as `stale`.
  *
  * Each copy is written at most once per save (the visited set), so nothing
  * loops. Each hop is its own transaction (`landKeys`), as a recording's file
@@ -57,7 +59,7 @@ import { currentKey, landKeys } from './apply';
 import type { CloneFiles } from './files';
 import { accessTo, familyRows, geneOf, type FamilyRow } from './genes';
 import { markNow, readMark, rekeyMark } from './marks';
-import { hashValue, pairBase } from './pairs';
+import { digest, hashValue, pairBase } from './pairs';
 import { syncSettingsOf } from './sync-settings';
 import { flatOf } from './trees';
 
@@ -107,7 +109,12 @@ export async function flowFrom(
 		const mark = readMark(tx, kind, id);
 		const flat = flatOf(tx, kind, id);
 		markNow(tx, kind, id, now);
-		return mark === null ? [] : changedKeys(mark, flat, hashValue);
+		if (mark === null) return [];
+		// Read the mark as the rows are named now: a copy made outside a flow (a
+		// Send, a Sync, a hop that threw) may have stamped a gene on this row's piece.
+		const named: Record<string, string> = {};
+		for (const [key, hash] of Object.entries(mark)) named[currentKey(tx, key)] = hash;
+		return changedKeys(named, flat, hashValue);
 	});
 	if (saved.length === 0 || !syncSettingsOf(db, kind, id).on) return report;
 
@@ -127,6 +134,8 @@ export async function flowFrom(
 			const pair = diff(base, flatOf(db, kind, y.id), flatOf(db, kind, from), hashValue);
 			const go = flowKeys(carried, pair, settings);
 			if (go.length === 0) continue;
+			// What Y held when `go` was read: a save on Y landing while files link is stale.
+			const seen = digest(flatOf(db, kind, y.id));
 			visited.add(y.id);
 			const res = await landKeys(db, {
 				actorId: writer,
@@ -137,7 +146,8 @@ export async function flowFrom(
 				snapshot: 'keys',
 				files,
 				now,
-				freeDiskBytes
+				freeDiskBytes,
+				seen
 			});
 			if (!res.ok) {
 				report.refused.push({ id: y.id, reason: res.reason });
