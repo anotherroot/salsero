@@ -133,7 +133,7 @@ describe('what the Practice page derives', () => {
 		expect(exerciseLine({ source: 'routine', state, today })).toBe('Routine · Due today');
 		expect(
 			exerciseLine({ source: 'figure', state: { ...state, dueDay: '2026-10-29' }, today })
-		).toBe('Figure practice · 2 days late');
+		).toBe('Figure practice · Due today');
 		expect(exerciseLine({ source: 'figure', state: { ...state, lastDay: null }, today })).toBe(
 			'Figure practice · New'
 		);

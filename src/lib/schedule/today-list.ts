@@ -34,9 +34,12 @@ export interface DayInput<E extends DayExercise> {
 
 export type RowKind = 'done' | 'todo' | 'picked';
 
+export type ListName = 'warmup' | 'practice';
+
 export interface DayRow<E> {
 	exercise: E;
 	kind: RowKind;
+	list: ListName;
 	/** With today's sets. */
 	state: DueState;
 	/** At the start of the day. */
@@ -47,7 +50,11 @@ export interface DayRow<E> {
 
 export interface DayList<E> {
 	today: string;
+	/** Warm-ups first, in their order, then practice in today's order. */
 	rows: DayRow<E>[];
+	/** How many of `rows` are warm-ups. */
+	warmups: number;
+	/** `done`, `total` and `left` count both lists. */
 	done: number;
 	total: number;
 	left: number;
@@ -102,8 +109,9 @@ export function workOf<E extends DayExercise>(input: DayInput<E>): Worked<E> {
 	const skipped = new Set(input.picks.filter((p) => p.kind === 'skip').map((p) => p.exerciseId));
 	const live = [...entry.values()].filter((x) => x.e.active && !x.e.archived);
 
+	// Warm-ups sit outside the daily number: they never enter the queue.
 	const queue = live
-		.filter((x) => x.start.dueDay <= today && !skipped.has(x.e.id))
+		.filter((x) => !x.e.warmup && x.start.dueDay <= today && !skipped.has(x.e.id))
 		.sort(byDue)
 		.slice(0, Math.max(0, input.daily));
 	const inQueue = new Set(queue.map((x) => x.e.id));
@@ -112,6 +120,7 @@ export function workOf<E extends DayExercise>(input: DayInput<E>): Worked<E> {
 	const rowOf = (x: Entry<E>, kind: RowKind, pick: DayPick | null): DayRow<E> => ({
 		exercise: x.e,
 		kind,
+		list: x.e.warmup ? 'warmup' : 'practice',
 		state: x.state,
 		start: x.start,
 		neverDone: x.start.lastDay === null,
@@ -119,7 +128,7 @@ export function workOf<E extends DayExercise>(input: DayInput<E>): Worked<E> {
 	});
 
 	const extras = [...entry.values()]
-		.filter((x) => x.firstToday !== null && !x.e.archived && !inQueue.has(x.e.id))
+		.filter((x) => !x.e.warmup && x.firstToday !== null && !x.e.archived && !inQueue.has(x.e.id))
 		.sort((a, b) => a.firstToday! - b.firstToday!);
 	const picked = [...input.picks]
 		.filter((p) => p.kind !== 'skip')
@@ -128,6 +137,7 @@ export function workOf<E extends DayExercise>(input: DayInput<E>): Worked<E> {
 			const x = entry.get(p.exerciseId);
 			const ok =
 				x !== undefined &&
+				!x.e.warmup &&
 				x.e.active &&
 				!x.e.archived &&
 				x.firstToday === null &&
@@ -135,7 +145,24 @@ export function workOf<E extends DayExercise>(input: DayInput<E>): Worked<E> {
 				!skipped.has(p.exerciseId);
 			return ok ? [rowOf(x, 'picked', p)] : [];
 		});
+	// A warm-up is a row when it is due, done today or picked.
+	const warmRows = [...entry.values()]
+		.filter((x) => x.e.warmup && !x.e.archived)
+		.flatMap((x) => {
+			if (x.firstToday !== null) return [rowOf(x, 'done', pickFor(x.e.id))];
+			if (!x.e.active || skipped.has(x.e.id)) return [];
+			const p = pickFor(x.e.id);
+			if (x.start.dueDay <= today) return [rowOf(x, 'todo', null)];
+			return p ? [rowOf(x, 'picked', p)] : [];
+		})
+		.sort((a, b) => {
+			const oa = a.exercise.warmupOrder;
+			const ob = b.exercise.warmupOrder;
+			if (oa !== ob) return oa === null ? 1 : ob === null ? -1 : oa - ob;
+			return byDue({ e: a.exercise, start: a.start }, { e: b.exercise, start: b.start });
+		});
 	const all = [
+		...warmRows,
 		...queue.filter((x) => x.firstToday !== null).map((x) => rowOf(x, 'done', pickFor(x.e.id))),
 		...extras.map((x) => rowOf(x, 'done', pickFor(x.e.id))),
 		...queue.filter((x) => x.firstToday === null).map((x) => rowOf(x, 'todo', null)),
@@ -157,6 +184,7 @@ function lineOf<E extends DayExercise>(w: Worked<E>): E[] {
 			(x) =>
 				x.e.active &&
 				!x.e.archived &&
+				!x.e.warmup &&
 				x.firstToday === null &&
 				!w.skipped.has(x.e.id) &&
 				!onToday.has(x.e.id)
@@ -203,6 +231,7 @@ export function dayListOf<E extends DayExercise>(w: Worked<E>): DayList<E> {
 	return {
 		today: w.today,
 		rows: w.rows,
+		warmups: w.rows.filter((r) => r.list === 'warmup').length,
 		done,
 		total,
 		left,

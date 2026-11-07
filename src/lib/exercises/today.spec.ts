@@ -6,7 +6,7 @@ import type { DueState } from '$lib/schedule/schedule';
 import type { DaySet, ExerciseItem } from '$lib/types';
 import {
 	deletedGroupName,
-	listLabel,
+	listLabels,
 	nothingLeftMeta,
 	pastGroups,
 	rowMeta,
@@ -65,6 +65,7 @@ function row(
 	return {
 		exercise: ex(1, 'Basic step on 1'),
 		kind,
+		list: 'practice',
 		start,
 		state: o.state ?? start,
 		neverDone: o.neverDone ?? false,
@@ -90,11 +91,25 @@ describe('rowMeta', () => {
 		]);
 		expect(rowMeta(r, TODAY, null)).toEqual([{ text: 'New', tone: 'status' }]);
 	});
-	it('late and due today', () => {
-		expect(rowMeta(row('todo', { start: st('2026-11-03') }), TODAY, null)).toEqual([
-			{ text: '2 days late', tone: 'status' }
+	it('due today or long past: no due wording at all', () => {
+		expect(rowMeta(row('todo', { start: st('2026-10-16') }), TODAY, null)).toEqual([]);
+		expect(rowMeta(row('todo', { start: st(TODAY) }), TODAY, null)).toEqual([]);
+	});
+	it('a drill row ends in its rhythm or its learning', () => {
+		const every: DueState = { ...st(TODAY), every: 2 };
+		expect(rowMeta(row('todo', { start: every }), TODAY, null)).toEqual([
+			{ text: 'Every 2 days', tone: null }
 		]);
-		expect(words(rowMeta(row('todo', { start: st(TODAY) }), TODAY, null))).toBe('Due today');
+		const learning: DueState = { ...st(TODAY), learning: { good: 2, of: 3 } };
+		expect(rowMeta(row('todo', { start: learning }), TODAY, null)).toEqual([
+			{ text: 'Learning · 2 of 3 good days', tone: null }
+		]);
+	});
+	it('a done row stays Done · back', () => {
+		const every: DueState = { ...st('2026-11-07', 2, TODAY), every: 2 };
+		expect(words(rowMeta(row('done', { state: every }), TODAY, null))).toBe(
+			'Done · Back in 2 days'
+		);
 	});
 	it('picked by Next before its day: Ahead · due Sunday', () => {
 		const r = row('picked', { pick: 'next', start: st('2026-11-08') });
@@ -106,13 +121,11 @@ describe('rowMeta', () => {
 			words(rowMeta(row('picked', { pick: 'next', start: st('2026-11-14') }), TODAY, null))
 		).toBe('Ahead · due 14 Nov');
 	});
-	it('picked by Next when already due: the due words', () => {
-		expect(words(rowMeta(row('picked', { pick: 'next', start: st(TODAY) }), TODAY, null))).toBe(
-			'Due today'
+	it('picked by Next when already due: nothing to say about the day', () => {
+		expect(rowMeta(row('picked', { pick: 'next', start: st(TODAY) }), TODAY, null)).toEqual([]);
+		expect(rowMeta(row('picked', { pick: 'next', start: st('2026-11-01') }), TODAY, null)).toEqual(
+			[]
 		);
-		expect(rowMeta(row('picked', { pick: 'next', start: st('2026-11-01') }), TODAY, null)).toEqual([
-			{ text: '4 days late', tone: 'status' }
-		]);
 	});
 	it('added from Coming up: Added · due tomorrow', () => {
 		expect(
@@ -120,7 +133,7 @@ describe('rowMeta', () => {
 		).toBe('Added · due tomorrow');
 		expect(
 			words(rowMeta(row('picked', { pick: 'add', start: st('2026-11-04') }), TODAY, null))
-		).toBe('Added · 1 day late');
+		).toBe('Added');
 	});
 });
 
@@ -136,6 +149,7 @@ function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
 	return {
 		today: TODAY,
 		rows: [],
+		warmups: 0,
 		done: 0,
 		total: 0,
 		left: 0,
@@ -146,6 +160,13 @@ function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
 }
 
 describe('todayHero', () => {
+	it('before anything is done: N for today; after, N left for today', () => {
+		expect(todayHero(list({ done: 0, total: 7, left: 7 }))).toMatchObject({
+			title: '7 for today',
+			meta: '0 of 7 done'
+		});
+		expect(todayHero(list({ done: 2, total: 7, left: 5 })).title).toBe('5 left for today');
+	});
 	it('to do: how many are left, and done of all', () => {
 		expect(todayHero(list({ done: 2, total: 5, left: 3 }))).toEqual({
 			title: '3 left for today',
@@ -208,12 +229,19 @@ describe('todayHero', () => {
 	});
 });
 
-describe('listLabel', () => {
-	it('Today · N, or Done today · N once nothing is left', () => {
-		expect(listLabel({ total: 5, nothingLeft: null })).toBe('Today · 5');
-		expect(listLabel({ total: 14, nothingLeft: { next: ex(2), day: '2026-11-06', more: 0 } })).toBe(
-			'Done today · 14'
-		);
+describe('listLabels', () => {
+	it('Warm-up · N and Practice · N', () => {
+		expect(listLabels({ total: 7, warmups: 2, nothingLeft: null })).toEqual({
+			warmup: 'Warm-up · 2',
+			practice: 'Practice · 5'
+		});
+	});
+	it('no warm-ups: no warm-up label', () => {
+		expect(listLabels({ total: 5, warmups: 0, nothingLeft: null }).warmup).toBeNull();
+	});
+	it('Done today · N once nothing is left', () => {
+		const nothingLeft = { next: ex(2), day: '2026-11-06', more: 0 };
+		expect(listLabels({ total: 14, warmups: 0, nothingLeft }).practice).toBe('Done today · 14');
 	});
 });
 

@@ -4,6 +4,8 @@
  * are `dayList`'s (`src/lib/schedule/today-list.ts`).
  */
 import { backWords, dayWords, dueWords } from '$lib/schedule/words';
+import { rhythmWords } from '$lib/schedule/comes-back';
+import type { DueState } from '$lib/schedule/schedule';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
 import type { DaySet, ExerciseItem } from '$lib/types';
 
@@ -29,18 +31,37 @@ export function rowMeta(
 			{ text: backWords(row.state.gap), tone: null }
 		];
 	}
-	const due = dueWords(row.start, today, row.neverDone);
-	const ahead = !row.neverDone && row.start.dueDay > today;
+	const neverDone = row.neverDone;
+	const dueNow = !neverDone && row.start.dueDay <= today;
+	const due = dueNow ? [] : dueWords(row.start, today, neverDone);
+	const ahead = !neverDone && row.start.dueDay > today;
+	const rhythm = rhythmOf(row.start);
+	let parts: MetaPart[];
 	if (row.kind === 'picked' && row.pick?.kind === 'add') {
 		const [first, ...rest] = due;
-		const said = first.tone === 'status' ? first : { ...first, text: lower(first.text) };
-		return [{ text: 'Added', tone: null }, said, ...rest];
-	}
-	if (row.kind === 'picked' && ahead) {
-		return [{ text: 'Ahead', tone: null }, ...due.map((p) => ({ ...p, text: lower(p.text) }))];
-	}
-	if (row.neverDone && lessonDay) return [...due, { text: `from class ${lessonDay}`, tone: null }];
-	return due;
+		const said = first
+			? first.tone === 'status'
+				? first
+				: { ...first, text: lower(first.text) }
+			: null;
+		parts = [{ text: 'Added', tone: null }, ...(said ? [said] : []), ...rest];
+	} else if (row.kind === 'picked' && ahead) {
+		parts = [{ text: 'Ahead', tone: null }, ...due.map((p) => ({ ...p, text: lower(p.text) }))];
+	} else if (neverDone && lessonDay) {
+		parts = [...due, { text: `from class ${lessonDay}`, tone: null }];
+	} else parts = due;
+	return rhythm ? [...parts, rhythm] : parts;
+}
+
+/** A drill's rhythm or its learning, as a meta part; null for every other row. */
+function rhythmOf(state: DueState): MetaPart | null {
+	if (state.every !== null) return { text: rhythmWords(state.every), tone: null };
+	if (state.learning)
+		return {
+			text: `Learning · ${state.learning.good} of ${state.learning.of} good days`,
+			tone: null
+		};
+	return null;
 }
 
 export type TileTone = 'accent' | 'quiet' | 'done';
@@ -69,7 +90,7 @@ export type TodayHero = {
 export function todayHero(day: DayList<unknown>): TodayHero {
 	if (day.left > 0) {
 		return {
-			title: `${day.left} left for today`,
+			title: day.done === 0 ? `${day.left} for today` : `${day.left} left for today`,
 			meta: `${day.done} of ${day.total} done`,
 			progress: day.total > 0 ? day.done / day.total : 0,
 			bar: true,
@@ -121,9 +142,25 @@ export function todayHero(day: DayList<unknown>): TodayHero {
 			};
 }
 
-/** The list's label: "Today · 5"; "Done today · 14" once nothing is left (board "Nothing left"). */
-export function listLabel(day: Pick<DayList<unknown>, 'total' | 'nothingLeft'>): string {
-	return `${day.nothingLeft ? 'Done today' : 'Today'} · ${day.total}`;
+/**
+ * The two lists' labels: "Warm-up · 2" (null with no warm-ups) and "Practice · 5";
+ * "Done today · 14" once nothing is left (board "Nothing left").
+ */
+export function listLabels(day: Pick<DayList<unknown>, 'total' | 'warmups' | 'nothingLeft'>): {
+	warmup: string | null;
+	practice: string;
+} {
+	return {
+		warmup: day.warmups > 0 ? `Warm-up · ${day.warmups}` : null,
+		practice: `${day.nothingLeft ? 'Done today' : 'Practice'} · ${day.total - day.warmups}`
+	};
+}
+
+/** Kept until the components switch to `listLabels`; Task 5 deletes it. */
+export function listLabel(
+	day: Pick<DayList<unknown>, 'total' | 'warmups' | 'nothingLeft'>
+): string {
+	return listLabels(day).practice;
 }
 
 /** What comes back first, once nothing is left: "Tomorrow · and 3 more", "Sunday". */

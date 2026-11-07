@@ -23,9 +23,9 @@ describe('comingHeading', () => {
 		});
 	});
 
-	it('Waiting and Paused have no date and no distance', () => {
+	it('Next in line and Paused have no date and no distance', () => {
 		expect(comingHeading(group('waiting', null, null), '2026-11-05')).toEqual({
-			title: 'Waiting',
+			title: 'Next in line',
 			away: null
 		});
 		expect(comingHeading(group('paused', null, null), '2026-11-05')).toEqual({

@@ -51,11 +51,9 @@ export function dayWords(day: string, today: string): string {
 	return dated(day, today);
 }
 
-/** "New", "N days late", "Due today", "Due tomorrow", "Due Sunday", "Due 14 Nov". */
+/** "New", "Due today", "Due tomorrow", "Due Sunday", "Due 14 Nov". */
 export function dueWords(state: ScheduleState, today: string, neverDone: boolean): MetaPart[] {
 	if (neverDone) return [{ text: 'New', tone: 'status' }];
-	const d = daysBetween(today, state.dueDay);
-	if (d < 0) return [{ text: `${plural(-d, 'day', 'days')} late`, tone: 'status' }];
 	return [{ text: `Due ${dayWords(state.dueDay, today)}`, tone: null }];
 }
 
