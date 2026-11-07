@@ -1,9 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import { appsLines, gbToBytes } from '$lib/admin-view';
+import { inviteLink } from '$lib/dances/hosts';
 import { localDay } from '$lib/day/day';
 import { listAppsSeen } from '$lib/server/app-seen';
 import { getDb } from '$lib/server/db';
 import { int } from '$lib/server/form';
+import { danceHosts } from '$lib/server/hosts';
 import { createInvite, inviteQr } from '$lib/server/invites';
 import { requireAdmin } from '$lib/server/scope';
 import { teamLimit, teamsMade } from '$lib/server/teams';
@@ -75,7 +77,13 @@ export const actions: Actions = {
 			locals.user!.dance,
 			Date.now()
 		);
-		const link = `${url.origin}/join?code=${code}`;
+		const link = inviteLink({
+			hosts: danceHosts(),
+			dance: locals.user!.dance,
+			protocol: url.protocol,
+			host: url.host,
+			code
+		});
 		return { url: link, qr: inviteQr(link), expiresAt };
 	},
 

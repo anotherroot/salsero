@@ -54,10 +54,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			headers: { 'content-type': 'application/json' }
 		});
 	}
-	if (event.locals.user && appAgent) {
-		noteAppSeen(getDb(), event.locals.user.id, appAgent, Date.now());
-	}
-
 	// The Android app's launchers open with ?app=android. Remember it per
 	// browser, so every page after the first knows to offer native links.
 	if (event.url.searchParams.get(APP_PARAM) === APP_VALUE) {
@@ -83,6 +79,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const moved = hostRedirect({
 		hosts: danceHosts(),
 		host: event.url.host,
+		protocol: event.url.protocol,
 		path,
 		search: event.url.search,
 		method: event.request.method,
@@ -90,6 +87,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	});
 	if (moved.kind === 'redirect') throw redirect(303, moved.to);
 	if (moved.kind === 'missing') return new Response('Not found', { status: 404 });
+
+	// Which app this person uses, noted only for a request this host keeps.
+	if (event.locals.user && appAgent) {
+		noteAppSeen(getDb(), event.locals.user.id, appAgent, Date.now());
+	}
 
 	// A page older than a breaking deploy (`$lib/page-epoch.ts`): refused before
 	// anything acts on what it sent, so it reloads instead. Full page loads, the

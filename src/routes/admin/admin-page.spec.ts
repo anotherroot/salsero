@@ -284,3 +284,25 @@ describe('the admin of one dance (the dance split)', () => {
 		expect(db.select().from(storageRequests).get()?.resolvedAt).toBeNull();
 	});
 });
+
+describe('the invite link', () => {
+	// Catches: a bachata invite made in dev (no host map) that Join reads as salsa's.
+	it("names the admin's dance when the dance has no host of its own", async () => {
+		db.insert(users)
+			.values({
+				id: 'b',
+				email: 'a@example.com',
+				passwordHash: 'x',
+				isAdmin: true,
+				dance: 'bachata'
+			})
+			.run();
+		const made = (await (actions.invite as unknown as Ev)({
+			locals: {
+				user: { id: 'b', email: 'x', timezone: 'UTC', isAdmin: true, dance: 'bachata' }
+			},
+			url: new URL('http://localhost:5173/admin')
+		})) as { url: string };
+		expect(made.url).toMatch(/^http:\/\/localhost:5173\/join\?code=[^&]+&dance=bachata$/);
+	});
+});

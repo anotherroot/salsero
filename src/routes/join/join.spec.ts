@@ -136,7 +136,9 @@ describe('join', () => {
 
 describe('admin', () => {
 	const as = (isAdmin: boolean) => ({
-		locals: { user: { id: 'admin', email: 'a@example.com', timezone: 'UTC', isAdmin } },
+		locals: {
+			user: { id: 'admin', email: 'a@example.com', timezone: 'UTC', isAdmin, dance: 'salsa' }
+		},
 		url: new URL('http://localhost/admin'),
 		parent
 	});
@@ -149,7 +151,7 @@ describe('admin', () => {
 		const inv = adminActions.invite as (e: unknown) => Promise<unknown>;
 		await expect(inv(as(false))).rejects.toMatchObject({ status: 404 });
 		const r = (await inv(as(true))) as { url: string; qr: { size: number } };
-		expect(r.url).toMatch(/^http:\/\/localhost\/join\?code=[\w-]{43}$/);
+		expect(r.url).toMatch(/^http:\/\/localhost\/join\?code=[\w-]{43}&dance=salsa$/);
 		expect(r.qr.size).toBeGreaterThan(20);
 	});
 

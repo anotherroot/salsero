@@ -57,6 +57,39 @@ export function requestDance(i: {
 	);
 }
 
+/**
+ * The origin of a dance's own host, as seen from this request: its protocol
+ * and its port (a mapped local host keeps both; production has neither). Null
+ * when the dance has no host.
+ */
+function danceOrigin(
+	hosts: DanceHosts,
+	dance: DanceSlug,
+	here: { protocol: string; host: string }
+): string | null {
+	const host = hostOf(hosts, dance);
+	const port = /:\d+$/.exec(here.host)?.[0] ?? '';
+	return host ? `${here.protocol}//${host}${port}` : null;
+}
+
+/**
+ * An invite's link: on the dance's own host, or, with no host for it (dev),
+ * here with `&dance=`, so Join reads the invite's dance and not the default.
+ */
+export function inviteLink(i: {
+	hosts: DanceHosts;
+	dance: DanceSlug;
+	protocol: string;
+	host: string;
+	code: string;
+}): string {
+	const code = encodeURIComponent(i.code);
+	const own = danceOrigin(i.hosts, i.dance, i);
+	return own
+		? `${own}/join?code=${code}`
+		: `${i.protocol}//${i.host}/join?code=${code}&dance=${i.dance}`;
+}
+
 /** What both hosts serve as they are: the worker, the update check, the APKs, health, assets. */
 const EVERY_HOST = ['/api/worker/', '/api/app-update/', '/releases/', '/_app/'];
 
@@ -71,12 +104,15 @@ const EVERY_HOST = ['/api/worker/', '/api/app-update/', '/releases/', '/_app/'];
  * - a path under the other dance's prefix goes to that dance's host.
  *
  * Cookies are per host, so the other host never sees this session: no loop.
+ * `/logout` always passes, so a session of the other dance can still end here.
  * An unmapped host (dev, specs, loopback) passes everything; the wall is the
- * account's dance (`wallOf`), never the host.
+ * account's dance (`wallOf`), never the host. A redirect keeps this request's
+ * protocol and port.
  */
 export function hostRedirect(i: {
 	hosts: DanceHosts;
 	host: string;
+	protocol: string;
 	path: string;
 	search: string;
 	method: string;
@@ -84,12 +120,13 @@ export function hostRedirect(i: {
 }): { kind: 'pass' } | { kind: 'redirect'; to: string } | { kind: 'missing' } {
 	const here = hostDance(i.hosts, i.host);
 	if (here === null) return { kind: 'pass' };
-	if (i.path === '/health' || EVERY_HOST.some((p) => i.path.startsWith(p))) return { kind: 'pass' };
+	if (i.path === '/health' || i.path === '/logout' || EVERY_HOST.some((p) => i.path.startsWith(p)))
+		return { kind: 'pass' };
 	const readOnly = i.method === 'GET' || i.method === 'HEAD';
 	const go = (dance: DanceSlug, to: string) => {
-		const host = hostOf(i.hosts, dance);
-		return host && readOnly && !i.path.startsWith('/api/')
-			? ({ kind: 'redirect', to: `https://${host}${to}` } as const)
+		const origin = danceOrigin(i.hosts, dance, i);
+		return origin && readOnly && !i.path.startsWith('/api/')
+			? ({ kind: 'redirect', to: `${origin}${to}` } as const)
 			: ({ kind: 'missing' } as const);
 	};
 	const pathDance = danceInPath(i.path);
