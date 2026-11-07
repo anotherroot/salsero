@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { rootsOf, showsTabs, tabFor, tapKind, TABS } from './tabs';
+import { withLocale } from '$lib/i18n/current';
+import { rootsOf, showsTabs, tabFor, tabs, tapKind } from './tabs';
 
 describe('tabFor', () => {
 	it('lights the tab a path belongs to', () => {
@@ -54,13 +55,23 @@ describe('showsTabs', () => {
 	});
 });
 
-describe('TABS', () => {
+describe('tabs', () => {
 	it('has four, in order', () => {
-		expect(TABS.map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Groups', 'Music']);
+		expect(tabs().map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Groups', 'Music']);
 	});
 
 	it('opens Moves on Figures, by its route id in the (moves) group', () => {
-		expect(TABS.find((t) => t.id === 'moves')!.path).toBe('/[dance]/(moves)/figures');
+		expect(tabs().find((t) => t.id === 'moves')!.path).toBe('/[dance]/(moves)/figures');
+	});
+
+	it('names them in the current language, short enough for the bar', () => {
+		expect(withLocale('sl', () => tabs().map((t) => t.label))).toEqual([
+			'Danes',
+			'Figure',
+			'Lekcije',
+			'Skupine',
+			'Glasba'
+		]);
 	});
 });
 

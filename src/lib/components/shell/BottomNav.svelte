@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { tabFor } from '$lib/nav/tabs';
 	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
@@ -42,13 +43,13 @@
 <nav
 	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg desk:hidden"
 	style="height: calc(var(--tab-bar-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); --icon-knockout: var(--color-tab-bg)"
-	aria-label="Main"
+	aria-label={t().shell.mainNav}
 	data-tab-bar
 >
 	<ul
 		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 pt-[10px] pb-2"
 		style="grid-template-columns: {tabs
-			.map((t) => (t.id === lit || (inGroup && t.id === 'today') ? '2fr' : '1fr'))
+			.map((tab) => (tab.id === lit || (inGroup && tab.id === 'today') ? '2fr' : '1fr'))
 			.join(' ')}"
 	>
 		{#each tabs as tab, i (tab.id)}
@@ -78,7 +79,7 @@
 							class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
 						>
 							<Icon name="back" size={28} />
-							<span class="text-[14px] font-extrabold whitespace-nowrap">Mine</span>
+							<span class="text-[14px] font-extrabold whitespace-nowrap">{t().shell.mine}</span>
 						</button>
 					</form>
 				{:else}

@@ -4,7 +4,8 @@
  * Levels hide entry points, never routes. Components ask this module; they do
  * not compare level strings themselves. PURE, client-safe.
  */
-import { TABS, type Tab } from '$lib/nav/tabs';
+import { t } from '$lib/i18n/catalog';
+import { tabs, type Tab } from '$lib/nav/tabs';
 
 export type Level = 'follow' | 'own' | 'all';
 
@@ -48,11 +49,13 @@ const TAB_IDS: Record<Level, readonly Tab['id'][]> = {
 	all: ['today', 'moves', 'lessons', 'groups', 'music']
 };
 
-/** `TABS` filtered for a level, in `TABS` order. At Follow my class, Groups is "My class": same route and icon. */
+/** `tabs()` filtered for a level, in that order. At Follow my class, Groups is "My class": same route and icon. */
 export function tabsFor(level: Level): readonly Tab[] {
-	return TABS.filter((t) => TAB_IDS[level].includes(t.id)).map((t) =>
-		level === 'follow' && t.id === 'groups' ? { ...t, label: 'My class' } : t
-	);
+	return tabs()
+		.filter((tab) => TAB_IDS[level].includes(tab.id))
+		.map((tab) =>
+			level === 'follow' && tab.id === 'groups' ? { ...tab, label: t().shell.tabs.myClass } : tab
+		);
 }
 
 /**

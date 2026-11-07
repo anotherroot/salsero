@@ -1,7 +1,7 @@
 /** What the exercise page shows: summary tiles, history by day, the owner row. PURE, client-safe. */
 import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
 import { classDayLabel, dateLabel, longDayLabel, setSummary } from '$lib/format';
-import { FEEL_WORD, feelOf, type Feel } from '$lib/schedule/feel';
+import { feelWord, feelOf, type Feel } from '$lib/schedule/feel';
 import type { IconName } from '$lib/icons/icons';
 import type { ExerciseSummary, HistorySet, PracticeContent } from '$lib/types';
 
@@ -19,7 +19,7 @@ export function summaryTiles(
 	return [
 		{ value: String(s.sets), label: s.sets === 1 ? 'set' : 'sets', feel: null },
 		{ value: practisedLabel(s.totalS), label: 'practised', feel: null },
-		{ value: feel === null ? '–' : FEEL_WORD[feel], label: 'recently', feel }
+		{ value: feel === null ? '–' : feelWord(feel), label: 'recently', feel }
 	];
 }
 

@@ -1,5 +1,6 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
+import { t } from '$lib/i18n/catalog';
 
 export type TabId = 'today' | 'moves' | 'lessons' | 'groups' | 'music';
 
@@ -15,14 +16,21 @@ export interface Tab {
 		| '/[dance]/songs';
 }
 
-/** The five tabs, in order. A person sees the ones their level gives (`tabsFor`, `$lib/levels/levels.ts`). */
-export const TABS: readonly Tab[] = [
-	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]/(today)' },
-	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/(moves)/figures' },
-	{ id: 'lessons', label: 'Lessons', icon: 'lessons', path: '/[dance]/lessons' },
-	{ id: 'groups', label: 'Groups', icon: 'group', path: '/[dance]/groups' },
-	{ id: 'music', label: 'Music', icon: 'music', path: '/[dance]/songs' }
-];
+/**
+ * The five tabs, in order, named in the current language (a function, so the
+ * labels are read at call time). A person sees the ones their level gives
+ * (`tabsFor`, `$lib/levels/levels.ts`).
+ */
+export function tabs(): readonly Tab[] {
+	const w = t().shell.tabs;
+	return [
+		{ id: 'today', label: w.today, icon: 'today', path: '/[dance]/(today)' },
+		{ id: 'moves', label: w.moves, icon: 'moves', path: '/[dance]/(moves)/figures' },
+		{ id: 'lessons', label: w.lessons, icon: 'lessons', path: '/[dance]/lessons' },
+		{ id: 'groups', label: w.groups, icon: 'group', path: '/[dance]/groups' },
+		{ id: 'music', label: w.music, icon: 'music', path: '/[dance]/songs' }
+	];
+}
 
 /** First segment after the dance -> the tab it belongs to. */
 const SECTION: Record<string, TabId> = {

@@ -5,7 +5,50 @@ import { englishIn } from './no-english';
 // Components whose words all come from the catalog: a bare English string in
 // one of them is a word left untranslated. Every task that translates a
 // component adds it here.
-const TRANSLATED: string[] = [];
+const TRANSLATED: string[] = [
+	// The shell (Task 5).
+	'src/lib/components/shell/BackButton.svelte',
+	'src/lib/components/shell/BandHeader.svelte',
+	'src/lib/components/shell/BottomNav.svelte',
+	'src/lib/components/shell/CardFrame.svelte',
+	'src/lib/components/shell/GroupModeButton.svelte',
+	'src/lib/components/shell/ListPane.svelte',
+	'src/lib/components/shell/NavProgress.svelte',
+	'src/lib/components/shell/PageSkeleton.svelte',
+	'src/lib/components/shell/Pane.svelte',
+	'src/lib/components/shell/PaneHeading.svelte',
+	'src/lib/components/shell/ReloadBar.svelte',
+	'src/lib/components/shell/SheetCorner.svelte',
+	'src/lib/components/shell/Side.svelte',
+	// The system screens (Task 5; NameFields is the way in's, Task 6).
+	'src/lib/components/system/AppUpdateBar.svelte',
+	'src/lib/components/system/ChoiceSheet.svelte',
+	'src/lib/components/system/ErrorScreen.svelte',
+	'src/lib/components/system/LeadTile.svelte',
+	'src/lib/components/system/StatusBlock.svelte',
+	'src/lib/components/system/UpdateButton.svelte',
+	'src/lib/components/system/UpdateNeeded.svelte',
+	// The shared ui pieces with built-in words, and those with none (Task 5).
+	'src/lib/components/ui/AppUploadLink.svelte',
+	'src/lib/components/ui/Badge.svelte',
+	'src/lib/components/ui/BandButton.svelte',
+	'src/lib/components/ui/Banner.svelte',
+	'src/lib/components/ui/BottomBar.svelte',
+	'src/lib/components/ui/ClashSheet.svelte',
+	'src/lib/components/ui/Dialog.svelte',
+	'src/lib/components/ui/EmptyState.svelte',
+	'src/lib/components/ui/MenuSheet.svelte',
+	'src/lib/components/ui/PlayerLayer.svelte',
+	'src/lib/components/ui/Screen.svelte',
+	'src/lib/components/ui/SearchField.svelte',
+	'src/lib/components/ui/Segmented.svelte',
+	'src/lib/components/ui/Sheet.svelte',
+	'src/lib/components/ui/Toast.svelte',
+	'src/lib/components/ui/UnsavedDialog.svelte',
+	'src/lib/components/ui/UploadCard.svelte',
+	'src/routes/+error.svelte',
+	'src/routes/app/+page.svelte'
+];
 
 describe('englishIn', () => {
 	it("finds an attribute's English, not an expression's", () => {

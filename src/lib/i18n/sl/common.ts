@@ -14,7 +14,7 @@ export const common: Catalog['common'] = {
 	yes: 'Da',
 	no: 'Ne',
 	retry: 'Poskusi znova',
-	loading: 'Nalaganje …',
+	loading: 'Nalaganje\u00a0…',
 	more: '⋯',
 	search: 'Iskanje',
 	/** `x` with `digits` decimals: a comma. */

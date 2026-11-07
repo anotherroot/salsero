@@ -5,7 +5,7 @@
 	import { focusAfterRemoval } from '$lib/focus';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Face from './Face.svelte';
-	import { FEEL_WORD, feelOf } from '$lib/schedule/feel';
+	import { feelWord, feelOf } from '$lib/schedule/feel';
 	import { GROUP, iconButton } from '$lib/components/ui/styles';
 	import { setMeta, setTitle } from '$lib/exercises/exercise-page';
 	import { timeOfDay } from '$lib/day/day';
@@ -36,9 +36,9 @@
 				<span class="text-[16px] leading-tight font-bold text-ink"
 					>{title.text}{#if title.rating !== null}{title.text ? ' · ' : ''}<span
 							class="inline-flex items-center gap-1 align-[-3px]"
-							><Face feel={feelOf(title.rating) ?? 'gotit'} size={16} label />{FEEL_WORD[
+							><Face feel={feelOf(title.rating) ?? 'gotit'} size={16} label />{feelWord(
 								feelOf(title.rating) ?? 'gotit'
-							]}</span
+							)}</span
 						>{/if}</span
 				>
 				<span class="truncate text-[13px] text-muted">{setMeta(s, timezone)}</span>

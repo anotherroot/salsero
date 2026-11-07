@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-	RELOAD_TITLE,
-	STALE_LINE,
-	STALE_TITLE,
 	fullLoadFor,
 	mayReloadNow,
+	reloadTitle,
 	reloadWhy,
+	staleLine,
+	staleTitle,
 	typedFields
 } from './fresh';
 
@@ -141,7 +141,7 @@ describe('reloadWhy: the toast says why the page did not reload by itself', () =
 	});
 	it('with nothing holding it, says when it comes', () => {
 		expect(reloadWhy(q)).toBe('Your next page loads it.');
-		expect([RELOAD_TITLE, STALE_TITLE, STALE_LINE]).toEqual([
+		expect([reloadTitle(), staleTitle(), staleLine()]).toEqual([
 			'The app was updated',
 			'This page is out of date',
 			'Reload to continue.'

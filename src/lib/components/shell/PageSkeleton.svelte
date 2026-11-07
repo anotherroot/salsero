@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import type { DeskSkeleton, Skeleton } from '$lib/nav/pending';
 	import { PAGE_WIDTH, type Frame } from '$lib/nav/frame';
 	import TodayPaneSkeleton from '$lib/components/today/TodayPaneSkeleton.svelte';
@@ -168,7 +169,7 @@
 >
 	<!-- The phone's skeleton, as ever; the desktop draws its own below. -->
 	<div class="mx-auto max-w-[560px] desk:hidden">
-		<p class="sr-only" role="status">Loading…</p>
+		<p class="sr-only" role="status">{t().common.loading}</p>
 
 		<header
 			class="flex flex-col bg-band px-5 {skeleton.kind === 'today' ||
@@ -192,7 +193,7 @@
 					<h1
 						class="font-display text-[46px] leading-[1.05] font-extrabold tracking-[-0.02em] text-band-ink"
 					>
-						Today
+						{t().shell.tabs.today}
 					</h1>
 					<div class="-mr-[10px] flex text-band-ink">
 						<span class="flex size-11 items-center justify-center opacity-45"
@@ -209,7 +210,7 @@
 				<h1
 					class="font-display text-[46px] leading-[1.05] font-extrabold tracking-[-0.02em] text-band-ink"
 				>
-					Moves
+					{t().shell.tabs.moves}
 				</h1>
 				<div
 					class="mt-[22px] grid h-[50px] grid-cols-3 rounded-full bg-band-track p-[3px]"
@@ -390,7 +391,7 @@
 			one sheet of rows.
 		-->
 		<div class="hidden desk:block">
-			<p class="sr-only" role="status">Loading…</p>
+			<p class="sr-only" role="status">{t().common.loading}</p>
 			<div
 				class="pointer-events-auto fixed inset-x-0 top-0 flex h-[var(--band-row-h)] items-center bg-band pr-10 pl-[30px]"
 				aria-hidden="true"
@@ -447,7 +448,7 @@
 	{:else if desk === 'pane'}
 		<!-- Only the pane: the list column beside it is live. -->
 		<div class="hidden desk:block">
-			<p class="sr-only" role="status">Loading…</p>
+			<p class="sr-only" role="status">{t().common.loading}</p>
 			{#if today}<TodayPaneSkeleton />{:else}{@render deskPane()}{/if}
 		</div>
 	{/if}

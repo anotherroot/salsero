@@ -4,6 +4,7 @@
  * the live counter and the root layout wires both to the router.
  */
 import { BUSY_ROUTES } from '$lib/app-update/view';
+import { t } from '$lib/i18n/catalog';
 
 /** What a reload or a full load would cut short. */
 export interface Quiet {
@@ -95,9 +96,9 @@ export function mayReloadNow(s: { routeId: string | null } & Quiet): boolean {
 
 /* ── The new-version toast (merge sheets and update bubbles spec, 4C) ───── */
 
-export const RELOAD_TITLE = 'The app was updated';
-export const STALE_TITLE = 'This page is out of date';
-export const STALE_LINE = 'Reload to continue.';
+export const reloadTitle = (): string => t().shell.reload.title;
+export const staleTitle = (): string => t().shell.reload.staleTitle;
+export const staleLine = (): string => t().shell.reload.staleLine;
 
 /**
  * The toast's second line: what kept the page from reloading by itself, the
@@ -106,8 +107,9 @@ export const STALE_LINE = 'Reload to continue.';
  * say "kept", not "reloads when you're done".
  */
 export function reloadWhy(q: Quiet): string {
-	if (q.unsaved > 0) return 'Kept so nothing unsaved is lost.';
-	if (q.held > 0) return 'Kept while this runs.';
-	if (q.playerOpen || q.sheetsOpen) return 'Kept while this is open.';
-	return 'Your next page loads it.';
+	const w = t().shell.reload;
+	if (q.unsaved > 0) return w.unsaved;
+	if (q.held > 0) return w.held;
+	if (q.playerOpen || q.sheetsOpen) return w.open;
+	return w.next;
 }

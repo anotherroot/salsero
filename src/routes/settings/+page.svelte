@@ -33,7 +33,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
-	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
+	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
 	import { LEVEL_WORDS, fewSettings, levelShown, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
@@ -65,7 +65,7 @@
 	let asking = $state(false);
 	let askError = $state('');
 
-	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
+	const themeOptions = $derived(THEME_CHOICES.map((c) => ({ value: c, label: themeLabel(c) })));
 	const languageOptions = LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }));
 
 	/** A full load, so the whole page, tab bar included, redraws in the new language. */
@@ -289,7 +289,7 @@
 			onclick={() => (sheet = 'theme')}
 		>
 			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Theme</span>
-			<span class="text-[15px] font-semibold text-muted">{THEME_LABEL[data.theme]}</span>
+			<span class="text-[15px] font-semibold text-muted">{themeLabel(data.theme)}</span>
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</button>
 	</div>

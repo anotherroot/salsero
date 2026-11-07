@@ -1,4 +1,6 @@
 import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
+// `t` names the trail here, so the catalog is `words`.
+import { t as words } from '$lib/i18n/catalog';
 import { rootsOf, tabFor, type TabId } from './tabs';
 
 /**
@@ -339,7 +341,11 @@ export function backTarget(
 ): { href: string; label: string; key: PageKey | null } {
 	const opener = t.pages[key]?.opener ?? null;
 	if (opener && t.pages[opener]) {
-		return { href: hrefOf(t, opener), label: `Back to ${t.pages[opener].title}`, key: opener };
+		return {
+			href: hrefOf(t, opener),
+			label: words().shell.backTo(t.pages[opener].title),
+			key: opener
+		};
 	}
 	const path = fallback.href.split(/[?#]/)[0];
 	const href = t.pages[path] ? hrefOf(t, path) : fallback.href;

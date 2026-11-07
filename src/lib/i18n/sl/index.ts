@@ -33,9 +33,13 @@
 //   Levels: Follow my class               Sledim svojemu tečaju
 //           Practise and keep my own      Vadim in imam svoje
 //           Everything                    Vse
+//   version (of the app)                  različica aplikacije (always with the noun:
+//                                         a bare "različica" is a figure)
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { common } from './common';
+import { format } from './format';
 import { settings } from './settings';
+import { shell } from './shell';
 
-export const sl: Catalog = { common, admin, settings };
+export const sl: Catalog = { common, format, shell, admin, settings };

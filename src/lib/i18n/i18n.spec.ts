@@ -132,3 +132,19 @@ describe('admin', () => {
 		}
 	});
 });
+
+/** Every string in an area, by its path ("tabs.today"); arrays by index. */
+function leaves(o: unknown, at = ''): [string, string][] {
+	if (typeof o === 'string') return [[at, o]];
+	if (o === null || typeof o !== 'object') return [];
+	return Object.entries(o).flatMap(([k, v]) => leaves(v, at ? `${at}.${k}` : k));
+}
+
+describe.each(['format', 'shell'] as const)('%s', (area) => {
+	it('has every English word in Slovenian, and none left in English', () => {
+		const en = leaves(catalogOf('en')[area]);
+		const sl = new Map(leaves(catalogOf('sl')[area]));
+		expect([...sl.keys()].sort()).toEqual(en.map(([k]) => k).sort());
+		for (const [key, word] of en) expect(sl.get(key), key).not.toBe(word);
+	});
+});
