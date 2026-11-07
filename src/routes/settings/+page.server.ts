@@ -28,6 +28,9 @@ import { levelOf, setLevel } from '$lib/server/levels';
 import { parseLevel } from '$lib/levels/levels';
 import { isVideoShortSide } from '$lib/video-sizes';
 import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
+import { parseLocale } from '$lib/i18n/locale';
+import { t } from '$lib/i18n/catalog';
+import { setLocale, setLocaleCookie } from '$lib/server/locale';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -121,6 +124,16 @@ export const actions: Actions = {
 			sameSite: 'lax',
 			httpOnly: true
 		});
+		return { ok: true };
+	},
+
+	/** The person's language: on the account, and in this browser's cookie. */
+	language: async ({ locals, request, cookies }) => {
+		if (!locals.user) throw error(401);
+		const locale = parseLocale(text(await request.formData(), 'locale'));
+		if (!locale) return fail(400, { message: t().settings.badLanguage });
+		setLocale(getDb(), locals.user.id, locale);
+		setLocaleCookie(cookies, locale);
 		return { ok: true };
 	},
 

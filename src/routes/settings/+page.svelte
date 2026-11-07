@@ -23,6 +23,8 @@
 	import { fullName } from '$lib/names';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
+	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
 	import NameFields from '$lib/components/system/NameFields.svelte';
@@ -55,13 +57,24 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'level' | 'style' | 'size' | 'theme' | 'ask' | 'name' | null>(null);
+	let sheet = $state<'level' | 'style' | 'size' | 'theme' | 'language' | 'ask' | 'name' | null>(
+		null
+	);
 	let naming = $state(false);
 	let nameError = $state<{ field?: 'firstName' | 'lastName'; message: string } | null>(null);
 	let asking = $state(false);
 	let askError = $state('');
 
 	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
+	const languageOptions = LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }));
+
+	/** A full load, so the whole page, tab bar included, redraws in the new language. */
+	async function saveLanguage(l: Locale) {
+		if (l === data.locale) return;
+		const result = await act('language', { locale: l });
+		if (failed(result)) return;
+		location.reload();
+	}
 
 	/** Shown at once; put back if the server refuses it. */
 	async function saveTheme(theme: ThemeChoice) {
@@ -154,6 +167,18 @@
 			<BandButton icon="back" label="Back to Today" href={`/${data.dance}`} />
 		</span>
 	{/snippet}
+
+	<div class={GROUP}>
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => (sheet = 'language')}
+		>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{t().settings.language}</span>
+			<span class="text-[15px] font-semibold text-muted">{LOCALE_NAME[data.locale]}</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
+	</div>
 
 	<div class={GROUP}>
 		<button
@@ -426,6 +451,18 @@
 	onpick={(style) => {
 		sheet = null;
 		void save('style', { dance: data.dance, style });
+	}}
+	onclose={() => (sheet = null)}
+/>
+<ChoiceSheet
+	open={sheet === 'language'}
+	title={t().settings.language}
+	legend={t().settings.language}
+	options={languageOptions}
+	value={data.locale}
+	onpick={(l) => {
+		sheet = null;
+		void saveLanguage(l as Locale);
 	}}
 	onclose={() => (sheet = null)}
 />

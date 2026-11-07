@@ -36,5 +36,6 @@
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { common } from './common';
+import { settings } from './settings';
 
-export const sl: Catalog = { common, admin };
+export const sl: Catalog = { common, admin, settings };
