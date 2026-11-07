@@ -18,12 +18,12 @@ describe('the lesson page in its pane', () => {
 		expect(page).toMatch(/<BottomBar mode width="song">/);
 	});
 
-	it('keeps SourceTabs (its toast is fixed) above PaneColumns, never inside it', () => {
-		const tabs = page.indexOf('<SourceTabs');
+	it('keeps Versions (its toast is fixed) above PaneColumns, never inside it', () => {
+		const tabs = page.indexOf('<Versions');
 		expect(tabs).toBeGreaterThan(-1);
 		expect(tabs).toBeLessThan(page.indexOf('<PaneColumns'));
 		for (const name of ['colsTop', 'about', 'watched', 'linked'])
-			expect(snippet(name)).not.toContain('<SourceTabs');
+			expect(snippet(name)).not.toContain('<Versions');
 	});
 
 	it('puts everything in the top row while editing', () => {
@@ -46,14 +46,18 @@ describe('the lesson page in its pane', () => {
 	});
 
 	it('opens the lesson menu as the small dialog, and no other sheet', () => {
-		expect(page).toMatch(/<Sheet title=\{lesson\.title\} size="small"/);
-		expect(page.match(/size="small"/g)).toHaveLength(1);
+		// The menu is the shared ⋯ (ItemMenu → MenuSheet), which is the small dialog.
+		expect(page).toContain('<ItemMenu');
+		expect(readFileSync('src/lib/components/ui/MenuSheet.svelte', 'utf8')).toMatch(
+			/<Sheet \{title\} size="small"/
+		);
+		expect(page.match(/size="small"/g)).toBeNull();
 	});
 
-	it("draws the strips' action with STRIP_ACTION", () => {
-		for (const name of ['draftBand', 'addBand']) {
-			expect(snippet(name)).toContain('class={STRIP_ACTION}');
+	it("draws the strips' action with its builder: Add's STRIP_ACTION, Publish's PUBLISH_ACTION", () => {
+		expect(snippet('addBand')).toContain('class={STRIP_ACTION}');
+		expect(snippet('draftBand')).toContain('class={PUBLISH_ACTION}');
+		for (const name of ['draftBand', 'addBand'])
 			expect(snippet(name)).not.toContain("button('secondary'");
-		}
 	});
 });

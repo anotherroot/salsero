@@ -1,12 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { addTemplates, createPosition } from '$lib/server/positions';
-import { optionalText } from '$lib/server/form';
+import { readNewPosition } from '$lib/server/position-form';
 import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import { wallOf } from '$lib/server/scope';
 import { mapData } from '$lib/server/positions-map';
-import { DANCES } from '$lib/dances/dances';
-import { parseHold } from '$lib/positions/hold';
 import { templateTypes } from '$lib/positions/templates';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -28,40 +26,12 @@ export const actions: Actions = {
 		// is not an editor creates in their own space, never in the group.
 		const space = spaceOf(db, params, locals, cookies);
 		const form = await request.formData();
-		const styleTag = String(form.get('styleTag') ?? '');
-		const typed = {
-			action: 'create' as const,
-			name: String(form.get('name') ?? ''),
-			notes: String(form.get('notes') ?? ''),
-			styleTag
-		};
-		const notes = optionalText(form, 'notes');
-		if (notes === undefined) {
-			return fail(400, {
-				...typed,
-				field: 'notes' as const,
-				message: 'Notes are up to 2000 characters.'
-			});
+		const read = readNewPosition(form, space.dance);
+		const typed = { action: 'create' as const, ...read.typed };
+		if (!('input' in read)) {
+			return fail(400, { ...typed, field: read.field, message: read.message });
 		}
-		if (typed.name.trim().length > 200) {
-			return fail(400, {
-				...typed,
-				field: 'name' as const,
-				message: 'A name is up to 200 characters.'
-			});
-		}
-		const made = createPosition(
-			db,
-			space,
-			{
-				name: typed.name,
-				styleTag: DANCES[space.dance].styles.includes(styleTag) ? styleTag : null,
-				hold: parseHold(form),
-				notes,
-				pictureSpotId: null
-			},
-			Date.now()
-		);
+		const made = createPosition(db, space, read.input, Date.now());
 		if ('field' in made) return fail(400, { ...typed, field: made.field, message: made.message });
 		throw redirect(303, `/${space.dance}/positions/${made.id}`);
 	},

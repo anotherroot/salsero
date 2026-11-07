@@ -21,10 +21,13 @@
 		deleteRow,
 		notSent,
 		optionShow,
+		renameLabel,
+		renameMeta,
 		sendButton,
 		sendNote,
 		sendTargetMeta
 	} from '$lib/clones/view';
+	import { nameDiffOf, renameOffer, sendsOnlyName, withRename } from '$lib/clones/rename';
 	import type { CloneKind, Picks, SendResult, SendTarget } from '$lib/types';
 
 	/**
@@ -71,6 +74,9 @@
 	let busy = $state(false);
 	let refused = $state<string[]>([]);
 	let sent = $state(false);
+	/** The rename box, and the copies left out of it, by id. */
+	let rename = $state(false);
+	let renameOut = $state<Record<number, boolean>>({});
 
 	const placeOf = (t: SendTarget) => (t.target.place.kind === 'team' ? t.target.place.name : YOURS);
 	const sendsAny = (t: SendTarget) =>
@@ -90,6 +96,8 @@
 				ticked = Object.fromEntries(list.map((t) => [t.target.id, sendsAny(t)]));
 				deletes = {};
 				both = {};
+				rename = false;
+				renameOut = {};
 			})
 			.catch(() => {
 				if (!ask.signal.aborted) failed = true;
@@ -107,6 +115,34 @@
 	});
 
 	const chosen = $derived((targets ?? []).filter((t) => ticked[t.target.id]));
+	const offer = $derived(targets ? renameOffer(targets) : null);
+	/** Whether your name lands on this target. */
+	const renamedFor = (t: SendTarget) => rename && !renameOut[t.target.id] && nameDiffOf(t) !== null;
+
+	/**
+	 * A rename turned on for a copy ticks it; turned off, a copy with nothing
+	 * else to bring is unticked again.
+	 */
+	function follow(ids: number[], on: boolean) {
+		const next = { ...ticked };
+		for (const t of targets ?? []) {
+			if (!ids.includes(t.target.id)) continue;
+			if (on) next[t.target.id] = true;
+			else if (sendsOnlyName(t)) next[t.target.id] = false;
+		}
+		ticked = next;
+	}
+
+	function toggleRename(on: boolean) {
+		rename = on;
+		renameOut = {};
+		follow(offer?.ids ?? [], on);
+	}
+
+	function toggleOne(id: number, on: boolean) {
+		renameOut = { ...renameOut, [id]: !on };
+		follow([id], on);
+	}
 	/** Your deletes the chosen targets still have, once each (a piece's key is its family's). */
 	const removals = $derived.by(() => {
 		const out: [string, string][] = [];
@@ -132,7 +168,11 @@
 	const payload = $derived(
 		JSON.stringify(
 			chosen.map((t) => {
-				const picks: Picks = { ...t.comparison.picks, ...both[t.target.id] };
+				const picks: Picks = withRename(
+					{ ...t.comparison.picks, ...both[t.target.id] },
+					t,
+					renamedFor(t)
+				);
 				for (const d of t.removals) if (deletes[d.key]) picks[d.key] = 'theirs';
 				return { id: t.target.id, picks, seen: t.comparison.seen };
 			})
@@ -247,7 +287,8 @@
 									>{sendTargetMeta(
 										t.comparison.diffs,
 										t.bytes,
-										t.target.place.kind === 'team'
+										t.target.place.kind === 'team',
+										renamedFor(t)
 									)}</span
 								>
 							</span>
@@ -255,6 +296,41 @@
 					</li>
 				{/each}
 			</ul>
+			{#if offer}
+				<ul class={GROUP}>
+					<li>
+						<label class="flex min-h-14 cursor-pointer items-center gap-3 px-4 py-2">
+							<input
+								type="checkbox"
+								class={BOX}
+								style="accent-color: var(--color-accent)"
+								checked={rename}
+								onchange={(e) => toggleRename(e.currentTarget.checked)}
+							/>
+							<span class="flex min-w-0 flex-1 flex-col">
+								<span class="text-[16px] font-bold text-ink">{renameLabel(offer.name)}</span>
+								<span class="text-[13px] text-muted">{renameMeta(offer.names)}</span>
+							</span>
+						</label>
+					</li>
+					{#if rename}
+						{#each (targets ?? []).filter( (t) => offer.ids.includes(t.target.id) ) as t (t.target.id)}
+							<li>
+								<label class="flex min-h-12 cursor-pointer items-center gap-3 py-1.5 pr-4 pl-12">
+									<input
+										type="checkbox"
+										class="size-5 flex-none"
+										style="accent-color: var(--color-accent)"
+										checked={!renameOut[t.target.id]}
+										onchange={(e) => toggleOne(t.target.id, e.currentTarget.checked)}
+									/>
+									<span class="min-w-0 flex-1 text-[15px] font-bold text-ink">{placeOf(t)}</span>
+								</label>
+							</li>
+						{/each}
+					{/if}
+				</ul>
+			{/if}
 			{#if removals.length > 0}
 				<ul class={GROUP}>
 					{#each removals as [key, name] (key)}

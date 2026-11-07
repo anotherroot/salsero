@@ -30,7 +30,13 @@
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
 	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
-	import { fullLoadFor, mayReloadNow, typedFields, type FieldState } from '$lib/nav/fresh';
+	import {
+		fullLoadFor,
+		mayReloadNow,
+		reloadWhy,
+		typedFields,
+		type FieldState
+	} from '$lib/nav/fresh';
 	import { held } from '$lib/nav/fresh.svelte';
 	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
 	import { holdsBack, staleMove } from '$lib/page-epoch';
@@ -361,6 +367,15 @@
 			!bottom.claimed &&
 			!(BUSY_ROUTES as readonly (string | null)[]).includes(page.route.id)
 	);
+	/** The toast's line: what keeps the page, read now and again while it shows (the DOM is not reactive). */
+	let reloadReason = $state('');
+	$effect(() => {
+		if (!reloadBar) return;
+		const read = () => (reloadReason = reloadWhy(quietNow()));
+		read();
+		const timer = setInterval(read, 1500);
+		return () => clearInterval(timer);
+	});
 	/*
 	 * The server refused this page: a deploy broke what it sends (the page
 	 * epoch, `$lib/page-epoch.ts`; app.html's fetch wrapper fires `salsa:stale`).
@@ -467,7 +482,7 @@
 		{#if staleBar}
 			<ReloadBar stale />
 		{:else if reloadBar}
-			<ReloadBar />
+			<ReloadBar why={reloadReason} />
 		{/if}
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />

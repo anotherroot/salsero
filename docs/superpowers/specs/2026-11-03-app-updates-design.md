@@ -87,7 +87,9 @@ Four layers, all on the web side, so they work in a browser tab and in the app.
    had its say (`src/lib/unsaved/guard.svelte.ts`): the guard asks first, and
    only a navigation that goes ahead becomes a full load.
 3. **If they stay on one page:** a small bar "New version · Reload" appears
-   (shared `ui/` look, above the tab bar). And when the page becomes visible
+   (shared `ui/` look, above the tab bar; since 2026-11-06 the toast's look,
+   "The app was updated" with a line saying what kept the page, see
+   [the update bubbles](2026-11-06-merge-sheets-and-update-bubbles-design.md)). And when the page becomes visible
    again with a new version out, it reloads by itself if nothing is unsaved and
    no practice run, recording or player is open; otherwise it only shows the
    bar.
@@ -159,7 +161,10 @@ hand in a commit; both dances share them. The first release is **versionCode
   for a direct-channel app, by comparing against that dance's `current.json`.
 - **Available:** a slim bar at the top of **Today**: "Update available ·
   Update". It cannot be closed but blocks nothing, and disappears once the
-  installed version is current. Settings shows the app's version with the same
+  installed version is current. *(Changed 2026-11-06: one row with the app's
+  icon, "New version of the app", the version, a small Update and a × that
+  hides it until tomorrow on that device; see
+  [the update bubbles](2026-11-06-merge-sheets-and-update-bubbles-design.md).)* Settings shows the app's version with the same
   button. No other screen shows it. *(My call; the author left the choice to
   me.)*
 - **Required** (installed code below `minVersionCode`): every page of the app is

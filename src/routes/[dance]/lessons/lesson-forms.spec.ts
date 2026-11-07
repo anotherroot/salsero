@@ -18,7 +18,7 @@ import { openDb, type Db } from '$lib/server/db';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
 import { eq } from 'drizzle-orm';
-import { exercises } from '$lib/server/db/schema';
+import { exercises, lessonPositions, positions } from '$lib/server/db/schema';
 import { localDay } from '$lib/day/day';
 import { actions as listActions } from './+page.server';
 import { actions as lessonActions } from './[id]/+page.server';
@@ -420,6 +420,61 @@ describe('From this lesson', () => {
 		expect(result).toMatchObject({
 			status: 400,
 			data: { field: 'notes', message: 'Notes are up to 2000 characters.', name: 'Rueda' }
+		});
+	});
+});
+
+describe('New position from this lesson', () => {
+	const lesson = () =>
+		createLesson(db, U1_SALSA, { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
+			.id;
+	const allPositions = () => db.select().from(positions).all();
+
+	it("makes the position in the lesson's space and links it", async () => {
+		const id = lesson();
+		const result = await call(
+			lessonActions.newPosition,
+			post('salsa', { name: 'Cerrada', styleTag: '', notes: '' }, id)
+		);
+		expect(result).toMatchObject({ action: 'newPosition', ok: true });
+		const [made] = allPositions();
+		expect(made).toMatchObject({ name: 'Cerrada', userId: 'u1', teamId: null, dance: 'salsa' });
+		expect(db.select().from(lessonPositions).where(eq(lessonPositions.lessonId, id)).all()).toEqual(
+			[expect.objectContaining({ lessonId: id, positionId: made.id })]
+		);
+	});
+
+	it('puts a blank name under Name, keeping what was typed', async () => {
+		const result = await call(
+			lessonActions.newPosition,
+			post('salsa', { name: ' ', styleTag: '', notes: 'Hands low' }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { action: 'newPosition', field: 'name', notes: 'Hands low' }
+		});
+		expect(allPositions()).toEqual([]);
+	});
+
+	it('puts a taken name under Name', async () => {
+		const id = lesson();
+		await call(lessonActions.newPosition, post('salsa', { name: 'Cerrada', notes: '' }, id));
+		const result = await call(
+			lessonActions.newPosition,
+			post('salsa', { name: 'Cerrada', notes: '' }, id)
+		);
+		expect(result).toMatchObject({ status: 400, data: { action: 'newPosition', field: 'name' } });
+		expect(allPositions()).toHaveLength(1);
+	});
+
+	it('puts notes over 2000 characters under Notes', async () => {
+		const result = await call(
+			lessonActions.newPosition,
+			post('salsa', { name: 'Cerrada', notes: 'x'.repeat(2001) }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { action: 'newPosition', field: 'notes', message: 'Notes are up to 2000 characters.' }
 		});
 	});
 });

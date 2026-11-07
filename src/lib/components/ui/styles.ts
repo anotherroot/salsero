@@ -189,6 +189,17 @@ export const STRIP_ACTION = swap(
 );
 
 /**
+ * A draft lesson's Publish on its band strip (spec A6, option 3A): a cream pill
+ * with band-coloured text on the phone, in both themes (the band does not change
+ * with them); on the desktop the strip is a soft bar and Publish its accent fill.
+ */
+export const PUBLISH_ACTION = swap(
+	STRIP_ACTION,
+	'bg-accent-soft text-accent-text',
+	'bg-band-ink text-on-cream'
+);
+
+/**
  * A pane header's padding and title size, shared by `BandHeader`'s `pane`
  * variant (the `_DESK` forms, behind `desk:`) and `PaneHeading` (the plain
  * forms), so the two cannot drift. A spec checks each pair agrees.

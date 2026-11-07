@@ -7,6 +7,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { act } from '$lib/act';
 	import { staleFailure } from '$lib/page-epoch';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -15,7 +16,6 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
-	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
@@ -31,6 +31,7 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import AddLinkSheet from '$lib/components/links/AddLinkSheet.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
@@ -51,6 +52,7 @@
 		LABEL,
 		SECTION_LABEL,
 		STRIP_ACTION,
+		PUBLISH_ACTION,
 		TEXTAREA,
 		button,
 		iconButton
@@ -58,6 +60,9 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { byteSize, fullDateLabel } from '$lib/format';
 	import {
+		ADD_LABEL,
+		DRAFT_BAND,
+		publishItem,
 		deleteBlock,
 		deleteVideoBody,
 		exerciseMeta,
@@ -73,11 +78,18 @@
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
+	import MusicSection from '$lib/components/songs/MusicSection.svelte';
+	import { practiseHref } from '$lib/songs/music';
 	import SimpleLesson from '$lib/components/lessons/SimpleLesson.svelte';
 	import { levelShown } from '$lib/levels/levels';
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
-	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import Versions from '$lib/components/clones/Versions.svelte';
+	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
+	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
+	import { menuLabel } from '$lib/menu';
+	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
@@ -145,6 +157,43 @@
 		if (data.add?.offer) adding = { offer: data.add.offer, fresh: data.add.added };
 	}
 	let lessonMenu = $state(false);
+	/** The lesson's own ⋯ items: History, and Remove from my lessons (its Dialog). */
+	/** Publish from the ⋯ (spec A6): the band's `publish`, then the page as it is now. */
+	async function publishFromMenu() {
+		await act('publish', {});
+		await refreshWhenSettled();
+	}
+	const lessonOwn = $derived<MenuItem[]>([
+		...(data.draft && data.canEdit && data.team
+			? [{ ...publishItem(data.team.name), onclick: () => void publishFromMenu() }]
+			: []),
+		...(data.historyHref
+			? [
+					{
+						key: 'history',
+						icon: 'clock' as const,
+						label: 'History',
+						href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
+							dance: data.dance.slug,
+							id: String(data.team?.id),
+							kind: 'lesson',
+							rootId: String(data.lesson.id)
+						})
+					}
+				]
+			: []),
+		...(data.add?.added
+			? [
+					{
+						key: 'remove',
+						icon: 'trash' as const,
+						label: 'Remove from my lessons',
+						danger: true,
+						onclick: () => (removing = true)
+					}
+				]
+			: [])
+	]);
 	/** A reader's Edit, or the deleted group's banner: the Make it mine sheet (ruling 12). */
 	let makingMine = $state(false);
 	let removing = $state(false);
@@ -180,6 +229,14 @@
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
 	let addingRoutine = $state(false);
+	let addingPosition = $state(false);
+	/** The Add a link sheet, and the `form` there when it opened: an older refusal is not this opening's. */
+	let addingLink = $state(false);
+	let linkSeen: unknown = $state(null);
+	function openAddLink() {
+		linkSeen = form;
+		addingLink = true;
+	}
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 	/** Where focus goes when that row is gone: the list's keys, the row, the list's add control. */
@@ -239,6 +296,7 @@
 	const scheduleOf = (exerciseId: number | null) =>
 		exerciseId === null ? undefined : data.schedule[exerciseId];
 	const failure = (action: string) => (form?.action === action ? form.message : null);
+	const linkRefusal = $derived(form !== linkSeen ? (failure('addLink') ?? null) : null);
 	/**
 	 * What the columns' top row shows besides the edit form, each read from here only
 	 * (outside editing `colsTop` renders these and nothing else; a spec checks it), so
@@ -528,24 +586,46 @@
 			typed = { figureName: '', name: query, notes: '' };
 			addingExercise = true;
 		}
+		// New position: made in the lesson's space and linked to it. Only the
+		// sheet closes; the picker shows the new row as linked once the page refreshes.
+		if (kind === 'position') addingPosition = true;
 	}
+	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
+	const offers = $derived<CloneOffers>(
+		data.simple && !editing
+			? {}
+			: {
+					drop: data.drop,
+					detach: data.detach,
+					copy: data.copyTo,
+					sameAs: data.sameAs,
+					move: data.move
+				}
+	);
 </script>
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
 {#snippet draftBand()}
-	<!-- A group's draft: only its editors see it, until one of them publishes it. On the desktop a soft warn bar under the pane's title. -->
+	<!-- A group's draft: only its editors see it, until one of them publishes it (spec A6, 3A).
+	     On the phone one tinted block on the band; on the desktop a soft warn bar under the pane's title. -->
 	<div
-		class="flex items-center gap-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pr-2 desk:pl-4"
+		class="flex items-center gap-3 rounded-[18px] bg-band-track py-2 pr-2 pl-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pl-4"
 	>
-		<Badge tone="warn" solid>Draft</Badge>
-		<span
-			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
-			>Only the group's editors see it</span
-		>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[15px] font-extrabold text-band-small desk:text-ink"
+				>{DRAFT_BAND.title}</span
+			>
+			<span
+				class="text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
+				>{DRAFT_BAND.line}</span
+			>
+		</span>
 		{#if data.canEdit}
 			<form method="POST" action="?/publish" use:enhance>
-				<button type="submit" class={STRIP_ACTION}>Publish</button>
+				<button type="submit" class={PUBLISH_ACTION}
+					><Icon name="upload" size={18} />{DRAFT_BAND.publish}</button
+				>
 			</form>
 		{/if}
 	</div>
@@ -631,9 +711,6 @@
 			{/if}
 		{/snippet}
 		{#snippet right()}
-			{#if !editing && (data.add?.added || data.historyHref)}
-				<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
-			{/if}
 			<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader's pencil makes it theirs. -->
 			{#if !editing && data.canEdit}
 				<BandButton
@@ -646,22 +723,29 @@
 				<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
 				<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
 			{/if}
+			{#if !editing}
+				{#if hasMenu(lessonOwn, offers)}
+					<BandButton
+						icon="more"
+						label={menuLabel('lesson')}
+						focusKey="item-menu"
+						onclick={() => (lessonMenu = true)}
+					/>
+				{/if}
+			{/if}
 		{/snippet}
 		<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
 			{#if !editing}
-				<SourceTabs
+				<Versions
 					sources={data.sources}
 					kind="lesson"
 					dance={data.dance.slug}
 					current={lesson.id}
 					mineId={data.mineId}
+					self={data.cloneLine.self}
+					title={lesson.title}
 					compare={data.compare}
 					family={data.family}
-					drop={data.drop}
-					detach={data.detach}
-					copy={data.copyTo}
-					sameAs={data.sameAs}
-					move={data.move}
 					taking={sourcePlace}
 				/>
 			{/if}
@@ -669,7 +753,7 @@
 			The lesson in its pane (desktop spec, "Two columns"): from a 780 px pane two
 			columns, 5 : 7 — the notes and what it teaches on the left, its videos and
 			links on the right; one column below that and on the phone, in the phone's
-			order. While editing everything is in `top`, one 640 px column. SourceTabs
+			order. While editing everything is in `top`, one 640 px column. Versions
 			(whose toast is `fixed`) sits outside PaneColumns: nothing pinned lives in
 			its size container.
 		-->
@@ -933,17 +1017,18 @@
 							</div>{/if}
 					</section>
 					<section class="flex flex-col gap-2 pt-2.5">
-						<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
+						{@render labelRow(sectionHeading('Links', data.links.length), 'link')}
 						{#if data.canEdit}
+							{#if failure('saveVideo') ?? failure('retryVideo')}
+								<Banner kind="error">{failure('saveVideo') ?? failure('retryVideo')}</Banner>
+							{/if}
 							<LinksEditor
 								compact
+								adding={false}
 								links={data.links}
 								canSave
-								message={failure('addLink') ??
-									failure('saveVideo') ??
-									failure('retryVideo') ??
-									null}
-								entered={form && 'urls' in form ? String(form.urls) : ''}
+								message={null}
+								entered=""
 							/>
 						{:else}
 							<LinkList compact links={data.links} />
@@ -955,9 +1040,7 @@
 				<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
 				<div class="flex flex-col gap-2.5 pt-2.5">
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure', () =>
-							openFigureSheet()
-						)}
+						{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure')}
 						{#if data.figures.length > 0}
 							<ul class={GROUP}>
 								{#each data.figures as figure (figure.id)}
@@ -981,18 +1064,9 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="figure-add"
-								label="Link an existing figure…"
-								onclick={() => openPicker('figure')}
-							/>
-						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
-							createFrom('routine', '', '')
-						)}
+						{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine')}
 						{#if data.routines.length > 0}
 							<ul class={GROUP}>
 								{#each data.routines as routine (routine.id)}
@@ -1020,18 +1094,9 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="routine-add"
-								label="Link an existing routine…"
-								onclick={() => openPicker('routine')}
-							/>
-						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
-							createFrom('exercise', '', '')
-						)}
+						{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise')}
 						{#if data.exercises.length > 0}
 							<ul class={GROUP}>
 								{#each data.exercises as exercise (exercise.id)}
@@ -1072,16 +1137,9 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="exercise-add"
-								label="Link an existing exercise…"
-								onclick={() => openPicker('exercise')}
-							/>
-						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Positions', data.positions.length), 'position', null)}
+						{@render labelRow(sectionHeading('Positions', data.positions.length), 'position')}
 						{#if data.positions.length > 0}
 							<ul class={GROUP}>
 								{#each data.positions as position (position.id)}
@@ -1110,14 +1168,14 @@
 								{/each}
 							</ul>
 						{/if}
-						{#if data.canEdit}
-							<PickerOpener
-								data-focus="position-add"
-								label="Link a position…"
-								onclick={() => openPicker('position')}
-							/>
-						{/if}
 					</section>
+					<!-- Music (spec B): the songs to practise to, each with a note. -->
+					<MusicSection
+						rows={data.music}
+						canEdit={data.canEdit}
+						choices={data.musicChoices}
+						practise={(songId) => practiseHref(data.dance.slug, { lesson: true }, songId)}
+					/>
 				</div>
 			{/snippet}
 			<PaneColumns
@@ -1217,39 +1275,6 @@
 {/if}
 
 {#if data.add?.added || data.historyHref}
-	<Sheet title={lesson.title} size="small" open={lessonMenu} onclose={() => (lessonMenu = false)}>
-		<div class={GROUP}>
-			{#if data.historyHref}
-				<a
-					href={resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
-						dance: data.dance.slug,
-						id: String(data.team?.id),
-						kind: 'lesson',
-						rootId: String(lesson.id)
-					})}
-					class="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-step"
-				>
-					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
-					<span class="text-[16px] font-bold text-ink">History</span>
-				</a>
-			{/if}
-			{#if data.add?.added}
-				<button
-					type="button"
-					class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
-					aria-haspopup="dialog"
-					onclick={() => {
-						lessonMenu = false;
-						removing = true;
-					}}
-				>
-					<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
-					<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
-				</button>
-			{/if}
-		</div>
-	</Sheet>
-
 	<Dialog
 		open={removing}
 		title="Remove from your lessons?"
@@ -1364,12 +1389,19 @@
 	{/snippet}
 </Dialog>
 
-{#snippet labelRow(heading: string, what: LinkKind, onclick: (() => void) | null)}
+<!-- A list's heading and, for an editor, its one "+ Add": the list's picker, whose last row makes a new one. -->
+{#snippet labelRow(heading: string, kind: LinkKind | 'link')}
 	<div class="flex items-center justify-between pr-1">
 		<h2 class={SECTION_LABEL}>{heading}</h2>
-		{#if data.canEdit && onclick}
-			<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
-				><Icon name="plus" size={18} />New</button
+		{#if data.canEdit}
+			<button
+				type="button"
+				data-focus="{kind}-add"
+				class={button('tertiary', 'sm')}
+				aria-label={ADD_LABEL[kind]}
+				aria-haspopup="dialog"
+				onclick={() => (kind === 'link' ? openAddLink() : openPicker(kind))}
+				><Icon name="plus" size={18} />Add</button
 			>
 		{/if}
 	</div>
@@ -1499,10 +1531,12 @@
 		pending={inFlight}
 		groups={positionPickGroups(data.linkablePositions, styleLabel)}
 		nothingLeft="There are no positions yet."
+		create={[{ key: 'position', label: 'Position' }]}
 		{added}
 		message={picking === 'position' ? pickMessage : null}
 		onpick={(row) => link('position', row, false)}
 		onadd={(row) => link('position', row, true)}
+		oncreate={(key, query) => createFrom('position', key, query)}
 		ondone={closePicker}
 		onclose={closePicker}
 	/>
@@ -1654,6 +1688,25 @@
 	</Sheet>
 {/if}
 
+{#if data.canEdit}
+	<AddLinkSheet
+		open={addingLink}
+		onclose={() => (addingLink = false)}
+		action="?/addLink"
+		canSave
+		message={linkRefusal}
+		entered={linkRefusal && form && 'urls' in form ? String(form.urls) : ''}
+	/>
+	<PositionSheet
+		open={addingPosition}
+		onclose={() => (addingPosition = false)}
+		mode="new"
+		action="?/newPosition"
+		dance={data.dance.slug}
+		defaultStyle={data.defaultStyle}
+	/>
+{/if}
+
 <!-- The routine and exercise sheets' form: Name, Notes. A success of
      the routine's redirects to its page, where its slots are built. -->
 {#snippet createFields(
@@ -1712,3 +1765,13 @@
 			viaFocus && void focusAfterRemoval(viaFocus.keys, viaFocus.gone, viaFocus.fallback)}
 	/>
 {/if}
+
+<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+<ItemMenu
+	bind:open={lessonMenu}
+	title={lesson.title}
+	kind="lesson"
+	current={lesson.id}
+	own={lessonOwn}
+	{offers}
+/>

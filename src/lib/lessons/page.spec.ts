@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { SectionLinkChip, ViaSection } from '$lib/types';
 import {
+	ADD_LABEL,
+	DRAFT_BAND,
+	publishItem,
 	deleteBlock,
 	deleteVideoBody,
 	positionLinkLabel,
@@ -179,6 +182,28 @@ describe('lesson page lines', () => {
 	});
 });
 
+describe("the lists' + Add", () => {
+	it('names what each one adds', () => {
+		expect(ADD_LABEL).toEqual({
+			figure: 'Add a figure',
+			routine: 'Add a routine',
+			exercise: 'Add an exercise',
+			position: 'Add a position',
+			link: 'Add a link'
+		});
+	});
+});
+
+describe("a draft's band", () => {
+	it('says what a draft is and what Publish does', () => {
+		expect(DRAFT_BAND).toEqual({
+			title: 'Draft',
+			line: "Members don't see it yet",
+			publish: 'Publish'
+		});
+	});
+});
+
 describe('the simple lesson page', () => {
 	// 2026-11-05 is a Thursday.
 	const today = '2026-11-05';
@@ -225,5 +250,16 @@ describe('the simple lesson page', () => {
 			{ id: 12, name: 'Footwork drill', when: 'Paused' }
 		]);
 		expect(practiceRows([], {}, today)).toEqual([]);
+	});
+});
+
+describe("Publish in a draft's ⋯ menu", () => {
+	it('names the group that will see it', () => {
+		expect(publishItem('Salsa Tuesdays')).toEqual({
+			key: 'publish',
+			icon: 'upload',
+			label: 'Publish',
+			meta: 'Members of Salsa Tuesdays see it'
+		});
 	});
 });

@@ -5,6 +5,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import LessonFields from './LessonFields.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
 	import { button } from '$lib/components/ui/styles';
 
 	/** A refused create, as the action returns it: what was typed and why it was refused. */
@@ -23,7 +24,9 @@
 		action,
 		refusal,
 		today,
-		handle
+		handle,
+		places,
+		submit = 'Create lesson'
 	}: {
 		open: boolean;
 		onclose: () => void;
@@ -39,7 +42,16 @@
 		 * `update()` for what it does not handle. Without it, the sheet just updates.
 		 */
 		handle?: (result: ActionResult, update: () => Promise<void>) => Promise<void>;
+		/**
+		 * Where it may go (the share page): Mine (value 0) and the groups the
+		 * person edits. A Where field shows only with more than one place.
+		 */
+		places?: { value: number; label: string }[];
+		/** The footer button's words. */
+		submit?: string;
 	} = $props();
+
+	let where = $state<number | null>(0);
 
 	let busy = $state(false);
 
@@ -87,6 +99,31 @@
 			max={today}
 			{errors}
 		/>
+		{#if places && places.length > 1}
+			<div>
+				<PickerField
+					name="teamId"
+					label="Where"
+					placeholder="Mine"
+					title="Where"
+					search="Search groups"
+					groups={[
+						{
+							title: 'Places',
+							entries: places.map((p) => ({
+								key: `place:${p.value}`,
+								value: p.value,
+								label: p.label
+							}))
+						}
+					]}
+					nothingLeft="Nowhere else."
+					bind:value={where}
+					error={errors.teamId ?? null}
+				/>
+				<p class="mt-1.5 pl-1 text-[13px] text-muted">A group's lesson starts as a draft</p>
+			</div>
+		{/if}
 	</form>
 
 	{#snippet footer()}
@@ -97,7 +134,7 @@
 			aria-busy={busy}
 			aria-label={busy ? 'Creating lesson' : undefined}
 		>
-			{#if busy}<Spinner />{:else}Create lesson{/if}
+			{#if busy}<Spinner />{:else}{submit}{/if}
 		</button>
 	{/snippet}
 </Sheet>

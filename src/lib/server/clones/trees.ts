@@ -47,6 +47,7 @@ import {
 	routines,
 	routineStepOptions,
 	routineSteps,
+	songLinks,
 	songs,
 	spotLinks,
 	spotPositionLinks,
@@ -293,6 +294,21 @@ function drillFlat(db: Db, id: number, b: Builder): void {
 				: 'None';
 	b.add('practice', practice, show);
 	linkFields(db, eq(links.exerciseId, id), b);
+	musicFields(db, eq(songLinks.exerciseId, id), b);
+}
+
+/**
+ * A parent's Music (spec B): one member per song, `song:<ref>`. Presence only:
+ * a changed note is not compared (the hand-link machinery has no value changes).
+ */
+function musicFields(db: Db, where: SQL, b: Builder): void {
+	for (const s of db
+		.select({ id: songs.id, gene: songs.geneId, title: songs.title })
+		.from(songLinks)
+		.innerJoin(songs, eq(songs.id, songLinks.songId))
+		.where(where)
+		.all())
+		b.add(`song:${ref(s.gene, s.id)}`, '1', s.title);
 }
 
 function songFlat(db: Db, id: number, b: Builder): void {
@@ -329,6 +345,7 @@ function routineFlat(db: Db, id: number, b: Builder): void {
 	const r = db.select().from(routines).where(eq(routines.id, id)).get() ?? missing('routine', id);
 	b.add('name', r.name);
 	b.add('notes', r.notes ?? '');
+	musicFields(db, eq(songLinks.routineId, id), b);
 	const steps = db
 		.select({
 			id: routineSteps.id,
@@ -376,6 +393,7 @@ function lessonFlat(db: Db, id: number, b: Builder): void {
 	b.add('day', l.lessonDay, dateLabel(l.lessonDay));
 	b.add('notes', l.notes ?? '');
 	linkFields(db, eq(links.lessonId, id), b);
+	musicFields(db, eq(songLinks.lessonId, id), b);
 
 	for (const f of db
 		.select({ id: figures.id, gene: figures.geneId, name: figures.name, move: figureGroups.name })

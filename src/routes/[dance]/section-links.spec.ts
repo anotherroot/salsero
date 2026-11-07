@@ -118,7 +118,7 @@ describe('the lesson page', () => {
 					id: section,
 					startMs: 0,
 					endMs: 900,
-					label: null,
+					label: 'Enchufla · Doble',
 					links: [{ id: expect.any(Number), label: 'Enchufla · Doble', archived: false }]
 				}
 			]

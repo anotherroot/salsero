@@ -666,7 +666,7 @@ describe('Video and Lessons: links from the page', () => {
 				via: true,
 				viaSections: [
 					{ spotId: week6.section, startMs: 72_000, endMs: 91_000, label: 'The cross on 7' },
-					{ spotId: week6.point, startMs: 72_000, endMs: null, label: null }
+					{ spotId: week6.point, startMs: 72_000, endMs: null, label: 'Manos cruzadas' }
 				],
 				canUnlink: true
 			},

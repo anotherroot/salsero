@@ -83,7 +83,7 @@ edit a class figure into their own). A teacher uses both.
      Salsa Tuesdays", and you can take one into yours (then charged to you).
      A clone made into a group brings its recordings, charged to the group,
      since members need them.
-3. **The source stays visible** *(user agreed)*. Your clone's page has a
+3. **The source stays visible** *(user agreed)*. *(Since 2026-11-06 the switcher is one "whose version" row that opens a Versions list, and the copy actions sit in the band's ⋯: see [the versions and menu spec](2026-11-06-versions-and-menu-design.md).)* Your clone's page has a
    switcher at the top, one tab per source ("Yours", "Salsa Tuesdays"): the
    same switcher a twin's page has, so there is one way of showing "theirs"
    beside "yours". "Yours" is yours to edit; the source's tab is its version
@@ -479,10 +479,14 @@ follows.
 
 ## Decided while building
 
-- **Names never travel by default.** A name or title difference is never
-  preselected, in Compare, Take or Send: a copy renamed on arrival
-  ("Doble (Salsa Tuesdays)") must not be pushed back, and taking the source's
-  name would clash in the receiving move. It travels only when ticked.
+- **Names never travel by default** in Send: a copy renamed on arrival
+  ("Doble (Salsa Tuesdays)") must not be pushed back, and the source's name
+  would clash in the receiving move. It travels only when the rename box is
+  ticked. *(Changed 2026-11-06 for Compare and Take: a name only they changed
+  is picked theirs like any field, unless it is only yours plus a copy's
+  suffix; a name both changed is a pick. And Keep mine, everything left on
+  yours, now writes the pair's snapshot. See
+  [the merge sheets](2026-11-06-merge-sheets-and-update-bubbles-design.md).)*
 - **New practice starts paused.** Whatever a copy brings to practise that the
   person did not practise (a drill, a routine's or lesson's own exercise)
   waits off Today, after Make it mine, the rescue, Keep and a copy of a drill

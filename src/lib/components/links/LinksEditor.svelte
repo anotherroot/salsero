@@ -31,9 +31,21 @@
 		canSave?: boolean;
 		/** The lesson page's denser YouTube row. */
 		compact?: boolean;
+		/**
+		 * The in-page "Add links" form. The lesson page passes false: its
+		 * links are added in `AddLinkSheet`, from the heading's "+ Add".
+		 */
+		adding?: boolean;
 	}
 
-	let { links, message, entered, canSave = false, compact = false }: Props = $props();
+	let {
+		links,
+		message,
+		entered,
+		canSave = false,
+		compact = false,
+		adding = true
+	}: Props = $props();
 	const uid = $props.id();
 	let posting = $state<number | null>(null);
 	/** Removing a link: focus goes to the next link's Remove, else the box that adds one. */
@@ -43,7 +55,8 @@
 			const keys = links.map((l) => `link-${l.id}`);
 			return async ({ update, result }) => {
 				await update();
-				if (result.type === 'success') await focusAfterRemoval(keys, `link-${id}`, 'links-add');
+				if (result.type === 'success')
+					await focusAfterRemoval(keys, `link-${id}`, adding ? 'links-add' : 'link-add');
 			};
 		};
 	const webHost = (url: string) => {
@@ -137,51 +150,51 @@
 	{/snippet}
 </LinkList>
 
-<form
-	method="POST"
-	action="?/addLink"
-	class="mt-3 flex flex-col gap-3.5"
-	use:guarded={{
-		label: 'A link',
-		submit:
-			() =>
-			async ({ update, result }) => {
-				// Keep the typed text on a failure so the bad line can be fixed in place.
-				await update({ reset: result.type === 'success' });
-			}
-	}}
->
-	<div>
-		<label class={LABEL} for="{uid}-urls">Add links</label>
-		<textarea
-			data-focus="links-add"
-			id="{uid}-urls"
-			name="urls"
-			rows="2"
-			placeholder="Paste YouTube or other links, one per line"
-			aria-invalid={message ? 'true' : undefined}
-			aria-describedby={message ? `${uid}-error` : undefined}
-			class={TEXTAREA}>{entered}</textarea
-		>
-		{#if message}
-			<p id="{uid}-error" class={FIELD_ERROR} role="alert">
-				<Icon name="warning" size={16} filled />{message}
-			</p>
-		{/if}
-	</div>
-	<div>
-		<label class={LABEL} for="{uid}-title"
-			>Title <span class="font-medium text-muted">(optional)</span></label
-		>
-		<input
-			id="{uid}-title"
-			name="title"
-			maxlength="200"
-			placeholder="For a single link"
-			class={FIELD}
-		/>
-	</div>
-	<button type="submit" class={button('secondary', 'md', true)}
-		><Icon name="plus" size={20} />Add link</button
+{#if adding}<form
+		method="POST"
+		action="?/addLink"
+		class="mt-3 flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'A link',
+			submit:
+				() =>
+				async ({ update, result }) => {
+					// Keep the typed text on a failure so the bad line can be fixed in place.
+					await update({ reset: result.type === 'success' });
+				}
+		}}
 	>
-</form>
+		<div>
+			<label class={LABEL} for="{uid}-urls">Add links</label>
+			<textarea
+				data-focus="links-add"
+				id="{uid}-urls"
+				name="urls"
+				rows="2"
+				placeholder="Paste YouTube or other links, one per line"
+				aria-invalid={message ? 'true' : undefined}
+				aria-describedby={message ? `${uid}-error` : undefined}
+				class={TEXTAREA}>{entered}</textarea
+			>
+			{#if message}
+				<p id="{uid}-error" class={FIELD_ERROR} role="alert">
+					<Icon name="warning" size={16} filled />{message}
+				</p>
+			{/if}
+		</div>
+		<div>
+			<label class={LABEL} for="{uid}-title"
+				>Title <span class="font-medium text-muted">(optional)</span></label
+			>
+			<input
+				id="{uid}-title"
+				name="title"
+				maxlength="200"
+				placeholder="For a single link"
+				class={FIELD}
+			/>
+		</div>
+		<button type="submit" class={button('secondary', 'md', true)}
+			><Icon name="plus" size={20} />Add link</button
+		>
+	</form>{/if}

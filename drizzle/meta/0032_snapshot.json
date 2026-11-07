@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e2b101b3-4b3e-4589-889d-96d52b28b06f",
+  "id": "f34de817-5d0d-4bdf-a806-5d8c7aa54804",
   "prevId": "9b356129-af4b-4f5a-8fea-f8972fba65db",
   "tables": {
     "app_flags": {
@@ -1256,13 +1256,6 @@
         },
         "used_by": {
           "name": "used_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dance": {
-          "name": "dance",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -3113,6 +3106,157 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "song_links": {
+      "name": "song_links",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "song_id": {
+          "name": "song_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lesson_id": {
+          "name": "lesson_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "exercise_id": {
+          "name": "exercise_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "routine_id": {
+          "name": "routine_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "song_links_song_idx": {
+          "name": "song_links_song_idx",
+          "columns": [
+            "song_id"
+          ],
+          "isUnique": false
+        },
+        "song_links_lesson_song_idx": {
+          "name": "song_links_lesson_song_idx",
+          "columns": [
+            "lesson_id",
+            "song_id"
+          ],
+          "isUnique": true
+        },
+        "song_links_exercise_song_idx": {
+          "name": "song_links_exercise_song_idx",
+          "columns": [
+            "exercise_id",
+            "song_id"
+          ],
+          "isUnique": true
+        },
+        "song_links_routine_song_idx": {
+          "name": "song_links_routine_song_idx",
+          "columns": [
+            "routine_id",
+            "song_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "song_links_song_id_songs_id_fk": {
+          "name": "song_links_song_id_songs_id_fk",
+          "tableFrom": "song_links",
+          "tableTo": "songs",
+          "columnsFrom": [
+            "song_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "song_links_lesson_id_lessons_id_fk": {
+          "name": "song_links_lesson_id_lessons_id_fk",
+          "tableFrom": "song_links",
+          "tableTo": "lessons",
+          "columnsFrom": [
+            "lesson_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "song_links_exercise_id_exercises_id_fk": {
+          "name": "song_links_exercise_id_exercises_id_fk",
+          "tableFrom": "song_links",
+          "tableTo": "exercises",
+          "columnsFrom": [
+            "exercise_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "song_links_routine_id_routines_id_fk": {
+          "name": "song_links_routine_id_routines_id_fk",
+          "tableFrom": "song_links",
+          "tableTo": "routines",
+          "columnsFrom": [
+            "routine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "songs": {
       "name": "songs",
       "columns": {
@@ -4260,13 +4404,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "dance": {
-          "name": "dance",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "first_name": {
           "name": "first_name",
           "type": "text",
@@ -4349,10 +4486,9 @@
         }
       },
       "indexes": {
-        "users_dance_email_idx": {
-          "name": "users_dance_email_idx",
+        "users_email_unique": {
+          "name": "users_email_unique",
           "columns": [
-            "dance",
             "email"
           ],
           "isUnique": true
