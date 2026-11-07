@@ -40,6 +40,34 @@ export function writeMark(tx: Db, kind: CloneKind, id: number, flat: Flat, now: 
 		.run();
 }
 
+/**
+ * Rename the mark's keys by `keyOf`, keeping every hash: a `#<id>` key of a
+ * row that a copy has since stamped with a gene reads as the gene, as the
+ * row's flat now names it. Values never change, so a save that landed in
+ * between still reads as changed. Nothing written when no key moves.
+ */
+export function rekeyMark(
+	tx: Db,
+	kind: CloneKind,
+	id: number,
+	keyOf: (key: string) => string
+): void {
+	const mark = readMark(tx, kind, id);
+	if (!mark) return;
+	const fields: Record<string, string> = {};
+	let moved = false;
+	for (const [key, hash] of Object.entries(mark)) {
+		const now = keyOf(key);
+		if (now !== key) moved = true;
+		fields[now] = hash;
+	}
+	if (!moved) return;
+	tx.update(cloneMarks)
+		.set({ fieldsJson: JSON.stringify(fields) })
+		.where(and(eq(cloneMarks.kind, kind), eq(cloneMarks.rowId, id)))
+		.run();
+}
+
 /** `writeMark` of the row as it is. */
 export function markNow(tx: Db, kind: CloneKind, id: number, now: number): void {
 	writeMark(tx, kind, id, flatOf(tx, kind, id), now);

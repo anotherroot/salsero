@@ -774,6 +774,27 @@ describe('landKeys', () => {
 		);
 	});
 
+	it('a keys landing of a whole new recording snapshots it and its parts under its gene', async () => {
+		const { F, M } = await world();
+		const rec = recording(F, 'new.mp4');
+		addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 900, label: 'New' }, 'u1');
+		const key = `rec:#${rec}`;
+		expect(Object.keys(flatOf(db, 'figure', F))).toContain(key);
+		expect(await land({ intoId: M, fromId: F, keys: [key], snapshot: 'keys' })).toEqual({
+			ok: true
+		});
+		const gene = geneOf(db, 'recording', rec)!;
+		const giver = flatOf(db, 'figure', F);
+		const parts = Object.keys(giver).filter((k) => k.startsWith(`rec:${gene}`));
+		expect(parts.length).toBe(4); // the piece, its note, its section, the section's links
+		const after = pairBase(db, 'figure', M, F)!;
+		for (const k of parts) expect(after.fields[k]).toBe(hashValue(giver[k].value));
+		expect(Object.keys(after.fields).filter((k) => k.startsWith(key))).toEqual([]);
+		// So the two read as in step on the recording.
+		const d = diff(after, flatOf(db, 'figure', M), giver, hashValue);
+		expect(d.filter((x) => x.key.startsWith(`rec:${gene}`))).toEqual([]);
+	});
+
 	it('a keys landing makes no pair when there is none; no keys writes nothing', async () => {
 		const { F, M } = await world();
 		db.update(figures).set({ notes: 'Club notes' }).where(eq(figures.id, F)).run();

@@ -38,6 +38,7 @@ import { setAutoAdd, setLevel } from './levels';
 import { crossRefs } from './integrity';
 import { cloneInto } from './clones/clone';
 import { compareWith, takeTheirs } from './clones/compare';
+import { flowFrom } from './clones/flow';
 import { autoAddOnJoin, autoAddOnPublish, autoAddPending, joinClass } from './auto-add';
 import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
 import type { Level } from '$lib/levels/levels';
@@ -395,6 +396,7 @@ export const GROWTH: readonly string[] = [
 	'linkInSpace',
 	'createAndLinkIn',
 	'syncFrom',
+	'flowFrom',
 	'restoreTrash'
 ];
 
@@ -484,6 +486,28 @@ const RUNS: Record<string, () => Promise<Grown> | Grown> = {
 		);
 		expect(r).toEqual({ ok: true });
 		return { drillId: D2 };
+	},
+	// Keep in step: the teacher links a drill on her own copy of the class lesson,
+	// and the flow after that save carries it into the class lesson (landKeys).
+	flowFrom: async () => {
+		const D2 = newDrill();
+		const mineLesson = await cloneInto(
+			db,
+			{ kind: 'lesson', id: L, into: U1_SALSA, recordings: false },
+			NO_FILES,
+			T
+		);
+		const mineDrill = await cloneInto(
+			db,
+			{ kind: 'drill', id: D2, into: U1_SALSA, recordings: false },
+			NO_FILES,
+			T
+		);
+		if (!mineLesson.ok || !mineDrill.ok) throw new Error('copy refused');
+		expect(linkExercise(db, mineLesson.id, mineDrill.id, 'u1')).toBe(true);
+		const report = await flowFrom(db, 'u1', 'lesson', mineLesson.id, NO_FILES, Date.now(), 1e12);
+		expect(report).toEqual({ landed: [L], refused: [] });
+		return { drillId: D2 };
 	}
 };
 
@@ -516,7 +540,10 @@ describe('every growth mutation adds what is new for a follow member', () => {
 const INSERT_SITES: Record<string, { count: number; why: string }> = {
 	'lessons.ts': { count: 2, why: 'linkRoutine, linkExercise (GROWTH)' },
 	'spot-links.ts': { count: 1, why: 'linkInSpace (GROWTH)' },
-	'clones/apply.ts': { count: 3, why: 'applyInto, only through syncFrom (GROWTH)' },
+	'clones/apply.ts': {
+		count: 3,
+		why: 'applyInto, only through landKeys: syncFrom and flowFrom (GROWTH)'
+	},
 	'clones/clone.ts': { count: 3, why: 'a brand-new copy: a draft or a person’s own lesson' },
 	'clones/move.ts': { count: 3, why: 'restoreLinks: back onto the person’s own lesson' }
 };

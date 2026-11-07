@@ -114,6 +114,7 @@ import { cloneInto, type CloneResult } from './clones/clone';
 import type { CloneFiles } from './clones/files';
 import { compareWith, takeTheirs } from './clones/compare';
 import { sendMine, sendPreview } from './clones/send';
+import { flowFrom } from './clones/flow';
 import { detach } from './clones/detach';
 import { copyTo } from './clones/copy-to';
 import { moveLesson } from './clones/move';
@@ -1053,6 +1054,27 @@ const MUTATIONS: {
 				GB
 			);
 			return targets.length === 1 && res?.result.ok ? res : null;
+		}
+	},
+	// clones/flow.ts: Keep in step, u1's save on her own copy flows into the group's figure
+	// (landKeys logs it, as the saver: one change)
+	{
+		name: 'flowFrom',
+		root: 'figure',
+		verb: 'change',
+		rootId: (w) => w.G,
+		teamOnly: true,
+		run: async (w) => {
+			const mine = await cloneInto(
+				db,
+				{ kind: 'figure', id: w.V, into: U1_SALSA, recordings: false },
+				cloneFiles,
+				T
+			);
+			if (!mine.ok) return null;
+			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Flowed' });
+			const report = await flowFrom(db, 'u1', 'figure', mine.id, cloneFiles, T, GB);
+			return report.landed.includes(w.V) ? report : null;
 		}
 	},
 	// clones/detach.ts: a group's figure leaves its family (an ordinary edit: one change)

@@ -1006,7 +1006,7 @@ function refNow(db: Db, of: keyof typeof REF_TABLES, ref: string): string {
  * names the same row differently: read that way, the pick still lands
  * rather than being dropped as a key outside the diff.
  */
-function currentKey(db: Db, key: string): string {
+export function currentKey(db: Db, key: string): string {
 	const prefix = setPrefixOf(key);
 	if (prefix === 'link') return key;
 	if (prefix) {
@@ -1028,6 +1028,35 @@ function currentKey(db: Db, key: string): string {
 function currentPicks(db: Db, picks: Picks): Picks {
 	const out: Picks = {};
 	for (const [key, side] of Object.entries(picks)) out[currentKey(db, key)] = side;
+	return out;
+}
+
+/**
+ * The snapshot keys a `'keys'` landing moves: each landed key as the rows
+ * name it now (a piece copied in had its gene stamped: `rec:#7` is
+ * `rec:<gene>`), and, for a piece or a section that came or went whole, every
+ * part of it (its note, its sections, their links), which the diff did not
+ * list on their own.
+ */
+function snapshotKeys(
+	tx: Db,
+	keys: string[],
+	base: Record<string, string>,
+	intoBefore: Flat,
+	intoAfter: Flat,
+	fromAfter: Flat
+): Set<string> {
+	const out = new Set<string>();
+	const known = [...Object.keys(base), ...Object.keys(intoAfter), ...Object.keys(fromAfter)];
+	for (const key of keys) {
+		const now = currentKey(tx, key);
+		out.add(now);
+		const part = pieceParts(now)?.part;
+		if (part !== 'piece' && part !== 'spot') continue;
+		// Only a whole arrival or removal: a piece both had keeps its parts' own snapshot.
+		if (Object.hasOwn(intoBefore, now) && Object.hasOwn(fromAfter, now)) continue;
+		for (const k of known) if (k.startsWith(`${now}:`)) out.add(k);
+	}
 	return out;
 }
 
@@ -1093,7 +1122,7 @@ export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
 			else if (!base) next = null;
 			else {
 				const fields = { ...base.fields };
-				for (const key of keys) {
+				for (const key of snapshotKeys(tx, keys, base.fields, intoFlat, intoAfter, fromAfter)) {
 					if (Object.hasOwn(fromAfter, key)) fields[key] = hashValue(fromAfter[key].value);
 					else delete fields[key];
 				}
