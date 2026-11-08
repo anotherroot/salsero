@@ -281,3 +281,28 @@ export function slotDetails(
 			}
 	);
 }
+
+/**
+ * What the About layer shows: the exercise's; in a routine, the figure that was
+ * lit when it opened (`pinned`), kept until it is closed — the run moves on
+ * every few seconds, faster than anyone reads.
+ */
+export function aboutShown(p: {
+	routine: boolean;
+	pinned: number | null;
+	details: RunDetails | null;
+	figureDetails: Record<number, RunDetails>;
+}): RunDetails | null {
+	if (p.routine) return p.pinned === null ? null : (p.figureDetails[p.pinned] ?? null);
+	return hasDetails(p.details) ? p.details : null;
+}
+
+/**
+ * Whether ▶'s `?play=1` may start the run by itself: only after a tap in this
+ * page (the browser's user activation), else Chrome leaves the audio pending
+ * and Play spins forever. A browser that cannot tell (no `userActivation`)
+ * rejects instead, and Setup shows Play's error.
+ */
+export function mayAutoPlay(activation: { hasBeenActive: boolean } | undefined): boolean {
+	return activation ? activation.hasBeenActive : true;
+}

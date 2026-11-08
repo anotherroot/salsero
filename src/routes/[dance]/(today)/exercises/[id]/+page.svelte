@@ -4,7 +4,7 @@
 	import { backWhenSettled, leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -58,7 +58,7 @@
 	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
 	import { announceSaved, saved as savedToast } from '$lib/exercises/saved.svelte';
 	import { pageClock } from '$lib/exercises/page-clock.svelte';
-	import { backFromPlayer, leaveForPlayer } from '$lib/exercises/clock-trip';
+	import { backFromPlayer, dropTrip, leaveForPlayer } from '$lib/exercises/clock-trip';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { comesBackWords } from '$lib/exercises/comes-back-view';
@@ -105,14 +105,18 @@
 	 * to the player and back is one visit: the page leaves its watch when it opens
 	 * the player and takes it back here (`clock-trip.ts`, the tab's sessionStorage).
 	 */
-	const clock = pageClock(untrack(() => tripBack(data.exercise.id)));
-	function tripBack(exerciseId: number) {
+	const clock = pageClock();
+	// Only Back from the player brings its time: reached any other way, the trip is not this visit's.
+	afterNavigate(({ from }) => {
 		try {
-			return backFromPlayer(sessionStorage, exerciseId, Date.now());
+			if (from?.route.id === '/[dance]/player') {
+				const carried = backFromPlayer(sessionStorage, data.exercise.id, Date.now());
+				if (carried) clock.carry(carried);
+			} else dropTrip(sessionStorage, data.exercise.id);
 		} catch {
-			return null;
+			// No storage (a private window): the time starts over.
 		}
-	}
+	});
 	function tripLeave() {
 		try {
 			leaveForPlayer(sessionStorage, data.exercise.id, clock.watch, Date.now());

@@ -4,6 +4,8 @@ import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow, RunClip, RunDetails } from '$lib/types';
 import {
+	aboutShown,
+	mayAutoPlay,
 	slotDetails,
 	aboutPreview,
 	hasDetails,
@@ -375,5 +377,46 @@ describe('a slot’s details, from the routine list', () => {
 			},
 			nine
 		]);
+	});
+});
+
+describe('About in the run', () => {
+	const d = (heading: string): RunDetails => ({
+		heading,
+		facts: [],
+		hasPositions: false,
+		notes: 'x',
+		clips: [],
+		links: []
+	});
+	const figureDetails = { 3: d('Guapea'), 9: d('Enchufla') };
+
+	it('in a routine, shows the figure lit when it opened, until it is closed', () => {
+		expect(aboutShown({ routine: true, pinned: 9, details: null, figureDetails })?.heading).toBe(
+			'Enchufla'
+		);
+		expect(aboutShown({ routine: true, pinned: null, details: null, figureDetails })).toBeNull();
+		expect(aboutShown({ routine: true, pinned: 4, details: null, figureDetails })).toBeNull();
+	});
+	it('otherwise shows the exercise’s, when it has any', () => {
+		expect(
+			aboutShown({ routine: false, pinned: null, details: d('Warmup'), figureDetails })?.heading
+		).toBe('Warmup');
+		expect(
+			aboutShown({
+				routine: false,
+				pinned: null,
+				details: { ...d('X'), notes: null },
+				figureDetails
+			})
+		).toBeNull();
+	});
+});
+
+describe('▶ on the exercise page', () => {
+	it('starts by itself only after a tap in this page, where the browser can tell', () => {
+		expect(mayAutoPlay({ hasBeenActive: true })).toBe(true);
+		expect(mayAutoPlay({ hasBeenActive: false })).toBe(false);
+		expect(mayAutoPlay(undefined)).toBe(true);
 	});
 });

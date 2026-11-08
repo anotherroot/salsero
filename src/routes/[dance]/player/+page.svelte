@@ -20,7 +20,7 @@
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import { runSubtitle, runTitle, type RoutineView } from '$lib/player/view';
+	import { mayAutoPlay, runSubtitle, runTitle, type RoutineView } from '$lib/player/view';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
@@ -272,9 +272,14 @@
 	 * A song waits for its grid; one that fails leaves Setup as it is. If the
 	 * browser will not start audio without a tap here, Play's own error shows.
 	 */
-	let autoPlay = $state(untrack(() => page.url.searchParams.get('play') === '1'));
+	let autoPlay = $state(false);
 	onMount(() => {
-		if (!autoPlay) return;
+		if (page.url.searchParams.get('play') !== '1') return;
+		// Without a tap in this page (a new tab, a reload) the browser would hold
+		// the audio pending: then ▶ only opens Setup.
+		autoPlay = mayAutoPlay(
+			(navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation
+		);
 		const url = new URL(page.url);
 		url.searchParams.delete('play');
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- this page's own path; only the query changes

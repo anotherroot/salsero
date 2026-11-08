@@ -17,6 +17,7 @@ export function pageClock(carried: Stopwatch | null = null): {
 	readonly seconds: number;
 	readonly watch: Stopwatch;
 	restart(): void;
+	carry(watch: Stopwatch): void;
 } {
 	let watch = $state<Stopwatch>(carried ?? STOPPED);
 	/** Bumped by the tick, so a reader of `seconds` redraws once a second. */
@@ -50,6 +51,11 @@ export function pageClock(carried: Stopwatch | null = null): {
 		get seconds() {
 			void beat;
 			return Math.floor(elapsedMs(watch, Date.now()) / 1000);
+		},
+		/** Go on from a trip's time, brought back after the page mounted. */
+		carry(carried: Stopwatch) {
+			watch = followVisibility(carried, visible(), Date.now());
+			beat++;
 		},
 		restart() {
 			watch = followVisibility(STOPPED, visible(), Date.now());

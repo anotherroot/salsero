@@ -49,3 +49,8 @@ export function backFromPlayer(
 	if (runningSince !== null && typeof runningSince !== 'number') return null;
 	return { bankedMs: elapsedMs({ bankedMs, runningSince }, now), runningSince: null };
 }
+
+/** The page was reached some other way than back from the player: its trip is not this visit's. */
+export function dropTrip(store: TripStore, exerciseId: number): void {
+	store.removeItem(keyOf(exerciseId));
+}

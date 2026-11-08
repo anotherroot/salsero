@@ -34,7 +34,7 @@
 	</h2>
 	{#if details.facts.length > 0}
 		<ul class="flex flex-wrap gap-1.5 px-0.5">
-			{#each details.facts as fact (fact)}
+			{#each details.facts as fact, k (k)}
 				<li class="rounded-full bg-chip px-3 py-1.5 text-[13px] font-bold text-ink-2">{fact}</li>
 			{/each}
 		</ul>
@@ -45,13 +45,13 @@
 			class="px-1 text-[17px] leading-[1.5] whitespace-pre-line text-ink"
 		/>
 	{/if}
-	{#each details.clips as clip (clip.src + clip.startMs)}
+	{#each details.clips as clip, k (k)}
 		<RunClip {clip} />
 	{/each}
 	{#if details.links.length > 0}
 		<div class={GROUP}>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- links go outside the app -->
-			{#each details.links as link (link.url)}
+			{#each details.links as link, k (k)}
 				<a
 					href={link.url}
 					target="_blank"

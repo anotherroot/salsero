@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { backFromPlayer, leaveForPlayer, TRIP_MAX_MS, type TripStore } from './clock-trip';
+import {
+	backFromPlayer,
+	dropTrip,
+	leaveForPlayer,
+	TRIP_MAX_MS,
+	type TripStore
+} from './clock-trip';
 import type { Stopwatch } from './stopwatch';
 
 /** sessionStorage, as a map. */
@@ -58,5 +64,12 @@ describe('the exercise page’s time across a trip to the player', () => {
 		const s = store();
 		leaveForPlayer(s, 7, { bankedMs: 3 * MIN, runningSince: null }, left);
 		expect(backFromPlayer(s, 7, back)).toEqual({ bankedMs: 3 * MIN, runningSince: null });
+	});
+
+	it('is dropped when the page is reached some other way than back from the player', () => {
+		const s = store();
+		leaveForPlayer(s, 7, running, left);
+		dropTrip(s, 7);
+		expect(backFromPlayer(s, 7, back)).toBeNull();
 	});
 });

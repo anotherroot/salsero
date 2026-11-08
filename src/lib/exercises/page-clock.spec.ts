@@ -36,6 +36,7 @@ type Clock = {
 	readonly seconds: number;
 	readonly watch: { bankedMs: number; runningSince: number | null };
 	restart(): void;
+	carry(watch: { bankedMs: number; runningSince: number | null }): void;
 };
 let pageClock: (carried?: { bankedMs: number; runningSince: number | null } | null) => Clock;
 let root: (setup: () => void) => () => void;
@@ -86,6 +87,16 @@ describe('pageClock', () => {
 		expect(clock.seconds).toBe(605);
 		clock.restart();
 		expect(clock.seconds).toBe(0);
+		stop();
+	});
+
+	it('carries a trip’s time brought back after it mounted (back from the player)', () => {
+		const { clock, stop } = mount();
+		vi.advanceTimersByTime(2_000);
+		clock.carry({ bankedMs: 600_000, runningSince: null });
+		expect(clock.seconds).toBe(600);
+		vi.advanceTimersByTime(5_000);
+		expect(clock.seconds).toBe(605);
 		stop();
 	});
 

@@ -8,6 +8,7 @@
 	import type { CalledFigure, RunDetails } from '$lib/types';
 	import {
 		aboutPreview,
+		aboutShown,
 		hasDetails,
 		routinePlace,
 		routinePreview,
@@ -199,10 +200,16 @@
 		layer = null;
 		if (was) void tick().then(() => rowsEl?.focusRow(was));
 	}
-	/** About of a figure that is no longer lit closes with it: it would show another. */
-	$effect(() => {
-		if (layer === 'about' && !about) untrack(closeLayer);
-	});
+	/*
+	 * About in a routine stays on the figure that was lit when it opened: the run
+	 * moves on every few seconds, faster than anyone reads. Only the row follows.
+	 */
+	let pinned = $state<number | null>(null);
+	function openRow(key: RunRowKey) {
+		pinned = key === 'about' ? litFigure : null;
+		layer = key;
+	}
+	const shown = $derived(aboutShown({ routine: slots.length > 0, pinned, details, figureDetails }));
 
 	const motion = (): ScrollBehavior =>
 		window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
@@ -329,17 +336,16 @@
 				<!-- 32 px, a little less under 390 px wide: a long name stays two whole lines at 360. -->
 				<p
 					aria-live="polite"
-					class="run-call line-clamp-2 flex-none text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink desk:text-[44px] desk:leading-[1.15]"
+					class="run-call line-clamp-2 min-h-[2.2em] flex-none text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink desk:text-[44px] desk:leading-[1.15]"
 				>
 					{nowName ?? ''}
 				</p>
-				{#if nextName}
-					<p
-						class="run-next line-clamp-1 flex-none text-center text-[15px] font-semibold text-band-small desk:text-[18px]"
-					>
-						{w.next(nextName)}
-					</p>
-				{/if}
+				<!-- Always there, empty on the last slot: the count keeps its size. -->
+				<p
+					class="run-next line-clamp-1 min-h-[1.4em] flex-none text-center text-[15px] font-semibold text-band-small desk:text-[18px]"
+				>
+					{nextName ? w.next(nextName) : ''}
+				</p>
 			{/if}
 			{#if paused}
 				<span
@@ -368,7 +374,11 @@
 				     release — each seek clears the count already queued. -->
 				<SongProgress {audio} onseek={(t) => player.seek(t)} />
 			{/if}
-			<RunRows bind:this={rowsEl} {rows} onopen={(key) => (layer = key)} />
+			<!-- A routine in Follow keeps room for three rows: About comes and goes with the
+			     lit figure, and the count must not change size under it. -->
+			<div class={slots.length > 0 && follow ? 'min-h-[194px]' : ''}>
+				<RunRows bind:this={rowsEl} {rows} onopen={openRow} />
+			</div>
 		</div>
 	</div>
 
@@ -416,10 +426,10 @@
 				</div>
 			</div>
 		</RunLayer>
-	{:else if layer === 'about' && about}
+	{:else if layer === 'about' && shown}
 		<RunLayer
 			label={w.about}
-			title={about.heading}
+			title={shown.heading}
 			{player}
 			{beats}
 			{counts}
@@ -427,7 +437,7 @@
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
-			<DetailsBody details={about} />
+			<DetailsBody details={shown} />
 		</RunLayer>
 	{:else if layer === 'routine'}
 		<!-- The full-screen routine: the list in large type, to read from a few metres away. -->

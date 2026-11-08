@@ -31,7 +31,8 @@
 	/** Back from a layer: focus returns to the row that opened it. */
 	let buttons = $state<Partial<Record<RunRowKey, HTMLButtonElement>>>({});
 	export function focusRow(key: RunRowKey) {
-		buttons[key]?.focus({ preventScroll: true });
+		// The row can be gone (a routine's About comes and goes): then the first one.
+		(buttons[key] ?? Object.values(buttons).find(Boolean))?.focus({ preventScroll: true });
 	}
 </script>
 
