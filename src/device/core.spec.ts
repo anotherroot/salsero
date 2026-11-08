@@ -170,7 +170,7 @@ describe('start', () => {
 		expect(count('figures')).toBeGreaterThan(0);
 		expect(h.runtimes).toEqual([{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' } }]);
 		expect(h.startServer).toHaveBeenCalledTimes(1);
-		expect(h.bodies).toEqual([{ cursor: 0, schema: SCHEMA_TAG }]);
+		expect(h.bodies).toEqual([{ cursor: 0, schema: SCHEMA_TAG, userId: null }]);
 	});
 
 	it('with no copy and offline, is empty and asks nothing', async () => {

@@ -24,7 +24,8 @@ function readRequest(body: unknown): PullRequest | null {
 		for (const v of Object.values(b.digests)) if (typeof v !== 'string') return null;
 		digests = b.digests as Record<string, string>;
 	}
-	return { cursor: b.cursor, schema: b.schema, digests };
+	if (b.userId !== undefined && b.userId !== null && typeof b.userId !== 'string') return null;
+	return { cursor: b.cursor, schema: b.schema, digests, userId: b.userId };
 }
 
 export const POST: RequestHandler = async ({ request, cookies }) => {

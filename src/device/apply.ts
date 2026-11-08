@@ -120,9 +120,14 @@ export async function deviceDigests(db: SqliteDb): Promise<Record<string, string
 	return out;
 }
 
-/** The next pull: everything after a migration or a wipe, changes (with digests) otherwise. */
+/**
+ * The next pull: everything after a migration or a wipe, changes (with
+ * digests) otherwise. It says whose copy it is: the server starts over for
+ * anyone else.
+ */
 export async function pullRequestOf(db: SqliteDb, schema: string): Promise<PullRequest> {
 	const meta = readMeta(db);
-	if (meta.full) return { cursor: meta.cursor, schema };
-	return { cursor: meta.cursor, schema, digests: await deviceDigests(db) };
+	const userId = meta.userId;
+	if (meta.full) return { cursor: meta.cursor, schema, userId };
+	return { cursor: meta.cursor, schema, userId, digests: await deviceDigests(db) };
 }

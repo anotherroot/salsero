@@ -49,6 +49,7 @@ function digestsOf(userId: string): Record<string, string> {
 
 /** A device up to date after `first`. */
 const synced = (userId: string, first: PullResponse): Partial<PullRequest> => ({
+	userId,
 	cursor: first.cursor,
 	digests: digestsOf(userId)
 });
@@ -128,6 +129,19 @@ describe('pull', () => {
 		db.run(sql`DELETE FROM change_log`);
 		expect(pull('u1', { ...ok, cursor: 3 }).full).toHaveLength(Object.keys(SYNCED).length);
 		expect(pull('u1', ok).full).toEqual([]);
+	});
+
+	it("starts over for a copy that is another person's, or does not say whose", () => {
+		// Luka (u2) and Maja (u3) share group 1: some tables hold the same keys for both.
+		const first = pull('u2');
+		const held = synced('u2', first);
+		const all = Object.keys(SYNCED).sort();
+		expect(pull('u3', held).full.sort()).toEqual(all);
+		expect(pull('u2', { ...held, userId: null }).full.sort()).toEqual(all);
+		const { userId: _, ...unsaid } = held;
+		void _;
+		expect(pull('u2', unsaid).full.sort()).toEqual(all);
+		expect(pull('u2', held).full).toEqual([]);
 	});
 
 	it('refuses another schema', () => {
@@ -253,5 +267,15 @@ describe('POST /api/sync/pull', () => {
 		expect(
 			(await call({ cookies, body: { cursor: 0, schema: SCHEMA_TAG, digests: { a: 1 } } })).status
 		).toBe(400);
+		expect((await call({ cookies, body: { ...body, userId: 7 } })).status).toBe(400);
+		expect((await call({ cookies, body: { ...body, userId: null } })).status).toBe(200);
+	});
+
+	it("takes the copy's person: the same one gets changes only", async () => {
+		db.run(sql`UPDATE users SET dance = 'salsa' WHERE id = 'u1'`);
+		const cookies = { [SESSION_COOKIE]: createSession('u1', db).id };
+		const first = (await (await call({ cookies, body })).json()) as PullResponse;
+		const again = await call({ cookies, body: { ...synced('u1', first), schema: SCHEMA_TAG } });
+		expect(((await again.json()) as PullResponse).full).toEqual([]);
 	});
 });

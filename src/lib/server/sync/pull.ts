@@ -34,6 +34,7 @@ export function pull(db: Db, userId: string, req: PullRequest): PullResponse | P
 		const digests = req.digests;
 		const fresh =
 			!digests ||
+			req.userId !== userId ||
 			req.cursor > head ||
 			(req.cursor < head && (oldest === null || req.cursor < oldest - 1));
 

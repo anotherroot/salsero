@@ -110,6 +110,24 @@ describe('applyPull', () => {
 		expect(readMeta(device).userId).toBe('u4');
 	});
 
+	it("another person's pull, asked with the copy's request, leaves exactly their scope", async () => {
+		// Luka (u2) and Maja (u3) share group 1: users, teams and team_members hold the same keys for both.
+		applyPull(device, pull('u2'));
+		// The device asks as it always does: its cursor and digests are u2's.
+		const req = await pullRequestOf(device, SCHEMA_TAG);
+		expect(req.userId).toBe('u2');
+		const res = rawPull(server, 'u3', req);
+		if ('refused' in res) throw new Error('refused');
+		applyPull(device, res);
+		const scope = syncScope(server, 'u3');
+		for (const [table, rows] of scope) expect(count(table), table).toBe(rows.size);
+		expect(await deviceDigests(device)).toEqual(
+			Object.fromEntries([...scope].map(([t, rows]) => [t, serverDigest(rows.keys())]))
+		);
+		expect(device.prepare("SELECT id FROM users WHERE id = 'u3'").get()).toEqual({ id: 'u3' });
+		expect(readMeta(device).userId).toBe('u3');
+	});
+
 	it('leaves the copy as it was when a row fails', () => {
 		applyPull(device, pull('u1'));
 		const before = counts();
@@ -211,7 +229,7 @@ describe('wipeCopy', () => {
 describe('pullRequestOf', () => {
 	it('asks for everything after a migration and for changes after a pull', async () => {
 		const first = await pullRequestOf(device, SCHEMA_TAG);
-		expect(first).toEqual({ cursor: 0, schema: SCHEMA_TAG });
+		expect(first).toEqual({ cursor: 0, schema: SCHEMA_TAG, userId: null });
 		expect('digests' in first).toBe(false);
 		const res = pull('u1');
 		applyPull(device, res);
