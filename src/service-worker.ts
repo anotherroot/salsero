@@ -18,11 +18,11 @@ import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/
 import {
 	CACHE_PREFIX,
 	DeviceClients,
-	NETWORK_TIMEOUT_MS,
 	SHELL,
 	cachesToDelete,
 	installOrClean,
 	isNetworkFailure,
+	navigationTimeout,
 	postsChanged,
 	tellsNeedsConnection,
 	swRoute,
@@ -176,18 +176,36 @@ function within<T>(promise: Promise<T>, ms: number | null): Promise<T> {
 	});
 }
 
+/** Whether some open page's device could draw a page load now (`DeviceClients.anyAnswers`). */
+async function aDeviceAnswers(): Promise<boolean> {
+	try {
+		const open = await sw.clients.matchAll({ type: 'window' });
+		return devices.anyAnswers(new Set(open.map((c) => c.id)));
+	} catch (e) {
+		// Not knowing is no device: the network gets all the time it needs.
+		console.warn('[sw] could not list the pages', e);
+		return false;
+	}
+}
+
 /**
  * A page load: the network (the navigation preload when there is one), else
- * the shell, which draws the page from the device. With no shell cached the
- * network has all the time it needs, as without a service worker.
+ * the shell, which draws the page from the device. Timed out only when a
+ * device could draw it (`navigationTimeout`); otherwise the network has all
+ * the time it needs, as without a service worker, and only a failure gets
+ * the shell.
  */
 async function navigate(event: FetchEvent): Promise<Response> {
 	const shell = await cachedShell();
 	const preload = event.preloadResponse as Promise<Response | undefined> | undefined;
 	if (navigator.onLine || !shell) {
+		const ms = navigationTimeout(new URL(event.request.url).pathname, {
+			device: shell ? await aDeviceAnswers() : false,
+			shell: !!shell
+		});
 		const network = (async () => (await preload) ?? fetch(event.request))();
 		try {
-			const res = await within(network, shell ? NETWORK_TIMEOUT_MS : null);
+			const res = await within(network, ms);
 			if (!shell || !isNetworkFailure(res)) return res;
 		} catch (e) {
 			if (!shell) {

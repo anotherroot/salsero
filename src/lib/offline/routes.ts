@@ -71,13 +71,17 @@ const DATA = '/__data.json';
 const networkPages = NETWORK_PAGES.map(routePattern);
 const deviceEndpoints = DEVICE_ENDPOINTS.map(routePattern);
 
+/** Whether a page path is a network page (`NETWORK_PAGES`): the device never draws it. */
+export function isNetworkPage(path: string): boolean {
+	return networkPages.some((re) => re.test(path));
+}
+
 /** Whether the device may answer this request from its copy. */
 export function deviceAnswers(method: string, url: URL): boolean {
 	if (method !== 'GET') return false;
 	const path = url.pathname;
 	if (path.endsWith(DATA)) {
-		const page = path.slice(0, -DATA.length) || '/';
-		return !networkPages.some((re) => re.test(page));
+		return !isNetworkPage(path.slice(0, -DATA.length) || '/');
 	}
 	return deviceEndpoints.some((re) => re.test(path));
 }

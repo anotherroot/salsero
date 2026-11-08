@@ -5,7 +5,13 @@
  * device answers only when the network fails.
  */
 import type { DeviceState } from './protocol';
-import { DEVICE_ENDPOINTS, NETWORK_ENDPOINTS, deviceAnswers, routePattern } from './routes';
+import {
+	DEVICE_ENDPOINTS,
+	NETWORK_ENDPOINTS,
+	deviceAnswers,
+	isNetworkPage,
+	routePattern
+} from './routes';
 
 /**
  * - `precached`: the build, its static files and the device bundle, from the cache;
@@ -176,6 +182,19 @@ export class DeviceClients {
 		return this.#states.get(id) === 'ready' && !this.#dirtyAt.has(id) ? NETWORK_TIMEOUT_MS : null;
 	}
 
+	/**
+	 * Whether a page load could be drawn from a copy now: some open page (`open`,
+	 * the window clients) has a ready device with nothing unpulled. A closed
+	 * page's entry is stale, and a device still starting, or behind its page's
+	 * save, would draw nothing, or the page from before it.
+	 */
+	anyAnswers(open: ReadonlySet<string>): boolean {
+		for (const [id, state] of this.#states) {
+			if (state === 'ready' && open.has(id) && !this.#dirtyAt.has(id)) return true;
+		}
+		return false;
+	}
+
 	/** Forget the pages that are gone. */
 	sweep(open: ReadonlySet<string>): void {
 		for (const id of this.#states.keys()) if (!open.has(id)) this.#states.delete(id);
@@ -185,6 +204,21 @@ export class DeviceClients {
 	get size(): number {
 		return new Set([...this.#states.keys(), ...this.#dirtyAt.keys()]).size;
 	}
+}
+
+/**
+ * How long a page load waits for the network before the cached shell draws it
+ * from the device; null: as long as it takes, as without a service worker.
+ * Timed only when the shell is cached and a device could answer
+ * (`DeviceClients.anyAnswers`), and never for a network page: the shell
+ * cannot draw it, so a slow sign-in or admin page would be lost for an offline
+ * screen. A rejection or a 502/503/504/52x still gets the shell.
+ */
+export function navigationTimeout(
+	path: string,
+	can: { device: boolean; shell: boolean }
+): number | null {
+	return can.shell && can.device && !isNetworkPage(path) ? NETWORK_TIMEOUT_MS : null;
 }
 
 /** Since when a save is unpulled, after another save at `at`: the latest one. */

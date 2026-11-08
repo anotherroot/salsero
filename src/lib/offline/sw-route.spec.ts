@@ -6,6 +6,7 @@ import {
 	cachesToDelete,
 	installOrClean,
 	isNetworkFailure,
+	navigationTimeout,
 	postsChanged,
 	pullCovers,
 	unpulledAfterPull,
@@ -206,6 +207,46 @@ describe('DeviceClients', () => {
 		c.changed('b', 1);
 		c.sweep(new Set(['c']));
 		expect(c.size).toBe(0);
+	});
+});
+
+describe('a navigation', () => {
+	it('is timed out only while an open page has a ready device with nothing unpulled', () => {
+		const c = new DeviceClients();
+		const open = new Set(['a', 'b']);
+		expect(c.anyAnswers(open)).toBe(false);
+		c.setState('a', 'waiting', null);
+		c.setState('b', 'starting', null);
+		expect(c.anyAnswers(open)).toBe(false);
+		c.setState('b', 'ready', null);
+		expect(c.anyAnswers(open)).toBe(true);
+		// A closed page's ready device answers nothing.
+		expect(c.anyAnswers(new Set(['a']))).toBe(false);
+		// Its save not pulled yet: the copy would draw the page from before it.
+		c.changed('b', 1000);
+		expect(c.anyAnswers(open)).toBe(false);
+		c.pulled('b', 1000);
+		expect(c.anyAnswers(open)).toBe(true);
+	});
+
+	it('waits as long as it takes with no device to answer, or no shell', () => {
+		expect(navigationTimeout('/salsa/figures', { device: true, shell: true })).toBe(
+			NETWORK_TIMEOUT_MS
+		);
+		expect(navigationTimeout('/salsa/figures', { device: false, shell: true })).toBeNull();
+		expect(navigationTimeout('/salsa/figures', { device: true, shell: false })).toBeNull();
+	});
+
+	it('never times out a network page: the shell cannot draw it', () => {
+		for (const path of [
+			'/login',
+			'/admin',
+			'/join',
+			'/salsa/groups/4/people',
+			'/settings/storage'
+		]) {
+			expect(navigationTimeout(path, { device: true, shell: true }), path).toBeNull();
+		}
 	});
 });
 
