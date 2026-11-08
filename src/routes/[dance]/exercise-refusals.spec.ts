@@ -1,5 +1,5 @@
 /**
- * What the log popup and the exercise page say when they refuse, in the
+ * What the Done sheet and the exercise page say when they refuse, in the
  * person's language. The hook runs every action inside `runInLocale`; here the
  * actions run inside it directly. `getDb()` is mocked for the reason
  * `dance-wall.spec.ts` gives.

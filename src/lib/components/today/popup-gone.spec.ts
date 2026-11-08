@@ -28,7 +28,7 @@ describe('the log popup is gone', () => {
 		it(`${page} has no log, deleteSet or restoreSet action`, () => {
 			const src = readFileSync(`${page}/+page.server.ts`, 'utf8');
 			expect(src).not.toMatch(/^\s*(log|deleteSet|restoreSet):/m);
-			expect(src).not.toMatch(/popupData|scheduleAtStart/);
+			expect(src).not.toMatch(/pageData|scheduleAtStart/);
 			expect(readFileSync(`${page}/+page.svelte`, 'utf8')).not.toMatch(
 				/data\.popup|scheduleAtStart|\blogging\b/
 			);

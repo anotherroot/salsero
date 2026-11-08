@@ -10,7 +10,7 @@ import {
 import { checkbox, int, optionalText, text } from '$lib/server/form';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { deleteDayFrom, restoreDayFrom, saveDoneFrom } from '$lib/server/log-form';
-import { popupData } from '$lib/server/popup';
+import { pageData } from '$lib/server/page-data';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
 import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
 import { fromClassOf } from '$lib/server/from-class';
@@ -135,10 +135,10 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	};
 
 	if (row.teamId === null) {
-		// The person's own row: the page is its log popup's.
+		// The person's own row: the page is its own.
 		const own = requireExerciseInWall(db, wall, row.id);
-		const popup = popupData(db, wall, own.id, tz, now);
-		if (!popup) throw error(404, 'No such exercise');
+		const rowData = pageData(db, wall, own.id, tz, now);
+		if (!rowData) throw error(404, 'No such exercise');
 		// Music (spec B): a drill's own; an entry reads its group drill's, never edits it.
 		const musicParent =
 			own.source === 'custom'
@@ -146,11 +146,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				: own.source === 'added' && own.drillId !== null
 					? { exerciseId: own.drillId }
 					: null;
-		const item = popup.exercise;
+		const item = rowData.exercise;
 		const isDrill = item.source === 'custom' || item.source === 'added';
 		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
-			...popup,
+			...rowData,
 			comes: isDrill
 				? ({
 						value: item.comesBack,
@@ -171,7 +171,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			musicEdit: own.source === 'custom',
 			musicEntryId: own.id as number | null,
 			practice: practicePayload(db, own, tz, now),
-			...practised(db, own.id, popup.sets, tz, now),
+			...practised(db, own.id, rowData.sets, tz, now),
 			scheduleAtStart: scheduleAtStart(own.id),
 			today,
 			// Only a drill's sections are its own; the others show their owner's.
@@ -181,8 +181,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			seen: exerciseSeen(own),
 			// An entry on a group's thing (its lesson, routine, variation or drill)
 			// shows the group's content, which is the group's editors' to change,
-			// never the entry's (risk 26). The Log popups follow the same rule.
-			canEditContent: popup.exercise.team === null,
+			// never the entry's (risk 26). The Done sheet follows the same rule.
+			canEditContent: rowData.exercise.team === null,
 			canLog: true,
 			/** A drill's tabs per source (none for an entry: it is no family's). */
 			...pageSources(db, wall.userId, 'drill', own.id, url),
@@ -205,12 +205,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	}
 
 	// A group's drill: its content, and the log of this person's own entry for
-	// it. `popupData` never runs on the group's row, so a set can only ever land
+	// it. `pageData` never runs on the group's row, so a set can only ever land
 	// on the person's entry (risk 22). Without an entry there is nothing to log.
 	const canEdit = access === 'edit';
 	const found = entryFor(db, wall.userId, { drillId: row.id });
 	const entry = found && found.archivedAt === null ? found : null;
-	const popup = entry ? popupData(db, wall, entry.id, tz, now) : null;
+	const rowData = entry ? pageData(db, wall, entry.id, tz, now) : null;
 	const shown: ExerciseItem = {
 		id: row.id,
 		name: row.name,
@@ -237,7 +237,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	};
 	// No entry yet: Add, through a lesson that holds the drill (R7). One the
 	// person already added takes just this drill; otherwise its sheet opens.
-	const route = popup ? null : drillAddRoute(db, wall.userId, row);
+	const route = rowData ? null : drillAddRoute(db, wall.userId, row);
 	const offer = route && !route.added ? addOffer(db, wall.userId, route.lessonId) : null;
 	// A group drill reached through a lesson: that lesson's class, entry or not.
 	const fromClass = fromClassOf(db, wall.userId, {
@@ -261,21 +261,21 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		musicChoices: canEdit ? musicChoices(db, spaceOfRow(row, wall.userId)) : [],
 		musicShown: true,
 		musicEdit: canEdit,
-		musicEntryId: (popup?.exercise.id ?? null) as number | null,
-		exercise: popup?.exercise ?? shown,
-		sets: popup?.sets ?? [],
-		songs: popup?.songs ?? [],
-		takes: popup?.takes ?? [],
+		musicEntryId: (rowData?.exercise.id ?? null) as number | null,
+		exercise: rowData?.exercise ?? shown,
+		sets: rowData?.sets ?? [],
+		songs: rowData?.songs ?? [],
+		takes: rowData?.takes ?? [],
 		practice: drillPayload(
 			db,
 			row,
-			popup ? popup.exercise.id : null,
+			rowData ? rowData.exercise.id : null,
 			tz,
 			now,
 			visible ?? undefined
 		),
-		...(popup
-			? practised(db, popup.exercise.id, popup.sets, tz, now)
+		...(rowData
+			? practised(db, rowData.exercise.id, rowData.sets, tz, now)
 			: {
 					history: [] as HistorySet[],
 					historyCut: false,
@@ -283,7 +283,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 					entryToday: null as DayEntry | null,
 					faces: null
 				}),
-		scheduleAtStart: popup ? scheduleAtStart(popup.exercise.id) : null,
+		scheduleAtStart: rowData ? scheduleAtStart(rowData.exercise.id) : null,
 		today,
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
 		canEdit,
@@ -291,7 +291,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		/** The drill's History: its editors'. */
 		historyHref: canEdit ? `/${wall.dance}/groups/${row.teamId}/history/drill/${row.id}` : null,
 		seen: exerciseSeen(row),
-		canLog: popup !== null,
+		canLog: rowData !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
 		...pageSources(db, wall.userId, 'drill', row.id, url),
 		/** Copies you can see, for the Versions list (`clones/send.ts`). */

@@ -37,7 +37,7 @@ export const player = {
 	countDigit: (digit: string): string => `Count ${digit}`,
 	/** The run's subtitle part for a count-only tempo: "180 BPM". */
 	bpm: (n: number): string => `${n} BPM`,
-	/** Save this run's line: "3:42 · 12 figures called · logged as a set". */
+	/** Save this run's line: "3:42 · 12 figures called · saved to the day". */
 	called: (n: number): string => `${plural(n, 'figure', 'figures')} called`,
 	saveTitle: 'Save this run',
 	/** What "Unsaved changes" calls the sheet. */

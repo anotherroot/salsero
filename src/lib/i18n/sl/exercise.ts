@@ -3,7 +3,6 @@ import { slCount } from '../plural';
 
 type Forms = [one: string, two: string, few: string, other: string];
 
-const VIDEO: Forms = ['video', 'videa', 'videi', 'videov'];
 /** An 8-count, after "na" (accusative): na 1 osmico, na 2 osmici, na 4 osmice. */
 const OSMICA: Forms = ['osmico', 'osmici', 'osmice', 'osmic'];
 /** Comes back's chips: 3 dobri dnevi, 5 dobrih dni. */
@@ -39,14 +38,11 @@ export const exercise: Catalog['exercise'] = {
 		unlink: 'Odstrani povezavo',
 		unlinkNamed: (name) => `Odstrani povezavo z odsekom: ${name}`,
 		reference: 'Gradivo',
-		hide: 'Skrij',
-		show: 'Pokaži',
 		recordingMissing: 'Datoteke tega posnetka ni.',
 		videoMissing: 'Datoteke tega videa ni.',
 		cantPlay: 'Ta brskalnik te datoteke ne more predvajati.',
 		figureEmpty: 'Še ni opomb, posnetkov, odsekov ali povezav. Dodate jih na strani različice.',
 		editLinks: 'Uredi povezave na strani različice',
-		videos: (n) => slCount(n, VIDEO),
 		figures: 'Različice',
 		practiseInPlayer: 'Vadi v predvajalniku',
 		routineNote:

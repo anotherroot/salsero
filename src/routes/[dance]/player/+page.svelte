@@ -100,7 +100,7 @@
 
 	const runJson = $derived(
 		JSON.stringify({
-			// The popup's panel logs the same three, so a set says what it was danced to.
+			// The exercise page's panel logs the same three, so a set says what it was danced to.
 			source: runningSong ? 'song' : 'count',
 			songId: runningSong?.id ?? null,
 			bpm: runningBpm,
@@ -218,7 +218,7 @@
 		runningGrid = grid;
 		runningSong = runSong;
 		runningBpm = runSong ? null : settings.bpm;
-		// Remember the choices on the exercise, as the popup's panel does, so the
+		// Remember the choices on the exercise, as the exercise page's panel does, so the
 		// next run for it opens on the same song. Its call interval is the
 		// panel's and is kept as it was: the two players offer different ones.
 		// Only a change from what the page knows is posted (`practiceToPost`).

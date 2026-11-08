@@ -1,5 +1,5 @@
-// The exercise page and the log popup: the type names, the log form and its footer,
-// a day's sets, each type's content, the practice panel in the popup, and the
+// The exercise page: the type names, the Done sheet and its footer,
+// a day's sets, each type's content, the practice panel, and the
 // refusals of the log and the page's actions. The four faces are `format.feel`;
 // a set's summary is `format.minutes`/`format.reps`.
 
@@ -32,15 +32,11 @@ export const exercise = {
 		unlink: 'Unlink',
 		unlinkNamed: (name: string): string => `Unlink ${name}`,
 		reference: 'Reference',
-		hide: 'Hide',
-		show: 'Show',
 		recordingMissing: 'The file for this recording is missing.',
 		videoMissing: 'The file for this video is missing.',
 		cantPlay: "This browser can't play this file.",
 		figureEmpty: 'No notes, recordings, sections or links yet — add them on the figure page.',
 		editLinks: 'Edit links on the figure page',
-		/** A lesson's row: "Tuesday, 3 November · 2 videos". */
-		videos: (n: number): string => `${n} ${n === 1 ? 'video' : 'videos'}`,
 		figures: 'Figures',
 		practiseInPlayer: 'Practise in player',
 		routineNote: 'A run there saves itself. Tap Done when you practised away from the app.',
@@ -89,7 +85,7 @@ export const exercise = {
 		editSettings: 'Edit settings',
 		editDrill: 'Edit drill'
 	},
-	/** The practice panel in the popup, and its chips. */
+	/** The practice panel on the exercise page, and its chips. */
 	panel: {
 		label: 'Practice',
 		practiseWith: 'Practise with',

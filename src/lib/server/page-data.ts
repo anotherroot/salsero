@@ -1,6 +1,6 @@
 /**
- * What a page needs to open a log popup for one exercise: the exercise as the
- * popup reads it, today's sets, and what the practice panel offers. Shared by
+ * What a page needs to practise one exercise: the exercise as the page
+ * reads it, its sets, and what the practice panel offers. Shared by
  * the exercise, figure and lesson pages; Today builds the same from the
  * lists it already loads.
  */
@@ -40,7 +40,7 @@ function musicOf(db: Db, exerciseId: number): MusicParent | null {
 	return null;
 }
 
-export function popupData(db: Db, wall: Wall, exerciseId: number, tz: string, now: number) {
+export function pageData(db: Db, wall: Wall, exerciseId: number, tz: string, now: number) {
 	const found = listExercises(db, wall).find((e) => e.id === exerciseId);
 	if (!found) return null;
 	// A lesson's own exercise is named in the reader's language.

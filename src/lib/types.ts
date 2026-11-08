@@ -147,7 +147,7 @@ export interface PickerSong {
 	group: string | null;
 	/** That group's id, which tells two groups of one name apart; null for the person's own. */
 	groupId: number | null;
-	/** In a log popup: one of the row's own Music (spec B), its name and the song's place in it. */
+	/** On the exercise page: one of the row's own Music (spec B), its name and the song's place in it. */
 	music?: { label: string; rank: number };
 }
 
@@ -219,7 +219,7 @@ export interface LinkRow {
 	saving: { status: 'queued' | 'failed'; error: string | null } | null;
 }
 
-/** One recording on a figure, as the log popup lists it. */
+/** One recording on a figure, as the exercise page lists it. */
 export interface RecordingRow {
 	id: number;
 	file: string;
@@ -238,7 +238,7 @@ export interface SongGrid {
 }
 
 /**
- * What the log popup shows above its form, branched by the exercise's type.
+ * What the exercise page shows, branched by the exercise's type.
  * See `src/lib/server/practice-content.ts`, the one place that branches on it.
  */
 export type PracticeContent =
@@ -263,7 +263,7 @@ export type PracticeContent =
 			slots: { note: string | null; names: string[] }[];
 	  };
 
-/** The popup's whole payload: its content, and the exercise's last set. */
+/** The page's whole payload: its content, and the exercise's last set. */
 export interface PracticePayload {
 	content: PracticeContent;
 	last: LastSet | null;
