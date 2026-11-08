@@ -1129,6 +1129,21 @@ export const appFlags = sqliteTable('app_flags', {
 	doneAt: integer('done_at').notNull()
 });
 
+/**
+ * The highest id used per table and slot (`src/lib/server/db/ids.ts`). Kept by
+ * an `AFTER INSERT` trigger on each id table (migration 0035), read by every
+ * id column's default. Each database keeps its own: never synced.
+ */
+export const idMarks = sqliteTable(
+	'id_marks',
+	{
+		tbl: text('tbl').notNull(),
+		slot: integer('slot').notNull(),
+		hi: integer('hi').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.tbl, t.slot] })]
+);
+
 /* ── The count voice ────────────────────────────────────────────────────── */
 
 /**

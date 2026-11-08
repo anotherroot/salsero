@@ -10,9 +10,10 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { openDb, type Db } from './index';
+import { mintId } from './ids';
 import { exercises, figureGroups, figures, lessons, songs } from './schema';
 
 /** The connection behind a drizzle handle, for plain SQL. */
@@ -353,5 +354,25 @@ it('widens four CHECKs to learn positions and keeps the rows written before (002
 			)
 			.run()
 	).toThrow(/UNIQUE|PRIMARY KEY/i);
+	raw(db).close();
+});
+
+it("continues each table's ids after the highest ever used (0035)", () => {
+	const file = join(temp('salsa-db-'), 'old.db');
+	const old = oldDb(file);
+	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0033_material_echo') });
+	const add = old.prepare(
+		`insert into songs (status, source_url, created_at) values ('ready', 'u', 1) returning id`
+	);
+	expect([add.get(), add.get(), add.get()]).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+	old.prepare(`delete from songs where id = 3`).run();
+	old.close();
+
+	const db = openDb(file);
+	const minted = db.get<{ id: number }>(
+		sql`insert into songs (id, status, source_url, created_at) values (${mintId('songs')}, 'ready', 'u', 1) returning id`
+	);
+	// 3 was used and deleted: it is never handed out again.
+	expect(minted.id).toBe(4);
 	raw(db).close();
 });
