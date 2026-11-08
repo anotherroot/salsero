@@ -12,7 +12,9 @@
 > log popup is gone. The type still owns its content, now on the exercise page
 > (`contentFor`; `logFor` and the per-type `Log.svelte` no longer exist). The
 > practice panel is the page's **Practise with** (`practiceFor`, a
-> `kinds/<type>/Practice.svelte` for figure, drill and routine); reps are not
+> `kinds/<type>/Practice.svelte` for figure, drill and routine), which since the
+> one-player design opens the full player and plays nothing in place
+> ([`2026-11-08-one-player-design.md`](2026-11-08-one-player-design.md)); reps are not
 > asked for any more and time is never typed (the page counts it while visible);
 > a drill's recordings are on its page (`DrillRecordings`); a face and an optional
 > note are chosen in the **Done sheet** (`DoneSheet`), and a save writes the one

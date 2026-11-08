@@ -1,6 +1,6 @@
 # One player, with the details in it
 
-2026-11-08. Branch `practice-player`. Builds on slot 3's exercise page and Done
+2026-11-08. Branch `practice-player`. **Built** (plan `docs/superpowers/plans/2026-11-08-one-player.md`). Builds on slot 3's exercise page and Done
 sheet (branch `exercise-flow`, plans 2 and 3 of
 [`2026-11-07-run-the-day-design.md`](2026-11-07-run-the-day-design.md)) and on
 this branch's routine run without calls (commit `45854b5`).
@@ -208,3 +208,36 @@ something:
 Slot 3's plans 2 and 3 (`exercise-flow`) land on master first; this branch
 then merges master and builds on its exercise page. The changes to the
 exercise page, the Done sheet and its spec are made here, and slot 3 is told.
+
+## Decided while building
+
+- **Where it lives.** `src/lib/server/run-details.ts` (`figureDetails`,
+  `exerciseDetails`: read through `figureAccess` / `drillAccess` row by row, a
+  reader's sections and recordings through `reach`); `RunDetails` and `RunClip`
+  in `src/lib/types.ts`; the words in `src/lib/player/view.ts` (`runTitle`,
+  `runSubtitle`, `hasDetails`, `aboutPreview`, `voicePreview`,
+  `routinePreview`, `slotDetails`, `exercisePlayerHref`); the screens in
+  `src/lib/components/player/` (`RunLayer`, `RunRows`, `DetailsBody`,
+  `RunClip`); the exercise page's card is `components/exercises/PractiseCard`
+  (`practiseWithLine` in `src/lib/exercises/practice.ts` is its line); the
+  time across the trip is `src/lib/exercises/clock-trip.ts`.
+- **Timing alone is not an About.** Every figure has a timing, so About shows
+  when there are notes, positions, a clip or a link (`hasDetails`).
+- **The card's ▶** opens `?play=1`: the player drops the param, then starts as
+  soon as Play can (a song waits for its grid); where the browser will not
+  start audio, Play's own error shows on Setup.
+- **The time across the trip** is kept in the tab's sessionStorage, read once
+  on the exercise page's next mount, within six hours. Only the card (and a
+  routine's Practise in player) leaves it; Music's "Practise to this" restarts
+  the time, as before.
+- **The desktop** puts the Routine list behind its row too: the layer opens in
+  the 520 px column, the sheet under it hidden while it is open.
+- **The routine's About row** reads "About <figure>"; it closes by itself when
+  that figure stops being lit.
+- **Done carries no run**: `saveDoneFrom` drops a posted `run`; new sets have
+  `player_json` null. `PAGE_EPOCH` 10 (the player's save action went).
+- **Gone**: the practice panel (`PracticePanel`), `SaveSetSheet`, the player's
+  `save` action, `runSummary`, `exerciseLine`, `stageSize`, `routineHeading`,
+  `runTitleCompact`, Done's wait while a count played (`doneBar` has no
+  `playing`).
+
