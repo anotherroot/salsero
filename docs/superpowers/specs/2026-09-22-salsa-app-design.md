@@ -293,7 +293,7 @@ app_flags                                       -- exercise types; one-off boot 
 ```
 
 **Exercise types** (2026-09-28) gives every exercise a type derived from
-`source`, and each type its own log popup, a practice panel (count/clave/song,
+`source`, and each type its own page content (a log popup until 2026-11-08), a practice panel (count/clave/song,
 remembered per exercise), and links (a URL attached to a lesson, figure or
 drill, YouTube ones rendered as embeds). See
 [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)
@@ -356,7 +356,9 @@ The home page. One page serves both "exercises" and "today".
 - **Viewing a past day:** the exercises done that day with their sets (read-only
   list plus the ability to add a forgotten set to that day or delete a mistaken
   one). No urgency ordering — it answers "what did I do that day".
-- **Logging:** the row opens the exercise page; **+** opens the type's log
+- **Logging (changed 2026-11-08: the row opens the exercise page, where Done opens the
+  Done sheet; one entry per exercise per local day, saved by `saveDay`, and a past day's
+  history is grouped by day; the rest of this bullet is how it was):** the row opens the exercise page; **+** opens the type's log
   popup — its content, a practice panel where the type has one, and the form
   (duration / reps / rating / note, whichever the type carries). Multiple sets
   per day. After logging, the exercise moves into "done today" without a page
@@ -649,14 +651,13 @@ unsaved.
   timing shortcuts, rating buttons) count like typed ones. One-tap forms (a
   delete, a move, a shared picker's tap and +, see
   [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md)) stay on `use:enhance`: there is nothing to
-  lose. A form can widen the test (`dirty`): the player's finished run and the
-  log popup's practice time are unsaved with nothing typed. Non-form things
+  lose. A form can widen the test (`dirty`): the player's finished run is unsaved with nothing typed (the Done sheet's typed note asks too). Non-form things
   register with `track()`: the voice page's unkept take, and an upload in
   flight.
 - **When it asks.** Any in-app navigation (links, the bottom nav, back and
   forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop,
   Escape or Back (only about what is inside that sheet; the way out is
-  "Close"); the log popup's Skip, Next and Finish ("Skip without saving"…).
+  "Close"); the session's Skip, Next and Finish ("Skip without saving"…).
 - **Back on a sheet.** Each open sheet holds one shallow history entry
   (`page.state.sheets`, `src/lib/sheets/`), so Back — Android's button and
   gesture, the browser's — closes only the topmost sheet. A popstate between

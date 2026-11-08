@@ -1,8 +1,15 @@
 # Run the day: one page per exercise, warm-ups, slower gaps
 
 Status: agreed in brainstorming on 2026-11-07. Plan 1 is built (slower gaps,
-Comes back, Warm-up, Today's two lists, no lateness; branch exercise-flow);
-plans 2 and 3 (the exercise page and Done sheet, the run, Recordings) are not.
+Comes back, Warm-up, Today's two lists, no lateness; branch exercise-flow).
+Plan 2 is built (2026-11-08): the one exercise page per type, the Done sheet,
+one entry per exercise per day (`saveDay`, `deleteDay`), the toast with Undo and
+the log popup removed everywhere. Decided while building: the Done sheet's four
+faces come from the sets replayed with that face added now (`doneFaces`), so a
+learning drill's learnt face shows the gap the faces earned and "learnt"; a
+fixed-rhythm drill saves at once with no face; the Today session is an interim
+walk of pages, `?session=1` (`SessionControls`), which plan 3 replaces. Plan 3
+(the run, Recordings in a run) is not built.
 The design boards:
 https://claude.ai/artifact/4udVsxmwPMRTWebNdpWpsz (round 1, directions A–C),
 https://claude.ai/artifact/WYKy9HYn6GBmujnPCydT2W (rounds 2 and 3: direction B,
