@@ -562,3 +562,11 @@ follows.
   school's classes). The user set it aside for later.
 - Merge.
 - A lesson naming a song.
+
+---
+
+*Amended 2026-11-07:* "Comparing and updating clones" (Take theirs, Send
+mine) and "Names never travel by default" are replaced by
+[keeping copies in step](2026-11-07-clone-sync-design.md): copies follow a
+save by themselves (Keep in step), one Sync sheet puts the rest back, and
+names travel when Keep in step's Names option is on.

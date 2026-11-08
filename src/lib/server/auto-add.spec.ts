@@ -37,7 +37,13 @@ import { createAndLinkIn } from './link-popup';
 import { setAutoAdd, setLevel } from './levels';
 import { crossRefs } from './integrity';
 import { cloneInto } from './clones/clone';
-import { compareWith, takeTheirs } from './clones/compare';
+import { syncFrom } from './clones/apply';
+import type { CloneFiles } from './clones/files';
+import { digest, hashValue, pairBase } from './clones/pairs';
+import { flatOf } from './clones/trees';
+import { diff } from '$lib/clones/diff';
+import type { CloneKind } from '$lib/types';
+import { flowFrom } from './clones/flow';
 import { autoAddOnJoin, autoAddOnPublish, autoAddPending, joinClass } from './auto-add';
 import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
 import type { Level } from '$lib/levels/levels';
@@ -46,6 +52,22 @@ import type { Level } from '$lib/levels/levels';
 const T = Date.UTC(2001, 0, 1);
 
 let db: Db;
+
+/** Take every field of `fromId` into `intoId` (`syncFrom`, what Take theirs was). */
+async function takeAll(
+	actorId: string,
+	kind: CloneKind,
+	intoId: number,
+	fromId: number,
+	files: CloneFiles,
+	now: number,
+	free: number
+) {
+	const into = flatOf(db, kind, intoId);
+	const diffs = diff(pairBase(db, kind, intoId, fromId), into, flatOf(db, kind, fromId), hashValue);
+	const picks = Object.fromEntries(diffs.map((d) => [d.key, 'theirs' as const]));
+	return syncFrom(db, actorId, kind, intoId, fromId, picks, digest(into), files, now, free);
+}
 
 /**
  * Salsa Tuesdays (T1), owned by u1 (the teacher, Everything). Its members:
@@ -395,6 +417,7 @@ export const GROWTH: readonly string[] = [
 	'linkInSpace',
 	'createAndLinkIn',
 	'syncFrom',
+	'flowFrom',
 	'restoreTrash'
 ];
 
@@ -468,21 +491,30 @@ const RUNS: Record<string, () => Promise<Grown> | Grown> = {
 		);
 		if (!mineLesson.ok || !mineDrill.ok) throw new Error('copy refused');
 		expect(linkExercise(db, mineLesson.id, mineDrill.id, 'u1')).toBe(true);
-		const c = compareWith(db, 'u1', 'lesson', L, mineLesson.id)!;
-		const picks = Object.fromEntries(c.diffs.map((d) => [d.key, 'theirs' as const]));
-		const r = await takeTheirs(
-			db,
-			'u1',
-			'lesson',
-			L,
-			mineLesson.id,
-			picks,
-			c.seen,
-			NO_FILES,
-			Date.now(),
-			1e12
-		);
+		const r = await takeAll('u1', 'lesson', L, mineLesson.id, NO_FILES, Date.now(), 1e12);
 		expect(r).toEqual({ ok: true });
+		return { drillId: D2 };
+	},
+	// Keep in step: the teacher links a drill on her own copy of the class lesson,
+	// and the flow after that save carries it into the class lesson (landKeys).
+	flowFrom: async () => {
+		const D2 = newDrill();
+		const mineLesson = await cloneInto(
+			db,
+			{ kind: 'lesson', id: L, into: U1_SALSA, recordings: false },
+			NO_FILES,
+			T
+		);
+		const mineDrill = await cloneInto(
+			db,
+			{ kind: 'drill', id: D2, into: U1_SALSA, recordings: false },
+			NO_FILES,
+			T
+		);
+		if (!mineLesson.ok || !mineDrill.ok) throw new Error('copy refused');
+		expect(linkExercise(db, mineLesson.id, mineDrill.id, 'u1')).toBe(true);
+		const report = await flowFrom(db, 'u1', 'lesson', mineLesson.id, NO_FILES, Date.now(), 1e12);
+		expect(report).toEqual({ landed: [L], refused: [] });
 		return { drillId: D2 };
 	}
 };
@@ -516,7 +548,10 @@ describe('every growth mutation adds what is new for a follow member', () => {
 const INSERT_SITES: Record<string, { count: number; why: string }> = {
 	'lessons.ts': { count: 2, why: 'linkRoutine, linkExercise (GROWTH)' },
 	'spot-links.ts': { count: 1, why: 'linkInSpace (GROWTH)' },
-	'clones/apply.ts': { count: 3, why: 'applyInto, only through syncFrom (GROWTH)' },
+	'clones/apply.ts': {
+		count: 3,
+		why: 'applyInto, only through landKeys: syncFrom and flowFrom (GROWTH)'
+	},
 	'clones/clone.ts': { count: 3, why: 'a brand-new copy: a draft or a person’s own lesson' },
 	'clones/move.ts': { count: 3, why: 'restoreLinks: back onto the person’s own lesson' }
 };

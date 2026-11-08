@@ -9,6 +9,12 @@ import { deleteSong } from '$lib/server/songs';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import { int } from '$lib/server/form';
 import { listStorageItems, storageOf } from '$lib/server/storage';
+import {
+	flowAfter,
+	rootOfRecording,
+	rootOfVideo,
+	type FlowRoot
+} from '$lib/server/clones/flow-hook';
 import type { StorageItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -31,17 +37,23 @@ function own(userId: string, kind: StorageItem['kind'], id: number | undefined) 
 
 const gone = (action: string) => fail(404, { action, message: 'That is already gone.' });
 
-/** Row first, then file: an orphan file is harmless, a row pointing at nothing is not. */
+/**
+ * Row first, then file: an orphan file is harmless, a row pointing at nothing
+ * is not. Keep in step's flow then runs from the root the file was on
+ * (`rootOf`, read before the delete).
+ */
 async function remove(
 	action: string,
 	userId: string,
 	kind: StorageItem['kind'],
 	form: FormData,
 	del: (id: number) => { file: string; trashId: number | null } | null,
-	dir: () => string
+	dir: () => string,
+	rootOf: (id: number) => FlowRoot | null
 ) {
 	const id = own(userId, kind, int(form, 'id'));
 	if (id === undefined) return gone(action);
+	const root = rootOf(id);
 	let row;
 	try {
 		row = del(id);
@@ -52,6 +64,7 @@ async function remove(
 	if (!row) return gone(action);
 	// A group's file stays for Recently deleted; its purge deletes it (risk 19).
 	if (row.trashId === null) await unlink(join(dir(), row.file)).catch(() => {});
+	if (root) await flowAfter(userId, root.kind, root.id);
 	return { action, ok: true, id };
 }
 
@@ -64,7 +77,8 @@ export const actions: Actions = {
 			'recording',
 			await request.formData(),
 			(id) => deleteRecording(getDb(), id, locals.user?.id),
-			recordingsDir
+			recordingsDir,
+			(id) => rootOfRecording(getDb(), id)
 		);
 	},
 
@@ -76,7 +90,8 @@ export const actions: Actions = {
 			'lessonVideo',
 			await request.formData(),
 			(id) => deleteLessonVideo(getDb(), id, locals.user?.id),
-			lessonVideosDir
+			lessonVideosDir,
+			(id) => rootOfVideo(getDb(), id)
 		);
 	},
 

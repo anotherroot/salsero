@@ -1,15 +1,14 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { accessTo } from '$lib/server/clones/genes';
-import { sendPreview } from '$lib/server/clones/send';
+import { syncView } from '$lib/server/clones/sync';
 import type { CloneKind } from '$lib/types';
 import type { RequestHandler } from './$types';
 
 /**
- * The send sheet's data (board C3 p2): `?kind=figure&from=<id>`, every other
- * member the person edits compared from its own side (`sendPreview`). Flat
- * like `/api/clones/compare`: a row the person does not edit is a 404, and so
- * is one they do not read at all.
+ * The Sync sheet's data: `?kind=figure&id=<id>`, the merge across every copy
+ * the person reads and the copies they edit to land it on (`syncView`). Flat
+ * like `/api/clones/copy`: a row the person does not read, or one with
+ * nothing to sync, is a 404.
  */
 const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];
 
@@ -22,8 +21,10 @@ function id(raw: string | null): number {
 export const GET: RequestHandler = ({ url, locals }) => {
 	const kind = url.searchParams.get('kind') as CloneKind | null;
 	if (!kind || !KINDS.includes(kind)) throw error(404, 'Not found');
-	const db = getDb();
-	const from = id(url.searchParams.get('from'));
-	if (accessTo(db, locals.user!.id, kind, from) !== 'edit') throw error(404, 'Not found');
-	return json(sendPreview(db, locals.user!.id, kind, from, { tz: locals.user!.timezone }));
+	const user = locals.user!;
+	const view = syncView(getDb(), user.id, kind, id(url.searchParams.get('id')), {
+		tz: user.timezone
+	});
+	if (!view) throw error(404, 'Not found');
+	return json(view);
 };

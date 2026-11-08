@@ -4,12 +4,16 @@
  */
 import type { FigureRow } from '$lib/types';
 import { plural } from '$lib/format';
+import { differLabel } from './sync';
 
 /** The parts of a figure row's meta; `status` ones are what it still lacks. */
 export function figureRowParts(
-	f: Pick<FigureRow, 'startCount' | 'lengthCounts' | 'recordings' | 'hasSection' | 'hasLesson'>
-): { text: string; status: boolean }[] {
-	const parts: { text: string; status: boolean }[] = [];
+	f: Pick<
+		FigureRow,
+		'startCount' | 'lengthCounts' | 'recordings' | 'hasSection' | 'hasLesson' | 'differ'
+	>
+): { text: string; status: boolean; warn?: true }[] {
+	const parts: { text: string; status: boolean; warn?: true }[] = [];
 	if (f.startCount !== null) parts.push({ text: `Starts on ${f.startCount}`, status: false });
 	if (f.lengthCounts !== null) {
 		parts.push({ text: plural(f.lengthCounts, 'count', 'counts'), status: false });
@@ -19,6 +23,8 @@ export function figureRowParts(
 	}
 	if (!f.hasSection) parts.push({ text: 'No section', status: true });
 	if (!f.hasLesson) parts.push({ text: 'No lesson', status: true });
+	const differs = differLabel(f.differ);
+	if (differs) parts.push({ text: differs, status: false, warn: true });
 	return parts;
 }
 

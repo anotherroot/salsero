@@ -58,7 +58,6 @@ import { cloneFilesIn, type CloneFiles } from './files';
 import { makeMine, makeMinePreview } from './edit';
 import { geneOf, memberIn } from './genes';
 import { crossRefs } from '../integrity';
-import { suffixed } from './names';
 import { T1_SALSA, U2_SALSA } from '../test-walls';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -304,14 +303,10 @@ describe('Make it mine on a lesson', () => {
 		expect(mineIn('enchufla ').map((v) => v.name)).toEqual(['Cross', 'Basic', 'Doble']);
 	});
 
-	it('when u2 already has Doble there, the copy is Doble (Salsa nadaljevalna), then … 2', async () => {
+	it('when u2 already has Doble there, the copy is a second Doble', async () => {
 		createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: 'Doble', ...shape });
 		await copyLesson('u2', w.lesson, T);
-		expect(mineIn('Enchufla').map((v) => v.name)).toEqual([
-			'Doble',
-			'Basic',
-			'Doble (Salsa nadaljevalna)'
-		]);
+		expect(mineIn('Enchufla').map((v) => v.name)).toEqual(['Doble', 'Basic', 'Doble']);
 	});
 
 	it('copying a lesson twice reuses the first copy', async () => {
@@ -576,18 +571,6 @@ describe('Make it mine on a lesson', () => {
 		const mine = db.select().from(exercises).where(eq(exercises.userId, 'u2')).all();
 		expect(mine.map((e) => e.source).sort()).toEqual(['custom', 'lesson', 'routine', 'routine']);
 		expect(mine.every((e) => !e.active)).toBe(true);
-	});
-
-	it('cuts a suffixed name to fit the form, keeping the suffix whole', async () => {
-		expect(suffixed('Doble', ' (G)')).toBe('Doble (G)');
-		expect(suffixed('x'.repeat(200), ' (G 2)')).toBe(`${'x'.repeat(194)} (G 2)`);
-		const long = 'D'.repeat(200);
-		db.update(figures).set({ name: long }).where(eq(figures.id, w.doble)).run();
-		createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: long, ...shape });
-		await copyLesson('u2', w.lesson, T);
-		const copied = mineIn('Enchufla').map((v) => v.name)[2];
-		expect(copied).toBe(`${'D'.repeat(200 - 21)} (Salsa nadaljevalna)`);
-		expect(copied).toHaveLength(200);
 	});
 
 	it('is denied to someone who left (their add still there) and to an editor (ruling 1)', async () => {

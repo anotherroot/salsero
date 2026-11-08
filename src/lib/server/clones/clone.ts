@@ -31,7 +31,6 @@
 import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import type { CloneKind, PieceKind } from '$lib/types';
 import { initialBase } from '$lib/clones/diff';
-import { shortNames } from '$lib/names';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -54,21 +53,19 @@ import {
 	songs,
 	spotLinks,
 	spotPositionLinks,
-	users,
 	videoSpots
 } from '../db/schema';
 import { inSpace, isTeam, actorOf, ownerValues, type Space } from '../scope';
 import { getTeam, roleOf } from '../teams';
 import { roomForOwner, type Owner, type Room } from '../storage';
 import { logChange, type ChangeEntry } from '../changes';
-import { figureNameTaken, moveFor, variationNameTaken } from '../figures';
+import { figureNameTaken, moveFor } from '../figures';
 import { insertRoutine, routineSlots } from '../routines';
 import { insertLesson } from '../lessons';
-import { nameRefusal, nameTaken as positionNameTaken } from '../positions';
-import { suffixed } from './names';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
 import { hashValue, pairBase, writePair } from './pairs';
+import { markNow } from './marks';
 import { flatOf } from './trees';
 import type { CloneFileKind, CloneFiles } from './files';
 import { copyMusic } from '../song-links';
@@ -510,12 +507,26 @@ export function cloneTx(
 			if (!src) throw new Refusal(DENIED);
 			const m = new Mapper(inner as unknown as Db, req, linked, now, opts);
 			const existing = existingIn(inner, req.kind, src, req.into);
-			let result: CloneResult;
+			let result: Extract<CloneResult, { ok: true }>;
 			if (existing) {
 				if (opts.fill && existing.id !== src.id) m.fill(req.kind, src.id, existing.id);
 				result = { ok: true as const, made: false, ...existing };
 			} else {
 				result = { ok: true as const, id: m.clone(req.kind, src.id), made: true, archived: false };
+			}
+			// Marks: what the source and the copy hold after this write (a restore or fill
+			// lands on `result.id`; roots made inside the copy are marked too).
+			const marked = new Set<string>();
+			const mark = (kind: CloneKind, id: number) => {
+				if (marked.has(`${kind}:${id}`)) return;
+				marked.add(`${kind}:${id}`);
+				markNow(inner as unknown as Db, kind, id, now);
+			};
+			mark(req.kind, src.id);
+			mark(req.kind, result.id);
+			for (const p of m.made) {
+				mark(p.kind, p.from);
+				mark(p.kind, p.id);
 			}
 			opts.made?.push(...m.made);
 			return result;
@@ -748,36 +759,6 @@ const tagsOf = (db: Db, figureId: number) => [
 	...sideOf(db, figureEndPositions, figureId)
 ];
 
-/** How a source's place is named in a suffix: its group's name, or its person's shown name. */
-function placeName(db: Db, row: { userId: string | null; teamId: number | null }): string {
-	if (row.teamId !== null) return getTeam(db, row.teamId)?.name ?? 'group';
-	const user = row.userId
-		? db.select().from(users).where(eq(users.id, row.userId)).get()
-		: undefined;
-	return (user && shortNames([user]).get(user.id)) || 'copy';
-}
-
-/** How many numbered suffixes are tried ("(Salsa Tuesdays 2)" … "9") before a refusal. */
-const SUFFIX_TRIES = 9;
-
-/**
- * The figure's name in the move: kept when free, else "Doble (Salsa
- * Tuesdays)", then "Doble (Salsa Tuesdays 2)" and on; a refusal once those
- * are all taken.
- */
-function freeName(tx: Db, groupId: number, name: string, place: string, move: string): string {
-	if (!variationNameTaken(tx, groupId, name, null)) return name;
-	for (let n = 1; n <= SUFFIX_TRIES; n++) {
-		const candidate = suffixed(name, n === 1 ? ` (${place})` : ` (${place} ${n})`);
-		if (!variationNameTaken(tx, groupId, candidate, null)) return candidate;
-	}
-	throw new Refusal({
-		ok: false,
-		reason: 'name',
-		message: `${name} is taken in ${move}; rename one first.`
-	});
-}
-
 type LinkOwner = { figureId: number } | { exerciseId: number } | { lessonId: number };
 
 /** A figure's, a drill's or a lesson's URL links, onto its copy. Saves in flight stay behind. */
@@ -797,7 +778,7 @@ function copyLinks(tx: Db, from: LinkOwner, to: LinkOwner, now: number): void {
 
 /**
  * A figure: under `into`'s live move of the source's move name (made when
- * missing), its name kept unless taken there; its shape, notes and links; its
+ * missing), its name kept as it is; its shape, notes and links; its
  * live start and end positions, each the place's member of that family
  * (`Mapper.ref`: copied there when the place has none, dropped when the actor
  * cannot read it); its recordings, sections and section links when the
@@ -813,7 +794,7 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 			: null) ?? src.name;
 	const newMove = !figureNameTaken(tx, into, move, null);
 	const groupId = moveFor(tx, into, move);
-	const name = freeName(tx, groupId, src.name, placeName(tx, src), move);
+	const name = src.name;
 	const copy = tx
 		.insert(figures)
 		.values({
@@ -1329,18 +1310,8 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 
 /* ── Positions ──────────────────────────────────────────────────────────── */
 
-/** A position's name in `into`: kept when free (folded), else "Cerrada (Ana)", then "(Ana 2)" …; a refusal once those are taken. */
-function freePositionName(tx: Db, into: Space, name: string, place: string): string {
-	if (!positionNameTaken(tx, into, name)) return name;
-	for (let n = 1; n <= SUFFIX_TRIES; n++) {
-		const candidate = suffixed(name, n === 1 ? ` (${place})` : ` (${place} ${n})`);
-		if (!positionNameTaken(tx, into, candidate)) return candidate;
-	}
-	throw new Refusal({ ok: false, reason: 'name', message: nameRefusal(tx, into, name).message });
-}
-
 /**
- * A position: its name (kept unless a live one of `into` has it), type, hold
+ * A position: its name (kept as it is, even where `into` has it), type, hold
  * and notes. Never its picture: a position's links to sections and points
  * travel with the spot's video (a lesson or a recording copied), never with
  * the position, so the copy has no point to picture it yet.
@@ -1348,7 +1319,7 @@ function freePositionName(tx: Db, into: Space, name: string, place: string): str
 function copyPosition(m: Mapper, sourceId: number, gene: string): Copied {
 	const { tx, into, now } = m;
 	const src = tx.select().from(positions).where(eq(positions.id, sourceId)).get()!;
-	const name = freePositionName(tx, into, src.name, placeName(tx, src));
+	const name = src.name;
 	const copy = tx
 		.insert(positions)
 		.values({

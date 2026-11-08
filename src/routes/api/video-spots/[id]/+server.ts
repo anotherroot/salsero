@@ -9,6 +9,8 @@ import { asSeen, clashTitle, goneTitle } from '$lib/clash/clash';
 import { trashedSpot } from '$lib/server/trash';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import { editedBy, spotRoot } from '$lib/server/changes';
+import { flowAfter, rootOfSpot } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { RequestHandler } from './$types';
 
 /**
@@ -61,7 +63,11 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 	const db = getDb();
 	const sent = 'seen' in body ? asSeen((body as { seen: unknown }).seen) : null;
 	const team = 'teamId' in (spotOwner(db, id) ?? { userId: '' });
-	if (team && !seesAll(sent, Object.keys(changes))) throw error(400, MISSING_SEEN);
+	// A group's spot must say what it saw, and so must one whose root has copies
+	// (Keep in step: a change may flow in while the player is open).
+	const root = rootOfSpot(db, id);
+	const required = team || (root !== null && hasCopies(db, root.kind, root.id));
+	if (required && !seesAll(sent, Object.keys(changes))) throw error(400, MISSING_SEEN);
 	const row = db
 		.select({ label: videoSpots.label, startMs: videoSpots.startMs, endMs: videoSpots.endMs })
 		.from(videoSpots)
@@ -87,14 +93,16 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 			{ status: 409 }
 		);
 	}
+	let spot;
 	try {
-		const spot = updateSpot(db, id, changes, locals.user?.id);
-		if (!spot) throw error(404, 'No such spot');
-		return json(spot);
+		spot = updateSpot(db, id, changes, locals.user?.id);
 	} catch (e) {
 		if (e instanceof SpotError) throw error(400, e.message);
 		throw e;
 	}
+	if (!spot) throw error(404, 'No such spot');
+	if (root) await flowAfter(locals.user?.id, root.kind, root.id);
+	return json(spot);
 }
 
 /**
@@ -102,10 +110,12 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
  * shows it. A group's section goes to Recently deleted: `trashId` is what the
  * player's Undo restores, so the same section comes back (risk 18).
  */
-export const DELETE: RequestHandler = ({ params, locals }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const answer = trashed(params.id, locals);
 	if (answer) return answer;
 	const id = spotId(params.id, locals);
+	// Read before the delete: the spot names its root.
+	const root = rootOfSpot(getDb(), id);
 	let gone: { trashId: number | null } | null;
 	try {
 		gone = deleteSpot(getDb(), id, locals.user?.id);
@@ -114,5 +124,6 @@ export const DELETE: RequestHandler = ({ params, locals }) => {
 		throw e;
 	}
 	if (!gone) throw error(404, 'No such spot');
+	if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 	return json({ trashId: gone.trashId });
 };

@@ -112,8 +112,12 @@ import { eq } from 'drizzle-orm';
 import { HISTORY_MERGE_MS } from '$lib/limits';
 import { cloneInto, type CloneResult } from './clones/clone';
 import type { CloneFiles } from './clones/files';
-import { compareWith, takeTheirs } from './clones/compare';
-import { sendMine, sendPreview } from './clones/send';
+import { syncFrom } from './clones/apply';
+import { digest, hashValue, pairBase } from './clones/pairs';
+import { flatOf } from './clones/trees';
+import { diff } from '$lib/clones/diff';
+import { flowFrom } from './clones/flow';
+import { syncAll, syncView } from './clones/sync';
 import { detach } from './clones/detach';
 import { copyTo } from './clones/copy-to';
 import { moveLesson } from './clones/move';
@@ -989,9 +993,9 @@ const MUTATIONS: {
 			);
 		}
 	},
-	// clones/compare.ts: Take theirs into the group's figure from u1's own copy (syncFrom: Send too)
+	// clones/apply.ts: syncFrom (what Take theirs was) into the group's figure from u1's own copy
 	{
-		name: 'takeTheirs',
+		name: 'syncFrom',
 		root: 'figure',
 		verb: 'change',
 		rootId: (w) => w.G,
@@ -1005,15 +1009,22 @@ const MUTATIONS: {
 			);
 			if (!mine.ok) return null;
 			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Taken' });
-			const c = compareWith(db, 'u1', 'figure', w.V, mine.id)!;
-			const r = await takeTheirs(
+			const into = flatOf(db, 'figure', w.V);
+			const diffs = diff(
+				pairBase(db, 'figure', w.V, mine.id),
+				into,
+				flatOf(db, 'figure', mine.id),
+				hashValue
+			);
+			const picks = Object.fromEntries(diffs.map((d) => [d.key, 'theirs' as const]));
+			const r = await syncFrom(
 				db,
 				'u1',
 				'figure',
 				w.V,
 				mine.id,
-				c.picks,
-				c.seen,
+				picks,
+				digest(into),
 				cloneFiles,
 				T,
 				GB
@@ -1021,9 +1032,10 @@ const MUTATIONS: {
 			return r.ok ? r : null;
 		}
 	},
-	// clones/send.ts: Send mine from u1's own copy into the group's figure: one line per landed target
+	// clones/flow.ts: Keep in step, u1's save on her own copy flows into the group's figure
+	// (landKeys logs it, as the saver: one change)
 	{
-		name: 'sendMine',
+		name: 'flowFrom',
 		root: 'figure',
 		verb: 'change',
 		rootId: (w) => w.G,
@@ -1036,23 +1048,43 @@ const MUTATIONS: {
 				T
 			);
 			if (!mine.ok) return null;
-			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Sent' });
-			const targets = sendPreview(db, 'u1', 'figure', mine.id);
-			const [res] = await sendMine(
+			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Flowed' });
+			const report = await flowFrom(db, 'u1', 'figure', mine.id, cloneFiles, T, GB);
+			return report.landed.includes(w.V) ? report : null;
+		}
+	},
+	// clones/sync.ts: Sync from u1's own copy lands her notes on the group's figure
+	// (landKeys logs it, as the actor: one change; her own copy logs nothing)
+	{
+		name: 'syncAll',
+		root: 'figure',
+		verb: 'change',
+		rootId: (w) => w.G,
+		teamOnly: true,
+		run: async (w) => {
+			const mine = await cloneInto(
+				db,
+				{ kind: 'figure', id: w.V, into: U1_SALSA, recordings: false },
+				cloneFiles,
+				T
+			);
+			if (!mine.ok) return null;
+			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Synced' });
+			const view = syncView(db, 'u1', 'figure', mine.id);
+			if (!view || view.targets.length !== 2) return null;
+			const res = await syncAll(
 				db,
 				'u1',
 				'figure',
 				mine.id,
-				targets.map((t) => ({
-					id: t.target.id,
-					picks: t.comparison.picks,
-					seen: t.comparison.seen
-				})),
+				{},
+				view.targets.map((t) => ({ id: t.id, seen: t.seen })),
+				view.members,
 				cloneFiles,
 				T,
 				GB
 			);
-			return targets.length === 1 && res?.result.ok ? res : null;
+			return res.ok && res.refused.length === 0 ? res : null;
 		}
 	},
 	// clones/detach.ts: a group's figure leaves its family (an ordinary edit: one change)

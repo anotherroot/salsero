@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { spotPositionLinks, users } from './db/schema';
+import { eq } from 'drizzle-orm';
+import { positions, spotPositionLinks, users } from './db/schema';
 import type { PositionRow } from './db/schema';
 import {
 	addTemplates,
@@ -168,6 +169,19 @@ describe('nameTaken', () => {
 });
 
 describe('updatePosition', () => {
+	it('keeps a name a sibling already has when the name is not what changed', () => {
+		const a = made(createPosition(db, U1_SALSA, input('Cerrada'), 1));
+		// A copy of the same name, made past the typed-name rule (as a clone does).
+		const b = made(createPosition(db, U1_SALSA, input('Otra'), 1));
+		db.update(positions).set({ name: 'Cerrada' }).where(eq(positions.id, b.id)).run();
+		expect(updatePosition(db, a.id, input('Cerrada', { notes: 'n' }))).toMatchObject({
+			notes: 'n'
+		});
+		// Typing the taken name onto a different row is still refused.
+		const c = made(createPosition(db, U1_SALSA, input('Tercera'), 1));
+		expect(updatePosition(db, c.id, input('cerrada'))).toMatchObject({ field: 'name' });
+	});
+
 	it('writes the fields', () => {
 		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
 		const row = updatePosition(

@@ -14,6 +14,7 @@ const fig = (id: number, name: string): FigureRow => ({
 	id,
 	name,
 	label: name,
+	from: null,
 	startCount: null,
 	lengthCounts: null,
 	recordings: 0,

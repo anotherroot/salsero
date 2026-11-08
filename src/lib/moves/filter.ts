@@ -22,6 +22,7 @@ export function parseFigureFilter(
 		filter.partner = partner as FigureFilter['partner'];
 	}
 	if (params.get('unlinked') === '1') filter.unlinked = '1';
+	if (params.get('sync') === '1') filter.sync = '1';
 	return filter;
 }
 
@@ -32,7 +33,7 @@ export function parseFigureFilter(
  */
 export function figureMatches(
 	moveName: string,
-	f: Pick<FigureRow, 'name' | 'style' | 'partner' | 'hasSection' | 'hasLesson'>,
+	f: Pick<FigureRow, 'name' | 'style' | 'partner' | 'hasSection' | 'hasLesson' | 'differ'>,
 	filter: FigureFilter
 ): boolean {
 	const q = filter.q.trim().toLowerCase();
@@ -40,6 +41,7 @@ export function figureMatches(
 	if (filter.style && f.style !== filter.style) return false;
 	if (filter.partner && f.partner !== filter.partner) return false;
 	if (filter.unlinked && f.hasSection && f.hasLesson) return false;
+	if (filter.sync && !((f.differ ?? 0) > 0)) return false;
 	return true;
 }
 

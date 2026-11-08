@@ -22,6 +22,7 @@
 		DEFAULT_PRACTICE_BPM,
 		hourOfBars,
 		parsePracticeConfig,
+		practiceOf,
 		practiceStart,
 		practiceSummary,
 		type CueEvery
@@ -77,6 +78,9 @@
 	let speed = $state<Speed>(seed.remembered.speed);
 	let callEvery = $state<CueEvery | null>(seed.callEvery);
 	let voiceVolume = $state(1);
+	// What the exercise remembers as this page knows it: what it loaded (newer data
+	// replaces it), or what Play last posted. Play posts only a change from it.
+	let known = $derived(practiceOf(exercise, dance));
 	let expanded = $state(songGone);
 
 	const song = loadSongGrid(
@@ -195,12 +199,18 @@
 		paused = false;
 		watch = startWatch(watch, Date.now());
 		starting = false;
-		rememberPractice(dance.slug, exercise.id, {
-			source,
-			songId,
-			bpm,
-			config: { count, clave, speed, callEvery }
-		});
+		known = rememberPractice(
+			dance.slug,
+			exercise.id,
+			{
+				source,
+				songId,
+				bpm,
+				// Without a cue the run calls nothing; the remembered cue stays as it was.
+				config: { count, clave, speed, callEvery: cue ? callEvery : seed.remembered.callEvery }
+			},
+			known
+		);
 	}
 
 	/**

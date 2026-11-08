@@ -2,8 +2,11 @@
 	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
+	import SyncCard from './SyncCard.svelte';
+	import { SYNC_EMPTY, differLabel, outOfSyncCount } from '$lib/moves/sync';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -17,6 +20,7 @@
 	import {
 		fromClass,
 		routineBadges,
+		routinesView,
 		type RoutineBadge,
 		type RoutinesLists
 	} from '$lib/moves/routines';
@@ -62,6 +66,27 @@
 	// The routines that stand for their twins (board C7): a "Twins" chip.
 	const twinned = $derived(new Set(lists.twinned));
 
+	// `?sync=1` filters the list route; beside an open routine the column keeps it (`held`), as Figures does.
+	let held = $state('');
+	let seeded = false;
+	const sync = $derived(
+		new URLSearchParams(isList ? page.url.searchParams : held).get('sync') === '1'
+	);
+	const view = $derived(routinesView(lists, sync));
+	const syncN = $derived(
+		outOfSyncCount([...lists.routines, ...lists.groups.flatMap((g) => g.routines)])
+	);
+	const listPath = $derived(resolve('/[dance]/(moves)/routines', { dance: dance.slug }));
+	const syncHref = $derived(sync ? listPath : `${listPath}?sync=1`);
+	afterNavigate(() => {
+		if (isList) {
+			held = sync ? 'sync=1' : '';
+			keepFilter(listPath, held, held);
+		} else if (!seeded) {
+			held = keptFilter(listPath);
+		}
+		seeded = true;
+	});
 	const nameError = $derived(refusal?.field === 'name' ? refusal.message : null);
 	const notesError = $derived(refusal?.field === 'notes' ? refusal.message : null);
 	// A refusal that is about no one field goes at the top of the sheet.
@@ -80,6 +105,7 @@
 		slots: number;
 		membersSee?: boolean;
 		classDay?: string | null;
+		differ?: number;
 	},
 	badges: RoutineBadge[]
 )}
@@ -113,6 +139,9 @@
 				{#each badges as b (b.text)}
 					<Badge tone={b.tone}>{b.text}</Badge>
 				{/each}
+				{#if differLabel(routine.differ)}
+					<span class="font-bold whitespace-nowrap text-warn">{differLabel(routine.differ)}</span>
+				{/if}
 				{#if routine.membersSee === false}
 					<span class="flex items-center gap-1 whitespace-nowrap"
 						><Icon name="eye-off" size={16} />{HIDDEN_FROM_MEMBERS}</span
@@ -138,22 +167,37 @@
 		{/snippet}
 	</EmptyState>
 {:else}
-	{#if lists.routines.length > 0}
-		{#if anyHidden(lists.routines)}
+	<SyncCard
+		kind="routine"
+		n={syncN}
+		on={sync}
+		href={syncHref}
+		onclick={(e) => {
+			if (isList) return;
+			e.preventDefault();
+			held = sync ? '' : 'sync=1';
+			keepFilter(listPath, held, held);
+		}}
+	/>
+	{#if sync && view.routines.length === 0 && view.groups.length === 0}
+		<EmptyState icon="check-circle" title={SYNC_EMPTY.title} body={SYNC_EMPTY.body} />
+	{/if}
+	{#if view.routines.length > 0}
+		{#if anyHidden(view.routines)}
 			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
 				{MEMBERS_NOTE}
 			</p>
 		{/if}
-		<h2 class="{SECTION_LABEL} pt-1">{plural(lists.routines.length, 'routine', 'routines')}</h2>
+		<h2 class="{SECTION_LABEL} pt-1">{plural(view.routines.length, 'routine', 'routines')}</h2>
 		<div class={GROUP}>
-			{#each lists.routines as routine (routine.id)}
+			{#each view.routines as routine (routine.id)}
 				{@render routineRow(routine, routineBadges(routine))}
 			{/each}
 		</div>
 	{/if}
 
 	<!-- Each group's routines from the lessons the person added: opened, not edited, under a slight heading. -->
-	{#each lists.groups as g (g.team.id)}
+	{#each view.groups as g (g.team.id)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
 			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
 				<Icon name="people" size={16} />{groupHeading(g.team.name, g.routines.length)}

@@ -11,7 +11,7 @@
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		CANCEL,
-		COMPARE_FAILED,
+		LOAD_FAILED,
 		CONTINUE,
 		KEEP_MINE,
 		MOVE_BUTTON,
@@ -179,7 +179,7 @@
 		{/if}
 
 		{#if failed}
-			<Banner kind="error">{COMPARE_FAILED}</Banner>
+			<Banner kind="error">{LOAD_FAILED}</Banner>
 		{:else if !preview}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}

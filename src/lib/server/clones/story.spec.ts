@@ -1,8 +1,8 @@
 /**
  * The whole story of the clones and twins spec, end to end through the data
  * functions: Ana's Enchufla · Doble copied into her two groups, a co-teacher's
- * timing in one, a member using the class's figure in her own routine, Send
- * and Take through Ana's own copy as the hub, Make it mine, Drop my copy,
+ * timing in one, a member using the class's figure in her own routine, one
+ * Sync from Ana's own copy as the hub, Make it mine, Drop my copy,
  * leaving with what her routines use, and rejoining. After every step no
  * person's own row points at what they cannot read (`crossRefs`) and no
  * parent holds two pieces of one family (`familyIntegrity`). Files are fakes;
@@ -33,12 +33,11 @@ import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import type { CloneFiles } from './files';
 import { accessTo, geneOf } from './genes';
 import { copyTo } from './copy-to';
-import { compareWith, takeTheirs } from './compare';
-import { sendMine, sendPreview } from './send';
+import { stepStatus } from './step';
+import { syncAll, syncView } from './sync';
 import { makeMine } from './edit';
 import { dropCopy, dropOptions } from './drop';
 import { sourcesView } from './sources';
-import { reconnectedLine } from '$lib/clones/view';
 
 const DAY = 86_400_000;
 const T = Date.UTC(2026, 10, 3, 20);
@@ -161,64 +160,33 @@ it('Ana’s Enchufla, from her app through two groups to Pia and back', async ()
 	expect(practiceOn(T1f)).toHaveLength(1);
 	whole('3. Pia uses the class’s Doble');
 
-	// 4. Ana writes notes on hers and sends them to both groups: Rueda club
-	// keeps Marko's timing (only it changed it), Salsa Tuesdays has nothing
-	// but the notes to take.
+	// 4. Ana writes notes on hers and opens Sync: her notes and Rueda club's
+	// timing are each preselected (only one copy changed each), and one Sync
+	// lands both on all three.
 	expect(updateVariation(db, H, { name: 'Doble', ...shape, notes: 'Hips first' })).not.toBeNull();
-	const preview4 = sendPreview(db, 'u1', 'figure', H);
-	expect(preview4.map((t) => t.target.id).sort()).toEqual([T1f, T2f].sort());
-	const sent4 = await sendMine(
+	const view4 = syncView(db, 'u1', 'figure', H)!;
+	expect(view4.targets.map((t) => t.id)).toEqual([H, T2f, T1f]);
+	const synced = await syncAll(
 		db,
 		'u1',
 		'figure',
 		H,
-		preview4.map((t) => ({ id: t.target.id, picks: t.comparison.picks, seen: t.comparison.seen })),
+		{},
+		view4.targets,
+		view4.members,
 		files,
 		T + 2 * DAY,
 		ROOMY
 	);
-	expect(sent4.map((s) => s.result.ok)).toEqual([true, true]);
-	expect([row(T1f).notes, row(T2f).notes]).toEqual(['Hips first', 'Hips first']);
-	expect([start(H), start(T1f), start(T2f)]).toEqual([1, 1, 3]);
-	whole('4. notes sent to both');
-
-	// 5. Ana takes Rueda club's timing into hers (preselected: only Rueda club
-	// changed it), then sends it to Salsa Tuesdays.
-	const fromT2 = compareWith(db, 'u1', 'figure', H, T2f)!;
-	expect(fromT2.diffs.map((d) => [d.key, d.side])).toEqual([['timing', 'theirs']]);
-	expect(fromT2.picks).toEqual({ timing: 'theirs' });
-	const took = await takeTheirs(
-		db,
-		'u1',
-		'figure',
-		H,
-		T2f,
-		fromT2.picks,
-		fromT2.seen,
-		files,
-		T + 3 * DAY,
-		ROOMY
-	);
-	expect(took.ok).toBe(true);
-	expect(start(H)).toBe(3);
-	const preview5 = sendPreview(db, 'u1', 'figure', H);
-	const toT1 = preview5.find((t) => t.target.id === T1f)!;
-	expect(toT1.comparison.picks).toEqual({ timing: 'theirs' });
-	// Rueda club is in step on everything now: nothing would land there.
-	expect(preview5.find((t) => t.target.id === T2f)?.comparison.diffs ?? []).toEqual([]);
-	const sent5 = await sendMine(
-		db,
-		'u1',
-		'figure',
-		H,
-		[{ id: T1f, picks: toT1.comparison.picks, seen: toT1.comparison.seen }],
-		files,
-		T + 3 * DAY,
-		ROOMY
-	);
-	expect(sent5.map((s) => s.result.ok)).toEqual([true]);
+	expect(synced).toEqual({ ok: true, refused: [] });
+	expect([row(H).notes, row(T1f).notes, row(T2f).notes]).toEqual([
+		'Hips first',
+		'Hips first',
+		'Hips first'
+	]);
 	expect([start(H), start(T1f), start(T2f)]).toEqual([3, 3, 3]);
-	whole('5. timing taken from Rueda club and sent to Salsa Tuesdays');
+	expect(stepStatus(db, 'u1', 'figure', H)).toEqual({ lines: [] });
+	whole('4. one Sync: notes from hers, timing from Rueda club');
 
 	// 6. Pia's routine plays Salsa Tuesdays' Doble, on the new timing.
 	expect(slotsOf(P)).toEqual([T1f]);
@@ -273,7 +241,7 @@ it('Ana’s Enchufla, from her app through two groups to Pia and back', async ()
 	).not.toBeNull();
 	whole('Ana edits the class’s notes');
 
-	// 10. Pia rejoins: her copy shows Salsa Tuesdays again, "Reconnected", with
+	// 10. Pia rejoins: her copy shows Salsa Tuesdays again, and the notice says
 	// what changed while she was away.
 	expect(joinTeam(db, 'u2', 1, T + 8 * DAY)).toBe('joined');
 	expect(accessTo(db, 'u2', 'figure', T1f)).toBe('read');
@@ -282,14 +250,9 @@ it('Ana’s Enchufla, from her app through two groups to Pia and back', async ()
 		[mine, 'self'],
 		[T1f, 'clone']
 	]);
-	expect(view.compare).toEqual({
-		id: T1f,
-		place: 'Salsa Tuesdays',
-		changed: ['Notes'],
-		rejoined: true
+	expect(view.sources.find((s) => s.id === T1f)?.rejoined).toBe(true);
+	expect(stepStatus(db, 'u2', 'figure', mine)).toEqual({
+		lines: [{ id: T1f, place: 'Salsa Tuesdays', state: 'changed', fields: ['Notes'] }]
 	});
-	expect(reconnectedLine(view.compare!.place, view.compare!.changed.length)).toBe(
-		'Reconnected with Salsa Tuesdays: 1 change while you were away'
-	);
 	whole('10. rejoined');
 });

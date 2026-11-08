@@ -467,9 +467,10 @@ export function musicFits(
 
 /**
  * The differences between two members a person is shown, less a song the
- * place missing it could not take (`musicFits`): Compare, the source tabs'
- * status and the family banners read the same list, so none of them shows a
- * difference nothing can resolve. `mineId` is the diff's `mine` side.
+ * place missing it could not take (`musicFits`): the source tabs' status,
+ * the Versions list and Drop my copy read the same list (Sync filters its
+ * rows the same way, `rowsOf`), so none of them shows a difference nothing
+ * can resolve. `mineId` is the diff's `mine` side.
  */
 export function fittingDiffs<
 	D extends { key: string; side: string; mine: unknown; theirs: unknown }

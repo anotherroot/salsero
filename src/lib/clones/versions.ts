@@ -1,4 +1,4 @@
-import type { CompareOffer, FamilyEntry, FamilyView, PlaceRef, Source } from '$lib/types';
+import type { FamilyEntry, FamilyView, PlaceRef, Source } from '$lib/types';
 import { memberMeta, possessive, selfMeta, statusChip, THIS_ONE, YOURS } from './view';
 
 /**
@@ -18,35 +18,25 @@ export const ROW_WORDS = {
 export type VersionRowView = {
 	title: string;
 	meta: string;
-	/** The meta says what changed (the status tone). */
-	changed: boolean;
 	count: number;
 	icon: VersionIcon;
 };
 
-/** "Sreda 17:30 changed: notes, hold". */
-const changedMeta = (o: CompareOffer) =>
-	`${o.place === YOURS ? 'Your copy' : o.place} changed: ${o.changed.map((c) => c.toLowerCase()).join(', ')}`;
-
 /**
  * The row: null with one version. "Your version" or "<Place>’s version",
- * then who else has it, or, when a copy moved, what changed (the compare
- * offer first, else the first differs banner).
+ * then who else has it ("Also: …"), whatever the copies' status: where they
+ * disagree is the notice's, under the row (`step-view.ts`).
  */
 export function versionRow(i: {
 	sources: Source[];
 	current: number;
 	self: PlaceRef;
-	compare: CompareOffer | null;
-	family: FamilyView | null;
 }): VersionRowView | null {
 	if (i.sources.length < 2) return null;
-	const moved = i.compare ?? i.family?.banners[0] ?? null;
 	const others = i.sources.filter((s) => s.id !== i.current).map((s) => s.label);
 	return {
 		title: i.self.kind === 'mine' ? ROW_WORDS.yours : `${possessive(i.self.name)} version`,
-		meta: moved ? changedMeta(moved) : ROW_WORDS.also + others.join(', '),
-		changed: moved !== null,
+		meta: ROW_WORDS.also + others.join(', '),
 		count: i.sources.length,
 		icon: i.self.kind === 'mine' ? 'solo' : 'group'
 	};
