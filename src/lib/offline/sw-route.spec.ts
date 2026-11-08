@@ -4,6 +4,7 @@ import {
 	NETWORK_TIMEOUT_MS,
 	SHELL,
 	cachesToDelete,
+	changedTo,
 	installOrClean,
 	isNetworkFailure,
 	navigationTimeout,
@@ -268,6 +269,15 @@ describe('postsChanged', () => {
 		expect(postsChanged({ status: 0, type: 'opaqueredirect' })).toBe(true);
 		expect(postsChanged({ status: 400, type: 'basic' })).toBe(false);
 		expect(postsChanged({ status: 502, type: 'basic' })).toBe(false);
+	});
+});
+
+describe('changedTo', () => {
+	it('tells every open page a write landed: the one holding the copy may be another tab', () => {
+		expect(changedTo('a', ['b', 'a', 'c']).sort()).toEqual(['a', 'b', 'c']);
+		// A page still loading is not listed yet; it is told all the same.
+		expect(changedTo('new', ['b']).sort()).toEqual(['b', 'new']);
+		expect(changedTo('', ['b'])).toEqual(['b']);
 	});
 });
 

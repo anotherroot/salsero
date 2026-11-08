@@ -173,7 +173,9 @@ function onServiceWorkerMessage(e: MessageEvent<SwOut>): void {
 		const port = e.ports[0];
 		if (port) void relay(message, port);
 	} else if (message?.type === 'changed') {
-		// The service worker has marked this page already, by its own clock.
+		// A write from this page or another reached the server: every page asks its
+		// worker to pull, and the one holding the copy does. The service worker has
+		// marked the writing page already, by its own clock.
 		saved();
 	} else if (message?.type === 'needs-connection') {
 		window.dispatchEvent(new CustomEvent('salsa:needs-connection'));

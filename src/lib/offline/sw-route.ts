@@ -221,6 +221,19 @@ export function navigationTimeout(
 	return can.shell && can.device && !isNetworkPage(path) ? NETWORK_TIMEOUT_MS : null;
 }
 
+/**
+ * Which pages hear that a write reached the server (`changed`): every open
+ * page, and the writer even before it is listed (a page still loading). The
+ * tab whose worker holds the copy may not be the one that wrote; each page
+ * asks its own worker to pull, and only the one holding the copy does.
+ * `DeviceClients` marks only the writer unpulled.
+ */
+export function changedTo(writer: string, windows: readonly string[]): string[] {
+	const to = new Set(windows);
+	if (writer) to.add(writer);
+	return [...to];
+}
+
 /** Since when a save is unpulled, after another save at `at`: the latest one. */
 export function unpulledAfterSave(since: number | null, at: number): number {
 	return since === null ? at : Math.max(since, at);

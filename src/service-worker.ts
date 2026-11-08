@@ -20,6 +20,7 @@ import {
 	DeviceClients,
 	SHELL,
 	cachesToDelete,
+	changedTo,
 	installOrClean,
 	isNetworkFailure,
 	navigationTimeout,
@@ -314,9 +315,24 @@ async function write(event: FetchEvent): Promise<Response> {
 		// Before the answer reaches the page: the reads its save sets off (the
 		// action's invalidation) must not be timed out onto a copy without it.
 		if (to) devices.changed(to, Date.now());
-		tell(to, { type: 'changed' });
+		event.waitUntil(tellEveryPage(to, { type: 'changed' }));
 	}
 	return res;
+}
+
+/** `changedTo`: every open page, the writer too. */
+async function tellEveryPage(writer: string, message: SwOut): Promise<void> {
+	try {
+		const open = await sw.clients.matchAll({ type: 'window' });
+		const ids = changedTo(
+			writer,
+			open.map((c) => c.id)
+		);
+		for (const id of ids) tell(id, message);
+	} catch (e) {
+		console.warn('[sw] could not tell the pages', e);
+		tell(writer, message);
+	}
 }
 
 function tell(clientId: string, message: SwOut): void {
