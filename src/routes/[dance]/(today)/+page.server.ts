@@ -5,6 +5,7 @@ import { int, optionalText, text } from '$lib/server/form';
 import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
+import { setWarmupOrder } from '$lib/server/warmup-order';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
 import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
@@ -119,6 +120,17 @@ export const actions: Actions = {
 			if (e instanceof PickRefused) return fail(400, { action: 'next', message: e.message });
 			throw e;
 		}
+	},
+
+	/** The warm-ups in the person's own order (a drag on Today); `ids` comma-separated. */
+	warmupOrder: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const raw = String((await request.formData()).get('ids') ?? '');
+		const ids = raw === '' ? [] : raw.split(',').map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
+		if (ids.some(Number.isNaN) || !setWarmupOrder(getDb(), wall, ids)) {
+			return fail(400, { action: 'warmupOrder', message: 'Could not save the order. Try again.' });
+		}
+		return { action: 'warmupOrder', ok: true };
 	},
 
 	createExercise: async ({ params, request, locals }) => {
