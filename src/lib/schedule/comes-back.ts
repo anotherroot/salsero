@@ -58,3 +58,10 @@ export function effectiveComesBack(
 export function rhythmWords(days: 1 | 2 | 3 | 7): string {
 	return days === 1 ? 'Every day' : days === 7 ? 'Weekly' : `Every ${days} days`;
 }
+
+/** A setting in History's words: "By how it went", "Weekly", "Every day until it feels good on 3 days". */
+export function comesBackWords(c: ComesBack): string {
+	if (c.kind === 'faces') return 'By how it went';
+	if (c.kind === 'every') return rhythmWords(c.days);
+	return `Every day until it feels good on ${c.good} days`;
+}

@@ -1,20 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, songDrops } from './db/schema';
+import { exercises, songDrops, teamChanges } from './db/schema';
+import { checkSeen, exerciseSeen } from './clash';
 import {
 	archiveExercise,
 	createCustomExercise,
 	listExercises,
 	listPickExercises,
-	setPracticeSettings
+	setPracticeSettings,
+	updateExercise
 } from './exercises';
 import { createSongFromUpload, storeAnalysis } from './songs';
 import { shareSong, unshareSong } from './song-share';
 import { CLASS_ED, CLASS_T, makeClass, readyGroupSong, type Class } from './test-class';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
-import { FACES } from '$lib/schedule/comes-back';
+import { FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
@@ -246,3 +248,99 @@ describe('listExercises: comes back and warm-up', () => {
 		expect(row.warmupOrder).toBeNull();
 	});
 });
+
+describe('updateExercise: warm-up and comes back', () => {
+	const EVERY_2 = { kind: 'every', days: 2 } as const;
+	const col = (id: number) => db.select().from(exercises).where(eq(exercises.id, id)).get()!;
+
+	it('saves them on a person drill, and keeps them when left out', () => {
+		const d = createCustomExercise(db, U1_SALSA, { name: 'A', notes: null });
+		updateExercise(db, d.id, {
+			name: 'A',
+			notes: null,
+			active: true,
+			warmup: true,
+			comesBack: EVERY_2
+		});
+		expect(col(d.id).warmup).toBe(true);
+		expect(parseComesBack(col(d.id).comesBack)).toEqual(EVERY_2);
+		updateExercise(db, d.id, { name: 'A', notes: 'n', active: true });
+		expect(col(d.id).warmup).toBe(true);
+		expect(parseComesBack(col(d.id).comesBack)).toEqual(EVERY_2);
+	});
+
+	it('creates with them', () => {
+		const d = createCustomExercise(db, U1_SALSA, {
+			name: 'B',
+			notes: null,
+			warmup: true,
+			comesBack: { kind: 'until', good: 3, since: 7 }
+		});
+		expect(d.warmup).toBe(true);
+		expect(parseComesBack(d.comesBack)).toEqual({ kind: 'until', good: 3, since: 7 });
+	});
+
+	it('leaves a lesson review on faces (the column stays null)', () => {
+		const c = makeClass(db);
+		const id = db
+			.insert(exercises)
+			.values({ name: 'R', source: 'lesson', lessonId: c.lesson, userId: 'u3', dance: 'salsa' })
+			.returning({ id: exercises.id })
+			.get().id;
+		updateExercise(db, id, { name: 'R', notes: null, active: true, comesBack: EVERY_2 });
+		expect(col(id).comesBack).toBeNull();
+	});
+
+	it("clears a member's entry with 'teacher'", () => {
+		const c = makeClass(db);
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify(EVERY_2) })
+			.where(eq(exercises.id, c.entry))
+			.run();
+		updateExercise(db, c.entry, {
+			name: 'Shines',
+			notes: null,
+			active: true,
+			comesBack: 'teacher'
+		});
+		expect(col(c.entry).comesBack).toBeNull();
+	});
+
+	it("never writes a group drill's warm-up, and names a Comes back change in History", () => {
+		const c = makeClass(db);
+		updateExercise(
+			db,
+			c.drill,
+			{ name: 'Shines', notes: null, active: true, warmup: true, comesBack: EVERY_2 },
+			'u2'
+		);
+		expect(col(c.drill).warmup).toBe(false);
+		expect(parseComesBack(col(c.drill).comesBack)).toEqual(EVERY_2);
+		const line = db
+			.select()
+			.from(teamChanges)
+			.all()
+			.find((r) => r.verb === 'change' && r.rootId === c.drill)!;
+		expect(line.subject).toBe('comesBack');
+		expect(line.afterJson).toContain('Every 2 days');
+	});
+});
+
+describe('the clash check on a drill', () => {
+	it("refuses a stale form that saw another Comes back on a group's drill", () => {
+		const c = makeClass(db);
+		const seen = exerciseSeen(col(db, c.drill));
+		updateExercise(
+			db,
+			c.drill,
+			{ name: 'Shines', notes: null, active: true, comesBack: { kind: 'every', days: 7 } },
+			'u2'
+		);
+		const check = checkSeen(exerciseSeen(col(db, c.drill)), seen);
+		expect(check).toMatchObject({ ok: false, changed: ['comesBack'] });
+	});
+});
+
+function col(db: Db, id: number) {
+	return db.select().from(exercises).where(eq(exercises.id, id)).get()!;
+}

@@ -1,7 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
-import { int, optionalText, text } from '$lib/server/form';
+import { checkbox, int, optionalText, text } from '$lib/server/form';
+import { readComesBack } from '$lib/server/comes-back-form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
@@ -133,7 +134,21 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), wall, { name, notes });
+		const comesBack = readComesBack(form, null, Date.now());
+		if (comesBack === 'invalid') {
+			return fail(400, {
+				action: 'createExercise',
+				message: 'Check the values and try again.',
+				name,
+				notes: notes ?? ''
+			});
+		}
+		createCustomExercise(getDb(), wall, {
+			name,
+			notes,
+			warmup: form.has('warmupSent') ? checkbox(form, 'warmup') : undefined,
+			comesBack: comesBack === 'teacher' ? undefined : comesBack
+		});
 		return { action: 'createExercise', ok: true };
 	}
 };

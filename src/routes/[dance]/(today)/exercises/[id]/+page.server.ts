@@ -27,6 +27,7 @@ import {
 } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
+import { readComesBack } from '$lib/server/comes-back-form';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
@@ -347,7 +348,15 @@ export const actions: Actions = {
 			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		if (!updateExercise(db, row.id, { name, notes, active }, me(params, locals))) {
+		const comesBack = readComesBack(form, parseComesBack(row.comesBack), Date.now());
+		if (comesBack === 'invalid') {
+			return fail(400, { action: 'update', message: 'Check the values and try again.' });
+		}
+		// Warm-up is the person's own: a group's drill never takes it. No field keeps.
+		const warmup = team || !form.has('warmupSent') ? undefined : checkbox(form, 'warmup');
+		if (
+			!updateExercise(db, row.id, { name, notes, active, warmup, comesBack }, me(params, locals))
+		) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };

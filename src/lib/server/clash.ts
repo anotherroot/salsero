@@ -134,9 +134,12 @@ export function exerciseSeen(row: {
 	notes: string | null;
 	active: boolean;
 	teamId: number | null;
+	comesBack: string | null;
 }): Seen {
 	const content: Seen = { notes: row.notes };
 	if (row.source === 'custom') content.name = row.name;
+	// A drill's Comes back is content too: the raw stored value is what the form saw.
+	if (row.source === 'custom' || row.source === 'added') content.comesBack = row.comesBack;
 	return row.teamId !== null ? content : { ...content, active: row.active ? 'on' : '' };
 }
 

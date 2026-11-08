@@ -12,7 +12,14 @@ import {
 	sql,
 	sum
 } from 'drizzle-orm';
-import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
+import {
+	FACES,
+	effectiveComesBack,
+	parseComesBack,
+	comesBackWords,
+	serializeComesBack,
+	type ComesBack
+} from '$lib/schedule/comes-back';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
@@ -26,7 +33,7 @@ import {
 	songs,
 	teams
 } from './db/schema';
-import { inSpace, ownerValues, type Space, type Wall } from './scope';
+import { inSpace, isTeam, ownerValues, type Space, type Wall } from './scope';
 import { reconcileEntries, reviveEntries } from './entries';
 import { practiceSong } from './access';
 import type { ArchiveRestore } from './trash';
@@ -160,7 +167,18 @@ export interface SettingsInput {
 	everyDays?: number;
 	active: boolean;
 	notes: string | null;
+	/** The person's own Warm-up switch; a group's row never takes it. Undefined keeps. */
+	warmup?: boolean;
+	/**
+	 * Drills (`custom`, `added`) only. `'teacher'` clears an entry's own so it follows the
+	 * class drill again (anywhere else it just clears). Undefined keeps.
+	 */
+	comesBack?: ComesBack | 'teacher';
 }
+
+/** The column a Comes back setting is stored as: null = by how it went / follow the teacher. */
+const storedComesBack = (c: ComesBack | 'teacher') =>
+	c === 'teacher' ? null : serializeComesBack(c);
 
 /**
  * A drill in a person's or a group's space. It starts with no song, and a
@@ -168,10 +186,19 @@ export interface SettingsInput {
  * editor's song would play it to everyone (see `setPracticeSettings`).
  */
 export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
+	const { warmup, comesBack, ...rest } = input;
 	return db.transaction((tx) => {
 		const drill = tx
 			.insert(exercises)
-			.values({ ...input, source: 'custom', ...ownerValues(space), songId: null })
+			.values({
+				...rest,
+				source: 'custom',
+				...ownerValues(space),
+				songId: null,
+				// Warm-up is a person's own; a group's drill never holds it.
+				...(warmup && !isTeam(space) ? { warmup: true } : {}),
+				...(comesBack !== undefined ? { comesBack: storedComesBack(comesBack) } : {})
+			})
 			.returning()
 			.get();
 		logChange(
@@ -207,9 +234,16 @@ export function updateExercise(
 		const current = tx.select().from(exercises).where(eq(exercises.id, id)).get();
 		if (!current) return null;
 		const name = current.source === 'custom' && input.name ? input.name : current.name;
+		const { warmup, comesBack, ...rest } = input;
+		const isDrill = current.source === 'custom' || current.source === 'added';
 		const row = tx
 			.update(exercises)
-			.set({ ...input, name })
+			.set({
+				...rest,
+				name,
+				...(warmup !== undefined && current.teamId === null ? { warmup } : {}),
+				...(comesBack !== undefined && isDrill ? { comesBack: storedComesBack(comesBack) } : {})
+			})
 			.where(eq(exercises.id, id))
 			.returning()
 			.get();
@@ -217,9 +251,10 @@ export function updateExercise(
 			tx.update(exercises).set({ name }).where(eq(exercises.drillId, id)).run();
 		}
 		if (current.teamId !== null && row) {
-			const fields = (e: { name: string; notes: string | null }) => ({
+			const fields = (e: { name: string; notes: string | null; comesBack: string | null }) => ({
 				name: e.name,
-				notes: e.notes
+				notes: e.notes,
+				comesBack: comesBackWords(parseComesBack(e.comesBack) ?? FACES)
 			});
 			const change = fieldChange(fields(current), fields(row), 'drill');
 			if (change) logChange(tx, actingIn(current, by), { ...ofDrill(id), verb, ...change }, now);
