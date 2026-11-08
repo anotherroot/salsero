@@ -81,10 +81,7 @@
 				const a = nodeById.get(e.from)!;
 				const b = nodeById.get(e.to)!;
 				const key = edgeKey(e);
-				// Until the pill arrows (Task 3): each pill as the circle of half its height.
-				const ca = { x: a.x, y: a.y, r: a.h / 2 };
-				const cb = e.from === e.to ? ca : { x: b.x, y: b.y, r: b.h / 2 };
-				return { ...e, key, on: lit.edges.has(key), ...edgeGeometry(ca, cb, e.from === e.to) };
+				return { ...e, key, on: lit.edges.has(key), ...edgeGeometry(a, b, e.from === e.to) };
 			})
 			.sort((x, y) => Number(x.on) - Number(y.on))
 	);
