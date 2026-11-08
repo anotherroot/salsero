@@ -90,7 +90,7 @@ export const songs: Catalog['songs'] = {
 			sample: 'Odlomek',
 			sampleFrom: (at) => `Od ${at}`,
 			sampleMeta: '15 sekund',
-			jumpTo: (name, at) => `Skok na ${name}, ${at}`,
+			jumpTo: (name, at) => `Skoči na odsek: ${name}, ${at}`,
 			play: 'Predvajaj skladbo',
 			pause: 'Ustavi skladbo',
 			position: 'Mesto v skladbi'

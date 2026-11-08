@@ -35,6 +35,8 @@ class WordsTest {
         assertEquals("Getting video 2 of 3 ready…", en.gettingVideoReady(2, 3))
         assertEquals("the lesson", en.theLesson)
         assertEquals("the video", en.theVideo)
+        assertEquals("42%", en.percent(42))
+        assertEquals("42\u00A0%", sl.percent(42))
         assertEquals("Uploads finished", en.channelResults)
         assertEquals("The server refused it (413).", en.serverRefused(413))
     }

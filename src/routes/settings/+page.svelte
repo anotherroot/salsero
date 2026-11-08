@@ -24,6 +24,7 @@
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
 	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
@@ -42,9 +43,8 @@
 	let { data }: { data: PageData } = $props();
 
 	const dance = $derived(DANCES[data.dance]);
-	const styleOptions = $derived(
-		dance.styles.map((s) => ({ value: s, label: dance.styleLabel[s] }))
-	);
+	const styleLabels = $derived(styleLabelsOf(dance.styleLabel));
+	const styleOptions = $derived(dance.styles.map((s) => ({ value: s, label: styleLabels[s] })));
 	const sizeOptions = VIDEO_SHORT_SIDES.map((s) => ({ value: String(s), label: `${s}p` }));
 
 	/** The reminder as saved: the switch and the time. */
@@ -266,7 +266,7 @@
 			</a>
 			{@render opener(
 				w.practice.newFigures,
-				dance.styleLabel[data.defaultStyle],
+				styleLabels[data.defaultStyle],
 				() => (sheet = 'style')
 			)}
 		{/if}

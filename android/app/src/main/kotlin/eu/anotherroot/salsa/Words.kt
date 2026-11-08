@@ -51,6 +51,8 @@ interface Words {
     val theLesson: String
     /** What a video is called before its file name is known. */
     val theVideo: String
+    /** The progress line's percentage: Slovenian puts a no-break space before the sign. */
+    fun percent(n: Int): String
 
     companion object {
         val en: Words = En
@@ -96,6 +98,7 @@ private object En : Words {
     override fun downloading(name: String) = "Downloading $name"
     override val theLesson = "the lesson"
     override val theVideo = "the video"
+    override fun percent(n: Int) = "$n%"
 }
 
 private object Sl : Words {
@@ -137,4 +140,5 @@ private object Sl : Words {
     override fun downloading(name: String) = "Prenašanje: $name"
     override val theLesson = "lekcija"
     override val theVideo = "video"
+    override fun percent(n: Int) = "$n\u00A0%"
 }

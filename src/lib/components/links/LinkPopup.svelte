@@ -26,6 +26,7 @@
 	import { DANCES } from '$lib/dances/dances';
 	import { PARTNER, type Partner } from '$lib/labels';
 	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { figureRows, linkOptionGroups } from '$lib/picker/build';
 	import { isHeading, type PickGroup, type PickRow } from '$lib/picker/model';
 	import { linkRefusal } from '$lib/picker/view';
@@ -640,7 +641,7 @@
 					label={t().figure.fields.style}
 					items={DANCES[o.dance].styles.map((s) => ({
 						value: s,
-						label: DANCES[o.dance].styleLabel[s]
+						label: styleLabelsOf(DANCES[o.dance].styleLabel)[s]
 					}))}
 					bind:value={variationStyle}
 				/>
@@ -690,7 +691,7 @@
 					label={t().figure.fields.style}
 					items={DANCES[o.dance].styles.map((s) => ({
 						value: s,
-						label: DANCES[o.dance].styleLabel[s]
+						label: styleLabelsOf(DANCES[o.dance].styleLabel)[s]
 					}))}
 					bind:value={style}
 				/>
@@ -719,7 +720,7 @@
 					label={t().links.create.type}
 					items={DANCES[o.dance].styles.map((s) => ({
 						value: s,
-						label: DANCES[o.dance].styleLabel[s]
+						label: styleLabelsOf(DANCES[o.dance].styleLabel)[s]
 					}))}
 					bind:value={positionStyle}
 					clearable

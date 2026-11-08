@@ -53,6 +53,7 @@ import { setFigureShape } from '../graph';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import { stampGene } from './genes';
 import { flatOf } from './trees';
+import { runInLocale } from '../i18n-request';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
@@ -237,6 +238,40 @@ describe('flatOf', () => {
 			.run();
 		expect(flatOf(db, 'position', p.id).name).toEqual(f.name);
 		expect(Object.keys(flatOf(db, 'position', p.id))).toEqual(Object.keys(f));
+	});
+
+	it('the style names and a recording without a note are in the reader’s language', () => {
+		const [p] = listPositions(db, U1_SALSA);
+		const type = (dance: string, tag: string, lang: 'en' | 'sl') => {
+			db.update(positions).set({ dance, styleTag: tag }).where(eq(positions.id, p.id)).run();
+			return runInLocale(lang, () => flatOf(db, 'position', p.id).type.show);
+		};
+		expect(type('bachata', 'sensual', 'sl')).toBe('Senzualna');
+		expect(type('bachata', 'dominican', 'sl')).toBe('Dominikanska');
+		expect(type('bachata', 'sensual', 'en')).toBe('Sensual');
+		expect(type('salsa', 'other', 'sl')).toBe('Drugo');
+		expect(type('salsa', 'other', 'en')).toBe('Other');
+		const id = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!
+			.figure.id;
+		for (const kind of ['video', 'audio'] as const)
+			addRecording(db, {
+				figureId: id,
+				file: kind + '.mp4',
+				mime: 'video/mp4',
+				kind,
+				sizeBytes: 5,
+				note: null
+			});
+		dated();
+		const shown = (lang: 'en' | 'sl') =>
+			runInLocale(lang, () => {
+				const f = flatOf(db, 'figure', id);
+				return Object.keys(f)
+					.filter((k) => /^rec:#\d+$/.test(k))
+					.map((k) => f[k].show);
+			});
+		expect(shown('en')).toEqual(['Recording, 3 Nov', 'Audio, 3 Nov']);
+		expect(shown('sl').map((x) => x.split(',')[0])).toEqual(['Posnetek', 'Zvočni posnetek']);
 	});
 
 	it('a recording’s day is shown in the zone asked for; values do not change', () => {

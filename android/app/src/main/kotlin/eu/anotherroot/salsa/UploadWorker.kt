@@ -236,7 +236,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         lastShown = now
         val text = buildString {
             append(stage)
-            if (percent != null) append(" · $percent%")
+            if (percent != null) append(" · ").append(words.percent(percent))
             if (waiting > 0) append(" · ").append(words.moreWaiting(waiting))
         }
         setForegroundAsync(Notify.progress(ctx, title ?: words.uploading, text, percent))

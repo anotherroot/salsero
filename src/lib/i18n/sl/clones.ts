@@ -99,7 +99,7 @@ export const clones: Catalog['clones'] = {
 		sub: 'Ko urejate, nastane vaša kopija. Tista iz tečaja ostane nespremenjena.',
 		restore: 'Svojo kopijo ste že imeli. Jo želite obnoviti?',
 		archivedSong:
-			'Vaša kopija te skladbe je arhivirana. Da bo spet vaša, jo izbrišite v Nastavitve → Kaj zaseda prostor.',
+			'Vaša kopija te skladbe je arhivirana. Da bo spet vaša, jo izbrišite v razdelku Nastavitve → Kaj zaseda prostor.',
 		youGet: 'DOBITE',
 		gets: {
 			figure: 'Ime, začetek in dolžino, položaje in opombe. Spreminjate jih lahko po svoje.',

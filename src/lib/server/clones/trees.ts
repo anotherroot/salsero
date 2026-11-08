@@ -22,6 +22,7 @@ import { clock, dateLabel, dayMonth } from '$lib/format';
 import { parseSections, sectionsJson } from '$lib/songs/sections';
 import { TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
 import { t } from '$lib/i18n/catalog';
+import { styleLabelsOf } from '$lib/moves/figures';
 import { comesBackWords, FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { spotLabel } from '$lib/video/spots';
 import {
@@ -127,7 +128,7 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	for (const r of recs) {
 		const piece = `rec:${ref(r.geneId, r.id)}`;
 		const day = dayMonth(localDay(r.createdAt, tz));
-		const what = r.kind === 'audio' ? 'Audio' : 'Recording';
+		const what = r.kind === 'audio' ? t().figure.recordings.audio : t().figure.recordings.recording;
 		b.add(piece, `${r.mime}|${r.sizeBytes}`, r.note || `${what}, ${day}`, day);
 		b.add(`${piece}:note`, r.note ?? '', r.note ?? '', day);
 		spotFields(db, piece, eq(videoSpots.recordingId, r.id), b);
@@ -137,7 +138,7 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 function styleShow(dance: string, style: string): string {
 	if (!style) return '';
 	try {
-		return getDance(dance).styleLabel[style] ?? style;
+		return styleLabelsOf(getDance(dance).styleLabel)[style] ?? style;
 	} catch {
 		return style;
 	}
