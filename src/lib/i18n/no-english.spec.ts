@@ -199,7 +199,14 @@ const TRANSLATED: string[] = [
 	'src/lib/components/positions/PointStill.svelte',
 	'src/lib/components/positions/PositionLinkPicker.svelte',
 	'src/lib/components/positions/PositionMap.svelte',
-	'src/routes/[dance]/(moves)/positions/map/+page.svelte'
+	'src/routes/[dance]/(moves)/positions/map/+page.svelte',
+	// The full lesson page, New lesson and the share target (part 2, Task 7).
+	'src/lib/components/lessons/LessonFields.svelte',
+	'src/lib/components/lessons/NewLessonSheet.svelte',
+	'src/lib/components/lessons/UnlinkVia.svelte',
+	'src/lib/components/lessons/VideoSections.svelte',
+	'src/routes/[dance]/lessons/[id]/+page.svelte',
+	'src/routes/[dance]/share/+page.svelte'
 ];
 
 describe('englishIn', () => {

@@ -21,7 +21,8 @@ import {
 	unlinkViaBody,
 	unlinkViaTitle,
 	viaBadge,
-	viaRanges
+	viaRanges,
+	yoursMeta
 } from './page';
 
 const via = (startMs: number, endMs: number): ViaSection => ({
@@ -299,5 +300,106 @@ describe('the simple lesson page in Slovenian', () => {
 			)
 		);
 		expect(rows).toEqual([{ id: 10, name: 'Ponovite to lekcijo', when: 'Na vrsti danes' }]);
+	});
+});
+
+describe('the full lesson page in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	const point = (startMs: number): ViaSection => ({
+		spotId: startMs,
+		startMs,
+		endMs: null,
+		label: null
+	});
+	const many = (n: number) => Array.from({ length: n }, (_, i) => via(i * 1000, i * 1000 + 500));
+
+	it('the via badge: »prek« and a genitive', () => {
+		expect(sl(() => viaBadge([two[0]]))).toBe('prek odseka');
+		expect(sl(() => viaBadge(two))).toBe('prek 2 odsekov');
+		expect(sl(() => viaBadge(many(5)))).toBe('prek 5 odsekov');
+		expect(sl(() => viaBadge([point(72_000)]))).toBe('prek točke');
+		expect(sl(() => viaBadge([point(72_000), point(15_000), point(1_000)]))).toBe('prek 3 točk');
+		expect(sl(() => viaBadge([point(72_000), two[0]]))).toBe('prek odseka in točke');
+		expect(sl(() => viaBadge([point(72_000), ...two]))).toBe('prek 2 odsekov in točke');
+	});
+
+	it('the unlink question: names in »…«, vikanje', () => {
+		expect(sl(() => unlinkViaTitle('Manos cruzadas', 'Week 6'))).toBe(
+			'Želite odstraniti »Manos cruzadas« z lekcije »Week 6«?'
+		);
+		expect(sl(() => unlinkViaTitle('Enchufla · Doble'))).toBe(
+			'Želite odstraniti »Enchufla · Doble« z lekcije?'
+		);
+		expect(sl(() => unlinkViaBody('Enchufla · Doble', [via(42_000, 65_500)]))).toBe(
+			'»Enchufla · Doble« je na tej lekciji prek odseka 0:42,0–1:05,5. Želite odstraniti povezavo z lekcijo in z odsekom?'
+		);
+		expect(sl(() => unlinkViaBody('Setenta · Basic', two))).toBe(
+			'»Setenta · Basic« je na tej lekciji prek odsekov 1:12,0–1:30,4, 3:05,0–3:22,8. Želite odstraniti povezavo z lekcijo in z odsekoma?'
+		);
+		expect(sl(() => unlinkViaBody('Manos cruzadas', [two[0], point(15_000)], 'Week 6'))).toBe(
+			'»Manos cruzadas« je na lekciji »Week 6« prek odseka in točke 1:12,0–1:30,4, 0:15,0. Želite odstraniti povezavo z lekcijo ter z odsekom in s točko?'
+		);
+		expect(sl(() => unlinkViaBody('Manos cruzadas', [point(1), point(2), point(3)]))).toContain(
+			'prek točk'
+		);
+		expect(sl(() => unlinkViaBody('Manos cruzadas', [point(1), point(2), point(3)]))).toContain(
+			'z lekcijo in s točkami?'
+		);
+	});
+
+	it('the delete question: the sections agree with their count', () => {
+		const tail = 'Za videe lekcij ni varnostne kopije, zato izbrisa ne boste mogli razveljaviti.';
+		expect(sl(() => deleteVideoBody(0))).toBe(tail);
+		expect(sl(() => deleteVideoBody(1))).toBe(`Z njim gre tudi 1 odsek. ${tail}`);
+		expect(sl(() => deleteVideoBody(2))).toBe(`Z njim gresta tudi 2 odseka. ${tail}`);
+		expect(sl(() => deleteVideoBody(3))).toBe(`Z njim gredo tudi 3 odseki. ${tail}`);
+		expect(sl(() => deleteVideoBody(5))).toBe(`Z njim gre tudi 5 odsekov. ${tail}`);
+		expect(sl(() => deleteVideoBody(102))).toBe(`Z njim gresta tudi 102 odseka. ${tail}`);
+	});
+
+	it('what blocks a delete, in the player’s words', () => {
+		expect(
+			sl(() =>
+				deleteBlock(
+					[{ links: [chip('Setenta · Basic'), chip('Old drill', true)] }],
+					[{ name: 'Cerrada', archived: false }]
+				)
+			)
+		).toBe(
+			'Povezano: Old drill (arhivirano), Položaj · Cerrada, Setenta · Basic. Najprej odstranite povezavo.'
+		);
+		expect(sl(() => positionLinkLabel('Cerrada'))).toBe('Položaj · Cerrada');
+	});
+
+	it('the meta lines: Yours, paused, the review exercise', () => {
+		const today = '2026-10-31';
+		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-11-02' };
+		expect(sl(() => figureMeta({ partner: 'partner', viaSections: [] }))).toBe('V paru');
+		expect(sl(() => yoursMeta(null, 3))).toBe('Vaše');
+		expect(sl(() => yoursMeta('1:12,0', 3))).toBe('Vaše · 1:12,0');
+		expect(sl(() => reviewMeta({ active: false }, state, today)).map((p) => p.text)).toEqual([
+			expect.any(String),
+			'na premoru',
+			'vaja za ponovitev'
+		]);
+	});
+
+	it('the + Add, the draft band and Publish', () => {
+		expect(sl(() => ({ ...ADD_LABEL }))).toEqual({
+			figure: 'Dodaj različico',
+			routine: 'Dodaj kombinacijo',
+			exercise: 'Dodaj vajo',
+			position: 'Dodaj položaj',
+			link: 'Dodaj povezavo'
+		});
+		expect(sl(() => ({ ...DRAFT_BAND }))).toEqual({
+			title: 'Osnutek',
+			line: 'Člani je še ne vidijo',
+			publish: 'Objavi'
+		});
+		expect(sl(() => publishItem('Salsa Tuesdays'))).toMatchObject({
+			label: 'Objavi',
+			meta: 'Videli jo bodo člani skupine: Salsa Tuesdays'
+		});
 	});
 });

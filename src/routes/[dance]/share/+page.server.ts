@@ -1,6 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { SHARE_KEY_RE } from '$lib/app-mode';
 import { getDb } from '$lib/server/db';
+import { t } from '$lib/i18n/catalog';
 import { createLesson, listLessons, listTeamLessons } from '$lib/server/lessons';
 import { readNewLesson } from '$lib/server/lesson-form';
 import { wallOf, type Space } from '$lib/server/scope';
@@ -46,7 +47,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		key,
 		lessons: listLessons(db, wall).slice(0, RECENT),
 		groups,
-		places: [{ value: 0, label: 'Mine' }, ...edited.map((t) => ({ value: t.id, label: t.name }))],
+		places: [
+			{ value: 0, label: t().shell.mine },
+			...edited.map((t) => ({ value: t.id, label: t.name }))
+		],
 		today: localDay(Date.now(), locals.user.timezone)
 	};
 };
@@ -66,7 +70,7 @@ export const actions: Actions = {
 				return fail(400, {
 					action: 'create' as const,
 					field: 'teamId' as const,
-					message: 'Pick where it goes.',
+					message: t().lesson.share.pickPlace,
 					title: read.input.title,
 					notes: read.input.notes ?? '',
 					lessonDay: read.input.lessonDay
