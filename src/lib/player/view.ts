@@ -11,13 +11,6 @@ import { chooseTakes } from '$lib/scheduler/attach';
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 import type { CountTakeRow, RunDetails } from '$lib/types';
 
-/** The count's disc in px: smaller when a song or a routine shares the screen. */
-export function stageSize(hasSong: boolean, hasRoutine: boolean): number {
-	if (hasSong && hasRoutine) return 136;
-	if (hasSong || hasRoutine) return 176;
-	return 230;
-}
-
 export function stageDigit(
 	count: number | null,
 	paused: boolean
@@ -94,17 +87,6 @@ export function slotTone(i: number, active: number | null): 'now' | 'past' | 'ne
 	if (i === active) return 'now';
 	if (active !== null && i < active) return 'past';
 	return 'next';
-}
-
-/** The desktop's heading over the whole routine: where the run is, or how long it is. */
-export function routineHeading(active: number | null, total: number): string {
-	const w = t().player;
-	return active === null ? w.routineSlots(total) : w.routineSlotOf(active + 1, total);
-}
-
-/** The running band's title steps down (46 → 30 on desk) past 18 characters or with a word over 10. */
-export function runTitleCompact(title: string): boolean {
-	return title.length > 18 || title.split(/\s+/).some((w) => w.length > 10);
 }
 
 export function setupSubtitle(

@@ -30,6 +30,8 @@ export const player: Catalog['player'] = {
 	closeFull: 'Zapri kombinacijo čez cel zaslon',
 	kind: { figure: 'Različica', drill: 'Vaja', routine: 'Kombinacija' },
 	about: 'Podrobnosti',
+	next: (name) => `Naslednja: ${name}`,
+	closeLayer: 'Zapri',
 	timing: (start, next, length) =>
 		`${start} → ${next} · ${slCount(length, ['doba', 'dobi', 'dobe', 'dob'])}`,
 	recording: 'Posnetek',
@@ -55,8 +57,6 @@ export const player: Catalog['player'] = {
 	paused: (clock) => `Premor · ${clock}`,
 	stopAndBack: 'Ustavi in pojdi nazaj',
 	routine: 'Kombinacija',
-	routineSlots: (n) => `Kombinacija · ${slCount(n, ['mesto', 'mesti', 'mesta', 'mest'])}`,
-	routineSlotOf: (slot, total) => `Kombinacija · mesto ${slot} od ${total}`,
 	now: 'Zdaj',
 	countNotStarted: 'Štetje se še ni začelo',
 	countDigit: (digit) => `Štetje ${digit}`,

@@ -378,6 +378,9 @@
 			view={routineView}
 			onview={setView}
 			onjump={(slot) => player?.jumpTo(slot)}
+			details={data.details}
+			figureDetails={data.figureDetails}
+			routineNotes={data.routine?.notes ?? null}
 			song={runningSong}
 			{audio}
 			{speed}

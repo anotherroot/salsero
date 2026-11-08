@@ -33,6 +33,10 @@ export const player = {
 	kind: { figure: 'Figure', drill: 'Drill', routine: 'Routine' },
 	/** The rows under the band, and what each one's line says. */
 	about: 'About',
+	/** Under the count in Follow: "Next: Enchufla · Basic". */
+	next: (name: string): string => `Next: ${name}`,
+	/** A layer's ✕. */
+	closeLayer: 'Close',
 	/** A figure's timing in About: "1 → 1 · 8 counts". */
 	timing: (start: number, next: number, length: number): string =>
 		`${start} → ${next} · ${length} counts`,
@@ -52,9 +56,6 @@ export const player = {
 	paused: (clock: string): string => `Paused · ${clock}`,
 	stopAndBack: 'Stop and go back',
 	routine: 'Routine',
-	/** The desktop's heading over the routine: "Routine · 5 slots", "Routine · slot 2 of 5". */
-	routineSlots: (n: number): string => `Routine · ${plural(n, 'slot', 'slots')}`,
-	routineSlotOf: (slot: number, total: number): string => `Routine · slot ${slot} of ${total}`,
 	now: 'Now',
 	/** The count disc's name. */
 	countNotStarted: 'Count not started',

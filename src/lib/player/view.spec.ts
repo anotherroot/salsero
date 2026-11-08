@@ -12,18 +12,15 @@ import {
 	exercisePlayerHref,
 	playState,
 	practiceBack,
-	routineHeading,
 	routinePlace,
 	stepDone,
 	stepMarks,
 	runSubtitle,
 	runSources,
-	runTitleCompact,
 	setupSubtitle,
 	slotTone,
 	stageDigit,
 	stageDots,
-	stageSize,
 	voiceKind
 } from './view';
 
@@ -33,12 +30,6 @@ const bachata = getDance('bachata');
 const EX = { id: 9, name: 'Casino drill' };
 
 describe('what the Practice page derives', () => {
-	it('sizes the stage by what else shares the screen', () => {
-		expect(stageSize(true, true)).toBe(136);
-		expect(stageSize(false, true)).toBe(176);
-		expect(stageSize(true, false)).toBe(176);
-		expect(stageSize(false, false)).toBe(230);
-	});
 	it('puts the 1 in a disc, dims a paused count, shows – before the first beat', () => {
 		expect(stageDigit(1, false)).toEqual({ text: '1', disc: true, dim: false });
 		expect(stageDigit(1, true)).toEqual({ text: '1', disc: false, dim: true });
@@ -159,20 +150,6 @@ describe('the run on desk', () => {
 		expect(slotTone(0, null)).toBe('next');
 		expect(slotTone(0, 0)).toBe('now'); // a looping routine back at its first slot: nothing is past
 	});
-
-	it('heads the routine with the slot it is on', () => {
-		expect(routineHeading(1, 6)).toBe('Routine · slot 2 of 6');
-		expect(routineHeading(null, 6)).toBe('Routine · 6 slots');
-		expect(routineHeading(null, 1)).toBe('Routine · 1 slot');
-	});
-
-	it('makes the band title compact past 18 characters or with a word over 10', () => {
-		expect(runTitleCompact('Practice')).toBe(false);
-		expect(runTitleCompact('Vivir mi vida')).toBe(false); // 13
-		expect(runTitleCompact('Valió la pena ahora')).toBe(true); // 19
-		expect(runTitleCompact('Desesperadamente')).toBe(true); // one word of 16
-		expect(runTitleCompact('Ritmo, ritmo y más')).toBe(false); // exactly 18
-	});
 });
 
 describe('the routine run', () => {
@@ -239,7 +216,6 @@ describe('the Practice page in Slovenian', () => {
 		const p = { dance: 'salsa', routine: null, song: null, exercise: null } as const;
 		expect(sl(() => practiceBack({ ...p, from: 'today' }).label)).toBe('Nazaj: Danes');
 		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
-		expect(sl(() => routineHeading(1, 5))).toBe('Kombinacija · mesto 2 od 5');
 	});
 });
 
