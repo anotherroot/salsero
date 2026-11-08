@@ -58,6 +58,7 @@ type FromClass = ReturnType<typeof fromClassOf>;
 /** Who acts: History names them on a group's drill. */
 import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
 import { listMusic, musicChoices } from '$lib/server/song-links';
+import { serverNow } from '$lib/server/server-clock';
 
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
@@ -113,7 +114,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;
-	const now = Date.now();
+	const now = serverNow();
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
 	const {
@@ -343,7 +344,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
 		const { lessonId, picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
-		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, Date.now())) {
+		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, serverNow())) {
 			throw error(404, 'No such lesson');
 		}
 		return { action: 'add', ok: true };
@@ -399,7 +400,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const route = drillAddRoute(db, userId, row);
 		if (!route || !route.added) throw error(404, 'No such exercise');
 		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
-		if (!addLesson(db, userId, route.lessonId, picks, Date.now(), { touch: false })) {
+		if (!addLesson(db, userId, route.lessonId, picks, serverNow(), { touch: false })) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'addDrill', ok: true };
@@ -428,11 +429,11 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 			row.teamId !== null || hasCopies(db, 'drill', row.id),
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
 			{ action: 'update' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		const comesBack = readComesBack(form, parseComesBack(row.comesBack), Date.now());
+		const comesBack = readComesBack(form, parseComesBack(row.comesBack), serverNow());
 		if (comesBack === 'invalid') {
 			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
 		}
@@ -447,7 +448,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	},
 
 	archive: ({ params, locals }) => {
-		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now(), me(params, locals))) {
+		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, serverNow(), me(params, locals))) {
 			return fail(400, {
 				action: 'archive',
 				message: t().exercise.refused.archiveHere
@@ -486,7 +487,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const link = id === undefined ? null : getSpotLink(getDb(), id);
 		if (
 			id === undefined ||
-			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
+			!unlinkSpot(getDb(), id, { exerciseId }, serverNow(), me(params, locals))
 		) {
 			return fail(404, { action: 'unlinkSection', message: t().exercise.refused.linkGone });
 		}

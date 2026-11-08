@@ -24,6 +24,7 @@ import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { usedBytesOf } from '../storage';
 import { markTwins } from '../twins';
 import { addLesson } from '../entries';
+import { addLinks, listLinks } from '../links';
 import { crossRefs } from '../integrity';
 import type { Space, TeamSpace } from '../scope';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
@@ -153,6 +154,18 @@ describe('group to group', () => {
 		expect(added).toHaveLength(1);
 		expect(added[0]).toMatchObject({ actorId: 'u1', rootKind: 'figure', subjectId: res.id });
 		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('copies a figure with two links: both come along', async () => {
+		const F = figure(T1_SALSA, 'Enchufla', 'Doble', 'Arms high');
+		addLinks(db, { figureId: F }, ['https://example.com/a', 'https://example.com/b'], null, 'u1');
+		const res = await copyTo(db, 'u1', 'figure', F, T2_SALSA, {}, NO_FILES, NOW, ROOMY);
+		expect(res).toMatchObject({ ok: true, made: true });
+		if (!res.ok) return;
+		expect(listLinks(db, { figureId: res.id }).map((l) => l.url)).toEqual([
+			'https://example.com/a',
+			'https://example.com/b'
+		]);
 	});
 
 	it('refuses a place the actor does not edit, and a group of the other side', async () => {

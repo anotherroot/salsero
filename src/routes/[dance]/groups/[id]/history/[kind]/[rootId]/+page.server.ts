@@ -13,6 +13,7 @@ import { canRestore, historyLine, previousValue } from '$lib/teams/history';
 import { clashTitle } from '$lib/clash/clash';
 import type { ChangeRootKind } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const KINDS = ['lesson', 'figure', 'routine', 'drill', 'song', 'position'] as const;
 type Kind = (typeof KINDS)[number];
@@ -83,7 +84,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			inDeleted:
 				r.trashId !== null || r.verb === 'archive' || (kind === 'song' && r.verb === 'delete')
 		})),
-		now: Date.now()
+		now: serverNow()
 	};
 };
 
@@ -100,7 +101,7 @@ export const actions: Actions = {
 				? null
 				: history(db, space.teamId, kind, rootId).find((r) => r.id === changeId);
 		if (!row) throw error(404, 'No such change');
-		const now = Date.now();
+		const now = serverNow();
 		const done = restoreChange(db, space, row.id, now);
 		if (done.ok) return { action: 'restore', ok: true, changeId: row.id };
 		switch (done.reason) {

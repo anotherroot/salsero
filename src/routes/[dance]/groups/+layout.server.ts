@@ -5,6 +5,7 @@ import { levelShown } from '$lib/levels/levels';
 import { youSettingsOf } from '$lib/server/you';
 import type { LayoutServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * The Groups list, once, for the list page and for a group (or its People,
  * storage, History, Recently deleted) open beside it (desktop: the list column
@@ -26,7 +27,7 @@ export const load: LayoutServerLoad = ({ params, locals }) => {
 		return { teams, myClass: null, you: youSettingsOf(db, wall.userId) };
 	return {
 		teams,
-		myClass: myClassOf(db, wall, teams, locals.user!.timezone, Date.now()),
+		myClass: myClassOf(db, wall, teams, locals.user!.timezone, serverNow()),
 		you: null
 	};
 };

@@ -21,6 +21,7 @@ import { figureGroups, figures, positions } from './db/schema';
 import { figurePositions } from './graph';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { asSeen, changedFields, clashTitle, goneTitle, type Seen } from '$lib/clash/clash';
+import { serverNow } from '$lib/server/server-clock';
 
 export type SeenCheck =
 	| { ok: true }
@@ -84,7 +85,7 @@ export function seenRefusal<T extends Record<string, unknown>>(
 	required: boolean,
 	current: Seen | null,
 	extra: T,
-	now = Date.now(),
+	now = serverNow(),
 	who: Who = nobody
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
 	const seen = seenFrom(form);

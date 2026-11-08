@@ -48,6 +48,7 @@ import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /*
  * The song this URL names, or a 404: `requireSongAccess` checks the dance in
  * the URL, that it is not archived, and who may do what. A person's own song
@@ -149,7 +150,7 @@ async function editing<T extends Record<string, unknown>>(
 		'edit'
 	);
 	const form = await event.request.formData();
-	const now = Date.now();
+	const now = serverNow();
 	const refused =
 		isTeam(space) || hasCopies(db, 'song', song.id)
 			? seenRefusal(form, true, songSeen(song), extra(form), now, () =>
@@ -270,7 +271,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (isTeam(space)) throw error(404, 'Song not found');
-		archiveSong(db, song.id, Date.now());
+		archiveSong(db, song.id, serverNow());
 		throw redirect(303, `/${params.dance}/songs`);
 	},
 
@@ -279,7 +280,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (!isTeam(space)) throw error(404, 'Song not found');
-		if (!shareSong(db, space, song.id, Date.now())) {
+		if (!shareSong(db, space, song.id, serverNow())) {
 			return fail(400, { action: 'share' as const, message: 'Only a ready song can be shared.' });
 		}
 		return { ok: true };
@@ -289,7 +290,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	unshare: ({ params, locals }) => {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
-		if (!isTeam(space) || !unshareSong(db, space, song.id, Date.now())) {
+		if (!isTeam(space) || !unshareSong(db, space, song.id, serverNow())) {
 			throw error(404, 'Song not found');
 		}
 		return { ok: true };
@@ -299,7 +300,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	delete: ({ params, locals }) => {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
-		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, Date.now())) {
+		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, serverNow())) {
 			throw error(404, 'Song not found');
 		}
 		throw redirect(303, `/${params.dance}/songs`);

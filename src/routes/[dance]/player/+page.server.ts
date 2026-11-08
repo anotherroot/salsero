@@ -25,6 +25,7 @@ import { t } from '$lib/i18n/catalog';
 import type { DoneResult } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	if (!locals.user) throw error(401);
 	const tz = locals.user.timezone;
@@ -127,7 +128,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		exercise,
 		// Its due words in the Save sheet: the schedule, from the sets.
 		schedule: exercise ? scheduleStateOf(db, exercise.id, tz) : null,
-		today: localDay(Date.now(), tz),
+		today: localDay(serverNow(), tz),
 		exercises: listPickExercises(db, wall).map(shownExercise),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
@@ -169,7 +170,7 @@ export const actions: Actions = {
 		// be able to reach past that.
 		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
 		let saved: ReturnType<typeof saveDay>;
-		const now = Date.now();
+		const now = serverNow();
 		try {
 			saved = saveDay(
 				getDb(),

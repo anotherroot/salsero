@@ -10,6 +10,7 @@ import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { myClassOf, teamsWithNew } from '$lib/server/my-class';
 import { levelShown } from '$lib/levels/levels';
 import type { LayoutServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The Lessons list, once, for the list page and for a lesson open beside it
@@ -57,7 +58,7 @@ export const load: LayoutServerLoad = ({ params, locals, cookies }) => {
 				usedBytes: usedBytesOf(db, { teamId: mode.teamId }),
 				limitBytes: teamLimitBytes(db, mode.teamId)
 			},
-			today: localDay(Date.now(), zone(locals)),
+			today: localDay(serverNow(), zone(locals)),
 			// Group mode is Everything's only.
 			classes: null
 		};
@@ -67,7 +68,7 @@ export const load: LayoutServerLoad = ({ params, locals, cookies }) => {
 		lessons: foldedLessons(db, wall),
 		storageBytes: lessonVideoBytes(db, wall.userId),
 		groupStorage: null,
-		today: localDay(Date.now(), zone(locals)),
+		today: localDay(serverNow(), zone(locals)),
 		classes: classesOf(db, wall, locals)
 	};
 };
@@ -84,5 +85,5 @@ function classesOf(
 ) {
 	if (levelShown(locals.user!.level) !== 'follow') return null;
 	const teams = teamsWithNew(db, wall);
-	return { teams, myClass: myClassOf(db, wall, teams, zone(locals), Date.now()) };
+	return { teams, myClass: myClassOf(db, wall, teams, zone(locals), serverNow()) };
 }

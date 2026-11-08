@@ -7,6 +7,7 @@ import { KIND_NAME } from '$lib/teams/deleted';
 import type { DeletedKind } from '$lib/types';
 import { flowAfter, rootOfTrash } from '$lib/server/clones/flow-hook';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const KINDS = Object.keys(KIND_NAME) as DeletedKind[];
 /** The kinds that are `team_trash` entries (the rest are archived root rows). */
@@ -36,7 +37,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	return {
 		team: { id: team.id, name: team.name },
 		items: listTrash(db, team.id, locals.user!.timezone),
-		now: Date.now()
+		now: serverNow()
 	};
 };
 
@@ -55,7 +56,7 @@ export const actions: Actions = {
 		const done =
 			kind === undefined || id === undefined
 				? null
-				: restoreDeleted(db, space, kind, id, Date.now());
+				: restoreDeleted(db, space, kind, id, serverNow());
 		if (!done) return fail(404, { action: 'restore', key, message: 'That is no longer here.' });
 		if (!done.ok) return fail(409, { action: 'restore', key, message: done.message });
 		// A trash entry that came back (a section, link, recording, video) changes its

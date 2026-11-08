@@ -11,6 +11,7 @@ import { scheduleStateOf } from './schedule';
 import { daysBetween, isValidDay, localDay, noonOf } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
 import type { DoneResult, SetSnapshot } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 export type LogEvent = { params: { dance: string }; request: Request; locals: App.Locals };
 
@@ -92,7 +93,7 @@ export async function saveDoneFrom({
 		return fail(400, { action: 'done', message: t().exercise.log.pickFeel });
 	}
 
-	const now = Date.now();
+	const now = serverNow();
 	const backfill = isValidDay(day) && day < localDay(now, tz);
 	let saved: ReturnType<typeof saveDay>;
 	try {
@@ -137,7 +138,7 @@ export async function undoDoneFrom({ params, request, locals }: LogEvent) {
 	if (setId === undefined || !row) return refused();
 	requireExerciseInWall(getDb(), wallOf(params, locals), row.exerciseId);
 	const raw = String(form.get('before') ?? '');
-	const before = raw === '' ? null : parseSetSnapshot(raw, Date.now());
+	const before = raw === '' ? null : parseSetSnapshot(raw, serverNow());
 	// The snapshot must be this exercise's, on this row's own day: Undo puts a day back, never moves it.
 	if (
 		raw !== '' &&
@@ -190,7 +191,7 @@ export async function deleteDayFrom({ params, request, locals }: LogEvent) {
 /** Undo of a day's delete. Fields: snapshots. */
 export async function restoreDayFrom({ params, request, locals }: LogEvent) {
 	const form = await request.formData();
-	const snaps = parseSetSnapshots(String(form.get('snapshots') ?? ''), Date.now());
+	const snaps = parseSetSnapshots(String(form.get('snapshots') ?? ''), serverNow());
 	if (!snaps) {
 		return fail(400, { action: 'restoreDay', message: t().exercise.refused.dayPutBack });
 	}

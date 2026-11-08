@@ -770,10 +770,11 @@ function copyLinks(tx: Db, from: LinkOwner, to: LinkOwner, now: number): void {
 				? eq(links.exerciseId, from.exerciseId)
 				: eq(links.lessonId, from.lessonId);
 	const rows = tx.select().from(links).where(where).orderBy(asc(links.id)).all();
-	if (rows.length === 0) return;
-	tx.insert(links)
-		.values(rows.map((l) => ({ ...to, url: l.url, title: l.title, createdAt: now })))
-		.run();
+	// One row per insert: each mints its own id (src/lib/server/db/ids.ts).
+	for (const l of rows)
+		tx.insert(links)
+			.values({ ...to, url: l.url, title: l.title, createdAt: now })
+			.run();
 }
 
 /**

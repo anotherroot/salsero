@@ -14,12 +14,13 @@ import { t } from '$lib/i18n/catalog';
 import { requestDanceOf } from '$lib/server/hosts';
 import { setLocaleCookie } from '$lib/server/locale';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
 	const code = url.searchParams.get('code') ?? '';
 	// The host's dance (the dance split): an invite of the other dance is dead here.
 	const { appDance: dance } = await parent();
-	return { valid: inviteValid(getDb(), code, dance, Date.now()), code, dance };
+	return { valid: inviteValid(getDb(), code, dance, serverNow()), code, dance };
 };
 
 export const actions: Actions = {
@@ -60,7 +61,7 @@ export const actions: Actions = {
 		const result = await redeemInvite(
 			getDb(),
 			{ code, email, password, timezone, firstName, lastName, dance },
-			Date.now()
+			serverNow()
 		);
 		if (!result.ok) {
 			if (result.reason === 'invite') {

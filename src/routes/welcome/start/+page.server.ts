@@ -16,6 +16,7 @@ import { safeNext } from '$lib/safe-next';
 import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * The first run (levels spec): slides, How much app?, Join your class. One
  * route; the slides and the level step are page state, the join step is
@@ -78,7 +79,7 @@ export const actions: Actions = {
 		// The typed code, or the teacher's link's own (`teamCode`).
 		const code = String(form.get('code') || form.get('teamCode') || '').trim();
 		if (!code) return fail(400, { message: codeRefusal('empty'), code });
-		const joined = joinWithCode(getDb(), locals.user.id, code, Date.now());
+		const joined = joinWithCode(getDb(), locals.user.id, code, serverNow());
 		if (!joined.ok) return fail(400, { message: codeRefusal(joined.reason), code });
 		throw redirect(303, afterJoin(next, joined.dance));
 	},

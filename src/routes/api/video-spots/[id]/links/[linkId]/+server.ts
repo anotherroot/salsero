@@ -8,6 +8,7 @@ import { unlinkSpotFromPosition } from '$lib/server/position-links';
 import { flowAfter, rootOfSpot } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 const id = (raw: string, what: 'section' | 'link'): number => {
 	const n = /^\d+$/.test(raw) ? Number(raw) : 0;
 	if (!Number.isSafeInteger(n) || n <= 0)
@@ -34,8 +35,8 @@ export const DELETE: RequestHandler = async ({ params, url, locals }) => {
 	const alsoLesson = url.searchParams.get('alsoLesson') === '1';
 	const gone =
 		kind === 'position'
-			? unlinkSpotFromPosition(db, linkId, Date.now(), locals.user.id, { spotId, alsoLesson })
-			: unlinkFromSection(db, spotId, linkId, alsoLesson, Date.now(), locals.user.id);
+			? unlinkSpotFromPosition(db, linkId, serverNow(), locals.user.id, { spotId, alsoLesson })
+			: unlinkFromSection(db, spotId, linkId, alsoLesson, serverNow(), locals.user.id);
 	if (!gone) throw error(404, t().video.refusal.noLink);
 	// A section's links are its video's root's: Keep in step's flow runs from there.
 	const root = rootOfSpot(db, spotId);
