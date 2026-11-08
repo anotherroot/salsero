@@ -344,6 +344,30 @@ describe('tabTarget', () => {
 		});
 		expect(tabTarget(EMPTY_TRAIL, 'moves', 'salsa', '/salsa')).toEqual({ href: '/salsa/figures' });
 	});
+	it('after Done for today, Today is its list again, not the run`s last page', () => {
+		let t = EMPTY_TRAIL;
+		t = arrive(t, A({ to: '/salsa', title: 'Today', kind: 'enter', index: 1 }));
+		const step = (o: Partial<Arrival>) => A({ title: 'Ex', index: 2, prevIndex: 2, ...o });
+		t = arrive(
+			t,
+			step({ to: '/salsa/exercises/4', search: '?run=1', from: '/salsa', prevIndex: 1 })
+		);
+		t = arrive(
+			t,
+			step({
+				to: '/salsa/exercises/7',
+				search: '?run=1&skip=4',
+				from: '/salsa/exercises/4',
+				kind: 'replace'
+			})
+		);
+		t = arrive(
+			t,
+			step({ to: '/salsa/done', title: 'Done', from: '/salsa/exercises/7', kind: 'replace' })
+		);
+		t = arrive(t, A({ to: '/salsa/figures', title: 'Moves', from: '/salsa/done', index: 3 }));
+		expect(tabTarget(t, 'today', 'salsa', '/salsa/figures')).toEqual({ href: '/salsa' });
+	});
 });
 
 describe('backTarget', () => {

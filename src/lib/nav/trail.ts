@@ -218,6 +218,8 @@ export function arrive(t: Trail, a: Arrival): Trail {
 	if (tab) {
 		const key = `${dance}:${tab}`;
 		if (remembered(a.to)) last = { ...last, [key]: a.to };
+		// Done for today ends the run: Today's tab is its list again, not the run's last page.
+		else if (firstSegment(a.to) === 'done') last = { ...last, [key]: lastRoot[key] ?? `/${dance}` };
 		if (isRoot(a.to)) lastRoot = { ...lastRoot, [key]: a.to };
 	}
 	return { ...t, pages, last, lastRoot, entries };
