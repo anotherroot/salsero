@@ -47,6 +47,7 @@ export const songs: Catalog['songs'] = {
 	page: {
 		section: {
 			unnamed: 'Del',
+			added: 'Del dodan',
 			chips: () => ['Uvod', 'Kitica', 'Coro', 'Montuno', 'Mambo', 'Break', 'Zaključek']
 		},
 		// čez + accusative: 1 osmico, 2 osmici, 3 osmice, 5 osmic; 1 dobo, 2 dobi, 3 dobe, 5 dob.
@@ -142,6 +143,34 @@ export const songs: Catalog['songs'] = {
 			moveStart: 'Premakni začetek glasbe',
 			hint: 'Predvajajte in pritisnite na vsako 1. Pritisnite dobo za skok tja, pridržite za več.'
 		},
+		tap: {
+			button: 'Pritisnite na 1',
+			got: 'Zabeleženo',
+			playFirst: 'Najprej predvajajte skladbo.',
+			playFirstBody: 'Pritisk označi dobo, ki se predvaja.',
+			toast: (at, shift) =>
+				shift === 0
+					? `1 pri ${at}. Štetje se od tu ni spremenilo.`
+					: `1 pri ${at}. Štetje se je od tu premaknilo za ${slCount(shift, ['dobo', 'dobi', 'dobe', 'dob'])}.`,
+			before: 'Prej'
+		},
+		menu: {
+			beat: (n, section) => (section ? `doba ${n} v delu ${section}` : `doba ${n}`),
+			one: 'Naj bo to 1',
+			section: 'Tu začni del',
+			remove: 'Odstrani to 1',
+			start: 'Tu začni skladbo',
+			removed: (at) => `1 pri ${at} je odstranjena`,
+			close: 'Zapri meni'
+		},
+		suggest: {
+			line: (at, n, later) =>
+				`Ritem kaže, da je 1 tukaj od ${at}, ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])} ${later ? 'pozneje' : 'prej'}. Ne loči 1 od 5.`,
+			use: 'Uporabi',
+			notNow: 'Ne zdaj'
+		},
+		plusSection: 'Del',
+		plusSectionLabel: 'Začni del pri tej osmici',
 		refused: {
 			taken: 'Tam se že začne drug del',
 			ends: 'To je čez konec skladbe',

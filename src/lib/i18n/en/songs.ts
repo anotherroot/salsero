@@ -52,6 +52,7 @@ export const songs = {
 		section: {
 			/** A section with no name yet. */
 			unnamed: 'Section',
+			added: 'Section added',
 			/** The section sheet's name chips. A function: the dance's words (Coro, Mambo) are the same in both languages. */
 			chips: (): string[] => ['Intro', 'Verse', 'Coro', 'Montuno', 'Mambo', 'Break', 'Outro']
 		},
@@ -152,6 +153,36 @@ export const songs = {
 			moveStart: 'Move where the music starts',
 			hint: 'Play, and tap on every 1. Tap a beat to jump there; hold it for more.'
 		},
+		/** Tap on the 1, and the beat menu. */
+		tap: {
+			button: 'Tap on the 1',
+			got: 'Got it',
+			playFirst: 'Play the song first.',
+			playFirstBody: 'A tap marks the beat that is playing.',
+			toast: (at: string, shift: number): string =>
+				shift === 0
+					? `1 set at ${at}. The count from here didn't change.`
+					: `1 set at ${at}. The count from here moved ${shift} ${shift === 1 ? 'beat' : 'beats'}.`,
+			before: 'Before'
+		},
+		menu: {
+			beat: (n: number, section: string | null): string =>
+				section ? `beat ${n} of ${section}` : `beat ${n}`,
+			one: 'Make this the 1',
+			section: 'Start a section here',
+			remove: 'Remove this 1',
+			start: 'Start the song here',
+			removed: (at: string): string => `The 1 at ${at} is removed`,
+			close: 'Close the menu'
+		},
+		suggest: {
+			line: (at: string, n: number, later: boolean): string =>
+				`The beat suggests the 1 is here from ${at}, ${n} ${n === 1 ? 'beat' : 'beats'} ${later ? 'later' : 'earlier'}. It can't tell a 1 from a 5.`,
+			use: 'Use it',
+			notNow: 'Not now'
+		},
+		plusSection: 'Section',
+		plusSectionLabel: 'Start a section at this eight',
 		/** Why an Edit change was not saved. */
 		refused: {
 			taken: 'Another section starts there',

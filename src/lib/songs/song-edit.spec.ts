@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { beatLabel, clearLines, startRow, tempoAskBody } from './song-edit';
+import {
+	beatLabel,
+	clearLines,
+	menuHeading,
+	startRow,
+	suggestionLine,
+	tapShift,
+	tapToast,
+	tempoAskBody
+} from './song-edit';
 
 describe("Edit · Song's words", () => {
 	it('says where the music starts and whose it is', () => {
@@ -42,6 +51,37 @@ describe('a beat in the grid', () => {
 		expect(beatLabel(141, null, 'Break', false)).toBe('2:21, Break');
 		expect(withLocale('sl', () => beatLabel(79, 1, 'Montuno', true))).toBe(
 			'1:19, doba 1 v delu Montuno, vaša 1'
+		);
+	});
+});
+
+describe('what a tap shows', () => {
+	it('counts how far the count moved at the tapped beat', () => {
+		expect([1, 2, 3, 4, 5, 6, 7, 8].map(tapShift)).toEqual([0, 1, 2, 3, 4, 3, 2, 1]);
+	});
+
+	it('says it in the toast', () => {
+		expect(tapToast(79, 2)).toBe('1 set at 1:19. The count from here moved 2 beats.');
+		expect(tapToast(79, 1)).toBe('1 set at 1:19. The count from here moved 1 beat.');
+		expect(tapToast(79, 0)).toBe("1 set at 1:19. The count from here didn't change.");
+		expect(withLocale('sl', () => tapToast(79, 2))).toBe(
+			'1 pri 1:19. Štetje se je od tu premaknilo za 2 dobi.'
+		);
+	});
+
+	it('heads the beat menu with where the beat is', () => {
+		expect(menuHeading(141, 3, 'Mambo')).toBe('2:21 · beat 3 of Mambo');
+		expect(menuHeading(141, 3, null)).toBe('2:21 · beat 3');
+		expect(menuHeading(141, null, 'Break')).toBe('2:21 · Break');
+		expect(withLocale('sl', () => menuHeading(141, 3, 'Mambo'))).toBe('2:21 · doba 3 v delu Mambo');
+	});
+
+	it('words a suggestion, later or earlier, and says it cannot tell a 1 from a 5', () => {
+		expect(suggestionLine(149, 2)).toBe(
+			"The beat suggests the 1 is here from 2:29, 2 beats later. It can't tell a 1 from a 5."
+		);
+		expect(suggestionLine(149, -1)).toBe(
+			"The beat suggests the 1 is here from 2:29, 1 beat earlier. It can't tell a 1 from a 5."
 		);
 	});
 });

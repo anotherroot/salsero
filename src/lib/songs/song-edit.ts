@@ -47,3 +47,26 @@ export function beatLabel(
 			: w.beat(clock(at), count ?? 0, section);
 	return anchor ? `${base}, ${w.yours}` : base;
 }
+
+/** How many beats the count moved at a tapped beat that was counted `oldCount`: 0–4. */
+export function tapShift(oldCount: number): number {
+	const d = (((oldCount - 1) % 8) + 8) % 8;
+	return Math.min(d, 8 - d);
+}
+
+/** "1 set at 1:19. The count from here moved 2 beats." */
+export function tapToast(at: number, shift: number): string {
+	return t().songs.page.tap.toast(clock(at), shift);
+}
+
+/** "2:21 · beat 3 of Mambo": the beat menu's heading. */
+export function menuHeading(at: number, count: number | null, section: string | null): string {
+	const w = t().songs.page.menu;
+	if (count === null && section !== null) return `${clock(at)} · ${section}`;
+	return `${clock(at)} · ${w.beat(count ?? 0, section)}`;
+}
+
+/** A suggestion's card. */
+export function suggestionLine(at: number, shift: number): string {
+	return t().songs.page.suggest.line(clock(at), Math.abs(shift), shift > 0);
+}

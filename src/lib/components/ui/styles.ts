@@ -208,3 +208,8 @@ export const PANE_PAD = 'px-10 pt-6 pb-1';
 export const PANE_PAD_DESK = 'desk:px-10 desk:pt-6 desk:pb-1';
 export const PANE_TITLE = 'text-[30px] leading-[1.05] tracking-[-0.015em]';
 export const PANE_TITLE_DESK = 'desk:text-[30px] desk:leading-[1.05] desk:tracking-[-0.015em]';
+
+/** The song page's Edit · Grid pinned bar: Tap on the 1 grows to fill the row beside play and + Section. */
+export const TAP_ONE = swap(button('primary', 'lg'), 'flex-none', 'min-w-0 flex-1');
+/** + Section beside it: the md pill, a little narrower. */
+export const ADD_SECTION = swap(button('secondary', 'md'), 'px-6', 'px-4');

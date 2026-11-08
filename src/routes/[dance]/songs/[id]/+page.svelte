@@ -8,11 +8,11 @@
 	import CountCard from '$lib/components/songs/CountCard.svelte';
 	import SectionsList from '$lib/components/songs/SectionsList.svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-	import { gridRows, sectionIndexAt } from '$lib/songs/sections';
+	import { sectionIndexAt } from '$lib/songs/sections';
 	import { MUSIC_START_MIN_S, playFrom } from '$lib/songs/music-start';
 	import SongEdit from '$lib/components/songs/SongEdit.svelte';
 	import SongTab from '$lib/components/songs/SongTab.svelte';
-	import EditGrid from '$lib/components/songs/EditGrid.svelte';
+	import GridTab from '$lib/components/songs/GridTab.svelte';
 	import { tick } from 'svelte';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import type { ToastState } from '$lib/act-toast';
@@ -35,7 +35,7 @@
 	import { cloneSubtitle } from '$lib/clones/view';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SongDetailsSheet from '$lib/components/songs/SongDetailsSheet.svelte';
-	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { ADD_SECTION, GROUP, SECTION_LABEL, TAP_ONE, button } from '$lib/components/ui/styles';
 	import {
 		classSongNote,
 		deleteSongBody,
@@ -235,6 +235,8 @@
 	let editToast = $state<ToastState | null>(null);
 	/** Edit · Song's Music starts group, for the grid's ✎. */
 	let startGroup: HTMLElement | undefined = $state();
+	/** Edit · Grid, whose Tap on the 1 and + Section the pinned bar calls. */
+	let gridPane: ReturnType<typeof GridTab> | undefined = $state();
 
 	function openEdit() {
 		if (editing) return;
@@ -382,22 +384,37 @@
 				onseek={seek}
 			>
 				{#snippet gridTab()}
-					<p class="px-3 pt-2 text-center text-[13px] leading-[1.45] text-muted">
-						{t().songs.page.grid.hint}
-					</p>
-					<EditGrid
+					<GridTab
+						bind:this={gridPane}
 						beats={grid.beats}
 						counts={grid.counts}
 						anchors={data.anchors}
+						tempoFactor={data.song.tempoFactor as TempoFactor}
 						sections={data.sections}
-						rows={gridRows(grid.beats, grid.counts, data.sections, data.start.at)}
-						playing={played ? beatIndexAt(grid.beats, now) : -1}
-						startS={data.start.at}
+						sectionsJson={data.sectionsJson}
+						suggestions={data.suggestions}
+						start={data.start}
+						{now}
+						{played}
+						audio={() => (audio && played ? audio : null)}
+						seen={() => seen}
+						toast={(t) => (editToast = t)}
 						onjump={(i) => seek(grid.beats[i])}
-						onmenu={() => {}}
-						onsection={() => {}}
 						onstart={showStart}
+						onsection={() => {}}
 					/>
+				{/snippet}
+				{#snippet gridBar()}
+					<button type="button" class={TAP_ONE} onclick={() => gridPane?.tap()}
+						>{t().songs.page.tap.button}</button
+					>
+					<button
+						type="button"
+						class={ADD_SECTION}
+						aria-label={t().songs.page.plusSectionLabel}
+						onclick={() => gridPane?.addSection()}
+						><Icon name="plus" size={20} />{t().songs.page.plusSection}</button
+					>
 				{/snippet}
 				{#snippet songTab()}
 					<SongTab
