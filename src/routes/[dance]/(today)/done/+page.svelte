@@ -12,6 +12,7 @@
 	import { doneForToday } from '$lib/exercises/done-today';
 	import { practisedLabel } from '$lib/exercises/exercise-page';
 	import { runHref } from '$lib/exercises/run';
+	import { nextInSession, sessionWalk } from '$lib/exercises/session';
 	import { longDayLabel } from '$lib/format';
 	import { t } from '$lib/i18n/catalog';
 	import { todayBack } from '$lib/nav/today-pane';
@@ -59,10 +60,13 @@
 			busy = false;
 			return;
 		}
+		// `actAt` has reloaded the layout: the walk's first (a skipped to-do comes
+		// before the new picks), else the first new pick.
+		const start = nextInSession(sessionWalk(data.list.day.rows), new Set(), null);
 		// Busy until the page leaves: a second tap would pick the next N again.
-		gotoWhenSettled(runHref(dance, first, { skip: [] }), { replaceState: true }).catch(
-			() => (busy = false)
-		);
+		gotoWhenSettled(runHref(dance, start?.exercise.id ?? first, { skip: [] }), {
+			replaceState: true
+		}).catch(() => (busy = false));
 	}
 </script>
 

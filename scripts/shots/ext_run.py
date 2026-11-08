@@ -205,6 +205,27 @@ def _run_done(page):
     page.get_by_role("heading", name="Done for today").first.wait_for()
 
 
+def _run_done_next(page):
+    """Skip every exercise to Done for today, then Next N: the new run starts at the walk's first
+    (the skipped first warm-up), not at the first new pick."""
+    first = _prep(page)
+    _start(page)
+    for _ in range(40):
+        if page.url.endswith("/done"):
+            break
+        _skip(page)
+    else:
+        raise RuntimeError("Skip never reached Done for today")
+    page.get_by_role("heading", name="Done for today").first.wait_for()
+    before = page.url
+    page.get_by_role("button", name=re.compile(r"^Next \d+$")).click()
+    page.wait_for_function("(u) => location.href !== u", arg=before, timeout=30000)
+    _settle(page)
+    m = re.search(r"/exercises/(\d+)\?run=1$", page.url)
+    if not m or int(m.group(1)) != first:
+        raise RuntimeError(f"Next N started at {page.url}, not at the walk's first ({first})")
+
+
 def _run_player_back(page):
     _prep(page, first="routine")
     _start(page)
@@ -265,6 +286,29 @@ def _desk_detour_idle(page):
         raise RuntimeError(f"back on the exercise Today opened by itself, it counts before a tap: {sub!r}")
 
 
+def _desk_done_start(page):
+    """Desk: a run skipped to Done for today, then Start from the hero beside it replaces /done
+    (the run stays one history entry)."""
+    _prep(page)
+    _start(page)
+    for _ in range(40):
+        if page.url.endswith("/done"):
+            break
+        _skip(page)
+    else:
+        raise RuntimeError("Skip never reached Done for today")
+    page.get_by_role("heading", name="Done for today").first.wait_for()
+    depth = page.evaluate("history.length")
+    before = page.url
+    page.get_by_role("button", name="Start", exact=True).first.click()
+    page.wait_for_function("(u) => location.href !== u", arg=before, timeout=30000)
+    _settle(page)
+    if "run=1" not in page.url:
+        raise RuntimeError(f"Start from Done for today went to {page.url}")
+    if page.evaluate("history.length") != depth:
+        raise RuntimeError("Start from Done for today pushed a history entry")
+
+
 def _flat(act):
     """The scene, then: the page does not scroll sideways (390 and 1440 alike)."""
     def run(page):
@@ -281,7 +325,9 @@ SCENES.update({
     "run-next": Scene("/{dance}", _flat(_run_next)),
     "run-skip": Scene("/{dance}", _flat(_run_skip)),
     "run-done": Scene("/{dance}", _flat(_run_done)),
+    "run-done-next": Scene("/{dance}", _flat(_run_done_next)),
     "run-player-back": Scene("/{dance}", _flat(_run_player_back)),
     "desk-run": Scene("/{dance}", _flat(_desk_run), desk=True),
+    "desk-done-start": Scene("/{dance}", _flat(_desk_done_start), desk=True),
     "desk-detour-idle": Scene("/{dance}", _flat(_desk_detour_idle), desk=True),
 })
