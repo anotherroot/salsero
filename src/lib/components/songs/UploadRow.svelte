@@ -4,6 +4,7 @@
 	import { uploadMeta } from '$lib/songs/library';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import { dismissUpload, upload } from '$lib/songs/upload.svelte';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * The song upload in flight, at the head of Being added: its name, the
@@ -24,14 +25,14 @@
 					<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{u.name}</span>
 					{#if u.error === null}
 						<span class="flex-none text-[15px] leading-[1.3] font-extrabold text-ink tabular-nums"
-							>{pct}%</span
+							>{t().songs.add.percent(pct)}</span
 						>
 					{/if}
 				</div>
 				{#if u.error === null}
 					<div
 						role="progressbar"
-						aria-label="Uploading {u.name}"
+						aria-label={t().shell.upload.bar(u.name)}
 						aria-valuemin={0}
 						aria-valuemax={100}
 						aria-valuenow={pct}
@@ -45,13 +46,13 @@
 					<span class="text-[13px] leading-[1.35] text-muted">{uploadMeta(u.loaded, u.total)}</span>
 				{:else}
 					<span class="text-[13px] leading-[1.35] font-bold text-danger" role="alert"
-						>Upload failed: {u.error}</span
+						>{t().songs.add.failed(u.error)}</span
 					>
 				{/if}
 			</div>
 			{#if u.error !== null}
 				<button type="button" class="{button('tertiary', 'sm')} -mr-2" onclick={dismissUpload}>
-					Dismiss
+					{t().shell.dismiss}
 				</button>
 			{/if}
 		</div>

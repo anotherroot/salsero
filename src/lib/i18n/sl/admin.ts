@@ -1,8 +1,52 @@
 import type { Catalog } from '../catalog';
 
 export const admin: Catalog['admin'] = {
+	title: 'Skrbništvo',
+	limitsLine: (sum, free) => `Omejitve skupaj: ${sum} · prosto ${free}`,
+	preset: (gb) => `${String(gb).replace('.', ',')} GB`,
+	usesOf: (used, limit) => `${used} od ${limit}`,
+	usesNoLimit: (used) => `${used}, brez omejitve`,
+	requestUses: (uses) => `Porabljeno ${uses}`,
+	personMeta: (date, uses) => `Pridružitev: ${date} · ${uses}`,
+	// A group's mark: skupina is feminine.
+	deleted: 'izbrisana',
+	groupsMade: (made, limit) => `Ustvarjene skupine: ${made} · omejitev ${limit}`,
+	app: (dance, version, play, when) => `${dance}: različica aplikacije ${version}${play} · ${when}`,
+	noApp: (dance) => `${dance}: brez aplikacije`,
+	waiting: 'Čakajoče prošnje',
+	groups: 'Skupine',
+	noGroups: 'Skupin še ni.',
+	people: 'Ljudje',
+	inviteSomeone: 'Povabite nekoga',
+	inviteSub: 'Ena povezava, deluje enkrat, 24 ur',
+	couldNotInvite: 'Povabila ni bilo mogoče ustvariti.',
+	shareTitle: 'Pridružite se mi v plesni aplikaciji',
+	copied: 'Kopirano',
+	share: 'Deli',
+	shownOnce: 'Prikazano samo enkrat. Če to odprete znova, nastane nova koda.',
+	qr: 'Koda QR za povabilo',
+	set: 'Nastavi',
+	orGb: 'Ali število GB',
+	limit: 'Omejitev',
+	giveMore: 'Dodeli več',
+	decline: 'Zavrni',
+	didNotSave: 'Ni se shranilo.',
+	setLimit: 'Nastavi omejitev',
+	noLimit: 'Brez omejitve',
+	setGroupLimit: 'Nastavi omejitev skupin',
+	groupsTheyMay: 'Koliko skupin lahko ustvari',
+	useDefault: 'Uporabi privzeto',
+	computed: 'Izračunana omejitev',
 	inviteLanguage: 'Jezik povabila',
 	language: 'Jezik',
 	badLanguage: 'Izberite jezik.',
-	languageFailed: 'Jezik se ni spremenil.'
+	languageFailed: 'Jezik se ni spremenil.',
+	refused: {
+		pickRequest: 'Izberite prošnjo.',
+		badLimit: 'Vnesite omejitev v GB, večjo od nič.',
+		requestClosed: 'Ta prošnja je že zaprta.',
+		personGone: 'Te osebe ni več.',
+		groupGone: 'Te skupine ni več.',
+		badGroupLimit: 'Vnesite celo število skupin, 0 ali več.'
+	}
 };

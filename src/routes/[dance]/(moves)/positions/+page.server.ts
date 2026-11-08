@@ -6,6 +6,7 @@ import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import { wallOf } from '$lib/server/scope';
 import { mapData } from '$lib/server/positions-map';
 import { templateTypes } from '$lib/positions/templates';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
@@ -44,10 +45,16 @@ export const actions: Actions = {
 		const type = String(form.get('type') ?? '');
 		const names = form.getAll('names').map(String);
 		if (!templateTypes(space.dance).includes(type)) {
-			return fail(400, { action: 'templates' as const, message: 'Pick a type with templates.' });
+			return fail(400, {
+				action: 'templates' as const,
+				message: t().positions.templates.refused.type
+			});
 		}
 		if (names.length === 0) {
-			return fail(400, { action: 'templates' as const, message: 'Tick at least one position.' });
+			return fail(400, {
+				action: 'templates' as const,
+				message: t().positions.templates.refused.none
+			});
 		}
 		const made = addTemplates(db, space, space.dance, type, names, serverNow());
 		return { action: 'templates' as const, added: made.length };

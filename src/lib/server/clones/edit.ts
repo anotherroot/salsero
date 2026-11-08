@@ -24,7 +24,7 @@
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import type { CloneKind } from '$lib/types';
-import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
+import { archivedSongCopy } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -285,7 +285,7 @@ export async function makeMine(
 			after: (tx, res) => {
 				if (res.archived) {
 					if (kind === 'song')
-						throw new Refused({ ok: false, reason: 'archived', message: ARCHIVED_SONG_COPY });
+						throw new Refused({ ok: false, reason: 'archived', message: archivedSongCopy() });
 					const back = bringBack(tx, wall, kind, res.id, now);
 					if (!back.ok)
 						throw new Refused(

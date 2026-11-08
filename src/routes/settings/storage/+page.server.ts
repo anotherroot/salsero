@@ -1,6 +1,7 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { audioDir, lessonVideosDir, recordingsDir } from '$lib/server/files';
 import { deleteRecording } from '$lib/server/figures';
@@ -35,7 +36,7 @@ function own(userId: string, kind: StorageItem['kind'], id: number | undefined) 
 	return found ? id : undefined;
 }
 
-const gone = (action: string) => fail(404, { action, message: 'That is already gone.' });
+const gone = (action: string) => fail(404, { action, message: t().settings.storage.alreadyGone });
 
 /**
  * Row first, then file: an orphan file is harmless, a row pointing at nothing
@@ -105,8 +106,8 @@ export const actions: Actions = {
 				action: 'deleteSong',
 				id,
 				message: res.busy
-					? 'This song is still being prepared. Try again in a few minutes.'
-					: `Used by: ${res.usedBy.join(', ')}. Remove it there first.`
+					? t().settings.storage.songBusy
+					: t().settings.storage.songUsedBy(res.usedBy.join(', '))
 			});
 		}
 		if (res.file) await unlink(join(audioDir(), res.file)).catch(() => {});

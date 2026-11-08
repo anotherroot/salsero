@@ -8,6 +8,8 @@
  * disk, and the refusals' answers. Whoever may not act on the row gets the
  * missing row's 404.
  */
+import { t } from '$lib/i18n/catalog';
+import { missingSeen } from './clash';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { CloneKind, SyncSettings, TwinKind } from '$lib/types';
 import type { Db } from './db';
@@ -19,7 +21,7 @@ import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
 import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
 import { moveLesson, movePreview } from './clones/move';
-import { MOVE_GONE, SAME_AS_FAILED } from '$lib/clones/view';
+import { moveGone, sameAsFailed } from '$lib/clones/view';
 import { ints } from './form';
 import { separateFamily, setTwins } from './twins';
 import { placeOfRow } from './clones/genes';
@@ -106,8 +108,7 @@ export async function syncFromForm(
 	const picks = syncPicksFrom(form.get('picks'));
 	const targets = syncTargetsFrom(form.get('targets'));
 	const members = syncTargetsFrom(form.get('members'));
-	if (picks === null || targets === null || members === null)
-		throw error(400, 'This page is out of date. Reload it and try again.');
+	if (picks === null || targets === null || members === null) throw error(400, missingSeen());
 	const res = await syncAll(
 		db,
 		userId,
@@ -121,7 +122,7 @@ export async function syncFromForm(
 		await freeDisk()
 	);
 	if (res.ok) return { action: 'sync' as const, refused: res.refused };
-	if (res.reason === 'denied') throw error(404, 'Not found');
+	if (res.reason === 'denied') throw error(404, t().refusals.notFound);
 	return fail(409, { action: 'sync' as const, reason: res.reason, message: res.message });
 }
 
@@ -150,8 +151,9 @@ export async function keepFrom(
 	request: Request
 ) {
 	const settings = keepSettingsFrom(await request.formData());
-	if (settings === null) throw error(400, 'This page is out of date. Reload it and try again.');
-	if (!setSyncSettings(db, userId, kind, id, settings, serverNow())) throw error(404, 'Not found');
+	if (settings === null) throw error(400, missingSeen());
+	if (!setSyncSettings(db, userId, kind, id, settings, serverNow()))
+		throw error(404, t().refusals.notFound);
 	return { action: 'keep' as const, settings };
 }
 
@@ -167,9 +169,8 @@ export async function dropFrom(db: Db, wall: Wall, kind: CloneKind, id: number, 
 	const to = int(form.get('to'));
 	const rawLesson = form.get('addLesson');
 	const addLessonId = rawLesson === null || rawLesson === '' ? undefined : int(rawLesson);
-	if (to === null || addLessonId === null)
-		throw error(400, 'This page is out of date. Reload it and try again.');
-	if (!dropOptions(db, wall, kind, id)) throw error(404, 'Not found');
+	if (to === null || addLessonId === null) throw error(400, missingSeen());
+	if (!dropOptions(db, wall, kind, id)) throw error(404, t().refusals.notFound);
 	const res = dropCopy(db, wall, kind, id, to, { addLessonId }, serverNow());
 	if (!res.ok) return fail(409, { action: 'drop' as const, message: res.message });
 	throw redirect(303, itemHref(wall, kind, res.toId));
@@ -183,7 +184,7 @@ export async function dropFrom(db: Db, wall: Wall, kind: CloneKind, id: number, 
  */
 export function detachFrom(db: Db, userId: string, kind: CloneKind, id: number) {
 	if (!detachOffer(db, userId, kind, id) || !detach(db, userId, kind, id, serverNow()))
-		throw error(404, 'Not found');
+		throw error(404, t().refusals.notFound);
 	return { action: 'detach' as const, detached: true };
 }
 
@@ -229,10 +230,9 @@ export async function copyToFrom(
 	const use = useFrom(form.get('use'));
 	const rawRestore = form.get('restore');
 	const restore = rawRestore === null || rawRestore === '' ? undefined : int(rawRestore);
-	if (typeof raw !== 'string' || use === null || restore === null)
-		throw error(400, 'This page is out of date. Reload it and try again.');
+	if (typeof raw !== 'string' || use === null || restore === null) throw error(400, missingSeen());
 	const into = intoOf(db, wall.userId, kind, id, raw);
-	if (!into) throw error(404, 'Not found');
+	if (!into) throw error(404, t().refusals.notFound);
 
 	const existing = (memberId: number) => {
 		// Only answers the plan asked for: a forged `use` names no row (or its place) here.
@@ -249,7 +249,7 @@ export async function copyToFrom(
 
 	if (restore !== undefined) {
 		const done = restoreMember(db, wall.userId, kind, id, into, restore, serverNow(), use);
-		if (done === null) throw error(404, 'Not found');
+		if (done === null) throw error(404, t().refusals.notFound);
 		if (!done.ok) return fail(409, { action: 'copy' as const, message: done.message });
 		return existing(restore);
 	}
@@ -277,7 +277,7 @@ export async function copyToFrom(
 		case 'name':
 			return fail(409, { action: 'copy' as const, message: res.message });
 		case 'denied':
-			throw error(404, 'Not found');
+			throw error(404, t().refusals.notFound);
 	}
 }
 
@@ -313,9 +313,8 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 	const teamId = int(form.get('into'));
 	const choices = moveChoicesFrom(form.get('choices'));
 	const use = useFrom(form.get('use'));
-	if (teamId === null || choices === null || use === null)
-		throw error(400, 'This page is out of date. Reload it and try again.');
-	if (!movePreview(db, wall, lessonId, teamId)) throw error(404, 'Not found');
+	if (teamId === null || choices === null || use === null) throw error(400, missingSeen());
+	if (!movePreview(db, wall, lessonId, teamId)) throw error(404, t().refusals.notFound);
 	const res = await moveLesson(
 		db,
 		wall,
@@ -335,7 +334,7 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 		case 'name':
 			return fail(409, { action: 'move' as const, message: res.message });
 		case 'denied':
-			return fail(409, { action: 'move' as const, message: MOVE_GONE });
+			return fail(409, { action: 'move' as const, message: moveGone() });
 	}
 }
 
@@ -343,7 +342,7 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 export async function sameAsFrom(db: Db, wall: Wall, kind: TwinKind, id: number, request: Request) {
 	const form = await request.formData();
 	if (!setTwins(db, wall, kind, id, ints(form, 'twin')))
-		return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+		return fail(400, { action: 'sameAs', message: sameAsFailed() });
 	return { action: 'sameAs' };
 }
 

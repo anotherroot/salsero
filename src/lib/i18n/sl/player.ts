@@ -1,18 +1,12 @@
 import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
-
-// A routine's figures are versions (glossary: različica).
-const RAZLICICA: [string, string, string, string] = [
-	'različica',
-	'različici',
-	'različice',
-	'različic'
-];
+import { nouns } from './nouns';
 
 export const player: Catalog['player'] = {
 	title: 'Vadenje',
 	pageTitle: (dance) => `Vadenje · ${dance}`,
-	routineLine: (name, figures) => `${name} · ${slCount(figures, RAZLICICA)}`,
+	// A routine's figures are versions (glossary: različica).
+	routineLine: (name, figures) => `${name} · ${nouns.figures(figures)}`,
 	voice: 'Glas',
 	recordOwn: 'Posnemite svoje štetje',
 	builtIn: 'Vgrajen',
@@ -28,7 +22,7 @@ export const player: Catalog['player'] = {
 	paused: (clock) => `Premor · ${clock}`,
 	stopAndBack: 'Ustavi in pojdi nazaj',
 	routine: 'Kombinacija',
-	routineSlots: (n) => `Kombinacija · ${slCount(n, ['mesto', 'mesti', 'mesta', 'mest'])}`,
+	routineSlots: (n) => `Kombinacija · ${nouns.slots(n)}`,
 	routineSlotOf: (slot, total) => `Kombinacija · mesto ${slot} od ${total}`,
 	now: 'Zdaj',
 	countNotStarted: 'Štetje se še ni začelo',

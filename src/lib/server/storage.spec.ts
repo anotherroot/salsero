@@ -596,3 +596,76 @@ describe('room refusals in Slovenian', () => {
 		);
 	});
 });
+
+describe('room and storage words in Slovenian (What uses space)', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('sizes the refusal with a decimal comma, in vikanje', () => {
+		setStorageLimit(db, 'u1', 1229 * MB);
+		recording(U1_SALSA, 'A', 1229 * MB);
+		const r = sl(() => roomFor(db, 'u1', 1));
+		expect(r.ok === false && r.message).toBe(
+			'Ni dovolj prostora: porabite 1,2 GB od 1,2 GB. Sprostite nekaj prostora ali v Nastavitvah prosite za več.'
+		);
+	});
+
+	it("words a person's items in the reader's language; names stay as typed", () => {
+		recording(U1_SALSA, 'Enchufla', 3 * MB);
+		const lesson = createLesson(db, U1_SALSA, {
+			title: 'Turns',
+			lessonDay: '2026-11-01',
+			notes: null
+		}).lesson;
+		addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: 'v.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 9 * MB
+		});
+		createSongFromUpload(db, U1_SALSA, {
+			file: 's.mp3',
+			mime: 'audio/mpeg',
+			title: '',
+			style: 'son',
+			sizeBytes: 5 * MB
+		});
+		take('u1', 100, 1 * MB, 't.wav');
+		take('u1', 110, 1 * MB, 't2.wav');
+		const items = sl(() => listStorageItems(db, 'u1'));
+		expect(items.map((i) => [i.title, i.context])).toEqual([
+			['Video lekcije', 'Lekcija · Turns'],
+			['Skladba brez naslova', 'Skladba'],
+			['Posnetek', 'Enchufla · Basic'],
+			['Vaše štetje', '2 posnetka']
+		]);
+		expect(listStorageItems(db, 'u1').map((i) => [i.title, i.context])).toEqual([
+			['Lesson video', 'Lesson · Turns'],
+			['Untitled song', 'Song'],
+			['Recording', 'Enchufla · Basic'],
+			['Your count voice', '2 takes']
+		]);
+	});
+
+	it("words a group's trash row", () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Sreda', 1);
+		if (!made.ok) throw new Error('no team');
+		const teamId = made.teamId;
+		db.insert(teamTrash)
+			.values({
+				teamId,
+				kind: 'recording',
+				label: 'Old lesson',
+				rootKind: 'lesson',
+				rootId: 1,
+				rowsJson: '[]',
+				sizeBytes: 40 * MB,
+				deletedBy: 'u1',
+				deletedAt: 1
+			})
+			.run();
+		expect(sl(() => listTeamStorageItems(db, teamId))[0]).toMatchObject({
+			title: 'Posnetek',
+			context: 'Old lesson · v »Nedavno izbrisano«'
+		});
+	});
+});

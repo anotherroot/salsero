@@ -6,6 +6,7 @@
 import { optionalText } from './form';
 import { DANCES, type DanceSlug } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
+import { t } from '$lib/i18n/catalog';
 import type { PositionInput } from '$lib/types';
 
 export type NewPositionTyped = { name: string; notes: string; styleTag: string };
@@ -24,10 +25,10 @@ export function readNewPosition(
 	};
 	const notes = optionalText(form, 'notes');
 	if (notes === undefined) {
-		return { field: 'notes', message: 'Notes are up to 2000 characters.', typed };
+		return { field: 'notes', message: t().positions.refused.notesLong, typed };
 	}
 	if (typed.name.trim().length > 200) {
-		return { field: 'name', message: 'A name is up to 200 characters.', typed };
+		return { field: 'name', message: t().positions.refused.nameLong, typed };
 	}
 	return {
 		input: {

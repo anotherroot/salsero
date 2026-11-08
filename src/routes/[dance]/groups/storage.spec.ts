@@ -26,6 +26,7 @@ import { askForMore, openRequest } from '$lib/server/storage';
 import { T1_SALSA } from '$lib/server/test-walls';
 import { actions, load } from './[id]/storage/+page.server';
 import { load as groupLoad } from './[id]/+page.server';
+import { runInLocale } from '$lib/server/i18n-request';
 
 let db: Db;
 const FILE = '0b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
@@ -130,5 +131,23 @@ describe("a group's What uses space", () => {
 		expect(own.storage).toEqual({ usedBytes: 0, limitBytes: 600 * 1024 ** 2 });
 		const member = (await groupLoad(ev('u3'))) as { storage: unknown };
 		expect(member.storage).toBeNull();
+	});
+});
+
+describe("a group's What uses space in Slovenian", () => {
+	it('refuses in the reader’s language', async () => {
+		const sl = (fn: () => unknown) => runInLocale('sl', () => run(fn));
+		expect(
+			(await sl(() => actions.deleteVideo!(ev('u1', '1', { id: '999' })))).value
+		).toMatchObject({
+			status: 404,
+			data: { message: 'Tega ni več.' }
+		});
+		expect(
+			(await sl(() => actions.ask!(ev('u1', '1', { note: 'x'.repeat(501) })))).value
+		).toMatchObject({
+			status: 400,
+			data: { message: 'Opomba naj bo krajša od 500 znakov.' }
+		});
 	});
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	arrowLook,
 	edgeGeometry,
@@ -51,6 +52,20 @@ describe('legendTypes', () => {
 			label: 'Other',
 			tone: 'muted'
 		});
+	});
+});
+
+describe('legendTypes in Slovenian', () => {
+	it('names each type in Slovenian, an untyped one Drugo', () => {
+		const b = { dominican: 'Dominican', sensual: 'Sensual', traditional: 'Traditional' };
+		expect(withLocale('sl', () => legendTypes(BACHATA, b, true).map((t) => t.label))).toEqual([
+			'Dominikanska',
+			'Senzualna',
+			'Tradicionalna',
+			'Drugo'
+		]);
+		const s = { salsa: 'Salsa', son: 'Son', timba: 'Timba', other: 'Other' };
+		expect(withLocale('sl', () => legendTypes(SALSA, s, true).at(-1)?.label)).toBe('Drugo');
 	});
 });
 

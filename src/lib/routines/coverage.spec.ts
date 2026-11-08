@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { Graph } from '$lib/graph/graph';
 import { coverage, coverageGroups, routinesUsing } from './coverage';
 import type { OptionsSlot, RoutineShape } from './routines';
@@ -143,5 +144,21 @@ describe('routinesUsing', () => {
 	it('says whether the routine loops', () => {
 		expect(routinesUsing(g, 7, shapes, [{ id: 5, name: 'L' }])[0].loops).toBe(true);
 		expect(routinesUsing(g, 8, shapes, [{ id: 6, name: 'N' }])[0].loops).toBe(false);
+	});
+});
+
+describe('coverageGroups in Slovenian', () => {
+	it('titles the groups in the locative', () => {
+		const row = (id: number, n: number) => ({
+			id,
+			label: String(id),
+			routines: Array.from({ length: n }, (_, i) => ({ id: i, name: String(i) }))
+		});
+		const groups = withLocale('sl', () => coverageGroups([row(1, 0), row(2, 1), row(3, 5)]));
+		expect(groups.map((g) => g.title)).toEqual([
+			'V nobeni kombinaciji',
+			'V 1 kombinaciji',
+			'V 2+ kombinacijah'
+		]);
 	});
 });

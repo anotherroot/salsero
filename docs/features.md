@@ -81,10 +81,11 @@ and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
 with Undo, "N new"; see
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md))
-and Slovenian (part 1: the app in English or Slovenian per account; the language on
-the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
-person; the Follow my class path in Slovenian, the Practice player and pairing
-included; the rest of the app and the Android app's own text are part 2; see
+and Slovenian (the whole app in English or Slovenian per account: every page, sheet,
+toast, refusal and error page, the admin and the Android app's own text (version 1.8);
+the language on the invite, Join, the cookie before sign-in, a Settings switch and the
+admin's per person; machines keep English (the worker's queue, the media servers,
+`/releases`, `/api/app-update`, the 426); see
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md))
 and the song page (a minimal listening view: the section playing and what comes next;
 Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its

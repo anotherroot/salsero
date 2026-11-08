@@ -1,25 +1,15 @@
 /**
  * A group's Recently deleted, as words: each row's lines, and why a Restore
  * was refused. PURE and client-safe; the rows come from `server/trash.ts`.
+ * The words are the reader's (`t().groups.deleted`), read at call time.
  */
 import { agoText, dayMonth } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
+import { lazyWords } from '$lib/i18n/lazy';
 import type { DeletedItem, DeletedKind } from '$lib/types';
 
-/** What each kind is called on its row. */
-export const KIND_NAME: Record<DeletedKind, string> = {
-	video: 'Video',
-	section: 'Section',
-	link: 'Link',
-	'spot-link': 'Section link',
-	recording: 'Recording',
-	lesson: 'Lesson',
-	variation: 'Figure',
-	routine: 'Routine',
-	drill: 'Drill',
-	song: 'Song',
-	position: 'Position',
-	'position-link': 'Position link'
-};
+/** What each kind is called on its row (read when used: the reader's language). */
+export const KIND_NAME: Record<DeletedKind, string> = lazyWords((c) => c.groups.deleted.kind);
 
 /** The kinds kept in the trash for 30 days; the rest stay archived until restored. */
 export const TRASH_KINDS = new Set<DeletedKind>([
@@ -33,46 +23,44 @@ export const TRASH_KINDS = new Set<DeletedKind>([
 
 /** "Ana · 5 min ago". */
 export function deletedByLine(item: Pick<DeletedItem, 'by' | 'at'>, now: number): string {
-	return `${item.by ?? 'Someone'} · ${agoText(item.at, now)}`;
+	const w = t().groups;
+	return w.deleted.by(item.by ?? w.history.someone, agoText(item.at, now));
 }
 
 /** "deleted for good on 2 Dec", for a trash kind; null for an archived one. */
 export function purgeLine(item: Pick<DeletedItem, 'purgeOn'>): string | null {
-	return item.purgeOn === null ? null : `deleted for good on ${dayMonth(item.purgeOn)}`;
+	return item.purgeOn === null ? null : t().groups.deleted.purge(dayMonth(item.purgeOn));
 }
 
 /** A restore refused because the name is now another's. */
 export function takenLine(name: string): string {
-	return `${name} is taken; rename that one first`;
+	return t().groups.deleted.taken(name);
 }
 
 /** What the restore of a trash entry was refused for. */
 export type TrashRefusal =
 	'parent-gone' | 'purged' | 'restored' | 'exists' | 'family' | 'not-found';
 
-/** Where a trash kind lives, for "Restore the video first". */
-const PARENT: Partial<Record<DeletedKind, string>> = {
-	section: 'video',
-	'spot-link': 'section',
-	'position-link': 'section or point'
-};
-
 /** Why a trash entry did not come back, in words. */
 export function trashRefusalLine(kind: DeletedKind, reason: TrashRefusal): string {
+	const w = t().groups.deleted.refused;
 	switch (reason) {
 		case 'parent-gone':
-			return PARENT[kind] ? `Restore the ${PARENT[kind]} first` : 'What it was in is gone';
+			// Where a trash kind lives, for "Restore the video first".
+			return kind === 'section' || kind === 'spot-link' || kind === 'position-link'
+				? w.parentFirst[kind]
+				: w.parentGone;
 		case 'purged':
-			return 'This was deleted for good.';
+			return w.purged;
 		case 'restored':
-			return 'This is back already.';
+			return w.restored;
 		case 'exists':
-			if (kind === 'spot-link') return 'That section was linked to it again since.';
-			if (kind === 'position-link') return 'It was linked to that position again since.';
-			return 'This is back already.';
+			if (kind === 'spot-link') return w.spotLinkAgain;
+			if (kind === 'position-link') return w.positionLinkAgain;
+			return w.restored;
 		case 'family':
-			return 'A copy of this is here already.';
+			return w.family;
 		case 'not-found':
-			return 'That is no longer there to restore.';
+			return w.notFound;
 	}
 }

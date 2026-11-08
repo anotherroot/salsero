@@ -16,10 +16,11 @@ import { seenRefusal, moveSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { defaultStyle } from '$lib/server/default-styles';
 import { usedInMeta } from '$lib/moves/move-page';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
-const moveTaken = (name: string) => `There's already a move called ${name}.`;
+const moveTaken = (name: string) => t().moves.refused.moveTaken(name);
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
@@ -83,7 +84,7 @@ export const actions: Actions = {
 			return fail(400, {
 				action: 'rename' as const,
 				field: 'name' as const,
-				message: 'Give the move a name (up to 200 characters).',
+				message: t().moves.refused.moveName,
 				name: typed
 			});
 		}
@@ -126,7 +127,7 @@ export const actions: Actions = {
 			return fail(400, {
 				action: 'createFigure' as const,
 				field: 'name' as const,
-				message: 'Give the figure a name (up to 200 characters).',
+				message: t().moves.refused.figureName,
 				name: typed
 			});
 		}
@@ -134,7 +135,7 @@ export const actions: Actions = {
 			return fail(400, {
 				action: 'createFigure' as const,
 				field: 'name' as const,
-				message: `${move.name} already has a figure called ${name}. Rename one first.`,
+				message: t().moves.refused.figureTaken(move.name, name),
 				name: typed
 			});
 		}
@@ -151,7 +152,7 @@ export const actions: Actions = {
 			},
 			userId
 		);
-		if (!made) throw error(404, 'Move not found');
+		if (!made) throw error(404, t().refusals.moveNotFound);
 		throw redirect(303, `/${space.dance}/figures/${made.id}`);
 	}
 };

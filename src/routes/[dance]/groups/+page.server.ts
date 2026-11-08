@@ -4,7 +4,7 @@ import { wallOf } from '$lib/server/scope';
 import { codeRefusal } from '$lib/levels/first-run';
 import { joinWithCode } from '$lib/server/join-code';
 import { createTeam, teamLimit } from '$lib/server/teams';
-import { limitLine, NAME_REFUSAL } from '$lib/teams/view';
+import { limitLine, nameRefusal } from '$lib/teams/view';
 import { levelShown } from '$lib/levels/levels';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -31,7 +31,7 @@ export const actions: Actions = {
 		const made = createTeam(db, wall.userId, wall.dance, name, serverNow());
 		if (!made.ok) {
 			const message =
-				made.reason === 'limit' ? limitLine(teamLimit(db, wall.userId)) : NAME_REFUSAL;
+				made.reason === 'limit' ? limitLine(teamLimit(db, wall.userId)) : nameRefusal();
 			return fail(400, { action: 'create', message, name });
 		}
 		throw redirect(303, `/${wall.dance}/groups/${made.teamId}`);

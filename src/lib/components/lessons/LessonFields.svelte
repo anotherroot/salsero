@@ -2,6 +2,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { FIELD, LABEL, TEXTAREA } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * The fields a lesson is made of, with no form tag of its own — so the create
@@ -35,11 +36,12 @@
 	}: Props = $props();
 
 	const id = $props.id();
+	const w = $derived(t().lesson.fields);
 </script>
 
 <div class="flex flex-col gap-3.5">
 	<div>
-		<label class={LABEL} for="{id}-day">Day of the class</label>
+		<label class={LABEL} for="{id}-day">{w.day}</label>
 		<div class="relative">
 			<!-- `type="date"` serialises as YYYY-MM-DD in every locale: the one native
 			     control whose value needs no parsing on the server. -->
@@ -62,7 +64,7 @@
 	</div>
 
 	<div>
-		<label class={LABEL} for="{id}-title">Title</label>
+		<label class={LABEL} for="{id}-title">{w.title}</label>
 		<!-- svelte-ignore a11y_autofocus -->
 		<input
 			id="{id}-title"
@@ -71,7 +73,7 @@
 			{autofocus}
 			maxlength="200"
 			value={title}
-			placeholder="Wednesday rueda — enchufla figures"
+			placeholder={w.titlePlaceholder}
 			class={FIELD}
 			aria-invalid={errors.title ? 'true' : undefined}
 			aria-describedby={errors.title ? `${id}-title-error` : undefined}
@@ -81,14 +83,14 @@
 
 	<div>
 		<label class={LABEL} for="{id}-notes"
-			>Notes<span class="font-medium text-muted">&nbsp;(optional)</span></label
+			>{w.notes}<span class="font-medium text-muted">&nbsp;{w.optional}</span></label
 		>
 		<textarea
 			id="{id}-notes"
 			name="notes"
 			rows={notesRows}
 			maxlength="2000"
-			placeholder="What the teacher said, what to fix, what you kept getting wrong…"
+			placeholder={w.notesPlaceholder}
 			class={TEXTAREA}
 			aria-invalid={errors.notes ? 'true' : undefined}
 			aria-describedby={errors.notes ? `${id}-notes-error` : undefined}>{notes ?? ''}</textarea

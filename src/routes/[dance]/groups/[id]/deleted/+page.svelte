@@ -8,33 +8,31 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { KIND_NAME, deletedByLine, purgeLine } from '$lib/teams/deleted';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	/** The row whose Restore is on its way. */
 	let busy = $state<string | null>(null);
+	const w = $derived(t().groups.deleted);
 	const keyOf = (item: { kind: string; id: number }) => `${item.kind}-${item.id}`;
 	const groupHref = $derived(
 		resolve('/[dance]/groups/[id]', { dance: data.dance.slug, id: String(data.team.id) })
 	);
 </script>
 
-<svelte:head><title>Recently deleted · {data.team.name}</title></svelte:head>
+<svelte:head><title>{w.head(data.team.name)}</title></svelte:head>
 
-<Screen title="Recently deleted" subtitle={data.team.name} compact>
+<Screen title={t().groups.page.recentlyDeleted} subtitle={data.team.name} compact>
 	{#snippet left()}
-		<BackButton fallback={{ href: groupHref, label: `Back to ${data.team.name}` }} />
+		<BackButton fallback={{ href: groupHref, label: t().shell.backTo(data.team.name) }} />
 	{/snippet}
 
 	{#if data.items.length === 0}
-		<EmptyState
-			icon="trash"
-			title="Nothing deleted"
-			body="What the group's editors delete or archive waits here. Videos, sections, links and recordings stay 30 days."
-		/>
+		<EmptyState icon="trash" title={w.emptyTitle} body={w.emptyBody} />
 	{:else}
-		<ul class={GROUP} aria-label="Deleted, newest first">
+		<ul class={GROUP} aria-label={w.listLabel}>
 			{#each data.items as item (keyOf(item))}
 				{@const key = keyOf(item)}
 				{@const purge = purgeLine(item)}
@@ -70,11 +68,11 @@
 							type="submit"
 							class={button('secondary', 'sm')}
 							aria-busy={busy === key}
-							aria-label="Restore {KIND_NAME[item.kind]} {item.label}"
+							aria-label={w.restoreLabel(KIND_NAME[item.kind], item.label)}
 							disabled={busy !== null}
 						>
-							{#if busy === key}<Spinner /><span class="sr-only">Restoring…</span
-								>{:else}Restore{/if}
+							{#if busy === key}<Spinner /><span class="sr-only">{t().picker.restoring}</span
+								>{:else}{t().picker.restore}{/if}
 						</button>
 					</form>
 				</li>

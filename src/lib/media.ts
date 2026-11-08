@@ -8,6 +8,7 @@
  * Client-safe and used by both the figure page and the lesson page.
  */
 import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
+import { t } from '$lib/i18n/catalog';
 
 export type MediaProblem = 'missing' | 'unplayable';
 
@@ -40,20 +41,15 @@ export function uploadProblem(
 	file: { size: number; type: string },
 	accept: 'audio/*' | 'video/*' | 'video/*,audio/*'
 ): { title: string; body?: string } | null {
+	const w = t().refusals.files;
 	if (file.size > MAX_RECORDING_BYTES) {
-		return {
-			title: `That file is ${Math.round(file.size / 1024 / 1024)} MB; the limit is ${MAX_RECORDING_LABEL}.`
-		};
+		return { title: w.overLimit(Math.round(file.size / 1024 / 1024), MAX_RECORDING_LABEL) };
 	}
 	if (accept === 'audio/*') {
-		return /^audio\//.test(file.type)
-			? null
-			: { title: 'Only audio files can be added.', body: 'Pick a video with Add video instead.' };
+		return /^audio\//.test(file.type) ? null : { title: w.audioOnly, body: w.audioOnlyBody };
 	}
 	if (accept === 'video/*') {
-		return /^video\//.test(file.type) ? null : { title: 'Only video files can be added.' };
+		return /^video\//.test(file.type) ? null : { title: w.videoOnly };
 	}
-	return /^(video|audio)\//.test(file.type)
-		? null
-		: { title: 'Only video and audio files can be added.' };
+	return /^(video|audio)\//.test(file.type) ? null : { title: w.videoOrAudio };
 }

@@ -8,14 +8,14 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		ALREADY_THERE,
-		CANCEL,
-		LOAD_FAILED,
-		CONTINUE,
-		COPY_FAILED,
-		RESTORE,
-		TWINS_ONE_GOES,
-		WHAT_GOES,
+		alreadyThere,
+		cancelLabel,
+		loadFailed,
+		continueLabel,
+		copyFailed,
+		restoreLabel,
+		twinsOneGoes,
+		whatGoesTitle,
 		copiedToast,
 		copyButton,
 		copySub,
@@ -29,7 +29,7 @@
 	} from '$lib/clones/view';
 	import type { CopyOffer, CopyPlanView, CopyTarget } from '$lib/types';
 	import SyncSheet from './SyncSheet.svelte';
-	import { SYNC_MENU } from '$lib/clones/step-view';
+	import { syncMenu } from '$lib/clones/step-view';
 
 	/**
 	 * Copy to… (board C4 p1, p2): the page's row into your app or a group you
@@ -199,17 +199,17 @@
 		{#if here}
 			<Banner kind="info">{existingNote(target.place, here.archived)}</Banner>
 		{:else if failed}
-			<Banner kind="error">{LOAD_FAILED}</Banner>
+			<Banner kind="error">{loadFailed()}</Banner>
 		{:else if !plan}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}
 			<section class={CARD} aria-labelledby="{uid}-goes">
-				<h3 id="{uid}-goes" class={CAPTION}>{WHAT_GOES}</h3>
+				<h3 id="{uid}-goes" class={CAPTION}>{whatGoesTitle()}</h3>
 				<p>{plan.goes}</p>
 			</section>
 			{#if plan.already.length > 0}
 				<section class={CARD} aria-labelledby="{uid}-already">
-					<h3 id="{uid}-already" class={CAPTION}>{ALREADY_THERE}</h3>
+					<h3 id="{uid}-already" class={CAPTION}>{alreadyThere()}</h3>
 					{#each plan.already as line (line)}<p>{line}</p>{/each}
 				</section>
 			{/if}
@@ -251,9 +251,9 @@
 							}
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown } | undefined;
-							refused = typeof data?.message === 'string' ? data.message : COPY_FAILED;
+							refused = typeof data?.message === 'string' ? data.message : copyFailed();
 						} else {
-							refused = COPY_FAILED;
+							refused = copyFailed();
 						}
 					} finally {
 						busy = false;
@@ -267,7 +267,9 @@
 			{#if here?.archived}
 				<input type="hidden" name="restore" value={here.id} />
 			{/if}
-			<button type="button" class={button('tertiary', 'md', true)} onclick={close}>{CANCEL}</button>
+			<button type="button" class={button('tertiary', 'md', true)} onclick={close}
+				>{cancelLabel()}</button
+			>
 			<button
 				type="button"
 				class={button('primary', 'md', true)}
@@ -278,9 +280,9 @@
 				{#if busy}
 					<Spinner />
 				{:else if here?.archived}
-					<Icon name="undo" size={20} />{RESTORE}
+					<Icon name="undo" size={20} />{restoreLabel()}
 				{:else if here}
-					<Icon name="refresh" size={20} />{SYNC_MENU}
+					<Icon name="refresh" size={20} />{syncMenu()}
 				{:else}
 					<Icon name="copy" size={20} />{copyButton(offer.kind, target.place)}
 				{/if}
@@ -323,12 +325,12 @@
 				class="flex items-start gap-3 rounded-2xl bg-step p-3.5 text-[14px] leading-[1.4] text-ink-2"
 			>
 				<span class="mt-px flex-none text-muted"><Icon name="info" size={20} /></span>
-				<span class="min-w-0 flex-1">{TWINS_ONE_GOES}</span>
+				<span class="min-w-0 flex-1">{twinsOneGoes()}</span>
 			</p>
 		</div>
 		{#snippet footer()}
 			<button type="button" class={button('primary', 'md', true)} disabled={busy} onclick={next}
-				>{CONTINUE}</button
+				>{continueLabel()}</button
 			>
 		{/snippet}
 	</Sheet>

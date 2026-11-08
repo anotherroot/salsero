@@ -1,4 +1,5 @@
 import { byteSize } from './format';
+import { t } from './i18n/catalog';
 
 /**
  * Screening a multi-file selection, and saying afterwards what happened to it.
@@ -36,13 +37,14 @@ export function screenFiles<T extends Screenable>(
 ): { accepted: T[]; rejected: Skipped[] } {
 	const accepted: T[] = [];
 	const rejected: Skipped[] = [];
+	const why = t().refusals.files.reason;
 	for (const file of files) {
 		if (!/^video\//.test(file.type)) {
-			rejected.push({ name: file.name, reason: 'not a video' });
+			rejected.push({ name: file.name, reason: why.notVideo });
 		} else if (file.size > maxBytes) {
 			rejected.push({
 				name: file.name,
-				reason: `${byteSize(file.size)} — the limit is ${byteSize(maxBytes)}`
+				reason: why.overLimit(byteSize(file.size), byteSize(maxBytes))
 			});
 		} else {
 			accepted.push(file);
@@ -57,9 +59,10 @@ export function screenFiles<T extends Screenable>(
  */
 export function summarise(added: number, rejected: Skipped[]): string | null {
 	if (rejected.length === 0) return null;
-	const skipped = `Skipped ${rejected.map((r) => `${r.name} (${r.reason})`).join(', ')}.`;
+	const w = t().refusals.files;
+	const skipped = w.skipped(rejected.map((r) => `${r.name} (${r.reason})`).join(', '));
 	if (added === 0) return skipped;
-	return `${added} video${added === 1 ? '' : 's'} added. ${skipped}`;
+	return w.addedThenSkipped(added, skipped);
 }
 
 /** What the upload card shows while a video goes up. Pure: the component only draws it. */
@@ -75,19 +78,19 @@ export function uploadCard(s: {
 	percent: number;
 } {
 	const percent = Math.min(100, Math.max(0, Math.floor(s.progress * 100)));
+	const w = t().refusals.files;
 	if (s.retrying) {
 		return {
-			title: 'Connection dropped — retrying',
-			helper: `Picks up from what the server already has · ${percent}%`,
+			title: w.retrying,
+			helper: w.retryingHelper(percent),
 			tone: 'warn',
 			icon: 'refresh',
 			percent
 		};
 	}
-	const of = s.position ? ` ${s.position.index} of ${s.position.count}` : '';
 	return {
-		title: `Uploading${of}… ${percent}%`,
-		helper: 'Keep this page open — a reload starts over',
+		title: w.uploading(percent, s.position?.index ?? null, s.position?.count ?? null),
+		helper: w.keepOpen,
 		tone: 'accent',
 		icon: 'upload',
 		percent
@@ -97,6 +100,7 @@ export function uploadCard(s: {
 /** The title of the batch's outcome card, or `null` when nothing was skipped. */
 export function summaryTitle(added: number, skipped: number): string | null {
 	if (skipped === 0) return null;
-	if (added > 0) return 'Some files were skipped';
-	return skipped === 1 ? 'That file wasn’t added' : 'No videos were added';
+	const w = t().refusals.files;
+	if (added > 0) return w.someSkipped;
+	return skipped === 1 ? w.oneNotAdded : w.noneAdded;
 }

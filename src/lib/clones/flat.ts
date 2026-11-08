@@ -22,6 +22,7 @@
  *   Neither contains a colon. A position is referred to by its family, so each
  *   owner's member of one family reads as the same key.
  */
+import { t } from '$lib/i18n/catalog';
 
 /** The root fields, in the order a comparison lists them. */
 export const ROOT_KEYS = [
@@ -47,27 +48,28 @@ export const ROOT_KEYS = [
 	'frame'
 ] as const;
 
-const ROOT_LABELS: Record<string, string> = {
-	name: 'Name',
-	notes: 'Notes',
-	partner: 'Partner',
-	style: 'Style',
-	timing: 'Timing',
-	practice: 'Practice',
-	comesBack: 'Comes back',
-	title: 'Title',
-	day: 'Day',
-	artist: 'Artist',
-	count: 'Count',
-	sample: 'Sample',
-	sections: 'Sections',
-	musicStart: 'Music start',
-	slots: 'Slots',
-	type: 'Type',
-	hands: 'Hands',
-	crossed: 'Right hands on top',
-	facing: 'Facing',
-	frame: 'Frame'
+/** A root field's label, read from the catalog when asked (the clash sheet's words where they are the same field). */
+const ROOT_LABELS: Record<string, () => string> = {
+	name: () => t().groups.clash.field.name,
+	notes: () => t().groups.clash.field.notes,
+	partner: () => t().groups.clash.field.partner,
+	style: () => t().groups.clash.field.style,
+	timing: () => t().figure.timing.label,
+	practice: () => t().clones.field.practice,
+	comesBack: () => t().groups.clash.field.comesBack,
+	title: () => t().groups.clash.field.title,
+	day: () => t().clones.field.day,
+	artist: () => t().clones.field.artist,
+	count: () => t().clones.field.count,
+	sample: () => t().clones.field.sample,
+	sections: () => t().clones.field.sections,
+	musicStart: () => t().clones.field.musicStart,
+	slots: () => t().clones.field.slots,
+	type: () => t().positions.fields.type,
+	hands: () => t().positions.fields.hands,
+	crossed: () => t().positions.sheet.crossed,
+	facing: () => t().positions.fields.facing,
+	frame: () => t().positions.fields.frame
 };
 
 /**
@@ -94,17 +96,20 @@ export const SET_PREFIXES = [
 	'song'
 ] as const;
 
-const SET_LABELS: Record<string, string> = {
-	start: 'Starts in',
-	end: 'Ends in',
-	link: 'Link',
-	fig: 'Figure',
-	routine: 'Routine',
-	drill: 'Drill',
-	pos: 'Position',
-	song: 'Song'
+const SET_LABELS: Record<string, () => string> = {
+	start: () => t().groups.clash.field.startIds,
+	end: () => t().groups.clash.field.endIds,
+	link: () => t().groups.deleted.kind.link,
+	fig: () => t().groups.deleted.kind.variation,
+	routine: () => t().groups.deleted.kind.routine,
+	drill: () => t().groups.deleted.kind.drill,
+	pos: () => t().groups.deleted.kind.position,
+	song: () => t().groups.deleted.kind.song
 };
-const PIECE_LABELS: Record<string, string> = { rec: 'Recording', video: 'Video' };
+const PIECE_LABELS: Record<string, () => string> = {
+	rec: () => t().groups.deleted.kind.recording,
+	video: () => t().groups.deleted.kind.video
+};
 
 const PIECE = /^((rec|video):[^:]+)(?::(.*))?$/;
 const SPOT = /^spot:[^:]+$/;
@@ -139,15 +144,15 @@ export function setPrefixOf(key: string): string | null {
 
 /** What the Sync sheet calls a field. Throws on a key outside the grammar. */
 export function fieldLabel(key: string, show: string): string {
-	if (Object.hasOwn(ROOT_LABELS, key)) return ROOT_LABELS[key];
+	if (Object.hasOwn(ROOT_LABELS, key)) return ROOT_LABELS[key]();
 	const prefix = setPrefixOf(key);
-	if (prefix) return `${SET_LABELS[prefix]} · ${show}`;
+	if (prefix) return `${SET_LABELS[prefix]()} · ${show}`;
 	const parts = pieceParts(key);
 	if (parts) {
-		if (parts.part === 'piece') return `${PIECE_LABELS[parts.kind]} · ${show}`;
-		if (parts.part === 'note') return `Note · ${show}`;
-		if (parts.part === 'spot') return `Section · ${show}`;
-		return `Section links · ${show}`;
+		if (parts.part === 'piece') return `${PIECE_LABELS[parts.kind]()} · ${show}`;
+		if (parts.part === 'note') return `${t().clones.field.note} · ${show}`;
+		if (parts.part === 'spot') return `${t().groups.deleted.kind.section} · ${show}`;
+		return `${t().clones.field.sectionLinks} · ${show}`;
 	}
 	throw new Error(`Not a clone field key: ${key}`);
 }

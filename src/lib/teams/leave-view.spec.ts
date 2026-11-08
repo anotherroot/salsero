@@ -88,7 +88,9 @@ describe('leave lines in Slovenian', () => {
 		expect(sl(() => leaveTitle('Salsa torek'))).toBe('Želite zapustiti »Salsa torek«?');
 		expect(sl(() => chooseButton(3))).toBe('Zapusti in obdrži 3');
 		expect(sl(() => copyMeta('Salsa torek'))).toBe('Vaša kopija · vir: Salsa torek');
-		expect(sl(leaveSub)).not.toBe(leaveSub());
+		expect(sl(leaveSub)).toBe(
+			'Po izstopu iz skupine ne boste videli ničesar več. Obdržite kopije tistega, kar izberete.'
+		);
 	});
 
 	it('count in four forms and say a whole gigabyte plainly', () => {
@@ -108,5 +110,14 @@ describe('leave lines in Slovenian', () => {
 		);
 		expect(sl(() => lockedMeta('2 videa', 'lesson'))).toBe('2 videa · v uporabi: vaša lekcija');
 		expect(sl(() => lockedMeta('', 'routine'))).toBe('V uporabi: vaša kombinacija');
+	});
+});
+
+// Catches: Keep everything's counts in one form for every number (2 and 5 apart).
+describe('Keep everything’s counts in Slovenian, two and five', () => {
+	it('says 2 and 5 each in its own form', () => {
+		expect(
+			withLocale('sl', () => everythingMeta(preview({ lessons: 2, routines: 5, songs: 4 }, GB)))
+		).toBe('2 lekciji, 5 kombinacij, 4 skladbe · 1 GB v vašem prostoru');
 	});
 });

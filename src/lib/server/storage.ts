@@ -14,7 +14,7 @@ import { stat, statfs } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, count, eq, isNotNull, isNull, sum, type SQL } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
-import { byteSize, plural } from '$lib/format';
+import { byteSize } from '$lib/format';
 import { fullName } from '$lib/names';
 import { t } from '$lib/i18n/catalog';
 import { DISK_FLOOR_BYTES, TEAM_BYTES_PER_PERSON } from '$lib/limits';
@@ -283,6 +283,7 @@ export async function backfillSongSizes(db: Db, now: number): Promise<void> {
 
 /** The songs with audio that `owner` picks out, as storage items. */
 function songItems(db: Db, owner: SQL): StorageItem[] {
+	const w = t().settings.storage.item;
 	return db
 		.select()
 		.from(songs)
@@ -291,8 +292,8 @@ function songItems(db: Db, owner: SQL): StorageItem[] {
 		.map((s) => ({
 			kind: 'song' as const,
 			id: s.id,
-			title: s.title || 'Untitled song',
-			context: s.artist ? `Song · ${s.artist}` : 'Song',
+			title: s.title || w.untitledSong,
+			context: s.artist ? w.songBy(s.artist) : w.song,
 			sizeBytes: s.sizeBytes ?? 0,
 			archived: s.archivedAt !== null,
 			href: s.archivedAt !== null ? null : `/${s.dance}/songs/${s.id}`
@@ -304,6 +305,7 @@ function songItems(db: Db, owner: SQL): StorageItem[] {
  * for all its takes. Archived parents are marked: their files still count.
  */
 export function listStorageItems(db: Db, userId: string): StorageItem[] {
+	const w = t().settings.storage.item;
 	const items: StorageItem[] = [];
 
 	const recs = db
@@ -327,7 +329,7 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 		items.push({
 			kind: 'recording',
 			id: r.id,
-			title: r.kind === 'video' ? 'Recording' : 'Audio recording',
+			title: r.kind === 'video' ? w.recording : w.audioRecording,
 			context: `${r.figure} · ${r.name}`,
 			sizeBytes: r.size,
 			archived: r.figureArchived !== null || r.groupArchived !== null,
@@ -355,8 +357,8 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 		items.push({
 			kind: 'lessonVideo',
 			id: v.id,
-			title: 'Lesson video',
-			context: `Lesson · ${v.title}`,
+			title: w.lessonVideo,
+			context: w.lesson(v.title),
 			sizeBytes: v.size,
 			archived: v.archived !== null,
 			href: v.archived !== null ? null : `/${v.dance}/lessons/${v.lessonId}`
@@ -374,8 +376,8 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 		items.push({
 			kind: 'voice',
 			id: null,
-			title: 'Your count voice',
-			context: plural(takes.n, 'take', 'takes'),
+			title: w.countVoice,
+			context: w.takes(takes.n),
 			sizeBytes: total(takes.t),
 			archived: false,
 			href: '/voice'
@@ -668,6 +670,7 @@ export function listTeamsForAdmin(
  * deleted (the file stays until the purge, and counts).
  */
 export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
+	const w = t().settings.storage.item;
 	const items: StorageItem[] = [];
 	const recs = db
 		.select({
@@ -689,7 +692,7 @@ export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
 		items.push({
 			kind: 'recording',
 			id: r.id,
-			title: r.kind === 'video' ? 'Recording' : 'Audio recording',
+			title: r.kind === 'video' ? w.recording : w.audioRecording,
 			context: `${r.figure} · ${r.name}`,
 			sizeBytes: r.size,
 			archived: r.archived !== null,
@@ -713,8 +716,8 @@ export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
 		items.push({
 			kind: 'lessonVideo',
 			id: v.id,
-			title: 'Lesson video',
-			context: `Lesson · ${v.title}`,
+			title: w.lessonVideo,
+			context: w.lesson(v.title),
 			sizeBytes: v.size,
 			archived: v.archived !== null,
 			href: v.archived !== null ? null : `/${v.dance}/lessons/${v.lessonId}`
@@ -728,14 +731,14 @@ export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
 			and(eq(teamTrash.teamId, teamId), isNull(teamTrash.purgedAt), isNull(teamTrash.restoredAt))
 		)
 		.all();
-	for (const t of trash) {
-		if (t.sizeBytes <= 0) continue;
+	for (const entry of trash) {
+		if (entry.sizeBytes <= 0) continue;
 		items.push({
 			kind: 'trash',
-			id: t.id,
-			title: t.kind === 'recording' ? 'Recording' : 'Lesson video',
-			context: `${t.label} · in Recently deleted`,
-			sizeBytes: t.sizeBytes,
+			id: entry.id,
+			title: entry.kind === 'recording' ? w.recording : w.lessonVideo,
+			context: w.inDeleted(entry.label),
+			sizeBytes: entry.sizeBytes,
 			archived: false,
 			href: null
 		});

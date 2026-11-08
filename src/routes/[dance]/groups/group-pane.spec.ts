@@ -55,10 +55,12 @@ describe('the group page in its pane', () => {
 			/<Sheet\s+title=\{acting\?\.name \?\? ''\}\s+open=\{acting !== null\}\s+onclose=\{\(\) => \(acting = null\)\}\s+size="small"\s*>/
 		);
 		expect(read('src/routes/[dance]/groups/[id]/storage/+page.svelte')).toMatch(
-			/<Sheet title="Ask for more"[^\n]*size="small">/
+			// The title is read from the catalog (Task 10): the sheet is the same.
+			/<Sheet title=\{s\.askForMore\}[^\n]*size="small">/
 		);
 		const code = read('src/lib/components/teams/CodeSheet.svelte');
-		expect(code).toMatch(/<Sheet title="Group code"[^\n]*size="small">/);
+		// The title is read from the catalog (Task 9 of Slovenian part 2): the sheet is the same.
+		expect(code).toMatch(/<Sheet title=\{w\.title\}[^\n]*size="small">/);
 		expect(code).toContain('codeAction(desk.current, canShare, copied)');
 	});
 });

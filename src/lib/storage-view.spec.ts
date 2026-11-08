@@ -36,4 +36,9 @@ describe('storage view in Slovenian', () => {
 			'Prošnja poslana 2. nov. 2026 · čaka na odgovor'
 		);
 	});
+	it('words a row’s meta with a decimal comma', () => {
+		expect(sl(() => itemMeta({ context: 'Lekcija · Sreda', sizeBytes: 1229 * MB }))).toBe(
+			'Lekcija · Sreda · 1,2 GB'
+		);
+	});
 });

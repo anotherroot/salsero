@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- app_name and share_label differ per dance: resValue in app/build.gradle.kts. -->
-    <string name="no_app_for_link">No app on this phone can open that link</string>
-    <string name="downloading">Downloading %1$s</string>
+    <!-- app_name and share_label differ per dance: resValue in app/build.gradle.kts.
+         The app's own words are Words.kt, in the account's language; share_label alone has
+         a values-sl copy per flavor, since Android draws the share sheet in the phone's language. -->
 </resources>

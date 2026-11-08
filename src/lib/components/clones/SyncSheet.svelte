@@ -8,21 +8,22 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import {
-		LOAD_AGAIN,
-		NOTHING_DIFFERS,
-		PICK_ONE,
-		SHOW_ALL,
-		SYNC,
-		SHOW_LESS,
-		SYNC_LOAD_FAILED,
-		SYNC_SEND_FAILED,
-		SYNC_TO,
-		UPDATE_MINE,
+		loadAgain,
+		nothingDiffers,
+		pickOne,
+		showAll,
+		syncLabel,
+		showLess,
+		syncLoadFailed,
+		syncSendFailed,
+		syncTo,
+		updateMine,
 		notSynced,
 		notesOnLoad,
 		nothingNew,
 		openKeys,
 		pullable,
+		placeShown,
 		postPicks,
 		sheetRows,
 		staysLine,
@@ -31,7 +32,7 @@
 		updateSub,
 		type SheetRow
 	} from '$lib/clones/step-view';
-	import { SYNC_PICK, changedLabels } from '$lib/clones/view';
+	import { syncPick, changedLabels } from '$lib/clones/view';
 	import type { CloneKind, SyncView } from '$lib/types';
 
 	/**
@@ -171,7 +172,7 @@
 </script>
 
 <Sheet
-	title={view?.title ?? SYNC}
+	title={view?.title ?? syncLabel()}
 	sub={view && view.rows.length > 0 && !nothing
 		? update
 			? updateSub(changes)
@@ -188,7 +189,7 @@
 				{refused}
 				{#snippet action()}
 					<button type="button" class={button('tertiary', 'sm')} onclick={() => reload('again')}
-						>{LOAD_AGAIN}</button
+						>{loadAgain()}</button
 					>
 				{/snippet}
 			</Banner>
@@ -197,17 +198,17 @@
 		{/if}
 		{#if failed}
 			<Banner kind="error">
-				{SYNC_LOAD_FAILED}
+				{syncLoadFailed()}
 				{#snippet action()}
 					<button type="button" class={button('tertiary', 'sm')} onclick={() => reload('again')}
-						>{LOAD_AGAIN}</button
+						>{loadAgain()}</button
 					>
 				{/snippet}
 			</Banner>
 		{:else if !view}
 			<div class="grid place-items-center py-10 text-muted"><Spinner /></div>
 		{:else if view.rows.length === 0}
-			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-ink-2">{NOTHING_DIFFERS}</p>
+			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-ink-2">{nothingDiffers()}</p>
 		{:else}
 			{#if nothing}
 				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-ink-2">
@@ -238,7 +239,7 @@
 						<h3 id="{uid}-{i}" class="px-1 text-[13px] leading-snug">
 							<span class="font-extrabold tracking-wide text-muted uppercase">{r.label}</span>
 							{#if c === undefined}
-								<span class="font-bold text-warn"> · {r.by ?? PICK_ONE}</span>
+								<span class="font-bold text-warn"> · {r.by ?? pickOne()}</span>
 							{:else if r.by}
 								<span class="font-bold text-status"> · {r.by}</span>
 							{/if}
@@ -277,7 +278,7 @@
 								class="self-start px-1 py-1 text-[13px] font-extrabold text-accent-text"
 								aria-expanded={!!opened[r.key]}
 								onclick={() => (opened = { ...opened, [r.key]: !opened[r.key] })}
-								>{opened[r.key] ? SHOW_LESS : SHOW_ALL}</button
+								>{opened[r.key] ? showLess() : showAll()}</button
 							>
 						{/if}
 					</section>
@@ -308,7 +309,7 @@
 						id="{uid}-to"
 						class="px-1 text-[13px] leading-snug font-extrabold tracking-wide text-muted uppercase"
 					>
-						{SYNC_TO}
+						{syncTo()}
 					</h3>
 					<ul class={GROUP}>
 						{#each view.targets as t (t.id)}
@@ -322,7 +323,7 @@
 										onchange={(e) => (ticked = { ...ticked, [t.id]: e.currentTarget.checked })}
 									/>
 									<span class="min-w-0 flex-1 text-[15px] leading-snug">
-										<span class="font-bold text-ink">{t.label}</span>
+										<span class="font-bold text-ink">{placeShown(t.label)}</span>
 										{#if t.role}<span class="text-muted"> · {t.role}</span>{/if}
 									</span>
 								</label>
@@ -365,10 +366,10 @@
 							reload('after-sync');
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown; reason?: unknown } | undefined;
-							refused = typeof data?.message === 'string' ? data.message : SYNC_SEND_FAILED;
+							refused = typeof data?.message === 'string' ? data.message : syncSendFailed();
 							stale = data?.reason === 'stale';
 						} else {
-							refused = SYNC_SEND_FAILED;
+							refused = syncSendFailed();
 						}
 					} finally {
 						busy = false;
@@ -399,11 +400,11 @@
 				aria-describedby={waiting.length > 0 ? `${uid}-hint` : undefined}
 			>
 				{#if busy}<Spinner />{:else}<Icon name="refresh" size={20} />{update
-						? UPDATE_MINE
+						? updateMine()
 						: syncButton(targets.length)}{/if}
 			</button>
 			{#if waiting.length > 0}
-				<p id="{uid}-hint" class="text-center text-[13px] text-muted">{SYNC_PICK}</p>
+				<p id="{uid}-hint" class="text-center text-[13px] text-muted">{syncPick()}</p>
 			{/if}
 		</form>
 	{/snippet}

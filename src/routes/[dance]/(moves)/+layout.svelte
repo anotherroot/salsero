@@ -18,6 +18,7 @@
 	import PositionsList from '$lib/components/moves/PositionsList.svelte';
 	import { setMoves } from '$lib/components/moves/moves-context';
 	import { revealLit } from '$lib/components/shell/reveal';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * Moves: Figures, Routines or Positions, and the item beside it (desktop spec,
@@ -85,10 +86,10 @@
 	<BandButton
 		icon="plus"
 		label={segment === 'figures'
-			? 'New figure'
+			? t().moves.newFigure
 			: segment === 'routines'
-				? 'New routine'
-				: 'New position'}
+				? t().moves.newRoutine
+				: t().moves.newPosition}
 		onclick={() => (creating = true)}
 	/>
 {/snippet}
@@ -99,7 +100,7 @@
 		<Segmented
 			onBand
 			name="moves"
-			label="Moves"
+			label={t().shell.tabs.moves}
 			items={MOVES_SEGMENTS}
 			bind:value={segment}
 			onchange={openList}
@@ -131,7 +132,7 @@
 
 {#if l}
 	<ListPane
-		title="Moves"
+		title={t().shell.tabs.moves}
 		{isList}
 		{list}
 		{right}

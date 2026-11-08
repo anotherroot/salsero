@@ -1,3 +1,4 @@
+import { withLocale } from '$lib/i18n/current';
 import { describe, expect, it } from 'vitest';
 import { fieldLabel, pieceOf, setPrefixOf } from './flat';
 
@@ -95,5 +96,32 @@ describe('pieceOf', () => {
 		expect(pieceOf('link:https://example.com/rec:g1')).toBeNull();
 		expect(pieceOf('fig:g1')).toBeNull();
 		expect(pieceOf('start:g1')).toBeNull();
+	});
+});
+
+describe('fieldLabel in Slovenian', () => {
+	const sl = (key: string, show = 'x') => withLocale('sl', () => fieldLabel(key, show));
+
+	it('names root fields with the words the other screens use', () => {
+		expect(
+			['name', 'notes', 'partner', 'timing', 'practice', 'crossed', 'slots'].map((k) => sl(k))
+		).toEqual([
+			'Ime',
+			'Opombe',
+			'V paru ali solo',
+			'Začetek in dolžina',
+			'Vadenje',
+			'Desni roki zgoraj',
+			'Mesta'
+		]);
+	});
+
+	it('names a set member, a piece and its parts, the value as it is', () => {
+		expect(sl('start:g4', 'Cerrada')).toBe('Začne v · Cerrada');
+		expect(sl('fig:g7', 'Enchufla · Doble')).toBe('Različica · Enchufla · Doble');
+		expect(sl('rec:g1', 'Ana, 3. nov.')).toBe('Posnetek · Ana, 3. nov.');
+		expect(sl('rec:g1:note', 'x')).toBe('Opomba · x');
+		expect(sl('rec:g1:spot:s1', '0:01')).toBe('Odsek · 0:01');
+		expect(sl('rec:g1:spot:s1:links', '0:01')).toBe('Povezave odseka · 0:01');
 	});
 });

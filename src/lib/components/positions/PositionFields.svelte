@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DANCES, type DanceSlug } from '$lib/dances/dances';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
@@ -52,6 +53,7 @@
 	}: Props = $props();
 
 	const d = $derived(DANCES[dance]);
+	const styleLabel = $derived(styleLabelsOf(d.styleLabel));
 	// The form owns these from here: the props only seed them.
 	// svelte-ignore state_referenced_locally
 	let hands = $state<Hands | null>(hold.hands);
@@ -62,9 +64,10 @@
 	// svelte-ignore state_referenced_locally
 	let frame = $state<Frame | null>(hold.frame);
 
-	const HANDS_ITEMS = HANDS.map((h) => ({ value: h, label: HANDS_SHORT[h] }));
-	const FACING_ITEMS = FACING.map((f) => ({ value: f, label: FACING_LABEL[f] }));
-	const FRAME_ITEMS = FRAME.map((f) => ({ value: f, label: FRAME_LABEL[f] }));
+	// Read when drawn: the words are the reader's language.
+	const HANDS_ITEMS = $derived(HANDS.map((h) => ({ value: h, label: HANDS_SHORT[h] })));
+	const FACING_ITEMS = $derived(FACING.map((f) => ({ value: f, label: FACING_LABEL[f] })));
+	const FRAME_ITEMS = $derived(FRAME.map((f) => ({ value: f, label: FRAME_LABEL[f] })));
 
 	// A sheet and the picker's create step can be open at once: ids per instance.
 	const uid = $props.id();
@@ -98,7 +101,7 @@
 			{#each d.styles as s (s)}
 				<label class={CHIP}>
 					<input type="radio" name="styleTag" value={s} checked={styleTag === s} class="sr-only" />
-					{d.styleLabel[s]}
+					{styleLabel[s]}
 				</label>
 			{/each}
 		</div>

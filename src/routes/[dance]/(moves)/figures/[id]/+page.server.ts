@@ -84,8 +84,9 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
-import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
+import { alreadyInYours, recordingGone, sameAsFailed } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
+import { t } from '$lib/i18n/catalog';
 import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
@@ -128,7 +129,7 @@ const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, loc
 
 function variationId(raw: string): number {
 	const id = Number(raw);
-	if (!Number.isInteger(id)) throw error(404, 'Figure not found');
+	if (!Number.isInteger(id)) throw error(404, t().refusals.figureNotFound);
 	return id;
 }
 
@@ -168,11 +169,11 @@ function variationOf(
 	);
 	const found = getFigure(db, variationId(params.id), wallOf(params, locals).userId);
 	if (!found || found.figure.archivedAt !== null || found.figure.groupId === null) {
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	}
 	const group = getGroup(db, found.figure.groupId);
 	if (!group || group.archivedAt !== null || !inSpace(group, space)) {
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	}
 	return { ...found, group, space, access, reach };
 }
@@ -186,11 +187,9 @@ function practisable(db: Db, userId: string, figure: { id: number; teamId: numbe
 	return figure.teamId === null || addedReach(db, userId, figure.teamId).variations.has(figure.id);
 }
 
-const NOT_ADDED = 'Add a lesson with this figure to practise it.';
-
-const taken = (figure: string, name: string) =>
-	`${figure} already has a figure called ${name}. Rename one first.`;
-const figureTaken = (name: string) => `There's already a move called ${name}.`;
+// Refusals are composed in the request, in the reader's language.
+const taken = (figure: string, name: string) => t().moves.refused.figureTaken(figure, name);
+const figureTaken = (name: string) => t().moves.refused.moveTaken(name);
 
 export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const now = serverNow();
@@ -251,7 +250,10 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			id: s.id,
 			name: s.name,
 			holds: holdsLine(names(h.starts), names(h.ends)),
-			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
+			timing: t().figure.timing.line(
+				n?.start ?? DEFAULT_START_COUNT,
+				n?.length ?? DEFAULT_LENGTH_COUNTS
+			),
 			videos:
 				s.id === id
 					? found.recordings.length
@@ -537,13 +539,13 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if ((renames && !figureName) || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
-				message: 'Give the figure a name (up to 200 characters).'
+				message: t().figure.refused.names
 			});
 		}
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
 				action: 'update',
-				message: `A figure starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
+				message: t().figure.refused.timing(MAX_LENGTH_COUNTS)
 			});
 		}
 
@@ -571,10 +573,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// the same answer every other cross-dance id gets here. Tags the form never
 		// showed (archived, not read) are not posted and are kept (ruling 4).
 		if (!setFigureShape(db, figure.id, { startIds, endIds, startCount, lengthCounts }, by)) {
-			throw error(404, 'Figure not found');
+			throw error(404, t().refusals.figureNotFound);
 		}
 		if (!updateVariation(db, figure.id, { name, partner, style, notes }, by)) {
-			throw error(404, 'Figure not found');
+			throw error(404, t().refusals.figureNotFound);
 		}
 		// A case-only change ("enchufla") is a change: the figure keeps its place,
 		// `figureNameTaken` skipped it above, and the new spelling is saved.
@@ -599,7 +601,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 			return fail(400, {
 				action: 'createVariation',
 				field: 'name',
-				message: 'Give the figure a name (up to 200 characters).',
+				message: t().moves.refused.figureName,
 				name: typed
 			});
 		}
@@ -638,14 +640,14 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				return fail(400, {
 					action: 'move',
 					field: 'figureName',
-					message: 'Give the new move a name (up to 200 characters).'
+					message: t().figure.refused.newMoveName
 				});
 			}
 			result = moveVariation(db, figure.id, { newFigure: figureName }, me(params, locals));
 		} else {
 			groupId = int(form, 'target');
 			if (groupId === undefined) {
-				return fail(400, { action: 'move', message: 'Pick where to move it.' });
+				return fail(400, { action: 'move', message: t().figure.refused.pickTarget });
 			}
 			result = moveVariation(db, figure.id, { groupId, name }, me(params, locals));
 		}
@@ -655,18 +657,18 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				// The variation went in the meantime, or the target is not a live
 				// figure of this dance — a posted id is just a number.
 				case 'gone':
-					throw error(404, 'Figure not found');
+					throw error(404, t().refusals.figureNotFound);
 				case 'same-figure':
 					return fail(400, {
 						action: 'move',
-						message: `${figure.name} is already a figure of ${group.name}.`
+						message: t().figure.refused.sameMove(figure.name, group.name)
 					});
 				case 'name-taken': {
 					const target = groupId === undefined ? null : getGroup(db, groupId);
 					return fail(400, {
 						action: 'move',
 						field: 'name',
-						message: taken(target?.name ?? 'That move', name ?? figure.name),
+						message: taken(target?.name ?? t().refusals.thatMove, name ?? figure.name),
 						name: String(form.get('name') ?? '')
 					});
 				}
@@ -690,7 +692,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
 		const done = archiveVariation(db, figure.id, serverNow(), me(params, locals));
-		if (!done) throw error(404, 'Figure not found');
+		if (!done) throw error(404, t().refusals.figureNotFound);
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
 			303,
@@ -707,13 +709,13 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const { figure } = variationOf(params, locals, 'read');
 		const userId = wallOf(params, locals).userId;
 		if (!practisable(getDb(), userId, figure)) {
-			return fail(400, { action: 'practise', message: NOT_ADDED });
+			return fail(400, { action: 'practise', message: t().figure.refused.notAdded });
 		}
 		const made = addFigureExercise(getDb(), userId, figure.id);
 		if (!made) {
 			return fail(400, {
 				action: 'practise',
-				message: 'This figure is already practised on its own.'
+				message: t().figure.refused.alreadyPractised
 			});
 		}
 		return { action: 'practise', ok: true, exerciseId: made.id };
@@ -757,7 +759,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const { figure } = variationOf(params, locals, 'read');
 		const form = await request.formData();
 		if (!setTwins(getDb(), wallOf(params, locals), 'figure', figure.id, ints(form, 'twin')))
-			return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+			return fail(400, { action: 'sameAs', message: sameAsFailed() });
 		return { action: 'sameAs' };
 	},
 
@@ -784,9 +786,9 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const recordingId = int(form, 'recordingId');
 		const into = int(form, 'into');
 		if (recordingId === undefined || !found.recordings.some((r) => r.id === recordingId)) {
-			return fail(404, { action: 'takeRecording', message: RECORDING_GONE });
+			return fail(404, { action: 'takeRecording', message: recordingGone() });
 		}
-		if (into === undefined) throw error(404, 'Figure not found');
+		if (into === undefined) throw error(404, t().refusals.figureNotFound);
 		const size = found.recordings.find((r) => r.id === recordingId)!.sizeBytes;
 		const res = await takeRecording(
 			getDb(),
@@ -818,11 +820,11 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				return fail(409, {
 					action: 'takeRecording',
 					recordingId,
-					message: ALREADY_IN_YOURS,
+					message: alreadyInYours(),
 					askForMore: false
 				});
 			default:
-				throw error(404, 'Figure not found');
+				throw error(404, t().refusals.figureNotFound);
 		}
 	},
 
@@ -836,7 +838,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (id === undefined || !found.recordings.some((r) => r.id === id)) {
 			return fail(404, {
 				action: 'deleteRecording',
-				message: 'That recording was already removed.'
+				message: t().figure.refused.recordingGone
 			});
 		}
 		let rec;
@@ -851,7 +853,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (!rec) {
 			return fail(404, {
 				action: 'deleteRecording',
-				message: 'That recording was already removed.'
+				message: t().figure.refused.recordingGone
 			});
 		}
 		// Row first, then file: a crash between the two leaves an orphan file,
@@ -869,7 +871,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const { figure } = variationOf(params, locals);
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
-			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+			return fail(400, { action: 'linkSection', message: t().figure.refused.pickSection });
 		}
 		try {
 			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { figureId: figure.id });
@@ -908,7 +910,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 			!(ownTarget || onOwnRecording) ||
 			!unlinkSpot(getDb(), link.id, link.target, serverNow(), me(params, locals))
 		) {
-			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+			return fail(404, { action: 'unlinkSection', message: t().figure.refused.linkGone });
 		}
 		const root = rootOfSpot(getDb(), link.spotId);
 		if (root) await flowAfter(locals.user?.id, root.kind, root.id);

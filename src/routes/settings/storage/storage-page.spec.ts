@@ -24,6 +24,7 @@ import { U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { addRecording, createFigure } from '$lib/server/figures';
 import { createSongFromUpload, getSong } from '$lib/server/songs';
 import { audioDir, recordingsDir } from '$lib/server/files';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
@@ -254,5 +255,41 @@ describe('deleting through the page', () => {
 		const res = await run(actions.deleteSong, post({ id: String(s.id) }));
 		expect(res.status).toBe(409);
 		expect(getSong(db, s.id)).not.toBeNull();
+	});
+});
+
+describe('the storage page in Slovenian', () => {
+	const sl = (fn: unknown, fields: Record<string, string>) =>
+		runInLocale('sl', () => run(fn, post(fields)));
+
+	it('refuses a song in use or still being prepared, and a gone row, in vikanje', async () => {
+		const s = song(U1_SALSA, 'a.mp3');
+		db.insert(exercises)
+			.values({
+				name: 'Warm up',
+				source: 'custom',
+				everyDays: 3,
+				practiceMode: 'song',
+				songId: s.id,
+				userId: 'u1'
+			} as never)
+			.run();
+		expect((await sl(actions.deleteSong, { id: String(s.id) })).data?.message).toBe(
+			'V uporabi: Warm up. Najprej jo odstranite tam.'
+		);
+		const t = song(U1_SALSA, 'b.mp3');
+		db.update(songs).set({ status: 'waiting_analysis' }).where(eq(songs.id, t.id)).run();
+		expect((await sl(actions.deleteSong, { id: String(t.id) })).data?.message).toBe(
+			'Ta skladba se še pripravlja. Poskusite znova čez nekaj minut.'
+		);
+		expect((await sl(actions.deleteRecording, { id: '999' })).data?.message).toBe('Tega ni več.');
+	});
+
+	it('loads the rows in the reader’s language', async () => {
+		song(U1_SALSA, 'a.mp3');
+		const data = (await runInLocale('sl', () => run(load, { locals: { user: U1 } }))) as {
+			items: { context: string }[];
+		};
+		expect(data.items[0].context).toBe('Skladba');
 	});
 });

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { setPracticeSettings } from '$lib/server/exercises';
@@ -9,7 +10,7 @@ import type { RequestHandler } from './$types';
 
 function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const exercise = requireExerciseInWall(getDb(), wallOf(params, locals), Number(params.id));
-	if (exercise.archivedAt !== null) throw error(404, 'No such exercise');
+	if (exercise.archivedAt !== null) throw error(404, t().refusals.noExercise);
 	return exercise;
 }
 
@@ -26,7 +27,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		DANCES[wallOf(params, locals).dance]
 	);
 	if (!input || !setPracticeSettings(getDb(), exercise.id, input)) {
-		throw error(400, 'Those practice settings cannot be used');
+		throw error(400, t().refusals.practiceSettings);
 	}
 	// A drill's practice is one of its fields: Keep in step's flow runs from it
 	// (an exercise that is no drill is in no family, so nothing runs).
