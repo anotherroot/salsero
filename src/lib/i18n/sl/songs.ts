@@ -71,6 +71,62 @@ export const songs: Catalog['songs'] = {
 			pause: 'Ustavi skladbo',
 			position: 'Mesto v skladbi'
 		},
+		edit: {
+			open: 'Uredi skladbo',
+			subtitle: 'Urejanje · shranjuje sproti',
+			leave: 'Zapri urejanje',
+			tabs: 'Urejanje',
+			grid: 'Mreža',
+			song: 'Skladba',
+			speed: {
+				title: 'Hitrost štetja',
+				help: 'Če štetje teče za pol ali dvakrat hitreje od vaših korakov, ga preklopite.',
+				askTitle: 'Spremenim hitrost štetja?',
+				ask: (n, factor) =>
+					`Štetje ${factor} izbriše ${n === 1 ? 'vašo 1' : `vaše 1 (${n})`}. Deli ostanejo, vsak na najbližji 1.`,
+				change: 'Spremeni',
+				done: (factor) => `Štetje ${factor}`
+			},
+			sample: {
+				title: 'Odlomek',
+				from: (at) => `Od ${at}`,
+				automatic: 'Samodejno',
+				yours: 'Vaš',
+				autoMeta: 'Tretjina skladbe, na 1',
+				yoursMeta: 'Nastavili ste ga vi',
+				here: 'Odlomek začni tukaj',
+				hereMeta: (at) => `Pri ${at}, na 1 pred trenutnim mestom`,
+				back: 'Nazaj na samodejno',
+				doneHere: (at) => `Odlomek se začne blizu ${at}`,
+				doneBack: 'Odlomek je spet samodejen'
+			},
+			start: {
+				title: 'Začetek glasbe',
+				at: (at) => `Pri ${at}`,
+				found: 'Našel domači računalnik',
+				yours: 'Vaš',
+				unmeasured: 'Še ni izmerjeno',
+				fromZero: 'Predvaja se od 0:00',
+				here: 'Začni tukaj',
+				hereMeta: (at) => `Pri ${at}, na trenutnem mestu`,
+				zero: 'Od 0:00',
+				zeroMeta: 'Predvajaj celo datoteko',
+				back: 'Nazaj na najdeni začetek',
+				doneHere: (at) => `Skladba se začne pri ${at}`,
+				doneZero: 'Skladba se predvaja od 0:00',
+				doneBack: 'Spet tam, kjer se začne glasba'
+			},
+			details: 'Podatki o skladbi',
+			detailsMeta: 'Naslov, izvajalec in slog',
+			clear: {
+				ones: 'Izbriši vse 1',
+				onesMeta: (n) => `Nastavljenih: ${n}`,
+				sections: 'Izbriši vse dele',
+				sectionsMeta: (n) => slCount(n, ['del', 'dela', 'deli', 'delov']),
+				doneOnes: 'Vse 1 izbrisane',
+				doneSections: 'Vsi deli izbrisani'
+			}
+		},
 		refused: {
 			taken: 'Tam se že začne drug del',
 			ends: 'To je čez konec skladbe',

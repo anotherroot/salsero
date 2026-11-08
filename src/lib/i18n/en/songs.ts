@@ -79,6 +79,63 @@ export const songs = {
 			pause: 'Pause the song',
 			position: 'Position in the song'
 		},
+		/** Edit: the Grid and Song tabs, saving as you go. */
+		edit: {
+			open: 'Edit the song',
+			subtitle: 'Editing · saves as you go',
+			leave: 'Leave Edit',
+			tabs: 'Edit',
+			grid: 'Grid',
+			song: 'Song',
+			speed: {
+				title: 'Count speed',
+				help: 'If the count runs at half or double your steps, switch it.',
+				askTitle: 'Change count speed?',
+				ask: (n: number, factor: string): string =>
+					`Counting at ${factor} clears ${n === 1 ? 'the 1 you set' : `your ${n} 1s`}. Your sections stay, each on its nearest 1.`,
+				change: 'Change',
+				done: (factor: string): string => `Counting at ${factor}`
+			},
+			sample: {
+				title: 'Sample',
+				from: (at: string): string => `From ${at}`,
+				automatic: 'Automatic',
+				yours: 'Yours',
+				autoMeta: 'A third of the way in, on a 1',
+				yoursMeta: 'Set by you',
+				here: 'Start the sample here',
+				hereMeta: (at: string): string => `At ${at}, the 1 before where it is now`,
+				back: 'Back to automatic',
+				doneHere: (at: string): string => `The sample starts near ${at}`,
+				doneBack: 'The sample is automatic again'
+			},
+			start: {
+				title: 'Music starts',
+				at: (at: string): string => `At ${at}`,
+				found: 'Found by the home box',
+				yours: 'Yours',
+				unmeasured: 'Not measured yet',
+				fromZero: 'Plays from 0:00',
+				here: 'Start it here',
+				hereMeta: (at: string): string => `At ${at}, where it is now`,
+				zero: 'From 0:00',
+				zeroMeta: 'Play the whole file',
+				back: 'Back to what was found',
+				doneHere: (at: string): string => `The song starts at ${at}`,
+				doneZero: 'The song plays from 0:00',
+				doneBack: 'Back to where the music starts'
+			},
+			details: 'Song details',
+			detailsMeta: 'Title, artist and style',
+			clear: {
+				ones: 'Clear all 1s',
+				onesMeta: (n: number): string => `${n} set by you`,
+				sections: 'Clear all sections',
+				sectionsMeta: (n: number): string => `${n} ${n === 1 ? 'section' : 'sections'}`,
+				doneOnes: 'All 1s cleared',
+				doneSections: 'All sections cleared'
+			}
+		},
 		/** Why an Edit change was not saved. */
 		refused: {
 			taken: 'Another section starts there',

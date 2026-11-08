@@ -9,7 +9,12 @@
 	import SectionsList from '$lib/components/songs/SectionsList.svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { sectionIndexAt } from '$lib/songs/sections';
-	import { playFrom } from '$lib/songs/music-start';
+	import { MUSIC_START_MIN_S, playFrom } from '$lib/songs/music-start';
+	import SongEdit from '$lib/components/songs/SongEdit.svelte';
+	import SongTab from '$lib/components/songs/SongTab.svelte';
+	import { sheetStack } from '$lib/sheets/history.svelte';
+	import type { ToastState } from '$lib/act-toast';
+	import type { TempoFactor } from '$lib/labels';
 	import { t } from '$lib/i18n/catalog';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -217,6 +222,41 @@
 		if (audio?.paused) void audio.play().catch(() => {});
 	}
 
+	/*
+	 * Edit is page state, not a route, registered with the sheet stack: Back (and
+	 * ×) leaves Edit before it leaves the page, and the reload after each save,
+	 * which resets `page.state`, cannot drop it.
+	 */
+	let editing = $state(false);
+	let editKey: number | null = null;
+	let editTab = $state<'grid' | 'song'>('grid');
+	let editToast = $state<ToastState | null>(null);
+	/** Edit · Song's Music starts group, for the grid's ✎. */
+	let startGroup: HTMLElement | undefined = $state();
+
+	function openEdit() {
+		if (editing) return;
+		editing = true;
+		editTab = 'grid';
+		editKey = sheetStack.open({
+			tryLeave: (leave) => leave(),
+			close: () => {
+				editing = false;
+				editKey = null;
+				editToast = null;
+			}
+		});
+	}
+
+	function leaveEdit() {
+		if (editKey !== null) sheetStack.requestClose(editKey);
+	}
+
+	// Leaving the page while in Edit: its history entry goes too.
+	$effect(() => () => {
+		if (editKey !== null) sheetStack.closedByOwner(editKey);
+	});
+
 	/** The band's ⋯ is open. */
 	let menuOpen = $state(false);
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
@@ -231,22 +271,35 @@
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
 
-<Screen compact width="song" title={name} {subtitle}>
+<Screen
+	compact
+	width="song"
+	title={name}
+	subtitle={editing ? t().songs.page.edit.subtitle : subtitle}
+>
 	{#snippet left()}
-		<BackButton
-			fallback={{
-				href: resolve('/[dance]/songs', { dance: data.dance.slug }),
-				label: 'Back to Music'
-			}}
-		/>
+		{#if editing}
+			<BandButton icon="close" label={t().songs.page.edit.leave} onclick={leaveEdit} />
+		{:else}
+			<BackButton
+				fallback={{
+					href: resolve('/[dance]/songs', { dance: data.dance.slug }),
+					label: 'Back to Music'
+				}}
+			/>
+		{/if}
 	{/snippet}
 	{#snippet right()}
-		{#if canEdit}
+		{#if editing}
+			<!-- Nothing to save: every change saved when it was made. -->
+		{:else if canEdit && grid}
+			<BandButton icon="edit" label={t().songs.page.edit.open} onclick={openEdit} />
+		{:else if canEdit}
 			<BandButton icon="edit" label="Song details" onclick={() => (detailsOpen = true)} />
 		{:else if data.makeMine}
 			<BandButton icon="edit" label="Edit song" onclick={() => (makingMine = true)} />
 		{/if}
-		{#if hasMenu(songOwn, offers)}
+		{#if !editing && hasMenu(songOwn, offers)}
 			<BandButton
 				icon="more"
 				label={menuLabel('song')}
@@ -276,7 +329,7 @@
 
 	{#if grid && song.audioFile}
 		<!-- A group's draft is not in anyone's practice yet, its editors' included. -->
-		{#if !group || song.sharedAt !== null}
+		{#if !editing && (!group || song.sharedAt !== null)}
 			<a
 				href={resolve(`/${data.dance.slug}/player?song=${song.id}`)}
 				class={button('secondary', 'md', true)}
@@ -307,40 +360,73 @@
 			onseeked={() => (now = audio?.currentTime ?? 0)}
 		></audio>
 
-		<CountCard
-			{now}
-			{paused}
-			{played}
-			{duration}
-			beats={grid.beats}
-			counts={grid.counts}
-			sections={data.sections}
-			anchors={data.anchors.length}
-			startS={data.start.at}
-			time={() => (audio && played ? audio.currentTime : null)}
-			ontoggle={toggle}
-			onseek={seek}
-		/>
-		{#if audioProblem}<Banner kind="error" title={audioProblem} />{/if}
+		{#if editing}
+			<SongEdit
+				bind:tab={editTab}
+				bind:toast={editToast}
+				{now}
+				{paused}
+				{duration}
+				quietUntil={data.start.at >= MUSIC_START_MIN_S ? data.start.at : 0}
+				ontoggle={toggle}
+				onseek={seek}
+			>
+				{#snippet gridTab()}
+					<p class="px-3 pt-3 text-center text-[13px] text-muted">…</p>
+				{/snippet}
+				{#snippet songTab()}
+					<SongTab
+						bind:startGroup
+						{now}
+						{name}
+						anchors={data.anchors}
+						tempoFactor={data.song.tempoFactor as TempoFactor}
+						sections={data.sections.length}
+						sectionsJson={data.sectionsJson}
+						sample={data.sample}
+						start={data.start}
+						seen={() => seen}
+						toast={(t) => (editToast = t)}
+						ondetails={() => (detailsOpen = true)}
+					/>
+				{/snippet}
+			</SongEdit>
+		{:else}
+			<CountCard
+				{now}
+				{paused}
+				{played}
+				{duration}
+				beats={grid.beats}
+				counts={grid.counts}
+				sections={data.sections}
+				anchors={data.anchors.length}
+				startS={data.start.at}
+				time={() => (audio && played ? audio.currentTime : null)}
+				ontoggle={toggle}
+				onseek={seek}
+			/>
+			{#if audioProblem}<Banner kind="error" title={audioProblem} />{/if}
 
-		{#if data.sample}
-			<h2 class="{SECTION_LABEL} pt-3.5">{t().songs.page.listen.sample}</h2>
-			<div class={GROUP}>
-				<div class="flex min-h-16 items-center gap-1 pr-1 pl-4">
-					<div class="flex min-w-0 flex-1 flex-col gap-0.5 py-2">
-						<span class="text-[16px] leading-[1.3] font-bold text-ink tabular-nums"
-							>{t().songs.page.listen.sampleFrom(clock(data.sample.song.startS))}</span
-						>
-						<span class="text-[13px] leading-[1.35] text-muted"
-							>{t().songs.page.listen.sampleMeta}</span
-						>
+			{#if data.sample}
+				<h2 class="{SECTION_LABEL} pt-3.5">{t().songs.page.listen.sample}</h2>
+				<div class={GROUP}>
+					<div class="flex min-h-16 items-center gap-1 pr-1 pl-4">
+						<div class="flex min-w-0 flex-1 flex-col gap-0.5 py-2">
+							<span class="text-[16px] leading-[1.3] font-bold text-ink tabular-nums"
+								>{t().songs.page.listen.sampleFrom(clock(data.sample.song.startS))}</span
+							>
+							<span class="text-[13px] leading-[1.35] text-muted"
+								>{t().songs.page.listen.sampleMeta}</span
+							>
+						</div>
+						<SampleButton song={data.sample.song} {name} />
 					</div>
-					<SampleButton song={data.sample.song} {name} />
 				</div>
-			</div>
-		{/if}
+			{/if}
 
-		<SectionsList sections={data.sections} {current} onjump={jump} />
+			<SectionsList sections={data.sections} {current} onjump={jump} />
+		{/if}
 	{:else}
 		{#if steps.length > 0}
 			<ul class={GROUP} aria-label="Progress">
