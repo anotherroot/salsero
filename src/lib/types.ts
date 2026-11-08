@@ -1173,3 +1173,18 @@ export type CommentsOn = {
 	/** The load's clock: the card's "2 days ago" reads it, so SSR and hydration agree. */
 	now: number;
 };
+
+/**
+ * The You page's settings (`YouSettings.svelte`): the few rows changed most,
+ * read by `youSettingsOf` (`$lib/server/you.ts`). The theme is the root layout's
+ * (`data.theme`, a cookie per browser), not here.
+ */
+export type YouSettingsData = {
+	/** `users.level`; null (not chosen) draws as Everything. */
+	level: 'follow' | 'own' | 'all' | null;
+	dailyCount: number;
+	/** My count's line: "3 of 21 tempos in your own voice". */
+	ownVoice: string;
+	/** The Android app's daily reminder, minutes into the day; null is off. */
+	reminderMinute: number | null;
+};

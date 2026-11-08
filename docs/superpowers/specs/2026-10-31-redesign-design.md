@@ -187,7 +187,11 @@ Every component exists in the states on the design system board (sections
 
 ## Navigation
 
-- **Five tabs: Today · Moves · Lessons · Groups · Music.** The tab bar shows on every
+- **Five tabs: Today · Moves · Lessons · Music · You.** You (the person icon, since
+  2026-11-07) is the Groups tab: your groups, then a short list of settings and All
+  settings. At Follow my class the bar is Today · My class · You, You there the
+  settings alone (`/[dance]/you`). The desktop side keeps Groups and Settings. See
+  [levels](2026-11-05-levels-design.md). The tab bar shows on every
   screen of a dance except Practice and share; a pushed screen has a back
   chevron on the band and the bar too (an edit's Save bar or a selection bar
   takes the bottom and the tab bar steps aside). See
@@ -200,8 +204,11 @@ Every component exists in the states on the design system board (sections
 - **Music** = the song library (today's Songs).
 - **Practice** (today's Player) is a pushed screen, reached from Music, a song,
   a routine, an exercise.
-- **Settings** is the sliders icon on Today's band; there is no Settings tab.
-  "My count" (voice recording) is reached from Settings.
+- **Settings** is reached from You (2026-11-07; before it, the sliders icon on Today's
+  band, which made it reachable from Today only): You carries How much app?, Exercises
+  a day, My count, Theme and the daily reminder, each saving through Settings'
+  own actions, and All settings opens the full page, whose ‹ goes back to You.
+  "My count" is reached from You and from Settings.
 - **No dance switch anywhere.** The Salsa/Bachata pill at the top of every page
   goes. Each Android app is one dance already; on the web the dance is the URL
   (`/salsa/…`, `/bachata/…`) and nothing on screen offers the other one.
@@ -463,7 +470,7 @@ rules the boards follow that are not obvious from looking at them.
 
 ### Settings, My count, sign-in and system
 
-- Settings is pushed from Today. Grouped rows: Practice (My count, New figures
+- Settings is pushed from You (All settings). Grouped rows: Practice (My count, New figures
   start on — this dance's style only, picked in a sheet), Android app (daily
   reminder as a switch plus a time row disabled when off; compress videos),
   Paired phones, Account (email and Sign out).

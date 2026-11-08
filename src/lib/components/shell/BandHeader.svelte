@@ -39,6 +39,7 @@
 		title,
 		subtitle,
 		deskSubtitle,
+		deskTitle,
 		compact = false,
 		hero = false,
 		slim = false,
@@ -53,6 +54,8 @@
 		subtitle?: string;
 		/** The desktop's subtitle in place of `subtitle`; the phone keeps `subtitle`. */
 		deskSubtitle?: string;
+		/** The desktop's title in place of `title`; the phone keeps `title` (Groups is You on the phone). */
+		deskTitle?: string;
 		compact?: boolean;
 		/** The page has a hero card over the band's foot: a deeper band. */
 		hero?: boolean;
@@ -170,7 +173,11 @@
 					? 'text-[30px] leading-[1.1] tracking-[-0.015em]'
 					: 'text-[46px] leading-[1.05] tracking-[-0.02em]'}"
 			>
-				<span class="line-clamp-2 min-w-0 break-words {D.name}">{title}</span>
+				<span class="line-clamp-2 min-w-0 break-words {D.name}"
+					>{#if deskTitle}<span class="desk:hidden">{title}</span><span class="hidden desk:inline"
+							>{deskTitle}</span
+						>{:else}{title}{/if}</span
+				>
 			</svelte:element>
 			{#if deskSubtitle}
 				{#if subtitle}

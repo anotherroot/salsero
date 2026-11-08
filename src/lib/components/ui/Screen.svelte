@@ -10,6 +10,7 @@
 		title,
 		subtitle,
 		deskSubtitle,
+		deskTitle,
 		compact = false,
 		width = 'one',
 		card = false,
@@ -26,6 +27,8 @@
 		subtitle?: string;
 		/** The band row's subtitle on the desktop, in place of `subtitle` (`BandHeader`). */
 		deskSubtitle?: string;
+		/** The band row's title on the desktop, in place of `title` (`BandHeader`). */
+		deskTitle?: string;
 		compact?: boolean;
 		/** How wide the content grows on the desktop (`PAGE_WIDTH`); the phone ignores it. */
 		width?: PageWidth;
@@ -145,6 +148,7 @@
 	{title}
 	{subtitle}
 	{deskSubtitle}
+	{deskTitle}
 	{compact}
 	hero={!!hero}
 	{slim}

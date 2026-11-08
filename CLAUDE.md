@@ -37,7 +37,7 @@ video refuse to delete) and one picker for every list (search, figure headings, 
 keep going) and the Link popup (link a section, or create the
 variation, figure or drill it shows, from the lesson page or the player; a
 lesson includes what its videos' sections link to) and the redesign (the band and five tabs: Today, Moves, Lessons,
-Groups, Music; one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
+Music, You (since 2026-11-07 the Groups tab, with a short list of settings; at Follow my class Today, My class, You); one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
 designed error pages) and accounts (one-time invites from the admin, a person's own private app, a storage limit with What uses space and Ask for more, an admin page) and groups (a Groups tab; a class makes a group and people join by its code or
 `/g/<code>`; lessons are drafts until published; Add copies a published lesson's
 drills into a person's own practice, with per-person entries; a clash check on
@@ -127,7 +127,7 @@ the top sheet.
 The look and the five tabs have theirs,
 [`docs/superpowers/specs/2026-10-31-redesign-design.md`](docs/superpowers/specs/2026-10-31-redesign-design.md):
 the colour tokens in four themes, type, icons, the shared components, the band,
-and the Today / Moves / Lessons / Groups / Music tab bar. The design board it comes from
+and the Today / Moves / Lessons / Music / You tab bar. The design board it comes from
 is in `docs/superpowers/design-kit/`.
 Accounts have theirs,
 [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md):
@@ -441,6 +441,8 @@ src/lib/theme/tokens.ts  also `GROUP`, the group look's dance tokens; `layout.cs
                      in `[data-dance][data-group]`
 src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
                      `membership.ts`: leave, remove, roles
+src/lib/server/you.ts  `youSettingsOf`: the You tab's settings rows (`components/settings/YouSettings.svelte`,
+                     saving through Settings' own actions); `/[dance]/you` is You at Follow my class
 src/lib/server/levels.ts  `users.level` and `team_members.auto_add`: `levelOf`, `setLevel`,
                      `setAutoAdd`. `locals.user.level` carries the level, so a load never asks
 src/lib/server/auto-add.ts  Add running by itself: `autoAddOnPublish` (in `publishLesson`),

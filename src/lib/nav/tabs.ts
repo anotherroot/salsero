@@ -1,7 +1,7 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
 
-export type TabId = 'today' | 'moves' | 'lessons' | 'groups' | 'music';
+export type TabId = 'today' | 'moves' | 'lessons' | 'music' | 'groups' | 'you';
 
 export interface Tab {
 	id: TabId;
@@ -11,17 +11,26 @@ export interface Tab {
 		| '/[dance]/(today)'
 		| '/[dance]/(moves)/figures'
 		| '/[dance]/lessons'
+		| '/[dance]/songs'
 		| '/[dance]/groups'
-		| '/[dance]/songs';
+		| '/[dance]/you';
 }
 
-/** The five tabs, in order. A person sees the ones their level gives (`tabsFor`, `$lib/levels/levels.ts`). */
+/**
+ * Every tab, in order. A person sees the ones their level gives (`tabsFor` on
+ * the phone, `sideTabsFor` on the desktop, `$lib/levels/levels.ts`). On the
+ * phone the Groups tab is "You" (the groups, then the settings), except at
+ * Follow my class, where it is "My class" and You is a tab of its own
+ * (`/[dance]/you`, the settings alone). The desktop's side has no You: it has
+ * Settings.
+ */
 export const TABS: readonly Tab[] = [
 	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]/(today)' },
 	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/(moves)/figures' },
 	{ id: 'lessons', label: 'Lessons', icon: 'lessons', path: '/[dance]/lessons' },
+	{ id: 'music', label: 'Music', icon: 'music', path: '/[dance]/songs' },
 	{ id: 'groups', label: 'Groups', icon: 'group', path: '/[dance]/groups' },
-	{ id: 'music', label: 'Music', icon: 'music', path: '/[dance]/songs' }
+	{ id: 'you', label: 'You', icon: 'solo', path: '/[dance]/you' }
 ];
 
 /** First segment after the dance -> the tab it belongs to. */
@@ -36,7 +45,8 @@ const SECTION: Record<string, TabId> = {
 	lessons: 'lessons',
 	groups: 'groups',
 	songs: 'music',
-	player: 'music'
+	player: 'music',
+	you: 'you'
 };
 
 /**
@@ -59,7 +69,13 @@ export function tabFor(path: string, dance: DanceSlug): TabId | null {
 /** The main lists a tab opens on. Moves has three: figures, routines and positions. */
 export function rootsOf(tab: TabId, dance: DanceSlug): string[] {
 	if (tab === 'moves') return [`/${dance}/figures`, `/${dance}/routines`, `/${dance}/positions`];
-	const path = { today: '', lessons: '/lessons', groups: '/groups', music: '/songs' }[tab];
+	const path = {
+		today: '',
+		lessons: '/lessons',
+		music: '/songs',
+		groups: '/groups',
+		you: '/you'
+	}[tab];
 	return [`/${dance}${path}`];
 }
 

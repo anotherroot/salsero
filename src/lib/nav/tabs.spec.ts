@@ -17,6 +17,7 @@ describe('tabFor', () => {
 		expect(tabFor('/salsa/player', 'salsa')).toBe('music');
 		expect(tabFor('/salsa/exercises/4', 'salsa')).toBe('today');
 		expect(tabFor('/salsa/coming-up', 'salsa')).toBe('today');
+		expect(tabFor('/salsa/you', 'salsa')).toBe('you');
 	});
 
 	it('lights nothing outside the dance', () => {
@@ -55,8 +56,15 @@ describe('showsTabs', () => {
 });
 
 describe('TABS', () => {
-	it('has four, in order', () => {
-		expect(TABS.map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Groups', 'Music']);
+	it('has six, in order: Groups and You last', () => {
+		expect(TABS.map((t) => t.label)).toEqual([
+			'Today',
+			'Moves',
+			'Lessons',
+			'Music',
+			'Groups',
+			'You'
+		]);
 	});
 
 	it('opens Moves on Figures, by its route id in the (moves) group', () => {
@@ -75,6 +83,7 @@ describe('rootsOf', () => {
 		expect(rootsOf('lessons', 'salsa')).toEqual(['/salsa/lessons']);
 		expect(rootsOf('groups', 'salsa')).toEqual(['/salsa/groups']);
 		expect(rootsOf('music', 'salsa')).toEqual(['/salsa/songs']);
+		expect(rootsOf('you', 'salsa')).toEqual(['/salsa/you']);
 	});
 });
 

@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
+	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
@@ -29,8 +29,8 @@
 			(page.data.lesson?.teamId ?? null) !== null
 		)
 	);
-	// The person's level's tabs (`tabsFor`), as in the tab bar.
-	const tabs = $derived(tabsFor(levelShown(page.data.user?.level)));
+	// The person's level's tabs, as in the tab bar but without You (`sideTabsFor`).
+	const tabs = $derived(sideTabsFor(levelShown(page.data.user?.level)));
 	const targets = $derived(tabTargets(tabs, dance, path));
 
 	const ITEM =

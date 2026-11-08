@@ -17,6 +17,18 @@ describe('voiceBack', () => {
 		});
 	});
 
+	it('goes back to You when opened from it: the Groups list or the You page', () => {
+		expect(voiceBack('/salsa/groups')).toEqual({ href: '/salsa/groups', label: 'Back to You' });
+		expect(voiceBack('/bachata/you')).toEqual({ href: '/bachata/you', label: 'Back to You' });
+		for (const bad of [
+			'/salsa/groups/3',
+			'/salsa/you?x=1',
+			'//evil.example/salsa/you',
+			'/tango/you'
+		])
+			expect(voiceBack(bad).href).toBe('/settings');
+	});
+
 	it('is no open redirect: anything else is Settings', () => {
 		for (const bad of [
 			'https://evil.example/salsa/player',
