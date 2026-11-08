@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { noonOf } from '$lib/day/day';
 import { setSummary } from '$lib/format';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import type { HistorySet, PracticeContent } from '$lib/types';
 import {
 	archiveBody,
 	fromClassLabel,
 	pageParts,
-	historyDays,
+	recordingKeys,
 	ownerOf,
 	practisedLabel,
 	setMeta,
@@ -111,29 +112,6 @@ describe('historyRows', () => {
 	});
 });
 
-describe('historyDays', () => {
-	it('groups newest first and labels the days', () => {
-		const d = historyDays(
-			[
-				at('2026-10-31', '19:42'),
-				at('2026-10-31', '08:15'),
-				at('2026-10-30', '20:00'),
-				at('2026-10-27', '20:05'),
-				at('2025-12-30', '18:00')
-			],
-			TZ,
-			'2026-10-31'
-		);
-		expect(d.map((g) => g.label)).toEqual([
-			'Today',
-			'Yesterday',
-			'Tuesday, 27 October',
-			'Tuesday, 30 December, 2025'
-		]);
-		expect(d[0].sets).toHaveLength(2);
-	});
-});
-
 describe('setTitle / setMeta', () => {
 	it('titles a set', () => {
 		expect(setTitle({ durationS: 360, reps: null, rating: 4 })).toEqual({
@@ -187,25 +165,39 @@ describe('archiveBody', () => {
 	});
 });
 
+describe('recordingKeys', () => {
+	it('sections then links: after an unlink or a removal the next row is the next section, else the next link', () => {
+		const keys = recordingKeys([{ linkId: 4 }, { linkId: 9 }], [{ id: 2 }, { id: 5 }]);
+		expect(keys).toEqual(['section-4', 'section-9', 'link-2', 'link-5']);
+	});
+});
+
+describe("the history's words", () => {
+	it('the empty history says Done, and a deleted day names itself', () => {
+		expect(t().exercise.page.nothingYetBody).toBe(
+			'Tap Done after you practise — it shows up here, grouped by day.'
+		);
+		expect(t().exercise.page.deleteDay).toBe('Delete this day');
+		expect(t().exercise.page.dayDeleted('Thu 5 Nov')).toBe('Thu 5 Nov deleted');
+	});
+});
+
 describe('pageParts', () => {
-	it('the full page keeps everything and says Log a set', () => {
-		expect(pageParts(false, true)).toMatchObject({
+	it('the full page keeps everything', () => {
+		expect(pageParts(false, true)).toEqual({
 			editSettings: true,
 			historyLink: true,
 			sourceTabs: true,
 			ownerRow: true,
 			addBlock: true,
 			historyTiles: true,
-			setList: true,
 			settingsBlock: true,
-			fromClass: false,
-			logButton: 'Log a set'
+			fromClass: false
 		});
 	});
-	it('the simple page hides the rest and says I practised this', () => {
+	it('the simple page hides the rest, the history too', () => {
 		const p = pageParts(true, false);
-		expect(Object.entries(p).filter(([k, v]) => k !== 'logButton' && v === true)).toEqual([]);
-		expect(p.logButton).toBe('I practised this');
+		expect(Object.entries(p).filter(([, v]) => v === true)).toEqual([]);
 	});
 	it('From class shows only on the simple page, and only with a class', () => {
 		expect(pageParts(true, true).fromClass).toBe(true);
@@ -234,17 +226,6 @@ describe('in Slovenian', () => {
 		]);
 	});
 
-	it('names the days of the history', () => {
-		const d = sl(() =>
-			historyDays(
-				[at('2026-10-31', '19:42'), at('2026-10-30', '20:00'), at('2025-12-30', '18:00')],
-				TZ,
-				'2026-10-31'
-			)
-		);
-		expect(d.map((g) => g.label)).toEqual(['Danes', 'Včeraj', 'torek, 30. decembra 2025']);
-	});
-
 	it('titles a set with nothing to sum up, and sums one up', () => {
 		expect(sl(() => setTitle({ durationS: null, reps: null, rating: null })).text).toBe('Vnos');
 		expect(sl(() => setTitle({ durationS: 300, reps: 12, rating: null })).text).toBe(
@@ -267,9 +248,12 @@ describe('in Slovenian', () => {
 		);
 	});
 
-	it('words the pinned button and the way to the class', () => {
-		expect(sl(() => pageParts(false, false)).logButton).toBe('Nov vnos');
-		expect(sl(() => pageParts(true, true)).logButton).toBe('Opravljeno');
+	it('words the way to the class, and a deleted day', () => {
+		expect(sl(() => t().exercise.page.dayDeleted('čet, 5. nov.'))).toBe('Izbrisano: čet, 5. nov.');
+		expect(sl(() => t().exercise.page.deleteDay)).toBe('Izbriši ta dan');
+		expect(sl(() => t().exercise.page.nothingYetBody)).toBe(
+			'Ko vadite, pritisnite Opravljeno. Tukaj se pokaže, razvrščeno po dnevih.'
+		);
 		expect(sl(() => fromClassLabel('2026-11-03', '2026-11-05'))).toBe('Z lekcije tor, 3. nov. ›');
 	});
 });

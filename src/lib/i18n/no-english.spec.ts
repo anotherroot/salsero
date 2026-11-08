@@ -80,6 +80,8 @@ const TRANSLATED: string[] = [
 	// The exercise page and the log popup, its practice panel and chips (Task 8).
 	'src/lib/components/exercises/ComesBackCard.svelte',
 	'src/lib/components/exercises/DoneSheet.svelte',
+	'src/lib/components/exercises/DoneBar.svelte',
+	'src/lib/components/exercises/HistoryDaySheet.svelte',
 	'src/lib/components/exercises/Face.svelte',
 	'src/lib/components/exercises/FaceRating.svelte',
 	'src/lib/components/exercises/LastTime.svelte',

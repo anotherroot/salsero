@@ -656,8 +656,8 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		const id = String(mine);
 		expect(() => loadAt(exercisePage.load, U2, 'salsa', id)).toThrow(threw404);
 		for (const [name, fields] of [
-			['log', { exerciseId: id, reps: '5' }],
-			['deleteSet', { setId: String(setId) }],
+			['done', { exerciseId: id, rating: '4' }],
+			['deleteDay', { exerciseId: id, day: localDay(Date.now(), U1.timezone) }],
 			['update', { name: 'Hijack', everyDays: '1', notes: 'x' }],
 			['archive', {}],
 			['linkSection', { spotId: '1' }],
@@ -1904,11 +1904,15 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		['unlinkSection', { linkId: '1' }],
 		['addLink', { urls: 'https://example.com/a' }],
 		['deleteLink', { linkId: '1' }],
-		['log', { exerciseId: '0', durationS: '60' }]
+		['done', { exerciseId: '0', durationS: '60', rating: '4' }],
+		['deleteDay', { exerciseId: '0', day: '2026-11-01' }]
 	])('%s on a group drill is a 404 for a member, and changes nothing', async (action, fields) => {
 		const before = snapshot();
 		for (const id of [shines, draftDrill]) {
-			const body = action === 'log' ? { ...fields, exerciseId: String(id) } : fields;
+			const body =
+				action === 'done' || action === 'deleteDay'
+					? { ...fields, exerciseId: String(id) }
+					: fields;
 			await refuses(
 				exercisePage.actions[action as keyof typeof exercisePage.actions],
 				post(U2, 'salsa', body, String(id))
@@ -2306,6 +2310,58 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect(drill()).toMatchObject({ add: null, canLog: true });
 		// The entry's own page: settings are the person's, the content is the group's.
 		expect(open('exercise', U2, entry.id)).toMatchObject({ canEdit: true, canEditContent: false });
+	});
+
+	// Catches: Done on a group drill's page landing on the group's drill, or on nobody's.
+	it('Done on a group drill’s page saves on the member’s entry; the drill’s own id is a 404', async () => {
+		type DonePage = {
+			canLog: boolean;
+			exercise: { id: number };
+			faces: unknown[] | null;
+			entryToday: { durationS: number | null; rating: number | null } | null;
+			historyCut: boolean;
+		};
+		const page = () => open('exercise', U2, shines) as DonePage;
+		// No entry yet: nothing to save on, nothing to show.
+		expect(page()).toMatchObject({
+			canLog: false,
+			faces: null,
+			entryToday: null,
+			historyCut: false
+		});
+		await refuses(
+			exercisePage.actions.done,
+			post(U2, 'salsa', { exerciseId: String(shines), rating: '4' }, String(shines))
+		);
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [], drillIds: [shines], figureIds: [] }, 5);
+		const entry = entryFor(db, 'u2', { drillId: shines })!;
+		expect(page()).toMatchObject({ canLog: true, exercise: { id: entry.id }, entryToday: null });
+		expect(page().faces).toHaveLength(4);
+		const before = snapshot();
+		// The group's drill, posted on its own page: the member's wall holds no such exercise.
+		await refuses(
+			exercisePage.actions.done,
+			post(U2, 'salsa', { exerciseId: String(shines), rating: '4' }, String(shines))
+		);
+		expect(snapshot()).toEqual(before);
+		const saved = (await call(
+			exercisePage.actions.done,
+			post(
+				U2,
+				'salsa',
+				{ exerciseId: String(entry.id), rating: '4', durationS: '252' },
+				String(shines)
+			)
+		)) as { action: string; setId: number };
+		expect(saved.action).toBe('done');
+		const rows = db.select().from(setRows).all();
+		expect(rows.filter((r) => r.exerciseId === shines)).toEqual([]);
+		expect(rows.find((r) => r.id === saved.setId)).toMatchObject({
+			exerciseId: entry.id,
+			rating: 4,
+			durationS: 252
+		});
+		expect(page().entryToday).toMatchObject({ durationS: 252, rating: 4 });
 	});
 
 	// Catches: a member's figure, lesson or routine entry offering edits on the group's sections.

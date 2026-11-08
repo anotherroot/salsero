@@ -117,8 +117,11 @@ export const exercise = {
 		fromLesson: (title: string): string => `From ${title}`,
 		history: 'History',
 		nothingYet: 'Nothing logged yet',
-		nothingYetBody: 'Log a set after you practise — it shows up here, grouped by day.',
+		nothingYetBody: 'Tap Done after you practise — it shows up here, grouped by day.',
 		showingLatest: (n: number): string => `Showing the latest ${n}.`,
+		/** A history day's sheet: its one action, and the toast after it (`label`: "Thu 5 Nov"). */
+		deleteDay: 'Delete this day',
+		dayDeleted: (label: string): string => `${label} deleted`,
 		activeNo: "No — not on Today's list",
 		comesBack: 'It comes back tomorrow',
 		stopEditing: 'Stop editing',

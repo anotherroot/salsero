@@ -115,8 +115,11 @@ export const exercise: Catalog['exercise'] = {
 		fromLesson: (title) => `Iz lekcije: ${title}`,
 		history: 'Zgodovina',
 		nothingYet: 'Še ni vnosov',
-		nothingYetBody: 'Ko vadite, shranite vnos. Tukaj se pokaže, razvrščen po dnevih.',
+		nothingYetBody: 'Ko vadite, pritisnite Opravljeno. Tukaj se pokaže, razvrščeno po dnevih.',
 		showingLatest: (n) => `Prikazani so le najnovejši vnosi (${n}).`,
+		deleteDay: 'Izbriši ta dan',
+		// The day after a colon: "Izbrisano: čet, 5. nov.".
+		dayDeleted: (label) => `Izbrisano: ${label}`,
 		activeNo: 'Ne – ni na seznamu Danes',
 		comesBack: 'Jutri bo spet na vrsti',
 		stopEditing: 'Končaj urejanje',

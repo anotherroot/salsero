@@ -11,10 +11,13 @@
 	import { FIELD_ERROR, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { showRecordings } from '$lib/figures/page';
+	import { recordingKeys } from '$lib/exercises/exercise-page';
 	import { t } from '$lib/i18n/catalog';
 	import { spotLabel } from '$lib/video/spots';
 	import type { LinkedSection, LinkRow as LinkRowType } from '$lib/types';
 	import type { ContentProps } from './kinds';
+
+	const REFUSED = new Set(['linkSection', 'unlinkSection', 'deleteLink']);
 
 	/**
 	 * A drill's Recordings: its linked sections and links in one card, `+ Add` in
@@ -28,7 +31,8 @@
 		links,
 		canEdit,
 		editing,
-		recordings
+		recordings,
+		after = null
 	}: {
 		sections: LinkedSection[];
 		links: LinkRowType[];
@@ -36,6 +40,11 @@
 		canEdit: boolean;
 		editing: boolean;
 		recordings: ContentProps['recordings'];
+		/**
+		 * While editing: the focus key of what follows the card (the page's Archive),
+		 * for a removal that empties it. + Add, the reading card's fallback, is not drawn then.
+		 */
+		after?: string | null;
 	} = $props();
 
 	let adding = $state(false);
@@ -43,32 +52,26 @@
 	let addingLink = $state(false);
 
 	const items = $derived(sections.length + links.length);
-	/** The last refusal of an unlink or a removal, shown under the card. */
+	/** The last refusal of a link, an unlink or a removal, shown under the card. */
 	const refusal = $derived.by(() => {
 		const form = page.form as { action?: unknown; message?: unknown } | null;
 		if (!form || typeof form.message !== 'string') return null;
-		return form.action === 'unlinkSection' || form.action === 'deleteLink' ? form.message : null;
+		return REFUSED.has(String(form.action)) ? form.message : null;
 	});
 
-	/** Unlinking a section: focus goes to the next section, else the next link. */
-	const unlinkSection =
-		(linkId: number): SubmitFunction =>
+	/**
+	 * After an unlink or a removal: the next row (sections, then links: the next
+	 * section, else the next link), else the one before, else what follows.
+	 */
+	const removed =
+		(key: string): SubmitFunction =>
 		() => {
-			const keys = sections.map((x) => `section-${x.linkId}`);
+			// Taken at the tap: once the answer is in, the row is gone from the lists.
+			const keys = recordingKeys(sections, links);
+			const fallback = editing ? (after ? [after] : []) : ['recordings-add'];
 			return async ({ update, result }) => {
 				await update();
-				if (result.type === 'success')
-					await focusAfterRemoval(keys, `section-${linkId}`, 'recordings-add');
-			};
-		};
-	const removeLink =
-		(id: number): SubmitFunction =>
-		() => {
-			const keys = links.map((l) => `link-${l.id}`);
-			return async ({ update, result }) => {
-				await update();
-				if (result.type === 'success')
-					await focusAfterRemoval(keys, `link-${id}`, 'recordings-add');
+				if (result.type === 'success') await focusAfterRemoval(keys, key, fallback);
 			};
 		};
 </script>
@@ -91,7 +94,11 @@
 			<ul class={GROUP}>
 				{#each sections as s (s.linkId)}
 					{#snippet unlink()}
-						<form method="POST" action="?/unlinkSection" use:enhance={unlinkSection(s.linkId)}>
+						<form
+							method="POST"
+							action="?/unlinkSection"
+							use:enhance={removed(`section-${s.linkId}`)}
+						>
 							<input type="hidden" name="linkId" value={s.linkId} />
 							<button
 								type="submit"
@@ -112,7 +119,7 @@
 				{/each}
 				{#each links as link (link.id)}
 					<li>
-						<LinkRow {link} canSave={false} {editing} onremove={removeLink(link.id)} />
+						<LinkRow {link} canSave={false} {editing} onremove={removed(`link-${link.id}`)} />
 					</li>
 				{/each}
 			</ul>

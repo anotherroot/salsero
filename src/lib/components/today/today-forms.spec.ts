@@ -33,9 +33,9 @@ describe("Today's list forms", () => {
 
 /*
  * The log form is drawn by Today's layout (the phone's popup, on the list route or
- * beside an open exercise), by a past day and by the exercise page (its popup and,
- * on the desktop, its pane). Each names the route whose `log` it means; a refusal
- * from another route than the page's reaches the form through the submit result.
+ * beside an open exercise) and by a past day; the exercise page saves through its
+ * Done sheet. Each names the route whose action it means; a refusal from another
+ * route than the page's reaches the form through the submit result.
  */
 const SHELL = 'src/lib/components/exercises/LogShell.svelte';
 const EXERCISE = 'src/routes/[dance]/(today)/exercises/[id]/+page.svelte';
@@ -59,14 +59,17 @@ describe('The log form', () => {
 		);
 	});
 
-	it("the exercise page's popup and pane post to the page's own route", () => {
+	it("the exercise page's Done sheet posts to the page's own done, never an exercise URL", () => {
 		// A group drill's page shows the person's entry: its id is not the URL's, so an
 		// absolute exercise URL would post across routes (no page.form, no focus reset).
 		const src = readFileSync(EXERCISE, 'utf8');
-		const logs = src.match(/<Log\b[\s\S]*?\/>/g) ?? [];
-		expect(logs.length).toBe(2);
-		for (const log of logs) expect(log).not.toMatch(/\baction=/);
-		expect(src).not.toMatch(/exercises\/\$\{[^}]*\}\?\/log/);
+		expect(src).not.toMatch(/<Log\b/);
+		const sheets = src.match(/<DoneSheet\b[\s\S]*?\/>/g) ?? [];
+		expect(sheets.length).toBe(1);
+		expect(sheets[0]).toMatch(/\baction="\?\/done"/);
+		expect(src).not.toMatch(/exercises\/\$\{[^}]*\}\?\//);
+		// The fixed rhythm's Done, without the sheet: the page's own action too.
+		expect(src).toMatch(/act\('done', \{/);
 	});
 
 	it('LogShell shows a refusal from the submit result', () => {
@@ -114,28 +117,14 @@ describe('The Done sheet', () => {
 		expect(src).toMatch(/dirty: \(\) => note !== noteAtOpen/);
 	});
 
-	it('reads its refusal from the submit result, not the page form', () => {
+	// What the save does with its answer (refusal, refresh first, the time at the tap)
+	// is `done-submit.ts`, run in `done-submit.spec.ts`; here, that the sheet uses it.
+	it('saves through doneSubmit and shows its refusal, never the page form', () => {
 		const src = readFileSync(DONE, 'utf8');
-		expect(src).toMatch(/result\.type === 'failure'/);
+		expect(src).toMatch(/const submit = doneSubmit\(\{/);
+		expect(src).toMatch(/submit\s*\}\}/);
 		expect(src).not.toMatch(/\bpage\.form\b/);
 		expect(src).toMatch(/<Banner kind="error" title=\{refusal\}/);
-	});
-
-	it('counts the save on the page before it hands the result on', () => {
-		const src = readFileSync(DONE, 'utf8');
-		expect(src).toMatch(/await update\(\{ reset: false \}\);[\s\S]*?onsaved\(/);
-	});
-
-	it('a refresh that throws still hands the save on (the save landed; the unsaved dialog settles)', () => {
-		const src = readFileSync(DONE, 'utf8');
-		expect(src).toMatch(
-			/try \{\s*(?:\/\/[^\n]*\s*)*await update\(\{ reset: false \}\);\s*\} catch \{[\s\S]*?\}\s*try \{\s*onsaved\(/
-		);
-	});
-
-	it('reads the time at the tap, and posts none without one', () => {
-		const src = readFileSync(DONE, 'utf8');
-		expect(src).toMatch(/if \(seconds !== null\) formData\.set\('durationS'/);
 		expect(src).not.toMatch(/name="durationS"/);
 	});
 });

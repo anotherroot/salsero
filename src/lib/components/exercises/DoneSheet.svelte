@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { SubmitFunction } from '@sveltejs/kit';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import FaceRating from './FaceRating.svelte';
+	import { doneSubmit } from './done-submit';
 	import { LABEL, TEXTAREA } from '$lib/components/ui/styles';
-	import { feelOf, RATING_OF, type Feel } from '$lib/schedule/feel';
+	import { feelOf, type Feel } from '$lib/schedule/feel';
 	import type { DoneFace } from '$lib/schedule/schedule';
 	import type { DoneResult } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
@@ -89,52 +89,37 @@
 		form.requestSubmit();
 	}
 
-	const messageOf = (data: unknown): string => {
-		const m = (data as { message?: unknown } | undefined)?.message;
-		return typeof m === 'string' ? m : t().exercise.log.didNotSave;
-	};
-
-	/** The face tap's save: the guarded form's submit callback. */
-	const submit: SubmitFunction = ({ formData }) => {
-		// A tap names the face; the unsaved dialog's Save sends the lit one, if any.
-		const face = tapped ?? feel;
-		if (face !== null) {
-			formData.set('rating', String(RATING_OF[face]));
-			feel = face;
-		}
-		if (seconds !== null) formData.set('durationS', String(Math.round(seconds)));
-		busy = face;
-		refusal = null;
-		return async ({ result, update }) => {
-			if (result.type === 'success') {
-				try {
-					// While the sheet is still open: the page and the day count the save
-					// (the row is done) before the caller leaves.
-					await update({ reset: false });
-				} catch {
-					// The save landed; only the refresh failed, and leaving loads the
-					// page again. Thrown on, it would skip onsaved and leave the unsaved
-					// dialog waiting for an answer that never comes.
-				}
-				try {
-					onsaved(result.data as unknown as DoneResult);
-				} finally {
-					busy = null;
-					tapped = null;
-				}
-				return;
-			}
-			busy = null;
-			tapped = null;
-			if (result.type === 'redirect') {
-				await update();
-				return;
-			}
-			// From the submit's own result: a past day's form posts to Today's
-			// route, whose refusal never reaches this page's `form`.
-			refusal = result.type === 'failure' ? messageOf(result.data) : t().exercise.log.didNotSave;
-		};
-	};
+	/** The face tap's save (`done-submit.ts`), over this sheet's state. */
+	const submit = doneSubmit({
+		get tapped() {
+			return tapped;
+		},
+		set tapped(v) {
+			tapped = v;
+		},
+		get feel() {
+			return feel;
+		},
+		set feel(v) {
+			feel = v;
+		},
+		get busy() {
+			return busy;
+		},
+		set busy(v) {
+			busy = v;
+		},
+		get refusal() {
+			return refusal;
+		},
+		set refusal(v) {
+			refusal = v;
+		},
+		get seconds() {
+			return seconds;
+		},
+		onsaved: (r) => onsaved(r)
+	});
 </script>
 
 <Sheet {title} sub={subtitle || undefined} {open} {onclose}>

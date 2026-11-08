@@ -260,8 +260,8 @@ describe("Today refuses the other dance's rows", () => {
 		const before = db.select().from(sets).all().length;
 		await refuses(todayActions.restoreSet, post('salsa', { snapshot }));
 		await refuses(
-			exercisePage.actions.restoreSet,
-			post('salsa', { snapshot }, String(salsaExerciseId))
+			exercisePage.actions.restoreDay,
+			post('salsa', { snapshots: `[${snapshot}]` }, String(salsaExerciseId))
 		);
 		expect(db.select().from(sets).all()).toHaveLength(before);
 	});

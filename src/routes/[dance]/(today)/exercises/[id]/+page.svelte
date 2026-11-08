@@ -1,7 +1,7 @@
 <script lang="ts">
 	import MusicSection from '$lib/components/songs/MusicSection.svelte';
 	import { practiseHref } from '$lib/songs/music';
-	import { leaveRemoved } from '$lib/nav/trail.svelte';
+	import { backWhenSettled, leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
@@ -9,9 +9,10 @@
 	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
-	import SetList from '$lib/components/exercises/SetList.svelte';
-	import { restoreSet } from '$lib/components/exercises/restore-set';
-	import { contentFor, logFor, practiceFor } from '$lib/components/exercises/kinds';
+	import { act } from '$lib/act';
+	import { refusalMessage } from '$lib/act-toast';
+	import { focusAfterRemoval } from '$lib/focus';
+	import { contentFor, practiceFor } from '$lib/components/exercises/kinds';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -25,10 +26,14 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import WarmupRow from '$lib/components/exercises/WarmupRow.svelte';
 	import ComesBackCard from '$lib/components/exercises/ComesBackCard.svelte';
+	import DoneBar from '$lib/components/exercises/DoneBar.svelte';
+	import DoneSheet from '$lib/components/exercises/DoneSheet.svelte';
+	import DrillRecordings from '$lib/components/exercises/DrillRecordings.svelte';
+	import Face from '$lib/components/exercises/Face.svelte';
+	import HistoryDaySheet from '$lib/components/exercises/HistoryDaySheet.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import LastTime from '$lib/components/exercises/LastTime.svelte';
-	import { desk } from '$lib/nav/desk.svelte';
 	import { todayPane } from '$lib/components/today/today-context';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import {
@@ -43,13 +48,17 @@
 	import {
 		archiveBody,
 		fromClassLabel,
-		historyDays,
+		historyRows,
 		ownerOf,
 		pageParts,
-		historyTiles
+		historyTiles,
+		type HistoryDay
 	} from '$lib/exercises/exercise-page';
+	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
+	import { announceSaved } from '$lib/exercises/saved.svelte';
+	import { pageClock } from '$lib/exercises/page-clock.svelte';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
-	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
+	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { comesBackWords } from '$lib/exercises/comes-back-view';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
@@ -59,7 +68,7 @@
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import { t } from '$lib/i18n/catalog';
-	import type { AddOffer } from '$lib/types';
+	import type { AddOffer, DoneResult } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -77,29 +86,85 @@
 		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
 	);
 	const Content = $derived(contentFor(type));
-	const Log = $derived(logFor(type));
 	const Practice = $derived(practiceFor(type));
-	/**
-	 * Desktop: the type's content sits by the log form, in the left column (a drill's
-	 * links and sections, a figure's reference), rather than beside the history.
-	 */
-	const contentLeft = $derived(data.canLog && typeInfo(exercise.source).paneContent === 'left');
 	/**
 	 * The exercise in the URL. A group drill's page shows the person's entry
 	 * (`data.exercise`, another id), which an Add can swap in place: what belongs
-	 * to the page goes by the URL's id. The log form, popup or pane, posts to this
-	 * page's own `?/log` (LogShell's default), never to the entry's URL.
+	 * to the page goes by the URL's id. Done posts to this page's own `?/done`,
+	 * with the entry's id in the form, never to the entry's URL.
 	 */
 	const pageId = $derived(page.params.id);
-	/** Today's list beside the pane (desktop): its session, Next after a log, the session's line. */
+	/** Today's list beside the pane (desktop): its session, and the session's line. */
 	const today = todayPane();
-	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
-	let logging = $state(page.url.searchParams.get('log') === '1');
-	// Told to the layout: narrowing in a session must not open its popup over this one.
-	$effect(() => {
-		today?.pagePopup(logging && data.canLog);
-		return () => today?.pagePopup(false);
-	});
+
+	// --- The time and Done (spec "The exercise page (one page)").
+	/** Counted while the page is visible, from when it opened; Done saves it. */
+	const clock = pageClock();
+	/** The Practise with card's last run: Done saves its player_json. */
+	let run = $state<{ durationS: number; playerJson: string } | null>(null);
+	/** A count or a song plays in Practise with: Done waits. */
+	let playing = $state(false);
+	/** Remounts Practise with after a save: its run is spent. */
+	let practiceKey = $state(0);
+	let doneOpen = $state(false);
+	/** The fixed rhythm's save, out (no sheet holds a spinner for it). */
+	let saving = $state(false);
+	/** A fixed-rhythm drill: Done saves at once, no faces (plan 3 branches on it too). */
+	const fixed = $derived(data.scheduleAtStart?.every != null);
+
+	/** The fixed rhythm's Done: saves at once, the page's time and run, no face. */
+	async function saveNow(): Promise<void> {
+		if (saving) return;
+		saving = true;
+		try {
+			// `act` reloads the page's data itself.
+			const result = await act('done', {
+				exerciseId: data.exercise.id,
+				durationS: clock.seconds,
+				run: run?.playerJson ?? '',
+				rating: ''
+			});
+			const refused = refusalMessage(result, t().exercise.log.didNotSave);
+			if (refused !== null) say(refused);
+			else if (result.type === 'success') saved(result.data as unknown as DoneResult);
+		} finally {
+			saving = false;
+		}
+	}
+
+	/**
+	 * After any save: the toast with Undo on the next screen, the sheet closed, then
+	 * on through the session or back where the page was opened from.
+	 */
+	function saved(r: DoneResult): void {
+		announceSaved({
+			dance: data.dance.slug,
+			message: savedMessage(r.backDays ?? 1),
+			undo: { setId: r.setId, before: r.before }
+		});
+		doneOpen = false;
+		run = null;
+		practiceKey++;
+		// Until Task 8 shrinks the layout's session: its tally and walk, then its next.
+		today?.logged(clock.seconds);
+		const session = today?.session ?? null;
+		if (session) {
+			if (session.next) session.onnext();
+			else session.onfinish();
+		} else {
+			void backWhenSettled({
+				href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
+				label: t().shell.backTo(t().shell.tabs.today)
+			});
+		}
+		clock.restart();
+	}
+
+	function done() {
+		if (fixed) void saveNow();
+		else doneOpen = true;
+	}
+
 	/** Not today applies while the exercise is a to-do or picked row on Today (not done today). */
 	const canSkip = $derived(data.canLog && !!today?.canSkip(data.exercise.id));
 	let skipping = $state(false);
@@ -137,17 +202,38 @@
 			? String(form.message)
 			: null;
 
-	/** A drill's Recordings' + Add: the page's content, and the pane's log column (desktop). Null for a reader and the simple page. */
+	/** A drill's Recordings' + Add. Null for a reader and the simple page. */
 	const recordings = $derived(
 		data.canEditContent && !simple
 			? {
 					label: title,
 					linkable: data.linkable,
-					message: failure('addLink'),
+					message: failure('addLink') ?? failure('linkSection'),
 					entered: form && 'urls' in form ? String(form.urls) : ''
 				}
 			: null
 	);
+	/** A drill's own sections and links, for Edit's Recordings card (unlink, remove). */
+	const drillRows = $derived(
+		data.practice.content.type === 'drill' && data.canEditContent && !simple
+			? data.practice.content
+			: null
+	);
+
+	/** "Drill · learning · 3:20" while it can be done; the type alone while editing or with nothing to log. */
+	const subtitle = $derived.by(() => {
+		const label = TYPES[type].label;
+		if (editing) return label;
+		const clone = simple ? null : cloneSubtitle(data.cloneLine);
+		if (clone) return clone;
+		if (!data.canLog) return label;
+		return bandSubtitle({
+			label,
+			warmup: exercise.warmup,
+			learning: !!data.scheduleAtStart?.learning,
+			seconds: clock.seconds
+		});
+	});
 
 	const owner = $derived(ownerOf(data.practice.content));
 	const ownerHref = $derived.by(() => {
@@ -158,13 +244,16 @@
 		return resolve('/[dance]/(moves)/routines/[id]', params);
 	});
 	const tiles = $derived(historyTiles(data.summary));
-	const days = $derived(historyDays(data.history, timezone, data.today));
+	const days = $derived(historyRows(data.history, timezone, data.today));
+	/** The history row whose sheet is open (kept while the sheet closes). */
+	let openDay = $state<HistoryDay | null>(null);
+	let dayOpen = $state(false);
 
 	// --- Edit mode: the settings behind the band's pencil, one Save pinned.
 	let editing = $state(false);
 	/** A reader's Edit on a group drill: the Make it mine sheet (ruling 1). */
 	let makingMine = $state(false);
-	let saving = $state(false);
+	let savingSettings = $state(false);
 	let settingsForm: HTMLFormElement | undefined = $state();
 	let active = $state(true);
 	let warmup = $state(false);
@@ -197,44 +286,46 @@
 	let archiveBusy = $state(false);
 	let archiveError = $state<string | null>(null);
 
-	// --- Undo for a set deleted from the history.
+	// --- The page's toast: a refused Done, and a deleted day with its Undo.
 	let notice = $state<{ id: number; message: string; action?: string } | null>(null);
 	let noticeSeq = 0;
 	/**
-	 * The deleted set, for Undo. Taken (and cleared) by the first tap: a second
-	 * tap, or a replay while the first is out, would insert the set twice.
+	 * The deleted day's rows, for Undo. Taken (and cleared) by the first tap: a
+	 * second tap, or a replay while the first is out, would put the day back twice.
 	 */
-	let undoSnapshot: string | null = null;
+	let undoSnapshots: string | null = null;
 
 	function say(message: string, action?: string) {
 		notice = { id: ++noticeSeq, message, action };
 	}
 
-	function deleted(snapshot: string) {
-		undoSnapshot = snapshot || null;
-		say(t().exercise.log.setDeleted, undoSnapshot ? t().common.undo : undefined);
-	}
-
-	function refused(message: string) {
-		undoSnapshot = null;
-		say(message);
+	/** Delete this day landed: the sheet closes, the toast offers Undo, focus goes to the next day. */
+	function dayDeleted(snapshots: string, label: string) {
+		const gone = openDay ? `history-${openDay.day}` : null;
+		const keys = days.map((d) => `history-${d.day}`);
+		dayOpen = false;
+		undoSnapshots = snapshots || null;
+		say(t().exercise.page.dayDeleted(label), undoSnapshots ? t().common.undo : undefined);
+		if (gone) void focusAfterRemoval(keys, gone, 'exercise-done');
 	}
 
 	async function undo() {
-		const snapshot = undoSnapshot;
-		undoSnapshot = null;
+		const snapshots = undoSnapshots;
+		undoSnapshots = null;
 		// The toast goes at the tap, Undo with it, so it cannot be sent twice;
-		// the row coming back is the answer.
+		// the day coming back is the answer.
 		notice = null;
-		if (!snapshot) return;
-		if (!(await restoreSet(snapshot))) say(t().exercise.log.couldNotPutBack);
+		if (!snapshots) return;
+		const result = await act('restoreDay', { snapshots });
+		const refused = refusalMessage(result, t().exercise.refused.dayPutBack);
+		if (refused !== null) say(refused);
 	}
 
 	/*
 	 * Another exercise opened in this page (a row beside it, on the desktop):
 	 * SvelteKit keeps the page, so what was the last one's goes with it. An edit
 	 * left open would otherwise show the new exercise with the old one's
-	 * settings, and save it there.
+	 * settings, and save it there; the time starts again.
 	 */
 	let shownId = untrack(() => page.params.id);
 	$effect.pre(() => {
@@ -249,13 +340,17 @@
 			archiving = false;
 			archiveError = null;
 			notice = null;
-			undoSnapshot = null;
-			logging = page.url.searchParams.get('log') === '1';
+			undoSnapshots = null;
+			doneOpen = false;
+			dayOpen = false;
+			run = null;
+			playing = false;
+			clock.restart();
 		});
 	});
-	/** An entry on its class drill's setting: the page says whose it is (hidden at Follow my class). */
+	/** An entry on its class drill's setting: the page says whose it is, at every level. */
 	const followsTeacher = $derived(
-		!simple && exercise.comesBackOwn === null && exercise.comesBackTeacher !== null
+		exercise.comesBackOwn === null && exercise.comesBackTeacher !== null
 	);
 	/** The band's ⋯ is open. */
 	let menuOpen = $state(false);
@@ -272,75 +367,21 @@
 
 {#snippet nothing()}{/snippet}
 
-<!--
-	The left column, on the desktop only: the type's log form in its pane frame. Mounted
-	by width, so a popup and a pane are never both on the page; the server's render
-	holds its place with a placeholder the phone never draws.
--->
-{#snippet logColumn()}
-	{#if desk.current}
-		{#key today?.key ?? pageId}
-			<Log
-				frame="pane"
-				dance={data.dance}
-				exercise={data.exercise}
-				sets={data.sets}
-				songs={data.songs}
-				takes={data.takes}
-				backfillDay={null}
-				{timezone}
-				message={failure('log')}
-				initial={data.practice}
-				from="exercise"
-				schedule={data.scheduleAtStart ?? undefined}
-				today={data.today}
-				{simple}
-				contentProps={{ onPage: true, canEdit: data.canEditContent && !simple, recordings }}
-				session={today?.session ?? null}
-				follow={today?.follow ?? null}
-				onlogged={(d, setId) => {
-					today?.logged(d);
-					today?.undoable(data.exercise.id, setId);
-				}}
-				belowLog={notTodayPane}
-				onclose={() => {}}
-			/>
-		{/key}
-	{:else}
-		<div aria-hidden="true" class="hidden flex-col gap-3 desk:flex">
-			<span class="block h-[70px] rounded-2xl bg-skeleton"></span>
-			<span class="block h-[56px] rounded-[14px] bg-skeleton"></span>
-			<span class="block h-[52px] rounded-[14px] bg-skeleton"></span>
-		</div>
-	{/if}
-{/snippet}
-
 {#snippet practice()}
 	{#if Practice && data.canLog}
-		<Practice
-			dance={data.dance}
-			exercise={data.exercise}
-			content={data.practice.content}
-			songs={data.songs}
-			takes={data.takes}
-			playerFrom="from=exercise"
-			onrun={() => {}}
-			onactive={() => {}}
-		/>
+		{#key practiceKey}
+			<Practice
+				dance={data.dance}
+				exercise={data.exercise}
+				content={data.practice.content}
+				songs={data.songs}
+				takes={data.takes}
+				playerFrom="from=exercise"
+				onrun={(r) => (run = r)}
+				onactive={(on) => (playing = on)}
+			/>
+		{/key}
 	{/if}
-{/snippet}
-
-{#snippet pageContent()}
-	<Content
-		dance={data.dance}
-		content={data.practice.content}
-		{timezone}
-		onPage
-		canEdit={data.canEditContent && !simple}
-		{simple}
-		{recordings}
-		{practice}
-	/>
 {/snippet}
 
 <!-- The class's comments, after the type's content on the simple page and on the full one alike. -->
@@ -365,7 +406,11 @@
 	{/if}
 {/snippet}
 
-<!-- The exercise: the right column on the desktop, the whole page on the phone. -->
+<!--
+	The exercise: the left column on the desktop, the top of the phone's page. Owner
+	row, the type's content (Practise with, a drill's Recordings), from class, the
+	class's comments, Add. While editing, the settings in its place.
+-->
 {#snippet about()}
 	{#if parts.ownerRow && owner && ownerHref}
 		<!-- While editing the phone shows the settings alone; the desktop keeps the row. -->
@@ -398,13 +443,13 @@
 				use:guarded={{
 					label: t().exercise.page.settingsLabel,
 					submit: () => {
-						saving = true;
+						savingSettings = true;
 						updateError = null;
 						return async ({ update, result }) => {
 							try {
 								await update({ reset: false });
 							} finally {
-								saving = false;
+								savingSettings = false;
 							}
 							if (result.type === 'success') editing = false;
 							// A clash or gone belongs to the clash sheet, which holds what was typed.
@@ -452,10 +497,10 @@
 						<button
 							type="submit"
 							class={button('primary', 'md')}
-							aria-busy={saving}
-							disabled={saving}
+							aria-busy={savingSettings}
+							disabled={savingSettings}
 						>
-							{#if saving}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span
+							{#if savingSettings}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span
 								>{:else}{t().common.save}{/if}
 						</button>
 						<button type="button" class={button('secondary', 'md')} onclick={stopEditing}
@@ -467,10 +512,22 @@
 					<ComesBackCard {...data.comes} />
 				{/if}
 			</form>
+			<!-- A drill's own Recordings, to unlink and remove (board drill-editing). -->
+			{#if drillRows && drillRows.sections.length + drillRows.links.length > 0}
+				<DrillRecordings
+					sections={drillRows.sections}
+					links={drillRows.links}
+					canEdit={data.canEditContent}
+					editing
+					recordings={null}
+					after={ownsItself ? 'exercise-archive' : null}
+				/>
+			{/if}
 			{#if ownsItself}
 				<div class="flex flex-col items-center pt-1">
 					<button
 						type="button"
+						data-focus="exercise-archive"
 						class={button('danger-text')}
 						aria-haspopup="dialog"
 						onclick={() => {
@@ -501,12 +558,16 @@
 				>
 			</div>
 		{/if}
-		{#if !contentLeft}
-			{@render pageContent()}
-		{:else if !desk.current}
-			<!-- On the desktop this content is the log column's (`paneContent`). -->
-			<div class="contents desk:hidden">{@render pageContent()}</div>
-		{/if}
+		<Content
+			dance={data.dance}
+			content={data.practice.content}
+			{timezone}
+			onPage
+			canEdit={data.canEditContent && !simple}
+			{simple}
+			{recordings}
+			{practice}
+		/>
 		{@render fromClass()}
 		{@render classCard()}
 
@@ -555,7 +616,10 @@
 			</div>
 		{/if}
 	{/if}
+{/snippet}
 
+<!-- The right column on the desktop, the rest of the phone's page: Music, History, Settings, Not today. -->
+{#snippet aside()}
 	<!-- Music (spec B): a drill's suggested songs; an entry reads its group drill's. -->
 	{#if data.musicShown && !editing}
 		<MusicSection
@@ -590,21 +654,42 @@
 						{#each tiles as tile, i (tile.label)}
 							{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"
 								></span>{/if}
-							<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
-								<span class="font-display text-[24px] leading-[1.05] font-extrabold text-ink"
+							<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-3">
+								<span class="font-display text-[28px] leading-[1.05] font-extrabold text-ink"
 									>{tile.value}</span
 								>
-								<span class="text-[12px] font-bold text-muted">{tile.label}</span>
+								<span class="text-[13px] font-bold text-muted">{tile.label}</span>
 							</div>
 						{/each}
 					</div>
-					{#each days as g (g.day)}
-						<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
-						<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
-					{/each}
-					{#if data.history.length < data.summary.times}
+					<ul class={GROUP}>
+						{#each days as d (d.day)}
+							<li>
+								<button
+									type="button"
+									data-focus="history-{d.day}"
+									aria-haspopup="dialog"
+									class="flex min-h-14 w-full cursor-pointer flex-col justify-center gap-0.5 px-4 py-2.5 text-left"
+									onclick={() => {
+										openDay = d;
+										dayOpen = true;
+									}}
+								>
+									<span class="flex w-full items-center gap-3">
+										<span class="min-w-0 flex-1 text-[16px] leading-tight font-bold text-ink"
+											>{d.label}</span
+										>
+										{#if d.amount}<span class="text-[15px] text-muted">{d.amount}</span>{/if}
+										{#if d.feel}<Face feel={d.feel} size={22} label />{/if}
+									</span>
+									{#if d.note}<span class="text-[14px] leading-snug text-muted">{d.note}</span>{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
+					{#if data.historyCut}
 						<p class="px-4 text-[12px] text-muted">
-							{t().exercise.page.showingLatest(data.history.length)}
+							{t().exercise.page.showingLatest(days.length)}
 						</p>
 					{/if}
 				{/if}
@@ -636,32 +721,26 @@
 					</dl>
 				</section>
 			{/if}
-			<!-- The very end of the phone's page (the desktop has it under Log set). -->
+			<!-- Not today: quiet text at the very end, with what it does under it. -->
 			{#if canSkip}
-				<div class="flex flex-col items-center gap-0.5 pt-1 desk:hidden">
-					{@render notTodayButton()}
+				<div class="flex flex-col items-center gap-0.5 pt-1">
+					<button
+						type="button"
+						class={button('tertiary', 'md')}
+						aria-busy={skipping}
+						disabled={skipping}
+						onclick={notToday}>{t().today.row.notToday}</button
+					>
+					<p class="text-[13px] text-muted">{t().exercise.page.comesBack}</p>
 				</div>
 			{/if}
 		{/if}
 	{/if}
 {/snippet}
 
-<!-- Not today: quiet text, with what it does under it. -->
-{#snippet notTodayButton()}
-	<button
-		type="button"
-		class={button('tertiary', 'md')}
-		aria-busy={skipping}
-		disabled={skipping}
-		onclick={notToday}>{t().today.row.notToday}</button
-	>
-	<p class="text-[13px] text-muted">{t().exercise.page.comesBack}</p>
-{/snippet}
-
-{#snippet notTodayPane()}
-	{#if canSkip}
-		<div class="flex flex-col items-center gap-0.5">{@render notTodayButton()}</div>
-	{/if}
+{#snippet whole()}
+	{@render about()}
+	{@render aside()}
 {/snippet}
 
 {#snippet back()}
@@ -683,9 +762,7 @@
 	compact
 	width={data.canLog ? 'two' : 'one'}
 	{title}
-	subtitle={editing || simple
-		? TYPES[type].label
-		: (cloneSubtitle(data.cloneLine) ?? TYPES[type].label)}
+	{subtitle}
 	below={data.canLog ? lastTime : undefined}
 >
 	<!--
@@ -742,12 +819,12 @@
 
 	<!--
 		The exercise in its pane (desktop spec, "Today: the list and the open exercise"):
-		from a 780 px pane two columns, 1 : 1, the log form on the left (Log set pinned
-		under it) and the exercise on the right; one column below that, the form first.
-		The phone's page is the right column alone, in its own order. Versions (its
-		toast is `fixed`) sits above the columns: nothing pinned lives in their container.
+		from a 780 px pane two columns, 1 : 1, the exercise on the left and Music,
+		History and Settings on the right; one column below that, in the phone's order.
+		Versions (its toast is `fixed`) sits above the columns: nothing pinned lives in
+		their container. Done is pinned at both widths, so the foot leaves it room.
 	-->
-	<div class="flex flex-col gap-3.5 pb-28 desk:pb-0">
+	<div class="flex flex-col gap-3.5 {editing ? 'pb-28 desk:pb-0' : 'pb-28'}">
 		{#if !editing && parts.sourceTabs}
 			<Versions
 				sources={data.sources}
@@ -766,38 +843,35 @@
 		<PaneColumns
 			ratio="1:1"
 			class="gap-3.5"
-			top={data.canLog ? undefined : about}
-			left={data.canLog ? logColumn : nothing}
-			right={data.canLog ? about : nothing}
+			top={data.canLog ? undefined : whole}
+			left={data.canLog ? about : nothing}
+			right={data.canLog ? aside : nothing}
 		/>
 	</div>
 </Screen>
 
-{#if editing || data.canLog}
-	<!-- The phone's: the desktop logs in the pane's left column and saves in place. -->
-	<BottomBar mode={editing} class="desk:hidden">
-		{#if editing}
-			<button
-				type="submit"
-				form="exercise-settings"
-				class={button('primary', 'md', true)}
-				aria-busy={saving}
-				disabled={saving}
-			>
-				{#if saving}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span>{:else}{t()
-						.common.save}{/if}
-			</button>
-		{:else}
-			<button
-				type="button"
-				data-focus="sets-add"
-				class={button('primary', 'md', true)}
-				onclick={() => (logging = true)}
-			>
-				<Icon name={simple ? 'check' : 'plus'} size={20} />{parts.logButton}
-			</button>
-		{/if}
+{#if editing}
+	<!-- The phone's Save: the desktop saves in place. -->
+	<BottomBar mode class="desk:hidden">
+		<button
+			type="submit"
+			form="exercise-settings"
+			class={button('primary', 'md', true)}
+			aria-busy={savingSettings}
+			disabled={savingSettings}
+		>
+			{#if savingSettings}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span
+				>{:else}{t().common.save}{/if}
+		</button>
 	</BottomBar>
+{:else if data.canLog}
+	<DoneBar
+		doneToday={data.entryToday !== null}
+		{playing}
+		busy={saving}
+		sheet={!fixed}
+		onclick={done}
+	/>
 {/if}
 
 <Toast
@@ -806,9 +880,41 @@
 	onaction={undo}
 	ondismiss={() => {
 		notice = null;
-		undoSnapshot = null;
+		undoSnapshots = null;
 	}}
 />
+
+{#if data.canLog}
+	<DoneSheet
+		open={doneOpen}
+		onclose={() => (doneOpen = false)}
+		action="?/done"
+		exerciseId={data.exercise.id}
+		subtitle={doneSubtitle({
+			seconds: clock.seconds,
+			learning: data.scheduleAtStart?.learning ?? null,
+			day: null,
+			name: title
+		})}
+		faces={data.faces}
+		seconds={clock.seconds}
+		run={run?.playerJson ?? null}
+		day={null}
+		{simple}
+		current={data.entryToday}
+		onsaved={saved}
+	/>
+{/if}
+
+{#if openDay}
+	<HistoryDaySheet
+		open={dayOpen}
+		onclose={() => (dayOpen = false)}
+		day={openDay}
+		exerciseId={data.exercise.id}
+		ondeleted={dayDeleted}
+	/>
+{/if}
 
 {#if adding}
 	<AddSheet
@@ -872,28 +978,6 @@
 			</form>
 		{/snippet}
 	</Dialog>
-{/if}
-
-<!-- The phone's popup; on the desktop the log form is the pane's (never both). -->
-{#if logging && data.canLog && !desk.current}
-	<Log
-		dance={data.dance}
-		exercise={data.exercise}
-		sets={data.sets}
-		songs={data.songs}
-		takes={data.takes}
-		backfillDay={null}
-		{timezone}
-		message={failure('log')}
-		initial={data.practice}
-		from="exercise"
-		schedule={data.scheduleAtStart ?? undefined}
-		today={data.today}
-		{simple}
-		onlogged={(_, setId) => today?.undoable(data.exercise.id, setId)}
-		outer={today ? { toast: today.toast, ondismiss: today.dismissToast } : null}
-		onclose={() => (logging = false)}
-	/>
 {/if}
 
 {#if data.makeMine}

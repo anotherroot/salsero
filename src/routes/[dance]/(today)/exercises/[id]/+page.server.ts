@@ -9,7 +9,7 @@ import {
 } from '$lib/server/exercises';
 import { checkbox, int, optionalText, text } from '$lib/server/form';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
-import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
+import { deleteDayFrom, restoreDayFrom, saveDoneFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
 import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
@@ -18,7 +18,8 @@ import { classLessonOf, commentsOn } from '$lib/server/comments';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
-import { goodDaysOf, scheduleStates } from '$lib/server/schedule';
+import { doneFacesOf, goodDaysOf, scheduleStates } from '$lib/server/schedule';
+import { mergeDay, type DayEntry } from '$lib/exercises/day-entry';
 import type { ComesSettings } from '$lib/exercises/comes-back-view';
 import {
 	requireExerciseAccess,
@@ -45,7 +46,7 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
-import type { ExerciseItem } from '$lib/types';
+import type { ExerciseItem, HistorySet } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
 import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
@@ -59,6 +60,31 @@ import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-for
 import { listMusic, musicChoices } from '$lib/server/song-links';
 
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
+
+/** The history's rows: the latest this many; past it the page says it shows only those. */
+const HISTORY_LIMIT = 200;
+
+/**
+ * What the one page shows of the person's row or entry: its history (and whether
+ * it was cut), the summary, today's entry merged (Done today: the sheet starts
+ * from it), and what each face of the Done sheet would set.
+ */
+function practised(
+	db: ReturnType<typeof getDb>,
+	id: number,
+	today: HistorySet[],
+	tz: string,
+	now: number
+) {
+	const history = exerciseHistory(db, id, HISTORY_LIMIT);
+	return {
+		history,
+		historyCut: history.length >= HISTORY_LIMIT,
+		summary: exerciseSummary(db, id, tz),
+		entryToday: today.length === 0 ? null : mergeDay(today),
+		faces: doneFacesOf(db, id, tz, now)
+	};
+}
 
 /**
  * The exercise this URL names, to change, or a 404. An archived exercise is
@@ -145,8 +171,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			musicEdit: own.source === 'custom',
 			musicEntryId: own.id as number | null,
 			practice: practicePayload(db, own, tz, now),
-			history: exerciseHistory(db, own.id),
-			summary: exerciseSummary(db, own.id, tz),
+			...practised(db, own.id, popup.sets, tz, now),
 			scheduleAtStart: scheduleAtStart(own.id),
 			today,
 			// Only a drill's sections are its own; the others show their owner's.
@@ -249,8 +274,15 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			now,
 			visible ?? undefined
 		),
-		history: popup ? exerciseHistory(db, popup.exercise.id) : [],
-		summary: popup ? exerciseSummary(db, popup.exercise.id, tz) : { times: 0, totalS: 0 },
+		...(popup
+			? practised(db, popup.exercise.id, popup.sets, tz, now)
+			: {
+					history: [] as HistorySet[],
+					historyCut: false,
+					summary: { times: 0, totalS: 0 },
+					entryToday: null as DayEntry | null,
+					faces: null
+				}),
 		scheduleAtStart: popup ? scheduleAtStart(popup.exercise.id) : null,
 		today,
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
@@ -292,9 +324,15 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
  * link changes the section's root, so the flow runs from there too.
  */
 export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
+	/**
+	 * Done: the day's entry of the posted exercise, the person's own row or their
+	 * entry on this group drill (never the group's drill: `saveDoneFrom` checks it
+	 * against the wall).
+	 */
+	done: (event) => saveDoneFrom(event),
+	/** A history day's Delete this day, and its Undo. */
+	deleteDay: (event) => deleteDayFrom(event),
+	restoreDay: (event) => restoreDayFrom(event),
 
 	/**
 	 * Add on a group drill's page, sheet path: the lesson that holds it, with

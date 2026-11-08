@@ -65,25 +65,30 @@ beforeEach(() => {
 	)!.id;
 });
 
-describe('the log popup refuses in Slovenian', () => {
-	it('a bad value, a missing face, a set already gone and one that cannot come back', async () => {
+describe('Done and the history refuse in Slovenian', () => {
+	it('a bad value, a missing face, a day already gone and one that cannot come back', async () => {
 		const id = String(drill);
 		const message = async (name: keyof typeof actions, fields: Record<string, string>) =>
 			(await sl(() => call(name, fields, drill))).data?.message;
-		expect(await message('log', { exerciseId: id, rating: '9' })).toBe(
+		expect(await message('done', { exerciseId: id, rating: '9' })).toBe(
 			'Preverite vrednosti in poskusite znova.'
 		);
-		expect(await message('log', { exerciseId: id })).toBe('Izberite, kako je šlo');
-		expect(await message('deleteSet', { setId: '999' })).toBe('Ta vnos je že izbrisan.');
-		expect(await message('restoreSet', { snapshot: 'junk' })).toBe('Vnosa ni bilo mogoče vrniti.');
+		expect(await message('done', { exerciseId: id })).toBe('Izberite, kako je šlo');
+		expect(await message('deleteDay', { exerciseId: id, day: '2026-10-01' })).toBe(
+			'Ta dan je že izbrisan.'
+		);
+		expect(await message('restoreDay', { snapshots: 'junk' })).toBe('Dneva ni bilo mogoče vrniti.');
 		expect(db.select().from(sets).all()).toEqual([]);
 	});
 
 	it('and in English', async () => {
 		const id = String(drill);
-		expect((await call('log', { exerciseId: id }, drill)).data?.message).toBe('Pick how it went');
-		expect((await call('deleteSet', { setId: '999' }, drill)).data?.message).toBe(
-			'That set was already removed.'
+		expect((await call('done', { exerciseId: id }, drill)).data?.message).toBe('Pick how it went');
+		expect(
+			(await call('deleteDay', { exerciseId: id, day: '2026-10-01' }, drill)).data?.message
+		).toBe('That day was already removed.');
+		expect((await call('restoreDay', { snapshots: '[]' }, drill)).data?.message).toBe(
+			'That day could not be put back.'
 		);
 	});
 });
