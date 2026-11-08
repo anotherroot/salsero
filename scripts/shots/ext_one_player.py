@@ -96,6 +96,26 @@ def _setup_back(page):
     page.wait_for_timeout(600)
 
 
+def _info(page):
+    _row("Routine")(page)
+    page.get_by_role("dialog").get_by_role("button", name=re.compile(r"^About ")).nth(1).click()
+    page.wait_for_timeout(800)
+
+
+def _still_tap(page):
+    _row("Routine")(page)
+    page.get_by_role("dialog").get_by_text("Still", exact=True).click()
+    page.wait_for_timeout(300)
+    page.get_by_role("dialog").get_by_role("button", name=re.compile(r"^About ")).nth(2).click()
+    page.wait_for_timeout(800)
+
+
+def _info_back(page):
+    _info(page)
+    page.go_back()
+    page.wait_for_timeout(600)
+
+
 SCENES = {
     "op-drill": Scene("/{dance}/player?exercise={opdrill}", _run),
     "op-bare": Scene("/{dance}/player?exercise={opbare}", _run),
@@ -110,6 +130,9 @@ SCENES = {
     "op-routine": Scene("/{dance}/player?routine={longroutine}", _run),
     "op-routine-layer": Scene("/{dance}/player?routine={longroutine}", _row("Routine")),
     "op-routine-still": Scene("/{dance}/player?routine={longroutine}", _still),
+    "op-routine-info": Scene("/{dance}/player?routine={longroutine}", _info),
+    "op-routine-still-tap": Scene("/{dance}/player?routine={longroutine}", _still_tap),
+    "op-routine-info-back": Scene("/{dance}/player?routine={longroutine}", _info_back),
     "op-count": Scene("/{dance}/player?bpm=180", _run),
     "op-card": Scene("/{dance}/exercises/{opdrill}"),
 }
