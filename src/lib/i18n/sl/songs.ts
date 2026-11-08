@@ -127,6 +127,21 @@ export const songs: Catalog['songs'] = {
 				doneSections: 'Vsi deli izbrisani'
 			}
 		},
+		grid: {
+			label: 'Štetje skladbe, vrstica na osmico',
+			beat: (at, n, section) =>
+				section ? `${at}, doba ${n} v delu ${section}` : `${at}, doba ${n}`,
+			off: (at, section) => `${at}: ${section}`,
+			yours: 'vaša 1',
+			short: (n) => `+${slCount(n, ['doba', 'dobi', 'dobe', 'dob'])}`,
+			countOff: 'Brez štetja',
+			editSection: (name) => `Uredi del: ${name}`,
+			before: (from, to, eights) =>
+				`Pred glasbo · ${from}–${to} · ${slCount(eights, ['osmica', 'osmici', 'osmice', 'osmic'])}`,
+			musicStarts: (at) => `Glasba se začne · ${at}`,
+			moveStart: 'Premakni začetek glasbe',
+			hint: 'Predvajajte in pritisnite na vsako 1. Pritisnite dobo za skok tja, pridržite za več.'
+		},
 		refused: {
 			taken: 'Tam se že začne drug del',
 			ends: 'To je čez konec skladbe',

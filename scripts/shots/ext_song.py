@@ -33,7 +33,21 @@ def _tempo_ask(page):
     page.wait_for_selector("text=Change count speed?")
 
 
+def _grid(page):
+    _edit(page)
+    page.locator("[data-beat]").nth(60).click()
+    page.wait_for_timeout(400)
+
+
+def _before(page):
+    _edit(page)
+    page.get_by_role("button", name="Before the music").click()
+    page.wait_for_timeout(200)
+
+
 SCENES = {
     "song-edit-song": Scene(SONG, _song_tab),
     "song-tempo-ask": Scene(SONG, _tempo_ask),
+    "song-edit-grid": Scene(SONG, _grid),
+    "song-edit-before": Scene(SONG, _before),
 }

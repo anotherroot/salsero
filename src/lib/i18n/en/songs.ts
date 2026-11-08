@@ -136,6 +136,22 @@ export const songs = {
 				doneSections: 'All sections cleared'
 			}
 		},
+		/** Edit · Grid: the whole song's count. */
+		grid: {
+			label: 'The song’s count, a row per eight',
+			beat: (at: string, n: number, section: string | null): string =>
+				section ? `${at}, beat ${n} of ${section}` : `${at}, beat ${n}`,
+			off: (at: string, section: string): string => `${at}, ${section}`,
+			yours: 'your 1',
+			short: (n: number): string => `+${n} ${n === 1 ? 'beat' : 'beats'}`,
+			countOff: 'Count off',
+			editSection: (name: string): string => `Edit ${name}`,
+			before: (from: string, to: string, eights: number): string =>
+				`Before the music · ${from}–${to} · ${eights} ${eights === 1 ? 'eight' : 'eights'}`,
+			musicStarts: (at: string): string => `Music starts · ${at}`,
+			moveStart: 'Move where the music starts',
+			hint: 'Play, and tap on every 1. Tap a beat to jump there; hold it for more.'
+		},
 		/** Why an Edit change was not saved. */
 		refused: {
 			taken: 'Another section starts there',

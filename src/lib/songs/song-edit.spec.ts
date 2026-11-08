@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { clearLines, startRow, tempoAskBody } from './song-edit';
+import { beatLabel, clearLines, startRow, tempoAskBody } from './song-edit';
 
 describe("Edit · Song's words", () => {
 	it('says where the music starts and whose it is', () => {
@@ -31,6 +31,17 @@ describe("Edit · Song's words", () => {
 		);
 		expect(tempoAskBody(1, 0.5)).toBe(
 			'Counting at ×½ clears the 1 you set. Your sections stay, each on its nearest 1.'
+		);
+	});
+});
+
+describe('a beat in the grid', () => {
+	it('is read as its time, its count, its section and whether it is your 1', () => {
+		expect(beatLabel(79, 1, 'Montuno', true)).toBe('1:19, beat 1 of Montuno, your 1');
+		expect(beatLabel(141, 3, null, false)).toBe('2:21, beat 3');
+		expect(beatLabel(141, null, 'Break', false)).toBe('2:21, Break');
+		expect(withLocale('sl', () => beatLabel(79, 1, 'Montuno', true))).toBe(
+			'1:19, doba 1 v delu Montuno, vaša 1'
 		);
 	});
 });

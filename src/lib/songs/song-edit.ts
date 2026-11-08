@@ -32,3 +32,18 @@ export function clearLines(
 export function tempoAskBody(anchors: number, factor: TempoFactor): string {
 	return t().songs.page.edit.speed.ask(anchors, TEMPO_LABEL[factor]);
 }
+
+/** A grid cell as a screen reader hears it: "1:19, beat 1 of Montuno, your 1". */
+export function beatLabel(
+	at: number,
+	count: number | null,
+	section: string | null,
+	anchor: boolean
+): string {
+	const w = t().songs.page.grid;
+	const base =
+		count === null && section !== null
+			? w.off(clock(at), section)
+			: w.beat(clock(at), count ?? 0, section);
+	return anchor ? `${base}, ${w.yours}` : base;
+}

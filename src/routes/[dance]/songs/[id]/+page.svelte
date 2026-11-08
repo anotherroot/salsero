@@ -8,10 +8,12 @@
 	import CountCard from '$lib/components/songs/CountCard.svelte';
 	import SectionsList from '$lib/components/songs/SectionsList.svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-	import { sectionIndexAt } from '$lib/songs/sections';
+	import { gridRows, sectionIndexAt } from '$lib/songs/sections';
 	import { MUSIC_START_MIN_S, playFrom } from '$lib/songs/music-start';
 	import SongEdit from '$lib/components/songs/SongEdit.svelte';
 	import SongTab from '$lib/components/songs/SongTab.svelte';
+	import EditGrid from '$lib/components/songs/EditGrid.svelte';
+	import { tick } from 'svelte';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import type { ToastState } from '$lib/act-toast';
 	import type { TempoFactor } from '$lib/labels';
@@ -248,6 +250,14 @@
 		});
 	}
 
+	/** ✎ on "Music starts": the Song tab's group, where its choices are. */
+	async function showStart() {
+		editTab = 'song';
+		await tick();
+		startGroup?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		startGroup?.focus({ preventScroll: true });
+	}
+
 	function leaveEdit() {
 		if (editKey !== null) sheetStack.requestClose(editKey);
 	}
@@ -372,7 +382,22 @@
 				onseek={seek}
 			>
 				{#snippet gridTab()}
-					<p class="px-3 pt-3 text-center text-[13px] text-muted">…</p>
+					<p class="px-3 pt-2 text-center text-[13px] leading-[1.45] text-muted">
+						{t().songs.page.grid.hint}
+					</p>
+					<EditGrid
+						beats={grid.beats}
+						counts={grid.counts}
+						anchors={data.anchors}
+						sections={data.sections}
+						rows={gridRows(grid.beats, grid.counts, data.sections, data.start.at)}
+						playing={played ? beatIndexAt(grid.beats, now) : -1}
+						startS={data.start.at}
+						onjump={(i) => seek(grid.beats[i])}
+						onmenu={() => {}}
+						onsection={() => {}}
+						onstart={showStart}
+					/>
 				{/snippet}
 				{#snippet songTab()}
 					<SongTab

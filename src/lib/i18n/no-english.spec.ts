@@ -105,6 +105,7 @@ const TRANSLATED: string[] = [
 	'src/lib/components/songs/SectionsList.svelte',
 	'src/lib/components/songs/SongEdit.svelte',
 	'src/lib/components/songs/SongTab.svelte',
+	'src/lib/components/songs/EditGrid.svelte',
 	'src/lib/components/songs/SampleButton.svelte',
 	'src/lib/components/songs/SongPickSheet.svelte',
 	'src/lib/components/ui/ChunkedUploadButton.svelte',
