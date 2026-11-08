@@ -1,13 +1,18 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
+import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
+import { setWarmupOrder } from '$lib/server/warmup-order';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
 import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const DAY_MS = 86_400_000;
 
@@ -25,7 +30,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const tz = zone(locals);
-	const today = localDay(Date.now(), tz);
+	const today = localDay(serverNow(), tz);
 
 	const requested = url.searchParams.get('day');
 	if (requested !== null && (!isValidDay(requested) || requested >= today)) {
@@ -52,7 +57,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			nextDay: shiftDay(day, 1),
 			daySets,
 			// For the past-day "add a forgotten set" picker.
-			exercises: listPickExercises(db, wall)
+			exercises: listPickExercises(db, wall).map(shownExercise)
 		}
 	};
 };
@@ -70,9 +75,9 @@ export const actions: Actions = {
 		const exerciseId = int(form, 'exerciseId');
 		const kind = form.get('kind');
 		if (exerciseId === undefined || (kind !== 'add' && kind !== 'skip')) {
-			return fail(400, { action: 'pick', message: 'Pick an exercise to add or skip.' });
+			return fail(400, { action: 'pick', message: t().today.refused.pickWhat });
 		}
-		const now = Date.now();
+		const now = serverNow();
 		try {
 			const day = localDay(now, zone(locals));
 			const { created, unskipped } = addPicks(getDb(), wall, [exerciseId], day, kind, now);
@@ -88,7 +93,8 @@ export const actions: Actions = {
 	unpick: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const pickId = int(await request.formData(), 'pickId');
-		if (pickId === undefined) return fail(400, { action: 'unpick', message: 'No such pick.' });
+		if (pickId === undefined)
+			return fail(400, { action: 'unpick', message: t().today.refused.noPick });
 		removePick(getDb(), wall, pickId);
 		return { action: 'unpick', ok: true };
 	},
@@ -100,7 +106,7 @@ export const actions: Actions = {
 	 */
 	next: async ({ params, locals }) => {
 		const wall = wallOf(params, locals);
-		const now = Date.now();
+		const now = serverNow();
 		const tz = zone(locals);
 		const db = getDb();
 		const input = dayInputOf(db, wall, tz, now);
@@ -108,7 +114,7 @@ export const actions: Actions = {
 			.slice(0, input.daily)
 			.map((e) => e.id);
 		if (ids.length === 0) {
-			return fail(400, { action: 'next', message: 'Nothing left to add today.' });
+			return fail(400, { action: 'next', message: t().today.refused.nothingToAdd });
 		}
 		try {
 			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now).created;
@@ -120,6 +126,17 @@ export const actions: Actions = {
 		}
 	},
 
+	/** The warm-ups in the person's own order (a drag on Today); `ids` comma-separated. */
+	warmupOrder: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const raw = String((await request.formData()).get('ids') ?? '');
+		const ids = raw === '' ? [] : raw.split(',').map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
+		if (ids.some(Number.isNaN) || !setWarmupOrder(getDb(), wall, ids)) {
+			return fail(400, { action: 'warmupOrder', message: t().today.refused.warmupOrder });
+		}
+		return { action: 'warmupOrder', ok: true };
+	},
+
 	createExercise: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
@@ -128,12 +145,26 @@ export const actions: Actions = {
 		if (!name || notes === undefined) {
 			return fail(400, {
 				action: 'createExercise',
-				message: 'Give it a name (up to 200 characters).',
+				message: t().today.refused.name,
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), wall, { name, notes });
+		const comesBack = readComesBack(form, null, serverNow());
+		if (comesBack === 'invalid') {
+			return fail(400, {
+				action: 'createExercise',
+				message: t().exercise.refused.checkValues,
+				name,
+				notes: notes ?? ''
+			});
+		}
+		createCustomExercise(getDb(), wall, {
+			name,
+			notes,
+			warmup: readWarmup(form),
+			comesBack: comesBack === 'teacher' ? undefined : comesBack
+		});
 		return { action: 'createExercise', ok: true };
 	}
 };

@@ -48,7 +48,8 @@ describe('device tokens', () => {
 			timezone: 'Europe/Ljubljana',
 			isAdmin: false,
 			level: null,
-			dance: 'salsa'
+			dance: 'salsa',
+			locale: null
 		});
 	});
 

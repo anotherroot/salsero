@@ -246,6 +246,34 @@
       "when": 1794086265954,
       "tag": "0034_little_inhumans",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1794121715465,
+      "tag": "0035_classy_whirlwind",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1794127991910,
+      "tag": "0036_striped_kulan_gath",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1794136383303,
+      "tag": "0037_id_marks",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794136390606,
+      "tag": "0038_id_marks_triggers",
+      "breakpoints": true
     }
   ]
 }

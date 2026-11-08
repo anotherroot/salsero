@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { COUNT_PATTERN_LABEL, type CountPattern } from '$lib/labels';
 	import { CHIP } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		patterns: readonly CountPattern[];
@@ -50,7 +51,8 @@
 				onchange={() => onchange(p)}
 				class="sr-only"
 			/>
-			{COUNT_PATTERN_LABEL[p]}
+			<!-- The counts are digits in every language; only Off is a word. -->
+			{p === 'off' ? t().exercise.panel.off : COUNT_PATTERN_LABEL[p]}
 		</label>
 	{/each}
 </div>

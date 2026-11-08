@@ -1,28 +1,31 @@
 /** What the group screens say. PURE and client-safe. */
 import { localDay } from '$lib/day/day';
 import { byteSize, classDayLabel, dayMonth, plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import { TEAM_PURGE_MS } from '$lib/limits';
 import type { Role } from '$lib/types';
 import { MAKE_MINE } from '$lib/clones/view';
 import type { Level } from '$lib/levels/levels';
 
 export function roleLabel(role: Role): string {
-	return role === 'owner' ? 'Owner' : role === 'editor' ? 'Editor' : 'Member';
+	return t().groups.role[role];
 }
 
 export function peopleLine(n: number): string {
-	return plural(n, 'person', 'people');
+	return t().entry.classes.people(n);
 }
 
 export function joinQuestion(name: string): string {
-	return `Join ${name}?`;
+	return t().entry.classes.joinQuestion(name);
 }
 
-export function noAccountLine(adminFirst: string): string {
-	return `This code only adds people who already have an account. Ask ${adminFirst} for an invite.`;
+/** `adminFirst` null: the admin has no first name ("the admin"). */
+export function noAccountLine(adminFirst: string | null): string {
+	return t().entry.classes.noAccount(adminFirst);
 }
 
-const deletingLead = (name: string, day: string) => `${name} is being deleted on ${day}`;
+/** "Salsa Tuesdays is being deleted on 2 Dec": the simple lesson page shows it too. */
+const deletingLead = (name: string, day: string) => t().lesson.deleting(name, day);
 
 export function deletingLine(name: string, day: string): string {
 	return `${deletingLead(name, day)} · ${MAKE_MINE}`;
@@ -52,21 +55,24 @@ export function lessonNotice(
 
 /** The band's line under a group's people count. */
 export function youLine(role: Role): string {
-	return role === 'owner' ? 'you own it' : role === 'editor' ? 'you edit it' : 'you are a member';
+	return t().groups.you[role];
 }
 
 /** The pill on a group in the list: how many of its lessons and songs are new. */
 export function newPill(n: number): string | null {
-	return n > 0 ? `${n} new` : null;
+	return n > 0 ? t().groups.newPill(n) : null;
 }
 
 /**
- * The Groups tab's accessible name: it says so when something is new. `label`
- * is the tab's own word: "My class" at Follow my class (`tabsFor`).
+ * The Groups tab's accessible name: it says so when something is new. `label` is
+ * the tab's own name (`tabsFor`: Groups, or My class, or You); Groups says what is
+ * new, the others "something new".
  */
-export function groupsTabLabel(isNew: boolean, label = 'Groups'): string {
-	if (!isNew) return label;
-	return label === 'Groups' ? 'Groups, new in your groups' : `${label}, something new`;
+export function groupsTabLabel(isNew: boolean, label?: string): string {
+	const w = t();
+	const name = label ?? w.shell.tabs.groups;
+	if (!isNew) return name;
+	return name === w.shell.tabs.groups ? w.groups.tabNew : name + w.entry.classes.somethingNew;
 }
 
 export function limitLine(n: number): string {
@@ -87,21 +93,35 @@ export function groupUsesLine(used: number, limit: number): string {
 
 /** The group page's songs heading: "Class songs · 3". */
 export function classSongsHeading(n: number): string {
-	return n > 0 ? `Class songs · ${n}` : 'Class songs';
+	const w = t().entry.classes;
+	return n > 0 ? w.songsCount(n) : w.songs;
 }
 
-/** My class's words (levels spec, "My class"): the tab's list, the class page, its menu. */
+/**
+ * My class's words (levels spec, "My class"): the tab's list, the class page, its menu.
+ * Getters, so each read is in the reader's language (the name stays: many group pages read it).
+ */
 export const MY_CLASS = {
-	title: 'My class',
-	classes: 'Your classes',
-	earlier: 'Earlier classes',
-	menu: 'Class menu',
+	get title(): string {
+		return t().shell.tabs.myClass;
+	},
+	get classes(): string {
+		return t().entry.classes.classes;
+	},
+	get earlier(): string {
+		return t().entry.classes.earlier;
+	},
+	get menu(): string {
+		return t().entry.classes.menu;
+	},
 	/** The desktop's empty pane beside a list of two or more classes. */
-	pick: { title: 'Pick a class', body: 'Its classes and songs open here.' }
+	get pick(): { title: string; body: string } {
+		return t().entry.classes.pick;
+	}
 };
 
 /** The toast after a one-tap Add in My class; its action is Undo. */
-export const ADDED_TO_TODAY = 'Added to Today';
+export const addedToToday = (): string => t().groups.page.addedToToday;
 
 /**
  * My class: the newest published class (the big card) and the rest, newest
@@ -119,9 +139,10 @@ export function latestAndEarlier<
 
 /** A class's line in My class: "2 videos · 4 to practise", a zero part left out; null with neither. */
 export function classMeta(videos: number, practise: number): string | null {
+	const w = t().entry.classes;
 	const parts = [
-		videos > 0 ? plural(videos, 'video', 'videos') : null,
-		practise > 0 ? `${practise} to practise` : null
+		videos > 0 ? w.videos(videos) : null,
+		practise > 0 ? w.toPractise(practise) : null
 	].filter((p) => p !== null);
 	return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -167,7 +188,8 @@ export function onlyClass(
 
 /** A class in the list of classes: when it last met ("Last class Tue 3 Nov"). */
 export function lastClassLine(day: string | null, today: string): string {
-	return day === null ? 'No classes yet' : `Last class ${classDayLabel(day, today)}`;
+	const w = t().entry.classes;
+	return day === null ? w.noClasses : w.lastClass(classDayLabel(day, today));
 }
 
 /** The desktop's empty pane beside the Groups list, with no group open. */

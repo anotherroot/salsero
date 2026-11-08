@@ -1,5 +1,6 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
+import { t } from '$lib/i18n/catalog';
 import { tabFor } from '$lib/nav/tabs';
 import { tabsFor, type Level } from '$lib/levels/levels';
 
@@ -23,27 +24,28 @@ export function errorView(
 	message: string | undefined,
 	offline: boolean
 ): ErrorView {
+	const w = t().shell.error;
 	if (offline) {
 		return {
-			title: 'Offline',
+			title: w.offlineTitle,
 			icon: 'refresh',
 			tone: 'warn',
-			heading: 'You’re offline',
-			body: 'This page needs the server. Check the connection and try again; nothing you saved is lost.',
+			heading: w.offlineHeading,
+			body: w.offlineBody,
 			code: null,
 			retry: true,
 			today: false
 		};
 	}
-	const code = `ERROR ${status}`;
+	const code = w.code(status);
 	const own = message && !GENERIC.has(message) ? message : null;
 	if (status === 404) {
 		return {
-			title: 'Not found',
+			title: w.notFoundTitle,
 			icon: 'search',
 			tone: 'accent',
-			heading: own ?? 'Nothing here',
-			body: 'This page does not exist, or what it showed was deleted.',
+			heading: own ?? w.notFoundHeading,
+			body: w.notFoundBody,
 			code,
 			retry: false,
 			today: true
@@ -51,22 +53,22 @@ export function errorView(
 	}
 	if (status >= 500) {
 		return {
-			title: 'Error',
+			title: w.title,
 			icon: 'warning',
 			tone: 'danger',
-			heading: 'Something went wrong',
-			body: 'The server could not open this page. Try again in a moment.',
+			heading: w.heading,
+			body: w.serverBody,
 			code,
 			retry: true,
 			today: true
 		};
 	}
 	return {
-		title: 'Error',
+		title: w.title,
 		icon: 'warning',
 		tone: 'danger',
-		heading: own ?? 'Something went wrong',
-		body: 'Go back and try again.',
+		heading: own ?? w.heading,
+		body: w.body,
 		code,
 		retry: false,
 		today: true
@@ -80,8 +82,8 @@ export function errorBack(
 	level: Level = 'all'
 ): { href: string; label: string } {
 	const tabs = tabsFor(level);
-	const tab = tabs.find((t) => t.id === tabFor(path, dance)) ?? tabs[0];
+	const tab = tabs.find((x) => x.id === tabFor(path, dance)) ?? tabs[0];
 	// A route id names its groups (`/[dance]/(moves)/figures`); the URL does not.
 	const href = tab.path.replace(/\/\([^)]*\)/g, '').replace('[dance]', dance);
-	return { href, label: `Back to ${tab.label}` };
+	return { href, label: t().shell.backTo(tab.label) };
 }

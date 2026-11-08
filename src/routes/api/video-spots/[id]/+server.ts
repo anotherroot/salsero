@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { allows, spotAccess } from '$lib/server/access';
 import { eq } from 'drizzle-orm';
@@ -12,6 +13,7 @@ import { editedBy, spotRoot } from '$lib/server/changes';
 import { flowAfter, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The spot id from the path, if the signed-in person may change it (their own,
@@ -20,9 +22,10 @@ import type { RequestHandler } from './$types';
  */
 function spotId(raw: string, locals: App.Locals): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
-	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, 'No such spot');
+	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, t().video.refusal.noSpot);
 	const userId = locals.user?.id;
-	if (!userId || !allows(spotAccess(getDb(), userId, id), 'edit')) throw error(404, 'No such spot');
+	if (!userId || !allows(spotAccess(getDb(), userId, id), 'edit'))
+		throw error(404, t().video.refusal.noSpot);
 	return id;
 }
 
@@ -38,7 +41,7 @@ function trashed(raw: string, locals: App.Locals): Response | null {
 	if (!userId || !Number.isSafeInteger(id) || id <= 0) return null;
 	const gone = trashedSpot(getDb(), userId, id);
 	if (!gone) return null;
-	return json({ message: goneTitle(gone, Date.now()), gone }, { status: 410 });
+	return json({ message: goneTitle(gone, serverNow()), gone }, { status: 410 });
 }
 
 export const PATCH: RequestHandler = (event) =>
@@ -73,7 +76,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 		.from(videoSpots)
 		.where(eq(videoSpots.id, id))
 		.get();
-	if (!row) throw error(404, 'No such spot');
+	if (!row) throw error(404, t().video.refusal.noSpot);
 	const pick = (all: Record<string, unknown>) =>
 		Object.fromEntries(
 			Object.keys(changes)
@@ -89,7 +92,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 	if (!check.ok && 'changed' in check) {
 		const { changed, current, by, at } = check;
 		return json(
-			{ message: clashTitle({ by, at }, Date.now()), clash: { changed, current, by, at } },
+			{ message: clashTitle({ by, at }, serverNow()), clash: { changed, current, by, at } },
 			{ status: 409 }
 		);
 	}
@@ -100,7 +103,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 		if (e instanceof SpotError) throw error(400, e.message);
 		throw e;
 	}
-	if (!spot) throw error(404, 'No such spot');
+	if (!spot) throw error(404, t().video.refusal.noSpot);
 	if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 	return json(spot);
 }
@@ -123,7 +126,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		if (e instanceof SpotLinkedError) throw error(409, e.message);
 		throw e;
 	}
-	if (!gone) throw error(404, 'No such spot');
+	if (!gone) throw error(404, t().video.refusal.noSpot);
 	if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 	return json({ trashId: gone.trashId });
 };

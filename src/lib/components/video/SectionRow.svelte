@@ -1,5 +1,6 @@
 <!-- src/lib/components/video/SectionRow.svelte -->
 <script lang="ts">
+	import { t } from '$lib/i18n/catalog';
 	import { lengthText, spotLabel } from '$lib/video/spots';
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -29,30 +30,33 @@
 			?.scrollIntoView({ inline: 'center', block: 'nearest' });
 	});
 
+	const w = $derived(t().video);
 	const PILL = 'flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[14px] whitespace-nowrap';
 </script>
 
 {#if loadFailed}
 	<p role="alert" class="flex items-center gap-2 px-5 pt-1 text-[13px] font-bold text-danger">
-		<Icon name="warning" size={16} />Couldn't load spots
+		<Icon name="warning" size={16} />{w.loadFailed}
 	</p>
 {:else if spots.length === 0}
 	<p class="px-5 pt-0.5 text-[13px] leading-[1.45] text-muted">
-		Nothing marked yet. <b class="font-bold text-ink-2">Mark point</b> saves this moment;
-		<b class="font-bold text-ink-2">Start section</b> saves a stretch to loop.
+		{w.empty.lead} <b class="font-bold text-ink-2">{w.markPoint}</b>
+		{w.empty.mark}
+		<b class="font-bold text-ink-2">{w.startSection}</b>
+		{w.empty.section}
 	</p>
 {:else}
 	<div
 		bind:this={row}
 		role="group"
-		aria-label="Sections and points"
+		aria-label={w.spots}
 		class="row flex gap-2 overflow-x-auto px-4"
 		class:scrolled
 		onscroll={(e) => (scrolled = e.currentTarget.scrollLeft > 0)}
 	>
 		<button type="button" class="h-11 flex-none cursor-pointer" onclick={onall}>
 			<span class="{PILL} bg-chip font-semibold text-chip-ink">
-				<Icon name="list" size={16} />All
+				<Icon name="list" size={16} />{w.all}
 				<span class="font-bold tabular-nums opacity-75">{spots.length}</span>
 			</span>
 		</button>

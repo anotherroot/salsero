@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import { parseBridge, updateView, type AppUpdate, type BridgeStatus } from '$lib/app-update/view';
 
 	interface Bridge {
@@ -56,10 +57,10 @@
 					// https, not market://: the app's WebView only lets http(s) leave (Pages.kt),
 					// and Android hands this link to the Play Store app.
 					href: `https://play.google.com/store/apps/details?id=eu.anotherroot.${update.dance}`,
-					label: 'Update from Google Play'
+					label: t().shell.update.fromPlay
 				}
 			: update.latest
-				? { href: update.latest.url, label: 'Update' }
+				? { href: update.latest.url, label: t().shell.update.update }
 				: null
 	);
 </script>

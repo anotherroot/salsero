@@ -1,6 +1,9 @@
+import { FACES } from './comes-back';
 import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { comingUp } from './coming-up';
+import { comingHeading } from './coming-view';
+import { RATING_OF } from './feel';
 import type { DayExercise, DayInput, DayPick } from './today-list';
 
 const TZ = 'Europe/Ljubljana';
@@ -17,6 +20,9 @@ const ex = (name: string, createdDay: string, over: Partial<DayExercise> = {}): 
 	archived: false,
 	createdAt: at(createdDay, 9),
 	everyDays: 3,
+	comesBack: FACES,
+	warmup: false,
+	warmupOrder: null,
 	...over
 });
 const pick = (e: DayExercise, kind: DayPick['kind']): DayPick => ({
@@ -107,5 +113,50 @@ describe('comingUp', () => {
 
 	it('is empty with no exercises', () => {
 		expect(comingUp(input([]))).toEqual([]);
+	});
+});
+
+describe('comingUp: warm-ups and metas', () => {
+	const set = (e: DayExercise, d: string) => ({
+		exerciseId: e.id,
+		doneAt: at(d, 12),
+		rating: RATING_OF.gotit
+	});
+
+	it('a due warm-up is on Today, not in Next in line', () => {
+		const w = ex('w', day(-2), { warmup: true });
+		expect(comingUp(input([w]))).toEqual([]);
+	});
+
+	it('a warm-up due tomorrow sits under tomorrow with its rhythm', () => {
+		const w = ex('w', day(-3), { warmup: true, comesBack: { kind: 'every', days: 1 } });
+		const gs = comingUp(input([w], { sets: [set(w, TODAY)] }));
+		expect(gs.map((g) => [g.key, g.rows.map((r) => r.meta)])).toEqual([
+			[day(1), ['Warm-up · every day']]
+		]);
+	});
+
+	it('a by-the-faces warm-up is just Warm-up; a drill says its rhythm or learning', () => {
+		const faces = ex('f', day(-3), { warmup: true });
+		const weekly = ex('d', day(-3), { comesBack: { kind: 'every', days: 7 } });
+		const learning = ex('l', day(-3), {
+			comesBack: { kind: 'until', good: 3, since: at(day(-3), 9) }
+		});
+		const plain = ex('p', day(-3));
+		const sets = [faces, weekly, learning, plain].map((e) => set(e, TODAY));
+		const gs = comingUp(input([faces, weekly, learning, plain], { sets }));
+		const metas = Object.fromEntries(
+			gs.flatMap((g) => g.rows.map((r) => [r.exercise.name, r.meta]))
+		);
+		expect(metas.f).toBe('Warm-up');
+		expect(metas.d).toBe('Weekly');
+		expect(metas.l).toBe('Learning · 1 of 3 good days');
+		expect(metas.p).toBeNull();
+	});
+
+	it('the due group is headed Next in line', () => {
+		const a = ex('a', day(-2));
+		const [g] = comingUp(input([a, ex('b', day(-1))]));
+		expect(comingHeading(g, TODAY).title).toBe('Next in line');
 	});
 });

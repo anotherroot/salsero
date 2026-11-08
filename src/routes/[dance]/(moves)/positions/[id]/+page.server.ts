@@ -77,6 +77,7 @@ import {
 import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * Where each video of the spot picker sits (its group's title): a lesson
@@ -291,7 +292,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		/** Where each of those videos sits: "video 2", "recording 26 Oct" in the picker's titles. */
 		videoPlaces: videoPlaces(db, linkable, zone),
 		/** The person's today: the lesson picker leaves this year out of its months and days. */
-		today: localDay(Date.now(), zone),
+		today: localDay(serverNow(), zone),
 		/** Link a lesson…: the owner's lessons, newest class first; `linked` by hand or through a spot. */
 		linkableLessons: linking
 			? listLessons(db, space).map((l) => ({
@@ -369,7 +370,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 			position.teamId !== null || hasCopies(db, 'position', position.id),
 			positionSeen(db, position.id),
 			typed,
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, position.teamId, 'position', position.id)
 		);
 		if (clash) return clash;
@@ -399,7 +400,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 				notes,
 				pictureSpotId: int(form, 'pictureSpotId') ?? null
 			},
-			{ actorId: wallOf(params, locals).userId, now: Date.now() }
+			{ actorId: wallOf(params, locals).userId, now: serverNow() }
 		);
 		if (!saved) throw error(404, 'Position not found');
 		if ('field' in saved)
@@ -413,7 +414,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 	 */
 	archive: ({ params, locals }) => {
 		const { position } = positionIn(params, locals, 'edit');
-		archivePosition(getDb(), position.id, Date.now(), { actorId: wallOf(params, locals).userId });
+		archivePosition(getDb(), position.id, serverNow(), { actorId: wallOf(params, locals).userId });
 		return { action: 'archive' as const, ok: true };
 	},
 
@@ -422,7 +423,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 		const db = getDb();
 		const { position, space } = positionIn(params, locals, 'edit');
 		if (position.archivedAt === null) return { action: 'restore' as const, ok: true };
-		const done = restorePositionIn(db, space, position.id, Date.now());
+		const done = restorePositionIn(db, space, position.id, serverNow());
 		if (done.ok) return { action: 'restore' as const, ok: true };
 		if (done.reason === 'taken')
 			return fail(409, { action: 'restore' as const, message: done.message });
@@ -525,7 +526,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 			!link ||
 			link.positionId !== position.id ||
 			!sectionSpace(db, userId, link.spotId) ||
-			!unlinkSpotFromPosition(db, link.id, Date.now(), userId)
+			!unlinkSpotFromPosition(db, link.id, serverNow(), userId)
 		) {
 			return fail(404, {
 				action: 'unlinkSpot' as const,
@@ -591,7 +592,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 		}
 		const { lesson, space } = requireLessonAccess(db, locals, params, lessonId, 'edit');
 		const alsoSections = form.get('alsoSections') === '1';
-		if (!unlinkPosition(db, lesson.id, position.id, alsoSections, Date.now(), actorOf(space))) {
+		if (!unlinkPosition(db, lesson.id, position.id, alsoSections, serverNow(), actorOf(space))) {
 			return fail(400, {
 				action: 'unlinkLesson' as const,
 				message: LINK_REFUSED.lessonGone

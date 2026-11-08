@@ -1,5 +1,6 @@
 /** PURE, client-safe: what the Lessons list shows. */
-import { byteSize, monthLabel, plural, weekdayShort, fullDateLabel } from '$lib/format';
+import { byteSize, monthLabel, weekdayShort, fullDateLabel } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { LessonItem } from '$lib/types';
 
 /** Consecutive lessons of one month share a group; the load already sorts newest first. */
@@ -30,7 +31,7 @@ export function videoMeta(
 	sized = true
 ): string | null {
 	if (l.videos === 0) return null;
-	const n = plural(l.videos, 'video', 'videos');
+	const n = t().lesson.list.videos(l.videos);
 	return sized ? `${n} · ${byteSize(l.videoBytes)}` : n;
 }
 
@@ -38,17 +39,17 @@ export function videoMeta(
 export function lessonCounts(
 	l: Pick<LessonItem, 'sections' | 'routines' | 'figures'>
 ): { n: number; word: string }[] {
-	const w = (n: number, one: string, many: string) => ({ n, word: n === 1 ? one : many });
+	const w = t().lesson.list;
 	return [
-		w(l.sections, 'section', 'sections'),
-		w(l.routines, 'routine', 'routines'),
-		w(l.figures, 'figure', 'figures')
+		{ n: l.sections, word: w.sections(l.sections) },
+		{ n: l.routines, word: w.routines(l.routines) },
+		{ n: l.figures, word: w.figures(l.figures) }
 	];
 }
 
 /** The list header's subtitle, or `undefined` with nothing on disk. */
 export function diskSubtitle(bytes: number): string | undefined {
-	return bytes > 0 ? `Videos on disk: ${byteSize(bytes)}` : undefined;
+	return bytes > 0 ? t().lesson.list.onDisk(byteSize(bytes)) : undefined;
 }
 
 /**
@@ -68,9 +69,8 @@ export function splitDrafts<T extends LessonItem & { publishedAt?: number | null
 
 /** The empty Lessons list's invitation: a group's drafts have no Today review. */
 export function emptyLessonsBody(inGroup: boolean): string {
-	return inGroup
-		? 'Add one after your next class — the videos and the notes. Members see it once you publish it.'
-		: 'Add one after your next class — the videos, the notes, and something on Today to make you go back over it.';
+	const w = t().lesson.list;
+	return inGroup ? w.emptyGroup : w.emptyOwn;
 }
 
 /** Whether a row is the lesson open beside the list: itself, or a twin it stands for. */
@@ -79,12 +79,11 @@ export function isOpenLesson(row: { id: number; twinIds?: number[] }, openId: nu
 }
 
 /** The pane's words with no lesson open (desktop only). */
-export const PICK_LESSON = {
-	title: 'Pick a lesson',
-	body: 'Its notes, videos and what it teaches open here, beside the list.'
-};
+export function pickLesson(): { title: string; body: string } {
+	return t().lesson.list.pick;
+}
 
 /** A group's storage as the band's subtitle on the desktop (group mode). */
 export function groupVideosSubtitle(usedBytes: number, limitBytes: number): string {
-	return `Group videos: ${byteSize(usedBytes)} of ${byteSize(limitBytes)}`;
+	return t().lesson.list.groupVideos(byteSize(usedBytes), byteSize(limitBytes));
 }

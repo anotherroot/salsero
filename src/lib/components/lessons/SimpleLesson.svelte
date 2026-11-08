@@ -9,6 +9,7 @@
 	import type { MediaProblem } from '$lib/media';
 	import type { Level } from '$lib/levels/levels';
 	import { lessonBandLine, sectionHeading } from '$lib/lessons/page';
+	import { t } from '$lib/i18n/catalog';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { newLine } from '$lib/teams/add';
 	import type { AddState, CommentsOn, LessonVideoRow, LinkRow } from '$lib/types';
@@ -120,12 +121,13 @@
 		adding = true;
 		try {
 			const result = await actAt(`/${dance}/groups/${team.id}`, 'addNow', { lessonId: lesson.id });
-			if (refused(result, 'Could not add.')) return;
+			const w = t().lesson.page;
+			if (refused(result, w.couldNotAdd)) return;
 			toast = undoToast(
 				++seq,
-				'Added to Today',
+				w.added,
 				() => (toast = null),
-				async () => refused(await act('remove', { stay: 1 }), 'Could not undo.')
+				async () => refused(await act('remove', { stay: 1 }), w.couldNotUndo)
 			);
 		} finally {
 			adding = false;
@@ -141,7 +143,8 @@
 			fresh.items.filter((i) => i.kind === kind && i.ticked).map((i) => i.id);
 		try {
 			const result = await act('add', { routineIds: ids('routine'), drillIds: ids('drill') });
-			if (!refused(result, 'Could not add.')) toast = { id: ++seq, message: 'Added to Today' };
+			const w = t().lesson.page;
+			if (!refused(result, w.couldNotAdd)) toast = { id: ++seq, message: w.added };
 		} finally {
 			addingFresh = false;
 		}
@@ -156,7 +159,7 @@
 	>
 		<span
 			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-accent-text"
-			>Not in your practice yet</span
+			>{t().lesson.page.notInPractice}</span
 		>
 		<button
 			type="button"
@@ -165,7 +168,11 @@
 			disabled={adding}
 			onclick={addNow}
 		>
-			{#if adding}<Spinner /><span class="sr-only">Adding…</span>{:else}Add{/if}
+			{#if adding}
+				<Spinner /><span class="sr-only">{t().lesson.page.adding}</span>
+			{:else}
+				{t().common.add}
+			{/if}
 		</button>
 	</div>
 {/snippet}
@@ -180,16 +187,27 @@
 	{#snippet left()}
 		<BackButton
 			fallback={level === 'follow'
-				? { href: resolve('/[dance]/groups', { dance }), label: 'Back to My class' }
-				: { href: resolve('/[dance]/lessons', { dance }), label: 'Back to Lessons' }}
+				? {
+						href: resolve('/[dance]/groups', { dance }),
+						label: t().shell.backTo(t().shell.tabs.myClass)
+					}
+				: {
+						href: resolve('/[dance]/lessons', { dance }),
+						label: t().shell.backTo(t().shell.tabs.lessons)
+					}}
 		/>
 	{/snippet}
 	{#snippet right()}
 		{#if onmenu}
-			<BandButton icon="more" label="Lesson menu" onclick={onmenu} />
+			<BandButton icon="more" label={t().lesson.page.menu} onclick={onmenu} />
 		{/if}
 		{#if canEdit}
-			<BandButton focusKey="start-editing" icon="pencil" label="Edit lesson" onclick={onedit} />
+			<BandButton
+				focusKey="start-editing"
+				icon="pencil"
+				label={t().lesson.page.edit}
+				onclick={onedit}
+			/>
 		{/if}
 	{/snippet}
 
@@ -223,7 +241,7 @@
 							type="submit"
 							class={button('tertiary', 'sm')}
 							aria-busy={notNowBusy}
-							disabled={notNowBusy}>Not now</button
+							disabled={notNowBusy}>{t().lesson.page.notNow}</button
 						>
 					</form>
 					<button
@@ -233,7 +251,8 @@
 						disabled={addingFresh}
 						onclick={addFresh}
 					>
-						{#if addingFresh}<Spinner /><span class="sr-only">Adding…</span>{:else}Add{/if}
+						{#if addingFresh}<Spinner /><span class="sr-only">{t().lesson.page.adding}</span
+							>{:else}{t().common.add}{/if}
 					</button>
 				</div>
 			{/if}
@@ -242,7 +261,7 @@
 		{#snippet about()}
 			{#if lesson.notes}
 				<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
-					<h2 class="text-[13px] font-bold text-muted">Notes</h2>
+					<h2 class="text-[13px] font-bold text-muted">{t().lesson.page.notes}</h2>
 					<LinkedText
 						text={lesson.notes}
 						class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
@@ -254,7 +273,7 @@
 		{#snippet watched()}
 			<section class="flex flex-col gap-2 pt-2.5 two:pt-0">
 				<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
-					{sectionHeading('Videos', videos.length)}
+					{sectionHeading(t().lesson.page.videos, videos.length)}
 				</h2>
 				{#if videos.length}
 					<ul class="flex flex-col gap-3">
@@ -263,7 +282,7 @@
 								{#if canEdit}<button
 										data-focus="video-{video.id}"
 										type="button"
-										aria-label="Delete video {i + 1}"
+										aria-label={t().lesson.page.deleteVideo(i + 1)}
 										aria-haspopup="dialog"
 										class={iconButton('bare', 'danger')}
 										onclick={() => ondeletevideo(video.id)}><Icon name="trash" size={22} /></button
@@ -272,17 +291,17 @@
 							<li class="{CLIP} rounded-[22px] bg-surface">
 								{#if broken[video.id] === 'missing'}
 									<VideoProblem
-										title="This file is missing"
-										body="The server has no file for this video."
-										meta="Video {i + 1}"
+										title={t().lesson.page.missingTitle}
+										body={t().lesson.page.missingBody}
+										meta={t().lesson.page.video(i + 1)}
 									>
 										{#snippet action()}{@render videoTrash()}{/snippet}
 									</VideoProblem>
 								{:else if broken[video.id] === 'unplayable'}
 									<VideoProblem
-										title="Can’t play here"
-										body="This browser can’t play this file. Download it or open it on your phone."
-										meta="Video {i + 1}"
+										title={t().lesson.page.unplayableTitle}
+										body={t().lesson.page.unplayableBody}
+										meta={t().lesson.page.video(i + 1)}
 									>
 										{#snippet action()}
 											<span class="flex items-center gap-1">
@@ -290,7 +309,7 @@
 													href={resolve('/lesson-videos/[file]', { file: video.file })}
 													download
 													class={button('tertiary', 'sm')}
-													><Icon name="download" size={18} />Download</a
+													><Icon name="download" size={18} />{t().lesson.page.download}</a
 												>
 												{@render videoTrash()}
 											</span>
@@ -302,7 +321,7 @@
 										sourceUrl={video.sourceUrl}
 										owner={{ lessonVideoId: video.id }}
 										title={lesson.title}
-										caption={{ title: `Video ${i + 1}` }}
+										caption={{ title: t().lesson.page.video(i + 1) }}
 										onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 										onclosed={() => void refreshWhenSettled()}
 										simple
@@ -312,7 +331,7 @@
 								{/if}
 								{#if videoRefused[video.id]}
 									<div class="px-3 pb-2.5">
-										<Banner kind="error" title="Can’t delete this video"
+										<Banner kind="error" title={t().lesson.page.cantDelete}
 											>{videoRefused[video.id]}</Banner
 										>
 									</div>
@@ -321,7 +340,7 @@
 						{/each}
 					</ul>
 				{:else if !canEdit}
-					<p class="px-1 text-[15px] text-muted">No videos yet.</p>
+					<p class="px-1 text-[15px] text-muted">{t().lesson.page.noVideos}</p>
 				{/if}
 				{#if canEdit}
 					<div class={videos.length ? 'mt-3' : ''}>
@@ -332,13 +351,13 @@
 									{ lesson: lesson.id },
 									{ back: page.url.pathname, name: lesson.title }
 								)}
-								label="Add videos"
+								label={t().lesson.page.addVideos}
 							/>
 						{:else}
 							<ChunkedUploadButton
 								uploadUrl="/api/lessons/{lesson.id}/videos"
 								accept="video/*"
-								label="Add videos"
+								label={t().lesson.page.addVideos}
 								maxBytes={MAX_LESSON_VIDEO_BYTES}
 							/>
 						{/if}
@@ -347,7 +366,7 @@
 			</section>
 			{#if canEdit || links.length > 0}
 				<section class="flex flex-col gap-2 pt-2.5">
-					<h2 class={SECTION_LABEL}>{sectionHeading('Links', links.length)}</h2>
+					<h2 class={SECTION_LABEL}>{sectionHeading(t().lesson.page.links, links.length)}</h2>
 					{#if canEdit}
 						<LinksEditor compact {links} canSave message={linkMessage} entered={linkEntered} />
 					{:else}
@@ -360,7 +379,7 @@
 		{#snippet practice()}
 			{#if practising.length > 0}
 				<section class="flex flex-col gap-2 pt-2.5">
-					<h2 class={SECTION_LABEL}>What you're practising</h2>
+					<h2 class={SECTION_LABEL}>{t().lesson.page.practising}</h2>
 					<ul class={GROUP}>
 						{#each practising as row (row.id)}
 							<li>

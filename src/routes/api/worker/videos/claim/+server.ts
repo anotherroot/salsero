@@ -5,6 +5,7 @@ import { getDb } from '$lib/server/db';
 import { uploadsDir } from '$lib/server/files';
 import { claimVideoJob } from '$lib/server/video-downloads';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The next YouTube link to save, or 204. A queue of its own rather than a kind
@@ -17,7 +18,7 @@ import type { RequestHandler } from './$types';
  * dropped here; resuming is only for chunks within one attempt.
  */
 export const POST: RequestHandler = async () => {
-	const job = claimVideoJob(getDb(), Date.now());
+	const job = claimVideoJob(getDb(), serverNow());
 	if (!job) return new Response(null, { status: 204 });
 	await unlink(join(uploadsDir(), `video-${job.id}.part`)).catch(() => {});
 	return json(job);

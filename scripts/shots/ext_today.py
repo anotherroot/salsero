@@ -71,7 +71,7 @@ def _start_session(page):
 
 
 def _new(page):
-    page.get_by_role("button", name=re.compile(r"Custom exercise")).first.click()
+    page.get_by_role("button", name=re.compile(r"New exercise")).first.click()
 
 
 def _edit(page):
@@ -451,7 +451,7 @@ SCENES.update({
 
 
 def _create_from_day_so_far(page):
-    """Nothing to open, then Custom exercise → Add exercise: once the sheet's Back has landed, Today
+    """Nothing to open, then New exercise → Add exercise: once the sheet's Back has landed, Today
     opens the new one in Today's own history slot (the replace never takes the sheet's entry), and one
     Back leaves Today."""
     start = page.url

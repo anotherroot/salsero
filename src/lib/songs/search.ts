@@ -4,6 +4,8 @@
  */
 import { fold } from '$lib/fold';
 import { clock } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
+import { BPM } from '$lib/labels';
 
 export const byTitle = (a: { title: string }, b: { title: string }) =>
 	a.title.localeCompare(b.title);
@@ -66,12 +68,13 @@ export function songSections<S extends Groupable & { id: number }>(
 	first?: { label: string; ids: number[] } | null
 ): { kind: SongSectionKind; label: string | null; songs: S[] }[] {
 	const { recent, rest, groups } = groupSongs(songs);
-	const own = groups.length > 0 ? 'Your songs' : recent.length > 0 ? 'All songs A–Z' : null;
+	const w = t().songs.picker;
+	const own = groups.length > 0 ? w.yours : recent.length > 0 ? w.all : null;
 	// A drill's or routine's Music first (spec B), in its order; they stay in their own sections too.
 	const lead = (first?.ids ?? []).flatMap((id) => songs.filter((s) => s.id === id));
 	return [
 		{ kind: 'first' as const, label: first?.label ?? null, songs: lead },
-		{ kind: 'recent' as const, label: 'Recent', songs: recent },
+		{ kind: 'recent' as const, label: w.recent, songs: recent },
 		{ kind: 'yours' as const, label: own, songs: rest },
 		...groups.map((g) => ({ kind: 'group' as const, label: g.name, songs: g.songs }))
 	].filter((x) => x.songs.length > 0);
@@ -79,8 +82,7 @@ export function songSections<S extends Groupable & { id: number }>(
 
 /** The song popup's count line: `8 songs`, or `1 match` while searching. */
 export function pickerCount(n: number, searching: boolean): string {
-	const word = searching ? 'match' : 'song';
-	return n === 1 ? `1 ${word}` : `${n} ${word}${searching ? 'es' : 's'}`;
+	return t().songs.picker.count(n, searching);
 }
 
 /**
@@ -100,7 +102,7 @@ export function songMeta(
 	return [
 		named ? null : s.group,
 		styleLabels[s.style] ?? s.style,
-		s.bpm ? `${s.bpm} BPM` : null,
+		s.bpm ? `${s.bpm} ${BPM}` : null,
 		s.durationS ? clock(s.durationS) : null
 	]
 		.filter(Boolean)

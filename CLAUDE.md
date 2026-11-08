@@ -65,6 +65,11 @@ and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
 see
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
+and run the day, plan 1 (slower gaps; Comes back on a drill, by how it went or on
+a fixed rhythm; Warm-up, its own list first on Today and outside the daily
+number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere;
+plans 2 and 3 are not built; see
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
@@ -73,7 +78,12 @@ exercise page and log popup; see
 and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
 with Undo, "N new"; see
-[`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md)).
+[`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md))
+and Slovenian (part 1: the app in English or Slovenian per account; the language on
+the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
+person; the Follow my class path in Slovenian, the Practice player and pairing
+included; the rest of the app and the Android app's own text are part 2; see
+[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -180,6 +190,11 @@ Today as a number a day has its own,
 the four faces, the replayed gap and its numbers, the day's list from the start
 of the day, Next N, Not today and Undo, Coming up, the reminder, and what was
 decided while building.
+Run the day has its own,
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
+the slower gaps, Comes back (by how it went, every day until it feels good, a
+fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
+lateness, and the exercise page, Done sheet and run still to come.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add
@@ -190,6 +205,10 @@ Comments have theirs,
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md):
 who reads and writes, the soft delete, hearts, "N new" from an `opens` row, the
 card, the sheet, the keyboard, the API, and what was decided while building.
+Slovenian has its own,
+[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
+the register (vikanje), the glossary, plurals, dates and numbers, where the language
+lives (account, invite, cookie), how the words are organised, and the order of work.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -212,6 +231,23 @@ src/lib/levels/      PURE, client-safe: levels.ts is the level (`'follow' | 'own
                      `simpleClass`, `autoAddOn` and the other "is this drawn" questions.
                      Components ask it, never compare level strings. first-run.ts: the
                      first run's words, refusals and where it ends (`afterJoin`, `afterSkip`)
+src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current language's catalog),
+                     `en/` the source and `sl/` typed against it, one file per area with an
+                     `index.ts` (the glossary heads `sl/index.ts`), `current.ts` (the current
+                     language: a `withLocale` override for specs, the server's per-request
+                     source, the browser's, then English; never a server module variable),
+                     `locale.ts` (`'en' | 'sl'`, the `lang` cookie, `requestLocale`), `plural.ts`
+                     (`slCount`, `slForm`). `i18n.spec.ts` checks both catalogs have the same
+                     keys; `no-english.spec.ts` lists the translated components (`TRANSLATED`)
+                     and fails on bare English in their markup (`no-english.ts`, `englishIn`)
+src/lib/server/i18n-request.ts  the server's language per request (`AsyncLocalStorage`):
+                     `hooks.server.ts` wraps `resolve` in `runInLocale`
+src/lib/server/locale.ts  `users.locale` and `invites.locale` (`setLocale`, `localeOf`,
+                     `inviteLocaleOf`), the `lang` cookie, `<html lang>` (`fillLang`)
+src/lib/server/invite-code.ts  an invite code's hash: a leaf, so the hook reads an
+                     invite's language without loading invites.ts
+src/lib/exercises/name.ts  PURE: a lesson's own exercise is stored `Review: <title>` and
+                     drawn in the reader's language (`shownExercise`, in the loads)
 src/lib/comments/    PURE, client-safe: view.ts is the comments' words, the 1–1000 body rule,
                      "@Name", the card's words, and the sheet's list after a post, a heart
                      or a delete. api.ts is the fetch side of the comments API
@@ -227,6 +263,16 @@ src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates p
                      (view.ts), the map's layout (map.ts: a force layout from a fixed
                      start, the label pass, the tray) and how the page draws it
                      (map-view.ts: type colours, what a tap lights, the arrows). Client-safe
+src/lib/schedule/comes-back.ts  PURE: a drill's Comes back (by how it went, learning, or a fixed
+                     rhythm): parsing it, the one a row follows (`effectiveComesBack`) and its
+                     words. `schedule.ts` holds `scheduleOf` (the setting + the sets → a
+                     `DueState`) and the slower gap steps (`STEPS`)
+src/lib/exercises/comes-back-view.ts  PURE: the Edit card's notes and chips for Comes back and
+                     Warm-up (drawn by components/exercises/ComesBackCard.svelte and WarmupRow.svelte);
+                     the words are `t().exercise.comesBack` and `t().exercise.warmup`
+src/lib/server/comes-back-form.ts  reads the Edit form's Comes back and Warm-up fields (a
+                     `warmupSent` marker says the Warm-up row was on the form)
+src/lib/server/warmup-order.ts  the warm-ups' own order (`exercises.warmup_order`), set by dragging
 src/lib/server/schedule.ts  the schedule from the database: `listScheduleSets`, `scheduleStates`
                      (every live exercise, optionally as of the start of a day), `scheduleStateOf`,
                      `scheduleForShown` (the person's own entry wins). Nothing stored
@@ -607,7 +653,7 @@ src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.serv
 src/routes/[dance]/lessons/  the same for Lessons: `+layout.svelte` and `+layout.server.ts` hold
                      `components/lessons/LessonList.svelte` beside the open lesson (a lesson
                      page is two columns; no lessons, no column; `lessons/list.ts` has
-                     `PICK_LESSON`, `isOpenLesson`, `groupVideosSubtitle`). The New lesson sheet
+                     `pickLesson()`, `isOpenLesson`, `groupVideosSubtitle`). The New lesson sheet
                      stays mounted in the layout. `components/shell/reveal.ts`: `revealLit` and
                      `revealPicked`, scroll the lit or the new row into view in a list column
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
@@ -653,6 +699,10 @@ src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
+src/lib/server/db/ids.ts  ids from slots: `mintedId`, `mintId`, `setIdSlot` (`id_marks`, its
+                     triggers in migration 0038)
+src/lib/server/server-clock.ts  `serverNow()`: the one clock server code reads.
+                     server-sources.ts is the specs' view of the server code (scans)
 src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
                      `wallOf(params, locals)`, `inWall(row, wall)` and the
                      `require*InWall` guards on ids, so a request only ever reaches
@@ -700,12 +750,29 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   a pure function of the sets' days and faces (`sets.rating`), replayed per
   request (`src/lib/schedule/`); `today_picks` keeps only the person's choices
   for one day (Next N, add, skip), never what is due. There is no frequency
-  to set: the gap is earned from the faces.
+  to set: the gap is earned from the faces. The one exception is a drill's
+  **Comes back** (`exercises.comes_back`): "every day until it feels good" or a
+  fixed rhythm of 1, 2, 3 or 7 days, the person's choice. Even then what is due
+  is worked out from the sets, never stored. A **warm-up** (`exercises.warmup`)
+  sits outside the daily number.
 - **Elapsed time sorts; calendar days speak.** Anything a user reads as a day
   ("yesterday", "done today", which day a set belongs to) goes through
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for
   sorting. Never `Date.now()` inside `src/lib/day` or `src/lib/schedule`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
+- **Every insert mints its id.** An integer id comes from `mintedId('<table>')`
+  (`src/lib/server/db/ids.ts`): this runtime's slot in `id_marks`, plus one
+  (`id = slot × 2³² + n`; the server is slot 0, devices get their own). An
+  insert carries ONE new row, or rows that carry their own ids: SQLite works
+  the default out once per statement, so several new rows collide. No raw SQL
+  insert into an id table, and no migration insert without `id`. A new
+  integer-id table gets `mintedId` and a mark trigger (as in migration 0038).
+  `ids.spec.ts` checks all of it.
+- **Server code reads the time through `serverNow()`**
+  (`src/lib/server/server-clock.ts`), never `Date.now()` or `new Date()`:
+  offline replay will set it to when a change was made.
+  `server-clock.spec.ts` scans for it. Pure modules still take `now` as an
+  argument.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
   while a live exercise uses it, archived ones lose `song_id`; a group song's
@@ -835,6 +902,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `/api/worker/` (`request-user.ts`). Only its SHA-256 is stored. Anything the
   Android app needs is an `/api/` endpoint; anything it shows is a page the
   app's WebView opens with the cookie session.
+- **Words go through `t()`.** A screen's words live in the catalogs, never inline:
+  a new screen's words go in both catalogs (en and sl, `src/lib/i18n/`), and its
+  component goes in `TRANSLATED` (`src/lib/i18n/no-english.spec.ts`). Read `t()` at call
+  time (in markup, a `$derived` or inside a function), never into a top-level constant.
+  Slovenian: vikanje in sentences, plurals through `slCount`, a decimal comma, a person's
+  name after a colon or a "·", the glossary at the top of `sl/index.ts`. What people
+  write (names, notes, comments, song titles) and the count are never translated.
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with
   `toLocaleDateString` — ICU versions disagree and SSR must match hydration.
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are

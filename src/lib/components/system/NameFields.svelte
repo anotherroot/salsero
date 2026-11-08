@@ -2,6 +2,7 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { FIELD, FIELD_INVALID, LABEL } from '$lib/components/ui/styles';
 	import { NAME_MAX } from '$lib/names';
+	import { t } from '$lib/i18n/catalog';
 
 	/** First and last name, for Join, /welcome and Settings. `field` marks the one a refusal is about. */
 	let {
@@ -20,7 +21,7 @@
 </script>
 
 <label class="block">
-	<span class={LABEL}>First name</span>
+	<span class={LABEL}>{t().entry.name.first}</span>
 	<input
 		name="firstName"
 		autocomplete="given-name"
@@ -35,7 +36,7 @@
 </label>
 
 <label class="block">
-	<span class={LABEL}>Last name</span>
+	<span class={LABEL}>{t().entry.name.last}</span>
 	<input
 		name="lastName"
 		autocomplete="family-name"

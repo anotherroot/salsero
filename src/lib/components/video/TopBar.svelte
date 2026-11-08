@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { VIDEO_RATES, type VideoChoice, type VideoRate } from '$lib/video-prefs';
 	import type { TopBarParts } from '$lib/video/chrome';
+	import { t } from '$lib/i18n/catalog';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TOP_GLASS, topBack, topEdit } from './styles';
 
@@ -48,6 +49,7 @@
 		onchoose
 	}: Props = $props();
 
+	const w = $derived(t().video);
 	let speedOpen = $state(false);
 
 	const DISC = 'grid size-10 place-items-center rounded-full';
@@ -72,7 +74,7 @@
 	<button
 		type="button"
 		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
-		aria-label="Close player"
+		aria-label={w.closePlayer}
 		onclick={onclose}
 	>
 		{#if parts.glass}
@@ -85,7 +87,7 @@
 		<!-- The one part that gives way: on a very narrow phone its words truncate rather than the bar overflow. -->
 		<button type="button" class="flex h-11 min-w-0 cursor-pointer items-center" onclick={onback}>
 			<span class="{pill} max-w-full"
-				><Icon name="chevron-left" size={20} /><span class="min-w-0 truncate">Full video</span
+				><Icon name="chevron-left" size={20} /><span class="min-w-0 truncate">{w.fullVideo}</span
 				></span
 			>
 		</button>
@@ -101,7 +103,7 @@
 				<span
 					class="truncate text-[12.5px] font-semibold {parts.glass
 						? 'text-white/80'
-						: 'text-muted'}">{parts.sub === 'looping' ? 'Looping' : subtitle}</span
+						: 'text-muted'}">{parts.sub === 'looping' ? w.looping : subtitle}</span
 				>
 			{/if}
 		</div>
@@ -113,26 +115,26 @@
 		<button
 			type="button"
 			class="grid size-11 flex-none cursor-pointer place-items-center"
-			aria-label="Edit"
+			aria-label={t().common.edit}
 			onclick={onedit}
 		>
 			<span class="{DISC} bg-accent text-on-accent"><Icon name="edit" size={20} /></span>
 		</button>
 	{:else if parts.edit && onedit}
 		<button type="button" class={HIT} onclick={onedit}>
-			<span class={editClass}><Icon name="edit" size={18} />Edit</span>
+			<span class={editClass}><Icon name="edit" size={18} />{t().common.edit}</span>
 		</button>
 	{/if}
 	{#if parts.sections && onspots}
 		<button type="button" class={HIT} onclick={onspots}>
-			<span class={glassPill}><Icon name="list" size={20} />Sections ({spotsCount})</span>
+			<span class={glassPill}><Icon name="list" size={20} />{w.sectionsCount(spotsCount)}</span>
 		</button>
 	{/if}
 	{#if parts.repeat}
 		<button
 			type="button"
 			class="grid size-11 flex-none cursor-pointer place-items-center text-white disabled:cursor-default"
-			aria-label="Repeat"
+			aria-label={w.repeat}
 			aria-pressed={repeat}
 			disabled={repeatLocked}
 			onclick={() => onchoose({ repeat: !repeat })}
@@ -149,7 +151,7 @@
 	<button
 		type="button"
 		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
-		aria-label="Mute"
+		aria-label={w.mute}
 		aria-pressed={muted}
 		onclick={() => onchoose({ muted: !muted })}
 	>
@@ -164,7 +166,7 @@
 	<button
 		type="button"
 		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
-		aria-label="Mirror"
+		aria-label={w.mirror}
 		aria-pressed={mirror}
 		onclick={() => onchoose({ mirror: !mirror })}
 	>
@@ -179,7 +181,7 @@
 	<button
 		type="button"
 		class={HIT}
-		aria-label="Speed {rate}×"
+		aria-label={w.speedOf(rate)}
 		aria-expanded={speedOpen}
 		onclick={() => (speedOpen = !speedOpen)}
 	>
@@ -190,13 +192,13 @@
 				? 'shadow-[0_0_0_2px_var(--color-accent)]'
 				: parts.glass
 					? 'shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'
-					: ''}">{rate}×</span
+					: ''}">{w.rate(rate)}</span
 		>
 	</button>
 	{#if speedOpen}
 		<div
 			role="group"
-			aria-label="Speed"
+			aria-label={w.speed}
 			class="absolute top-[58px] right-2 z-30 flex gap-0.5 rounded-[27px] bg-surface p-[5px] shadow-[0_12px_30px_rgb(0_0_0/0.6),inset_0_0_0_1px_rgb(255_255_255/0.12)]"
 		>
 			{#each VIDEO_RATES as r (r)}
@@ -210,7 +212,7 @@
 					onclick={() => {
 						onchoose({ rate: r });
 						speedOpen = false;
-					}}>{r}×</button
+					}}>{w.rate(r)}</button
 				>
 			{/each}
 		</div>

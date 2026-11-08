@@ -3,6 +3,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { cleanName } from '$lib/names';
+import { t } from '$lib/i18n/catalog';
 import { safeNext } from '$lib/safe-next';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -32,14 +33,14 @@ export const actions: Actions = {
 			return fail(400, {
 				...raw,
 				field: 'firstName' as const,
-				message: 'Enter your first name (up to 60 letters).'
+				message: t().entry.name.firstRefusal
 			});
 		}
 		if (!lastName) {
 			return fail(400, {
 				...raw,
 				field: 'lastName' as const,
-				message: 'Enter your last name (up to 60 letters).'
+				message: t().entry.name.lastRefusal
 			});
 		}
 		getDb().update(users).set({ firstName, lastName }).where(eq(users.id, locals.user.id)).run();

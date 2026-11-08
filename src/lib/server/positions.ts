@@ -24,6 +24,7 @@ import { copiedFromPlaces } from './clones/genes';
 import { fieldChange, logChange } from './changes';
 import { reconcileEntries } from './entries';
 import type { ArchiveRestore } from './trash';
+import { serverNow } from '$lib/server/server-clock';
 
 export type NameRefusal = { field: 'name'; message: string };
 
@@ -200,7 +201,7 @@ export function updatePosition(
 				tx,
 				space,
 				{ rootKind: 'position', rootId: id, verb: by?.verb ?? 'change', ...change },
-				by?.now ?? Date.now()
+				by?.now ?? serverNow()
 			);
 		}
 		return row;

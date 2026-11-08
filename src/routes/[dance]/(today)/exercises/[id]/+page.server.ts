@@ -18,7 +18,8 @@ import { classLessonOf, commentsOn } from '$lib/server/comments';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
-import { scheduleStates } from '$lib/server/schedule';
+import { goodDaysOf, scheduleStates } from '$lib/server/schedule';
+import type { ComesSettings } from '$lib/exercises/comes-back-view';
 import {
 	requireExerciseAccess,
 	requireExerciseInWall,
@@ -33,6 +34,7 @@ import {
 	unlinkSpot
 } from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/server/take-form';
@@ -42,8 +44,10 @@ import { familyView } from '$lib/server/clones/send';
 import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
+import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
@@ -53,6 +57,7 @@ type FromClass = ReturnType<typeof fromClassOf>;
 /** Who acts: History names them on a group's drill. */
 import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
 import { listMusic, musicChoices } from '$lib/server/song-links';
+import { serverNow } from '$lib/server/server-clock';
 
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
@@ -83,7 +88,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;
-	const now = Date.now();
+	const now = serverNow();
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
 	const {
@@ -116,9 +121,25 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				: own.source === 'added' && own.drillId !== null
 					? { exerciseId: own.drillId }
 					: null;
+		const item = popup.exercise;
+		const isDrill = item.source === 'custom' || item.source === 'added';
 		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
 			...popup,
+			comes: isDrill
+				? ({
+						value: item.comesBack,
+						own: item.comesBackOwn,
+						teacher: item.comesBackTeacher,
+						forClass: false,
+						good:
+							item.comesBack.kind === 'until'
+								? goodDaysOf(db, item.id, item.comesBack.since, tz)
+								: 0
+					} satisfies ComesSettings)
+				: null,
+			/** Warm-up is the person's own: every row of theirs has the switch. */
+			warmupSwitch: item.warmup as boolean | null,
 			music: musicParent ? listMusic(db, musicParent, wall.userId) : [],
 			musicChoices: own.source === 'custom' ? musicChoices(db, wall) : [],
 			musicShown: musicParent !== null,
@@ -183,6 +204,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		archived: false,
 		notes: row.notes,
 		createdAt: row.createdAt,
+		comesBack: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+		comesBackOwn: parseComesBack(row.comesBack),
+		comesBackTeacher: null,
+		warmup: false,
+		warmupOrder: null,
 		team: { id: row.teamId, name: getTeam(db, row.teamId)?.name ?? '' }
 	};
 	// No entry yet: Add, through a lesson that holds the drill (R7). One the
@@ -198,6 +224,16 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	});
 	return {
 		music: listMusic(db, { exerciseId: row.id }, wall.userId),
+		comes: canEdit
+			? ({
+					value: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+					own: parseComesBack(row.comesBack),
+					teacher: null,
+					forClass: true,
+					good: null
+				} satisfies ComesSettings)
+			: null,
+		warmupSwitch: null as boolean | null,
 		musicChoices: canEdit ? musicChoices(db, spaceOfRow(row, wall.userId)) : [],
 		musicShown: true,
 		musicEdit: canEdit,
@@ -272,7 +308,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
 		const { lessonId, picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
-		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, Date.now())) {
+		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, serverNow())) {
 			throw error(404, 'No such lesson');
 		}
 		return { action: 'add', ok: true };
@@ -328,7 +364,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const route = drillAddRoute(db, userId, row);
 		if (!route || !route.added) throw error(404, 'No such exercise');
 		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
-		if (!addLesson(db, userId, route.lessonId, picks, Date.now(), { touch: false })) {
+		if (!addLesson(db, userId, route.lessonId, picks, serverNow(), { touch: false })) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'addDrill', ok: true };
@@ -349,7 +385,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const active = team ? row.active : checkbox(form, 'active');
 		const notes = optionalText(form, 'notes');
 		if (notes === undefined) {
-			return fail(400, { action: 'update', message: 'Check the values and try again.' });
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
 		}
 		const stored = getExercise(db, row.id);
 		const clash = seenRefusal(
@@ -357,21 +393,29 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 			row.teamId !== null || hasCopies(db, 'drill', row.id),
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
 			{ action: 'update' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		if (!updateExercise(db, row.id, { name, notes, active }, me(params, locals))) {
+		const comesBack = readComesBack(form, parseComesBack(row.comesBack), serverNow());
+		if (comesBack === 'invalid') {
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
+		}
+		// Warm-up is the person's own: a group's drill never takes it. No field keeps.
+		const warmup = team ? undefined : readWarmup(form);
+		if (
+			!updateExercise(db, row.id, { name, notes, active, warmup, comesBack }, me(params, locals))
+		) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };
 	},
 
 	archive: ({ params, locals }) => {
-		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now(), me(params, locals))) {
+		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, serverNow(), me(params, locals))) {
 			return fail(400, {
 				action: 'archive',
-				message: 'Only custom exercises are archived here. Archive a figure from its page.'
+				message: t().exercise.refused.archiveHere
 			});
 		}
 		throw redirect(303, `/${params.dance}`);
@@ -385,7 +429,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const exerciseId = linkableOf(params, locals).id;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
-			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+			return fail(400, { action: 'linkSection', message: t().exercise.refused.pickSection });
 		}
 		try {
 			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { exerciseId });
@@ -407,9 +451,9 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const link = id === undefined ? null : getSpotLink(getDb(), id);
 		if (
 			id === undefined ||
-			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
+			!unlinkSpot(getDb(), id, { exerciseId }, serverNow(), me(params, locals))
 		) {
-			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+			return fail(404, { action: 'unlinkSection', message: t().exercise.refused.linkGone });
 		}
 		const root = link ? rootOfSpot(getDb(), link.spotId) : null;
 		if (root) await flowAfter(locals.user?.id, root.kind, root.id);

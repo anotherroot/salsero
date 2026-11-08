@@ -24,7 +24,8 @@
 	import TodayBar from '$lib/components/today/TodayBar.svelte';
 	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { ExerciseItem } from '$lib/types';
-	import { todayHero, undoLogMessage } from '$lib/exercises/today';
+	import { notTodayMessage, onTodayMessage, todayHero, undoLogMessage } from '$lib/exercises/today';
+	import { t } from '$lib/i18n/catalog';
 	import { undoAddSteps, type PickReply } from '$lib/schedule/picks';
 	import { dayTotals, defaultOpen, sessionLine } from '$lib/exercises/today-pane';
 	import { setTodayPane } from '$lib/components/today/today-context';
@@ -324,7 +325,7 @@
 		if (!row || row.kind === 'done') return false;
 		const keys = day.rows.map((r) => `today-row-${r.exercise.id}`);
 		const result = await actAt(`/${dance}`, 'pick', { exerciseId, kind: 'skip' });
-		const refused = refusalMessage(result, 'Could not skip it. Try again.');
+		const refused = refusalMessage(result, t().today.refused.skip);
 		if (refused) {
 			say(refused);
 			return false;
@@ -332,18 +333,18 @@
 		const pickId = (result as { data?: { pickIds?: number[] } }).data?.pickIds?.[0];
 		toast =
 			pickId === undefined
-				? { id: ++toastSeq, message: `${row.exercise.name} · Not today` }
+				? { id: ++toastSeq, message: notTodayMessage(row.exercise.name) }
 				: undoToast(
 						++toastSeq,
-						`${row.exercise.name} · Not today`,
+						notTodayMessage(row.exercise.name),
 						() => (toast = null),
 						async () => {
 							const undone = await actAt(`/${dance}`, 'unpick', { pickId });
-							const m = refusalMessage(undone, 'Could not put it back. Try again.');
+							const m = refusalMessage(undone, t().today.refused.putBack);
 							if (m) say(m);
 						}
 					);
-		// Else Next N, else the list's add control (Custom exercise, the phone's or the band's).
+		// Else Next N, else the list's add control (New exercise, the phone's or the band's).
 		void focusAfterRemoval(keys, `today-row-${exerciseId}`, ['today-next', 'today-custom']);
 		return true;
 	}
@@ -363,7 +364,7 @@
 			() => (toast = null),
 			async () => {
 				const result = await actAt(`/${dance}`, 'deleteSet', { setId });
-				const m = refusalMessage(result, 'Could not undo that set. Try again.');
+				const m = refusalMessage(result, t().today.refused.undoSet);
 				if (m) say(m);
 			}
 		);
@@ -480,7 +481,7 @@
 	 */
 	function added(exercise: ExerciseItem, reply: PickReply) {
 		const steps = undoAddSteps(exercise.id, reply);
-		const message = `${exercise.name} is on Today`;
+		const message = onTodayMessage(exercise.name);
 		if (steps.length === 0) {
 			toast = { id: ++toastSeq, message };
 			return;
@@ -492,7 +493,7 @@
 			async () => {
 				for (const step of steps) {
 					const result = await actAt(`/${dance}`, step.action, step.fields);
-					const refused = refusalMessage(result, 'Could not undo that. Try again.');
+					const refused = refusalMessage(result, t().today.refused.undo);
 					if (refused) {
 						toast = { id: ++toastSeq, message: refused };
 						return;
@@ -511,37 +512,37 @@
 </script>
 
 <svelte:head>
-	{#if onComing}<title>Coming up · {data.dance.label}</title>{:else if isList && !past}<title
-			>Today · {data.dance.label}</title
-		>{/if}
+	{#if onComing}<title>{t().shell.lists.comingUp} · {data.dance.label}</title
+		>{:else if isList && !past}<title>{t().shell.tabs.today} · {data.dance.label}</title>{/if}
 </svelte:head>
 
 {#snippet heroCard()}
-	<TodayBar {hero} playLabel={resuming ? 'Resume session' : 'Start session'} onplay={play} />
+	<TodayBar
+		{hero}
+		playLabel={resuming ? t().today.hero.resume : t().today.hero.start}
+		onplay={play}
+	/>
 {/snippet}
 
 {#snippet bandRight()}
 	{#if !comingColumn}
 		<BandButton
 			icon="chevron-left"
-			label="Previous day"
+			label={t().today.list.previousDay}
 			href={resolve(`/${dance}?day=${data.list.yesterday}`)}
 		/>
 		<BandButton
 			icon="calendar"
-			label="Coming up"
+			label={t().shell.lists.comingUp}
 			href={resolve('/[dance]/(today)/coming-up', { dance })}
 		/>
-		<!-- The desktop's Custom exercise (the phone's is the list's button). Settings is the
-		     phone's You tab and the desktop's side. -->
-		<span class="hidden desk:contents"
-			><BandButton
-				icon="plus"
-				label="Custom exercise"
-				focusKey="today-custom"
-				onclick={() => (creating = true)}
-			/></span
-		>
+		<!-- New exercise is the + at every width. Settings is the phone's You tab and the desktop's side. -->
+		<BandButton
+			icon="plus"
+			label={t().today.newExercise.title}
+			focusKey="today-custom"
+			onclick={() => (creating = true)}
+		/>
 	{/if}
 {/snippet}
 
@@ -549,13 +550,13 @@
 	<!-- The phone's ‹ (the desktop has Today's column to go back to). -->
 	<span class="contents desk:hidden"
 		><BackButton
-			fallback={{ href: resolve('/[dance]/(today)', { dance }), label: 'Today' }}
+			fallback={{ href: resolve('/[dance]/(today)', { dance }), label: t().shell.tabs.today }}
 		/></span
 	>
 {/snippet}
 
 {#snippet comingPane()}
-	<p class="px-10 pt-10 text-[15px] text-muted">Pick an exercise to open it.</p>
+	<p class="px-10 pt-10 text-[15px] text-muted">{t().today.list.pickToOpen}</p>
 {/snippet}
 
 {#snippet list()}
@@ -592,7 +593,7 @@
 	Screen: the list's band row holds the page's one banner, main and h1.
 -->
 {#snippet daySoFar()}
-	<PaneHeading title="Today so far" subtitle={dayTotals(data.list.todaySets)} />
+	<PaneHeading title={t().today.list.soFar} subtitle={dayTotals(data.list.todaySets)} />
 	<div class="max-w-[800px] px-10 pt-[18px] pb-10">
 		<PastDay today daySets={data.list.todaySets} {kinds} {timezone} />
 	</div>
@@ -612,7 +613,7 @@
 		{isList}
 		width={400}
 		solo={isList && empty && !comingColumn}
-		title={comingColumn ? 'Coming up' : 'Today'}
+		title={comingColumn ? t().shell.lists.comingUp : t().shell.tabs.today}
 		subtitle={comingColumn ? undefined : longDayLabel(data.list.today)}
 		left={onComing ? comingBack : undefined}
 		right={bandRight}
@@ -656,6 +657,8 @@
 	<NewExerciseSheet
 		{dance}
 		message={failure('createExercise')}
+		daily={data.list.daily}
+		simple={simpleLog}
 		values={page.form?.action === 'createExercise' && 'name' in page.form
 			? { name: page.form.name as string, notes: page.form.notes as string }
 			: null}

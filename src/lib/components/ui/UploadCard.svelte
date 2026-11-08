@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { IconName } from '$lib/icons/icons';
 	import Icon from './Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 
 	/** An upload on its way: percent, a bar, and the reassurance that the app stays usable. */
 	interface Props {
@@ -17,14 +18,7 @@
 		icon?: IconName;
 	}
 
-	let {
-		pct,
-		label,
-		title,
-		helper = 'You can keep using the app; closing the tab stops it',
-		tone = 'accent',
-		icon = 'upload'
-	}: Props = $props();
+	let { pct, label, title, helper, tone = 'accent', icon = 'upload' }: Props = $props();
 	const shown = $derived(Math.floor(pct));
 </script>
 
@@ -36,13 +30,13 @@
 				: 'bg-accent-soft text-accent-text'}"><Icon name={icon} size={22} /></span
 		>
 		<div class="flex min-w-0 flex-1 flex-col gap-0.5">
-			<span class="text-[16px] font-bold">{title ?? `Uploading… ${shown}%`}</span>
-			<span class="text-[13px] text-muted">{helper}</span>
+			<span class="text-[16px] font-bold">{title ?? t().shell.upload.title(shown)}</span>
+			<span class="text-[13px] text-muted">{helper ?? t().shell.upload.helper}</span>
 		</div>
 	</div>
 	<div
 		role="progressbar"
-		aria-label="Uploading {label}"
+		aria-label={t().shell.upload.bar(label)}
 		aria-valuemin="0"
 		aria-valuemax="100"
 		aria-valuenow={shown}

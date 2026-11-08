@@ -7,6 +7,7 @@ import { DANCES } from '$lib/dances/dances';
 import { parsePracticeInput } from '$lib/exercises/practice';
 import { flowAfter } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const exercise = requireExerciseInWall(getDb(), wallOf(params, locals), Number(params.id));
@@ -18,7 +19,7 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 export const GET: RequestHandler = ({ params, locals }) => {
 	if (!locals.user) throw error(401);
 	return json(
-		practicePayload(getDb(), exerciseOf(params, locals), locals.user.timezone, Date.now())
+		practicePayload(getDb(), exerciseOf(params, locals), locals.user.timezone, serverNow())
 	);
 };
 

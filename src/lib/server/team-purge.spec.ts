@@ -615,12 +615,8 @@ describe('purgeTeams with positions', () => {
 		db.insert(figureStartPositions).values({ figureId: w.figure, positionId: abierta }).run();
 		db.insert(figureEndPositions).values({ figureId: w.figure, positionId: cerrada }).run();
 		db.insert(lessonPositions).values({ lessonId: w.lesson, positionId: cerrada }).run();
-		db.insert(spotPositionLinks)
-			.values([
-				{ spotId: point, positionId: cerrada },
-				{ spotId: recPoint, positionId: abierta }
-			])
-			.run();
+		db.insert(spotPositionLinks).values({ spotId: point, positionId: cerrada }).run();
+		db.insert(spotPositionLinks).values({ spotId: recPoint, positionId: abierta }).run();
 		deleteTeam(db, 1, 'u1', T);
 		const now = T + 31 * DAY;
 		expect(await purgeTeams(db, now, dirs)).toBe(1);

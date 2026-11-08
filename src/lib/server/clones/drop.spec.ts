@@ -370,6 +370,37 @@ describe('dropCopy: the other kinds', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
+	it('a drill: the warm-up and its order go back onto the entry, revived or made', async () => {
+		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const L = published(T1_SALSA, 'Week 6', (id) => linkExercise(db, id, D, 'u1'));
+		expect(addLesson(db, 'u2', L, { ...NONE, drillIds: [D] }, T)).toBe(true);
+		const copy = (await mine('drill', D)).id;
+		const warm = () =>
+			db
+				.update(exercises)
+				.set({ warmup: true, warmupOrder: 3 })
+				.where(eq(exercises.id, copy))
+				.run();
+		warm();
+		// Revived: the person's archived entry comes back.
+		expect(dropCopy(db, U2_SALSA, 'drill', copy, D, {}, LATER)).toMatchObject({ ok: true });
+		expect(liveOfU2()).toMatchObject([{ drillId: D, warmup: true, warmupOrder: 3 }]);
+		expect(exerciseRow(D)).toMatchObject({ warmup: false, warmupOrder: null });
+
+		// Made: with no entry left on the group's drill, the one inserted takes it too.
+		const entry = liveOfU2()[0].id;
+		db.update(exercises).set({ archivedAt: null }).where(eq(exercises.id, copy)).run();
+		db.update(sets).set({ exerciseId: copy }).where(eq(sets.exerciseId, entry)).run();
+		db.delete(exercises).where(eq(exercises.id, entry)).run();
+		warm();
+		expect(dropCopy(db, U2_SALSA, 'drill', copy, D, {}, LATER + 1)).toMatchObject({ ok: true });
+		const live = liveOfU2();
+		expect(live).toHaveLength(1);
+		expect(live[0].id).not.toBe(entry);
+		expect(live[0]).toMatchObject({ drillId: D, warmup: true, warmupOrder: 3 });
+		expect(crossRefs(db)).toEqual([]);
+	});
+
 	it('a song: picks go back to the class’s song; the copy is archived (no restore: Edit says so)', async () => {
 		const S = createSongFromUpload(
 			db,

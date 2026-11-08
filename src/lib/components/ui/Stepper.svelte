@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import { iconButton } from './styles';
+	import { t } from '$lib/i18n/catalog';
 
 	/** [label] (number pill) [unit] (−) (+): the tempo control. A typed value is kept as typed (rounded, clamped into range); `step` is only what − and + move by. */
 	interface Props {
@@ -23,8 +24,8 @@
 		step = 1,
 		label,
 		unit,
-		minusLabel = 'Slower',
-		plusLabel = 'Faster',
+		minusLabel,
+		plusLabel,
 		onchange
 	}: Props = $props();
 
@@ -63,7 +64,7 @@
 	<button
 		type="button"
 		class={iconButton('step')}
-		aria-label={minusLabel}
+		aria-label={minusLabel ?? t().shell.stepper.slower}
 		disabled={value <= min}
 		onclick={() => bump(-step)}
 	>
@@ -72,7 +73,7 @@
 	<button
 		type="button"
 		class={iconButton('step')}
-		aria-label={plusLabel}
+		aria-label={plusLabel ?? t().shell.stepper.faster}
 		disabled={value >= max}
 		onclick={() => bump(step)}
 	>

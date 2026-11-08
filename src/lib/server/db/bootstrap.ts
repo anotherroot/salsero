@@ -13,6 +13,7 @@ import { startTrashPurge } from '../trash';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
 import { getDb, type Db } from './index';
 
+import { serverNow } from '../server-clock';
 let ready: Promise<void> | undefined;
 
 /**
@@ -46,7 +47,7 @@ function checkIntegrity(db: Db): void {
 export function bootstrap(): Promise<void> {
 	// Every account in one dance first (the dance split): a session must never
 	// see an unplaced account, and the boot admin counts accounts per dance.
-	ready ??= splitAccounts(getDb(), realCloneFiles(), Date.now())
+	ready ??= splitAccounts(getDb(), realCloneFiles(), serverNow())
 		.then((r) => {
 			if (r.assigned || r.split || r.failed)
 				console.info(
@@ -57,7 +58,7 @@ export function bootstrap(): Promise<void> {
 		.then(() => {
 			// Today's shared positions become the admin's, and every other person
 			// or group using one gets its own copy. Once EVER (`app_flags`).
-			const moved = movePositionsToOwners(getDb(), Date.now());
+			const moved = movePositionsToOwners(getDb(), serverNow());
 			if (moved.ran)
 				console.info(
 					`[positions] moved: ${moved.copies} copies, ${moved.figures} figures, ${moved.ends} ends`
@@ -67,20 +68,20 @@ export function bootstrap(): Promise<void> {
 			// Lesson notes carried their YouTube links as plain text before links
 			// existed. Copied out once EVER — `app_flags` remembers — so a link the
 			// user deletes afterwards is never brought back by a restart.
-			importNoteLinks(getDb(), Date.now());
+			importNoteLinks(getDb(), serverNow());
 		})
 		.then(() => {
 			// Sections linked before a link named them take their link's name.
 			// Once EVER (`app_flags`), so a name cleared later stays cleared.
-			const named = nameLinkedSpots(getDb(), Date.now());
+			const named = nameLinkedSpots(getDb(), serverNow());
 			if (named.ran) console.info(`[sections] named ${named.named}`);
 		})
 		.then(() => {
 			// A mark for every copy in a family: what it held, so a save knows what it changed.
-			const marks = markFamilies(getDb(), Date.now());
+			const marks = markFamilies(getDb(), serverNow());
 			if (marks.ran) console.info(`[clone-marks] marked ${marks.marked}`);
 		})
-		.then(() => backfillSongSizes(getDb(), Date.now()))
+		.then(() => backfillSongSizes(getDb(), serverNow()))
 		.then(() => {
 			// Abandoned chunked uploads, swept once per process rather than by a
 			// cron or a unit there would be nothing to remind anyone about. Not

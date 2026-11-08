@@ -2,9 +2,12 @@ import { fail } from '@sveltejs/kit';
 import { appsLines, gbToBytes } from '$lib/admin-view';
 import { inviteLink } from '$lib/dances/hosts';
 import { localDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
+import { parseLocale } from '$lib/i18n/locale';
 import { listAppsSeen } from '$lib/server/app-seen';
 import { getDb } from '$lib/server/db';
 import { int } from '$lib/server/form';
+import { localeOf, setLocale } from '$lib/server/locale';
 import { danceHosts } from '$lib/server/hosts';
 import { createInvite, inviteQr } from '$lib/server/invites';
 import { requireAdmin } from '$lib/server/scope';
@@ -23,13 +26,14 @@ import {
 } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 export const load: PageServerLoad = async ({ locals }) => {
 	requireAdmin(locals);
 	const tz = locals.user!.timezone;
 	// The admin of one dance: its people, groups and requests only (the dance split).
 	const dance = locals.user!.dance;
 	const db = getDb();
-	const now = Date.now();
+	const now = serverNow();
 	const today = localDay(now, tz);
 	const seen = listAppsSeen(db);
 	return {
@@ -44,6 +48,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			day: localDay(p.createdAt, tz),
 			groupsMade: teamsMade(db, p.id, dance),
 			groupLimit: teamLimit(db, p.id),
+			locale: localeOf(db, p.id) ?? 'en',
 			apps: appsLines(
 				seen.filter((s) => s.userId === p.id).map((s) => ({ ...s, day: localDay(s.seenAt, tz) })),
 				today,
@@ -68,14 +73,22 @@ function limitFrom(form: FormData): number | undefined {
 const BAD_LIMIT = 'Give a limit in GB, more than zero.';
 
 export const actions: Actions = {
-	/** Makes a new code (and ends the previous unused one); the code is only in this response. */
-	invite: async ({ locals, url }) => {
+	/**
+	 * Makes a new code (and ends the previous unused one) in the chosen language;
+	 * the code is only in this response. No language (a page opened before the
+	 * choice) is English, as every invite was then.
+	 */
+	invite: async ({ locals, url, request }) => {
 		requireAdmin(locals);
+		const raw = (await request.formData()).get('locale');
+		const locale = raw === null ? 'en' : parseLocale(raw);
+		if (!locale) return fail(400, { message: t().admin.badLanguage });
 		const { code, expiresAt } = createInvite(
 			getDb(),
 			locals.user!.id,
 			locals.user!.dance,
-			Date.now()
+			serverNow(),
+			locale
 		);
 		const link = inviteLink({
 			hosts: danceHosts(),
@@ -96,7 +109,7 @@ export const actions: Actions = {
 		if (id === undefined) return fail(400, { message: 'Pick a request.' });
 		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
 		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
-		if (!reach || !resolveRequest(getDb(), id, 'granted', limit, Date.now())) {
+		if (!reach || !resolveRequest(getDb(), id, 'granted', limit, serverNow())) {
 			return fail(404, { message: 'That request is already closed.' });
 		}
 		return { ok: true };
@@ -108,7 +121,7 @@ export const actions: Actions = {
 		const id = int(await request.formData(), 'id');
 		if (id === undefined) return fail(400, { message: 'Pick a request.' });
 		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
-		if (!reach || !resolveRequest(getDb(), id, 'declined', null, Date.now())) {
+		if (!reach || !resolveRequest(getDb(), id, 'declined', null, serverNow())) {
 			return fail(404, { message: 'That request is already closed.' });
 		}
 		return { ok: true };
@@ -142,6 +155,19 @@ export const actions: Actions = {
 		) {
 			return fail(404, { message: 'That group is gone.' });
 		}
+		return { ok: true };
+	},
+
+	/** One person's language. */
+	setLocale: async ({ locals, request }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		const userId = String(form.get('userId') ?? '');
+		const locale = parseLocale(form.get('locale'));
+		if (!locale) return fail(400, { message: t().admin.badLanguage });
+		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
+		if (!reach) return fail(404, { message: 'That person is gone.' });
+		setLocale(getDb(), userId, locale);
 		return { ok: true };
 	},
 

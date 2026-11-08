@@ -10,6 +10,8 @@
 		requestTitle,
 		requestUsesLine
 	} from '$lib/admin-view';
+	import { t } from '$lib/i18n/catalog';
+	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import type { PageData } from './$types';
 	import InviteQr from '$lib/components/admin/InviteQr.svelte';
@@ -17,6 +19,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
@@ -33,6 +36,23 @@
 	let busy = $state(false);
 	let error = $state('');
 	let copied = $state(false);
+	/** The invite's language: most people invited are Slovenian. */
+	let inviteLocale = $state<Locale | null>('sl');
+	/**
+	 * What the server took for each person since the page loaded: the list's copy of a
+	 * person lags behind it until it refreshes, and a reopen must show the new one.
+	 */
+	let savedLocales = $state<Record<string, Locale | null>>({});
+	const localeOf = (p: PageData['people'][number]): Locale | null =>
+		(p.id in savedLocales ? savedLocales[p.id] : p.locale) ?? null;
+	/** The open person's language: what the Sheet shows, and what the server last took. */
+	let localeChoice = $derived<Locale | null>(person ? localeOf(person) : null);
+	let localeSaved = $derived<Locale | null>(person ? localeOf(person) : null);
+	let localeSaving = $state(false);
+	let localeError = $state('');
+	let localeForm = $state<HTMLFormElement>();
+	/** The language on its way to the server. */
+	let localeSending: Locale | null = null;
 
 	async function share() {
 		if (!invite) return;
@@ -163,6 +183,15 @@
 					};
 				}}
 			>
+				<div class="flex flex-col p-4">
+					<span class={LABEL}>{t().admin.inviteLanguage}</span>
+					<Segmented
+						name="locale"
+						label={t().admin.inviteLanguage}
+						items={LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }))}
+						bind:value={inviteLocale}
+					/>
+				</div>
 				<button class="{ROW_TALL} w-full text-left" aria-busy={busy}>
 					<LeadTile icon="plus" />
 					<span class="flex min-w-0 flex-1 flex-col">
@@ -231,7 +260,14 @@
 	</div>
 </Screen>
 
-<Sheet title={person?.email ?? 'Limit'} open={person !== null} onclose={() => (person = null)}>
+<Sheet
+	title={person?.email ?? 'Limit'}
+	open={person !== null}
+	onclose={() => {
+		person = null;
+		localeError = '';
+	}}
+>
 	{#if person}
 		<form
 			method="POST"
@@ -297,6 +333,57 @@
 			<button type="submit" name="default" value="1" class={button('secondary', 'md', true)}>
 				Use the default
 			</button>
+		</form>
+		<form
+			bind:this={localeForm}
+			method="POST"
+			action="?/setLocale"
+			class="flex flex-col gap-2 pb-4"
+			use:enhance={({ formData, cancel }) => {
+				// One at a time: a second pick while one saves goes back to the one saving.
+				if (localeSaving) {
+					localeChoice = localeSending;
+					return cancel();
+				}
+				const sent = formData.get('locale') as Locale;
+				const who = String(formData.get('userId'));
+				localeSending = sent;
+				localeSaving = true;
+				localeError = '';
+				return async ({ result, update }) => {
+					try {
+						if (result.type === 'success') {
+							savedLocales[who] = sent;
+							localeSaved = sent;
+						} else {
+							localeError =
+								result.type === 'failure'
+									? String(result.data?.message ?? t().admin.languageFailed)
+									: t().admin.languageFailed;
+							localeChoice = localeSaved;
+						}
+						await update({ reset: false });
+					} finally {
+						localeSaving = false;
+					}
+				};
+			}}
+		>
+			<input type="hidden" name="userId" value={person.id} />
+			<div class="flex items-center gap-2">
+				<span class={LABEL}>{t().admin.language}</span>
+				{#if localeSaving}<Spinner size={14} />{/if}
+			</div>
+			<div aria-busy={localeSaving}>
+				<Segmented
+					name="locale"
+					label={t().admin.language}
+					items={LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }))}
+					bind:value={localeChoice}
+					onchange={() => localeForm?.requestSubmit()}
+				/>
+			</div>
+			{#if localeError}<Banner kind="error" title={localeError} />{/if}
 		</form>
 	{/if}
 </Sheet>

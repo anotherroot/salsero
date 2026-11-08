@@ -11,6 +11,7 @@
 	import type { Side } from '$lib/gestures/swipe';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import { iconButton } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		row: DayRow<ExerciseItem>;
@@ -32,6 +33,8 @@
 		onswipe: (open: Side) => void;
 		/** Open this exercise's log popup. */
 		onlog: () => void;
+		/** A warm-up row in the card whose rows can be dragged: where the drag has put it. */
+		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
 
 	let {
@@ -45,7 +48,8 @@
 		onlog,
 		onskip,
 		swiped,
-		onswipe
+		onswipe,
+		drag
 	}: Props = $props();
 
 	const ex = $derived(row.exercise);
@@ -64,7 +68,18 @@
 	const LINK = 'flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1';
 </script>
 
-<li>
+<!--
+	A draggable row is a flat list of its card's rows (`data-warm-row`); the drag moves it with
+	the `translate` property, so nothing else about its layout changes.
+-->
+<li
+	data-warm-row={drag ? ex.id : undefined}
+	class="{drag?.lifted ? 'relative z-10 shadow-[0_8px_24px_rgb(0_0_0/0.22)]' : ''} {drag?.moving &&
+	!drag.lifted
+		? 'transition-transform duration-150 motion-reduce:transition-none'
+		: ''}"
+	style={drag ? `translate: 0 ${drag.offset}px` : undefined}
+>
 	<!--
 		The phone swipes a to-do or picked row left for "Not today" (a done row has
 		none; the desktop has the button under Log set). The sliding card carries the
@@ -74,7 +89,7 @@
 		key="today:{ex.id}"
 		open={swiped}
 		onchange={onswipe}
-		end={onskip ? { label: 'Not today', icon: 'redo', onclick: onskip } : undefined}
+		end={onskip ? { label: t().today.row.notToday, icon: 'redo', onclick: onskip } : undefined}
 		disabled={!onskip || desk.current}
 		rounded="rounded-none"
 		tone="warn"
@@ -99,7 +114,7 @@
 							? 'text-muted'
 							: 'text-ink'}"
 						>{ex.name}{#if upNext}<span class="ml-1 inline-block align-[2px]"
-								><Badge tone="accent" solid>Up next</Badge></span
+								><Badge tone="accent" solid>{t().today.row.upNext}</Badge></span
 							>{/if}</span
 					>
 					<!-- muted is under 4.5:1 on the Up next tint; ink-2 clears it in every theme. -->
@@ -114,7 +129,7 @@
 			<button
 				type="button"
 				onclick={onlog}
-				aria-label="Log a set of {ex.name}"
+				aria-label={t().today.row.logSet(ex.name)}
 				class="{plus} desk:hidden"
 			>
 				<Icon name="plus" />

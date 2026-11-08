@@ -44,6 +44,7 @@ import {
 	type Keep,
 	type Visible
 } from './spot-links';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The new link's id: a section or point `userId` may edit (their own, or a
@@ -57,7 +58,7 @@ export function linkSpotToPosition(
 	userId: string,
 	spotId: number,
 	positionId: number,
-	now = Date.now()
+	now = serverNow()
 ): number {
 	const space = sectionSpace(db, userId, spotId);
 	if (!space) throw new SpotLinkError('No such section.');
@@ -74,7 +75,7 @@ export function linkPositionInSpace(
 	space: Space,
 	spotId: number,
 	positionId: number,
-	now = Date.now()
+	now = serverNow()
 ): number {
 	const video = videoOfSpot(db, spotId);
 	if (!video || !inSpace(video, space)) throw new SpotLinkError('No such section.');
@@ -173,7 +174,7 @@ function logPositionLink(
 export function unlinkSpotFromPosition(
 	db: Db,
 	linkId: number,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string,
 	opts: { spotId?: number; alsoLesson?: boolean } = {}
 ): boolean {

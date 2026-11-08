@@ -7,6 +7,7 @@ import type {
 	Source as ExerciseSource,
 	TempoFactor
 } from './labels';
+import type { ComesBack } from './schedule/comes-back';
 import type { DanceSlug } from './dances/dances';
 
 /** A group, as a list names it. */
@@ -33,6 +34,14 @@ export interface ExerciseItem {
 	archived: boolean;
 	notes: string | null;
 	createdAt: number;
+	/** How it comes back, effective: its own, else the class drill's, else the faces. */
+	comesBack: ComesBack;
+	/** The row's own setting, parsed; null when unset. */
+	comesBackOwn: ComesBack | null;
+	/** An entry's class drill's setting, parsed; null otherwise. */
+	comesBackTeacher: ComesBack | null;
+	warmup: boolean;
+	warmupOrder: number | null;
 	/**
 	 * The group whose lesson, routine, variation or drill this entry practises,
 	 * through its target; null for a person's own. Today heads its rows by it.

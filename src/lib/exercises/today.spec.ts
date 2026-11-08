@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
 import type { DayPick } from '$lib/schedule/picks';
-import type { ScheduleState } from '$lib/schedule/schedule';
+import { FACES } from '$lib/schedule/comes-back';
+import type { DueState } from '$lib/schedule/schedule';
 import type { DaySet, ExerciseItem } from '$lib/types';
 import {
 	deletedGroupName,
-	listLabel,
+	listLabels,
 	nothingLeftMeta,
+	notTodayMessage,
+	onTodayMessage,
 	pastGroups,
 	rowMeta,
 	tileTone,
@@ -34,21 +38,28 @@ function ex(id: number, name = `E${id}`): ExerciseItem {
 		archived: false,
 		notes: null,
 		createdAt: 0,
+		comesBack: FACES,
+		comesBackOwn: null,
+		comesBackTeacher: null,
+		warmup: false,
+		warmupOrder: null,
 		team: null
 	};
 }
 
-const st = (dueDay: string, gap = 3, lastDay: string | null = '2026-11-01'): ScheduleState => ({
+const st = (dueDay: string, gap = 3, lastDay: string | null = '2026-11-01'): DueState => ({
 	gap,
 	lastDay,
-	dueDay
+	dueDay,
+	every: null,
+	learning: null
 });
 
 function row(
 	kind: RowKind,
 	o: {
-		start?: ScheduleState;
-		state?: ScheduleState;
+		start?: DueState;
+		state?: DueState;
 		neverDone?: boolean;
 		pick?: DayPick['kind'];
 	} = {}
@@ -57,6 +68,7 @@ function row(
 	return {
 		exercise: ex(1, 'Basic step on 1'),
 		kind,
+		list: 'practice',
 		start,
 		state: o.state ?? start,
 		neverDone: o.neverDone ?? false,
@@ -82,11 +94,25 @@ describe('rowMeta', () => {
 		]);
 		expect(rowMeta(r, TODAY, null)).toEqual([{ text: 'New', tone: 'status' }]);
 	});
-	it('late and due today', () => {
-		expect(rowMeta(row('todo', { start: st('2026-11-03') }), TODAY, null)).toEqual([
-			{ text: '2 days late', tone: 'status' }
+	it('due today or long past: no due wording at all', () => {
+		expect(rowMeta(row('todo', { start: st('2026-10-16') }), TODAY, null)).toEqual([]);
+		expect(rowMeta(row('todo', { start: st(TODAY) }), TODAY, null)).toEqual([]);
+	});
+	it('a drill row ends in its rhythm or its learning', () => {
+		const every: DueState = { ...st(TODAY), every: 2 };
+		expect(rowMeta(row('todo', { start: every }), TODAY, null)).toEqual([
+			{ text: 'Every 2 days', tone: null }
 		]);
-		expect(words(rowMeta(row('todo', { start: st(TODAY) }), TODAY, null))).toBe('Due today');
+		const learning: DueState = { ...st(TODAY), learning: { good: 2, of: 3 } };
+		expect(rowMeta(row('todo', { start: learning }), TODAY, null)).toEqual([
+			{ text: 'Learning · 2 of 3 good days', tone: null }
+		]);
+	});
+	it('a done row stays Done · back', () => {
+		const every: DueState = { ...st('2026-11-07', 2, TODAY), every: 2 };
+		expect(words(rowMeta(row('done', { state: every }), TODAY, null))).toBe(
+			'Done · Back in 2 days'
+		);
 	});
 	it('picked by Next before its day: Ahead · due Sunday', () => {
 		const r = row('picked', { pick: 'next', start: st('2026-11-08') });
@@ -98,13 +124,11 @@ describe('rowMeta', () => {
 			words(rowMeta(row('picked', { pick: 'next', start: st('2026-11-14') }), TODAY, null))
 		).toBe('Ahead · due 14 Nov');
 	});
-	it('picked by Next when already due: the due words', () => {
-		expect(words(rowMeta(row('picked', { pick: 'next', start: st(TODAY) }), TODAY, null))).toBe(
-			'Due today'
+	it('picked by Next when already due: nothing to say about the day', () => {
+		expect(rowMeta(row('picked', { pick: 'next', start: st(TODAY) }), TODAY, null)).toEqual([]);
+		expect(rowMeta(row('picked', { pick: 'next', start: st('2026-11-01') }), TODAY, null)).toEqual(
+			[]
 		);
-		expect(rowMeta(row('picked', { pick: 'next', start: st('2026-11-01') }), TODAY, null)).toEqual([
-			{ text: '4 days late', tone: 'status' }
-		]);
 	});
 	it('added from Coming up: Added · due tomorrow', () => {
 		expect(
@@ -112,7 +136,7 @@ describe('rowMeta', () => {
 		).toBe('Added · due tomorrow');
 		expect(
 			words(rowMeta(row('picked', { pick: 'add', start: st('2026-11-04') }), TODAY, null))
-		).toBe('Added · 1 day late');
+		).toBe('Added');
 	});
 });
 
@@ -128,6 +152,7 @@ function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
 	return {
 		today: TODAY,
 		rows: [],
+		warmups: 0,
 		done: 0,
 		total: 0,
 		left: 0,
@@ -138,6 +163,13 @@ function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
 }
 
 describe('todayHero', () => {
+	it('before anything is done: N for today; after, N left for today', () => {
+		expect(todayHero(list({ done: 0, total: 7, left: 7 }))).toMatchObject({
+			title: '7 for today',
+			meta: '0 of 7 done'
+		});
+		expect(todayHero(list({ done: 2, total: 7, left: 5 })).title).toBe('5 left for today');
+	});
 	it('to do: how many are left, and done of all', () => {
 		expect(todayHero(list({ done: 2, total: 5, left: 3 }))).toEqual({
 			title: '3 left for today',
@@ -200,12 +232,19 @@ describe('todayHero', () => {
 	});
 });
 
-describe('listLabel', () => {
-	it('Today · N, or Done today · N once nothing is left', () => {
-		expect(listLabel({ total: 5, nothingLeft: null })).toBe('Today · 5');
-		expect(listLabel({ total: 14, nothingLeft: { next: ex(2), day: '2026-11-06', more: 0 } })).toBe(
-			'Done today · 14'
-		);
+describe('listLabels', () => {
+	it('Warm-up · N and Practice · N', () => {
+		expect(listLabels({ total: 7, warmups: 2, nothingLeft: null })).toEqual({
+			warmup: 'Warm-up · 2',
+			practice: 'Practice · 5'
+		});
+	});
+	it('no warm-ups: no warm-up label', () => {
+		expect(listLabels({ total: 5, warmups: 0, nothingLeft: null }).warmup).toBeNull();
+	});
+	it('Done today · N once nothing is left', () => {
+		const nothingLeft = { next: ex(2), day: '2026-11-06', more: 0 };
+		expect(listLabels({ total: 14, warmups: 0, nothingLeft }).practice).toBe('Done today · 14');
 	});
 });
 
@@ -255,5 +294,105 @@ describe('undoLogMessage', () => {
 
 	it('says tomorrow for a gap of one day', () => {
 		expect(undoLogMessage('Setenta', 1)).toBe('Setenta · back tomorrow');
+	});
+});
+
+// Today in Slovenian (the class reads it every day). Each case fails if the
+// catalog entry were the English one.
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it.each([
+		[1, 'Še 1 vaja za danes'],
+		[2, 'Še 2 vaji za danes'],
+		[3, 'Še 3 vaje za danes'],
+		[5, 'Še 5 vaj za danes']
+	])('the bar card counts what is left: %s -> %s', (left, title) => {
+		const h = sl(() => todayHero(list({ done: 1, total: left + 1, left })));
+		expect(h.title).toBe(title);
+		expect(h.meta).toBe(`Opravljeno: 1 od ${left + 1}`);
+	});
+
+	it('the bar card before anything is done', () => {
+		expect(sl(() => todayHero(list({ done: 0, total: 5, left: 5 })).title)).toBe('5 vaj za danes');
+		expect(sl(() => todayHero(list({ done: 0, total: 2, left: 2 })).title)).toBe('2 vaji za danes');
+	});
+
+	it('the bar card once the day is done, and once nothing is left', () => {
+		expect(sl(() => todayHero(list({ done: 5, total: 5, showNext: true })))).toMatchObject({
+			title: 'Vse opravljeno',
+			meta: 'Današnja vadba je končana'
+		});
+		const left = (day: string, done: number) =>
+			sl(() => todayHero(list({ done, total: done, nothingLeft: { next: ex(2), day, more: 0 } })));
+		expect(left('2026-11-06', 3)).toMatchObject({
+			title: 'Vse vaje so opravljene',
+			meta: 'Naslednja je na vrsti jutri'
+		});
+		expect(left('2026-11-08', 3).meta).toBe('Naslednja je na vrsti v nedeljo');
+		expect(left('2026-11-20', 3).meta).toBe('Naslednja je na vrsti 20. nov.');
+		expect(left('2026-11-08', 0)).toMatchObject({
+			title: 'Za danes ni nič več',
+			meta: 'Ostale so spet na vrsti v nedeljo'
+		});
+		expect(sl(() => todayHero(list({ showNext: true })))).toMatchObject({
+			title: 'Danes ni nič na vrsti',
+			meta: 'Spodaj lahko vadite vnaprej'
+		});
+		expect(sl(() => todayHero(list({})))).toMatchObject({
+			title: 'Danes ni ničesar',
+			meta: 'Vse vaje so na premoru'
+		});
+	});
+
+	it("a row's meta", () => {
+		const done = sl(() => rowMeta(row('done', { state: st('2026-11-12', 7, TODAY) }), TODAY, null));
+		expect(words(done)).toBe('Opravljeno · Spet čez en teden');
+		const fresh = row('todo', { neverDone: true, start: st(TODAY, 3, null) });
+		expect(words(sl(() => rowMeta(fresh, TODAY, 'tor, 3. nov.')))).toBe(
+			'Nova · z lekcije tor, 3. nov.'
+		);
+		const ahead = row('picked', { pick: 'next', start: st('2026-11-08') });
+		expect(words(sl(() => rowMeta(ahead, TODAY, null)))).toBe('Vnaprej · na vrsti v nedeljo');
+		const added = row('picked', { pick: 'add', start: st('2026-11-06') });
+		expect(words(sl(() => rowMeta(added, TODAY, null)))).toBe('Dodano · na vrsti jutri');
+	});
+
+	it("the lists' headings, and what comes back once nothing is left", () => {
+		expect(sl(() => listLabels({ total: 7, warmups: 2, nothingLeft: null }))).toEqual({
+			warmup: 'Ogrevanje · 2',
+			practice: 'Vaje · 5'
+		});
+		const nothingLeft = { next: ex(2), day: '2026-11-06', more: 0 };
+		expect(sl(() => listLabels({ total: 14, warmups: 0, nothingLeft }).practice)).toBe(
+			'Opravljeno danes · 14'
+		);
+		expect(sl(() => nothingLeftMeta({ day: '2026-11-06', more: 3 }, TODAY))).toBe(
+			'Jutri · in še 3'
+		);
+		expect(sl(() => nothingLeftMeta({ day: '2026-11-08', more: 0 }, TODAY))).toBe('V nedeljo');
+		expect(sl(() => nothingLeftMeta({ day: '2026-11-20', more: 1 }, TODAY))).toBe(
+			'20. nov. · in še 1'
+		);
+	});
+
+	it('the toasts: a logged set, Not today and Coming up’s +', () => {
+		expect(sl(() => undoLogMessage('Setenta', 7))).toBe('Setenta · spet čez en teden');
+		expect(sl(() => undoLogMessage('Setenta', 1))).toBe('Setenta · spet jutri');
+		expect(sl(() => notTodayMessage('Setenta'))).toBe('Setenta · ne danes');
+		expect(sl(() => onTodayMessage('Setenta'))).toBe('Setenta · dodano za danes');
+	});
+
+	it("a purged group's log", () => {
+		expect(sl(() => deletedGroupName('tor, 3. nov.', 'Salsa nadaljevalna'))).toBe(
+			'tor, 3. nov. · Salsa nadaljevalna (izbrisana)'
+		);
+	});
+});
+
+describe('the toasts in English', () => {
+	it('Not today and Coming up’s +', () => {
+		expect(notTodayMessage('Setenta')).toBe('Setenta · Not today');
+		expect(onTodayMessage('Setenta')).toBe('Setenta is on Today');
 	});
 });

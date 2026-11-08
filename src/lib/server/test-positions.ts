@@ -60,18 +60,13 @@ export function insertFixturePositions(db: Db, owner: FixtureOwner = { userId: '
 			.limit(1)
 			.get();
 		if (has) continue;
-		db.insert(positions)
-			.values(
-				FIXTURE[dance].map((p, i) => ({
-					dance,
-					slug: p.slug,
-					name: p.name,
-					sortOrder: i,
-					userId,
-					teamId
-				}))
-			)
-			.run();
+		// One row per insert: each mints its own id (src/lib/server/db/ids.ts).
+		FIXTURE[dance].forEach((p, i) =>
+			db
+				.insert(positions)
+				.values({ dance, slug: p.slug, name: p.name, sortOrder: i, userId, teamId })
+				.run()
+		);
 	}
 }
 

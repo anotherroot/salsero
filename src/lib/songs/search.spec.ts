@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { PickerSong } from '$lib/types';
 import { groupSongs, musicFirst, pickerCount, searchSongs, songMeta, songSections } from './search';
 
@@ -166,5 +167,44 @@ describe('musicFirst', () => {
 	});
 	it('is null with nothing marked', () => {
 		expect(musicFirst([song(1, 'Alma')])).toBeNull();
+	});
+});
+
+// The song popup opens from the log popup's practice panel at every level.
+describe('the song popup in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('counts songs and matches in all four forms', () => {
+		expect(sl(() => [1, 2, 3, 5, 101].map((n) => pickerCount(n, false)))).toEqual([
+			'1 skladba',
+			'2 skladbi',
+			'3 skladbe',
+			'5 skladb',
+			'101 skladba'
+		]);
+		expect(sl(() => [1, 2, 4, 0].map((n) => pickerCount(n, true)))).toEqual([
+			'1 zadetek',
+			'2 zadetka',
+			'4 zadetki',
+			'0 zadetkov'
+		]);
+	});
+
+	it('heads the sections', () => {
+		const mixed = [
+			song(1, 'A', { recentRank: 0 }),
+			song(2, 'B'),
+			song(3, 'C', { group: 'Torek', groupId: 1 })
+		];
+		expect(sl(() => songSections(mixed).map((x) => x.label))).toEqual([
+			'Nedavne',
+			'Vaše skladbe',
+			'Torek'
+		]);
+		const played = [song(1, 'A', { recentRank: 0 }), song(2, 'B')];
+		expect(sl(() => songSections(played).map((x) => x.label))).toEqual([
+			'Nedavne',
+			'Vse skladbe A–Ž'
+		]);
 	});
 });

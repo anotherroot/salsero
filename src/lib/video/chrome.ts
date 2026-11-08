@@ -4,6 +4,7 @@
  * sheet's copy, the toast's icon and place, whether the buffering spinner
  * shows, and the editor's and list's second lines. PURE and client-safe.
  */
+import { t } from '$lib/i18n/catalog';
 import type { IconName } from '$lib/icons/icons';
 import type { Spot } from '$lib/types';
 import type { VideoRate } from '$lib/video-prefs';
@@ -88,7 +89,8 @@ export function portraitBody(
 
 /** The corner badge: speed and mirror, as the player has always worded them. */
 export function cornerBadge(rate: VideoRate, mirror: boolean): string {
-	return [rate !== 1 ? `${rate}×` : null, mirror ? 'Mirrored' : null].filter(Boolean).join(' · ');
+	const w = t().video;
+	return [rate !== 1 ? w.rate(rate) : null, mirror ? w.mirrored : null].filter(Boolean).join(' · ');
 }
 
 export type LinkEntry =
@@ -106,29 +108,30 @@ export function linkEntry(
 	where: 'badge' | 'editor',
 	point = false
 ): LinkEntry {
+	const w = t().video;
 	const linked = linkedTo.length > 0;
 	if (!linking) {
 		if (!linked) return { kind: 'none' };
 		return {
 			kind: 'show',
-			text: where === 'badge' ? linkSummary(linkedTo) : `Linked to ${linkedTo.join(', ')}`
+			text: where === 'badge' ? linkSummary(linkedTo) : w.linkedTo(linkedTo.join(', '))
 		};
 	}
 	if (!linked) {
-		const what = point ? 'Link to a position' : 'Link to a figure, drill or position';
+		const what = point ? w.linkToPosition : w.linkToAny;
 		return where === 'badge'
 			? {
 					kind: 'open',
-					text: 'Link',
-					label: point ? 'Link this point' : 'Link this section',
+					text: w.link,
+					label: point ? w.linkPoint : w.linkSection,
 					invite: true
 				}
 			: { kind: 'open', text: what, label: what, invite: true };
 	}
 	return {
 		kind: 'open',
-		text: where === 'badge' ? linkSummary(linkedTo) : `Linked to ${linkSummary(linkedTo)}`,
-		label: `Links: ${linkedTo.join(', ')}`,
+		text: where === 'badge' ? linkSummary(linkedTo) : w.linkedTo(linkSummary(linkedTo)),
+		label: w.links(linkedTo.join(', ')),
 		invite: false
 	};
 }
@@ -136,7 +139,7 @@ export function linkEntry(
 /** Under the name: the times when the name is a label, else just the length (the name is the times). */
 export function editorSub(spot: Spot): string {
 	return spot.endMs === null
-		? `Point at ${preciseTime(spot.startMs)}`
+		? t().video.pointAt(preciseTime(spot.startMs))
 		: spot.label
 			? `${spotLabel({ ...spot, label: null })} · ${lengthText(spot.endMs - spot.startMs)}`
 			: lengthText(spot.endMs - spot.startMs);
@@ -144,14 +147,14 @@ export function editorSub(spot: Spot): string {
 
 /** The list's second line: the time again only when the first line is a name. */
 export function listMeta(spot: Spot): string {
-	const kind = spot.endMs === null ? 'point' : lengthText(spot.endMs - spot.startMs);
+	const kind = spot.endMs === null ? t().video.point : lengthText(spot.endMs - spot.startMs);
 	return spot.label ? `${spotLabel({ ...spot, label: null })} · ${kind}` : kind;
 }
 
 /** A spot's times, always: a section `0:12.4–0:16.0 · 3.6 s`, a point `Point at 1:38.50`. */
 export function spotLine(spot: Spot): string {
 	return spot.endMs === null
-		? `Point at ${preciseTime(spot.startMs)}`
+		? t().video.pointAt(preciseTime(spot.startMs))
 		: `${spotTime(spot.startMs)}–${spotTime(spot.endMs)} · ${lengthText(spot.endMs - spot.startMs)}`;
 }
 
@@ -162,23 +165,21 @@ export function deleteCopy(spot: Spot): {
 	body: string | null;
 	blocked: { title: string; body: string } | null;
 } {
-	const title = `Delete “${spotLabel(spot)}”?`;
+	const w = t().video;
+	const title = w.sheet.deleteTitle(spotLabel(spot));
 	const sub = spotLine(spot);
 	if (spot.linkedTo.length > 0) {
 		return {
 			title,
 			sub,
 			body: null,
-			blocked: {
-				title: `Linked to ${spot.linkedTo.join(', ')}`,
-				body: 'Unlink it there first; until then this section stays.'
-			}
+			blocked: { title: w.linkedTo(spot.linkedTo.join(', ')), body: w.sheet.unlinkFirst }
 		};
 	}
 	return {
 		title,
 		sub,
-		body: `The ${spot.endMs === null ? 'point' : 'section'} goes from this video. You can undo it for a few seconds.`,
+		body: spot.endMs === null ? w.sheet.deletePoint : w.sheet.deleteSection,
 		blocked: null
 	};
 }

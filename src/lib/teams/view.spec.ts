@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAKE_MINE } from '$lib/clones/view';
+import { classDayLabel } from '$lib/format';
+import { withLocale } from '$lib/i18n/current';
 import {
 	codeAction,
 	COPY_FAILED,
@@ -22,7 +24,7 @@ import {
 	groupMenu,
 	lastClassLine,
 	MY_CLASS,
-	ADDED_TO_TODAY,
+	addedToToday,
 	onlyClass
 } from './view';
 
@@ -84,6 +86,13 @@ describe('a group lesson after leaving, or while its group is deleted', () => {
 			action: MAKE_MINE
 		});
 		expect(`${notice.text} · ${notice.action}`).toBe(deletingLine('Salsa nadaljevalna', '2 Dec'));
+	});
+
+	it('says it in Slovenian, the name before a "·" (the simple lesson page shows it)', () => {
+		const notice = withLocale('sl', () =>
+			lessonNotice({ name: 'Salsa nadaljevalna', deletedAt }, 'UTC')
+		)!;
+		expect(notice.text).toBe('Salsa nadaljevalna · izbris 2. dec.');
 	});
 
 	it('says nothing while the group lives: someone who left never reaches the lesson', () => {
@@ -218,6 +227,55 @@ describe('My class', () => {
 			menu: 'Class menu',
 			pick: { title: 'Pick a class', body: 'Its classes and songs open here.' }
 		});
-		expect(ADDED_TO_TODAY).toBe('Added to Today');
+		expect(addedToToday()).toBe('Added to Today');
+	});
+});
+
+// Catches: My class and the way in drawn in English for a Slovenian reader, a
+// count not in its Slovenian form, or a name declined inside the sentence.
+describe('the class lines in Slovenian', () => {
+	it('count, ask and say when a class last met', () => {
+		withLocale('sl', () => {
+			expect([1, 2, 3, 5].map(peopleLine)).toEqual(['1 oseba', '2 osebi', '3 osebe', '5 oseb']);
+			expect(joinQuestion('Salsa nadaljevalna')).toBe('Salsa nadaljevalna');
+			expect(noAccountLine('Tilen')).toBe(
+				'Ta koda doda le tiste, ki že imajo račun. Za povabilo se obrnite na skrbnika: Tilen.'
+			);
+			expect(classMeta(2, 4)).toBe('2 videa · 4 za vadbo');
+			expect(classMeta(5, 0)).toBe('5 videov');
+			expect(classSongsHeading(3)).toBe('Skladbe s tečaja · 3');
+			expect(classSongsHeading(0)).toBe('Skladbe s tečaja');
+			expect(lastClassLine(null, '2026-11-05')).toBe('Še ni lekcij');
+			expect(lastClassLine('2026-11-03', '2026-11-05')).toBe(
+				`Zadnja lekcija: ${classDayLabel('2026-11-03', '2026-11-05')}`
+			);
+			expect(MY_CLASS.title).toBe('Moj tečaj');
+			expect(MY_CLASS.earlier).toBe('Prejšnje lekcije');
+			expect(MY_CLASS.pick.title).toBe('Izberite tečaj');
+		});
+	});
+});
+
+// Catches: My class's tab name, its Add toast, the People page's roles and the
+// band's line left in English for a Slovenian reader, or the tab's name told
+// apart by its English word.
+describe('the group page and its tab in Slovenian', () => {
+	it('names the tab by what it is, not by its word', () => {
+		withLocale('sl', () => {
+			expect(groupsTabLabel(false)).toBe('Skupine');
+			expect(groupsTabLabel(true)).toBe('Skupine, novo v vaših skupinah');
+			expect(groupsTabLabel(false, 'Moj tečaj')).toBe('Moj tečaj');
+			expect(groupsTabLabel(true, 'Moj tečaj')).toBe('Moj tečaj, nekaj novega');
+		});
+	});
+
+	it('says the toast, the pill, the roles and the band line', () => {
+		withLocale('sl', () => {
+			expect(addedToToday()).toBe('Dodano v Danes');
+			expect([1, 2, 3, 5].map(newPill)).toEqual(['1 nov', '2 nova', '3 novi', '5 novih']);
+			expect(roleLabel('owner')).toBe('Vodja');
+			expect(roleLabel('member')).toBe('Sodeluje');
+			expect(youLine('editor')).toBe('urejate jo');
+		});
 	});
 });

@@ -2,10 +2,12 @@
  * The fetch side of the comments sheet. Each call resolves to its data or to
  * `{ message }`, the words of a refusal; none throws.
  */
+import { t } from '$lib/i18n/catalog';
 import type { CommentList, CommentRow } from '$lib/types';
 
 export type Refused = { message: string };
-const FAILED = 'That did not work. Try again.';
+/** The words when the fetch failed or the server said nothing, at call time. */
+const failed = () => t().comments.failed;
 
 async function call<T>(url: string, init?: RequestInit): Promise<T | Refused> {
 	try {
@@ -13,9 +15,9 @@ async function call<T>(url: string, init?: RequestInit): Promise<T | Refused> {
 		const body: unknown = await res.json().catch(() => null);
 		if (res.ok) return body as T;
 		const said = body && typeof body === 'object' ? (body as { message?: unknown }).message : null;
-		return { message: typeof said === 'string' && said ? said : FAILED };
+		return { message: typeof said === 'string' && said ? said : failed() };
 	} catch {
-		return { message: FAILED };
+		return { message: failed() };
 	}
 }
 

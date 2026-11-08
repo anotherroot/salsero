@@ -9,6 +9,7 @@ import { shadowedIds } from './clones/shadow';
 import { fieldChange, logChange } from './changes';
 import type { TempoFactor } from '$lib/labels';
 import type { ChangeValues, PickerSong, SampleSong, SongItem, TeamRef } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
 export const LEASE_MS = 15 * 60_000;
@@ -45,7 +46,7 @@ export function createSongFromUrl(
 	db: Db,
 	space: Space,
 	input: { url: string; title: string; style: string },
-	now = Date.now()
+	now = serverNow()
 ): Song {
 	return insertSong(
 		db,
@@ -64,7 +65,7 @@ export function createSongFromUpload(
 	db: Db,
 	space: Space,
 	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number },
-	now = Date.now()
+	now = serverNow()
 ): Song {
 	return insertSong(
 		db,
@@ -364,7 +365,7 @@ export function setSampleStart(
 	id: number,
 	startS: number | null,
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	const song = getSong(db, id);
 	if (!song) return false;
@@ -388,7 +389,7 @@ export function updateSongMeta(
 	id: number,
 	input: { title: string; artist: string | null; style: string },
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): Song | null {
 	return editSong(db, id, input, space, now);
 }
@@ -431,7 +432,7 @@ export function setAnchors(
 	id: number,
 	anchors: number[],
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	const set = { anchorsJson: JSON.stringify(anchors) };
 	return editSong(db, id, set, space, now, 'anchors') !== null;
@@ -443,7 +444,7 @@ export function setTempoFactor(
 	id: number,
 	factor: TempoFactor,
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	const set = { tempoFactor: factor, anchorsJson: '[]' };
 	return editSong(db, id, set, space, now, 'tempoFactor') !== null;

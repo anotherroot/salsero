@@ -3,8 +3,10 @@ import { and, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { getDb, type Db } from './db';
 import { loginAttempts, sessions, users } from './db/schema';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
+import { parseLocale } from '$lib/i18n/locale';
 
 import { hashPassword, verifyPassword } from './password';
+import { serverNow } from '$lib/server/server-clock';
 
 export { hashPassword, verifyPassword };
 
@@ -15,7 +17,7 @@ const SESSION_TTL_MS = 30 * 24 * 3_600_000; // 30 days, absolute
 
 export function createSession(userId: string, db: Db = getDb()): { id: string; expiresAt: Date } {
 	const id = randomBytes(32).toString('base64url');
-	const expiresAt = Date.now() + SESSION_TTL_MS;
+	const expiresAt = serverNow() + SESSION_TTL_MS;
 	db.insert(sessions).values({ id, userId, expiresAt }).run();
 	return { id, expiresAt: new Date(expiresAt) };
 }
@@ -33,15 +35,17 @@ export function validateSession(id: string | undefined, db: Db = getDb()) {
 			isAdmin: users.isAdmin,
 			// How much app: the layouts draw the tabs from it without a query.
 			level: users.level,
-			dance: users.dance
+			dance: users.dance,
+			// The language the pages are drawn in (`$lib/i18n/locale.ts`).
+			locale: users.locale
 		})
 		.from(sessions)
 		.innerJoin(users, eq(users.id, sessions.userId))
-		.where(and(eq(sessions.id, id), gt(sessions.expiresAt, Date.now())))
+		.where(and(eq(sessions.id, id), gt(sessions.expiresAt, serverNow())))
 		.get();
 	// An account the dance split has not placed signs in nowhere.
 	if (!row || !row.dance || !isDanceSlug(row.dance)) return null;
-	return { ...row, dance: row.dance };
+	return { ...row, dance: row.dance, locale: parseLocale(row.locale) };
 }
 
 export function destroySession(id: string | undefined) {
@@ -66,7 +70,7 @@ const MAX_PER_USER = 8;
 const userKey = (dance: DanceSlug, email: string) => `user:${dance}:${email.toLowerCase()}`;
 
 export function isRateLimited(ip: string, email: string, dance: DanceSlug): boolean {
-	const since = Date.now() - WINDOW_MS;
+	const since = serverNow() - WINDOW_MS;
 	const ipKey = `ip:${ip}`;
 	const accountKey = userKey(dance, email);
 
@@ -88,12 +92,12 @@ export function isRateLimited(ip: string, email: string, dance: DanceSlug): bool
 
 export function recordFailedLogin(ip: string, email: string, dance: DanceSlug) {
 	const db = getDb();
-	db.insert(loginAttempts)
-		.values([{ key: `ip:${ip}` }, { key: userKey(dance, email) }])
-		.run();
+	// One row per insert: each mints its own id (src/lib/server/db/ids.ts).
+	for (const key of [`ip:${ip}`, userKey(dance, email)])
+		db.insert(loginAttempts).values({ key }).run();
 	// Opportunistic prune so the table cannot grow without bound.
 	db.delete(loginAttempts)
-		.where(lt(loginAttempts.attemptedAt, Date.now() - WINDOW_MS))
+		.where(lt(loginAttempts.attemptedAt, serverNow() - WINDOW_MS))
 		.run();
 }
 

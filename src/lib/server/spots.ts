@@ -8,6 +8,7 @@
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { figures, lessons, lessonVideos, recordings, videoSpots } from './db/schema';
+import { t } from '$lib/i18n/catalog';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
 import {
@@ -23,6 +24,7 @@ import { positionNamesOf } from './position-links';
 import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
 import { isTeam, spaceOfRow } from './scope';
 import { rootTitle, spotWords, trashRows } from './trash';
+import { serverNow } from '$lib/server/server-clock';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -107,21 +109,21 @@ export function ownerExists(db: Db, owner: SpotOwner): boolean {
 /** Trimmed; empty is null. */
 function cleanLabel(raw: unknown): string | null {
 	if (raw === null || raw === undefined) return null;
-	if (typeof raw !== 'string') throw new SpotError('A label must be text.');
+	if (typeof raw !== 'string') throw new SpotError(t().video.refusal.labelText);
 	const label = raw.trim();
 	if (label.length > MAX_SPOT_LABEL) {
-		throw new SpotError(`A label can be at most ${MAX_SPOT_LABEL} characters.`);
+		throw new SpotError(t().video.refusal.labelLong(MAX_SPOT_LABEL));
 	}
 	return label || null;
 }
 
 function cleanTimes(startMs: unknown, endMs: unknown): { startMs: number; endMs: number | null } {
 	if (typeof startMs !== 'number' || !Number.isSafeInteger(startMs) || startMs < 0) {
-		throw new SpotError('A spot needs a start time.');
+		throw new SpotError(t().video.refusal.noStart);
 	}
 	if (endMs === null || endMs === undefined) return { startMs, endMs: null };
 	if (typeof endMs !== 'number' || !Number.isSafeInteger(endMs) || endMs <= startMs) {
-		throw new SpotError('A section has to end after it starts.');
+		throw new SpotError(t().video.refusal.endAfterStart);
 	}
 	return { startMs, endMs };
 }
@@ -207,7 +209,7 @@ function logSpot(
 		after?: Record<string, string | number | null>;
 		trashId?: number | null;
 	},
-	now = Date.now()
+	now = serverNow()
 ): void {
 	const { row, ...at } = root;
 	logChange(
@@ -240,7 +242,7 @@ export function updateSpot(
 	id: number,
 	changes: { label?: unknown; startMs?: unknown; endMs?: unknown },
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ): Spot | null {
 	return db.transaction((tx) => {
@@ -252,7 +254,7 @@ export function updateSpot(
 		);
 		if ((times.endMs === null) !== (current.endMs === null)) {
 			throw new SpotError(
-				current.endMs === null ? 'A point has no end.' : 'A section needs an end.'
+				current.endMs === null ? t().video.refusal.pointNoEnd : t().video.refusal.sectionNeedsEnd
 			);
 		}
 		const label = 'label' in changes ? cleanLabel(changes.label) : current.label;
@@ -283,7 +285,7 @@ export function deleteSpot(
 	db: Db,
 	id: number,
 	by?: string,
-	now = Date.now()
+	now = serverNow()
 ): { trashId: number | null } | null {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { spotId: id });

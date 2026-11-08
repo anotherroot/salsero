@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { openDb, type Db } from './db';
 import { eq } from 'drizzle-orm';
 import { songs, storageRequests, teams, teamTrash, users } from './db/schema';
@@ -577,5 +578,21 @@ describe('admin: one dance at a time (the dance split)', () => {
 		expect(adminReaches(db, 'salsa', { requestId: req })).toBe(false);
 		expect(adminReaches(db, 'bachata', { requestId: req })).toBe(true);
 		expect(adminReaches(db, 'salsa', { teamId: 999 })).toBe(false);
+	});
+});
+
+describe('room refusals in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words each refusal with a decimal comma', () => {
+		recording(U1_SALSA, 'A', 900 * MB);
+		expect(sl(() => roomFor(db, 'u1', 200 * MB))).toMatchObject({
+			message:
+				'Ni dovolj prostora: porabite 900 MB od 1,0 GB. Sprostite nekaj prostora ali v Nastavitvah prosite za več.'
+		});
+		const r = sl(() => roomForOwner(db, { userId: 'u2' }, 200 * MB, 2.1 * GB));
+		expect(r.ok === false && r.message).toBe(
+			'Na strežniku ni dovolj prostora. Obrnite se na skrbnika.'
+		);
 	});
 });

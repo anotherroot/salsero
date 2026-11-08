@@ -8,6 +8,7 @@ import { putCountTake } from '$lib/server/countTakes';
 import { getDb } from '$lib/server/db';
 import { TooLargeError, countDir, saveStream } from '$lib/server/files';
 import { freeDisk, roomForOwner, takeSlotBytes } from '$lib/server/storage';
+import { t } from '$lib/i18n/catalog';
 import type { RequestHandler } from './$types';
 
 /** A header that must be a finite number in a sane range, or the upload is refused. */
@@ -54,7 +55,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (durationS < lengthS) throw error(400, 'A take cannot be shorter than its phrase.');
 
 	if (Number(h.get('content-length') ?? 0) > MAX_TAKE_BYTES) {
-		throw error(413, `That take is larger than ${MAX_TAKE_LABEL}.`);
+		throw error(413, t().settings.voice.takeTooLarge(MAX_TAKE_LABEL));
 	}
 	// A take replacing one in the same slot only adds the difference.
 	const replacedBytes = takeSlotBytes(getDb(), locals.user.id, { pattern: pattern!, bpm, phrase });
@@ -73,7 +74,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		sizeBytes = await saveStream(request.body, path, MAX_TAKE_BYTES);
 	} catch (e) {
-		if (e instanceof TooLargeError) throw error(413, `That take is larger than ${MAX_TAKE_LABEL}.`);
+		if (e instanceof TooLargeError)
+			throw error(413, t().settings.voice.takeTooLarge(MAX_TAKE_LABEL));
 		throw e;
 	}
 

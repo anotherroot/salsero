@@ -6,11 +6,13 @@ import { lessonDays } from '$lib/server/lessons';
 import { wallOf } from '$lib/server/scope';
 import { songChoices } from '$lib/server/songs';
 import { dayInputOf } from '$lib/server/today-picks';
+import { shownExercise } from '$lib/exercises/name';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { dayListOf, workOf } from '$lib/schedule/today-list';
 import { comingUpOf } from '$lib/schedule/coming-up';
 import type { LayoutServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const DAY_MS = 86_400_000;
 
@@ -27,11 +29,13 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;
-	const now = Date.now();
+	const now = serverNow();
 	const today = localDay(now, tz);
 
 	const db = getDb();
-	const input = dayInputOf(db, wall, tz, now);
+	// A lesson's own exercise is named in the reader's language (`shownExercise`).
+	const stored = dayInputOf(db, wall, tz, now);
+	const input = { ...stored, exercises: stored.exercises.map(shownExercise) };
 	// The day worked out once, for the list and Coming up alike.
 	const worked = workOf(input);
 

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-	RELOAD_TITLE,
-	STALE_LINE,
-	STALE_TITLE,
 	fullLoadFor,
 	mayReloadNow,
+	localeStale,
+	needsLocaleReload,
+	reloadTitle,
 	reloadWhy,
+	staleLine,
+	staleTitle,
 	typedFields
 } from './fresh';
 
@@ -99,6 +101,48 @@ describe('mayReloadNow', () => {
 	});
 });
 
+describe('localeStale: the page draws in another language than its data names', () => {
+	it('is stale when the data names another language', () => {
+		expect(localeStale('en', 'sl')).toBe(true);
+		expect(localeStale('sl', 'en')).toBe(true);
+	});
+
+	it('is not stale in the same language, or when the data names none', () => {
+		expect(localeStale('sl', 'sl')).toBe(false);
+		expect(localeStale('en', undefined)).toBe(false);
+	});
+});
+
+describe('needsLocaleReload: after sign-in, or an admin changing the language', () => {
+	const clear = {
+		drawn: 'en' as const,
+		wanted: 'sl' as const,
+		routeId: '/[dance]/(today)',
+		...QUIET
+	};
+
+	it('reloads a quiet page drawn in the wrong language', () => {
+		expect(needsLocaleReload(clear)).toBe(true);
+	});
+
+	it('never reloads a page already in its language', () => {
+		expect(needsLocaleReload({ ...clear, drawn: 'sl' })).toBe(false);
+		expect(needsLocaleReload({ ...clear, wanted: undefined })).toBe(false);
+	});
+
+	it('never cuts a hold (an upload, a run), unsaved work, a sheet or the player', () => {
+		expect(needsLocaleReload({ ...clear, held: 1 })).toBe(false);
+		expect(needsLocaleReload({ ...clear, unsaved: 1 })).toBe(false);
+		expect(needsLocaleReload({ ...clear, sheetsOpen: true })).toBe(false);
+		expect(needsLocaleReload({ ...clear, playerOpen: true })).toBe(false);
+	});
+
+	it('never reloads Practice or My count', () => {
+		expect(needsLocaleReload({ ...clear, routeId: '/[dance]/player' })).toBe(false);
+		expect(needsLocaleReload({ ...clear, routeId: '/voice' })).toBe(false);
+	});
+});
+
 describe('typedFields', () => {
 	const field = (o: Partial<Parameters<typeof typedFields>[0][number]> = {}) => ({
 		tag: 'input',
@@ -141,7 +185,7 @@ describe('reloadWhy: the toast says why the page did not reload by itself', () =
 	});
 	it('with nothing holding it, says when it comes', () => {
 		expect(reloadWhy(q)).toBe('Your next page loads it.');
-		expect([RELOAD_TITLE, STALE_TITLE, STALE_LINE]).toEqual([
+		expect([reloadTitle(), staleTitle(), staleLine()]).toEqual([
 			'The app was updated',
 			'This page is out of date',
 			'Reload to continue.'

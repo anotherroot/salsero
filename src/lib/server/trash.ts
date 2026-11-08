@@ -66,6 +66,7 @@ import { clock } from '$lib/format';
 import { TRASH_MS } from '$lib/limits';
 import { trashRefusalLine, type TrashRefusal } from '$lib/teams/deleted';
 import type { ChangeRootKind, DeletedItem, DeletedKind, TrashKind } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 /** Where a trashed or purged file lives: a lesson video's folder, a recording's, or a song's. */
 export type TrashDir = 'lessonVideos' | 'recordings' | 'audio';
@@ -628,14 +629,14 @@ const timer = globalThis as { __salsaTrashPurge?: ReturnType<typeof setInterval>
 export function startTrashPurge(db: () => Db, afterSettle: () => void = () => {}): void {
 	if (timer.__salsaTrashPurge) return;
 	const run = () => {
-		const now = Date.now();
+		const now = serverNow();
 		void purgeTrash(db(), now)
 			.catch((err) => console.warn('[trash] purge failed', err))
 			.then(() => purgeTeams(db(), now))
 			.catch((err) => console.warn('[team-purge] purge failed', err));
 	};
 	const settle = async () => {
-		const n = await settleFormerMembers(db(), realCloneFiles(), Date.now());
+		const n = await settleFormerMembers(db(), realCloneFiles(), serverNow());
 		console.log(`[clones] settled ${n} former group members`);
 	};
 	void settle()
