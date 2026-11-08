@@ -7,6 +7,10 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { CHIP, FIELD, LABEL, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
+	import type { SourceRow } from '$lib/songs/song-page';
+	import AudioFrom from './AudioFrom.svelte';
+	import AudioSwap from './AudioSwap.svelte';
 
 	/** What `?/update` handed back: a refusal keeps everything typed. */
 	type DetailsForm = {
@@ -26,17 +30,29 @@
 		dance,
 		form: given,
 		seen,
-		onarchive
+		onarchive,
+		sources = [],
+		canSwap = false,
+		copies = 0,
+		swapping = $bindable(false)
 	}: {
 		open: boolean;
 		onclose: () => void;
-		song: { title: string; artist: string | null; style: string; sourceUrl: string | null };
+		song: { title: string; artist: string | null; style: string };
 		dance: Dance;
 		form: DetailsForm | null | undefined;
 		/** What the page showed, for the clash check (JSON). */
 		seen: string;
 		/** A person's own song is archived from here; a group's is deleted from its menu. */
 		onarchive?: () => void;
+		/** The "Audio from" card's rows (`sourceRows`). */
+		sources?: SourceRow[];
+		/** Use another YouTube link is offered: a song from a link, not waiting. */
+		canSwap?: boolean;
+		/** How many copies kept in step new audio reaches (`audioReach`). */
+		copies?: number;
+		/** The field for another YouTube link is open in place of the details. */
+		swapping?: boolean;
 	} = $props();
 
 	let busy = $state(false);
@@ -52,102 +68,128 @@
 	const titleError = $derived(form?.field === 'title' ? form.message : null);
 	const artistError = $derived(form?.field === 'artist' ? form.message : null);
 	const otherError = $derived(form?.message && !form.field ? form.message : null);
+	// Use another YouTube link's refusal: it carries `audioUrl`, never `title`.
+	const swapForm = $derived(given !== closedOn && given?.field === 'audioUrl' ? given : null);
+	$effect(() => {
+		if (swapForm) swapping = true;
+	});
 
 	function close() {
 		closedOn = given;
 		style = stored;
+		swapping = false;
 		onclose();
 	}
 </script>
 
 <Sheet title="Song details" {open} onclose={close}>
 	<div class="flex flex-col gap-3.5">
-		<form
-			method="POST"
-			action="?/update"
-			novalidate
-			class="flex flex-col gap-3.5"
-			use:guarded={{
-				label: 'Song details',
-				submit: ({ cancel }) => {
-					if (busy) return cancel();
-					busy = true;
-					return async ({ result, update }) => {
-						await update({ reset: false });
-						busy = false;
-						if (result.type === 'success') close();
-					};
-				}
-			}}
-		>
-			{#if otherError}<Banner kind="error" title={otherError} />{/if}
-			{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
-
-			<div>
-				<label class={LABEL} for="song-title">Title</label>
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					id="song-title"
-					name="title"
-					required
-					maxlength="200"
-					autofocus
-					autocomplete="off"
-					value={form?.title ?? song.title}
-					class={FIELD}
-					aria-invalid={titleError ? 'true' : undefined}
-					aria-describedby={titleError ? 'song-title-error' : undefined}
-				/>
-				{#if titleError}<FieldError id="song-title-error" message={titleError} />{/if}
-			</div>
-
-			<div>
-				<label class={LABEL} for="song-artist">Artist</label>
-				<input
-					id="song-artist"
-					name="artist"
-					maxlength="200"
-					autocomplete="off"
-					value={form?.artist ?? song.artist ?? ''}
-					class={FIELD}
-					aria-invalid={artistError ? 'true' : undefined}
-					aria-describedby={artistError ? 'song-artist-error' : undefined}
-				/>
-				{#if artistError}<FieldError id="song-artist-error" message={artistError} />{/if}
-			</div>
-
-			<fieldset>
-				<legend class={LABEL}>Style</legend>
-				<div class="flex flex-wrap gap-2">
-					{#each dance.styles as s (s)}
-						<label class={CHIP}>
-							<input type="radio" name="style" value={s} bind:group={style} class="sr-only" />
-							{dance.styleLabel[s]}
-						</label>
-					{/each}
-				</div>
-			</fieldset>
-
-			<button
-				type="submit"
-				class={button('primary', 'md', true)}
-				aria-busy={busy}
-				aria-label={busy ? 'Saving' : undefined}
+		{#if swapping}
+			<AudioFrom rows={sources} />
+			<AudioSwap
+				{seen}
+				{copies}
+				refusal={swapForm?.message ?? null}
+				sent={swapForm?.audioUrl ?? ''}
+				oncancel={() => {
+					closedOn = given;
+					swapping = false;
+				}}
+				ondone={close}
+			/>
+		{:else}
+			<form
+				method="POST"
+				action="?/update"
+				novalidate
+				class="flex flex-col gap-3.5"
+				use:guarded={{
+					label: 'Song details',
+					submit: ({ cancel }) => {
+						if (busy) return cancel();
+						busy = true;
+						return async ({ result, update }) => {
+							await update({ reset: false });
+							busy = false;
+							if (result.type === 'success') close();
+						};
+					}
+				}}
 			>
-				{#if busy}<Spinner />{:else}Save{/if}
-			</button>
-		</form>
+				{#if otherError}<Banner kind="error" title={otherError} />{/if}
+				{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 
-		{#if song.sourceUrl}
-			<p class="text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
-		{/if}
+				<div>
+					<label class={LABEL} for="song-title">Title</label>
+					<!-- svelte-ignore a11y_autofocus -->
+					<input
+						id="song-title"
+						name="title"
+						required
+						maxlength="200"
+						autofocus
+						autocomplete="off"
+						value={form?.title ?? song.title}
+						class={FIELD}
+						aria-invalid={titleError ? 'true' : undefined}
+						aria-describedby={titleError ? 'song-title-error' : undefined}
+					/>
+					{#if titleError}<FieldError id="song-title-error" message={titleError} />{/if}
+				</div>
 
-		{#if onarchive}
-			<div class="flex justify-center border-t border-hairline pt-2">
-				<button type="button" class={button('danger-text', 'sm')} onclick={onarchive}>
-					<Icon name="trash" size={18} />Archive song
+				<div>
+					<label class={LABEL} for="song-artist">Artist</label>
+					<input
+						id="song-artist"
+						name="artist"
+						maxlength="200"
+						autocomplete="off"
+						value={form?.artist ?? song.artist ?? ''}
+						class={FIELD}
+						aria-invalid={artistError ? 'true' : undefined}
+						aria-describedby={artistError ? 'song-artist-error' : undefined}
+					/>
+					{#if artistError}<FieldError id="song-artist-error" message={artistError} />{/if}
+				</div>
+
+				<fieldset>
+					<legend class={LABEL}>Style</legend>
+					<div class="flex flex-wrap gap-2">
+						{#each dance.styles as s (s)}
+							<label class={CHIP}>
+								<input type="radio" name="style" value={s} bind:group={style} class="sr-only" />
+								{dance.styleLabel[s]}
+							</label>
+						{/each}
+					</div>
+				</fieldset>
+
+				<button
+					type="submit"
+					class={button('primary', 'md', true)}
+					aria-busy={busy}
+					aria-label={busy ? 'Saving' : undefined}
+				>
+					{#if busy}<Spinner />{:else}Save{/if}
 				</button>
-			</div>
+			</form>
+
+			<AudioFrom rows={sources} />
+			{#if canSwap}
+				<button
+					type="button"
+					class={button('secondary', 'md', true)}
+					onclick={() => (swapping = true)}>{t().songs.source.useAnother}</button
+				>
+			{/if}
+
+			{#if onarchive}
+				<div class="flex justify-center border-t border-hairline pt-2">
+					<button type="button" class={button('danger-text', 'sm')} onclick={onarchive}>
+						<Icon name="trash" size={18} />Archive song
+					</button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </Sheet>

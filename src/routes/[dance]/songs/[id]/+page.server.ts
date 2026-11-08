@@ -34,6 +34,7 @@ import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { isYouTubeVideo } from '$lib/songs/source';
 import { t } from '$lib/i18n/catalog';
 import { hasCopies } from '$lib/server/clones/genes';
+import { audioReach } from '$lib/server/clones/audio-reach';
 import { editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import {
@@ -88,6 +89,9 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 			artist: song.artist,
 			style: song.style,
 			sourceUrl: song.sourceUrl,
+			audioUrl: song.audioUrl,
+			fetchedUrl: song.fetchedUrl,
+			fetchedTitle: song.fetchedTitle,
 			status: song.status,
 			error: song.error,
 			audioFile: song.audioFile,
@@ -97,6 +101,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		},
 		/** Taps, the count speed, the sample and the details: the owner's or an editor's. */
 		canEdit,
+		/** How many copies kept in step new audio would reach (the question before a swap). */
+		copiesInStep: canEdit && song.sourceUrl ? audioReach(db, wall.userId, song.id) : 0,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
 		/** Copies you can see, for the Versions list (`clones/send.ts`). */

@@ -2,9 +2,37 @@
 // area extends this (the list, a song's page, sharing).
 
 export const songs = {
+	/** Where a song's audio came from, and changing it (song page, Song details, `AudioFrom`, `AudioSwap`). */
+	source: {
+		from: 'From',
+		fromSpotify: 'From Spotify',
+		findOnYouTube: 'Find it on YouTube',
+		fromVideo: 'From the video it finds',
+		findingIt: 'Finding it on YouTube',
+		youtubeAudio: 'YouTube · the audio',
+		audioFrom: 'Audio from',
+		useAnother: 'Use another YouTube link',
+		useLink: 'Use a YouTube link',
+		anotherLabel: 'Another YouTube link',
+		swapHelp:
+			'The song downloads again and its beat is found again. The 1s you tapped are cleared.',
+		downloadThis: 'Download this one',
+		cancel: 'Cancel',
+		askTitle: 'Download the audio again?',
+		askCopies: (n: number): string =>
+			n === 1
+				? 'This song gets the audio from the new link, and so does 1 copy kept in step with it.'
+				: `This song gets the audio from the new link, and so do ${n} copies kept in step with it.`,
+		askSelf: 'This song gets the audio from the new link.',
+		askBody:
+			'The beat is found again, and the 1s tapped for the count are cleared, so the count needs tapping again.',
+		download: 'Download'
+	},
 	/** Add a song's link field (`AddSongSheet`, the list's `addUrl`). */
 	add: {
 		label: 'YouTube or Spotify link',
+		/** Until playlists come (plan 2), the help line says one song. */
+		helpOne: 'One song from YouTube or Spotify.',
 		help: 'A song, a playlist or an album. From a playlist you pick which songs to add.',
 		notSong: 'Paste a song, playlist or album',
 		listsSoon: "Playlists come in the next update. Paste one song's link for now.",

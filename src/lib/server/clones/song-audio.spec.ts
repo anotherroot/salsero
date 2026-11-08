@@ -27,6 +27,7 @@ import { flatOf } from './trees';
 import { hashValue } from './pairs';
 import { setSyncSettings } from './sync-settings';
 import { flowFrom } from './flow';
+import { audioReach } from './audio-reach';
 
 const T = Date.UTC(2026, 10, 8, 12);
 const NOW = T + 1000;
@@ -128,5 +129,14 @@ describe('new audio and the copies', () => {
 		useAudioUrl(db, S, NEW, U1_SALSA, NOW);
 		await flowFrom(db, 'u1', 'song', S, files, NOW, ROOMY);
 		expect(row(G1s)).toMatchObject({ audioUrl: NEW, status: 'waiting_download' });
+	});
+
+	it('counts the copies new audio would reach, before the swap', () => {
+		expect(audioReach(db, 'u1', S)).toBe(1);
+		expect(setSyncSettings(db, 'u1', 'song', G2s, { ...DEFAULT_SYNC, on: true }, T)).toBe(true);
+		expect(audioReach(db, 'u1', S)).toBe(2);
+		// A copy already on other audio is not "in step" on it.
+		db.update(songs).set({ audioUrl: 'https://youtu.be/mine' }).where(eq(songs.id, G2s)).run();
+		expect(audioReach(db, 'u1', S)).toBe(1);
 	});
 });

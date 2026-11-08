@@ -121,6 +121,25 @@ describe('words', () => {
 			tone: null,
 			badge: { text: 'Waiting to download', tone: 'neutral', icon: 'clock' }
 		});
+		expect(
+			songState(
+				song(1, 'x', {
+					status: 'waiting_download',
+					artist: 'Grupo Niche',
+					sourceUrl: 'https://open.spotify.com/track/abc'
+				}),
+				L
+			).meta
+		).toBe('Grupo Niche · Finding it on YouTube');
+		expect(
+			songState(
+				song(1, 'x', {
+					status: 'waiting_download',
+					sourceUrl: 'https://open.spotify.com/track/abc'
+				}),
+				L
+			).meta
+		).toBe('Finding it on YouTube');
 		expect(songState(song(1, 'x', { status: 'waiting_analysis' }), L).badge).toEqual({
 			text: 'Finding the beat',
 			tone: 'accent',

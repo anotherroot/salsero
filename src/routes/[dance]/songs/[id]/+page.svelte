@@ -38,7 +38,16 @@
 		stopSharingTitle
 	} from '$lib/songs/library';
 	import { reportOpen } from '$lib/teams/opens-api';
-	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
+	import {
+		BRAND,
+		sampleLabels,
+		songSteps,
+		songSubtitle,
+		sourceOf,
+		sourceRows,
+		tapProblem
+	} from '$lib/songs/song-page';
+	import { t } from '$lib/i18n/catalog';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
 	import { watchMedia } from '$lib/media';
@@ -54,6 +63,8 @@
 	let tapError: string | null = $state(null);
 	let now = $state(0);
 	let detailsOpen = $state(false);
+	/** Song details opened on Use another YouTube link (a failed song's Use a YouTube link). */
+	let swapping = $state(false);
 	let archiving = $state(false);
 	/** Why the song will not play, from the audio element or from play(). */
 	let audioProblem: string | null = $state(null);
@@ -179,7 +190,16 @@
 	const anchorsRefusal = $derived(form?.action === 'anchors' ? form.message : null);
 	// Song details' own refusals (`title` is sent with them) live in its sheet.
 	const retryRefusal = $derived(form?.action === 'retry' ? form.message : null);
-	const steps = $derived(songSteps(song.status, song.sourceUrl === null));
+	const source = $derived(sourceOf(song.sourceUrl));
+	const steps = $derived(songSteps(song.status, source, song.fetchedTitle));
+	const sources = $derived(sourceRows(song));
+	/** A song from a link that the worker is not on: its audio can be swapped. */
+	const canSwap = $derived(
+		data.canEdit &&
+			source !== 'upload' &&
+			song.status !== 'waiting_download' &&
+			song.status !== 'waiting_analysis'
+	);
 	let tempo = $derived(String(song.tempoFactor));
 	const tempoItems = TEMPO_FACTORS.map((f) => ({ value: String(f), label: TEMPO_LABEL[f] }));
 
@@ -564,6 +584,7 @@
 			<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
 				It runs on the laptop about once a minute while it is on. This page updates by itself.
 			</p>
+			{@render fromLine()}
 		{:else}
 			<Banner kind="error" title="This song failed">{song.error ?? 'Unknown error'}</Banner>
 			<form method="POST" action="?/retry" use:enhance class="flex flex-col gap-2">
@@ -575,13 +596,40 @@
 			<a href={resolve(`/${data.dance.slug}/songs?add=1`)} class={button('secondary', 'md', true)}>
 				<Icon name="upload" size={20} />Upload a file instead
 			</a>
-			{#if song.sourceUrl}
-				<p class="px-3 text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
+			{#if canSwap}
+				<button
+					type="button"
+					class={button('secondary', 'md', true)}
+					onclick={() => {
+						swapping = true;
+						detailsOpen = true;
+					}}
+				>
+					<Icon name="youtube" size={20} />{t().songs.source.useLink}
+				</button>
 			{/if}
+			{@render fromLine()}
 		{/if}
 	{/if}
 	{#if shareBar}<div class="h-28 flex-none"></div>{/if}
 </Screen>
+
+{#snippet fromLine()}
+	{#if sources.length > 0}
+		<p class="px-3 text-center text-[13px] leading-[1.6] text-muted">
+			{#each sources as row, i (row.kind)}
+				{#if i > 0}<span aria-hidden="true"> · </span>{/if}
+				{i === 0 ? t().songs.source.from : t().songs.source.audioFrom}
+				<a
+					href={row.href}
+					target="_blank"
+					rel="external noopener noreferrer"
+					class="font-bold text-accent-text">{BRAND[row.kind]} ↗</a
+				>
+			{/each}
+		</p>
+	{/if}
+{/snippet}
 
 {#if shareBar}
 	<BottomBar width="song">
@@ -657,7 +705,14 @@
 
 <SongDetailsSheet
 	open={detailsOpen}
-	onclose={() => (detailsOpen = false)}
+	onclose={() => {
+		detailsOpen = false;
+		swapping = false;
+	}}
+	{sources}
+	{canSwap}
+	copies={data.copiesInStep}
+	bind:swapping
 	{song}
 	dance={data.dance}
 	{form}

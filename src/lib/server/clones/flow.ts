@@ -71,7 +71,7 @@ export type FlowReport = {
 };
 
 /** Whether the flow may write into `y` from `from`, and as whom. */
-function writerFor(
+export function writerFor(
 	db: Db,
 	actorId: string,
 	kind: CloneKind,

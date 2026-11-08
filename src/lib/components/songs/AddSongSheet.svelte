@@ -10,6 +10,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { MAX_RECORDING_LABEL } from '$lib/limits';
 	import { CHIP, FIELD, LABEL, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
+	import { classifyLink } from '$lib/songs/source';
 
 	/** What `?/addUrl` handed back: a refusal keeps everything typed. */
 	type AddForm = {
@@ -40,6 +42,8 @@
 	} = $props();
 
 	let busy = $state(false);
+	/** What is in the link field now: a playlist is told apart as it is pasted. */
+	let typed = $state<string | null>(null);
 	/**
 	 * The refusal Add song came back with, read from the submit's result: the
 	 * page's `form` is not this sheet's (beside a song, SvelteKit does not apply a
@@ -57,6 +61,10 @@
 	const first = $derived(dance.styles[0]);
 	const sent = $derived(form?.style && dance.styles.includes(form.style) ? form.style : null);
 	let style = $derived(sent ?? first);
+	const isList = $derived.by(() => {
+		const k = classifyLink(typed ?? form?.url ?? '').kind;
+		return k === 'spotify-list' || k === 'youtube-list';
+	});
 	/** Why the picked file was not sent, under the Upload button. */
 	let fileProblem = $state<string | null>(null);
 	/** One upload at a time: another is moving and has not failed. */
@@ -70,6 +78,7 @@
 	function close() {
 		fileProblem = null;
 		form = null;
+		typed = null;
 		// The fields come back empty on reopen; so does the pick.
 		style = first;
 		onclose();
@@ -116,12 +125,12 @@
 			{#if otherError}<Banner kind="error" title={otherError} />{/if}
 
 			<div>
-				<label class={LABEL} for="add-song-url">YouTube link</label>
+				<label class={LABEL} for="add-song-url">{t().songs.add.label}</label>
 				<div class="relative">
 					<span
 						class="pointer-events-none absolute top-1/2 left-3.5 flex -translate-y-1/2 text-muted"
 					>
-						<Icon name="youtube" size={20} />
+						<Icon name="link" size={20} />
 					</span>
 					<!-- The sheet exists to paste this one thing. -->
 					<!-- svelte-ignore a11y_autofocus -->
@@ -132,14 +141,25 @@
 						inputmode="url"
 						autocomplete="off"
 						autofocus
-						placeholder="https://www.youtube.com/watch?v=…"
+						placeholder="https://open.spotify.com/track/…"
 						value={form?.url ?? ''}
+						oninput={(e) => (typed = e.currentTarget.value)}
 						class="{FIELD} pl-11"
 						aria-invalid={urlError ? 'true' : undefined}
-						aria-describedby={urlError ? 'add-song-url-error' : undefined}
+						aria-describedby={urlError ? 'add-song-url-error' : 'add-song-url-help'}
 					/>
 				</div>
-				{#if urlError}<FieldError id="add-song-url-error" message={urlError} />{/if}
+				{#if urlError}
+					<FieldError id="add-song-url-error" message={urlError} />
+				{:else if isList}
+					<p id="add-song-url-help" class="mt-1.5 text-[13px] leading-[1.4] text-warn">
+						{t().songs.add.listsSoon}
+					</p>
+				{:else}
+					<p id="add-song-url-help" class="mt-1.5 text-[13px] leading-[1.4] text-muted">
+						{t().songs.add.helpOne}
+					</p>
+				{/if}
 			</div>
 
 			<div>

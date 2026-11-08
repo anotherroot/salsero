@@ -6,6 +6,8 @@ import { clock } from '$lib/format';
 import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
 import type { SongItem } from '$lib/types';
 import { byTitle, groupSongs, searchSongs } from './search';
+import { sourceOf } from './song-page';
+import { t } from '$lib/i18n/catalog';
 
 /** A song's name: its title, else where it came from, else a placeholder. */
 export function songName(s: { title: string; sourceUrl: string | null }): string {
@@ -80,7 +82,10 @@ export function songState(
 	switch (s.status) {
 		case 'waiting_download':
 			return {
-				meta: style,
+				meta:
+					sourceOf(s.sourceUrl) === 'spotify'
+						? [s.artist, t().songs.source.findingIt].filter(Boolean).join(' · ')
+						: style,
 				tone: null,
 				badge: { text: 'Waiting to download', tone: 'neutral', icon: 'clock' }
 			};

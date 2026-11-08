@@ -56,6 +56,8 @@ const TRANSLATED: string[] = [
 	'src/lib/components/teams/MyClass.svelte',
 	'src/lib/components/teams/LeaveSheet.svelte',
 	'src/lib/components/songs/SongRow.svelte',
+	'src/lib/components/songs/AudioFrom.svelte',
+	'src/lib/components/songs/AudioSwap.svelte',
 	'src/routes/[dance]/groups/[id]/+page.svelte',
 	'src/routes/[dance]/groups/[id]/people/+page.svelte',
 	'src/routes/g/[code]/+page.svelte',

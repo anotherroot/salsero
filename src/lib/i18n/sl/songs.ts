@@ -2,8 +2,32 @@ import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 
 export const songs: Catalog['songs'] = {
+	source: {
+		from: 'Iz',
+		fromSpotify: 'S Spotifyja',
+		findOnYouTube: 'Poišči na YouTubu',
+		fromVideo: 'Iz videa, ki ga najde',
+		findingIt: 'Iskanje na YouTubu',
+		youtubeAudio: 'YouTube · zvok',
+		audioFrom: 'Zvok iz',
+		useAnother: 'Uporabi drugo povezavo YouTube',
+		useLink: 'Uporabi povezavo YouTube',
+		anotherLabel: 'Druga povezava YouTube',
+		swapHelp:
+			'Skladba se znova prenese in njen utrip se znova poišče. Enice, ki ste jih označili, se izbrišejo.',
+		downloadThis: 'Prenesi to',
+		cancel: 'Prekliči',
+		askTitle: 'Znova prenesem zvok?',
+		askCopies: (n) =>
+			`Ta skladba dobi zvok z nove povezave, prav tako ${slCount(n, ['kopija', 'kopiji', 'kopije', 'kopij'])}, ki ${n === 1 ? 'je usklajena' : n === 2 ? 'sta usklajeni' : 'so usklajene'} z njo.`,
+		askSelf: 'Ta skladba dobi zvok z nove povezave.',
+		askBody:
+			'Utrip se znova poišče, enice za štetje pa se izbrišejo, zato jih bo treba znova označiti.',
+		download: 'Prenesi'
+	},
 	add: {
 		label: 'Povezava YouTube ali Spotify',
+		helpOne: 'Ena skladba z YouTuba ali Spotifyja.',
 		help: 'Skladba, seznam predvajanja ali album. S seznama izberete, katere skladbe dodate.',
 		notSong: 'Prilepite skladbo, seznam predvajanja ali album',
 		listsSoon:

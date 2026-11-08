@@ -1,4 +1,6 @@
 import type { SongStatus } from '$lib/labels';
+import { t } from '$lib/i18n/catalog';
+import { classifyLink } from './source';
 
 /**
  * PURE: the song page's words and its one rule about taps. Client-safe;
@@ -40,14 +42,50 @@ export function sampleLabels(custom: boolean): {
 
 export type SongStep = { state: 'done' | 'now' | 'todo'; title: string; meta: string };
 
-/** The rows of a song still being added; an upload has no Download. Empty once ready or failed. */
-export function songSteps(status: SongStatus, fromUpload: boolean): SongStep[] {
+/** Names, never translated. */
+export const BRAND = { spotify: 'Spotify', youtube: 'YouTube' } as const;
+
+/** Where a song came from: an upload has no link; a Spotify song is found on YouTube. */
+export type SongSource = 'upload' | 'youtube' | 'spotify';
+
+export function sourceOf(sourceUrl: string | null): SongSource {
+	if (!sourceUrl) return 'upload';
+	return classifyLink(sourceUrl).kind === 'spotify-track' ? 'spotify' : 'youtube';
+}
+
+/**
+ * The rows of a song still being added; an upload has no Download, a Spotify
+ * song is found on YouTube first (`fetchedTitle` names the video once it is
+ * downloaded). Empty once ready or failed.
+ */
+export function songSteps(
+	status: SongStatus,
+	source: SongSource,
+	fetchedTitle: string | null
+): SongStep[] {
 	if (status !== 'waiting_download' && status !== 'waiting_analysis') return [];
+	const w = t().songs.source;
+	const fromUpload = source === 'upload';
 	const added: SongStep = {
 		state: 'done',
 		title: 'Added',
-		meta: fromUpload ? 'Uploaded' : 'From YouTube'
+		meta: fromUpload ? 'Uploaded' : source === 'spotify' ? w.fromSpotify : 'From YouTube'
 	};
+	if (source === 'spotify') {
+		if (status === 'waiting_download')
+			return [
+				added,
+				{ state: 'now', title: w.findOnYouTube, meta: 'Waiting for the home fetcher' },
+				{ state: 'todo', title: 'Download', meta: w.fromVideo },
+				{ state: 'todo', title: 'Find the beat', meta: 'Beat analysis on the laptop' }
+			];
+		return [
+			added,
+			{ state: 'done', title: w.findOnYouTube, meta: fetchedTitle ?? BRAND.youtube },
+			{ state: 'done', title: 'Download', meta: 'Downloaded' },
+			{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
+		];
+	}
 	if (status === 'waiting_download')
 		return [
 			added,
@@ -62,4 +100,40 @@ export function songSteps(status: SongStatus, fromUpload: boolean): SongStep[] {
 		...download,
 		{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
 	];
+}
+
+/** A row of the "Audio from" card: where the song came from, and the video it plays. */
+export type SourceRow = { kind: 'spotify' | 'youtube'; href: string; title: string; meta: string };
+
+export function sourceRows(song: {
+	sourceUrl: string | null;
+	audioUrl: string | null;
+	fetchedUrl: string | null;
+	fetchedTitle: string | null;
+	title: string;
+	artist: string | null;
+}): SourceRow[] {
+	if (!song.sourceUrl) return [];
+	const w = t().songs.source;
+	const rows: SourceRow[] = [];
+	if (sourceOf(song.sourceUrl) === 'spotify')
+		rows.push({
+			kind: 'spotify',
+			href: song.sourceUrl,
+			title: BRAND.spotify,
+			meta: [song.title, song.artist].filter(Boolean).join(' · ')
+		});
+	// The person's own link wins: it is what the next download plays.
+	const video =
+		song.audioUrl ??
+		song.fetchedUrl ??
+		(sourceOf(song.sourceUrl) === 'youtube' ? song.sourceUrl : null);
+	if (video)
+		rows.push({
+			kind: 'youtube',
+			href: video,
+			title: w.youtubeAudio,
+			meta: video === song.fetchedUrl && song.fetchedTitle ? song.fetchedTitle : video
+		});
+	return rows;
 }
