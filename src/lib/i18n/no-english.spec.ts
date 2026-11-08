@@ -241,7 +241,13 @@ const TRANSLATED: string[] = [
 	'src/lib/components/clones/MoveToSheet.svelte',
 	'src/lib/components/clones/SameAsSheet.svelte',
 	'src/lib/components/clones/Versions.svelte',
-	'src/lib/components/clones/VersionsSheet.svelte'
+	'src/lib/components/clones/VersionsSheet.svelte',
+	// The Music list, Add a song and the upload's row (part 2, Task 13).
+	'src/lib/components/songs/AddSongSheet.svelte',
+	'src/lib/components/songs/MusicList.svelte',
+	'src/lib/components/songs/UploadRow.svelte',
+	'src/routes/[dance]/songs/+layout.svelte',
+	'src/routes/[dance]/songs/+page.svelte'
 ];
 
 describe('englishIn', () => {

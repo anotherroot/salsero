@@ -37,6 +37,7 @@ import {
 	failJob
 } from '$lib/server/songs';
 import { songSeen } from '$lib/server/clash';
+import { runInLocale } from '$lib/server/i18n-request';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
 
@@ -406,5 +407,37 @@ describe('Retry a song when the person is at the storage limit', () => {
 			data: { action: 'retry' }
 		});
 		expect(getSong(db, id)?.status).toBe('failed');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = (action: unknown, event: ReturnType<typeof post>) =>
+		runInLocale('sl', () => call(action, event));
+
+	it('refuses a bad link, a long title and a retry of a song that has not failed', async () => {
+		expect(
+			await sl(songList.actions.addUrl, post('salsa', { url: 'youtube.com/x' }))
+		).toMatchObject({
+			status: 400,
+			data: { field: 'url', message: 'Prilepite celotno povezavo, ki se začne s https://' }
+		});
+		expect(
+			await sl(
+				songList.actions.addUrl,
+				post('salsa', { url: 'https://youtu.be/x', title: 'x'.repeat(201) })
+			)
+		).toMatchObject({
+			status: 400,
+			data: { field: 'title', message: 'Naslov naj ima največ 200 znakov.' }
+		});
+		const { id } = createSongFromUrl(db, U1_SALSA, {
+			url: 'https://youtu.be/x',
+			title: 'Ready',
+			style: 'salsa'
+		});
+		expect(await sl(songList.actions.retry, post('salsa', { id: String(id) }))).toMatchObject({
+			status: 409,
+			data: { message: 'Znova lahko poskusite le pri skladbi, ki ni uspela.' }
+		});
 	});
 });

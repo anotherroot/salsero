@@ -6,6 +6,7 @@
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
 	import { groupModeShown, levelShown } from '$lib/levels/levels';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * Music: the list and the song beside it (desktop spec, "A list and the item
@@ -24,7 +25,7 @@
 
 {#snippet right()}
 	{#if groupModeShown(levelShown(page.data.user?.level))}<GroupModeButton />{/if}
-	<BandButton icon="plus" label="Add a song" onclick={() => (adding = true)} />
+	<BandButton icon="plus" label={t().songs.music.add} onclick={() => (adding = true)} />
 {/snippet}
 
 {#snippet list()}
@@ -32,7 +33,7 @@
 {/snippet}
 
 {#if l}
-	<ListPane title="Music" {isList} {list} {right} empty={children}>
+	<ListPane title={t().shell.tabs.music} {isList} {list} {right} empty={children}>
 		{@render children()}
 	</ListPane>
 {:else}

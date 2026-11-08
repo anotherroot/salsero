@@ -6,6 +6,7 @@ import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
 import { ownerValues, requireSongAccess, type Space } from '$lib/server/scope';
 import { spaceOf } from '$lib/server/group-mode';
+import { t } from '$lib/i18n/catalog';
 import type { Actions } from './$types';
 
 // The list itself loads in the layout (+layout.server.ts): it sits beside a song too.
@@ -44,14 +45,14 @@ export const actions: Actions = {
 		if (!url) {
 			return fail(400, {
 				field: 'url' as const,
-				message: 'Paste a full link, starting with https://',
+				message: t().songs.add.badUrl,
 				...kept
 			});
 		}
 		if (title === undefined) {
 			return fail(400, {
 				field: 'title' as const,
-				message: 'Keep the title to 200 characters.',
+				message: t().songs.add.longTitle,
 				...kept
 			});
 		}
@@ -74,8 +75,7 @@ export const actions: Actions = {
 		if (!room.ok) return fail(413, { message: room.message });
 		// Not logged in History, on a group song too: a retry only re-queues the
 		// worker (status), like the worker's own writes, and no field changes.
-		if (!retrySong(getDb(), id))
-			return fail(409, { message: 'Only a failed song can be retried.' });
+		if (!retrySong(getDb(), id)) return fail(409, { message: t().songs.add.onlyFailed });
 		return { ok: true };
 	}
 };
