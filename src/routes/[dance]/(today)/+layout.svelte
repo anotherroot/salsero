@@ -263,7 +263,7 @@
 	 * on the way.
 	 */
 	onNavigate(({ from, to }) => {
-		if (!from || !to || from.url.pathname === to.url.pathname) return;
+		if (!from || !to || from.url?.pathname === to.url.pathname) return;
 		if (listOf(to.route.id)?.open !== false) openId = null;
 	});
 
@@ -277,7 +277,7 @@
 	 * day, shows (from elsewhere the layout's load has just run).
 	 */
 	afterNavigate(({ from, to }) => {
-		if (!from || !to || from.url.pathname === to.url.pathname) return;
+		if (!from || !to || from.url?.pathname === to.url.pathname) return;
 		if (listOf(to.route.id)?.open !== false) return;
 		if (desk.current) return;
 		clearSession();

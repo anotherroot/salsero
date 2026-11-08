@@ -261,7 +261,7 @@ export function syncTrail(): void {
 		load();
 		// A popstate has already moved history: the slot it left is gone from view.
 		before = nav.type === 'popstate' ? null : historyIndex();
-		const from = nav.from?.url.pathname;
+		const from = nav.from?.url?.pathname;
 		if (from && isTrailPage(from)) set(leave(trail.value, from, window.scrollY));
 	});
 
@@ -271,7 +271,7 @@ export function syncTrail(): void {
 		const to = nav.to?.url.pathname;
 		arriving.value = null;
 		if (!to || !isTrailPage(to)) return;
-		const from = nav.from?.url.pathname ?? null;
+		const from = nav.from?.url?.pathname ?? null;
 		const kind = arrivalKind(nav.type, historyIndex(), before);
 		entered.value = enteredAfter(entered.value, { kind, from, to });
 		arriving.value = { to, opener: arrivalOpener(trail.value, { to, from, kind, intent }) };
@@ -292,7 +292,7 @@ export function syncTrail(): void {
 		const kind = arrivalKind(nav.type, index, prevIndex);
 		entered.value = enteredAfter(entered.value, {
 			kind,
-			from: nav.from?.url.pathname ?? null,
+			from: nav.from?.url?.pathname ?? null,
 			to: to.pathname
 		});
 		// A page outside a dance (Settings, My count) is no place for a band back
@@ -328,7 +328,7 @@ export function syncTrail(): void {
 			to: path,
 			search: to.search,
 			title: pageTitle(document.title),
-			from: nav.from?.url.pathname ?? null,
+			from: nav.from?.url?.pathname ?? null,
 			index,
 			prevIndex,
 			kind,

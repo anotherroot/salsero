@@ -193,7 +193,7 @@
 	afterNavigate((nav) => {
 		if (!data.appUpdate) return;
 		// A hash link stays on the page, with whatever it holds.
-		const samePage = nav.from?.url.pathname === nav.to?.url.pathname;
+		const samePage = nav.from?.url?.pathname === nav.to?.url.pathname;
 		judgeUpdate(nav.type === 'enter' || samePage ? 'refresh' : 'navigated');
 		if (nav.type !== 'enter') void invalidate('app:update');
 	});
