@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { error } from '@sveltejs/kit';
 import { getDance, isDanceSlug } from '$lib/dances/dances';
 import { getDb } from '$lib/server/db';
@@ -21,10 +22,10 @@ import type { LayoutServerLoad } from './$types';
  * `groupModeOf` drops a cookie that is no longer valid, and that is all.
  */
 export const load: LayoutServerLoad = ({ params, cookies, url, locals }) => {
-	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');
+	if (!isDanceSlug(params.dance)) throw error(404, t().refusals.noDance);
 	const dance = params.dance;
 	// An account belongs to one dance (the dance split): the other is a stranger's.
-	if (locals.user && locals.user.dance !== dance) throw error(404, 'Not found');
+	if (locals.user && locals.user.dance !== dance) throw error(404, t().refusals.notFound);
 	let groupMode: GroupMode | null = null;
 	let choices: GroupChoice[] = [];
 	let groupsNew = false;

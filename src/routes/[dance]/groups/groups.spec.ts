@@ -19,6 +19,7 @@ import { actions as pageActions, load as pageLoad } from './[id]/+page.server';
 import { actions as peopleActions, load as peopleLoad } from './[id]/people/+page.server';
 import { actions as joinActions, load as joinLoad } from '../../g/[code]/+page.server';
 import { getTeam } from '$lib/server/teams';
+import { runInLocale } from '$lib/server/i18n-request';
 
 let db: Db;
 let teamId: number;
@@ -231,6 +232,89 @@ describe('Join', () => {
 	});
 });
 
+// Catches: a Groups refusal composed in English (or at import time) for a
+// Slovenian reader: New group, Rename, Restore, People and Join with a code.
+describe('the Groups refusals in Slovenian', () => {
+	const sl = <T>(fn: () => Promise<T>) => runInLocale('sl', fn);
+	const dataOf = (r: { value?: unknown }) => (r.value as { data: { message: string } }).data;
+
+	it('words New group’s and Rename’s refusals', async () => {
+		createTeam(db, 'owner', 'salsa', 'Two', 3);
+		const over = await sl(() =>
+			run(() => listActions.create!(ev('owner', { request: post({ name: 'Three' }) })))
+		);
+		expect(dataOf(over).message).toBe('Ustvarite lahko 2 skupini. Za več vprašajte skrbnika.');
+		const taken = await sl(() =>
+			run(() => pageActions.rename!(ev('owner', { request: post({ name: 'Two' }) })))
+		);
+		expect(dataOf(taken).message).toBe(
+			'Vnesite ime z največ 60 znaki, ki ga nima nobena vaša skupina.'
+		);
+	});
+
+	it('words Restore’s refusal when a live group has the name', async () => {
+		await run(() => pageActions.delete!(ev('owner')));
+		createTeam(db, 'owner', 'salsa', 'Class', 4);
+		const r = await sl(() => run(() => pageActions.restore!(ev('owner'))));
+		expect(dataOf(r).message).toBe('Skupino s tem imenom že imate. Najprej preimenujte tisto.');
+	});
+
+	it('words People’s refusals', async () => {
+		const role = await sl(() =>
+			run(() =>
+				peopleActions.role!(ev('owner', { request: post({ userId: 'member', role: 'x' }) }))
+			)
+		);
+		expect(dataOf(role).message).toBe('Izberite vlogo.');
+		const owner = await sl(() =>
+			run(() =>
+				peopleActions.role!(ev('owner', { request: post({ userId: 'owner', role: 'member' }) }))
+			)
+		);
+		expect(dataOf(owner).message).toBe(
+			'Vodja obdrži skupino. Če želite to spremeniti, jo predajte drugemu.'
+		);
+		const self = await sl(() =>
+			run(() => peopleActions.handOver!(ev('owner', { request: post({ userId: 'owner' }) })))
+		);
+		expect(dataOf(self).message).toBe('Izberite nekoga drugega iz skupine.');
+		const removeOwner = await sl(() =>
+			run(() => peopleActions.remove!(ev('owner', { request: post({ userId: 'owner' }) })))
+		);
+		expect(dataOf(removeOwner).message).toBe(
+			'Vodje ni mogoče odstraniti. Najprej predajte skupino.'
+		);
+		createTeam(db, 'member', 'salsa', 'A', 5);
+		createTeam(db, 'member', 'salsa', 'B', 6);
+		const limit = await sl(() =>
+			run(() => peopleActions.handOver!(ev('owner', { request: post({ userId: 'member' }) })))
+		);
+		expect(dataOf(limit).message).toBe('Ta oseba že vodi toliko skupin, kot jih lahko ustvari.');
+		const stranger = await sl(() =>
+			run(() => peopleActions.remove!(ev('owner', { request: post({ userId: 'outsider' }) })))
+		);
+		expect(stranger).toMatchObject({ status: 404, message: 'Te osebe ni' });
+	});
+
+	it('words a join refusal and a missing group', async () => {
+		const unknown = await sl(() =>
+			run(() => listActions.joinCode!(ev('outsider', { request: post({ code: 'NOPE' }) })))
+		);
+		expect(dataOf(unknown).message).toBe(
+			'Noben tečaj nima te kode. Preverite jo in poskusite znova.'
+		);
+		await run(() => pageActions.delete!(ev('owner')));
+		const deleted = await sl(() =>
+			run(() => listActions.joinCode!(ev('outsider', { request: post({ code }) })))
+		);
+		expect(dataOf(deleted).message).toBe(
+			'Ta tečaj je bil izbrisan, zato se mu ne morete pridružiti.'
+		);
+		const gone = await sl(() => run(() => peopleLoad(ev('owner'))));
+		expect(gone).toMatchObject({ status: 404, message: 'Te skupine ni' });
+	});
+});
+
 describe('New drill on the group page', () => {
 	it("makes a drill of the group's, logged, and opens it", async () => {
 		const r = await run(() =>
@@ -259,6 +343,30 @@ describe('New drill on the group page', () => {
 		);
 		expect((r.value as { status: number; data: { field: string } }).data.field).toBe('name');
 		expect(db.select().from(exercises).all()).toHaveLength(0);
+	});
+	it('words its refusals and a deleted group in Slovenian', async () => {
+		const sl = <T>(fn: () => Promise<T>) => runInLocale('sl', fn);
+		const empty = await sl(() =>
+			run(() => pageActions.createDrill!(ev('owner', { request: post({ name: ' ' }) })))
+		);
+		expect((empty.value as { data: { message: string } }).data.message).toBe(
+			'Vnesite ime (do 200 znakov).'
+		);
+		const long = await sl(() =>
+			run(() =>
+				pageActions.createDrill!(
+					ev('owner', { request: post({ name: 'X', notes: 'n'.repeat(2001) }) })
+				)
+			)
+		);
+		expect((long.value as { data: { message: string } }).data.message).toBe(
+			'Opombe so lahko dolge do 2000 znakov.'
+		);
+		await run(() => pageActions.delete!(ev('owner')));
+		const deleted = await sl(() =>
+			run(() => pageActions.createDrill!(ev('owner', { request: post({ name: 'X' }) })))
+		);
+		expect(deleted).toMatchObject({ status: 404, message: 'Te skupine ni' });
 	});
 	it('404s a member and a deleted group', async () => {
 		const asMember = await run(() =>

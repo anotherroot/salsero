@@ -39,7 +39,13 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { cloneSubtitle, fromLessonNote, NOT_TAKEN, recordingMeta, TAKE } from '$lib/clones/view';
+	import {
+		cloneSubtitle,
+		fromLessonNote,
+		notTaken,
+		recordingMeta,
+		takeLabel
+	} from '$lib/clones/view';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
 	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
@@ -56,7 +62,7 @@
 		iconButton,
 		SECTION_LABEL
 	} from '$lib/components/ui/styles';
-	import { PARTNER_LABEL } from '$lib/labels';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { byteSize, weekdayDayMonth } from '$lib/format';
 	import {
 		archiveCopy,
@@ -123,7 +129,7 @@
 			: null;
 	// The variation's real style tag, not the vestigial `figures.style` column.
 	const styleLabel = $derived(
-		variation.styleTag ? data.dance.styleLabel[variation.styleTag] : undefined
+		variation.styleTag ? styleLabelsOf(data.dance.styleLabel)[variation.styleTag] : undefined
 	);
 	/** Handholds: the figure's own live tags; both sides empty, it fits anywhere. */
 	const holds = $derived(data.handholds);
@@ -194,7 +200,7 @@
 		await setEditing(true);
 	}
 	function stopEditing() {
-		leaveOrAsk(editForm ?? null, () => void setEditing(false), 'Stop editing');
+		leaveOrAsk(editForm ?? null, () => void setEditing(false), t().figure.edit.stop);
 	}
 	const closeOnSuccess: SubmitFunction = () => {
 		saving = true;
@@ -209,7 +215,7 @@
 			// A clash or gone is the clash sheet's, which holds what was typed.
 			else if (result.type === 'failure' && !isClash(result.data)) {
 				const m = result.data?.message;
-				refusal = { message: typeof m === 'string' ? m : 'It did not save.' };
+				refusal = { message: typeof m === 'string' ? m : t().figure.edit.notSaved };
 			}
 		};
 	};
@@ -346,7 +352,10 @@
 				reader: !!data.makeMine,
 				practisable: data.practisable,
 				exercise: data.exercise
-					? { href: exerciseHref(data.exercise.id), line: data.practice?.text ?? 'Practice' }
+					? {
+							href: exerciseHref(data.exercise.id),
+							line: data.practice?.text ?? t().figure.practice.fallback
+						}
 					: null,
 				historyHref: data.historyHref,
 				variationName: variation.name,
@@ -364,18 +373,22 @@
 	let toastSeq = 0;
 	async function createExercise() {
 		creating = true;
-		toast = { id: ++toastSeq, message: 'Adding to Today…' };
+		toast = { id: ++toastSeq, message: t().figure.practice.adding };
 		let result;
 		try {
 			result = await act('practise', {});
 		} finally {
 			creating = false;
 		}
-		const refused = refusalMessage(result, 'Could not add it to Today.');
+		const refused = refusalMessage(result, t().figure.practice.addFailed);
 		const id = data.exercise?.id;
 		toast = refused
 			? { id: ++toastSeq, message: refused }
-			: { id: ++toastSeq, message: 'On Today now', href: id ? exerciseHref(id) : undefined };
+			: {
+					id: ++toastSeq,
+					message: t().figure.practice.added,
+					href: id ? exerciseHref(id) : undefined
+				};
 	}
 </script>
 
@@ -386,7 +399,7 @@
 	<button
 		data-focus="recording-{rec.id}"
 		type="button"
-		aria-label="Delete this recording"
+		aria-label={t().figure.recordings.deleteLabel}
 		aria-haspopup="dialog"
 		class={iconButton('bare', 'danger')}
 		onclick={() => askDelete(rec, day)}><Icon name="trash" size={22} /></button
@@ -406,7 +419,9 @@
 		>
 			<!-- Both in one cell: the label keeps the width while the spinner shows. -->
 			<span class="grid place-items-center">
-				<span class="col-start-1 row-start-1" class:invisible={takingId === rec.id}>{TAKE}</span>
+				<span class="col-start-1 row-start-1" class:invisible={takingId === rec.id}
+					>{takeLabel()}</span
+				>
 				{#if takingId === rec.id}<span class="col-start-1 row-start-1"><Spinner size={18} /></span
 					>{/if}
 			</span>
@@ -418,16 +433,21 @@
 	compact
 	width="two"
 	title="{figure.name} · {variation.name}"
-	subtitle={editing ? `Editing ${variation.name}` : subtitle}
+	subtitle={editing ? t().figure.subtitle.editing(variation.name) : subtitle}
 >
 	{#snippet left()}
 		{#if editing}
-			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
+			<BandButton
+				focusKey="stop-editing"
+				icon="close"
+				label={t().figure.edit.stop}
+				onclick={stopEditing}
+			/>
 		{:else}
 			<BackButton
 				fallback={{
 					href: resolve('/[dance]/(moves)/figures', { dance: slug }),
-					label: 'Back to Moves'
+					label: t().shell.backTo(t().shell.tabs.moves)
 				}}
 			/>
 		{/if}
@@ -435,7 +455,12 @@
 	{#snippet right()}
 		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
 		{#if !editing && data.canEdit}
-			<BandButton focusKey="start-editing" icon="pencil" label="Edit" onclick={startEditing} />
+			<BandButton
+				focusKey="start-editing"
+				icon="pencil"
+				label={t().common.edit}
+				onclick={startEditing}
+			/>
 		{/if}
 		{#if !editing}
 			{#if hasMenu(ownMenu, offers)}
@@ -521,7 +546,7 @@
 				action="?/update"
 				class="flex flex-col gap-3.5 pt-1.5 two:grid two:grid-cols-[1fr_1fr] two:items-start two:gap-x-8"
 				bind:this={editForm}
-				use:guarded={{ label: `${variation.name} edits`, submit: closeOnSuccess }}
+				use:guarded={{ label: t().figure.edit.label(variation.name), submit: closeOnSuccess }}
 			>
 				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
 				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
@@ -551,7 +576,7 @@
 						<!-- Keyed on the answer: each refusal is brought into view as it arrives. -->
 						{#key refusal}
 							<div use:scrollIn>
-								<Banner kind="error" title="Not saved">{refusal.message}</Banner>
+								<Banner kind="error" title={t().shell.unsaved.notSaved}>{refusal.message}</Banner>
 							</div>
 						{/key}
 					{/if}
@@ -583,24 +608,26 @@
 			/>
 		{/if}
 		<!-- The variation's own facts: style and partner, timing, handholds, notes. -->
-		<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
+		<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label={t().figure.facts}>
 			<div class="flex flex-wrap gap-1.5">
 				{#if styleLabel}<Badge tone="accent">{styleLabel}</Badge>{/if}
 				<Badge tone="neutral"
-					><Icon
-						name={variation.partner === 'partner' ? 'people' : 'solo'}
-						size={14}
-					/>{PARTNER_LABEL[variation.partner]}</Badge
+					><Icon name={variation.partner === 'partner' ? 'people' : 'solo'} size={14} />{t().moves
+						.chips[variation.partner]}</Badge
 				>
 			</div>
 			<div class="flex flex-col gap-2">
 				<div class="flex items-baseline justify-between gap-3">
-					<span class="text-[13px] font-bold text-muted">Timing</span>
+					<span class="text-[13px] font-bold text-muted">{t().figure.timing.label}</span>
 					<span class="text-right text-[15px] font-bold text-ink"
 						>{timing.main}<span class="font-medium text-muted">{timing.extra}</span></span
 					>
 				</div>
-				<div role="img" aria-label="Starts on count {data.effective.startCount}" class="flex gap-1">
+				<div
+					role="img"
+					aria-label={t().figure.timing.startsOnCount(data.effective.startCount)}
+					class="flex gap-1"
+				>
 					{#each [1, 2, 3, 4, 5, 6, 7, 8] as count (count)}
 						<span
 							class="flex h-[30px] flex-1 items-center justify-center rounded-lg text-[14px] font-extrabold tabular-nums {count ===
@@ -613,17 +640,17 @@
 			</div>
 			<div class="-mx-4 h-px bg-hairline"></div>
 			<div class="flex flex-col gap-[3px]">
-				<span class="text-[13px] font-bold text-muted">Positions</span>
+				<span class="text-[13px] font-bold text-muted">{t().figure.positions}</span>
 				{#if untagged}
-					<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
+					<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty()}</span>
 				{:else}
 					<!-- Each position links to its page; an empty side reads "No position". -->
 					{#snippet side(refs: { id: number; name: string }[])}
 						{#if refs.length === 0}
-							<span class="font-semibold text-muted">No position</span>
+							<span class="font-semibold text-muted">{t().figure.noPosition}</span>
 						{:else}
 							{#each refs as p, i (p.id)}{#if i > 0}<span class="mx-1 font-semibold text-muted"
-										>or</span
+										>{t().figure.or}</span
 									>{/if}<a href={positionHref(p.id)} class="underline-offset-2 hover:underline"
 									>{p.name}</a
 								>{/each}
@@ -665,9 +692,9 @@
 						type="button"
 						data-focus="recordings-add"
 						class={button('tertiary', 'sm')}
-						aria-label="Add to Recordings"
+						aria-label={t().figure.recordings.addLabel}
 						aria-haspopup="dialog"
-						onclick={() => (adding = true)}><Icon name="plus" size={20} />Add</button
+						onclick={() => (adding = true)}><Icon name="plus" size={20} />{t().common.add}</button
 					>
 				{/if}
 			</div>
@@ -681,7 +708,7 @@
 						bind:chooser={chooseVideo}
 						url="/api/figures/{variation.id}/recordings"
 						accept="video/*"
-						label="Add video"
+						label={t().figure.recordings.addVideo}
 						noun={t().shell.upload.nouns.recording}
 						bind:busy={uploading}
 					/>
@@ -697,9 +724,12 @@
 								<button
 									type="submit"
 									class={button('tertiary', 'sm')}
-									aria-label="Unlink {spotLabel(s.spot)} from {figure.name} · {variation.name}"
+									aria-label={t().figure.recordings.unlinkLabel(
+										spotLabel(s.spot),
+										`${figure.name} · ${variation.name}`
+									)}
 									aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
-									>Unlink</button
+									>{t().figure.recordings.unlink}</button
 								>
 							</form>
 						{/snippet}
@@ -736,12 +766,12 @@
 							/>
 							{#if refused}
 								<div class="px-4 pb-3">
-									<Banner kind="error" title="Not deleted">{refused}</Banner>
+									<Banner kind="error" title={t().figure.recordings.notDeleted}>{refused}</Banner>
 								</div>
 							{/if}
 							{#if taken}
 								<div class="px-4 pb-3">
-									<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
+									<Banner kind="error" title={notTaken()}>{taken}</Banner>
 								</div>
 							{/if}
 						</li>
@@ -777,7 +807,7 @@
 		/>
 	</div>
 	{#if data.taughtIn.length > 0}
-		<h2 class="{SECTION_LABEL} pt-3.5">Taught in · {data.taughtIn.length}</h2>
+		<h2 class="{SECTION_LABEL} pt-3.5">{t().figure.taughtIn(data.taughtIn.length)}</h2>
 		<ul class={GROUP}>
 			{#each data.taughtIn as lesson (lesson.id)}
 				<li>
@@ -803,7 +833,7 @@
 		type="button"
 		class={button('secondary', 'md', true)}
 		aria-haspopup="dialog"
-		onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
+		onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />{t().common.edit}</button
 	>
 	{#if data.exercise}
 		<!-- Practise opens the exercise page: Done, the history and the rest are there. -->
@@ -812,7 +842,8 @@
 				dance: slug,
 				id: String(data.exercise.id)
 			})}
-			class={button('primary', 'md', true)}><Icon name="play" size={20} />Practise</a
+			class={button('primary', 'md', true)}
+			><Icon name="play" size={20} />{t().figure.practice.practise}</a
 		>
 	{:else}
 		<!-- Practise on its own; a group's figure only from a lesson the person added (R8). -->
@@ -840,7 +871,7 @@
 				type="submit"
 				class={button('primary', 'md', true)}
 				disabled={!data.practisable || practising}
-				aria-busy={practising}><Icon name="play" size={20} />Practise</button
+				aria-busy={practising}><Icon name="play" size={20} />{t().figure.practice.practise}</button
 			>
 		</form>
 	{/if}
@@ -869,10 +900,10 @@
 			aria-busy={saving}
 			disabled={saving}
 		>
-			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}<Icon
+			{#if saving}<Spinner /><span class="sr-only">{t().shell.unsaved.saving}</span>{:else}<Icon
 					name="check"
 					size={20}
-				/>Save{/if}
+				/>{t().common.save}{/if}
 		</button>
 	</BottomBar>
 {/if}
@@ -880,7 +911,7 @@
 {#if data.canEdit}
 	<Dialog
 		open={deleting !== null}
-		title="Delete this recording?"
+		title={t().figure.recordings.deleteTitle}
 		icon="trash"
 		tone="danger"
 		body={deleting?.body}
@@ -888,7 +919,7 @@
 	>
 		{#snippet actions()}
 			<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = null)}
-				>Cancel</button
+				>{t().common.cancel}</button
 			>
 			<form method="POST" action="?/deleteRecording" use:enhance={deleteRecording}>
 				<input type="hidden" name="recordingId" value={deleting?.id} />
@@ -900,7 +931,9 @@
 				>
 					<!-- Both in one cell: the label keeps the width while the spinner shows. -->
 					<span class="grid place-items-center">
-						<span class="col-start-1 row-start-1" class:invisible={deleteBusy}>Delete</span>
+						<span class="col-start-1 row-start-1" class:invisible={deleteBusy}
+							>{t().common.delete}</span
+						>
 						{#if deleteBusy}<span class="col-start-1 row-start-1"><Spinner size={18} /></span>{/if}
 					</span>
 				</button>
@@ -934,7 +967,7 @@
 				<button
 					type="button"
 					onclick={() => (archiving = false)}
-					class={button('secondary', 'md', true)}>Cancel</button
+					class={button('secondary', 'md', true)}>{t().common.cancel}</button
 				>
 				<button
 					type="submit"
@@ -998,7 +1031,7 @@
 	toast={toast && {
 		id: toast.id,
 		message: toast.message,
-		action: toast.href ? 'Open' : undefined,
+		action: toast.href ? t().figure.practice.open : undefined,
 		icon: toast.href ? 'check' : undefined,
 		tone: toast.href ? 'done' : undefined
 	}}

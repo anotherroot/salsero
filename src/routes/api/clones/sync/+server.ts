@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { syncView } from '$lib/server/clones/sync';
@@ -14,17 +15,17 @@ const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'less
 
 function id(raw: string | null): number {
 	const n = raw !== null && /^\d+$/.test(raw) ? Number(raw) : 0;
-	if (!Number.isSafeInteger(n) || n <= 0) throw error(404, 'Not found');
+	if (!Number.isSafeInteger(n) || n <= 0) throw error(404, t().refusals.notFound);
 	return n;
 }
 
 export const GET: RequestHandler = ({ url, locals }) => {
 	const kind = url.searchParams.get('kind') as CloneKind | null;
-	if (!kind || !KINDS.includes(kind)) throw error(404, 'Not found');
+	if (!kind || !KINDS.includes(kind)) throw error(404, t().refusals.notFound);
 	const user = locals.user!;
 	const view = syncView(getDb(), user.id, kind, id(url.searchParams.get('id')), {
 		tz: user.timezone
 	});
-	if (!view) throw error(404, 'Not found');
+	if (!view) throw error(404, t().refusals.notFound);
 	return json(view);
 };

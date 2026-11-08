@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from './i18n/current';
 import { screenFiles, summarise, summaryTitle, uploadCard } from './upload-queue';
 
 const file = (name: string, size: number, type = 'video/mp4') => ({ name, size, type });
@@ -95,5 +96,45 @@ describe('summaryTitle', () => {
 		expect(summaryTitle(1, 2)).toBe('Some files were skipped');
 		expect(summaryTitle(0, 1)).toBe('That file wasn’t added');
 		expect(summaryTitle(0, 3)).toBe('No videos were added');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('names why a file was skipped, and what was added', () => {
+		expect(sl(() => screenFiles([file('notes.txt', 10, 'text/plain')], GB).rejected)).toEqual([
+			{ name: 'notes.txt', reason: 'ni video' }
+		]);
+		expect(sl(() => screenFiles([file('day.mp4', 2 * GB)], GB).rejected)).toEqual([
+			{ name: 'day.mp4', reason: '2,0 GB — največ je 1,0 GB' }
+		]);
+		expect(sl(() => summarise(2, [{ name: 'a.txt', reason: 'ni video' }]))).toBe(
+			'Dodano: 2 videa. Izpuščeno: a.txt (ni video).'
+		);
+		expect(sl(() => summarise(5, [{ name: 'a.txt', reason: 'ni video' }]))).toBe(
+			'Dodano: 5 videov. Izpuščeno: a.txt (ni video).'
+		);
+		expect(sl(() => summaryTitle(0, 1))).toBe('Datoteka ni bila dodana');
+		expect(sl(() => summaryTitle(1, 2))).toBe('Nekatere datoteke so bile izpuščene');
+		expect(sl(() => summaryTitle(0, 3))).toBe('Noben video ni bil dodan');
+	});
+
+	it('draws the upload card', () => {
+		expect(
+			sl(() => uploadCard({ progress: 0.4, position: { index: 2, count: 3 }, retrying: false }))
+		).toEqual({
+			title: 'Nalaganje (2 od 3)\u00a0… 40\u00a0%',
+			helper: 'Pustite to stran odprto — če jo osvežite, se nalaganje začne znova',
+			tone: 'accent',
+			icon: 'upload',
+			percent: 40
+		});
+		expect(sl(() => uploadCard({ progress: 0.468, position: null, retrying: true }))).toMatchObject(
+			{
+				title: 'Povezava se je prekinila — ponovni poskus',
+				helper: 'Nadaljuje od tega, kar strežnik že ima · 46\u00a0%'
+			}
+		);
 	});
 });

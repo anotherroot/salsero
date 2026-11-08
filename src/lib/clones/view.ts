@@ -1,13 +1,19 @@
 /**
  * The words of the clone and twin screens. PURE and client-safe: every
- * sentence a screen prints comes from here, so a spec can pin it.
+ * sentence a screen prints comes from here, so a spec can pin it. Read at
+ * call time from the catalog (`t().clones`): a refusal composed on the
+ * server is in the reader's language.
  */
 import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport, TwinKind } from '$lib/types';
-import { byteSize, dayMonth, plural } from '$lib/format';
+import { byteSize, dayMonth } from '$lib/format';
 import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
+import { t } from '$lib/i18n/catalog';
 
-/** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s"; "CLASS" → "CLASS’". Trimmed. */
+/**
+ * "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s"; "CLASS" → "CLASS’". Trimmed.
+ * English only: a Slovenian line puts the name after a "·" or a colon instead.
+ */
 export function possessive(name: string): string {
 	const n = name.trim();
 	return /s$/i.test(n) ? `${n}’` : `${n}’s`;
@@ -15,7 +21,7 @@ export function possessive(name: string): string {
 
 /** A group's row in a person's own list: "Salsa Tuesdays’ · used as it is". */
 export function usedAsIs(team: string): string {
-	return `${possessive(team)} · used as it is`;
+	return t().clones.usedAsIs(team);
 }
 
 /** A group's move beside the person's own of the same name: "Enchufla · Salsa Tuesdays". */
@@ -25,17 +31,12 @@ export function moveHeading(move: string, team?: { name: string }): string {
 
 /** The note at the top of a group's figure page: where the member got it, and what that means. */
 export function fromLessonNote(lesson: string, team: string): string {
-	return `From ${lesson}. Use it in your routines as it is; it stays ${possessive(team)}.`;
+	return t().clones.fromLessonNote(lesson, team);
 }
 
 /** The note under a person's own slots when some of them are a group's figures. */
 export function groupSlotNote(figures: string[], team: string): string {
-	const names =
-		figures.length > 2
-			? `${figures.slice(0, -1).join(', ')} and ${figures[figures.length - 1]}`
-			: figures.join(' and ');
-	const verb = figures.length === 1 ? 'is' : 'are';
-	return `${names} ${verb} ${possessive(team)}. If you leave the group, you keep a copy and this routine keeps working.`;
+	return t().clones.groupSlotNote(figures, team);
 }
 
 /** One `groupSlotNote` per group whose figures the slots use, in slot order. */
@@ -57,39 +58,26 @@ export function groupSlotNotes(
 /* ── Make it mine ───────────────────────────────────────────────────────── */
 
 /** The button that makes a class's thing the person's own (ruling 12: Make my own copy too). */
-export const MAKE_MINE = 'Make it mine';
+export const makeMine = (): string => t().clones.makeMine;
 
 /** The sheet's title: "Make Setenta · Básico yours?". */
 export function makeMineTitle(label: string): string {
-	return `Make ${label} yours?`;
+	return t().clones.mine.title(label);
 }
 
-export const MAKE_MINE_SUB = 'Editing makes your own copy. The class’s stays as it is.';
+export const makeMineSub = (): string => t().clones.mine.sub;
 
 /** The sheet's line when the person's own copy is archived: Make it mine brings it back. */
-export const restoreLine = 'You had your own copy. Restore it?';
+export const restoreLine = (): string => t().clones.mine.restore;
 
 /** Make it mine on a class song whose copy the person archived: a person's song has no restore. */
-export const ARCHIVED_SONG_COPY =
-	'Your copy of this song is archived. Delete it in Settings → What uses space to make it yours again.';
+export const archivedSongCopy = (): string => t().clones.mine.archivedSong;
 
-export const YOU_GET = 'YOU GET';
-
-const GETS: Record<CloneKind, string> = {
-	// Ruling 3: no sections, they sit on recordings, which stay the group's.
-	figure: 'Its name, timing, positions and notes, to change as you like.',
-	routine: 'Its name, notes and slots, to change as you like.',
-	drill: 'Its name, notes and practice, to change as you like.',
-	song: 'Its title, artist and count, to change as you like.',
-	lesson:
-		'Its title, notes, links, videos and sections, to change as you like. The videos count against your space.',
-	// Not its video links: those travel with their videos, and stay the group's.
-	position: 'Its name, type, hold and notes, to change as you like.'
-};
+export const youGetLabel = (): string => t().clones.mine.youGet;
 
 /** What the copy gives the person, per kind. */
 export function youGet(kind: CloneKind): string {
-	return GETS[kind];
+	return t().clones.mine.gets[kind];
 }
 
 /**
@@ -97,24 +85,10 @@ export function youGet(kind: CloneKind): string {
  * a position's links from the group's lessons and videos. Null for the rest.
  */
 export function staysTheirs(kind: CloneKind, team: string): { title: string; body: string } | null {
-	const title = `STAYS ${possessive(team).toUpperCase()}`;
-	if (kind === 'position')
-		return {
-			title,
-			body: `The lessons and videos it was linked from. You see them in ${possessive(team)} tab.`
-		};
+	const w = t().clones.mine;
+	if (kind === 'position') return { title: w.staysTitle(team), body: w.staysPosition(team) };
 	if (kind !== 'figure') return null;
-	return {
-		title,
-		body: 'Its recordings and their sections. You still see them inside yours, and can take one (it then counts against your space).'
-	};
-}
-
-/** "A", "A and B", "A, B and C". */
-function listed(names: string[]): string {
-	return names.length > 1
-		? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-		: (names[0] ?? '');
+	return { title: w.staysTitle(team), body: w.staysFigure };
 }
 
 /**
@@ -125,58 +99,22 @@ function listed(names: string[]): string {
  * copy." Null when nothing of theirs uses it.
  */
 export function switchNote(r: SwitchReport, practised: boolean): string | null {
-	const parts: { text: string; many: boolean }[] = [];
-	if (r.figures.length === 1)
-		parts.push({ text: `your ${r.figures[0].label}, tagged with it,`, many: false });
-	else if (r.figures.length > 1)
-		parts.push({ text: `your ${r.figures.length} figures tagged with it`, many: true });
-	const names = (one: string, many: string, list: string[]) => {
-		if (list.length > 0)
-			parts.push({
-				text: `your ${list.length === 1 ? one : many} ${listed(list)}`,
-				many: list.length > 1
-			});
-	};
-	names(
-		'routine',
-		'routines',
-		r.routines.map((x) => x.name)
-	);
-	names(
-		'lesson',
-		'lessons',
-		r.lessons.map((x) => x.title)
-	);
-	if (r.sections === 1) parts.push({ text: 'your section', many: false });
-	else if (r.sections > 1) parts.push({ text: `${r.sections} of your sections`, many: true });
-	if (practised) parts.push({ text: 'your practice of it', many: false });
-	if (parts.length === 0) return null;
-
-	const texts = parts.map((p) => p.text);
-	const last = texts[texts.length - 1];
-	// A part ending in its own comma ("…, tagged with it,") is followed by a space alone.
-	const join = (list: string[], sep: string) =>
-		list.reduce((out, t, i) => (i === 0 ? t : `${out}${out.endsWith(',') ? ' ' : sep}${t}`), '');
-	let body: string;
-	if (texts.length === 1) body = last;
-	else if (texts.some((t) => t.includes(' and ')))
-		// "Your routines A and B, and your practice of it, switch…"
-		body = `${join(texts.slice(0, -1), ', ')}${texts.at(-2)!.endsWith(',') ? '' : ','} and ${last},`;
-	else body = `${join(texts.slice(0, -1), ', ')} and ${last}`;
-	const verb = parts.length === 1 && !parts[0].many ? 'switches' : 'switch';
-	return `${body[0].toUpperCase()}${body.slice(1)} ${verb} to your copy.`;
+	return t().clones.mine.switchNote({
+		figures: r.figures.map((f) => f.label),
+		routines: r.routines.map((x) => x.name),
+		lessons: r.lessons.map((x) => x.title),
+		sections: r.sections,
+		practised
+	});
 }
 
-/* ── Sources ────────────────────────────────────────────────────────────── */
+/** A refusal that came without its words, and a request that failed. */
+export const makeMineRefused = (): string => t().clones.mine.refused;
+export const makeMineFailed = (): string => t().clones.mine.failed;
+/** The button's name while the copy is being made. */
+export const makeMineBusy = (): string => t().clones.mine.busy;
 
-const KIND_WORD: Record<CloneKind, string> = {
-	figure: 'figure',
-	routine: 'routine',
-	drill: 'drill',
-	song: 'song',
-	lesson: 'lesson',
-	position: 'position'
-};
+/* ── Sources ────────────────────────────────────────────────────────────── */
 
 /**
  * The band's subtitle for a member of a family (boards C2, C3, C7): "Your
@@ -193,10 +131,11 @@ export function cloneSubtitle(s: {
 	twins: number;
 	kind: CloneKind;
 }): string | null {
-	if (s.self.kind === 'team') return `${possessive(s.self.name)} ${KIND_WORD[s.kind]}`;
-	if (s.clonedFrom !== null) return `Your copy · from ${s.clonedFrom}`;
-	if (s.groups > 0) return `Yours · in ${plural(s.groups, 'group', 'groups')}`;
-	if (s.twins > 0) return `Twins · ${s.twins + 1} versions`;
+	const w = t().clones.sources;
+	if (s.self.kind === 'team') return w.team(s.self.name, s.kind);
+	if (s.clonedFrom !== null) return w.copyFrom(s.clonedFrom);
+	if (s.groups > 0) return w.inGroups(s.groups);
+	if (s.twins > 0) return w.twins(s.twins + 1, s.kind);
 	return null;
 }
 
@@ -212,21 +151,20 @@ function pieceCounted(key: string, as: 'rec' | 'video' | 'spot'): string | null 
 }
 
 /** What `changedLabels` counts rather than names, in the order it lists them. */
-const COUNTED: { of: (key: string) => string | null; one: string; many: string }[] = [
-	{ of: (k) => pieceCounted(k, 'rec'), one: 'recording', many: 'recordings' },
-	{ of: (k) => pieceCounted(k, 'video'), one: 'video', many: 'videos' },
-	{ of: (k) => pieceCounted(k, 'spot'), one: 'section', many: 'sections' },
+const COUNTED: { of: (key: string) => string | null; count: (n: number) => string }[] = [
+	{ of: (k) => pieceCounted(k, 'rec'), count: (n) => t().nouns.recordings(n) },
+	{ of: (k) => pieceCounted(k, 'video'), count: (n) => t().nouns.videos(n) },
+	{ of: (k) => pieceCounted(k, 'spot'), count: (n) => t().nouns.sections(n) },
 	{
 		of: (k) => (setPrefixOf(k) === 'start' ? k : null),
-		one: 'start position',
-		many: 'start positions'
+		count: (n) => t().clones.counted.starts(n)
 	},
-	{ of: (k) => (setPrefixOf(k) === 'end' ? k : null), one: 'end position', many: 'end positions' },
-	{ of: (k) => (setPrefixOf(k) === 'link' ? k : null), one: 'link', many: 'links' },
-	{ of: (k) => (setPrefixOf(k) === 'fig' ? k : null), one: 'figure', many: 'figures' },
-	{ of: (k) => (setPrefixOf(k) === 'routine' ? k : null), one: 'routine', many: 'routines' },
-	{ of: (k) => (setPrefixOf(k) === 'drill' ? k : null), one: 'drill', many: 'drills' },
-	{ of: (k) => (setPrefixOf(k) === 'pos' ? k : null), one: 'position', many: 'positions' }
+	{ of: (k) => (setPrefixOf(k) === 'end' ? k : null), count: (n) => t().clones.counted.ends(n) },
+	{ of: (k) => (setPrefixOf(k) === 'link' ? k : null), count: (n) => t().nouns.links(n) },
+	{ of: (k) => (setPrefixOf(k) === 'fig' ? k : null), count: (n) => t().nouns.figures(n) },
+	{ of: (k) => (setPrefixOf(k) === 'routine' ? k : null), count: (n) => t().nouns.routines(n) },
+	{ of: (k) => (setPrefixOf(k) === 'drill' ? k : null), count: (n) => t().nouns.drills(n) },
+	{ of: (k) => (setPrefixOf(k) === 'pos' ? k : null), count: (n) => t().nouns.positions(n) }
 ];
 
 /**
@@ -244,92 +182,90 @@ export function changedLabels(diffs: { key: string; label: string }[]): string[]
 	}
 	return [
 		...fields,
-		...COUNTED.flatMap((c, i) =>
-			counts[i].size > 0 ? [plural(counts[i].size, c.one, c.many)] : []
-		)
+		...COUNTED.flatMap((c, i) => (counts[i].size > 0 ? [c.count(counts[i].size)] : []))
 	];
 }
 
 /** The note on a source's tab, opened from the person's copy (board C2 p2b). */
 export function sourceNote(place: string): string {
-	return `${possessive(place)} version, read-only. Take what you want into yours.`;
+	return t().clones.sources.note(place);
 }
 
 /** A source's recording, under its day: "12 MB · already in yours" or "New · 12 MB". */
 export function recordingMeta(held: boolean, size: string): string {
-	return held ? `${size} · already in yours` : `New · ${size}`;
+	const w = t().clones.sources;
+	return held ? w.held(size) : w.new(size);
 }
 
 /** The button that copies one of a source's recordings into the person's own figure. */
-export const TAKE = 'Take';
+export const takeLabel = (): string => t().clones.sources.take;
 
 /** Make it mine's line about room, when the copy brings files: "Uses 380 MB of your space". */
 export function makeMineSize(bytes: number): string | null {
-	return bytes > 0 ? `Uses ${byteSize(bytes)} of your space` : null;
+	return bytes > 0 ? t().clones.mine.size(byteSize(bytes)) : null;
 }
 
 /** Take refused: the person's copy holds that recording already. */
-export const ALREADY_IN_YOURS = 'It is already in yours.';
+export const alreadyInYours = (): string => t().clones.sources.alreadyInYours;
 
 /** Take refused: the recording went while the page was open. */
-export const RECORDING_GONE = 'That recording is gone.';
+export const recordingGone = (): string => t().clones.sources.recordingGone;
 
 /** A refused Take's banner title, in the recording's card. */
-export const NOT_TAKEN = 'Not taken';
+export const notTaken = (): string => t().clones.sources.notTaken;
 
-/** The tab switcher's name, for screen readers. */
-export const VERSIONS = 'Versions';
+/** The Versions list's title (and the row's count, for screen readers). */
+export const versionsTitle = (): string => t().clones.versions.title;
 
 /* ── Compare and Take theirs ────────────────────────────────────────────── */
 
 /**
  * A landing refused: the receiving copy changed since it was read. Not shown
- * by itself: the flow tells nobody, and Sync says `SYNC_STALE` instead.
+ * by itself: the flow tells nobody, and Sync says `syncStale` instead.
  */
-export const STALE = 'Changed meanwhile; check it again.';
+export const landingStale = (): string => t().clones.refusal.stale;
 
 /** A Take or Send refused: a field both sides changed has no pick. */
-export const PICK_BOTH = 'Pick yours or theirs where both changed.';
+export const pickBoth = (): string => t().clones.refusal.pickBoth;
 
 /** A name that would clash in the receiving move: "Doble is taken in Enchufla; rename one first." */
 export function nameTaken(name: string, move: string): string {
-	return `${name} is taken in ${move}; rename one first.`;
+	return t().clones.refusal.nameTaken(name, move);
 }
 
 /** Closes a clone sheet without doing anything. */
-export const CANCEL = 'Cancel';
-
-/** A compare card's two options. */
-export const YOURS = 'Yours';
+export const cancelLabel = (): string => t().common.cancel;
 
 /** A sheet whose data did not come (Copy to…'s plan, Move to…'s preview). */
-export const LOAD_FAILED = 'That could not be loaded. Try again.';
+export const loadFailed = (): string => t().clones.refusal.loadFailed;
 
 /* ── Copies you can see, and Send mine (board C3) ───────────────────────── */
 
 /** The family list's heading. */
-export const FAMILY_TITLE = 'Copies you can see';
+export const familyTitle = (): string => t().clones.versions.familyTitle;
 
 /** The page's own row in the family list. */
-export const THIS_ONE = 'This one';
+export const thisOne = (): string => t().clones.versions.thisOne;
 
 /** A copy's chip against the page's row; none when in step (or for the page itself). */
 export function statusChip(
 	s: Source['status']
 ): { text: string; tone: 'neutral' | 'accent' | 'warn' } | null {
+	const chip = t().clones.versions.chip;
 	switch (s) {
 		case 'behind':
-			return { text: 'Behind', tone: 'neutral' };
+			return { text: chip.behind, tone: 'neutral' };
 		case 'newer':
-			return { text: 'Newer', tone: 'accent' };
+			return { text: chip.newer, tone: 'accent' };
 		case 'differs':
-			return { text: 'Differs', tone: 'warn' };
+			return { text: chip.differs, tone: 'warn' };
 		default:
 			return null;
 	}
 }
 
-const ROLE_WORD = { owner: 'Owner', editor: 'Editor', member: 'Member' } as const;
+/** A role in a group: "Owner", »Vodja«. */
+const roleWord = (role: 'owner' | 'editor' | 'member'): string => t().clones.versions.role[role];
 
 const lower = (labels: string[]) => labels.map((l) => l.toLowerCase());
 
@@ -345,12 +281,14 @@ export function memberMeta(
 	changed: string[],
 	page: 'yours' | 'this one' = 'yours'
 ): string {
-	const parts: string[] = role ? [ROLE_WORD[role]] : [];
+	const w = t().clones.versions;
+	const parts: string[] = role ? [roleWord(role)] : [];
 	const what = changed.length > 0 ? `: ${lower(changed).join(', ')}` : '';
-	if (status === 'behind') parts.push(`behind ${page}${what}`);
-	else if (status === 'newer') parts.push(`newer than ${page}${what}`);
-	else if (status === 'differs') parts.push('differs both ways');
-	else if (status === 'same') parts.push('in step');
+	const pageMine = page === 'yours';
+	if (status === 'behind') parts.push(w.behind(pageMine, what));
+	else if (status === 'newer') parts.push(w.newer(pageMine, what));
+	else if (status === 'differs') parts.push(w.differs);
+	else if (status === 'same') parts.push(w.same);
 	const line = parts.join(' · ');
 	// The line's first word starts with a capital ("Behind this one: notes").
 	return line === '' ? line : `${line[0].toUpperCase()}${line.slice(1)}`;
@@ -358,7 +296,9 @@ export function memberMeta(
 
 /** The page's own row: "This one · you changed notes, +1 recording". */
 export function selfMeta(changed: string[]): string {
-	return changed.length > 0 ? `${THIS_ONE} · you changed ${lower(changed).join(', ')}` : THIS_ONE;
+	return changed.length > 0
+		? t().clones.versions.selfChanged(lower(changed).join(', '))
+		: thisOne();
 }
 
 const counted = (label: string) => /^\d/.test(label);
@@ -383,18 +323,17 @@ export function ownChanges(diffs: FieldDiff[]): string[] {
 
 /* ── Drop my copy (board C5) ────────────────────────────────────────────── */
 
-export const DROP_TITLE = 'Drop your copy?';
+export const dropTitle = (): string => t().clones.drop.title;
 
 /**
  * Under the title: where the person goes back to. `access` is the one
  * version's ('read': the class's, read-only); null when they pick among several.
  */
 export function dropSub(access: 'read' | 'edit' | null): string {
-	if (access === 'read')
-		return 'You go back to the class’s version, read-only. Your copy is archived.';
-	if (access === 'edit')
-		return 'You go back to the group’s version, which you edit. Your copy is archived.';
-	return 'You go back to the version you pick. Your copy is archived.';
+	const w = t().clones.drop;
+	if (access === 'read') return w.subRead;
+	if (access === 'edit') return w.subEdit;
+	return w.subPick;
 }
 
 /**
@@ -402,7 +341,12 @@ export function dropSub(access: 'read' | 'edit' | null): string {
  * Salsa Tuesdays’ Setenta · Básico." Without practice when it cannot follow (R8).
  */
 export function dropOne(place: string, label: string, follows = true): string {
-	return `Your ${follows ? 'routines and practice' : 'routines'} will use ${possessive(place)} ${label}.`;
+	return t().clones.drop.one(place, label, follows);
+}
+
+/** A radio's title, when there are several versions: "Salsa Tuesdays’" (the place alone in Slovenian). */
+export function dropPlace(place: string): string {
+	return t().clones.drop.place(place);
 }
 
 /**
@@ -412,17 +356,16 @@ export function dropOne(place: string, label: string, follows = true): string {
  */
 export function onlyInYours(labels: string[], sendable: string | null = null): string | null {
 	if (labels.length === 0) return null;
-	const fields = lower(labels.filter((l) => !counted(l)));
-	const what = listed([...fields, ...labels.filter(counted)]);
-	const tail = sendable === null ? 'They go with your copy.' : `You edit ${sendable}.`;
-	return `Only in yours: ${fields.length > 0 ? 'your ' : ''}${what}. ${tail}`;
+	const w = t().clones.drop;
+	const what = w.onlyInYours(lower(labels.filter((l) => !counted(l))), labels.filter(counted));
+	return `${what} ${sendable === null ? w.goesWithCopy : w.youEdit(sendable)}`;
 }
 
 /** Over the radios when there are several versions. */
-export const USE_INSTEAD = 'Use instead';
+export const useInstead = (): string => t().clones.drop.useInstead;
 
 /** The version the person's copy was made from. */
-export const copiedHere = 'You copied it from here';
+export const copiedHere = (): string => t().clones.drop.copiedHere;
 
 /**
  * A version the practice cannot follow onto: for a figure, routine or drill,
@@ -430,15 +373,14 @@ export const copiedHere = 'You copied it from here';
  * a lesson or a song, it is a draft, which nothing can add.
  */
 export function cantFollow(lesson: string | null, kind: CloneKind = 'figure'): string {
-	if (kind === 'lesson' || kind === 'song')
-		return 'Not published yet: your practice stays with your copy.';
-	const line = 'Not in a lesson you added: your practice can’t follow';
-	return lesson === null ? line : `${line} · ${addToo(lesson)}`;
+	const w = t().clones.drop;
+	if (kind === 'lesson' || kind === 'song') return w.draft;
+	return lesson === null ? w.cantFollow : `${w.cantFollow} · ${addToo(lesson)}`;
 }
 
 /** The box under that version: ticked, Drop adds the lesson and practice follows. */
 export function addToo(lesson: string): string {
-	return `Add ${lesson} too`;
+	return t().clones.drop.addToo(lesson);
 }
 
 /**
@@ -451,66 +393,72 @@ export function dropChoiceMeta(
 	kind: CloneKind = 'figure'
 ): string | null {
 	const parts: string[] = [];
-	if (c.clonedFrom) parts.push(copiedHere);
+	if (c.clonedFrom) parts.push(copiedHere());
 	if (!c.practiceFollows)
 		parts.push(cantFollow(boxShown ? null : (c.addLesson?.title ?? null), kind));
 	return parts.length === 0 ? null : parts.join(' · ');
 }
 
-export const DROP_BUTTON = 'Drop my copy';
+export const dropButton = (): string => t().clones.drop.button;
 /** Sync from the copy before it goes, onto the version it goes back to (the Sync sheet, that one ticked). */
-export const SYNC_FIRST = 'Sync first';
+export const syncFirst = (): string => t().clones.drop.syncFirst;
 
 /** On the version's page once the copy is dropped. */
 export function droppedToast(place: string): string {
-	return `Back on ${possessive(place)}. Your copy is archived.`;
+	return t().clones.drop.toast(place);
 }
 
 /** A drop that failed without a refusal's words. */
-export const DROP_FAILED = 'That could not be dropped. Try again.';
+export const dropFailed = (): string => t().clones.drop.failed;
 
 /** The version picked is no longer one the person can go back to. */
-export const DROP_GONE = 'That version can’t be used any more. Reload and pick again.';
+export const dropGone = (): string => t().clones.drop.gone;
+
+/** The drop button's name while it is out. */
+export const dropBusy = (): string => t().clones.drop.busy;
 
 /* ── Detach, and reconnecting (board C8) ────────────────────────────────── */
 
-export const DETACH_BUTTON = 'Detach';
+export const detachButton = (): string => t().clones.detach.button;
 
 /**
  * The sheet's title: "Stop following Salsa Tuesdays?" for your own copy; a
  * group's row follows nobody (the others are its copies), so it is neutral.
  */
 export function detachTitle(place: string, group = false): string {
-	return group ? 'Detach from its copies?' : `Stop following ${place}?`;
+	const w = t().clones.detach;
+	return group ? w.titleGroup : w.title(place);
 }
 
 /** What Detach does to your own copy. */
-export const DETACH_MINE =
-	'Your copy stays yours, as it is. It stays shown together with theirs, as twins.';
+export const detachMine = (): string => t().clones.detach.mine;
 
 /** What it ends. */
-export const DETACH_NO_MORE = 'No more “updated since”, and no Take theirs to hit by mistake.';
+export const detachNoMore = (): string => t().clones.detach.noMore;
 
 /** Under the title: what Detach is in a group, in the kind's noun. */
 export function detachGroup(kind: CloneKind): string {
-	return `In a group, Detach just makes it an ordinary group ${kind}.`;
+	return t().clones.detach.group(kind);
 }
 
 /** A detach that failed. */
-export const DETACH_FAILED = 'That could not be detached. Try again.';
+export const detachFailed = (): string => t().clones.detach.failed;
+
+/** The detach button's name while it is out. */
+export const detachBusy = (): string => t().clones.detach.busy;
 
 /* ── Copy to… (board C4) ────────────────────────────────────────────────── */
 
-/** The trigger under the tabs. */
-export const COPY_TO = 'Copy to…';
+/** The trigger in the ⋯ menu. */
+export const copyTo = (): string => t().clones.copy.menu;
 
 /** The sheet's title: "Copy Week 3 to…". */
 export function copyTitle(name: string): string {
-	return `Copy ${name} to…`;
+	return t().clones.copy.title(name);
 }
 
 /** A lesson or song into a group, from your own: it lands as a draft. */
-export const COPY_SUB_GROUP = 'The group gets a draft. You keep yours.';
+export const copySubGroup = (): string => t().clones.copy.sub('draft', true);
 
 /** Lands as a draft: a lesson or a song into a group. */
 const asDraft = (kind: CloneKind, into: PlaceRef) =>
@@ -521,14 +469,13 @@ const asDraft = (kind: CloneKind, into: PlaceRef) =>
  * page's row stays (`fromMine`: it is yours).
  */
 export function copySub(kind: CloneKind, into: PlaceRef, fromMine: boolean): string {
-	const stays = fromMine ? 'You keep yours.' : 'This one stays as it is.';
-	if (into.kind === 'mine') return `You get your own copy. ${stays}`;
-	return `The group gets ${asDraft(kind, into) ? 'a draft' : 'a copy'}. ${stays}`;
+	const gets = into.kind === 'mine' ? 'mine' : asDraft(kind, into) ? 'draft' : 'copy';
+	return t().clones.copy.sub(gets, fromMine);
 }
 
 /** A radio's name: the group's, or "Your app". */
 export function placeLabel(place: PlaceRef): string {
-	return place.kind === 'team' ? place.name : 'Your app';
+	return place.kind === 'team' ? place.name : t().clones.copy.yourApp;
 }
 
 /** "1 GB", not "1.0 GB" (or "1,0 GB" in Slovenian): a limit is a round number. */
@@ -540,12 +487,16 @@ export function placeMeta(
 	used: number,
 	limit: number | null
 ): string {
-	const space = limit === null ? `${size(used)} used` : `${size(used)} of ${size(limit)} used`;
-	return role ? `${ROLE_WORD[role]} · ${space}` : space;
+	return t().clones.copy.placeMeta(
+		role ? roleWord(role) : null,
+		size(used),
+		limit === null ? null : size(limit)
+	);
 }
 
-export const WHAT_GOES = 'WHAT GOES';
-export const ALREADY_THERE = 'ALREADY THERE';
+/** The grey cards' captions. */
+export const whatGoesTitle = (): string => t().clones.copy.whatGoes;
+export const alreadyThere = (): string => t().clones.copy.alreadyThere;
 
 /** What a copy brings, counted: the copies it makes, the files and their charge. */
 export type GoesCounts = {
@@ -569,23 +520,24 @@ export type GoesCounts = {
  * · notes". The files' size rides on the last part that has files.
  */
 export function whatGoes(g: GoesCounts): string {
+	const w = t().clones.copy;
+	const n = t().nouns;
 	const parts: string[] = [];
-	const count = (n: number, one: string, many: string) => {
-		if (n > 0) parts.push(plural(n, one, many));
+	const count = (k: number, noun: (k: number) => string) => {
+		if (k > 0) parts.push(noun(k));
 	};
-	count(g.figures, 'figure', 'figures');
-	count(g.positions, 'position', 'positions');
-	count(g.routines, 'routine', 'routines');
-	count(g.drills, 'drill', 'drills');
-	count(g.recordings, 'recording', 'recordings');
-	count(g.videos, 'video', 'videos');
-	if (g.audio) parts.push('the audio');
+	count(g.figures, n.figures);
+	count(g.positions, n.positions);
+	count(g.routines, n.routines);
+	count(g.drills, n.drills);
+	count(g.recordings, n.recordings);
+	count(g.videos, n.videos);
+	if (g.audio) parts.push(w.audio);
 	if (g.bytes > 0 && (g.recordings > 0 || g.videos > 0 || g.audio)) {
-		const charge = g.into.kind === 'team' ? 'the group' : 'you';
-		parts[parts.length - 1] += ` (${byteSize(g.bytes)}, charged to ${charge})`;
+		parts[parts.length - 1] += w.charged(byteSize(g.bytes), g.into.kind === 'team');
 	}
-	if (g.notes) parts.push('notes');
-	if (parts.length === 0) return `Just the ${KIND_WORD[g.kind]}`;
+	if (g.notes) parts.push(w.notes);
+	if (parts.length === 0) return w.just(g.kind);
 	const line = parts.join(' · ');
 	return `${line[0].toUpperCase()}${line.slice(1)}`;
 }
@@ -597,19 +549,18 @@ export function whatGoes(g: GoesCounts): string {
  * person made that copy.
  */
 export function alreadyLine(label: string, place: PlaceRef, day: string, yours: boolean): string {
-	const when = dayMonth(day);
-	const has =
-		place.kind === 'mine'
-			? `you have it already, from ${when}`
-			: yours
-				? `${place.name} has your copy from ${when}`
-				: `${place.name} has it already, from ${when}`;
-	return `${label}: ${has}. It’s reused, not doubled.`;
+	return t().clones.copy.already(
+		label,
+		place.kind === 'team' ? place.name : null,
+		dayMonth(day),
+		yours
+	);
 }
 
 /** The sheet's button: "Copy as a draft" for a lesson or song into a group. */
 export function copyButton(kind: CloneKind, into: PlaceRef): string {
-	return asDraft(kind, into) ? 'Copy as a draft' : 'Copy';
+	const w = t().clones.copy;
+	return asDraft(kind, into) ? w.buttonDraft : w.button;
 }
 
 /**
@@ -617,74 +568,66 @@ export function copyButton(kind: CloneKind, into: PlaceRef): string {
  * stays as it is and the comparison opens; an archived one is restored first.
  */
 export function existingNote(place: PlaceRef, archived: boolean): string {
-	const who = place.kind === 'team' ? `${place.name} has` : 'You have';
-	return archived
-		? `${who} an archived copy. Restore it, then sync.`
-		: `${who} it already. Sync the two copies.`;
+	return t().clones.copy.existing(place.kind === 'team' ? place.name : null, archived);
 }
 
-export const RESTORE = 'Restore';
+export const restoreLabel = (): string => t().clones.copy.restore;
 
 /** Once the copy has landed. */
 export function copiedToast(into: PlaceRef, draft: boolean): string {
-	if (into.kind === 'mine') return 'Copied to your app.';
-	return `Copied to ${into.name}${draft ? ' as a draft' : ''}.`;
+	return t().clones.copy.toast(into.kind === 'team' ? into.name : null, draft);
 }
 
 /** A copy that failed without a refusal's words. */
-export const COPY_FAILED = 'That could not be copied. Try again.';
+export const copyFailed = (): string => t().clones.copy.failed;
 
 /** Which twin goes (board C4 p4): "Which Enchufla · Doble?" */
 export function whichTitle(label: string): string {
-	return `Which ${label}?`;
+	return t().clones.twins.whichTitle(label);
 }
-
-const NUMBER_WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 
 /** "You see two versions of this figure. Which one goes to Salsa Tuesdays?" */
 export function whichSub(kind: CloneKind, versions: number, place: string): string {
-	const n = NUMBER_WORDS[versions] || String(versions);
-	return `You see ${n} versions of this ${KIND_WORD[kind]}. Which one goes to ${place}?`;
+	return t().clones.twins.whichSub(kind, versions, place);
 }
 
-/** A twin's radio: "Yours", "Rueda club’s". */
+/** A twin's radio: "Yours", "Rueda club’s" (»Vaše«, »Skupina: Rueda club«). */
 export function twinChoiceLabel(place: PlaceRef): string {
-	return place.kind === 'team' ? possessive(place.name) : 'Yours';
+	const w = t().clones.twins;
+	return place.kind === 'team' ? w.team(place.name) : w.mine;
 }
 
 /** A twin's line: "Last changed 30 Oct", the day in the person's zone. */
 export function twinChoiceMeta(changedAt: number, tz: string): string {
-	return `Last changed ${dayMonth(localDay(changedAt, tz))}`;
+	return t().clones.twins.changed(dayMonth(localDay(changedAt, tz)));
 }
 
-export const TWINS_ONE_GOES =
-	'They’re twins in your app. Only one goes; the group never gets twins.';
+export const twinsOneGoes = (): string => t().clones.twins.oneGoes;
 
-export const CONTINUE = 'Continue';
+export const continueLabel = (): string => t().clones.twins.continue;
 
 /** The copied toast's action: the copy's page. */
-export const OPEN = 'Open';
+export const openLabel = (): string => t().clones.copy.open;
 
 /* ── Move to… (board C4 p3) ─────────────────────────────────────────────── */
 
 /** The trigger beside Copy to…, on the person's own lesson. */
-export const MOVE_TO = 'Move to…';
+export const moveTo = (): string => t().clones.move.menu;
 
 /** The sheet's title: "Move Week 3 to Salsa Tuesdays". */
 export function moveTitle(lesson: string, place: PlaceRef): string {
-	return `Move ${lesson} to ${placeLabel(place)}`;
+	return t().clones.move.title(lesson, placeLabel(place));
 }
 
-export const MOVE_SUB = 'The lesson lives in the group and leaves your lessons. What it brings:';
-export const KEEP_MINE = 'Keep mine as well';
-export const USE_GROUPS = 'Use the group’s';
-export const MOVE_NOTE =
-	'“Use the group’s”: your copy is dropped, and your other lessons and routines use the group’s.';
+export const moveSub = (): string => t().clones.move.sub;
+export const keepMine = (): string => t().clones.move.keepMine;
+export const useGroups = (): string => t().clones.move.useGroups;
+export const moveNote = (): string => t().clones.move.note;
 /** Under the note, when something dropped is practised (ruling 11: a draft can't be added). */
-export const PRACTICE_STAYS = 'Your practice of what you drop stays with your archived copy.';
-export const MOVE_BUTTON = 'Move as a draft';
-export const ONLY_THIS_LESSON = 'Only this lesson';
-export const YOU_PRACTISE = 'You practise it';
+export const practiceStays = (): string => t().clones.move.practiceStays;
+export const moveButton = (): string => t().clones.move.button;
+export const onlyThisLesson = (): string => t().clones.move.onlyThisLesson;
+export const youPractise = (): string => t().clones.move.youPractise;
 
 /**
  * Why a thing the lesson brings is kept by default, the first that applies:
@@ -692,76 +635,77 @@ export const YOU_PRACTISE = 'You practise it';
  * "You practise it", else "Only this lesson".
  */
 export function moveWhy(u: { lessons: number; routines: string[]; practised: boolean }): string {
-	if (u.lessons > 0) return `Used by ${plural(u.lessons, 'other lesson', 'other lessons')}`;
-	if (u.routines.length === 1) return `Used by ${u.routines[0]}`;
-	if (u.routines.length > 1) return `Used by ${plural(u.routines.length, 'routine', 'routines')}`;
-	return u.practised ? YOU_PRACTISE : ONLY_THIS_LESSON;
+	const w = t().clones.move;
+	if (u.lessons > 0) return w.usedByLessons(u.lessons);
+	if (u.routines.length === 1) return w.usedByRoutine(u.routines[0]);
+	if (u.routines.length > 1) return w.usedByRoutines(u.routines.length);
+	return u.practised ? youPractise() : onlyThisLesson();
 }
 
 /** Once the move has landed, on the group's lesson. */
 export function movedToast(place: string): string {
-	return `Moved to ${place} as a draft.`;
+	return t().clones.move.toast(place);
 }
 
 /** A move that failed without a refusal's words. */
-export const MOVE_FAILED = 'That could not be moved. Try again.';
+export const moveFailed = (): string => t().clones.move.failed;
 
 /** The lesson changed since the Move sheet opened: what it offered is gone. */
-export const MOVE_GONE = 'What the lesson brings has changed. Reload and choose again.';
+export const moveGone = (): string => t().clones.move.gone;
 
 /* ── Same as… (board C7 p1, p2) ─────────────────────────────────────────── */
 
-export const SAME_AS = 'Same as…';
+export const sameAs = (): string => t().clones.twins.sameAs;
 
 /** The sheet's title: "Enchufla · Doble is the same as…" */
 export function sameAsTitle(label: string): string {
-	return `${label} is the same as…`;
+	return t().clones.twins.sameAsTitle(label);
 }
 
 /** The note under the list: what twins are and are not. */
 export function twinsNote(kind: TwinKind): string {
-	return `Twins show as one ${KIND_WORD[kind]}. They never sync, and only you see the grouping.`;
+	return t().clones.twins.note(kind);
 }
 
-export const TWINS_NOTE = twinsNote('figure');
-export const MARK_SAME = 'Mark as the same';
-export const SEPARATE = 'Not the same? Separate';
+export const markSame = (): string => t().clones.twins.markSame;
+export const separateLabel = (): string => t().clones.twins.separate;
 
 /** The sheet's search placeholder: "Search your routines". */
 export function sameAsSearch(kind: TwinKind): string {
-	return `Search your ${KIND_WORD[kind]}s`;
+	return t().clones.twins.search(kind);
 }
 
 /** The sheet's empty line: "No other routines match." */
 export function sameAsEmpty(kind: TwinKind): string {
-	return `No other ${KIND_WORD[kind]}s match.`;
+	return t().clones.twins.empty(kind);
 }
 
-export const SAME_AS_SEARCH = sameAsSearch('figure');
-export const SAME_AS_EMPTY = sameAsEmpty('figure');
-export const SAME_AS_FAILED = 'That could not be saved. Try again.';
+export const sameAsFailed = (): string => t().clones.twins.failed;
 
 /** The Sync sheet's title: "Sync Enchufla · Doble". */
 export function syncTitle(label: string): string {
-	return `Sync ${label}`;
+	return t().clones.sync.title(label);
 }
 
 /** A reader's sheet: "Update from Salsa Tuesdays". */
 export function updateTitle(place: string): string {
-	return `Update from ${place}`;
+	return t().clones.sync.updateTitle(place);
 }
 
 /** A copy that changed while the Sync sheet was open: it is left as it is, and the sheet loads again. */
-export const SYNC_STALE = 'Changed while you were syncing; check it again.';
+export const syncStale = (): string => t().clones.sync.stale;
 
 /** A Sync sent with a row still open. */
-export const SYNC_PICK = 'Pick a value where copies differ.';
+export const syncPick = (): string => t().clones.sync.pick;
 
 /** A copy a Sync could not land on for a reason of its own (a missing file). */
-export const SYNC_FAILED = 'That copy could not be synced. Try again.';
+export const syncFailed = (): string => t().clones.sync.failed;
 
 /** A ticked copy the person can no longer edit (their role changed during the Sync). */
-export const SYNC_NO_ACCESS = 'You can no longer edit that copy.';
+export const syncNoAccess = (): string => t().clones.sync.noAccess;
 
 /** "Sync to": the page's own copy. */
-export const SYNC_THIS_ONE = 'this one';
+export const syncThisOne = (): string => t().clones.sync.thisOne;
+
+/** "Sync to": the person's role in a copy's group. */
+export const syncRole = (role: 'owner' | 'editor' | 'member'): string => t().clones.sync.role[role];

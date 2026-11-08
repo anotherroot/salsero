@@ -40,7 +40,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { users } from '$lib/server/db/schema';
 import { archiveSong, getSong } from '$lib/server/songs';
-import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
+import { archivedSongCopy } from '$lib/clones/view';
 import { songSeen } from '$lib/server/clash';
 import { history } from '$lib/server/changes';
 import { createImport, getImport, storeImportItems } from '$lib/server/song-imports';
@@ -381,7 +381,7 @@ describe('a group song’s page', () => {
 		archiveSong(db, Number(done.location.split('/').pop()), 5);
 		expect(await act(songPage.actions.makeMine, ev('u3', c.shared))).toMatchObject({
 			status: 409,
-			data: { action: 'makeMine', askForMore: false, message: ARCHIVED_SONG_COPY }
+			data: { action: 'makeMine', askForMore: false, message: archivedSongCopy() }
 		});
 	});
 

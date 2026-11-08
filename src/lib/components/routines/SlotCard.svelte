@@ -9,6 +9,7 @@
 	import type { Side } from '$lib/gestures/swipe';
 	import Swipeable from './Swipeable.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import { iconButton } from '$lib/components/ui/styles';
@@ -72,7 +73,7 @@
 		if (!input) return;
 		const typed = () => input.value.trim();
 		return track({
-			label: 'Slot note',
+			label: t().routine.slot.noteUnsaved,
 			node: input,
 			dirty: () => typed() !== (row.note ?? ''),
 			save: async () => {
@@ -83,7 +84,7 @@
 					result !== null &&
 					'type' in result &&
 					result.type !== 'success';
-				return failed ? { ok: false, message: 'The note did not save.' } : { ok: true };
+				return failed ? { ok: false, message: t().routine.slot.noteFailed } : { ok: true };
 			}
 		});
 	});
@@ -96,7 +97,7 @@
 	open={sideOf(slotKey)}
 	onchange={(side) => onswipe(slotKey, side)}
 	disabled={selecting}
-	end={{ label: 'Delete', icon: 'trash', onclick: ondelete }}
+	end={{ label: t().common.delete, icon: 'trash', onclick: ondelete }}
 >
 	<!-- Lifted, the card is `raised`; its shadow, scale and tilt are on the `<li>`
 	     (SlotList), outside the swipe layer's clip. -->
@@ -129,7 +130,7 @@
 					class="grid size-11 shrink-0 cursor-grab touch-none place-items-center rounded-xl text-muted active:bg-step {lifted
 						? 'bg-step'
 						: ''}"
-					aria-label="Move slot {index + 1}. Arrow keys move it."
+					aria-label={t().routine.slot.move(index + 1)}
 					onpointerdown={(e) => {
 						// The handle is for dragging and nothing else: keep the swipe
 						// and the long-press on the card from seeing this press.
@@ -216,7 +217,7 @@
 								? 'text-ink-2'
 								: 'text-muted'}"
 						>
-							<b class="font-bold">or</b>
+							<b class="font-bold">{t().figure.or}</b>
 							{row.alternatives.map((a) => a.label).join(', ')}
 						</p>
 					{/if}
@@ -227,7 +228,7 @@
 				<a
 					href={row.href}
 					class="flex h-11 shrink-0 items-center gap-0.5 pr-1.5 pl-2.5 text-[15px] font-extrabold text-accent-text"
-					>Open<Icon name="chevron-right" size={18} /></a
+					>{t().figure.practice.open}<Icon name="chevron-right" size={18} /></a
 				>
 			{/if}
 
@@ -243,8 +244,8 @@
 					<button
 						type="button"
 						class={iconButton('bare', 'danger')}
-						aria-label="Delete slot {index + 1}"
-						title="Delete"
+						aria-label={t().routine.slot.delete(index + 1)}
+						title={t().common.delete}
 						onclick={ondelete}><Icon name="trash" size={20} /></button
 					>
 				</span>
@@ -270,8 +271,8 @@
 						bind:this={noteInput}
 						value={row.note ?? ''}
 						maxlength="200"
-						placeholder="Add a note…"
-						aria-label="Note for slot {index + 1}"
+						placeholder={t().routine.slot.notePlaceholder}
+						aria-label={t().routine.slot.noteLabel(index + 1)}
 						class="h-9 min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] font-medium text-ink outline-none placeholder:text-muted focus-visible:shadow-none! focus-visible:outline-none!"
 						onkeydown={(e) => {
 							if (e.key === 'Enter') e.currentTarget.blur();
@@ -296,7 +297,7 @@
 {#if expanded && !row.isRoutine && (row.alternatives.length > 0 || row.canAddAlternative)}
 	<div
 		role="group"
-		aria-label="Alternatives for slot {index + 1}"
+		aria-label={t().routine.slot.alternatives(index + 1)}
 		class="ml-7 flex flex-col gap-2 border-l-2 border-accent/25 py-0.5 pl-3"
 	>
 		{#each row.alternatives as alt (alt.id)}
@@ -316,7 +317,7 @@
 						reveal={88}
 						open={sideOf(key)}
 						onchange={(side) => onswipe(key, side)}
-						end={{ label: 'Remove', onclick: () => onremoveAlt(alt.id, alt.label) }}
+						end={{ label: t().common.remove, onclick: () => onremoveAlt(alt.id, alt.label) }}
 					>
 						<p
 							class="h-11 truncate rounded-xl bg-accent-soft px-3.5 text-[15px] leading-[44px] font-bold text-ink"
@@ -334,14 +335,14 @@
 					href={alt.href}
 					data-focus="alt-{row.id}-{alt.id}"
 					class="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text"
-					aria-label="Open {alt.label}"
-					title="Open"><Icon name="external" size={18} /></a
+					aria-label={t().routine.slot.open(alt.label)}
+					title={t().figure.practice.open}><Icon name="external" size={18} /></a
 				>
 				<button
 					type="button"
 					class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-danger-soft text-danger"
-					aria-label="Remove {alt.label}"
-					title="Remove"
+					aria-label={t().routine.slot.remove(alt.label)}
+					title={t().common.remove}
 					onclick={() => onremoveAlt(alt.id, alt.label)}><Icon name="trash" size={18} /></button
 				>
 			</div>
@@ -350,7 +351,7 @@
 			<button
 				type="button"
 				class="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-accent/50 text-[15px] font-extrabold text-accent-text"
-				onclick={onaddAlt}><Icon name="plus" size={18} />Alternative</button
+				onclick={onaddAlt}><Icon name="plus" size={18} />{t().routine.slot.alternative}</button
 			>
 		{/if}
 	</div>

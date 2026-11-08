@@ -1,4 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
 import { groupChoices } from '$lib/server/group-mode';
@@ -29,7 +30,7 @@ export const actions: Actions = {
 			const ok =
 				/^[1-9][0-9]*$/.test(team) &&
 				groupChoices(getDb(), wall.userId, wall.dance).some((c) => c.teamId === id);
-			if (!ok) throw error(404, 'No such group');
+			if (!ok) throw error(404, t().groups.page.noGroup);
 			cookies.set(name, String(id), {
 				path: '/',
 				httpOnly: true,

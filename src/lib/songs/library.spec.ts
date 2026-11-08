@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { SongItem } from '$lib/types';
 import {
 	audioFileProblem,
@@ -297,5 +298,85 @@ describe('libraryView with pasted playlists', () => {
 			1
 		);
 		expect(w).toMatchObject({ addingHeading: 'Being added · 3', restHeading: 'All songs A–Z · 1' });
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('names a song without a title, and words the states', () => {
+		expect(sl(() => songName({ title: '', sourceUrl: null }))).toBe('Skladba brez naslova');
+		expect(sl(() => songState(song(1, 'x', { status: 'waiting_download' }), L).badge?.text)).toBe(
+			'Čaka na prenos'
+		);
+		expect(sl(() => songState(song(1, 'x', { status: 'waiting_analysis' }), L).badge?.text)).toBe(
+			'Iskanje ritma'
+		);
+		expect(sl(() => songState(song(1, 'x', { status: 'failed', error: null }), L).meta)).toBe(
+			'Ni uspelo'
+		);
+		expect(sl(() => countOnlyMeta(true))).toBe('Štetje in clave, brez skladbe');
+		expect(sl(() => countOnlyMeta(false))).toBe('Štetje, brez skladbe');
+	});
+
+	it('writes megabytes with a decimal comma', () => {
+		expect(sl(() => megabytes(1.5 * MiB))).toBe('1,5');
+		expect(sl(() => megabytes(6 * MiB))).toBe('6');
+		expect(sl(() => megabytes(62.4 * MiB))).toBe('62');
+		expect(sl(() => uploadMeta(MiB, 1.5 * MiB))).toBe(
+			'Nalaganje · 1 od 1,5 MB · pustite aplikacijo odprto'
+		);
+		expect(sl(() => audioFileProblem({ size: 120 * MiB, type: 'audio/mpeg' }))).toBe(
+			'Datoteka meri 120 MB, dovoljeno pa je največ 95 MB.'
+		);
+		expect(sl(() => audioFileProblem({ size: MiB, type: 'video/mp4' }))).toBe(
+			'Dodate lahko le zvočne datoteke.'
+		);
+	});
+
+	it('heads the list and the class list', () => {
+		const songs = [
+			song(3, 'Waiting', { status: 'waiting_download' }),
+			song(2, 'B', { sharedAt: 1 }),
+			song(1, 'A')
+		];
+		const view = sl(() => classLibraryView(songs, '', false));
+		if (view.kind !== 'class') throw new Error(view.kind);
+		expect([view.addingHeading, view.draftsHeading, view.sharedHeading]).toEqual([
+			'Dodajanje · 1',
+			'Osnutki · 1',
+			'Deljeno s tečajem · 1'
+		]);
+		const list = sl(() => libraryView([song(1, 'A')], '', false));
+		expect(list.kind === 'list' && list.restHeading).toBe('Vse skladbe A–Ž · 1');
+		const hits = sl(() => libraryView([song(1, 'Chan'), song(2, 'Chan Chan')], 'chan', false));
+		expect(hits.kind === 'search' && hits.heading).toBe('2 zadetka · naslov ali izvajalec');
+		const s = song(1, 'x', { tempoFactor: 1, bpm: 180, durationS: 200 });
+		expect(sl(() => sharedMeta(s, L, 3))).toBe('Salsa · 180 BPM · 3:20 · v uporabi: 3');
+	});
+
+	it('words a group song, its name after a colon or in quotes', () => {
+		expect(sl(() => classSongNote('Sreda 17:30'))).toBe(
+			'Skladba tečaja: Sreda 17:30. Štetje nastavi vodja tečaja.'
+		);
+		expect(sl(() => stopSharingTitle('Chan Chan'))).toBe('Želite prenehati deliti »Chan Chan«?');
+		expect(sl(() => deleteSongTitle('Chan Chan'))).toBe('Želite izbrisati »Chan Chan«?');
+	});
+
+	it('warns in vikanje, the verb agreeing with each of the four counts', () => {
+		expect(sl(() => stopSharingBody(0))).toBe('Člani je ne bodo več videli in spet bo osnutek.');
+		expect(sl(() => songUseWarning(1))).toBe(
+			'Pri vadenju jo uporablja 1 oseba. Dokler je spet ne delite, bo namesto nje le štetje.'
+		);
+		expect(sl(() => stopSharingBody(2))).toBe(
+			'Člani je ne bodo več videli in spet bo osnutek. Pri vadenju jo uporabljata 2 osebi. Dokler je spet ne delite, bo namesto nje le štetje.'
+		);
+		expect(sl(() => songDeleteWarning(3))).toBe(
+			'Pri vadenju jo uporabljajo 3 osebe. Dokler je ne obnovite, bo namesto nje le štetje.'
+		);
+		expect(sl(() => deleteSongBody(5))).toBe(
+			'Za 30 dni gre v »Nedavno izbrisano«. Pri vadenju jo uporablja 5 oseb. Dokler je ne obnovite, bo namesto nje le štetje.'
+		);
+		expect(sl(() => songUseWarning(102))).toContain('uporabljata 102 osebi');
 	});
 });

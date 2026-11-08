@@ -4,6 +4,7 @@
 	import { lengthError } from '$lib/figures/page';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { SHORTCUT, FIELD, LABEL } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * Which count a variation begins on, and how many counts it takes. Both are
@@ -32,8 +33,8 @@
 	const uid = $props.id();
 </script>
 
-<fieldset role="radiogroup" aria-label="Starts on">
-	<legend class={LABEL}>Starts on</legend>
+<fieldset role="radiogroup" aria-label={t().figure.length.startsOn}>
+	<legend class={LABEL}>{t().figure.length.startsOn}</legend>
 	<div class="flex gap-1">
 		{#each counts as n (n)}
 			<label
@@ -54,7 +55,7 @@
 </fieldset>
 
 <div>
-	<label class={LABEL} for="{uid}-length">Counts</label>
+	<label class={LABEL} for="{uid}-length">{t().figure.length.counts}</label>
 	<div class="relative">
 		<input
 			id="{uid}-length"
@@ -70,22 +71,22 @@
 		/>
 		<span
 			class="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[13px] font-semibold text-muted"
-			aria-hidden="true">counts</span
+			aria-hidden="true">{t().figure.length.unit}</span
 		>
 	</div>
 	{#if error}
 		<FieldError id="{uid}-length-error" message={error} />
 	{:else}
 		<p id="{uid}-length-help" class="mt-1.5 pl-1 text-[13px] text-muted">
-			How long it takes, 1 to {MAX_LENGTH_COUNTS}. One 8-count is 8.
+			{t().figure.length.help(MAX_LENGTH_COUNTS)}
 		</p>
 	{/if}
-	<div class="mt-1 flex flex-wrap gap-2" role="group" aria-label="Length shortcuts">
+	<div class="mt-1 flex flex-wrap gap-2" role="group" aria-label={t().figure.length.shortcuts}>
 		{#each shortcuts as n (n)}
 			<button
 				type="button"
 				aria-pressed={length.trim() === n}
-				aria-label="{n} counts"
+				aria-label={t().nouns.counts(Number(n))}
 				onclick={() => (length = n)}
 				class={SHORTCUT}>{n}</button
 			>

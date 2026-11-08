@@ -33,7 +33,7 @@ object UploadQueue {
                 shareKey = shareKey,
                 target = link.target,
                 back = link.back,
-                name = link.name,
+                name = link.name ?: Prefs.words(context).theLesson,
                 queuedAt = System.currentTimeMillis(),
             ),
         )

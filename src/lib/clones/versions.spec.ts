@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { versionList, versionRow } from './versions';
 import type { FamilyEntry, FamilyView, PlaceRef, Source } from '$lib/types';
 
@@ -169,5 +170,52 @@ describe('versionList without a family view', () => {
 			family: null
 		});
 		expect(lines[1].meta).toBe('Newer than this one: notes');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('the row: »Vaša kopija«, a group’s copy by its name, never a possessive', () => {
+		expect(
+			sl(() => versionRow({ sources: [YOURS_SRC, INT, SRE], current: 15, self: MINE }))
+		).toEqual({
+			title: 'Vaša kopija',
+			meta: 'Tudi: Intenziuci poletje 2026, Sreda 17:30',
+			count: 3,
+			icon: 'solo'
+		});
+		const r = sl(() =>
+			versionRow({ sources: [YOURS_SRC, { ...SRE, relation: 'self' }], current: 31, self: SREDA })
+		);
+		expect(r?.title).toBe('Kopija · Sreda 17:30');
+		// The server's 'Yours' is drawn in the reader's language.
+		expect(r?.meta).toBe('Tudi: Vaša kopija');
+	});
+
+	it('the list: labels, lines and chips', () => {
+		const lines = sl(() =>
+			versionList({ sources: [YOURS_SRC, SRE, TWIN_SRC], current: 15, family: FAMILY })
+		);
+		expect(lines.map((l) => [l.label, l.meta, l.chip?.text ?? null, l.icon])).toEqual([
+			['Vaša kopija', 'Ta kopija', null, 'solo'],
+			['Sreda 17:30', 'Vodja · novejša od vaše kopije: notes', 'Novejša', 'group'],
+			['Vaša kopija 2', 'Označeno kot enako', null, 'link']
+		]);
+		const extra = sl(() =>
+			versionList({ sources: [YOURS_SRC, SRE], current: 15, family: FAMILY_WITH_EXTRA })
+		).at(-1);
+		expect([extra?.label, extra?.meta]).toEqual(['Salsa Tuesdays', 'Vodja · usklajena']);
+		const group = sl(() =>
+			versionList({
+				sources: [YOURS_SRC, { ...SRE, relation: 'self' }],
+				current: 31,
+				family: { entries: [entry(31, SREDA, null), entry(15, MINE, 'same')] }
+			})
+		);
+		expect(group.map((l) => [l.label, l.meta])).toEqual([
+			['Vaša kopija', 'Usklajena'],
+			['Sreda 17:30', 'Ta kopija']
+		]);
 	});
 });

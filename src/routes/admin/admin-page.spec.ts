@@ -399,3 +399,64 @@ describe("the admin's own language", () => {
 		expect(bad.data.message).toBe('Izberite jezik.');
 	});
 });
+
+describe('the limit field reads a decimal comma', () => {
+	it('takes "1,5" and "1.5" as 1.5 GB and refuses "1,5,0"', async () => {
+		expect(await act('setLimit', ev(true, { userId: 'p', gb: '1,5' }))).toEqual({ ok: true });
+		expect(storageOf(db, 'p').limitBytes).toBe(1.5 * GB);
+		await act('setLimit', ev(true, { userId: 'p', gb: '3' }));
+		expect(await act('setLimit', ev(true, { userId: 'p', gb: '1.5' }))).toEqual({ ok: true });
+		expect(storageOf(db, 'p').limitBytes).toBe(1.5 * GB);
+		for (const gb of ['1,5,0', '1.5.0', '1,', ',5', '1 5']) {
+			expect(await act('setLimit', ev(true, { userId: 'p', gb }))).toMatchObject({ status: 400 });
+		}
+		expect(storageOf(db, 'p').limitBytes).toBe(1.5 * GB);
+	});
+	it('a group limit and a grant take the comma too', async () => {
+		askForMore(db, { userId: 'p' }, null, 1);
+		const id = String(db.select().from(storageRequests).all()[0].id);
+		expect(await act('grant', ev(true, { id, gb: '2,5' }))).toEqual({ ok: true });
+		expect(storageOf(db, 'p').limitBytes).toBe(2.5 * GB);
+	});
+});
+
+describe('the admin page in Slovenian', () => {
+	const sl = async (name: Parameters<typeof act>[0], fields: Record<string, string>) =>
+		(await runInLocale('sl', () => act(name, ev(true, fields)))) as {
+			status: number;
+			data: { message: string };
+		};
+
+	it('refuses in the admin’s language', async () => {
+		expect((await sl('setLimit', { userId: 'p', gb: '1,5,0' })).data.message).toBe(
+			'Vnesite omejitev v GB, večjo od nič.'
+		);
+		expect((await sl('setLimit', { userId: 'ghost', gb: '2' })).data.message).toBe(
+			'Te osebe ni več.'
+		);
+		expect((await sl('grant', { preset: '2' })).data.message).toBe('Izberite prošnjo.');
+		expect((await sl('grant', { id: '99', preset: '2' })).data.message).toBe(
+			'Ta prošnja je že zaprta.'
+		);
+		expect((await sl('decline', { id: '99' })).data.message).toBe('Ta prošnja je že zaprta.');
+		expect((await sl('setTeamLimit', { teamId: '99', gb: '1' })).data.message).toBe(
+			'Te skupine ni več.'
+		);
+		expect((await sl('setGroupLimit', { userId: 'p', n: '1,5' })).data.message).toBe(
+			'Vnesite celo število skupin, 0 ali več.'
+		);
+		expect((await sl('setLocale', { userId: 'ghost', locale: 'sl' })).data.message).toBe(
+			'Te osebe ni več.'
+		);
+	});
+
+	it('loads the app lines in the admin’s language', async () => {
+		noteAppSeen(db, 'p', { versionCode: 2, dance: 'salsa', channel: 'direct' }, Date.now());
+		const d = (await runInLocale('sl', () => (load as unknown as Ev)(ev(true)))) as {
+			people: { email: string; apps: string[] }[];
+		};
+		expect(d.people.find((x) => x.email === 'p@example.com')!.apps).toEqual([
+			'Salsa: različica aplikacije 2 · danes'
+		]);
+	});
+});

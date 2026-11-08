@@ -4,6 +4,7 @@
  * `clones/edit.ts`; this is the route's share: the real files, the free
  * disk, the redirect to the copy and the refusals' answers.
  */
+import { t } from '$lib/i18n/catalog';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { CloneKind, MakeMineOffer } from '$lib/types';
 import type { Db } from './db';
@@ -79,6 +80,6 @@ export async function makeMineFrom(db: Db, wall: Wall, kind: CloneKind, id: numb
 		case 'archived':
 			return fail(409, { action: 'makeMine' as const, message: res.message, askForMore: false });
 		case 'denied':
-			throw error(404, 'Not found');
+			throw error(404, t().refusals.notFound);
 	}
 }

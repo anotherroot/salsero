@@ -799,9 +799,16 @@ the pages drawn before sign-in; Settings has a switch at the top, and the admin 
 sets a person's. Words live in typed catalogs (`src/lib/i18n/`, English the source,
 Slovenian typed against it) read through `t()`; the server keeps the language per
 request, never in a module variable. What people write and the count stay as they
-are. Part 1 (deployed first) is the Follow my class path; the rest of the app and
-the Android app's own text are part 2. The register, the glossary, plurals, dates,
-numbers and the order of work are in
+are. Everything a person reads is translated: every page, sheet, toast, refusal and
+error page, the admin page, and the Android app's own text (1.8, in the account's
+language from `/api/device/config`). Machines keep English: the worker's queue, the
+media servers' bodies, `/releases`, `/api/app-update` and the 426 a too-old app gets.
+Text the app writes into the database (a template's notes, a copy's suffix) is in the
+actor's language; text composed when read (History, Recently deleted, refusals) is in
+the reader's. Two specs keep it so: every component's markup is checked for bare
+English (`no-english.spec.ts`, a named few exempt) and every server refusal for an
+English literal (`refusals-guard.spec.ts`). The register, the glossary, plurals,
+cases, dates, numbers and the order of work are in
 [`2026-11-07-slovenian-design.md`](2026-11-07-slovenian-design.md).
 
 ## Errors

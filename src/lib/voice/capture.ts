@@ -10,6 +10,7 @@
  * every beat's sample index exact, and it is the reason `MediaRecorder` is not
  * used: it reports no time origin, so a take could only be aligned by guessing.
  */
+import { t } from '$lib/i18n/catalog';
 
 /** Beats of click before the user is expected to count, so the tempo is established. */
 export const COUNT_IN_BARS = 1;
@@ -119,7 +120,7 @@ export async function recordAgainstClick(opts: RecordOptions): Promise<Capture> 
 		// have nothing yet — the user may have pressed it within the count-in —
 		// and an empty capture simply yields no candidates.
 		if (how === 'done' && startFrame === null) {
-			throw new Error('The microphone produced no audio.');
+			throw new Error(t().settings.voice.noAudio);
 		}
 
 		const frames = concat(blocks);

@@ -11,6 +11,8 @@ object AppStart {
     fun onLaunch(context: Context) {
         val app = context.applicationContext
         Thread {
+            // Named in the language last read from the server; ConfigWorker renames them if it changed.
+            Notify.channels(app)
             sweep(app)
             // In front right now, so the runner may start as a foreground service.
             if (!UploadQueue.store(app).isEmpty()) UploadQueue.kick(app)

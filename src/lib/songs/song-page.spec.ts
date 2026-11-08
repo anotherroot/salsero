@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	sampleLabels,
 	songSteps,
@@ -159,5 +160,54 @@ describe('sourceRows', () => {
 				fetchedTitle: 'x'
 			})
 		).toEqual([expect.objectContaining({ kind: 'spotify' })]);
+	});
+});
+
+describe('a song page in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('asks to play the song first, in vikanje', () => {
+		expect(sl(() => tapProblem(null))).toBe('Najprej predvajajte skladbo.');
+		expect(sl(() => tapProblem({ paused: true, currentTime: 0 }))).toBe(
+			'Najprej predvajajte skladbo.'
+		);
+		expect(sl(() => tapProblem({ paused: true, currentTime: 42.5 }))).toBeNull();
+	});
+
+	it('keeps the subtitle: a whole BPM, no decimal to write', () => {
+		expect(sl(() => songSubtitle({ artist: 'Marc Anthony', style: 'Drugo', bpm: 191.6 }))).toBe(
+			'Marc Anthony · Drugo · 192 BPM'
+		);
+	});
+
+	it('says whose start the sample has', () => {
+		expect(sl(() => sampleLabels(true))).toEqual({
+			badge: 'Vaš',
+			tone: 'accent',
+			meta: 'Nastavili ste ga sami'
+		});
+		expect(sl(() => sampleLabels(false))).toEqual({
+			badge: 'Samodejni',
+			tone: 'neutral',
+			meta: 'Po tretjini skladbe, na enki'
+		});
+	});
+
+	it('walks a link and an upload through their steps', () => {
+		expect(sl(() => songSteps('waiting_download', 'youtube', null))).toEqual([
+			{ state: 'done', title: 'Dodana', meta: 'Z YouTuba' },
+			{ state: 'now', title: 'Prenos', meta: 'Čaka na prenos doma' },
+			{ state: 'todo', title: 'Iskanje ritma', meta: 'Analiza ritma na prenosniku' }
+		]);
+		expect(sl(() => songSteps('waiting_analysis', 'youtube', null))).toEqual([
+			{ state: 'done', title: 'Dodana', meta: 'Z YouTuba' },
+			{ state: 'done', title: 'Prenos', meta: 'Prenesena' },
+			{ state: 'now', title: 'Iskanje ritma', meta: 'Čaka na analizo ritma' }
+		]);
+		expect(sl(() => songSteps('waiting_analysis', 'upload', null))[0]).toEqual({
+			state: 'done',
+			title: 'Dodana',
+			meta: 'Naložena'
+		});
 	});
 });

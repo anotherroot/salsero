@@ -4,6 +4,7 @@
 	import { button } from '$lib/components/ui/styles';
 	import { getMoves } from '$lib/components/moves/moves-context';
 	import { emptyPane } from '$lib/moves/pane';
+	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
 	/*
@@ -14,9 +15,10 @@
 	let { data }: { data: PageData } = $props();
 	const moves = getMoves();
 	const pane = $derived(emptyPane('routines', !!data.groupMode));
+	const title = $derived(t().moves.segments.routines);
 </script>
 
-<svelte:head><title>Routines · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
 
 {#if pane.action}
 	<EmptyState icon={pane.icon} title={pane.title} body={pane.body}>

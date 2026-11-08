@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from './i18n/current';
 import { uploadProblem } from './media';
 
 const MiB = 1024 * 1024;
@@ -31,6 +32,26 @@ describe('uploadProblem, video only', () => {
 		expect(uploadProblem({ size: 1024, type: 'video/mp4' }, 'video/*')).toBeNull();
 		expect(uploadProblem({ size: 1024, type: 'audio/mpeg' }, 'video/*')).toEqual({
 			title: 'Only video files can be added.'
+		});
+	});
+});
+
+describe('uploadProblem in Slovenian', () => {
+	it('says what may be added', () => {
+		const sl = (size: number, type: string, accept: 'audio/*' | 'video/*' | 'video/*,audio/*') =>
+			withLocale('sl', () => uploadProblem({ size, type }, accept));
+		expect(sl(120 * MiB, 'video/mp4', 'video/*,audio/*')).toEqual({
+			title: 'Datoteka meri 120 MB; največ je 95 MB.'
+		});
+		expect(sl(MiB, 'video/mp4', 'audio/*')).toEqual({
+			title: 'Dodate lahko samo zvočne datoteke.',
+			body: 'Video izberite z gumbom Dodaj video.'
+		});
+		expect(sl(MiB, 'audio/mpeg', 'video/*')).toEqual({
+			title: 'Dodate lahko samo video datoteke.'
+		});
+		expect(sl(MiB, 'image/png', 'video/*,audio/*')).toEqual({
+			title: 'Dodate lahko samo video ali zvočne datoteke.'
 		});
 	});
 });

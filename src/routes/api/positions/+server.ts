@@ -6,6 +6,7 @@ import { createPosition, positionSummary } from '$lib/server/positions';
 import { requireFigureAccess } from '$lib/server/scope';
 import { FACING, FRAME, HANDS } from '$lib/positions/hold';
 import { DANCES, isDanceSlug } from '$lib/dances/dances';
+import { t } from '$lib/i18n/catalog';
 import type { Hold } from '$lib/types';
 import type { RequestHandler } from './$types';
 import { serverNow } from '$lib/server/server-clock';
@@ -28,7 +29,7 @@ const oneOf = <T extends string>(v: unknown, all: readonly T[]): T | null =>
  * unknown hold part are dropped, as the positions page drops them.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) throw error(401, 'Sign in');
+	if (!locals.user) throw error(401, t().refusals.signIn);
 	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 	const figureId = body?.figureId;
 	const rawName = body?.name;
@@ -38,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		!Number.isSafeInteger(figureId) ||
 		typeof rawName !== 'string'
 	) {
-		throw error(400, 'Bad request');
+		throw error(400, t().refusals.badRequest);
 	}
 	const db = getDb();
 	const row = db
@@ -47,17 +48,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		.where(eq(figures.id, figureId))
 		.get();
 	if (!row || row.archivedAt !== null || !isDanceSlug(row.dance))
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	const { space } = requireFigureAccess(db, locals, { dance: row.dance }, figureId, 'edit');
 
 	if (rawName.trim().length > 200) {
-		return json({ message: 'A name is up to 200 characters.', field: 'name' }, { status: 400 });
+		return json({ message: t().positions.refused.nameLong, field: 'name' }, { status: 400 });
 	}
 	// The create step shows the same fields as New position, Notes included.
 	const notes =
 		typeof body.notes === 'string' && body.notes.trim() !== '' ? body.notes.trim() : null;
 	if (notes !== null && notes.length > 2000) {
-		return json({ message: 'Notes are up to 2000 characters.', field: 'notes' }, { status: 400 });
+		return json({ message: t().positions.refused.notesLong, field: 'notes' }, { status: 400 });
 	}
 	const styleTag =
 		typeof body.styleTag === 'string' && DANCES[space.dance].styles.includes(body.styleTag)

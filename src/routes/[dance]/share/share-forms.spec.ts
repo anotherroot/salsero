@@ -16,6 +16,7 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { exercises, lessons } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 const ZONE = 'Europe/Ljubljana';
@@ -113,5 +114,22 @@ describe('New lesson from a shared video', () => {
 			{ value: own, label: 'Tuesdays' }
 		]);
 		expect(data.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+});
+
+describe('the share page in Slovenian', () => {
+	it('refuses a place it may not use, and offers »Moje«', async () => {
+		const t = team('u2', 'Wednesdays');
+		joinTeam(db, 'u1', t, T);
+		const result = await runInLocale('sl', () =>
+			create({ teamId: String(t), title: 'Week 6', lessonDay: DAY })
+		);
+		expect(result).toMatchObject({
+			data: { field: 'teamId', message: 'Izberite, kam naj gre.' }
+		});
+		const data = (await runInLocale('sl', () => (load as unknown as Invoke)(post({})))) as {
+			places: { value: number; label: string }[];
+		};
+		expect(data.places[0]).toEqual({ value: 0, label: 'Moje' });
 	});
 });

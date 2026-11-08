@@ -10,8 +10,12 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { MAX_RECORDING_LABEL } from '$lib/limits';
 	import { CHIP, FIELD, LABEL, button } from '$lib/components/ui/styles';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { t } from '$lib/i18n/catalog';
 	import { classifyLink } from '$lib/songs/source';
+
+	/** An address, the same in every language. */
+	const URL_EXAMPLE = 'https://open.spotify.com/track/…';
 
 	/** What `?/addUrl` handed back: a refusal keeps everything typed. */
 	type AddForm = {
@@ -99,7 +103,7 @@
 	}
 </script>
 
-<Sheet title="Add a song" {open} onclose={close}>
+<Sheet title={t().songs.music.add} {open} onclose={close}>
 	<div class="flex flex-col gap-3.5">
 		<form
 			id="add-song"
@@ -108,7 +112,7 @@
 			novalidate
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'Add a song',
+				label: t().songs.music.add,
 				submit: ({ cancel }) => {
 					// One song per tap: a second tap while the first is out is dropped.
 					if (busy) return cancel();
@@ -141,7 +145,7 @@
 						inputmode="url"
 						autocomplete="off"
 						autofocus
-						placeholder="https://open.spotify.com/track/…"
+						placeholder={URL_EXAMPLE}
 						value={form?.url ?? ''}
 						oninput={(e) => (typed = e.currentTarget.value)}
 						class="{FIELD} pl-11"
@@ -161,13 +165,14 @@
 			<!-- A list: each song gets its title and style on the pick list. -->
 			<div hidden={isList}>
 				<label class={LABEL} for="add-song-title"
-					>Title <span class="font-normal text-muted">(optional)</span></label
+					>{t().songs.add.title}
+					<span class="font-normal text-muted">{t().songs.music.optional}</span></label
 				>
 				<input
 					id="add-song-title"
 					name="title"
 					maxlength="200"
-					placeholder="Song title"
+					placeholder={t().songs.add.titlePlaceholder}
 					value={form?.title ?? ''}
 					class={FIELD}
 					aria-invalid={titleError ? 'true' : undefined}
@@ -177,12 +182,12 @@
 			</div>
 
 			<fieldset hidden={isList}>
-				<legend class={LABEL}>Style</legend>
+				<legend class={LABEL}>{t().songs.add.style}</legend>
 				<div class="flex flex-wrap gap-2">
 					{#each dance.styles as s (s)}
 						<label class={CHIP}>
 							<input type="radio" name="style" value={s} bind:group={style} class="sr-only" />
-							{dance.styleLabel[s]}
+							{styleLabelsOf(dance.styleLabel)[s]}
 						</label>
 					{/each}
 				</div>
@@ -192,15 +197,16 @@
 				type="submit"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Adding song' : undefined}
+				aria-label={busy ? t().songs.add.adding : undefined}
 			>
-				{#if busy}<Spinner />{:else if isList}{t().songs.add.readList}{:else}Add song{/if}
+				{#if busy}<Spinner />{:else if isList}{t().songs.add.readList}{:else}{t().songs.add
+						.submit}{/if}
 			</button>
 		</form>
 
 		<div aria-hidden="true" class="flex items-center gap-3 py-0.5">
 			<span class="h-px flex-1 bg-hairline"></span>
-			<span class="text-[13px] font-bold text-muted">or</span>
+			<span class="text-[13px] font-bold text-muted">{t().songs.add.or}</span>
 			<span class="h-px flex-1 bg-hairline"></span>
 		</div>
 
@@ -212,7 +218,8 @@
 					true
 				)} has-focus-visible:shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent has-disabled:cursor-default has-disabled:bg-disabled-bg has-disabled:text-disabled-ink"
 			>
-				<Icon name="upload" size={20} /> Upload an audio file
+				<Icon name="upload" size={20} />
+				{t().songs.add.uploadFile}
 				<input
 					type="file"
 					accept="audio/*"
@@ -225,9 +232,7 @@
 				<Banner kind="error" title={fileProblem} />
 			{:else}
 				<p class="px-3 pt-1 text-center text-[13px] text-muted">
-					{uploading
-						? 'One upload at a time — wait for the one already going.'
-						: `Up to ${MAX_RECORDING_LABEL}. It gets the style above.`}
+					{uploading ? t().songs.add.oneAtATime : t().songs.add.upTo(MAX_RECORDING_LABEL)}
 				</p>
 			{/if}
 		</div>

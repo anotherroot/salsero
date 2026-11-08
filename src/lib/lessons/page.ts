@@ -4,7 +4,7 @@ import { dayWords, dueWords, whenWords } from '$lib/schedule/words';
 import { daysBetween } from '$lib/day/day';
 import { classDayLabel } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
-import { PARTNER_LABEL } from '$lib/labels';
+import { lazyWords } from '$lib/i18n/lazy';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -86,20 +86,7 @@ function viaCounts(via: ViaSection[]): { sections: number; points: number } {
 export function viaBadge(via: ViaSection[]): string | null {
 	if (via.length === 0) return null;
 	const { sections, points } = viaCounts(via);
-	const one = (n: number, word: string) => (n === 1 ? `a ${word}` : `${n} ${word}s`);
-	if (points === 0) return sections === 1 ? 'via section' : `via ${sections} sections`;
-	if (sections === 0) return points === 1 ? 'via point' : `via ${points} points`;
-	return `via ${one(sections, 'section')} and ${one(points, 'point')}`;
-}
-
-/** The bare noun for a via list: "section", "points", "section and point". */
-function viaNoun(via: ViaSection[]): string {
-	const { sections, points } = viaCounts(via);
-	const s = sections === 1 ? 'section' : 'sections';
-	const p = points === 1 ? 'point' : 'points';
-	if (points === 0) return s;
-	if (sections === 0) return p;
-	return `${s} and ${p}`;
+	return t().lesson.via.badge(sections, points);
 }
 
 /** `1:12.0–1:30.4, 3:05.0–3:22.8`; a point is its moment alone, `1:12.0`. */
@@ -112,7 +99,8 @@ export function viaRanges(via: ViaSection[]): string {
 }
 
 export function figureMeta(f: Pick<LessonFigureRow, 'partner' | 'viaSections'>): string {
-	return f.viaSections.length > 0 ? viaRanges(f.viaSections) : PARTNER_LABEL[f.partner];
+	// How it is danced, in the Figures list's chip words: "With partner", "Solo".
+	return f.viaSections.length > 0 ? viaRanges(f.viaSections) : t().moves.chips[f.partner];
 }
 
 /**
@@ -133,7 +121,8 @@ export function positionMeta(
 /** A link card on a group's lesson that opens the person's own copy says so. */
 export function yoursMeta(meta: string | null, mineId: number | null): string | null {
 	if (mineId === null) return meta;
-	return meta === null || meta === '' ? 'Yours' : `Yours · ${meta}`;
+	const w = t().lesson.meta;
+	return meta === null || meta === '' ? w.yours : w.yoursWith(meta);
 }
 
 /** An exercise's due words ("Due Sunday", "New"), or null with no schedule to read. */
@@ -159,10 +148,11 @@ export function reviewMeta(
 	state: ScheduleState | undefined,
 	today: string
 ): { text: string; strong: boolean }[] {
+	const w = t().lesson.meta;
 	const due = dueText(state, today);
 	const parts = due === null ? [] : [{ text: due, strong: false }];
-	if (!e.active) parts.push({ text: 'inactive', strong: true });
-	parts.push({ text: 'review exercise', strong: false });
+	if (!e.active) parts.push({ text: w.inactive, strong: true });
+	parts.push({ text: w.review, strong: false });
 	return parts;
 }
 
@@ -172,24 +162,22 @@ export function reviewMeta(
  * lesson it goes from too.
  */
 export function unlinkViaTitle(label: string, lesson?: string): string {
-	return lesson ? `Unlink ${label} from ${lesson}?` : `Unlink ${label}?`;
+	return t().lesson.via.title(label, lesson ?? null);
 }
 
 /** Its body: the sections and points that bring it, which go too. `lesson` as in the title. */
 export function unlinkViaBody(label: string, via: ViaSection[], lesson?: string): string {
-	const noun = viaNoun(via);
-	return `${label} is on ${lesson ?? 'this lesson'} through ${noun} ${viaRanges(via)}. Unlink it from the lesson and the ${noun}?`;
+	const { sections, points } = viaCounts(via);
+	return t().lesson.via.body(label, lesson ?? null, sections, points, viaRanges(via));
 }
 
 export function deleteVideoBody(sections: number): string {
-	const tail = 'Lesson videos aren’t backed up, so this can’t be undone.';
-	if (sections === 0) return tail;
-	return `Its ${sections} ${sections === 1 ? 'section goes' : 'sections go'} with it. ${tail}`;
+	return t().lesson.deleteVideoBody(sections);
 }
 
 /** What a spot linked to a position is blocked by: "Position · Cerrada". */
 export function positionLinkLabel(name: string): string {
-	return `Position · ${name}`;
+	return t().lesson.positionLink(name);
 }
 
 /**
@@ -205,10 +193,10 @@ export function deleteBlock(
 	const labels = [
 		...sections.flatMap((s) => s.links),
 		...positions.map((p) => ({ label: positionLinkLabel(p.name), archived: p.archived }))
-	].map((c) => (c.archived ? `${c.label} (archived)` : c.label));
+	].map((c) => (c.archived ? `${c.label} ${t().video.archived}` : c.label));
 	if (labels.length === 0) return null;
 	const sorted = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
-	return `Linked to ${sorted.join(', ')} — unlink it first.`;
+	return t().video.refusal.linked(sorted.join(', '));
 }
 
 /**
@@ -240,28 +228,23 @@ export function positionPickGroups(
 	).map((g) => ({ ...g, entries: g.entries.map(mark) }));
 }
 
-/** The aria-label of each list's "+ Add" on the lesson page. */
-export const ADD_LABEL = {
-	figure: 'Add a figure',
-	routine: 'Add a routine',
-	exercise: 'Add an exercise',
-	position: 'Add a position',
-	link: 'Add a link'
-} as const;
+/** The aria-label of each list's "+ Add" on the lesson page, read when drawn. */
+export const ADD_LABEL = lazyWords((c) => c.lesson.addLabel);
 
-/** A group's draft lesson's strip on the band (spec A6). */
-export const DRAFT_BAND = {
-	title: 'Draft',
-	line: "Members don't see it yet",
-	publish: 'Publish'
-} as const;
+/** A group's draft lesson's strip on the band (spec A6), read when drawn. */
+export const DRAFT_BAND = lazyWords(({ lesson: { draft } }) => ({
+	title: draft.title,
+	line: draft.line,
+	publish: draft.publish
+}));
 
 /** A group's draft's ⋯ item that publishes it (beside the band's button), naming who will see it. */
 export function publishItem(teamName: string) {
+	const w = t().lesson.draft;
 	return {
 		key: 'publish',
 		icon: 'upload' as const,
-		label: 'Publish',
-		meta: `Members of ${teamName} see it`
+		label: w.publish,
+		meta: w.publishMeta(teamName)
 	};
 }

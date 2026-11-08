@@ -6,6 +6,7 @@
 	 * fits (and the Count / Hold chips) stays here, in fit.ts.
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { moveHeading, usedAsIs } from '$lib/clones/view';
 	import { twinPickMeta } from '$lib/clones/twins';
 	import { CHIP } from '$lib/components/ui/styles';
@@ -51,11 +52,11 @@
 	const context = $derived(anchorText(anchor, positionName));
 
 	const emptyText = $derived.by(() => {
-		if (anchor.kind === 'alternative') return 'No other figure starts and lands like this one.';
+		if (anchor.kind === 'alternative') return t().routine.picker.noAlternative;
 		if (query.trim() !== '' && list.emptiedBy.length === 0)
-			return `Nothing matches “${query.trim()}”.`;
-		if (context) return `Nothing you know ${context[0].toLowerCase()}${context.slice(1)}.`;
-		return 'No figures in this dance yet.';
+			return t().routine.picker.noMatch(query.trim());
+		if (context) return t().routine.picker.nothingFits(context);
+		return t().routine.picker.noFigures;
 	});
 
 	/**
@@ -86,7 +87,7 @@
 		const out: Group[] = [];
 		if (list.figures.length > 0) {
 			out.push({
-				title: 'Figures',
+				title: t().moves.segments.figures,
 				entries: list.figures.map((g): PickHeading => {
 					const tags = groupTags(g);
 					return {
@@ -98,7 +99,7 @@
 			});
 		}
 		if (list.routines.length > 0) {
-			out.push({ title: 'Routines', entries: list.routines.map((r) => row(r)) });
+			out.push({ title: t().moves.segments.routines, entries: list.routines.map((r) => row(r)) });
 		}
 		return out;
 	});
@@ -112,7 +113,7 @@
 <Picker
 	{open}
 	{title}
-	placeholder="Search figures and routines"
+	placeholder={t().routine.picker.search}
 	{groups}
 	kind="act"
 	prefiltered
@@ -128,17 +129,19 @@
 			</p>
 		{/if}
 		{#if list.toggles.count || list.toggles.hold}
-			<div role="group" aria-label="Filters" class="mt-2 flex gap-2">
+			<div role="group" aria-label={t().routine.picker.filters} class="mt-2 flex gap-2">
 				{#if list.toggles.count}
 					<label class={CHIP}>
 						<input type="checkbox" class="sr-only" bind:checked={count} />
-						{#if count}<span class="mr-1 flex"><Icon name="check" size={16} /></span>{/if}Count
+						{#if count}<span class="mr-1 flex"><Icon name="check" size={16} /></span>{/if}{t()
+							.routine.picker.count}
 					</label>
 				{/if}
 				{#if list.toggles.hold}
 					<label class={CHIP}>
 						<input type="checkbox" class="sr-only" bind:checked={hold} />
-						{#if hold}<span class="mr-1 flex"><Icon name="check" size={16} /></span>{/if}Hold
+						{#if hold}<span class="mr-1 flex"><Icon name="check" size={16} /></span>{/if}{t()
+							.routine.picker.hold}
 					</label>
 				{/if}
 			</div>
@@ -147,11 +150,13 @@
 	{#snippet empty()}
 		{emptyText}
 		{#if list.emptiedBy.includes('hold')}
-			<button type="button" class={RESCUE} onclick={() => (hold = false)}>Turn off Hold</button> to see
-			the rest.
+			<button type="button" class={RESCUE} onclick={() => (hold = false)}
+				>{t().routine.picker.holdOff}</button
+			>{t().routine.picker.toSeeRest}
 		{:else if list.emptiedBy.includes('count')}
-			<button type="button" class={RESCUE} onclick={() => (count = false)}>Turn off Count</button> to
-			see the rest.
+			<button type="button" class={RESCUE} onclick={() => (count = false)}
+				>{t().routine.picker.countOff}</button
+			>{t().routine.picker.toSeeRest}
 		{/if}
 	{/snippet}
 </Picker>

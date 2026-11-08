@@ -9,10 +9,10 @@
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { fold } from '$lib/fold';
 	import {
-		CANCEL,
-		MARK_SAME,
+		cancelLabel,
+		markSame,
 		sameAsEmpty,
-		SAME_AS_FAILED,
+		sameAsFailed,
 		sameAsSearch,
 		sameAsTitle,
 		twinChoiceLabel,
@@ -113,7 +113,7 @@
 							onclose();
 							await refreshWhenSettled();
 						} else {
-							refused = SAME_AS_FAILED;
+							refused = sameAsFailed();
 						}
 					} finally {
 						busy = false;
@@ -124,7 +124,7 @@
 			<!-- Every tick travels, however the search filters the list. -->
 			{#each ticked as id (id)}<input type="hidden" name="twin" value={id} />{/each}
 			<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}
-				>{CANCEL}</button
+				>{cancelLabel()}</button
 			>
 			<button
 				type="submit"
@@ -132,7 +132,7 @@
 				disabled={busy || !changed}
 				aria-busy={busy}
 			>
-				{#if busy}<Spinner />{:else}<Icon name="check" size={20} />{MARK_SAME}{/if}
+				{#if busy}<Spinner />{:else}<Icon name="check" size={20} />{markSame()}{/if}
 			</button>
 		</form>
 	{/snippet}

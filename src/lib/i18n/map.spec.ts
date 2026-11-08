@@ -50,27 +50,38 @@ describe('the map’s words', () => {
 			expect(m.summary({ positions: 2, between: 3, none: 0, stranded: 0 })).toBe(
 				'2 položaja · 3 različice med njimi'
 			);
-			expect(m.walk.next('Zaprta', 5)).toBe('Naprej od: Zaprta · 5 mest');
+			expect(m.walk.next('Zaprta', 5)).toBe('Naprej od: Zaprta · 5 možnosti');
 			expect(m.walk.status(0, 'x')).toBe('Še ni različic');
+			expect(m.walk.status(2, 'Zaprta')).toBe('2 različici · zdaj: Zaprta');
 		});
 	});
-	it('Slovenian declines the stranded count and the unused chip: 1, 2, 3, 5', () => {
+	it('Slovenian counts the stranded and the unused, and names a node with the list’s words', () => {
 		sl(() => {
 			const m = t().map;
-			const stranded = (n: number) =>
-				m.summary({ positions: 6, between: 0, none: 0, stranded: n }).split(' · ')[1];
-			expect([1, 2, 3, 5].map(stranded)).toEqual([
-				'1 obtičal',
-				'2 obtičala',
-				'3 obtičali',
-				'5 obtičalih'
-			]);
+			// Counts after a colon: the adjective would have to agree with them.
+			expect(m.summary({ positions: 1, between: 1, none: 10, stranded: 4 })).toBe(
+				'1 položaj · 1 različica med njimi · brez položaja: 10 · z vrzeljo: 4'
+			);
 			expect([1, 2, 3, 5].map((n) => m.chip.unused(n))).toEqual([
 				'1 neuporabljen položaj',
 				'2 neuporabljena položaja',
 				'3 neuporabljeni položaji',
 				'5 neuporabljenih položajev'
 			]);
+			expect(m.chip.orphans(3)).toBe('nedosegljiv: 3');
+			expect(m.chip.noPosition(4)).toBe('brez položaja: 4');
+			// The marks are the Positions list's gap words; ins and outs its counts.
+			expect(m.mark).toEqual({ deadEnd: 'slepa ulica', orphan: 'nedosegljiv' });
+			expect(m.nodeName({ name: 'Caída', ins: 2, outs: 0, mark: 'dead end', twins: null })).toBe(
+				'Caída · 2 prihoda · 0 odhodov · slepa ulica'
+			);
+			expect(m.nodeName({ name: 'Paseo', ins: 0, outs: 3, mark: 'orphan', twins: null })).toBe(
+				'Paseo · 0 prihodov · 3 odhodi · nedosegljiv'
+			);
+			expect(m.sheet.insOuts(1, 4)).toBe('1 prihod · 4 odhodi');
+			expect(m.walk.stuck('Caída')).toBe(
+				'Caída: od tod ne vodi nič. Razveljavite ali naredite kombinacijo, kot je.'
+			);
 		});
 	});
 });

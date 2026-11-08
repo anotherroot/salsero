@@ -17,6 +17,7 @@ import { meet, sameSet } from '$lib/graph/graph';
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
 import { fromTags } from '$lib/clones/from-tag';
+import { t } from '$lib/i18n/catalog';
 import type { TeamRef, TwinNote } from '$lib/types';
 
 export interface Candidate {
@@ -279,19 +280,21 @@ const countBefore = (n: number) => (n === 1 ? 8 : n - 1);
 
 /** The picker's context line. Null when there is nothing to say. */
 export function anchorText(a: Anchor, name: (id: number) => string): string | null {
-	const names = (ids: number[]) => ids.map(name).join(' or ');
+	const w = t().routine.picker;
+	const or = ` ${t().figure.or} `;
+	const names = (ids: number[]) => ids.map(name).join(or);
 	if (a.kind === 'after') {
 		const from = a.ends !== null && a.ends.length > 0 ? names(a.ends) : null;
-		if (a.next !== null && from !== null) return `Starts on ${a.next} from ${from}`;
-		if (a.next !== null) return `Starts on ${a.next}`;
-		if (from !== null) return `Starts from ${from}`;
+		if (a.next !== null && from !== null) return w.startsOnFrom(a.next, from);
+		if (a.next !== null) return w.startsOn(a.next);
+		if (from !== null) return w.startsFrom(from);
 		return null;
 	}
 	if (a.kind === 'before') {
-		const counts = a.startCounts.map(countBefore).join(' or ');
-		if (counts && a.starts.length > 0) return `Ends on ${counts} at ${names(a.starts)}`;
-		if (counts) return `Ends on ${counts}`;
-		if (a.starts.length > 0) return `Ends at ${names(a.starts)}`;
+		const counts = a.startCounts.map(countBefore).join(or);
+		if (counts && a.starts.length > 0) return w.endsOnAt(counts, names(a.starts));
+		if (counts) return w.endsOn(counts);
+		if (a.starts.length > 0) return w.endsAt(names(a.starts));
 		return null;
 	}
 	if (a.kind === 'between') {
@@ -303,8 +306,8 @@ export function anchorText(a: Anchor, name: (id: number) => string): string | nu
 	if (a.kind === 'alternative') {
 		const counts = `${a.startCount}→${a.next}`;
 		if (a.starts.length === 0 && a.ends.length === 0) return counts;
-		const from = a.starts.length > 0 ? names(a.starts) : 'Anywhere';
-		const to = a.ends.length > 0 ? names(a.ends) : 'anywhere';
+		const from = a.starts.length > 0 ? names(a.starts) : w.anywhereFrom;
+		const to = a.ends.length > 0 ? names(a.ends) : w.anywhereTo;
 		return `${from} → ${to}, ${counts}`;
 	}
 	return null;

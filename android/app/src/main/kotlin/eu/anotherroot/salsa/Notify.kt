@@ -20,11 +20,13 @@ object Notify {
     const val REMINDER_ID = 2
     const val UNPAIRED_ID = 3
 
+    /** Creates the channels, or renames them in the account's language: creating one again with its id only updates its name. */
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(UPLOADING, "Uploading", NotificationManager.IMPORTANCE_LOW))
-        nm.createNotificationChannel(NotificationChannel(RESULTS, "Uploads finished", NotificationManager.IMPORTANCE_DEFAULT))
-        nm.createNotificationChannel(NotificationChannel(REMINDERS, "Practice reminder", NotificationManager.IMPORTANCE_DEFAULT))
+        val words = Prefs.words(context)
+        nm.createNotificationChannel(NotificationChannel(UPLOADING, words.channelUploading, NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(RESULTS, words.channelResults, NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(REMINDERS, words.channelReminder, NotificationManager.IMPORTANCE_DEFAULT))
     }
 
     fun progress(context: Context, title: String, text: String, percent: Int?): ForegroundInfo {
@@ -44,14 +46,14 @@ object Notify {
     fun result(context: Context, id: Int, title: String, text: String?, path: String) =
         post(context, id, RESULTS, title, text, path)
 
-    fun unpaired(context: Context) = post(
-        context, UNPAIRED_ID, RESULTS, "Pair the app again",
-        "The server no longer knows this phone. Tap to pair it.", PAIR_PATH,
-    )
+    fun unpaired(context: Context) = Prefs.words(context).let { words ->
+        post(context, UNPAIRED_ID, RESULTS, words.pairAgainTitle, words.pairAgainBody, PAIR_PATH)
+    }
 
     /** One per video (same id as its result), replaced when the retry posts it again, silently while it shows. */
-    fun updateNeeded(context: Context, id: Int, appName: String, videoName: String, path: String) =
-        post(context, 100 + id, RESULTS, "Update the $appName app", "Update the $appName app to finish uploading $videoName.", path, onlyAlertOnce = true)
+    fun updateNeeded(context: Context, id: Int, appName: String, videoName: String, path: String) = Prefs.words(context).let { words ->
+        post(context, 100 + id, RESULTS, words.updateAppTitle(appName), words.updateAppBody(appName, videoName), path, onlyAlertOnce = true)
+    }
 
     fun reminder(context: Context, title: String, text: String, path: String) =
         post(context, REMINDER_ID, REMINDERS, title, text, path)

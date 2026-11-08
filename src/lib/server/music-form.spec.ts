@@ -10,6 +10,7 @@ import { setRole } from './membership';
 import { shareSong } from './song-share';
 import { listMusic, musicSeen } from './song-links';
 import { addSongFrom, noteSongFrom, removeSongFrom } from './music-form';
+import { runInLocale } from './i18n-request';
 import type { TeamSpace, Wall } from './scope';
 
 const U1: Wall = { userId: 'u1', dance: 'salsa' };
@@ -185,5 +186,48 @@ describe("a link that is not the page's", () => {
 			await noteSongFrom(req({ linkId: String(link.id), note: 'x' }), db, U1, b)
 		).toMatchObject({ status: 404 });
 		expect(listMusic(db, a, 'u1')).toHaveLength(1);
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => Promise<T>) => runInLocale('sl', fn);
+	const lessonOf = (space: Wall | TeamSpace) => ({
+		lessonId: createLesson(db, space, { lessonDay: '2026-11-03', title: 'C', notes: null }).lesson
+			.id
+	});
+
+	it('refuses a long note, no song, a song already there, one that cannot go, and one gone', async () => {
+		const lesson = lessonOf(U1);
+		const s = song(U1, 'Casa');
+		const add = (fields: Record<string, string>, parent = lesson) =>
+			sl(() => addSongFrom(req(fields), db, U1, parent));
+		expect(await add({ songId: String(s), note: 'x'.repeat(501) })).toMatchObject({
+			status: 400,
+			data: { field: 'note', message: 'Opomba ima lahko največ 500 znakov.' }
+		});
+		expect(await add({ note: '' })).toMatchObject({
+			status: 400,
+			data: { message: 'Izberite skladbo.' }
+		});
+		await addSongFrom(req({ songId: String(s), note: '' }), db, U1, lesson);
+		expect(await add({ songId: String(s), note: '' })).toMatchObject({
+			status: 400,
+			data: { message: 'Že v Glasbi' }
+		});
+		expect(await add({ songId: '9999', note: '' })).toMatchObject({
+			status: 400,
+			data: { message: 'Te skladbe ni mogoče dodati sem.' }
+		});
+		expect(await add({ songId: String(s), note: '' }, lessonOf(ED))).toMatchObject({
+			status: 400,
+			data: { message: 'Tega ne morete spreminjati.' }
+		});
+		expect(
+			await sl(() => noteSongFrom(req({ linkId: '9999', note: 'x'.repeat(501) }), db, U1, lesson))
+		).toMatchObject({ status: 400, data: { message: 'Opomba ima lahko največ 500 znakov.' } });
+		expect(await sl(() => removeSongFrom(req({ linkId: '9999' }), db, U1, lesson))).toMatchObject({
+			status: 404,
+			data: { message: 'Ta skladba je bila že odstranjena.' }
+		});
 	});
 });

@@ -1,5 +1,6 @@
 // The map of positions: the page, its tray and legend, a position's sheet and the walk
 // that builds a routine. Spec 2026-11-08-map-walk.
+import { possessive } from './figure';
 import { plural } from './plural';
 
 export const map = {
@@ -16,6 +17,9 @@ export const map = {
 	mark: { deadEnd: 'dead end', orphan: 'orphan' },
 	/** Under a node that stands for twinned positions (Same as…). */
 	twins: 'Twins',
+	/** A twinned node's members, each by its place: "your Cerrada", "Salsa Tuesdays’ Closed". */
+	yourTwin: (name: string): string => `your ${name}`,
+	teamTwin: (team: string, name: string): string => `${possessive(team)} ${name}`,
 	/** The ⓘ sheet's last line. */
 	fitsAnywhere: 'Figures without a position fit anywhere.',
 	/** The SVG's name for a screen reader. */

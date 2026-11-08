@@ -20,6 +20,7 @@ import { addLessonVideo, createLesson } from './lessons';
 import { addSpot } from './spots';
 import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from './test-walls';
 import { TEMPLATES } from '$lib/positions/templates';
+import { withLocale } from '$lib/i18n/current';
 import type { PositionInput } from '$lib/types';
 
 let db: Db;
@@ -372,6 +373,34 @@ describe('positionSeen', () => {
 			crossed: 0,
 			facing: 'side',
 			frame: 'open'
+		});
+	});
+});
+
+describe('positions in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('writes a template’s notes in the acting person’s language, its name as it is', () => {
+		const [row] = sl(() => addTemplates(db, U1_SALSA, 'salsa', 'salsa', ['Cerrada'], 5));
+		expect(row).toMatchObject({ name: 'Cerrada', notes: 'Zaprta, osnovna drža' });
+		const [en] = addTemplates(db, U2_SALSA, 'salsa', 'salsa', ['Cerrada'], 5);
+		expect(en).toMatchObject({ name: 'Cerrada', notes: 'Closed, the basic frame' });
+	});
+
+	it('refuses an empty or taken name, the group’s by its name after a colon', () => {
+		expect(sl(() => createPosition(db, U1_SALSA, input('  '), 1))).toEqual({
+			field: 'name',
+			message: 'Vpišite ime položaja.'
+		});
+		createPosition(db, U1_SALSA, input('Caída'), 1);
+		expect(sl(() => createPosition(db, U1_SALSA, input('CAIDA'), 2))).toEqual({
+			field: 'name',
+			message: 'Položaj z imenom »CAIDA« že imate.'
+		});
+		createPosition(db, T1_SALSA, input('Cerrada'), 1);
+		expect(sl(() => createPosition(db, T1_SALSA, input('cerrada'), 2))).toEqual({
+			field: 'name',
+			message: 'Položaj z imenom »cerrada« že obstaja v skupini: Salsa nadaljevalna.'
 		});
 	});
 });

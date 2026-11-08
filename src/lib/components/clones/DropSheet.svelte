@@ -9,22 +9,24 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		CANCEL,
-		DROP_BUTTON,
-		DROP_FAILED,
-		DROP_TITLE,
-		SYNC_FIRST,
-		USE_INSTEAD,
+		cancelLabel,
+		dropButton,
+		dropFailed,
+		dropTitle,
+		syncFirst,
+		useInstead,
 		addToo,
 		cantFollow,
 		dropChoiceMeta,
 		dropOne,
 		dropSub,
 		droppedToast,
-		onlyInYours,
-		possessive
+		dropBusy,
+		dropPlace,
+		onlyInYours
 	} from '$lib/clones/view';
 	import type { DropChoice, DropOptions } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 	import SyncSheet from './SyncSheet.svelte';
 	import { dropped } from './dropped.svelte';
 
@@ -70,7 +72,8 @@
 	});
 
 	const choice = $derived(drop.choices.find((c) => c.id === picked) ?? drop.choices[0]);
-	const placeOf = (c: DropChoice) => (c.place.kind === 'team' ? c.place.name : 'Yours');
+	const placeOf = (c: DropChoice) =>
+		c.place.kind === 'team' ? c.place.name : t().clones.sync.yours;
 	const ticked = (c: DropChoice) => c.addLesson !== null && adding[c.id] !== false;
 	const follows = $derived(choice.practiceFollows || ticked(choice));
 	const sendable = $derived(drop.sendable.includes(choice.id));
@@ -105,7 +108,7 @@
 	{/if}
 {/snippet}
 
-<Sheet title={DROP_TITLE} sub={dropSub(one ? choice.access : null)} {open} onclose={close}>
+<Sheet title={dropTitle()} sub={dropSub(one ? choice.access : null)} {open} onclose={close}>
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
 		{#if one}
@@ -123,14 +126,14 @@
 			{/if}
 		{:else}
 			<fieldset class="flex flex-col gap-1.5">
-				<legend id="{uid}-use" class={SECTION_LABEL}>{USE_INSTEAD}</legend>
+				<legend id="{uid}-use" class={SECTION_LABEL}>{useInstead()}</legend>
 				<div class={GROUP}>
 					{#each drop.choices as c (c.id)}
 						{@const meta = dropChoiceMeta(c, c.id === picked && c.addLesson !== null, drop.kind)}
 						<div>
 							<label class="flex min-h-[64px] cursor-pointer items-center gap-3 px-4 py-2">
 								<span class="flex min-w-0 flex-1 flex-col">
-									<span class="text-[16px] font-bold text-ink">{possessive(placeOf(c))}</span>
+									<span class="text-[16px] font-bold text-ink">{dropPlace(placeOf(c))}</span>
 									{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
 								</span>
 								<input
@@ -160,7 +163,7 @@
 					class={button('secondary', 'md', true)}
 					aria-haspopup="dialog"
 					disabled={busy}
-					onclick={() => (sending = true)}><Icon name="refresh" size={20} />{SYNC_FIRST}</button
+					onclick={() => (sending = true)}><Icon name="refresh" size={20} />{syncFirst()}</button
 				>
 			{/if}
 			<form
@@ -192,9 +195,9 @@
 								}
 							} else if (result.type === 'failure') {
 								const data = result.data as { message?: unknown } | undefined;
-								refused = typeof data?.message === 'string' ? data.message : DROP_FAILED;
+								refused = typeof data?.message === 'string' ? data.message : dropFailed();
 							} else if (result.type === 'error') {
-								refused = DROP_FAILED;
+								refused = dropFailed();
 							} else {
 								await update();
 							}
@@ -209,15 +212,15 @@
 					<input type="hidden" name="addLesson" value={choice.addLesson?.id} />
 				{/if}
 				<button type="button" class={button('tertiary', 'md', true)} onclick={close}
-					>{CANCEL}</button
+					>{cancelLabel()}</button
 				>
 				<button
 					type="submit"
 					class={button('danger', 'md', true)}
 					aria-busy={busy}
-					aria-label={busy ? 'Dropping your copy' : undefined}
+					aria-label={busy ? dropBusy() : undefined}
 				>
-					{#if busy}<Spinner />{:else}{DROP_BUTTON}{/if}
+					{#if busy}<Spinner />{:else}{dropButton()}{/if}
 				</button>
 			</form>
 		</div>

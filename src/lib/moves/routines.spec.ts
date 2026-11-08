@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { fromClass, routineBadges } from './routines';
 
 describe('routineBadges', () => {
@@ -27,5 +28,23 @@ describe('routineBadges', () => {
 describe('fromClass', () => {
 	it('says which class a routine is from, for a screen reader', () => {
 		expect(fromClass('Tue 3 Nov')).toBe('From class Tue 3 Nov');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('counts breaks in four forms and words the loop', () => {
+		expect(sl(() => routineBadges({ slots: 8, breaks: 2, loops: true }))).toEqual([
+			{ tone: 'danger', text: '2 prekinitvi' }
+		]);
+		expect(sl(() => routineBadges({ slots: 5, breaks: 5, loops: false }))).toEqual([
+			{ tone: 'danger', text: '5 prekinitev' },
+			{ tone: 'warn', text: 'se ne sklene' }
+		]);
+	});
+
+	it('says which lesson a routine is from', () => {
+		expect(sl(() => fromClass('tor, 3. nov.'))).toBe('Z lekcije tor, 3. nov.');
 	});
 });

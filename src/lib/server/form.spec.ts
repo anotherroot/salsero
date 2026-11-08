@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { int, ints, orderedInts, refusalText } from './form';
 
 describe('int', () => {
@@ -68,6 +69,14 @@ describe('refusalText', () => {
 		expect(refusalText(409, 'Unlink it first.')).toBe('Unlink it first.');
 		expect(refusalText(500, 'SQLITE_BUSY at /data/x.db')).toBe('Couldn’t save. Try it again.');
 		expect(refusalText(503, 'x')).toBe('Couldn’t save. Try it again.');
+	});
+});
+
+describe('refusalText in Slovenian', () => {
+	it("hides a 5xx message behind the reader's generic line", () => {
+		expect(withLocale('sl', () => refusalText(500, 'SQLITE_BUSY'))).toBe(
+			'Shranjevanje ni uspelo. Poskusite znova.'
+		);
 	});
 });
 

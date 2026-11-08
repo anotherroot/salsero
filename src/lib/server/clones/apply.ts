@@ -31,13 +31,14 @@
  * check, the picks, the files and room, then in one transaction the apply,
  * the pair's next snapshot, History and the reconcile.
  */
+import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
 import { parseComesBack, serializeComesBack } from '$lib/schedule/comes-back';
-import { PICK_BOTH, STALE } from '$lib/clones/view';
+import { pickBoth, landingStale } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -939,11 +940,12 @@ const embeds = (tx: Db, routineId: number) =>
 
 /* ── The whole flow ─────────────────────────────────────────────────────── */
 
-const DENIED: Extract<SyncResult, { ok: false }> = {
+/** A refusal for a copy that is gone or not this person's: composed in the request, in its language. */
+const denied = (): Extract<SyncResult, { ok: false }> => ({
 	ok: false,
 	reason: 'denied',
-	message: 'Not found.'
-};
+	message: t().refusals.notFoundLine
+});
 
 /** How a kind's change is filed in History: its root, and the thing a change of several fields names. */
 export function logRoot(
@@ -1128,7 +1130,7 @@ export async function landKeys(db: Db, o: LandOptions): Promise<LandResult> {
 	const { actorId, kind, intoId, fromId, keys, snapshot, files, now, freeDiskBytes, seen } = o;
 	if (keys.length === 0) return { ok: true, seen: digest(flatOf(db, kind, intoId)) };
 	const into = rootOf(db, kind, intoId);
-	if (!into) return DENIED;
+	if (!into) return denied();
 	const intoFlat = flatOf(db, kind, intoId);
 	const fromFlat = flatOf(db, kind, fromId);
 	const base = pairBase(db, kind, intoId, fromId);
@@ -1157,7 +1159,7 @@ export async function landKeys(db: Db, o: LandOptions): Promise<LandResult> {
 			const tx = t as unknown as Db;
 			// Again inside the write: a save may have landed while the files were linking.
 			if (seen !== undefined && digest(flatOf(tx, kind, intoId)) !== seen)
-				return { ok: false as const, reason: 'stale' as const, message: STALE };
+				return { ok: false as const, reason: 'stale' as const, message: landingStale() };
 			const applied = applyInto(tx, kind, intoId, fromId, keys, linked, actorId, now);
 			if (!applied.ok) return applied;
 			const intoAfter = flatOf(tx, kind, intoId);
@@ -1240,22 +1242,22 @@ export async function syncFrom(
 	now: number,
 	freeDiskBytes: number
 ): Promise<SyncResult> {
-	if (intoId === fromId) return DENIED;
+	if (intoId === fromId) return denied();
 	const into = rootOf(db, kind, intoId);
 	const from = rootOf(db, kind, fromId);
-	if (!into || !from || into.archivedAt !== null || from.archivedAt !== null) return DENIED;
+	if (!into || !from || into.archivedAt !== null || from.archivedAt !== null) return denied();
 	const gene = geneOf(db, kind, intoId);
-	if (gene === null || gene !== geneOf(db, kind, fromId)) return DENIED;
-	if (accessTo(db, actorId, kind, intoId) !== 'edit') return DENIED;
-	if (accessTo(db, actorId, kind, fromId) === null) return DENIED;
+	if (gene === null || gene !== geneOf(db, kind, fromId)) return denied();
+	if (accessTo(db, actorId, kind, intoId) !== 'edit') return denied();
+	if (accessTo(db, actorId, kind, fromId) === null) return denied();
 
 	const intoFlat = flatOf(db, kind, intoId);
-	if (digest(intoFlat) !== seen) return { ok: false, reason: 'stale', message: STALE };
+	if (digest(intoFlat) !== seen) return { ok: false, reason: 'stale', message: landingStale() };
 	const fromFlat = flatOf(db, kind, fromId);
 	const base = pairBase(db, kind, intoId, fromId);
 	const diffs = diff(base, intoFlat, fromFlat, hashValue);
 	const picked = currentPicks(db, picks);
-	if (unpicked(diffs, picked).length > 0) return { ok: false, reason: 'pick', message: PICK_BOTH };
+	if (unpicked(diffs, picked).length > 0) return { ok: false, reason: 'pick', message: pickBoth() };
 	const keys = diffs.filter((d) => picked[d.key] === 'theirs').map((d) => d.key);
 	// Keep mine: no field changes, only the pair's snapshot, so the other now
 	// reads as behind (what differs is the receiver's own). No History line:
@@ -1264,7 +1266,7 @@ export async function syncFrom(
 		return db.transaction((t) => {
 			const tx = t as unknown as Db;
 			if (digest(flatOf(tx, kind, intoId)) !== seen)
-				return { ok: false as const, reason: 'stale' as const, message: STALE };
+				return { ok: false as const, reason: 'stale' as const, message: landingStale() };
 			const next = nextBase(intoFlat, fromFlat, base?.skip ?? [], hashValue);
 			writePair(tx, kind, intoId, fromId, next, now);
 			return { ok: true as const };

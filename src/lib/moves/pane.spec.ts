@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { EMPTY_PANE, emptyPane, revealTop } from './pane';
 
 describe('emptyPane', () => {
@@ -42,5 +43,16 @@ describe('revealTop', () => {
 		expect(revealTop(col, { top: 50, bottom: 2000 }, 500, 24)).toBe(500 - (88 + 24 - 50));
 		// Below the top and running past the bottom: scrolled to its top, not past it.
 		expect(revealTop(col, { top: 200, bottom: 2000 }, 500, 24)).toBe(500 + (200 - 112));
+	});
+});
+
+describe('emptyPane in Slovenian', () => {
+	it('asks for a figure or a routine', () => {
+		const f = withLocale('sl', () => emptyPane('figures', false));
+		expect(f.title).toBe('Izberite različico');
+		expect(f.action).toBe('Nova različica');
+		const r = withLocale('sl', () => emptyPane('routines', true));
+		expect(r.title).toBe('Izberite kombinacijo');
+		expect(r.action).toBe('Nova kombinacija');
 	});
 });

@@ -18,8 +18,6 @@ export type Source = (typeof SOURCES)[number];
 export const PRACTICE_MODES = ['song', 'count', 'none'] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
-export const PARTNER_LABEL: Record<Partner, string> = { partner: 'With partner', solo: 'Solo' };
-
 /** How the detected beats map to the dance count. See `src/lib/beatgrid/`. */
 export const TEMPO_FACTORS = [0.5, 1, 2] as const;
 export type TempoFactor = (typeof TEMPO_FACTORS)[number];

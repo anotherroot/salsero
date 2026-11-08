@@ -37,7 +37,8 @@ class ShareActivity : ComponentActivity() {
         if (uris.isEmpty() || savedInstanceState != null) return finish()
 
         setFinishOnTouchOutside(false)
-        val status = TextView(this).apply { text = "Getting the video ready…" }
+        val words = Prefs.words(this)
+        val status = TextView(this).apply { text = words.gettingReady }
         setContentView(
             LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -54,7 +55,7 @@ class ShareActivity : ComponentActivity() {
             var copied = 0
             uris.forEachIndexed { i, uri ->
                 if (gone) return@forEachIndexed
-                runOnUiThread { if (uris.size > 1) status.text = "Getting video ${i + 1} of ${uris.size} ready…" }
+                runOnUiThread { if (uris.size > 1) status.text = words.gettingVideoReady(i + 1, uris.size) }
                 val out = File(dir, "%02d-%s".format(i, (displayName(uri) ?: "video-$i.mp4").replace('/', '_')))
                 try {
                     contentResolver.openInputStream(uri)?.use { input -> out.outputStream().use { input.copyTo(it) } }
@@ -70,7 +71,7 @@ class ShareActivity : ComponentActivity() {
                     copied > 0 -> startActivity(webIntent(this, "/${BuildConfig.DANCE}/share?key=$key"))
                     else -> {
                         dir.deleteRecursively()
-                        Toast.makeText(applicationContext, "Couldn't read that video.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(applicationContext, words.couldNotRead, Toast.LENGTH_LONG).show()
                     }
                 }
                 finish()

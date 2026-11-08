@@ -1,5 +1,5 @@
-import type { SongStatus } from '$lib/labels';
 import { t } from '$lib/i18n/catalog';
+import { BPM, type SongStatus } from '$lib/labels';
 import { classifyLink } from './source';
 
 /**
@@ -13,7 +13,7 @@ export function songSubtitle(p: {
 	style: string;
 	bpm: number | null;
 }): string {
-	return [p.artist || null, p.style, p.bpm ? `${Math.round(p.bpm)} BPM` : null]
+	return [p.artist || null, p.style, p.bpm ? `${Math.round(p.bpm)} ${BPM}` : null]
 		.filter((part): part is string => part !== null)
 		.join(' · ');
 }
@@ -25,7 +25,7 @@ export function songSubtitle(p: {
  * still taps, as it always has: the playhead is where the user stopped.
  */
 export function tapProblem(audio: { paused: boolean; currentTime: number } | null): string | null {
-	if (!audio || (audio.paused && audio.currentTime === 0)) return 'Play the song first.';
+	if (!audio || (audio.paused && audio.currentTime === 0)) return t().songs.page.playFirst;
 	return null;
 }
 
@@ -35,9 +35,10 @@ export function sampleLabels(custom: boolean): {
 	tone: 'accent' | 'neutral';
 	meta: string;
 } {
+	const w = t().songs.page;
 	return custom
-		? { badge: 'Yours', tone: 'accent', meta: 'Set by you' }
-		: { badge: 'Automatic', tone: 'neutral', meta: 'A third of the way in, on a 1' };
+		? { badge: w.sampleYours, tone: 'accent', meta: w.sampleSetByYou }
+		: { badge: w.sampleAutomatic, tone: 'neutral', meta: w.sampleAutomaticMeta };
 }
 
 export type SongStep = { state: 'done' | 'now' | 'todo'; title: string; meta: string };
@@ -64,42 +65,39 @@ export function songSteps(
 	fetchedTitle: string | null
 ): SongStep[] {
 	if (status !== 'waiting_download' && status !== 'waiting_analysis') return [];
-	const w = t().songs.source;
+	const w = t().songs.page.steps;
+	const s = t().songs.source;
 	const fromUpload = source === 'upload';
 	const added: SongStep = {
 		state: 'done',
-		title: 'Added',
-		meta: fromUpload ? 'Uploaded' : source === 'spotify' ? w.fromSpotify : 'From YouTube'
+		title: w.added,
+		meta: fromUpload ? w.uploaded : source === 'spotify' ? s.fromSpotify : w.fromYouTube
 	};
 	if (source === 'spotify') {
 		if (status === 'waiting_download')
 			return [
 				added,
-				{ state: 'now', title: w.findOnYouTube, meta: 'Waiting for the home fetcher' },
-				{ state: 'todo', title: 'Download', meta: w.fromVideo },
-				{ state: 'todo', title: 'Find the beat', meta: 'Beat analysis on the laptop' }
+				{ state: 'now', title: s.findOnYouTube, meta: w.waitingFetcher },
+				{ state: 'todo', title: w.download, meta: s.fromVideo },
+				{ state: 'todo', title: w.findBeat, meta: w.onLaptop }
 			];
 		return [
 			added,
-			{ state: 'done', title: w.findOnYouTube, meta: fetchedTitle ?? BRAND.youtube },
-			{ state: 'done', title: 'Download', meta: 'Downloaded' },
-			{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
+			{ state: 'done', title: s.findOnYouTube, meta: fetchedTitle ?? BRAND.youtube },
+			{ state: 'done', title: w.download, meta: w.downloaded },
+			{ state: 'now', title: w.findBeat, meta: w.waitingAnalysis }
 		];
 	}
 	if (status === 'waiting_download')
 		return [
 			added,
-			{ state: 'now', title: 'Download', meta: 'Waiting for the home fetcher' },
-			{ state: 'todo', title: 'Find the beat', meta: 'Beat analysis on the laptop' }
+			{ state: 'now', title: w.download, meta: w.waitingFetcher },
+			{ state: 'todo', title: w.findBeat, meta: w.onLaptop }
 		];
 	const download: SongStep[] = fromUpload
 		? []
-		: [{ state: 'done', title: 'Download', meta: 'Downloaded' }];
-	return [
-		added,
-		...download,
-		{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
-	];
+		: [{ state: 'done', title: w.download, meta: w.downloaded }];
+	return [added, ...download, { state: 'now', title: w.findBeat, meta: w.waitingAnalysis }];
 }
 
 /** Only http(s) is ever drawn as a link: the worker's report is not trusted to be one. */

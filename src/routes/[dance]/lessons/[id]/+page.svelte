@@ -94,9 +94,13 @@
 	import type { MediaProblem } from '$lib/media';
 	import { reportOpen } from '$lib/teams/opens-api';
 	import type { AddOffer, ViaSection } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	/** The page's words, read when drawn. */
+	const w = $derived(t().lesson);
 
 	// --- Edit mode: the band's pencil, the form alone on the page, one Save pinned.
 	let editing = $state(false);
@@ -131,7 +135,7 @@
 		void setEditing(true);
 	}
 	function stopEditing() {
-		leaveOrAsk(editForm ?? null, () => void setEditing(false), 'Stop editing');
+		leaveOrAsk(editForm ?? null, () => void setEditing(false), t().lesson.full.stopEditing);
 	}
 	const saveEdit: SubmitFunction = () => {
 		saving = true;
@@ -170,7 +174,7 @@
 					{
 						key: 'history',
 						icon: 'clock' as const,
-						label: 'History',
+						label: w.full.history,
 						href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
 							dance: data.dance.slug,
 							id: String(data.team?.id),
@@ -185,7 +189,7 @@
 					{
 						key: 'remove',
 						icon: 'trash' as const,
-						label: 'Remove from my lessons',
+						label: w.full.removeItem,
 						danger: true,
 						onclick: () => (removing = true)
 					}
@@ -368,11 +372,11 @@
 	});
 	const variationGroups = $derived([
 		{
-			title: 'In this lesson',
+			title: w.create.figure.inLesson,
 			entries: figureRows(data.figureGroups.filter((g) => taughtGroups.has(g.id)))
 		},
 		{
-			title: 'Moves',
+			title: w.create.figure.moves,
 			entries: figureRows(data.figureGroups.filter((g) => !taughtGroups.has(g.id)))
 		}
 	]);
@@ -637,9 +641,11 @@
 	>
 		<span
 			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-accent-text"
-			>Not in your lessons yet</span
+			>{w.full.notInLessons}</span
 		>
-		<button type="button" class={STRIP_ACTION} aria-haspopup="dialog" onclick={openAdd}>Add</button>
+		<button type="button" class={STRIP_ACTION} aria-haspopup="dialog" onclick={openAdd}
+			>{t().common.add}</button
+		>
 	</div>
 {/snippet}
 
@@ -678,7 +684,7 @@
 		width={editing ? 'song' : 'two'}
 		title={lesson.title}
 		subtitle={editing
-			? 'Editing'
+			? w.full.editing
 			: data.team
 				? `${fullDateLabel(lesson.lessonDay)} · ${data.team.name}`
 				: [fullDateLabel(lesson.lessonDay), cloneSubtitle(data.cloneLine)]
@@ -697,14 +703,14 @@
 				<BandButton
 					focusKey="stop-editing"
 					icon="close"
-					label="Stop editing"
+					label={w.full.stopEditing}
 					onclick={stopEditing}
 				/>
 			{:else}
 				<BackButton
 					fallback={{
 						href: resolve('/[dance]/lessons', { dance: data.dance.slug }),
-						label: 'Back to Lessons'
+						label: t().shell.backTo(t().shell.tabs.lessons)
 					}}
 				/>
 			{/if}
@@ -715,12 +721,12 @@
 				<BandButton
 					focusKey="start-editing"
 					icon="pencil"
-					label="Edit lesson"
+					label={w.page.edit}
 					onclick={startEditing}
 				/>
 			{:else if !editing && data.makeMine}
 				<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
-				<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
+				<BandButton icon="pencil" label={w.page.edit} onclick={() => (makingMine = true)} />
 			{/if}
 			{#if !editing}
 				{#if hasMenu(lessonOwn, offers)}
@@ -769,7 +775,7 @@
 						novalidate
 						bind:this={editForm}
 						class="flex flex-col gap-3.5"
-						use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
+						use:guarded={{ label: w.full.edits, submit: saveEdit }}
 					>
 						<!-- What this form saw: a save that saw another version is refused (the clash check). -->
 						<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
@@ -781,7 +787,7 @@
 							max={data.today}
 							errors={editErrors}
 							notesRows={7}
-							notesHelp="Links in notes open when tapped."
+							notesHelp={w.full.notesHelp}
 						/>
 					</form>
 					<div class="flex justify-center pt-1">
@@ -792,7 +798,7 @@
 							onclick={() => {
 								archiveError = null;
 								archiving = true;
-							}}>Archive lesson</button
+							}}>{w.full.archiveLesson}</button
 						>
 					</div>
 				{:else}
@@ -840,14 +846,14 @@
 									type="submit"
 									class={button('tertiary', 'sm')}
 									aria-busy={notNowBusy}
-									disabled={notNowBusy}>Not now</button
+									disabled={notNowBusy}>{w.page.notNow}</button
 								>
 							</form>
 							<button
 								type="button"
 								class={button('primary', 'sm')}
 								aria-haspopup="dialog"
-								onclick={openAdd}>Add</button
+								onclick={openAdd}>{t().common.add}</button
 							>
 						</div>
 					{/if}
@@ -857,7 +863,7 @@
 				{#if !editing}
 					{#if lesson.notes}
 						<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
-							<h2 class="text-[13px] font-bold text-muted">Notes</h2>
+							<h2 class="text-[13px] font-bold text-muted">{w.page.notes}</h2>
 							<LinkedText
 								text={lesson.notes}
 								class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
@@ -882,9 +888,7 @@
 										<Icon name="repeat" size={20} />
 									</span>
 									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-										<span class="text-[16px] leading-[1.3] font-bold text-ink"
-											>Go over this lesson</span
-										>
+										<span class="text-[16px] leading-[1.3] font-bold text-ink">{w.goOver}</span>
 										<span class="text-[13px] leading-[1.35] text-muted"
 											>{#each reviewMeta(review, scheduleOf(review.id), data.today) as part, i (i)}{i >
 												0
@@ -905,7 +909,7 @@
 				{#if !editing}
 					<section class="flex flex-col gap-2 pt-2.5 two:pt-0">
 						<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
-							{sectionHeading('Videos', data.videos.length)}
+							{sectionHeading(w.page.videos, data.videos.length)}
 						</h2>
 						{#if data.videos.length}
 							<ul class="flex flex-col gap-3">
@@ -915,7 +919,7 @@
 										{#if data.canEdit}<button
 												data-focus="video-{video.id}"
 												type="button"
-												aria-label="Delete video {i + 1}"
+												aria-label={w.page.deleteVideo(i + 1)}
 												aria-haspopup="dialog"
 												class={iconButton('bare', 'danger')}
 												onclick={() =>
@@ -929,16 +933,16 @@
 									<li class="{CLIP} rounded-[22px] bg-surface">
 										{#if broken[video.id] === 'missing'}
 											<VideoProblem
-												title="This file is missing"
-												body="The server has no file for this video."
+												title={w.page.missingTitle}
+												body={w.page.missingBody}
 												meta={byteSize(video.sizeBytes)}
 											>
 												{#snippet action()}{@render videoTrash()}{/snippet}
 											</VideoProblem>
 										{:else if broken[video.id] === 'unplayable'}
 											<VideoProblem
-												title="Can’t play here"
-												body="This browser can’t play this file. Download it or open it on your phone."
+												title={w.page.unplayableTitle}
+												body={w.page.unplayableBody}
 												meta={byteSize(video.sizeBytes)}
 											>
 												{#snippet action()}
@@ -947,7 +951,7 @@
 															href={resolve('/lesson-videos/[file]', { file: video.file })}
 															download
 															class={button('tertiary', 'sm')}
-															><Icon name="download" size={18} />Download</a
+															><Icon name="download" size={18} />{w.page.download}</a
 														>
 														{@render videoTrash()}
 													</span>
@@ -970,7 +974,7 @@
 										{/if}
 										{#if videoRefused[video.id]}
 											<div class="px-3 pb-2.5">
-												<Banner kind="error" title="Can’t delete this video"
+												<Banner kind="error" title={w.page.cantDelete}
 													>{videoRefused[video.id]}</Banner
 												>
 											</div>
@@ -988,7 +992,7 @@
 						{/if}
 						{#if !data.canEdit}
 							{#if data.videos.length === 0}
-								<p class="px-1 text-[15px] text-muted">No videos yet.</p>
+								<p class="px-1 text-[15px] text-muted">{w.page.noVideos}</p>
 							{/if}
 						{:else}<div class={data.videos.length ? 'mt-3' : ''}>
 								{#if data.app}
@@ -998,20 +1002,20 @@
 											{ lesson: lesson.id },
 											{ back: page.url.pathname, name: lesson.title }
 										)}
-										label="Add videos"
+										label={w.page.addVideos}
 									/>
 								{:else}
 									<ChunkedUploadButton
 										uploadUrl="/api/lessons/{lesson.id}/videos"
 										accept="video/*"
-										label="Add videos"
+										label={w.page.addVideos}
 										maxBytes={MAX_LESSON_VIDEO_BYTES}
 									/>
 								{/if}
 							</div>{/if}
 					</section>
 					<section class="flex flex-col gap-2 pt-2.5">
-						{@render labelRow(sectionHeading('Links', data.links.length), 'link')}
+						{@render labelRow(sectionHeading(w.page.links, data.links.length), 'link')}
 						{#if data.canEdit}
 							{#if failure('saveVideo') ?? failure('retryVideo')}
 								<Banner kind="error">{failure('saveVideo') ?? failure('retryVideo')}</Banner>
@@ -1034,7 +1038,7 @@
 				<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
 				<div class="flex flex-col gap-2.5 pt-2.5">
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure')}
+						{@render labelRow(sectionHeading(w.full.figures, data.figures.length), 'figure')}
 						{#if data.figures.length > 0}
 							<ul class={GROUP}>
 								{#each data.figures as figure (figure.id)}
@@ -1060,7 +1064,7 @@
 						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine')}
+						{@render labelRow(sectionHeading(w.full.routines, data.routines.length), 'routine')}
 						{#if data.routines.length > 0}
 							<ul class={GROUP}>
 								{#each data.routines as routine (routine.id)}
@@ -1090,7 +1094,7 @@
 						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise')}
+						{@render labelRow(sectionHeading(w.full.exercises, data.exercises.length), 'exercise')}
 						{#if data.exercises.length > 0}
 							<ul class={GROUP}>
 								{#each data.exercises as exercise (exercise.id)}
@@ -1129,7 +1133,7 @@
 						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
-						{@render labelRow(sectionHeading('Positions', data.positions.length), 'position')}
+						{@render labelRow(sectionHeading(w.full.positions, data.positions.length), 'position')}
 						{#if data.positions.length > 0}
 							<ul class={GROUP}>
 								{#each data.positions as position (position.id)}
@@ -1190,14 +1194,15 @@
 			aria-busy={saving}
 			disabled={saving}
 		>
-			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+			{#if saving}<Spinner /><span class="sr-only">{w.full.saving}</span>{:else}{t().common
+					.save}{/if}
 		</button>
 	</BottomBar>
 {/if}
 
 <Dialog
 	open={deletingVideo !== null}
-	title="Delete this video?"
+	title={w.full.deleteVideo.title}
 	body={deleteVideoBody(deletingVideo?.sections ?? 0)}
 	icon="trash"
 	tone="danger"
@@ -1205,7 +1210,7 @@
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deletingVideo = null)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -1219,7 +1224,7 @@
 						if (result.type === 'failure' && id !== undefined) {
 							videoRefused = {
 								...videoRefused,
-								[id]: messageOf(result.data, 'That video could not be deleted.')
+								[id]: messageOf(result.data, t().lesson.full.deleteVideo.failed)
 							};
 							// Not on a stale page's refusal: the reload would be held back for good.
 							if (!staleFailure(result)) await invalidateAll();
@@ -1242,7 +1247,8 @@
 				aria-busy={deleteBusy}
 				disabled={deleteBusy}
 			>
-				{#if deleteBusy}<Spinner /><span class="sr-only">Deleting…</span>{:else}Delete{/if}
+				{#if deleteBusy}<Spinner /><span class="sr-only">{w.full.deleteVideo.busy}</span>{:else}{t()
+						.common.delete}{/if}
 			</button>
 		</form>
 	{/snippet}
@@ -1267,15 +1273,15 @@
 {#if data.add?.added || data.historyHref}
 	<Dialog
 		open={removing}
-		title="Remove from your lessons?"
-		body="What it put on Today goes, unless another lesson you have holds it. Your logs are kept."
+		title={w.full.remove.title}
+		body={w.full.remove.body}
 		icon="trash"
 		tone="danger"
 		onclose={() => (removing = false)}
 	>
 		{#snippet actions()}
 			<button type="button" class={button('tertiary', 'sm')} onclick={() => (removing = false)}
-				>Cancel</button
+				>{t().common.cancel}</button
 			>
 			<form
 				method="POST"
@@ -1307,7 +1313,8 @@
 					aria-busy={removeBusy}
 					disabled={removeBusy}
 				>
-					{#if removeBusy}<Spinner /><span class="sr-only">Removing…</span>{:else}Remove{/if}
+					{#if removeBusy}<Spinner /><span class="sr-only">{w.full.remove.busy}</span>{:else}{t()
+							.common.remove}{/if}
 				</button>
 			</form>
 		{/snippet}
@@ -1316,17 +1323,15 @@
 
 <Dialog
 	open={archiving}
-	title="Archive this lesson?"
-	body={data.team
-		? 'The videos and links are kept.'
-		: 'Its review exercise goes too. The videos, links and history are kept.'}
+	title={w.full.archive.title}
+	body={data.team ? w.full.archive.team : w.full.archive.own}
 	icon="warning"
 	tone="danger"
 	onclose={() => (archiving = false)}
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -1339,7 +1344,7 @@
 					if (result.type === 'error') {
 						archiveBusy = false;
 						archiving = false;
-						archiveError = messageOf(result.error, 'That lesson could not be archived.');
+						archiveError = messageOf(result.error, t().lesson.full.archive.failed);
 						return;
 					}
 					if (result.type === 'redirect') {
@@ -1362,7 +1367,7 @@
 					}
 					if (result.type === 'failure') {
 						archiving = false;
-						archiveError = messageOf(result.data, 'That lesson could not be archived.');
+						archiveError = messageOf(result.data, t().lesson.full.archive.failed);
 					}
 				};
 			}}
@@ -1373,7 +1378,8 @@
 				aria-busy={archiveBusy}
 				disabled={archiveBusy}
 			>
-				{#if archiveBusy}<Spinner /><span class="sr-only">Archiving…</span>{:else}Archive{/if}
+				{#if archiveBusy}<Spinner /><span class="sr-only">{w.full.archive.busy}</span>{:else}{w.full
+						.archive.button}{/if}
 			</button>
 		</form>
 	{/snippet}
@@ -1391,7 +1397,7 @@
 				aria-label={ADD_LABEL[kind]}
 				aria-haspopup="dialog"
 				onclick={() => (kind === 'link' ? openAddLink() : openPicker(kind))}
-				><Icon name="plus" size={18} />Add</button
+				><Icon name="plus" size={18} />{t().common.add}</button
 			>
 		{/if}
 	</div>
@@ -1415,7 +1421,7 @@
 		<button
 			type="button"
 			aria-haspopup="dialog"
-			aria-label="Unlink {name}"
+			aria-label={w.full.unlinkOf(name)}
 			class={iconButton('bare', 'muted')}
 			onclick={() => {
 				viaFocus = listFocus(kind, id);
@@ -1431,7 +1437,7 @@
 	{:else}
 		<form method="POST" action={LINK[kind].unlink} class="flex" use:enhance={unlinkRow(kind, id)}>
 			<input type="hidden" name={LINK[kind].field} value={id} />
-			<button type="submit" aria-label="Unlink {name}" class={iconButton('bare', 'muted')}
+			<button type="submit" aria-label={w.full.unlinkOf(name)} class={iconButton('bare', 'muted')}
 				><Icon name="unlink" size={22} /></button
 			>
 		</form>
@@ -1455,13 +1461,13 @@
 
 	<Picker
 		open={picking === 'figure'}
-		title="Link a figure"
-		placeholder="Search figures"
+		title={w.pickers.figure.title}
+		placeholder={w.pickers.figure.search}
 		kind="link"
 		pending={inFlight}
-		groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
-		nothingLeft="There are no figures yet."
-		create={[{ key: 'variation', label: 'Figure' }]}
+		groups={[{ title: w.pickers.figure.group, entries: variationEntries(data.linkableFigures) }]}
+		nothingLeft={w.pickers.figure.none}
+		create={[{ key: 'variation', label: w.pickers.figure.figure }]}
 		{added}
 		message={picking === 'figure' ? pickMessage : null}
 		archived={picking === 'figure' ? archivedChoice('figure') : null}
@@ -1474,13 +1480,13 @@
 
 	<Picker
 		open={picking === 'routine'}
-		title="Link a routine"
-		placeholder="Search routines"
+		title={w.pickers.routine.title}
+		placeholder={w.pickers.routine.search}
 		kind="link"
 		pending={inFlight}
-		groups={[{ title: 'Routines', entries: routineRows(data.linkableRoutines) }]}
-		nothingLeft="There are no routines yet."
-		create={[{ key: 'routine', label: 'Routine' }]}
+		groups={[{ title: w.pickers.routine.group, entries: routineRows(data.linkableRoutines) }]}
+		nothingLeft={w.pickers.routine.none}
+		create={[{ key: 'routine', label: w.pickers.routine.create }]}
 		{added}
 		message={picking === 'routine' ? pickMessage : null}
 		archived={picking === 'routine' ? archivedChoice('routine') : null}
@@ -1493,13 +1499,13 @@
 
 	<Picker
 		open={picking === 'exercise'}
-		title="Link an exercise"
-		placeholder="Search exercises"
+		title={w.pickers.exercise.title}
+		placeholder={w.pickers.exercise.search}
 		kind="link"
 		pending={inFlight}
 		groups={exerciseGroups(data.linkableExercises)}
-		nothingLeft="Nothing left to link. A figure’s or routine’s exercise lives under it."
-		create={[{ key: 'exercise', label: 'Exercise' }]}
+		nothingLeft={w.pickers.exercise.none}
+		create={[{ key: 'exercise', label: w.pickers.exercise.create }]}
 		{added}
 		message={picking === 'exercise' ? pickMessage : null}
 		archived={picking === 'exercise' ? archivedChoice('exercise') : null}
@@ -1512,13 +1518,13 @@
 
 	<Picker
 		open={picking === 'position'}
-		title="Link a position"
-		placeholder="Search positions"
+		title={w.pickers.position.title}
+		placeholder={w.pickers.position.search}
 		kind="link"
 		pending={inFlight}
 		groups={positionPickGroups(data.linkablePositions, styleLabel)}
-		nothingLeft="There are no positions yet."
-		create={[{ key: 'position', label: 'Position' }]}
+		nothingLeft={w.pickers.position.none}
+		create={[{ key: 'position', label: w.pickers.position.create }]}
 		{added}
 		message={picking === 'position' ? pickMessage : null}
 		onpick={(row) => link('position', row, false)}
@@ -1530,7 +1536,7 @@
 {/if}
 
 {#if data.canEdit}
-	<Sheet title="New figure" open={addingFigure} onclose={() => (addingFigure = false)}>
+	<Sheet title={w.create.figure.title} open={addingFigure} onclose={() => (addingFigure = false)}>
 		<!-- One form: a picked move posts `newVariation`, a new one `newFigure` (the move made with it).
 		     `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
 		<form
@@ -1539,25 +1545,29 @@
 			action={newMove ? '?/newFigure' : '?/newVariation'}
 			novalidate
 			class="flex flex-col gap-3"
-			use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
+			use:guarded={{ label: w.create.figure.title, submit: closeFigureSheet }}
 		>
 			{#if figureBanner}<Banner kind="error">{figureBanner}</Banner>{/if}
 			<div>
 				<PickerField
 					name="groupId"
-					label="Move"
-					placeholder="Choose or type a move…"
-					title="Choose a move"
-					search="Search or name a new move"
+					label={t().picker.moveField.label}
+					placeholder={t().picker.moveField.placeholder}
+					title={t().picker.moveField.title}
+					search={t().picker.moveField.search}
 					groups={variationGroups}
-					nothingLeft="There are no moves yet. Type a name to make one."
+					nothingLeft={t().picker.moveField.none}
 					bind:value={variationOf}
 					bind:newName={newMove}
-					create={{ label: 'Move', tag: 'New move', name: 'figureName' }}
+					create={{
+						label: t().picker.moveField.label,
+						tag: t().picker.moveField.tag,
+						name: 'figureName'
+					}}
 					required
 					error={moveError}
 				/>
-				<p class="mt-1.5 pl-1 text-[13px] text-muted">Moves in this lesson come first</p>
+				<p class="mt-1.5 pl-1 text-[13px] text-muted">{w.create.figure.first}</p>
 			</div>
 			<FigureFields
 				dance={data.dance}
@@ -1575,20 +1585,25 @@
 				form="lesson-new-figure"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Adding' : undefined}
+				aria-label={busy ? w.create.figure.busy : undefined}
 			>
-				{#if busy}<Spinner />{:else}Add figure{/if}
+				{#if busy}<Spinner />{:else}{w.create.figure.add}{/if}
 			</button>
 		{/snippet}
 	</Sheet>
 
 	<Sheet
-		title="New routine from this lesson"
-		sub="Linked here, then opened to build its slots"
+		title={w.create.routine.title}
+		sub={w.create.routine.sub}
 		open={addingRoutine}
 		onclose={() => (addingRoutine = false)}
 	>
-		{@render createFields('lesson-new-routine', '?/newRoutine', 'New routine', 'newRoutine')}
+		{@render createFields(
+			'lesson-new-routine',
+			'?/newRoutine',
+			w.create.routine.label,
+			'newRoutine'
+		)}
 		{#snippet footer()}
 			{@const busy = creatingBusy === 'routine'}
 			<button
@@ -1596,19 +1611,24 @@
 				form="lesson-new-routine"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Adding routine' : undefined}
+				aria-label={busy ? w.create.routine.busy : undefined}
 			>
-				{#if busy}<Spinner />{:else}Add routine and build it{/if}
+				{#if busy}<Spinner />{:else}{w.create.routine.add}{/if}
 			</button>
 		{/snippet}
 	</Sheet>
 
 	<Sheet
-		title="New exercise from this lesson"
+		title={w.create.exercise.title}
 		open={addingExercise}
 		onclose={() => (addingExercise = false)}
 	>
-		{@render createFields('lesson-new-exercise', '?/newExercise', 'New exercise', 'newExercise')}
+		{@render createFields(
+			'lesson-new-exercise',
+			'?/newExercise',
+			w.create.exercise.label,
+			'newExercise'
+		)}
 		{#snippet footer()}
 			{@const busy = creatingBusy === 'exercise'}
 			<button
@@ -1616,9 +1636,9 @@
 				form="lesson-new-exercise"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Adding exercise' : undefined}
+				aria-label={busy ? w.create.exercise.busy : undefined}
 			>
-				{#if busy}<Spinner />{:else}Add exercise{/if}
+				{#if busy}<Spinner />{:else}{w.create.exercise.add}{/if}
 			</button>
 		{/snippet}
 	</Sheet>
@@ -1662,7 +1682,7 @@
 	>
 		{#if bannerOf(kind)}<Banner kind="error">{bannerOf(kind)}</Banner>{/if}
 		<div>
-			<label class={LABEL} for="{id}-name">Name</label>
+			<label class={LABEL} for="{id}-name">{w.create.name}</label>
 			<input
 				id="{id}-name"
 				name="name"
@@ -1677,7 +1697,8 @@
 		</div>
 		<div>
 			<label class={LABEL} for="{id}-notes"
-				>Notes<span class="font-medium text-muted">&nbsp;(optional)</span></label
+				>{w.create.notes}<span class="font-medium text-muted">&nbsp;{w.create.optional}</span
+				></label
 			>
 			<textarea
 				id="{id}-notes"

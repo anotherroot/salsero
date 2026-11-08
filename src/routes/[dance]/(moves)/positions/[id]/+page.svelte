@@ -33,6 +33,7 @@
 	import { cloneSubtitle } from '$lib/clones/view';
 	import { viaBadge } from '$lib/lessons/page';
 	import { focusAfterRemoval, focusKeyed } from '$lib/focus';
+	import { t } from '$lib/i18n/catalog';
 	import { spotLabel } from '$lib/video/spots';
 	import type { PickRow } from '$lib/picker/model';
 	import type { SectionVideo, Spot, ViaSection } from '$lib/types';
@@ -55,7 +56,7 @@
 		spotPickGroups,
 		ARCHIVED,
 		BUSY,
-		MAKE_MINE_NOTE,
+		makeMineNote,
 		deadEnd,
 		editTitle,
 		holdChips,
@@ -144,7 +145,7 @@
 		focusKeyed('edit-position');
 	}
 	function stopEditing() {
-		leaveOrAsk(editArea ?? null, () => void finishEditing(), 'Stop editing');
+		leaveOrAsk(editArea ?? null, () => void finishEditing(), t().figure.edit.stop);
 	}
 	// Another position opened in this pane (the same route): leave edit mode for it.
 	const positionId = $derived(position.id);
@@ -262,16 +263,21 @@
 	compact
 	width="two"
 	title={position.name}
-	subtitle={editing === 'pane' ? 'Editing' : subtitle}
+	subtitle={editing === 'pane' ? t().positions.page.editing : subtitle}
 >
 	{#snippet left()}
 		{#if editing === 'pane'}
-			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
+			<BandButton
+				focusKey="stop-editing"
+				icon="close"
+				label={t().figure.edit.stop}
+				onclick={stopEditing}
+			/>
 		{:else}
 			<BackButton
 				fallback={{
 					href: resolve('/[dance]/(moves)/positions', { dance: slug }),
-					label: 'Back to Positions'
+					label: t().shell.backTo(t().moves.segments.positions)
 				}}
 			/>
 		{/if}
@@ -414,14 +420,14 @@
 	{/if}
 
 	<!-- The position's own facts: its type, the hold, the notes. -->
-	<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
+	<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label={t().figure.facts}>
 		<div class="flex flex-wrap gap-1.5">
 			<Badge tone="accent">{styleLabel(position.styleTag)}</Badge>
 		</div>
 		{#if chips.length > 0}
 			<div class="flex flex-col gap-1.5">
-				<span class="text-[13px] font-bold text-muted">Hold</span>
-				<ul class="flex flex-wrap gap-1.5" aria-label="Hold">
+				<span class="text-[13px] font-bold text-muted">{t().positions.page.hold}</span>
+				<ul class="flex flex-wrap gap-1.5" aria-label={t().positions.page.hold}>
 					{#each chips as chip (chip)}
 						<li><Badge>{chip}</Badge></li>
 					{/each}
@@ -616,9 +622,9 @@
 			class={button('secondary', 'md', true)}
 			aria-haspopup="dialog"
 			aria-describedby="make-mine-note"
-			onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
+			onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />{t().common.edit}</button
 		>
-		<p id="make-mine-note" class="mt-2 text-center text-[13px] text-muted">{MAKE_MINE_NOTE}</p>
+		<p id="make-mine-note" class="mt-2 text-center text-[13px] text-muted">{makeMineNote()}</p>
 	</BottomBar>
 	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
