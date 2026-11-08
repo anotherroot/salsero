@@ -89,3 +89,81 @@ describe("Today's popup", () => {
 		expect(popup?.[1]).toMatch(/!desk\.current\b/);
 	});
 });
+
+/*
+ * The Done sheet is drawn by the exercise page (`?/done`) and by a past day (Today's
+ * `/{dance}?/done`, from the (today) layout's list or page): it posts where it is
+ * told, and a refusal from another route reaches it through the submit result. A
+ * face tap saves, so the page and the layout's day count the save before the
+ * caller leaves.
+ */
+const DONE = 'src/lib/components/exercises/DoneSheet.svelte';
+const SAVED_TOAST = 'src/lib/components/exercises/SavedToast.svelte';
+
+describe('The Done sheet', () => {
+	it('posts to its action prop, never to a bare action', () => {
+		const src = readFileSync(DONE, 'utf8');
+		expect(src).toMatch(/<form\b[^>]*\smethod="POST"[^>]*\s\{action\}/);
+		expect(src).not.toMatch(/action="\?\//);
+	});
+
+	it('is a guarded form, dirty by its note alone', () => {
+		const src = readFileSync(DONE, 'utf8');
+		expect(src).toMatch(/use:guarded=\{\{/);
+		expect(src).not.toMatch(/use:enhance/);
+		expect(src).toMatch(/dirty: \(\) => note !== noteAtOpen/);
+	});
+
+	it('reads its refusal from the submit result, not the page form', () => {
+		const src = readFileSync(DONE, 'utf8');
+		expect(src).toMatch(/result\.type === 'failure'/);
+		expect(src).not.toMatch(/\bpage\.form\b/);
+		expect(src).toMatch(/<Banner kind="error" title=\{refusal\}/);
+	});
+
+	it('counts the save on the page before it hands the result on', () => {
+		const src = readFileSync(DONE, 'utf8');
+		expect(src).toMatch(/await update\(\{ reset: false \}\);\s*onsaved\(/);
+	});
+
+	it('reads the time at the tap, and posts none without one', () => {
+		const src = readFileSync(DONE, 'utf8');
+		expect(src).toMatch(/if \(seconds !== null\) formData\.set\('durationS'/);
+		expect(src).not.toMatch(/name="durationS"/);
+	});
+});
+
+describe('The saved toast', () => {
+	it("Undo posts Today's undoDone through actAt", () => {
+		const src = readFileSync(SAVED_TOAST, 'utf8');
+		expect(src).toMatch(/actAt\(`\/\$\{s\.dance\}`, 'undoDone', \{/);
+		expect(src).toContain('refusalMessage(result, t().today.refused.undo)');
+	});
+
+	it('is mounted once, by the dance layout', () => {
+		const src = readFileSync('src/routes/[dance]/+layout.svelte', 'utf8');
+		expect(src.match(/<SavedToast\b/g)?.length).toBe(1);
+	});
+
+	it('the player announces the save before it leaves', () => {
+		const src = readFileSync('src/routes/[dance]/player/+page.svelte', 'utf8');
+		const fn = src.match(/async function saved\([^)]*\)[^{]*\{([\s\S]*?)\n\t\}/)?.[1] ?? '';
+		expect(fn).toMatch(
+			/announceSaved\(\{[\s\S]*savedMessage\(r\.backDays \?\? 1\)[\s\S]*\}\);[\s\S]*leaveRun\(\)/
+		);
+	});
+});
+
+describe('Close, then go', () => {
+	it('gotoWhenSettled and backWhenSettled share whenSettled', () => {
+		const history = readFileSync('src/lib/sheets/history.svelte.ts', 'utf8');
+		const trail = readFileSync('src/lib/nav/trail.svelte.ts', 'utf8');
+		expect(history).toMatch(/export function whenSettled\(fn: \(\) => void\): void/);
+		expect(history.match(/export function gotoWhenSettled[\s\S]*?\n\}/)?.[0]).toMatch(
+			/whenSettled\(\(\) =>/
+		);
+		expect(trail.match(/export function backWhenSettled[\s\S]*?\n\}/)?.[0]).toMatch(
+			/whenSettled\(\(\) =>[\s\S]*goBack\(fallback\)/
+		);
+	});
+});

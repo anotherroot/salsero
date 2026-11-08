@@ -15,6 +15,9 @@
 	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import { exerciseLine, runSubtitle, runSummary } from '$lib/player/view';
+	import { announceSaved } from '$lib/exercises/saved.svelte';
+	import { savedMessage } from '$lib/exercises/done-view';
+	import type { DoneResult } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
@@ -261,8 +264,16 @@
 		await leaveRun();
 	}
 
-	/** Save this run logged the run: however it ended, leave as the band's back would. */
-	async function saved() {
+	/**
+	 * Save this run logged the run: however it ended, leave as the band's back
+	 * would, with "Saved · back in 12 days · Undo" on the screen it lands on.
+	 */
+	async function saved(r: DoneResult) {
+		announceSaved({
+			dance: data.dance.slug,
+			message: savedMessage(r.backDays ?? 1),
+			undo: { setId: r.setId, before: r.before }
+		});
 		leaving = false;
 		mode = 'setup';
 		await leaveRun();

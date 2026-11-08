@@ -220,7 +220,9 @@ export const exercise = {
 		added: (day: string): string => `Added to ${day}`,
 		/** The pinned button once the exercise has today's entry. */
 		doneToday: 'Done today',
-		stopFirst: 'Stop the count first.'
+		stopFirst: 'Stop the count first.',
+		/** Under the Done sheet's faces: no button, a face saves. */
+		tapFace: 'Tap a face to save it'
 	},
 	/** What a refused log or page action says. */
 	refused: {

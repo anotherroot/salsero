@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Face from './Face.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { FEEL_TONE, faceColumns } from '$lib/exercises/face-view';
 	import { RATING_OF, type Feel } from '$lib/schedule/feel';
@@ -39,7 +40,9 @@
 	<input type="hidden" name="rating" value={value === null ? '' : RATING_OF[value]} />
 	<div class="grid grid-cols-4 gap-1.5">
 		{#each columns as c (c.feel)}
-			{@const on = value === c.feel}
+			<!-- While a face saves it is the one lit, with a spinner for its time; the others dim. -->
+			{@const on = busy === null ? value === c.feel : busy === c.feel}
+			{@const dim = busy === null ? value !== null : busy !== c.feel}
 			{@const tone = FEEL_TONE[c.feel]}
 			<!-- Three fixed rows (face, word, time): the faces sit level however the words wrap. -->
 			<button
@@ -52,17 +55,21 @@
 					? 'grid-rows-[auto_2.5em_2.6em]'
 					: 'grid-rows-[auto_2.5em_1.4em]'} justify-items-center gap-1 rounded-[14px] px-1 pt-3 pb-2 text-center ring-inset {tone.bg} {tone.text} {tone.ring} {on
 					? 'ring-[3px]'
-					: value === null
-						? 'ring-2'
-						: 'opacity-55 ring-2'}"
+					: dim
+						? 'opacity-55 ring-2'
+						: 'ring-2'} disabled:cursor-default"
 			>
 				<Face feel={c.feel} size={36} />
 				<span class="text-[13px] leading-[1.15] font-bold">{c.word}</span>
-				<span class="text-[12px] font-semibold text-ink-2"
-					>{c.time ?? ''}{#if c.learnt}<br /><span class="text-done"
-							>{t().exercise.done.learnt}</span
-						>{/if}</span
-				>
+				{#if busy === c.feel}
+					<span class="flex items-start justify-center text-ink-2"><Spinner size={16} /></span>
+				{:else}
+					<span class="text-[12px] font-semibold text-ink-2"
+						>{c.time ?? ''}{#if c.learnt}<br /><span class="text-done"
+								>{t().exercise.done.learnt}</span
+							>{/if}</span
+					>
+				{/if}
 			</button>
 		{/each}
 	</div>

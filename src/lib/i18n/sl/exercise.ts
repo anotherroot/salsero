@@ -200,7 +200,8 @@ export const exercise: Catalog['exercise'] = {
 		saved: (back) => `Shranjeno · ${back}`,
 		added: (day) => `Dodano za ${day}`,
 		doneToday: 'Opravljeno danes',
-		stopFirst: 'Najprej ustavite štetje.'
+		stopFirst: 'Najprej ustavite štetje.',
+		tapFace: 'Pritisnite obraz, da ga shranite'
 	},
 	refused: {
 		checkValues: 'Preverite vrednosti in poskusite znova.',
