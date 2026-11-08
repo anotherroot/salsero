@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { getDance } from '$lib/dances/dances';
 import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
-import type { CountTakeRow } from '$lib/types';
+import type { CountTakeRow, RunClip, RunDetails } from '$lib/types';
 import {
+	aboutPreview,
+	hasDetails,
+	routinePreview,
+	runTitle,
+	voicePreview,
 	exercisePlayerHref,
 	playState,
 	practiceBack,
@@ -56,32 +61,6 @@ describe('what the Practice page derives', () => {
 		expect(setupSubtitle({ name: 'Uno', figureIds: [9] })).toBe('Uno · 1 figure');
 		expect(setupSubtitle(null)).toBeUndefined();
 	});
-	it('says what the run is running with', () => {
-		expect(
-			runSubtitle(
-				{ routine: 'Casino basics', song: true, speed: 0.9, bpm: null, clave: '3-2' },
-				salsa
-			)
-		).toBe('Casino basics · 0.9× · clave 3-2');
-		expect(
-			runSubtitle({ routine: null, song: false, speed: 1, bpm: 180, clave: '2-3' }, salsa)
-		).toBe('180 BPM · clave 2-3');
-		expect(
-			runSubtitle(
-				{ routine: 'Sensual flow', song: false, speed: 1, bpm: 128, clave: null },
-				bachata
-			)
-		).toBe('Sensual flow · 128 BPM');
-		expect(
-			runSubtitle(
-				{ routine: 'Sensual flow', song: false, speed: 1, bpm: 128, clave: '3-2' },
-				bachata
-			)
-		).toBe('Sensual flow · 128 BPM');
-		expect(
-			runSubtitle({ routine: null, song: true, speed: 1, bpm: null, clave: null }, salsa)
-		).toBeUndefined();
-	});
 	it('says why Play cannot start', () => {
 		const base = { source: 'song', songId: 4, ready: true, error: null, starting: false } as const;
 		expect(playState({ ...base, source: 'count', songId: null, ready: false })).toEqual({
@@ -125,11 +104,6 @@ describe('what the Practice page derives', () => {
 		expect(voiceKind(takes, 'all', 180)).toBe('Built-in');
 		expect(voiceKind(takes, 'salsa', 230)).toBe('Built-in');
 		expect(voiceKind(takes, 'salsa', null)).toBe('Built-in');
-	});
-	it('shows no number for a count run without a tempo', () => {
-		expect(
-			runSubtitle({ routine: null, song: false, speed: 1, bpm: null, clave: null }, salsa)
-		).toBeUndefined();
 	});
 	it('goes back where Practice was opened from', () => {
 		const p = { dance: 'salsa', from: null, routine: null, song: null, exercise: null } as const;
@@ -250,14 +224,6 @@ describe('the Practice page in Slovenian', () => {
 		);
 	});
 
-	it('writes a speed with a decimal comma', () => {
-		expect(
-			sl(() =>
-				runSubtitle({ routine: 'Prva', song: true, speed: 0.8, bpm: null, clave: '2-3' }, salsa)
-			)
-		).toBe('Prva · 0,8× · clave 2-3');
-	});
-
 	it('says why Play waits, whose voice counts, and where Back goes', () => {
 		expect(
 			sl(() =>
@@ -284,6 +250,127 @@ describe('the exercise page opens the player', () => {
 		);
 		expect(exercisePlayerHref('salsa', 7, 'from=run&skip=3,5', true)).toBe(
 			'/salsa/player?exercise=7&from=run&skip=3,5&play=1'
+		);
+	});
+});
+
+describe('the run in one player (B2)', () => {
+	const none: RunDetails = {
+		heading: 'Clave countind and clapping',
+		facts: [],
+		hasPositions: false,
+		notes: null,
+		clips: [],
+		links: []
+	};
+	const section = (n: number): RunClip => ({
+		kind: 'section',
+		src: '/lesson-videos/a.mp4',
+		startMs: n,
+		endMs: n + 1000,
+		caption: 'Nadaljevalna · 0:42–0:58'
+	});
+	const recording: RunClip = {
+		kind: 'recording',
+		src: '/recordings/r.mp4',
+		startMs: 0,
+		endMs: null,
+		caption: 'Recording'
+	};
+	const link = { url: 'https://youtu.be/x', title: 'Pa ti pa mi' };
+
+	it('has details only when there is something to read', () => {
+		expect(hasDetails(null)).toBe(false);
+		expect(hasDetails(none)).toBe(false);
+		expect(hasDetails({ ...none, facts: ['1 → 1 · 8 counts'] })).toBe(false);
+		expect(hasDetails({ ...none, notes: 'x' })).toBe(true);
+		expect(hasDetails({ ...none, hasPositions: true, facts: ['1 → 1', 'A → B'] })).toBe(true);
+		expect(hasDetails({ ...none, links: [link] })).toBe(true);
+		expect(hasDetails({ ...none, clips: [recording] })).toBe(true);
+	});
+
+	it('previews About: a description’s first line, else what is inside', () => {
+		const drill =
+			'Do 1 to 3 repetitions of salsa step the switch to son then back to salsa and so on';
+		expect(aboutPreview({ ...none, notes: drill })).toBe(drill);
+		expect(aboutPreview({ ...none, notes: '1. Basic on 1\n2. Son' })).toBe('1. Basic on 1');
+		expect(aboutPreview({ ...none, notes: 'x', clips: [section(0)], links: [link] })).toBe(
+			'Notes · a lesson section · a link'
+		);
+		expect(aboutPreview({ ...none, clips: [section(0), section(5), recording] })).toBe(
+			'2 lesson sections · a recording'
+		);
+		expect(aboutPreview({ ...none, hasPositions: true })).toBe('Positions');
+	});
+
+	it('previews Voice: the count and the volume, or Off', () => {
+		expect(voicePreview('salsa', 1)).toBe('1 2 3 · 5 6 7 · 100%');
+		expect(voicePreview('son', 0.55)).toBe('2 3 4 · 6 7 8 · 55%');
+		expect(voicePreview('off', 0.5)).toBe('Off');
+	});
+
+	it('previews Routine: where the run is in Follow, how long it is in Still', () => {
+		expect(routinePreview(4, 16, 'follow')).toBe('5 of 16 · Follow');
+		expect(routinePreview(null, 16, 'follow')).toBe('1 of 16 · Follow');
+		expect(routinePreview(4, 16, 'still')).toBe('16 figures · Still');
+	});
+
+	it('titles the run: the exercise, else the routine, else the song, else Count only', () => {
+		expect(runTitle({ exercise: 'Warmup', routine: null, song: 'Suavemente' })).toBe('Warmup');
+		expect(runTitle({ exercise: null, routine: 'Learning pa ti', song: null })).toBe(
+			'Learning pa ti'
+		);
+		expect(runTitle({ exercise: null, routine: null, song: 'Suavemente' })).toBe('Suavemente');
+		expect(runTitle({ exercise: null, routine: null, song: null })).toBe('Count only');
+	});
+
+	it('subtitles the run: what it is, the song, the tempo as played, the clave', () => {
+		const base = {
+			kind: null,
+			songInTitle: false,
+			song: null,
+			bpm: null,
+			speed: 1,
+			clave: null
+		} as const;
+		expect(runSubtitle({ ...base, kind: 'figure', bpm: 130, clave: '2-3' }, salsa)).toBe(
+			'Figure · 130 BPM · clave 2-3'
+		);
+		expect(
+			runSubtitle(
+				{ ...base, kind: 'drill', song: { title: 'Suavemente', bpm: 125 }, speed: 0.8 },
+				salsa
+			)
+		).toBe('Drill · Suavemente · 100 BPM · 0.8×');
+		expect(
+			runSubtitle({ ...base, songInTitle: true, song: { title: 'Suavemente', bpm: 125 } }, salsa)
+		).toBe('125 BPM');
+		expect(
+			runSubtitle(
+				{ ...base, songInTitle: true, song: { title: 'X', bpm: null }, speed: 0.9 },
+				salsa
+			)
+		).toBe('0.9×');
+		expect(runSubtitle({ ...base, kind: 'routine', bpm: 128, clave: '3-2' }, bachata)).toBe(
+			'Routine · 128 BPM'
+		);
+		expect(runSubtitle(base, salsa)).toBeUndefined();
+	});
+
+	it('words it all in Slovenian', () => {
+		const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+		expect(sl(() => routinePreview(4, 16, 'follow'))).toBe('5 od 16 · Sledi');
+		expect(sl(() => runTitle({ exercise: null, routine: null, song: null }))).toBe('Samo štetje');
+		expect(
+			sl(() =>
+				runSubtitle(
+					{ kind: 'drill', songInTitle: false, song: null, bpm: 130, speed: 1, clave: '2-3' },
+					salsa
+				)
+			)
+		).toBe('Vaja · 130 BPM · clave 2-3');
+		expect(sl(() => aboutPreview({ ...none, notes: 'x', links: [link, link] }))).toBe(
+			'Zapiski · 2 povezavi'
 		);
 	});
 });

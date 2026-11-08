@@ -6,10 +6,10 @@
  */
 import type { Dance, DanceSlug } from '$lib/dances/dances';
 import { t } from '$lib/i18n/catalog';
-import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
+import { COUNT_PATTERN_LABEL, type ClavePattern, type CountPattern, type Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-import type { CountTakeRow } from '$lib/types';
+import type { CountTakeRow, RunDetails } from '$lib/types';
 
 /** The count's disc in px: smaller when a song or a routine shares the screen. */
 export function stageSize(hasSong: boolean, hasRoutine: boolean): number {
@@ -115,27 +115,82 @@ export function setupSubtitle(
 
 export function runSubtitle(
 	r: {
-		routine: string | null;
-		song: boolean;
-		speed: Speed;
+		/** What the run is for; null without an exercise. */
+		kind: 'figure' | 'drill' | 'routine' | null;
+		/** The song's title is already the band's title (no exercise). */
+		songInTitle: boolean;
+		song: { title: string; bpm: number | null } | null;
+		/** The count-only tempo. */
 		bpm: number | null;
+		speed: Speed;
 		clave: ClavePattern | null;
 	},
 	dance: Dance
 ): string | undefined {
 	const panel = t().exercise.panel;
+	const w = t().player;
+	const tempo = r.song
+		? r.song.bpm === null
+			? null
+			: w.bpm(Math.round(r.song.bpm * r.speed))
+		: r.bpm === null
+			? null
+			: w.bpm(r.bpm);
 	const parts = [
-		r.routine,
-		r.song
-			? r.speed === 1
-				? null
-				: panel.speed(r.speed)
-			: r.bpm === null
-				? null
-				: t().player.bpm(r.bpm),
+		r.kind ? w.kind[r.kind] : null,
+		r.song && !r.songInTitle ? r.song.title : null,
+		tempo,
+		r.song && r.speed !== 1 ? panel.speed(r.speed) : null,
 		dance.clave && r.clave ? panel.summaryClave(r.clave) : null
 	].filter((p): p is string => !!p);
 	return parts.length ? parts.join(' · ') : undefined;
+}
+
+/** The band's title: the exercise, else the routine, else the song, else Count only. */
+export function runTitle(p: {
+	exercise: string | null;
+	routine: string | null;
+	song: string | null;
+}): string {
+	return p.exercise ?? p.routine ?? p.song ?? t().exercise.panel.countOnly;
+}
+
+/** Whether there is an About: notes, a clip, a link or positions. Timing alone is not (every figure has it). */
+export function hasDetails(d: RunDetails | null): d is RunDetails {
+	return !!d && (!!d.notes || d.clips.length > 0 || d.links.length > 0 || d.hasPositions);
+}
+
+/** About's line: a description alone shows its first line; else what is inside. */
+export function aboutPreview(d: RunDetails): string {
+	const w = t().player;
+	const sections = d.clips.filter((c) => c.kind === 'section').length;
+	const recordings = d.clips.length - sections;
+	if (d.notes && sections + recordings + d.links.length === 0 && !d.hasPositions) {
+		return d.notes.split('\n')[0].trim();
+	}
+	return [
+		d.notes ? w.aboutNotes : null,
+		d.hasPositions ? w.aboutPositions : null,
+		sections ? w.aboutSections(sections) : null,
+		recordings ? w.aboutRecordings(recordings) : null,
+		d.links.length ? w.aboutLinks(d.links.length) : null
+	]
+		.filter((p): p is string => !!p)
+		.join(' · ');
+}
+
+/** Voice's line: the count and the volume ("1 2 3 · 5 6 7 · 100%"), or Off. */
+export function voicePreview(count: CountPattern, volume: number): string {
+	if (count === 'off') return t().exercise.panel.off;
+	return `${COUNT_PATTERN_LABEL[count]} · ${Math.round(volume * 100)}%`;
+}
+
+/** Routine's line: "5 of 16 · Follow" (the first slot before the run's first figure), "16 figures · Still". */
+export function routinePreview(lit: number | null, total: number, view: RoutineView): string {
+	const w = t().player;
+	return view === 'follow'
+		? `${w.routinePlace((lit ?? 0) + 1, total)} · ${w.follow}`
+		: `${w.figures(total)} · ${w.still}`;
 }
 
 /** The Source switch's two options, shared by Setup and SourcePicker. */

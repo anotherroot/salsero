@@ -28,6 +28,24 @@ export const player: Catalog['player'] = {
 	or: 'ali',
 	showFull: 'Pokaži kombinacijo čez cel zaslon',
 	closeFull: 'Zapri kombinacijo čez cel zaslon',
+	kind: { figure: 'Različica', drill: 'Vaja', routine: 'Kombinacija' },
+	about: 'Podrobnosti',
+	aboutOf: (name) => `Podrobnosti: ${name}`,
+	aboutNotes: 'Zapiski',
+	aboutPositions: 'Položaji',
+	aboutSections: (n) =>
+		n === 1
+			? 'odsek iz lekcije'
+			: slCount(n, [
+					'odsek iz lekcije',
+					'odseka iz lekcije',
+					'odseki iz lekcije',
+					'odsekov iz lekcije'
+				]),
+	aboutRecordings: (n) =>
+		n === 1 ? 'posnetek' : slCount(n, ['posnetek', 'posnetka', 'posnetki', 'posnetkov']),
+	aboutLinks: (n) =>
+		n === 1 ? 'povezava' : slCount(n, ['povezava', 'povezavi', 'povezave', 'povezav']),
 	starting: 'Zaganjanje\u00a0…',
 	pickSongFirst: 'Najprej izberite skladbo.',
 	songFailed: 'Te skladbe ni bilo mogoče naložiti. Izberite drugo ali uporabite štetje.',

@@ -1250,3 +1250,30 @@ export type KeepView = {
 	editable: boolean;
 	mode: 'sync' | 'update' | null;
 };
+
+/** A video in the player's details: a linked section (its range loops) or a figure's own recording. */
+export interface RunClip {
+	kind: 'section' | 'recording';
+	src: string;
+	startMs: number;
+	endMs: number | null;
+	caption: string;
+}
+
+/**
+ * What the player's About shows for an exercise or a routine's figure, read-only
+ * (one-player design). Each part only when it has something; `hasDetails` in
+ * `$lib/player/view` decides whether there is an About at all.
+ */
+export interface RunDetails {
+	/** The exercise's name, or a figure's label ("Pa ti, pa mi · Basic"). */
+	heading: string;
+	/** A figure's timing, then its positions; [] for a drill. */
+	facts: string[];
+	hasPositions: boolean;
+	/** Trimmed; empty is null. */
+	notes: string | null;
+	/** Linked sections, then a figure's own video recordings. */
+	clips: RunClip[];
+	links: { url: string; title: string | null }[];
+}

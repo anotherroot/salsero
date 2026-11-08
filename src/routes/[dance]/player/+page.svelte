@@ -20,7 +20,8 @@
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import { runSubtitle, type RoutineView } from '$lib/player/view';
+	import { runSubtitle, runTitle, type RoutineView } from '$lib/player/view';
+	import { typeOf } from '$lib/exercises/kinds';
 	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
@@ -256,6 +257,13 @@
 		mode = 'running';
 	}
 
+	/** What the run is for, first in the band's subtitle: a lesson's review is none of the three. */
+	const runKind = $derived.by(() => {
+		if (!data.exercise) return data.routine ? ('routine' as const) : null;
+		const type = typeOf(data.exercise.source);
+		return type === 'lesson' ? null : type;
+	});
+
 	let setup: ReturnType<typeof Setup> | undefined = $state();
 
 	/*
@@ -388,11 +396,19 @@
 			}}
 			onstop={handleStop}
 			onvolume={(v) => savePhonePractice(data.dance.slug, { voiceVolume: v })}
-			title={runningSong?.title ?? t().player.title}
+			title={runTitle({
+				exercise: data.exercise?.name ?? null,
+				routine: data.routine?.name ?? null,
+				song: runningSong?.title ?? null
+			})}
 			subtitle={runSubtitle(
 				{
-					routine: data.routine?.name ?? null,
-					song: !!runningSong,
+					kind: runKind,
+					songInTitle: !data.exercise && !data.routine,
+					song: runningSong && {
+						title: runningSong.title,
+						bpm: data.songs.find((x) => x.id === runningSong?.id)?.bpm ?? null
+					},
 					speed,
 					bpm: runningBpm,
 					clave: runToggles?.clave ?? null
