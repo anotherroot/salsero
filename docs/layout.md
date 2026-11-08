@@ -524,7 +524,8 @@ src/lib/server/server-clock.ts  `serverNow()`: the one clock server code reads.
 src/lib/sync/        PURE, client-safe, shared by the server, the device and the service worker:
                      tables.ts (`SYNCED`: table → key columns; `NEVER_SYNCED`; every schema table
                      in exactly one), triggers.ts (`triggerSql`: the change-log triggers;
-                     scripts/sync-triggers.ts writes migration 0041 from it), digest.ts (`keyString`,
+                     `scripts/sync-triggers.ts <table>…` writes them for a NEW custom migration
+                     when a table is newly synced; 0041 is frozen), digest.ts (`keyString`,
                      `digestInput`), wire.ts (the pull's request and answer), schema-tag.ts (`SCHEMA_TAG`)
 src/lib/server/sync/  log.ts (`change_log`: head, oldest, `changedSince`, the 30-day prune in
                      `startTrashPurge`), scope.ts (`syncScope`: every row a person may read,

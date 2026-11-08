@@ -32,9 +32,12 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   `server-clock.spec.ts` scans for it. Pure modules still take `now` as an
   argument.
 - **Every table is classified for sync** in `src/lib/sync/tables.ts`: synced
-  (with its key columns) or never synced. A synced table gets the four
-  change-log triggers in a migration written by `scripts/sync-triggers.ts`;
-  `tables.spec.ts` checks both, and fails on an unclassified table.
+  (with its key columns) or never synced; `tables.spec.ts` fails on an
+  unclassified table. A table newly synced gets its four change-log triggers
+  in a NEW custom migration (`npx drizzle-kit generate --custom`, filled by
+  `node scripts/sync-triggers.ts <table>`); never edit an applied migration:
+  production never runs 0041 again. `tables.spec.ts` freezes 0041's tables,
+  and `log.spec.ts` fails until every synced table has its triggers.
 - **No row leaves the server outside `syncScope`**
   (`src/lib/server/sync/scope.ts`): what a person may read, row by row, as
   `access.ts` decides, redacted where the server shows less (other people's

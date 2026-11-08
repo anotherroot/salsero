@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { openDb } from '../db';
 import { changeLog, lessonFigures, sets } from '../db/schema';
 import { SYNCED } from '$lib/sync/tables';
+import { triggerSql } from '$lib/sync/triggers';
 import { changedSince, LOG_KEEP_MS, logHead, logOldest, pruneChangeLog } from './log';
 
 const DAY = 24 * 3600_000;
@@ -29,6 +30,25 @@ describe('change log', () => {
 					.map((s) => `${t}_log_${s}`)
 					.sort()
 			);
+		}
+	});
+
+	it("every synced table's triggers, after all migrations, are triggerSql's for its key", () => {
+		// A table synced after 0041 passes only through a new migration (scripts/sync-triggers.ts <table>).
+		const db = fresh();
+		const live = new Map(
+			db
+				.all<{ name: string; sql: string }>(
+					sql`SELECT name, sql FROM sqlite_master WHERE type = 'trigger'`
+				)
+				.map((r) => [r.name, r.sql.trim().replace(/;$/, '')])
+		);
+		for (const [t, key] of Object.entries(SYNCED)) {
+			for (const stmt of triggerSql(t, key).split('--> statement-breakpoint')) {
+				const want = stmt.trim().replace(/;$/, '');
+				const name = /^CREATE TRIGGER (\S+)/.exec(want)![1];
+				expect(live.get(name), name).toBe(want);
+			}
 		}
 	});
 
