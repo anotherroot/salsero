@@ -12,9 +12,10 @@
 	import { GROUP, ROW, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { clockLabel } from '$lib/clock';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
-	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
-	import { LEVEL_WORDS, fewSettings, levelShown, type Level } from '$lib/levels/levels';
+	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
+	import { fewSettings, levelShown, levelWords, type Level } from '$lib/levels/levels';
 	import { myCountHref } from '$lib/voice/back';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { YouSettingsData } from '$lib/types';
 
@@ -46,7 +47,8 @@
 	let toast = $state<ToastState | null>(null);
 	let seq = 0;
 
-	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
+	const w = $derived(t().settings);
+	const themeOptions = $derived(THEME_CHOICES.map((c) => ({ value: c, label: themeLabel(c) })));
 
 	/** The reminder as saved: the switch and the time. */
 	const seed = () => ({
@@ -66,7 +68,7 @@
 	let daily = $state(settings.dailyCount);
 
 	function failed(result: ActionResult) {
-		const message = refusalMessage(result, 'Could not save.');
+		const message = refusalMessage(result, t().settings.couldNotSave);
 		if (message === null) return false;
 		toast = { id: ++seq, message };
 		return true;
@@ -76,7 +78,7 @@
 	async function save(name: string, fields: Record<string, string | number>): Promise<boolean> {
 		const result = await actAt('/settings', name, fields);
 		if (failed(result)) return false;
-		toast = { id: ++seq, message: 'Saved', icon: 'check', tone: 'done' };
+		toast = { id: ++seq, message: t().settings.saved, icon: 'check', tone: 'done' };
 		return true;
 	}
 
@@ -111,12 +113,14 @@
 		'flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left';
 </script>
 
-<section class="contents" aria-label={heading ? undefined : 'Settings'}>
-	{#if heading}<h2 class="{SECTION_LABEL} mt-[14px]">Settings</h2>{/if}
+<section class="contents" aria-label={heading ? undefined : t().shell.settings}>
+	{#if heading}<h2 class="{SECTION_LABEL} mt-[14px]">{t().shell.settings}</h2>{/if}
 	<div class={GROUP}>
 		<button type="button" class={CHOICE_ROW} onclick={() => (sheet = 'level')}>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">How much app?</span>
-			<span class="truncate text-[15px] font-semibold text-muted">{LEVEL_WORDS[level].title}</span>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
+				>{t().entry.firstRun.level.title}</span
+			>
+			<span class="truncate text-[15px] font-semibold text-muted">{levelWords(level).title}</span>
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</button>
 		<div class="min-h-[58px] py-2 pr-3.5 pl-4">
@@ -124,9 +128,9 @@
 				bind:value={daily}
 				min={1}
 				max={30}
-				label="Exercises a day"
-				minusLabel="Fewer"
-				plusLabel="More"
+				label={w.practice.perDay}
+				minusLabel={w.practice.fewer}
+				plusLabel={w.practice.more}
 				onchange={(count) => void saveDaily(count)}
 			/>
 		</div>
@@ -135,25 +139,25 @@
 			<a href={myCountHref(from)} class={ROW_TALL}>
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-[16px] font-bold text-ink">My count</span>
+					<span class="text-[16px] font-bold text-ink">{t().shell.lists.myCount}</span>
 					<span class="text-[13px] text-muted">{settings.ownVoice}</span>
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
 		{/if}
 		<button type="button" class={CHOICE_ROW} onclick={() => (sheet = 'theme')}>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Theme</span>
-			<span class="text-[15px] font-semibold text-muted">{THEME_LABEL[theme]}</span>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{w.appearance.theme}</span>
+			<span class="text-[15px] font-semibold text-muted">{themeLabel(theme)}</span>
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</button>
 		<div class="{ROW} pr-1.5">
 			<LeadTile icon="bell" />
 			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-[16px] font-bold text-ink">Daily reminder</span>
-				<span class="text-[13px] text-muted">In the Android app</span>
+				<span class="text-[16px] font-bold text-ink">{w.android.reminder}</span>
+				<span class="text-[13px] text-muted">{w.you.inApp}</span>
 			</span>
 			<Switch
-				label="Daily reminder"
+				label={w.android.reminder}
 				checked={on}
 				onchange={(c) => {
 					on = c;
@@ -163,10 +167,10 @@
 		</div>
 		{#if on}
 			<div class="{ROW} min-h-[60px] pr-3.5">
-				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Time</span>
+				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{w.android.time}</span>
 				<input
 					type="time"
-					aria-label="Reminder time"
+					aria-label={w.android.reminderTime}
 					bind:value={time}
 					onchange={() => void saveReminder()}
 					class="h-11 w-28 min-w-24 flex-none rounded-full bg-field px-3 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums"
@@ -176,11 +180,16 @@
 	</div>
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 	<a href="/settings" class="{button('secondary', 'md', true)} mt-1">
-		<Icon name="settings" size={20} /> All settings
+		<Icon name="settings" size={20} />
+		{w.you.allSettings}
 	</a>
 </section>
 
-<Sheet title="How much app?" open={sheet === 'level'} onclose={() => (sheet = null)}>
+<Sheet
+	title={t().entry.firstRun.level.title}
+	open={sheet === 'level'}
+	onclose={() => (sheet = null)}
+>
 	<div class="pb-2">
 		<LevelCards value={settings.level} onpick={pickLevel} />
 	</div>
@@ -188,9 +197,9 @@
 
 <ChoiceSheet
 	open={sheet === 'theme'}
-	title="Theme"
-	intro="System follows the phone's or computer's own light or dark setting."
-	legend="Theme"
+	title={w.appearance.theme}
+	intro={w.appearance.themeIntro}
+	legend={w.appearance.theme}
 	options={themeOptions}
 	value={theme}
 	onpick={(choice) => {

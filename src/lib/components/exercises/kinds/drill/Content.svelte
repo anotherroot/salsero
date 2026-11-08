@@ -11,6 +11,7 @@
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
 	import { FIELD_ERROR, iconButton } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
@@ -43,14 +44,14 @@
 {#if content.type === 'drill'}
 	<div class="flex flex-col gap-3">
 		{#if content.notes}
-			{#if onPage}<h2 class={SECTION_HEAD}>Description</h2>{/if}
+			{#if onPage}<h2 class={SECTION_HEAD}>{t().exercise.content.description}</h2>{/if}
 			<LinkedText text={content.notes} class={PROSE} />
 		{/if}
 		{#if !onPage}
 			<LinkList links={content.links} />
 		{/if}
 		{#if onPage && (content.sections.length > 0 || editLinks)}
-			<h2 class={SECTION_HEAD}>Sections</h2>
+			<h2 class={SECTION_HEAD}>{t().exercise.content.sections}</h2>
 		{/if}
 		{#each content.sections as s (s.linkId)}
 			{#if editLinks}
@@ -66,7 +67,7 @@
 							<button
 								type="submit"
 								class={iconButton('bare', 'muted')}
-								aria-label="Unlink this section"
+								aria-label={t().exercise.content.unlinkSection}
 							>
 								<Icon name="close" size={20} />
 							</button>
@@ -85,10 +86,10 @@
 		{#if editLinks}
 			<PickerOpener
 				data-focus="section-add"
-				label="Link a section…"
+				label={t().exercise.content.linkSection}
 				onclick={() => (linking = true)}
 			/>
-			<h2 class={SECTION_HEAD}>Links</h2>
+			<h2 class={SECTION_HEAD}>{t().exercise.content.links}</h2>
 			<LinksEditor links={content.links} message={editLinks.message} entered={editLinks.entered} />
 			<LinkSectionSheet
 				open={linking}

@@ -1,6 +1,7 @@
 <!-- src/lib/components/ui/VideoPlayer.svelte -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { goto, pushState, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
@@ -153,13 +154,14 @@
 		onchoose,
 		onclose,
 		loopSpot,
-		title = 'Video',
+		title = t().video.untitled,
 		subtitle = '',
 		linking: linkingProp = false,
 		canEdit: canEditProp = true,
 		simple = false,
 		repeat = false
 	}: Props = $props();
+	const w = $derived(t().video);
 	/** The simple player marks and edits nothing, whoever the reader is. */
 	const canEdit = $derived(canEditProp && !simple);
 	/** A reader links nothing either. */
@@ -373,7 +375,7 @@
 	function say(text: string, tone: ToastTone, ...actions: ToastAction[]) {
 		toast = { text, tone, actions };
 		clearTimeout(toastTimer);
-		const long = actions.some((a) => a.label === 'Link');
+		const long = actions.some((a) => a.label === w.link);
 		toastTimer = setTimeout(() => (toast = null), long ? 6000 : 4000);
 	}
 	onMount(() => () => clearTimeout(toastTimer));
@@ -389,7 +391,7 @@
 	onMount(() => {
 		fetchSpots(owner).then(loaded, () => {
 			loadFailed = true;
-			say("Couldn't load spots", 'failed');
+			say(w.loadFailed, 'failed');
 		});
 	});
 
@@ -405,7 +407,7 @@
 			known.set(spot.id, spotSeen(spot));
 			return spot;
 		} catch {
-			say("Couldn't save", 'failed');
+			say(w.toast.saveFailed, 'failed');
 			return null;
 		}
 	}
@@ -414,11 +416,11 @@
 		const spot = await save({ startMs: msOf(video.currentTime), endMs: null, label: null });
 		if (spot)
 			say(
-				`Point saved at ${spotTime(spot.startMs)}`,
+				w.toast.pointSaved(spotTime(spot.startMs)),
 				'saved',
-				{ label: 'Edit', run: () => toEdit(spot) },
+				{ label: t().common.edit, run: () => toEdit(spot) },
 				// A point links positions (ruling 10).
-				...(linking ? [{ label: 'Link', run: () => openLink(spot.id) }] : [])
+				...(linking ? [{ label: w.link, run: () => openLink(spot.id) }] : [])
 			);
 	}
 
@@ -432,7 +434,7 @@
 			return;
 		}
 		if (now - pendingStart < MIN_SECTION_MS) {
-			say('Play on a little, then end the section', 'note');
+			say(w.toast.playOn, 'note');
 			return;
 		}
 		saving = true;
@@ -441,10 +443,10 @@
 			if (spot) {
 				pendingStart = null;
 				say(
-					`Section saved · ${lengthText(now - spot.startMs)}`,
+					w.toast.sectionSaved(lengthText(now - spot.startMs)),
 					'saved',
-					{ label: 'Edit', run: () => toEdit(spot) },
-					...(linking ? [{ label: 'Link', run: () => openLink(spot.id) }] : [])
+					{ label: t().common.edit, run: () => toEdit(spot) },
+					...(linking ? [{ label: w.link, run: () => openLink(spot.id) }] : [])
 				);
 			}
 		} finally {
@@ -483,7 +485,10 @@
 					return;
 				}
 				// Deleted since by someone else in the group: "Ana deleted this · 2 min ago".
-				say(e instanceof SpotsApiError && e.status === 410 ? e.message : "Couldn't save", 'failed');
+				say(
+					e instanceof SpotsApiError && e.status === 410 ? e.message : w.toast.saveFailed,
+					'failed'
+				);
 				await fetchSpots(owner).then(loaded, () => {});
 			}
 		});
@@ -593,7 +598,7 @@
 		const next = change(spot, diff(spot, times), how !== 'drag');
 		if (how === 'now') {
 			const at = edge === 'start' ? next.startMs : (next.endMs ?? next.startMs);
-			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`, 'note');
+			say(w.toast.edgeSet(edge, preciseTime(at)), 'note');
 		} else if (how === 'tenth' || how === 'drag') {
 			// A fine move is for looking: pause where the edge shows.
 			video.pause();
@@ -630,13 +635,14 @@
 			const { trashId } = await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			nav.jump([FULL]);
-			say(`Deleted ${spotLabel(spot)}`, 'deleted', {
-				label: 'Undo',
+			say(w.toast.deleted(spotLabel(spot)), 'deleted', {
+				label: t().common.undo,
 				run: () => undo(spot, trashId)
 			});
 		} catch (e) {
 			// A linked section: the server says what to unlink first.
-			sheetMessage = e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save";
+			sheetMessage =
+				e instanceof SpotsApiError && e.status === 409 ? e.message : w.toast.saveFailed;
 		} finally {
 			deleting = false;
 		}
@@ -658,7 +664,7 @@
 			await fetchSpots(owner).then(loaded);
 		} catch (e) {
 			say(
-				e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't restore",
+				e instanceof SpotsApiError && e.status === 409 ? e.message : w.toast.restoreFailed,
 				'failed'
 			);
 		}
@@ -700,9 +706,9 @@
 
 	function done() {
 		if (!openSpot) return;
-		const t = doneTarget(nav.stack, openSpot);
-		if (t === 'pop') nav.up();
-		else nav.replaceTop(t);
+		const target = doneTarget(nav.stack, openSpot);
+		if (target === 'pop') nav.up();
+		else nav.replaceTop(target);
 	}
 
 	function openSheet(kind: SheetKind) {
@@ -784,9 +790,7 @@
 		try {
 			spot = await postSpot(owner, { startMs: msOf(video.currentTime), endMs: null, label: null });
 		} catch (e) {
-			return e instanceof SpotsApiError && e.status < 500
-				? e.message
-				: 'Couldn’t save the point. Try it again.';
+			return e instanceof SpotsApiError && e.status < 500 ? e.message : w.toast.pointFailed;
 		}
 		spots = [...spots, spot];
 		known.set(spot.id, spotSeen(spot));
@@ -970,17 +974,17 @@
 	const faded = $derived(mode === 'overlay' && !shown);
 
 	/** The desktop's key legend; `?` opens the full list. */
-	const LEGEND: [string, string][] = [
-		['Space', 'play'],
-		['← →', '1 s'],
-		[', .', '0.1 s'],
-		['I O', 'start / end here'],
-		['[ ]', 'jump to start / end'],
-		['M', 'mark'],
-		['S', 'section'],
-		['L', 'loop'],
-		['?', 'all keys']
-	];
+	const LEGEND = $derived<[string, string][]>([
+		['Space', w.legend.play],
+		['← →', w.secs(1)],
+		[', .', w.secs(0.1)],
+		['I O', w.legend.edges],
+		['[ ]', w.legend.jump],
+		['M', w.legend.mark],
+		['S', w.legend.section],
+		['L', w.legend.loop],
+		['?', w.legend.all]
+	]);
 	/** A reader has no mark, section or edge keys. */
 	const legend = $derived(
 		simple
@@ -1107,20 +1111,18 @@
 		: iconOnly
 			? MARK_DESK_SQUARE
 			: MARK_DESK}
-	<button type="button" class={markClass} aria-label="Mark point" onclick={mark}>
-		<UiIcon name="flag" size={18} />{#if !iconOnly}Mark{/if}
+	<button type="button" class={markClass} aria-label={w.markPoint} onclick={mark}>
+		<UiIcon name="flag" size={18} />{#if !iconOnly}{w.mark}{/if}
 	</button>
 	<button
 		type="button"
 		class={pendingStart !== null ? SECTION_ON_DESK : markClass}
-		aria-label={pendingStart === null ? 'Start section' : 'End section'}
+		aria-label={pendingStart === null ? w.startSection : w.endSection}
 		onclick={section}
 	>
-		<UiIcon name="scissors" size={18} />{#if pendingStart !== null}{iconOnly
-				? ''
-				: 'End · '}{lengthText(
+		<UiIcon name="scissors" size={18} />{#if pendingStart !== null}{@const marked = lengthText(
 				Math.max(0, currentMs - pendingStart)
-			)}{:else if !iconOnly}Section{/if}
+			)}{iconOnly ? marked : w.endShort(marked)}{:else if !iconOnly}{w.section}{/if}
 	</button>
 {/snippet}
 
@@ -1154,7 +1156,7 @@
 				<span class="w-[92px]"></span>
 			{:else}
 				<button type="button" class={HIDE} onclick={() => setHidden(false)}>
-					<UiIcon name="chevron-up" size={18} />Show
+					<UiIcon name="chevron-up" size={18} />{w.show}
 				</button>
 			{/if}
 			<span class="flex-1"></span>
@@ -1185,7 +1187,7 @@
 
 <dialog
 	bind:this={dialog}
-	aria-label="Video"
+	aria-label={w.player}
 	class="player theme-media"
 	data-layout={layout}
 	oncancel={(e) => {
@@ -1289,14 +1291,14 @@
 			<VideoGestures
 				bind:view
 				natural={{ w: naturalW, h: naturalH }}
-				label={faded ? 'Show controls' : paused ? 'Play' : 'Pause'}
+				label={faded ? w.showControls : paused ? w.play : w.pause}
 				onsingle={tapVideo}
 				onjump={(side) => nudge(side === 'left' ? -1 : 1)}
 			>
 				{#if waiting && !faded}
 					<span
 						class="grid size-16 place-items-center rounded-full bg-black/55 text-white shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.35)]"
-						><span class="text-white"><Spinner size={30} label="Loading video" /></span></span
+						><span class="text-white"><Spinner size={30} label={w.loadingVideo} /></span></span
 					>
 				{:else if paused && !faded}
 					<span
@@ -1316,11 +1318,11 @@
 							: 'top-2.5'}"
 				>
 					<span class="text-white/80"><UiIcon name="search" size={15} /></span>
-					<span class="ml-1">Zoom {Math.round(view.scale * 10) / 10}×</span>
+					<span class="ml-1">{w.zoom(Math.round(view.scale * 10) / 10)}</span>
 					<button
 						type="button"
 						class="-my-1 h-11 cursor-pointer pr-3.5 pl-2.5 text-[13px] font-extrabold text-accent-text"
-						onclick={() => (view = NO_ZOOM)}>Reset</button
+						onclick={() => (view = NO_ZOOM)}>{w.resetZoom}</button
 					>
 				</span>
 			{/if}
@@ -1357,7 +1359,7 @@
 			>
 				{#if portraitPart === 'list'}
 					<section
-						aria-label="Sections and points"
+						aria-label={w.spots}
 						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(var(--safe-bottom),22px)]"
 					>
 						<SpotList
@@ -1405,7 +1407,7 @@
 							</span>
 							<span class="flex-1"></span>
 							<button type="button" class={HIDE} onclick={() => setHidden(true)}>
-								Hide<UiIcon name="chevron-down" size={18} />
+								{w.hide}<UiIcon name="chevron-down" size={18} />
 							</button>
 						</div>
 						<div class="px-5">{@render fullTimeline(false)}</div>
@@ -1415,7 +1417,7 @@
 						{#if canEdit}
 							<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
 								<button type="button" class={MARK_FILL} onclick={mark}>
-									<UiIcon name="flag" size={20} />Mark point
+									<UiIcon name="flag" size={20} />{w.markPoint}
 								</button>
 								<button
 									type="button"
@@ -1423,8 +1425,8 @@
 									onclick={section}
 								>
 									<UiIcon name="scissors" size={20} />{pendingStart === null
-										? 'Start section'
-										: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+										? w.startSection
+										: w.endSectionAt(lengthText(Math.max(0, currentMs - pendingStart)))}
 								</button>
 							</div>
 						{/if}

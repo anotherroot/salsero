@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DANCES } from '$lib/dances/dances';
+import { withLocale } from '$lib/i18n/current';
 import {
 	practiceOf,
 	practiceToPost,
@@ -181,6 +182,54 @@ describe('practiceStart', () => {
 			songId: null,
 			songGone: true
 		});
+	});
+});
+
+// The panel's collapsed line in Slovenian: the count stays Spanish digits, the speed a comma.
+describe('practiceSummary in Slovenian', () => {
+	const summary = (p: Parameters<typeof practiceSummary>[0]) =>
+		withLocale('sl', () => practiceSummary(p, salsa));
+
+	it('names the tempo, the count and the clave', () => {
+		expect(
+			summary({
+				mode: 'count',
+				bpm: 180,
+				songTitle: null,
+				config: { count: 'son', clave: '2-3', speed: 1, callEvery: null }
+			})
+		).toBe('Štetje 180 · 2 3 4 · 6 7 8 · clave 2-3');
+	});
+	it('names the song, a slowed speed with a comma, and the call', () => {
+		expect(
+			summary({
+				mode: 'song',
+				bpm: 180,
+				songTitle: 'El Cantante',
+				config: { count: 'salsa', clave: null, speed: 0.8, callEvery: 2 }
+			})
+		).toBe('El Cantante 0,8× · 1 2 3 · 5 6 7 · napoved na 2 osmici');
+		expect(
+			summary({
+				mode: 'count',
+				bpm: 150,
+				songTitle: null,
+				config: { count: 'off', clave: null, speed: 1, callEvery: 4 }
+			})
+		).toBe('Štetje 150 · brez štetja · napoved na 4 osmice');
+	});
+	it('keeps "Off" in English', () => {
+		expect(
+			practiceSummary(
+				{
+					mode: 'count',
+					bpm: 150,
+					songTitle: null,
+					config: { count: 'off', clave: null, speed: 1, callEvery: null }
+				},
+				salsa
+			)
+		).toBe('Count 150 · Off');
 	});
 });
 

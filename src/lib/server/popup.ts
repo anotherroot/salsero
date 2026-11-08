@@ -6,6 +6,7 @@
  */
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { localDay } from '$lib/day/day';
+import { shownExercise } from '$lib/exercises/name';
 import type { Wall } from './scope';
 import type { Db } from './db';
 import { listCountTakesFor } from './countTakes';
@@ -40,8 +41,10 @@ function musicOf(db: Db, exerciseId: number): MusicParent | null {
 }
 
 export function popupData(db: Db, wall: Wall, exerciseId: number, tz: string, now: number) {
-	const exercise = listExercises(db, wall).find((e) => e.id === exerciseId);
-	if (!exercise) return null;
+	const found = listExercises(db, wall).find((e) => e.id === exerciseId);
+	if (!found) return null;
+	// A lesson's own exercise is named in the reader's language.
+	const exercise = shownExercise(found);
 	const today = localDay(now, tz);
 	return {
 		exercise,

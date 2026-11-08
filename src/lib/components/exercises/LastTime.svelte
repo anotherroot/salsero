@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Face from './Face.svelte';
-	import { FEEL_WORD, feelOf } from '$lib/schedule/feel';
+	import { feelWord, feelOf } from '$lib/schedule/feel';
 	import { lastTimeParts } from '$lib/exercises/log-view';
+	import { t } from '$lib/i18n/catalog';
 	import type { LastSet } from '$lib/types';
 
 	interface Props {
@@ -19,12 +20,12 @@
 	{#if parts}
 		{parts.when}{#if parts.rating !== null}
 			{SEP}<span class="inline-flex items-center gap-1 align-[-3px]"
-				><Face feel={feelOf(parts.rating) ?? 'gotit'} size={15} />{FEEL_WORD[
+				><Face feel={feelOf(parts.rating) ?? 'gotit'} size={15} />{feelWord(
 					feelOf(parts.rating) ?? 'gotit'
-				]}</span
+				)}</span
 			>{/if}{#if parts.note}
 			{SEP}“{parts.note}”{/if}
 	{:else}
-		First time.
+		{t().exercise.log.firstTime}
 	{/if}
 </p>

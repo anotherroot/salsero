@@ -300,13 +300,13 @@ export function peopleOf(db: Db, teamId: number): Person[] {
 		.sort((a, b) => rank[a.role] - rank[b.role] || a.name.localeCompare(b.name));
 }
 
-/** The first name of the first admin, for "Ask … for an invite"; "the admin" when there is none. */
-export function adminFirstName(db: Db, dance: DanceSlug): string {
+/** The first name of the first admin, for "Ask … for an invite"; null when there is none (the line says "the admin"). */
+export function adminFirstName(db: Db, dance: DanceSlug): string | null {
 	const row = db
 		.select({ firstName: users.firstName })
 		.from(users)
 		.where(and(eq(users.isAdmin, true), eq(users.dance, dance)))
 		.orderBy(asc(users.createdAt), asc(users.id))
 		.get();
-	return row?.firstName?.trim() || 'the admin';
+	return row?.firstName?.trim() || null;
 }

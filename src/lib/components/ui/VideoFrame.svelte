@@ -2,8 +2,9 @@
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { watchMedia, type MediaProblem } from '$lib/media';
+	import { t } from '$lib/i18n/catalog';
 	import {
-		RATE_LABEL,
+		rateLabel,
 		VIDEO_RATES,
 		loadVideoPrefs,
 		saveVideoPrefs,
@@ -53,7 +54,7 @@
 		owner,
 		onproblem,
 		sourceUrl = null,
-		title = 'Video',
+		title = t().video.untitled,
 		onclosed,
 		linking = false,
 		canEdit = true,
@@ -62,6 +63,8 @@
 		action,
 		sections
 	}: Props = $props();
+
+	const w = $derived(t().video);
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -164,7 +167,7 @@
 		<div class="theme-media absolute inset-0">
 			<button
 				type="button"
-				aria-label={paused ? 'Play' : 'Pause'}
+				aria-label={paused ? w.play : w.pause}
 				onclick={toggle}
 				class="absolute inset-0 grid cursor-pointer place-items-center"
 			>
@@ -226,7 +229,7 @@
 	<button
 		type="button"
 		onclick={openFull}
-		aria-label="Full screen"
+		aria-label={w.fullScreen}
 		class={iconButton('bare', 'muted')}><Icon name="expand" size={22} /></button
 	>
 {/snippet}
@@ -244,7 +247,7 @@
 		<button
 			type="button"
 			aria-pressed={mirror}
-			aria-label="Mirror"
+			aria-label={w.mirror}
 			onclick={() => choose({ mirror: !mirror })}
 			class={mirror ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name="mirror" size={22} /></button
@@ -252,7 +255,7 @@
 		<button
 			type="button"
 			aria-pressed={muted}
-			aria-label="Mute"
+			aria-label={w.mute}
 			onclick={() => choose({ muted: !muted })}
 			class={muted ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name={muted ? 'volume-off' : 'volume'} size={22} /></button
@@ -260,19 +263,19 @@
 		{#if owner && (!caption || action)}{@render fullScreen()}{/if}
 	{/if}
 	<span class="flex-1"></span>
-	<span class="flex h-9 items-center rounded-full bg-chip px-px" role="group" aria-label="Speed">
+	<span class="flex h-9 items-center rounded-full bg-chip px-px" role="group" aria-label={w.speed}>
 		{#each VIDEO_RATES as r (r)}
 			<button
 				type="button"
 				aria-pressed={rate === r}
-				aria-label="Speed {r}×"
+				aria-label={w.speedOf(r)}
 				onclick={() => choose({ rate: r })}
 				class="flex h-11 w-10 cursor-pointer items-center justify-center"
 			>
 				<span
 					class="flex h-[30px] w-9 items-center justify-center rounded-full text-[13px] {rate === r
 						? 'bg-surface font-extrabold text-ink shadow-[0_1px_3px_rgba(0,0,0,0.14)]'
-						: 'font-bold text-ink-2'}">{RATE_LABEL[r]}</span
+						: 'font-bold text-ink-2'}">{rateLabel(r)}</span
 				>
 			</button>
 		{/each}
@@ -283,7 +286,7 @@
 		href={sourceUrl}
 		target="_blank"
 		rel="external noopener noreferrer"
-		class="block px-3.5 pb-2.5 text-[12px] text-muted">from YouTube ↗</a
+		class="block px-3.5 pb-2.5 text-[12px] text-muted">{w.fromYouTube}</a
 	>
 {/if}
 
@@ -296,7 +299,7 @@
 		{linking}
 		{canEdit}
 		{simple}
-		subtitle={'recordingId' in owner ? 'Recording' : 'Lesson video'}
+		subtitle={'recordingId' in owner ? w.recording : w.lessonVideo}
 		{mirror}
 		{rate}
 		{muted}

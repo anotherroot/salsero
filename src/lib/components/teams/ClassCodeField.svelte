@@ -3,7 +3,7 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, FIELD_INVALID, LABEL, button } from '$lib/components/ui/styles';
-	import { JOIN_STEP } from '$lib/levels/first-run';
+	import { joinStep } from '$lib/levels/first-run';
 
 	/**
 	 * The class code field (first run, Groups beside New group, My class when
@@ -18,6 +18,7 @@
 	let busy = $state(false);
 	let refused = $state<string | null>(null);
 	const message = $derived(refused ?? error);
+	const w = $derived(joinStep());
 </script>
 
 <form
@@ -26,7 +27,7 @@
 	novalidate
 	class="flex flex-col gap-3"
 	use:guarded={{
-		label: JOIN_STEP.label,
+		label: w.label,
 		submit: ({ cancel }) => {
 			// One join per tap.
 			if (busy) return cancel();
@@ -45,7 +46,7 @@
 	}}
 >
 	<label class="block">
-		<span class={LABEL}>{JOIN_STEP.label}</span>
+		<span class={LABEL}>{w.label}</span>
 		<input
 			name="code"
 			autocomplete="off"
@@ -59,6 +60,6 @@
 		{#if message}<FieldError id="{id}-error" {message} />{/if}
 	</label>
 	<button type="submit" class={button('primary', 'lg', true)} aria-busy={busy}>
-		{#if busy}<Spinner size={24} /> Joining…{:else}{JOIN_STEP.join}{/if}
+		{#if busy}<Spinner size={24} /> {w.joining}{:else}{w.join}{/if}
 	</button>
 </form>

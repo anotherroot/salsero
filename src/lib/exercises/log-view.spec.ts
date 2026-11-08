@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { LastSet } from '$lib/types';
 import { fieldsShown, footerFor, lastTimeParts, rangeError } from './log-view';
 
@@ -175,6 +176,47 @@ describe('lastTimeParts', () => {
 		});
 		expect(lastTimeParts(last({ daysAgo: 0, rating: null, note: null }))?.when).toBe(
 			'Last time: Today'
+		);
+	});
+});
+
+// The class's older readers log here, and read no English.
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words the footer in every state', () => {
+		expect(sl(() => footerFor(base)).main).toEqual({ state: 'log', label: 'Shrani vnos' });
+		expect(sl(() => footerFor({ ...base, simple: true })).main?.label).toBe('Opravljeno');
+		expect(sl(() => footerFor({ ...base, busy: true })).main?.label).toBe('Shranjevanje …');
+		expect(sl(() => footerFor({ ...base, playing: true })).hint).toBe('Za vnos ustavite štetje.');
+		expect(sl(() => footerFor({ ...base, justLogged: true })).main?.label).toBe('Shranjeno');
+		expect(sl(() => footerFor({ ...base, backfill: true })).main?.label).toBe(
+			'Shrani vnos za ta dan'
+		);
+		expect(sl(() => footerFor({ ...base, rated: false })).hint).toBe('Izberite, kako je šlo');
+		expect(sl(() => footerFor({ ...base, session: ses('Clave'), justLogged: true })).next).toBe(
+			'Naslednja: Clave'
+		);
+		expect(sl(() => footerFor({ ...base, justLogged: true, follow: 'Son' })).next).toBe(
+			'Naslednja: Son'
+		);
+	});
+
+	it('refuses a value out of range in words', () => {
+		expect(sl(() => rangeError('700', 600))).toBe('Od 0 do 600');
+		expect(sl(() => rangeError('e', 10000))).toBe('Od 0 do 10 000');
+		expect(sl(() => rangeError('40', 600))).toBeNull();
+	});
+
+	it('says when it was last practised, in lower case after the colon', () => {
+		expect(sl(() => lastTimeParts(last({ daysAgo: 1, rating: 4, note: null })))?.when).toBe(
+			'Zadnjič: včeraj'
+		);
+		expect(sl(() => lastTimeParts(last({ daysAgo: 0, rating: null, note: null })))?.when).toBe(
+			'Zadnjič: danes'
+		);
+		expect(sl(() => lastTimeParts(last({ daysAgo: 3, rating: null, note: null })))?.when).toBe(
+			'Zadnjič: pred 3 dnevi'
 		);
 	});
 });

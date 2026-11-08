@@ -16,7 +16,8 @@
 	import { MY_CLASS } from '$lib/teams/view';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { diskSubtitle, groupVideosSubtitle, PICK_LESSON } from '$lib/lessons/list';
+	import { diskSubtitle, groupVideosSubtitle, pickLesson } from '$lib/lessons/list';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * Lessons: the list and the lesson beside it (desktop spec, "A list and the
@@ -85,7 +86,7 @@
 
 {#snippet right()}
 	{#if groupModeShown(level)}<GroupModeButton />{/if}
-	{#if making}<BandButton icon="plus" label="New lesson" onclick={openSheet} />{/if}
+	{#if making}<BandButton icon="plus" label={t().lesson.list.newLesson} onclick={openSheet} />{/if}
 {/snippet}
 
 {#snippet list()}
@@ -101,7 +102,8 @@
 
 {#snippet newLesson()}
 	<button type="button" class={button('secondary')} onclick={openSheet}>
-		<Icon name="plus" size={20} /> New lesson
+		<Icon name="plus" size={20} />
+		{t().lesson.list.newLesson}
 	</button>
 {/snippet}
 
@@ -110,8 +112,8 @@
 	{@render children()}
 	<EmptyState
 		icon="lessons"
-		title={PICK_LESSON.title}
-		body={PICK_LESSON.body}
+		title={pickLesson().title}
+		body={pickLesson().body}
 		action={making ? newLesson : undefined}
 	/>
 {/snippet}
@@ -145,7 +147,7 @@
 	{/if}
 {:else if l}
 	<ListPane
-		title="Lessons"
+		title={t().shell.tabs.lessons}
 		subtitle={simple(level) ? undefined : diskSubtitle(data.storageBytes)}
 		deskSubtitle={data.groupStorage
 			? groupVideosSubtitle(data.groupStorage.usedBytes, data.groupStorage.limitBytes)

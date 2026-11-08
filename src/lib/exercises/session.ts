@@ -5,6 +5,8 @@
  * The logged exercise is a done row by then, which is why the first remaining
  * row of the walk is the answer.
  */
+import { t } from '$lib/i18n/catalog';
+
 type Walkable = { exercise: { id: number }; kind: 'done' | 'todo' | 'picked' };
 
 /** What a session walks, in order: the to-do rows, then the picked ones. */
@@ -26,7 +28,7 @@ export function nextInSession<R extends { exercise: { id: number } }>(
  * "3 exercises, 25 min", or "Nothing logged" when the session logged none.
  */
 export function sessionSummary(count: number, seconds: number): string {
-	if (count === 0) return 'Nothing logged';
-	const minutes = Math.round(seconds / 60);
-	return `${count} ${count === 1 ? 'exercise' : 'exercises'}${minutes > 0 ? `, ${minutes} min` : ''}`;
+	const w = t().today.session;
+	if (count === 0) return w.nothingLogged;
+	return w.summary(count, Math.round(seconds / 60));
 }

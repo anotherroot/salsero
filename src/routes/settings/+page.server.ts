@@ -28,6 +28,9 @@ import { levelOf, setLevel } from '$lib/server/levels';
 import { parseLevel } from '$lib/levels/levels';
 import { isVideoShortSide } from '$lib/video-sizes';
 import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
+import { parseLocale } from '$lib/i18n/locale';
+import { t } from '$lib/i18n/catalog';
+import { setLocale, setLocaleCookie } from '$lib/server/locale';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -84,14 +87,14 @@ export const actions: Actions = {
 			return fail(400, {
 				...raw,
 				field: 'firstName' as const,
-				message: 'Enter your first name (up to 60 letters).'
+				message: t().entry.name.firstRefusal
 			});
 		}
 		if (!lastName) {
 			return fail(400, {
 				...raw,
 				field: 'lastName' as const,
-				message: 'Enter your last name (up to 60 letters).'
+				message: t().entry.name.lastRefusal
 			});
 		}
 		getDb().update(users).set({ firstName, lastName }).where(eq(users.id, locals.user.id)).run();
@@ -102,10 +105,10 @@ export const actions: Actions = {
 	ask: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
 		if (storageOf(getDb(), locals.user.id).limitBytes === null) {
-			return fail(400, { message: 'You have no limit, so there is nothing to ask for.' });
+			return fail(400, { message: t().settings.storage.noLimit });
 		}
 		const note = optionalText(await request.formData(), 'note', 500);
-		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
+		if (note === undefined) return fail(400, { message: t().settings.storage.noteTooLong });
 		const res = askForMore(getDb(), { userId: locals.user.id }, note, Date.now());
 		return { asked: res === 'asked' };
 	},
@@ -114,13 +117,23 @@ export const actions: Actions = {
 	theme: async ({ locals, request, cookies }) => {
 		if (!locals.user) throw error(401);
 		const theme = text(await request.formData(), 'theme');
-		if (!isThemeChoice(theme)) return fail(400, { message: 'Pick one of the themes.' });
+		if (!isThemeChoice(theme)) return fail(400, { message: t().settings.refusals.theme });
 		cookies.set(THEME_COOKIE, theme, {
 			path: '/',
 			maxAge: 365 * 24 * 3600,
 			sameSite: 'lax',
 			httpOnly: true
 		});
+		return { ok: true };
+	},
+
+	/** The person's language: on the account, and in this browser's cookie. */
+	language: async ({ locals, request, cookies }) => {
+		if (!locals.user) throw error(401);
+		const locale = parseLocale(text(await request.formData(), 'locale'));
+		if (!locale) return fail(400, { message: t().settings.badLanguage });
+		setLocale(getDb(), locals.user.id, locale);
+		setLocaleCookie(cookies, locale);
 		return { ok: true };
 	},
 
@@ -131,7 +144,7 @@ export const actions: Actions = {
 		const dance = locals.user.dance;
 		const style = text(await request.formData(), 'style');
 		if (!style || !isStyleOf(dance, style)) {
-			return fail(400, { message: 'Pick one of the styles.' });
+			return fail(400, { message: t().settings.refusals.style });
 		}
 		setDefaultStyle(getDb(), locals.user.id, dance, style);
 		return { ok: true };
@@ -143,7 +156,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const raw = form.get('reminder');
 		const minute = typeof raw === 'string' ? minuteOfDay(raw) : undefined;
-		if (minute === undefined) return fail(400, { message: 'Pick a time, or switch it off.' });
+		if (minute === undefined) return fail(400, { message: t().settings.refusals.reminder });
 		setReminderMinute(getDb(), locals.user.id, minute);
 		return { ok: true };
 	},
@@ -151,7 +164,7 @@ export const actions: Actions = {
 	videoSize: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
 		const side = int(await request.formData(), 'shortSide');
-		if (!isVideoShortSide(side)) return fail(400, { message: 'Pick one of the sizes.' });
+		if (!isVideoShortSide(side)) return fail(400, { message: t().settings.refusals.size });
 		setVideoShortSide(getDb(), locals.user.id, side);
 		return { ok: true };
 	},
@@ -160,7 +173,7 @@ export const actions: Actions = {
 	level: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
 		const level = parseLevel((await request.formData()).get('level'));
-		if (level === null) return fail(400, { message: 'Pick one of the three.' });
+		if (level === null) return fail(400, { message: t().settings.refusals.level });
 		setLevel(getDb(), locals.user.id, level);
 		return { ok: true };
 	},
@@ -169,7 +182,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		const count = int(await request.formData(), 'count');
 		if (count === undefined || count < DAILY_MIN || count > DAILY_MAX) {
-			return fail(400, { message: `Pick a number from ${DAILY_MIN} to ${DAILY_MAX}.` });
+			return fail(400, { message: t().settings.refusals.daily(DAILY_MIN, DAILY_MAX) });
 		}
 		setDailyCount(getDb(), locals.user.id, count);
 		return { ok: true };
@@ -179,7 +192,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		const id = int(await request.formData(), 'id');
 		const snap = id === undefined ? null : removeDevice(getDb(), locals.user.id, id);
-		if (id === undefined || !snap) return fail(404, { message: 'That phone is already gone.' });
+		if (id === undefined || !snap) return fail(404, { message: t().settings.devices.gone });
 		removed.put(holdKey(locals.user.id, id), snap);
 		return { removed: id };
 	},
@@ -189,7 +202,7 @@ export const actions: Actions = {
 		const id = int(await request.formData(), 'id');
 		const snap = id === undefined ? null : removed.take(holdKey(locals.user.id, id));
 		if (!snap || !restoreDevice(getDb(), locals.user.id, snap)) {
-			return fail(410, { message: 'Too late to undo.' });
+			return fail(410, { message: t().settings.refusals.tooLate });
 		}
 		return { ok: true };
 	}

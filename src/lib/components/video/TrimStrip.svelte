@@ -1,6 +1,7 @@
 <!-- src/lib/components/video/TrimStrip.svelte -->
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { spotTime } from '$lib/video/spots';
 	import { fitWindow, GRAB_PX, handleAt, msAtX, pctOf, trimWindow } from '$lib/video/trim';
 	import type { Spot } from '$lib/types';
@@ -67,7 +68,7 @@
 <div class="flex flex-none flex-col gap-1">
 	<div
 		role="group"
-		aria-label="Section edges: drag a handle, tap to seek"
+		aria-label={t().video.editor.edges}
 		class="relative h-16 shrink-0 cursor-pointer touch-none overflow-hidden rounded-xl bg-surface"
 		onpointerdown={(e) => {
 			const p = where(e);
@@ -147,7 +148,7 @@
 	</div>
 	<div class="flex justify-between text-[11.5px] font-semibold text-muted tabular-nums">
 		<span>{spotTime(win.fromMs)}</span>
-		<span>drag a handle · tap to seek</span>
+		<span>{t().video.editor.edgesHint}</span>
 		<span>{spotTime(win.toMs)}</span>
 	</div>
 </div>

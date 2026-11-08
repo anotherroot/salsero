@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
-	RATE_LABEL,
+	rateLabel,
 	VIDEO_RATES,
 	loadVideoPrefs,
 	parseVideoPrefs,
@@ -100,8 +101,19 @@ describe('saveVideoPrefs', () => {
 	});
 });
 
-describe('RATE_LABEL', () => {
+describe('rateLabel', () => {
 	it('labels every rate', () => {
-		expect(VIDEO_RATES.map((r) => RATE_LABEL[r])).toEqual(['¼×', '½×', '¾×', '1×']);
+		expect(VIDEO_RATES.map((r) => rateLabel(r))).toEqual(['¼×', '½×', '¾×', '1×']);
+	});
+});
+
+describe('rateLabel in Slovenian', () => {
+	it('labels every rate with a decimal comma', () => {
+		expect(withLocale('sl', () => VIDEO_RATES.map((r) => rateLabel(r)))).toEqual([
+			'0,25×',
+			'0,5×',
+			'0,75×',
+			'1×'
+		]);
 	});
 });

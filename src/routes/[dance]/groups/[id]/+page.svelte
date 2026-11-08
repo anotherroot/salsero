@@ -25,7 +25,7 @@
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		ADDED_TO_TODAY,
+		addedToToday,
 		MY_CLASS,
 		classSongsHeading,
 		groupMenu,
@@ -35,6 +35,7 @@
 		youLine
 	} from '$lib/teams/view';
 	import { levelShown } from '$lib/levels/levels';
+	import { t } from '$lib/i18n/catalog';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -43,6 +44,7 @@
 
 	const deleted = $derived(data.team.deletedAt !== null);
 	const owner = $derived(data.role === 'owner');
+	const w = $derived(t().groups.page);
 
 	let menu = $state(false);
 	let code = $state(false);
@@ -70,7 +72,7 @@
 	let autoOn = $derived(data.autoAdd?.on ?? false);
 	async function saveAutoAdd(on: boolean) {
 		autoOn = on;
-		if (refused(await act('autoAdd', { on: on ? 1 : 0 }), 'Could not save.')) {
+		if (refused(await act('autoAdd', { on: on ? 1 : 0 }), w.couldNotSave)) {
 			autoOn = data.autoAdd?.on ?? false;
 		}
 	}
@@ -86,7 +88,7 @@
 		if (addingNow !== null) return;
 		addingNow = lessonId;
 		try {
-			if (refused(await act('addNow', { lessonId }), 'Could not add.')) return;
+			if (refused(await act('addNow', { lessonId }), w.couldNotAdd)) return;
 			if (!data.simple) return;
 			const lesson = resolve('/[dance]/lessons/[id]', {
 				dance: data.dance.slug,
@@ -94,9 +96,9 @@
 			});
 			toast = undoToast(
 				++seq,
-				ADDED_TO_TODAY,
+				addedToToday(),
 				() => (toast = null),
-				async () => refused(await actAt(lesson, 'remove', { stay: 1 }), 'Could not undo.')
+				async () => refused(await actAt(lesson, 'remove', { stay: 1 }), w.couldNotUndo)
 			);
 		} finally {
 			addingNow = null;
@@ -135,7 +137,8 @@
 </script>
 
 <svelte:head
-	><title>{data.team.name} · {data.simple ? MY_CLASS.title : 'Groups'}</title></svelte:head
+	><title>{data.team.name} · {data.simple ? MY_CLASS.title : t().shell.tabs.groups}</title
+	></svelte:head
 >
 
 <!-- Passed only when drawn: an empty `left` would still hold the ‹'s place in the band. -->
@@ -143,7 +146,7 @@
 	<BackButton
 		fallback={{
 			href: resolve('/[dance]/groups', { dance: data.dance.slug }),
-			label: data.simple ? `Back to ${MY_CLASS.title}` : 'Back to Groups'
+			label: t().shell.backTo(data.simple ? MY_CLASS.title : t().shell.tabs.groups)
 		}}
 	/>
 {/snippet}
@@ -159,7 +162,7 @@
 		{#if !deleted}
 			<BandButton
 				icon="more"
-				label={data.simple ? MY_CLASS.menu : 'Group menu'}
+				label={data.simple ? MY_CLASS.menu : w.menu}
 				onclick={() => (menu = true)}
 			/>
 		{/if}
@@ -172,8 +175,8 @@
 			class="flex items-center gap-3 rounded-2xl bg-surface py-3 pr-3 pl-4"
 			use:enhance
 		>
-			<span class="min-w-0 flex-1 text-[15px] font-semibold text-ink">Deleted</span>
-			<button type="submit" class={button('secondary', 'sm')}>Restore</button>
+			<span class="min-w-0 flex-1 text-[15px] font-semibold text-ink">{w.deleted}</span>
+			<button type="submit" class={button('secondary', 'sm')}>{w.restore}</button>
 		</form>
 		{#if form?.action === 'restore' && form.message}
 			<Banner kind="error">{form.message}</Banner>
@@ -224,14 +227,8 @@
 	{/if}
 	{#if data.autoAdd}
 		<div class="{ROW} rounded-2xl bg-surface pr-1.5">
-			<span class="min-w-0 flex-1 text-[15px] font-semibold text-ink"
-				>Add new lessons to Today automatically</span
-			>
-			<Switch
-				label="Add new lessons to Today automatically"
-				checked={autoOn}
-				onchange={saveAutoAdd}
-			/>
+			<span class="min-w-0 flex-1 text-[15px] font-semibold text-ink">{w.autoAdd}</span>
+			<Switch label={w.autoAdd} checked={autoOn} onchange={saveAutoAdd} />
 		</div>
 	{/if}
 {/snippet}
@@ -239,17 +236,17 @@
 {#snippet lessons()}
 	<section class="flex flex-col gap-2">
 		<div class="flex items-center justify-between pr-1">
-			<h2 class={SECTION_LABEL}>Lessons</h2>
+			<h2 class={SECTION_LABEL}>{w.lessons}</h2>
 			{#if data.canEdit}
 				<button type="button" class={button('tertiary', 'sm')} onclick={openNewLesson}
-					><Icon name="plus" size={18} />New lesson</button
+					><Icon name="plus" size={18} />{w.newLesson}</button
 				>
 			{/if}
 		</div>
 		{#if data.lessons.length === 0}
-			<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">No lessons yet</div>
+			<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">{w.noLessons}</div>
 		{:else}
-			<ul class={GROUP} aria-label="Lessons">
+			<ul class={GROUP} aria-label={w.lessons}>
 				{#each data.lessons as lesson (lesson.id)}
 					<LessonRow
 						{lesson}
@@ -264,28 +261,28 @@
 					{#snippet addAside()}
 						{#if lesson.add?.added}
 							<span class="flex items-center gap-1 px-1 text-[14px] font-bold text-done"
-								>Added<Icon name="check" size={18} /></span
+								>{w.added}<Icon name="check" size={18} /></span
 							>
 						{:else if lesson.add?.offer && data.addAtOnce}
 							<button
 								type="button"
 								class={button('secondary', 'sm')}
-								aria-label="Add {lesson.title}"
+								aria-label={t().entry.classes.addLesson(lesson.title)}
 								aria-busy={addingNow === lesson.id}
 								disabled={addingNow !== null}
 								onclick={() => addNow(lesson.id)}
-								>{#if addingNow === lesson.id}<Spinner />{:else}Add{/if}</button
+								>{#if addingNow === lesson.id}<Spinner />{:else}{t().common.add}{/if}</button
 							>
 						{:else if lesson.add?.offer}
 							<button
 								type="button"
 								class={button('secondary', 'sm')}
-								aria-label="Add {lesson.title}"
+								aria-label={t().entry.classes.addLesson(lesson.title)}
 								aria-haspopup="dialog"
 								onclick={() =>
 									(adding = lesson.add?.offer
 										? { id: lesson.id, title: lesson.title, offer: lesson.add.offer }
-										: null)}>Add</button
+										: null)}>{t().common.add}</button
 							>
 						{/if}
 					{/snippet}
@@ -300,7 +297,7 @@
 	{#if data.songs.length > 0}
 		<section class="flex flex-col gap-2">
 			<h2 class={SECTION_LABEL}>{classSongsHeading(data.songs.length)}</h2>
-			<ul class={GROUP} aria-label="Class songs">
+			<ul class={GROUP} aria-label={t().entry.classes.songs}>
 				{#each data.songs as s (s.id)}
 					<SongRow
 						href={resolve('/[dance]/songs/[id]', {
@@ -345,7 +342,7 @@
 			class="flex min-h-14 w-full items-center gap-3 px-4 py-2 active:bg-step"
 		>
 			<span class="flex-none text-accent-text"><Icon name="group" size={22} /></span>
-			<span class="text-[16px] font-bold text-ink">People</span>
+			<span class="text-[16px] font-bold text-ink">{w.people}</span>
 		</a>
 		{#if menuItems.includes('deleted')}
 			<a
@@ -356,22 +353,22 @@
 				class="flex min-h-14 w-full items-center gap-3 px-4 py-2 active:bg-step"
 			>
 				<span class="flex-none text-accent-text"><Icon name="trash" size={22} /></span>
-				<span class="text-[16px] font-bold text-ink">Recently deleted</span>
+				<span class="text-[16px] font-bold text-ink">{w.recentlyDeleted}</span>
 			</a>
 		{/if}
-		{#if menuItems.includes('code') && data.code}{@render row('link', 'Show code', () =>
+		{#if menuItems.includes('code') && data.code}{@render row('link', w.showCode, () =>
 				pick(() => (code = true))
 			)}{/if}
-		{#if menuItems.includes('rename')}{@render row('edit', 'Rename', openRename)}{/if}
+		{#if menuItems.includes('rename')}{@render row('edit', w.rename, openRename)}{/if}
 		{#if menuItems.includes('leave')}{@render row(
 				'logout',
-				data.simple ? 'Leave class' : 'Leave group',
+				data.simple ? w.leaveClass : w.leaveGroup,
 				() => pick(() => (leaving = true)),
 				true
 			)}{/if}
 		{#if menuItems.includes('delete')}{@render row(
 				'trash',
-				'Delete group',
+				w.deleteGroup,
 				() => pick(() => (deleting = true)),
 				true
 			)}{/if}
@@ -410,7 +407,7 @@
 	/>
 {/if}
 
-<Sheet title="Rename group" open={renaming} onclose={() => (renaming = false)} size="small">
+<Sheet title={w.renameGroup} open={renaming} onclose={() => (renaming = false)} size="small">
 	<form
 		id="rename-group"
 		method="POST"
@@ -418,7 +415,7 @@
 		novalidate
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'Rename group',
+			label: w.renameGroup,
 			submit: ({ cancel }) => {
 				if (busy) return cancel();
 				busy = true;
@@ -436,7 +433,7 @@
 		{#if fresh?.action === 'rename' && fresh.message}<Banner kind="error">{fresh.message}</Banner
 			>{/if}
 		<label class="block">
-			<span class={LABEL}>Name</span>
+			<span class={LABEL}>{w.name}</span>
 			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				name="name"
@@ -456,7 +453,7 @@
 			class={button('primary', 'md', true)}
 			aria-busy={busy}
 		>
-			{#if busy}<Spinner />{:else}Save{/if}
+			{#if busy}<Spinner />{:else}{t().common.save}{/if}
 		</button>
 	{/snippet}
 </Sheet>
@@ -465,18 +462,18 @@
 
 <Dialog
 	open={deleting}
-	title="Delete {data.team.name}?"
-	body="Everyone loses its lessons. You can restore it for 30 days."
+	title={w.deleteQuestion(data.team.name)}
+	body={w.deleteBody}
 	icon="trash"
 	tone="danger"
 	onclose={() => (deleting = false)}
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form method="POST" action="?/delete" use:enhance>
-			<button type="submit" class={button('danger', 'sm')}>Delete group</button>
+			<button type="submit" class={button('danger', 'sm')}>{w.deleteGroup}</button>
 		</form>
 	{/snippet}
 </Dialog>

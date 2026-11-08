@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { errorBack, errorView } from './error-view';
 
 describe('errorView', () => {
@@ -91,5 +92,19 @@ describe('errorBack', () => {
 			href: '/salsa/lessons',
 			label: 'Back to Lessons'
 		});
+	});
+});
+
+describe('in Slovenian', () => {
+	it('names the page, the code and the way back in Slovenian', () => {
+		const v = withLocale('sl', () => errorView(404, undefined, false));
+		expect([v.title, v.heading, v.code]).toEqual(['Ni najdeno', 'Tu ni ničesar', 'NAPAKA 404']);
+		expect(withLocale('sl', () => errorView(0, undefined, true).title)).toBe('Brez povezave');
+		expect(withLocale('sl', () => errorBack('/salsa/figures/3', 'salsa').label)).toBe(
+			'Nazaj: Figure'
+		);
+		expect(withLocale('sl', () => errorBack('/salsa/groups', 'salsa', 'follow').label)).toBe(
+			'Nazaj: Moj tečaj'
+		);
 	});
 });

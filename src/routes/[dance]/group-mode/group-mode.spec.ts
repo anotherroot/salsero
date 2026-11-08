@@ -148,7 +148,7 @@ describe('Mine in the tab bar', () => {
 		expect(form).toMatch(/method="POST"/);
 		expect(form).toMatch(/name="team" value="mine"/);
 		expect(form).toMatch(/name="to" value=\{minePath\(path, dance\)\}/);
-		expect(form).toMatch(/>Mine</);
+		expect(form).toMatch(/>\{t\(\)\.shell\.mine\}</);
 		// No link may lead to Today in its place.
 		expect(src).not.toMatch(/href=\{resolve\('\/\[dance\]', \{ dance \}\)\}/);
 	});

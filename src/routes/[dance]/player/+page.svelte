@@ -15,6 +15,7 @@
 	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import { exerciseLine, runSubtitle, runSummary } from '$lib/player/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -301,7 +302,7 @@
 	});
 </script>
 
-<svelte:head><title>Practice · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{t().player.pageTitle(data.dance.label)}</title></svelte:head>
 
 <!--
 	Always mounted whenever there is a song, from the very first render, so
@@ -360,7 +361,7 @@
 				player?.setToggles(runToggles);
 			}}
 			onstop={handleStop}
-			title={runningSong?.title ?? 'Practice'}
+			title={runningSong?.title ?? t().player.title}
 			subtitle={runSubtitle(
 				{
 					routine: data.routine?.name ?? null,

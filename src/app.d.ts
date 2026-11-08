@@ -1,6 +1,7 @@
 import type { AppAgent } from '$lib/app-update/agent';
 import type { Level } from '$lib/levels/levels';
 import type { DanceSlug } from '$lib/dances/dances';
+import type { Locale } from '$lib/i18n/locale';
 
 /** The signed-in user, as carried on `locals` and echoed to the client. */
 interface SessionUser {
@@ -17,6 +18,8 @@ interface SessionUser {
 	level: Level | null;
 	/** The dance this account belongs to: the wall every route compares against (`wallOf`). */
 	dance: DanceSlug;
+	/** The language the app speaks to this person (`$lib/i18n/locale.ts`); null is English. */
+	locale: Locale | null;
 }
 
 declare global {
@@ -25,6 +28,8 @@ declare global {
 			user: SessionUser | null;
 			/** The Android app asking, from its user agent or `x-app-version`; null for a browser. */
 			appAgent: AppAgent | null;
+			/** The language this request is drawn in (`requestLocale`), chosen by the hook. */
+			locale: Locale;
 		}
 		interface PageData {
 			user?: SessionUser | null;

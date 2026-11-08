@@ -1,8 +1,10 @@
 /**
  * PURE, client-safe: the words of comments, the "@Name" rule, the composer's
  * length check, and how the sheet's list changes as someone posts, hearts and
- * deletes (each returns a new list, the old one untouched).
+ * deletes (each returns a new list, the old one untouched). The words are read
+ * at call time, in the reader's language.
  */
+import { t } from '$lib/i18n/catalog';
 import type { CommentCard, CommentList, CommentRow } from '$lib/types';
 
 export const COMMENT_MAX = 1000;
@@ -10,10 +12,8 @@ export const COMMENT_MAX = 1000;
 /** Why a comment cannot be sent, or null. Counted after trimming. */
 export function bodyError(body: string): string | null {
 	const text = body.trim();
-	if (text.length === 0) return 'Write something first.';
-	if (Array.from(text).length > COMMENT_MAX) {
-		return `A comment can be at most ${COMMENT_MAX} characters.`;
-	}
+	if (text.length === 0) return t().comments.tooShort;
+	if (Array.from(text).length > COMMENT_MAX) return t().comments.tooLong(COMMENT_MAX);
 	return null;
 }
 
@@ -23,34 +23,36 @@ export function atReply(row: Pick<CommentRow, 'replyToName'>): string | null {
 }
 
 export function whoSees(groupName: string): string {
-	return `Everyone in ${groupName} sees it`;
+	return t().comments.whoSees(groupName);
 }
 
 export function repliesLabel(n: number): string {
-	return n === 1 ? '1 reply' : `${n} replies`;
+	return t().comments.replies(n);
 }
 
-export const HIDE_REPLIES = 'Hide replies';
-export const DELETED_WORDS = 'Comment deleted';
-export const COMPOSER_PLACEHOLDER = 'Write a comment…';
-export const TEACHER_TAG = 'Teacher';
+export const hideReplies = (): string => t().comments.hideReplies;
+export const deletedWords = (): string => t().comments.deleted;
+export const composerPlaceholder = (): string => t().comments.placeholder;
+/** Beside the name of the group's owner or an editor. */
+export const teacherTag = (): string => t().comments.teacher;
 
 export function replyingTo(name: string): string {
-	return `Replying to ${name}`;
+	return t().comments.replyingTo(name);
 }
 
 /** What the card says: its title, the count, the "N new" pill, or the invitation when empty. */
 export function cardWords(
 	card: CommentCard,
-	title = 'Comments'
+	title = t().comments.title
 ): { title: string; count: string | null; newPill: string | null; empty: string | null } {
+	const w = t().comments;
 	if (card.count === 0) {
-		return { title, count: null, newPill: null, empty: 'Be the first to ask or say something' };
+		return { title, count: null, newPill: null, empty: w.empty };
 	}
 	return {
 		title,
 		count: String(card.count),
-		newPill: card.newCount > 0 ? `${card.newCount} new` : null,
+		newPill: card.newCount > 0 ? w.newCount(card.newCount) : null,
 		empty: null
 	};
 }
@@ -59,15 +61,16 @@ const MINUTE = 60_000;
 
 /** The name line's "2 d": now, minutes, hours, days, weeks, years. */
 export function shortAgo(at: number, now: number): string {
+	const w = t().comments.ago;
 	const min = Math.floor(Math.max(0, now - at) / MINUTE);
-	if (min < 1) return 'now';
-	if (min < 60) return `${min} min`;
+	if (min < 1) return w.now;
+	if (min < 60) return w.minutes(min);
 	const h = Math.floor(min / 60);
-	if (h < 24) return `${h} h`;
+	if (h < 24) return w.hours(h);
 	const d = Math.floor(h / 24);
-	if (d < 7) return `${d} d`;
-	if (d < 365) return `${Math.floor(d / 7)} w`;
-	return `${Math.floor(d / 365)} y`;
+	if (d < 7) return w.days(d);
+	if (d < 365) return w.weeks(Math.floor(d / 7));
+	return w.years(Math.floor(d / 365));
 }
 
 /** The avatar's letter; none for a deleted comment. */

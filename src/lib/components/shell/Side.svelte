@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
 	import { minePath } from '$lib/teams/mode';
@@ -47,7 +48,7 @@
 <nav
 	class="fixed top-[var(--band-row-h)] bottom-0 left-0 z-30 hidden w-[var(--side-w)] flex-col justify-between bg-band px-[22px] pt-[6px] pb-[20px] desk:flex"
 	style="--icon-knockout: var(--color-band-ink); --focus-ring: var(--color-band-ink)"
-	aria-label="Main"
+	aria-label={t().shell.mainNav}
 	data-side
 >
 	<ul class="flex flex-col gap-1">
@@ -73,7 +74,7 @@
 							class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
 						>
 							<Icon name="back" size={24} />
-							Mine
+							{t().shell.mine}
 						</button>
 					</form>
 				{:else}
@@ -107,6 +108,6 @@
 		class={lit === 'settings' ? ON : OFF}
 	>
 		<Icon name="settings" size={24} filled={lit === 'settings'} />
-		Settings
+		{t().shell.settings}
 	</a>
 </nav>

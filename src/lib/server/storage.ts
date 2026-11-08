@@ -16,6 +16,7 @@ import { and, count, eq, isNotNull, isNull, sum, type SQL } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { byteSize, plural } from '$lib/format';
 import { fullName } from '$lib/names';
+import { t } from '$lib/i18n/catalog';
 import { DISK_FLOOR_BYTES, TEAM_BYTES_PER_PERSON } from '$lib/limits';
 import type { StorageItem } from '$lib/types';
 import type { DanceSlug } from '$lib/dances/dances';
@@ -201,8 +202,8 @@ export function roomForOwner(
 			limitBytes: limit,
 			message:
 				'teamId' in owner
-					? `Not enough room: the group uses ${byteSize(used)} of ${byteSize(limit)}. The owner can ask for more.`
-					: `Not enough room: you use ${byteSize(used)} of ${byteSize(limit)}. Free some space or ask for more in Settings.`
+					? t().settings.storage.noRoomGroup(byteSize(used), byteSize(limit))
+					: t().settings.storage.noRoom(byteSize(used), byteSize(limit))
 		};
 	}
 	if (freeDiskBytes - incomingBytes < DISK_FLOOR_BYTES) {
@@ -210,7 +211,7 @@ export function roomForOwner(
 			ok: false,
 			usedBytes: used,
 			limitBytes: limit,
-			message: 'Not enough room on the server. Ask the admin.'
+			message: t().settings.storage.noRoomServer
 		};
 	}
 	return { ok: true };

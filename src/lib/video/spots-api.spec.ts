@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ok, patchSpot, removeSpot, restoreTrashEntry, SpotsApiError } from './spots-api';
+import { withLocale } from '$lib/i18n/current';
+import {
+	fallbackMessage,
+	ok,
+	patchSpot,
+	removeSpot,
+	restoreTrashEntry,
+	SpotsApiError
+} from './spots-api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -102,5 +110,12 @@ describe('patchSpot', () => {
 			status: 409,
 			clash: { changed: ['startMs'], current: { startMs: 1500 } }
 		});
+	});
+});
+
+describe('the fallback in Slovenian', () => {
+	it('says it failed, with the status', () => {
+		expect(fallbackMessage(500)).toBe('video-spots: 500');
+		expect(withLocale('sl', () => fallbackMessage(500))).toBe('Ni uspelo (napaka 500).');
 	});
 });

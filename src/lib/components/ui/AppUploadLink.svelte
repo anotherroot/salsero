@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { IconName } from '$lib/icons/icons';
 	import Icon from './Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { button, DASHED_ADD } from './styles';
 
 	/**
@@ -16,13 +17,7 @@
 		kind?: 'primary' | 'secondary' | 'dashed';
 	}
 
-	let {
-		href,
-		label,
-		hint = 'Compressed and uploaded in the background',
-		icon = 'video',
-		kind = 'secondary'
-	}: Props = $props();
+	let { href, label, hint, icon = 'video', kind = 'secondary' }: Props = $props();
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
@@ -30,4 +25,4 @@
 	><Icon name={kind === 'dashed' ? 'upload' : icon} size={20} />{label}</a
 >
 <!-- eslint-enable svelte/no-navigation-without-resolve -->
-<p class="mt-1.5 text-center text-[13px] text-muted">{hint}</p>
+<p class="mt-1.5 text-center text-[13px] text-muted">{hint ?? t().shell.upload.inBackground}</p>

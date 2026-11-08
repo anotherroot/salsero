@@ -9,6 +9,7 @@
 	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { DayList } from '$lib/schedule/today-list';
 	import { listLabel } from '$lib/exercises/today';
+	import { t } from '$lib/i18n/catalog';
 	import { classDayLabel } from '$lib/format';
 	import type { AppUpdate } from '$lib/app-update/view';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -86,19 +87,16 @@
 
 {#if empty}
 	<div class="pt-10">
-		<EmptyState
-			icon="calendar"
-			title="Nothing to practise yet"
-			body="Build a routine from your figures, or add a custom exercise."
-		>
+		<EmptyState icon="calendar" title={t().today.list.emptyTitle} body={t().today.list.emptyBody}>
 			{#snippet action()}
 				<div class="flex w-[260px] flex-col gap-2">
 					<a
 						href={resolve('/[dance]/(moves)/routines', { dance })}
-						class={button('primary', 'md', true)}><Icon name="route" size={20} />Build a routine</a
+						class={button('primary', 'md', true)}
+						><Icon name="route" size={20} />{t().today.list.buildRoutine}</a
 					>
 					<button type="button" class={button('secondary', 'md', true)} onclick={oncreate}
-						><Icon name="plus" size={20} />Custom exercise</button
+						><Icon name="plus" size={20} />{t().today.list.custom}</button
 					>
 				</div>
 			{/snippet}
@@ -140,6 +138,6 @@
 		type="button"
 		data-focus="today-custom"
 		class="mt-3.5 {button('secondary', 'md', true)} desk:hidden"
-		onclick={oncreate}><Icon name="plus" size={20} />Custom exercise</button
+		onclick={oncreate}><Icon name="plus" size={20} />{t().today.list.custom}</button
 	>
 {/if}

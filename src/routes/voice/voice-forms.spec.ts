@@ -18,6 +18,7 @@ vi.mock('$lib/server/files', () => ({ countDir: () => handle.dir }));
 
 import { openDb, type Db } from '$lib/server/db';
 import { listCountTakes, putCountTake } from '$lib/server/countTakes';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions } from './+page.server';
 
 const input = (file: string, phrase: 'a' | 'b' = 'a') => ({
@@ -133,5 +134,26 @@ describe('delete and restore', () => {
 		expect(gone.data.message).toBe('That take is already gone.');
 		const bad = (await call(actions.delete, { id: 'x' })) as { status: number };
 		expect(bad.status).toBe(400);
+	});
+});
+
+describe('refusals in Slovenian', () => {
+	it('words each refusal in the person’s language', async () => {
+		const sl = (fn: () => Promise<unknown>) => runInLocale('sl', fn);
+		expect(await sl(() => call(actions.delete, { id: 'x' }))).toMatchObject({
+			data: { message: 'Neznan posnetek.' }
+		});
+		expect(await sl(() => call(actions.delete, { id: '999' }))).toMatchObject({
+			data: { message: 'Ta posnetek je že izbrisan.' }
+		});
+		expect(await sl(() => call(actions.restore, { id: '999' }))).toMatchObject({
+			data: { message: 'Prepozno za razveljavitev.' }
+		});
+		const id = await seed('old.wav');
+		await call(actions.delete, { id: String(id) });
+		await seed('new.wav');
+		expect(await sl(() => call(actions.restore, { id: String(id) }))).toMatchObject({
+			data: { message: 'Na tem mestu je zdaj novejši posnetek.' }
+		});
 	});
 });

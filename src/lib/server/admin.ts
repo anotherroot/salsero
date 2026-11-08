@@ -22,13 +22,29 @@ const WEAK = new Set([
 	'qwertyui'
 ]);
 
-export function rejectWeak(pw: string): string | null {
-	if (pw.length < 12) return 'must be at least 12 characters';
-	if (WEAK.has(pw.toLowerCase())) return 'is a well-known password';
-	if (/^(.)\1+$/.test(pw)) return 'is a single repeated character';
+export type WeakReason = 'short' | 'common' | 'repeated' | 'mix';
+
+/** Why a password is too weak, or null. Join says it in the reader's words (`t().entry.join.weak`). */
+export function weakReason(pw: string): WeakReason | null {
+	if (pw.length < 12) return 'short';
+	if (WEAK.has(pw.toLowerCase())) return 'common';
+	if (/^(.)\1+$/.test(pw)) return 'repeated';
 	const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((r) => r.test(pw)).length;
-	if (classes < 3) return 'must mix at least three of: lower, upper, digit, symbol';
+	if (classes < 3) return 'mix';
 	return null;
+}
+
+const WEAK_WHY: Record<WeakReason, string> = {
+	short: 'must be at least 12 characters',
+	common: 'is a well-known password',
+	repeated: 'is a single repeated character',
+	mix: 'must mix at least three of: lower, upper, digit, symbol'
+};
+
+/** Why a password is too weak, as the boot log says it (English: an operator reads it), or null. */
+export function rejectWeak(pw: string): string | null {
+	const why = weakReason(pw);
+	return why ? WEAK_WHY[why] : null;
 }
 
 /**

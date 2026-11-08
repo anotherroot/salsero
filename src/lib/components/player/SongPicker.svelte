@@ -17,6 +17,7 @@
 	import { songMeta } from '$lib/songs/search';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
 	import type { PickerSong } from '$lib/types';
 
 	interface Props {
@@ -91,13 +92,13 @@
 						>
 						{#if sampling.id === picked.id}
 							<span class="block truncate text-[13px] font-bold text-accent-text"
-								>Sample from {clock(picked.sample.startS)}</span
+								>{t().songs.sample.from(clock(picked.sample.startS))}</span
 							>
 						{:else}
 							<span class="block truncate text-[13px] text-muted tabular-nums">{meta(picked)}</span>
 						{/if}
 					{:else}
-						<span class="block text-[16px] font-semibold text-muted">Pick a song</span>
+						<span class="block text-[16px] font-semibold text-muted">{t().songs.picker.title}</span>
 					{/if}
 				</span>
 				<span class="flex-none text-muted" aria-hidden="true"
@@ -128,13 +129,13 @@
 					>
 					{#if sampling.id === picked.id}
 						<span class="block truncate text-[13px] leading-[1.35] font-bold text-accent-text"
-							>Sample from {clock(picked.sample.startS)}</span
+							>{t().songs.sample.from(clock(picked.sample.startS))}</span
 						>
 					{:else}
 						<span class="block truncate text-[13px] leading-[1.35] text-muted">{meta(picked)}</span>
 					{/if}
 				{:else}
-					<span class="block text-[16px] font-medium text-muted">Pick a song</span>
+					<span class="block text-[16px] font-medium text-muted">{t().songs.picker.title}</span>
 				{/if}
 			</span>
 			<span class="flex flex-none text-muted" aria-hidden="true"

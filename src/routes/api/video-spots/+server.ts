@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { allows, judgeVideo } from '$lib/server/access';
 import { addSpot, listSpots, ownerFrom, SpotError } from '$lib/server/spots';
@@ -18,7 +19,7 @@ import type { RequestHandler } from './$types';
 function requireVideo(video: SpotOwner, locals: App.Locals, need: 'read' | 'edit') {
 	const userId = locals.user?.id;
 	const judged = userId ? judgeVideo(getDb(), userId, video) : null;
-	if (!judged || !allows(judged.access, need)) throw error(404, 'No such video');
+	if (!judged || !allows(judged.access, need)) throw error(404, t().video.refusal.noVideo);
 	return judged;
 }
 
@@ -54,7 +55,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (e instanceof SpotError) throw error(400, e.message);
 		throw e;
 	}
-	if (!spot) throw error(404, 'No such video');
+	if (!spot) throw error(404, t().video.refusal.noVideo);
 	const root =
 		'recordingId' in owner
 			? rootOfRecording(getDb(), owner.recordingId)

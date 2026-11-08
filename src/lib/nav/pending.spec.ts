@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { deskSkeletonMode, leavesPage, skeletonFor } from './pending';
 
 describe('skeletonFor', () => {
@@ -164,5 +165,15 @@ describe('skeletonFor Lessons and Groups', () => {
 		expect(skeletonFor('/[dance]/lessons')?.pane).toBe(true);
 		expect(skeletonFor('/[dance]/lessons')).toMatchObject({ deskTitle: 'Lessons' });
 		expect(skeletonFor('/[dance]/groups/[id]')).toBeNull();
+	});
+});
+
+describe('in Slovenian', () => {
+	it('titles a list and its pane in Slovenian', () => {
+		expect(withLocale('sl', () => skeletonFor('/[dance]/(moves)/coverage'))).toMatchObject({
+			kind: 'list',
+			title: 'Pokritost'
+		});
+		expect(withLocale('sl', () => skeletonFor('/[dance]/(today)')?.deskTitle)).toBe('Danes');
 	});
 });

@@ -9,8 +9,10 @@ import {
 	isRateLimited,
 	recordFailedLogin
 } from '$lib/server/auth';
-import { INVITE_REFUSAL, inviteValid, redeemInvite } from '$lib/server/invites';
+import { inviteRefusal, inviteValid, redeemInvite } from '$lib/server/invites';
+import { t } from '$lib/i18n/catalog';
 import { requestDanceOf } from '$lib/server/hosts';
+import { setLocaleCookie } from '$lib/server/locale';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url, parent }) => {
@@ -35,7 +37,7 @@ export const actions: Actions = {
 
 		if (!email || !password) {
 			return fail(400, {
-				message: 'Email and password are required.',
+				message: t().entry.required,
 				email,
 				firstName,
 				lastName,
@@ -46,7 +48,7 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		if (isRateLimited(ip, email, dance)) {
 			return fail(429, {
-				message: 'Too many attempts. Wait 15 minutes and try again.',
+				message: t().entry.tooMany,
 				email,
 				firstName,
 				lastName,
@@ -64,7 +66,7 @@ export const actions: Actions = {
 			if (result.reason === 'invite') {
 				recordFailedLogin(ip, email, dance);
 				return fail(400, {
-					message: INVITE_REFUSAL,
+					message: inviteRefusal(),
 					email,
 					firstName,
 					lastName,
@@ -90,6 +92,8 @@ export const actions: Actions = {
 			secure: url.protocol === 'https:',
 			expires: session.expiresAt
 		});
+		// The login page after signing out stays in the account's language.
+		setLocaleCookie(cookies, result.locale ?? 'en');
 		throw redirect(303, joinLanding(cookies.get(APP_COOKIE) === APP_VALUE));
 	}
 };

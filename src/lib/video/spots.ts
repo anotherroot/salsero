@@ -3,6 +3,7 @@
  * needs them. PURE and client-safe: the media element speaks seconds, a spot
  * is stored in milliseconds, and every conversion between the two is here.
  */
+import { t } from '$lib/i18n/catalog';
 import type { Spot, VideoSection } from '$lib/types';
 
 /** Seconds of media time to the integer milliseconds a spot stores. */
@@ -19,8 +20,10 @@ export function spotTime(ms: number): string {
 	const tenths = Math.floor(ms / 100);
 	const minutes = Math.floor(tenths / 600);
 	const rest = tenths % 600;
-	const seconds = Math.floor(rest / 10);
-	return `${minutes}:${String(seconds).padStart(2, '0')}.${rest % 10}`;
+	// Whole tenths: `decimal` writes them exactly, with the language's dot or comma.
+	return `${minutes}:${t()
+		.common.decimal(rest / 10, 1)
+		.padStart(4, '0')}`;
 }
 
 /** What a spot is called on screen: its label, else its time or time range. */
@@ -35,10 +38,13 @@ export function sectionMeta(
 	s: Pick<VideoSection, 'startMs' | 'endMs' | 'label' | 'links'>
 ): string {
 	const range = s.label ? `${spotTime(s.startMs)}–${spotTime(s.endMs)} · ` : '';
+	const w = t().video;
 	const links =
 		s.links.length === 0
-			? 'Not linked'
-			: `Linked to ${s.links.map((l) => (l.archived ? `${l.label} (archived)` : l.label)).join(', ')}`;
+			? w.notLinked
+			: w.linkedTo(
+					s.links.map((l) => (l.archived ? `${l.label} ${w.archived}` : l.label)).join(', ')
+				);
 	return range + links;
 }
 
@@ -191,19 +197,21 @@ export function preciseTime(ms: number): string {
 	const cs = Math.floor(Math.max(0, ms) / 10);
 	const minutes = Math.floor(cs / 6000);
 	const rest = cs % 6000;
-	return `${minutes}:${String(Math.floor(rest / 100)).padStart(2, '0')}.${String(rest % 100).padStart(2, '0')}`;
+	return `${minutes}:${t()
+		.common.decimal(rest / 100, 2)
+		.padStart(5, '0')}`;
 }
 
-/** `7.2 s` — a section's length. */
+/** `7.2 s` — a section's length (`7,2 s` in Slovenian). */
 export function lengthText(ms: number): string {
-	return `${(ms / 1000).toFixed(1)} s`;
+	return `${t().common.decimal(ms / 1000, 1)} s`;
 }
 
 /** A section's own clock: `2.7 / 7.2 s`, held inside the section. */
 export function sectionProgress(spot: Pick<Spot, 'startMs' | 'endMs'>, currentMs: number): string {
 	const length = (spot.endMs ?? spot.startMs) - spot.startMs;
 	const into = Math.max(0, Math.min(length, currentMs - spot.startMs));
-	return `${(into / 1000).toFixed(1)} / ${lengthText(length)}`;
+	return `${t().common.decimal(into / 1000, 1)} / ${lengthText(length)}`;
 }
 
 /** What a section links to, in one short line: the first label, and "+n" for the rest. */

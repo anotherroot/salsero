@@ -18,6 +18,7 @@ import {
 	type Seen
 } from '$lib/clash/clash';
 import { fingerprint } from './fingerprint';
+import { t } from '$lib/i18n/catalog';
 import {
 	pending,
 	sendingCount,
@@ -70,7 +71,11 @@ export const prompt = $state<{ ask: Ask | null }>({ ask: null });
  * Run `onleave` now if nothing inside `scope` is unsaved; otherwise ask first,
  * and run it only when the user chooses to go.
  */
-export function leaveOrAsk(scope: Node | null, onleave: () => void, verb = 'Leave'): void {
+export function leaveOrAsk(
+	scope: Node | null,
+	onleave: () => void,
+	verb = t().shell.unsaved.leave
+): void {
 	const list = unsaved(scope);
 	if (list.length === 0) onleave();
 	else prompt.ask = { entries: list, scoped: scope !== null, verb, onleave };
@@ -82,7 +87,10 @@ export function leaveOrAsk(scope: Node | null, onleave: () => void, verb = 'Leav
  * lose (empty when nothing was asked), for `passNext`. A desktop session's
  * Skip: the log form and an open settings edit are in one question.
  */
-export function leavePageOrAsk(onleave: (answered: Unsaved[]) => void, verb = 'Leave'): void {
+export function leavePageOrAsk(
+	onleave: (answered: Unsaved[]) => void,
+	verb = t().shell.unsaved.leave
+): void {
 	const list = unsaved(null);
 	if (list.length === 0) onleave([]);
 	else prompt.ask = { entries: list, scoped: false, verb, onleave: () => onleave(list) };
@@ -116,7 +124,7 @@ export function reloadOrAsk(): void {
 		prompt.ask = {
 			entries: list,
 			scoped: false,
-			verb: 'Reload',
+			verb: t().shell.reload.reload,
 			onleave: () => {
 				passing = true;
 				location.reload();
@@ -178,7 +186,7 @@ export function guardNavigation(): void {
 		prompt.ask = {
 			entries: list,
 			scoped: false,
-			verb: 'Leave',
+			verb: t().shell.unsaved.leave,
 			onleave: () => {
 				passing = true;
 				// Back and forward replay the history move, rather than pushing
@@ -325,7 +333,7 @@ function messageOf(result: ActionResult): string {
 		const m = (result.error as { message?: unknown } | undefined)?.message;
 		if (typeof m === 'string') return m;
 	}
-	return 'It did not save.';
+	return t().shell.unsaved.didNotSave;
 }
 
 /**
@@ -363,7 +371,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			// A refusal the form shows itself (a range error) is a field to point at, not a mystery.
 			settle(
 				form.checkValidity() && !form.querySelector('[aria-invalid="true"]')
-					? { ok: false, message: 'It was not sent.' }
+					? { ok: false, message: t().shell.unsaved.notSent }
 					: { ok: false, invalid: form }
 			);
 			return;

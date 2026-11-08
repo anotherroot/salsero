@@ -1,5 +1,6 @@
 /** Coming up's group headings. PURE. */
-import { dayMonth, weekdayShort } from '$lib/format';
+import { classDayLabel } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { ComingGroup } from './coming-up';
 
 /** "Sun 8 Nov" (with the year when it is not this year) and "in 3 days"; "Waiting" and "Paused" have neither. */
@@ -7,8 +8,9 @@ export function comingHeading(
 	group: Pick<ComingGroup<unknown>, 'key' | 'day' | 'away'>,
 	today: string
 ): { title: string; away: string | null } {
+	const w = t().today.coming;
 	if (group.day === null)
-		return { title: group.key === 'paused' ? 'Paused' : 'Waiting', away: null };
-	const year = group.day.slice(0, 4) === today.slice(0, 4) ? '' : ` ${group.day.slice(0, 4)}`;
-	return { title: `${weekdayShort(group.day)} ${dayMonth(group.day)}${year}`, away: group.away };
+		return { title: group.key === 'paused' ? w.paused : w.waiting, away: null };
+	// "Sun 8 Nov" ("ned, 8. nov."): a day label, as a class's day is written.
+	return { title: classDayLabel(group.day, today), away: group.away };
 }

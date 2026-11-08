@@ -16,6 +16,7 @@ import { openDb, type Db } from '$lib/server/db';
 import { addRecording, createFigure } from '$lib/server/figures';
 import { addSpot, listSpots } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
+import { runInLocale } from '$lib/server/i18n-request';
 import * as list from './+server';
 import * as one from './[id]/+server';
 
@@ -197,5 +198,42 @@ describe('a linked section', () => {
 			expect(e.body.message).toBe('Linked to Setenta · Basic — unlink it first.');
 		}
 		expect(listSpots(db, { recordingId })).toHaveLength(1);
+	});
+});
+
+describe('refusals in Slovenian', () => {
+	/** The message a handler throws or answers, under the person's language. */
+	const said = (fn: () => unknown) =>
+		runInLocale('sl', async () => {
+			try {
+				return (((await await fn()) as Response).json() as { message?: string }).message;
+			} catch (thrown) {
+				return (thrown as { body?: { message?: string } }).body?.message;
+			}
+		});
+
+	it('a missing video and a missing spot', async () => {
+		expect(await said(() => get('recording=999'))).toBe('Tega videa ni.');
+		expect(await said(() => run(one.DELETE, { params: { id: '999' } }))).toBe(
+			'Te točke ali odseka ni.'
+		);
+	});
+
+	it('a bad time, and a linked section on delete', async () => {
+		const post = () =>
+			run(list.POST, { request: send('POST', { recordingId, startMs: 5000, endMs: 4000 }) });
+		expect(await said(post)).toBe('Odsek se mora končati za začetkom.');
+		const spot = addSpot(db, { recordingId }, { startMs: 1000, endMs: 2000, label: null })!;
+		const other = createFigure(db, U1_SALSA, {
+			figureName: 'Setenta',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		linkSpot(db, 'u1', spot.id, { figureId: other });
+		expect(await said(() => run(one.DELETE, { params: { id: String(spot.id) } }))).toBe(
+			'Povezano: Setenta · Basic. Najprej odstranite povezavo.'
+		);
 	});
 });

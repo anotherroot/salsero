@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { NOTHING_CAPTURED, recordingView, silentLine, voiceError } from './recording';
+import { withLocale } from '$lib/i18n/current';
+import { nothingCaptured, recordingView, silentLine, voiceError } from './recording';
 
 describe('recordingView', () => {
 	it('walks from get ready to the last bar', () => {
@@ -63,6 +64,39 @@ describe('voiceError', () => {
 			body: 'Allow it for this app in the phone’s settings, then try again.'
 		});
 		expect(voiceError(new Error('Boom'))).toEqual({ title: 'Recording failed', body: 'Boom' });
-		expect(NOTHING_CAPTURED.title).toBe('Nothing usable was captured');
+		expect(nothingCaptured().title).toBe('Nothing usable was captured');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('walks the recording screen', () => {
+		expect(sl(() => recordingView('salsa', 4, null).heading)).toBe('Pripravite se');
+		expect(sl(() => recordingView('salsa', 4, { bar: -1, count: 3 }))).toMatchObject({
+			heading: 'Uvodni takt',
+			line: 'Začnite šteti ob naslednji enki'
+		});
+		expect(sl(() => recordingView('salsa', 4, { bar: 1, count: 5 }).heading)).toBe('Takt 2 od 4');
+		expect(sl(() => recordingView('salsa', 4, { bar: 0, count: 4 }).line)).toBe('Pri 4 tiho');
+	});
+
+	it('names the silent beats, and the failures', () => {
+		expect(sl(() => silentLine('salsa'))).toBe('Štejte enakomerno, pri 4 in 8 pa molčite.');
+		expect(sl(() => silentLine('all'))).toBe('Štejte enakomerno, vsak udarec.');
+		expect(
+			sl(() => voiceError(Object.assign(new Error('x'), { name: 'NotAllowedError' })))
+		).toEqual({
+			title: 'Mikrofon ni dovoljen',
+			body: 'Dovolite ga tej aplikaciji v nastavitvah telefona in poskusite znova.'
+		});
+		expect(sl(() => voiceError('x'))).toEqual({
+			title: 'Snemanje ni uspelo',
+			body: 'Snemanje ni uspelo.'
+		});
+		expect(sl(() => nothingCaptured())).toEqual({
+			title: 'Nič uporabnega ni bilo posneto',
+			body: 'Preverite dovoljenje za mikrofon.'
+		});
 	});
 });

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * The pill search field: a magnifier, the input, and a Clear button while
@@ -19,7 +20,8 @@
 	}: {
 		name?: string;
 		value?: string;
-		placeholder: string;
+		/** Default "Search". */
+		placeholder?: string;
 		label?: string;
 		onclear?: () => void;
 		/** Drawn as the disabled field: no ring, no Clear. */
@@ -30,6 +32,7 @@
 	} = $props();
 
 	const id = $props.id();
+	const hint = $derived(placeholder ?? t().common.search);
 
 	function clear() {
 		value = '';
@@ -45,14 +48,14 @@
 	class:pr-4={!value || disabled}
 >
 	<Icon name="search" size={20} />
-	<label class="sr-only" for={id}>{label ?? placeholder}</label>
+	<label class="sr-only" for={id}>{label ?? hint}</label>
 	<input
 		{id}
 		{name}
 		type="search"
 		bind:value
 		bind:this={input}
-		{placeholder}
+		placeholder={hint}
 		{disabled}
 		{onkeydown}
 		autocomplete="off"
@@ -64,7 +67,7 @@
 		<!-- The 44 px square is the hit area; the 36 px disc is what presses. -->
 		<button
 			type="button"
-			aria-label="Clear search"
+			aria-label={t().shell.clearSearch}
 			class="group flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full"
 			onclick={clear}
 		>

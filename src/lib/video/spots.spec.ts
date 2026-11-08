@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import {
 	linkSummary,
 	edgeViewTime,
@@ -284,5 +286,51 @@ describe('sectionMeta', () => {
 				]
 			})
 		).toBe('Linked to Cross · Basic, Old drill (archived)');
+	});
+});
+
+describe('spots in Slovenian: a decimal comma, the words', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('times and lengths', () => {
+		expect(sl(() => spotTime(134_500))).toBe('2:14,5');
+		expect(sl(() => spotTime(59_999))).toBe('0:59,9');
+		expect(sl(() => preciseTime(64_230))).toBe('1:04,23');
+		expect(sl(() => preciseTime(3_725_305))).toBe('62:05,30');
+		expect(sl(() => lengthText(7200))).toBe('7,2 s');
+		expect(sl(() => sectionProgress({ startMs: 64_000, endMs: 71_200 }, 66_700))).toBe(
+			'2,7 / 7,2 s'
+		);
+	});
+	it('a section’s label is its range', () => {
+		expect(sl(() => spotLabel({ startMs: 12_400, endMs: 16_000, label: null }))).toBe(
+			'0:12,4–0:16,0'
+		);
+		expect(sl(() => spotLabel({ startMs: 12_400, endMs: 16_000, label: 'Obrat' }))).toBe('Obrat');
+	});
+	it('what a section links to', () => {
+		expect(sl(() => sectionMeta({ startMs: 0, endMs: 1000, label: null, links: [] }))).toBe(
+			'Ni povezano'
+		);
+		expect(
+			sl(() =>
+				sectionMeta({
+					startMs: 12000,
+					endMs: 19000,
+					label: 'Drugi obrat',
+					links: [
+						{ id: 1, label: 'Cross · Basic', archived: false },
+						{ id: 2, label: 'Stara vaja', archived: true }
+					]
+				})
+			)
+		).toBe('0:12,0–0:19,0 · Povezano: Cross · Basic, Stara vaja (arhivirano)');
+	});
+
+	it('the steps’ words: a tenth with a comma, a minus sign, a plus', () => {
+		expect(sl(() => t().video.secs(0.1))).toBe('0,1 s');
+		expect(sl(() => t().video.minus(0.1))).toBe('−0,1 s');
+		expect(sl(() => t().video.plus(1))).toBe('+1 s');
+		expect(sl(() => t().video.rate(0.25))).toBe('0,25×');
 	});
 });

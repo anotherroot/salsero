@@ -3,8 +3,9 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
-	import { cardWords, TEACHER_TAG } from '$lib/comments/view';
+	import { cardWords, teacherTag } from '$lib/comments/view';
 	import { agoText } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
 	import type { CommentsOn } from '$lib/types';
 	import CommentsSheet from './CommentsSheet.svelte';
 
@@ -20,9 +21,9 @@
 		title?: string;
 	}
 
-	let { comments, title = 'Comments' }: Props = $props();
+	let { comments, title }: Props = $props();
 
-	const words = $derived(cardWords(comments.card, title));
+	const words = $derived(cardWords(comments.card, title ?? t().comments.title));
 	const newest = $derived(comments.card.newest);
 	let open = $state(false);
 </script>
@@ -43,7 +44,7 @@
 		<span class="text-[13px] leading-snug">
 			<span class="font-bold text-ink">{newest.name}</span>
 			{#if newest.teacher}<span class="text-muted">·</span>
-				<span class="font-extrabold text-accent-text">{TEACHER_TAG}</span>{/if}
+				<span class="font-extrabold text-accent-text">{teacherTag()}</span>{/if}
 		</span>
 		<span class="line-clamp-2 text-[15px] leading-[1.4] break-words text-ink-2">{newest.text}</span>
 		<span class="text-[13px] text-muted">{agoText(newest.at, comments.now)}</span>
