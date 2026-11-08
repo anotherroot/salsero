@@ -20,6 +20,7 @@
 	import { segments } from '$lib/picker/model';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
 	import type { PickerSong } from '$lib/types';
 
 	interface Props {
@@ -34,15 +35,7 @@
 		title?: string;
 	}
 
-	let {
-		open,
-		onclose,
-		songs,
-		onpick,
-		picked = null,
-		first = null,
-		title = 'Pick a song'
-	}: Props = $props();
+	let { open, onclose, songs, onpick, picked = null, first = null, title }: Props = $props();
 
 	let query = $state('');
 	let search: HTMLInputElement | undefined = $state();
@@ -116,7 +109,7 @@
 					</span>
 					{#if sampling.id === s.id}
 						<span class="block truncate text-[13px] leading-[1.35] font-bold text-accent-text"
-							>Sample from {clock(s.sample.startS)}</span
+							>{t().songs.sample.from(clock(s.sample.startS))}</span
 						>
 					{:else}
 						<span
@@ -137,13 +130,13 @@
 	</ul>
 {/snippet}
 
-<Sheet {title} {open} onclose={close} tall={songs.length > 0}>
+<Sheet title={title ?? t().songs.picker.title} {open} onclose={close} tall={songs.length > 0}>
 	<div class="flex h-full min-h-0 flex-col gap-2">
-		<SearchField placeholder="Search songs" bind:value={query} bind:input={search} />
+		<SearchField placeholder={t().songs.picker.search} bind:value={query} bind:input={search} />
 		<p class="flex justify-between gap-2 px-1 text-[13px] text-muted">
 			<span class="font-bold">{countText}</span>
 			<span class="flex items-center gap-1 text-right"
-				><Icon name="play" size={12} filled />hear 15 s · tap a song to pick it</span
+				><Icon name="play" size={12} filled />{t().songs.picker.hint}</span
 			>
 		</p>
 
@@ -155,15 +148,15 @@
 					{:else}
 						<EmptyState
 							icon="search"
-							title="No song matches “{query.trim()}”"
-							body="Once it is added and ready, it shows here."
+							title={t().songs.picker.noMatch(query.trim())}
+							body={t().songs.picker.noMatchBody}
 						>
 							{#snippet action()}
 								<a
 									href={resolve(`/${slug}/songs?add=1`)}
 									onclick={close}
 									class="inline-flex min-h-11 items-center text-[15px] font-extrabold text-accent-text"
-									>Add it in Music</a
+									>{t().songs.picker.addInMusic}</a
 								>
 							{/snippet}
 						</EmptyState>

@@ -3,6 +3,7 @@
 	import LogShell, { type LogProps } from '../../LogShell.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import Content from './Content.svelte';
 
 	let props: LogProps = $props();
@@ -30,10 +31,11 @@
 				href={resolve(
 					`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}&from=${props.from ?? 'today'}`
 				)}
-				class={button('secondary', 'md', true)}><Icon name="play" size={20} />Practise in player</a
+				class={button('secondary', 'md', true)}
+				><Icon name="play" size={20} />{t().exercise.content.practiseInPlayer}</a
 			>
 			<p class="-mt-1 px-1 text-[13px] text-muted">
-				A run there saves itself. Log here when you practised away from the app.
+				{t().exercise.content.routineNote}
 			</p>
 		{/if}
 	{/snippet}

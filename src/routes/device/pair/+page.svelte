@@ -7,10 +7,12 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import StatusBlock from '$lib/components/system/StatusBlock.svelte';
 	import { button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
+	const w = $derived(t().settings.pair);
 
 	// The app opened this page for one dance; otherwise the account's.
 	const asked = $derived(page.url.searchParams.get('dance') ?? '');
@@ -23,31 +25,25 @@
 	});
 </script>
 
-<svelte:head><title>Pair the app</title></svelte:head>
+<svelte:head><title>{w.title}</title></svelte:head>
 
 <div data-dance={dance} style:display="contents">
-	<CardFrame title="Pair the app">
+	<CardFrame title={w.title}>
 		{#if form?.link}
 			<StatusBlock
 				icon="check"
 				tone="done"
-				title="Paired"
-				body="Opening the app now. If it does not open by itself, tap the button."
+				title={w.paired}
+				body={w.pairedBody}
 				class="desk:pt-3"
 			/>
 			<BottomBar card>
 				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
-				<a href={form.link} rel="external" class={button('primary', 'lg', true)}>Open the app</a>
+				<a href={form.link} rel="external" class={button('primary', 'lg', true)}>{w.openApp}</a>
 				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			</BottomBar>
 		{:else}
-			<StatusBlock
-				icon="phone"
-				tone="accent"
-				title="Pair this phone"
-				body="Lets the app upload videos in the background and remind you what is due. You can remove it again in Settings."
-				class="desk:pt-3"
-			/>
+			<StatusBlock icon="phone" tone="accent" title={w.pairPhone} body={w.body} class="desk:pt-3" />
 			<BottomBar card>
 				<form
 					method="POST"
@@ -61,7 +57,7 @@
 					}}
 				>
 					<button class={button('primary', 'lg', true)} aria-busy={busy}>
-						{#if busy}<Spinner size={24} /> Pairing…{:else}Pair this phone{/if}
+						{#if busy}<Spinner size={24} /> {w.pairing}{:else}{w.pairPhone}{/if}
 					</button>
 				</form>
 			</BottomBar>

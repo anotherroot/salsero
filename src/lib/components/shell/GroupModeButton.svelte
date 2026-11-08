@@ -4,6 +4,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { workInRows } from '$lib/teams/mode';
 	import type { GroupChoice, GroupMode } from '$lib/types';
@@ -18,7 +19,7 @@
 	const mode = $derived((page.data.groupMode ?? null) as GroupMode | null);
 	const action = $derived(`/${page.params.dance}/group-mode`);
 	const to = $derived(page.url.pathname);
-	const label = $derived(mode ? 'Switch group' : 'Work in a group');
+	const label = $derived(mode ? t().shell.groupMode.switchGroup : t().shell.groupMode.workInGroup);
 	const rows = $derived(workInRows(choices, mode?.teamId ?? null));
 
 	let open = $state(false);
@@ -55,7 +56,7 @@
 		<button type="button" aria-label={label} class={cls} onclick={() => (open = true)}
 			><Icon name="people" /></button
 		>
-		<Sheet title="Work in" {open} onclose={() => (open = false)}>
+		<Sheet title={t().shell.groupMode.workIn} {open} onclose={() => (open = false)}>
 			<ul class="flex flex-col gap-1">
 				{#each rows as row (row.teamId)}
 					<li>
@@ -75,7 +76,9 @@
 								</span>
 								{#if row.on}
 									<span class="flex flex-none text-accent-text"
-										><Icon name="check" size={22} /><span class="sr-only">Working in</span></span
+										><Icon name="check" size={22} /><span class="sr-only"
+											>{t().shell.groupMode.workingIn}</span
+										></span
 									>
 								{/if}
 							</button>

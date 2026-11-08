@@ -9,17 +9,17 @@
  * when the choice is System. The dark colours in `src/routes/layout.css` hang
  * off that attribute.
  */
+import { t } from '$lib/i18n/catalog';
 
 export const THEME_COOKIE = 'theme';
 
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 
-export const THEME_LABEL: Record<ThemeChoice, string> = {
-	system: 'System',
-	light: 'Light',
-	dark: 'Dark'
-};
+/** A choice's name in the current language: System, Light, Dark. */
+export function themeLabel(choice: ThemeChoice): string {
+	return t().settings.theme[choice];
+}
 
 export function isThemeChoice(raw: unknown): raw is ThemeChoice {
 	return typeof raw === 'string' && (THEME_CHOICES as readonly string[]).includes(raw);

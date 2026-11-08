@@ -4,6 +4,8 @@
  * wrapped, because private-mode Safari throws on any touch of it. Nothing here
  * ever reaches the database.
  */
+import { t } from '$lib/i18n/catalog';
+
 export const VIDEO_RATES = [0.25, 0.5, 0.75, 1] as const;
 export type VideoRate = (typeof VIDEO_RATES)[number];
 
@@ -64,10 +66,7 @@ export function saveVideoPrefs(p: Partial<VideoPrefs>): void {
 	}
 }
 
-/** The playback-rate chips' labels. */
-export const RATE_LABEL: Record<VideoRate, string> = {
-	0.25: '¼×',
-	0.5: '½×',
-	0.75: '¾×',
-	1: '1×'
-};
+/** A playback-rate chip's label: `¼×` (`0,25×` in Slovenian). */
+export function rateLabel(r: VideoRate): string {
+	return t().video.rateChip(r);
+}

@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { needsName } from '$lib/names';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 let db: Db;
@@ -98,5 +99,17 @@ describe('welcome', () => {
 		expect(res.status).toBe(400);
 		expect(res.data.field).toBe('lastName');
 		expect(db.select().from(users).get()!.firstName).toBeNull();
+	});
+
+	// Catches: the name refusal left in English for a Slovenian reader.
+	it('refuses a missing name in Slovenian', async () => {
+		const say = async (fields: Record<string, string>) =>
+			(
+				(await runInLocale('sl', () => run(actions.default, post(fields)))) as {
+					data: { message: string };
+				}
+			).data.message;
+		expect(await say({ lastName: 'K' })).toBe('Vnesite svoje ime (največ 60 znakov).');
+		expect(await say({ firstName: 'Ana' })).toBe('Vnesite svoj priimek (največ 60 znakov).');
 	});
 });

@@ -23,6 +23,7 @@ import {
 	videoSpots
 } from './db/schema';
 import { positionLinkLabel } from '$lib/lessons/page';
+import { t } from '$lib/i18n/catalog';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type {
 	LinkCreateField,
@@ -61,7 +62,7 @@ export class SpotLinkError extends Error {
 /** A delete refused because a section is linked. The message names what to unlink. */
 export class SpotLinkedError extends Error {
 	constructor(readonly labels: string[]) {
-		super(`Linked to ${labels.join(', ')} — unlink it first.`);
+		super(t().video.refusal.linked(labels.join(', ')));
 	}
 }
 

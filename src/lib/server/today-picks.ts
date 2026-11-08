@@ -9,6 +9,7 @@ import { inWall, type Wall } from './scope';
 import type { DayPick, PickKind } from '$lib/schedule/picks';
 import type { DayInput } from '$lib/schedule/today-list';
 import { localDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { ExerciseItem } from '$lib/types';
 import { listExercises } from './exercises';
 import { listScheduleSets } from './schedule';
@@ -85,11 +86,12 @@ export function addPicks(
 		const found = ids.length
 			? tx.select().from(exercises).where(inArray(exercises.id, ids)).all()
 			: [];
+		const w = t().today.refused;
 		for (const id of ids) {
 			const e = found.find((f) => f.id === id);
-			if (!e || !inWall(e, wall)) throw new PickRefused('No such exercise.');
-			if (e.archivedAt !== null) throw new PickRefused('That exercise is archived.');
-			if (kind !== 'skip' && !e.active) throw new PickRefused('That exercise is paused.');
+			if (!e || !inWall(e, wall)) throw new PickRefused(w.noExercise);
+			if (e.archivedAt !== null) throw new PickRefused(w.archived);
+			if (kind !== 'skip' && !e.active) throw new PickRefused(w.paused);
 		}
 		const created: number[] = [];
 		const unskipped: number[] = [];

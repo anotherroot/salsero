@@ -3,41 +3,27 @@
  * slides, How much app?, Join your class. PURE, client-safe.
  */
 import type { DanceSlug } from '$lib/dances/dances';
+import { t, type Catalog } from '$lib/i18n/catalog';
 
-export const SLIDES: readonly { title: string; body: string }[] = [
-	{
-		title: 'Practise what you learned in class',
-		body: 'Your teacher puts each class here. You watch it again and practise at home, a few minutes at a time.'
-	},
-	{
-		title: 'A few things a day',
-		body: 'Today shows just a handful. When they are done, you are done.'
-	},
-	{
-		title: 'You say when it comes back',
-		body: 'After practising, tap how it went. The app remembers for you.'
-	}
-];
+/** The three slides. */
+export function slides(): readonly { title: string; body: string }[] {
+	return t().entry.firstRun.slides;
+}
 
-export const LEVEL_STEP = {
-	title: 'How much app?',
-	note: 'You can change this any time in Settings'
-};
+/** How much app? */
+export function levelStep(): { title: string; note: string } {
+	return t().entry.firstRun.level;
+}
 
-export const JOIN_STEP = {
-	title: 'Join your class',
-	subtitle: 'Your teacher has the code',
-	label: 'Class code',
-	or: 'Or open the link your teacher sent, or scan the code on the studio wall.',
-	notNow: 'Not now',
-	join: 'Join'
-};
+/** Join your class: the first run's step, the code field, My class with no class. */
+export function joinStep(): Catalog['entry']['firstRun']['join'] {
+	return t().entry.firstRun.join;
+}
 
-export const CODE_REFUSALS = {
-	empty: 'Enter the class code.',
-	unknown: 'No class has this code. Check it and try again.',
-	refused: 'This class was deleted, so it cannot be joined.'
-} as const;
+/** Why a typed class code joined nothing. */
+export function codeRefusal(reason: 'empty' | 'unknown' | 'refused'): string {
+	return t().entry.firstRun.code[reason];
+}
 
 /** The code in a `/g/<code>` path (the teacher's link), or null. */
 export function inviteCodeOf(next: string): string | null {

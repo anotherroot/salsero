@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	LEVELS,
-	LEVEL_WORDS,
+	levelWords,
 	addsAtOnce,
 	autoAddOn,
 	autoAddSwitchShown,
@@ -96,14 +97,28 @@ describe('litAt', () => {
 describe('the words', () => {
 	it('are the spec’s, in the order of LEVELS', () => {
 		expect(LEVELS).toEqual(['follow', 'own', 'all']);
-		expect(LEVELS.map((l) => LEVEL_WORDS[l].title)).toEqual([
+		expect(LEVELS.map((l) => levelWords(l).title)).toEqual([
 			'Follow my class',
 			'Practise and keep my own',
 			'Everything'
 		]);
-		expect(LEVEL_WORDS.follow.small).toBe('New class lessons come to Today by themselves.');
-		expect(LEVEL_WORDS.own.small).toBe('Videos still just play.');
-		expect(LEVEL_WORDS.all.small).toBe('');
+		expect(levelWords('follow').small).toBe('New class lessons come to Today by themselves.');
+		expect(levelWords('own').small).toBe('Videos still just play.');
+		expect(levelWords('all').small).toBe('');
+	});
+
+	// Catches: the level names left in English, or not the glossary's.
+	it('are the glossary’s in Slovenian, Everything still without a small line', () => {
+		withLocale('sl', () => {
+			expect(LEVELS.map((l) => levelWords(l).title)).toEqual([
+				'Sledim svojemu tečaju',
+				'Vadim in imam svoje',
+				'Vse'
+			]);
+			expect(levelWords('follow').small).toBe('Nove lekcije s tečaja pridejo pod Danes same.');
+			expect(levelWords('all').small).toBe('');
+		});
+		expect(levelWords('follow').title).toBe('Follow my class');
 	});
 });
 

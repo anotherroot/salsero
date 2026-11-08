@@ -11,6 +11,7 @@
 	import type { Side } from '$lib/gestures/swipe';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import { iconButton } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		row: DayRow<ExerciseItem>;
@@ -74,7 +75,7 @@
 		key="today:{ex.id}"
 		open={swiped}
 		onchange={onswipe}
-		end={onskip ? { label: 'Not today', icon: 'redo', onclick: onskip } : undefined}
+		end={onskip ? { label: t().today.row.notToday, icon: 'redo', onclick: onskip } : undefined}
 		disabled={!onskip || desk.current}
 		rounded="rounded-none"
 		tone="warn"
@@ -99,7 +100,7 @@
 							? 'text-muted'
 							: 'text-ink'}"
 						>{ex.name}{#if upNext}<span class="ml-1 inline-block align-[2px]"
-								><Badge tone="accent" solid>Up next</Badge></span
+								><Badge tone="accent" solid>{t().today.row.upNext}</Badge></span
 							>{/if}</span
 					>
 					<!-- muted is under 4.5:1 on the Up next tint; ink-2 clears it in every theme. -->
@@ -114,7 +115,7 @@
 			<button
 				type="button"
 				onclick={onlog}
-				aria-label="Log a set of {ex.name}"
+				aria-label={t().today.row.logSet(ex.name)}
 				class="{plus} desk:hidden"
 			>
 				<Icon name="plus" />

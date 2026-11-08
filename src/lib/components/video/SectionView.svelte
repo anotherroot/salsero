@@ -1,6 +1,7 @@
 <!-- src/lib/components/video/SectionView.svelte -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { preciseTime, sectionProgress, spotTime } from '$lib/video/spots';
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -79,7 +80,7 @@
 			<span class="flex-1"></span>
 			{#if onhide}
 				<button type="button" class={HIDE} onclick={onhide}>
-					Hide<Icon name="chevron-down" size={18} />
+					{t().video.hide}<Icon name="chevron-down" size={18} />
 				</button>
 			{/if}
 		</div>
@@ -106,7 +107,7 @@
 			<Transport {paused} {ontoggle} {onstep} {ontenth} />
 			<span class="flex-1"></span>
 			<button type="button" class={BACK} onclick={onfull}>
-				<Icon name="chevron-left" size={20} />Full video
+				<Icon name="chevron-left" size={20} />{t().video.fullVideo}
 			</button>
 		</div>
 	</div>

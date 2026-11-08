@@ -21,6 +21,7 @@ import { addedLessonIds, lessonAccess, reachFrom } from './access';
 import { teamNames } from './changes';
 import { fromClassOf } from './from-class';
 import { bodyError } from '$lib/comments/view';
+import { t } from '$lib/i18n/catalog';
 import type { CommentCard, CommentList, CommentRow, CommentsOn, CommentThread } from '$lib/types';
 
 export type Comment = CommentRow;
@@ -30,7 +31,7 @@ export type CommentRefusal = {
 };
 
 /** What a write says in a deleted group. */
-export const CLOSED_MESSAGE = 'This class has been deleted, so its comments can only be read.';
+export const closedMessage = (): string => t().comments.refused.closed;
 
 type Ctx = {
 	teamId: number;
@@ -125,7 +126,7 @@ export function listComments(db: Db, userId: string, lessonId: number): CommentL
 		return {
 			id: c.id,
 			threadId: c.threadId,
-			authorName: live ? (names.get(c.authorId) ?? 'Someone') : null,
+			authorName: live ? (names.get(c.authorId) ?? t().comments.someone) : null,
 			teacher: isTeacher(roles.get(c.authorId) ?? null),
 			mine: c.authorId === userId,
 			body: live ? c.body : null,
@@ -135,7 +136,9 @@ export function listComments(db: Db, userId: string, lessonId: number): CommentL
 			canDelete: ctx.open && live && (c.authorId === userId || iTeach),
 			// Only a reply to another reply is drawn with "@Name".
 			replyToName:
-				target && target.threadId !== null ? (names.get(target.authorId) ?? 'Someone') : null
+				target && target.threadId !== null
+					? (names.get(target.authorId) ?? t().comments.someone)
+					: null
 		};
 	};
 
@@ -170,8 +173,8 @@ export function postComment(
 	now: number
 ): Comment | CommentRefusal {
 	const ctx = lessonCtx(db, userId, lessonId);
-	if (!ctx) return refuse('missing', 'No such lesson');
-	if (!ctx.open) return refuse('closed', CLOSED_MESSAGE);
+	if (!ctx) return refuse('missing', t().comments.refused.noLesson);
+	if (!ctx.open) return refuse('closed', closedMessage());
 	const problem = bodyError(rawBody);
 	if (problem) return refuse('body', problem);
 	const body = rawBody.trim();
@@ -180,9 +183,9 @@ export function postComment(
 	if (replyTo !== null) {
 		const target = db.select().from(lessonComments).where(eq(lessonComments.id, replyTo)).get();
 		if (!target || target.lessonId !== lessonId) {
-			return refuse('reply', 'That comment is not in this lesson.');
+			return refuse('reply', t().comments.refused.notInLesson);
 		}
-		if (target.deletedAt !== null) return refuse('reply', 'That comment was deleted.');
+		if (target.deletedAt !== null) return refuse('reply', t().comments.refused.replyDeleted);
 		threadId = target.threadId ?? target.id;
 	}
 	const id = db
@@ -191,9 +194,9 @@ export function postComment(
 		.returning({ id: lessonComments.id })
 		.get().id;
 	const list = listComments(db, userId, lessonId)!;
-	for (const t of list.threads) {
-		if (t.top.id === id) return t.top;
-		const r = t.replies.find((x) => x.id === id);
+	for (const thread of list.threads) {
+		if (thread.top.id === id) return thread.top;
+		const r = thread.replies.find((x) => x.id === id);
 		if (r) return r;
 	}
 	throw new Error('a posted comment is always listed');
@@ -285,7 +288,7 @@ export function commentCard(db: Db, userId: string, lessonId: number): CommentCa
 		count: live.length,
 		newCount,
 		newest: {
-			name: names.get(top.authorId) ?? 'Someone',
+			name: names.get(top.authorId) ?? t().comments.someone,
 			teacher: isTeacher(roleIn(db, top.authorId, ctx.teamId)),
 			text: top.body,
 			at: top.createdAt

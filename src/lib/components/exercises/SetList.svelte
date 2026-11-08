@@ -5,10 +5,11 @@
 	import { focusAfterRemoval } from '$lib/focus';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Face from './Face.svelte';
-	import { FEEL_WORD, feelOf } from '$lib/schedule/feel';
+	import { feelWord, feelOf } from '$lib/schedule/feel';
 	import { GROUP, iconButton } from '$lib/components/ui/styles';
 	import { setMeta, setTitle } from '$lib/exercises/exercise-page';
 	import { timeOfDay } from '$lib/day/day';
+	import { t } from '$lib/i18n/catalog';
 	import type { HistorySet } from '$lib/types';
 
 	interface Props {
@@ -36,9 +37,9 @@
 				<span class="text-[16px] leading-tight font-bold text-ink"
 					>{title.text}{#if title.rating !== null}{title.text ? ' · ' : ''}<span
 							class="inline-flex items-center gap-1 align-[-3px]"
-							><Face feel={feelOf(title.rating) ?? 'gotit'} size={16} label />{FEEL_WORD[
+							><Face feel={feelOf(title.rating) ?? 'gotit'} size={16} label />{feelWord(
 								feelOf(title.rating) ?? 'gotit'
-							]}</span
+							)}</span
 						>{/if}</span
 				>
 				<span class="truncate text-[13px] text-muted">{setMeta(s, timezone)}</span>
@@ -57,14 +58,14 @@
 							return;
 						}
 						// A refusal ("already removed") reloads: the list shows what the server has.
-						// Not a stale page's: that reload would be held back for good.
+						// Not on a stale page: its reload would be held back for good.
 						if (result.type === 'failure' && !staleFailure(result)) await invalidateAll();
 						hiding = hiding.filter((id) => id !== s.id);
 						const m =
 							result.type === 'failure'
 								? (result.data as { message?: unknown } | undefined)?.message
 								: undefined;
-						onfailed(typeof m === 'string' ? m : 'Could not delete the set.');
+						onfailed(typeof m === 'string' ? m : t().exercise.sets.deleteFailed);
 					};
 				}}
 			>
@@ -73,7 +74,7 @@
 					data-focus="set-{s.id}"
 					type="submit"
 					class={iconButton('bare', 'muted')}
-					aria-label="Delete set logged at {time}"
+					aria-label={t().exercise.sets.deleteLabel(time)}
 				>
 					<Icon name="trash" size={20} />
 				</button>

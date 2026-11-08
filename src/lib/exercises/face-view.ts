@@ -1,5 +1,5 @@
 /** What the four faces show: a tone per feel and a time per column. PURE, client-safe. */
-import { FEELS, FEEL_WORD, type Feel } from '$lib/schedule/feel';
+import { FEELS, feelWord, type Feel } from '$lib/schedule/feel';
 import type { FacePreview } from '$lib/schedule/schedule';
 import { gapWords } from '$lib/schedule/words';
 
@@ -22,6 +22,6 @@ export interface FaceColumn {
 export function faceColumns(preview: FacePreview[] | null): FaceColumn[] {
 	return FEELS.map((feel) => {
 		const p = preview?.find((x) => x.feel === feel);
-		return { feel, word: FEEL_WORD[feel], time: p ? gapWords(p.gap) : null };
+		return { feel, word: feelWord(feel), time: p ? gapWords(p.gap) : null };
 	});
 }

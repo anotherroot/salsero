@@ -18,6 +18,7 @@
 		WHOLE_RESIZE_MS,
 		WHOLE_SHIFT_MS
 	} from '$lib/video/spots';
+	import { t } from '$lib/i18n/catalog';
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { editorSub, linkEntry } from '$lib/video/chrome';
@@ -89,22 +90,23 @@
 		ontenth
 	}: Props = $props();
 
+	const w = $derived(t().video);
 	const isSection = $derived(spot.endMs !== null);
 	const edge = $derived<'start' | 'end'>(isSection ? selected : 'start');
 	const atMs = $derived(edge === 'start' ? spot.startMs : (spot.endMs ?? spot.startMs));
 
 	const steps = $derived([
-		{ label: '−1 s', how: 'second', times: moveEdge(spot, edge, atMs - 1000, durationS) },
-		{ label: '−0.1 s', how: 'tenth', times: moveEdge(spot, edge, atMs - TENTH_MS, durationS) },
-		{ label: '+0.1 s', how: 'tenth', times: moveEdge(spot, edge, atMs + TENTH_MS, durationS) },
-		{ label: '+1 s', how: 'second', times: moveEdge(spot, edge, atMs + 1000, durationS) }
+		{ label: w.minus(1), how: 'second', times: moveEdge(spot, edge, atMs - 1000, durationS) },
+		{ label: w.minus(0.1), how: 'tenth', times: moveEdge(spot, edge, atMs - TENTH_MS, durationS) },
+		{ label: w.plus(0.1), how: 'tenth', times: moveEdge(spot, edge, atMs + TENTH_MS, durationS) },
+		{ label: w.plus(1), how: 'second', times: moveEdge(spot, edge, atMs + 1000, durationS) }
 	] as const);
 	const now = $derived(moveEdge(spot, edge, Math.round(currentMs), durationS));
 	const whole = $derived([
-		{ label: '‹ Earlier', times: shiftSpot(spot, -WHOLE_SHIFT_MS, durationS) },
-		{ label: 'Shorter', times: resizeSpot(spot, -WHOLE_RESIZE_MS, durationS) },
-		{ label: 'Longer', times: resizeSpot(spot, WHOLE_RESIZE_MS, durationS) },
-		{ label: 'Later ›', times: shiftSpot(spot, WHOLE_SHIFT_MS, durationS) }
+		{ label: w.editor.earlier, times: shiftSpot(spot, -WHOLE_SHIFT_MS, durationS) },
+		{ label: w.editor.shorter, times: resizeSpot(spot, -WHOLE_RESIZE_MS, durationS) },
+		{ label: w.editor.longer, times: resizeSpot(spot, WHOLE_RESIZE_MS, durationS) },
+		{ label: w.editor.later, times: shiftSpot(spot, WHOLE_SHIFT_MS, durationS) }
 	]);
 
 	const sub = $derived(editorSub(spot));
@@ -138,7 +140,7 @@
 			<button
 				type="button"
 				class="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5 text-left"
-				aria-label="Rename {spotLabel(spot)}"
+				aria-label={w.editor.renameOf(spotLabel(spot))}
 				onclick={onrename}
 			>
 				<span class="flex items-center gap-2">
@@ -157,7 +159,7 @@
 					onclick={onloop}
 				>
 					<span class={LOOP}>
-						<Icon name="repeat" size={16} />{looping ? 'Looping' : 'Loop'}
+						<Icon name="repeat" size={16} />{looping ? w.looping : w.loop}
 					</span>
 				</button>
 			{/if}
@@ -210,7 +212,7 @@
 								? 'text-accent-text'
 								: 'text-muted'}"
 						>
-							{e === 'start' ? 'Start' : 'End'}
+							{e === 'start' ? w.editor.start : w.editor.end}
 							{#if keys}<kbd class={KBD}>{e === 'start' ? 'I' : 'O'}</kbd>{/if}
 						</span>
 						<span class="text-[18px] font-extrabold tabular-nums"
@@ -225,9 +227,9 @@
 			<span class="text-[12px] font-bold text-muted"
 				>{isSection
 					? edge === 'start'
-						? 'Move the start'
-						: 'Move the end'
-					: 'Move the point'}</span
+						? w.editor.moveStart
+						: w.editor.moveEnd
+					: w.editor.movePoint}</span
 			>
 			<div class="flex gap-1.5">
 				{#each steps.slice(0, 2) as s (s.label)}
@@ -244,7 +246,7 @@
 					disabled={!now}
 					onclick={() => now && onmove(now, 'now', edge)}
 				>
-					<span>Now</span>
+					<span>{w.editor.now}</span>
 					<span class="text-[12px] font-semibold {now ? 'text-muted' : 'text-disabled-ink'}"
 						>{spotTime(currentMs)}</span
 					>
@@ -263,7 +265,7 @@
 		{#if isSection && spot.endMs !== null}
 			<div class="flex flex-none flex-col gap-1.5">
 				<span class="text-[12px] font-bold text-muted"
-					>Whole section · {lengthText(spot.endMs - spot.startMs)}</span
+					>{w.editor.whole(lengthText(spot.endMs - spot.startMs))}</span
 				>
 				<div class="flex gap-1.5">
 					{#each whole as w (w.label)}
@@ -289,14 +291,14 @@
 		class="flex flex-none items-center gap-2 border-t border-surface bg-ground px-4 pt-2.5 pb-[max(var(--safe-bottom),22px)]"
 	>
 		<button type="button" class={DELETE} onclick={ondelete}>
-			<Icon name="trash" size={20} />Delete
+			<Icon name="trash" size={20} />{t().common.delete}
 		</button>
 		<span class="flex-1"></span>
 		{#if keys}
-			<button type="button" class={RENAME} onclick={onrename}>Rename</button>
+			<button type="button" class={RENAME} onclick={onrename}>{w.editor.rename}</button>
 		{/if}
 		<button type="button" class={DONE} onclick={ondone}>
-			<Icon name="check" size={20} />Done
+			<Icon name="check" size={20} />{t().common.done}
 		</button>
 	</div>
 </div>

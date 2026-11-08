@@ -7,6 +7,7 @@
  * stale answer.
  */
 import type { SongGrid } from '$lib/types';
+import { t } from '$lib/i18n/catalog';
 
 export function loadSongGrid(
 	danceSlug: () => string,
@@ -32,8 +33,7 @@ export function loadSongGrid(
 				if (!cancelled) state.grid = g;
 			})
 			.catch(() => {
-				if (!cancelled)
-					state.error = 'That song could not be loaded. Pick another, or use the count.';
+				if (!cancelled) state.error = t().player.songFailed;
 			});
 		return () => {
 			cancelled = true;

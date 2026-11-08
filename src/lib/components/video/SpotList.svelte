@@ -1,5 +1,6 @@
 <!-- src/lib/components/video/SpotList.svelte -->
 <script lang="ts">
+	import { t } from '$lib/i18n/catalog';
 	import { spotLabel } from '$lib/video/spots';
 	import { listMeta } from '$lib/video/chrome';
 	import type { Snippet } from 'svelte';
@@ -28,17 +29,18 @@
 
 	let { spots, activeId, loadFailed, variant, onopen, onedit, onclose, expanded }: Props = $props();
 
+	const w = $derived(t().video);
 	const sidebar = $derived(variant === 'sidebar');
 </script>
 
 {#snippet linkedLine(s: Spot)}
 	<span class="flex items-center gap-1.5 text-[12.5px] font-semibold text-ink-2">
-		<Icon name="link" size={13} />Linked to {s.linkedTo.join(', ')}
+		<Icon name="link" size={13} />{w.linkedTo(s.linkedTo.join(', '))}
 	</span>
 {/snippet}
 
 {#snippet close()}
-	<button type="button" class={iconButton('bare')} aria-label="Close list" onclick={onclose}>
+	<button type="button" class={iconButton('bare')} aria-label={w.closeList} onclick={onclose}>
 		<Icon name="close" size={22} />
 	</button>
 {/snippet}
@@ -46,17 +48,17 @@
 {#if variant === 'sheet'}
 	<div class="mx-auto h-[5px] w-10 flex-none rounded-full bg-hairline"></div>
 	<div class="-mr-1.5 flex min-h-11 flex-none items-center pl-1">
-		<h3 class="flex-1 font-display text-[22px] font-extrabold">Sections and points</h3>
+		<h3 class="flex-1 font-display text-[22px] font-extrabold">{w.spots}</h3>
 		<span class="mr-1 text-[14px] font-bold text-muted tabular-nums">{spots.length}</span>
 		{@render close()}
 	</div>
 {:else if variant === 'panel'}
 	<div class="flex h-[52px] flex-none items-center pr-1 pl-4">
-		<h3 class="flex-1 text-[16px] font-bold">Sections and points · {spots.length}</h3>
+		<h3 class="flex-1 text-[16px] font-bold">{w.spotsCount(spots.length)}</h3>
 		{@render close()}
 	</div>
 {:else}
-	<h3 class="{SECTION_LABEL} flex-none pt-3 pb-1.5">Sections and points · {spots.length}</h3>
+	<h3 class="{SECTION_LABEL} flex-none pt-3 pb-1.5">{w.spotsCount(spots.length)}</h3>
 {/if}
 
 {#if loadFailed}
@@ -64,12 +66,14 @@
 		role="alert"
 		class="flex flex-none items-center gap-2 px-5 py-1 text-[13px] font-bold text-danger"
 	>
-		<Icon name="warning" size={16} />Couldn't load spots
+		<Icon name="warning" size={16} />{w.loadFailed}
 	</p>
 {:else if spots.length === 0}
 	<p class="flex-none px-5 py-1 text-[13px] leading-[1.45] text-muted">
-		Nothing marked yet. <b class="font-bold text-ink-2">Mark point</b> saves this moment;
-		<b class="font-bold text-ink-2">Start section</b> saves a stretch to loop.
+		{w.empty.lead} <b class="font-bold text-ink-2">{w.markPoint}</b>
+		{w.empty.mark}
+		<b class="font-bold text-ink-2">{w.startSection}</b>
+		{w.empty.section}
 	</p>
 {/if}
 <ul
@@ -107,10 +111,10 @@
 					<button
 						type="button"
 						class="flex h-11 flex-none cursor-pointer items-center"
-						aria-label="Edit {spotLabel(s)}"
+						aria-label={w.editOf(spotLabel(s))}
 						onclick={() => onedit?.(s)}
 					>
-						<span class={EDIT_ACCENT}><Icon name="edit" size={15} />Edit</span>
+						<span class={EDIT_ACCENT}><Icon name="edit" size={15} />{t().common.edit}</span>
 					</button>
 				{/if}
 			</li>
@@ -146,7 +150,7 @@
 						{:else}
 							<span class="truncate text-[12.5px] text-muted tabular-nums"
 								>{listMeta(s)}{#if s.linkedTo.length > 0}
-									· <span class="text-ink-2">linked</span>{/if}</span
+									· <span class="text-ink-2">{w.linked}</span>{/if}</span
 							>
 						{/if}
 					</span>
@@ -155,10 +159,10 @@
 					<button
 						type="button"
 						class="flex min-h-11 flex-none cursor-pointer items-center self-stretch pr-2 pl-1 {rule}"
-						aria-label="Edit {spotLabel(s)}"
+						aria-label={w.editOf(spotLabel(s))}
 						onclick={() => onedit?.(s)}
 					>
-						<span class={EDIT}><Icon name="edit" size={15} />Edit</span>
+						<span class={EDIT}><Icon name="edit" size={15} />{t().common.edit}</span>
 					</button>
 				{/if}
 			</li>

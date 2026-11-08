@@ -4,6 +4,7 @@
  */
 import type { DanceSlug } from '$lib/dances/dances';
 import type { Channel, UpdateState } from './agent';
+import { t } from '$lib/i18n/catalog';
 // Type only: fresh.ts reads BUSY_ROUTES from here.
 import type { Quiet } from '$lib/nav/fresh';
 
@@ -58,32 +59,30 @@ export function updateView(status: BridgeStatus): {
 	working: boolean;
 	line: string | null;
 } {
+	const w = t().shell.update;
+	const retry = t().common.retry;
 	if (typeof status === 'object') {
-		return { label: `Downloading… ${status.progress}%`, working: true, line: null };
+		return { label: w.downloading(status.progress), working: true, line: null };
 	}
 	switch (status) {
 		case 'confirming':
-			return { label: 'Installing…', working: true, line: null };
+			return { label: w.installing, working: true, line: null };
 		case 'permission':
-			return {
-				label: 'Update',
-				working: false,
-				line: 'Allow this app to install updates, then come back.'
-			};
+			return { label: w.update, working: false, line: w.permission };
 		case 'busy':
-			return { label: 'Update', working: true, line: 'Updating after your upload finishes.' };
+			return { label: w.update, working: true, line: w.busy };
 		case 'current':
-			return { label: 'Update', working: false, line: 'You have the latest version.' };
+			return { label: w.update, working: false, line: w.current };
 		case 'failed:offline':
-			return { label: 'Try again', working: false, line: 'No connection.' };
+			return { label: retry, working: false, line: w.offline };
 		case 'failed:download':
-			return { label: 'Try again', working: false, line: 'The download broke.' };
+			return { label: retry, working: false, line: w.download };
 		case 'failed:check':
-			return { label: 'Try again', working: false, line: "The download didn't check out." };
+			return { label: retry, working: false, line: w.check };
 		case 'failed:install':
-			return { label: 'Try again', working: false, line: "It didn't install." };
+			return { label: retry, working: false, line: w.install };
 		default:
-			return { label: 'Update', working: false, line: null };
+			return { label: w.update, working: false, line: null };
 	}
 }
 
@@ -117,15 +116,16 @@ export function updateNeededNow(
 
 /* ── The Update row on Today (merge sheets and update bubbles spec, 3B) ─── */
 
-export const UPDATE_ROW_TITLE = 'New version of the app';
+export const updateRowTitle = (): string => t().shell.update.rowTitle;
 
 /** The × on the row. */
-export const HIDE_UPDATE = 'Hide until tomorrow';
+export const hideUpdate = (): string => t().shell.update.hide;
 
 /** The row's second line: what the Update button is doing, else which version is ready. */
 export function updateRowLine(update: AppUpdate, statusLine: string | null): string {
 	if (statusLine) return statusLine;
-	return update.latest ? `Version ${update.latest.versionName} is ready` : 'Ready to install';
+	const w = t().shell.update;
+	return update.latest ? w.version(update.latest.versionName) : w.ready;
 }
 
 /** What × stores (per device): the day it was hidden and the version it hid. */

@@ -1,11 +1,11 @@
 /** PURE: the wording and the bar of the storage lines. Client-safe. */
 import { byteSize, dateLabel } from './format';
+import { t } from './i18n/catalog';
 
 /** "Using 820 MB of 1.0 GB", or "Using 820 MB" with no limit. */
 export function usageLine(used: number, limit: number | null): string {
-	return limit === null
-		? `Using ${byteSize(used)}`
-		: `Using ${byteSize(used)} of ${byteSize(limit)}`;
+	const w = t().settings.storage;
+	return limit === null ? w.using(byteSize(used)) : w.usingOf(byteSize(used), byteSize(limit));
 }
 
 /** How much of the bar is filled, 0 to 1. No limit draws no bar. */
@@ -22,5 +22,5 @@ export function itemMeta(item: { context: string; sizeBytes: number }): string {
 
 /** The Ask for more row while a request waits (`day` is a calendar day in the person's zone). */
 export function askedLine(day: string): string {
-	return `Asked on ${dateLabel(day)} · waiting`;
+	return t().settings.storage.asked(dateLabel(day));
 }

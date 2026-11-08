@@ -31,6 +31,7 @@
 	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { refreshIfSent, sheetStack } from '$lib/sheets/history.svelte';
 	import { followKeyboard } from '$lib/sheets/keyboard';
+	import { t } from '$lib/i18n/catalog';
 	import Icon from './Icon.svelte';
 	import { iconButton } from './styles';
 
@@ -105,7 +106,7 @@
 				header.querySelector<HTMLElement>('[data-sheet-close]')?.focus();
 			}
 			key = sheetStack.open({
-				tryLeave: (leave) => leaveOrAsk(d, leave, 'Close'),
+				tryLeave: (leave) => leaveOrAsk(d, leave, t().common.close),
 				close: () => {
 					onclose();
 					refreshIfSent();
@@ -143,7 +144,7 @@
 	 */
 	function tryClose() {
 		if (key !== null) sheetStack.requestClose(key);
-		else if (dialog) leaveOrAsk(dialog, onclose, 'Close');
+		else if (dialog) leaveOrAsk(dialog, onclose, t().common.close);
 	}
 </script>
 
@@ -181,7 +182,7 @@
 				<button
 					type="button"
 					class={iconButton('bare')}
-					aria-label="Back"
+					aria-label={t().common.back}
 					data-sheet-close
 					onclick={tryClose}
 				>
@@ -208,7 +209,7 @@
 				<button
 					type="button"
 					class="{iconButton('bare')} -mr-1.5"
-					aria-label="Close"
+					aria-label={t().common.close}
 					data-sheet-close
 					onclick={tryClose}
 				>

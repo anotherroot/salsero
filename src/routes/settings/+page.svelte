@@ -23,6 +23,8 @@
 	import { fullName } from '$lib/names';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
+	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
 	import NameFields from '$lib/components/system/NameFields.svelte';
@@ -31,9 +33,9 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
-	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
+	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
-	import { LEVEL_WORDS, fewSettings, levelShown, youPath, type Level } from '$lib/levels/levels';
+	import { fewSettings, levelShown, levelWords, youPath, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
@@ -55,13 +57,25 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'level' | 'style' | 'size' | 'theme' | 'ask' | 'name' | null>(null);
+	let sheet = $state<'level' | 'style' | 'size' | 'theme' | 'language' | 'ask' | 'name' | null>(
+		null
+	);
 	let naming = $state(false);
 	let nameError = $state<{ field?: 'firstName' | 'lastName'; message: string } | null>(null);
 	let asking = $state(false);
 	let askError = $state('');
 
-	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
+	const w = $derived(t().settings);
+	const themeOptions = $derived(THEME_CHOICES.map((c) => ({ value: c, label: themeLabel(c) })));
+	const languageOptions = LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }));
+
+	/** A full load, so the whole page, tab bar included, redraws in the new language. */
+	async function saveLanguage(l: Locale) {
+		if (l === data.locale) return;
+		const result = await act('language', { locale: l });
+		if (failed(result)) return;
+		location.reload();
+	}
 
 	/** Shown at once; put back if the server refuses it. */
 	async function saveTheme(theme: ThemeChoice) {
@@ -75,7 +89,7 @@
 	let seq = 0;
 
 	function failed(result: ActionResult) {
-		const message = refusalMessage(result, 'Could not save.');
+		const message = refusalMessage(result, t().settings.couldNotSave);
 		if (message === null) return false;
 		toast = { id: ++seq, message };
 		return true;
@@ -88,7 +102,7 @@
 			if (result.type === 'failure' && result.status === 0) reseed();
 			return;
 		}
-		toast = { id: ++seq, message: 'Saved', icon: 'check', tone: 'done' };
+		toast = { id: ++seq, message: t().settings.saved, icon: 'check', tone: 'done' };
 	}
 
 	let daily = $state(data.dailyCount);
@@ -101,7 +115,7 @@
 			daily = before;
 			return;
 		}
-		toast = { id: ++seq, message: 'Saved', icon: 'check', tone: 'done' };
+		toast = { id: ++seq, message: t().settings.saved, icon: 'check', tone: 'done' };
 	}
 
 	function reseed() {
@@ -125,7 +139,7 @@
 		if (failed(result)) return;
 		toast = undoToast(
 			++seq,
-			`${label} removed`,
+			t().settings.devices.removed(label),
 			() => (toast = null),
 			async () => failed(await act('restoreDevice', { id }))
 		);
@@ -146,29 +160,47 @@
 	}
 </script>
 
-<svelte:head><title>Settings · {dance.label}</title></svelte:head>
+<svelte:head><title>{t().shell.settings} · {dance.label}</title></svelte:head>
 
-<Screen title="Settings">
+<!-- A row that opens a sheet: its label, what is chosen, a chevron. -->
+{#snippet opener(label: string, value: string, onclick: () => void, focus?: string)}
+	<button
+		type="button"
+		data-focus={focus}
+		class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+		{onclick}
+	>
+		<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{label}</span>
+		{#if value}<span class="truncate text-[15px] font-semibold text-muted">{value}</span>{/if}
+		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+	</button>
+{/snippet}
+
+<Screen title={t().shell.settings}>
 	{#snippet left()}
 		<span class="contents desk:hidden" data-desk-hidden>
-			<BandButton icon="back" label="Back to You" href={youPath(level, data.dance)} />
+			<BandButton
+				icon="back"
+				label={t().shell.backTo(t().shell.tabs.you)}
+				href={youPath(level, data.dance)}
+			/>
 		</span>
 	{/snippet}
 
 	<div class={GROUP}>
-		<button
-			type="button"
-			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-			onclick={() => (sheet = 'level')}
-		>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">How much app?</span>
-			<span class="truncate text-[15px] font-semibold text-muted">{LEVEL_WORDS[level].title}</span>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</button>
+		{@render opener(w.language, LOCALE_NAME[data.locale], () => (sheet = 'language'))}
+	</div>
+
+	<div class={GROUP}>
+		{@render opener(
+			t().entry.firstRun.level.title,
+			levelWords(level).title,
+			() => (sheet = 'level')
+		)}
 	</div>
 
 	{#if !few}
-		<span class="{SECTION_LABEL} mt-[14px]">Storage</span>
+		<span class="{SECTION_LABEL} mt-[14px]">{w.storage.label}</span>
 		<div class={GROUP}>
 			<div class="flex flex-col gap-2 px-4 py-3">
 				<span class="text-[16px] font-bold text-ink">
@@ -178,7 +210,7 @@
 					<div
 						class="{CLIP} h-2 rounded-full bg-chip"
 						role="meter"
-						aria-label="Space used"
+						aria-label={w.storage.spaceUsed}
 						aria-valuemin={0}
 						aria-valuemax={data.storage.limitBytes}
 						aria-valuenow={Math.min(data.storage.usedBytes, data.storage.limitBytes)}
@@ -194,8 +226,8 @@
 			<a href="/settings/storage" class={ROW_TALL}>
 				<LeadTile icon="sliders" />
 				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-[16px] font-bold text-ink">What uses space</span>
-					<span class="text-[13px] text-muted">Biggest first, with Delete</span>
+					<span class="text-[16px] font-bold text-ink">{w.storage.whatUses}</span>
+					<span class="text-[13px] text-muted">{w.storage.whatUsesSub}</span>
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
@@ -203,29 +235,22 @@
 				{#if data.asked}
 					<div class="{ROW_TALL} text-[15px] font-semibold text-muted">{data.asked}</div>
 				{:else}
-					<button
-						type="button"
-						class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-						onclick={() => (sheet = 'ask')}
-					>
-						<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Ask for more</span>
-						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</button>
+					{@render opener(w.storage.askForMore, '', () => (sheet = 'ask'))}
 				{/if}
 			{/if}
 		</div>
 	{/if}
 
-	<span class="{SECTION_LABEL} mt-[14px]">Practice</span>
+	<span class="{SECTION_LABEL} mt-[14px]">{w.practice.label}</span>
 	<div class={GROUP}>
 		<div class="min-h-[58px] py-2 pr-3.5 pl-4">
 			<Stepper
 				bind:value={daily}
 				min={1}
 				max={30}
-				label="Exercises a day"
-				minusLabel="Fewer"
-				plusLabel="More"
+				label={w.practice.perDay}
+				minusLabel={w.practice.fewer}
+				plusLabel={w.practice.more}
 				onchange={(count) => void saveDaily(count)}
 			/>
 		</div>
@@ -234,41 +259,27 @@
 			<a href="/voice" class={ROW_TALL}>
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-[16px] font-bold text-ink">My count</span>
+					<span class="text-[16px] font-bold text-ink">{t().shell.lists.myCount}</span>
 					<span class="text-[13px] text-muted">{data.ownVoice}</span>
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
-			<button
-				type="button"
-				class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-				onclick={() => (sheet = 'style')}
-			>
-				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">New figures start on</span>
-				<span class="text-[15px] font-semibold text-muted"
-					>{dance.styleLabel[data.defaultStyle]}</span
-				>
-				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-			</button>
+			{@render opener(
+				w.practice.newFigures,
+				dance.styleLabel[data.defaultStyle],
+				() => (sheet = 'style')
+			)}
 		{/if}
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">
-		Today shows this many. When they're done, Next {daily} brings more.
+		{w.practice.perDayNote(daily)}
 	</p>
 
-	<span class="{SECTION_LABEL} mt-[14px]">Appearance</span>
+	<span class="{SECTION_LABEL} mt-[14px]">{w.appearance.label}</span>
 	<div class={GROUP}>
-		<button
-			type="button"
-			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-			onclick={() => (sheet = 'theme')}
-		>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Theme</span>
-			<span class="text-[15px] font-semibold text-muted">{THEME_LABEL[data.theme]}</span>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</button>
+		{@render opener(w.appearance.theme, themeLabel(data.theme), () => (sheet = 'theme'))}
 	</div>
-	<p class="px-4 pt-0.5 text-[13px] text-muted">For this browser or phone only.</p>
+	<p class="px-4 pt-0.5 text-[13px] text-muted">{w.appearance.note}</p>
 
 	{#if !data.app && !few}
 		<div class="{GROUP} mt-[14px]">
@@ -276,22 +287,22 @@
 			<a href="/app" class={ROW_TALL}>
 				<LeadTile icon="phone" />
 				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-[16px] font-bold text-ink">Get the app</span>
-					<span class="text-[13px] text-muted">For your phone's home screen</span>
+					<span class="text-[16px] font-bold text-ink">{t().shell.getApp.title}</span>
+					<span class="text-[13px] text-muted">{w.getAppSub}</span>
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
 		</div>
 	{/if}
 
-	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
+	<span class="{SECTION_LABEL} mt-[14px]">{w.android.label}</span>
 	<div class={GROUP}>
 		{#if data.appUpdate && !few}
 			<div class="{ROW} min-h-16 pr-3.5">
 				<!-- The installed number, always: the app tells the server only that (its user
 				     agent), and the admin page counts the same way ("Salsa app 2"). -->
 				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
-					>Version {data.appUpdate.installed}</span
+					>{w.android.version(data.appUpdate.installed)}</span
 				>
 				{#if data.appUpdate.state !== 'none'}<UpdateButton update={data.appUpdate} />{/if}
 			</div>
@@ -299,11 +310,11 @@
 		<div class="{ROW} pr-1.5">
 			<LeadTile icon="bell" />
 			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-[16px] font-bold text-ink">Daily reminder</span>
-				<span class="text-[13px] text-muted">What is due, as a notification</span>
+				<span class="text-[16px] font-bold text-ink">{w.android.reminder}</span>
+				<span class="text-[13px] text-muted">{w.android.reminderSub}</span>
 			</span>
 			<Switch
-				label="Daily reminder"
+				label={w.android.reminder}
 				checked={on}
 				onchange={(c) => {
 					on = c;
@@ -313,11 +324,11 @@
 		</div>
 		<div class="{ROW} min-h-[60px] pr-3.5">
 			<span class="min-w-0 flex-1 text-[16px] font-bold {on ? 'text-ink' : 'text-disabled-ink'}"
-				>Time</span
+				>{w.android.time}</span
 			>
 			<input
 				type="time"
-				aria-label="Reminder time"
+				aria-label={w.android.reminderTime}
 				bind:value={time}
 				disabled={!on}
 				onchange={saveReminder}
@@ -325,22 +336,18 @@
 			/>
 		</div>
 		{#if !few}
-			<button
-				type="button"
-				data-focus="devices-fallback"
-				class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-				onclick={() => (sheet = 'size')}
-			>
-				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Compress videos to</span>
-				<span class="text-[15px] font-semibold text-muted">{savedSize}p</span>
-				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-			</button>
+			{@render opener(
+				w.android.compress,
+				`${savedSize}p`,
+				() => (sheet = 'size'),
+				'devices-fallback'
+			)}
 		{/if}
 	</div>
-	<p class="px-4 pt-0.5 text-[13px] text-muted">Read by the phone app when it opens.</p>
+	<p class="px-4 pt-0.5 text-[13px] text-muted">{w.android.note}</p>
 
 	{#if data.devices.length}
-		<span class="{SECTION_LABEL} mt-[14px]">Paired phones</span>
+		<span class="{SECTION_LABEL} mt-[14px]">{w.devices.label}</span>
 		<ul class={GROUP}>
 			{#each data.devices as d (d.id)}
 				<li class="{ROW} min-h-16 pr-1.5">
@@ -353,8 +360,8 @@
 						data-focus="device-{d.id}"
 						type="button"
 						class={button('danger-text', 'sm')}
-						aria-label="Remove {d.label}"
-						onclick={() => remove(d.id, d.label)}>Remove</button
+						aria-label={w.devices.removeLabel(d.label)}
+						onclick={() => remove(d.id, d.label)}>{t().common.remove}</button
 					>
 				</li>
 			{/each}
@@ -362,55 +369,55 @@
 	{/if}
 
 	{#if data.isAdmin}
-		<span class="{SECTION_LABEL} mt-[14px]">Admin</span>
+		<span class="{SECTION_LABEL} mt-[14px]">{w.admin.label}</span>
 		<div class={GROUP}>
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/admin" class={ROW_TALL}>
 				<LeadTile icon="people" />
 				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-[16px] font-bold text-ink">Admin</span>
-					<span class="text-[13px] text-muted">Invite someone</span>
+					<span class="text-[16px] font-bold text-ink">{w.admin.label}</span>
+					<span class="text-[13px] text-muted">{w.admin.sub}</span>
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
 		</div>
 	{/if}
 
-	<span class="{SECTION_LABEL} mt-[14px]">Account</span>
+	<span class="{SECTION_LABEL} mt-[14px]">{w.account.label}</span>
 	<div class={GROUP}>
-		<button
-			type="button"
-			data-focus="name-row"
-			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
-			onclick={() => {
+		{@render opener(
+			w.account.name,
+			fullName({ ...data.name, email: data.user?.email ?? '' }),
+			() => {
 				nameError = null;
 				sheet = 'name';
-			}}
-		>
-			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Name</span>
-			<span class="truncate text-[15px] font-semibold text-muted">
-				{fullName({ ...data.name, email: data.user?.email ?? '' })}
-			</span>
-			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</button>
+			},
+			'name-row'
+		)}
 		<div class="{ROW} min-h-16 pr-1.5">
 			<LeadTile icon="solo" />
 			<span class="flex min-w-0 flex-1 flex-col">
 				<span class="truncate text-[16px] font-bold text-ink">{data.user?.email}</span>
-				<span class="text-[13px] text-muted">Signed in</span>
+				<span class="text-[13px] text-muted">{w.account.signedIn}</span>
 			</span>
 			<!--
 				A POST, not a link: /logout has always been a POST so that a prefetch or
 				a crawled link cannot sign you out from under you.
 			-->
 			<form method="POST" action="/logout">
-				<button class={button('tertiary', 'sm')}><Icon name="logout" size={18} />Sign out</button>
+				<button class={button('tertiary', 'sm')}
+					><Icon name="logout" size={18} />{w.account.signOut}</button
+				>
 			</form>
 		</div>
 	</div>
 </Screen>
 
-<Sheet title="How much app?" open={sheet === 'level'} onclose={() => (sheet = null)}>
+<Sheet
+	title={t().entry.firstRun.level.title}
+	open={sheet === 'level'}
+	onclose={() => (sheet = null)}
+>
 	<div class="pb-2">
 		<LevelCards value={data.level} onpick={pickLevel} />
 	</div>
@@ -418,9 +425,9 @@
 
 <ChoiceSheet
 	open={sheet === 'style'}
-	title="New figures start on"
-	intro="The style a new figure starts on. You can change it on the figure."
-	legend="Style"
+	title={w.practice.newFigures}
+	intro={w.practice.styleIntro}
+	legend={w.practice.style}
 	options={styleOptions}
 	value={data.defaultStyle}
 	onpick={(style) => {
@@ -430,10 +437,22 @@
 	onclose={() => (sheet = null)}
 />
 <ChoiceSheet
+	open={sheet === 'language'}
+	title={w.language}
+	legend={w.language}
+	options={languageOptions}
+	value={data.locale}
+	onpick={(l) => {
+		sheet = null;
+		void saveLanguage(l as Locale);
+	}}
+	onclose={() => (sheet = null)}
+/>
+<ChoiceSheet
 	open={sheet === 'theme'}
-	title="Theme"
-	intro="System follows the phone's or computer's own light or dark setting."
-	legend="Theme"
+	title={w.appearance.theme}
+	intro={w.appearance.themeIntro}
+	legend={w.appearance.theme}
 	options={themeOptions}
 	value={data.theme}
 	onpick={(theme) => {
@@ -444,8 +463,8 @@
 />
 <ChoiceSheet
 	open={sheet === 'size'}
-	title="Compress videos to"
-	legend="Size"
+	title={w.android.compress}
+	legend={w.android.size}
 	options={sizeOptions}
 	value={savedSize}
 	onpick={(shortSide) => {
@@ -455,21 +474,23 @@
 	onclose={() => (sheet = null)}
 />
 
-<Sheet title="Ask for more" open={sheet === 'ask'} onclose={() => (sheet = null)}>
+<Sheet title={w.storage.askForMore} open={sheet === 'ask'} onclose={() => (sheet = null)}>
 	<form
 		id="ask-more"
 		method="POST"
 		action="?/ask"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'Ask for more',
+			label: t().settings.storage.askForMore,
 			submit: ({ cancel }) => {
 				if (asking) return cancel();
 				askError = '';
 				asking = true;
 				return async ({ result, update }) => {
 					askError =
-						result.type === 'failure' ? String(result.data?.message ?? 'Could not ask.') : '';
+						result.type === 'failure'
+							? String(result.data?.message ?? t().settings.storage.couldNotAsk)
+							: '';
 					try {
 						await update();
 						if (result.type === 'success') sheet = null;
@@ -481,27 +502,27 @@
 		}}
 	>
 		{#if askError}<Banner kind="error" title={askError} />{/if}
-		<p class="text-[14px] text-muted">The admin sees how much you use. A note is optional.</p>
+		<p class="text-[14px] text-muted">{w.storage.askIntro}</p>
 		<label class="block">
-			<span class={LABEL}>Note</span>
+			<span class={LABEL}>{w.storage.note}</span>
 			<textarea name="note" rows="3" maxlength="500" class={TEXTAREA}></textarea>
 		</label>
 	</form>
 	{#snippet footer()}
 		<button type="submit" form="ask-more" class={button('primary', 'md', true)} aria-busy={asking}>
-			Ask for more
+			{w.storage.askForMore}
 		</button>
 	{/snippet}
 </Sheet>
 
-<Sheet title="Name" open={sheet === 'name'} onclose={() => (sheet = null)}>
+<Sheet title={w.account.name} open={sheet === 'name'} onclose={() => (sheet = null)}>
 	<form
 		id="edit-name"
 		method="POST"
 		action="?/name"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'Your name',
+			label: t().entry.welcome.form,
 			submit: ({ cancel }) => {
 				if (naming) return cancel();
 				nameError = null;
@@ -510,7 +531,7 @@
 					if (result.type === 'failure') {
 						nameError = {
 							field: result.data?.field as 'firstName' | 'lastName' | undefined,
-							message: String(result.data?.message ?? 'Could not save.')
+							message: String(result.data?.message ?? t().settings.couldNotSave)
 						};
 					}
 					try {
@@ -533,7 +554,7 @@
 	</form>
 	{#snippet footer()}
 		<button type="submit" form="edit-name" class={button('primary', 'md', true)} aria-busy={naming}>
-			Save
+			{t().common.save}
 		</button>
 	{/snippet}
 </Sheet>

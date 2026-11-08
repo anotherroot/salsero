@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, type Snippet } from 'svelte';
 	import type { IconName } from '$lib/icons/icons';
+	import { t } from '$lib/i18n/catalog';
 	import Icon from './Icon.svelte';
 	import { iconButton } from './styles';
 
@@ -173,7 +174,12 @@
 					: 'pl-4 desk:pl-6'}"
 			>
 				{#if back}
-					<button type="button" class={iconButton('bare')} aria-label="Back" onclick={onclose}>
+					<button
+						type="button"
+						class={iconButton('bare')}
+						aria-label={t().common.back}
+						onclick={onclose}
+					>
 						<Icon name="back" />
 					</button>
 				{/if}
@@ -185,7 +191,7 @@
 					<button
 						type="button"
 						class="{iconButton('bare')} -mr-1.5"
-						aria-label="Close"
+						aria-label={t().common.close}
 						onclick={onclose}
 					>
 						<Icon name="close" />

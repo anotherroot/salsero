@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { RELOAD_TITLE, STALE_LINE, STALE_TITLE } from '$lib/nav/fresh';
+	import { t } from '$lib/i18n/catalog';
+	import { reloadTitle, staleLine, staleTitle } from '$lib/nav/fresh';
 	import { reloadOrAsk } from '$lib/unsaved/guard.svelte';
 	/*
 	 * A new version is out and the page has not reloaded by itself (something
@@ -27,17 +28,19 @@
 		class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1.5 pr-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)]"
 	>
 		<span class="flex min-w-0 flex-1 flex-col">
-			<span class="text-[15px] leading-[1.35] font-bold">{stale ? STALE_TITLE : RELOAD_TITLE}</span>
+			<span class="text-[15px] leading-[1.35] font-bold"
+				>{stale ? staleTitle() : reloadTitle()}</span
+			>
 			{#if stale || why}
 				<span class="text-[13px] leading-[1.35] font-semibold opacity-75"
-					>{stale ? STALE_LINE : why}</span
+					>{stale ? staleLine() : why}</span
 				>
 			{/if}
 		</span>
 		<button
 			type="button"
 			class="h-11 flex-none cursor-pointer px-3 text-[15px] font-extrabold text-inverse-accent"
-			onclick={reloadOrAsk}>Reload</button
+			onclick={reloadOrAsk}>{t().shell.reload.reload}</button
 		>
 	</div>
 </div>
