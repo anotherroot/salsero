@@ -40,6 +40,8 @@ export const ROOT_KEYS = [
 	'audio',
 	'count',
 	'sample',
+	'sections',
+	'musicStart',
 	'slots',
 	'type',
 	'hands',
@@ -62,6 +64,8 @@ const ROOT_LABELS: Record<string, string> = {
 	audio: 'Audio',
 	count: 'Count',
 	sample: 'Sample',
+	sections: 'Sections',
+	musicStart: 'Music start',
 	slots: 'Slots',
 	type: 'Type',
 	hands: 'Hands',
@@ -75,7 +79,12 @@ const ROOT_LABELS: Record<string, string> = {
  * snapshot has no hash for it, and it reads as this value's, so a member that
  * holds the default is not "changed" by the key's arrival.
  */
-export const BASE_DEFAULTS: Readonly<Record<string, string>> = { comesBack: 'faces' };
+export const BASE_DEFAULTS: Readonly<Record<string, string>> = {
+	comesBack: 'faces',
+	// A song with no sections, and one that plays from the worker's start.
+	sections: '',
+	musicStart: ''
+};
 
 /**
  * A snapshot's value for `key` when it has none, from a member's `value`: the
@@ -89,8 +98,8 @@ export function baseDefault(key: string, value: string): string | null {
 	return null;
 }
 
-/** The keys that index one audio: a song's 1s and its sample start. */
-const AUDIO_BOUND: ReadonlySet<string> = new Set(['count', 'sample']);
+/** The keys that index one audio: a song's 1s, its sample start, its sections and its music start. */
+const AUDIO_BOUND: ReadonlySet<string> = new Set(['count', 'sample', 'sections', 'musicStart']);
 
 /**
  * The count and the sample index one audio: across copies whose `audio`

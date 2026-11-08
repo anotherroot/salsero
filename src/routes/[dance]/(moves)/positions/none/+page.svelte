@@ -54,7 +54,6 @@
 							</span>
 						</a>
 						{#if f.canEdit}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the resolved figure URL plus ?edit=1 -->
 							<a class={button('secondary', 'sm')} href={editHref(f.id)}>Positions</a>
 						{:else}
 							<span class="flex flex-none text-chevron"

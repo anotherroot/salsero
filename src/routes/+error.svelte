@@ -12,7 +12,6 @@
 	// The root layout draws the same frame around it (`frameOfError` there too).
 	const card = $derived(frameOfError(page.url.pathname, Boolean(page.data.user)) === 'card');
 
-	// eslint-disable-next-line svelte/no-navigation-without-resolve -- the current URL
 	const retry = () => goto(page.url, { invalidateAll: true, replaceState: true });
 </script>
 

@@ -100,11 +100,10 @@ export interface LastSet extends HistorySet {
 
 /** The line on top of an exercise's history. */
 export interface ExerciseSummary {
-	sets: number;
-	/** Every logged duration, summed. Sets with no duration add nothing. */
+	/** Distinct local days with an entry. */
+	times: number;
+	/** Every logged duration, summed. Entries with no duration add nothing. */
 	totalS: number;
-	/** Mean of the latest five rated sets, to one decimal; null when none is rated. */
-	recentRating: number | null;
 }
 
 export interface SongItem {
@@ -176,7 +175,7 @@ export interface PickerSong {
 	group: string | null;
 	/** That group's id, which tells two groups of one name apart; null for the person's own. */
 	groupId: number | null;
-	/** In a log popup: one of the row's own Music (spec B), its name and the song's place in it. */
+	/** On the exercise page: one of the row's own Music (spec B), its name and the song's place in it. */
 	music?: { label: string; rank: number };
 }
 
@@ -248,7 +247,7 @@ export interface LinkRow {
 	saving: { status: 'queued' | 'failed'; error: string | null } | null;
 }
 
-/** One recording on a figure, as the log popup lists it. */
+/** One recording on a figure, as the exercise page lists it. */
 export interface RecordingRow {
 	id: number;
 	file: string;
@@ -264,10 +263,12 @@ export interface SongGrid {
 	audioFile: string;
 	beats: number[];
 	counts: number[];
+	/** Where the music starts: a player seeks here before playing from 0:00 (`playFrom`, `$lib/songs/music-start`). */
+	startS: number;
 }
 
 /**
- * What the log popup shows above its form, branched by the exercise's type.
+ * What the exercise page shows, branched by the exercise's type.
  * See `src/lib/server/practice-content.ts`, the one place that branches on it.
  */
 export type PracticeContent =
@@ -292,7 +293,7 @@ export type PracticeContent =
 			slots: { note: string | null; names: string[] }[];
 	  };
 
-/** The popup's whole payload: its content, and the exercise's last set. */
+/** The page's whole payload: its content, and the exercise's last set. */
 export interface PracticePayload {
 	content: PracticeContent;
 	last: LastSet | null;
@@ -686,6 +687,14 @@ export interface DeviceRow {
 	label: string;
 	createdAt: number;
 	lastUsedAt: number | null;
+}
+
+/** What saving a day answers (Today's `done`, the player's `save`): the row, what it held before (a JSON `SetSnapshot`, null for a new day) and the days until it is due, null for a past day. */
+export interface DoneResult {
+	ok: true;
+	setId: number;
+	before: string | null;
+	backDays: number | null;
 }
 
 /** A deleted set, whole, so Undo can put the same values back. */

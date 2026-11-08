@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { noonOf } from '$lib/day/day';
 import { setSummary } from '$lib/format';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import type { HistorySet, PracticeContent } from '$lib/types';
 import {
 	archiveBody,
 	fromClassLabel,
 	pageParts,
-	historyDays,
+	recordingKeys,
 	ownerOf,
 	practisedLabel,
-	setMeta,
-	setTitle,
-	summaryTiles
+	historyTiles,
+	historyRows
 } from './exercise-page';
 
 const TZ = 'Europe/Ljubljana';
@@ -58,66 +58,55 @@ describe('practisedLabel', () => {
 	});
 });
 
-describe('summaryTiles', () => {
-	it('gives three tiles', () => {
-		expect(summaryTiles({ sets: 23, totalS: 15000, recentRating: 3.8 })).toEqual([
-			{ value: '23', label: 'sets', feel: null },
-			{ value: '4 h 10', label: 'practised', feel: null },
-			{ value: "I've got it", label: 'recently', feel: 'gotit' }
+describe('historyTiles', () => {
+	it('gives two tiles: the times and the time in all', () => {
+		expect(historyTiles({ times: 3, totalS: 1020 })).toEqual([
+			{ value: '3', label: 'times' },
+			{ value: '17 min', label: 'in all' }
 		]);
-		expect(
-			summaryTiles({ sets: 1, totalS: 0, recentRating: null }).map((t) => [t.value, t.label])
-		).toEqual([
-			['1', 'set'],
-			['0 min', 'practised'],
-			['–', 'recently']
-		]);
-		expect(summaryTiles({ sets: 2, totalS: 60, recentRating: 4.6 })[2].value).toBe('Easy');
+		expect(historyTiles({ times: 1, totalS: 0 })[0]).toEqual({ value: '1', label: 'time' });
 	});
 });
 
-describe('historyDays', () => {
-	it('groups newest first and labels the days', () => {
-		const d = historyDays(
+describe('historyRows', () => {
+	const row = (
+		day: string,
+		hhmm: string,
+		durationS: number | null,
+		rating: number | null,
+		note: string | null
+	): HistorySet => ({
+		...at(day, hhmm, note),
+		durationS,
+		rating
+	});
+	it('merges a day into one row, newest day first', () => {
+		const rows = historyRows(
 			[
-				at('2026-10-31', '19:42'),
-				at('2026-10-31', '08:15'),
-				at('2026-10-30', '20:00'),
-				at('2026-10-27', '20:05'),
-				at('2025-12-30', '18:00')
+				row('2026-10-15', '21:00', 120, 2, 'Lost the clave'),
+				row('2026-10-15', '10:00', 240, 4, null),
+				row('2026-10-10', '10:00', null, null, null)
 			],
 			TZ,
-			'2026-10-31'
+			'2026-11-07'
 		);
-		expect(d.map((g) => g.label)).toEqual([
-			'Today',
-			'Yesterday',
-			'Tuesday, 27 October',
-			'Tuesday, 30 December, 2025'
+		expect(rows).toEqual([
+			{
+				day: '2026-10-15',
+				label: 'Thu 15 Oct',
+				amount: '6 min',
+				feel: 'getting',
+				note: 'Lost the clave'
+			},
+			{ day: '2026-10-10', label: 'Sat 10 Oct', amount: null, feel: null, note: null }
 		]);
-		expect(d[0].sets).toHaveLength(2);
 	});
-});
-
-describe('setTitle / setMeta', () => {
-	it('titles a set', () => {
-		expect(setTitle({ durationS: 360, reps: null, rating: 4 })).toEqual({
-			text: '6 min',
-			rating: 4
+	it('adds old reps to the amount and writes another year in full', () => {
+		const old = { ...row('2025-12-31', '10:00', 360, null, null), reps: 40 };
+		expect(historyRows([old], TZ, '2026-11-07')[0]).toMatchObject({
+			label: 'Wed 31 Dec, 2025',
+			amount: '6 min · 40 reps'
 		});
-		expect(setTitle({ durationS: 480, reps: 20, rating: null })).toEqual({
-			text: '8 min · 20 reps',
-			rating: null
-		});
-		expect(setTitle({ durationS: null, reps: null, rating: 3 })).toEqual({ text: '', rating: 3 });
-		expect(setTitle({ durationS: null, reps: null, rating: null })).toEqual({
-			text: 'Set',
-			rating: null
-		});
-	});
-	it('gives the time and note', () => {
-		expect(setMeta(at('2026-10-31', '19:42', 'Turn felt late'), TZ)).toBe('19:42 · Turn felt late');
-		expect(setMeta(at('2026-10-31', '08:15'), TZ)).toBe('08:15');
 	});
 });
 
@@ -146,34 +135,45 @@ describe('ownerOf', () => {
 });
 
 describe('archiveBody', () => {
-	it('counts the kept sets', () => {
-		expect(archiveBody('Clave clapping · 2-3', 41)).toBe(
-			'Clave clapping · 2-3 leaves Today and every list. Its 41 sets are kept.'
-		);
-		expect(archiveBody('Hips', 1)).toBe('Hips leaves Today and every list. Its 1 set is kept.');
+	it('says the history is kept once there is any', () => {
+		expect(archiveBody('Clave', 3)).toBe('Clave leaves Today and every list. Its history is kept.');
 		expect(archiveBody('Hips', 0)).toBe('Hips leaves Today and every list.');
 	});
 });
 
+describe('recordingKeys', () => {
+	it('sections then links: after an unlink or a removal the next row is the next section, else the next link', () => {
+		const keys = recordingKeys([{ linkId: 4 }, { linkId: 9 }], [{ id: 2 }, { id: 5 }]);
+		expect(keys).toEqual(['section-4', 'section-9', 'link-2', 'link-5']);
+	});
+});
+
+describe("the history's words", () => {
+	it('the empty history says Done, and a deleted day names itself', () => {
+		expect(t().exercise.page.nothingYetBody).toBe(
+			'Tap Done after you practise — it shows up here, grouped by day.'
+		);
+		expect(t().exercise.page.deleteDay).toBe('Delete this day');
+		expect(t().exercise.page.dayDeleted('Thu 5 Nov')).toBe('Thu 5 Nov deleted');
+	});
+});
+
 describe('pageParts', () => {
-	it('the full page keeps everything and says Log a set', () => {
-		expect(pageParts(false, true)).toMatchObject({
+	it('the full page keeps everything', () => {
+		expect(pageParts(false, true)).toEqual({
 			editSettings: true,
 			historyLink: true,
 			sourceTabs: true,
 			ownerRow: true,
 			addBlock: true,
 			historyTiles: true,
-			setList: true,
 			settingsBlock: true,
-			fromClass: false,
-			logButton: 'Log a set'
+			fromClass: false
 		});
 	});
-	it('the simple page hides the rest and says I practised this', () => {
+	it('the simple page hides the rest, the history too', () => {
 		const p = pageParts(true, false);
-		expect(Object.entries(p).filter(([k, v]) => k !== 'logButton' && v === true)).toEqual([]);
-		expect(p.logButton).toBe('I practised this');
+		expect(Object.entries(p).filter(([, v]) => v === true)).toEqual([]);
 	});
 	it('From class shows only on the simple page, and only with a class', () => {
 		expect(pageParts(true, true).fromClass).toBe(true);
@@ -195,36 +195,11 @@ describe('fromClassLabel', () => {
 describe('in Slovenian', () => {
 	const sl = <T>(fn: () => T) => withLocale('sl', fn);
 
-	it('labels the tiles with the right plural', () => {
-		const label = (sets: number) => sl(() => summaryTiles({ sets, totalS: 0, recentRating: null }));
-		expect(label(1).map((x) => x.label)).toEqual(['vnos', 'skupaj', 'nedavno']);
-		expect(label(2)[0].label).toBe('vnosa');
-		expect(label(3)[0].label).toBe('vnosi');
-		expect(label(23)[0].label).toBe('vnosov');
-		expect(label(104)[0].label).toBe('vnosi');
-		expect(label(5)[0].label).toBe('vnosov');
-		expect(label(101)[0].label).toBe('vnos');
-		expect(sl(() => summaryTiles({ sets: 2, totalS: 60, recentRating: 4.6 }))[2].value).toBe(
-			'Lahko'
-		);
-	});
-
-	it('names the days of the history', () => {
-		const d = sl(() =>
-			historyDays(
-				[at('2026-10-31', '19:42'), at('2026-10-30', '20:00'), at('2025-12-30', '18:00')],
-				TZ,
-				'2026-10-31'
-			)
-		);
-		expect(d.map((g) => g.label)).toEqual(['Danes', 'Včeraj', 'torek, 30. decembra 2025']);
-	});
-
-	it('titles a set with nothing to sum up, and sums one up', () => {
-		expect(sl(() => setTitle({ durationS: null, reps: null, rating: null })).text).toBe('Vnos');
-		expect(sl(() => setTitle({ durationS: 300, reps: 12, rating: null })).text).toBe(
-			'5 min · 12 ponovitev'
-		);
+	it('words the history tiles', () => {
+		expect(sl(() => historyTiles({ times: 3, totalS: 1020 }))).toEqual([
+			{ value: '3', label: 'krat' },
+			{ value: '17 min', label: 'skupaj' }
+		]);
 	});
 
 	it('names the owner', () => {
@@ -233,27 +208,21 @@ describe('in Slovenian', () => {
 		expect(sl(() => ownerOf(routineContent))?.meta).toBe('Kombinacija');
 	});
 
-	it('asks about archiving, the name before a colon and the sets counted', () => {
+	it('asks about archiving, the name before a colon', () => {
 		expect(sl(() => archiveBody('Hips', 0))).toBe(
 			'Hips: izgine s seznama Danes in iz vseh seznamov.'
 		);
-		expect(sl(() => archiveBody('Hips', 1))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjen ostane 1 vnos.'
-		);
 		expect(sl(() => archiveBody('Hips', 2))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjena ostaneta 2 vnosa.'
-		);
-		expect(sl(() => archiveBody('Hips', 3))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjeni ostanejo 3 vnosi.'
-		);
-		expect(sl(() => archiveBody('Hips', 41))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjenih ostane 41 vnosov.'
+			'Hips: izgine s seznama Danes in iz vseh seznamov. Zgodovina ostane shranjena.'
 		);
 	});
 
-	it('words the pinned button and the way to the class', () => {
-		expect(sl(() => pageParts(false, false)).logButton).toBe('Nov vnos');
-		expect(sl(() => pageParts(true, true)).logButton).toBe('Opravljeno');
+	it('words the way to the class, and a deleted day', () => {
+		expect(sl(() => t().exercise.page.dayDeleted('čet, 5. nov.'))).toBe('Izbrisano: čet, 5. nov.');
+		expect(sl(() => t().exercise.page.deleteDay)).toBe('Izbriši ta dan');
+		expect(sl(() => t().exercise.page.nothingYetBody)).toBe(
+			'Ko vadite, pritisnite Opravljeno. Tukaj se pokaže, razvrščeno po dnevih.'
+		);
 		expect(sl(() => fromClassLabel('2026-11-03', '2026-11-05'))).toBe('Z lekcije tor, 3. nov. ›');
 	});
 });

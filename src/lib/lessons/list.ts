@@ -4,10 +4,10 @@ import { t } from '$lib/i18n/catalog';
 import type { LessonItem } from '$lib/types';
 
 /** Consecutive lessons of one month share a group; the load already sorts newest first. */
-export function monthGroups(
-	lessons: LessonItem[]
-): { key: string; label: string; lessons: LessonItem[] }[] {
-	const groups: { key: string; label: string; lessons: LessonItem[] }[] = [];
+export function monthGroups<T extends Pick<LessonItem, 'lessonDay'>>(
+	lessons: T[]
+): { key: string; label: string; lessons: T[] }[] {
+	const groups: { key: string; label: string; lessons: T[] }[] = [];
 	for (const l of lessons) {
 		const key = l.lessonDay.slice(0, 7);
 		const last = groups[groups.length - 1];
@@ -15,6 +15,16 @@ export function monthGroups(
 		else groups.push({ key, label: monthLabel(l.lessonDay), lessons: [l] });
 	}
 	return groups;
+}
+
+/**
+ * A group page's lessons by month, newest class first: the load puts the drafts
+ * first, but the page reads by date, a draft wearing its badge in its month.
+ */
+export function byMonth<T extends Pick<LessonItem, 'lessonDay'>>(
+	lessons: T[]
+): { key: string; label: string; lessons: T[] }[] {
+	return monthGroups([...lessons].sort((a, b) => b.lessonDay.localeCompare(a.lessonDay)));
 }
 
 /** The date tile of a row: `Wed`, `28`, and the full label for screen readers. */

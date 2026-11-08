@@ -14,9 +14,9 @@ import {
 	pastGroups,
 	rowMeta,
 	tileTone,
-	todayHero,
-	undoLogMessage
+	todayHero
 } from './today';
+import { t } from '$lib/i18n/catalog';
 
 const TODAY = '2026-11-05'; // a Thursday
 
@@ -257,20 +257,26 @@ describe('nothingLeftMeta', () => {
 });
 
 describe('pastGroups', () => {
-	const set = (id: number, exerciseId: number, t: string): DaySet => ({
+	const set = (
+		id: number,
+		exerciseId: number,
+		t: string,
+		durationS: number | null = null
+	): DaySet => ({
 		id,
 		exerciseId,
 		exerciseName: `E${exerciseId}`,
 		doneAt: Date.parse(`2026-10-30T${t}:00Z`),
-		durationS: null,
+		durationS,
 		reps: null,
 		rating: null,
 		note: null
 	});
-	it('groups by exercise, first done first, oldest set first', () => {
-		const g = pastGroups([set(3, 1, '20:10'), set(1, 1, '19:42'), set(2, 2, '18:05')]);
+	it('one merged entry per exercise, first done first', () => {
+		const g = pastGroups([set(3, 1, '20:10', 120), set(1, 1, '19:42', 240), set(2, 2, '18:05')]);
 		expect(g.map((x) => x.exerciseId)).toEqual([2, 1]);
-		expect(g[1].sets.map((s) => s.id)).toEqual([1, 3]);
+		expect(g[1].entry.durationS).toBe(360);
+		expect(g[0].entry.durationS).toBeNull();
 	});
 });
 
@@ -282,18 +288,19 @@ describe('deletedGroupName', () => {
 		);
 	});
 });
-describe('undoLogMessage', () => {
-	it('names the exercise and when it comes back', () => {
-		expect(undoLogMessage('Basic step on 1', 5)).toBe('Basic step on 1 · back in 5 days');
-		expect(undoLogMessage('Basic step on 1', 21)).toBe('Basic step on 1 · back in 3 weeks');
-		expect(undoLogMessage('Basic step on 1', 75)).toBe('Basic step on 1 · back in 3 months');
-		// As the row says it ("Done · Back in a week").
-		expect(undoLogMessage('Setenta', 7)).toBe('Setenta · back in a week');
-		expect(undoLogMessage('Setenta', 365)).toBe('Setenta · back in a year');
+describe("a past day's words", () => {
+	it('adds an exercise to the day, never a set', () => {
+		expect(t().today.past.addSet('Setenta')).toBe('Add Setenta to this day');
+		expect(t().today.past.logOn('Thu 5 Nov')).toBe('Add to Thu 5 Nov');
 	});
 
-	it('says tomorrow for a gap of one day', () => {
-		expect(undoLogMessage('Setenta', 1)).toBe('Setenta · back tomorrow');
+	it('in Slovenian', () => {
+		expect(withLocale('sl', () => t().today.past.addSet('Setenta'))).toBe(
+			'Dodaj za ta dan: Setenta'
+		);
+		expect(withLocale('sl', () => t().today.past.logOn('čet, 5. nov.'))).toBe(
+			'Dodaj za čet, 5. nov.'
+		);
 	});
 });
 
@@ -376,9 +383,7 @@ describe('in Slovenian', () => {
 		);
 	});
 
-	it('the toasts: a logged set, Not today and Coming up’s +', () => {
-		expect(sl(() => undoLogMessage('Setenta', 7))).toBe('Setenta · spet čez en teden');
-		expect(sl(() => undoLogMessage('Setenta', 1))).toBe('Setenta · spet jutri');
+	it('the toasts: Not today and Coming up’s +', () => {
 		expect(sl(() => notTodayMessage('Setenta'))).toBe('Setenta · ne danes');
 		expect(sl(() => onTodayMessage('Setenta'))).toBe('Setenta · dodano za danes');
 	});

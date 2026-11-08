@@ -17,23 +17,16 @@ import type { Source } from '$lib/labels';
 export const EXERCISE_TYPES = ['lesson', 'figure', 'drill', 'routine'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
 
-export type LogField = 'minutes' | 'reps' | 'rating' | 'note';
-
 export interface TypeInfo {
 	type: ExerciseType;
 	label: string;
-	/** The fields the log form shows AND the log action stores. Anything else posted is dropped. */
-	fields: readonly LogField[];
-	ratingQuestion: string;
-	/** Where the desktop pane puts the content: by the form (practised along with) or beside the history (walked, reviewed). */
-	paneContent: 'left' | 'right';
 }
 
 const BY_SOURCE: Record<Source, ExerciseType> = {
 	lesson: 'lesson',
 	figure: 'figure',
 	custom: 'drill',
-	// A person's entry for a group's drill: the drill's popup, with the drill's
+	// A person's entry for a group's drill: the drill's page, with the drill's
 	// content (practice-content.ts reads it through `drill_id`).
 	added: 'drill',
 	routine: 'routine'
@@ -48,51 +41,27 @@ export const TYPES: Record<ExerciseType, TypeInfo> = {
 		type: 'lesson',
 		get label() {
 			return t().exercise.types.lesson;
-		},
-		fields: ['minutes', 'rating', 'note'],
-		get ratingQuestion() {
-			return t().exercise.types.remember;
-		},
-		paneContent: 'right'
+		}
 	},
 	figure: {
 		type: 'figure',
 		get label() {
 			return t().exercise.types.figure;
-		},
-		fields: ['minutes', 'rating', 'note'],
-		get ratingQuestion() {
-			return t().exercise.types.howItWent;
-		},
-		paneContent: 'left'
+		}
 	},
-	// Reps stay here because a drill is where they mean something: clave
-	// clapping, a hundred basics. A figure is danced, not counted.
 	drill: {
 		type: 'drill',
 		get label() {
 			return t().exercise.types.drill;
-		},
-		fields: ['minutes', 'reps', 'rating', 'note'],
-		get ratingQuestion() {
-			return t().exercise.types.howItWent;
-		},
-		paneContent: 'left'
+		}
 	},
 	routine: {
 		type: 'routine',
 		get label() {
 			return t().exercise.types.routine;
-		},
-		fields: ['minutes', 'rating', 'note'],
-		get ratingQuestion() {
-			return t().exercise.types.howItWent;
-		},
-		paneContent: 'right'
+		}
 	}
 };
 
 export const typeOf = (source: Source): ExerciseType => BY_SOURCE[source];
 export const typeInfo = (source: Source): TypeInfo => TYPES[typeOf(source)];
-export const hasField = (source: Source, field: LogField): boolean =>
-	typeInfo(source).fields.includes(field);

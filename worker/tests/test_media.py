@@ -155,3 +155,40 @@ def test_a_missing_or_private_youtube_list_fails_for_good(stderr):
 def test_another_youtube_list_error_is_tried_again():
     with pytest.raises(RuntimeError):
         media.read_youtube_list("u", run=fake_run(returncode=1, stderr="ERROR: HTTP Error 429"))
+
+
+def test_music_start_finds_where_the_music_rises_and_stays():
+    # 18 s of silence, 12 s very quiet, then the song (median -18 dB).
+    levels = [-120.0] * 36 + [-55.0] * 24 + [-18.0] * 400
+    assert media.music_start(levels) == 30.0
+
+
+def test_music_start_ignores_a_short_dip_later():
+    levels = [-120.0] * 4 + [-18.0] * 100 + [-60.0] * 2 + [-18.0] * 100
+    assert media.music_start(levels) == 2.0
+
+
+def test_music_start_is_zero_when_loud_from_the_start_or_all_silence():
+    assert media.music_start([-18.0] * 100) == 0.0
+    assert media.music_start([-120.0] * 100) == 0.0
+    assert media.music_start([]) == 0.0
+
+
+def test_music_start_needs_the_rise_to_hold():
+    # A 1 s blip (2 windows) at 2 s, the music from 10 s.
+    levels = [-120.0] * 4 + [-18.0] * 2 + [-120.0] * 14 + [-18.0] * 100
+    assert media.music_start(levels) == 10.0
+
+
+def test_loudness_windows_reads_astats_per_half_second(tmp_path: Path):
+    out = (
+        "frame:0    pts:0       pts_time:0\n"
+        "lavfi.astats.Overall.RMS_level=-inf\n"
+        "frame:1    pts:11025   pts_time:0.5\n"
+        "lavfi.astats.Overall.RMS_level=-20.50\n"
+    )
+    run = fake_run(stdout=out)
+    assert media.loudness_windows(tmp_path / "a.wav", run=run) == [-120.0, -20.5]
+    (cmd,) = run.calls
+    assert cmd[0] == "ffmpeg"
+    assert any("asetnsamples=11025" in part and "astats" in part for part in cmd)

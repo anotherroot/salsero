@@ -35,10 +35,11 @@ describe('the group page in its pane', () => {
 		expect(branch).not.toContain('<PaneColumns');
 	});
 
-	it('opens the group menu and Rename as small dialogs, and New lesson, Add, Leave and Delete as before', () => {
+	it('opens the group menu, Add to the group and Rename as small dialogs, and New lesson, Add, Leave and Delete as before', () => {
 		expect(page).toMatch(/<Sheet title=\{data\.team\.name\} open=\{menu\}[^\n]*size="small">/);
 		expect(page).toMatch(/<Sheet title=\{w\.renameGroup\}[^\n]*size="small">/);
-		expect(page.match(/size="small"/g)).toHaveLength(2);
+		expect(page).toMatch(/<Sheet title=\{w\.add\} open=\{choosing\}[^\n]*size="small">/);
+		expect(page.match(/size="small"/g)).toHaveLength(3);
 		for (const tag of ['<NewLessonSheet', '<AddSheet', '<LeaveSheet', '<Dialog']) {
 			const start = page.indexOf(tag);
 			expect(start).toBeGreaterThan(-1);

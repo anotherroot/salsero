@@ -35,7 +35,14 @@ import {
 } from '../lessons';
 import { addChildSlot, addFigureSlot, addOption, createRoutine, setSlotNote } from '../routines';
 import { createCustomExercise } from '../exercises';
-import { createSongFromUpload, setAnchors, setSampleStart, setTempoFactor } from '../songs';
+import {
+	createSongFromUpload,
+	setAnchors,
+	setMusicStart,
+	setSampleStart,
+	setSections,
+	setTempoFactor
+} from '../songs';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { linkPositionInSpace } from '../position-links';
@@ -322,7 +329,18 @@ describe('flatOf', () => {
 		).id;
 		const empty = flatOf(db, 'song', id);
 		wellFormed(empty);
-		expect(keys(empty)).toEqual(['artist', 'audio', 'count', 'sample', 'style', 'title']);
+		expect(keys(empty)).toEqual([
+			'artist',
+			'audio',
+			'count',
+			'musicStart',
+			'sample',
+			'sections',
+			'style',
+			'title'
+		]);
+		expect(empty.sections).toMatchObject({ value: '', show: 'None' });
+		expect(empty.musicStart).toMatchObject({ value: '', show: 'As found' });
 		// An upload has no link: its audio reads as no choice at all.
 		expect(empty.audio).toMatchObject({ value: '|', show: 'Uploaded' });
 		expect(empty.artist.value).toBe('');
@@ -333,6 +351,21 @@ describe('flatOf', () => {
 		const f = flatOf(db, 'song', id);
 		expect(f.count).toMatchObject({ value: '[3,11]|2', show: '2 taps · ×2' });
 		expect(f.sample).toMatchObject({ value: '83.5', show: 'From 1:23' });
+		setSections(db, id, [
+			{ at: 30, name: 'Mambo', countOff: false },
+			{ at: 2, name: '', countOff: true }
+		]);
+		setMusicStart(db, id, 18);
+		const g = flatOf(db, 'song', id);
+		expect(g.sections).toMatchObject({
+			value: '[{"at":2,"name":"","countOff":true},{"at":30,"name":"Mambo","countOff":false}]',
+			show: '2 sections'
+		});
+		expect(g.musicStart).toMatchObject({ value: '18', show: 'Starts at 0:18' });
+		db.update(songs).set({ sectionsJson: '{x' }).where(eq(songs.id, id)).run();
+		expect(flatOf(db, 'song', id).sections.value).toBe('');
+		setSections(db, id, []);
+		setMusicStart(db, id, null);
 		expect(f.style.show).toBe('Salsa');
 		db.update(songs).set({ audioFile: 'other.mp3', sizeBytes: 99 }).where(eq(songs.id, id)).run();
 		expect(flatOf(db, 'song', id)).toEqual(f);

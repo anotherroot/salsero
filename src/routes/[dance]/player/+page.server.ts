@@ -1,9 +1,9 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
-import { listPickExercises, logSet } from '$lib/server/exercises';
+import { listPickExercises, saveDay } from '$lib/server/exercises';
 import { scheduleStateOf } from '$lib/server/schedule';
-import { localDay } from '$lib/day/day';
+import { daysBetween, localDay } from '$lib/day/day';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listFiguresForCall } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
@@ -22,10 +22,13 @@ import {
 } from '$lib/server/scope';
 import { shownExercise } from '$lib/exercises/name';
 import { t } from '$lib/i18n/catalog';
+import type { DoneResult } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
 import { serverNow } from '$lib/server/server-clock';
 export const load: PageServerLoad = ({ url, params, locals }) => {
+	if (!locals.user) throw error(401);
+	const tz = locals.user.timezone;
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const db = getDb();
@@ -124,9 +127,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		graph,
 		exercise,
 		// Its due words in the Save sheet: the schedule, from the sets.
-		schedule:
-			exercise && locals.user ? scheduleStateOf(db, exercise.id, locals.user.timezone) : null,
-		today: localDay(serverNow(), locals.user?.timezone ?? 'UTC'),
+		schedule: exercise ? scheduleStateOf(db, exercise.id, tz) : null,
+		today: localDay(serverNow(), tz),
 		exercises: listPickExercises(db, wall).map(shownExercise),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
@@ -137,6 +139,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 export const actions: Actions = {
 	/** Log the finished run as a set on the exercise it was practised for. */
 	save: async ({ params, request, locals }) => {
+		if (!locals.user) throw error(401);
+		const tz = locals.user.timezone;
 		const form = await request.formData();
 		const exerciseId = int(form, 'exerciseId');
 		const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
@@ -165,25 +169,37 @@ export const actions: Actions = {
 		// sheet only ever offers this dance's exercises, and a posted id must not
 		// be able to reach past that.
 		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
-		let setId: number;
+		let saved: ReturnType<typeof saveDay>;
+		const now = serverNow();
 		try {
-			setId = logSet(getDb(), {
-				exerciseId,
-				doneAt: serverNow(),
-				durationS,
-				reps: null,
-				rating,
-				note,
-				// The summary of what the run was is a nicety; the set is the point.
-				// An overlong one (a marathon routine with a great many calls) is
-				// dropped rather than costing the user the whole session — and it
-				// must never be reported as a problem with their note.
-				playerJson: run ?? null
-			}).id;
+			saved = saveDay(
+				getDb(),
+				{
+					exerciseId,
+					doneAt: now,
+					durationS,
+					reps: null,
+					rating,
+					note,
+					// The summary of what the run was is a nicety; the set is the point.
+					// An overlong one (a marathon routine with a great many calls) is
+					// dropped rather than costing the user the whole session — and it
+					// must never be reported as a problem with their note.
+					playerJson: run ?? null
+				},
+				tz
+			);
 		} catch {
 			return fail(400, { message: t().exercise.refused.gone, ...entered });
 		}
-		// Today shows the "back in …" toast with Undo for this set, then drops the param.
-		throw redirect(303, `/${params.dance}?logged=${setId}`);
+		// The sheet hands this to the page, which leaves and (Task 5) announces the save.
+		const result: DoneResult & { action: 'done' } = {
+			action: 'done',
+			ok: true,
+			setId: saved.set.id,
+			before: saved.before && JSON.stringify(saved.before),
+			backDays: daysBetween(localDay(now, tz), scheduleStateOf(getDb(), exerciseId, tz).dueDay)
+		};
+		return result;
 	}
 };

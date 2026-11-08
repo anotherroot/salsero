@@ -460,6 +460,14 @@ class Applier {
 			set.sampleStartS = g.sampleStartS;
 			this.changed('sampleStartS', t.sampleStartS, g.sampleStartS);
 		}
+		if (has('sections') && sameAudio) {
+			set.sectionsJson = g.sectionsJson;
+			this.changed('sectionsJson', t.sectionsJson, g.sectionsJson);
+		}
+		if (has('musicStart') && sameAudio) {
+			set.startS = g.startS;
+			this.changed('startS', t.startS, g.startS);
+		}
 		if (Object.keys(set).length > 0) tx.update(songs).set(set).where(eq(songs.id, targetId)).run();
 	}
 

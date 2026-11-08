@@ -28,11 +28,25 @@ export default defineConfig(
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
+			/*
+			 * No `projectService`: typed linting of .svelte files cost 203 s and
+			 * 2.7 GB on 211 components against 50 s and 0.7 GB without
+			 * (eslint-plugin-svelte#1084), and no rule we run needs types but the
+			 * one turned off below.
+			 */
 			parserOptions: {
-				projectService: true,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser
 			}
+		}
+	},
+	{
+		rules: {
+			/*
+			 * Off: it needs types (without them it misfires on built hrefs), and the
+			 * app sets no `paths.base`, so `resolve()` around a path guards nothing.
+			 */
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
 	{

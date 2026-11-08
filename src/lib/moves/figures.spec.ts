@@ -6,7 +6,8 @@ import {
 	filterQuery,
 	showTiles,
 	tileMetas,
-	type FigureFilter
+	type FigureFilter,
+	groupMeta
 } from './figures';
 
 const none: FigureFilter = { q: '' };
@@ -133,5 +134,13 @@ describe('tileMetas', () => {
 		expect(tileMetas(7)).toEqual({ coverage: { text: '7 in no routine', status: true } });
 		expect(tileMetas(0).coverage).toEqual({ text: 'All in a routine', status: false });
 		expect(tileMetas(1).coverage.text).toBe('1 in no routine');
+	});
+});
+
+describe('groupMeta', () => {
+	it("words a group's heading line by what the list holds", () => {
+		expect(groupMeta('figure', 3)).toBe('Group · 3 figures');
+		expect(groupMeta('routine', 1)).toBe('Group · 1 routine');
+		expect(groupMeta('position', 2)).toBe('Group · 2 positions');
 	});
 });

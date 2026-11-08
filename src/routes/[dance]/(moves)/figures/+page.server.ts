@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { createFigure } from '$lib/server/figures';
+import { createFigure, createVariationIn, getGroup, variationNameTaken } from '$lib/server/figures';
 import { getPosition } from '$lib/server/positions';
 import { setFigureShapeIn } from '$lib/server/graph';
 import { usableBy } from '$lib/server/usable';
@@ -13,6 +13,9 @@ import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import { PRESET_GONE } from '$lib/positions/view';
 import type { Db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
+
+/** `createVariationIn`'s figure in `createFigure`'s shape: the rest reads `.figure`. */
+const asMade = <T>(figure: T | null) => (figure ? { figure } : null);
 
 /**
  * New move from a position (ruling 8): `?start=<id>` or `?end=<id>` (from a
@@ -53,6 +56,8 @@ export const actions: Actions = {
 		const dance = space.dance;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
+		// New figure in a move that exists (the Move field picked one); else a new move.
+		const groupId = int(form, 'groupId');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
@@ -63,7 +68,7 @@ export const actions: Actions = {
 			notes: String(form.get('notes') ?? '')
 		};
 		// Each refusal names the field it is about, so the sheet shows it there.
-		if (!figureName) {
+		if (groupId === undefined && !figureName) {
 			return fail(400, {
 				field: 'figureName' as const,
 				message: 'Give the move a name (up to 200 characters).',
@@ -96,11 +101,26 @@ export const actions: Actions = {
 		// refuses for a position the figure may not have (another person's,
 		// archived since). Either refusal leaves nothing written.
 		const db = getDb();
+		const move = groupId === undefined ? null : getGroup(db, groupId);
+		if (groupId !== undefined) {
+			if (!move || move.archivedAt !== null || !inSpace(move, space)) {
+				return fail(400, { field: 'figureName' as const, message: 'Pick a move.', ...typed });
+			}
+			if (variationNameTaken(db, move.id, name, null)) {
+				return fail(400, {
+					field: 'name' as const,
+					message: `${move.name} already has a figure called ${name}. Rename one first.`,
+					...typed
+				});
+			}
+		}
 		const refused = new Error('preset refused');
 		let made;
 		try {
 			made = db.transaction((tx) => {
-				const m = createFigure(tx, space, { figureName, name, partner, style, notes });
+				const m = move
+					? asMade(createVariationIn(tx, move.id, { name, partner, style, notes }, actorOf(space)))
+					: createFigure(tx, space, { figureName: figureName ?? '', name, partner, style, notes });
 				if (!m || !preset) return m;
 				const shape = {
 					startIds: startId === undefined ? [] : [startId],
@@ -118,6 +138,7 @@ export const actions: Actions = {
 			// The position is gone or not theirs: say so; the sheet drops it.
 			return fail(400, { message: PRESET_GONE, presetGone: true as const, ...typed });
 		}
+		if (!made && move) throw error(404, 'Move not found');
 		if (!made) {
 			return fail(400, {
 				field: 'figureName' as const,

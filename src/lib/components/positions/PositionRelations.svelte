@@ -115,7 +115,6 @@
 	{/each}
 </ul>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the page resolves its hrefs -->
 {#snippet row(href: string, title: string, meta: string)}
 	<a
 		{href}
@@ -175,4 +174,3 @@
 		{/if}
 	</div>
 </Sheet>
-<!-- eslint-enable svelte/no-navigation-without-resolve -->

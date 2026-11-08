@@ -90,7 +90,7 @@ export function litAt(
 	return lit;
 }
 
-/** The simple screens: the lesson page, the video player, the exercise page and log popup. */
+/** The simple screens: the lesson page, the video player, the exercise page and Done sheet. */
 export function simple(level: Level): boolean {
 	return level !== 'all';
 }

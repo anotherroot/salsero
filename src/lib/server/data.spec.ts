@@ -463,17 +463,18 @@ describe('history', () => {
 		expect(exerciseHistory(db, e.id, 3).map((s) => s.doneAt)).toEqual([5000, 4000, 3000]);
 	});
 
-	it('summarises every set, and averages the latest five rated ones', () => {
+	it('summarises the days practised and the time in all', () => {
 		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
-		set(e.id, 1, { rating: 1, durationS: 60 });
-		for (let i = 2; i <= 6; i++) set(e.id, i, { rating: 4, durationS: 120 });
-		set(e.id, 7); // unrated, no duration
-		expect(exerciseSummary(db, e.id)).toEqual({ sets: 7, totalS: 660, recentRating: 4 });
+		const day = 86_400_000;
+		set(e.id, 1 * day, { rating: 1, durationS: 60 });
+		for (let i = 2; i <= 6; i++) set(e.id, i * day, { rating: 4, durationS: 120 });
+		set(e.id, 7 * day); // unrated, no duration
+		expect(exerciseSummary(db, e.id, 'UTC')).toEqual({ times: 7, totalS: 660 });
 	});
 
 	it('summarises an exercise with no sets', () => {
 		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
-		expect(exerciseSummary(db, e.id)).toEqual({ sets: 0, totalS: 0, recentRating: null });
+		expect(exerciseSummary(db, e.id, 'UTC')).toEqual({ times: 0, totalS: 0 });
 	});
 
 	it("finds an exercise's latest set", () => {

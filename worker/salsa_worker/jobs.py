@@ -10,7 +10,7 @@ from typing import Callable, Literal
 
 from . import match, spotify
 from .lists import TrackList
-from .api import JobGone
+from .api import ApiError, JobGone
 from .media import MAX_DURATION_S, Fetched, PermanentError
 
 Outcome = Literal["ok", "permanent", "transient"]
@@ -24,6 +24,7 @@ class Tools:
     to_wav: Callable[[Path, Path], None]
     duration_of: Callable[[Path], float]
     analyze: Callable[[Path], tuple[list[float], list[float]]]
+    music_start: Callable[[Path], float]
     # A Spotify song: read it from Spotify, then search YouTube for it.
     search: Callable[[str], list[match.Candidate]] | None = None
     read_track: Callable[[str], spotify.Track] | None = None
@@ -114,7 +115,7 @@ def process(job: dict, api, tools: Tools, workdir: Path) -> Outcome:
         if duration > MAX_DURATION_S:
             raise PermanentError("Longer than 15 minutes.")
         beats, downbeats = tools.analyze(wav)
-        api.post_analysis(song_id, beats, downbeats, duration)
+        api.post_analysis(song_id, beats, downbeats, duration, start=tools.music_start(wav))
         log.info("song %s: %d beats", song_id, len(beats))
         return "ok"
     except PermanentError as e:
@@ -149,6 +150,23 @@ def process_video(job: dict, api, tools: VideoTools, workdir: Path) -> bool:
     return False
 
 
+def measure_start(song_id: int, api, tools: Tools, workdir: Path) -> None:
+    """The one-off pass for a ready song that has no music start yet: fetch, decode, measure, report.
+    Audio that will not decode is reported as 0.0, so it is never asked for again; a download that
+    fails (network, server) raises and the next tick tries again."""
+    audio = workdir / "source"
+    api.download_audio(song_id, audio)
+    wav = workdir / "analysis.wav"
+    try:
+        tools.to_wav(audio, wav)
+        start = tools.music_start(wav)
+    except PermanentError as e:
+        log.warning("song %s: no music start, the audio will not decode: %s", song_id, e)
+        start = 0.0
+    api.post_start(song_id, start)
+    log.info("song %s: music starts at %.1f s", song_id, start)
+
+
 def run(
     api,
     tools: Tools,
@@ -158,13 +176,14 @@ def run(
 ) -> int:
     """Claim and process jobs until the queues are empty or a job fails. Returns how many were processed.
 
-    Songs first: a song is seconds of work, an hour of video can be ten minutes
-    of encoding. Stopping after a transient failure keeps one bad run (network
-    down, a YouTube change) from spinning through the whole queue; the next
-    timer tick carries on. A song that failed for good (no match, unavailable)
-    says nothing about the next one, so the run goes on. After every download
-    the worker pauses, so a long pick from a playlist does not hit YouTube
-    back to back.
+    Pasted lists first (a person waits on them), then songs, then the music
+    start of ready songs that have none, then videos. A song is seconds of
+    work, an hour of video can be ten minutes of encoding. Stopping after a
+    transient failure keeps one bad run (network down, a YouTube change) from
+    spinning through the whole queue; the next timer tick carries on. A song
+    that failed for good (no match, unavailable) says nothing about the next
+    one, so the run goes on. After every download the worker pauses, so a long
+    pick from a playlist does not hit YouTube back to back.
     """
     done = 0
     # Pasted lists first: a person is waiting on them, and a read takes seconds.
@@ -187,6 +206,28 @@ def run(
             tools.pause()
         if outcome == "transient":
             return done
+    # Once the songs queue is empty: ready songs analysed before the worker measured music starts.
+    wanted = api.starts_wanted() if done < max_jobs else []
+    for song_id in wanted[: max_jobs - done]:
+        try:
+            with tempfile.TemporaryDirectory(prefix="salsa-start-") as tmp:
+                measure_start(song_id, api, tools, Path(tmp))
+        except ApiError as e:
+            if not 400 <= e.status < 500:
+                # Server trouble: the next tick tries again; the videos still run now.
+                log.warning("song %s: music start not measured, server trouble: %s", song_id, e)
+                break
+            # The server refused this one (its audio gone, say): measured as 0.0, so it is
+            # never asked for again and never blocks the songs after it.
+            log.warning("song %s: music start not measured: %s", song_id, e)
+            try:
+                api.post_start(song_id, 0.0)
+            except Exception:  # noqa: BLE001 — skipped this tick; the next one asks again
+                log.warning("song %s: could not record its music start", song_id)
+        except Exception as e:  # noqa: BLE001 — network down, laptop offline: try next tick
+            log.warning("song %s: music start not measured: %s", song_id, e)
+            break
+        done += 1
     while video_tools is not None and done < max_jobs:
         job = api.claim_video()
         if job is None:

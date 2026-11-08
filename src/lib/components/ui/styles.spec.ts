@@ -39,6 +39,11 @@ describe('button', () => {
 		expect(c).toContain('text-on-accent');
 	});
 	it('danger is solid danger', () => expect(button('danger')).toContain('bg-danger'));
+	it('done-soft is the soft green of Done today', () => {
+		const c = button('done-soft');
+		expect(c).toContain('bg-done-soft');
+		expect(c).toContain('text-done');
+	});
 	it('tertiary has no background', () => expect(button('tertiary')).not.toContain('bg-'));
 	it('full width', () => expect(button('primary', 'lg', true)).toContain('w-full'));
 	it('a row button grows with the others, never flex-none (the pane log bar)', () => {
@@ -49,7 +54,14 @@ describe('button', () => {
 		}
 	});
 	it('every builder styles disabled', () => {
-		for (const k of ['primary', 'secondary', 'tertiary', 'danger', 'danger-text'] as const)
+		for (const k of [
+			'primary',
+			'secondary',
+			'tertiary',
+			'danger',
+			'danger-text',
+			'done-soft'
+		] as const)
 			expect(button(k)).toContain('disabled:');
 		for (const v of ['bare', 'tonal', 'filled', 'step'] as const)
 			expect(iconButton(v)).toContain('disabled:');
@@ -197,6 +209,14 @@ describe('bandButton', () => {
 		expect(tokens(bandButton('pane'))).toContain('desk:text-accent-text');
 		expect(tokens(bandButton('pane-back'))).toContain('desk:text-ink');
 		expect(bandButton('band')).not.toContain('desk:');
+	});
+
+	it('floats on the surface at every width, ink and lifted, no band colour', () => {
+		const t = tokens(bandButton('float'));
+		expect(t).toContain('bg-surface');
+		expect(t).toContain('text-ink');
+		expect(t).not.toContain('text-band-ink');
+		expect(bandButton('float')).not.toContain('desk:');
 	});
 });
 

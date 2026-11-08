@@ -58,6 +58,13 @@ def _name(*words):
     return re.compile("^(" + "|".join(re.escape(w) for w in words) + ")")
 
 
+def _done_sheet(page):
+    # the exercise page's pinned Done opens the sheet: four faces and no note at Follow my class
+    page.get_by_role("button", name=_name("Done", "Opravljeno")).first.click()
+    page.locator("dialog[open]").first.wait_for()
+    page.wait_for_timeout(500)
+
+
 def _comments(page):
     page.get_by_role("button", name=_name("Comments", "Komentarji")).first.click()
     page.locator("dialog[open]").first.wait_for()
@@ -105,10 +112,10 @@ def _run_masks(page):
 PLAYER = "/{dance}/player?routine={classroutineid}&exercise={classroutine}&from=today"
 
 SCENES = {
-    "follow-log-drill": Scene("/{dance}/exercises/{classdrill}?log=1"),
-    "follow-log-section": Scene("/{dance}/exercises/{classsection}?log=1"),
-    "follow-log-review": Scene("/{dance}/exercises/{classreview}?log=1"),
-    "follow-log-routine": Scene("/{dance}/exercises/{classroutine}?log=1"),
+    "follow-done-drill": Scene("/{dance}/exercises/{classdrill}", _done_sheet),
+    "follow-done-section": Scene("/{dance}/exercises/{classsection}", _done_sheet),
+    "follow-done-review": Scene("/{dance}/exercises/{classreview}", _done_sheet),
+    "follow-done-routine": Scene("/{dance}/exercises/{classroutine}", _done_sheet),
     "follow-comments": Scene("/{dance}/lessons/{classlesson}", _comments),
     "follow-video-full": Scene("/{dance}/lessons/{classlesson}", _video_full),
     "follow-video-section": Scene("/{dance}/exercises/{classsection}", _section),

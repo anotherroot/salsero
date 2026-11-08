@@ -91,25 +91,36 @@ export function releaseClick(): void {
 }
 
 /**
+ * Once history has caught up with the sheets' own Back moves, run fn; lets a
+ * click's hold go and drops a refresh owed for a form sent in a sheet.
+ *
+ * The shared start of every close-then-navigate (`gotoWhenSettled`, and
+ * `backWhenSettled` in `$lib/nav/trail.svelte.ts`): the caller closes its
+ * sheets first, in the same tick. The click's hold is let go at once (the
+ * click was prevented: no navigation of its own follows), and the owed
+ * refresh is dropped, since fn's navigation loads the page's data itself and
+ * a refresh started after it would abort it.
+ */
+export function whenSettled(fn: () => void): void {
+	releaseClick();
+	sentAt = null;
+	sheetStack.settled(fn);
+}
+
+/**
  * Close-then-go: for a link or a form inside a sheet whose navigation must
  * REPLACE the page's own entry (a variation picked in the switcher's list).
  * The caller closes its sheets first; once history has stepped back over
- * their entries, this goes to `href`. The click's hold is let go at once (the
- * click was prevented: no navigation of its own follows), and a refresh owed
- * for a form sent from the sheet is dropped, since this navigation loads the
- * page's data itself and a refresh started after it would abort it.
+ * their entries, this goes to `href` (see `whenSettled`).
  */
 export function gotoWhenSettled(
 	href: string,
 	opts: Parameters<typeof goto>[1] = {},
 	before?: () => void
 ): Promise<void> {
-	releaseClick();
-	sentAt = null;
 	return new Promise((resolve, reject) => {
-		sheetStack.settled(() => {
+		whenSettled(() => {
 			before?.();
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller's href, already built
 			goto(href, opts).then(resolve, reject);
 		});
 	});

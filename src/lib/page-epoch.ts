@@ -15,7 +15,7 @@
 import type { ActionResult } from '@sveltejs/kit';
 import { mayReloadNow, type Quiet } from '$lib/nav/fresh';
 
-export const PAGE_EPOCH = 9;
+export const PAGE_EPOCH = 11;
 
 export const EPOCH_HEADER = 'x-page-epoch';
 export const STALE_HEADER = 'x-page-stale';

@@ -157,4 +157,27 @@ describe('new audio and the copies', () => {
 		).find((d) => d.key === 'audio');
 		expect(audio?.side).toBe('theirs');
 	});
+
+	it('clears the sections and the music start with the count: they mark the old recording', async () => {
+		db.update(songs)
+			.set({
+				sectionsJson: '[{"at":4,"name":"Mambo","countOff":false}]',
+				startS: 3,
+				startFoundS: 18
+			})
+			.where(eq(songs.id, S))
+			.run();
+		useAudioUrl(db, S, NEW, U1_SALSA, NOW);
+		expect(row(S)).toMatchObject({ sectionsJson: '[]', startS: null, startFoundS: null });
+		db.update(songs)
+			.set({ sectionsJson: '[{"at":9,"name":"Coro","countOff":false}]', startS: 7 })
+			.where(eq(songs.id, G2s))
+			.run();
+		const keys = diff(null, flatOf(db, 'song', S), flatOf(db, 'song', G2s), hashValue).map(
+			(d) => d.key
+		);
+		expect(keys).toContain('audio');
+		expect(keys).not.toContain('sections');
+		expect(keys).not.toContain('musicStart');
+	});
 });

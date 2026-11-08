@@ -31,7 +31,6 @@
 		<div class={GROUP}>
 			{#each items as item (item.key)}
 				{#if item.href}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the page resolved it -->
 					<a href={item.href} class={ROW}>
 						{@render body(item)}
 					</a>

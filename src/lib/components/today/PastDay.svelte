@@ -4,7 +4,6 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import { GROUP, LABEL, SECTION_LABEL, iconButton } from '$lib/components/ui/styles';
-	import { timeOfDay } from '$lib/day/day';
 	import { pastGroups } from '$lib/exercises/today';
 	import { dayLabel, setSummary } from '$lib/format';
 	import { exerciseGroups } from '$lib/picker/build';
@@ -22,7 +21,6 @@
 		daySets,
 		exercises = [],
 		kinds,
-		timezone,
 		today = false,
 		onlog
 	}: {
@@ -32,7 +30,6 @@
 		exercises?: PickExercise[];
 		/** By exercise id; an archived exercise is missing. */
 		kinds: Record<number, { source: Source; partner: Partner | null }>;
-		timezone: string;
 		today?: boolean;
 		onlog?: (exerciseId: number) => void;
 	} = $props();
@@ -63,20 +60,15 @@
 						{/if}
 					</div>
 				</div>
-				{#each g.sets as s (s.id)}
-					<div class="pl-[68px]">
-						<div class="flex gap-3 py-[11px] pr-4">
-							<span class="w-10 flex-none text-[14px] font-bold text-muted tabular-nums"
-								>{timeOfDay(s.doneAt, timezone)}</span
-							>
-							<span class="min-w-0 flex-1 text-[14px] text-ink"
-								>{setSummary(s) || t().today.past.set}{#if s.note}<span
-										class="mt-0.5 block text-[13px] text-muted">“{s.note}”</span
-									>{/if}</span
-							>
-						</div>
+				<div class="pl-[68px]">
+					<div class="py-[11px] pr-4">
+						<span class="block text-[14px] text-ink"
+							>{setSummary(g.entry) || t().today.past.done}{#if g.entry.note}<span
+									class="mt-0.5 block text-[13px] text-muted">“{g.entry.note}”</span
+								>{/if}</span
+						>
 					</div>
-				{/each}
+				</div>
 			</div>
 		{/each}
 	</section>

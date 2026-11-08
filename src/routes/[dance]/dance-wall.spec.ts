@@ -72,7 +72,16 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
-import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
+import { variationSeen } from '$lib/server/clash';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	links,
+	positions,
+	sets
+} from '$lib/server/db/schema';
 import { actions as todayActions, load as todayLoad } from './(today)/+page.server';
 import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
@@ -227,27 +236,24 @@ beforeEach(() => {
 });
 
 describe("Today refuses the other dance's rows", () => {
-	it('will not log a set on an exercise from the other dance', async () => {
-		await refuses(
-			todayActions.log,
-			post('salsa', {
-				exerciseId: String(bachataExerciseId),
-				durationMin: '',
-				reps: '',
-				rating: '',
-				note: '',
-				day: ''
-			})
-		);
+	it('will not save Done on an exercise from the other dance, today or a past day', async () => {
+		for (const day of ['', '2020-01-01'])
+			await refuses(
+				todayActions.done,
+				post('salsa', { exerciseId: String(bachataExerciseId), rating: '4', note: '', day })
+			);
 		expect(db.select().from(sets).all()).toHaveLength(1);
 	});
 
-	it('will not delete a set that belongs to the other dance', async () => {
-		await refuses(todayActions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
+	it("will not undo a save of the other dance's", async () => {
+		await refuses(
+			todayActions.undoDone,
+			post('salsa', { setId: String(bachataSetId), before: '' })
+		);
 		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
-	it('will not restore a set onto an exercise of the other dance', async () => {
+	it("will not put back the other dance's entry, by Undo or a day's restore", async () => {
 		const snapshot = JSON.stringify({
 			exerciseId: bachataExerciseId,
 			doneAt: 1_000,
@@ -257,13 +263,27 @@ describe("Today refuses the other dance's rows", () => {
 			note: null,
 			playerJson: null
 		});
-		const before = db.select().from(sets).all().length;
-		await refuses(todayActions.restoreSet, post('salsa', { snapshot }));
-		await refuses(
-			exercisePage.actions.restoreSet,
-			post('salsa', { snapshot }, String(salsaExerciseId))
+		const salsaSet = logSet(db, {
+			exerciseId: salsaExerciseId,
+			doneAt: 1_000,
+			durationS: 60,
+			reps: null,
+			rating: 3,
+			note: null,
+			playerJson: null
+		});
+		const before = db.select().from(sets).all();
+		// The salsa row's Undo, handed the bachata exercise's snapshot: refused, nothing changes.
+		const undone = await call(
+			todayActions.undoDone,
+			post('salsa', { setId: String(salsaSet.id), before: snapshot })
 		);
-		expect(db.select().from(sets).all()).toHaveLength(before);
+		expect(undone).toMatchObject({ status: 400 });
+		await refuses(
+			exercisePage.actions.restoreDay,
+			post('salsa', { snapshots: `[${snapshot}]` }, String(salsaExerciseId))
+		);
+		expect(db.select().from(sets).all()).toEqual(before);
 	});
 
 	it('will not archive an exercise from the other dance', async () => {
@@ -296,7 +316,7 @@ describe("Today refuses the other dance's rows", () => {
 			note: null,
 			playerJson: null
 		});
-		await call(todayActions.deleteSet, post('salsa', { setId: String(salsaSet.id) }));
+		await call(todayActions.undoDone, post('salsa', { setId: String(salsaSet.id), before: '' }));
 		expect(getSet(db, salsaSet.id)).toBeNull();
 	});
 });
@@ -409,8 +429,14 @@ describe("the detail pages refuse the other dance's rows", () => {
 			figureName: 'Bare',
 			style: 'salsa'
 		})!;
-		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
+		const res = await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
 		expect(getFigure(db, bare.figure.id, 'u1')?.exercise?.source).toBe('figure');
+		// The page opens the new exercise's page from this.
+		expect(res).toMatchObject({
+			action: 'practise',
+			ok: true,
+			exerciseId: getFigure(db, bare.figure.id, 'u1')?.exercise?.id
+		});
 	});
 
 	it('will not open a bachata figure from a salsa URL', () => {
@@ -423,11 +449,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('will not archive a bachata figure from a salsa URL', async () => {
 		await refuses(figurePage.actions.archive, post('salsa', {}, String(bachataFigureId)));
 		expect(getFigure(db, bachataFigureId, 'u1')?.figure.archivedAt).toBeNull();
-	});
-
-	it("will not delete a bachata figure's set from a salsa URL", async () => {
-		await refuses(figurePage.actions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
-		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
 	/** A complete, valid edit of a variation — each test overrides only what it is about. */
@@ -728,6 +749,43 @@ describe("the detail pages refuse the other dance's rows", () => {
 			const row = getFigure(db, salsaFigureId, 'u1')!.figure;
 			expect([row.name, row.startCount, row.lengthCounts]).toEqual(['Renamed', 5, 4]);
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
+		});
+
+		it('update without a move name leaves the move as it is (Edit no longer asks for it)', async () => {
+			const { figureName: _, ...withoutMove } = edit({});
+			void _;
+			const before = getGroup(db, groupOf(salsaFigureId))!.name;
+			const result = await call(
+				figurePage.actions.update,
+				post('salsa', withoutMove, String(salsaFigureId))
+			);
+			expect(result).toEqual({ action: 'update', ok: true });
+			expect(getFigure(db, salsaFigureId, 'u1')!.figure.name).toBe('Renamed');
+			expect(getGroup(db, groupOf(salsaFigureId))!.name).toBe(before);
+		});
+
+		it('a move renamed on its own page meanwhile is no clash for an Edit that has no move name', async () => {
+			const id = String(salsaFigureId);
+			const seen = JSON.stringify(variationSeen(db, salsaFigureId));
+			const { figureName: _, ...withoutMove } = edit({});
+			void _;
+			db.update(figureGroups)
+				.set({ name: 'Renamed elsewhere' })
+				.where(eq(figureGroups.id, groupOf(salsaFigureId)))
+				.run();
+			expect(
+				await call(figurePage.actions.update, post('salsa', { ...withoutMove, seen }, id))
+			).toEqual({ action: 'update', ok: true });
+			// An older open page still sends the move's name and what it saw of it: that clashes.
+			const oldSeen = JSON.stringify({
+				...variationSeen(db, salsaFigureId),
+				figureName: 'Dile que no'
+			});
+			const old = (await call(
+				figurePage.actions.update,
+				post('salsa', edit({ seen: oldSeen }), id)
+			)) as { status: number };
+			expect(old.status).toBe(409);
 		});
 
 		const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);
@@ -1294,19 +1352,20 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(() => loadAt(lessonPage.load, 'salsa', String(bachataLessonId))).toThrow(threw404);
 	});
 
-	it('gives the lesson and figure Log the start-of-today schedule and the day', () => {
-		const lesson = loadAt(lessonPage.load, 'bachata', String(bachataLessonId)) as {
-			scheduleAtStart: { gap: number } | null;
-			today: string;
-		};
-		expect(lesson.scheduleAtStart).toMatchObject({ gap: expect.any(Number) });
+	it('gives the lesson the day; neither page carries popup data', () => {
+		const lesson = loadAt(lessonPage.load, 'bachata', String(bachataLessonId)) as Record<
+			string,
+			unknown
+		>;
 		expect(lesson.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		const figure = loadAt(figurePage.load, 'bachata', String(bachataFigureId)) as {
-			scheduleAtStart: { gap: number } | null;
-			today: string;
-		};
-		expect(figure.scheduleAtStart).toMatchObject({ gap: expect.any(Number) });
-		expect(figure.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		const figure = loadAt(figurePage.load, 'bachata', String(bachataFigureId)) as Record<
+			string,
+			unknown
+		>;
+		for (const data of [lesson, figure]) {
+			expect(data).not.toHaveProperty('popup');
+			expect(data).not.toHaveProperty('scheduleAtStart');
+		}
 	});
 
 	it('will not archive a bachata lesson from a salsa URL', async () => {
@@ -1566,11 +1625,7 @@ describe('the JSON endpoints refuse the other dance', () => {
 		});
 	});
 
-	it('will not serve or change a bachata exercise under salsa', async () => {
-		await expect(
-			(async () =>
-				(practiceEndpoint.GET as unknown as Handler)(at('salsa', String(bachataCustomId))))()
-		).rejects.toMatchObject({ status: 404 });
+	it('will not change a bachata exercise under salsa', async () => {
 		await expect(
 			(async () =>
 				(practiceEndpoint.POST as unknown as Handler)(
@@ -1582,13 +1637,6 @@ describe('the JSON endpoints refuse the other dance', () => {
 				))()
 		).rejects.toMatchObject({ status: 404 });
 		expect(getExercise(db, bachataCustomId)?.practiceMode).toBe('none');
-	});
-
-	it('serves its own dance', async () => {
-		const res = (await (practiceEndpoint.GET as unknown as Handler)(
-			at('bachata', String(bachataCustomId))
-		)) as Response;
-		expect(((await res.json()) as { content: { type: string } }).content.type).toBe('drill');
 	});
 });
 

@@ -40,13 +40,11 @@ import {
 	isStartCount,
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
-import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
-import { popupData } from '$lib/server/popup';
-import { scheduleStateOf, scheduleStates } from '$lib/server/schedule';
+import { scheduleStateOf } from '$lib/server/schedule';
 import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
@@ -323,7 +321,6 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			? null
 			: { kind: 'figure' as const, title: labelFor(group.name, figure.name), candidates };
 	const zone = zoneOf(locals);
-	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
 	return {
 		figure: { id: group.id, name: group.name },
@@ -398,12 +395,6 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		exercise: found.exercise,
 		// Practise on its own: a group's variation only from a lesson the person added.
 		practisable: practisable(db, wall.userId, figure),
-		popup,
-		// The face times: the schedule at the START of today for the person's own exercise.
-		scheduleAtStart: popup
-			? (scheduleStates(db, wall, zone, localDay(now, zone)).get(popup.exercise.id) ?? null)
-			: null,
-		today: localDay(now, zone),
 		// Derived per request, never stored — the same rule the schedule follows.
 		routines: routinesUsing(
 			graph,
@@ -411,7 +402,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			routineShapes(db, space, { usable }),
 			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
 		),
-		practice: popup ? practiceFor(db, popup.exercise, zone, now) : null,
+		practice: found.exercise ? practiceFor(db, found.exercise, zone, now) : null,
 		/** The edit form's Starts in / Ends in: the chosen tags it shows, and what the pickers offer. */
 		tags,
 		positionChoices,
@@ -529,7 +520,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 			'edit'
 		);
 		const form = await request.formData();
-		const figureName = text(form, 'figureName');
+		// Edit no longer asks for the move's name (the move's own page renames it):
+		// left out, the move keeps its name. An older open page still sends it.
+		const renames = form.has('figureName');
+		const figureName = renames ? text(form, 'figureName') : null;
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
@@ -540,10 +534,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const startCount = int(form, 'startCount');
 		const lengthCounts = int(form, 'lengthCounts');
 
-		if (!figureName || !name || !partner || !style || notes === undefined) {
+		if ((renames && !figureName) || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
-				message: 'Give the move and the figure a name (up to 200 characters).'
+				message: 'Give the figure a name (up to 200 characters).'
 			});
 		}
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
@@ -558,7 +552,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const clash = seenRefusal(
 			form,
 			row.teamId !== null || hasCopies(db, 'figure', row.id),
-			variationSeen(db, row.id),
+			variationSeen(db, row.id, renames),
 			{ action: 'update' as const },
 			serverNow(),
 			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
@@ -566,7 +560,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (clash) return clash;
 		const { figure, group } = variationOf(params, locals);
 		const by = me(params, locals);
-		if (figureNameTaken(db, space, figureName, group.id)) {
+		if (figureName && figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		if (variationNameRefused(db, group.id, figure, name)) {
@@ -584,7 +578,11 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		}
 		// A case-only change ("enchufla") is a change: the figure keeps its place,
 		// `figureNameTaken` skipped it above, and the new spelling is saved.
-		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName, by)) {
+		if (
+			figureName &&
+			figureName !== group.name.trim() &&
+			!renameFigure(db, group.id, figureName, by)
+		) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		return { action: 'update', ok: true };
@@ -711,13 +709,14 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (!practisable(getDb(), userId, figure)) {
 			return fail(400, { action: 'practise', message: NOT_ADDED });
 		}
-		if (!addFigureExercise(getDb(), userId, figure.id)) {
+		const made = addFigureExercise(getDb(), userId, figure.id);
+		if (!made) {
 			return fail(400, {
 				action: 'practise',
 				message: 'This figure is already practised on its own.'
 			});
 		}
-		return { action: 'practise', ok: true };
+		return { action: 'practise', ok: true, exerciseId: made.id };
 	},
 
 	/**
@@ -826,11 +825,6 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				throw error(404, 'Figure not found');
 		}
 	},
-
-	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
 
 	deleteRecording: async ({ params, request, locals }) => {
 		const found = variationOf(params, locals);

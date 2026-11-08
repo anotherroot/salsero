@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "65226d98-4002-431b-abd4-b7a7654099d2",
-  "prevId": "4f0ecc01-be9b-4458-b159-7297fafdc9da",
+  "id": "89d1f162-c778-4771-a748-9899e70435ab",
+  "prevId": "4405d016-0d6d-4872-8db1-e042ef4db7b6",
   "tables": {
     "app_flags": {
       "name": "app_flags",
@@ -3794,6 +3794,28 @@
         },
         "sample_start_s": {
           "name": "sample_start_s",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sections_json": {
+          "name": "sections_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "start_found_s": {
+          "name": "start_found_s",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start_s": {
+          "name": "start_s",
           "type": "real",
           "primaryKey": false,
           "notNull": false,

@@ -293,7 +293,7 @@ app_flags                                       -- exercise types; one-off boot 
 ```
 
 **Exercise types** (2026-09-28) gives every exercise a type derived from
-`source`, and each type its own log popup, a practice panel (count/clave/song,
+`source`, and each type its own page content (a log popup until 2026-11-08), a practice panel (count/clave/song,
 remembered per exercise), and links (a URL attached to a lesson, figure or
 drill, YouTube ones rendered as embeds). See
 [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)
@@ -356,7 +356,9 @@ The home page. One page serves both "exercises" and "today".
 - **Viewing a past day:** the exercises done that day with their sets (read-only
   list plus the ability to add a forgotten set to that day or delete a mistaken
   one). No urgency ordering — it answers "what did I do that day".
-- **Logging:** the row opens the exercise page; **+** opens the type's log
+- **Logging (changed 2026-11-08: the row opens the exercise page, where Done opens the
+  Done sheet; one entry per exercise per local day, saved by `saveDay`, and a past day's
+  history is grouped by day; the rest of this bullet is how it was):** the row opens the exercise page; **+** opens the type's log
   popup — its content, a practice panel where the type has one, and the form
   (duration / reps / rating / note, whichever the type carries). Multiple sets
   per day. After logging, the exercise moves into "done today" without a page
@@ -379,7 +381,8 @@ The home page. One page serves both "exercises" and "today".
   [redesign](2026-10-31-redesign-design.md), Moves.
 - **Positions:** Moves' third segment, `/[dance]/positions`: how many figures
   have positions, Templates and How positions work, search, a chip per type
-  and Gaps, No position, the map, then Yours and each group's. Positions are
+  and Gaps, No position, the map (name pills, a sheet per position and a walk
+  that makes a routine: see the [map spec](2026-11-08-map-walk-design.md)), then Yours and each group's. Positions are
   owned like figures (a person's or a group's, with copies, Make it mine and
   twins); a name is unique among the space's live positions, ignoring accents
   and case. See the [positions spec](2026-11-04-positions-design.md).
@@ -443,9 +446,22 @@ While laptop is off, songs simply wait; the library says so.
 Being added (waiting and failed songs, plus the upload in flight), Recent, then A–Z. A song being
 added shows its steps on its own page (Added, Download, Find the beat; an upload
 has no Download); a failed one shows the error, Retry and Upload a file instead.
-The ready song page has the app's own timeline with the user's 1s as ticks.
-Song details is a sheet from the pencil, with a refusal under its field; Archive
-song asks in a dialog stacked over it (no browser `confirm()`).
+The ready song page (since 2026-11-08, see
+[`2026-11-08-song-page-design.md`](2026-11-08-song-page-design.md)) is a minimal
+listening view that changes nothing: the section playing, the count (a dash in a
+count-off section), "→ Mambo in 3 eights", the seek bar with the section starts
+and the part before the music pale, the sample (play only) and the sections,
+tap to jump. Its pencil opens **Edit**, which saves as you go with Undo: a Grid
+tab (the whole song's count, a row per eight, tap a beat to jump, hold it for
+Make this the 1, Start a section here, Remove this 1, Start the song here; Tap
+on the 1; suggestions from the downbeats; the section sheet) and a Song tab
+(count speed, the sample, where the music starts, Song details, Clear all).
+**Sections** are the user's named parts (`songs.sections_json`, raw seconds,
+snapped to a 1 on read), each counted or not. A song **starts where its music
+starts**: the worker measures it (`start_found_s`), the user may move it
+(`start_s`), every player seeks there from 0:00 (`playFrom`), and the file stays
+whole. Song details is a sheet from Edit · Song, with a refusal under its field;
+Archive song asks in a dialog stacked over it (no browser `confirm()`).
 Music has two sections: the person's own songs, then a section per group with
 the songs it shares (in group mode, only that group's). A group song is
 withdrawn or deleted by its teacher with a warning, not refused; see
@@ -468,7 +484,13 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   at a break is fixed. Anchors consistent with the previous one are dropped.
 - `tempo_factor` fixes a half- or double-time detection (salsa measured at
   103 BPM is likely half the count rate): ×2 inserts midpoints, ×½ keeps every
-  other beat. Changing it clears the anchors, since beat indices change.
+  other beat. Changing it clears the anchors, since beat indices change;
+  sections stay (they are seconds), each on its nearest 1.
+- A tap while paused takes the beat at the playhead with no reaction time
+  off, so a jump to a beat and Tap on the 1 sets that very beat.
+- The downbeats also suggest where the 1 moves later in the song: runs of 4
+  or more downbeats in a new bar phase (`src/lib/songs/suggest.ts`), shown as
+  a card the user accepts or puts aside, never applied by itself.
 
 **Player:**
 
@@ -656,14 +678,13 @@ unsaved.
   timing shortcuts, rating buttons) count like typed ones. One-tap forms (a
   delete, a move, a shared picker's tap and +, see
   [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md)) stay on `use:enhance`: there is nothing to
-  lose. A form can widen the test (`dirty`): the player's finished run and the
-  log popup's practice time are unsaved with nothing typed. Non-form things
+  lose. A form can widen the test (`dirty`): the player's finished run is unsaved with nothing typed (the Done sheet's typed note asks too). Non-form things
   register with `track()`: the voice page's unkept take, and an upload in
   flight.
 - **When it asks.** Any in-app navigation (links, the bottom nav, back and
   forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop,
   Escape or Back (only about what is inside that sheet; the way out is
-  "Close"); the log popup's Skip, Next and Finish ("Skip without saving"…).
+  "Close"); the session's Skip, Next and Finish ("Skip without saving"…).
 - **Back on a sheet.** Each open sheet holds one shallow history entry
   (`page.state.sheets`, `src/lib/sheets/`), so Back — Android's button and
   gesture, the browser's — closes only the topmost sheet. A popstate between

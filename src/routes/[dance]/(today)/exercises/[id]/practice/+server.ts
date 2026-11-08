@@ -1,13 +1,11 @@
-import { error, json } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { setPracticeSettings } from '$lib/server/exercises';
-import { practicePayload } from '$lib/server/practice-content';
 import { requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { DANCES } from '$lib/dances/dances';
 import { parsePracticeInput } from '$lib/exercises/practice';
 import { flowAfter } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
-import { serverNow } from '$lib/server/server-clock';
 
 function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const exercise = requireExerciseInWall(getDb(), wallOf(params, locals), Number(params.id));
@@ -15,18 +13,9 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	return exercise;
 }
 
-/** What the log popup shows above its form. See `practice-content.ts`. */
-export const GET: RequestHandler = ({ params, locals }) => {
-	if (!locals.user) throw error(401);
-	return json(
-		practicePayload(getDb(), exerciseOf(params, locals), locals.user.timezone, serverNow())
-	);
-};
-
 /**
  * Remember what the practice panel played, posted on Play. An endpoint rather
- * than a form action so the four pages that open a popup need not each
- * register one. JSON, so SvelteKit's form-CSRF check does not apply — and a
+ * than a form action so the pages that play a practice need not each register one. JSON, so SvelteKit's form-CSRF check does not apply — and a
  * cross-site page cannot send a JSON body without a CORS preflight this server
  * never answers.
  */

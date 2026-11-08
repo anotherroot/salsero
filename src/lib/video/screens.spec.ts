@@ -138,9 +138,9 @@ describe('linkStepsOf', () => {
 		expect(
 			linkStepsOf([full, sh('link-pick'), sh('link-new'), sh('link-figure')], 'variation')
 		).toEqual(['pick', 'variation', 'variation-figure']);
-		expect(linkStepsOf([full, section(4), sh('link-pick'), sh('link-new')], 'figure')).toEqual([
+		expect(linkStepsOf([full, section(4), sh('link-pick'), sh('link-new')], 'drill')).toEqual([
 			'pick',
-			'figure'
+			'drill'
 		]);
 	});
 	it('is empty with no link sheets', () => {

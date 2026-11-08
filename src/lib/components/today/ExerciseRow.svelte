@@ -10,7 +10,6 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import type { Side } from '$lib/gestures/swipe';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { iconButton } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
@@ -31,8 +30,6 @@
 		/** This row's swipe: open (left) or at rest. */
 		swiped: Side;
 		onswipe: (open: Side) => void;
-		/** Open this exercise's log popup. */
-		onlog: () => void;
 		/** A warm-up row in the card whose rows can be dragged: where the drag has put it. */
 		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
@@ -45,7 +42,6 @@
 		upNext,
 		current,
 		search,
-		onlog,
 		onskip,
 		swiped,
 		onswipe,
@@ -56,8 +52,6 @@
 	const done = $derived(row.kind === 'done');
 	const meta = $derived(rowMeta(row, today, lessonDay));
 	const TONE = { status: 'font-bold text-status', done: 'font-bold text-done' } as const;
-	// The "+" is an icon, so bare accent is allowed.
-	const plus = $derived(iconButton('bare', done ? 'done' : 'accent'));
 	// The Up next tint, or the open row's: both take the tinted tile and the darker meta.
 	const tinted = $derived(upNext || current);
 	const href = $derived(
@@ -82,7 +76,7 @@
 >
 	<!--
 		The phone swipes a to-do or picked row left for "Not today" (a done row has
-		none; the desktop has the button under Log set). The sliding card carries the
+		none; the desktop has Not today on the exercise page). The sliding card carries the
 		row's own background, so the warn underlay shows only as it moves.
 	-->
 	<Swipeable
@@ -96,15 +90,11 @@
 		reveal={96}
 	>
 		<div
-			class="flex min-h-[66px] items-center pr-1.5 pl-4 {tinted
-				? 'bg-accent-soft'
-				: 'bg-surface'} {current ? 'shadow-[inset_4px_0_0_var(--color-accent)]' : ''}"
+			class="flex min-h-[66px] items-center px-4 {tinted ? 'bg-accent-soft' : 'bg-surface'} {current
+				? 'shadow-[inset_4px_0_0_var(--color-accent)]'
+				: ''}"
 		>
-			<!--
-		The row opens the exercise; the + logs. Logging is the thing done most, so it gets its own
-		target. On the desktop the open exercise's form is beside the list: no +.
-	-->
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; search is the query -->
+			<!-- The row opens the exercise: its page is where it is practised and saved. -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
 				<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -124,16 +114,8 @@
 							>{/each}
 					</span>
 				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
-
-			<button
-				type="button"
-				onclick={onlog}
-				aria-label={t().today.row.logSet(ex.name)}
-				class="{plus} desk:hidden"
-			>
-				<Icon name="plus" />
-			</button>
 		</div>
 	</Swipeable>
 </li>

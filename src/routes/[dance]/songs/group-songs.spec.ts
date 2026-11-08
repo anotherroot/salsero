@@ -250,6 +250,16 @@ describe('a group song’s page', () => {
 			[songPage.actions.tempo, { factor: '1', seen }],
 			[songPage.actions.sample, { t: '10', seen }],
 			[songPage.actions.sampleAuto, { seen }],
+			[songPage.actions.one, { beat: '3', seen }],
+			[songPage.actions.sectionAdd, { beat: '0', seen }],
+			[songPage.actions.sectionEdit, { index: '0', name: 'x', seen }],
+			[songPage.actions.sectionMove, { index: '0', dir: '1', seen }],
+			[songPage.actions.sectionRemove, { index: '0', seen }],
+			[songPage.actions.sectionsClear, { seen }],
+			[songPage.actions.start, { t: '3', seen }],
+			[songPage.actions.startZero, { seen }],
+			[songPage.actions.startFound, { seen }],
+			[songPage.actions.restore, { field: 'sections', value: '[]', seen }],
 			[songPage.actions.update, { title: 'Mine', artist: '', style: 'salsa', seen }],
 			[songPage.actions.share, {}],
 			[songPage.actions.unshare, {}],
@@ -290,6 +300,26 @@ describe('a group song’s page', () => {
 		).toMatchObject({ status: 409 });
 		expect(JSON.parse(getSong(db, c.draft)!.anchorsJson)).toHaveLength(1);
 		expect(history(db, 1, 'song', c.draft).map((r) => r.verb)).toContain('edit');
+	});
+
+	it('refuses an editor’s section write or Undo made on an older version, and logs the rest', async () => {
+		const stale = seenOf(c.draft);
+		expect(
+			await act(songPage.actions.sectionAdd, ev('u2', c.draft, { beat: '0', seen: stale }))
+		).toEqual({ ok: true, index: 0 });
+		expect(history(db, 1, 'song', c.draft)[0]).toMatchObject({ verb: 'edit', subject: 'sections' });
+		// The section changed the song since `stale`: both are a clash, and nothing is written.
+		const before = getSong(db, c.draft)!.sectionsJson;
+		expect(
+			await act(songPage.actions.sectionAdd, ev('u2', c.draft, { beat: '8', seen: stale }))
+		).toMatchObject({ status: 409 });
+		expect(
+			await act(
+				songPage.actions.restore,
+				ev('u2', c.draft, { field: 'sections', value: '[]', seen: stale })
+			)
+		).toMatchObject({ status: 409 });
+		expect(getSong(db, c.draft)!.sectionsJson).toBe(before);
 	});
 
 	it('saves an editor’s details with `seen`, logged', async () => {

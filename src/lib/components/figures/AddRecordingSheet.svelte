@@ -15,25 +15,28 @@
 		open,
 		onclose,
 		figureLabel,
-		app,
-		appHref,
+		video = true,
+		app = false,
+		appHref = '',
 		onsection,
-		onvideo,
+		onvideo = () => {},
 		onlink,
-		uploading
+		uploading = false
 	}: {
 		open: boolean;
 		onclose: () => void;
 		figureLabel: string;
+		/** The video-from-the-phone row. A drill holds no video of its own: false leaves it out, and the props below with it. */
+		video?: boolean;
 		/** Inside the Android app: the video row is the app's upload link. */
-		app: boolean;
-		appHref: string;
+		app?: boolean;
+		appHref?: string;
 		onsection: () => void;
-		onvideo: () => void;
+		onvideo?: () => void;
 		/** Opens slot 5's "Add a link" popup. */
 		onlink: () => void;
 		/** A video is going up: one at a time, so the video row waits. */
-		uploading: boolean;
+		uploading?: boolean;
 	} = $props();
 
 	const videoRow = $derived(addVideoRow(uploading));
@@ -62,13 +65,13 @@
 			<span class="flex-none text-accent-text"><Icon name="scissors" size={22} /></span>
 			{@render words('Link a section', 'A part of a lesson video')}
 		</button>
-		{#if app}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
+		{#if !video}
+			<!-- a drill: no video row -->
+		{:else if app}
 			<a href={appHref} class={ROW}>
 				<span class="flex-none text-accent-text"><Icon name="video" size={22} /></span>
 				{@render words('Video from the phone', 'Compressed and uploaded in the background')}
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else}
 			<button
 				type="button"

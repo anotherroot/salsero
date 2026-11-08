@@ -1,26 +1,17 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import Screen from '$lib/components/ui/Screen.svelte';
-	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import MapPane from '$lib/components/positions/MapPane.svelte';
-	import { MAP } from '$lib/positions/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
 	/*
-	 * The map. On the desktop it sits in the pane beside the Positions list, its
-	 * Map row lit; its body is at most 800 wide (`MapPane`), so the page is `two`.
+	 * The map (spec 2026-11-08-map-walk). No Screen: on the phone the map is the
+	 * whole screen with its title floating over it, and on the desktop it sits in
+	 * the pane beside the Positions list, its Map row lit, under the pane's own
+	 * heading (`MapPane` draws both). This is the page's main at both widths.
 	 */
 	let { data }: { data: PageData } = $props();
-
-	const list = $derived(resolve('/[dance]/(moves)/positions', { dance: data.dance.slug }));
 </script>
 
-<svelte:head><title>{MAP.title} · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{t().map.title} · {data.dance.label}</title></svelte:head>
 
-<Screen title={MAP.title} subtitle={data.map.summary} width="two">
-	{#snippet left()}
-		<BackButton fallback={{ href: list, label: MAP.back }} />
-	{/snippet}
-
-	<MapPane map={data.map} />
-</Screen>
+<main><MapPane map={data.map} /></main>

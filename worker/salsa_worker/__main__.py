@@ -23,6 +23,7 @@ def main() -> int:
         to_wav=media.to_wav,
         duration_of=media.duration_of,
         analyze=media.Analyzer(checkpoint),
+        music_start=media.music_start_of,
         search=media.search_youtube,
         read_track=spotify.read_track,
         pause=lambda: time.sleep(4),

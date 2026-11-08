@@ -282,6 +282,16 @@ describe('root fields', () => {
 			anchorsJson: '[4]',
 			tempoFactor: 2
 		});
+		db.update(songs)
+			.set({ sectionsJson: '[{"at":4,"name":"Coro","countOff":true}]', startS: 7 })
+			.where(eq(songs.id, S))
+			.run();
+		expect(differing('song', S2, S)).toEqual(['title', 'sections', 'musicStart']);
+		expect(apply('song', S2, S, ['sections', 'musicStart']).ok).toBe(true);
+		expect(db.select().from(songs).where(eq(songs.id, S2)).get()).toMatchObject({
+			sectionsJson: '[{"at":4,"name":"Coro","countOff":true}]',
+			startS: 7
+		});
 
 		const L = createLesson(db, U1_SALSA, { lessonDay: '2026-11-01', title: 'Week 1', notes: null })
 			.lesson.id;

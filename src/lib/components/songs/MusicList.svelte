@@ -107,7 +107,6 @@
 		adding = true;
 		const clean = songsHref('add', '');
 		// The router is not ready on a first load until this tick is over.
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
 		setTimeout(() => replaceState(clean, page.state), 0);
 	});
 	const searchOf = (q: string) => (q ? `?${new URLSearchParams({ q })}` : '');
@@ -125,7 +124,6 @@
 		}
 		if (q) url.searchParams.set('q', q);
 		else url.searchParams.delete('q');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- this page's own path; only the query changes
 		replaceState(url.pathname + url.search, entryState());
 		keepSearch();
 	}

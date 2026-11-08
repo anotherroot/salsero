@@ -84,7 +84,6 @@
 						</button>
 					</form>
 				{:else}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- a trail href, built from resolved paths -->
 					<a
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tapTab(e, to === null)}
@@ -109,7 +108,6 @@
 							></span>
 						{/if}
 					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			</li>
 		{/each}

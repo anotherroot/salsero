@@ -30,6 +30,7 @@ const lists = (o: Partial<FiguresLists> = {}): FiguresLists => ({
 	unlinked: 0,
 	unrouted: 0,
 	defaultStyle: 'On1',
+	moveTargets: [],
 	...o
 });
 const names = (v: ReturnType<typeof figuresView>) =>

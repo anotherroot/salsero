@@ -68,57 +68,67 @@ export function litOf(
 	return { nodes, edges: lit };
 }
 
-type Circle = { x: number; y: number; r: number };
+/** A pill as the arrows see it: x and y are its centre. A `MapNode` is one as it is. */
+export type Box = { x: number; y: number; w: number; h: number };
 
-/** Between the line's end and the circle it points at: the arrow head's room. */
+/** Between the line's end and the box it points at: the arrow head's room. */
 const HEAD_GAP = 3;
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
-function toward(c: Circle, p: { x: number; y: number }, out: number) {
-	const dx = p.x - c.x;
-	const dy = p.y - c.y;
-	const d = Math.sqrt(dx * dx + dy * dy) || 1;
-	return { x: c.x + (dx / d) * out, y: c.y + (dy / d) * out };
+/**
+ * Where the ray from `a`'s centre toward `p` leaves `a`'s rectangle, pushed
+ * `out` px further along the ray.
+ */
+function exit(a: Box, p: { x: number; y: number }, out: number) {
+	const dx = p.x - a.x;
+	const dy = p.y - a.y;
+	const len = Math.hypot(dx, dy) || 1;
+	const tx = dx === 0 ? Infinity : a.w / 2 / Math.abs(dx);
+	const ty = dy === 0 ? Infinity : a.h / 2 / Math.abs(dy);
+	const t = Math.min(tx, ty);
+	const k = Number.isFinite(t) ? t : 0;
+	return { x: a.x + dx * k + (dx / len) * out, y: a.y + dy * k + (dy / len) * out };
 }
 
 /**
- * An arrow's path from circle `a` to circle `b`, and where its count sits.
- * A curve bowed to the left of its direction, so A → B and B → A bow apart and
- * both show. It leaves `a`'s edge and stops just outside `b`'s, where the arrow
- * head goes. A loop (`a` is `b`) is a curl off the circle's upper right.
+ * An arrow's path from box `a` to box `b`, and where its count sits. A curve
+ * bowed to the left of its direction, so A → B and B → A bow apart and both
+ * show. It leaves `a`'s rectangle and stops HEAD_GAP outside `b`'s, where the
+ * arrow head goes. A loop (`a` is `b`) curls off the box's top right corner.
  */
 export function edgeGeometry(
-	a: Circle,
-	b: Circle,
+	a: Box,
+	b: Box,
 	loop = a === b
 ): { d: string; labelX: number; labelY: number } {
 	if (loop) {
-		const mid = -Math.PI / 4;
-		const reach = a.r + 34;
-		const at = (angle: number, out: number) => ({
-			x: a.x + Math.cos(angle) * out,
-			y: a.y + Math.sin(angle) * out
-		});
-		const s = at(mid - 0.45, a.r + 1);
-		const e = at(mid + 0.45, a.r + HEAD_GAP);
-		const c1 = at(mid - 0.75, reach);
-		const c2 = at(mid + 0.75, reach);
-		const label = at(mid, a.r + 26);
+		const top = a.y - a.h / 2;
+		const right = a.x + a.w / 2;
+		const sx = right - Math.min(24, a.w * 0.3);
+		const ex = right - Math.min(8, a.w * 0.1);
+		const ey = top - HEAD_GAP;
+		const c1 = { x: sx + 4, y: top - 34 };
+		const c2 = { x: ex + 26, y: top - 30 };
+		const lx = (sx + ex) / 2 + 14;
+		const ly = top - 30;
 		return {
-			d: `M${r1(s.x)} ${r1(s.y)} C${r1(c1.x)} ${r1(c1.y)} ${r1(c2.x)} ${r1(c2.y)} ${r1(e.x)} ${r1(e.y)}`,
-			labelX: r1(label.x),
-			labelY: r1(label.y)
+			d: `M${r1(sx)} ${r1(top)} C${r1(c1.x)} ${r1(c1.y)} ${r1(c2.x)} ${r1(c2.y)} ${r1(ex)} ${r1(ey)}`,
+			labelX: r1(lx),
+			labelY: r1(ly)
 		};
 	}
 	const dx = b.x - a.x;
 	const dy = b.y - a.y;
-	const dist = Math.sqrt(dx * dx + dy * dy);
+	const dist = Math.hypot(dx, dy);
 	const ux = dist > 1e-6 ? dx / dist : 1;
 	const uy = dist > 1e-6 ? dy / dist : 0;
 	const bend = Math.min(40, Math.max(14, dist * 0.18));
 	const c = { x: (a.x + b.x) / 2 - uy * bend, y: (a.y + b.y) / 2 + ux * bend };
-	const s = toward(a, c, a.r + 1);
-	const e = toward(b, c, b.r + HEAD_GAP);
+	// The ends are found along a shallower bow than the curve's own, so pills side by
+	// side are left and entered through their facing edges, not their top or bottom.
+	const aim = { x: (a.x + b.x) / 2 - uy * bend * 0.4, y: (a.y + b.y) / 2 + ux * bend * 0.4 };
+	const s = exit(a, aim, 0);
+	const e = exit(b, aim, HEAD_GAP);
 	return {
 		d: `M${r1(s.x)} ${r1(s.y)} Q${r1(c.x)} ${r1(c.y)} ${r1(e.x)} ${r1(e.y)}`,
 		labelX: r1(0.25 * s.x + 0.5 * c.x + 0.25 * e.x),
@@ -126,12 +136,48 @@ export function edgeGeometry(
 	};
 }
 
+/**
+ * How an arrow looks given the picked position and the edge just stepped:
+ * `out` from the picked, `in` into it, `stepped` the edge just taken (wins),
+ * `rest` while nothing is picked, `faded` otherwise. The count shows when more
+ * than one figure runs along it and it is not faded. The walk's tones come
+ * from `walkLook` (walk.ts): `walked` (thick accent, its step numbers in
+ * `badge`), `loose` (the same, dashed: a walked figure with no data edge) and
+ * `next` (dashed accent, out of where the walk stands).
+ */
+export type ArrowLook = {
+	tone: 'out' | 'in' | 'stepped' | 'rest' | 'faded' | 'walked' | 'loose' | 'next';
+	badge: string | null;
+	count: number | null;
+};
+
+export function arrowLook(
+	e: { from: number; to: number; figures: number },
+	s: { picked: number | null; stepped: string | null }
+): ArrowLook {
+	let tone: ArrowLook['tone'];
+	if (s.stepped !== null && edgeKey(e) === s.stepped) tone = 'stepped';
+	else if (s.picked === null) tone = 'rest';
+	else if (e.from === s.picked) tone = 'out';
+	else if (e.to === s.picked) tone = 'in';
+	else tone = 'faded';
+	return { tone, badge: null, count: tone !== 'faded' && e.figures > 1 ? e.figures : null };
+}
+
+/**
+ * A figure on the map's arrows: its label ("Enchufla · Doble"; a group's row whose label
+ * one of the person's shares adds its group, "Enchufla · Doble · Sreda 17:30") and its move's name.
+ */
+export interface MapFig {
+	id: number;
+	label: string;
+	move: string;
+}
+
 /** One position as the map draws it (`mapData`). */
 export interface MapDataPosition {
 	id: number;
 	name: string;
-	/** The name as the node's label (`mapLabel`). */
-	label: string;
 	styleTag: string | null;
 	tone: MapTone;
 	ins: number;
@@ -151,7 +197,11 @@ export interface MapData {
 	empty: boolean;
 	layout: MapLayout;
 	positions: MapDataPosition[];
-	edges: { from: number; to: number; width: number; figures: number }[];
+	edges: { from: number; to: number; width: number; figures: number; figs: MapFig[] }[];
+	/** Figures that start at a drawn position and have no end: anything can follow them. */
+	anyFrom: { from: number; figs: MapFig[] }[];
+	/** Figures with no start (they follow anything), and where each ends (maybe nowhere). */
+	noStart: { fig: MapFig; ends: number[] }[];
 	/** Figures the map draws no arrow for: the tray's No position chip. */
 	noPosition: number;
 	summary: string;

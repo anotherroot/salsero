@@ -35,6 +35,8 @@ async function build(name: string, source: string) {
 let flushSync: () => void;
 let bottom: { readonly claimed: boolean };
 let claimBottom: (active: () => boolean) => void;
+let pinned: { readonly bar: boolean };
+let pinBar: () => void;
 let flag: (v: boolean) => { value: boolean };
 let root: (setup: () => void) => () => void;
 
@@ -44,7 +46,7 @@ beforeAll(async () => {
 	await build('chrome.js', readFileSync(join(__dirname, 'chrome.svelte.ts'), 'utf8'));
 	await build('harness.js', HARNESS);
 	({ flush: flushSync } = await import(/* @vite-ignore */ CLIENT));
-	({ bottom, claimBottom } = await import(
+	({ bottom, claimBottom, pinned, pinBar } = await import(
 		/* @vite-ignore */ pathToFileURL(join(DIR, 'chrome.js')).href
 	));
 	({ flag, root } = await import(/* @vite-ignore */ pathToFileURL(join(DIR, 'harness.js')).href));
@@ -84,5 +86,21 @@ describe('claimBottom', () => {
 		flushSync();
 		expect(bottom.claimed).toBe(false);
 		stopA();
+	});
+});
+
+describe('pinBar', () => {
+	it('says a bar is pinned while one is mounted', () => {
+		expect(pinned.bar).toBe(false);
+		const stopA = root(() => pinBar());
+		const stopB = root(() => pinBar());
+		flushSync();
+		expect(pinned.bar).toBe(true);
+		stopA();
+		flushSync();
+		expect(pinned.bar).toBe(true);
+		stopB();
+		flushSync();
+		expect(pinned.bar).toBe(false);
 	});
 });
