@@ -91,7 +91,12 @@ and the song page (a minimal listening view: the section playing and what comes 
 Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
 menu, suggestions from the downbeats, sections counted or not, the Song tab; a song starts
 where its music starts, measured by the worker; see
-[`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md)).
+[`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md))
+and a group's + and one figure form (a group page's lessons by month; the band's + opens
+Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
+switching into the group; every New figure takes its move from one Move field that can
+also make a new move (`PickerField`'s create, `moveFromQuery`); see
+[`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —

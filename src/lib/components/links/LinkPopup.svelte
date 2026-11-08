@@ -118,10 +118,9 @@
 		point: pointHint
 	}: Props = $props();
 
-	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill', 'position'];
+	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'drill', 'position'];
 	const CREATE_TITLE: Record<CreateStep, string> = {
 		variation: 'New figure',
-		figure: 'New move',
 		drill: 'New drill',
 		position: 'New position'
 	};
@@ -151,10 +150,8 @@
 	// Create steps' fields, kept while the popup is open so back and forth keeps them.
 	let groupId = $state<number | null>(null);
 	let variationName = $state('');
-	let figureName = $state('');
-	let firstName = $state('Basic');
-	let partner = $state<Partner>('partner');
-	let style = $state('');
+	/** New figure's move when it is a new one (the Move field's create): made with the figure. */
+	let newMove = $state<string | null>(null);
 	/** A new figure's Danced and Style: its move's first figure's, refilled when another move is picked. */
 	let variationPartner = $state<Partner>('partner');
 	let variationStyle = $state('');
@@ -165,6 +162,15 @@
 			if (!c || !options) return;
 			variationPartner = c.partner;
 			variationStyle = c.style ?? options.defaults.style;
+		});
+	});
+	// A new move has no first figure: its figure starts on the person's defaults.
+	$effect(() => {
+		if (!newMove) return;
+		untrack(() => {
+			if (!options) return;
+			variationPartner = options.defaults.partner;
+			variationStyle = options.defaults.style;
 		});
 	});
 	let drillName = $state('');
@@ -180,8 +186,9 @@
 		fetchLinkOptions(spotId).then(
 			(o) => {
 				options = o;
-				partner = o.defaults.partner;
-				style = o.defaults.style;
+				// A new move's figure starts on the person's defaults; a picked move refills them.
+				variationPartner = o.defaults.partner;
+				variationStyle = o.defaults.style;
 				positionStyle = o.defaults.style;
 				groupId = o.figureChoices.find((f) => f.near)?.groupId ?? null;
 			},
@@ -226,8 +233,9 @@
 	// Picking a figure answers "Pick a figure."
 	$effect(() => {
 		void groupId;
+		void newMove;
 		untrack(() => {
-			if (refusal?.at === 'groupId') refusal = null;
+			if (refusal?.at === 'groupId' || refusal?.at === 'figureName') refusal = null;
 		});
 	});
 
@@ -378,7 +386,6 @@
 		refusal = null;
 		if (typed) {
 			if (key === 'variation') variationName = typed;
-			if (key === 'figure') figureName = typed;
 			if (key === 'drill') drillName = typed;
 			if (key === 'position') positionName = typed;
 		}
@@ -455,7 +462,15 @@
 		const step = createStep;
 		if (busy || !step) return;
 		let body: LinkCreate;
-		if (step === 'variation') {
+		if (step === 'variation' && newMove) {
+			body = {
+				kind: 'figure',
+				figureName: newMove,
+				name: variationName,
+				partner: variationPartner,
+				style: variationStyle
+			};
+		} else if (step === 'variation') {
 			if (groupId === null) {
 				refusal = { message: 'Pick a move.', at: 'groupId' };
 				return;
@@ -467,8 +482,6 @@
 				partner: variationPartner,
 				style: variationStyle
 			};
-		} else if (step === 'figure') {
-			body = { kind: 'figure', figureName, name: firstName, partner, style };
 		} else if (step === 'position') {
 			body = { kind: 'position', name: positionName, styleTag: positionStyle };
 		} else {
@@ -608,9 +621,11 @@
 				groups={figureGroups}
 				nothingLeft="There are no moves yet."
 				bind:value={groupId}
+				bind:newName={newMove}
+				create={{ label: 'Move', tag: 'New move', name: 'figureName' }}
 				bind:open={() => top === 'variation-figure', setFigurePicking}
 				required
-				error={errorAt('groupId')}
+				error={errorAt('groupId') ?? errorAt('figureName')}
 				{theme}
 			/>
 			<div>
@@ -646,56 +661,6 @@
 						label: DANCES[o.dance].styleLabel[s]
 					}))}
 					bind:value={variationStyle}
-				/>
-				{@render fieldError('style')}
-			</div>
-		{:else if step === 'figure'}
-			<div>
-				<label for="{uid}-figureName" class={LABEL}>Move name</label>
-				<input
-					id="{uid}-figureName"
-					bind:value={figureName}
-					required
-					maxlength="200"
-					class={FIELD}
-					aria-invalid={errorAt('figureName') ? 'true' : undefined}
-					aria-describedby={errorAt('figureName') ? `${uid}-figureName-error` : undefined}
-				/>
-				{@render fieldError('figureName')}
-			</div>
-			<div>
-				<label for="{uid}-name" class={LABEL}>Figure name</label>
-				<input
-					id="{uid}-name"
-					bind:value={firstName}
-					required
-					maxlength="200"
-					class={FIELD}
-					aria-invalid={errorAt('name') ? 'true' : undefined}
-					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
-				/>
-				{@render fieldError('name')}
-			</div>
-			<div>
-				<span class={LABEL}>Danced</span>
-				<Segmented
-					name="{formId}-partner"
-					label="Danced"
-					items={partnerItems}
-					value={partner}
-					onchange={(v) => (partner = v as Partner)}
-				/>
-			</div>
-			<div>
-				<span class={LABEL}>Style</span>
-				<Segmented
-					name="{formId}-style"
-					label="Style"
-					items={DANCES[o.dance].styles.map((s) => ({
-						value: s,
-						label: DANCES[o.dance].styleLabel[s]
-					}))}
-					bind:value={style}
 				/>
 				{@render fieldError('style')}
 			</div>

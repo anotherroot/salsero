@@ -11,7 +11,7 @@ export const EMPTY_PANE = {
 		title: 'Pick a figure',
 		body: 'Its timing, recordings and routines open here, beside the list. A move’s name opens the move.',
 		group: 'The group’s figures open here.',
-		action: 'New move'
+		action: 'New figure'
 	},
 	routines: {
 		icon: 'routine',

@@ -9,6 +9,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
+const U2_BACHATA = { userId: 'u2', dance: 'bachata' } as const;
+
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
 vi.mock('$lib/server/db', async () => {
@@ -18,7 +20,7 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
-import { createFigure, createVariationIn } from '$lib/server/figures';
+import { createFigure, createVariationIn, listGroupVariations } from '$lib/server/figures';
 import { actions as routineListActions } from './(moves)/routines/+page.server';
 import { actions as figureListActions } from './(moves)/figures/+page.server';
 import { load as layoutLoad } from './(moves)/+layout.server';
@@ -174,6 +176,65 @@ describe('New figure', () => {
 		expect(result.status).toBe(400);
 		expect(result.data.message).toBe('Pick how it is danced and its style.');
 		expect(result.data).not.toHaveProperty('field');
+	});
+});
+
+describe('New figure in a move that exists', () => {
+	const fields = { name: 'Doble', partner: 'partner', style: 'sensual', notes: '' };
+	const hammerlock = (wall = U1_BACHATA) =>
+		createFigure(db, wall, {
+			figureName: 'Hammerlock',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'sensual',
+			notes: null
+		})!;
+
+	it('makes the figure in the picked move and opens it', async () => {
+		const made = hammerlock();
+		const r = (await call(
+			figureListActions.create,
+			post('bachata', { ...fields, groupId: String(made.group.id) })
+		).catch((e) => e)) as { status: number; location: string };
+		expect(r.status).toBe(303);
+		const names = listGroupVariations(db, made.group.id).map((v) => v.name);
+		expect(names.sort()).toEqual(['Basic', 'Doble']);
+		const doble = listGroupVariations(db, made.group.id).find((v) => v.name === 'Doble')!;
+		expect(r.location).toBe(`/bachata/figures/${doble.id}`);
+	});
+
+	it("refuses another person's move under Move, writing nothing", async () => {
+		const theirs = hammerlock(U2_BACHATA);
+		expect(
+			await call(
+				figureListActions.create,
+				post('bachata', { ...fields, groupId: String(theirs.group.id) })
+			)
+		).toMatchObject({ status: 400, data: { field: 'figureName', message: 'Pick a move.' } });
+		expect(listGroupVariations(db, theirs.group.id)).toHaveLength(1);
+	});
+
+	it('puts a figure name the move already has under Figure name', async () => {
+		const made = hammerlock();
+		expect(
+			await call(
+				figureListActions.create,
+				post('bachata', { ...fields, name: 'basic', groupId: String(made.group.id) })
+			)
+		).toMatchObject({ status: 400, data: { field: 'name' } });
+	});
+
+	it("gives the sheet the space's own moves to pick from", () => {
+		const made = hammerlock();
+		hammerlock(U2_BACHATA);
+		const lists = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
+			...post('bachata', {}),
+			url: new URL('http://localhost/bachata/figures'),
+			depends: () => {}
+		}).lists.figures;
+		expect(lists.moveTargets).toEqual([
+			{ id: made.group.id, name: 'Hammerlock', variations: ['Basic'] }
+		]);
 	});
 });
 

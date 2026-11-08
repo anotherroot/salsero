@@ -20,6 +20,8 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import { figureRows } from '$lib/picker/build';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
@@ -65,7 +67,7 @@
 		open: OpenRow;
 		/** The list route; otherwise an item is open (beside it on the desktop, alone on the phone). */
 		isList: boolean;
-		/** The New move sheet; the band's + and the empty pane open it too. */
+		/** The New figure sheet; the band's + and the empty pane open it too. */
 		creating?: boolean;
 	} = $props();
 
@@ -90,17 +92,23 @@
 		refusal?.presetGone ? null : ((page.data.preset ?? null) as Preset | null)
 	);
 	/**
-	 * New move closed: the URL's `?new=1&start=…` goes (a replace, once the
+	 * New figure closed: the URL's `?new=1&start=…` goes (a replace, once the
 	 * sheet's Back has landed), so the next + and a reload are untagged.
 	 */
 	function closeNew() {
 		creating = false;
 		refusal = null;
+		moveId = null;
+		newMove = null;
 		if (!isList) return;
 		const href = withoutPreset(page.url);
 		if (href) void gotoWhenSettled(href, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 	let busy = $state(false);
+	/** New figure's move: a picked one (`groupId`), or a new one made with the figure (`figureName`). */
+	let moveId = $state<number | null>(null);
+	let newMove = $state<string | null>(null);
+	const moveGroups = $derived([{ title: 'Moves', entries: figureRows(lists.moveTargets) }]);
 	// A refusal about one field names it; the rest (a style that is not the dance's) do not.
 	const field = $derived(refusal?.field);
 	const otherError = $derived(refusal?.message && !field ? refusal.message : null);
@@ -288,7 +296,7 @@
 	<EmptyState icon="moves" title="No figures yet" body="Add the first one you learned.">
 		{#snippet action()}
 			<button type="button" class={button('primary')} onclick={() => (creating = true)}>
-				<Icon name="plus" size={20} /> New move
+				<Icon name="plus" size={20} /> New figure
 			</button>
 		{/snippet}
 	</EmptyState>
@@ -402,14 +410,14 @@
 {/if}
 
 {#if creating}
-	<Sheet title="New move" open={true} onclose={closeNew}>
+	<Sheet title="New figure" open={true} onclose={closeNew}>
 		<form
 			id="new-figure"
 			method="POST"
 			action={`/${dance.slug}/figures?/create`}
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'New move',
+				label: 'New figure',
 				submit: ({ cancel }) => {
 					// One figure per tap: a second tap while the first is out is dropped.
 					if (busy) return cancel();
@@ -423,6 +431,8 @@
 								// figure opens once its Back has landed, with every load fresh.
 								creating = false;
 								refusal = null;
+								moveId = null;
+								newMove = null;
 								await gotoWhenSettled(result.location, { invalidateAll: true });
 							} else {
 								await update();
@@ -443,10 +453,23 @@
 					<span class="flex-none"><Icon name="positions" size={18} /></span>{presetLine(preset)}
 				</p>
 			{/if}
+			<PickerField
+				name="groupId"
+				label="Move"
+				placeholder="Choose or type a move…"
+				title="Choose a move"
+				search="Search or name a new move"
+				groups={moveGroups}
+				nothingLeft="There are no moves yet. Type a name to make one."
+				bind:value={moveId}
+				bind:newName={newMove}
+				create={{ label: 'Move', tag: 'New move', name: 'figureName' }}
+				required
+				error={fieldErrors.figureName ?? null}
+			/>
 			<FigureFields
 				{dance}
-				figureName={refusal?.figureName}
-				autofocus
+				asksFigureName={false}
 				name={refusal?.name}
 				style={lists.defaultStyle}
 				notes={refusal?.notes}
@@ -461,9 +484,9 @@
 					form="new-figure"
 					class={button('primary', 'md', true)}
 					aria-busy={busy}
-					aria-label={busy ? 'Adding move' : undefined}
+					aria-label={busy ? 'Adding figure' : undefined}
 				>
-					{#if busy}<Spinner />{:else}Add move{/if}
+					{#if busy}<Spinner />{:else}Add figure{/if}
 				</button>
 				<p class="text-center text-[13px] text-muted">You can add recordings next.</p>
 			</div>
