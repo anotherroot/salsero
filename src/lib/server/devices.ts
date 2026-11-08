@@ -8,7 +8,7 @@ import { dayList } from '$lib/schedule/today-list';
 import { isVideoShortSide, type VideoShortSide } from '$lib/video-sizes';
 import type { DeviceRow } from '$lib/types';
 import { parseLevel } from '$lib/levels/levels';
-import { parseLocale } from '$lib/i18n/locale';
+import { parseLocale, type Locale } from '$lib/i18n/locale';
 
 /**
  * The Android app's side of identity and settings. A device holds a bearer
@@ -127,19 +127,30 @@ export function restoreDevice(db: Db, userId: string, snap: DeviceSnapshot): boo
 	return result.changes > 0;
 }
 
+/**
+ * The Android app's settings (`/api/device/config`): when to remind, what size to
+ * compress to, and the account's language for the app's own words (1.8 and later;
+ * an older app ignores the key). `/api/device/today` gains no key: older apps read
+ * every key of it as a dance.
+ */
 export function deviceSettings(
 	db: Db,
 	userId: string
-): { reminderMinute: number | null; shortSide: VideoShortSide } {
+): { reminderMinute: number | null; shortSide: VideoShortSide; locale: Locale } {
 	const row = db
-		.select({ reminderMinute: users.reminderMinute, shortSide: users.videoShortSide })
+		.select({
+			reminderMinute: users.reminderMinute,
+			shortSide: users.videoShortSide,
+			locale: users.locale
+		})
 		.from(users)
 		.where(eq(users.id, userId))
 		.get();
 	const side = row?.shortSide;
 	return {
 		reminderMinute: row?.reminderMinute ?? null,
-		shortSide: isVideoShortSide(side) ? side : 480
+		shortSide: isVideoShortSide(side) ? side : 480,
+		locale: parseLocale(row?.locale) ?? 'en'
 	};
 }
 

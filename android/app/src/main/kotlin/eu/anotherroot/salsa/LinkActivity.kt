@@ -52,7 +52,7 @@ class LinkActivity : ComponentActivity() {
         AppStart.refreshConfig(this)
         // Uploads parked by a 401 carry on now.
         if (!UploadQueue.store(this).isEmpty()) UploadQueue.kick(this)
-        Toast.makeText(this, "Phone paired", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, Prefs.words(this).phonePaired, Toast.LENGTH_SHORT).show()
         val pending = Prefs.pendingLink(this)
         Prefs.setPendingLink(this, null)
         val resume = pending?.let(::parseLink) as? Link.Upload
@@ -83,7 +83,7 @@ class LinkActivity : ComponentActivity() {
         val key = upload.share
         if (key != null) {
             val files = Shared.files(this, key)
-            if (files.isEmpty()) toast("That shared video is no longer here. Share it again.")
+            if (files.isEmpty()) toast(Prefs.words(this).sharedGone)
             files.forEach { UploadQueue.add(this, Uri.fromFile(it), upload, key) }
             if (files.isNotEmpty()) {
                 UploadQueue.kick(this)
@@ -114,8 +114,9 @@ class LinkActivity : ComponentActivity() {
         finish()
     }
 
-    private fun queuedText(n: Int, name: String) =
-        if (n == 1) "Uploading to $name in the background" else "Uploading $n videos to $name in the background"
+    private fun queuedText(n: Int, name: String?) = Prefs.words(this).let { words ->
+        words.uploadingInBackground(n, name ?: words.theLesson)
+    }
 
     private fun toast(text: String) = Toast.makeText(applicationContext, text, Toast.LENGTH_LONG).show()
 

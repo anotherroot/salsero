@@ -247,7 +247,7 @@ abstract class WebShell : ComponentActivity() {
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.no_app_for_link, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, Prefs.words(this).noAppForLink, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -389,7 +389,7 @@ abstract class WebShell : ComponentActivity() {
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
         CookieManager.getInstance().getCookie(url)?.let { request.addRequestHeader("Cookie", it) }
         getSystemService(DownloadManager::class.java).enqueue(request)
-        Toast.makeText(this, getString(R.string.downloading, name), Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, Prefs.words(this).downloading(name), Toast.LENGTH_SHORT).show()
     }
 
     /**

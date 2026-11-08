@@ -6,6 +6,25 @@
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md)'s and is not
 > changed; this document adds a second client for it.
 
+## The app's own words follow the account (2026-11-08, 1.8)
+
+The app's own text — notifications and their channel names, toasts, the share
+dialog — is in the account's language, as the site is (Slovenian spec
+[`2026-11-07-slovenian-design.md`](2026-11-07-slovenian-design.md)), never the
+phone's. `GET /api/device/config` carries it: `{ reminderMinute, shortSide,
+locale: 'en' | 'sl' }`. `ConfigWorker` keeps it (`Prefs.locale`) and, when it
+changed, creates the channels again with the same ids, which renames them; the
+reminder reads the config before what is due, so a change in Settings reaches
+the next reminder without a launch. An older server sends no `locale`, which is
+English. `/api/device/today` gains no key: older apps read every key of it as a
+dance.
+
+The words are `Words.kt` (pure, `en` and `sl`, `wordsOf(locale)`; anything
+but `sl` is English) with Slovenian plurals in `Plural.kt`, both JVM-tested.
+The one exception is the share sheet's entry (`share_label`): Android draws it
+in the phone's language, so it has a `values-sl` resource per flavor. Before
+the first pairing the app knows no account, so its few words then are English.
+
 ## Updates and channels (2026-11-03)
 
 The apps are release-signed with one key and come in two channels: `direct`
@@ -241,7 +260,8 @@ existing table.
 - **`users.reminder_minute`**: minute of the day, `null` = off.
   **`users.video_short_side`**: `480 | 720 | 1080`, default 480. Validated in
   the data function, not by a CHECK.
-- **`GET /api/device/config`** → `{ reminderMinute, shortSide }`.
+- **`GET /api/device/config`** → `{ reminderMinute, shortSide }` (and `locale`
+  since 1.8: "The app's own words follow the account", above).
 - **`GET /api/device/today`** → per dance, the names in Today's *due* band:
   `{ salsa: { due: string[] }, bachata: { due: string[] } }`. It calls the same
   `plan()` Today does, per dance, at request time — urgency stays a pure

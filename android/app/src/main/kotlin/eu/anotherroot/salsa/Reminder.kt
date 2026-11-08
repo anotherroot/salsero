@@ -23,10 +23,11 @@ private const val NAMES_SHOWN = 4
 /**
  * Title and body for this dance's [due] names, or null when nothing is due.
  * The notification already carries the app's name, so the dance is not repeated.
+ * The names are the person's own and are never translated.
  */
-fun reminderText(due: List<String>): Pair<String, String>? {
+fun reminderText(due: List<String>, words: Words): Pair<String, String>? {
     if (due.isEmpty()) return null
-    val title = if (due.size == 1) "1 exercise due" else "${due.size} exercises due"
+    val title = words.reminderTitle(due.size)
     val more = if (due.size > NAMES_SHOWN) " +${due.size - NAMES_SHOWN}" else ""
     return title to due.take(NAMES_SHOWN).joinToString(", ") + more
 }

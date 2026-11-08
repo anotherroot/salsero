@@ -22,8 +22,8 @@ class LinksTest {
         parseLink("salsa://upload?lesson=3&back=%2Fsalsa%2Flessons%2F3&name=Class&share=$key"),
     )
 
-    @Test fun `no back or name falls back to the start page and a plain word`() = assertEquals(
-        Link.Upload(Target.Lesson(3), null, "/", "the lesson"),
+    @Test fun `no back or name falls back to the start page and no name`() = assertEquals(
+        Link.Upload(Target.Lesson(3), null, "/", null),
         parseLink("salsa://upload?lesson=3"),
     )
 
