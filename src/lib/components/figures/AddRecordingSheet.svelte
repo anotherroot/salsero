@@ -68,12 +68,10 @@
 		{#if !video}
 			<!-- a drill: no video row -->
 		{:else if app}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 			<a href={appHref} class={ROW}>
 				<span class="flex-none text-accent-text"><Icon name="video" size={22} /></span>
 				{@render words('Video from the phone', 'Compressed and uploaded in the background')}
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else}
 			<button
 				type="button"

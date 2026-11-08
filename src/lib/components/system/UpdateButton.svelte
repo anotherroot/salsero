@@ -79,7 +79,6 @@
 				role="status">{view.line}</span
 			>{/if}
 	{:else if link}
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file, or the Play store -->
 		<a href={link.href} class={button('primary', size)}>{link.label}</a>
 	{/if}
 </span>

@@ -66,11 +66,10 @@ describe('the popup’s view rules', () => {
 		expect(refusalAt('variation', 'name')).toBe('name');
 		expect(refusalAt('variation', 'groupId')).toBe('groupId');
 		expect(refusalAt('variation', 'style')).toBe('style');
-		expect(refusalAt('figure', 'figureName')).toBe('figureName');
-		expect(refusalAt('figure', 'style')).toBe('style');
+		expect(refusalAt('variation', 'figureName')).toBe('figureName');
 		expect(refusalAt('drill', 'name')).toBe('name');
 		expect(refusalAt('drill', 'figureName')).toBe('banner');
-		expect(refusalAt('figure', undefined)).toBe('banner');
+		expect(refusalAt('variation', undefined)).toBe('banner');
 		expect(refusalAt('position', 'name')).toBe('name');
 		expect(refusalAt('position', 'style')).toBe('style');
 		expect(refusalAt('position', 'figureName')).toBe('banner');
@@ -84,7 +83,6 @@ describe('positions and points (ruling 10)', () => {
 			placeholder: 'Search figures, drills and positions',
 			create: [
 				{ key: 'variation', label: 'Figure' },
-				{ key: 'figure', label: 'Move' },
 				{ key: 'drill', label: 'Drill' },
 				{ key: 'position', label: 'Position' }
 			]

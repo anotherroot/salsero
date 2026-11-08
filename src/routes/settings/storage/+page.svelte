@@ -86,7 +86,6 @@
 							<span class="truncate text-[13px] text-muted">{itemMeta(item)}</span>
 						{/snippet}
 						{#if item.href}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs carry their own dance -->
 							<a href={item.href} class="flex min-w-0 flex-1 flex-col" data-focus={key(item)}>
 								{@render label()}
 							</a>

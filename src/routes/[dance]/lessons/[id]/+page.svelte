@@ -43,7 +43,6 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import {
 		CLIP,
@@ -307,12 +306,12 @@
 	/** Whether the top row has anything: an empty one would still take a gap. */
 	const hasTop = $derived(editing || Object.values(top).some(Boolean));
 
-	/** The "+ New figure" sheet's switch: a move of its own, or a figure of one. */
-	const FIGURE_MODES = [
-		{ value: 'figure', label: 'New move' },
-		{ value: 'variation', label: 'New figure in a move' }
-	];
-	let figureMode = $state<string>('figure');
+	/**
+	 * New figure's move when it is a new one (the Move field's create): the form
+	 * then posts `newFigure`, which makes the move with it; a picked move posts
+	 * `newVariation`.
+	 */
+	let newMove = $state<string | null>(null);
 	/** Which of the three create sheets is posting: its footer button spins. */
 	let creatingBusy = $state<'figure' | 'routine' | 'exercise' | null>(null);
 
@@ -378,16 +377,18 @@
 		}
 	]);
 
-	function openFigureSheet(mode: 'figure' | 'variation' = 'figure', query = '') {
+	function openFigureSheet(query = '') {
 		seen = form;
-		figureMode = mode;
+		newMove = null;
 		variationOf = data.figureGroups.find((g) => taughtGroups.has(g.id))?.id ?? null;
-		typed =
-			mode === 'figure'
-				? { figureName: query, name: '', notes: '' }
-				: { figureName: '', name: query, notes: '' };
+		typed = { figureName: '', name: query, notes: '' };
 		addingFigure = true;
 	}
+	/** Both actions' refusals, the move's under the Move field. */
+	const figureErrors = $derived({ ...errorsOf('newFigure'), ...errorsOf('newVariation') });
+	const moveError = $derived(figureErrors.figureName ?? figureErrors.groupId ?? null);
+	const fieldErrors = $derived({ name: figureErrors.name, notes: figureErrors.notes });
+	const figureBanner = $derived(bannerOf('newFigure') ?? bannerOf('newVariation'));
 
 	const closeFigureSheet = createSubmit('figure', () => {
 		addingFigure = false;
@@ -408,12 +409,13 @@
 			notes: 'notes' in f ? String(f.notes ?? '') : ''
 		});
 		if (form && failure('newFigure')) {
-			figureMode = 'figure';
 			typed = typedBack(form);
+			newMove = typed.figureName.trim() || null;
+			variationOf = null;
 			addingFigure = true;
 		}
 		if (variationTyped) {
-			figureMode = 'variation';
+			newMove = null;
 			variationOf = Number(variationTyped.groupId) || null;
 			typed = {
 				figureName: '',
@@ -571,7 +573,7 @@
 
 	/** A create row's button: the page's own sheet, on top of the still-open picker. */
 	function createFrom(kind: LinkKind, key: string, query: string) {
-		if (kind === 'figure') openFigureSheet(key === 'variation' ? 'variation' : 'figure', query);
+		if (kind === 'figure') openFigureSheet(query);
 		if (kind === 'routine') {
 			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
@@ -1459,10 +1461,7 @@
 		pending={inFlight}
 		groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
 		nothingLeft="There are no figures yet."
-		create={[
-			{ key: 'figure', label: 'Move' },
-			{ key: 'variation', label: 'Figure' }
-		]}
+		create={[{ key: 'variation', label: 'Figure' }]}
 		{added}
 		message={picking === 'figure' ? pickMessage : null}
 		archived={picking === 'figure' ? archivedChoice('figure') : null}
@@ -1532,82 +1531,49 @@
 
 {#if data.canEdit}
 	<Sheet title="New figure" open={addingFigure} onclose={() => (addingFigure = false)}>
-		<div class="flex flex-col gap-3">
-			<Segmented name="make" label="Make" items={FIGURE_MODES} bind:value={figureMode} />
-			<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved".
+		<!-- One form: a picked move posts `newVariation`, a new one `newFigure` (the move made with it).
 		     `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
-			{#if figureMode === 'figure'}
-				<form
-					id="lesson-new-figure"
-					method="POST"
-					action="?/newFigure"
-					novalidate
-					class="flex flex-col gap-3"
-					use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
-				>
-					{#if bannerOf('newFigure')}<Banner kind="error">{bannerOf('newFigure')}</Banner>{/if}
-					<FigureFields
-						dance={data.dance}
-						figureName={typed.figureName}
-						name={typed.name}
-						notes={typed.notes}
-						style={data.defaultStyle}
-						errors={errorsOf('newFigure')}
-					/>
-				</form>
-			{:else}
-				{@const groupError = errorsOf('newVariation').groupId}
-				<form
-					id="lesson-new-variation"
-					method="POST"
-					action="?/newVariation"
-					novalidate
-					class="flex flex-col gap-3"
-					use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
-				>
-					{#if bannerOf('newVariation')}<Banner kind="error">{bannerOf('newVariation')}</Banner
-						>{/if}
-					{#if data.figureGroups.length === 0}
-						<p class="text-[13px] text-muted">There are no moves yet.</p>
-					{:else}
-						<div>
-							<PickerField
-								name="groupId"
-								label="Move"
-								placeholder="Choose a move…"
-								title="Choose a move"
-								search="Search moves"
-								groups={variationGroups}
-								nothingLeft="There are no moves yet."
-								bind:value={variationOf}
-								required
-							/>
-							<p class="mt-1.5 pl-1 text-[13px] text-muted">Moves in this lesson come first</p>
-							{#if groupError}<FieldError
-									id="lesson-variation-group-error"
-									message={groupError}
-								/>{/if}
-						</div>
-					{/if}
-					<FigureFields
-						dance={data.dance}
-						asksFigureName={false}
-						name={typed.name}
-						style={data.defaultStyle}
-						notes={typed.notes}
-						errors={errorsOf('newVariation')}
-					/>
-				</form>
-			{/if}
-		</div>
+		<form
+			id="lesson-new-figure"
+			method="POST"
+			action={newMove ? '?/newFigure' : '?/newVariation'}
+			novalidate
+			class="flex flex-col gap-3"
+			use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
+		>
+			{#if figureBanner}<Banner kind="error">{figureBanner}</Banner>{/if}
+			<div>
+				<PickerField
+					name="groupId"
+					label="Move"
+					placeholder="Choose or type a move…"
+					title="Choose a move"
+					search="Search or name a new move"
+					groups={variationGroups}
+					nothingLeft="There are no moves yet. Type a name to make one."
+					bind:value={variationOf}
+					bind:newName={newMove}
+					create={{ label: 'Move', tag: 'New move', name: 'figureName' }}
+					required
+					error={moveError}
+				/>
+				<p class="mt-1.5 pl-1 text-[13px] text-muted">Moves in this lesson come first</p>
+			</div>
+			<FigureFields
+				dance={data.dance}
+				name={typed.name}
+				style={data.defaultStyle}
+				notes={typed.notes}
+				errors={fieldErrors}
+			/>
+		</form>
 
 		{#snippet footer()}
 			{@const busy = creatingBusy === 'figure'}
 			<button
 				type="submit"
-				form={figureMode === 'figure' ? 'lesson-new-figure' : 'lesson-new-variation'}
+				form="lesson-new-figure"
 				class={button('primary', 'md', true)}
-				disabled={figureMode === 'variation' && data.figureGroups.length === 0}
 				aria-busy={busy}
 				aria-label={busy ? 'Adding' : undefined}
 			>

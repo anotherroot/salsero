@@ -39,6 +39,7 @@ import {
 import { songSeen } from '$lib/server/clash';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
+import * as songGridRoute from './[id]/grid/+server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
@@ -305,6 +306,142 @@ describe('A song', () => {
 			song: { durationS: number | null };
 		};
 		expect(data.song.durationS).toBe(60);
+	});
+
+	it('gives the grid with where the music starts', async () => {
+		const id = readySong();
+		db.update(songs).set({ startFoundS: 18.2 }).where(eq(songs.id, id)).run();
+		const res = (await songGridRoute.GET(post('salsa', {}, String(id)) as never)) as Response;
+		expect(await res.json()).toMatchObject({ startS: 18.2 });
+		db.update(songs).set({ startS: 0 }).where(eq(songs.id, id)).run();
+		const again = (await songGridRoute.GET(post('salsa', {}, String(id)) as never)) as Response;
+		expect(await again.json()).toMatchObject({ startS: 0 });
+	});
+});
+
+describe('Edit: sections, the music start and Undo', () => {
+	const run = (action: unknown, id: number, fields: Record<string, string>) =>
+		call(action, post('salsa', fields, String(id)));
+	const A = songPage.actions;
+	// readySong: a beat every 0.3 s, a 1 on every 8th beat from 0.
+
+	it('starts a section on a beat that is not a 1 by making it the 1, in one change', async () => {
+		const id = readySong();
+		expect(await run(A.sectionAdd, id, { beat: '2' })).toEqual({ ok: true, index: 0 });
+		expect(getSong(db, id)).toMatchObject({
+			anchorsJson: '[2]',
+			sectionsJson: '[{"at":0.6,"name":"","countOff":false}]'
+		});
+		expect(await run(A.sectionAdd, id, { beat: '2' })).toMatchObject({
+			status: 400,
+			data: { action: 'sections', message: 'Another section starts there' }
+		});
+		expect(await run(A.sectionAdd, id, { beat: '500' })).toMatchObject({ status: 400 });
+	});
+
+	it('edits, moves, removes and clears sections', async () => {
+		const id = readySong();
+		await run(A.sectionAdd, id, { beat: '8' });
+		await run(A.sectionAdd, id, { beat: '176' });
+		expect(await run(A.sectionEdit, id, { index: '0', name: ' Mambo ', countOff: '1' })).toEqual({
+			ok: true
+		});
+		expect(await run(A.sectionMove, id, { index: '0', dir: '-1' })).toEqual({ ok: true });
+		expect(getSong(db, id)!.sectionsJson).toBe(
+			'[{"at":0,"name":"Mambo","countOff":true},{"at":52.8,"name":"","countOff":false}]'
+		);
+		expect(await run(A.sectionMove, id, { index: '0', dir: '-1' })).toMatchObject({
+			status: 400,
+			data: { action: 'sections' }
+		});
+		expect(await run(A.sectionRemove, id, { index: '0' })).toEqual({ ok: true });
+		expect(JSON.parse(getSong(db, id)!.sectionsJson)).toHaveLength(1);
+		expect(await run(A.sectionsClear, id, {})).toEqual({ ok: true });
+		expect(getSong(db, id)!.sectionsJson).toBe('[]');
+	});
+
+	it('puts a field back with Undo, and refuses a value it cannot read', async () => {
+		const id = readySong();
+		await run(A.sectionAdd, id, { beat: '8' });
+		expect(await run(A.restore, id, { field: 'sections', value: '[]' })).toEqual({ ok: true });
+		expect(getSong(db, id)!.sectionsJson).toBe('[]');
+		await run(A.tempo, id, { factor: '2' });
+		expect(
+			await run(A.restore, id, { field: 'count', value: '{"anchors":[3],"tempo":1}' })
+		).toEqual({ ok: true });
+		expect(getSong(db, id)).toMatchObject({ anchorsJson: '[3]', tempoFactor: 1 });
+		expect(await run(A.restore, id, { field: 'sample', value: '12.5' })).toEqual({ ok: true });
+		expect(getSong(db, id)!.sampleStartS).toBe(12.5);
+		expect(await run(A.restore, id, { field: 'start', value: 'null' })).toEqual({ ok: true });
+		for (const bad of [
+			{ field: 'sections', value: '{x' },
+			{ field: 'count', value: '{"anchors":"x","tempo":1}' },
+			{ field: 'count', value: '{"anchors":[1],"tempo":3}' },
+			{ field: 'start', value: '"x"' },
+			{ field: 'nope', value: '1' }
+		])
+			expect(await run(A.restore, id, bad)).toMatchObject({ status: 400 });
+	});
+
+	it('takes a paused tap at the playhead, and a playing one less the tap latency', async () => {
+		const id = readySong();
+		await run(A.tap, id, { t: '3.17', paused: '1' });
+		expect(getSong(db, id)!.anchorsJson).toBe('[11]');
+		await run(A.resetAnchors, id, {});
+		await run(A.tap, id, { t: '3.17' });
+		expect(getSong(db, id)!.anchorsJson).toBe('[10]');
+	});
+
+	it('undoes a section that made its beat the 1: the count and the sections together', async () => {
+		const id = readySong();
+		await run(A.sectionAdd, id, { beat: '2' });
+		expect(
+			await run(A.restore, id, {
+				field: 'countSections',
+				value: '{"anchors":[],"tempo":1,"sections":[]}'
+			})
+		).toEqual({ ok: true });
+		expect(getSong(db, id)).toMatchObject({ anchorsJson: '[]', sectionsJson: '[]' });
+		expect(
+			await run(A.restore, id, { field: 'countSections', value: '{"anchors":[],"tempo":1}' })
+		).toMatchObject({ status: 400 });
+	});
+
+	it('makes a beat the 1', async () => {
+		const id = readySong();
+		expect(await run(A.one, id, { beat: '5' })).toEqual({ ok: true });
+		expect(getSong(db, id)!.anchorsJson).toBe('[5]');
+		expect(await run(A.one, id, { beat: '-1' })).toMatchObject({ status: 400 });
+	});
+
+	it('moves where the music starts, From 0:00, and back to what was found', async () => {
+		const id = readySong();
+		expect(await run(A.start, id, { t: '18.2' })).toEqual({ ok: true });
+		expect(getSong(db, id)!.startS).toBe(18.2);
+		expect(await run(A.startZero, id, {})).toEqual({ ok: true });
+		expect(getSong(db, id)!.startS).toBe(0);
+		expect(await run(A.startFound, id, {})).toEqual({ ok: true });
+		expect(getSong(db, id)!.startS).toBeNull();
+		expect(await run(A.start, id, { t: '61' })).toMatchObject({
+			status: 400,
+			data: { action: 'start' }
+		});
+	});
+
+	it('loads the sections, the music start and the suggestions', async () => {
+		const id = readySong();
+		db.update(songs).set({ startFoundS: 4.5 }).where(eq(songs.id, id)).run();
+		await run(A.sectionAdd, id, { beat: '8' });
+		const data = songPage.load(post('salsa', {}, String(id)) as never) as {
+			sections: { t: number; beat: number; name: string }[];
+			sectionsJson: string;
+			start: unknown;
+			suggestions: unknown[];
+		};
+		expect(data.sections).toMatchObject([{ t: 2.4, beat: 8, name: '' }]);
+		expect(data.sectionsJson).toBe('[{"at":2.4,"name":"","countOff":false}]');
+		expect(data.start).toEqual({ at: 4.5, source: 'found', found: 4.5, yours: null });
+		expect(data.suggestions).toEqual([]);
 	});
 });
 

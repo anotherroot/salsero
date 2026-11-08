@@ -635,6 +635,17 @@ export const songs = sqliteTable(
 		 * Snapped on read by `sampleStart` (`$lib/songs/sample`), never on write.
 		 */
 		sampleStartS: real('sample_start_s'),
+		/**
+		 * The user's sections: a JSON array of `{ at, name, countOff }`, `at` in
+		 * raw seconds, sorted. Snapped to a 1 of the current count on read
+		 * (`placeSections`, `$lib/songs/sections`), never on write, so a count
+		 * change moves them without rewriting them.
+		 */
+		sectionsJson: text('sections_json').notNull().default('[]'),
+		/** Where the music starts, measured by the home worker; null = not measured yet. Worker state. */
+		startFoundS: real('start_found_s'),
+		/** Where the user says the music starts; null = use the found one, 0 = From 0:00. */
+		startS: real('start_s'),
 		/** The audio file's size, for the owner's storage count; null until stored. */
 		sizeBytes: integer('size_bytes'),
 		archivedAt: integer('archived_at'),

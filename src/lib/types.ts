@@ -235,6 +235,8 @@ export interface SongGrid {
 	audioFile: string;
 	beats: number[];
 	counts: number[];
+	/** Where the music starts: a player seeks here before playing from 0:00 (`playFrom`, `$lib/songs/music-start`). */
+	startS: number;
 }
 
 /**

@@ -12,6 +12,7 @@
 		value,
 		duration,
 		ticks = [],
+		quietUntil = 0,
 		label,
 		onseek
 	}: {
@@ -21,6 +22,8 @@
 		duration: number;
 		/** Times in seconds to mark on the track. */
 		ticks?: number[];
+		/** The part before this time is drawn pale, with a mark at it: where the music starts. */
+		quietUntil?: number;
 		label: string;
 		onseek: (s: number) => void;
 	} = $props();
@@ -30,6 +33,7 @@
 
 	const pct = $derived(duration > 0 ? Math.min(100, Math.max(0, (value / duration) * 100)) : 0);
 	const marks = $derived(tickPercents(ticks, duration));
+	const quiet = $derived(quietUntil > 0 ? (tickPercents([quietUntil], duration)[0] ?? 0) : 0);
 
 	function seekTo(e: PointerEvent) {
 		if (!area || !(duration > 0)) return;
@@ -66,6 +70,18 @@
 	>
 		<div class="absolute inset-x-0 top-[19px] h-1.5 rounded-full bg-hairline">
 			<div class="h-1.5 rounded-full bg-accent" style:width="{pct}%"></div>
+			{#if quiet > 0}
+				<span
+					aria-hidden="true"
+					class="absolute inset-y-0 left-0 rounded-l-full bg-ground opacity-60"
+					style:width="{quiet}%"
+				></span>
+				<span
+					aria-hidden="true"
+					class="absolute -top-1 h-3.5 w-0.5 rounded-[1px] bg-ink-2"
+					style:left="{quiet}%"
+				></span>
+			{/if}
 			{#each marks as m, i (i)}
 				<span
 					aria-hidden="true"

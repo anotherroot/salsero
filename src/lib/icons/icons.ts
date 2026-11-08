@@ -141,6 +141,7 @@ export const ALIASES = {
 	notes: 'note',
 	rate: 'speed',
 	fullscreen: 'expand',
+	fit: 'expand',
 	delete: 'trash',
 	add: 'plus',
 	x: 'close',

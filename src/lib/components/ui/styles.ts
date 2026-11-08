@@ -100,22 +100,29 @@ export function iconButton(variant: IconButtonVariant, tone: IconTone = 'ink'): 
  * `pane` is an action there, the tonal icon button (desktop spec, "the item's
  * actions as tonal icon buttons"), `pane-back` its ‹, a bare ink icon. The phone
  * draws all three as `band`: the same element is the phone's band button.
+ *
+ * `float`: no band at all, at every width. A round surface button with a shadow,
+ * floating over what is under it (the map's head, spec 2026-11-08-map-walk).
  */
-export type BandTone = 'band' | 'pane' | 'pane-back';
+export type BandTone = 'band' | 'pane' | 'pane-back' | 'float';
 
 const BAND_BUTTON =
 	'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15';
 
 /** Desk only, written out so Tailwind sees every class. `desk:active:` also turns the band's hover off (layout.css). */
-const BAND_TONE: Record<BandTone, string> = {
+const BAND_TONE: Record<Exclude<BandTone, 'float'>, string> = {
 	band: '',
 	pane: ' desk:bg-accent-soft desk:text-accent-text desk:active:bg-accent-soft desk:active:brightness-90',
 	'pane-back': ' desk:text-ink desk:active:bg-step'
 };
 
+/** The map's floating buttons (`float`): ink on the surface, lifted off the map. */
+export const FLOAT_BUTTON =
+	'flex h-11 w-11 flex-none items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)] active:bg-step';
+
 /** A band's 44 px icon button (BandButton); give it an aria-label. */
 export function bandButton(tone: BandTone = 'band'): string {
-	return BAND_BUTTON + BAND_TONE[tone];
+	return tone === 'float' ? FLOAT_BUTTON : BAND_BUTTON + BAND_TONE[tone];
 }
 
 export const FIELD =
@@ -210,3 +217,8 @@ export const PANE_PAD = 'px-10 pt-6 pb-1';
 export const PANE_PAD_DESK = 'desk:px-10 desk:pt-6 desk:pb-1';
 export const PANE_TITLE = 'text-[30px] leading-[1.05] tracking-[-0.015em]';
 export const PANE_TITLE_DESK = 'desk:text-[30px] desk:leading-[1.05] desk:tracking-[-0.015em]';
+
+/** The song page's Edit · Grid pinned bar: Tap on the 1 grows to fill the row beside play and + Section. */
+export const TAP_ONE = swap(button('primary', 'lg'), 'flex-none', 'min-w-0 flex-1');
+/** + Section beside it: the md pill, a little narrower. */
+export const ADD_SECTION = swap(button('secondary', 'md'), 'px-6', 'px-4');

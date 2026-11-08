@@ -99,7 +99,6 @@ const update = (event: ReturnType<typeof post>) =>
 function form(id: number, typed: Record<string, string>, seen: unknown = variationSeen(db, id)) {
 	const r = db.select().from(figures).where(eq(figures.id, id)).get()!;
 	const fields: Record<string, string> = {
-		figureName: 'Enchufla',
 		name: r.name,
 		partner: r.partner,
 		style: r.styleTag ?? 'salsa',
@@ -161,9 +160,9 @@ describe('a save on a copy flows, and a form open across a flow cannot undo it',
 			notes: null
 		})!.figure.id;
 		expect(hasCopies(db, 'figure', bare)).toBe(false);
-		expect(
-			await update(post(bare, form(bare, { figureName: 'Dile que no', notes: 'Mine' }, null)))
-		).toMatchObject({ ok: true });
+		expect(await update(post(bare, form(bare, { notes: 'Mine' }, null)))).toMatchObject({
+			ok: true
+		});
 		expect(row(bare).notes).toBe('Mine');
 	});
 
