@@ -162,7 +162,9 @@ describe('every id column mints its id', () => {
 });
 
 describe('every insert mints its id: the scans', () => {
-	const tables = Object.values(schema).filter((t): t is SQLiteTable => t instanceof SQLiteTable);
+	const tables = (Object.values(schema) as unknown[]).filter(
+		(t): t is SQLiteTable => t instanceof SQLiteTable
+	);
 
 	it('gives every integer id column a minted default naming its own table', () => {
 		const dialect = new SQLiteSyncDialect();
