@@ -229,6 +229,7 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 						label: x.label,
 						...(x.team ? { team: x.team } : {}),
 						...(x.twins ? { twins: x.twins } : {}),
+						from: x.from ?? null,
 						linked: x.linked
 					};
 				})

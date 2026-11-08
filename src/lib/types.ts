@@ -500,6 +500,8 @@ export interface LinkOption {
 	twins?: TwinNote[];
 	/** A position's hold: its picker row's second line. Absent for a variation or a drill. */
 	hold?: Hold;
+	/** A variation's place of origin when it is a copy the viewer can trace; drawn beside a same name. */
+	from?: string | null;
 }
 
 /** One of a section's or point's links, in the Link popup. */

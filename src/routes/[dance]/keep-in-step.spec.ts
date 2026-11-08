@@ -33,7 +33,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { figures, recordings, songs, users, videoSpots } from '$lib/server/db/schema';
 import { createTeam } from '$lib/server/teams';
-import { addRecording, createFigure } from '$lib/server/figures';
+import { addRecording, createFigure, createVariationIn } from '$lib/server/figures';
 import { addSpot } from '$lib/server/spots';
 import { setSyncSettings } from '$lib/server/clones/sync-settings';
 import { DEFAULT_SYNC } from '$lib/clones/sync';
@@ -165,6 +165,40 @@ describe('a save on a copy flows, and a form open across a flow cannot undo it',
 			await update(post(bare, form(bare, { figureName: 'Dile que no', notes: 'Mine' }, null)))
 		).toMatchObject({ ok: true });
 		expect(row(bare).notes).toBe('Mine');
+	});
+
+	it('the figure page saves other fields beside a same-named copy; typing a taken name is refused', async () => {
+		// The club has another Basic (its own family); Ana takes it into her Enchufla: two Basics there.
+		const clubOther = createVariationIn(
+			db,
+			row(G1f).groupId!,
+			{ name: 'Basic 2', partner: 'partner', style: 'salsa', notes: null },
+			'u1'
+		)!;
+		db.update(figures).set({ name: 'Basic' }).where(eq(figures.id, clubOther.id)).run();
+		const second = await cloneInto(
+			db,
+			{ kind: 'figure', id: clubOther.id, into: U1_SALSA, recordings: false },
+			NO_FILES,
+			T
+		);
+		if (!second.ok) throw new Error(`copy refused: ${second.reason}`);
+		expect(row(second.id).name).toBe('Basic');
+		expect(row(second.id).groupId).toBe(row(F).groupId);
+		expect(await update(post(F, form(F, { notes: 'Only notes' })))).toMatchObject({ ok: true });
+		expect(row(F).notes).toBe('Only notes');
+		// Another figure of the move renamed onto the taken name is still refused.
+		const other = createVariationIn(
+			db,
+			row(F).groupId!,
+			{ name: 'Doble', partner: 'partner', style: 'salsa', notes: null },
+			'u1'
+		)!.id;
+		const refused = (await update(post(other, form(other, { name: 'basic' })))) as {
+			status: number;
+		};
+		expect(refused.status).toBe(400);
+		expect(row(other).name).toBe('Doble');
 	});
 
 	it('an archived copy is no copy', async () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fromTags } from '$lib/clones/from-tag';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -43,6 +44,14 @@
 
 	const rows = $derived(pickedRows(data.groups, picked));
 	const hasRows = $derived(data.groups.some((g) => g.rows.length > 0));
+	// Two versions with one label: a copy says where it came from.
+	const tags = $derived(
+		fromTags(
+			data.groups.flatMap((g) =>
+				g.rows.map((r) => ({ id: r.id, name: r.label, from: r.from ?? null }))
+			)
+		)
+	);
 
 	const press = longPress({
 		ms: 500,
@@ -168,7 +177,9 @@
 							{/if}
 							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 								<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
-									>{row.label}</span
+									>{row.label}{#if tags.get(row.id)}<span class="ml-1 font-normal text-muted"
+											>{tags.get(row.id)}</span
+										>{/if}</span
 								>
 								{#if meta}
 									<!-- muted is under 4.5:1 on a picked row's tint; ink-2 clears it. -->

@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
-import { figureLabels, listVersions } from '$lib/server/figures';
+import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
@@ -197,11 +197,15 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		? []
 		: [
 				// Twins show as one (board C7): a set is one candidate; a group's routine folds nothing.
-				...foldVersions(db, space, [
-					...listVersions(db, space),
-					// A person's routine may use the group figures they reach, each under its group.
-					...(usable ? usableVersions(db, wall, usable) : [])
-				]).flatMap((v): Candidate[] => {
+				...withFigureOrigins(
+					db,
+					wall.userId,
+					foldVersions(db, space, [
+						...listVersions(db, space),
+						// A person's routine may use the group figures they reach, each under its group.
+						...(usable ? usableVersions(db, wall, usable) : [])
+					])
+				).flatMap((v): Candidate[] => {
 					const node = figureById(graph, v.id);
 					if (!node) return [];
 					return [
@@ -211,6 +215,7 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 							groupId: v.groupId,
 							figure: v.figure,
 							label: v.label,
+							from: v.from,
 							starts: node.starts,
 							startCounts: [node.start],
 							ends: node.ends,

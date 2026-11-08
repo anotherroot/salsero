@@ -50,6 +50,29 @@ describe('same names in a picker', () => {
 		]);
 	});
 
+	it('the Link popup: a same-named copy among its options says where it came from', () => {
+		const option = (id: number, from: string | null): LinkOption => ({
+			target: { figureId: id },
+			label: 'Enchufla · Basic',
+			drill: false,
+			figure: 'Enchufla',
+			name: 'Basic',
+			linked: false,
+			from
+		});
+		const groups = linkOptionGroups({
+			nearTitle: 'Near',
+			near: [],
+			figures: [option(1, null), option(2, 'Sreda 17:30')],
+			drills: [],
+			positions: []
+		} as unknown as LinkOptions);
+		const labels = groups.flatMap((g) =>
+			g.entries.flatMap((e) => (isHeading(e) ? e.rows.map((r) => r.label) : []))
+		);
+		expect(labels).toEqual(['Enchufla · Basic', 'Enchufla · Basic · Sreda 17:30']);
+	});
+
 	it('positions: the same in the type group, and the group’s own section', () => {
 		const pos = (id: number, copiedFrom: string | null): PositionSummary => ({
 			id,

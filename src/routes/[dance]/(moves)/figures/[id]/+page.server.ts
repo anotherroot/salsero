@@ -19,7 +19,7 @@ import {
 	type MoveResult,
 	renameFigure,
 	updateVariation,
-	variationNameTaken
+	variationNameRefused
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
@@ -566,10 +566,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
-		if (
-			name.trim().toLowerCase() !== figure.name.trim().toLowerCase() &&
-			variationNameTaken(db, group.id, name, figure.id)
-		) {
+		if (variationNameRefused(db, group.id, figure, name)) {
 			return fail(400, { action: 'update', message: taken(group.name, name) });
 		}
 		// A posted position id is just a number: `setFigureShape` rejects one from

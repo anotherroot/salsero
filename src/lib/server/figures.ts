@@ -178,6 +178,35 @@ export function variationNameTaken(
 }
 
 /**
+ * Whether saving `name` on variation `id` must be refused: the name CHANGED
+ * (folded) and another live variation of the figure has it. A figure keeps a
+ * name a copy shares; only typing a taken name onto a row is refused.
+ */
+export function variationNameRefused(
+	db: Db,
+	groupId: number,
+	current: { id: number; name: string },
+	name: string
+): boolean {
+	return norm(name) !== norm(current.name) && variationNameTaken(db, groupId, name, current.id);
+}
+
+/** `versions` with where each copy came from (`copiedFromPlaces`), for pickers and lists that draw a same name apart. */
+export function withFigureOrigins<T extends { id: number }>(
+	db: Db,
+	userId: string,
+	versions: T[]
+): (T & { from: string | null })[] {
+	const origins = copiedFromPlaces(
+		db,
+		userId,
+		'figure',
+		versions.map((v) => v.id)
+	);
+	return versions.map((v) => ({ ...v, from: origins.get(v.id) ?? null }));
+}
+
+/**
  * Create a figure: its group and its first variation, in one transaction. The
  * variation is a blank shape (starts on 1, 8 counts, no positions) and has no
  * exercise — `addFigureExercise` is opt-in.
@@ -336,11 +365,7 @@ export function updateVariation(
 		if (!current || current.archivedAt !== null || current.groupId === null) return null;
 		if (!isStyleOf(current.dance, input.style) || !input.name.trim()) return null;
 		// Refused only when the name CHANGED: a copy may share the one it has.
-		if (
-			norm(input.name) !== norm(current.name) &&
-			variationNameTaken(tx, current.groupId, input.name, id)
-		)
-			return null;
+		if (variationNameRefused(tx, current.groupId, current, input.name)) return null;
 		const figure = tx
 			.update(figures)
 			.set(values(input))

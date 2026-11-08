@@ -778,7 +778,7 @@ function copyLinks(tx: Db, from: LinkOwner, to: LinkOwner, now: number): void {
 
 /**
  * A figure: under `into`'s live move of the source's move name (made when
- * missing), its name kept unless taken there; its shape, notes and links; its
+ * missing), its name kept as it is; its shape, notes and links; its
  * live start and end positions, each the place's member of that family
  * (`Mapper.ref`: copied there when the place has none, dropped when the actor
  * cannot read it); its recordings, sections and section links when the
@@ -1311,7 +1311,7 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 /* ── Positions ──────────────────────────────────────────────────────────── */
 
 /**
- * A position: its name (kept unless a live one of `into` has it), type, hold
+ * A position: its name (kept as it is, even where `into` has it), type, hold
  * and notes. Never its picture: a position's links to sections and points
  * travel with the spot's video (a lesson or a recording copied), never with
  * the position, so the copy has no point to picture it yet.
