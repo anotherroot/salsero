@@ -24,7 +24,7 @@ import { deleteTeam, peopleOf, remakeCode, renameTeam, restoreTeam } from '$lib/
 import { leaveTeam } from '$lib/server/membership';
 import { readKeepChoice } from '$lib/server/keep-form';
 import { realCloneFiles } from '$lib/server/clones/files';
-import { codeLink, NAME_REFUSAL } from '$lib/teams/view';
+import { codeLink, nameRefusal } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
 
 /** How many things a class puts on Today: `addOffer`'s ticked items (the default picks). */
@@ -91,7 +91,7 @@ export const actions: Actions = {
 	createLesson: async ({ params, locals, request }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'editor');
-		if (team.deletedAt !== null) throw error(404, 'No such group');
+		if (team.deletedAt !== null) throw error(404, t().groups.page.noGroup);
 		const read = readNewLesson(
 			await request.formData(),
 			localDay(Date.now(), locals.user!.timezone)
@@ -111,9 +111,9 @@ export const actions: Actions = {
 		const { team, space } = requireTeam(db, locals, params, 'member');
 		const { lessonId, picks } = readAdd(await request.formData());
 		const lesson = lessonId === undefined ? null : getLessonRow(db, lessonId);
-		if (!lesson || lesson.teamId !== team.id) throw error(404, 'No such lesson');
+		if (!lesson || lesson.teamId !== team.id) throw error(404, t().groups.page.noLesson);
 		if (!addLesson(db, space.actorId, lesson.id, picks, Date.now())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().groups.page.noLesson);
 		}
 		return { action: 'add', ok: true };
 	},
@@ -154,10 +154,10 @@ export const actions: Actions = {
 	rename: async ({ params, locals, request }) => {
 		const db = getDb();
 		const { team } = requireTeam(db, locals, params, 'owner');
-		if (team.deletedAt !== null) throw error(404, 'No such group');
+		if (team.deletedAt !== null) throw error(404, t().groups.page.noGroup);
 		const name = String((await request.formData()).get('name') ?? '');
 		if (!renameTeam(db, team.id, name)) {
-			return fail(400, { action: 'rename', message: NAME_REFUSAL, name });
+			return fail(400, { action: 'rename', message: nameRefusal(), name });
 		}
 		return { ok: true };
 	},
@@ -166,7 +166,7 @@ export const actions: Actions = {
 	remakeCode: ({ params, locals }) => {
 		const db = getDb();
 		const { team } = requireTeam(db, locals, params, 'owner');
-		if (team.deletedAt !== null) throw error(404, 'No such group');
+		if (team.deletedAt !== null) throw error(404, t().groups.page.noGroup);
 		remakeCode(db, team.id);
 		return { ok: true };
 	},
@@ -174,7 +174,7 @@ export const actions: Actions = {
 	leave: async ({ params, locals, request }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'member');
-		if (team.deletedAt !== null) throw error(404, 'No such group');
+		if (team.deletedAt !== null) throw error(404, t().groups.page.noGroup);
 		// What to keep comes from the leave sheet; no choice is no leaving.
 		const choice = readKeepChoice(await request.formData());
 		if (!choice) return fail(400, { action: 'leave', message: t().groups.page.chooseKeep });
@@ -194,7 +194,8 @@ export const actions: Actions = {
 	delete: ({ params, locals }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'owner');
-		if (!deleteTeam(db, team.id, space.actorId, Date.now())) throw error(404, 'No such group');
+		if (!deleteTeam(db, team.id, space.actorId, Date.now()))
+			throw error(404, t().groups.page.noGroup);
 		throw redirect(303, `/${team.dance}/groups`);
 	},
 
@@ -202,11 +203,11 @@ export const actions: Actions = {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'owner');
 		const result = restoreTeam(db, team.id, space.actorId, Date.now());
-		if (result === 'refused') throw error(404, 'No such group');
+		if (result === 'refused') throw error(404, t().groups.page.noGroup);
 		if (result === 'name') {
 			return fail(400, {
 				action: 'restore',
-				message: 'You already have a group with this name. Rename that one first.'
+				message: t().groups.page.nameTaken
 			});
 		}
 		return { ok: true };

@@ -9,7 +9,7 @@
 	import { SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		ARCHIVED_SONG_COPY,
-		MAKE_MINE,
+		makeMine,
 		MAKE_MINE_SUB,
 		YOU_GET,
 		makeMineSize,
@@ -147,7 +147,7 @@
 				aria-busy={busy}
 				aria-label={busy ? 'Making it yours' : undefined}
 			>
-				{#if busy}<Spinner />{:else}<Icon name="pencil" size={20} />{MAKE_MINE}{/if}
+				{#if busy}<Spinner />{:else}<Icon name="pencil" size={20} />{makeMine()}{/if}
 			</button>
 		</form>
 	{/snippet}

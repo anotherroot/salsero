@@ -4,11 +4,11 @@ import { slCount } from '../plural';
 // A group's or a person's name is never declined: it stands after a colon or in
 // »…« (a user's label, as the video player's delete asks). The roles are said
 // without a gendered noun: "vodja" (as in "vodja tečaja") is both, and an editor
-// and a member are what they do.
+// and a member are what they may do (the glossary).
 export const groups: Catalog['groups'] = {
 	tabNew: 'Skupine, novo v vaših skupinah',
 	newPill: (n) => slCount(n, ['nov', 'nova', 'novi', 'novih']),
-	role: { owner: 'Vodja', editor: 'Ureja', member: 'Sodeluje' },
+	role: { owner: 'Vodja', editor: 'Lahko ureja', member: 'Lahko bere' },
 	// "jo": the group (skupina).
 	you: { owner: 'vodite jo', editor: 'urejate jo', member: 'sodelujete' },
 	page: {
@@ -39,7 +39,9 @@ export const groups: Catalog['groups'] = {
 		noGroup: 'Te skupine ni',
 		chooseKeep: 'Izberite, kaj želite obdržati.',
 		keepFailed: 'Kopij ni bilo mogoče shraniti. Poskusite znova.',
-		handOverFirst: 'Preden skupino zapustite, jo predajte drugemu.'
+		handOverFirst: 'Preden skupino zapustite, jo predajte drugemu.',
+		uses: (used, limit) => `Porabljeno ${used} od ${limit}`,
+		nameTaken: 'Skupino s tem imenom že imate. Najprej preimenujte tisto.'
 	},
 	people: {
 		title: 'Ljudje',
@@ -52,7 +54,14 @@ export const groups: Catalog['groups'] = {
 			'Ta oseba postane vodja, vi pa skupino še naprej urejate. Nazaj jo lahko preda le ona.',
 		handOver: 'Predaj',
 		removeQuestion: (name) => `Želite odstraniti: ${name}?`,
-		removeBody: 'Oseba zapusti skupino in obdrži kopije svojih stvari.'
+		removeBody: 'Oseba zapusti skupino in obdrži kopije svojih stvari.',
+		noPerson: 'Te osebe ni',
+		pickRole: 'Izberite vlogo.',
+		ownerKeeps: 'Vodja obdrži skupino. Če želite to spremeniti, jo predajte drugemu.',
+		ownsEnough: 'Ta oseba že vodi toliko skupin, kot jih lahko ustvari.',
+		pickSomeone: 'Izberite nekoga drugega iz skupine.',
+		keepFailed: 'Kopij te osebe ni bilo mogoče shraniti. Poskusite znova.',
+		ownerStays: 'Vodje ni mogoče odstraniti. Najprej predajte skupino.'
 	},
 	leave: {
 		title: (team) => `Želite zapustiti »${team}«?`,
@@ -98,5 +107,66 @@ export const groups: Catalog['groups'] = {
 		leaving: 'Izstop poteka',
 		recordings: (n) => slCount(n, ['posnetek', 'posnetka', 'posnetki', 'posnetkov']),
 		slots: (n) => slCount(n, ['mesto', 'mesti', 'mesta', 'mest'])
+	},
+	list: {
+		subtitle: 'Delite lekcije s tečajem',
+		yourGroups: 'Vaše skupine',
+		restoreName: (name) => `Obnovi: ${name}`,
+		restoreFailed: 'Te skupine ni bilo mogoče obnoviti.',
+		emptyTitle: 'Še ni skupin',
+		emptyBody:
+			'Ustvarite skupino za svoj tečaj in delite njeno kodo. Vsi v njej vidijo lekcije, ki jih objavite.',
+		// No past tense: it would agree with the teacher, a woman or a man.
+		emptyClassBody: 'Kodo ima vodja tečaja. Lahko pa odprete prejeto povezavo.',
+		joinWithCode: 'Pridruži se s kodo',
+		newGroup: 'Nova skupina',
+		createGroup: 'Ustvari skupino',
+		creatingGroup: 'Ustvarjanje skupine',
+		namePlaceholder: 'Salsa nadaljevalna',
+		// After "ustvarite" the accusative: 1 skupino, 2 skupini, 3 skupine, 5 skupin.
+		limit: (n) =>
+			`Ustvarite lahko ${slCount(n, ['skupino', 'skupini', 'skupine', 'skupin'])}. Za več vprašajte skrbnika.`,
+		nameRefusal: 'Vnesite ime z največ 60 znaki, ki ga nima nobena vaša skupina.',
+		pick: {
+			title: 'Izberite skupino',
+			body: 'Tu se odprejo njene lekcije, skladbe s tečaja in ljudje.'
+		}
+	},
+	code: {
+		title: 'Koda skupine',
+		qr: (name) => `Koda QR za pridružitev · ${name}`,
+		shareTitle: (name) => `Pridružite se: ${name}`,
+		copyLink: 'Kopiraj povezavo',
+		copied: 'Kopirano',
+		share: 'Deli',
+		copyFailed: 'Kopiranje ni uspelo. Povezava zgoraj je označena: kopirajte jo od tam.',
+		accountsOnly: 'Z njo se lahko pridružijo le tisti, ki že imajo račun.',
+		remake: 'Ustvari novo kodo',
+		remakeNote: 'Stara povezava in koda QR prenehata delovati. Kdor je že v skupini, ostane.'
+	},
+	add: {
+		// "V njej": the lesson (lekcija).
+		nothing: 'V njej še ni ničesar',
+		onToday: 'V Danes',
+		alsoFigures: 'Vadi tudi različice',
+		figuresCaption:
+			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne porabijo nič vašega prostora.',
+		// The adjective agrees with the count.
+		newRoutines: (n) =>
+			slCount(n, ['nova kombinacija', 'novi kombinaciji', 'nove kombinacije', 'novih kombinacij']),
+		newDrills: (n) => slCount(n, ['nova vaja', 'novi vaji', 'nove vaje', 'novih vaj']),
+		kind: {
+			lesson: 'Ponavljanje lekcije',
+			routine: 'Kombinacija',
+			figure: 'Različica',
+			drill: 'Vaja'
+		},
+		label: (title) => `Dodaj: ${title}`,
+		refused: 'Te lekcije ni več mogoče dodati.',
+		adding: 'Dodajanje'
+	},
+	mode: {
+		label: (name) => `${name} · skupina`,
+		mineMeta: 'Vaše lastne stvari'
 	}
 };

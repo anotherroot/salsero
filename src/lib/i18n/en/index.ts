@@ -1,6 +1,7 @@
 // The English catalog: the source every other language is typed against.
 // One area per file; later areas are added beside `common`.
 import { admin } from './admin';
+import { clones } from './clones';
 import { comments } from './comments';
 import { common } from './common';
 import { entry } from './entry';
@@ -43,5 +44,6 @@ export const en = {
 	routine,
 	positions,
 	picker,
-	links
+	links,
+	clones
 };

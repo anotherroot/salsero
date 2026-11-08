@@ -57,7 +57,8 @@ describe('the group page in its pane', () => {
 			/<Sheet title="Ask for more"[^\n]*size="small">/
 		);
 		const code = read('src/lib/components/teams/CodeSheet.svelte');
-		expect(code).toMatch(/<Sheet title="Group code"[^\n]*size="small">/);
+		// The title is read from the catalog (Task 9 of Slovenian part 2): the sheet is the same.
+		expect(code).toMatch(/<Sheet title=\{w\.title\}[^\n]*size="small">/);
 		expect(code).toContain('codeAction(desk.current, canShare, copied)');
 	});
 });

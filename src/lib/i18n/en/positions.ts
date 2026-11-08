@@ -228,7 +228,9 @@ export const positions = {
 		},
 		fromLessonNote: (lesson: string, team: string): string =>
 			`From ${lesson}. Tag your figures with it as it is; it stays ${possessive(team)}.`,
-		makeMineNote: 'Edit makes it yours (Make it mine); your figures tagged with it move over.',
+		/** Under Edit: `label` is Make it mine (`t().clones.makeMine`). */
+		makeMineNote: (label: string): string =>
+			`Edit makes it yours (${label}); your figures tagged with it move over.`,
 		archived: {
 			title: 'Archived',
 			body: 'Its figures no longer show it. Restore brings it back.',

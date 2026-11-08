@@ -110,3 +110,12 @@ describe('leave lines in Slovenian', () => {
 		expect(sl(() => lockedMeta('', 'routine'))).toBe('V uporabi: vaša kombinacija');
 	});
 });
+
+// Catches: Keep everything's counts in one form for every number (2 and 5 apart).
+describe('Keep everything’s counts in Slovenian, two and five', () => {
+	it('says 2 and 5 each in its own form', () => {
+		expect(
+			withLocale('sl', () => everythingMeta(preview({ lessons: 2, routines: 5, songs: 4 }, GB)))
+		).toBe('2 lekciji, 5 kombinacij, 4 skladbe · 1 GB v vašem prostoru');
+	});
+});

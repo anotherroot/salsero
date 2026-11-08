@@ -218,7 +218,13 @@ const TRANSLATED: string[] = [
 	'src/lib/components/picker/PickerField.svelte',
 	'src/lib/components/picker/PickerMultiField.svelte',
 	'src/lib/components/picker/PickerOpener.svelte',
-	'src/lib/components/ui/LinkSectionSheet.svelte'
+	'src/lib/components/ui/LinkSectionSheet.svelte',
+	// Groups: the list, a group's page, Add, the code (part 2, Task 9).
+	'src/lib/components/teams/AddSheet.svelte',
+	'src/lib/components/teams/CodeSheet.svelte',
+	'src/lib/components/teams/GroupList.svelte',
+	'src/routes/[dance]/groups/+layout.svelte',
+	'src/routes/[dance]/groups/+page.svelte'
 ];
 
 describe('englishIn', () => {

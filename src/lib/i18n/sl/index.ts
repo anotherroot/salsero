@@ -60,6 +60,7 @@
 //   owner / editor / member (a group's)   Vodja / Lahko ureja / Lahko bere
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
+import { clones } from './clones';
 import { comments } from './comments';
 import { common } from './common';
 import { entry } from './entry';
@@ -102,5 +103,6 @@ export const sl: Catalog = {
 	routine,
 	positions,
 	picker,
-	links
+	links,
+	clones
 };

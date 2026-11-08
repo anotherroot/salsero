@@ -200,7 +200,8 @@ export const positions: Catalog['positions'] = {
 		},
 		fromLessonNote: (lesson, team) =>
 			`Iz lekcije: ${lesson}. Z njim označite svoje različice, kakršen je; ostane položaj skupine: ${team}.`,
-		makeMineNote: 'Uredi naredi vašo kopijo; vaše različice, označene z njim, se preselijo nanjo.',
+		makeMineNote: (label) =>
+			`Uredi deluje kot »${label}«: vaše različice, označene z njim, se preselijo na kopijo.`,
 		archived: {
 			title: 'Arhivirano',
 			body: 'Različice ga ne kažejo več. Obnovi ga vrne.',

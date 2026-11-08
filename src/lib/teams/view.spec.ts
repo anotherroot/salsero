@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { MAKE_MINE } from '$lib/clones/view';
+import { makeMine } from '$lib/clones/view';
 import { classDayLabel } from '$lib/format';
 import { withLocale } from '$lib/i18n/current';
 import {
 	codeAction,
-	COPY_FAILED,
+	copyFailed,
 	codeLink,
 	deletingLine,
 	joinQuestion,
 	lessonNotice,
 	limitLine,
 	groupsTabLabel,
+	groupUsesLine,
+	nameRefusal,
 	classSongsHeading,
 	newPill,
 	noAccountLine,
@@ -60,8 +62,7 @@ describe('group lines', () => {
 });
 
 describe('the group storage line', () => {
-	it('reads Uses X of Y', async () => {
-		const { groupUsesLine } = await import('./view');
+	it('reads Uses X of Y', () => {
 		expect(groupUsesLine(120 * 1024 ** 2, 600 * 1024 ** 2)).toBe('Uses 120 MB of 600 MB');
 	});
 });
@@ -83,7 +84,7 @@ describe('a group lesson after leaving, or while its group is deleted', () => {
 		expect(notice).toEqual({
 			tone: 'warning',
 			text: 'Salsa nadaljevalna is being deleted on 2 Dec',
-			action: MAKE_MINE
+			action: makeMine()
 		});
 		expect(`${notice.text} · ${notice.action}`).toBe(deletingLine('Salsa nadaljevalna', '2 Dec'));
 	});
@@ -151,7 +152,7 @@ describe('codeAction', () => {
 		expect(codeAction(false, false, true)).toEqual({ label: 'Copied', icon: 'share', copy: true });
 	});
 	it('says what to do when the copy fails', () => {
-		expect(COPY_FAILED).toBe('Could not copy. The link above is selected: copy it from there.');
+		expect(copyFailed()).toBe('Could not copy. The link above is selected: copy it from there.');
 	});
 });
 
@@ -274,8 +275,65 @@ describe('the group page and its tab in Slovenian', () => {
 			expect(addedToToday()).toBe('Dodano v Danes');
 			expect([1, 2, 3, 5].map(newPill)).toEqual(['1 nov', '2 nova', '3 novi', '5 novih']);
 			expect(roleLabel('owner')).toBe('Vodja');
-			expect(roleLabel('member')).toBe('Sodeluje');
+			expect(roleLabel('editor')).toBe('Lahko ureja');
+			expect(roleLabel('member')).toBe('Lahko bere');
 			expect(youLine('editor')).toBe('urejate jo');
 		});
+	});
+});
+
+// Catches: the Groups list, a group's page and the code sheet left in English for
+// a Slovenian reader, a count not in the case its verb takes, or a decimal point.
+describe('the Groups words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	const GiB = 1024 ** 3;
+
+	it('counts the groups one may make in the accusative', () => {
+		expect(sl(() => [1, 2, 3, 5].map(limitLine))).toEqual([
+			'Ustvarite lahko 1 skupino. Za več vprašajte skrbnika.',
+			'Ustvarite lahko 2 skupini. Za več vprašajte skrbnika.',
+			'Ustvarite lahko 3 skupine. Za več vprašajte skrbnika.',
+			'Ustvarite lahko 5 skupin. Za več vprašajte skrbnika.'
+		]);
+		expect(sl(() => limitLine(101))).toBe(
+			'Ustvarite lahko 101 skupino. Za več vprašajte skrbnika.'
+		);
+	});
+
+	it('refuses a name, and says what the group uses with a decimal comma', () => {
+		expect(sl(nameRefusal)).toBe('Vnesite ime z največ 60 znaki, ki ga nima nobena vaša skupina.');
+		expect(sl(() => groupUsesLine(1.2 * GiB, 2 * GiB))).toBe('Porabljeno 1,2 GB od 2,0 GB');
+	});
+
+	it('words the roles to read right beside a woman’s and a man’s name', () => {
+		expect(sl(() => (['owner', 'editor', 'member'] as const).map(roleLabel))).toEqual([
+			'Vodja',
+			'Lahko ureja',
+			'Lahko bere'
+		]);
+	});
+
+	it('words the empty pane, the code sheet’s button and its failure', () => {
+		expect(sl(() => ({ ...PICK_GROUP }))).toEqual({
+			title: 'Izberite skupino',
+			body: 'Tu se odprejo njene lekcije, skladbe s tečaja in ljudje.'
+		});
+		expect(sl(() => codeAction(true, true, false).label)).toBe('Kopiraj povezavo');
+		expect(sl(() => codeAction(false, true, false).label)).toBe('Deli');
+		expect(sl(() => codeAction(false, true, true).label)).toBe('Kopirano');
+		expect(sl(copyFailed)).toBe(
+			'Kopiranje ni uspelo. Povezava zgoraj je označena: kopirajte jo od tam.'
+		);
+	});
+
+	it('ends a deleting group’s line in Make it mine, in Slovenian', () => {
+		expect(sl(makeMine)).toBe('Naredi svojo kopijo');
+		expect(sl(() => deletingLine('Salsa torek', '2. dec.'))).toBe(
+			'Salsa torek · izbris 2. dec. · Naredi svojo kopijo'
+		);
+		const DAY = 24 * 60 * 60 * 1000;
+		expect(
+			sl(() => lessonNotice({ name: 'Salsa torek', deletedAt: 30 * DAY }, 'UTC'))?.action
+		).toBe('Naredi svojo kopijo');
 	});
 });

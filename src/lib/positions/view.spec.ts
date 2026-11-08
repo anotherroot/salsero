@@ -884,6 +884,12 @@ describe('positions in Slovenian', () => {
 		expect(sl(() => v.listHeading(4, false))).toBe('Vaši · 4');
 	});
 
+	it('names Make it mine in the note under Edit', () => {
+		expect(sl(v.makeMineNote)).toBe(
+			'Uredi deluje kot »Naredi svojo kopijo«: vaše različice, označene z njim, se preselijo na kopijo.'
+		);
+	});
+
 	it('counts Add in the accusative', () => {
 		expect([1, 2, 3, 5, 102].map((n) => sl(() => v.addLabel(n)))).toEqual([
 			'Dodaj 1 položaj',

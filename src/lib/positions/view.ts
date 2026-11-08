@@ -423,7 +423,7 @@ export function positionFromLessonNote(lesson: string, team: string): string {
 }
 
 /** Under a reader's Edit. */
-export const makeMineNote = (): string => t().positions.page.makeMineNote;
+export const makeMineNote = (): string => t().positions.page.makeMineNote(t().clones.makeMine);
 
 /** An archived position's page: what it says, and its way back. */
 export const ARCHIVED: { title: string; body: string; restore: string } = lazyWords(

@@ -60,7 +60,7 @@ import {
 	VERSIONS,
 	nameTaken,
 	ARCHIVED_SONG_COPY,
-	MAKE_MINE,
+	makeMine,
 	MAKE_MINE_SUB,
 	makeMineTitle,
 	restoreLine,
@@ -150,7 +150,8 @@ describe('Make it mine', () => {
 	it('the title and the line under it', () => {
 		expect(makeMineTitle('Setenta · Básico')).toBe('Make Setenta · Básico yours?');
 		expect(MAKE_MINE_SUB).toBe('Editing makes your own copy. The class’s stays as it is.');
-		expect(MAKE_MINE).toBe('Make it mine');
+		expect(makeMine()).toBe('Make it mine');
+		expect(withLocale('sl', makeMine)).toBe('Naredi svojo kopijo');
 		expect(restoreLine).toBe('You had your own copy. Restore it?');
 	});
 

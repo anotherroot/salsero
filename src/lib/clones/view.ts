@@ -6,6 +6,7 @@ import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport, TwinKind } f
 import { byteSize, dayMonth, plural } from '$lib/format';
 import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
+import { t } from '$lib/i18n/catalog';
 
 /** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s"; "CLASS" → "CLASS’". Trimmed. */
 export function possessive(name: string): string {
@@ -57,7 +58,7 @@ export function groupSlotNotes(
 /* ── Make it mine ───────────────────────────────────────────────────────── */
 
 /** The button that makes a class's thing the person's own (ruling 12: Make my own copy too). */
-export const MAKE_MINE = 'Make it mine';
+export const makeMine = (): string => t().clones.makeMine;
 
 /** The sheet's title: "Make Setenta · Básico yours?". */
 export function makeMineTitle(label: string): string {

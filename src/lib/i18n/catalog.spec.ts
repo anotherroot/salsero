@@ -13,7 +13,9 @@ const ALLOWED_SAME: ReadonlySet<string> = new Set([
 	// ⋯ is a symbol in both languages.
 	'common.more',
 	// "Solo" is the word in Slovenian too (a solo figure, a chip).
-	'moves.chips.solo'
+	'moves.chips.solo',
+	// New group's example name is a Slovenian class's name in both languages.
+	'groups.list.namePlaceholder'
 ]);
 
 /**

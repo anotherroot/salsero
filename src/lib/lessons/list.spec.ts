@@ -184,6 +184,10 @@ describe('the Lessons list in Slovenian', () => {
 		);
 		expect(sl(() => emptyLessonsBody(false))).toContain('Danes');
 		expect(sl(() => emptyLessonsBody(true))).not.toContain('Danes');
+		// A group's lesson is seen by everyone in the class, not by "members".
+		expect(sl(() => emptyLessonsBody(true))).toBe(
+			'Dodajte jo po naslednji uri tečaja: videe in opombe. Vidijo jo vsi v tečaju, ko jo objavite.'
+		);
 		expect(sl(() => pickLesson().title)).toBe('Izberite lekcijo');
 	});
 });

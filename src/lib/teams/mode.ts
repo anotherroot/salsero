@@ -1,7 +1,7 @@
 /** PURE: group mode's cookie name, where it ends, where a switch returns to. */
 import type { DanceSlug } from '$lib/dances/dances';
 import { rootsOf, tabFor } from '$lib/nav/tabs';
-import { plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { GroupChoice } from '$lib/types';
 
 export const groupCookie = (dance: DanceSlug): string => `group_${dance}`;
@@ -34,19 +34,20 @@ export function minePath(path: string, dance: DanceSlug): string {
 	return roots.find((r) => r === path) ?? roots[0];
 }
 
-export const groupLabel = (name: string): string => `${name} · group`;
+export const groupLabel = (name: string): string => t().groups.mode.label(name);
 
 /** The Work in sheet: Mine first, then each group the person can write in. */
 export function workInRows(
 	choices: GroupChoice[],
 	current: number | null
 ): { teamId: number | 'mine'; name: string; meta: string; on: boolean }[] {
+	const w = t();
 	return [
-		{ teamId: 'mine', name: 'Mine', meta: 'Your own space', on: current === null },
+		{ teamId: 'mine', name: w.shell.mine, meta: w.groups.mode.mineMeta, on: current === null },
 		...choices.map((c) => ({
 			teamId: c.teamId,
 			name: c.name,
-			meta: `${c.role === 'owner' ? 'Owner' : 'Editor'} · ${plural(c.people, 'person', 'people')}`,
+			meta: `${w.groups.role[c.role]} · ${w.entry.classes.people(c.people)}`,
 			on: c.teamId === current
 		}))
 	];
