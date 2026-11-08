@@ -115,13 +115,13 @@ ready again. Drills and routines using the song keep using it.
 links) and, kept in step, their count 1s (`apply.ts` `songRoots`, compared as
 `count` by `songFlat`). New audio goes to **every copy kept in step** with the
 one changed, through the flow (`flowFrom`, as a save travels today): each gets
-the same `fetched_url`, its count and sample start cleared, and is downloaded
+the same `audio_url`, its count and sample start cleared, and is downloaded
 again (or, the builder's call, takes the first one's new file as a hard link
 once it lands, rather than downloading N times). So a teacher fixing a wrong
 match fixes it for the class. **Copies not kept in step keep the old audio**,
 and from then on are not offered the count across the different audio: Sync
 and the flow treat the count as not comparable between copies whose
-`fetched_url ?? source_url` differ (and, for an upload, whose audio differs).
+`source_url|audio_url` differ (and, for an upload, whose audio differs).
 The dialog says how many copies the new audio goes to. This touches the
 clone code (`apply.ts`, `flow.ts`, `step.ts`, `clone_pairs`).
 
@@ -200,10 +200,15 @@ Nothing new is drawn at Follow my class, which has no Music tab.
 
 ### Data
 
-- **`songs.fetched_url`** (new, nullable, additive `ADD COLUMN`): the link
-  the audio was actually downloaded from. Null means `source_url`. The worker
-  reports it on every download; Use another YouTube link sets it before
-  re-queueing. `source_url` stays what the person pasted.
+- **`songs.audio_url`, `fetched_url`, `fetched_title`** (new, nullable,
+  additive `ADD COLUMN`; settled while planning). `audio_url` is the person's
+  link for the audio, set by Use another YouTube link (null: `source_url`);
+  the claim hands the worker `audio_url ?? source_url`. `fetched_url` and
+  `fetched_title` are what the worker actually downloaded, reported with the
+  audio, for the "Audio from" card. Two columns rather than one because the
+  copies compare by the person's choice (`source_url|audio_url`, the flat key
+  `audio`), and the worker's own report must never look like an edit.
+  `source_url` stays what the person pasted.
 - **Song imports** (new table, e.g. `song_imports`): one row per pasted
   playlist. Owner (`user_id` or `team_id`, exactly one, as the root tables),
   `dance`, the URL, the playlist's name, status (reading, ready, failed),
@@ -217,7 +222,7 @@ Nothing new is drawn at Follow my class, which has no Music tab.
 
 ### The worker
 
-- **Song jobs:** the claim returns `fetched_url ?? source_url`. When that is
+- **Song jobs:** the claim returns `audio_url ?? source_url`. When that is
   a Spotify track, the worker reads the track's title, artist and length from
   Spotify, searches YouTube for "<artist> <title>", picks the best result,
   and downloads it as today. It reports the YouTube URL it used and Spotify's
@@ -262,7 +267,7 @@ Nothing new is drawn at Follow my class, which has no Music tab.
   `groupsNew`: any ready, not added, not dismissed import the person may pick
   in this dance. Nothing stored as unread.
 - Use another YouTube link: an action on the song page, checked for access as
-  Song details is; it sets `fetched_url`, clears the audio (the old file goes
+  Song details is; it sets `audio_url`, clears the audio (the old file goes
   once the new one lands, or at once; builder's call, minding that a clone's
   file is a hard link and unlinking one name is safe), beats, anchors and
   sample start, and sets `waiting_download`. On a group song it carries `seen`
