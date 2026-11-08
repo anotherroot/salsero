@@ -13,7 +13,8 @@ import {
 	removeSection,
 	sectionIndexAt,
 	sectionName,
-	sectionsJson
+	sectionsJson,
+	type Section
 } from './sections';
 
 describe('parseSections', () => {
@@ -186,7 +187,7 @@ describe('section writes', () => {
 			list[0],
 			S(8, 'Coro', true)
 		]);
-		expect(editSection(list, 0, { name: 'x'.repeat(60) })![0].name).toHaveLength(40);
+		expect((editSection(list, 0, { name: 'x'.repeat(60) }) as Section[])[0].name).toHaveLength(40);
 		expect(editSection(list, 2, { name: 'x' })).toBe('missing');
 		expect(removeSection(list, 0)).toEqual([list[1]]);
 		expect(removeSection(list, -1)).toBe('missing');
