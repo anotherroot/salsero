@@ -295,14 +295,25 @@ would rebuild tables, and `figures` can never be rebuilt (CLAUDE.md, the
 CHECK rule). So ids stay integers, and every runtime mints them from its
 own block:
 
-- `id = slot × 2³² + n`. Slot 0 is every existing row. The server takes a
-  slot of its own, and each device gets one the first time it syncs. All
-  of it stays under 2⁵³, so JavaScript numbers hold it exactly.
-- Every insert passes an explicit id, through a `$defaultFn` on each id
-  column (an app-side default, no migration). A spec scans for inserts
-  that would fall back to SQLite's own autoincrement, raw `sql` inserts
-  included: once device ids exist, `max(id) + 1` can land inside a
-  device's block.
+- `id = slot × 2³² + n`. Slot 0 is every existing row, and the server
+  keeps minting there (a call made while building phase 1: device blocks
+  start at slot 1, so they never overlap it, and existing ids, URLs and
+  test fixtures stay as they were). Each device gets a slot the first time
+  it syncs. All of it stays under 2⁵³, so JavaScript numbers hold it
+  exactly.
+- `id_marks (tbl, slot, hi)` holds the highest id used per table and slot.
+  An `AFTER INSERT` trigger on each id table keeps it, so ids that arrive
+  with a row (a device's, a restore's) count too. It was seeded from
+  `sqlite_sequence`, so an id deleted before phase 1 is never handed out
+  again (migrations 0034, 0035).
+- Every id column defaults to `mintedId('<table>')`
+  (`src/lib/server/db/ids.ts`): an app-side `$defaultFn` returning SQL,
+  "this table's mark in my slot, plus one". SQLite works that out once per
+  statement, so an insert carries one new row, or rows that carry their own
+  ids. Several new rows in one insert collide loudly (a UNIQUE error).
+- `ids.spec.ts` scans that every id column mints for its own table, that no
+  server code inserts into an id table with raw SQL, and that no migration
+  after 0035 inserts into one without its id.
 - `users` and `sessions` keep their text ids.
 
 ### The device's copy (pull)
@@ -323,8 +334,9 @@ own block:
   comments and hearts on lessons they read).
 - **Never synced:** `sessions`, `login_attempts`, `invites`,
   `device_tokens`, `app_installs`, `storage_requests`, `team_trash`,
-  `team_changes`, `clone_pairs`, `app_flags`, and the worker's
-  queue state beyond what a row's status shows.
+  `team_changes`, `clone_pairs`, `app_flags`, `id_marks` (each database
+  keeps its own), and the worker's queue state beyond what a row's status
+  shows.
 - **First sign-in** downloads a full snapshot.
 
 ### Offline changes (push)
@@ -340,8 +352,9 @@ own block:
   same action code, one transaction per entry:
   - it uses the device's minted ids;
   - its clock reads the entry's made-at time, so a set logged offline at
-    10:00 is dated 10:00. This means all server code reads time through one
-    clock, which a spec enforces.
+    10:00 is dated 10:00. So all server code reads the time through one
+    clock, `serverNow()` (`src/lib/server/server-clock.ts`, since phase 1;
+    `server-clock.spec.ts` enforces it), which replay sets.
 - **Own rows: later edit wins, per field.** A field the entry changed that
   the server also changed since `seen` keeps whichever change was made
   later. The entry's made-at time is compared with the log's time for that

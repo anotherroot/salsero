@@ -628,6 +628,10 @@ src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
+src/lib/server/db/ids.ts  ids from slots: `mintedId`, `mintId`, `setIdSlot` (`id_marks`, its
+                     triggers in migration 0035)
+src/lib/server/server-clock.ts  `serverNow()`: the one clock server code reads.
+                     server-sources.ts is the specs' view of the server code (scans)
 src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
                      `wallOf(params, locals)`, `inWall(row, wall)` and the
                      `require*InWall` guards on ids, so a request only ever reaches
@@ -681,6 +685,19 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for
   sorting. Never `Date.now()` inside `src/lib/day` or `src/lib/schedule`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
+- **Every insert mints its id.** An integer id comes from `mintedId('<table>')`
+  (`src/lib/server/db/ids.ts`): this runtime's slot in `id_marks`, plus one
+  (`id = slot × 2³² + n`; the server is slot 0, devices get their own). An
+  insert carries ONE new row, or rows that carry their own ids: SQLite works
+  the default out once per statement, so several new rows collide. No raw SQL
+  insert into an id table, and no migration insert without `id`. A new
+  integer-id table gets `mintedId` and a mark trigger (as in migration 0035).
+  `ids.spec.ts` checks all of it.
+- **Server code reads the time through `serverNow()`**
+  (`src/lib/server/server-clock.ts`), never `Date.now()` or `new Date()`:
+  offline replay will set it to when a change was made.
+  `server-clock.spec.ts` scans for it. Pure modules still take `now` as an
+  argument.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
   while a live exercise uses it, archived ones lose `song_id`; a group song's
