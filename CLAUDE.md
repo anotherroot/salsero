@@ -500,7 +500,8 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      tabs, Take a recording), apply.ts (`landKeys`: land chosen keys on a copy;
                      `syncFrom`), send.ts (the Versions list's members), drop.ts, detach.ts,
                      copy-to.ts, move.ts (Move to… a group), shadow.ts (the person's members
-                     for views). Keeping in step: sync-settings.ts (`clone_sync`, the switch and
+                     for views).
+                     Keeping in step: sync-settings.ts (`clone_sync`, the switch and
                      options per copy; not logged), marks.ts (`clone_marks`: a hash per field of
                      what a copy held after its last save or flow; `markNow`), flow.ts (`flowFrom`:
                      what a save changed travels hop by hop through the copies that pair, visited
@@ -510,7 +511,7 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      rows and the landing on every ticked copy, then the flow onward) and step.ts
                      (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, from the
                      same merge rows). The routes' side: `take-form.ts`, `make-mine-form.ts`,
-                     `keep-form.ts`, the page action `keepInStep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
+                     `keep-form.ts`, the page action `keep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
 src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
                      embeds, lesson and section links): `usableOf` (their added lessons'
                      reach, plus what their rows already point at and still read, in groups

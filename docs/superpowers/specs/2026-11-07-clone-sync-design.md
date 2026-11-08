@@ -371,6 +371,8 @@ not say. Each line: what, and why.
   posts a digest per member, and any difference in a copy that is not ticked
   refuses the Sync as stale. A pick naming a value the row does not have is
   stale too, not a "pick" refusal.
+- **A key that still differs after a Sync** gets, for the pair (landed copy X, other copy Y) where X holds the picked value, the base of Y's value: X reads as having made its own change and Y as behind (the old Keep mine meaning). Never X's value as the base, which would preselect Y's value back later.
+- **`mergeTargets` derives its givers from the rows' holders** and checks that the flats agree, so a giver always holds the value it gives.
 - **Access is asked again right before each copy lands**, since landings
   await one another.
 - **A group copy the person only reads is never a target.** What a person
@@ -416,7 +418,7 @@ not say. Each line: what, and why.
   it loaded, so a Play never writes a stale config over a flowed-in one.
   A teacher's casual change of a drill's Play settings does reach the clubs'
   copies they edit.
-- **Keep in step is a page action** of each item page (and a small POST for
+- **Keep in step is a page action** (`keep`) of each item page (and a small POST for
   the Versions level), not a flat API; the kind is validated, and only
   someone who edits the copy changes it. A setting, not logged in History.
 - **Not hooked, flows on the next save:** History's restore, a saved-video
