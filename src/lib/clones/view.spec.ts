@@ -803,6 +803,12 @@ describe('in Slovenian', () => {
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 2, kind: 'figure' }))).toBe(
 			'Dvojčki · 3 različice'
 		);
+		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 4, kind: 'routine' }))).toBe(
+			'Dvojčki · 5 kombinacij'
+		);
+		expect(cloneSubtitle({ ...none, self: mine, twins: 4, kind: 'routine' })).toBe(
+			'Twins · 5 versions'
+		);
 		expect(sl(() => sourceNote('Sreda 17:30'))).toBe(
 			'Kopija · Sreda 17:30, samo za branje. Kar želite, prevzemite v svojo.'
 		);

@@ -101,7 +101,7 @@ export const links: Catalog['links'] = {
 	},
 	found: {
 		youtube: 'Video na YouTubu',
-		youtubeLine: 'Ko povezavo dodate, ga lahko shranite v 480p',
+		youtubeLine: 'Ko dodate povezavo, lahko video shranite v 480p',
 		web: 'Spletna stran'
 	},
 	save: {

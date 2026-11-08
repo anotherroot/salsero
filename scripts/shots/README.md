@@ -22,7 +22,11 @@ admin's name in the copy, so pages send them to `/welcome` (`pages-welcome.txt`)
 other card pages and the error pages, signed in.
 `--locale en|sl` sets the admin's language (`users.locale`) and the rig's invite's in the copy, and, with
 `--no-session`, the browser's `lang` cookie, so signed-out pages draw in it too. `--level follow|own|all` sets the
-admin's level (`users.level`). Both apply to scenes as well. Without them the copy keeps what it holds (English, and
+admin's level (`users.level`). Both apply to scenes as well: scenes name English buttons, so with `--locale sl`
+`shots.sh` writes a word map (`words.ts`: every catalog string Slovenian says otherwise) and `shots.py scene --words`
+looks each `get_by_role` name, `get_by_text`, `get_by_label`, `get_by_placeholder` and `get_by_title` up in it. A name
+composed with an argument ("Position menu") is not in the map, so such a scene still fails in Slovenian.
+`SHOTS_TIMEOUT` (seconds, default 900) is how long the Playwright side may run: a long scene list under load needs more. Without `--locale` and `--level` the copy keeps what it holds (English, and
 the level a migrated db has: Everything).
 
 Each page's line ends in `OVERFLOW <n>px` when the page scrolls sideways (`scrollWidth` past the
@@ -36,7 +40,7 @@ skeleton covers it; no `SIDE` where no side shows (the phone).
 
 `pages.txt`: one path per line. `{dance}` is salsa; `{yesterday}`, `{figure}`, `{move}`, `{song}`,
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that
-kind (a group: the first they are in). `{joincode}` is the code of a live group the admin is not in;
+kind (a group: the first they are in). `{joincode}` is the code of a live group of the admin's dance they are not in;
 `{invite}` the code of an unused invite the rig adds to the copy. A placeholder with no row is a failure. The `does-not-exist` line
 must answer 404; every other page must answer < 400 on its own path, or on the one after `->` when the
 line names where it lands (`/g/{joincode} -> /login`, signed out). Output: `<out-dir>/<slug>.png`,

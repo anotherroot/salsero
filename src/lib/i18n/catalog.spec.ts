@@ -38,6 +38,7 @@ const SAMPLE_ARGS: Readonly<Record<string, unknown[]>> = {
 		{ figures: ['x'], routines: ['y', 'z'], lessons: [], sections: 2, practised: true }
 	],
 	'clones.sources.team': ['x', 'figure'],
+	'clones.sources.twins': [2, 'routine'],
 	'clones.detach.group': ['figure'],
 	'clones.sync.holders': [['x', 'y']],
 	'clones.sync.stays': [['x', '1 y']],

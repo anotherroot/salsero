@@ -174,7 +174,7 @@ describe('linkFound in Slovenian', () => {
 		expect(withLocale('sl', () => linkFound(`https://youtu.be/${ID}`))).toEqual({
 			youtube: true,
 			title: 'Video na YouTubu',
-			line: 'Ko povezavo dodate, ga lahko shranite v 480p'
+			line: 'Ko dodate povezavo, lahko video shranite v 480p'
 		});
 		expect(withLocale('sl', () => linkFound('https://www.salsa.si/x'))).toEqual({
 			youtube: false,

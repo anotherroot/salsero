@@ -505,13 +505,12 @@ describe('in Slovenian', () => {
 
 	it('archives and moves with the names after a colon', () => {
 		expect(sl(() => archiveCopy('Enchufla', 'Doble', false))).toEqual({
-			title: 'Želite arhivirati: Doble?',
+			title: 'Želite arhivirati »Doble«?',
 			button: 'Arhiviraj različico',
-			caption:
-				'Druge različice ostanejo v figuri: Enchufla. Njeni posnetki in zgodovina vadenja se ohranijo.'
+			caption: '»Doble« zapusti figuro: Enchufla. Njeni posnetki in zgodovina vadenja se ohranijo.'
 		});
 		expect(sl(() => archiveCopy('Enchufla', 'Doble', true).caption)).toBe(
-			'Z njo gre tudi figura: Enchufla. To je njena zadnja različica. Njeni posnetki in zgodovina vadenja se ohranijo.'
+			'Z njo gre tudi figura: Enchufla. »Doble« je njena zadnja različica. Njeni posnetki in zgodovina vadenja se ohranijo.'
 		);
 		const chosen = { name: 'Enchufla', variations: ['Doble'] };
 		expect(sl(() => moveState({ last: false, chosen, joinName: 'doble' }))).toMatchObject({

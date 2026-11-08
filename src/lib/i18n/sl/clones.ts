@@ -26,6 +26,16 @@ const KIND: Record<CloneKind, string> = {
 	lesson: 'lekcija',
 	position: 'položaj'
 };
+// A family counted as its own kind (the twins subtitle).
+const TWIN_NOUN: Record<CloneKind, (n: number) => string> = {
+	figure: (n) => nouns.figures(n),
+	routine: (n) => nouns.routines(n),
+	drill: (n) => nouns.drills(n),
+	song: (n) => nouns.songs(n),
+	lesson: (n) => nouns.lessons(n),
+	position: (n) => nouns.positions(n)
+};
+
 const capital = (s: string) => `${s[0].toUpperCase()}${s.slice(1)}`;
 
 /** "Twins show as one …": a kind, one of it, in the nominative. */
@@ -135,7 +145,8 @@ export const clones: Catalog['clones'] = {
 		team: (team, kind) => `${capital(KIND[kind])} · ${team}`,
 		copyFrom: (place) => `Vaša kopija · vir: ${place}`,
 		inGroups: (n) => `Vaše · v ${slCount(n, ['skupini', 'skupinah', 'skupinah', 'skupinah'])}`,
-		twins: (n) => `${slForm(n) === 'two' ? 'Dvojčka' : 'Dvojčki'} · ${nouns.figures(n)}`,
+		// Counted as the kind itself: »Dvojčki · 3 kombinacije«, not »različice« (a figure).
+		twins: (n, kind) => `${slForm(n) === 'two' ? 'Dvojčka' : 'Dvojčki'} · ${TWIN_NOUN[kind](n)}`,
 		note: (place) => `Kopija · ${place}, samo za branje. Kar želite, prevzemite v svojo.`,
 		held: (size) => `${size} · že v vaši kopiji`,
 		new: (size) => `Nov · ${size}`,

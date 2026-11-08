@@ -25,7 +25,7 @@ export const shell: Catalog['shell'] = {
 		workIn: 'Delo v',
 		workInGroup: 'Delo v skupini',
 		switchGroup: 'Zamenjaj skupino',
-		workingIn: 'Trenutno tukaj'
+		workingIn: 'Delate tu'
 	},
 	reload: {
 		title: 'Aplikacija je posodobljena',

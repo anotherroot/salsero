@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PositionListRow } from '$lib/types';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import { EMPTY_HOLD } from './hold';
 import * as v from './view';
 import type { PickRow } from '$lib/picker/model';
@@ -873,6 +874,24 @@ describe("a position's Video and Lessons", () => {
 describe('positions in Slovenian', () => {
 	const sl = <T>(fn: () => T) => withLocale('sl', fn);
 
+	it('counts arrivals and departures in all four forms', () => {
+		const w = () => t().positions.counts;
+		expect([1, 2, 3, 5, 101].map((n) => sl(() => w().ins(n)))).toEqual([
+			'1 prihod',
+			'2 prihoda',
+			'3 prihodi',
+			'5 prihodov',
+			'101 prihod'
+		]);
+		expect([1, 2, 4, 5, 102].map((n) => sl(() => w().outs(n)))).toEqual([
+			'1 odhod',
+			'2 odhoda',
+			'4 odhodi',
+			'5 odhodov',
+			'102 odhoda'
+		]);
+	});
+
 	it('counts the list’s heading in the nominative, and the person’s own as Vaši', () => {
 		expect([1, 2, 3, 5].map((n) => sl(() => v.listHeading(n, true)))).toEqual([
 			'1 položaj',
@@ -885,7 +904,7 @@ describe('positions in Slovenian', () => {
 
 	it('names Make it mine in the note under Edit', () => {
 		expect(sl(v.makeMineNote)).toBe(
-			'Uredi deluje kot »Naredi svojo kopijo«: vaše različice, označene z njim, se preselijo na kopijo.'
+			'Uredi naredi vašo kopijo (Naredi svojo kopijo); vaše različice, označene s tem položajem, se preselijo nanjo.'
 		);
 	});
 
@@ -1151,7 +1170,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 		});
 		expect(sl(() => ({ ...v.LINK_LESSON }))).toEqual({ label: 'Poveži', aria: 'Poveži lekcijo' });
 		expect(sl(() => v.unlinkLabel('Točka pri 1:12', 'Manos cruzadas'))).toBe(
-			'Odstrani povezavo: Točka pri 1:12 · Manos cruzadas'
+			'Odstrani povezavo: Točka pri 1:12 → Manos cruzadas'
 		);
 	});
 

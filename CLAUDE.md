@@ -74,10 +74,11 @@ and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
 with Undo, "N new"; see
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md))
-and Slovenian (part 1: the app in English or Slovenian per account; the language on
-the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
-person; the Follow my class path in Slovenian, the Practice player and pairing
-included; the rest of the app and the Android app's own text are part 2; see
+and Slovenian (the whole app in English or Slovenian per account: every page, sheet,
+toast, refusal and error page, the admin and the Android app's own text (version 1.8);
+the language on the invite, Join, the cookie before sign-in, a Settings switch and the
+admin's per person; machines keep English (the worker's queue, the media servers,
+`/releases`, `/api/app-update`, the 426); see
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md)).
 
 The design lives in
@@ -221,15 +222,30 @@ src/lib/levels/      PURE, client-safe: levels.ts is the level (`'follow' | 'own
                      `simpleClass`, `autoAddOn` and the other "is this drawn" questions.
                      Components ask it, never compare level strings. first-run.ts: the
                      first run's words, refusals and where it ends (`afterJoin`, `afterSkip`)
-src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current language's catalog),
-                     `en/` the source and `sl/` typed against it, one file per area with an
-                     `index.ts` (the glossary heads `sl/index.ts`), `current.ts` (the current
+src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current language's catalog;
+                     `catalogOf(l)` for one language, as machines' English and the stale refusal
+                     in every language need), `en/` the source and `sl/` typed against it, one
+                     file per area (admin, clones, comments, common, entry, exercise, figure,
+                     format, groups, lesson, links, moves, nouns, picker, player, positions,
+                     refusals, routine, settings, shell, songs, today, video) with an `index.ts`
+                     (the glossary heads `sl/index.ts`). `nouns` is the counted nouns in the
+                     nominative, number included (`t().nouns.figures(3)`: "3 različice"); a count
+                     in another case is its area's own entry. `refusals` is what no area owns
+                     (missing rows, error pages, chunks, file checks). `current.ts` (the current
                      language: a `withLocale` override for specs, the server's per-request
                      source, the browser's, then English; never a server module variable),
                      `locale.ts` (`'en' | 'sl'`, the `lang` cookie, `requestLocale`), `plural.ts`
-                     (`slCount`, `slForm`). `i18n.spec.ts` checks both catalogs have the same
-                     keys; `no-english.spec.ts` lists the translated components (`TRANSLATED`)
-                     and fails on bare English in their markup (`no-english.ts`, `englishIn`)
+                     (`slCount`, `slForm`), `number.ts` (`readDecimal`: "1,5" or "1.5" typed),
+                     `lazy.ts` (`lazyWords`: an object word table kept as a constant, each key
+                     a getter read at call time). `catalog.spec.ts` checks every area: the same
+                     keys, no Slovenian string equal to the English (`ALLOWED_SAME`, with a
+                     reason), every function leaf drawing a string (`SAMPLE_ARGS`).
+                     `no-english.spec.ts` checks the markup of EVERY `.svelte` under
+                     `src/lib/components` and `src/routes` (but `src/routes/dev/`) for bare
+                     English (`no-english.ts`, `englishIn`); `EXEMPT` names the few it skips,
+                     each with its reason. `refusals-guard.spec.ts` fails on an English literal
+                     in a server refusal (`fail`, `error(4xx)`, `failJson`, `message:`) outside
+                     the machines' routes
 src/lib/server/i18n-request.ts  the server's language per request (`AsyncLocalStorage`):
                      `hooks.server.ts` wraps `resolve` in `runInLocale`
 src/lib/server/locale.ts  `users.locale` and `invites.locale` (`setLocale`, `localeOf`,
@@ -459,7 +475,9 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 android/             the Android apps (Kotlin): one per dance as Gradle flavors, each a WebView launcher, salsa:// links, the upload
                      and reminder workers. No screens of its own. Pure parts (Links,
-                     UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
+                     UploadPlan, Reminder, Api parsing, Words) have JVM tests. `Words.kt` is its
+                     own text in English and Slovenian, by the account's language
+                     (`/api/device/config`, `Prefs.locale`), never the phone's. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
 src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
                      `spaceOf`, which every create action calls itself (the layout's copy may be old)
@@ -862,12 +880,22 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   Android app needs is an `/api/` endpoint; anything it shows is a page the
   app's WebView opens with the cookie session.
 - **Words go through `t()`.** A screen's words live in the catalogs, never inline:
-  a new screen's words go in both catalogs (en and sl, `src/lib/i18n/`), and its
-  component goes in `TRANSLATED` (`src/lib/i18n/no-english.spec.ts`). Read `t()` at call
-  time (in markup, a `$derived` or inside a function), never into a top-level constant.
-  Slovenian: vikanje in sentences, plurals through `slCount`, a decimal comma, a person's
-  name after a colon or a "·", the glossary at the top of `sl/index.ts`. What people
-  write (names, notes, comments, song titles) and the count are never translated.
+  a new screen's words go in both catalogs (en and sl, `src/lib/i18n/`); every component
+  is checked for bare English (`no-english.spec.ts`; a component it must skip goes in
+  `EXEMPT` with its reason), and every server refusal a person reads goes through `t()`
+  inside the request, never a top-level constant (`refusals-guard.spec.ts`). Read `t()` at
+  call time (in markup, a `$derived` or inside a function), never into a top-level
+  constant; an object table is `lazyWords` (`lazy.ts`). Slovenian: vikanje in sentences,
+  plurals through `slCount` (all four forms), a count after a verb or preposition is its
+  own entry, in its case ("Dodaj 3 položaje", "v 2 kombinacijah"; `nouns` is only the
+  nominative), a decimal comma, quotes » «, a person's name after a colon or a "·", the
+  glossary at the top of `sl/index.ts`. Text the app writes into the database is in the
+  actor's language; text composed at read time (History, refusals) in the reader's.
+  Machines keep English (the worker's queue, the media servers, `/releases`,
+  `/api/app-update`, the 426). What people write (names, notes, comments, song titles)
+  and the count are never translated. The Android app's own words are
+  `android/app/src/main/kotlin/eu/anotherroot/salsa/Words.kt` (the account's language,
+  from `/api/device/config`).
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with
   `toLocaleDateString` — ICU versions disagree and SSR must match hydration.
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are

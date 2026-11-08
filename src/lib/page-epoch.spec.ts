@@ -61,7 +61,7 @@ describe('staleAnswer', () => {
 		expect(res.headers.get(STALE_HEADER)).toBe('1');
 		expect(res.headers.get('content-type')).toContain('application/json');
 		const body = await res.text();
-		expect(JSON.parse(body)).toEqual({ message: STALE_MESSAGE });
+		expect(JSON.parse(body)).toEqual({ message: STALE_MESSAGE, stale: true });
 		// What an upload button shows of it.
 		expect(messageFromBody(body)).toBe(STALE_MESSAGE);
 	});
@@ -81,7 +81,7 @@ describe('staleAnswer', () => {
 		const body = JSON.parse(await res.text());
 		expect(body.type).toBe('failure');
 		expect(body.status).toBe(409);
-		expect(parse(body.data)).toEqual({ message: STALE_MESSAGE });
+		expect(parse(body.data)).toEqual({ message: STALE_MESSAGE, stale: true });
 	});
 });
 
@@ -191,6 +191,13 @@ describe('staleFailure', () => {
 		);
 		expect(staleFailure({ type: 'success', status: 200 })).toBe(false);
 	});
+
+	it('knows the refusal by its flag, whatever its words', () => {
+		expect(
+			staleFailure({ type: 'failure', status: 409, data: { message: 'Anders.', stale: true } })
+		).toBe(true);
+		expect(staleFailure({ type: 'failure', status: 409, data: { stale: 'yes' } })).toBe(false);
+	});
 });
 
 describe('the stale refusal in Slovenian', () => {
@@ -198,9 +205,9 @@ describe('the stale refusal in Slovenian', () => {
 
 	it("says it in the reader's language, and is still told from any other failure", async () => {
 		const res = withLocale('sl', () => staleAnswer(false));
-		expect(JSON.parse(await res.text())).toEqual({ message: SL });
+		expect(JSON.parse(await res.text())).toEqual({ message: SL, stale: true });
 		const action = withLocale('sl', () => staleAnswer(true));
-		expect(parse(JSON.parse(await action.text()).data)).toEqual({ message: SL });
+		expect(parse(JSON.parse(await action.text()).data)).toEqual({ message: SL, stale: true });
 		expect(staleFailure({ type: 'failure', status: 409, data: { message: SL } })).toBe(true);
 	});
 });

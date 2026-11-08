@@ -58,6 +58,19 @@
 //   break (a routine's)                   prekinitev (a timing break: časovna prekinitev)
 //   link                                  povezava
 //   owner / editor / member (a group's)   Vodja / Lahko ureja / Lahko bere
+//   does not loop (a routine)             se ne sklene
+//   Notes (a figure's, a lesson's)        opombe
+//   Map (positions)                       Zemljevid
+//   Sync (copies)                         Uskladi
+//   Keep in step                          Samodejno usklajevanje
+//   Drop my copy                          Opusti svojo kopijo
+//   Detach                                Odklopi
+//   Take (a field, a recording)           Prevzemi
+//   Update mine                           Posodobi svojo
+//   Make it mine                          Naredi svojo kopijo
+//   Versions (the list) / Your version    Kopije / Vaša kopija
+//   Twins (the chip)                      Dvojčka
+//   the reminder (Android's channel)      Opomnik za vadenje
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { clones } from './clones';

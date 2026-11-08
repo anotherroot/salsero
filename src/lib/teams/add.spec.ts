@@ -88,7 +88,7 @@ describe('the Add sheet in Slovenian', () => {
 			'Vaja'
 		]);
 		expect(sl(figuresCaption)).toBe(
-			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne porabijo nič vašega prostora.'
+			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne zasedajo vašega prostora.'
 		);
 	});
 });

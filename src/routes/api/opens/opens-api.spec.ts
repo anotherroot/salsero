@@ -156,8 +156,8 @@ describe('POST /api/opens in Slovenian', () => {
 			return null;
 		};
 		expect(await message(null, { kind: 'lesson', id: 1 })).toBe('Prijavite se');
-		expect(await message('u2', { kind: 'nope' })).toBe('Napačna zahteva.');
-		expect(await message('u2', { kind: 'lesson', id: 999 })).toBe('Lekcija ne obstaja.');
-		expect(await message('u2', { kind: 'song', id: 999 })).toBe('Skladba ne obstaja.');
+		expect(await message('u2', { kind: 'nope' })).toBe('Napačna zahteva');
+		expect(await message('u2', { kind: 'lesson', id: 999 })).toBe('Lekcija ne obstaja');
+		expect(await message('u2', { kind: 'song', id: 999 })).toBe('Skladba ne obstaja');
 	});
 });

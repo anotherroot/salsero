@@ -32,7 +32,7 @@ const RESTORABLE = new Set([
 ]);
 
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : null);
-const quoted = (v: unknown) => (text(v) === null ? '' : ` '${text(v)}'`);
+const quoted = (v: unknown) => (text(v) === null ? '' : ` ${t().groups.history.quote(text(v)!)}`);
 const count = (v: ChangeValues | null) => (typeof v?.count === 'number' ? v.count : 1);
 
 /** A spot link's row marks a point (a spot with no end) with `point: 1`; older rows are sections. */

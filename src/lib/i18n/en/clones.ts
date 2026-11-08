@@ -144,7 +144,9 @@ export const clones = {
 		copyFrom: (place: string): string => `Your copy · from ${place}`,
 		inGroups: (n: number): string => `Yours · in ${plural(n, 'group', 'groups')}`,
 		/** `n` is every version, this one included. */
-		twins: (n: number): string => `Twins · ${n} versions`,
+		// `kind` is for languages whose word for "versions" is the kind's own (Slovenian).
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		twins: (n: number, kind: CloneKind): string => `Twins · ${n} versions`,
 		/** The note on a source's tab, opened from the person's copy (board C2 p2b). */
 		note: (place: string): string =>
 			`${possessive(place)} version, read-only. Take what you want into yours.`,

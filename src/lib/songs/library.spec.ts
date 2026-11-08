@@ -292,7 +292,7 @@ describe('in Slovenian', () => {
 			'Nalaganje · 1 od 1,5 MB · pustite aplikacijo odprto'
 		);
 		expect(sl(() => audioFileProblem({ size: 120 * MiB, type: 'audio/mpeg' }))).toBe(
-			'Datoteka ima 120 MB; največ je 95 MB.'
+			'Datoteka meri 120 MB, dovoljeno pa je največ 95 MB.'
 		);
 		expect(sl(() => audioFileProblem({ size: MiB, type: 'video/mp4' }))).toBe(
 			'Dodate lahko le zvočne datoteke.'

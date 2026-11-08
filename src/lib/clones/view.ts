@@ -135,7 +135,7 @@ export function cloneSubtitle(s: {
 	if (s.self.kind === 'team') return w.team(s.self.name, s.kind);
 	if (s.clonedFrom !== null) return w.copyFrom(s.clonedFrom);
 	if (s.groups > 0) return w.inGroups(s.groups);
-	if (s.twins > 0) return w.twins(s.twins + 1);
+	if (s.twins > 0) return w.twins(s.twins + 1, s.kind);
 	return null;
 }
 

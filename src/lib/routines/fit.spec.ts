@@ -14,6 +14,7 @@ import {
 } from './fit';
 import { fold } from '$lib/fold';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 
 /** Positions: 1 open, 2 closed, 3 hammerlock. None is special. */
 const fig = (
@@ -420,5 +421,17 @@ describe('anchorText in Slovenian', () => {
 		expect(
 			sl({ kind: 'alternative', starts: [2], startCount: 1, ends: [], next: 1, exclude: [] })
 		).toBe('Closed → kjerkoli, 1→1');
+	});
+
+	it('says nothing fits with the context after a colon (SlotPicker)', () => {
+		const between: Anchor = {
+			kind: 'between',
+			after: { kind: 'after', ends: [1], next: 1 },
+			before: { kind: 'before', starts: [2], startCounts: [1] }
+		};
+		expect(withLocale('sl', () => t().routine.picker.nothingFits(anchorText(between, name)!))).toBe(
+			'Nič, kar poznate, ne ustreza: začne na 1, v položaju: Open · konča na 8, v položaju: Closed.'
+		);
+		expect(t().routine.picker.nothingFits('Starts on 1')).toBe('Nothing you know starts on 1.');
 	});
 });

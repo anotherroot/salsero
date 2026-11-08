@@ -82,7 +82,7 @@ export const moves: Catalog['moves'] = {
 		empty: 'Še ni figur',
 		emptyBody: 'Dodajte prvo, ki ste se jo naučili.',
 		search: 'Iskanje figur',
-		filter: 'Filtri različic',
+		filter: 'Filtri figur',
 		allLinked: 'Vse je povezano',
 		allLinkedBody: 'Vsaka različica ima odsek in lekcijo.',
 		noMatch: 'Nobena različica ne ustreza',
@@ -120,7 +120,7 @@ export const moves: Catalog['moves'] = {
 		moveName: 'Ime figure',
 		figureName: 'Ime različice',
 		figurePlaceholder: 'npr. Doble',
-		startsAs: (move) => `Začne na 1 in traja 8 dob, slog prevzame od figure ${move}.`,
+		startsAs: (move) => `Začne na 1 in traja 8 dob, v slogu figure: ${move}.`,
 		addFigure: 'Dodaj različico'
 	},
 	coverage: {

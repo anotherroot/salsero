@@ -31,8 +31,9 @@ function scanned(): string[] {
 	return [...routes, ...server].filter((p) => !MACHINES.some((m) => m.test(p)));
 }
 
-// A literal that starts with a capital letter: a sentence a person would read.
-const LITERAL = String.raw`(['"\`])[A-Z][^'"\`]*\1`;
+// A literal that starts with a capital letter: a sentence a person would read. One
+// alternative per quote, so the other quotes may sit inside it ("Can't …", 'a "b"').
+const LITERAL = String.raw`(?:'[A-Z][^'\n]*'|"[A-Z][^"\n]*"|\`[A-Z][^\`]*\`)`;
 const PATTERNS = [
 	new RegExp(String.raw`message:\s*${LITERAL}`, 'g'),
 	new RegExp(String.raw`\bfail\(\s*\d+\s*,\s*\{[^}]*?${LITERAL}`, 'g'),
@@ -69,7 +70,8 @@ describe('englishRefusals', () => {
 					"return failJson(409, 'Wrong place.');",
 					'/* a comment',
 					'   over two lines */',
-					"return fail(404, 'Bad upload id.');"
+					"return fail(404, 'Bad upload id.');",
+					'return fail(400, { message: "Can\'t do that." });'
 				].join('\n')
 			)
 		).toEqual([
@@ -77,7 +79,8 @@ describe('englishRefusals', () => {
 			"2: fail(409, { field: 'name', error: 'Taken.'",
 			"3: error(404, 'Not found'",
 			"4: failJson(409, 'Wrong place.'",
-			"7: fail(404, 'Bad upload id.'"
+			"7: fail(404, 'Bad upload id.'",
+			'8: message: "Can\'t do that."'
 		]);
 	});
 

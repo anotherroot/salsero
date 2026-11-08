@@ -88,7 +88,7 @@ export const lesson: Catalog['lesson'] = {
 		},
 		remove: {
 			title: 'Želite lekcijo odstraniti iz svojih lekcij?',
-			body: 'Kar je dala na seznam Danes, izgine, razen če je to tudi v kateri drugi vaši lekciji. Vaši vnosi ostanejo.',
+			body: 'Vaje, ki jih je dodala na Danes, izginejo, razen če so tudi v kateri drugi vaši lekciji. Vaši vnosi ostanejo.',
 			busy: 'Odstranjevanje …'
 		},
 		archive: {
@@ -180,9 +180,9 @@ export const lesson: Catalog['lesson'] = {
 		busy: 'Ustvarjanje lekcije',
 		where: 'Kam',
 		searchGroups: 'Iskanje skupin',
-		places: 'Možnosti',
+		places: 'Kam',
 		nowhere: 'Drugih možnosti ni.',
-		draftNote: 'Lekcija skupine začne kot osnutek'
+		draftNote: 'Lekcija skupine se začne kot osnutek'
 	},
 
 	// After »prek« the genitive (1 odseka, 2+ odsekov; 1 točke, 2+ točk); after »z/s« the
@@ -223,8 +223,9 @@ export const lesson: Catalog['lesson'] = {
 		noneEdit: 'Še nobenega. Odprite video čez cel zaslon in pritisnite »Odsek«, da ga označite.',
 		none: 'Še nobenega.',
 		play: (label) => `Predvajaj: ${label}`,
-		unlinkFrom: (section, target) => `Odstrani povezavo: ${section} · ${target}`,
-		unlink: 'Odstrani povezavo',
+		unlinkFrom: (section, target) => `Odstrani povezavo: ${section} → ${target}`,
+		// The row's button, as on the figure page: short, the label says it all.
+		unlink: 'Odveži',
 		link: (label) => `Poveži: ${label}`
 	},
 

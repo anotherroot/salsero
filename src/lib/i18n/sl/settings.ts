@@ -15,7 +15,7 @@ export const settings: Catalog['settings'] = {
 		whatUses: 'Kaj zaseda prostor',
 		whatUsesSub: 'Največje najprej, z možnostjo brisanja',
 		askForMore: 'Prosi za več prostora',
-		asked: (date) => `Zaprošeno ${date} · čaka`,
+		asked: (date) => `Prošnja poslana ${date} · čaka na odgovor`,
 		askIntro: 'Skrbnik vidi, koliko prostora porabite. Opomba ni obvezna.',
 		note: 'Opomba',
 		couldNotAsk: 'Prošnje ni bilo mogoče poslati.',

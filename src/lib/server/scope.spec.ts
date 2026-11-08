@@ -75,11 +75,11 @@ describe('a refusal in Slovenian', () => {
 			refusal(() => requireLessonAccess(db, locals, { dance: 'salsa' }, 999, 'read'))
 		);
 		expect(lesson?.status).toBe(404);
-		expect(lesson?.body?.message).toBe('Lekcija ne obstaja.');
+		expect(lesson?.body?.message).toBe('Lekcija ne obstaja');
 		const exercise = runInLocale('sl', () =>
 			refusal(() => requireExerciseInWall(db, { userId: 'u1', dance: 'salsa' }, 999))
 		);
-		expect(exercise?.body?.message).toBe('Vaja ne obstaja.');
+		expect(exercise?.body?.message).toBe('Vaja ne obstaja');
 		const signedOut = runInLocale('sl', () =>
 			refusal(() => wallOf({ dance: 'salsa' }, { user: null }))
 		);

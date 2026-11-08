@@ -68,7 +68,7 @@ export const songs: Catalog['songs'] = {
 		playFirst: 'Najprej predvajajte skladbo.',
 		playFirstBody: 'Pritisk označi dobo, ki se predvaja.',
 		guessHint:
-			'Štetje je le ugibanje. Predvajajte skladbo in pritisnite ob vsaki »1«, ki jo slišite, dokler se ne ujema.',
+			'Štetje je le ugibanje. Predvajajte skladbo in pritisnite ob vsaki enki, ki jo slišite, dokler se štetje ne ujema.',
 		slipHint: 'Če se štetje po prekinitvi v glasbi zamakne, tam znova pritisnite na 1.',
 		// Odlomek is masculine: Vaš, Samodejni.
 		sample: 'Odlomek',
@@ -117,13 +117,13 @@ export const songs: Catalog['songs'] = {
 			uploaded: 'Naložena',
 			fromYouTube: 'Z YouTuba',
 			download: 'Prenos',
-			waitingFetcher: 'Čaka na prenosnik doma',
+			waitingFetcher: 'Čaka na prenos doma',
 			findBeat: 'Iskanje ritma',
 			onLaptop: 'Analiza ritma na prenosniku',
 			downloaded: 'Prenesena',
 			waitingAnalysis: 'Čaka na analizo ritma'
 		},
-		noBeats: 'V skladbi ni dob, na katere bi se pritisk pripel.',
+		noBeats: 'V skladbi ni dob, na katere bi se pritisk poravnal.',
 		badTempo: 'Neveljavna hitrost štetja.',
 		noTitle: 'Vnesite naslov skladbe (največ 200 znakov).',
 		longArtist: 'Izvajalec naj ima največ 200 znakov.',
@@ -174,7 +174,7 @@ export const songs: Catalog['songs'] = {
 		uploadFile: 'Naloži zvočno datoteko',
 		oneAtATime: 'Naenkrat se nalaga le ena datoteka. Počakajte, da se naloži ta, ki se že nalaga.',
 		upTo: (limit) => `Največ ${limit}. Dobi slog, izbran zgoraj.`,
-		tooLarge: (mb, limit) => `Datoteka ima ${mb} MB; največ je ${limit}.`,
+		tooLarge: (mb, limit) => `Datoteka meri ${mb} MB, dovoljeno pa je največ ${limit}.`,
 		audioOnly: 'Dodate lahko le zvočne datoteke.',
 		progress: (loaded, total) => `Nalaganje · ${loaded} od ${total} MB · pustite aplikacijo odprto`,
 		percent: (n) => `${n}\u00a0%`,

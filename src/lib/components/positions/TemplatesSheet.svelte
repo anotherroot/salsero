@@ -52,6 +52,8 @@
 	// svelte-ignore state_referenced_locally
 	let type = $state<string | null>(firstTemplateType(dance, defaultStyle));
 	const have = $derived(new Set(owned));
+	// The spread reads each template's `description` getter here, inside the $derived: in the
+	// language of the moment, not the one at import.
 	const rows = $derived(
 		(type ? (TEMPLATES[dance][type] ?? []) : []).map((t) => ({ ...t, had: have.has(fold(t.name)) }))
 	);

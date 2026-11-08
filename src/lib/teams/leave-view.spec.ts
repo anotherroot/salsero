@@ -88,7 +88,9 @@ describe('leave lines in Slovenian', () => {
 		expect(sl(() => leaveTitle('Salsa torek'))).toBe('Želite zapustiti »Salsa torek«?');
 		expect(sl(() => chooseButton(3))).toBe('Zapusti in obdrži 3');
 		expect(sl(() => copyMeta('Salsa torek'))).toBe('Vaša kopija · vir: Salsa torek');
-		expect(sl(leaveSub)).not.toBe(leaveSub());
+		expect(sl(leaveSub)).toBe(
+			'Po izstopu iz skupine ne boste videli ničesar več. Obdržite kopije tistega, kar izberete.'
+		);
 	});
 
 	it('count in four forms and say a whole gigabyte plainly', () => {

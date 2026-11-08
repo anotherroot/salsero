@@ -52,8 +52,8 @@ export function fillEpoch(html: string): string {
  * action failure, which the form shows like any other refused save: the page
  * stays, with what was typed. As a plain error, SvelteKit would swap the page
  * for its error page. `data` is devalue's encoding of
- * `{ message }` (the reader's `t().refusals.stale`), as `deserialize` in `$app/forms` reads it.
- * Anything else gets `{ message }` as JSON, the shape the API
+ * `{ message, stale: true }` (the reader's `t().refusals.stale`), as `deserialize` in
+ * `$app/forms` reads it. Anything else gets `{ message, stale: true }` as JSON, the shape the API
  * routes refuse with: SvelteKit never sees a page's data refused
  * (`holdsBack`), and an API caller that shows the server's message
  * (`messageFromBody`, the player's `ok`) shows words, not a status number.
@@ -61,7 +61,7 @@ export function fillEpoch(html: string): string {
 export function staleAnswer(action: boolean): Response {
 	const message = t().refusals.stale;
 	if (!action) {
-		return new Response(JSON.stringify({ message }), {
+		return new Response(JSON.stringify({ message, stale: true }), {
 			status: 409,
 			headers: { [STALE_HEADER]: '1', 'content-type': 'application/json' }
 		});
@@ -69,7 +69,7 @@ export function staleAnswer(action: boolean): Response {
 	const body = {
 		type: 'failure',
 		status: 409,
-		data: JSON.stringify([{ message: 1 }, message])
+		data: JSON.stringify([{ message: 1, stale: 2 }, message, true])
 	};
 	return new Response(JSON.stringify(body), {
 		status: 409,
@@ -140,9 +140,12 @@ export function holdsBack(
 /**
  * Whether an action's result is this refusal (`staleAnswer(true)`). Code that
  * reloads the page's data after a failure skips it then: the reload would be
- * refused too, and held back (`holdsBack`), so it would never finish.
+ * refused too, and held back (`holdsBack`), so it would never finish. Told by its
+ * `stale: true`, or, from a server that did not send the flag yet, by its words in
+ * any language.
  */
 export function staleFailure(result: ActionResult): boolean {
 	if (result.type !== 'failure' || result.status !== 409) return false;
-	return STALE_MESSAGES.has((result.data as { message?: unknown } | undefined)?.message);
+	const data = result.data as { message?: unknown; stale?: unknown } | undefined;
+	return data?.stale === true || STALE_MESSAGES.has(data?.message);
 }

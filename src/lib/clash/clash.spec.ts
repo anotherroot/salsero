@@ -263,7 +263,7 @@ describe('the clash sheet in Slovenian', () => {
 				'Kombinacija se je spremenila. Zdaj je prikazano najnovejše stanje.'
 			);
 			expect(staleRoutine('Ana')).toBe(
-				'Kombinacija se je spremenila · Ana. Zdaj je prikazano najnovejše stanje.'
+				'Sprememba kombinacije · Ana. Zdaj je prikazano najnovejše stanje.'
 			);
 		});
 	});

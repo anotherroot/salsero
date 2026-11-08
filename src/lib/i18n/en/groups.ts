@@ -170,6 +170,8 @@ export const groups = {
 		title: 'History',
 		/** The tab's title: "History · Week 6". */
 		head: (title: string): string => `History · ${title}`,
+		/** A name in a line: "added the figure 'Doble'". */
+		quote: (name: string): string => `'${name}'`,
 		/** Someone no longer in the group's names. */
 		someone: 'Someone',
 		/** "a section": what an add or a remove of a thing reads as. */

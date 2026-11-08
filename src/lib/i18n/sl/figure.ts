@@ -69,12 +69,13 @@ export const figure: Catalog['figure'] = {
 		archive: () => 'Arhiviraj različico'
 	},
 	archive: {
-		title: (variation) => `Želite arhivirati: ${variation}?`,
+		title: (variation) => `Želite arhivirati »${variation}«?`,
 		button: () => 'Arhiviraj različico',
 		buttonLast: 'Arhiviraj in odstrani figuro',
 		kept: 'Njeni posnetki in zgodovina vadenja se ohranijo.',
-		captionLast: (move) => `Z njo gre tudi figura: ${move}. To je njena zadnja različica.`,
-		caption: (move) => `Druge različice ostanejo v figuri: ${move}.`
+		captionLast: (move, variation) =>
+			`Z njo gre tudi figura: ${move}. »${variation}« je njena zadnja različica.`,
+		caption: (move, variation) => `»${variation}« zapusti figuro: ${move}.`
 	},
 	remove: {
 		title: (move) => `Figura bo odstranjena: ${move}`,
@@ -101,8 +102,9 @@ export const figure: Catalog['figure'] = {
 		download: 'Prenesi',
 		openOnYouTube: 'Odpri na YouTubu',
 		none: 'brez posnetkov',
-		unlink: 'Odstrani povezavo',
-		unlinkLabel: (section, figure) => `Odstrani povezavo: ${section} · ${figure}`,
+		// The row's button: short, so the recording's name keeps its room; the label says it all.
+		unlink: 'Odveži',
+		unlinkLabel: (section, figure) => `Odstrani povezavo: ${section} → ${figure}`,
 		notDeleted: 'Ni izbrisano',
 		deleteLabel: 'Izbriši ta posnetek',
 		deleteTitle: 'Želite izbrisati ta posnetek?',

@@ -88,6 +88,11 @@ if [ -n "$SCENES" ]; then
   CMD=(scene --db "$TMP/salsa.db" --base "http://127.0.0.1:$PORT" --out "$OUT" --size "$SIZE" --theme "$THEME" --scenes "$SCENES")
   [ -n "$GROUP" ] && CMD+=(--group "$GROUP")
   [ -n "$VIEWPORT" ] && CMD+=(--viewport)
+  # Scenes name English buttons: in another language they are looked up through the catalogs.
+  if [ -n "$LOCALE" ] && [ "$LOCALE" != en ]; then
+    ( cd "$ROOT" && nix develop --command npx tsx scripts/shots/words.ts "$TMP/words.json" ) >/dev/null 2>&1 || exit 1
+    CMD+=(--words "$TMP/words.json")
+  fi
 else
   CMD=(shoot --db "$TMP/salsa.db" --base "http://127.0.0.1:$PORT" --out "$OUT" --size "$SIZE" --theme "$THEME" --pages "$PAGES")
   [ -n "$GROUP" ] && CMD+=(--group "$GROUP")
@@ -98,6 +103,6 @@ else
 fi
 [ -n "$LOCALE" ] && CMD+=(--locale "$LOCALE")
 [ -n "$LEVEL" ] && CMD+=(--level "$LEVEL")
-timeout 900 nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \
+timeout "${SHOTS_TIMEOUT:-900}" nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \
   -c python3 -I "$HERE/shots.py" "${CMD[@]}"
 exit $?

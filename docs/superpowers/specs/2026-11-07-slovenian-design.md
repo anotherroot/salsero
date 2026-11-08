@@ -101,6 +101,42 @@ Slovenian, without her choosing or understanding anything in English.
   | Copy, twins | kopija, dvojčka |
   | Levels: Follow my class / Practise and keep my own / Everything | Sledim svojemu tečaju / Vadim in imam svoje / Vse |
   | You (the tab: the settings, and above Follow my class the groups) | Jaz |
+  | version (of the app) | različica aplikacije (always with the noun: a bare "različica" is a figure) |
+  | Session (Start session) | vadba (Začni vadbo) |
+  | Paused (an exercise) | na premoru |
+  | Not today | Ne danes |
+  | Log a set / a set's minutes, reps | Nov vnos, Shrani vnos / minute, ponovitve |
+  | an 8-count (call every 2) | osmica (napoved na 2 osmici) |
+  | Practice (the panel, practising) | vadenje (Vadi ob …); a session stays vadba |
+  | Class (a lesson's day, "Class · …") | lekcija (Lekcija · tor, 3. nov.); the group is tečaj |
+  | Teacher (a comment's tag) | vodja tečaja |
+  | a heart (on a comment) | srček |
+  | Draft (a group's lesson) | osnutek |
+  | Mark point / Start section (player) | Označi točko / Začni odsek |
+  | Loop, Looping (a section) | Ponavljaj, Se ponavlja |
+  | Mirror, Mirrored (the picture) | Zrcali, Zrcaljeno |
+  | Full video / Lesson video | Cel video / Video lekcije (the default title: Videoposnetek) |
+  | a take (My count), a bar (of counts) | posnetek, takt (Takt 2 od 4) |
+  | Storage (Settings), the admin | prostor, skrbnik (the admin's section: Skrbništvo) |
+  | Paired phones | Povezani telefoni (lines as nouns: "Povezava: …") |
+  | a count (a figure's length) | doba ("8 dob"; the spoken count stays štetje) |
+  | slot (in a routine) | mesto |
+  | break (a routine's) | prekinitev (a timing break: časovna prekinitev) |
+  | link | povezava |
+  | owner / editor / member (a group's) | Vodja / Lahko ureja / Lahko bere |
+  | does not loop (a routine) | se ne sklene |
+  | Notes (a figure's, a lesson's) | opombe |
+  | Map (positions) | Zemljevid |
+  | Sync (copies) | Uskladi |
+  | Keep in step | Samodejno usklajevanje |
+  | Drop my copy | Opusti svojo kopijo |
+  | Detach | Odklopi |
+  | Take (a field, a recording) | Prevzemi |
+  | Update mine | Posodobi svojo |
+  | Make it mine | Naredi svojo kopijo |
+  | Versions (the list) / Your version | Kopije / Vaša kopija |
+  | Twins (the chip) | Dvojčka |
+  | the reminder (Android's channel) | Opomnik za vadenje |
 
   Where a word in the table reads badly in a sentence, the builder may pick
   another and add it to the table.
@@ -247,3 +283,32 @@ that changes a form field or an API shape older open pages would send.
   mid-session), else loads the next page whole (`needsLocaleReload`,
   `localeStale`, `src/lib/nav/fresh.ts`), so the client never keeps the login
   page's language.
+
+## Decided while building (part 2)
+
+- **Everything is checked, not a list.** `no-english.spec.ts` reads the markup of every
+  `.svelte` under `src/lib/components` and `src/routes` (the dev gallery aside);
+  `EXEMPT` names the few it skips, each with its reason. `refusals-guard.spec.ts` fails
+  on an English literal in a server refusal (`fail`, `error(4xx)`, `failJson`,
+  `message:`) outside the machines' routes.
+- **Cases are entries of their own.** `t().nouns` holds the counted nouns in the
+  nominative, number included ("3 različice"); a count after a verb or preposition
+  takes its case and is its area's own four-form entry ("Dodaj 3 položaje", "v 2
+  kombinacijah"). Adjectives and verbs agree with the count, or the line is rephrased
+  with a colon ("Povezano: 3").
+- **Object word tables** stay constants read at call time through `lazyWords`
+  (`src/lib/i18n/lazy.ts`); string constants became functions.
+- **Machines keep English**: the worker's queue, the media servers, `/releases`,
+  `/api/app-update`, the 426; they compose with `catalogOf('en')` or
+  `runInLocale('en', …)`. The stale-page refusal (409, `x-page-stale`) is in the
+  reader's language and carries `stale: true`, so a page tells it from any other
+  failure by the flag (or, from an older server, by its words in any language).
+- **Quotes » «** around a name in Slovenian lines (History, archive questions); the
+  English keeps its own.
+- **The Android app's own words** are `Words.kt` (English and Slovenian, JVM-tested),
+  chosen by the account's language from `/api/device/config`; the pairing link carries
+  the language too, so the first "Phone paired" toast is already in it.
+- **The glossary grew** (the table above): doba, mesto, prekinitev, povezava, the copy
+  words (Uskladi, Samodejno usklajevanje, Opusti svojo kopijo, Odklopi, Prevzemi,
+  Posodobi svojo, Naredi svojo kopijo, Kopije, Vaša kopija, Dvojčka), the roles,
+  »se ne sklene«, Zemljevid, opombe and the reminder's channel.

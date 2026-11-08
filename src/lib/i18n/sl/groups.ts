@@ -71,7 +71,7 @@ export const groups: Catalog['groups'] = {
 	},
 	leave: {
 		title: (team) => `Želite zapustiti »${team}«?`,
-		sub: 'Po izstopu iz skupine ne vidite ničesar več. Obdržite kopije tistega, kar izberete.',
+		sub: 'Po izstopu iz skupine ne boste videli ničesar več. Obdržite kopije tistega, kar izberete.',
 		reconnect:
 			'Kar obdržite, postane vaša kopija. Če se pozneje spet pridružite, se kopije znova povežejo.',
 		copyChip: 'Kopija',
@@ -156,7 +156,7 @@ export const groups: Catalog['groups'] = {
 		onToday: 'V Danes',
 		alsoFigures: 'Vadi tudi različice',
 		figuresCaption:
-			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne porabijo nič vašega prostora.',
+			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne zasedajo vašega prostora.',
 		// The adjective agrees with the count.
 		newRoutines: (n) =>
 			slCount(n, ['nova kombinacija', 'novi kombinaciji', 'nove kombinacije', 'novih kombinacij']),
@@ -178,6 +178,7 @@ export const groups: Catalog['groups'] = {
 	history: {
 		title: 'Zgodovina',
 		head: (title) => `Zgodovina · ${title}`,
+		quote: (name) => `»${name}«`,
 		someone: 'Nekdo',
 		thing: {
 			video: 'video',
@@ -238,7 +239,7 @@ export const groups: Catalog['groups'] = {
 		addedSong: (name) => `Dodano: skladba${name}`,
 		made: (shown) => `Ustvarjeno: ${shown}`,
 		// The move it came from after "prej:", a name never declined.
-		movedHere: (name, from) => `Premaknjeno sem${name ? `:${name}` : ''} · prej: '${from}'`,
+		movedHere: (name, from) => `Premaknjeno sem${name ? `:${name}` : ''} · prej: »${from}«`,
 		extracted: (name) => `Ustvarjeno iz mest: kombinacija${name}`,
 		addedSlots: (n) => `Dodano: ${slots(n)}`,
 		linked: (spot, name) => `Povezano: ${SPOT[spot]}${name ? ` ·${name}` : ''}`,
@@ -255,17 +256,17 @@ export const groups: Catalog['groups'] = {
 		deleted: (shown, name) => `Izbrisano: ${shown}${name}`,
 		changed: (what) => `Spremenjeno: ${what}`,
 		movedSlot: 'Premaknjeno: mesto',
-		putBack: (spot, label) => `Vrnjeno: ${label === null ? SPOT[spot] : `'${label}'`}`,
+		putBack: (spot, label) => `Vrnjeno: ${label === null ? SPOT[spot] : `»${label}«`}`,
 		putBackSlots: (n) => `Vrnjeno: ${n > 1 ? slots(n) : 'mesto'}`,
 		restored: (what) => `Obnovljeno: ${what}`,
 		restoredThing: (thing) => `Obnovljeno: ${thing}`,
 		moved: (spot, label, seconds) =>
-			`Premaknjeno: ${label === null ? SPOT[spot] : `'${label}'`} za ${seconds} s`,
+			`Premaknjeno: ${label === null ? SPOT[spot] : `»${label}«`} za ${seconds} s`,
 		// "konec odseka" (genitive), then the name in its quotes.
 		movedEnd: (spot, label, seconds) =>
-			`Premaknjeno: konec ${SPOT_OF[spot]}${label === null ? '' : ` '${label}'`} za ${seconds} s`,
+			`Premaknjeno: konec ${SPOT_OF[spot]}${label === null ? '' : ` »${label}«`} za ${seconds} s`,
 		clearedName: (spot) => `Ime izbrisano: ${SPOT[spot]}`,
-		named: (spot, label) => `Poimenovano: ${SPOT[spot]} '${label}'`,
+		named: (spot, label) => `Poimenovano: ${SPOT[spot]} »${label}«`,
 		was: (value) => `Prej: ${value}`,
 		empty: '(prazno)',
 		editedBy: (first, ago) => `Zadnja sprememba: ${first} · ${ago}`,
@@ -286,7 +287,7 @@ export const groups: Catalog['groups'] = {
 		noHistory: 'Te zgodovine ni',
 		noChange: 'Te spremembe ni',
 		restoreClash: (title) => `${title}. Obnovitev bi razveljavila tudi to, zato ni bila izvedena.`,
-		nameTaken: 'To ime ima zdaj nekaj drugega. Najprej preimenujte tisto.'
+		nameTaken: 'To ime je zdaj zasedeno. Najprej preimenujte tisto z istim imenom.'
 	},
 	deleted: {
 		head: (team) => `Nedavno izbrisano · ${team}`,
@@ -339,8 +340,7 @@ export const groups: Catalog['groups'] = {
 		deletedBy: (who) => `Izbrisano · ${who}`,
 		deletedByAgo: (who, ago) => `Izbrisano · ${who} · ${ago}`,
 		staleRoutine: 'Kombinacija se je spremenila. Zdaj je prikazano najnovejše stanje.',
-		staleRoutineBy: (who) =>
-			`Kombinacija se je spremenila · ${who}. Zdaj je prikazano najnovejše stanje.`,
+		staleRoutineBy: (who) => `Sprememba kombinacije · ${who}. Zdaj je prikazano najnovejše stanje.`,
 		missingSeen: 'Ta stran je zastarela. Naložite jo znova in poskusite še enkrat.',
 		field: {
 			title: 'Naslov',

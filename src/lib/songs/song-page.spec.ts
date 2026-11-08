@@ -101,7 +101,7 @@ describe('a song page in Slovenian', () => {
 	it('walks a link and an upload through their steps', () => {
 		expect(sl(() => songSteps('waiting_download', false))).toEqual([
 			{ state: 'done', title: 'Dodana', meta: 'Z YouTuba' },
-			{ state: 'now', title: 'Prenos', meta: 'Čaka na prenosnik doma' },
+			{ state: 'now', title: 'Prenos', meta: 'Čaka na prenos doma' },
 			{ state: 'todo', title: 'Iskanje ritma', meta: 'Analiza ritma na prenosniku' }
 		]);
 		expect(sl(() => songSteps('waiting_analysis', false))).toEqual([

@@ -74,7 +74,7 @@ export const routine: Catalog['routine'] = {
 		aRoutine: 'kombinacija',
 		archived: (name) => `${name} (arhivirana)`,
 		empty: 'Prazno — tu ni česa napovedati',
-		move: (n) => `Premakni mesto ${n}. Premikate ga s puščičnima tipkama.`,
+		move: (n) => `Premik mesta ${n}. Premaknete ga s puščičnima tipkama.`,
 		delete: (n) => `Izbriši mesto ${n}`,
 		notePlaceholder: 'Dodajte opombo\u00a0…',
 		noteLabel: (n) => `Opomba za mesto ${n}`,
@@ -111,9 +111,10 @@ export const routine: Catalog['routine'] = {
 		toSeeRest: ', da vidite ostale.',
 		noAlternative: 'Nobena druga različica se ne začne in konča tako kot ta.',
 		noMatch: (q) => `Nič ne ustreza »${q}«.`,
-		// The context line starts with its verb: "Nič, kar poznate, ne začne na 1 …".
+		// The context line after a colon, as it reads on its own: "Nič, kar poznate, ne ustreza:
+		// začne na 1 · konča na 8." (a "ne" before the first verb would not reach the second).
 		nothingFits: (context) =>
-			`Nič, kar poznate, ne ${context[0].toLowerCase()}${context.slice(1)}.`,
+			`Nič, kar poznate, ne ustreza: ${context[0].toLowerCase()}${context.slice(1)}.`,
 		noFigures: 'V tem plesu še ni različic.',
 		startsOnFrom: (n, from) => `Začne na ${n}, v položaju: ${from}`,
 		startsOn: (n) => `Začne na ${n}`,

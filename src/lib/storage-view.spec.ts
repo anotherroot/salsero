@@ -32,7 +32,9 @@ describe('storage view in Slovenian', () => {
 		expect(sl(() => usageLine(820 * MB, null))).toBe('Uporabljate 820 MB');
 	});
 	it('words the open request', () => {
-		expect(sl(() => askedLine('2026-11-02'))).toBe('Zaprošeno 2. nov. 2026 · čaka');
+		expect(sl(() => askedLine('2026-11-02'))).toBe(
+			'Prošnja poslana 2. nov. 2026 · čaka na odgovor'
+		);
 	});
 	it('words a row’s meta with a decimal comma', () => {
 		expect(sl(() => itemMeta({ context: 'Lekcija · Sreda', sizeBytes: 1229 * MB }))).toBe(
