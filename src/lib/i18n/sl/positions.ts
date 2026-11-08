@@ -272,11 +272,11 @@ export const positions: Catalog['positions'] = {
 			},
 			{
 				title: 'Slogi',
-				body: 'Vsakemu položaju dajte slog, tako kot različici: Salsa, Son, Timba. Ko označujete različico, so najprej na vrsti položaji njenega sloga; različica pa lahko vseeno gre iz enega sloga v drugega.'
+				body: 'Vsakemu položaju dajte slog, tako kot različici: Salsa, Son, Timba. Ko označujete različico, so najprej ponujeni položaji njenega sloga; različica pa lahko vseeno gre iz enega sloga v drugega.'
 			},
 			{
 				title: 'Neobvezno',
-				body: 'Različica nima položaja, dokler ji ga ne date, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.'
+				body: 'Različica nima položaja, dokler ji ga ne daste, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.'
 			},
 			{
 				title: 'Kje začeti',

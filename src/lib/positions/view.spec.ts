@@ -1075,6 +1075,13 @@ describe('How positions work, the map and the links in Slovenian', () => {
 			],
 			done: 'Razumem'
 		});
+		expect(sl(() => v.HOW.sections.map((s) => s.body))).toEqual([
+			'Kako se partnerja držita med različicami: odprto z obema rokama, zaprto, s prekrižanimi rokami, v hammerlocku, drug ob drugem.',
+			'Vsaka različica se začne v nekem položaju in konča v nekem položaju. Tako aplikacija ve, kaj lahko sledi čemu: urejevalnik kombinacij ponudi le, kar ustreza, zemljevid pa pokaže, kje se zataknete.',
+			'Vsakemu položaju dajte slog, tako kot različici: Salsa, Son, Timba. Ko označujete različico, so najprej ponujeni položaji njenega sloga; različica pa lahko vseeno gre iz enega sloga v drugega.',
+			'Različica nima položaja, dokler ji ga ne daste, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.',
+			'Dodajte grobe položaje iz predloge in jih sproti preimenujte ali spremenite, ali pa naredite svoje. Skupine imajo svoje, tako kot različice, in lahko jih kopirate.'
+		]);
 		expect(sl(v.howExampleLabel)).toBe('Položaj, različica, naslednji položaj');
 		expect(sl(v.howPaneSubtitle)).toBe('Neobvezno: preberite enkrat, nato se odločite');
 	});
