@@ -37,6 +37,7 @@ import type { ChangeValues, CloneKind, Flat, Picks, SyncResult } from '$lib/type
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
 import { nameTaken, PICK_BOTH, STALE } from '$lib/clones/view';
+import { parseComesBack, serializeComesBack } from '$lib/schedule/comes-back';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -406,7 +407,16 @@ class Applier {
 			this.changed('countBpm', t.countBpm, g.countBpm);
 		}
 		if (has('comesBack')) {
-			set.comesBack = g.comesBack;
+			// A received "until" is turned on for the receiver now, unless they were already learning.
+			const incoming = parseComesBack(g.comesBack);
+			const own = parseComesBack(t.comesBack);
+			set.comesBack =
+				incoming?.kind === 'until'
+					? serializeComesBack({
+							...incoming,
+							since: own?.kind === 'until' ? own.since : this.now
+						})
+					: g.comesBack;
 			this.changed('comesBack', t.comesBack, g.comesBack);
 		}
 		if (Object.keys(set).length === 0) return;

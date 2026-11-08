@@ -233,6 +233,29 @@ describe('root fields', () => {
 		expect(differing('drill', D2, D)).toEqual([]);
 	});
 
+	it('Take of an until setting starts it now, unless the receiver was already on until', async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const D2 = await copy('drill', D, T1_SALSA);
+		const set = (id: number, v: object) =>
+			db
+				.update(exercises)
+				.set({ comesBack: JSON.stringify(v) })
+				.where(eq(exercises.id, id))
+				.run();
+		const read = (id: number) =>
+			JSON.parse(
+				db.select().from(exercises).where(eq(exercises.id, id)).get()!.comesBack as string
+			);
+		set(D, { kind: 'until', good: 3, since: 5 });
+		// Onto faces: turned on for the receiver now, not the giver's day.
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(read(D2)).toEqual({ kind: 'until', good: 3, since: NOW });
+		// Onto an until already running since T: its own start is kept, the count is taken.
+		set(D2, { kind: 'until', good: 5, since: T });
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(read(D2)).toEqual({ kind: 'until', good: 3, since: T });
+	});
+
 	it('a drill’s practice, a song’s count and a lesson’s title land, with the lesson’s exercise', async () => {
 		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
 		const D2 = await copy('drill', D, T1_SALSA);
