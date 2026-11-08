@@ -20,6 +20,7 @@ import { memberIn } from './clones/genes';
 import { shareSong } from './song-share';
 import { songChoices, songSample } from './songs';
 import type { ChangeRootKind, MusicParent, MusicRow, PickerSong } from '$lib/types';
+import { t } from '$lib/i18n/catalog';
 
 /** Up to 500 characters (spec B). */
 export const MUSIC_NOTE_MAX = 500;
@@ -176,7 +177,7 @@ export function addMusic(
 ): Added {
 	const row = parentRow(db, parent);
 	if (!row || row.dance !== space.dance || !inSpace(row, space)) {
-		return { ok: false, message: 'That is not yours to change.' };
+		return { ok: false, message: t().songs.music.notYours };
 	}
 	const song = db.select().from(songs).where(eq(songs.id, songId)).get();
 	const allowed =
@@ -187,13 +188,13 @@ export function addMusic(
 		(isTeam(space)
 			? song.teamId === space.teamId && song.userId === null
 			: practiceSong(db, space.userId, song));
-	if (!song || !allowed) return { ok: false, message: 'That song cannot go here.' };
+	if (!song || !allowed) return { ok: false, message: t().songs.music.cannotGo };
 	const taken = db
 		.select({ id: songLinks.id })
 		.from(songLinks)
 		.where(and(parentColumn(parent), eq(songLinks.songId, songId)))
 		.get();
-	if (taken) return { ok: false, message: 'Already in Music' };
+	if (taken) return { ok: false, message: t().songs.music.already };
 	return db.transaction((tx) => {
 		// A group's draft is shared by the add: members can always play what a row points at.
 		if (isTeam(space) && song.sharedAt === null) shareSong(tx, space, songId, now);

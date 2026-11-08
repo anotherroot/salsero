@@ -14,6 +14,7 @@
 	import SongPickSheet from '$lib/components/songs/SongPickSheet.svelte';
 	import { CLIP } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { songMeta } from '$lib/songs/search';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
@@ -55,7 +56,7 @@
 	let open = $state(false);
 
 	const slug = $derived(page.params.dance ?? 'salsa');
-	const styleLabels = $derived(isDanceSlug(slug) ? getDance(slug).styleLabel : {});
+	const styleLabels = $derived(isDanceSlug(slug) ? styleLabelsOf(getDance(slug).styleLabel) : {});
 	const picked = $derived(songs.find((s) => s.id === songId) ?? null);
 	const meta = (s: PickerSong) => songMeta(s, styleLabels);
 

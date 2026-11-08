@@ -42,7 +42,93 @@ export const songs: Catalog['songs'] = {
 		pick: 'Izberite skladbo',
 		optional: '(neobvezno)',
 		unsavedLabel: 'Opomba',
-		saveFailed: 'Shranjevanje ni uspelo.'
+		saveFailed: 'Shranjevanje ni uspelo.',
+		noteTooLong: 'Opomba ima lahko največ 500 znakov.',
+		pickSong: 'Izberite skladbo.',
+		gone: 'Ta skladba je bila že odstranjena.',
+		notYours: 'Tega ne morete spreminjati.',
+		cannotGo: 'Te skladbe ni mogoče dodati sem.',
+		already: 'Že v Glasbi'
+	},
+	page: {
+		untitled: 'Skladba',
+		details: 'Podatki o skladbi',
+		editSong: 'Uredi skladbo',
+		history: 'Zgodovina',
+		stopSharing: 'Prenehaj deliti',
+		practise: 'Vadi ob tej skladbi',
+		audioMissing: 'Zvočna datoteka skladbe manjka.',
+		audioUnplayable: 'Ta brskalnik ne more predvajati zvoka skladbe.',
+		wouldNotPlay: 'Skladbe ni bilo mogoče predvajati.',
+		play: 'Predvajaj skladbo',
+		pause: 'Ustavi skladbo',
+		position: 'Čas v skladbi',
+		gotIt: 'Zabeleženo',
+		tapOnOne: 'Pritisni na 1',
+		playFirst: 'Najprej predvajajte skladbo.',
+		playFirstBody: 'Pritisk označi dobo, ki se predvaja.',
+		guessHint:
+			'Štetje je le ugibanje. Predvajajte skladbo in pritisnite ob vsaki »1«, ki jo slišite, dokler se ne ujema.',
+		slipHint: 'Če se štetje po prekinitvi v glasbi zamakne, tam znova pritisnite na 1.',
+		// Odlomek is masculine: Vaš, Samodejni.
+		sample: 'Odlomek',
+		sampleFrom: (clock) => `Od ${clock}`,
+		sampleYours: 'Vaš',
+		sampleSetByYou: 'Nastavili ste ga sami',
+		sampleAutomatic: 'Samodejni',
+		sampleAutomaticMeta: 'Po tretjini skladbe, na enki',
+		startSampleAt: (clock) => `Začni odlomek pri ${clock}`,
+		backToAutomatic: 'Nazaj na samodejni',
+		countSpeed: 'Hitrost štetja',
+		countSpeedHelp:
+			'Če štetje teče s polovično ali dvojno hitrostjo vaših korakov, ga preklopite. To izbriše vaše enke.',
+		tempoFailed: 'Hitrosti štetja ni bilo mogoče spremeniti.',
+		yourOnes: 'Vaše enke',
+		yourOnesCount: (n) => `Vaše enke · ${n}`,
+		clearAll: 'Počisti vse',
+		removeOneAt: (time) => `Odstrani enko pri ${time}`,
+		progress: 'Napredek',
+		laptopNote:
+			'Teče na prenosniku približno enkrat na minuto, ko je prižgan. Stran se posodablja sama.',
+		failedTitle: 'Skladba ni uspela',
+		unknownError: 'Neznana napaka',
+		uploadInstead: 'Raje naloži datoteko',
+		from: (url) => `Vir: ${url}`,
+		editorsOnly: 'Vidijo jo le tisti, ki lahko urejajo skupino',
+		shareWithClass: 'Deli s tečajem',
+		changeSpeedTitle: 'Želite spremeniti hitrost štetja?',
+		change: 'Spremeni',
+		// Accusative after "izbriše": vašo enko, vaši enki, vaše enke, vaših enk.
+		clears: (n) =>
+			n === 1
+				? 'To izbriše enko, ki ste jo označili.'
+				: `To izbriše ${slCount(n, ['vašo enko', 'vaši enki', 'vaše enke', 'vaših enk'])}.`,
+		archiveTitle: 'Želite arhivirati to skladbo?',
+		// The song's name after a colon, never declined.
+		archiveBody: (name) =>
+			`Skladba ne bo več v Glasbi in med skladbami za izbiro: ${name}. Vnosi, ki ste jih zabeležili z njo, ostanejo.`,
+		archive: 'Arhiviraj',
+		archiveSong: 'Arhiviraj skladbo',
+		saving: 'Shranjevanje',
+		artist: 'Izvajalec',
+		// Skladba is feminine: Dodana, Naložena, Prenesena.
+		steps: {
+			added: 'Dodana',
+			uploaded: 'Naložena',
+			fromYouTube: 'Z YouTuba',
+			download: 'Prenos',
+			waitingFetcher: 'Čaka na prenosnik doma',
+			findBeat: 'Iskanje ritma',
+			onLaptop: 'Analiza ritma na prenosniku',
+			downloaded: 'Prenesena',
+			waitingAnalysis: 'Čaka na analizo ritma'
+		},
+		noBeats: 'V skladbi ni dob, na katere bi se pritisk pripel.',
+		badTempo: 'Neveljavna hitrost štetja.',
+		noTitle: 'Vnesite naslov skladbe (največ 200 znakov).',
+		longArtist: 'Izvajalec naj ima največ 200 znakov.',
+		pickStyle: 'Izberite slog.',
+		onlyReady: 'Deliti je mogoče le pripravljeno skladbo.'
 	},
 	list: {
 		untitled: 'Skladba brez naslova',

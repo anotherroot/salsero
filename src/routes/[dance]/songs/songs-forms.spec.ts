@@ -440,4 +440,40 @@ describe('in Slovenian', () => {
 			data: { message: 'Znova lahko poskusite le pri skladbi, ki ni uspela.' }
 		});
 	});
+
+	it("refuses a song page's tap, sample, count speed and details", async () => {
+		const { id: waiting } = createSongFromUrl(db, U1_SALSA, {
+			url: 'https://youtu.be/w',
+			title: '',
+			style: 'salsa'
+		});
+		expect(
+			await sl(songPage.actions.tap, post('salsa', { t: '12' }, String(waiting)))
+		).toMatchObject({
+			status: 400,
+			data: { action: 'tap', message: 'Najprej predvajajte skladbo.' }
+		});
+		const id = readySong();
+		expect(
+			await sl(songPage.actions.sample, post('salsa', { t: 'abc' }, String(id)))
+		).toMatchObject({ data: { action: 'sample', message: 'Najprej predvajajte skladbo.' } });
+		expect(
+			await sl(songPage.actions.tempo, post('salsa', { factor: '3' }, String(id)))
+		).toMatchObject({ data: { action: 'tempo', message: 'Neveljavna hitrost štetja.' } });
+		expect(await sl(songPage.actions.retry, post('salsa', {}, String(id)))).toMatchObject({
+			status: 409,
+			data: { action: 'retry', message: 'Znova lahko poskusite le pri skladbi, ki ni uspela.' }
+		});
+		const edit = (fields: Record<string, string>) =>
+			sl(songPage.actions.update, post('salsa', fields, String(id)));
+		expect(await edit({ title: '', artist: '', style: 'salsa' })).toMatchObject({
+			data: { field: 'title', message: 'Vnesite naslov skladbe (največ 200 znakov).' }
+		});
+		expect(await edit({ title: 'x', artist: 'x'.repeat(201), style: 'salsa' })).toMatchObject({
+			data: { field: 'artist', message: 'Izvajalec naj ima največ 200 znakov.' }
+		});
+		expect(await edit({ title: 'x', artist: '', style: 'sensual' })).toMatchObject({
+			data: { message: 'Izberite slog.' }
+		});
+	});
 });

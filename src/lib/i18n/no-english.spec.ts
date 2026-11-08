@@ -247,7 +247,10 @@ const TRANSLATED: string[] = [
 	'src/lib/components/songs/MusicList.svelte',
 	'src/lib/components/songs/UploadRow.svelte',
 	'src/routes/[dance]/songs/+layout.svelte',
-	'src/routes/[dance]/songs/+page.svelte'
+	'src/routes/[dance]/songs/+page.svelte',
+	// A song's page and Song details (part 2, Task 14).
+	'src/lib/components/songs/SongDetailsSheet.svelte',
+	'src/routes/[dance]/songs/[id]/+page.svelte'
 ];
 
 describe('englishIn', () => {

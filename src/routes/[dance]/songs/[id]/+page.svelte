@@ -40,8 +40,10 @@
 	import { reportOpen } from '$lib/teams/opens-api';
 	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
 	import { clock } from '$lib/format';
-	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
+	import { BPM, TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
 	import { watchMedia } from '$lib/media';
+	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -50,6 +52,8 @@
 	let paused = $state(true);
 	let audioDuration = $state(NaN);
 	let tapped = $state(false);
+	/** The page's words, in the current language. */
+	const w = $derived(t().songs.page);
 	/** "Play the song first." from the browser's own check, before anything is sent. */
 	let tapError: string | null = $state(null);
 	let now = $state(0);
@@ -83,7 +87,7 @@
 								{
 									key: 'history',
 									icon: 'clock' as const,
-									label: 'History',
+									label: w.history,
 									href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
 										dance: data.dance.slug,
 										id: String(group.id),
@@ -98,7 +102,7 @@
 								{
 									key: 'unshare',
 									icon: 'eye-off' as const,
-									label: 'Stop sharing',
+									label: w.stopSharing,
 									onclick: () => (unsharing = true)
 								}
 							]
@@ -108,7 +112,7 @@
 								{
 									key: 'delete',
 									icon: 'trash' as const,
-									label: 'Delete',
+									label: t().common.delete,
 									danger: true,
 									onclick: () => (deleting = true)
 								}
@@ -157,7 +161,7 @@
 	const usual = $derived(
 		songSubtitle({
 			artist: song.artist,
-			style: data.dance.styleLabel[song.style] ?? song.style,
+			style: styleLabelsOf(data.dance.styleLabel)[song.style] ?? song.style,
 			bpm: grid?.bpm ?? null
 		})
 	);
@@ -169,7 +173,7 @@
 		Number.isFinite(audioDuration) && audioDuration > 0 ? audioDuration : (song.durationS ?? 0)
 	);
 	const ticks = $derived(
-		grid ? data.anchors.map((i) => grid.beats[i]).filter((t): t is number => t !== undefined) : []
+		grid ? data.anchors.map((i) => grid.beats[i]).filter((s): s is number => s !== undefined) : []
 	);
 	const sample = $derived(data.sample ? sampleLabels(data.sample.custom) : null);
 	// A refusal names the control it is about; one that names none shows at the foot.
@@ -185,8 +189,8 @@
 
 	$effect(() => {
 		if (!song.status.startsWith('waiting')) return;
-		const t = setInterval(() => invalidateAll(), 10_000);
-		return () => clearInterval(t);
+		const timer = setInterval(() => invalidateAll(), 10_000);
+		return () => clearInterval(timer);
 	});
 
 	// `timeupdate` fires about 4 times a second; while playing, follow every
@@ -208,7 +212,7 @@
 		if (audio.paused)
 			void audio.play().catch((e) => {
 				if (!(e instanceof DOMException && e.name === 'AbortError'))
-					audioProblem ??= 'The song would not play.';
+					audioProblem ??= t().songs.page.wouldNotPlay;
 			});
 		else audio.pause();
 	}
@@ -224,7 +228,7 @@
 		tempoError = null;
 		const r = await act('tempo', { factor: v, ...withSeen() });
 		if (r.type === 'failure') {
-			tempoError = String(r.data?.message ?? 'Could not change the count speed.');
+			tempoError = String(r.data?.message ?? t().songs.page.tempoFailed);
 			tempo = String(song.tempoFactor);
 		}
 	}
@@ -246,8 +250,8 @@
 	/** Send the taps that waited, one at a time, each with what the last one left. */
 	async function drainTaps() {
 		try {
-			for (let t = queuedTaps.shift(); t !== undefined; t = queuedTaps.shift()) {
-				const r = await act('tap', { t, ...withSeen() });
+			for (let at = queuedTaps.shift(); at !== undefined; at = queuedTaps.shift()) {
+				const r = await act('tap', { t: at, ...withSeen() });
 				if (r.type === 'success') gotIt();
 				else break;
 			}
@@ -280,22 +284,22 @@
 	});
 </script>
 
-<svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{song.title || w.untitled} · {data.dance.label}</title></svelte:head>
 
 <Screen compact width="song" title={name} {subtitle}>
 	{#snippet left()}
 		<BackButton
 			fallback={{
 				href: resolve('/[dance]/songs', { dance: data.dance.slug }),
-				label: 'Back to Music'
+				label: t().player.backToMusic
 			}}
 		/>
 	{/snippet}
 	{#snippet right()}
 		{#if canEdit}
-			<BandButton icon="edit" label="Song details" onclick={() => (detailsOpen = true)} />
+			<BandButton icon="edit" label={w.details} onclick={() => (detailsOpen = true)} />
 		{:else if data.makeMine}
-			<BandButton icon="edit" label="Edit song" onclick={() => (makingMine = true)} />
+			<BandButton icon="edit" label={w.editSong} onclick={() => (makingMine = true)} />
 		{/if}
 		{#if hasMenu(songOwn, offers)}
 			<BandButton
@@ -332,7 +336,7 @@
 				href={resolve(`/${data.dance.slug}/player?song=${song.id}`)}
 				class={button('secondary', 'md', true)}
 			>
-				<Icon name="play" size={18} filled />Practice with this song
+				<Icon name="play" size={18} filled />{w.practise}
 			</a>
 		{/if}
 
@@ -346,9 +350,7 @@
 			class="hidden"
 			{@attach watchMedia(`/audio/${song.audioFile}`, (p) => {
 				audioProblem =
-					p === 'missing'
-						? 'The song’s audio file is missing.'
-						: 'This browser can’t play the song’s audio.';
+					p === 'missing' ? t().songs.page.audioMissing : t().songs.page.audioUnplayable;
 			})}
 			onplay={() => {
 				stopSample();
@@ -369,13 +371,13 @@
 				<button
 					type="button"
 					class={PLAY_ROUND}
-					aria-label={paused ? 'Play the song' : 'Pause the song'}
+					aria-label={paused ? w.play : w.pause}
 					onclick={toggle}
 				>
 					<Icon name={paused ? 'play' : 'pause'} filled />
 				</button>
 				<div class="min-w-0 flex-1 pt-3.5">
-					<SeekBar label="Position in the song" value={now} {duration} {ticks} onseek={seek} />
+					<SeekBar label={w.position} value={now} {duration} {ticks} onseek={seek} />
 				</div>
 			</div>
 		</section>
@@ -393,15 +395,15 @@
 						cancel();
 						return;
 					}
-					const t = audio?.currentTime ?? 0;
+					const at = audio?.currentTime ?? 0;
 					// A tap while the last one is out waits for it, so it carries what that one left.
 					if (tapping) {
 						cancel();
-						queuedTaps.push(t);
+						queuedTaps.push(at);
 						return;
 					}
 					tapping = true;
-					formData.set('t', String(t));
+					formData.set('t', String(at));
 					if (seen) formData.set('seen', seen);
 					return async ({ update, result }) => {
 						try {
@@ -415,47 +417,43 @@
 					};
 				}}
 			>
-				<span class="sr-only" role="status">{tapped ? 'Got it' : ''}</span>
+				<span class="sr-only" role="status">{tapped ? w.gotIt : ''}</span>
 				{#if tapped}
 					<button
 						type="submit"
 						class="flex h-16 w-full flex-none items-center justify-center gap-2.5 rounded-full bg-done-soft font-display text-[22px] font-extrabold text-done"
 					>
-						<Icon name="check" size={24} stroke={2.6} />Got it
+						<Icon name="check" size={24} stroke={2.6} />{w.gotIt}
 					</button>
 				{:else}
-					<button type="submit" class={button('primary', 'lg', true)}>Tap on the 1</button>
+					<button type="submit" class={button('primary', 'lg', true)}>{w.tapOnOne}</button>
 				{/if}
-				{#if tapShown === 'Play the song first.'}
-					<Banner kind="error" title="Play the song first."
-						>A tap marks the beat that is playing.</Banner
-					>
+				{#if tapShown === w.playFirst}
+					<Banner kind="error" title={w.playFirst}>{w.playFirstBody}</Banner>
 				{:else if tapShown}
 					<Banner kind="error" title={tapShown} />
 				{/if}
 			</form>
 
 			<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
-				{grid.suggested
-					? 'The count is a guess. Play the song and tap on every “1” you hear until it lines up.'
-					: 'If the count slips after a break, tap the 1 again there.'}{grid.bpm
-					? ` · ${Math.round(grid.bpm)} BPM`
+				{grid.suggested ? w.guessHint : w.slipHint}{grid.bpm
+					? ` · ${Math.round(grid.bpm)} ${BPM}`
 					: ''}
 			</p>
 		{:else if grid.bpm}
 			<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
-				{Math.round(grid.bpm)} BPM
+				{`${Math.round(grid.bpm)} ${BPM}`}
 			</p>
 		{/if}
 
 		{#if data.sample && sample}
-			<h2 class="{SECTION_LABEL} pt-3.5">Sample</h2>
+			<h2 class="{SECTION_LABEL} pt-3.5">{w.sample}</h2>
 			<div class={GROUP}>
 				<div class="flex min-h-16 items-center gap-1 pr-1 pl-4">
 					<div class="flex min-w-0 flex-1 flex-col gap-0.5 py-2">
 						<span class="flex items-center gap-1.5">
 							<span class="text-[16px] leading-[1.3] font-bold text-ink tabular-nums"
-								>From {clock(data.sample.song.startS)}</span
+								>{w.sampleFrom(clock(data.sample.song.startS))}</span
 							>
 							<Badge tone={sample.tone}>{sample.badge}</Badge>
 						</span>
@@ -476,13 +474,13 @@
 				>
 					{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 					<button type="submit" class={button('secondary', 'md', true)}
-						>Start the sample at {clock(now)}</button
+						>{w.startSampleAt(clock(now))}</button
 					>
 				</form>
 				{#if data.sample.custom}
 					<form method="POST" action="?/sampleAuto" use:enhance class="-mt-1 flex justify-center">
 						{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
-						<button type="submit" class={button('tertiary', 'sm')}>Back to automatic</button>
+						<button type="submit" class={button('tertiary', 'sm')}>{w.backToAutomatic}</button>
 					</form>
 				{/if}
 			{/if}
@@ -493,29 +491,29 @@
 
 		{#if canEdit}
 			<h2 class="{SECTION_LABEL} pt-2" tabindex="-1" data-focus="count-speed-heading">
-				Count speed
+				{w.countSpeed}
 			</h2>
 			<Segmented
 				name="factor"
-				label="Count speed"
+				label={w.countSpeed}
 				items={tempoItems}
 				bind:value={tempo}
 				onchange={(v) => (data.anchors.length ? (tempoAsk = v) : setTempo(v))}
 			/>
 			{#if tempoError}<Banner kind="error" title={tempoError} />{/if}
 			<p class="px-3 pt-1 text-[13px] leading-[1.45] text-muted">
-				If the count runs at half or double your steps, switch it. This clears your taps.
+				{w.countSpeedHelp}
 			</p>
 
 			{#if data.anchors.length > 0}
 				<div class="flex min-h-5 items-center justify-between pt-3 pr-1 pl-4">
-					<h2 class="text-[13px] font-bold text-muted">Your 1s · {data.anchors.length}</h2>
+					<h2 class="text-[13px] font-bold text-muted">{w.yourOnesCount(data.anchors.length)}</h2>
 					<form method="POST" action="?/resetAnchors" use:enhance class="-my-3">
 						{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
-						<button type="submit" class={button('tertiary', 'sm')}>Clear all</button>
+						<button type="submit" class={button('tertiary', 'sm')}>{w.clearAll}</button>
 					</form>
 				</div>
-				<ul class={GROUP} aria-label="Your 1s">
+				<ul class={GROUP} aria-label={w.yourOnes}>
 					{#each data.anchors as beat (beat)}
 						{@const time = clock(grid.beats[beat] ?? 0)}
 						<li class="flex min-h-14 items-center justify-between gap-3 pr-1 pl-4">
@@ -527,7 +525,7 @@
 									data-focus="anchor-{beat}"
 									type="submit"
 									class={button('danger-text', 'sm')}
-									aria-label="Remove the 1 at {time}">Remove</button
+									aria-label={w.removeOneAt(time)}>{t().common.remove}</button
 								>
 							</form>
 						</li>
@@ -538,7 +536,7 @@
 		{/if}
 	{:else}
 		{#if steps.length > 0}
-			<ul class={GROUP} aria-label="Progress">
+			<ul class={GROUP} aria-label={w.progress}>
 				{#each steps as step (step.title)}
 					<li class="flex min-h-14 items-center gap-3 py-2 pr-4 pl-4">
 						<span class="flex size-6 flex-none items-center justify-center">
@@ -562,21 +560,21 @@
 				{/each}
 			</ul>
 			<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
-				It runs on the laptop about once a minute while it is on. This page updates by itself.
+				{w.laptopNote}
 			</p>
 		{:else}
-			<Banner kind="error" title="This song failed">{song.error ?? 'Unknown error'}</Banner>
+			<Banner kind="error" title={w.failedTitle}>{song.error ?? w.unknownError}</Banner>
 			<form method="POST" action="?/retry" use:enhance class="flex flex-col gap-2">
 				<button type="submit" class={button('primary', 'md', true)}>
-					<Icon name="refresh" size={20} />Retry
+					<Icon name="refresh" size={20} />{t().songs.list.retry}
 				</button>
 				{#if retryRefusal}<Banner kind="error" title={retryRefusal} />{/if}
 			</form>
 			<a href={resolve(`/${data.dance.slug}/songs?add=1`)} class={button('secondary', 'md', true)}>
-				<Icon name="upload" size={20} />Upload a file instead
+				<Icon name="upload" size={20} />{w.uploadInstead}
 			</a>
 			{#if song.sourceUrl}
-				<p class="px-3 text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
+				<p class="px-3 text-center text-[13px] break-all text-muted">{w.from(song.sourceUrl)}</p>
 			{/if}
 		{/if}
 	{/if}
@@ -587,10 +585,10 @@
 	<BottomBar width="song">
 		<form method="POST" action="?/share" use:enhance class="flex flex-col gap-2">
 			<p class="flex items-center justify-center gap-2 text-[13px] text-muted">
-				<Badge tone="warn">Draft</Badge>Only the group's editors see it
+				<Badge tone="warn">{t().songs.row.draft}</Badge>{w.editorsOnly}
 			</p>
 			<button type="submit" class={button('primary', 'md', true)}>
-				<Icon name="people" size={20} />Share with the class
+				<Icon name="people" size={20} />{w.shareWithClass}
 			</button>
 		</form>
 	</BottomBar>
@@ -609,7 +607,7 @@
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (unsharing = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -620,7 +618,7 @@
 					await update();
 				}}
 		>
-			<button type="submit" class={button('primary', 'sm')}>Stop sharing</button>
+			<button type="submit" class={button('primary', 'sm')}>{w.stopSharing}</button>
 		</form>
 	{/snippet}
 </Dialog>
@@ -635,7 +633,7 @@
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -650,7 +648,7 @@
 					await update();
 				}}
 		>
-			<button type="submit" class={button('danger', 'sm')}>Delete</button>
+			<button type="submit" class={button('danger', 'sm')}>{t().common.delete}</button>
 		</form>
 	{/snippet}
 </Dialog>
@@ -668,14 +666,14 @@
 <Dialog
 	open={tempoAsk !== null}
 	icon="metronome"
-	title="Change count speed?"
-	body={data.anchors.length === 1
-		? 'This clears the 1 you tapped.'
-		: `This clears your ${data.anchors.length} 1s.`}
+	title={w.changeSpeedTitle}
+	body={w.clears(data.anchors.length)}
 	onclose={cancelTempo}
 >
 	{#snippet actions()}
-		<button type="button" class={button('tertiary', 'sm')} onclick={cancelTempo}>Cancel</button>
+		<button type="button" class={button('tertiary', 'sm')} onclick={cancelTempo}
+			>{t().common.cancel}</button
+		>
 		<button
 			type="button"
 			class={button('primary', 'sm')}
@@ -683,7 +681,7 @@
 				const v = tempoAsk;
 				tempoAsk = null;
 				if (v !== null) void setTempo(v);
-			}}>Change</button
+			}}>{w.change}</button
 		>
 	{/snippet}
 </Dialog>
@@ -692,13 +690,13 @@
 	open={archiving}
 	icon="trash"
 	tone="danger"
-	title="Archive this song?"
-	body={`${name} leaves Music and the song popup. Sets you logged with it stay.`}
+	title={w.archiveTitle}
+	body={w.archiveBody(name)}
 	onclose={() => (archiving = false)}
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -714,7 +712,7 @@
 				};
 			}}
 		>
-			<button type="submit" class={button('danger', 'sm')}>Archive</button>
+			<button type="submit" class={button('danger', 'sm')}>{w.archive}</button>
 		</form>
 	{/snippet}
 </Dialog>

@@ -17,18 +17,19 @@ import {
 	setMusicNote
 } from './song-links';
 import type { MusicParent } from '$lib/types';
+import { t } from '$lib/i18n/catalog';
 
-const NOTE_TOO_LONG = 'A note is up to 500 characters.';
-const GONE = 'That song was already removed.';
+/** The refusals' words, read inside the request (its language). */
+const words = () => t().songs.music;
 
 export async function addSongFrom(request: Request, db: Db, space: Space, parent: MusicParent) {
 	const form = await request.formData();
 	const typed = { action: 'addSong' as const, note: String(form.get('note') ?? '') };
 	const note = musicNote(form.get('note'));
 	if (note === undefined)
-		return fail(400, { ...typed, field: 'note' as const, message: NOTE_TOO_LONG });
+		return fail(400, { ...typed, field: 'note' as const, message: words().noteTooLong });
 	const songId = int(form, 'songId');
-	if (songId === undefined) return fail(400, { ...typed, message: 'Pick a song.' });
+	if (songId === undefined) return fail(400, { ...typed, message: words().pickSong });
 	const added = addMusic(db, space, parent, songId, note, Date.now());
 	if (!added.ok) return fail(400, { ...typed, message: added.message });
 	return { action: 'addSong' as const, ok: true };
@@ -44,16 +45,16 @@ export async function noteSongFrom(request: Request, db: Db, space: Space, paren
 	};
 	const note = musicNote(form.get('note'));
 	if (note === undefined) {
-		return fail(400, { ...typed, field: 'note' as const, message: NOTE_TOO_LONG });
+		return fail(400, { ...typed, field: 'note' as const, message: words().noteTooLong });
 	}
 	// The page's own row first: another's (or a missing one) is the same 404, and
 	// the clash check never answers with what someone else's note says.
 	const found = linkId === undefined ? null : musicLinkIn(db, space, linkId, parent);
-	if (!found) return fail(404, { ...typed, message: GONE });
+	if (!found) return fail(404, { ...typed, message: words().gone });
 	const clash = seenRefusal(form, isTeam(space), musicSeen(found.link), typed);
 	if (clash) return clash;
 	if (!setMusicNote(db, space, found.link.id, note, Date.now(), parent)) {
-		return fail(404, { ...typed, message: GONE });
+		return fail(404, { ...typed, message: words().gone });
 	}
 	return { action: 'noteSong' as const, ok: true };
 }
@@ -61,7 +62,7 @@ export async function noteSongFrom(request: Request, db: Db, space: Space, paren
 export async function removeSongFrom(request: Request, db: Db, space: Space, parent: MusicParent) {
 	const linkId = int(await request.formData(), 'linkId');
 	if (linkId === undefined || !removeMusic(db, space, linkId, Date.now(), parent)) {
-		return fail(404, { action: 'removeSong' as const, message: GONE });
+		return fail(404, { action: 'removeSong' as const, message: words().gone });
 	}
 	return { action: 'removeSong' as const, ok: true };
 }

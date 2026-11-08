@@ -45,7 +45,96 @@ export const songs = {
 		optional: '(optional)',
 		/** What "Unsaved changes" calls the note sheet. */
 		unsavedLabel: 'A note',
-		saveFailed: 'That could not be saved.'
+		saveFailed: 'That could not be saved.',
+		/** The Music actions' refusals (`music-form.ts`, `addMusic`). */
+		noteTooLong: 'A note is up to 500 characters.',
+		pickSong: 'Pick a song.',
+		gone: 'That song was already removed.',
+		notYours: 'That is not yours to change.',
+		cannotGo: 'That song cannot go here.',
+		already: 'Already in Music'
+	},
+	/** A song's page (`songs/[id]`, `song-page.ts`). */
+	page: {
+		/** The tab title of a song with no title. */
+		untitled: 'Song',
+		details: 'Song details',
+		editSong: 'Edit song',
+		history: 'History',
+		stopSharing: 'Stop sharing',
+		practise: 'Practice with this song',
+		audioMissing: 'The song’s audio file is missing.',
+		audioUnplayable: 'This browser can’t play the song’s audio.',
+		wouldNotPlay: 'The song would not play.',
+		play: 'Play the song',
+		pause: 'Pause the song',
+		position: 'Position in the song',
+		gotIt: 'Got it',
+		tapOnOne: 'Tap on the 1',
+		/** `tapProblem`'s one refusal, and the line under it. */
+		playFirst: 'Play the song first.',
+		playFirstBody: 'A tap marks the beat that is playing.',
+		guessHint:
+			'The count is a guess. Play the song and tap on every “1” you hear until it lines up.',
+		slipHint: 'If the count slips after a break, tap the 1 again there.',
+		sample: 'Sample',
+		/** The sample row: "From 1:04". */
+		sampleFrom: (clock: string): string => `From ${clock}`,
+		sampleYours: 'Yours',
+		sampleSetByYou: 'Set by you',
+		sampleAutomatic: 'Automatic',
+		sampleAutomaticMeta: 'A third of the way in, on a 1',
+		startSampleAt: (clock: string): string => `Start the sample at ${clock}`,
+		backToAutomatic: 'Back to automatic',
+		countSpeed: 'Count speed',
+		countSpeedHelp:
+			'If the count runs at half or double your steps, switch it. This clears your taps.',
+		tempoFailed: 'Could not change the count speed.',
+		yourOnes: 'Your 1s',
+		yourOnesCount: (n: number): string => `Your 1s · ${n}`,
+		clearAll: 'Clear all',
+		removeOneAt: (time: string): string => `Remove the 1 at ${time}`,
+		progress: 'Progress',
+		laptopNote:
+			'It runs on the laptop about once a minute while it is on. This page updates by itself.',
+		failedTitle: 'This song failed',
+		unknownError: 'Unknown error',
+		uploadInstead: 'Upload a file instead',
+		/** Where the song came from: "From https://…". */
+		from: (url: string): string => `From ${url}`,
+		editorsOnly: "Only the group's editors see it",
+		shareWithClass: 'Share with the class',
+		changeSpeedTitle: 'Change count speed?',
+		change: 'Change',
+		/** Changing the count speed clears the 1s tapped: one, or `n`. */
+		clears: (n: number): string =>
+			n === 1 ? 'This clears the 1 you tapped.' : `This clears your ${n} 1s.`,
+		archiveTitle: 'Archive this song?',
+		archiveBody: (name: string): string =>
+			`${name} leaves Music and the song popup. Sets you logged with it stay.`,
+		archive: 'Archive',
+		archiveSong: 'Archive song',
+		saving: 'Saving',
+		artist: 'Artist',
+		/** A still-being-added song's steps (`songSteps`). */
+		steps: {
+			added: 'Added',
+			uploaded: 'Uploaded',
+			fromYouTube: 'From YouTube',
+			download: 'Download',
+			waitingFetcher: 'Waiting for the home fetcher',
+			findBeat: 'Find the beat',
+			onLaptop: 'Beat analysis on the laptop',
+			downloaded: 'Downloaded',
+			waitingAnalysis: 'Waiting for beat analysis'
+		},
+		/** The page's refusals. */
+		noBeats: 'No beats to snap to.',
+		badTempo: 'Bad tempo.',
+		noTitle: 'Give the song a title (up to 200 characters).',
+		longArtist: 'Keep the artist to 200 characters.',
+		pickStyle: 'Pick a style.',
+		onlyReady: 'Only a ready song can be shared.'
 	},
 	/** The Music tab's list (`MusicList`, `library.ts`) and its empty pane. */
 	list: {

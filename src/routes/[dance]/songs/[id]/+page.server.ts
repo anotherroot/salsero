@@ -46,6 +46,7 @@ import { DANCES } from '$lib/dances/dances';
 import { isTeam, requireSongAccess, wallOf } from '$lib/server/scope';
 import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { pageSources } from '$lib/server/clones/sources';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
 /*
@@ -169,12 +170,12 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	tap: async (event) => {
 		const { db, song, space, form, now, refused } = await editing(event, named('tap'));
 		if (refused) return refused;
-		const t = Number(form.get('t'));
-		if (!Number.isFinite(t) || song.status !== 'ready')
-			return fail(400, { action: 'tap' as const, message: 'Play the song first.' });
+		const at = Number(form.get('t'));
+		if (!Number.isFinite(at) || song.status !== 'ready')
+			return fail(400, { action: 'tap' as const, message: t().songs.page.playFirst });
 		const beats = scaleBeats(parse(song.beatsJson), song.tempoFactor as TempoFactor);
-		const i = nearestBeat(beats, t - TAP_LATENCY_S);
-		if (i < 0) return fail(400, { action: 'tap' as const, message: 'No beats to snap to.' });
+		const i = nearestBeat(beats, at - TAP_LATENCY_S);
+		if (i < 0) return fail(400, { action: 'tap' as const, message: t().songs.page.noBeats });
 		setAnchors(db, song.id, addAnchor(parse(song.anchorsJson), i), space, now);
 		return { ok: true };
 	},
@@ -199,7 +200,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		if (refused) return refused;
 		const f = Number(form.get('factor'));
 		if (!(TEMPO_FACTORS as readonly number[]).includes(f))
-			return fail(400, { action: 'tempo' as const, message: 'Bad tempo.' });
+			return fail(400, { action: 'tempo' as const, message: t().songs.page.badTempo });
 		setTempoFactor(db, song.id, f as TempoFactor, space, now);
 		return { ok: true };
 	},
@@ -208,9 +209,9 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	sample: async (event) => {
 		const { db, song, space, form, now, refused } = await editing(event, named('sample'));
 		if (refused) return refused;
-		const t = Number(form.get('t'));
-		if (!Number.isFinite(t) || !setSampleStart(db, song.id, t, space, now))
-			return fail(400, { action: 'sample' as const, message: 'Play the song first.' });
+		const at = Number(form.get('t'));
+		if (!Number.isFinite(at) || !setSampleStart(db, song.id, at, space, now))
+			return fail(400, { action: 'sample' as const, message: t().songs.page.playFirst });
 		return { ok: true };
 	},
 
@@ -235,18 +236,18 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		if (!title)
 			return fail(400, {
 				field: 'title' as const,
-				message: 'Give the song a title (up to 200 characters).',
+				message: t().songs.page.noTitle,
 				...sent
 			});
 		const artist = optionalText(form, 'artist', 200);
 		if (artist === undefined)
 			return fail(400, {
 				field: 'artist' as const,
-				message: 'Keep the artist to 200 characters.',
+				message: t().songs.page.longArtist,
 				...sent
 			});
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
-		if (!style) return fail(400, { message: 'Pick a style.', ...sent });
+		if (!style) return fail(400, { message: t().songs.page.pickStyle, ...sent });
 		updateSongMeta(db, song.id, { title, artist, style }, space, now);
 		return { ok: true };
 	},
@@ -260,7 +261,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		// Not logged in History, on a group song too: a retry only re-queues the
 		// worker (status), like the worker's own writes, and no field changes.
 		if (!retrySong(db, song.id)) {
-			return fail(409, { action: 'retry' as const, message: 'Only a failed song can be retried.' });
+			return fail(409, { action: 'retry' as const, message: t().songs.add.onlyFailed });
 		}
 		return { ok: true };
 	},
@@ -280,7 +281,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (!isTeam(space)) throw error(404, 'Song not found');
 		if (!shareSong(db, space, song.id, Date.now())) {
-			return fail(400, { action: 'share' as const, message: 'Only a ready song can be shared.' });
+			return fail(400, { action: 'share' as const, message: t().songs.page.onlyReady });
 		}
 		return { ok: true };
 	},

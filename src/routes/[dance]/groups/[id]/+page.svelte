@@ -37,6 +37,7 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { t } from '$lib/i18n/catalog';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -188,7 +189,7 @@
 		<!-- My class: the latest class, the earlier ones and the class songs (levels spec). -->
 		<MyClass
 			dance={data.dance.slug}
-			styleLabel={data.dance.styleLabel}
+			styleLabel={styleLabelsOf(data.dance.styleLabel)}
 			lessons={data.lessons}
 			songs={data.songs}
 			{addingNow}
@@ -306,8 +307,8 @@
 						})}
 						name={songName(s)}
 						meta={s.status === 'ready'
-							? readyMeta(s, data.dance.styleLabel)
-							: songState(s, data.dance.styleLabel).meta}
+							? readyMeta(s, styleLabelsOf(data.dance.styleLabel))
+							: songState(s, styleLabelsOf(data.dance.styleLabel)).meta}
 						tone={s.status === 'failed' ? 'danger' : null}
 						sample={s.sample}
 						draft={s.draft}
