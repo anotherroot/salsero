@@ -49,25 +49,19 @@ describe('sendingCount', () => {
 describe('stillToAsk', () => {
 	const log = entry({ label: 'Practice log' });
 	const settings = entry({ label: 'Exercise settings' });
-	const pass = { href: '/salsa/exercises/2?session=1', answered: [log] };
+	const pass = { href: '/salsa/exercises/2?run=1', answered: [log] };
 
 	it('without a pass, asks about everything', () => {
-		expect(stillToAsk([log, settings], null, '/salsa/exercises/2?session=1')).toEqual([
-			log,
-			settings
-		]);
+		expect(stillToAsk([log, settings], null, '/salsa/exercises/2?run=1')).toEqual([log, settings]);
 	});
 
 	it('for the answered move, asks about only what the question did not cover', () => {
-		expect(stillToAsk([log, settings], pass, '/salsa/exercises/2?session=1')).toEqual([settings]);
-		expect(stillToAsk([log], pass, '/salsa/exercises/2?session=1')).toEqual([]);
+		expect(stillToAsk([log, settings], pass, '/salsa/exercises/2?run=1')).toEqual([settings]);
+		expect(stillToAsk([log], pass, '/salsa/exercises/2?run=1')).toEqual([]);
 	});
 
 	it('for another move, the pass covers nothing', () => {
-		expect(stillToAsk([log, settings], pass, '/salsa/exercises/3?session=1')).toEqual([
-			log,
-			settings
-		]);
+		expect(stillToAsk([log, settings], pass, '/salsa/exercises/3?run=1')).toEqual([log, settings]);
 		expect(stillToAsk([log], pass, null)).toEqual([log]);
 	});
 

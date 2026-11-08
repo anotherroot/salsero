@@ -85,12 +85,19 @@ function opening(): Trail {
 }
 
 describe('keptSearch', () => {
-	it('strips popup flags and session, keeps day, q and chips', () => {
+	it('strips popup flags, keeps day, q and chips', () => {
 		expect(keptSearch('?q=enc&new=1&style=cuban')).toBe('?q=enc&style=cuban');
-		expect(keptSearch('?session=1&day=2026-10-30')).toBe('?day=2026-10-30');
 		expect(keptSearch('?new=1')).toBe('');
 		expect(keptSearch('')).toBe('');
 		expect(keptSearch('?add=1&v=2&x=1')).toBe('?x=1');
+	});
+	// A run page is a place to come back to: the player's Back and a tab tap return into it.
+	it('keeps the run and its skip', () => {
+		expect(keptSearch('?run=1&skip=3&day=2026-10-30')).toBe('?run=1&skip=3&day=2026-10-30');
+	});
+	// Catches: the old session's flag still dropped though nothing sets it any more.
+	it('drops no session flag: nothing sets one', () => {
+		expect(keptSearch('?session=on')).toBe('?session=on');
 	});
 });
 
@@ -102,6 +109,8 @@ describe('page classes', () => {
 		expect(isTrailPage('/voice')).toBe(false);
 		expect(remembered('/salsa/player')).toBe(false);
 		expect(remembered('/salsa/share')).toBe(false);
+		// Done for today: a Today tab tap never lands on it.
+		expect(remembered('/salsa/done')).toBe(false);
 		expect(remembered('/salsa/figures/1')).toBe(true);
 		expect(remembered('/settings')).toBe(false);
 		for (const p of [
@@ -335,6 +344,30 @@ describe('tabTarget', () => {
 		});
 		expect(tabTarget(EMPTY_TRAIL, 'moves', 'salsa', '/salsa')).toEqual({ href: '/salsa/figures' });
 	});
+	it('after Done for today, Today is its list again, not the run`s last page', () => {
+		let t = EMPTY_TRAIL;
+		t = arrive(t, A({ to: '/salsa', title: 'Today', kind: 'enter', index: 1 }));
+		const step = (o: Partial<Arrival>) => A({ title: 'Ex', index: 2, prevIndex: 2, ...o });
+		t = arrive(
+			t,
+			step({ to: '/salsa/exercises/4', search: '?run=1', from: '/salsa', prevIndex: 1 })
+		);
+		t = arrive(
+			t,
+			step({
+				to: '/salsa/exercises/7',
+				search: '?run=1&skip=4',
+				from: '/salsa/exercises/4',
+				kind: 'replace'
+			})
+		);
+		t = arrive(
+			t,
+			step({ to: '/salsa/done', title: 'Done', from: '/salsa/exercises/7', kind: 'replace' })
+		);
+		t = arrive(t, A({ to: '/salsa/figures', title: 'Moves', from: '/salsa/done', index: 3 }));
+		expect(tabTarget(t, 'today', 'salsa', '/salsa/figures')).toEqual({ href: '/salsa' });
+	});
 });
 
 describe('backTarget', () => {
@@ -466,11 +499,19 @@ describe('backMove', () => {
 		const e = { 1: '/salsa/figures?q=enc&chip=open', 2: '/salsa/figures/12' };
 		expect(backMove(e, 2, '/salsa/figures')).toBe('history');
 	});
-	it('navigates when the slot below would reopen a popup or a session', () => {
+	it('steps history from the player back into the run, its skip kept', () => {
+		expect(
+			backMove(
+				{ 1: '/salsa/exercises/4?run=1&skip=3', 2: '/salsa/player?exercise=4&from=run&skip=3' },
+				2,
+				'/salsa/exercises/4'
+			)
+		).toBe('history');
+	});
+	it('navigates when the slot below would reopen a popup', () => {
 		expect(
 			backMove({ 1: '/salsa/figures?new=1', 2: '/salsa/figures/12' }, 2, '/salsa/figures')
 		).toBe('goto');
-		expect(backMove({ 1: '/salsa?session=1', 2: '/salsa/exercises/4' }, 2, '/salsa')).toBe('goto');
 		expect(
 			backMove({ 1: '/salsa/exercises/4?new=1', 2: '/salsa/lessons/5' }, 2, '/salsa/exercises/4')
 		).toBe('goto');

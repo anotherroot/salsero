@@ -1,34 +1,24 @@
-import { error, fail } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
-import { listPickExercises, saveDay } from '$lib/server/exercises';
-import { scheduleStateOf } from '$lib/server/schedule';
-import { daysBetween, localDay } from '$lib/day/day';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listFiguresForCall } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
 import { usableOf } from '$lib/server/usable';
-import { int, optionalInt, optionalText } from '$lib/server/form';
 import { routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
+import { parseSkip } from '$lib/exercises/run';
 import { practiceStart } from '$lib/exercises/practice';
-import {
-	exerciseInWall,
-	requireExerciseInWall,
-	isTeam,
-	requireRoutineAccess,
-	wallOf
-} from '$lib/server/scope';
-import { shownExercise } from '$lib/exercises/name';
+import { exerciseInWall, isTeam, requireRoutineAccess, wallOf } from '$lib/server/scope';
+import { exerciseDetails, figureDetails } from '$lib/server/run-details';
+import { hasDetails } from '$lib/player/view';
+import type { RunDetails } from '$lib/types';
 import { t } from '$lib/i18n/catalog';
-import type { DoneResult } from '$lib/types';
-import type { Actions, PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
-import { serverNow } from '$lib/server/server-clock';
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	if (!locals.user) throw error(401);
-	const tz = locals.user.timezone;
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const db = getDb();
@@ -88,9 +78,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			]
 		: [];
 
+	const from = url.searchParams.get('from');
 	const back = practiceBack({
 		dance,
-		from: url.searchParams.get('from'),
+		from,
 		routine: routine && { id: routine.id, name: routine.name },
 		// The URL's `?song=`, not the exercise's memory: Back returns to the page
 		// that opened Practice.
@@ -99,7 +90,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			id: exercise.id,
 			name: exercise.name,
 			archived: exercise.archivedAt !== null
-		}
+		},
+		run: from === 'run' && exercise ? { skip: parseSkip(url.searchParams.get('skip')) } : null
 	});
 
 	return {
@@ -109,16 +101,16 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		songs,
 		// Where the setup opens: `?song=`, else what the exercise was last
 		// practised with, else the count.
-		start: {
-			...practiceStart(
-				exercise,
-				songs.map((s) => s.id),
-				songId
-			),
-			bpm: exercise?.practiceMode === 'count' ? exercise.countBpm : null
-		},
+		start: practiceStart(
+			exercise,
+			songs.map((s) => s.id),
+			songId
+		),
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : 180,
-		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
+		routine:
+			routine && shape
+				? { id: routine.id, name: routine.name, notes: routine.notes, shape, figureIds }
+				: null,
 		// Names only, for `sayOf` and the on-screen call. Empty without a routine:
 		// nothing else calls figures.
 		callNames: listFiguresForCall(db, space, figureIds, usable),
@@ -126,80 +118,14 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph,
 		exercise,
-		// Its due words in the Save sheet: the schedule, from the sets.
-		schedule: exercise ? scheduleStateOf(db, exercise.id, tz) : null,
-		today: localDay(serverNow(), tz),
-		exercises: listPickExercises(db, wall).map(shownExercise),
+		// About (one-player design): the exercise's details, and each of the
+		// routine's figures', read through access.ts; only what is worth an About.
+		details: exercise ? exerciseDetails(db, wall, exercise) : null,
+		figureDetails: Object.fromEntries(
+			Object.entries(figureDetails(db, wall.userId, figureIds)).filter(([, d]) => hasDetails(d))
+		) as Record<number, RunDetails>,
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
 	};
-};
-
-export const actions: Actions = {
-	/** Log the finished run as a set on the exercise it was practised for. */
-	save: async ({ params, request, locals }) => {
-		if (!locals.user) throw error(401);
-		const tz = locals.user.timezone;
-		const form = await request.formData();
-		const exerciseId = int(form, 'exerciseId');
-		const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
-		const rating = optionalInt(form, 'rating', 1, 5);
-		const note = optionalText(form, 'note', 2000);
-		const run = optionalText(form, 'run', 4000);
-
-		// Echoed back on failure so the sheet can keep what was entered.
-		const entered = {
-			exerciseId: exerciseId ?? null,
-			rating: rating ?? null,
-			note: String(form.get('note') ?? '')
-		};
-
-		if (exerciseId === undefined || durationS === undefined || rating === undefined) {
-			return fail(400, { message: t().player.refused.couldNotSave, ...entered });
-		}
-		if (rating === null) return fail(400, { message: t().exercise.log.pickFeel, ...entered });
-		if (note === undefined) {
-			return fail(400, {
-				message: t().player.refused.noteTooLong,
-				...entered
-			});
-		}
-		// The run is logged by id, so the id is checked against this dance: the
-		// sheet only ever offers this dance's exercises, and a posted id must not
-		// be able to reach past that.
-		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
-		let saved: ReturnType<typeof saveDay>;
-		const now = serverNow();
-		try {
-			saved = saveDay(
-				getDb(),
-				{
-					exerciseId,
-					doneAt: now,
-					durationS,
-					reps: null,
-					rating,
-					note,
-					// The summary of what the run was is a nicety; the set is the point.
-					// An overlong one (a marathon routine with a great many calls) is
-					// dropped rather than costing the user the whole session — and it
-					// must never be reported as a problem with their note.
-					playerJson: run ?? null
-				},
-				tz
-			);
-		} catch {
-			return fail(400, { message: t().exercise.refused.gone, ...entered });
-		}
-		// The sheet hands this to the page, which leaves and (Task 5) announces the save.
-		const result: DoneResult & { action: 'done' } = {
-			action: 'done',
-			ok: true,
-			setId: saved.set.id,
-			before: saved.before && JSON.stringify(saved.before),
-			backDays: daysBetween(localDay(now, tz), scheduleStateOf(getDb(), exerciseId, tz).dueDay)
-		};
-		return result;
-	}
 };

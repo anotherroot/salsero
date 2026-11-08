@@ -39,7 +39,7 @@ export const exercise = {
 		editLinks: 'Edit links on the figure page',
 		figures: 'Figures',
 		practiseInPlayer: 'Practise in player',
-		routineNote: 'A run there saves itself. Tap Done when you practised away from the app.',
+		routineNote: 'Tap Done when you have practised, in the player or away from the app.',
 		/** The drill's Recordings heading: "Recordings", "Recordings · 3". */
 		recordings: (n: number): string => (n === 0 ? 'Recordings' : `Recordings · ${n}`)
 	},
@@ -119,8 +119,7 @@ export const exercise = {
 		/** The collapsed line's parts: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3 · call every 2". */
 		summaryCount: (bpm: number): string => `Count ${bpm}`,
 		summaryNoCount: 'Off',
-		summaryClave: (pattern: string): string => `clave ${pattern}`,
-		summaryCall: (n: number): string => `call every ${n}`
+		summaryClave: (pattern: string): string => `clave ${pattern}`
 	},
 	/**
 	 * Comes back: how a drill returns to Today (the card on the page and in New
@@ -181,9 +180,16 @@ export const exercise = {
 		added: (day: string): string => `Added to ${day}`,
 		/** The pinned button once the exercise has today's entry. */
 		doneToday: 'Done today',
-		stopFirst: 'Stop the count first.',
 		/** Under the Done sheet's faces: no button, a face saves. */
-		tapFace: 'Tap a face to save it'
+		tapFace: 'Tap a face to save it',
+		/** The run's place in the band: "Drill · 3 of 7 · 4:12". */
+		place: (at: number, of: number): string => `${at} of ${of}`,
+		/** The Done sheet's line in a run: "4:12 · Next: <name>". */
+		next: (name: string): string => `Next: ${name}`,
+		/** The run's pinned bar: on without saving, this run only. */
+		skip: 'Skip',
+		/** A fixed rhythm's Done in a run: saves and goes on. */
+		doneNext: 'Done · next'
 	},
 	/** What a refused log or page action says. */
 	refused: {

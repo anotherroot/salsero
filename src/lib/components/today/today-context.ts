@@ -1,12 +1,23 @@
 import { getContext, setContext } from 'svelte';
+import type { RunPlace } from '$lib/exercises/run';
 
 /**
- * Start session, for now: it walks exercise pages (`?session=1`), and after a
- * save the next one opens. Plan 3's run replaces it.
+ * The run as the exercise page sees it: Start on Today walks the day's
+ * exercises one page after another, carried in the URL (`?run=1&skip=…`,
+ * `src/lib/exercises/run.ts`). Nothing is stored: the layout's rows say what
+ * is next.
  */
-export interface SessionControls {
-	/** On after a save: the session's next row's page (a replace), else back to Today (`backWhenSettled`). */
-	onnext: () => void;
+export interface RunControls {
+	/** "3 of 7"; null when this exercise is not in the walk (done, skipped, a stale URL). */
+	readonly place: RunPlace | null;
+	/** The walk's next after this one; null at the end. */
+	readonly next: { id: number; name: string } | null;
+	/** The player's `from` from this page: "from=run&skip=…". */
+	readonly playerFrom: string;
+	/** On without saving (this run only): the next, or Done for today. A replace. */
+	skip(): void;
+	/** A save (or Not today) landed and was announced: the next, or Done for today. A replace. */
+	after(): void;
 }
 
 /**
@@ -15,12 +26,18 @@ export interface SessionControls {
  * reads it live.
  */
 export interface TodayPane {
-	/** `?session=1` on an exercise route, not a past day; else null. */
-	readonly session: SessionControls | null;
+	/** `?run=1` on an exercise route, not a past day; else null. */
+	readonly run: RunControls | null;
+	/** The layout's toast, with a plain message. */
+	say(message: string): void;
 	/** Whether Not today applies: the exercise is a to-do or picked row on Today. */
 	canSkip(exerciseId: number): boolean;
 	/** Not today: posts the skip, toasts Undo; false when it was refused. */
 	notToday(exerciseId: number): Promise<boolean>;
+	/** The path the list route opened by itself (desktop), until a tap or key in its pane, a row or link to it, or Start; a history step back to it keeps it waiting. */
+	readonly autoOpened: string | null;
+	/** A tap or key in the pane: the auto-opened page's clock may start (only in its own pane). */
+	wake(): void;
 }
 
 const KEY = Symbol('today-pane');

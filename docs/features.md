@@ -6,8 +6,8 @@ Moved out of CLAUDE.md on 2026-11-08. When a feature ships, add it to "What is l
 
 Live: phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
-player: voice count, clave, count-only runs, and a finished run logged as a
-set), phase 3a (positions, the figure graph, the gap report), phase 3b
+player: voice count, clave, count-only runs; since 2026-11-08 a run logs
+nothing, Done on the exercise page does), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
@@ -70,8 +70,13 @@ number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
 and run the day, plan 2 (one exercise page per type, with Practise with, a drill's
 Recordings and a pinned Done; the Done sheet with four faces and their gaps; one
 entry per exercise per day (`saveDay`) with a toast and Undo; the log popup gone;
-an interim session, `?session=1`; plan 3, the run, is not built; see
+an interim session, `?session=1`; see
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
+and run the day, plan 3 (the run: Start on Today walks the day's exercises page by
+page, `?run=1&skip=…`, warm-ups first, with Skip | Done, "3 of 7" and "Next: …"
+in the Done sheet; Done for today at `/[dance]/done`; the hero's time estimate;
+the player's Back keeps the run; on the desktop the exercise Today opens by itself
+waits for a tap before its clock counts; plans 1, 2 and 3 are all built)
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
@@ -221,7 +226,8 @@ Run the day has its own,
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
 the slower gaps, Comes back (by how it went, every day until it feels good, a
 fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
-lateness, and the exercise page, Done sheet and run still to come.
+lateness, the exercise page, the Done sheet and the run (Start, Skip, Done for today,
+the estimate): all three plans are built.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add
@@ -242,4 +248,10 @@ Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language
 lives (account, invite, cookie), how the words are organised, and the order of work.
-
+One player has its own,
+[`docs/superpowers/specs/2026-11-08-one-player-design.md`](docs/superpowers/specs/2026-11-08-one-player-design.md):
+one practice player (the full page) that logs nothing; Practise with on the exercise
+page opens it; the band that fills the phone; Routine, About and Voice as rows that
+open full-screen layers; a routine run without calls (Follow or Still, the
+full-screen list, a figure's details from it); the time across the trip to the
+player; and what was decided while building.

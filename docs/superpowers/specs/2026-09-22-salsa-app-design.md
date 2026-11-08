@@ -28,7 +28,7 @@ phone. It answers three needs:
 | Term             | Meaning                                                                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Move**         | A named move (_figura_): _enchufla_, _dile que no_, a right turn. A name that holds its figures (`figure_groups`).                                                                                         |
-| **Figure**       | One self-contained way of dancing a move: "Enchufla · Doble" (a `figures` row, once called a variation). Partner or solo. A routine's run calls it by voice.                                                                  |
+| **Figure**       | One self-contained way of dancing a move: "Enchufla · Doble" (a `figures` row, once called a variation). Partner or solo. A routine's run shows it, lit in time with the music.                                                                   |
 | **Routine**      | An ordered sequence of figures, built from the position graph. See the [routines design](2026-09-24-routines-design.md).                                                            |
 | **Exercise**     | Anything practiced and logged. Created automatically for every routine; for a figure only on request ("Practise on its own"); or by hand (custom: "son basic 5 min"). |
 | **Set**          | One logged bout of an exercise. Many per day allowed.                                                                                                                               |
@@ -47,7 +47,7 @@ groups are live; its clones and twins are built, not yet deployed.
    the schema but every mode behaves as "log a set" until phase 2.
 2. **Songs & player** — song library (YouTube URL via yt-dlp, or upload), beat
    and downbeat analysis, 1-correction, player with slow-down, voice count,
-   clave click, figure calls spoken by the browser, count-only mode,
+   clave click, figure calls spoken by the browser (removed 2026-11-08), count-only mode,
    song page, player runs save a set.
 3. **Routines & the figure graph** — positions (the handhold vocabulary), each
    figure's start and end positions, the graph derived from them, the drill
@@ -169,7 +169,7 @@ sets
   reps            integer, nullable
   rating          integer 1–5, nullable
   note            text, nullable
-  player_json     text, nullable   -- phase 2: {speed, count, clave, callEvery, called:[figure_id...]}
+  player_json     text, nullable   -- phase 2: {source, songId, bpm, speed, count, clave, routineView, figures, danced:[figure_id...]}
 
 figures
   id              integer pk
@@ -275,7 +275,7 @@ spot_position_links                            -- positions; a section or point 
 
 exercises
   + practice_json text, nullable                -- exercise types; the panel's remembered
-                                                 -- count/clave/speed/callEvery
+                                                 -- count/clave/speed (an old callEvery is ignored)
 
 links                                           -- exercise types
   id           integer pk
@@ -507,11 +507,11 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   scheduled on the context clock with a look-ahead scheduler (≈100 ms horizon,
   25 ms tick) that maps song time → context time from the element's current
   position and rate.
-- **Toggles:** voice count, figure calls (routine runs only), clave (2-3 / 3-2), speed, and voice
-  volume. Voice volume is adjustable **during** a run (it feeds both the clips'
-  gain node and each spoken name's `utterance.volume`), because whether the
-  voice sits right against the music is only knowable once the music plays.
-  The rest are fixed when the run starts.
+- **Toggles:** voice count, clave (2-3 / 3-2), speed, voice volume and, for a
+  routine, Follow or Still. Voice volume and the count pattern are adjustable
+  **during** a run (volume feeds the clips' gain node), because whether the
+  voice sits right against the music is only knowable once the music plays;
+  so is Follow / Still. The rest are fixed when the run starts.
 - **Pause** holds the run in place — it must never be faked with stop/start,
   which would re-fetch the clips and discard the figures already planned.
   Resuming a count-only run shifts its context origin, or the count would jump
@@ -519,11 +519,28 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 - **A run ends** when the song ends or a count-only grid runs out, and that is
   latched: the 25 ms tick keeps firing, so an unlatched "finished" would fire
   forty times a second.
-- **Calls:** only a routine run calls figures — every N 8-counts (1, 2 or 4;
-  default 2), or the figure's own length when that is longer. The
-  call plays over 5-6-7 so the figure starts on the next 1; the spoken count is
-  suppressed on 5-6-7 when a call is playing. The first two 8-counts are count
-  only.
+- **Nothing is called** (since 2026-11-08). A routine run used to speak each
+  figure's name every 1, 2 or 4 8-counts, ducking the count under it; the user
+  found "every 2" made no sense and wanted to practise on their own, with the
+  count or without. Nothing but the count and the clave sounds now.
+- **A routine run, Follow or Still** (since 2026-11-08). The routine is still
+  walked silently (`routinePlan`): each figure takes its own length
+  (`eightsSpan`, at least one 8-count), after two 8-counts of count only.
+  **Follow** lights the figure on now from its first "1" (the player's
+  `onStep`), names it on the band and scrolls the list to it; a tap on a row
+  restarts the run at that figure (`jumpTo`): the song, or the count, goes back
+  to the "1" of the 8-count the run is in and the walk carries on from that
+  slot. **Still** lights nothing and leaves the list to read; rows do nothing.
+  The switch is on Setup (a Routine row), on the desktop's routine heading and
+  on the full-screen routine, remembered per routine on the phone
+  (`routineViews` in `<dance>.player`, `loadRoutineView`).
+- **The full-screen routine** (phone, since 2026-11-08; option B of the routine
+  run mockups, band on top): an expand button on the routine list opens the
+  list in large type over the run screen, the count and "5 of 16" on a short
+  band strip with Follow / Still, a mark per count of the figure on now (per
+  8-count past 16, `stepMarks`). Stop and Pause stay on top of it. It holds a
+  history entry like a sheet (`sheetStack`), so Back closes it and the run
+  goes on. The desktop has no need of it: its sheet lists the whole routine.
 - **Count-only mode:** no song; a synthetic grid at `count_bpm` with clave and
   voice.
 - **The song is picked in the player** (since 2026-10-14), with the same
@@ -534,10 +551,10 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   panel), so the `<audio>` has its `src` before the Play tap. It opens on
   `?song=` (the song page's Play), else the exercise's remembered practice
   (`practiceStart` in `src/lib/exercises/practice.ts`, shared with the
-  panel), else the count. A run for an exercise remembers its source, song,
-  tempo, count, clave and speed on Play through the panel's own
-  `POST /[dance]/exercises/[id]/practice`, keeping the panel's call interval
-  as it was — the two offer different ones. The routine page's Practise goes
+  panel), else the count. Its settings start where the panel's do
+  (`practiceSeed`: the exercise's memory, else this phone's). An exercise remembers its source, song,
+  tempo, count, clave and speed as they change, a count changed mid-run too, through the panel's own
+  `POST /[dance]/exercises/[id]/practice`. The routine page's Practise goes
   straight here; its sheet of songs is gone. The song's progress bar
   (`player/SongProgress.svelte`) shows before Play, so an intro can be
   skipped.
@@ -547,12 +564,14 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   goes to where Practice was opened from (`practiceBack` in
   `src/lib/player/view.ts`: a routine's page, `?song=` the song, an exercise
   alone Today, else Music; the routine log popup's link adds `&from=today`, or `&from=exercise` on the exercise page).
-  Back mid-run stops the run and offers Save this run first; Don't save then
-  leaves. The Voice row says Built-in or Yours (Yours: a recorded set fits the
+  Back mid-run stops the run and leaves. The player logs nothing (since
+  2026-11-08, [`2026-11-08-one-player-design.md`](2026-11-08-one-player-design.md)):
+  Stop and the song's end return to setup, and Done on the exercise page is
+  the only way a practice becomes a set. The Voice row says Built-in or Yours (Yours: a recorded set fits the
   run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
   count returns here once it reads them, plan 12; as `&from=…` after the other
   parameters). The running screen is the stage on the band (count disc, dots,
-  the figure called, the time), a sheet under it and Stop and Pause pinned; it
+  the figure on now in Follow, the time), a sheet under it and Stop and Pause pinned; it
   does not scroll the page. A landscape phone puts the stage left and the sheet
   right; from 1024 px the desktop splits the running screen, the
   stage left and the sheet right
@@ -569,27 +588,26 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   way in, or `sample_start_s` from the song's page, snapped to a 1 on read.
   Recent is derived from the latest sets' `player_json.songId`, never stored.
 - **The scheduler plays a plan:** the scheduler plays a
-  _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
-  8-count the figure STARTS on and the call sounds on count 5 of the one before.
+  _plan_ — as built, a list of `{ eight, figureId, slot }`, where `eight` is the
+  8-count the figure STARTS on and `slot` the flattened routine slot it answers
+  (a jump restarts the walk at a slot: `routinePlan`'s `from`).
   A routine grows its plan lazily, tick by tick, through `routinePlan` (`src/lib/routines/plan.ts`), which flattens the
   routine's slots and extends the plan through `throughEight`, rather than
   resolving the whole routine up front. `rand` is injected so the module
-  stays pure. `extendPlan` does the same for a pool with a `flow`; only the
-  figure popup's one-figure cue uses it now.
+  stays pure. `extendPlan`, the pool and the flow went with the calls.
 - **The random drill was removed on 2026-09-30.** It called figures at random
   from a picked pool, walking the position graph (`graphFlow`); it went unused.
   With it went the figure's "callable" checkbox and "Say it like" input — the
-  voice now always says the figure's name (a figure is said as its
-  move). Without a routine the player is count and clave only.
+  voice then always said the figure's name; since 2026-11-08 nothing is said. Without a routine the player is count and clave only.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
-  `{ source, songId, bpm, speed, count, clave, callEvery, calls, called }`, where `calls` is the true
-  number of figures called and `called` is capped at the last 250 ids — the list
+  `{ source, songId, bpm, speed, count, clave }` and, for a routine, `routineView`,
+  `figures` (the true number of figures started) and `danced` (capped at the
+  last 250 ids; older sets say `callEvery`, `calls`, `called`) — the list
   grows by one every few seconds, and an oversized summary must never cost the
   user the set it describes. Nothing queries inside `player_json`.
 - **Phone:** Screen Wake Lock while playing; audio starts on the Play tap
-  (iOS unlock) and a silent utterance primes `speechSynthesis` in the same
-  gesture; Play is disabled while starting, so a second impatient tap cannot
+  (iOS unlock); Play is disabled while starting, so a second impatient tap cannot
   build a second, unreachable player.
 
 **Voice:** superseded by
@@ -613,10 +631,8 @@ reintroduce that: shortening the words is not how the overlap is handled — the
 mixer handles it. Measured at the current length, two words summed peak at
 −1.2 dB, so the overlap does not clip and needs no limiter.
 
-Figure NAMES are spoken by the browser (`speechSynthesis`): a name sounds
-across a whole 3-beat window, so its timing jitter does not matter, and this
-needs no worker job and no per-figure storage. Phase 3 may revisit
-Piper clips if a device's voice proves unusable.
+Figure names were spoken by the browser (`speechSynthesis`) until
+2026-11-08; nothing is called now (see "Nothing is called" above).
 
 **Known gaps (phase 2b, deployed 2026-09-23).** Found by review, consciously not
 fixed before shipping. Check here before hunting one of these as a new bug:
@@ -634,6 +650,7 @@ fixed before shipping. Check here before hunting one of these as a new bug:
   2026-10-01: `SaveSetSheet` counts the run as unsaved, so the backdrop, ✕,
   Escape and a navigation all get the unsaved-changes question (see "Unsaved
   changes" below). "Don't save" still discards at once, because it says so.
+  The sheet itself is gone since 2026-11-08: the player saves nothing.
 - **Pause can let ~100 ms of already-scheduled clips through**, and the
   `AbortError` from a `play()` interrupted by a pause is swallowed.
 - ~~**Stop then Play resumes mid-song**, and the `<audio controls>` is hidden
@@ -838,7 +855,7 @@ wall is a person or a group since step 2: see
 - **Vitest, pure modules first and thoroughly:** `day` (timezone edges,
   late-evening sets read next morning), `urgency` (ordering, never-done,
   done-today, inactive, ties), later `beatgrid` and `scheduler` (which clip on
-  which count, suppression on calls, speed changes, no repeats).
+  which count, where a routine's figures start, jumps, speed changes).
 - **Server actions** against a temporary SQLite file: log set, delete set,
   create figure → exercise exists, rename propagates, archive propagates,
   upload size rejection.

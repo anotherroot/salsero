@@ -266,7 +266,6 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		exercise: rowData?.exercise ?? shown,
 		sets: rowData?.sets ?? [],
 		songs: rowData?.songs ?? [],
-		takes: rowData?.takes ?? [],
 		practice: drillPayload(
 			db,
 			row,

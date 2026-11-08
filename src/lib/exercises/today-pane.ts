@@ -5,12 +5,10 @@
 import { t } from '$lib/i18n/catalog';
 import type { DaySet } from '$lib/types';
 import { practisedLabel } from './exercise-page';
-import { sessionWalk } from './session';
+import { sessionWalk, type Walkable } from './session';
 
-/** The row the right pane opens on: the first to-do, else the first picked, else none. */
-export function defaultOpen(day: {
-	rows: readonly { exercise: { id: number }; kind: 'done' | 'todo' | 'picked' }[];
-}): number | null {
+/** The row the right pane opens on: the first of the walk (warm-ups first), else none. */
+export function defaultOpen(day: { rows: readonly Walkable[] }): number | null {
 	return sessionWalk(day.rows)[0]?.exercise.id ?? null;
 }
 

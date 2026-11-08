@@ -37,12 +37,13 @@
 //           Everything                    Vse
 //   version (of the app)                  različica aplikacije (always with the noun:
 //                                         a bare "različica" is a figure)
-//   Session (Start session)               vadba (Začni vadbo)
+//   Start (Today's play)                  Začni (what it starts is never named on screen)
+//   the day's practice                    vadba (Današnja vadba je končana)
 //   Paused (an exercise)                  na premoru
 //   Not today                             Ne danes
 //   Done (the button, a day's entry)      Opravljeno; an entry is a vnos, never a "set"
 //   an 8-count (call every 2)             osmica (napoved na 2 osmici)
-//   Practice (the panel, practising)      vadenje (Vadi ob …); a session stays vadba
+//   Practice (the panel, practising)      vadenje (Vadi ob …); the day's practice stays vadba
 //   Class (a lesson's day, "Class · …")   lekcija (Lekcija · tor, 3. nov.); the group is tečaj
 //   Teacher (a comment's tag)             vodja tečaja (right beside a woman's or a man's name)
 //   a heart (on a comment)                srček

@@ -4,7 +4,6 @@
 	import type { ExerciseItem } from '$lib/types';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import { rowMeta, tileTone } from '$lib/exercises/today';
-	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Swipeable from '$lib/components/routines/Swipeable.svelte';
 	import { desk } from '$lib/nav/desk.svelte';
@@ -19,12 +18,8 @@
 		today: string;
 		/** A lesson's class day as shown ("Tue 3 Nov"); null for every other type. */
 		lessonDay: string | null;
-		/** The session's next row: tinted, with an "Up next" badge and an accent tile. */
-		upNext: boolean;
 		/** The exercise open beside the list (desktop): tinted, an accent bar at its left edge. */
 		current: boolean;
-		/** Appended to the row's link (a session's flag, on the desktop). */
-		search: string;
 		/** Not today (the swipe's button); absent on a done row. */
 		onskip?: () => void;
 		/** This row's swipe: open (left) or at rest. */
@@ -34,29 +29,15 @@
 		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
 
-	let {
-		row,
-		dance,
-		today,
-		lessonDay,
-		upNext,
-		current,
-		search,
-		onskip,
-		swiped,
-		onswipe,
-		drag
-	}: Props = $props();
+	let { row, dance, today, lessonDay, current, onskip, swiped, onswipe, drag }: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const done = $derived(row.kind === 'done');
 	const meta = $derived(rowMeta(row, today, lessonDay));
 	const TONE = { status: 'font-bold text-status', done: 'font-bold text-done' } as const;
-	// The Up next tint, or the open row's: both take the tinted tile and the darker meta.
-	const tinted = $derived(upNext || current);
-	const href = $derived(
-		resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(ex.id) }) + search
-	);
+	// The open row is tinted: the tinted tile and the darker meta.
+	const tinted = $derived(current);
+	const href = $derived(resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(ex.id) }));
 	const lit = $derived(current ? ('page' as const) : undefined);
 	// `data-focus`: Next focuses the first row it adds (`NextRow`).
 	const LINK = 'flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1';
@@ -102,12 +83,9 @@
 					<span
 						class="text-[16px] leading-[1.3] font-bold break-words {done && !tinted
 							? 'text-muted'
-							: 'text-ink'}"
-						>{ex.name}{#if upNext}<span class="ml-1 inline-block align-[2px]"
-								><Badge tone="accent" solid>{t().today.row.upNext}</Badge></span
-							>{/if}</span
+							: 'text-ink'}">{ex.name}</span
 					>
-					<!-- muted is under 4.5:1 on the Up next tint; ink-2 clears it in every theme. -->
+					<!-- muted is under 4.5:1 on the open row's tint; ink-2 clears it in every theme. -->
 					<span class="text-[13px] leading-[1.35] {tinted ? 'text-ink-2' : 'text-muted'}">
 						{#each meta as part, i (i)}{i > 0 ? ' · ' : ''}<span
 								class={part.tone ? TONE[part.tone] : ''}>{part.text}</span

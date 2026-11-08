@@ -89,10 +89,6 @@ export const BPM = 'BPM';
 export const CLAVE_PATTERNS = ['3-2', '2-3'] as const;
 export type ClavePattern = (typeof CLAVE_PATTERNS)[number];
 
-/** How many 8-counts between figure calls. */
-export const CALL_EVERY = [1, 2, 4] as const;
-export type CallEvery = (typeof CALL_EVERY)[number];
-
 /**
  * Tempos the user records their own count at, roughly every 8 % so the nearest
  * one is never more than ~4 % away — well under half a semitone once

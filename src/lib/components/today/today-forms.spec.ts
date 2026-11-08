@@ -79,21 +79,85 @@ describe('The log form', () => {
 		expect(src).toMatch(/act\('done', \{/);
 	});
 
-	it('after a save the exercise page goes on through the session, else back', () => {
+	it('after a save the exercise page goes back, in place of itself', () => {
 		const src = readFileSync(EXERCISE, 'utf8');
-		const fn = src.match(/function saved\(r: DoneResult\): void \{([\s\S]*?)\n\t\}/)?.[1] ?? '';
-		expect(fn).toMatch(
-			/announceSaved\([\s\S]*if \(today\?\.session\) today\.session\.onnext\(\);\s*else void backWhenSettled\(todayBack\(data\.dance\.slug\), \{ replace: true \}\)/
+		/** A function's body with every space gone: the pins below ignore formatting. */
+		const body = (name: string) =>
+			(
+				src.match(new RegExp(`function ${name}\\([^)]*\\)[^{]*\\{([\\s\\S]*?)\\n\\t\\}`))?.[1] ?? ''
+			).replace(/\s+/g, '');
+		const fn = body('saved');
+		// The toast is announced first; then in a run the next, else back. On the
+		// desktop a pane page has no opener, so back must replace the saved page,
+		// not push Today on top of it.
+		const announced = fn.indexOf('announceSaved(');
+		const onward = fn.indexOf('run.after()');
+		const back = fn.indexOf('backWhenSettled(todayBack(data.dance.slug),{replace:true})');
+		expect(announced).toBeGreaterThanOrEqual(0);
+		expect(onward).toBeGreaterThan(announced);
+		expect(back).toBeGreaterThan(announced);
+		// One or the other, never both: two navigations.
+		expect(fn).toContain(
+			'if(run)run.after();elsevoidbackWhenSettled(todayBack(data.dance.slug),{replace:true});'
 		);
-		expect(fn).toMatch(/clock\.restart\(\)/);
-		// The session's end too: on the desktop a pane page has no opener, so back
-		// must replace the saved page, not push Today on top of it.
+		expect(fn).toContain('clock.restart()');
+		expect(fn).not.toMatch(/session/);
+		// Not today in a run goes on to the next once the skip has landed.
+		const skip = body('notToday');
+		expect(skip.indexOf('run.after()')).toBeGreaterThan(skip.indexOf('awaittoday.notToday('));
+		expect(skip).toContain('if(run)run.after();elseawaitgoto(');
+		// The run's steps replace too (the run is one history entry), after a closing sheet's Back.
 		const layout = readFileSync(LAYOUT, 'utf8');
-		expect(layout).toMatch(/else void backWhenSettled\(todayBack\(dance\), \{ replace: true \}\)/);
+		expect(layout).toMatch(
+			/skip: \(\) => void gotoWhenSettled\(step\.skipHref, \{ replaceState: true \}\)/
+		);
+		expect(layout).toMatch(
+			/after: \(\) => void gotoWhenSettled\(step\.afterHref, \{ replaceState: true \}\)/
+		);
 		// One Today fallback, never written out again.
 		for (const src2 of [src, layout])
 			expect(src2).not.toContain('t().shell.backTo(t().shell.tabs.today)');
 		expect(src).not.toMatch(/today\??\.(line|logged|follow|key|undoable)\b/);
+	});
+
+	/*
+	 * A save (or Not today) that lands starts the way out: the next page is a
+	 * server round trip away, and the old page's Done (Done today by then) sits
+	 * where the next one's will. Until the page is another, nothing saves or
+	 * goes on again: a second save would hand the toast's Undo the wrong snapshot.
+	 */
+	it('a save locks the page until it leaves', () => {
+		const src = readFileSync(EXERCISE, 'utf8');
+		const flat = src.replace(/\s+/g, '');
+		const body = (name: string) =>
+			(
+				src.match(new RegExp(`function ${name}\\([^)]*\\)[^{]*\\{([\\s\\S]*?)\\n\\t\\}`))?.[1] ?? ''
+			).replace(/\s+/g, '');
+		// Set before the way out starts, in the save and in Not today.
+		const fn = body('saved');
+		expect(fn.indexOf('leaving=true;')).toBeGreaterThanOrEqual(0);
+		expect(fn.indexOf('leaving=true;')).toBeLessThan(fn.indexOf('if(run)run.after()'));
+		const skip = body('notToday');
+		expect(skip.indexOf('leaving=true;')).toBeGreaterThan(skip.indexOf('awaittoday.notToday('));
+		expect(skip.indexOf('leaving=true;')).toBeLessThan(skip.indexOf('if(run)run.after()'));
+		// Every way to save or go on asks the lock first.
+		expect(flat).toContain('constlocked=$derived(saving||skipping||leaving);');
+		expect(body('saveNow').startsWith('if(locked)return;')).toBe(true);
+		expect(body('done').startsWith('if(locked)return;')).toBe(true);
+		expect(body('notToday').startsWith('if(locked||!today)return;')).toBe(true);
+		expect(flat).toMatch(/class=\{rowButton\('secondary'\)\}disabled=\{locked\}/);
+		// The fixed save's own busy is not given up while the page is leaving.
+		expect(body('saveNow')).toContain('if(pageId===at&&!leaving)saving=false;');
+		// Only another exercise in the page clears it (the pane on the desktop).
+		const reset = flat.slice(flat.indexOf('shownId=id;'), flat.indexOf('clock.restart();});});'));
+		expect(reset).toContain('leaving=false;');
+	});
+
+	it("the layout's toast sits above a pinned bar, as SavedToast does", () => {
+		const layout = readFileSync(LAYOUT, 'utf8').replace(/\s+/g, ' ');
+		expect(layout).toMatch(
+			/<Toast \{toast\} bottom=\{pinned\.bar \? 'calc\(5\.75rem \+ var\(--pin-bottom, 0px\) \+ var\(--pin-safe, var\(--safe-bottom\)\)\)' : undefined\}/
+		);
 	});
 });
 
@@ -166,12 +230,9 @@ describe('The saved toast', () => {
 		expect(src.match(/<SavedToast\b/g)?.length).toBe(1);
 	});
 
-	it('the player announces the save before it leaves', () => {
+	it('the player saves nothing, so it announces no save (one-player design)', () => {
 		const src = readFileSync('src/routes/[dance]/player/+page.svelte', 'utf8');
-		const fn = src.match(/async function saved\([^)]*\)[^{]*\{([\s\S]*?)\n\t\}/)?.[1] ?? '';
-		expect(fn).toMatch(
-			/announceSaved\(\{[\s\S]*savedMessage\(r\.backDays \?\? 1\)[\s\S]*\}\);[\s\S]*leaveRun\(\)/
-		);
+		expect(src).not.toMatch(/announceSaved|SaveSetSheet|function saved\(/);
 	});
 });
 

@@ -219,8 +219,8 @@
 		<div class="flex flex-col gap-8 px-4 pb-24">
 			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Hero card</h2>
-				<HeroCard title="Start session" meta="3 due · 4 not yet due" />
-				<HeroCard title="Start session" meta="No active exercises · 3 inactive" state="disabled" />
+				<HeroCard title="7 for today" meta="3 due · 4 not yet due" />
+				<HeroCard title="7 for today" meta="No active exercises · 3 inactive" state="disabled" />
 				<HeroCard title="All done for today" meta="5 exercises · 7 times" state="done" />
 				<HeroCard title="As a link" href="/dev/kit" />
 			</section>

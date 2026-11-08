@@ -5,21 +5,12 @@
  * Back goes.
  */
 import type { Dance, DanceSlug } from '$lib/dances/dances';
-import type { ScheduleState } from '$lib/schedule/schedule';
-import { dueWords } from '$lib/schedule/words';
-import { typeInfo } from '$lib/exercises/kinds';
-import { clock } from '$lib/format';
+import { runHref, type RunState } from '$lib/exercises/run';
 import { t } from '$lib/i18n/catalog';
-import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
+import { COUNT_PATTERN_LABEL, type ClavePattern, type CountPattern, type Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
-import type { CountTakeRow } from '$lib/types';
-
-/** The count's disc in px: smaller when a song or a routine shares the screen. */
-export function stageSize(hasSong: boolean, hasRoutine: boolean): number {
-	if (hasSong && hasRoutine) return 136;
-	if (hasSong || hasRoutine) return 176;
-	return 230;
-}
+import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+import type { CountTakeRow, RunDetails } from '$lib/types';
 
 export function stageDigit(
 	count: number | null,
@@ -46,7 +37,50 @@ export function stageDots(
 }
 
 /**
- * A routine row on the desktop's run: the slot called now, the ones danced
+ * How a routine's list behaves in the run. Follow lights each figure in time
+ * with the music (and a tap starts the run there); Still lights nothing and
+ * leaves the list to be read. Remembered per routine on the phone.
+ */
+export type RoutineView = 'follow' | 'still';
+/** Follow and Still, in the reader's language, read when asked. */
+export function routineViews(): { value: RoutineView; label: string }[] {
+	const w = t().player;
+	return [
+		{ value: 'follow', label: w.follow },
+		{ value: 'still', label: w.still }
+	];
+}
+
+/** The full-screen routine's band line: where the run is ("5 of 16"), or how long the routine is. */
+export function routinePlace(active: number | null, total: number): string {
+	const w = t().player;
+	return active === null ? w.figures(total) : w.routinePlace(active + 1, total);
+}
+
+/**
+ * The bar under the figure on now: one mark per count up to 16, else one per
+ * 8-count, so a long figure's marks stay wide enough to see.
+ */
+export function stepMarks(lengthCounts: number): { marks: number; per: number } {
+	const counts = Math.max(1, Math.round(lengthCounts));
+	return counts <= 16 ? { marks: counts, per: 1 } : { marks: Math.ceil(counts / 8), per: 8 };
+}
+
+/** How many of those marks are filled: the beats from the figure's "1" to now, the current one included. */
+export function stepDone(
+	beats: number[],
+	startAt: number,
+	now: number,
+	mark: { marks: number; per: number }
+): number {
+	const from = beatIndexAt(beats, startAt);
+	const at = beatIndexAt(beats, now);
+	if (from < 0 || at < from) return 0;
+	return Math.min(mark.marks, Math.floor((at - from) / mark.per) + 1);
+}
+
+/**
+ * A routine row on the run: the slot on now, the ones danced
  * before it (muted), the ones to come. A looping routine back at its first
  * slot has nothing past.
  */
@@ -54,17 +88,6 @@ export function slotTone(i: number, active: number | null): 'now' | 'past' | 'ne
 	if (i === active) return 'now';
 	if (active !== null && i < active) return 'past';
 	return 'next';
-}
-
-/** The desktop's heading over the whole routine: where the run is, or how long it is. */
-export function routineHeading(active: number | null, total: number): string {
-	const w = t().player;
-	return active === null ? w.routineSlots(total) : w.routineSlotOf(active + 1, total);
-}
-
-/** The running band's title steps down (46 → 30 on desk) past 18 characters or with a word over 10. */
-export function runTitleCompact(title: string): boolean {
-	return title.length > 18 || title.split(/\s+/).some((w) => w.length > 10);
 }
 
 export function setupSubtitle(
@@ -75,27 +98,82 @@ export function setupSubtitle(
 
 export function runSubtitle(
 	r: {
-		routine: string | null;
-		song: boolean;
-		speed: Speed;
+		/** What the run is for; null without an exercise. */
+		kind: 'figure' | 'drill' | 'routine' | null;
+		/** The song's title is already the band's title (no exercise). */
+		songInTitle: boolean;
+		song: { title: string; bpm: number | null } | null;
+		/** The count-only tempo. */
 		bpm: number | null;
+		speed: Speed;
 		clave: ClavePattern | null;
 	},
 	dance: Dance
 ): string | undefined {
 	const panel = t().exercise.panel;
+	const w = t().player;
+	const tempo = r.song
+		? r.song.bpm === null
+			? null
+			: w.bpm(Math.round(r.song.bpm * r.speed))
+		: r.bpm === null
+			? null
+			: w.bpm(r.bpm);
 	const parts = [
-		r.routine,
-		r.song
-			? r.speed === 1
-				? null
-				: panel.speed(r.speed)
-			: r.bpm === null
-				? null
-				: t().player.bpm(r.bpm),
+		r.kind ? w.kind[r.kind] : null,
+		r.song && !r.songInTitle ? r.song.title : null,
+		tempo,
+		r.song && r.speed !== 1 ? panel.speed(r.speed) : null,
 		dance.clave && r.clave ? panel.summaryClave(r.clave) : null
 	].filter((p): p is string => !!p);
 	return parts.length ? parts.join(' · ') : undefined;
+}
+
+/** The band's title: the exercise, else the routine, else the song, else Count only. */
+export function runTitle(p: {
+	exercise: string | null;
+	routine: string | null;
+	song: string | null;
+}): string {
+	return p.exercise ?? p.routine ?? p.song ?? t().exercise.panel.countOnly;
+}
+
+/** Whether there is an About: notes, a clip, a link or positions. Timing alone is not (every figure has it). */
+export function hasDetails(d: RunDetails | null): d is RunDetails {
+	return !!d && (!!d.notes || d.clips.length > 0 || d.links.length > 0 || d.hasPositions);
+}
+
+/** About's line: a description alone shows its first line; else what is inside. */
+export function aboutPreview(d: RunDetails): string {
+	const w = t().player;
+	const sections = d.clips.filter((c) => c.kind === 'section').length;
+	const recordings = d.clips.length - sections;
+	if (d.notes && sections + recordings + d.links.length === 0 && !d.hasPositions) {
+		return d.notes.split('\n')[0].trim();
+	}
+	return [
+		d.notes ? w.aboutNotes : null,
+		d.hasPositions ? w.aboutPositions : null,
+		sections ? w.aboutSections(sections) : null,
+		recordings ? w.aboutRecordings(recordings) : null,
+		d.links.length ? w.aboutLinks(d.links.length) : null
+	]
+		.filter((p): p is string => !!p)
+		.join(' · ');
+}
+
+/** Voice's line: the count and the volume ("1 2 3 · 5 6 7 · 100%"), or Off. */
+export function voicePreview(count: CountPattern, volume: number): string {
+	if (count === 'off') return t().exercise.panel.off;
+	return `${COUNT_PATTERN_LABEL[count]} · ${Math.round(volume * 100)}%`;
+}
+
+/** Routine's line: "5 of 16 · Follow" (the first slot before the run's first figure), "16 figures · Still". */
+export function routinePreview(lit: number | null, total: number, view: RoutineView): string {
+	const w = t().player;
+	return view === 'follow'
+		? `${w.routinePlace((lit ?? 0) + 1, total)} · ${w.follow}`
+		: `${w.figures(total)} · ${w.still}`;
 }
 
 /** The Source switch's two options, shared by Setup and SourcePicker. */
@@ -105,14 +183,6 @@ export function runSources(): { value: string; label: string }[] {
 		{ value: 'count', label: w.countOnly },
 		{ value: 'song', label: w.aSong }
 	];
-}
-
-/** `calls` null: nothing was called, by design. */
-export function runSummary(durationS: number, calls: number | null): string {
-	const w = t().player;
-	return [clock(durationS), calls === null ? null : w.called(calls)]
-		.filter((p) => p !== null)
-		.join(' · ');
 }
 
 export function playState(p: {
@@ -150,17 +220,6 @@ export function voiceKind(
 		: w.yours;
 }
 
-/** "Figure practice · Due today"; just the type when the schedule is not known. */
-export function exerciseLine(e: {
-	source: Source;
-	state: ScheduleState | null;
-	today: string;
-}): string {
-	const label = typeInfo(e.source).label;
-	if (!e.state) return label;
-	return `${label} · ${dueWords(e.state, e.today, e.state.lastDay === null)[0].text}`;
-}
-
 /**
  * The no-opener fallback for Back. The band's back goes to the page Practice was
  * opened from (the trail, `nav/trail.ts`); only a Practice with none recorded
@@ -174,6 +233,8 @@ export function practiceBack(p: {
 	song: { id: number; title: string } | null;
 	/** `archived`: its page 404s, so Back cannot go there. */
 	exercise: { id: number; name: string; archived?: boolean } | null;
+	/** The run (`?from=run`) the player was opened in; null outside one. */
+	run: RunState | null;
 }): { href: string; label: string } {
 	const w = t().player;
 	const backTo = t().shell.backTo;
@@ -181,6 +242,12 @@ export function practiceBack(p: {
 	if (p.from === 'today') return today;
 	if (p.from === 'exercise' && p.exercise && !p.exercise.archived) {
 		return { href: `/${p.dance}/exercises/${p.exercise.id}`, label: backTo(p.exercise.name) };
+	}
+	if (p.from === 'run' && p.exercise && !p.exercise.archived && p.run) {
+		return {
+			href: runHref(p.dance, p.exercise.id, p.run),
+			label: backTo(p.exercise.name)
+		};
 	}
 	if (p.routine) {
 		return { href: `/${p.dance}/routines/${p.routine.id}`, label: backTo(p.routine.name) };
@@ -190,4 +257,61 @@ export function practiceBack(p: {
 	}
 	if (p.exercise) return today;
 	return { href: `/${p.dance}/songs`, label: w.backToMusic };
+}
+
+/** Where the exercise page's Practise with goes: the player for this exercise, ▶ starting it. */
+export function exercisePlayerHref(
+	dance: string,
+	exerciseId: number,
+	from: string,
+	play: boolean
+): string {
+	return `/${dance}/player?exercise=${exerciseId}&${from}${play ? '&play=1' : ''}`;
+}
+
+/**
+ * What a slot's ⓘ (Follow) or tap (Still) opens in the routine list: each of the
+ * slot's figures in order, one without details by its name only.
+ */
+export function slotDetails(
+	figureIds: readonly number[],
+	details: Record<number, RunDetails>,
+	labelOf: (id: number) => string
+): RunDetails[] {
+	return figureIds.map(
+		(id) =>
+			details[id] ?? {
+				heading: labelOf(id),
+				facts: [],
+				hasPositions: false,
+				notes: null,
+				clips: [],
+				links: []
+			}
+	);
+}
+
+/**
+ * What the About layer shows: the exercise's; in a routine, the figure that was
+ * lit when it opened (`pinned`), kept until it is closed — the run moves on
+ * every few seconds, faster than anyone reads.
+ */
+export function aboutShown(p: {
+	routine: boolean;
+	pinned: number | null;
+	details: RunDetails | null;
+	figureDetails: Record<number, RunDetails>;
+}): RunDetails | null {
+	if (p.routine) return p.pinned === null ? null : (p.figureDetails[p.pinned] ?? null);
+	return hasDetails(p.details) ? p.details : null;
+}
+
+/**
+ * Whether ▶'s `?play=1` may start the run by itself: only after a tap in this
+ * page (the browser's user activation), else Chrome leaves the audio pending
+ * and Play spins forever. A browser that cannot tell (no `userActivation`)
+ * rejects instead, and Setup shows Play's error.
+ */
+export function mayAutoPlay(activation: { hasBeenActive: boolean } | undefined): boolean {
+	return activation ? activation.hasBeenActive : true;
 }

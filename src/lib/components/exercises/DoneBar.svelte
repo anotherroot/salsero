@@ -8,25 +8,25 @@
 	import { t } from '$lib/i18n/catalog';
 
 	/*
-	 * The exercise page's pinned ✓ Done (Done today once the day has an entry),
-	 * waiting while a count plays. On the desktop it pins to the pane. `left`
+	 * The exercise page's pinned ✓ Done (Done today once the day has an entry).
+	 * On the desktop it pins to the pane. `left`
 	 * goes beside it (plan 3's Skip): then both are equal row buttons.
 	 */
 	interface Props {
 		doneToday: boolean;
-		/** A count or a song is playing: Done waits, and says so. */
-		playing: boolean;
 		/** A save without the sheet (a fixed rhythm) is out. */
 		busy?: boolean;
 		/** Done opens the sheet (false: a fixed rhythm saves at once). */
 		sheet: boolean;
+		/** A fixed rhythm in a run: the green Done · next (not once done today). */
+		fixedInRun?: boolean;
 		onclick: () => void;
 		left?: Snippet;
 	}
 
-	let { doneToday, playing, busy = false, sheet, onclick, left }: Props = $props();
+	let { doneToday, busy = false, sheet, fixedInRun = false, onclick, left }: Props = $props();
 
-	const view = $derived(doneBar({ doneToday, playing }));
+	const view = $derived(doneBar({ doneToday, fixedInRun }));
 </script>
 
 <BottomBar width="two">
@@ -38,7 +38,7 @@
 			class={left ? rowButton(view.kind) : button(view.kind, 'md', true)}
 			aria-haspopup={sheet ? 'dialog' : undefined}
 			aria-busy={busy}
-			disabled={view.disabled || busy}
+			disabled={busy}
 			{onclick}
 		>
 			{#if busy}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span>{:else}<Icon
@@ -48,9 +48,4 @@
 				/>{view.label}{/if}
 		</button>
 	</div>
-	{#if view.hint}
-		<p class="pt-1.5 text-center text-[13px] font-semibold text-muted" role="status">
-			{view.hint}
-		</p>
-	{/if}
 </BottomBar>

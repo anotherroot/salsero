@@ -105,3 +105,9 @@ was not chosen.
 Thin rounded scrollbars in the theme's muted ink, no track, no arrows
 (`layout.css`: `::-webkit-scrollbar` for Chromium and Safari, `scrollbar-width`
 and `scrollbar-color` for Firefox).
+
+On the desktop the window's scrollbar runs from the band row's foot to the bottom:
+its track starts `--band-row-h` down and the strip beside the band row is the band's
+colour (`--gutter-band`, per dance, theme and group). Chromium styles the window's
+scrollbar from `<body>`, so those rules sit on `body:has([data-frame-band])`. Firefox
+keeps a full-height bar.

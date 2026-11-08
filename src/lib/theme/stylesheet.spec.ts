@@ -114,4 +114,22 @@ describe('layout.css', () => {
 			expect(dark, n).toContain(`--color-${n}: ${GROUP.dark[n].toLowerCase()};`);
 		}
 	});
+	it('paints the strip beside the band row in each theme’s band', () => {
+		/** The `--gutter-band` of the block opened by exactly `selector`. */
+		const gutter = (selector: string) => {
+			const at = css.indexOf(`\n\t${selector} {`);
+			if (at < 0) throw new Error(`no block ${selector}`);
+			return css.slice(at).match(/--gutter-band:\s*([^;]+);/)?.[1];
+		};
+		const dark = ":root[data-theme='dark'] ";
+		const salsa = 'body:has([data-frame-band])';
+		const bachata = "body:has([data-dance='bachata'] [data-frame-band])";
+		expect(gutter(salsa)).toBe(RESOLVED.salsa.light.band);
+		expect(gutter(bachata)).toBe(RESOLVED.bachata.light.band);
+		expect(gutter(dark + salsa)).toBe(RESOLVED.salsa.dark.band);
+		expect(gutter(dark + bachata)).toBe(RESOLVED.bachata.dark.band);
+		const group = gutter(':root body:has([data-dance][data-group] [data-frame-band])');
+		expect(group).toBe(GROUP.light.band.toLowerCase());
+		expect(GROUP.dark.band).toBe(GROUP.light.band);
+	});
 });

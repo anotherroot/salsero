@@ -162,7 +162,9 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
-                     stopwatch, the Today session, what Today shows (today.ts: bands,
+                     stopwatch, the run's walk (session.ts: warm-ups first, then Practice to-do, then picked;
+                     run.ts: the run's URL, `parseSkip`, place and next), the hero's estimate (estimate.ts),
+                     Done for today's rows, streak and lines (done-today.ts), what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
                      tile's icon and name (tile.ts), the exercise page (exercise-page.ts), the
                      Done sheet's words and faces (done-view.ts), a day's entry (day-entry.ts:
@@ -172,9 +174,17 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      totals). log-view.ts is `lastTimeParts` only.
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
-src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
-                     the band's subtitles, the run summary, Play's state, Built-in
-                     or Yours, where Back goes. Client-safe
+src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
+                     and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
+                     there is an About (`hasDetails`), Play's state, Built-in or Yours,
+                     where Back goes, the exercise page's player link. Client-safe
+src/lib/server/run-details.ts  what the player's About shows, read-only, through access.ts:
+                     a figure's timing, positions, notes, sections, videos and links;
+                     a drill's (`figureDetails`, `exerciseDetails`)
+src/lib/components/player/  the player's screens: Setup, Running (the band that fills, the
+                     rows), RunLayer (a full-screen layer with a history entry), RunRows,
+                     DetailsBody and RunClip (About), CountChips, SongProgress, StageCount
+src/lib/exercises/clock-trip.ts  PURE: the exercise page's time across a trip to the player
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
                      gives the picker (build.ts); view.ts is what a row ends in, the create
@@ -476,7 +486,7 @@ src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figu
                      `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
                      a pane's heading row; there is
                      no MovesScreen (the layout and the lists replace it)
-src/routes/[dance]/(today)/  one route group, one layout: the list (Start session, Due, Done today,
+src/routes/[dance]/(today)/  one route group, one layout: the list (Start, the run (`?run=1&skip=`), Done for today (`(today)/done`), Due, Done today,
                      Not yet due, Inactive; `components/today/TodayList.svelte`) beside the open
                      exercise, `(today)/+layout.svelte` and `+layout.server.ts` (list data under a
                      namespace); the list route `+page.*` and `exercises/[id]` (+ `practice`) live in
@@ -486,9 +496,12 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start sessio
                      `components/today/TodayPaneSkeleton.svelte` is the pane while data is on the
                      way. `lib/exercises/today-pane.ts` is PURE: what opens by default (`defaultOpen`),
                      and the day's totals. The pane is the exercise page's own two columns with
-                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The interim
-                     session is `?session=1` (`SessionControls` in the layout; `TodayPane
-                     { session, canSkip, notToday }` in `today-context.ts`), which plan 3 replaces.
+                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The run is
+                     `?run=1&skip=` on an exercise page, nothing stored (`TodayPane.run`: place, next,
+                     Skip, the player's `from`; `TodayPane.autoOpened`: on the desktop the
+                     exercise Today opened by itself, whose clock waits for a tap: `page-clock.svelte.ts`
+                     takes `{ idle: true }` and `start()`); the Done sheet and band take `place`/`next`
+                     from `done-view.ts`.
                      `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list
@@ -520,7 +533,7 @@ src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
 src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
-                     25 ms look-ahead loop, speechSynthesis, the wake lock
+                     25 ms look-ahead loop, a routine's steps (`onStep`, `jumpTo`), the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
                      half-bar starts); capture.ts owns the mic and the click.
                      grid.ts (tempo states, takes, the Settings summary), recording.ts

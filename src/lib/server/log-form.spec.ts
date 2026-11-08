@@ -141,6 +141,13 @@ describe('saveDoneFrom', () => {
 		expect(db.select().from(sets).all()).toHaveLength(0);
 	});
 
+	it('keeps no run: the player logs nothing, so Done carries none', async () => {
+		await saveDoneFrom(
+			post('salsa', { exerciseId: String(drillId), rating: '3', durationS: '90', run: '{"x":1}' })
+		);
+		expect(only()).toMatchObject({ durationS: 90, playerJson: null });
+	});
+
 	it('backfills a past day at noon with no time and no run', async () => {
 		const res = await saveDoneFrom(
 			post('salsa', {

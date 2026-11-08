@@ -14,41 +14,47 @@ export const player: Catalog['player'] = {
 	couldNotStart: 'Predvajalnika ni bilo mogoče zagnati.',
 	couldNotStartBody: 'Nič se ne predvaja. Za nov poskus pritisnite Predvajaj.',
 	loadingGrid: 'Nalaganje ritma skladbe\u00a0…',
-	calls: 'Napovedi',
-	callsLabel: 'Napovedi · različica na 1, 2 ali 4 osmice',
+	follow: 'Sledi',
+	still: 'Mirno',
+	routinePlace: (n, total) => `${n} od ${total}`,
+	figures: (n) => nouns.figures(n),
+	startFrom: (n, names) => `Začni pri ${n}, ${names}`,
+	or: 'ali',
+	showFull: 'Pokaži kombinacijo čez cel zaslon',
+	closeFull: 'Zapri kombinacijo čez cel zaslon',
+	kind: { figure: 'Različica', drill: 'Vaja', routine: 'Kombinacija' },
+	about: 'Podrobnosti',
+	next: (name) => `Naslednja: ${name}`,
+	closeLayer: 'Zapri',
+	timing: (start, next, length) =>
+		`${start} → ${next} · ${slCount(length, ['doba', 'dobi', 'dobe', 'dob'])}`,
+	recording: 'Posnetek',
+	aboutOf: (name) => `Podrobnosti: ${name}`,
+	aboutNotes: 'Zapiski',
+	aboutPositions: 'Položaji',
+	aboutSections: (n) =>
+		n === 1
+			? 'odsek iz lekcije'
+			: slCount(n, [
+					'odsek iz lekcije',
+					'odseka iz lekcije',
+					'odseki iz lekcije',
+					'odsekov iz lekcije'
+				]),
+	aboutRecordings: (n) =>
+		n === 1 ? 'posnetek' : slCount(n, ['posnetek', 'posnetka', 'posnetki', 'posnetkov']),
+	aboutLinks: (n) =>
+		n === 1 ? 'povezava' : slCount(n, ['povezava', 'povezavi', 'povezave', 'povezav']),
 	starting: 'Zaganjanje\u00a0…',
 	pickSongFirst: 'Najprej izberite skladbo.',
 	songFailed: 'Te skladbe ni bilo mogoče naložiti. Izberite drugo ali uporabite štetje.',
 	paused: (clock) => `Premor · ${clock}`,
 	stopAndBack: 'Ustavi in pojdi nazaj',
 	routine: 'Kombinacija',
-	routineSlots: (n) => `Kombinacija · ${nouns.slots(n)}`,
-	routineSlotOf: (slot, total) => `Kombinacija · mesto ${slot} od ${total}`,
 	now: 'Zdaj',
 	countNotStarted: 'Štetje se še ni začelo',
 	countDigit: (digit) => `Štetje ${digit}`,
 	bpm: (n) => `${n} BPM`,
-	// "1 napovedana različica", "2 napovedani različici", "5 napovedanih različic"
-	called: (n) =>
-		slCount(n, [
-			'napovedana različica',
-			'napovedani različici',
-			'napovedane različice',
-			'napovedanih različic'
-		]),
-	saveTitle: 'Shrani vadenje',
-	unsavedLabel: 'To vadenje',
-	exercise: 'Vaja',
-	chooseExercise: 'Izberite vajo\u00a0…',
-	chooseExerciseTitle: 'Izberite vajo',
-	searchExercises: 'Iskanje vaj',
-	noExercises: 'Še ni vaj.',
-	notePlaceholder: 'Kaj si želite zapomniti?',
-	dontSave: 'Ne shrani',
 	backToToday: 'Nazaj: Danes',
-	backToMusic: 'Nazaj: Glasba',
-	refused: {
-		couldNotSave: 'Tega vadenja ni bilo mogoče shraniti.',
-		noteTooLong: 'Opomba je predolga: največ 2000 znakov.'
-	}
+	backToMusic: 'Nazaj: Glasba'
 };

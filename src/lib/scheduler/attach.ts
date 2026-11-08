@@ -9,17 +9,9 @@
  * to main-thread jank. (The standard "A Tale of Two Clocks" pattern.)
  */
 import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
-import { CLIPS, type CallEvery, type Clip } from '$lib/labels';
+import { CLIPS, type Clip } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
-import {
-	type Flow,
-	type PlanStep,
-	type Timeline,
-	type Toggles,
-	cuesIn,
-	extendPlan,
-	timeline
-} from './scheduler';
+import { type PlanStep, type Timeline, type Toggles, cuesIn, timeAt, timeline } from './scheduler';
 
 export const TICK_MS = 25;
 /**
@@ -126,28 +118,20 @@ export interface PlayerOptions {
 	audio: HTMLAudioElement | null;
 	grid: { beats: number[]; counts: number[] };
 	toggles: Toggles;
-	/** Figure ids that may be called. Empty means no calls at all. */
-	pool: number[];
 	/**
-	 * How the next figure is picked when there is no `planner`. Defaults to the
-	 * uniform pick; the figure popup's cue passes its figure's real length.
-	 */
-	flow?: Flow;
-	/**
-	 * Decides the whole plan instead of picking figure by figure — which is how a
-	 * routine plays. Given the plan so far it returns the plan extended through
-	 * `throughEight`, and must never change a step it has already returned.
+	 * A routine's walk: given the plan so far it returns the plan extended
+	 * through `throughEight`, and must never change a step it has already
+	 * returned — except from `from` on, which is a jump. Absent, the run is
+	 * count and clave only.
 	 *
 	 * A function the page supplies, so this module never learns what a routine is.
 	 */
 	planner?: (
 		plan: PlanStep[],
-		every: CallEvery,
 		throughEight: number,
-		rand: () => number
+		rand: () => number,
+		from?: { eight: number; slot: number }
 	) => PlanStep[];
-	/** What the voice says for a figure — `say`, not necessarily the name. */
-	sayOf: (figureId: number) => string;
 	/** Count and clave loudness, 0–1, independent of the music. */
 	voiceVolume: number;
 	/**
@@ -157,11 +141,12 @@ export interface PlayerOptions {
 	 */
 	takes?: CountTakeRow[];
 	/**
-	 * A figure has just been announced. `index` is its position in the plan, so a
-	 * caller that knows how the plan was built can say WHERE in a routine it is —
-	 * a figure id alone cannot, since the same figure appears in several slots.
+	 * A figure has just started, on its "1" (`at`, in song seconds). The step
+	 * says which slot it answers: the same figure appears in several slots, so a
+	 * figure id alone could not say where in the routine the run is. Nothing is
+	 * spoken: the page shows it.
 	 */
-	onCall: (figureId: number, index: number) => void;
+	onStep: (step: PlanStep, at: number) => void;
 	onEnd: () => void;
 }
 
@@ -173,7 +158,12 @@ export interface PlayerHandle {
 	stop(): void;
 	setToggles(t: Toggles): void;
 	setVoiceVolume(v: number): void;
-	setPool(pool: number[]): void;
+	/**
+	 * Start the routine again at `slot`, on the "1" of the 8-count the run is in:
+	 * the song (or the count) goes back to that "1", so the figure starts whole.
+	 * A no-op without a routine.
+	 */
+	jumpTo(slot: number): void;
 	/**
 	 * Move the run to a song time, playing or paused. Everything queued is for
 	 * the place being left, so it goes, and the cursor restarts at the target.
@@ -181,8 +171,8 @@ export interface PlayerHandle {
 	seek(songTime: number): void;
 	/** Current position in song seconds — read every frame for the on-screen count. */
 	songTime(): number;
-	/** The plan as decided so far, for "save as set". */
-	called(): number[];
+	/** The figures that have started, in order, for "save as set". */
+	danced(): number[];
 }
 
 export function createPlayer(opts: PlayerOptions): PlayerHandle {
@@ -194,17 +184,18 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 
 	const tl: Timeline = timeline(opts.grid);
 	let toggles = opts.toggles;
-	let pool = opts.pool;
 	let volume = opts.voiceVolume;
 	let plan: PlanStep[] = [];
 	/** Decoded recorded halves, empty when the run uses the built-in clips. */
 	let phrases: Partial<Record<'a' | 'b', LoadedPhrase>> = {};
-	const calledIds: number[] = [];
+	const dancedIds: number[] = [];
+	/** The last step reported, so one replayed by a seek or a jump is not logged twice running. */
+	let lastStepEight: number | null = null;
 
 	/** Song time already scheduled up to. Reset on a seek. */
 	let cursor = 0;
 	let queued: AudioBufferSourceNode[] = [];
-	let speechTimers: ReturnType<typeof setTimeout>[] = [];
+	let stepTimers: ReturnType<typeof setTimeout>[] = [];
 	/** Context origin for count-only, where there is no media element. */
 	let origin = 0;
 	/** Latches `onEnd`: the loop keeps ticking past the last beat, the callback must not. */
@@ -278,26 +269,14 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			}
 		}
 		queued = [];
-		for (const t of speechTimers) clearTimeout(t);
-		speechTimers = [];
-		// Cancelling the timers only stops calls that have not started talking.
-		// Seek away mid-call and the name already in the speech queue would go
-		// on announcing a figure for a part of the song we have left.
-		globalThis.speechSynthesis?.cancel();
+		for (const t of stepTimers) clearTimeout(t);
+		stepTimers = [];
 	}
 
-	function say(text: string) {
-		const speech = globalThis.speechSynthesis;
-		if (!speech) return;
-		// A queued call from a bar we have left would talk over the current one.
-		speech.cancel();
-		const u = new SpeechSynthesisUtterance(text);
-		u.rate = 1.1;
-		// The voice slider has to reach the NAMES too. It only feeds the clips'
-		// gain node, so without this, turning the voice down to hear the music
-		// fades the count and the clave and leaves the figure calls at full blast.
-		u.volume = volume;
-		speech.speak(u);
+	function stepStarted(step: PlanStep, at: number) {
+		if (step.eight !== lastStepEight) dancedIds.push(step.figureId);
+		lastStepEight = step.eight;
+		opts.onStep(step, at);
 	}
 
 	function schedule() {
@@ -327,15 +306,10 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		const until = now + HORIZON_S * rate();
 		if (until <= cursor) return;
 
-		if (toggles.callEvery !== null && pool.length > 0) {
-			// Decide calls a bar or two ahead of where we are scheduling sound.
-			const through = eightAt(until) + 2;
-			plan = opts.planner
-				? opts.planner(plan, toggles.callEvery as CallEvery, through, Math.random)
-				: extendPlan(plan, pool, toggles.callEvery as CallEvery, through, Math.random, opts.flow);
-		}
+		// Decide the routine a bar or two ahead of where we are scheduling sound.
+		if (opts.planner) plan = opts.planner(plan, eightAt(until) + 2, Math.random);
 
-		const { cues, phrases: due, calls } = cuesIn(tl, plan, toggles, cursor, until);
+		const { cues, phrases: due, steps } = cuesIn(tl, plan, toggles, cursor, until);
 
 		for (const cue of cues) {
 			const src = ctx.createBufferSource();
@@ -369,24 +343,26 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			queued.push(src);
 		}
 
-		for (const call of calls) {
-			const delay = Math.max(0, (ctxAt(call.at) - ctx.currentTime) * 1000);
-			speechTimers.push(
-				setTimeout(() => {
-					say(opts.sayOf(call.figureId));
-					calledIds.push(call.figureId);
-					// Found by its 8-count rather than counted: a step's `eight` is
-					// unique in the plan, so this survives a seek replaying calls the
-					// run has already made, where a running tally would drift.
-					opts.onCall(
-						call.figureId,
-						plan.findIndex((s) => s.eight === call.eight)
-					);
-				}, delay)
-			);
+		// Shown, not heard: a timer is near enough for the eye, and it is
+		// cleared with everything queued on a seek.
+		for (const { at, step } of steps) {
+			const delay = Math.max(0, (ctxAt(at) - ctx.currentTime) * 1000);
+			stepTimers.push(setTimeout(() => stepStarted(step, at), delay));
 		}
 
 		cursor = until;
+	}
+
+	function seek(to: number) {
+		const t = Math.max(0, to);
+		clearQueued();
+		if (opts.audio) opts.audio.currentTime = t;
+		else if (ctx) origin = ctx.currentTime - t / rate();
+		// Paused, the held position IS the run's position: without this the
+		// count on screen would stay where it was, and resume would schedule
+		// from there while the music plays from the new spot.
+		if (heldAt !== null) heldAt = t;
+		cursor = t;
 	}
 
 	/** Which 8-count a song time falls in — for deciding how far ahead to plan. */
@@ -425,12 +401,6 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 				const set = chooseTakes(opts.takes ?? [], gridBpm() * rate());
 				phrases = set ? await loadPhrases(ctx, set) : {};
 				toggles = { ...toggles, phrases: Boolean(phrases.a || phrases.b) };
-
-				// Prime the speech engine in the same gesture, or the first call is
-				// swallowed on iOS.
-				const u = new SpeechSynthesisUtterance(' ');
-				u.volume = 0;
-				globalThis.speechSynthesis?.speak(u);
 
 				origin = ctx.currentTime;
 				cursor = songNow();
@@ -483,7 +453,6 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			tick = 0;
 			heldAt = null;
 			clearQueued();
-			globalThis.speechSynthesis?.cancel();
 			document.removeEventListener('visibilitychange', onVisible);
 			opts.audio?.pause();
 			void wakeLock?.release();
@@ -505,23 +474,23 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			if (gain) gain.gain.value = v;
 		},
 
-		setPool(next) {
-			pool = next;
+		jumpTo(slot) {
+			if (!opts.planner) return;
+			const now = songNow();
+			// The 8-count the run is in; before the first "1", the first one.
+			const eight = Math.max(0, eightAt(now));
+			const at = timeAt(tl, eight, 1);
+			if (at === null) return;
+			plan = opts.planner(plan, eight + 2, Math.random, { eight, slot });
+			seek(at);
+			const step = plan.find((s) => s.eight === eight);
+			// At once, not at the next tick: paused, there is no tick to report it.
+			if (step) stepStarted(step, at);
 		},
 
-		seek(to) {
-			const t = Math.max(0, to);
-			clearQueued();
-			if (opts.audio) opts.audio.currentTime = t;
-			else if (ctx) origin = ctx.currentTime - t / rate();
-			// Paused, the held position IS the run's position: without this the
-			// count on screen would stay where it was, and resume would schedule
-			// from there while the music plays from the new spot.
-			if (heldAt !== null) heldAt = t;
-			cursor = t;
-		},
+		seek,
 
 		songTime: songNow,
-		called: () => [...calledIds]
+		danced: () => [...dancedIds]
 	};
 }

@@ -84,7 +84,7 @@ export function leaveOrAsk(
 /**
  * `leaveOrAsk` for a move that will navigate away from the page: ask about
  * everything the page would lose, and hand `onleave` what the user agreed to
- * lose (empty when nothing was asked), for `passNext`. A desktop session's
+ * lose (empty when nothing was asked), for `passNext`. A run's
  * Skip: the log form and an open settings edit are in one question.
  */
 export function leavePageOrAsk(

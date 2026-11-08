@@ -53,8 +53,8 @@ export function parseSetSnapshot(raw: string, now: number): SetSnapshot | null {
 /**
  * Done: save the exercise's day (`saveDay`: one row a day, time added, face and
  * note replaced). Fields: exerciseId, durationS (0..86400, optional), rating
- * (1..5, optional), note (≤2000), run (≤4000, dropped when longer), day (a past
- * day: back-filled at noon, no run, no time). A fixed rhythm stores no face
+ * (1..5, optional), note (≤2000), day (a past day: back-filled at noon, no
+ * time). No run: the player logs nothing, so `player_json` stays null. A fixed rhythm stores no face
  * whatever was posted; any other exercise refuses a missing one. The exercise is
  * checked against the wall, so a group's own drill (not the member's entry) is a 404.
  */
@@ -75,7 +75,6 @@ export async function saveDoneFrom({
 	// No `note` field at all means "not posted": the day keeps its note (undefined below).
 	const posted = form.has('note');
 	const typed = optionalText(form, 'note', 2000);
-	const run = optionalText(form, 'run', 4000);
 	const day = String(form.get('day') ?? '');
 
 	if (
@@ -106,7 +105,8 @@ export async function saveDoneFrom({
 				reps: null,
 				rating: fixed ? null : rating,
 				note: posted ? typed : undefined,
-				playerJson: backfill ? null : (run ?? null)
+				// The player logs nothing (one-player design): a set carries no run.
+				playerJson: null
 			},
 			tz
 		);

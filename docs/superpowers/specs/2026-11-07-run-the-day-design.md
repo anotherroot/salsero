@@ -8,8 +8,17 @@ the log popup removed everywhere. Decided while building: the Done sheet's four
 faces come from the sets replayed with that face added now (`doneFaces`), so a
 learning drill's learnt face shows the gap the faces earned and "learnt"; a
 fixed-rhythm drill saves at once with no face; the Today session is an interim
-walk of pages, `?session=1` (`SessionControls`), which plan 3 replaces. Plan 3
-(the run, Recordings in a run) is not built.
+walk of pages, `?session=1` (`SessionControls`), which plan 3 replaced.
+Plan 3 is built (2026-11-08, branch exercise-flow): the run is `?run=1&skip=`,
+nothing stored; Done for today at `/[dance]/done`; the hero's estimate. Decided
+while building: the estimate covers what is left to walk; the learning line in a
+run keeps the learning words; Task 6 was cut to the player's Back keeping the run,
+because the one-player design (branch practice-player) removes the player's Save;
+Not today in a run goes on, and its toast replaces an earlier Saved toast; a save
+locks the page until it leaves (no double save); on the desktop the exercise Today
+opens by itself waits for a tap, and so does the next page it opens by itself
+after a save; Done for today's streak counts days with any warm-up set and shows
+from 2. Recordings in a run are not built.
 The design boards:
 https://claude.ai/artifact/4udVsxmwPMRTWebNdpWpsz (round 1, directions A–C),
 https://claude.ai/artifact/WYKy9HYn6GBmujnPCydT2W (rounds 2 and 3: direction B,
@@ -345,18 +354,16 @@ exercise page. Its other uses:
 
 ### The practice panel and the full player
 
-- **The practice panel on the page** (count, song, clave): a run there
-  doesn't save a set on its own. Done saves the page's time plus the panel's
-  `player_json`, as the popup handed it over before. *(My call.)*
-- **The full-screen player** keeps its own Save set screen. When it was opened
-  from a run, its `from` carries the run, and after saving it goes **to the
-  next exercise of the run** (or Done for today); the button reads "Save · next".
-  Back without saving returns to the exercise page, still in the run. A page
-  whose exercise already has a set from this run shows "Done today" in place of
-  Done, so it can't be logged twice by accident. *(My call.)*
-- **A fixed-rhythm drill in the player**: the Save set screen shows no faces,
-  and saves `rating` null. *(My call; otherwise a face would be saved and
-  ignored, and then count if the drill is switched back.)*
+*Replaced 2026-11-08 by [`2026-11-08-one-player-design.md`](2026-11-08-one-player-design.md):*
+
+- **Practise with on the page** shows what the player will open with, and
+  opens it: the card opens the player's setup, its ▶ opens it playing. Nothing
+  plays on the page, so Done never waits for a count.
+- **The player logs nothing.** No Save set screen, no "Save · next", no
+  fixed-rhythm save: Done on the exercise page is the only way a practice
+  becomes a set, and it carries no run (`player_json` stays null on new sets).
+  Back from the player returns to the exercise page, in the run when it was
+  opened from one.
 
 Every log form changes, so **raise PAGE_EPOCH**.
 
