@@ -154,7 +154,9 @@ describe('the map', () => {
 		});
 		expect(pos(sombra)).toMatchObject({ tone: 'muted', ins: 0, outs: 0 });
 
-		expect(d.edges).toEqual(
+		expect(
+			d.edges.map((e: any) => ({ from: e.from, to: e.to, width: e.width, figures: e.figures }))
+		).toEqual(
 			[
 				{ from: cerrada, to: abierta, width: 3, figures: 2 },
 				{ from: cerrada, to: caida, width: 2, figures: 1 },
@@ -209,7 +211,9 @@ describe('the map', () => {
 		db.insert(lessonAdds).values({ userId: 'u3', lessonId: lesson, addedAt: 1, seenAt: 1 }).run();
 		const d = loadOf('u3');
 		expect(d.layout.nodes.map((x: any) => x.id)).toEqual([b, a]);
-		expect(d.edges).toEqual([{ from: a, to: b, width: 2, figures: 1 }]);
+		expect(
+			d.edges.map((e: any) => ({ from: e.from, to: e.to, width: e.width, figures: e.figures }))
+		).toEqual([{ from: a, to: b, width: 2, figures: 1 }]);
 		expect(d.positions.find((p: any) => p.id === b)).toMatchObject({ ins: 1, outs: 0 });
 	});
 

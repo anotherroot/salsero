@@ -126,6 +126,13 @@ export function edgeGeometry(
 	};
 }
 
+/** A figure on the map's arrows: its label ("Enchufla · Doble") and its move's name. */
+export interface MapFig {
+	id: number;
+	label: string;
+	move: string;
+}
+
 /** One position as the map draws it (`mapData`). */
 export interface MapDataPosition {
 	id: number;
@@ -151,7 +158,11 @@ export interface MapData {
 	empty: boolean;
 	layout: MapLayout;
 	positions: MapDataPosition[];
-	edges: { from: number; to: number; width: number; figures: number }[];
+	edges: { from: number; to: number; width: number; figures: number; figs: MapFig[] }[];
+	/** Figures that start at a drawn position and have no end: anything can follow them. */
+	anyFrom: { from: number; figs: MapFig[] }[];
+	/** Figures with no start (they follow anything), and where each ends (maybe nowhere). */
+	noStart: { fig: MapFig; ends: number[] }[];
 	/** Figures the map draws no arrow for: the tray's No position chip. */
 	noPosition: number;
 	summary: string;

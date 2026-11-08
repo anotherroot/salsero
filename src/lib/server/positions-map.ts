@@ -1,13 +1,14 @@
-import { inArray } from 'drizzle-orm';
-import { positions as positionsTable } from '$lib/server/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { figureGroups, figures, positions as positionsTable } from '$lib/server/db/schema';
 import { graphFor } from '$lib/server/graph';
+import { figureLabels } from '$lib/server/figures';
 import { teamRefs, usableOf } from '$lib/server/usable';
 import type { Db } from '$lib/server/db';
 import type { Space, Wall } from '$lib/server/scope';
 import { noPosition, positionCounts } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
 import { layoutMap, mapInputOf, mapLabel } from '$lib/positions/map';
-import { legendTypes, styleTone, type MapData } from '$lib/positions/map-view';
+import { legendTypes, styleTone, type MapData, type MapFig } from '$lib/positions/map-view';
 import { mapLabelFor, mapNodeName, mapSummary, mapTwinsLine } from '$lib/positions/view';
 import type { GroupMode } from '$lib/types';
 
@@ -66,7 +67,61 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		};
 	});
 	const figuresOf = new Map(input.edges.map((e) => [`${e.from}:${e.to}`, e.figures]));
-	const edges = layout.edges.map((e) => ({ ...e, figures: figuresOf.get(`${e.from}:${e.to}`)! }));
+
+	// Each figure on its arrows, from the same graph (ids already folded).
+	const labels = figureLabels(db, space, usable);
+	const moves = new Map<number, string>(
+		graph.figures.length === 0
+			? []
+			: db
+					.select({ id: figures.id, move: figureGroups.name })
+					.from(figures)
+					.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+					.where(
+						inArray(
+							figures.id,
+							graph.figures.map((f) => f.id)
+						)
+					)
+					.all()
+					.map((r) => [r.id, r.move])
+	);
+	const figOf = (id: number): MapFig => ({
+		id,
+		label: labels.get(id) ?? '',
+		move: moves.get(id) ?? ''
+	});
+	const byMove = (a: MapFig, b: MapFig) =>
+		a.move.localeCompare(b.move) || a.label.localeCompare(b.label) || a.id - b.id;
+	const drawn = new Set(input.positions.map((p) => p.id));
+	const onEdge = new Map<string, MapFig[]>();
+	const anyFromMap = new Map<number, MapFig[]>();
+	const noStart: { fig: MapFig; ends: number[] }[] = [];
+	for (const f of graph.figures) {
+		const fig = figOf(f.id);
+		if (f.starts.length === 0) {
+			noStart.push({ fig, ends: f.ends.filter((p) => drawn.has(p)) });
+			continue;
+		}
+		for (const from of f.starts) {
+			if (!drawn.has(from)) continue;
+			if (f.ends.length === 0) anyFromMap.set(from, [...(anyFromMap.get(from) ?? []), fig]);
+			for (const to of f.ends) {
+				if (!drawn.has(to)) continue;
+				const key = `${from}:${to}`;
+				onEdge.set(key, [...(onEdge.get(key) ?? []), fig]);
+			}
+		}
+	}
+	noStart.sort((a, b) => byMove(a.fig, b.fig));
+	const anyFrom = [...anyFromMap]
+		.sort((a, b) => a[0] - b[0])
+		.map(([from, figs]) => ({ from, figs: figs.sort(byMove) }));
+	const edges = layout.edges.map((e) => ({
+		...e,
+		figures: figuresOf.get(`${e.from}:${e.to}`)!,
+		figs: (onEdge.get(`${e.from}:${e.to}`) ?? []).sort(byMove)
+	}));
 
 	const none = noPosition(graph);
 	// One count everywhere: what is not drawn as an arrow (no start, no end, or only one),
@@ -81,6 +136,8 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		layout,
 		positions,
 		edges,
+		anyFrom,
+		noStart,
 		noPosition: missing,
 		summary: mapSummary({
 			positions: positions.length,
