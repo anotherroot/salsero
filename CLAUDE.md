@@ -71,8 +71,13 @@ number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
 and run the day, plan 2 (one exercise page per type, with Practise with, a drill's
 Recordings and a pinned Done; the Done sheet with four faces and their gaps; one
 entry per exercise per day (`saveDay`) with a toast and Undo; the log popup gone;
-an interim session, `?session=1`; plan 3, the run, is not built; see
+an interim session, `?session=1`; see
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
+and run the day, plan 3 (the run: Start on Today walks the day's exercises page by
+page, `?run=1&skip=…`, warm-ups first, with Skip | Done, "3 of 7" and "Next: …"
+in the Done sheet; Done for today at `/[dance]/done`; the hero's time estimate;
+the player's Back keeps the run; on the desktop the exercise Today opens by itself
+waits for a tap before its clock counts; plans 1, 2 and 3 are all built)
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
@@ -197,7 +202,8 @@ Run the day has its own,
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
 the slower gaps, Comes back (by how it went, every day until it feels good, a
 fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
-lateness, and the exercise page, Done sheet and run still to come.
+lateness, the exercise page, the Done sheet and the run (Start, Skip, Done for today,
+the estimate): all three plans are built.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add
@@ -349,7 +355,9 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
-                     stopwatch, the Today session, what Today shows (today.ts: bands,
+                     stopwatch, the run's walk (session.ts: warm-ups first, then Practice to-do, then picked;
+run.ts: the run's URL, `parseSkip`, place and next), the hero's estimate (estimate.ts),
+Done for today's rows, streak and lines (done-today.ts), what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
                      tile's icon and name (tile.ts), the exercise page (exercise-page.ts), the
                      Done sheet's words and faces (done-view.ts), a day's entry (day-entry.ts:
@@ -636,7 +644,7 @@ src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figu
                      `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
                      a pane's heading row; there is
                      no MovesScreen (the layout and the lists replace it)
-src/routes/[dance]/(today)/  one route group, one layout: the list (Start session, Due, Done today,
+src/routes/[dance]/(today)/  one route group, one layout: the list (Start, the run (`?run=1&skip=`), Done for today (`(today)/done`), Due, Done today,
                      Not yet due, Inactive; `components/today/TodayList.svelte`) beside the open
                      exercise, `(today)/+layout.svelte` and `+layout.server.ts` (list data under a
                      namespace); the list route `+page.*` and `exercises/[id]` (+ `practice`) live in
@@ -646,9 +654,12 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start sessio
                      `components/today/TodayPaneSkeleton.svelte` is the pane while data is on the
                      way. `lib/exercises/today-pane.ts` is PURE: what opens by default (`defaultOpen`),
                      and the day's totals. The pane is the exercise page's own two columns with
-                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The interim
-                     session is `?session=1` (`SessionControls` in the layout; `TodayPane
-                     { session, canSkip, notToday }` in `today-context.ts`), which plan 3 replaces.
+                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The run is
+                     `?run=1&skip=` on an exercise page, nothing stored (`TodayPane.run`: place, next,
+                     Skip, the player's `from`; `TodayPane.autoOpened`: on the desktop the
+                     exercise Today opened by itself, whose clock waits for a tap: `page-clock.svelte.ts`
+                     takes `{ idle: true }` and `start()`); the Done sheet and band take `place`/`next`
+                     from `done-view.ts`.
                      `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list
