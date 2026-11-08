@@ -118,6 +118,19 @@ export function cachesToDelete(keys: readonly string[], current: string): string
 	return others.slice(1);
 }
 
+/**
+ * Marks a write the person did not ask for (`backgroundWrite`: an open, a
+ * remembered practice). When it cannot reach the server it still changes
+ * nothing, but the page shows no "Needs a connection" for it: the person did
+ * nothing that failed.
+ */
+export const QUIET_HEADER = 'x-salsa-quiet';
+
+/** Whether a write that could not reach the server is the person's, to say so (not `QUIET_HEADER`). */
+export function tellsNeedsConnection(headers: Headers): boolean {
+	return !headers.has(QUIET_HEADER);
+}
+
 /** A write's answer that asks the page's device to pull: the server took it (or redirected). */
 export function postsChanged(res: { status: number; type: ResponseType }): boolean {
 	return res.type === 'opaqueredirect' || (res.status > 0 && res.status < 400);

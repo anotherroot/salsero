@@ -10,7 +10,9 @@ import {
 	pullCovers,
 	unpulledAfterPull,
 	unpulledAfterSave,
-	swRoute
+	swRoute,
+	QUIET_HEADER,
+	tellsNeedsConnection
 } from './sw-route';
 
 const ORIGIN = 'https://salsa.test';
@@ -259,5 +261,12 @@ describe('pullCovers', () => {
 		expect(pullCovers(999, 1000)).toBe(false);
 		// No write yet: any pull will do.
 		expect(pullCovers(5, 0)).toBe(true);
+	});
+});
+
+describe('tellsNeedsConnection', () => {
+	it("says so for the person's writes, not for a quiet one", () => {
+		expect(tellsNeedsConnection(new Headers({ 'x-sveltekit-action': 'true' }))).toBe(true);
+		expect(tellsNeedsConnection(new Headers({ [QUIET_HEADER]: '1' }))).toBe(false);
 	});
 });

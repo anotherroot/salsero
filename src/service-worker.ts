@@ -24,6 +24,7 @@ import {
 	installOrClean,
 	isNetworkFailure,
 	postsChanged,
+	tellsNeedsConnection,
 	swRoute,
 	type SwRoute
 } from '$lib/offline/sw-route';
@@ -288,7 +289,7 @@ async function write(event: FetchEvent): Promise<Response> {
 		res = await fetch(request);
 	} catch (e) {
 		console.warn('[sw] a write could not reach the server', request.url, e);
-		tell(to, { type: 'needs-connection' });
+		if (tellsNeedsConnection(request.headers)) tell(to, { type: 'needs-connection' });
 		return offline(offlineWrite(isAction, 'Needs a connection.'));
 	}
 	if (postsChanged(res)) {
