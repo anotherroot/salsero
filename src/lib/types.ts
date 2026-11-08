@@ -1190,3 +1190,29 @@ export type SyncSettings = {
 	sections: boolean;
 	media: boolean;
 };
+
+/**
+ * Sync's N-way merge (`$lib/clones/merge.ts`): one distinct value of a field
+ * across the copies, `hash` null and `field` null meaning the key is absent
+ * there. `holders` are the copies holding it, in the members' order;
+ * `changed` says a copy holding it moved away from what it last agreed.
+ */
+export type MergeValue = {
+	hash: string | null;
+	field: FlatField | null;
+	holders: number[];
+	changed: boolean;
+};
+/**
+ * A field the copies do not agree on. `pick` is a value's `hash`, null meaning
+ * "absent", undefined meaning open (the person must pick). `add` and `remove`
+ * are a box ("add here too?", "remove here too?"): ticked, `pick` is the
+ * change's value; unticked, it is the other value and nothing lands.
+ */
+export type MergeRow = {
+	key: string;
+	label: string;
+	values: MergeValue[];
+	pick: string | null | undefined;
+	kind: 'field' | 'add' | 'remove';
+};
