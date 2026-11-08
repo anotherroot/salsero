@@ -251,7 +251,7 @@ describe('listExercises: comes back and warm-up', () => {
 
 describe('updateExercise: warm-up and comes back', () => {
 	const EVERY_2 = { kind: 'every', days: 2 } as const;
-	const col = (id: number) => db.select().from(exercises).where(eq(exercises.id, id)).get()!;
+	const stored = (id: number) => db.select().from(exercises).where(eq(exercises.id, id)).get()!;
 
 	it('saves them on a person drill, and keeps them when left out', () => {
 		const d = createCustomExercise(db, U1_SALSA, { name: 'A', notes: null });
@@ -262,11 +262,11 @@ describe('updateExercise: warm-up and comes back', () => {
 			warmup: true,
 			comesBack: EVERY_2
 		});
-		expect(col(d.id).warmup).toBe(true);
-		expect(parseComesBack(col(d.id).comesBack)).toEqual(EVERY_2);
+		expect(stored(d.id).warmup).toBe(true);
+		expect(parseComesBack(stored(d.id).comesBack)).toEqual(EVERY_2);
 		updateExercise(db, d.id, { name: 'A', notes: 'n', active: true });
-		expect(col(d.id).warmup).toBe(true);
-		expect(parseComesBack(col(d.id).comesBack)).toEqual(EVERY_2);
+		expect(stored(d.id).warmup).toBe(true);
+		expect(parseComesBack(stored(d.id).comesBack)).toEqual(EVERY_2);
 	});
 
 	it('creates with them', () => {
@@ -288,7 +288,7 @@ describe('updateExercise: warm-up and comes back', () => {
 			.returning({ id: exercises.id })
 			.get().id;
 		updateExercise(db, id, { name: 'R', notes: null, active: true, comesBack: EVERY_2 });
-		expect(col(id).comesBack).toBeNull();
+		expect(stored(id).comesBack).toBeNull();
 	});
 
 	it("clears a member's entry with 'teacher'", () => {
@@ -303,7 +303,14 @@ describe('updateExercise: warm-up and comes back', () => {
 			active: true,
 			comesBack: 'teacher'
 		});
-		expect(col(c.entry).comesBack).toBeNull();
+		expect(stored(c.entry).comesBack).toBeNull();
+	});
+
+	it("takes a member's entry warm-up (the person's own row)", () => {
+		const c = makeClass(db);
+		expect(stored(c.entry).teamId).toBeNull();
+		updateExercise(db, c.entry, { name: 'Shines', notes: null, active: true, warmup: true });
+		expect(stored(c.entry).warmup).toBe(true);
 	});
 
 	it("never writes a group drill's warm-up, and names a Comes back change in History", () => {
@@ -314,8 +321,8 @@ describe('updateExercise: warm-up and comes back', () => {
 			{ name: 'Shines', notes: null, active: true, warmup: true, comesBack: EVERY_2 },
 			'u2'
 		);
-		expect(col(c.drill).warmup).toBe(false);
-		expect(parseComesBack(col(c.drill).comesBack)).toEqual(EVERY_2);
+		expect(stored(c.drill).warmup).toBe(false);
+		expect(parseComesBack(stored(c.drill).comesBack)).toEqual(EVERY_2);
 		const line = db
 			.select()
 			.from(teamChanges)

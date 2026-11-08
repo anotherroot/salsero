@@ -27,7 +27,7 @@ import {
 } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
-import { readComesBack } from '$lib/server/comes-back-form';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
@@ -353,7 +353,7 @@ export const actions: Actions = {
 			return fail(400, { action: 'update', message: 'Check the values and try again.' });
 		}
 		// Warm-up is the person's own: a group's drill never takes it. No field keeps.
-		const warmup = team || !form.has('warmupSent') ? undefined : checkbox(form, 'warmup');
+		const warmup = team ? undefined : readWarmup(form);
 		if (
 			!updateExercise(db, row.id, { name, notes, active, warmup, comesBack }, me(params, locals))
 		) {

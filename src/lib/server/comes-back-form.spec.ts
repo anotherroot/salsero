@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readComesBack } from './comes-back-form';
+import { readComesBack, readWarmup } from './comes-back-form';
 import { FACES } from '$lib/schedule/comes-back';
 
 const form = (o: Record<string, string>) => {
@@ -50,4 +50,15 @@ describe('readComesBack', () => {
 		expect(readComesBack(form({ comesBack: 'nope' }), null, NOW)).toBe('invalid');
 	});
 	it('no field keeps', () => expect(readComesBack(form({}), null, NOW)).toBeUndefined());
+});
+
+describe('readWarmup', () => {
+	it('keeps without the marker, even with a box', () => {
+		expect(readWarmup(form({}))).toBeUndefined();
+		expect(readWarmup(form({ warmup: 'on' }))).toBeUndefined();
+	});
+	it('reads the box once the marker is sent', () => {
+		expect(readWarmup(form({ warmupSent: '1', warmup: 'on' }))).toBe(true);
+		expect(readWarmup(form({ warmupSent: '1' }))).toBe(false);
+	});
 });

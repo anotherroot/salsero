@@ -4,6 +4,7 @@
  * (`1` | `2` | `3` | `7`). PURE apart from the FormData it reads.
  */
 import { FACES, type ComesBack } from '$lib/schedule/comes-back';
+import { checkbox } from './form';
 
 export type ComesBackRead = ComesBack | 'teacher' | 'invalid' | undefined;
 
@@ -33,4 +34,12 @@ export function readComesBack(
 			: 'invalid';
 	}
 	return 'invalid';
+}
+
+/**
+ * The Warm-up switch. An unchecked checkbox posts nothing, so the form also sends a
+ * `warmupSent` marker: without it the switch is kept (undefined); with it, the box decides.
+ */
+export function readWarmup(form: FormData): boolean | undefined {
+	return form.has('warmupSent') ? checkbox(form, 'warmup') : undefined;
 }
