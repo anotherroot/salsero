@@ -15,9 +15,17 @@ import {
 import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 
 /** Every set of the wall's exercises (archived ones too), with its exercise. */
-export function listScheduleSets(db: Db, wall: Wall): (ScheduleSet & { exerciseId: number })[] {
+export function listScheduleSets(
+	db: Db,
+	wall: Wall
+): (ScheduleSet & { exerciseId: number; durationS: number | null })[] {
 	return db
-		.select({ exerciseId: sets.exerciseId, doneAt: sets.doneAt, rating: sets.rating })
+		.select({
+			exerciseId: sets.exerciseId,
+			doneAt: sets.doneAt,
+			rating: sets.rating,
+			durationS: sets.durationS
+		})
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
 		.where(ownedBy(exercises, wall))

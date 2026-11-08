@@ -88,12 +88,14 @@ export type TodayHero = {
  * done" · "That's today's practice" once the day's rows are done (Next brings
  * more); "You've done everything" once nothing is left to pull at all.
  */
-export function todayHero(day: DayList<unknown>): TodayHero {
+export function todayHero(day: DayList<unknown>, estimateS: number | null = null): TodayHero {
 	const w = t().today.hero;
 	if (day.left > 0) {
 		return {
 			title: day.done === 0 ? w.forToday(day.left) : w.left(day.left),
-			meta: w.doneOf(day.done, day.total),
+			meta:
+				w.doneOf(day.done, day.total) +
+				(estimateS === null ? '' : ` · ${w.about(Math.max(1, Math.round(estimateS / 60)))}`),
 			progress: day.total > 0 ? day.done / day.total : 0,
 			bar: true,
 			state: 'todo'

@@ -8,6 +8,8 @@ import { shownExercise } from '$lib/exercises/name';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { dayListOf, workOf } from '$lib/schedule/today-list';
 import { comingUpOf } from '$lib/schedule/coming-up';
+import { runEstimate } from '$lib/exercises/estimate';
+import { sessionWalk } from '$lib/exercises/session';
 import type { LayoutServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
@@ -35,6 +37,7 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 	const input = { ...stored, exercises: stored.exercises.map(shownExercise) };
 	// The day worked out once, for the list and Coming up alike.
 	const worked = workOf(input);
+	const day = dayListOf(worked);
 
 	// Widen the window by a day each side, then let localDay decide membership:
 	// the day boundary is decided in ONE place, in the user's zone.
@@ -48,7 +51,17 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			today,
 			yesterday: shiftDay(today, -1),
 			// The day's rows: done, to do, picked (`src/lib/schedule/today-list.ts`).
-			day: dayListOf(worked),
+			day,
+			// About how long what is still to walk takes (null: none of it was ever timed).
+			estimateS: runEstimate(
+				input.sets.map((s) => ({
+					exerciseId: s.exerciseId,
+					doneAt: s.doneAt,
+					durationS: s.durationS ?? null
+				})),
+				sessionWalk(day.rows).map((r) => r.exercise.id),
+				tz
+			),
 			// Every exercise by the day it comes back: the Coming up page.
 			coming: comingUpOf(worked),
 			// Every live exercise, paused ones too: opening one by id, a tile's type.

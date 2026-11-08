@@ -24,7 +24,7 @@ export interface DayExercise {
 
 export interface DayInput<E extends DayExercise> {
 	exercises: E[];
-	sets: (ScheduleSet & { exerciseId: number })[];
+	sets: (ScheduleSet & { exerciseId: number; durationS?: number | null })[];
 	/** Today's picks only (next, add, skip). */
 	picks: DayPick[];
 	daily: number;

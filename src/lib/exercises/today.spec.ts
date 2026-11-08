@@ -163,6 +163,15 @@ function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
 }
 
 describe('todayHero', () => {
+	it('the hero says about how long', () => {
+		expect(todayHero(list({ done: 0, total: 7, left: 7 }), 1800).meta).toBe(
+			'0 of 7 done · about 30 min'
+		);
+		expect(todayHero(list({ done: 0, total: 7, left: 7 }), 20).meta).toBe(
+			'0 of 7 done · about 1 min'
+		);
+		expect(todayHero(list({ done: 0, total: 7, left: 7 }), null).meta).toBe('0 of 7 done');
+	});
 	it('before anything is done: N for today; after, N left for today', () => {
 		expect(todayHero(list({ done: 0, total: 7, left: 7 }))).toMatchObject({
 			title: '7 for today',

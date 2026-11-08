@@ -21,6 +21,7 @@ export const today: Catalog['today'] = {
 		forToday: (n) => `${slCount(n, VAJA)} za danes`,
 		left: (n) => `Še ${slCount(n, VAJA)} za danes`,
 		doneOf: (done, total) => `Opravljeno: ${done} od ${total}`,
+		about: (minutes) => `približno ${minutes} min`,
 		// The count is in the list's heading ("Vaje · 5"); "Vseh 5 vaj je opravljenih" is too long here.
 		allDone: () => 'Vse opravljeno',
 		allDoneMeta: 'Današnja vadba je končana',

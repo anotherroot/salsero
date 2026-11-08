@@ -210,7 +210,7 @@
 
 	// The bar card: how many are left, done of all; its play starts the session,
 	// or resumes it at its next row while one is on.
-	const hero = $derived(todayHero(day));
+	const hero = $derived(todayHero(day, data.list.estimateS));
 	const resuming = $derived(sessionOn && firstUp !== null);
 	function play() {
 		if (resuming && firstUp) openRow(firstUp.exercise.id, 'replace');

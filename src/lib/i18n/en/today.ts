@@ -26,6 +26,8 @@ export const today = {
 		forToday: (n: number): string => `${n} for today`,
 		left: (n: number): string => `${n} left for today`,
 		doneOf: (done: number, total: number): string => `${done} of ${total} done`,
+		/** The estimate after it: "0 of 7 done · about 30 min". */
+		about: (minutes: number): string => `about ${minutes} min`,
 		allDone: (n: number): string => `All ${n} done`,
 		allDoneMeta: "That's today's practice",
 		everything: "You've done everything",
