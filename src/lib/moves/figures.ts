@@ -7,7 +7,13 @@ import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
 import { movesHeading } from './list';
 
 /** The load's `filter`: the search is always a string, the rest only when set. */
-export type FigureFilter = { q: string; style?: string; partner?: Partner; unlinked?: '1' };
+export type FigureFilter = {
+	q: string;
+	style?: string;
+	partner?: Partner;
+	unlinked?: '1';
+	sync?: '1';
+};
 
 export type FigureChip = {
 	key: string;
@@ -19,7 +25,7 @@ export type FigureChip = {
 };
 
 /** The query's keys in the load's order. */
-const KEYS = ['q', 'style', 'partner', 'unlinked'] as const;
+const KEYS = ['q', 'style', 'partner', 'unlinked', 'sync'] as const;
 
 /**
  * The query string for `filter` with `change` applied, without the `?`:
@@ -82,7 +88,7 @@ export function figuresHeading(
 	filter: FigureFilter
 ): string {
 	if (filter.unlinked) return `${n.figures} with no section or no lesson`;
-	return movesHeading(n, !!(filter.q || filter.style || filter.partner));
+	return movesHeading(n, !!(filter.q || filter.style || filter.partner || filter.sync));
 }
 
 /**
@@ -94,7 +100,7 @@ export function figuresEmpty(
 	filter: FigureFilter
 ): 'none' | 'all-linked' | 'no-match' | null {
 	if (count > 0) return null;
-	const narrowed = filter.q || filter.style || filter.partner;
+	const narrowed = filter.q || filter.style || filter.partner || filter.sync;
 	if (filter.unlinked) return narrowed ? 'no-match' : 'all-linked';
 	return narrowed ? 'no-match' : 'none';
 }

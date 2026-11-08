@@ -8,6 +8,8 @@
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
 	import NavTile from './NavTile.svelte';
+	import SyncCard from './SyncCard.svelte';
+	import { outOfSyncCount } from '$lib/moves/sync';
 	import { revealLit } from '$lib/components/shell/reveal';
 	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -138,7 +140,7 @@
 		inGroup && !filter.unlinked
 			? movesHeading(
 					{ moves: count, figures: figureCount },
-					!!(filter.q || filter.style || filter.partner),
+					!!(filter.q || filter.style || filter.partner || filter.sync),
 					null
 				)
 			: figuresHeading({ moves: count, figures: figureCount }, filter)
@@ -147,6 +149,16 @@
 	const chips = $derived(filterChips(filter, dance.styles, dance.styleLabel, lists.unlinked));
 	// Group mode has no Coverage tile: coverage is the person's own.
 	const tiles = $derived(lists.unrouted !== null ? tileMetas(lists.unrouted) : null);
+	// Out of sync: the card's number counts the whole list, whatever the other filters.
+	const syncN = $derived(
+		outOfSyncCount(
+			[...lists.mine, ...lists.groups.flatMap((g) => g.moves)].flatMap((m) => m.figures)
+		)
+	);
+	const syncHref = $derived.by(() => {
+		const qs = filterQuery(filter, { sync: filter.sync ? undefined : '1' });
+		return qs ? `${listPath}?${qs}` : listPath;
+	});
 	// What is typed; follows the filter when it changes under it.
 	let q = $derived(filter.q);
 
@@ -221,7 +233,11 @@
 				{#each figureRowParts(showLacks ? f : { ...f, hasSection: true, hasLesson: true }) as part, i (part.text)}
 					<span class="whitespace-nowrap"
 						>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
-							class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span
+							class={part.status
+								? 'font-bold text-status'
+								: part.warn
+									? 'font-bold text-warn'
+									: undefined}>{part.text}</span
 						></span
 					>
 				{/each}
@@ -288,6 +304,20 @@
 				current={open?.kind === 'coverage'}
 			/>
 		</div>
+	{/if}
+
+	{#if syncN > 0}
+		<SyncCard
+			kind="figure"
+			n={syncN}
+			on={!!filter.sync}
+			href={syncHref}
+			onclick={(e) => {
+				if (isList) return;
+				e.preventDefault();
+				refilter({ sync: filter.sync ? undefined : '1' }, true);
+			}}
+		/>
 	{/if}
 
 	{#if anyHidden(view.figures.flatMap((m) => m.figures))}

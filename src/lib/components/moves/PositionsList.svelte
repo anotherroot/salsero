@@ -11,6 +11,8 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import SyncCard from './SyncCard.svelte';
+	import { outOfSyncCount } from '$lib/moves/sync';
 	import PositionRow from '$lib/components/positions/PositionRow.svelte';
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import TemplatesSheet from '$lib/components/positions/TemplatesSheet.svelte';
@@ -108,7 +110,12 @@
 	const tagsOf = (rows: { id: number; name: string; copiedFrom?: string | null }[]) =>
 		fromTags(rows.map((r) => ({ id: r.id, name: r.name, from: r.copiedFrom ?? null })));
 	const mineTags = $derived(tagsOf(view.rows));
-	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
+	const filtered = $derived(!!(filter.q || filter.type || filter.gaps || filter.sync));
+	const syncN = $derived(outOfSyncCount([...l.rows, ...l.groups.flatMap((g) => g.rows)]));
+	const syncHref = $derived.by(() => {
+		const qs = positionQuery(filter, { sync: filter.sync ? undefined : '1' });
+		return qs ? `${list}?${qs}` : list;
+	});
 	const styleLabel = $derived(styleLabelOf(l.styleLabel));
 	const chips = $derived(
 		positionChips(filter, {
@@ -198,6 +205,17 @@
 		<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{GROUP_NOTE}</p>
 	{/if}
 {:else}
+	<SyncCard
+		kind="position"
+		n={syncN}
+		on={!!filter.sync}
+		href={syncHref}
+		onclick={(e) => {
+			if (isList) return;
+			e.preventDefault();
+			refilter({ sync: filter.sync ? undefined : '1' }, true);
+		}}
+	/>
 	<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
 		{#if l.inGroupMode}
 			{GROUP_NOTE}

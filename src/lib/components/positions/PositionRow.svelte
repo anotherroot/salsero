@@ -2,6 +2,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { differLabel } from '$lib/moves/sync';
 	import { groupRowMeta, rowMeta, type StyleLabel } from '$lib/positions/view';
 	import type { PositionListRow } from '$lib/types';
 
@@ -31,6 +32,7 @@
 		tag?: string;
 	} = $props();
 
+	const differ = $derived(differLabel(row.differ));
 	const meta = $derived(group ? null : rowMeta(row, styleLabel));
 	// Dead end and orphan are faults (danger); an island is cut off but not broken (warn).
 	const wordClass = $derived(
@@ -60,6 +62,7 @@
 			{:else}
 				{groupRowMeta(row, styleLabel)}
 			{/if}
+			{#if differ}<span class="font-bold text-warn"> · {differ}</span>{/if}
 		</span>
 	</span>
 	<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
