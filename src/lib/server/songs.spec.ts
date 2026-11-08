@@ -11,7 +11,7 @@ import { leaveTeam } from './membership';
 import { usedBytesOf } from './storage';
 import { cloneFilesIn, type CloneFiles } from './clones/files';
 import { makeMine } from './clones/edit';
-import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
+import { archivedSongCopy } from '$lib/clones/view';
 import { makeClass, SHARED_FILE, type Class } from './test-class';
 import { createCustomExercise, logSet } from './exercises';
 import {
@@ -720,7 +720,7 @@ describe('Make it mine on a class song', () => {
 		expect(await copySong(c.shared, 'u3', T + 2)).toEqual({
 			ok: false,
 			reason: 'archived',
-			message: ARCHIVED_SONG_COPY
+			message: archivedSongCopy()
 		});
 		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
 		expect(db.select().from(songs).where(eq(songs.userId, 'u3')).all()).toHaveLength(1);

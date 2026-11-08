@@ -24,16 +24,16 @@ import {
 	whatGoes,
 	whichSub,
 	whichTitle,
-	DETACH_BUTTON,
-	DETACH_MINE,
-	DETACH_NO_MORE,
+	detachButton,
+	detachMine,
+	detachNoMore,
 	detachGroup,
 	detachTitle,
-	DROP_BUTTON,
-	DROP_FAILED,
-	DROP_TITLE,
-	SYNC_FIRST,
-	USE_INSTEAD,
+	dropButton,
+	dropFailed,
+	dropTitle,
+	syncFirst,
+	useInstead,
 	addToo,
 	cantFollow,
 	copiedHere,
@@ -48,20 +48,20 @@ import {
 	ownChanges,
 	selfMeta,
 	statusChip,
-	ALREADY_IN_YOURS,
-	CANCEL,
-	LOAD_FAILED,
+	alreadyInYours,
+	cancelLabel,
+	loadFailed,
 	YOURS,
-	NOT_TAKEN,
-	PICK_BOTH,
-	RECORDING_GONE,
-	STALE,
-	SYNC_STALE,
+	notTaken,
+	pickBoth,
+	recordingGone,
+	landingStale,
+	syncStale,
 	VERSIONS,
 	nameTaken,
-	ARCHIVED_SONG_COPY,
+	archivedSongCopy,
 	makeMine,
-	MAKE_MINE_SUB,
+	makeMineSub,
 	makeMineTitle,
 	restoreLine,
 	staysTheirs,
@@ -78,7 +78,7 @@ import {
 	makeMineSize,
 	recordingMeta,
 	sourceNote,
-	TAKE,
+	takeLabel,
 	KEEP_MINE,
 	MOVE_BUTTON,
 	MOVE_NOTE,
@@ -88,7 +88,13 @@ import {
 	USE_GROUPS,
 	movedToast,
 	moveTitle,
-	moveWhy
+	moveWhy,
+	detachFailed,
+	dropGone,
+	dropPlace,
+	syncNoAccess,
+	syncTitle,
+	updateTitle
 } from './view';
 
 describe('clone words', () => {
@@ -149,10 +155,10 @@ describe('Make it mine', () => {
 
 	it('the title and the line under it', () => {
 		expect(makeMineTitle('Setenta · Básico')).toBe('Make Setenta · Básico yours?');
-		expect(MAKE_MINE_SUB).toBe('Editing makes your own copy. The class’s stays as it is.');
+		expect(makeMineSub()).toBe('Editing makes your own copy. The class’s stays as it is.');
 		expect(makeMine()).toBe('Make it mine');
 		expect(withLocale('sl', makeMine)).toBe('Naredi svojo kopijo');
-		expect(restoreLine).toBe('You had your own copy. Restore it?');
+		expect(restoreLine()).toBe('You had your own copy. Restore it?');
 	});
 
 	it('youGet, per kind', () => {
@@ -252,7 +258,7 @@ describe('Make it mine', () => {
 	});
 
 	it('the archived song copy’s refusal', () => {
-		expect(ARCHIVED_SONG_COPY).toBe(
+		expect(archivedSongCopy()).toBe(
 			'Your copy of this song is archived. Delete it in Settings → What uses space to make it yours again.'
 		);
 	});
@@ -320,7 +326,7 @@ describe('sources', () => {
 		);
 		expect(recordingMeta(true, '12 MB')).toBe('12 MB · already in yours');
 		expect(recordingMeta(false, '12 MB')).toBe('New · 12 MB');
-		expect(TAKE).toBe('Take');
+		expect(takeLabel()).toBe('Take');
 	});
 
 	it('makeMineSize: what the copy uses of the person’s space', () => {
@@ -329,25 +335,25 @@ describe('sources', () => {
 	});
 
 	it('the refusals', () => {
-		expect(LOAD_FAILED).toBe('That could not be loaded. Try again.');
+		expect(loadFailed()).toBe('That could not be loaded. Try again.');
 		expect(YOURS).toBe('Yours');
-		expect(STALE).toBe('Changed meanwhile; check it again.');
-		expect(SYNC_STALE).toBe('Changed while you were syncing; check it again.');
-		expect(PICK_BOTH).toBe('Pick yours or theirs where both changed.');
+		expect(landingStale()).toBe('Changed meanwhile; check it again.');
+		expect(syncStale()).toBe('Changed while you were syncing; check it again.');
+		expect(pickBoth()).toBe('Pick yours or theirs where both changed.');
 		expect(nameTaken('Doble', 'Enchufla')).toBe('Doble is taken in Enchufla; rename one first.');
 	});
 
 	it('the source tab’s words: Take refused, the switcher', () => {
-		expect(ALREADY_IN_YOURS).toBe('It is already in yours.');
-		expect(RECORDING_GONE).toBe('That recording is gone.');
-		expect(NOT_TAKEN).toBe('Not taken');
+		expect(alreadyInYours()).toBe('It is already in yours.');
+		expect(recordingGone()).toBe('That recording is gone.');
+		expect(notTaken()).toBe('Not taken');
 		expect(VERSIONS).toBe('Versions');
 	});
 });
 
 describe('the sheets’ Cancel', () => {
 	it('is the kit’s word', () => {
-		expect(CANCEL).toBe('Cancel');
+		expect(cancelLabel()).toBe('Cancel');
 	});
 });
 
@@ -400,7 +406,7 @@ describe('copies you can see, and Send mine (board C3)', () => {
 
 describe('Drop my copy (board C5)', () => {
 	it('the sheet’s title and line, by what the person goes back to', () => {
-		expect(DROP_TITLE).toBe('Drop your copy?');
+		expect(dropTitle()).toBe('Drop your copy?');
 		expect(dropSub('read')).toBe(
 			'You go back to the class’s version, read-only. Your copy is archived.'
 		);
@@ -436,8 +442,8 @@ describe('Drop my copy (board C5)', () => {
 	});
 
 	it('several choices: the radios’ lines', () => {
-		expect(USE_INSTEAD).toBe('Use instead');
-		expect(copiedHere).toBe('You copied it from here');
+		expect(useInstead()).toBe('Use instead');
+		expect(copiedHere()).toBe('You copied it from here');
 		expect(cantFollow('Week 2')).toBe(
 			'Not in a lesson you added: your practice can’t follow · Add Week 2 too'
 		);
@@ -473,10 +479,10 @@ describe('Drop my copy (board C5)', () => {
 	});
 
 	it('the buttons and the toast', () => {
-		expect([DROP_BUTTON, SYNC_FIRST]).toEqual(['Drop my copy', 'Sync first']);
+		expect([dropButton(), syncFirst()]).toEqual(['Drop my copy', 'Sync first']);
 		expect(droppedToast('Salsa Tuesdays')).toBe('Back on Salsa Tuesdays’. Your copy is archived.');
 		expect(droppedToast('Rueda club')).toBe('Back on Rueda club’s. Your copy is archived.');
-		expect(DROP_FAILED).toBe('That could not be dropped. Try again.');
+		expect(dropFailed()).toBe('That could not be dropped. Try again.');
 	});
 });
 
@@ -491,11 +497,11 @@ describe('Detach and reconnecting (board C8)', () => {
 		expect(detachGroup('routine')).toBe(
 			'In a group, Detach just makes it an ordinary group routine.'
 		);
-		expect(DETACH_MINE).toBe(
+		expect(detachMine()).toBe(
 			'Your copy stays yours, as it is. It stays shown together with theirs, as twins.'
 		);
-		expect(DETACH_NO_MORE).toBe('No more “updated since”, and no Take theirs to hit by mistake.');
-		expect(DETACH_BUTTON).toBe('Detach');
+		expect(detachNoMore()).toBe('No more “updated since”, and no Take theirs to hit by mistake.');
+		expect(detachButton()).toBe('Detach');
 	});
 });
 
@@ -690,5 +696,194 @@ describe('Same as… (board C7)', () => {
 		expect(v.sameAsEmpty('lesson')).toBe('No other lessons match.');
 		expect(v.SAME_AS_SEARCH).toBe('Search your figures');
 		expect(v.SAME_AS_EMPTY).toBe('No other figures match.');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+	const report = (extra: Partial<SwitchReport> = {}): SwitchReport => ({
+		routines: [],
+		lessons: [],
+		sections: 0,
+		entries: 0,
+		figures: [],
+		...extra
+	});
+	const team = { kind: 'team' as const, teamId: 1, name: 'Sreda 17:30' };
+	const mine = { kind: 'mine' as const };
+	const none = { clonedFrom: null, groups: 0, twins: 0 };
+
+	it('a group’s name stands after a “·” or a colon, never declined', () => {
+		expect(sl(() => usedAsIs('Sreda 17:30'))).toBe('Sreda 17:30 · uporabljeno, kakršno je');
+		expect(sl(() => fromLessonNote('Teden 6', 'Sreda 17:30'))).toBe(
+			'Iz lekcije: Teden 6. V kombinacijah jo uporabljajte, kakršna je; ostane v skupini: Sreda 17:30.'
+		);
+		expect(sl(() => groupSlotNote(['Setenta', 'Enchufla'], 'Rueda club'))).toBe(
+			'Setenta in Enchufla · iz skupine: Rueda club. Če skupino zapustite, obdržite kopijo in ta kombinacija deluje naprej.'
+		);
+	});
+
+	it('Make it mine: the sheet’s words', () => {
+		expect(sl(() => makeMineTitle('Setenta · Básico'))).toBe(
+			'Želite svojo kopijo: Setenta · Básico?'
+		);
+		expect(sl(makeMineSub)).toBe(
+			'Ko urejate, nastane vaša kopija. Tista iz tečaja ostane nespremenjena.'
+		);
+		expect(sl(restoreLine)).toBe('Svojo kopijo ste že imeli. Jo želite obnoviti?');
+		expect(sl(() => youGet('routine'))).toBe(
+			'Ime, opombe in mesta. Spreminjate jih lahko po svoje.'
+		);
+		expect(sl(() => staysTheirs('figure', 'Sreda 17:30'))!.title).toBe(
+			'OSTANE V SKUPINI · SREDA 17:30'
+		);
+		expect(sl(() => staysTheirs('position', 'Rueda club'))!.body).toBe(
+			'Lekcije in videi, ki so nanj povezani. Vidite jih na zavihku skupine: Rueda club.'
+		);
+		expect(sl(() => makeMineSize(380 * 1024 * 1024))).toBe('Zasede 380 MB vašega prostora');
+		expect(sl(archivedSongCopy)).toContain('Kaj zaseda prostor');
+	});
+
+	it('Make it mine: what switches, listed after the colon', () => {
+		expect(sl(() => switchNote(report({ routines: [{ id: 1, name: 'Teden 4' }] }), true))).toBe(
+			'Na vašo kopijo preide: kombinacija Teden 4 in vadenje.'
+		);
+		const two = [
+			{ id: 1, name: 'A' },
+			{ id: 2, name: 'B' }
+		];
+		expect(sl(() => switchNote(report({ routines: two }), false))).toBe(
+			'Na vašo kopijo preide: kombinaciji A in B.'
+		);
+		expect(
+			sl(() =>
+				switchNote(
+					report({
+						figures: [{ id: 7, label: 'Setenta · Con giro' }],
+						lessons: [{ id: 4, title: 'Mi clase' }],
+						sections: 2
+					}),
+					false
+				)
+			)
+		).toBe(
+			'Na vašo kopijo preide: različica Setenta · Con giro (s tem položajem), lekcija Mi clase in 2 odseka.'
+		);
+		const three = [7, 8, 9].map((id) => ({ id, label: `F${id}` }));
+		expect(sl(() => switchNote(report({ figures: three }), false))).toBe(
+			'Na vašo kopijo preide: 3 različice s tem položajem.'
+		);
+		expect(sl(() => switchNote(report(), false))).toBeNull();
+	});
+
+	it('the band’s subtitle and the source tab', () => {
+		expect(sl(() => cloneSubtitle({ ...none, self: team, kind: 'routine' }))).toBe(
+			'Kombinacija · Sreda 17:30'
+		);
+		expect(
+			sl(() => cloneSubtitle({ ...none, self: mine, clonedFrom: 'Sreda 17:30', kind: 'figure' }))
+		).toBe('Vaša kopija · vir: Sreda 17:30');
+		expect(
+			[1, 2, 5].map((g) =>
+				sl(() => cloneSubtitle({ ...none, self: mine, groups: g, kind: 'figure' }))
+			)
+		).toEqual(['Vaše · v 1 skupini', 'Vaše · v 2 skupinah', 'Vaše · v 5 skupinah']);
+		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 1, kind: 'figure' }))).toBe(
+			'Dvojčka · 2 različici'
+		);
+		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 2, kind: 'figure' }))).toBe(
+			'Dvojčki · 3 različice'
+		);
+		expect(sl(() => sourceNote('Sreda 17:30'))).toBe(
+			'Kopija · Sreda 17:30, samo za branje. Kar želite, prevzemite v svojo.'
+		);
+		expect(sl(() => [recordingMeta(true, '12 MB'), recordingMeta(false, '12 MB')])).toEqual([
+			'12 MB · že v vaši kopiji',
+			'Nov · 12 MB'
+		]);
+		expect(sl(() => [takeLabel(), notTaken(), alreadyInYours(), recordingGone()])).toEqual([
+			'Prevzemi',
+			'Ni prevzeto',
+			'Ta posnetek je že v vaši kopiji.',
+			'Tega posnetka ni več.'
+		]);
+	});
+
+	it('changedLabels counts in the nominative', () => {
+		const d = (key: string, label: string) => ({ key, label });
+		expect(
+			sl(() =>
+				changedLabels([
+					d('notes', 'Opombe'),
+					d('rec:g1', 'x'),
+					d('rec:g2', 'y'),
+					d('start:g1', 'x'),
+					d('end:g1', 'x'),
+					d('end:g2', 'y'),
+					d('end:g3', 'z'),
+					d('fig:g9', 'x')
+				])
+			)
+		).toEqual(['Opombe', '2 posnetka', '1 začetni položaj', '3 končni položaji', '1 različica']);
+	});
+
+	it('Drop my copy', () => {
+		expect(sl(dropTitle)).toBe('Želite opustiti svojo kopijo?');
+		expect(sl(() => dropSub('edit'))).toBe(
+			'Vrnete se h kopiji skupine, ki jo urejate. Vaša kopija se arhivira.'
+		);
+		expect(sl(() => dropOne('Sreda 17:30', 'Setenta · Básico'))).toBe(
+			'Vaše kombinacije in vadenje bodo uporabljali: Setenta · Básico · Sreda 17:30.'
+		);
+		expect(sl(() => dropOne('Sreda 17:30', 'Setenta · Básico', false))).toBe(
+			'Vaše kombinacije bodo uporabljale: Setenta · Básico · Sreda 17:30.'
+		);
+		expect(sl(() => onlyInYours(['Opombe', 'Ime', '1 posnetek']))).toBe(
+			'Samo v vaši kopiji: opombe, ime in 1 posnetek. To gre v arhiv z vašo kopijo.'
+		);
+		expect(sl(() => onlyInYours(['Opombe'], 'Sreda 17:30'))).toBe(
+			'Samo v vaši kopiji: opombe. To kopijo lahko urejate: Sreda 17:30.'
+		);
+		expect(sl(() => cantFollow('Teden 2'))).toBe(
+			'Ni v lekciji, ki ste jo dodali: vadenje ne more slediti · Dodaj tudi lekcijo: Teden 2'
+		);
+		expect(sl(() => cantFollow(null, 'song'))).toBe(
+			'Še ni objavljena: vaše vadenje ostane pri vaši kopiji.'
+		);
+		expect(
+			sl(() => dropChoiceMeta({ clonedFrom: true, practiceFollows: true, addLesson: null }, false))
+		).toBe('Od tod ste jo kopirali');
+		expect(sl(() => dropPlace('Sreda 17:30'))).toBe('Sreda 17:30');
+		expect(sl(() => droppedToast('Sreda 17:30'))).toBe(
+			'Nazaj na kopiji · Sreda 17:30. Vaša kopija je arhivirana.'
+		);
+		expect(sl(() => [dropButton(), syncFirst(), useInstead(), dropGone()])).toEqual([
+			'Opusti svojo kopijo',
+			'Najprej uskladi',
+			'Namesto nje uporabi',
+			'Te kopije ni več mogoče uporabiti. Naložite znova in izberite še enkrat.'
+		]);
+	});
+
+	it('Detach', () => {
+		expect(sl(() => detachTitle('Sreda 17:30'))).toBe('Želite nehati slediti: Sreda 17:30?');
+		expect(sl(() => detachTitle('Sreda 17:30', true))).toBe('Želite odklopiti od kopij?');
+		expect(sl(() => detachGroup('routine'))).toBe(
+			'V skupini »Odklopi« le prekine povezavo s kopijami: ostane kombinacija skupine.'
+		);
+		expect(sl(() => [detachButton(), detachFailed()])).toEqual([
+			'Odklopi',
+			'Odklop ni uspel. Poskusite znova.'
+		]);
+	});
+
+	it('Sync’s titles and refusals', () => {
+		expect(sl(() => syncTitle('Enchufla · Doble'))).toBe('Uskladi: Enchufla · Doble');
+		expect(sl(() => updateTitle('Sreda 17:30'))).toBe('Posodobi iz: Sreda 17:30');
+		expect(sl(syncStale)).toBe('Med usklajevanjem se je spremenilo; preverite znova.');
+		expect(sl(syncNoAccess)).toBe('Te kopije ne morete več urejati.');
+		expect(sl(() => nameTaken('Doble', 'Enchufla'))).toBe(
+			'Različica s tem imenom že obstaja: Enchufla · Doble. Najprej eno preimenujte.'
+		);
 	});
 });

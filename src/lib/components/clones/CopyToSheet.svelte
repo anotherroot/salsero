@@ -9,8 +9,8 @@
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		ALREADY_THERE,
-		CANCEL,
-		LOAD_FAILED,
+		cancelLabel,
+		loadFailed,
 		CONTINUE,
 		COPY_FAILED,
 		RESTORE,
@@ -29,7 +29,7 @@
 	} from '$lib/clones/view';
 	import type { CopyOffer, CopyPlanView, CopyTarget } from '$lib/types';
 	import SyncSheet from './SyncSheet.svelte';
-	import { SYNC_MENU } from '$lib/clones/step-view';
+	import { syncMenu } from '$lib/clones/step-view';
 
 	/**
 	 * Copy to… (board C4 p1, p2): the page's row into your app or a group you
@@ -199,7 +199,7 @@
 		{#if here}
 			<Banner kind="info">{existingNote(target.place, here.archived)}</Banner>
 		{:else if failed}
-			<Banner kind="error">{LOAD_FAILED}</Banner>
+			<Banner kind="error">{loadFailed()}</Banner>
 		{:else if !plan}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}
@@ -267,7 +267,9 @@
 			{#if here?.archived}
 				<input type="hidden" name="restore" value={here.id} />
 			{/if}
-			<button type="button" class={button('tertiary', 'md', true)} onclick={close}>{CANCEL}</button>
+			<button type="button" class={button('tertiary', 'md', true)} onclick={close}
+				>{cancelLabel()}</button
+			>
 			<button
 				type="button"
 				class={button('primary', 'md', true)}
@@ -280,7 +282,7 @@
 				{:else if here?.archived}
 					<Icon name="undo" size={20} />{RESTORE}
 				{:else if here}
-					<Icon name="refresh" size={20} />{SYNC_MENU}
+					<Icon name="refresh" size={20} />{syncMenu()}
 				{:else}
 					<Icon name="copy" size={20} />{copyButton(offer.kind, target.place)}
 				{/if}

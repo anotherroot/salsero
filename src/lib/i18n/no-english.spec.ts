@@ -227,7 +227,14 @@ const TRANSLATED: string[] = [
 	'src/lib/components/teams/CodeSheet.svelte',
 	'src/lib/components/teams/GroupList.svelte',
 	'src/routes/[dance]/groups/+layout.svelte',
-	'src/routes/[dance]/groups/+page.svelte'
+	'src/routes/[dance]/groups/+page.svelte',
+	// Make it mine, Sync, Keep in step, Drop my copy and Detach (part 2, Task 11).
+	'src/lib/components/clones/DetachSheet.svelte',
+	'src/lib/components/clones/DropSheet.svelte',
+	'src/lib/components/clones/KeepInStep.svelte',
+	'src/lib/components/clones/MakeMineSheet.svelte',
+	'src/lib/components/clones/SyncNotice.svelte',
+	'src/lib/components/clones/SyncSheet.svelte'
 ];
 
 describe('englishIn', () => {

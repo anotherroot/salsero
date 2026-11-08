@@ -86,7 +86,7 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
-import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
+import { alreadyInYours, recordingGone, SAME_AS_FAILED } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
 import { t } from '$lib/i18n/catalog';
 import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
@@ -786,7 +786,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const recordingId = int(form, 'recordingId');
 		const into = int(form, 'into');
 		if (recordingId === undefined || !found.recordings.some((r) => r.id === recordingId)) {
-			return fail(404, { action: 'takeRecording', message: RECORDING_GONE });
+			return fail(404, { action: 'takeRecording', message: recordingGone() });
 		}
 		if (into === undefined) throw error(404, 'Figure not found');
 		const size = found.recordings.find((r) => r.id === recordingId)!.sizeBytes;
@@ -820,7 +820,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				return fail(409, {
 					action: 'takeRecording',
 					recordingId,
-					message: ALREADY_IN_YOURS,
+					message: alreadyInYours(),
 					askForMore: false
 				});
 			default:

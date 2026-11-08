@@ -7,8 +7,8 @@ import type {
 	MoveOffer,
 	TwinOffer
 } from '$lib/types';
-import { COPY_TO, DETACH_BUTTON, DROP_BUTTON, MOVE_TO, SAME_AS } from './view';
-import { SYNC_MENU } from './step-view';
+import { COPY_TO, detachButton, dropButton, MOVE_TO, SAME_AS } from './view';
+import { syncMenu } from './step-view';
 
 /** The sheet a copy action in the ⋯ menu opens. */
 export type CloneSheet = 'sync' | 'copy' | 'sameAs' | 'move' | 'detach' | 'drop';
@@ -24,13 +24,19 @@ export type CloneOffers = {
 	drop?: DropOptions | null;
 };
 
-const ITEMS: { key: CloneSheet; icon: MenuItem['icon']; label: string; danger?: boolean }[] = [
-	{ key: 'sync', icon: 'refresh', label: SYNC_MENU },
-	{ key: 'copy', icon: 'copy', label: COPY_TO },
-	{ key: 'sameAs', icon: 'link', label: SAME_AS },
-	{ key: 'move', icon: 'move-to', label: MOVE_TO },
-	{ key: 'detach', icon: 'unlink', label: DETACH_BUTTON },
-	{ key: 'drop', icon: 'undo', label: DROP_BUTTON, danger: true }
+/** Labels are read when the menu is drawn, in the reader's language. */
+const ITEMS: {
+	key: CloneSheet;
+	icon: MenuItem['icon'];
+	label: () => string;
+	danger?: boolean;
+}[] = [
+	{ key: 'sync', icon: 'refresh', label: syncMenu },
+	{ key: 'copy', icon: 'copy', label: () => COPY_TO },
+	{ key: 'sameAs', icon: 'link', label: () => SAME_AS },
+	{ key: 'move', icon: 'move-to', label: () => MOVE_TO },
+	{ key: 'detach', icon: 'unlink', label: detachButton },
+	{ key: 'drop', icon: 'undo', label: dropButton, danger: true }
 ];
 
 /**
@@ -42,7 +48,7 @@ export function cloneMenuItems(o: CloneOffers, open: (s: CloneSheet) => void): M
 	return ITEMS.filter((i) => o[i.key] != null).map((i) => ({
 		key: i.key,
 		icon: i.icon,
-		label: i.label,
+		label: i.label(),
 		...(i.danger ? { danger: true } : {}),
 		onclick: () => open(i.key)
 	}));

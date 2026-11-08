@@ -1,3 +1,4 @@
+import { withLocale } from '$lib/i18n/current';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SYNC } from './sync';
 import {
@@ -21,7 +22,14 @@ import {
 	staysLine,
 	syncButton,
 	syncSub,
-	updateSub
+	updateSub,
+	keepTitle,
+	loadAgain,
+	noticeTitle,
+	notSynced,
+	syncLabel,
+	syncMenu,
+	updateMine
 } from './step-view';
 import type { MergeRow, StepLine, SyncView } from '$lib/types';
 import type { SheetRow } from './step-view';
@@ -379,5 +387,119 @@ describe('notesOnLoad: what the sheet still says when it loads again', () => {
 			stale: false,
 			missed: ['Sreda 17:30: no room']
 		});
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('the sheet’s button and subtitle agree with their counts', () => {
+		expect([1, 2, 3, 5, 101].map((n) => sl(() => syncButton(n)))).toEqual([
+			'Uskladi 1 kopijo',
+			'Uskladi 2 kopiji',
+			'Uskladi 3 kopije',
+			'Uskladi 5 kopij',
+			'Uskladi 101 kopijo'
+		]);
+		expect([1, 2, 3, 5].map((n) => sl(() => syncSub(n, n)))).toEqual([
+			'1 razlika v 1 kopiji',
+			'2 razliki v 2 kopijah',
+			'3 razlike v 3 kopijah',
+			'5 razlik v 5 kopijah'
+		]);
+		expect([1, 2, 3, 5].map((n) => sl(() => updateSub(n)))).toEqual([
+			'Skupina je od vašega prevzema naredila 1 spremembo',
+			'Skupina je od vašega prevzema naredila 2 spremembi',
+			'Skupina je od vašega prevzema naredila 3 spremembe',
+			'Skupina je od vašega prevzema naredila 5 sprememb'
+		]);
+	});
+
+	it('the holders keep their names as written, the last after »in«', () => {
+		expect(sl(() => holdersLine(['Ana', 'Sreda 17:30']))).toBe('Ana in Sreda 17:30');
+		expect(sl(() => holdersLine(['Yours', 'Sreda 17:30', 'Rueda club']))).toBe(
+			'Vaša, Sreda 17:30 in Rueda club'
+		);
+		expect(sl(() => holdersLine(['Sreda 17:30']))).toBe('Sreda 17:30');
+	});
+
+	it('the notice: a place before the “·”, no verb agreeing with it', () => {
+		expect(sl(() => noticeLine(line({ fields: ['Opombe', '1 posnetek'] })))).toBe(
+			'Sreda 17:30 · zaostaja za vašo kopijo: opombe, 1 posnetek'
+		);
+		expect(sl(() => noticeLine(line({ state: 'changed', fields: ['Začetek in dolžina'] })))).toBe(
+			'Sreda 17:30 · spremenjeno: začetek in dolžina'
+		);
+		expect(sl(() => noticeLine(line({ state: 'both', fields: ['Opombe'] })))).toBe(
+			'Sreda 17:30 · spremenjeno tudi v vaši kopiji: opombe'
+		);
+		expect(
+			sl(() => noticeLine(line({ state: 'held', how: 'removed', fields: ['1 posnetek'] })))
+		).toBe('Sreda 17:30 · odstranjeno: posnetek');
+		expect(sl(() => noticeLine(line({ state: 'held', how: 'added', fields: ['2 odseka'] })))).toBe(
+			'Sreda 17:30 · dodano: 2 odseka'
+		);
+		expect(sl(() => noticeLine(line({ place: 'Yours', fields: ['Opombe'] }), false))).toBe(
+			'Vaša kopija · zaostaja za to kopijo: opombe'
+		);
+		expect(
+			sl(() => noticeLine(line({ place: 'Yours', state: 'both', fields: ['Opombe'] }), false))
+		).toBe('Vaša kopija · spremenjeno tudi v tej kopiji: opombe');
+	});
+
+	it('who moved a row, the tiles for a removal and the boxes', () => {
+		expect(sl(() => changedBy(['Yours', 'Sreda 17:30'], 'field'))).toBe(
+			'spremenjeno: vaša kopija in Sreda 17:30'
+		);
+		expect(sl(() => changedBy(['Sreda 17:30'], 'add'))).toBe('dodano: Sreda 17:30');
+		expect(sl(() => changedBy(['Sreda 17:30'], 'remove'))).toBe('odstranjeno: Sreda 17:30');
+		expect(sl(() => removeChoice(['Yours']))).toBe('Odstrani iz: vaša kopija');
+		expect(sl(() => addBox(['Yours', 'A', 'B']))).toBe('Dodaj tudi v: vaša kopija, A in B');
+		expect(sl(() => removeBox(['Sreda 17:30']))).toBe('Odstrani tudi iz: Sreda 17:30');
+	});
+
+	it('Update mine’s change and what stays', () => {
+		expect(sl(() => changeText(null, 'Najprej boki'))).toBe('dodano »Najprej boki«');
+		expect(sl(() => changeText('Najprej boki', null))).toBe('odstranjeno');
+		expect(sl(() => staysLine(['V paru ali solo']))).toBe(
+			'Vaša sprememba ostane: v paru ali solo.'
+		);
+		expect(sl(() => staysLine(['Opombe', '1 posnetek']))).toBe(
+			'Vaši spremembi ostaneta: opombe in 1 posnetek.'
+		);
+		expect(sl(() => staysLine(['Opombe', 'Ime', '1 posnetek']))).toBe(
+			'Vaše spremembe ostanejo: opombe, ime in 1 posnetek.'
+		);
+		expect(sl(() => nothingNew('Sreda 17:30'))).toBe('Nič novega · Sreda 17:30');
+		expect(sl(() => notSynced('Yours', 'Te kopije ne morete več urejati.'))).toBe(
+			'Vaša: Te kopije ne morete več urejati.'
+		);
+	});
+
+	it('Keep in step: the options and the Versions line', () => {
+		const labels = sl(() => KEEP_OPTIONS.map((o) => [o.label, o.meta]));
+		expect(labels).toEqual([
+			['Imena', null],
+			['Manjše odstranitve', 'Povezave, položaji, skladbe'],
+			['Odseki in točke', 'Dodajanje ali odstranjevanje'],
+			['Posnetki in videi', 'Odstranitve iz vaše kopije ni mogoče razveljaviti']
+		]);
+		expect(labels.map(([l]) => l)).not.toContain('Names');
+		expect(sl(() => keepLine(DEFAULT_SYNC))).toBe(
+			'Samodejno usklajevanje · imena, manjše odstranitve'
+		);
+		expect(sl(() => keepLine({ ...DEFAULT_SYNC, on: false }))).toBe(
+			'Brez samodejnega usklajevanja'
+		);
+		expect(
+			sl(() => [keepTitle(), noticeTitle(), syncLabel(), syncMenu(), updateMine(), loadAgain()])
+		).toEqual([
+			'Samodejno usklajevanje',
+			'Vaše kopije se razlikujejo',
+			'Uskladi',
+			'Uskladi …',
+			'Posodobi svojo',
+			'Naloži znova'
+		]);
 	});
 });

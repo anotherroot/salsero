@@ -36,7 +36,7 @@ import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
-import { PICK_BOTH, STALE } from '$lib/clones/view';
+import { pickBoth, landingStale } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -1117,7 +1117,7 @@ export async function landKeys(db: Db, o: LandOptions): Promise<LandResult> {
 			const tx = t as unknown as Db;
 			// Again inside the write: a save may have landed while the files were linking.
 			if (seen !== undefined && digest(flatOf(tx, kind, intoId)) !== seen)
-				return { ok: false as const, reason: 'stale' as const, message: STALE };
+				return { ok: false as const, reason: 'stale' as const, message: landingStale() };
 			const applied = applyInto(tx, kind, intoId, fromId, keys, linked, actorId, now);
 			if (!applied.ok) return applied;
 			const intoAfter = flatOf(tx, kind, intoId);
@@ -1210,12 +1210,12 @@ export async function syncFrom(
 	if (accessTo(db, actorId, kind, fromId) === null) return DENIED;
 
 	const intoFlat = flatOf(db, kind, intoId);
-	if (digest(intoFlat) !== seen) return { ok: false, reason: 'stale', message: STALE };
+	if (digest(intoFlat) !== seen) return { ok: false, reason: 'stale', message: landingStale() };
 	const fromFlat = flatOf(db, kind, fromId);
 	const base = pairBase(db, kind, intoId, fromId);
 	const diffs = diff(base, intoFlat, fromFlat, hashValue);
 	const picked = currentPicks(db, picks);
-	if (unpicked(diffs, picked).length > 0) return { ok: false, reason: 'pick', message: PICK_BOTH };
+	if (unpicked(diffs, picked).length > 0) return { ok: false, reason: 'pick', message: pickBoth() };
 	const keys = diffs.filter((d) => picked[d.key] === 'theirs').map((d) => d.key);
 	// Keep mine: no field changes, only the pair's snapshot, so the other now
 	// reads as behind (what differs is the receiver's own). No History line:
@@ -1224,7 +1224,7 @@ export async function syncFrom(
 		return db.transaction((t) => {
 			const tx = t as unknown as Db;
 			if (digest(flatOf(tx, kind, intoId)) !== seen)
-				return { ok: false as const, reason: 'stale' as const, message: STALE };
+				return { ok: false as const, reason: 'stale' as const, message: landingStale() };
 			const next = nextBase(intoFlat, fromFlat, base?.skip ?? [], hashValue);
 			writePair(tx, kind, intoId, fromId, next, now);
 			return { ok: true as const };

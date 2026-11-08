@@ -38,6 +38,7 @@ import type { CloneKind } from '$lib/types';
 import { cloneInto } from './clone';
 import { makeMine } from './edit';
 import { dropCopy, dropOptions } from './drop';
+import { runInLocale } from '../i18n-request';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const NOW = T + 1000;
@@ -294,6 +295,11 @@ describe('dropCopy: a figure', () => {
 			ok: false
 		});
 		expect(dropCopy(db, U2_SALSA, 'figure', C, C, {}, LATER)).toMatchObject({ ok: false });
+		// Composed in the request: the reader's language.
+		expect(runInLocale('sl', () => dropCopy(db, U2_SALSA, 'figure', C, C, {}, LATER))).toEqual({
+			ok: false,
+			message: 'Te kopije ni več mogoče uporabiti. Naložite znova in izberite še enkrat.'
+		});
 		expect(figureRow(C).archivedAt).toBeNull();
 	});
 

@@ -33,7 +33,14 @@ const SAMPLE_ARGS: Readonly<Record<string, unknown[]>> = {
 	'groups.leave.used': [['x'], null],
 	'moves.heading.alsoIn': ['x', ['y']],
 	'moves.move.and': [['x', 'y']],
-	'figure.relations.slots': [[2, 5], 8]
+	'figure.relations.slots': [[2, 5], 8],
+	'clones.mine.switchNote': [
+		{ figures: ['x'], routines: ['y', 'z'], lessons: [], sections: 2, practised: true }
+	],
+	'clones.sources.team': ['x', 'figure'],
+	'clones.detach.group': ['figure'],
+	'clones.sync.holders': [['x', 'y']],
+	'clones.sync.stays': [['x', '1 y']]
 };
 
 type Leaf = 'string' | 'function' | 'object' | 'other';

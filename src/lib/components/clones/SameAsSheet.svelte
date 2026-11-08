@@ -9,7 +9,7 @@
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { fold } from '$lib/fold';
 	import {
-		CANCEL,
+		cancelLabel,
 		MARK_SAME,
 		sameAsEmpty,
 		SAME_AS_FAILED,
@@ -124,7 +124,7 @@
 			<!-- Every tick travels, however the search filters the list. -->
 			{#each ticked as id (id)}<input type="hidden" name="twin" value={id} />{/each}
 			<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}
-				>{CANCEL}</button
+				>{cancelLabel()}</button
 			>
 			<button
 				type="submit"

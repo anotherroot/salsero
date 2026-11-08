@@ -10,8 +10,8 @@
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		CANCEL,
-		LOAD_FAILED,
+		cancelLabel,
+		loadFailed,
 		CONTINUE,
 		KEEP_MINE,
 		MOVE_BUTTON,
@@ -179,7 +179,7 @@
 		{/if}
 
 		{#if failed}
-			<Banner kind="error">{LOAD_FAILED}</Banner>
+			<Banner kind="error">{loadFailed()}</Banner>
 		{:else if !preview}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}
@@ -257,7 +257,9 @@
 			<input type="hidden" name="into" value={teamId(target)} />
 			<input type="hidden" name="choices" value={JSON.stringify(choices)} />
 			<input type="hidden" name="use" value={JSON.stringify(use)} />
-			<button type="button" class={button('tertiary', 'md', true)} onclick={close}>{CANCEL}</button>
+			<button type="button" class={button('tertiary', 'md', true)} onclick={close}
+				>{cancelLabel()}</button
+			>
 			<button
 				type="button"
 				class={button('primary', 'md', true)}

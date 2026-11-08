@@ -8,7 +8,7 @@
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { memberRoute } from '$lib/clones/pages';
 	import { SEPARATE, VERSIONS } from '$lib/clones/view';
-	import { SYNC_MENU, keepLine } from '$lib/clones/step-view';
+	import { syncMenu, keepLine } from '$lib/clones/step-view';
 	import type { VersionLine } from '$lib/clones/versions';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { CloneKind, SyncSettings } from '$lib/types';
@@ -136,7 +136,7 @@
 		onclick={() => {
 			onclose();
 			onsync?.();
-		}}><Icon name="refresh" size={20} />{SYNC_MENU}</button
+		}}><Icon name="refresh" size={20} />{syncMenu()}</button
 	>
 {/snippet}
 

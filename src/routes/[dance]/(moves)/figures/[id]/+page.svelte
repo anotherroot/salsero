@@ -39,7 +39,13 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { cloneSubtitle, fromLessonNote, NOT_TAKEN, recordingMeta, TAKE } from '$lib/clones/view';
+	import {
+		cloneSubtitle,
+		fromLessonNote,
+		notTaken,
+		recordingMeta,
+		takeLabel
+	} from '$lib/clones/view';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
 	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
@@ -416,7 +422,9 @@
 		>
 			<!-- Both in one cell: the label keeps the width while the spinner shows. -->
 			<span class="grid place-items-center">
-				<span class="col-start-1 row-start-1" class:invisible={takingId === rec.id}>{TAKE}</span>
+				<span class="col-start-1 row-start-1" class:invisible={takingId === rec.id}
+					>{takeLabel()}</span
+				>
 				{#if takingId === rec.id}<span class="col-start-1 row-start-1"><Spinner size={18} /></span
 					>{/if}
 			</span>
@@ -769,7 +777,7 @@
 							{/if}
 							{#if taken}
 								<div class="px-4 pb-3">
-									<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
+									<Banner kind="error" title={notTaken()}>{taken}</Banner>
 								</div>
 							{/if}
 						</li>
