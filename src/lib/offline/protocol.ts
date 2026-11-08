@@ -33,3 +33,16 @@ export type DeviceIn = { type: 'device-fetch'; request: WireRequest } | { type: 
 
 /** From the worker. */
 export type DeviceOut = { type: 'state'; state: DeviceState } | { type: 'pulled'; cursor: number };
+
+/**
+ * From the service worker to the page. `device-fetch` carries a reply port and
+ * is relayed to the worker as is (a `DeviceIn`); `changed`: a write reached the
+ * server, pull soon; `needs-connection`: a write could not, say so.
+ */
+export type SwOut =
+	| { type: 'device-fetch'; request: WireRequest }
+	| { type: 'changed' }
+	| { type: 'needs-connection' };
+
+/** From the page to the service worker: its device's state, on every change (`off`: none started). */
+export type SwIn = { type: 'device-state'; state: DeviceState | 'off' };

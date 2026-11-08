@@ -151,5 +151,9 @@ export const shell = {
 		connection: 'Upload failed — check the connection and try again.',
 		/** Under the Android app's upload link. */
 		inBackground: 'Compressed and uploaded in the background'
+	},
+	offline: {
+		/** The toast when a write can't reach the server: the device's copy is read only. */
+		needsConnection: 'Needs a connection. Nothing was changed.'
 	}
 };

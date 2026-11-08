@@ -46,6 +46,8 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
+	import { deviceReady } from '$lib/offline/device.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -211,7 +213,12 @@
 	 * it starts and the Offline screen is laid OVER the page (not instead of it,
 	 * so whatever was typed stays). Registered after `guardNavigation()` so the
 	 * unsaved-changes guard has already had its say on the same navigation.
+	 *
+	 * Only while the device cannot answer instead (`deviceReady`, offline phase
+	 * 2): once it can, the navigation goes ahead and the service worker hands its
+	 * data to the device.
 	 */
+	const cannotLoad = () => !navigator.onLine && !deviceReady();
 	let offline = $state<URL | null>(null);
 	let layer = $state<HTMLDialogElement>();
 	// Taken before the layer mounts: its own <title> is already in place by then.
@@ -226,7 +233,7 @@
 		}
 		if (!to?.route.id || willUnload || to.url.origin !== page.url.origin) return;
 		if (to.url.href === page.url.href) return;
-		if (navigator.onLine) return;
+		if (!cannotLoad()) return;
 		// The unsaved-changes guard is asking: leaving is not decided yet.
 		if (prompt.ask) return;
 		cancel();
@@ -235,14 +242,31 @@
 	});
 	afterNavigate(() => (offline = null));
 	/*
-	 * No preloading while offline. A link touched offline would try to fetch the
-	 * route's data and code and fail, and the browser keeps a failed module import
-	 * for good, so Try again later would land on the error page.
+	 * A write that could not reach the server (the service worker's
+	 * `needs-connection`, `$lib/offline/device.svelte.ts`): nothing changed, and
+	 * the toast says so in the person's language. It stands in for phase 3's
+	 * designed "Needs a connection".
+	 */
+	let needsConnection = $state<{ id: number; message: string } | null>(null);
+	$effect(() => {
+		const show = () =>
+			(needsConnection = {
+				id: (needsConnection?.id ?? 0) + 1,
+				message: t().shell.offline.needsConnection
+			});
+		window.addEventListener('salsa:needs-connection', show);
+		return () => window.removeEventListener('salsa:needs-connection', show);
+	});
+	/*
+	 * No preloading while offline (and the device cannot answer). A link touched
+	 * offline would try to fetch the route's data and code and fail, and the
+	 * browser keeps a failed module import for good, so Try again later would
+	 * land on the error page. Re-run when the device's state changes.
 	 */
 	$effect(() => {
 		const body = document.body;
 		const sync = () => {
-			if (navigator.onLine) {
+			if (!cannotLoad()) {
 				body.dataset.sveltekitPreloadData = 'hover';
 				delete body.dataset.sveltekitPreloadCode;
 			} else {
@@ -508,6 +532,8 @@
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />
 		<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
+		<!-- In here too: it sits above the tab bar (`--pin-bottom`). -->
+		{@render needsConnectionToast()}
 	</div>
 {:else}
 	<!-- Signed out (sign in, Join): never the side, so no band around a sheet either. -->
@@ -516,7 +542,12 @@
 	</div>
 	<UnsavedDialog />
 	<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
+	{@render needsConnectionToast()}
 {/if}
+
+{#snippet needsConnectionToast()}
+	<Toast toast={needsConnection} duration={4000} ondismiss={() => (needsConnection = null)} />
+{/snippet}
 
 {#if offline}
 	<!--

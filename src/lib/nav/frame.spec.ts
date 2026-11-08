@@ -18,7 +18,8 @@ describe('frameOf', () => {
 		expect(frameOf(null, true)).toBe('none');
 	});
 
-	it('knows a frame for every page route but the dev kit', () => {
+	// The shell (offline phase 2) is never drawn as itself: the client draws the page at its URL.
+	it('knows a frame for every page route but the dev kit and the shell', () => {
 		for (const file of globSync('src/routes/**/+page.svelte')) {
 			const id =
 				'/' +
@@ -26,7 +27,7 @@ describe('frameOf', () => {
 					.replace(/^src\/routes\//, '')
 					.replace(/\/?\+page\.svelte$/, '')
 					.replace(/\/$/, '');
-			if (id === '/dev/kit') continue;
+			if (id === '/dev/kit' || id === '/shell') continue;
 			expect(frameOf(id === '/' ? '/' : id, true), id).not.toBe('none');
 		}
 	});

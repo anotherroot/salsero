@@ -129,5 +129,8 @@ export const shell: Catalog['shell'] = {
 		tooLarge: (limit) => `Datoteka je prevelika (največ ${limit}).`,
 		connection: 'Nalaganje ni uspelo. Preverite povezavo in poskusite znova.',
 		inBackground: 'Stisnjeno in naloženo v ozadju'
+	},
+	offline: {
+		needsConnection: 'Potrebna je povezava. Nič se ni spremenilo.'
 	}
 };
