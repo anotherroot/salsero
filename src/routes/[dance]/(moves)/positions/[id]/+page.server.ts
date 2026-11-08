@@ -161,8 +161,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const canon = canonicalOf(graph, id);
 	const [counts] = positionCounts(graph, [canon]);
 
-	// Rows of figures: their label, their type (or their group's name), and the
-	// positions they come from or go to, each with its type when it is not this one's.
+	// Rows of figures: their label, their group's name, and the positions they
+	// come from or go to, each with its type when it is not this one's.
 	const styleLabel = styleLabelOf(DANCES[wall.dance].styleLabel);
 	const named = new Map(graph.positions.map((p) => [p.id, p]));
 	const nameOf = (pid: number) => {
@@ -182,7 +182,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		(shown.length === 0
 			? []
 			: db
-					.select({ id: figures.id, styleTag: figures.styleTag, teamId: figures.teamId })
+					.select({ id: figures.id, teamId: figures.teamId })
 					.from(figures)
 					.where(inArray(figures.id, shown))
 					.all()
@@ -206,12 +206,10 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	});
 	const from = fromIds.map((fid) => ({
 		...figureRow(fid),
-		style: inGroupMode ? '' : styleLabel(rows.get(fid)?.styleTag ?? null),
 		ends: names(figureById(graph, fid)?.ends ?? [])
 	}));
 	const into = intoIds.map((fid) => ({
 		...figureRow(fid),
-		style: '',
 		starts: names(figureById(graph, fid)?.starts ?? [])
 	}));
 
