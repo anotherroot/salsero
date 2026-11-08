@@ -8,6 +8,7 @@ Sister project with the same conventions: `~/Projects/muscle_model`.
 ```sh
 npm run dev           # DATA_DIR/DATABASE_PATH come from the flake (.data/)
 npm run check         # prettier + eslint + svelte-check + build + vitest — must pass
+# ESLint lints .svelte without types (no projectService): ~1 min, not ~4 (eslint.config.js)
 npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/deploy.sh   # see docs/deployment.md
 # slots: C-1…C-9 in tmux; prefix C-a for reset-db and close slot (tmux_project)
