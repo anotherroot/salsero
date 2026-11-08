@@ -139,7 +139,7 @@ describe('in Slovenian', () => {
 			'Prenašanje\u00a0… 45\u00a0%',
 			'Poskusi znova',
 			'Posodobi',
-			'Različica 1.1 je pripravljena',
+			'Različica aplikacije 1.1 je pripravljena',
 			'Nova različica aplikacije'
 		]);
 	});

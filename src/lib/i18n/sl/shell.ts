@@ -65,7 +65,8 @@ export const shell: Catalog['shell'] = {
 		install: 'Namestitev ni uspela.',
 		rowTitle: 'Nova različica aplikacije',
 		hide: 'Skrij do jutri',
-		version: (name) => `Različica ${name} je pripravljena`,
+		// Always with the noun: a bare "različica" is a figure (the glossary).
+		version: (name) => `Različica aplikacije ${name} je pripravljena`,
 		ready: 'Pripravljeno za namestitev',
 		neededTitle: 'Potrebna je posodobitev',
 		neededBody: 'Ta različica aplikacije ne deluje več. Za nadaljevanje jo posodobite.'
@@ -99,7 +100,9 @@ export const shell: Catalog['shell'] = {
 		stay: 'Ostani',
 		stayAndFix: 'Ostani in popravi',
 		without: (verb) => `${verb} brez shranjevanja`,
-		leave: 'Zapusti'
+		leave: 'Zapusti',
+		didNotSave: 'Shranjevanje ni uspelo.',
+		notSent: 'Ni bilo poslano.'
 	},
 	clash: {
 		goneSub: 'Nič ni bilo shranjeno. Preden to zaprete, kopirajte svoje besedilo.',

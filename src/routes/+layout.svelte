@@ -45,6 +45,7 @@
 	import { errorBack, errorView } from '$lib/nav/error-view';
 	import { levelShown } from '$lib/levels/levels';
 	import { locale, setClientLocale } from '$lib/i18n/current';
+	import { t } from '$lib/i18n/catalog';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -270,9 +271,8 @@
 		// SvelteKit hears no navigation in a Back that only closes a sheet, so listen too.
 		const dismiss = () => (offline = null);
 		window.addEventListener('popstate', dismiss);
-		[...layer.querySelectorAll('button')]
-			.find((b) => b.textContent?.includes('Try again'))
-			?.focus();
+		// Found by its mark, not its word: the word is the reader's language.
+		layer.querySelector<HTMLButtonElement>('button[data-retry]')?.focus();
 		return () => {
 			window.removeEventListener('popstate', dismiss);
 			document.title = titleBefore;
@@ -528,7 +528,7 @@
 		bind:this={layer}
 		data-dance={navDance.slug}
 		data-frame="bare"
-		aria-label="Offline"
+		aria-label={t().shell.error.offlineTitle}
 		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:bg-transparent desk:bg-band"
 		oncancel={(e) => {
 			e.preventDefault();

@@ -333,7 +333,7 @@ function messageOf(result: ActionResult): string {
 		const m = (result.error as { message?: unknown } | undefined)?.message;
 		if (typeof m === 'string') return m;
 	}
-	return 'It did not save.';
+	return t().shell.unsaved.didNotSave;
 }
 
 /**
@@ -371,7 +371,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			// A refusal the form shows itself (a range error) is a field to point at, not a mystery.
 			settle(
 				form.checkValidity() && !form.querySelector('[aria-invalid="true"]')
-					? { ok: false, message: 'It was not sent.' }
+					? { ok: false, message: t().shell.unsaved.notSent }
 					: { ok: false, invalid: form }
 			);
 			return;

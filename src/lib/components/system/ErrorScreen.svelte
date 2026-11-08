@@ -51,7 +51,7 @@
 			<!-- On the desktop's wide sheet the buttons stop at 280; in the card they fill it. -->
 			<div class="contents {card ? '' : 'desk:flex desk:w-[280px] desk:flex-col desk:gap-2'}">
 				{#if view.retry}
-					<button type="button" class={button('primary', 'md', true)} onclick={onretry}>
+					<button type="button" class={button('primary', 'md', true)} onclick={onretry} data-retry>
 						<Icon name="refresh" size={20} />{t().common.retry}
 					</button>
 				{/if}

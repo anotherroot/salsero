@@ -110,7 +110,11 @@ export const shell = {
 		/** `verb`: Leave, Close, Reload, Stop editing. */
 		without: (verb: string): string => `${verb} without saving`,
 		/** The verb for leaving a page. */
-		leave: 'Leave'
+		leave: 'Leave',
+		/** The dialog's Save failed with no message from the server. */
+		didNotSave: 'It did not save.',
+		/** The dialog's Save was stopped by the form itself, with no field to point at. */
+		notSent: 'It was not sent.'
 	},
 	clash: {
 		goneSub: 'Nothing was saved. Copy what you typed before you close this.',
