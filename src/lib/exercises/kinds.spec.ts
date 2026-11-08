@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import { SOURCES } from '$lib/labels';
 import { EXERCISE_TYPES, TYPES, hasField, typeInfo, typeOf } from './kinds';
 
@@ -58,5 +61,34 @@ describe('exercise types in Slovenian', () => {
 	it('asks a lesson review about memory, the rest about how it went', () => {
 		expect(sl(() => typeInfo('lesson').ratingQuestion)).toBe('Kako dobro se je spomnite?');
 		expect(sl(() => typeInfo('custom').ratingQuestion)).toBe('Kako je šlo?');
+	});
+});
+
+describe('the type registry: Practise with', () => {
+	const src = readFileSync(join(__dirname, '../components/exercises/kinds/index.ts'), 'utf8');
+
+	it('has a practice component for a drill, a figure and a routine, and none for a lesson', () => {
+		expect(src).toMatch(/export const practiceFor/);
+		const map = /const PRACTICE[^=]*=\s*\{([^}]*)\}/.exec(src)?.[1] ?? '';
+		expect(map).toMatch(/lesson:\s*null/);
+		for (const type of ['figure', 'drill', 'routine'])
+			expect(map).toMatch(new RegExp(`${type}:\\s*\\w+Practice`));
+	});
+
+	it('asks the page for recordings and a practice snippet, and no longer for editLinks', () => {
+		expect(src).toMatch(/practice\?: Snippet/);
+		expect(src).toMatch(/recordings\?:/);
+		expect(src).not.toMatch(/editLinks/);
+	});
+});
+
+describe('the exercise content words', () => {
+	it('points the routine note at Done and counts the recordings, in both languages', () => {
+		expect(t().exercise.content.routineNote).toBe(
+			'A run there saves itself. Tap Done when you practised away from the app.'
+		);
+		expect(t().exercise.content.recordings(0)).toBe('Recordings');
+		expect(t().exercise.content.recordings(3)).toBe('Recordings · 3');
+		expect(withLocale('sl', () => t().exercise.content.recordings(3))).toBe('Posnetki · 3');
 	});
 });

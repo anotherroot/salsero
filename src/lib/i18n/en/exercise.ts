@@ -65,10 +65,9 @@ export const exercise = {
 	/** Each type's content, in the popup and on the page. */
 	content: {
 		description: 'Description',
-		sections: 'Sections',
-		links: 'Links',
-		linkSection: 'Link a section…',
-		unlinkSection: 'Unlink this section',
+		/** A section row's Unlink while a drill's Recordings are edited; `name` is the section's label. */
+		unlink: 'Unlink',
+		unlinkNamed: (name: string): string => `Unlink ${name}`,
 		reference: 'Reference',
 		hide: 'Hide',
 		show: 'Show',
@@ -81,7 +80,9 @@ export const exercise = {
 		videos: (n: number): string => `${n} ${n === 1 ? 'video' : 'videos'}`,
 		figures: 'Figures',
 		practiseInPlayer: 'Practise in player',
-		routineNote: 'A run there saves itself. Log here when you practised away from the app.'
+		routineNote: 'A run there saves itself. Tap Done when you practised away from the app.',
+		/** The drill's Recordings heading: "Recordings", "Recordings · 3". */
+		recordings: (n: number): string => (n === 0 ? 'Recordings' : `Recordings · ${n}`)
 	},
 	/** The exercise page. */
 	page: {

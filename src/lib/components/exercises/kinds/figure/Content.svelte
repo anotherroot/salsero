@@ -20,7 +20,8 @@
 		timezone,
 		onPage = false,
 		canEdit = true,
-		simple = false
+		simple = false,
+		practice
 	}: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
@@ -31,6 +32,7 @@
 		{#if content.figure.notes}
 			<LinkedText text={content.figure.notes} class={PROSE} />
 		{/if}
+		{@render practice?.()}
 		{#each content.recordings as rec (rec.id)}
 			<div class="{CLIP} rounded-2xl bg-surface">
 				{#if broken[rec.id]}

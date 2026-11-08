@@ -74,7 +74,7 @@
 		/** Outside a session: where Next goes after a log (the next due exercise). */
 		follow?: { name: string; onnext: () => void } | null;
 		/** What the type's `Content` gets on the page (spread after the wrapper's own `canEdit`). */
-		contentProps?: Pick<ContentProps, 'onPage' | 'canEdit' | 'editLinks'>;
+		contentProps?: Pick<ContentProps, 'onPage' | 'canEdit' | 'recordings'>;
 		/**
 		 * The exercise's schedule as of the START of today (sets before today only),
 		 * and today's day: what each face would set. Without them the faces show no times.

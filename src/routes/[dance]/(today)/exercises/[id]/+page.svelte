@@ -11,7 +11,7 @@
 	import { isClash } from '$lib/clash/clash';
 	import SetList from '$lib/components/exercises/SetList.svelte';
 	import { restoreSet } from '$lib/components/exercises/restore-set';
-	import { contentFor, logFor } from '$lib/components/exercises/kinds';
+	import { contentFor, logFor, practiceFor } from '$lib/components/exercises/kinds';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -78,6 +78,7 @@
 	);
 	const Content = $derived(contentFor(type));
 	const Log = $derived(logFor(type));
+	const Practice = $derived(practiceFor(type));
 	/**
 	 * Desktop: the type's content sits by the log form, in the left column (a drill's
 	 * links and sections, a figure's reference), rather than beside the history.
@@ -136,16 +137,16 @@
 			? String(form.message)
 			: null;
 
-	/** The drill's links editor: the page's content, and the pane's log column (desktop). */
-	const editLinks = $derived(
+	/** A drill's Recordings' + Add: the page's content, and the pane's log column (desktop). Null for a reader and the simple page. */
+	const recordings = $derived(
 		data.canEditContent && !simple
 			? {
-					message: failure('addLink'),
-					entered: form && 'urls' in form ? String(form.urls) : '',
+					label: title,
 					linkable: data.linkable,
-					unlinkMessage: failure('unlinkSection')
+					message: failure('addLink'),
+					entered: form && 'urls' in form ? String(form.urls) : ''
 				}
-			: undefined
+			: null
 	);
 
 	const owner = $derived(ownerOf(data.practice.content));
@@ -294,7 +295,7 @@
 				schedule={data.scheduleAtStart ?? undefined}
 				today={data.today}
 				{simple}
-				contentProps={{ onPage: true, canEdit: data.canEditContent && !simple, editLinks }}
+				contentProps={{ onPage: true, canEdit: data.canEditContent && !simple, recordings }}
 				session={today?.session ?? null}
 				follow={today?.follow ?? null}
 				onlogged={(d, setId) => {
@@ -314,6 +315,21 @@
 	{/if}
 {/snippet}
 
+{#snippet practice()}
+	{#if Practice && data.canLog}
+		<Practice
+			dance={data.dance}
+			exercise={data.exercise}
+			content={data.practice.content}
+			songs={data.songs}
+			takes={data.takes}
+			playerFrom="from=exercise"
+			onrun={() => {}}
+			onactive={() => {}}
+		/>
+	{/if}
+{/snippet}
+
 {#snippet pageContent()}
 	<Content
 		dance={data.dance}
@@ -322,7 +338,8 @@
 		onPage
 		canEdit={data.canEditContent && !simple}
 		{simple}
-		{editLinks}
+		{recordings}
+		{practice}
 	/>
 {/snippet}
 

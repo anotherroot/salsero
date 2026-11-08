@@ -5,7 +5,7 @@
 	import { PROSE } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { content }: ContentProps = $props();
+	let { content, practice }: ContentProps = $props();
 </script>
 
 {#if content.type === 'routine'}
@@ -13,6 +13,7 @@
 		{#if content.routine.notes}
 			<LinkedText text={content.routine.notes} class={PROSE} />
 		{/if}
+		{@render practice?.()}
 		<ol class={GROUP}>
 			{#each content.slots as slot, i (i)}
 				<li class="flex min-h-[52px] items-center gap-3 px-4 py-2">

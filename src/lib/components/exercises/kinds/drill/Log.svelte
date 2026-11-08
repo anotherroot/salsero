@@ -1,6 +1,6 @@
 <script lang="ts">
 	import LogShell, { type LogProps } from '../../LogShell.svelte';
-	import PracticePanel from '$lib/components/player/PracticePanel.svelte';
+	import Practice from './Practice.svelte';
 	import Content from './Content.svelte';
 
 	let props: LogProps = $props();
@@ -33,15 +33,16 @@
 			{...props.contentProps}
 		/>
 	{/snippet}
-	{#snippet panel()}
+	{#snippet panel(payload)}
 		{#if !props.backfillDay}
 			{#key logged}
-				<PracticePanel
+				<Practice
 					dance={props.dance}
 					exercise={props.exercise}
+					content={payload.content}
 					songs={props.songs}
 					takes={props.takes}
-					cue={null}
+					playerFrom="from={props.from ?? 'today'}"
 					onrun={(r) => (run = r)}
 					onactive={(a) => (playing = a)}
 				/>

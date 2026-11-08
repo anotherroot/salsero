@@ -67,10 +67,8 @@ export const exercise: Catalog['exercise'] = {
 	},
 	content: {
 		description: 'Opis',
-		sections: 'Odseki',
-		links: 'Povezave',
-		linkSection: 'Poveži odsek\u00a0…',
-		unlinkSection: 'Odstrani povezavo z odsekom',
+		unlink: 'Odstrani povezavo',
+		unlinkNamed: (name) => `Odstrani povezavo z odsekom: ${name}`,
 		reference: 'Gradivo',
 		hide: 'Skrij',
 		show: 'Pokaži',
@@ -83,7 +81,8 @@ export const exercise: Catalog['exercise'] = {
 		figures: 'Različice',
 		practiseInPlayer: 'Vadi v predvajalniku',
 		routineNote:
-			'Kar vadite v predvajalniku, se shrani samo. Tukaj vnesite vajo, opravljeno brez aplikacije.'
+			'Kar vadite v predvajalniku, se shrani samo. Pritisnite Opravljeno, ko ste vadili brez aplikacije.',
+		recordings: (n) => (n === 0 ? 'Posnetki' : `Posnetki · ${n}`)
 	},
 	page: {
 		// "3 / krat": the number is the tile's value, the word stays.

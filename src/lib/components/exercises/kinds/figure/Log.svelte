@@ -1,6 +1,6 @@
 <script lang="ts">
 	import LogShell, { type LogProps } from '../../LogShell.svelte';
-	import PracticePanel from '$lib/components/player/PracticePanel.svelte';
+	import Practice from './Practice.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { SECTION_HEAD } from '../prose';
@@ -64,18 +64,13 @@
 	{#snippet panel(payload)}
 		{#if !props.backfillDay}
 			{#key logged}
-				<PracticePanel
+				<Practice
 					dance={props.dance}
 					exercise={props.exercise}
+					content={payload.content}
 					songs={props.songs}
 					takes={props.takes}
-					cue={payload.content.type === 'figure'
-						? {
-								figureId: payload.content.figure.id,
-								say: payload.content.figure.say,
-								eights: payload.content.figure.eights
-							}
-						: null}
+					playerFrom="from={props.from ?? 'today'}"
 					onrun={(r) => (run = r)}
 					onactive={(a) => (playing = a)}
 				/>
