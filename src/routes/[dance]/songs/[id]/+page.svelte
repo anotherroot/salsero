@@ -636,7 +636,7 @@
 	icon="trash"
 	tone="danger"
 	title="Archive this song?"
-	body={`${name} leaves Music and the song popup. Sets you logged with it stay.`}
+	body={`${name} leaves Music and the song popup. Your history with it stays.`}
 	onclose={() => (archiving = false)}
 >
 	{#snippet actions()}

@@ -1,3 +1,6 @@
+import { resolve } from '$app/paths';
+import type { DanceSlug } from '$lib/dances/dances';
+import { t } from '$lib/i18n/catalog';
 import type { ListId } from './pane';
 
 /**
@@ -17,4 +20,12 @@ export function besideToday(
 		if (opener === `/${dance}/coming-up`) return 'coming';
 	}
 	return null;
+}
+
+/** Today's list as a back's fallback: where a save goes back to when nothing opened the page. */
+export function todayBack(dance: DanceSlug): { href: string; label: string } {
+	return {
+		href: resolve('/[dance]/(today)', { dance }),
+		label: t().shell.backTo(t().shell.tabs.today)
+	};
 }

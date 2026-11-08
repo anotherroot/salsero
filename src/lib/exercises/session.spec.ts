@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withLocale } from '$lib/i18n/current';
-import { nextInSession, sessionWalk, sessionSummary } from './session';
+import { nextInSession, sessionWalk } from './session';
 
 const row = (id: number, kind: 'done' | 'todo' | 'picked' = 'todo') => ({
 	exercise: { id },
@@ -29,23 +28,4 @@ describe('nextInSession', () => {
 		expect(nextInSession([row(1)], new Set(), 1)).toBeNull();
 		expect(nextInSession([], new Set(), null)).toBeNull();
 	});
-});
-
-describe('sessionSummary', () => {
-	it('counts exercises and minutes', () => {
-		expect(sessionSummary(3, 1500)).toBe('3 exercises, 25 min');
-		expect(sessionSummary(1, 0)).toBe('1 exercise');
-		expect(sessionSummary(0, 0)).toBe('Nothing logged');
-	});
-});
-
-describe('sessionSummary in Slovenian', () => {
-	const sl = <T>(fn: () => T) => withLocale('sl', fn);
-	it.each([
-		[1, 0, '1 vaja'],
-		[2, 600, '2 vaji, 10 min'],
-		[3, 1500, '3 vaje, 25 min'],
-		[5, 0, '5 vaj'],
-		[0, 0, 'Ni vnosov']
-	])('%s exercises, %s s -> %s', (n, s, line) => expect(sl(() => sessionSummary(n, s))).toBe(line));
 });

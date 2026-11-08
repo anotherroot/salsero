@@ -40,7 +40,7 @@
 //   Session (Start session)               vadba (Začni vadbo)
 //   Paused (an exercise)                  na premoru
 //   Not today                             Ne danes
-//   Log a set / a set's minutes, reps      Nov vnos, Shrani vnos / minute, ponovitve
+//   Done (the button, a day's entry)      Opravljeno; an entry is a vnos, never a "set"
 //   an 8-count (call every 2)             osmica (napoved na 2 osmici)
 //   Practice (the panel, practising)      vadenje (Vadi ob …); a session stays vadba
 //   Class (a lesson's day, "Class · …")   lekcija (Lekcija · tor, 3. nov.); the group is tečaj

@@ -15,7 +15,6 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 	['src/lib/components/songs/UploadRow.svelte', 'h-1.5 overflow-hidden', 'progress track'],
 	['src/routes/voice/+page.svelte', 'h-1.5 flex-1 overflow-hidden', 'progress track'],
 	['src/lib/components/today/TodayBar.svelte', 'h-2 w-full overflow-hidden', 'progress track'],
-	['src/lib/components/exercises/LogShell.svelte', 'aria-hidden', 'skeleton'],
 	['src/lib/components/shell/PageSkeleton.svelte', 'overflow-hidden', 'skeleton, aria-hidden'],
 	[
 		'src/lib/components/positions/PointRow.svelte',

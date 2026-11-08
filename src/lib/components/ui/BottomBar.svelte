@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { claimBottom } from '$lib/nav/chrome.svelte';
+	import { claimBottom, pinBar } from '$lib/nav/chrome.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 
 	/**
@@ -30,6 +30,8 @@
 	} = $props();
 
 	claimBottom(() => mode);
+	// A layout's toast (SavedToast) sits above it.
+	pinBar();
 
 	// The phone's foot padding, written as a class on a card page so the desktop can drop it
 	// (an inline style would outrank it). Its value is the inline style's.

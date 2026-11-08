@@ -33,7 +33,7 @@ in Settings. The words are the user's.
 | New class lessons | on Today by themselves, always | on Today by themselves if the group's toggle is on (on by default) | the group's toggle, off by default |
 | Lesson page and videos | simple | simple | as now |
 | Creates | nothing | own lessons (a workshop, their own performance) with videos, own songs | everything |
-| Exercise page and log popup | simple | simple | as now |
+| Exercise page | simple | simple | as now |
 
 Settings words (the "How much app?" choice, also on the first-run screen):
 
@@ -329,7 +329,13 @@ A video that is a section (an exercise linked to a section of a lesson video)
 opens on that section looping, as now, with the same simple chrome; repeat is
 lit and cannot be turned off there.
 
-## The simple exercise page and log popup
+## The simple exercise page
+
+> **Changed 2026-11-08 (run the day, plan 2):** there is one exercise page and no
+> log popup. At the two lower levels the page keeps its pinned **Done**, which opens
+> the Done sheet: the four faces and no note (the note is hidden there; a typed
+> time and reps are gone at every level). The Comes back line shows at every level.
+> The text below is kept for history where it says popup, "I practised this" or "Log set".
 
 At the first two levels, the exercise page (`(today)/exercises/[id]`) is the
 "I practised this" page:

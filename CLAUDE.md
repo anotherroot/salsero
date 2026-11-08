@@ -13,8 +13,8 @@ set), phase 3a (positions, the figure graph, the gap report), phase 3b
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
-exercise types (a log popup per type, links with YouTube embeds, a practice
-panel in the popup, an exercise page) and figure timing (a start count and a
+exercise types (links with YouTube embeds, a practice panel on the exercise
+page, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figures and moves (a
 move is a name holding self-contained figures; Move to… another move or a new
 one; switcher at the bottom; a move's page)
@@ -67,13 +67,16 @@ see
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
 and run the day, plan 1 (slower gaps; Comes back on a drill, by how it went or on
 a fixed rhythm; Warm-up, its own list first on Today and outside the daily
-number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere;
-plans 2 and 3 are not built; see
+number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
+and run the day, plan 2 (one exercise page per type, with Practise with, a drill's
+Recordings and a pinned Done; the Done sheet with four faces and their gaps; one
+entry per exercise per day (`saveDay`) with a toast and Undo; the log popup gone;
+an interim session, `?session=1`; plan 3, the run, is not built; see
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
-exercise page and log popup; see
+the one exercise page; see
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md))
 and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
@@ -102,7 +105,7 @@ have theirs,
 the chunked upload protocol, the link rules, and the four Today bands.
 Exercise types have theirs,
 [`docs/superpowers/specs/2026-09-28-exercise-types-design.md`](docs/superpowers/specs/2026-09-28-exercise-types-design.md):
-the per-type log popup, links, and the in-popup practice panel.
+the per-type exercise page content, links, and the practice panel (since 2026-11-08 the log popup is gone; the page and its Done sheet replace it).
 The routine editor has its own,
 [`docs/superpowers/specs/2026-10-01-routine-editor-design.md`](docs/superpowers/specs/2026-10-01-routine-editor-design.md):
 the main figure, the start rule for alternatives, the picker's anchors, and the
@@ -209,7 +212,7 @@ Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add
 (on publish, on join, on growth), My class, the simple lesson page, player,
-exercise page and log popup, Settings, the desktop, and what was decided while
+exercise page, Settings, the desktop, and what was decided while
 building. Levels hide entry points, never routes.
 Comments have theirs,
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md):
@@ -283,7 +286,8 @@ src/lib/exercises/comes-back-view.ts  PURE: the Edit card's notes and chips for 
 src/lib/server/comes-back-form.ts  reads the Edit form's Comes back and Warm-up fields (a
                      `warmupSent` marker says the Warm-up row was on the form)
 src/lib/server/warmup-order.ts  the warm-ups' own order (`exercises.warmup_order`), set by dragging
-src/lib/server/schedule.ts  the schedule from the database: `listScheduleSets`, `scheduleStates`
+src/lib/server/schedule.ts  the schedule from the database (`doneFacesOf`: the Done sheet's four gaps,
+                     from `doneFaces` in `schedule/schedule.ts`): `listScheduleSets`, `scheduleStates`
                      (every live exercise, optionally as of the start of a day), `scheduleStateOf`,
                      `scheduleForShown` (the person's own entry wins). Nothing stored
 src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, default 5) and
@@ -357,11 +361,12 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
                      stopwatch, the Today session, what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
-                     tile's icon and name (tile.ts), what the log popup shows
-                     (log-view.ts: the footer's states, range errors, the rating
-                     toggle), the exercise page (exercise-page.ts) and the desktop
-                     Today pane (today-pane.ts: what opens by default, the session
-                     line, the day so far's totals).
+                     tile's icon and name (tile.ts), the exercise page (exercise-page.ts), the
+                     Done sheet's words and faces (done-view.ts), a day's entry (day-entry.ts:
+                     old rows merged), the toast after a save (saved.svelte.ts), the
+                     counted seconds (page-clock.svelte.ts: only while visible) and the desktop
+                     Today pane (today-pane.ts: what opens by default, the day so far's
+                     totals). log-view.ts is `lastTimeParts` only.
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
 src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
@@ -463,7 +468,9 @@ scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoo
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from; its colours are the first, brighter ones (tokens.ts is the source since the warm palette, 2026-11-07)
-src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
+src/lib/sheets/      `whenSettled(fn)` (history.svelte.ts) runs fn after the sheets' Back has landed; with
+                     `backWhenSettled(fallback, {replace})` in `nav/trail.svelte.ts` it is how a save closes
+                     its sheet and goes back. stack.ts is PURE: one history entry per open Sheet behind a
                      port, so Back closes only the top one, with holds while a
                      navigation or a link click is in flight. history.svelte.ts
                      wires it to SvelteKit shallow routing; `refreshWhenSettled()` is the one way to
@@ -654,15 +661,15 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start sessio
                      exercise, `(today)/+layout.svelte` and `+layout.server.ts` (list data under a
                      namespace); the list route `+page.*` and `exercises/[id]` (+ `practice`) live in
                      it. On desk, arriving at Today `replaceState`s to the first due exercise's URL
-                     (R11); the phone keeps the list, the log popup (layout state, closed on
-                     leaving) and the exercise page. `components/today/today-context.ts` shares the
+                     (R11); the phone keeps the list and the exercise page. `components/today/today-context.ts` shares the
                      layout's pane state with its pages (`setTodayPane`/`todayPane`),
                      `components/today/TodayPaneSkeleton.svelte` is the pane while data is on the
                      way. `lib/exercises/today-pane.ts` is PURE: what opens by default (`defaultOpen`),
-                     the session's line (`sessionLine`: walked beats follow) and the day's totals.
-                     `LogShell`'s `frame` ('sheet' | 'pane') is the popup or the pane's form (each
-                     log form posts to its own route's `?/log`); `TypeInfo.paneContent` in `kinds.ts`
-                     is which column the type's reference sits in. `rowButton(kind)` in `ui/styles.ts`
+                     and the day's totals. The pane is the exercise page's own two columns with
+                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The interim
+                     session is `?session=1` (`SessionControls` in the layout; `TodayPane
+                     { session, canSkip, notToday }` in `today-context.ts`), which plan 3 replaces.
+                     `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list
                      (`components/teams/GroupList.svelte`, in a 360 column on desk; no groups,
@@ -705,6 +712,9 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dat
                      act.ts posts a page action without a form (`act`); act-toast.ts is the refusal
                      message and the "removed · Undo" toast Settings and My count share.
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
+src/lib/components/exercises/  the exercise page's parts: `DoneSheet` (+ `done-submit.ts`), `SavedToast`, `DoneBar`,
+                     `HistoryDaySheet`, `DrillRecordings`, `kinds/<type>/Content.svelte` and `Practice.svelte`
+                     (`contentFor`/`practiceFor`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      exercises/ links/ routines/ moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
                      (error, offline, choice sheet, status block, lead tile) clones/ (`Versions`:
@@ -796,7 +806,8 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
   while a live exercise uses it, archived ones lose `song_id`; a group song's
-  delete is an archive, restored from Recently deleted, see "Songs" below), sets, recordings, links,
+  delete is an archive, restored from Recently deleted, see "Songs" below), a day's rows
+  (`deleteDay`, with Undo), sets, recordings, links,
   spots (`video_spots`, deleted with their video), section links (`spot_links`,
   deleted on unlink), position links on sections and points
   (`spot_position_links`, deleted on unlink, and with their video when a
@@ -835,9 +846,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   positions with its other root rows. The archived kinds (lessons,
   variations, routines, drills, positions) are restored from Recently deleted too, with
   exactly the members' entries archived at the same instant (`reviveEntries`: an entry a member had removed earlier stays removed).
-- **The type owns its popup.** An exercise's type is derived from `source`
-  (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
-  components and never branch on it.
+- **The type owns its page's content.** An exercise's type is derived from `source`
+  (`src/lib/exercises/kinds.ts`); the exercise page asks `contentFor` and
+  `practiceFor` (`components/exercises/kinds/index.ts`) for its components and
+  never branches on the type.
+- **One entry per exercise per local day.** `saveDay` (`src/lib/server/exercises.ts`)
+  writes the day's row: a second save that day adds the time and replaces the face
+  and note. The UI never says "set" (the `sets` table and `HistorySet` keep the name).
 - **Data functions take `db` as their first argument** so tests run against
   `openDb(':memory:')`. Routes pass `getDb()`.
 - **A spec must never touch `$DATA_DIR`.** Setting `process.env.DATABASE_PATH`

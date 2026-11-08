@@ -3,7 +3,15 @@ import type { Db } from './db';
 import { exercises, sets } from './db/schema';
 import { ownedBy, type Wall } from './scope';
 import { alias } from 'drizzle-orm/sqlite-core';
-import { goodDaysSince, scheduleOf, type DueState, type ScheduleSet } from '$lib/schedule/schedule';
+import {
+	doneFaces,
+	goodDaysSince,
+	scheduleOf,
+	type DoneFace,
+	type DoneInput,
+	type DueState,
+	type ScheduleSet
+} from '$lib/schedule/schedule';
 import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 
 /** Every set of the wall's exercises (archived ones too), with its exercise. */
@@ -62,8 +70,8 @@ export function scheduleStates(
 	);
 }
 
-/** One exercise's schedule, archived or not. Not owner-scoped: callers must check access first. */
-export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): DueState {
+/** The inputs a schedule is replayed from: the row, its sets and the rule it follows. */
+function scheduleInputsOf(db: Db, exerciseId: number): DoneInput {
 	const row = db.select().from(exercises).where(eq(exercises.id, exerciseId)).get();
 	if (!row) throw new Error(`No exercise ${exerciseId}`);
 	const teacher =
@@ -79,17 +87,35 @@ export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): D
 		.from(sets)
 		.where(eq(sets.exerciseId, exerciseId))
 		.all();
-	return scheduleOf(
-		row.everyDays,
-		row.createdAt,
-		rows,
-		effectiveComesBack(
+	return {
+		startGap: row.everyDays,
+		createdAt: row.createdAt,
+		sets: rows,
+		comesBack: effectiveComesBack(
 			row.source,
 			parseComesBack(row.comesBack),
 			parseComesBack(teacher?.comesBack)
-		),
-		timeZone
-	);
+		)
+	};
+}
+
+/** One exercise's schedule, archived or not. Not owner-scoped: callers must check access first. */
+export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): DueState {
+	const i = scheduleInputsOf(db, exerciseId);
+	return scheduleOf(i.startGap, i.createdAt, i.sets, i.comesBack, timeZone);
+}
+
+/**
+ * What each face would set if saved now (`doneFaces`), from the same inputs
+ * `scheduleStateOf` reads. Not owner-scoped: check access first.
+ */
+export function doneFacesOf(
+	db: Db,
+	exerciseId: number,
+	timeZone: string,
+	now: number
+): DoneFace[] | null {
+	return doneFaces(scheduleInputsOf(db, exerciseId), now, timeZone);
 }
 
 /**

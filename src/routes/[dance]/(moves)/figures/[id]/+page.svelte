@@ -56,7 +56,6 @@
 		iconButton,
 		SECTION_LABEL
 	} from '$lib/components/ui/styles';
-	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { byteSize, plural, weekdayDayMonth } from '$lib/format';
 	import {
@@ -89,14 +88,12 @@
 		void variationId;
 		editing = untrack(() => data.canEdit && page.url.searchParams.get('edit') === '1');
 	});
-	let logging = $state(false);
 	let linkingSection = $state(false);
 	let moving = $state(false);
 	let archiving = $state(false);
 	$effect(() => {
 		if (failed('move')) moving = true;
 	});
-	const FigureLog = logFor('figure');
 	/** Recordings' `+ Add`: the sheet, and the page's own upload it starts (`UploadButton` with `bare`). */
 	let adding = $state(false);
 	let chooseVideo = $state<(() => void) | undefined>();
@@ -811,15 +808,8 @@
 		aria-haspopup="dialog"
 		onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
 	>
-	{#if data.popup}
-		<button
-			type="button"
-			class={button('primary', 'md', true)}
-			aria-haspopup="dialog"
-			onclick={() => (logging = true)}><Icon name="play" size={20} />Practise</button
-		>
-	{:else if data.exercise}
-		<!-- Practised already, without a log here: its exercise page has the rest. -->
+	{#if data.exercise}
+		<!-- Practise opens the exercise page: Done, the history and the rest are there. -->
 		<a
 			href={resolve('/[dance]/(today)/exercises/[id]', {
 				dance: slug,
@@ -835,8 +825,13 @@
 			class="contents"
 			use:enhance={() => {
 				practising = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
 					try {
+						// Its new exercise page opens: Practise always lands there.
+						if (result.type === 'success' && typeof result.data?.exerciseId === 'number') {
+							await goto(exerciseHref(result.data.exerciseId));
+							return;
+						}
 						await update();
 					} finally {
 						practising = false;
@@ -989,22 +984,6 @@
 
 {#if data.makeMine}
 	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
-{/if}
-
-{#if logging && data.popup}
-	<FigureLog
-		dance={data.dance}
-		exercise={data.popup.exercise}
-		sets={data.popup.sets}
-		songs={data.popup.songs}
-		takes={data.popup.takes}
-		backfillDay={null}
-		{timezone}
-		schedule={data.scheduleAtStart ?? undefined}
-		today={data.today}
-		message={failed('log')}
-		onclose={() => (logging = false)}
-	/>
 {/if}
 
 <!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->

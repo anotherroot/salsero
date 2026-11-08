@@ -49,14 +49,18 @@ describe('player save', () => {
 		expect(db.select().from(sets).all()).toHaveLength(0);
 	});
 
-	it('stores the rating a face writes, then redirects', async () => {
-		await expect(save({ rating: '4' })).rejects.toMatchObject({ status: 303 });
-		expect(db.select().from(sets).all()).toMatchObject([{ rating: 4 }]);
+	it('answers the saved day as data, with no redirect', async () => {
+		const res = (await save({ rating: '4' })) as Record<string, unknown>;
+		const [row] = db.select().from(sets).all();
+		expect(res).toMatchObject({ action: 'done', ok: true, setId: row.id, before: null });
+		expect(row).toMatchObject({ rating: 4 });
+		expect(typeof res.backDays).toBe('number');
 	});
 
-	it('redirects to Today with the new set in ?logged, for the Undo toast', async () => {
-		const err = await save({ rating: '4' }).catch((e) => e);
-		const [row] = db.select().from(sets).all();
-		expect(err).toMatchObject({ status: 303, location: `/salsa?logged=${row.id}` });
+	it('a second run that day leaves one row, and hands back the first as before', async () => {
+		await save({ rating: '3', durationS: '100' });
+		const res = (await save({ rating: '4', durationS: '20' })) as { before: string };
+		expect(db.select().from(sets).all()).toMatchObject([{ rating: 4, durationS: 120 }]);
+		expect(JSON.parse(res.before)).toMatchObject({ rating: 3, durationS: 100 });
 	});
 });

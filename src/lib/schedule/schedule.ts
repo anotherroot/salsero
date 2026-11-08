@@ -186,3 +186,48 @@ export function scheduleOf(
 		learning: { good, of: comesBack.good }
 	};
 }
+
+export interface DoneFace extends FacePreview {
+	/** Saving this face finishes a learning drill's learning. */
+	learnt: boolean;
+}
+
+export interface DoneInput {
+	startGap: number;
+	createdAt: number;
+	sets: ScheduleSet[];
+	comesBack: ComesBack;
+}
+
+/**
+ * What each face would set if saved now, as the Done sheet shows it: the sets
+ * replayed through `scheduleOf` with `{ doneAt: now, rating: RATING_OF[feel] }`
+ * added; `gap` is `daysBetween(today, dueDay)`. `learnt`: the start-of-day state
+ * is learning and the replayed one is not. Null for a fixed rhythm (no faces).
+ */
+export function doneFaces(input: DoneInput, now: number, timeZone: string): DoneFace[] | null {
+	if (input.comesBack.kind === 'every') return null;
+	const today = localDay(now, timeZone);
+	const before = scheduleOf(
+		input.startGap,
+		input.createdAt,
+		input.sets,
+		input.comesBack,
+		timeZone,
+		today
+	);
+	return FEELS.map((feel) => {
+		const after = scheduleOf(
+			input.startGap,
+			input.createdAt,
+			[...input.sets, { doneAt: now, rating: RATING_OF[feel] }],
+			input.comesBack,
+			timeZone
+		);
+		return {
+			feel,
+			gap: daysBetween(today, after.dueDay),
+			learnt: before.learning !== null && after.learning === null
+		};
+	});
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FEEL_TONE, faceColumns } from './face-view';
-import { FEELS } from '$lib/schedule/feel';
+import { FEELS, feelWord } from '$lib/schedule/feel';
 import { withLocale } from '$lib/i18n/current';
 
 describe('faceColumns', () => {
@@ -47,4 +47,16 @@ describe('faceColumns in Slovenian', () => {
 		expect(cols.map((c) => c.word)).toEqual(['Še težko', 'Napredujem', 'Obvladam', 'Lahko']);
 		expect(cols.every((c) => c.time !== null)).toBe(true);
 	});
+});
+
+describe('faceColumns learnt', () => {
+	it('a learnt column', () =>
+		expect(faceColumns([{ feel: 'gotit', gap: 3, learnt: true }])[2]).toEqual({
+			feel: 'gotit',
+			word: feelWord('gotit'),
+			time: '3 days',
+			learnt: true
+		}));
+	it('no column is learnt without it', () =>
+		expect(faceColumns([{ feel: 'gotit', gap: 3 }]).some((c) => c.learnt)).toBe(false));
 });
