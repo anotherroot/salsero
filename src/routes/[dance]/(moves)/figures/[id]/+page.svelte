@@ -1005,7 +1005,6 @@
 	onaction={() => {
 		const href = toast?.href;
 		toast = null;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by exerciseHref
 		if (href) void goto(href);
 	}}
 	ondismiss={() => (toast = null)}

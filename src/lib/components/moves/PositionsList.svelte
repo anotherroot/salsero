@@ -157,7 +157,6 @@
 			keepFilter(list, qs, qs);
 			return;
 		}
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
 		goto(qs ? `${list}?${qs}` : list, { keepFocus: true, replaceState: true, noScroll });
 	}
 
@@ -184,7 +183,6 @@
 	});
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the hrefs below are built on the resolved list path -->
 {#if nothing}
 	<div class="h-10 flex-none"></div>
 	<EmptyState icon="positions" title={EMPTY.title} body={EMPTY.body}>

@@ -116,7 +116,6 @@
 			>
 		{:else if recording.sourceUrl && problem === null}
 			<!-- A saved YouTube video: where it came from, as the inline player's "from YouTube" did. -->
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- an outside page -->
 			<a
 				href={recording.sourceUrl}
 				target="_blank"
@@ -124,7 +123,6 @@
 				class={iconButton('bare', 'muted')}
 				aria-label="Open on YouTube"><Icon name="external" size={20} /></a
 			>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else if opens}
 			<span
 				class="flex size-11 flex-none items-center justify-center text-chevron"

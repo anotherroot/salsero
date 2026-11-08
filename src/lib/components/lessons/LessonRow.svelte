@@ -43,7 +43,6 @@
 </script>
 
 <li class="flex items-center" class:bg-accent-soft={current}>
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller resolves it -->
 	<a
 		{href}
 		aria-current={current ? 'page' : undefined}

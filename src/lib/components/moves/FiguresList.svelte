@@ -198,7 +198,6 @@
 			keepFilter(listPath, qs, qs);
 			return;
 		}
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
 		goto(qs ? `${listPath}?${qs}` : listPath, { keepFocus: true, replaceState: true, noScroll });
 	}
 

@@ -38,9 +38,7 @@
 				class="desk:pt-3"
 			/>
 			<BottomBar card>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 				<a href={form.link} rel="external" class={button('primary', 'lg', true)}>{w.openApp}</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			</BottomBar>
 		{:else}
 			<StatusBlock icon="phone" tone="accent" title={w.pairPhone} body={w.body} class="desk:pt-3" />
