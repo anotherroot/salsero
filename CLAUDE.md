@@ -356,8 +356,8 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
                      stopwatch, the run's walk (session.ts: warm-ups first, then Practice to-do, then picked;
-run.ts: the run's URL, `parseSkip`, place and next), the hero's estimate (estimate.ts),
-Done for today's rows, streak and lines (done-today.ts), what Today shows (today.ts: bands,
+                     run.ts: the run's URL, `parseSkip`, place and next), the hero's estimate (estimate.ts),
+                     Done for today's rows, streak and lines (done-today.ts), what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
                      tile's icon and name (tile.ts), the exercise page (exercise-page.ts), the
                      Done sheet's words and faces (done-view.ts), a day's entry (day-entry.ts:
