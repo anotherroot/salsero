@@ -281,3 +281,21 @@ describe('Stop sharing and Delete', () => {
 		);
 	});
 });
+
+describe('libraryView with pasted playlists', () => {
+	it('is a list, not empty, while a playlist is there, and counts it as being added', () => {
+		const v = libraryView([], '', false, 1);
+		expect(v).toMatchObject({ kind: 'list', addingHeading: 'Being added · 1' });
+		const w = libraryView(
+			[
+				song(1, 'a', { status: 'waiting_download' }),
+				song(2, 'b', { status: 'waiting_analysis' }),
+				song(3, 'c')
+			],
+			'',
+			false,
+			1
+		);
+		expect(w).toMatchObject({ addingHeading: 'Being added · 3', restHeading: 'All songs A–Z · 1' });
+	});
+});

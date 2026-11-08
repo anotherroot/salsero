@@ -4,6 +4,24 @@
 export const songs = {
 	/** A pasted playlist's refusals (`retryImport`, `dismissImport`). */
 	imports: {
+		toPick: 'To pick',
+		reading: 'Reading playlist…',
+		readingMeta: (where: string): string =>
+			`${where} · the home PC reads it within a minute or two`,
+		pickSongs: 'Pick songs',
+		cancel: 'Cancel',
+		retry: 'Retry',
+		dismiss: 'Dismiss',
+		failed: (error: string): string => (error ? `Failed: ${error}` : 'Failed'),
+		kinds: {
+			'spotify-playlist': 'Spotify playlist',
+			'spotify-album': 'Spotify album',
+			'youtube-playlist': 'YouTube playlist'
+		},
+		songs: (n: number): string => (n === 1 ? '1 song' : `${n} songs`),
+		firstN: (n: number): string => `the first ${n}`,
+		/** A screen reader's name for a row's action: "Cancel Salsa clásica". */
+		actionOf: (action: string, name: string): string => `${action} ${name}`,
 		retryRefused: 'Only a failed list can be read again.',
 		gone: 'This list was already added or dismissed.'
 	},
@@ -35,12 +53,10 @@ export const songs = {
 	},
 	/** Add a song's link field (`AddSongSheet`, the list's `addUrl`). */
 	add: {
+		readList: 'Read the playlist',
 		label: 'YouTube or Spotify link',
-		/** Until playlists come (plan 2), the help line says one song. */
-		helpOne: 'One song from YouTube or Spotify.',
 		help: 'A song, a playlist or an album. From a playlist you pick which songs to add.',
 		notSong: 'Paste a song, playlist or album',
-		listsSoon: "Playlists come in the next update. Paste one song's link for now.",
 		shortFailed: 'Paste the full open.spotify.com link'
 	},
 	/** Use another YouTube link (`AudioSwap`, the song page's `audio`). */

@@ -3,6 +3,22 @@ import { slCount } from '../plural';
 
 export const songs: Catalog['songs'] = {
 	imports: {
+		toPick: 'Za izbiro',
+		reading: 'Branje seznama …',
+		readingMeta: (where) => `${where} · domači računalnik ga prebere v minuti ali dveh`,
+		pickSongs: 'Izberite skladbe',
+		cancel: 'Prekliči',
+		retry: 'Poskusi znova',
+		dismiss: 'Opusti',
+		failed: (error) => (error ? `Ni uspelo: ${error}` : 'Ni uspelo'),
+		kinds: {
+			'spotify-playlist': 'Seznam na Spotifyju',
+			'spotify-album': 'Album na Spotifyju',
+			'youtube-playlist': 'Seznam na YouTubu'
+		},
+		songs: (n) => slCount(n, ['skladba', 'skladbi', 'skladbe', 'skladb']),
+		firstN: (n) => `prvih ${n}`,
+		actionOf: (action, name) => `${action}: ${name}`,
 		retryRefused: 'Znova je mogoče prebrati le seznam, ki ni uspel.',
 		gone: 'Ta seznam je bil že dodan ali opuščen.'
 	},
@@ -30,12 +46,10 @@ export const songs: Catalog['songs'] = {
 		download: 'Prenesi'
 	},
 	add: {
+		readList: 'Preberi seznam',
 		label: 'Povezava YouTube ali Spotify',
-		helpOne: 'Ena skladba z YouTuba ali Spotifyja.',
 		help: 'Skladba, seznam predvajanja ali album. S seznama izberete, katere skladbe dodate.',
 		notSong: 'Prilepite skladbo, seznam predvajanja ali album',
-		listsSoon:
-			'Seznami predvajanja pridejo v naslednji posodobitvi. Zdaj prilepite povezavo do ene skladbe.',
 		shortFailed: 'Prilepite celotno povezavo open.spotify.com'
 	},
 	audio: {

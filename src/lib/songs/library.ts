@@ -35,7 +35,11 @@ export type LibraryView<S> =
 export function libraryView<S extends SongItem>(
 	songs: S[],
 	query: string,
-	uploading: boolean
+	uploading: boolean,
+	/** Pasted playlists in Music (To pick and Being added): the list is not empty while one is there. */
+	imports = 0,
+	/** Of those, the ones in Being added (reading or failed): they count in its heading. */
+	importsAdding = imports
 ): LibraryView<S> {
 	if (query.trim()) {
 		const hits = searchSongs(songs, query);
@@ -45,13 +49,13 @@ export function libraryView<S extends SongItem>(
 			heading: `${hits.length} ${hits.length === 1 ? 'match' : 'matches'} · title or artist`
 		};
 	}
-	if (songs.length === 0 && !uploading) return { kind: 'empty' };
+	if (songs.length === 0 && !uploading && imports === 0) return { kind: 'empty' };
 	const adding = songs.filter((s) => s.status !== 'ready');
 	const { recent, rest } = groupSongs(songs.filter((s) => s.status === 'ready'));
 	return {
 		kind: 'list',
 		adding,
-		addingHeading: `Being added · ${adding.length + (uploading ? 1 : 0)}`,
+		addingHeading: `Being added · ${adding.length + (uploading ? 1 : 0) + importsAdding}`,
 		recent,
 		rest,
 		restHeading: `All songs A–Z · ${rest.length}`,
@@ -153,9 +157,11 @@ export type ClassLibraryView<S> =
 export function classLibraryView<S extends SongItem>(
 	songs: S[],
 	query: string,
-	uploading: boolean
+	uploading: boolean,
+	imports = 0,
+	importsAdding = imports
 ): ClassLibraryView<S> {
-	const view = libraryView(songs, query, uploading);
+	const view = libraryView(songs, query, uploading, imports, importsAdding);
 	if (view.kind !== 'list') return view;
 	const ready = songs.filter((s) => s.status === 'ready');
 	const az = (xs: S[]) => [...xs].sort(byTitle);

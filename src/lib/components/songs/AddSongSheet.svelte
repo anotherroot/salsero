@@ -151,18 +151,15 @@
 				</div>
 				{#if urlError}
 					<FieldError id="add-song-url-error" message={urlError} />
-				{:else if isList}
-					<p id="add-song-url-help" class="mt-1.5 text-[13px] leading-[1.4] text-warn">
-						{t().songs.add.listsSoon}
-					</p>
 				{:else}
 					<p id="add-song-url-help" class="mt-1.5 text-[13px] leading-[1.4] text-muted">
-						{t().songs.add.helpOne}
+						{t().songs.add.help}
 					</p>
 				{/if}
 			</div>
 
-			<div>
+			<!-- A list: each song gets its title and style on the pick list. -->
+			<div hidden={isList}>
 				<label class={LABEL} for="add-song-title"
 					>Title <span class="font-normal text-muted">(optional)</span></label
 				>
@@ -179,7 +176,7 @@
 				{#if titleError}<FieldError id="add-song-title-error" message={titleError} />{/if}
 			</div>
 
-			<fieldset>
+			<fieldset hidden={isList}>
 				<legend class={LABEL}>Style</legend>
 				<div class="flex flex-wrap gap-2">
 					{#each dance.styles as s (s)}
@@ -197,7 +194,7 @@
 				aria-busy={busy}
 				aria-label={busy ? 'Adding song' : undefined}
 			>
-				{#if busy}<Spinner />{:else}Add song{/if}
+				{#if busy}<Spinner />{:else if isList}{t().songs.add.readList}{:else}Add song{/if}
 			</button>
 		</form>
 
