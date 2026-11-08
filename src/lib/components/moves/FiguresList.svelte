@@ -306,7 +306,7 @@
 		</div>
 	{/if}
 
-	{#if syncN > 0}
+	{#if syncN > 0 || filter.sync}
 		<SyncCard
 			kind="figure"
 			n={syncN}

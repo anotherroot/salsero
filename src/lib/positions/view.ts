@@ -216,8 +216,8 @@ export function positionChips(filter: PositionFilter, o: PositionChipsOf): Posit
 		{
 			key: 'all',
 			label: 'All',
-			on: !filter.type && !filter.gaps,
-			change: { type: undefined, gaps: undefined }
+			on: !filter.type && !filter.gaps && !filter.sync,
+			change: { type: undefined, gaps: undefined, sync: undefined }
 		},
 		...types.map((t) => ({
 			key: `type:${t}`,

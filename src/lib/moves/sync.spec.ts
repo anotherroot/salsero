@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { differLabel, outOfSync, syncCard } from './sync';
 import { figureRowParts } from './list';
 import { figuresView, parseFigureFilter, type FiguresLists } from './filter';
-import { figuresEmpty, filterQuery } from './figures';
+import { figuresEmpty, filterChips, filterQuery } from './figures';
 import { parsePositionFilter, positionsView, type PositionsLists } from '$lib/positions/filter';
-import { positionQuery } from '$lib/positions/view';
+import { positionChips, positionQuery } from '$lib/positions/view';
 import { routinesView } from './routines';
 import type { FigureRow, MoveRow, PositionListRow } from '$lib/types';
 
@@ -120,5 +120,35 @@ describe('the routines filter', () => {
 		expect(v.groups).toEqual([]);
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		expect(routinesView(l as any, false).routines).toHaveLength(2);
+	});
+});
+
+describe('the card with the filter on and nothing left', () => {
+	it('stays, to clear the filter', () => {
+		expect(syncCard('figure', 0, true)?.title).toBe('All in step');
+		expect(syncCard('figure', 0, false)).toBeNull();
+		expect(syncCard('figure', 2, true)?.title).toBe('2 figures out of sync');
+	});
+});
+
+describe('the All chips under ?sync=1', () => {
+	it('Figures: All is not lit, and clears sync', () => {
+		const all = filterChips({ q: '', sync: '1' }, [], {}, 0)[0];
+		expect(all.on).toBe(false);
+		expect(filterQuery({ q: '', sync: '1' }, all.change)).toBe('');
+		expect(filterChips({ q: '' }, [], {}, 0)[0].on).toBe(true);
+	});
+	it('Positions: All is not lit, and clears sync', () => {
+		const o = {
+			types: [],
+			typeLabel: {},
+			gaps: 0,
+			groupMode: false,
+			hasOwn: false,
+			untyped: false
+		};
+		const all = positionChips({ q: '', sync: '1' }, o)[0];
+		expect(all.on).toBe(false);
+		expect(positionQuery({ q: '', sync: '1' }, all.change)).toBe('');
 	});
 });

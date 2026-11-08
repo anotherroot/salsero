@@ -14,8 +14,14 @@ const NOUN: Record<SyncKind, [string, string]> = {
 };
 
 /** The card: "3 figures out of sync" over "Your copies and the clubs' don't agree"; null at 0. */
-export function syncCard(kind: SyncKind, n: number): { title: string; meta: string } | null {
-	if (n <= 0) return null;
+export function syncCard(
+	kind: SyncKind,
+	n: number,
+	on = false
+): { title: string; meta: string } | null {
+	// The filter on and nothing left to show: the card stays, to clear it.
+	if (n <= 0)
+		return on ? { title: 'All in step', meta: 'Nothing differs. Tap to show them all' } : null;
 	const [one, many] = NOUN[kind];
 	return {
 		title: `${plural(n, one, many)} out of sync`,
@@ -33,3 +39,6 @@ export const outOfSync = (r: { differ?: number }) => (r.differ ?? 0) > 0;
 
 /** How many rows of a list differ from a copy: the card's number. */
 export const outOfSyncCount = (rows: { differ?: number }[]) => rows.filter(outOfSync).length;
+
+/** The list's empty state while the filter is on and every copy agrees. */
+export const SYNC_EMPTY = { title: 'Every copy agrees', body: 'Nothing is out of sync any more.' };

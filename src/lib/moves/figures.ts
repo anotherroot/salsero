@@ -49,13 +49,13 @@ export function filterChips(
 	styleLabel: Record<string, string>,
 	unlinkedCount: number
 ): FigureChip[] {
-	const none = !filter.style && !filter.partner && !filter.unlinked;
+	const none = !filter.style && !filter.partner && !filter.unlinked && !filter.sync;
 	return [
 		{
 			key: 'all',
 			label: 'All',
 			on: none,
-			change: { style: undefined, partner: undefined, unlinked: undefined }
+			change: { style: undefined, partner: undefined, unlinked: undefined, sync: undefined }
 		},
 		{
 			key: 'unlinked',

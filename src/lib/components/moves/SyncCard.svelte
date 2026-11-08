@@ -25,7 +25,7 @@
 		onclick?: (e: MouseEvent) => void;
 	} = $props();
 
-	const card = $derived(syncCard(kind, n));
+	const card = $derived(syncCard(kind, n, on));
 </script>
 
 {#if card}
