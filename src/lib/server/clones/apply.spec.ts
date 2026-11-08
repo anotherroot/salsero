@@ -214,6 +214,25 @@ describe('root fields', () => {
 		expect(entryFor(db, 'u2', { figureId: F })!.name).toBe('Enchufla · Doble suave');
 	});
 
+	it('a drill’s Comes back is a field: Compare lists it and Take writes theirs; Warm-up is not', async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const D2 = await copy('drill', D, T1_SALSA);
+		expect(differing('drill', D2, D)).toEqual([]);
+		const every2 = JSON.stringify({ kind: 'every', days: 2 });
+		db.update(exercises)
+			.set({ comesBack: every2, warmup: true, warmupOrder: 1 })
+			.where(eq(exercises.id, D))
+			.run();
+		expect(differing('drill', D2, D)).toEqual(['comesBack']);
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(db.select().from(exercises).where(eq(exercises.id, D2)).get()).toMatchObject({
+			comesBack: every2,
+			warmup: false,
+			warmupOrder: null
+		});
+		expect(differing('drill', D2, D)).toEqual([]);
+	});
+
 	it('a drill’s practice, a song’s count and a lesson’s title land, with the lesson’s exercise', async () => {
 		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
 		const D2 = await copy('drill', D, T1_SALSA);

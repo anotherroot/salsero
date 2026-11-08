@@ -12,7 +12,7 @@
  *   change and does not ask again.
  */
 import type { FieldDiff, Flat, PairBase, Picks, Side } from '$lib/types';
-import { pieceOf, pieceParts, ROOT_KEYS, SET_PREFIXES, setPrefixOf } from './flat';
+import { BASE_DEFAULTS, pieceOf, pieceParts, ROOT_KEYS, SET_PREFIXES, setPrefixOf } from './flat';
 
 type Hash = (v: string) => string;
 
@@ -65,7 +65,8 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 		if (mh === th) continue;
 		let side: Side = 'both';
 		if (base) {
-			const was = base.fields[key] ?? null;
+			const was =
+				base.fields[key] ?? (Object.hasOwn(BASE_DEFAULTS, key) ? hash(BASE_DEFAULTS[key]) : null);
 			const mineChanged = mh !== was;
 			const theirsChanged = th !== was;
 			side = mineChanged && theirsChanged ? 'both' : mineChanged ? 'mine' : 'theirs';

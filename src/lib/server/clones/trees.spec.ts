@@ -291,7 +291,14 @@ describe('flatOf', () => {
 		addLinks(db, { exerciseId: id }, ['https://example.com/drill'], 'Video');
 		const f = flatOf(db, 'drill', id);
 		wellFormed(f);
-		expect(keys(f)).toEqual(['link:https://example.com/drill', 'name', 'notes', 'practice']);
+		expect(keys(f)).toEqual([
+			'comesBack',
+			'link:https://example.com/drill',
+			'name',
+			'notes',
+			'practice'
+		]);
+		expect(f.comesBack).toMatchObject({ value: 'faces', show: 'By how it went' });
 		expect(f.practice).toMatchObject({
 			value: '{"mode":"count","bpm":90}',
 			show: 'Count · 90 BPM'

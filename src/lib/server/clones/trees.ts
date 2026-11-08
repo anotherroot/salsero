@@ -20,6 +20,7 @@ import { timingLine } from '$lib/figures/page';
 import { localDay } from '$lib/day/day';
 import { clock, dateLabel, dayMonth, plural } from '$lib/format';
 import { PARTNER_LABEL, TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
+import { comesBackWords, FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { spotLabel } from '$lib/video/spots';
 import {
 	CROSSED_LABEL,
@@ -293,6 +294,13 @@ function drillFlat(db: Db, id: number, b: Builder): void {
 				? 'To a song'
 				: 'None';
 	b.add('practice', practice, show);
+	// Compared by setting: an "until" switch's start day is local. Warm-up is the person's own, never a field.
+	const cb = parseComesBack(d.comesBack) ?? FACES;
+	b.add(
+		'comesBack',
+		cb.kind === 'every' ? `every:${cb.days}` : cb.kind === 'until' ? `until:${cb.good}` : 'faces',
+		comesBackWords(cb)
+	);
 	linkFields(db, eq(links.exerciseId, id), b);
 	musicFields(db, eq(songLinks.exerciseId, id), b);
 }

@@ -405,6 +405,10 @@ class Applier {
 			this.changed('practiceMode', t.practiceMode, g.practiceMode);
 			this.changed('countBpm', t.countBpm, g.countBpm);
 		}
+		if (has('comesBack')) {
+			set.comesBack = g.comesBack;
+			this.changed('comesBack', t.comesBack, g.comesBack);
+		}
 		if (Object.keys(set).length === 0) return;
 		tx.update(exercises).set(set).where(eq(exercises.id, targetId)).run();
 		// Every entry practising the drill carries its name (`updateExercise`).
