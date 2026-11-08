@@ -21,8 +21,8 @@ const PULL_AFTER_WRITE_MS = 1000;
 
 declare global {
 	interface Window {
-		/** The device's state, for the browser walk. */
-		__device?: { state: DeviceState | 'off' };
+		/** The device's state and how many pulls have landed, for the browser walk (scripts/offline). */
+		__device?: { state: DeviceState | 'off'; pulls: number };
 	}
 }
 
@@ -38,6 +38,8 @@ let started = false;
 let worker: Worker | null = null;
 let workerStartedAt = 0;
 let pullTimer: ReturnType<typeof setTimeout> | undefined;
+/** Pulls landed on this page (`window.__device`). */
+let pulls = 0;
 /**
  * When this page last saved something its device has not pulled yet (a write
  * the service worker said reached the server, or an upload, `noteSaved`);
@@ -51,7 +53,7 @@ const waiting = new Set<() => void>();
 
 function setState(state: DeviceState | 'off'): void {
 	device.state = state;
-	window.__device = { state };
+	window.__device = { state, pulls };
 	tellServiceWorker();
 	for (const wake of [...waiting]) wake();
 }
@@ -134,6 +136,8 @@ function pull(): void {
  * same rule.
  */
 function pulled(startedAt: number): void {
+	pulls += 1;
+	if (window.__device) window.__device.pulls = pulls;
 	unpulledSince = unpulledAfterPull(unpulledSince, startedAt);
 	const sw = navigator.serviceWorker.controller;
 	sw?.postMessage({ type: 'device-pulled', startedAt } satisfies SwIn);
@@ -185,7 +189,7 @@ export function startDevice(): void {
 	if (started || dev || typeof window === 'undefined') return;
 	if (!('serviceWorker' in navigator) || typeof Worker === 'undefined') return;
 	started = true;
-	window.__device = { state: device.state };
+	window.__device = { state: device.state, pulls };
 	try {
 		const sw = navigator.serviceWorker;
 		sw.addEventListener('message', onServiceWorkerMessage);
