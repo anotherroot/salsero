@@ -55,6 +55,22 @@ export const songs: Catalog['songs'] = {
 			last: (name) => `${name} po tej osmici`,
 			beats: (name, n) => `${name} čez ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])}`
 		},
+		listen: {
+			starts: (at) => `Začne se pri ${at}, kjer se začne glasba.`,
+			hint: 'Kje je 1, je le ugibanje po ritmu. Nastavite ga in dodajte dele v urejanju ✎.',
+			sections: 'Deli',
+			tapToJump: 'pritisnite za skok',
+			countOff: 'Brez štetja',
+			playing: 'Zdaj',
+			next: 'Naslednji',
+			sample: 'Odlomek',
+			sampleFrom: (at) => `Od ${at}`,
+			sampleMeta: '15 sekund',
+			jumpTo: (name, at) => `Skok na ${name}, ${at}`,
+			play: 'Predvajaj skladbo',
+			pause: 'Ustavi skladbo',
+			position: 'Mesto v skladbi'
+		},
 		refused: {
 			taken: 'Tam se že začne drug del',
 			ends: 'To je čez konec skladbe',

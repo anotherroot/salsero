@@ -62,6 +62,23 @@ export const songs = {
 			last: (name: string): string => `${name} after this eight`,
 			beats: (name: string, n: number): string => `${name} in ${n} ${n === 1 ? 'beat' : 'beats'}`
 		},
+		/** The listening page. */
+		listen: {
+			starts: (at: string): string => `Starts at ${at}, where the music starts.`,
+			hint: 'The 1 is a guess from the beat. Set it, and add sections, in Edit ✎.',
+			sections: 'Sections',
+			tapToJump: 'tap to jump',
+			countOff: 'Count off',
+			playing: 'Playing',
+			next: 'Next',
+			sample: 'Sample',
+			sampleFrom: (at: string): string => `From ${at}`,
+			sampleMeta: '15 seconds',
+			jumpTo: (name: string, at: string): string => `Jump to ${name}, ${at}`,
+			play: 'Play the song',
+			pause: 'Pause the song',
+			position: 'Position in the song'
+		},
 		/** Why an Edit change was not saved. */
 		refused: {
 			taken: 'Another section starts there',
