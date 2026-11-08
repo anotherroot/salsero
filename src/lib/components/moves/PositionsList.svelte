@@ -18,7 +18,8 @@
 	import TemplatesSheet from '$lib/components/positions/TemplatesSheet.svelte';
 	import HowSheet from '$lib/components/positions/HowSheet.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { groupHeading } from '$lib/moves/figures';
+	import { groupMeta } from '$lib/moves/figures';
+	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
 	import {
 		nothingAt,
 		parsePositionFilter,
@@ -332,13 +333,11 @@
 		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">{NONE_OWN}</p>
 	{/if}
 
-	<!-- Each group's positions the person may use, under a slight heading. -->
+	<!-- Each group's positions the person may use, under the group's own heading. -->
 	{#each view.groups as g (g.team.id)}
 		{@const groupTags = tagsOf(g.rows)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
-				<Icon name="people" size={16} />{groupHeading(g.team.name, g.rows.length)}
-			</h2>
+			<GroupHeading name={g.team.name} meta={groupMeta('position', g.rows.length)} />
 			<div class={GROUP}>
 				{#each g.rows as r (r.id)}
 					<PositionRow

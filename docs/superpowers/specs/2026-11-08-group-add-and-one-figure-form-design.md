@@ -90,3 +90,18 @@ The page's `update` takes `figureName` only when it is sent (an older open page
 still sends it) and otherwise leaves the move as it is. `FigureFields` has no
 Move name field any more: every New figure form takes its move from the Move
 field (section 2).
+
+## 4. A group's heading in the Moves lists (option A, 2026-11-08)
+
+On Figures, Routines and Positions, where a group's rows start (the lessons a
+person added), the group gets its own heading (`components/moves/GroupHeading`):
+a line above, the people icon in an accent tile, the group's name larger than a
+move's name, and "Group · 3 figures" under it (`groupMeta`). The lists stay
+apart: yours first, then each group. Merging same-named moves (options B and C)
+was not chosen.
+
+## 5. Scrollbars
+
+Thin rounded scrollbars in the theme's muted ink, no track, no arrows
+(`layout.css`: `::-webkit-scrollbar` for Chromium and Safari, `scrollbar-width`
+and `scrollbar-color` for Firefox).

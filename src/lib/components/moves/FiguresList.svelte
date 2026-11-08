@@ -19,13 +19,14 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
 	import { figureRows } from '$lib/picker/build';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
-		groupHeading,
+		groupMeta,
 		figuresHeading,
 		filterChips,
 		filterQuery,
@@ -393,15 +394,16 @@
 		{/each}
 	{/if}
 
-	<!-- Each group's moves from the lessons the person added: viewed and practised, under a slight heading. -->
+	<!-- Each group's moves from the lessons the person added: viewed and practised, under the group's own heading. -->
 	{#each view.groups as g (g.team.id)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
-				<Icon name="people" size={16} />{groupHeading(
-					g.team.name,
+			<GroupHeading
+				name={g.team.name}
+				meta={groupMeta(
+					'figure',
 					g.moves.reduce((n, m) => n + m.figures.length, 0)
 				)}
-			</h2>
+			/>
 			{#each g.moves as m (m.id)}
 				{@render moveSection(m, false)}
 			{/each}
