@@ -3,6 +3,9 @@ import { withLocale } from '$lib/i18n/current';
 import { errorBack, errorView } from './error-view';
 
 describe('errorView', () => {
+	it('reads needs-connection as offline', () => {
+		expect(errorView(503, 'needs-connection', false)).toEqual(errorView(503, undefined, true));
+	});
 	it('404', () => {
 		expect(errorView(404, 'Not Found', false)).toEqual({
 			title: 'Not found',
