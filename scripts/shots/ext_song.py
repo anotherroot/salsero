@@ -18,7 +18,7 @@ def placeholders(db, admin, dance):
 
 def _edit(page):
     page.get_by_role("button", name="Edit the song").first.click()
-    page.wait_for_selector("text=Editing · saves as you go")
+    page.locator("[data-beat]").first.wait_for()
 
 
 def _song_tab(page):

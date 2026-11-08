@@ -1,6 +1,6 @@
 # The song page: listening, Edit, sections
 
-Date: 2026-11-08. Status: design, not built. Board: "D, every screen"
+Date: 2026-11-08. Status: built (branch `songs-redesign`). Board: "D, every screen"
 (https://claude.ai/artifact/YPLPyKeSZ78HJyDAkE8kyz), option D from round two
 with F's Edit tabs.
 
@@ -40,8 +40,9 @@ is, and how far away the next part is. No colourful parts.
 - The Practice player is slot 1's (branch `practice-player`). That it stays
   quiet in a count-off section, says the next section, or shows sections at
   all is theirs. This design stores sections and gives pure helpers to read
-  them (below); it does not touch `src/lib/scheduler/`, the player page or
-  `GET /[dance]/songs/[id]/grid`.
+  them (below); it does not touch `src/lib/scheduler/` or the player page. The
+  one seam is `startS` in `GET /[dance]/songs/[id]/grid` (where the music
+  starts, below).
 - The worker's beat analysis (unchanged; it only gains the music start,
   below).
 - The same view/edit split elsewhere in the app. It goes to the notes repo
@@ -304,7 +305,8 @@ still found a "beat" at 7.56 s, so beats can't find the start); El Malo
 5.2 s of silence; Sabes Tu Porque a 2 s fade-in; Obsesión 1.5 s near
 silence; the other 12 start within 0.5 s. Plain `silencedetect` catches only
 two. What worked: **the first moment the short-term loudness (0.5–2 s RMS
-windows) rises to within ~20 dB of the song's median RMS and stays there.**
+windows) rises to within ~30 dB of the song's median RMS and stays there.**
+(30, not 20: see "Decided while building")
 That gives ~18, 5.2, ~2 and ~1.5 s, and ~0 for the rest, and ignores Sabes Tu
 Porque's dip at ~12 s. (Measured with `ffmpeg -t 60 -i F -af
 "aresample=22050,asetnsamples=11025,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level"
@@ -333,9 +335,11 @@ load, quietly behind a grep.)
   "Starts at 0:18, where the music starts." under the card before the first
   play when the start is past ~1 s.
 - **The other players** (slot 1): `GET /[dance]/songs/[id]/grid` carries
-  `startS` (the effective start), and `player/songGrid.svelte.ts` sets the
-  `<audio>` to it once its metadata loads. Slot 1 adds the one line in its
-  run code that starts a run there, after both branches land.
+  `startS` (the effective start). `songGrid.svelte.ts` holds no `<audio>`, so
+  the seam is `playFrom(currentTime, startS, durationS)`
+  (`src/lib/songs/music-start.ts`): every player calls it before its first
+  `play()`, as the song page does. Slot 1 adds that call in its run code,
+  after both branches land.
 - **Seeing and moving it: option C (the user's pick, board row 5), in both
   places.**
   - **In the grid:** when the start is past ~1 s, the rows before it fold
@@ -394,6 +398,41 @@ load, quietly behind a grep.)
 - Whether Edit is a shallow route.
 - Whether Undo is its own action or a "set" reused.
 - N for suggestions, tuned on real songs from a copy of the backup.
+
+## Decided while building
+
+- **Suggestions:** N is 4 downbeats in a row (on the 15 songs of the
+  2026-11-06 backup it gives 0–3 a song and keeps Casa Mía's move at 1:01;
+  6 loses real ones). The count's bar phase comes from its 1s only, so it
+  holds at every speed; where a 1 sits between stored beats (a ×2 midpoint)
+  there is no suggestion, so nothing floods and nothing is turned off at ×2.
+  A move of exactly 2 beats reads as later.
+- **What's next:** a counted section reads in eights and its last eight
+  "after this eight"; a count-off section reads in beats.
+- **The grid:** a row is quiet (folded before the music) when it ends at or
+  before the music start, so the row the music starts in shows under "Music
+  starts". The fold reads 0:00 to the music start. An eight earlier or later
+  moves a section to the neighbouring 1, which is 8 beats away unless the
+  count shifted there. The playing row is kept in view unless the person
+  scrolled by hand in the last 4 s. The long press is 450 ms; the "before"
+  row stays 4 s.
+- **Edit** is page state, not a shallow route: it is an entry on the sheet
+  stack (`sheetStack.open`), so Back and × leave Edit first, and the reload
+  after each save (which resets `page.state`) cannot drop it.
+- **Undo** is one `restore` action taking the field (`count`, `sections`,
+  `sample`, `start`) and its old value; `count` puts anchors and speed back
+  together.
+- **Section names:** the chips are one list per language
+  (`t().songs.page.section.chips()`): Coro, Montuno, Mambo and Break are the
+  same words in Slovenian. A song's section is a **del** in Slovenian (a
+  video's stays an odsek); unnamed is stored `''` and drawn "Section"
+  or "Del".
+- **Copies:** the flat keys are `sections` and `musicStart` (not `start`,
+  which is the figures' "Starts in" set prefix).
+- **The music start:** 30 dB under the median, not 20: 20 started Sabes Tu
+  Porque after its fade-in (4.0 s); 30 gives 2.5 and moves no other song
+  (Hermanita 18.0, El Malo 5.0, Obsesión 1.5, the rest 0.5 or less).
+  From 0:00 is not offered when the song already plays from 0:00.
 
 ## Calls made in this document (to check)
 

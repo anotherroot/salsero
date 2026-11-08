@@ -83,7 +83,12 @@ and Slovenian (part 1: the app in English or Slovenian per account; the language
 the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
 person; the Follow my class path in Slovenian, the Practice player and pairing
 included; the rest of the app and the Android app's own text are part 2; see
-[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md)).
+[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md))
+and the song page (a minimal listening view: the section playing and what comes next;
+Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
+menu, suggestions from the downbeats, sections counted or not, the Song tab; a song starts
+where its music starts, measured by the worker; see
+[`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -130,6 +135,11 @@ Figures as variations have theirs,
 [`docs/superpowers/specs/2026-10-29-figures-are-variations-design.md`](docs/superpowers/specs/2026-10-29-figures-are-variations-design.md):
 the `figure_groups` table, self-contained variations, Move to…, and the figure
 page's one-variation-per-URL layout.
+The song page has its own,
+[`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md):
+listening and Edit, saving as you go (the redesign's one exception), sections as
+seconds snapped to the 1s, suggestions, where the music starts, and what was decided
+while building.
 Song samples and the song popup have theirs,
 [`docs/superpowers/specs/2026-10-30-song-samples-design.md`](docs/superpowers/specs/2026-10-30-song-samples-design.md):
 where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
@@ -391,6 +401,16 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      badges and upload checks. song-page.ts and timeline.ts are PURE: the
                      song page's steps, tap rule and the seek bar's maths. upload.svelte.ts
                      is the one song upload in flight, outliving the sheet. Client-safe
+                     sections.ts is PURE: a song's sections (stored as seconds, `placeSections`
+                     snaps them to the 1s in order), the grid's rows, what comes next
+                     (`aheadOf`) and the section writes. suggest.ts: where the downbeats say
+                     the 1 moves. music-start.ts: where a song starts (`musicStart`) and
+                     `playFrom`, which every player calls before its first play(). listen.ts:
+                     the count card's lines. song-edit.ts: Edit's words. grid-keys.ts: the
+                     grid's arrow keys and when it follows. edit-act.ts: an Edit change and
+                     its Undo (over `act`). Their screens are components/songs/ CountCard,
+                     SectionsList, SongEdit, GridTab, EditGrid, BeatMenu, SuggestionCard,
+                     SectionSheet and SongTab
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
                      and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
                      `.theme-media` in `layout.css` (the player's palette).
