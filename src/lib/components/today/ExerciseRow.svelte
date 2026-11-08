@@ -95,7 +95,6 @@
 				: ''}"
 		>
 			<!-- The row opens the exercise: its page is where it is practised and saved. -->
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; search is the query -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
 				<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">

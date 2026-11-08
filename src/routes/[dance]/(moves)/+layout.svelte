@@ -65,7 +65,6 @@
 	 * it pushes: the item was a place. Each list comes back with its filter.
 	 */
 	function openList(to: MovesList) {
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; the trail adds its search
 		goto(rememberedHref(resolve(ROOT[to], { dance })), { replaceState: isList, keepFocus: true });
 	}
 

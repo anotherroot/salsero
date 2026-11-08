@@ -1561,7 +1561,6 @@
 			</div>
 			<FigureFields
 				dance={data.dance}
-				asksFigureName={false}
 				name={typed.name}
 				style={data.defaultStyle}
 				notes={typed.notes}

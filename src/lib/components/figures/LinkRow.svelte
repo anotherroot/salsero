@@ -63,7 +63,6 @@
 
 <div class="flex min-h-[60px] items-center pr-1.5 pl-4">
 	{#if view.href}
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an outside page; parseLink accepted it -->
 		<a
 			href={view.href}
 			target="_blank"

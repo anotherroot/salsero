@@ -72,7 +72,16 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
-import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
+import { variationSeen } from '$lib/server/clash';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	links,
+	positions,
+	sets
+} from '$lib/server/db/schema';
 import { actions as todayActions, load as todayLoad } from './(today)/+page.server';
 import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
@@ -740,6 +749,43 @@ describe("the detail pages refuse the other dance's rows", () => {
 			const row = getFigure(db, salsaFigureId, 'u1')!.figure;
 			expect([row.name, row.startCount, row.lengthCounts]).toEqual(['Renamed', 5, 4]);
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
+		});
+
+		it('update without a move name leaves the move as it is (Edit no longer asks for it)', async () => {
+			const { figureName: _, ...withoutMove } = edit({});
+			void _;
+			const before = getGroup(db, groupOf(salsaFigureId))!.name;
+			const result = await call(
+				figurePage.actions.update,
+				post('salsa', withoutMove, String(salsaFigureId))
+			);
+			expect(result).toEqual({ action: 'update', ok: true });
+			expect(getFigure(db, salsaFigureId, 'u1')!.figure.name).toBe('Renamed');
+			expect(getGroup(db, groupOf(salsaFigureId))!.name).toBe(before);
+		});
+
+		it('a move renamed on its own page meanwhile is no clash for an Edit that has no move name', async () => {
+			const id = String(salsaFigureId);
+			const seen = JSON.stringify(variationSeen(db, salsaFigureId));
+			const { figureName: _, ...withoutMove } = edit({});
+			void _;
+			db.update(figureGroups)
+				.set({ name: 'Renamed elsewhere' })
+				.where(eq(figureGroups.id, groupOf(salsaFigureId)))
+				.run();
+			expect(
+				await call(figurePage.actions.update, post('salsa', { ...withoutMove, seen }, id))
+			).toEqual({ action: 'update', ok: true });
+			// An older open page still sends the move's name and what it saw of it: that clashes.
+			const oldSeen = JSON.stringify({
+				...variationSeen(db, salsaFigureId),
+				figureName: 'Dile que no'
+			});
+			const old = (await call(
+				figurePage.actions.update,
+				post('salsa', edit({ seen: oldSeen }), id)
+			)) as { status: number };
+			expect(old.status).toBe(409);
 		});
 
 		const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);

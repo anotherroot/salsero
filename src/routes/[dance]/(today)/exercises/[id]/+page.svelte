@@ -418,7 +418,6 @@
 		<!-- While editing the phone shows the settings alone; the desktop keeps the row. -->
 		<ul class="{GROUP} desk:min-w-0{editing ? ' hidden desk:block' : ''}">
 			<li>
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built with resolve() above -->
 				<a href={ownerHref} class="flex min-h-[60px] items-center gap-3 py-2 pr-3.5 pl-4">
 					<span
 						class="grid size-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-text"
