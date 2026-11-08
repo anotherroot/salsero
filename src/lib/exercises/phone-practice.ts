@@ -33,3 +33,20 @@ export function savePhonePractice(danceSlug: string, patch: object) {
 		// Private mode, or storage full: the settings just don't persist.
 	}
 }
+
+/**
+ * A routine's Follow or Still on this phone, per routine (`routineViews` in the
+ * same object). Follow until it is changed.
+ */
+export function loadRoutineView(danceSlug: string, routineId: number): 'follow' | 'still' {
+	const views = loadPhonePractice(danceSlug).routineViews;
+	const v =
+		views && typeof views === 'object' ? (views as Record<string, unknown>)[routineId] : undefined;
+	return v === 'still' ? 'still' : 'follow';
+}
+
+export function saveRoutineView(danceSlug: string, routineId: number, view: 'follow' | 'still') {
+	const views = loadPhonePractice(danceSlug).routineViews;
+	const kept = views && typeof views === 'object' ? (views as Record<string, unknown>) : {};
+	savePhonePractice(danceSlug, { routineViews: { ...kept, [routineId]: view } });
+}

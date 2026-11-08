@@ -18,15 +18,10 @@ import {
 } from '$lib/labels';
 import type { Dance } from '$lib/dances/dances';
 
-/** How often "call on cue" names the figure, in 8-counts. */
-export const CUE_EVERY = [2, 4] as const;
-export type CueEvery = (typeof CUE_EVERY)[number];
-
 export interface PracticeConfig {
 	count: CountPattern;
 	clave: ClavePattern | null;
 	speed: Speed;
-	callEvery: CueEvery | null;
 }
 
 export interface PracticeInput {
@@ -40,7 +35,7 @@ export interface PracticeInput {
 export const DEFAULT_PRACTICE_BPM = 180;
 
 export function defaultPracticeConfig(dance: Dance): PracticeConfig {
-	return { count: dance.defaultCountPattern, clave: null, speed: 1, callEvery: null };
+	return { count: dance.defaultCountPattern, clave: null, speed: 1 };
 }
 
 function oneOf<T>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -55,8 +50,7 @@ function configFrom(value: unknown, dance: Dance): PracticeConfig {
 		count: oneOf(v.count, dance.countPatterns, d.count),
 		// A dance without clave never gets one back, whatever was stored.
 		clave: dance.clave ? oneOf(v.clave, [...CLAVE_PATTERNS, null], null) : null,
-		speed: oneOf(v.speed, SPEEDS, d.speed),
-		callEvery: oneOf(v.callEvery, [...CUE_EVERY, null], null)
+		speed: oneOf(v.speed, SPEEDS, d.speed)
 	};
 }
 
@@ -115,7 +109,7 @@ export function practiceOf(
 }
 
 const sameConfig = (a: PracticeConfig, b: PracticeConfig) =>
-	a.count === b.count && a.clave === b.clave && a.speed === b.speed && a.callEvery === b.callEvery;
+	a.count === b.count && a.clave === b.clave && a.speed === b.speed;
 
 /**
  * What Play should remember, or null when it is what the page already knew
@@ -255,7 +249,6 @@ export function practiceSummary(
 		COUNT_PATTERN_LABEL[p.config.count]
 	];
 	if (dance.clave && p.config.clave) parts.push(`clave ${p.config.clave}`);
-	if (p.config.callEvery) parts.push(`call every ${p.config.callEvery}`);
 	return parts.join(' · ');
 }
 

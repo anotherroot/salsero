@@ -378,8 +378,7 @@ describe('practice settings', () => {
 	const config = {
 		count: 'son' as const,
 		clave: '2-3' as const,
-		speed: 1 as const,
-		callEvery: null
+		speed: 1 as const
 	};
 	const readySong = (dance: 'salsa' | 'bachata') => {
 		const s = createSongFromUpload(

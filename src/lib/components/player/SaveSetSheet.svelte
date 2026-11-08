@@ -20,7 +20,7 @@
 		summary: string;
 		/** Posted as `durationS`. */
 		durationS: number;
-		/** `JSON.stringify({ speed, count, clave, callEvery, called })`. */
+		/** `JSON.stringify({ speed, count, clave, … })`, the page's `runJson`. */
 		run: string;
 		/** A failure from the last save attempt, with what was entered. */
 		fail: {

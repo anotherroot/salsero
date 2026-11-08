@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CountTakeRow } from '$lib/types';
 import { chooseTakes, createPlayer, TICK_MS } from './attach';
+import type { PlanStep } from './scheduler';
 
 /**
  * `attach.ts` is the impure half and is otherwise judged by ear, but this one
@@ -95,7 +96,6 @@ function fakeBrowser() {
 		}
 	);
 	vi.stubGlobal('fetch', async () => new Response(new ArrayBuffer(8)));
-	vi.stubGlobal('SpeechSynthesisUtterance', class {});
 	vi.stubGlobal('document', {
 		visibilityState: 'visible',
 		addEventListener: () => {},
@@ -131,11 +131,9 @@ describe('the end of a song', () => {
 		const player = createPlayer({
 			audio: audio as unknown as HTMLAudioElement,
 			grid: { beats, counts },
-			toggles: { count: 'off', clave: null, callEvery: null },
-			pool: [],
-			sayOf: () => '',
+			toggles: { count: 'off', clave: null },
 			voiceVolume: 1,
-			onCall: () => {},
+			onStep: () => {},
 			onEnd
 		});
 		await player.start();
@@ -157,11 +155,9 @@ describe('the end of a song', () => {
 		const player = createPlayer({
 			audio: null,
 			grid: { beats, counts },
-			toggles: { count: 'off', clave: null, callEvery: null },
-			pool: [],
-			sayOf: () => '',
+			toggles: { count: 'off', clave: null },
 			voiceVolume: 1,
-			onCall: () => {},
+			onStep: () => {},
 			onEnd
 		});
 		await player.start();
@@ -172,6 +168,130 @@ describe('the end of a song', () => {
 		ctx.currentTime = 8;
 		await vi.advanceTimersByTimeAsync(TICK_MS * 4);
 		expect(onEnd).toHaveBeenCalledTimes(1);
+		player.stop();
+	});
+});
+
+describe('a routine run', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	// Ten 8-counts at 120 BPM: an 8-count every 4 s.
+	const beats = Array.from({ length: 80 }, (_, i) => i * 0.5);
+	const counts = beats.map((_, i) => (i % 8) + 1);
+	/** Four one-eight figures from 8-count 1, slot by slot; a jump restarts at its slot. */
+	const planner = (
+		plan: PlanStep[],
+		through: number,
+		_rand: () => number,
+		from?: { eight: number; slot: number }
+	) => {
+		const out = from ? plan.filter((s) => s.eight < from.eight) : [...plan];
+		const prev = out[out.length - 1];
+		let eight = from?.eight ?? (prev ? prev.eight + 1 : 1);
+		let slot = from?.slot ?? (prev ? (prev.slot + 1) % 4 : 0);
+		for (; eight <= through; eight++, slot = (slot + 1) % 4) {
+			out.push({ eight, figureId: 100 + slot, slot });
+		}
+		return out;
+	};
+
+	it('reports each figure on its "1", and logs what was danced', async () => {
+		const ctx = fakeBrowser();
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			planner,
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		// The clock walks with the ticks: a jump between two ticks reads as a seek.
+		for (let t = 3.8; t <= 8.2; t += TICK_MS / 1000) {
+			ctx.currentTime = t;
+			await vi.advanceTimersByTimeAsync(TICK_MS);
+		}
+		expect(onStep.mock.calls.map(([step, at]) => [step.slot, at])).toEqual([
+			[0, 4],
+			[1, 8]
+		]);
+		expect(player.danced()).toEqual([100, 101]);
+		player.stop();
+	});
+
+	it('jumps to a slot on the "1" of the 8-count it is in', async () => {
+		const ctx = fakeBrowser();
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			planner,
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		ctx.currentTime = 9.5; // 8-count 2, its count 4
+		await vi.advanceTimersByTimeAsync(TICK_MS);
+		onStep.mockClear();
+
+		player.jumpTo(3);
+		expect(player.songTime()).toBeCloseTo(8);
+		expect(onStep.mock.calls.map(([step, at]) => [step.slot, step.eight, at])).toEqual([[3, 2, 8]]);
+		player.stop();
+	});
+
+	it('jumps while paused, and reports it at once', async () => {
+		const ctx = fakeBrowser();
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			planner,
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		ctx.currentTime = 13;
+		await vi.advanceTimersByTimeAsync(TICK_MS);
+		player.pause();
+		onStep.mockClear();
+
+		player.jumpTo(0);
+		expect(player.songTime()).toBeCloseTo(12);
+		expect(onStep).toHaveBeenCalledTimes(1);
+		expect(onStep.mock.calls[0][0]).toMatchObject({ slot: 0, eight: 3 });
+		player.stop();
+	});
+
+	it('does nothing on a jump without a routine', async () => {
+		const ctx = fakeBrowser();
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		ctx.currentTime = 9.5;
+		await vi.advanceTimersByTimeAsync(TICK_MS);
+		player.jumpTo(2);
+		expect(player.songTime()).toBeCloseTo(9.5);
+		expect(onStep).not.toHaveBeenCalled();
 		player.stop();
 	});
 });

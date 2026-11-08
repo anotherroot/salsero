@@ -7,6 +7,9 @@ import {
 	playState,
 	practiceBack,
 	routineHeading,
+	routinePlace,
+	stepDone,
+	stepMarks,
 	runSubtitle,
 	runSummary,
 	runTitleCompact,
@@ -79,8 +82,8 @@ describe('what the Practice page derives', () => {
 		).toBeUndefined();
 	});
 	it('sums the run up, dropping the calls when nothing was called by design', () => {
-		expect(runSummary(222, 12)).toBe('3:42 · 12 figures called · logged as a set');
-		expect(runSummary(60, 1)).toBe('1:00 · 1 figure called · logged as a set');
+		expect(runSummary(222, 12)).toBe('3:42 · 12 figures · logged as a set');
+		expect(runSummary(60, 1)).toBe('1:00 · 1 figure · logged as a set');
 		expect(runSummary(252, null)).toBe('4:12 · logged as a set');
 	});
 	it('says why Play cannot start', () => {
@@ -211,5 +214,31 @@ describe('the run on desk', () => {
 		expect(runTitleCompact('Valió la pena ahora')).toBe(true); // 19
 		expect(runTitleCompact('Desesperadamente')).toBe(true); // one word of 16
 		expect(runTitleCompact('Ritmo, ritmo y más')).toBe(false); // exactly 18
+	});
+});
+
+describe('the routine run', () => {
+	it('says where the run is, or how long the routine is', () => {
+		expect(routinePlace(4, 16)).toBe('5 of 16');
+		expect(routinePlace(null, 16)).toBe('16 figures');
+		expect(routinePlace(null, 1)).toBe('1 figure');
+	});
+
+	it('marks each count of a figure up to 16, else each 8-count', () => {
+		expect(stepMarks(8)).toEqual({ marks: 8, per: 1 });
+		expect(stepMarks(16)).toEqual({ marks: 16, per: 1 });
+		expect(stepMarks(32)).toEqual({ marks: 4, per: 8 });
+		expect(stepMarks(0)).toEqual({ marks: 1, per: 1 });
+	});
+
+	it('fills a mark per beat from the figure\'s "1"', () => {
+		const beats = Array.from({ length: 64 }, (_, i) => i * 0.5);
+		const eight = stepMarks(8);
+		expect(stepDone(beats, 4, 4, eight)).toBe(1);
+		expect(stepDone(beats, 4, 5.1, eight)).toBe(3);
+		expect(stepDone(beats, 4, 30, eight)).toBe(8);
+		expect(stepDone(beats, 4, 3, eight)).toBe(0);
+		const long = stepMarks(32);
+		expect(stepDone(beats, 4, 8.5, long)).toBe(2);
 	});
 });

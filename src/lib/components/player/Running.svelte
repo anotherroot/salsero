@@ -1,18 +1,32 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
+	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { clock } from '$lib/format';
 	import type { CountPattern, Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
 	import type { CalledFigure } from '$lib/types';
 	import { desk } from '$lib/nav/desk.svelte';
-	import { routineHeading, runTitleCompact, slotTone, stageSize } from '$lib/player/view';
+	import {
+		ROUTINE_VIEWS,
+		routineHeading,
+		routinePlace,
+		runTitleCompact,
+		slotTone,
+		stageDigit,
+		stageSize,
+		stepDone,
+		stepMarks,
+		type RoutineView
+	} from '$lib/player/view';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
-	import { CLIP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { CLIP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { RUN_STOP as STOP } from './styles';
 	import CountChips from './CountChips.svelte';
 	import SongProgress from './SongProgress.svelte';
@@ -23,16 +37,24 @@
 		beats: number[];
 		counts: number[];
 		figures: CalledFigure[];
-		/** The figure most recently called, or null before the first call. */
-		calledFigureId: number | null;
+		/** The routine's figure on now, from its "1"; null before the first one starts. */
+		nowFigureId: number | null;
 		/**
 		 * A routine's slots as they are actually danced, each a list of the figure
-		 * ids that may be called there. Empty without a routine, when nothing is
-		 * called.
+		 * ids that may be danced there. Empty without a routine.
 		 */
 		slots: { figureIds: number[]; note: string | null }[];
-		/** Which of `slots` the run is on, or null before the first call. */
+		/** Which of `slots` the run is on, or null before the first figure starts. */
 		activeSlot: number | null;
+		/** Song time of that figure's "1", for the marks under it; null before the first. */
+		stepAt: number | null;
+		/** That figure's length in counts. */
+		stepLength: number;
+		/** Follow: the list moves with the music and a tap starts the run there. Still: it stays put. */
+		view: RoutineView;
+		onview: (view: RoutineView) => void;
+		/** A tap on a slot in Follow: the page moves the run there (`jumpTo`). */
+		onjump: (slot: number) => void;
 		song: { id: number; title: string; audioFile: string | null } | null;
 		/** The song's `<audio>` element, rendered by the page so it exists before Play is pressed. */
 		audio: HTMLAudioElement | undefined;
@@ -62,9 +84,14 @@
 		beats,
 		counts,
 		figures,
-		calledFigureId,
+		nowFigureId,
 		slots,
 		activeSlot,
+		stepAt,
+		stepLength,
+		view,
+		onview,
+		onjump,
 		song,
 		audio,
 		speed,
@@ -98,8 +125,18 @@
 		audio.preservesPitch = true;
 	});
 
-	const calledName = $derived(
-		calledFigureId !== null ? (figures.find((f) => f.id === calledFigureId)?.name ?? null) : null
+	const follow = $derived(view === 'follow');
+	/**
+	 * The row lit, in Follow only. Before the first figure starts it is the first
+	 * slot rather than nothing: the list has to say where the routine is about to
+	 * start, or it reads as dead for the lead-in. Still lights nothing.
+	 */
+	const lit = $derived(follow && slots.length > 0 ? (activeSlot ?? 0) : null);
+	/** The band's line under the count: the figure on now, in Follow. Still moves nothing. */
+	const nowName = $derived(
+		follow && nowFigureId !== null
+			? (figures.find((f) => f.id === nowFigureId)?.name ?? null)
+			: null
 	);
 
 	const nameOf = (id: number) => figures.find((f) => f.id === id)?.name ?? `#${id}`;
@@ -118,12 +155,85 @@
 	 * is `relative`, so a row's `offsetTop` is measured from the list's top.
 	 */
 	$effect(() => {
-		if (activeSlot === null || !slotList) return;
-		const row = slotEls[activeSlot];
+		if (lit === null || !slotList) return;
+		const row = slotEls[lit];
 		if (!row) return;
-		const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		slotList.scrollTo({ top: row.offsetTop, behavior: still ? 'auto' : 'smooth' });
+		slotList.scrollTo({ top: row.offsetTop, behavior: motion() });
 	});
+
+	const motion = (): ScrollBehavior =>
+		window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+	/*
+	 * The full-screen routine (phone): the list in large type, to read from a few
+	 * metres away. It holds a history entry like a sheet (`sheetStack`), so Back
+	 * closes it rather than ending the run. Stop and Pause stay on top of it.
+	 */
+	let full = $state(false);
+	let fullKey: number | null = null;
+	let fullList: HTMLOListElement | undefined = $state();
+	let fullEls = $state<(HTMLLIElement | undefined)[]>([]);
+	let expandBtn: HTMLButtonElement | undefined = $state();
+	let fullBox: HTMLDivElement | undefined = $state();
+
+	async function openFull() {
+		full = true;
+		fullKey = sheetStack.open({
+			tryLeave: (leave) => leave(),
+			close: () => {
+				fullKey = null;
+				full = false;
+				void tick().then(() => expandBtn?.focus({ preventScroll: true }));
+			}
+		});
+		await tick();
+		fullBox?.querySelector<HTMLElement>('[data-focus="routine-close"]')?.focus();
+	}
+
+	function closeFull() {
+		if (fullKey !== null) sheetStack.requestClose(fullKey);
+		else full = false;
+	}
+
+	// The run ending (Stop, the song's end) unmounts this with the layer open: its entry goes too.
+	$effect(() => () => {
+		if (fullKey !== null) sheetStack.closedByOwner(fullKey);
+	});
+
+	/* The lit row near the top, the one before it still in sight. */
+	$effect(() => {
+		if (!full || lit === null || !fullList) return;
+		const row = fullEls[lit];
+		if (!row) return;
+		const before = fullEls[lit - 1];
+		fullList.scrollTo({
+			top: Math.max(0, before ? before.offsetTop : row.offsetTop - 8),
+			behavior: motion()
+		});
+	});
+
+	/* The layer's own count and the marks under the figure: read every frame, like StageCount. */
+	let liveCount = $state<number | null>(null);
+	let liveTime = $state(0);
+	$effect(() => {
+		if (!full) return;
+		let frame = 0;
+		const loop = () => {
+			liveTime = player.songTime();
+			const i = beatIndexAt(beats, liveTime);
+			liveCount = i >= 0 ? (counts[i] ?? null) : null;
+			frame = requestAnimationFrame(loop);
+		};
+		frame = requestAnimationFrame(loop);
+		return () => cancelAnimationFrame(frame);
+	});
+	const marks = $derived(stepMarks(stepLength));
+	const done = $derived(stepAt === null ? 0 : stepDone(beats, stepAt, liveTime, marks));
+
+	/** A tap on a row in Follow: the run moves there. Still: rows are only to read. */
+	function jump(i: number) {
+		if (follow) onjump(i);
+	}
 
 	/*
 	 * Play's button is gone once this mounts, so focus would fall to <body>.
@@ -206,7 +316,7 @@
 					aria-live="polite"
 					class="run-call line-clamp-2 min-h-9 text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink desk:min-h-[52px] desk:text-[44px] desk:leading-[1.15]"
 				>
-					{calledName ?? ''}
+					{nowName ?? ''}
 				</p>
 			{/if}
 			{#if paused}
@@ -245,49 +355,60 @@
 				of its own scroller: the figure being called is already on the band in
 				large type, so what this adds is what comes NEXT and how far through you are.
 			-->
-				<!-- The desktop lists the whole routine, so it says where in it the run is. -->
-				<h2 class="{SECTION_LABEL} hidden desk:block">
-					{routineHeading(activeSlot, slots.length)}
-				</h2>
+				<!-- Where in the routine the run is; Follow or Still on the desktop, the full-screen list on the phone. -->
+				<div class="flex min-h-9 flex-none items-center gap-2">
+					<h2 class="{SECTION_LABEL} min-w-0 flex-1 truncate">
+						{routineHeading(lit, slots.length)}
+					</h2>
+					<div class="hidden w-[170px] flex-none desk:block">
+						<Segmented
+							compact
+							items={ROUTINE_VIEWS}
+							value={view}
+							name="runView"
+							label="Routine"
+							onchange={onview}
+						/>
+					</div>
+					<button
+						bind:this={expandBtn}
+						type="button"
+						class="{iconButton('tonal')} -my-1 desk:hidden"
+						aria-label="Show the routine full screen"
+						onclick={openFull}
+					>
+						<Icon name="expand" size={20} />
+					</button>
+				</div>
 				<ol
 					bind:this={slotList}
 					aria-label="Routine"
 					class="slots relative max-h-[130px] flex-none overflow-y-auto rounded-2xl bg-surface"
 				>
 					{#each slots as slot, i (i)}
-						{@const tone = slotTone(i, activeSlot)}
+						{@const tone = slotTone(i, lit)}
 						{@const on = tone === 'now'}
 						<li
 							bind:this={slotEls[i]}
 							aria-current={on ? 'step' : undefined}
-							class="flex min-h-12 items-center gap-3 border-b border-hairline py-1.5 pr-3.5 pl-3.5 {i ===
-							slots.length - 1
-								? 'desk:border-b-0'
-								: ''} {on ? 'bg-accent-soft' : ''}"
+							class="border-b border-hairline {i === slots.length - 1 ? 'desk:border-b-0' : ''} {on
+								? 'bg-accent-soft'
+								: ''}"
 						>
-							<span
-								class="w-[18px] flex-none text-[13px] font-extrabold tabular-nums {on
-									? 'text-accent-text'
-									: 'text-muted'}">{i + 1}</span
-							>
-							<span
-								class="min-w-0 flex-1 text-[15px] leading-[1.3] {on
-									? 'font-extrabold text-accent-text'
-									: tone === 'past'
-										? 'font-semibold text-ink-2 desk:text-muted'
-										: 'font-semibold text-ink-2'}"
-							>
-								{slot.figureIds.map(nameOf).join('  /  ')}
-								{#if slot.note}
-									<!-- The note is the reason the slot was written down — "hand change
-								     here" is no use on the routine page while you are dancing. -->
-									<span
-										class="block text-[12px] font-semibold {on ? 'text-accent-text' : 'text-muted'}"
-										>{slot.note}</span
-									>
-								{/if}
-							</span>
-							{#if on}<Badge tone="accent" solid>Now</Badge>{/if}
+							{#if follow}
+								<button
+									type="button"
+									class="focus-inset flex min-h-12 w-full cursor-pointer items-center gap-3 py-1.5 pr-3.5 pl-3.5 text-left"
+									aria-label="Start from {i + 1}, {slot.figureIds.map(nameOf).join(' or ')}"
+									onclick={() => jump(i)}
+								>
+									{@render slotRow(slot, i, tone)}
+								</button>
+							{:else}
+								<div class="flex min-h-12 items-center gap-3 py-1.5 pr-3.5 pl-3.5">
+									{@render slotRow(slot, i, tone)}
+								</div>
+							{/if}
 						</li>
 					{/each}
 					<!-- Room to scroll the last row to the top (list height 130 - a 48 px row), so the mask never fades the active one. -->
@@ -332,6 +453,83 @@
 		</div>
 	</div>
 
+	{#if full}
+		<!--
+			The full-screen routine: the count on a short band strip, the list in
+			large type. Under the run bar (z-20), so Stop and Pause stay where they are.
+		-->
+		<div
+			bind:this={fullBox}
+			class="run-full fixed inset-0 z-[15] flex flex-col bg-ground desk:hidden"
+			role="dialog"
+			aria-label="Routine"
+			tabindex="-1"
+			onkeydown={(e) => {
+				if (e.key === 'Escape') closeFull();
+			}}
+		>
+			<div
+				class="flex flex-none items-center gap-2.5 bg-band pr-4 pb-10 pl-2.5 text-band-ink"
+				style="padding-top: calc(12px + var(--safe-top)); --focus-ring: var(--color-band-ink)"
+			>
+				<BandButton
+					icon="close"
+					label="Close the full-screen routine"
+					onclick={closeFull}
+					focusKey="routine-close"
+				/>
+				<span
+					class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums"
+					aria-hidden="true">{stageDigit(liveCount, paused).text}</span
+				>
+				<span
+					class="min-w-0 flex-1 text-[13px] leading-tight font-bold text-band-small tabular-nums"
+				>
+					{routinePlace(lit, slots.length)}<br />{clock(elapsed)}
+				</span>
+				<div class="flex-none">
+					<Segmented
+						compact
+						onBand
+						items={ROUTINE_VIEWS}
+						value={view}
+						name="fullView"
+						label="Routine"
+						onchange={onview}
+					/>
+				</div>
+			</div>
+			<ol
+				bind:this={fullList}
+				aria-label="Routine"
+				class="relative -mt-7 min-h-0 flex-1 overflow-y-auto rounded-t-[28px] bg-ground px-2.5 pt-3 pb-[112px]"
+			>
+				{#each slots as slot, i (i)}
+					{@const tone = slotTone(i, lit)}
+					{@const on = tone === 'now'}
+					<li bind:this={fullEls[i]} aria-current={on ? 'step' : undefined}>
+						{#if follow}
+							<button
+								type="button"
+								class="focus-inset flex w-full cursor-pointer flex-wrap items-center gap-x-3 rounded-xl px-3 py-2.5 text-left {on
+									? 'bg-accent-soft'
+									: ''}"
+								aria-label="Start from {i + 1}, {slot.figureIds.map(nameOf).join(' or ')}"
+								onclick={() => jump(i)}
+							>
+								{@render bigRow(slot, i, tone)}
+							</button>
+						{:else}
+							<div class="flex flex-wrap items-center gap-x-3 px-3 py-2.5">
+								{@render bigRow(slot, i, tone)}
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ol>
+		</div>
+	{/if}
+
 	<BottomBar fade class="run-bar">
 		<div class="flex gap-2.5">
 			<button type="button" class={STOP} onclick={onstop}>
@@ -354,6 +552,66 @@
 		</div>
 	</BottomBar>
 </div>
+
+{#snippet slotRow(slot: { figureIds: number[]; note: string | null }, i: number, tone: string)}
+	{@const on = tone === 'now'}
+	<span
+		class="w-[18px] flex-none text-[13px] font-extrabold tabular-nums {on
+			? 'text-accent-text'
+			: 'text-muted'}">{i + 1}</span
+	>
+	<span
+		class="min-w-0 flex-1 text-[15px] leading-[1.3] {on
+			? 'font-extrabold text-accent-text'
+			: tone === 'past'
+				? 'font-semibold text-ink-2 desk:text-muted'
+				: 'font-semibold text-ink-2'}"
+	>
+		{slot.figureIds.map(nameOf).join('  /  ')}
+		{#if slot.note}
+			<!-- The note is the reason the slot was written down — "hand change
+			     here" is no use on the routine page while you are dancing. -->
+			<span class="block text-[12px] font-semibold {on ? 'text-accent-text' : 'text-muted'}"
+				>{slot.note}</span
+			>
+		{/if}
+	</span>
+	{#if on}<Badge tone="accent" solid>Now</Badge>{/if}
+{/snippet}
+
+{#snippet bigRow(slot: { figureIds: number[]; note: string | null }, i: number, tone: string)}
+	{@const on = tone === 'now'}
+	<span
+		class="w-7 flex-none text-[16px] font-extrabold tabular-nums {on
+			? 'text-accent-text'
+			: tone === 'past'
+				? 'text-muted/60'
+				: 'text-muted'}">{i + 1}</span
+	>
+	<span
+		class="min-w-0 flex-1 font-display leading-[1.15] {on
+			? 'text-[26px] font-extrabold text-accent-text'
+			: tone === 'past'
+				? 'text-[20px] font-bold text-muted/60'
+				: 'text-[20px] font-bold text-ink-2'}"
+	>
+		{slot.figureIds.map(nameOf).join('  /  ')}
+		{#if slot.note}
+			<span
+				class="block font-sans text-[13px] font-semibold {on ? 'text-accent-text' : 'text-muted'}"
+				>{slot.note}</span
+			>
+		{/if}
+	</span>
+	{#if on}
+		<!-- Where in the figure the run is: a mark per count (per 8-count past 16). -->
+		<span class="mt-2 flex w-full gap-1 pl-10" aria-hidden="true">
+			{#each Array.from({ length: marks.marks }, (_, k) => k) as k (k)}
+				<span class="h-[3px] flex-1 rounded-full {k < done ? 'bg-accent' : 'bg-accent/25'}"></span>
+			{/each}
+		</span>
+	{/if}
+{/snippet}
 
 <style>
 	/* The phone's band padding, here rather than inline so the desktop's band row can replace it. */

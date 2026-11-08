@@ -11,6 +11,7 @@ import { typeInfo } from '$lib/exercises/kinds';
 import { clock, plural } from '$lib/format';
 import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
+import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 import type { CountTakeRow } from '$lib/types';
 
 /** The count's disc in px: smaller when a song or a routine shares the screen. */
@@ -45,7 +46,45 @@ export function stageDots(
 }
 
 /**
- * A routine row on the desktop's run: the slot called now, the ones danced
+ * How a routine's list behaves in the run. Follow lights each figure in time
+ * with the music (and a tap starts the run there); Still lights nothing and
+ * leaves the list to be read. Remembered per routine on the phone.
+ */
+export type RoutineView = 'follow' | 'still';
+export const ROUTINE_VIEWS: readonly { value: RoutineView; label: string }[] = [
+	{ value: 'follow', label: 'Follow' },
+	{ value: 'still', label: 'Still' }
+];
+
+/** The full-screen routine's band line: where the run is ("5 of 16"), or how long the routine is. */
+export function routinePlace(active: number | null, total: number): string {
+	return active === null ? plural(total, 'figure', 'figures') : `${active + 1} of ${total}`;
+}
+
+/**
+ * The bar under the figure on now: one mark per count up to 16, else one per
+ * 8-count, so a long figure's marks stay wide enough to see.
+ */
+export function stepMarks(lengthCounts: number): { marks: number; per: number } {
+	const counts = Math.max(1, Math.round(lengthCounts));
+	return counts <= 16 ? { marks: counts, per: 1 } : { marks: Math.ceil(counts / 8), per: 8 };
+}
+
+/** How many of those marks are filled: the beats from the figure's "1" to now, the current one included. */
+export function stepDone(
+	beats: number[],
+	startAt: number,
+	now: number,
+	mark: { marks: number; per: number }
+): number {
+	const from = beatIndexAt(beats, startAt);
+	const at = beatIndexAt(beats, now);
+	if (from < 0 || at < from) return 0;
+	return Math.min(mark.marks, Math.floor((at - from) / mark.per) + 1);
+}
+
+/**
+ * A routine row on the run: the slot on now, the ones danced
  * before it (muted), the ones to come. A looping routine back at its first
  * slot has nothing past.
  */
@@ -99,11 +138,11 @@ export const RUN_SOURCES = [
 	{ value: 'song', label: 'A song' }
 ];
 
-/** `calls` null: nothing was called, by design. */
-export function runSummary(durationS: number, calls: number | null): string {
+/** `figures` null: not a routine run. */
+export function runSummary(durationS: number, figures: number | null): string {
 	return [
 		clock(durationS),
-		calls === null ? null : `${plural(calls, 'figure', 'figures')} called`,
+		figures === null ? null : plural(figures, 'figure', 'figures'),
 		'logged as a set'
 	]
 		.filter((p) => p !== null)

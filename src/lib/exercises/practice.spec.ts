@@ -19,7 +19,7 @@ const bachata = DANCES.bachata;
 
 describe('parsePracticeConfig', () => {
 	it('reads back what was written', () => {
-		const c = { count: 'son', clave: '2-3', speed: 0.8, callEvery: 4 } as const;
+		const c = { count: 'son', clave: '2-3', speed: 0.8 } as const;
 		expect(parsePracticeConfig(JSON.stringify(c), salsa)).toEqual(c);
 	});
 
@@ -46,8 +46,11 @@ describe('parsePracticeConfig', () => {
 		expect(parsePracticeConfig('{"count":"son"}', onlySalsa).count).toBe(salsa.defaultCountPattern);
 	});
 
-	it('refuses a call interval the panel does not offer', () => {
-		expect(parsePracticeConfig('{"callEvery":1}', salsa).callEvery).toBeNull();
+	it('drops the call interval an older value still carries: nothing is called any more', () => {
+		expect(parsePracticeConfig('{"count":"son","callEvery":2}', salsa)).toEqual({
+			...defaultPracticeConfig(salsa),
+			count: 'son'
+		});
 	});
 });
 
@@ -101,7 +104,7 @@ describe('practiceSummary', () => {
 					mode: 'count',
 					bpm: 180,
 					songTitle: null,
-					config: { count: 'son', clave: '2-3', speed: 1, callEvery: null }
+					config: { count: 'son', clave: '2-3', speed: 1 }
 				},
 				salsa
 			)
@@ -114,11 +117,11 @@ describe('practiceSummary', () => {
 					mode: 'song',
 					bpm: 180,
 					songTitle: 'El Cantante',
-					config: { count: 'salsa', clave: null, speed: 0.8, callEvery: 2 }
+					config: { count: 'salsa', clave: null, speed: 0.8 }
 				},
 				salsa
 			)
-		).toBe('El Cantante 0.8× · 1 2 3 · 5 6 7 · call every 2');
+		).toBe('El Cantante 0.8× · 1 2 3 · 5 6 7');
 	});
 });
 
@@ -191,9 +194,9 @@ describe('practiceToPost', () => {
 		practiceMode: 'count' as const,
 		songId: null,
 		countBpm: 180,
-		practiceJson: JSON.stringify({ count: 'salsa', clave: '2-3', speed: 1, callEvery: null })
+		practiceJson: JSON.stringify({ count: 'salsa', clave: '2-3', speed: 1 })
 	};
-	const config = { count: 'salsa', clave: '2-3', speed: 1, callEvery: null } as const;
+	const config = { count: 'salsa', clave: '2-3', speed: 1 } as const;
 	const loaded = () => practiceOf(row, salsa);
 
 	it('reads what the page loaded as the endpoint would store it', () => {
@@ -290,7 +293,7 @@ describe('practiceSeed', () => {
 			mode: 'count' as const,
 			songId: null,
 			countBpm: 190,
-			config: { count: 'son', clave: null, speed: 1, callEvery: null } as const
+			config: { count: 'son', clave: null, speed: 1 } as const
 		};
 		expect(practiceSeed(remembered, phone, salsa, 180)).toEqual({
 			bpm: 190,
@@ -305,7 +308,7 @@ describe('practiceSeed', () => {
 			mode: 'song' as const,
 			songId: 3,
 			countBpm: null,
-			config: { count: 'salsa', clave: '2-3', speed: 0.9, callEvery: null } as const
+			config: { count: 'salsa', clave: '2-3', speed: 0.9 } as const
 		};
 		expect(practiceSeed(remembered, phone, salsa, 180).bpm).toBe(150);
 	});

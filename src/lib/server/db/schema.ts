@@ -697,7 +697,7 @@ export const exercises = sqliteTable(
 		countBpm: integer('count_bpm'),
 		/**
 		 * What the practice panel last played for this exercise, beyond the mode,
-		 * song and tempo above: `{ count, clave, speed, callEvery }`. Read through
+		 * song and tempo above: `{ count, clave, speed }` (an older row's `callEvery` is ignored). Read through
 		 * `parsePracticeConfig` in `$lib/exercises/practice`, which is total — so
 		 * no value here, however odd, can stop a popup from opening. Nullable and
 		 * added by plain ADD COLUMN: no CHECK on this table, ever (see below).
@@ -781,7 +781,7 @@ export const sets = sqliteTable(
 		note: text('note'),
 		/**
 		 * Phase 2b: what the player run looked like —
-		 * `{speed, count, clave, callEvery, called:[figureId…]}`. Free-form on
+		 * `{source, songId, bpm, speed, count, clave}` and, for a routine, `{routineView, figures, danced:[figureId…]}` (older rows: `callEvery, calls, called`). Free-form on
 		 * purpose; nothing queries inside it.
 		 */
 		playerJson: text('player_json'),

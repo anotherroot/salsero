@@ -60,7 +60,7 @@
 			{/if}
 		</div>
 	{/snippet}
-	{#snippet panel(payload)}
+	{#snippet panel()}
 		{#if !props.backfillDay}
 			{#key logged}
 				<PracticePanel
@@ -68,13 +68,6 @@
 					exercise={props.exercise}
 					songs={props.songs}
 					takes={props.takes}
-					cue={payload.content.type === 'figure'
-						? {
-								figureId: payload.content.figure.id,
-								say: payload.content.figure.say,
-								eights: payload.content.figure.eights
-							}
-						: null}
 					onrun={(r) => (run = r)}
 					onactive={(a) => (playing = a)}
 				/>

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { practiceSaver, SAVE_DELAY_MS } from './practice-api';
 import type { PracticeInput } from './practice';
 
-const config = { count: 'salsa', clave: null, speed: 1, callEvery: null } as const;
+const config = { count: 'salsa', clave: null, speed: 1 } as const;
 const loaded: PracticeInput = { mode: 'count', songId: null, countBpm: 180, config };
 const at = (bpm: number, count: 'salsa' | 'off' = 'salsa') => ({
 	source: 'count' as const,

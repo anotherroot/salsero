@@ -1,13 +1,12 @@
 <script lang="ts" module>
 	import { untrack } from 'svelte';
-	import type { CallEvery, ClavePattern, CountPattern, Speed } from '$lib/labels';
+	import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
 
 	export interface PlayerSettings {
 		source: 'song' | 'count';
 		bpm: number;
 		count: CountPattern;
 		clave: ClavePattern | null;
-		callEvery: CallEvery | null;
 		speed: Speed;
 		voiceVolume: number;
 	}
@@ -17,7 +16,8 @@
 	import type { CountTakeRow, PickerSong } from '$lib/types';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { CALL_EVERY, PHRASE_PATTERNS } from '$lib/labels';
+	import { PHRASE_PATTERNS } from '$lib/labels';
+	import { ROUTINE_VIEWS, type RoutineView } from '$lib/player/view';
 	import type { PhrasePattern } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import { bpmOf } from '$lib/beatgrid/beatgrid';
@@ -68,11 +68,13 @@
 		defaultBpm: number;
 		dance: Dance;
 		/**
-		 * Set when the run is a routine: its name and how many figures it can
-		 * call, for the band's subtitle. Null for a count-and-clave run, which
-		 * calls nothing and so offers no Calls setting.
+		 * Set when the run is a routine: its name and its figures, for the band's
+		 * subtitle. Null for a count-and-clave run, which has no Routine row.
 		 */
 		routine?: { name: string; figureIds: number[] } | null;
+		/** How a routine's list behaves in the run: it moves with the music, or stays put. The page owns it. */
+		view?: RoutineView;
+		onview?: (view: RoutineView) => void;
 		onplay: (settings: PlayerSettings) => void;
 		/** A setting changed (not on mount): the page keeps it on the exercise. */
 		onchange?: (settings: PlayerSettings) => void;
@@ -100,6 +102,8 @@
 		defaultBpm,
 		dance,
 		routine = null,
+		view = 'follow',
+		onview,
 		onplay,
 		onchange,
 		starting,
@@ -125,11 +129,6 @@
 		practiceSeed(remembered, parsePhonePractice(stored, dance), dance, defaultBpm)
 	);
 
-	/** A stored value only survives if it is still one of the allowed ones. */
-	function pick<T>(value: unknown, allowed: readonly T[], fallback: T): T {
-		return (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback;
-	}
-
 	// The stored `source` is no longer read back: the page decides it, from
 	// `?song=` or the exercise's own memory.
 	// Seeds, read once: the Stepper and the chips own them after that.
@@ -145,9 +144,6 @@
 	const count = $derived(countOverride ?? seed.count);
 	let claveOverride = $state<ClavePattern | null | undefined>(undefined);
 	const clave = $derived(claveOverride !== undefined ? claveOverride : seed.clave);
-	let callEvery = $state<CallEvery | null>(
-		untrack(() => pick(stored.callEvery, [...CALL_EVERY, null], 2))
-	);
 	let voiceVolume = $state(untrack(() => parsePhonePractice(stored, dance).voiceVolume ?? 1));
 
 	// Every change is kept at once: on this phone, and through `onchange` on
@@ -160,7 +156,6 @@
 			bpm,
 			count,
 			clave,
-			callEvery,
 			speed,
 			voiceVolume
 		};
@@ -178,17 +173,7 @@
 	function play() {
 		// A sample must never play under a run.
 		stopSample();
-		// The stored choice survives a run without a routine: it is what the next
-		// routine run starts from.
-		onplay({
-			source,
-			bpm,
-			count,
-			clave,
-			callEvery: routine ? callEvery : null,
-			speed,
-			voiceVolume
-		});
+		onplay({ source, bpm, count, clave, speed, voiceVolume });
 	}
 
 	const uid = $props.id();
@@ -308,30 +293,21 @@
 			<SpeedChips name="player-speed" value={speed} onchange={(s) => (speed = s)} />
 		{/if}
 
-		<!-- Only a routine calls figures; without one the run is count and clave. -->
+		<!-- Nothing is called (since 2026-11-08): a routine's figures are shown. Follow lights each
+		     one in time with the music; Still leaves the list for you to read. -->
 		{#if routine}
-			<span class={LABEL} aria-hidden="true">Calls · a figure every 1, 2 or 4 eights</span>
-			<div role="radiogroup" aria-label="Calls" class="flex flex-wrap gap-x-2 gap-y-1">
-				<label class={CHIP}>
-					<input
-						type="radio"
-						name="callEvery"
-						checked={callEvery === null}
-						onchange={() => (callEvery = null)}
-						class="sr-only"
-					/>
-					Off
-				</label>
-				{#each CALL_EVERY as n (n)}
+			<span class={LABEL} aria-hidden="true">Routine</span>
+			<div role="radiogroup" aria-label="Routine" class="flex flex-wrap gap-x-2 gap-y-1">
+				{#each ROUTINE_VIEWS as v (v.value)}
 					<label class={CHIP}>
 						<input
 							type="radio"
-							name="callEvery"
-							checked={callEvery === n}
-							onchange={() => (callEvery = n)}
+							name="routineView"
+							checked={view === v.value}
+							onchange={() => onview?.(v.value)}
 							class="sr-only"
 						/>
-						Every {n}
+						{v.label}
 					</label>
 				{/each}
 			</div>

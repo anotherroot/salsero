@@ -362,7 +362,7 @@ describe("the player's song picker stays on its own side", () => {
 			mode: 'song',
 			songId: salsaSong,
 			countBpm: null,
-			config: { count: 'salsa', clave: null, speed: 1, callEvery: null }
+			config: { count: 'salsa', clave: null, speed: 1 }
 		});
 		expect(openPlayer('salsa', `exercise=${salsaExerciseId}`).start).toEqual({
 			source: 'song',

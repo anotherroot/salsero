@@ -75,8 +75,7 @@ describe("a member's entry and the group's songs", () => {
 	const config = {
 		count: 'son' as const,
 		clave: '2-3' as const,
-		speed: 1 as const,
-		callEvery: null
+		speed: 1 as const
 	};
 	const song = (songId: number) =>
 		setPracticeSettings(db, c.entry, { mode: 'song', songId, countBpm: null, config });
@@ -163,8 +162,7 @@ describe('a song of their own, picked after a drop', () => {
 		const config = {
 			count: 'son' as const,
 			clave: '2-3' as const,
-			speed: 1 as const,
-			callEvery: null
+			speed: 1 as const
 		};
 		const put = (mode: 'song' | 'count', songId: number | null) =>
 			setPracticeSettings(db, c.entry, {

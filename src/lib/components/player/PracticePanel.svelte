@@ -13,21 +13,18 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { CHIP, PLAY_ROUND as PLAY, button } from '$lib/components/ui/styles';
+	import { PLAY_ROUND as PLAY, button } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
-	import { syntheticGrid, UNIFORM_FLOW, type Flow } from '$lib/scheduler/scheduler';
+	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
 	import {
-		CUE_EVERY,
 		DEFAULT_PRACTICE_BPM,
 		hourOfBars,
-		parsePracticeConfig,
 		practiceOf,
 		practiceStart,
 		practiceSummary,
 		parsePhonePractice,
-		practiceSeed,
-		type CueEvery
+		practiceSeed
 	} from '$lib/exercises/practice';
 	import { practiceSaver } from '$lib/exercises/practice-api';
 	import { loadPhonePractice, savePhonePractice } from '$lib/exercises/phone-practice';
@@ -42,15 +39,13 @@
 		/** This dance's ready songs: the person's own and their groups' shared ones (`songChoices`). */
 		songs: PickerSong[];
 		takes: CountTakeRow[];
-		/** The figure to call on cue — the figure popup only. */
-		cue: { figureId: number; say: string; eights: number } | null;
 		/** After every stop, with the total so far: fills Minutes and the set's run. */
 		onrun: (run: { durationS: number; playerJson: string }) => void;
 		/** True while a run is playing or paused, so the popup guards against closing. */
 		onactive: (active: boolean) => void;
 	}
 
-	let { dance, exercise, songs, takes, cue, onrun, onactive }: Props = $props();
+	let { dance, exercise, songs, takes, onrun, onactive }: Props = $props();
 
 	/** A group's label: 13/700 muted, 4 px over its control. */
 	const GROUP_LABEL = 'mb-1 block text-[13px] font-bold text-muted';
@@ -60,17 +55,14 @@
 	// the props live would undo the user's own picks whenever the page reloads
 	// its data. The exercise's own memory, else this phone's (`practiceSeed`).
 	const seed = untrack(() => {
-		const remembered = parsePracticeConfig(exercise.practiceJson, dance);
 		const phone = parsePhonePractice(loadPhonePractice(dance.slug), dance);
 		return {
-			remembered,
 			start: practiceStart(
 				exercise,
 				songs.map((s) => s.id)
 			),
 			settings: practiceSeed(practiceOf(exercise, dance), phone, dance, DEFAULT_PRACTICE_BPM),
-			voiceVolume: phone.voiceVolume ?? 1,
-			callEvery: cue ? remembered.callEvery : null
+			voiceVolume: phone.voiceVolume ?? 1
 		};
 	});
 	const songGone = seed.start.songGone;
@@ -81,7 +73,6 @@
 	let count = $state<CountPattern>(seed.settings.count);
 	let clave = $state<ClavePattern | null>(seed.settings.clave);
 	let speed = $state<Speed>(seed.settings.speed);
-	let callEvery = $state<CueEvery | null>(seed.callEvery);
 	let voiceVolume = $state(seed.voiceVolume);
 	// What the exercise remembers, kept as settings change: posted only when it
 	// differs from what the page knows, which newer data replaces.
@@ -90,13 +81,7 @@
 		const loaded = practiceOf(exercise, dance);
 		untrack(() => saver.reset(loaded));
 	});
-	/** Without a cue the run calls nothing; the remembered cue stays as it was. */
-	const choice = () => ({
-		source,
-		songId,
-		bpm,
-		config: { count, clave, speed, callEvery: cue ? callEvery : seed.remembered.callEvery }
-	});
+	const choice = () => ({ source, songId, bpm, config: { count, clave, speed } });
 	// Every change is kept at once, on the exercise and on this phone. Not on
 	// the first run, which only reads what was seeded.
 	let primed = false;
@@ -137,16 +122,12 @@
 	let startError = $state<string | null>(null);
 	let watch = $state(STOPPED);
 	let now = $state(Date.now());
-	let calls = 0;
 	/** Set by `onDestroy`, read after `await handle.start()` resolves — see `play()`. */
 	let destroyed = false;
 
 	const songTitle = $derived(songs.find((s) => s.id === songId)?.title ?? null);
 	const summary = $derived(
-		practiceSummary(
-			{ mode: source, bpm, songTitle, config: { count, clave, speed, callEvery } },
-			dance
-		)
+		practiceSummary({ mode: source, bpm, songTitle, config: { count, clave, speed } }, dance)
 	);
 	const canPlay = $derived(source === 'count' ? bpm >= 60 && bpm <= 300 : grid !== null);
 
@@ -192,30 +173,15 @@
 			el.playbackRate = speed;
 			el.preservesPitch = true;
 		}
-		// One figure, spaced by its own length, so a two-eight figure is never
-		// called over itself. `pickFigure` returns the only id of a one-figure pool.
-		const activeCue = cue;
-		const flow: Flow = activeCue
-			? { pick: UNIFORM_FLOW.pick, eights: () => activeCue.eights }
-			: UNIFORM_FLOW;
 		const handle = createPlayer({
 			audio: useSong && el ? el : null,
 			grid: g,
-			toggles: {
-				count,
-				clave: dance.clave ? clave : null,
-				callEvery: cue && callEvery ? callEvery : null
-			},
-			pool: cue && callEvery ? [cue.figureId] : [],
-			flow,
-			sayOf: () => cue?.say ?? '',
+			toggles: { count, clave: dance.clave ? clave : null },
 			voiceVolume,
 			// Only the chosen pattern's takes: a salsa recording must never stand in
 			// for a son count, whose words fall on different beats.
 			takes: takes.filter((t) => t.pattern === count),
-			onCall: () => {
-				calls += 1;
-			},
+			onStep: () => {},
 			onEnd: () => stop()
 		});
 		try {
@@ -281,9 +247,7 @@
 				bpm: source === 'count' ? bpm : null,
 				speed: source === 'song' ? speed : 1,
 				count,
-				clave: dance.clave ? clave : null,
-				callEvery: cue ? callEvery : null,
-				calls
+				clave: dance.clave ? clave : null
 			})
 		});
 	}
@@ -424,36 +388,6 @@
 							value={clave}
 							onchange={(c) => (clave = c)}
 						/>
-					</fieldset>
-				{/if}
-
-				{#if cue}
-					<fieldset>
-						<legend class={GROUP_LABEL}>Call it on cue</legend>
-						<div class="flex flex-wrap gap-1.5">
-							<label class={CHIP}>
-								<input
-									type="radio"
-									name="panel-cue"
-									checked={callEvery === null}
-									onchange={() => (callEvery = null)}
-									class="sr-only"
-								/>
-								Off
-							</label>
-							{#each CUE_EVERY as n (n)}
-								<label class={CHIP}>
-									<input
-										type="radio"
-										name="panel-cue"
-										checked={callEvery === n}
-										onchange={() => (callEvery = n)}
-										class="sr-only"
-									/>
-									Every {n}
-								</label>
-							{/each}
-						</div>
 					</fieldset>
 				{/if}
 			</div>

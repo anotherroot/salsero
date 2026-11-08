@@ -9,13 +9,18 @@
 	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
 	import { practiceOf } from '$lib/exercises/practice';
 	import { practiceSaver } from '$lib/exercises/practice-api';
-	import { savePhonePractice } from '$lib/exercises/phone-practice';
+	import {
+		loadRoutineView,
+		saveRoutineView,
+		savePhonePractice
+	} from '$lib/exercises/phone-practice';
+	import { figureById } from '$lib/graph/graph';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { routinePlan } from '$lib/routines/plan';
-	import { flatten, slotAt } from '$lib/routines/routines';
+	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import { exerciseLine, runSubtitle, runSummary } from '$lib/player/view';
+	import { exerciseLine, runSubtitle, runSummary, type RoutineView } from '$lib/player/view';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -59,17 +64,14 @@
 
 	/**
 	 * Keep a choice on the exercise. A run's song is the one it plays: one that
-	 * did not load ran on the count. Its call interval is the panel's and is
-	 * kept as it was: the two players offer different ones.
+	 * did not load ran on the count.
 	 */
 	function keep(s: Pick<PlayerSettings, 'source' | 'bpm' | 'count' | 'clave' | 'speed'>) {
-		if (!saver) return;
-		const callEvery = saver.known?.config.callEvery ?? null;
-		saver.change({
+		saver?.change({
 			source: s.source,
 			songId,
 			bpm: s.bpm,
-			config: { count: s.count, clave: s.clave, speed: s.speed, callEvery }
+			config: { count: s.count, clave: s.clave, speed: s.speed }
 		});
 	}
 	const song = loadSongGrid(
@@ -88,16 +90,30 @@
 	let audio: HTMLAudioElement | undefined = $state();
 	let player = $state<PlayerHandle | null>(null);
 	let speed = $state<Speed>(1);
-	let calledFigureId = $state<number | null>(null);
-	/** Where the last call sat in the plan, so a routine run can say which slot it is on. */
-	let calledIndex = $state<number | null>(null);
-	let calledIds = $state<number[]>([]);
+	/** The routine's figure on now, from its "1": the step the player last reported. */
+	let nowFigureId = $state<number | null>(null);
+	/** Which of `dancedSlots` the run is on, or null before the first figure starts. */
+	let activeSlot = $state<number | null>(null);
+	/** Song time of the figure's "1", for the bar under it. */
+	let stepAt = $state<number | null>(null);
+	let dancedIds = $state<number[]>([]);
+	/**
+	 * Follow or Still, this phone's choice for this routine. Writable `$derived`:
+	 * the route is reused across `?routine=`, and then it must follow.
+	 */
+	let routineView = $derived<RoutineView>(
+		data.routine ? loadRoutineView(data.dance.slug, data.routine.id) : 'follow'
+	);
+	function setView(v: RoutineView) {
+		routineView = v;
+		if (data.routine) saveRoutineView(data.dance.slug, data.routine.id, v);
+	}
 
 	/**
 	 * The routine as it is actually danced: children spliced in, slots the graph
-	 * cannot answer for dropped. This is exactly what `routinePlan` walks, which
-	 * is why `calledIndex % length` is the slot the run is on — and why the list
-	 * shown while running is this rather than the routine's own slot rows.
+	 * cannot answer for dropped. This is exactly what `routinePlan` walks, so a
+	 * step's `slot` indexes it — which is why the list shown while running is
+	 * this rather than the routine's own slot rows.
 	 */
 	const dancedSlots = $derived(
 		data.routine
@@ -107,7 +123,10 @@
 				}))
 			: []
 	);
-	const activeSlot = $derived(slotAt(calledIndex, dancedSlots.length));
+	/** The figure on now's length in counts, for the marks under it. */
+	const nowLength = $derived(
+		nowFigureId === null ? 8 : (figureById(data.graph, nowFigureId)?.length ?? 8)
+	);
 	/** The settings the run started with, so a count changed mid-run is kept with the rest. */
 	let runSettings: PlayerSettings | null = null;
 	let finalElapsed = $state(0);
@@ -129,16 +148,15 @@
 	let runToggles = $state<{
 		count: PlayerSettings['count'];
 		clave: PlayerSettings['clave'];
-		callEvery: PlayerSettings['callEvery'];
 	} | null>(null);
 
 	/**
-	 * How many called figures to spell out. A long routine run calls one every few
-	 * seconds, so the raw list grows without bound; the summary is only ever read
-	 * back by a person looking at what a session was. `calls` keeps the true
-	 * total, so capping the list loses nothing that matters.
+	 * How many danced figures to spell out. A long routine run starts one every
+	 * few seconds, so the raw list grows without bound; the summary is only ever
+	 * read back by a person looking at what a session was. `figures` keeps the
+	 * true total, so capping the list loses nothing that matters.
 	 */
-	const MAX_CALLED = 250;
+	const MAX_DANCED = 250;
 
 	const runJson = $derived(
 		JSON.stringify({
@@ -149,16 +167,11 @@
 			speed,
 			count: runToggles?.count ?? 'off',
 			clave: runToggles?.clave ?? null,
-			callEvery: runToggles?.callEvery ?? null,
-			calls: calledIds.length,
-			called: calledIds.slice(-MAX_CALLED)
+			...(data.routine
+				? { routineView, figures: dancedIds.length, danced: dancedIds.slice(-MAX_DANCED) }
+				: {})
 		})
 	);
-
-	function sayOf(id: number): string {
-		// The routine's figures, by id: a variation is said as its figure.
-		return data.callNames.find((f) => f.id === id)?.say ?? '';
-	}
 
 	/** Set when the run ended through the band's back, so Save this run then leaves. */
 	let leaving = $state(false);
@@ -167,7 +180,7 @@
 	function finish(leave = false) {
 		if (!player) return;
 		leaving = leave;
-		calledIds = player.called();
+		dancedIds = player.danced();
 		finalElapsed = player.songTime();
 		player.stop();
 		player = null;
@@ -200,7 +213,7 @@
 		startError = false;
 		speed = settings.speed;
 		voiceVolume = settings.voiceVolume;
-		runToggles = { count: settings.count, clave: settings.clave, callEvery: settings.callEvery };
+		runToggles = { count: settings.count, clave: settings.clave };
 		// Read once, like the shape below: `picked` and `song` are reactive.
 		const g0 = settings.source === 'song' ? song.grid : null;
 		const el = audio;
@@ -222,27 +235,25 @@
 		// the 25 ms tick for the whole run, and a reactive read in there would
 		// throw inside the audio loop if this route were ever reused for a URL
 		// without `?routine=` — a silent failure repeating forty times a second.
-		// No shape means no planner and no pool: the run is count and clave only.
+		// No shape means no planner: the run is count and clave only.
 		const shape = data.routine?.shape ?? null;
-		const pool = data.routine?.figureIds ?? [];
 		const graph = data.graph;
 
 		const handle = createPlayer({
 			audio: useSong && el ? el : null,
 			grid,
-			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
-			pool,
+			toggles: { count: settings.count, clave: settings.clave },
 			planner: shape
-				? (plan, every, through, rand) => routinePlan(plan, shape, graph, every, through, rand)
+				? (plan, through, rand, from) => routinePlan(plan, shape, graph, through, rand, from)
 				: undefined,
 			// Only the chosen pattern's takes: a salsa recording must never stand in
 			// for a son run, whose words fall on different counts entirely.
 			takes: data.takes.filter((t) => t.pattern === settings.count),
-			sayOf,
 			voiceVolume: settings.voiceVolume,
-			onCall: (id, index) => {
-				calledFigureId = id;
-				calledIndex = index;
+			onStep: (step, at) => {
+				nowFigureId = step.figureId;
+				activeSlot = step.slot;
+				stepAt = at;
 			},
 			onEnd: () => finish()
 		});
@@ -266,8 +277,9 @@
 		runSettings = { ...settings, source: useSong ? 'song' : 'count' };
 		keep(runSettings);
 		saver?.flush();
-		calledFigureId = null;
-		calledIndex = null;
+		nowFigureId = null;
+		activeSlot = null;
+		stepAt = null;
 		mode = 'running';
 	}
 
@@ -363,6 +375,8 @@
 		defaultBpm={data.bpm}
 		dance={data.dance}
 		routine={data.routine}
+		view={routineView}
+		onview={setView}
 		onplay={handlePlay}
 		onchange={keep}
 		{starting}
@@ -380,9 +394,14 @@
 			beats={runningGrid.beats}
 			counts={runningGrid.counts}
 			figures={data.callNames}
-			{calledFigureId}
+			{nowFigureId}
 			slots={dancedSlots}
 			{activeSlot}
+			{stepAt}
+			stepLength={nowLength}
+			view={routineView}
+			onview={setView}
+			onjump={(slot) => player?.jumpTo(slot)}
 			song={runningSong}
 			{audio}
 			{speed}
@@ -428,10 +447,7 @@
 			})
 		}}
 		exercises={data.exercises}
-		summary={runSummary(
-			finalElapsed,
-			data.routine !== null && runToggles?.callEvery != null ? calledIds.length : null
-		)}
+		summary={runSummary(finalElapsed, data.routine !== null ? dancedIds.length : null)}
 		durationS={finalElapsed}
 		run={runJson}
 		fail={form && 'message' in form ? form : null}

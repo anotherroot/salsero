@@ -41,7 +41,6 @@
 					exercise={props.exercise}
 					songs={props.songs}
 					takes={props.takes}
-					cue={null}
 					onrun={(r) => (run = r)}
 					onactive={(a) => (playing = a)}
 				/>

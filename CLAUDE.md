@@ -627,7 +627,7 @@ src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
 src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
-                     25 ms look-ahead loop, speechSynthesis, the wake lock
+                     25 ms look-ahead loop, a routine's steps (`onStep`, `jumpTo`), the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
                      half-bar starts); capture.ts owns the mic and the click.
                      grid.ts (tempo states, takes, the Settings summary), recording.ts
@@ -840,8 +840,8 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are
   decoded clips scheduled on an `AudioContext` with a 25 ms look-ahead;
   `src/lib/scheduler/scheduler.ts` decides WHAT sounds and WHEN in song time and
-  never touches audio. Figure names go through `speechSynthesis`, which cannot be
-  scheduled and does not need to be.
+  never touches audio. Nothing is spoken but the count (since 2026-11-08): a
+  routine's figures are shown, lit on their first "1" (`onStep`), never called.
 - **Levels hide entry points, never routes.** No route 404s or redirects
   because of a level (the first-run gate for a null level, and My class's tab
   landing on the one class, are the exceptions). Components ask
@@ -1032,8 +1032,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   Not dropped, for the same reason as `style`.
 - **`figures.callable` and `figures.call_text` are vestigial.** They were the
   random drill's pool and a spoken override for the name; the drill was
-  removed and both are read by nothing. Only a routine calls figures, and the
-  voice says the name. Not dropped, for the same reason as `style`.
+  removed and both are read by nothing. Nothing calls a figure any more (2026-11-08). Not dropped, for the same reason as `style`.
 
 ## Commands
 
@@ -1052,7 +1051,7 @@ The dev database has no songs and the home worker does not run against it, so
 the player's song mode has nothing to open. To exercise it locally, insert a
 song row by hand with `status='ready'`, an `audio_file` under `.data/audio/`,
 and a `beats_json` array — a click track from ffmpeg plus evenly spaced beats is
-enough to check the count, the clave and the calls. Set `dance` too: it defaults
+enough to check the count, the clave and a routine's Follow. Set `dance` too: it defaults
 to `'salsa'`, so a row inserted without it is invisible from `/bachata/player`.
 
 In dev, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first run; an admin is
