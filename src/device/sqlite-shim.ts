@@ -2,6 +2,7 @@
 // the official SQLite WASM build (oo1). Synchronous, as better-sqlite3 is: in a
 // browser it must run in a dedicated worker (OPFS sync access handles).
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
+import { installWithRetry } from './pool';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Sqlite3 = any;
@@ -17,13 +18,20 @@ export async function initDeviceSqlite(opts: { locateFile?: (f: string) => strin
 	);
 }
 
-/** Install the `opfs-sahpool` VFS (browser worker only). Files opened by path go there. */
+/**
+ * Install the `opfs-sahpool` VFS (browser worker only). Files opened by path go
+ * there. Tried again a few times, never deleting the files (`installWithRetry`).
+ */
 export async function openPool(name: string): Promise<PoolUtil> {
-	if (!sqlite3) throw new Error('initDeviceSqlite first');
-	// By default a failed install deletes the whole pool (`removeVfs`), the copy with it:
-	// a failure must leave the database where it is.
-	pool = await sqlite3.installOpfsSAHPoolVfs({ name, preserveOnInitFailure: true });
+	const s = sqlite3;
+	if (!s) throw new Error('initDeviceSqlite first');
+	pool = await installWithRetry((opts) => s.installOpfsSAHPoolVfs(opts), name);
 	return pool;
+}
+
+/** Gives the pool's files back, deleting nothing; every database on it must be closed. */
+export function pausePool(): void {
+	pool?.pauseVfs();
 }
 
 function lib(): Sqlite3 {

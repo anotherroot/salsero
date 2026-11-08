@@ -121,11 +121,19 @@ export function createDevice(deps: DeviceDeps): Device {
 		// One object, updated in place: the server reads it on every request.
 		if (runtime) Object.assign(runtime, { userId: meta.userId, cookies: meta.cookies });
 		else deps.setRuntime((runtime = { userId: meta.userId, cookies: meta.cookies }));
-		serverStart ??= deps.startServer().then((r) => {
-			respond = r;
-		});
+		serverStart ??= deps.startServer().then(
+			(r) => {
+				respond = r;
+			},
+			(e) => {
+				// The next pull tries again.
+				serverStart = null;
+				throw e;
+			}
+		);
 		await serverStart;
-		setState('ready');
+		// A pull may have found the person signed out while the server started.
+		setState(hasCopy() ? 'ready' : 'empty');
 	}
 
 	async function pullOnce(): Promise<'again' | 'done'> {

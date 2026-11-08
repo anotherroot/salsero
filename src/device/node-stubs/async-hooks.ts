@@ -10,7 +10,7 @@
  *   while rendering) and Svelte's render context: read only while rendering
  *   HTML or in remote functions. The device renders no HTML (it answers page
  *   data and endpoints, `deviceAnswers`), the app has no remote functions and
- *   never calls `getRequestEvent`.
+ *   never calls `getRequestEvent` (async-hooks.spec.ts scans for it).
  */
 export class AsyncLocalStorage<T> {
 	#store: T | undefined;

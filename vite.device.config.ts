@@ -64,9 +64,9 @@ function deviceFiles(): Plugin {
 	};
 }
 
+// Plain Vite: `-c` makes this the only config, so none of vite.config.ts (no SvelteKit
+// plugin; the server is already built) applies.
 export default defineConfig({
-	configFile: false,
-	// Plain Vite: none of vite.config.ts (no SvelteKit plugin; the server is already built).
 	publicDir: false,
 	resolve: {
 		conditions: ['browser', 'module', 'import', 'default'],

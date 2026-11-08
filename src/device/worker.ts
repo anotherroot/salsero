@@ -16,7 +16,8 @@ import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
 import { migrateDevice } from './migrate';
 import { deviceMigrations } from './migrations';
-import Database, { initDeviceSqlite, openPool } from './sqlite-shim';
+import { openCopy } from './pool';
+import Database, { initDeviceSqlite, openPool, pausePool } from './sqlite-shim';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const LOCK = 'salsa-device';
@@ -47,9 +48,13 @@ async function startServer(): Promise<Responder> {
 async function open(): Promise<Device> {
 	// sqlite3.wasm sits beside this file, in its own version's directory.
 	await initDeviceSqlite({ locateFile: (file) => new URL(file, scope.location.href).href });
-	await openPool('salsa');
-	const db = new Database(DB_PATH);
-	migrateDevice(db, deviceMigrations());
+	// Retried while the last tab's worker lets go; given back if a later step fails.
+	const db = await openCopy({
+		pool: () => openPool('salsa'),
+		db: () => new Database(DB_PATH),
+		migrate: (d) => migrateDevice(d, deviceMigrations()),
+		release: pausePool
+	});
 	return createDevice({
 		db,
 		schema: SCHEMA_TAG,

@@ -204,6 +204,37 @@ describe('start', () => {
 			fallback: true
 		});
 	});
+
+	it('a later pull tries the server again after it would not start', async () => {
+		let tries = 0;
+		const h = harness({
+			startServer: async () => {
+				// Fails for the first pull's start and start()'s own, then works.
+				if (tries++ < 2) throw new Error('no wasm');
+				return async () => new Response('ok');
+			}
+		});
+		await h.dev.start();
+		expect(h.dev.state()).toBe('failed');
+		await h.dev.pull();
+		expect(tries).toBe(3);
+		expect(h.dev.state()).toBe('ready');
+	});
+
+	it('is empty, not ready, when signing out wiped the copy while the server started', async () => {
+		await harness().dev.start();
+		let started: (r: Responder) => void = () => {};
+		const h = harness({
+			fetchPull: async () => Response.json({}, { status: 401 }),
+			startServer: () => new Promise<Responder>((r) => (started = r))
+		});
+		const starting = h.dev.start();
+		await vi.waitFor(() => expect(h.dev.state()).toBe('empty'));
+		started(async () => new Response('ok'));
+		await starting;
+		expect(h.dev.state()).toBe('empty');
+		expect(h.states()).not.toContain('ready');
+	});
 });
 
 describe('pull', () => {
