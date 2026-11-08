@@ -73,9 +73,25 @@ function redactUser(row: Row, me: string): Row {
 	};
 }
 
-/** A deleted comment is kept for Undo, but nobody is shown its words (`listComments`). */
-function redactComment(row: Row): Row {
-	return row.deleted_at === null ? row : { ...row, body: '' };
+/**
+ * A lesson's comments as `listComments` lists them: the live ones, and a
+ * deleted top comment only while a live reply keeps it, with nothing of its
+ * words or who wrote or deleted it. A deleted reply, or a deleted top comment
+ * with no live reply, is not listed to anyone (it is kept only for Undo).
+ */
+function listedComments(rows: Row[]): Row[] {
+	const answered = new Set(
+		rows.filter((c) => c.deleted_at === null && c.thread_id !== null).map((c) => c.thread_id)
+	);
+	return rows
+		.filter((c) => c.deleted_at === null || (c.thread_id === null && answered.has(c.id)))
+		.map((c) => (c.deleted_at === null ? c : { ...c, body: '', author_id: '', deleted_by: null }));
+}
+
+/** A group's join code is for those who may hand it out: its owner and editors while it lives. */
+function teamFor(row: Row, role: unknown): Row {
+	const handsOut = (role === 'owner' || role === 'editor') && row.deleted_at === null;
+	return handsOut ? row : { ...row, code: `hidden-${row.id}` };
 }
 
 export function syncScope(db: Db, userId: string): Scope {
@@ -106,13 +122,11 @@ export function syncScope(db: Db, userId: string): Scope {
 	// Groups: the ones the person holds a membership in, until the purge. Anyone
 	// else reads nothing of a group (`byOwner`, `lessonsReached`, `addedLessonIds`).
 	const memberships = select('team_members', sql`user_id = ${userId}`);
+	const roleIn = new Map(memberships.map((m) => [m.team_id, m.role]));
 	put(
 		'teams',
-		whereIn(
-			'teams',
-			'id',
-			memberships.map((m) => m.team_id)
-		).filter((t) => t.purged_at === null)
+		whereIn('teams', 'id', roleIn.keys()).filter((t) => t.purged_at === null),
+		(t) => teamFor(t, roleIn.get(t.id))
 	);
 	const reading = new Map<number, Reading>();
 	for (const m of memberships) {
@@ -181,7 +195,7 @@ export function syncScope(db: Db, userId: string): Scope {
 	]) {
 		put(table, whereIn(table, 'lesson_id', lessonIds));
 	}
-	put('lesson_comments', whereIn('lesson_comments', 'lesson_id', lessonIds), redactComment);
+	put('lesson_comments', listedComments(whereIn('lesson_comments', 'lesson_id', lessonIds)));
 	put(
 		'lesson_comment_hearts',
 		whereIn('lesson_comment_hearts', 'comment_id', idsOf('lesson_comments'))
@@ -226,13 +240,11 @@ export function syncScope(db: Db, userId: string): Scope {
 		put(table, select(table, sql`user_id = ${userId}`));
 	}
 
-	// People: me, everyone in my groups, and whoever wrote or deleted a comment I read.
+	// People: me, everyone in my groups, and whoever wrote a live comment I read.
 	const people = new Set<unknown>([userId]);
 	for (const m of rowsOf('team_members')) people.add(m.user_id);
-	for (const c of rowsOf('lesson_comments')) {
-		people.add(c.author_id);
-		people.add(c.deleted_by);
-	}
+	// A kept deleted comment names nobody (its author is blanked, its deleter NULL).
+	for (const c of rowsOf('lesson_comments')) if (c.deleted_at === null) people.add(c.author_id);
 	put('users', whereIn('users', 'id', people), (r) => redactUser(r, userId));
 
 	return scope;

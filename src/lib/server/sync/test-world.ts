@@ -13,12 +13,12 @@
  *   step on the figure;
  * - group 1 has a published lesson holding a figure (a recording and a
  *   section on it), a routine and a drill, with a position tagged on the
- *   figure, a comment with a heart and a deleted comment, Music (the class
- *   song, and a song unshared after Maja practised to it); a draft lesson
- *   holding a figure, a position and a video of its own; an archived lesson
- *   holding a figure of its own;
+ *   figure, a comment with a heart, a deleted comment, a deleted comment with
+ *   a live reply, Music (the class song, and a song unshared after Maja
+ *   practised to it); a draft lesson holding a figure, a position and a video
+ *   of its own; an archived lesson holding a figure of its own;
  * - group 2 has a published lesson with a figure;
- * - Maja opened the published lesson.
+ * - Maja opened the published lesson; Luka has every private setting set.
  *
  * Tasks 3 and 4 reuse it. Every setup step that can refuse is checked, or
  * the assertions after it would be hollow.
@@ -49,7 +49,11 @@ import { shareSong, unshareSong } from '../song-share';
 import { defaultPracticeConfig } from '$lib/exercises/practice';
 import { DANCES } from '$lib/dances/dances';
 import { markTwins } from '../twins';
-import { addPicks } from '../today-picks';
+import { addPicks, setDailyCount } from '../today-picks';
+import { setLevel } from '../levels';
+import { setLocale } from '../locale';
+import { setReminderMinute } from '../devices';
+import { setGroupLimit, setStorageLimit } from '../storage';
 import { setDefaultStyle } from '../default-styles';
 import { putCountTake } from '../countTakes';
 import { setSyncSettings } from '../clones/sync-settings';
@@ -101,7 +105,11 @@ export type World = Class & {
 		drill: number;
 		position: number;
 		comment: number;
+		/** Maja's, deleted, no replies: not listed to anyone. */
 		deletedComment: number;
+		/** Luka's, deleted, with Maja's live reply (`keptReply`): listed, its words and author hidden. */
+		keptComment: number;
+		keptReply: number;
 		/** The class song in the published lesson's Music. */
 		sharedLink: number;
 		/** A song Maja practised to, then unshared: a drop on her entry, a link she cannot play. */
@@ -314,6 +322,12 @@ function groupRows(db: Db, c: Class): World['group'] {
 	const gone = postComment(db, 'u3', published, 'Said too much', null, WORLD_T);
 	if (!('id' in gone)) throw new Error(`test world: comment refused: ${gone.message}`);
 	must(deleteComment(db, 'u3', gone.id, WORLD_T), 'delete comment');
+	// Luka's question, answered by Maja, then deleted: kept for its live reply.
+	const asked = postComment(db, 'u2', published, 'Who brings music?', null, WORLD_T);
+	if (!('id' in asked)) throw new Error(`test world: comment refused: ${asked.message}`);
+	const answer = postComment(db, 'u3', published, 'I will', asked.id, WORLD_T);
+	if (!('id' in answer)) throw new Error(`test world: reply refused: ${answer.message}`);
+	must(deleteComment(db, 'u2', asked.id, WORLD_T), 'delete question');
 	recordOpen(db, 'u3', 'lesson', published, WORLD_T);
 
 	// Music: the class song, and one unshared after Maja practised to it, so
@@ -376,6 +390,8 @@ function groupRows(db: Db, c: Class): World['group'] {
 		position,
 		comment: posted.id,
 		deletedComment: gone.id,
+		keptComment: asked.id,
+		keptReply: answer.id,
 		sharedLink,
 		withdrawn,
 		withdrawnLink,
@@ -398,6 +414,14 @@ export function makeWorld(db: Db): World {
 	const figure = figureIn(db, OTHER_ED, 'Other figure').figure.id;
 	must(linkFigure(db, lesson, figure, OTHER_ED.actorId), 'other figure');
 	must(publishLesson(db, OTHER_ED, lesson, WORLD_T), 'publish other');
+
+	// Luka's private settings, all set, so a redaction that kept one would show.
+	setLevel(db, 'u2', 'own');
+	setLocale(db, 'u2', 'sl');
+	setDailyCount(db, 'u2', 7);
+	setReminderMinute(db, 'u2', 8 * 60);
+	must(setStorageLimit(db, 'u2', 2 * 1024 ** 3), 'storage limit');
+	must(setGroupLimit(db, 'u2', 3), 'group limit');
 
 	return { ...c, own, group, otherGroup: { lesson, figure } };
 }

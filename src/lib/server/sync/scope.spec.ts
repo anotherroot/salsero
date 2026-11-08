@@ -109,7 +109,12 @@ const CHILDREN: Record<string, (r: Row, s: Scope) => boolean> = {
 	lesson_routines: (r, s) => hasId(s, 'lessons', r.lesson_id),
 	lesson_exercises: (r, s) => hasId(s, 'lessons', r.lesson_id),
 	lesson_positions: (r, s) => hasId(s, 'lessons', r.lesson_id),
-	lesson_comments: (r, s) => hasId(s, 'lessons', r.lesson_id),
+	// As `listComments` lists them: live, or deleted but kept by a live reply.
+	lesson_comments: (r, s) =>
+		hasId(s, 'lessons', r.lesson_id) &&
+		(r.deleted_at === null ||
+			(r.thread_id === null &&
+				raw('lesson_comments').some((c) => c.thread_id === r.id && c.deleted_at === null))),
 	routine_steps: (r, s) => hasId(s, 'routines', r.routine_id),
 	routine_step_options: (r, s) => hasId(s, 'routine_steps', r.step_id),
 	video_spots: (r, s) =>
@@ -299,6 +304,18 @@ describe('syncScope', () => {
 
 	it("redacts another person's users row and never sends a password hash", () => {
 		const s = syncScope(db, 'u3');
+		// Every private column of Luka's is set, so a redaction that kept one shows.
+		const stored = raw('users').find((u) => u.id === 'u2')!;
+		for (const k of [
+			'level',
+			'locale',
+			'daily_count',
+			'reminder_minute',
+			'storage_limit_bytes',
+			'group_limit'
+		]) {
+			expect(stored[k], k).not.toBeNull();
+		}
 		const luka = s.get('users')!.get('u2')!;
 		expect(luka).toEqual({
 			...Object.fromEntries(Object.keys(luka).map((k) => [k, null])),
@@ -323,12 +340,34 @@ describe('syncScope', () => {
 		}
 	});
 
-	it("never sends a deleted comment's words", () => {
+	it('lists a deleted comment only while a live reply keeps it, and then hides who wrote it', () => {
 		for (const u of ['u1', 'u2', 'u3']) {
 			const comments = syncScope(db, u).get('lesson_comments')!;
-			expect(comments.get(String(w.group.deletedComment))!.body, u).toBe('');
+			expect(comments.has(String(w.group.deletedComment)), u).toBe(false);
 			expect(comments.get(String(w.group.comment))!.body, u).toBe('Lovely class');
+			expect(comments.get(String(w.group.keptReply))!.body, u).toBe('I will');
+			const kept = comments.get(String(w.group.keptComment))!;
+			expect(kept, u).toMatchObject({ body: '', author_id: '', deleted_by: null });
+			expect(kept.deleted_at, u).not.toBeNull();
 		}
+	});
+
+	it("sends no users row for a kept deleted comment's author or deleter", async () => {
+		// Luka wrote and deleted the kept comment; once he leaves, nothing else names him.
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'used' }, NO_FILES, WORLD_T + 1)).toBe('left');
+		const s = syncScope(db, 'u3');
+		expect(s.get('lesson_comments')!.has(String(w.group.keptComment))).toBe(true);
+		expect([...s.get('users')!.keys()].sort()).toEqual(['u1', 'u3']);
+	});
+
+	it("hands a group's code only to its owner and editors while it lives", () => {
+		const code = raw('teams').find((t) => t.id === 1)!.code as string;
+		const codeFor = (u: string) => syncScope(db, u).get('teams')!.get('1')!.code;
+		expect(codeFor('u1')).toBe(code);
+		expect(codeFor('u2')).toBe(code);
+		expect(codeFor('u3')).toBe('hidden-1');
+		expect(deleteTeam(db, 1, 'u1', WORLD_T + 1)).toBe(true);
+		for (const u of ['u1', 'u2', 'u3']) expect(codeFor(u), u).toBe('hidden-1');
 	});
 
 	it('holds every synced table, even empty', () => {
