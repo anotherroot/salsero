@@ -54,7 +54,7 @@ describe('the player layer as a dialog', () => {
 	});
 	it('Rename is small', () => {
 		const s = readFileSync(`${ROOT}/video/PlayerSheet.svelte`, 'utf8');
-		expect(s).toMatch(/size="small"\s+title="Rename"/);
+		expect(s).toMatch(/size="small"\s+title=\{w\.editor\.rename\}/);
 	});
 });
 

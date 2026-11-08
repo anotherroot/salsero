@@ -1,7 +1,7 @@
 /**
  * The fetch side of `POST /[dance]/exercises/[id]/practice`: remember what an
- * exercise is practised with, for next time. Used by the popup's panel and the
- * full player, on every change of a setting (before a run or during one), not
+ * exercise is practised with, for next time. Used by the exercise page's panel
+ * and the full player, on every change of a setting (before a run or during one), not
  * only on Play. A convenience: a failure changes nothing, so it is never
  * awaited and never reported.
  */

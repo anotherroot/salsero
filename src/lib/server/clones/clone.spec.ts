@@ -601,7 +601,14 @@ describe('cloneInto: drills and songs', () => {
 			notes: 'Arms'
 		}).id;
 		db.update(exercises)
-			.set({ practiceMode: 'count', countBpm: 90, practiceJson: '{"count":true}' })
+			.set({
+				practiceMode: 'count',
+				countBpm: 90,
+				practiceJson: '{"count":true}',
+				comesBack: '{"kind":"every","days":2}',
+				warmup: true,
+				warmupOrder: 3
+			})
 			.where(eq(exercises.id, drill))
 			.run();
 		addLinks(db, { exerciseId: drill }, ['https://example.org/shines'], null);
@@ -621,6 +628,9 @@ describe('cloneInto: drills and songs', () => {
 			userId: null,
 			practiceMode: 'count',
 			countBpm: 90,
+			comesBack: '{"kind":"every","days":2}',
+			warmup: false,
+			warmupOrder: null,
 			songId: null,
 			clonedFrom: drill
 		});

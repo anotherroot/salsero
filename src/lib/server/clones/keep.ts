@@ -23,7 +23,8 @@ import { and, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { CloneKind, Hold, KeepChoice, KeepItem, KeepPreview } from '$lib/types';
 import { holdLine } from '$lib/positions/hold';
 import type { DanceSlug } from '$lib/dances/dances';
-import { dayMonth, plural } from '$lib/format';
+import { dayMonth } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { Db } from '../db';
 import {
 	exercises,
@@ -476,7 +477,7 @@ function describe(db: Db, item: Item): { name: string; meta: string; bytes: numb
 				.all();
 			return {
 				name: row ? labelFor(row.move, row.name) : '',
-				meta: recs.length > 0 ? plural(recs.length, 'recording', 'recordings') : '',
+				meta: recs.length > 0 ? t().groups.leave.recordings(recs.length) : '',
 				bytes: recs.reduce((n, r) => n + r.size, 0)
 			};
 		}
@@ -488,7 +489,7 @@ function describe(db: Db, item: Item): { name: string; meta: string; bytes: numb
 				.where(eq(lessonVideos.lessonId, item.id))
 				.all();
 			const meta = [dayMonth(row.lessonDay)];
-			if (vids.length > 0) meta.push(plural(vids.length, 'video', 'videos'));
+			if (vids.length > 0) meta.push(t().entry.classes.videos(vids.length));
 			return {
 				name: row.title,
 				meta: meta.join(' · '),
@@ -502,7 +503,7 @@ function describe(db: Db, item: Item): { name: string; meta: string; bytes: numb
 				.from(routineSteps)
 				.where(eq(routineSteps.routineId, item.id))
 				.all().length;
-			return { name: row.name, meta: plural(slots, 'slot', 'slots'), bytes: 0 };
+			return { name: row.name, meta: t().groups.leave.slots(slots), bytes: 0 };
 		}
 		case 'song': {
 			const row = db.select().from(songs).where(eq(songs.id, item.id)).get()!;

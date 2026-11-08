@@ -11,6 +11,7 @@ import type { Wall } from './scope';
 import { freeDisk } from './storage';
 import { realCloneFiles } from './clones/files';
 import { makeMine, makeMinePreview } from './clones/edit';
+import { serverNow } from '$lib/server/server-clock';
 
 const PAGE: Record<CloneKind, string> = {
 	figure: 'figures',
@@ -65,7 +66,7 @@ export function makeMineOffer(
  */
 export async function makeMineFrom(db: Db, wall: Wall, kind: CloneKind, id: number) {
 	const bytes = makeMinePreview(db, wall, kind, id)?.bytes ?? 0;
-	const res = await makeMine(db, wall, kind, id, realCloneFiles(), Date.now(), await freeDisk());
+	const res = await makeMine(db, wall, kind, id, realCloneFiles(), serverNow(), await freeDisk());
 	if (res.ok) throw redirect(303, itemHref(wall, kind, res.id));
 	switch (res.reason) {
 		case 'room': {

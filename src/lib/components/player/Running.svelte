@@ -9,7 +9,7 @@
 	import type { CalledFigure } from '$lib/types';
 	import { desk } from '$lib/nav/desk.svelte';
 	import {
-		ROUTINE_VIEWS,
+		routineViews,
 		routineHeading,
 		routinePlace,
 		runTitleCompact,
@@ -28,6 +28,7 @@
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import { CLIP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { RUN_STOP as STOP } from './styles';
+	import { t } from '$lib/i18n/catalog';
 	import CountChips from './CountChips.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import StageCount from './StageCount.svelte';
@@ -280,7 +281,7 @@
 		<div class="-ml-[10px] flex min-w-0 items-center gap-1 desk:contents">
 			<!-- Its name is the action; where it ends up is the hover hint. -->
 			<span class="flex-none desk:mr-[14px]" title={backLabel}>
-				<BandButton icon="back" label="Stop and go back" onclick={onback} />
+				<BandButton icon="back" label={t().player.stopAndBack} onclick={onback} />
 			</span>
 			<h1
 				class="min-w-0 truncate font-display text-[30px] leading-[1.1] font-extrabold tracking-[-0.015em] text-band-ink desk:self-baseline {runTitleCompact(
@@ -323,7 +324,7 @@
 				<span
 					class="inline-flex h-[30px] items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small tabular-nums ring-[1.5px] ring-band-ink ring-inset desk:h-9 desk:gap-2 desk:pr-4 desk:pl-3 desk:text-[16px] desk:[&_svg]:size-[18px]"
 				>
-					<Icon name="pause" size={16} filled />Paused · {clock(elapsed)}
+					<Icon name="pause" size={16} filled />{t().player.paused(clock(elapsed))}
 				</span>
 			{:else}
 				<span
@@ -363,10 +364,10 @@
 					<div class="hidden w-[170px] flex-none desk:block">
 						<Segmented
 							compact
-							items={ROUTINE_VIEWS}
+							items={routineViews()}
 							value={view}
 							name="runView"
-							label="Routine"
+							label={t().player.routine}
 							onchange={onview}
 						/>
 					</div>
@@ -374,7 +375,7 @@
 						bind:this={expandBtn}
 						type="button"
 						class="{iconButton('tonal')} -my-1 desk:hidden"
-						aria-label="Show the routine full screen"
+						aria-label={t().player.showFull}
 						onclick={openFull}
 					>
 						<Icon name="expand" size={20} />
@@ -382,7 +383,7 @@
 				</div>
 				<ol
 					bind:this={slotList}
-					aria-label="Routine"
+					aria-label={t().player.routine}
 					class="slots relative max-h-[130px] flex-none overflow-y-auto rounded-2xl bg-surface"
 				>
 					{#each slots as slot, i (i)}
@@ -399,7 +400,10 @@
 								<button
 									type="button"
 									class="focus-inset flex min-h-12 w-full cursor-pointer items-center gap-3 py-1.5 pr-3.5 pl-3.5 text-left"
-									aria-label="Start from {i + 1}, {slot.figureIds.map(nameOf).join(' or ')}"
+									aria-label={t().player.startFrom(
+										i + 1,
+										slot.figureIds.map(nameOf).join(` ${t().player.or} `)
+									)}
 									onclick={() => jump(i)}
 								>
 									{@render slotRow(slot, i, tone)}
@@ -426,7 +430,7 @@
 			reason Setup's picker does: bachata has no 'son' count.
 		-->
 			<section class="flex flex-none flex-col gap-2" aria-labelledby="run-voice">
-				<h2 id="run-voice" class={SECTION_LABEL}>Voice</h2>
+				<h2 id="run-voice" class={SECTION_LABEL}>{t().player.voice}</h2>
 				<div class="{CLIP} rounded-2xl bg-surface">
 					<div class="py-1.5 pl-3 desk:pr-3">
 						<CountChips
@@ -434,13 +438,13 @@
 							value={count}
 							onchange={oncount}
 							name="runCount"
-							label="Voice count"
+							label={t().exercise.panel.voiceCount}
 							scroll={(!!song || slots.length > 0) && !desk.current}
 						/>
 					</div>
 					<div class="border-t border-hairline px-4 py-1">
 						<Slider
-							label="Voice volume"
+							label={t().exercise.panel.voiceVolume}
 							bind:value={voiceVolume}
 							oninput={() => {
 								player.setVoiceVolume(voiceVolume);
@@ -462,7 +466,7 @@
 			bind:this={fullBox}
 			class="run-full fixed inset-0 z-[15] flex flex-col bg-ground desk:hidden"
 			role="dialog"
-			aria-label="Routine"
+			aria-label={t().player.routine}
 			tabindex="-1"
 			onkeydown={(e) => {
 				if (e.key === 'Escape') closeFull();
@@ -474,7 +478,7 @@
 			>
 				<BandButton
 					icon="close"
-					label="Close the full-screen routine"
+					label={t().player.closeFull}
 					onclick={closeFull}
 					focusKey="routine-close"
 				/>
@@ -491,17 +495,17 @@
 					<Segmented
 						compact
 						onBand
-						items={ROUTINE_VIEWS}
+						items={routineViews()}
 						value={view}
 						name="fullView"
-						label="Routine"
+						label={t().player.routine}
 						onchange={onview}
 					/>
 				</div>
 			</div>
 			<ol
 				bind:this={fullList}
-				aria-label="Routine"
+				aria-label={t().player.routine}
 				class="relative -mt-7 min-h-0 flex-1 overflow-y-auto rounded-t-[28px] bg-ground px-2.5 pt-3 pb-[112px]"
 			>
 				{#each slots as slot, i (i)}
@@ -514,7 +518,10 @@
 								class="focus-inset flex w-full cursor-pointer flex-wrap items-center gap-x-3 rounded-xl px-3 py-2.5 text-left {on
 									? 'bg-accent-soft'
 									: ''}"
-								aria-label="Start from {i + 1}, {slot.figureIds.map(nameOf).join(' or ')}"
+								aria-label={t().player.startFrom(
+									i + 1,
+									slot.figureIds.map(nameOf).join(` ${t().player.or} `)
+								)}
 								onclick={() => jump(i)}
 							>
 								{@render bigRow(slot, i, tone)}
@@ -533,7 +540,7 @@
 	<BottomBar fade class="run-bar">
 		<div class="flex gap-2.5">
 			<button type="button" class={STOP} onclick={onstop}>
-				<Icon name="stop" size={22} filled />Stop
+				<Icon name="stop" size={22} filled />{t().exercise.panel.stop}
 			</button>
 			<div class="flex min-w-0 flex-1">
 				<button
@@ -543,9 +550,9 @@
 					onclick={togglePause}
 				>
 					{#if paused}
-						<Icon name="play" size={22} filled />Resume
+						<Icon name="play" size={22} filled />{t().exercise.panel.resume}
 					{:else}
-						<Icon name="pause" size={22} filled />Pause
+						<Icon name="pause" size={22} filled />{t().exercise.panel.pause}
 					{/if}
 				</button>
 			</div>
@@ -576,7 +583,7 @@
 			>
 		{/if}
 	</span>
-	{#if on}<Badge tone="accent" solid>Now</Badge>{/if}
+	{#if on}<Badge tone="accent" solid>{t().player.now}</Badge>{/if}
 {/snippet}
 
 {#snippet bigRow(slot: { figureIds: number[]; note: string | null }, i: number, tone: string)}

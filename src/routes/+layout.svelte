@@ -32,7 +32,9 @@
 	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
 	import {
 		fullLoadFor,
+		localeStale,
 		mayReloadNow,
+		needsLocaleReload,
 		reloadWhy,
 		typedFields,
 		type FieldState
@@ -42,8 +44,14 @@
 	import { holdsBack, staleMove } from '$lib/page-epoch';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 	import { levelShown } from '$lib/levels/levels';
+	import { locale, setClientLocale } from '$lib/i18n/current';
+	import { t } from '$lib/i18n/catalog';
 
 	let { data, children } = $props();
+	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
+	// Once per page load: changing it in Settings reloads the page, and a page whose
+	// data names another language later reloads (`needsLocaleReload`, below).
+	setClientLocale(untrack(() => data.locale));
 	guardNavigation();
 	// Back closes the top sheet, not the page (`$lib/sheets/stack.ts`).
 	syncSheets();
@@ -263,9 +271,8 @@
 		// SvelteKit hears no navigation in a Back that only closes a sheet, so listen too.
 		const dismiss = () => (offline = null);
 		window.addEventListener('popstate', dismiss);
-		[...layer.querySelectorAll('button')]
-			.find((b) => b.textContent?.includes('Try again'))
-			?.focus();
+		// Found by its mark, not its word: the word is the reader's language.
+		layer.querySelector<HTMLButtonElement>('button[data-retry]')?.focus();
 		return () => {
 			window.removeEventListener('popstate', dismiss);
 			document.title = titleBefore;
@@ -322,7 +329,9 @@
 				toPath: to?.pathname ?? null
 			},
 			{
-				updated: updated.current,
+				// A page drawn in another language than its data names (`localeStale`)
+				// loads its next page whole, like a new version.
+				updated: updated.current || localeStale(locale(), data.locale),
 				asking: prompt.ask !== null,
 				online: navigator.onLine,
 				...quietNow()
@@ -331,6 +340,21 @@
 		if (!full || !to) return;
 		nav.cancel();
 		location.href = to.href;
+	});
+	/*
+	 * The page's data names another language than the page draws in: a sign-in
+	 * that did not load the page whole, or an admin who changed this person's
+	 * language. A quiet page reloads; otherwise the next page change loads whole
+	 * (`fullLoadFor`, above). Re-checked on every navigation (`page.url`).
+	 */
+	$effect(() => {
+		void page.url.href;
+		const wanted = data.locale;
+		const routeId = page.route.id;
+		const reload = untrack(() =>
+			needsLocaleReload({ drawn: locale(), wanted, routeId, ...quietNow() })
+		);
+		if (reload) location.reload();
 	});
 	/*
 	 * Coming back to the page is when a deploy is worth asking about. A quiet
@@ -504,7 +528,7 @@
 		bind:this={layer}
 		data-dance={navDance.slug}
 		data-frame="bare"
-		aria-label="Offline"
+		aria-label={t().shell.error.offlineTitle}
 		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:bg-transparent desk:bg-band"
 		oncancel={(e) => {
 			e.preventDefault();

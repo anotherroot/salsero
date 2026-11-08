@@ -161,6 +161,25 @@ describe('a group video', () => {
 		});
 	});
 
+	it('comes back with its own id after newer rows took ids', () => {
+		const L = lesson();
+		video(L, 'a.mp4');
+		const newest = video(L, 'b.mp4');
+		const gone = deleteLessonVideo(db, newest, 'u2', T)!;
+		// The newest id was deleted: the next video must not take it.
+		const after = video(L, 'c.mp4');
+		expect(after).toBeGreaterThan(newest);
+		const space = { ...T1_SALSA, actorId: 'u2' };
+		expect(restoreTrash(db, space, gone.trashId!, T + 1)).toEqual({ ok: true });
+		expect(
+			db
+				.select({ id: lessonVideos.id })
+				.from(lessonVideos)
+				.all()
+				.map((v) => v.id)
+		).toContain(newest);
+	});
+
 	it('a person’s own delete keeps nothing', () => {
 		const L = lesson(U1_SALSA);
 		const gone = deleteLessonVideo(db, video(L), 'u1')!;

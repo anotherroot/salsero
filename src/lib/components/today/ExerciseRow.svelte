@@ -10,7 +10,7 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import type { Side } from '$lib/gestures/swipe';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { iconButton } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		row: DayRow<ExerciseItem>;
@@ -30,8 +30,8 @@
 		/** This row's swipe: open (left) or at rest. */
 		swiped: Side;
 		onswipe: (open: Side) => void;
-		/** Open this exercise's log popup. */
-		onlog: () => void;
+		/** A warm-up row in the card whose rows can be dragged: where the drag has put it. */
+		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
 
 	let {
@@ -42,18 +42,16 @@
 		upNext,
 		current,
 		search,
-		onlog,
 		onskip,
 		swiped,
-		onswipe
+		onswipe,
+		drag
 	}: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const done = $derived(row.kind === 'done');
 	const meta = $derived(rowMeta(row, today, lessonDay));
 	const TONE = { status: 'font-bold text-status', done: 'font-bold text-done' } as const;
-	// The "+" is an icon, so bare accent is allowed.
-	const plus = $derived(iconButton('bare', done ? 'done' : 'accent'));
 	// The Up next tint, or the open row's: both take the tinted tile and the darker meta.
 	const tinted = $derived(upNext || current);
 	const href = $derived(
@@ -64,31 +62,39 @@
 	const LINK = 'flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1';
 </script>
 
-<li>
+<!--
+	A draggable row is a flat list of its card's rows (`data-warm-row`); the drag moves it with
+	the `translate` property, so nothing else about its layout changes.
+-->
+<li
+	data-warm-row={drag ? ex.id : undefined}
+	class="{drag?.lifted ? 'relative z-10 shadow-[0_8px_24px_rgb(0_0_0/0.22)]' : ''} {drag?.moving &&
+	!drag.lifted
+		? 'transition-transform duration-150 motion-reduce:transition-none'
+		: ''}"
+	style={drag ? `translate: 0 ${drag.offset}px` : undefined}
+>
 	<!--
 		The phone swipes a to-do or picked row left for "Not today" (a done row has
-		none; the desktop has the button under Log set). The sliding card carries the
+		none; the desktop has Not today on the exercise page). The sliding card carries the
 		row's own background, so the warn underlay shows only as it moves.
 	-->
 	<Swipeable
 		key="today:{ex.id}"
 		open={swiped}
 		onchange={onswipe}
-		end={onskip ? { label: 'Not today', icon: 'redo', onclick: onskip } : undefined}
+		end={onskip ? { label: t().today.row.notToday, icon: 'redo', onclick: onskip } : undefined}
 		disabled={!onskip || desk.current}
 		rounded="rounded-none"
 		tone="warn"
 		reveal={96}
 	>
 		<div
-			class="flex min-h-[66px] items-center pr-1.5 pl-4 {tinted
-				? 'bg-accent-soft'
-				: 'bg-surface'} {current ? 'shadow-[inset_4px_0_0_var(--color-accent)]' : ''}"
+			class="flex min-h-[66px] items-center px-4 {tinted ? 'bg-accent-soft' : 'bg-surface'} {current
+				? 'shadow-[inset_4px_0_0_var(--color-accent)]'
+				: ''}"
 		>
-			<!--
-		The row opens the exercise; the + logs. Logging is the thing done most, so it gets its own
-		target. On the desktop the open exercise's form is beside the list: no +.
-	-->
+			<!-- The row opens the exercise: its page is where it is practised and saved. -->
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; search is the query -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
 				<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
@@ -99,7 +105,7 @@
 							? 'text-muted'
 							: 'text-ink'}"
 						>{ex.name}{#if upNext}<span class="ml-1 inline-block align-[2px]"
-								><Badge tone="accent" solid>Up next</Badge></span
+								><Badge tone="accent" solid>{t().today.row.upNext}</Badge></span
 							>{/if}</span
 					>
 					<!-- muted is under 4.5:1 on the Up next tint; ink-2 clears it in every theme. -->
@@ -109,16 +115,8 @@
 							>{/each}
 					</span>
 				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
-
-			<button
-				type="button"
-				onclick={onlog}
-				aria-label="Log a set of {ex.name}"
-				class="{plus} desk:hidden"
-			>
-				<Icon name="plus" />
-			</button>
 		</div>
 	</Swipeable>
 </li>

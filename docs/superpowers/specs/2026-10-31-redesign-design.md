@@ -177,7 +177,9 @@ Every component exists in the states on the design system board (sections
 - **Selection:** chip, segmented, switch, checkbox, radio.
 - **Overlays:** bottom sheet (grabber, title, close/back, footer actions) over
   a scrim; dialog (raised, icon, title, body, actions); toast (inverse colours,
-  one action, e.g. Undo). A sheet's title stops at two lines with an ellipsis
+  one action, e.g. Undo; a swipe left or right takes it away, and its clock
+  waits while a finger is on it: `ui/SwipeAway.svelte`, `gestures/dismiss.ts`,
+  the player's toast too; the Reload bar stays). A sheet's title stops at two lines with an ellipsis
   (a long exercise name beside Skip and Details ran to four); the full name
   stays in its `title` and the dialog's label.
 - **Feedback:** banner (info/warning/error/success; info uses accent_soft —

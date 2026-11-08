@@ -75,6 +75,12 @@ export const COUNT_PATTERN_LABEL: Record<CountPattern, string> = {
 	off: 'Off'
 };
 
+/** The clave's name over its chips: the same in every language. */
+export const CLAVE_NAME = 'Clave';
+
+/** The tempo's unit: the same in every language. */
+export const BPM = 'BPM';
+
 /** Which clave the player ticks. Positions live in `src/lib/scheduler/`. */
 export const CLAVE_PATTERNS = ['3-2', '2-3'] as const;
 export type ClavePattern = (typeof CLAVE_PATTERNS)[number];

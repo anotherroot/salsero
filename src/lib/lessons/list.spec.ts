@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { LessonItem } from '$lib/types';
 import {
-	PICK_LESSON,
+	pickLesson,
 	dateTile,
 	diskSubtitle,
+	emptyLessonsBody,
 	groupVideosSubtitle,
 	isOpenLesson,
 	lessonCounts,
@@ -128,11 +130,57 @@ describe('groupVideosSubtitle', () => {
 	});
 });
 
-describe('PICK_LESSON', () => {
+describe('pickLesson', () => {
 	it('is the empty pane’s words', () => {
-		expect(PICK_LESSON).toEqual({
+		expect(pickLesson()).toEqual({
 			title: 'Pick a lesson',
 			body: 'Its notes, videos and what it teaches open here, beside the list.'
 		});
+	});
+});
+
+describe('the Lessons list in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('names a month alone, in the nominative', () => {
+		const groups = sl(() => monthGroups([lesson('2026-11-03'), lesson('2026-10-27')]));
+		expect(groups.map((g) => g.label)).toEqual(['november 2026', 'oktober 2026']);
+	});
+
+	it('the date tile in Slovenian', () => {
+		expect(sl(() => dateTile('2026-10-28'))).toEqual({
+			weekday: 'sre',
+			day: 28,
+			label: '28. oktobra 2026'
+		});
+	});
+
+	it('counts videos in four forms, with a decimal comma', () => {
+		const v = (videos: number, sized = false) =>
+			sl(() => videoMeta({ videos, videoBytes: 1.2 * 1024 ** 3 }, sized));
+		expect(v(1)).toBe('1 video');
+		expect(v(2)).toBe('2 videa');
+		expect(v(3)).toBe('3 videi');
+		expect(v(5)).toBe('5 videov');
+		expect(v(3, true)).toBe('3 videi · 1,2 GB');
+	});
+
+	it('counts sections, routines and figures in four forms', () => {
+		const words = (n: number) =>
+			sl(() => lessonCounts({ sections: n, routines: n, figures: n })).map((c) => c.word);
+		expect(words(1)).toEqual(['odsek', 'kombinacija', 'različica']);
+		expect(words(2)).toEqual(['odseka', 'kombinaciji', 'različici']);
+		expect(words(3)).toEqual(['odseki', 'kombinacije', 'različice']);
+		expect(words(0)).toEqual(['odsekov', 'kombinacij', 'različic']);
+	});
+
+	it('the subtitles, the empty list and the empty pane', () => {
+		expect(sl(() => diskSubtitle(3.4 * 1024 ** 3))).toBe('Videi na disku: 3,4 GB');
+		expect(sl(() => groupVideosSubtitle(1.6 * 1024 ** 3, 3 * 1024 ** 3))).toBe(
+			'Videi skupine: 1,6 GB od 3,0 GB'
+		);
+		expect(sl(() => emptyLessonsBody(false))).toContain('Danes');
+		expect(sl(() => emptyLessonsBody(true))).not.toContain('Danes');
+		expect(sl(() => pickLesson().title)).toBe('Izberite lekcijo');
 	});
 });

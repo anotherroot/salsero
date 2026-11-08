@@ -4,31 +4,18 @@
  * Levels hide entry points, never routes. Components ask this module; they do
  * not compare level strings themselves. PURE, client-safe.
  */
-import { TABS, type Tab } from '$lib/nav/tabs';
+import { t } from '$lib/i18n/catalog';
+import { tabs, type Tab } from '$lib/nav/tabs';
 
 export type Level = 'follow' | 'own' | 'all';
 
 /** Least app first, the order the cards are drawn in. */
 export const LEVELS: readonly Level[] = ['follow', 'own', 'all'];
 
-/** The words on the "How much app?" cards. Everything has no small line. */
-export const LEVEL_WORDS: Record<Level, { title: string; body: string; small: string }> = {
-	follow: {
-		title: 'Follow my class',
-		body: 'What my class is working on, a few things a day. Nothing to set up.',
-		small: 'New class lessons come to Today by themselves.'
-	},
-	own: {
-		title: 'Practise and keep my own',
-		body: 'Also keep my own videos, like workshops or my performances, and my own songs.',
-		small: 'Videos still just play.'
-	},
-	all: {
-		title: 'Everything',
-		body: 'My own figures, positions and routines. Mark and edit sections in videos.',
-		small: ''
-	}
-};
+/** The words on the "How much app?" cards (and Settings' row). Everything has no small line: ''. */
+export function levelWords(level: Level): { title: string; body: string; small: string } {
+	return { small: '', ...t().entry.levels[level] };
+}
 
 export function parseLevel(v: unknown): Level | null {
 	return v === 'follow' || v === 'own' || v === 'all' ? v : null;
@@ -50,15 +37,20 @@ const TAB_IDS: Record<Level, readonly Tab['id'][]> = {
 };
 
 /**
- * The phone's tab bar: `TABS` filtered for a level, in `TABS` order. At Follow
+ * The phone's tab bar: `tabs()` filtered for a level, in that order. At Follow
  * my class Groups is "My class" (same route and icon) and You is its own tab;
  * above it Groups is "You", with the person icon: the groups, then the settings.
  */
 export function tabsFor(level: Level): readonly Tab[] {
-	return TABS.filter((t) => TAB_IDS[level].includes(t.id)).map((t) => {
-		if (t.id !== 'groups') return t;
-		return level === 'follow' ? { ...t, label: 'My class' } : { ...t, label: 'You', icon: 'solo' };
-	});
+	const w = t().shell.tabs;
+	return tabs()
+		.filter((tab) => TAB_IDS[level].includes(tab.id))
+		.map((tab) => {
+			if (tab.id !== 'groups') return tab;
+			return level === 'follow'
+				? { ...tab, label: w.myClass }
+				: { ...tab, label: w.you, icon: 'solo' as const };
+		});
 }
 
 /**
@@ -66,9 +58,11 @@ export function tabsFor(level: Level): readonly Tab[] {
  * foot), and Groups keeps its own name and icon ("My class" at Follow my class).
  */
 export function sideTabsFor(level: Level): readonly Tab[] {
-	return TABS.filter((t) => t.id !== 'you' && TAB_IDS[level].includes(t.id)).map((t) =>
-		level === 'follow' && t.id === 'groups' ? { ...t, label: 'My class' } : t
-	);
+	return tabs()
+		.filter((tab) => tab.id !== 'you' && TAB_IDS[level].includes(tab.id))
+		.map((tab) =>
+			level === 'follow' && tab.id === 'groups' ? { ...tab, label: t().shell.tabs.myClass } : tab
+		);
 }
 
 /**
@@ -96,7 +90,7 @@ export function litAt(
 	return lit;
 }
 
-/** The simple screens: the lesson page, the video player, the exercise page and log popup. */
+/** The simple screens: the lesson page, the video player, the exercise page and Done sheet. */
 export function simple(level: Level): boolean {
 	return level !== 'all';
 }

@@ -10,6 +10,7 @@
 	import Banner from './Banner.svelte';
 	import UploadCard from './UploadCard.svelte';
 	import { button } from './styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		/** Endpoint taking the raw file as the POST body. */
@@ -35,7 +36,7 @@
 		url,
 		accept,
 		label,
-		noun = 'file',
+		noun,
 		headers,
 		icon = 'upload',
 		kind = 'secondary',
@@ -61,7 +62,7 @@
 	// does not), so only a reload or a closed tab would cut it off.
 	$effect(() =>
 		track({
-			label: 'An upload',
+			label: t().shell.upload.anUpload,
 			dirty: () => progress !== null,
 			unloadOnly: true
 		})
@@ -95,15 +96,13 @@
 				await invalidateAll();
 				return;
 			}
-			const fallback =
-				xhr.status === 413
-					? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
-					: 'Upload failed.';
+			const w = t().shell.upload;
+			const fallback = xhr.status === 413 ? w.tooLarge(MAX_RECORDING_LABEL) : w.failed;
 			message = { title: uploadFailure(xhr.responseText, fallback) };
 		};
 		xhr.onerror = () => {
 			progress = null;
-			message = { title: 'Upload failed — check the connection and try again.' };
+			message = { title: t().shell.upload.connection };
 		};
 		// A deploy does not reload the page under the upload: it waits for loadend.
 		xhr.onloadend = holdReload();
@@ -136,7 +135,7 @@
 	/>
 </label>
 {#if progress !== null}
-	<UploadCard pct={progress * 100} label={noun} />
+	<UploadCard pct={progress * 100} label={noun ?? t().shell.upload.nouns.file} />
 {/if}
 {#if message}
 	<div class="mt-2">

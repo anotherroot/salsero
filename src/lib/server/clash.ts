@@ -21,6 +21,7 @@ import { figureGroups, figures, positions } from './db/schema';
 import { figurePositions } from './graph';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { asSeen, changedFields, clashTitle, goneTitle, type Seen } from '$lib/clash/clash';
+import { serverNow } from '$lib/server/server-clock';
 
 export type SeenCheck =
 	| { ok: true }
@@ -84,7 +85,7 @@ export function seenRefusal<T extends Record<string, unknown>>(
 	required: boolean,
 	current: Seen | null,
 	extra: T,
-	now = Date.now(),
+	now = serverNow(),
 	who: Who = nobody
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
 	const seen = seenFrom(form);
@@ -138,9 +139,12 @@ export function exerciseSeen(row: {
 	notes: string | null;
 	active: boolean;
 	teamId: number | null;
+	comesBack: string | null;
 }): Seen {
 	const content: Seen = { notes: row.notes };
 	if (row.source === 'custom') content.name = row.name;
+	// A drill's Comes back is content too: the raw stored value is what the form saw.
+	if (row.source === 'custom' || row.source === 'added') content.comesBack = row.comesBack;
 	return row.teamId !== null ? content : { ...content, active: row.active ? 'on' : '' };
 }
 

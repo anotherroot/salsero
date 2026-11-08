@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CLAVE_PATTERNS, type ClavePattern } from '$lib/labels';
 	import { CHIP } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		value: ClavePattern | null;
@@ -22,7 +23,7 @@
 			onchange={() => onchange(null)}
 			class="sr-only"
 		/>
-		Off
+		{t().exercise.panel.off}
 	</label>
 	{#each CLAVE_PATTERNS as c (c)}
 		<label class={CHIP}>

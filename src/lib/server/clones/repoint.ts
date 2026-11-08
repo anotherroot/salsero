@@ -417,15 +417,19 @@ export function repointPreview(
  * Practice carried from one exercise onto another: the sets and the day's picks move. When `from`
  * is live (not archived) and `into` is archived, or `into` is paused while
  * `from` is active (a copy starts paused while its source is practised, R23),
- * `revive` gives `into` `from`'s schedule, practice settings and active state,
- * unarchived: the live practice wins. `archiveFrom` archives a live `from` at
- * `now`, so one person never has two live exercises on one target.
+ * `revive` gives `into` `from`'s schedule, practice settings, active state and the
+ * person's own choices (Warm-up and its order), unarchived: the live practice wins.
+ * `ownComesBack` (an entry's practice lands on the person's own drill, not on a
+ * group's drill they follow) carries `from`'s own Comes back too, when it has one. `archiveFrom`
+ * archives a live `from` at `now`, so one person never has two live exercises on
+ * one target. Only the person's practice moves here: Warm-up never travels to
+ * another place (Copy to…, Send copy rows, not practice).
  */
 function carry(
 	tx: Db,
 	from: Exercise,
 	into: Exercise,
-	opts: { archiveFrom: boolean; revive: boolean; name: string | null },
+	opts: { archiveFrom: boolean; revive: boolean; ownComesBack?: boolean; name: string | null },
 	now: number
 ): void {
 	tx.update(sets).set({ exerciseId: into.id }).where(eq(sets.exerciseId, from.id)).run();
@@ -445,7 +449,10 @@ function carry(
 			practiceMode: from.practiceMode,
 			songId: from.songId,
 			countBpm: from.countBpm,
-			practiceJson: from.practiceJson
+			practiceJson: from.practiceJson,
+			warmup: from.warmup,
+			warmupOrder: from.warmupOrder,
+			...(opts.ownComesBack && from.comesBack !== null ? { comesBack: from.comesBack } : {})
 		});
 	}
 	if (Object.keys(patch).length > 0) {
@@ -508,8 +515,11 @@ function moveDrillPractice(
 	const toRow = tx.select().from(exercises).where(eq(exercises.id, to.id)).get()!;
 	const toMine = inSpace(to, wall);
 	if (!inSpace(from, wall)) {
-		if (toMine) carry(tx, practice, toRow, { archiveFrom: true, revive: true, name: null }, now);
-		else moveEntry(tx, wall, practice, 'drillId', to, now);
+		// Onto their own drill: the entry's own Comes back beats the teacher's the copy holds.
+		if (toMine) {
+			const opts = { archiveFrom: true, revive: true, ownComesBack: true, name: null };
+			carry(tx, practice, toRow, opts, now);
+		} else moveEntry(tx, wall, practice, 'drillId', to, now);
 		return;
 	}
 	if (toMine) {
@@ -531,10 +541,13 @@ function moveDrillPractice(
 				practiceMode: practice.practiceMode,
 				songId: practice.songId,
 				countBpm: practice.countBpm,
-				practiceJson: practice.practiceJson
+				practiceJson: practice.practiceJson,
+				warmup: practice.warmup,
+				warmupOrder: practice.warmupOrder
 			})
 			.returning()
 			.get();
+	// Back onto a group drill: the entry follows its teacher's Comes back again.
 	carry(tx, practice, there, { archiveFrom: false, revive: true, name: to.name }, now);
 }
 

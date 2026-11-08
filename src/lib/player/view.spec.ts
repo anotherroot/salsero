@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getDance } from '$lib/dances/dances';
+import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import {
@@ -11,6 +12,7 @@ import {
 	stepDone,
 	stepMarks,
 	runSubtitle,
+	runSources,
 	runSummary,
 	runTitleCompact,
 	setupSubtitle,
@@ -82,9 +84,9 @@ describe('what the Practice page derives', () => {
 		).toBeUndefined();
 	});
 	it('sums the run up, dropping the calls when nothing was called by design', () => {
-		expect(runSummary(222, 12)).toBe('3:42 · 12 figures · logged as a set');
-		expect(runSummary(60, 1)).toBe('1:00 · 1 figure · logged as a set');
-		expect(runSummary(252, null)).toBe('4:12 · logged as a set');
+		expect(runSummary(222, 12)).toBe('3:42 · 12 figures called');
+		expect(runSummary(60, 1)).toBe('1:00 · 1 figure called');
+		expect(runSummary(252, null)).toBe('4:12');
 	});
 	it('says why Play cannot start', () => {
 		const base = { source: 'song', songId: 4, ready: true, error: null, starting: false } as const;
@@ -136,7 +138,7 @@ describe('what the Practice page derives', () => {
 		expect(exerciseLine({ source: 'routine', state, today })).toBe('Routine · Due today');
 		expect(
 			exerciseLine({ source: 'figure', state: { ...state, dueDay: '2026-10-29' }, today })
-		).toBe('Figure practice · 2 days late');
+		).toBe('Figure practice · Due today');
 		expect(exerciseLine({ source: 'figure', state: { ...state, lastDay: null }, today })).toBe(
 			'Figure practice · New'
 		);
@@ -240,5 +242,57 @@ describe('the routine run', () => {
 		expect(stepDone(beats, 4, 3, eight)).toBe(0);
 		const long = stepMarks(32);
 		expect(stepDone(beats, 4, 8.5, long)).toBe(2);
+	});
+});
+
+describe('runSources', () => {
+	it('names the Source switch in the reader’s language, read when asked', () => {
+		expect(runSources()).toEqual([
+			{ value: 'count', label: 'Count only' },
+			{ value: 'song', label: 'A song' }
+		]);
+		expect(withLocale('sl', () => runSources().map((s) => s.label))).toEqual([
+			'Samo štetje',
+			'Skladba'
+		]);
+	});
+});
+
+describe('the Practice page in Slovenian', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('counts the routine’s versions and the calls with Slovenian plurals', () => {
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2] }))).toBe('Prva · 2 različici');
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3, 4, 5] }))).toBe(
+			'Prva · 5 različic'
+		);
+		expect(sl(() => runSummary(222, 3))).toBe('3:42 · 3 napovedane različice');
+		expect(sl(() => runSummary(60, 1))).toBe('1:00 · 1 napovedana različica');
+	});
+
+	it('writes a speed with a decimal comma', () => {
+		expect(
+			sl(() =>
+				runSubtitle({ routine: 'Prva', song: true, speed: 0.8, bpm: null, clave: '2-3' }, salsa)
+			)
+		).toBe('Prva · 0,8× · clave 2-3');
+	});
+
+	it('says why Play waits, whose voice counts, and where Back goes', () => {
+		expect(
+			sl(() =>
+				playState({ source: 'song', songId: null, ready: false, error: null, starting: false })
+			)
+		).toEqual({
+			disabled: true,
+			busy: false,
+			label: 'Predvajaj',
+			why: 'Najprej izberite skladbo.'
+		});
+		expect(sl(() => voiceKind([], 'salsa', 180))).toBe('Vgrajen');
+		const p = { dance: 'salsa', routine: null, song: null, exercise: null } as const;
+		expect(sl(() => practiceBack({ ...p, from: 'today' }).label)).toBe('Nazaj: Danes');
+		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
+		expect(sl(() => routineHeading(1, 5))).toBe('Kombinacija · mesto 2 od 5');
 	});
 });

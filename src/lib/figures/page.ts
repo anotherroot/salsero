@@ -23,7 +23,7 @@ export function routineUseMeta(u: Pick<RoutineUse, 'slots' | 'slotCount'>): stri
 
 /**
  * The one line the figure page shows for its exercise: where it stands in its
- * schedule ("New", "Done today", "Due Sunday", "2 days late"). Derived from the
+ * schedule ("New", "Done today", "Due Sunday"). Derived from the
  * sets, never stored. A paused exercise is not due at all: it says so.
  */
 export function practiceLine(

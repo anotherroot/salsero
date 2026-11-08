@@ -40,6 +40,7 @@ import { inSpace, isTeam, spaceOfRow, type Space, type Wall } from './scope';
 import { ownedOrUsable, usableBy, usableOf, type Usable } from './usable';
 import { actingIn, fieldChange, logChange } from './changes';
 import { reconcileEntries } from './entries';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * A graph as `buildGraph` makes it: plus each real position id's canonical id,
@@ -313,7 +314,7 @@ export function setFigureShapeIn(
 	if (!written) return false;
 	const { figure, before, after } = written;
 	const change = fieldChange(before, after, 'variation');
-	const now = Date.now();
+	const now = serverNow();
 	if (change && figure.groupId !== null) {
 		const root = { rootKind: 'figure' as const, rootId: figure.groupId, subjectId: figureId };
 		logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, now);

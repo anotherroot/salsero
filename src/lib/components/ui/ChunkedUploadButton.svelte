@@ -16,6 +16,7 @@
 	import Icon from './Icon.svelte';
 	import UploadCard from './UploadCard.svelte';
 	import { DASHED_ADD } from './styles';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * Upload files in slices, so their size is bounded by the disk rather than by
@@ -57,7 +58,7 @@
 	// does not), so only a reload or a closed tab would cut it off.
 	$effect(() =>
 		track({
-			label: 'An upload',
+			label: t().shell.upload.anUpload,
 			dirty: () => progress !== null,
 			unloadOnly: true
 		})
@@ -220,7 +221,7 @@
 			tone={c.tone}
 			icon={c.icon}
 			pct={c.percent}
-			label="videos"
+			label={t().shell.upload.nouns.videos}
 		/>
 	</div>
 {/if}

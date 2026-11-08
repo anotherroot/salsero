@@ -3,7 +3,7 @@
 Shoots every page in `pages.txt` from a throwaway copy of a database, so a change can be compared
 with a baseline (the phone must not change) or with a design board.
 
-    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES]
+    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES] [--locale en|sl] [--level follow|own|all]
     scripts/shots/shots.py diff <dirA> <dirB>      # run under the Playwright command below
 
 `shots.sh` copies the db to a `mktemp -d` (never `.data`), runs `npx vite dev` on a free port inside
@@ -20,6 +20,10 @@ Phone baselines stay full-page.
 `--no-session` shoots without the cookie (the signed-out pages: `pages-signed-out.txt`); `--unnamed` clears the
 admin's name in the copy, so pages send them to `/welcome` (`pages-welcome.txt`). `pages-card.txt` is the
 other card pages and the error pages, signed in.
+`--locale en|sl` sets the admin's language (`users.locale`) and the rig's invite's in the copy, and, with
+`--no-session`, the browser's `lang` cookie, so signed-out pages draw in it too. `--level follow|own|all` sets the
+admin's level (`users.level`). Both apply to scenes as well. Without them the copy keeps what it holds (English, and
+the level a migrated db has: Everything).
 
 Each page's line ends in `OVERFLOW <n>px` when the page scrolls sideways (`scrollWidth` past the
 window): the phone must have none, and a desktop page none from 1024.
@@ -61,6 +65,21 @@ only at widths of 1024 or more, `after(page)` run once the shot is taken) with o
 A scene whose placeholder has no row prints `skip <name>`; an `act` that throws is a failure.
 A db copy with a `<db>.data/` folder beside it (recordings/, audio/ ...) has its files copied into the data dir, so a seeded db can hold real media. Scenes that need a recording or group songs are shot on a seeded copy of the db (not committed).
 Chromium gets a fake microphone and may autoplay; the AAC count clips, which its Chromium cannot decode, are served as WAV (converted with ffmpeg at the start). Each plan keeps its own `ext_<name>.py`.
+
+## A class
+
+    scripts/shots/seed.sh <db> <out-db> [<media-dir>]
+
+makes `<out-db>`, a copy of `<db>` with a class seeded into it (`seed-class.ts`, run by vitest with `seed.config.ts`, so
+it uses the app's own data functions): a teacher's group the admin is a member of, two published lessons with drills, a
+routine, a video with a section, a shared song and comments, the admin at Follow my class with their own exercises
+archived, and what pages.txt asks for (a lesson and a routine of their own, a group they are not in). It writes only
+`<out-db>` and its `<out-db>.data/` (never under `.data`); the lesson's video is a 12 s VP9 test picture made with
+ffmpeg, and `<media-dir>` (the db's data dir) gives the rest of the media and the song. Shoot it like any copy:
+`pages-follow.txt` is what a class member sees, and the `follow-*` scenes (`ext_follow.py`: the Done sheet per type, the
+comments sheet, the full-screen player, Practice) name both languages' words, so one scene runs with `--locale sl` or `en`:
+
+    scripts/shots/shots.sh <out-db> <dir> 390x844 --pages scripts/shots/pages-follow.txt --level follow --locale sl
 
 ## Playwright
 

@@ -3,21 +3,12 @@
  * (spec B). A routine's practice keeps the person's entry; a drill's opens
  * on the person's own exercise; a lesson's is the song alone.
  */
+import { t } from '$lib/i18n/catalog';
 
-export const MUSIC = {
-	heading: 'Music',
-	add: 'Add a song',
-	noteLabel: 'Note',
-	notePlaceholder: 'What to practise to it',
-	noteHelp: 'Members see it under the song.',
-	addButton: 'Add to Music',
-	save: 'Save',
-	practise: 'Practise to this',
-	edit: 'Edit note',
-	remove: 'Remove',
-	notShared: 'Not shared',
-	pick: 'Pick a song'
-} as const;
+/** The Music list's words, in the current language. */
+export function music() {
+	return t().songs.music;
+}
 
 export type PractiseAt =
 	{ routineId: number; entryId: number | null } | { drillEntryId: number } | { lesson: true };

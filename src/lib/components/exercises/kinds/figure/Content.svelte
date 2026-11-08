@@ -10,6 +10,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { recordingCaption } from '$lib/video/caption';
 	import type { MediaProblem } from '$lib/media';
+	import { t } from '$lib/i18n/catalog';
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
@@ -17,26 +18,27 @@
 		dance,
 		content,
 		timezone,
-		onPage = false,
 		canEdit = true,
-		simple = false
+		simple = false,
+		practice
 	}: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
 {#if content.type === 'figure'}
 	<div class="flex flex-col gap-3">
-		{#if onPage}<h2 class={SECTION_HEAD}>Reference</h2>{/if}
+		<h2 class={SECTION_HEAD}>{t().exercise.content.reference}</h2>
 		{#if content.figure.notes}
 			<LinkedText text={content.figure.notes} class={PROSE} />
 		{/if}
+		{@render practice?.()}
 		{#each content.recordings as rec (rec.id)}
 			<div class="{CLIP} rounded-2xl bg-surface">
 				{#if broken[rec.id]}
 					<p class="p-4 text-[13px] text-muted">
 						{broken[rec.id] === 'missing'
-							? 'The file for this recording is missing.'
-							: "This browser can't play this file."}
+							? t().exercise.content.recordingMissing
+							: t().exercise.content.cantPlay}
 					</p>
 				{:else}
 					<VideoFrame
@@ -60,17 +62,17 @@
 		<LinkList links={content.links} />
 		{#if !content.figure.notes && content.recordings.length === 0 && content.sections.length === 0 && content.links.length === 0}
 			<p class="px-1 text-[13px] text-muted">
-				No notes, recordings, sections or links yet — add them on the figure page.
+				{t().exercise.content.figureEmpty}
 			</p>
 		{/if}
-		{#if onPage && !simple}
+		{#if !simple}
 			<a
 				href={resolve('/[dance]/(moves)/figures/[id]', {
 					dance: dance.slug,
 					id: String(content.figure.id)
 				})}
 				class="flex h-11 items-center gap-0.5 self-start px-1 text-[14px] font-extrabold text-accent-text"
-				>Edit links on the figure page<Icon name="chevron-right" size={18} /></a
+				>{t().exercise.content.editLinks}<Icon name="chevron-right" size={18} /></a
 			>
 		{/if}
 	</div>

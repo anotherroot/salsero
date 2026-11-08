@@ -293,7 +293,7 @@ app_flags                                       -- exercise types; one-off boot 
 ```
 
 **Exercise types** (2026-09-28) gives every exercise a type derived from
-`source`, and each type its own log popup, a practice panel (count/clave/song,
+`source`, and each type its own page content (a log popup until 2026-11-08), a practice panel (count/clave/song,
 remembered per exercise), and links (a URL attached to a lesson, figure or
 drill, YouTube ones rendered as embeds). See
 [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)
@@ -335,6 +335,8 @@ for the data model, the popups and the panel in full.
 
 > **Replaced 2026-11-05** by [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md): Today is a number a day (default 5) taken in due-day order, not four bands; every set carries one of four faces and the gap is replayed from them; Next N brings more; Not today and Undo; Coming up lists the rest. The urgency ratio, the frequency presets and the Due / Not yet due / Inactive bands below describe the old Today and are kept for history. Past days are unchanged.
 
+> **Run the day, plan 1 (2026-11-07)** ([`2026-11-07-run-the-day-design.md`](2026-11-07-run-the-day-design.md)): Today has two lists, "Warm-up · N" first (outside the daily number) and "Practice · N". The hero reads "N for today", then "N left for today". Nothing says late. A drill can come back on a fixed rhythm or every day until it feels good, and gaps are slower; see the scheduling spec.
+
 The home page. One page serves both "exercises" and "today".
 
 - **Header:** today shows ‹ (previous day) and Settings on the band; a past
@@ -354,7 +356,9 @@ The home page. One page serves both "exercises" and "today".
 - **Viewing a past day:** the exercises done that day with their sets (read-only
   list plus the ability to add a forgotten set to that day or delete a mistaken
   one). No urgency ordering — it answers "what did I do that day".
-- **Logging:** the row opens the exercise page; **+** opens the type's log
+- **Logging (changed 2026-11-08: the row opens the exercise page, where Done opens the
+  Done sheet; one entry per exercise per local day, saved by `saveDay`, and a past day's
+  history is grouped by day; the rest of this bullet is how it was):** the row opens the exercise page; **+** opens the type's log
   popup — its content, a practice panel where the type has one, and the form
   (duration / reps / rating / note, whichever the type carries). Multiple sets
   per day. After logging, the exercise moves into "done today" without a page
@@ -661,14 +665,13 @@ unsaved.
   timing shortcuts, rating buttons) count like typed ones. One-tap forms (a
   delete, a move, a shared picker's tap and +, see
   [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md)) stay on `use:enhance`: there is nothing to
-  lose. A form can widen the test (`dirty`): the player's finished run and the
-  log popup's practice time are unsaved with nothing typed. Non-form things
+  lose. A form can widen the test (`dirty`): the player's finished run is unsaved with nothing typed (the Done sheet's typed note asks too). Non-form things
   register with `track()`: the voice page's unkept take, and an upload in
   flight.
 - **When it asks.** Any in-app navigation (links, the bottom nav, back and
   forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop,
   Escape or Back (only about what is inside that sheet; the way out is
-  "Close"); the log popup's Skip, Next and Finish ("Skip without saving"…).
+  "Close"); the session's Skip, Next and Finish ("Skip without saving"…).
 - **Back on a sheet.** Each open sheet holds one shallow history entry
   (`page.state.sheets`, `src/lib/sheets/`), so Back — Android's button and
   gesture, the browser's — closes only the topmost sheet. A popstate between
@@ -768,6 +771,20 @@ their message, 5xx never show the server's; Back goes to the tab the failed URL
 belongs to). Offline is caught before the navigation (`navigator.onLine`),
 because SvelteKit answers an unreachable server with a full page reload; the
 Offline layer lies over the current page so nothing typed is lost.
+
+## Two languages
+
+The app is in English or Slovenian, per account (`users.locale`, null is English).
+The admin picks the language on an invite (`invites.locale`): Join, and the account
+it makes, are in it. A `lang` cookie remembers the last language on a browser for
+the pages drawn before sign-in; Settings has a switch at the top, and the admin page
+sets a person's. Words live in typed catalogs (`src/lib/i18n/`, English the source,
+Slovenian typed against it) read through `t()`; the server keeps the language per
+request, never in a module variable. What people write and the count stay as they
+are. Part 1 (deployed first) is the Follow my class path; the rest of the app and
+the Android app's own text are part 2. The register, the glossary, plurals, dates,
+numbers and the order of work are in
+[`2026-11-07-slovenian-design.md`](2026-11-07-slovenian-design.md).
 
 ## Errors
 

@@ -3,6 +3,7 @@
 	import { focusAfter, focusWasLost } from '$lib/focus';
 	import Icon from './Icon.svelte';
 	import type { IconName } from '$lib/icons/icons';
+	import { t } from '$lib/i18n/catalog';
 
 	let {
 		kind = 'info',
@@ -53,7 +54,7 @@
 		<button
 			type="button"
 			class="-my-2.5 flex size-11 flex-none cursor-pointer items-center justify-center rounded-full text-muted active:bg-step"
-			aria-label="Dismiss"
+			aria-label={t().shell.dismiss}
 			onclick={dismiss}><Icon name="close" size={20} /></button
 		>
 	{/if}

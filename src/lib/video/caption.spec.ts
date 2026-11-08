@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { noonOf } from '$lib/day/day';
 import { byteSize } from '$lib/format';
 import type { LessonVideoRow, RecordingRow } from '$lib/types';
@@ -40,6 +41,21 @@ describe('captions', () => {
 		expect(lessonVideoCaption(0, vid({ sizeBytes: 740_000_000 }))).toEqual({
 			title: 'Video 1',
 			meta: byteSize(740_000_000)
+		});
+	});
+});
+
+describe('captions in Slovenian', () => {
+	it('names a recording, an audio and a lesson video', () => {
+		const at = noonOf('2026-10-26', TZ);
+		withLocale('sl', () => {
+			expect(recordingCaption(rec({ kind: 'video', createdAt: at }), TZ).title).toBe(
+				'Posnetek · 26. okt.'
+			);
+			expect(recordingCaption(rec({ kind: 'audio', createdAt: at }), TZ).title).toBe(
+				'Zvok · 26. okt.'
+			);
+			expect(lessonVideoCaption(1, vid({})).title).toBe('Video 2');
 		});
 	});
 });

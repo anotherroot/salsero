@@ -2,13 +2,14 @@
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { textPieces } from '$lib/links';
+	import { t } from '$lib/i18n/catalog';
 	import {
 		atReply,
 		commentKey,
-		DELETED_WORDS,
+		deletedWords,
 		initialOf,
 		shortAgo,
-		TEACHER_TAG
+		teacherTag
 	} from '$lib/comments/view';
 	import type { CommentRow } from '$lib/types';
 
@@ -69,12 +70,12 @@
 	>
 	<div class="flex min-w-0 flex-1 flex-col">
 		{#if deleted}
-			<p class="py-2 text-[15px] text-muted italic">{DELETED_WORDS}</p>
+			<p class="py-2 text-[15px] text-muted italic">{deletedWords()}</p>
 		{:else}
 			<p class="text-[13px] leading-snug">
 				<span class="font-bold text-ink">{row.authorName}</span>
 				{#if row.teacher}<span class="text-muted">·</span>
-					<span class="font-extrabold text-accent-text">{TEACHER_TAG}</span>{/if}
+					<span class="font-extrabold text-accent-text">{teacherTag()}</span>{/if}
 				<span class="text-muted">· {shortAgo(row.at, now)}</span>
 			</p>
 			<!-- The space after "@Maja" is in the span: a bare one between tags is trimmed. -->
@@ -93,13 +94,15 @@
 						type="button"
 						class="{ACTION} {row.hearted ? 'text-danger' : 'text-muted'}"
 						aria-pressed={row.hearted}
-						aria-label={row.hearts > 0 ? `Heart, ${row.hearts}` : 'Heart'}
+						aria-label={row.hearts > 0 ? t().comments.heartCount(row.hearts) : t().comments.heart}
 						onclick={onheart}
 					>
 						<Icon name="heart" size={20} filled={row.hearted} />
 						{#if row.hearts > 0}<span aria-hidden="true">{row.hearts}</span>{/if}
 					</button>
-					<button type="button" class="{ACTION} text-ink-2" onclick={onreply}>Reply</button>
+					<button type="button" class="{ACTION} text-ink-2" onclick={onreply}
+						>{t().comments.reply}</button
+					>
 				{:else if row.hearts > 0}
 					<span class="flex min-h-11 items-center gap-1 px-2 text-[13px] font-bold text-muted">
 						<Icon name="heart" size={20} filled={row.hearted} />{row.hearts}
@@ -118,7 +121,7 @@
 							bind:this={more}
 							type="button"
 							class="{ACTION} text-muted"
-							aria-label="More about this comment"
+							aria-label={t().comments.more}
 							aria-expanded={menu}
 							onclick={() => (menu ? closeMenu(true) : void openMenu())}
 						>
@@ -143,7 +146,7 @@
 									onclick={() => {
 										menu = false;
 										ondelete();
-									}}><Icon name="trash" size={20} />Delete</button
+									}}><Icon name="trash" size={20} />{t().common.delete}</button
 								>
 							</div>
 						{/if}

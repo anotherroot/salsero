@@ -36,6 +36,7 @@ import { figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/g
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 /** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
 function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, number[]> {
@@ -147,7 +148,7 @@ function logRoutine(
 	routine: { id: number; dance: string; userId: string | null; teamId: number | null },
 	who: Space | string | undefined,
 	e: Omit<ChangeEntry, 'rootKind' | 'rootId'>,
-	now = Date.now()
+	now = serverNow()
 ): void {
 	const space = typeof who === 'object' ? who : actingIn(routine, who);
 	const subjectId = e.subjectId === undefined ? routine.id : e.subjectId;
@@ -164,7 +165,7 @@ export function updateRoutine(
 	id: number,
 	input: RoutineInput,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ) {
 	return db.transaction((tx) => {
@@ -967,7 +968,7 @@ export function removeOption(
 	db: Db,
 	stepId: number,
 	figureId: number,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {
@@ -1054,7 +1055,7 @@ export function setSlotNote(
 	stepId: number,
 	note: string | null,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ): boolean {
 	return db.transaction((tx) => {
@@ -1078,7 +1079,7 @@ export function deleteSlots(
 	db: Db,
 	routineId: number,
 	stepIds: number[],
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): SlotSnapshot[] | null {
 	const wanted = [...new Set(stepIds)];

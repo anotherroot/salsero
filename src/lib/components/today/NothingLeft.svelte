@@ -5,6 +5,7 @@
 	import { CLIP, button } from '$lib/components/ui/styles';
 	import { nothingLeftMeta } from '$lib/exercises/today';
 	import type { DanceSlug } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
 	import type { ExerciseItem } from '$lib/types';
 
 	/**
@@ -27,7 +28,7 @@
 </script>
 
 <section aria-labelledby="next-up-h" class="{CLIP} rounded-2xl bg-surface">
-	<h2 id="next-up-h" class="px-4 pt-3 text-[13px] font-bold text-muted">Next up</h2>
+	<h2 id="next-up-h" class="px-4 pt-3 text-[13px] font-bold text-muted">{t().today.list.nextUp}</h2>
 	<a {href} class="flex min-h-[58px] items-center gap-3 px-4 pt-1.5 pb-3">
 		<TypeTile exercise={next.next} tone="accent" />
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -38,7 +39,8 @@
 	<div class="px-4 pb-3">
 		<a
 			href={resolve('/[dance]/(today)/coming-up', { dance })}
-			class={button('secondary', 'md', true)}><Icon name="calendar" size={20} />See what's coming</a
+			class={button('secondary', 'md', true)}
+			><Icon name="calendar" size={20} />{t().today.list.seeComing}</a
 		>
 	</div>
 </section>

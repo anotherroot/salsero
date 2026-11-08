@@ -21,6 +21,7 @@ import { realCloneFiles } from './files';
 import { flowFrom } from './flow';
 import { geneOf } from './genes';
 
+import { serverNow } from '$lib/server/server-clock';
 /** The root row a write changed: the member of a family it belongs to. */
 export type FlowRoot = { kind: CloneKind; id: number };
 
@@ -51,7 +52,7 @@ export async function flowAfter(
 		// The disk is asked only when a hop links files, once.
 		let free: Promise<number> | undefined;
 		const disk = () => (free ??= freeDisk());
-		const report = await flowFrom(db, actorId, kind, id, realCloneFiles(), Date.now(), disk);
+		const report = await flowFrom(db, actorId, kind, id, realCloneFiles(), serverNow(), disk);
 		if (report.refused.length > 0) {
 			const reasons = [...new Set(report.refused.map((r) => r.reason))].join(', ');
 			console.error(`[keep-in-step] ${kind} ${id}: ${report.refused.length} refused (${reasons})`);

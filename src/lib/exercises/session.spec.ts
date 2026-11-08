@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextInSession, sessionWalk, sessionSummary } from './session';
+import { nextInSession, sessionWalk } from './session';
 
 const row = (id: number, kind: 'done' | 'todo' | 'picked' = 'todo') => ({
 	exercise: { id },
@@ -27,13 +27,5 @@ describe('nextInSession', () => {
 	it('is null when nothing is left', () => {
 		expect(nextInSession([row(1)], new Set(), 1)).toBeNull();
 		expect(nextInSession([], new Set(), null)).toBeNull();
-	});
-});
-
-describe('sessionSummary', () => {
-	it('counts exercises and minutes', () => {
-		expect(sessionSummary(3, 1500)).toBe('3 exercises, 25 min');
-		expect(sessionSummary(1, 0)).toBe('1 exercise');
-		expect(sessionSummary(0, 0)).toBe('Nothing logged');
 	});
 });

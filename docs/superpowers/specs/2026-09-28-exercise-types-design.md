@@ -3,9 +3,23 @@
 > **Status:** approved 2026-09-28; built 2026-09-28. Extends
 > [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md) and
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md); this document
-> owns exercise types, the log popups, links, the in-popup practice player, and
-> the exercise page. Modelled on the guitar app's exercise kinds
+> owns exercise types, their content, links, the practice player, and
+> the exercise page (its log popups were replaced on 2026-11-08, see below). Modelled on the guitar app's exercise kinds
 > (`~/Projects/guitar/docs/superpowers/specs/2026-09-23-exercise-kinds-design.md`).
+
+> **Changed 2026-11-08 (run the day, plan 2;
+> [`2026-11-07-run-the-day-design.md`](2026-11-07-run-the-day-design.md)):** the
+> log popup is gone. The type still owns its content, now on the exercise page
+> (`contentFor`; `logFor` and the per-type `Log.svelte` no longer exist). The
+> practice panel is the page's **Practise with** (`practiceFor`, a
+> `kinds/<type>/Practice.svelte` for figure, drill and routine); reps are not
+> asked for any more and time is never typed (the page counts it while visible);
+> a drill's recordings are on its page (`DrillRecordings`); a face and an optional
+> note are chosen in the **Done sheet** (`DoneSheet`), and a save writes the one
+> entry of that exercise for that day (`saveDay`). The Today session is an
+> interim `?session=1` walk of pages until plan 3. Everything below that speaks of
+> the popup, **+**, "Log set" or `?log=1` describes how it was built on
+> 2026-09-28 and is kept for history.
 
 ## Purpose
 

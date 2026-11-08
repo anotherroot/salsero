@@ -21,6 +21,10 @@
 	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import { exerciseLine, runSubtitle, runSummary, type RoutineView } from '$lib/player/view';
+	import { announceSaved } from '$lib/exercises/saved.svelte';
+	import { savedMessage } from '$lib/exercises/done-view';
+	import type { DoneResult } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -160,7 +164,7 @@
 
 	const runJson = $derived(
 		JSON.stringify({
-			// The popup's panel logs the same three, so a set says what it was danced to.
+			// The exercise page's panel logs the same three, so a set says what it was danced to.
 			source: runningSong ? 'song' : 'count',
 			songId: runningSong?.id ?? null,
 			bpm: runningBpm,
@@ -306,8 +310,16 @@
 		await leaveRun();
 	}
 
-	/** Save this run logged the run: however it ended, leave as the band's back would. */
-	async function saved() {
+	/**
+	 * Save this run logged the run: however it ended, leave as the band's back
+	 * would, with "Saved · back in 12 days · Undo" on the screen it lands on.
+	 */
+	async function saved(r: DoneResult) {
+		announceSaved({
+			dance: data.dance.slug,
+			message: savedMessage(r.backDays ?? 1),
+			undo: { setId: r.setId, before: r.before }
+		});
 		leaving = false;
 		mode = 'setup';
 		await leaveRun();
@@ -347,7 +359,7 @@
 	});
 </script>
 
-<svelte:head><title>Practice · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{t().player.pageTitle(data.dance.label)}</title></svelte:head>
 
 <!--
 	Always mounted whenever there is a song, from the very first render, so
@@ -420,7 +432,7 @@
 			}}
 			onstop={handleStop}
 			onvolume={(v) => savePhonePractice(data.dance.slug, { voiceVolume: v })}
-			title={runningSong?.title ?? 'Practice'}
+			title={runningSong?.title ?? t().player.title}
 			subtitle={runSubtitle(
 				{
 					routine: data.routine?.name ?? null,
@@ -450,7 +462,7 @@
 		summary={runSummary(finalElapsed, data.routine !== null ? dancedIds.length : null)}
 		durationS={finalElapsed}
 		run={runJson}
-		fail={form && 'message' in form ? form : null}
+		fail={form && 'message' in form && form.message !== undefined ? form : null}
 		onclose={closeSave}
 		onsaved={saved}
 	/>

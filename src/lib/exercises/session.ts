@@ -1,5 +1,5 @@
 /**
- * A session walks Today's list popup by popup: the to-do rows, then the picked
+ * A session walks Today's list page by page: the to-do rows, then the picked
  * ones. PURE: no state lives on the server — the session is a URL flag plus
  * the page's own rows, so "next" is recomputed from them after every refresh.
  * The logged exercise is a done row by then, which is why the first remaining
@@ -19,14 +19,4 @@ export function nextInSession<R extends { exercise: { id: number } }>(
 	current: number | null
 ): R | null {
 	return walk.find((r) => r.exercise.id !== current && !skipped.has(r.exercise.id)) ?? null;
-}
-
-/**
- * The Session done card's second line (its title says "Session done"):
- * "3 exercises, 25 min", or "Nothing logged" when the session logged none.
- */
-export function sessionSummary(count: number, seconds: number): string {
-	if (count === 0) return 'Nothing logged';
-	const minutes = Math.round(seconds / 60);
-	return `${count} ${count === 1 ? 'exercise' : 'exercises'}${minutes > 0 ? `, ${minutes} min` : ''}`;
 }

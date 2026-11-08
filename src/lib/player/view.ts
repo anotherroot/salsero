@@ -8,7 +8,8 @@ import type { Dance, DanceSlug } from '$lib/dances/dances';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import { dueWords } from '$lib/schedule/words';
 import { typeInfo } from '$lib/exercises/kinds';
-import { clock, plural } from '$lib/format';
+import { clock } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
@@ -51,14 +52,19 @@ export function stageDots(
  * leaves the list to be read. Remembered per routine on the phone.
  */
 export type RoutineView = 'follow' | 'still';
-export const ROUTINE_VIEWS: readonly { value: RoutineView; label: string }[] = [
-	{ value: 'follow', label: 'Follow' },
-	{ value: 'still', label: 'Still' }
-];
+/** Follow and Still, in the reader's language, read when asked. */
+export function routineViews(): { value: RoutineView; label: string }[] {
+	const w = t().player;
+	return [
+		{ value: 'follow', label: w.follow },
+		{ value: 'still', label: w.still }
+	];
+}
 
 /** The full-screen routine's band line: where the run is ("5 of 16"), or how long the routine is. */
 export function routinePlace(active: number | null, total: number): string {
-	return active === null ? plural(total, 'figure', 'figures') : `${active + 1} of ${total}`;
+	const w = t().player;
+	return active === null ? w.figures(total) : w.routinePlace(active + 1, total);
 }
 
 /**
@@ -96,9 +102,8 @@ export function slotTone(i: number, active: number | null): 'now' | 'past' | 'ne
 
 /** The desktop's heading over the whole routine: where the run is, or how long it is. */
 export function routineHeading(active: number | null, total: number): string {
-	return active === null
-		? `Routine · ${plural(total, 'slot', 'slots')}`
-		: `Routine · slot ${active + 1} of ${total}`;
+	const w = t().player;
+	return active === null ? w.routineSlots(total) : w.routineSlotOf(active + 1, total);
 }
 
 /** The running band's title steps down (46 → 30 on desk) past 18 characters or with a word over 10. */
@@ -109,9 +114,7 @@ export function runTitleCompact(title: string): boolean {
 export function setupSubtitle(
 	routine: { name: string; figureIds: number[] } | null
 ): string | undefined {
-	return routine
-		? `${routine.name} · ${plural(routine.figureIds.length, 'figure', 'figures')}`
-		: undefined;
+	return routine ? t().player.routineLine(routine.name, routine.figureIds.length) : undefined;
 }
 
 export function runSubtitle(
@@ -124,27 +127,34 @@ export function runSubtitle(
 	},
 	dance: Dance
 ): string | undefined {
+	const panel = t().exercise.panel;
 	const parts = [
 		r.routine,
-		r.song ? (r.speed === 1 ? null : `${r.speed}×`) : r.bpm === null ? null : `${r.bpm} BPM`,
-		dance.clave && r.clave ? `clave ${r.clave}` : null
+		r.song
+			? r.speed === 1
+				? null
+				: panel.speed(r.speed)
+			: r.bpm === null
+				? null
+				: t().player.bpm(r.bpm),
+		dance.clave && r.clave ? panel.summaryClave(r.clave) : null
 	].filter((p): p is string => !!p);
 	return parts.length ? parts.join(' · ') : undefined;
 }
 
 /** The Source switch's two options, shared by Setup and SourcePicker. */
-export const RUN_SOURCES = [
-	{ value: 'count', label: 'Count only' },
-	{ value: 'song', label: 'A song' }
-];
-
-/** `figures` null: not a routine run. */
-export function runSummary(durationS: number, figures: number | null): string {
+export function runSources(): { value: string; label: string }[] {
+	const w = t().exercise.panel;
 	return [
-		clock(durationS),
-		figures === null ? null : plural(figures, 'figure', 'figures'),
-		'logged as a set'
-	]
+		{ value: 'count', label: w.countOnly },
+		{ value: 'song', label: w.aSong }
+	];
+}
+
+/** `calls` null: not a routine run. Gone with the Save screen (one-player plan, Task 1). */
+export function runSummary(durationS: number, calls: number | null): string {
+	const w = t().player;
+	return [clock(durationS), calls === null ? null : w.called(calls)]
 		.filter((p) => p !== null)
 		.join(' · ');
 }
@@ -155,31 +165,33 @@ export function playState(p: {
 	ready: boolean;
 	error: string | null;
 	starting: boolean;
-}): { disabled: boolean; busy: boolean; label: 'Play' | 'Starting…'; why: string | null } {
-	if (p.starting) return { disabled: true, busy: true, label: 'Starting…', why: null };
+}): { disabled: boolean; busy: boolean; label: string; why: string | null } {
+	const play = t().exercise.panel.play;
+	if (p.starting) return { disabled: true, busy: true, label: t().player.starting, why: null };
 	if (p.source === 'song') {
 		if (p.songId === null) {
-			return { disabled: true, busy: false, label: 'Play', why: 'Pick a song first.' };
+			return { disabled: true, busy: false, label: play, why: t().player.pickSongFirst };
 		}
 		// Loading or failed: the loading row and the field's error say why.
-		if (!p.ready || p.error) return { disabled: true, busy: false, label: 'Play', why: null };
+		if (!p.ready || p.error) return { disabled: true, busy: false, label: play, why: null };
 	}
-	return { disabled: false, busy: false, label: 'Play', why: null };
+	return { disabled: false, busy: false, label: play, why: null };
 }
 
-/** "Yours" only when a recorded set of this pattern fits the tempo. */
+/** "Yours" only when a recorded set of this pattern fits the tempo; the word, in the current language. */
 export function voiceKind(
 	takes: CountTakeRow[],
 	pattern: CountPattern,
 	bpm: number | null
-): 'Built-in' | 'Yours' {
-	if (bpm === null) return 'Built-in';
+): string {
+	const w = t().player;
+	if (bpm === null) return w.builtIn;
 	return chooseTakes(
-		takes.filter((t) => t.pattern === pattern),
+		takes.filter((take) => take.pattern === pattern),
 		bpm
 	) === null
-		? 'Built-in'
-		: 'Yours';
+		? w.builtIn
+		: w.yours;
 }
 
 /** "Figure practice · Due today"; just the type when the schedule is not known. */
@@ -207,17 +219,19 @@ export function practiceBack(p: {
 	/** `archived`: its page 404s, so Back cannot go there. */
 	exercise: { id: number; name: string; archived?: boolean } | null;
 }): { href: string; label: string } {
-	const today = { href: `/${p.dance}`, label: 'Back to Today' };
+	const w = t().player;
+	const backTo = t().shell.backTo;
+	const today = { href: `/${p.dance}`, label: w.backToToday };
 	if (p.from === 'today') return today;
 	if (p.from === 'exercise' && p.exercise && !p.exercise.archived) {
-		return { href: `/${p.dance}/exercises/${p.exercise.id}`, label: `Back to ${p.exercise.name}` };
+		return { href: `/${p.dance}/exercises/${p.exercise.id}`, label: backTo(p.exercise.name) };
 	}
 	if (p.routine) {
-		return { href: `/${p.dance}/routines/${p.routine.id}`, label: `Back to ${p.routine.name}` };
+		return { href: `/${p.dance}/routines/${p.routine.id}`, label: backTo(p.routine.name) };
 	}
 	if (p.song) {
-		return { href: `/${p.dance}/songs/${p.song.id}`, label: `Back to ${p.song.title}` };
+		return { href: `/${p.dance}/songs/${p.song.id}`, label: backTo(p.song.title) };
 	}
 	if (p.exercise) return today;
-	return { href: `/${p.dance}/songs`, label: 'Back to Music' };
+	return { href: `/${p.dance}/songs`, label: w.backToMusic };
 }

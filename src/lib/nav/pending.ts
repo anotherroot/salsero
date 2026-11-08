@@ -13,6 +13,7 @@
 
 import { listOf, type ListId } from '$lib/nav/pane';
 import { SEGMENT_ROUTE, segmentOf, type MovesSegment } from '$lib/moves/segment';
+import { t } from '$lib/i18n/catalog';
 
 type Shape =
 	| { kind: 'today' }
@@ -44,27 +45,36 @@ export type Skeleton = Shape & {
  */
 export const SKELETON_DELAY_MS = 100;
 
-const LISTS: Record<string, string> = {
-	'/[dance]/(today)/coming-up': 'Coming up',
-	'/[dance]/lessons': 'Lessons',
-	'/[dance]/songs': 'Music',
-	'/[dance]/(moves)/coverage': 'Coverage',
-	'/[dance]/(moves)/positions/none': 'No position',
-	'/settings': 'Settings',
-	'/voice': 'My count'
-};
+/** A list's title by its route id, in the current language. */
+function listTitle(routeId: string): string | undefined {
+	const s = t().shell;
+	const titles: Record<string, string> = {
+		'/[dance]/(today)/coming-up': s.lists.comingUp,
+		'/[dance]/lessons': s.tabs.lessons,
+		'/[dance]/songs': s.tabs.music,
+		'/[dance]/(moves)/coverage': s.lists.coverage,
+		'/[dance]/(moves)/positions/none': s.lists.noPosition,
+		'/settings': s.settings,
+		'/voice': s.lists.myCount
+	};
+	return titles[routeId];
+}
 
 /** The band row's title over a list and its pane. */
-const PANE_TITLE: Record<ListId, string> = {
-	today: 'Today',
-	coming: 'Coming up',
-	songs: 'Music',
-	figures: 'Moves',
-	routines: 'Moves',
-	positions: 'Moves',
-	lessons: 'Lessons',
-	groups: 'Groups'
-};
+function paneTitle(list: ListId): string {
+	const s = t().shell;
+	const titles: Record<ListId, string> = {
+		today: s.tabs.today,
+		coming: s.lists.comingUp,
+		songs: s.tabs.music,
+		figures: s.tabs.moves,
+		routines: s.tabs.moves,
+		positions: s.tabs.moves,
+		lessons: s.tabs.lessons,
+		groups: s.tabs.groups
+	};
+	return titles[list];
+}
 
 const DETAILS = new Set([
 	'/[dance]/lessons/[id]',
@@ -98,11 +108,11 @@ export function skeletonFor(
 		open: l?.open ?? false,
 		list: l?.list ?? null,
 		deskTitle: l
-			? PANE_TITLE[l.list]
+			? paneTitle(l.list)
 			: shape.kind === 'today'
-				? 'Today'
+				? t().shell.tabs.today
 				: shape.kind === 'moves'
-					? 'Moves'
+					? t().shell.tabs.moves
 					: shape.kind === 'list'
 						? shape.title
 						: null
@@ -115,7 +125,7 @@ function shapeFor(routeId: string | null | undefined): Shape | null {
 	// Only a segment's own list draws the Moves band; the pages under Positions have their own.
 	const segment = segmentOf(routeId);
 	if (segment && SEGMENT_ROUTE[segment] === routeId) return { kind: 'moves', segment };
-	const title = LISTS[routeId];
+	const title = listTitle(routeId);
 	if (title) return { kind: 'list', title };
 	if (routeId === '/[dance]/(moves)/figures/[id]') return { kind: 'figure' };
 	if (routeId === '/[dance]/(moves)/routines/[id]') return { kind: 'routine' };

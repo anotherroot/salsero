@@ -8,6 +8,7 @@ import { dayList } from '$lib/schedule/today-list';
 import { isVideoShortSide, type VideoShortSide } from '$lib/video-sizes';
 import type { DeviceRow } from '$lib/types';
 import { parseLevel } from '$lib/levels/levels';
+import { parseLocale } from '$lib/i18n/locale';
 
 /**
  * The Android app's side of identity and settings. A device holds a bearer
@@ -49,7 +50,8 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 			timezone: users.timezone,
 			isAdmin: users.isAdmin,
 			level: users.level,
-			dance: users.dance
+			dance: users.dance,
+			locale: users.locale
 		})
 		.from(deviceTokens)
 		.innerJoin(users, eq(users.id, deviceTokens.userId))
@@ -68,7 +70,8 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 		timezone: row.timezone,
 		isAdmin: row.isAdmin,
 		level: parseLevel(row.level),
-		dance: row.dance
+		dance: row.dance,
+		locale: parseLocale(row.locale)
 	};
 }
 

@@ -17,6 +17,7 @@ import {
 	type Speed
 } from '$lib/labels';
 import type { Dance } from '$lib/dances/dances';
+import { t } from '$lib/i18n/catalog';
 
 export interface PracticeConfig {
 	count: CountPattern;
@@ -242,13 +243,14 @@ export function practiceSummary(
 	p: { mode: 'count' | 'song'; bpm: number; songTitle: string | null; config: PracticeConfig },
 	dance: Dance
 ): string {
+	const w = t().exercise.panel;
 	const parts = [
 		p.mode === 'song' && p.songTitle !== null
-			? `${p.songTitle}${p.config.speed === 1 ? '' : ` ${p.config.speed}×`}`
-			: `Count ${p.bpm}`,
-		COUNT_PATTERN_LABEL[p.config.count]
+			? `${p.songTitle}${p.config.speed === 1 ? '' : ` ${w.speed(p.config.speed)}`}`
+			: w.summaryCount(p.bpm),
+		p.config.count === 'off' ? w.summaryNoCount : COUNT_PATTERN_LABEL[p.config.count]
 	];
-	if (dance.clave && p.config.clave) parts.push(`clave ${p.config.clave}`);
+	if (dance.clave && p.config.clave) parts.push(w.summaryClave(p.config.clave));
 	return parts.join(' · ');
 }
 

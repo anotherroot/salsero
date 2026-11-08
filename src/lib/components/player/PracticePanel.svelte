@@ -30,6 +30,8 @@
 	import { loadPhonePractice, savePhonePractice } from '$lib/exercises/phone-practice';
 	import { STOPPED, elapsedMs, pauseWatch, startWatch } from '$lib/exercises/stopwatch';
 	import { clock } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
+	import { CLAVE_NAME } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import type { CountTakeRow, ExerciseItem, PickerSong } from '$lib/types';
 
@@ -134,8 +136,8 @@
 	// The elapsed clock on screen; the stopwatch itself needs no timer.
 	$effect(() => {
 		if (!player || paused) return;
-		const t = setInterval(() => (now = Date.now()), 250);
-		return () => clearInterval(t);
+		const timer = setInterval(() => (now = Date.now()), 250);
+		return () => clearInterval(timer);
 	});
 
 	// Also true while starting: `start()` awaits clip decoding and can take a
@@ -187,7 +189,7 @@
 		try {
 			await handle.start();
 		} catch (e) {
-			startError = e instanceof Error ? e.message : 'Could not start the count.';
+			startError = e instanceof Error ? e.message : t().exercise.panel.couldNotStart;
 			starting = false;
 			return;
 		}
@@ -268,7 +270,7 @@
 </script>
 
 <section
-	aria-label="Practice"
+	aria-label={t().exercise.panel.label}
 	class="flex flex-none flex-col rounded-[18px] bg-surface pt-3 pr-3 pb-3.5 pl-4 {player && runGrid
 		? 'gap-2.5'
 		: 'gap-3'}"
@@ -292,17 +294,17 @@
 				onclick={() => (paused ? resume() : pause())}
 			>
 				<Icon name={paused ? 'play' : 'pause'} size={20} filled />
-				{paused ? 'Resume' : 'Pause'}
+				{paused ? t().exercise.panel.resume : t().exercise.panel.pause}
 			</button>
 			<button type="button" class={button('primary', 'md', true)} onclick={stop}>
 				<Icon name="stop" size={20} filled />
-				Stop
+				{t().exercise.panel.stop}
 			</button>
 		</div>
 		<div class="flex flex-col gap-0.5">
-			<span class={GROUP_LABEL} aria-hidden="true">Voice volume</span>
+			<span class={GROUP_LABEL} aria-hidden="true">{t().exercise.panel.voiceVolume}</span>
 			<Slider
-				label="Voice volume"
+				label={t().exercise.panel.voiceVolume}
 				bind:value={voiceVolume}
 				oninput={() => {
 					player?.setVoiceVolume(voiceVolume);
@@ -319,7 +321,7 @@
 				onclick={() => (expanded = !expanded)}
 			>
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span class="text-[13px] font-bold text-muted">Practise with</span>
+					<span class="text-[13px] font-bold text-muted">{t().exercise.panel.practiseWith}</span>
 					<span class="text-[15px] leading-[1.3] font-bold text-ink">{summary}</span>
 				</span>
 				<span class="text-muted">
@@ -329,7 +331,7 @@
 			<button
 				type="button"
 				disabled={!canPlay}
-				aria-label="Play"
+				aria-label={t().exercise.panel.play}
 				aria-busy={starting}
 				class={PLAY}
 				onclick={play}
@@ -346,11 +348,13 @@
 				class="flex items-center gap-2 rounded-xl bg-done-soft px-3 py-[9px] text-[13px] font-bold text-done tabular-nums"
 			>
 				<Icon name="clock" size={18} />
-				{clock(elapsedMs(watch, Date.now()) / 1000)} practised — Play carries on
+				{t().exercise.panel.banked(clock(elapsedMs(watch, Date.now()) / 1000))}
 			</p>
 		{/if}
 		{#if songGone}
-			<Banner kind="warning" title="Its song is not ready">Pick another, or use the count.</Banner>
+			<Banner kind="warning" title={t().exercise.panel.songGone}
+				>{t().exercise.panel.songGoneBody}</Banner
+			>
 		{/if}
 		{#if startError}
 			<Banner kind="error" title={startError} />
@@ -369,9 +373,9 @@
 				/>
 
 				<fieldset>
-					<legend class={GROUP_LABEL}>Voice count</legend>
+					<legend class={GROUP_LABEL}>{t().exercise.panel.voiceCount}</legend>
 					<CountChips
-						label="Voice count"
+						label={t().exercise.panel.voiceCount}
 						name="panel-count"
 						patterns={dance.countPatterns}
 						value={count}
@@ -381,9 +385,9 @@
 
 				{#if dance.clave}
 					<fieldset>
-						<legend class={GROUP_LABEL}>Clave</legend>
+						<legend class={GROUP_LABEL}>{CLAVE_NAME}</legend>
 						<ClaveChips
-							label="Clave"
+							label={CLAVE_NAME}
 							name="panel-clave"
 							value={clave}
 							onchange={(c) => (clave = c)}

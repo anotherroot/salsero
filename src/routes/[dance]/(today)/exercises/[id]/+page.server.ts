@@ -9,8 +9,8 @@ import {
 } from '$lib/server/exercises';
 import { checkbox, int, optionalText, text } from '$lib/server/form';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
-import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
-import { popupData } from '$lib/server/popup';
+import { deleteDayFrom, restoreDayFrom, saveDoneFrom } from '$lib/server/log-form';
+import { pageData } from '$lib/server/page-data';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
 import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
 import { fromClassOf } from '$lib/server/from-class';
@@ -18,7 +18,9 @@ import { classLessonOf, commentsOn } from '$lib/server/comments';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
-import { scheduleStates } from '$lib/server/schedule';
+import { doneFacesOf, goodDaysOf, scheduleStates } from '$lib/server/schedule';
+import { mergeDay, type DayEntry } from '$lib/exercises/day-entry';
+import type { ComesSettings } from '$lib/exercises/comes-back-view';
 import {
 	requireExerciseAccess,
 	requireExerciseInWall,
@@ -33,6 +35,7 @@ import {
 	unlinkSpot
 } from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/server/take-form';
@@ -42,8 +45,10 @@ import { familyView } from '$lib/server/clones/send';
 import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
-import type { ExerciseItem } from '$lib/types';
+import { t } from '$lib/i18n/catalog';
+import type { ExerciseItem, HistorySet } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
+import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
@@ -53,8 +58,34 @@ type FromClass = ReturnType<typeof fromClassOf>;
 /** Who acts: History names them on a group's drill. */
 import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
 import { listMusic, musicChoices } from '$lib/server/song-links';
+import { serverNow } from '$lib/server/server-clock';
 
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
+
+/** The history's rows: the latest this many; past it the page says it shows only those. */
+const HISTORY_LIMIT = 200;
+
+/**
+ * What the one page shows of the person's row or entry: its history (and whether
+ * it was cut), the summary, today's entry merged (Done today: the sheet starts
+ * from it), and what each face of the Done sheet would set.
+ */
+function practised(
+	db: ReturnType<typeof getDb>,
+	id: number,
+	today: HistorySet[],
+	tz: string,
+	now: number
+) {
+	const history = exerciseHistory(db, id, HISTORY_LIMIT);
+	return {
+		history,
+		historyCut: history.length >= HISTORY_LIMIT,
+		summary: exerciseSummary(db, id, tz),
+		entryToday: today.length === 0 ? null : mergeDay(today),
+		faces: doneFacesOf(db, id, tz, now)
+	};
+}
 
 /**
  * The exercise this URL names, to change, or a 404. An archived exercise is
@@ -83,7 +114,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;
-	const now = Date.now();
+	const now = serverNow();
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
 	const {
@@ -105,10 +136,10 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	};
 
 	if (row.teamId === null) {
-		// The person's own row: the page is its log popup's.
+		// The person's own row: the page is its own.
 		const own = requireExerciseInWall(db, wall, row.id);
-		const popup = popupData(db, wall, own.id, tz, now);
-		if (!popup) throw error(404, 'No such exercise');
+		const rowData = pageData(db, wall, own.id, tz, now);
+		if (!rowData) throw error(404, 'No such exercise');
 		// Music (spec B): a drill's own; an entry reads its group drill's, never edits it.
 		const musicParent =
 			own.source === 'custom'
@@ -116,17 +147,32 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				: own.source === 'added' && own.drillId !== null
 					? { exerciseId: own.drillId }
 					: null;
+		const item = rowData.exercise;
+		const isDrill = item.source === 'custom' || item.source === 'added';
 		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
-			...popup,
+			...rowData,
+			comes: isDrill
+				? ({
+						value: item.comesBack,
+						own: item.comesBackOwn,
+						teacher: item.comesBackTeacher,
+						forClass: false,
+						good:
+							item.comesBack.kind === 'until'
+								? goodDaysOf(db, item.id, item.comesBack.since, tz)
+								: 0
+					} satisfies ComesSettings)
+				: null,
+			/** Warm-up is the person's own: every row of theirs has the switch. */
+			warmupSwitch: item.warmup as boolean | null,
 			music: musicParent ? listMusic(db, musicParent, wall.userId) : [],
 			musicChoices: own.source === 'custom' ? musicChoices(db, wall) : [],
 			musicShown: musicParent !== null,
 			musicEdit: own.source === 'custom',
 			musicEntryId: own.id as number | null,
 			practice: practicePayload(db, own, tz, now),
-			history: exerciseHistory(db, own.id),
-			summary: exerciseSummary(db, own.id),
+			...practised(db, own.id, rowData.sets, tz, now),
 			scheduleAtStart: scheduleAtStart(own.id),
 			today,
 			// Only a drill's sections are its own; the others show their owner's.
@@ -136,8 +182,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			seen: exerciseSeen(own),
 			// An entry on a group's thing (its lesson, routine, variation or drill)
 			// shows the group's content, which is the group's editors' to change,
-			// never the entry's (risk 26). The Log popups follow the same rule.
-			canEditContent: popup.exercise.team === null,
+			// never the entry's (risk 26). The Done sheet follows the same rule.
+			canEditContent: rowData.exercise.team === null,
 			canLog: true,
 			/** A drill's tabs per source (none for an entry: it is no family's). */
 			...pageSources(db, wall.userId, 'drill', own.id, url),
@@ -160,12 +206,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	}
 
 	// A group's drill: its content, and the log of this person's own entry for
-	// it. `popupData` never runs on the group's row, so a set can only ever land
+	// it. `pageData` never runs on the group's row, so a set can only ever land
 	// on the person's entry (risk 22). Without an entry there is nothing to log.
 	const canEdit = access === 'edit';
 	const found = entryFor(db, wall.userId, { drillId: row.id });
 	const entry = found && found.archivedAt === null ? found : null;
-	const popup = entry ? popupData(db, wall, entry.id, tz, now) : null;
+	const rowData = entry ? pageData(db, wall, entry.id, tz, now) : null;
 	const shown: ExerciseItem = {
 		id: row.id,
 		name: row.name,
@@ -183,11 +229,16 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		archived: false,
 		notes: row.notes,
 		createdAt: row.createdAt,
+		comesBack: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+		comesBackOwn: parseComesBack(row.comesBack),
+		comesBackTeacher: null,
+		warmup: false,
+		warmupOrder: null,
 		team: { id: row.teamId, name: getTeam(db, row.teamId)?.name ?? '' }
 	};
 	// No entry yet: Add, through a lesson that holds the drill (R7). One the
 	// person already added takes just this drill; otherwise its sheet opens.
-	const route = popup ? null : drillAddRoute(db, wall.userId, row);
+	const route = rowData ? null : drillAddRoute(db, wall.userId, row);
 	const offer = route && !route.added ? addOffer(db, wall.userId, route.lessonId) : null;
 	// A group drill reached through a lesson: that lesson's class, entry or not.
 	const fromClass = fromClassOf(db, wall.userId, {
@@ -198,27 +249,42 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	});
 	return {
 		music: listMusic(db, { exerciseId: row.id }, wall.userId),
+		comes: canEdit
+			? ({
+					value: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+					own: parseComesBack(row.comesBack),
+					teacher: null,
+					forClass: true,
+					good: null
+				} satisfies ComesSettings)
+			: null,
+		warmupSwitch: null as boolean | null,
 		musicChoices: canEdit ? musicChoices(db, spaceOfRow(row, wall.userId)) : [],
 		musicShown: true,
 		musicEdit: canEdit,
-		musicEntryId: (popup?.exercise.id ?? null) as number | null,
-		exercise: popup?.exercise ?? shown,
-		sets: popup?.sets ?? [],
-		songs: popup?.songs ?? [],
-		takes: popup?.takes ?? [],
+		musicEntryId: (rowData?.exercise.id ?? null) as number | null,
+		exercise: rowData?.exercise ?? shown,
+		sets: rowData?.sets ?? [],
+		songs: rowData?.songs ?? [],
+		takes: rowData?.takes ?? [],
 		practice: drillPayload(
 			db,
 			row,
-			popup ? popup.exercise.id : null,
+			rowData ? rowData.exercise.id : null,
 			tz,
 			now,
 			visible ?? undefined
 		),
-		history: popup ? exerciseHistory(db, popup.exercise.id) : [],
-		summary: popup
-			? exerciseSummary(db, popup.exercise.id)
-			: { sets: 0, totalS: 0, recentRating: null },
-		scheduleAtStart: popup ? scheduleAtStart(popup.exercise.id) : null,
+		...(rowData
+			? practised(db, rowData.exercise.id, rowData.sets, tz, now)
+			: {
+					history: [] as HistorySet[],
+					historyCut: false,
+					summary: { times: 0, totalS: 0 },
+					entryToday: null as DayEntry | null,
+					faces: null
+				}),
+		scheduleAtStart: rowData ? scheduleAtStart(rowData.exercise.id) : null,
 		today,
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
 		canEdit,
@@ -226,7 +292,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		/** The drill's History: its editors'. */
 		historyHref: canEdit ? `/${wall.dance}/groups/${row.teamId}/history/drill/${row.id}` : null,
 		seen: exerciseSeen(row),
-		canLog: popup !== null,
+		canLog: rowData !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
 		...pageSources(db, wall.userId, 'drill', row.id, url),
 		/** Copies you can see, for the Versions list (`clones/send.ts`). */
@@ -259,9 +325,15 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
  * link changes the section's root, so the flow runs from there too.
  */
 export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
+	/**
+	 * Done: the day's entry of the posted exercise, the person's own row or their
+	 * entry on this group drill (never the group's drill: `saveDoneFrom` checks it
+	 * against the wall).
+	 */
+	done: (event) => saveDoneFrom(event),
+	/** A history day's Delete this day, and its Undo. */
+	deleteDay: (event) => deleteDayFrom(event),
+	restoreDay: (event) => restoreDayFrom(event),
 
 	/**
 	 * Add on a group drill's page, sheet path: the lesson that holds it, with
@@ -272,7 +344,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
 		const { lessonId, picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
-		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, Date.now())) {
+		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, serverNow())) {
 			throw error(404, 'No such lesson');
 		}
 		return { action: 'add', ok: true };
@@ -328,7 +400,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const route = drillAddRoute(db, userId, row);
 		if (!route || !route.added) throw error(404, 'No such exercise');
 		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
-		if (!addLesson(db, userId, route.lessonId, picks, Date.now(), { touch: false })) {
+		if (!addLesson(db, userId, route.lessonId, picks, serverNow(), { touch: false })) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'addDrill', ok: true };
@@ -349,7 +421,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const active = team ? row.active : checkbox(form, 'active');
 		const notes = optionalText(form, 'notes');
 		if (notes === undefined) {
-			return fail(400, { action: 'update', message: 'Check the values and try again.' });
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
 		}
 		const stored = getExercise(db, row.id);
 		const clash = seenRefusal(
@@ -357,21 +429,29 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 			row.teamId !== null || hasCopies(db, 'drill', row.id),
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
 			{ action: 'update' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		if (!updateExercise(db, row.id, { name, notes, active }, me(params, locals))) {
+		const comesBack = readComesBack(form, parseComesBack(row.comesBack), serverNow());
+		if (comesBack === 'invalid') {
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
+		}
+		// Warm-up is the person's own: a group's drill never takes it. No field keeps.
+		const warmup = team ? undefined : readWarmup(form);
+		if (
+			!updateExercise(db, row.id, { name, notes, active, warmup, comesBack }, me(params, locals))
+		) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };
 	},
 
 	archive: ({ params, locals }) => {
-		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now(), me(params, locals))) {
+		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, serverNow(), me(params, locals))) {
 			return fail(400, {
 				action: 'archive',
-				message: 'Only custom exercises are archived here. Archive a figure from its page.'
+				message: t().exercise.refused.archiveHere
 			});
 		}
 		throw redirect(303, `/${params.dance}`);
@@ -385,7 +465,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const exerciseId = linkableOf(params, locals).id;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
-			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+			return fail(400, { action: 'linkSection', message: t().exercise.refused.pickSection });
 		}
 		try {
 			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { exerciseId });
@@ -407,9 +487,9 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const link = id === undefined ? null : getSpotLink(getDb(), id);
 		if (
 			id === undefined ||
-			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
+			!unlinkSpot(getDb(), id, { exerciseId }, serverNow(), me(params, locals))
 		) {
-			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+			return fail(404, { action: 'unlinkSection', message: t().exercise.refused.linkGone });
 		}
 		const root = link ? rootOfSpot(getDb(), link.spotId) : null;
 		if (root) await flowAfter(locals.user?.id, root.kind, root.id);

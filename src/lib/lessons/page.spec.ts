@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { SectionLinkChip, ViaSection } from '$lib/types';
 import {
 	ADD_LABEL,
@@ -73,7 +74,7 @@ describe('lesson page lines', () => {
 		expect(routineMeta(undefined, today)).toBeNull();
 		expect(exerciseMeta({ viaSections: [] }, state, today)).toBe('Due Monday');
 		expect(exerciseMeta({ viaSections: [] }, { ...state, dueDay: '2026-10-29' }, today)).toBe(
-			'2 days late'
+			'Due today'
 		);
 		expect(exerciseMeta({ viaSections: [] }, { ...state, lastDay: null }, today)).toBe('New');
 		expect(exerciseMeta({ viaSections: two }, state, today)).toBe('1:12.0–1:30.4, 3:05.0–3:22.8');
@@ -261,5 +262,42 @@ describe("Publish in a draft's ⋯ menu", () => {
 			label: 'Publish',
 			meta: 'Members of Salsa Tuesdays see it'
 		});
+	});
+});
+
+describe('the simple lesson page in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	// 2026-11-05 is a Thursday.
+	const today = '2026-11-05';
+	const due = (dueDay: string) => ({ gap: 3, lastDay: '2026-11-01', dueDay });
+
+	it('the band says the lesson and its day', () => {
+		expect(sl(() => lessonBandLine('2026-11-03', today, true))).toBe('Lekcija · tor, 3. nov.');
+		expect(sl(() => lessonBandLine('2026-11-03', today, false))).toBe('tor, 3. nov.');
+	});
+
+	it('when each is next on Today: a weekday as a time', () => {
+		const when = (day: string, active = true) => sl(() => whenOnToday(due(day), active, today));
+		expect(when('2026-11-02')).toBe('Na vrsti danes');
+		expect(when('2026-11-06')).toBe('Na vrsti jutri');
+		expect(when('2026-11-08')).toBe('Na vrsti v nedeljo');
+		expect(when('2026-11-11')).toBe('Na vrsti v sredo');
+		expect(when('2026-11-12')).toBe('Na vrsti naslednji teden');
+		expect(when('2026-11-19')).toBe('Na vrsti 19. nov.');
+		expect(when('2027-01-14')).toBe('Na vrsti 14. jan. 2027');
+		expect(when(today, false)).toBe('Na premoru');
+	});
+
+	it("the lesson's own entry", () => {
+		const rows = sl(() =>
+			practiceRows(
+				[{ id: 10, name: 'Salsa 3 Nov', kind: 'lesson', active: true }],
+				{
+					10: due(today)
+				},
+				today
+			)
+		);
+		expect(rows).toEqual([{ id: 10, name: 'Ponovite to lekcijo', when: 'Na vrsti danes' }]);
 	});
 });

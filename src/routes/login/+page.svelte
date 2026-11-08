@@ -4,20 +4,19 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
+	import { loadAgreed } from '$lib/unsaved/guard.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let submitting = $state(false);
+	const w = $derived(t().entry);
 </script>
 
-<svelte:head><title>Sign in</title></svelte:head>
+<svelte:head><title>{w.login.title}</title></svelte:head>
 
 <div data-dance={data.dance} style:display="contents">
-	<CardFrame
-		title="Sign in"
-		subtitle="Welcome back. Sign in to practise."
-		note="Got an invite? Open its link, or scan its code with your camera."
-	>
+	<CardFrame title={w.login.title} subtitle={w.login.subtitle} note={w.login.note}>
 		<form
 			method="POST"
 			class="flex flex-col gap-4 rounded-[22px] bg-surface px-4 pt-5 pb-4"
@@ -28,7 +27,10 @@
 				// Disabling the fields below is safe: enhance builds the FormData
 				// before this callback runs, so they are still sent.
 				submitting = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					// Signed in: a full load, so the app draws in the account's language,
+					// not the login page's (the root layout sets it once per load).
+					if (result.type === 'redirect') return loadAgreed(result.location);
 					await update();
 					submitting = false;
 				};
@@ -37,7 +39,7 @@
 			<input type="hidden" name="next" value={data.next} />
 
 			<label class="block">
-				<span class={LABEL}>Email</span>
+				<span class={LABEL}>{w.email}</span>
 				<input
 					name="email"
 					type="email"
@@ -50,7 +52,7 @@
 			</label>
 
 			<label class="block">
-				<span class={LABEL}>Password</span>
+				<span class={LABEL}>{w.password}</span>
 				<input
 					name="password"
 					type="password"
@@ -69,9 +71,9 @@
 
 			<button type="submit" class={button('primary', 'lg', true)} aria-busy={submitting}>
 				{#if submitting}
-					<Spinner size={24} /> Signing in…
+					<Spinner size={24} /> {w.login.signingIn}
 				{:else}
-					Sign in
+					{w.login.signIn}
 				{/if}
 			</button>
 		</form>

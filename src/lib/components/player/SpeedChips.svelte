@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SPEEDS, type Speed } from '$lib/labels';
 	import { CHIP } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		value: Speed;
@@ -12,7 +13,11 @@
 	let { value, onchange, name }: Props = $props();
 </script>
 
-<div role="radiogroup" aria-label="Speed" class="flex flex-wrap gap-x-2 gap-y-1">
+<div
+	role="radiogroup"
+	aria-label={t().exercise.panel.speedLabel}
+	class="flex flex-wrap gap-x-2 gap-y-1"
+>
 	{#each SPEEDS as s (s)}
 		<label class={CHIP}>
 			<input
@@ -22,7 +27,7 @@
 				onchange={() => onchange(s)}
 				class="sr-only"
 			/>
-			{s}×
+			{t().exercise.panel.speed(s)}
 		</label>
 	{/each}
 </div>

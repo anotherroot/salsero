@@ -8,6 +8,7 @@ import { listMyTeams } from '$lib/server/teams';
 import { localDay } from '$lib/day/day';
 import { int } from '$lib/server/form';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /** How many recent lessons it offers; older ones are on the lessons page. */
 const RECENT = 30;
@@ -47,7 +48,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		lessons: listLessons(db, wall).slice(0, RECENT),
 		groups,
 		places: [{ value: 0, label: 'Mine' }, ...edited.map((t) => ({ value: t.id, label: t.name }))],
-		today: localDay(Date.now(), locals.user.timezone)
+		today: localDay(serverNow(), locals.user.timezone)
 	};
 };
 
@@ -57,7 +58,7 @@ export const actions: Actions = {
 		const db = getDb();
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
-		const read = readNewLesson(form, localDay(Date.now(), locals.user.timezone));
+		const read = readNewLesson(form, localDay(serverNow(), locals.user.timezone));
 		if ('refused' in read) return read.refused;
 		const teamId = int(form, 'teamId') ?? 0;
 		let space: Space = wall;

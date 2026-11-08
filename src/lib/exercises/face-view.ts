@@ -1,5 +1,5 @@
 /** What the four faces show: a tone per feel and a time per column. PURE, client-safe. */
-import { FEELS, FEEL_WORD, type Feel } from '$lib/schedule/feel';
+import { FEELS, feelWord, type Feel } from '$lib/schedule/feel';
 import type { FacePreview } from '$lib/schedule/schedule';
 import { gapWords } from '$lib/schedule/words';
 
@@ -16,12 +16,19 @@ export interface FaceColumn {
 	word: string;
 	/** "Tomorrow", "3 weeks"; null when there is nothing to preview. */
 	time: string | null;
+	/** Saving this face finishes a learning drill's learning. */
+	learnt: boolean;
 }
 
 /** The four columns in order, with the time each would set. */
-export function faceColumns(preview: FacePreview[] | null): FaceColumn[] {
+export function faceColumns(preview: (FacePreview & { learnt?: boolean })[] | null): FaceColumn[] {
 	return FEELS.map((feel) => {
 		const p = preview?.find((x) => x.feel === feel);
-		return { feel, word: FEEL_WORD[feel], time: p ? gapWords(p.gap) : null };
+		return {
+			feel,
+			word: feelWord(feel),
+			time: p ? gapWords(p.gap) : null,
+			learnt: p?.learnt ?? false
+		};
 	});
 }
