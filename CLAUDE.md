@@ -79,6 +79,10 @@ and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
 with Undo, "N new"; see
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md))
+and Spotify songs (a Spotify link in Add a song is found on YouTube by the worker;
+Audio from and Use another YouTube link on a song, reaching its copies kept in step; see
+[`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md),
+playlists still to come)
 and Slovenian (part 1: the app in English or Slovenian per account; the language on
 the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
 person; the Follow my class path in Slovenian, the Practice player and pairing
@@ -383,6 +387,14 @@ src/lib/server/song-links.ts  Music (spec 2026-11-05 part B): a lesson's, drill'
                      music-form.ts is the pages' three actions; components/songs/MusicSection.svelte
                      the list, and SongPickSheet.svelte the "Pick a song" popup (SongPicker's too)
 src/lib/songs/music.ts  PURE: Music's words and "Practise to this" (`practiseHref`)
+src/lib/songs/source.ts  PURE: what a pasted link is (`classifyLink`: a YouTube or Spotify song,
+                     a playlist or album, a spotify.link short link), `songKeyOf` ("same song").
+                     song-page.ts's `sourceOf`/`sourceRows` draw "Audio from". Client-safe
+src/lib/server/short-link.ts  follows a spotify.link redirect (headers only, one hop): the
+                     one outbound request the server makes for Spotify
+src/lib/server/clones/audio-reach.ts  how many copies new audio reaches (the flow's walk, no writes)
+worker/salsa_worker/spotify.py  a Spotify track's name, artists and length from the embed page;
+                     match.py scores YouTube results (`best`)
 src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
                      and its fade. search.ts is PURE: the song popup's folded
                      search, Recent then A-Z (matches marked by picker/model.ts `segments`). sample-player.svelte.ts

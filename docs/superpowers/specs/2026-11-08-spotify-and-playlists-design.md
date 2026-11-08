@@ -1,6 +1,6 @@
 # Spotify links and playlists — design
 
-2026-11-08. Status: agreed in conversation, not built.
+2026-11-08. Status: agreed in conversation. Plan 1 (Spotify songs) built; plan 2 (playlists) not yet.
 
 ## Why
 

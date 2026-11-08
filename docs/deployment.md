@@ -307,6 +307,19 @@ shares with Firefly, Grafana, muscle and nikaudio.
   on the worker's two cores; a song queued meanwhile waits for the next run.
   A worker older than this never asks for video jobs, so deploying the server
   first is safe; the links just stay "Saving" until the worker is updated.
+- **Spotify songs** (2026-11-08): a Spotify track link is read from Spotify's
+  public embed page (`open.spotify.com/embed/track/<id>`, its `__NEXT_DATA__`
+  JSON; no account, no key), searched on YouTube (`yt-dlp ytsearch8:`), scored
+  (`worker/salsa_worker/match.py`) and the best result downloaded. Nothing
+  found is a permanent failure, "No match on YouTube". If Spotify ever stops
+  serving that page, the fallback is its Web API with a client id and secret
+  on the worker only (never the server). The worker pauses 4 s after every
+  download, and a song that fails for good no longer stops the run (only a
+  transient failure does), so a long pick does not hit YouTube back to back.
+  **Deploy order:** the server first (migration 0039 adds `songs.audio_url`,
+  `fetched_url`, `fetched_title` at boot), then the worker. An older worker
+  sends no `x-artist`/`x-fetched-*` headers and the new server stores nulls;
+  a newer worker against an older server only loses those headers.
 - **Auth:** `secrets/salsa-worker.env.age` holds `SALSA_WORKER_TOKEN`,
   readable by cloud (which checks it, as a second `EnvironmentFile` on the
   salsa unit) and by the worker host (which sends it as a bearer token). It is
