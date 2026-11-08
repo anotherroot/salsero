@@ -442,3 +442,21 @@ describe('diff: Comes back arriving in old pairs', () => {
 		});
 	});
 });
+
+describe("diff: a song's sections and music start arriving in old pairs", () => {
+	const plain = flat(['title', 'Vivir'], ['sections', '', 'None'], ['musicStart', '', 'As found']);
+	const withSections = edit(plain, { sections: '[{"at":4,"name":"","countOff":false}]' });
+	// A snapshot written before either key existed.
+	const old = initialBase(flat(['title', 'Vivir']), [], hash);
+
+	it('two members that hold neither show no difference', () => {
+		expect(diff(old, plain, plain, hash)).toEqual([]);
+	});
+
+	it('only the member that added sections changed', () => {
+		expect(only(diff(old, withSections, plain, hash))).toMatchObject({
+			key: 'sections',
+			side: 'mine'
+		});
+	});
+});

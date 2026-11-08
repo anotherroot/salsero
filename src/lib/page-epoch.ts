@@ -14,15 +14,23 @@
  */
 import type { ActionResult } from '@sveltejs/kit';
 import { mayReloadNow, type Quiet } from '$lib/nav/fresh';
+import { catalogOf, t } from '$lib/i18n/catalog';
+import { LOCALES } from '$lib/i18n/locale';
 
-export const PAGE_EPOCH = 9;
+export const PAGE_EPOCH = 10;
 
 export const EPOCH_HEADER = 'x-page-epoch';
 export const STALE_HEADER = 'x-page-stale';
 /** Filled by the hook in `app.html`, like the theme. */
 export const EPOCH_PLACEHOLDER = '%salsa.epoch%';
 
-export const STALE_MESSAGE = 'This page is out of date. Reload to continue.';
+/** The refusal's words in English. The reader's language is `t().refusals.stale`. */
+export const STALE_MESSAGE = catalogOf('en').refusals.stale;
+
+/** The refusal in every language: how a page tells it from any other failure. */
+const STALE_MESSAGES: ReadonlySet<unknown> = new Set(
+	LOCALES.map((l) => catalogOf(l).refusals.stale)
+);
 
 /**
  * Whether a request comes from a page older than the server. No header, or
@@ -44,15 +52,16 @@ export function fillEpoch(html: string): string {
  * action failure, which the form shows like any other refused save: the page
  * stays, with what was typed. As a plain error, SvelteKit would swap the page
  * for its error page. `data` is devalue's encoding of
- * `{ message: STALE_MESSAGE }`, as `deserialize` in `$app/forms` reads it.
- * Anything else gets `{ message: STALE_MESSAGE }` as JSON, the shape the API
+ * `{ message, stale: true }` (the reader's `t().refusals.stale`), as `deserialize` in
+ * `$app/forms` reads it. Anything else gets `{ message, stale: true }` as JSON, the shape the API
  * routes refuse with: SvelteKit never sees a page's data refused
  * (`holdsBack`), and an API caller that shows the server's message
  * (`messageFromBody`, the player's `ok`) shows words, not a status number.
  */
 export function staleAnswer(action: boolean): Response {
+	const message = t().refusals.stale;
 	if (!action) {
-		return new Response(JSON.stringify({ message: STALE_MESSAGE }), {
+		return new Response(JSON.stringify({ message, stale: true }), {
 			status: 409,
 			headers: { [STALE_HEADER]: '1', 'content-type': 'application/json' }
 		});
@@ -60,7 +69,7 @@ export function staleAnswer(action: boolean): Response {
 	const body = {
 		type: 'failure',
 		status: 409,
-		data: JSON.stringify([{ message: 1 }, STALE_MESSAGE])
+		data: JSON.stringify([{ message: 1, stale: 2 }, message, true])
 	};
 	return new Response(JSON.stringify(body), {
 		status: 409,
@@ -131,9 +140,12 @@ export function holdsBack(
 /**
  * Whether an action's result is this refusal (`staleAnswer(true)`). Code that
  * reloads the page's data after a failure skips it then: the reload would be
- * refused too, and held back (`holdsBack`), so it would never finish.
+ * refused too, and held back (`holdsBack`), so it would never finish. Told by its
+ * `stale: true`, or, from a server that did not send the flag yet, by its words in
+ * any language.
  */
 export function staleFailure(result: ActionResult): boolean {
 	if (result.type !== 'failure' || result.status !== 409) return false;
-	return (result.data as { message?: unknown } | undefined)?.message === STALE_MESSAGE;
+	const data = result.data as { message?: unknown; stale?: unknown } | undefined;
+	return data?.stale === true || STALE_MESSAGES.has(data?.message);
 }

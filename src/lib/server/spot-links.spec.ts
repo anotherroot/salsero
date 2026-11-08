@@ -27,6 +27,11 @@ import type { Space } from './scope';
 import { createCustomExercise } from './exercises';
 import { addSpot, listSpots } from './spots';
 import { MAX_SPOT_LABEL } from '$lib/limits';
+import { withLocale } from '$lib/i18n/current';
+import { createPosition } from './positions';
+import { linkSpotToPosition } from './position-links';
+import { EMPTY_HOLD } from '$lib/positions/hold';
+import type { PositionRow } from './db/schema';
 import {
 	assertUnlinked,
 	getSpotLink,
@@ -611,5 +616,44 @@ describe("a person's own section and what their groups gave them", () => {
 		expect(() => linkSpot(db, 'u2', mySection, { figureId: K })).toThrow('No such figure.');
 		expect(await leaveTeam(db, T.teamId, 'u2', { mode: 'all' }, NO_FILES, 4)).toBe('left');
 		expect(() => linkSpot(db, 'u2', mySection, { figureId: F })).toThrow('No such figure.');
+	});
+});
+
+describe('the refusals in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('names what blocks a delete in one Slovenian sentence, as the lesson page does', () => {
+		linkSpot(db, 'u1', section, { figureId: doble });
+		archiveVariation(db, doble, Date.now());
+		const cerrada = (
+			createPosition(
+				db,
+				U1_SALSA,
+				{ name: 'Cerrada', styleTag: null, hold: EMPTY_HOLD, notes: null, pictureSpotId: null },
+				1
+			) as PositionRow
+		).id;
+		linkSpotToPosition(db, 'u1', point, cerrada);
+		expect(() => sl(() => assertUnlinked(db, { lessonVideoId }))).toThrow(
+			'Povezano: Enchufla · Doble (arhivirano), Položaj · Cerrada. Najprej odstranite povezavo.'
+		);
+	});
+	it('refuses a link in Slovenian', () => {
+		expect(() => sl(() => linkSpot(db, 'u1', point, { figureId }))).toThrow(
+			'Povezati je mogoče le odsek, ne točke.'
+		);
+		expect(() => sl(() => linkSpot(db, 'u1', section, { figureId: 999 }))).toThrow(
+			'Te različice ni.'
+		);
+		expect(() => sl(() => linkSpot(db, 'u1', 999, { figureId }))).toThrow('Tega odseka ni.');
+		linkSpot(db, 'u1', section, { figureId });
+		expect(() => sl(() => linkSpot(db, 'u1', section, { figureId }))).toThrow('Že povezano.');
+		const review = db.select().from(exercises).where(eq(exercises.lessonId, lessonId)).get()!;
+		expect(() => sl(() => linkSpot(db, 'u1', section, { exerciseId: review.id }))).toThrow(
+			'Lastne odseke ima lahko le vaja.'
+		);
+		const bachata = fig('bachata', 'Paseo');
+		expect(() => sl(() => linkSpot(db, 'u1', section, { figureId: bachata }))).toThrow(
+			'Ta odsek je iz drugega plesa.'
+		);
 	});
 });

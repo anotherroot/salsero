@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { NOTICE_TITLE, SYNC, noticeLine } from '$lib/clones/step-view';
+	import { noticeTitle, syncLabel, noticeLine } from '$lib/clones/step-view';
 	import type { StepView } from '$lib/types';
 
 	/**
@@ -25,15 +25,15 @@
 {#if step.lines.length > 0 && onsync}
 	<section
 		class="flex flex-col gap-1.5 rounded-2xl bg-warn-soft py-2 pr-2 pl-4"
-		aria-label={NOTICE_TITLE}
+		aria-label={noticeTitle()}
 	>
 		<div class="flex items-center gap-2.5">
 			<span class="flex-none text-warn"><Icon name="refresh" size={20} /></span>
 			<h2 class="min-w-0 flex-1 text-[15px] leading-snug font-extrabold text-ink">
-				{NOTICE_TITLE}
+				{noticeTitle()}
 			</h2>
 			<button type="button" class={button('primary', 'sm')} aria-haspopup="dialog" onclick={onsync}
-				>{SYNC}</button
+				>{syncLabel()}</button
 			>
 		</div>
 		<ul class="flex flex-col gap-1.5 pr-2 pb-1.5">

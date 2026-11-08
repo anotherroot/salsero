@@ -3,6 +3,7 @@ import { readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { t } from '$lib/i18n/catalog';
 import { addLessonVideo, getLesson } from '$lib/server/lessons';
 import {
 	extensionFor,
@@ -34,8 +35,8 @@ import type { RequestHandler } from './$types';
  */
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const lessonId = Number(params.id);
-	if (!Number.isInteger(lessonId) || lessonId < 1) return fail(404, 'No such lesson.');
-	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, 'Bad upload id.');
+	if (!Number.isInteger(lessonId) || lessonId < 1) return fail(404, t().lesson.upload.noLesson);
+	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, t().refusals.chunk.badUploadId);
 
 	const db = getDb();
 	const found = getLesson(db, lessonId, locals.user?.id ?? '');
@@ -46,7 +47,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		found !== null &&
 		!!locals.user &&
 		allows(lessonAccess(db, locals.user.id, found.lesson), 'edit');
-	if (!found || !mayEdit || found.lesson.archivedAt !== null) return fail(404, 'No such lesson.');
+	if (!found || !mayEdit || found.lesson.archivedAt !== null)
+		return fail(404, t().lesson.upload.noLesson);
 	// The lesson's owner pays: a group's lesson fills the group's room, not the uploader's.
 	const owner = ownerOfRow(found.lesson);
 
@@ -62,7 +64,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (finished && (finished as { lessonId?: unknown }).lessonId === lessonId) {
 		return json(finished, { status: 201 });
 	}
-	if (finished) return fail(404, 'Bad upload id.');
+	if (finished) return fail(404, t().refusals.chunk.badUploadId);
 
 	// The total is declared with every chunk, and a client could change it
 	// mid-upload: check each one against what the finished video will add, before
@@ -76,8 +78,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	const partial = join(uploadsDir(), `${lessonId}-${params.uploadId}.part`);
 	const chunk = await writeChunk(request, partial, MAX_LESSON_VIDEO_BYTES, {
-		notVideo: 'Only video files can be added to a lesson.',
-		tooLarge: `That video is bigger than the ${MAX_LESSON_VIDEO_LABEL} limit.`
+		notVideo: t().lesson.upload.notVideo,
+		tooLarge: t().lesson.upload.tooLarge(MAX_LESSON_VIDEO_LABEL)
 	});
 	if (chunk instanceof Response) return chunk;
 	if (!chunk.done) {
@@ -109,7 +111,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 	if (size === 0) {
 		await unlink(target).catch(() => {});
-		return fail(400, 'That upload was empty.');
+		return fail(400, t().lesson.upload.empty);
 	}
 
 	let row;
@@ -117,7 +119,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id);
 	} catch {
 		await unlink(target).catch(() => {});
-		return fail(500, 'That video could not be saved.');
+		return fail(500, t().lesson.upload.notSaved);
 	}
 	// Remembered for a day (swept with the partials), for a client whose 201 got lost.
 	await writeFile(done, JSON.stringify(row)).catch(() => {});

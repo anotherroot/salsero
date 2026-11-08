@@ -35,10 +35,11 @@ describe('the group page in its pane', () => {
 		expect(branch).not.toContain('<PaneColumns');
 	});
 
-	it('opens the group menu and Rename as small dialogs, and New lesson, Add, Leave and Delete as before', () => {
+	it('opens the group menu, Add to the group and Rename as small dialogs, and New lesson, Add, Leave and Delete as before', () => {
 		expect(page).toMatch(/<Sheet title=\{data\.team\.name\} open=\{menu\}[^\n]*size="small">/);
 		expect(page).toMatch(/<Sheet title=\{w\.renameGroup\}[^\n]*size="small">/);
-		expect(page.match(/size="small"/g)).toHaveLength(2);
+		expect(page).toMatch(/<Sheet title=\{w\.add\} open=\{choosing\}[^\n]*size="small">/);
+		expect(page.match(/size="small"/g)).toHaveLength(3);
 		for (const tag of ['<NewLessonSheet', '<AddSheet', '<LeaveSheet', '<Dialog']) {
 			const start = page.indexOf(tag);
 			expect(start).toBeGreaterThan(-1);
@@ -54,10 +55,12 @@ describe('the group page in its pane', () => {
 			/<Sheet\s+title=\{acting\?\.name \?\? ''\}\s+open=\{acting !== null\}\s+onclose=\{\(\) => \(acting = null\)\}\s+size="small"\s*>/
 		);
 		expect(read('src/routes/[dance]/groups/[id]/storage/+page.svelte')).toMatch(
-			/<Sheet title="Ask for more"[^\n]*size="small">/
+			// The title is read from the catalog (Task 10): the sheet is the same.
+			/<Sheet title=\{s\.askForMore\}[^\n]*size="small">/
 		);
 		const code = read('src/lib/components/teams/CodeSheet.svelte');
-		expect(code).toMatch(/<Sheet title="Group code"[^\n]*size="small">/);
+		// The title is read from the catalog (Task 9 of Slovenian part 2): the sheet is the same.
+		expect(code).toMatch(/<Sheet title=\{w\.title\}[^\n]*size="small">/);
 		expect(code).toContain('codeAction(desk.current, canShare, copied)');
 	});
 });

@@ -35,7 +35,14 @@ import {
 } from '../lessons';
 import { addChildSlot, addFigureSlot, addOption, createRoutine, setSlotNote } from '../routines';
 import { createCustomExercise } from '../exercises';
-import { createSongFromUpload, setAnchors, setSampleStart, setTempoFactor } from '../songs';
+import {
+	createSongFromUpload,
+	setAnchors,
+	setMusicStart,
+	setSampleStart,
+	setSections,
+	setTempoFactor
+} from '../songs';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { linkPositionInSpace } from '../position-links';
@@ -46,6 +53,7 @@ import { setFigureShape } from '../graph';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import { stampGene } from './genes';
 import { flatOf } from './trees';
+import { runInLocale } from '../i18n-request';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
@@ -232,6 +240,40 @@ describe('flatOf', () => {
 		expect(Object.keys(flatOf(db, 'position', p.id))).toEqual(Object.keys(f));
 	});
 
+	it('the style names and a recording without a note are in the reader’s language', () => {
+		const [p] = listPositions(db, U1_SALSA);
+		const type = (dance: string, tag: string, lang: 'en' | 'sl') => {
+			db.update(positions).set({ dance, styleTag: tag }).where(eq(positions.id, p.id)).run();
+			return runInLocale(lang, () => flatOf(db, 'position', p.id).type.show);
+		};
+		expect(type('bachata', 'sensual', 'sl')).toBe('Senzualna');
+		expect(type('bachata', 'dominican', 'sl')).toBe('Dominikanska');
+		expect(type('bachata', 'sensual', 'en')).toBe('Sensual');
+		expect(type('salsa', 'other', 'sl')).toBe('Drugo');
+		expect(type('salsa', 'other', 'en')).toBe('Other');
+		const id = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!
+			.figure.id;
+		for (const kind of ['video', 'audio'] as const)
+			addRecording(db, {
+				figureId: id,
+				file: kind + '.mp4',
+				mime: 'video/mp4',
+				kind,
+				sizeBytes: 5,
+				note: null
+			});
+		dated();
+		const shown = (lang: 'en' | 'sl') =>
+			runInLocale(lang, () => {
+				const f = flatOf(db, 'figure', id);
+				return Object.keys(f)
+					.filter((k) => /^rec:#\d+$/.test(k))
+					.map((k) => f[k].show);
+			});
+		expect(shown('en')).toEqual(['Recording, 3 Nov', 'Audio, 3 Nov']);
+		expect(shown('sl').map((x) => x.split(',')[0])).toEqual(['Posnetek', 'Zvočni posnetek']);
+	});
+
 	it('a recording’s day is shown in the zone asked for; values do not change', () => {
 		const id = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!
 			.figure.id;
@@ -322,7 +364,17 @@ describe('flatOf', () => {
 		).id;
 		const empty = flatOf(db, 'song', id);
 		wellFormed(empty);
-		expect(keys(empty)).toEqual(['artist', 'count', 'sample', 'style', 'title']);
+		expect(keys(empty)).toEqual([
+			'artist',
+			'count',
+			'musicStart',
+			'sample',
+			'sections',
+			'style',
+			'title'
+		]);
+		expect(empty.sections).toMatchObject({ value: '', show: 'None' });
+		expect(empty.musicStart).toMatchObject({ value: '', show: 'As found' });
 		expect(empty.artist.value).toBe('');
 		expect(empty.sample).toMatchObject({ value: '', show: 'Automatic' });
 		setTempoFactor(db, id, 2);
@@ -331,6 +383,21 @@ describe('flatOf', () => {
 		const f = flatOf(db, 'song', id);
 		expect(f.count).toMatchObject({ value: '[3,11]|2', show: '2 taps · ×2' });
 		expect(f.sample).toMatchObject({ value: '83.5', show: 'From 1:23' });
+		setSections(db, id, [
+			{ at: 30, name: 'Mambo', countOff: false },
+			{ at: 2, name: '', countOff: true }
+		]);
+		setMusicStart(db, id, 18);
+		const g = flatOf(db, 'song', id);
+		expect(g.sections).toMatchObject({
+			value: '[{"at":2,"name":"","countOff":true},{"at":30,"name":"Mambo","countOff":false}]',
+			show: '2 sections'
+		});
+		expect(g.musicStart).toMatchObject({ value: '18', show: 'Starts at 0:18' });
+		db.update(songs).set({ sectionsJson: '{x' }).where(eq(songs.id, id)).run();
+		expect(flatOf(db, 'song', id).sections.value).toBe('');
+		setSections(db, id, []);
+		setMusicStart(db, id, null);
 		expect(f.style.show).toBe('Salsa');
 		db.update(songs).set({ audioFile: 'other.mp3', sizeBytes: 99 }).where(eq(songs.id, id)).run();
 		expect(flatOf(db, 'song', id)).toEqual(f);

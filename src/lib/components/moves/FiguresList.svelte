@@ -19,23 +19,28 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import { figureRows } from '$lib/picker/build';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
-		groupHeading,
+		groupMeta,
 		figuresHeading,
 		filterChips,
 		filterQuery,
 		showTiles,
 		tileMetas,
+		styleLabelsOf,
 		type FigureChip,
 		type FigureFilter
 	} from '$lib/moves/figures';
 	import { figuresView, parseFigureFilter, type FiguresLists } from '$lib/moves/filter';
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
-	import { TWINS_CHIP } from '$lib/clones/twins';
-	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
+	import { twinsChip } from '$lib/clones/twins';
+	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
+	import { t } from '$lib/i18n/catalog';
 	import { presetLine, withoutPreset } from '$lib/positions/view';
 	import type { Dance } from '$lib/dances/dances';
 	import type { OpenRow } from '$lib/nav/moves-pane';
@@ -65,7 +70,7 @@
 		open: OpenRow;
 		/** The list route; otherwise an item is open (beside it on the desktop, alone on the phone). */
 		isList: boolean;
-		/** The New move sheet; the band's + and the empty pane open it too. */
+		/** The New figure sheet; the band's + and the empty pane open it too. */
 		creating?: boolean;
 	} = $props();
 
@@ -90,17 +95,25 @@
 		refusal?.presetGone ? null : ((page.data.preset ?? null) as Preset | null)
 	);
 	/**
-	 * New move closed: the URL's `?new=1&start=…` goes (a replace, once the
+	 * New figure closed: the URL's `?new=1&start=…` goes (a replace, once the
 	 * sheet's Back has landed), so the next + and a reload are untagged.
 	 */
 	function closeNew() {
 		creating = false;
 		refusal = null;
+		moveId = null;
+		newMove = null;
 		if (!isList) return;
 		const href = withoutPreset(page.url);
 		if (href) void gotoWhenSettled(href, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 	let busy = $state(false);
+	/** New figure's move: a picked one (`groupId`), or a new one made with the figure (`figureName`). */
+	let moveId = $state<number | null>(null);
+	let newMove = $state<string | null>(null);
+	const moveGroups = $derived([
+		{ title: t().picker.moveField.group, entries: figureRows(lists.moveTargets) }
+	]);
 	// A refusal about one field names it; the rest (a style that is not the dance's) do not.
 	const field = $derived(refusal?.field);
 	const otherError = $derived(refusal?.message && !field ? refusal.message : null);
@@ -146,7 +159,9 @@
 			: figuresHeading({ moves: count, figures: figureCount }, filter)
 	);
 	const empty = $derived(figuresEmpty(count, filter));
-	const chips = $derived(filterChips(filter, dance.styles, dance.styleLabel, lists.unlinked));
+	const chips = $derived(
+		filterChips(filter, dance.styles, styleLabelsOf(dance.styleLabel), lists.unlinked)
+	);
 	// Group mode has no Coverage tile: coverage is the person's own.
 	const tiles = $derived(lists.unrouted !== null ? tileMetas(lists.unrouted) : null);
 	// Out of sync: the card's number counts the whole list, whatever the other filters.
@@ -189,7 +204,6 @@
 			keepFilter(listPath, qs, qs);
 			return;
 		}
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
 		goto(qs ? `${listPath}?${qs}` : listPath, { keepFocus: true, replaceState: true, noScroll });
 	}
 
@@ -226,7 +240,7 @@
 					>{f.name}{#if tag}<span class="ml-1 font-normal text-muted">{tag}</span>{/if}</span
 				>
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
-				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
 			</span>
 			<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
 			<span class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted">
@@ -243,7 +257,7 @@
 				{/each}
 				{#if f.membersSee === false}
 					<span class="flex items-center gap-1 whitespace-nowrap"
-						><Icon name="eye-off" size={16} />{HIDDEN_FROM_MEMBERS}</span
+						><Icon name="eye-off" size={16} />{hiddenFromMembers()}</span
 					>
 				{/if}
 			</span>
@@ -285,10 +299,11 @@
 
 {#if empty === 'none' && view.groups.length === 0}
 	<div class="h-10 flex-none"></div>
-	<EmptyState icon="moves" title="No figures yet" body="Add the first one you learned.">
+	<EmptyState icon="moves" title={t().moves.figures.empty} body={t().moves.figures.emptyBody}>
 		{#snippet action()}
 			<button type="button" class={button('primary')} onclick={() => (creating = true)}>
-				<Icon name="plus" size={20} /> New move
+				<Icon name="plus" size={20} />
+				{t().moves.newFigure}
 			</button>
 		{/snippet}
 	</EmptyState>
@@ -298,7 +313,7 @@
 			<NavTile
 				href={resolve('/[dance]/(moves)/coverage', { dance: dance.slug })}
 				icon="routine"
-				title="Coverage"
+				title={t().moves.figures.coverage}
 				meta={tiles.coverage.text}
 				status={tiles.coverage.status}
 				current={open?.kind === 'coverage'}
@@ -322,7 +337,7 @@
 
 	{#if anyHidden(view.figures.flatMap((m) => m.figures))}
 		<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
-			{MEMBERS_NOTE}
+			{membersNote()}
 		</p>
 	{/if}
 
@@ -336,8 +351,8 @@
 		<SearchField
 			name="q"
 			bind:value={q}
-			placeholder="Search figures"
-			label="Search figures"
+			placeholder={t().moves.figures.search}
+			label={t().moves.figures.search}
 			onclear={() => refilter({ q: '' })}
 		/>
 	</form>
@@ -348,7 +363,7 @@
 	-->
 	<div
 		role="group"
-		aria-label="Filter figures"
+		aria-label={t().moves.figures.filter}
 		bind:this={chipRow}
 		class="-mr-4 -ml-1 flex flex-none [scrollbar-width:none] gap-2 overflow-x-auto pr-4 pl-1 desk:mr-0 desk:flex-wrap desk:gap-x-1.5 desk:gap-y-0 desk:overflow-visible desk:pr-0 [&::-webkit-scrollbar]:hidden"
 	>
@@ -368,15 +383,18 @@
 	{#if empty === 'all-linked'}
 		<EmptyState
 			icon="check-circle"
-			title="All linked"
-			body="Every figure has a section and a lesson."
+			title={t().moves.figures.allLinked}
+			body={t().moves.figures.allLinkedBody}
 		/>
 	{:else if empty === 'no-match'}
-		{#if view.groups.length === 0}<EmptyState icon="search" title="No figures match" />{/if}
+		{#if view.groups.length === 0}<EmptyState
+				icon="search"
+				title={t().moves.figures.noMatch}
+			/>{/if}
 	{:else if empty === 'none'}
 		<!-- Only a group's figures so far: the person's own list starts here. -->
 		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
-			No figures of your own yet.
+			{t().moves.figures.noneOwn}
 		</p>
 	{:else}
 		<h2 class="{SECTION_LABEL} pt-0.5">{heading}</h2>
@@ -385,15 +403,16 @@
 		{/each}
 	{/if}
 
-	<!-- Each group's moves from the lessons the person added: viewed and practised, under a slight heading. -->
+	<!-- Each group's moves from the lessons the person added: viewed and practised, under the group's own heading. -->
 	{#each view.groups as g (g.team.id)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
-				<Icon name="people" size={16} />{groupHeading(
-					g.team.name,
+			<GroupHeading
+				name={g.team.name}
+				meta={groupMeta(
+					'figure',
 					g.moves.reduce((n, m) => n + m.figures.length, 0)
 				)}
-			</h2>
+			/>
 			{#each g.moves as m (m.id)}
 				{@render moveSection(m, false)}
 			{/each}
@@ -402,14 +421,14 @@
 {/if}
 
 {#if creating}
-	<Sheet title="New move" open={true} onclose={closeNew}>
+	<Sheet title={t().moves.newFigure} open={true} onclose={closeNew}>
 		<form
 			id="new-figure"
 			method="POST"
 			action={`/${dance.slug}/figures?/create`}
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'New move',
+				label: t().moves.newFigure,
 				submit: ({ cancel }) => {
 					// One figure per tap: a second tap while the first is out is dropped.
 					if (busy) return cancel();
@@ -423,6 +442,8 @@
 								// figure opens once its Back has landed, with every load fresh.
 								creating = false;
 								refusal = null;
+								moveId = null;
+								newMove = null;
 								await gotoWhenSettled(result.location, { invalidateAll: true });
 							} else {
 								await update();
@@ -443,10 +464,26 @@
 					<span class="flex-none"><Icon name="positions" size={18} /></span>{presetLine(preset)}
 				</p>
 			{/if}
+			<PickerField
+				name="groupId"
+				label={t().picker.moveField.label}
+				placeholder={t().picker.moveField.placeholder}
+				title={t().picker.moveField.title}
+				search={t().picker.moveField.search}
+				groups={moveGroups}
+				nothingLeft={t().picker.moveField.none}
+				bind:value={moveId}
+				bind:newName={newMove}
+				create={{
+					label: t().picker.moveField.label,
+					tag: t().picker.moveField.tag,
+					name: 'figureName'
+				}}
+				required
+				error={fieldErrors.figureName ?? null}
+			/>
 			<FigureFields
 				{dance}
-				figureName={refusal?.figureName}
-				autofocus
 				name={refusal?.name}
 				style={lists.defaultStyle}
 				notes={refusal?.notes}
@@ -461,11 +498,11 @@
 					form="new-figure"
 					class={button('primary', 'md', true)}
 					aria-busy={busy}
-					aria-label={busy ? 'Adding move' : undefined}
+					aria-label={busy ? t().moves.figures.adding : undefined}
 				>
-					{#if busy}<Spinner />{:else}Add move{/if}
+					{#if busy}<Spinner />{:else}{t().moves.figures.add}{/if}
 				</button>
-				<p class="text-center text-[13px] text-muted">You can add recordings next.</p>
+				<p class="text-center text-[13px] text-muted">{t().moves.figures.recordingsNext}</p>
 			</div>
 		{/snippet}
 	</Sheet>

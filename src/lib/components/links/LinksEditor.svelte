@@ -16,6 +16,7 @@
 		iconButton
 	} from '$lib/components/ui/styles';
 	import { parseLink } from '$lib/links';
+	import { t } from '$lib/i18n/catalog';
 	import type { LinkRow } from '$lib/types';
 
 	interface Props {
@@ -73,13 +74,14 @@
 					<span
 						role="status"
 						class="mr-auto flex items-center gap-2 px-3 text-[13px] font-semibold text-muted"
-						><Spinner size={16} />Saving at 480p on the home worker</span
+						><Spinner size={16} />{t().links.save.saving}</span
 					>
 				{:else if link.saving?.status === 'failed'}
 					<span
 						class="mr-auto flex min-w-0 items-center gap-1.5 px-3 py-1 text-[13px] font-bold break-words text-danger"
-						><Icon name="warning" size={16} filled />Couldn't save: {link.saving.error ??
-							'unknown error'}</span
+						><Icon name="warning" size={16} filled />{t().links.save.failed(
+							link.saving.error ?? t().links.save.unknown
+						)}</span
 					>
 					<form
 						method="POST"
@@ -100,7 +102,7 @@
 							>{#if posting === link.id}<Spinner size={18} />{:else}<Icon
 									name="refresh"
 									size={18}
-								/>{/if}Retry</button
+								/>{/if}{t().links.save.retry}</button
 						>
 					</form>
 				{:else}
@@ -124,7 +126,7 @@
 							{#if posting === link.id}<Spinner size={18} />{:else}<Icon
 									name="download"
 									size={18}
-								/>{/if}Save video
+								/>{/if}{t().links.save.save}
 						</button>
 					</form>
 				{/if}
@@ -132,7 +134,7 @@
 			<form method="POST" action="?/deleteLink" use:enhance={removeLink(link.id)} class="ml-auto">
 				<input type="hidden" name="linkId" value={link.id} />
 				<button data-focus="link-{link.id}" type="submit" class={button('danger-text', 'sm')}
-					><Icon name="trash" size={18} />Remove</button
+					><Icon name="trash" size={18} />{t().common.remove}</button
 				>
 			</form>
 		{:else}
@@ -142,7 +144,7 @@
 					data-focus="link-{link.id}"
 					type="submit"
 					class={iconButton('bare', 'muted')}
-					aria-label="Remove {link.title ?? webHost(link.url)}"
+					aria-label={t().links.save.removeOf(link.title ?? webHost(link.url))}
 					><Icon name="trash" size={20} /></button
 				>
 			</form>
@@ -155,7 +157,7 @@
 		action="?/addLink"
 		class="mt-3 flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'A link',
+			label: t().links.add.label,
 			submit:
 				() =>
 				async ({ update, result }) => {
@@ -165,13 +167,13 @@
 		}}
 	>
 		<div>
-			<label class={LABEL} for="{uid}-urls">Add links</label>
+			<label class={LABEL} for="{uid}-urls">{t().links.add.many}</label>
 			<textarea
 				data-focus="links-add"
 				id="{uid}-urls"
 				name="urls"
 				rows="2"
-				placeholder="Paste YouTube or other links, one per line"
+				placeholder={t().links.add.manyPlaceholder}
 				aria-invalid={message ? 'true' : undefined}
 				aria-describedby={message ? `${uid}-error` : undefined}
 				class={TEXTAREA}>{entered}</textarea
@@ -184,17 +186,18 @@
 		</div>
 		<div>
 			<label class={LABEL} for="{uid}-title"
-				>Title <span class="font-medium text-muted">(optional)</span></label
+				>{t().links.add.titleField}
+				<span class="font-medium text-muted">{t().links.add.optional}</span></label
 			>
 			<input
 				id="{uid}-title"
 				name="title"
 				maxlength="200"
-				placeholder="For a single link"
+				placeholder={t().links.add.titlePlaceholder}
 				class={FIELD}
 			/>
 		</div>
 		<button type="submit" class={button('secondary', 'md', true)}
-			><Icon name="plus" size={20} />Add link</button
+			><Icon name="plus" size={20} />{t().links.add.submit}</button
 		>
 	</form>{/if}

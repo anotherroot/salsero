@@ -4,6 +4,8 @@
  * since. Resolves to null when it is back, or to the words of a refusal
  * ("Enchufla is taken; rename that one first").
  */
+import { t } from '$lib/i18n/catalog';
+
 export type ArchivedTarget =
 	{ figureId: number } | { routineId: number } | { exerciseId: number } | { positionId: number };
 
@@ -17,8 +19,8 @@ export async function restoreArchived(target: ArchivedTarget): Promise<string | 
 		if (res.ok) return null;
 		const body: unknown = await res.json().catch(() => null);
 		const said = body && typeof body === 'object' ? (body as { message?: unknown }).message : null;
-		return typeof said === 'string' && said ? said : 'That could not be restored.';
+		return typeof said === 'string' && said ? said : t().groups.deleted.couldNotRestore;
 	} catch {
-		return 'That could not be restored.';
+		return t().groups.deleted.couldNotRestore;
 	}
 }

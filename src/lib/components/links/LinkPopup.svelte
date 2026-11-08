@@ -24,7 +24,9 @@
 	import { button, FIELD, iconButton, LABEL, SECTION_LABEL } from '$lib/components/ui/styles';
 	import LinkLevel from './LinkLevel.svelte';
 	import { DANCES } from '$lib/dances/dances';
-	import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
+	import { PARTNER, type Partner } from '$lib/labels';
+	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { figureRows, linkOptionGroups } from '$lib/picker/build';
 	import { isHeading, type PickGroup, type PickRow } from '$lib/picker/model';
 	import { linkRefusal } from '$lib/picker/view';
@@ -37,7 +39,7 @@
 		linkWords,
 		loadFailed as loadFailedWords,
 		momentAt,
-		MOMENT_LABEL,
+		momentLabel,
 		refusalAt,
 		stacked,
 		targetKey,
@@ -118,13 +120,7 @@
 		point: pointHint
 	}: Props = $props();
 
-	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill', 'position'];
-	const CREATE_TITLE: Record<CreateStep, string> = {
-		variation: 'New figure',
-		figure: 'New move',
-		drill: 'New drill',
-		position: 'New position'
-	};
+	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'drill', 'position'];
 	let options = $state<LinkOptions | null>(null);
 	let loadFailed = $state(false);
 	let busy = $state(false);
@@ -151,10 +147,8 @@
 	// Create steps' fields, kept while the popup is open so back and forth keeps them.
 	let groupId = $state<number | null>(null);
 	let variationName = $state('');
-	let figureName = $state('');
-	let firstName = $state('Basic');
-	let partner = $state<Partner>('partner');
-	let style = $state('');
+	/** New figure's move when it is a new one (the Move field's create): made with the figure. */
+	let newMove = $state<string | null>(null);
 	/** A new figure's Danced and Style: its move's first figure's, refilled when another move is picked. */
 	let variationPartner = $state<Partner>('partner');
 	let variationStyle = $state('');
@@ -165,6 +159,15 @@
 			if (!c || !options) return;
 			variationPartner = c.partner;
 			variationStyle = c.style ?? options.defaults.style;
+		});
+	});
+	// A new move has no first figure: its figure starts on the person's defaults.
+	$effect(() => {
+		if (!newMove) return;
+		untrack(() => {
+			if (!options) return;
+			variationPartner = options.defaults.partner;
+			variationStyle = options.defaults.style;
 		});
 	});
 	let drillName = $state('');
@@ -180,8 +183,9 @@
 		fetchLinkOptions(spotId).then(
 			(o) => {
 				options = o;
-				partner = o.defaults.partner;
-				style = o.defaults.style;
+				// A new move's figure starts on the person's defaults; a picked move refills them.
+				variationPartner = o.defaults.partner;
+				variationStyle = o.defaults.style;
 				positionStyle = o.defaults.style;
 				groupId = o.figureChoices.find((f) => f.near)?.groupId ?? null;
 			},
@@ -226,8 +230,9 @@
 	// Picking a figure answers "Pick a figure."
 	$effect(() => {
 		void groupId;
+		void newMove;
 		untrack(() => {
-			if (refusal?.at === 'groupId') refusal = null;
+			if (refusal?.at === 'groupId' || refusal?.at === 'figureName') refusal = null;
 		});
 	});
 
@@ -281,7 +286,7 @@
 						entries: figureRows(options.figureChoices.filter((c) => c.near).map(asTarget))
 					},
 					{
-						title: 'Moves',
+						title: t().links.create.moves,
 						entries: figureRows(options.figureChoices.filter((c) => !c.near).map(asTarget))
 					}
 				]
@@ -307,7 +312,7 @@
 		} catch (e) {
 			// A refusal (4xx) says why; a server failure has nothing to say to the user.
 			if (e instanceof SpotsApiError && e.status < 500) refuse(e.message, e.field);
-			else refuse('Couldn’t save. Try it again.');
+			else refuse(t().links.popup.saveFailed);
 		} finally {
 			busy = false;
 		}
@@ -378,7 +383,6 @@
 		refusal = null;
 		if (typed) {
 			if (key === 'variation') variationName = typed;
-			if (key === 'figure') figureName = typed;
 			if (key === 'drill') drillName = typed;
 			if (key === 'position') positionName = typed;
 		}
@@ -399,7 +403,7 @@
 		try {
 			momentMessage = await onmoment();
 		} catch {
-			momentMessage = 'Couldn’t save the point. Try it again.';
+			momentMessage = t().video.toast.pointFailed;
 		} finally {
 			momentBusy = false;
 		}
@@ -455,9 +459,17 @@
 		const step = createStep;
 		if (busy || !step) return;
 		let body: LinkCreate;
-		if (step === 'variation') {
+		if (step === 'variation' && newMove) {
+			body = {
+				kind: 'figure',
+				figureName: newMove,
+				name: variationName,
+				partner: variationPartner,
+				style: variationStyle
+			};
+		} else if (step === 'variation') {
 			if (groupId === null) {
-				refusal = { message: 'Pick a move.', at: 'groupId' };
+				refusal = { message: t().links.create.pickMove, at: 'groupId' };
 				return;
 			}
 			body = {
@@ -467,8 +479,6 @@
 				partner: variationPartner,
 				style: variationStyle
 			};
-		} else if (step === 'figure') {
-			body = { kind: 'figure', figureName, name: firstName, partner, style };
 		} else if (step === 'position') {
 			body = { kind: 'position', name: positionName, styleTag: positionStyle };
 		} else {
@@ -493,7 +503,7 @@
 
 	const uid = $props.id();
 	const formId = `${uid}-create`;
-	const partnerItems = PARTNER.map((p) => ({ value: p, label: PARTNER_LABEL[p] }));
+	const partnerItems = $derived(PARTNER.map((p) => ({ value: p, label: t().moves.chips[p] })));
 </script>
 
 {#snippet links()}
@@ -503,9 +513,9 @@
 		{#if loadFailed}
 			<Banner kind="error" title={failedWords.title}>{failedWords.body}</Banner>
 		{:else if !options}
-			<h3 class={SECTION_LABEL}>Linked</h3>
+			<h3 class={SECTION_LABEL}>{t().links.popup.linked}</h3>
 			<div class="rounded-2xl bg-surface" aria-busy="true">
-				<span role="status" class="sr-only">Loading</span>
+				<span role="status" class="sr-only">{t().picker.loading}</span>
 				{#each [58, 44, 66] as w, i (i)}
 					<div class="pl-4" aria-hidden="true">
 						<div class="flex min-h-14 items-center pr-4 {i < 2 ? 'border-b border-hairline' : ''}">
@@ -516,7 +526,7 @@
 			</div>
 		{:else}
 			{#if options.linked.length > 0}
-				<h3 class={SECTION_LABEL}>Linked</h3>
+				<h3 class={SECTION_LABEL}>{t().links.popup.linked}</h3>
 				<ul class="rounded-2xl bg-surface">
 					{#each options.linked as l, i (linkRowId(l))}
 						{@const href = targetHref(options.dance, l.target)}
@@ -526,7 +536,6 @@
 									? 'border-b border-hairline'
 									: ''}"
 							>
-								<!-- eslint-disable svelte/no-navigation-without-resolve -- targetHref resolves; a position's page is joined to /[dance]/positions until its route lands -->
 								<a
 									{href}
 									class="flex min-h-14 min-w-0 flex-1 items-center gap-2 self-stretch py-2 text-[16px] leading-[1.3] font-bold {l.archived
@@ -539,19 +548,20 @@
 									}}
 									><span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1"
 										><span class="min-w-0 break-words">{l.label}</span>{#if l.drill}<Badge
-												tone="neutral">Drill</Badge
-											>{:else if 'positionId' in l.target}<Badge tone="accent">Position</Badge
-											>{/if}{#if l.archived}<Badge tone="warn">Archived</Badge>{/if}</span
+												tone="neutral">{t().links.popup.drill}</Badge
+											>{:else if 'positionId' in l.target}<Badge tone="accent"
+												>{t().links.popup.position}</Badge
+											>{/if}{#if l.archived}<Badge tone="warn">{t().links.popup.archived}</Badge
+											>{/if}</span
 									><span class="flex flex-none text-chevron" aria-hidden="true"
 										><Icon name="chevron-right" size={20} /></span
 									></a
 								>
-								<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								<button
 									data-focus="linked-{linkRowId(l)}"
 									type="button"
 									class={iconButton('bare', 'muted')}
-									aria-label="Unlink {l.label}"
+									aria-label={t().links.popup.unlinkOf(l.label)}
 									disabled={busy}
 									onclick={() => unlink(l)}><Icon name="close" /></button
 								>
@@ -560,7 +570,7 @@
 					{/each}
 				</ul>
 			{:else}
-				<p class="px-1 text-[14px] text-muted">Not linked to anything yet.</p>
+				<p class="px-1 text-[14px] text-muted">{t().links.popup.none}</p>
 			{/if}
 			<div class="mt-1">
 				<PickerOpener data-focus="linked-add" label={words.opener} onclick={() => onpush('pick')} />
@@ -580,7 +590,7 @@
 		>{#if momentBusy}<Spinner size={20} />{:else}<Icon
 				name="bookmark"
 				size={20}
-			/>{/if}{MOMENT_LABEL}</button
+			/>{/if}{momentLabel()}</button
 	>
 {/snippet}
 
@@ -601,20 +611,26 @@
 		{#if step === 'variation'}
 			<PickerField
 				name="groupId"
-				label="Move"
-				placeholder="Choose a move…"
-				title="Choose a move"
-				search="Search moves"
+				label={t().links.create.move}
+				placeholder={t().links.create.chooseMove}
+				title={t().links.create.chooseMoveTitle}
+				search={t().links.create.searchMoves}
 				groups={figureGroups}
-				nothingLeft="There are no moves yet."
+				nothingLeft={t().links.create.noMoves}
 				bind:value={groupId}
+				bind:newName={newMove}
+				create={{
+					label: t().picker.moveField.label,
+					tag: t().picker.moveField.tag,
+					name: 'figureName'
+				}}
 				bind:open={() => top === 'variation-figure', setFigurePicking}
 				required
-				error={errorAt('groupId')}
+				error={errorAt('groupId') ?? errorAt('figureName')}
 				{theme}
 			/>
 			<div>
-				<label for="{uid}-name" class={LABEL}>Figure name</label>
+				<label for="{uid}-name" class={LABEL}>{t().links.create.figureName}</label>
 				<input
 					id="{uid}-name"
 					bind:value={variationName}
@@ -627,87 +643,37 @@
 				{@render fieldError('name')}
 			</div>
 			<div>
-				<span class={LABEL}>Danced</span>
+				<span class={LABEL}>{t().figure.fields.danced}</span>
 				<Segmented
 					name="{formId}-variation-partner"
-					label="Danced"
+					label={t().figure.fields.danced}
 					items={partnerItems}
 					value={variationPartner}
 					onchange={(v) => (variationPartner = v as Partner)}
 				/>
 			</div>
 			<div>
-				<span class={LABEL}>Style</span>
+				<span class={LABEL}>{t().figure.fields.style}</span>
 				<Segmented
 					name="{formId}-variation-style"
-					label="Style"
+					label={t().figure.fields.style}
 					items={DANCES[o.dance].styles.map((s) => ({
 						value: s,
-						label: DANCES[o.dance].styleLabel[s]
+						label: styleLabelsOf(DANCES[o.dance].styleLabel)[s]
 					}))}
 					bind:value={variationStyle}
 				/>
 				{@render fieldError('style')}
 			</div>
-		{:else if step === 'figure'}
-			<div>
-				<label for="{uid}-figureName" class={LABEL}>Move name</label>
-				<input
-					id="{uid}-figureName"
-					bind:value={figureName}
-					required
-					maxlength="200"
-					class={FIELD}
-					aria-invalid={errorAt('figureName') ? 'true' : undefined}
-					aria-describedby={errorAt('figureName') ? `${uid}-figureName-error` : undefined}
-				/>
-				{@render fieldError('figureName')}
-			</div>
-			<div>
-				<label for="{uid}-name" class={LABEL}>Figure name</label>
-				<input
-					id="{uid}-name"
-					bind:value={firstName}
-					required
-					maxlength="200"
-					class={FIELD}
-					aria-invalid={errorAt('name') ? 'true' : undefined}
-					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
-				/>
-				{@render fieldError('name')}
-			</div>
-			<div>
-				<span class={LABEL}>Danced</span>
-				<Segmented
-					name="{formId}-partner"
-					label="Danced"
-					items={partnerItems}
-					value={partner}
-					onchange={(v) => (partner = v as Partner)}
-				/>
-			</div>
-			<div>
-				<span class={LABEL}>Style</span>
-				<Segmented
-					name="{formId}-style"
-					label="Style"
-					items={DANCES[o.dance].styles.map((s) => ({
-						value: s,
-						label: DANCES[o.dance].styleLabel[s]
-					}))}
-					bind:value={style}
-				/>
-				{@render fieldError('style')}
-			</div>
 		{:else if step === 'position'}
 			<div>
-				<label for="{uid}-name" class={LABEL}>Name</label>
+				<label for="{uid}-name" class={LABEL}>{t().links.create.name}</label>
 				<input
 					id="{uid}-name"
 					bind:value={positionName}
 					required
 					maxlength="200"
-					placeholder="e.g. Cerrada, Manos cruzadas"
+					placeholder={t().links.create.positionPlaceholder}
 					class={FIELD}
 					aria-invalid={errorAt('name') ? 'true' : undefined}
 					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
@@ -715,14 +681,14 @@
 				{@render fieldError('name')}
 			</div>
 			<div>
-				<span class={LABEL}>Type</span>
+				<span class={LABEL}>{t().links.create.type}</span>
 				<!-- A tap on the picked type clears it: a position may have none. -->
 				<Segmented
 					name="{formId}-styleTag"
-					label="Type"
+					label={t().links.create.type}
 					items={DANCES[o.dance].styles.map((s) => ({
 						value: s,
-						label: DANCES[o.dance].styleLabel[s]
+						label: styleLabelsOf(DANCES[o.dance].styleLabel)[s]
 					}))}
 					bind:value={positionStyle}
 					clearable
@@ -731,7 +697,7 @@
 			</div>
 		{:else}
 			<div>
-				<label for="{uid}-name" class={LABEL}>Name</label>
+				<label for="{uid}-name" class={LABEL}>{t().links.create.name}</label>
 				<input
 					id="{uid}-name"
 					bind:value={drillName}
@@ -755,7 +721,7 @@
 		class={button('primary', 'md', true)}
 		aria-busy={busy ? 'true' : undefined}
 		aria-disabled={busy ? 'true' : undefined}
-		>{#if busy}<Spinner size={20} />{/if}Create and link</button
+		>{#if busy}<Spinner size={20} />{/if}{t().links.create.submit}</button
 	>
 {/snippet}
 
@@ -764,19 +730,19 @@
 		type="button"
 		class={button('secondary', 'sm', true)}
 		disabled={busy}
-		onclick={() => answer(false)}>Only from this section</button
+		onclick={() => answer(false)}>{t().links.popup.onlySection}</button
 	>
 	<button
 		type="button"
 		class={button('danger', 'sm', true)}
 		disabled={busy}
-		onclick={() => answer(true)}>From the section and the lesson</button
+		onclick={() => answer(true)}>{t().links.popup.sectionAndLesson}</button
 	>
 	<button
 		type="button"
 		class={button('tertiary', 'sm', true)}
 		disabled={busy}
-		onclick={closeQuestion}>Cancel</button
+		onclick={closeQuestion}>{t().common.cancel}</button
 	>
 {/snippet}
 
@@ -805,7 +771,7 @@
 	{groups}
 	loading={!options && !loadFailed}
 	failure={loadFailed ? failedWords : null}
-	nothingLeft="Nothing else to link."
+	nothingLeft={t().links.popup.nothingLeft}
 	create={options ? words.create : undefined}
 	top={momentWhere === 'pick' ? pickTop : undefined}
 	{added}
@@ -828,7 +794,7 @@
 	{@const o = options}
 	<LinkLevel
 		{theme}
-		title={CREATE_TITLE[createStep]}
+		title={t().links.create.titles[createStep]}
 		sub={destination(o)}
 		back={stacked(steps, createStep)}
 		z="z-50"
@@ -845,8 +811,8 @@
 		<PlayerLayer
 			shape="dialog"
 			z="z-50"
-			title="Unlink {asking.label}?"
-			body="It’s also linked to this lesson."
+			title={t().links.popup.unlinkTitle(asking.label)}
+			body={t().links.popup.alsoLesson}
 			icon="unlink"
 			tone="danger"
 			footer={questionActions}
@@ -856,8 +822,8 @@
 {:else}
 	<Dialog
 		open={asking !== null}
-		title="Unlink {asking?.label ?? ''}?"
-		body="It’s also linked to this lesson."
+		title={t().links.popup.unlinkTitle(asking?.label ?? '')}
+		body={t().links.popup.alsoLesson}
 		icon="unlink"
 		tone="danger"
 		actions={questionActions}

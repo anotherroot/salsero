@@ -12,6 +12,7 @@
 	import { fromTags } from '$lib/clones/from-tag';
 	import { figureRowMeta } from '$lib/moves/list';
 	import { moveSubtitle } from '$lib/moves/move-page';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -67,7 +68,11 @@
 			? resolve('/[dance]/(moves)/routines/[id]', { dance: slug, id: String(u.id) })
 			: resolve('/[dance]/lessons/[id]', { dance: slug, id: String(u.id) });
 	const title = $derived(
-		view === 'rename' ? 'Rename move' : view === 'new' ? 'New figure' : data.move.name
+		view === 'rename'
+			? t().moves.move.rename
+			: view === 'new'
+				? t().moves.move.newFigure
+				: data.move.name
 	);
 </script>
 
@@ -78,7 +83,7 @@
 		<BackButton
 			fallback={{
 				href: resolve('/[dance]/(moves)/figures', { dance: slug }),
-				label: 'Back to Moves'
+				label: t().shell.backTo(t().shell.tabs.moves)
 			}}
 		/>
 	{/snippet}
@@ -89,7 +94,7 @@
 				><BandButton
 					focusKey="rename"
 					icon="pencil"
-					label="Rename move"
+					label={t().moves.move.rename}
 					onclick={() => (view = 'rename')}
 				/></span
 			>
@@ -97,7 +102,7 @@
 				><BandButton
 					focusKey="more"
 					icon="more"
-					label="More"
+					label={t().moves.move.more}
 					onclick={() => (view = 'menu')}
 				/></span
 			>
@@ -105,7 +110,7 @@
 	{/snippet}
 
 	<div class="flex flex-col gap-2 pb-4">
-		<h2 class="{SECTION_LABEL} pt-0.5">Figures</h2>
+		<h2 class="{SECTION_LABEL} pt-0.5">{t().moves.move.figures}</h2>
 		<ul class={GROUP}>
 			{#each data.figures as f (f.id)}
 				<li>
@@ -131,13 +136,14 @@
 				><button
 					type="button"
 					class={button('secondary', 'md', true)}
-					onclick={() => (view = 'new')}><Icon name="plus" size={20} />New figure</button
+					onclick={() => (view = 'new')}
+					><Icon name="plus" size={20} />{t().moves.move.newFigure}</button
 				></span
 			>
 		{/if}
 
 		{#if data.usedIn.length > 0}
-			<h2 class="{SECTION_LABEL} pt-3.5">Used in</h2>
+			<h2 class="{SECTION_LABEL} pt-3.5">{t().moves.move.usedIn}</h2>
 			<ul class={GROUP}>
 				{#each data.usedIn as u (u.kind + u.id)}
 					<li>
@@ -167,12 +173,14 @@
 				<button
 					type="button"
 					class="flex min-h-14 w-full items-center gap-3 py-2 pr-3.5 pl-4 text-left text-[16px] font-bold text-ink"
-					onclick={() => (view = 'rename')}><Icon name="pencil" size={22} />Rename</button
+					onclick={() => (view = 'rename')}
+					><Icon name="pencil" size={22} />{t().moves.move.renameItem}</button
 				>
 				<button
 					type="button"
 					class="flex min-h-14 w-full items-center gap-3 py-2 pr-3.5 pl-4 text-left text-[16px] font-bold text-ink"
-					onclick={() => (view = 'new')}><Icon name="plus" size={22} />New figure</button
+					onclick={() => (view = 'new')}
+					><Icon name="plus" size={22} />{t().moves.move.newFigure}</button
 				>
 			</div>
 		{:else if view === 'rename'}
@@ -181,11 +189,11 @@
 				method="POST"
 				action="?/rename"
 				class="flex flex-col gap-3.5"
-				use:guarded={{ label: 'Rename move', submit: submit(closeSheet) }}
+				use:guarded={{ label: t().moves.move.rename, submit: submit(closeSheet) }}
 			>
 				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				<div>
-					<label class={LABEL} for="move-name">Move name</label>
+					<label class={LABEL} for="move-name">{t().moves.move.moveName}</label>
 					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						id="move-name"
@@ -212,10 +220,10 @@
 				method="POST"
 				action="?/createFigure"
 				class="flex flex-col gap-3.5"
-				use:guarded={{ label: 'New figure', submit: submit(closeSheet) }}
+				use:guarded={{ label: t().moves.move.newFigure, submit: submit(closeSheet) }}
 			>
 				<div>
-					<label class={LABEL} for="figure-name">Figure name</label>
+					<label class={LABEL} for="figure-name">{t().moves.move.figureName}</label>
 					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						id="figure-name"
@@ -223,7 +231,7 @@
 						required
 						autofocus
 						maxlength="200"
-						placeholder="e.g. Doble"
+						placeholder={t().moves.move.figurePlaceholder}
 						value={error && error.action === 'createFigure' && 'name' in error ? error.name : ''}
 						class={FIELD}
 						aria-invalid={fieldError('createFigure') ? 'true' : undefined}
@@ -235,7 +243,7 @@
 						/>{/if}
 				</div>
 				<p class="text-[13px] text-muted">
-					It starts on 1 and takes 8 counts, in the style of {data.move.name}.
+					{t().moves.move.startsAs(data.move.name)}
 				</p>
 			</form>
 		{/if}
@@ -249,6 +257,8 @@
 		class={button('primary', 'md', true)}
 		aria-busy={busy}
 	>
-		{#if busy}<Spinner />{:else}{view === 'rename' ? 'Save' : 'Add figure'}{/if}
+		{#if busy}<Spinner />{:else}{view === 'rename'
+				? t().common.save
+				: t().moves.move.addFigure}{/if}
 	</button>
 {/snippet}

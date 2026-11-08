@@ -17,6 +17,7 @@ export const common: Catalog['common'] = {
 	loading: 'Nalaganje\u00a0…',
 	more: '⋯',
 	search: 'Iskanje',
+	unreachable: 'Strežnika ni bilo mogoče doseči.',
 	/** `x` with `digits` decimals: a comma. */
 	decimal: (x: number, digits: number): string => x.toFixed(digits).replace('.', ',')
 };

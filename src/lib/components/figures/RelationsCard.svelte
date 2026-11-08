@@ -13,6 +13,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { RoutineUse } from '$lib/routines/coverage';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * Follows from, Leads to and In routines (figure page rework, option B2):
@@ -74,7 +75,7 @@
 	}
 </script>
 
-<ul class={GROUP} aria-label="Moves and routines around this figure">
+<ul class={GROUP} aria-label={t().figure.relations.label}>
 	{#each rows as row (row.key)}
 		<li>
 			{#if row.opens}
@@ -102,7 +103,6 @@
 	{/each}
 </ul>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the page resolves its hrefs -->
 {#snippet routineList(list: RoutineUse[])}
 	<ul class={GROUP}>
 		{#each list as use (use.id)}
@@ -119,7 +119,7 @@
 						<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
 						<span class="text-[13px] text-muted"
 							>{routineUseMeta(use)}{#if use.loops}
-								· <span class="font-bold text-done">loops</span>{/if}</span
+								· <span class="font-bold text-done">{t().figure.relations.loops}</span>{/if}</span
 						>
 					</span>
 					<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
@@ -133,26 +133,30 @@
 	<div class="flex flex-col gap-3">
 		<SearchField
 			bind:value={q}
-			placeholder={shown === 'routines' ? 'Search routines' : 'Search figures'}
-			label={shown === 'routines' ? 'Search routines' : 'Search figures'}
+			placeholder={shown === 'routines'
+				? t().figure.relations.searchRoutines
+				: t().figure.relations.searchFigures}
+			label={shown === 'routines'
+				? t().figure.relations.searchRoutines
+				: t().figure.relations.searchFigures}
 		/>
 		{#if shown === 'routines'}
 			{#if groupRoutines.length + myRoutines.length === 0}
-				<p class="px-4 py-3 text-[15px] text-muted">No routine matches.</p>
+				<p class="px-4 py-3 text-[15px] text-muted">{t().figure.relations.noRoutine}</p>
 			{:else if mineLabel !== null}
 				{#if groupRoutines.length > 0}
 					<h3 class={SECTION_LABEL}>{mineLabel}</h3>
 					{@render routineList(groupRoutines)}
 				{/if}
 				{#if myRoutines.length > 0}
-					<h3 class={SECTION_LABEL}>Yours</h3>
+					<h3 class={SECTION_LABEL}>{t().moves.heading.yours}</h3>
 					{@render routineList(myRoutines)}
 				{/if}
 			{:else}
 				{@render routineList(sortRoutines([...groupRoutines, ...myRoutines]))}
 			{/if}
 		{:else if figures.length === 0}
-			<p class="px-4 py-3 text-[15px] text-muted">No figure matches.</p>
+			<p class="px-4 py-3 text-[15px] text-muted">{t().figure.relations.noFigure}</p>
 		{:else}
 			<ul class={GROUP}>
 				{#each figures as item (item.id)}
@@ -176,4 +180,3 @@
 		{/if}
 	</div>
 </Sheet>
-<!-- eslint-enable svelte/no-navigation-without-resolve -->

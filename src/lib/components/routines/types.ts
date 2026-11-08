@@ -28,8 +28,7 @@ export interface RowView {
 	empty: boolean;
 	note: string | null;
 	/** Where swiping right or "Open →" goes; null when there is nothing to open.
-	 *  A `resolve()` result, not a bare string — `<a href>` needs that to pass
-	 *  `svelte/no-navigation-without-resolve` without re-resolving here. */
+	 *  A `resolve()` result, not a bare string. */
 	href: ResolvedPathname | null;
 	isRoutine: boolean;
 	/** Every option but the main figure, in the order they were added. */

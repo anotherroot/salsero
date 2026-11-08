@@ -381,7 +381,8 @@ The home page. One page serves both "exercises" and "today".
   [redesign](2026-10-31-redesign-design.md), Moves.
 - **Positions:** Moves' third segment, `/[dance]/positions`: how many figures
   have positions, Templates and How positions work, search, a chip per type
-  and Gaps, No position, the map, then Yours and each group's. Positions are
+  and Gaps, No position, the map (name pills, a sheet per position and a walk
+  that makes a routine: see the [map spec](2026-11-08-map-walk-design.md)), then Yours and each group's. Positions are
   owned like figures (a person's or a group's, with copies, Make it mine and
   twins); a name is unique among the space's live positions, ignoring accents
   and case. See the [positions spec](2026-11-04-positions-design.md).
@@ -438,9 +439,22 @@ While laptop is off, songs simply wait; the library says so.
 Being added (waiting and failed songs, plus the upload in flight), Recent, then A–Z. A song being
 added shows its steps on its own page (Added, Download, Find the beat; an upload
 has no Download); a failed one shows the error, Retry and Upload a file instead.
-The ready song page has the app's own timeline with the user's 1s as ticks.
-Song details is a sheet from the pencil, with a refusal under its field; Archive
-song asks in a dialog stacked over it (no browser `confirm()`).
+The ready song page (since 2026-11-08, see
+[`2026-11-08-song-page-design.md`](2026-11-08-song-page-design.md)) is a minimal
+listening view that changes nothing: the section playing, the count (a dash in a
+count-off section), "→ Mambo in 3 eights", the seek bar with the section starts
+and the part before the music pale, the sample (play only) and the sections,
+tap to jump. Its pencil opens **Edit**, which saves as you go with Undo: a Grid
+tab (the whole song's count, a row per eight, tap a beat to jump, hold it for
+Make this the 1, Start a section here, Remove this 1, Start the song here; Tap
+on the 1; suggestions from the downbeats; the section sheet) and a Song tab
+(count speed, the sample, where the music starts, Song details, Clear all).
+**Sections** are the user's named parts (`songs.sections_json`, raw seconds,
+snapped to a 1 on read), each counted or not. A song **starts where its music
+starts**: the worker measures it (`start_found_s`), the user may move it
+(`start_s`), every player seeks there from 0:00 (`playFrom`), and the file stays
+whole. Song details is a sheet from Edit · Song, with a refusal under its field;
+Archive song asks in a dialog stacked over it (no browser `confirm()`).
 Music has two sections: the person's own songs, then a section per group with
 the songs it shares (in group mode, only that group's). A group song is
 withdrawn or deleted by its teacher with a warning, not refused; see
@@ -463,7 +477,13 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   at a break is fixed. Anchors consistent with the previous one are dropped.
 - `tempo_factor` fixes a half- or double-time detection (salsa measured at
   103 BPM is likely half the count rate): ×2 inserts midpoints, ×½ keeps every
-  other beat. Changing it clears the anchors, since beat indices change.
+  other beat. Changing it clears the anchors, since beat indices change;
+  sections stay (they are seconds), each on its nearest 1.
+- A tap while paused takes the beat at the playhead with no reaction time
+  off, so a jump to a beat and Tap on the 1 sets that very beat.
+- The downbeats also suggest where the 1 moves later in the song: runs of 4
+  or more downbeats in a new bar phase (`src/lib/songs/suggest.ts`), shown as
+  a card the user accepts or puts aside, never applied by itself.
 
 **Player:**
 
@@ -767,9 +787,16 @@ the pages drawn before sign-in; Settings has a switch at the top, and the admin 
 sets a person's. Words live in typed catalogs (`src/lib/i18n/`, English the source,
 Slovenian typed against it) read through `t()`; the server keeps the language per
 request, never in a module variable. What people write and the count stay as they
-are. Part 1 (deployed first) is the Follow my class path; the rest of the app and
-the Android app's own text are part 2. The register, the glossary, plurals, dates,
-numbers and the order of work are in
+are. Everything a person reads is translated: every page, sheet, toast, refusal and
+error page, the admin page, and the Android app's own text (1.8, in the account's
+language from `/api/device/config`). Machines keep English: the worker's queue, the
+media servers' bodies, `/releases`, `/api/app-update` and the 426 a too-old app gets.
+Text the app writes into the database (a template's notes, a copy's suffix) is in the
+actor's language; text composed when read (History, Recently deleted, refusals) is in
+the reader's. Two specs keep it so: every component's markup is checked for bare
+English (`no-english.spec.ts`, a named few exempt) and every server refusal for an
+English literal (`refusals-guard.spec.ts`). The register, the glossary, plurals,
+cases, dates, numbers and the order of work are in
 [`2026-11-07-slovenian-design.md`](2026-11-07-slovenian-design.md).
 
 ## Errors

@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
@@ -16,12 +17,12 @@ import { serverNow } from '$lib/server/server-clock';
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = locals.user;
-	if (!user) throw error(401, 'Sign in');
+	if (!user) throw error(401, t().refusals.signIn);
 	const body = (await request.json().catch(() => null)) as { kind?: unknown; id?: unknown } | null;
 	const id = body && typeof body.id === 'number' && Number.isInteger(body.id) ? body.id : 0;
 	const kind = body?.kind;
 	if ((kind !== 'lesson' && kind !== 'song' && kind !== 'comments') || id <= 0)
-		throw error(400, 'Bad request');
+		throw error(400, t().refusals.badRequest);
 	const db = getDb();
 	if (kind === 'song') {
 		const song = getSong(db, id);
@@ -31,14 +32,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			song.archivedAt !== null ||
 			!songAccess(db, user.id, song)
 		) {
-			throw error(404, 'No such song');
+			throw error(404, t().refusals.noSong);
 		}
 		recordOpen(db, user.id, 'song', song.id, serverNow());
 		return new Response(null, { status: 204 });
 	}
 	const lesson = db.select().from(lessons).where(eq(lessons.id, id)).get();
 	if (!lesson || lesson.teamId === null || lessonAccess(db, user.id, lesson) === null) {
-		throw error(404, 'No such lesson');
+		throw error(404, t().refusals.noLesson);
 	}
 	// 'comments' is the lesson's comments (item = the lesson): the same wall, the same 404.
 	recordOpen(db, user.id, kind, lesson.id, serverNow());

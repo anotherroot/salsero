@@ -23,7 +23,16 @@
 	import { act, actAt } from '$lib/act';
 	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { IconName } from '$lib/icons/icons';
-	import { FIELD, GROUP, LABEL, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import {
+		FIELD,
+		GROUP,
+		LABEL,
+		ROW,
+		SECTION_LABEL,
+		TEXTAREA,
+		button
+	} from '$lib/components/ui/styles';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import {
 		addedToToday,
 		MY_CLASS,
@@ -37,6 +46,11 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { t } from '$lib/i18n/catalog';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
+	import { styleLabelsOf } from '$lib/moves/figures';
+	import { byMonth } from '$lib/lessons/list';
+	import { ADD_KINDS, addPath, chooserShown } from '$lib/teams/add-menu';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -115,6 +129,7 @@
 		if (form !== seen && form?.action === 'rename' && form.message) renaming = true;
 	});
 	const fresh = $derived(form !== seen ? form : null);
+	const drillRefusal = $derived(fresh?.action === 'drill' ? fresh : null);
 	// A refused New lesson re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
 		if (form !== seen && form?.action === 'create' && form.message) creating = true;
@@ -124,6 +139,40 @@
 		seen = form;
 		creating = true;
 	}
+
+	/**
+	 * The band's +: Add to the group where group mode exists, else New lesson.
+	 * Music, Figure, Routine and Position switch into the group and open their
+	 * list's create sheet; Lesson and Drill are made here.
+	 */
+	let choosing = $state(false);
+	let drilling = $state(false);
+	let drillBusy = $state(false);
+	function openAdd() {
+		if (chooserShown(data.user?.level)) choosing = true;
+		else openNewLesson();
+	}
+	function openDrill() {
+		seen = form;
+		drilling = true;
+	}
+	// A refused New drill re-renders with the message; keep the sheet open to show it.
+	$effect(() => {
+		if (form !== seen && form?.action === 'drill' && form.message) drilling = true;
+	});
+	// Close-then-go, as GroupModeButton: the sheet's Back lands, then the list opens.
+	const switchInto: SubmitFunction = () => {
+		return async ({ result, update }) => {
+			choosing = false;
+			if (result.type === 'redirect') {
+				await gotoWhenSettled(result.location, { invalidateAll: true });
+				return;
+			}
+			await update({ reset: false });
+		};
+	};
+
+	const months = $derived(byMonth(data.lessons));
 
 	function openRename() {
 		seen = form;
@@ -159,6 +208,9 @@
 	left={backShown ? back : undefined}
 >
 	{#snippet right()}
+		{#if data.canEdit && !data.simple}
+			<BandButton icon="plus" label={w.add} onclick={openAdd} />
+		{/if}
 		{#if !deleted}
 			<BandButton
 				icon="more"
@@ -188,7 +240,7 @@
 		<!-- My class: the latest class, the earlier ones and the class songs (levels spec). -->
 		<MyClass
 			dance={data.dance.slug}
-			styleLabel={data.dance.styleLabel}
+			styleLabel={styleLabelsOf(data.dance.styleLabel)}
 			lessons={data.lessons}
 			songs={data.songs}
 			{addingNow}
@@ -234,20 +286,15 @@
 {/snippet}
 
 {#snippet lessons()}
-	<section class="flex flex-col gap-2">
-		<div class="flex items-center justify-between pr-1">
-			<h2 class={SECTION_LABEL}>{w.lessons}</h2>
-			{#if data.canEdit}
-				<button type="button" class={button('tertiary', 'sm')} onclick={openNewLesson}
-					><Icon name="plus" size={18} />{w.newLesson}</button
-				>
-			{/if}
-		</div>
+	<!-- By month, as the Lessons tab: the month heading tells when a class was; New lesson is the band's +. -->
+	<section class="flex flex-col gap-2" aria-label={w.lessons}>
 		{#if data.lessons.length === 0}
 			<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">{w.noLessons}</div>
-		{:else}
-			<ul class={GROUP} aria-label={w.lessons}>
-				{#each data.lessons as lesson (lesson.id)}
+		{/if}
+		{#each months as month (month.key)}
+			<h2 class={SECTION_LABEL}>{month.label}</h2>
+			<ul class={GROUP} aria-label={month.label}>
+				{#each month.lessons as lesson (lesson.id)}
 					<LessonRow
 						{lesson}
 						draft={lesson.publishedAt === null}
@@ -288,7 +335,7 @@
 					{/snippet}
 				{/each}
 			</ul>
-		{/if}
+		{/each}
 	</section>
 {/snippet}
 
@@ -306,8 +353,8 @@
 						})}
 						name={songName(s)}
 						meta={s.status === 'ready'
-							? readyMeta(s, data.dance.styleLabel)
-							: songState(s, data.dance.styleLabel).meta}
+							? readyMeta(s, styleLabelsOf(data.dance.styleLabel))
+							: songState(s, styleLabelsOf(data.dance.styleLabel)).meta}
 						tone={s.status === 'failed' ? 'danger' : null}
 						sample={s.sample}
 						draft={s.draft}
@@ -374,6 +421,110 @@
 			)}{/if}
 	</div>
 </Sheet>
+
+{#if data.canEdit && !data.simple}
+	<Sheet title={w.add} open={choosing} onclose={() => (choosing = false)} size="small">
+		<!-- One form: the four switch rows each post their list as `to`; Lesson and Drill stay here. -->
+		<form
+			method="POST"
+			action="/{data.dance.slug}/group-mode"
+			class={GROUP}
+			use:enhance={switchInto}
+		>
+			<input type="hidden" name="team" value={data.team.id} />
+			{#each ADD_KINDS as k (k.kind)}
+				{@const to = addPath(k.kind, data.dance.slug)}
+				{#if to}
+					<button
+						type="submit"
+						name="to"
+						value={to}
+						class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
+					>
+						<span class="flex-none text-accent-text"><Icon name={k.icon} size={22} /></span>
+						<span class="text-[16px] font-bold text-ink">{w.addMenu[k.kind]}</span>
+					</button>
+				{:else}
+					<!-- As the ⋯ menu's rows: this sheet closes and the next opens in one tap. -->
+					{@render row(k.icon, w.addMenu[k.kind], () => {
+						choosing = false;
+						if (k.kind === 'lesson') openNewLesson();
+						else openDrill();
+					})}
+				{/if}
+			{/each}
+		</form>
+	</Sheet>
+
+	<Sheet title={w.newDrill.title} open={drilling} onclose={() => (drilling = false)}>
+		<form
+			id="group-new-drill"
+			method="POST"
+			action="?/createDrill"
+			novalidate
+			class="flex flex-col gap-3.5"
+			use:guarded={{
+				label: w.newDrill.title,
+				submit: ({ cancel }) => {
+					if (drillBusy) return cancel();
+					drillBusy = true;
+					return async ({ update }) => {
+						try {
+							await update({ reset: false });
+						} finally {
+							drillBusy = false;
+						}
+					};
+				}
+			}}
+		>
+			<label class="block">
+				<span class={LABEL}>{w.newDrill.name}</span>
+				<!-- svelte-ignore a11y_autofocus -->
+				<input
+					name="name"
+					autofocus
+					autocomplete="off"
+					maxlength="200"
+					required
+					value={drillRefusal?.name ?? ''}
+					class={FIELD}
+					aria-invalid={drillRefusal?.field === 'name' ? 'true' : undefined}
+				/>
+				{#if drillRefusal?.field === 'name'}<FieldError
+						id="drill-name-error"
+						message={drillRefusal?.message ?? ''}
+					/>{/if}
+			</label>
+			<label class="block">
+				<span class={LABEL}>{w.newDrill.notes}</span>
+				<textarea
+					name="notes"
+					rows="3"
+					maxlength="2000"
+					class={TEXTAREA}
+					aria-invalid={drillRefusal?.field === 'notes' ? 'true' : undefined}
+					>{drillRefusal?.notes ?? ''}</textarea
+				>
+				{#if drillRefusal?.field === 'notes'}<FieldError
+						id="drill-notes-error"
+						message={drillRefusal?.message ?? ''}
+					/>{/if}
+			</label>
+			<p class="pl-1 text-[13px] text-muted">{w.newDrill.hint}</p>
+		</form>
+		{#snippet footer()}
+			<button
+				type="submit"
+				form="group-new-drill"
+				class={button('primary', 'md', true)}
+				aria-busy={drillBusy}
+			>
+				{#if drillBusy}<Spinner />{:else}{w.newDrill.create}{/if}
+			</button>
+		{/snippet}
+	</Sheet>
+{/if}
 
 {#if data.canEdit}
 	<NewLessonSheet

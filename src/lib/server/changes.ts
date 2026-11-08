@@ -48,6 +48,7 @@ import { getPosition, updatePosition } from './positions';
 import { getRoutine, setSlotNote, updateRoutine } from './routines';
 import { getExercise, updateExercise } from './exercises';
 import { updateSpot } from './spots';
+import { t } from '$lib/i18n/catalog';
 import type { LinkOwner } from './links';
 
 export interface ChangeEntry {
@@ -574,7 +575,7 @@ export function archivedTarget(
 	if (by === undefined) return null;
 	return {
 		by,
-		message: by === null ? 'That was archived since you opened this.' : archivedByLine(by)
+		message: by === null ? t().groups.history.archivedSince : archivedByLine(by)
 	};
 }
 

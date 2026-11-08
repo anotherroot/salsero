@@ -5,7 +5,7 @@
  */
 import type { Db } from './db';
 import { defaultStyle } from './default-styles';
-import { listAddedFigures, listFigures, listVersions } from './figures';
+import { listAddedFigures, listFigures, listMoveTargets, listVersions } from './figures';
 import { canonicalOf, graphFor } from './graph';
 import { listPositions, positionsFrom, positionSummary } from './positions';
 import { copiedFromPlaces } from './clones/genes';
@@ -86,7 +86,8 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 			groupMode: true,
 			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
 			unrouted: null,
-			defaultStyle: defStyle
+			defaultStyle: defStyle,
+			moveTargets: listMoveTargets(db, space, null)
 		};
 	}
 	return {
@@ -107,7 +108,8 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 			routineShapes(db, wall),
 			listRoutines(db, wall)
 		).filter((r) => r.routines.length === 0).length,
-		defaultStyle: defStyle
+		defaultStyle: defStyle,
+		moveTargets: listMoveTargets(db, wall, null)
 	};
 }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { HOW, HOW_EXAMPLE_LABEL } from '$lib/positions/view';
+	import { HOW, howExampleLabel } from '$lib/positions/view';
 
 	/**
 	 * How positions work: a small example, then five short sections. HowSheet's
@@ -19,7 +19,7 @@
 	<!-- A position, a figure, the next position: one strip, the second figure leaving the first's end. -->
 	<div
 		role="img"
-		aria-label={HOW_EXAMPLE_LABEL}
+		aria-label={howExampleLabel()}
 		class="flex flex-wrap items-center gap-2.5 rounded-2xl bg-accent-soft p-4"
 	>
 		{#each HOW.example as [start, figure, end], i (i)}

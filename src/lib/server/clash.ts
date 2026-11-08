@@ -21,6 +21,7 @@ import { figureGroups, figures, positions } from './db/schema';
 import { figurePositions } from './graph';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { asSeen, changedFields, clashTitle, goneTitle, type Seen } from '$lib/clash/clash';
+import { t } from '$lib/i18n/catalog';
 import { serverNow } from '$lib/server/server-clock';
 
 export type SeenCheck =
@@ -69,8 +70,8 @@ export function seesAll(seen: Seen | null, keys: string[]): boolean {
 	return seen !== null && keys.every((k) => k in seen);
 }
 
-/** The refusal for a save that had to carry `seen` (a group's row, or one with copies) and did not. */
-export const MISSING_SEEN = 'This page is out of date. Reload it and try again.';
+/** The refusal for a save that had to carry `seen` (a group's row, or one with copies) and did not; the reader's words. */
+export const missingSeen = (): string => t().groups.clash.missingSeen;
 
 /**
  * A form save's clash check, as the failure to return (or null to go on):
@@ -90,7 +91,7 @@ export function seenRefusal<T extends Record<string, unknown>>(
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
 	const seen = seenFrom(form);
 	if (required && current !== null && !seesAll(seen, Object.keys(current))) {
-		return fail(400, { ...extra, message: MISSING_SEEN });
+		return fail(400, { ...extra, message: missingSeen() });
 	}
 	const check = checkSeen(current, seen, who);
 	if (check.ok) return null;
@@ -160,6 +161,8 @@ export function songSeen(song: {
 	anchorsJson: string;
 	tempoFactor: number;
 	sampleStartS: number | null;
+	sectionsJson: string;
+	startS: number | null;
 }): Seen {
 	return {
 		title: song.title,
@@ -167,7 +170,9 @@ export function songSeen(song: {
 		style: song.style,
 		anchorsJson: song.anchorsJson,
 		tempoFactor: song.tempoFactor,
-		sampleStartS: song.sampleStartS
+		sampleStartS: song.sampleStartS,
+		sectionsJson: song.sectionsJson,
+		startS: song.startS
 	};
 }
 
@@ -181,10 +186,12 @@ export function spotSeen(spot: {
 }
 
 /**
- * A variation's edit form — the figure's name with it — or null when the
- * variation or its figure is archived or gone.
+ * A variation's edit form, or null when the variation or its figure is
+ * archived or gone. The move's name only `withMove`: Edit no longer asks for
+ * it (the move's page renames it), so a rename there is no clash; an older
+ * open page that still sends it is checked against it.
  */
-export function variationSeen(db: Db, figureId: number): Seen | null {
+export function variationSeen(db: Db, figureId: number, withMove = false): Seen | null {
 	const row = db
 		.select({
 			figure: figures,
@@ -199,7 +206,7 @@ export function variationSeen(db: Db, figureId: number): Seen | null {
 	const { figure } = row;
 	const tags = figurePositions(db, figureId);
 	return {
-		figureName: row.groupName,
+		...(withMove ? { figureName: row.groupName } : {}),
 		name: figure.name,
 		partner: figure.partner,
 		style: figure.styleTag,

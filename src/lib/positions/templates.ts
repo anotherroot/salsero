@@ -1,11 +1,13 @@
 /** The templates a person can add positions from, per dance and style. PURE, client-safe. */
 import type { DanceSlug } from '$lib/dances/dances';
+import { t } from '$lib/i18n/catalog';
 import type { Hold } from '$lib/types';
 
 export interface Template {
+	/** A dance term, the same in every language: `addTemplates` matches by it. */
 	name: string;
-	/** Becomes the new position's notes. */
-	description: string;
+	/** Becomes the new position's notes: the catalog's, in the language it is read in. */
+	readonly description: string;
 	hold: Hold;
 }
 
@@ -16,142 +18,74 @@ const h = (
 	frame: Hold['frame']
 ): Hold => ({ hands, crossed, facing, frame });
 
-export const TEMPLATES: Record<DanceSlug, Record<string, Template[]>> = {
+/** A template's description in the current language (`positions.templates.descriptions`). */
+export function templateDescription(dance: DanceSlug, type: string, name: string): string {
+	return t().positions.templates.descriptions[dance]?.[type]?.[name] ?? '';
+}
+
+const TABLE: Record<DanceSlug, Record<string, [name: string, hold: Hold][]>> = {
 	salsa: {
 		salsa: [
-			{
-				name: 'Abierta (dos manos)',
-				description: 'Open, both hands',
-				hold: h('two', null, 'face', 'open')
-			},
-			{
-				name: 'Abierta (una mano)',
-				description: 'Open, his left in her right',
-				hold: h('one', null, 'face', 'open')
-			},
-			{
-				name: 'Cerrada',
-				description: 'Closed, the basic frame',
-				hold: h('two', null, 'face', 'closed')
-			},
-			{
-				name: 'Hammerlock',
-				description: 'Her right arm folded behind her back',
-				hold: h('one', null, 'face', 'open')
-			},
-			{
-				name: 'Cuddle',
-				description: 'Side by side, her wrapped in his arms',
-				hold: h('two', null, 'side', 'closed')
-			},
-			{
-				name: 'Sombra',
-				description: 'Shadow: he is behind her, same direction',
-				hold: h('none', null, 'shadow', 'closed')
-			}
+			['Abierta (dos manos)', h('two', null, 'face', 'open')],
+			['Abierta (una mano)', h('one', null, 'face', 'open')],
+			['Cerrada', h('two', null, 'face', 'closed')],
+			['Hammerlock', h('one', null, 'face', 'open')],
+			['Cuddle', h('two', null, 'side', 'closed')],
+			['Sombra', h('none', null, 'shadow', 'closed')]
 		],
 		son: [
-			{
-				name: 'Cerrada de son',
-				description: 'Closed and low, close together',
-				hold: h('two', null, 'face', 'closed')
-			},
-			{
-				name: 'Abierta',
-				description: 'Open, one hand, loose',
-				hold: h('one', null, 'face', 'open')
-			},
-			{
-				name: 'Manos cruzadas',
-				description: 'Both hands crossed, right on top',
-				hold: h('two', true, 'face', 'open')
-			},
-			{
-				name: 'Paseo',
-				description: 'Side by side, walking',
-				hold: h('one', null, 'side', 'open')
-			}
+			['Cerrada de son', h('two', null, 'face', 'closed')],
+			['Abierta', h('one', null, 'face', 'open')],
+			['Manos cruzadas', h('two', true, 'face', 'open')],
+			['Paseo', h('one', null, 'side', 'open')]
 		],
 		// draft: the user reviews
 		timba: [
-			{ name: 'Pegao', description: 'Closed, hip to hip', hold: h('two', null, 'face', 'closed') },
-			{
-				name: 'Caída',
-				description: 'One hand, her weight dropped back',
-				hold: h('one', null, 'face', 'open')
-			},
-			{
-				name: 'Sombra de timba',
-				description: 'Shadow, close, hips moving',
-				hold: h('none', null, 'shadow', 'closed')
-			},
-			{
-				name: 'Abierta de timba',
-				description: 'Open, one hand, low',
-				hold: h('one', null, 'face', 'open')
-			}
+			['Pegao', h('two', null, 'face', 'closed')],
+			['Caída', h('one', null, 'face', 'open')],
+			['Sombra de timba', h('none', null, 'shadow', 'closed')],
+			['Abierta de timba', h('one', null, 'face', 'open')]
 		]
 	},
 	// draft: the user reviews
 	bachata: {
 		dominican: [
-			{
-				name: 'Closed',
-				description: 'Closed, close together',
-				hold: h('two', null, 'face', 'closed')
-			},
-			{
-				name: 'Open, two hands',
-				description: 'Open, both hands',
-				hold: h('two', null, 'face', 'open')
-			},
-			{
-				name: 'Side by side',
-				description: 'Side by side, close',
-				hold: h('one', null, 'side', 'closed')
-			}
+			['Closed', h('two', null, 'face', 'closed')],
+			['Open, two hands', h('two', null, 'face', 'open')],
+			['Side by side', h('one', null, 'side', 'closed')]
 		],
 		sensual: [
-			{
-				name: 'Closed',
-				description: 'Closed, body contact',
-				hold: h('two', null, 'face', 'closed')
-			},
-			{
-				name: 'Open, one hand',
-				description: 'Open, one hand',
-				hold: h('one', null, 'face', 'open')
-			},
-			{
-				name: 'Cross-hand',
-				description: 'Both hands crossed, right on top',
-				hold: h('two', true, 'face', 'open')
-			},
-			{
-				name: 'Hammerlock',
-				description: 'Her arm folded behind her back',
-				hold: h('one', null, 'face', 'open')
-			}
+			['Closed', h('two', null, 'face', 'closed')],
+			['Open, one hand', h('one', null, 'face', 'open')],
+			['Cross-hand', h('two', true, 'face', 'open')],
+			['Hammerlock', h('one', null, 'face', 'open')]
 		],
 		traditional: [
-			{
-				name: 'Closed',
-				description: 'Closed, the basic frame',
-				hold: h('two', null, 'face', 'closed')
-			},
-			{
-				name: 'Open, two hands',
-				description: 'Open, both hands',
-				hold: h('two', null, 'face', 'open')
-			},
-			{
-				name: 'Shadow',
-				description: 'He is behind her, same direction',
-				hold: h('none', null, 'shadow', 'closed')
-			}
+			['Closed', h('two', null, 'face', 'closed')],
+			['Open, two hands', h('two', null, 'face', 'open')],
+			['Shadow', h('none', null, 'shadow', 'closed')]
 		]
 	}
 };
+
+/** Each template's description is read when it is shown or written, never at import. */
+export const TEMPLATES: Record<DanceSlug, Record<string, Template[]>> = Object.fromEntries(
+	Object.entries(TABLE).map(([dance, types]) => [
+		dance,
+		Object.fromEntries(
+			Object.entries(types).map(([type, rows]) => [
+				type,
+				rows.map(([name, hold]): Template => ({
+					name,
+					hold,
+					get description() {
+						return templateDescription(dance as DanceSlug, type, name);
+					}
+				}))
+			])
+		)
+	])
+) as Record<DanceSlug, Record<string, Template[]>>;
 
 /** The types (styles) a dance has templates for, in display order. */
 export function templateTypes(dance: DanceSlug): string[] {

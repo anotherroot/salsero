@@ -17,6 +17,7 @@ import {
 	usedBytesOf
 } from '$lib/server/storage';
 import { askedLine } from '$lib/storage-view';
+import { t } from '$lib/i18n/catalog';
 import {
 	flowAfter,
 	rootOfRecording,
@@ -34,7 +35,7 @@ function teamOf(
 	need: 'editor' | 'owner'
 ) {
 	const found = requireTeam(getDb(), locals, params, need);
-	if (found.team.deletedAt !== null) throw error(404, 'No such group');
+	if (found.team.deletedAt !== null) throw error(404, t().groups.page.noGroup);
 	return found;
 }
 
@@ -56,7 +57,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	};
 };
 
-const gone = (action: string) => fail(404, { action, message: 'That is already gone.' });
+const gone = (action: string) => fail(404, { action, message: t().settings.storage.alreadyGone });
 
 /**
  * Row first, then file. In a group the delete trashes the row and the file
@@ -126,7 +127,7 @@ export const actions: Actions = {
 	ask: async ({ params, locals, request }) => {
 		const { team } = teamOf(params, locals, 'owner');
 		const note = optionalText(await request.formData(), 'note', 500);
-		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
+		if (note === undefined) return fail(400, { message: t().settings.storage.noteTooLong });
 		const res = askForMore(
 			getDb(),
 			{ userId: locals.user!.id, teamId: team.id },

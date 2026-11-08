@@ -11,6 +11,7 @@
 	 * promise the page cannot keep.
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import type { IconName } from '$lib/icons/icons';
 
 	interface Props {
@@ -51,17 +52,33 @@
 
 <div
 	role="group"
-	aria-label="Slots {above} and {below} do not connect"
+	aria-label={t().routine.seam.label(above, below)}
 	class="flex flex-col gap-0.5 rounded-[14px] border-l-[3px] border-warn bg-warn-soft pt-2.5 pr-2.5 pb-1 pl-3"
 >
 	<p class="flex items-start gap-[7px] text-[13px] leading-[1.35] font-bold text-warn">
 		<span class="mt-px flex-none"><Icon name="warning" size={16} /></span>{label}
 	</p>
 	<div class="flex flex-wrap gap-1.5">
-		{@render pill(`After ${above}`, 'arrow-down', `Add a slot after ${above}`, onafter)}
-		{@render pill(`Before ${below}`, 'arrow-up', `Add a slot before ${below}`, onbefore)}
+		{@render pill(
+			t().routine.seam.after(above),
+			'arrow-down',
+			t().routine.seam.addAfter(above),
+			onafter
+		)}
+		{@render pill(
+			t().routine.seam.before(below),
+			'arrow-up',
+			t().routine.seam.addBefore(below),
+			onbefore
+		)}
 		{#if onbetween}
-			{@render pill('Bridge', 'plus', `Bridge slots ${above} and ${below}`, onbetween, true)}
+			{@render pill(
+				t().routine.seam.bridge,
+				'plus',
+				t().routine.seam.bridgeLabel(above, below),
+				onbetween,
+				true
+			)}
 		{/if}
 	</div>
 </div>

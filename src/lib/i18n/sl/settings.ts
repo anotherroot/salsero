@@ -25,7 +25,29 @@ export const settings: Catalog['settings'] = {
 			`Ni dovolj prostora: porabite ${used} od ${limit}. Sprostite nekaj prostora ali v Nastavitvah prosite za več.`,
 		noRoomGroup: (used, limit) =>
 			`Ni dovolj prostora: skupina porabi ${used} od ${limit}. Vodja skupine lahko prosi za več.`,
-		noRoomServer: 'Na strežniku ni dovolj prostora. Obrnite se na skrbnika.'
+		noRoomServer: 'Na strežniku ni dovolj prostora. Obrnite se na skrbnika.',
+		biggestFirst: 'Največje najprej',
+		nothingYet: 'Nič še ne zaseda prostora',
+		archived: 'arhivirano',
+		deleteLabel: (title, context) => `Izbriši: ${title}, ${context}`,
+		couldNotDelete: 'Ni bilo mogoče izbrisati.',
+		alreadyGone: 'Tega ni več.',
+		freeNote:
+			'Prostor sprostite z brisanjem. Arhivirane stvari obdržijo svoje datoteke, dokler jih tukaj ne izbrišete.',
+		songBusy: 'Ta skladba se še pripravlja. Poskusite znova čez nekaj minut.',
+		songUsedBy: (names) => `V uporabi: ${names}. Najprej jo odstranite tam.`,
+		item: {
+			untitledSong: 'Skladba brez naslova',
+			song: 'Skladba',
+			songBy: (artist) => `Skladba · ${artist}`,
+			recording: 'Posnetek',
+			audioRecording: 'Zvočni posnetek',
+			lessonVideo: 'Video lekcije',
+			lesson: (title) => `Lekcija · ${title}`,
+			countVoice: 'Vaše štetje',
+			takes: (n) => slCount(n, ['posnetek', 'posnetka', 'posnetki', 'posnetkov']),
+			inDeleted: (label) => `${label} · v »Nedavno izbrisano«`
+		}
 	},
 	practice: {
 		label: 'Vadenje',
@@ -151,6 +173,7 @@ export const settings: Catalog['settings'] = {
 		micRefusedBody: 'Dovolite ga tej aplikaciji v nastavitvah telefona in poskusite znova.',
 		failed: 'Snemanje ni uspelo',
 		failedLine: 'Snemanje ni uspelo.',
+		noAudio: 'Mikrofon ni zajel nobenega zvoka.',
 		unknownTake: 'Neznan posnetek.',
 		takeGone: 'Ta posnetek je že izbrisan.',
 		newerTake: 'Na tem mestu je zdaj novejši posnetek.',

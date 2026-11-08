@@ -16,6 +16,7 @@
 	import { autoScroll, dropIndex, gapTop, shiftFor } from '$lib/gestures/drag';
 	import { dragEdges } from '$lib/gestures/edges';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
 	import type { PickFrom, RowView, Swiped } from './types';
@@ -205,7 +206,7 @@
 
 {#if rows.length === 0}
 	<button type="button" class={addEnd} data-focus="add-slot" onclick={() => onadd(0, null)}
-		><Icon name="plus" size={20} />Add a figure</button
+		><Icon name="plus" size={20} />{t().routine.slots.addFigure}</button
 	>
 {:else}
 	<div class="flex justify-center pb-2">
@@ -213,7 +214,7 @@
 			type="button"
 			class="group grid size-11 cursor-pointer place-items-center disabled:cursor-default"
 			disabled={selecting}
-			aria-label="Add before slot 1"
+			aria-label={t().routine.picker.before(1)}
 			onclick={() => onadd(0, { row: 0, side: 'before' })}
 		>
 			<span
@@ -293,9 +294,9 @@
 			class={addEnd}
 			data-focus="add-slot"
 			disabled={selecting}
-			aria-label="Add a slot after slot {rows.length}"
+			aria-label={t().routine.slots.addSlotAfter(rows.length)}
 			onclick={() => onadd(rows.length, { row: rows.length - 1, side: 'after' })}
-			><Icon name="plus" size={20} />Add a slot</button
+			><Icon name="plus" size={20} />{t().routine.slots.addSlot}</button
 		>
 	</div>
 {/if}

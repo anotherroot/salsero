@@ -16,6 +16,7 @@ import {
 	saveStream
 } from '$lib/server/files';
 import { flowAfter } from '$lib/server/clones/flow-hook';
+import { t } from '$lib/i18n/catalog';
 import type { RequestHandler } from './$types';
 
 /**
@@ -40,20 +41,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		!locals.user ||
 		!allows(figureAccess(db, locals.user.id, found.figure), 'edit')
 	)
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	// The figure's owner pays: a group's figure fills the group's room, not the uploader's.
 	const owner = ownerOfRow(found.figure);
 
 	const mime = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
 	const kind = mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : null;
-	if (!kind) throw error(415, 'Only video and audio files can be uploaded.');
+	if (!kind) throw error(415, t().figure.refused.onlyMedia);
 
 	const declared = Number(request.headers.get('content-length') ?? 0);
 	if (declared > MAX_RECORDING_BYTES)
-		throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
+		throw error(413, t().shell.upload.larger(MAX_RECORDING_LABEL));
 	const room = roomForOwner(db, owner, declared, await freeDisk());
 	if (!room.ok) throw error(413, room.message);
-	if (!request.body) throw error(400, 'Empty upload.');
+	if (!request.body) throw error(400, t().shell.upload.empty);
 
 	const originalName = safeDecodeHeader(request.headers.get('x-filename'));
 	const note = safeDecodeHeader(request.headers.get('x-note')).trim().slice(0, 2000) || null;
@@ -65,15 +66,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		bytes = await saveStream(request.body, path, MAX_RECORDING_BYTES);
 	} catch (err) {
 		if (err instanceof TooLargeError) {
-			throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
+			throw error(413, t().shell.upload.larger(MAX_RECORDING_LABEL));
 		}
 		console.error('recording upload failed', err);
-		throw error(400, 'The upload was interrupted. Try again.');
+		throw error(400, t().shell.upload.interrupted);
 	}
 
 	if (bytes === 0) {
 		await unlink(path).catch(() => {});
-		throw error(400, 'Empty upload.');
+		throw error(400, t().shell.upload.empty);
 	}
 
 	// The header can be absent or wrong: check the bytes that really arrived.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { shown, type PickHeading, type PickRow } from './model';
 import {
 	createLead,
@@ -108,5 +109,26 @@ describe('linkRefusal', () => {
 	});
 	it('says it plainly when it knows neither', () => {
 		expect(linkRefusal(null, null)).toBe('Try it again.');
+	});
+});
+
+describe('the picker’s own words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('quotes what was typed with » «', () => {
+		expect(sl(() => emptyText('xy', '…'))).toBe('Nič ne ustreza »xy«.');
+		expect(sl(() => emptyText('', 'Figur še ni.'))).toBe('Figur še ni.');
+		expect(sl(() => createLead('xy'))).toBe('Ni na seznamu? Ustvari »xy« kot');
+		expect(sl(() => createLead(''))).toBe('Ni na seznamu?');
+	});
+	it('counts Done after a colon, and a field’s plainly', () => {
+		expect(sl(() => doneLabel(3))).toBe('Končano · povezano: 3');
+		expect(sl(() => doneLabel(3, 'field'))).toBe('Končano · 3');
+	});
+	it('names the row after a colon when the server said nothing', () => {
+		expect(sl(() => linkRefusal(undefined, { label: 'Enchufla · Doble' }))).toBe(
+			'Povezava ni uspela: Enchufla · Doble. Poskusite znova.'
+		);
+		expect(sl(() => linkRefusal(null, null))).toBe('Poskusite znova.');
+		expect(sl(() => linkRefusal('Že povezano.', null))).toBe('Že povezano.');
 	});
 });

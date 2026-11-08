@@ -93,13 +93,16 @@ class Api:
     def _json(self, path: str, body: dict) -> None:
         self._request("POST", path, data=json.dumps(body).encode()).close()
 
-    def post_analysis(self, song_id: int, beats: list[float], downbeats: list[float], duration: float) -> None:
-        """A 4xx means the server refused this analysis (e.g. no beats found): retrying gives the same answer."""
+    def post_analysis(
+        self, song_id: int, beats: list[float], downbeats: list[float], duration: float, start: float | None = None
+    ) -> None:
+        """A 4xx means the server refused this analysis (e.g. no beats found): retrying gives the same answer.
+        `start` is where the music starts; an older server ignores it."""
+        body = {"beats": beats, "downbeats": downbeats, "durationS": duration}
+        if start is not None:
+            body["startS"] = start
         try:
-            self._json(
-                f"/api/worker/songs/{song_id}/analysis",
-                {"beats": beats, "downbeats": downbeats, "durationS": duration},
-            )
+            self._json(f"/api/worker/songs/{song_id}/analysis", body)
         except ApiError as e:
             if 400 <= e.status < 500 and e.status not in (408, 429):
                 raise PermanentError(f"Server refused the analysis: {e.message}") from e
@@ -107,6 +110,19 @@ class Api:
 
     def fail(self, song_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/songs/{song_id}/fail", {"error": error[:500], "permanent": permanent})
+
+    def starts_wanted(self) -> list[int]:
+        """Ready songs whose music start is not measured yet. An older server has no such route: none."""
+        try:
+            with self._request("GET", "/api/worker/starts") as r:
+                return [int(s["id"]) for s in json.load(r)]
+        except ApiError as e:
+            if e.status == 404:
+                return []
+            raise
+
+    def post_start(self, song_id: int, start: float) -> None:
+        self._json(f"/api/worker/songs/{song_id}/start", {"startS": start})
 
     # ── Saved videos: their own queue, see src/lib/server/video-downloads.ts ──
 

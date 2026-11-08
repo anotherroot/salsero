@@ -1,30 +1,46 @@
 import type { IconName } from '$lib/icons/icons';
+import { t } from '$lib/i18n/catalog';
 
 /**
  * The Moves pane with nothing open (desktop: beside the Figures or Routines
  * list), and keeping the lit row in view in its column. PURE, client-safe.
  */
 
-export const EMPTY_PANE = {
+type PaneWords = { icon: IconName; title: string; body: string; group: string; action: string };
+
+/** The pane's words per list, read at call time (getters): the reader's language. */
+export const EMPTY_PANE: Record<'figures' | 'routines', PaneWords> = {
 	figures: {
 		icon: 'moves',
-		title: 'Pick a figure',
-		body: 'Its timing, recordings and routines open here, beside the list. A move’s name opens the move.',
-		group: 'The group’s figures open here.',
-		action: 'New move'
+		get title() {
+			return t().moves.pane.figures.title;
+		},
+		get body() {
+			return t().moves.pane.figures.body;
+		},
+		get group() {
+			return t().moves.pane.figures.group;
+		},
+		get action() {
+			return t().moves.newFigure;
+		}
 	},
 	routines: {
 		icon: 'routine',
-		title: 'Pick a routine',
-		body: 'Its slots, where it breaks and whether it loops open here, beside the list.',
-		group:
-			'Sketch a routine first, link it from a lesson later. The editor is the same as for your own.',
-		action: 'New routine'
+		get title() {
+			return t().moves.pane.routines.title;
+		},
+		get body() {
+			return t().moves.pane.routines.body;
+		},
+		get group() {
+			return t().moves.pane.routines.group;
+		},
+		get action() {
+			return t().moves.newRoutine;
+		}
 	}
-} as const satisfies Record<
-	'figures' | 'routines',
-	{ icon: IconName; title: string; body: string; group: string; action: string }
->;
+};
 
 /** What the empty pane says; in group mode the group's words, and Figures has no button. */
 export function emptyPane(

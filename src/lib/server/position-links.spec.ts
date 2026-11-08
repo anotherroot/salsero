@@ -37,6 +37,7 @@ import type { PositionRow } from './db/schema';
 import type { PositionInput } from '$lib/types';
 import type { Space, TeamSpace } from './scope';
 import { U1_BACHATA, U1_SALSA, U2_SALSA } from './test-walls';
+import { runInLocale } from './i18n-request';
 
 const T = Date.UTC(2026, 10, 4, 12);
 
@@ -144,6 +145,14 @@ describe('linkSpotToPosition', () => {
 		archivePosition(db, cerrada, T);
 		expect(() => linkSpotToPosition(db, 'u1', section, cerrada, T)).toThrow('No such position.');
 		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+	});
+
+	it('refuses in the asker’s language', () => {
+		const sl = (fn: () => unknown) => () => runInLocale('sl', fn);
+		expect(sl(() => linkSpotToPosition(db, 'u1', 999, cerrada, T))).toThrow('Tega odseka ni.');
+		expect(sl(() => linkSpotToPosition(db, 'u1', section, 999, T))).toThrow('Tega položaja ni.');
+		linkSpotToPosition(db, 'u1', point, cerrada, T);
+		expect(sl(() => linkSpotToPosition(db, 'u1', point, cerrada, T))).toThrow('Že povezano.');
 	});
 
 	it('linkableSpots offers every section and point of the owner’s videos, marking the linked', () => {

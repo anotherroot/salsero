@@ -284,7 +284,6 @@
 		offline = null;
 		// invalidateAll: a link tapped offline already tried to preload its data and
 		// failed; SvelteKit would reuse that failure for this navigation.
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the URL the user tapped
 		if (url) void goto(url, { invalidateAll: true });
 	};
 

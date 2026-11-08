@@ -30,19 +30,19 @@ function num(raw: string | null, min: number, max: number): number | null {
  * as an error.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) throw error(401, 'Sign in');
+	if (!locals.user) throw error(401, t().refusals.signIn);
 	const h = request.headers;
 
 	const pattern = h.get('x-pattern');
 	if (!(PHRASE_PATTERNS as readonly string[]).includes(pattern ?? '')) {
-		throw error(400, 'Unknown count pattern.');
+		throw error(400, t().refusals.take.unknownPattern);
 	}
 	const bpm = Number(h.get('x-bpm'));
 	if (!(TEMPO_LADDER as readonly number[]).includes(bpm)) {
-		throw error(400, 'That tempo is not one of the recorded ones.');
+		throw error(400, t().refusals.take.tempo);
 	}
 	const phrase = h.get('x-phrase');
-	if (phrase !== 'a' && phrase !== 'b') throw error(400, 'Phrase must be a or b.');
+	if (phrase !== 'a' && phrase !== 'b') throw error(400, t().refusals.take.phrase);
 
 	const sampleRate = num(h.get('x-sample-rate'), 8000, 192000);
 	// The phrase itself is three or four beats; at the slowest rung that is 2 s.
@@ -50,9 +50,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const preRollS = num(h.get('x-pre-roll'), 0, MAX_PRE_ROLL_S);
 	const durationS = num(h.get('x-duration'), 0.2, 8);
 	if (sampleRate === null || lengthS === null || preRollS === null || durationS === null) {
-		throw error(400, 'Bad take metadata.');
+		throw error(400, t().refusals.take.metadata);
 	}
-	if (durationS < lengthS) throw error(400, 'A take cannot be shorter than its phrase.');
+	if (durationS < lengthS) throw error(400, t().refusals.take.shorter);
 
 	if (Number(h.get('content-length') ?? 0) > MAX_TAKE_BYTES) {
 		throw error(413, t().settings.voice.takeTooLarge(MAX_TAKE_LABEL));
@@ -66,7 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		await freeDisk()
 	);
 	if (!room.ok) throw error(413, room.message);
-	if (!request.body) throw error(400, 'Empty upload.');
+	if (!request.body) throw error(400, t().refusals.take.empty);
 
 	const file = `${randomUUID()}.wav`;
 	const path = join(countDir(), file);

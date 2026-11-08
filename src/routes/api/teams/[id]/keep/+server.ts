@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { getTeam, roleOf } from '$lib/server/teams';
 import { keepBytes, keepPreview } from '$lib/server/clones/keep';
@@ -13,15 +14,15 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = ({ params, locals, url }) => {
 	const user = locals.user;
-	if (!user) throw error(401, 'Sign in');
+	if (!user) throw error(401, t().refusals.signIn);
 	const id = Number(params.id);
 	const db = getDb();
 	const team = Number.isInteger(id) ? getTeam(db, id) : null;
 	if (!team || team.deletedAt !== null || roleOf(db, user.id, team.id) === null) {
-		throw error(404, 'No such group');
+		throw error(404, t().groups.page.noGroup);
 	}
 	if (!url.searchParams.has('mode')) return json(keepPreview(db, user.id, team.id));
 	const choice = readKeepChoice(url.searchParams);
-	if (!choice) throw error(400, 'Bad request');
+	if (!choice) throw error(400, t().refusals.badRequest);
 	return json({ bytes: keepBytes(db, user.id, team.id, choice) });
 };

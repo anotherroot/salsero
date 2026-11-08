@@ -1,158 +1,31 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { englishIn } from './no-english';
 
-// Components whose words all come from the catalog: a bare English string in
-// one of them is a word left untranslated. Every task that translates a
-// component adds it here.
-const TRANSLATED: string[] = [
-	// The shell (Task 5).
-	'src/lib/components/shell/BackButton.svelte',
-	'src/lib/components/shell/BandHeader.svelte',
-	'src/lib/components/shell/BottomNav.svelte',
-	'src/lib/components/shell/CardFrame.svelte',
-	'src/lib/components/shell/GroupModeButton.svelte',
-	'src/lib/components/shell/ListPane.svelte',
-	'src/lib/components/shell/NavProgress.svelte',
-	'src/lib/components/shell/PageSkeleton.svelte',
-	'src/lib/components/shell/Pane.svelte',
-	'src/lib/components/shell/PaneHeading.svelte',
-	'src/lib/components/shell/ReloadBar.svelte',
-	'src/lib/components/shell/SheetCorner.svelte',
-	'src/lib/components/shell/Side.svelte',
-	// The system screens (Task 5; NameFields is with the way in, below).
-	'src/lib/components/system/AppUpdateBar.svelte',
-	'src/lib/components/system/ChoiceSheet.svelte',
-	'src/lib/components/system/ErrorScreen.svelte',
-	'src/lib/components/system/LeadTile.svelte',
-	'src/lib/components/system/StatusBlock.svelte',
-	'src/lib/components/system/UpdateButton.svelte',
-	'src/lib/components/system/UpdateNeeded.svelte',
-	// The shared ui pieces with built-in words, and those with none (Task 5).
-	'src/lib/components/ui/AppUploadLink.svelte',
-	'src/lib/components/ui/Badge.svelte',
-	'src/lib/components/ui/BandButton.svelte',
-	'src/lib/components/ui/Banner.svelte',
-	'src/lib/components/ui/BottomBar.svelte',
-	'src/lib/components/ui/ClashSheet.svelte',
-	'src/lib/components/ui/Dialog.svelte',
-	'src/lib/components/ui/EmptyState.svelte',
-	'src/lib/components/ui/MenuSheet.svelte',
-	'src/lib/components/ui/PlayerLayer.svelte',
-	'src/lib/components/ui/Screen.svelte',
-	'src/lib/components/ui/SearchField.svelte',
-	'src/lib/components/ui/Segmented.svelte',
-	'src/lib/components/ui/Sheet.svelte',
-	'src/lib/components/ui/Toast.svelte',
-	'src/lib/components/ui/UnsavedDialog.svelte',
-	'src/lib/components/ui/UploadCard.svelte',
-	'src/routes/+error.svelte',
-	'src/routes/app/+page.svelte',
-	// The way in: login, Join, welcome, the first run, a class code (Task 6).
-	'src/lib/components/levels/LevelCards.svelte',
-	'src/lib/components/system/NameFields.svelte',
-	'src/lib/components/teams/ClassCodeField.svelte',
-	'src/lib/components/teams/ClassList.svelte',
-	'src/lib/components/teams/MyClass.svelte',
-	'src/lib/components/teams/LeaveSheet.svelte',
-	'src/lib/components/songs/SongRow.svelte',
-	'src/routes/[dance]/groups/[id]/+page.svelte',
-	'src/routes/[dance]/groups/[id]/people/+page.svelte',
-	'src/routes/g/[code]/+page.svelte',
-	'src/routes/join/+page.svelte',
-	'src/routes/login/+page.svelte',
-	'src/routes/welcome/+page.svelte',
-	'src/routes/welcome/start/+page.svelte',
-	// Today: the list, its bar card, Coming up, a past day, New exercise (Task 7).
-	'src/lib/components/today/ComingUpList.svelte',
-	'src/lib/components/today/ExerciseRow.svelte',
-	'src/lib/components/today/NewExerciseSheet.svelte',
-	'src/lib/components/today/NextRow.svelte',
-	'src/lib/components/today/NothingLeft.svelte',
-	'src/lib/components/today/PastDay.svelte',
-	'src/lib/components/today/TodayBar.svelte',
-	'src/lib/components/today/TodayList.svelte',
-	'src/lib/components/today/TodayPaneSkeleton.svelte',
-	'src/lib/components/ui/TypeTile.svelte',
-	'src/routes/[dance]/(today)/+layout.svelte',
-	'src/routes/[dance]/(today)/+page.svelte',
-	'src/routes/[dance]/(today)/coming-up/+page.svelte',
-	// Done for today: where a run ends (run the day, plan 3).
-	'src/routes/[dance]/(today)/done/+page.svelte',
-	// The exercise page and the log popup, its practice panel and chips (Task 8).
-	'src/lib/components/exercises/ComesBackCard.svelte',
-	'src/lib/components/exercises/DoneSheet.svelte',
-	'src/lib/components/exercises/DoneBar.svelte',
-	'src/lib/components/exercises/HistoryDaySheet.svelte',
-	'src/lib/components/exercises/Face.svelte',
-	'src/lib/components/exercises/FaceRating.svelte',
-	'src/lib/components/exercises/LastTime.svelte',
-	'src/lib/components/exercises/SavedToast.svelte',
-	'src/lib/components/exercises/WarmupRow.svelte',
-	'src/lib/components/exercises/DrillRecordings.svelte',
-	'src/lib/components/exercises/kinds/drill/Content.svelte',
-	'src/lib/components/exercises/kinds/drill/Practice.svelte',
-	'src/lib/components/exercises/kinds/figure/Content.svelte',
-	'src/lib/components/exercises/kinds/figure/Practice.svelte',
-	'src/lib/components/exercises/kinds/lesson/Content.svelte',
-	'src/lib/components/exercises/kinds/routine/Content.svelte',
-	'src/lib/components/exercises/kinds/routine/Practice.svelte',
-	'src/lib/components/player/ClaveChips.svelte',
-	'src/lib/components/player/CountChips.svelte',
-	'src/lib/components/player/PracticePanel.svelte',
-	'src/lib/components/player/SongPicker.svelte',
-	'src/lib/components/player/SongProgress.svelte',
-	'src/lib/components/player/SourcePicker.svelte',
-	'src/lib/components/player/SpeedChips.svelte',
-	'src/lib/components/songs/LiveCount.svelte',
-	'src/lib/components/songs/SampleButton.svelte',
-	'src/lib/components/songs/SongPickSheet.svelte',
-	'src/lib/components/ui/ChunkedUploadButton.svelte',
-	'src/lib/components/ui/Stepper.svelte',
-	'src/lib/components/ui/UploadButton.svelte',
-	'src/routes/[dance]/(today)/exercises/[id]/+page.svelte',
-	// The simple lesson page, the Lessons list and comments (Task 9).
-	'src/lib/components/comments/CommentItem.svelte',
-	'src/lib/components/comments/CommentsCard.svelte',
-	'src/lib/components/comments/CommentsSheet.svelte',
-	'src/lib/components/comments/Composer.svelte',
-	'src/lib/components/lessons/LessonList.svelte',
-	'src/lib/components/lessons/LessonRow.svelte',
-	'src/lib/components/lessons/SimpleLesson.svelte',
-	'src/routes/[dance]/lessons/+layout.svelte',
-	'src/routes/[dance]/lessons/+page.svelte',
-	// The video player and the inline video (Task 10).
-	'src/lib/components/ui/SectionCard.svelte',
-	'src/lib/components/ui/SectionPlayer.svelte',
-	'src/lib/components/ui/VideoFrame.svelte',
-	'src/lib/components/ui/VideoPlayer.svelte',
-	'src/lib/components/video/PlayerSheet.svelte',
-	'src/lib/components/video/SectionRow.svelte',
-	'src/lib/components/video/SectionView.svelte',
-	'src/lib/components/video/SpotEditor.svelte',
-	'src/lib/components/video/SpotList.svelte',
-	'src/lib/components/video/Timeline.svelte',
-	'src/lib/components/video/Toast.svelte',
-	'src/lib/components/video/TopBar.svelte',
-	'src/lib/components/video/Transport.svelte',
-	'src/lib/components/video/TrimStrip.svelte',
-	'src/lib/components/video/VideoGestures.svelte',
-	// Settings and My count (Task 11).
-	'src/routes/settings/+page.svelte',
-	// Merged from master: the You tab (its page at Follow my class, and its settings rows).
-	'src/lib/components/settings/YouSettings.svelte',
-	'src/routes/[dance]/you/+page.svelte',
-	'src/routes/voice/+page.svelte',
-	// What was left on the Follow my class path (Task 12): Music on a class drill, the
-	// Practice player a class routine or song opens, and pairing the phone.
-	'src/lib/components/player/Running.svelte',
-	'src/lib/components/player/SaveSetSheet.svelte',
-	'src/lib/components/player/Setup.svelte',
-	'src/lib/components/player/StageCount.svelte',
-	'src/lib/components/songs/MusicSection.svelte',
-	'src/routes/[dance]/player/+page.svelte',
-	'src/routes/device/pair/+page.svelte'
-];
+// Every component draws its words from the catalog: a bare English string in
+// one is a word left untranslated. Every .svelte under src/lib/components and
+// src/routes is checked, a new one included, except the dev pages and EXEMPT.
+
+/** Components the guard does not read, each with its reason. */
+const EXEMPT: ReadonlyMap<string, string> = new Map([
+	[
+		'src/lib/components/shell/fixtures/PaneLandmarks.svelte',
+		'a spec fixture, never drawn in the app: its sample names stand for content'
+	]
+]);
+
+function walk(dir: string): string[] {
+	return readdirSync(dir).flatMap((name) => {
+		const path = join(dir, name);
+		return statSync(path).isDirectory() ? walk(path) : [path];
+	});
+}
+
+/** Every component checked: all of them but the dev gallery's and EXEMPT. */
+const TRANSLATED: string[] = [...walk('src/lib/components'), ...walk('src/routes')].filter(
+	(path) => path.endsWith('.svelte') && !path.startsWith('src/routes/dev/') && !EXEMPT.has(path)
+);
 
 describe('englishIn', () => {
 	it("finds an attribute's English, not an expression's", () => {
@@ -179,14 +52,28 @@ describe('englishIn', () => {
 		).toEqual(['Save it']);
 	});
 
+	it('skips a comment inside an expression, an apostrophe in it included', () => {
+		expect(
+			englishIn(
+				"<form use:guarded={{\n\t// the layout's list stays\n\tlabel: t().a /* it's */\n}}>Save it</form>"
+			)
+		).toEqual(['Save it']);
+	});
+
 	it('passes an attribute that is an expression, and one it does not read', () => {
 		expect(englishIn('<input placeholder={t().common.search} class="w-full px-2" />')).toEqual([]);
 	});
 });
 
-describe('translated components', () => {
+describe('components', () => {
+	it('are all read, the exempt ones still there', () => {
+		expect(TRANSLATED.length).toBeGreaterThan(200);
+		expect([...EXEMPT.keys()].filter((path) => !statSync(path, { throwIfNoEntry: false }))).toEqual(
+			[]
+		);
+	});
+
 	it('have no bare English', () => {
-		// One test, not it.each: an empty list is an empty suite, which vitest refuses.
 		const found = Object.fromEntries(
 			TRANSLATED.map((path) => [path, englishIn(readFileSync(path, 'utf8'))] as const).filter(
 				([, words]) => words.length > 0

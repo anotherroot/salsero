@@ -197,3 +197,27 @@ def test_upload_video_needs_to_know_how_far_the_server_is(tmp_path):
     urlopen = scripted_urlopen(Response(204))
     with pytest.raises(RuntimeError, match="how much it has"):
         Api("http://s", "t", urlopen=urlopen).upload_video(7, video, chunk=4)
+
+
+def test_starts_wanted_lists_ids_and_an_older_server_has_none():
+    urlopen = fake_urlopen(200, b'[{"id": 4}, {"id": 9}]')
+    assert Api("http://s", "t", urlopen=urlopen).starts_wanted() == [4, 9]
+    (req,) = urlopen.requests
+    assert req.get_method() == "GET"
+    assert req.full_url == "http://s/api/worker/starts"
+    old = fake_urlopen(error=http_error(404, b"Not found"))
+    assert Api("http://s", "t", urlopen=old).starts_wanted() == []
+
+
+def test_post_start_and_the_analysis_carry_where_the_music_starts():
+    urlopen = fake_urlopen(204)
+    api = Api("http://s", "t", urlopen=urlopen)
+    api.post_start(7, 18.5)
+    api.post_analysis(7, [0.5], [0.5], 30.0, start=2.0)
+    api.post_analysis(7, [0.5], [0.5], 30.0)
+    start, analysis, old = urlopen.requests
+    assert start.full_url == "http://s/api/worker/songs/7/start"
+    assert content_type(start) == "application/json"
+    assert json.loads(start.data) == {"startS": 18.5}
+    assert json.loads(analysis.data)["startS"] == 2.0
+    assert "startS" not in json.loads(old.data)

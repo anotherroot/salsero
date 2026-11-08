@@ -243,13 +243,12 @@
 		actions: ToastAction[];
 	} | null>(null);
 	let toastSeq = 0;
-	type LinkCreateStep = 'variation' | 'figure' | 'drill' | 'position';
+	type LinkCreateStep = 'variation' | 'drill' | 'position';
 	/** The player's sheet for each of the Link popup's levels; every create step is 'link-new'. */
 	const LINK_SHEET: Record<LinkStep, SheetKind> = {
 		links: 'link',
 		pick: 'link-pick',
 		variation: 'link-new',
-		figure: 'link-new',
 		drill: 'link-new',
 		position: 'link-new',
 		'variation-figure': 'link-figure',
@@ -318,7 +317,6 @@
 		if (dialog.open) dialog.close();
 		onclose(at);
 		// After the close: its Backs have landed, so the new page's entry goes on top of the host page.
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the Link popup passes a resolved href
 		if (leaving) void goto(leaving);
 	}
 
@@ -767,8 +765,7 @@
 	}
 
 	function linkPush(step: LinkStep) {
-		if (step === 'variation' || step === 'figure' || step === 'drill' || step === 'position')
-			linkCreate = step;
+		if (step === 'variation' || step === 'drill' || step === 'position') linkCreate = step;
 		nav.push({ kind: 'sheet', sheet: LINK_SHEET[step] });
 	}
 

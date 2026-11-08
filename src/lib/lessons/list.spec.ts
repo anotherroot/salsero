@@ -10,6 +10,7 @@ import {
 	isOpenLesson,
 	lessonCounts,
 	monthGroups,
+	byMonth,
 	splitDrafts,
 	videoMeta
 } from './list';
@@ -38,6 +39,25 @@ describe('monthGroups', () => {
 			['2025-12', 'December 2025', 1]
 		]);
 		expect(monthGroups([])).toEqual([]);
+	});
+});
+
+describe('byMonth', () => {
+	it('puts drafts in their month by date, not first', () => {
+		// The group page's load: drafts first, then published, each newest first.
+		const rows = [
+			lesson('2026-10-12', { id: 1 }),
+			lesson('2026-09-15', { id: 2 }),
+			lesson('2026-11-02', { id: 3 }),
+			lesson('2026-10-19', { id: 4 })
+		];
+		const groups = byMonth(rows);
+		expect(groups.map((g) => [g.key, g.lessons.map((l) => l.id)])).toEqual([
+			['2026-11', [3]],
+			['2026-10', [4, 1]],
+			['2026-09', [2]]
+		]);
+		expect(rows.map((l) => l.id)).toEqual([1, 2, 3, 4]);
 	});
 });
 
@@ -163,6 +183,9 @@ describe('the Lessons list in Slovenian', () => {
 		expect(v(3)).toBe('3 videi');
 		expect(v(5)).toBe('5 videov');
 		expect(v(3, true)).toBe('3 videi · 1,2 GB');
+		expect(sl(() => videoMeta({ videos: 1, videoBytes: 1.5 * 1024 ** 3 }))).toBe(
+			'1 video · 1,5 GB'
+		);
 	});
 
 	it('counts sections, routines and figures in four forms', () => {
@@ -181,6 +204,10 @@ describe('the Lessons list in Slovenian', () => {
 		);
 		expect(sl(() => emptyLessonsBody(false))).toContain('Danes');
 		expect(sl(() => emptyLessonsBody(true))).not.toContain('Danes');
+		// A group's lesson is seen by everyone in the class, not by "members".
+		expect(sl(() => emptyLessonsBody(true))).toBe(
+			'Dodajte jo po naslednji uri tečaja: videe in opombe. Vidijo jo vsi v tečaju, ko jo objavite.'
+		);
 		expect(sl(() => pickLesson().title)).toBe('Izberite lekcijo');
 	});
 });

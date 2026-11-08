@@ -22,8 +22,8 @@ class LinksTest {
         parseLink("salsa://upload?lesson=3&back=%2Fsalsa%2Flessons%2F3&name=Class&share=$key"),
     )
 
-    @Test fun `no back or name falls back to the start page and a plain word`() = assertEquals(
-        Link.Upload(Target.Lesson(3), null, "/", "the lesson"),
+    @Test fun `no back or name falls back to the start page and no name`() = assertEquals(
+        Link.Upload(Target.Lesson(3), null, "/", null),
         parseLink("salsa://upload?lesson=3"),
     )
 
@@ -33,7 +33,12 @@ class LinksTest {
     }
 
     @Test fun `a token, decoded`() =
-        assertEquals(Link.Paired("a+b/c="), parseLink("salsa://paired?token=a%2Bb%2Fc%3D"))
+        assertEquals(Link.Paired("a+b/c=", null), parseLink("salsa://paired?token=a%2Bb%2Fc%3D"))
+
+    @Test fun `a token with the account's language`() {
+        assertEquals(Link.Paired("t", "sl"), parseLink("salsa://paired?token=t&locale=sl"))
+        assertEquals(Link.Paired("t", null), parseLink("salsa://paired?token=t&locale="))
+    }
 
     @Test fun `nonsense is nothing`() {
         assertNull(parseLink("salsa://upload"))

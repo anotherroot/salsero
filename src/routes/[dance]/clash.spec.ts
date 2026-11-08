@@ -369,8 +369,8 @@ describe.each([
 			style: 'salsa',
 			notes: 'first'
 		})!.figure.id;
+		// The edit form as it is: no move name (the move's page renames it).
 		form = {
-			figureName: 'Enchufla',
 			name: 'Basic',
 			partner: 'partner',
 			style: 'salsa',
@@ -380,17 +380,27 @@ describe.each([
 		};
 	});
 
-	it('refuses a variation save that saw an older figure name', async () => {
+	it('refuses a variation save that saw older notes', async () => {
 		const seen = seenOf(load(figurePage, id));
 		const other = await call(
 			figurePage.actions.update,
-			post({ ...form, notes: 'first', figureName: 'Enchufla doble', seen }, id)
+			post({ ...form, notes: 'theirs', seen }, id)
 		);
 		expect(other.ok).toBe(true);
 		const r = await call(figurePage.actions.update, post({ ...form, seen }, id));
 		expect(r.status).toBe(409);
+		expect(r.data?.clash).toMatchObject({ changed: ['notes'] });
+		expect(db.select().from(figures).where(eq(figures.id, id)).get()!.notes).toBe('theirs');
+	});
+
+	it('refuses an older open page that saw an older move name', async () => {
+		const seen = JSON.stringify({ ...JSON.parse(seenOf(load(figurePage, id))), figureName: 'Old' });
+		const r = await call(
+			figurePage.actions.update,
+			post({ ...form, figureName: 'Enchufla', seen }, id)
+		);
+		expect(r.status).toBe(409);
 		expect(r.data?.clash).toMatchObject({ changed: ['figureName'] });
-		expect(db.select().from(figures).where(eq(figures.id, id)).get()!.notes).toBe('first');
 	});
 
 	it('saves with a fresh seen', async () => {

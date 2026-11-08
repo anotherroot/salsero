@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import Picker from '$lib/components/picker/Picker.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { sectionGroups } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
@@ -96,13 +97,13 @@
 
 <Picker
 	{open}
-	title="Link a section"
-	placeholder="Search sections"
+	title={t().links.sections.title}
+	placeholder={t().links.sections.search}
 	kind="link"
 	pending={inFlight}
 	emptyIcon="bookmark"
-	groups={sectionGroups(groups, 'In this lesson')}
-	nothingLeft="No sections to link. Open a lesson video full screen and tap Section to mark one."
+	groups={sectionGroups(groups, t().links.sections.near)}
+	nothingLeft={t().links.sections.none}
 	{added}
 	{message}
 	onpick={(row) => link(row, false)}

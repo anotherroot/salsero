@@ -11,7 +11,7 @@ import { leaveTeam } from './membership';
 import { usedBytesOf } from './storage';
 import { cloneFilesIn, type CloneFiles } from './clones/files';
 import { makeMine } from './clones/edit';
-import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
+import { archivedSongCopy } from '$lib/clones/view';
 import { makeClass, SHARED_FILE, type Class } from './test-class';
 import { createCustomExercise, logSet } from './exercises';
 import {
@@ -28,6 +28,12 @@ import {
 	recentSongIds,
 	retrySong,
 	setSampleStart,
+	setSections,
+	setCountAndSections,
+	restoreCount,
+	setMusicStart,
+	storeFoundStart,
+	songsWantingStart,
 	songChoices,
 	setAnchors,
 	setTempoFactor,
@@ -720,7 +726,7 @@ describe('Make it mine on a class song', () => {
 		expect(await copySong(c.shared, 'u3', T + 2)).toEqual({
 			ok: false,
 			reason: 'archived',
-			message: ARCHIVED_SONG_COPY
+			message: archivedSongCopy()
 		});
 		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
 		expect(db.select().from(songs).where(eq(songs.userId, 'u3')).all()).toHaveLength(1);
@@ -751,5 +757,92 @@ describe('Make it mine on a class song', () => {
 			{ file: SHARED_FILE.replace('c1', 'd1'), mime: 'audio/mpeg', title: 'Own', style: 'salsa' }
 		);
 		expect(await copySong(own.id)).toEqual(denied);
+	});
+});
+
+describe('sections and the music start', () => {
+	const BEATS = Array.from({ length: 64 }, (_, i) => i * 0.5);
+	let id: number;
+	const changesOf = (song: number) =>
+		db.select().from(teamChanges).where(eq(teamChanges.rootId, song)).all();
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		id = createSongFromUpload(db, T1_SALSA, {
+			file: 'g.mp3',
+			mime: 'audio/mpeg',
+			title: 'Group',
+			style: 'salsa'
+		}).id;
+		storeAnalysis(db, id, { beats: BEATS, downbeats: [], durationS: 200 });
+		db.delete(teamChanges).run();
+	});
+
+	it('stores sections as JSON and logs a group edit as sections', () => {
+		expect(setSections(db, id, [{ at: 12.5, name: 'Mambo', countOff: false }], T1_SALSA, T)).toBe(
+			true
+		);
+		expect(getSong(db, id)!.sectionsJson).toBe('[{"at":12.5,"name":"Mambo","countOff":false}]');
+		expect(changesOf(id).map((c) => [c.verb, c.subject])).toEqual([['edit', 'sections']]);
+	});
+
+	it('makes a beat the 1 and starts a section there in one change', () => {
+		expect(
+			setCountAndSections(
+				db,
+				id,
+				{ anchors: [3], sections: [{ at: 1.5, name: '', countOff: false }] },
+				T1_SALSA,
+				T
+			)
+		).toBe(true);
+		expect(getSong(db, id)).toMatchObject({
+			anchorsJson: '[3]',
+			sectionsJson: '[{"at":1.5,"name":"","countOff":false}]'
+		});
+		expect(changesOf(id)).toHaveLength(1);
+		expect(changesOf(id)[0].subject).toBe('sections');
+	});
+
+	it('puts the count back, anchors and tempo together', () => {
+		setTempoFactor(db, id, 2, T1_SALSA, T);
+		expect(restoreCount(db, id, [5, 21], 1, T1_SALSA, T)).toBe(true);
+		expect(getSong(db, id)).toMatchObject({ anchorsJson: '[5,21]', tempoFactor: 1 });
+		expect(changesOf(id).at(-1)?.subject).toBe('anchors');
+	});
+
+	it('refuses a music start below 0, not finite, or past the end', () => {
+		expect(setMusicStart(db, id, -1)).toBe(false);
+		expect(setMusicStart(db, id, Number.NaN)).toBe(false);
+		expect(setMusicStart(db, id, 200)).toBe(false);
+		expect(setMusicStart(db, id, 18.2, T1_SALSA, T)).toBe(true);
+		expect(getSong(db, id)!.startS).toBe(18.2);
+		expect(changesOf(id).at(-1)?.subject).toBe('start');
+		expect(setMusicStart(db, id, null)).toBe(true);
+		expect(getSong(db, id)!.startS).toBeNull();
+		expect(setMusicStart(db, 999, 1)).toBe(false);
+	});
+
+	it("stores the worker's start without logging, and lists songs still to measure", () => {
+		expect(songsWantingStart(db)).toEqual([id]);
+		expect(storeFoundStart(db, id, -1)).toBe(false);
+		expect(storeFoundStart(db, id, 200)).toBe(false);
+		expect(storeFoundStart(db, id, 18.2)).toBe(true);
+		expect(getSong(db, id)!.startFoundS).toBe(18.2);
+		expect(songsWantingStart(db)).toEqual([]);
+		expect(changesOf(id)).toHaveLength(0);
+	});
+
+	it('skips archived songs, and refuses their start', () => {
+		archiveSong(db, id, T);
+		expect(songsWantingStart(db)).toEqual([]);
+		expect(storeFoundStart(db, id, 3)).toBe(false);
+	});
+
+	it("keeps the found start from the analysis and never touches the user's", () => {
+		setMusicStart(db, id, 4);
+		storeAnalysis(db, id, { beats: BEATS, downbeats: [], durationS: 200, startS: 5.2 });
+		expect(getSong(db, id)).toMatchObject({ startFoundS: 5.2, startS: 4 });
+		storeAnalysis(db, id, { beats: BEATS, downbeats: [], durationS: 200 });
+		expect(getSong(db, id)!.startFoundS).toBe(5.2);
 	});
 });

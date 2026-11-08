@@ -40,6 +40,17 @@ function withoutExpressions(src: string): string {
 				i = skipString(src, i);
 				continue;
 			}
+			// A comment in an expression (a `use:` callback's): its apostrophes are not quotes.
+			if (c === '/' && src[i + 1] === '/') {
+				const end = src.indexOf('\n', i);
+				i = end < 0 ? src.length : end;
+				continue;
+			}
+			if (c === '/' && src[i + 1] === '*') {
+				const end = src.indexOf('*/', i + 2);
+				i = end < 0 ? src.length : end + 2;
+				continue;
+			}
 			if (c === '{') depth++;
 			else if (c === '}') {
 				depth--;

@@ -11,7 +11,8 @@
 	import { copied } from './copied.svelte';
 	import { dropped } from './dropped.svelte';
 	import { versionList, versionRow } from '$lib/clones/versions';
-	import { OPEN, sourceNote } from '$lib/clones/view';
+	import { openLabel, sourceNote } from '$lib/clones/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { CloneKind, FamilyView, KeepView, PlaceRef, Source, StepView } from '$lib/types';
 
@@ -96,7 +97,7 @@
 				<span class="text-[13px] text-muted">{row.meta}</span>
 			</span>
 			<span class="flex flex-none items-center gap-0.5 text-[15px] font-bold text-accent-text"
-				><span class="sr-only">Versions:</span>{row.count}<Icon
+				><span class="sr-only">{t().clones.versions.count}</span>{row.count}<Icon
 					name="chevron-down"
 					size={18}
 				/></span
@@ -144,7 +145,7 @@
 		? {
 				id: copied.toast.id,
 				message: copied.toast.message,
-				action: copied.toast.href ? OPEN : undefined,
+				action: copied.toast.href ? openLabel() : undefined,
 				icon: 'check',
 				tone: 'done'
 			}
@@ -152,7 +153,6 @@
 	onaction={() => {
 		const href = copied.toast?.href;
 		copied.clear();
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the server built the copy's path
 		if (href) goto(href);
 	}}
 	ondismiss={() => {

@@ -66,8 +66,9 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { sameAsOffer } from '$lib/server/twins';
 import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
+import { t } from '$lib/i18n/catalog';
 import {
-	ARCHIVED_LINKS,
+	archivedLinksLine,
 	LINK_REFUSED,
 	notLinked,
 	styleLabelOf,
@@ -133,7 +134,7 @@ const positionIn = (
 const archivedLinks = (
 	position: { archivedAt: number | null },
 	action: 'linkSpot' | 'unlinkSpot' | 'linkLesson' | 'unlinkLesson'
-) => (position.archivedAt === null ? null : fail(400, { action, message: ARCHIVED_LINKS }));
+) => (position.archivedAt === null ? null : fail(400, { action, message: archivedLinksLine() }));
 
 export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const db = getDb();
@@ -197,8 +198,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// A group's figure seen from a person's app reads as the group's; in the
 	// group's own workspace every figure is the group's, so none says so.
 	const teamOf = (fid: number) => {
-		const t = rows.get(fid)?.teamId ?? null;
-		return t === null || isTeam(viewer) ? null : (teams.get(t)?.name ?? null);
+		const tid = rows.get(fid)?.teamId ?? null;
+		return tid === null || isTeam(viewer) ? null : (teams.get(tid)?.name ?? null);
 	};
 	const figureRow = (fid: number) => ({
 		id: fid,
@@ -379,14 +380,14 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 			return fail(400, {
 				...typed,
 				field: 'notes' as const,
-				message: 'Notes are up to 2000 characters.'
+				message: t().positions.refused.notesLong
 			});
 		}
 		if (typed.name.trim().length > 200) {
 			return fail(400, {
 				...typed,
 				field: 'name' as const,
-				message: 'A name is up to 200 characters.'
+				message: t().positions.refused.nameLong
 			});
 		}
 		const saved = updatePosition(
@@ -402,7 +403,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 			},
 			{ actorId: wallOf(params, locals).userId, now: serverNow() }
 		);
-		if (!saved) throw error(404, 'Position not found');
+		if (!saved) throw error(404, t().refusals.positionNotFound);
 		if ('field' in saved)
 			return fail(400, { ...typed, field: saved.field, message: saved.message });
 		return { action: 'update' as const, ok: true };
@@ -427,7 +428,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 		if (done.ok) return { action: 'restore' as const, ok: true };
 		if (done.reason === 'taken')
 			return fail(409, { action: 'restore' as const, message: done.message });
-		throw error(404, 'Position not found');
+		throw error(404, t().refusals.positionNotFound);
 	},
 
 	/** Make it mine: a reader's own copy, their figures, lessons and sections moved onto it (`clones/edit.ts`). */

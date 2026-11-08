@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const userId = locals.user!.id;
 	optionsOr404(id, userId);
 	const body = parseLinkBody(await request.json().catch(() => null));
-	if (!body) throw error(400, 'Send a target or something to create.');
+	if (!body) throw error(400, t().refusals.spots.sendTarget);
 	try {
 		if ('create' in body) createAndLink(getDb(), userId, id, body.create);
 		else {

@@ -152,7 +152,6 @@
 				/>
 			{/if}
 			{#if open.shared && practise(open.songId)}
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- practiseHref builds it -->
 				<a href={practise(open.songId)} class={button('primary', 'md', true)}
 					><Icon name="play" size={20} filled />{w.practise}</a
 				>

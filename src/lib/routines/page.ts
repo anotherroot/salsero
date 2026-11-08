@@ -4,8 +4,11 @@
  * client-safe.
  */
 import { isClash } from '$lib/clash/clash';
-import { plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { RowEdges } from './routines';
+
+/** Between the positions of one side: " or ", read at call time. */
+const or = () => ` ${t().figure.or} `;
 
 /** A long name, or one long word, gets the slim band's smaller type. */
 export function bandCompact(name: string): boolean {
@@ -30,8 +33,8 @@ export function factsOf(
 ): { from: string | null; to: string | null } | null {
 	if (starts.length === 0 && ends.length === 0) return null;
 	return {
-		from: starts.length > 0 ? starts.join(' or ') : null,
-		to: ends.length > 0 ? ends.join(' or ') : null
+		from: starts.length > 0 ? starts.join(or()) : null,
+		to: ends.length > 0 ? ends.join(or()) : null
 	};
 }
 
@@ -44,19 +47,15 @@ export function factBadges(r: {
 	loops: boolean;
 }): FactBadge[] {
 	if (r.slots === 0) return [];
+	const w = t();
 	const out: FactBadge[] = [
 		r.loops
-			? { tone: 'done', text: 'Loops', loop: true }
-			: { tone: 'warn', text: 'Doesn’t loop', loop: true }
+			? { tone: 'done', text: w.routine.loops, loop: true }
+			: { tone: 'warn', text: w.routine.noLoop, loop: true }
 	];
-	if (r.breaks > 0)
-		out.push({ tone: 'danger', text: plural(r.breaks, 'break', 'breaks'), loop: false });
+	if (r.breaks > 0) out.push({ tone: 'danger', text: w.nouns.breaks(r.breaks), loop: false });
 	if (r.timingBreaks > 0)
-		out.push({
-			tone: 'danger',
-			text: plural(r.timingBreaks, 'timing break', 'timing breaks'),
-			loop: false
-		});
+		out.push({ tone: 'danger', text: w.nouns.timingBreaks(r.timingBreaks), loop: false });
 	return out;
 }
 
@@ -67,14 +66,11 @@ export function factBadges(r: {
  * neither, the empty string. The slot cards and the picker's rows share it.
  */
 export function handsLine(starts: number[], ends: number[], name: (id: number) => string): string {
-	const side = (ids: number[]) => ids.map(name).filter(Boolean).join(' or ');
+	const side = (ids: number[]) => ids.map(name).filter(Boolean).join(or());
 	const from = side(starts);
 	const to = side(ends);
 	return from === '' && to === '' ? '' : [from, '→', to].filter((p) => p !== '').join(' ');
 }
-
-/** A slot whose options disagree on their ends, where its hold's end would show. */
-export const ENDS_DIFFER = 'ends differ';
 
 /**
  * A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots"
@@ -88,18 +84,22 @@ export function slotMeta(
 	childSlots: number | null
 ): string {
 	const from = handsLine(e.starts, [], name);
+	const differ = t().routine.endsDiffer;
 	const hands =
 		e.ends !== null
 			? handsLine(e.starts, e.ends, name)
 			: from === ''
-				? ENDS_DIFFER
-				: `${from} ${ENDS_DIFFER}`;
+				? differ
+				: `${from} ${differ}`;
 	const core =
 		e.startCounts.length === 0
 			? ''
 			: [`${e.startCounts.join('/')}→${e.next ?? '?'}`, hands].filter((p) => p !== '').join(' · ');
 	if (childSlots === null) return core;
-	return ['Routine', plural(childSlots, 'slot', 'slots'), core].filter((p) => p !== '').join(' · ');
+	const w = t();
+	return [w.moves.move.routine, w.nouns.slots(childSlots), core]
+		.filter((p) => p !== '')
+		.join(' · ');
 }
 
 /** The text on a seam: how the hands and the count meet the next slot. */
@@ -107,23 +107,20 @@ export function seamLabel(
 	hands: { ends: string[]; next: string[] } | null,
 	count: { ready: number | null; next: number[] } | null
 ): string {
+	const w = t().routine.seam;
 	const parts: string[] = [];
-	if (hands)
-		parts.push(`Ends in ${hands.ends.join(' or ')}, next starts from ${hands.next.join(' or ')}`);
-	if (count)
-		parts.push(`ready for ${count.ready ?? '?'}, next starts on ${count.next.join(' or ')}`);
+	if (hands) parts.push(w.hands(hands.ends.join(or()), hands.next.join(or())));
+	if (count) parts.push(w.count(String(count.ready ?? '?'), count.next.join(or())));
 	const s = parts.join(' · ');
 	return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export function selectionTitle(n: number): string {
-	return n === 0 ? 'Select slots' : `${n} selected`;
+	return n === 0 ? t().routine.selection.title : t().moves.coverage.selected(n);
 }
 
 export function makeRoutineCaption(n: number): string {
-	return n === 1
-		? 'The slot moves into the new routine, and it takes its place here as one slot.'
-		: `The ${n} slots move into the new routine, and it takes their place here as one slot.`;
+	return t().routine.make.caption(n);
 }
 
 export type FailurePlace =

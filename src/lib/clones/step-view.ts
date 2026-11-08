@@ -2,38 +2,43 @@
  * Keeping copies in step, as words (spec 2026-11-07, "The look"): the notice
  * under the version row (2A), the Sync sheet and a reader's Update mine (3A),
  * and Keep in step under the Versions list (4A, 4b A). PURE, client-safe.
+ * Every word is read from the catalog at call time (`t().clones`).
  */
 import type { MergeRow, StepLine, SyncSettings, SyncView } from '$lib/types';
-import { plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 
+/** The server's label for the person's own copy: data, never shown as it is. */
 const YOURS = 'Yours';
 
+/** A place's label as shown: the person's own copy in the reader's language. */
+const shown = (label: string) => (label === YOURS ? t().clones.sync.yours : label);
+
 /** The notice's title, and its button. */
-export const NOTICE_TITLE = 'Your copies don’t agree';
-export const SYNC = 'Sync';
+export const noticeTitle = (): string => t().clones.sync.noticeTitle;
+export const syncLabel = (): string => t().clones.sync.sync;
 /** The ⋯ menu's item and the Versions list's footer. */
-export const SYNC_MENU = 'Sync…';
+export const syncMenu = (): string => t().clones.sync.menu;
 
 /** The reader's sheet's button. */
-export const UPDATE_MINE = 'Update mine';
-export const SYNC_TO = 'Sync to';
+export const updateMine = (): string => t().clones.sync.updateMine;
+export const syncTo = (): string => t().clones.sync.syncTo;
 /** Opened while nothing differs any more. */
-export const NOTHING_DIFFERS = 'Your copies agree. Nothing to sync.';
-export const SYNC_LOAD_FAILED = 'Sync could not be loaded. Try again.';
-export const SYNC_SEND_FAILED = 'That could not be synced. Try again.';
+export const nothingDiffers = (): string => t().clones.sync.nothingDiffers;
+export const syncLoadFailed = (): string => t().clones.sync.loadFailed;
+export const syncSendFailed = (): string => t().clones.sync.sendFailed;
 /** A stale sheet's way out: the sheet is loaded again. */
-export const LOAD_AGAIN = 'Load again';
+export const loadAgain = (): string => t().clones.sync.loadAgain;
 /** The pick tiles of a row still open, under them. */
-export const PICK_ONE = 'Pick one';
-export const SHOW_ALL = 'Show all';
-export const SHOW_LESS = 'Show less';
+export const pickOne = (): string => t().clones.sync.pickOne;
+export const showAll = (): string => t().clones.sync.showAll;
+export const showLess = (): string => t().clones.sync.showLess;
 
 /** Keep in step: the level's title, its switch's meta, and the four options. */
-export const KEEP_TITLE = 'Keep in step';
-export const KEEP_SUB = 'Your edits go to the clubs, theirs come here';
+export const keepTitle = (): string => t().clones.keep.title;
+export const keepSub = (): string => t().clones.keep.sub;
 /** Under a switch the person may not change (a club's copy they only read). */
-export const KEEP_READ_ONLY = 'Only the club’s editors change this.';
-export const KEEP_FAILED = 'That could not be saved. Try again.';
+export const keepReadOnly = (): string => t().clones.keep.readOnly;
+export const keepFailed = (): string => t().clones.keep.failed;
 
 export type KeepOption = {
 	key: 'names' | 'small' | 'sections' | 'media';
@@ -41,18 +46,32 @@ export type KeepOption = {
 	meta: string | null;
 };
 
+/** One option, its words read when they are read (a getter), in the reader's language. */
+function option(key: KeepOption['key']): KeepOption {
+	const words = () => t().clones.keep.options[key] as { label: string; meta?: string };
+	return {
+		key,
+		get label() {
+			return words().label;
+		},
+		get meta() {
+			return words().meta ?? null;
+		}
+	};
+}
+
 export const KEEP_OPTIONS: readonly KeepOption[] = [
-	{ key: 'names', label: 'Names', meta: null },
-	{ key: 'small', label: 'Small removals', meta: 'Links, positions, songs' },
-	{ key: 'sections', label: 'Sections and points', meta: 'Adding or removing them' },
-	{ key: 'media', label: 'Recordings and videos', meta: 'A removal from yours can’t be undone' }
+	option('names'),
+	option('small'),
+	option('sections'),
+	option('media')
 ];
 
 /** "Notes", "1 recording" → "notes", "1 recording"; with `article`, "1 recording" → "a recording". */
 function fieldWords(fields: string[], article = false): string {
 	return fields
 		.map((f) => {
-			if (article && /^1 /.test(f)) return `a ${f.slice(2)}`;
+			if (article && /^1 /.test(f)) return t().clones.notice.one(f.slice(2));
 			return /^\d/.test(f) ? f : f.toLowerCase();
 		})
 		.join(', ');
@@ -60,9 +79,8 @@ function fieldWords(fields: string[], article = false): string {
 
 /** "a", "a and b", "a, b and c"; "Yours" as "yours". */
 function places(labels: string[]): string {
-	const named = labels.map((l) => (l === YOURS ? 'yours' : l));
-	if (named.length <= 1) return named.join('');
-	return `${named.slice(0, -1).join(', ')} and ${named.at(-1)}`;
+	const w = t().clones.sync;
+	return w.places(labels.map((l) => (l === YOURS ? w.placeYours : l)));
 }
 
 /**
@@ -73,44 +91,47 @@ function places(labels: string[]): string {
  * person's own copy is "your copy".
  */
 export function noticeLine(line: StepLine, pageMine = true): string {
+	const w = t().clones.notice;
 	const own = line.place === YOURS;
-	const who = own ? 'Your copy' : line.place;
+	const who = own ? w.yourCopy : line.place;
 	switch (line.state) {
 		case 'behind':
-			return `${who} is behind ${pageMine ? 'yours' : 'this one'}: ${fieldWords(line.fields)}`;
+			return w.behind(who, pageMine, fieldWords(line.fields));
 		case 'changed':
-			return `${who} changed ${fieldWords(line.fields)}`;
-		case 'both': {
-			const pair = pageMine
-				? `You and ${line.place}`
-				: `This copy and ${own ? 'yours' : line.place}`;
-			return `${pair} both changed ${fieldWords(line.fields)}`;
-		}
+			return w.changed(who, fieldWords(line.fields));
+		case 'both':
+			return w.both(line.place, own, pageMine, fieldWords(line.fields));
 		case 'held':
-			return `${who} ${line.how ?? 'changed'} ${fieldWords(line.fields, true)}`;
+			return w.held(who, line.how ?? null, fieldWords(line.fields, true));
 	}
 }
 
 /** Under the Versions list: "Keeps in step · names, small removals", or "Not kept in step". */
 export function keepLine(s: SyncSettings): string {
-	if (!s.on) return 'Not kept in step';
+	const w = t().clones.keep;
+	if (!s.on) return w.off;
 	const on = KEEP_OPTIONS.filter((o) => s[o.key]).map((o) => o.label.toLowerCase());
-	return on.length > 0 ? `Keeps in step · ${on.join(', ')}` : 'Keeps in step';
+	return on.length > 0 ? w.onWith(on.join(', ')) : w.on;
 }
 
 /** The sheet's button: "Sync 3 copies". */
 export function syncButton(n: number): string {
-	return `Sync ${plural(n, 'copy', 'copies')}`;
+	return t().clones.sync.button(n);
 }
 
 /** The sheet's subtitle: "3 differences across 3 copies". */
 export function syncSub(differences: number, copies: number): string {
-	return `${plural(differences, 'difference', 'differences')} across ${plural(copies, 'copy', 'copies')}`;
+	return t().clones.sync.sub(differences, copies);
 }
 
 /** Above a tile's value, the copies holding it: "Yours · Sreda 17:30". */
 export function holdersLine(labels: string[]): string {
-	return labels.join(' · ');
+	return t().clones.sync.holders(labels.map(shown));
+}
+
+/** A copy's label in "Sync to" and the Sync sheet's lines: the person's own in their language. */
+export function placeShown(label: string): string {
+	return shown(label);
 }
 
 /**
@@ -120,31 +141,31 @@ export function holdersLine(labels: string[]): string {
  */
 export function changedBy(labels: string[], kind: 'field' | 'add' | 'remove'): string | null {
 	if (labels.length === 0) return null;
-	const verb = kind === 'add' ? 'added' : kind === 'remove' ? 'removed' : 'changed';
-	const named = labels.map((l) => (l === YOURS ? 'you' : l));
-	if (named.length === 1) return `${named[0]} ${verb} it`;
-	const who = `${named.slice(0, -1).join(', ')} and ${named.at(-1)}`;
-	return `${who} ${named.length === 2 ? 'both ' : ''}${verb} it`;
+	const w = t().clones.sync;
+	return w.changedBy(
+		labels.map((l) => (l === YOURS ? w.you : l)),
+		kind
+	);
 }
 
 /** A tile for "absent" in a field row: picking it removes the piece from the copies holding it. */
 export function removeChoice(holding: string[]): string {
-	return `Remove from ${places(holding)}`;
+	return t().clones.sync.removeChoice(places(holding));
 }
 
 /** An add row's box: what a copy added goes to the copies without it. */
 export function addBox(without: string[]): string {
-	return `Add to ${places(without)} too`;
+	return t().clones.sync.addBox(places(without));
 }
 
 /** A remove row's box: what a copy removed goes from the copies still holding it. */
 export function removeBox(holding: string[]): string {
-	return `Remove from ${places(holding)} too`;
+	return t().clones.sync.removeBox(places(holding));
 }
 
 const MAX = 40;
 const clip = (s: string, n = MAX) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-const quoted = (s: string) => `“${clip(s.trim(), 60)}”`;
+const quoted = (s: string) => t().clones.sync.quote(clip(s.trim(), 60));
 
 /**
  * Update mine's change, from what the person's copy holds to what lands:
@@ -152,10 +173,10 @@ const quoted = (s: string) => `“${clip(s.trim(), 60)}”`;
  * with the frame.”" (text added at the end), "removed".
  */
 export function changeText(from: string | null, to: string | null): string {
-	if (to === null) return 'removed';
-	if (from === null || from.trim() === '') return `added ${quoted(to)}`;
-	if (to.startsWith(from) && to.length > from.length)
-		return `added ${quoted(to.slice(from.length))}`;
+	const w = t().clones.sync;
+	if (to === null) return w.removed;
+	if (from === null || from.trim() === '') return w.added(quoted(to));
+	if (to.startsWith(from) && to.length > from.length) return w.added(quoted(to.slice(from.length)));
 	let a = from.split(' · ');
 	let b = to.split(' · ');
 	while (a.length > 1 && b.length > 1 && a[0] === b[0]) [a, b] = [a.slice(1), b.slice(1)];
@@ -174,22 +195,17 @@ export function changeText(from: string | null, to: string | null): string {
 
 /** Update mine's subtitle: "The club changed 2 things since you took it". */
 export function updateSub(n: number): string {
-	return `The club changed ${plural(n, 'thing', 'things')} since you took it`;
+	return t().clones.sync.updateSub(n);
 }
 
 /** Under Update mine's changes, what of the person's own stays: "Your own change to the partner stays." */
 export function staysLine(fields: string[]): string {
-	const words = fields.map((f) => (/^\d/.test(f) ? f : `the ${f.toLowerCase()}`));
-	const list =
-		words.length <= 1 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`;
-	return words.length === 1
-		? `Your own change to ${list} stays.`
-		: `Your own changes to ${list} stay.`;
+	return t().clones.sync.stays(fields);
 }
 
 /** A copy a Sync could not land on: "Sreda 17:30: <why>". */
 export function notSynced(place: string, message: string): string {
-	return `${place}: ${message}`;
+	return `${shown(place)}: ${message}`;
 }
 
 /**
@@ -334,7 +350,7 @@ export function postPicks(
 
 /** Update mine when the club has nothing the reader's copy lacks: "Nothing new from Sreda 17:30". */
 export function nothingNew(place: string): string {
-	return `Nothing new from ${place}`;
+	return t().clones.sync.nothingNew(place);
 }
 
 /** Whether Update mine has anything to bring: a change, a row to pick, or a box. */

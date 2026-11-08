@@ -180,3 +180,64 @@ class Analyzer:
             self._model = File2Beats(checkpoint_path=self.checkpoint, device="cpu", dbn=False)
         beats, downbeats = self._model(str(wav))
         return [float(b) for b in beats], [float(d) for d in downbeats]
+
+
+# ── Where the music starts (spec 2026-11-08, "Where the music starts") ──
+
+WINDOW_S = 0.5
+_SILENT_DB = -120.0
+_RMS_KEY = "lavfi.astats.Overall.RMS_level="
+
+
+def loudness_windows(wav: Path, run=subprocess.run) -> list[float]:
+    """RMS level in dB per 0.5 s window of the whole file. The WAV is 22.05 kHz, so 11025 samples are 0.5 s."""
+    p = run(
+        [
+            "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", str(wav),
+            "-af",
+            "aresample=22050,asetnsamples=11025,astats=metadata=1:reset=1,"
+            "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-",
+            "-f", "null", "-",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    levels = []
+    for line in p.stdout.splitlines():
+        if line.startswith(_RMS_KEY):
+            value = line[len(_RMS_KEY):].strip()
+            try:
+                db = float(value)
+            except ValueError:
+                db = _SILENT_DB
+            levels.append(db if db > _SILENT_DB else _SILENT_DB)
+    return levels
+
+
+def music_start(levels_db: list[float], window_s: float = WINDOW_S, below_db: float = 30.0, hold: int = 4) -> float:
+    """Where the music starts: the first window from which `hold` windows in a row are within
+    `below_db` of the song's median level. 0.0 when there is none.
+
+    Measured on real songs: silence, then a quiet video scene, then the song.
+    Plain silence detection misses the quiet scene; this does not, and a short
+    dip later in the song does not count because only the first rise matters. 30 dB, not the
+    spec's ~20: on the 2026-11-06 songs 20 dB started Sabes Tu Porque after its 3 s fade-in
+    (4.0 s), 30 dB in it (2.5 s), and left the other 14 where they were (18, 5, 1.5, under 0.5)."""
+    if not levels_db:
+        return 0.0
+    ordered = sorted(levels_db)
+    median = ordered[len(ordered) // 2]
+    floor = median - below_db
+    for i in range(len(levels_db) - hold + 1):
+        if all(level >= floor for level in levels_db[i : i + hold]):
+            return round(i * window_s, 2)
+    return 0.0
+
+
+def music_start_of(wav: Path, run=subprocess.run) -> float:
+    """The worker's tool: never raises (0.0 when unsure), so a song is measured once."""
+    try:
+        return music_start(loudness_windows(wav, run=run))
+    except Exception:  # noqa: BLE001 — a measurement is a nicety, never a failed job
+        return 0.0

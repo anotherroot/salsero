@@ -1,7 +1,9 @@
+import { t } from '$lib/i18n/catalog';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { songGrid } from '$lib/server/grid';
 import { requireSongAccess } from '$lib/server/scope';
+import { musicStart } from '$lib/songs/music-start';
 import type { SongGrid } from '$lib/types';
 import type { RequestHandler } from './$types';
 
@@ -14,8 +16,8 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = ({ params, locals }) => {
 	const { song } = requireSongAccess(getDb(), locals, params, params.id, 'read');
 	if (song.status !== 'ready' || !song.audioFile) {
-		throw error(404, 'No analysed song here');
+		throw error(404, t().refusals.noAnalysedSong);
 	}
-	const body: SongGrid = { audioFile: song.audioFile, ...songGrid(song) };
+	const body: SongGrid = { audioFile: song.audioFile, ...songGrid(song), startS: musicStart(song) };
 	return json(body);
 };

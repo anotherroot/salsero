@@ -10,6 +10,7 @@ import { wallOf, type Space } from '$lib/server/scope';
 import { groupModeOf } from '$lib/server/group-mode';
 import { noPosition } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
+import { styleLabelsOf } from '$lib/moves/figures';
 import {
 	noPositionGroups,
 	noPositionHead,
@@ -66,7 +67,7 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	});
 	const names = (ps: number[]) =>
 		ps.map((p) => graph.positions.find((x) => x.id === canonicalOf(graph, p))?.name ?? '');
-	const labelOf = DANCES[dance].styleLabel;
+	const labelOf = styleLabelsOf(DANCES[dance].styleLabel);
 	const byId = new Map(graph.figures.map((f) => [f.id, f]));
 
 	const row = (id: number) => {

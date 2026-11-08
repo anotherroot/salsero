@@ -24,6 +24,8 @@
 //   Position                              položaj
 //   Hold                                  drža
 //   Section (of a video)                  odsek
+//   Section (of a song: Intro, Mambo …)   del (Uvod, Kitica, Coro, Montuno, Mambo, Break, Zaključek)
+//   Count off (a song's section)          brez štetja
 //   Point (a saved moment)                točka
 //   Recording                             posnetek
 //   Set (a logged practice)               vnos
@@ -54,16 +56,46 @@
 //   a take (My count), a bar (of counts)  posnetek, takt (Takt 2 od 4)
 //   Storage (Settings), the admin         prostor, skrbnik (the admin's section: Skrbništvo)
 //   Paired phones                         Povezani telefoni (lines as nouns: "Povezava: …")
+//   a count (a figure's length)           doba ("8 dob"; the spoken count stays štetje)
+//   slot (in a routine)                   mesto
+//   break (a routine's)                   prekinitev (a timing break: časovna prekinitev)
+//   link                                  povezava
+//   owner / editor / member (a group's)   Vodja / Lahko ureja / Lahko bere
+//   does not loop (a routine)             se ne sklene
+//   Notes (a figure's, a lesson's)        opombe
+//   Map (positions)                       Zemljevid
+//   Walk (the map, to a routine)          sprehod (Sprehod od tu)
+//   Sync (copies)                         Uskladi
+//   Keep in step                          Samodejno usklajevanje
+//   Drop my copy                          Opusti svojo kopijo
+//   Detach                                Odklopi
+//   Unlink (a link, on a row)             Odveži (in a sentence or a label: Odstrani povezavo: …)
+//   Take (a field, a recording)           Prevzemi
+//   Update mine                           Posodobi svojo
+//   Make it mine                          Naredi svojo kopijo
+//   Versions (the list) / Your version    Kopije / Vaša kopija
+//   Twins (the chip)                      Dvojčka
+//   the reminder (Android's channel)      Opomnik za vadenje
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
+import { clones } from './clones';
 import { comments } from './comments';
 import { common } from './common';
 import { entry } from './entry';
 import { exercise } from './exercise';
+import { figure } from './figure';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
+import { links } from './links';
+import { map } from './map';
+import { moves } from './moves';
+import { nouns } from './nouns';
+import { picker } from './picker';
 import { player } from './player';
+import { positions } from './positions';
+import { refusals } from './refusals';
+import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
@@ -72,6 +104,7 @@ import { video } from './video';
 
 export const sl: Catalog = {
 	common,
+	nouns,
 	format,
 	shell,
 	admin,
@@ -84,5 +117,14 @@ export const sl: Catalog = {
 	comments,
 	video,
 	player,
-	groups
+	groups,
+	moves,
+	figure,
+	routine,
+	positions,
+	picker,
+	links,
+	clones,
+	refusals,
+	map
 };

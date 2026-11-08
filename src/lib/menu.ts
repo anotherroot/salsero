@@ -1,5 +1,6 @@
 import type { IconName } from '$lib/icons/icons';
 import type { CloneKind } from '$lib/types';
+import { t } from '$lib/i18n/catalog';
 
 /**
  * One row of a page's ⋯ menu (`ui/MenuSheet.svelte`): a link (`href`) or a
@@ -27,16 +28,7 @@ export function orderMenu(own: MenuItem[], copies: MenuItem[]): MenuItem[] {
 	return [...safe(own), ...safe(copies), ...danger(copies), ...danger(own)];
 }
 
-const KIND_NAME: Record<CloneKind, string> = {
-	figure: 'Figure',
-	position: 'Position',
-	routine: 'Routine',
-	drill: 'Drill',
-	song: 'Song',
-	lesson: 'Lesson'
-};
-
-/** The ⋯ button's name: "Position menu". */
+/** The ⋯ button's name: "Position menu", in the reader's language. */
 export function menuLabel(kind: CloneKind): string {
-	return `${KIND_NAME[kind]} menu`;
+	return t().clones.menuLabel(kind);
 }

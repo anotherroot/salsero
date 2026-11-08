@@ -1,14 +1,17 @@
-import { inArray } from 'drizzle-orm';
-import { positions as positionsTable } from '$lib/server/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { figureGroups, figures, positions as positionsTable } from '$lib/server/db/schema';
 import { graphFor } from '$lib/server/graph';
+import { figureLabels } from '$lib/server/figures';
+import { fromTags, shownName } from '$lib/clones/from-tag';
 import { teamRefs, usableOf } from '$lib/server/usable';
 import type { Db } from '$lib/server/db';
 import type { Space, Wall } from '$lib/server/scope';
 import { noPosition, positionCounts } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
-import { layoutMap, mapInputOf, mapLabel } from '$lib/positions/map';
-import { legendTypes, styleTone, type MapData } from '$lib/positions/map-view';
-import { mapLabelFor, mapNodeName, mapSummary, mapTwinsLine } from '$lib/positions/view';
+import { layoutMap, mapInputOf } from '$lib/positions/map';
+import { legendTypes, styleTone, type MapData, type MapFig } from '$lib/positions/map-view';
+import { mapTwinsLine } from '$lib/positions/view';
+import { t } from '$lib/i18n/catalog';
 import type { GroupMode } from '$lib/types';
 
 /**
@@ -50,13 +53,12 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		return {
 			id: p.id,
 			name: p.name,
-			label: mapLabel(p.name),
 			styleTag: p.styleTag,
 			tone: styleTone(p.styleTag, styles),
 			ins: c.inCount,
 			outs: c.outCount,
 			twinsLine: twinsLines.get(p.id) ?? null,
-			ariaLabel: mapNodeName({
+			ariaLabel: t().map.nodeName({
 				name: p.name,
 				ins: c.inCount,
 				outs: c.outCount,
@@ -66,7 +68,72 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		};
 	});
 	const figuresOf = new Map(input.edges.map((e) => [`${e.from}:${e.to}`, e.figures]));
-	const edges = layout.edges.map((e) => ({ ...e, figures: figuresOf.get(`${e.from}:${e.to}`)! }));
+
+	// Each figure on its arrows, from the same graph (ids already folded).
+	const labels = figureLabels(db, space, usable);
+	const rows =
+		graph.figures.length === 0
+			? []
+			: db
+					.select({ id: figures.id, move: figureGroups.name, teamId: figures.teamId })
+					.from(figures)
+					.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+					.where(
+						inArray(
+							figures.id,
+							graph.figures.map((f) => f.id)
+						)
+					)
+					.all();
+	const moves = new Map(rows.map((r) => [r.id, r.move]));
+	// A copy and its original can both be in a person's graph: theirs and a group's
+	// they use (`usableOf`), either one copied from the other. Labels that collide
+	// say where each group row lives, "Shadow exit · Basic · Sreda 17:30", the person's
+	// own staying plain (`fromTags`, as Coverage and the pickers draw a copy apart).
+	// In group mode every row is the group's, and its labels never collide.
+	const teams = teamRefs(db, mode ? [] : rows.flatMap((r) => r.teamId ?? []));
+	const placeOf = new Map(
+		rows.map((r) => [r.id, r.teamId === null ? null : (teams.get(r.teamId)?.name ?? null)])
+	);
+	const tags = fromTags(
+		graph.figures.map((f) => ({
+			id: f.id,
+			name: labels.get(f.id) ?? '',
+			from: placeOf.get(f.id) ?? null
+		}))
+	);
+	const figOf = (id: number): MapFig => ({
+		id,
+		label: shownName({ id, name: labels.get(id) ?? '' }, tags),
+		move: moves.get(id) ?? ''
+	});
+	const byMove = (a: MapFig, b: MapFig) =>
+		a.move.localeCompare(b.move) || a.label.localeCompare(b.label) || a.id - b.id;
+	const drawn = new Set(input.positions.map((p) => p.id));
+	const onEdge = new Map<string, MapFig[]>();
+	const anyFromMap = new Map<number, MapFig[]>();
+	const noStart: { fig: MapFig; ends: number[] }[] = [];
+	for (const f of graph.figures) {
+		const fig = figOf(f.id);
+		if (f.starts.length === 0) {
+			noStart.push({ fig, ends: f.ends.filter((p) => drawn.has(p)) });
+			continue;
+		}
+		for (const from of f.starts) {
+			if (!drawn.has(from)) continue;
+			if (f.ends.length === 0) pushTo(anyFromMap, from, fig);
+			for (const to of f.ends) if (drawn.has(to)) pushTo(onEdge, `${from}:${to}`, fig);
+		}
+	}
+	noStart.sort((a, b) => byMove(a.fig, b.fig));
+	const anyFrom = [...anyFromMap]
+		.sort((a, b) => a[0] - b[0])
+		.map(([from, figs]) => ({ from, figs: figs.sort(byMove) }));
+	const edges = layout.edges.map((e) => ({
+		...e,
+		figures: figuresOf.get(`${e.from}:${e.to}`)!,
+		figs: (onEdge.get(`${e.from}:${e.to}`) ?? []).sort(byMove)
+	}));
 
 	const none = noPosition(graph);
 	// One count everywhere: what is not drawn as an arrow (no start, no end, or only one),
@@ -81,8 +148,10 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		layout,
 		positions,
 		edges,
+		anyFrom,
+		noStart,
 		noPosition: missing,
-		summary: mapSummary({
+		summary: t().map.summary({
 			positions: positions.length,
 			between: graph.figures.filter((f) => f.starts.length > 0 && f.ends.length > 0).length,
 			none: missing,
@@ -93,7 +162,7 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 			DANCES[dance].styleLabel,
 			positions.some((p) => p.tone === 'muted' && !styles.includes(p.styleTag ?? ''))
 		),
-		mapLabel: mapLabelFor(mode !== null),
+		mapLabel: t().map.label(mode !== null),
 		inGroupMode: mode !== null
 	};
 }
@@ -132,4 +201,11 @@ function twinsLinesOf(db: Db, twinned: Map<number, number[]>): Map<number, strin
 		);
 	}
 	return lines;
+}
+
+/** Add `v` to the list at `key`, making the list on first use. */
+function pushTo<K, V>(m: Map<K, V[]>, key: K, v: V): void {
+	const list = m.get(key);
+	if (list) list.push(v);
+	else m.set(key, [v]);
 }

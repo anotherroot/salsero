@@ -24,6 +24,7 @@
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
 	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
@@ -42,9 +43,8 @@
 	let { data }: { data: PageData } = $props();
 
 	const dance = $derived(DANCES[data.dance]);
-	const styleOptions = $derived(
-		dance.styles.map((s) => ({ value: s, label: dance.styleLabel[s] }))
-	);
+	const styleLabels = $derived(styleLabelsOf(dance.styleLabel));
+	const styleOptions = $derived(dance.styles.map((s) => ({ value: s, label: styleLabels[s] })));
 	const sizeOptions = VIDEO_SHORT_SIDES.map((s) => ({ value: String(s), label: `${s}p` }));
 
 	/** The reminder as saved: the switch and the time. */
@@ -222,7 +222,6 @@
 					</div>
 				{/if}
 			</div>
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/settings/storage" class={ROW_TALL}>
 				<LeadTile icon="sliders" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -255,7 +254,6 @@
 			/>
 		</div>
 		{#if !few}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/voice" class={ROW_TALL}>
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -266,7 +264,7 @@
 			</a>
 			{@render opener(
 				w.practice.newFigures,
-				dance.styleLabel[data.defaultStyle],
+				styleLabels[data.defaultStyle],
 				() => (sheet = 'style')
 			)}
 		{/if}
@@ -283,7 +281,6 @@
 
 	{#if !data.app && !few}
 		<div class="{GROUP} mt-[14px]">
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/app" class={ROW_TALL}>
 				<LeadTile icon="phone" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -371,7 +368,6 @@
 	{#if data.isAdmin}
 		<span class="{SECTION_LABEL} mt-[14px]">{w.admin.label}</span>
 		<div class={GROUP}>
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/admin" class={ROW_TALL}>
 				<LeadTile icon="people" />
 				<span class="flex min-w-0 flex-1 flex-col">

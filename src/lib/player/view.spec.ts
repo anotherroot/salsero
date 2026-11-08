@@ -302,4 +302,61 @@ describe('the Practice page in Slovenian', () => {
 		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
 		expect(sl(() => routineHeading(1, 5))).toBe('Kombinacija · mesto 2 od 5');
 	});
+
+	it('counts a routine’s slots with all four forms', () => {
+		expect(sl(() => [1, 2, 3, 5, 101, 102].map((n) => routineHeading(null, n)))).toEqual([
+			'Kombinacija · 1 mesto',
+			'Kombinacija · 2 mesti',
+			'Kombinacija · 3 mesta',
+			'Kombinacija · 5 mest',
+			'Kombinacija · 101 mesto',
+			'Kombinacija · 102 mesti'
+		]);
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3] }))).toBe(
+			'Prva · 3 različice'
+		);
+	});
+
+	it('counts the calls with all four forms', () => {
+		expect(sl(() => [1, 2, 3, 5].map((n) => runSummary(90, n)))).toEqual([
+			'1:30 · 1 napovedana različica',
+			'1:30 · 2 napovedani različici',
+			'1:30 · 3 napovedane različice',
+			'1:30 · 5 napovedanih različic'
+		]);
+		expect(sl(() => runSummary(252, null))).toBe('4:12');
+	});
+
+	it('says Play, starting, and whose voice counts', () => {
+		const base = { source: 'count', songId: null, ready: false, error: null } as const;
+		expect(sl(() => playState({ ...base, starting: false }).label)).toBe('Predvajaj');
+		expect(sl(() => playState({ ...base, starting: true }).label)).toBe('Zaganjanje …');
+		const takes: CountTakeRow[] = (['a', 'b'] as const).map((phrase) => ({
+			id: 1,
+			pattern: 'salsa',
+			bpm: 180,
+			phrase,
+			file: 'x.wav',
+			preRollS: 0.1,
+			lengthS: 1.3
+		}));
+		expect(sl(() => voiceKind(takes, 'salsa', 180))).toBe('Vaš');
+	});
+
+	it('names the exercise a run logs to', () => {
+		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-10-31' };
+		expect(sl(() => exerciseLine({ source: 'figure', state: null, today: '2026-10-31' }))).toBe(
+			'Vaja z različico'
+		);
+		expect(sl(() => exerciseLine({ source: 'routine', state, today: '2026-10-31' }))).toBe(
+			'Kombinacija · Na vrsti danes'
+		);
+	});
+
+	it('goes back to an opener by its own name, after a colon', () => {
+		const p = { dance: 'salsa', from: null, routine: null, exercise: null } as const;
+		expect(sl(() => practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } }).label)).toBe(
+			'Nazaj: Vivir mi vida'
+		);
+	});
 });

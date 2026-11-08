@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb, type Db } from '$lib/server/db';
 import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
@@ -45,7 +46,7 @@ import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-for
 import { listMusic, musicChoices } from '$lib/server/song-links';
 import { isTeam, requireRoutineAccess, spaceOfRow, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
-import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
+import { missingSeen, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
@@ -119,7 +120,7 @@ function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract'
 	if (typeof sent !== 'string' || sent === '') {
 		// A group's routine, or one with copies (a change may flow in), must say what it saw.
 		const required = routine.teamId !== null || hasCopies(db, 'routine', routine.id);
-		return required ? fail(400, { ...named, message: MISSING_SEEN }) : null;
+		return required ? fail(400, { ...named, message: missingSeen() }) : null;
 	}
 	if (sent === fingerprintOf(db, routine.id)) return null;
 	return fail(409, { ...named, message: staleRoutine(who().by), stale: true });
@@ -385,7 +386,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			return fail(400, {
 				action: 'rename',
 				field: 'name',
-				message: 'Give the routine a name (up to 200 characters).',
+				message: t().moves.refused.routineName,
 				...typed
 			});
 		}
@@ -393,7 +394,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			return fail(400, {
 				action: 'rename',
 				field: 'notes',
-				message: 'Notes are up to 2000 characters.',
+				message: t().moves.refused.notes,
 				...typed
 			});
 		}
@@ -413,7 +414,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 	duplicate: async ({ params, locals }) => {
 		const routine = routineOf(params, locals);
 		const copy = duplicateRoutine(getDb(), routine.id, by(params, locals));
-		if (!copy) return fail(400, { message: 'Could not copy that routine.' });
+		if (!copy) return fail(400, { message: t().routine.refused.copy });
 		// Straight to the copy: you duplicated it in order to change it, and landing
 		// back on the original is how you end up editing the wrong one.
 		throw redirect(303, `/${params.dance}/routines/${copy.id}`);
@@ -486,19 +487,16 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
 		if (stepId === undefined || figureId === undefined) {
-			return slotFail('Could not read that slot or figure.', stepId);
+			return slotFail(t().routine.refused.readSlot, stepId);
 		}
 		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail('That slot does not belong to this routine.', stepId);
+			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
 		if (!addOption(db, stepId, figureId, by(params, locals))) {
 			const space = spaceOfRow(routine, by(params, locals));
 			const archived = archivedRefusal(db, space, { figureId }, { stepId });
 			if (archived) return archived;
-			return slotFail(
-				'That figure does not start and land like this slot’s figure, so it is not an alternative.',
-				stepId
-			);
+			return slotFail(t().routine.refused.notAlternative, stepId);
 		}
 		return done(routine.id);
 	},
@@ -513,14 +511,14 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
 		if (stepId === undefined || figureId === undefined) {
-			return slotFail('Could not read that slot or figure.', stepId);
+			return slotFail(t().routine.refused.readSlot, stepId);
 		}
 		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail('That slot does not belong to this routine.', stepId);
+			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
 		const now = serverNow();
 		if (!removeOption(db, stepId, figureId, now, by(params, locals))) {
-			return slotFail('A slot has to hold something.', stepId);
+			return slotFail(t().routine.refused.holdSomething, stepId);
 		}
 		// Handed back so Undo can bring back the entries this remove took (R10).
 		return done(routine.id, { removedAt: now });
@@ -556,10 +554,10 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		// Order kept as it was: an overlong note is reported as an overlong note even
 		// when the slot id is unreadable too. Only the attribution is new.
 		if (note === undefined) {
-			return slotFail('Keep the note to 200 characters.', stepId);
+			return slotFail(t().routine.refused.note, stepId);
 		}
 		if (stepId === undefined || !ownsSlot(db, routine.id, stepId)) {
-			return slotFail('That slot does not belong to this routine.', stepId);
+			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
 		setSlotNote(db, stepId, note, by(params, locals));
 		return done(routine.id);
@@ -576,7 +574,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const figureId = int(form, 'figureId');
 		const childId = int(form, 'childId');
 		if (at === undefined || (figureId === undefined) === (childId === undefined)) {
-			return fail(400, { message: 'Could not read what to add, or where.' });
+			return fail(400, { message: t().routine.refused.readInsert });
 		}
 		if (childId !== undefined) {
 			// Only what the picker offered: `canEmbed` alone would accept an archived routine.
@@ -587,7 +585,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			if (stepId === null) {
 				const space = spaceOfRow(routine, by(params, locals));
 				const archived = archivedRefusal(db, space, { routineId: childId }, {});
-				return archived ?? fail(400, { message: 'That routine cannot be embedded here.' });
+				return archived ?? fail(400, { message: t().routine.refused.embed });
 			}
 			return done(routine.id, { stepId });
 		}
@@ -601,7 +599,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		if (stepId === null) {
 			const space = spaceOfRow(routine, by(params, locals));
 			const archived = archivedRefusal(db, space, { figureId: figureId as number }, {});
-			return archived ?? fail(400, { message: 'That figure is not part of this dance.' });
+			return archived ?? fail(400, { message: t().routine.refused.notThisDance });
 		}
 		return done(routine.id, { stepId });
 	},
@@ -620,7 +618,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			index === undefined ||
 			!moveSlotTo(getDb(), routine.id, stepId, index, by(params, locals))
 		) {
-			return slotFail('That slot cannot move there.', stepId);
+			return slotFail(t().routine.refused.move, stepId);
 		}
 		return done(routine.id);
 	},
@@ -637,7 +635,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			stepIds.length === 0
 				? null
 				: deleteSlots(getDb(), routine.id, stepIds, serverNow(), by(params, locals));
-		if (!snapshot) return fail(400, { message: 'Those slots are already gone.' });
+		if (!snapshot) return fail(400, { message: t().routine.refused.gone });
 		// Handed back so the page can offer Undo, which posts it to `restore`.
 		return done(routine.id, { snapshot });
 	},
@@ -651,7 +649,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		if (stale) return stale;
 		const snapshot = parseSnapshots(String(form.get('snapshot') ?? ''));
 		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot, by(params, locals))) {
-			return fail(400, { message: 'Those slots could not be put back.' });
+			return fail(400, { message: t().routine.refused.putBack });
 		}
 		return done(routine.id);
 	},
@@ -666,14 +664,14 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
 		if (stepId === undefined || figureId === undefined) {
-			return slotFail('Could not read that slot or figure.', stepId);
+			return slotFail(t().routine.refused.readSlot, stepId);
 		}
 		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail('That slot does not belong to this routine.', stepId);
+			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
 		const removedAt = int(form, 'removedAt');
 		if (!restoreOption(db, stepId, figureId, by(params, locals), removedAt)) {
-			return slotFail('That alternative could not be put back.', stepId);
+			return slotFail(t().routine.refused.altPutBack, stepId);
 		}
 		return done(routine.id);
 	},
@@ -690,7 +688,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			stepIds.length === 0 ||
 			duplicateSlots(getDb(), routine.id, stepIds, by(params, locals)) === null
 		) {
-			return fail(400, { message: 'Those slots could not be copied.' });
+			return fail(400, { message: t().routine.refused.copySlots });
 		}
 		return done(routine.id);
 	},
@@ -708,7 +706,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			return fail(400, {
 				action: 'extract',
 				field: 'name',
-				message: 'Give the new routine a name (up to 200 characters).',
+				message: t().routine.refused.newName,
 				name: String(form.get('name') ?? '')
 			});
 		}
@@ -719,8 +717,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		if (!made) {
 			return fail(400, {
 				action: 'extract',
-				message:
-					'Those slots cannot become a routine: they have to sit next to each other and hold no routine, and this routine cannot itself be embedded anywhere.'
+				message: t().routine.refused.extract
 			});
 		}
 		return done(routine.id, { stepId: made.stepId });

@@ -20,6 +20,7 @@ import { createFigure } from '$lib/server/figures';
 import { eq } from 'drizzle-orm';
 import { exercises, lessonPositions, positions } from '$lib/server/db/schema';
 import { localDay } from '$lib/day/day';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions as listActions } from './+page.server';
 import { actions as lessonActions } from './[id]/+page.server';
 
@@ -476,5 +477,85 @@ describe('New position from this lesson', () => {
 			status: 400,
 			data: { action: 'newPosition', field: 'notes', message: 'Notes are up to 2000 characters.' }
 		});
+	});
+});
+
+describe('the refusals in Slovenian', () => {
+	const sl = <T>(fn: () => T) => runInLocale('sl', fn);
+	const lesson = () =>
+		createLesson(db, U1_SALSA, { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
+			.id;
+
+	it('New lesson: a blank title', async () => {
+		const result = await sl(() =>
+			call(listActions.create, post('salsa', { title: ' ', notes: '', lessonDay: '2026-01-05' }))
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { field: 'title', message: 'Vpišite naslov (do 200 znakov).' }
+		});
+	});
+
+	it('Edit lesson: a blank title, a day in the future, a day that is not one', async () => {
+		const id = lesson();
+		const edit = (fields: Record<string, string>) =>
+			sl(() => call(lessonActions.update, post('salsa', fields, id)));
+		expect(await edit({ title: ' ', notes: '', lessonDay: '2026-01-05' })).toMatchObject({
+			data: { field: 'title', message: 'Vpišite naslov (do 200 znakov).' }
+		});
+		const future = localDay(Date.now() + 2 * 86_400_000, ZONE);
+		expect(await edit({ title: 'Rueda', notes: '', lessonDay: future })).toMatchObject({
+			data: { field: 'lessonDay', message: 'Ta dan je v prihodnosti.' }
+		});
+		expect(await edit({ title: 'Rueda', notes: '', lessonDay: 'soon' })).toMatchObject({
+			data: { field: 'lessonDay', message: 'Izberite datum lekcije.' }
+		});
+	});
+
+	it('From this lesson: the create sheets', async () => {
+		const id = lesson();
+		expect(
+			await sl(() =>
+				call(
+					lessonActions.newFigure,
+					post('salsa', { figureName: ' ', name: 'Doble', partner: 'partner', style: 'salsa' }, id)
+				)
+			)
+		).toMatchObject({ data: { message: 'Vpišite ime figure (do 200 znakov).' } });
+		expect(
+			await sl(() => call(lessonActions.newVariation, post('salsa', { name: 'Doble' }, id)))
+		).toMatchObject({ data: { field: 'groupId', message: 'Izberite figuro.' } });
+		expect(
+			await sl(() => call(lessonActions.newExercise, post('salsa', { name: ' ' }, id)))
+		).toMatchObject({ data: { message: 'Vpišite ime (do 200 znakov).' } });
+		expect(
+			await sl(() =>
+				call(lessonActions.newRoutine, post('salsa', { name: 'R', notes: 'x'.repeat(2001) }, id))
+			)
+		).toMatchObject({ data: { message: 'Opombe imajo lahko največ 2000 znakov.' } });
+	});
+
+	it('the one-tap links and the video delete', async () => {
+		const id = lesson();
+		const one = (action: unknown, fields: Record<string, string>) =>
+			sl(() => call(action, post('salsa', fields, id)));
+		expect(await one(lessonActions.linkFigure, { figureId: '999' })).toMatchObject({
+			data: { message: 'Različice ni bilo mogoče povezati.' }
+		});
+		expect(await one(lessonActions.unlinkRoutine, { routineId: '999' })).toMatchObject({
+			data: { message: 'Povezava s kombinacijo je že odstranjena.' }
+		});
+		expect(await one(lessonActions.linkExercise, { exerciseId: '999' })).toMatchObject({
+			data: {
+				message: 'Vaje ni bilo mogoče povezati. Vaja različice ali kombinacije je na njeni strani.'
+			}
+		});
+		expect(await one(lessonActions.unlinkPosition, { positionId: '999' })).toMatchObject({
+			data: { message: 'Povezava s položajem je že odstranjena.' }
+		});
+		expect(await one(lessonActions.deleteVideo, { videoId: '999' })).toMatchObject({
+			data: { message: 'Ta video je bil že odstranjen.' }
+		});
+		expect(await one(lessonActions.publish, {}).catch((e) => e)).toMatchObject({ status: 404 });
 	});
 });

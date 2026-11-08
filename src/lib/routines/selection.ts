@@ -5,6 +5,7 @@
  * for a person, so "Make routine" can say why it is greyed BEFORE anything is
  * posted. The server still decides.
  */
+import { t } from '$lib/i18n/catalog';
 
 /** Selected ids in routine order, whatever order they were tapped in. */
 export function inOrder(rows: { id: number }[], selected: number[]): number[] {
@@ -17,14 +18,13 @@ export function extractBlock(
 	selected: number[],
 	embeddedIn: string[]
 ): string | null {
-	if (embeddedIn.length > 0) {
-		return `This routine is embedded in ${embeddedIn.join(', ')} — embedding is one level.`;
-	}
+	const w = t().routine.selection.blocked;
+	if (embeddedIn.length > 0) return w.embedded(embeddedIn.join(', '));
 	const at = rows.map((r, i) => (selected.includes(r.id) ? i : -1)).filter((i) => i >= 0);
-	if (at.length === 0) return 'Select the slots to make into a routine.';
+	if (at.length === 0) return w.none;
 	const routine = at.find((i) => rows[i].isRoutine);
-	if (routine !== undefined) return `Slot ${routine + 1} is a routine — embedding is one level.`;
-	if (at[at.length - 1] - at[0] !== at.length - 1) return 'Select slots next to each other.';
+	if (routine !== undefined) return w.slotIsRoutine(routine + 1);
+	if (at[at.length - 1] - at[0] !== at.length - 1) return w.apart;
 	return null;
 }
 
@@ -35,7 +35,8 @@ export function actionBlocks(
 	count: number,
 	extractBlocked: string | null
 ): Record<SelectionAction, string | null> {
-	const beside = count === 1 ? null : 'Select one slot to add next to it.';
-	const some = count === 0 ? 'Select slots first.' : null;
+	const w = t().routine.selection.blocked;
+	const beside = count === 1 ? null : w.one;
+	const some = count === 0 ? w.first : null;
 	return { above: beside, below: beside, duplicate: some, extract: extractBlocked, delete: some };
 }

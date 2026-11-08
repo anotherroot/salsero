@@ -3,6 +3,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP } from '$lib/components/ui/styles';
 	import { addVideoRow } from '$lib/figures/page';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * What Recordings' `+ Add` offers (figure page rework): a section of a lesson
@@ -51,7 +52,7 @@
 	</span>
 {/snippet}
 
-<Sheet title="Add to {figureLabel}" size="small" {open} {onclose}>
+<Sheet title={t().figure.add.title(figureLabel)} size="small" {open} {onclose}>
 	<div class={GROUP}>
 		<button
 			type="button"
@@ -63,17 +64,15 @@
 			}}
 		>
 			<span class="flex-none text-accent-text"><Icon name="scissors" size={22} /></span>
-			{@render words('Link a section', 'A part of a lesson video')}
+			{@render words(t().figure.add.section, t().figure.add.sectionMeta)}
 		</button>
 		{#if !video}
 			<!-- a drill: no video row -->
 		{:else if app}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 			<a href={appHref} class={ROW}>
 				<span class="flex-none text-accent-text"><Icon name="video" size={22} /></span>
-				{@render words('Video from the phone', 'Compressed and uploaded in the background')}
+				{@render words(t().figure.add.video, t().shell.upload.inBackground)}
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else}
 			<button
 				type="button"
@@ -86,7 +85,7 @@
 				}}
 			>
 				<span class="flex-none text-accent-text"><Icon name="video" size={22} /></span>
-				{@render words('Video from the phone', videoRow.meta ?? undefined)}
+				{@render words(t().figure.add.video, videoRow.meta ?? undefined)}
 			</button>
 		{/if}
 		<button
@@ -99,7 +98,7 @@
 			}}
 		>
 			<span class="flex-none text-accent-text"><Icon name="link" size={22} /></span>
-			{@render words('Link', 'YouTube or any web page')}
+			{@render words(t().figure.add.link, t().figure.add.linkMeta)}
 		</button>
 	</div>
 </Sheet>

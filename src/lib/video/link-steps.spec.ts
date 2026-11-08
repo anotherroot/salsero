@@ -8,6 +8,7 @@ import {
 	linkWords,
 	loadFailed,
 	momentAt,
+	momentLabel,
 	openingSteps,
 	refusalAt,
 	stacked,
@@ -66,11 +67,10 @@ describe('the popup’s view rules', () => {
 		expect(refusalAt('variation', 'name')).toBe('name');
 		expect(refusalAt('variation', 'groupId')).toBe('groupId');
 		expect(refusalAt('variation', 'style')).toBe('style');
-		expect(refusalAt('figure', 'figureName')).toBe('figureName');
-		expect(refusalAt('figure', 'style')).toBe('style');
+		expect(refusalAt('variation', 'figureName')).toBe('figureName');
 		expect(refusalAt('drill', 'name')).toBe('name');
 		expect(refusalAt('drill', 'figureName')).toBe('banner');
-		expect(refusalAt('figure', undefined)).toBe('banner');
+		expect(refusalAt('variation', undefined)).toBe('banner');
 		expect(refusalAt('position', 'name')).toBe('name');
 		expect(refusalAt('position', 'style')).toBe('style');
 		expect(refusalAt('position', 'figureName')).toBe('banner');
@@ -84,7 +84,6 @@ describe('positions and points (ruling 10)', () => {
 			placeholder: 'Search figures, drills and positions',
 			create: [
 				{ key: 'variation', label: 'Figure' },
-				{ key: 'figure', label: 'Move' },
 				{ key: 'drill', label: 'Drill' },
 				{ key: 'position', label: 'Position' }
 			]
@@ -159,5 +158,81 @@ describe('the heading’s range in Slovenian', () => {
 		expect(
 			withLocale('sl', () => linkHeading({ startMs: 42_000, endMs: 55_500, label: null }).range)
 		).toBe('0:42–0:55,5');
+	});
+});
+
+describe('the popup’s words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('heads a point as a point, and a section by its length', () => {
+		expect(sl(() => linkHeading({ startMs: 72000, endMs: null, label: 'Menjava' }).sub)).toBe(
+			'Menjava · točka'
+		);
+		expect(sl(() => linkHeading({ startMs: 72000, endMs: null, label: null }).sub)).toBe('Točka');
+		expect(sl(() => linkHeading({ startMs: 42000, endMs: 55000, label: 'Doble' }).sub)).toBe(
+			'Doble · 13,0 s'
+		);
+	});
+	it('says where a created thing is linked, the lesson’s title after a colon', () => {
+		const section = { id: 1, startMs: 42000, endMs: 55000, label: null };
+		const point = { id: 2, startMs: 72000, endMs: null, label: null };
+		const lesson = { kind: 'lesson' as const, lessonId: 2, title: 'Torek' };
+		const recording = { kind: 'recording' as const, groupId: 3, figure: 'Enchufla' };
+		expect(sl(() => destination({ spot: section, context: lesson }))).toBe(
+			'Povezano z odsekom 0:42–0:55 in z lekcijo: Torek'
+		);
+		expect(sl(() => destination({ spot: section, context: recording }))).toBe(
+			'Povezano z odsekom 0:42–0:55'
+		);
+		expect(sl(() => destination({ spot: point, context: recording }))).toBe(
+			'Povezano s točko 1:12'
+		);
+	});
+	it('words the opener, the search and the create row', () => {
+		expect(sl(() => linkWords(false))).toEqual({
+			opener: 'Poveži z različico, vajo ali položajem …',
+			placeholder: 'Iskanje različic, vaj in položajev',
+			create: [
+				{ key: 'variation', label: 'Različica' },
+				{ key: 'drill', label: 'Vaja' },
+				{ key: 'position', label: 'Položaj' }
+			]
+		});
+		expect(sl(() => linkWords(true))).toEqual({
+			opener: 'Poveži s položajem …',
+			placeholder: 'Iskanje položajev',
+			create: [{ key: 'position', label: 'Položaj' }]
+		});
+		expect(sl(() => linkWords(null))).toEqual({
+			opener: 'Poveži …',
+			placeholder: 'Iskanje',
+			create: []
+		});
+	});
+	it('titles the levels without a preposition that depends on the next word', () => {
+		expect(sl(() => linkTitles({ range: '1:12' }, true))).toEqual({
+			links: 'Poveži 1:12',
+			pick: 'S čim povezati 1:12?'
+		});
+		expect(sl(() => linkTitles(null, true))).toEqual({
+			links: 'Poveži točko',
+			pick: 'S čim povezati točko?'
+		});
+		expect(sl(() => linkTitles(null, false))).toEqual({
+			links: 'Poveži odsek',
+			pick: 'S čim povezati odsek?'
+		});
+		expect(sl(() => linkTitles(null, null))).toEqual({ links: 'Poveži', pick: 'S čim povezati?' });
+	});
+	it('says which links did not load', () => {
+		expect(sl(() => loadFailed(false))).toEqual({
+			title: 'Povezav tega odseka ni bilo mogoče naložiti.',
+			body: 'Zaprite in znova tapnite gumb za povezave.'
+		});
+		expect(sl(() => loadFailed(true).title)).toBe('Povezav te točke ni bilo mogoče naložiti.');
+		expect(sl(() => loadFailed(null).title)).toBe('Povezav ni bilo mogoče naložiti.');
+	});
+	it('words “Use this moment as a point”, in either language', () => {
+		expect(momentLabel()).toBe('Use this moment as a point');
+		expect(sl(() => momentLabel())).toBe('Ta trenutek uporabi kot točko');
 	});
 });

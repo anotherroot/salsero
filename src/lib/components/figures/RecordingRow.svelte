@@ -9,6 +9,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, iconButton } from '$lib/components/ui/styles';
 	import type { RecordingRow } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * A recording as a row of the figure page's Recordings card. A video opens
@@ -53,9 +54,9 @@
 	const video = $derived(recording.kind === 'video');
 	const meta = $derived(
 		problem === 'missing'
-			? 'This file is missing'
+			? t().figure.recordings.missing
 			: problem === 'unplayable'
-				? 'Can’t play here'
+				? t().figure.recordings.unplayable
 				: (given ??
 					recordingMetaLine(
 						recording.kind,
@@ -95,7 +96,7 @@
 				data-focus={focusKey}
 				type="button"
 				class="flex min-h-[60px] min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-				aria-label="Play the recording from {day}"
+				aria-label={t().figure.recordings.play(day)}
 				onclick={() => {
 					prefs = loadVideoPrefs();
 					open = true;
@@ -112,19 +113,18 @@
 			<a
 				href={resolve('/recordings/[file]', { file: recording.file })}
 				download
-				class={button('tertiary', 'sm')}><Icon name="download" size={18} />Download</a
+				class={button('tertiary', 'sm')}
+				><Icon name="download" size={18} />{t().figure.recordings.download}</a
 			>
 		{:else if recording.sourceUrl && problem === null}
 			<!-- A saved YouTube video: where it came from, as the inline player's "from YouTube" did. -->
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- an outside page -->
 			<a
 				href={recording.sourceUrl}
 				target="_blank"
 				rel="external noopener noreferrer"
 				class={iconButton('bare', 'muted')}
-				aria-label="Open on YouTube"><Icon name="external" size={20} /></a
+				aria-label={t().figure.recordings.openOnYouTube}><Icon name="external" size={20} /></a
 			>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else if opens}
 			<span
 				class="flex size-11 flex-none items-center justify-center text-chevron"
@@ -148,7 +148,7 @@
 			controls
 			preload="metadata"
 			class="mb-3 w-full"
-			aria-label="The recording from {day}"
+			aria-label={t().figure.recordings.from(day)}
 			{@attach watchMedia(src, found)}
 		></audio>
 	{/if}
@@ -160,7 +160,7 @@
 		owner={{ recordingId: recording.id }}
 		startAt={0}
 		{title}
-		subtitle="Recording"
+		subtitle={t().figure.recordings.recording}
 		{linking}
 		{canEdit}
 		mirror={prefs.mirror}

@@ -121,7 +121,6 @@ export function gotoWhenSettled(
 	return new Promise((resolve, reject) => {
 		whenSettled(() => {
 			before?.();
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller's href, already built
 			goto(href, opts).then(resolve, reject);
 		});
 	});

@@ -16,6 +16,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { CLIP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { pickerCount, searchSongs, songMeta, songSections } from '$lib/songs/search';
 	import { segments } from '$lib/picker/model';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
@@ -41,7 +42,7 @@
 	let search: HTMLInputElement | undefined = $state();
 
 	const slug = $derived(page.params.dance ?? 'salsa');
-	const styleLabels = $derived(isDanceSlug(slug) ? getDance(slug).styleLabel : {});
+	const styleLabels = $derived(isDanceSlug(slug) ? styleLabelsOf(getDance(slug).styleLabel) : {});
 	const searching = $derived(query.trim() !== '');
 	const hits = $derived(searchSongs(songs, query));
 	const sections = $derived(songSections(songs, first));
