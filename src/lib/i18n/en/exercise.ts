@@ -162,6 +162,52 @@ export const exercise = {
 		summaryClave: (pattern: string): string => `clave ${pattern}`,
 		summaryCall: (n: number): string => `call every ${n}`
 	},
+	/**
+	 * Comes back: how a drill returns to Today (the card on the page and in New
+	 * exercise, a member's line, and its words on Today and in Coming up).
+	 * The faces' names are `format.feel`.
+	 */
+	comesBack: {
+		title: 'Comes back',
+		/** A group drill's own card. */
+		forClass: 'Comes back, for the class',
+		byFaces: 'By how it went',
+		byFacesNote: 'The faces decide when it comes back.',
+		until: 'Every day until it feels good',
+		untilNote: 'Then the faces take over.',
+		goodDaysLabel: 'Good days',
+		/** A chip: "3 good days". */
+		goodDays: (n: number): string => `${n} good days`,
+		/** `gotit`, `easy`: the faces' names. */
+		goodMeans: (gotit: string, easy: string): string => `Good means ${gotit} or ${easy}.`,
+		/** After `goodMeans`: "2 of 3 so far." */
+		soFar: (good: number, of: number): string => `${good} of ${of} so far.`,
+		fixed: 'On a fixed rhythm',
+		/** `done`: the simple popup's Done. */
+		fixedNote: (done: string): string => `Just ${done}, no faces.`,
+		howOften: 'How often',
+		/** A rhythm: "Every day", "Every 2 days", "Every 3 days", "Weekly". */
+		rhythm: (days: number): string =>
+			days === 1 ? 'Every day' : days === 7 ? 'Weekly' : `Every ${days} days`,
+		/** The until setting in words (History, a member's line): "Every day until it feels good on 3 days". */
+		untilWords: (good: number): string => `Every day until it feels good on ${good} days`,
+		/** A learning drill on Today and in Coming up: "Learning · 2 of 3 good days". */
+		learning: (good: number, of: number): string => `Learning · ${good} of ${of} good days`,
+		membersCan: 'Members can change it for themselves.',
+		useTeacher: "Use my teacher's",
+		/** A member's line over the card: "Your teacher set: weekly". */
+		teacherSet: (words: string): string => `Your teacher set: ${words}`,
+		/** The page's badge on an entry that follows its class drill. */
+		setByTeacher: 'Set by your teacher'
+	},
+	/** The Warm-up switch (New exercise, the exercise page) and a warm-up in Coming up. */
+	warmup: {
+		title: 'Warm-up',
+		/** `daily`: the person's daily number. */
+		note: (daily: number): string => `Do it first. It doesn't count toward your ${daily}.`,
+		/** Coming up's line: "Warm-up · every day". */
+		withRhythm: (rhythm: string): string => `Warm-up · ${rhythm}`
+	},
 	/** What a refused log or page action says. */
 	refused: {
 		checkValues: 'Check the values and try again.',

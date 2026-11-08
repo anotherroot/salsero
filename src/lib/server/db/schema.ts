@@ -735,7 +735,13 @@ export const exercises = sqliteTable(
 		notes: text('notes'),
 		createdAt: createdAt(),
 		geneId: text('gene_id'),
-		clonedFrom: integer('cloned_from')
+		clonedFrom: integer('cloned_from'),
+		/** JSON of `ComesBack`, null = not set. Read with `parseComesBack`; only drills use it. */
+		comesBack: text('comes_back'),
+		/** The person's own warm-up flag (never a group row's). */
+		warmup: integer('warmup', { mode: 'boolean' }).notNull().default(false),
+		/** Position among the warm-ups; null = not placed. */
+		warmupOrder: integer('warmup_order')
 	},
 	(t) => [
 		check('exercises_every_days_ck', sql`${t.everyDays} > 0`),

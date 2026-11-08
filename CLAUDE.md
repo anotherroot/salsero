@@ -65,6 +65,11 @@ and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
 see
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
+and run the day, plan 1 (slower gaps; Comes back on a drill, by how it went or on
+a fixed rhythm; Warm-up, its own list first on Today and outside the daily
+number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere;
+plans 2 and 3 are not built; see
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
@@ -185,6 +190,11 @@ Today as a number a day has its own,
 the four faces, the replayed gap and its numbers, the day's list from the start
 of the day, Next N, Not today and Undo, Coming up, the reminder, and what was
 decided while building.
+Run the day has its own,
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
+the slower gaps, Comes back (by how it went, every day until it feels good, a
+fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
+lateness, and the exercise page, Done sheet and run still to come.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add
@@ -253,6 +263,16 @@ src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates p
                      (view.ts), the map's layout (map.ts: a force layout from a fixed
                      start, the label pass, the tray) and how the page draws it
                      (map-view.ts: type colours, what a tap lights, the arrows). Client-safe
+src/lib/schedule/comes-back.ts  PURE: a drill's Comes back (by how it went, learning, or a fixed
+                     rhythm): parsing it, the one a row follows (`effectiveComesBack`) and its
+                     words. `schedule.ts` holds `scheduleOf` (the setting + the sets → a
+                     `DueState`) and the slower gap steps (`STEPS`)
+src/lib/exercises/comes-back-view.ts  PURE: the Edit card's notes and chips for Comes back and
+                     Warm-up (drawn by components/exercises/ComesBackCard.svelte and WarmupRow.svelte);
+                     the words are `t().exercise.comesBack` and `t().exercise.warmup`
+src/lib/server/comes-back-form.ts  reads the Edit form's Comes back and Warm-up fields (a
+                     `warmupSent` marker says the Warm-up row was on the form)
+src/lib/server/warmup-order.ts  the warm-ups' own order (`exercises.warmup_order`), set by dragging
 src/lib/server/schedule.ts  the schedule from the database: `listScheduleSets`, `scheduleStates`
                      (every live exercise, optionally as of the start of a day), `scheduleStateOf`,
                      `scheduleForShown` (the person's own entry wins). Nothing stored
@@ -726,7 +746,11 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   a pure function of the sets' days and faces (`sets.rating`), replayed per
   request (`src/lib/schedule/`); `today_picks` keeps only the person's choices
   for one day (Next N, add, skip), never what is due. There is no frequency
-  to set: the gap is earned from the faces.
+  to set: the gap is earned from the faces. The one exception is a drill's
+  **Comes back** (`exercises.comes_back`): "every day until it feels good" or a
+  fixed rhythm of 1, 2, 3 or 7 days, the person's choice. Even then what is due
+  is worked out from the sets, never stored. A **warm-up** (`exercises.warmup`)
+  sits outside the daily number.
 - **Elapsed time sorts; calendar days speak.** Anything a user reads as a day
   ("yesterday", "done today", which day a set belongs to) goes through
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for

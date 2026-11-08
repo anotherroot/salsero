@@ -78,11 +78,13 @@ const TRANSLATED: string[] = [
 	'src/routes/[dance]/(today)/+page.svelte',
 	'src/routes/[dance]/(today)/coming-up/+page.svelte',
 	// The exercise page and the log popup, its practice panel and chips (Task 8).
+	'src/lib/components/exercises/ComesBackCard.svelte',
 	'src/lib/components/exercises/Face.svelte',
 	'src/lib/components/exercises/FaceRating.svelte',
 	'src/lib/components/exercises/LastTime.svelte',
 	'src/lib/components/exercises/LogShell.svelte',
 	'src/lib/components/exercises/SetList.svelte',
+	'src/lib/components/exercises/WarmupRow.svelte',
 	'src/lib/components/exercises/kinds/drill/Content.svelte',
 	'src/lib/components/exercises/kinds/drill/Log.svelte',
 	'src/lib/components/exercises/kinds/figure/Content.svelte',

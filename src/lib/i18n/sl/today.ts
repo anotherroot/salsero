@@ -20,9 +20,10 @@ export const today: Catalog['today'] = {
 	},
 	reviewOf: (title) => `Ponovitev: ${title}`,
 	hero: {
+		forToday: (n) => `${slCount(n, VAJA)} za danes`,
 		left: (n) => `Še ${slCount(n, VAJA)} za danes`,
 		doneOf: (done, total) => `Opravljeno: ${done} od ${total}`,
-		// The count is in the list's heading ("Danes · 5"); "Vseh 5 vaj je opravljenih" is too long here.
+		// The count is in the list's heading ("Vaje · 5"); "Vseh 5 vaj je opravljenih" is too long here.
 		allDone: () => 'Vse opravljeno',
 		allDoneMeta: 'Današnja vadba je končana',
 		everything: 'Vse vaje so opravljene',
@@ -37,7 +38,9 @@ export const today: Catalog['today'] = {
 		resume: 'Nadaljuj vadbo'
 	},
 	list: {
-		heading: (nothingLeft, n) => `${nothingLeft ? 'Opravljeno danes' : 'Danes'} · ${n}`,
+		warmup: (n) => `Ogrevanje · ${n}`,
+		// Not "Vadba": that is a session (glossary).
+		practice: (nothingLeft, n) => `${nothingLeft ? 'Opravljeno danes' : 'Vaje'} · ${n}`,
 		next: (n) => `Dodaj še ${n}`,
 		nextUp: 'Naslednja na vrsti',
 		andMore: (day, n) => `${day} · in še ${n}`,
@@ -45,7 +48,6 @@ export const today: Catalog['today'] = {
 		emptyTitle: 'Še ni ničesar za vadbo',
 		emptyBody: 'Iz svojih figur sestavite kombinacijo ali dodajte svojo vajo.',
 		buildRoutine: 'Sestavi kombinacijo',
-		custom: 'Lastna vaja',
 		previousDay: 'Prejšnji dan',
 		nextDay: 'Naslednji dan',
 		backToToday: 'Nazaj na danes',
@@ -60,7 +62,7 @@ export const today: Catalog['today'] = {
 	},
 	totals: (exercises, sets) => `${slCount(exercises, VAJA)} · ${slCount(sets, VNOS)}`,
 	coming: {
-		waiting: 'Čakajo na vrsto',
+		waiting: 'Naslednje na vrsti',
 		paused: 'Na premoru',
 		nothing: 'Še nič ne prihaja.',
 		putOn: (name) => `Dodaj za danes: ${name}`,
@@ -117,6 +119,7 @@ export const today: Catalog['today'] = {
 		name: 'Vpišite ime (do 200 znakov).',
 		noExercise: 'Te vaje ni.',
 		archived: 'Ta vaja je arhivirana.',
-		paused: 'Ta vaja je na premoru.'
+		paused: 'Ta vaja je na premoru.',
+		warmupOrder: 'Vrstnega reda ni bilo mogoče shraniti. Poskusite znova.'
 	}
 };

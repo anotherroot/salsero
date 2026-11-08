@@ -253,6 +253,13 @@
       "when": 1794121715465,
       "tag": "0035_classy_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1794127991910,
+      "tag": "0036_striped_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

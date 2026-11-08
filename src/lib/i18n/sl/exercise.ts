@@ -7,6 +7,8 @@ const VNOS: Forms = ['vnos', 'vnosa', 'vnosi', 'vnosov'];
 const VIDEO: Forms = ['video', 'videa', 'videi', 'videov'];
 /** An 8-count, after "na" (accusative): na 1 osmico, na 2 osmici, na 4 osmice. */
 const OSMICA: Forms = ['osmico', 'osmici', 'osmice', 'osmic'];
+/** Comes back's chips: 3 dobri dnevi, 5 dobrih dni. */
+const DOBER_DAN: Forms = ['dober dan', 'dobra dneva', 'dobri dnevi', 'dobrih dni'];
 
 /** The noun alone in the form `n` takes: 1 vnos, 2 vnosa … (the tile prints the number). */
 function formOf(n: number, forms: Forms): string {
@@ -167,6 +169,45 @@ export const exercise: Catalog['exercise'] = {
 		summaryNoCount: 'brez štetja',
 		summaryClave: (pattern) => `clave ${pattern}`,
 		summaryCall: (n) => `napoved na ${slCount(n, OSMICA)}`
+	},
+	// "Comes back" as a plain question; the teacher is "vodja tečaja" (glossary), and no
+	// past tense agrees with them ("Nastavitev vodje tečaja", not "Vodja je nastavil").
+	comesBack: {
+		title: 'Kdaj pride spet na vrsto',
+		forClass: 'Kdaj pride spet na vrsto, za tečaj',
+		byFaces: 'Glede na to, kako je šlo',
+		byFacesNote: 'Obrazi odločijo, kdaj pride spet na vrsto.',
+		until: 'Vsak dan, dokler ne gre dobro',
+		untilNote: 'Potem odločajo obrazi.',
+		goodDaysLabel: 'Dobri dnevi',
+		goodDays: (n) => slCount(n, DOBER_DAN),
+		goodMeans: (gotit, easy) => `Dobro pomeni »${gotit}« ali »${easy}«.`,
+		soFar: (good, of) => `Doslej ${good} od ${of}.`,
+		fixed: 'Po stalnem ritmu',
+		fixedNote: (done) => `Samo »${done}«, brez obrazov.`,
+		howOften: 'Kako pogosto',
+		rhythm: (days) =>
+			days === 1
+				? 'Vsak dan'
+				: days === 2
+					? 'Vsak drugi dan'
+					: days === 3
+						? 'Vsak tretji dan'
+						: days === 7
+							? 'Enkrat na teden'
+							: `Vsakih ${days} dni`,
+		// "dokler ni 3 dobrih dni": the genitive after "ni" reads for every number.
+		untilWords: (good) => `Vsak dan, dokler ni ${good} dobrih dni`,
+		learning: (good, of) => `Učenje · ${good} od ${of} dobrih dni`,
+		membersCan: 'Člani skupine si to lahko nastavijo po svoje.',
+		useTeacher: 'Kot vodja tečaja',
+		teacherSet: (words) => `Nastavitev vodje tečaja: ${words}`,
+		setByTeacher: 'Nastavitev vodje tečaja'
+	},
+	warmup: {
+		title: 'Ogrevanje',
+		note: (daily) => `Naredite jo najprej. Ne šteje v dnevno število (${daily}).`,
+		withRhythm: (rhythm) => `Ogrevanje · ${rhythm}`
 	},
 	refused: {
 		checkValues: 'Preverite vrednosti in poskusite znova.',

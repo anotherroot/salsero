@@ -18,7 +18,8 @@ import { classLessonOf, commentsOn } from '$lib/server/comments';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
-import { scheduleStates } from '$lib/server/schedule';
+import { goodDaysOf, scheduleStates } from '$lib/server/schedule';
+import type { ComesSettings } from '$lib/exercises/comes-back-view';
 import {
 	requireExerciseAccess,
 	requireExerciseInWall,
@@ -33,6 +34,7 @@ import {
 	unlinkSpot
 } from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/server/take-form';
@@ -45,6 +47,7 @@ import { localDay } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
+import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
@@ -117,9 +120,25 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				: own.source === 'added' && own.drillId !== null
 					? { exerciseId: own.drillId }
 					: null;
+		const item = popup.exercise;
+		const isDrill = item.source === 'custom' || item.source === 'added';
 		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
 			...popup,
+			comes: isDrill
+				? ({
+						value: item.comesBack,
+						own: item.comesBackOwn,
+						teacher: item.comesBackTeacher,
+						forClass: false,
+						good:
+							item.comesBack.kind === 'until'
+								? goodDaysOf(db, item.id, item.comesBack.since, tz)
+								: 0
+					} satisfies ComesSettings)
+				: null,
+			/** Warm-up is the person's own: every row of theirs has the switch. */
+			warmupSwitch: item.warmup as boolean | null,
 			music: musicParent ? listMusic(db, musicParent, wall.userId) : [],
 			musicChoices: own.source === 'custom' ? musicChoices(db, wall) : [],
 			musicShown: musicParent !== null,
@@ -184,6 +203,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		archived: false,
 		notes: row.notes,
 		createdAt: row.createdAt,
+		comesBack: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+		comesBackOwn: parseComesBack(row.comesBack),
+		comesBackTeacher: null,
+		warmup: false,
+		warmupOrder: null,
 		team: { id: row.teamId, name: getTeam(db, row.teamId)?.name ?? '' }
 	};
 	// No entry yet: Add, through a lesson that holds the drill (R7). One the
@@ -199,6 +223,16 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	});
 	return {
 		music: listMusic(db, { exerciseId: row.id }, wall.userId),
+		comes: canEdit
+			? ({
+					value: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+					own: parseComesBack(row.comesBack),
+					teacher: null,
+					forClass: true,
+					good: null
+				} satisfies ComesSettings)
+			: null,
+		warmupSwitch: null as boolean | null,
 		musicChoices: canEdit ? musicChoices(db, spaceOfRow(row, wall.userId)) : [],
 		musicShown: true,
 		musicEdit: canEdit,
@@ -362,7 +396,15 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		if (!updateExercise(db, row.id, { name, notes, active }, me(params, locals))) {
+		const comesBack = readComesBack(form, parseComesBack(row.comesBack), Date.now());
+		if (comesBack === 'invalid') {
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
+		}
+		// Warm-up is the person's own: a group's drill never takes it. No field keeps.
+		const warmup = team ? undefined : readWarmup(form);
+		if (
+			!updateExercise(db, row.id, { name, notes, active, warmup, comesBack }, me(params, locals))
+		) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };

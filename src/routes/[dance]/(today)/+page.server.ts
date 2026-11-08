@@ -3,8 +3,10 @@ import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
 import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
+import { setWarmupOrder } from '$lib/server/warmup-order';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
 import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
@@ -123,6 +125,17 @@ export const actions: Actions = {
 		}
 	},
 
+	/** The warm-ups in the person's own order (a drag on Today); `ids` comma-separated. */
+	warmupOrder: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const raw = String((await request.formData()).get('ids') ?? '');
+		const ids = raw === '' ? [] : raw.split(',').map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
+		if (ids.some(Number.isNaN) || !setWarmupOrder(getDb(), wall, ids)) {
+			return fail(400, { action: 'warmupOrder', message: t().today.refused.warmupOrder });
+		}
+		return { action: 'warmupOrder', ok: true };
+	},
+
 	createExercise: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
@@ -136,7 +149,21 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), wall, { name, notes });
+		const comesBack = readComesBack(form, null, Date.now());
+		if (comesBack === 'invalid') {
+			return fail(400, {
+				action: 'createExercise',
+				message: t().exercise.refused.checkValues,
+				name,
+				notes: notes ?? ''
+			});
+		}
+		createCustomExercise(getDb(), wall, {
+			name,
+			notes,
+			warmup: readWarmup(form),
+			comesBack: comesBack === 'teacher' ? undefined : comesBack
+		});
 		return { action: 'createExercise', ok: true };
 	}
 };

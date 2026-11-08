@@ -1,6 +1,6 @@
 // Today: the list and its rows, the bar card, a session's lines, Coming up, a past
 // day, New exercise, the toasts and the refusals. The schedule's own words (the gap,
-// due, late, back in …) are `format`'s (`src/lib/schedule/words.ts`).
+// due, back in …) are `format`'s (`src/lib/schedule/words.ts`).
 import { plural } from './plural';
 
 export const today = {
@@ -23,6 +23,8 @@ export const today = {
 	reviewOf: (title: string): string => `Review: ${title}`,
 	/** The bar card over the list. */
 	hero: {
+		/** Before anything is done: "5 for today"; after, "3 left for today". */
+		forToday: (n: number): string => `${n} for today`,
 		left: (n: number): string => `${n} left for today`,
 		doneOf: (done: number, total: number): string => `${done} of ${total} done`,
 		allDone: (n: number): string => `All ${n} done`,
@@ -40,9 +42,11 @@ export const today = {
 		resume: 'Resume session'
 	},
 	list: {
-		/** The list card's heading: "Today · 5", "Done today · 14". */
-		heading: (nothingLeft: boolean, n: number): string =>
-			`${nothingLeft ? 'Done today' : 'Today'} · ${n}`,
+		/** The Warm-up card's heading: "Warm-up · 2". */
+		warmup: (n: number): string => `Warm-up · ${n}`,
+		/** The Practice card's heading: "Practice · 5", "Done today · 14" once nothing is left. */
+		practice: (nothingLeft: boolean, n: number): string =>
+			`${nothingLeft ? 'Done today' : 'Practice'} · ${n}`,
 		/** "+ Next 5". */
 		next: (n: number): string => `Next ${n}`,
 		nextUp: 'Next up',
@@ -52,7 +56,6 @@ export const today = {
 		emptyTitle: 'Nothing to practise yet',
 		emptyBody: 'Build a routine from your figures, or add a custom exercise.',
 		buildRoutine: 'Build a routine',
-		custom: 'Custom exercise',
 		previousDay: 'Previous day',
 		nextDay: 'Next day',
 		backToToday: 'Back to today',
@@ -74,7 +77,8 @@ export const today = {
 	totals: (exercises: number, sets: number): string =>
 		`${plural(exercises, 'exercise', 'exercises')} · ${plural(sets, 'set', 'sets')}`,
 	coming: {
-		waiting: 'Waiting',
+		/** The due ones beyond today's number (never "late"). */
+		waiting: 'Next in line',
 		paused: 'Paused',
 		nothing: 'Nothing is coming up yet.',
 		putOn: (name: string): string => `Put ${name} on Today`,
@@ -135,6 +139,7 @@ export const today = {
 		name: 'Give it a name (up to 200 characters).',
 		noExercise: 'No such exercise.',
 		archived: 'That exercise is archived.',
-		paused: 'That exercise is paused.'
+		paused: 'That exercise is paused.',
+		warmupOrder: 'Could not save the order. Try again.'
 	}
 };

@@ -344,7 +344,7 @@
 							if (m) say(m);
 						}
 					);
-		// Else Next N, else the list's add control (Custom exercise, the phone's or the band's).
+		// Else Next N, else the list's add control (New exercise, the phone's or the band's).
 		void focusAfterRemoval(keys, `today-row-${exerciseId}`, ['today-next', 'today-custom']);
 		return true;
 	}
@@ -536,16 +536,13 @@
 			label={t().shell.lists.comingUp}
 			href={resolve('/[dance]/(today)/coming-up', { dance })}
 		/>
-		<!-- The desktop's Custom exercise (the phone's is the list's button). Settings is the
-		     phone's You tab and the desktop's side. -->
-		<span class="hidden desk:contents"
-			><BandButton
-				icon="plus"
-				label={t().today.list.custom}
-				focusKey="today-custom"
-				onclick={() => (creating = true)}
-			/></span
-		>
+		<!-- New exercise is the + at every width. Settings is the phone's You tab and the desktop's side. -->
+		<BandButton
+			icon="plus"
+			label={t().today.newExercise.title}
+			focusKey="today-custom"
+			onclick={() => (creating = true)}
+		/>
 	{/if}
 {/snippet}
 
@@ -660,6 +657,8 @@
 	<NewExerciseSheet
 		{dance}
 		message={failure('createExercise')}
+		daily={data.list.daily}
+		simple={simpleLog}
 		values={page.form?.action === 'createExercise' && 'name' in page.form
 			? { name: page.form.name as string, notes: page.form.notes as string }
 			: null}

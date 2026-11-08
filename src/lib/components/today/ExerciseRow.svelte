@@ -33,6 +33,8 @@
 		onswipe: (open: Side) => void;
 		/** Open this exercise's log popup. */
 		onlog: () => void;
+		/** A warm-up row in the card whose rows can be dragged: where the drag has put it. */
+		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
 
 	let {
@@ -46,7 +48,8 @@
 		onlog,
 		onskip,
 		swiped,
-		onswipe
+		onswipe,
+		drag
 	}: Props = $props();
 
 	const ex = $derived(row.exercise);
@@ -65,7 +68,18 @@
 	const LINK = 'flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1';
 </script>
 
-<li>
+<!--
+	A draggable row is a flat list of its card's rows (`data-warm-row`); the drag moves it with
+	the `translate` property, so nothing else about its layout changes.
+-->
+<li
+	data-warm-row={drag ? ex.id : undefined}
+	class="{drag?.lifted ? 'relative z-10 shadow-[0_8px_24px_rgb(0_0_0/0.22)]' : ''} {drag?.moving &&
+	!drag.lifted
+		? 'transition-transform duration-150 motion-reduce:transition-none'
+		: ''}"
+	style={drag ? `translate: 0 ${drag.offset}px` : undefined}
+>
 	<!--
 		The phone swipes a to-do or picked row left for "Not today" (a done row has
 		none; the desktop has the button under Log set). The sliding card carries the

@@ -423,3 +423,22 @@ describe('sendPicks', () => {
 		});
 	});
 });
+
+describe('diff: Comes back arriving in old pairs', () => {
+	const faces = flat(['name', 'Shines'], ['comesBack', 'faces', 'By how it went']);
+	const every2 = edit(faces, { comesBack: 'every:2' });
+	// A snapshot written before `comesBack` existed: no hash for it.
+	const old = initialBase(flat(['name', 'Shines']), [], hash);
+
+	it('two members that both hold the default show no Comes back difference', () => {
+		expect(diff(old, faces, faces, hash)).toEqual([]);
+	});
+
+	it('a missing hash reads as the default: only the member that moved off it changed', () => {
+		expect(only(diff(old, every2, faces, hash))).toMatchObject({ key: 'comesBack', side: 'mine' });
+		expect(only(diff(old, faces, every2, hash))).toMatchObject({
+			key: 'comesBack',
+			side: 'theirs'
+		});
+	});
+});
