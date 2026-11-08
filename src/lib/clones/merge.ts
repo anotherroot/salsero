@@ -30,10 +30,12 @@
  *   ("Basic (Sreda 17:30)" against "Basic") starts on the plain name.
  * - A piece (or a part of one) a copy was made without is no row: when every
  *   copy lacking it has a pair with a copy holding it that skips it, and no
- *   verdict on it at all (no pair of its that does not skip it), while the
- *   copies holding it agree. It was left out on purpose, as `diff` reads it.
- *   A copy that had the piece in step with some copy and lost it has that
- *   pair's verdict, so a real removal stays a row.
+ *   pair of its that does not skip it ever saw the piece (its snapshot held
+ *   it, or its other copy holds it now), while the copies holding it agree.
+ *   It was left out on purpose, as `diff` reads it. A copy that had the piece
+ *   in step with some copy and lost it has that pair's snapshot, so a real
+ *   removal stays a row; a pair of two copies both made without it (a Sync
+ *   pairs them) says nothing about it.
  * - A recording, video or section present on some copies only goes whole:
  *   its parts (a recording's note and sections, a section's links) are not
  *   rows, as in `diff`.
@@ -121,8 +123,15 @@ export function mergeRows(
 		const absentNow = byHash.get(null);
 		if (absentNow && values.length === 2) {
 			const holders = values.find((v) => v.hash !== null)!.holders;
+			// A pair that saw the piece: its snapshot held it, or its other copy holds it now.
+			const saw = (id: number) =>
+				live.some((p) => {
+					if (skipped(key, p.base.skip) || (p.a !== id && p.b !== id)) return false;
+					const other = p.a === id ? p.b : p.a;
+					return Object.hasOwn(p.base.fields, key) || now.get(other) !== null;
+				});
 			const leftOut = (id: number) =>
-				!verdict.has(id) &&
+				!saw(id) &&
 				live.some(
 					(p) =>
 						skipped(key, p.base.skip) &&

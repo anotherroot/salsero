@@ -144,6 +144,16 @@ describe('mergeRows', () => {
 		expect(rs.map((r) => r.key)).toEqual(['rec:r1']);
 	});
 
+	it('two copies both made without a piece, paired since (a Sync): still no row', () => {
+		const without = edit(ORIGIN, { 'rec:r1': null, 'rec:r1:note': null, 'rec:r1:spot:s1': null });
+		const pairs: MergePair[] = [
+			{ a: T, b: G1, at: 10, base: base(ORIGIN, ['rec:r1']) },
+			{ a: T, b: G2, at: 20, base: base(ORIGIN, ['rec:r1']) },
+			{ a: G1, b: G2, at: 30, base: base(without) }
+		];
+		expect(rows(ORIGIN, without, without, pairs)).toEqual([]);
+	});
+
 	it('a copy made without a piece that got it later and lost it: a real removal, a row', () => {
 		// T–G1 still skips the recording, but G1 took it from G2 since (G1–G2 holds it), then deleted it.
 		const g1 = edit(ORIGIN, { 'rec:r1': null, 'rec:r1:note': null, 'rec:r1:spot:s1': null });

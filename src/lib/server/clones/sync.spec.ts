@@ -199,6 +199,36 @@ describe('syncView', () => {
 		integrity();
 	});
 
+	it('after a Sync pairs two copies made without a recording, it is still no row', async () => {
+		const own = createFigure(db, U1_SALSA, {
+			figureName: 'Dile',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		addRecording(db, {
+			figureId: own,
+			file: 'a.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 50,
+			note: null
+		});
+		const one = await copy(own, T1_SALSA); // recordings: false
+		const two = await copy(own, T2_SALSA);
+		save(own, { notes: 'Ana notes' });
+		const view = syncView(db, 'u1', 'figure', own)!;
+		expect(view.rows.map((r) => r.key)).toEqual(['notes']);
+		const targets = view.targets.map((t) => ({ id: t.id, seen: t.seen }));
+		expect(
+			await syncAll(db, 'u1', 'figure', own, {}, targets, view.members, files, NOW, ROOMY)
+		).toEqual({ ok: true, refused: [] });
+		expect(pairBase(db, 'figure', one, two)).not.toBeNull(); // the Sync paired the clubs
+		expect(syncView(db, 'u1', 'figure', own)!.rows).toEqual([]);
+		expect(db.select().from(recordings).where(eq(recordings.figureId, own)).all()).toHaveLength(1);
+	});
+
 	it('null for a row the person cannot read, or one with no other copy', () => {
 		expect(syncView(db, 'u2', 'figure', T)).toBeNull();
 		expect(syncView(db, 'u2', 'figure', G2)).toBeNull();
