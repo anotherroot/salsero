@@ -15,7 +15,7 @@ export const settings: Catalog['settings'] = {
 		whatUses: 'Kaj zaseda prostor',
 		whatUsesSub: 'Največje najprej, z možnostjo brisanja',
 		askForMore: 'Prosi za več prostora',
-		asked: (date) => `Prošnja poslana ${date} · čaka na odgovor`,
+		asked: (date) => `Zaprošeno ${date} · čaka`,
 		askIntro: 'Skrbnik vidi, koliko prostora porabite. Opomba ni obvezna.',
 		note: 'Opomba',
 		couldNotAsk: 'Prošnje ni bilo mogoče poslati.',
@@ -31,7 +31,23 @@ export const settings: Catalog['settings'] = {
 		archived: 'arhivirano',
 		deleteLabel: (title, context) => `Izbriši: ${title}, ${context}`,
 		couldNotDelete: 'Ni bilo mogoče izbrisati.',
-		alreadyGone: 'Tega ni več.'
+		alreadyGone: 'Tega ni več.',
+		freeNote:
+			'Prostor sprostite z brisanjem. Arhivirane stvari obdržijo svoje datoteke, dokler jih tukaj ne izbrišete.',
+		songBusy: 'Ta skladba se še pripravlja. Poskusite znova čez nekaj minut.',
+		songUsedBy: (names) => `V uporabi: ${names}. Najprej jo odstranite tam.`,
+		item: {
+			untitledSong: 'Skladba brez naslova',
+			song: 'Skladba',
+			songBy: (artist) => `Skladba · ${artist}`,
+			recording: 'Posnetek',
+			audioRecording: 'Zvočni posnetek',
+			lessonVideo: 'Video lekcije',
+			lesson: (title) => `Lekcija · ${title}`,
+			countVoice: 'Vaše štetje',
+			takes: (n) => slCount(n, ['posnetek', 'posnetka', 'posnetki', 'posnetkov']),
+			inDeleted: (label) => `${label} · v »Nedavno izbrisano«`
+		}
 	},
 	practice: {
 		label: 'Vadenje',

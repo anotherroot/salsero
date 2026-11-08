@@ -1,5 +1,7 @@
 // Settings, its storage line and paired phones, and My count (/voice), reached from it.
 // The level names are `entry.levels`, the theme labels `settings.theme`, Back is `shell.backTo`.
+import { plural } from './plural';
+
 export const settings = {
 	/** The row's label and its sheet's title. */
 	language: 'Language',
@@ -38,7 +40,26 @@ export const settings = {
 		archived: 'archived',
 		deleteLabel: (title: string, context: string): string => `Delete ${title}, ${context}`,
 		couldNotDelete: 'Could not delete.',
-		alreadyGone: 'That is already gone.'
+		alreadyGone: 'That is already gone.',
+		/** The person's What uses space: the note under the list, and a song's refusals. */
+		freeNote:
+			'Deleting is how you free space. Archived things keep their files until you delete them here.',
+		songBusy: 'This song is still being prepared. Try again in a few minutes.',
+		/** `names`: the drills that use it, as their people named them. */
+		songUsedBy: (names: string): string => `Used by: ${names}. Remove it there first.`,
+		/** A row's title and what it belongs to (the server's `listStorageItems`). */
+		item: {
+			untitledSong: 'Untitled song',
+			song: 'Song',
+			songBy: (artist: string): string => `Song · ${artist}`,
+			recording: 'Recording',
+			audioRecording: 'Audio recording',
+			lessonVideo: 'Lesson video',
+			lesson: (title: string): string => `Lesson · ${title}`,
+			countVoice: 'Your count voice',
+			takes: (n: number): string => plural(n, 'take', 'takes'),
+			inDeleted: (label: string): string => `${label} · in Recently deleted`
+		}
 	},
 	practice: {
 		label: 'Practice',

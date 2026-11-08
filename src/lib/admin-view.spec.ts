@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	gbToBytes,
 	LIMIT_PRESETS_GB,
 	appsLines,
+	groupMeta,
+	groupsMadeLine,
+	limitsLine,
 	personMeta,
 	presetLabel,
-	requestUsesLine
+	requestUsesLine,
+	usesLine
 } from './admin-view';
 
 const MB = 1024 * 1024;
@@ -60,5 +65,56 @@ describe('appsLines', () => {
 		expect(appsLines(row('2026-11-02'), today, 'salsa')[0]).toBe('Salsa app 2 · yesterday');
 		expect(appsLines(row('2025-10-28'), today, 'salsa')[0]).toBe('Salsa app 2 · Tue 28 Oct');
 		expect(appsLines(row(today, 'play'), today, 'salsa')[0]).toBe('Salsa app 2 (Play) · today');
+	});
+});
+
+describe('admin view in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words a preset with a decimal comma', () => {
+		expect(sl(() => presetLabel(0.5))).toBe('0,5 GB');
+		expect(sl(() => presetLabel(2))).toBe('2 GB');
+	});
+	it('words the use, the request and the top line', () => {
+		expect(sl(() => usesLine(840 * MB, GB))).toBe('840 MB od 1,0 GB');
+		expect(sl(() => usesLine(840 * MB, null))).toBe('840 MB, brez omejitve');
+		expect(sl(() => requestUsesLine(840 * MB, GB))).toBe('Porabljeno 840 MB od 1,0 GB');
+		expect(sl(() => limitsLine(12 * GB, 8 * GB))).toBe('Omejitve skupaj: 12,0 GB · prosto 8,0 GB');
+	});
+	it('words a person', () => {
+		expect(sl(() => personMeta({ day: '2026-11-02', usedBytes: 0, limitBytes: null }))).toBe(
+			'Pridružitev: 2. nov. 2026 · 0 MB, brez omejitve'
+		);
+		expect(sl(() => groupsMadeLine(2, 3))).toBe('Ustvarjene skupine: 2 · omejitev 3');
+	});
+	it('words a group with the right form of people', () => {
+		const meta = (people: number, deleted = false) =>
+			sl(() =>
+				groupMeta({
+					owner: 'Ana Kranjc',
+					people,
+					usedBytes: 120 * MB,
+					limitBytes: 600 * MB,
+					deleted
+				})
+			);
+		expect(meta(1)).toBe('Ana Kranjc · 1 oseba · 120 MB od 600 MB');
+		expect(meta(2)).toContain('· 2 osebi ·');
+		expect(meta(3)).toContain('· 3 osebe ·');
+		expect(meta(5)).toContain('· 5 oseb ·');
+		expect(meta(3, true)).toBe('Ana Kranjc · 3 osebe · 120 MB od 600 MB · izbrisana');
+	});
+	it('words the apps', () => {
+		const today = '2026-11-03';
+		const row = (day: string, channel: 'direct' | 'play' = 'direct') => [
+			{ dance: 'salsa' as const, versionCode: 2, channel, day }
+		];
+		expect(sl(() => appsLines(row(today), today, 'salsa'))).toEqual([
+			'Salsa: različica aplikacije 2 · danes'
+		]);
+		expect(sl(() => appsLines([], today, 'bachata'))).toEqual(['Bachata: brez aplikacije']);
+		expect(sl(() => appsLines(row('2026-11-02', 'play'), today, 'salsa'))).toEqual([
+			'Salsa: različica aplikacije 2 (Play) · včeraj'
+		]);
 	});
 });

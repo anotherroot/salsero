@@ -250,7 +250,11 @@ const TRANSLATED: string[] = [
 	'src/routes/[dance]/songs/+page.svelte',
 	// A song's page and Song details (part 2, Task 14).
 	'src/lib/components/songs/SongDetailsSheet.svelte',
-	'src/routes/[dance]/songs/[id]/+page.svelte'
+	'src/routes/[dance]/songs/[id]/+page.svelte',
+	// The admin page and What uses space (part 2, Task 16).
+	'src/lib/components/admin/InviteQr.svelte',
+	'src/routes/admin/+page.svelte',
+	'src/routes/settings/storage/+page.svelte'
 ];
 
 describe('englishIn', () => {
