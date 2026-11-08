@@ -521,6 +521,37 @@ src/lib/server/db/ids.ts  ids from slots: `mintedId`, `mintId`, `setIdSlot` (`id
                      triggers in migration 0038)
 src/lib/server/server-clock.ts  `serverNow()`: the one clock server code reads.
                      server-sources.ts is the specs' view of the server code (scans)
+src/lib/sync/        PURE, client-safe, shared by the server, the device and the service worker:
+                     tables.ts (`SYNCED`: table → key columns; `NEVER_SYNCED`; every schema table
+                     in exactly one), triggers.ts (`triggerSql`: the change-log triggers;
+                     scripts/sync-triggers.ts writes migration 0041 from it), digest.ts (`keyString`,
+                     `digestInput`), wire.ts (the pull's request and answer), schema-tag.ts (`SCHEMA_TAG`)
+src/lib/server/sync/  log.ts (`change_log`: head, oldest, `changedSince`, the 30-day prune in
+                     `startTrashPurge`), scope.ts (`syncScope`: every row a person may read,
+                     redacted — other people's users rows, a group's code, deleted comments),
+                     pull.ts (`pull`: changes since the cursor, whole tables when a key-set digest
+                     differs), test-world.ts (specs only). Served by POST /api/sync/pull (cookie
+                     session only)
+src/lib/server/device-runtime.ts  `deviceRuntime()`: set only inside the device worker; the hook
+                     then takes the user from the copy (`deviceUser`) and bootstrap does nothing
+src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page data but
+                     `NETWORK_PAGES`, `DEVICE_ENDPOINTS`; every GET endpoint classified),
+                     sw-route.ts (PURE: what the service worker does with a request, the 4 s
+                     timeout, which caches go, a page's unpulled save), needs-connection.ts (the
+                     offline answers), protocol.ts (the messages), device.svelte.ts (the page side:
+                     registers the SW, starts the device worker, relays, pulls; `noteSaved` after
+                     an upload), background-write.ts (opens and practice memory: never offline)
+src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
+                     _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
+                     (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,
+                     `readMeta`), apply.ts (`applyPull`, `wipeCopy`, `deviceDigests`,
+                     `pullRequestOf`), pool.ts (taking over from a closing tab), core.ts (the
+                     worker's logic, tested in node), worker.ts (the browser wiring), request.ts,
+                     node-stubs/
+src/service-worker.ts  network first; on a failure: navigations → the cached /shell, reads → the
+                     device, writes → "Needs a connection". src/routes/shell is the client-rendered
+                     shell (ssr = false)
+scripts/offline/     serve.sh + walk.py: every page offline in a real browser, and the timing
 src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
                      `wallOf(params, locals)`, `inWall(row, wall)` and the
                      `require*InWall` guards on ids, so a request only ever reaches

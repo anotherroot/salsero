@@ -325,9 +325,9 @@ own block:
 - **A device pulls changes since its cursor,** filtered to what its person
   may read, through `access.ts` (own rows, and group rows through `reach`,
   editors' drafts, `usableOf`). When someone's reach changes (membership,
-  publish, an archived lesson, an unlink, leaving), the server marks it,
-  and the device's next pull rebuilds that group's part of its copy, so
-  nothing it may no longer read stays on the device.
+  publish, an archived lesson, an unlink, leaving), the device's next pull
+  drops what it may no longer read (built as digests, below: nothing is
+  marked).
 - **Synced:** the content tables and the person's own bookkeeping
   (`today_picks`, `twins`, `opens`, `lesson_adds`, `count_takes`, the
   person's `users` row, member names in their groups, `song_links`,
@@ -338,6 +338,38 @@ own block:
   keeps its own), and the worker's queue state beyond what a row's status
   shows.
 - **First sign-in** downloads a full snapshot.
+
+**Decided while building phase 2** (2026-11-08):
+
+- **Digests in place of marking reach changes.** Each pull sends, per table,
+  the sha256 of the sorted keys the device holds; the server compares it with
+  the keys of the person's scope and resends a table whole when they differ.
+  That catches a shrunk or grown reach, a deleted row and a pruned log with no
+  bookkeeping; the change log (`change_log`, four triggers per synced table,
+  pruned after 30 days) carries only the rows that changed. A changed
+  `team_members` row also resends its team's row (its code depends on the role).
+- **Scope** is `syncScope`, row by row as `access.ts` decides. Redacted:
+  `password_hash` is always empty; another person's users row keeps only id,
+  dance, names and created_at (email `<id>@hidden.invalid`); a group's code
+  reaches only the owner and editors of a live group (`hidden-<id>` otherwise);
+  a deleted comment goes only while a live reply holds it, with no body, author
+  or deleter. The scope is not closed over foreign keys: the device applies
+  with them off and never checks them.
+- **Synced and not:** `clone_sync` is synced (Keep in step shows on pages);
+  `clone_marks` and `change_log` are never synced, like `id_marks`.
+- **Network first in phase 2.** Online, every request reaches the server as
+  without a service worker. The device answers only when the network fails (a
+  rejected fetch, 502/503/504/520–530, or 4 s with no answer while the device is
+  ready); after a save, a page's reads wait for the network until the device has
+  pulled it. Writes always go to the network; offline they get "Needs a
+  connection" and change nothing.
+- **One tab owns the copy** (a Web Lock); a second tab uses the network and
+  takes over when the first closes. The BroadcastChannel relay waits for phase 3.
+- **Signing out wipes the copy** (a 401 on pull empties the tables, never the
+  file). Another person signing in on the same browser starts from empty.
+- **A migration on the device means one full pull;** so does any pull that
+  fails to apply. A device on an older schema is refused (409) and keeps its
+  copy until its update.
 
 ### Offline changes (push)
 
@@ -468,6 +500,12 @@ whole-page offline screen.
 2. **The device's copy, read only:** the server's change log, pull, the
    local runtime and the service worker. The app opens and reads offline;
    changes still need signal.
+   Built 2026-11-08 (migrations 0040–0041, plan
+   `docs/superpowers/plans/2026-11-08-offline-phase-2-read-only-copy.md`):
+   every page opens offline from the device in the walk
+   (`scripts/offline/`), and pages open no slower online. Song audio and
+   videos wait for phase 4; "Needs a connection" is the existing toast
+   until phase 3's design.
 3. **Offline changes:** the outbox, replay, the clash rules, queued and
    blocked actions, sync status and "Couldn't sync" (designed first).
 4. **Videos on the device:** phone-only by default, Upload, Download,

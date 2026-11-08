@@ -95,7 +95,12 @@ and a group's + and one figure form (a group page's lessons by month; the band's
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
 switching into the group; every New figure takes its move from one Move field that can
 also make a new move (`PickerField`'s create, `moveFromQuery`); see
-[`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md)).
+[`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md))
+and the app offline, read only (offline phases 1 and 2: ids from slots and one server clock;
+the server logs every change, a device pulls its person's copy into SQLite on the phone, and
+SvelteKit's own server code answers from it when the network fails; a change made offline
+says "Needs a connection"; phases 3–5 to come; see
+[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)).
 
 
 ## Specs
@@ -229,4 +234,9 @@ Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language
 lives (account, invite, cookie), how the words are organised, and the order of work.
-
+The app on the device has its own,
+[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md):
+why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM), ids from
+slots, the device's copy (pull: the change log, scope, digests), offline changes (push,
+phase 3), media on the device (phase 4) and the phases. The spike's findings are in
+[`docs/superpowers/specs/2026-11-07-offline-spike-findings.md`](docs/superpowers/specs/2026-11-07-offline-spike-findings.md).

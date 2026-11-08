@@ -75,6 +75,20 @@ Then from this repo: `./scripts/deploy.sh prod`. It builds locally, rsyncs
 on the box, restarts the unit and health-checks `/health` over loopback.
 Migrations run at boot.
 
+**The offline device** (since offline phase 2): `npm run build` also builds the
+device bundle under `build/client/_device/<version>/` and checks it (one
+`.wasm`, at most 1.5 MB gzipped), so `deploy.sh` needs nothing more. Two
+things live outside the repo:
+
+- `/service-worker.js` must not be held by Cloudflare or nginx: serve it with
+  `Cache-Control: no-cache` (or a Cloudflare cache bypass rule for that path).
+  Browsers check it for updates past their own cache, but not past the CDN, so
+  a cached copy delays a fix by the edge TTL. Check after a deploy:
+  `curl -sI https://salsa.anotherroot.eu/service-worker.js | grep -i cache`.
+- **Turning it off:** deploy a `src/service-worker.ts` that clears its
+  `salsa-*` caches and calls `self.registration.unregister()`. A deploy
+  without any service worker leaves the old one installed on every phone.
+
 **Before a deploy that carries a migration**, take a snapshot first — it is one
 command and it is the difference between a bad migration costing a minute and
 costing the history:
