@@ -190,7 +190,16 @@ const TRANSLATED: string[] = [
 	'src/lib/components/positions/TemplatesSheet.svelte',
 	'src/routes/[dance]/(moves)/positions/+page.svelte',
 	'src/routes/[dance]/(moves)/positions/[id]/+page.svelte',
-	'src/routes/[dance]/(moves)/positions/none/+page.svelte'
+	'src/routes/[dance]/(moves)/positions/none/+page.svelte',
+	// How positions work, the map, and a position's links (part 2, Task 6).
+	'src/lib/components/positions/HowBody.svelte',
+	'src/lib/components/positions/HowSheet.svelte',
+	'src/lib/components/positions/MapPane.svelte',
+	'src/lib/components/positions/PointRow.svelte',
+	'src/lib/components/positions/PointStill.svelte',
+	'src/lib/components/positions/PositionLinkPicker.svelte',
+	'src/lib/components/positions/PositionMap.svelte',
+	'src/routes/[dance]/(moves)/positions/map/+page.svelte'
 ];
 
 describe('englishIn', () => {

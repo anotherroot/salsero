@@ -1,6 +1,6 @@
 // Positions: the list, No position, New position and Edit (the sheet), the hold,
-// Templates, a position's page and the figure's tags. The map, How positions work
-// and the links to sections and lessons are added beside these.
+// Templates, a position's page and the figure's tags, How positions work, the map,
+// and the links to sections, points and lessons.
 import { possessive } from './figure';
 import { nouns } from './nouns';
 import { plural } from './plural';
@@ -286,5 +286,136 @@ export const positions = {
 		/** A group's: its name, or "This group" when it is gone. */
 		teamTaken: (team: string | null, name: string): string =>
 			`${team ?? 'This group'} already has a position called ${name}.`
+	},
+	/** How positions work: the sheet, and on the desktop the pane beside an empty list. */
+	how: {
+		/** The example strip, for a screen reader. */
+		exampleLabel: 'A position, a figure, the next position',
+		/** Under the title where it fills the pane beside an empty list (desktop). */
+		paneSubtitle: 'Optional: read once, then decide',
+		sections: [
+			{
+				title: 'What is a position?',
+				body: 'How the two of you hold each other between figures: open with two hands, closed, crossed hands, a hammerlock, side by side.'
+			},
+			{
+				title: 'Why tag figures with them?',
+				body: 'Every figure starts in a position and ends in one. That tells the app what can follow what: the routine editor offers only what fits, and the map shows where you get stuck.'
+			},
+			{
+				title: 'Types',
+				body: 'Give each one a type, the same as a figure’s: Salsa, Son, Timba. When you tag a figure, positions of its type come first; a figure can still go from one type to another.'
+			},
+			{
+				title: 'Optional',
+				body: 'A figure has no position until you give it one, and then it fits anywhere: the routine editor checks nothing for it. Use positions if they help you; leave them out if they don’t.'
+			},
+			{
+				title: 'Where to start',
+				body: 'Add a template’s rough positions and rename or change them as you go, or make your own. Groups have their own, like figures, and you can copy them.'
+			}
+		],
+		done: 'Got it'
+	},
+	/** The map. */
+	map: {
+		title: 'The map',
+		hint: 'Pinch to zoom, tap a position to light its figures.',
+		legend: {
+			deadEnd: 'dead end: nothing leaves',
+			orphan: 'orphan: nothing gets there',
+			island: 'island: cut off from the rest',
+			size: 'Bigger: more figures · arrows: how many'
+		},
+		notOnMap: 'Not on the map',
+		fitsAnywhere: 'Figures without a position fit anywhere.',
+		islands: 'Islands · cut off from the rest',
+		/** No positions at all. */
+		empty: 'No positions yet. Add some on Positions and tag your figures’ starts and ends.',
+		/** Positions, but no figure joins any of them. */
+		unjoined: 'Nothing joins your positions yet: tag a figure’s start and end.',
+		reset: 'Reset zoom',
+		/** The SVG's name for a screen reader. */
+		label: {
+			own: 'The map of your positions',
+			group: 'The map of the group’s positions'
+		},
+		/** The summary's parts after the positions: "32 figures between them · 10 with none · 4 stranded". */
+		between: (n: number): string => `${nouns.figures(n)} between them`,
+		withNone: (n: number): string => `${n} with none`,
+		stranded: (n: number): string => `${n} stranded`,
+		/** A twinned node's members, each by its place: "your Cerrada", "Salsa Tuesdays’ Closed". */
+		yourTwin: (name: string): string => `your ${name}`,
+		teamTwin: (team: string, name: string): string => `${possessive(team)} ${name}`,
+		/** The tray's way into No position. */
+		noPositionChip: (n: number): string => `No position · ${nouns.figures(n)}`,
+		/** An unused position in the tray. */
+		unusedChip: (name: string): string => `${name} · no figures`,
+		/** Under the map while a position is lit. */
+		litLine: (name: string): string => `${name} · tap again to open`
+	},
+	/** A position's Recordings and Lessons: the links to sections, points and lessons. */
+	links: {
+		lessons: 'Lessons',
+		lessonsCount: (n: number): string => `Lessons · ${n}`,
+		addSpot: { label: 'Add', aria: 'Add a section or point to Recordings' },
+		linkLesson: { label: 'Link', aria: 'Link a lesson' },
+		/** The page's link and unlink refusals. */
+		refused: {
+			pickSpot: 'Pick a section or point.',
+			pickLesson: 'Pick a lesson.',
+			linkGone: 'That link was already removed.',
+			lessonArchived: 'That lesson is archived.',
+			already: 'Already linked.',
+			lessonGone: 'That lesson was already unlinked.'
+		},
+		/** A lesson the owner rule refused to link. */
+		notLinked: (lesson: string): string => `${lesson} could not be linked.`,
+		/** `linkSpotToPosition`'s refusals. */
+		noSection: 'No such section.',
+		noPosition: 'No such position.',
+		/** A link or unlink posted to an archived position's page. */
+		archived: 'This position is archived. Restore it to change its links.',
+		/** A group's unlinked spot in Recently deleted, when the spot itself is gone. */
+		aSpot: 'A spot',
+		/** "Link to Manos cruzadas": the picker over the owner's sections and points. */
+		spotsTitle: (name: string): string => `Link to ${name}`,
+		/** Whose videos it offers. */
+		spotsSub: (team: string | null): string =>
+			`Sections and points of ${team ? possessive(team) : 'your'} lessons and recordings`,
+		spots: {
+			search: 'Search lessons, recordings, sections',
+			note: 'A section loops; a point is one moment, and can be the picture.',
+			none: 'No sections or points yet. Open a lesson video or a recording full screen and mark one.'
+		},
+		/** A spot picker group's title: "Week 6 · video 1", "Kentucky · Doble · recording 26 Oct". */
+		lessonVideo: (title: string, n: number): string => `${title} · video ${n}`,
+		recordingOn: (figure: string, day: string): string => `${figure} · recording ${day}`,
+		/** "Point at 1:12". */
+		pointAt: (time: string): string => `Point at ${time}`,
+		point: 'Point',
+		section: (range: string): string => `Section · ${range}`,
+		sectionNoName: 'Section, no name',
+		/** A point card's play button, for a screen reader: "Play from 1:12". */
+		playFrom: (time: string): string => `Play from ${time}`,
+		/** A point card's line when it is the position's picture. */
+		picture: (video: string): string => `${video} · the picture`,
+		/** "Lessons with Manos cruzadas": the picker over the owner's lessons. */
+		lessonsTitle: (name: string): string => `Lessons with ${name}`,
+		lessonPick: {
+			sub: 'A lesson linked here shows the position on its page too',
+			search: 'Search lessons',
+			none: 'No lessons yet. Add one from Lessons.'
+		},
+		/** A lesson that reaches the position through its videos. */
+		throughSection: 'through a section',
+		/** A point card whose video cannot play: what happened. */
+		problem: {
+			missing: { title: 'This file is missing', body: 'The server has no file for this video.' },
+			unplayable: {
+				title: 'Can’t play here',
+				body: 'This browser can’t play this file. Open it on your phone.'
+			}
+		}
 	}
 };

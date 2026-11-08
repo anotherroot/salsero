@@ -1,5 +1,5 @@
 /** Every positions screen's words: PURE, client-safe. The words are the catalog's (`positions`). */
-import { classDayLabel, dayMonth, monthHeading, plural, weekdayDayMonth } from '$lib/format';
+import { classDayLabel, dayMonth, monthHeading, weekdayDayMonth } from '$lib/format';
 import { spotLabel } from '$lib/video/spots';
 import type { PickGroup, PickRow } from '$lib/picker/model';
 import type {
@@ -10,7 +10,7 @@ import type {
 	TeamRef
 } from '$lib/types';
 import { TWINS_CHIP } from '$lib/clones/twins';
-import { possessive } from '$lib/clones/view';
+import { markWord, type MapMark } from './map';
 import type { MenuItem } from '$lib/menu';
 import { t } from '$lib/i18n/catalog';
 import { lazyWords } from '$lib/i18n/lazy';
@@ -258,22 +258,22 @@ export const templatePick = (): string => t().positions.templates.pick;
 
 /** An Unlink button's name: "Unlink Point at 1:12 from Manos cruzadas". */
 export function unlinkLabel(what: string, from: string): string {
-	return `Unlink ${what} from ${from}`;
+	return t().figure.recordings.unlinkLabel(what, from);
 }
 
-/** A position page's link and unlink refusals. */
-export const LINK_REFUSED = {
-	pickSpot: 'Pick a section or point.',
-	pickLesson: 'Pick a lesson.',
-	linkGone: 'That link was already removed.',
-	lessonArchived: 'That lesson is archived.',
-	already: 'Already linked.',
-	lessonGone: 'That lesson was already unlinked.'
-} as const;
+/** A position page's link and unlink refusals, read when the refusal is made. */
+export const LINK_REFUSED: {
+	pickSpot: string;
+	pickLesson: string;
+	linkGone: string;
+	lessonArchived: string;
+	already: string;
+	lessonGone: string;
+} = lazyWords((c) => c.positions.links.refused);
 
 /** A lesson the owner rule refused to link. */
 export function notLinked(lesson: string): string {
-	return `${lesson} could not be linked.`;
+	return t().positions.links.notLinked(lesson);
 }
 
 export function editTitle(name: string): string {
@@ -476,23 +476,38 @@ export function throughMeta(pairs: [number, number][]): string {
 
 /** A point card's second line: its video, and "the picture" when it is the position's. */
 export function pointMeta(videoLabel: string, picture: boolean): string {
-	return picture ? `${videoLabel} · the picture` : videoLabel;
+	return picture ? t().positions.links.picture(videoLabel) : videoLabel;
+}
+
+/** A moment as whole seconds, floored: "1:12". */
+function wholeTime(ms: number): string {
+	const s = Math.floor(ms / 1000);
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 /** "Point at 1:12" (whole seconds, floored). */
 export function pointLabel(ms: number): string {
-	const s = Math.floor(ms / 1000);
-	return `Point at ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+	return t().positions.links.pointAt(wholeTime(ms));
 }
 
 // ---- a position's Video and Lessons ----
 
 /** "Recordings · 3" (sections and points), "Recordings" when there are none: as the figure page's. */
-export const recordingsTitle = (n: number) => (n === 0 ? 'Recordings' : `Recordings · ${n}`);
-export const lessonsTitle = (n: number) => (n === 0 ? 'Lessons' : `Lessons · ${n}`);
+export const recordingsTitle = (n: number): string => {
+	const w = t().figure.recordings;
+	return n === 0 ? w.title : w.titleCount(n);
+};
+export const lessonsTitle = (n: number): string => {
+	const w = t().positions.links;
+	return n === 0 ? w.lessons : w.lessonsCount(n);
+};
 /** The heading rows' buttons (an editor's): what they show, and their names. */
-export const ADD_SPOT = { label: 'Add', aria: 'Add a section or point to Recordings' } as const;
-export const LINK_LESSON = { label: 'Link', aria: 'Link a lesson' } as const;
+export const ADD_SPOT: { label: string; aria: string } = lazyWords(
+	(c) => c.positions.links.addSpot
+);
+export const LINK_LESSON: { label: string; aria: string } = lazyWords(
+	(c) => c.positions.links.linkLesson
+);
 
 /**
  * Where focus goes after an Unlink on the page when no row of that list is left
@@ -515,19 +530,17 @@ export function unlinkFocus(
 
 /** "Link to Manos cruzadas": the picker over the owner's sections and points. */
 export function linkSpotsTitle(name: string): string {
-	return `Link to ${name}`;
+	return t().positions.links.spotsTitle(name);
 }
 
 /** The picker's line under its title: whose videos it offers. */
 export function linkSpotsSub(team: string | null): string {
-	return `Sections and points of ${team ? possessive(team) : 'your'} lessons and recordings`;
+	return t().positions.links.spotsSub(team);
 }
 
-export const LINK_SPOTS = {
-	search: 'Search lessons, recordings, sections',
-	note: 'A section loops; a point is one moment, and can be the picture.',
-	none: 'No sections or points yet. Open a lesson video or a recording full screen and mark one.'
-} as const;
+export const LINK_SPOTS: { search: string; note: string; none: string } = lazyWords(
+	(c) => c.positions.links.spots
+);
 
 /**
  * Where a video sits, for the spot picker's titles: a lesson video's number
@@ -547,10 +560,11 @@ export function videoKey(owner: SectionVideo['owner']): string {
  * picture line's words ("Week 6", "Recording · Kentucky · Doble").
  */
 export function spotGroupTitle(v: SectionVideo, place: VideoPlace | undefined): string {
+	const w = t().positions.links;
 	if (v.from.kind === 'lesson')
-		return place && 'n' in place ? `${v.from.title} · video ${place.n}` : v.from.title;
+		return place && 'n' in place ? w.lessonVideo(v.from.title, place.n) : v.from.title;
 	return place && 'day' in place
-		? `${v.from.figure} · recording ${dayMonth(place.day)}`
+		? w.recordingOn(v.from.figure, dayMonth(place.day))
 		: spotVideoLabel(v);
 }
 
@@ -565,6 +579,7 @@ export function spotPickGroups(
 	groups: SectionGroup[],
 	places: Record<string, VideoPlace> = {}
 ): PickGroup[] {
+	const w = t().positions.links;
 	return groups.map((g) => {
 		const title = spotGroupTitle(g.video, places[videoKey(g.video.owner)]);
 		return {
@@ -575,10 +590,10 @@ export function spotPickGroups(
 				const [label, meta] = point
 					? s.label
 						? [s.label, pointLabel(s.startMs)]
-						: [pointLabel(s.startMs), 'Point']
+						: [pointLabel(s.startMs), w.point]
 					: s.label
-						? [s.label, `Section · ${range}`]
-						: [range, 'Section, no name'];
+						? [s.label, w.section(range)]
+						: [range, w.sectionNoName];
 				return {
 					key: `spot:${s.id}`,
 					value: s.id,
@@ -603,14 +618,12 @@ export function lessonMeta(l: { teamName: string | null; lessonDay: string }): s
 
 /** "Lessons with Manos cruzadas": the picker over the owner's lessons. */
 export function lessonPickTitle(name: string): string {
-	return `Lessons with ${name}`;
+	return t().positions.links.lessonsTitle(name);
 }
 
-export const LESSON_PICK = {
-	sub: 'A lesson linked here shows the position on its page too',
-	search: 'Search lessons',
-	none: 'No lessons yet. Add one from Lessons.'
-} as const;
+export const LESSON_PICK: { sub: string; search: string; none: string } = lazyWords(
+	(c) => c.positions.links.lessonPick
+);
 
 /** A lesson the picker offers: `linked` by hand or through a section or point (`via`). */
 export interface LessonPick {
@@ -632,6 +645,7 @@ export interface LessonPick {
  * "2 videos" when it has more than one.
  */
 export function lessonPickGroups(lessons: LessonPick[], today: string): PickGroup[] {
+	const c = t();
 	const groups: PickGroup[] = [];
 	let month = '';
 	for (const l of lessons) {
@@ -643,7 +657,7 @@ export function lessonPickGroups(lessons: LessonPick[], today: string): PickGrou
 		const meta = [
 			l.team,
 			classDayLabel(l.lessonDay, today),
-			l.via ? 'through a section' : l.videos > 1 ? plural(l.videos, 'video', 'videos') : null
+			l.via ? c.positions.links.throughSection : l.videos > 1 ? c.nouns.videos(l.videos) : null
 		]
 			.filter(Boolean)
 			.join(' · ');
@@ -659,61 +673,38 @@ export function lessonPickGroups(lessons: LessonPick[], today: string): PickGrou
 }
 
 /** A point card whose video cannot play: what happened. */
-export const POINT_PROBLEM = {
-	missing: { title: 'This file is missing', body: 'The server has no file for this video.' },
-	unplayable: {
-		title: 'Can’t play here',
-		body: 'This browser can’t play this file. Open it on your phone.'
-	}
-} as const;
+export const POINT_PROBLEM: Record<'missing' | 'unplayable', { title: string; body: string }> =
+	lazyWords((c) => c.positions.links.problem);
 
 /** A point card's play button, for a screen reader: "Play from 1:12". */
 export function playFrom(ms: number): string {
-	return pointLabel(ms).replace('Point at', 'Play from');
+	return t().positions.links.playFrom(wholeTime(ms));
 }
 
 // ---- How positions work ----
+
+/** Rows of [start, figure, end]; an empty start draws no start. Dance terms: the same in every language. */
+const HOW_EXAMPLE: [string, string, string][] = [
+	['Cerrada', 'Dile que no', 'Abierta'],
+	['', 'Enchufla', 'Abierta']
+];
 
 export const HOW: {
 	/** Rows of [start, figure, end]; an empty start draws no start (the figure has only an end). */
 	example: [string, string, string][];
 	sections: { title: string; body: string }[];
-	done: 'Got it';
-} = {
-	example: [
-		['Cerrada', 'Dile que no', 'Abierta'],
-		['', 'Enchufla', 'Abierta']
-	],
-	sections: [
-		{
-			title: 'What is a position?',
-			body: 'How the two of you hold each other between figures: open with two hands, closed, crossed hands, a hammerlock, side by side.'
-		},
-		{
-			title: 'Why tag figures with them?',
-			body: 'Every figure starts in a position and ends in one. That tells the app what can follow what: the routine editor offers only what fits, and the map shows where you get stuck.'
-		},
-		{
-			title: 'Types',
-			body: 'Give each one a type, the same as a figure’s: Salsa, Son, Timba. When you tag a figure, positions of its type come first; a figure can still go from one type to another.'
-		},
-		{
-			title: 'Optional',
-			body: 'A figure has no position until you give it one, and then it fits anywhere: the routine editor checks nothing for it. Use positions if they help you; leave them out if they don’t.'
-		},
-		{
-			title: 'Where to start',
-			body: 'Add a template’s rough positions and rename or change them as you go, or make your own. Groups have their own, like figures, and you can copy them.'
-		}
-	],
-	done: 'Got it'
-};
+	done: string;
+} = lazyWords((c) => ({
+	example: HOW_EXAMPLE,
+	sections: c.positions.how.sections,
+	done: c.positions.how.done
+}));
 
 /** The example strip, for a screen reader. */
-export const HOW_EXAMPLE_LABEL = 'A position, a figure, the next position';
+export const howExampleLabel = (): string => t().positions.how.exampleLabel;
 
 /** Under How positions work where it fills the pane beside an empty list (desktop). */
-export const HOW_PANE_SUBTITLE = 'Optional: read once, then decide';
+export const howPaneSubtitle = (): string => t().positions.how.paneSubtitle;
 
 // ---- templates ----
 
@@ -773,31 +764,42 @@ export function holdsLine(starts: string[], ends: string[]): string {
 
 // ---- the map ----
 
-export const MAP = {
-	title: 'The map',
-	hint: 'Pinch to zoom, tap a position to light its figures.',
-	back: 'Back to Positions',
-	legend: {
-		deadEnd: 'dead end: nothing leaves',
-		orphan: 'orphan: nothing gets there',
-		island: 'island: cut off from the rest',
-		size: 'Bigger: more figures · arrows: how many'
-	},
-	notOnMap: 'Not on the map',
-	fitsAnywhere: 'Figures without a position fit anywhere.',
-	islands: 'Islands · cut off from the rest',
+export const MAP: {
+	title: string;
+	hint: string;
+	back: string;
+	legend: { deadEnd: string; orphan: string; island: string; size: string };
+	notOnMap: string;
+	fitsAnywhere: string;
+	islands: string;
 	/** No positions at all. */
-	empty: 'No positions yet. Add some on Positions and tag your figures’ starts and ends.',
+	empty: string;
 	/** Positions, but no figure joins any of them. */
-	unjoined: 'Nothing joins your positions yet: tag a figure’s start and end.',
-	reset: 'Reset zoom',
+	unjoined: string;
+	reset: string;
 	/** Under a node that stands for twinned positions (Same as…): the lists' chip. */
-	twins: TWINS_CHIP
-} as const;
+	twins: string;
+} = lazyWords((c) => {
+	const w = c.positions.map;
+	return {
+		title: w.title,
+		hint: w.hint,
+		back: c.shell.backTo(c.moves.segments.positions),
+		legend: w.legend,
+		notOnMap: w.notOnMap,
+		fitsAnywhere: w.fitsAnywhere,
+		islands: w.islands,
+		empty: w.empty,
+		unjoined: w.unjoined,
+		reset: w.reset,
+		twins: TWINS_CHIP
+	};
+});
 
 /** The SVG's name for a screen reader. */
 export function mapLabelFor(groupMode: boolean): string {
-	return groupMode ? 'The map of the group’s positions' : 'The map of your positions';
+	const w = t().positions.map.label;
+	return groupMode ? w.group : w.own;
 }
 
 /**
@@ -814,10 +816,12 @@ export function mapSummary(n: {
 	none: number;
 	stranded: number;
 }): string {
-	const parts = [plural(n.positions, 'position', 'positions')];
-	if (n.between > 0) parts.push(`${plural(n.between, 'figure', 'figures')} between them`);
-	if (n.none > 0) parts.push(`${n.none} with none`);
-	if (n.stranded > 0) parts.push(`${n.stranded} stranded`);
+	const c = t();
+	const w = c.positions.map;
+	const parts = [c.nouns.positions(n.positions)];
+	if (n.between > 0) parts.push(w.between(n.between));
+	if (n.none > 0) parts.push(w.withNone(n.none));
+	if (n.stranded > 0) parts.push(w.stranded(n.stranded));
 	return parts.join(' · ');
 }
 
@@ -829,11 +833,12 @@ export function mapNodeName(n: {
 	name: string;
 	ins: number;
 	outs: number;
-	mark: 'dead end' | 'orphan' | null;
+	mark: MapMark | null;
 	twins: string | null;
 }): string {
-	const parts = [n.name, `${n.ins} in`, `${n.outs} out`];
-	if (n.mark) parts.push(n.mark);
+	const w = t().positions;
+	const parts = [n.name, w.counts.ins(n.ins), w.counts.outs(n.outs)];
+	if (n.mark) parts.push(markWord(n.mark));
 	if (n.twins) parts.push(n.twins);
 	return parts.join(' · ');
 }
@@ -843,26 +848,25 @@ export function mapNodeName(n: {
  * given: "Twins: your Cerrada, Salsa Tuesdays’ Closed". The node's tooltip.
  */
 export function mapTwinsLine(members: { name: string; team: TeamRef | null }[]): string {
-	const each = members.map((m) =>
-		m.team ? `${possessive(m.team.name)} ${m.name}` : `your ${m.name}`
-	);
+	const w = t().positions.map;
+	const each = members.map((m) => (m.team ? w.teamTwin(m.team.name, m.name) : w.yourTwin(m.name)));
 	return `${TWINS_CHIP}: ${each.join(', ')}`;
 }
 
 /** The tray's way into No position. */
 export function noPositionChip(n: number): string {
-	return `No position · ${plural(n, 'figure', 'figures')}`;
+	return t().positions.map.noPositionChip(n);
 }
 
 /** An unused position in the tray. */
 export function unusedChip(name: string): string {
-	return `${name} · no figures`;
+	return t().positions.map.unusedChip(name);
 }
 
 /** Under the map while a position is lit. */
 export function mapLitLine(name: string): string {
-	return `${name} · tap again to open`;
+	return t().positions.map.litLine(name);
 }
 
 /** A link or unlink posted to an archived position's page (another tab, a replay). */
-export const ARCHIVED_LINKS = 'This position is archived. Restore it to change its links.';
+export const archivedLinksLine = (): string => t().positions.links.archived;

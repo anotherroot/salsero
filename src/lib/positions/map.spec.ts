@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Graph, GraphFigure } from '$lib/graph/graph';
 import { positionCounts } from '$lib/graph/graph';
+import { withLocale } from '$lib/i18n/current';
 import {
 	edgeWidth,
 	LABEL_HEIGHT,
 	labelBox,
 	layoutMap,
+	MARK_CHAR,
 	markBox,
+	markWord,
 	MAX_PASSES,
 	mapInputOf,
 	mapLabel,
@@ -272,6 +275,18 @@ describe('layoutMap', () => {
 		expect(word.x1 - word.x0).toBeGreaterThan(labelBox('D2', 0, 0).x1 - labelBox('D2', 0, 0).x0);
 		expectClean(input, out);
 		expectClean(input, layoutMap(input, { steps: 0 }));
+	});
+
+	it('draws and measures the mark in the reader’s language', () => {
+		expect([markWord('dead end'), markWord('orphan')]).toEqual(['dead end', 'orphan']);
+		expect(withLocale('sl', () => [markWord('dead end'), markWord('orphan')])).toEqual([
+			'slepa ulica',
+			'nedosegljiv'
+		]);
+		// »nedosegljiv« is 11 characters, "orphan" 6: the box the layout keeps clear grows with it.
+		const width = (b: { x0: number; x1: number }) => b.x1 - b.x0;
+		expect(width(markBox('orphan', 0, 0))).toBe(6 * MARK_CHAR);
+		expect(withLocale('sl', () => width(markBox('orphan', 0, 0)))).toBe(11 * MARK_CHAR);
 	});
 
 	it('gives a twinned position room for its Twins line, under the mark when it has one', () => {

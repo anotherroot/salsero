@@ -28,6 +28,7 @@ import { inSpace, isTeam, ownedBy, spaceOfRow, type Space, type Wall } from './s
 import { usableBy, usableOf, type Usable } from './usable';
 import { actingIn, logChange, spotRoot } from './changes';
 import { spotWords, trashRows, type TrashRows } from './trash';
+import { t } from '$lib/i18n/catalog';
 import {
 	clearPictureOf,
 	keepFor,
@@ -60,7 +61,7 @@ export function linkSpotToPosition(
 	now = Date.now()
 ): number {
 	const space = sectionSpace(db, userId, spotId);
-	if (!space) throw new SpotLinkError('No such section.');
+	if (!space) throw new SpotLinkError(t().positions.links.noSection);
 	return linkPositionInSpace(db, space, spotId, positionId, now);
 }
 
@@ -77,7 +78,7 @@ export function linkPositionInSpace(
 	now = Date.now()
 ): number {
 	const video = videoOfSpot(db, spotId);
-	if (!video || !inSpace(video, space)) throw new SpotLinkError('No such section.');
+	if (!video || !inSpace(video, space)) throw new SpotLinkError(t().positions.links.noSection);
 	const p = db
 		.select({
 			id: positions.id,
@@ -95,14 +96,14 @@ export function linkPositionInSpace(
 		p.dance !== video.dance ||
 		!(sameOwner(p, space) || usableBy(db, space, 'positions', p))
 	) {
-		throw new SpotLinkError('No such position.');
+		throw new SpotLinkError(t().positions.links.noPosition);
 	}
 	const taken = db
 		.select({ id: spotPositionLinks.id })
 		.from(spotPositionLinks)
 		.where(and(eq(spotPositionLinks.spotId, spotId), eq(spotPositionLinks.positionId, positionId)))
 		.get();
-	if (taken) throw new SpotLinkError('Already linked.', 409);
+	if (taken) throw new SpotLinkError(t().positions.links.refused.already, 409);
 	return db.transaction((tx) => {
 		const id = tx
 			.insert(spotPositionLinks)
@@ -210,7 +211,7 @@ export function unlinkSpotFromPosition(
 		const space = actingIn(video, by);
 		let trashId: number | null = null;
 		if (isTeam(space) && root) {
-			const label = `${spot ? spotWords(spot) : 'A spot'} · ${positionName(tx, link.positionId) ?? '?'}`;
+			const label = `${spot ? spotWords(spot) : t().positions.links.aSpot} · ${positionName(tx, link.positionId) ?? '?'}`;
 			trashId = trashRows(
 				tx,
 				space,

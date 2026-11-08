@@ -1,5 +1,6 @@
 // Položaji: seznam, Brez položaja, Nov položaj in urejanje, drža, predloge, stran
-// položaja in oznake različice. Position names are people's own (or dance terms):
+// položaja, oznake različice, Kako delujejo položaji, zemljevid ter povezave z odseki,
+// točkami in lekcijami. Position names are people's own (or dance terms):
 // after a colon or in » «, never declined.
 import type { Catalog } from '../catalog';
 import { slCount, slForm, type SlForm } from '../plural';
@@ -255,5 +256,116 @@ export const positions: Catalog['positions'] = {
 			team
 				? `Položaj z imenom »${name}« že obstaja v skupini: ${team}.`
 				: `Položaj z imenom »${name}« v tej skupini že obstaja.`
+	},
+	how: {
+		exampleLabel: 'Položaj, različica, naslednji položaj',
+		paneSubtitle: 'Neobvezno: preberite enkrat, nato se odločite',
+		// Salsa, Son, Timba are the styles' own names, the same in both.
+		sections: [
+			{
+				title: 'Kaj je položaj?',
+				body: 'Kako se partnerja držita med različicami: odprto z obema rokama, zaprto, s prekrižanimi rokami, v hammerlocku, drug ob drugem.'
+			},
+			{
+				title: 'Zakaj z njimi označevati različice?',
+				body: 'Vsaka različica se začne v nekem položaju in konča v nekem položaju. Tako aplikacija ve, kaj lahko sledi čemu: urejevalnik kombinacij ponudi le, kar ustreza, zemljevid pa pokaže, kje se zataknete.'
+			},
+			{
+				title: 'Slogi',
+				body: 'Vsakemu položaju dajte slog, tako kot različici: Salsa, Son, Timba. Ko označujete različico, so najprej na vrsti položaji njenega sloga; različica pa lahko vseeno gre iz enega sloga v drugega.'
+			},
+			{
+				title: 'Neobvezno',
+				body: 'Različica nima položaja, dokler ji ga ne date, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.'
+			},
+			{
+				title: 'Kje začeti',
+				body: 'Dodajte grobe položaje iz predloge in jih sproti preimenujte ali spremenite, ali pa naredite svoje. Skupine imajo svoje, tako kot različice, in lahko jih kopirate.'
+			}
+		],
+		done: 'Razumem'
+	},
+	map: {
+		title: 'Zemljevid',
+		hint: 'Povečajte z dvema prstoma; tapnite položaj, da se osvetlijo njegove različice.',
+		legend: {
+			deadEnd: 'slepa ulica: nič ne gre od tod',
+			orphan: 'nedosegljiv: nič ne pride sem',
+			island: 'otok: odrezan od drugih',
+			size: 'Večji: več različic · puščice: koliko'
+		},
+		notOnMap: 'Ni na zemljevidu',
+		fitsAnywhere: 'Različice brez položaja ustrezajo kjer koli.',
+		islands: 'Otoki · odrezani od drugih',
+		empty:
+			'Še ni položajev. Dodajte jih na strani Položaji in označite, kje se vaše različice začnejo in končajo.',
+		unjoined: 'Vaših položajev še nič ne povezuje: označite začetek in konec različice.',
+		reset: 'Ponastavi povečavo',
+		label: {
+			own: 'Zemljevid vaših položajev',
+			group: 'Zemljevid položajev skupine'
+		},
+		between: (n) => `${nouns.figures(n)} med njimi`,
+		// Counts after a colon: the adjective would have to agree with them.
+		withNone: (n) => `brez položaja: ${n}`,
+		stranded: (n) => `z vrzeljo: ${n}`,
+		// Names are never declined: the place goes in brackets after them.
+		yourTwin: (name) => `${name} (vaš)`,
+		teamTwin: (team, name) => `${name} (skupina: ${team})`,
+		noPositionChip: (n) => `Brez položaja · ${nouns.figures(n)}`,
+		unusedChip: (name) => `${name} · brez različic`,
+		litLine: (name) => `${name} · tapnite znova, da ga odprete`
+	},
+	links: {
+		lessons: 'Lekcije',
+		lessonsCount: (n) => `Lekcije · ${n}`,
+		addSpot: { label: 'Dodaj', aria: 'Dodaj odsek ali točko med posnetke' },
+		linkLesson: { label: 'Poveži', aria: 'Poveži lekcijo' },
+		refused: {
+			pickSpot: 'Izberite odsek ali točko.',
+			pickLesson: 'Izberite lekcijo.',
+			linkGone: 'Ta povezava je že odstranjena.',
+			lessonArchived: 'Ta lekcija je arhivirana.',
+			already: 'Že povezano.',
+			lessonGone: 'Povezava s to lekcijo je že odstranjena.'
+		},
+		// The lesson's title after a colon, never declined.
+		notLinked: (lesson) => `Lekcije ni bilo mogoče povezati: ${lesson}.`,
+		noSection: 'Tega odseka ni.',
+		noPosition: 'Tega položaja ni.',
+		archived: 'Ta položaj je arhiviran. Obnovite ga, če želite spremeniti njegove povezave.',
+		aSpot: 'Odsek ali točka',
+		spotsTitle: (name) => `Poveži s položajem: ${name}`,
+		spotsSub: (team) =>
+			team
+				? `Odseki in točke iz lekcij in posnetkov skupine: ${team}`
+				: 'Odseki in točke iz vaših lekcij in posnetkov',
+		spots: {
+			search: 'Iskanje lekcij, posnetkov, odsekov',
+			note: 'Odsek se ponavlja; točka je en trenutek in je lahko slika.',
+			none: 'Še ni odsekov ali točk. Video lekcije ali posnetek odprite čez cel zaslon in označite odsek ali točko.'
+		},
+		lessonVideo: (title, n) => `${title} · ${n}. video`,
+		recordingOn: (figure, day) => `${figure} · posnetek ${day}`,
+		pointAt: (time) => `Točka pri ${time}`,
+		point: 'Točka',
+		section: (range) => `Odsek · ${range}`,
+		sectionNoName: 'Odsek brez imena',
+		playFrom: (time) => `Predvajaj od ${time}`,
+		picture: (video) => `${video} · slika`,
+		lessonsTitle: (name) => `Lekcije s položajem: ${name}`,
+		lessonPick: {
+			sub: 'Lekcija, povezana tu, pokaže položaj tudi na svoji strani',
+			search: 'Iskanje lekcij',
+			none: 'Še ni lekcij. Dodajte jih v zavihku Lekcije.'
+		},
+		throughSection: 'prek odseka',
+		problem: {
+			missing: { title: 'Datoteke ni', body: 'Na strežniku ni datoteke za ta video.' },
+			unplayable: {
+				title: 'Tu se ne predvaja',
+				body: 'Ta brskalnik te datoteke ne more predvajati. Odprite jo na telefonu.'
+			}
+		}
 	}
 };

@@ -5,6 +5,8 @@
  */
 
 import type { MapLayout } from './map';
+import { t } from '$lib/i18n/catalog';
+import { styleLabelsOf } from '$lib/moves/figures';
 
 /**
  * A type's colour on the map: a fixed theme token per style index, so the four
@@ -36,9 +38,10 @@ export function legendTypes(
 	labels: Record<string, string>,
 	hasUntyped: boolean
 ): { key: string; label: string; tone: MapTone }[] {
-	const types = styles.map((s) => ({ key: s, label: labels[s] ?? s, tone: styleTone(s, styles) }));
+	const shown = styleLabelsOf(labels);
+	const types = styles.map((s) => ({ key: s, label: shown[s] ?? s, tone: styleTone(s, styles) }));
 	if (hasUntyped && !styles.includes('other'))
-		types.push({ key: 'none', label: 'Other', tone: 'muted' });
+		types.push({ key: 'none', label: t().moves.styles.other, tone: 'muted' });
 	return types;
 }
 

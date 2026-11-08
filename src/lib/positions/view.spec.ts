@@ -3,6 +3,8 @@ import type { PositionListRow } from '$lib/types';
 import { withLocale } from '$lib/i18n/current';
 import { EMPTY_HOLD } from './hold';
 import * as v from './view';
+import { TWINS_CHIP } from '$lib/clones/twins';
+import type { PickRow } from '$lib/picker/model';
 
 const label = (t: string | null) => (t === null ? 'Other' : t[0].toUpperCase() + t.slice(1));
 const row = (o: Partial<PositionListRow>): PositionListRow => ({
@@ -260,7 +262,7 @@ describe('the list’s heading, rows and chips', () => {
 		expect(v.mapRow()).toBe('The map');
 		expect(v.noMatch()).toBe('No positions match');
 		expect(v.noneOwn()).toBe('No positions of your own yet.');
-		expect(v.HOW_EXAMPLE_LABEL).toBe('A position, a figure, the next position');
+		expect(v.howExampleLabel()).toBe('A position, a figure, the next position');
 	});
 	it('labels a type, an untyped one as Other', () => {
 		const l = v.styleLabelOf({ salsa: 'Salsa', dominican: 'Dominican' });
@@ -1050,6 +1052,203 @@ describe('positions in Slovenian', () => {
 		expect(sl(() => v.holdsLine([], []))).toBe('Brez položaja');
 		expect(sl(() => v.holdsLine(['Cerrada', 'Abierta'], []))).toBe(
 			'Cerrada ali Abierta → Brez položaja'
+		);
+	});
+});
+
+describe('How positions work, the map and the links in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words How positions work, the names of the example kept', () => {
+		const how = sl(() => ({ ...v.HOW, sections: v.HOW.sections.map((s) => s.title) }));
+		expect(how).toEqual({
+			example: [
+				['Cerrada', 'Dile que no', 'Abierta'],
+				['', 'Enchufla', 'Abierta']
+			],
+			sections: [
+				'Kaj je položaj?',
+				'Zakaj z njimi označevati različice?',
+				'Slogi',
+				'Neobvezno',
+				'Kje začeti'
+			],
+			done: 'Razumem'
+		});
+		expect(sl(v.howExampleLabel)).toBe('Položaj, različica, naslednji položaj');
+		expect(sl(v.howPaneSubtitle)).toBe('Neobvezno: preberite enkrat, nato se odločite');
+	});
+
+	it('counts the map’s summary in the nominative', () => {
+		expect(sl(() => v.mapSummary({ positions: 3, between: 2, none: 0, stranded: 0 }))).toBe(
+			'3 položaji · 2 različici med njimi'
+		);
+		expect(sl(() => v.mapSummary({ positions: 5, between: 5, none: 0, stranded: 0 }))).toBe(
+			'5 položajev · 5 različic med njimi'
+		);
+		expect(sl(() => v.mapSummary({ positions: 1, between: 1, none: 10, stranded: 4 }))).toBe(
+			'1 položaj · 1 različica med njimi · brez položaja: 10 · z vrzeljo: 4'
+		);
+	});
+
+	it('words the tray’s chips, the lit line and the node’s name', () => {
+		expect([1, 2, 3, 5].map((n) => sl(() => v.noPositionChip(n)))).toEqual([
+			'Brez položaja · 1 različica',
+			'Brez položaja · 2 različici',
+			'Brez položaja · 3 različice',
+			'Brez položaja · 5 različic'
+		]);
+		expect(sl(() => v.unusedChip('Sombra'))).toBe('Sombra · brez različic');
+		expect(sl(() => v.mapLitLine('Cerrada'))).toBe('Cerrada · tapnite znova, da ga odprete');
+		expect(
+			sl(() => v.mapNodeName({ name: 'Caída', ins: 2, outs: 0, mark: 'dead end', twins: null }))
+		).toBe('Caída · 2 prihoda · 0 odhodov · slepa ulica');
+		expect(
+			sl(() => v.mapNodeName({ name: 'Paseo', ins: 0, outs: 3, mark: 'orphan', twins: null }))
+		).toBe('Paseo · 0 prihodov · 3 odhodi · nedosegljiv');
+		expect(
+			sl(() =>
+				v.mapTwinsLine([
+					{ name: 'Cerrada', team: null },
+					{ name: 'Closed', team: { id: 1, name: 'Salsa Tuesdays' } }
+				])
+			)
+			// The chip's own word (`TWINS_CHIP`) is the clones' to translate.
+		).toBe(`${TWINS_CHIP}: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)`);
+	});
+
+	it('words the map’s fixed lines', () => {
+		expect(sl(() => v.MAP.title)).toBe('Zemljevid');
+		expect(sl(() => v.MAP.back)).toBe('Nazaj: Položaji');
+		expect(sl(() => v.MAP.notOnMap)).toBe('Ni na zemljevidu');
+		expect(sl(() => v.MAP.legend.deadEnd)).toBe('slepa ulica: nič ne gre od tod');
+		expect(sl(() => v.MAP.reset)).toBe('Ponastavi povečavo');
+		expect(sl(() => v.mapLabelFor(false))).toBe('Zemljevid vaših položajev');
+		expect(sl(() => v.mapLabelFor(true))).toBe('Zemljevid položajev skupine');
+	});
+
+	it('words the Recordings and Lessons headings and their openers', () => {
+		expect(sl(() => [v.recordingsTitle(0), v.recordingsTitle(3)])).toEqual([
+			'Posnetki',
+			'Posnetki · 3'
+		]);
+		expect(sl(() => [v.lessonsTitle(0), v.lessonsTitle(2)])).toEqual(['Lekcije', 'Lekcije · 2']);
+		expect(sl(() => ({ ...v.ADD_SPOT }))).toEqual({
+			label: 'Dodaj',
+			aria: 'Dodaj odsek ali točko med posnetke'
+		});
+		expect(sl(() => ({ ...v.LINK_LESSON }))).toEqual({ label: 'Poveži', aria: 'Poveži lekcijo' });
+		expect(sl(() => v.unlinkLabel('Točka pri 1:12', 'Manos cruzadas'))).toBe(
+			'Odstrani povezavo: Točka pri 1:12 · Manos cruzadas'
+		);
+	});
+
+	it('words the page’s link refusals', () => {
+		expect(sl(() => ({ ...v.LINK_REFUSED }))).toEqual({
+			pickSpot: 'Izberite odsek ali točko.',
+			pickLesson: 'Izberite lekcijo.',
+			linkGone: 'Ta povezava je že odstranjena.',
+			lessonArchived: 'Ta lekcija je arhivirana.',
+			already: 'Že povezano.',
+			lessonGone: 'Povezava s to lekcijo je že odstranjena.'
+		});
+		expect(sl(() => v.notLinked('Week 6'))).toBe('Lekcije ni bilo mogoče povezati: Week 6.');
+		expect(sl(v.archivedLinksLine)).toBe(
+			'Ta položaj je arhiviran. Obnovite ga, če želite spremeniti njegove povezave.'
+		);
+	});
+
+	it('words the spot picker: its title, groups and rows', () => {
+		expect(sl(() => v.linkSpotsTitle('Manos cruzadas'))).toBe('Poveži s položajem: Manos cruzadas');
+		expect(sl(() => v.linkSpotsSub(null))).toBe('Odseki in točke iz vaših lekcij in posnetkov');
+		expect(sl(() => v.linkSpotsSub('Salsa Tuesdays'))).toBe(
+			'Odseki in točke iz lekcij in posnetkov skupine: Salsa Tuesdays'
+		);
+		expect(sl(() => v.LINK_SPOTS.search)).toBe('Iskanje lekcij, posnetkov, odsekov');
+		const lessonVideo = {
+			owner: { lessonVideoId: 3 },
+			src: '/lesson-videos/w6.mp4',
+			from: { kind: 'lesson' as const, lessonId: 7, title: 'Week 6', lessonDay: '2026-11-03' }
+		};
+		const recording = {
+			owner: { recordingId: 4 },
+			src: '/recordings/k.mp4',
+			from: { kind: 'recording' as const, figure: 'Kentucky · Doble' }
+		};
+		expect(sl(() => v.spotGroupTitle(lessonVideo, { n: 2 }))).toBe('Week 6 · 2. video');
+		expect(sl(() => v.spotGroupTitle(recording, { day: '2026-10-26' }))).toBe(
+			'Kentucky · Doble · posnetek 26. okt.'
+		);
+		const spot = (id: number, startMs: number, endMs: number | null, label: string | null) => ({
+			id,
+			startMs,
+			endMs,
+			label,
+			linkedTo: [],
+			linked: false
+		});
+		const [g] = sl(() =>
+			v.spotPickGroups([
+				{
+					video: lessonVideo,
+					taughtHere: true,
+					sections: [
+						spot(1, 72_000, 91_000, 'The cross on 7'),
+						spot(2, 72_000, null, null),
+						spot(3, 42_000, 65_500, null),
+						spot(4, 15_000, null, 'Hands meet')
+					]
+				}
+			])
+		);
+		expect((g.entries as PickRow[]).map((e) => [e.label, e.meta])).toEqual([
+			['The cross on 7', 'Odsek · 1:12,0–1:31,0'],
+			['Točka pri 1:12', 'Točka'],
+			['0:42,0–1:05,5', 'Odsek brez imena'],
+			['Hands meet', 'Točka pri 0:15']
+		]);
+	});
+
+	it('words the lesson picker and a point’s card', () => {
+		expect(sl(() => v.lessonPickTitle('Manos cruzadas'))).toBe(
+			'Lekcije s položajem: Manos cruzadas'
+		);
+		expect(sl(() => v.LESSON_PICK.search)).toBe('Iskanje lekcij');
+		const groups = sl(() =>
+			v.lessonPickGroups(
+				[
+					{
+						id: 1,
+						title: 'Week 6',
+						lessonDay: '2026-11-03',
+						videos: 1,
+						team: 'Salsa Tuesdays',
+						linked: true,
+						via: true
+					},
+					{
+						id: 3,
+						title: 'Wednesday class',
+						lessonDay: '2026-11-04',
+						videos: 2,
+						team: null,
+						linked: false,
+						via: false
+					}
+				],
+				'2026-11-04'
+			)
+		);
+		expect((groups[0].entries as PickRow[]).map((e) => e.meta)).toEqual([
+			expect.stringMatching(/^Salsa Tuesdays · .+ · prek odseka$/),
+			expect.stringMatching(/ · 2 videa$/)
+		]);
+		expect(sl(() => v.pointLabel(72_400))).toBe('Točka pri 1:12');
+		expect(sl(() => v.playFrom(72_400))).toBe('Predvajaj od 1:12');
+		expect(sl(() => v.pointMeta('Week 6', true))).toBe('Week 6 · slika');
+		expect(sl(() => v.POINT_PROBLEM.missing.title)).toBe('Datoteke ni');
+		expect(sl(() => v.POINT_PROBLEM.unplayable.body)).toBe(
+			'Ta brskalnik te datoteke ne more predvajati. Odprite jo na telefonu.'
 		);
 	});
 });

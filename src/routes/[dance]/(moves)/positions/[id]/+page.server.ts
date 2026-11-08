@@ -68,7 +68,7 @@ import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
 import { t } from '$lib/i18n/catalog';
 import {
-	ARCHIVED_LINKS,
+	archivedLinksLine,
 	LINK_REFUSED,
 	notLinked,
 	styleLabelOf,
@@ -133,7 +133,7 @@ const positionIn = (
 const archivedLinks = (
 	position: { archivedAt: number | null },
 	action: 'linkSpot' | 'unlinkSpot' | 'linkLesson' | 'unlinkLesson'
-) => (position.archivedAt === null ? null : fail(400, { action, message: ARCHIVED_LINKS }));
+) => (position.archivedAt === null ? null : fail(400, { action, message: archivedLinksLine() }));
 
 export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const db = getDb();

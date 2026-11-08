@@ -26,6 +26,7 @@
  */
 import { fold } from '$lib/fold';
 import { TWINS_CHIP } from '$lib/clones/twins';
+import { t } from '$lib/i18n/catalog';
 import { positionCounts, type Graph, type GraphFigure } from '$lib/graph/graph';
 
 /** What the gap report says of a position (`positionCounts`). */
@@ -65,7 +66,7 @@ export interface MapNode {
 	/** The centre of the name's box (`labelBox`): text-anchor middle, baseline central. */
 	labelX: number;
 	labelY: number;
-	mark: 'dead end' | 'orphan' | null;
+	mark: MapMark | null;
 	/**
 	 * The centre of the mark word's line (`markBox`), right under the name's:
 	 * `labelY + LABEL_HEIGHT`. Null without a mark.
@@ -171,14 +172,27 @@ export function twinsBox(x: number, y: number): { x0: number; y0: number; x1: nu
 	};
 }
 
+/** A dead end's or orphan's mark: the key; `markWord` is what the map writes. */
+export type MapMark = 'dead end' | 'orphan';
+
+/**
+ * The mark's word in the reader's language (the list's gap words): "dead end",
+ * »slepa ulica«. Read inside the request, so the layout keeps room for the word
+ * the page will draw.
+ */
+export function markWord(mark: MapMark): string {
+	const gaps = t().positions.gaps;
+	return mark === 'dead end' ? gaps.deadEnd : gaps.orphan;
+}
+
 /** The width a mark word takes: `MARK_CHAR` a character. */
-function markWidth(mark: 'dead end' | 'orphan' | null): number {
-	return mark ? mark.length * MARK_CHAR : 0;
+function markWidth(mark: MapMark | null): number {
+	return mark ? [...markWord(mark)].length * MARK_CHAR : 0;
 }
 
 /** The box a mark word takes on its own line (`MapNode.markY`), centred on (x, y). */
 export function markBox(
-	mark: 'dead end' | 'orphan',
+	mark: MapMark,
 	x: number,
 	y: number
 ): { x0: number; y0: number; x1: number; y1: number } {

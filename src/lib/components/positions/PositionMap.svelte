@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { button } from '$lib/components/ui/styles';
-	import type { MapLayout } from '$lib/positions/map';
+	import { markWord, type MapLayout } from '$lib/positions/map';
 	import { edgeGeometry, edgeKey, litOf, TONE_VAR, type MapTone } from '$lib/positions/map-view';
 	import { MAP, mapLitLine } from '$lib/positions/view';
 	import {
@@ -382,7 +382,7 @@
 								stroke-width="4"
 								paint-order="stroke"
 								style:fill="var(--color-danger)"
-								style:stroke="var(--color-surface)">{n.mark}</text
+								style:stroke="var(--color-surface)">{markWord(n.mark)}</text
 							>
 						{/if}
 						{#if n.twins && n.twinsY !== null}
