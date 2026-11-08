@@ -14,6 +14,11 @@ describe('defaultOpen', () => {
 	it('falls to the first picked row', () => {
 		expect(defaultOpen(day(r(1, 'done'), r(9, 'picked'), r(8, 'picked')))).toBe(9);
 	});
+	it('opens the first warm-up before a practice to-do', () => {
+		const pr = { exercise: { id: 2 }, kind: 'todo' as const, list: 'practice' as const };
+		const wu = { exercise: { id: 10 }, kind: 'todo' as const, list: 'warmup' as const };
+		expect(defaultOpen({ rows: [pr, wu] })).toBe(10);
+	});
 	it('opens nothing when everything is done', () => {
 		expect(defaultOpen(day(r(1, 'done')))).toBeNull();
 		expect(defaultOpen(day())).toBeNull();
