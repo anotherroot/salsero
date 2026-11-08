@@ -418,6 +418,40 @@ body {
 }
 
 /*
+ * The window's scrollbar on the desktop runs from the band row's foot to the
+ * bottom, not beside the band row: the track starts --band-row-h down, and the
+ * strip beside the band row is band. Chromium styles the window's scrollbar from
+ * <body> (before <html>), so the rules sit on body. The dance and group colours
+ * live on the root layout's wrapper, below body, so `--gutter-band` is set here
+ * from what the wrapper holds. Keep the hexes IN SYNC with each theme's
+ * `--color-band` above (`stylesheet.spec.ts` checks). Group ties bachata dark
+ * on specificity and wins by coming last.
+ */
+@media (hover: hover) and (pointer: fine) and (width >= 1024px) {
+	body:has([data-frame-band]) {
+		--gutter-band: #a8492f;
+	}
+	body:has([data-dance='bachata'] [data-frame-band]) {
+		--gutter-band: #64304f;
+	}
+	:root[data-theme='dark'] body:has([data-frame-band]) {
+		--gutter-band: #7e3826;
+	}
+	:root[data-theme='dark'] body:has([data-dance='bachata'] [data-frame-band]) {
+		--gutter-band: #4d2640;
+	}
+	:root body:has([data-dance][data-group] [data-frame-band]) {
+		--gutter-band: #26345e;
+	}
+	body:has([data-frame-band])::-webkit-scrollbar {
+		background: linear-gradient(var(--gutter-band) var(--band-row-h), transparent 0);
+	}
+	body:has([data-frame-band])::-webkit-scrollbar-track {
+		margin-top: var(--band-row-h);
+	}
+}
+
+/*
  * Pointer and hover (desktop spec): only where the device can hover and the
  * desktop layout is on, so the phone never shows a stuck hover. Written once
  * on the classes that already mean "pressable":
