@@ -46,5 +46,29 @@ export const songs = {
 		/** What "Unsaved changes" calls the note sheet. */
 		unsavedLabel: 'A note',
 		saveFailed: 'That could not be saved.'
+	},
+	/** A song's page: listening, Edit and sections (spec 2026-11-08). */
+	page: {
+		section: {
+			/** A section with no name yet. */
+			unnamed: 'Section',
+			/** The section sheet's name chips, by `SECTION_KEYS`. */
+			names: {
+				intro: 'Intro',
+				verse: 'Verse',
+				coro: 'Coro',
+				montuno: 'Montuno',
+				mambo: 'Mambo',
+				break: 'Break',
+				outro: 'Outro'
+			}
+		},
+		/** What comes next, under the count. */
+		ahead: {
+			eights: (name: string, n: number): string =>
+				`${name} in ${n} ${n === 1 ? 'eight' : 'eights'}`,
+			last: (name: string): string => `${name} after this eight`,
+			beats: (name: string, n: number): string => `${name} in ${n} ${n === 1 ? 'beat' : 'beats'}`
+		}
 	}
 };

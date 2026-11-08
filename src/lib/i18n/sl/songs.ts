@@ -42,5 +42,26 @@ export const songs: Catalog['songs'] = {
 		optional: '(neobvezno)',
 		unsavedLabel: 'Opomba',
 		saveFailed: 'Shranjevanje ni uspelo.'
+	},
+	// A song's section is a del (a video's stays odsek). Chips the person picks are stored as shown.
+	page: {
+		section: {
+			unnamed: 'Del',
+			names: {
+				intro: 'Uvod',
+				verse: 'Kitica',
+				coro: 'Coro',
+				montuno: 'Montuno',
+				mambo: 'Mambo',
+				break: 'Break',
+				outro: 'Zaključek'
+			}
+		},
+		// čez + accusative: 1 osmico, 2 osmici, 3 osmice, 5 osmic; 1 dobo, 2 dobi, 3 dobe, 5 dob.
+		ahead: {
+			eights: (name, n) => `${name} čez ${slCount(n, ['osmico', 'osmici', 'osmice', 'osmic'])}`,
+			last: (name) => `${name} po tej osmici`,
+			beats: (name, n) => `${name} čez ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])}`
+		}
 	}
 };
