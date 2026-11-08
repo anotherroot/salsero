@@ -8,6 +8,7 @@ import { exercise } from './exercise';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
+import { nouns } from './nouns';
 import { player } from './player';
 import { settings } from './settings';
 import { shell } from './shell';
@@ -17,6 +18,7 @@ import { video } from './video';
 
 export const en = {
 	common,
+	nouns,
 	format,
 	shell,
 	admin,

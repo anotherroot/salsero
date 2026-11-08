@@ -53,6 +53,11 @@
 //   a take (My count), a bar (of counts)  posnetek, takt (Takt 2 od 4)
 //   Storage (Settings), the admin         prostor, skrbnik (the admin's section: Skrbništvo)
 //   Paired phones                         Povezani telefoni (lines as nouns: "Povezava: …")
+//   a count (a figure's length)           doba ("8 dob"; the spoken count stays štetje)
+//   slot (in a routine)                   mesto
+//   break (a routine's)                   prekinitev (a timing break: časovna prekinitev)
+//   link                                  povezava
+//   owner / editor / member (a group's)   Vodja / Lahko ureja / Lahko bere
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { comments } from './comments';
@@ -62,6 +67,7 @@ import { exercise } from './exercise';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
+import { nouns } from './nouns';
 import { player } from './player';
 import { settings } from './settings';
 import { shell } from './shell';
@@ -71,6 +77,7 @@ import { video } from './video';
 
 export const sl: Catalog = {
 	common,
+	nouns,
 	format,
 	shell,
 	admin,
