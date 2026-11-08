@@ -46,7 +46,7 @@ import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-for
 import { listMusic, musicChoices } from '$lib/server/song-links';
 import { isTeam, requireRoutineAccess, spaceOfRow, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
-import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
+import { missingSeen, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
@@ -119,7 +119,7 @@ function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract'
 	if (typeof sent !== 'string' || sent === '') {
 		// A group's routine, or one with copies (a change may flow in), must say what it saw.
 		const required = routine.teamId !== null || hasCopies(db, 'routine', routine.id);
-		return required ? fail(400, { ...named, message: MISSING_SEEN }) : null;
+		return required ? fail(400, { ...named, message: missingSeen() }) : null;
 	}
 	if (sent === fingerprintOf(db, routine.id)) return null;
 	return fail(409, { ...named, message: staleRoutine(who().by), stale: true });

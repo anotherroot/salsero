@@ -28,6 +28,7 @@ import { addRecording, createFigure } from '$lib/server/figures';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import type { Space } from '$lib/server/scope';
 import { actions, load } from './[id]/deleted/+page.server';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions as lessonActions } from '../lessons/[id]/+page.server';
 import { actions as figureActions } from '../(moves)/figures/[id]/+page.server';
 
@@ -191,5 +192,31 @@ describe('Recently deleted', () => {
 			status: 404
 		});
 		expect(getLessonRow(db, own)!.archivedAt).not.toBeNull();
+	});
+});
+
+describe('Recently deleted in Slovenian', () => {
+	it('says why a Restore was refused in the reader’s language', async () => {
+		const { lesson, video } = lessonWithVideo();
+		const spot = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 0, endMs: 4000, label: 'Enchufla doble' },
+			'u1'
+		)!.id;
+		const { trashId } = deleteSpot(db, spot, 'u1')!;
+		await run(() =>
+			lessonActions.deleteVideo!(ev('u1', { id: String(lesson) }, post({ videoId: String(video) })))
+		);
+		const sl = (fields: Record<string, string>) =>
+			runInLocale('sl', () => run(() => actions.restore!(ev('u2', { id: '1' }, post(fields)))));
+		expect((await sl({ kind: 'section', id: String(trashId) })).value).toMatchObject({
+			status: 409,
+			data: { message: 'Najprej obnovite video' }
+		});
+		expect((await sl({ kind: 'lesson', id: '999' })).value).toMatchObject({
+			status: 404,
+			data: { message: 'Tega ni več.' }
+		});
 	});
 });

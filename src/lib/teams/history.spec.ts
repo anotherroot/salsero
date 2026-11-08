@@ -7,6 +7,7 @@ import {
 	historySubject,
 	previousValue
 } from './history';
+import { withLocale } from '$lib/i18n/current';
 import type { HistoryRow } from '$lib/types';
 
 const names = new Map([
@@ -273,5 +274,137 @@ describe('old rows with raw ids', () => {
 				row({ subject: 'startIds', before: { startIds: '3,4' }, after: { startIds: '3' } })
 			)
 		).toBeNull();
+	});
+});
+
+describe('History in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	const notes = row({ before: { notes: 'a' }, after: { notes: 'b' } });
+	const section = (
+		before: Record<string, number | string>,
+		after: Record<string, number | string>
+	) => row({ subject: 'section', subjectId: 3, before, after });
+
+	it('reads the spec’s lines, a decimal comma in the seconds', () => {
+		sl(() => {
+			expect(historyLine(notes, names)).toBe('Ana · Spremenjeno: opombe');
+			expect(
+				historyLine(
+					section(
+						{ startMs: 10_000, label: 'Enchufla doble' },
+						{ startMs: 11_200, label: 'Enchufla doble' }
+					),
+					names
+				)
+			).toBe("Ana · Premaknjeno: 'Enchufla doble' za 1,2 s");
+			expect(historyLine(section({ startMs: 5_000 }, { startMs: 3_000 }), names)).toBe(
+				'Ana · Premaknjeno: odsek za 2 s'
+			);
+			expect(historyLine(section({ endMs: 5_000 }, { endMs: 5_300 }), names)).toBe(
+				'Ana · Premaknjeno: konec odseka za 0,3 s'
+			);
+			expect(
+				historyLine(row({ actorId: 'luka', verb: 'add', subject: 'section', subjectId: 3 }), names)
+			).toBe('Luka · Dodano: odsek');
+			expect(
+				historyLine(
+					row({
+						rootKind: 'figure',
+						verb: 'archive',
+						subject: 'variation',
+						before: { name: 'Doble' }
+					}),
+					names
+				)
+			).toBe("Ana · Arhivirano: različica 'Doble'");
+			expect(
+				historyLine(
+					row({ rootKind: 'figure', verb: 'add', subject: 'figure', after: { name: 'Enchufla' } }),
+					names
+				)
+			).toBe('Ana · Ustvarjeno: figura');
+		});
+	});
+
+	it('reads the other verbs, counts and someone gone', () => {
+		sl(() => {
+			const song = (over: Partial<HistoryRow>) =>
+				historyLine(
+					row({ rootKind: 'song', subject: 'song', after: { name: 'Chan Chan' }, ...over }),
+					names
+				);
+			expect(song({ verb: 'add' })).toBe("Ana · Dodano: skladba 'Chan Chan'");
+			expect(song({ verb: 'share' })).toBe("Ana · Deljeno s tečajem: skladba 'Chan Chan'");
+			expect(song({ verb: 'unshare' })).toBe("Ana · Ni več deljeno s tečajem: skladba 'Chan Chan'");
+			expect(song({ verb: 'edit', subject: 'anchors' })).toBe('Ana · Spremenjeno: štetje');
+			expect(historyLine(row({ verb: 'publish', subject: 'lesson' }), names)).toBe(
+				'Ana · Objavljeno: lekcija'
+			);
+			const slots = (n: number, verb: 'add' | 'remove' | 'restore') =>
+				historyLine(
+					row({
+						rootKind: 'routine',
+						verb,
+						subject: 'slot',
+						...(verb === 'remove' ? { before: { count: n } } : { after: { count: n } })
+					}),
+					names
+				);
+			expect(slots(2, 'add')).toBe('Ana · Dodano: 2 mesti');
+			expect(slots(3, 'remove')).toBe('Ana · Odstranjeno: 3 mesta');
+			expect(slots(5, 'restore')).toBe('Ana · Vrnjeno: 5 mest');
+			expect(slots(1, 'restore')).toBe('Ana · Vrnjeno: mesto');
+			expect(historyLine(row({ rootKind: 'routine', subject: 'order' }), names)).toBe(
+				'Ana · Premaknjeno: mesto'
+			);
+			expect(
+				historyLine(
+					row({
+						rootKind: 'figure',
+						verb: 'add',
+						subject: 'variation',
+						after: { name: 'Doble', from: 'Enchufla' }
+					}),
+					names
+				)
+			).toBe("Ana · Premaknjeno sem: 'Doble' · prej: 'Enchufla'");
+			expect(
+				historyLine(
+					row({ verb: 'add', subject: 'section-link', after: { name: 'Cerrada', point: 1 } }),
+					names
+				)
+			).toBe("Ana · Povezano: točka · 'Cerrada'");
+			expect(
+				historyLine(
+					row({ verb: 'remove', subject: 'section-link', before: { name: 'Enchufla' } }),
+					names
+				)
+			).toBe("Ana · Povezava odstranjena: odsek · 'Enchufla'");
+			expect(historyLine(section({ label: 'a' }, { label: 'Vrtenje' }), names)).toBe(
+				"Ana · Poimenovano: odsek 'Vrtenje'"
+			);
+			expect(historyLine(row({ actorId: 'gone' }), names)).toBe('Nekdo · Spremenjeno: opombe');
+			expect(historySubject('figure', 'figure')).toBe('figura');
+			expect(historySubject('lesson', 'variation')).toBe('različica');
+			expect(previousValue(row({ before: { notes: null }, after: { notes: 'x' } }))).toBe(
+				'(prazno)'
+			);
+			expect(editedByLine('Ana', 'pred 10 min')).toBe('Zadnja sprememba: Ana · pred 10 min');
+			expect(archivedByLine('Ana')).toBe('Arhivirano · Ana');
+		});
+	});
+
+	it('composes one stored row in each reader’s language', () => {
+		const moved = section(
+			{ startMs: 10_000, label: 'Enchufla doble' },
+			{ startMs: 11_200, label: 'Enchufla doble' }
+		);
+		expect(historyLine(moved, names)).toBe("Ana · moved 'Enchufla doble' 1.2 s");
+		expect(sl(() => historyLine(moved, names))).toBe(
+			"Ana · Premaknjeno: 'Enchufla doble' za 1,2 s"
+		);
+		// And back: nothing about the row changed.
+		expect(historyLine(moved, names)).toBe("Ana · moved 'Enchufla doble' 1.2 s");
+		expect(moved.before).toEqual({ startMs: 10_000, label: 'Enchufla doble' });
 	});
 });

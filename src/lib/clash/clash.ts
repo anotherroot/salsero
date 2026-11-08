@@ -14,6 +14,7 @@
  */
 
 import { agoText } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 
 export type SeenValue = string | number | null;
 export type Seen = Record<string, SeenValue>;
@@ -91,20 +92,21 @@ export function routineFingerprint(
 /** "5 min ago": `format.ts`'s, shared with "Edited by" and History. */
 export { agoText };
 
-/** The clash sheet's title: who changed it and when, once that is known. */
+/**
+ * The clash sheet's title: who changed it and when, once that is known.
+ * Composed in the reader's language when the refusal is made (`t().groups.clash`).
+ */
 export function clashTitle(info: { by: string | null; at: number | null }, now: number): string {
-	if (info.by === null) return 'This changed since you opened it';
-	return info.at === null
-		? `${info.by} changed this`
-		: `${info.by} changed this · ${agoText(info.at, now)}`;
+	const w = t().groups.clash;
+	if (info.by === null) return w.changedSince;
+	return info.at === null ? w.changedBy(info.by) : w.changedByAgo(info.by, agoText(info.at, now));
 }
 
 /** A save on something deleted or archived since: who did it, once that is known. */
 export function goneTitle(info: { by: string | null; at: number | null }, now: number): string {
-	if (info.by === null) return 'This was deleted since you opened it';
-	return info.at === null
-		? `${info.by} deleted this`
-		: `${info.by} deleted this · ${agoText(info.at, now)}`;
+	const w = t().groups.clash;
+	if (info.by === null) return w.deletedSince;
+	return info.at === null ? w.deletedBy(info.by) : w.deletedByAgo(info.by, agoText(info.at, now));
 }
 
 /**
@@ -112,34 +114,14 @@ export function goneTitle(info: { by: string | null; at: number | null }, now: n
  * reloaded by the time this shows, so it says so.
  */
 export function staleRoutine(by: string | null): string {
-	return by === null
-		? 'This routine changed; it now shows the latest'
-		: `${by} changed this routine; it now shows the latest`;
+	const w = t().groups.clash;
+	return by === null ? w.staleRoutine : w.staleRoutineBy(by);
 }
 
-/** What the clash sheet calls a field, by its form name. */
-const FIELD_LABELS: Record<string, string> = {
-	title: 'Title',
-	lessonDay: 'Day of the class',
-	notes: 'Notes',
-	name: 'Name',
-	figureName: 'Move name',
-	partner: 'Partner',
-	style: 'Style',
-	startIds: 'Starts in',
-	endIds: 'Ends in',
-	// An older clash or History row's single end.
-	endId: 'Ends in',
-	startCount: 'Starts on count',
-	lengthCounts: 'Length',
-	active: 'Active',
-	label: 'Name',
-	startMs: 'Start',
-	endMs: 'End'
-};
-
+/** What the clash sheet calls a field, by its form name; another key, capitalised. */
 export function fieldLabel(key: string): string {
-	return FIELD_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+	const labels: Record<string, string> = t().groups.clash.field;
+	return Object.hasOwn(labels, key) ? labels[key] : key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 /**

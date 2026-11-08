@@ -31,7 +31,14 @@ export const settings = {
 			`Not enough room: you use ${used} of ${limit}. Free some space or ask for more in Settings.`,
 		noRoomGroup: (used: string, limit: string): string =>
 			`Not enough room: the group uses ${used} of ${limit}. The owner can ask for more.`,
-		noRoomServer: 'Not enough room on the server. Ask the admin.'
+		noRoomServer: 'Not enough room on the server. Ask the admin.',
+		/** What uses space's list (a person's and a group's). */
+		biggestFirst: 'Biggest first',
+		nothingYet: 'Nothing uses space yet',
+		archived: 'archived',
+		deleteLabel: (title: string, context: string): string => `Delete ${title}, ${context}`,
+		couldNotDelete: 'Could not delete.',
+		alreadyGone: 'That is already gone.'
 	},
 	practice: {
 		label: 'Practice',

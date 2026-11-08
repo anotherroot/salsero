@@ -4,6 +4,7 @@ import { requireTeam } from '$lib/server/scope';
 import { listTrash, restoreDeleted } from '$lib/server/trash';
 import { int } from '$lib/server/form';
 import { KIND_NAME } from '$lib/teams/deleted';
+import { t } from '$lib/i18n/catalog';
 import type { DeletedKind } from '$lib/types';
 import { flowAfter, rootOfTrash } from '$lib/server/clones/flow-hook';
 import type { Actions, PageServerLoad } from './$types';
@@ -27,7 +28,7 @@ const TRASH_KINDS = new Set<DeletedKind>([
 function teamOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const db = getDb();
 	const found = requireTeam(db, locals, params, 'editor');
-	if (found.team.deletedAt !== null) throw error(404, 'No such group');
+	if (found.team.deletedAt !== null) throw error(404, t().groups.page.noGroup);
 	return { db, ...found };
 }
 
@@ -56,7 +57,8 @@ export const actions: Actions = {
 			kind === undefined || id === undefined
 				? null
 				: restoreDeleted(db, space, kind, id, Date.now());
-		if (!done) return fail(404, { action: 'restore', key, message: 'That is no longer here.' });
+		if (!done)
+			return fail(404, { action: 'restore', key, message: t().groups.deleted.noLongerHere });
 		if (!done.ok) return fail(409, { action: 'restore', key, message: done.message });
 		// A trash entry that came back (a section, link, recording, video) changes its
 		// root: Keep in step's flow runs from there. A restored root row flows nothing new.

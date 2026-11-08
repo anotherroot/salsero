@@ -11,6 +11,7 @@ import { getPosition } from '$lib/server/positions';
 import { int } from '$lib/server/form';
 import { canRestore, historyLine, previousValue } from '$lib/teams/history';
 import { clashTitle } from '$lib/clash/clash';
+import { t } from '$lib/i18n/catalog';
 import type { ChangeRootKind } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -31,30 +32,31 @@ function rootOf(
 	const kind = KINDS.find((k) => k === params.kind);
 	const rootId = Number(params.rootId);
 	if (!kind || !Number.isSafeInteger(rootId) || !rootInTeam(db, team.id, kind, rootId)) {
-		throw error(404, 'No such history');
+		throw error(404, t().groups.history.noHistory);
 	}
 	return { db, team, space, kind, rootId };
 }
 
 /** What the band names, and where Back goes: the thing's own page. */
 function thing(db: Db, dance: string, kind: Kind, id: number): { title: string; href: string } {
+	const w = t().groups.history.untitled;
 	switch (kind) {
 		case 'lesson':
-			return { title: getLessonRow(db, id)?.title ?? 'Lesson', href: `/${dance}/lessons/${id}` };
+			return { title: getLessonRow(db, id)?.title ?? w.lesson, href: `/${dance}/lessons/${id}` };
 		case 'figure':
 			return {
-				title: getGroup(db, id)?.name ?? 'Move',
+				title: getGroup(db, id)?.name ?? w.figure,
 				href: `/${dance}/moves/${id}`
 			};
 		case 'routine':
-			return { title: getRoutine(db, id)?.name ?? 'Routine', href: `/${dance}/routines/${id}` };
+			return { title: getRoutine(db, id)?.name ?? w.routine, href: `/${dance}/routines/${id}` };
 		case 'drill':
-			return { title: getExercise(db, id)?.name ?? 'Drill', href: `/${dance}/exercises/${id}` };
+			return { title: getExercise(db, id)?.name ?? w.drill, href: `/${dance}/exercises/${id}` };
 		case 'song':
-			return { title: getSong(db, id)?.title || 'Song', href: `/${dance}/songs/${id}` };
+			return { title: getSong(db, id)?.title || w.song, href: `/${dance}/songs/${id}` };
 		case 'position':
 			return {
-				title: getPosition(db, id)?.name ?? 'Position',
+				title: getPosition(db, id)?.name ?? w.position,
 				href: `/${dance}/positions/${id}`
 			};
 	}
@@ -99,7 +101,7 @@ export const actions: Actions = {
 			changeId === undefined
 				? null
 				: history(db, space.teamId, kind, rootId).find((r) => r.id === changeId);
-		if (!row) throw error(404, 'No such change');
+		if (!row) throw error(404, t().groups.history.noChange);
 		const now = Date.now();
 		const done = restoreChange(db, space, row.id, now);
 		if (done.ok) return { action: 'restore', ok: true, changeId: row.id };
@@ -108,22 +110,22 @@ export const actions: Actions = {
 				return fail(409, {
 					action: 'restore',
 					changeId: row.id,
-					message: `${clashTitle(done, now)}. Restore would undo that too, so it was not done.`
+					message: t().groups.history.restoreClash(clashTitle(done, now))
 				});
 			case 'gone':
 				return fail(410, {
 					action: 'restore',
 					changeId: row.id,
-					message: 'That is no longer there to restore.'
+					message: t().groups.deleted.refused.notFound
 				});
 			case 'taken':
 				return fail(400, {
 					action: 'restore',
 					changeId: row.id,
-					message: 'That name is taken now. Rename the other one first.'
+					message: t().groups.history.nameTaken
 				});
 			default:
-				throw error(404, 'No such change');
+				throw error(404, t().groups.history.noChange);
 		}
 	}
 };

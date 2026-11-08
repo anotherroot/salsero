@@ -1,6 +1,12 @@
 import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 
+/** A section or a point in History: nominative, and after "konec" (genitive). */
+const SPOT = { section: 'odsek', point: 'točka' } as const;
+const SPOT_OF = { section: 'odseka', point: 'točke' } as const;
+/** "3 mesta", after a colon (nominative). */
+const slots = (n: number) => slCount(n, ['mesto', 'mesti', 'mesta', 'mest']);
+
 // A group's or a person's name is never declined: it stands after a colon or in
 // »…« (a user's label, as the video player's delete asks). The roles are said
 // without a gendered noun: "vodja" (as in "vodja tečaja") is both, and an editor
@@ -164,6 +170,202 @@ export const groups: Catalog['groups'] = {
 		label: (title) => `Dodaj: ${title}`,
 		refused: 'Te lekcije ni več mogoče dodati.',
 		adding: 'Dodajanje'
+	},
+	// A History line says what happened first, as a neuter past participle
+	// ("Dodano: odsek"), so nothing agrees with the person, who stands before
+	// the "·". The thing follows the colon in the nominative; a name stays in
+	// its quotes as typed, after its noun or alone.
+	history: {
+		title: 'Zgodovina',
+		head: (title) => `Zgodovina · ${title}`,
+		someone: 'Nekdo',
+		thing: {
+			video: 'video',
+			section: 'odsek',
+			point: 'točka',
+			link: 'povezava',
+			recording: 'posnetek',
+			slot: 'mesto',
+			option: 'alternativa',
+			'section-link': 'povezava odseka'
+		},
+		field: {
+			title: 'naslov',
+			lessonDay: 'datum',
+			notes: 'opombe',
+			name: 'ime',
+			figureName: 'ime figure',
+			partner: 'v paru ali solo',
+			style: 'slog',
+			startIds: 'začetni položaji',
+			endIds: 'končni položaji',
+			endId: 'končni položaj',
+			// A position's type is its »Slog«, as on its page.
+			styleTag: 'slog',
+			hands: 'roke',
+			crossed: 'prekrižani roki',
+			facing: 'postavitev',
+			frame: 'okvir',
+			pictureSpotId: 'slika',
+			startCount: 'začetna doba',
+			lengthCounts: 'dolžina',
+			note: 'opomba mesta',
+			artist: 'izvajalec',
+			anchors: 'štetje',
+			tempoFactor: 'tempo',
+			sampleStartS: 'začetek odlomka',
+			practiceMode: 'vadenje',
+			countBpm: 'tempo vadenja',
+			slots: 'mesta'
+		},
+		subject: {
+			lesson: 'lekcija',
+			move: 'figura',
+			figure: 'različica',
+			routine: 'kombinacija',
+			drill: 'vaja',
+			song: 'skladba',
+			position: 'položaj',
+			video: 'video',
+			section: 'odsek',
+			point: 'točka',
+			link: 'povezava',
+			recording: 'posnetek',
+			slot: 'mesto',
+			option: 'alternativa',
+			team: 'skupina'
+		},
+		addedSong: (name) => `Dodano: skladba${name}`,
+		made: (shown) => `Ustvarjeno: ${shown}`,
+		// The move it came from after "prej:", a name never declined.
+		movedHere: (name, from) => `Premaknjeno sem${name ? `:${name}` : ''} · prej: '${from}'`,
+		extracted: (name) => `Ustvarjeno iz mest: kombinacija${name}`,
+		addedSlots: (n) => `Dodano: ${slots(n)}`,
+		linked: (spot, name) => `Povezano: ${SPOT[spot]}${name ? ` ·${name}` : ''}`,
+		unlinked: (spot, name) => `Povezava odstranjena: ${SPOT[spot]}${name ? ` ·${name}` : ''}`,
+		added: (thing) => `Dodano: ${thing}`,
+		addedThe: (shown, name) => `Dodano: ${shown}${name}`,
+		removedSlots: (n) => `Odstranjeno: ${slots(n)}`,
+		removed: (thing) => `Odstranjeno: ${thing}`,
+		removedThe: (shown, name) => `Odstranjeno: ${shown}${name}`,
+		archived: (shown, name) => `Arhivirano: ${shown}${name}`,
+		published: (shown) => `Objavljeno: ${shown}`,
+		shared: (shown, name) => `Deljeno s tečajem: ${shown}${name}`,
+		unshared: (shown, name) => `Ni več deljeno s tečajem: ${shown}${name}`,
+		deleted: (shown, name) => `Izbrisano: ${shown}${name}`,
+		changed: (what) => `Spremenjeno: ${what}`,
+		movedSlot: 'Premaknjeno: mesto',
+		putBack: (spot, label) => `Vrnjeno: ${label === null ? SPOT[spot] : `'${label}'`}`,
+		putBackSlots: (n) => `Vrnjeno: ${n > 1 ? slots(n) : 'mesto'}`,
+		restored: (what) => `Obnovljeno: ${what}`,
+		restoredThing: (thing) => `Obnovljeno: ${thing}`,
+		moved: (spot, label, seconds) =>
+			`Premaknjeno: ${label === null ? SPOT[spot] : `'${label}'`} za ${seconds} s`,
+		// "konec odseka" (genitive), then the name in its quotes.
+		movedEnd: (spot, label, seconds) =>
+			`Premaknjeno: konec ${SPOT_OF[spot]}${label === null ? '' : ` '${label}'`} za ${seconds} s`,
+		clearedName: (spot) => `Ime izbrisano: ${SPOT[spot]}`,
+		named: (spot, label) => `Poimenovano: ${SPOT[spot]} '${label}'`,
+		was: (value) => `Prej: ${value}`,
+		empty: '(prazno)',
+		editedBy: (first, ago) => `Zadnja sprememba: ${first} · ${ago}`,
+		archivedBy: (first) => `Arhivirano · ${first}`,
+		archivedSince: 'Odkar ste to odprli, je bilo arhivirano.',
+		emptyTitle: 'Še ni sprememb',
+		emptyBody: 'Tu je vidno, kdo v skupini kaj spremeni.',
+		listLabel: 'Spremembe, najnovejše najprej',
+		inDeleted: 'V »Nedavno izbrisano«',
+		untitled: {
+			lesson: 'Lekcija',
+			figure: 'Figura',
+			routine: 'Kombinacija',
+			drill: 'Vaja',
+			song: 'Skladba',
+			position: 'Položaj'
+		},
+		noHistory: 'Te zgodovine ni',
+		noChange: 'Te spremembe ni',
+		restoreClash: (title) => `${title}. Obnovitev bi razveljavila tudi to, zato ni bila izvedena.`,
+		nameTaken: 'To ime ima zdaj nekaj drugega. Najprej preimenujte tisto.'
+	},
+	deleted: {
+		head: (team) => `Nedavno izbrisano · ${team}`,
+		kind: {
+			video: 'Video lekcije',
+			section: 'Odsek',
+			link: 'Povezava',
+			'spot-link': 'Povezava odseka',
+			recording: 'Posnetek',
+			lesson: 'Lekcija',
+			variation: 'Različica',
+			routine: 'Kombinacija',
+			drill: 'Vaja',
+			song: 'Skladba',
+			position: 'Položaj',
+			'position-link': 'Povezava s položajem'
+		},
+		by: (who, ago) => `Izbrisano · ${who} · ${ago}`,
+		purge: (date) => `Trajni izbris: ${date}`,
+		taken: (name) => `Ime je že zasedeno: ${name}. Najprej preimenujte tisto.`,
+		emptyTitle: 'Nič izbrisanega',
+		emptyBody:
+			'Kar izbrišejo ali arhivirajo tisti, ki urejajo skupino, počaka tu. Videi, odseki, povezave in posnetki ostanejo 30 dni.',
+		listLabel: 'Izbrisano, najnovejše najprej',
+		restoreLabel: (kind, label) => `Obnovi: ${kind} · ${label}`,
+		noLongerHere: 'Tega ni več.',
+		untitledSong: 'Skladba brez naslova',
+		couldNotRestore: 'Tega ni bilo mogoče obnoviti.',
+		refused: {
+			parentFirst: {
+				section: 'Najprej obnovite video',
+				'spot-link': 'Najprej obnovite odsek',
+				'position-link': 'Najprej obnovite odsek ali točko'
+			},
+			parentGone: 'Tistega, v čemer je bilo, ni več',
+			purged: 'To je bilo dokončno izbrisano.',
+			restored: 'To je že obnovljeno.',
+			spotLinkAgain: 'Ista povezava odseka je bila medtem narejena znova.',
+			positionLinkAgain: 'Povezava s tem položajem je bila medtem narejena znova.',
+			family: 'Kopija tega je že tu.',
+			notFound: 'Tega ni več mogoče obnoviti.'
+		}
+	},
+	// The person after a "·", as History writes them: nothing agrees with them.
+	clash: {
+		changedSince: 'Odkar ste to odprli, se je spremenilo',
+		changedBy: (who) => `Spremenjeno · ${who}`,
+		changedByAgo: (who, ago) => `Spremenjeno · ${who} · ${ago}`,
+		deletedSince: 'Odkar ste to odprli, je bilo izbrisano',
+		deletedBy: (who) => `Izbrisano · ${who}`,
+		deletedByAgo: (who, ago) => `Izbrisano · ${who} · ${ago}`,
+		staleRoutine: 'Kombinacija se je spremenila. Zdaj je prikazano najnovejše stanje.',
+		staleRoutineBy: (who) =>
+			`Kombinacija se je spremenila · ${who}. Zdaj je prikazano najnovejše stanje.`,
+		missingSeen: 'Ta stran je zastarela. Naložite jo znova in poskusite še enkrat.',
+		field: {
+			title: 'Naslov',
+			lessonDay: 'Datum lekcije',
+			notes: 'Opombe',
+			name: 'Ime',
+			figureName: 'Ime figure',
+			partner: 'V paru ali solo',
+			style: 'Slog',
+			startIds: 'Začne v',
+			endIds: 'Konča v',
+			endId: 'Konča v',
+			startCount: 'Začne na',
+			lengthCounts: 'Dolžina',
+			active: 'Aktivna',
+			label: 'Ime',
+			startMs: 'Začetek',
+			endMs: 'Konec'
+		}
+	},
+	storage: {
+		head: (team) => `Kaj zaseda prostor · ${team}`,
+		askIntro: 'Skrbnik vidi, koliko prostora porabi skupina. Opomba ni obvezna.',
+		waits:
+			'Izbrisan video ali posnetek počaka 30 dni v »Nedavno izbrisano« in do takrat še zaseda prostor.'
 	},
 	mode: {
 		label: (name) => `${name} · skupina`,

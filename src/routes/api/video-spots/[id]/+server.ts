@@ -5,7 +5,7 @@ import { allows, spotAccess } from '$lib/server/access';
 import { eq } from 'drizzle-orm';
 import { videoSpots } from '$lib/server/db/schema';
 import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
-import { checkSeen, MISSING_SEEN, seesAll, spotSeen } from '$lib/server/clash';
+import { checkSeen, missingSeen, seesAll, spotSeen } from '$lib/server/clash';
 import { asSeen, clashTitle, goneTitle } from '$lib/clash/clash';
 import { trashedSpot } from '$lib/server/trash';
 import { SpotLinkedError } from '$lib/server/spot-links';
@@ -69,7 +69,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 	// (Keep in step: a change may flow in while the player is open).
 	const root = rootOfSpot(db, id);
 	const required = team || (root !== null && hasCopies(db, root.kind, root.id));
-	if (required && !seesAll(sent, Object.keys(changes))) throw error(400, MISSING_SEEN);
+	if (required && !seesAll(sent, Object.keys(changes))) throw error(400, missingSeen());
 	const row = db
 		.select({ label: videoSpots.label, startMs: videoSpots.startMs, endMs: videoSpots.endMs })
 		.from(videoSpots)

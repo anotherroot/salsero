@@ -15,7 +15,10 @@ const ALLOWED_SAME: ReadonlySet<string> = new Set([
 	// "Solo" is the word in Slovenian too (a solo figure, a chip).
 	'moves.chips.solo',
 	// New group's example name is a Slovenian class's name in both languages.
-	'groups.list.namePlaceholder'
+	'groups.list.namePlaceholder',
+	// "video" and "tempo" are the Slovenian words too (History's subject and field).
+	'groups.history.subject.video',
+	'groups.history.field.tempoFactor'
 ]);
 
 /**

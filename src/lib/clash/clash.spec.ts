@@ -15,6 +15,7 @@ import {
 	staleRoutine,
 	type FieldKind
 } from './clash';
+import { withLocale } from '$lib/i18n/current';
 
 describe('changedFields', () => {
 	it('ignores fields equal in both', () => {
@@ -240,5 +241,53 @@ describe('field shapes', () => {
 		);
 		expect(v.adopt).toEqual([]);
 		expect(v.others).toEqual(['Starts in']);
+	});
+});
+
+describe('the clash sheet in Slovenian', () => {
+	const now = 10 * 60 * 60_000;
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('puts the person after a "·", never inside a phrase that declines them', () => {
+		sl(() => {
+			expect(clashTitle({ by: null, at: null }, now)).toBe('Odkar ste to odprli, se je spremenilo');
+			expect(clashTitle({ by: 'Ana', at: null }, now)).toBe('Spremenjeno · Ana');
+			expect(clashTitle({ by: 'Ana', at: now - 10 * 60_000 }, now)).toBe(
+				'Spremenjeno · Ana · pred 10 min'
+			);
+			expect(goneTitle({ by: null, at: null }, now)).toBe('Odkar ste to odprli, je bilo izbrisano');
+			expect(goneTitle({ by: 'Ana', at: now - 2 * 60 * 60_000 }, now)).toBe(
+				'Izbrisano · Ana · pred 2 h'
+			);
+			expect(staleRoutine(null)).toBe(
+				'Kombinacija se je spremenila. Zdaj je prikazano najnovejše stanje.'
+			);
+			expect(staleRoutine('Ana')).toBe(
+				'Kombinacija se je spremenila · Ana. Zdaj je prikazano najnovejše stanje.'
+			);
+		});
+	});
+
+	it('names the fields, and an unknown key as it is', () => {
+		sl(() => {
+			expect(fieldLabel('lessonDay')).toBe('Datum lekcije');
+			expect(fieldLabel('figureName')).toBe('Ime figure');
+			expect(fieldLabel('notes')).toBe('Opombe');
+			expect(fieldLabel('whatever')).toBe('Whatever');
+		});
+		expect(fieldLabel('notes')).toBe('Notes');
+	});
+
+	it('labels the sheet’s rows and the others line in the reader’s language', () => {
+		const view = sl(() =>
+			clashView(
+				{ changed: ['title', 'startIds'], current: { title: 'Theirs', startIds: '1,2' } },
+				{ title: 'Mine', startIds: '3' },
+				{ title: 'Old', startIds: '1' },
+				(k) => (k === 'title' ? 'text' : 'other')
+			)
+		);
+		expect(view.fields.map((f) => f.label)).toEqual(['Naslov']);
+		expect(view.others).toEqual(['Začne v']);
 	});
 });

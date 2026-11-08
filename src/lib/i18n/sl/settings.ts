@@ -25,7 +25,13 @@ export const settings: Catalog['settings'] = {
 			`Ni dovolj prostora: porabite ${used} od ${limit}. Sprostite nekaj prostora ali v Nastavitvah prosite za več.`,
 		noRoomGroup: (used, limit) =>
 			`Ni dovolj prostora: skupina porabi ${used} od ${limit}. Vodja skupine lahko prosi za več.`,
-		noRoomServer: 'Na strežniku ni dovolj prostora. Obrnite se na skrbnika.'
+		noRoomServer: 'Na strežniku ni dovolj prostora. Obrnite se na skrbnika.',
+		biggestFirst: 'Največje najprej',
+		nothingYet: 'Nič še ne zaseda prostora',
+		archived: 'arhivirano',
+		deleteLabel: (title, context) => `Izbriši: ${title}, ${context}`,
+		couldNotDelete: 'Ni bilo mogoče izbrisati.',
+		alreadyGone: 'Tega ni več.'
 	},
 	practice: {
 		label: 'Vadenje',

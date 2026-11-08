@@ -160,6 +160,239 @@ export const groups = {
 		refused: 'That lesson can no longer be added.',
 		adding: 'Adding'
 	},
+	/**
+	 * History: one line per change, composed when it is READ, in the reader's
+	 * language, from the row's stored verb, subject and values (`teams/history.ts`).
+	 * Nothing stored is words. A `name` argument is a quoted name with its
+	 * leading space (" 'Doble'"), or ''.
+	 */
+	history: {
+		title: 'History',
+		/** The tab's title: "History · Week 6". */
+		head: (title: string): string => `History · ${title}`,
+		/** Someone no longer in the group's names. */
+		someone: 'Someone',
+		/** "a section": what an add or a remove of a thing reads as. */
+		thing: {
+			video: 'a video',
+			section: 'a section',
+			point: 'a point',
+			link: 'a link',
+			recording: 'a recording',
+			slot: 'a slot',
+			option: 'an alternative',
+			'section-link': 'a section link'
+		},
+		/** "the notes": what a change of one field reads as, by its key. */
+		field: {
+			title: 'title',
+			lessonDay: 'day',
+			notes: 'notes',
+			name: 'name',
+			figureName: 'move’s name',
+			partner: 'partner',
+			style: 'style',
+			startIds: 'start positions',
+			endIds: 'end positions',
+			// Older History rows wrote a single end.
+			endId: 'end position',
+			// A position's hold and type.
+			styleTag: 'type',
+			hands: 'hands',
+			crossed: 'crossed',
+			facing: 'facing',
+			frame: 'frame',
+			pictureSpotId: 'picture',
+			startCount: 'start count',
+			lengthCounts: 'length',
+			note: 'slot’s note',
+			artist: 'artist',
+			anchors: 'count',
+			tempoFactor: 'tempo',
+			sampleStartS: 'sample start',
+			practiceMode: 'practice',
+			countBpm: 'practice tempo',
+			slots: 'slots'
+		},
+		/**
+		 * The word a subject is shown as, by `historySubject`'s key (`move` is a
+		 * group's figure_groups row, `figure` a figures row). Any other subject
+		 * shows as it is stored.
+		 */
+		subject: {
+			lesson: 'lesson',
+			move: 'move',
+			figure: 'figure',
+			routine: 'routine',
+			drill: 'drill',
+			song: 'song',
+			position: 'position',
+			video: 'video',
+			section: 'section',
+			point: 'point',
+			link: 'link',
+			recording: 'recording',
+			slot: 'slot',
+			option: 'option',
+			team: 'team'
+		},
+		addedSong: (name: string): string => `added the song${name}`,
+		made: (shown: string): string => `made the ${shown}`,
+		/** A figure moved into this move; `from` is the move it came from. */
+		movedHere: (name: string, from: string): string => `moved${name} here from '${from}'`,
+		extracted: (name: string): string => `made the routine${name} from its slots`,
+		addedSlots: (n: number): string => `added ${n} slots`,
+		/** A section or a point linked to a thing; `name` is the thing's. */
+		linked: (spot: 'section' | 'point', name: string): string =>
+			name ? `linked a ${spot} to${name}` : `linked a ${spot}`,
+		unlinked: (spot: 'section' | 'point', name: string): string =>
+			name ? `unlinked a ${spot} from${name}` : `unlinked a ${spot}`,
+		/** `thing` is one of `thing`'s words. */
+		added: (thing: string): string => `added ${thing}`,
+		addedThe: (shown: string, name: string): string => `added the ${shown}${name}`,
+		removedSlots: (n: number): string => `removed ${n} slots`,
+		removed: (thing: string): string => `removed ${thing}`,
+		removedThe: (shown: string, name: string): string => `removed the ${shown}${name}`,
+		archived: (shown: string, name: string): string => `archived the ${shown}${name}`,
+		published: (shown: string): string => `published the ${shown}`,
+		shared: (shown: string, name: string): string => `shared the ${shown}${name} with the class`,
+		unshared: (shown: string, name: string): string => `stopped sharing the ${shown}${name}`,
+		deleted: (shown: string, name: string): string => `deleted the ${shown}${name}`,
+		/** A field's word, or a subject's with its name. */
+		changed: (what: string): string => `changed the ${what}`,
+		movedSlot: 'moved a slot',
+		/** A section or a point put back; `label` is its name, null for none. */
+		putBack: (spot: 'section' | 'point', label: string | null): string =>
+			label === null ? `put a ${spot} back` : `put '${label}' back`,
+		putBackSlots: (n: number): string => (n > 1 ? `put back ${n} slots` : 'put back a slot'),
+		/** A field's word, or a subject's with its name. */
+		restored: (what: string): string => `restored the ${what}`,
+		restoredThing: (thing: string): string => `restored ${thing}`,
+		/** `seconds` is written already ("1.2"). */
+		moved: (spot: 'section' | 'point', label: string | null, seconds: string): string =>
+			`moved ${label === null ? `a ${spot}` : `'${label}'`} ${seconds} s`,
+		movedEnd: (spot: 'section' | 'point', label: string | null, seconds: string): string =>
+			`moved the end of ${label === null ? `a ${spot}` : `'${label}'`} ${seconds} s`,
+		clearedName: (spot: 'section' | 'point'): string => `cleared the name of a ${spot}`,
+		named: (spot: 'section' | 'point', label: string): string => `named a ${spot} '${label}'`,
+		/** What a change to text replaced, under its line. */
+		was: (value: string): string => `Was: ${value}`,
+		empty: '(empty)',
+		/** "Edited by Ana · 10 min ago": a lesson's last change. */
+		editedBy: (first: string, ago: string): string => `Edited by ${first} · ${ago}`,
+		/** A link to something archived since the picker opened. */
+		archivedBy: (first: string): string => `Archived by ${first}`,
+		archivedSince: 'That was archived since you opened this.',
+		emptyTitle: 'No changes yet',
+		emptyBody: 'Who changes what in the group shows here.',
+		listLabel: 'Changes, newest first',
+		inDeleted: 'In Recently deleted',
+		/** The band's title when the thing has no name to show. */
+		untitled: {
+			lesson: 'Lesson',
+			figure: 'Move',
+			routine: 'Routine',
+			drill: 'Drill',
+			song: 'Song',
+			position: 'Position'
+		},
+		noHistory: 'No such history',
+		noChange: 'No such change',
+		/** `title` is the clash sheet's title ("Ana changed this · 5 min ago"). */
+		restoreClash: (title: string): string =>
+			`${title}. Restore would undo that too, so it was not done.`,
+		nameTaken: 'That name is taken now. Rename the other one first.'
+	},
+	/** Recently deleted: its rows' lines, and why a Restore was refused. */
+	deleted: {
+		head: (team: string): string => `Recently deleted · ${team}`,
+		/** What each kind is called on its row. */
+		kind: {
+			video: 'Video',
+			section: 'Section',
+			link: 'Link',
+			'spot-link': 'Section link',
+			recording: 'Recording',
+			lesson: 'Lesson',
+			variation: 'Figure',
+			routine: 'Routine',
+			drill: 'Drill',
+			song: 'Song',
+			position: 'Position',
+			'position-link': 'Position link'
+		},
+		/** "Ana · 5 min ago": who deleted it, and when. */
+		by: (who: string, ago: string): string => `${who} · ${ago}`,
+		/** `date` as `dayMonth` writes it. */
+		purge: (date: string): string => `deleted for good on ${date}`,
+		/** A restore refused because the name is now another's. */
+		taken: (name: string): string => `${name} is taken; rename that one first`,
+		emptyTitle: 'Nothing deleted',
+		emptyBody:
+			"What the group's editors delete or archive waits here. Videos, sections, links and recordings stay 30 days.",
+		listLabel: 'Deleted, newest first',
+		/** `kind` is one of `kind`'s words. */
+		restoreLabel: (kind: string, label: string): string => `Restore ${kind} ${label}`,
+		noLongerHere: 'That is no longer here.',
+		untitledSong: 'Untitled song',
+		couldNotRestore: 'That could not be restored.',
+		/** Why a trash entry did not come back. */
+		refused: {
+			/** By the kind whose parent must come back first. */
+			parentFirst: {
+				section: 'Restore the video first',
+				'spot-link': 'Restore the section first',
+				'position-link': 'Restore the section or point first'
+			},
+			parentGone: 'What it was in is gone',
+			purged: 'This was deleted for good.',
+			restored: 'This is back already.',
+			spotLinkAgain: 'That section was linked to it again since.',
+			positionLinkAgain: 'It was linked to that position again since.',
+			family: 'A copy of this is here already.',
+			notFound: 'That is no longer there to restore.'
+		}
+	},
+	/** The clash check's words: the clash sheet's title and its fields' names. */
+	clash: {
+		changedSince: 'This changed since you opened it',
+		changedBy: (who: string): string => `${who} changed this`,
+		changedByAgo: (who: string, ago: string): string => `${who} changed this · ${ago}`,
+		deletedSince: 'This was deleted since you opened it',
+		deletedBy: (who: string): string => `${who} deleted this`,
+		deletedByAgo: (who: string, ago: string): string => `${who} deleted this · ${ago}`,
+		staleRoutine: 'This routine changed; it now shows the latest',
+		staleRoutineBy: (who: string): string => `${who} changed this routine; it now shows the latest`,
+		/** A save that had to say what it saw, and did not. */
+		missingSeen: 'This page is out of date. Reload it and try again.',
+		/** What the clash sheet calls a field, by its form name. */
+		field: {
+			title: 'Title',
+			lessonDay: 'Day of the class',
+			notes: 'Notes',
+			name: 'Name',
+			figureName: 'Move name',
+			partner: 'Partner',
+			style: 'Style',
+			startIds: 'Starts in',
+			endIds: 'Ends in',
+			// An older clash or History row's single end.
+			endId: 'Ends in',
+			startCount: 'Starts on count',
+			lengthCounts: 'Length',
+			active: 'Active',
+			label: 'Name',
+			startMs: 'Start',
+			endMs: 'End'
+		}
+	},
+	/** A group's What uses space (the list's words are `settings.storage`'s). */
+	storage: {
+		head: (team: string): string => `What uses space · ${team}`,
+		askIntro: 'The admin sees how much the group uses. A note is optional.',
+		waits:
+			'A deleted video or recording waits 30 days in Recently deleted and still uses space until then.'
+	},
 	/** Group mode: the band's line and the Work in sheet. */
 	mode: {
 		label: (name: string): string => `${name} · group`,
