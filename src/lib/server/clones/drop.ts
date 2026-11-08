@@ -43,10 +43,24 @@ import { archivePosition } from '../positions';
 import { getTeam } from '../teams';
 import { ownedBy, type Wall } from '../scope';
 import { visibleMembers } from './genes';
-import { compareWith } from './compare';
+import { diff } from '$lib/clones/diff';
+import { fittingDiffs } from '../song-links';
+import { hashValue, pairBase } from './pairs';
+import { flatOf } from './trees';
 import { rowOf } from './edit';
 import { repoint } from './repoint';
 import { ENTRY, keepNestedEmbeds } from './rescue';
+
+/** The person's copy `id` beside a version `other` they read: what differs, songs the other could not take left out. */
+function onlyMine(db: Db, userId: string, kind: CloneKind, id: number, other: number) {
+	const d = diff(
+		pairBase(db, kind, id, other),
+		flatOf(db, kind, id),
+		flatOf(db, kind, other),
+		hashValue
+	);
+	return fittingDiffs(db, kind, id, other, d, userId);
+}
 
 export type DropResult = { ok: true; toId: number } | { ok: false; message: string };
 
@@ -163,7 +177,7 @@ function choicesOf(
 		const practiceFollows = !practised || practiceMayFollow(db, wall.userId, kind, teamId, m.id);
 		const onlyInMine = withDiffs
 			? changedLabels(
-					(compareWith(db, wall.userId, kind, id, m.id)?.diffs ?? []).filter(
+					onlyMine(db, wall.userId, kind, id, m.id).filter(
 						(d) => d.side !== 'theirs' && d.mine !== null
 					)
 				)
@@ -192,7 +206,7 @@ function choicesOf(
  * the versions they can go back to; the one preselected (the one theirs was
  * copied from while they read it, else the first by group name); what only
  * theirs has against it (labels of the fields theirs changed: they go with
- * the archived copy); and the choices they edit, which Send mine first can
+ * the archived copy); and the choices they edit, which Sync first can
  * write into. Null when `id` is not theirs, or no other version is readable:
  * Drop is not offered then.
  */

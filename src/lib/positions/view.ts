@@ -11,6 +11,7 @@ import type {
 } from '$lib/types';
 import { TWINS_CHIP } from '$lib/clones/twins';
 import { possessive } from '$lib/clones/view';
+import type { MenuItem } from '$lib/menu';
 
 export { holdChips } from './hold';
 
@@ -162,7 +163,7 @@ export function styleLabelOf(labels: Record<string, string>): StyleLabel {
 }
 
 /** The list's filter, as the URL carries it: the search is always a string, the rest only when set. */
-export type PositionFilter = { q: string; type?: string; gaps?: '1' };
+export type PositionFilter = { q: string; type?: string; gaps?: '1'; sync?: '1' };
 
 export type PositionChip = {
 	key: string;
@@ -173,7 +174,7 @@ export type PositionChip = {
 	change: Partial<PositionFilter>;
 };
 
-const FILTER_KEYS = ['q', 'type', 'gaps'] as const;
+const FILTER_KEYS = ['q', 'type', 'gaps', 'sync'] as const;
 
 /** The query string for `filter` with `change` applied, without the `?`; `''` when nothing is set. */
 export function positionQuery(filter: PositionFilter, change: Partial<PositionFilter>): string {
@@ -216,8 +217,8 @@ export function positionChips(filter: PositionFilter, o: PositionChipsOf): Posit
 		{
 			key: 'all',
 			label: 'All',
-			on: !filter.type && !filter.gaps,
-			change: { type: undefined, gaps: undefined }
+			on: !filter.type && !filter.gaps && !filter.sync,
+			change: { type: undefined, gaps: undefined, sync: undefined }
 		},
 		...types.map((t) => ({
 			key: `type:${t}`,
@@ -295,9 +296,6 @@ export const BUSY = {
 /** Templates' type switch, for a screen reader. */
 export const TEMPLATE_PICK = 'Template';
 
-/** A playing point card's button, for a screen reader. */
-export const PAUSE = 'Pause';
-
 /** An Unlink button's name: "Unlink Point at 1:12 from Manos cruzadas". */
 export function unlinkLabel(what: string, from: string): string {
 	return `Unlink ${what} from ${from}`;
@@ -355,34 +353,96 @@ export function positionSubtitle(
 	return `${lead} · ${opts.ins} in · ${opts.outs} out`;
 }
 
-/**
- * "Son → ends in Abierta (dos manos), Salsa": `ends` are the positions as named
- * (with their type if it differs). A group's figure in a person's app is led by
- * its group ("Salsa Tuesdays’ · ends in …"); an empty `style` leads with nothing.
- */
-export function figureFromRow(f: {
-	label: string;
-	style: string;
-	ends: string[];
-	team?: string | null;
-}): string {
-	const lead = f.team ? possessive(f.team) : f.style;
-	if (f.ends.length === 0) return lead;
-	const ends = `ends in ${f.ends.join(' or ')}`;
-	if (!lead) return ends;
-	return f.team ? `${lead} · ${ends}` : `${lead} → ${ends}`;
+/** A relation line, led by a group's name for a group's figure in a person's app. */
+function relationLine(line: string, team?: string | null): string {
+	if (team) return line ? `${possessive(team)} · ${line}` : possessive(team);
+	return line ? line[0].toUpperCase() + line.slice(1) : '';
 }
 
-/** "from Cerrada, Salsa"; an empty `style` leaves the type out; a group's figure is led by its group. */
-export function figureIntoRow(f: {
-	label: string;
-	starts: string[];
-	style: string;
-	team?: string | null;
-}): string {
-	const from = `from ${f.starts.join(' or ')}`;
-	const row = f.style ? `${from}, ${f.style}` : from;
-	return f.team ? `${possessive(f.team)} · ${row}` : row;
+/**
+ * A figure's line in the Figures from here sheet: where it ends ("Ends in
+ * Cerrada or Abierta, Son"). A group's figure in a person's app is led by its
+ * group ("Salsa Tuesdays’ · ends in …"). No end: nothing, or the group alone.
+ */
+export function fromMeta(f: { ends: string[]; team?: string | null }): string {
+	return relationLine(f.ends.length === 0 ? '' : `ends in ${f.ends.join(' or ')}`, f.team);
+}
+
+/** A figure's line in the Figures into here sheet: "From Cerrada", led by its group as above. */
+export function intoMeta(f: { starts: string[]; team?: string | null }): string {
+	return relationLine(f.starts.length === 0 ? '' : `from ${f.starts.join(' or ')}`, f.team);
+}
+
+export type PositionRelation = 'from' | 'into' | 'routines';
+
+const RELATION_LABEL: Record<PositionRelation, string> = {
+	from: 'Figures from here',
+	into: 'Figures into here',
+	routines: 'In routines'
+};
+
+/**
+ * The card of three rows at the page's end (as the figure page's Follows from,
+ * Leads to, In routines): each with its count; an empty one reads "None" and
+ * does not open.
+ */
+export function relationRows(c: {
+	from: number;
+	into: number;
+	routines: number;
+}): { key: PositionRelation; label: string; count: string; opens: boolean }[] {
+	return (['from', 'into', 'routines'] as const).map((key) => ({
+		key,
+		label: RELATION_LABEL[key],
+		count: c[key] === 0 ? 'None' : String(c[key]),
+		opens: c[key] > 0
+	}));
+}
+
+/** A row's sheet title: "Figures from here" (its count is on the row), "In 3 routines". */
+export function relationTitle(key: PositionRelation, n: number): string {
+	return key === 'routines' ? `In ${plural(n, 'routine', 'routines')}` : RELATION_LABEL[key];
+}
+
+/** The sheet's New in its title row, for a screen reader: a figure starting (or ending) here. */
+export function newFigureLabel(key: 'from' | 'into', name: string): string {
+	return `New figure ${key} ${name}`;
+}
+
+/**
+ * The position page's own ⋯ items, before the copy actions: New figure from
+ * here and into here (where a figure of the viewer's may take it), Show on the
+ * map (a live position), History (a group's). A null href leaves its item out.
+ */
+export function positionMenuItems(i: {
+	name: string;
+	newFrom: string | null;
+	newInto: string | null;
+	mapHref: string | null;
+	historyHref: string | null;
+}): MenuItem[] {
+	const items: MenuItem[] = [];
+	if (i.newFrom)
+		items.push({
+			key: 'newFrom',
+			icon: 'plus',
+			label: 'New figure from here',
+			meta: presetLine({ side: 'start', name: i.name }),
+			href: i.newFrom
+		});
+	if (i.newInto)
+		items.push({
+			key: 'newInto',
+			icon: 'plus',
+			label: 'New figure into here',
+			meta: presetLine({ side: 'end', name: i.name }),
+			href: i.newInto
+		});
+	if (i.mapHref)
+		items.push({ key: 'map', icon: 'graph', label: 'Show on the map', href: i.mapHref });
+	if (i.historyHref)
+		items.push({ key: 'history', icon: 'clock', label: 'History', href: i.historyHref });
+	return items;
 }
 
 /** The note at the top of a group's position, for a reader: where it came from, and what that means. */
@@ -393,13 +453,6 @@ export function positionFromLessonNote(lesson: string, team: string): string {
 /** Under a reader's Edit. */
 export const MAKE_MINE_NOTE =
 	'Edit makes it yours (Make it mine); your figures tagged with it move over.';
-
-export const fromTitle = (n: number) => `Figures from here · ${n}`;
-export const intoTitle = (n: number) => `Figures into here · ${n}`;
-export const routinesTitle = (n: number) => `In routines · ${n}`;
-export const NONE_YET = 'None yet.';
-/** "+ New" beside Figures from here. */
-export const NEW_FIGURE = 'New';
 
 /** An archived position's page: what it says, and its way back. */
 export const ARCHIVED = {
@@ -460,10 +513,6 @@ export function throughMeta(pairs: [number, number][]): string {
 	return `Slots ${parts.length ? `${parts.join(', ')} and ` : ''}${last}`;
 }
 
-export function moreLine(n: number): string {
-	return `and ${n} more`;
-}
-
 /** A point card's second line: its video, and "the picture" when it is the position's. */
 export function pointMeta(videoLabel: string, picture: boolean): string {
 	return picture ? `${videoLabel} · the picture` : videoLabel;
@@ -477,16 +526,19 @@ export function pointLabel(ms: number): string {
 
 // ---- a position's Video and Lessons ----
 
-export const videoTitle = (n: number) => `Video · ${n}`;
-export const lessonsTitle = (n: number) => `Lessons · ${n}`;
-export const LINK_SPOT = 'Link a section or point…';
-export const LINK_LESSON = 'Link a lesson…';
+/** "Recordings · 3" (sections and points), "Recordings" when there are none: as the figure page's. */
+export const recordingsTitle = (n: number) => (n === 0 ? 'Recordings' : `Recordings · ${n}`);
+export const lessonsTitle = (n: number) => (n === 0 ? 'Lessons' : `Lessons · ${n}`);
+/** The heading rows' buttons (an editor's): what they show, and their names. */
+export const ADD_SPOT = { label: 'Add', aria: 'Add a section or point to Recordings' } as const;
+export const LINK_LESSON = { label: 'Link', aria: 'Link a lesson' } as const;
 
 /**
  * Where focus goes after an Unlink on the page when no row of that list is left
- * to take it, in order: the list's Link… opener (an editor's), Edit (while the
- * position is live and theirs to edit), the list's heading, then Figures from
- * here (always drawn): a reader who unlinked their own has neither of the first two.
+ * to take it, in order: the list's heading button (an editor's Add or Link),
+ * Edit (while the position is live and theirs to edit), the list's heading,
+ * then the card of figures (always drawn): a reader who unlinked their own has
+ * neither of the first two.
  */
 export function unlinkFocus(
 	list: 'spot' | 'lesson',
@@ -495,8 +547,8 @@ export function unlinkFocus(
 	return [
 		...(o.canLink ? [list === 'spot' ? 'link-spot' : 'link-lesson'] : []),
 		...(o.canEditPosition ? ['edit-position'] : []),
-		list === 'spot' ? 'video-heading' : 'lessons-heading',
-		'from-heading'
+		list === 'spot' ? 'recordings-heading' : 'lessons-heading',
+		'relations'
 	];
 }
 

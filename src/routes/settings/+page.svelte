@@ -35,7 +35,7 @@
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
-	import { fewSettings, levelShown, levelWords, type Level } from '$lib/levels/levels';
+	import { fewSettings, levelShown, levelWords, youPath, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
@@ -181,8 +181,8 @@
 		<span class="contents desk:hidden" data-desk-hidden>
 			<BandButton
 				icon="back"
-				label={t().shell.backTo(t().shell.tabs.today)}
-				href={`/${data.dance}`}
+				label={t().shell.backTo(t().shell.tabs.you)}
+				href={youPath(level, data.dance)}
 			/>
 		</span>
 	{/snippet}

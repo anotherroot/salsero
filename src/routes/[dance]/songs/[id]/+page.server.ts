@@ -16,18 +16,21 @@ import {
 	copyToFrom,
 	detachFrom,
 	dropFrom,
+	keepFrom,
 	sameAsFrom,
-	sendFrom,
 	separateFrom,
-	takeFrom
+	syncFromForm
 } from '$lib/server/take-form';
 import { sameAsOffer } from '$lib/server/twins';
 import { inGroupModeOn } from '$lib/server/group-mode';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { songSeen, seenRefusal } from '$lib/server/clash';
+import { flowing, idParam } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import { editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import {
@@ -92,8 +95,11 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'song', song.id),
+		step: stepStatus(db, wall.userId, 'song', song.id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'song', song.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'song', song.id),
 		detach: detachOffer(db, wall.userId, 'song', song.id),
@@ -105,8 +111,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		group: team ? { id: team.id, name: team.name } : null,
 		/** How many people's practice uses it: Stop sharing's and Delete's warning. */
 		users: team && canEdit ? songUsers(db, song.id) : 0,
-		/** What every edit of a group's song sends back, for the clash check. */
-		seen: team ? songSeen(song) : null,
+		/** What every edit of a group's song, or of one with copies, sends back (the clash check). */
+		seen: team || hasCopies(db, 'song', song.id) ? songSeen(song) : null,
 		/** A reader's Edit: Make it mine, of a group's song that is ready (ruling 12). */
 		makeMine:
 			canEdit || song.status !== 'ready' ? null : makeMineOffer(db, wall, 'song', song.id, team),
@@ -124,10 +130,11 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 
 /**
  * An edit: the song for one who edits it, the form, and the clash check's
- * refusal (or null). Only a group's song is checked: its save without `seen`
- * is refused, and one that saw another version than the stored one is a 409
- * naming who changed it. A person's own song saves as it always did, `seen`
- * or not: two quick taps of one's own must never clash.
+ * refusal (or null). A group's song is checked, and so is one with copies (a
+ * change may flow in while the page is open): its save without `seen` is
+ * refused, and one that saw another version than the stored one is a 409
+ * naming who changed it. A person's own song in no family saves as it always
+ * did, `seen` or not: two quick taps of one's own must never clash.
  */
 async function editing<T extends Record<string, unknown>>(
 	event: { params: { dance: string; id: string }; locals: App.Locals; request: Request },
@@ -143,11 +150,12 @@ async function editing<T extends Record<string, unknown>>(
 	);
 	const form = await event.request.formData();
 	const now = Date.now();
-	const refused = isTeam(space)
-		? seenRefusal(form, true, songSeen(song), extra(form), now, () =>
-				editedBy(db, song.teamId, 'song', song.id)
-			)
-		: null;
+	const refused =
+		isTeam(space) || hasCopies(db, 'song', song.id)
+			? seenRefusal(form, true, songSeen(song), extra(form), now, () =>
+					editedBy(db, song.teamId, 'song', song.id)
+				)
+			: null;
 	return { db, song, space, form, now, refused };
 }
 
@@ -155,7 +163,8 @@ const named =
 	<A extends string>(action: A) =>
 	() => ({ action });
 
-export const actions: Actions = {
+/** Every action runs Keep in step's flow from this song after it (`flowing`). */
+export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	/** A tap on "the 1" at playhead time `t`, snapped to the nearest beat after reaction-time compensation. */
 	tap: async (event) => {
 		const { db, song, space, form, now, refused } = await editing(event, named('tap'));
@@ -308,18 +317,18 @@ export const actions: Actions = {
 		return makeMineFrom(db, wallOf(params, locals), 'song', song.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
-		return takeFrom(db, locals.user!.id, 'song', song.id, request);
+		return syncFromForm(db, locals.user!.id, 'song', song.id, request);
 	},
 
-	/** Send mine (board C3 p2): this song's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
-		return sendFrom(db, locals.user!.id, 'song', song.id, request);
+		return keepFrom(db, locals.user!.id, 'song', song.id, request);
 	},
 
 	/** Drop my copy (board C5): this song goes for the class’s, whose page opens. */
@@ -353,4 +362,4 @@ export const actions: Actions = {
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
 		return copyToFrom(db, wallOf(params, locals), 'song', song.id, request);
 	}
-};
+} satisfies Actions);

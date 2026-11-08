@@ -16,6 +16,8 @@ import { loops, type RoutineShape } from './routines';
 export interface CoverageRow {
 	id: number;
 	label: string;
+	/** The place of the copy's source when the viewer reads it; drawn beside a same label. */
+	from?: string | null;
 	/** Alphabetical by name. */
 	routines: { id: number; name: string }[];
 }
@@ -36,7 +38,7 @@ function idsIn(shape: RoutineShape): Set<number> {
 }
 
 export function coverage(
-	versions: { id: number; label: string }[],
+	versions: { id: number; label: string; from?: string | null }[],
 	shapes: Map<number, RoutineShape>,
 	routines: { id: number; name: string }[]
 ): CoverageRow[] {
@@ -51,7 +53,12 @@ export function coverage(
 		}
 	}
 	return versions
-		.map((v) => ({ id: v.id, label: v.label, routines: byVersion.get(v.id) ?? [] }))
+		.map((v) => ({
+			id: v.id,
+			label: v.label,
+			from: v.from ?? null,
+			routines: byVersion.get(v.id) ?? []
+		}))
 		.sort((a, b) => a.routines.length - b.routines.length || a.label.localeCompare(b.label));
 }
 

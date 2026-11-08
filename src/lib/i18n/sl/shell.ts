@@ -8,7 +8,8 @@ export const shell: Catalog['shell'] = {
 		lessons: 'Lekcije',
 		groups: 'Skupine',
 		music: 'Glasba',
-		myClass: 'Moj tečaj'
+		myClass: 'Moj tečaj',
+		you: 'Jaz'
 	},
 	mainNav: 'Glavno',
 	mine: 'Moje',

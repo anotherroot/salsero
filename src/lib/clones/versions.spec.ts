@@ -34,13 +34,7 @@ const entry = (
 });
 
 const FAMILY: FamilyView = {
-	entries: [entry(15, MINE, null), entry(31, SREDA, 'newer', ['Notes'])],
-	canSend: true,
-	banners: []
-};
-const FAMILY_WITH_BANNER: FamilyView = {
-	...FAMILY,
-	banners: [{ id: 33, place: 'Intenziuci poletje 2026', changed: ['Hold'] }]
+	entries: [entry(15, MINE, null), entry(31, SREDA, 'newer', ['Notes'])]
 };
 const FAMILY_WITH_EXTRA: FamilyView = {
 	...FAMILY,
@@ -52,9 +46,7 @@ const FAMILY_WITH_EXTRA: FamilyView = {
 
 describe('versionRow', () => {
 	it('no row with one version', () => {
-		expect(
-			versionRow({ sources: [YOURS_SRC], current: 15, self: MINE, compare: null, family: null })
-		).toBeNull();
+		expect(versionRow({ sources: [YOURS_SRC], current: 15, self: MINE })).toBeNull();
 	});
 
 	it('says whose and who else', () => {
@@ -62,14 +54,11 @@ describe('versionRow', () => {
 			versionRow({
 				sources: [YOURS_SRC, INT, SRE],
 				current: 15,
-				self: MINE,
-				compare: null,
-				family: null
+				self: MINE
 			})
 		).toEqual({
 			title: 'Your version',
 			meta: 'Also: Intenziuci poletje 2026, Sreda 17:30',
-			changed: false,
 			count: 3,
 			icon: 'solo'
 		});
@@ -79,9 +68,7 @@ describe('versionRow', () => {
 		const r = versionRow({
 			sources: [YOURS_SRC, { ...SRE, relation: 'self' }],
 			current: 31,
-			self: SREDA,
-			compare: null,
-			family: null
+			self: SREDA
 		});
 		expect(r?.title).toBe('Sreda 17:30’s version');
 		expect(r?.icon).toBe('group');
@@ -95,36 +82,28 @@ describe('versionRow', () => {
 				{ ...TWIN_SRC, relation: 'self' }
 			],
 			current: 21,
-			self: MINE,
-			compare: null,
-			family: null
+			self: MINE
 		});
 		expect(r?.title).toBe('Your version');
 		expect(r?.icon).toBe('solo');
 	});
 
-	it('the compare offer wins the meta', () => {
+	it('the meta is “Also: …” whatever the copies’ status: the notice says what differs', () => {
 		const r = versionRow({
-			sources: [YOURS_SRC, SRE],
+			sources: [
+				YOURS_SRC,
+				{ ...INT, status: 'newer', changed: ['Hold'] },
+				{ ...SRE, status: 'differs', changed: ['Notes'] }
+			],
 			current: 15,
-			self: MINE,
-			compare: { id: 31, place: 'Sreda 17:30', changed: ['Notes'] },
-			family: FAMILY_WITH_BANNER
+			self: MINE
 		});
-		expect(r?.meta).toBe('Sreda 17:30 changed: notes');
-		expect(r?.changed).toBe(true);
-	});
-
-	it('falls back to a differs banner', () => {
-		const r = versionRow({
-			sources: [YOURS_SRC, INT, SRE],
-			current: 15,
-			self: MINE,
-			compare: null,
-			family: FAMILY_WITH_BANNER
+		expect(r).toEqual({
+			title: 'Your version',
+			meta: 'Also: Intenziuci poletje 2026, Sreda 17:30',
+			count: 3,
+			icon: 'solo'
 		});
-		expect(r?.meta).toBe('Intenziuci poletje 2026 changed: hold');
-		expect(r?.changed).toBe(true);
 	});
 });
 
@@ -170,26 +149,11 @@ describe('versionList', () => {
 			sources: [YOURS_SRC, { ...SRE, relation: 'self' }],
 			current: 31,
 			family: {
-				entries: [entry(31, SREDA, null), entry(15, MINE, 'same')],
-				canSend: false,
-				banners: []
+				entries: [entry(31, SREDA, null), entry(15, MINE, 'same')]
 			}
 		});
 		expect(lines.map((l) => l.meta)).toEqual(['In step', 'This one']);
 		expect(lines[1].current).toBe(true);
-	});
-});
-
-describe('versionRow on a group’s page', () => {
-	it('says “Your copy changed” when your own copy is the one that moved', () => {
-		const r = versionRow({
-			sources: [YOURS_SRC, { ...SRE, relation: 'self' }],
-			current: 31,
-			self: SREDA,
-			compare: null,
-			family: { ...FAMILY, banners: [{ id: 15, place: 'Yours', changed: ['Notes', 'Day'] }] }
-		});
-		expect(r?.meta).toBe('Your copy changed: notes, day');
 	});
 });
 

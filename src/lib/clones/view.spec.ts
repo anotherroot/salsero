@@ -29,11 +29,10 @@ import {
 	DETACH_NO_MORE,
 	detachGroup,
 	detachTitle,
-	reconnectedLine,
 	DROP_BUTTON,
 	DROP_FAILED,
 	DROP_TITLE,
-	SEND_FIRST,
+	SYNC_FIRST,
 	USE_INSTEAD,
 	addToo,
 	cantFollow,
@@ -44,57 +43,21 @@ import {
 	droppedToast,
 	onlyInYours,
 	FAMILY_TITLE,
-	NEXT,
-	NOTHING_TO_SEND,
-	SEND,
-	SEND_FAILED,
-	SEND_MINE,
-	SEND_SUB,
-	SEND_TITLE,
 	THIS_ONE,
-	bothNote,
-	bothTitle,
-	deleteRow,
-	differsBanner,
 	memberMeta,
-	notSent,
 	ownChanges,
 	selfMeta,
-	sendButton,
-	sendNote,
-	sendTargetMeta,
 	statusChip,
 	ALREADY_IN_YOURS,
 	CANCEL,
-	COMPARE_FAILED,
-	IN_STEP,
-	TAKE_FAILED,
-	THEIRS,
+	LOAD_FAILED,
 	YOURS,
-	optionShow,
-	COMPARE,
 	NOT_TAKEN,
 	PICK_BOTH,
 	RECORDING_GONE,
 	STALE,
-	ALL_THEIRS,
-	ALL_YOURS,
-	columnNames,
-	keepHint,
-	NAME_ONLY,
-	SHOW_ALL,
-	SHOW_LESS,
-	isLong,
-	mergeButton,
-	pickFirst,
-	renameLabel,
-	renameMeta,
+	SYNC_STALE,
 	VERSIONS,
-	absentLine,
-	changedLine,
-	compareSub,
-	compareTitle,
-	diffWhy,
 	nameTaken,
 	ARCHIVED_SONG_COPY,
 	MAKE_MINE,
@@ -364,78 +327,11 @@ describe('sources', () => {
 		expect(makeMineSize(0)).toBeNull();
 	});
 
-	it('changedLine: the banner over your copy, names lowered', () => {
-		expect(changedLine('Salsa Tuesdays', ['Timing', '1 recording'])).toBe(
-			'Salsa Tuesdays changed it since you took it: timing, 1 recording'
-		);
-		expect(changedLine('Rueda club', ['Notes'])).toBe(
-			'Rueda club changed it since you took it: notes'
-		);
-		expect(COMPARE).toBe('Compare');
-	});
-
-	it('the merge sheet: title, sub, button, hints', () => {
-		expect(compareTitle('Salsa Tuesdays')).toBe('Merge with Salsa Tuesdays');
-		expect(compareTitle('Yours')).toBe('Merge with yours');
-		expect(compareSub(true, 3)).toBe('3 differences since you last took from it.');
-		expect(compareSub(true, 1)).toBe('1 difference since you last took from it.');
-		expect(compareSub(false, 2)).toBe(
-			'You were never in step with this one. Pick each difference.'
-		);
-		expect(mergeButton(0)).toBe('Keep mine');
-		expect(mergeButton(1)).toBe('Merge · 1 from theirs');
-		expect(mergeButton(3)).toBe('Merge · 3 from theirs');
-		expect(pickFirst(['Timing'])).toBe('Pick a side for the timing first.');
-		expect(pickFirst(['Timing', 'Notes'])).toBe('Pick a side for the timing and the notes first.');
-		expect([ALL_YOURS, ALL_THEIRS, SHOW_ALL, SHOW_LESS]).toEqual([
-			'tap: all yours',
-			'tap: all theirs',
-			'Show all',
-			'Show less'
-		]);
-	});
-
-	it('diffWhy: who changed it, and how', () => {
-		const field = { key: 'k', label: 'L', value: 'v', show: 'v' };
-		const d = (side: FieldDiff['side'], mine: boolean, theirs: boolean, key = 'k'): FieldDiff => ({
-			key,
-			label: 'L',
-			mine: mine ? field : null,
-			theirs: theirs ? field : null,
-			side,
-			removal: false
-		});
-		expect(diffWhy(d('theirs', true, true), true)).toEqual({
-			text: 'they changed it',
-			tone: 'theirs'
-		});
-		expect(diffWhy(d('theirs', false, true), true).text).toBe('they added it');
-		expect(diffWhy(d('theirs', true, false), true).text).toBe('they removed it');
-		expect(diffWhy(d('theirs', true, true, 'name'), true).text).toBe('they renamed it');
-		expect(diffWhy(d('theirs', true, true, 'title'), true).text).toBe('they renamed it');
-		expect(diffWhy(d('mine', true, true), true)).toEqual({ text: 'you changed it', tone: 'mine' });
-		expect(diffWhy(d('mine', true, false), true).text).toBe('you added it');
-		expect(diffWhy(d('mine', false, true), true).text).toBe('you removed it');
-		expect(diffWhy(d('mine', true, true, 'name'), true).text).toBe('you renamed it');
-		expect(diffWhy(d('both', true, true), false)).toEqual({
-			text: 'you both changed it, pick one',
-			tone: 'both'
-		});
-		expect(diffWhy(d('both', true, true), true).text).toBe('you both changed it');
-	});
-
-	it('isLong: more than 3 lines or over 90 characters', () => {
-		expect(isLong('short')).toBe(false);
-		expect(isLong('a'.repeat(90))).toBe(false);
-		expect(isLong('a'.repeat(91))).toBe(true);
-		expect(isLong('1\n2\n3')).toBe(false);
-		expect(isLong('1\n2\n3\n4')).toBe(true);
-	});
-
-	it('an option that is not there, and the refusals', () => {
-		expect(absentLine('mine')).toBe('Not in yours');
-		expect(absentLine('theirs')).toBe('Not in theirs');
-		expect(STALE).toBe('Changed since you opened this. Compare again.');
+	it('the refusals', () => {
+		expect(LOAD_FAILED).toBe('That could not be loaded. Try again.');
+		expect(YOURS).toBe('Yours');
+		expect(STALE).toBe('Changed meanwhile; check it again.');
+		expect(SYNC_STALE).toBe('Changed while you were syncing; check it again.');
 		expect(PICK_BOTH).toBe('Pick yours or theirs where both changed.');
 		expect(nameTaken('Doble', 'Enchufla')).toBe('Doble is taken in Enchufla; rename one first.');
 	});
@@ -448,20 +344,7 @@ describe('sources', () => {
 	});
 });
 
-describe('the compare sheet’s options and states', () => {
-	it('shows a field’s words, (empty), or that its side lacks it', () => {
-		expect(optionShow({ show: '1 · 16 counts' }, 'mine')).toBe('1 · 16 counts');
-		expect(optionShow({ show: '' }, 'theirs')).toBe('(empty)');
-		expect(optionShow(null, 'mine')).toBe('Not in yours');
-		expect(optionShow(null, 'theirs')).toBe('Not in theirs');
-		expect([YOURS, THEIRS]).toEqual(['Yours', 'Theirs']);
-		expect(IN_STEP).toBe('Nothing differs any more.');
-		expect(COMPARE_FAILED).toBe('That comparison could not be loaded. Try again.');
-		expect(TAKE_FAILED).toBe('That could not be taken. Try again.');
-	});
-});
-
-describe('the compare sheet’s Cancel', () => {
+describe('the sheets’ Cancel', () => {
 	it('is the kit’s word', () => {
 		expect(CANCEL).toBe('Cancel');
 	});
@@ -499,11 +382,7 @@ describe('copies you can see, and Send mine (board C3)', () => {
 		expect(memberMeta(null, 'behind', ['Notes'], 'this one')).toBe('Behind this one: notes');
 		expect(selfMeta(['Notes', '+1 recording'])).toBe('This one · you changed notes, +1 recording');
 		expect(selfMeta([])).toBe('This one');
-		expect([FAMILY_TITLE, SEND_MINE, THIS_ONE]).toEqual([
-			'Copies you can see',
-			'Send mine…',
-			'This one'
-		]);
+		expect([FAMILY_TITLE, THIS_ONE]).toEqual(['Copies you can see', 'This one']);
 	});
 
 	it('what the page changed: fields, then what it added (+) and took away (−)', () => {
@@ -515,85 +394,6 @@ describe('copies you can see, and Send mine (board C3)', () => {
 				fd('rec:g3:note', 'Note · x', 'mine', 'x', 'y')
 			])
 		).toEqual(['Notes', '+1 recording', '−1 recording', '1 recording']);
-	});
-
-	it('the banner names the place (ruling 10)', () => {
-		expect(differsBanner('Rueda club', ['Timing'])).toBe('Rueda club’s copy differs: timing');
-		expect(differsBanner('Yours', ['Notes', '1 recording'])).toBe(
-			'Your copy differs: notes, 1 recording'
-		);
-	});
-
-	it('the send sheet’s words', () => {
-		expect(SEND_TITLE).toBe('Send your changes');
-		const lands = [
-			fd('notes', 'Notes', 'theirs', 'a', 'b'),
-			fd('rec:g1', 'Recording · new', 'theirs', null, 'v')
-		];
-		expect(sendTargetMeta(lands, 50, true)).toBe('Notes · 1 new recording (charged to the group)');
-		expect(sendTargetMeta(lands, 50, false)).toBe('Notes · 1 new recording (charged to you)');
-		expect(sendTargetMeta(lands, 0, true)).toBe('Notes · 1 new recording');
-		expect(sendTargetMeta([...lands, fd('timing', 'Timing', 'both', '1', '3')], 50, true)).toBe(
-			'Notes · 1 new recording (charged to the group) · timing: they changed it too, you’ll pick'
-		);
-		// Only the target's own changes, a removal, or a name: nothing goes by default.
-		expect(
-			sendTargetMeta(
-				[
-					fd('timing', 'Timing', 'mine', '3', '1'),
-					fd('rec:g2', 'Recording · old', 'theirs', 'v', null, true),
-					fd('name', 'Name', 'theirs', 'Doble (Salsa Tuesdays)', 'Doble')
-				],
-				0,
-				true
-			)
-		).toBe(NOTHING_TO_SEND);
-		expect(NOTHING_TO_SEND).toBe('Nothing to send');
-		// Only the name differs: says so; a ticked rename joins the line.
-		const named = [fd('name', 'Name', 'mine', 'Basic', 'Basic with hips')];
-		expect(sendTargetMeta(named, 0, true)).toBe(NAME_ONLY);
-		expect(NAME_ONLY).toBe('Only the name differs');
-		expect(sendTargetMeta(named, 0, true, true)).toBe('The name');
-		expect(sendTargetMeta([...lands, ...named], 0, true, true)).toBe(
-			'Notes · 1 new recording · the name'
-		);
-		expect(renameLabel('Basic with hips')).toBe('Rename their copies to “Basic with hips”');
-		expect(renameMeta(['Basic'])).toBe('Called “Basic”');
-		expect(renameMeta(['Basic', 'Basic'])).toBe('Both are called “Basic”');
-		expect(renameMeta(['Basic', 'Basic', 'Basic'])).toBe('All 3 are called “Basic”');
-		expect(renameMeta(['Basic', 'Basic 2'])).toBe('Called “Basic” and “Basic 2”');
-		expect(SEND_SUB).toBe('Changes travel. The name and deletes only if you tick them.');
-		expect(deleteRow('old take')).toEqual({
-			text: 'Also delete “old take” there',
-			meta: 'Gone from the copy you’re sending. Refused where a lesson links its section.'
-		});
-		expect(sendNote('figure', 2)).toBe(
-			'Changes land on the groups’ own figure: members’ practice and lesson links stay.'
-		);
-		expect(sendNote('routine', 1)).toBe(
-			'Changes land on the group’s own routine: members’ practice and lesson links stay.'
-		);
-		expect(sendNote('figure', 0)).toBeNull();
-		expect(sendButton(2, 'Rueda club')).toBe('Send to 2 groups');
-		expect(sendButton(1, 'Salsa Tuesdays')).toBe('Send to Salsa Tuesdays');
-		expect(sendButton(1, 'Yours')).toBe('Send to yours');
-		expect(sendButton(2, 'Yours', false)).toBe('Send to 2 places');
-		expect(sendButton(0, '')).toBe('Send');
-	});
-
-	it('the second level: both changed, per target', () => {
-		expect(bothTitle('Rueda club', ['Timing'])).toBe('Rueda club: both changed the timing');
-		expect(bothTitle('Rueda club', ['Timing', 'Notes'])).toBe(
-			'Rueda club: both changed the timing and notes'
-		);
-		expect(bothNote('Rueda club')).toBe(
-			'Pick yours and theirs is replaced in Rueda club. Pick theirs and you send only the rest.'
-		);
-		expect([SEND, NEXT]).toEqual(['Send', 'Next']);
-		expect(notSent('Salsa Tuesdays', 'Linked to Shines — unlink it first.')).toBe(
-			'Not sent to Salsa Tuesdays: Linked to Shines — unlink it first.'
-		);
-		expect(SEND_FAILED).toBe('That could not be sent. Try again.');
 	});
 });
 
@@ -672,7 +472,7 @@ describe('Drop my copy (board C5)', () => {
 	});
 
 	it('the buttons and the toast', () => {
-		expect([DROP_BUTTON, SEND_FIRST]).toEqual(['Drop my copy', 'Send mine first']);
+		expect([DROP_BUTTON, SYNC_FIRST]).toEqual(['Drop my copy', 'Sync first']);
 		expect(droppedToast('Salsa Tuesdays')).toBe('Back on Salsa Tuesdays’. Your copy is archived.');
 		expect(droppedToast('Rueda club')).toBe('Back on Rueda club’s. Your copy is archived.');
 		expect(DROP_FAILED).toBe('That could not be dropped. Try again.');
@@ -695,15 +495,6 @@ describe('Detach and reconnecting (board C8)', () => {
 		);
 		expect(DETACH_NO_MORE).toBe('No more “updated since”, and no Take theirs to hit by mistake.');
 		expect(DETACH_BUTTON).toBe('Detach');
-	});
-
-	it('the rejoin banner', () => {
-		expect(reconnectedLine('Salsa Tuesdays', 3)).toBe(
-			'Reconnected with Salsa Tuesdays: 3 changes while you were away'
-		);
-		expect(reconnectedLine('Rueda club', 1)).toBe(
-			'Reconnected with Rueda club: 1 change while you were away'
-		);
 	});
 });
 
@@ -798,16 +589,12 @@ describe('Copy to… (board C4)', () => {
 		expect(copyButton('song', T1)).toBe('Copy as a draft');
 		expect(copyButton('figure', T1)).toBe('Copy');
 		expect(copyButton('lesson', MINE)).toBe('Copy');
-		expect(existingNote(T1, false)).toBe(
-			'Salsa Tuesdays has it already. Compare the two and take what you want.'
-		);
+		expect(existingNote(T1, false)).toBe('Salsa Tuesdays has it already. Sync the two copies.');
 		expect(existingNote(T1, true)).toBe(
-			'Salsa Tuesdays has an archived copy. Restore it, then compare.'
+			'Salsa Tuesdays has an archived copy. Restore it, then sync.'
 		);
-		expect(existingNote(MINE, false)).toBe(
-			'You have it already. Compare the two and take what you want.'
-		);
-		expect(existingNote(MINE, true)).toBe('You have an archived copy. Restore it, then compare.');
+		expect(existingNote(MINE, false)).toBe('You have it already. Sync the two copies.');
+		expect(existingNote(MINE, true)).toBe('You have an archived copy. Restore it, then sync.');
 		expect(RESTORE).toBe('Restore');
 		expect(copiedToast(T1, true)).toBe('Copied to Salsa Tuesdays as a draft.');
 		expect(copiedToast(T1, false)).toBe('Copied to Salsa Tuesdays.');
@@ -902,18 +689,5 @@ describe('Same as… (board C7)', () => {
 		expect(v.sameAsEmpty('lesson')).toBe('No other lessons match.');
 		expect(v.SAME_AS_SEARCH).toBe('Search your figures');
 		expect(v.SAME_AS_EMPTY).toBe('No other figures match.');
-	});
-});
-
-describe('the merge sheet from a group’s row against your own copy', () => {
-	it('names the two columns apart', () => {
-		expect(columnNames('Sreda 17:30')).toEqual({ mine: 'Yours', theirs: 'Sreda 17:30' });
-		expect(columnNames('Yours')).toEqual({ mine: 'This one', theirs: 'Yours' });
-	});
-	it('says which side stays as it is', () => {
-		expect(keepHint('Sreda 17:30')).toBe(
-			'Nothing changes in yours. Theirs will show as behind yours.'
-		);
-		expect(keepHint('Yours')).toBe('Nothing changes here. Yours will show as behind this one.');
 	});
 });

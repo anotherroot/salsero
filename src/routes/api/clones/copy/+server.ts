@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
  * The Copy to… sheet's cards for the place picked (board C4):
  * `?kind=lesson&id=<id>&into=mine|<group id>`, what would go, what the place
  * has already, and the twins questions (`copyPlan`). Flat like
- * `/api/clones/compare`: a row the person cannot read, or a place that is not
+ * `/api/clones/sync`: a row the person cannot read, or a place that is not
  * one of its targets, is a 404.
  */
 const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];

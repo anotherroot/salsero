@@ -40,11 +40,13 @@ import { groupCookie } from '$lib/teams/mode';
 import type { Wall } from '$lib/server/scope';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
-import * as compareApi from '../api/clones/compare/+server';
-import * as sendApi from '../api/clones/send/+server';
+import * as syncApi from '../api/clones/sync/+server';
 import * as copyApi from '../api/clones/copy/+server';
 import * as moveApi from '../api/clones/move/+server';
 import * as lessonPage from './lessons/[id]/+page.server';
+import * as drillPage from './(today)/exercises/[id]/+page.server';
+import * as songPage from './songs/[id]/+page.server';
+import * as positionPage from './(moves)/positions/[id]/+page.server';
 import { archiveVariation } from '$lib/server/figures';
 import { figures, lessons } from '$lib/server/db/schema';
 
@@ -205,49 +207,49 @@ describe('the figure page', () => {
 	});
 });
 
-describe('Compare and Take theirs', () => {
-	const compare = (uid: string, mine: number, theirs: number, kind = 'figure') =>
-		run(compareApi.GET, {
-			url: new URL(
-				`http://localhost/api/clones/compare?kind=${kind}&mine=${mine}&theirs=${theirs}`
-			),
-			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
-		});
-
-	it('your copy’s page offers Compare once the group changed it; Take lands it and the offer goes', async () => {
+describe('the notice and Keep in step', () => {
+	it('your copy’s page says the group changed it; a Sync clears it', async () => {
 		const { F, C } = await setenta();
-		expect((await run(figurePage.load, ev('u2', C))).compare).toBeNull();
+		expect((await run(figurePage.load, ev('u2', C))).step).toEqual({ lines: [] });
 		db.update(figures).set({ startCount: 3 }).where(eq(figures.id, F)).run();
 		const page = await run(figurePage.load, ev('u2', C));
-		expect(page.compare).toEqual({ id: F, place: 'Salsa Tuesdays', changed: ['Timing'] });
-
-		const c = await (await compare('u2', C, F)).json();
-		expect(c).toMatchObject({ picks: { timing: 'theirs' }, canTake: true, synced: true });
-		const form = { from: F, picks: JSON.stringify(c.picks), seen: c.seen };
-		expect(await run(figurePage.actions.take, ev('u2', C, { form }))).toEqual({
-			action: 'take',
-			taken: true
+		expect(page.step).toEqual({
+			lines: [{ id: F, place: 'Salsa Tuesdays', state: 'changed', fields: ['Timing'] }]
 		});
-		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.startCount).toBe(3);
-		expect((await run(figurePage.load, ev('u2', C))).compare).toBeNull();
-		// The same sheet again: what it saw is gone.
-		db.update(figures).set({ notes: 'n' }).where(eq(figures.id, C)).run();
-		expect(await run(figurePage.actions.take, ev('u2', C, { form }))).toMatchObject({
-			status: 409,
-			data: { action: 'take', reason: 'stale' }
+		expect(page.keep).toMatchObject({ editable: true, mode: 'update' });
+		expect(page.compare).toBeUndefined();
+	});
+
+	it('keep: the copy’s editor saves the five switches; a reader and a bad form are refused', async () => {
+		const { F, C } = await setenta();
+		const form = { on: '1', names: '0', small: '1', sections: '1', media: '0' };
+		expect(await run(figurePage.actions.keep, ev('u2', C, { form }))).toEqual({
+			action: 'keep',
+			settings: { on: true, names: false, small: true, sections: true, media: false }
+		});
+		expect((await run(figurePage.load, ev('u2', C))).keep.settings).toMatchObject({
+			names: false,
+			sections: true
+		});
+		// u2 only reads the group's: the level shows its switches disabled, and a post is the missing row.
+		expect((await run(figurePage.load, ev('u2', F))).keep).toMatchObject({ editable: false });
+		expect(await run(figurePage.actions.keep, ev('u2', F, { form }))).toMatchObject({
+			status: 404
+		});
+		expect(
+			await run(figurePage.actions.keep, ev('u2', C, { form: { ...form, media: 'yes' } }))
+		).toMatchObject({ status: 400 });
+		expect(await run(figurePage.actions.keep, ev('u4', C, { form }))).toMatchObject({
+			status: 404
 		});
 	});
 
-	it('an outsider gets 404 from the comparison and the take; a reader cannot take into the group’s', async () => {
-		const { F, C } = await setenta();
-		expect(await compare('u4', C, F)).toMatchObject({ status: 404 });
-		expect(await compare('u2', C, F, 'nonsense')).toMatchObject({ status: 404 });
-		const c = await (await compare('u2', F, C)).json();
-		expect(c).toMatchObject({ canTake: false, canSend: true });
-		const form = { from: C, picks: '{}', seen: c.seen };
-		expect(await run(figurePage.actions.take, ev('u2', F, { form }))).toMatchObject({
-			status: 404
-		});
+	it('every item page has the keep action, and none the old take or send', () => {
+		for (const page of [figurePage, routinePage, lessonPage, drillPage, songPage, positionPage]) {
+			const a = page.actions as Answer;
+			expect(typeof a.keep).toBe('function');
+			expect([a.take, a.send, a.keepMine]).toEqual([undefined, undefined, undefined]);
+		}
 	});
 
 	it('an editor’s tab of the group, opened from their copy, is no read-only source', async () => {
@@ -259,69 +261,104 @@ describe('Compare and Take theirs', () => {
 	});
 });
 
-describe('Copies you can see, and Send mine', () => {
-	const preview = (uid: string, from: number, kind = 'figure') =>
-		run(sendApi.GET, {
-			url: new URL(`http://localhost/api/clones/send?kind=${kind}&from=${from}`),
-			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
-		});
-
-	it('an editor’s own copy lists the group’s, behind it, and sends into it', async () => {
+describe('Copies you can see', () => {
+	it('an editor’s own copy lists the group’s, behind it', async () => {
 		const { F } = await setenta();
 		const mine = await copyInto('figure', F, { userId: 'u3', dance: 'salsa' });
 		db.update(figures).set({ notes: 'Hips first' }).where(eq(figures.id, mine)).run();
 		const page = await run(figurePage.load, ev('u3', mine));
-		expect(page.family).toMatchObject({ canSend: true, banners: [] });
 		expect(
 			page.family.entries.map((e: Answer) => [e.member.id, e.role, e.status, e.changed])
 		).toEqual([
 			[mine, null, null, ['Notes']],
 			[F, 'editor', 'behind', ['Notes']]
 		]);
+		expect(page.keep).toMatchObject({ editable: true, mode: 'sync' });
+	});
+});
 
-		const targets = await (await preview('u3', mine)).json();
-		expect(targets.map((t: Answer) => [t.target.id, t.comparison.picks])).toEqual([
-			[F, { notes: 'theirs' }]
+describe('Sync', () => {
+	const preview = (uid: string, kind: string, id: number) =>
+		run(syncApi.GET, {
+			url: new URL(`http://localhost/api/clones/sync?kind=${kind}&id=${id}`),
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
+		});
+
+	it('an editor’s own copy syncs into the group’s; a stale sheet is refused for that copy', async () => {
+		const { F } = await setenta();
+		const mine = await copyInto('figure', F, { userId: 'u3', dance: 'salsa' });
+		db.update(figures).set({ notes: 'Hips first' }).where(eq(figures.id, mine)).run();
+		const view = await (await preview('u3', 'figure', mine)).json();
+		expect(view.mode).toBe('sync');
+		expect(view.targets.map((t: Answer) => [t.id, t.role])).toEqual([
+			[mine, 'this one'],
+			[F, 'editor']
 		]);
 		const form = {
-			targets: JSON.stringify(
-				targets.map((t: Answer) => ({
-					id: t.target.id,
-					picks: t.comparison.picks,
-					seen: t.comparison.seen
-				}))
-			)
+			picks: '{}',
+			targets: JSON.stringify(view.targets.map((t: Answer) => ({ id: t.id, seen: t.seen }))),
+			members: JSON.stringify(view.members)
 		};
-		expect(await run(figurePage.actions.send, ev('u3', mine, { form }))).toEqual({
-			action: 'send',
-			results: [{ id: F, result: { ok: true } }]
+		expect(await run(figurePage.actions.sync, ev('u3', mine, { form }))).toEqual({
+			action: 'sync',
+			refused: []
 		});
 		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.notes).toBe('Hips first');
-		// The same sheet again: the group's changed since.
-		expect(await run(figurePage.actions.send, ev('u3', mine, { form }))).toMatchObject({
-			results: [{ id: F, result: { ok: false, reason: 'stale' } }]
+		// The same sheet again: the group's changed since it was opened.
+		db.update(figures).set({ notes: 'Later' }).where(eq(figures.id, F)).run();
+		expect(await run(figurePage.actions.sync, ev('u3', mine, { form }))).toMatchObject({
+			action: 'sync',
+			refused: [{ id: F }]
 		});
 	});
 
-	it('a reader sends nothing from the group’s: no targets, 404; an outsider 404', async () => {
+	it('a reader updates only their own; the group’s copy as a target is the missing row', async () => {
 		const { F, C } = await setenta();
-		const page = await run(figurePage.load, ev('u2', F));
-		// u2 edits their own copy: the list shows, but Send is not offered from the group’s.
-		expect(page.family).toMatchObject({ canSend: false, banners: [] });
-		expect(await preview('u2', F)).toMatchObject({ status: 404 });
-		expect(await preview('u4', C)).toMatchObject({ status: 404 });
-		expect(await preview('u2', C, 'nonsense')).toMatchObject({ status: 404 });
-		const form = { targets: JSON.stringify([{ id: C, picks: {}, seen: 'x' }]) };
-		expect(await run(figurePage.actions.send, ev('u2', F, { form }))).toMatchObject({
-			status: 404
+		db.update(figures).set({ notes: 'Club' }).where(eq(figures.id, F)).run();
+		const view = await (await preview('u2', 'figure', C)).json();
+		expect(view).toMatchObject({ mode: 'update', title: 'Update from Salsa Tuesdays' });
+		const seen = (id: number) => view.targets.find((t: Answer) => t.id === id)?.seen;
+		const into = (targets: object[]) => ({
+			picks: '{}',
+			targets: JSON.stringify(targets),
+			members: JSON.stringify(view.members)
 		});
 		expect(
-			await run(figurePage.actions.send, ev('u2', C, { form: { targets: '[]' } }))
-		).toMatchObject({ status: 400 });
-		const many = Array.from({ length: 51 }, (_, i) => ({ id: i + 1, picks: {}, seen: 'x' }));
+			await run(figurePage.actions.sync, ev('u2', C, { form: into([{ id: F, seen: 'x' }]) }))
+		).toMatchObject({ status: 404 });
 		expect(
-			await run(figurePage.actions.send, ev('u2', C, { form: { targets: JSON.stringify(many) } }))
+			await run(figurePage.actions.sync, ev('u2', C, { form: into([{ id: C, seen: seen(C) }]) }))
+		).toEqual({ action: 'sync', refused: [] });
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.notes).toBe('Club');
+		expect(await preview('u4', 'figure', C)).toMatchObject({ status: 404 });
+		expect(await preview('u2', 'nonsense', C)).toMatchObject({ status: 404 });
+		expect(
+			await run(figurePage.actions.sync, ev('u2', C, { form: { picks: '{}', targets: '[]' } }))
 		).toMatchObject({ status: 400 });
+		expect(
+			await run(figurePage.actions.sync, ev('u2', C, { form: { picks: '[1]', targets: '[]' } }))
+		).toMatchObject({ status: 400 });
+	});
+
+	it('an open row is a 409 with its words', async () => {
+		const { F, C } = await setenta();
+		db.update(figures).set({ notes: 'Club' }).where(eq(figures.id, F)).run();
+		db.update(figures).set({ notes: 'Mine' }).where(eq(figures.id, C)).run();
+		const view = await (await preview('u2', 'figure', C)).json();
+		const form = {
+			picks: '{}',
+			targets: JSON.stringify([{ id: C, seen: view.targets[0].seen }]),
+			members: JSON.stringify(view.members)
+		};
+		expect(await run(figurePage.actions.sync, ev('u2', C, { form }))).toMatchObject({
+			status: 409,
+			data: { action: 'sync', reason: 'pick' }
+		});
+	});
+
+	it('every item page has the action', () => {
+		for (const page of [figurePage, routinePage, lessonPage, drillPage, songPage, positionPage])
+			expect(typeof (page.actions as Answer).sync).toBe('function');
 	});
 });
 
@@ -408,7 +445,7 @@ describe('Copy to…', () => {
 			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
 		});
 
-	it('an editor copies a group’s figure into another group; again opens Compare; archived offers Restore', async () => {
+	it('an editor copies a group’s figure into another group; again opens Sync; archived offers Restore', async () => {
 		const F = rueda();
 		const page = await run(figurePage.load, ev('u3', F));
 		expect(page.copyTo).toMatchObject({
@@ -609,7 +646,7 @@ describe('positions through the clone routes', () => {
 			.returning()
 			.get().id;
 
-	it('Copy to… plans a position; Compare and Send see it; an outsider gets 404', async () => {
+	it('Copy to… plans a position; Sync sees it; an outsider gets 404', async () => {
 		const P = own('u3', 'Cerrada');
 		const plan = await run(copyApi.GET, as('u3', `/api/clones/copy?kind=position&id=${P}&into=1`));
 		expect(await plan.json()).toEqual({
@@ -635,22 +672,13 @@ describe('positions through the clone routes', () => {
 		);
 		if (!r.ok) throw new Error('copy refused');
 		db.update(positions).set({ hands: 'one' }).where(eq(positions.id, r.id)).run();
-		const c = await (
-			await run(
-				compareApi.GET,
-				as('u3', `/api/clones/compare?kind=position&mine=${P}&theirs=${r.id}`)
-			)
+		const view = await (
+			await run(syncApi.GET, as('u3', `/api/clones/sync?kind=position&id=${P}`))
 		).json();
-		expect(c).toMatchObject({ picks: { hands: 'theirs' }, canTake: true, canSend: true });
-		const targets = await (
-			await run(sendApi.GET, as('u3', `/api/clones/send?kind=position&from=${P}`))
-		).json();
-		expect(targets.map((t: Answer) => t.target.id)).toEqual([r.id]);
+		expect(view.rows.map((r: Answer) => r.key)).toEqual(['hands']);
+		expect(view.targets.map((t: Answer) => t.id)).toEqual([P, r.id]);
 		expect(
-			await run(
-				compareApi.GET,
-				as('u4', `/api/clones/compare?kind=position&mine=${P}&theirs=${r.id}`)
-			)
+			await run(syncApi.GET, as('u4', `/api/clones/sync?kind=position&id=${P}`))
 		).toMatchObject({ status: 404 });
 	});
 });

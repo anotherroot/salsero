@@ -17,6 +17,7 @@ import {
 import { freeDisk, ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { allows, lessonAccess } from '$lib/server/access';
 import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL } from '$lib/limits';
+import { flowAfter } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
 /**
@@ -111,13 +112,16 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		return fail(400, 'That upload was empty.');
 	}
 
+	let row;
 	try {
-		const row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id);
-		// Remembered for a day (swept with the partials), for a client whose 201 got lost.
-		await writeFile(done, JSON.stringify(row)).catch(() => {});
-		return json(row, { status: 201 });
+		row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id);
 	} catch {
 		await unlink(target).catch(() => {});
 		return fail(500, 'That video could not be saved.');
 	}
+	// Remembered for a day (swept with the partials), for a client whose 201 got lost.
+	await writeFile(done, JSON.stringify(row)).catch(() => {});
+	// Keep in step, on the last chunk only: the lesson gained a video.
+	await flowAfter(locals.user?.id, 'lesson', lessonId);
+	return json(row, { status: 201 });
 };

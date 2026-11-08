@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { listVersions } from '$lib/server/figures';
+import { listVersions, withFigureOrigins } from '$lib/server/figures';
 import { createRoutineFromFigures, listRoutines, routineShapes } from '$lib/server/routines';
 import { ints, text } from '$lib/server/form';
 import { coverage, coverageGroups } from '$lib/routines/coverage';
@@ -19,7 +19,11 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	// changes these answers with nothing else touched.
 	return {
 		groups: coverageGroups(
-			coverage(listVersions(db, wall), routineShapes(db, wall), listRoutines(db, wall))
+			coverage(
+				withFigureOrigins(db, wall.userId, listVersions(db, wall)),
+				routineShapes(db, wall),
+				listRoutines(db, wall)
+			)
 		)
 	};
 };

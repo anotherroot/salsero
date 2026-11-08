@@ -64,15 +64,15 @@ export function newPill(n: number): string | null {
 }
 
 /**
- * The Groups tab's accessible name: it says so when something is new. `myClass`:
- * the tab is My class (Follow my class, `myClassTab` in levels.ts), named by its
- * own word.
+ * The Groups tab's accessible name: it says so when something is new. `label` is
+ * the tab's own name (`tabsFor`: Groups, or My class, or You); Groups says what is
+ * new, the others "something new".
  */
-export function groupsTabLabel(isNew: boolean, myClass = false): string {
+export function groupsTabLabel(isNew: boolean, label?: string): string {
 	const w = t();
-	if (myClass)
-		return isNew ? w.shell.tabs.myClass + w.entry.classes.somethingNew : w.shell.tabs.myClass;
-	return isNew ? w.groups.tabNew : w.shell.tabs.groups;
+	const name = label ?? w.shell.tabs.groups;
+	if (!isNew) return name;
+	return name === w.shell.tabs.groups ? w.groups.tabNew : name + w.entry.classes.somethingNew;
 }
 
 export function limitLine(n: number): string {

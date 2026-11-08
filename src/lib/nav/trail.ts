@@ -87,7 +87,16 @@ export function remembered(path: string): boolean {
 	return first !== 'player' && first !== 'share';
 }
 
-const ROOTS = new Set(['', 'figures', 'routines', 'positions', 'lessons', 'groups', 'songs']);
+const ROOTS = new Set([
+	'',
+	'figures',
+	'routines',
+	'positions',
+	'lessons',
+	'groups',
+	'songs',
+	'you'
+]);
 
 /** The main lists: /<d>, /<d>/figures, /<d>/routines, /<d>/positions, /<d>/lessons, /<d>/songs. */
 export function isRoot(path: string): boolean {

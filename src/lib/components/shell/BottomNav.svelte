@@ -6,7 +6,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { tabFor } from '$lib/nav/tabs';
-	import { levelShown, litAt, myClassTab, tabsFor } from '$lib/levels/levels';
+	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
 	import { intend } from '$lib/nav/trail.svelte';
@@ -90,7 +90,7 @@
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
 						aria-label={tab.id === 'groups' && page.data.groupsNew
-							? groupsTabLabel(true, myClassTab(level))
+							? groupsTabLabel(true, tab.label)
 							: here
 								? undefined
 								: tab.label}

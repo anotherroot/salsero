@@ -133,6 +133,9 @@ const TRANSLATED: string[] = [
 	'src/lib/components/video/VideoGestures.svelte',
 	// Settings and My count (Task 11).
 	'src/routes/settings/+page.svelte',
+	// Merged from master: the You tab (its page at Follow my class, and its settings rows).
+	'src/lib/components/settings/YouSettings.svelte',
+	'src/routes/[dance]/you/+page.svelte',
 	'src/routes/voice/+page.svelte',
 	// What was left on the Follow my class path (Task 12): Music on a class drill, the
 	// Practice player a class routine or song opens, and pairing the phone.

@@ -16,6 +16,7 @@
 import { meet, sameSet } from '$lib/graph/graph';
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
+import { fromTags } from '$lib/clones/from-tag';
 import type { TeamRef, TwinNote } from '$lib/types';
 
 export interface Candidate {
@@ -37,6 +38,8 @@ export interface Candidate {
 	team?: TeamRef;
 	/** The person's twins of it that this candidate stands for (`clones/twins.ts`). */
 	twins?: TwinNote[];
+	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
+	from?: string | null;
 }
 
 /** `ends`: `[]` anything can follow, null unknown (the row's options disagree). */
@@ -87,6 +90,13 @@ export interface PickGroup {
 export function variationName(c: Candidate): string {
 	const prefix = `${c.figure} · `;
 	return c.figure !== null && c.label.startsWith(prefix) ? c.label.slice(prefix.length) : c.label;
+}
+
+/** A group's same-named variations: where each copy came from ("· Sreda 17:30"). */
+export function groupTags(g: PickGroup): Map<number, string> {
+	return fromTags(
+		g.variations.map((v) => ({ id: v.id, name: variationName(v), from: v.from ?? null }))
+	);
 }
 
 export interface PickList {

@@ -5,7 +5,7 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
-	import { levelShown, litAt, myClassTab, tabsFor } from '$lib/levels/levels';
+	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
@@ -30,9 +30,8 @@
 			(page.data.lesson?.teamId ?? null) !== null
 		)
 	);
-	// The person's level's tabs (`tabsFor`), as in the tab bar.
-	const level = $derived(levelShown(page.data.user?.level));
-	const tabs = $derived(tabsFor(level));
+	// The person's level's tabs, as in the tab bar but without You (`sideTabsFor`).
+	const tabs = $derived(sideTabsFor(levelShown(page.data.user?.level)));
 	const targets = $derived(tabTargets(tabs, dance, path));
 
 	const ITEM =
@@ -84,7 +83,7 @@
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
-						aria-label={fresh ? groupsTabLabel(true, myClassTab(level)) : undefined}
+						aria-label={fresh ? groupsTabLabel(true, tab.label) : undefined}
 						class={here ? ON : OFF}
 					>
 						<Icon name={tab.icon} size={24} filled={here} />

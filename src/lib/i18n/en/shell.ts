@@ -9,7 +9,9 @@ export const shell = {
 		groups: 'Groups',
 		music: 'Music',
 		/** Groups at Follow my class. */
-		myClass: 'My class'
+		myClass: 'My class',
+		/** Above Follow my class the Groups tab (the groups, then the settings); at Follow my class its own tab (the settings). */
+		you: 'You'
 	},
 	/** The main nav's name (the tab bar, the side). */
 	mainNav: 'Main',

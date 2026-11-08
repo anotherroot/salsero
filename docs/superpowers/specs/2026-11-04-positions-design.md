@@ -226,10 +226,14 @@ Report counts in the boot log, as the integrity checks do. *Built:*
   then each group's under its heading.
 - **Nobody has any:** an empty state with Start from a template, New position
   and How positions work.
-- **A position's page:** the picture, the hold chips, notes, Figures from here
-  (+ New figure from it) and Figures into here, then linked video (sections and
-  points), lessons, routines through it. Copy to… and Same as… as a figure has.
-  A dead end or orphan says so, with New figure from it.
+- **A position's page** (redone 2026-11-07 in the figure page's order, option
+  A of the user's three; see "The page in the figure page's order" below): the
+  picture, one facts card (type, hold, notes), **Recordings** (its sections and
+  points as rows, + Add), **Lessons** (+ Link), then one card of three rows,
+  Figures from here, Figures into here and In routines, each opening a sheet
+  with search. The band has Edit and ⋯; the ⋯ holds New figure from here and
+  into here, Show on the map, History, then Copy to… and Same as… as a figure
+  has. A dead end or orphan says so, with New figure from it.
 - **Edit / New position:** name, type (one), the hold, notes, the picture,
   Archive.
 - **Templates:** a sheet with Salsa | Son | Timba, the positions ticked, the
@@ -361,3 +365,42 @@ While building:
   is not trashed in a group, for figures and positions alike. Positions
   match figures; whether both should go to Recently deleted is the user's
   call, to make once for both.
+
+## The page in the figure page's order (2026-11-07)
+
+The user asked for the position page to follow the figure page's rework
+(`2026-11-06-figure-page-rework-design.md`): its buttons, the figures lists
+moved and changed, and the recordings first. From real screenshots beside
+three options they picked A, the figure page's own order. What it settled:
+
+- **The top:** the picture when there is one (a still at its point, the
+  figure page's caption strip: "From <video> at 1:12"), nothing when there is
+  none. The user: the still is enough, no playing top video. Change moved off
+  the page: the picture is chosen in Edit, as before.
+- **The facts card:** the type badge, the hold under "Hold", the notes, in
+  one card, as the figure page's facts.
+- **Recordings** (was "Video"): the linked sections as the figure page's
+  `SectionRow` (a tap loops it full screen) and points as `PointRow` (a small
+  still, "Point at 1:12", its video; a tap opens the full-screen player at the
+  point). A missing or unplayable file says so in the row and does not open.
+  An editor's Unlink ends the row, one tap, as before. "Recordings" with no
+  count when empty; an editor sees its heading and + Add (the section and
+  point picker, directly: one kind to add), a reader nothing.
+- **Lessons:** the same rows; + Link on the heading replaces "Link a
+  lesson…". A reader with none sees no heading.
+- **The card of three rows** (`PositionRelations`): Figures from here,
+  Figures into here, In routines, each with its count, "None" not opening.
+  Each opens a sheet with search (accents and case folded); a figure's line
+  says only where it ends ("Ends in Cerrada") or starts ("From Cerrada"), led
+  by its group for a group's figure. Its type ("Salsa →") is gone. The two
+  figure sheets have New in their title row where New figure from it was
+  offered before (an editor, a position their figures may take). Routines
+  keep "Slots 1 → 2 and 5 → 6"; the "and N more" line is gone.
+- **The band:** Edit and ⋯ only. Show on the map (the phone too now: the map
+  takes `?pick=`), History, and New figure from here / into here are the
+  page's own ⋯ items (`positionMenuItems`), before the copy actions.
+- **Desktop:** left the picture, facts and Recordings; right Lessons and the
+  card. The phone stacks them in that order.
+- `PointCard` (a point playing inline in its own card) is gone; nothing else
+  used it.
+

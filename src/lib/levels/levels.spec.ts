@@ -15,35 +15,69 @@ import {
 	simpleClass,
 	simpleLesson,
 	litAt,
-	tabsFor
+	sideTabsFor,
+	tabsFor,
+	youPath
 } from './levels';
 
 describe('tabsFor', () => {
-	it('gives each level its tabs, in order', () => {
-		expect(tabsFor('follow').map((t) => t.id)).toEqual(['today', 'groups']);
-		expect(tabsFor('own').map((t) => t.id)).toEqual(['today', 'lessons', 'groups', 'music']);
+	it('gives each level its tabs, in order, You last', () => {
+		expect(tabsFor('follow').map((t) => t.id)).toEqual(['today', 'groups', 'you']);
+		expect(tabsFor('own').map((t) => t.id)).toEqual(['today', 'lessons', 'music', 'groups']);
 		expect(tabsFor('all').map((t) => t.id)).toEqual([
 			'today',
 			'moves',
 			'lessons',
-			'groups',
-			'music'
+			'music',
+			'groups'
 		]);
 	});
 
-	it('calls Groups "My class" at Follow my class only', () => {
-		const label = (level: 'follow' | 'own' | 'all') =>
-			tabsFor(level).find((t) => t.id === 'groups')?.label;
-		expect(label('follow')).toBe('My class');
-		expect(label('own')).toBe('Groups');
-		expect(label('all')).toBe('Groups');
-		// Same route and icon: only the word changes.
-		expect(tabsFor('follow')[1].path).toBe('/[dance]/groups');
-		expect(tabsFor('follow')[1].icon).toBe('group');
+	it('calls Groups "My class" at Follow my class, and "You" above it', () => {
+		const groups = (level: 'follow' | 'own' | 'all') =>
+			tabsFor(level).find((t) => t.id === 'groups')!;
+		expect(groups('follow').label).toBe('My class');
+		expect(groups('follow').icon).toBe('group');
+		for (const level of ['own', 'all'] as const) {
+			expect(groups(level).label).toBe('You');
+			expect(groups(level).icon).toBe('solo');
+			expect(groups(level).path).toBe('/[dance]/groups');
+		}
+		// At Follow my class You is a tab of its own, the settings alone.
+		expect(tabsFor('follow')[2]).toMatchObject({ label: 'You', path: '/[dance]/you' });
+	});
+});
+
+describe('sideTabsFor', () => {
+	it('is the desktop side: no You, and Groups keeps its name', () => {
+		expect(sideTabsFor('follow').map((t) => t.label)).toEqual(['Today', 'My class']);
+		expect(sideTabsFor('own').map((t) => t.label)).toEqual(['Today', 'Lessons', 'Music', 'Groups']);
+		expect(sideTabsFor('all').map((t) => t.label)).toEqual([
+			'Today',
+			'Moves',
+			'Lessons',
+			'Music',
+			'Groups'
+		]);
+		expect(sideTabsFor('all').find((t) => t.id === 'groups')!.icon).toBe('group');
+	});
+});
+
+describe('youPath', () => {
+	it('is the You page at Follow my class, the Groups list above it', () => {
+		expect(youPath('follow', 'salsa')).toBe('/salsa/you');
+		expect(youPath('own', 'salsa')).toBe('/salsa/groups');
+		expect(youPath('all', 'bachata')).toBe('/bachata/groups');
 	});
 });
 
 describe('litAt', () => {
+	it('lights You for /[dance]/you: its own tab at Follow my class, Groups above it', () => {
+		expect(litAt('you', 'follow', false)).toBe('you');
+		expect(litAt('you', 'own', false)).toBe('groups');
+		expect(litAt('you', 'all', false)).toBe('groups');
+	});
+
 	it('lights My class for a class’s lesson at Follow my class, a person’s own lights none', () => {
 		expect(litAt('lessons', 'follow', true)).toBe('groups');
 		expect(litAt('lessons', 'follow', false)).toBe('lessons');

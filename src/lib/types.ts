@@ -358,6 +358,8 @@ export interface FigureVersion {
 	team?: TeamRef;
 	/** The person's twins of it that this row stands for in a picker (`clones/twins.ts`). */
 	twins?: TwinNote[];
+	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
+	from?: string | null;
 }
 
 /**
@@ -369,6 +371,8 @@ export type TwinNote = { id: number; figure: string | null; name: string; team: 
 /** A figure (a `figures` row) as the Figures list shows it, under its move. */
 export type FigureRow = {
 	id: number;
+	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
+	differ?: number;
 	/** The figure's own name — "Doble". */
 	name: string;
 	/** "Enchufla · Doble". */
@@ -386,6 +390,8 @@ export type FigureRow = {
 	hasLesson: boolean;
 	/** Group mode only: a published lesson reaches it, so members see it. */
 	membersSee?: boolean;
+	/** The place of the copy's source when the viewer reads it ("Sreda 17:30"); drawn beside a same name. */
+	from: string | null;
 };
 
 /** A move (a `figure_groups` row) with the figures the list shows under it. */
@@ -423,6 +429,8 @@ export interface CalledFigure {
 /** A routine as the library list shows it. */
 export interface RoutineItem {
 	id: number;
+	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
+	differ?: number;
 	name: string;
 	notes: string | null;
 	/** Slots, children counted as one. */
@@ -496,6 +504,8 @@ export interface LinkOption {
 	twins?: TwinNote[];
 	/** A position's hold: its picker row's second line. Absent for a variation or a drill. */
 	hold?: Hold;
+	/** A variation's place of origin when it is a copy the viewer can trace; drawn beside a same name. */
+	from?: string | null;
 }
 
 /** One of a section's or point's links, in the Link popup. */
@@ -802,7 +812,7 @@ export type FlatField = {
 	key: string; // see Task 7's key grammar
 	label: string; // "Timing", "Notes", "Recording · Ana, 3 Nov"
 	value: string; // canonical text; equal values mean equal content
-	show: string; // what the compare sheet prints
+	show: string; // what the Sync sheet prints
 };
 export type Flat = Record<string, FlatField>;
 export type PairBase = { fields: Record<string, string>; skip: string[] }; // key → hash
@@ -834,23 +844,6 @@ export type Source = {
 	rejoined?: boolean; // Task 28: last in step before the person's current membership began
 };
 
-/**
- * Two members of a family side by side (`compareWith`): what differs since
- * the pair was last in step, what Take preselects, the receiving member's
- * digest the take must still match (`seen`), and whether the pair has a
- * snapshot at all (`synced`).
- */
-export type Comparison = {
-	diffs: FieldDiff[];
-	picks: Picks;
-	seen: string;
-	synced: boolean;
-	/** The person edits `mine`: Take theirs is offered. */
-	canTake: boolean;
-	/** The person edits `theirs`: Send mine is offered. */
-	canSend: boolean;
-};
-
 /** A Take or a Send into one member: written, or refused with words for the sheet. */
 export type SyncResult =
 	| { ok: true }
@@ -859,22 +852,6 @@ export type SyncResult =
 			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed';
 			message: string;
 	  };
-
-/**
- * The line over a member's page when the member it was copied from (a
- * group's) changed since the two were last in step: "Salsa Tuesdays changed
- * it since you took it: timing · Compare".
- */
-export type CompareOffer = {
-	/** The source to compare with. */
-	id: number;
-	/** Its place's name. */
-	place: string;
-	/** What differs, as `changedLabels` says it. */
-	changed: string[];
-	/** The person's copy was last in step before their current membership began: "Reconnected with…". */
-	rejoined?: boolean;
-};
 
 /** Detach on a member page (`detachOffer`): the place it stops following, and whether the row is a group's. */
 export type DetachOffer = { place: string; group: boolean };
@@ -959,30 +936,10 @@ export type FamilyEntry = {
 	editable: boolean;
 };
 
-/** The page's family as the list and the banners draw it; null when no other member is editable. */
+/** The page's family as the Versions list draws it; null when no other member is editable. */
 export type FamilyView = {
 	entries: FamilyEntry[];
-	/** The person edits the page's row and some other live member: Send mine… is offered. */
-	canSend: boolean;
-	/** "Rueda club’s copy differs: timing · Compare", one per copy that moved. */
-	banners: CompareOffer[];
 };
-
-/** One target of Send mine (`sendPreview`), compared from the target's side. */
-export type SendTarget = {
-	target: Member;
-	/** `mine` = the target, `theirs` = your member; `picks` say what lands (`sendPicks`). */
-	comparison: Comparison;
-	/** Your deletes it still has: a box each, unticked. */
-	removals: FieldDiff[];
-	/** Fields both changed: picked on the second level. */
-	both: FieldDiff[];
-	/** The files the default picks bring, charged to the target's owner. */
-	bytes: number;
-};
-
-/** One target's answer to Send mine. */
-export type SendResult = { id: number; result: SyncResult };
 
 /** One thing a person could keep of a group when they leave (Keep, `keepPreview`). */
 export type KeepItem = {
@@ -1104,10 +1061,14 @@ export interface PositionSummary {
 	hold: Hold;
 	teamId: number | null; // null: the viewer's own (or the group's own in group mode)
 	archived: boolean;
+	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
+	copiedFrom?: string | null;
 }
 
 /** One row of the Positions list. */
 export interface PositionListRow extends PositionSummary {
+	/** Copies of it that differ (0 or absent when in step). */
+	differ?: number;
 	inCount: number;
 	outCount: number;
 	deadEnd: boolean;
@@ -1172,4 +1133,104 @@ export type CommentsOn = {
 	card: CommentCard;
 	/** The load's clock: the card's "2 days ago" reads it, so SSR and hydration agree. */
 	now: number;
+};
+
+/**
+ * The You page's settings (`YouSettings.svelte`): the few rows changed most,
+ * read by `youSettingsOf` (`$lib/server/you.ts`). The theme is the root layout's
+ * (`data.theme`, a cookie per browser), not here.
+ */
+export type YouSettingsData = {
+	/** `users.level`; null (not chosen) draws as Everything. */
+	level: 'follow' | 'own' | 'all' | null;
+	dailyCount: number;
+	/** My count's line: "3 of 21 tempos in your own voice". */
+	ownVoice: string;
+	/** The Android app's daily reminder, minutes into the day; null is off. */
+	reminderMinute: number | null;
+};
+
+/** A copy's Keep in step settings: the switch and the four options. */
+export type SyncSettings = {
+	on: boolean;
+	names: boolean;
+	small: boolean;
+	sections: boolean;
+	media: boolean;
+};
+
+/**
+ * Sync's N-way merge (`$lib/clones/merge.ts`): one distinct value of a field
+ * across the copies, `hash` null and `field` null meaning the key is absent
+ * there. `holders` are the copies holding it, in the members' order;
+ * `changed` says a copy holding it moved away from what it last agreed.
+ */
+export type MergeValue = {
+	hash: string | null;
+	field: FlatField | null;
+	holders: number[];
+	changed: boolean;
+};
+/**
+ * A field the copies do not agree on. `pick` is a value's `hash`, null meaning
+ * "absent", undefined meaning open (the person must pick). `add` and `remove`
+ * are a box ("add here too?", "remove here too?"): ticked, `pick` is the
+ * change's value; unticked, it is the other value and nothing lands.
+ */
+export type MergeRow = {
+	key: string;
+	label: string;
+	values: MergeValue[];
+	pick: string | null | undefined;
+	kind: 'field' | 'add' | 'remove';
+};
+
+/**
+ * The Sync sheet (`syncView`): the merge's rows across every live copy the
+ * person reads (the page's first), the copies they edit to land it on
+ * ("Sync to", the page's first, each with its digest for `seen`), and every
+ * copy by name, for the tiles' holders. `mode 'update'`: they edit only their
+ * own copy and read the others, so the sheet is "Update from <club>".
+ */
+export type SyncView = {
+	title: string;
+	rows: MergeRow[];
+	targets: { id: number; label: string; role: string; seen: string; ticked: boolean }[];
+	mode: 'sync' | 'update';
+	/** Update mine: the club the sheet reads from ("Update from Sreda 17:30"); absent in sync mode. */
+	from?: string;
+	/** Every copy shown, with its digest: `syncAll` refuses when one not ticked changed since. */
+	members: { id: number; label: string; seen: string }[];
+};
+
+/** A Sync's answer: landed, less the copies refused alone; or refused as a whole. */
+export type SyncAllResult =
+	| { ok: true; refused: { id: number; message: string }[] }
+	| { ok: false; reason: 'pick' | 'denied' | 'stale'; message: string };
+
+/**
+ * One other copy against the page's: how it stands, and what differs in the
+ * notice's words (`changedLabels`: "Timing", "1 recording"). A `held` line
+ * says whether the copy added or removed what the options keep from flowing.
+ */
+export type StepLine = {
+	id: number;
+	place: string;
+	state: 'behind' | 'changed' | 'both' | 'held';
+	fields: string[];
+	how?: 'added' | 'removed';
+};
+/** Where a page's copies stand (`stepStatus`); empty `lines` when they agree. */
+export type StepView = { lines: StepLine[] };
+
+/**
+ * Keep in step on a page (`keepView`): the page row's settings, whether the
+ * person may change them, and how Sync opens from it: `sync`, `update` (a
+ * reader's Update mine), or null when there is no Sync (no other copy the
+ * person reads, or none they edit).
+ */
+export type KeepView = {
+	settings: SyncSettings;
+	editable: boolean;
+	mode: 'sync' | 'update' | null;
 };

@@ -7,7 +7,7 @@
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
-	import { parsePracticeConfig } from '$lib/exercises/practice';
+	import { parsePracticeConfig, practiceOf } from '$lib/exercises/practice';
 	import { rememberPractice } from '$lib/exercises/practice-api';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
@@ -27,6 +27,8 @@
 	// change (another dance, another `?song=`), and then the start must follow.
 	let source = $derived(data.start.source);
 	let songId = $derived(data.start.songId);
+	// What the exercise remembers as this page knows it (loaded, or last posted at Play).
+	let known = $derived(data.exercise ? practiceOf(data.exercise, data.dance) : null);
 	const song = loadSongGrid(
 		() => data.dance.slug,
 		() => (source === 'song' ? songId : null)
@@ -216,14 +218,20 @@
 		// Remember the choices on the exercise, as the popup's panel does, so the
 		// next run for it opens on the same song. Its call interval is the
 		// panel's and is kept as it was: the two players offer different ones.
+		// Only a change from what the page knows is posted (`practiceToPost`).
 		if (data.exercise) {
 			const kept = parsePracticeConfig(data.exercise.practiceJson, data.dance);
-			rememberPractice(data.dance.slug, data.exercise.id, {
-				source: useSong ? 'song' : 'count',
-				songId,
-				bpm: settings.bpm,
-				config: { ...kept, count: settings.count, clave: settings.clave, speed: settings.speed }
-			});
+			known = rememberPractice(
+				data.dance.slug,
+				data.exercise.id,
+				{
+					source: useSong ? 'song' : 'count',
+					songId,
+					bpm: settings.bpm,
+					config: { ...kept, count: settings.count, clave: settings.clave, speed: settings.speed }
+				},
+				known
+			);
 		}
 		calledFigureId = null;
 		calledIndex = null;

@@ -5,6 +5,7 @@ import { linkOptionsFor } from '$lib/server/link-popup';
 import { allows, spotAccess } from '$lib/server/access';
 import { unlinkFromSection } from '$lib/server/spot-links';
 import { unlinkSpotFromPosition } from '$lib/server/position-links';
+import { flowAfter, rootOfSpot } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
 const id = (raw: string, what: 'section' | 'link'): number => {
@@ -19,7 +20,7 @@ const id = (raw: string, what: 'section' | 'link'): number => {
  * A position link lives in its own table, so its ids are its own: `?kind=position`
  * names that table, and without it the id is a variation's or drill's link.
  */
-export const DELETE: RequestHandler = ({ params, url, locals }) => {
+export const DELETE: RequestHandler = async ({ params, url, locals }) => {
 	const spotId = id(params.id, 'section');
 	const linkId = id(params.linkId, 'link');
 	const kind = url.searchParams.get('kind');
@@ -36,6 +37,9 @@ export const DELETE: RequestHandler = ({ params, url, locals }) => {
 			? unlinkSpotFromPosition(db, linkId, Date.now(), locals.user.id, { spotId, alsoLesson })
 			: unlinkFromSection(db, spotId, linkId, alsoLesson, Date.now(), locals.user.id);
 	if (!gone) throw error(404, t().video.refusal.noLink);
+	// A section's links are its video's root's: Keep in step's flow runs from there.
+	const root = rootOfSpot(db, spotId);
+	if (root) await flowAfter(locals.user.id, root.kind, root.id);
 	const options = linkOptionsFor(db, spotId, locals.user!.id);
 	if (!options) throw error(404, t().video.refusal.noSection);
 	return json(options);

@@ -181,3 +181,11 @@ The second step of this slot, after the shared part has merged: Move to… on a
 person's own song (the note's "Songs have no move to"), as a menu item beside
 Copy to…. Its server side (what moves, what happens to the person's practice
 on it) is designed with the user before it is built.
+
+---
+
+*Amended 2026-11-07* by [keeping copies in step](2026-11-07-clone-sync-design.md):
+the menu's Compare and Take / Send mine items are one "Sync…"; under the
+Versions list sits a quiet "Keeps in step · names, small removals" (or "Not
+kept in step") line that opens Keep in step as a level of the sheet; the
+row's meta is back to "Also: …" and the out-of-sync banners are one notice.

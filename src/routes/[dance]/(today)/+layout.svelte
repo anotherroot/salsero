@@ -531,16 +531,13 @@
 			label={t().today.list.previousDay}
 			href={resolve(`/${dance}?day=${data.list.yesterday}`)}
 		/>
-		<!-- Coming up: beside Settings on the phone, in the band row on the desktop. -->
 		<BandButton
 			icon="calendar"
 			label={t().shell.lists.comingUp}
 			href={resolve('/[dance]/(today)/coming-up', { dance })}
 		/>
-		<!-- The phone's Settings; the desktop has it in the side, and Custom exercise here. -->
-		<span class="contents desk:hidden"
-			><BandButton icon="settings" label={t().shell.settings} href={resolve('/settings')} /></span
-		>
+		<!-- The desktop's Custom exercise (the phone's is the list's button). Settings is the
+		     phone's You tab and the desktop's side. -->
 		<span class="hidden desk:contents"
 			><BandButton
 				icon="plus"

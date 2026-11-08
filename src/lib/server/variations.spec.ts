@@ -269,7 +269,8 @@ describe('labels and lists', () => {
 						lengthCounts: 8,
 						recordings: 0,
 						hasSection: false,
-						hasLesson: false
+						hasLesson: false,
+						from: null
 					},
 					{
 						id: v2.id,
@@ -281,7 +282,8 @@ describe('labels and lists', () => {
 						lengthCounts: 8,
 						recordings: 1,
 						hasSection: false,
-						hasLesson: false
+						hasLesson: false,
+						from: null
 					}
 				]
 			}

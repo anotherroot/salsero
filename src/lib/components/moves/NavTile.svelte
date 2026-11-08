@@ -14,7 +14,8 @@
 		title,
 		meta,
 		status = false,
-		current = false
+		current = false,
+		onclick
 	}: {
 		href: string;
 		icon: IconName;
@@ -22,12 +23,14 @@
 		meta: string;
 		status?: boolean;
 		current?: boolean;
+		onclick?: (e: MouseEvent) => void;
 	} = $props();
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 <a
 	{href}
+	{onclick}
 	aria-current={current ? 'page' : undefined}
 	class="flex min-h-16 min-w-0 flex-1 items-center gap-2.5 rounded-2xl p-3 text-ink active:bg-step {current
 		? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]'

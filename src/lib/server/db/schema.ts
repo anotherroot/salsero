@@ -1412,6 +1412,34 @@ export const clonePairs = sqliteTable(
 	]
 );
 
+/** Keep in step, per copy: the switch and the four options (a missing row reads the defaults). */
+export const cloneSync = sqliteTable(
+	'clone_sync',
+	{
+		kind: text('kind').notNull(),
+		rowId: integer('row_id').notNull(),
+		on: integer('on', { mode: 'boolean' }).notNull(),
+		names: integer('names', { mode: 'boolean' }).notNull(),
+		small: integer('small', { mode: 'boolean' }).notNull(),
+		sections: integer('sections', { mode: 'boolean' }).notNull(),
+		media: integer('media', { mode: 'boolean' }).notNull(),
+		at: integer('at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.kind, t.rowId] })]
+);
+
+/** What a copy last held per field (hashes), so a save knows which fields it changed. */
+export const cloneMarks = sqliteTable(
+	'clone_marks',
+	{
+		kind: text('kind').notNull(),
+		rowId: integer('row_id').notNull(),
+		fieldsJson: text('fields_json').notNull(),
+		at: integer('at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.kind, t.rowId] })]
+);
+
 /** A person's own "same as": items of one kind that they treat as one. */
 export const twins = sqliteTable(
 	'twins',

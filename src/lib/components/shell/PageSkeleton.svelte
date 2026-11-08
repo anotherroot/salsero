@@ -200,7 +200,7 @@
 							><Icon name="chevron-left" size={24} /></span
 						>
 						<span class="flex size-11 items-center justify-center"
-							><Icon name="settings" size={24} /></span
+							><Icon name="calendar" size={24} /></span
 						>
 					</div>
 				</div>

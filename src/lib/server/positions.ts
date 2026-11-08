@@ -20,6 +20,7 @@ import { DANCES, isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { TEMPLATES } from '$lib/positions/templates';
 import type { ChangeValues, PositionInput, PositionSummary } from '$lib/types';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
+import { copiedFromPlaces } from './clones/genes';
 import { fieldChange, logChange } from './changes';
 import { reconcileEntries } from './entries';
 import type { ArchiveRestore } from './trash';
@@ -185,7 +186,8 @@ export function updatePosition(
 		const space = spaceOfRow(current, by?.actorId ?? '');
 		const name = input.name.trim();
 		if (!name) return { field: 'name', message: 'Give it a name.' } as NameRefusal;
-		if (nameTaken(tx, space, name, id)) return nameRefusal(tx, space, name);
+		if (fold(name) !== fold(current.name) && nameTaken(tx, space, name, id))
+			return nameRefusal(tx, space, name);
 		const row = tx
 			.update(positions)
 			.set(columns(current.dance, input, name, validPicture(tx, id, input.pictureSpotId)))
@@ -364,4 +366,15 @@ export function positionSummary(row: PositionRow, viewerSpace: Space): PositionS
 		teamId: isTeam(viewerSpace) ? null : row.teamId,
 		archived: row.archivedAt !== null
 	};
+}
+
+/** `rows` with where each copy came from (`copiedFromPlaces`), for a picker that draws a same name apart. */
+export function withCopiedFrom<T extends PositionSummary>(db: Db, userId: string, rows: T[]): T[] {
+	const from = copiedFromPlaces(
+		db,
+		userId,
+		'position',
+		rows.map((r) => r.id)
+	);
+	return rows.map((r) => ({ ...r, copiedFrom: from.get(r.id) ?? null }));
 }

@@ -29,31 +29,56 @@ export function levelShown(level: Level | null | undefined): Level {
 	return level ?? 'all';
 }
 
+/** The phone's tabs per level. Above Follow my class the Groups tab is You (`tabsFor`). */
 const TAB_IDS: Record<Level, readonly Tab['id'][]> = {
-	follow: ['today', 'groups'],
-	own: ['today', 'lessons', 'groups', 'music'],
-	all: ['today', 'moves', 'lessons', 'groups', 'music']
+	follow: ['today', 'groups', 'you'],
+	own: ['today', 'lessons', 'music', 'groups'],
+	all: ['today', 'moves', 'lessons', 'music', 'groups']
 };
 
-/** Whether the Groups tab is My class at this level (Follow my class): its name, not its route. */
-export function myClassTab(level: Level): boolean {
-	return level === 'follow';
-}
-
-/** `tabs()` filtered for a level, in that order. At Follow my class, Groups is "My class": same route and icon. */
+/**
+ * The phone's tab bar: `tabs()` filtered for a level, in that order. At Follow
+ * my class Groups is "My class" (same route and icon) and You is its own tab;
+ * above it Groups is "You", with the person icon: the groups, then the settings.
+ */
 export function tabsFor(level: Level): readonly Tab[] {
+	const w = t().shell.tabs;
 	return tabs()
 		.filter((tab) => TAB_IDS[level].includes(tab.id))
+		.map((tab) => {
+			if (tab.id !== 'groups') return tab;
+			return level === 'follow'
+				? { ...tab, label: w.myClass }
+				: { ...tab, label: w.you, icon: 'solo' as const };
+		});
+}
+
+/**
+ * The desktop side's tabs: the phone's without You (the side has Settings at its
+ * foot), and Groups keeps its own name and icon ("My class" at Follow my class).
+ */
+export function sideTabsFor(level: Level): readonly Tab[] {
+	return tabs()
+		.filter((tab) => tab.id !== 'you' && TAB_IDS[level].includes(tab.id))
 		.map((tab) =>
-			myClassTab(level) && tab.id === 'groups' ? { ...tab, label: t().shell.tabs.myClass } : tab
+			level === 'follow' && tab.id === 'groups' ? { ...tab, label: t().shell.tabs.myClass } : tab
 		);
+}
+
+/**
+ * Where You is for a level: its own page at Follow my class, the Groups list
+ * (whose tab is You) above it. Settings' and My count's Back go there.
+ */
+export function youPath(level: Level, dance: string): string {
+	return level === 'follow' ? `/${dance}/you` : `/${dance}/groups`;
 }
 
 /**
  * The tab to light, given the one the path maps to (`tabFor`). At Follow my
  * class the Lessons tab is hidden, so a class's (group's) lesson lights My
  * class, the tab every route to it comes from (ruling R13); a person's own
- * lesson lights none.
+ * lesson lights none. Above Follow my class `/[dance]/you` (not a tab there)
+ * lights You, which is the Groups tab.
  */
 export function litAt(
 	lit: Tab['id'] | 'settings' | null,
@@ -61,6 +86,7 @@ export function litAt(
 	groupLesson: boolean
 ): Tab['id'] | 'settings' | null {
 	if (level === 'follow' && lit === 'lessons' && groupLesson) return 'groups';
+	if (level !== 'follow' && lit === 'you') return 'groups';
 	return lit;
 }
 

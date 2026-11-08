@@ -114,8 +114,8 @@ describe('groupsTabLabel', () => {
 		expect(groupsTabLabel(true)).toBe('Groups, new in your groups');
 	});
 	it('uses the tab’s own word at Follow my class', () => {
-		expect(groupsTabLabel(false, true)).toBe('My class');
-		expect(groupsTabLabel(true, true)).toBe('My class, something new');
+		expect(groupsTabLabel(false, 'My class')).toBe('My class');
+		expect(groupsTabLabel(true, 'My class')).toBe('My class, something new');
 	});
 });
 
@@ -264,8 +264,8 @@ describe('the group page and its tab in Slovenian', () => {
 		withLocale('sl', () => {
 			expect(groupsTabLabel(false)).toBe('Skupine');
 			expect(groupsTabLabel(true)).toBe('Skupine, novo v vaših skupinah');
-			expect(groupsTabLabel(false, true)).toBe('Moj tečaj');
-			expect(groupsTabLabel(true, true)).toBe('Moj tečaj, nekaj novega');
+			expect(groupsTabLabel(false, 'Moj tečaj')).toBe('Moj tečaj');
+			expect(groupsTabLabel(true, 'Moj tečaj')).toBe('Moj tečaj, nekaj novega');
 		});
 	});
 

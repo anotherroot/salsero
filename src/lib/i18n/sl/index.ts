@@ -48,6 +48,7 @@
 //   Mark point / Start section (player)   Označi točko / Začni odsek
 //   Loop, Looping (a section)             Ponavljaj, Se ponavlja
 //   Mirror, Mirrored (the picture)        Zrcali, Zrcaljeno
+//   You (the tab: settings, and groups)   Jaz
 //   Full video / Lesson video             Cel video / Video lekcije (the default title: Videoposnetek)
 //   a take (My count), a bar (of counts)  posnetek, takt (Takt 2 od 4)
 //   Storage (Settings), the admin         prostor, skrbnik (the admin's section: Skrbništvo)

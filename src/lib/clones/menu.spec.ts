@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { cloneMenuItems, hasMenu, type CloneSheet } from './menu';
-import type { CopyOffer, DetachOffer, DropOptions, MoveOffer, TwinOffer } from '$lib/types';
+import { DEFAULT_SYNC } from './sync';
+import type {
+	CopyOffer,
+	DetachOffer,
+	DropOptions,
+	KeepView,
+	MoveOffer,
+	TwinOffer
+} from '$lib/types';
 
 const COPY: CopyOffer = { kind: 'position', title: 'Cerrada', fromMine: true, targets: [] };
 const DETACH: DetachOffer = { place: 'Sreda 17:30', group: false };
@@ -13,6 +21,7 @@ const DROP: DropOptions = {
 };
 const TWIN: TwinOffer = { kind: 'position', title: 'Cerrada', candidates: [] };
 const MOVE: MoveOffer = { title: 'Week 3', targets: [] };
+const SYNC: KeepView = { settings: DEFAULT_SYNC, editable: true, mode: 'sync' };
 
 describe('cloneMenuItems', () => {
 	it('offers each copy action exactly when its offer is set, in order', () => {
@@ -33,6 +42,17 @@ describe('cloneMenuItems', () => {
 		);
 		expect(items.map((i) => i.key)).toEqual(['copy', 'sameAs', 'move', 'detach', 'drop']);
 		expect(items.map((i) => i.icon)).toEqual(['copy', 'link', 'move-to', 'unlink', 'undo']);
+	});
+
+	it('Sync… comes first when the page offers it (it replaces Compare and Send mine…)', () => {
+		const items = cloneMenuItems({ sync: SYNC, copy: COPY, drop: DROP }, () => {});
+		expect(items.map((i) => [i.key, i.label, i.icon])).toEqual([
+			['sync', 'Sync…', 'refresh'],
+			['copy', 'Copy to…', 'copy'],
+			['drop', 'Drop my copy', 'undo']
+		]);
+		expect(cloneMenuItems({ sync: null }, () => {})).toEqual([]);
+		expect(hasMenu([], { sync: SYNC })).toBe(true);
 	});
 
 	it('opens its sheet', () => {

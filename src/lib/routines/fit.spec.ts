@@ -6,6 +6,7 @@ import {
 	canBridge,
 	anchorBefore,
 	anchorText,
+	groupTags,
 	pickList,
 	variationName,
 	type Anchor,
@@ -372,5 +373,21 @@ describe('a group move of the same name', () => {
 			[3, undefined],
 			[9, 'Salsa Tuesdays']
 		]);
+	});
+});
+
+describe('same names in the routine picker', () => {
+	it('groupTags tags the copy of two same-named variations, not a lone one', () => {
+		const list = pickList(
+			[
+				fig(1, 'Enchufla · Basic', {}, 3),
+				fig(2, 'Enchufla · Basic', { from: 'Sreda 17:30' }, 3),
+				fig(3, 'Enchufla · Doble', { from: 'Sreda 17:30' }, 3)
+			],
+			{ kind: 'none' },
+			all
+		);
+		expect(list.figures).toHaveLength(1);
+		expect([...groupTags(list.figures[0]).entries()]).toEqual([[2, '· Sreda 17:30']]);
 	});
 });

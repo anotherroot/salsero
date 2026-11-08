@@ -51,6 +51,11 @@ export const settings = {
 		note: 'For this browser or phone only.'
 	},
 	getAppSub: "For your phone's home screen",
+	/** The You page's short list (YouSettings): the rest is Settings' own words. */
+	you: {
+		inApp: 'In the Android app',
+		allSettings: 'All settings'
+	},
 	android: {
 		label: 'Android app',
 		version: (v: string | number): string => `Version ${v}`,

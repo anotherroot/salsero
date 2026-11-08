@@ -100,6 +100,7 @@ Slovenian, without her choosing or understanding anything in English.
   | Count, My count | štetje, moje štetje |
   | Copy, twins | kopija, dvojčka |
   | Levels: Follow my class / Practise and keep my own / Everything | Sledim svojemu tečaju / Vadim in imam svoje / Vse |
+  | You (the tab: the settings, and above Follow my class the groups) | Jaz |
 
   Where a word in the table reads badly in a sentence, the builder may pick
   another and add it to the table.

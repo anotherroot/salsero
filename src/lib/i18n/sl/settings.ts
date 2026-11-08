@@ -45,6 +45,10 @@ export const settings: Catalog['settings'] = {
 		note: 'Velja le za ta brskalnik ali telefon.'
 	},
 	getAppSub: 'Za začetni zaslon telefona',
+	you: {
+		inApp: 'V aplikaciji za Android',
+		allSettings: 'Vse nastavitve'
+	},
 	android: {
 		label: 'Aplikacija za Android',
 		version: (v) => `Različica aplikacije ${v}`,

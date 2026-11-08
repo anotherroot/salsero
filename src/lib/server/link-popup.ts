@@ -33,7 +33,8 @@ import {
 	listGroupVariations,
 	listMoveTargets,
 	listVersions,
-	variationNameTaken
+	variationNameTaken,
+	withFigureOrigins
 } from './figures';
 import { createCustomExercise } from './exercises';
 import { actorOf, inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
@@ -293,24 +294,27 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	// Twins show as one (board C7): a set is one row, linked when any of it is,
 	// near when any of it is. A group's section folds nothing.
 	const groupOf = new Map(versions.map((v) => [v.id, v.groupId]));
-	const variations = foldVersions(db, space, versions).map((v) => {
-		const behind = v.twins ?? [];
-		const ids = [v.id, ...behind.map((t) => t.id)];
-		return {
-			option: {
-				target: { figureId: v.id },
-				label: v.label,
-				drill: false,
-				figure: v.figure,
-				name: v.name,
-				linked: ids.some((id) => taken.has(key({ figureId: id }))),
-				...(v.team ? { team: v.team } : {}),
-				...(behind.length > 0 ? { twins: behind } : {})
-			} as LinkOption,
-			groupId: v.groupId as number | null,
-			groups: ids.map((id) => groupOf.get(id) ?? null)
-		};
-	});
+	const variations = withFigureOrigins(db, actorOf(space), foldVersions(db, space, versions)).map(
+		(v) => {
+			const behind = v.twins ?? [];
+			const ids = [v.id, ...behind.map((t) => t.id)];
+			return {
+				option: {
+					target: { figureId: v.id },
+					label: v.label,
+					drill: false,
+					figure: v.figure,
+					name: v.name,
+					linked: ids.some((id) => taken.has(key({ figureId: id }))),
+					from: v.from,
+					...(v.team ? { team: v.team } : {}),
+					...(behind.length > 0 ? { twins: behind } : {})
+				} as LinkOption,
+				groupId: v.groupId as number | null,
+				groups: ids.map((id) => groupOf.get(id) ?? null)
+			};
+		}
+	);
 	const ownDrills: { id: number; name: string; team?: TeamRef }[] = point
 		? []
 		: db

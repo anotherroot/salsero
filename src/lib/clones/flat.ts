@@ -119,7 +119,7 @@ export function setPrefixOf(key: string): string | null {
 	return Object.hasOwn(SET_LABELS, prefix) && key.length > i + 1 ? prefix : null;
 }
 
-/** What the compare sheet calls a field. Throws on a key outside the grammar. */
+/** What the Sync sheet calls a field. Throws on a key outside the grammar. */
 export function fieldLabel(key: string, show: string): string {
 	if (Object.hasOwn(ROOT_LABELS, key)) return ROOT_LABELS[key];
 	const prefix = setPrefixOf(key);
