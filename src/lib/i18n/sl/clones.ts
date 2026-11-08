@@ -38,7 +38,7 @@ export const clones: Catalog['clones'] = {
 	groupSlotNote: (figures, team) =>
 		`${listed(figures)} · iz skupine: ${team}. Če skupino zapustite, obdržite kopijo in ta kombinacija deluje naprej.`,
 	mine: {
-		title: (label) => `Želite svojo kopijo: ${label}?`,
+		title: (label) => `Želite narediti svojo kopijo: ${label}?`,
 		sub: 'Ko urejate, nastane vaša kopija. Tista iz tečaja ostane nespremenjena.',
 		restore: 'Svojo kopijo ste že imeli. Jo želite obnoviti?',
 		archivedSong:
@@ -58,6 +58,7 @@ export const clones: Catalog['clones'] = {
 			`Lekcije in videi, ki so nanj povezani. Vidite jih na zavihku skupine: ${team}.`,
 		staysFigure:
 			'Posnetki in njihovi odseki. Še vedno jih vidite v svoji kopiji in lahko kakšnega prevzamete (takrat zaseda vaš prostor).',
+		// Said before the copy is made: the perfective present is its future ("it will take").
 		size: (size) => `Zasede ${size} vašega prostora`,
 		// A list after the colon, each in the nominative: nothing agrees with it.
 		switchNote: (r) => {
@@ -132,11 +133,11 @@ export const clones: Catalog['clones'] = {
 		onlyInYours: (fields, counted) => `Samo v vaši kopiji: ${listed([...fields, ...counted])}.`,
 		goesWithCopy: 'To gre v arhiv z vašo kopijo.',
 		youEdit: (place) => `To kopijo lahko urejate: ${place}.`,
-		useInstead: 'Namesto nje uporabi',
-		copiedHere: 'Od tod ste jo kopirali',
+		useInstead: 'Namesto nje uporabite',
+		copiedHere: 'Vaša kopija je narejena od tod',
 		draft: 'Še ni objavljena: vaše vadenje ostane pri vaši kopiji.',
-		cantFollow: 'Ni v lekciji, ki ste jo dodali: vadenje ne more slediti',
-		addToo: (lesson) => `Dodaj tudi lekcijo: ${lesson}`,
+		cantFollow: 'Ni v nobeni lekciji, ki ste jo dodali, zato vadenje ne more slediti',
+		addToo: (lesson) => `Dodajte tudi lekcijo: ${lesson}`,
 		button: 'Opusti svojo kopijo',
 		syncFirst: 'Najprej uskladi',
 		toast: (place) => `Nazaj na kopiji · ${place}. Vaša kopija je arhivirana.`,
@@ -149,7 +150,7 @@ export const clones: Catalog['clones'] = {
 		title: (place) => `Želite nehati slediti: ${place}?`,
 		titleGroup: 'Želite odklopiti od kopij?',
 		mine: 'Vaša kopija ostane vaša, kakršna je. Še naprej je prikazana skupaj z njihovo, kot dvojčka.',
-		noMore: 'Nič več obvestil o razlikah in nobenega usklajevanja, ki bi ga sprožili pomotoma.',
+		noMore: 'Brez obvestil o razlikah in brez nehotenega usklajevanja.',
 		group: (kind) =>
 			`V skupini »Odklopi« le prekine povezavo s kopijami: ostane ${KIND[kind]} skupine.`,
 		failed: 'Odklop ni uspel. Poskusite znova.',
@@ -189,9 +190,9 @@ export const clones: Catalog['clones'] = {
 		// A neuter participle first, the copies after the colon: nothing agrees with a name.
 		changedBy: (names, kind) =>
 			`${kind === 'add' ? 'dodano' : kind === 'remove' ? 'odstranjeno' : 'spremenjeno'}: ${listed(names)}`,
-		removeChoice: (places) => `Odstrani iz: ${places}`,
-		addBox: (places) => `Dodaj tudi v: ${places}`,
-		removeBox: (places) => `Odstrani tudi iz: ${places}`,
+		removeChoice: (places) => `Odstranitev iz: ${places}`,
+		addBox: (places) => `Dodajte tudi v: ${places}`,
+		removeBox: (places) => `Odstranite tudi iz: ${places}`,
 		removed: 'odstranjeno',
 		added: (quoted) => `dodano ${quoted}`,
 		quote: (text) => `»${text}«`,

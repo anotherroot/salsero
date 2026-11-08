@@ -725,7 +725,7 @@ describe('in Slovenian', () => {
 
 	it('Make it mine: the sheet’s words', () => {
 		expect(sl(() => makeMineTitle('Setenta · Básico'))).toBe(
-			'Želite svojo kopijo: Setenta · Básico?'
+			'Želite narediti svojo kopijo: Setenta · Básico?'
 		);
 		expect(sl(makeMineSub)).toBe(
 			'Ko urejate, nastane vaša kopija. Tista iz tečaja ostane nespremenjena.'
@@ -845,14 +845,14 @@ describe('in Slovenian', () => {
 			'Samo v vaši kopiji: opombe. To kopijo lahko urejate: Sreda 17:30.'
 		);
 		expect(sl(() => cantFollow('Teden 2'))).toBe(
-			'Ni v lekciji, ki ste jo dodali: vadenje ne more slediti · Dodaj tudi lekcijo: Teden 2'
+			'Ni v nobeni lekciji, ki ste jo dodali, zato vadenje ne more slediti · Dodajte tudi lekcijo: Teden 2'
 		);
 		expect(sl(() => cantFollow(null, 'song'))).toBe(
 			'Še ni objavljena: vaše vadenje ostane pri vaši kopiji.'
 		);
 		expect(
 			sl(() => dropChoiceMeta({ clonedFrom: true, practiceFollows: true, addLesson: null }, false))
-		).toBe('Od tod ste jo kopirali');
+		).toBe('Vaša kopija je narejena od tod');
 		expect(sl(() => dropPlace('Sreda 17:30'))).toBe('Sreda 17:30');
 		expect(sl(() => droppedToast('Sreda 17:30'))).toBe(
 			'Nazaj na kopiji · Sreda 17:30. Vaša kopija je arhivirana.'
@@ -860,7 +860,7 @@ describe('in Slovenian', () => {
 		expect(sl(() => [dropButton(), syncFirst(), useInstead(), dropGone()])).toEqual([
 			'Opusti svojo kopijo',
 			'Najprej uskladi',
-			'Namesto nje uporabi',
+			'Namesto nje uporabite',
 			'Te kopije ni več mogoče uporabiti. Naložite znova in izberite še enkrat.'
 		]);
 	});
@@ -871,6 +871,7 @@ describe('in Slovenian', () => {
 		expect(sl(() => detachGroup('routine'))).toBe(
 			'V skupini »Odklopi« le prekine povezavo s kopijami: ostane kombinacija skupine.'
 		);
+		expect(sl(detachNoMore)).toBe('Brez obvestil o razlikah in brez nehotenega usklajevanja.');
 		expect(sl(() => [detachButton(), detachFailed()])).toEqual([
 			'Odklopi',
 			'Odklop ni uspel. Poskusite znova.'

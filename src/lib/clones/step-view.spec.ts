@@ -453,9 +453,9 @@ describe('in Slovenian', () => {
 		);
 		expect(sl(() => changedBy(['Sreda 17:30'], 'add'))).toBe('dodano: Sreda 17:30');
 		expect(sl(() => changedBy(['Sreda 17:30'], 'remove'))).toBe('odstranjeno: Sreda 17:30');
-		expect(sl(() => removeChoice(['Yours']))).toBe('Odstrani iz: vaša kopija');
-		expect(sl(() => addBox(['Yours', 'A', 'B']))).toBe('Dodaj tudi v: vaša kopija, A in B');
-		expect(sl(() => removeBox(['Sreda 17:30']))).toBe('Odstrani tudi iz: Sreda 17:30');
+		expect(sl(() => removeChoice(['Yours']))).toBe('Odstranitev iz: vaša kopija');
+		expect(sl(() => addBox(['Yours', 'A', 'B']))).toBe('Dodajte tudi v: vaša kopija, A in B');
+		expect(sl(() => removeBox(['Sreda 17:30']))).toBe('Odstranite tudi iz: Sreda 17:30');
 	});
 
 	it('Update mine’s change and what stays', () => {
