@@ -42,7 +42,6 @@ export const player: Catalog['player'] = {
 			'napovedane različice',
 			'napovedanih različic'
 		]),
-	loggedAsSet: 'shranjeno kot vnos',
 	saveTitle: 'Shrani vadenje',
 	unsavedLabel: 'To vadenje',
 	exercise: 'Vaja',

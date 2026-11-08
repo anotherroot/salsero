@@ -770,10 +770,11 @@ function copyLinks(tx: Db, from: LinkOwner, to: LinkOwner, now: number): void {
 				? eq(links.exerciseId, from.exerciseId)
 				: eq(links.lessonId, from.lessonId);
 	const rows = tx.select().from(links).where(where).orderBy(asc(links.id)).all();
-	if (rows.length === 0) return;
-	tx.insert(links)
-		.values(rows.map((l) => ({ ...to, url: l.url, title: l.title, createdAt: now })))
-		.run();
+	// One row per insert: each mints its own id (src/lib/server/db/ids.ts).
+	for (const l of rows)
+		tx.insert(links)
+			.values({ ...to, url: l.url, title: l.title, createdAt: now })
+			.run();
 }
 
 /**
@@ -1034,6 +1035,9 @@ function copyDrill(m: Mapper, sourceId: number, gene: string): Copied {
 			practiceMode: src.practiceMode,
 			countBpm: src.countBpm,
 			practiceJson: src.practiceJson,
+			comesBack: src.comesBack,
+			warmup: false,
+			warmupOrder: null,
 			songId: null,
 			active: !practised(tx, into, { drillId: src.id }),
 			createdAt: now,
@@ -1090,6 +1094,9 @@ function copySong(m: Mapper, sourceId: number, gene: string): Copied {
 			anchorsJson: src.anchorsJson,
 			tempoFactor: src.tempoFactor,
 			sampleStartS: src.sampleStartS,
+			sectionsJson: src.sectionsJson,
+			startFoundS: src.startFoundS,
+			startS: src.startS,
 			sizeBytes: src.sizeBytes,
 			createdAt: now,
 			geneId: gene,

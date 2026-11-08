@@ -50,10 +50,10 @@ describe('practiceLine', () => {
 		}));
 	it('due this week names the day', () =>
 		expect(practiceLine(st('2026-11-02', '2026-10-28'), TODAY, false)?.text).toBe('Due Monday'));
-	it('late counts calendar days', () =>
+	it('past its day reads Due today, never late', () =>
 		expect(practiceLine(st('2026-10-29', '2026-10-26'), TODAY, false)).toEqual({
-			text: '2 days late',
-			tone: 'status'
+			text: 'Due today',
+			tone: null
 		}));
 	it('no state says nothing', () => expect(practiceLine(null, TODAY, false)).toBeNull());
 	it('a paused exercise says so, not when it is due', () =>

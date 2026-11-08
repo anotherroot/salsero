@@ -24,9 +24,9 @@ describe('comingHeading', () => {
 		});
 	});
 
-	it('Waiting and Paused have no date and no distance', () => {
+	it('Next in line and Paused have no date and no distance', () => {
 		expect(comingHeading(group('waiting', null, null), '2026-11-05')).toEqual({
-			title: 'Waiting',
+			title: 'Next in line',
 			away: null
 		});
 		expect(comingHeading(group('paused', null, null), '2026-11-05')).toEqual({
@@ -46,9 +46,9 @@ describe('in Slovenian', () => {
 			sl(() => comingHeading(group('2027-01-14', '2027-01-14', null), '2026-11-05')).title
 		).toBe('čet, 14. jan. 2027');
 	});
-	it('Waiting and Paused', () => {
+	it('Next in line and Paused', () => {
 		expect(sl(() => comingHeading(group('waiting', null, null), '2026-11-05')).title).toBe(
-			'Čakajo na vrsto'
+			'Naslednje na vrsti'
 		);
 		expect(sl(() => comingHeading(group('paused', null, null), '2026-11-05')).title).toBe(
 			'Na premoru'

@@ -48,6 +48,7 @@ import type {
 	TeamRef
 } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
+import { serverNow } from '$lib/server/server-clock';
 
 export interface FigureInput {
 	/** The VARIATION's name; the figure's is `figureName` on `createFigure`. */
@@ -249,7 +250,7 @@ export function createFigure(
 				subject: 'figure',
 				after: { name: figureName }
 			},
-			Date.now()
+			serverNow()
 		);
 		return { figure, group };
 	});
@@ -286,7 +287,7 @@ export function createVariationIn(
 			})
 			.returning()
 			.get();
-		logVariation(tx, actingIn(group, by), made, Date.now());
+		logVariation(tx, actingIn(group, by), made, serverNow());
 		return made;
 	});
 }
@@ -341,7 +342,7 @@ export function createVariationFrom(
 					.run();
 			}
 		}
-		logVariation(tx, actingIn(copy, by), copy, Date.now());
+		logVariation(tx, actingIn(copy, by), copy, serverNow());
 		return copy;
 	});
 }
@@ -357,7 +358,7 @@ export function updateVariation(
 	id: number,
 	input: FigureInput,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ): Figure | null {
 	return db.transaction((tx) => {
@@ -402,7 +403,7 @@ export function renameFigure(
 	groupId: number,
 	name: string,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ): boolean {
 	return db.transaction((tx) => {
@@ -643,7 +644,7 @@ export function moveVariation(db: Db, id: number, to: MoveTo, by?: string): Move
 		}
 		tx.update(figures).set({ groupId: target, name }).where(eq(figures.id, id)).run();
 		syncExerciseNames(tx, eq(figures.id, id));
-		const now = Date.now();
+		const now = serverNow();
 		// Filed under the figure it joined: that is where its page now leads.
 		logChange(
 			tx,
@@ -906,7 +907,7 @@ function logRecording(
 		tx,
 		actingIn(row, by),
 		{ ...at, verb, subject: 'recording', subjectId: rec.id, trashId },
-		Date.now()
+		serverNow()
 	);
 }
 
@@ -920,7 +921,7 @@ function logRecording(
  * A group's recording goes to Recently deleted first, with its sections and
  * its file: `trashId` is set and the caller leaves the file on disk (risk 19).
  */
-export function deleteRecording(db: Db, id: number, by?: string, now = Date.now()) {
+export function deleteRecording(db: Db, id: number, by?: string, now = serverNow()) {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { recordingId: id });
 		const spots = tx.select().from(videoSpots).where(eq(videoSpots.recordingId, id)).all();

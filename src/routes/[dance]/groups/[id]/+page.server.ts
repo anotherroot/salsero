@@ -27,6 +27,7 @@ import { realCloneFiles } from '$lib/server/clones/files';
 import { codeLink, NAME_REFUSAL } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /** How many things a class puts on Today: `addOffer`'s ticked items (the default picks). */
 function practiseCount(db: Db, userId: string, lessonId: number): number {
 	return addOffer(db, userId, lessonId)?.items.filter((i) => i.ticked).length ?? 0;
@@ -82,7 +83,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 						limitBytes: teamLimitBytes(db, team.id)
 					}
 				: null,
-		today: localDay(Date.now(), locals.user!.timezone)
+		today: localDay(serverNow(), locals.user!.timezone)
 	};
 };
 
@@ -94,7 +95,7 @@ export const actions: Actions = {
 		if (team.deletedAt !== null) throw error(404, 'No such group');
 		const read = readNewLesson(
 			await request.formData(),
-			localDay(Date.now(), locals.user!.timezone)
+			localDay(serverNow(), locals.user!.timezone)
 		);
 		if ('refused' in read) return read.refused;
 		const { lesson } = createLesson(db, space, read.input);
@@ -112,7 +113,7 @@ export const actions: Actions = {
 		const { lessonId, picks } = readAdd(await request.formData());
 		const lesson = lessonId === undefined ? null : getLessonRow(db, lessonId);
 		if (!lesson || lesson.teamId !== team.id) throw error(404, 'No such lesson');
-		if (!addLesson(db, space.actorId, lesson.id, picks, Date.now())) {
+		if (!addLesson(db, space.actorId, lesson.id, picks, serverNow())) {
 			throw error(404, 'No such lesson');
 		}
 		return { action: 'add', ok: true };
@@ -132,7 +133,7 @@ export const actions: Actions = {
 			lesson && lesson.teamId === team.id ? addOffer(db, space.actorId, lesson.id) : null;
 		if (!lesson || !offer)
 			return fail(404, { action: 'addNow', message: t().groups.page.noLesson });
-		if (!addLesson(db, space.actorId, lesson.id, defaultPicks(offer), Date.now())) {
+		if (!addLesson(db, space.actorId, lesson.id, defaultPicks(offer), serverNow())) {
 			return fail(404, { action: 'addNow', message: t().groups.page.noLesson });
 		}
 		return { action: 'addNow', ok: true };
@@ -180,7 +181,7 @@ export const actions: Actions = {
 		if (!choice) return fail(400, { action: 'leave', message: t().groups.page.chooseKeep });
 		let left: 'left' | 'owner';
 		try {
-			left = await leaveTeam(db, team.id, space.actorId, choice, realCloneFiles(), Date.now());
+			left = await leaveTeam(db, team.id, space.actorId, choice, realCloneFiles(), serverNow());
 		} catch (err) {
 			console.error(`[groups] leaving group ${team.id} failed for ${space.actorId}`, err);
 			return fail(500, { action: 'leave', message: t().groups.page.keepFailed });
@@ -194,14 +195,14 @@ export const actions: Actions = {
 	delete: ({ params, locals }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'owner');
-		if (!deleteTeam(db, team.id, space.actorId, Date.now())) throw error(404, 'No such group');
+		if (!deleteTeam(db, team.id, space.actorId, serverNow())) throw error(404, 'No such group');
 		throw redirect(303, `/${team.dance}/groups`);
 	},
 
 	restore: ({ params, locals }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'owner');
-		const result = restoreTeam(db, team.id, space.actorId, Date.now());
+		const result = restoreTeam(db, team.id, space.actorId, serverNow());
 		if (result === 'refused') throw error(404, 'No such group');
 		if (result === 'name') {
 			return fail(400, {

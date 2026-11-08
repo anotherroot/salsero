@@ -81,9 +81,9 @@ describe('what the Practice page derives', () => {
 		).toBeUndefined();
 	});
 	it('sums the run up, dropping the calls when nothing was called by design', () => {
-		expect(runSummary(222, 12)).toBe('3:42 · 12 figures called · logged as a set');
-		expect(runSummary(60, 1)).toBe('1:00 · 1 figure called · logged as a set');
-		expect(runSummary(252, null)).toBe('4:12 · logged as a set');
+		expect(runSummary(222, 12)).toBe('3:42 · 12 figures called');
+		expect(runSummary(60, 1)).toBe('1:00 · 1 figure called');
+		expect(runSummary(252, null)).toBe('4:12');
 	});
 	it('says why Play cannot start', () => {
 		const base = { source: 'song', songId: 4, ready: true, error: null, starting: false } as const;
@@ -135,7 +135,7 @@ describe('what the Practice page derives', () => {
 		expect(exerciseLine({ source: 'routine', state, today })).toBe('Routine · Due today');
 		expect(
 			exerciseLine({ source: 'figure', state: { ...state, dueDay: '2026-10-29' }, today })
-		).toBe('Figure practice · 2 days late');
+		).toBe('Figure practice · Due today');
 		expect(exerciseLine({ source: 'figure', state: { ...state, lastDay: null }, today })).toBe(
 			'Figure practice · New'
 		);
@@ -237,8 +237,8 @@ describe('the Practice page in Slovenian', () => {
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3, 4, 5] }))).toBe(
 			'Prva · 5 različic'
 		);
-		expect(sl(() => runSummary(222, 3))).toBe('3:42 · 3 napovedane različice · shranjeno kot vnos');
-		expect(sl(() => runSummary(60, 1))).toBe('1:00 · 1 napovedana različica · shranjeno kot vnos');
+		expect(sl(() => runSummary(222, 3))).toBe('3:42 · 3 napovedane različice');
+		expect(sl(() => runSummary(60, 1))).toBe('1:00 · 1 napovedana različica');
 	});
 
 	it('writes a speed with a decimal comma', () => {

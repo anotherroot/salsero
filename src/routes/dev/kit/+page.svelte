@@ -221,7 +221,7 @@
 				<h2 class={SECTION_LABEL}>Hero card</h2>
 				<HeroCard title="Start session" meta="3 due · 4 not yet due" />
 				<HeroCard title="Start session" meta="No active exercises · 3 inactive" state="disabled" />
-				<HeroCard title="All done for today" meta="5 exercises · 7 sets" state="done" />
+				<HeroCard title="All done for today" meta="5 exercises · 7 times" state="done" />
 				<HeroCard title="As a link" href="/dev/kit" />
 			</section>
 
@@ -717,11 +717,11 @@
 			<button
 				type="button"
 				class={button('secondary', 'sm', true)}
-				onclick={() => (tallToast = { id: ++toastId, message: 'Set deleted', action: 'Undo' })}
+				onclick={() => (tallToast = { id: ++toastId, message: 'Day deleted', action: 'Undo' })}
 				>Show toast</button
 			>
 			<button type="button" class={button('primary', 'md', true)} onclick={() => (tallOpen = false)}
-				>Log set</button
+				>Done</button
 			>
 		{/snippet}
 	</Sheet>
@@ -772,7 +772,7 @@
 	{#if showReload}<ReloadBar />{/if}
 
 	{#if showBar}<BottomBar
-			><button type="button" class={button('primary', 'md', true)}>Log set</button></BottomBar
+			><button type="button" class={button('primary', 'md', true)}>Done</button></BottomBar
 		>{/if}
 
 	<Toast

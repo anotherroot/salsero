@@ -22,3 +22,24 @@ export function claimBottom(active: () => boolean): void {
 		return () => untrack(() => claims--);
 	});
 }
+
+/**
+ * Whether a bar is pinned at the foot of the page (`BottomBar`, mounted). A
+ * toast drawn by a layout does not know the page under it, so it asks this to
+ * sit above the bar rather than on it (`SavedToast`). Bars count, as claims do.
+ */
+let pins = $state(0);
+
+export const pinned = {
+	get bar() {
+		return pins > 0;
+	}
+};
+
+/** Call during a pinned bar's init: counts it while it is mounted. */
+export function pinBar(): void {
+	$effect(() => {
+		untrack(() => pins++);
+		return () => untrack(() => pins--);
+	});
+}

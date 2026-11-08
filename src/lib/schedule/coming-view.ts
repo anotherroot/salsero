@@ -3,7 +3,7 @@ import { classDayLabel } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import type { ComingGroup } from './coming-up';
 
-/** "Sun 8 Nov" (with the year when it is not this year) and "in 3 days"; "Waiting" and "Paused" have neither. */
+/** "Sun 8 Nov" (with the year when it is not this year) and "in 3 days"; "Next in line" and "Paused" have neither. */
 export function comingHeading(
 	group: Pick<ComingGroup<unknown>, 'key' | 'day' | 'away'>,
 	today: string

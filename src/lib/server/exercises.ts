@@ -1,17 +1,12 @@
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import {
-	and,
-	asc,
-	count,
-	desc,
-	eq,
-	gte,
-	inArray,
-	isNotNull,
-	isNull,
-	lt,
-	sql,
-	sum
-} from 'drizzle-orm';
+	FACES,
+	effectiveComesBack,
+	parseComesBack,
+	comesBackWords,
+	serializeComesBack,
+	type ComesBack
+} from '$lib/schedule/comes-back';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
@@ -25,14 +20,24 @@ import {
 	songs,
 	teams
 } from './db/schema';
-import { inSpace, ownerValues, type Space, type Wall } from './scope';
+import { inSpace, isTeam, ownerValues, type Space, type Wall } from './scope';
 import { reconcileEntries, reviveEntries } from './entries';
 import { practiceSong } from './access';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import { deletedGroupName } from '$lib/exercises/today';
-import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
+import { withLocale } from '$lib/i18n/current';
+import { localDay, noonOf } from '$lib/day/day';
+import type {
+	DaySet,
+	ExerciseItem,
+	ExerciseSummary,
+	HistorySet,
+	PickExercise,
+	SetSnapshot
+} from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * Every exercise that has not been archived, with its figure's partner flag
@@ -58,6 +63,10 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 			active: exercises.active,
 			notes: exercises.notes,
 			createdAt: exercises.createdAt,
+			ownComesBack: exercises.comesBack,
+			drillComesBack: drills.comesBack,
+			warmup: exercises.warmup,
+			warmupOrder: exercises.warmupOrder,
 			teamId: sql<
 				number | null
 			>`coalesce(${lessons.teamId}, ${routines.teamId}, ${figures.teamId}, ${drills.teamId})`
@@ -86,11 +95,18 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 					.all()
 					.map((t) => [t.id, t.name] as [number, string])
 	);
-	return rows.map(({ teamId, ...r }) => ({
-		...r,
-		archived: false,
-		team: teamId === null ? null : { id: teamId, name: names.get(teamId) ?? '' }
-	}));
+	return rows.map(({ teamId, ownComesBack, drillComesBack, ...r }) => {
+		const own = parseComesBack(ownComesBack);
+		const teacher = r.source === 'added' ? parseComesBack(drillComesBack) : null;
+		return {
+			...r,
+			comesBack: effectiveComesBack(r.source, own, teacher),
+			comesBackOwn: own,
+			comesBackTeacher: teacher,
+			archived: false,
+			team: teamId === null ? null : { id: teamId, name: names.get(teamId) ?? '' }
+		};
+	});
 }
 
 /** Every live exercise of the dance as a picker offers it, by name. Nothing is linked. */
@@ -148,7 +164,18 @@ export interface SettingsInput {
 	everyDays?: number;
 	active: boolean;
 	notes: string | null;
+	/** The person's own Warm-up switch; a group's row never takes it. Undefined keeps. */
+	warmup?: boolean;
+	/**
+	 * Drills (`custom`, `added`) only. `'teacher'` clears an entry's own so it follows the
+	 * class drill again (anywhere else it just clears). Undefined keeps.
+	 */
+	comesBack?: ComesBack | 'teacher';
 }
+
+/** The column a Comes back setting is stored as: null = by how it went / follow the teacher. */
+const storedComesBack = (c: ComesBack | 'teacher') =>
+	c === 'teacher' ? null : serializeComesBack(c);
 
 /**
  * A drill in a person's or a group's space. It starts with no song, and a
@@ -156,17 +183,26 @@ export interface SettingsInput {
  * editor's song would play it to everyone (see `setPracticeSettings`).
  */
 export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
+	const { warmup, comesBack, ...rest } = input;
 	return db.transaction((tx) => {
 		const drill = tx
 			.insert(exercises)
-			.values({ ...input, source: 'custom', ...ownerValues(space), songId: null })
+			.values({
+				...rest,
+				source: 'custom',
+				...ownerValues(space),
+				songId: null,
+				// Warm-up is a person's own; a group's drill never holds it.
+				...(warmup && !isTeam(space) ? { warmup: true } : {}),
+				...(comesBack !== undefined ? { comesBack: storedComesBack(comesBack) } : {})
+			})
 			.returning()
 			.get();
 		logChange(
 			tx,
 			space,
 			{ ...ofDrill(drill.id), verb: 'add', subject: 'drill', after: { name: drill.name } },
-			Date.now()
+			serverNow()
 		);
 		return drill;
 	});
@@ -188,16 +224,23 @@ export function updateExercise(
 	id: number,
 	input: SettingsInput,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ) {
 	return db.transaction((tx) => {
 		const current = tx.select().from(exercises).where(eq(exercises.id, id)).get();
 		if (!current) return null;
 		const name = current.source === 'custom' && input.name ? input.name : current.name;
+		const { warmup, comesBack, ...rest } = input;
+		const isDrill = current.source === 'custom' || current.source === 'added';
 		const row = tx
 			.update(exercises)
-			.set({ ...input, name })
+			.set({
+				...rest,
+				name,
+				...(warmup !== undefined && current.teamId === null ? { warmup } : {}),
+				...(comesBack !== undefined && isDrill ? { comesBack: storedComesBack(comesBack) } : {})
+			})
 			.where(eq(exercises.id, id))
 			.returning()
 			.get();
@@ -205,9 +248,11 @@ export function updateExercise(
 			tx.update(exercises).set({ name }).where(eq(exercises.drillId, id)).run();
 		}
 		if (current.teamId !== null && row) {
-			const fields = (e: { name: string; notes: string | null }) => ({
+			const fields = (e: { name: string; notes: string | null; comesBack: string | null }) => ({
 				name: e.name,
-				notes: e.notes
+				notes: e.notes,
+				// History is English (not translated yet): its stored words are too.
+				comesBack: withLocale('en', () => comesBackWords(parseComesBack(e.comesBack) ?? FACES))
 			});
 			const change = fieldChange(fields(current), fields(row), 'drill');
 			if (change) logChange(tx, actingIn(current, by), { ...ofDrill(id), verb, ...change }, now);
@@ -339,12 +384,125 @@ export interface SetInput {
 	durationS: number | null;
 	reps: number | null;
 	rating: number | null;
-	note: string | null;
+	/** undefined: not posted — saveDay keeps the day's old note; '' or null clears it. */
+	note?: string | null;
 	playerJson: string | null;
 }
 
 export function logSet(db: Db, input: SetInput) {
 	return db.insert(sets).values(input).returning().get();
+}
+
+const DAY_MS = 24 * 3600_000;
+
+/** An exercise's rows on one local day, oldest first. The window is widened and filtered with `localDay`, the rule `listSetsBetween`'s callers follow. */
+function dayRows(db: Db, exerciseId: number, day: string, tz: string) {
+	const noon = noonOf(day, tz);
+	return db
+		.select()
+		.from(sets)
+		.where(
+			and(
+				eq(sets.exerciseId, exerciseId),
+				gte(sets.doneAt, noon - DAY_MS),
+				lt(sets.doneAt, noon + DAY_MS)
+			)
+		)
+		.orderBy(asc(sets.doneAt), asc(sets.id))
+		.all()
+		.filter((r) => localDay(r.doneAt, tz) === day);
+}
+
+const snapshotOf = (r: typeof sets.$inferSelect): SetSnapshot => ({
+	exerciseId: r.exerciseId,
+	doneAt: r.doneAt,
+	durationS: r.durationS,
+	reps: r.reps,
+	rating: r.rating,
+	note: r.note,
+	playerJson: r.playerJson
+});
+
+/** The day's row for input.exerciseId on localDay(input.doneAt, tz): inserted, or the latest one updated. */
+export function saveDay(
+	db: Db,
+	input: SetInput,
+	tz: string
+): { set: typeof sets.$inferSelect; before: SetSnapshot | null } {
+	return db.transaction((tx) => {
+		const rows = dayRows(tx, input.exerciseId, localDay(input.doneAt, tz), tz);
+		const old = rows[rows.length - 1];
+		if (!old)
+			return {
+				set: tx
+					.insert(sets)
+					.values({ ...input, note: input.note === '' ? null : (input.note ?? null) })
+					.returning()
+					.get(),
+				before: null
+			};
+		const durationS =
+			old.durationS === null && input.durationS === null
+				? null
+				: (old.durationS ?? 0) + (input.durationS ?? 0);
+		const set = tx
+			.update(sets)
+			.set({
+				durationS,
+				rating: input.rating,
+				note: input.note === undefined ? old.note : input.note === '' ? null : input.note,
+				playerJson: input.playerJson ?? old.playerJson
+			})
+			.where(eq(sets.id, old.id))
+			.returning()
+			.get();
+		return { set, before: snapshotOf(old) };
+	});
+}
+
+/** Undo of saveDay: before null → the row is deleted; else the row takes before's fields back. False when the row is gone or before.exerciseId differs. */
+export function undoSave(db: Db, setId: number, before: SetSnapshot | null): boolean {
+	return db.transaction((tx) => {
+		const row = tx.select().from(sets).where(eq(sets.id, setId)).get();
+		if (!row || (before !== null && before.exerciseId !== row.exerciseId)) return false;
+		if (before === null) return tx.delete(sets).where(eq(sets.id, setId)).run().changes > 0;
+		tx.update(sets).set(before).where(eq(sets.id, setId)).run();
+		return true;
+	});
+}
+
+/** Every row of that exercise on that local day, deleted; their snapshots, oldest first. */
+export function deleteDay(db: Db, exerciseId: number, day: string, tz: string): SetSnapshot[] {
+	return db.transaction((tx) => {
+		const rows = dayRows(tx, exerciseId, day, tz);
+		if (rows.length > 0) {
+			tx.delete(sets)
+				.where(
+					inArray(
+						sets.id,
+						rows.map((r) => r.id)
+					)
+				)
+				.run();
+		}
+		return rows.map(snapshotOf);
+	});
+}
+
+/**
+ * Re-inserts snapshots in one transaction (Undo of deleteDay). Throws, inserting
+ * nothing, when the exercise already has a row on any of their local days (a
+ * double submit, or a save after the delete): one entry a day.
+ */
+export function restoreSets(db: Db, snaps: SetSnapshot[], tz: string): void {
+	db.transaction((tx) => {
+		for (const snap of snaps) {
+			if (dayRows(tx, snap.exerciseId, localDay(snap.doneAt, tz), tz).length > 0) {
+				throw new Error('That day already has an entry');
+			}
+		}
+		for (const snap of snaps) tx.insert(sets).values(snap).run();
+	});
 }
 
 /**
@@ -427,29 +585,15 @@ export function exerciseHistory(db: Db, id: number, limit = 200): HistorySet[] {
 		.all();
 }
 
-/** How many ratings "recent" means on the summary line. */
-const RECENT_RATED = 5;
-
-export function exerciseSummary(db: Db, id: number): ExerciseSummary {
-	const totals = db
-		.select({ sets: count(), totalS: sum(sets.durationS) })
+/** How many days an exercise was practised (a day with several rows counts once) and the time in all. */
+export function exerciseSummary(db: Db, id: number, tz: string): ExerciseSummary {
+	const rows = db
+		.select({ doneAt: sets.doneAt, durationS: sets.durationS })
 		.from(sets)
 		.where(eq(sets.exerciseId, id))
-		.get();
-	const rated = db
-		.select({ rating: sets.rating })
-		.from(sets)
-		.where(and(eq(sets.exerciseId, id), isNotNull(sets.rating)))
-		.orderBy(desc(sets.doneAt))
-		.limit(RECENT_RATED)
 		.all();
-	const mean =
-		rated.length === 0 ? null : rated.reduce((a, r) => a + (r.rating ?? 0), 0) / rated.length;
-	return {
-		sets: totals?.sets ?? 0,
-		totalS: Number(totals?.totalS ?? 0),
-		recentRating: mean === null ? null : Math.round(mean * 10) / 10
-	};
+	const days = new Set(rows.map((r) => localDay(r.doneAt, tz)));
+	return { times: days.size, totalS: rows.reduce((a, r) => a + (r.durationS ?? 0), 0) };
 }
 
 export function lastSet(db: Db, exerciseId: number): HistorySet | null {

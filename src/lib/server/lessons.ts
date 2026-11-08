@@ -83,6 +83,7 @@ import type {
 	TeamRef,
 	TeamLessonItem
 } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 export interface LessonInput {
 	/** The local day the class happened, `YYYY-MM-DD`. */
@@ -272,7 +273,7 @@ export function createLesson(
 				subject: 'lesson',
 				after: { title: made.lesson.title }
 			},
-			Date.now()
+			serverNow()
 		);
 		return made;
 	});
@@ -330,7 +331,7 @@ export function updateLesson(
 	id: number,
 	input: LessonInput,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ) {
 	return db.transaction((tx) => {
@@ -930,7 +931,7 @@ export function linkFigure(db: Db, lessonId: number, figureId: number, by?: stri
 				)
 				.run();
 		}
-		logLinked(tx, space, lessonId, 'add', { figureId }, linkedName(tx, { figureId }), Date.now());
+		logLinked(tx, space, lessonId, 'add', { figureId }, linkedName(tx, { figureId }), serverNow());
 		return true;
 	});
 }
@@ -946,7 +947,7 @@ export function unlinkFigure(
 	lessonId: number,
 	figureId: number,
 	alsoSections = false,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {
@@ -1012,7 +1013,7 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number, by?: st
 				)
 				.run();
 		}
-		const now = Date.now();
+		const now = serverNow();
 		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), now);
 		if (isTeam(space)) autoAddPending(tx, space.teamId, [lessonId], now);
 		return true;
@@ -1024,7 +1025,7 @@ export function unlinkRoutine(
 	db: Db,
 	lessonId: number,
 	routineId: number,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {
@@ -1110,7 +1111,7 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: 
 			tx.insert(lessonExercises).values({ lessonId, exerciseId }).onConflictDoNothing().run()
 				.changes > 0;
 		if (added) {
-			const now = Date.now();
+			const now = serverNow();
 			const name = linkedName(tx, { exerciseId });
 			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, now);
 			if (isTeam(space)) autoAddPending(tx, space.teamId, [lessonId], now);
@@ -1125,7 +1126,7 @@ export function unlinkExercise(
 	lessonId: number,
 	exerciseId: number,
 	alsoSections = false,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {
@@ -1183,7 +1184,7 @@ export function linkPosition(db: Db, lessonId: number, positionId: number, by?: 
 			.run();
 		if (res.changes === 0) return false;
 		const name = linkedName(tx, { positionId });
-		logLinked(tx, space, lessonId, 'add', { positionId }, name, Date.now());
+		logLinked(tx, space, lessonId, 'add', { positionId }, name, serverNow());
 		return true;
 	});
 }
@@ -1198,7 +1199,7 @@ export function unlinkPosition(
 	lessonId: number,
 	positionId: number,
 	alsoSections = false,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {
@@ -1407,7 +1408,7 @@ export function addLessonVideo(db: Db, input: LessonVideoInput, by?: string) {
 	return db.transaction((tx) => {
 		const video = tx.insert(lessonVideos).values(input).returning().get();
 		const space = lessonSpace(tx, input.lessonId, by);
-		if (space) logVideo(tx, space, input.lessonId, 'add', video.id, Date.now());
+		if (space) logVideo(tx, space, input.lessonId, 'add', video.id, serverNow());
 		return video;
 	});
 }
@@ -1441,7 +1442,7 @@ function logVideo(
  * file (`trashRows`): `trashId` is set and the caller must leave the file on
  * disk for the purge (risk 19). A person's has `trashId` null: the file goes now.
  */
-export function deleteLessonVideo(db: Db, id: number, by?: string, now = Date.now()) {
+export function deleteLessonVideo(db: Db, id: number, by?: string, now = serverNow()) {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { lessonVideoId: id });
 		const spots = tx.select().from(videoSpots).where(eq(videoSpots.lessonVideoId, id)).all();

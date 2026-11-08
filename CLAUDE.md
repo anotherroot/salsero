@@ -13,8 +13,8 @@ set), phase 3a (positions, the figure graph, the gap report), phase 3b
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
-exercise types (a log popup per type, links with YouTube embeds, a practice
-panel in the popup, an exercise page) and figure timing (a start count and a
+exercise types (links with YouTube embeds, a practice panel on the exercise
+page, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figures and moves (a
 move is a name holding self-contained figures; Move to… another move or a new
 one; switcher at the bottom; a move's page)
@@ -65,10 +65,18 @@ and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
 see
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
+and run the day, plan 1 (slower gaps; Comes back on a drill, by how it went or on
+a fixed rhythm; Warm-up, its own list first on Today and outside the daily
+number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
+and run the day, plan 2 (one exercise page per type, with Practise with, a drill's
+Recordings and a pinned Done; the Done sheet with four faces and their gaps; one
+entry per exercise per day (`saveDay`) with a toast and Undo; the log popup gone;
+an interim session, `?session=1`; plan 3, the run, is not built; see
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
-exercise page and log popup; see
+the one exercise page; see
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md))
 and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
@@ -78,7 +86,12 @@ and Slovenian (part 1: the app in English or Slovenian per account; the language
 the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
 person; the Follow my class path in Slovenian, the Practice player and pairing
 included; the rest of the app and the Android app's own text are part 2; see
-[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md)).
+[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md))
+and the song page (a minimal listening view: the section playing and what comes next;
+Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
+menu, suggestions from the downbeats, sections counted or not, the Song tab; a song starts
+where its music starts, measured by the worker; see
+[`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -92,7 +105,7 @@ have theirs,
 the chunked upload protocol, the link rules, and the four Today bands.
 Exercise types have theirs,
 [`docs/superpowers/specs/2026-09-28-exercise-types-design.md`](docs/superpowers/specs/2026-09-28-exercise-types-design.md):
-the per-type log popup, links, and the in-popup practice panel.
+the per-type exercise page content, links, and the practice panel (since 2026-11-08 the log popup is gone; the page and its Done sheet replace it).
 The routine editor has its own,
 [`docs/superpowers/specs/2026-10-01-routine-editor-design.md`](docs/superpowers/specs/2026-10-01-routine-editor-design.md):
 the main figure, the start rule for alternatives, the picker's anchors, and the
@@ -125,6 +138,11 @@ Figures as variations have theirs,
 [`docs/superpowers/specs/2026-10-29-figures-are-variations-design.md`](docs/superpowers/specs/2026-10-29-figures-are-variations-design.md):
 the `figure_groups` table, self-contained variations, Move to…, and the figure
 page's one-variation-per-URL layout.
+The song page has its own,
+[`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md):
+listening and Edit, saving as you go (the redesign's one exception), sections as
+seconds snapped to the 1s, suggestions, where the music starts, and what was decided
+while building.
 Song samples and the song popup have theirs,
 [`docs/superpowers/specs/2026-10-30-song-samples-design.md`](docs/superpowers/specs/2026-10-30-song-samples-design.md):
 where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
@@ -185,11 +203,16 @@ Today as a number a day has its own,
 the four faces, the replayed gap and its numbers, the day's list from the start
 of the day, Next N, Not today and Undo, Coming up, the reminder, and what was
 decided while building.
+Run the day has its own,
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
+the slower gaps, Comes back (by how it went, every day until it feels good, a
+fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
+lateness, and the exercise page, Done sheet and run still to come.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add
 (on publish, on join, on growth), My class, the simple lesson page, player,
-exercise page and log popup, Settings, the desktop, and what was decided while
+exercise page, Settings, the desktop, and what was decided while
 building. Levels hide entry points, never routes.
 Comments have theirs,
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md):
@@ -261,7 +284,18 @@ src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates p
                      position's sheet and the trail of steps. map-tray.ts: the tray's chips at rest.
                      walk.ts: the walk that builds a routine, position to position (immutable
                      steps, its arrows and pills, the Unsaved save's outcome). Client-safe
-src/lib/server/schedule.ts  the schedule from the database: `listScheduleSets`, `scheduleStates`
+src/lib/schedule/comes-back.ts  PURE: a drill's Comes back (by how it went, learning, or a fixed
+                     rhythm): parsing it, the one a row follows (`effectiveComesBack`) and its
+                     words. `schedule.ts` holds `scheduleOf` (the setting + the sets → a
+                     `DueState`) and the slower gap steps (`STEPS`)
+src/lib/exercises/comes-back-view.ts  PURE: the Edit card's notes and chips for Comes back and
+                     Warm-up (drawn by components/exercises/ComesBackCard.svelte and WarmupRow.svelte);
+                     the words are `t().exercise.comesBack` and `t().exercise.warmup`
+src/lib/server/comes-back-form.ts  reads the Edit form's Comes back and Warm-up fields (a
+                     `warmupSent` marker says the Warm-up row was on the form)
+src/lib/server/warmup-order.ts  the warm-ups' own order (`exercises.warmup_order`), set by dragging
+src/lib/server/schedule.ts  the schedule from the database (`doneFacesOf`: the Done sheet's four gaps,
+                     from `doneFaces` in `schedule/schedule.ts`): `listScheduleSets`, `scheduleStates`
                      (every live exercise, optionally as of the start of a day), `scheduleStateOf`,
                      `scheduleForShown` (the person's own entry wins). Nothing stored
 src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, default 5) and
@@ -341,11 +375,12 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
                      stopwatch, the Today session, what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
-                     tile's icon and name (tile.ts), what the log popup shows
-                     (log-view.ts: the footer's states, range errors, the rating
-                     toggle), the exercise page (exercise-page.ts) and the desktop
-                     Today pane (today-pane.ts: what opens by default, the session
-                     line, the day so far's totals).
+                     tile's icon and name (tile.ts), the exercise page (exercise-page.ts), the
+                     Done sheet's words and faces (done-view.ts), a day's entry (day-entry.ts:
+                     old rows merged), the toast after a save (saved.svelte.ts), the
+                     counted seconds (page-clock.svelte.ts: only while visible) and the desktop
+                     Today pane (today-pane.ts: what opens by default, the day so far's
+                     totals). log-view.ts is `lastTimeParts` only.
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
 src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
@@ -385,6 +420,16 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      badges and upload checks. song-page.ts and timeline.ts are PURE: the
                      song page's steps, tap rule and the seek bar's maths. upload.svelte.ts
                      is the one song upload in flight, outliving the sheet. Client-safe
+                     sections.ts is PURE: a song's sections (stored as seconds, `placeSections`
+                     snaps them to the 1s in order), the grid's rows, what comes next
+                     (`aheadOf`) and the section writes. suggest.ts: where the downbeats say
+                     the 1 moves. music-start.ts: where a song starts (`musicStart`) and
+                     `playFrom`, which every player calls before its first play(). listen.ts:
+                     the count card's lines. song-edit.ts: Edit's words. grid-keys.ts: the
+                     grid's arrow keys and when it follows. edit-act.ts: an Edit change and
+                     its Undo (over `act`). Their screens are components/songs/ CountCard,
+                     SectionsList, SongEdit, GridTab, EditGrid, BeatMenu, SuggestionCard,
+                     SectionSheet and SongTab
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
                      and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
                      `.theme-media` in `layout.css` (the player's palette).
@@ -437,7 +482,9 @@ scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoo
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from; its colours are the first, brighter ones (tokens.ts is the source since the warm palette, 2026-11-07)
-src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
+src/lib/sheets/      `whenSettled(fn)` (history.svelte.ts) runs fn after the sheets' Back has landed; with
+                     `backWhenSettled(fallback, {replace})` in `nav/trail.svelte.ts` it is how a save closes
+                     its sheet and goes back. stack.ts is PURE: one history entry per open Sheet behind a
                      port, so Back closes only the top one, with holds while a
                      navigation or a link click is in flight. history.svelte.ts
                      wires it to SvelteKit shallow routing; `refreshWhenSettled()` is the one way to
@@ -628,15 +675,15 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start sessio
                      exercise, `(today)/+layout.svelte` and `+layout.server.ts` (list data under a
                      namespace); the list route `+page.*` and `exercises/[id]` (+ `practice`) live in
                      it. On desk, arriving at Today `replaceState`s to the first due exercise's URL
-                     (R11); the phone keeps the list, the log popup (layout state, closed on
-                     leaving) and the exercise page. `components/today/today-context.ts` shares the
+                     (R11); the phone keeps the list and the exercise page. `components/today/today-context.ts` shares the
                      layout's pane state with its pages (`setTodayPane`/`todayPane`),
                      `components/today/TodayPaneSkeleton.svelte` is the pane while data is on the
                      way. `lib/exercises/today-pane.ts` is PURE: what opens by default (`defaultOpen`),
-                     the session's line (`sessionLine`: walked beats follow) and the day's totals.
-                     `LogShell`'s `frame` ('sheet' | 'pane') is the popup or the pane's form (each
-                     log form posts to its own route's `?/log`); `TypeInfo.paneContent` in `kinds.ts`
-                     is which column the type's reference sits in. `rowButton(kind)` in `ui/styles.ts`
+                     and the day's totals. The pane is the exercise page's own two columns with
+                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The interim
+                     session is `?session=1` (`SessionControls` in the layout; `TodayPane
+                     { session, canSkip, notToday }` in `today-context.ts`), which plan 3 replaces.
+                     `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list
                      (`components/teams/GroupList.svelte`, in a 360 column on desk; no groups,
@@ -679,6 +726,9 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dat
                      act.ts posts a page action without a form (`act`; `sendAt` only posts, a redirect not followed); act-toast.ts is the refusal
                      message and the "removed · Undo" toast Settings and My count share.
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
+src/lib/components/exercises/  the exercise page's parts: `DoneSheet` (+ `done-submit.ts`), `SavedToast`, `DoneBar`,
+                     `HistoryDaySheet`, `DrillRecordings`, `kinds/<type>/Content.svelte` and `Practice.svelte`
+                     (`contentFor`/`practiceFor`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      exercises/ links/ routines/ moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
                      (error, offline, choice sheet, status block, lead tile) clones/ (`Versions`:
@@ -693,6 +743,10 @@ src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
+src/lib/server/db/ids.ts  ids from slots: `mintedId`, `mintId`, `setIdSlot` (`id_marks`, its
+                     triggers in migration 0038)
+src/lib/server/server-clock.ts  `serverNow()`: the one clock server code reads.
+                     server-sources.ts is the specs' view of the server code (scans)
 src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
                      `wallOf(params, locals)`, `inWall(row, wall)` and the
                      `require*InWall` guards on ids, so a request only ever reaches
@@ -740,16 +794,34 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   a pure function of the sets' days and faces (`sets.rating`), replayed per
   request (`src/lib/schedule/`); `today_picks` keeps only the person's choices
   for one day (Next N, add, skip), never what is due. There is no frequency
-  to set: the gap is earned from the faces.
+  to set: the gap is earned from the faces. The one exception is a drill's
+  **Comes back** (`exercises.comes_back`): "every day until it feels good" or a
+  fixed rhythm of 1, 2, 3 or 7 days, the person's choice. Even then what is due
+  is worked out from the sets, never stored. A **warm-up** (`exercises.warmup`)
+  sits outside the daily number.
 - **Elapsed time sorts; calendar days speak.** Anything a user reads as a day
   ("yesterday", "done today", which day a set belongs to) goes through
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for
   sorting. Never `Date.now()` inside `src/lib/day` or `src/lib/schedule`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
+- **Every insert mints its id.** An integer id comes from `mintedId('<table>')`
+  (`src/lib/server/db/ids.ts`): this runtime's slot in `id_marks`, plus one
+  (`id = slot × 2³² + n`; the server is slot 0, devices get their own). An
+  insert carries ONE new row, or rows that carry their own ids: SQLite works
+  the default out once per statement, so several new rows collide. No raw SQL
+  insert into an id table, and no migration insert without `id`. A new
+  integer-id table gets `mintedId` and a mark trigger (as in migration 0038).
+  `ids.spec.ts` checks all of it.
+- **Server code reads the time through `serverNow()`**
+  (`src/lib/server/server-clock.ts`), never `Date.now()` or `new Date()`:
+  offline replay will set it to when a change was made.
+  `server-clock.spec.ts` scans for it. Pure modules still take `now` as an
+  argument.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
   while a live exercise uses it, archived ones lose `song_id`; a group song's
-  delete is an archive, restored from Recently deleted, see "Songs" below), sets, recordings, links,
+  delete is an archive, restored from Recently deleted, see "Songs" below), a day's rows
+  (`deleteDay`, with Undo), sets, recordings, links,
   spots (`video_spots`, deleted with their video), section links (`spot_links`,
   deleted on unlink), position links on sections and points
   (`spot_position_links`, deleted on unlink, and with their video when a
@@ -788,9 +860,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   positions with its other root rows. The archived kinds (lessons,
   variations, routines, drills, positions) are restored from Recently deleted too, with
   exactly the members' entries archived at the same instant (`reviveEntries`: an entry a member had removed earlier stays removed).
-- **The type owns its popup.** An exercise's type is derived from `source`
-  (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
-  components and never branch on it.
+- **The type owns its page's content.** An exercise's type is derived from `source`
+  (`src/lib/exercises/kinds.ts`); the exercise page asks `contentFor` and
+  `practiceFor` (`components/exercises/kinds/index.ts`) for its components and
+  never branches on the type.
+- **One entry per exercise per local day.** `saveDay` (`src/lib/server/exercises.ts`)
+  writes the day's row: a second save that day adds the time and replaces the face
+  and note. The UI never says "set" (the `sets` table and `HistorySet` keep the name).
 - **Data functions take `db` as their first argument** so tests run against
   `openDb(':memory:')`. Routes pass `getDb()`.
 - **A spec must never touch `$DATA_DIR`.** Setting `process.env.DATABASE_PATH`

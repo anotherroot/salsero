@@ -3,12 +3,14 @@ import type { Db } from './db';
 import { exercises, sets, songLinks, songs, teamMembers, teams, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
+import { sectionsJson, type Section } from '$lib/songs/sections';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
 import { shadowedIds } from './clones/shadow';
 import { fieldChange, logChange } from './changes';
 import type { TempoFactor } from '$lib/labels';
 import type { ChangeValues, PickerSong, SampleSong, SongItem, TeamRef } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
 export const LEASE_MS = 15 * 60_000;
@@ -45,7 +47,7 @@ export function createSongFromUrl(
 	db: Db,
 	space: Space,
 	input: { url: string; title: string; style: string },
-	now = Date.now()
+	now = serverNow()
 ): Song {
 	return insertSong(
 		db,
@@ -64,7 +66,7 @@ export function createSongFromUpload(
 	db: Db,
 	space: Space,
 	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number },
-	now = Date.now()
+	now = serverNow()
 ): Song {
 	return insertSong(
 		db,
@@ -364,7 +366,7 @@ export function setSampleStart(
 	id: number,
 	startS: number | null,
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	const song = getSong(db, id);
 	if (!song) return false;
@@ -388,7 +390,7 @@ export function updateSongMeta(
 	id: number,
 	input: { title: string; artist: string | null; style: string },
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): Song | null {
 	return editSong(db, id, input, space, now);
 }
@@ -431,7 +433,7 @@ export function setAnchors(
 	id: number,
 	anchors: number[],
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	const set = { anchorsJson: JSON.stringify(anchors) };
 	return editSong(db, id, set, space, now, 'anchors') !== null;
@@ -443,12 +445,100 @@ export function setTempoFactor(
 	id: number,
 	factor: TempoFactor,
 	space?: Space,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	const set = { tempoFactor: factor, anchorsJson: '[]' };
 	return editSong(db, id, set, space, now, 'tempoFactor') !== null;
 }
 
+/** The song's sections, as a whole list (`$lib/songs/sections`). False when there is no such song. */
+export function setSections(
+	db: Db,
+	id: number,
+	sections: Section[],
+	space?: Space,
+	now = serverNow()
+): boolean {
+	const set = { sectionsJson: sectionsJson(sections) };
+	return editSong(db, id, set, space, now, 'sections') !== null;
+}
+
+/** A section started on a beat that was not a 1: the new 1 and the section, in one change. */
+export function setCountAndSections(
+	db: Db,
+	id: number,
+	input: { anchors: number[]; sections: Section[] },
+	space?: Space,
+	now = serverNow()
+): boolean {
+	const set = {
+		anchorsJson: JSON.stringify(input.anchors),
+		sectionsJson: sectionsJson(input.sections)
+	};
+	return editSong(db, id, set, space, now, 'sections') !== null;
+}
+
+/** Undo of a count change: the anchors and the count speed as they were, together. */
+export function restoreCount(
+	db: Db,
+	id: number,
+	anchors: number[],
+	tempoFactor: TempoFactor,
+	space?: Space,
+	now = serverNow()
+): boolean {
+	const set = { anchorsJson: JSON.stringify(anchors), tempoFactor };
+	return editSong(db, id, set, space, now, 'anchors') !== null;
+}
+
+/** A time inside the song: finite, not negative, before its end when the end is known. */
+function insideSong(song: Song, s: number): boolean {
+	return Number.isFinite(s) && s >= 0 && (song.durationS === null || s < song.durationS);
+}
+
+/**
+ * Where the person says the music starts; null goes back to the worker's, 0 is
+ * From 0:00. Not snapped: music can start off the beat. False when there is
+ * no such song or the time is not inside it.
+ */
+export function setMusicStart(
+	db: Db,
+	id: number,
+	startS: number | null,
+	space?: Space,
+	now = serverNow()
+): boolean {
+	const song = getSong(db, id);
+	if (!song || (startS !== null && !insideSong(song, startS))) return false;
+	return editSong(db, id, { startS }, space, now, 'start') !== null;
+}
+
+/** The worker's measured start: worker state, so not logged and never checked against `seen`. */
+export function storeFoundStart(db: Db, id: number, startS: number): boolean {
+	const song = getSong(db, id);
+	if (!song || song.archivedAt !== null || !insideSong(song, startS)) return false;
+	db.update(songs).set({ startFoundS: startS }).where(eq(songs.id, id)).run();
+	return true;
+}
+
+/** Ready songs the worker has not measured yet, oldest first. */
+export function songsWantingStart(db: Db, limit = 10): number[] {
+	return db
+		.select({ id: songs.id })
+		.from(songs)
+		.where(
+			and(
+				eq(songs.status, 'ready'),
+				isNull(songs.archivedAt),
+				isNotNull(songs.audioFile),
+				isNull(songs.startFoundS)
+			)
+		)
+		.orderBy(asc(songs.createdAt), asc(songs.id))
+		.limit(limit)
+		.all()
+		.map((r) => r.id);
+}
 export interface Job {
 	id: number;
 	kind: 'download' | 'analyze';
@@ -540,11 +630,13 @@ export function storeFetchedAudio(
 export function storeAnalysis(
 	db: Db,
 	id: number,
-	input: { beats: number[]; downbeats: number[]; durationS: number }
+	input: { beats: number[]; downbeats: number[]; durationS: number; startS?: number | null }
 ): void {
 	const beats = cleanBeats(input.beats);
 	db.update(songs)
 		.set({
+			// Where the music starts, when this worker measured it (an older one sends none).
+			...(typeof input.startS === 'number' ? { startFoundS: input.startS } : {}),
 			beatsJson: JSON.stringify(beats),
 			downbeatsJson: JSON.stringify(input.downbeats),
 			bpm: bpmOf(beats),

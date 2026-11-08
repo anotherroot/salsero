@@ -17,6 +17,7 @@ import { editedBy } from '$lib/server/changes';
 import { defaultStyle } from '$lib/server/default-styles';
 import { usedInMeta } from '$lib/moves/move-page';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const moveTaken = (name: string) => `There's already a move called ${name}.`;
 
@@ -91,7 +92,7 @@ export const actions: Actions = {
 			move.teamId !== null,
 			moveSeen(db, move.id),
 			{ action: 'rename' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, move.teamId, 'figure', move.id)
 		);
 		if (clash) return clash;

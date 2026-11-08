@@ -111,7 +111,6 @@ export const format: Catalog['format'] = {
 	awayIn: (span) => `čez ${span}`,
 	onWeekday: (weekday) => onWeekdays[weekday],
 	newOne: 'Nova',
-	late: (n) => `${slCount(n, SPAN.day)} zamude`,
 	due: (when) => `Na vrsti ${when}`,
 	// "14. nov." already ends the sentence; "14. maj" and a year do not.
 	early: (last, weekday, dated) =>

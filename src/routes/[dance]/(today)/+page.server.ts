@@ -3,13 +3,16 @@ import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
 import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
-import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
+import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
+import { saveDoneFrom, undoDoneFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
+import { setWarmupOrder } from '$lib/server/warmup-order';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
 import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const DAY_MS = 86_400_000;
 
@@ -20,14 +23,14 @@ function zone(locals: App.Locals): string {
 
 /**
  * Today's list is the layout's (`list`). This page adds a past day (`?day=`):
- * its sets and the exercises a forgotten set can be logged against. Today itself
+ * its entries and the exercises a forgotten one can go on. Today itself
  * has nothing of its own: `past` is null.
  */
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const tz = zone(locals);
-	const today = localDay(Date.now(), tz);
+	const today = localDay(serverNow(), tz);
 
 	const requested = url.searchParams.get('day');
 	if (requested !== null && (!isValidDay(requested) || requested >= today)) {
@@ -53,17 +56,16 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			prevDay: shiftDay(day, -1),
 			nextDay: shiftDay(day, 1),
 			daySets,
-			// For the past-day "add a forgotten set" picker.
+			// For the past day's "Forgot to log something" picker.
 			exercises: listPickExercises(db, wall).map(shownExercise)
 		}
 	};
 };
 
 export const actions: Actions = {
-	/** Log a set: now, or at noon of a past day when back-filling. See `log-form.ts`. */
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
+	/** Done: save the exercise's day, today or a past day (`day`). See `saveDoneFrom`. */
+	done: (event) => saveDoneFrom(event),
+	undoDone: (event) => undoDoneFrom(event),
 
 	/** Put an exercise on today's list by hand (`add`) or take it off for today (`skip`). */
 	pick: async ({ params, request, locals }) => {
@@ -74,7 +76,7 @@ export const actions: Actions = {
 		if (exerciseId === undefined || (kind !== 'add' && kind !== 'skip')) {
 			return fail(400, { action: 'pick', message: t().today.refused.pickWhat });
 		}
-		const now = Date.now();
+		const now = serverNow();
 		try {
 			const day = localDay(now, zone(locals));
 			const { created, unskipped } = addPicks(getDb(), wall, [exerciseId], day, kind, now);
@@ -103,7 +105,7 @@ export const actions: Actions = {
 	 */
 	next: async ({ params, locals }) => {
 		const wall = wallOf(params, locals);
-		const now = Date.now();
+		const now = serverNow();
 		const tz = zone(locals);
 		const db = getDb();
 		const input = dayInputOf(db, wall, tz, now);
@@ -123,6 +125,17 @@ export const actions: Actions = {
 		}
 	},
 
+	/** The warm-ups in the person's own order (a drag on Today); `ids` comma-separated. */
+	warmupOrder: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const raw = String((await request.formData()).get('ids') ?? '');
+		const ids = raw === '' ? [] : raw.split(',').map((x) => (/^\d+$/.test(x) ? Number(x) : NaN));
+		if (ids.some(Number.isNaN) || !setWarmupOrder(getDb(), wall, ids)) {
+			return fail(400, { action: 'warmupOrder', message: t().today.refused.warmupOrder });
+		}
+		return { action: 'warmupOrder', ok: true };
+	},
+
 	createExercise: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
@@ -136,7 +149,21 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), wall, { name, notes });
+		const comesBack = readComesBack(form, null, serverNow());
+		if (comesBack === 'invalid') {
+			return fail(400, {
+				action: 'createExercise',
+				message: t().exercise.refused.checkValues,
+				name,
+				notes: notes ?? ''
+			});
+		}
+		createCustomExercise(getDb(), wall, {
+			name,
+			notes,
+			warmup: readWarmup(form),
+			comesBack: comesBack === 'teacher' ? undefined : comesBack
+		});
 		return { action: 'createExercise', ok: true };
 	}
 };

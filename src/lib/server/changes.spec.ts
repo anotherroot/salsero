@@ -100,8 +100,12 @@ import { claimVideoJob, completeVideoJob, requestVideoDownload } from './video-d
 import {
 	createSongFromUpload,
 	createSongFromUrl,
+	restoreCount,
 	setAnchors,
+	setCountAndSections,
+	setMusicStart,
 	setSampleStart,
+	setSections,
 	setTempoFactor,
 	updateSongMeta
 } from './songs';
@@ -841,6 +845,41 @@ const MUTATIONS: {
 		verb: 'edit',
 		rootId: (w) => w.song,
 		run: (w, s) => setTempoFactor(db, w.song, 2, s, T)
+	},
+	{
+		name: 'setSections',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) => setSections(db, w.song, [{ at: 4, name: 'Mambo', countOff: false }], s, T)
+	},
+	{
+		name: 'setCountAndSections',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) =>
+			setCountAndSections(
+				db,
+				w.song,
+				{ anchors: [3], sections: [{ at: 1.5, name: '', countOff: true }] },
+				s,
+				T
+			)
+	},
+	{
+		name: 'restoreCount',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) => restoreCount(db, w.song, [5], 2, s, T)
+	},
+	{
+		name: 'setMusicStart',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) => setMusicStart(db, w.song, 3, s, T)
 	},
 	{
 		name: 'setSampleStart',

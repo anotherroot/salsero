@@ -8,6 +8,7 @@ import { FACING, FRAME, HANDS } from '$lib/positions/hold';
 import { DANCES, isDanceSlug } from '$lib/dances/dances';
 import type { Hold } from '$lib/types';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const oneOf = <T extends string>(v: unknown, all: readonly T[]): T | null =>
 	typeof v === 'string' && (all as readonly string[]).includes(v) ? (v as T) : null;
@@ -72,7 +73,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		db,
 		space,
 		{ name: rawName, styleTag, hold, notes, pictureSpotId: null },
-		Date.now()
+		serverNow()
 	);
 	if ('field' in made) {
 		return json({ message: made.message, field: made.field }, { status: 400 });

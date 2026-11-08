@@ -36,6 +36,7 @@ import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
+import { parseComesBack, serializeComesBack } from '$lib/schedule/comes-back';
 import { PICK_BOTH, STALE } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
@@ -393,6 +394,19 @@ class Applier {
 			this.changed('practiceMode', t.practiceMode, g.practiceMode);
 			this.changed('countBpm', t.countBpm, g.countBpm);
 		}
+		if (has('comesBack')) {
+			// A received "until" is turned on for the receiver now, unless they were already learning.
+			const incoming = parseComesBack(g.comesBack);
+			const own = parseComesBack(t.comesBack);
+			set.comesBack =
+				incoming?.kind === 'until'
+					? serializeComesBack({
+							...incoming,
+							since: own?.kind === 'until' ? own.since : this.now
+						})
+					: g.comesBack;
+			this.changed('comesBack', t.comesBack, g.comesBack);
+		}
 		if (Object.keys(set).length === 0) return;
 		tx.update(exercises).set(set).where(eq(exercises.id, targetId)).run();
 		// Every entry practising the drill carries its name (`updateExercise`).
@@ -427,6 +441,14 @@ class Applier {
 		if (has('sample')) {
 			set.sampleStartS = g.sampleStartS;
 			this.changed('sampleStartS', t.sampleStartS, g.sampleStartS);
+		}
+		if (has('sections')) {
+			set.sectionsJson = g.sectionsJson;
+			this.changed('sectionsJson', t.sectionsJson, g.sectionsJson);
+		}
+		if (has('musicStart')) {
+			set.startS = g.startS;
+			this.changed('startS', t.startS, g.startS);
 		}
 		if (Object.keys(set).length > 0) tx.update(songs).set(set).where(eq(songs.id, targetId)).run();
 	}

@@ -33,6 +33,7 @@ import { t } from '$lib/i18n/catalog';
 import { setLocale, setLocaleCookie } from '$lib/server/locale';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * A removed phone, held for Undo, keyed by user and id so only the user who
  * removed it can bring it back. The snapshot (it carries the token's hash)
@@ -47,7 +48,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tz = locals.user.timezone;
 	// /settings has no dance in its URL: it is the account's (the dance split).
 	const dance = locals.user.dance;
-	const today = localDay(Date.now(), tz);
+	const today = localDay(serverNow(), tz);
 	const asked = openRequest(db, locals.user.id);
 	return {
 		dance,
@@ -109,7 +110,7 @@ export const actions: Actions = {
 		}
 		const note = optionalText(await request.formData(), 'note', 500);
 		if (note === undefined) return fail(400, { message: t().settings.storage.noteTooLong });
-		const res = askForMore(getDb(), { userId: locals.user.id }, note, Date.now());
+		const res = askForMore(getDb(), { userId: locals.user.id }, note, serverNow());
 		return { asked: res === 'asked' };
 	},
 

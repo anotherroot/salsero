@@ -44,6 +44,7 @@ import { inSpace, isTeam, ownedBy, spaceOfRow, type Space, type Wall } from './s
 import { usableBy, usableOf, type Usable } from './usable';
 import { actingIn, logChange, spotRoot } from './changes';
 import { spotWords, trashRows, type TrashRows } from './trash';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * A link that cannot be made. `status` is what the route answers with; `field`,
@@ -220,7 +221,7 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 			.returning({ id: spotLinks.id })
 			.get().id;
 		nameIfUnnamed(tx, spotId, targetName(tx, target));
-		const now = Date.now();
+		const now = serverNow();
 		logSectionLink(tx, space, 'add', { id, spotId, target }, now);
 		// A drill on a class lesson's section is new to practise (the Link popup's create runs
 		// here too). A figure is never added by Add, and a recording's section is on no lesson.
@@ -312,7 +313,7 @@ export function unlinkSpot(
 	db: Db,
 	id: number,
 	target: SectionTarget,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {
@@ -369,7 +370,7 @@ export function unlinkFromSection(
 	spotId: number,
 	linkId: number,
 	alsoLesson: boolean,
-	now = Date.now(),
+	now = serverNow(),
 	by?: string
 ): boolean {
 	return db.transaction((tx) => {

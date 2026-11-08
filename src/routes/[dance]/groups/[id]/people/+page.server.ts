@@ -5,6 +5,7 @@ import { handOver, peopleOf } from '$lib/server/teams';
 import { removeMember, setRole } from '$lib/server/membership';
 import { realCloneFiles } from '$lib/server/clones/files';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
@@ -34,7 +35,7 @@ export const actions: Actions = {
 		const { db, team, userId, form } = await target(event);
 		const role = String(form.get('role') ?? '');
 		if (role !== 'editor' && role !== 'member') return fail(400, { message: 'Pick a role.' });
-		if (!setRole(db, team.id, userId, role, Date.now())) {
+		if (!setRole(db, team.id, userId, role, serverNow())) {
 			return fail(400, { message: 'The owner keeps the group. Hand it over to change that.' });
 		}
 		return { ok: true };
@@ -54,7 +55,7 @@ export const actions: Actions = {
 		const { db, team, userId } = await target(event);
 		let removed: boolean;
 		try {
-			removed = await removeMember(db, team.id, userId, realCloneFiles(), Date.now());
+			removed = await removeMember(db, team.id, userId, realCloneFiles(), serverNow());
 		} catch (err) {
 			console.error(`[groups] removing ${userId} from group ${team.id} failed`, err);
 			return fail(500, { action: 'remove', message: 'Could not keep their copies. Try again.' });

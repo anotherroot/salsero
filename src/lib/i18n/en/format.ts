@@ -102,7 +102,6 @@ export const format = {
 	onWeekday: (weekday: number): string => weekdays[weekday],
 	/** Never done yet. */
 	newOne: 'New',
-	late: (n: number): string => `${plural(n, 'day', 'days')} late`,
 	/** `when`: "today", "tomorrow", `onWeekday`, a date. */
 	due: (when: string): string => `Due ${when}`,
 	/** `last`: "today", "yesterday", `daysAgo`; `dated`: "14 Nov". */

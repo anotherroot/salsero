@@ -6,6 +6,7 @@ import type { LinkRow } from '$lib/types';
 import { actingIn, linkRoot, logChange } from './changes';
 import { isTeam } from './scope';
 import { rootTitle, trashRows } from './trash';
+import { serverNow } from '$lib/server/server-clock';
 
 /** Who a link belongs to. Exactly one — the table's CHECK says the same. */
 export type LinkOwner = { lessonId: number } | { figureId: number } | { exerciseId: number };
@@ -113,7 +114,7 @@ function logLink(
 	const root = linkRoot(tx, owner);
 	if (!root) return;
 	const { row, ...at } = root;
-	logChange(tx, actingIn(row, by), { ...at, ...e, subject: 'link' }, Date.now());
+	logChange(tx, actingIn(row, by), { ...at, ...e, subject: 'link' }, serverNow());
 }
 
 /**
@@ -127,7 +128,7 @@ export function deleteLink(
 	owner: LinkOwner,
 	id: number,
 	by?: string,
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	return db.transaction((tx) => {
 		const mine = tx

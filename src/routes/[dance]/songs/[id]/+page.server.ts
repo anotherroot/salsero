@@ -3,13 +3,31 @@ import { getDb } from '$lib/server/db';
 import { oneOf, optionalText, text } from '$lib/server/form';
 import {
 	archiveSong,
+	restoreCount,
 	retrySong,
 	setAnchors,
+	setCountAndSections,
+	setMusicStart,
 	setSampleStart,
+	setSections,
 	songSample,
 	setTempoFactor,
 	updateSongMeta
 } from '$lib/server/songs';
+import {
+	addSectionAt,
+	editSection,
+	moveSection,
+	parseSections,
+	placeSections,
+	removeSection,
+	sectionsJson,
+	type Section
+} from '$lib/songs/sections';
+import { suggestions } from '$lib/songs/suggest';
+import { musicStart, startSource } from '$lib/songs/music-start';
+import { t as words } from '$lib/i18n/catalog';
+import type { Song } from '$lib/server/db/schema';
 import { deleteGroupSong, shareSong, songUsers, unshareSong } from '$lib/server/song-share';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import {
@@ -48,6 +66,7 @@ import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /*
  * The song this URL names, or a 404: `requireSongAccess` checks the dance in
  * the URL, that it is not archived, and who may do what. A person's own song
@@ -58,6 +77,77 @@ import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
+/** The count as the page shows it: the scaled beats, their 1–8, and the sections on them. */
+function countOf(song: Song, anchors = parse(song.anchorsJson)) {
+	const grid = buildGrid({
+		beats: parse(song.beatsJson),
+		downbeats: parse(song.downbeatsJson),
+		anchors,
+		tempoFactor: song.tempoFactor as TempoFactor
+	});
+	const list = parseSections(song.sectionsJson);
+	return { ...grid, anchors, list, placed: placeSections(list, grid.beats, grid.counts) };
+}
+
+/** A beat index the song has, or null. */
+function beatOf(form: FormData, beats: number[]): number | null {
+	const i = Number(form.get('beat'));
+	return Number.isInteger(i) && i >= 0 && i < beats.length ? i : null;
+}
+
+/** A refused Edit change, under the control it is about. */
+const refuse = (action: 'sections' | 'anchors' | 'start' | 'restore', message: string) =>
+	fail(400, { action, message });
+
+/** Undo's value for a field, read and checked; null when it does not parse. */
+function restoredValue(
+	field: string,
+	value: string
+):
+	| { field: 'count'; anchors: number[]; tempo: TempoFactor }
+	| { field: 'countSections'; anchors: number[]; sections: Section[] }
+	| { field: 'sections'; sections: Section[] }
+	| { field: 'sample' | 'start'; at: number | null }
+	| null {
+	let v: unknown;
+	try {
+		v = JSON.parse(value);
+	} catch {
+		return null;
+	}
+	if (field === 'countSections') {
+		// Undo of a section that made its beat the 1: the anchors and the sections together.
+		const o = v as { anchors?: unknown; sections?: unknown } | null;
+		const anchors = o?.anchors;
+		if (!Array.isArray(anchors) || !anchors.every((a) => Number.isInteger(a) && a >= 0))
+			return null;
+		if (!Array.isArray(o?.sections)) return null;
+		return {
+			field,
+			anchors: anchors as number[],
+			sections: parseSections(JSON.stringify(o.sections))
+		};
+	}
+	if (field === 'count') {
+		const o = v as { anchors?: unknown; tempo?: unknown } | null;
+		const anchors = o?.anchors;
+		const tempo = o?.tempo;
+		if (!Array.isArray(anchors) || !anchors.every((a) => Number.isInteger(a) && a >= 0))
+			return null;
+		if (!(TEMPO_FACTORS as readonly unknown[]).includes(tempo)) return null;
+		return { field, anchors: anchors as number[], tempo: tempo as TempoFactor };
+	}
+	if (field === 'sections') {
+		if (!Array.isArray(v)) return null;
+		return { field, sections: parseSections(value) };
+	}
+	if (field === 'sample' || field === 'start') {
+		if (v !== null && (typeof v !== 'number' || !Number.isFinite(v))) return null;
+		return { field, at: v as number | null };
+	}
+	return null;
+}
+
 export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const db = getDb();
 	const { song, access } = requireSongAccess(db, locals, params, params.id, 'read');
@@ -67,15 +157,10 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	// Group mode has no twins: no twin tab, no Same as….
 	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, song.teamId, cookies);
 	const anchors = parse(song.anchorsJson);
-	const grid =
-		song.status === 'ready'
-			? buildGrid({
-					beats: parse(song.beatsJson),
-					downbeats: parse(song.downbeatsJson),
-					anchors,
-					tempoFactor: song.tempoFactor as TempoFactor
-				})
-			: null;
+	const count = song.status === 'ready' ? countOf(song, anchors) : null;
+	const grid = count
+		? { beats: count.beats, counts: count.counts, bpm: count.bpm, suggested: count.suggested }
+		: null;
 	// Only what the page shows: the raw beat lists travel as `grid`, not twice.
 	return {
 		song: {
@@ -121,6 +206,29 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 			team && canEdit ? `/${params.dance}/groups/${team.id}/history/song/${song.id}` : null,
 		anchors,
 		grid,
+		/** The sections on the current count, and the stored list (what Undo puts back). */
+		sections: count?.placed ?? [],
+		sectionsJson: sectionsJson(count?.list ?? parseSections(song.sectionsJson)),
+		/** Where the music starts: where Play begins from 0:00, and whose it is. */
+		start: {
+			at: musicStart(song),
+			source: startSource(song),
+			found: song.startFoundS,
+			yours: song.startS
+		},
+		/** Where the downbeats say the 1 moves (Edit only; never stored). */
+		suggestions:
+			count && canEdit
+				? suggestions({
+						raw: parse(song.beatsJson),
+						downbeats: parse(song.downbeatsJson),
+						beats: count.beats,
+						counts: count.counts,
+						anchors,
+						placed: count.placed,
+						tempoFactor: song.tempoFactor as TempoFactor
+					})
+				: [],
 		sample: (() => {
 			const sample = songSample(song);
 			return sample ? { song: sample, custom: song.sampleStartS !== null } : null;
@@ -149,7 +257,7 @@ async function editing<T extends Record<string, unknown>>(
 		'edit'
 	);
 	const form = await event.request.formData();
-	const now = Date.now();
+	const now = serverNow();
 	const refused =
 		isTeam(space) || hasCopies(db, 'song', song.id)
 			? seenRefusal(form, true, songSeen(song), extra(form), now, () =>
@@ -173,7 +281,9 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		if (!Number.isFinite(t) || song.status !== 'ready')
 			return fail(400, { action: 'tap' as const, message: 'Play the song first.' });
 		const beats = scaleBeats(parse(song.beatsJson), song.tempoFactor as TempoFactor);
-		const i = nearestBeat(beats, t - TAP_LATENCY_S);
+		// A paused playhead is exact (a jump to a beat, then the tap): no reaction time to take off.
+		const latency = form.get('paused') === '1' ? 0 : TAP_LATENCY_S;
+		const i = nearestBeat(beats, t - latency);
 		if (i < 0) return fail(400, { action: 'tap' as const, message: 'No beats to snap to.' });
 		setAnchors(db, song.id, addAnchor(parse(song.anchorsJson), i), space, now);
 		return { ok: true };
@@ -218,6 +328,131 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const { db, song, space, now, refused } = await editing(event, named('sample'));
 		if (refused) return refused;
 		setSampleStart(db, song.id, null, space, now);
+		return { ok: true };
+	},
+
+	/** Make this the 1, Use it: a beat of the grid becomes a 1. */
+	one: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, named('anchors'));
+		if (refused) return refused;
+		if (song.status !== 'ready') return refuse('anchors', words().songs.page.refused.beat);
+		const { beats, anchors } = countOf(song);
+		const i = beatOf(form, beats);
+		if (i === null) return refuse('anchors', words().songs.page.refused.beat);
+		setAnchors(db, song.id, addAnchor(anchors, i), space, now);
+		return { ok: true };
+	},
+
+	/**
+	 * A section on `beat`. A beat that is not a 1 becomes the 1 first, in the
+	 * same change. Answers the new section's index in the stored list, so its
+	 * sheet opens on it.
+	 */
+	sectionAdd: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, named('sections'));
+		if (refused) return refused;
+		if (song.status !== 'ready') return refuse('sections', words().songs.page.refused.beat);
+		const c = countOf(song);
+		const beat = beatOf(form, c.beats);
+		if (beat === null) return refuse('sections', words().songs.page.refused.beat);
+		const moves = c.counts[beat] !== 1;
+		const anchors = moves ? addAnchor(c.anchors, beat) : c.anchors;
+		const after = moves ? countOf(song, anchors) : c;
+		const list = addSectionAt(after.list, after.placed, after.beats, beat);
+		if (list === 'taken') return refuse('sections', words().songs.page.refused.taken);
+		if (moves) setCountAndSections(db, song.id, { anchors, sections: list }, space, now);
+		else setSections(db, song.id, list, space, now);
+		return { ok: true, index: list.findIndex((s) => s.at === after.beats[beat]) };
+	},
+
+	sectionEdit: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, named('sections'));
+		if (refused) return refused;
+		const name = form.get('name');
+		const countOff = form.get('countOff');
+		const list = editSection(parseSections(song.sectionsJson), Number(form.get('index')), {
+			...(name !== null ? { name: String(name) } : {}),
+			...(countOff !== null ? { countOff: countOff === '1' } : {})
+		});
+		if (list === 'missing') return refuse('sections', words().songs.page.refused.missing);
+		setSections(db, song.id, list, space, now);
+		return { ok: true };
+	},
+
+	/** An eight earlier or later: to the neighbouring 1 that way. */
+	sectionMove: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, named('sections'));
+		if (refused) return refused;
+		if (song.status !== 'ready') return refuse('sections', words().songs.page.refused.missing);
+		const c = countOf(song);
+		const dir = form.get('dir') === '-1' ? -1 : 1;
+		const list = moveSection(c.list, c.placed, c.beats, c.counts, Number(form.get('index')), dir);
+		if (typeof list === 'string') return refuse('sections', words().songs.page.refused[list]);
+		setSections(db, song.id, list, space, now);
+		return { ok: true };
+	},
+
+	sectionRemove: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, named('sections'));
+		if (refused) return refused;
+		const list = removeSection(parseSections(song.sectionsJson), Number(form.get('index')));
+		if (list === 'missing') return refuse('sections', words().songs.page.refused.missing);
+		setSections(db, song.id, list, space, now);
+		return { ok: true };
+	},
+
+	sectionsClear: async (event) => {
+		const { db, song, space, now, refused } = await editing(event, named('sections'));
+		if (refused) return refused;
+		setSections(db, song.id, [], space, now);
+		return { ok: true };
+	},
+
+	/** Where the music starts: the playhead `t` (not snapped; music can start off the beat). */
+	start: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, named('start'));
+		if (refused) return refused;
+		if (!setMusicStart(db, song.id, Number(form.get('t') ?? Number.NaN), space, now))
+			return refuse('start', words().songs.page.refused.start);
+		return { ok: true };
+	},
+
+	/** From 0:00: play the whole file. */
+	startZero: async (event) => {
+		const { db, song, space, now, refused } = await editing(event, named('start'));
+		if (refused) return refused;
+		setMusicStart(db, song.id, 0, space, now);
+		return { ok: true };
+	},
+
+	/** Back to what the home worker found. */
+	startFound: async (event) => {
+		const { db, song, space, now, refused } = await editing(event, named('start'));
+		if (refused) return refused;
+		setMusicStart(db, song.id, null, space, now);
+		return { ok: true };
+	},
+
+	/** Undo: a field as it was before the last change (the count, the sections, the sample, the start). */
+	restore: async (event) => {
+		const { db, song, space, form, now, refused } = await editing(event, (f) => ({
+			action: String(f.get('field') ?? 'restore')
+		}));
+		if (refused) return refused;
+		const v = restoredValue(String(form.get('field')), String(form.get('value') ?? ''));
+		const ok =
+			v === null
+				? false
+				: v.field === 'countSections'
+					? setCountAndSections(db, song.id, v, space, now)
+					: v.field === 'count'
+						? restoreCount(db, song.id, v.anchors, v.tempo, space, now)
+						: v.field === 'sections'
+							? setSections(db, song.id, v.sections, space, now)
+							: v.field === 'sample'
+								? setSampleStart(db, song.id, v.at, space, now)
+								: setMusicStart(db, song.id, v.at, space, now);
+		if (!ok) return refuse('restore', words().songs.page.refused.badValue);
 		return { ok: true };
 	},
 
@@ -270,7 +505,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (isTeam(space)) throw error(404, 'Song not found');
-		archiveSong(db, song.id, Date.now());
+		archiveSong(db, song.id, serverNow());
 		throw redirect(303, `/${params.dance}/songs`);
 	},
 
@@ -279,7 +514,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (!isTeam(space)) throw error(404, 'Song not found');
-		if (!shareSong(db, space, song.id, Date.now())) {
+		if (!shareSong(db, space, song.id, serverNow())) {
 			return fail(400, { action: 'share' as const, message: 'Only a ready song can be shared.' });
 		}
 		return { ok: true };
@@ -289,7 +524,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	unshare: ({ params, locals }) => {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
-		if (!isTeam(space) || !unshareSong(db, space, song.id, Date.now())) {
+		if (!isTeam(space) || !unshareSong(db, space, song.id, serverNow())) {
 			throw error(404, 'Song not found');
 		}
 		return { ok: true };
@@ -299,7 +534,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	delete: ({ params, locals }) => {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
-		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, Date.now())) {
+		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, serverNow())) {
 			throw error(404, 'Song not found');
 		}
 		throw redirect(303, `/${params.dance}/songs`);

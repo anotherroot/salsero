@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import SwipeAway from '$lib/components/ui/SwipeAway.svelte';
 	import { focusAfter, focusWasLost } from '$lib/focus';
 	import type { IconName } from '$lib/icons/icons';
 	/**
@@ -15,6 +16,9 @@
 	 * Inside a Sheet or Dialog pass `contained` and render it from their `toast`
 	 * snippet: a modal dialog makes the page inert and draws over a toast on the
 	 * page.
+	 *
+	 * A swipe left or right takes it away (`SwipeAway`); the clock waits while a
+	 * finger is on it and starts again when it lets go.
 	 */
 	interface Props {
 		toast: {
@@ -42,8 +46,11 @@
 				: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))')
 	);
 
+	/** A finger is on the toast: its clock waits. */
+	let held = $state(false);
+
 	$effect(() => {
-		if (toast === null) return;
+		if (toast === null || held) return;
 		// Read the id so the effect re-runs, and the timer restarts, per toast.
 		void toast.id;
 		const timer = setTimeout(ondismiss, 6000);
@@ -86,29 +93,31 @@
 	bind:this={region}
 >
 	{#if toast}
-		<div
-			bind:this={card}
-			onfocusin={(e) => {
-				const from = e.relatedTarget;
-				if (from instanceof HTMLElement && !card?.contains(from)) returnTo = from;
-			}}
-			class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)] {toast.action
-				? 'pr-1'
-				: 'pr-4'}"
-		>
-			{#if toast.icon}
-				<span class="flex-none {toast.tone === 'done' ? 'text-inverse-done' : 'text-inverse-ink'}"
-					><Icon name={toast.icon} size={22} /></span
-				>
-			{/if}
-			<span class="min-w-0 flex-1 text-[15px] leading-[1.35] font-semibold">{toast.message}</span>
-			{#if toast.action}
-				<button
-					type="button"
-					class="h-11 flex-none cursor-pointer px-3 text-[15px] font-extrabold text-inverse-accent"
-					onclick={onaction}>{toast.action}</button
-				>
-			{/if}
-		</div>
+		<SwipeAway key={toast.id} {ondismiss} onhold={(h) => (held = h)}>
+			<div
+				bind:this={card}
+				onfocusin={(e) => {
+					const from = e.relatedTarget;
+					if (from instanceof HTMLElement && !card?.contains(from)) returnTo = from;
+				}}
+				class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)] {toast.action
+					? 'pr-1'
+					: 'pr-4'}"
+			>
+				{#if toast.icon}
+					<span class="flex-none {toast.tone === 'done' ? 'text-inverse-done' : 'text-inverse-ink'}"
+						><Icon name={toast.icon} size={22} /></span
+					>
+				{/if}
+				<span class="min-w-0 flex-1 text-[15px] leading-[1.35] font-semibold">{toast.message}</span>
+				{#if toast.action}
+					<button
+						type="button"
+						class="h-11 flex-none cursor-pointer px-3 text-[15px] font-extrabold text-inverse-accent"
+						onclick={onaction}>{toast.action}</button
+					>
+				{/if}
+			</div>
+		</SwipeAway>
 	{/if}
 </div>

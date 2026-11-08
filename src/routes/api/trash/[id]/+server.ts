@@ -5,6 +5,7 @@ import { trashRefusalLine } from '$lib/teams/deleted';
 import { flowAfter, rootOfTrash } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * Restore one trash entry: the player's Undo for a group's section, so the
  * same section comes back rather than a twin (risk 18). Only a group's
@@ -16,7 +17,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	const db = getDb();
 	const found = locals.user && id > 0 ? trashSpace(db, locals.user.id, id) : null;
 	if (!found) throw error(404, 'No such thing to restore');
-	const done = restoreTrash(db, found.space, id, Date.now());
+	const done = restoreTrash(db, found.space, id, serverNow());
 	if (done.ok) {
 		// What came back changes its root: Keep in step's flow runs from there.
 		const root = rootOfTrash(db, id);
