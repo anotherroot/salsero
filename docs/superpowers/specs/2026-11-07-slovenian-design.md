@@ -215,3 +215,23 @@ that changes a form field or an API shape older open pages would send.
 - How the Android app learns the language.
 - The design spec (`2026-09-22-salsa-app-design.md`) and CLAUDE.md get a
   short note on the two languages and where the catalogs are.
+
+## Decided while building (part 1)
+
+- **Catalogs per area** (`src/lib/i18n/en/<area>.ts`, `sl/<area>.ts`, an
+  `index.ts` each); PURE modules call `t()` inside each function, so their
+  specs run in English without a request and `withLocale('sl', …)` checks the
+  Slovenian. The guard against new English exists: `no-english.spec.ts`
+  (`TRANSLATED`, the markup of every translated component).
+- **A lesson's own exercise keeps its stored English name** (`Review: <title>`,
+  kept in step with the lesson's title for every member) and is drawn in the
+  reader's language (`shownExercise`, `src/lib/exercises/name.ts`, in the
+  Today, exercise page and Practice loads): a stored Slovenian name would stay
+  Slovenian after a switch to English, and the rename keeps it for everyone.
+- **The Practice player and `/device/pair` are on the Follow my class path**: a
+  class routine's log popup says "Practise in player" and a class drill's
+  Music says "Practise to this", and pairing is how the class gets
+  the reminder. Both are in part 1.
+- **The rig shoots the class**: `scripts/shots/seed.sh` seeds a class into a db
+  copy, `--locale` and `--level` set the admin's language and level, and
+  `pages-follow.txt` with the `follow-*` scenes is the path (README "A class").

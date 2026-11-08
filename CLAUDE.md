@@ -72,7 +72,12 @@ exercise page and log popup; see
 and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
 with Undo, "N new"; see
-[`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md)).
+[`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md))
+and Slovenian (part 1: the app in English or Slovenian per account; the language on
+the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
+person; the Follow my class path in Slovenian, the Practice player and pairing
+included; the rest of the app and the Android app's own text are part 2; see
+[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -183,6 +188,10 @@ Comments have theirs,
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md):
 who reads and writes, the soft delete, hearts, "N new" from an `opens` row, the
 card, the sheet, the keyboard, the API, and what was decided while building.
+Slovenian has its own,
+[`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
+the register (vikanje), the glossary, plurals, dates and numbers, where the language
+lives (account, invite, cookie), how the words are organised, and the order of work.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -205,6 +214,23 @@ src/lib/levels/      PURE, client-safe: levels.ts is the level (`'follow' | 'own
                      `simpleClass`, `autoAddOn` and the other "is this drawn" questions.
                      Components ask it, never compare level strings. first-run.ts: the
                      first run's words, refusals and where it ends (`afterJoin`, `afterSkip`)
+src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current language's catalog),
+                     `en/` the source and `sl/` typed against it, one file per area with an
+                     `index.ts` (the glossary heads `sl/index.ts`), `current.ts` (the current
+                     language: a `withLocale` override for specs, the server's per-request
+                     source, the browser's, then English; never a server module variable),
+                     `locale.ts` (`'en' | 'sl'`, the `lang` cookie, `requestLocale`), `plural.ts`
+                     (`slCount`, `slForm`). `i18n.spec.ts` checks both catalogs have the same
+                     keys; `no-english.spec.ts` lists the translated components (`TRANSLATED`)
+                     and fails on bare English in their markup (`no-english.ts`, `englishIn`)
+src/lib/server/i18n-request.ts  the server's language per request (`AsyncLocalStorage`):
+                     `hooks.server.ts` wraps `resolve` in `runInLocale`
+src/lib/server/locale.ts  `users.locale` and `invites.locale` (`setLocale`, `localeOf`,
+                     `inviteLocaleOf`), the `lang` cookie, `<html lang>` (`fillLang`)
+src/lib/server/invite-code.ts  an invite code's hash: a leaf, so the hook reads an
+                     invite's language without loading invites.ts
+src/lib/exercises/name.ts  PURE: a lesson's own exercise is stored `Review: <title>` and
+                     drawn in the reader's language (`shownExercise`, in the loads)
 src/lib/comments/    PURE, client-safe: view.ts is the comments' words, the 1–1000 body rule,
                      "@Name", the card's words, and the sheet's list after a post, a heart
                      or a delete. api.ts is the fetch side of the comments API
@@ -810,6 +836,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `/api/worker/` (`request-user.ts`). Only its SHA-256 is stored. Anything the
   Android app needs is an `/api/` endpoint; anything it shows is a page the
   app's WebView opens with the cookie session.
+- **Words go through `t()`.** A screen's words live in the catalogs, never inline:
+  a new screen's words go in both catalogs (en and sl, `src/lib/i18n/`), and its
+  component goes in `TRANSLATED` (`src/lib/i18n/no-english.spec.ts`). Read `t()` at call
+  time (in markup, a `$derived` or inside a function), never into a top-level constant.
+  Slovenian: vikanje in sentences, plurals through `slCount`, a decimal comma, a person's
+  name after a colon or a "·", the glossary at the top of `sl/index.ts`. What people
+  write (names, notes, comments, song titles) and the count are never translated.
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with
   `toLocaleDateString` — ICU versions disagree and SSR must match hydration.
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are
