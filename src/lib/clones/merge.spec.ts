@@ -218,6 +218,68 @@ describe('mergeRows', () => {
 		expect(rs.map((r) => [r.key, r.kind, r.pick])).toEqual([['rec:r1', 'remove', 'h(video|100)']]);
 	});
 
+	it('two copies that changed a field to the same value: one change, held by both', () => {
+		const t1 = edit(ORIGIN, { timing: 't1' });
+		const r = row(rows(ORIGIN, t1, t1), 'timing')!;
+		expect(r.pick).toBe('h(t1)');
+		expect(r.values.map((v) => [v.hash, v.holders, v.changed])).toEqual([
+			['h(t0)', [T], false],
+			['h(t1)', [G1, G2], true]
+		]);
+	});
+
+	it('a section renamed beside a copy without it adds nowhere unless sections are on', () => {
+		// T renamed s1; G2 never got s1 (in step without it).
+		const t = edit(ORIGIN, { 'rec:r1:spot:s1': '0|1000|Spin' });
+		const g2 = edit(ORIGIN, { 'rec:r1:spot:s1': null });
+		const pairs: MergePair[] = [
+			{ a: T, b: G1, at: 10, base: base() },
+			{ a: T, b: G2, at: 20, base: base(g2) }
+		];
+		const off = rows(t, ORIGIN, g2, pairs);
+		expect(off.map((r) => [r.key, r.kind, r.pick])).toEqual([
+			['rec:r1:spot:s1', 'field', undefined]
+		]);
+		expect(
+			mergeTargets(
+				off,
+				{},
+				new Map([
+					[T, t],
+					[G1, ORIGIN],
+					[G2, g2]
+				])
+			)
+		).toEqual(new Map());
+		const on = rows(t, ORIGIN, g2, pairs, { ...DEFAULT_SYNC, sections: true });
+		expect(row(on, 'rec:r1:spot:s1')!.pick).toBe('h(0|1000|Spin)');
+	});
+
+	it('a removal beside two different present values never starts on removing', () => {
+		// T removed r1; G1 and G2 hold it with different presence values. Media on or off.
+		const t = edit(ORIGIN, { 'rec:r1': null, 'rec:r1:note': null, 'rec:r1:spot:s1': null });
+		const g2 = edit(ORIGIN, { 'rec:r1': 'video|150' });
+		const pairs: MergePair[] = [
+			{ a: T, b: G1, at: 10, base: base() },
+			{ a: T, b: G2, at: 20, base: base(g2) }
+		];
+		for (const page of [DEFAULT_SYNC, { ...DEFAULT_SYNC, media: true }]) {
+			const rs = rows(t, ORIGIN, g2, pairs, page);
+			expect(rs.map((r) => [r.key, r.kind, r.pick])).toEqual([['rec:r1', 'field', undefined]]);
+			expect(
+				mergeTargets(
+					rs,
+					{},
+					new Map([
+						[T, t],
+						[G1, ORIGIN],
+						[G2, g2]
+					])
+				)
+			).toEqual(new Map());
+		}
+	});
+
 	it('a copy’s suffixed name picks the plain name', () => {
 		const suffixed = edit(ORIGIN, { name: 'Basic (Sreda 17:30)' });
 		// Never in step: the plain rule would leave it open.
@@ -318,6 +380,23 @@ describe('mergeTargets', () => {
 				[G2, [{ giver: G1, keys: ['link:https://a'] }]]
 			])
 		);
+	});
+
+	it('throws when the flats are not the rows’ copies as the rows saw them', () => {
+		const g1 = edit(ORIGIN, { timing: 't1' });
+		const rs = rows(ORIGIN, g1, ORIGIN);
+		// G1 saved again since the rows were read.
+		const stale = flats(ORIGIN, edit(ORIGIN, { timing: 't2' }), ORIGIN);
+		expect(() => mergeTargets(rs, {}, stale)).toThrow(/does not hold/);
+		// A holder missing.
+		const missing = new Map([
+			[T, ORIGIN],
+			[G1, g1]
+		]);
+		expect(() => mergeTargets(rs, {}, missing)).toThrow(/does not hold/);
+		// A copy the rows never merged.
+		const extra = new Map([...flats(ORIGIN, g1, ORIGIN), [4, ORIGIN]]);
+		expect(() => mergeTargets(rs, {}, extra)).toThrow(/not timing's copies/);
 	});
 
 	it('an unticked box lands nothing: keep never restores, an unticked add never removes', () => {

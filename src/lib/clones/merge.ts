@@ -21,6 +21,11 @@
  *   "keep" (the present value). An add of a section, point, recording or video
  *   starts ticked only when the page's own copy has that option on (the
  *   options set the boxes' defaults); every other add starts ticked.
+ * - A key absent on some copies with two or more different values elsewhere
+ *   (a section one copy renamed and another never got) is no box: it never
+ *   starts on "absent" (that would remove it from the copies holding it), and
+ *   starts on a present value only when an add of that key would start ticked
+ *   (it lands on the copies without it). Otherwise it is open.
  * - A name or title where every value but one is another's copy suffix
  *   ("Basic (Sreda 17:30)" against "Basic") starts on the plain name.
  * - A recording, video or section present on some copies only goes whole:
@@ -122,6 +127,9 @@ export function mergeRows(
 				kind = 'add';
 				pick = addTicked(key, page) ? present.hash : null;
 			}
+		} else if (absent && pick !== undefined) {
+			// Absent beside two or more present values: no default removes, none adds unasked.
+			if (pick === null || !addTicked(key, page)) pick = undefined;
 		}
 		if (NAME_KEYS.has(key)) {
 			const plain = plainName(values);
@@ -171,6 +179,21 @@ export function unresolved(rows: MergeRow[], picks: Record<string, string | null
 		.map((r) => r.key);
 }
 
+/** Throws unless `flats` holds exactly the row's holders, each with the value the row says. */
+function agree(row: MergeRow, flats: Map<number, Flat>): void {
+	let seen = 0;
+	for (const v of row.values)
+		for (const id of v.holders) {
+			const f = flats.get(id);
+			const cur = f ? valueOf(f, row.key) : undefined;
+			const holds = v.field === null ? cur === null : cur?.value === v.field.value;
+			if (!f || !holds)
+				throw new Error(`mergeTargets: copy ${id} does not hold what ${row.key} says`);
+			seen++;
+		}
+	if (seen !== flats.size) throw new Error(`mergeTargets: the flats are not ${row.key}'s copies`);
+}
+
 /**
  * What each copy must take so it holds the chosen value of every row: per
  * member of `flats` (keyed by id, in the members' order, the page first) whose
@@ -183,6 +206,12 @@ export function unresolved(rows: MergeRow[], picks: Record<string, string | null
  * remove box left unticked lands nothing either: an unticked add removes the
  * piece from no copy, and "keep" restores it on no copy that removed it, so a
  * Sync never deletes or undoes a piece by default.
+ *
+ * `flats` must be the merged members' current flats, exactly: who holds what
+ * is read from the rows' `holders`, and a member of `flats` that holds no
+ * value of a row, a holder missing from `flats`, or a flat whose value is not
+ * the one its row says it holds throws (stale rows, or other members), so a
+ * giver always holds what it gives.
  */
 export function mergeTargets(
 	rows: MergeRow[],
@@ -193,21 +222,20 @@ export function mergeTargets(
 	const rankOf = (id: number) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
 	const needs = new Map<number, { key: string; givers: number[] }[]>();
 	for (const row of rows) {
+		agree(row, flats);
 		const choice = choiceOf(row, picks);
 		if (choice === undefined) continue;
 		const chosen = row.values.find((v) => v.hash === choice);
 		if (!chosen) continue;
 		if (row.kind === 'add' && choice === null) continue;
 		if (row.kind === 'remove' && choice !== null) continue;
-		for (const [id, f] of flats) {
-			const cur = valueOf(f, row.key);
-			const holds = chosen.field === null ? cur === null : cur?.value === chosen.field.value;
-			if (holds) continue;
-			const givers = chosen.holders.filter((g) => g !== id);
-			if (givers.length === 0) continue;
-			const list = needs.get(id) ?? [];
-			list.push({ key: row.key, givers });
-			needs.set(id, list);
+		for (const v of row.values) {
+			if (v === chosen) continue;
+			for (const id of v.holders) {
+				const list = needs.get(id) ?? [];
+				list.push({ key: row.key, givers: chosen.holders });
+				needs.set(id, list);
+			}
 		}
 	}
 
