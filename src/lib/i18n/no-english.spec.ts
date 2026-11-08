@@ -77,6 +77,8 @@ const TRANSLATED: string[] = [
 	'src/routes/[dance]/(today)/+layout.svelte',
 	'src/routes/[dance]/(today)/+page.svelte',
 	'src/routes/[dance]/(today)/coming-up/+page.svelte',
+	// Done for today: where a run ends (run the day, plan 3).
+	'src/routes/[dance]/(today)/done/+page.svelte',
 	// The exercise page and the log popup, its practice panel and chips (Task 8).
 	'src/lib/components/exercises/ComesBackCard.svelte',
 	'src/lib/components/exercises/DoneSheet.svelte',

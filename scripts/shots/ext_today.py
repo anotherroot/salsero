@@ -640,8 +640,22 @@ def _run_walk(page):
     page.locator("dialog[open]").get_by_role("button", name=FACES).first.click()
     page.wait_for_url(re.compile(r"/(salsa|bachata)/done$"), timeout=30000)
     _settle(page)
+    # Done for today: its title, and the last save's toast came along.
+    page.get_by_role("heading", name="Done for today").first.wait_for()
+    page.locator("[role=status]", has_text="Saved").first.wait_for()
+    if page.get_by_role("checkbox").count():
+        raise RuntimeError("Done for today has a checkbox")
+
+
+def _done_back(page):
+    """One Back from Done for today lands on Today (the run was one history entry)."""
+    page.get_by_role("button", name="Back to Today").last.click()
+    page.wait_for_url(re.compile(r"/(salsa|bachata)(/exercises/\d+)?$"), timeout=30000)
+    _settle(page)
+    if "/done" in page.url or "run=1" in page.url:
+        raise RuntimeError(f"Back to Today went to {page.url}")
 
 
 SCENES.update({
-    "today-run-walk": Scene("/{dance}", _run_walk),
+    "today-run-walk": Scene("/{dance}", _run_walk, after=_done_back),
 })

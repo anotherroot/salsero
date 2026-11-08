@@ -63,6 +63,19 @@ export const today = {
 		/** The pane with nothing open (desktop). */
 		soFar: 'Today so far'
 	},
+	/** Done for today: where a run ends (`src/lib/exercises/done-today.ts`). */
+	doneToday: {
+		title: 'Done for today',
+		/** A tile's label under its number: "7 / exercises". */
+		exercises: (n: number): string => (n === 1 ? 'exercise' : 'exercises'),
+		/** The other tile's: "30 min / practised". */
+		practised: 'practised',
+		/** The Warm-up row: "2 done · 7 days in a row". */
+		warmupDone: (n: number): string => `${n} done`,
+		streak: (n: number): string => `${n} days in a row`,
+		/** A drill that finished learning today; `back` from `backWords`, lower-cased: "Learnt · back in 3 days". */
+		learnt: (back: string): string => `Learnt · ${back}`
+	},
 	/** A past day's totals: "7 exercises". */
 	totals: (exercises: number): string => plural(exercises, 'exercise', 'exercises'),
 	coming: {

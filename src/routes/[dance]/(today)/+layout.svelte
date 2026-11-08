@@ -59,7 +59,8 @@
 	/** The two lower levels: New exercise without Comes back. */
 	const simpleLog = $derived(simple(levelShown(page.data.user?.level)));
 	/** The exercise open: the URL's (the page beside the list on the desktop, the page itself on the phone). */
-	const currentId = $derived(isList ? null : Number(page.params.id));
+	// None on a route without an id (Done for today).
+	const currentId = $derived(isList || !page.params.id ? null : Number(page.params.id));
 
 	let creating = $state(false);
 	// The layout's toast: Not today, Coming up's +, a refused Next.

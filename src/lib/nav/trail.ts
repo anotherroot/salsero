@@ -80,11 +80,11 @@ function firstSegment(path: string): string {
 	return path.slice(dance.length + 1).split('/')[1] ?? '';
 }
 
-/** A trail page that is not Practice or share: those are never a tab's last page. */
+/** A trail page that is not Practice, share or Done for today: those are never a tab's last page. */
 export function remembered(path: string): boolean {
 	if (!isTrailPage(path)) return false;
 	const first = firstSegment(path);
-	return first !== 'player' && first !== 'share';
+	return first !== 'player' && first !== 'share' && first !== 'done';
 }
 
 const ROOTS = new Set([

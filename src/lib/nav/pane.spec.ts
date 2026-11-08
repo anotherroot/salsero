@@ -94,6 +94,9 @@ describe('Today', () => {
 	it('is a list with the open exercise beside it', () => {
 		expect(listOf('/[dance]/(today)')).toEqual({ list: 'today', open: false });
 		expect(listOf('/[dance]/(today)/exercises/[id]')).toEqual({ list: 'today', open: true });
+		// Done for today: the pane beside the list, as an exercise is.
+		expect(listOf('/[dance]/(today)/done')).toEqual({ list: 'today', open: true });
+		expect(inList('/salsa/done', 'today', 'salsa')).toBe(true);
 		// No longer a route id: Today's page is in the (today) group.
 		expect(listOf('/[dance]')).toBeNull();
 	});

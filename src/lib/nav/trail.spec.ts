@@ -109,6 +109,8 @@ describe('page classes', () => {
 		expect(isTrailPage('/voice')).toBe(false);
 		expect(remembered('/salsa/player')).toBe(false);
 		expect(remembered('/salsa/share')).toBe(false);
+		// Done for today: a Today tab tap never lands on it.
+		expect(remembered('/salsa/done')).toBe(false);
 		expect(remembered('/salsa/figures/1')).toBe(true);
 		expect(remembered('/settings')).toBe(false);
 		for (const p of [

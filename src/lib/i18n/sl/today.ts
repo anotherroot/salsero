@@ -1,9 +1,13 @@
 import type { Catalog } from '../catalog';
-import { slCount } from '../plural';
+import { slCount, slForm } from '../plural';
 
 type Forms = [one: string, two: string, few: string, other: string];
 
 const VAJA: Forms = ['vaja', 'vaji', 'vaje', 'vaj'];
+// "7 dni zapored" (nominative: 1 dan, 2 dneva, 3 dnevi, 5 dni).
+const DAN: Forms = ['dan', 'dneva', 'dnevi', 'dni'];
+/** The noun alone, in the form `n` takes: "vaj" under a tile's 7. */
+const form = (n: number, [one, two, few, other]: Forms) => ({ one, two, few, other })[slForm(n)];
 
 // No past tense about the reader ("Vse vaje so opravljene", not "Opravili ste"),
 // and an exercise's name always before a "·" or after a colon.
@@ -50,6 +54,16 @@ export const today: Catalog['today'] = {
 		backToToday: 'Nazaj na danes',
 		pickToOpen: 'Izberite vajo, da jo odprete.',
 		soFar: 'Danes doslej'
+	},
+	doneToday: {
+		title: 'Opravljeno za danes',
+		// The tile's noun under its number: "7 / vaj".
+		exercises: (n) => form(n, VAJA),
+		// "30 min / vadbe": of the day's practice (glossary).
+		practised: 'vadbe',
+		warmupDone: (n) => `Opravljeno: ${n}`,
+		streak: (n) => `${slCount(n, DAN)} zapored`,
+		learnt: (back) => `Naučeno · ${back}`
 	},
 	totals: (exercises) => slCount(exercises, VAJA),
 	coming: {
