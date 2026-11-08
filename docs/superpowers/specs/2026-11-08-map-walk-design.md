@@ -270,3 +270,57 @@ here" is these lists.
 
 The map is drawn in two places on the desktop, the map route and the Positions
 list's empty pane. Both go through `MapPane`, so everything here applies to both.
+
+## Decided while building
+
+1. The frame is portrait, 7:10, for the phone. Two pills too wide to sit side
+   by side in it are always parted vertically, or they bounced against the
+   walls for good.
+2. The whole-map view is capped at scale 1: a tiny map is centred, not
+   enlarged. It also keeps 12 px clear at the room's sides.
+3. On the desktop the map takes the pane's full width and the 320 px panel
+   floats over its right edge, as the phone's sheet floats over the bottom.
+   Read literally, "panel on the right, map the rest" left a 310 px map. The
+   fits leave the panel's room (`Room.right`); the person can pan.
+4. An orphan keeps its mark word under the pill, as a dead end does.
+5. The unused chip opens the first unused position, like the gap chips.
+6. A tray chip starts a fresh trail. It is never a step back from the last one.
+7. The panel holds one history entry whatever it shows, so Back closes it.
+8. Back during a walk ends it and lands on the tray, after asking when there
+   are figures. Clear is the way back to the position's sheet.
+9. While the walk stands nowhere, the view fits the path so far, not the whole
+   map: at whole-map scale the pills were too small to tap. After a figure
+   with no end it does the same.
+10. Walk badges are drawn above the pills, so a pill never hides one.
+11. The Unsaved dialog's Save uses `sendAt`, which posts and does not follow
+    the redirect. Following it would race the navigation the person chose.
+    It then calls `invalidate('app:moves')`, so the Moves lists show the routine.
+12. Make routine closes the sheets, then goes with `gotoWhenSettled`, so no
+    shallow map entries are left behind.
+13. Sorts in the sheet and the walk use a fixed `'en'` comparator, so the
+    server and the browser order names the same.
+14. Fits anywhere is offered when the walk stands nowhere too, since those
+    figures fit after anything. The stuck line shows when no group leaves the
+    current position.
+15. The legend became the ⓘ sheet, and "Bigger: more figures" went: pills no
+    longer change size. The pill links lose the global focus halo; the in-map
+    ring stays.
+16. The sheet has a fixed height (the smaller of 380 px and 62 % of the map),
+    so a step never refits the view. A short sheet leaves blank space at its foot.
+17. The map's words are in both catalogs, and the pill marks are translated.
+
+## Known gaps
+
+- At 1280 px the whole map draws at about 0.71x on the desktop: the frame is
+  portrait for the phone. A landscape frame for wide maps would fix it.
+- Two copies of a figure show identical chip labels in a walk. Nothing tells
+  them apart.
+- The first open on the phone fits twice, because the room's foot is measured
+  a tick late.
+- The Twins line under a pill ("Twins: ...") stays English.
+- In Slovenian the "N neuporabljenih" chip has no noun, and the mark words
+  are wider than the space reserved for them.
+- The sheet pulls focus back to its heading when the map data refreshes.
+- Past about 200 positions the layout takes a noticeable moment (0.5 s at 400).
+- On a short phone about 70 px of map shows above the sheet; the sheet has no
+  rise animation.
