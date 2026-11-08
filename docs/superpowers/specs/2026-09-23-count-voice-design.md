@@ -4,6 +4,11 @@ Extends [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md),
 "Songs & player (phase 2)". That spec stands except where this one says
 otherwise; its **Voice** section is superseded by this document.
 
+
+> **Since 2026-11-08 nothing is called.** The figure calls, and the duck that
+> made room for them (5-6-7, or phrase B), are gone; what this spec says about
+> them is history. See "Nothing is called" in the design spec.
+
 ## The problem
 
 Phase 2b ships one spoken count: 1-2-3, 5-6-7, in Piper's Spanish, one clip per

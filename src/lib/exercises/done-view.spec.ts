@@ -87,43 +87,23 @@ describe('toasts', () => {
 });
 
 describe('doneBar', () => {
-	it('is Done today once the day has an entry', () => {
-		expect(doneBar({ doneToday: true, playing: false })).toEqual({
+	it('is Done today once the day has an entry, and never waits (nothing plays on the page)', () => {
+		expect(doneBar({ doneToday: true })).toEqual({
 			label: 'Done today',
-			kind: 'done-soft',
-			disabled: false,
-			hint: null
+			kind: 'done-soft'
 		});
-		expect(doneBar({ doneToday: false, playing: false })).toEqual({
+		expect(doneBar({ doneToday: false })).toEqual({
 			label: 'Done',
-			kind: 'primary',
-			disabled: false,
-			hint: null
+			kind: 'primary'
 		});
 	});
 	it('is the green Done · next for a fixed rhythm in a run', () => {
-		expect(doneBar({ doneToday: false, playing: false, fixedInRun: true })).toEqual({
+		expect(doneBar({ doneToday: false, fixedInRun: true })).toEqual({
 			label: 'Done · next',
-			kind: 'done',
-			disabled: false,
-			hint: null
-		});
-		expect(doneBar({ doneToday: false, playing: true, fixedInRun: true })).toEqual({
-			label: 'Done · next',
-			kind: 'done',
-			disabled: true,
-			hint: 'Stop the count first.'
+			kind: 'done'
 		});
 		// Done today already: as outside a run.
-		expect(doneBar({ doneToday: true, playing: false, fixedInRun: true }).kind).toBe('done-soft');
-	});
-	it('waits for the count to stop', () => {
-		expect(doneBar({ doneToday: false, playing: true })).toEqual({
-			label: 'Done',
-			kind: 'primary',
-			disabled: true,
-			hint: 'Stop the count first.'
-		});
+		expect(doneBar({ doneToday: true, fixedInRun: true }).kind).toBe('done-soft');
 	});
 });
 
@@ -152,14 +132,11 @@ describe('in Slovenian', () => {
 		expect(
 			sl(() => doneSubtitle({ seconds: 252, learning: null, day: null, name: 'X', next: 'Y' }))
 		).toBe('4:12 · Naslednja: Y');
-		expect(sl(() => doneBar({ doneToday: false, playing: false, fixedInRun: true }).label)).toBe(
+		expect(sl(() => doneBar({ doneToday: false, fixedInRun: true }).label)).toBe(
 			'Opravljeno · naprej'
 		);
 	});
 	it('words the bar', () => {
-		expect(sl(() => doneBar({ doneToday: true, playing: false }).label)).toBe('Opravljeno danes');
-		expect(sl(() => doneBar({ doneToday: false, playing: true }).hint)).toBe(
-			'Najprej ustavite štetje.'
-		);
+		expect(sl(() => doneBar({ doneToday: true }).label)).toBe('Opravljeno danes');
 	});
 });

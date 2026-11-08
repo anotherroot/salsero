@@ -6,7 +6,6 @@ import {
 	loops,
 	positionSeams,
 	rowEdges,
-	slotAt,
 	routineEnds,
 	routineStarts,
 	slotEnds,
@@ -240,32 +239,6 @@ describe('flatten carries the note', () => {
 			'its own note wins',
 			'the whole combo slows here'
 		]);
-	});
-});
-
-describe('slotAt', () => {
-	it('is the first slot before anything has been called', () => {
-		// The list must not read as dead for the first few seconds of a run: the
-		// first slot is what is coming, which is what the dancer needs to see.
-		expect(slotAt(null, 5)).toBe(0);
-	});
-
-	it('wraps as the routine loops', () => {
-		expect(slotAt(0, 3)).toBe(0);
-		expect(slotAt(2, 3)).toBe(2);
-		expect(slotAt(3, 3)).toBe(0);
-		expect(slotAt(7, 3)).toBe(1);
-	});
-
-	it('is null when there is nothing to dance', () => {
-		expect(slotAt(null, 0)).toBeNull();
-		expect(slotAt(4, 0)).toBeNull();
-	});
-
-	it('survives a negative index rather than highlighting nothing', () => {
-		// `findIndex` answers -1 when it misses, and -1 % 5 is -1 in JS, which
-		// indexes past the start of the list and silently highlights no row.
-		expect(slotAt(-1, 5)).toBe(4);
 	});
 });
 

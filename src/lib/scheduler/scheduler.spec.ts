@@ -3,11 +3,7 @@ import {
 	CLAVE_POSITIONS,
 	COUNT_CLIP,
 	COUNT_POSITIONS,
-	LEAD_IN_8S,
-	UNIFORM_FLOW,
 	cuesIn,
-	extendPlan,
-	pickFigure,
 	syntheticGrid,
 	timeAt,
 	timeline
@@ -17,7 +13,7 @@ import {
 const grid = (bars: number) => syntheticGrid(120, bars);
 const t = (bars: number) => timeline(grid(bars));
 
-const ALL = { count: 'salsa', clave: null, callEvery: null } as const;
+const ALL = { count: 'salsa', clave: null } as const;
 const clips = (r: { cues: { at: number; clip: string }[] }) => r.cues.map((c) => c.clip);
 const times = (r: { cues: { at: number }[] }) => r.cues.map((c) => c.at);
 
@@ -145,11 +141,10 @@ describe('cuesIn — recorded phrases', () => {
 		]);
 	});
 
-	/** The duck gets coarser: a call owns 5-6-7, which is all of phrase b. */
-	it('drops the whole second half under a figure call', () => {
-		const plan = [{ eight: 1, figureId: 7 }];
-		const r = cuesIn(t(2), plan, { ...rec, callEvery: 2 }, 0, 4);
-		expect(r.phrases.map((p) => p.half)).toEqual(['a']);
+	it('keeps both halves in a bar where a figure starts: nothing is called over them', () => {
+		const plan = [{ eight: 0, figureId: 7, slot: 0 }];
+		const r = cuesIn(t(2), plan, rec, 0, 4);
+		expect(r.phrases.map((p) => p.half)).toEqual(['a', 'b']);
 	});
 
 	it('still emits the clave, which recordings do not replace', () => {
@@ -167,13 +162,13 @@ describe('cuesIn — recorded phrases', () => {
 
 describe('cuesIn — the clave', () => {
 	it('places 3-2 on 1, the and of 2, 4, 6 and 7', () => {
-		const r = cuesIn(t(1), [], { count: 'off', clave: '3-2', callEvery: null }, 0, 4);
+		const r = cuesIn(t(1), [], { count: 'off', clave: '3-2' }, 0, 4);
 		expect(times(r)).toEqual([0, 0.75, 1.5, 2.5, 3]);
 		expect(new Set(clips(r))).toEqual(new Set(['clave']));
 	});
 
 	it('places 2-3 on 2, 3, 5, the and of 6, and 8', () => {
-		const r = cuesIn(t(1), [], { count: 'off', clave: '2-3', callEvery: null }, 0, 4);
+		const r = cuesIn(t(1), [], { count: 'off', clave: '2-3' }, 0, 4);
 		expect(times(r)).toEqual([0.5, 1, 2, 2.75, 3.5]);
 	});
 
@@ -183,137 +178,38 @@ describe('cuesIn — the clave', () => {
 	});
 });
 
-describe('cuesIn — calls', () => {
-	const pool = [7];
-	const plan = [{ eight: 2, figureId: 7 }];
+describe('cuesIn — where figures start', () => {
+	const plan = [
+		{ eight: 1, figureId: 7, slot: 0 },
+		{ eight: 3, figureId: 8, slot: 1 }
+	];
 
-	it('sounds a call on the 5 of the 8-count before the figure', () => {
-		// 8-count 1 starts at beat 8 (4 s); its count 5 is beat 12 = 6 s.
-		const r = cuesIn(t(4), plan, { ...ALL, callEvery: 2 }, 0, 12);
-		expect(r.calls).toEqual([{ at: 6, eight: 2, figureId: 7 }]);
-	});
-
-	it('suppresses the spoken count on 5-6-7 under a call', () => {
-		const r = cuesIn(t(4), plan, { ...ALL, callEvery: 2 }, 6, 8);
-		expect(clips(r)).toEqual([]); // 5, 6, 7 of 8-count 1 are the call's window
-	});
-
-	it('still counts 1 2 3 in the bar carrying a call', () => {
-		expect(clips(cuesIn(t(4), plan, { ...ALL, callEvery: 2 }, 4, 6))).toEqual([
-			'uno',
-			'dos',
-			'tres'
+	it('gives each step at the "1" of its 8-count', () => {
+		// 8-count 1 starts at beat 8 (4 s), 8-count 3 at beat 24 (12 s).
+		const r = cuesIn(t(4), plan, ALL, 0, 16);
+		expect(r.steps).toEqual([
+			{ at: 4, step: plan[0] },
+			{ at: 12, step: plan[1] }
 		]);
 	});
 
-	it('leaves other 8-counts fully counted', () => {
-		expect(clips(cuesIn(t(4), plan, { ...ALL, callEvery: 2 }, 2, 4))).toEqual([
+	it('returns only the steps whose "1" falls inside the window', () => {
+		expect(cuesIn(t(4), plan, ALL, 4.5, 12).steps).toEqual([]);
+		expect(cuesIn(t(4), plan, ALL, 4, 4.5).steps).toEqual([{ at: 4, step: plan[0] }]);
+	});
+
+	it('counts every beat of a bar where a figure starts', () => {
+		expect(clips(cuesIn(t(4), plan, ALL, 4, 8))).toEqual([
+			'uno',
+			'dos',
+			'tres',
 			'cinco',
 			'seis',
 			'siete'
 		]);
 	});
 
-	it('drops a call whose lead-in bar is off the end of the grid', () => {
-		expect(
-			cuesIn(t(1), [{ eight: 9, figureId: 7 }], { ...ALL, callEvery: 2 }, 0, 99).calls
-		).toEqual([]);
-	});
-
-	it('ignores the pool when calls are switched off', () => {
-		expect(cuesIn(t(4), plan, ALL, 0, 12).calls).toEqual([]);
-		expect(pool).toHaveLength(1);
-	});
-});
-
-describe('pickFigure', () => {
-	it('never returns the figure just called', () => {
-		for (let i = 0; i < 10; i++) expect(pickFigure([1, 2, 3], 2, i / 10)).not.toBe(2);
-	});
-
-	it('repeats when the pool holds only that figure', () => {
-		expect(pickFigure([1], 1, 0.9)).toBe(1);
-	});
-
-	it('returns null for an empty pool', () => {
-		expect(pickFigure([], null, 0)).toBeNull();
-	});
-
-	it('spreads across the pool', () => {
-		expect([0, 0.4, 0.9].map((r) => pickFigure([1, 2, 3], null, r))).toEqual([1, 2, 3]);
-	});
-});
-
-describe('extendPlan', () => {
-	const rand = (seq: number[]) => {
-		let i = 0;
-		return () => seq[i++ % seq.length];
-	};
-
-	it('starts after the lead-in and steps by the interval', () => {
-		expect(extendPlan([], [1, 2], 2, 6, rand([0, 0.9, 0])).map((s) => s.eight)).toEqual([2, 4, 6]);
-		expect(LEAD_IN_8S).toBe(2);
-	});
-
-	it('continues an existing plan without redeciding it', () => {
-		const first = extendPlan([], [1, 2], 2, 2, rand([0]));
-		const more = extendPlan(first, [1, 2], 2, 4, rand([0.9]));
-		expect(more[0]).toEqual(first[0]);
-		expect(more).toHaveLength(2);
-	});
-
-	it('never places the same figure twice running', () => {
-		const steps = extendPlan([], [1, 2, 3], 1, 20, rand([0, 0, 0, 0.99, 0.5]));
-		for (let i = 1; i < steps.length; i++) {
-			expect(steps[i].figureId).not.toBe(steps[i - 1].figureId);
-		}
-	});
-
-	it('returns the plan unchanged for an empty pool', () => {
-		expect(extendPlan([], [], 2, 10, rand([0]))).toEqual([]);
-	});
-
-	it('spaces calls by the figure length when it exceeds the interval', () => {
-		// Figure 1 takes three 8-counts, figure 2 takes one.
-		const flow = {
-			pick: (pool: number[], last: number | null) => (last === 1 ? 2 : 1),
-			eights: (id: number) => (id === 1 ? 3 : 1)
-		};
-		const steps = extendPlan([], [1, 2], 1, 9, rand([0]), flow);
-		// 1 at eight 2 takes 3 → next at 5; 2 at 5 takes 1, but the interval is 1 → 6.
-		expect(steps.map((s) => [s.eight, s.figureId])).toEqual([
-			[2, 1],
-			[5, 2],
-			[6, 1],
-			[9, 2]
-		]);
-	});
-
-	it('spaces the resume step by the figure length too, matching a plan built in one call', () => {
-		// Same flow as 'spaces calls by the figure length': figure 1 takes three
-		// 8-counts, figure 2 takes one, `every` is 1. The first call stops right
-		// after figure 1 is placed, so growing the second call has to re-derive
-		// figure 1's length for the RESUME step's spacing — the initial-`eight`
-		// expression, which no other test exercises with an `eights` above 1.
-		const flow = {
-			pick: (pool: number[], last: number | null) => (last === 1 ? 2 : 1),
-			eights: (id: number) => (id === 1 ? 3 : 1)
-		};
-		const first = extendPlan([], [1, 2], 1, 2, rand([0]), flow);
-		expect(first.map((s) => [s.eight, s.figureId])).toEqual([[2, 1]]);
-		const grown = extendPlan(first, [1, 2], 1, 9, rand([0]), flow);
-		expect(grown.map((s) => [s.eight, s.figureId])).toEqual([
-			[2, 1],
-			[5, 2],
-			[6, 1],
-			[9, 2]
-		]);
-	});
-
-	it('defaults to the uniform flow, so today’s behaviour is unchanged', () => {
-		const withDefault = extendPlan([], [1, 2, 3], 2, 8, rand([0, 0.5, 0.9]));
-		const explicit = extendPlan([], [1, 2, 3], 2, 8, rand([0, 0.5, 0.9]), UNIFORM_FLOW);
-		expect(withDefault).toEqual(explicit);
-		expect(UNIFORM_FLOW.eights(1)).toBe(1);
+	it('drops a step off the end of the grid', () => {
+		expect(cuesIn(t(1), [{ eight: 9, figureId: 7, slot: 0 }], ALL, 0, 99).steps).toEqual([]);
 	});
 });

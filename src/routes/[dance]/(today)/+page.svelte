@@ -128,7 +128,6 @@
 			subtitle={doneSubtitle({ seconds: null, learning: null, day: past.day, name: picked.name })}
 			faces={null}
 			seconds={null}
-			run={null}
 			day={past.day}
 			simple={simple(levelShown(page.data.user?.level))}
 			current={entry}

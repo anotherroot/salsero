@@ -60,7 +60,7 @@ describe('the type registry: Practise with', () => {
 describe('the exercise content words', () => {
 	it('points the routine note at Done and counts the recordings, in both languages', () => {
 		expect(t().exercise.content.routineNote).toBe(
-			'A run there saves itself. Tap Done when you practised away from the app.'
+			'Tap Done when you have practised, in the player or away from the app.'
 		);
 		expect(t().exercise.content.recordings(0)).toBe('Recordings');
 		expect(t().exercise.content.recordings(3)).toBe('Recordings · 3');
