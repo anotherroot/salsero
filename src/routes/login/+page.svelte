@@ -5,6 +5,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
+	import { loadAgreed } from '$lib/unsaved/guard.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -26,7 +27,10 @@
 				// Disabling the fields below is safe: enhance builds the FormData
 				// before this callback runs, so they are still sent.
 				submitting = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					// Signed in: a full load, so the app draws in the account's language,
+					// not the login page's (the root layout sets it once per load).
+					if (result.type === 'redirect') return loadAgreed(result.location);
 					await update();
 					submitting = false;
 				};

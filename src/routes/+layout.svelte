@@ -32,7 +32,9 @@
 	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
 	import {
 		fullLoadFor,
+		localeStale,
 		mayReloadNow,
+		needsLocaleReload,
 		reloadWhy,
 		typedFields,
 		type FieldState
@@ -42,11 +44,12 @@
 	import { holdsBack, staleMove } from '$lib/page-epoch';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 	import { levelShown } from '$lib/levels/levels';
-	import { setClientLocale } from '$lib/i18n/current';
+	import { locale, setClientLocale } from '$lib/i18n/current';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
-	// Once per page load: changing it in Settings reloads the page.
+	// Once per page load: changing it in Settings reloads the page, and a page whose
+	// data names another language later reloads (`needsLocaleReload`, below).
 	setClientLocale(untrack(() => data.locale));
 	guardNavigation();
 	// Back closes the top sheet, not the page (`$lib/sheets/stack.ts`).
@@ -326,7 +329,9 @@
 				toPath: to?.pathname ?? null
 			},
 			{
-				updated: updated.current,
+				// A page drawn in another language than its data names (`localeStale`)
+				// loads its next page whole, like a new version.
+				updated: updated.current || localeStale(locale(), data.locale),
 				asking: prompt.ask !== null,
 				online: navigator.onLine,
 				...quietNow()
@@ -335,6 +340,21 @@
 		if (!full || !to) return;
 		nav.cancel();
 		location.href = to.href;
+	});
+	/*
+	 * The page's data names another language than the page draws in: a sign-in
+	 * that did not load the page whole, or an admin who changed this person's
+	 * language. A quiet page reloads; otherwise the next page change loads whole
+	 * (`fullLoadFor`, above). Re-checked on every navigation (`page.url`).
+	 */
+	$effect(() => {
+		void page.url.href;
+		const wanted = data.locale;
+		const routeId = page.route.id;
+		const reload = untrack(() =>
+			needsLocaleReload({ drawn: locale(), wanted, routeId, ...quietNow() })
+		);
+		if (reload) location.reload();
 	});
 	/*
 	 * Coming back to the page is when a deploy is worth asking about. A quiet

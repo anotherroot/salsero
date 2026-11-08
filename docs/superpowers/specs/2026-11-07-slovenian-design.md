@@ -240,3 +240,9 @@ that changes a form field or an API shape older open pages would send.
 - **Signed out, `Accept-Language` comes after the cookie**: the Android app's
   WebView has its own cookie jar and never saw Join, so its first login page
   would otherwise be English on a Slovenian phone. Signed-in pages never read it.
+- **The page follows the account after sign-in**: login and Join end in a full
+  page load (`loadAgreed`), and the root layout reloads a quiet page whose data
+  names another language than the one it draws in (an admin changed it
+  mid-session), else loads the next page whole (`needsLocaleReload`,
+  `localeStale`, `src/lib/nav/fresh.ts`), so the client never keeps the login
+  page's language.

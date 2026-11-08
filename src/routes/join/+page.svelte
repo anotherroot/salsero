@@ -4,7 +4,7 @@
 	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
-	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { guarded, loadAgreed } from '$lib/unsaved/guard.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
@@ -34,7 +34,10 @@
 					submit: ({ cancel }) => {
 						if (submitting) return cancel();
 						submitting = true;
-						return async ({ update }) => {
+						return async ({ result, update }) => {
+							// Joined: a full load, so the app draws in the new account's
+							// language, not the page's (a pre-invite-language link, the cookie).
+							if (result.type === 'redirect') return loadAgreed(result.location);
 							try {
 								await update();
 							} finally {
