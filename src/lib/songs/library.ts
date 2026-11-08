@@ -80,15 +80,19 @@ export function songState(
 } {
 	const style = styleLabel[s.style] ?? s.style;
 	switch (s.status) {
-		case 'waiting_download':
+		case 'waiting_download': {
+			// A Spotify song is found on YouTube before it downloads.
+			const spotify = sourceOf(s.sourceUrl) === 'spotify';
 			return {
-				meta:
-					sourceOf(s.sourceUrl) === 'spotify'
-						? [s.artist, t().songs.source.findingIt].filter(Boolean).join(' · ')
-						: style,
+				meta: spotify ? [s.artist, style].filter(Boolean).join(' · ') : style,
 				tone: null,
-				badge: { text: 'Waiting to download', tone: 'neutral', icon: 'clock' }
+				badge: {
+					text: spotify ? t().songs.source.findingIt : 'Waiting to download',
+					tone: 'neutral',
+					icon: 'clock'
+				}
 			};
+		}
 		case 'waiting_analysis':
 			return {
 				meta: style,
