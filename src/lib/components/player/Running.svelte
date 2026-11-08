@@ -162,6 +162,12 @@
 	const sectionNow = $derived(
 		sections.length > 0 ? (sections[sectionIndexAt(sections, sectionBeat)] ?? null) : null
 	);
+	/** The count-off sections' spans: the count shows a dash there, its dots all alike. */
+	const quietSpans = $derived(
+		sections.flatMap((s, k) =>
+			s.countOff ? [{ from: s.t, to: sections[k + 1]?.t ?? Infinity }] : []
+		)
+	);
 	const sectionNext = $derived(sections.length > 0 ? aheadOf(sections, counts, sectionBeat) : null);
 	const follow = $derived(view === 'follow');
 	/**
@@ -356,7 +362,7 @@
 		<div
 			class="run-stage mt-2 flex min-h-0 flex-1 flex-col items-center gap-2.5 desk:absolute desk:top-(--band-row-h) desk:right-[520px] desk:bottom-0 desk:left-0 desk:mt-0 desk:justify-center-safe desk:gap-[22px] desk:px-8 desk:pb-10"
 		>
-			<StageCount time={() => player.songTime()} {beats} {counts} {paused} />
+			<StageCount time={() => player.songTime()} {beats} {counts} {paused} quiet={quietSpans} />
 			{#if lit !== null}
 				<!-- 32 px, a little less under 390 px wide: a long name stays two whole lines at 360. -->
 				<p
@@ -437,6 +443,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
@@ -484,6 +491,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
@@ -499,6 +507,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeFull}
 			onclose={closeLayer}
 		>
@@ -572,6 +581,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeLayer}
 			onclose={closeFigure}
 		>

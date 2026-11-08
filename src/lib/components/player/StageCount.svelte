@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
 	import { stageDigit, stageDots } from '$lib/player/view';
 	import { t } from '$lib/i18n/catalog';
 
@@ -9,9 +10,12 @@
 		beats: number[];
 		counts: number[];
 		paused: boolean;
+		/** A song's count-off sections (`quietRanges`): a dash and eight alike dots there. */
+		quiet?: QuietRange[];
 	}
 
-	let { time, beats, counts, paused }: Props = $props();
+	let { time, beats, counts, paused, quiet = [] }: Props = $props();
+	let off = $state(false);
 	let index = $state(-1);
 
 	/*
@@ -24,6 +28,7 @@
 		const tick = () => {
 			const t = time();
 			index = t === null ? -1 : beatIndexAt(beats, t);
+			off = t !== null && isQuiet(quiet, t);
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);
@@ -31,8 +36,8 @@
 	});
 
 	const count = $derived(index >= 0 ? (counts[index] ?? null) : null);
-	const digit = $derived(stageDigit(count, paused));
-	const dots = $derived(stageDots(count, paused));
+	const digit = $derived(stageDigit(count, paused, off));
+	const dots = $derived(stageDots(count, paused, off));
 
 	/*
 	 * Raised for a phone in sunlight: beat is ≥ 3.4:1 on three bands, quiet

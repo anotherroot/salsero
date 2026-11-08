@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { onMount, tick, type Snippet } from 'svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { clock } from '$lib/format';
 	import { stageDigit } from '$lib/player/view';
@@ -29,6 +30,8 @@
 		beats?: number[];
 		counts?: number[];
 		paused?: boolean;
+		/** A song's count-off sections: the strip's count is a dash there. */
+		quiet?: QuietRange[];
 		/** A layer over another one draws over it. */
 		over?: boolean;
 		/** The close button's name. */
@@ -47,6 +50,7 @@
 		beats = [],
 		counts = [],
 		paused = false,
+		quiet = [],
 		over = false,
 		closeLabel,
 		onclose,
@@ -81,6 +85,7 @@
 
 	/* The strip's own count: read every frame, like StageCount. */
 	let count = $state<number | null>(null);
+	let off = $state(false);
 	let time = $state(0);
 	$effect(() => {
 		const p = player;
@@ -89,6 +94,7 @@
 		const loop = () => {
 			time = p.songTime();
 			const i = beatIndexAt(beats, time);
+			off = isQuiet(quiet, time);
 			count = i >= 0 ? (counts[i] ?? null) : null;
 			frame = requestAnimationFrame(loop);
 		};
@@ -117,7 +123,7 @@
 		{#if player}
 			<span
 				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden"
-				aria-hidden="true">{stageDigit(count, paused).text}</span
+				aria-hidden="true">{stageDigit(count, paused, off).text}</span
 			>
 		{/if}
 		<span class="min-w-0 flex-1 text-[13px] leading-tight font-bold text-band-small tabular-nums">
