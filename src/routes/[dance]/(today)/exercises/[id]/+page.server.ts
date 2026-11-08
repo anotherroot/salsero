@@ -46,6 +46,7 @@ import {
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
@@ -148,6 +149,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			/** A drill's tabs per source (none for an entry: it is no family's). */
 			...pageSources(db, wall.userId, 'drill', own.id, url),
 			family: familyView(db, wall.userId, 'drill', own.id),
+			step: stepStatus(db, wall.userId, 'drill', own.id),
 			drop: dropOptions(db, wall, 'drill', own.id),
 			detach: detachOffer(db, wall.userId, 'drill', own.id),
 			/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
@@ -234,6 +236,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		...pageSources(db, wall.userId, 'drill', row.id, url),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'drill', row.id),
+		step: stepStatus(db, wall.userId, 'drill', row.id),
 		drop: null,
 		detach: detachOffer(db, wall.userId, 'drill', row.id),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */

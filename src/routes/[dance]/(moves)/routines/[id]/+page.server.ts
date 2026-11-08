@@ -63,6 +63,7 @@ import {
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
@@ -259,6 +260,7 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		...pageSources(db, wall.userId, 'routine', routine.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'routine', routine.id),
+		step: stepStatus(db, wall.userId, 'routine', routine.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),

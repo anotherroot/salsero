@@ -27,6 +27,7 @@ import { inGroupModeOn } from '$lib/server/group-mode';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { songSeen, seenRefusal } from '$lib/server/clash';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
@@ -97,6 +98,7 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'song', song.id),
+		step: stepStatus(db, wall.userId, 'song', song.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'song', song.id),
 		detach: detachOffer(db, wall.userId, 'song', song.id),

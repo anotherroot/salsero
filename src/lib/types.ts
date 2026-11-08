@@ -371,6 +371,8 @@ export type TwinNote = { id: number; figure: string | null; name: string; team: 
 /** A figure (a `figures` row) as the Figures list shows it, under its move. */
 export type FigureRow = {
 	id: number;
+	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
+	differ?: number;
 	/** The figure's own name — "Doble". */
 	name: string;
 	/** "Enchufla · Doble". */
@@ -427,6 +429,8 @@ export interface CalledFigure {
 /** A routine as the library list shows it. */
 export interface RoutineItem {
 	id: number;
+	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
+	differ?: number;
 	name: string;
 	notes: string | null;
 	/** Slots, children counted as one. */
@@ -1116,6 +1120,8 @@ export interface PositionSummary {
 
 /** One row of the Positions list. */
 export interface PositionListRow extends PositionSummary {
+	/** Copies of it that differ (0 or absent when in step). */
+	differ?: number;
 	inCount: number;
 	outCount: number;
 	deadEnd: boolean;
@@ -1237,3 +1243,13 @@ export type SyncView = {
 export type SyncAllResult =
 	| { ok: true; refused: { id: number; message: string }[] }
 	| { ok: false; reason: 'pick' | 'denied' | 'stale'; message: string };
+
+/** One other copy against the page's: how it stands, and the fields (the Sync sheet's labels). */
+export type StepLine = {
+	id: number;
+	place: string;
+	state: 'behind' | 'changed' | 'both' | 'held';
+	fields: string[];
+};
+/** Where a page's copies stand (`stepStatus`); empty `lines` when they agree. */
+export type StepView = { lines: StepLine[] };

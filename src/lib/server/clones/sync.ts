@@ -90,10 +90,10 @@ import { flatOf } from './trees';
 
 const DENIED = { ok: false, reason: 'denied', message: 'Not found.' } as const;
 
-const placeLabel = (place: PlaceRef) => (place.kind === 'mine' ? 'Yours' : place.name);
+export const placeLabel = (place: PlaceRef) => (place.kind === 'mine' ? 'Yours' : place.name);
 
 /** Yours first, then groups by name. */
-function byPlace(a: Member, b: Member): number {
+export function byPlace(a: Member, b: Member): number {
 	if (a.place.kind !== b.place.kind) return a.place.kind === 'mine' ? -1 : 1;
 	return placeLabel(a.place).localeCompare(placeLabel(b.place));
 }
@@ -143,7 +143,7 @@ function pairsAmong(db: Db, kind: CloneKind, ids: number[]): MergePair[] {
  * a song only some copies suggest that none of the others could take
  * (`musicFits`): nothing could resolve it.
  */
-function rowsOf(
+export function rowsOf(
 	db: Db,
 	userId: string,
 	kind: CloneKind,

@@ -1,0 +1,192 @@
+/**
+ * Where copies stand (`stepStatus`, `outOfStep`). Ana (u1) has her own
+ * Enchufla · Basic (T), copied into Salsa Tuesdays (G1) and Rueda club (G2),
+ * both hers. Luka (u2) is a plain member of G1 and made it his own (F2).
+ */
+import { beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { openDb, type Db } from '../db';
+import { figures, users } from '../db/schema';
+import { createTeam, joinTeam } from '../teams';
+import { addRecording, createFigure, updateVariation } from '../figures';
+import { createLesson, linkFigure, publishLesson } from '../lessons';
+import type { Space } from '../scope';
+import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
+import { cloneInto } from './clone';
+import { makeMine } from './edit';
+import type { CloneFiles } from './files';
+import { DEFAULT_SYNC } from '$lib/clones/sync';
+import { setSyncSettings } from './sync-settings';
+import { outOfStep, stepStatus } from './step';
+
+const T0 = Date.UTC(2026, 10, 7, 12);
+const ROOMY = 1024 ** 4;
+
+let db: Db;
+let named = 0;
+const files: CloneFiles = {
+	async link(_kind, file) {
+		return `copy-${++named}-${file}`;
+	},
+	async unlink() {}
+};
+
+let T: number;
+let G1: number;
+let G2: number;
+let F2: number;
+
+async function copy(id: number, into: Space) {
+	const r = await cloneInto(db, { kind: 'figure', id, into, recordings: false }, files, T0);
+	if (!r.ok) throw new Error(`copy refused: ${r.reason}`);
+	return r.id;
+}
+const mk = (name: string, figureName = 'Enchufla') =>
+	createFigure(db, U1_SALSA, {
+		figureName,
+		name,
+		partner: 'partner',
+		style: 'salsa',
+		notes: 'Old notes'
+	})!.figure.id;
+
+beforeEach(async () => {
+	db = openDb(':memory:');
+	db.insert(users)
+		.values([
+			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },
+			{ id: 'u2', email: 'u2@x.si', passwordHash: 'x', firstName: 'Luka' }
+		])
+		.run();
+	createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T0);
+	createTeam(db, 'u1', 'salsa', 'Rueda club', T0);
+	joinTeam(db, 'u2', 1, T0);
+	T = mk('Basic');
+	G1 = await copy(T, T1_SALSA);
+	G2 = await copy(T, T2_SALSA);
+	const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-04', title: 'Week 1', notes: null })
+		.lesson.id;
+	linkFigure(db, L, G1, 'u1');
+	publishLesson(db, T1_SALSA, L, T0);
+	const mine = await makeMine(db, U2_SALSA, 'figure', G1, files, T0, ROOMY);
+	if (!mine.ok) throw new Error(`make it mine refused: ${mine.reason}`);
+	F2 = mine.id;
+});
+
+const row = (id: number) => db.select().from(figures).where(eq(figures.id, id)).get()!;
+const save = (id: number, patch: { name?: string; notes?: string | null }, by = 'u1') => {
+	const r = row(id);
+	expect(
+		updateVariation(
+			db,
+			id,
+			{
+				name: patch.name ?? r.name,
+				partner: r.partner as 'partner',
+				style: r.styleTag ?? 'salsa',
+				notes: patch.notes === undefined ? r.notes : patch.notes
+			},
+			by
+		)
+	).not.toBeNull();
+};
+const setStart = (id: number, startCount: number) =>
+	db.update(figures).set({ startCount }).where(eq(figures.id, id)).run();
+const recording = (figureId: number) =>
+	addRecording(
+		db,
+		{
+			figureId,
+			file: `r${figureId}.mp4`,
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 50,
+			note: null
+		},
+		'u1'
+	);
+
+describe('stepStatus', () => {
+	it('copies that agree: no lines', () => {
+		expect(stepStatus(db, 'u1', 'figure', T)).toEqual({ lines: [] });
+	});
+
+	it('G1 changed timing, G2 behind on notes and a recording: two lines', () => {
+		setSyncSettings(db, 'u1', 'figure', T, { ...DEFAULT_SYNC, media: true }, T0);
+		setStart(G1, 3);
+		save(T, { notes: 'New notes' });
+		recording(T);
+		const { lines } = stepStatus(db, 'u1', 'figure', T);
+		expect(lines).toHaveLength(2);
+		const g1 = lines.find((l) => l.id === G1)!;
+		const g2 = lines.find((l) => l.id === G2)!;
+		expect(g1).toMatchObject({ place: 'Salsa Tuesdays', state: 'changed', fields: ['Timing'] });
+		expect(g2.place).toBe('Rueda club');
+		expect(g2.state).toBe('behind');
+		expect(g2.fields).toContain('Notes');
+		expect(g2.fields).toHaveLength(2);
+		expect(g2.fields[1]).toMatch(/^Recording/);
+	});
+
+	it('both changed the notes: both', () => {
+		save(T, { notes: 'Ana notes' });
+		save(G1, { notes: 'Club notes' });
+		const { lines } = stepStatus(db, 'u1', 'figure', T);
+		expect(lines.find((l) => l.id === G1)).toMatchObject({ state: 'both', fields: ['Notes'] });
+	});
+
+	it('a copy added a recording the page’s options do not carry: held', () => {
+		recording(G1); // media off by default
+		const { lines } = stepStatus(db, 'u1', 'figure', T);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toMatchObject({ id: G1, state: 'held' });
+		expect(lines[0].fields).toHaveLength(1);
+	});
+
+	it('Luka, who only reads the club’s: its copy behind his is no line', () => {
+		save(F2, { notes: 'Luka notes' }, 'u2');
+		expect(stepStatus(db, 'u2', 'figure', F2)).toEqual({ lines: [] });
+		// Ana, who edits both, is told the club is behind.
+		expect(stepStatus(db, 'u1', 'figure', G1).lines).toEqual([]); // her view never shows Luka's copy
+	});
+
+	it('Luka sees the club’s change to a field he did not touch', () => {
+		save(F2, { notes: 'Luka notes' }, 'u2');
+		setStart(G1, 3);
+		const { lines } = stepStatus(db, 'u2', 'figure', F2);
+		expect(lines).toEqual([
+			expect.objectContaining({ id: G1, state: 'changed', fields: ['Timing'] })
+		]);
+	});
+
+	it('a copy that differs only by a name suffix: no line', async () => {
+		const old = mk('Basic (Sreda 17:30)', 'Dile');
+		const club = await copy(old, T1_SALSA);
+		save(club, { name: 'Basic' });
+		expect(row(club).name).toBe('Basic');
+		expect(stepStatus(db, 'u1', 'figure', old)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u1', 'figure', club)).toEqual({ lines: [] });
+	});
+});
+
+describe('outOfStep', () => {
+	it('over 30 ids, only the one with copies that differ', () => {
+		const lone = Array.from({ length: 29 }, (_, i) => mk('Basic', `Solo ${i}`));
+		setStart(G1, 3);
+		const out = outOfStep(db, 'u1', 'figure', [...lone, T]);
+		expect([...out]).toEqual([[T, 1]]);
+	});
+
+	it('counts each copy that differs; none for copies in step', () => {
+		save(G1, { notes: 'a' });
+		save(G2, { notes: 'b' });
+		expect(outOfStep(db, 'u1', 'figure', [T, G1, G2])).toEqual(
+			new Map([
+				[T, 2],
+				[G1, 2],
+				[G2, 2]
+			])
+		);
+		expect(outOfStep(db, 'u1', 'figure', [])).toEqual(new Map());
+	});
+});

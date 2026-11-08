@@ -89,6 +89,7 @@ import {
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
@@ -365,6 +366,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		compare: versions.compare,
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'figure', id),
+		step: stepStatus(db, wall.userId, 'figure', id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'figure', id),
 		detach: detachOffer(db, wall.userId, 'figure', id),

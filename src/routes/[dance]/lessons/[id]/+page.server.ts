@@ -57,6 +57,7 @@ import { moveOffer } from '$lib/server/clones/move';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
@@ -262,6 +263,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'lesson', found.lesson.id),
+		step: stepStatus(db, wall.userId, 'lesson', found.lesson.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'lesson', found.lesson.id),
 		detach: detachOffer(db, wall.userId, 'lesson', found.lesson.id),
