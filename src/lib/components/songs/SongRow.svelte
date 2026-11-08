@@ -58,7 +58,7 @@
 	class="flex min-h-16 items-center gap-1 pl-4 {sample ? 'pr-1' : 'pr-3.5'}"
 	class:bg-accent-soft={current}
 >
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 	<a
 		{href}
 		aria-current={lit}
@@ -88,6 +88,7 @@
 			>
 		{/if}
 	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 	{#if sample}
 		<SampleButton song={sample} {name} tinted={current} />
 	{:else}
