@@ -313,7 +313,7 @@ describe('flatOf', () => {
 		});
 	});
 
-	it('a song: title, artist, style, count, sample; never the audio', () => {
+	it('a song: title, artist, style, audio link, count, sample; never the audio file', () => {
 		const id = createSongFromUpload(
 			db,
 			U1_SALSA,
@@ -322,7 +322,9 @@ describe('flatOf', () => {
 		).id;
 		const empty = flatOf(db, 'song', id);
 		wellFormed(empty);
-		expect(keys(empty)).toEqual(['artist', 'count', 'sample', 'style', 'title']);
+		expect(keys(empty)).toEqual(['artist', 'audio', 'count', 'sample', 'style', 'title']);
+		// An upload has no link: its audio reads as no choice at all.
+		expect(empty.audio).toMatchObject({ value: '|', show: 'Uploaded' });
 		expect(empty.artist.value).toBe('');
 		expect(empty.sample).toMatchObject({ value: '', show: 'Automatic' });
 		setTempoFactor(db, id, 2);

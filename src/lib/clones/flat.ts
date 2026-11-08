@@ -1,3 +1,5 @@
+import type { Flat } from '$lib/types';
+
 /**
  * A member of a family (one thing copied into several places), flattened into
  * a map of field keys, so two members compare key by key (`diff.ts`).
@@ -5,8 +7,8 @@
  *
  * Key grammar:
  * - Root fields, one key each: `name`, `notes`, `partner`, `style`, `timing`
- *   (figure); `practice` (drill); `title`, `artist`, `count`, `sample`
- *   (song); `title`, `day` (lesson); `slots` (routine: the whole slot list is
+ *   (figure); `practice` (drill); `title`, `artist`, `audio`, `count`, `sample`
+ *   (song: `audio` is `<source_url>|<audio_url>`, the person's choice of audio); `title`, `day` (lesson); `slots` (routine: the whole slot list is
  *   one field, since slots have no identity of their own); `name`, `notes`,
  *   `type`, `hands`, `crossed`, `facing`, `frame` (position).
  * - Set members, one key each, value `'1'`: `link:<url>` (a row's URL links),
@@ -35,6 +37,7 @@ export const ROOT_KEYS = [
 	'title',
 	'day',
 	'artist',
+	'audio',
 	'count',
 	'sample',
 	'slots',
@@ -56,6 +59,7 @@ const ROOT_LABELS: Record<string, string> = {
 	title: 'Title',
 	day: 'Day',
 	artist: 'Artist',
+	audio: 'Audio',
 	count: 'Count',
 	sample: 'Sample',
 	slots: 'Slots',
@@ -72,6 +76,35 @@ const ROOT_LABELS: Record<string, string> = {
  * holds the default is not "changed" by the key's arrival.
  */
 export const BASE_DEFAULTS: Readonly<Record<string, string>> = { comesBack: 'faces' };
+
+/**
+ * A snapshot's value for `key` when it has none, from a member's `value`: the
+ * constant default, or for a song's `audio` (added 2026-11-08) the song's own
+ * link with no audio link of its own, which every copy held before then.
+ * Null: no default.
+ */
+export function baseDefault(key: string, value: string): string | null {
+	if (Object.hasOwn(BASE_DEFAULTS, key)) return BASE_DEFAULTS[key];
+	if (key === 'audio') return value.slice(0, value.indexOf('|') + 1);
+	return null;
+}
+
+/** The keys that index one audio: a song's 1s and its sample start. */
+const AUDIO_BOUND: ReadonlySet<string> = new Set(['count', 'sample']);
+
+/**
+ * The count and the sample index one audio: across copies whose `audio`
+ * differs they do not compare (the 1s point at beats of another recording).
+ */
+export function boundToAudio(key: string, a: Flat, b: Flat): boolean {
+	return AUDIO_BOUND.has(key) && (a.audio?.value ?? '') !== (b.audio?.value ?? '');
+}
+
+/** `boundToAudio` over any number of copies: true when their audio is not one. */
+export function boundAcross(key: string, flats: Flat[]): boolean {
+	if (!AUDIO_BOUND.has(key)) return false;
+	return new Set(flats.map((f) => f.audio?.value ?? '')).size > 1;
+}
 
 /** The set members' prefixes, in the order a comparison lists them. */
 export const SET_PREFIXES = [

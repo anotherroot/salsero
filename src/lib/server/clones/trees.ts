@@ -9,7 +9,8 @@
  *
  * Local to each place, and so never here: which move a figure is under,
  * `archived_at`, `published_at`, `shared_at`, the owners, entries and their
- * practice settings, logs. A song's audio is the family's, never a field.
+ * practice settings, logs. A song's audio file is never a field; the person's
+ * choice of link for it is (`audio`: Use another YouTube link).
  */
 import { and, asc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import type { CloneKind, Facing, Flat, Frame, Hands } from '$lib/types';
@@ -324,6 +325,12 @@ function songFlat(db: Db, id: number, b: Builder): void {
 	b.add('title', s.title);
 	b.add('artist', s.artist ?? '');
 	b.add('style', s.style, styleShow(s.dance, s.style));
+	// The person's choice of audio: what Use another YouTube link changes.
+	b.add(
+		'audio',
+		`${s.sourceUrl ?? ''}|${s.audioUrl ?? ''}`,
+		s.audioUrl ?? s.sourceUrl ?? 'Uploaded'
+	);
 	let anchors: unknown[] = [];
 	try {
 		const parsed = JSON.parse(s.anchorsJson);
