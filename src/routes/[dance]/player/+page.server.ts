@@ -12,6 +12,7 @@ import { int, optionalInt, optionalText } from '$lib/server/form';
 import { routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
+import { parseSkip } from '$lib/exercises/run';
 import { practiceStart } from '$lib/exercises/practice';
 import {
 	exerciseInWall,
@@ -88,9 +89,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			]
 		: [];
 
+	const from = url.searchParams.get('from');
 	const back = practiceBack({
 		dance,
-		from: url.searchParams.get('from'),
+		from,
 		routine: routine && { id: routine.id, name: routine.name },
 		// The URL's `?song=`, not the exercise's memory: Back returns to the page
 		// that opened Practice.
@@ -99,7 +101,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			id: exercise.id,
 			name: exercise.name,
 			archived: exercise.archivedAt !== null
-		}
+		},
+		run: from === 'run' && exercise ? { skip: parseSkip(url.searchParams.get('skip')) } : null
 	});
 
 	return {
