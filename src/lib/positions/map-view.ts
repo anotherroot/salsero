@@ -173,8 +173,6 @@ export interface MapFig {
 export interface MapDataPosition {
 	id: number;
 	name: string;
-	/** The name as the node's label (`mapLabel`). */
-	label: string;
 	styleTag: string | null;
 	tone: MapTone;
 	ins: number;

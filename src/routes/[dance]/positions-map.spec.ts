@@ -142,7 +142,6 @@ describe('the map', () => {
 		);
 		expect(pos(cerrada)).toMatchObject({
 			name: 'Cerrada',
-			label: 'Cerrada',
 			tone: 'accent',
 			ins: 1,
 			outs: 4,

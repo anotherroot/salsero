@@ -198,6 +198,14 @@ describe('bandButton', () => {
 		expect(tokens(bandButton('pane-back'))).toContain('desk:text-ink');
 		expect(bandButton('band')).not.toContain('desk:');
 	});
+
+	it('floats on the surface at every width, ink and lifted, no band colour', () => {
+		const t = tokens(bandButton('float'));
+		expect(t).toContain('bg-surface');
+		expect(t).toContain('text-ink');
+		expect(t).not.toContain('text-band-ink');
+		expect(bandButton('float')).not.toContain('desk:');
+	});
 });
 
 describe('the pane header classes', () => {

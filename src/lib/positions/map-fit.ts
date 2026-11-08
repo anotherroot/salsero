@@ -6,7 +6,7 @@
  * `transform-origin: 0 0`. The map's own maths; zoom.ts is not touched.
  */
 
-import type { View } from '$lib/video/zoom';
+import type { Pt, View } from '$lib/video/zoom';
 import type { Box } from './map-view';
 
 /** The screen box, and what floats over its top (the band) and its bottom (the sheet, the bar). */
@@ -19,12 +19,14 @@ const MAX_SCALE = 4;
 const KEEP = 48;
 
 const freeH = (r: Room) => Math.max(1, r.h - r.top - r.bottom);
+/** Kept clear at the room's sides by the whole view, so no pill touches the screen's edge. */
+const SIDE = 12;
 
-/** The whole frame in the free part of the room, centred; never enlarged past 1. */
+/** The whole frame in the free part of the room, centred, SIDE px clear of its sides; never enlarged past 1. */
 export function wholeView(frame: Frame, room: Room): View {
 	const scale = Math.min(
 		1,
-		room.w / Math.max(1, frame.width),
+		Math.max(1, room.w - 2 * SIDE) / Math.max(1, frame.width),
 		freeH(room) / Math.max(1, frame.height)
 	);
 	return {
@@ -75,4 +77,46 @@ export function fitView(boxes: Box[], frame: Frame, room: Room, max = 1): View {
 /** The CSS transform for an element with `transform-origin: 0 0`. */
 export function viewTransform(v: View): string {
 	return `translate(${v.x}px, ${v.y}px) scale(${v.scale})`;
+}
+
+/*
+ * The gestures, in this file's frame: points are px from the room's top left,
+ * as `View` reads them here. The video player's pinch maths (`$lib/video/zoom`),
+ * with the map's own clamp: from the whole view's scale up to 4, some map kept
+ * on screen (`clampMapView`).
+ */
+
+/** Scale `start` by `k` so the map point under `from` lands under `to`. */
+function about(start: View, from: Pt, to: Pt, k: number, frame: Frame, room: Room): View {
+	const floor = wholeView(frame, room).scale;
+	const scale = Math.max(floor, Math.min(MAX_SCALE, start.scale * k));
+	const qx = (from.x - start.x) / start.scale;
+	const qy = (from.y - start.y) / start.scale;
+	return clampMapView({ scale, x: to.x - scale * qx, y: to.y - scale * qy }, frame, room);
+}
+
+const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** Two fingers from where they went down (`from`) to where they are now (`to`). */
+export function pinchMapView(
+	start: View,
+	from: [Pt, Pt],
+	to: [Pt, Pt],
+	frame: Frame,
+	room: Room
+): View {
+	const d0 = dist(from[0], from[1]);
+	const k = d0 > 0 ? dist(to[0], to[1]) / d0 : 1;
+	return about(start, mid(from[0], from[1]), mid(to[0], to[1]), k, frame, room);
+}
+
+/** One finger dragging the map. */
+export function panMapView(v: View, dx: number, dy: number, frame: Frame, room: Room): View {
+	return clampMapView({ ...v, x: v.x + dx, y: v.y + dy }, frame, room);
+}
+
+/** A trackpad pinch (a wheel event with Ctrl) about the pointer. */
+export function wheelMapView(v: View, at: Pt, deltaY: number, frame: Frame, room: Room): View {
+	return about(v, at, at, Math.exp(-deltaY / 200), frame, room);
 }

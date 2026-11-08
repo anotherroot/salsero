@@ -7,7 +7,7 @@ import type { Db } from '$lib/server/db';
 import type { Space, Wall } from '$lib/server/scope';
 import { noPosition, positionCounts } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
-import { layoutMap, mapInputOf, mapLabel } from '$lib/positions/map';
+import { layoutMap, mapInputOf } from '$lib/positions/map';
 import { legendTypes, styleTone, type MapData, type MapFig } from '$lib/positions/map-view';
 import { mapTwinsLine } from '$lib/positions/view';
 import { t } from '$lib/i18n/catalog';
@@ -52,7 +52,6 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		return {
 			id: p.id,
 			name: p.name,
-			label: mapLabel(p.name),
 			styleTag: p.styleTag,
 			tone: styleTone(p.styleTag, styles),
 			ins: c.inCount,

@@ -10,7 +10,7 @@ describe('the map’s words', () => {
 		en(() => {
 			const m = t().map;
 			expect(m.title).toBe('The map');
-			expect(m.legend.size).toBe('Bigger: more figures · arrows: how many');
+			expect(m.legend.arrows).toBe('Thicker arrows: more figures · the number: how many');
 			expect(m.label(false)).toBe('The map of your positions');
 			expect(m.label(true)).toBe('The map of the group’s positions');
 			expect(m.summary({ positions: 15, between: 32, none: 10, stranded: 4 })).toBe(
@@ -28,9 +28,8 @@ describe('the map’s words', () => {
 			expect(
 				m.nodeName({ name: 'Caída', ins: 2, outs: 0, mark: 'dead end', twins: 'Twins: x' })
 			).toBe('Caída · 2 in · 0 out · dead end · Twins: x');
-			expect(m.chip.noPositionFigures(1)).toBe('No position · 1 figure');
-			expect(m.chip.unusedNamed('Sombra')).toBe('Sombra · no figures');
-			expect(m.litLine('Cerrada')).toBe('Cerrada · tap again to open');
+			expect(m.chip.deadEnds(1)).toBe('1 dead end');
+			expect(m.chip.deadEnds(2)).toBe('2 dead ends');
 		});
 	});
 	it('the new words read as the brief gives them', () => {

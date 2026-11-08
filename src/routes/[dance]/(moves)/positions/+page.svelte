@@ -27,5 +27,5 @@
 	<PaneHeading title={EMPTY_ACTIONS.how} subtitle={HOW_PANE_SUBTITLE} />
 	<div class="max-w-[720px] px-10 pt-[18px] pb-10"><HowBody /></div>
 {:else}
-	<MapPane map={data.map} heading />
+	<MapPane map={data.map} />
 {/if}

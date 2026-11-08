@@ -22,7 +22,6 @@ function data(
 		positions: Object.entries(names).map(([id, name]) => ({
 			id: Number(id),
 			name,
-			label: name,
 			styleTag: null,
 			tone: 'accent' as MapTone,
 			ins: 1,

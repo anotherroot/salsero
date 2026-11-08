@@ -145,7 +145,13 @@ const TRANSLATED: string[] = [
 	'src/lib/components/player/StageCount.svelte',
 	'src/lib/components/songs/MusicSection.svelte',
 	'src/routes/[dance]/player/+page.svelte',
-	'src/routes/device/pair/+page.svelte'
+	'src/routes/device/pair/+page.svelte',
+	// The map, full screen (map walk, Task 7).
+	'src/lib/components/positions/MapInfoSheet.svelte',
+	'src/lib/components/positions/MapPane.svelte',
+	'src/lib/components/positions/MapTray.svelte',
+	'src/lib/components/positions/PositionMap.svelte',
+	'src/routes/[dance]/(moves)/positions/map/+page.svelte'
 ];
 
 describe('englishIn', () => {

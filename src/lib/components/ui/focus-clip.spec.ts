@@ -51,6 +51,21 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 		'src/lib/components/ui/PlayerLayer.svelte',
 		'sheet-panel',
 		'the sheet panel: its header controls sit at least 8 px in; its rows are in their own CLIP cards'
+	],
+	[
+		'src/lib/components/positions/MapPane.svelte',
+		'fixed inset-x-0 top-0',
+		'the phone’s full-screen map: its floating buttons and the tray sit inside the screen, 14 px in'
+	],
+	[
+		'src/lib/components/positions/MapPane.svelte',
+		'desk:overflow-hidden desk:rounded-2xl',
+		'the desktop’s map box: its buttons sit 12 px in; the pills draw their own ring in the SVG'
+	],
+	[
+		'src/lib/components/positions/PositionMap.svelte',
+		'touch-none overflow-hidden',
+		'the map clips the zoomed drawing; its pills draw their own focus ring in the SVG, no outline'
 	]
 ];
 

@@ -12,12 +12,12 @@ export const map = {
 	empty: 'No positions yet. Add some on Positions and tag your figures’ starts and ends.',
 	/** Positions, but no figure joins any of them. */
 	unjoined: 'Nothing joins your positions yet: tag a figure’s start and end.',
-	reset: 'Reset zoom',
+	/** The word under a dead end's or an orphan's pill. */
+	mark: { deadEnd: 'dead end', orphan: 'orphan' },
 	/** Under a node that stands for twinned positions (Same as…). */
 	twins: 'Twins',
-	notOnMap: 'Not on the map',
+	/** The ⓘ sheet's last line. */
 	fitsAnywhere: 'Figures without a position fit anywhere.',
-	islands: 'Islands · cut off from the rest',
 	/** The SVG's name for a screen reader. */
 	label: (groupMode: boolean): string =>
 		groupMode ? 'The map of the group’s positions' : 'The map of your positions',
@@ -45,23 +45,17 @@ export const map = {
 		if (n.twins) parts.push(n.twins);
 		return parts.join(' · ');
 	},
-	/** Under the map while a position is lit. */
-	litLine: (name: string): string => `${name} · tap again to open`,
 	chip: {
 		orphans: (n: number): string => `${n} nothing gets to`,
-		deadEnds: (n: number): string => `${n} dead ends`,
+		deadEnds: (n: number): string => plural(n, 'dead end', 'dead ends'),
 		unused: (n: number): string => `${n} unused`,
-		noPosition: (n: number): string => `${n} with no position`,
-		/** The tray's way into No position. */
-		noPositionFigures: (n: number): string => `No position · ${plural(n, 'figure', 'figures')}`,
-		/** An unused position in the tray. */
-		unusedNamed: (name: string): string => `${name} · no figures`
+		noPosition: (n: number): string => `${n} with no position`
 	},
 	legend: {
 		deadEnd: 'dead end: nothing leaves',
 		orphan: 'orphan: nothing gets there',
 		island: 'island: cut off from the rest',
-		size: 'Bigger: more figures · arrows: how many',
+		arrows: 'Thicker arrows: more figures · the number: how many',
 		out: 'Wine: where it goes',
 		in: 'Blue: where it comes from',
 		gestures: 'Pinch to zoom · double tap to see it all'

@@ -11,11 +11,9 @@ export const map: Catalog['map'] = {
 	hint: 'Dotaknite se položaja in videli boste, kam vodi.',
 	empty: 'Še ni položajev. Dodajte jih pri Položajih in označite začetke in konce svojih različic.',
 	unjoined: 'Noben položaj še ni povezan: označite začetek in konec različice.',
-	reset: 'Ponastavi povečavo',
+	mark: { deadEnd: 'slepa ulica', orphan: 'brez prihoda' },
 	twins: 'Dvojčka',
-	notOnMap: 'Ni na zemljevidu',
 	fitsAnywhere: 'Različice brez položaja ustrezajo povsod.',
-	islands: 'Otoki · odrezani od ostalih',
 	label: (groupMode) => (groupMode ? 'Zemljevid položajev skupine' : 'Zemljevid vaših položajev'),
 	summary: (n) => {
 		const parts = [slCount(n.positions, ['položaj', 'položaja', 'položaji', 'položajev'])];
@@ -33,21 +31,17 @@ export const map: Catalog['map'] = {
 		if (n.twins) parts.push(n.twins);
 		return parts.join(' · ');
 	},
-	litLine: (name) => `${name} · dotaknite se znova, da ga odprete`,
 	chip: {
 		orphans: (n) => `${n} brez prihoda`,
-		deadEnds: (n) => `${n} slepih ulic`,
+		deadEnds: (n) => slCount(n, ['slepa ulica', 'slepi ulici', 'slepe ulice', 'slepih ulic']),
 		unused: (n) => `${n} neuporabljenih`,
-		noPosition: (n) => `${n} brez položaja`,
-		noPositionFigures: (n) =>
-			`Brez položaja · ${slCount(n, ['različica', 'različici', 'različice', 'različic'])}`,
-		unusedNamed: (name) => `${name} · brez različic`
+		noPosition: (n) => `${n} brez položaja`
 	},
 	legend: {
 		deadEnd: 'slepa ulica: nič ne vodi naprej',
 		orphan: 'brez prihoda: nič ne vodi sem',
 		island: 'otok: odrezan od ostalih',
-		size: 'Večji: več različic · puščice: koliko',
+		arrows: 'Debelejše puščice: več različic · številka: koliko',
 		out: 'Vinsko rdeča: kam vodi',
 		in: 'Modra: od kod prihaja',
 		gestures: 'Povečajte s ščipom · dvakrat se dotaknite za ves zemljevid'

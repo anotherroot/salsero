@@ -1,16 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { clampMapView, fitView, viewTransform, wholeView, type Room } from './map-fit';
+import {
+	clampMapView,
+	fitView,
+	panMapView,
+	pinchMapView,
+	viewTransform,
+	wheelMapView,
+	wholeView,
+	type Room
+} from './map-fit';
 
 const room: Room = { w: 400, h: 800, top: 60, bottom: 100 };
 const frame = { width: 1000, height: 1000 };
 
 describe('wholeView', () => {
-	it('fits the whole frame in the free part of the room, centred', () => {
+	it('fits the whole frame in the free part of the room, centred, 12 px clear of its sides', () => {
 		const v = wholeView(frame, room);
-		expect(v.scale).toBeCloseTo(0.4);
-		expect(v.x).toBeCloseTo(0);
-		// Free height 640, frame 400 tall: centred between top and bottom.
-		expect(v.y).toBeCloseTo(60 + (640 - 400) / 2);
+		// 400 wide less 12 a side: 376 for a frame 1000 wide.
+		expect(v.scale).toBeCloseTo(0.376);
+		expect(v.x).toBeCloseTo(12);
+		// Free height 640, frame 376 tall: centred between top and bottom.
+		expect(v.y).toBeCloseTo(60 + (640 - 376) / 2);
 	});
 	it('never blows a small frame up', () => {
 		expect(wholeView({ width: 100, height: 100 }, room).scale).toBe(1);
@@ -83,5 +93,78 @@ describe('clampMapView', () => {
 describe('viewTransform', () => {
 	it('is the CSS for transform-origin 0 0', () => {
 		expect(viewTransform({ scale: 0.5, x: 10, y: -4 })).toBe('translate(10px, -4px) scale(0.5)');
+	});
+});
+
+/** Where a frame point lands on screen under a view (origin 0 0, from the room's top left). */
+const screen = (v: { scale: number; x: number; y: number }, p: { x: number; y: number }) => ({
+	x: p.x * v.scale + v.x,
+	y: p.y * v.scale + v.y
+});
+
+describe('the gestures (pinchMapView, panMapView, wheelMapView)', () => {
+	const at2 = { scale: 2, x: -300, y: -200 };
+	type Two = [{ x: number; y: number }, { x: number; y: number }];
+
+	it('a pinch keeps the map point under the fingers’ middle under it', () => {
+		const from: Two = [
+			{ x: 150, y: 300 },
+			{ x: 250, y: 300 }
+		];
+		const to: Two = [
+			{ x: 125, y: 300 },
+			{ x: 275, y: 300 }
+		];
+		const v = pinchMapView(at2, from, to, frame, room);
+		expect(v.scale).toBeCloseTo(3);
+		// The frame point under (200, 300) at 2x is (250, 250); it stays under (200, 300).
+		const q = screen(v, { x: 250, y: 250 });
+		expect(q.x).toBeCloseTo(200);
+		expect(q.y).toBeCloseTo(300);
+	});
+
+	it('a pinch out stops at the whole view’s scale, not at 1', () => {
+		const whole = wholeView(frame, room);
+		const from: Two = [
+			{ x: 100, y: 300 },
+			{ x: 300, y: 300 }
+		];
+		const to: Two = [
+			{ x: 199, y: 300 },
+			{ x: 201, y: 300 }
+		];
+		const v = pinchMapView(at2, from, to, frame, room);
+		expect(v.scale).toBeCloseTo(whole.scale);
+		expect(v.scale).toBeLessThan(1);
+	});
+
+	it('a pinch in stops at 4', () => {
+		const from: Two = [
+			{ x: 199, y: 300 },
+			{ x: 201, y: 300 }
+		];
+		const to: Two = [
+			{ x: 0, y: 300 },
+			{ x: 400, y: 300 }
+		];
+		expect(pinchMapView(at2, from, to, frame, room).scale).toBe(4);
+	});
+
+	it('a pan moves the view by the finger, clamped like any view', () => {
+		expect(panMapView(at2, 30, -20, frame, room)).toEqual({ scale: 2, x: -270, y: -220 });
+		const far = panMapView(at2, 99999, 0, frame, room);
+		expect(far).toEqual(clampMapView({ ...at2, x: at2.x + 99999 }, frame, room));
+		expect(far.x).toBeLessThan(room.w);
+	});
+
+	it('Ctrl+wheel zooms about the pointer: up zooms in, down out', () => {
+		const p = { x: 200, y: 400 };
+		const under = { x: (p.x - at2.x) / at2.scale, y: (p.y - at2.y) / at2.scale };
+		const v = wheelMapView(at2, p, -100, frame, room);
+		expect(v.scale).toBeGreaterThan(2);
+		const q = screen(v, under);
+		expect(q.x).toBeCloseTo(p.x);
+		expect(q.y).toBeCloseTo(p.y);
+		expect(wheelMapView(at2, p, 100, frame, room).scale).toBeLessThan(2);
 	});
 });
