@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clampMapView,
+	DESK_PANEL,
+	deskAside,
+	deskRight,
 	fitView,
 	panMapView,
+	pansWhole,
 	pinchMapView,
 	viewTransform,
 	wheelMapView,
@@ -201,5 +205,58 @@ describe('a room with something floating over its right (the desktop panel)', ()
 	it('a pan never pushes the map under the panel', () => {
 		const v = clampMapView({ scale: 1, x: 9999, y: 100 }, f, panel);
 		expect(v.x).toBeLessThanOrEqual(460 - 48);
+	});
+});
+
+describe('deskRight: the desktop keeps the map beside the panel only when room is left', () => {
+	it('reserves the panel when at least 360 px of map stay beside it', () => {
+		expect(DESK_PANEL).toBe(344);
+		expect(deskRight(800)).toBe(DESK_PANEL);
+		expect(deskRight(344 + 360)).toBe(DESK_PANEL);
+	});
+	it('reserves nothing on a narrow pane: the panel floats over the map, the map keeps its scale', () => {
+		// About what a 1024 px window leaves the map: 51 px beside the panel drew it at 0.07.
+		expect(deskRight(395)).toBe(0);
+		expect(deskRight(344 + 359)).toBe(0);
+		const narrow: Room = { w: 395, h: 600, top: 64, bottom: 12, right: deskRight(395) };
+		expect(wholeView({ width: 500, height: 700 }, narrow).scale).toBeGreaterThan(0.7);
+	});
+});
+
+describe('a panel floating over a narrow map (`aside`)', () => {
+	const f = { width: 400, height: 500 };
+	const plain: Room = { w: 650, h: 600, top: 64, bottom: 12 };
+	const over: Room = { ...plain, right: 0, aside: DESK_PANEL };
+
+	it('leaves the whole view as it is: the map keeps its size under the panel', () => {
+		expect(wholeView(f, over)).toEqual(wholeView(f, plain));
+	});
+
+	it('a fit centres the lit boxes in the width left of the panel', () => {
+		const box = { x: 200, y: 250, w: 60, h: 30 };
+		const v = fitView([box], f, over);
+		expect(box.x * v.scale + v.x).toBeCloseTo((650 - DESK_PANEL) / 2);
+		expect(fitView([box], f, plain)).not.toEqual(v);
+	});
+
+	it('a sliver left of the panel is no room: the fit uses the whole width', () => {
+		const sliver: Room = { w: 395, h: 600, top: 64, bottom: 12, right: 0, aside: DESK_PANEL };
+		const box = { x: 200, y: 250, w: 60, h: 30 };
+		expect(fitView([box], f, sliver)).toEqual(fitView([box], f, { ...sliver, aside: 0 }));
+	});
+
+	it('deskAside: the panel floats over the map exactly when it is not kept beside it', () => {
+		expect(deskAside(395)).toBe(DESK_PANEL);
+		expect(deskAside(650)).toBe(DESK_PANEL);
+		expect(deskAside(800)).toBe(0);
+	});
+});
+
+describe('pansWhole', () => {
+	it('pans at the whole view only when a panel floats over the map', () => {
+		const r: Room = { w: 650, h: 600, top: 64, bottom: 12 };
+		expect(pansWhole(r)).toBe(false);
+		expect(pansWhole({ ...r, right: DESK_PANEL })).toBe(false);
+		expect(pansWhole({ ...r, aside: DESK_PANEL })).toBe(true);
 	});
 });

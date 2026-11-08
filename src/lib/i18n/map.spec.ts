@@ -54,4 +54,23 @@ describe('the map’s words', () => {
 			expect(m.walk.status(0, 'x')).toBe('Še ni različic');
 		});
 	});
+	it('Slovenian declines the stranded count and the unused chip: 1, 2, 3, 5', () => {
+		sl(() => {
+			const m = t().map;
+			const stranded = (n: number) =>
+				m.summary({ positions: 6, between: 0, none: 0, stranded: n }).split(' · ')[1];
+			expect([1, 2, 3, 5].map(stranded)).toEqual([
+				'1 obtičal',
+				'2 obtičala',
+				'3 obtičali',
+				'5 obtičalih'
+			]);
+			expect([1, 2, 3, 5].map((n) => m.chip.unused(n))).toEqual([
+				'1 neuporabljen položaj',
+				'2 neuporabljena položaja',
+				'3 neuporabljeni položaji',
+				'5 neuporabljenih položajev'
+			]);
+		});
+	});
 });

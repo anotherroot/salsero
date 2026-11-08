@@ -188,6 +188,21 @@ export function stripOf(w: Walk): StripItem[] {
 	return out;
 }
 
+/** The most a routine's name holds (the server's `text()`, `NAME_MAX`). */
+const ROUTINE_NAME_MAX = 200;
+
+/**
+ * The routine's name as the walk offers it ("Walk from <start>"), cut to what a
+ * name may hold: a long position name would otherwise be refused.
+ */
+export function walkName(name: string): string {
+	// Counted as `text()` counts (UTF-16 units); a character cut in half goes.
+	return name
+		.slice(0, ROUTINE_NAME_MAX)
+		.replace(/[\uD800-\uDBFF]$/, '')
+		.trimEnd();
+}
+
 /**
  * What the unsaved-changes dialog hears from the walk's Save (the `routine`
  * action, sent without moving the page): a redirect is the routine made, a

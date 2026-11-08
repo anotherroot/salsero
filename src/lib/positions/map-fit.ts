@@ -11,10 +11,39 @@ import type { Box } from './map-view';
 
 /**
  * The screen box, and what floats over its top (the band), its bottom (the
- * sheet, the bar) and its right (the desktop's panel; 0 when left out).
+ * sheet, the bar) and its right (the desktop's panel; 0 when left out). The
+ * map fits beside `right`; `aside` floats over the map's right too, but the
+ * map keeps its size under it: only a fit steers clear of it, and the map pans
+ * at any scale (what is under it is reached by panning).
  */
-export type Room = { w: number; h: number; top: number; bottom: number; right?: number };
+export type Room = {
+	w: number;
+	h: number;
+	top: number;
+	bottom: number;
+	right?: number;
+	aside?: number;
+};
 type Frame = { width: number; height: number };
+
+/** The desktop's panel over the map's right: 320 px, 12 px in, 12 px kept clear of the map. */
+export const DESK_PANEL = 320 + 12 + 12;
+/** The least map width worth keeping beside the panel. */
+const DESK_MIN_MAP = 360;
+
+/**
+ * What the desktop's panel takes off a map box `w` wide (`Room.right`): the
+ * panel, while at least 360 px of map stay beside it; else nothing, and the
+ * panel floats over the map, which keeps its size and is panned under it.
+ */
+export function deskRight(w: number): number {
+	return w - DESK_PANEL >= DESK_MIN_MAP ? DESK_PANEL : 0;
+}
+
+/** The panel over a map it is not kept beside (`Room.aside`): what `deskRight` leaves out. */
+export function deskAside(w: number): number {
+	return DESK_PANEL - deskRight(w);
+}
 
 const PAD = 14;
 const MAX_SCALE = 4;
@@ -26,6 +55,18 @@ const freeH = (r: Room) => Math.max(1, r.h - r.top - r.bottom);
 const freeW = (r: Room) => Math.max(1, r.w - (r.right ?? 0));
 /** Kept clear at the room's sides by the whole view, so no pill touches the screen's edge. */
 const SIDE = 12;
+/** Less than this left of an `aside` is no room to fit into: the fit uses the free width. */
+const MIN_FIT_W = 160;
+/** The width a fit centres in: the free width, less an `aside` when enough is left of it. */
+function fitW(r: Room): number {
+	const left = freeW(r) - (r.aside ?? 0);
+	return left >= MIN_FIT_W ? left : freeW(r);
+}
+
+/** Whether the map pans at the whole view's scale: only when something floats over part of it. */
+export function pansWhole(r: Room): boolean {
+	return (r.aside ?? 0) > 0;
+}
 
 /** The whole frame in the free part of the room, centred, SIDE px clear of its sides; never enlarged past 1. */
 export function wholeView(frame: Frame, room: Room): View {
@@ -57,8 +98,8 @@ export function clampMapView(v: View, frame: Frame, room: Room): View {
 
 /**
  * The view that shows `boxes` (padded 14 px) as large as fits, up to `max`
- * (default 1), centred in the free part of the room. Never smaller than the
- * whole view. No boxes shows the whole map.
+ * (default 1), centred in the free part of the room (left of an `aside`).
+ * Never smaller than the whole view. No boxes shows the whole map.
  */
 export function fitView(boxes: Box[], frame: Frame, room: Room, max = 1): View {
 	if (boxes.length === 0) return wholeView(frame, room);
@@ -67,11 +108,11 @@ export function fitView(boxes: Box[], frame: Frame, room: Room, max = 1): View {
 	const t = Math.min(...boxes.map((b) => b.y - b.h / 2)) - PAD;
 	const b = Math.max(...boxes.map((b) => b.y + b.h / 2)) + PAD;
 	const whole = wholeView(frame, room).scale;
-	const scale = Math.max(whole, Math.min(max, freeW(room) / (r - l), freeH(room) / (b - t)));
+	const scale = Math.max(whole, Math.min(max, fitW(room) / (r - l), freeH(room) / (b - t)));
 	return clampMapView(
 		{
 			scale,
-			x: freeW(room) / 2 - ((l + r) / 2) * scale,
+			x: fitW(room) / 2 - ((l + r) / 2) * scale,
 			y: room.top + freeH(room) / 2 - ((t + b) / 2) * scale
 		},
 		frame,

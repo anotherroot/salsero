@@ -6,7 +6,10 @@
 
 import { edgeKey, type MapData, type MapFig, type MapTone } from './map-view';
 
-/** Moves in first-seen order: "Move ×n" for several figures, the label for one; joined with " · ". */
+/**
+ * Moves in first-seen order: "Move ×n" for several figures, the label for one;
+ * joined with ", ", since a label holds a " · " of its own ("Paso Madrid · Madrid to closed").
+ */
 export function figuresShort(figs: MapFig[]): string {
 	const order: string[] = [];
 	const byMove = new Map<string, MapFig[]>();
@@ -23,7 +26,19 @@ export function figuresShort(figs: MapFig[]): string {
 			const list = byMove.get(m)!;
 			return list.length > 1 ? `${m} ×${list.length}` : list[0].label;
 		})
-		.join(' · ');
+		.join(', ');
+}
+
+/**
+ * Whether a key went to a field (an input, a textarea, a select, an editable
+ * element), whose Escape is its own: the map's sheet does not close on it.
+ */
+export function typingIn(
+	el: { tagName?: string; isContentEditable?: boolean } | null | undefined
+): boolean {
+	if (!el) return false;
+	if (el.isContentEditable) return true;
+	return ['INPUT', 'TEXTAREA', 'SELECT'].includes((el.tagName ?? '').toUpperCase());
 }
 
 export interface PositionSheet {

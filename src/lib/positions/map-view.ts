@@ -164,7 +164,10 @@ export function arrowLook(
 	return { tone, badge: null, count: tone !== 'faded' && e.figures > 1 ? e.figures : null };
 }
 
-/** A figure on the map's arrows: its label ("Enchufla · Doble") and its move's name. */
+/**
+ * A figure on the map's arrows: its label ("Enchufla · Doble"; a group's row whose label
+ * one of the person's shares adds its group, "Enchufla · Doble · Sreda 17:30") and its move's name.
+ */
 export interface MapFig {
 	id: number;
 	label: string;

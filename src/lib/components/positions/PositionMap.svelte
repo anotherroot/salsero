@@ -17,6 +17,7 @@
 		clampMapView,
 		fitView,
 		panMapView,
+		pansWhole,
 		pinchMapView,
 		viewTransform,
 		wheelMapView,
@@ -288,8 +289,9 @@
 			dragged = true;
 			capture(e);
 		}
-		// Only a zoomed map moves: at the whole map's scale there is nothing to see past it.
-		if (press.moved && view.scale > wholeView(frame, room).scale * 1.001) {
+		// Only a zoomed map moves: at the whole map's scale there is nothing to see past it,
+		// unless the panel floats over part of it (`pansWhole`).
+		if (press.moved && (pansWhole(room) || view.scale > wholeView(frame, room).scale * 1.001)) {
 			byHand(panMapView(view, p.x - press.last.x, p.y - press.last.y, frame, room));
 		}
 		press.last = p;

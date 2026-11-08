@@ -8,6 +8,7 @@ import {
 	jumpTo,
 	nextFrom,
 	saveOutcome,
+	walkName,
 	stripOf,
 	undo,
 	walkLook,
@@ -232,5 +233,20 @@ describe('saveOutcome', () => {
 		expect(
 			saveOutcome({ type: 'error', status: 404, error: { message: 'Figure not found' } }, 'x')
 		).toEqual({ ok: false, message: 'Figure not found' });
+	});
+});
+
+describe('walkName', () => {
+	it('keeps a name that fits', () => {
+		expect(walkName('Walk from Cerrada')).toBe('Walk from Cerrada');
+	});
+	it('cuts a long one to the 200 characters a routine name may hold', () => {
+		const long = `Walk from ${'x'.repeat(300)}`;
+		expect(walkName(long)).toHaveLength(200);
+		expect(walkName(long)).toBe(long.slice(0, 200));
+	});
+	it('never leaves trailing space where it cut', () => {
+		const name = `${'a'.repeat(199)} b`;
+		expect(walkName(name)).toBe('a'.repeat(199));
 	});
 });

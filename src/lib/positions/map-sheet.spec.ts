@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MapData, MapFig, MapTone } from './map-view';
-import { figuresShort, pick, positionSheet, stepBack, steppedKey } from './map-sheet';
+import { figuresShort, pick, positionSheet, stepBack, steppedKey, typingIn } from './map-sheet';
 
 const fig = (id: number, label: string, move = label): MapFig => ({ id, label, move });
 
@@ -49,7 +49,29 @@ describe('figuresShort', () => {
 			fig(4, 'Paso Madrid', 'Paso Madrid'),
 			fig(5, 'To Cradle', 'To Cradle')
 		];
-		expect(figuresShort(figs)).toBe('Basic step ×3 · Paso Madrid · To Cradle');
+		expect(figuresShort(figs)).toBe('Basic step ×3, Paso Madrid, To Cradle');
+	});
+	it('joins moves with ", " so the " · " inside a label stays one figure', () => {
+		const figs = [
+			fig(1, 'Basic step · A', 'Basic step'),
+			fig(2, 'Basic step · B', 'Basic step'),
+			fig(3, 'Paso Madrid · Madrid to closed', 'Paso Madrid')
+		];
+		expect(figuresShort(figs)).toBe('Basic step ×2, Paso Madrid · Madrid to closed');
+	});
+});
+
+describe('typingIn: Escape from a field is the field’s', () => {
+	it('is true in an input, a textarea, a select or an editable element', () => {
+		for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT'])
+			expect(typingIn({ tagName, isContentEditable: false })).toBe(true);
+		expect(typingIn({ tagName: 'DIV', isContentEditable: true })).toBe(true);
+	});
+	it('is false anywhere else, and with no target', () => {
+		expect(typingIn({ tagName: 'BUTTON', isContentEditable: false })).toBe(false);
+		expect(typingIn({ tagName: 'a', isContentEditable: false })).toBe(false);
+		expect(typingIn(null)).toBe(false);
+		expect(typingIn({})).toBe(false);
 	});
 });
 
@@ -74,7 +96,7 @@ describe('positionSheet', () => {
 		expect(s.stepTo.map((r) => r.name)).toEqual(['B', 'C', 'D']);
 		expect(s.stays.map((f) => f.label)).toEqual(['Loop']);
 		expect(s.anywhere.map((f) => f.label)).toEqual(['Any']);
-		expect(s.stepTo[0].short).toBe('X · Y');
+		expect(s.stepTo[0].short).toBe('X, Y');
 	});
 
 	it('lists the positions with an arrow in, most figures first', () => {

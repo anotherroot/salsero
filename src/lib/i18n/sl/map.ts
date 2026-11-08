@@ -22,7 +22,8 @@ export const map: Catalog['map'] = {
 				`${slCount(n.between, ['različica', 'različici', 'različice', 'različic'])} med njimi`
 			);
 		if (n.none > 0) parts.push(`${n.none} brez`);
-		if (n.stranded > 0) parts.push(`${n.stranded} obtičalih`);
+		if (n.stranded > 0)
+			parts.push(slCount(n.stranded, ['obtičal', 'obtičala', 'obtičali', 'obtičalih']));
 		return parts.join(' · ');
 	},
 	nodeName: (n) => {
@@ -34,7 +35,13 @@ export const map: Catalog['map'] = {
 	chip: {
 		orphans: (n) => `${n} brez prihoda`,
 		deadEnds: (n) => slCount(n, ['slepa ulica', 'slepi ulici', 'slepe ulice', 'slepih ulic']),
-		unused: (n) => `${n} neuporabljenih`,
+		unused: (n) =>
+			slCount(n, [
+				'neuporabljen položaj',
+				'neuporabljena položaja',
+				'neuporabljeni položaji',
+				'neuporabljenih položajev'
+			]),
 		noPosition: (n) => `${n} brez položaja`
 	},
 	legend: {

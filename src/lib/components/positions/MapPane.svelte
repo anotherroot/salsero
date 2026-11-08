@@ -15,8 +15,15 @@
 	import { bandButton, button } from '$lib/components/ui/styles';
 	import { desk } from '$lib/nav/desk.svelte';
 	import type { MapData } from '$lib/positions/map-view';
-	import type { Room } from '$lib/positions/map-fit';
-	import { pick, positionSheet, stepBack, steppedKey, type Trail } from '$lib/positions/map-sheet';
+	import { deskAside, deskRight, type Room } from '$lib/positions/map-fit';
+	import {
+		pick,
+		positionSheet,
+		stepBack,
+		steppedKey,
+		typingIn,
+		type Trail
+	} from '$lib/positions/map-sheet';
 	import { pickOf } from '$lib/positions/pick';
 	import {
 		addFigure,
@@ -38,8 +45,9 @@
 	 * title and summary, and ⓘ float over its top, the whole-map ⤢ under ⓘ; the
 	 * tray sits over its foot. The desktop: the pane's heading, then the map (the
 	 * pane's width, at most 800), ⓘ and ⤢ over its top left, and a 320 px panel
-	 * floating over its right holding the tray or a position (the map fits beside it:
-	 * `room.right`).
+	 * floating over its right holding the tray or a position (the map fits beside it,
+	 * `room.right`, while 360 px of map stay there; a narrower pane keeps the map's
+	 * size under the panel: `deskRight`).
 	 *
 	 * The state is here: the trail of picks and steps (`map-sheet.ts`), shared with
 	 * the (moves) layout's pick (`getMoves().pick`) so the list lights the picked
@@ -142,14 +150,21 @@
 	let headH = $state(0);
 	let panelH = $state(0);
 	// On the desktop the 320 px panel floats over the map's right, 12 px in: the map
-	// fits in what is left of it (`right`).
+	// fits in what is left of it (`right`) while that is at least 360 px; a narrower
+	// pane keeps the map's size under the panel, to be panned (`deskRight`).
 	const DESK_TOP = 64;
-	const DESK_PANEL = 320 + 12 + 12;
 	const WHOLE_H = 10 + 44 + 6;
 	const room = $derived<Room>(
 		desk.current
-			? { w, h, top: DESK_TOP, bottom: 12, right: DESK_PANEL }
+			? { w, h, top: DESK_TOP, bottom: 12, right: deskRight(w), aside: deskAside(w) }
 			: { w, h, top: headH + WHOLE_H, bottom: panelH + 8 }
+	);
+	/**
+	 * Where the words of an empty map start: beside the panel, or, when the panel
+	 * floats over a narrow pane, under it.
+	 */
+	const wordsTop = $derived(
+		desk.current && !room.right ? Math.max(room.top, panelH + 24) : room.top
 	);
 
 	const SHADOW = 'shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)]';
@@ -160,6 +175,8 @@
 		// An open dialog (ⓘ, a sheet from the list beside the map) takes its own Escape first.
 		if (e.key !== 'Escape' || (picked === null && !walk) || e.defaultPrevented) return;
 		if (document.querySelector('dialog[open]')) return;
+		// A field's Escape is its own (a search, the routine's name).
+		if (typingIn(e.target as HTMLElement | null)) return;
 		leaveWalk(close);
 	}}
 />
@@ -243,8 +260,9 @@
 			{:else}
 				<!-- Nothing to draw: the words keep the map's place, the tray stays under them. -->
 				<div
-					class="absolute inset-x-0 flex flex-col items-start gap-3 px-5 desk:right-[344px]"
-					style:top="{room.top}px"
+					class="absolute inset-x-0 flex flex-col items-start gap-3 px-5"
+					style:top="{wordsTop}px"
+					style:right="{room.right ?? 0}px"
 				>
 					<p class="text-[14px] leading-[1.45] text-ink-2">
 						{map.empty ? t().map.empty : t().map.unjoined}

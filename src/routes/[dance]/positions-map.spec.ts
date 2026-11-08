@@ -21,6 +21,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import {
 	figureEndPositions,
+	figures,
 	figureStartPositions,
 	lessonAdds,
 	lessonFigures,
@@ -215,6 +216,53 @@ describe('the map', () => {
 			d.edges.map((e: any) => ({ from: e.from, to: e.to, width: e.width, figures: e.figures }))
 		).toEqual([{ from: a, to: b, width: 2, figures: 1 }]);
 		expect(d.positions.find((p: any) => p.id === b)).toMatchObject({ ins: 1, outs: 0 });
+	});
+
+	it('tells a figure and its copy apart: the group’s row says its group (fromTags)', () => {
+		const U3 = { userId: 'u3', dance: 'salsa' } as const;
+		const a = addPosition(db, T1_SALSA, 'Hammerlock');
+		const b = addPosition(db, T1_SALSA, 'Cuddle');
+		const copyOf = (space: Space, move: string, from: number) => {
+			const id = createFigure(db, space, { ...FIGURE, figureName: move, notes: null } as never)!
+				.figure.id;
+			db.update(figures).set({ clonedFrom: from }).where(eq(figures.id, id)).run();
+			tag('start', id, a);
+			tag('end', id, b);
+			return id;
+		};
+		// The group's figure and u3's copy of it.
+		const groups = between(T1_SALSA, a, b); // Move 1
+		const mine = copyOf(U3, 'Move 1', groups);
+		// u3's own figure and the group's copy of it (the other way round).
+		const own = between(U3, a, b); // Move 2
+		const theirs = copyOf(T1_SALSA, 'Move 2', own);
+		// A lone name stays plain, the group's too.
+		const lone = between(T1_SALSA, a, b); // Move 3
+		const lesson = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'Week 6',
+			notes: null
+		}).lesson.id;
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, lesson)).run();
+		for (const figureId of [groups, theirs, lone])
+			db.insert(lessonFigures).values({ lessonId: lesson, figureId }).run();
+		db.insert(lessonAdds).values({ userId: 'u3', lessonId: lesson, addedAt: 1, seenAt: 1 }).run();
+
+		const label = (d: any) =>
+			d.edges.find((e: any) => e.from === a && e.to === b).figs.map((f: any) => [f.id, f.label]);
+		expect(label(loadOf('u3'))).toEqual([
+			[mine, 'Move 1 · Basic'],
+			[groups, 'Move 1 · Basic · Tuesdays'],
+			[own, 'Move 2 · Basic'],
+			[theirs, 'Move 2 · Basic · Tuesdays'],
+			[lone, 'Move 3 · Basic']
+		]);
+		// The group's own map holds only its rows: nothing collides, nothing is tagged.
+		expect(label(loadOf('u2', jar('1')))).toEqual([
+			[groups, 'Move 1 · Basic'],
+			[theirs, 'Move 2 · Basic'],
+			[lone, 'Move 3 · Basic']
+		]);
 	});
 
 	it('draws twinned positions as one node, marked (ruling 16)', () => {

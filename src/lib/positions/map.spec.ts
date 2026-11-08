@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Graph, GraphFigure } from '$lib/graph/graph';
 import { positionCounts } from '$lib/graph/graph';
+import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import {
 	edgeWidth,
 	LINE_HEIGHT,
 	layoutMap,
 	markBox,
+	MARK_CHAR,
 	MAX_PASSES,
 	mapInputOf,
 	mapLabel,
@@ -575,5 +578,21 @@ describe('mapInputOf', () => {
 		const out = layoutMap(mapInputOf(g));
 		expect(out.tray.islands).toEqual(islands);
 		expect(out.nodes.map((n) => n.id)).toEqual([4, 5]);
+	});
+});
+
+describe('the words under a pill have room in every language', () => {
+	const width = (b: { x0: number; x1: number }) => b.x1 - b.x0;
+	it.each(['en', 'sl'] as const)('%s: the mark words and Twins fit their boxes', (locale) => {
+		withLocale(locale, () => {
+			const m = t().map;
+			expect(width(markBox('dead end', 0, 0))).toBeGreaterThanOrEqual(
+				[...m.mark.deadEnd].length * MARK_CHAR
+			);
+			expect(width(markBox('orphan', 0, 0))).toBeGreaterThanOrEqual(
+				[...m.mark.orphan].length * MARK_CHAR
+			);
+			expect(width(twinsBox(0, 0))).toBeGreaterThanOrEqual([...m.twins].length * MARK_CHAR);
+		});
 	});
 });

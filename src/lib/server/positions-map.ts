@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { figureGroups, figures, positions as positionsTable } from '$lib/server/db/schema';
 import { graphFor } from '$lib/server/graph';
 import { figureLabels } from '$lib/server/figures';
+import { fromTags, shownName } from '$lib/clones/from-tag';
 import { teamRefs, usableOf } from '$lib/server/usable';
 import type { Db } from '$lib/server/db';
 import type { Space, Wall } from '$lib/server/scope';
@@ -70,11 +71,11 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 
 	// Each figure on its arrows, from the same graph (ids already folded).
 	const labels = figureLabels(db, space, usable);
-	const moves = new Map<number, string>(
+	const rows =
 		graph.figures.length === 0
 			? []
 			: db
-					.select({ id: figures.id, move: figureGroups.name })
+					.select({ id: figures.id, move: figureGroups.name, teamId: figures.teamId })
 					.from(figures)
 					.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 					.where(
@@ -83,12 +84,27 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 							graph.figures.map((f) => f.id)
 						)
 					)
-					.all()
-					.map((r) => [r.id, r.move])
+					.all();
+	const moves = new Map(rows.map((r) => [r.id, r.move]));
+	// A copy and its original can both be in a person's graph: theirs and a group's
+	// they use (`usableOf`), either one copied from the other. Labels that collide
+	// say where each group row lives, "Shadow exit · Basic · Sreda 17:30", the person's
+	// own staying plain (`fromTags`, as Coverage and the pickers draw a copy apart).
+	// In group mode every row is the group's, and its labels never collide.
+	const teams = teamRefs(db, mode ? [] : rows.flatMap((r) => r.teamId ?? []));
+	const placeOf = new Map(
+		rows.map((r) => [r.id, r.teamId === null ? null : (teams.get(r.teamId)?.name ?? null)])
+	);
+	const tags = fromTags(
+		graph.figures.map((f) => ({
+			id: f.id,
+			name: labels.get(f.id) ?? '',
+			from: placeOf.get(f.id) ?? null
+		}))
 	);
 	const figOf = (id: number): MapFig => ({
 		id,
-		label: labels.get(id) ?? '',
+		label: shownName({ id, name: labels.get(id) ?? '' }, tags),
 		move: moves.get(id) ?? ''
 	});
 	const byMove = (a: MapFig, b: MapFig) =>
@@ -105,12 +121,8 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		}
 		for (const from of f.starts) {
 			if (!drawn.has(from)) continue;
-			if (f.ends.length === 0) anyFromMap.set(from, [...(anyFromMap.get(from) ?? []), fig]);
-			for (const to of f.ends) {
-				if (!drawn.has(to)) continue;
-				const key = `${from}:${to}`;
-				onEdge.set(key, [...(onEdge.get(key) ?? []), fig]);
-			}
+			if (f.ends.length === 0) pushTo(anyFromMap, from, fig);
+			for (const to of f.ends) if (drawn.has(to)) pushTo(onEdge, `${from}:${to}`, fig);
 		}
 	}
 	noStart.sort((a, b) => byMove(a.fig, b.fig));
@@ -189,4 +201,11 @@ function twinsLinesOf(db: Db, twinned: Map<number, number[]>): Map<number, strin
 		);
 	}
 	return lines;
+}
+
+/** Add `v` to the list at `key`, making the list on first use. */
+function pushTo<K, V>(m: Map<K, V[]>, key: K, v: V): void {
+	const list = m.get(key);
+	if (list) list.push(v);
+	else m.set(key, [v]);
 }

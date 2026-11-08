@@ -28,7 +28,8 @@
  * longer one), so the widest pill is 344 px and fits the narrowest frame.
  */
 import { fold } from '$lib/fold';
-import { TWINS_CHIP } from '$lib/clones/twins';
+import { map as enMap } from '$lib/i18n/en/map';
+import { map as slMap } from '$lib/i18n/sl/map';
 import { positionCounts, type Graph, type GraphFigure } from '$lib/graph/graph';
 
 /** What the gap report says of a position (`positionCounts`). */
@@ -184,8 +185,20 @@ export function pillSize(lines: string[]): { w: number; h: number } {
 	};
 }
 
-/** The Twins line's width: the lists' word, at the mark's size (`MARK_CHAR` a character). */
-const TWINS_WIDTH = [...TWINS_CHIP].length * MARK_CHAR;
+/**
+ * A line's width for a word the page draws in the reader's language: the
+ * longest of the catalogs' (the layout is the same for every reader),
+ * `MARK_CHAR` a character.
+ */
+const wordWidth = (pick: (m: typeof enMap) => string) =>
+	Math.max(...[enMap, slMap].map((m) => [...pick(m)].length)) * MARK_CHAR;
+
+/** The Twins line's width, at the mark's size. */
+const TWINS_WIDTH = wordWidth((m) => m.twins);
+const MARK_WIDTH = {
+	'dead end': wordWidth((m) => m.mark.deadEnd),
+	orphan: wordWidth((m) => m.mark.orphan)
+};
 
 /** The box the Twins line takes (`MapNode.twinsY`), centred on (x, y). */
 export function twinsBox(x: number, y: number): { x0: number; y0: number; x1: number; y1: number } {
@@ -197,9 +210,9 @@ export function twinsBox(x: number, y: number): { x0: number; y0: number; x1: nu
 	};
 }
 
-/** The width a mark word takes: `MARK_CHAR` a character. */
+/** The width a mark word takes, in the longest of the languages. */
 function markWidth(mark: 'dead end' | 'orphan' | null): number {
-	return mark ? mark.length * MARK_CHAR : 0;
+	return mark ? MARK_WIDTH[mark] : 0;
 }
 
 /** The box a mark word takes on its own line (`MapNode.markY`), centred on (x, y). */

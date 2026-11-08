@@ -20,6 +20,7 @@
 		nextFrom,
 		saveOutcome,
 		stripOf,
+		walkName,
 		type Walk
 	} from '$lib/positions/walk';
 	import { t } from '$lib/i18n/catalog';
@@ -106,7 +107,7 @@
 			save: async () => {
 				const o = saveOutcome(
 					await sendAt(action, 'routine', {
-						name: t().map.walk.defaultName(startName),
+						name: walkName(t().map.walk.defaultName(startName)),
 						figureIds: figureIds(walk)
 					}),
 					t().shell.unsaved.didNotSave
@@ -349,7 +350,7 @@
 						required
 						autofocus
 						maxlength="200"
-						value={refusal?.name ?? t().map.walk.defaultName(startName)}
+						value={refusal?.name ?? walkName(t().map.walk.defaultName(startName))}
 						class={FIELD}
 						aria-invalid={nameError ? 'true' : undefined}
 						aria-describedby={nameError ? `${hid}-name-error` : undefined}
