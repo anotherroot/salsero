@@ -537,7 +537,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if ((renames && !figureName) || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
-				message: 'Give the move and the figure a name (up to 200 characters).'
+				message: 'Give the figure a name (up to 200 characters).'
 			});
 		}
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
@@ -552,7 +552,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const clash = seenRefusal(
 			form,
 			row.teamId !== null || hasCopies(db, 'figure', row.id),
-			variationSeen(db, row.id),
+			variationSeen(db, row.id, renames),
 			{ action: 'update' as const },
 			serverNow(),
 			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
