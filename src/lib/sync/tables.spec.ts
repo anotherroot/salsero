@@ -6,7 +6,7 @@ import { NEVER_SYNCED, SYNCED } from './tables';
 import { triggersFile } from './triggers';
 
 const tables = Object.values(schema)
-	.filter((v): v is SQLiteTable => v instanceof SQLiteTable)
+	.filter((v: unknown): v is SQLiteTable => v instanceof SQLiteTable)
 	.map((t) => getTableConfig(t));
 
 describe('synced tables', () => {
