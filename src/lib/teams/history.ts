@@ -50,6 +50,7 @@ const FIELD: Record<string, string> = {
 	sampleStartS: 'sample start',
 	practiceMode: 'practice',
 	countBpm: 'practice tempo',
+	comesBack: 'comes back',
 	slots: 'slots'
 };
 

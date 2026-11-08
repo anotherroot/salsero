@@ -231,8 +231,9 @@ src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates p
                      start, the label pass, the tray) and how the page draws it
                      (map-view.ts: type colours, what a tap lights, the arrows). Client-safe
 src/lib/schedule/comes-back.ts  PURE: a drill's Comes back (by how it went, learning, or a fixed
-                     rhythm), `scheduleOf` (the setting + the sets → a `DueState`) and its words.
-                     `schedule.ts` holds the slower gap steps (`STEPS`)
+                     rhythm): parsing it, the one a row follows (`effectiveComesBack`) and its
+                     words. `schedule.ts` holds `scheduleOf` (the setting + the sets → a
+                     `DueState`) and the slower gap steps (`STEPS`)
 src/lib/exercises/comes-back-view.ts  PURE: the Edit card's words and chips for Comes back and
                      Warm-up (drawn by components/exercises/ComesBackCard.svelte and WarmupRow.svelte)
 src/lib/server/comes-back-form.ts  reads the Edit form's Comes back and Warm-up fields (a

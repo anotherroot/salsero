@@ -4,7 +4,7 @@
  * are `dayList`'s (`src/lib/schedule/today-list.ts`).
  */
 import { backWords, dayWords, dueWords } from '$lib/schedule/words';
-import { rhythmWords } from '$lib/schedule/comes-back';
+import { learningWords, rhythmWords } from '$lib/schedule/comes-back';
 import type { DueState } from '$lib/schedule/schedule';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
 import type { DaySet, ExerciseItem } from '$lib/types';
@@ -16,9 +16,10 @@ const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 /**
  * A Today row's meta: "Done · Back in a week", "New · from class Tue 3 Nov",
- * "2 days late", "Due today", "Ahead · due Sunday" (Next, before its day),
- * "Added · due tomorrow" (Coming up's +). `lessonDay`: a lesson's class day as
- * shown ("Tue 3 Nov"), null for every other type.
+ * "Ahead · due Sunday" (Next, before its day), "Added · due tomorrow" (Coming
+ * up's +). A row due today or past its day says nothing of when it was due.
+ * `lessonDay`: a lesson's class day as shown ("Tue 3 Nov"), null for every
+ * other type.
  */
 export function rowMeta(
 	row: DayRow<ExerciseItem>,
@@ -56,11 +57,7 @@ export function rowMeta(
 /** A drill's rhythm or its learning, as a meta part; null for every other row. */
 function rhythmOf(state: DueState): MetaPart | null {
 	if (state.every !== null) return { text: rhythmWords(state.every), tone: null };
-	if (state.learning)
-		return {
-			text: `Learning · ${state.learning.good} of ${state.learning.of} good days`,
-			tone: null
-		};
+	if (state.learning) return { text: learningWords(state.learning), tone: null };
 	return null;
 }
 

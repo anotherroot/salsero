@@ -150,7 +150,7 @@ describe('comingUp: warm-ups and metas', () => {
 		);
 		expect(metas.f).toBe('Warm-up');
 		expect(metas.d).toBe('Weekly');
-		expect(metas.l).toBe('Learning · 1 of 3');
+		expect(metas.l).toBe('Learning · 1 of 3 good days');
 		expect(metas.p).toBeNull();
 	});
 

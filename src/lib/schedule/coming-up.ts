@@ -1,6 +1,6 @@
 /** Coming up: every exercise by the day it comes back. PURE. */
 import { awayWords } from './words';
-import { rhythmWords } from './comes-back';
+import { learningWords, rhythmWords } from './comes-back';
 import type { DueState } from './schedule';
 import { workOf, type DayExercise, type DayInput, type Worked } from './today-list';
 
@@ -29,7 +29,7 @@ export function comingMeta(e: Pick<DayExercise, 'warmup'>, state: DueState): str
 	const rhythm = state.every !== null ? rhythmWords(state.every) : null;
 	if (e.warmup) return rhythm ? `Warm-up · ${rhythm.toLowerCase()}` : 'Warm-up';
 	if (rhythm) return rhythm;
-	if (state.learning) return `Learning · ${state.learning.good} of ${state.learning.of}`;
+	if (state.learning) return learningWords(state.learning);
 	return null;
 }
 
