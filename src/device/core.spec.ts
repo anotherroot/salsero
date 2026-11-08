@@ -42,9 +42,9 @@ beforeEach(() => {
 const count = (table: string) =>
 	(device.prepare(`SELECT count(*) AS n FROM "${table}"`).get() as { n: number }).n;
 
-/** The server's pull for u1, answered as the route does, with a theme cookie echoed. */
-function answerAsServer(body: string): Response {
-	const out = serverPull(server, 'u1', JSON.parse(body) as PullRequest);
+/** The server's pull for `userId` (u1), answered as the route does, with a theme cookie echoed. */
+function answerAsServer(body: string, userId = 'u1'): Response {
+	const out = serverPull(server, userId, JSON.parse(body) as PullRequest);
 	if ('refused' in out) return Response.json(out, { status: 409 });
 	return Response.json({ ...out, cookies: { theme: 'dark', group_salsa: 'a b' } });
 }
@@ -53,6 +53,8 @@ const pending = () => new Promise<Response>(() => {});
 
 function harness(over: Partial<DeviceDeps> = {}) {
 	const posted: DeviceOut[] = [];
+	/** Whose copy each `ready` was said over. */
+	const readyFor: (string | null)[] = [];
 	const bodies: PullRequest[] = [];
 	const runtimes: DeviceRuntime[] = [];
 	const seen: Request[] = [];
@@ -71,7 +73,10 @@ function harness(over: Partial<DeviceDeps> = {}) {
 		fetchPull: async (body) => answerAsServer(body),
 		startServer,
 		setRuntime: (r) => runtimes.push(r),
-		post: (m) => posted.push(m),
+		post: (m) => {
+			posted.push(m);
+			if (m.type === 'state' && m.state === 'ready') readyFor.push(readMeta(device).userId);
+		},
 		online: () => true,
 		userAgent: 'Phone/1.0',
 		log,
@@ -85,7 +90,7 @@ function harness(over: Partial<DeviceDeps> = {}) {
 	};
 	const dev = createDevice(deps);
 	const states = () => posted.filter((m) => m.type === 'state').map((m) => m.state);
-	return { dev, posted, bodies, runtimes, seen, log, startServer, states };
+	return { dev, posted, bodies, runtimes, seen, log, startServer, states, readyFor };
 }
 
 const get = (path: string): WireRequest => ({
@@ -342,6 +347,115 @@ describe('pull', () => {
 			'[device] pull: applying failed twice, waiting for the next pull'
 		);
 		expect(h.dev.state()).toBe('ready');
+	});
+});
+
+describe("the page's person", () => {
+	it('signed out (null) wipes the copy and is empty', async () => {
+		const h = harness();
+		await h.dev.start();
+		expect(h.dev.state()).toBe('ready');
+		await h.dev.person(null);
+		expect(h.dev.state()).toBe('empty');
+		expect(count('figures')).toBe(0);
+		expect(readMeta(device).userId).toBeNull();
+		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).toMatchObject({
+			fallback: true
+		});
+	});
+
+	it('signed out before the start: the copy is wiped and nothing is pulled', async () => {
+		await harness().dev.start();
+		const h = harness();
+		await h.dev.person(null);
+		await h.dev.start();
+		expect(h.states()).toEqual(['starting', 'empty']);
+		expect(count('figures')).toBe(0);
+		expect(h.bodies).toEqual([]);
+	});
+
+	it('another person, known before the start, never gets ready on the old copy', async () => {
+		await harness().dev.start();
+		expect(readMeta(device).userId).toBe('u1');
+		const h = harness({ fetchPull: async (body) => answerAsServer(body, 'u4') });
+		await h.dev.person('u4');
+		await h.dev.start();
+		expect(h.readyFor).toEqual(['u4']);
+		expect(h.dev.state()).toBe('ready');
+		expect(h.runtimes.at(-1)?.userId).toBe('u4');
+		expect(device.prepare("SELECT count(*) AS n FROM users WHERE id = 'u1'").get()).toEqual({
+			n: 0
+		});
+	});
+
+	it('another person, said after the start, takes the copy out of service until theirs lands', async () => {
+		let release: () => void = () => {};
+		let who = 'u1';
+		const h = harness({
+			fetchPull: async (body) => {
+				if (who === 'u4') await new Promise<void>((r) => (release = r));
+				return answerAsServer(body, who);
+			}
+		});
+		await h.dev.start();
+		expect(h.readyFor).toEqual(['u1']);
+		who = 'u4';
+		const switching = h.dev.person('u4');
+		await vi.waitFor(() => expect(h.bodies).toHaveLength(2));
+		expect(h.dev.state()).not.toBe('ready');
+		expect(count('figures')).toBe(0);
+		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).toMatchObject({
+			fallback: true
+		});
+		release();
+		await switching;
+		expect(h.readyFor).toEqual(['u1', 'u4']);
+		expect(h.dev.state()).toBe('ready');
+	});
+
+	it('another person and no network: the old copy is gone and the device is empty', async () => {
+		await harness().dev.start();
+		const h = harness({ fetchPull: () => Promise.reject(new TypeError('Failed to fetch')) });
+		await h.dev.start();
+		expect(h.dev.state()).toBe('ready');
+		await h.dev.person('u4');
+		expect(h.dev.state()).toBe('empty');
+		expect(count('figures')).toBe(0);
+	});
+
+	it("never takes a pull for someone other than the page's person", async () => {
+		const h = harness();
+		await h.dev.person('u4');
+		await h.dev.start();
+		expect(h.bodies.length).toBeGreaterThan(0);
+		expect(count('figures')).toBe(0);
+		expect(h.dev.state()).toBe('empty');
+		expect(h.readyFor).toEqual([]);
+	});
+
+	it('the same person keeps the copy', async () => {
+		const h = harness();
+		await h.dev.start();
+		await h.dev.person('u1');
+		expect(h.dev.state()).toBe('ready');
+		expect(count('figures')).toBeGreaterThan(0);
+	});
+
+	it("falls back for a page whose person is not the copy's", async () => {
+		const h = harness();
+		await h.dev.start();
+		expect(await h.dev.answer(get('/salsa/figures/__data.json'), 'u4')).toMatchObject({
+			fallback: true
+		});
+		expect(await h.dev.answer(get('/salsa/figures/__data.json'), null)).toMatchObject({
+			fallback: true
+		});
+		expect(h.seen).toEqual([]);
+		// The copy's person, and a page that does not know yet (the offline shell), are answered.
+		expect(await h.dev.answer(get('/salsa/figures/__data.json'), 'u1')).not.toHaveProperty(
+			'fallback'
+		);
+		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).not.toHaveProperty('fallback');
 	});
 });
 

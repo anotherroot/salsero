@@ -28,6 +28,8 @@ const DATA_DIR = '/device';
 const post = (message: DeviceOut) => scope.postMessage(message);
 
 let device: Device | null = null;
+/** The page's person, kept for a device that opens later (`Device.person`). */
+let person: string | null | undefined = undefined;
 
 async function startServer(): Promise<Responder> {
 	// The app's own server, as `vite build` left it. Loaded here, not at the top,
@@ -89,17 +91,22 @@ async function run(): Promise<void> {
 			post({ type: 'state', state: 'failed' });
 			return;
 		}
+		if (person !== undefined) await device.person(person);
 		await device.start();
 		// Held for the worker's life: closing the tab ends the worker and frees it.
 		await new Promise<never>(() => {});
 	});
 }
 
-async function reply(port: MessagePort, request: WireRequest): Promise<void> {
+async function reply(
+	port: MessagePort,
+	request: WireRequest,
+	asker: string | null | undefined
+): Promise<void> {
 	let out;
 	try {
 		out = device
-			? await device.answer(request)
+			? await device.answer(request, asker)
 			: ({ fallback: true, reason: 'device waiting' } satisfies WireFallback);
 	} catch (e) {
 		out = { fallback: true, reason: String(e) } satisfies WireFallback;
@@ -112,7 +119,10 @@ scope.addEventListener('message', (e: MessageEvent<DeviceIn>) => {
 	const message = e.data;
 	if (message?.type === 'device-fetch') {
 		const port = e.ports[0];
-		if (port) void reply(port, message.request);
+		if (port) void reply(port, message.request, message.person);
+	} else if (message?.type === 'person') {
+		person = message.userId;
+		void device?.person(message.userId);
 	} else if (message?.type === 'pull') {
 		// Before the lock is ours there is nothing to pull into; start pulls anyway.
 		void device?.pull();

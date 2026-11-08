@@ -46,7 +46,8 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
-	import { device, deviceReady } from '$lib/offline/device.svelte';
+	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
+	import { pagePerson } from '$lib/offline/person';
 	import Toast from '$lib/components/ui/Toast.svelte';
 
 	let { data, children } = $props();
@@ -249,6 +250,15 @@
 	 * designed "Needs a connection".
 	 */
 	let needsConnection = $state<{ id: number; message: string } | null>(null);
+	/*
+	 * The device's person: who the server says is signed in (`pagePerson`). Its
+	 * copy is wiped on sign-out and for anyone else; a page the copy drew
+	 * (offline) cannot tell, and says nothing.
+	 */
+	$effect(() => {
+		const person = pagePerson(data);
+		if (person !== undefined) setPerson(person);
+	});
 	$effect(() => {
 		const show = () =>
 			(needsConnection = {

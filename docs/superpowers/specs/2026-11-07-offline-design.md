@@ -367,6 +367,15 @@ own block:
   takes over when the first closes. The BroadcastChannel relay waits for phase 3.
 - **Signing out wipes the copy** (a 401 on pull empties the tables, never the
   file). Another person signing in on the same browser starts from empty.
+  The page tells its device who the server says is signed in (`pagePerson`,
+  `src/lib/offline/person.ts`: only from the server's own answer, never the
+  copy's or the shell's): null wipes the copy, anyone else than the copy's
+  person wipes it and pulls theirs, and the copy answers nothing meanwhile.
+  Every relayed read carries the page's person; the copy answers only its own
+  person's page (and a page that cannot know yet, the offline shell). A pull
+  says whose copy it is (`userId`), and the server starts over for anyone
+  else; the device never takes a pull for anyone but the page's person.
+  Built 2026-11-08 (the final review's fixes).
 - **A migration on the device means one full pull;** so does any pull that
   fails to apply. A device on an older schema is refused (409) and keeps its
   copy until its update.

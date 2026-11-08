@@ -48,7 +48,18 @@ export type Device = {
 	start(): Promise<void>;
 	/** At most one pull at a time; asking during one queues exactly one more. */
 	pull(): Promise<void>;
-	answer(request: WireRequest): Promise<WireResponse | WireFallback>;
+	/**
+	 * Who the page says is signed in, from the server's own answer: null wipes
+	 * the copy (signed out); another person than the copy's wipes it and pulls
+	 * theirs, and the copy answers nothing until it lands. Before `start` it is
+	 * only noted, and `start` honours it.
+	 */
+	person(userId: string | null): Promise<void>;
+	/**
+	 * `person`: the asking page's, when it knows (undefined: not yet, as on the
+	 * offline shell). A page of anyone but the copy's person gets a fallback.
+	 */
+	answer(request: WireRequest, person?: string | null): Promise<WireResponse | WireFallback>;
 	state(): DeviceState | null;
 };
 
@@ -107,6 +118,11 @@ export function createDevice(deps: DeviceDeps): Device {
 	let runtime: DeviceRuntime | null = null;
 	let respond: Responder | null = null;
 	let serverStart: Promise<void> | null = null;
+	/** The page's person (`person`); undefined until a page says. */
+	let wanted: string | null | undefined = undefined;
+	/** Bumped by every `person`: a later one decides the state, not an older one finishing. */
+	let switches = 0;
+	let started = false;
 
 	const setState = (next: DeviceState) => {
 		if (state === next) return;
@@ -114,7 +130,23 @@ export function createDevice(deps: DeviceDeps): Device {
 		deps.post({ type: 'state', state: next });
 	};
 
-	const hasCopy = () => readMeta(db).userId !== null;
+	const copyUser = () => readMeta(db).userId;
+	/** The copy may answer: it holds someone, and the page's person once a page has said. */
+	const copyFits = () => {
+		const user = copyUser();
+		return user !== null && (wanted === undefined || user === wanted);
+	};
+	/** The copy goes when it is not the page's person's. */
+	const wipeOther = () => {
+		const user = copyUser();
+		if (user === null || wanted === undefined || user === wanted) return;
+		wipeCopy(db);
+		log.info(
+			wanted === null
+				? '[device] signed out: the copy is wiped'
+				: '[device] another person: the copy is wiped, theirs is pulled'
+		);
+	};
 
 	/** The runtime from the copy's meta; the server once; then `ready`. */
 	async function serve(): Promise<void> {
@@ -134,8 +166,8 @@ export function createDevice(deps: DeviceDeps): Device {
 			}
 		);
 		await serverStart;
-		// A pull may have found the person signed out while the server started.
-		setState(hasCopy() ? 'ready' : 'empty');
+		// A pull may have found the person signed out, or a page another person, while the server started.
+		setState(copyFits() ? 'ready' : 'empty');
 	}
 
 	async function pullOnce(): Promise<'again' | 'done'> {
@@ -173,6 +205,11 @@ export function createDevice(deps: DeviceDeps): Device {
 			log.warn('[device] pull: the answer did not arrive whole, the copy stays', String(e));
 			return 'done';
 		}
+		if (wanted !== undefined && body.userId !== wanted) {
+			// Asked before the page said who it is (or signed in again since): not theirs.
+			log.warn("[device] pull: the answer is not the page's person's, not taken");
+			return 'done';
+		}
 		try {
 			applyPull(db, body);
 		} catch (e) {
@@ -200,13 +237,16 @@ export function createDevice(deps: DeviceDeps): Device {
 
 	return {
 		async start() {
+			started = true;
 			setState('starting');
 			try {
+				wipeOther();
+				if (wanted === null) return setState('empty');
 				if (deps.online()) {
 					const pulled = pull();
-					if (!hasCopy()) await pulled;
+					if (!copyFits()) await pulled;
 				}
-				if (hasCopy()) await serve();
+				if (copyFits()) await serve();
 				else setState('empty');
 			} catch (e) {
 				log.error('[device] start failed', e);
@@ -216,8 +256,30 @@ export function createDevice(deps: DeviceDeps): Device {
 
 		pull,
 
-		async answer(wire) {
+		async person(userId) {
+			if (userId === wanted) return;
+			wanted = userId;
+			if (!started) return;
+			const mine = ++switches;
+			try {
+				wipeOther();
+				if (copyFits()) return await serve();
+				if (userId === null) return setState('empty');
+				setState('starting');
+				await pull();
+				if (mine === switches && !copyFits() && state !== 'failed') setState('empty');
+			} catch (e) {
+				log.error('[device] could not change person', e);
+				// The copy may still be the other person's: it answers nothing.
+				setState('failed');
+			}
+		},
+
+		async answer(wire, person) {
 			if (state !== 'ready' || !respond || !runtime) return fallback(`device ${state ?? 'off'}`);
+			if (person !== undefined && person !== runtime.userId) {
+				return fallback("the copy is not this page's person's");
+			}
 			try {
 				const url = new URL(wire.url);
 				if (!deviceAnswers(wire.method, url)) return fallback('the network answers this');

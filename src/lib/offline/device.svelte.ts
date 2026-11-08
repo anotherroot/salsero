@@ -36,6 +36,8 @@ export function deviceReady(): boolean {
 
 let started = false;
 let worker: Worker | null = null;
+/** Who the server says is signed in on this page (`setPerson`); undefined: not known yet. */
+let person: string | null | undefined = undefined;
 let workerStartedAt = 0;
 let pullTimer: ReturnType<typeof setTimeout> | undefined;
 /** Pulls landed on this page (`window.__device`). */
@@ -78,6 +80,8 @@ function startWorker(): Worker | null {
 		if (e.data?.type === 'state') setState(e.data.state);
 		else if (e.data?.type === 'pulled') pulled(e.data.startedAt);
 	});
+	if (person !== undefined)
+		worker.postMessage({ type: 'person', userId: person } satisfies DeviceIn);
 	worker.addEventListener('error', (e) => {
 		console.error('[device] worker error', e.message, e.filename, e.lineno);
 		if (device.state !== 'ready') setState('failed');
@@ -119,10 +123,22 @@ async function relay(message: Extract<DeviceIn, { type: 'device-fetch' }>, port:
 		const w = startWorker();
 		if (!w) return fallback('no device worker');
 		if (!(await whenReady())) return fallback(`device ${device.state}`);
-		w.postMessage(message satisfies DeviceIn, [port]);
+		// The page's person goes with it: the copy answers only its own person's page.
+		w.postMessage({ ...message, person } satisfies DeviceIn, [port]);
 	} catch (e) {
 		fallback(String(e));
 	}
+}
+
+/**
+ * Who is signed in on this page, from the server's own answer (`pagePerson`):
+ * the device wipes its copy for null and for anyone else than its person.
+ * The root layout calls it on every change; undefined (not known) is never sent.
+ */
+export function setPerson(userId: string | null): void {
+	if (userId === person) return;
+	person = userId;
+	worker?.postMessage({ type: 'person', userId } satisfies DeviceIn);
 }
 
 function pull(): void {

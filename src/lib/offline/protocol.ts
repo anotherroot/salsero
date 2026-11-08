@@ -28,8 +28,16 @@ export type WireFallback = { fallback: true; reason: string };
  */
 export type DeviceState = 'waiting' | 'starting' | 'empty' | 'ready' | 'failed';
 
-/** To the worker. `device-fetch` carries a reply port: `WireResponse` or `WireFallback` comes back on it. */
-export type DeviceIn = { type: 'device-fetch'; request: WireRequest } | { type: 'pull' };
+/**
+ * To the worker. `device-fetch` carries a reply port: `WireResponse` or
+ * `WireFallback` comes back on it, and the page's person when it knows
+ * (`pagePerson`; absent: not yet). `person`: who the server says is signed in
+ * on the page, sent at the start and on every change (null: signed out).
+ */
+export type DeviceIn =
+	| { type: 'device-fetch'; request: WireRequest; person?: string | null }
+	| { type: 'pull' }
+	| { type: 'person'; userId: string | null };
 
 /**
  * From the worker. `pulled`: a pull landed; `startedAt` is when its request

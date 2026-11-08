@@ -541,7 +541,9 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      timeout, which caches go, a page's unpulled save), needs-connection.ts (the
                      offline answers), protocol.ts (the messages), device.svelte.ts (the page side:
                      registers the SW, starts the device worker, relays, pulls; `noteSaved` after
-                     an upload), background-write.ts (opens and practice memory: never offline)
+                     an upload; `setPerson`), person.ts (PURE: `pagePerson`, who the server says
+                     is signed in, from the root layout's `drawnBy`; the device wipes for anyone
+                     else), background-write.ts (opens and practice memory: never offline)
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,
