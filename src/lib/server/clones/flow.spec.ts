@@ -23,7 +23,7 @@ import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { addLinks, deleteLink } from '../links';
 import { completeVideoJob, requestVideoDownload } from '../video-downloads';
-import { addSpot, deleteSpot } from '../spots';
+import { addSpot, deleteSpot, updateSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { crossRefs, familyIntegrity } from '../integrity';
 import type { Space } from '../scope';
@@ -365,7 +365,7 @@ describe('flowFrom', () => {
 			now: NOW,
 			freeDiskBytes: ROOMY
 		});
-		expect(sent).toEqual({ ok: true });
+		expect(sent).toMatchObject({ ok: true });
 		expect(recsOn(G1f)).toHaveLength(1);
 		settings('u1', G2f, { media: true });
 		save(F, { notes: 'Later' });
@@ -426,6 +426,49 @@ describe('flowFrom', () => {
 		expect(row(G2f).notes).toBe('Hips first');
 		// G1 was refused, so nothing went on from it to Luka.
 		expect(row(F2).notes).toBe('Old notes');
+	});
+
+	it('sections off: an edited section flows, an added one does not', async () => {
+		// The recording and its section reach both clubs while sections are on.
+		for (const id of [G1f, G2f]) settings('u1', id, { media: true, sections: true });
+		const rec = recording(F, 'r.mp4');
+		const spot = addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 4000, label: 'Turn' })!.id;
+		await flow('u1', F);
+		const labelsOn = (figureId: number) =>
+			db
+				.select({ label: videoSpots.label })
+				.from(videoSpots)
+				.innerJoin(recordings, eq(recordings.id, videoSpots.recordingId))
+				.where(eq(recordings.figureId, figureId))
+				.orderBy(asc(videoSpots.startMs))
+				.all()
+				.map((s) => s.label);
+		expect(labelsOn(G1f)).toEqual(['Turn']);
+		// Back to the defaults: "Sections and points" is about adding or removing them.
+		for (const id of [G1f, G2f]) settings('u1', id, {});
+		updateSpot(db, spot, { label: 'Spin', endMs: 4500 }, 'u1', T);
+		expect((await flow('u1', F)).landed).toEqual(expect.arrayContaining([G1f, G2f]));
+		expect(labelsOn(G1f)).toEqual(['Spin']);
+		expect(labelsOn(G2f)).toEqual(['Spin']);
+		// A new section stays on Ana's own copy.
+		addSpot(db, { recordingId: rec }, { startMs: 5000, endMs: 8000, label: 'Dip' });
+		await flow('u1', F);
+		expect(labelsOn(G1f)).toEqual(['Spin']);
+		expect(labelsOn(G2f)).toEqual(['Spin']);
+	});
+
+	it('the disk is asked only when a hop links files', async () => {
+		let asked = 0;
+		const disk = async () => (asked++, ROOMY);
+		save(F, { notes: 'Hips first' });
+		await flowFrom(db, 'u1', 'figure', F, files, NOW, disk);
+		expect(row(G1f).notes).toBe('Hips first');
+		expect(asked).toBe(0);
+		for (const id of [G1f, G2f]) settings('u1', id, { media: true });
+		recording(F, 'r.mp4');
+		await flowFrom(db, 'u1', 'figure', F, files, NOW, disk);
+		expect(recsOn(G1f)).toHaveLength(1);
+		expect(asked).toBeGreaterThan(0);
 	});
 
 	it('history: one change by the saver in each club; integrity holds', async () => {

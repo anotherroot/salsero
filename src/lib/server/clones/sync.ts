@@ -21,7 +21,8 @@
  *    asked again right before it lands (the landings await one another).
  * 3. For each ticked copy, each `{giver, keys}` of `mergeTargets` lands with
  *    `landKeys` (`snapshot: 'keys'`) in its own transaction, `seen` re-checked
- *    on the first; a refusal (a name, no room, a linked section) or a throw
+ *    on each: the sheet's digest on the first, then the digest the previous
+ *    landing left; a refusal (stale, no room, a linked section) or a throw
  *    stops that copy alone. A giver only gives keys it already holds the
  *    chosen value of, and a landing only writes keys its target does not
  *    hold, so the order of landings does not matter.
@@ -347,7 +348,9 @@ export async function syncAll(
 			refused.push({ id: target, message: SYNC_NO_ACCESS });
 			continue;
 		}
-		let first = true;
+		// What the target holds as each landing starts: what the sheet saw, then
+		// what the last landing left. A save landing between two is refused.
+		let holds = seen;
 		let ok = true;
 		const keysIn: string[] = [];
 		for (const g of plan.get(target) ?? []) {
@@ -364,16 +367,17 @@ export async function syncAll(
 					files,
 					now,
 					freeDiskBytes,
-					seen: first ? seen : undefined
+					seen: holds
 				});
 			} catch (err) {
 				// landKeys has unlinked what it linked and rolled back: this copy alone is refused.
 				console.error(`Sync: ${kind} ${g.giver} → ${target} failed`, err);
 				res = { ok: false as const, reason: 'failed' as const, message: SYNC_FAILED };
 			}
-			first = false;
-			if (res.ok) keysIn.push(...keys);
-			if (!res.ok) {
+			if (res.ok) {
+				keysIn.push(...keys);
+				holds = res.seen;
+			} else {
 				refused.push({ id: target, message: res.reason === 'stale' ? SYNC_STALE : res.message });
 				ok = false;
 				break;

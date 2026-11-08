@@ -18,8 +18,15 @@ export const DEFAULT_SYNC: SyncSettings = {
 /** The option a key falls under; `always` flows whenever the switch is on. */
 export type KeyClass = 'name' | 'small' | 'sections' | 'media' | 'always';
 
-export function classOf(key: string, removal: boolean): KeyClass {
+/**
+ * `both`: both sides hold the key, so the change is an edit (a section's times
+ * or label, say), not an arrival or a removal. The options other than Names
+ * are about arrivals and removals only ("Adding or removing them"), so an
+ * edit of anything but a name is `always`.
+ */
+export function classOf(key: string, removal: boolean, both = false): KeyClass {
 	if (NAME_KEYS.has(key)) return 'name';
+	if (both) return 'always';
 	const parts = pieceParts(key);
 	if (parts) {
 		if (parts.part === 'piece') return 'media';
@@ -31,9 +38,9 @@ export function classOf(key: string, removal: boolean): KeyClass {
 	return 'always';
 }
 
-export function allows(s: SyncSettings, key: string, removal: boolean): boolean {
+export function allows(s: SyncSettings, key: string, removal: boolean, both = false): boolean {
 	if (!s.on) return false;
-	switch (classOf(key, removal)) {
+	switch (classOf(key, removal, both)) {
 		case 'name':
 			return s.names;
 		case 'small':
@@ -45,6 +52,11 @@ export function allows(s: SyncSettings, key: string, removal: boolean): boolean 
 		default:
 			return true;
 	}
+}
+
+/** `allows` for a row of a diff: an edit when both sides hold the key. */
+function allowsDiff(s: SyncSettings, d: FieldDiff): boolean {
+	return allows(s, d.key, d.removal, d.mine !== null && d.theirs !== null);
 }
 
 /** The keys whose value moved (changed, added or gone) since the mark. No mark, none. */
@@ -82,7 +94,7 @@ export function holdLinkRemovals(saved: string[], pair: FieldDiff[], into: SyncS
 			!d.removal &&
 			d.mine === null &&
 			pieceParts(d.key)?.part === 'piece' &&
-			!allows(into, d.key, false)
+			!allowsDiff(into, d)
 	);
 	if (!refusedPiece) return [];
 	return pair.filter((d) => ours(d) && d.removal && d.key.startsWith('link:')).map((d) => d.key);
@@ -92,7 +104,8 @@ export function holdLinkRemovals(saved: string[], pair: FieldDiff[], into: SyncS
  * The keys of a save that flow into a receiver. `pair` is
  * `diff(base, receiver as mine, giver as theirs)`: a key flows when this save
  * changed it, only the giver's side moved since the base, the receiver's
- * settings allow it, and it is not just a copy's name suffix; and it is not a
+ * settings allow it (an edit of a key both hold needs no option but Names),
+ * and it is not just a copy's name suffix; and it is not a
  * link removal held back for a refused new piece (`holdLinkRemovals`).
  */
 export function flowKeys(saved: string[], pair: FieldDiff[], into: SyncSettings): string[] {
@@ -100,7 +113,7 @@ export function flowKeys(saved: string[], pair: FieldDiff[], into: SyncSettings)
 	const out: string[] = [];
 	for (const d of pair) {
 		if (!saved.includes(d.key) || d.side !== 'theirs') continue;
-		if (!allows(into, d.key, d.removal) || suffixOnly(d) || held.has(d.key)) continue;
+		if (!allowsDiff(into, d) || suffixOnly(d) || held.has(d.key)) continue;
 		out.push(d.key);
 	}
 	return out;

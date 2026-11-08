@@ -616,7 +616,7 @@ describe('positions', () => {
 			NOW,
 			Infinity
 		);
-		expect(out).toEqual({ ok: true });
+		expect(out).toMatchObject({ ok: true });
 		expect(db.select().from(positions).where(eq(positions.id, P)).get()!.hands).toBe('one');
 		const [line] = db
 			.select()
@@ -713,9 +713,9 @@ describe('landKeys', () => {
 			.where(eq(figures.id, F))
 			.run();
 		const before = pairBase(db, 'figure', M, F)!;
-		expect(await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' })).toEqual({
-			ok: true
-		});
+		const res = await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' });
+		// Landed, with the digest the landing left: a next landing's `seen`.
+		expect(res).toEqual({ ok: true, seen: digest(flatOf(db, 'figure', M)) });
 		expect(db.select().from(figures).where(eq(figures.id, M)).get()).toMatchObject({
 			notes: 'Club notes'
 		});
@@ -736,7 +736,7 @@ describe('landKeys', () => {
 		addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 900, label: 'New' }, 'u1');
 		const key = `rec:#${rec}`;
 		expect(Object.keys(flatOf(db, 'figure', F))).toContain(key);
-		expect(await land({ intoId: M, fromId: F, keys: [key], snapshot: 'keys' })).toEqual({
+		expect(await land({ intoId: M, fromId: F, keys: [key], snapshot: 'keys' })).toMatchObject({
 			ok: true
 		});
 		const gene = geneOf(db, 'recording', rec)!;
@@ -756,7 +756,10 @@ describe('landKeys', () => {
 		db.update(figures).set({ notes: 'Club notes' }).where(eq(figures.id, F)).run();
 		db.delete(clonePairs).run();
 		const marked = readMark(db, 'figure', M);
-		expect(await land({ intoId: M, fromId: F, keys: [], snapshot: 'keys' })).toEqual({ ok: true });
+		expect(await land({ intoId: M, fromId: F, keys: [], snapshot: 'keys' })).toEqual({
+			ok: true,
+			seen: digest(flatOf(db, 'figure', M))
+		});
 		expect(readMark(db, 'figure', M)).toEqual(marked);
 		await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' });
 		expect(pairBase(db, 'figure', M, F)).toBeNull();

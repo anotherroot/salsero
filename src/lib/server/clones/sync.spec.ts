@@ -12,7 +12,7 @@ import { openDb, type Db } from '../db';
 import { clonePairs, figures, recordings, teamChanges, users } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
 import { setRole } from '../membership';
-import { SYNC_NO_ACCESS } from '$lib/clones/view';
+import { SYNC_NO_ACCESS, SYNC_STALE } from '$lib/clones/view';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { addLinks } from '../links';
@@ -309,6 +309,25 @@ describe('syncAll', () => {
 		expect(row(T)).toMatchObject({ notes: 'Club notes', name: 'Basic' }); // nothing of G2's handed on
 		expect(row(G2).notes).toBe('Old notes');
 		fresh(T, G1);
+		integrity();
+	});
+
+	it('a save landing on a copy between two of its landings refuses the second', async () => {
+		// G2 takes T's notes, then G1's recording: two givers, two landings.
+		expect(setSyncSettings(db, 'u1', 'figure', T, { ...DEFAULT_SYNC, media: true }, T0)).toBe(true);
+		save(T, { notes: 'Ana notes' });
+		addRecording(
+			db,
+			{ figureId: G1, file: 'g1.mp4', mime: 'video/mp4', kind: 'video', sizeBytes: 50, note: null },
+			'u1'
+		);
+		const targets = ticked('u1', T).filter((t) => t.id === G2);
+		// The notes have landed; while the recording's file links, someone saves G2.
+		whileLinking = () => save(G2, { name: 'Basic two' });
+		const res = await sync('u1', T, {}, targets);
+		expect(res).toMatchObject({ ok: true, refused: [{ id: G2, message: SYNC_STALE }] });
+		expect(row(G2)).toMatchObject({ notes: 'Ana notes', name: 'Basic two' });
+		expect(db.select().from(recordings).where(eq(recordings.figureId, G2)).all()).toEqual([]);
 		integrity();
 	});
 

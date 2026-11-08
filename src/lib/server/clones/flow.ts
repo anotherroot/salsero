@@ -30,7 +30,7 @@
  *    disputed; Y's mark becomes what it holds after the landing, so its own
  *    next save does not send back what came in).
  * 3. A landing is visited and enqueued with exactly the keys that landed. A
- *    refusal (a linked section, no room, a name taken) is visited too (each
+ *    refusal (a linked section, no room, a save on Y meanwhile) is visited too (each
  *    copy is considered once per save) and goes into `refused`; nothing goes
  *    on from it, and every other hop still lands. A thrown error is not
  *    swallowed.
@@ -55,7 +55,7 @@ import type { CloneKind } from '$lib/types';
 import { diff } from '$lib/clones/diff';
 import { changedKeys, flowKeys } from '$lib/clones/sync';
 import type { Db } from '../db';
-import { currentKey, landKeys } from './apply';
+import { currentKey, landKeys, type DiskBytes } from './apply';
 import type { CloneFiles } from './files';
 import { accessTo, familyRows, geneOf, type FamilyRow } from './genes';
 import { markNow, readMark, rekeyMark } from './marks';
@@ -95,7 +95,7 @@ export async function flowFrom(
 	id: number,
 	files: CloneFiles,
 	now: number,
-	freeDiskBytes: number
+	freeDiskBytes: DiskBytes
 ): Promise<FlowReport> {
 	const report: FlowReport = { landed: [], refused: [] };
 	const gene = geneOf(db, kind, id);
@@ -147,7 +147,7 @@ export async function flowOnward(
 	visitedIds: number[],
 	files: CloneFiles,
 	now: number,
-	freeDiskBytes: number
+	freeDiskBytes: DiskBytes
 ): Promise<FlowReport> {
 	const report: FlowReport = { landed: [], refused: [] };
 	const visited = new Set<number>([...visitedIds, ...starts.map((s) => s.from)]);

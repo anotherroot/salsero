@@ -14,7 +14,9 @@
  * held > behind), listing its rows in that state as the notice says them
  * (`changedLabels`: "Notes", "1 recording"); a held line per way it went
  * (`how`: added, removed). A copy the person only reads gets no `behind` line (they cannot
- * Sync to it, and their own deliberate change would nag forever).
+ * Sync to it, and their own deliberate change would nag forever). On a page the
+ * person only reads, likewise, their own copy gets no `changed` or `held` line:
+ * Update mine only pulls, so there is nothing for it to bring.
  * A name that differs only by a copy suffix is no difference.
  */
 import type { CloneKind, Flat, KeepView, MergeRow, StepLine, StepView } from '$lib/types';
@@ -59,8 +61,11 @@ export function stepStatus(db: Db, userId: string, kind: CloneKind, id: number):
 	const flats = new Map<number, Flat>(fam.members.map((m) => [m.id, flatOf(db, kind, m.id)]));
 	const rows = rowsOf(db, userId, kind, id, fam.members, flats);
 	const lines: StepLine[] = [];
+	const readPage = fam.page.access !== 'edit';
 	for (const m of fam.members) {
 		if (m.id === id) continue;
+		// Their own change, seen from a page they only read: nothing to pull.
+		const ownFromRead = readPage && m.place.kind === 'mine';
 		// One line per state the copy is in (a held one per way), with its rows in that state.
 		const byState = new Map<
 			string,
@@ -69,6 +74,7 @@ export function stepStatus(db: Db, userId: string, kind: CloneKind, id: number):
 		for (const r of rows) {
 			const s = stateOf(r, id, m.id);
 			if (s === null || (s === 'behind' && m.access !== 'edit')) continue;
+			if (ownFromRead && (s === 'changed' || s === 'held')) continue;
 			const how =
 				s === 'held'
 					? r.values.find((v) => v.holders.includes(m.id))?.field === null

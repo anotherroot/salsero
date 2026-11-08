@@ -44,17 +44,14 @@ export async function flowAfter(
 	if (!actorId || id === null) return;
 	try {
 		const db = getDb();
-		// A row in no family has nowhere to flow (and no disk to ask about).
+		// A row in no family has nowhere to flow.
 		if (geneOf(db, kind, id) === null) return;
-		const report = await flowFrom(
-			db,
-			actorId,
-			kind,
-			id,
-			realCloneFiles(),
-			Date.now(),
-			await freeDisk()
-		);
+		// Nothing is awaited before the flow reads what the save changed: a hop
+		// landing on this row meanwhile would re-mark it and swallow the save.
+		// The disk is asked only when a hop links files, once.
+		let free: Promise<number> | undefined;
+		const disk = () => (free ??= freeDisk());
+		const report = await flowFrom(db, actorId, kind, id, realCloneFiles(), Date.now(), disk);
 		if (report.refused.length > 0) {
 			const reasons = [...new Set(report.refused.map((r) => r.reason))].join(', ');
 			console.error(`[keep-in-step] ${kind} ${id}: ${report.refused.length} refused (${reasons})`);

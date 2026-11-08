@@ -363,7 +363,7 @@ describe('Update mine with nothing to pull', () => {
 
 describe('notesOnLoad: what the sheet still says when it loads again', () => {
 	const after = {
-		refused: 'Changed since you opened Sync.',
+		refused: 'Changed while you were syncing; check it again.',
 		stale: true,
 		missed: ['Sreda 17:30: no room']
 	};

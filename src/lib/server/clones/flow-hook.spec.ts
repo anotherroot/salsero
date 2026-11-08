@@ -13,7 +13,9 @@ const handle = vi.hoisted(() => ({
 	db: undefined as unknown,
 	calls: [] as unknown[][],
 	log: [] as string[],
-	throws: false
+	throws: false,
+	/** What the flow was given to ask the disk with. */
+	disk: undefined as unknown
 }));
 
 vi.mock('$lib/server/db', async () => {
@@ -30,12 +32,19 @@ vi.mock('$lib/server/clones/files', async () => {
 });
 vi.mock('$lib/server/storage', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/storage')>('$lib/server/storage');
-	return { ...actual, freeDisk: async () => 1024 ** 4 };
+	return {
+		...actual,
+		freeDisk: async () => {
+			handle.log.push('disk');
+			return 1024 ** 4;
+		}
+	};
 });
 vi.mock('$lib/server/clones/flow', () => ({
 	flowFrom: async (...args: unknown[]) => {
 		handle.log.push('flow');
 		handle.calls.push(args.slice(1, 4));
+		handle.disk = args[6];
 		if (handle.throws) throw new Error('boom');
 		return { landed: [], refused: [] };
 	}
@@ -60,6 +69,7 @@ beforeEach(() => {
 	handle.calls = [];
 	handle.log = [];
 	handle.throws = false;
+	handle.disk = undefined;
 	db.insert(users)
 		.values({ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' })
 		.run();
@@ -165,6 +175,15 @@ describe('flowAfter', () => {
 	it('runs the flow for a row in a family, as the actor', async () => {
 		await flowAfter('u1', 'figure', F);
 		expect(handle.calls).toEqual([['u1', 'figure', F]]);
+	});
+	it('asks the disk only when the flow needs it, never before it reads the save', async () => {
+		// An await before the flow reads the mark would let a hop landing meanwhile swallow the save.
+		await flowAfter('u1', 'figure', F);
+		expect(handle.log).toEqual(['flow']);
+		const disk = handle.disk as () => Promise<number>;
+		expect(await disk()).toBe(1024 ** 4);
+		expect(await disk()).toBe(1024 ** 4);
+		expect(handle.log).toEqual(['flow', 'disk']);
 	});
 	it('does nothing without an actor or a row', async () => {
 		await flowAfter(undefined, 'figure', F);

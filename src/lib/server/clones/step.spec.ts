@@ -201,6 +201,17 @@ describe('stepStatus', () => {
 		]);
 	});
 
+	it('Luka on the club’s page: his own change is no line, the club’s is', () => {
+		save(F2, { notes: 'Luka notes' }, 'u2');
+		// His own deliberate change: nothing for Update mine to bring, so no line.
+		expect(stepStatus(db, 'u2', 'figure', G1)).toEqual({ lines: [] });
+		// The club's own change still shows: his copy is behind it.
+		setStart(G1, 3);
+		expect(stepStatus(db, 'u2', 'figure', G1).lines).toEqual([
+			expect.objectContaining({ id: F2, state: 'behind', fields: ['Timing'] })
+		]);
+	});
+
 	it('a copy that differs only by a name suffix: no line', async () => {
 		const old = mk('Basic (Sreda 17:30)', 'Dile');
 		const club = await copy(old, T1_SALSA);

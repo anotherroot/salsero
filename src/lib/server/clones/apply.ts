@@ -85,7 +85,7 @@ import { autoAddPending } from '../auto-add';
 import { accessTo, geneOf, stampGene } from './genes';
 import { digest, hashValue, pairBase, writePair } from './pairs';
 import { flatOf } from './trees';
-import { markNow } from './marks';
+import { writeMark } from './marks';
 import {
 	copyRecording,
 	copySpot,
@@ -899,7 +899,11 @@ const embeds = (tx: Db, routineId: number) =>
 
 /* ── The whole flow ─────────────────────────────────────────────────────── */
 
-const DENIED: SyncResult = { ok: false, reason: 'denied', message: 'Not found.' };
+const DENIED: Extract<SyncResult, { ok: false }> = {
+	ok: false,
+	reason: 'denied',
+	message: 'Not found.'
+};
 
 /** How a kind's change is filed in History: its root, and the thing a change of several fields names. */
 export function logRoot(
@@ -1047,6 +1051,12 @@ function snapshotKeys(
 	return out;
 }
 
+/**
+ * Free disk for a landing: a number, or a getter asked only when the landing
+ * links files (the flow's, so nothing is awaited before it reads the save).
+ */
+export type DiskBytes = number | (() => Promise<number>);
+
 export type LandOptions = {
 	actorId: string;
 	kind: CloneKind;
@@ -1056,9 +1066,12 @@ export type LandOptions = {
 	snapshot: 'full' | 'keys';
 	files: CloneFiles;
 	now: number;
-	freeDiskBytes: number;
+	freeDiskBytes: DiskBytes;
 	seen?: string;
 };
+
+/** A landing's result; landed, it carries the target's digest as the landing left it. */
+export type LandResult = { ok: true; seen: string } | Extract<SyncResult, { ok: false }>;
 
 /**
  * The write half of `syncFrom`, shared by Take, Send, the automatic flow and
@@ -1068,11 +1081,12 @@ export type LandOptions = {
  * (`'full'`: `nextBase`; `'keys'`: only the landed keys of the existing base,
  * no pair made when none exists), History and the reconcile in a group, and
  * the target's mark last. Nothing is written on a refusal; a person's deleted
- * pieces' files go once it has landed.
+ * pieces' files go once it has landed. Landed, it returns the target's digest
+ * read in that same transaction: the `seen` of a next landing on it.
  */
-export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
+export async function landKeys(db: Db, o: LandOptions): Promise<LandResult> {
 	const { actorId, kind, intoId, fromId, keys, snapshot, files, now, freeDiskBytes, seen } = o;
-	if (keys.length === 0) return { ok: true };
+	if (keys.length === 0) return { ok: true, seen: digest(flatOf(db, kind, intoId)) };
 	const into = rootOf(db, kind, intoId);
 	if (!into) return DENIED;
 	const intoFlat = flatOf(db, kind, intoId);
@@ -1081,14 +1095,18 @@ export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
 	const plan = filesFor(db, kind, fromId, keys, intoFlat, fromFlat);
 	const bytes = plan.reduce((n, f) => n + f.bytes, 0);
 	if (bytes > 0) {
-		const room = roomForOwner(db, ownerOfRow(into), bytes, freeDiskBytes);
+		const free = typeof freeDiskBytes === 'number' ? freeDiskBytes : await freeDiskBytes();
+		const room = roomForOwner(db, ownerOfRow(into), bytes, free);
 		if (!room.ok) return { ok: false, reason: 'room', message: room.message };
 	}
 
 	const made: [CloneFileKind, string][] = [];
 	const unlinkAll = () => Promise.all(made.map(([k, file]) => files.unlink(k, file)));
 	const linked = new Map<string, string>();
-	let out: ApplyOutcome | { ok: false; reason: 'stale'; message: string };
+	let out:
+		| Extract<ApplyOutcome, { ok: false }>
+		| (Extract<ApplyOutcome, { ok: true }> & { seen: string })
+		| { ok: false; reason: 'stale'; message: string };
 	try {
 		for (const f of plan) {
 			const name = await files.link(f.kind, f.file);
@@ -1137,8 +1155,9 @@ export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
 				// lesson's Take changes what a lesson holds.
 				if (kind === 'lesson') autoAddPending(tx, space.teamId, [intoId], now);
 			}
-			markNow(tx, kind, intoId, now);
-			return applied;
+			const landed = flatOf(tx, kind, intoId);
+			writeMark(tx, kind, intoId, landed, now);
+			return { ...applied, seen: digest(landed) };
 		});
 	} catch (err) {
 		await unlinkAll();
@@ -1150,7 +1169,7 @@ export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
 	}
 	// It has landed: removing the deleted pieces' files can no longer undo it, nor fail it.
 	await Promise.all(out.unlink.map(([k, file]) => files.unlink(k, file).catch(() => {})));
-	return { ok: true };
+	return { ok: true, seen: out.seen };
 }
 
 /**
@@ -1212,7 +1231,7 @@ export async function syncFrom(
 		});
 	}
 
-	return landKeys(db, {
+	const res = await landKeys(db, {
 		actorId,
 		kind,
 		intoId,
@@ -1224,4 +1243,5 @@ export async function syncFrom(
 		freeDiskBytes,
 		seen
 	});
+	return res.ok ? { ok: true } : res;
 }

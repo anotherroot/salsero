@@ -40,6 +40,13 @@ describe('classOf', () => {
 		expect(classOf('rec:g2', false)).toBe('media');
 		expect(classOf('rec:g2:note', false)).toBe('always');
 	});
+	it('a key both sides hold is an edit: always, but a name stays a name', () => {
+		expect(classOf('rec:g2:spot:s1', false, true)).toBe('always');
+		expect(classOf('video:g3:spot:s1', false, true)).toBe('always');
+		expect(classOf('rec:g2', false, true)).toBe('always');
+		expect(classOf('name', false, true)).toBe('name');
+		expect(classOf('rec:g2:spot:s1', false, false)).toBe('sections');
+	});
 });
 
 describe('allows', () => {
@@ -90,6 +97,15 @@ describe('flowKeys', () => {
 		const real = [d('name', 'Basic', 'Basic step', 'theirs')];
 		expect(suffixOnly(real[0])).toBe(false);
 		expect(flowKeys(['name'], real, DEFAULT_SYNC)).toEqual(['name']);
+	});
+	it('a section both copies hold flows its edit with the defaults; an added one does not', () => {
+		const edited = [d('rec:g:spot:s', '0|4000|Turn', '0|4500|Spin', 'theirs')];
+		expect(flowKeys(['rec:g:spot:s'], edited, DEFAULT_SYNC)).toEqual(['rec:g:spot:s']);
+		const added = [d('rec:g:spot:s', null, '0|4000|Turn', 'theirs')];
+		expect(flowKeys(['rec:g:spot:s'], added, DEFAULT_SYNC)).toEqual([]);
+		const removed = [d('rec:g:spot:s', '0|4000|Turn', null, 'theirs')];
+		expect(flowKeys(['rec:g:spot:s'], removed, DEFAULT_SYNC)).toEqual([]);
+		expect(flowKeys(['rec:g:spot:s'], edited, { ...DEFAULT_SYNC, on: false })).toEqual([]);
 	});
 });
 

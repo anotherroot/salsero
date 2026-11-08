@@ -126,7 +126,8 @@ snapshot for the fields it carried, and only those, so a field still
 disputed keeps reading as disputed.
 
 A hop that is refused (a removal meeting a linked section, no room for a
-recording, a name typed by hand that is taken) is skipped alone: the save
+recording, a save landing on that copy meanwhile; names land as they are,
+see Same names) is skipped alone: the save
 and every other hop land, that copy keeps its value, and the difference
 shows in its notice *(my call)*. A recording flowing into a person's own
 copy is charged to them, as any clone's file is *(my call)*.
@@ -234,7 +235,7 @@ One sheet replaces Compare, Take and Send mine. Take a recording stays.
   holds the same values for every field shown, and every pair among them
   gets a fresh snapshot, so later changes flow by themselves.
 - Each target lands in its own transaction, as Send does now: one refusal
-  (a name clash typed by hand, no room) leaves the others landed and says
+  (a copy changed meanwhile, no room) leaves the others landed and says
   which one did not.
 - Picking yours everywhere is the merge the user made on 2026-11-07, and
   Sync then sends it: every ticked copy takes your values and every pair
@@ -356,6 +357,15 @@ not say. Each line: what, and why.
   every pair snapshot it has, not against "the most recent pair's base". The
   literal rule preselected a behind copy's stale value and undid a newer
   change. Two copies never in step that differ are open.
+- **A key every copy holds is an edit, never an option's.** "Sections and
+  points" and "Recordings and videos" (and "Small removals") are about a
+  thing arriving or going; a section's times or label edited on copies that
+  all hold it flows and preselects as any field does, and only Names gates an
+  edit (`classOf`'s `both`). Its words say "Adding or removing them".
+- **Each of a copy's landings is checked against the last.** A copy taking
+  values from two givers lands twice; the second carries the digest the
+  first left (`landKeys` returns it), so a save landing between them is
+  refused as stale, not overwritten.
 - **An unticked add or remove box lands nothing.** Nothing is removed
   without asking: "no pick" on an add row is not "delete the page's piece".
 - **The boxes' defaults come from the page's options**, even when its
@@ -396,6 +406,10 @@ not say. Each line: what, and why.
   stays in the notice.
 - **A save marks first, in its own small transaction**, so the next save
   sees only its own change even when this flow is refused or throws.
+  Nothing is awaited before it: the free disk is asked only when a hop links
+  files, or a hop landing meanwhile would re-mark the row and swallow the save.
+- **The boot's marks skip a row they cannot read** (logged, kind and id), so
+  one bad row never fails boot; unmarked, its first save flows nothing.
 - **The flow runs after the save has committed and never reaches the
   response.** A flow that throws is logged; the save answers as it would
   have. What landed or was refused is not sent anywhere, since ids would be
@@ -438,7 +452,9 @@ not say. Each line: what, and why.
 - **A page-side add or remove that the receiver's options hold back reads as
   "behind"**, not "held".
 - **A reader sees no "behind" line.** They cannot Sync to that copy, and
-  their own deliberate change would nag for ever.
+  their own deliberate change would nag for ever. Likewise on the club's page
+  they only read, their own copy gets no "changed" or "held" line: Update
+  mine only pulls.
 - **No notice where the person edits no copy** and has nothing to update
   from (no Sync to open).
 - **A suffixed old copy** is no difference, no notice, no Moves mark.

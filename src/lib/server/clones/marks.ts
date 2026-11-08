@@ -75,7 +75,10 @@ export function markNow(tx: Db, kind: CloneKind, id: number, now: number): void 
 
 /**
  * Once EVER (`app_flags`): mark every live row whose gene has more than one
- * live member, so the first save after deploy knows what it changed.
+ * live member, so the first save after deploy knows what it changed. A row
+ * that cannot be read is logged and skipped, never fails the step (boot runs
+ * it on every request until it succeeds): unmarked, its first save flows
+ * nothing and marks it, as any copy without a mark.
  */
 export function markFamilies(db: Db, now: number): { ran: boolean; marked: number } {
 	return db.transaction((tx) => {
@@ -90,8 +93,13 @@ export function markFamilies(db: Db, now: number): { ran: boolean; marked: numbe
 			for (const r of rows) sizes.set(r.gene, (sizes.get(r.gene) ?? 0) + 1);
 			for (const r of rows) {
 				if ((sizes.get(r.gene) ?? 0) < 2) continue;
-				markNow(tx, kind, r.id, now);
-				marked += 1;
+				try {
+					markNow(tx, kind, r.id, now);
+					marked += 1;
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					console.error(`[clone-marks] skipped ${kind} ${r.id}: ${message}`);
+				}
 			}
 		}
 		return { ran: true, marked };

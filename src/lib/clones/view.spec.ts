@@ -55,6 +55,7 @@ import {
 	PICK_BOTH,
 	RECORDING_GONE,
 	STALE,
+	SYNC_STALE,
 	VERSIONS,
 	nameTaken,
 	ARCHIVED_SONG_COPY,
@@ -328,7 +329,8 @@ describe('sources', () => {
 	it('the refusals', () => {
 		expect(LOAD_FAILED).toBe('That could not be loaded. Try again.');
 		expect(YOURS).toBe('Yours');
-		expect(STALE).toBe('Changed since you opened this. Compare again.');
+		expect(STALE).toBe('Changed meanwhile; check it again.');
+		expect(SYNC_STALE).toBe('Changed while you were syncing; check it again.');
 		expect(PICK_BOTH).toBe('Pick yours or theirs where both changed.');
 		expect(nameTaken('Doble', 'Enchufla')).toBe('Doble is taken in Enchufla; rename one first.');
 	});

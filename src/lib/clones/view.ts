@@ -282,8 +282,11 @@ export const VERSIONS = 'Versions';
 
 /* ── Compare and Take theirs ────────────────────────────────────────────── */
 
-/** A Take or Send refused: the receiving member changed since the sheet was opened. */
-export const STALE = 'Changed since you opened this. Compare again.';
+/**
+ * A landing refused: the receiving copy changed since it was read. Not shown
+ * by itself: the flow tells nobody, and Sync says `SYNC_STALE` instead.
+ */
+export const STALE = 'Changed meanwhile; check it again.';
 
 /** A Take or Send refused: a field both sides changed has no pick. */
 export const PICK_BOTH = 'Pick yours or theirs where both changed.';
@@ -748,8 +751,8 @@ export function updateTitle(place: string): string {
 	return `Update from ${place}`;
 }
 
-/** A copy that changed while the Sync sheet was open: it is left as it is. */
-export const SYNC_STALE = 'Changed since you opened Sync. Open it again.';
+/** A copy that changed while the Sync sheet was open: it is left as it is, and the sheet loads again. */
+export const SYNC_STALE = 'Changed while you were syncing; check it again.';
 
 /** A Sync sent with a row still open. */
 export const SYNC_PICK = 'Pick a value where copies differ.';
