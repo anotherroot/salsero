@@ -39,12 +39,12 @@ The names as plan 2 defines them; where a task here changes one, it says so.
 - Pinned bar in a run: **Skip** | **✓ Done**, two equal `rowButton`s (plan 2's `DoneBar` with Skip as its `left`). A fixed-rhythm drill (`DueState.every !== null`, the page's `fixed`) not done today: **✓ Done · next** in the done green, saving at once (`saveNow`).
 - Done for today: title **Done for today**, subtitle the long day ("Saturday, 7 November"), tiles **N exercises** / **N min practised** (`practisedLabel`, `src/lib/exercises/exercise-page.ts`), a **Warm-up** row "2 done · 7 days in a row" (the streak only when ≥ 2), each other done exercise with its face and "Back in 12 days" / "Back tomorrow" / "Learnt · back in 3 days", then **Next 5** (the daily number) | **Back to Today**. Nothing on it is a checkbox.
 - Hero meta: "0 of 7 done · about 30 min"; the estimate is left out when no walked exercise has a timed day.
-- The player in a run: its Save reads **Save · next**; after saving it opens the run's next exercise (or Done for today) with the toast. A fixed-rhythm drill's Save set has no faces and saves `rating` null.
+- The player in a run: Back returns to the run's exercise page (`?run=1&skip=…`), whose Done goes on. This plan leaves the player's Save as plan 2 built it; the one-player design (branch `practice-player`) removes it.
 - Desktop: opening from the list is never a run. The exercise Today opens by itself doesn't start the clock until a tap or key in the pane.
 - Elapsed time sorts, calendar days speak: days via `localDay`/`daysBetween`; no `Date.now()` in `src/lib/schedule` or `src/lib/day`.
 - A colour on a built control is the builder's: the green is a `ButtonKind` (`'done'`), never an appended class.
 - Data functions take `db` first; specs use `openDb(':memory:')`, never `$DATA_DIR`.
-- Raise `PAGE_EPOCH` 9 → 10 in Task 6 (the player's save form gains `runSkip` and its answer `next`; nothing else this plan changes is posted by an open page).
+- `PAGE_EPOCH` stays 9: nothing this plan changes is posted by an open page.
 - `npm run check` must pass at the end of every task, and the app stays usable after each.
 
 ## Review Focus
@@ -52,8 +52,7 @@ The names as plan 2 defines them; where a task here changes one, it says so.
 - A run URL with junk or a stale `skip` (`skip=abc,-1,3,3`, an id of another dance, an exercise no longer on Today, the open exercise already done): the page loads; the band shows no place; Skip and Done go to the first of the walk. → Task 1 (`parseSkip`, `runPlace`, `runStep` tests).
 - Undo from the toast on the next page: the undone exercise is a to-do row again and comes up as the next one; the place counts down; nothing loops. → Task 1 (`runStep` after an undo).
 - Every exercise skipped, nothing done: Done for today says 0 exercises, has no rows card and no Warm-up row, and still offers Next N when more is in line. → Task 5 (`doneForToday` empty case).
-- The player's save in a run when the saved exercise was the run's last, or every other one is skipped: it lands on Done for today with the toast. → Task 6 (save action test: `next: '/salsa/done'`).
-- A fixed-rhythm drill saved from the player with a face posted anyway: stored with `rating` null; a by-how-it-went exercise without a face is still refused. → Task 6.
+- The player opened in a run, then reloaded (no opener in the trail): Back still lands on the run's page with its `skip`. → Task 6 (`practiceBack` with `from: 'run'`).
 
 ---
 
@@ -402,73 +401,31 @@ Plus one Slovenian case for `warmupLine` and `backLine`'s learnt (`withLocale('s
 
 ---
 
-### Task 6: The player continues the run; a fixed-rhythm Save set has no faces
+### Task 6: The player's Back keeps the run
+
+> Cut down 2026-11-08 (ruling in the ledger): the one-player design (branch `practice-player`, `docs/superpowers/specs/2026-11-08-one-player-design.md`, decided with the user) makes the player log nothing; its Save screen, its `save` action and "Save · next" go there. So this task no longer touches the player's save, `SaveSetSheet`, `listPickExercises`, the catalog or `PAGE_EPOCH`; it only makes the player's no-opener Back return to the run.
 
 **Files:**
-- Modify: `src/routes/[dance]/player/+page.server.ts` (load: `run`, `fixed`; `save`: the rating rule, the run's `next`), `src/routes/[dance]/player/save.spec.ts`
-- Create: `src/lib/server/run.ts` (+ spec in `src/lib/server/run.spec.ts`)
-- Modify: `src/lib/player/view.ts` (`practiceBack` takes the run; `exerciseLine` says a rhythm), `src/lib/player/view.spec.ts`
-- Modify: `src/lib/components/player/SaveSetSheet.svelte`, `src/routes/[dance]/player/+page.svelte` (both in `TRANSLATED` already)
-- Modify: `src/lib/server/exercises.ts` (`listPickExercises`: `fixed`), `src/lib/types.ts` (`PickExercise.fixed: boolean`)
-- Modify: `src/lib/i18n/en/player.ts` + `sl/player.ts` (`player.saveNext` "Save · next")
-- Modify: `src/lib/page-epoch.ts` (9 → 10)
+- Modify: `src/lib/player/view.ts` (`practiceBack` takes the run), `src/lib/player/view.spec.ts`
+- Modify: `src/routes/[dance]/player/+page.server.ts` (the load passes `run` to `practiceBack`)
 
 **Interfaces:**
-- Consumes: Task 1 (`parseSkip`, `runHref`, `doneHref`, `sessionWalk`, `nextInSession`), plan 1 (`scheduleStateOf` → `DueState` with `every`; `parseComesBack`, `effectiveComesBack`, `rhythmWords`), `dayInputOf`, `workOf`, `dayListOf`; plan 2's `DoneResult`, `saveDay`, `announceSaved`, `savedMessage`.
-- Produces:
-  ```ts
-  // src/lib/server/run.ts
-  /** The run's next exercise id after a save, or null: today's walk (`sessionWalk` of `dayListOf(workOf(dayInputOf(...)))`), less `skip`. */
-  export function nextInRunOf(db: Db, wall: Wall, timeZone: string, now: number, skip: readonly number[]): number | null;
-  // view.ts
-  export function practiceBack(p: { …as now; run: { skip: number[] } | null }): { href: string; label: string };
-  //   from === 'run' with a live exercise and run → { href: runHref(dance, id, run), label: t().shell.backTo(name) }
-  export function exerciseLine(e: { source: Source; state: DueState | null; today: string }): string;
-  //   a fixed rhythm: "Drill · every day" (`rhythmWords(every)` lower-cased); else as now
-  ```
-  - Player load: `run: { skip: number[] } | null` (`from === 'run'` and an exercise; `skip` via `parseSkip`), `fixed: boolean` (`data.schedule?.every != null`).
-  - Save form: a hidden `runSkip` field (present only in a run; the skip ids joined by ","). The action: `fixed` (the exercise's `scheduleStateOf(...).every !== null`) stores `rating` null whatever was posted; otherwise a missing face is still `t().exercise.log.pickFeel`. It answers plan 2's `DoneResult` (`{ action: 'done', ok: true, setId, before, backDays }`) and, in a run, also `next: string` — `runHref(dance, nextInRunOf(…), { skip })`, or `doneHref(dance)` when that is null.
-  - `SaveSetSheet` props gain `faces: boolean` (false: no `FaceRating`, Save enabled without a face) and `inRun: boolean` (Save reads `t().player.saveNext`); `onsaved(r: DoneResult & { next?: string })`. With the picker (no exercise), `faces` is `!picked.fixed`.
-  - The player page's `saved(r)`: `announceSaved(...)` as plan 2 has it; then in a run (`r.next`) it waits for the sheet's Back as `leaveRun` does and `goto(r.next, { replaceState: true })` (the player's entry becomes the next page; Back from it is the page just saved, showing Done today: my call, simpler than unwinding two entries). Outside a run, as now (`leaveRun()`: `goBack(data.back)`).
+- Consumes: Task 1 (`parseSkip`, `runHref`).
+- Produces: `practiceBack(p: { …as now; run: { skip: number[] } | null })`: `from === 'run'` with a live (not archived) exercise and `run` → `{ href: runHref(dance, exercise.id, run), label: t().shell.backTo(exercise.name) }`; `from === 'run'` otherwise falls through as an unknown `from` does. The load passes `run: from === 'run' && exercise ? { skip: parseSkip(url.searchParams.get('skip')) } : null`.
 
-- [ ] **Step 1: Write the failing tests** (`save.spec.ts`, its existing `save()` helper, which posts `exerciseId: drillId` unless the fields give one):
+- [ ] **Step 1: Write the failing test** (`view.spec.ts`):
 
 ```ts
-it('a fixed-rhythm drill saves rating null, even with a face posted', async () => {
-	const fixed = createCustomExercise(db, U1_SALSA, { name: 'Warmup', notes: null, comesBack: { kind: 'every', days: 1 } }).id;
-	expect(await save({ exerciseId: String(fixed), rating: '4' })).toMatchObject({ ok: true });
-	expect(db.select().from(sets).all()).toMatchObject([{ rating: null }]);
-	expect(await save({ exerciseId: String(fixed) })).toMatchObject({ ok: true }); // no face needed; still one row
-});
-it('by how it went still needs a face', async () => {
-	const res = (await save({})) as { status: number };
-	expect(res.status).toBe(400);
-});
-it('in a run: on to the next', async () => {
-	const other = createCustomExercise(db, U1_SALSA, { name: 'Basic', everyDays: 2, notes: null }).id;
-	const res = await save({ rating: '4', runSkip: '' });
-	const [row] = db.select().from(sets).all();
-	expect(res).toMatchObject({ ok: true, setId: row.id, next: `/salsa/exercises/${other}?run=1` });
-});
-it('in a run, the last one: Done for today', async () => {
-	const other = createCustomExercise(db, U1_SALSA, { name: 'Basic', everyDays: 2, notes: null }).id;
-	expect(await save({ rating: '4', runSkip: String(other) })).toMatchObject({ ok: true, next: '/salsa/done' });
-});
-it('outside a run there is no next', async () => {
-	expect(await save({ rating: '4' })).not.toHaveProperty('next');
-});
-// run.spec.ts: nextInRunOf on a day with a warm-up (`warmup: true`) and a practice drill → the warm-up's id; skip it → the drill's; both done → null
-// view.spec.ts
 expect(practiceBack({ dance: 'salsa', from: 'run', routine: null, song: null, exercise: { id: 4, name: 'Warmup' }, run: { skip: [3] } }))
 	.toEqual({ href: '/salsa/exercises/4?run=1&skip=3', label: 'Back to Warmup' });
-expect(exerciseLine({ source: 'custom', state: { ...due, every: 1, learning: null }, today })).toBe('Drill · every day');
+expect(practiceBack({ dance: 'salsa', from: 'run', routine: null, song: null, exercise: { id: 4, name: 'Warmup', archived: true }, run: { skip: [] } }).href)
+	.toBe('/salsa');
 ```
-
-- [ ] **Step 2: Run `npx vitest run "src/routes/[dance]/player" src/lib/server/run.spec.ts src/lib/player` — FAIL.**
-- [ ] **Step 3: Implement** the load, the action, `nextInRunOf`, the view changes and `listPickExercises.fixed` (the entry's own `comes_back`, else its `drill_id` row's, through an alias join as `scheduleStates` does, read with `effectiveComesBack`); raise `PAGE_EPOCH` to 10.
-- [ ] **Step 4: Wire the sheet and the page** (`player-save-regular`: Exercise row "Warmup / Drill · every day", Note, **Don't save** | **Save · next**, no faces).
-- [ ] **Step 5: `npm run check` passes. In the dev server: a run's routine page → Practise in player → Back returns to the page with `?run=1`; Play, Stop, Save · next opens the next page with the toast.**
-- [ ] **Step 6: Commit** `feat(player): a run goes on after Save; a fixed rhythm saves without faces`.
+Existing `practiceBack` cases gain `run: null`.
+- [ ] **Step 2: Run `npx vitest run src/lib/player` — FAIL.**
+- [ ] **Step 3: Implement** the `run` branch and the load's `run`.
+- [ ] **Step 4: `npm run check` passes. In the dev server: a run's routine page → Practise in player → the band's Back returns to the page with `?run=1`; reload the player and Back still lands on the page with `?run=1`.**
+- [ ] **Step 5: Commit** `feat(player): Back from the player keeps the run`.
 
 ---
 
@@ -508,7 +465,7 @@ expect(exerciseLine({ source: 'custom', state: { ...due, every: 1, learning: nul
 - Modify: `scripts/shots/ext_run.py` (the run's scenes), `scripts/shots/ext_today.py` (what plan 2 left of the session: `today-session` and `today-session-pages`, and `_start_session`)
 - Modify: `CLAUDE.md`, `docs/superpowers/specs/2026-11-05-today-scheduling-design.md`, `docs/superpowers/specs/2026-11-03-desktop-design.md`, `docs/superpowers/specs/2026-11-07-run-the-day-design.md`
 
-- [ ] **Step 1: Scenes** (`Scene` from `scenes`, as `ext_today.py` does; a copy of the latest backup with two warm-ups and one every-day drill set in the copy): `run-start` (Start → the first warm-up's page; subtitle matches `/· 1 of \d+ ·/`), `run-sheet` (Done → the sheet's line contains `Next:`), `run-next` (a face → the next page with the toast "Saved · back in"), `run-skip` (Skip → `skip=` in the URL, place + 1), `run-done` (walk to the end → `/done`, "Done for today"), `run-player-save` (a routine in the run → Practise in player → Save · next lands on the next page), `desk-run` (1440 wide: Start, the pane's Skip | Done · next), plus `desk-auto-idle` from Task 7. Shoot them and compare with `run-drill`, `run-regular`, `run-toast`, `run-routine`, `sheet-drill`, `player-save-regular`, `done-for-today`, `desk-today`, `desk-sheet`. No overflow at 390.
+- [ ] **Step 1: Scenes** (`Scene` from `scenes`, as `ext_today.py` does; a copy of the latest backup with two warm-ups and one every-day drill set in the copy): `run-start` (Start → the first warm-up's page; subtitle matches `/· 1 of \d+ ·/`), `run-sheet` (Done → the sheet's line contains `Next:`), `run-next` (a face → the next page with the toast "Saved · back in"), `run-skip` (Skip → `skip=` in the URL, place + 1), `run-done` (walk to the end → `/done`, "Done for today"), `run-player-back` (a routine in the run → Practise in player → Back lands on the page with `?run=1`), `desk-run` (1440 wide: Start, the pane's Skip | Done · next), plus `desk-auto-idle` from Task 7. Shoot them and compare with `run-drill`, `run-regular`, `run-toast`, `run-routine`, `sheet-drill`, `done-for-today`, `desk-today`, `desk-sheet`. No overflow at 390.
 - [ ] **Step 2: `CLAUDE.md`:** Layout — `session.ts` (the walk: warm-ups first), `run.ts` (the run's URL, place, next), `estimate.ts`, `done-today.ts`, `src/lib/server/run.ts`, `done-view.ts`'s place and next; the `(today)` entry says "Start, the run (`?run=1&skip=`), Done for today (`(today)/done`)" in place of "Start session"; `TodayPane.run`/`autoOpened`; `page-clock.svelte.ts`'s idle mode. Plan 3 in the "Live" summary.
-- [ ] **Step 3: Specs:** the scheduling spec's bar card ("Play starts the existing session" → the run, the estimate) and its two other session lines; the desktop spec's session paragraphs → the run and the idle auto-open; the run-the-day spec's Status line: plan 3 built (what was decided: the estimate covers what is left to walk; the learning line in a run keeps the learning words; the player's Save · next replaces the player's history entry; Not today in a run goes on; the streak counts days with any warm-up set and shows from 2).
+- [ ] **Step 3: Specs:** the scheduling spec's bar card ("Play starts the existing session" → the run, the estimate) and its two other session lines; the desktop spec's session paragraphs → the run and the idle auto-open; the run-the-day spec's Status line: plan 3 built (what was decided: the estimate covers what is left to walk; the learning line in a run keeps the learning words; Task 6 cut to the player's Back by the one-player design; Not today in a run goes on; the streak counts days with any warm-up set and shows from 2).
 - [ ] **Step 4: `npm run check` passes; commit** `docs: run the day plan 3 (the run)`.
