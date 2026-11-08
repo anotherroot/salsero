@@ -23,6 +23,11 @@ describe('practiseHref', () => {
 			'/salsa/player?song=9&from=run&skip=3,5'
 		);
 	});
+	it("names the run's page on a lesson's song, so a reload in the player still goes back to it", () => {
+		expect(practiseHref('salsa', { lesson: true, exerciseId: 12 }, 9, 'from=run&skip=3,5')).toBe(
+			'/salsa/player?exercise=12&song=9&from=run&skip=3,5'
+		);
+	});
 	it('opens the player with just the song from a lesson', () => {
 		expect(practiseHref('salsa', { lesson: true }, 3)).toBe('/salsa/player?song=3');
 	});

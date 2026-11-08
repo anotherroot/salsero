@@ -11,7 +11,10 @@ export function music() {
 }
 
 export type PractiseAt =
-	{ routineId: number; entryId: number | null } | { drillEntryId: number } | { lesson: true };
+	| { routineId: number; entryId: number | null }
+	| { drillEntryId: number }
+	/** `exerciseId`: the run's page it was opened from, so the player's Back finds it again. */
+	| { lesson: true; exerciseId?: number };
 
 /**
  * The player opened with `songId`, from a routine, a drill or a lesson. `from`
@@ -25,6 +28,8 @@ export function practiseHref(dance: string, at: PractiseAt, songId: number, from
 		if (at.entryId !== null) q.set('exercise', String(at.entryId));
 	} else if ('drillEntryId' in at) {
 		q.set('exercise', String(at.drillEntryId));
+	} else if (at.exerciseId !== undefined) {
+		q.set('exercise', String(at.exerciseId));
 	}
 	q.set('song', String(songId));
 	return `/${dance}/player?${q}${from ? `&${from}` : ''}`;

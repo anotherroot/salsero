@@ -675,7 +675,10 @@
 			practise={(songId) =>
 				practiseHref(
 					data.dance.slug,
-					data.musicEntryId !== null ? { drillEntryId: data.musicEntryId } : { lesson: true },
+					data.musicEntryId !== null
+						? { drillEntryId: data.musicEntryId }
+						: // In a run, the page's id: the player's Back finds the run after a reload.
+							{ lesson: true, exerciseId: run ? data.exercise.id : undefined },
 					songId,
 					run ? run.playerFrom : undefined
 				)}
