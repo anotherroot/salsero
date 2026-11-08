@@ -18,6 +18,7 @@ import {
 } from './song-links';
 import type { MusicParent } from '$lib/types';
 import { t } from '$lib/i18n/catalog';
+import { serverNow } from '$lib/server/server-clock';
 
 /** The refusals' words, read inside the request (its language). */
 const words = () => t().songs.music;
@@ -30,7 +31,7 @@ export async function addSongFrom(request: Request, db: Db, space: Space, parent
 		return fail(400, { ...typed, field: 'note' as const, message: words().noteTooLong });
 	const songId = int(form, 'songId');
 	if (songId === undefined) return fail(400, { ...typed, message: words().pickSong });
-	const added = addMusic(db, space, parent, songId, note, Date.now());
+	const added = addMusic(db, space, parent, songId, note, serverNow());
 	if (!added.ok) return fail(400, { ...typed, message: added.message });
 	return { action: 'addSong' as const, ok: true };
 }
@@ -53,7 +54,7 @@ export async function noteSongFrom(request: Request, db: Db, space: Space, paren
 	if (!found) return fail(404, { ...typed, message: words().gone });
 	const clash = seenRefusal(form, isTeam(space), musicSeen(found.link), typed);
 	if (clash) return clash;
-	if (!setMusicNote(db, space, found.link.id, note, Date.now(), parent)) {
+	if (!setMusicNote(db, space, found.link.id, note, serverNow(), parent)) {
 		return fail(404, { ...typed, message: words().gone });
 	}
 	return { action: 'noteSong' as const, ok: true };
@@ -61,7 +62,7 @@ export async function noteSongFrom(request: Request, db: Db, space: Space, paren
 
 export async function removeSongFrom(request: Request, db: Db, space: Space, parent: MusicParent) {
 	const linkId = int(await request.formData(), 'linkId');
-	if (linkId === undefined || !removeMusic(db, space, linkId, Date.now(), parent)) {
+	if (linkId === undefined || !removeMusic(db, space, linkId, serverNow(), parent)) {
 		return fail(404, { action: 'removeSong' as const, message: words().gone });
 	}
 	return { action: 'removeSong' as const, ok: true };

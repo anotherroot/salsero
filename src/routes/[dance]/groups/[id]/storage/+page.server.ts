@@ -26,6 +26,7 @@ import {
 } from '$lib/server/clones/flow-hook';
 import type { StorageItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /** The group, for its editors and owner: a member gets the stranger's 404. */
 function teamOf(
@@ -127,7 +128,12 @@ export const actions: Actions = {
 		const { team } = teamOf(params, locals, 'owner');
 		const note = optionalText(await request.formData(), 'note', 500);
 		if (note === undefined) return fail(400, { message: t().settings.storage.noteTooLong });
-		const res = askForMore(getDb(), { userId: locals.user!.id, teamId: team.id }, note, Date.now());
+		const res = askForMore(
+			getDb(),
+			{ userId: locals.user!.id, teamId: team.id },
+			note,
+			serverNow()
+		);
 		return { asked: res === 'asked' };
 	}
 };

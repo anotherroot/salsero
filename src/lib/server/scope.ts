@@ -363,7 +363,7 @@ export function requireRoutineAccess(
  * own row (an entry is one) or a group drill in reach; edit, their own row or
  * a drill of a group they edit.
  *
- * Never for logging: a set, the practice endpoint, `popupData` and the
+ * Never for logging: a set, the practice endpoint, `pageData` and the
  * player's save stay on `requireExerciseInWall`, so a log only ever lands on
  * the person's own row, never on a drill everyone shares (risk 22).
  */

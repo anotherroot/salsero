@@ -1,17 +1,15 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { listSetsBetween } from '$lib/server/exercises';
-import { listCountTakesFor } from '$lib/server/countTakes';
 import { lessonDays } from '$lib/server/lessons';
 import { wallOf } from '$lib/server/scope';
-import { songChoices } from '$lib/server/songs';
 import { dayInputOf } from '$lib/server/today-picks';
 import { shownExercise } from '$lib/exercises/name';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
-import { PHRASE_PATTERNS } from '$lib/labels';
 import { dayListOf, workOf } from '$lib/schedule/today-list';
 import { comingUpOf } from '$lib/schedule/coming-up';
 import type { LayoutServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const DAY_MS = 86_400_000;
 
@@ -28,7 +26,7 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;
-	const now = Date.now();
+	const now = serverNow();
 	const today = localDay(now, tz);
 
 	const db = getDb();
@@ -59,16 +57,7 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			daily: input.daily,
 			todaySets,
 			// The day of each class, for "New · from class Tue 3 Nov" on a lesson's row.
-			lessonDays: lessonDays(db, wall),
-			// Each live exercise's schedule as of the START of today (sets before today
-			// only): what the log popup's faces preview, the same on a second log today.
-			schedulesAtStart: Object.fromEntries(
-				[...worked.entry.values()].map((x) => [x.e.id, x.start])
-			),
-			// For the practice panel's song picker.
-			songs: songChoices(db, wall),
-			// The practice panel's voice: the user's recorded count, a few dozen rows.
-			takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
+			lessonDays: lessonDays(db, wall)
 		}
 	};
 };

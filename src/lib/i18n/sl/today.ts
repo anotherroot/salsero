@@ -4,7 +4,6 @@ import { slCount } from '../plural';
 type Forms = [one: string, two: string, few: string, other: string];
 
 const VAJA: Forms = ['vaja', 'vaji', 'vaje', 'vaj'];
-const VNOS: Forms = ['vnos', 'vnosa', 'vnosi', 'vnosov'];
 
 // No past tense about the reader ("Vse vaje so opravljene", not "Opravili ste"),
 // and an exercise's name always before a "·" or after a colon.
@@ -15,14 +14,14 @@ export const today: Catalog['today'] = {
 		ahead: 'Vnaprej',
 		fromClass: (day) => `z lekcije ${day}`,
 		upNext: 'Naslednja',
-		notToday: 'Ne danes',
-		logSet: (name) => `Nov vnos: ${name}`
+		notToday: 'Ne danes'
 	},
 	reviewOf: (title) => `Ponovitev: ${title}`,
 	hero: {
+		forToday: (n) => `${slCount(n, VAJA)} za danes`,
 		left: (n) => `Še ${slCount(n, VAJA)} za danes`,
 		doneOf: (done, total) => `Opravljeno: ${done} od ${total}`,
-		// The count is in the list's heading ("Danes · 5"); "Vseh 5 vaj je opravljenih" is too long here.
+		// The count is in the list's heading ("Vaje · 5"); "Vseh 5 vaj je opravljenih" is too long here.
 		allDone: () => 'Vse opravljeno',
 		allDoneMeta: 'Današnja vadba je končana',
 		everything: 'Vse vaje so opravljene',
@@ -37,7 +36,9 @@ export const today: Catalog['today'] = {
 		resume: 'Nadaljuj vadbo'
 	},
 	list: {
-		heading: (nothingLeft, n) => `${nothingLeft ? 'Opravljeno danes' : 'Danes'} · ${n}`,
+		warmup: (n) => `Ogrevanje · ${n}`,
+		// Not "Vadba": that is a session (glossary).
+		practice: (nothingLeft, n) => `${nothingLeft ? 'Opravljeno danes' : 'Vaje'} · ${n}`,
 		next: (n) => `Dodaj še ${n}`,
 		nextUp: 'Naslednja na vrsti',
 		andMore: (day, n) => `${day} · in še ${n}`,
@@ -45,22 +46,15 @@ export const today: Catalog['today'] = {
 		emptyTitle: 'Še ni ničesar za vadbo',
 		emptyBody: 'Iz svojih figur sestavite kombinacijo ali dodajte svojo vajo.',
 		buildRoutine: 'Sestavi kombinacijo',
-		custom: 'Lastna vaja',
 		previousDay: 'Prejšnji dan',
 		nextDay: 'Naslednji dan',
 		backToToday: 'Nazaj na danes',
 		pickToOpen: 'Izberite vajo, da jo odprete.',
 		soFar: 'Danes doslej'
 	},
-	session: {
-		line: (i, n, logged) =>
-			`Vadba · ${i} od ${n}` + (logged > 0 ? ` · doslej ${slCount(logged, VNOS)}` : ''),
-		summary: (count, minutes) => `${slCount(count, VAJA)}${minutes > 0 ? `, ${minutes} min` : ''}`,
-		nothingLogged: 'Ni vnosov'
-	},
-	totals: (exercises, sets) => `${slCount(exercises, VAJA)} · ${slCount(sets, VNOS)}`,
+	totals: (exercises) => slCount(exercises, VAJA),
 	coming: {
-		waiting: 'Čakajo na vrsto',
+		waiting: 'Naslednje na vrsti',
 		paused: 'Na premoru',
 		nothing: 'Še nič ne prihaja.',
 		putOn: (name) => `Dodaj za danes: ${name}`,
@@ -70,13 +64,13 @@ export const today: Catalog['today'] = {
 	past: {
 		loggedToday: 'Vneseno danes',
 		loggedThatDay: 'Vneseno tisti dan',
-		addSet: (name) => `Dodaj vnos za ta dan: ${name}`,
-		set: 'Vnos',
+		addSet: (name) => `Dodaj za ta dan: ${name}`,
+		done: 'Opravljeno',
 		nothingToday: 'Danes še ni vnosov',
 		nothingThatDay: 'Ta dan ni vnosov',
 		forgot: 'Manjka kakšen vnos za ta dan?',
 		pick: 'Izberite vajo\u00a0…',
-		logOn: (day) => `Nov vnos: ${day}`,
+		logOn: (day) => `Dodaj za ${day}`,
 		search: 'Iskanje vaj',
 		none: 'Še ni vaj.'
 	},
@@ -108,7 +102,6 @@ export const today: Catalog['today'] = {
 		addToToday: 'Ni bilo mogoče dodati za danes. Poskusite znova.',
 		skip: 'Ni bilo mogoče preskočiti. Poskusite znova.',
 		putBack: 'Ni bilo mogoče vrniti. Poskusite znova.',
-		undoSet: 'Vnosa ni bilo mogoče razveljaviti. Poskusite znova.',
 		undo: 'Ni bilo mogoče razveljaviti. Poskusite znova.',
 		addExercise: 'Vaje ni bilo mogoče dodati.',
 		pickWhat: 'Izberite vajo, ki jo želite dodati ali preskočiti.',
@@ -117,6 +110,7 @@ export const today: Catalog['today'] = {
 		name: 'Vpišite ime (do 200 znakov).',
 		noExercise: 'Te vaje ni.',
 		archived: 'Ta vaja je arhivirana.',
-		paused: 'Ta vaja je na premoru.'
+		paused: 'Ta vaja je na premoru.',
+		warmupOrder: 'Vrstnega reda ni bilo mogoče shraniti. Poskusite znova.'
 	}
 };

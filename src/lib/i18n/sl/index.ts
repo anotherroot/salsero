@@ -24,6 +24,8 @@
 //   Position                              položaj
 //   Hold                                  drža
 //   Section (of a video)                  odsek
+//   Section (of a song: Intro, Mambo …)   del (Uvod, Kitica, Coro, Montuno, Mambo, Break, Zaključek)
+//   Count off (a song's section)          brez štetja
 //   Point (a saved moment)                točka
 //   Recording                             posnetek
 //   Set (a logged practice)               vnos
@@ -38,7 +40,7 @@
 //   Session (Start session)               vadba (Začni vadbo)
 //   Paused (an exercise)                  na premoru
 //   Not today                             Ne danes
-//   Log a set / a set's minutes, reps      Nov vnos, Shrani vnos / minute, ponovitve
+//   Done (the button, a day's entry)      Opravljeno; an entry is a vnos, never a "set"
 //   an 8-count (call every 2)             osmica (napoved na 2 osmici)
 //   Practice (the panel, practising)      vadenje (Vadi ob …); a session stays vadba
 //   Class (a lesson's day, "Class · …")   lekcija (Lekcija · tor, 3. nov.); the group is tečaj
@@ -65,6 +67,7 @@
 //   Keep in step                          Samodejno usklajevanje
 //   Drop my copy                          Opusti svojo kopijo
 //   Detach                                Odklopi
+//   Unlink (a link, on a row)             Odveži (in a sentence or a label: Odstrani povezavo: …)
 //   Take (a field, a recording)           Prevzemi
 //   Update mine                           Posodobi svojo
 //   Make it mine                          Naredi svojo kopijo

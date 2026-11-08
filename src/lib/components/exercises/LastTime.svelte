@@ -15,7 +15,7 @@
 	const SEP = ' · ';
 </script>
 
-<!-- The log popup's subtitle. A long note stops at two lines: the header is not the place to read it. -->
+<!-- The Done sheet's subtitle. A long note stops at two lines: the header is not the place to read it. -->
 <p class="line-clamp-2 text-[13px] leading-[1.35] text-muted">
 	{#if parts}
 		{parts.when}{#if parts.rating !== null}

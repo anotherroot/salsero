@@ -6,6 +6,7 @@ import { createDeviceToken } from '$lib/server/devices';
 import { t } from '$lib/i18n/catalog';
 import type { Actions } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * Pairing an Android app. The app opens this page when it holds no token;
  * its WebView is already signed in, so one tap mints a token and hands it to
@@ -20,7 +21,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		// The account's own dance names the app (the dance split): "Bachata app".
 		const label = t().settings.devices.appLabel(getDance(locals.user.dance).label);
-		const { token } = createDeviceToken(getDb(), locals.user.id, label, Date.now());
+		const { token } = createDeviceToken(getDb(), locals.user.id, label, serverNow());
 		// The account's language rides along: the app's first words ("Phone paired") are in it.
 		return { link: pairedLink(token, locals.user.locale ?? 'en') };
 	}

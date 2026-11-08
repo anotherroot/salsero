@@ -32,11 +32,14 @@ export const ROOT_KEYS = [
 	'style',
 	'timing',
 	'practice',
+	'comesBack',
 	'title',
 	'day',
 	'artist',
 	'count',
 	'sample',
+	'sections',
+	'musicStart',
 	'slots',
 	'type',
 	'hands',
@@ -53,17 +56,32 @@ const ROOT_LABELS: Record<string, () => string> = {
 	style: () => t().groups.clash.field.style,
 	timing: () => t().figure.timing.label,
 	practice: () => t().clones.field.practice,
+	comesBack: () => t().groups.clash.field.comesBack,
 	title: () => t().groups.clash.field.title,
 	day: () => t().clones.field.day,
 	artist: () => t().clones.field.artist,
 	count: () => t().clones.field.count,
 	sample: () => t().clones.field.sample,
+	sections: () => t().clones.field.sections,
+	musicStart: () => t().clones.field.musicStart,
 	slots: () => t().clones.field.slots,
 	type: () => t().positions.fields.type,
 	hands: () => t().positions.fields.hands,
 	crossed: () => t().positions.sheet.crossed,
 	facing: () => t().positions.fields.facing,
 	frame: () => t().positions.fields.frame
+};
+
+/**
+ * A root key's value in a pair snapshot written before the key existed. Such a
+ * snapshot has no hash for it, and it reads as this value's, so a member that
+ * holds the default is not "changed" by the key's arrival.
+ */
+export const BASE_DEFAULTS: Readonly<Record<string, string>> = {
+	comesBack: 'faces',
+	// A song with no sections, and one that plays from the worker's start.
+	sections: '',
+	musicStart: ''
 };
 
 /** The set members' prefixes, in the order a comparison lists them. */

@@ -18,9 +18,11 @@ import { getDance } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { timingLine } from '$lib/figures/page';
 import { localDay } from '$lib/day/day';
-import { clock, dateLabel, dayMonth, plural } from '$lib/format';
+import { clock, dateLabel, dayMonth } from '$lib/format';
+import { parseSections, sectionsJson } from '$lib/songs/sections';
 import { TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
 import { t } from '$lib/i18n/catalog';
+import { comesBackWords, FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { spotLabel } from '$lib/video/spots';
 import {
 	crossedLabel,
@@ -282,6 +284,7 @@ const figureShow = (move: string | null, name: string) => (move ? `${move} · ${
 /* ── Drills and songs ───────────────────────────────────────────────────── */
 
 function drillFlat(db: Db, id: number, b: Builder): void {
+	const v = t().clones.value;
 	const d = db.select().from(exercises).where(eq(exercises.id, id)).get() ?? missing('drill', id);
 	b.add('name', d.name);
 	b.add('notes', d.notes ?? '');
@@ -289,11 +292,18 @@ function drillFlat(db: Db, id: number, b: Builder): void {
 	const practice = JSON.stringify({ mode: d.practiceMode, bpm: d.countBpm });
 	const show =
 		d.practiceMode === 'count'
-			? `Count · ${d.countBpm ?? '?'} BPM`
+			? v.countAt(String(d.countBpm ?? '?'))
 			: d.practiceMode === 'song'
-				? 'To a song'
-				: 'None';
+				? v.toASong
+				: v.noPractice;
 	b.add('practice', practice, show);
+	// Compared by setting: an "until" switch's start day is local. Warm-up is the person's own, never a field.
+	const cb = parseComesBack(d.comesBack) ?? FACES;
+	b.add(
+		'comesBack',
+		cb.kind === 'every' ? `every:${cb.days}` : cb.kind === 'until' ? `until:${cb.good}` : 'faces',
+		comesBackWords(cb)
+	);
 	linkFields(db, eq(links.exerciseId, id), b);
 	musicFields(db, eq(songLinks.exerciseId, id), b);
 }
@@ -313,6 +323,7 @@ function musicFields(db: Db, where: SQL, b: Builder): void {
 }
 
 function songFlat(db: Db, id: number, b: Builder): void {
+	const v = t().clones.value;
 	const s = db.select().from(songs).where(eq(songs.id, id)).get() ?? missing('song', id);
 	b.add('title', s.title);
 	b.add('artist', s.artist ?? '');
@@ -328,12 +339,24 @@ function songFlat(db: Db, id: number, b: Builder): void {
 	b.add(
 		'count',
 		`${JSON.stringify(anchors)}|${s.tempoFactor}`,
-		`${plural(anchors.length, 'tap', 'taps')} · ${tempo}`
+		`${v.taps(anchors.length)} · ${tempo}`
 	);
 	b.add(
 		'sample',
 		s.sampleStartS === null ? '' : String(s.sampleStartS),
-		s.sampleStartS === null ? 'Automatic' : `From ${clock(s.sampleStartS)}`
+		s.sampleStartS === null ? v.automatic : v.from(clock(s.sampleStartS))
+	);
+	// The whole list is one field, as a routine's slots are; an unreadable one compares as none.
+	const sections = parseSections(s.sectionsJson);
+	b.add(
+		'sections',
+		sections.length === 0 ? '' : sectionsJson(sections),
+		sections.length === 0 ? v.noSections : v.sections(sections.length)
+	);
+	b.add(
+		'musicStart',
+		s.startS === null ? '' : String(s.startS),
+		s.startS === null ? v.asFound : v.startsAt(clock(s.startS))
 	);
 }
 
@@ -383,7 +406,7 @@ function routineFlat(db: Db, id: number, b: Builder): void {
 		options: options.get(s.id) ?? [],
 		note: s.note || null
 	}));
-	b.add('slots', JSON.stringify(slots), plural(slots.length, 'slot', 'slots'));
+	b.add('slots', JSON.stringify(slots), t().nouns.slots(slots.length));
 }
 
 /* ── Lessons ────────────────────────────────────────────────────────────── */

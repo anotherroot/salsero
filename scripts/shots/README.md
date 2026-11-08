@@ -80,7 +80,7 @@ routine, a video with a section, a shared song and comments, the admin at Follow
 archived, and what pages.txt asks for (a lesson and a routine of their own, a group they are not in). It writes only
 `<out-db>` and its `<out-db>.data/` (never under `.data`); the lesson's video is a 12 s VP9 test picture made with
 ffmpeg, and `<media-dir>` (the db's data dir) gives the rest of the media and the song. Shoot it like any copy:
-`pages-follow.txt` is what a class member sees, and the `follow-*` scenes (`ext_follow.py`: the log popup per type, the
+`pages-follow.txt` is what a class member sees, and the `follow-*` scenes (`ext_follow.py`: the Done sheet per type, the
 comments sheet, the full-screen player, Practice) name both languages' words, so one scene runs with `--locale sl` or `en`:
 
     scripts/shots/shots.sh <out-db> <dir> 390x844 --pages scripts/shots/pages-follow.txt --level follow --locale sl

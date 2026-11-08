@@ -9,6 +9,7 @@ import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web';
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL, MAX_UPLOAD_CHUNK_BYTES } from '$lib/limits';
+import { serverNow } from '$lib/server/server-clock';
 
 export { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL };
 
@@ -271,7 +272,7 @@ export async function writeChunk(
  */
 export async function sweepUploads(maxAgeMs: number): Promise<number> {
 	const dir = uploadsDir();
-	const cutoff = Date.now() - maxAgeMs;
+	const cutoff = serverNow() - maxAgeMs;
 	const names = await readdir(dir).catch(() => [] as string[]);
 	let gone = 0;
 	for (const name of names) {

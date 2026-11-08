@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { t } from '$lib/i18n/catalog';
-import { scheduleForShown, scheduleStates } from '$lib/server/schedule';
+import { scheduleForShown } from '$lib/server/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
@@ -61,7 +61,6 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
-import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { readAdd } from '$lib/server/add-form';
 import {
 	addLesson,
@@ -75,7 +74,6 @@ import { inArray } from 'drizzle-orm';
 import { exercises } from '$lib/server/db/schema';
 import { levelShown, simpleLesson } from '$lib/levels/levels';
 import { practiceRows, type PracticeEntry } from '$lib/lessons/page';
-import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -101,6 +99,7 @@ import { sameAsOffer } from '$lib/server/twins';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 function zone(locals: App.Locals): string {
 	if (!locals.user) throw error(401);
@@ -148,7 +147,7 @@ function linkOwner(
 /** "Edited by Ana · 10 min ago", or null before History has a line. */
 function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: number): string | null {
 	const { by, at } = editedBy(db, teamId, 'lesson', lessonId);
-	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
+	return by === null || at === null ? null : editedByLine(by, agoText(at, serverNow()));
 }
 
 /**
@@ -235,7 +234,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 	// editor's and a person's are the whole space.
 	const shown = <T extends { id: number }>(rows: T[], ids: Set<number> | undefined) =>
 		ids ? rows.filter((r) => ids.has(r.id)) : rows;
-	const today = localDay(Date.now(), tz);
+	const today = localDay(serverNow(), tz);
 	// The simple page (levels spec): below Everything, except a group's lesson the
 	// person edits, which a teacher at any level gets in full.
 	const simple = simpleLesson(levelShown(locals.user?.level), access, team !== null);
@@ -288,7 +287,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
 		/** The comments card at the page's end: a group's lesson only. */
-		comments: team ? commentsOn(db, wall.userId, found.lesson.id, Date.now()) : null,
+		comments: team ? commentsOn(db, wall.userId, found.lesson.id, serverNow()) : null,
 		/** A reader's Edit: Make it mine, what it costs and moves (ruling 12: Make my own copy). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'lesson', found.lesson.id, team),
 		// A published group lesson: Add, or once added "1 new drill · Add" and
@@ -329,13 +328,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 			...shown(found.exercises, visible?.drills).map((e) => ({ id: e.id, mineId: e.mineId }))
 		]),
 		// What "Add figure" pre-selects. Settings picks it.
-		defaultStyle: defaultStyle(db, wall.userId, wall.dance),
-		// This person's own entry for the lesson, never a group's row (risk 22).
-		popup: found.exercise ? popupData(db, wall, found.exercise.id, tz, Date.now()) : null,
-		// The face times: the schedule at the START of today for the person's own exercise.
-		scheduleAtStart: found.exercise
-			? (scheduleStates(db, wall, tz, localDay(Date.now(), tz)).get(found.exercise.id) ?? null)
-			: null
+		defaultStyle: defaultStyle(db, wall.userId, wall.dance)
 	};
 };
 
@@ -350,7 +343,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { lesson: row } = requireLessonAccess(db, locals, params, params.id, 'edit');
 		const id = row.id;
-		const today = localDay(Date.now(), zone(locals));
+		const today = localDay(serverNow(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
 		const notes = optionalText(form, 'notes');
@@ -376,7 +369,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			row.teamId !== null || hasCopies(db, 'lesson', id),
 			stored && stored.archivedAt === null ? lessonSeen(stored) : null,
 			{ action: 'update' as const, ...entered },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, row.teamId, 'lesson', id)
 		);
 		if (clash) return clash;
@@ -391,7 +384,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const { lesson, space } = lessonOf(params, locals);
 		// A person's own lesson has nothing to publish: the answer a missing one gets.
 		if (!isTeam(space)) throw error(404, t().refusals.noLesson);
-		if (!publishLesson(getDb(), space, lesson.id, Date.now())) {
+		if (!publishLesson(getDb(), space, lesson.id, serverNow())) {
 			return fail(400, { action: 'publish', message: t().lesson.refused.published });
 		}
 		return { action: 'publish', ok: true };
@@ -406,7 +399,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const { lesson } = lessonIn(params, locals, 'read');
 		const { picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
-		if (!addLesson(getDb(), userId, lesson.id, picks, Date.now())) {
+		if (!addLesson(getDb(), userId, lesson.id, picks, serverNow())) {
 			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'add', ok: true };
@@ -415,7 +408,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	/** "Not now": what came into the added lesson stops being new until something else does. */
 	notNow: ({ params, locals }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
-		if (!markSeen(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
+		if (!markSeen(getDb(), wallOf(params, locals).userId, lesson.id, serverNow())) {
 			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'notNow', ok: true };
@@ -429,7 +422,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const { lesson } = lessonIn(params, locals, 'read');
 		// The simple page's "Added to Today · Undo" stays on the lesson (`stay`).
 		const stay = (await request.formData()).get('stay') === '1';
-		if (!removeLesson(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
+		if (!removeLesson(getDb(), wallOf(params, locals).userId, lesson.id, serverNow())) {
 			if (stay) return fail(404, { action: 'remove', message: t().lesson.page.couldNotUndo });
 			throw error(404, t().refusals.noLesson);
 		}
@@ -498,16 +491,11 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 
 	archive: async ({ params, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);
-		if (!archiveLesson(getDb(), lesson.id, Date.now(), actorOf(space))) {
+		if (!archiveLesson(getDb(), lesson.id, serverNow(), actorOf(space))) {
 			return fail(400, { action: 'archive', message: t().lesson.refused.archived });
 		}
 		throw redirect(303, `/${params.dance}/lessons`);
 	},
-
-	/** Quick-log the review exercise, the same one-tap path the figure page has. See `log-form.ts`. */
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
 
 	/*
 	 * `createFigure` opens its own transaction, so the figure and the link are two
@@ -656,7 +644,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const alsoSections = form.get('alsoSections') === '1';
 		if (
 			figureId === undefined ||
-			!unlinkFigure(getDb(), id, figureId, alsoSections, Date.now(), actorOf(space))
+			!unlinkFigure(getDb(), id, figureId, alsoSections, serverNow(), actorOf(space))
 		) {
 			return fail(400, { action: 'unlinkFigure', message: t().lesson.refused.figureUnlinked });
 		}
@@ -713,7 +701,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const routineId = int(await request.formData(), 'routineId');
 		if (
 			routineId === undefined ||
-			!unlinkRoutine(getDb(), id, routineId, Date.now(), actorOf(space))
+			!unlinkRoutine(getDb(), id, routineId, serverNow(), actorOf(space))
 		) {
 			return fail(400, { action: 'unlinkRoutine', message: t().lesson.refused.routineUnlinked });
 		}
@@ -741,7 +729,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			return fail(400, { ...typed, field: read.field, message: read.message });
 		}
 		const db = getDb();
-		const made = createPosition(db, space, read.input, Date.now());
+		const made = createPosition(db, space, read.input, serverNow());
 		if ('field' in made) return fail(400, { ...typed, field: made.field, message: made.message });
 		linkPosition(db, lesson.id, made.id, actorOf(space));
 		return { action: 'newPosition' as const, ok: true, positionId: made.id };
@@ -771,7 +759,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const alsoSections = form.get('alsoSections') === '1';
 		if (
 			positionId === undefined ||
-			!unlinkPosition(getDb(), lesson.id, positionId, alsoSections, Date.now(), actorOf(space))
+			!unlinkPosition(getDb(), lesson.id, positionId, alsoSections, serverNow(), actorOf(space))
 		) {
 			return fail(400, {
 				action: 'unlinkPosition',
@@ -807,7 +795,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const alsoSections = form.get('alsoSections') === '1';
 		if (
 			exerciseId === undefined ||
-			!unlinkExercise(getDb(), id, exerciseId, alsoSections, Date.now(), actorOf(space))
+			!unlinkExercise(getDb(), id, exerciseId, alsoSections, serverNow(), actorOf(space))
 		) {
 			return fail(400, {
 				action: 'unlinkExercise',

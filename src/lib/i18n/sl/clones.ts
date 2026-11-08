@@ -167,9 +167,23 @@ export const clones: Catalog['clones'] = {
 		artist: 'Izvajalec',
 		count: 'Štetje',
 		sample: 'Odlomek',
+		sections: 'Deli',
+		musicStart: 'Začetek glasbe',
 		slots: 'Mesta',
 		note: 'Opomba',
 		sectionLinks: 'Povezave odseka'
+	},
+	value: {
+		countAt: (bpm) => `Štetje · ${bpm} BPM`,
+		toASong: 'Ob skladbi',
+		noPractice: 'Brez vadenja',
+		taps: (n) => slCount(n, ['pritisk', 'pritiska', 'pritiski', 'pritiskov']),
+		automatic: 'Samodejno',
+		from: (at) => `Od ${at}`,
+		noSections: 'Brez delov',
+		sections: (n) => slCount(n, ['del', 'dela', 'deli', 'delov']),
+		asFound: 'Najdeni začetek',
+		startsAt: (at) => `Začne se pri ${at}`
 	},
 	refusal: {
 		stale: 'Medtem se je spremenilo; preverite znova.',

@@ -7,6 +7,7 @@ import { lessonAccess, songAccess } from '$lib/server/access';
 import { getSong } from '$lib/server/songs';
 import { recordOpen } from '$lib/server/whats-new';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The page tells us it is shown. Recorded from the page, never from a load:
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		) {
 			throw error(404, t().refusals.noSong);
 		}
-		recordOpen(db, user.id, 'song', song.id, Date.now());
+		recordOpen(db, user.id, 'song', song.id, serverNow());
 		return new Response(null, { status: 204 });
 	}
 	const lesson = db.select().from(lessons).where(eq(lessons.id, id)).get();
@@ -41,6 +42,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(404, t().refusals.noLesson);
 	}
 	// 'comments' is the lesson's comments (item = the lesson): the same wall, the same 404.
-	recordOpen(db, user.id, kind, lesson.id, Date.now());
+	recordOpen(db, user.id, kind, lesson.id, serverNow());
 	return new Response(null, { status: 204 });
 };

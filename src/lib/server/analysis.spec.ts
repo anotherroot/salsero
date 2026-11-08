@@ -6,8 +6,18 @@ describe('parseAnalysis', () => {
 		expect(parseAnalysis({ beats: [0.5, 1], downbeats: [0.5], durationS: 3 })).toEqual({
 			beats: [0.5, 1],
 			downbeats: [0.5],
-			durationS: 3
+			durationS: 3,
+			startS: null
 		});
+	});
+	it('keeps where the music starts, inside the song; an older worker sends none', () => {
+		expect(parseAnalysis({ beats: [1], downbeats: [], durationS: 30, startS: 5.2 })).toMatchObject({
+			startS: 5.2
+		});
+		for (const bad of [-1, Number.NaN, 30, 'x'])
+			expect(parseAnalysis({ beats: [1], downbeats: [], durationS: 30, startS: bad })).toBe(
+				'startS must be a time inside the song'
+			);
 	});
 	it('rejects the wrong shape with a message', () => {
 		expect(parseAnalysis(null)).toMatch(/object/);
@@ -42,7 +52,8 @@ describe('parseAnalysis', () => {
 		expect(parseAnalysis({ beats: [0.5, 4], downbeats: [0.5, 4], durationS: 3 })).toEqual({
 			beats: [0.5, 4],
 			downbeats: [0.5, 4],
-			durationS: 3
+			durationS: 3,
+			startS: null
 		});
 	});
 });

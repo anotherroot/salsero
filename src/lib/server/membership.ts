@@ -21,6 +21,7 @@ import { reconcileEntries } from './entries';
 import { roleOf } from './teams';
 import type { CloneFiles } from './clones/files';
 import { keepFromTeam } from './clones/keep';
+import { serverNow } from '$lib/server/server-clock';
 
 /** Changes a non-owner member between editor and member. The caller has checked the owner. */
 export function setRole(
@@ -28,7 +29,7 @@ export function setRole(
 	teamId: number,
 	userId: string,
 	role: 'editor' | 'member',
-	now = Date.now()
+	now = serverNow()
 ): boolean {
 	return db.transaction((tx) => {
 		const changed =

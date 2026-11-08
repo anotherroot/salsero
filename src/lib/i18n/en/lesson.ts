@@ -103,7 +103,7 @@ export const lesson = {
 		archive: {
 			title: 'Archive this lesson?',
 			team: 'The videos and links are kept.',
-			own: 'Its review exercise goes too. The videos, links and sets are kept.',
+			own: 'Its review exercise goes too. The videos, links and history are kept.',
 			button: 'Archive',
 			busy: 'Archiving…',
 			failed: 'That lesson could not be archived.'

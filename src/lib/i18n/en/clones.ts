@@ -174,9 +174,24 @@ export const clones = {
 		artist: 'Artist',
 		count: 'Count',
 		sample: 'Sample',
+		sections: 'Sections',
+		musicStart: 'Music start',
 		slots: 'Slots',
 		note: 'Note',
 		sectionLinks: 'Section links'
+	},
+	/** What a field holds, as the Sync sheet shows it (`trees.ts`; never compared). */
+	value: {
+		countAt: (bpm: string): string => `Count · ${bpm} BPM`,
+		toASong: 'To a song',
+		noPractice: 'None',
+		taps: (n: number): string => plural(n, 'tap', 'taps'),
+		automatic: 'Automatic',
+		from: (at: string): string => `From ${at}`,
+		noSections: 'None',
+		sections: (n: number): string => plural(n, 'section', 'sections'),
+		asFound: 'As found',
+		startsAt: (at: string): string => `Starts at ${at}`
 	},
 	/** The refusals of a landing (Sync, Take). */
 	refusal: {

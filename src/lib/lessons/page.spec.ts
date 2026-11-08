@@ -75,7 +75,7 @@ describe('lesson page lines', () => {
 		expect(routineMeta(undefined, today)).toBeNull();
 		expect(exerciseMeta({ viaSections: [] }, state, today)).toBe('Due Monday');
 		expect(exerciseMeta({ viaSections: [] }, { ...state, dueDay: '2026-10-29' }, today)).toBe(
-			'2 days late'
+			'Due today'
 		);
 		expect(exerciseMeta({ viaSections: [] }, { ...state, lastDay: null }, today)).toBe('New');
 		expect(exerciseMeta({ viaSections: two }, state, today)).toBe('1:12.0–1:30.4, 3:05.0–3:22.8');

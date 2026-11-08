@@ -88,7 +88,7 @@ export const moves = {
 	},
 	routines: {
 		empty: 'No routines yet',
-		emptyBody: 'String some figures together into one you can call as a single set.',
+		emptyBody: 'String some figures together and call them as one.',
 		badLoop: 'does not loop',
 		fromClass: (label: string): string => `From class ${label}`,
 		name: 'Name',

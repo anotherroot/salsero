@@ -1,6 +1,6 @@
-// Today: the list and its rows, the bar card, a session's lines, Coming up, a past
+// Today: the list and its rows, the bar card, Coming up, a past
 // day, New exercise, the toasts and the refusals. The schedule's own words (the gap,
-// due, late, back in …) are `format`'s (`src/lib/schedule/words.ts`).
+// due, back in …) are `format`'s (`src/lib/schedule/words.ts`).
 import { plural } from './plural';
 
 export const today = {
@@ -16,13 +16,14 @@ export const today = {
 		/** The session's next row. */
 		upNext: 'Up next',
 		/** The swipe's button, and Coming up's skipped row. */
-		notToday: 'Not today',
-		logSet: (name: string): string => `Log a set of ${name}`
+		notToday: 'Not today'
 	},
 	/** A lesson's own exercise, named after the lesson (`shownExercise`, `src/lib/exercises/name.ts`). */
 	reviewOf: (title: string): string => `Review: ${title}`,
 	/** The bar card over the list. */
 	hero: {
+		/** Before anything is done: "5 for today"; after, "3 left for today". */
+		forToday: (n: number): string => `${n} for today`,
 		left: (n: number): string => `${n} left for today`,
 		doneOf: (done: number, total: number): string => `${done} of ${total} done`,
 		allDone: (n: number): string => `All ${n} done`,
@@ -40,9 +41,11 @@ export const today = {
 		resume: 'Resume session'
 	},
 	list: {
-		/** The list card's heading: "Today · 5", "Done today · 14". */
-		heading: (nothingLeft: boolean, n: number): string =>
-			`${nothingLeft ? 'Done today' : 'Today'} · ${n}`,
+		/** The Warm-up card's heading: "Warm-up · 2". */
+		warmup: (n: number): string => `Warm-up · ${n}`,
+		/** The Practice card's heading: "Practice · 5", "Done today · 14" once nothing is left. */
+		practice: (nothingLeft: boolean, n: number): string =>
+			`${nothingLeft ? 'Done today' : 'Practice'} · ${n}`,
 		/** "+ Next 5". */
 		next: (n: number): string => `Next ${n}`,
 		nextUp: 'Next up',
@@ -52,7 +55,6 @@ export const today = {
 		emptyTitle: 'Nothing to practise yet',
 		emptyBody: 'Build a routine from your figures, or add a custom exercise.',
 		buildRoutine: 'Build a routine',
-		custom: 'Custom exercise',
 		previousDay: 'Previous day',
 		nextDay: 'Next day',
 		backToToday: 'Back to today',
@@ -61,20 +63,11 @@ export const today = {
 		/** The pane with nothing open (desktop). */
 		soFar: 'Today so far'
 	},
-	session: {
-		/** "Session · 2 of 5 · 1 logged so far". */
-		line: (i: number, n: number, logged: number): string =>
-			`Session · ${i} of ${n}` + (logged > 0 ? ` · ${logged} logged so far` : ''),
-		/** The Session done card's second line: "3 exercises, 25 min". */
-		summary: (count: number, minutes: number): string =>
-			`${plural(count, 'exercise', 'exercises')}${minutes > 0 ? `, ${minutes} min` : ''}`,
-		nothingLogged: 'Nothing logged'
-	},
-	/** A past day's totals: "7 exercises · 9 sets". */
-	totals: (exercises: number, sets: number): string =>
-		`${plural(exercises, 'exercise', 'exercises')} · ${plural(sets, 'set', 'sets')}`,
+	/** A past day's totals: "7 exercises". */
+	totals: (exercises: number): string => plural(exercises, 'exercise', 'exercises'),
 	coming: {
-		waiting: 'Waiting',
+		/** The due ones beyond today's number (never "late"). */
+		waiting: 'Next in line',
 		paused: 'Paused',
 		nothing: 'Nothing is coming up yet.',
 		putOn: (name: string): string => `Put ${name} on Today`,
@@ -84,14 +77,14 @@ export const today = {
 	past: {
 		loggedToday: 'Logged today',
 		loggedThatDay: 'Logged that day',
-		addSet: (name: string): string => `Add a set of ${name} to this day`,
-		/** A set with nothing to sum up. */
-		set: 'Set',
+		addSet: (name: string): string => `Add ${name} to this day`,
+		/** An entry with nothing to sum up. */
+		done: 'Done',
 		nothingToday: 'Nothing logged today',
 		nothingThatDay: 'Nothing logged on this day',
 		forgot: 'Forgot to log something that day?',
 		pick: 'Pick an exercise…',
-		logOn: (day: string): string => `Log a set on ${day}`,
+		logOn: (day: string): string => `Add to ${day}`,
 		search: 'Search exercises',
 		none: 'No exercises yet.'
 	},
@@ -126,7 +119,6 @@ export const today = {
 		addToToday: 'Could not add it to Today. Try again.',
 		skip: 'Could not skip it. Try again.',
 		putBack: 'Could not put it back. Try again.',
-		undoSet: 'Could not undo that set. Try again.',
 		undo: 'Could not undo that. Try again.',
 		addExercise: 'Could not add the exercise.',
 		pickWhat: 'Pick an exercise to add or skip.',
@@ -135,6 +127,7 @@ export const today = {
 		name: 'Give it a name (up to 200 characters).',
 		noExercise: 'No such exercise.',
 		archived: 'That exercise is archived.',
-		paused: 'That exercise is paused.'
+		paused: 'That exercise is paused.',
+		warmupOrder: 'Could not save the order. Try again.'
 	}
 };

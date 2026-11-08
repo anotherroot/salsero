@@ -23,6 +23,7 @@ import { catalogOf } from '$lib/i18n/catalog';
 import { runInLocale } from '$lib/server/i18n-request';
 import { fillLang, inviteLocaleOf } from '$lib/server/locale';
 
+import { serverNow } from '$lib/server/server-clock';
 /** The home worker's API: no session, a bearer token instead. */
 const WORKER_PREFIX = '/api/worker/';
 
@@ -45,7 +46,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				dance: session.dance,
 				locale: session.locale
 			}
-		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
+		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), serverNow());
 
 	// The language this request is drawn in: a signed-in person's own; signed out,
 	// the invite's on Join, then the browser's cookie, then its Accept-Language, then English.
@@ -110,7 +111,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Which app this person uses, noted only for a request this host keeps.
 	if (event.locals.user && appAgent) {
-		noteAppSeen(getDb(), event.locals.user.id, appAgent, Date.now());
+		noteAppSeen(getDb(), event.locals.user.id, appAgent, serverNow());
 	}
 
 	// A page older than a breaking deploy (`$lib/page-epoch.ts`): refused before

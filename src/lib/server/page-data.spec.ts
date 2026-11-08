@@ -6,7 +6,7 @@ import { songs } from './db/schema';
 import { createCustomExercise } from './exercises';
 import { createSongFromUpload } from './songs';
 import { addMusic } from './song-links';
-import { popupData } from './popup';
+import { pageData } from './page-data';
 import { U1_SALSA } from './test-walls';
 
 const T = 1_790_000_000_000;
@@ -30,7 +30,7 @@ beforeEach(() => {
 	db = openDb(':memory:');
 });
 
-describe("popupData marks the row's Music", () => {
+describe("pageData marks the row's Music", () => {
 	it("a drill's suggested songs carry its name and their order", () => {
 		const drill = createCustomExercise(db, U1_SALSA, {
 			name: 'Shines',
@@ -42,7 +42,7 @@ describe("popupData marks the row's Music", () => {
 		song('Casa');
 		addMusic(db, U1_SALSA, { exerciseId: drill }, b, null, T);
 		addMusic(db, U1_SALSA, { exerciseId: drill }, a, null, T);
-		const data = popupData(db, U1_SALSA, drill, 'UTC', T)!;
+		const data = pageData(db, U1_SALSA, drill, 'UTC', T)!;
 		expect(data.songs.filter((s) => s.music).map((s) => [s.id, s.music])).toEqual([
 			[a, { label: 'Shines', rank: 1 }],
 			[b, { label: 'Shines', rank: 0 }]

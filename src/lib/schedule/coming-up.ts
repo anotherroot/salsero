@@ -1,5 +1,8 @@
 /** Coming up: every exercise by the day it comes back. PURE. */
+import { t } from '$lib/i18n/catalog';
 import { awayWords } from './words';
+import { learningWords, rhythmWords } from './comes-back';
+import type { DueState } from './schedule';
 import { workOf, type DayExercise, type DayInput, type Worked } from './today-list';
 
 export type ComingRowState = 'add' | 'onToday' | 'doneToday' | 'skipped' | 'paused';
@@ -9,13 +12,27 @@ export interface ComingGroup<E> {
 	key: string;
 	day: string | null;
 	away: string | null;
-	rows: { exercise: E; state: ComingRowState; dueDay: string | null }[];
+	rows: { exercise: E; state: ComingRowState; dueDay: string | null; meta: string | null }[];
 }
 
 interface Item<E> {
 	e: E;
 	state: ComingRowState;
 	dueDay: string | null;
+	meta: string | null;
+}
+
+/**
+ * A row's second line: a warm-up says so (with its rhythm, in lower case),
+ * a drill its rhythm or how far its learning is; else nothing.
+ */
+export function comingMeta(e: Pick<DayExercise, 'warmup'>, state: DueState): string | null {
+	const rhythm = state.every !== null ? rhythmWords(state.every) : null;
+	const w = t().exercise.warmup;
+	if (e.warmup) return rhythm ? w.withRhythm(rhythm.toLowerCase()) : w.title;
+	if (rhythm) return rhythm;
+	if (state.learning) return learningWords(state.learning);
+	return null;
 }
 
 export function comingUp<E extends DayExercise>(input: DayInput<E>): ComingGroup<E>[] {
@@ -33,7 +50,7 @@ export function comingUpOf<E extends DayExercise>(w: Worked<E>): ComingGroup<E>[
 	for (const x of w.entry.values()) {
 		if (x.e.archived) continue;
 		if (!x.e.active) {
-			paused.push({ e: x.e, state: 'paused', dueDay: null });
+			paused.push({ e: x.e, state: 'paused', dueDay: null, meta: comingMeta(x.e, x.state) });
 			continue;
 		}
 		const row = onToday.get(x.e.id);
@@ -41,16 +58,24 @@ export function comingUpOf<E extends DayExercise>(w: Worked<E>): ComingGroup<E>[
 			// On Today: it shows under the day it comes back, if that is ahead.
 			const dueDay = x.state.dueDay;
 			if (dueDay > w.today)
-				put(dueDay, { e: x.e, state: row.kind === 'done' ? 'doneToday' : 'onToday', dueDay });
+				put(dueDay, {
+					e: x.e,
+					state: row.kind === 'done' ? 'doneToday' : 'onToday',
+					dueDay,
+					meta: comingMeta(x.e, x.state)
+				});
 		} else {
 			// Skipped today (Not today): "Not today", and its + takes the skip away.
 			const item: Item<E> = {
 				e: x.e,
 				state: w.skipped.has(x.e.id) ? 'skipped' : 'add',
-				dueDay: x.start.dueDay
+				dueDay: x.start.dueDay,
+				meta: comingMeta(x.e, x.start)
 			};
-			if (x.start.dueDay <= w.today) waiting.push(item);
-			else put(x.start.dueDay, item);
+			// A due warm-up is on Today, not waiting; a skipped one stays here for its +.
+			if (x.start.dueDay <= w.today) {
+				if (!x.e.warmup || item.state === 'skipped') waiting.push(item);
+			} else put(x.start.dueDay, item);
 		}
 	}
 
@@ -62,7 +87,7 @@ export function comingUpOf<E extends DayExercise>(w: Worked<E>): ComingGroup<E>[
 					a.e.createdAt - b.e.createdAt ||
 					a.e.name.localeCompare(b.e.name)
 			)
-			.map((i) => ({ exercise: i.e, state: i.state, dueDay: i.dueDay }));
+			.map((i) => ({ exercise: i.e, state: i.state, dueDay: i.dueDay, meta: i.meta }));
 
 	const groups: ComingGroup<E>[] = [];
 	if (waiting.length) groups.push({ key: 'waiting', day: null, away: null, rows: sorted(waiting) });

@@ -51,6 +51,157 @@ export const songs: Catalog['songs'] = {
 		already: 'Že v Glasbi'
 	},
 	page: {
+		section: {
+			unnamed: 'Del',
+			added: 'Del dodan',
+			title: 'Del',
+			saving: 'shranjuje sproti',
+			name: 'Ime',
+			other: 'Drugo …',
+			otherLabel: 'Vaše ime',
+			starts: 'Začetek',
+			onOne: (at) => `${at} · na 1`,
+			earlier: 'Osmico prej',
+			later: 'Osmico pozneje',
+			count: 'Štetje',
+			on: 'Vklopljeno',
+			off: 'Izklopljeno',
+			offHelp: 'Izklopljeno: v tem delu ni štetja. Za premore in prehode.',
+			remove: 'Odstrani del',
+			removed: (name) => `Odstranjeno: ${name}`,
+			saved: 'Shranjeno',
+			unsavedLabel: 'Ime dela',
+			chips: () => ['Uvod', 'Kitica', 'Coro', 'Montuno', 'Mambo', 'Break', 'Zaključek']
+		},
+		// čez + accusative: 1 osmico, 2 osmici, 3 osmice, 5 osmic; 1 dobo, 2 dobi, 3 dobe, 5 dob.
+		ahead: {
+			eights: (name, n) => `${name} čez ${slCount(n, ['osmico', 'osmici', 'osmice', 'osmic'])}`,
+			last: (name) => `${name} po tej osmici`,
+			beats: (name, n) => `${name} čez ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])}`
+		},
+		listen: {
+			starts: (at) => `Začne se pri ${at}, kjer se začne glasba.`,
+			hint: 'Kje je 1, je le ugibanje po ritmu. Nastavite ga in dodajte dele v urejanju ✎.',
+			sections: 'Deli',
+			tapToJump: 'pritisnite za skok',
+			countOff: 'Brez štetja',
+			playing: 'Zdaj',
+			next: 'Naslednji',
+			sample: 'Odlomek',
+			sampleFrom: (at) => `Od ${at}`,
+			sampleMeta: '15 sekund',
+			jumpTo: (name, at) => `Skok na ${name}, ${at}`,
+			play: 'Predvajaj skladbo',
+			pause: 'Ustavi skladbo',
+			position: 'Mesto v skladbi'
+		},
+		edit: {
+			open: 'Uredi skladbo',
+			subtitle: 'Urejanje · shranjuje sproti',
+			leave: 'Zapri urejanje',
+			tabs: 'Urejanje',
+			grid: 'Mreža',
+			song: 'Skladba',
+			speed: {
+				title: 'Hitrost štetja',
+				help: 'Če štetje teče za pol ali dvakrat hitreje od vaših korakov, ga preklopite.',
+				askTitle: 'Spremenim hitrost štetja?',
+				ask: (n, factor) =>
+					`Štetje ${factor} izbriše ${n === 1 ? 'vašo 1' : `vaše 1 (${n})`}. Deli ostanejo, vsak na najbližji 1.`,
+				change: 'Spremeni',
+				done: (factor) => `Štetje ${factor}`
+			},
+			sample: {
+				title: 'Odlomek',
+				from: (at) => `Od ${at}`,
+				automatic: 'Samodejno',
+				yours: 'Vaš',
+				autoMeta: 'Tretjina skladbe, na 1',
+				yoursMeta: 'Nastavili ste ga vi',
+				here: 'Odlomek začni tukaj',
+				hereMeta: (at) => `Pri ${at}, na 1 pred trenutnim mestom`,
+				back: 'Nazaj na samodejno',
+				doneHere: (at) => `Odlomek se začne blizu ${at}`,
+				doneBack: 'Odlomek je spet samodejen'
+			},
+			start: {
+				title: 'Začetek glasbe',
+				at: (at) => `Pri ${at}`,
+				found: 'Našel domači računalnik',
+				yours: 'Vaš',
+				unmeasured: 'Še ni izmerjeno',
+				fromZero: 'Predvaja se od 0:00',
+				here: 'Začni tukaj',
+				hereMeta: (at) => `Pri ${at}, na trenutnem mestu`,
+				zero: 'Od 0:00',
+				zeroMeta: 'Predvajaj celo datoteko',
+				back: 'Nazaj na najdeni začetek',
+				doneHere: (at) => `Skladba se začne pri ${at}`,
+				doneZero: 'Skladba se predvaja od 0:00',
+				doneBack: 'Spet tam, kjer se začne glasba'
+			},
+			details: 'Podatki o skladbi',
+			detailsMeta: 'Naslov, izvajalec in slog',
+			clear: {
+				ones: 'Izbriši vse 1',
+				onesMeta: (n) => `Nastavljenih: ${n}`,
+				sections: 'Izbriši vse dele',
+				sectionsMeta: (n) => slCount(n, ['del', 'dela', 'deli', 'delov']),
+				doneOnes: 'Vse 1 izbrisane',
+				doneSections: 'Vsi deli izbrisani'
+			}
+		},
+		grid: {
+			label: 'Štetje skladbe, vrstica na osmico',
+			beat: (at, n, section) =>
+				section ? `${at}, doba ${n} v delu ${section}` : `${at}, doba ${n}`,
+			off: (at, section) => `${at}: ${section}`,
+			yours: 'vaša 1',
+			short: (n) => `+${slCount(n, ['doba', 'dobi', 'dobe', 'dob'])}`,
+			countOff: 'Brez štetja',
+			editSection: (name) => `Uredi del: ${name}`,
+			before: (from, to, eights) =>
+				`Pred glasbo · ${from}–${to} · ${slCount(eights, ['osmica', 'osmici', 'osmice', 'osmic'])}`,
+			musicStarts: (at) => `Glasba se začne · ${at}`,
+			moveStart: 'Premakni začetek glasbe',
+			hint: 'Predvajajte in pritisnite na vsako 1. Pritisnite dobo za skok tja, pridržite za več.'
+		},
+		tap: {
+			button: 'Pritisnite na 1',
+			got: 'Zabeleženo',
+			playFirst: 'Najprej predvajajte skladbo.',
+			playFirstBody: 'Pritisk označi dobo, ki se predvaja.',
+			toast: (at, shift) =>
+				shift === 0
+					? `1 pri ${at}. Štetje se od tu ni spremenilo.`
+					: `1 pri ${at}. Štetje se je od tu premaknilo za ${slCount(shift, ['dobo', 'dobi', 'dobe', 'dob'])}.`,
+			before: 'Prej'
+		},
+		menu: {
+			beat: (n, section) => (section ? `doba ${n} v delu ${section}` : `doba ${n}`),
+			one: 'Naj bo to 1',
+			section: 'Tu začni del',
+			remove: 'Odstrani to 1',
+			start: 'Tu začni skladbo',
+			removed: (at) => `1 pri ${at} je odstranjena`,
+			close: 'Zapri meni'
+		},
+		suggest: {
+			line: (at, n, later) =>
+				`Ritem kaže, da je 1 tukaj od ${at}, ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])} ${later ? 'pozneje' : 'prej'}. Ne loči 1 od 5.`,
+			use: 'Uporabi',
+			notNow: 'Ne zdaj'
+		},
+		plusSection: 'Del',
+		plusSectionLabel: 'Začni del pri tej osmici',
+		refused: {
+			taken: 'Tam se že začne drug del',
+			ends: 'To je čez konec skladbe',
+			missing: 'Tega dela ni več. Znova naložite stran.',
+			badValue: 'Shranjevanje ni uspelo.',
+			start: 'Izberite čas znotraj skladbe.',
+			beat: 'Te dobe ni v skladbi.'
+		},
 		untitled: 'Skladba',
 		details: 'Podatki o skladbi',
 		editSong: 'Uredi skladbo',
@@ -60,33 +211,12 @@ export const songs: Catalog['songs'] = {
 		audioMissing: 'Zvočna datoteka skladbe manjka.',
 		audioUnplayable: 'Ta brskalnik ne more predvajati zvoka skladbe.',
 		wouldNotPlay: 'Skladbe ni bilo mogoče predvajati.',
-		play: 'Predvajaj skladbo',
-		pause: 'Ustavi skladbo',
-		position: 'Čas v skladbi',
-		gotIt: 'Zabeleženo',
-		tapOnOne: 'Pritisni na 1',
 		playFirst: 'Najprej predvajajte skladbo.',
-		playFirstBody: 'Pritisk označi dobo, ki se predvaja.',
-		guessHint:
-			'Štetje je le ugibanje. Predvajajte skladbo in pritisnite ob vsaki enki, ki jo slišite, dokler se štetje ne ujema.',
-		slipHint: 'Če se štetje po prekinitvi v glasbi zamakne, tam znova pritisnite na 1.',
 		// Odlomek is masculine: Vaš, Samodejni.
-		sample: 'Odlomek',
-		sampleFrom: (clock) => `Od ${clock}`,
 		sampleYours: 'Vaš',
 		sampleSetByYou: 'Nastavili ste ga sami',
 		sampleAutomatic: 'Samodejni',
 		sampleAutomaticMeta: 'Po tretjini skladbe, na enki',
-		startSampleAt: (clock) => `Začni odlomek pri ${clock}`,
-		backToAutomatic: 'Nazaj na samodejni',
-		countSpeed: 'Hitrost štetja',
-		countSpeedHelp:
-			'Če štetje teče s polovično ali dvojno hitrostjo vaših korakov, ga preklopite. To izbriše vaše enke.',
-		tempoFailed: 'Hitrosti štetja ni bilo mogoče spremeniti.',
-		yourOnes: 'Vaše enke',
-		yourOnesCount: (n) => `Vaše enke · ${n}`,
-		clearAll: 'Počisti vse',
-		removeOneAt: (time) => `Odstrani enko pri ${time}`,
 		progress: 'Napredek',
 		laptopNote:
 			'Teče na prenosniku približno enkrat na minuto, ko je prižgan. Stran se posodablja sama.',
@@ -96,17 +226,10 @@ export const songs: Catalog['songs'] = {
 		from: (url) => `Vir: ${url}`,
 		editorsOnly: 'Vidijo jo le tisti, ki lahko urejajo skupino',
 		shareWithClass: 'Deli s tečajem',
-		changeSpeedTitle: 'Želite spremeniti hitrost štetja?',
-		change: 'Spremeni',
-		// Accusative after "izbriše": vašo enko, vaši enki, vaše enke, vaših enk.
-		clears: (n) =>
-			n === 1
-				? 'To izbriše enko, ki ste jo označili.'
-				: `To izbriše ${slCount(n, ['vašo enko', 'vaši enki', 'vaše enke', 'vaših enk'])}.`,
 		archiveTitle: 'Želite arhivirati to skladbo?',
 		// The song's name after a colon, never declined.
 		archiveBody: (name) =>
-			`Skladba ne bo več v Glasbi in med skladbami za izbiro: ${name}. Vnosi, ki ste jih zabeležili z njo, ostanejo.`,
+			`Skladba ne bo več v Glasbi in med skladbami za izbiro: ${name}. Vaša zgodovina z njo ostane.`,
 		archive: 'Arhiviraj',
 		archiveSong: 'Arhiviraj skladbo',
 		saving: 'Shranjevanje',

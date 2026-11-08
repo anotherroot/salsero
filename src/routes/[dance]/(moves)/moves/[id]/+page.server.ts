@@ -18,6 +18,7 @@ import { defaultStyle } from '$lib/server/default-styles';
 import { usedInMeta } from '$lib/moves/move-page';
 import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const moveTaken = (name: string) => t().moves.refused.moveTaken(name);
 
@@ -92,7 +93,7 @@ export const actions: Actions = {
 			move.teamId !== null,
 			moveSeen(db, move.id),
 			{ action: 'rename' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, move.teamId, 'figure', move.id)
 		);
 		if (clash) return clash;

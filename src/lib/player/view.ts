@@ -110,7 +110,7 @@ export function runSources(): { value: string; label: string }[] {
 /** `calls` null: nothing was called, by design. */
 export function runSummary(durationS: number, calls: number | null): string {
 	const w = t().player;
-	return [clock(durationS), calls === null ? null : w.called(calls), w.loggedAsSet]
+	return [clock(durationS), calls === null ? null : w.called(calls)]
 		.filter((p) => p !== null)
 		.join(' · ');
 }

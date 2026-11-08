@@ -40,13 +40,11 @@ import {
 	isStartCount,
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
-import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
-import { popupData } from '$lib/server/popup';
-import { scheduleStateOf, scheduleStates } from '$lib/server/schedule';
+import { scheduleStateOf } from '$lib/server/schedule';
 import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
@@ -91,6 +89,7 @@ import { realCloneFiles } from '$lib/server/clones/files';
 import { t } from '$lib/i18n/catalog';
 import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * A figure's handholds as its page shows them: its own tags by their real ids
@@ -193,7 +192,7 @@ const taken = (figure: string, name: string) => t().moves.refused.figureTaken(fi
 const figureTaken = (name: string) => t().moves.refused.moveTaken(name);
 
 export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
-	const now = Date.now();
+	const now = serverNow();
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 
@@ -324,7 +323,6 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			? null
 			: { kind: 'figure' as const, title: labelFor(group.name, figure.name), candidates };
 	const zone = zoneOf(locals);
-	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
 	return {
 		figure: { id: group.id, name: group.name },
@@ -399,12 +397,6 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		exercise: found.exercise,
 		// Practise on its own: a group's variation only from a lesson the person added.
 		practisable: practisable(db, wall.userId, figure),
-		popup,
-		// The face times: the schedule at the START of today for the person's own exercise.
-		scheduleAtStart: popup
-			? (scheduleStates(db, wall, zone, localDay(now, zone)).get(popup.exercise.id) ?? null)
-			: null,
-		today: localDay(now, zone),
 		// Derived per request, never stored — the same rule the schedule follows.
 		routines: routinesUsing(
 			graph,
@@ -412,7 +404,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			routineShapes(db, space, { usable }),
 			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
 		),
-		practice: popup ? practiceFor(db, popup.exercise, zone, now) : null,
+		practice: found.exercise ? practiceFor(db, found.exercise, zone, now) : null,
 		/** The edit form's Starts in / Ends in: the chosen tags it shows, and what the pickers offer. */
 		tags,
 		positionChoices,
@@ -561,7 +553,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 			row.teamId !== null || hasCopies(db, 'figure', row.id),
 			variationSeen(db, row.id),
 			{ action: 'update' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
 		);
 		if (clash) return clash;
@@ -692,7 +684,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 	archive: ({ params, locals }) => {
 		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
-		const done = archiveVariation(db, figure.id, Date.now(), me(params, locals));
+		const done = archiveVariation(db, figure.id, serverNow(), me(params, locals));
 		if (!done) throw error(404, t().refusals.figureNotFound);
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
@@ -712,13 +704,14 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (!practisable(getDb(), userId, figure)) {
 			return fail(400, { action: 'practise', message: t().figure.refused.notAdded });
 		}
-		if (!addFigureExercise(getDb(), userId, figure.id)) {
+		const made = addFigureExercise(getDb(), userId, figure.id);
+		if (!made) {
 			return fail(400, {
 				action: 'practise',
 				message: t().figure.refused.alreadyPractised
 			});
 		}
-		return { action: 'practise', ok: true };
+		return { action: 'practise', ok: true, exerciseId: made.id };
 	},
 
 	/**
@@ -796,7 +789,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 			into,
 			recordingId,
 			realCloneFiles(),
-			Date.now(),
+			serverNow(),
 			await freeDisk()
 		);
 		if (res.ok) {
@@ -827,11 +820,6 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				throw error(404, t().refusals.figureNotFound);
 		}
 	},
-
-	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
 
 	deleteRecording: async ({ params, request, locals }) => {
 		const found = variationOf(params, locals);
@@ -913,7 +901,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (
 			!link ||
 			!(ownTarget || onOwnRecording) ||
-			!unlinkSpot(getDb(), link.id, link.target, Date.now(), me(params, locals))
+			!unlinkSpot(getDb(), link.id, link.target, serverNow(), me(params, locals))
 		) {
 			return fail(404, { action: 'unlinkSection', message: t().figure.refused.linkGone });
 		}

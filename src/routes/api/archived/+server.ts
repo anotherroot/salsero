@@ -10,6 +10,7 @@ import { restoreDrill } from '$lib/server/exercises';
 import { restorePositionIn } from '$lib/server/positions';
 import type { TeamSpace } from '$lib/server/scope';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const KEYS = ['figureId', 'routineId', 'exerciseId', 'positionId'] as const;
 
@@ -56,7 +57,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		exerciseId: restoreDrill,
 		positionId: restorePositionIn
 	}[target.key];
-	const done = restore(db, space, target.id, Date.now());
+	const done = restore(db, space, target.id, serverNow());
 	if (done.ok) return json({ ok: true });
 	if (done.reason === 'gone') throw error(404, t().links.refused.nothingToRestore);
 	return json({ message: done.message }, { status: 409 });

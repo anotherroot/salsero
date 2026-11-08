@@ -1,0 +1,85 @@
+import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
+import { addedMessage, bandSubtitle, doneBar, doneSubtitle, savedMessage } from './done-view';
+
+describe('bandSubtitle', () => {
+	it('says the kind and the time', () => {
+		expect(bandSubtitle({ label: 'Drill', warmup: false, learning: false, seconds: 252 })).toBe(
+			'Drill · 4:12'
+		);
+		expect(bandSubtitle({ label: 'Drill', warmup: false, learning: true, seconds: 200 })).toBe(
+			'Drill · learning · 3:20'
+		);
+		expect(bandSubtitle({ label: 'Drill', warmup: true, learning: false, seconds: 390 })).toBe(
+			'Drill · warm-up · 6:30'
+		);
+		expect(bandSubtitle({ label: 'Drill', warmup: true, learning: true, seconds: 252 })).toBe(
+			'Drill · warm-up · learning · 4:12'
+		);
+	});
+});
+
+describe('doneSubtitle', () => {
+	it('is the time, the learning line, or the past day', () => {
+		expect(doneSubtitle({ seconds: 252, learning: null, day: null, name: 'X' })).toBe('4:12');
+		expect(doneSubtitle({ seconds: 252, learning: { good: 2, of: 3 }, day: null, name: 'X' })).toBe(
+			'Learning · 2 of 3 good days'
+		);
+		expect(
+			doneSubtitle({ seconds: null, learning: null, day: '2026-11-05', name: 'Review: La policía' })
+		).toBe('Review: La policía · Thursday 5 November');
+	});
+});
+
+describe('toasts', () => {
+	it('saved says when it comes back, lower case', () => {
+		expect(savedMessage(12)).toBe('Saved · back in 12 days');
+		expect(savedMessage(1)).toBe('Saved · back tomorrow');
+	});
+	it('added names the day', () => {
+		expect(addedMessage('2026-11-05')).toBe('Added to Thu 5 Nov');
+	});
+});
+
+describe('doneBar', () => {
+	it('is Done today once the day has an entry', () => {
+		expect(doneBar({ doneToday: true, playing: false })).toEqual({
+			label: 'Done today',
+			kind: 'done-soft',
+			disabled: false,
+			hint: null
+		});
+		expect(doneBar({ doneToday: false, playing: false })).toEqual({
+			label: 'Done',
+			kind: 'primary',
+			disabled: false,
+			hint: null
+		});
+	});
+	it('waits for the count to stop', () => {
+		expect(doneBar({ doneToday: false, playing: true })).toEqual({
+			label: 'Done',
+			kind: 'primary',
+			disabled: true,
+			hint: 'Stop the count first.'
+		});
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('words the saved toast', () => {
+		expect(sl(() => savedMessage(12))).toBe('Shranjeno · spet čez 12 dni');
+	});
+	it('words a past day', () => {
+		expect(
+			sl(() => doneSubtitle({ seconds: null, learning: null, day: '2026-11-05', name: 'X' }))
+		).toBe('X · četrtek, 5. novembra');
+	});
+	it('words the bar', () => {
+		expect(sl(() => doneBar({ doneToday: true, playing: false }).label)).toBe('Opravljeno danes');
+		expect(sl(() => doneBar({ doneToday: false, playing: true }).hint)).toBe(
+			'Najprej ustavite štetje.'
+		);
+	});
+});

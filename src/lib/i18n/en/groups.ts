@@ -212,8 +212,11 @@ export const groups = {
 			anchors: 'count',
 			tempoFactor: 'tempo',
 			sampleStartS: 'sample start',
+			sectionsJson: 'sections',
+			startS: 'music start',
 			practiceMode: 'practice',
 			countBpm: 'practice tempo',
+			comesBack: 'comes back',
 			slots: 'slots'
 		},
 		/**
@@ -382,6 +385,7 @@ export const groups = {
 			endId: 'Ends in',
 			startCount: 'Starts on count',
 			lengthCounts: 'Length',
+			comesBack: 'Comes back',
 			active: 'Active',
 			label: 'Name',
 			startMs: 'Start',

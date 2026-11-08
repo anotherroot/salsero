@@ -66,12 +66,10 @@ export function whenWords(day: string, today: string): string {
 	return dayWords(day, today);
 }
 
-/** "New", "N days late", "Due today", "Due tomorrow", "Due Sunday", "Due 14 Nov". */
+/** "New", "Due today", "Due tomorrow", "Due Sunday", "Due 14 Nov". Never late. */
 export function dueWords(state: ScheduleState, today: string, neverDone: boolean): MetaPart[] {
 	const f = t().format;
 	if (neverDone) return [{ text: f.newOne, tone: 'status' }];
-	const d = daysBetween(today, state.dueDay);
-	if (d < 0) return [{ text: f.late(-d), tone: 'status' }];
 	return [{ text: f.due(whenWords(state.dueDay, today)), tone: null }];
 }
 

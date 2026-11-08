@@ -208,6 +208,48 @@ describe('root fields', () => {
 		expect(entryFor(db, 'u2', { figureId: F })!.name).toBe('Enchufla · Básico');
 	});
 
+	it('a drill’s Comes back is a field: Compare lists it and Take writes theirs; Warm-up is not', async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const D2 = await copy('drill', D, T1_SALSA);
+		expect(differing('drill', D2, D)).toEqual([]);
+		const every2 = JSON.stringify({ kind: 'every', days: 2 });
+		db.update(exercises)
+			.set({ comesBack: every2, warmup: true, warmupOrder: 1 })
+			.where(eq(exercises.id, D))
+			.run();
+		expect(differing('drill', D2, D)).toEqual(['comesBack']);
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(db.select().from(exercises).where(eq(exercises.id, D2)).get()).toMatchObject({
+			comesBack: every2,
+			warmup: false,
+			warmupOrder: null
+		});
+		expect(differing('drill', D2, D)).toEqual([]);
+	});
+
+	it('Take of an until setting starts it now, unless the receiver was already on until', async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const D2 = await copy('drill', D, T1_SALSA);
+		const set = (id: number, v: object) =>
+			db
+				.update(exercises)
+				.set({ comesBack: JSON.stringify(v) })
+				.where(eq(exercises.id, id))
+				.run();
+		const read = (id: number) =>
+			JSON.parse(
+				db.select().from(exercises).where(eq(exercises.id, id)).get()!.comesBack as string
+			);
+		set(D, { kind: 'until', good: 3, since: 5 });
+		// Onto faces: turned on for the receiver now, not the giver's day.
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(read(D2)).toEqual({ kind: 'until', good: 3, since: NOW });
+		// Onto an until already running since T: its own start is kept, the count is taken.
+		set(D2, { kind: 'until', good: 5, since: T });
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(read(D2)).toEqual({ kind: 'until', good: 3, since: T });
+	});
+
 	it('a drill’s practice, a song’s count and a lesson’s title land, with the lesson’s exercise', async () => {
 		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
 		const D2 = await copy('drill', D, T1_SALSA);
@@ -239,6 +281,16 @@ describe('root fields', () => {
 			title: 'Chan Chan',
 			anchorsJson: '[4]',
 			tempoFactor: 2
+		});
+		db.update(songs)
+			.set({ sectionsJson: '[{"at":4,"name":"Coro","countOff":true}]', startS: 7 })
+			.where(eq(songs.id, S))
+			.run();
+		expect(differing('song', S2, S)).toEqual(['title', 'sections', 'musicStart']);
+		expect(apply('song', S2, S, ['sections', 'musicStart']).ok).toBe(true);
+		expect(db.select().from(songs).where(eq(songs.id, S2)).get()).toMatchObject({
+			sectionsJson: '[{"at":4,"name":"Coro","countOff":true}]',
+			startS: 7
 		});
 
 		const L = createLesson(db, U1_SALSA, { lessonDay: '2026-11-01', title: 'Week 1', notes: null })

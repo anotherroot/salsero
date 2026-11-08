@@ -27,13 +27,14 @@ import {
 } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
+import { serverNow } from '$lib/server/server-clock';
 export const load: PageServerLoad = async ({ locals }) => {
 	requireAdmin(locals);
 	const tz = locals.user!.timezone;
 	// The admin of one dance: its people, groups and requests only (the dance split).
 	const dance = locals.user!.dance;
 	const db = getDb();
-	const now = Date.now();
+	const now = serverNow();
 	const today = localDay(now, tz);
 	const seen = listAppsSeen(db);
 	return {
@@ -87,7 +88,7 @@ export const actions: Actions = {
 			getDb(),
 			locals.user!.id,
 			locals.user!.dance,
-			Date.now(),
+			serverNow(),
 			locale
 		);
 		const link = inviteLink({
@@ -109,7 +110,7 @@ export const actions: Actions = {
 		if (id === undefined) return fail(400, { message: t().admin.refused.pickRequest });
 		if (limit === undefined) return fail(400, { message: t().admin.refused.badLimit });
 		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
-		if (!reach || !resolveRequest(getDb(), id, 'granted', limit, Date.now())) {
+		if (!reach || !resolveRequest(getDb(), id, 'granted', limit, serverNow())) {
 			return fail(404, { message: t().admin.refused.requestClosed });
 		}
 		return { ok: true };
@@ -121,7 +122,7 @@ export const actions: Actions = {
 		const id = int(await request.formData(), 'id');
 		if (id === undefined) return fail(400, { message: t().admin.refused.pickRequest });
 		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
-		if (!reach || !resolveRequest(getDb(), id, 'declined', null, Date.now())) {
+		if (!reach || !resolveRequest(getDb(), id, 'declined', null, serverNow())) {
 			return fail(404, { message: t().admin.refused.requestClosed });
 		}
 		return { ok: true };

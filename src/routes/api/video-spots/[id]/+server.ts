@@ -13,6 +13,7 @@ import { editedBy, spotRoot } from '$lib/server/changes';
 import { flowAfter, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The spot id from the path, if the signed-in person may change it (their own,
@@ -40,7 +41,7 @@ function trashed(raw: string, locals: App.Locals): Response | null {
 	if (!userId || !Number.isSafeInteger(id) || id <= 0) return null;
 	const gone = trashedSpot(getDb(), userId, id);
 	if (!gone) return null;
-	return json({ message: goneTitle(gone, Date.now()), gone }, { status: 410 });
+	return json({ message: goneTitle(gone, serverNow()), gone }, { status: 410 });
 }
 
 export const PATCH: RequestHandler = (event) =>
@@ -92,7 +93,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 	if (!check.ok && 'changed' in check) {
 		const { changed, current, by, at } = check;
 		return json(
-			{ message: clashTitle({ by, at }, Date.now()), clash: { changed, current, by, at } },
+			{ message: clashTitle({ by, at }, serverNow()), clash: { changed, current, by, at } },
 			{ status: 409 }
 		);
 	}

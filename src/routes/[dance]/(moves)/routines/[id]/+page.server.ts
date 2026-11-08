@@ -70,6 +70,7 @@ import { pageSources } from '$lib/server/clones/sources';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -113,7 +114,7 @@ function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract'
 	const who = () => editedBy(db, routine.teamId, 'routine', routine.id);
 	if (routine.archivedAt !== null) {
 		const gone = who();
-		return fail(410, { ...named, message: goneTitle(gone, Date.now()), gone });
+		return fail(410, { ...named, message: goneTitle(gone, serverNow()), gone });
 	}
 	const sent = form.get('fingerprint');
 	if (typeof sent !== 'string' || sent === '') {
@@ -402,7 +403,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			routine.teamId !== null || hasCopies(db, 'routine', routine.id),
 			routine.archivedAt === null ? routineSeen(routine) : null,
 			{ action: 'rename' as const, ...typed },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, routine.teamId, 'routine', routine.id)
 		);
 		if (clash) return clash;
@@ -472,7 +473,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		// The boolean is deliberately ignored: archiving twice is idempotent — the
 		// row is archived either way and the list omits it — so a second attempt is
 		// a no-op worth redirecting, not an error worth reporting.
-		archiveRoutine(getDb(), routine.id, Date.now(), by(params, locals));
+		archiveRoutine(getDb(), routine.id, serverNow(), by(params, locals));
 		throw redirect(303, `/${params.dance}/routines`);
 	},
 
@@ -515,7 +516,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
-		const now = Date.now();
+		const now = serverNow();
 		if (!removeOption(db, stepId, figureId, now, by(params, locals))) {
 			return slotFail(t().routine.refused.holdSomething, stepId);
 		}
@@ -633,7 +634,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const snapshot =
 			stepIds.length === 0
 				? null
-				: deleteSlots(getDb(), routine.id, stepIds, Date.now(), by(params, locals));
+				: deleteSlots(getDb(), routine.id, stepIds, serverNow(), by(params, locals));
 		if (!snapshot) return fail(400, { message: t().routine.refused.gone });
 		// Handed back so the page can offer Undo, which posts it to `restore`.
 		return done(routine.id, { snapshot });

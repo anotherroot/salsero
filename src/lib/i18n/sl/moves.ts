@@ -93,7 +93,7 @@ export const moves: Catalog['moves'] = {
 	},
 	routines: {
 		empty: 'Še ni kombinacij',
-		emptyBody: 'Nanizajte nekaj različic v kombinacijo, ki jo napoveste kot celoto.',
+		emptyBody: 'Nanizajte nekaj različic in jih napovejte kot celoto.',
 		badLoop: 'se ne sklene',
 		fromClass: (label) => `Z lekcije ${label}`,
 		name: 'Ime',

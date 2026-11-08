@@ -93,6 +93,8 @@ Slovenian, without her choosing or understanding anything in English.
   | Position | položaj |
   | Hold | drža |
   | Section (of a video) | odsek |
+  | Section (of a song: Intro, Mambo …) | del (Uvod, Kitica, Coro, Montuno, Mambo, Break, Zaključek) |
+  | Count off (a song's section) | brez štetja |
   | Point (a saved moment) | točka |
   | Recording | posnetek |
   | Set (a logged practice) | vnos |
@@ -105,7 +107,7 @@ Slovenian, without her choosing or understanding anything in English.
   | Session (Start session) | vadba (Začni vadbo) |
   | Paused (an exercise) | na premoru |
   | Not today | Ne danes |
-  | Log a set / a set's minutes, reps | Nov vnos, Shrani vnos / minute, ponovitve |
+  | Done (the button, a day's entry) | Opravljeno; an entry is a vnos, never a "set" |
   | an 8-count (call every 2) | osmica (napoved na 2 osmici) |
   | Practice (the panel, practising) | vadenje (Vadi ob …); a session stays vadba |
   | Class (a lesson's day, "Class · …") | lekcija (Lekcija · tor, 3. nov.); the group is tečaj |
@@ -131,6 +133,7 @@ Slovenian, without her choosing or understanding anything in English.
   | Keep in step | Samodejno usklajevanje |
   | Drop my copy | Opusti svojo kopijo |
   | Detach | Odklopi |
+  | Unlink (a link, on a row) | Odveži (in a sentence or a label: Odstrani povezavo: …) |
   | Take (a field, a recording) | Prevzemi |
   | Update mine | Posodobi svojo |
   | Make it mine | Naredi svojo kopijo |
@@ -261,7 +264,9 @@ that changes a form field or an API shape older open pages would send.
   `index.ts` each); PURE modules call `t()` inside each function, so their
   specs run in English without a request and `withLocale('sl', …)` checks the
   Slovenian. The guard against new English exists: `no-english.spec.ts`
-  (`TRANSLATED`, the markup of every translated component).
+  (`TRANSLATED`, the markup of every translated component). Part 2 replaced
+  the list: the guard reads every component, a new one included, but the dev
+  pages and a short `EXEMPT` list.
 - **A lesson's own exercise keeps its stored English name** (`Review: <title>`,
   kept in step with the lesson's title for every member) and is drawn in the
   reader's language (`shownExercise`, `src/lib/exercises/name.ts`, in the

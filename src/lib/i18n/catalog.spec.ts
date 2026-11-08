@@ -61,7 +61,7 @@ function leaves(o: unknown, at = ''): [string, unknown][] {
 	return Object.entries(o as object).flatMap(([k, v]) => leaves(v, at ? `${at}.${k}` : k));
 }
 
-/** What a function leaf draws: its SAMPLE_ARGS, else `1` in each place, then `'x'`. */
+/** What a function leaf draws (a list of words joined): its SAMPLE_ARGS, else `1` in each place, then `'x'`. */
 function sample(path: string, fn: (...args: unknown[]) => unknown): unknown {
 	const width = Math.max(fn.length, 1);
 	const tries = SAMPLE_ARGS[path]
@@ -71,6 +71,9 @@ function sample(path: string, fn: (...args: unknown[]) => unknown): unknown {
 		try {
 			const out = fn(...args);
 			if (typeof out === 'string') return out;
+			// A list of words (the song section sheet's chips) draws as its words.
+			if (Array.isArray(out) && out.length > 0 && out.every((s) => typeof s === 'string'))
+				return out.join(', ');
 		} catch {
 			// try the next sample
 		}

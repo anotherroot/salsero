@@ -215,8 +215,11 @@ export const groups: Catalog['groups'] = {
 			anchors: 'štetje',
 			tempoFactor: 'tempo',
 			sampleStartS: 'začetek odlomka',
+			sectionsJson: 'deli',
+			startS: 'začetek glasbe',
 			practiceMode: 'vadenje',
 			countBpm: 'tempo vadenja',
+			comesBack: 'kdaj pride spet na vrsto',
 			slots: 'mesta'
 		},
 		subject: {
@@ -355,6 +358,7 @@ export const groups: Catalog['groups'] = {
 			endId: 'Konča v',
 			startCount: 'Začne na',
 			lengthCounts: 'Dolžina',
+			comesBack: 'Kdaj pride spet na vrsto',
 			active: 'Aktivna',
 			label: 'Ime',
 			startMs: 'Začetek',

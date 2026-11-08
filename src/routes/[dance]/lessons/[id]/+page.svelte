@@ -57,7 +57,6 @@
 		button,
 		iconButton
 	} from '$lib/components/ui/styles';
-	import { logFor } from '$lib/components/exercises/kinds';
 	import { byteSize, fullDateLabel } from '$lib/format';
 	import {
 		ADD_LABEL,
@@ -241,7 +240,6 @@
 		linkSeen = form;
 		addingLink = true;
 	}
-	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 	/** Where focus goes when that row is gone: the list's keys, the row, the list's add control. */
 	let viaFocus: { keys: string[]; gone: string; fallback: string } | null = null;
@@ -294,8 +292,6 @@
 			reportOpen('lesson', lesson.id);
 		}
 	});
-	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
-	const LessonLog = logFor('lesson');
 	/** An exercise's schedule (its due words), when it is this person's own. */
 	const scheduleOf = (exerciseId: number | null) =>
 		exerciseId === null ? undefined : data.schedule[exerciseId];
@@ -873,7 +869,7 @@
 						</section>
 					{/if}
 
-					{#if data.exercise && data.popup}
+					{#if data.exercise}
 						{@const review = data.exercise}
 						<div class={GROUP}>
 							<div class="flex min-h-16 items-center pr-1.5 pl-4">
@@ -898,16 +894,10 @@
 													: ''}<span class:font-bold={part.strong}>{part.text}</span>{/each}</span
 										>
 									</span>
+									<span class="flex flex-none text-chevron"
+										><Icon name="chevron-right" size={20} /></span
+									>
 								</a>
-								<!-- The "+" is an icon, so bare accent is allowed. -->
-								<button
-									type="button"
-									class={iconButton('bare', 'accent')}
-									aria-label={t().today.row.logSet(review.name)}
-									onclick={() => (logging = true)}
-								>
-									<Icon name="plus" size={24} />
-								</button>
 							</div>
 						</div>
 					{/if}
@@ -1113,27 +1103,22 @@
 												dance: data.dance.slug,
 												id: String(exercise.mineId ?? exercise.id)
 											})}
-											class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+											class="flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-1"
 										>
-											{@render itemText(
-												exercise.name,
-												viaBadge(exercise.viaSections),
-												yoursMeta(
-													exerciseMeta(exercise, scheduleOf(exercise.id), data.today),
-													exercise.mineId
-												)
-											)}
-										</a>
-										<!-- The "+" is an icon, so bare accent is allowed. A group's drill is
-									     logged through each person's own entry, never from here. -->
-										{#if !data.team}
-											<a
-												href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-												class={iconButton('bare', 'accent')}
-												aria-label={t().today.row.logSet(exercise.name)}
-												><Icon name="plus" size={24} /></a
+											<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+												{@render itemText(
+													exercise.name,
+													viaBadge(exercise.viaSections),
+													yoursMeta(
+														exerciseMeta(exercise, scheduleOf(exercise.id), data.today),
+														exercise.mineId
+													)
+												)}
+											</span>
+											<span class="flex flex-none text-chevron"
+												><Icon name="chevron-right" size={20} /></span
 											>
-										{/if}
+										</a>
 										{@render unlinkButton(
 											'exercise',
 											exercise.id,
@@ -1548,24 +1533,6 @@
 		oncreate={(key, query) => createFrom('position', key, query)}
 		ondone={closePicker}
 		onclose={closePicker}
-	/>
-{/if}
-
-{#if logging && data.popup}
-	<LessonLog
-		dance={data.dance}
-		exercise={data.popup.exercise}
-		sets={data.popup.sets}
-		songs={data.popup.songs}
-		takes={data.popup.takes}
-		backfillDay={null}
-		{timezone}
-		schedule={data.scheduleAtStart ?? undefined}
-		today={data.today}
-		message={form && 'action' in form && form.action === 'log' && 'message' in form
-			? String(form.message)
-			: null}
-		onclose={() => (logging = false)}
 	/>
 {/if}
 

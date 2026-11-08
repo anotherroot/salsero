@@ -23,6 +23,7 @@ import type { LinkOwner } from './links';
 import { LEASE_MS, MAX_ATTEMPTS } from './songs';
 import { ownerOfTarget, roomForOwner } from './storage';
 import { parseLink } from '$lib/links';
+import { serverNow } from '$lib/server/server-clock';
 
 /** The link, if it belongs to `owner`. A drill's never does: drills keep their links as links. */
 function linkOf(db: Db, owner: LinkOwner, linkId: number) {
@@ -267,5 +268,5 @@ function logArrived(
 	const { row, ...at } = root;
 	const [subject, subjectId] =
 		'recordingId' in owner ? ['recording', owner.recordingId] : ['video', owner.lessonVideoId];
-	logChange(tx, spaceOfRow(row, by), { ...at, verb: 'add', subject, subjectId }, Date.now());
+	logChange(tx, spaceOfRow(row, by), { ...at, verb: 'add', subject, subjectId }, serverNow());
 }

@@ -54,11 +54,11 @@ describe('dayWords', () => {
 describe('dueWords', () => {
 	it('New', () =>
 		expect(dueWords(state(TODAY), TODAY, true)).toEqual([{ text: 'New', tone: 'status' }]));
-	it('late', () => {
-		expect(dueWords(state('2026-11-03'), TODAY, false)).toEqual([
-			{ text: '2 days late', tone: 'status' }
+	it('past its day it reads Due today, never late', () => {
+		expect(dueWords(state('2026-10-16'), TODAY, false)).toEqual([
+			{ text: 'Due today', tone: null }
 		]);
-		expect(dueWords(state('2026-11-04'), TODAY, false)[0].text).toBe('1 day late');
+		expect(dueWords(state('2026-11-04'), TODAY, false)[0].text).toBe('Due today');
 	});
 	it('today, tomorrow, weekday, date', () => {
 		expect(dueWords(state(TODAY), TODAY, false)[0].text).toBe('Due today');
@@ -116,12 +116,12 @@ describe('in Slovenian', () => {
 		expect(sl(() => whenWords('2026-11-06', TODAY))).toBe('jutri');
 	});
 
-	it('says what is due, late or new', () => {
+	it('says what is due or new, never late', () => {
 		expect(sl(() => dueWords(state(TODAY), TODAY, true))).toEqual([
 			{ text: 'Nova', tone: 'status' }
 		]);
-		expect(sl(() => dueWords(state('2026-11-04'), TODAY, false)[0].text)).toBe('1 dan zamude');
-		expect(sl(() => dueWords(state('2026-11-03'), TODAY, false)[0].text)).toBe('2 dneva zamude');
+		expect(sl(() => dueWords(state('2026-11-04'), TODAY, false)[0].text)).toBe('Na vrsti danes');
+		expect(sl(() => dueWords(state('2026-11-03'), TODAY, false)[0].text)).toBe('Na vrsti danes');
 		expect(sl(() => dueWords(state(TODAY), TODAY, false)[0].text)).toBe('Na vrsti danes');
 		expect(sl(() => dueWords(state('2026-11-08'), TODAY, false)[0].text)).toBe(
 			'Na vrsti v nedeljo'

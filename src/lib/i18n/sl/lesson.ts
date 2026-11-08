@@ -94,7 +94,7 @@ export const lesson: Catalog['lesson'] = {
 		archive: {
 			title: 'Želite arhivirati to lekcijo?',
 			team: 'Videi in povezave ostanejo.',
-			own: 'Z njo gre tudi njena vaja za ponovitev. Videi, povezave in vnosi ostanejo.',
+			own: 'Z njo gre tudi njena vaja za ponovitev. Videi, povezave in zgodovina ostanejo.',
 			button: 'Arhiviraj',
 			busy: 'Arhiviranje …',
 			failed: 'Lekcije ni bilo mogoče arhivirati.'
