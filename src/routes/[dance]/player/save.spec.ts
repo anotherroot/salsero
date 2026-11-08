@@ -1,6 +1,7 @@
 /** The player's Save set: a face is required, like every other log. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { U1_SALSA } from '$lib/server/test-walls';
+import { runInLocale } from '$lib/server/i18n-request';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 vi.mock('$lib/server/db', async () => {
@@ -46,6 +47,20 @@ describe('player save', () => {
 		const res = (await save({})) as { status: number; data: { message: string } };
 		expect(res.status).toBe(400);
 		expect(res.data.message).toBe('Pick how it went');
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+
+	it('refuses in the reader’s language', async () => {
+		const face = (await runInLocale('sl', () => save({}))) as { data: { message: string } };
+		expect(face.data.message).toBe('Izberite, kako je šlo');
+		const long = (await runInLocale('sl', () => save({ rating: '4', note: 'x'.repeat(2001) }))) as {
+			data: { message: string };
+		};
+		expect(long.data.message).toBe('Opomba je predolga: največ 2000 znakov.');
+		const bad = (await runInLocale('sl', () => save({ rating: '4', durationS: 'x' }))) as {
+			data: { message: string };
+		};
+		expect(bad.data.message).toBe('Tega vadenja ni bilo mogoče shraniti.');
 		expect(db.select().from(sets).all()).toHaveLength(0);
 	});
 
