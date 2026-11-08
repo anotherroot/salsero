@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { actAt } from '$lib/act';
-	import { refusalMessage, type ToastState } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage, type ToastState } from '$lib/act-toast';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -70,7 +70,7 @@
 	function failed(result: ActionResult) {
 		const message = refusalMessage(result, t().settings.couldNotSave);
 		if (message === null) return false;
-		toast = { id: ++seq, message };
+		if (!offlineRefusal(result)) toast = { id: ++seq, message };
 		return true;
 	}
 

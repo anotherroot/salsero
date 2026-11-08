@@ -9,15 +9,18 @@ const JSON_HEADERS: [string, string][] = [['content-type', 'application/json']];
 
 /**
  * What the service worker answers a write that cannot reach the server.
- * A form action gets a `failure` SvelteKit's client reads; anything else a
- * plain JSON message.
+ * A form action gets a `failure` SvelteKit's client reads, `{ offline: true }`
+ * and no message: the root layout says it, in the person's language (the
+ * service worker has none), so a form's `form.message` shows nothing and a
+ * refusal toast asks `offlineRefusal` (`$lib/act-toast`). Anything else gets
+ * a plain JSON `message`.
  */
 export function offlineWrite(isAction: boolean, message: string): OfflineAnswer {
 	const body = isAction
 		? JSON.stringify({
 				type: 'failure',
 				status: 503,
-				data: stringify({ message, offline: true })
+				data: stringify({ offline: true })
 			})
 		: JSON.stringify({ message });
 	return { status: 503, headers: JSON_HEADERS.map((h) => [...h] as [string, string]), body };

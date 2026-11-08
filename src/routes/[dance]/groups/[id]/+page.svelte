@@ -21,7 +21,7 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import MyClass from '$lib/components/teams/MyClass.svelte';
 	import { act, actAt } from '$lib/act';
-	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { IconName } from '$lib/icons/icons';
 	import {
 		FIELD,
@@ -77,7 +77,7 @@
 	/** Shows a refusal's message; true when the action was refused. */
 	function refused(result: Awaited<ReturnType<typeof act>>, fallback: string): boolean {
 		const message = refusalMessage(result, fallback);
-		if (message !== null) toast = { id: ++seq, message };
+		if (message !== null && !offlineRefusal(result)) toast = { id: ++seq, message };
 		return message !== null;
 	}
 

@@ -19,7 +19,7 @@
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import TodayBar from '$lib/components/today/TodayBar.svelte';
-	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { ExerciseItem } from '$lib/types';
 	import { notTodayMessage, onTodayMessage, todayHero } from '$lib/exercises/today';
 	import { t } from '$lib/i18n/catalog';
@@ -178,7 +178,7 @@
 		const result = await actAt(`/${dance}`, 'pick', { exerciseId, kind: 'skip' });
 		const refused = refusalMessage(result, t().today.refused.skip);
 		if (refused) {
-			say(refused);
+			if (!offlineRefusal(result)) say(refused);
 			return false;
 		}
 		const pickId = (result as { data?: { pickIds?: number[] } }).data?.pickIds?.[0];
@@ -192,7 +192,7 @@
 						async () => {
 							const undone = await actAt(`/${dance}`, 'unpick', { pickId });
 							const m = refusalMessage(undone, t().today.refused.putBack);
-							if (m) say(m);
+							if (m && !offlineRefusal(undone)) say(m);
 						}
 					);
 		// Else Next N, else the list's add control (New exercise, the phone's or the band's).
@@ -247,7 +247,7 @@
 					const result = await actAt(`/${dance}`, step.action, step.fields);
 					const refused = refusalMessage(result, t().today.refused.undo);
 					if (refused) {
-						toast = { id: ++toastSeq, message: refused };
+						toast = offlineRefusal(result) ? null : { id: ++toastSeq, message: refused };
 						return;
 					}
 				}

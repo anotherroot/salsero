@@ -19,7 +19,7 @@
 	import { dragEdges } from '$lib/gestures/edges';
 	import { longPress } from '$lib/longpress';
 	import { actAt } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 
 	/**
 	 * Today's list: one "Today · N" card (done, to do, picked: `dayList`'s order),
@@ -184,10 +184,9 @@
 		const fallback = t().today.refused.warmupOrder;
 		let refused: string | null;
 		try {
-			refused = refusalMessage(
-				await actAt(`/${dance}`, 'warmupOrder', { ids: ids.join(',') }),
-				fallback
-			);
+			const result = await actAt(`/${dance}`, 'warmupOrder', { ids: ids.join(',') });
+			// Offline the root layout has said so; the order still goes back (the list reloads).
+			refused = offlineRefusal(result) ? null : refusalMessage(result, fallback);
 		} catch {
 			refused = fallback;
 		} finally {

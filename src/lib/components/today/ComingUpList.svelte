@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { actAt } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -47,8 +47,9 @@
 		try {
 			const result = await actAt(`/${dance}`, 'pick', { exerciseId: exercise.id, kind: 'add' });
 			const message = refusalMessage(result, t().today.refused.addToToday);
-			if (message) onrefused(message);
-			else {
+			if (message) {
+				if (!offlineRefusal(result)) onrefused(message);
+			} else {
 				onadded(exercise, (result as { data?: PickReply }).data ?? {});
 			}
 		} finally {

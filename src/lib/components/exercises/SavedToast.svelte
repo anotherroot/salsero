@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { actAt } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import { saved } from '$lib/exercises/saved.svelte';
 	import { pinned } from '$lib/nav/chrome.svelte';
 	import { t } from '$lib/i18n/catalog';
@@ -44,7 +44,7 @@
 			before: s.undo.before ?? ''
 		});
 		const message = refusalMessage(result, t().today.refused.undo);
-		if (message) failed = { id: -++failedSeq, message };
+		if (message && !offlineRefusal(result)) failed = { id: -++failedSeq, message };
 	}
 </script>
 

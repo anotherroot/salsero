@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { act, actAt } from '$lib/act';
-	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import { uploadLink } from '$lib/app-mode';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
@@ -106,7 +106,7 @@
 	/** Shows a refusal's message; true when the action was refused. */
 	function refused(result: Awaited<ReturnType<typeof act>>, fallback: string): boolean {
 		const message = refusalMessage(result, fallback);
-		if (message !== null) toast = { id: ++seq, message };
+		if (message !== null && !offlineRefusal(result)) toast = { id: ++seq, message };
 		return message !== null;
 	}
 

@@ -45,7 +45,7 @@
 	import { hasMenu, type CloneOffers } from '$lib/clones/menu';
 	import { menuLabel } from '$lib/menu';
 	import { act } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
@@ -372,6 +372,7 @@
 			creating = false;
 		}
 		const refused = refusalMessage(result, 'Could not add it to Today.');
+		if (offlineRefusal(result)) return;
 		const id = data.exercise?.id;
 		toast = refused
 			? { id: ++toastSeq, message: refused }
