@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -18,7 +19,10 @@
 		SYNC_TO,
 		UPDATE_MINE,
 		notSynced,
+		notesOnLoad,
+		nothingNew,
 		openKeys,
+		pullable,
 		postPicks,
 		sheetRows,
 		staysLine,
@@ -76,6 +80,12 @@
 	let missed = $state<string[]>([]);
 	let opened = $state<Record<string, boolean>>({});
 	let loads = $state(0);
+	/** Why the next load runs: a fresh open, Load again, or the reload after a Sync. Not state. */
+	let why: 'open' | 'again' | 'after-sync' = 'open';
+	function reload(reason: 'again' | 'after-sync') {
+		why = reason;
+		loads++;
+	}
 
 	function load(signal: AbortSignal) {
 		view = null;
@@ -102,9 +112,15 @@
 		if (!open) return;
 		void loads;
 		const ask = new AbortController();
-		refused = null;
-		stale = false;
-		missed = [];
+		// What the sheet still says: the copies a Sync just missed survive its reload.
+		const notes = notesOnLoad(
+			untrack(() => ({ refused, stale, missed })),
+			why
+		);
+		why = 'open';
+		refused = notes.refused;
+		stale = notes.stale;
+		missed = notes.missed;
 		load(ask.signal);
 		return () => ask.abort();
 	});
@@ -119,8 +135,15 @@
 			rows.filter((r) => r.kind === 'stays').map((r) => ({ key: r.key, label: r.label }))
 		)
 	);
+	/** Update mine with nothing the club has that the reader's copy lacks: only their own changes. */
+	const nothing = $derived(update && view !== null && view.rows.length > 0 && !pullable(rows));
 	const ready = $derived(
-		!!view && view.rows.length > 0 && waiting.length === 0 && targets.length > 0 && !stale
+		!!view &&
+			view.rows.length > 0 &&
+			!nothing &&
+			waiting.length === 0 &&
+			targets.length > 0 &&
+			!stale
 	);
 
 	/** The row's current choice: the person's pick, else the preselection; undefined while open. */
@@ -149,7 +172,7 @@
 
 <Sheet
 	title={view?.title ?? SYNC}
-	sub={view && view.rows.length > 0
+	sub={view && view.rows.length > 0 && !nothing
 		? update
 			? updateSub(changes)
 			: syncSub(view.rows.length, view.members.length)
@@ -164,7 +187,7 @@
 			<Banner kind="error">
 				{refused}
 				{#snippet action()}
-					<button type="button" class={button('tertiary', 'sm')} onclick={() => loads++}
+					<button type="button" class={button('tertiary', 'sm')} onclick={() => reload('again')}
 						>{LOAD_AGAIN}</button
 					>
 				{/snippet}
@@ -176,7 +199,7 @@
 			<Banner kind="error">
 				{SYNC_LOAD_FAILED}
 				{#snippet action()}
-					<button type="button" class={button('tertiary', 'sm')} onclick={() => loads++}
+					<button type="button" class={button('tertiary', 'sm')} onclick={() => reload('again')}
 						>{LOAD_AGAIN}</button
 					>
 				{/snippet}
@@ -186,6 +209,11 @@
 		{:else if view.rows.length === 0}
 			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-ink-2">{NOTHING_DIFFERS}</p>
 		{:else}
+			{#if nothing}
+				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-ink-2">
+					{nothingNew(view.from ?? '')}
+				</p>
+			{/if}
 			{@const lines = rows.filter((r) => r.kind === 'change')}
 			{#if lines.length > 0}
 				<ul class={GROUP}>
@@ -334,7 +362,7 @@
 							// The others landed: say which did not, and read the sheet anew.
 							const name = (cid: number) => view?.targets.find((t) => t.id === cid)?.label ?? '';
 							missed = left.map((r) => notSynced(name(r.id), r.message));
-							loads++;
+							reload('after-sync');
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown; reason?: unknown } | undefined;
 							refused = typeof data?.message === 'string' ? data.message : SYNC_SEND_FAILED;

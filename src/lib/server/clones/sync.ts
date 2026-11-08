@@ -196,6 +196,7 @@ export function syncView(
 	const flats = new Map(fam.members.map((m) => [m.id, flatOf(db, kind, m.id, opts)]));
 	const rows = rowsOf(db, userId, kind, id, fam.members, flats);
 	let title: string;
+	let from: string | undefined;
 	if (fam.mode === 'update') {
 		const own = fam.editable[0];
 		const reads = fam.members.filter((m) => m.access === 'read');
@@ -203,7 +204,8 @@ export function syncView(
 			(fam.page.access === 'read' ? fam.page : null) ??
 			reads.find((m) => m.id === own.clonedFrom) ??
 			reads[0];
-		title = updateTitle(placeLabel(club.place));
+		from = placeLabel(club.place);
+		title = updateTitle(from);
 	} else {
 		title = syncTitle(rowOf(db, kind, id)?.title ?? '');
 	}
@@ -219,6 +221,7 @@ export function syncView(
 			ticked: true
 		})),
 		mode: fam.mode,
+		...(from !== undefined ? { from } : {}),
 		members: fam.members.map((m) => ({
 			id: m.id,
 			label: placeLabel(m.place),

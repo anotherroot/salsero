@@ -299,8 +299,8 @@ export const CANCEL = 'Cancel';
 /** A compare card's two options. */
 export const YOURS = 'Yours';
 
-/** A sheet whose data did not come (Copy to…, Move to…). */
-export const COMPARE_FAILED = 'That comparison could not be loaded. Try again.';
+/** A sheet whose data did not come (Copy to…'s plan, Move to…'s preview). */
+export const LOAD_FAILED = 'That could not be loaded. Try again.';
 
 /* ── Copies you can see, and Send mine (board C3) ───────────────────────── */
 

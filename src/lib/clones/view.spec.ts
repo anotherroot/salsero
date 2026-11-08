@@ -49,7 +49,7 @@ import {
 	statusChip,
 	ALREADY_IN_YOURS,
 	CANCEL,
-	COMPARE_FAILED,
+	LOAD_FAILED,
 	YOURS,
 	NOT_TAKEN,
 	PICK_BOTH,
@@ -326,7 +326,7 @@ describe('sources', () => {
 	});
 
 	it('the refusals', () => {
-		expect(COMPARE_FAILED).toBe('That comparison could not be loaded. Try again.');
+		expect(LOAD_FAILED).toBe('That could not be loaded. Try again.');
 		expect(YOURS).toBe('Yours');
 		expect(STALE).toBe('Changed since you opened this. Compare again.');
 		expect(PICK_BOTH).toBe('Pick yours or theirs where both changed.');

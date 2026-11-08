@@ -157,6 +157,8 @@ describe('syncView', () => {
 		const view = syncView(db, 'u2', 'figure', F2)!;
 		expect(view.mode).toBe('update');
 		expect(view.title).toBe('Update from Salsa Tuesdays');
+		expect(view.from).toBe('Salsa Tuesdays');
+		expect(syncView(db, 'u1', 'figure', T)!.from).toBeUndefined();
 		expect(view.targets.map((t) => t.id)).toEqual([F2]);
 		expect(view.members.map((m) => [m.id, m.label])).toEqual([
 			[F2, 'Yours'],

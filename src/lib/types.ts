@@ -1182,6 +1182,8 @@ export type SyncView = {
 	rows: MergeRow[];
 	targets: { id: number; label: string; role: string; seen: string; ticked: boolean }[];
 	mode: 'sync' | 'update';
+	/** Update mine: the club the sheet reads from ("Update from Sreda 17:30"); absent in sync mode. */
+	from?: string;
 	/** Every copy shown, with its digest: `syncAll` refuses when one not ticked changed since. */
 	members: { id: number; label: string; seen: string }[];
 };

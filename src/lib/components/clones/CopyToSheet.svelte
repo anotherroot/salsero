@@ -10,7 +10,7 @@
 	import {
 		ALREADY_THERE,
 		CANCEL,
-		COMPARE_FAILED,
+		LOAD_FAILED,
 		CONTINUE,
 		COPY_FAILED,
 		RESTORE,
@@ -199,7 +199,7 @@
 		{#if here}
 			<Banner kind="info">{existingNote(target.place, here.archived)}</Banner>
 		{:else if failed}
-			<Banner kind="error">{COMPARE_FAILED}</Banner>
+			<Banner kind="error">{LOAD_FAILED}</Banner>
 		{:else if !plan}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}

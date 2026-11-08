@@ -47,6 +47,21 @@ def _sync_done(p):
     p.wait_for_timeout(1500)
 
 
+def _sync_partial(p):
+    # Copies refused one by one: a second tab syncs first, so every copy the first tab's sheet
+    # shows has changed since; its Sync lands nowhere, and the sheet names each copy with why.
+    _sync(p)
+    other = p.context.new_page()
+    other.goto(p.url)
+    other.wait_for_load_state("networkidle")
+    _sync(other)
+    other.locator("dialog[open]").get_by_role("button", name="Sync 3 copies").click()
+    other.wait_for_selector("dialog[open]", state="detached")
+    other.close()
+    p.locator("dialog[open]").get_by_role("button", name="Sync 3 copies").click()
+    p.wait_for_timeout(2500)
+
+
 def _keep_toggled(p):
     # Turn Sections and points on, then Back: the line under the list follows.
     _keep(p)
@@ -67,6 +82,7 @@ SCENES = {
     "sync-sheet-end": Scene("/{dance}/figures/{mergefig}", act=_sync_end),
     # Not shot for the look: these press the buttons, so run them alone, each on a fresh db copy.
     "sync-done": Scene("/{dance}/figures/{mergefig}", act=_sync_done),
+    "sync-partial": Scene("/{dance}/figures/{mergefig}", act=_sync_partial),
     "sync-keep-toggled": Scene("/{dance}/figures/{mergefig}", act=_keep_toggled),
     "sync-versions": Scene("/{dance}/figures/{mergefig}", act=_versions),
     "sync-keep": Scene("/{dance}/figures/{mergefig}", act=_keep),

@@ -331,3 +331,25 @@ export function postPicks(
 	}
 	return out;
 }
+
+/** Update mine when the club has nothing the reader's copy lacks: "Nothing new from Sreda 17:30". */
+export function nothingNew(place: string): string {
+	return `Nothing new from ${place}`;
+}
+
+/** Whether Update mine has anything to bring: a change, a row to pick, or a box. */
+export function pullable(rows: SheetRow[]): boolean {
+	return rows.some((r) => r.kind !== 'stays');
+}
+
+/** What the sheet says beside its rows: a refusal of the whole (and whether it was stale), and the copies a Sync did not land on. */
+export type SheetNotes = { refused: string | null; stale: boolean; missed: string[] };
+
+/**
+ * The notes when the sheet loads: a fresh open and Load again start clean; the
+ * reload after a Sync that landed on some copies keeps the ones it did not
+ * land on, with why, or the person never sees them.
+ */
+export function notesOnLoad(prev: SheetNotes, why: 'open' | 'again' | 'after-sync'): SheetNotes {
+	return { refused: null, stale: false, missed: why === 'after-sync' ? prev.missed : [] };
+}

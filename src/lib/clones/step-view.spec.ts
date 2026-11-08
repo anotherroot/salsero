@@ -8,6 +8,9 @@ import {
 	holdersLine,
 	keepLine,
 	noticeLine,
+	notesOnLoad,
+	nothingNew,
+	pullable,
 	partFrom,
 	shortText,
 	openKeys,
@@ -21,6 +24,7 @@ import {
 	updateSub
 } from './step-view';
 import type { MergeRow, StepLine, SyncView } from '$lib/types';
+import type { SheetRow } from './step-view';
 
 const line = (l: Partial<StepLine>): StepLine => ({
 	id: 2,
@@ -341,5 +345,39 @@ describe('tilesFrom: long values that share their start', () => {
 		const at = partFrom([`${shared}one`, `${shared}two`]);
 		expect(at).toBeGreaterThan(0);
 		expect(shortText(`${shared}one`, at)).toMatch(/^…(word )+one$/);
+	});
+});
+
+describe('Update mine with nothing to pull', () => {
+	it('says so, and nothing is pullable when only the reader’s own change differs', () => {
+		expect(nothingNew('Sreda 17:30')).toBe('Nothing new from Sreda 17:30');
+		expect(pullable([{ kind: 'stays', key: 'notes', label: 'Notes' }])).toBe(false);
+		expect(pullable([])).toBe(false);
+		expect(pullable([{ kind: 'change', key: 'timing', label: 'Timing', text: '8 → 16' }])).toBe(
+			true
+		);
+		const box = { kind: 'box', key: 'k', label: 'L', by: null, text: 't', on: 'h', off: null };
+		expect(pullable([box as SheetRow])).toBe(true);
+	});
+});
+
+describe('notesOnLoad: what the sheet still says when it loads again', () => {
+	const after = {
+		refused: 'Changed since you opened Sync.',
+		stale: true,
+		missed: ['Sreda 17:30: no room']
+	};
+	it('a fresh open says nothing', () => {
+		expect(notesOnLoad(after, 'open')).toEqual({ refused: null, stale: false, missed: [] });
+	});
+	it('Load again clears the refusal it answered', () => {
+		expect(notesOnLoad(after, 'again')).toEqual({ refused: null, stale: false, missed: [] });
+	});
+	it('the reload after a partial Sync keeps the copies it did not land on', () => {
+		expect(notesOnLoad({ ...after, refused: null, stale: false }, 'after-sync')).toEqual({
+			refused: null,
+			stale: false,
+			missed: ['Sreda 17:30: no room']
+		});
 	});
 });

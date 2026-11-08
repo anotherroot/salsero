@@ -105,7 +105,11 @@
 	</div>
 	<VersionsSheet
 		open={listing}
-		onclose={() => (listing = false)}
+		onclose={() => {
+			// Keep in step is a level of the list: closed with it, whichever way it closes.
+			listing = false;
+			keeping = false;
+		}}
 		{lines}
 		{title}
 		{kind}
