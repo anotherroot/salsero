@@ -52,16 +52,8 @@ export const songs = {
 		section: {
 			/** A section with no name yet. */
 			unnamed: 'Section',
-			/** The section sheet's name chips, by `SECTION_KEYS`. */
-			names: {
-				intro: 'Intro',
-				verse: 'Verse',
-				coro: 'Coro',
-				montuno: 'Montuno',
-				mambo: 'Mambo',
-				break: 'Break',
-				outro: 'Outro'
-			}
+			/** The section sheet's name chips. A function: the dance's words (Coro, Mambo) are the same in both languages. */
+			chips: (): string[] => ['Intro', 'Verse', 'Coro', 'Montuno', 'Mambo', 'Break', 'Outro']
 		},
 		/** What comes next, under the count. */
 		ahead: {

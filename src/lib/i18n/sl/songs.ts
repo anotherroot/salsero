@@ -47,15 +47,7 @@ export const songs: Catalog['songs'] = {
 	page: {
 		section: {
 			unnamed: 'Del',
-			names: {
-				intro: 'Uvod',
-				verse: 'Kitica',
-				coro: 'Coro',
-				montuno: 'Montuno',
-				mambo: 'Mambo',
-				break: 'Break',
-				outro: 'Zaključek'
-			}
+			chips: () => ['Uvod', 'Kitica', 'Coro', 'Montuno', 'Mambo', 'Break', 'Zaključek']
 		},
 		// čez + accusative: 1 osmico, 2 osmici, 3 osmice, 5 osmic; 1 dobo, 2 dobi, 3 dobe, 5 dob.
 		ahead: {

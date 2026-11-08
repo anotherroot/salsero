@@ -51,17 +51,6 @@ export function sectionsJson(list: Section[]): string {
 	);
 }
 
-export const SECTION_KEYS = [
-	'intro',
-	'verse',
-	'coro',
-	'montuno',
-	'mambo',
-	'break',
-	'outro'
-] as const;
-export type SectionKey = (typeof SECTION_KEYS)[number];
-
 /** A section as drawn: on a 1 of the current count. `index` is its place in the stored list. */
 export interface Placed extends Section {
 	index: number;
