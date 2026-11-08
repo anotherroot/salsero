@@ -71,13 +71,21 @@ describe('DrillRecordings', () => {
 		expect(body).toContain('data-focus="section-9"');
 	});
 
-	it('shows a refused link of a section, as it shows an unlink and a removal', () => {
-		for (const action of ['linkSection', 'unlinkSection', 'deleteLink']) {
+	it('shows a refused unlink and removal; a section’s link refuses in its own picker', () => {
+		for (const action of ['unlinkSection', 'deleteLink']) {
 			form.current = { action, message: `Refused ${action}` };
 			expect(drawn()).toContain(`Refused ${action}`);
 		}
-		form.current = { action: 'update', message: 'Not mine' };
-		expect(drawn()).not.toContain('Not mine');
+		for (const action of ['linkSection', 'update']) {
+			form.current = { action, message: `Not here ${action}` };
+			expect(drawn()).not.toContain(`Not here ${action}`);
+		}
 		form.current = null;
+	});
+
+	it('while editing, the card’s last removal falls back to what the page names (`after`)', () => {
+		// The fallback is the page's; the card draws nothing of its own for it.
+		const body = drawn({ editing: true, after: ['exercise-archive', 'exercise-settings'] });
+		expect(body).not.toContain('data-focus="recordings-add"');
 	});
 });

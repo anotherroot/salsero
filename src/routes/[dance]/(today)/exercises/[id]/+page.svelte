@@ -116,6 +116,8 @@
 	async function saveNow(): Promise<void> {
 		if (saving) return;
 		saving = true;
+		/** The exercise this save is for: an answer landing after another one opened acts on nothing. */
+		const at = pageId;
 		try {
 			// `act` reloads the page's data itself.
 			const result = await act('done', {
@@ -124,11 +126,12 @@
 				run: run?.playerJson ?? '',
 				rating: ''
 			});
+			if (pageId !== at) return;
 			const refused = refusalMessage(result, t().exercise.log.didNotSave);
 			if (refused !== null) say(refused);
 			else if (result.type === 'success') saved(result.data as unknown as DoneResult);
 		} finally {
-			saving = false;
+			if (pageId === at) saving = false;
 		}
 	}
 
@@ -208,7 +211,8 @@
 			? {
 					label: title,
 					linkable: data.linkable,
-					message: failure('addLink') ?? failure('linkSection'),
+					// Add a link's own; a section's link refuses in its picker.
+					message: failure('addLink'),
 					entered: form && 'urls' in form ? String(form.urls) : ''
 				}
 			: null
@@ -247,6 +251,8 @@
 	const days = $derived(historyRows(data.history, timezone, data.today));
 	/** The history row whose sheet is open (kept while the sheet closes). */
 	let openDay = $state<HistoryDay | null>(null);
+	/** The history's rows as focus keys, taken when a day's sheet opens: its delete refreshes them away. */
+	let dayKeys: string[] = [];
 	let dayOpen = $state(false);
 
 	// --- Edit mode: the settings behind the band's pencil, one Save pinned.
@@ -302,11 +308,10 @@
 	/** Delete this day landed: the sheet closes, the toast offers Undo, focus goes to the next day. */
 	function dayDeleted(snapshots: string, label: string) {
 		const gone = openDay ? `history-${openDay.day}` : null;
-		const keys = days.map((d) => `history-${d.day}`);
 		dayOpen = false;
 		undoSnapshots = snapshots || null;
 		say(t().exercise.page.dayDeleted(label), undoSnapshots ? t().common.undo : undefined);
-		if (gone) void focusAfterRemoval(keys, gone, 'exercise-done');
+		if (gone) void focusAfterRemoval(dayKeys, gone, 'exercise-done');
 	}
 
 	async function undo() {
@@ -345,6 +350,7 @@
 			dayOpen = false;
 			run = null;
 			playing = false;
+			saving = false;
 			clock.restart();
 		});
 	});
@@ -369,7 +375,8 @@
 
 {#snippet practice()}
 	{#if Practice && data.canLog}
-		{#key practiceKey}
+		<!-- Another exercise opened in the page (desktop) or a save: a fresh panel, nothing of the last one carried over. -->
+		{#key `${pageId}:${practiceKey}`}
 			<Practice
 				dance={data.dance}
 				exercise={data.exercise}
@@ -434,7 +441,9 @@
 	{/if}
 	{#if editing}
 		<section class="flex flex-col gap-2 desk:min-w-0">
-			<h2 class={SECTION_LABEL}>{t().exercise.page.settings}</h2>
+			<h2 class={SECTION_LABEL} data-focus="exercise-settings" tabindex="-1">
+				{t().exercise.page.settings}
+			</h2>
 			<form
 				id="exercise-settings"
 				method="POST"
@@ -520,7 +529,7 @@
 					canEdit={data.canEditContent}
 					editing
 					recordings={null}
-					after={ownsItself ? 'exercise-archive' : null}
+					after={['exercise-archive', 'exercise-settings']}
 				/>
 			{/if}
 			{#if ownsItself}
@@ -672,6 +681,7 @@
 									class="flex min-h-14 w-full cursor-pointer flex-col justify-center gap-0.5 px-4 py-2.5 text-left"
 									onclick={() => {
 										openDay = d;
+										dayKeys = days.map((x) => `history-${x.day}`);
 										dayOpen = true;
 									}}
 								>
