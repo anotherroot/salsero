@@ -91,6 +91,11 @@ export interface SongItem {
 	/** Widened to plain text: validated against `DANCES[dance].styles`, not the vestigial `Style` enum. */
 	style: string;
 	sourceUrl: string | null;
+	/** The person's link for the audio (Use another YouTube link); null = `sourceUrl`. */
+	audioUrl: string | null;
+	/** What the worker downloaded: the "Audio from" card. */
+	fetchedUrl: string | null;
+	fetchedTitle: string | null;
 	status: SongStatus;
 	error: string | null;
 	durationS: number | null;

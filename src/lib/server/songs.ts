@@ -171,6 +171,9 @@ function songItem(s: Song, recent: number[]): SongItem {
 		artist: s.artist,
 		style: s.style,
 		sourceUrl: s.sourceUrl,
+		audioUrl: s.audioUrl,
+		fetchedUrl: s.fetchedUrl,
+		fetchedTitle: s.fetchedTitle,
 		status: s.status,
 		error: s.error,
 		durationS: s.durationS,
@@ -496,7 +499,7 @@ export function claimJob(db: Db, now: number): Job | null {
 		return {
 			id: next.id,
 			kind: next.status === 'waiting_download' ? 'download' : 'analyze',
-			url: next.status === 'waiting_download' ? next.sourceUrl : null
+			url: next.status === 'waiting_download' ? (next.audioUrl ?? next.sourceUrl) : null
 		};
 	});
 }
@@ -505,7 +508,10 @@ export function claimJob(db: Db, now: number): Job | null {
  * The worker downloaded the audio. Release the lease and move on to analysis;
  * the worker claims the analysis job next, normally straight away.
  * Only a song still waiting for its download takes audio this way; anything
- * else is left untouched and gives false.
+ * else is left untouched and gives `{ ok: false }`. A song whose audio is
+ * being swapped (Use another YouTube link) still holds its old file:
+ * `replaced` names it, for the caller to unlink once this has landed.
+ * The artist fills only an empty one, as the title does.
  */
 export function storeFetchedAudio(
 	db: Db,
@@ -514,13 +520,16 @@ export function storeFetchedAudio(
 		file: string;
 		mime: string;
 		title: string | null;
+		artist?: string | null;
+		fetchedUrl?: string | null;
+		fetchedTitle?: string | null;
 		durationS: number | null;
 		sizeBytes?: number;
 	}
-): boolean {
+): { ok: true; replaced: string | null } | { ok: false } {
 	const song = getSong(db, id);
-	if (!song || song.status !== 'waiting_download') return false;
-	return (
+	if (!song || song.status !== 'waiting_download') return { ok: false };
+	const stored =
 		db
 			.update(songs)
 			.set({
@@ -529,13 +538,20 @@ export function storeFetchedAudio(
 				durationS: input.durationS,
 				sizeBytes: input.sizeBytes ?? null,
 				title: song.title === '' && input.title ? input.title.slice(0, 200) : song.title,
+				artist: !song.artist && input.artist ? input.artist.slice(0, 200) : song.artist,
+				fetchedUrl: input.fetchedUrl ?? null,
+				fetchedTitle: input.fetchedTitle ?? null,
 				status: 'waiting_analysis',
 				claimedAt: null,
 				error: null
 			})
 			.where(and(eq(songs.id, id), eq(songs.status, 'waiting_download')))
-			.run().changes > 0
-	);
+			.run().changes > 0;
+	if (!stored) return { ok: false };
+	return {
+		ok: true,
+		replaced: song.audioFile && song.audioFile !== input.file ? song.audioFile : null
+	};
 }
 
 export function storeAnalysis(

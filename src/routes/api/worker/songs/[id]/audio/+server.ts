@@ -80,7 +80,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		durationS: Number.isFinite(duration) && duration > 0 ? duration : null,
 		sizeBytes
 	});
-	if (!stored) {
+	if (!stored.ok) {
 		// The song moved on while the body streamed in.
 		await unlink(path).catch(() => {});
 		throw error(409, NOT_WAITING);

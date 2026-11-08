@@ -105,10 +105,10 @@ describe('songs', () => {
 			title: 'x',
 			style: 'salsa'
 		});
-		expect(storeFetchedAudio(db, up.id, audio)).toBe(false);
+		expect(storeFetchedAudio(db, up.id, audio)).toEqual({ ok: false });
 		setAnchors(db, up.id, [3]);
 		storeAnalysis(db, up.id, { beats: [0.5, 1], downbeats: [0.5], durationS: 5 });
-		expect(storeFetchedAudio(db, up.id, audio)).toBe(false);
+		expect(storeFetchedAudio(db, up.id, audio)).toEqual({ ok: false });
 		expect(getSong(db, up.id)).toMatchObject({
 			audioFile: 'x.mp3',
 			status: 'ready',
@@ -116,10 +116,62 @@ describe('songs', () => {
 		});
 
 		const s = createSongFromUrl(db, U1_SALSA, { url: URL, title: '', style: 'salsa' });
-		expect(storeFetchedAudio(db, s.id, audio)).toBe(true);
-		expect(storeFetchedAudio(db, s.id, { ...audio, file: 'again.m4a' })).toBe(false);
+		expect(storeFetchedAudio(db, s.id, audio)).toEqual({ ok: true, replaced: null });
+		expect(storeFetchedAudio(db, s.id, { ...audio, file: 'again.m4a' })).toEqual({ ok: false });
 		expect(getSong(db, s.id)?.audioFile).toBe('new.m4a');
-		expect(storeFetchedAudio(db, 999, audio)).toBe(false);
+		expect(storeFetchedAudio(db, 999, audio)).toEqual({ ok: false });
+	});
+
+	it('claim hands out the audio link before the source', () => {
+		const s = createSongFromUrl(db, U1_SALSA, { url: URL, title: '', style: 'salsa' });
+		expect(claimJob(db, T)?.url).toBe(URL);
+		failJob(db, s.id, 'x', true);
+		retrySong(db, s.id);
+		db.update(songs).set({ audioUrl: 'https://youtu.be/other' }).where(eq(songs.id, s.id)).run();
+		expect(claimJob(db, T + LEASE_MS + 1)?.url).toBe('https://youtu.be/other');
+	});
+
+	it('storeFetchedAudio fills the artist only when empty and records what was fetched', () => {
+		const a = createSongFromUrl(db, U1_SALSA, { url: URL, title: '', style: 'salsa' });
+		storeFetchedAudio(db, a.id, {
+			file: 'a.m4a',
+			mime: 'audio/mp4',
+			title: 'Cali Pachanguero',
+			artist: 'Grupo Niche',
+			fetchedUrl: 'https://www.youtube.com/watch?v=n1',
+			fetchedTitle: 'Grupo Niche - Cali Pachanguero (Audio)',
+			durationS: 312
+		});
+		expect(getSong(db, a.id)).toMatchObject({
+			artist: 'Grupo Niche',
+			fetchedUrl: 'https://www.youtube.com/watch?v=n1',
+			fetchedTitle: 'Grupo Niche - Cali Pachanguero (Audio)'
+		});
+		const b = createSongFromUrl(db, U1_SALSA, { url: URL, title: '', style: 'salsa' });
+		db.update(songs).set({ artist: 'Mine' }).where(eq(songs.id, b.id)).run();
+		storeFetchedAudio(db, b.id, {
+			file: 'b.m4a',
+			mime: 'audio/mp4',
+			title: null,
+			artist: 'Grupo Niche',
+			durationS: 1
+		});
+		expect(getSong(db, b.id)?.artist).toBe('Mine');
+	});
+
+	it("storeFetchedAudio replaces a swapped song's file", () => {
+		const s = createSongFromUrl(db, U1_SALSA, { url: URL, title: '', style: 'salsa' });
+		db.update(songs).set({ audioFile: 'old.m4a' }).where(eq(songs.id, s.id)).run();
+		expect(
+			storeFetchedAudio(db, s.id, { file: 'new.m4a', mime: 'audio/mp4', title: null, durationS: 1 })
+		).toEqual({ ok: true, replaced: 'old.m4a' });
+		expect(getSong(db, s.id)?.audioFile).toBe('new.m4a');
+	});
+
+	it('storeFetchedAudio without the new fields leaves them null', () => {
+		const s = createSongFromUrl(db, U1_SALSA, { url: URL, title: '', style: 'salsa' });
+		storeFetchedAudio(db, s.id, { file: 'n.m4a', mime: 'audio/mp4', title: 'T', durationS: 1 });
+		expect(getSong(db, s.id)).toMatchObject({ artist: null, fetchedUrl: null, fetchedTitle: null });
 	});
 
 	it('keeps a title the user typed', () => {

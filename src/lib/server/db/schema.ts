@@ -617,6 +617,11 @@ export const songs = sqliteTable(
 		sharedAt: integer('shared_at'),
 		style: text('style').notNull().default('salsa'),
 		sourceUrl: text('source_url'),
+		/** The person's link for the audio, set by Use another YouTube link; null = `source_url`. */
+		audioUrl: text('audio_url'),
+		/** What the worker downloaded, reported with the audio (the "Audio from" card). */
+		fetchedUrl: text('fetched_url'),
+		fetchedTitle: text('fetched_title'),
 		status: text('status', { enum: SONG_STATUSES }).notNull(),
 		error: text('error'),
 		attempts: integer('attempts').notNull().default(0),
