@@ -863,7 +863,7 @@ export type SyncResult =
 	| { ok: true }
 	| {
 			ok: false;
-			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed';
+			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed' | 'busy';
 			message: string;
 	  };
 

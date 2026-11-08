@@ -111,7 +111,10 @@ export type ApplyOutcome =
 			before: ChangeValues;
 			after: ChangeValues;
 	  }
-	| { ok: false; reason: 'name' | 'linked'; message: string };
+	| { ok: false; reason: 'name' | 'linked' | 'busy'; message: string };
+
+/** A copy the worker is still downloading or analysing: new audio waits for it to finish. */
+const BUSY = 'This copy is still being downloaded. Try again when it is ready.';
 
 /** A refusal raised inside the apply, so its savepoint rolls back. */
 class Refused extends Error {
@@ -436,7 +439,11 @@ class Applier {
 		// cleared. Not while the worker is on this copy: it would land the old link.
 		let audioUrl = t.audioUrl;
 		const waiting = t.status === 'waiting_download' || t.status === 'waiting_analysis';
-		if (has('audio') && !waiting && t.sourceUrl !== null) {
+		// Refused, not skipped: a skip would write the snapshot as if the copy had
+		// taken it, and Sync would then offer the old audio back as the copy's change.
+		if (has('audio') && waiting && t.sourceUrl !== null)
+			throw new Refused({ ok: false, reason: 'busy', message: BUSY });
+		if (has('audio') && t.sourceUrl !== null) {
 			Object.assign(set, AUDIO_RESET, { audioUrl: g.audioUrl });
 			audioUrl = g.audioUrl;
 			this.changed('audioUrl', t.audioUrl, g.audioUrl);

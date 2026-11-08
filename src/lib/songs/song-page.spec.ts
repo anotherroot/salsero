@@ -148,4 +148,16 @@ describe('sourceRows', () => {
 			sourceRows({ ...base, sourceUrl: null, audioUrl: null, fetchedUrl: null, fetchedTitle: null })
 		).toEqual([]);
 	});
+
+	it('never draws a link that is not a web link', () => {
+		expect(
+			sourceRows({
+				...base,
+				sourceUrl: SP,
+				audioUrl: null,
+				fetchedUrl: 'javascript:alert(1)',
+				fetchedTitle: 'x'
+			})
+		).toEqual([expect.objectContaining({ kind: 'spotify' })]);
+	});
 });

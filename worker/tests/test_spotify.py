@@ -63,3 +63,24 @@ def test_a_link_that_is_not_a_track_fails_for_good():
 )
 def test_is_spotify_track(url, expected):
     assert spotify.is_spotify_track(url) is expected
+
+
+@pytest.mark.parametrize("code", [400, 404])
+def test_a_track_spotify_does_not_have_fails_for_good(code):
+    import urllib.error
+
+    def urlopen(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, code, "Not Found", {}, None)
+
+    with pytest.raises(PermanentError):
+        spotify.read_track(f"https://open.spotify.com/track/{TRACK}", urlopen=urlopen)
+
+
+def test_a_server_error_at_spotify_is_tried_again():
+    import urllib.error
+
+    def urlopen(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 503, "Unavailable", {}, None)
+
+    with pytest.raises(urllib.error.HTTPError):
+        spotify.read_track(f"https://open.spotify.com/track/{TRACK}", urlopen=urlopen)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -72,8 +73,14 @@ def read_track(url: str, urlopen=urllib.request.urlopen) -> Track:
     req = urllib.request.Request(
         f"https://open.spotify.com/embed/track/{track_id}", headers={"User-Agent": BROWSER_UA}
     )
-    with urlopen(req, timeout=20) as r:
-        html = r.read().decode("utf-8", "replace")
+    try:
+        with urlopen(req, timeout=20) as r:
+            html = r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        # No such track (removed, mistyped): no retry will find it. A 5xx or 429 is tried again.
+        if e.code in (400, 404):
+            raise PermanentError("Spotify has no song at this link.") from e
+        raise
     m = NEXT_DATA.search(html)
     if not m:
         raise PermanentError("Spotify gave no song for this link.")

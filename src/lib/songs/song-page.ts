@@ -102,6 +102,11 @@ export function songSteps(
 	];
 }
 
+/** Only http(s) is ever drawn as a link: the worker's report is not trusted to be one. */
+function isWebLink(url: string): boolean {
+	return /^https?:\/\//i.test(url);
+}
+
 /** A row of the "Audio from" card: where the song came from, and the video it plays. */
 export type SourceRow = { kind: 'spotify' | 'youtube'; href: string; title: string; meta: string };
 
@@ -128,7 +133,7 @@ export function sourceRows(song: {
 		song.audioUrl ??
 		song.fetchedUrl ??
 		(sourceOf(song.sourceUrl) === 'youtube' ? song.sourceUrl : null);
-	if (video)
+	if (video && isWebLink(video))
 		rows.push({
 			kind: 'youtube',
 			href: video,

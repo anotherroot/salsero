@@ -3,9 +3,12 @@
  * another YouTube link downloads). The flow's own walk (`flowOnward`) without
  * writing: copies that pair with one already reached, live, switched on,
  * writable by the flow, and on the same audio now (a copy on other audio is
- * not in step on it). The `audio` key is `always`, so every option lets it go.
+ * not in step on it), and not one the worker is on (the flow refuses it). The
+ * `audio` key is `always`, so every option lets it go.
  */
+import { eq } from 'drizzle-orm';
 import type { Db } from '../db';
+import { songs } from '../db/schema';
 import { familyRows, geneOf } from './genes';
 import { pairBase } from './pairs';
 import { syncSettingsOf } from './sync-settings';
@@ -28,6 +31,9 @@ export function audioReach(db: Db, actorId: string, songId: number): number {
 			if (!syncSettingsOf(db, 'song', y.id).on) continue;
 			if (writerFor(db, actorId, 'song', y, from) === null) continue;
 			if (audio(y.id) !== mine) continue;
+			// The flow refuses a copy the worker is on (`songRoots`): it is not reached.
+			const s = db.select({ status: songs.status }).from(songs).where(eq(songs.id, y.id)).get();
+			if (s?.status === 'waiting_download' || s?.status === 'waiting_analysis') continue;
 			reached.add(y.id);
 			queue.push(y.id);
 		}

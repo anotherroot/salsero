@@ -42,3 +42,20 @@ def test_nothing_near_the_length_still_gives_the_best():
 
 def test_no_results_give_none():
     assert best(NICHE, []) is None
+
+
+def test_a_result_longer_than_a_song_can_be_never_wins():
+    mix = c("Cali Pachanguero (1 hour mix)", "Grupo Niche - Topic", 3600.0)
+    song = c("Cali Pachanguero", "Fan", 330.0)
+    assert best(NICHE, [mix, song]) == song
+
+
+def test_a_result_with_no_length_counts_as_far_off():
+    # Without the rule the Topic upload of unknown length would win on channel alone.
+    unknown = c("Cali Pachanguero", "Grupo Niche - Topic", None)
+    near = c("Cali Pachanguero", "Fan", 322.0)
+    assert best(NICHE, [unknown, near]) == near
+
+
+def test_only_results_too_long_give_none():
+    assert best(NICHE, [c("Mix", "X", 4000.0)]) is None

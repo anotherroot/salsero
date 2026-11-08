@@ -48,9 +48,13 @@ def _has(text: str, phrase: str) -> bool:
 def score(track: Track, c: Candidate) -> float:
     title, channel, want = fold(c.title), fold(c.channel), fold(track.title)
     s = 0.0
-    if track.duration_s is not None and c.duration_s is not None:
-        off = abs(track.duration_s - c.duration_s)
-        s += LENGTH_CLOSE if off <= LENGTH_CLOSE_S else LENGTH_NEAR if off <= LENGTH_NEAR_S else LENGTH_FAR
+    if track.duration_s is not None:
+        # No length (a stream, some flat entries) is as good as a wrong one.
+        off = abs(track.duration_s - c.duration_s) if c.duration_s is not None else None
+        if off is None:
+            s += LENGTH_FAR
+        else:
+            s += LENGTH_CLOSE if off <= LENGTH_CLOSE_S else LENGTH_NEAR if off <= LENGTH_NEAR_S else LENGTH_FAR
     if channel.endswith(" - topic"):
         s += TOPIC
     if _has(title, "official audio") or _has(title, "audio"):
@@ -67,7 +71,12 @@ def score(track: Track, c: Candidate) -> float:
 
 
 def best(track: Track, cands: list[Candidate]) -> Candidate | None:
-    """The highest score; the first of equals. None only when there are no results."""
-    if not cands:
+    """The highest score; the first of equals. A result longer than a song may be
+    (an hour's mix) never wins: the download would refuse it after the pick.
+    None when nothing is left."""
+    from .media import MAX_DURATION_S  # media imports this module
+
+    fits = [c for c in cands if c.duration_s is None or c.duration_s <= MAX_DURATION_S]
+    if not fits:
         return None
-    return max(cands, key=lambda c: score(track, c))
+    return max(fits, key=lambda c: score(track, c))

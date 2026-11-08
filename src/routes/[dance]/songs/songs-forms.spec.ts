@@ -516,7 +516,8 @@ describe('Use another YouTube link', () => {
 			post('salsa', { audioUrl: 'https://youtu.be/Fd8nEwF3hHk' }, String(song.id), { group: '1' })
 		);
 		// A missing `seen` is refused as Song details' is (400), never a quiet overwrite.
-		expect(res).toMatchObject({ status: 400 });
+		// It names the field, so Song details shows it under Another YouTube link.
+		expect(res).toMatchObject({ status: 400, data: { field: 'audioUrl' } });
 		expect(getSong(db, song.id)?.audioUrl).toBeNull();
 	});
 });

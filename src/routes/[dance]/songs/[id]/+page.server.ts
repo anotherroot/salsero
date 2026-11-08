@@ -263,11 +263,16 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 
 	/** Use another YouTube link: the song downloads again from it (and its copies kept in step). */
 	audio: async (event) => {
-		const sentOf = (form: FormData) => ({ audioUrl: String(form.get('audioUrl') ?? '') });
+		// Every refusal, the clash check's too, names the field: Song details shows it there.
+		const sentOf = (form: FormData) => ({
+			field: 'audioUrl' as const,
+			audioUrl: String(form.get('audioUrl') ?? '')
+		});
 		const { db, song, space, form, now, refused } = await editing(event, sentOf);
 		if (refused) return refused;
 		const words = t().songs.audio;
-		const audioUrl = sentOf(form).audioUrl.trim();
+		const { audioUrl: typed } = sentOf(form);
+		const audioUrl = typed.trim();
 		const refuse = (status: number, message: string) =>
 			fail(status, { field: 'audioUrl' as const, message, audioUrl });
 		if (!isYouTubeVideo(audioUrl)) return refuse(400, words.notYouTube);

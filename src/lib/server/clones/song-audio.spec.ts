@@ -24,7 +24,7 @@ import { diff } from '$lib/clones/diff';
 import { cloneInto } from './clone';
 import type { CloneFiles } from './files';
 import { flatOf } from './trees';
-import { hashValue } from './pairs';
+import { hashValue, pairBase } from './pairs';
 import { setSyncSettings } from './sync-settings';
 import { flowFrom } from './flow';
 import { audioReach } from './audio-reach';
@@ -138,5 +138,23 @@ describe('new audio and the copies', () => {
 		// A copy already on other audio is not "in step" on it.
 		db.update(songs).set({ audioUrl: 'https://youtu.be/mine' }).where(eq(songs.id, G2s)).run();
 		expect(audioReach(db, 'u1', S)).toBe(1);
+	});
+
+	it('refuses a copy the worker is still on, so its pair still reads the swap as new', async () => {
+		db.update(songs).set({ status: 'waiting_analysis' }).where(eq(songs.id, G1s)).run();
+		expect(audioReach(db, 'u1', S)).toBe(0);
+		useAudioUrl(db, S, NEW, U1_SALSA, NOW);
+		const report = await flowFrom(db, 'u1', 'song', S, files, NOW, ROOMY);
+		expect(report.landed).not.toContain(G1s);
+		expect(report.refused).toEqual([expect.objectContaining({ id: G1s, reason: 'busy' })]);
+		expect(row(G1s).audioUrl).toBeNull();
+		// The swap is still S's change: a Sync offers G1 the new audio, never the old to S.
+		const audio = diff(
+			pairBase(db, 'song', S, G1s),
+			flatOf(db, 'song', G1s),
+			flatOf(db, 'song', S),
+			hashValue
+		).find((d) => d.key === 'audio');
+		expect(audio?.side).toBe('theirs');
 	});
 });
