@@ -23,13 +23,7 @@ import {
 	users
 } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
-import {
-	addRecording,
-	addFigureExercise,
-	archiveVariation,
-	createFigure,
-	createVariationIn
-} from '../figures';
+import { addRecording, addFigureExercise, archiveVariation, createFigure } from '../figures';
 import { archiveExercise } from '../exercises';
 import { setTeamLimit } from '../storage';
 import type { CloneFileKind, CloneFiles } from './files';
@@ -417,25 +411,5 @@ describe('a refused move leaves everything as it was', () => {
 		expect(res).toMatchObject({ ok: false, reason: 'room' });
 		expect(f.linked).toEqual([]);
 		untouched(L, [enchufla, setenta], before);
-	});
-
-	it('a name refused inside the write: rolled back, every linked file unlinked', async () => {
-		const { L, enchufla, setenta } = week3WithFiles();
-		// T1's Enchufla holds Básico and every name a copy of Ana's could take.
-		const theirs = createFigure(db, T1_SALSA, { figureName: 'Enchufla', name: 'Básico', ...shape })!
-			.group.id;
-		createVariationIn(db, theirs, { name: 'Básico (Ana)', ...shape }, 'u1');
-		for (let n = 2; n <= 9; n++)
-			createVariationIn(db, theirs, { name: `Básico (Ana ${n})`, ...shape }, 'u1');
-		const p = movePreview(db, U1_SALSA, L, 1)!;
-		const before = db.select().from(teamChanges).all().length;
-		const figuresBefore = db.select().from(figures).all().length;
-		const f = fakeFiles();
-		const res = await moveLesson(db, U1_SALSA, L, 1, defaults(p), {}, f.files, NOW, ROOMY);
-		expect(res).toMatchObject({ ok: false, reason: 'name' });
-		expect(f.linked).toHaveLength(2);
-		expect(f.unlinked).toEqual(f.linked);
-		untouched(L, [enchufla, setenta], before);
-		expect(db.select().from(figures).all()).toHaveLength(figuresBefore);
 	});
 });

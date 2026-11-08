@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fromTags } from '$lib/clones/from-tag';
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -10,6 +11,8 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import SyncCard from './SyncCard.svelte';
+	import { outOfSyncCount } from '$lib/moves/sync';
 	import PositionRow from '$lib/components/positions/PositionRow.svelte';
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import TemplatesSheet from '$lib/components/positions/TemplatesSheet.svelte';
@@ -103,7 +106,16 @@
 	});
 
 	const view = $derived(positionsView(l, filter));
-	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
+	// Two rows of one section that share a name: a copy says where it came from.
+	const tagsOf = (rows: { id: number; name: string; copiedFrom?: string | null }[]) =>
+		fromTags(rows.map((r) => ({ id: r.id, name: r.name, from: r.copiedFrom ?? null })));
+	const mineTags = $derived(tagsOf(view.rows));
+	const filtered = $derived(!!(filter.q || filter.type || filter.gaps || filter.sync));
+	const syncN = $derived(outOfSyncCount([...l.rows, ...l.groups.flatMap((g) => g.rows)]));
+	const syncHref = $derived.by(() => {
+		const qs = positionQuery(filter, { sync: filter.sync ? undefined : '1' });
+		return qs ? `${list}?${qs}` : list;
+	});
 	const styleLabel = $derived(styleLabelOf(l.styleLabel));
 	const chips = $derived(
 		positionChips(filter, {
@@ -193,6 +205,17 @@
 		<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{GROUP_NOTE}</p>
 	{/if}
 {:else}
+	<SyncCard
+		kind="position"
+		n={syncN}
+		on={!!filter.sync}
+		href={syncHref}
+		onclick={(e) => {
+			if (isList) return;
+			e.preventDefault();
+			refilter({ sync: filter.sync ? undefined : '1' }, true);
+		}}
+	/>
 	<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
 		{#if l.inGroupMode}
 			{GROUP_NOTE}
@@ -296,6 +319,7 @@
 					row={r}
 					href={positionHref(r.id)}
 					{styleLabel}
+					tag={mineTags.get(r.id)}
 					current={isOpen(r.id)}
 					picked={picked === r.id}
 				/>
@@ -310,6 +334,7 @@
 
 	<!-- Each group's positions the person may use, under a slight heading. -->
 	{#each view.groups as g (g.team.id)}
+		{@const groupTags = tagsOf(g.rows)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
 			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
 				<Icon name="people" size={16} />{groupHeading(g.team.name, g.rows.length)}
@@ -320,6 +345,7 @@
 						row={r}
 						href={positionHref(r.id)}
 						{styleLabel}
+						tag={groupTags.get(r.id)}
 						group
 						current={isOpen(r.id)}
 						picked={picked === r.id}

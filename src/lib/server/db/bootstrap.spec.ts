@@ -38,6 +38,7 @@ vi.mock('../integrity', () => ({
 vi.mock('../links', () => ({ importNoteLinks: () => {} }));
 vi.mock('../positions-move', () => ({ movePositionsToOwners: () => ({ ran: false }) }));
 vi.mock('../section-names', () => ({ nameLinkedSpots: () => ({ ran: false, named: 0 }) }));
+vi.mock('../clones/marks', () => ({ markFamilies: () => ({ ran: false, marked: 0 }) }));
 vi.mock('../storage', () => ({ backfillSongSizes: () => {} }));
 vi.mock('../trash', () => ({ startTrashPurge: m.startTrashPurge }));
 vi.mock('./index', () => ({ getDb: () => ({}) }));

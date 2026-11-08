@@ -3,31 +3,27 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { GROUP, button } from '$lib/components/ui/styles';
-	import CompareSheet from './CompareSheet.svelte';
-	import SendSheet from './SendSheet.svelte';
+	import { GROUP } from '$lib/components/ui/styles';
+	import KeepInStep from './KeepInStep.svelte';
+	import SyncNotice from './SyncNotice.svelte';
+	import SyncSheet from './SyncSheet.svelte';
 	import VersionsSheet from './VersionsSheet.svelte';
 	import { copied } from './copied.svelte';
 	import { dropped } from './dropped.svelte';
 	import { versionList, versionRow } from '$lib/clones/versions';
-	import {
-		COMPARE,
-		OPEN,
-		changedLine,
-		differsBanner,
-		reconnectedLine,
-		sourceNote
-	} from '$lib/clones/view';
+	import { OPEN, sourceNote } from '$lib/clones/view';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import type { CloneKind, CompareOffer, FamilyView, PlaceRef, Source } from '$lib/types';
+	import type { CloneKind, FamilyView, KeepView, PlaceRef, Source, StepView } from '$lib/types';
 
 	/**
 	 * Whose version (spec 2026-11-06, option D), at the top of a family page's
 	 * body: one row, "Your version · Also: Sreda 17:30 · 2 ▾", that opens the
-	 * Versions list; then, as before, the read-only note on a source's page, the
-	 * compare line and a banner per copy that differs, each with Compare. No row
-	 * with one version. Mount it wherever the page shows its versions, even with
-	 * one: it is also where the drop's landing toast and Copy to…'s toast show.
+	 * Versions list; under it the notice when the person's copies disagree
+	 * ("Your copies don't agree" · Sync, spec 2026-11-07), and the read-only
+	 * note on a source's page. The Versions list ends in Sync… and the quiet
+	 * Keep in step line, which opens its level over the list. No row with one
+	 * version. Mount it wherever the page shows its versions, even with one: it
+	 * is also where the drop's landing toast and Copy to…'s toast show.
 	 */
 	let {
 		sources,
@@ -38,8 +34,9 @@
 		self,
 		title,
 		taking = null,
-		compare = null,
-		family = null
+		family = null,
+		step = null,
+		keep = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -54,21 +51,22 @@
 		title: string;
 		/** The page's place, when it was opened from the person's copy: "Sreda 17:30’s version, read-only…". */
 		taking?: string | null;
-		compare?: CompareOffer | null;
 		family?: FamilyView | null;
+		/** Where the copies stand: the notice's lines. */
+		step?: StepView | null;
+		/** Keep in step, and how Sync opens from this row (null: no Sync). */
+		keep?: KeepView | null;
 	} = $props();
 
-	const row = $derived(versionRow({ sources, current, self, compare, family }));
+	const row = $derived(versionRow({ sources, current, self }));
 	const lines = $derived(versionList({ sources, current, family, self }));
+	const canSync = $derived(!!keep?.mode);
 	// Copy to…'s toast belongs to this page: gone with it, so it never shows on a later one.
 	$effect(() => () => copied.clear());
 
 	let listing = $state(false);
-	let sending = $state(false);
-	let comparing = $state(false);
-	/** The copy a differs banner's Compare opened. */
-	let against = $state<CompareOffer | null>(null);
-	let againstOpen = $state(false);
+	let keeping = $state(false);
+	let syncing = $state(false);
 
 	/** "Back on Sreda 17:30’s. Your copy is archived.": left by a drop for the page it opened. */
 	let landed = $state<{ id: number; message: string } | null>(null);
@@ -79,9 +77,6 @@
 		const message = dropped.take(path);
 		if (message) landed = { id: ++seq, message };
 	});
-
-	const BANNER =
-		'flex items-center gap-2.5 rounded-2xl bg-accent-soft py-2 pr-2 pl-4 text-[14px] leading-snug text-accent-text';
 </script>
 
 {#if row}
@@ -98,9 +93,7 @@
 			>
 			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span class="text-[16px] leading-tight font-bold text-ink">{row.title}</span>
-				<span class="text-[13px] {row.changed ? 'font-bold text-status' : 'text-muted'}"
-					>{row.meta}</span
-				>
+				<span class="text-[13px] text-muted">{row.meta}</span>
 			</span>
 			<span class="flex flex-none items-center gap-0.5 text-[15px] font-bold text-accent-text"
 				><span class="sr-only">Versions:</span>{row.count}<Icon
@@ -112,17 +105,29 @@
 	</div>
 	<VersionsSheet
 		open={listing}
-		onclose={() => (listing = false)}
+		onclose={() => {
+			// Keep in step is a level of the list: closed with it, whichever way it closes.
+			listing = false;
+			keeping = false;
+		}}
 		{lines}
 		{title}
 		{kind}
 		{dance}
 		{mineId}
-		onsend={family?.canSend ? () => (sending = true) : undefined}
+		onsync={canSync ? () => (syncing = true) : undefined}
+		keep={keep?.settings ?? null}
+		onkeep={keep ? () => (keeping = true) : undefined}
 	/>
+	{#if keep}
+		<KeepInStep open={listing && keeping} onclose={() => (keeping = false)} {keep} {title} />
+	{/if}
 {/if}
-{#if family?.canSend}
-	<SendSheet open={sending} onclose={() => (sending = false)} {kind} fromId={current} />
+{#if step && canSync}
+	<SyncNotice {step} pageMine={self.kind === 'mine'} onsync={() => (syncing = true)} />
+{/if}
+{#if canSync}
+	<SyncSheet open={syncing} onclose={() => (syncing = false)} {kind} id={current} />
 {/if}
 
 {#if taking}
@@ -133,54 +138,6 @@
 		<span>{sourceNote(taking)}</span>
 	</p>
 {/if}
-{#if compare}
-	<div class={BANNER}>
-		<span class="flex-none"><Icon name="refresh" size={18} /></span>
-		<span class="min-w-0 flex-1 py-1"
-			>{compare.rejoined
-				? reconnectedLine(compare.place, compare.changed.length)
-				: changedLine(compare.place, compare.changed)}</span
-		>
-		<button type="button" class={button('tertiary', 'sm')} onclick={() => (comparing = true)}
-			>{COMPARE}</button
-		>
-	</div>
-	<CompareSheet
-		open={comparing}
-		onclose={() => (comparing = false)}
-		{kind}
-		mineId={current}
-		theirsId={compare.id}
-		place={compare.place}
-	/>
-{/if}
-{#if family}
-	{#each family.banners as b (b.id)}
-		<div class={BANNER}>
-			<span class="flex-none"><Icon name="refresh" size={18} /></span>
-			<span class="min-w-0 flex-1 py-1">{differsBanner(b.place, b.changed)}</span>
-			<button
-				type="button"
-				class={button('tertiary', 'sm')}
-				onclick={() => {
-					against = b;
-					againstOpen = true;
-				}}>{COMPARE}</button
-			>
-		</div>
-	{/each}
-	{#if against}
-		<CompareSheet
-			open={againstOpen}
-			onclose={() => (againstOpen = false)}
-			{kind}
-			mineId={current}
-			theirsId={against.id}
-			place={against.place}
-		/>
-	{/if}
-{/if}
-
 <!-- One toast at a time: Copy to…'s (with Open), else the drop's landing. -->
 <Toast
 	toast={copied.toast

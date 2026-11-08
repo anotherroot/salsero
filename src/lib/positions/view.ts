@@ -163,7 +163,7 @@ export function styleLabelOf(labels: Record<string, string>): StyleLabel {
 }
 
 /** The list's filter, as the URL carries it: the search is always a string, the rest only when set. */
-export type PositionFilter = { q: string; type?: string; gaps?: '1' };
+export type PositionFilter = { q: string; type?: string; gaps?: '1'; sync?: '1' };
 
 export type PositionChip = {
 	key: string;
@@ -174,7 +174,7 @@ export type PositionChip = {
 	change: Partial<PositionFilter>;
 };
 
-const FILTER_KEYS = ['q', 'type', 'gaps'] as const;
+const FILTER_KEYS = ['q', 'type', 'gaps', 'sync'] as const;
 
 /** The query string for `filter` with `change` applied, without the `?`; `''` when nothing is set. */
 export function positionQuery(filter: PositionFilter, change: Partial<PositionFilter>): string {
@@ -217,8 +217,8 @@ export function positionChips(filter: PositionFilter, o: PositionChipsOf): Posit
 		{
 			key: 'all',
 			label: 'All',
-			on: !filter.type && !filter.gaps,
-			change: { type: undefined, gaps: undefined }
+			on: !filter.type && !filter.gaps && !filter.sync,
+			change: { type: undefined, gaps: undefined, sync: undefined }
 		},
 		...types.map((t) => ({
 			key: `type:${t}`,

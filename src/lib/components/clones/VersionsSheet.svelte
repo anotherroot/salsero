@@ -7,17 +7,20 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { memberRoute } from '$lib/clones/pages';
-	import { SEND_MINE, SEPARATE, VERSIONS } from '$lib/clones/view';
+	import { SEPARATE, VERSIONS } from '$lib/clones/view';
+	import { SYNC_MENU, keepLine } from '$lib/clones/step-view';
 	import type { VersionLine } from '$lib/clones/versions';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import type { CloneKind } from '$lib/types';
+	import type { CloneKind, SyncSettings } from '$lib/types';
 
 	/**
 	 * Versions (spec 2026-11-06): every version of the item the person can
 	 * open, what each is against this one, and the copies "Copies you can see"
 	 * listed. A version opens in place of this page, as a tab did. Separate (for
-	 * twins) and Send mine… close the list first: Separate can leave one
-	 * version, and the row with its list would go while open.
+	 * twins) and Sync… close the list first: Separate can leave one version,
+	 * and the row with its list would go while open. Under the list, one quiet
+	 * line says how this copy keeps in step (spec 2026-11-07, 4b A); it opens
+	 * Keep in step as a level over the list (`onkeep`).
 	 */
 	let {
 		open,
@@ -27,7 +30,9 @@
 		kind,
 		dance,
 		mineId,
-		onsend
+		onsync,
+		keep = null,
+		onkeep
 	}: {
 		open: boolean;
 		onclose: () => void;
@@ -38,8 +43,12 @@
 		dance: DanceSlug;
 		/** The person's own member of the family, or null. */
 		mineId: number | null;
-		/** Send mine…, when the family view offers it; called once the list has closed. */
-		onsend?: () => void;
+		/** Sync…, when the page offers it; called once the list has closed. */
+		onsync?: () => void;
+		/** This copy's Keep in step settings: the line under the list. */
+		keep?: SyncSettings | null;
+		/** The line's tap: Keep in step opens over the list. */
+		onkeep?: () => void;
 	} = $props();
 
 	function href(l: VersionLine): string {
@@ -64,7 +73,7 @@
 	size="small"
 	{open}
 	{onclose}
-	footer={onsend ? sendFooter : undefined}
+	footer={onsync ? syncFooter : undefined}
 >
 	<ul class={GROUP}>
 		{#each lines as l (l.id)}
@@ -90,6 +99,18 @@
 			</li>
 		{/each}
 	</ul>
+	{#if keep && onkeep}
+		<button
+			type="button"
+			class="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 text-left text-muted active:bg-step"
+			aria-haspopup="dialog"
+			onclick={onkeep}
+		>
+			<span class="flex-none"><Icon name="refresh" size={16} /></span>
+			<span class="min-w-0 flex-1 text-[13px] leading-snug">{keepLine(keep)}</span>
+			<span class="flex-none text-chevron"><Icon name="chevron-right" size={16} /></span>
+		</button>
+	{/if}
 	{#if twins}
 		<form
 			method="POST"
@@ -107,15 +128,15 @@
 	{/if}
 </Sheet>
 
-{#snippet sendFooter()}
+{#snippet syncFooter()}
 	<button
 		type="button"
 		class={button('secondary', 'md', true)}
 		aria-haspopup="dialog"
 		onclick={() => {
 			onclose();
-			onsend?.();
-		}}><Icon name="upload" size={20} />{SEND_MINE}</button
+			onsync?.();
+		}}><Icon name="refresh" size={20} />{SYNC_MENU}</button
 	>
 {/snippet}
 

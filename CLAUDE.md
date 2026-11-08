@@ -48,10 +48,11 @@ group's own navy look; notifications: a dot on Groups, "N new" pills and "New"
 markers, cleared by opening; class songs: a teacher shares a song with the group,
 members practise to it, a section per group in Music) and app updates (a Get the app page for friends, release-signed apps that update themselves, open pages that reload when the site changes)
 and clones and twins (a gene id and cloned-from on every copyable row; Copy
-to…, Edit makes your copy, Compare, Take, Send, Drop my copy, Detach, Move to…
+to…, Edit makes your copy, Drop my copy, Detach, Move to…
 a group; your own routines, lessons and sections use a group's things without
 copying; leaving keeps copies; Same as… shows twins as one; see
-[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and the dance split (two apps on one backend: an account belongs to one dance,
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and keeping copies in step (Keep in step: a per-copy switch with four options, so a save goes through the club's copy to the others by itself; one Sync sheet in place of Compare, Take and Send mine; a notice on the page, an out-of-sync card on the Moves lists, "Basic · Sreda 17:30" for same-named copies; see
+[`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md)) and the dance split (two apps on one backend: an account belongs to one dance,
 `salsa.anotherroot.eu` and `bachata.anotherroot.eu`, each with its own login,
 invites, admin, storage, settings and My count; see
 [`docs/superpowers/specs/2026-11-06-dance-split-design.md`](docs/superpowers/specs/2026-11-06-dance-split-design.md))
@@ -147,10 +148,16 @@ deleted), leaving and deleted groups, Make my own copy (now Make it mine), the g
 Clones and twins have theirs,
 [`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md):
 families of copies (one member per place), Compare, Take and Send with pair
-snapshots, Drop my copy, Detach, Copy to… and Move to…, using a group's things
+snapshots (replaced by Sync, below), Drop my copy, Detach, Copy to… and Move to…, using a group's things
 from your own rows, leaving and Keep, the rescue, twins, and what was decided
 while planning and building. It replaces the groups spec's reading after
 leaving and its Make my own copy.
+Keeping copies in step has its own,
+[`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
+Keep in step (the switch and its four options), the flow after a save, one Sync
+sheet and Update from a club, the notice, the Moves card, same names, two people
+at once, and what was decided while building. It replaces the clones spec's
+Compare, Take and Send and its names rule.
 Positions have theirs,
 [`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md):
 owned positions, no position fits anywhere, any number of ends, comparing by
@@ -255,6 +262,7 @@ src/lib/moves/       PURE: what the Moves lists show — figures under their mov
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
                      filter.ts is the Figures list's filter (chips, search, the entered set).
+                     sync.ts the out-of-sync card and a row's "N copies differ" (`differ` on a row).
                      segment.ts the three segments, pane.ts the empty pane's words and keeping
                      the lit row in view, routines.ts the Routines list's shape. PURE
 src/lib/positions/filter.ts  PURE: the Positions list's search, chips and gaps, from the
@@ -325,7 +333,7 @@ src/lib/server/song-links.ts  Music (spec 2026-11-05 part B): a lesson's, drill'
                      suggested songs with notes (`song_links`): `listMusic` (what a viewer may
                      play), `addMusic` (a group's draft is shared by it), `setMusicNote`,
                      `removeMusic`, `musicChoices`, `songInPlace`/`copyMusic` (copies never copy a
-                     song), and Compare/Take/Send's `musicFits`/`takeMusic`/`dropMusic`.
+                     song), and Take a recording's and Sync's `musicFits`/`takeMusic`/`dropMusic`.
                      music-form.ts is the pages' three actions; components/songs/MusicSection.svelte
                      the list, and SongPickSheet.svelte the "Pick a song" popup (SongPicker's too)
 src/lib/songs/music.ts  PURE: Music's words and "Practise to this" (`practiseHref`)
@@ -472,8 +480,12 @@ src/lib/server/trash.ts  `team_trash` (30 days, files kept) and `purgeTrash`;
 src/lib/clones/      PURE, client-safe: a member as fields (flat.ts: keys and labels per kind),
                      the three-way compare, default picks and the next snapshot (diff.ts),
                      yours in place of theirs in a view (shadow.ts), twins folded into one
-                     row (twins.ts), every clone and twin screen's words (view.ts), and
-                     Send's one rename box (rename.ts)
+                     row (twins.ts), every clone and twin screen's words (view.ts), and Keep in
+                     step: sync.ts (which changed keys may flow, by the copy's options),
+                     merge.ts (Sync's N-way merge of every copy a person reads: rows, picks,
+                     `mergeTargets`), step-view.ts (the notice's, the sheet's and the Versions
+                     line's words) and from-tag.ts ("Basic · Sreda 17:30": where a same-named
+                     copy came from, drawn, never stored)
 src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, `accessTo`,
                      `visibleMembers`), trees.ts (`flatOf`), pairs.ts (pair snapshots, `digest`
                      for `seen`), clone.ts (the copy engine: `planClone`, `cloneInto`/`cloneTx`,
@@ -486,11 +498,21 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      at boot). The actions: edit.ts (Make it mine: a reader's Edit copies the
                      group's row into their app and moves their rows and practice onto it;
                      editors' Edit edits the group's row, ruling 1), sources.ts (the source
-                     tabs, the banner, Take a recording), compare.ts and apply.ts (Compare,
-                     Take: `syncFrom`, shared with Send), send.ts, drop.ts, detach.ts,
+                     tabs, Take a recording), apply.ts (`landKeys`: land chosen keys on a copy;
+                     `syncFrom`), send.ts (the Versions list's members), drop.ts, detach.ts,
                      copy-to.ts, move.ts (Move to… a group), shadow.ts (the person's members
-                     for views). The routes' side: `take-form.ts`, `make-mine-form.ts`,
-                     `keep-form.ts`; the sheets are components/clones/
+                     for views).
+                     Keeping in step: sync-settings.ts (`clone_sync`, the switch and
+                     options per copy; not logged), marks.ts (`clone_marks`: a hash per field of
+                     what a copy held after its last save or flow; `markNow`), flow.ts (`flowFrom`:
+                     what a save changed travels hop by hop through the copies that pair, visited
+                     set, marks updated per hop), flow-hook.ts (`flowing` wraps a page's actions,
+                     `flowAfter` for flat routes; runs after the commit and never fails the save;
+                     its spec lists every save path), sync.ts (`syncView`, `syncAll`: the sheet's
+                     rows and the landing on every ticked copy, then the flow onward) and step.ts
+                     (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, from the
+                     same merge rows). The routes' side: `take-form.ts`, `make-mine-form.ts`,
+                     `keep-form.ts`, the page action `keep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
 src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
                      embeds, lesson and section links): `usableOf` (their added lessons'
                      reach, plus what their rows already point at and still read, in groups
@@ -949,8 +971,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   mine, the rescue, Keep) is tagged with that place's member of each
   position's family, the position copied there when the place has none.
   `clone_pairs` (a hash per field of what two members
-  held when last in step) is written only by a copy, Take and Send, never by
-  an ordinary save, so no save path learns of clones. A clone's file is a
+  held when last in step) is written by a copy, a Sync and a flow (Take a
+  recording too), never by a save itself; `clone_marks` (what a copy held after
+  its last save) by every save on a copy, through `flowing`/`flowAfter`, which
+  is how a save learns what it changed. `clone_sync` holds Keep in step per copy. A clone's file is a
   hard link under a new name (`CloneFiles`), linked before the write and
   unlinked when the write throws.
 - **Twins are views.** The `twins` table is a person's own "same move", read

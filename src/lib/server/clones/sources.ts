@@ -12,7 +12,7 @@
  * member never shows, and a row the person cannot read gives no tabs at all.
  */
 import { and, eq } from 'drizzle-orm';
-import type { CloneKind, CompareOffer, Member, PlaceRef, Source, TwinKind } from '$lib/types';
+import type { CloneKind, Member, PlaceRef, Source, TwinKind } from '$lib/types';
 import { diff, standing } from '$lib/clones/diff';
 import { fittingDiffs } from '../song-links';
 import { changedLabels } from '$lib/clones/view';
@@ -58,12 +58,6 @@ export type SourcesView = {
 	 * when the id is not their own member of this family.
 	 */
 	vs: number | null;
-	/**
-	 * The banner over a row the person edits, when the group's member it was
-	 * copied from changed since the two were last in step (its tab `newer` or
-	 * `differs`): "Salsa Tuesdays changed it since you took it · Compare".
-	 */
-	compare: CompareOffer | null;
 };
 
 type Twin = { id: number; place: PlaceRef; access: 'edit' | 'read' };
@@ -158,8 +152,7 @@ export function sourcesView(
 			sources: [],
 			line: { kind, self: { kind: 'mine' }, clonedFrom: null, groups: 0, twins: 0 },
 			mineId: null,
-			vs: null,
-			compare: null
+			vs: null
 		};
 	}
 	const { all, page, members, twins } = fam;
@@ -203,16 +196,6 @@ export function sourcesView(
 	const from = page.clonedFrom === null ? null : all.find((m) => m.id === page.clonedFrom);
 	const mineId = members.find((m) => m.place.kind === 'mine')?.id ?? null;
 	const asked = vs !== null && /^\d+$/.test(vs) ? Number(vs) : null;
-	// The banner: a row the person edits, copied from a group's member they still read.
-	const origin =
-		from && from.place.kind === 'team' && !from.archived && page.access === 'edit'
-			? { id: from.id, place: from.place.name }
-			: null;
-	const source = origin ? sources.find((s) => s.id === origin.id) : undefined;
-	const compare =
-		origin && source && (source.status === 'newer' || source.status === 'differs')
-			? { ...origin, changed: source.changed, ...(source.rejoined ? { rejoined: true } : {}) }
-			: null;
 	return {
 		sources: sources.length < 2 ? [] : sources,
 		line: {
@@ -226,8 +209,7 @@ export function sourcesView(
 		vs:
 			page.place.kind !== 'mine' && page.access === 'read' && asked !== null && asked === mineId
 				? asked
-				: null,
-		compare
+				: null
 	};
 }
 
@@ -340,5 +322,5 @@ export function pageSources(
 	withTwins = true
 ) {
 	const v = sourcesView(db, userId, kind, id, url.searchParams.get('vs'), withTwins);
-	return { sources: v.sources, cloneLine: v.line, mineId: v.mineId, vs: v.vs, compare: v.compare };
+	return { sources: v.sources, cloneLine: v.line, mineId: v.mineId, vs: v.vs };
 }

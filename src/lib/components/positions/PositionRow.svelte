@@ -2,6 +2,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { differLabel } from '$lib/moves/sync';
 	import { groupRowMeta, rowMeta, type StyleLabel } from '$lib/positions/view';
 	import type { PositionListRow } from '$lib/types';
 
@@ -18,7 +19,8 @@
 		styleLabel,
 		group = false,
 		current = false,
-		picked = false
+		picked = false,
+		tag
 	}: {
 		row: PositionListRow;
 		href: string;
@@ -26,8 +28,11 @@
 		group?: boolean;
 		current?: boolean;
 		picked?: boolean;
+		/** "· Sreda 17:30": where a same-named copy came from (`fromTags`). */
+		tag?: string;
 	} = $props();
 
+	const differ = $derived(differLabel(row.differ));
 	const meta = $derived(group ? null : rowMeta(row, styleLabel));
 	// Dead end and orphan are faults (danger); an island is cut off but not broken (warn).
 	const wordClass = $derived(
@@ -44,7 +49,9 @@
 >
 	<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 		<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-			<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{row.name}</span>
+			<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
+				>{row.name}{#if tag}<span class="ml-1 font-normal text-muted">{tag}</span>{/if}</span
+			>
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 			{#if row.twins}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 		</span>
@@ -55,6 +62,7 @@
 			{:else}
 				{groupRowMeta(row, styleLabel)}
 			{/if}
+			{#if differ}<span class="font-bold text-warn"> · {differ}</span>{/if}
 		</span>
 	</span>
 	<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>

@@ -199,24 +199,6 @@ describe('sourcesOf', () => {
 		const mine = await copyOf(F, { userId: 'u1', dance: 'salsa' });
 		expect(sourcesView(db, 'u1', 'figure', F, String(mine)).vs).toBeNull();
 	});
-
-	it('compare: the banner on your copy once its group’s source moved, never on the source', async () => {
-		const { F, C } = await setenta();
-		expect(sourcesView(db, 'u2', 'figure', C).compare).toBeNull();
-		db.update(figures).set({ startCount: 3 }).where(eq(figures.id, F)).run();
-		recording(F, 'second.mp4');
-		expect(sourcesView(db, 'u2', 'figure', C).compare).toEqual({
-			id: F,
-			place: 'Salsa Tuesdays',
-			changed: ['Timing', '1 recording']
-		});
-		// The group's page (u2 only reads it), and a copy only yours changed, get none.
-		expect(sourcesView(db, 'u2', 'figure', F).compare).toBeNull();
-		db.update(figures).set({ startCount: 1 }).where(eq(figures.id, F)).run();
-		db.delete(recordings).where(eq(recordings.figureId, F)).run();
-		db.update(figures).set({ notes: 'mine' }).where(eq(figures.id, C)).run();
-		expect(sourcesView(db, 'u2', 'figure', C).compare).toBeNull();
-	});
 });
 
 describe('takeRecording', () => {

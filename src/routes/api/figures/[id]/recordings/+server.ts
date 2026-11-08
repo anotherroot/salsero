@@ -15,6 +15,7 @@ import {
 	safeDecodeHeader,
 	saveStream
 } from '$lib/server/files';
+import { flowAfter } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
 /**
@@ -87,5 +88,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		{ figureId, file, mime, kind, sizeBytes: bytes, note },
 		locals.user?.id
 	);
+	// Keep in step: the variation gained a recording; the flow runs from it.
+	await flowAfter(locals.user?.id, 'figure', figureId);
 	return json(recording, { status: 201 });
 };
