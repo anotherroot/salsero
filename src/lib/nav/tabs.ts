@@ -113,7 +113,8 @@ export function tapKind(
 }
 
 /** A tab's dot: Groups while something is new there, Music while a read playlist waits to be picked. */
-export function tabDot(id: TabId, data: { groupsNew?: boolean; musicToPick?: boolean }): boolean {
+/** `data` is the page's data, as the tab bar has it: the `[dance]` layout's `groupsNew` and `musicToPick`. */
+export function tabDot(id: TabId, data: Record<string, unknown>): boolean {
 	if (id === 'groups') return !!data.groupsNew;
 	if (id === 'music') return !!data.musicToPick;
 	return false;
