@@ -42,6 +42,7 @@ import { setFigureShape } from '$lib/server/graph';
 import { addPosition } from '$lib/server/test-positions';
 import { danceable, factsOf } from '$lib/routines/page';
 import type { RowEdges } from '$lib/routines/routines';
+import { runInLocale } from '$lib/server/i18n-request';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
@@ -149,6 +150,45 @@ describe('Edit routine', () => {
 			)
 		).toEqual({ ok: true });
 		expect(getRoutine(db, r)?.name).toBe('Saturday');
+	});
+});
+
+describe('the routine page’s refusals in Slovenian', () => {
+	const sl = (action: unknown, fields: Record<string, string>) =>
+		runInLocale('sl', () => call(action, post('salsa', fields, String(r))));
+
+	it('refuses Make routine under its Name and in its banner', async () => {
+		expect(await sl(routinePage.actions.extract, { stepIds: String(a), name: ' ' })).toMatchObject({
+			status: 400,
+			data: { message: 'Vpišite ime nove kombinacije (do 200 znakov).' }
+		});
+		addChildSlot(db, other, r);
+		expect(
+			await sl(routinePage.actions.extract, { stepIds: String(a), name: 'Opener' })
+		).toMatchObject({
+			status: 400,
+			data: {
+				message:
+					'Iz teh mest ni mogoče narediti kombinacije: biti morajo sosednja in ne smejo vsebovati kombinacije, ta kombinacija pa sama ne sme biti vstavljena nikamor.'
+			}
+		});
+	});
+
+	it('refuses a nameless rename and a slot action', async () => {
+		expect(await sl(routinePage.actions.rename, { name: ' ', notes: '' })).toMatchObject({
+			status: 400,
+			data: { message: 'Vpišite ime kombinacije (do 200 znakov).' }
+		});
+		expect(
+			await sl(routinePage.actions.note, { stepId: String(a), note: 'x'.repeat(201) })
+		).toMatchObject({
+			status: 400,
+			data: { stepId: a, message: 'Opomba ima lahko največ 200 znakov.' }
+		});
+		expect(await sl(routinePage.actions.deleteMany, {})).toMatchObject({
+			status: 400,
+			data: { message: 'Teh mest ni več.' }
+		});
 	});
 });
 

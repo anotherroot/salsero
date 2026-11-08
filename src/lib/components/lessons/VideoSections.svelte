@@ -10,6 +10,7 @@
 	import { openingSteps, type LinkStep } from '$lib/video/link-steps';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { sectionMeta, spotLabel } from '$lib/video/spots';
+	import { t } from '$lib/i18n/catalog';
 	import type { Spot, SpotOwner, VideoSection } from '$lib/types';
 
 	/**
@@ -32,6 +33,7 @@
 
 	let { sections, src, owner, linking = false, unlink = false, canEdit = true }: Props = $props();
 
+	const w = $derived(t().lesson.sections);
 	let playing = $state<Spot | null>(null);
 	let linkingSpot = $state<number | null>(null);
 	/** The Link popup's levels, bottom first; empty when it is closed. */
@@ -60,11 +62,11 @@
 		tabindex="-1"
 		data-focus="sections-heading-{ownerKey}"
 	>
-		Sections · {sections.length}
+		{w.heading(sections.length)}
 	</h3>
 	{#if sections.length === 0}
 		<p class="px-4 pt-1 pb-3 text-[13px] text-muted">
-			{canEdit ? 'None yet. Open the video full screen and tap Section to mark one.' : 'None yet.'}
+			{canEdit ? w.noneEdit : w.none}
 		</p>
 	{:else}
 		<ul>
@@ -74,7 +76,7 @@
 						data-focus="section-{s.id}"
 						type="button"
 						class="flex size-11 flex-none cursor-pointer items-center justify-center"
-						aria-label="Play {spotLabel(s)}"
+						aria-label={w.play(spotLabel(s))}
 						onclick={() => (playing = asSpot(s))}
 						><span class="grid size-9 place-items-center rounded-full bg-accent text-on-accent"
 							><Icon name="play" size={18} filled /></span
@@ -107,14 +109,14 @@
 							<button
 								type="submit"
 								class={button('tertiary', 'sm')}
-								aria-label="Unlink {spotLabel(s)} from {s.links[0].label}">Unlink</button
+								aria-label={w.unlinkFrom(spotLabel(s), s.links[0].label)}>{w.unlink}</button
 							>
 						</form>
 					{:else if linking}
 						<button
 							type="button"
 							class={iconButton('bare', 'accent-text')}
-							aria-label="Link {spotLabel(s)}"
+							aria-label={w.link(spotLabel(s))}
 							onclick={() => {
 								steps = openingSteps(s.links.length);
 								linkingSpot = s.id;

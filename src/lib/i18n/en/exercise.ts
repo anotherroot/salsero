@@ -181,7 +181,15 @@ export const exercise = {
 		/** The pinned button once the exercise has today's entry. */
 		doneToday: 'Done today',
 		/** Under the Done sheet's faces: no button, a face saves. */
-		tapFace: 'Tap a face to save it'
+		tapFace: 'Tap a face to save it',
+		/** The run's place in the band: "Drill · 3 of 7 · 4:12". */
+		place: (at: number, of: number): string => `${at} of ${of}`,
+		/** The Done sheet's line in a run: "4:12 · Next: <name>". */
+		next: (name: string): string => `Next: ${name}`,
+		/** The run's pinned bar: on without saving, this run only. */
+		skip: 'Skip',
+		/** A fixed rhythm's Done in a run: saves and goes on. */
+		doneNext: 'Done · next'
 	},
 	/** What a refused log or page action says. */
 	refused: {

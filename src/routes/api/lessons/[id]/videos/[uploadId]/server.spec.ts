@@ -18,6 +18,7 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { createLesson, getLesson } from '$lib/server/lessons';
 import { U1_SALSA } from '$lib/server/test-walls';
+import { runInLocale } from '$lib/server/i18n-request';
 import { PUT } from './+server';
 
 const UPLOAD = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -69,5 +70,29 @@ describe('a finished upload asked about again', () => {
 		expect(again.status).toBe(201);
 		expect((await again.json()).id).toBe(row.id);
 		expect(getLesson(db, lessonId, 'u1')!.videos).toHaveLength(1);
+	});
+});
+
+describe('the refusals the upload card shows, in Slovenian', () => {
+	it('a file that is not a video, and a lesson that is not there', async () => {
+		const request = new Request('http://localhost/', {
+			method: 'PUT',
+			headers: { 'content-type': 'image/png', 'content-range': 'bytes 0-3/4' },
+			body: new Blob([new Uint8Array(4)])
+		});
+		const send = (id: number) =>
+			runInLocale('sl', () =>
+				PUT({
+					params: { id: String(id), uploadId: UPLOAD },
+					request: request.clone(),
+					locals: { user: { id: 'u1' } }
+				} as unknown as Parameters<typeof PUT>[0])
+			);
+		const notVideo = await send(lessonId);
+		expect(notVideo.status).toBe(415);
+		expect(await notVideo.json()).toEqual({ message: 'V lekcijo lahko dodate le videe.' });
+		const missing = await send(lessonId + 99);
+		expect(missing.status).toBe(404);
+		expect(await missing.json()).toEqual({ message: 'Te lekcije ni.' });
 	});
 });

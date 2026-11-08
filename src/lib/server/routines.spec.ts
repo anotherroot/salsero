@@ -38,6 +38,7 @@ import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import { NO_FILES, T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { createTeam, joinTeam } from './teams';
+import { withLocale } from '$lib/i18n/current';
 import { leaveTeam } from './membership';
 import { createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
 import { addLesson } from './entries';
@@ -535,6 +536,16 @@ describe('duplicateRoutine', () => {
 	it('is null for a routine that does not exist', () => {
 		const db = openDb(':memory:');
 		expect(duplicateRoutine(db, 999)).toBeNull();
+	});
+
+	it('names the copy in the acting person’s language', () => {
+		const db = openDb(':memory:');
+		const src = createRoutine(db, U1_SALSA, { name: 'Combo', notes: null }).routine;
+		const sl = withLocale('sl', () => duplicateRoutine(db, src.id))!;
+		expect(sl.name).toBe('Combo (kopija)');
+		const ex = db.select().from(exercises).where(eq(exercises.routineId, sl.id)).get();
+		expect(ex?.name).toBe('Combo (kopija)');
+		expect(withLocale('en', () => duplicateRoutine(db, src.id))!.name).toBe('Combo (copy)');
 	});
 });
 

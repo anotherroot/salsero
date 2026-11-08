@@ -4,6 +4,7 @@ import { MAX_RECORDING_LABEL } from '$lib/limits';
 import { uploadFailure } from '$lib/upload-error';
 import { track } from '$lib/unsaved/guard.svelte';
 import { holdReload } from '$lib/nav/fresh.svelte';
+import { t } from '$lib/i18n/catalog';
 
 /*
  * The song upload in flight, in a module store rather than inside a button:
@@ -57,7 +58,7 @@ export function startSongUpload(
 	if (upload.current && upload.current.error === null) return;
 
 	upload.current = { dance, name: file.name, loaded: 0, total: file.size, error: null };
-	untrack = track({ label: 'An upload', dirty: () => true, unloadOnly: true });
+	untrack = track({ label: t().shell.upload.anUpload, dirty: () => true, unloadOnly: true });
 	// A deploy waits for it too, rather than reloading the page under it.
 	unhold = holdReload();
 
@@ -85,12 +86,10 @@ export function startSongUpload(
 			return;
 		}
 		const fallback =
-			xhr.status === 413
-				? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
-				: 'Upload failed.';
+			xhr.status === 413 ? t().shell.upload.tooLarge(MAX_RECORDING_LABEL) : t().shell.upload.failed;
 		fail(uploadFailure(xhr.responseText, fallback));
 	};
-	xhr.onerror = () => fail('Upload failed — check the connection and try again.');
+	xhr.onerror = () => fail(t().shell.upload.connection);
 	xhr.send(file);
 }
 

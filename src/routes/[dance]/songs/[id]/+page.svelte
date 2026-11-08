@@ -19,6 +19,7 @@
 	import type { ToastState } from '$lib/act-toast';
 	import type { TempoFactor } from '$lib/labels';
 	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -52,6 +53,8 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	/** The page's words, in the current language. */
+	const w = $derived(t().songs.page);
 
 	let audio: HTMLAudioElement | undefined = $state();
 	let paused = $state(true);
@@ -84,7 +87,7 @@
 								{
 									key: 'history',
 									icon: 'clock' as const,
-									label: 'History',
+									label: w.history,
 									href: resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
 										dance: data.dance.slug,
 										id: String(group.id),
@@ -99,7 +102,7 @@
 								{
 									key: 'unshare',
 									icon: 'eye-off' as const,
-									label: 'Stop sharing',
+									label: w.stopSharing,
 									onclick: () => (unsharing = true)
 								}
 							]
@@ -109,7 +112,7 @@
 								{
 									key: 'delete',
 									icon: 'trash' as const,
-									label: 'Delete',
+									label: t().common.delete,
 									danger: true,
 									onclick: () => (deleting = true)
 								}
@@ -158,7 +161,7 @@
 	const usual = $derived(
 		songSubtitle({
 			artist: song.artist,
-			style: data.dance.styleLabel[song.style] ?? song.style,
+			style: styleLabelsOf(data.dance.styleLabel)[song.style] ?? song.style,
 			bpm: grid?.bpm ?? null
 		})
 	);
@@ -179,8 +182,8 @@
 
 	$effect(() => {
 		if (!song.status.startsWith('waiting')) return;
-		const t = setInterval(() => invalidateAll(), 10_000);
-		return () => clearInterval(t);
+		const timer = setInterval(() => invalidateAll(), 10_000);
+		return () => clearInterval(timer);
 	});
 
 	// `timeupdate` fires about 4 times a second; while playing, follow every
@@ -208,7 +211,7 @@
 		if (from !== null) seek(from);
 		void audio.play().catch((e) => {
 			if (!(e instanceof DOMException && e.name === 'AbortError'))
-				audioProblem ??= 'The song would not play.';
+				audioProblem ??= t().songs.page.wouldNotPlay;
 		});
 	}
 
@@ -303,7 +306,7 @@
 	});
 </script>
 
-<svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{song.title || w.untitled} · {data.dance.label}</title></svelte:head>
 
 <Screen
 	compact
@@ -318,7 +321,7 @@
 			<BackButton
 				fallback={{
 					href: resolve('/[dance]/songs', { dance: data.dance.slug }),
-					label: 'Back to Music'
+					label: t().player.backToMusic
 				}}
 			/>
 		{/if}
@@ -329,9 +332,9 @@
 		{:else if canEdit && grid}
 			<BandButton icon="edit" label={t().songs.page.edit.open} onclick={openEdit} />
 		{:else if canEdit}
-			<BandButton icon="edit" label="Song details" onclick={() => (detailsOpen = true)} />
+			<BandButton icon="edit" label={w.details} onclick={() => (detailsOpen = true)} />
 		{:else if data.makeMine}
-			<BandButton icon="edit" label="Edit song" onclick={() => (makingMine = true)} />
+			<BandButton icon="edit" label={w.editSong} onclick={() => (makingMine = true)} />
 		{/if}
 		{#if !editing && hasMenu(songOwn, offers)}
 			<BandButton
@@ -368,7 +371,7 @@
 				href={resolve(`/${data.dance.slug}/player?song=${song.id}`)}
 				class={button('secondary', 'md', true)}
 			>
-				<Icon name="play" size={18} filled />Practice with this song
+				<Icon name="play" size={18} filled />{w.practise}
 			</a>
 		{/if}
 
@@ -382,9 +385,7 @@
 			class="hidden"
 			{@attach watchMedia(`/audio/${song.audioFile}`, (p) => {
 				audioProblem =
-					p === 'missing'
-						? 'The song’s audio file is missing.'
-						: 'This browser can’t play the song’s audio.';
+					p === 'missing' ? t().songs.page.audioMissing : t().songs.page.audioUnplayable;
 			})}
 			onplay={() => {
 				stopSample();
@@ -494,7 +495,7 @@
 		{/if}
 	{:else}
 		{#if steps.length > 0}
-			<ul class={GROUP} aria-label="Progress">
+			<ul class={GROUP} aria-label={w.progress}>
 				{#each steps as step (step.title)}
 					<li class="flex min-h-14 items-center gap-3 py-2 pr-4 pl-4">
 						<span class="flex size-6 flex-none items-center justify-center">
@@ -518,21 +519,21 @@
 				{/each}
 			</ul>
 			<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
-				It runs on the laptop about once a minute while it is on. This page updates by itself.
+				{w.laptopNote}
 			</p>
 		{:else}
-			<Banner kind="error" title="This song failed">{song.error ?? 'Unknown error'}</Banner>
+			<Banner kind="error" title={w.failedTitle}>{song.error ?? w.unknownError}</Banner>
 			<form method="POST" action="?/retry" use:enhance class="flex flex-col gap-2">
 				<button type="submit" class={button('primary', 'md', true)}>
-					<Icon name="refresh" size={20} />Retry
+					<Icon name="refresh" size={20} />{t().songs.list.retry}
 				</button>
 				{#if retryRefusal}<Banner kind="error" title={retryRefusal} />{/if}
 			</form>
 			<a href={resolve(`/${data.dance.slug}/songs?add=1`)} class={button('secondary', 'md', true)}>
-				<Icon name="upload" size={20} />Upload a file instead
+				<Icon name="upload" size={20} />{w.uploadInstead}
 			</a>
 			{#if song.sourceUrl}
-				<p class="px-3 text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
+				<p class="px-3 text-center text-[13px] break-all text-muted">{w.from(song.sourceUrl)}</p>
 			{/if}
 		{/if}
 	{/if}
@@ -543,10 +544,10 @@
 	<BottomBar width="song">
 		<form method="POST" action="?/share" use:enhance class="flex flex-col gap-2">
 			<p class="flex items-center justify-center gap-2 text-[13px] text-muted">
-				<Badge tone="warn">Draft</Badge>Only the group's editors see it
+				<Badge tone="warn">{t().songs.row.draft}</Badge>{w.editorsOnly}
 			</p>
 			<button type="submit" class={button('primary', 'md', true)}>
-				<Icon name="people" size={20} />Share with the class
+				<Icon name="people" size={20} />{w.shareWithClass}
 			</button>
 		</form>
 	</BottomBar>
@@ -565,7 +566,7 @@
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (unsharing = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -576,7 +577,7 @@
 					await update();
 				}}
 		>
-			<button type="submit" class={button('primary', 'sm')}>Stop sharing</button>
+			<button type="submit" class={button('primary', 'sm')}>{w.stopSharing}</button>
 		</form>
 	{/snippet}
 </Dialog>
@@ -591,7 +592,7 @@
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -606,7 +607,7 @@
 					await update();
 				}}
 		>
-			<button type="submit" class={button('danger', 'sm')}>Delete</button>
+			<button type="submit" class={button('danger', 'sm')}>{t().common.delete}</button>
 		</form>
 	{/snippet}
 </Dialog>
@@ -635,13 +636,13 @@
 	open={archiving}
 	icon="trash"
 	tone="danger"
-	title="Archive this song?"
-	body={`${name} leaves Music and the song popup. Your history with it stays.`}
+	title={w.archiveTitle}
+	body={w.archiveBody(name)}
 	onclose={() => (archiving = false)}
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -657,7 +658,7 @@
 				};
 			}}
 		>
-			<button type="submit" class={button('danger', 'sm')}>Archive</button>
+			<button type="submit" class={button('danger', 'sm')}>{w.archive}</button>
 		</form>
 	{/snippet}
 </Dialog>

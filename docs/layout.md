@@ -18,15 +18,30 @@ src/lib/levels/      PURE, client-safe: levels.ts is the level (`'follow' | 'own
                      `simpleClass`, `autoAddOn` and the other "is this drawn" questions.
                      Components ask it, never compare level strings. first-run.ts: the
                      first run's words, refusals and where it ends (`afterJoin`, `afterSkip`)
-src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current language's catalog),
-                     `en/` the source and `sl/` typed against it, one file per area with an
-                     `index.ts` (the glossary heads `sl/index.ts`), `current.ts` (the current
+src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current language's catalog;
+                     `catalogOf(l)` for one language, as machines' English and the stale refusal
+                     in every language need), `en/` the source and `sl/` typed against it, one
+                     file per area (admin, clones, comments, common, entry, exercise, figure,
+                     format, groups, lesson, links, map, moves, nouns, picker, player,
+                     positions, refusals, routine, settings, shell, songs, today, video) with an `index.ts`
+                     (the glossary heads `sl/index.ts`). `nouns` is the counted nouns in the
+                     nominative, number included (`t().nouns.figures(3)`: "3 različice"); a count
+                     in another case is its area's own entry. `refusals` is what no area owns
+                     (missing rows, error pages, chunks, file checks). `current.ts` (the current
                      language: a `withLocale` override for specs, the server's per-request
                      source, the browser's, then English; never a server module variable),
                      `locale.ts` (`'en' | 'sl'`, the `lang` cookie, `requestLocale`), `plural.ts`
-                     (`slCount`, `slForm`). `i18n.spec.ts` checks both catalogs have the same
-                     keys; `no-english.spec.ts` lists the translated components (`TRANSLATED`)
-                     and fails on bare English in their markup (`no-english.ts`, `englishIn`)
+                     (`slCount`, `slForm`), `number.ts` (`readDecimal`: "1,5" or "1.5" typed),
+                     `lazy.ts` (`lazyWords`: an object word table kept as a constant, each key
+                     a getter read at call time). `catalog.spec.ts` checks every area: the same
+                     keys, no Slovenian string equal to the English (`ALLOWED_SAME`, with a
+                     reason), every function leaf drawing a string (`SAMPLE_ARGS`).
+                     `no-english.spec.ts` checks the markup of EVERY `.svelte` under
+                     `src/lib/components` and `src/routes` (but `src/routes/dev/`) for bare
+                     English (`no-english.ts`, `englishIn`); `EXEMPT` names the few it skips,
+                     each with its reason. `refusals-guard.spec.ts` fails on an English literal
+                     in a server refusal (`fail`, `error(4xx)`, `failJson`, `message:`) outside
+                     the machines' routes
 src/lib/server/i18n-request.ts  the server's language per request (`AsyncLocalStorage`):
                      `hooks.server.ts` wraps `resolve` in `runInLocale`
 src/lib/server/locale.ts  `users.locale` and `invites.locale` (`setLocale`, `localeOf`,
@@ -147,7 +162,9 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
-                     stopwatch, the Today session, what Today shows (today.ts: bands,
+                     stopwatch, the run's walk (session.ts: warm-ups first, then Practice to-do, then picked;
+                     run.ts: the run's URL, `parseSkip`, place and next), the hero's estimate (estimate.ts),
+                     Done for today's rows, streak and lines (done-today.ts), what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
                      tile's icon and name (tile.ts), the exercise page (exercise-page.ts), the
                      Done sheet's words and faces (done-view.ts), a day's entry (day-entry.ts:
@@ -302,7 +319,9 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 android/             the Android apps (Kotlin): one per dance as Gradle flavors, each a WebView launcher, salsa:// links, the upload
                      and reminder workers. No screens of its own. Pure parts (Links,
-                     UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
+                     UploadPlan, Reminder, Api parsing, Words) have JVM tests. `Words.kt` is its
+                     own text in English and Slovenian, by the account's language
+                     (`/api/device/config`, `Prefs.locale`), never the phone's. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
 src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
                      `spaceOf`, which every create action calls itself (the layout's copy may be old)
@@ -452,7 +471,7 @@ src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figu
                      `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
                      a pane's heading row; there is
                      no MovesScreen (the layout and the lists replace it)
-src/routes/[dance]/(today)/  one route group, one layout: the list (Start session, Due, Done today,
+src/routes/[dance]/(today)/  one route group, one layout: the list (Start, the run (`?run=1&skip=`), Done for today (`(today)/done`), Due, Done today,
                      Not yet due, Inactive; `components/today/TodayList.svelte`) beside the open
                      exercise, `(today)/+layout.svelte` and `+layout.server.ts` (list data under a
                      namespace); the list route `+page.*` and `exercises/[id]` (+ `practice`) live in
@@ -462,9 +481,12 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start sessio
                      `components/today/TodayPaneSkeleton.svelte` is the pane while data is on the
                      way. `lib/exercises/today-pane.ts` is PURE: what opens by default (`defaultOpen`),
                      and the day's totals. The pane is the exercise page's own two columns with
-                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The interim
-                     session is `?session=1` (`SessionControls` in the layout; `TodayPane
-                     { session, canSkip, notToday }` in `today-context.ts`), which plan 3 replaces.
+                     the pinned `DoneBar`; there is no log popup, `LogShell` or `frame`. The run is
+                     `?run=1&skip=` on an exercise page, nothing stored (`TodayPane.run`: place, next,
+                     Skip, the player's `from`; `TodayPane.autoOpened`: on the desktop the
+                     exercise Today opened by itself, whose clock waits for a tap: `page-clock.svelte.ts`
+                     takes `{ idle: true }` and `start()`); the Done sheet and band take `place`/`next`
+                     from `done-view.ts`.
                      `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list

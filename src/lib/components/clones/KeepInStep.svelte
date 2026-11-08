@@ -7,11 +7,11 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { CLIP } from '$lib/components/ui/styles';
 	import {
-		KEEP_FAILED,
+		keepFailed,
 		KEEP_OPTIONS,
-		KEEP_READ_ONLY,
-		KEEP_SUB,
-		KEEP_TITLE
+		keepReadOnly,
+		keepSub,
+		keepTitle
 	} from '$lib/clones/step-view';
 	import type { KeepView, SyncSettings } from '$lib/types';
 
@@ -65,7 +65,7 @@
 	const locked = $derived(!keep.editable || busy);
 </script>
 
-<Sheet title={KEEP_TITLE} sub={title} size="small" back {open} {onclose}>
+<Sheet title={keepTitle()} sub={title} size="small" back {open} {onclose}>
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
 		<form
@@ -84,7 +84,7 @@
 							s = { ...saved };
 							const data =
 								result.type === 'failure' ? (result.data as { message?: unknown }) : null;
-							refused = typeof data?.message === 'string' ? data.message : KEEP_FAILED;
+							refused = typeof data?.message === 'string' ? data.message : keepFailed();
 						}
 					} finally {
 						busy = false;
@@ -101,12 +101,12 @@
 					aria-hidden="true"><Icon name="refresh" size={22} /></span
 				>
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span class="text-[16px] leading-tight font-bold text-ink">{KEEP_TITLE}</span>
-					<span class="text-[13px] leading-snug text-muted">{KEEP_SUB}</span>
+					<span class="text-[16px] leading-tight font-bold text-ink">{keepTitle()}</span>
+					<span class="text-[13px] leading-snug text-muted">{keepSub()}</span>
 				</span>
 				<Switch
 					checked={s.on}
-					label={KEEP_TITLE}
+					label={keepTitle()}
 					disabled={locked}
 					onchange={(on) => set('on', on)}
 				/>
@@ -129,7 +129,7 @@
 			</ul>
 		</form>
 		{#if !keep.editable}
-			<p class="px-1 text-[13px] leading-snug text-muted">{KEEP_READ_ONLY}</p>
+			<p class="px-1 text-[13px] leading-snug text-muted">{keepReadOnly()}</p>
 		{/if}
 	</div>
 </Sheet>

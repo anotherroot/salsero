@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { differLabel, outOfSync, syncCard } from './sync';
 import { figureRowParts } from './list';
 import { figuresView, parseFigureFilter, type FiguresLists } from './filter';
@@ -150,5 +151,34 @@ describe('the All chips under ?sync=1', () => {
 		const all = positionChips({ q: '', sync: '1' }, o)[0];
 		expect(all.on).toBe(false);
 		expect(positionQuery({ q: '', sync: '1' }, all.change)).toBe('');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words the card, the count after a colon', () => {
+		expect(sl(() => syncCard('figure', 3))).toEqual({
+			title: 'Ni usklajeno: 3 različice',
+			meta: 'Vaše kopije in kopije skupin se ne ujemajo'
+		});
+		expect(sl(() => syncCard('routine', 1)?.title)).toBe('Ni usklajeno: 1 kombinacija');
+		expect(sl(() => syncCard('position', 5)?.title)).toBe('Ni usklajeno: 5 položajev');
+		expect(sl(() => syncCard('figure', 0, true)?.title)).toBe('Vse je usklajeno');
+	});
+
+	it('agrees the verb with the copies', () => {
+		expect(sl(() => [1, 2, 3, 5].map((n) => differLabel(n)))).toEqual([
+			'1 kopija se razlikuje',
+			'2 kopiji se razlikujeta',
+			'3 kopije se razlikujejo',
+			'5 kopij se razlikuje'
+		]);
+	});
+
+	it('words the empty filter at call time', async () => {
+		const { SYNC_EMPTY } = await import('./sync');
+		expect(sl(() => SYNC_EMPTY.title)).toBe('Vse kopije se ujemajo');
+		expect(SYNC_EMPTY.title).toBe('Every copy agrees');
 	});
 });

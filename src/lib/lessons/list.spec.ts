@@ -183,6 +183,9 @@ describe('the Lessons list in Slovenian', () => {
 		expect(v(3)).toBe('3 videi');
 		expect(v(5)).toBe('5 videov');
 		expect(v(3, true)).toBe('3 videi · 1,2 GB');
+		expect(sl(() => videoMeta({ videos: 1, videoBytes: 1.5 * 1024 ** 3 }))).toBe(
+			'1 video · 1,5 GB'
+		);
 	});
 
 	it('counts sections, routines and figures in four forms', () => {
@@ -201,6 +204,10 @@ describe('the Lessons list in Slovenian', () => {
 		);
 		expect(sl(() => emptyLessonsBody(false))).toContain('Danes');
 		expect(sl(() => emptyLessonsBody(true))).not.toContain('Danes');
+		// A group's lesson is seen by everyone in the class, not by "members".
+		expect(sl(() => emptyLessonsBody(true))).toBe(
+			'Dodajte jo po naslednji uri tečaja: videe in opombe. Vidijo jo vsi v tečaju, ko jo objavite.'
+		);
 		expect(sl(() => pickLesson().title)).toBe('Izberite lekcijo');
 	});
 });

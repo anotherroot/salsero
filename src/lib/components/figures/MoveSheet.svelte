@@ -12,6 +12,7 @@
 	import { figureRows } from '$lib/picker/build';
 	import RemoveWarning from './RemoveWarning.svelte';
 	import type { MoveTarget } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * "Move <variation> to…": a new figure of its own, or another figure of the
@@ -108,13 +109,13 @@
 	};
 </script>
 
-<Sheet title="Move “{variation}” to…" {open} {onclose}>
+<Sheet title={t().figure.moveTo.title(variation)} {open} {onclose}>
 	<form
 		id="move-form"
 		method="POST"
 		action="?/move"
 		class="flex flex-col gap-3.5"
-		use:guarded={{ label: `Moving ${variation}`, submit: closeOnMove }}
+		use:guarded={{ label: t().figure.moveTo.label(variation), submit: closeOnMove }}
 	>
 		{#if bannerError}<Banner kind="error" title={bannerError} />{/if}
 
@@ -137,13 +138,13 @@
 					aria-hidden="true"
 				></span>
 				<span class="flex min-w-0 flex-1 flex-col py-1.5">
-					<span class="text-[16px] font-semibold text-ink">A new move of its own</span>
-					<span class="text-[13px] text-muted">{variation} becomes its first figure</span>
+					<span class="text-[16px] font-semibold text-ink">{t().figure.moveTo.ownMove}</span>
+					<span class="text-[13px] text-muted">{t().figure.moveTo.ownMoveMeta(variation)}</span>
 				</span>
 			</label>
 			{#if target === 'new'}
 				<div class="pt-1.5 pb-3">
-					<label for="move-figure-name" class={LABEL}>New move’s name</label>
+					<label for="move-figure-name" class={LABEL}>{t().figure.moveTo.newName}</label>
 					<input
 						id="move-figure-name"
 						name="figureName"
@@ -164,18 +165,18 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<h3 class={SECTION_LABEL}>Or join a move</h3>
+			<h3 class={SECTION_LABEL}>{t().figure.moveTo.join}</h3>
 			{#if targets.length === 0}
-				<p class="px-4 text-[14px] text-muted">There are no other moves yet.</p>
+				<p class="px-4 text-[14px] text-muted">{t().figure.moveTo.noOthers}</p>
 			{:else}
 				<PickerField
 					name="targetPick"
-					label="Move"
-					placeholder="Choose a move…"
-					title="Join a move"
-					search="Search moves"
-					groups={[{ title: 'Moves', entries: figureRows(targets) }]}
-					nothingLeft="There are no other moves yet."
+					label={t().figure.moveTo.move}
+					placeholder={t().figure.moveTo.choose}
+					title={t().figure.moveTo.pickTitle}
+					search={t().figure.moveTo.search}
+					groups={[{ title: t().figure.moveTo.moves, entries: figureRows(targets) }]}
+					nothingLeft={t().figure.moveTo.noOthers}
 					bind:value={picked}
 				/>
 			{/if}
@@ -183,7 +184,7 @@
 
 		{#if chosen}
 			<div>
-				<label for="move-name" class={LABEL}>Name in {chosen.name}</label>
+				<label for="move-name" class={LABEL}>{t().figure.moveTo.nameIn(chosen.name)}</label>
 				<input
 					id="move-name"
 					name="name"

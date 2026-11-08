@@ -10,7 +10,8 @@ import { DANCES } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { actorOf, inSpace, wallOf, type Space } from '$lib/server/scope';
 import { groupModeOf, spaceOf } from '$lib/server/group-mode';
-import { PRESET_GONE } from '$lib/positions/view';
+import { presetGone } from '$lib/positions/view';
+import { t } from '$lib/i18n/catalog';
 import type { Db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -71,26 +72,26 @@ export const actions: Actions = {
 		if (groupId === undefined && !figureName) {
 			return fail(400, {
 				field: 'figureName' as const,
-				message: 'Give the move a name (up to 200 characters).',
+				message: t().moves.refused.moveName,
 				...typed
 			});
 		}
 		if (!name) {
 			return fail(400, {
 				field: 'name' as const,
-				message: 'Give the figure a name (up to 200 characters).',
+				message: t().moves.refused.figureName,
 				...typed
 			});
 		}
 		if (notes === undefined) {
 			return fail(400, {
 				field: 'notes' as const,
-				message: 'Notes are up to 2000 characters.',
+				message: t().moves.refused.notes,
 				...typed
 			});
 		}
 		if (!partner || !style) {
-			return fail(400, { message: 'Pick how it is danced and its style.', ...typed });
+			return fail(400, { message: t().moves.refused.partnerStyle, ...typed });
 		}
 		// New move from a position (ruling 8): its tag, written with the figure or not at all.
 		const startId = int(form, 'start');
@@ -104,12 +105,16 @@ export const actions: Actions = {
 		const move = groupId === undefined ? null : getGroup(db, groupId);
 		if (groupId !== undefined) {
 			if (!move || move.archivedAt !== null || !inSpace(move, space)) {
-				return fail(400, { field: 'figureName' as const, message: 'Pick a move.', ...typed });
+				return fail(400, {
+					field: 'figureName' as const,
+					message: t().moves.refused.pickMove,
+					...typed
+				});
 			}
 			if (variationNameTaken(db, move.id, name, null)) {
 				return fail(400, {
 					field: 'name' as const,
-					message: `${move.name} already has a figure called ${name}. Rename one first.`,
+					message: t().moves.refused.figureTaken(move.name, name),
 					...typed
 				});
 			}
@@ -136,13 +141,13 @@ export const actions: Actions = {
 		} catch (e) {
 			if (e !== refused) throw e;
 			// The position is gone or not theirs: say so; the sheet drops it.
-			return fail(400, { message: PRESET_GONE, presetGone: true as const, ...typed });
+			return fail(400, { message: presetGone(), presetGone: true as const, ...typed });
 		}
-		if (!made && move) throw error(404, 'Move not found');
+		if (!made && move) throw error(404, t().refusals.moveNotFound);
 		if (!made) {
 			return fail(400, {
 				field: 'figureName' as const,
-				message: `There's already a move called ${figureName}.`,
+				message: t().moves.refused.moveTaken(figureName ?? ''),
 				figureName,
 				name,
 				notes: notes ?? ''

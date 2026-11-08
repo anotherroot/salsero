@@ -2,14 +2,14 @@
 // chips and the panel's shared words (Play, Stop, Speed, Voice count …) are
 // `exercise.panel`'s.
 import { plural } from './plural';
+import { nouns } from './nouns';
 
 export const player = {
 	title: 'Practice',
 	/** The tab's title: "Practice · Salsa". */
 	pageTitle: (dance: string): string => `Practice · ${dance}`,
 	/** The band's subtitle over a routine: "Shines · 3 figures". */
-	routineLine: (name: string, figures: number): string =>
-		`${name} · ${plural(figures, 'figure', 'figures')}`,
+	routineLine: (name: string, figures: number): string => `${name} · ${nouns.figures(figures)}`,
 	voice: 'Voice',
 	recordOwn: 'Record your own count',
 	/** Whose voice counts: the built-in clips, or the person's own recording. */

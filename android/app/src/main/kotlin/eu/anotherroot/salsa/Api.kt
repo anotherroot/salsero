@@ -6,14 +6,18 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** `GET /api/device/config`. [reminderMinute] is a minute of the day, null = off. */
-data class Config(val reminderMinute: Int?, val shortSide: Int)
+/**
+ * `GET /api/device/config`. [reminderMinute] is a minute of the day, null = off.
+ * [locale] is the account's language (`Words`); null from an older server, read as English.
+ */
+data class Config(val reminderMinute: Int?, val shortSide: Int, val locale: String?)
 
 fun parseConfig(json: String): Config {
     val o = JSONObject(json)
     return Config(
         reminderMinute = if (o.isNull("reminderMinute")) null else o.getInt("reminderMinute"),
         shortSide = o.getInt("shortSide"),
+        locale = if (o.isNull("locale")) null else o.optString("locale"),
     )
 }
 

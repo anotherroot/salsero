@@ -18,11 +18,11 @@
  *
  * A song is the person's own: Drop archives it as the song page's Archive
  * does (`archiveSong`). A person's song has no restore, so Edit on the
- * class's song afterwards is refused with what to do (`ARCHIVED_SONG_COPY`).
+ * class's song afterwards is refused with what to do (`archivedSongCopy()`).
  */
 import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { CloneKind, DropChoice, DropOptions } from '$lib/types';
-import { changedLabels, DROP_GONE } from '$lib/clones/view';
+import { changedLabels, dropGone } from '$lib/clones/view';
 import type { Db } from '../db';
 import { exercises, lessons, songs } from '../db/schema';
 import {
@@ -295,7 +295,7 @@ export function dropCopy(
 			return { ok: true as const, toId };
 		});
 	} catch (err) {
-		if (err instanceof Gone) return { ok: false, message: DROP_GONE };
+		if (err instanceof Gone) return { ok: false, message: dropGone() };
 		throw err;
 	}
 }

@@ -35,10 +35,11 @@ let flush: () => void;
 type Clock = {
 	readonly seconds: number;
 	readonly watch: { bankedMs: number; runningSince: number | null };
-	restart(): void;
+	start(): void;
+	restart(opts?: { idle?: boolean }): void;
 	carry(watch: { bankedMs: number; runningSince: number | null }): void;
 };
-let pageClock: (carried?: { bankedMs: number; runningSince: number | null } | null) => Clock;
+let pageClock: (opts?: { idle?: boolean }) => Clock;
 let root: (setup: () => void) => () => void;
 let doc: FakeDocument;
 
@@ -67,21 +68,19 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-function mount(carried: { bankedMs: number; runningSince: number | null } | null = null): {
-	clock: Clock;
-	stop: () => void;
-} {
+function mount(opts?: { idle?: boolean }): { clock: Clock; stop: () => void } {
 	let clock!: Clock;
 	const stop = root(() => {
-		clock = pageClock(carried);
+		clock = pageClock(opts);
 	});
 	flush();
 	return { clock, stop };
 }
 
 describe('pageClock', () => {
-	it('goes on from the time a trip to the player brought back', () => {
-		const { clock, stop } = mount({ bankedMs: 600_000, runningSince: null });
+	it('goes on from the time a trip to the player brought back, idle or not', () => {
+		const { clock, stop } = mount({ idle: true });
+		clock.carry({ bankedMs: 600_000, runningSince: null });
 		expect(clock.seconds).toBe(600);
 		vi.advanceTimersByTime(5_000);
 		expect(clock.seconds).toBe(605);
@@ -167,5 +166,79 @@ describe('pageClock', () => {
 		doc.show(true);
 		expect(clock.seconds).toBeGreaterThanOrEqual(4);
 		expect(vi.getTimerCount()).toBe(0);
+	});
+});
+
+/*
+ * Idle (the desktop's exercise Today opens by itself): the page waits at 0:00
+ * until a tap or key in its pane says someone is there.
+ */
+describe('pageClock, idle', () => {
+	it('waits at 0 until start(), then counts from the start', () => {
+		const { clock, stop } = mount({ idle: true });
+		vi.advanceTimersByTime(90_000);
+		expect(clock.seconds).toBe(0);
+		clock.start();
+		vi.advanceTimersByTime(4_000);
+		expect(clock.seconds).toBe(4);
+		stop();
+	});
+
+	it('start() is idempotent', () => {
+		const { clock, stop } = mount({ idle: true });
+		clock.start();
+		vi.advanceTimersByTime(6_000);
+		clock.start();
+		expect(clock.seconds).toBe(6);
+		stop();
+	});
+
+	it('start() on a clock already counting changes nothing', () => {
+		const { clock, stop } = mount();
+		vi.advanceTimersByTime(7_000);
+		clock.start();
+		expect(clock.seconds).toBe(7);
+		stop();
+	});
+
+	it('the page hidden and shown again does not start it', () => {
+		const { clock, stop } = mount({ idle: true });
+		doc.show(false);
+		doc.show(true);
+		vi.advanceTimersByTime(30_000);
+		expect(clock.seconds).toBe(0);
+		stop();
+	});
+
+	it('started while hidden, it counts once the page shows', () => {
+		const { clock, stop } = mount({ idle: true });
+		doc.show(false);
+		clock.start();
+		vi.advanceTimersByTime(60_000);
+		expect(clock.seconds).toBe(0);
+		doc.show(true);
+		vi.advanceTimersByTime(3_000);
+		expect(clock.seconds).toBe(3);
+		stop();
+	});
+
+	it('restart({ idle: true }) goes back to 0 and waits', () => {
+		const { clock, stop } = mount();
+		vi.advanceTimersByTime(20_000);
+		clock.restart({ idle: true });
+		vi.advanceTimersByTime(20_000);
+		expect(clock.seconds).toBe(0);
+		clock.start();
+		vi.advanceTimersByTime(2_000);
+		expect(clock.seconds).toBe(2);
+		stop();
+	});
+
+	it('restart() without idle counts at once, even from idle', () => {
+		const { clock, stop } = mount({ idle: true });
+		clock.restart();
+		vi.advanceTimersByTime(5_000);
+		expect(clock.seconds).toBe(5);
+		stop();
 	});
 });

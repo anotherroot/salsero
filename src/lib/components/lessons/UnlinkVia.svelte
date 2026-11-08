@@ -4,6 +4,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import { unlinkViaBody, unlinkViaTitle } from '$lib/lessons/page';
 	import type { ViaSection } from '$lib/types';
 
@@ -40,7 +41,9 @@
 	{onclose}
 >
 	{#snippet actions()}
-		<button type="button" class={button('tertiary', 'sm')} onclick={onclose}>Cancel</button>
+		<button type="button" class={button('tertiary', 'sm')} onclick={onclose}
+			>{t().common.cancel}</button
+		>
 		<form
 			method="POST"
 			{action}
@@ -64,9 +67,9 @@
 				type="submit"
 				class={button('danger', 'sm')}
 				aria-busy={busy}
-				aria-label={busy ? 'Unlinking' : undefined}
+				aria-label={busy ? t().lesson.via.busy : undefined}
 			>
-				{#if busy}<Spinner />{:else}Unlink{/if}
+				{#if busy}<Spinner />{:else}{t().lesson.via.unlink}{/if}
 			</button>
 		</form>
 	{/snippet}

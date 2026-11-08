@@ -7,11 +7,12 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import {
-		CANCEL,
-		DETACH_BUTTON,
-		DETACH_FAILED,
-		DETACH_MINE,
-		DETACH_NO_MORE,
+		cancelLabel,
+		detachBusy,
+		detachButton,
+		detachFailed,
+		detachMine,
+		detachNoMore,
 		detachGroup,
 		detachTitle
 	} from '$lib/clones/view';
@@ -53,12 +54,12 @@
 			{#if !detach.group}
 				<li class="flex items-start gap-3">
 					<span class="mt-px flex-none text-muted"><Icon name="group" size={20} /></span>
-					<span class="min-w-0 flex-1">{DETACH_MINE}</span>
+					<span class="min-w-0 flex-1">{detachMine()}</span>
 				</li>
 			{/if}
 			<li class="flex items-start gap-3">
 				<span class="mt-px flex-none text-muted"><Icon name="refresh" size={20} /></span>
-				<span class="min-w-0 flex-1">{DETACH_NO_MORE}</span>
+				<span class="min-w-0 flex-1">{detachNoMore()}</span>
 			</li>
 		</ul>
 	</div>
@@ -80,9 +81,9 @@
 							await refreshWhenSettled();
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown } | undefined;
-							refused = typeof data?.message === 'string' ? data.message : DETACH_FAILED;
+							refused = typeof data?.message === 'string' ? data.message : detachFailed();
 						} else {
-							refused = DETACH_FAILED;
+							refused = detachFailed();
 						}
 					} finally {
 						busy = false;
@@ -91,15 +92,15 @@
 			}}
 		>
 			<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}
-				>{CANCEL}</button
+				>{cancelLabel()}</button
 			>
 			<button
 				type="submit"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Detaching' : undefined}
+				aria-label={busy ? detachBusy() : undefined}
 			>
-				{#if busy}<Spinner />{:else}{DETACH_BUTTON}{/if}
+				{#if busy}<Spinner />{:else}{detachButton()}{/if}
 			</button>
 		</form>
 	{/snippet}

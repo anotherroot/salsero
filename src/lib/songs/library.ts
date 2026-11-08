@@ -3,13 +3,14 @@
  * row. Client-safe; imports nothing from `$lib/server`.
  */
 import { clock } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
 import type { SongItem } from '$lib/types';
 import { byTitle, groupSongs, searchSongs } from './search';
 
 /** A song's name: its title, else where it came from, else a placeholder. */
 export function songName(s: { title: string; sourceUrl: string | null }): string {
-	return s.title || s.sourceUrl || 'Untitled song';
+	return s.title || s.sourceUrl || t().songs.list.untitled;
 }
 
 export type LibraryView<S> =
@@ -40,7 +41,7 @@ export function libraryView<S extends SongItem>(
 		return {
 			kind: 'search',
 			hits,
-			heading: `${hits.length} ${hits.length === 1 ? 'match' : 'matches'} · title or artist`
+			heading: t().songs.list.searchHeading(hits.length)
 		};
 	}
 	if (songs.length === 0 && !uploading) return { kind: 'empty' };
@@ -49,10 +50,10 @@ export function libraryView<S extends SongItem>(
 	return {
 		kind: 'list',
 		adding,
-		addingHeading: `Being added · ${adding.length + (uploading ? 1 : 0)}`,
+		addingHeading: t().songs.list.beingAdded(adding.length + (uploading ? 1 : 0)),
 		recent,
 		rest,
-		restHeading: `All songs A–Z · ${rest.length}`,
+		restHeading: t().songs.list.allAZ(rest.length),
 		worker: adding.some((s) => s.status.startsWith('waiting_'))
 	};
 }
@@ -82,31 +83,35 @@ export function songState(
 			return {
 				meta: style,
 				tone: null,
-				badge: { text: 'Waiting to download', tone: 'neutral', icon: 'clock' }
+				badge: { text: t().songs.list.waitingDownload, tone: 'neutral', icon: 'clock' }
 			};
 		case 'waiting_analysis':
 			return {
 				meta: style,
 				tone: null,
-				badge: { text: 'Finding the beat', tone: 'accent', icon: 'metronome' }
+				badge: { text: t().songs.list.findingBeat, tone: 'accent', icon: 'metronome' }
 			};
 		case 'failed':
-			return { meta: s.error ? `Failed: ${s.error}` : 'Failed', tone: 'danger', badge: null };
+			return {
+				meta: s.error ? t().songs.list.failedWith(s.error) : t().songs.list.failed,
+				tone: 'danger',
+				badge: null
+			};
 		default:
 			return { meta: readyMeta(s, styleLabel), tone: null, badge: null };
 	}
 }
 
 export function countOnlyMeta(clave: boolean): string {
-	return clave ? 'The count and clave, no song' : 'The count, no song';
+	return clave ? t().songs.list.countOnlyClave : t().songs.list.countOnlyPlain;
 }
 
 /** Why a picked file cannot be added, or null. Size first, then type. */
 export function audioFileProblem(file: { size: number; type: string }): string | null {
 	if (file.size > MAX_RECORDING_BYTES) {
-		return `That file is ${Math.round(file.size / 1024 / 1024)} MB; the limit is ${MAX_RECORDING_LABEL}.`;
+		return t().songs.add.tooLarge(String(Math.round(file.size / 1024 / 1024)), MAX_RECORDING_LABEL);
 	}
-	if (!/^audio\//.test(file.type)) return 'Only audio files can be added.';
+	if (!/^audio\//.test(file.type)) return t().songs.add.audioOnly;
 	return null;
 }
 
@@ -114,11 +119,13 @@ export function audioFileProblem(file: { size: number; type: string }): string |
 export function megabytes(bytes: number): string {
 	const mb = bytes / 1024 / 1024;
 	if (mb >= 10) return String(Math.round(mb));
-	return mb.toFixed(1).replace(/\.0$/, '');
+	return t()
+		.common.decimal(mb, 1)
+		.replace(/[.,]0$/, '');
 }
 
 export function uploadMeta(loaded: number, total: number): string {
-	return `Uploading · ${megabytes(loaded)} of ${megabytes(total)} MB · keep the app open`;
+	return t().songs.add.progress(megabytes(loaded), megabytes(total));
 }
 
 export type ClassLibraryView<S> =
@@ -157,9 +164,9 @@ export function classLibraryView<S extends SongItem>(
 		adding: view.adding,
 		addingHeading: view.addingHeading,
 		drafts,
-		draftsHeading: `Drafts · ${drafts.length}`,
+		draftsHeading: t().songs.list.drafts(drafts.length),
 		shared,
-		sharedHeading: `Shared with the class · ${shared.length}`,
+		sharedHeading: t().songs.list.sharedWithClass(shared.length),
 		worker: view.worker
 	};
 }
@@ -167,7 +174,7 @@ export function classLibraryView<S extends SongItem>(
 /** A shared song's meta in group mode: "Salsa · 192 BPM · 5:23 · used by 4". */
 export function sharedMeta(s: SongItem, styleLabel: Record<string, string>, users: number): string {
 	const meta = readyMeta(s, styleLabel);
-	return users > 0 ? `${meta} · used by ${users}` : meta;
+	return users > 0 ? `${meta} · ${t().songs.list.usedBy(users)}` : meta;
 }
 
 /** A group's section in a person's Music: "Salsa Tuesdays · 6". */
@@ -177,27 +184,25 @@ export function groupSectionHeading(name: string, n: number): string {
 
 /** Above a group song's page for those who only read it. */
 export function classSongNote(group: string): string {
-	return `${group}'s song. The count is the teacher's.`;
+	return t().songs.share.classSongNote(group);
 }
-
-const usedIn = (n: number) => `Used in ${n === 1 ? '1 person' : `${n} people`}'s practice.`;
 
 /** Stop sharing's warning, when members' practice uses the song. */
 export function songUseWarning(n: number): string {
-	return `${usedIn(n)} They'll switch to count only until you share it again.`;
+	return `${t().songs.share.usedIn(n)} ${t().songs.share.untilShared}`;
 }
 
 /** Delete's warning, when members' practice uses the song: Restore brings it back. */
 export function songDeleteWarning(n: number): string {
-	return `${usedIn(n)} They'll switch to count only until you restore it.`;
+	return `${t().songs.share.usedIn(n)} ${t().songs.share.untilRestored}`;
 }
 
 export function stopSharingTitle(name: string): string {
-	return `Stop sharing ${name}?`;
+	return t().songs.share.stopTitle(name);
 }
 
 export function deleteSongTitle(name: string): string {
-	return `Delete ${name}?`;
+	return t().songs.share.deleteTitle(name);
 }
 
 /**
@@ -216,12 +221,12 @@ export function groupSections<S extends SongItem>(
 
 /** Stop sharing's question under its title; the warning when members use it. */
 export function stopSharingBody(users: number): string {
-	const lead = 'Members no longer see it, and it is a draft again.';
+	const lead = t().songs.share.stopLead;
 	return users > 0 ? `${lead} ${songUseWarning(users)}` : lead;
 }
 
 /** Delete's question under its title; the warning when members use it. */
 export function deleteSongBody(users: number): string {
-	const lead = 'It goes to Recently deleted for 30 days.';
+	const lead = t().songs.share.deleteLead;
 	return users > 0 ? `${lead} ${songDeleteWarning(users)}` : lead;
 }

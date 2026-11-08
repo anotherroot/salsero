@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { t } from '$lib/i18n/catalog';
+
 	/** The invite's QR as one SVG, on white with a quiet zone of 4 cells. `cells` is row by row. */
 	let {
 		size,
 		cells,
-		label = 'QR code for the invite'
+		label = t().admin.qr
 	}: { size: number; cells: boolean[]; label?: string } = $props();
 	const QUIET = 4;
 	const total = $derived(size + QUIET * 2);

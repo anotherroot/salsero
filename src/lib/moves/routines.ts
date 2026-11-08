@@ -1,4 +1,4 @@
-import { plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { RoutineItem, TeamRef } from '$lib/types';
 import { outOfSync } from './sync';
 
@@ -25,14 +25,14 @@ export function routineBadges(r: {
 	loops: boolean;
 }): RoutineBadge[] {
 	const out: RoutineBadge[] = [];
-	if (r.breaks > 0) out.push({ tone: 'danger', text: plural(r.breaks, 'break', 'breaks') });
-	if (!r.loops && r.slots > 0) out.push({ tone: 'warn', text: 'does not loop' });
+	if (r.breaks > 0) out.push({ tone: 'danger', text: t().nouns.breaks(r.breaks) });
+	if (!r.loops && r.slots > 0) out.push({ tone: 'warn', text: t().moves.routines.badLoop });
 	return out;
 }
 
 /** A routine's class day as a screen reader hears it: "From class Tue 3 Nov". */
 export function fromClass(label: string): string {
-	return `From class ${label}`;
+	return t().moves.routines.fromClass(label);
 }
 
 /** The Routines list under `?sync=1`: only the routines a copy of which differs. */

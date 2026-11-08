@@ -6,6 +6,7 @@
 	import SectionPlayer from '$lib/components/ui/SectionPlayer.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { LinkedSection } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * A linked section as a row of the figure page's Recordings card: what
@@ -30,7 +31,7 @@
 	const from = $derived(
 		section.video.from.kind === 'lesson'
 			? `${section.video.from.title} · ${dateLabel(section.video.from.lessonDay)}`
-			: `Recording · ${section.video.from.figure}`
+			: t().figure.recordings.recordingOf(section.video.from.figure)
 	);
 	const range = $derived(spotLabel({ ...section.spot, label: null }));
 </script>

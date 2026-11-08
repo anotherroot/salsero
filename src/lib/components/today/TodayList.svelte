@@ -36,9 +36,7 @@
 		daily,
 		dance,
 		lessonDays,
-		upNextId,
 		currentId,
-		rowSearch,
 		appUpdate,
 		oncreate,
 		onrefused,
@@ -52,12 +50,8 @@
 		dance: DanceSlug;
 		/** Each lesson's class day. */
 		lessonDays: Record<number, string>;
-		/** The session's next row (while a session is on). */
-		upNextId: number | null;
 		/** The exercise open beside the list. */
 		currentId: number | null;
-		/** Appended to each row's link. */
-		rowSearch: string;
 		appUpdate: AppUpdate | null;
 		/** New exercise: its sheet. */
 		oncreate: () => void;
@@ -251,9 +245,7 @@
 				{dance}
 				today={day.today}
 				lessonDay={lessonDayOf(row.exercise)}
-				upNext={row.exercise.id === upNextId}
 				current={row.exercise.id === currentId}
-				search={rowSearch}
 				onskip={row.kind === 'done' ? undefined : () => onskip(row.exercise.id)}
 				swiped={swiped?.key === `today:${row.exercise.id}` ? swiped.side : null}
 				onswipe={(side) => (swiped = side ? { key: `today:${row.exercise.id}`, side } : null)}

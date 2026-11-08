@@ -57,8 +57,8 @@ export interface Arrival {
 	intent: Intent;
 }
 
-/** Popup flags and the Today session are not a place to come back to. */
-const DROPPED = new Set(['log', 'new', 'add', 'session', 'v']);
+/** Popup flags are not a place to come back to (a run's `run` and `skip` are: they stay). */
+const DROPPED = new Set(['log', 'new', 'add', 'v']);
 
 /** The query worth keeping: day, q and chips stay; popup flags go. */
 export function keptSearch(search: string): string {
@@ -80,11 +80,11 @@ function firstSegment(path: string): string {
 	return path.slice(dance.length + 1).split('/')[1] ?? '';
 }
 
-/** A trail page that is not Practice or share: those are never a tab's last page. */
+/** A trail page that is not Practice, share or Done for today: those are never a tab's last page. */
 export function remembered(path: string): boolean {
 	if (!isTrailPage(path)) return false;
 	const first = firstSegment(path);
-	return first !== 'player' && first !== 'share';
+	return first !== 'player' && first !== 'share' && first !== 'done';
 }
 
 const ROOTS = new Set([
@@ -218,6 +218,8 @@ export function arrive(t: Trail, a: Arrival): Trail {
 	if (tab) {
 		const key = `${dance}:${tab}`;
 		if (remembered(a.to)) last = { ...last, [key]: a.to };
+		// Done for today ends the run: Today's tab is its list again, not the run's last page.
+		else if (firstSegment(a.to) === 'done') last = { ...last, [key]: lastRoot[key] ?? `/${dance}` };
 		if (isRoot(a.to)) lastRoot = { ...lastRoot, [key]: a.to };
 	}
 	return { ...t, pages, last, lastRoot, entries };
@@ -386,8 +388,8 @@ export function scrollFor(t: Trail, a: Arrival): number | null {
 
 /**
  * Whether Back can step the browser's history (the slot before is the target)
- * or has to go to the page. A slot whose search carries a popup flag or a
- * Today session would bring it back, so that one is gone to instead.
+ * or has to go to the page. A slot whose search carries a popup flag would
+ * bring it back, so that one is gone to instead.
  */
 export function backMove(
 	entries: Record<number, string>,

@@ -7,6 +7,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { CHIP, FIELD, LABEL, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
+	import { styleLabelsOf } from '$lib/moves/figures';
 
 	/** What `?/update` handed back: a refusal keeps everything typed. */
 	type DetailsForm = {
@@ -51,6 +53,9 @@
 	const artistError = $derived(form?.field === 'artist' ? form.message : null);
 	const otherError = $derived(form?.message && !form.field ? form.message : null);
 
+	const w = $derived(t().songs.page);
+	const styleLabel = $derived(styleLabelsOf(dance.styleLabel));
+
 	function close() {
 		closedOn = given;
 		style = stored;
@@ -58,7 +63,7 @@
 	}
 </script>
 
-<Sheet title="Song details" {open} onclose={close}>
+<Sheet title={w.details} {open} onclose={close}>
 	<div class="flex flex-col gap-3.5">
 		<form
 			method="POST"
@@ -66,7 +71,7 @@
 			novalidate
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'Song details',
+				label: t().songs.page.details,
 				submit: ({ cancel }) => {
 					if (busy) return cancel();
 					busy = true;
@@ -82,7 +87,7 @@
 			{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 
 			<div>
-				<label class={LABEL} for="song-title">Title</label>
+				<label class={LABEL} for="song-title">{t().songs.add.title}</label>
 				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					id="song-title"
@@ -100,7 +105,7 @@
 			</div>
 
 			<div>
-				<label class={LABEL} for="song-artist">Artist</label>
+				<label class={LABEL} for="song-artist">{w.artist}</label>
 				<input
 					id="song-artist"
 					name="artist"
@@ -115,12 +120,12 @@
 			</div>
 
 			<fieldset>
-				<legend class={LABEL}>Style</legend>
+				<legend class={LABEL}>{t().songs.add.style}</legend>
 				<div class="flex flex-wrap gap-2">
 					{#each dance.styles as s (s)}
 						<label class={CHIP}>
 							<input type="radio" name="style" value={s} bind:group={style} class="sr-only" />
-							{dance.styleLabel[s]}
+							{styleLabel[s]}
 						</label>
 					{/each}
 				</div>
@@ -130,20 +135,20 @@
 				type="submit"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Saving' : undefined}
+				aria-label={busy ? w.saving : undefined}
 			>
-				{#if busy}<Spinner />{:else}Save{/if}
+				{#if busy}<Spinner />{:else}{t().common.save}{/if}
 			</button>
 		</form>
 
 		{#if song.sourceUrl}
-			<p class="text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
+			<p class="text-center text-[13px] break-all text-muted">{w.from(song.sourceUrl)}</p>
 		{/if}
 
 		{#if onarchive}
 			<div class="flex justify-center border-t border-hairline pt-2">
 				<button type="button" class={button('danger-text', 'sm')} onclick={onarchive}>
-					<Icon name="trash" size={18} />Archive song
+					<Icon name="trash" size={18} />{w.archiveSong}
 				</button>
 			</div>
 		{/if}

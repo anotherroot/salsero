@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fold } from '$lib/fold';
 import { DANCE_SLUGS, DANCES } from '$lib/dances/dances';
-import { TEMPLATES, firstTemplateType, templateTypes } from './templates';
+import { withLocale } from '$lib/i18n/current';
+import { TEMPLATES, firstTemplateType, templateDescription, templateTypes } from './templates';
 
 describe('templates', () => {
 	it('knows the types of each dance', () => {
@@ -51,5 +52,32 @@ describe('templates', () => {
 				expect(new Set(names).size).toBe(names.length);
 			}
 		}
+	});
+});
+
+describe('templates in Slovenian', () => {
+	it('keeps the names, and reads the descriptions in the reader’s language', () => {
+		const cerrada = TEMPLATES.salsa.salsa.find((t) => t.name === 'Cerrada')!;
+		expect(withLocale('sl', () => cerrada.description)).toBe('Zaprta, osnovna drža');
+		expect(cerrada.description).toBe('Closed, the basic frame');
+		expect(withLocale('sl', () => templateDescription('bachata', 'sensual', 'Closed'))).toBe(
+			'Zaprta, s stikom teles'
+		);
+		expect(withLocale('sl', () => TEMPLATES.salsa.son.map((t) => t.name))).toEqual([
+			'Cerrada de son',
+			'Abierta',
+			'Manos cruzadas',
+			'Paseo'
+		]);
+	});
+	it('has a description for every template in both languages', () => {
+		for (const l of ['en', 'sl'] as const)
+			for (const dance of DANCE_SLUGS)
+				for (const type of templateTypes(dance))
+					for (const tpl of TEMPLATES[dance][type])
+						expect(
+							withLocale(l, () => tpl.description),
+							`${l} ${dance} ${tpl.name}`
+						).not.toBe('');
 	});
 });

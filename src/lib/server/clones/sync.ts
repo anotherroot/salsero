@@ -53,6 +53,7 @@
  * Writes into a person's own copy log nothing; into a group's, `landKeys`
  * logs one `change` per landing, by the actor; the flow onward as it does.
  */
+import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray } from 'drizzle-orm';
 import type {
 	CloneKind,
@@ -67,11 +68,12 @@ import type {
 import { mergeRows, mergeTargets, unresolved, type MergePair } from '$lib/clones/merge';
 import { pieceParts } from '$lib/clones/flat';
 import {
-	SYNC_FAILED,
-	SYNC_NO_ACCESS,
-	SYNC_PICK,
-	SYNC_STALE,
-	SYNC_THIS_ONE,
+	syncFailed,
+	syncNoAccess,
+	syncPick,
+	syncStale,
+	syncRole,
+	syncThisOne,
 	syncTitle,
 	updateTitle
 } from '$lib/clones/view';
@@ -89,7 +91,8 @@ import { digest, hashValue, pairBase, writePair } from './pairs';
 import { syncSettingsOf } from './sync-settings';
 import { flatOf } from './trees';
 
-const DENIED = { ok: false, reason: 'denied', message: 'Not found.' } as const;
+/** A refusal for a copy that is gone or not this person's: composed in the request, in its language. */
+const denied = () => ({ ok: false, reason: 'denied', message: t().refusals.notFoundLine }) as const;
 
 export const placeLabel = (place: PlaceRef) => (place.kind === 'mine' ? 'Yours' : place.name);
 
@@ -176,9 +179,10 @@ export function rowsOf(
 
 /** "Sync to"'s word for a copy: the page's own, the person's role in a group, nothing for yours. */
 function roleWord(db: Db, userId: string, m: Member, pageId: number): string {
-	if (m.id === pageId) return SYNC_THIS_ONE;
+	if (m.id === pageId) return syncThisOne();
 	if (m.place.kind === 'mine') return '';
-	return roleOf(db, userId, m.place.teamId) ?? '';
+	const role = roleOf(db, userId, m.place.teamId);
+	return role ? syncRole(role) : '';
 }
 
 /**
@@ -301,16 +305,16 @@ export async function syncAll(
 	freeDiskBytes: number
 ): Promise<SyncAllResult> {
 	const fam = familyOf(db, actorId, kind, id);
-	if (!fam || targets.length === 0) return DENIED;
+	if (!fam || targets.length === 0) return denied();
 	const editable = new Set(fam.editable.map((m) => m.id));
-	if (targets.some((t) => !editable.has(t.id))) return DENIED;
+	if (targets.some((t) => !editable.has(t.id))) return denied();
 	const ticked = new Map<number, string>();
 	for (const t of targets) if (!ticked.has(t.id)) ticked.set(t.id, t.seen);
 
-	const STALE = { ok: false, reason: 'stale', message: SYNC_STALE } as const;
+	const staleRefusal = { ok: false, reason: 'stale', message: syncStale() } as const;
 	const sawThen = new Map(shown.map((m) => [m.id, m.seen]));
 	if (sawThen.size !== fam.members.length || fam.members.some((m) => !sawThen.has(m.id)))
-		return STALE;
+		return staleRefusal;
 
 	const refused: { id: number; message: string }[] = [];
 	const stale = new Set<number>();
@@ -320,10 +324,10 @@ export async function syncAll(
 		if (ticked.has(m.id)) {
 			if (digest(f) !== ticked.get(m.id)) {
 				stale.add(m.id);
-				refused.push({ id: m.id, message: SYNC_STALE });
+				refused.push({ id: m.id, message: syncStale() });
 				continue;
 			}
-		} else if (digest(f) !== sawThen.get(m.id)) return STALE;
+		} else if (digest(f) !== sawThen.get(m.id)) return staleRefusal;
 		flats.set(m.id, f);
 	}
 	const members = fam.members.filter((m) => !stale.has(m.id));
@@ -334,8 +338,8 @@ export async function syncAll(
 	if (open.length > 0) {
 		// A pick naming a value the row no longer has (a stale copy's, left out
 		// above): the sheet was out of date, not unpicked.
-		if (open.some((key) => Object.hasOwn(chosen, key))) return STALE;
-		return { ok: false, reason: 'pick', message: SYNC_PICK };
+		if (open.some((key) => Object.hasOwn(chosen, key))) return staleRefusal;
+		return { ok: false, reason: 'pick', message: syncPick() };
 	}
 	const plan = mergeTargets(rows, chosen, flats);
 
@@ -345,7 +349,7 @@ export async function syncAll(
 		if (stale.has(target)) continue;
 		// Asked again: an earlier landing awaited, and a role may have changed meanwhile.
 		if (accessTo(db, actorId, kind, target) !== 'edit') {
-			refused.push({ id: target, message: SYNC_NO_ACCESS });
+			refused.push({ id: target, message: syncNoAccess() });
 			continue;
 		}
 		// What the target holds as each landing starts: what the sheet saw, then
@@ -372,13 +376,13 @@ export async function syncAll(
 			} catch (err) {
 				// landKeys has unlinked what it linked and rolled back: this copy alone is refused.
 				console.error(`Sync: ${kind} ${g.giver} → ${target} failed`, err);
-				res = { ok: false as const, reason: 'failed' as const, message: SYNC_FAILED };
+				res = { ok: false as const, reason: 'failed' as const, message: syncFailed() };
 			}
 			if (res.ok) {
 				keysIn.push(...keys);
 				holds = res.seen;
 			} else {
-				refused.push({ id: target, message: res.reason === 'stale' ? SYNC_STALE : res.message });
+				refused.push({ id: target, message: res.reason === 'stale' ? syncStale() : res.message });
 				ok = false;
 				break;
 			}

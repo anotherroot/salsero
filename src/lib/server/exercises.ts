@@ -251,7 +251,8 @@ export function updateExercise(
 			const fields = (e: { name: string; notes: string | null; comesBack: string | null }) => ({
 				name: e.name,
 				notes: e.notes,
-				// History is English (not translated yet): its stored words are too.
+				// These stored comes-back values are written in English prose and read as-is
+				// (a known limit; History itself is composed per reader).
 				comesBack: withLocale('en', () => comesBackWords(parseComesBack(e.comesBack) ?? FACES))
 			});
 			const change = fieldChange(fields(current), fields(row), 'drill');

@@ -5,6 +5,7 @@
  * Back goes.
  */
 import type { Dance, DanceSlug } from '$lib/dances/dances';
+import { runHref, type RunState } from '$lib/exercises/run';
 import { t } from '$lib/i18n/catalog';
 import { COUNT_PATTERN_LABEL, type ClavePattern, type CountPattern, type Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
@@ -232,6 +233,8 @@ export function practiceBack(p: {
 	song: { id: number; title: string } | null;
 	/** `archived`: its page 404s, so Back cannot go there. */
 	exercise: { id: number; name: string; archived?: boolean } | null;
+	/** The run (`?from=run`) the player was opened in; null outside one. */
+	run: RunState | null;
 }): { href: string; label: string } {
 	const w = t().player;
 	const backTo = t().shell.backTo;
@@ -239,6 +242,12 @@ export function practiceBack(p: {
 	if (p.from === 'today') return today;
 	if (p.from === 'exercise' && p.exercise && !p.exercise.archived) {
 		return { href: `/${p.dance}/exercises/${p.exercise.id}`, label: backTo(p.exercise.name) };
+	}
+	if (p.from === 'run' && p.exercise && !p.exercise.archived && p.run) {
+		return {
+			href: runHref(p.dance, p.exercise.id, p.run),
+			label: backTo(p.exercise.name)
+		};
 	}
 	if (p.routine) {
 		return { href: `/${p.dance}/routines/${p.routine.id}`, label: backTo(p.routine.name) };

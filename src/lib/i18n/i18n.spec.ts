@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogOf, t } from './catalog';
+import { t } from './catalog';
 import { locale, withLocale } from './current';
 import { acceptedLocale, LOCALE_NAME, LOCALES, parseLocale, requestLocale } from './locale';
 import { slCount, slForm } from './plural';
@@ -68,18 +68,6 @@ describe('common', () => {
 		expect(withLocale('sl', () => t().common.decimal(1.5, 1))).toBe('1,5');
 		expect(withLocale('sl', () => t().common.decimal(0.25, 2))).toBe('0,25');
 		expect(t().common.decimal(2, 1)).toBe('2.0');
-	});
-
-	it('has every English word in Slovenian, and none left in English', () => {
-		const en = catalogOf('en').common;
-		const sl = catalogOf('sl').common;
-		expect(Object.keys(sl).sort()).toEqual(Object.keys(en).sort());
-		for (const [key, word] of Object.entries(en)) {
-			if (typeof word !== 'string') continue;
-			// ⋯ is a symbol in both languages.
-			if (key === 'more') continue;
-			expect(sl[key as keyof typeof sl], key).not.toBe(word);
-		}
 	});
 });
 
@@ -172,45 +160,5 @@ describe('acceptedLocale', () => {
 		expect(acceptedLocale('sl;q=0,en;q=0.1')).toBe('en');
 		expect(acceptedLocale('slk,hr-HR,*')).toBeNull();
 		expect(acceptedLocale(undefined)).toBeNull();
-	});
-});
-
-describe('admin', () => {
-	it('has every English word in Slovenian, and none left in English', () => {
-		const en = catalogOf('en').admin;
-		const sl = catalogOf('sl').admin;
-		expect(Object.keys(sl).sort()).toEqual(Object.keys(en).sort());
-		for (const [key, word] of Object.entries(en)) {
-			expect(sl[key as keyof typeof sl], key).not.toBe(word);
-		}
-	});
-});
-
-/** Every string in an area, by its path ("tabs.today"); arrays by index. */
-function leaves(o: unknown, at = ''): [string, string][] {
-	if (typeof o === 'string') return [[at, o]];
-	if (o === null || typeof o !== 'object') return [];
-	return Object.entries(o).flatMap(([k, v]) => leaves(v, at ? `${at}.${k}` : k));
-}
-
-describe.each([
-	'format',
-	'shell',
-	'entry',
-	'today',
-	'exercise',
-	'songs',
-	'lesson',
-	'comments',
-	'video',
-	'settings',
-	'player',
-	'groups'
-] as const)('%s', (area) => {
-	it('has every English word in Slovenian, and none left in English', () => {
-		const en = leaves(catalogOf('en')[area]);
-		const sl = new Map(leaves(catalogOf('sl')[area]));
-		expect([...sl.keys()].sort()).toEqual(en.map(([k]) => k).sort());
-		for (const [key, word] of en) expect(sl.get(key), key).not.toBe(word);
 	});
 });

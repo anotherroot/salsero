@@ -1,10 +1,9 @@
 /** What the group screens say. PURE and client-safe. */
 import { localDay } from '$lib/day/day';
-import { byteSize, classDayLabel, dayMonth, plural } from '$lib/format';
+import { byteSize, classDayLabel, dayMonth } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import { TEAM_PURGE_MS } from '$lib/limits';
 import type { Role } from '$lib/types';
-import { MAKE_MINE } from '$lib/clones/view';
 import type { Level } from '$lib/levels/levels';
 
 export function roleLabel(role: Role): string {
@@ -28,7 +27,7 @@ export function noAccountLine(adminFirst: string | null): string {
 const deletingLead = (name: string, day: string) => t().lesson.deleting(name, day);
 
 export function deletingLine(name: string, day: string): string {
-	return `${deletingLead(name, day)} · ${MAKE_MINE}`;
+	return `${deletingLead(name, day)} · ${t().clones.makeMine}`;
 }
 
 /** The day a group deleted at `deletedAt` goes for good, in the person's zone: "2 Dec". */
@@ -50,7 +49,7 @@ export function lessonNotice(
 ): { tone: 'warning'; text: string; action: string } | null {
 	if (team.deletedAt === null) return null;
 	const text = deletingLead(team.name, purgeDay(team.deletedAt, timezone));
-	return { tone: 'warning', text, action: MAKE_MINE };
+	return { tone: 'warning', text, action: t().clones.makeMine };
 }
 
 /** The band's line under a group's people count. */
@@ -76,10 +75,11 @@ export function groupsTabLabel(isNew: boolean, label?: string): string {
 }
 
 export function limitLine(n: number): string {
-	return `You can make ${plural(n, 'group', 'groups')}. Ask the admin for more.`;
+	return t().groups.list.limit(n);
 }
 
-export const NAME_REFUSAL = 'Give it a name of up to 60 characters that none of your groups has.';
+/** New group's and Rename's refusal: composed inside the request, in the reader's language. */
+export const nameRefusal = (): string => t().groups.list.nameRefusal;
 
 /** The link a group's code makes. */
 export function codeLink(origin: string, code: string): string {
@@ -88,7 +88,7 @@ export function codeLink(origin: string, code: string): string {
 
 /** The group page's storage line: "Uses 120 MB of 600 MB". */
 export function groupUsesLine(used: number, limit: number): string {
-	return `Uses ${byteSize(used)} of ${byteSize(limit)}`;
+	return t().groups.page.uses(byteSize(used), byteSize(limit));
 }
 
 /** The group page's songs heading: "Class songs · 3". */
@@ -194,8 +194,12 @@ export function lastClassLine(day: string | null, today: string): string {
 
 /** The desktop's empty pane beside the Groups list, with no group open. */
 export const PICK_GROUP = {
-	title: 'Pick a group',
-	body: 'Its lessons, class songs and people open here.'
+	get title(): string {
+		return t().groups.list.pick.title;
+	},
+	get body(): string {
+		return t().groups.list.pick.body;
+	}
 };
 
 /**
@@ -208,9 +212,10 @@ export function codeAction(
 	canShare: boolean,
 	copied: boolean
 ): { label: string; icon: 'share' | 'copy'; copy: boolean } {
-	if (desk) return { label: copied ? 'Copied' : 'Copy link', icon: 'copy', copy: true };
-	return { label: copied ? 'Copied' : 'Share', icon: 'share', copy: !canShare };
+	const w = t().groups.code;
+	if (desk) return { label: copied ? w.copied : w.copyLink, icon: 'copy', copy: true };
+	return { label: copied ? w.copied : w.share, icon: 'share', copy: !canShare };
 }
 
 /** Under the code dialog's button when the desktop's copy fails: the link is selected instead. */
-export const COPY_FAILED = 'Could not copy. The link above is selected: copy it from there.';
+export const copyFailed = (): string => t().groups.code.copyFailed;

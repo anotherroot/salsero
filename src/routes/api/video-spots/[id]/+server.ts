@@ -5,7 +5,7 @@ import { allows, spotAccess } from '$lib/server/access';
 import { eq } from 'drizzle-orm';
 import { videoSpots } from '$lib/server/db/schema';
 import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
-import { checkSeen, MISSING_SEEN, seesAll, spotSeen } from '$lib/server/clash';
+import { checkSeen, missingSeen, seesAll, spotSeen } from '$lib/server/clash';
 import { asSeen, clashTitle, goneTitle } from '$lib/clash/clash';
 import { trashedSpot } from '$lib/server/trash';
 import { SpotLinkedError } from '$lib/server/spot-links';
@@ -50,14 +50,15 @@ export const PATCH: RequestHandler = (event) =>
 async function patch({ params, request, locals }: Parameters<RequestHandler>[0]) {
 	const id = spotId(params.id, locals);
 	const body: unknown = await request.json().catch(() => null);
-	if (!body || typeof body !== 'object' || Array.isArray(body)) throw error(400, 'Bad JSON.');
+	if (!body || typeof body !== 'object' || Array.isArray(body))
+		throw error(400, t().refusals.badJson);
 	// Only the keys sent change: a missing `label` keeps it, and `null` is how
 	// a caller clears it. A body with none of the three is a bad request.
 	const changes: { label?: unknown; startMs?: unknown; endMs?: unknown } = {};
 	for (const key of ['label', 'startMs', 'endMs'] as const) {
 		if (key in body) changes[key] = (body as Record<string, unknown>)[key];
 	}
-	if (Object.keys(changes).length === 0) throw error(400, 'Nothing to change.');
+	if (Object.keys(changes).length === 0) throw error(400, t().refusals.spots.nothingToChange);
 
 	// The clash check: `seen` is what the player last set or got back for this
 	// spot, so a run of nudges never clashes with its own previous one. Only the
@@ -70,7 +71,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 	// (Keep in step: a change may flow in while the player is open).
 	const root = rootOfSpot(db, id);
 	const required = team || (root !== null && hasCopies(db, root.kind, root.id));
-	if (required && !seesAll(sent, Object.keys(changes))) throw error(400, MISSING_SEEN);
+	if (required && !seesAll(sent, Object.keys(changes))) throw error(400, missingSeen());
 	const row = db
 		.select({ label: videoSpots.label, startMs: videoSpots.startMs, endMs: videoSpots.endMs })
 		.from(videoSpots)

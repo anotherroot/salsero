@@ -43,6 +43,7 @@ import { createTeam, joinTeam } from './teams';
 import { addLesson } from './entries';
 import { crossRefs } from './integrity';
 import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { withLocale } from '$lib/i18n/current';
 
 let db: Db;
 let lessonId: number;
@@ -886,5 +887,41 @@ describe('parseLinkBody', () => {
 		{ create: { kind: 'position', name: 'X' } }
 	])('refuses %o', (body) => {
 		expect(parseLinkBody(body)).toBeNull();
+	});
+});
+
+describe('the Link popup’s server words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('titles the near group by where the section is', () => {
+		expect(sl(() => linkOptions(db, section, 'salsa')!.nearTitle)).toBe('V tej lekciji');
+		expect(sl(() => linkOptions(db, recSection, 'salsa')!.nearTitle)).toBe('Ta figura');
+	});
+	it.each([
+		[
+			{ kind: 'variation', groupId: 0, name: 'Doble' },
+			'Različica s tem imenom že obstaja: Enchufla · Doble.'
+		],
+		[
+			{ kind: 'figure', figureName: 'Enchufla', name: 'Basic', partner: 'partner', style: 'salsa' },
+			'Figura s tem imenom že obstaja: Enchufla.'
+		],
+		[
+			{ kind: 'figure', figureName: 'Sombrero', name: 'Basic', partner: 'partner', style: 'x' },
+			'Ta slog ne spada k temu plesu.'
+		],
+		[{ kind: 'drill', name: ' ' }, 'Vpišite ime.']
+	] as const)('refuses %o in Slovenian', (create, message) => {
+		const c = create.kind === 'variation' ? { ...create, groupId: enchufla } : create;
+		expect(() => sl(() => createAndLink(db, 'u1', section, c))).toThrow(
+			expect.objectContaining({ message })
+		);
+	});
+	it('refuses a point anything but a position, and a missing section', () => {
+		expect(() => sl(() => createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm' }))).toThrow(
+			'Točko lahko povežete le s položaji.'
+		);
+		expect(() => sl(() => createAndLink(db, 'u1', 9999, { kind: 'drill', name: 'Arm' }))).toThrow(
+			'Tega odseka ni.'
+		);
 	});
 });

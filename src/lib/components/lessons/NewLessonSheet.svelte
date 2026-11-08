@@ -7,6 +7,7 @@
 	import LessonFields from './LessonFields.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
 	import { button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 
 	/** A refused create, as the action returns it: what was typed and why it was refused. */
 	interface Refusal {
@@ -26,7 +27,7 @@
 		today,
 		handle,
 		places,
-		submit = 'Create lesson'
+		submit
 	}: {
 		open: boolean;
 		onclose: () => void;
@@ -47,11 +48,12 @@
 		 * person edits. A Where field shows only with more than one place.
 		 */
 		places?: { value: number; label: string }[];
-		/** The footer button's words. */
+		/** The footer button's words; Create lesson without. */
 		submit?: string;
 	} = $props();
 
 	let where = $state<number | null>(0);
+	const w = $derived(t().lesson.newSheet);
 
 	let busy = $state(false);
 
@@ -64,7 +66,7 @@
 	);
 </script>
 
-<Sheet title="New lesson" {open} {onclose}>
+<Sheet title={t().lesson.list.newLesson} {open} {onclose}>
 	<form
 		id="new-lesson"
 		method="POST"
@@ -72,7 +74,7 @@
 		novalidate
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New lesson',
+			label: t().lesson.list.newLesson,
 			submit: ({ cancel }) => {
 				// One lesson per tap: a second tap while the first is out is dropped.
 				if (busy) return cancel();
@@ -103,13 +105,13 @@
 			<div>
 				<PickerField
 					name="teamId"
-					label="Where"
-					placeholder="Mine"
-					title="Where"
-					search="Search groups"
+					label={w.where}
+					placeholder={t().shell.mine}
+					title={w.where}
+					search={w.searchGroups}
 					groups={[
 						{
-							title: 'Places',
+							title: w.places,
 							entries: places.map((p) => ({
 								key: `place:${p.value}`,
 								value: p.value,
@@ -117,11 +119,11 @@
 							}))
 						}
 					]}
-					nothingLeft="Nowhere else."
+					nothingLeft={w.nowhere}
 					bind:value={where}
 					error={errors.teamId ?? null}
 				/>
-				<p class="mt-1.5 pl-1 text-[13px] text-muted">A group's lesson starts as a draft</p>
+				<p class="mt-1.5 pl-1 text-[13px] text-muted">{w.draftNote}</p>
 			</div>
 		{/if}
 	</form>
@@ -132,9 +134,9 @@
 			form="new-lesson"
 			class={button('primary', 'md', true)}
 			aria-busy={busy}
-			aria-label={busy ? 'Creating lesson' : undefined}
+			aria-label={busy ? w.busy : undefined}
 		>
-			{#if busy}<Spinner />{:else}{submit}{/if}
+			{#if busy}<Spinner />{:else}{submit ?? w.create}{/if}
 		</button>
 	{/snippet}
 </Sheet>

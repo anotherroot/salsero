@@ -6,7 +6,8 @@
 	import InviteQr from '$lib/components/admin/InviteQr.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import { desk } from '$lib/nav/desk.svelte';
-	import { codeAction, COPY_FAILED } from '$lib/teams/view';
+	import { t } from '$lib/i18n/catalog';
+	import { codeAction, copyFailed } from '$lib/teams/view';
 
 	/**
 	 * A group's code as a link and a QR. Whoever may hand it out sees it; only
@@ -44,6 +45,7 @@
 		}
 	});
 	const action = $derived(codeAction(desk.current, canShare, copied));
+	const w = $derived(t().groups.code);
 
 	/** Select the link's text, so it can be copied by hand. */
 	function selectLink() {
@@ -59,7 +61,7 @@
 		const onDesk = desk.current;
 		try {
 			if (!action.copy) {
-				await navigator.share({ title: `Join ${name}`, url: link });
+				await navigator.share({ title: w.shareTitle(name), url: link });
 				return;
 			}
 			await navigator.clipboard.writeText(link);
@@ -75,19 +77,19 @@
 	}
 </script>
 
-<Sheet title="Group code" {open} {onclose} size="small">
+<Sheet title={w.title} {open} {onclose} size="small">
 	<div class="flex flex-col items-center gap-4 pb-4">
-		<InviteQr size={qr.size} cells={qr.cells} label="QR code for joining {name}" />
+		<InviteQr size={qr.size} cells={qr.cells} label={w.qr(name)} />
 		<p bind:this={linkEl} class="w-full text-[14px] break-all text-ink select-all">{link}</p>
 		<button type="button" class={button('primary', 'lg', true)} onclick={share}>
 			<Icon name={action.icon} size={20} />
 			{action.label}
 		</button>
 		{#if failed && desk.current}
-			<p role="alert" class="text-center text-[13px] text-danger">{COPY_FAILED}</p>
+			<p role="alert" class="text-center text-[13px] text-danger">{copyFailed()}</p>
 		{/if}
 		<p class="text-center text-[13px] text-muted">
-			Only people who already have an account can join with it.
+			{w.accountsOnly}
 		</p>
 		{#if owner}
 			<form
@@ -109,10 +111,10 @@
 				}}
 			>
 				<button type="submit" class={button('secondary', 'md', true)} aria-busy={making}>
-					{#if making}<Spinner />{:else}Make a new code{/if}
+					{#if making}<Spinner />{:else}{w.remake}{/if}
 				</button>
 				<p class="text-center text-[13px] text-muted">
-					The old link and QR stop working. People already in the group stay.
+					{w.remakeNote}
 				</p>
 			</form>
 		{/if}

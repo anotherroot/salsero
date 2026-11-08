@@ -94,7 +94,7 @@ function practised(
  */
 function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const { exercise } = requireExerciseAccess(getDb(), locals, params, params.id, 'edit');
-	if (exercise.archivedAt !== null) throw error(404, 'No such exercise');
+	if (exercise.archivedAt !== null) throw error(404, t().refusals.noExercise);
 	return exercise;
 }
 
@@ -105,7 +105,7 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
  */
 function linkableOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const exercise = exerciseOf(params, locals);
-	if (exercise.source === 'added') throw error(404, 'No such exercise');
+	if (exercise.source === 'added') throw error(404, t().refusals.noExercise);
 	return exercise;
 }
 
@@ -116,13 +116,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const tz = locals.user.timezone;
 	const now = serverNow();
 	const id = Number(params.id);
-	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
+	if (!Number.isInteger(id) || id < 1) throw error(404, t().refusals.noExercise);
 	const {
 		exercise: row,
 		access,
 		reach: visible
 	} = requireExerciseAccess(db, locals, params, id, 'read');
-	if (row.archivedAt !== null) throw error(404, 'No such exercise');
+	if (row.archivedAt !== null) throw error(404, t().refusals.noExercise);
 	// The history's "Today" / "Yesterday": the server's day, so SSR and hydration agree.
 	const today = localDay(now, tz);
 	// The face times: the schedule as of the START of today, so a second log today
@@ -139,7 +139,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		// The person's own row: the page is its own.
 		const own = requireExerciseInWall(db, wall, row.id);
 		const rowData = pageData(db, wall, own.id, tz, now);
-		if (!rowData) throw error(404, 'No such exercise');
+		if (!rowData) throw error(404, t().refusals.noExercise);
 		// Music (spec B): a drill's own; an entry reads its group drill's, never edits it.
 		const musicParent =
 			own.source === 'custom'
@@ -340,11 +340,11 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	 */
 	add: async ({ params, request, locals }) => {
 		const { exercise: row } = requireExerciseAccess(getDb(), locals, params, params.id, 'read');
-		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
+		if (row.teamId === null || row.archivedAt !== null) throw error(404, t().refusals.noExercise);
 		const { lessonId, picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
 		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, serverNow())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'add', ok: true };
 	},
@@ -394,13 +394,13 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	addDrill: ({ params, locals }) => {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
-		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
+		if (row.teamId === null || row.archivedAt !== null) throw error(404, t().refusals.noExercise);
 		const userId = wallOf(params, locals).userId;
 		const route = drillAddRoute(db, userId, row);
-		if (!route || !route.added) throw error(404, 'No such exercise');
+		if (!route || !route.added) throw error(404, t().refusals.noExercise);
 		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
 		if (!addLesson(db, userId, route.lessonId, picks, serverNow(), { touch: false })) {
-			throw error(404, 'No such exercise');
+			throw error(404, t().refusals.noExercise);
 		}
 		return { action: 'addDrill', ok: true };
 	},
@@ -441,7 +441,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		if (
 			!updateExercise(db, row.id, { name, notes, active, warmup, comesBack }, me(params, locals))
 		) {
-			throw error(404, 'No such exercise');
+			throw error(404, t().refusals.noExercise);
 		}
 		return { action: 'update', ok: true };
 	},

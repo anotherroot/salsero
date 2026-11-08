@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	extractUrls,
 	linkFound,
@@ -166,4 +167,19 @@ describe('linkFound', () => {
 		'finds nothing in %j',
 		(raw) => expect(linkFound(raw)).toBeNull()
 	);
+});
+
+describe('linkFound in Slovenian', () => {
+	it('words a YouTube video and a web page', () => {
+		expect(withLocale('sl', () => linkFound(`https://youtu.be/${ID}`))).toEqual({
+			youtube: true,
+			title: 'Video na YouTubu',
+			line: 'Ko dodate povezavo, lahko video shranite v 480p'
+		});
+		expect(withLocale('sl', () => linkFound('https://www.salsa.si/x'))).toEqual({
+			youtube: false,
+			title: 'salsa.si',
+			line: 'Spletna stran'
+		});
+	});
 });

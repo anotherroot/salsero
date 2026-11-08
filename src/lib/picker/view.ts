@@ -2,6 +2,7 @@
  * The shared picker's view rules: what a row ends in, the sentences around the
  * list, which body shows and how tall the sheet is. PURE and client-safe.
  */
+import { t } from '$lib/i18n/catalog';
 import type { PickGroup, PickLine, PickRow } from '$lib/picker/model';
 
 export type PickKind = 'link' | 'field' | 'act';
@@ -33,16 +34,16 @@ export function rowTrail(
 
 /** The create row's lead-in; `typed` is already trimmed. */
 export function createLead(typed: string): string {
-	return typed ? `Not in the list? Create “${typed}” as` : 'Not in the list?';
+	return typed ? t().picker.createLead(typed) : t().picker.createLeadBare;
 }
 
 /** Done's words: a link picker counts what + linked; a field picker, what it holds. */
 export function doneLabel(n: number, kind: 'link' | 'field' = 'link'): string {
-	return kind === 'field' ? `Done · ${n}` : `Done · ${n} linked`;
+	return kind === 'field' ? t().picker.doneField(n) : t().picker.doneLinked(n);
 }
 
 export function emptyText(typed: string, nothingLeft: string): string {
-	return typed ? `Nothing matches “${typed}”.` : nothingLeft;
+	return typed ? t().picker.noMatch(typed) : nothingLeft;
 }
 
 export type PickerBody = 'loading' | 'failed' | 'list' | 'empty';
@@ -83,7 +84,7 @@ export function lineGroups(lines: PickLine[]): LineGroup[] {
  */
 export function linkRefusal(message: unknown, sent: { label: string } | null): string {
 	if (typeof message === 'string' && message) return message;
-	return sent ? `${sent.label} was not linked. Try it again.` : 'Try it again.';
+	return sent ? t().picker.notLinked(sent.label) : t().picker.tryAgain;
 }
 
 /**

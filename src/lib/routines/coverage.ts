@@ -12,6 +12,7 @@
  */
 import type { Graph } from '$lib/graph/graph';
 import { loops, type RoutineShape } from './routines';
+import { t } from '$lib/i18n/catalog';
 
 export interface CoverageRow {
 	id: number;
@@ -63,10 +64,11 @@ export function coverage(
 }
 
 export function coverageGroups(rows: CoverageRow[]): CoverageGroup[] {
+	const w = t().moves.coverage;
 	const groups: CoverageGroup[] = [
-		{ key: 'none', title: 'In no routine', rows: rows.filter((r) => r.routines.length === 0) },
-		{ key: 'one', title: 'In 1 routine', rows: rows.filter((r) => r.routines.length === 1) },
-		{ key: 'many', title: 'In 2+ routines', rows: rows.filter((r) => r.routines.length >= 2) }
+		{ key: 'none', title: w.none, rows: rows.filter((r) => r.routines.length === 0) },
+		{ key: 'one', title: w.one, rows: rows.filter((r) => r.routines.length === 1) },
+		{ key: 'many', title: w.many, rows: rows.filter((r) => r.routines.length >= 2) }
 	];
 	return groups.filter((g) => g.rows.length > 0);
 }

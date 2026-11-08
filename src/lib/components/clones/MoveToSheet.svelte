@@ -10,17 +10,17 @@
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		CANCEL,
-		LOAD_FAILED,
-		CONTINUE,
-		KEEP_MINE,
-		MOVE_BUTTON,
-		MOVE_FAILED,
-		MOVE_NOTE,
-		MOVE_SUB,
-		PRACTICE_STAYS,
-		TWINS_ONE_GOES,
-		USE_GROUPS,
+		cancelLabel,
+		loadFailed,
+		continueLabel,
+		keepMine,
+		moveButton,
+		moveFailed,
+		moveNote,
+		moveSub,
+		practiceStays as practiceStaysLine,
+		twinsOneGoes,
+		useGroups,
 		movedToast,
 		moveTitle,
 		placeLabel,
@@ -71,10 +71,10 @@
 	const target = $derived<CopyTarget>(offer.targets[picked] ?? offer.targets[0]);
 	const teamId = (t: CopyTarget) => (t.place.kind === 'team' ? String(t.place.teamId) : '');
 	const keyOf = (i: MoveItem) => `${i.kind}:${i.id}`;
-	const options = [
-		{ value: 'keep' as const, label: KEEP_MINE },
-		{ value: 'group' as const, label: USE_GROUPS }
-	];
+	const options = $derived([
+		{ value: 'keep' as const, label: keepMine() },
+		{ value: 'group' as const, label: useGroups() }
+	]);
 	/** Something dropped is practised: its practice stays with the archived copy. */
 	const practiceStays = $derived(
 		preview?.items.some((i) => i.practised && choices[keyOf(i)] === 'group') ?? false
@@ -145,7 +145,7 @@
 		'flex items-start gap-3 rounded-2xl bg-step p-3.5 text-[14px] leading-[1.4] text-ink-2';
 </script>
 
-<Sheet title={moveTitle(offer.title, target.place)} sub={MOVE_SUB} {open} onclose={close} tall>
+<Sheet title={moveTitle(offer.title, target.place)} sub={moveSub()} {open} onclose={close} tall>
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
 		{#if offer.targets.length > 1}
@@ -179,7 +179,7 @@
 		{/if}
 
 		{#if failed}
-			<Banner kind="error">{LOAD_FAILED}</Banner>
+			<Banner kind="error">{loadFailed()}</Banner>
 		{:else if !preview}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}
@@ -202,12 +202,12 @@
 				</ul>
 				<p class={NOTE}>
 					<span class="mt-px flex-none text-muted"><Icon name="undo" size={20} /></span>
-					<span class="min-w-0 flex-1">{MOVE_NOTE}</span>
+					<span class="min-w-0 flex-1">{moveNote()}</span>
 				</p>
 				{#if practiceStays}
 					<p class={NOTE}>
 						<span class="mt-px flex-none text-muted"><Icon name="info" size={20} /></span>
-						<span class="min-w-0 flex-1">{PRACTICE_STAYS}</span>
+						<span class="min-w-0 flex-1">{practiceStaysLine()}</span>
 					</p>
 				{/if}
 			{:else}
@@ -242,9 +242,9 @@
 							}
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown } | undefined;
-							refused = typeof data?.message === 'string' ? data.message : MOVE_FAILED;
+							refused = typeof data?.message === 'string' ? data.message : moveFailed();
 						} else if (result.type === 'error') {
-							refused = MOVE_FAILED;
+							refused = moveFailed();
 						} else {
 							await update();
 						}
@@ -257,7 +257,9 @@
 			<input type="hidden" name="into" value={teamId(target)} />
 			<input type="hidden" name="choices" value={JSON.stringify(choices)} />
 			<input type="hidden" name="use" value={JSON.stringify(use)} />
-			<button type="button" class={button('tertiary', 'md', true)} onclick={close}>{CANCEL}</button>
+			<button type="button" class={button('tertiary', 'md', true)} onclick={close}
+				>{cancelLabel()}</button
+			>
 			<button
 				type="button"
 				class={button('primary', 'md', true)}
@@ -268,7 +270,7 @@
 				{#if busy}
 					<Spinner />
 				{:else}
-					<Icon name="move-to" size={20} />{MOVE_BUTTON}
+					<Icon name="move-to" size={20} />{moveButton()}
 				{/if}
 			</button>
 		</form>
@@ -307,12 +309,12 @@
 			</fieldset>
 			<p class={NOTE}>
 				<span class="mt-px flex-none text-muted"><Icon name="info" size={20} /></span>
-				<span class="min-w-0 flex-1">{TWINS_ONE_GOES}</span>
+				<span class="min-w-0 flex-1">{twinsOneGoes()}</span>
 			</p>
 		</div>
 		{#snippet footer()}
 			<button type="button" class={button('primary', 'md', true)} disabled={busy} onclick={next}
-				>{CONTINUE}</button
+				>{continueLabel()}</button
 			>
 		{/snippet}
 	</Sheet>

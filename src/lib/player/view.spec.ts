@@ -100,7 +100,14 @@ describe('what the Practice page derives', () => {
 		expect(voiceKind(takes, 'salsa', null)).toBe('Built-in');
 	});
 	it('goes back where Practice was opened from', () => {
-		const p = { dance: 'salsa', from: null, routine: null, song: null, exercise: null } as const;
+		const p = {
+			dance: 'salsa',
+			from: null,
+			routine: null,
+			song: null,
+			exercise: null,
+			run: null
+		} as const;
 		expect(practiceBack(p)).toEqual({ href: '/salsa/songs', label: 'Back to Music' });
 		expect(practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } })).toEqual({
 			href: '/salsa/songs/4',
@@ -123,7 +130,12 @@ describe('what the Practice page derives', () => {
 		});
 	});
 	it('goes back to the exercise page when opened from it', () => {
-		const p = { dance: 'salsa', routine: { id: 3, name: 'Casino basics' }, song: null } as const;
+		const p = {
+			dance: 'salsa',
+			routine: { id: 3, name: 'Casino basics' },
+			song: null,
+			run: null
+		} as const;
 		expect(practiceBack({ ...p, from: 'exercise', exercise: EX })).toEqual({
 			href: '/salsa/exercises/9',
 			label: 'Back to Casino drill'
@@ -135,8 +147,32 @@ describe('what the Practice page derives', () => {
 			'/salsa/routines/3'
 		);
 	});
+	it("goes back to the run's exercise page from a run", () => {
+		const p = { dance: 'salsa', routine: null, song: null } as const;
+		expect(
+			practiceBack({
+				...p,
+				from: 'run',
+				exercise: { id: 4, name: 'Warmup' },
+				run: { skip: [3] }
+			})
+		).toEqual({ href: '/salsa/exercises/4?run=1&skip=3', label: 'Back to Warmup' });
+		// An archived exercise's page 404s: Back falls through to Today.
+		expect(
+			practiceBack({
+				...p,
+				from: 'run',
+				exercise: { id: 4, name: 'Warmup', archived: true },
+				run: { skip: [] }
+			}).href
+		).toBe('/salsa');
+		// No run: `from=run` is an unknown `from`.
+		expect(
+			practiceBack({ ...p, from: 'run', exercise: { id: 4, name: 'Warmup' }, run: null }).href
+		).toBe('/salsa');
+	});
 	it('never lets `from` steer Back anywhere but Today', () => {
-		const p = { dance: 'bachata', routine: null, song: null, exercise: null } as const;
+		const p = { dance: 'bachata', routine: null, song: null, exercise: null, run: null } as const;
 		expect(practiceBack({ ...p, from: 'https://evil.example' })).toEqual({
 			href: '/bachata/songs',
 			label: 'Back to Music'
@@ -216,7 +252,7 @@ describe('the Practice page in Slovenian', () => {
 			why: 'Najprej izberite skladbo.'
 		});
 		expect(sl(() => voiceKind([], 'salsa', 180))).toBe('Vgrajen');
-		const p = { dance: 'salsa', routine: null, song: null, exercise: null } as const;
+		const p = { dance: 'salsa', routine: null, song: null, exercise: null, run: null } as const;
 		expect(sl(() => practiceBack({ ...p, from: 'today' }).label)).toBe('Nazaj: Danes');
 		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
 	});
@@ -418,5 +454,38 @@ describe('▶ on the exercise page', () => {
 		expect(mayAutoPlay({ hasBeenActive: true })).toBe(true);
 		expect(mayAutoPlay({ hasBeenActive: false })).toBe(false);
 		expect(mayAutoPlay(undefined)).toBe(true);
+	});
+});
+
+describe('the Practice page in Slovenian, more', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('counts a routine’s figures with the noun forms', () => {
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3] }))).toBe(
+			'Prva · 3 različice'
+		);
+	});
+
+	it('says Play, starting, and whose voice counts', () => {
+		const base = { source: 'count', songId: null, ready: false, error: null } as const;
+		expect(sl(() => playState({ ...base, starting: false }).label)).toBe('Predvajaj');
+		expect(sl(() => playState({ ...base, starting: true }).label)).toBe('Zaganjanje …');
+		const takes: CountTakeRow[] = (['a', 'b'] as const).map((phrase) => ({
+			id: 1,
+			pattern: 'salsa',
+			bpm: 180,
+			phrase,
+			file: 'x.wav',
+			preRollS: 0.1,
+			lengthS: 1.3
+		}));
+		expect(sl(() => voiceKind(takes, 'salsa', 180))).toBe('Vaš');
+	});
+
+	it('goes back to an opener by its own name, after a colon', () => {
+		const p = { dance: 'salsa', from: null, routine: null, exercise: null, run: null } as const;
+		expect(sl(() => practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } }).label)).toBe(
+			'Nazaj: Vivir mi vida'
+		);
 	});
 });

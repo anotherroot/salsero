@@ -16,8 +16,8 @@
 	import { PAGE_WIDTH } from '$lib/nav/frame';
 	import { claimBottom } from '$lib/nav/chrome.svelte';
 	import { longPress } from '$lib/longpress';
-	import { plural } from '$lib/format';
 	import { groupHeading, pickNumber, pickedRows, togglePick } from '$lib/moves/picks';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -88,27 +88,29 @@
 		resolve('/[dance]/(moves)/figures/[id]', { dance: data.dance.slug, id: String(id) });
 </script>
 
-<svelte:head><title>Coverage · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{t().moves.coverage.title} · {data.dance.label}</title></svelte:head>
 
 <!-- On the desktop the selecting header reads "N selected" with a ×, as a routine's does; the phone keeps its title and Back. -->
 <Screen
-	title={selecting && desk.current ? `${picked.length} selected` : 'Coverage'}
-	subtitle="Versions by how many routines use them"
-	deskSubtitle={selecting ? 'Coverage' : 'Versions by how many routines use them'}
+	title={selecting && desk.current
+		? t().moves.coverage.selected(picked.length)
+		: t().moves.coverage.title}
+	subtitle={t().moves.coverage.subtitle}
+	deskSubtitle={selecting ? t().moves.coverage.title : t().moves.coverage.subtitle}
 >
 	{#snippet left()}
 		{#if selecting && desk.current}
 			<BandButton
 				focusKey="stop-selecting"
 				icon="close"
-				label="Stop selecting"
+				label={t().moves.coverage.stopSelecting}
 				onclick={stopSelecting}
 			/>
 		{:else}
 			<BackButton
 				fallback={{
 					href: resolve('/[dance]/(moves)/figures', { dance: data.dance.slug }),
-					label: 'Back to Moves'
+					label: t().shell.backTo(t().shell.tabs.moves)
 				}}
 			/>
 		{/if}
@@ -117,14 +119,14 @@
 		{#if !selecting && hasRows}
 			<span class="hidden desk:contents"
 				><button type="button" class={button('tertiary', 'sm')} onclick={() => (selecting = true)}
-					>Select</button
+					>{t().moves.coverage.select}</button
 				></span
 			>
 			<span class="contents desk:hidden"
 				><button
 					type="button"
 					class="h-11 flex-none cursor-pointer px-2.5 text-[16px] font-extrabold text-band-small"
-					onclick={() => (selecting = true)}>Select</button
+					onclick={() => (selecting = true)}>{t().moves.coverage.select}</button
 				></span
 			>
 		{/if}
@@ -136,11 +138,11 @@
 	>
 		{#if selecting}
 			<p class="px-4 text-[13px] text-muted desk:hidden">
-				Tap in the order the routine should call them.
+				{t().moves.coverage.tapInOrder}
 			</p>
 		{/if}
 		{#if !hasRows}
-			<EmptyState icon="moves" title="No figures yet" />
+			<EmptyState icon="moves" title={t().moves.coverage.empty} />
 		{/if}
 		{#each data.groups as group (group.key)}
 			<h2
@@ -173,7 +175,9 @@
 										: 'border-2 border-muted'}"
 									aria-hidden="true">{n ?? ''}</span
 								>
-								<span class="sr-only">{n ? 'Selected,' : 'Not selected,'}</span>
+								<span class="sr-only"
+									>{n ? t().moves.coverage.isSelected : t().moves.coverage.notSelected}</span
+								>
 							{/if}
 							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 								<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
@@ -210,12 +214,14 @@
 		<!-- On the desk the content is centred in the pane, as wide as the page. -->
 		<div class="mx-auto flex items-center gap-1 desk:max-w-(--bar-w)">
 			<span role="status" class="flex-1 text-[16px] font-bold text-ink desk:sr-only"
-				>{picked.length} selected</span
+				>{t().moves.coverage.selected(picked.length)}</span
 			>
 			<span class="hidden flex-1 text-[13px] text-muted desk:inline"
-				>Tap in the order the routine should call them.</span
+				>{t().moves.coverage.tapInOrder}</span
 			>
-			<button type="button" class={button('tertiary', 'sm')} onclick={stopSelecting}>Cancel</button>
+			<button type="button" class={button('tertiary', 'sm')} onclick={stopSelecting}
+				>{t().common.cancel}</button
+			>
 			<button
 				type="button"
 				disabled={picked.length === 0}
@@ -223,21 +229,21 @@
 				onclick={() => {
 					seen = form;
 					naming = true;
-				}}><Icon name="plus" size={20} /> Create routine</button
+				}}><Icon name="plus" size={20} /> {t().moves.routines.create}</button
 			>
 		</div>
 	</div>
 {/if}
 
 {#if naming}
-	<Sheet title="New routine" open={true} onclose={() => (naming = false)}>
+	<Sheet title={t().moves.newRoutine} open={true} onclose={() => (naming = false)}>
 		<form
 			id="cover-routine"
 			method="POST"
 			action="?/create"
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'New routine',
+				label: t().moves.newRoutine,
 				submit: ({ cancel }) => {
 					if (busy) return cancel();
 					busy = true;
@@ -254,7 +260,7 @@
 				<input type="hidden" name="figureIds" value={id} />
 			{/each}
 			<div>
-				<label class={LABEL} for="cover-routine-name">Name</label>
+				<label class={LABEL} for="cover-routine-name">{t().moves.routines.name}</label>
 				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					id="cover-routine-name"
@@ -263,14 +269,14 @@
 					autofocus
 					maxlength="200"
 					value={refusal?.name ?? ''}
-					placeholder="Basic combo"
+					placeholder={t().moves.routines.namePlaceholder}
 					class={FIELD}
 					aria-invalid={nameError ? 'true' : undefined}
 					aria-describedby={nameError ? 'cover-routine-name-error' : undefined}
 				/>
 				{#if nameError}<FieldError id="cover-routine-name-error" message={nameError} />{/if}
 			</div>
-			<ul class={GROUP} aria-label="Picked versions">
+			<ul class={GROUP} aria-label={t().moves.coverage.picked}>
 				{#each rows as r, i (r.id)}
 					<li class="flex min-h-12 items-center gap-3 px-4 py-2">
 						<span
@@ -282,8 +288,7 @@
 				{/each}
 			</ul>
 			<p class="px-1 text-[13px] leading-[1.4] text-muted">
-				{plural(picked.length, 'figure', 'figures')}, in the order you picked them. Put them in
-				order on the routine page.
+				{t().moves.coverage.pickedLine(picked.length)}
 			</p>
 		</form>
 
@@ -293,9 +298,9 @@
 				form="cover-routine"
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Creating routine' : undefined}
+				aria-label={busy ? t().moves.routines.creating : undefined}
 			>
-				{#if busy}<Spinner />{:else}Create routine{/if}
+				{#if busy}<Spinner />{:else}{t().moves.routines.create}{/if}
 			</button>
 		{/snippet}
 	</Sheet>

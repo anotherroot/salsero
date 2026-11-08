@@ -4,6 +4,7 @@
 	import { youtubeEmbed, youtubeThumb, youtubeWatch } from '$lib/links';
 	import { loadVideoPrefs, saveVideoPrefs } from '$lib/video-prefs';
 	import { clock } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { iconButton } from '$lib/components/ui/styles';
 
@@ -16,6 +17,9 @@
 	}
 
 	let { id, start, title, compact = false }: Props = $props();
+
+	/** The site's name under the title: the same in every language. */
+	const HOST = 'youtube.com';
 
 	/*
 	 * A thumbnail until tapped. Five iframes on a lesson would load five players
@@ -39,7 +43,7 @@
 		<button
 			type="button"
 			class="relative block h-16 w-28 flex-none cursor-pointer overflow-hidden rounded-xl bg-black"
-			aria-label="Play {title ?? 'the video'}"
+			aria-label={title === null ? t().links.youtube.playVideo : t().links.youtube.play(title)}
 			onclick={() => (playing = true)}
 		>
 			<img src={youtubeThumb(id)} alt="" loading="lazy" class="size-full object-cover" />
@@ -52,14 +56,14 @@
 		<div class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[16px] leading-[1.3] font-bold">{title ?? 'YouTube'}</span>
 			<span class="flex items-center gap-[5px] text-[13px] text-muted">
-				<Icon name="youtube" size={16} />youtube.com{start ? ` · from ${clock(start)}` : ''}
+				<Icon name="youtube" size={16} />{HOST}{start ? t().links.youtube.from(clock(start)) : ''}
 			</span>
 		</div>
 		<a
 			href={youtubeWatch(id, start)}
 			target="_blank"
 			rel="external noopener noreferrer"
-			aria-label="Open on YouTube"
+			aria-label={t().links.youtube.open}
 			class={iconButton('bare', 'muted')}><Icon name="external" size={22} /></a
 		>
 	</div>
@@ -67,7 +71,7 @@
 	{#if playing}
 		<iframe
 			src={youtubeEmbed(id, start)}
-			title={title ?? 'YouTube video'}
+			title={title ?? t().links.youtube.frame}
 			class="aspect-video w-full bg-black desk:max-h-[70dvh]"
 			class:mirror
 			allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
@@ -78,7 +82,7 @@
 		<button
 			type="button"
 			class="relative block aspect-video w-full cursor-pointer bg-black desk:max-h-[70dvh]"
-			aria-label="Play {title ?? 'the video'}"
+			aria-label={title === null ? t().links.youtube.playVideo : t().links.youtube.play(title)}
 			onclick={() => (playing = true)}
 		>
 			<img
@@ -99,13 +103,13 @@
 		<div class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[15px] leading-snug font-bold">{title ?? 'YouTube'}</span>
 			<span class="flex items-center gap-[5px] text-[12px] text-muted">
-				<Icon name="youtube" size={15} />youtube.com{start ? ` · from ${clock(start)}` : ''}
+				<Icon name="youtube" size={15} />{HOST}{start ? t().links.youtube.from(clock(start)) : ''}
 			</span>
 		</div>
 		<button
 			type="button"
 			aria-pressed={mirror}
-			aria-label="Mirror"
+			aria-label={t().video.mirror}
 			onclick={toggleMirror}
 			class={mirror ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name="mirror" size={22} /></button
@@ -115,7 +119,7 @@
 			href={youtubeWatch(id, start)}
 			target="_blank"
 			rel="external noopener noreferrer"
-			aria-label="Open on YouTube"
+			aria-label={t().links.youtube.open}
 			class={iconButton('bare', 'muted')}><Icon name="external" size={22} /></a
 		>
 	</div>

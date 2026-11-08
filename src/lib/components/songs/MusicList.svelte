@@ -28,6 +28,8 @@
 		songState
 	} from '$lib/songs/library';
 	import { upload } from '$lib/songs/upload.svelte';
+	import { styleLabelsOf } from '$lib/moves/figures';
+	import { t } from '$lib/i18n/catalog';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { Dance } from '$lib/dances/dances';
 	import type { GroupMode, SongItem } from '$lib/types';
@@ -64,6 +66,8 @@
 	} = $props();
 
 	const dance = $derived(data.dance.slug);
+	/** The dance's style labels in the reader's language ("Other" → "Drugo"). */
+	const styleLabel = $derived(styleLabelsOf(data.dance.styleLabel));
 	/** The list's own path: its kept search and filter are under it. */
 	const list = $derived(resolve('/[dance]/songs', { dance }));
 
@@ -174,7 +178,7 @@
 		async ({ result, update }) => {
 			retryRefusal =
 				result.type === 'failure'
-					? { id, message: String(result.data?.message ?? 'Could not retry.') }
+					? { id, message: String(result.data?.message ?? t().songs.list.retryFailed) }
 					: null;
 			await update();
 		};
@@ -182,7 +186,7 @@
 
 <!-- A song being added or failed: its state as meta, a badge while the worker has it. -->
 {#snippet addingRow(s: SongItem, q: string)}
-	{@const st = songState(s, data.dance.styleLabel)}
+	{@const st = songState(s, styleLabel)}
 	<SongRow
 		href={songHref(s)}
 		name={songName(s)}
@@ -203,8 +207,13 @@
 	<li class="border-t border-hairline px-2 pt-1 pb-2">
 		<form method="POST" action="/{dance}/songs?/retry" use:enhance={retry(s.id)}>
 			<input type="hidden" name="id" value={s.id} />
-			<button type="submit" class={button('tertiary', 'sm')} aria-label="Retry {songName(s)}">
-				<Icon name="refresh" size={20} /> Retry
+			<button
+				type="submit"
+				class={button('tertiary', 'sm')}
+				aria-label={t().songs.list.retryOf(songName(s))}
+			>
+				<Icon name="refresh" size={20} />
+				{t().songs.list.retry}
 			</button>
 		</form>
 		{#if retryRefusal?.id === s.id}
@@ -221,8 +230,8 @@
 		name={songName(s)}
 		query={q}
 		meta={s.sharedAt !== null && team !== null
-			? sharedMeta(s, data.dance.styleLabel, data.users[s.id] ?? 0)
-			: readyMeta(s, data.dance.styleLabel)}
+			? sharedMeta(s, styleLabel, data.users[s.id] ?? 0)
+			: readyMeta(s, styleLabel)}
 		sample={s.sample}
 		draft={team !== null && s.sharedAt === null}
 		{isNew}
@@ -245,8 +254,8 @@
 {/snippet}
 
 {#snippet workerNote()}
-	<Banner kind="info" title="Runs on the laptop at home">
-		Downloads and beat analysis happen about once a minute while it is on.
+	<Banner kind="info" title={t().songs.list.workerTitle}>
+		{t().songs.list.workerBody}
 	</Banner>
 {/snippet}
 
@@ -256,8 +265,8 @@
 	<form role="search" onsubmit={(e) => e.preventDefault()}>
 		<SearchField
 			name="q"
-			placeholder="Search songs"
-			label="Search songs"
+			placeholder={t().songs.picker.search}
+			label={t().songs.picker.search}
 			bind:value={query}
 			onclear={() => (query = '')}
 		/>
@@ -266,13 +275,13 @@
 		{view.kind === 'search'
 			? view.hits.length
 				? view.heading
-				: `No song matches “${query.trim()}”`
+				: t().songs.picker.noMatch(query.trim())
 			: ''}
 	</p>
 {/if}
 
 {#if view.kind !== 'search'}
-	<div class={GROUP} role="group" aria-label="Practice">
+	<div class={GROUP} role="group" aria-label={t().songs.list.practice}>
 		<a
 			href={resolve(`/${dance}/player?bpm=180`)}
 			class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
@@ -283,7 +292,7 @@
 				<Icon name="metronome" size={22} />
 			</span>
 			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span class="text-[16px] leading-[1.3] font-bold text-ink">Count only</span>
+				<span class="text-[16px] leading-[1.3] font-bold text-ink">{t().songs.list.countOnly}</span>
 				<span class="text-[13px] leading-[1.35] text-muted">{countOnlyMeta(data.dance.clave)}</span>
 			</span>
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
@@ -310,7 +319,7 @@
 	{#if view.adding.length || uploadHere}{@render addingGroup(view.adding, view.addingHeading)}{/if}
 	{#if view.worker}{@render workerNote()}{/if}
 	{#if view.recent.length}
-		<h2 class="{SECTION_LABEL} pt-2.5">Recent</h2>
+		<h2 class="{SECTION_LABEL} pt-2.5">{t().songs.picker.recent}</h2>
 		<ul class={GROUP}>
 			{#each view.recent as s (s.id)}{@render readyRow(s, '')}{/each}
 		</ul>
@@ -337,12 +346,12 @@
 	{:else if groups.length === 0}
 		<EmptyState
 			icon="search"
-			title={`No song matches “${query.trim()}”`}
-			body="Add it with the + above."
+			title={t().songs.picker.noMatch(query.trim())}
+			body={t().songs.list.noMatchBody}
 		>
 			{#snippet action()}
 				<button type="button" class={button('secondary', 'sm')} onclick={() => (adding = true)}>
-					Add a song
+					{t().songs.music.add}
 				</button>
 			{/snippet}
 		</EmptyState>
@@ -351,25 +360,23 @@
 	<div class="h-10 flex-none"></div>
 	<EmptyState
 		icon="music"
-		title="No class songs yet"
-		body="Add one from YouTube or upload an audio file. It stays a draft, seen only by the group's editors, until you share it with the class."
+		title={t().songs.list.emptyClassTitle}
+		body={t().songs.list.emptyClassBody}
 	>
 		{#snippet action()}
 			<button type="button" class={button('primary', 'md')} onclick={() => (adding = true)}>
-				<Icon name="plus" size={20} /> Add a song
+				<Icon name="plus" size={20} />
+				{t().songs.music.add}
 			</button>
 		{/snippet}
 	</EmptyState>
 {:else if groups.length === 0}
 	<div class="h-10 flex-none"></div>
-	<EmptyState
-		icon="music"
-		title="No songs yet"
-		body="Add one from YouTube or upload an audio file. The laptop at home downloads it and finds the beat."
-	>
+	<EmptyState icon="music" title={t().songs.list.emptyTitle} body={t().songs.list.emptyBody}>
 		{#snippet action()}
 			<button type="button" class={button('primary', 'md')} onclick={() => (adding = true)}>
-				<Icon name="plus" size={20} /> Add a song
+				<Icon name="plus" size={20} />
+				{t().songs.music.add}
 			</button>
 		{/snippet}
 	</EmptyState>

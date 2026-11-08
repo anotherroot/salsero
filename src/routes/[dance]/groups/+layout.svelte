@@ -20,6 +20,7 @@
 	import { canMakeGroup, levelShown, youPath, type Level } from '$lib/levels/levels';
 	import { fullName } from '$lib/names';
 	import YouSettings from '$lib/components/settings/YouSettings.svelte';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * Groups: the list and the group beside it (desktop spec, "A list and the
@@ -51,10 +52,11 @@
 	// Above Follow my class the phone's tab is You: the groups, then the settings
 	// (`you`); the desktop keeps Groups, with Settings in the side.
 	const you = $derived(data.you);
-	const title = $derived(myClass ? MY_CLASS.title : 'You');
-	const deskTitle = $derived(myClass ? undefined : 'Groups');
+	const title = $derived(myClass ? MY_CLASS.title : t().shell.tabs.you);
+	const deskTitle = $derived(myClass ? undefined : t().shell.tabs.groups);
 	const user = $derived(page.data.user);
-	const deskSubtitle = $derived(myClass ? undefined : 'Share lessons with a class');
+	const deskSubtitle = $derived(myClass ? undefined : t().groups.list.subtitle);
+	const w = $derived(t().groups.list);
 	const subtitle = $derived.by(() => {
 		if (!myClass) return user ? fullName(user) : undefined;
 		return classCount > 1 ? MY_CLASS.classes : undefined;
@@ -89,7 +91,7 @@
 </script>
 
 {#snippet right()}
-	<BandButton icon="plus" label="New group" onclick={openSheet} />
+	<BandButton icon="plus" label={w.newGroup} onclick={openSheet} />
 {/snippet}
 
 {#snippet list()}
@@ -103,7 +105,7 @@
 			{joinAction}
 		/>
 	{:else}
-		{#if you}<h2 class="{SECTION_LABEL} desk:hidden">Groups</h2>{/if}
+		{#if you}<h2 class="{SECTION_LABEL} desk:hidden">{t().shell.tabs.groups}</h2>{/if}
 		<GroupList
 			teams={data.teams}
 			dance={data.dance.slug}
@@ -152,11 +154,11 @@
 	{@render children()}
 {/if}
 
-<Sheet title="Join with a code" size="small" open={codeOpen} onclose={() => (codeOpen = false)}>
+<Sheet title={w.joinWithCode} size="small" open={codeOpen} onclose={() => (codeOpen = false)}>
 	<ClassCodeField action={joinAction} />
 </Sheet>
 
-<Sheet title="New group" size="small" open={creating} onclose={close}>
+<Sheet title={w.newGroup} size="small" open={creating} onclose={close}>
 	<form
 		id="new-group"
 		method="POST"
@@ -164,7 +166,7 @@
 		novalidate
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New group',
+			label: w.newGroup,
 			submit: ({ cancel }) => {
 				// One group per tap: a second tap while the first is out is dropped.
 				if (busy) return cancel();
@@ -190,7 +192,7 @@
 	>
 		{#if refusal?.message}<Banner kind="error">{refusal.message}</Banner>{/if}
 		<label class="block">
-			<span class={LABEL}>Name</span>
+			<span class={LABEL}>{t().groups.page.name}</span>
 			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				name="name"
@@ -199,7 +201,7 @@
 				maxlength="60"
 				required
 				value={refusal?.name ?? ''}
-				placeholder="Salsa nadaljevalna"
+				placeholder={w.namePlaceholder}
 				class={FIELD}
 			/>
 		</label>
@@ -211,9 +213,9 @@
 			form="new-group"
 			class={button('primary', 'md', true)}
 			aria-busy={busy}
-			aria-label={busy ? 'Creating group' : undefined}
+			aria-label={busy ? w.creatingGroup : undefined}
 		>
-			{#if busy}<Spinner />{:else}Create group{/if}
+			{#if busy}<Spinner />{:else}{w.createGroup}{/if}
 		</button>
 	{/snippet}
 </Sheet>

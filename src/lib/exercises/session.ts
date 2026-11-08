@@ -1,15 +1,29 @@
 /**
- * A session walks Today's list page by page: the to-do rows, then the picked
- * ones. PURE: no state lives on the server — the session is a URL flag plus
- * the page's own rows, so "next" is recomputed from them after every refresh.
- * The logged exercise is a done row by then, which is why the first remaining
- * row of the walk is the answer.
+ * A session walks Today's exercises page by page, not popup by popup: the
+ * warm-ups not done today in their list order, then the practice to-do rows,
+ * then the practice picked ones. PURE: no state lives on the server — the run
+ * is a URL flag plus the page's own rows, so "next" is recomputed from them
+ * after every refresh. The logged exercise is a done row by then, which is why
+ * the first remaining row of the walk is the answer.
  */
-type Walkable = { exercise: { id: number }; kind: 'done' | 'todo' | 'picked' };
+export type Walkable = {
+	exercise: { id: number };
+	kind: 'done' | 'todo' | 'picked';
+	list?: 'warmup' | 'practice';
+};
 
-/** What a session walks, in order: the to-do rows, then the picked ones. */
+/**
+ * Warm-ups not done (todo, picked) in the given order, then practice todo, then
+ * practice picked. No `list` = practice.
+ */
 export function sessionWalk<R extends Walkable>(rows: readonly R[]): R[] {
-	return [...rows.filter((r) => r.kind === 'todo'), ...rows.filter((r) => r.kind === 'picked')];
+	const warm = rows.filter((r) => r.list === 'warmup' && r.kind !== 'done');
+	const practice = rows.filter((r) => r.list !== 'warmup');
+	return [
+		...warm,
+		...practice.filter((r) => r.kind === 'todo'),
+		...practice.filter((r) => r.kind === 'picked')
+	];
 }
 
 /** The first of the walk that is neither open nor skipped. */

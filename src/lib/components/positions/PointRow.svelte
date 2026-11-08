@@ -6,6 +6,7 @@
 	import VideoPlayer from '$lib/components/ui/VideoPlayer.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PointStill from './PointStill.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import {
 		POINT_PROBLEM,
 		playFrom,
@@ -110,7 +111,7 @@
 		owner={spot.video.owner}
 		startAt={spot.spot.startMs / 1000}
 		title={from.kind === 'lesson' ? from.title : from.figure}
-		subtitle={from.kind === 'lesson' ? 'Lesson video' : 'Recording'}
+		subtitle={from.kind === 'lesson' ? t().video.lessonVideo : t().video.recording}
 		linking={canEdit}
 		{canEdit}
 		mirror={prefs.mirror}

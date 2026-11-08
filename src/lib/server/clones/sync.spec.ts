@@ -12,7 +12,8 @@ import { openDb, type Db } from '../db';
 import { clonePairs, figures, recordings, teamChanges, users } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
 import { setRole } from '../membership';
-import { SYNC_NO_ACCESS, SYNC_STALE } from '$lib/clones/view';
+import { syncNoAccess, syncStale } from '$lib/clones/view';
+import { runInLocale } from '../i18n-request';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { addLinks } from '../links';
@@ -325,7 +326,7 @@ describe('syncAll', () => {
 		// The notes have landed; while the recording's file links, someone saves G2.
 		whileLinking = () => save(G2, { name: 'Basic two' });
 		const res = await sync('u1', T, {}, targets);
-		expect(res).toMatchObject({ ok: true, refused: [{ id: G2, message: SYNC_STALE }] });
+		expect(res).toMatchObject({ ok: true, refused: [{ id: G2, message: syncStale() }] });
 		expect(row(G2)).toMatchObject({ notes: 'Ana notes', name: 'Basic two' });
 		expect(db.select().from(recordings).where(eq(recordings.figureId, G2)).all()).toEqual([]);
 		integrity();
@@ -404,7 +405,7 @@ describe('syncAll', () => {
 		whileLinking = () => setRole(db, 1, 'u3', 'member');
 		const order = [...view.targets].reverse().map((t) => ({ id: t.id, seen: t.seen }));
 		const res = await syncAll(db, 'u3', 'figure', G1, {}, order, view.members, files, NOW, ROOMY);
-		expect(res).toEqual({ ok: true, refused: [{ id: G1, message: SYNC_NO_ACCESS }] });
+		expect(res).toEqual({ ok: true, refused: [{ id: G1, message: syncNoAccess() }] });
 		expect(db.select().from(recordings).where(eq(recordings.figureId, G2)).all()).toHaveLength(1);
 		expect(row(G1).notes).toBe('Old notes');
 		integrity();
@@ -544,5 +545,47 @@ describe('syncAll', () => {
 				.get()
 		).toBeUndefined();
 		integrity();
+	});
+});
+
+describe('in Slovenian', () => {
+	it('the sheet’s title, the roles and the reader’s Update are the reader’s words', () => {
+		save(G1, { notes: 'Club notes' });
+		const view = runInLocale('sl', () => syncView(db, 'u1', 'figure', G1)!);
+		expect(view.title).toBe('Uskladi: Enchufla · Basic');
+		expect(view.targets.map((t) => [t.label, t.role])).toEqual([
+			['Salsa Tuesdays', 'ta kopija'],
+			// The person's own copy keeps its label: the sheet draws it in their language.
+			['Yours', ''],
+			['Rueda club', 'vodja']
+		]);
+		expect(runInLocale('sl', () => syncView(db, 'u2', 'figure', F2)!.title)).toBe(
+			'Posodobi iz: Salsa Tuesdays'
+		);
+		// Field labels follow the reader too.
+		expect(view.rows.map((r) => r.label)).toEqual(['Opombe']);
+	});
+
+	it('a Sync with a row still open is refused in Slovenian', async () => {
+		save(T, { notes: 'Ana notes' });
+		save(G1, { notes: 'Club notes' });
+		const res = await runInLocale('sl', () => sync('u1', T, {}, ticked('u1', T)));
+		expect(res).toMatchObject({
+			ok: false,
+			reason: 'pick',
+			message: 'Kjer se kopije razlikujejo, izberite vrednost.'
+		});
+	});
+
+	it('a copy that changed meanwhile is refused alone, in Slovenian', async () => {
+		save(G1, { notes: 'Club notes' });
+		const opened = syncView(db, 'u1', 'figure', T)!;
+		const targets = ticked('u1', T);
+		save(G2, { name: 'Basic two' });
+		const res = await runInLocale('sl', () => sync('u1', T, {}, targets, opened.members));
+		expect(res).toMatchObject({
+			ok: true,
+			refused: [{ id: G2, message: 'Med usklajevanjem se je spremenilo; preverite znova.' }]
+		});
 	});
 });

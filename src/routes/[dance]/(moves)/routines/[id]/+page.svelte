@@ -5,6 +5,7 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { afterNavigate } from '$app/navigation';
 	import { enhance } from '$app/forms';
@@ -97,8 +98,8 @@
 					{
 						key: 'select',
 						icon: 'check-circle',
-						label: 'Select slots',
-						meta: 'Duplicate, delete or make a routine of several',
+						label: t().routine.selection.item,
+						meta: t().routine.selection.itemMeta,
 						onclick: () => {
 							selecting = true;
 							selected = [];
@@ -251,8 +252,8 @@
 	const sourceOf = (id: number): string | null => data.groupFigures[id]?.team ?? null;
 
 	function optionName(id: number): string {
-		const name = data.labels[id] ?? 'a figure';
-		return figuresById.has(id) ? name : `${name} (archived)`;
+		const name = data.labels[id] ?? t().routine.slot.aFigure;
+		return figuresById.has(id) ? name : t().routine.slot.archived(name);
 	}
 
 	/** What does not connect below server row `i`, worded; null when it connects. */
@@ -293,9 +294,9 @@
 				id: slot.id,
 				source: isRoutine || main === undefined ? null : sourceOf(main),
 				title: isRoutine
-					? (slot.childName ?? 'a routine')
+					? (slot.childName ?? t().routine.slot.aRoutine)
 					: main === undefined
-						? 'Empty — nothing to call here'
+						? t().routine.slot.empty
 						: optionName(main),
 				meta: slotMeta(
 					edges,
@@ -406,8 +407,8 @@
 	async function remove(ids: number[]) {
 		const message =
 			ids.length === 1
-				? `Slot ${rows.findIndex((r) => r.id === ids[0]) + 1} deleted`
-				: `${ids.length} slots deleted`;
+				? t().routine.slot.deleted(rows.findIndex((r) => r.id === ids[0]) + 1)
+				: t().routine.slot.manyDeleted(ids.length);
 		gone = [...gone, ...ids];
 		swiped = null;
 		if (expanded !== null && ids.includes(expanded)) expanded = null;
@@ -443,7 +444,9 @@
 		if (result.type === 'success') {
 			// When it went: in a group, Undo brings back what the remove took off members' Today.
 			const removedAt = typeof result.data?.removedAt === 'number' ? result.data.removedAt : '';
-			showToast(`Removed ${label}`, () => send('restoreOption', { stepId, figureId, removedAt }));
+			showToast(t().routine.slot.removed(label), () =>
+				send('restoreOption', { stepId, figureId, removedAt })
+			);
 			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
 		}
 	}
@@ -460,12 +463,12 @@
 						: anchorBefore(edges);
 		const title =
 			from === null
-				? 'Add a figure'
+				? t().routine.slots.addFigure
 				: from.side === 'between'
-					? `Add between slots ${from.row + 1} and ${from.next + 1}`
+					? t().routine.picker.between(from.row + 1, from.next + 1)
 					: from.side === 'after'
-						? `Add after slot ${from.row + 1}`
-						: `Add before slot ${from.row + 1}`;
+						? t().routine.picker.after(from.row + 1)
+						: t().routine.picker.before(from.row + 1);
 		picker = { title, anchor, insertAt: at, stepId: null };
 	}
 
@@ -475,7 +478,7 @@
 		const main = figuresById.get(slot.figureIds[0]);
 		const anchor = anchorAlternative(main, slot.figureIds);
 		if (!main || !anchor) return;
-		picker = { title: `Alternative for ${main.label}`, anchor, insertAt: null, stepId };
+		picker = { title: t().routine.picker.alternative(main.label), anchor, insertAt: null, stepId };
 	}
 
 	type PickerState = NonNullable<typeof picker>;
@@ -666,21 +669,21 @@
 		<BandButton
 			focusKey="stop-selecting"
 			icon="close"
-			label="Stop selecting"
+			label={t().moves.coverage.stopSelecting}
 			onclick={leaveSelecting}
 		/>
 	{:else if editing}
 		<BandButton
 			focusKey="stop-editing"
 			icon="close"
-			label="Stop editing"
-			onclick={() => leaveOrAsk(editForm ?? null, stopEditing, 'Stop editing')}
+			label={t().figure.edit.stop}
+			onclick={() => leaveOrAsk(editForm ?? null, stopEditing, t().figure.edit.stop)}
 		/>
 	{:else}
 		<BackButton
 			fallback={{
 				href: resolve('/[dance]/(moves)/routines', { dance: data.dance.slug }),
-				label: 'Back to Moves'
+				label: t().shell.backTo(t().shell.tabs.moves)
 			}}
 		/>
 	{/if}
@@ -688,9 +691,9 @@
 
 {#snippet actions()}
 	{#if data.historyHref}
-		<BandButton icon="clock" label="History" href={data.historyHref} />
+		<BandButton icon="clock" label={t().figure.menu.history} href={data.historyHref} />
 	{/if}
-	<BandButton focusKey="edit" icon="pencil" label="Edit routine" onclick={startEditing} />
+	<BandButton focusKey="edit" icon="pencil" label={t().routine.band.edit} onclick={startEditing} />
 	{@render menu()}
 {/snippet}
 
@@ -710,7 +713,11 @@
 {#snippet readerActions()}
 	{#if data.makeMine}
 		<span class="contents desk:hidden"
-			><BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} /></span
+			><BandButton
+				icon="pencil"
+				label={t().routine.band.edit}
+				onclick={() => (makingMine = true)}
+			/></span
 		>
 	{/if}
 	{@render menu()}
@@ -719,11 +726,19 @@
 {#snippet practise()}
 	<!-- The player picks the song: count only, or any of this dance's ready ones. A reader's
 	     Practise is pinned at the pane's foot on the desktop, beside Edit (`heroDesk`). -->
-	<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
+	<HeroCard
+		title={t().figure.practice.practise}
+		meta={t().routine.band.practiseMeta}
+		href={practiseHref}
+	/>
 {/snippet}
 
 <Screen
-	title={selecting ? selectionTitle(selected.length) : editing ? 'Edit routine' : routine.name}
+	title={selecting
+		? selectionTitle(selected.length)
+		: editing
+			? t().routine.band.editTitle
+			: routine.name}
 	compact={selecting || (!editing && bandCompact(routine.name))}
 	subtitle={selecting || editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
@@ -748,7 +763,7 @@
 				action="?/rename"
 				class="flex flex-col gap-3.5"
 				use:guarded={{
-					label: 'Routine edits',
+					label: t().routine.edit.label,
 					submit: () => {
 						saving = true;
 						return async ({ update, result }) => {
@@ -765,7 +780,7 @@
 				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
 				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				<div>
-					<label class={LABEL} for="edit-name">Name</label>
+					<label class={LABEL} for="edit-name">{t().moves.routines.name}</label>
 					<input
 						id="edit-name"
 						name="name"
@@ -780,13 +795,14 @@
 						<FieldError id="edit-name-error" message={nameFieldError} />
 					{:else}
 						<p id="edit-name-help" class="mt-1.5 pl-1 text-[13px] text-muted">
-							Up to 200 characters
+							{t().routine.edit.nameHelp}
 						</p>
 					{/if}
 				</div>
 				<div>
 					<label class={LABEL} for="edit-notes"
-						>Notes <span class="font-medium text-muted">(optional)</span></label
+						>{t().moves.routines.notes}
+						<span class="font-medium text-muted">{t().routine.edit.optional}</span></label
 					>
 					<textarea
 						id="edit-notes"
@@ -802,7 +818,7 @@
 				</div>
 			</form>
 
-			<h2 class="{SECTION_LABEL} pt-1">More</h2>
+			<h2 class="{SECTION_LABEL} pt-1">{t().routine.edit.more}</h2>
 			<ul class={GROUP}>
 				<li>
 					<!-- Not behind `use:enhance`: the action redirects to the copy, and a full
@@ -814,8 +830,10 @@
 						>
 							<span class="flex-none text-accent-text"><Icon name="copy" size={22} /></span>
 							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-tight font-bold text-ink">Duplicate routine</span>
-								<span class="text-[13px] text-muted">Makes a copy and opens it</span>
+								<span class="text-[16px] leading-tight font-bold text-ink"
+									>{t().routine.edit.duplicate}</span
+								>
+								<span class="text-[13px] text-muted">{t().routine.edit.duplicateMeta}</span>
 							</span>
 							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
 						</button>
@@ -830,8 +848,10 @@
 					>
 						<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-tight font-bold text-danger">Archive routine</span>
-							<span class="text-[13px] text-muted">Its slots and practice history are kept</span>
+							<span class="text-[16px] leading-tight font-bold text-danger"
+								>{t().routine.edit.archive}</span
+							>
+							<span class="text-[13px] text-muted">{t().routine.edit.archiveMeta}</span>
 						</span>
 					</button>
 				</li>
@@ -868,12 +888,13 @@
 										aria-busy={restoring}
 										disabled={restoring}
 										onclick={restoreAndPick}
-										>{#if restoring}<Spinner /><span class="sr-only">Restoring…</span
-											>{:else}Restore{/if}</button
+										>{#if restoring}<Spinner /><span class="sr-only"
+												>{t().routine.archived.restoring}</span
+											>{:else}{t().routine.archived.restore}{/if}</button
 									>
 								{/if}
 								<button type="button" class={button('tertiary', 'sm')} onclick={pickAnother}
-									>Pick another</button
+									>{t().routine.archived.pickAnother}</button
 								>
 							</div>
 						{/snippet}
@@ -889,11 +910,11 @@
 					<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
 						{#if facts}
 							<p class="text-[14px] font-semibold text-ink-2">
-								{#if facts.from !== null}Starts from <b class="font-extrabold text-ink"
-										>{facts.from}</b
-									>{#if facts.to !== null}&nbsp;· ends at <b class="font-extrabold text-ink"
-											>{facts.to}</b
-										>{/if}{:else}Ends at <b class="font-extrabold text-ink">{facts.to}</b>{/if}
+								{#if facts.from !== null}{t().routine.facts.from}
+									<b class="font-extrabold text-ink">{facts.from}</b>{#if facts.to !== null}&nbsp;· {t()
+											.routine.facts.to}
+										<b class="font-extrabold text-ink">{facts.to}</b>{/if}{:else}{t().routine.facts
+										.endsAt} <b class="font-extrabold text-ink">{facts.to}</b>{/if}
 							</p>
 						{/if}
 						{#if badges.length > 0}
@@ -912,10 +933,12 @@
 			{#if !data.canEdit}
 				<!-- A reader sees the slots as they are: no gestures, no picker, no notes to edit. -->
 				{#if rows.length === 0}
-					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No slots yet.</p>
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
+						{t().routine.slots.none}
+					</p>
 				{:else}
 					<section>
-						<h2 class="{SECTION_LABEL} mb-2 pt-1.5">Slots · {rows.length}</h2>
+						<h2 class="{SECTION_LABEL} mb-2 pt-1.5">{t().routine.slots.title(rows.length)}</h2>
 						<ol class={GROUP}>
 							{#each rows as row, i (row.id)}
 								<li class="flex min-h-16 items-start gap-3 py-3 pr-3.5 pl-4">
@@ -939,7 +962,8 @@
 										{#if row.meta}<span class="text-[13px] text-muted">{row.meta}</span>{/if}
 										{#if row.alternatives.length > 0}
 											<span class="text-[13px] text-ink-2"
-												>or {#each row.alternatives as a, k (a.id)}{k > 0
+												>{t().figure.or}
+												{#each row.alternatives as a, k (a.id)}{k > 0
 														? ', '
 														: ''}{a.label}{#if a.source}
 														<Badge tone="neutral"><Icon name="group" size={14} />{a.source}</Badge
@@ -957,18 +981,18 @@
 			{:else if data.slots.length === 0}
 				<EmptyState
 					icon="route"
-					title="No slots yet"
-					body="The first slot is where the routine starts. Add a figure, then build from it."
+					title={t().routine.slots.emptyTitle}
+					body={t().routine.slots.emptyBody}
 				>
 					{#snippet action()}
 						<button type="button" class={button('primary')} onclick={() => openPicker(0, null)}
-							><Icon name="plus" size={20} />Add a figure</button
+							><Icon name="plus" size={20} />{t().routine.slots.addFigure}</button
 						>
 					{/snippet}
 				</EmptyState>
 			{:else}
 				<section>
-					<h2 class="{SECTION_LABEL} mb-2 pt-1.5">Slots · {rows.length}</h2>
+					<h2 class="{SECTION_LABEL} mb-2 pt-1.5">{t().routine.slots.title(rows.length)}</h2>
 					<SlotList
 						{rows}
 						{expanded}
@@ -1014,7 +1038,7 @@
 			{/if}
 
 			{#if !selecting && (data.exerciseId !== null || data.taughtIn.length > 0)}
-				<h2 class="{SECTION_LABEL} pt-3.5">More</h2>
+				<h2 class="{SECTION_LABEL} pt-3.5">{t().routine.edit.more}</h2>
 				<ul class={GROUP}>
 					{#if data.exerciseId !== null}
 						{@render moreRow(
@@ -1023,8 +1047,8 @@
 								id: String(data.exerciseId)
 							}),
 							'repeat',
-							'Exercise',
-							'History, how often, active'
+							t().routine.more.exercise,
+							t().routine.more.exerciseMeta
 						)}
 					{/if}
 					{#each data.taughtIn as lesson (lesson.id)}
@@ -1035,7 +1059,7 @@
 							}),
 							'lessons',
 							lesson.title,
-							`Taught in · ${longDayLabel(lesson.lessonDay)}`
+							t().routine.more.taughtIn(longDayLabel(lesson.lessonDay))
 						)}
 					{/each}
 				</ul>
@@ -1068,12 +1092,13 @@
 					type="button"
 					class={button('secondary', 'md', !danceable)}
 					aria-haspopup="dialog"
-					onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
+					onclick={() => (makingMine = true)}
+					><Icon name="pencil" size={20} />{t().common.edit}</button
 				>
 				{#if danceable}
 					<div class="min-w-0 flex-1">
 						<a href={practiseHref} class={button('primary', 'md', true)}
-							><Icon name="play" size={20} />Practise</a
+							><Icon name="play" size={20} />{t().figure.practice.practise}</a
 						>
 					</div>
 				{/if}
@@ -1091,7 +1116,8 @@
 			aria-busy={saving}
 			disabled={saving}
 		>
-			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+			{#if saving}<Spinner /><span class="sr-only">{t().routine.saving}</span>{:else}{t().common
+					.save}{/if}
 		</button>
 	</BottomBar>
 {/if}
@@ -1100,13 +1126,13 @@
 	open={archiving}
 	icon="trash"
 	tone="danger"
-	title="Archive “{routine.name}”?"
-	body="It leaves the Routines list. Its slots and practice history are kept."
+	title={t().routine.archive.title(routine.name)}
+	body={t().routine.archive.body}
 	onclose={() => (archiving = false)}
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -1134,7 +1160,8 @@
 				aria-busy={archivingNow}
 				disabled={archivingNow}
 			>
-				{#if archivingNow}<Spinner /><span class="sr-only">Archiving…</span>{:else}Archive{/if}
+				{#if archivingNow}<Spinner /><span class="sr-only">{t().routine.archive.archiving}</span
+					>{:else}{t().routine.archive.button}{/if}
 			</button>
 		</form>
 	{/snippet}
@@ -1178,7 +1205,7 @@
 	onclose={() => (picker = null)}
 />
 
-<Sheet title="Make a routine" open={naming} onclose={() => (naming = false)}>
+<Sheet title={t().routine.make.title} open={naming} onclose={() => (naming = false)}>
 	<form
 		id="make-routine"
 		novalidate
@@ -1186,7 +1213,7 @@
 		action="?/extract"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New routine name',
+			label: t().routine.make.label,
 			submit: async (input) => {
 				// One routine per tap: a second tap while the first is out is dropped.
 				if (making) return input.cancel();
@@ -1216,7 +1243,7 @@
 			<Banner kind="error" title={place.message} />
 		{/if}
 		<div>
-			<label class={LABEL} for="make-name">Name</label>
+			<label class={LABEL} for="make-name">{t().moves.routines.name}</label>
 			<!-- The sheet exists to type this one thing. -->
 			<!-- svelte-ignore a11y_autofocus -->
 			<input
@@ -1232,7 +1259,7 @@
 				typeof form.name === 'string'
 					? form.name
 					: ''}
-				placeholder="Shine opener"
+				placeholder={t().routine.make.placeholder}
 				class={FIELD}
 				aria-invalid={nameError ? 'true' : undefined}
 				aria-describedby={nameError ? 'make-name-error' : undefined}
@@ -1262,15 +1289,15 @@
 			form="make-routine"
 			class={button('primary', 'md', true)}
 			aria-busy={making}
-			aria-label={making ? 'Making routine' : undefined}
+			aria-label={making ? t().routine.make.making : undefined}
 		>
-			{#if making}<Spinner />{:else}<Icon name="route" size={20} />Make routine{/if}
+			{#if making}<Spinner />{:else}<Icon name="route" size={20} />{t().routine.make.action}{/if}
 		</button>
 	{/snippet}
 </Sheet>
 
 <Toast
-	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
+	toast={toast && { id: toast.id, message: toast.message, action: t().common.undo }}
 	bottom={selecting
 		? `calc(${barHeight}px + 0.5rem)`
 		: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'}

@@ -162,7 +162,11 @@ export const exercise: Catalog['exercise'] = {
 		saved: (back) => `Shranjeno · ${back}`,
 		added: (day) => `Dodano za ${day}`,
 		doneToday: 'Opravljeno danes',
-		tapFace: 'Pritisnite obraz, da ga shranite'
+		tapFace: 'Pritisnite obraz, da ga shranite',
+		place: (at, of) => `${at} od ${of}`,
+		next: (name) => `Naslednja: ${name}`,
+		skip: 'Preskoči',
+		doneNext: 'Opravljeno · naprej'
 	},
 	refused: {
 		checkValues: 'Preverite vrednosti in poskusite znova.',

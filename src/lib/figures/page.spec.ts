@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { ScheduleState } from '$lib/schedule/schedule';
 import {
 	addVideoRow,
@@ -20,6 +21,7 @@ import {
 	moveState,
 	practiceLine,
 	recordingDay,
+	recordingsLine,
 	routineUseMeta,
 	timingLine,
 	variationNav
@@ -433,5 +435,154 @@ describe('link rows: review fixes', () => {
 			end: 'none',
 			title: 'javascript:alert(1)'
 		});
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('titles In routines in the locative, all four forms', () => {
+		expect(sl(() => [1, 2, 3, 5].map((n) => relationTitle('routines', n)))).toEqual([
+			'V 1 kombinaciji',
+			'V 2 kombinacijah',
+			'V 3 kombinacijah',
+			'V 5 kombinacijah'
+		]);
+		expect(sl(() => relationTitle('follows', 2))).toBe('Pred njo');
+	});
+
+	it('checks the length in dobe', () => {
+		expect(sl(() => lengthError('0'))).toBe('Od 1 do 64 dob. Ena osmica je 8.');
+		expect(sl(() => lengthError('8'))).toBeNull();
+	});
+
+	it('counts recordings through nouns, and names what a recording is', () => {
+		expect(sl(() => [0, 1, 2, 5].map(recordingsLine))).toEqual([
+			'brez posnetkov',
+			'1 posnetek',
+			'2 posnetka',
+			'5 posnetkov'
+		]);
+		expect(sl(() => recordingsTitle(0))).toBe('Posnetki');
+		expect(sl(() => recordingsTitle(3))).toBe('Posnetki · 3');
+		expect(sl(() => recordingMetaLine('video', '24 MB'))).toBe('Videoposnetek · 24 MB');
+		expect(sl(() => recordingMetaLine('video', '24 MB', true))).toBe('Z YouTuba · 24 MB');
+	});
+
+	it('names the slots, with the dual', () => {
+		expect(sl(() => routineUseMeta({ slots: [3], slotCount: 6 }))).toBe('Mesto 3 od 6');
+		expect(sl(() => routineUseMeta({ slots: [2, 5], slotCount: 8 }))).toBe('Mesti 2 in 5 od 8');
+		expect(sl(() => routineUseMeta({ slots: [1, 4, 6], slotCount: 9 }))).toBe(
+			'Mesta 1, 4 in 6 od 9'
+		);
+	});
+
+	it('draws the timing in dobe and osmice', () => {
+		expect(sl(() => timingLine(1, 8))).toEqual({
+			main: 'Začne na 1 · 8 dob',
+			extra: ' · ena osmica'
+		});
+		expect(sl(() => timingLine(5, 16))).toEqual({
+			main: 'Začne na 5 · 16 dob',
+			extra: ' · 2 osmici'
+		});
+		expect(sl(() => timingLine(1, 4).main)).toBe('Začne na 1 · 4 dobe');
+	});
+
+	it("puts a group's name after a ·, never declined", () => {
+		expect(sl(() => figureSubtitle({ startCount: 1, lengthCounts: 16 }, 'Salsa Tuesdays'))).toBe(
+			'Različica · Salsa Tuesdays · začne na 1 · 16 dob'
+		);
+		expect(sl(() => figureSubtitle({ startCount: null, lengthCounts: null }))).toBe('Različica');
+	});
+
+	it('the switcher counts in the genitive after od', () => {
+		const ids = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i + 1 }));
+		expect(sl(() => variationNav(ids(1), 1).position)).toBe('1 od 1 različice');
+		expect(sl(() => variationNav(ids(2), 2).position)).toBe('2 od 2 različic');
+		expect(sl(() => variationNav(ids(5), 3).position)).toBe('3 od 5 različic');
+	});
+
+	it('archives and moves with the names after a colon', () => {
+		expect(sl(() => archiveCopy('Enchufla', 'Doble', false))).toEqual({
+			title: 'Želite arhivirati »Doble«?',
+			button: 'Arhiviraj različico',
+			caption: '»Doble« zapusti figuro: Enchufla. Njeni posnetki in zgodovina vadenja se ohranijo.'
+		});
+		expect(sl(() => archiveCopy('Enchufla', 'Doble', true).caption)).toBe(
+			'Z njo gre tudi figura: Enchufla. »Doble« je njena zadnja različica. Njeni posnetki in zgodovina vadenja se ohranijo.'
+		);
+		const chosen = { name: 'Enchufla', variations: ['Doble'] };
+		expect(sl(() => moveState({ last: false, chosen, joinName: 'doble' }))).toMatchObject({
+			cta: 'Premakni v: Enchufla',
+			clash: 'Različica s tem imenom že obstaja: Enchufla · doble. Izberite drugo ime.'
+		});
+		expect(sl(() => moveState({ last: true, chosen: null, joinName: '' }).cta)).toBe(
+			'Premakni in odstrani figuro'
+		);
+	});
+
+	it('the delete question: the sections that go agree with their count', () => {
+		const body = (n: number) => sl(() => deleteRecordingBody('sreda, 28. oktobra', '24 MB', n));
+		expect(body(0)).toBe('sreda, 28. oktobra · 24 MB. Tega ni mogoče razveljaviti.');
+		expect(body(1)).toContain('Z njim gre tudi 1 shranjeni odsek. ');
+		expect(body(2)).toContain('Z njim gresta tudi 2 shranjena odseka. ');
+		expect(body(3)).toContain('Z njim gredo tudi 3 shranjeni odseki. ');
+		expect(body(5)).toContain('Z njim gre tudi 5 shranjenih odsekov. ');
+	});
+
+	it('the practice line, the menu and the rows', () => {
+		expect(sl(() => practiceLine(st(TODAY, TODAY), TODAY, false))).toEqual({
+			text: 'Danes opravljeno',
+			tone: 'done'
+		});
+		expect(sl(() => practiceLine(st(TODAY, '2026-10-29'), TODAY, false, false)?.text)).toBe(
+			'Na premoru · ni na seznamu Danes'
+		);
+		const items = sl(() =>
+			figureMenuItems(
+				{
+					canEdit: true,
+					reader: false,
+					practisable: true,
+					exercise: null,
+					historyHref: '/h',
+					variationName: 'Doble'
+				},
+				{ create: () => {}, move: () => {}, archive: () => {} }
+			).map((i) => i.label)
+		);
+		expect(items).toEqual([
+			'Vadi samostojno',
+			'Zgodovina',
+			'Premakni v drugo figuro …',
+			'Arhiviraj različico'
+		]);
+		expect(sl(() => relationRows({ follows: 0, leads: 2, routines: 1 }))).toMatchObject([
+			{ label: 'Pred njo', count: 'Nobena' },
+			{ label: 'Sledi ji', count: '2' },
+			{ label: 'V kombinacijah', count: '1' }
+		]);
+		expect(sl(() => addVideoRow(true).meta)).toBe('Počakajte, da se nalaganje konča');
+	});
+
+	it('a link row says a save is on its way, or why it failed', () => {
+		const yt = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+		const queued = { url: yt, title: null, saving: { status: 'queued' as const, error: null } };
+		const failed = { url: yt, title: null, saving: { status: 'failed' as const, error: null } };
+		expect(sl(() => linkRowView(queued, true).meta)).toBe('Shranjevanje v 480p …');
+		expect(sl(() => linkRowView(failed, true).meta)).toBe(
+			'Ni bilo mogoče shraniti: neznana napaka'
+		);
+	});
+
+	it('a recording from another year keeps the Slovenian date shape', () => {
+		expect(sl(() => recordingDay('2025-10-29', TODAY))).toBe('sreda, 29. oktobra 2025');
+	});
+
+	it('English is unchanged', () => {
+		expect(recordingsLine(0)).toBe('no recordings');
+		expect(recordingsLine(1)).toBe('1 recording');
+		expect(recordingsLine(3)).toBe('3 recordings');
 	});
 });

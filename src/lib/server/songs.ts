@@ -3,6 +3,7 @@ import type { Db } from './db';
 import { exercises, sets, songLinks, songs, teamMembers, teams, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
+import { shownExercise } from '$lib/exercises/name';
 import { sectionsJson, type Section } from '$lib/songs/sections';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
@@ -692,12 +693,13 @@ export function deleteSong(
 			return { ok: false as const, usedBy: [], busy: true as const };
 		}
 		const users = tx
-			.select({ name: exercises.name, archivedAt: exercises.archivedAt })
+			.select({ name: exercises.name, source: exercises.source, archivedAt: exercises.archivedAt })
 			.from(exercises)
 			.where(eq(exercises.songId, id))
 			.orderBy(asc(exercises.name))
 			.all();
-		const live = users.filter((e) => e.archivedAt === null).map((e) => e.name);
+		// As drawn: a lesson's own drill in the reader's language.
+		const live = users.filter((e) => e.archivedAt === null).map((e) => shownExercise(e).name);
 		if (live.length) return { ok: false as const, usedBy: live };
 		tx.update(exercises).set({ songId: null }).where(eq(exercises.songId, id)).run();
 		// Music rows suggesting it go with it (spec B): they never block a Delete.

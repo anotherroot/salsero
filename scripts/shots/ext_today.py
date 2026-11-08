@@ -1,4 +1,4 @@
-"""Today: the exercise page per type, the Done sheet, the toast, a session of pages, and the desk checks of Today's pane. See README "Scenes"."""
+"""Today: the exercise page per type, the Done sheet, the toast, the run, and the desk checks of Today's pane. See README "Scenes"."""
 import os
 import re
 from datetime import datetime, timezone
@@ -28,9 +28,8 @@ def _group_drill(db, admin, dance):
     ).fetchone()
 
 
-def _quiet_day(db, admin, dance):
-    """1 when Today has nothing to open: every active exercise of the admin has a set on the rig's day
-    (instant.txt, in their zone), or none is active. Gates the scenes of the day so far."""
+def _day_start(db, admin):
+    """The rig's day (instant.txt) in the admin's zone: its start, epoch ms."""
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "instant.txt")) as fh:
         now = datetime.strptime(fh.read().strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     tz = (db.execute("select timezone from users where id = ?", (admin,)).fetchone() or [None])[0]
@@ -39,7 +38,13 @@ def _quiet_day(db, admin, dance):
         local = now.astimezone(ZoneInfo(tz or "UTC"))
     except Exception:  # no tz database: the UTC day
         local = now
-    start = int(local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+    return int(local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+
+
+def _quiet_day(db, admin, dance):
+    """1 when Today has nothing to open: every active exercise of the admin has a set on the rig's day
+    (instant.txt, in their zone), or none is active. Gates the scenes of the day so far."""
+    start = _day_start(db, admin)
     left = db.execute(
         "select count(*) from exercises e where e.user_id = ? and e.dance = ? and e.active = 1 "
         "and e.archived_at is null and not exists (select 1 from sets s where s.exercise_id = e.id "
@@ -62,8 +67,12 @@ def placeholders(db, admin, dance):
     }
 
 
-def _start_session(page):
-    page.get_by_role("button", name=re.compile(r"Start session")).first.click()
+def _start_run(page):
+    """Start (the hero's play): the walk's first page, with ?run=1."""
+    page.get_by_role("button", name="Start", exact=True).first.click()
+    # Long enough for a cold dev server compiling the exercise route on a busy machine.
+    page.wait_for_url(re.compile(r"/exercises/\d+\?run=1$"), timeout=30000)
+    _settle(page)
 
 
 def _new(page):
@@ -297,7 +306,7 @@ def _settle(page, ms=500):
     page.wait_for_timeout(ms)
 
 
-# ---- plan 2: the exercise page per type, the Done sheet, the toast, a session of pages ----
+# ---- plan 2: the exercise page per type, the Done sheet, the toast, the run ----
 
 FACES = re.compile("Still hard|Getting there|I've got it|Easy")
 
@@ -371,21 +380,45 @@ def _past_day_sheet(page):
     page.wait_for_timeout(500)
 
 
-def _session_pages(page):
-    """Start, a face: the next page's URL carries ?session=1."""
-    _start_session(page)
-    page.wait_for_url(re.compile(r"/exercises/\d+\?.*session=1|/exercises/\d+.*session=1"), timeout=8000)
+def _warm_up_last(page):
+    """Make the admin's last exercise not done on the rig's day a warm-up, in the rig's temp db; reload.
+    Returns its id: the run walks the warm-ups first, so Start opens it."""
+    import sqlite3
+    db = sqlite3.connect(f"{os.environ['SHOTS_TMP']}/salsa.db")
+    try:
+        admin = db.execute("select user_id from sessions where id = 'shots'").fetchone()[0]
+        dance = page.url.split("/")[3]
+        start = _day_start(db, admin)
+        row = db.execute(
+            "select e.id from exercises e where e.user_id = ? and e.dance = ? and e.active = 1 "
+            "and e.archived_at is null and not exists (select 1 from sets s where s.exercise_id = e.id "
+            "and s.done_at >= ?) order by e.id desc limit 1",
+            (admin, dance, start),
+        ).fetchone()
+        if not row:
+            raise RuntimeError("no exercise to make a warm-up")
+        db.execute("update exercises set warmup = 1, warmup_order = 0 where id = ?", (row[0],))
+        db.commit()
+    finally:
+        db.close()
+    page.reload(wait_until="networkidle")
+    return row[0]
+
+
+def _run_back(page):
+    """Start opens the first warm-up's page with ?run=1; one Back returns to Today."""
+    warm = _warm_up_last(page)
+    today = page.url
+    _start_run(page)
+    if not re.search(rf"/exercises/{warm}\?run=1$", page.url):
+        raise RuntimeError(f"Start opened {page.url}, not the warm-up {warm}")
+    page.go_back()
+    page.wait_for_url(today, timeout=8000)
     _settle(page)
-    first = page.url
-    _save_face(page)
-    page.wait_for_url(lambda u: u != first and "session=1" in u, timeout=8000)
-    _settle(page)
-    if "/exercises/" not in page.url:
-        raise RuntimeError(f"the session went to {page.url}, not a next page")
 
 
 SCENES.update({
-    "today-session": Scene("/{dance}", _start_session),
+    "today-run": Scene("/{dance}", _start_run),
     "today-new": Scene("/{dance}", _new),
     "exercise-page-figure": Scene("/{dance}/exercises/{figex}"),
     "exercise-page-drill": Scene("/{dance}/exercises/{drillex}"),
@@ -398,10 +431,10 @@ SCENES.update({
     "done-toast": Scene("/{dance}/exercises/{lessonex}", _save_face),
     "done-today": Scene("/{dance}/exercises/{routineex}", _done_today),
     "done-past-day": Scene("/{dance}?day={yesterday}", _past_day_sheet),
-    "today-session-pages": Scene("/{dance}", _session_pages),
+    "today-run-back": Scene("/{dance}", _run_back),
     # desk only
     "pane-edit": Scene("/{dance}/exercises/{figex}", _edit, desk=True),
-    "pane-session": Scene("/{dance}", _start_session, desk=True),
+    "pane-run": Scene("/{dance}", _start_run, desk=True),
     "pane-group-drill": Scene(
         "/{dance}/lessons/{groupdrilllesson}#open={groupdrill}", _open_group_drill, desk=True
     ),
@@ -480,4 +513,155 @@ def _back_refetch(page):
 SCENES.update({
     "today-pane-loading": Scene("/{dance}/figures", _pane_loading, desk=True, after=_release),
     "today-back-refetch": Scene("/{dance}", _back_refetch),
+})
+
+
+# ---- plan 3 Task 4: the run on the exercise page ----
+
+_PLACE = re.compile(r"(\d+) of (\d+) · \d+:\d\d")
+
+
+def _place(page):
+    """The band's "3 of 7", as (3, 7); None when it shows no place."""
+    m = _PLACE.search(page.locator("body").inner_text())
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def _step_shot(page, name):
+    """With SHOTS_STEPS set, a shot of each step of the walk (the scene's own shot is the last)."""
+    out = os.environ.get("SHOTS_STEPS")
+    if out:
+        os.makedirs(out, exist_ok=True)
+        page.screenshot(path=os.path.join(out, f"{name}.png"))
+
+
+def _run_url(page):
+    return re.search(r"/exercises/\d+\?run=1(&skip=[\d,]+)?$", page.url) is not None
+
+
+def _player_links_in_run(page):
+    """In a run every link to the player carries the run (from=run), so its Back comes back here."""
+    for href in page.locator('a[href*="/player?"]').evaluate_all("as => as.map(a => a.getAttribute('href'))"):
+        if "from=run" not in href:
+            raise RuntimeError(f"a player link without the run: {href}")
+
+
+def _moved_on(page, before):
+    page.wait_for_function("(u) => location.href !== u", arg=before, timeout=30000)
+    _settle(page)
+
+
+def _run_walk(page):
+    """Start, then the run's steps: a warm-up's place, Skip, a fixed rhythm's green Done · next, the
+    sheet's Next: (closing it saves nothing and stays), Not today going on, Skip to the last, whose
+    face goes to Done for today (/<dance>/done)."""
+    _warm_up_last(page)
+    _start_run(page)
+    place = _place(page)
+    if not place or place[0] != 1 or "warm-up · 1 of" not in page.locator("body").inner_text():
+        raise RuntimeError(f"the warm-up's band says {place}, not warm-up · 1 of N")
+    if page.get_by_role("button", name="Skip", exact=True).count() != 1:
+        raise RuntimeError("no Skip beside Done in a run")
+    _step_shot(page, "1-warmup")
+    # Skip: on to the next, the warm-up in skip=, the place one on.
+    before = page.url
+    page.get_by_role("button", name="Skip", exact=True).click()
+    _moved_on(page, before)
+    if not _run_url(page) or "skip=" not in page.url or _place(page) != (2, place[1]):
+        raise RuntimeError(f"Skip went to {page.url}, place {_place(page)}")
+    _step_shot(page, "2-skipped")
+    # A fixed rhythm: the green Done · next saves at once and goes on, the toast on the next page.
+    _set_comes_back(page, '{"kind":"every","days":1}')
+    green = page.get_by_role("button", name=re.compile(r"Done · next"))
+    green.wait_for()
+    if "bg-done" not in (green.get_attribute("class") or "").split():
+        raise RuntimeError("Done · next is not the done green")
+    _step_shot(page, "3-fixed")
+    before = page.url
+    # Saves once: taps on the old page's Done while the next one loads post nothing.
+    posts = []
+    page.on("request", lambda r: posts.append(r.url) if r.method == "POST" and "?/done" in r.url else None)
+    green.click()
+    for _ in range(60):
+        if page.url != before:
+            break
+        try:
+            page.locator('[data-focus="exercise-done"]').first.click(force=True, no_wait_after=True, timeout=200)
+        except Exception:
+            pass
+        page.wait_for_timeout(50)
+    _moved_on(page, before)
+    # A hammered click that landed after the navigation opened the new page's Done sheet: close it.
+    page.wait_for_timeout(300)
+    if page.locator("dialog[open]").count():
+        page.keyboard.press("Escape")
+        page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
+    if len(posts) != 1:
+        raise RuntimeError(f"Done · next posted {len(posts)} saves")
+    page.locator("[role=status]", has_text="Saved · back tomorrow").first.wait_for()
+    if not _run_url(page) or _place(page) != (3, place[1]):
+        raise RuntimeError(f"Done · next went to {page.url}, place {_place(page)}")
+    _step_shot(page, "4-after-fixed")
+    # The sheet names the next; closing it saves nothing and stays.
+    stay = page.url
+    _open_sheet(page)
+    sheet = page.locator("dialog[open]").first.inner_text()
+    _step_shot(page, "5-sheet")
+    page.keyboard.press("Escape")
+    page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
+    page.wait_for_timeout(300)
+    _no_popup(page, "after closing the Done sheet")
+    if page.url != stay:
+        raise RuntimeError(f"closing the sheet left for {page.url}")
+    if "Next: " in sheet and page.get_by_role("button", name="Not today").count():
+        # Not today goes on too; the layout's Undo toast stays up across the replace.
+        before = page.url
+        page.get_by_role("button", name="Not today").click()
+        _moved_on(page, before)
+        toast = page.locator("[role=status]", has_text=re.compile("Not today|Undo")).first
+        toast.wait_for()
+        if not _run_url(page):
+            raise RuntimeError(f"Not today went to {page.url}")
+        # Above the pinned bar: its Undo never on the next Done.
+        page.wait_for_timeout(400)
+        t_box = toast.bounding_box()
+        d_box = page.locator('[data-focus="exercise-done"]').first.bounding_box()
+        if t_box and d_box and t_box["y"] + t_box["height"] > d_box["y"]:
+            raise RuntimeError(f"the Not today toast covers Done: {t_box} over {d_box}")
+        _step_shot(page, "6-not-today")
+    # Skip on to the last (its sheet has no Next:), then a face: Done for today.
+    for _ in range(40):
+        _player_links_in_run(page)
+        _open_sheet(page)
+        if "Next: " not in page.locator("dialog[open]").first.inner_text():
+            break
+        page.keyboard.press("Escape")
+        page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
+        before = page.url
+        page.get_by_role("button", name="Skip", exact=True).click()
+        _moved_on(page, before)
+    else:
+        raise RuntimeError("the run never reached its last")
+    _step_shot(page, "7-last-sheet")
+    page.locator("dialog[open]").get_by_role("button", name=FACES).first.click()
+    page.wait_for_url(re.compile(r"/(salsa|bachata)/done$"), timeout=30000)
+    _settle(page)
+    # Done for today: its title, and the last save's toast came along.
+    page.get_by_role("heading", name="Done for today").first.wait_for()
+    page.locator("[role=status]", has_text="Saved").first.wait_for()
+    if page.get_by_role("checkbox").count():
+        raise RuntimeError("Done for today has a checkbox")
+
+
+def _done_back(page):
+    """One Back from Done for today lands on Today (the run was one history entry)."""
+    page.get_by_role("button", name="Back to Today").last.click()
+    page.wait_for_url(re.compile(r"/(salsa|bachata)(/exercises/\d+)?$"), timeout=30000)
+    _settle(page)
+    if "/done" in page.url or "run=1" in page.url:
+        raise RuntimeError(f"Back to Today went to {page.url}")
+
+
+SCENES.update({
+    "today-run-walk": Scene("/{dance}", _run_walk, after=_done_back),
 })
