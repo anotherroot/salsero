@@ -39,6 +39,7 @@ import {
 import { songSeen } from '$lib/server/clash';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
+import * as songGridRoute from './[id]/grid/+server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', dance: 'salsa' };
 
@@ -305,6 +306,16 @@ describe('A song', () => {
 			song: { durationS: number | null };
 		};
 		expect(data.song.durationS).toBe(60);
+	});
+
+	it('gives the grid with where the music starts', async () => {
+		const id = readySong();
+		db.update(songs).set({ startFoundS: 18.2 }).where(eq(songs.id, id)).run();
+		const res = (await songGridRoute.GET(post('salsa', {}, String(id)) as never)) as Response;
+		expect(await res.json()).toMatchObject({ startS: 18.2 });
+		db.update(songs).set({ startS: 0 }).where(eq(songs.id, id)).run();
+		const again = (await songGridRoute.GET(post('salsa', {}, String(id)) as never)) as Response;
+		expect(await again.json()).toMatchObject({ startS: 0 });
 	});
 });
 
