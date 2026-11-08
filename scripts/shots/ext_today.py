@@ -413,3 +413,71 @@ SCENES.update({
 
 def _done_button_count(page):
     return page.get_by_role("button", name=re.compile(r"^✓?\s*Done( today)?$")).count()
+
+
+# ---- restored after plan 2 (their locators followed the app: "Loading…", and no "Done today" section) ----
+
+_HELD = []
+
+
+def _pane_loading(page):
+    """The side's Today with the swapped exercise's data held: the list beside Today's pane skeleton
+    (board today--a-loading's pane). The root's pending overlay is hidden: it draws the generic pane
+    skeleton over it after 100 ms."""
+    _HELD.clear()
+    page.route(re.compile(r"/exercises/\d+/__data\.json"), lambda r: _HELD.append(r))
+    _side_today(page)
+    page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
+    page.wait_for_timeout(800)
+    page.add_style_tag(content="body > div > div[aria-busy='true'].fixed, div.fixed[aria-busy='true'] { display: none !important }")
+    if not page.locator('section[aria-busy="true"][aria-label^="Loading"]:visible').count():
+        raise RuntimeError("no pane skeleton while the exercise loads")
+
+
+def _release(page):
+    """After the shot: answer the held requests, so closing the page cancels no route handler."""
+    for r in _HELD:
+        r.abort()
+    _HELD.clear()
+
+
+def _add_set_elsewhere(exercise_id):
+    """A set logged behind the app's back (another device), at the rig's instant less a minute,
+    written straight into the rig's temp copy of the db."""
+    import sqlite3
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "instant.txt")) as fh:
+        now = datetime.strptime(fh.read().strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    at = int(now.timestamp() * 1000) - 60_000
+    db = sqlite3.connect(f"{os.environ['SHOTS_TMP']}/salsa.db")
+    try:
+        db.execute(
+            "insert into sets (exercise_id, done_at, duration_s, created_at) values (?, ?, 300, ?)",
+            (exercise_id, at, at),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _back_refetch(page):
+    """Phone: open the first row's page, a set of it saved elsewhere meanwhile, Back: the list loads
+    again and the row is a done row (its meta in the done tone; done rows sit at the top of Practice)."""
+    href = _first_due_href(page)
+    if href is None:
+        raise RuntimeError("no row to open")
+    page.locator(f'[data-list-column] a[href^="{href}"]').first.click()
+    page.wait_for_url(re.compile(re.escape(href) + r"(\?.*)?$"), timeout=8000)
+    _settle(page)
+    _add_set_elsewhere(int(href.rsplit("/", 1)[1]))
+    page.go_back()
+    page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
+    _settle(page, 800)
+    row = page.locator(f'[data-list-column] a[href^="{href}"]')
+    if not row.locator("span.text-done").count():
+        raise RuntimeError(f"after Back the row {href}, saved elsewhere, is not drawn as done")
+
+
+SCENES.update({
+    "today-pane-loading": Scene("/{dance}/figures", _pane_loading, desk=True, after=_release),
+    "today-back-refetch": Scene("/{dance}", _back_refetch),
+})
