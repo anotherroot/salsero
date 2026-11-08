@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { DaySet } from '$lib/types';
 import { defaultOpen, dayTotals, sessionLine } from './today-pane';
 
@@ -60,5 +61,43 @@ describe('dayTotals', () => {
 	it('leaves time out when none', () => {
 		expect(dayTotals([set(1, 1, null)])).toBe('1 exercise · 1 set');
 		expect(dayTotals([])).toBe('0 exercises · 0 sets');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	const set = (id: number, exerciseId: number): DaySet => ({
+		id,
+		exerciseId,
+		exerciseName: `E${exerciseId}`,
+		doneAt: 0,
+		durationS: null,
+		reps: null,
+		rating: null,
+		note: null
+	});
+	const sets = (exercises: number, total: number) =>
+		Array.from({ length: total }, (_, i) => set(i + 1, (i % exercises) + 1));
+
+	it.each([
+		[1, 'Vadba · 2 od 5 · doslej 1 vnos'],
+		[2, 'Vadba · 2 od 5 · doslej 2 vnosa'],
+		[3, 'Vadba · 2 od 5 · doslej 3 vnosi'],
+		[5, 'Vadba · 2 od 5 · doslej 5 vnosov']
+	])('the session line counts what was logged: %s', (logged, line) => {
+		expect(sl(() => sessionLine([1], [2, 3, 4, 5], 2, logged))).toBe(line);
+	});
+
+	it('the session line before anything is logged', () => {
+		expect(sl(() => sessionLine([], [1, 2, 3], 1, 0))).toBe('Vadba · 1 od 3');
+	});
+
+	it.each([
+		[1, 1, '1 vaja · 1 vnos'],
+		[2, 2, '2 vaji · 2 vnosa'],
+		[3, 3, '3 vaje · 3 vnosi'],
+		[5, 5, '5 vaj · 5 vnosov']
+	])("a day's totals: %s exercises, %s sets", (e, n, line) => {
+		expect(sl(() => dayTotals(sets(e, n)))).toBe(line);
 	});
 });

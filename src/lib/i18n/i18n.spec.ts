@@ -140,7 +140,7 @@ function leaves(o: unknown, at = ''): [string, string][] {
 	return Object.entries(o).flatMap(([k, v]) => leaves(v, at ? `${at}.${k}` : k));
 }
 
-describe.each(['format', 'shell', 'entry'] as const)('%s', (area) => {
+describe.each(['format', 'shell', 'entry', 'today'] as const)('%s', (area) => {
 	it('has every English word in Slovenian, and none left in English', () => {
 		const en = leaves(catalogOf('en')[area]);
 		const sl = new Map(leaves(catalogOf('sl')[area]));

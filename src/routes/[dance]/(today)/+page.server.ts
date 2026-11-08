@@ -7,6 +7,7 @@ import { wallOf } from '$lib/server/scope';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
 import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -70,7 +71,7 @@ export const actions: Actions = {
 		const exerciseId = int(form, 'exerciseId');
 		const kind = form.get('kind');
 		if (exerciseId === undefined || (kind !== 'add' && kind !== 'skip')) {
-			return fail(400, { action: 'pick', message: 'Pick an exercise to add or skip.' });
+			return fail(400, { action: 'pick', message: t().today.refused.pickWhat });
 		}
 		const now = Date.now();
 		try {
@@ -88,7 +89,8 @@ export const actions: Actions = {
 	unpick: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const pickId = int(await request.formData(), 'pickId');
-		if (pickId === undefined) return fail(400, { action: 'unpick', message: 'No such pick.' });
+		if (pickId === undefined)
+			return fail(400, { action: 'unpick', message: t().today.refused.noPick });
 		removePick(getDb(), wall, pickId);
 		return { action: 'unpick', ok: true };
 	},
@@ -108,7 +110,7 @@ export const actions: Actions = {
 			.slice(0, input.daily)
 			.map((e) => e.id);
 		if (ids.length === 0) {
-			return fail(400, { action: 'next', message: 'Nothing left to add today.' });
+			return fail(400, { action: 'next', message: t().today.refused.nothingToAdd });
 		}
 		try {
 			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now).created;
@@ -128,7 +130,7 @@ export const actions: Actions = {
 		if (!name || notes === undefined) {
 			return fail(400, {
 				action: 'createExercise',
-				message: 'Give it a name (up to 200 characters).',
+				message: t().today.refused.name,
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});

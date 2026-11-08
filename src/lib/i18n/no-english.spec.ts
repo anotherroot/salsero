@@ -58,7 +58,21 @@ const TRANSLATED: string[] = [
 	'src/routes/join/+page.svelte',
 	'src/routes/login/+page.svelte',
 	'src/routes/welcome/+page.svelte',
-	'src/routes/welcome/start/+page.svelte'
+	'src/routes/welcome/start/+page.svelte',
+	// Today: the list, its bar card, Coming up, a past day, New exercise (Task 7).
+	'src/lib/components/today/ComingUpList.svelte',
+	'src/lib/components/today/ExerciseRow.svelte',
+	'src/lib/components/today/NewExerciseSheet.svelte',
+	'src/lib/components/today/NextRow.svelte',
+	'src/lib/components/today/NothingLeft.svelte',
+	'src/lib/components/today/PastDay.svelte',
+	'src/lib/components/today/TodayBar.svelte',
+	'src/lib/components/today/TodayList.svelte',
+	'src/lib/components/today/TodayPaneSkeleton.svelte',
+	'src/lib/components/ui/TypeTile.svelte',
+	'src/routes/[dance]/(today)/+layout.svelte',
+	'src/routes/[dance]/(today)/+page.svelte',
+	'src/routes/[dance]/(today)/coming-up/+page.svelte'
 ];
 
 describe('englishIn', () => {

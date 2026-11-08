@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import { exerciseTile } from '$lib/exercises/tile';
+	import { t } from '$lib/i18n/catalog';
 	import type { TileTone } from '$lib/exercises/today';
 	import type { Partner, Source } from '$lib/labels';
 
@@ -18,7 +19,11 @@
 
 	const tile = $derived(exercise ? exerciseTile(exercise) : null);
 	const label = $derived(
-		tone === 'done' ? (tile ? `${tile.label}, done today` : 'Done') : (tile?.label ?? '')
+		tone === 'done'
+			? tile
+				? t().today.tile.doneToday(tile.label)
+				: t().today.tile.done
+			: (tile?.label ?? '')
 	);
 	const toneCls = $derived(
 		tone === 'accent'

@@ -6,5 +6,6 @@ import { entry } from './entry';
 import { format } from './format';
 import { settings } from './settings';
 import { shell } from './shell';
+import { today } from './today';
 
-export const en = { common, format, shell, admin, settings, entry };
+export const en = { common, format, shell, admin, settings, entry, today };

@@ -35,6 +35,9 @@
 //           Everything                    Vse
 //   version (of the app)                  različica aplikacije (always with the noun:
 //                                         a bare "različica" is a figure)
+//   Session (Start session)               vadba (Začni vadbo)
+//   Paused (an exercise)                  na premoru
+//   Not today                             Ne danes
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { common } from './common';
@@ -42,5 +45,6 @@ import { entry } from './entry';
 import { format } from './format';
 import { settings } from './settings';
 import { shell } from './shell';
+import { today } from './today';
 
-export const sl: Catalog = { common, format, shell, admin, settings, entry };
+export const sl: Catalog = { common, format, shell, admin, settings, entry, today };

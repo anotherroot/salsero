@@ -2,7 +2,7 @@
  * What Today's desktop panes say: which row opens by itself, the session line
  * and a past day's totals. PURE, client-safe.
  */
-import { plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { DaySet } from '$lib/types';
 import { practisedLabel } from './exercise-page';
 import { sessionWalk } from './session';
@@ -31,7 +31,7 @@ export function sessionLine(
 	if (at >= 0) i = at + 1;
 	else if (remaining.includes(open)) i = walked.length + 1;
 	else return null;
-	return `Session · ${i} of ${n}` + (logged > 0 ? ` · ${logged} logged so far` : '');
+	return t().today.session.line(i, n, logged);
 }
 
 /** A past day's totals: "7 exercises · 9 sets · 1 h 05". */
@@ -39,8 +39,6 @@ export function dayTotals(sets: DaySet[]): string {
 	const exercises = new Set(sets.map((s) => s.exerciseId)).size;
 	const totalS = sets.reduce((a, s) => a + (s.durationS ?? 0), 0);
 	return (
-		`${plural(exercises, 'exercise', 'exercises')} · ` +
-		`${plural(sets.length, 'set', 'sets')}` +
-		(totalS > 0 ? ` · ${practisedLabel(totalS)}` : '')
+		t().today.totals(exercises, sets.length) + (totalS > 0 ? ` · ${practisedLabel(totalS)}` : '')
 	);
 }
