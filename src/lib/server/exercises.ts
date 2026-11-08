@@ -383,7 +383,8 @@ export interface SetInput {
 	durationS: number | null;
 	reps: number | null;
 	rating: number | null;
-	note: string | null;
+	/** undefined: not posted — saveDay keeps the day's old note; '' or null clears it. */
+	note?: string | null;
 	playerJson: string | null;
 }
 
@@ -434,7 +435,7 @@ export function saveDay(
 			return {
 				set: tx
 					.insert(sets)
-					.values({ ...input, note: input.note === '' ? null : input.note })
+					.values({ ...input, note: input.note === '' ? null : (input.note ?? null) })
 					.returning()
 					.get(),
 				before: null
@@ -448,7 +449,7 @@ export function saveDay(
 			.set({
 				durationS,
 				rating: input.rating,
-				note: input.note === '' ? null : input.note,
+				note: input.note === undefined ? old.note : input.note === '' ? null : input.note,
 				playerJson: input.playerJson ?? old.playerJson
 			})
 			.where(eq(sets.id, old.id))

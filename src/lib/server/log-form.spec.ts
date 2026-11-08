@@ -173,6 +173,14 @@ describe('saveDoneFrom', () => {
 		expect(only()).toMatchObject({ id: first.id, rating: 3, note: 'a' });
 	});
 
+	it('a second save with no note field keeps the first note; a posted empty note clears it', async () => {
+		await saveDoneFrom(post('salsa', { exerciseId: String(drillId), rating: '3', note: 'a' }));
+		await saveDoneFrom(post('salsa', { exerciseId: String(drillId), rating: '4' }));
+		expect(only()).toMatchObject({ rating: 4, note: 'a' });
+		await saveDoneFrom(post('salsa', { exerciseId: String(drillId), rating: '4', note: '' }));
+		expect(only().note).toBeNull();
+	});
+
 	it('refuses the group drill itself, not a member entry, with a 404', async () => {
 		const c = makeClass(db);
 		const ev = post('salsa', { exerciseId: String(c.drill), rating: '4' });

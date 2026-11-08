@@ -71,7 +71,9 @@ export async function saveDoneFrom({
 	const exerciseId = int(form, 'exerciseId');
 	const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
 	const rating = optionalInt(form, 'rating', 1, 5);
-	const note = optionalText(form, 'note', 2000);
+	// No `note` field at all means "not posted": the day keeps its note (undefined below).
+	const posted = form.has('note');
+	const typed = optionalText(form, 'note', 2000);
 	const run = optionalText(form, 'run', 4000);
 	const day = String(form.get('day') ?? '');
 
@@ -79,7 +81,7 @@ export async function saveDoneFrom({
 		exerciseId === undefined ||
 		durationS === undefined ||
 		rating === undefined ||
-		note === undefined
+		typed === undefined
 	) {
 		return fail(400, { action: 'done', message: t().exercise.refused.checkValues });
 	}
@@ -102,7 +104,7 @@ export async function saveDoneFrom({
 				durationS: backfill ? null : durationS,
 				reps: null,
 				rating: fixed ? null : rating,
-				note,
+				note: posted ? typed : undefined,
 				playerJson: backfill ? null : (run ?? null)
 			},
 			tz

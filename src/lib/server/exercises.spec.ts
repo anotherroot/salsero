@@ -445,6 +445,14 @@ describe('one entry a day', () => {
 		expect(r.before).toMatchObject({ durationS: 240, rating: 2, note: 'a' });
 	});
 
+	it('a second save with no note keeps the first note; an empty note clears it', () => {
+		saveDay(db, input({ note: 'a' }), TZ);
+		const kept = saveDay(db, input({ doneAt: at('2026-11-07', 20), note: undefined }), TZ);
+		expect(kept.set.note).toBe('a');
+		const cleared = saveDay(db, input({ doneAt: at('2026-11-07', 21), note: '' }), TZ);
+		expect(cleared.set.note).toBeNull();
+	});
+
 	it('a new run replaces the day run', () => {
 		saveDay(db, input({ playerJson: '{"x":1}' }), TZ);
 		const r = saveDay(db, input({ doneAt: at('2026-11-07', 20), playerJson: '{"x":2}' }), TZ);
