@@ -1306,7 +1306,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(() => loadAt(lessonPage.load, 'salsa', String(bachataLessonId))).toThrow(threw404);
 	});
 
-	it('gives the lesson and figure the day, and no popup data', () => {
+	it('gives the lesson the day; neither page carries popup data', () => {
 		const lesson = loadAt(lessonPage.load, 'bachata', String(bachataLessonId)) as Record<
 			string,
 			unknown
@@ -1316,7 +1316,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 			string,
 			unknown
 		>;
-		expect(figure.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		for (const data of [lesson, figure]) {
 			expect(data).not.toHaveProperty('popup');
 			expect(data).not.toHaveProperty('scheduleAtStart');
