@@ -1,17 +1,23 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import {
 	atReply,
 	bodyError,
 	cardWords,
 	commentKey,
 	COMMENT_MAX,
+	composerPlaceholder,
 	composerShown,
+	deletedWords,
 	heartToggled,
+	hideReplies,
 	initialOf,
 	repliesLabel,
 	replyingTo,
 	shortAgo,
 	shownIds,
+	teacherTag,
 	whoSees,
 	withHearts,
 	withoutComment,
@@ -179,5 +185,85 @@ describe('the list as it changes in the sheet', () => {
 		expect(shownIds(l, new Set())).toEqual([2, 1]);
 		expect(shownIds(l, new Set([1]))).toEqual([2, 1, 5]);
 		expect(commentKey(5)).toBe('comment-5');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	const card = (count: number, newCount: number) => ({ count, newCount, newest: null });
+
+	it('counts the new ones in four forms', () => {
+		expect(sl(() => cardWords(card(9, 1)).newPill)).toBe('1 nov');
+		expect(sl(() => cardWords(card(9, 2)).newPill)).toBe('2 nova');
+		expect(sl(() => cardWords(card(9, 3)).newPill)).toBe('3 novi');
+		expect(sl(() => cardWords(card(9, 4)).newPill)).toBe('4 novi');
+		expect(sl(() => cardWords(card(9, 5)).newPill)).toBe('5 novih');
+		expect(sl(() => cardWords(card(9, 101)).newPill)).toBe('101 nov');
+	});
+
+	it('words the card, empty and not', () => {
+		expect(sl(() => cardWords(card(0, 0)))).toEqual({
+			title: 'Komentarji',
+			count: null,
+			newPill: null,
+			empty: 'Še ni komentarjev. Vprašajte ali povejte kaj.'
+		});
+		expect(sl(() => cardWords(card(4, 0)).title)).toBe('Komentarji');
+	});
+
+	it('refuses an empty or too long comment', () => {
+		expect(sl(() => bodyError(' '))).toBe('Najprej kaj napišite.');
+		expect(sl(() => bodyError('a'.repeat(COMMENT_MAX + 1)))).toBe(
+			'Komentar je lahko dolg največ 1000 znakov.'
+		);
+		expect(sl(() => bodyError('a'))).toBeNull();
+	});
+
+	it('marks a teacher with a word for a woman or a man', () => {
+		expect(teacherTag()).toBe('Teacher');
+		expect(sl(() => teacherTag())).toBe('vodja tečaja');
+	});
+
+	it('says replies in four forms, and the names after a colon', () => {
+		expect(sl(() => repliesLabel(1))).toBe('1 odgovor');
+		expect(sl(() => repliesLabel(2))).toBe('2 odgovora');
+		expect(sl(() => repliesLabel(3))).toBe('3 odgovori');
+		expect(sl(() => repliesLabel(5))).toBe('5 odgovorov');
+		expect(sl(() => hideReplies())).toBe('Skrij odgovore');
+		expect(sl(() => replyingTo('Maja'))).toBe('Odgovor za: Maja');
+		expect(sl(() => whoSees('Salsa Tuesdays'))).toBe('Komentarje vidi ves tečaj Salsa Tuesdays');
+		expect(sl(() => deletedWords())).toBe('Komentar je izbrisan');
+		expect(sl(() => composerPlaceholder())).toBe('Napišite komentar …');
+	});
+
+	it('says how long ago in words', () => {
+		const now = 1_000 * 24 * 60 * MIN;
+		const ago = (ms: number) => sl(() => shortAgo(now - ms, now));
+		expect(ago(30_000)).toBe('pravkar');
+		expect(ago(5 * MIN)).toBe('pred 5 min');
+		expect(ago(3 * 60 * MIN)).toBe('pred 3 h');
+		expect(ago(24 * 60 * MIN)).toBe('pred enim dnevom');
+		expect(ago(2 * 24 * 60 * MIN)).toBe('pred 2 dnevoma');
+		expect(ago(5 * 24 * 60 * MIN)).toBe('pred 5 dnevi');
+		expect(ago(7 * 24 * 60 * MIN)).toBe('pred enim tednom');
+		expect(ago(15 * 24 * 60 * MIN)).toBe('pred 2 tednoma');
+		expect(ago(400 * 24 * 60 * MIN)).toBe('pred enim letom');
+		expect(ago(3 * 365 * 24 * 60 * MIN)).toBe('pred 3 leti');
+	});
+
+	it('picks the instrumental by the last two digits: 21 and 22 as 5, 101 as 1, 102 as 2', () => {
+		const weeks = (n: number) => sl(() => t().comments.ago.weeks(n));
+		expect(weeks(21)).toBe('pred 21 tedni');
+		expect(weeks(22)).toBe('pred 22 tedni');
+		expect(weeks(101)).toBe('pred 101 tednom');
+		expect(weeks(102)).toBe('pred 102 tednoma');
+		expect(sl(() => t().comments.ago.years(21))).toBe('pred 21 leti');
+	});
+
+	it('is English again outside', () => {
+		expect(cardWords(card(9, 5)).newPill).toBe('5 new');
+		expect(deletedWords()).toBe('Comment deleted');
+		expect(hideReplies()).toBe('Hide replies');
+		expect(composerPlaceholder()).toBe('Write a comment…');
 	});
 });

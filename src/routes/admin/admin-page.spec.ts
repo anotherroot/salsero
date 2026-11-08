@@ -12,13 +12,14 @@ vi.mock('$lib/server/storage', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { storageRequests, teams, users } from '$lib/server/db/schema';
+import { invites, storageRequests, teams, users } from '$lib/server/db/schema';
 import { noteAppSeen } from '$lib/server/app-seen';
 import { askForMore, storageOf } from '$lib/server/storage';
 import { createLesson } from '$lib/server/lessons';
 import { T1_SALSA } from '$lib/server/test-walls';
 import { createTeam } from '$lib/server/teams';
 import { eq } from 'drizzle-orm';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 const GB = 1024 ** 3;
@@ -62,7 +63,8 @@ function ev(isAdmin: boolean, fields: Record<string, string> = {}) {
 	};
 }
 const act = (
-	name: 'grant' | 'decline' | 'setLimit' | 'setTeamLimit' | 'setGroupLimit',
+	name:
+		'grant' | 'decline' | 'setLimit' | 'setTeamLimit' | 'setGroupLimit' | 'setLocale' | 'invite',
 	e: unknown
 ) => (actions[name] as unknown as Ev)(e);
 
@@ -301,8 +303,99 @@ describe('the invite link', () => {
 			locals: {
 				user: { id: 'b', email: 'x', timezone: 'UTC', isAdmin: true, dance: 'bachata' }
 			},
-			url: new URL('http://localhost:5173/admin')
+			url: new URL('http://localhost:5173/admin'),
+			request: new Request('http://localhost:5173/admin', { method: 'POST', body: new FormData() })
 		})) as { url: string };
 		expect(made.url).toMatch(/^http:\/\/localhost:5173\/join\?code=[^&]+&dance=bachata$/);
+	});
+});
+
+describe('the language (Slovenian)', () => {
+	const localeOf = (id: string) => db.select().from(users).where(eq(users.id, id)).get()!.locale;
+
+	// Catches: the invite form's choice not reaching the invite row (Join reads it there).
+	it("makes the invite in the form's language", async () => {
+		await act('invite', ev(true, { locale: 'sl' }));
+		expect(db.select().from(invites).get()!.locale).toBe('sl');
+		await act('invite', ev(true, { locale: 'en' }));
+		expect(
+			db
+				.select()
+				.from(invites)
+				.all()
+				.map((i) => i.locale)
+		).toEqual(['sl', 'en']);
+	});
+
+	// Catches: an admin page opened before the choice existed failing to make an invite.
+	it('an invite form with no language makes an English invite', async () => {
+		expect(await act('invite', ev(true))).toMatchObject({ url: expect.any(String) });
+		expect(db.select().from(invites).get()!.locale).toBe('en');
+	});
+
+	it('refuses an invite in a language that does not exist', async () => {
+		expect(await act('invite', ev(true, { locale: 'xx' }))).toMatchObject({ status: 400 });
+		expect(db.select().from(invites).all()).toEqual([]);
+	});
+
+	it("load gives each person's language, none as English", async () => {
+		db.update(users).set({ locale: 'sl' }).where(eq(users.id, 'p')).run();
+		const d = (await (load as unknown as Ev)(ev(true))) as {
+			people: { id: string; locale: string }[];
+		};
+		expect(Object.fromEntries(d.people.map((p) => [p.id, p.locale]))).toEqual({
+			admin: 'en',
+			p: 'sl'
+		});
+	});
+
+	it("setLocale changes a person's language", async () => {
+		expect(await act('setLocale', ev(true, { userId: 'p', locale: 'sl' }))).toEqual({ ok: true });
+		expect(localeOf('p')).toBe('sl');
+		expect(await act('setLocale', ev(true, { userId: 'p', locale: 'en' }))).toEqual({ ok: true });
+		expect(localeOf('p')).toBe('en');
+	});
+
+	it('setLocale refuses a language that does not exist and an unknown person', async () => {
+		const bad = (await act('setLocale', ev(true, { userId: 'p', locale: 'xx' }))) as {
+			status: number;
+			data: { message: string };
+		};
+		expect(bad.status).toBe(400);
+		expect(bad.data.message).toBe('Pick a language.');
+		expect(await act('setLocale', ev(true, { userId: 'ghost', locale: 'sl' }))).toMatchObject({
+			status: 404
+		});
+		expect(await act('setLocale', ev(true, { locale: 'sl' }))).toMatchObject({ status: 404 });
+		expect(localeOf('p')).toBeNull();
+	});
+
+	it('setLocale is a 404 for a non-admin', async () => {
+		await expect(act('setLocale', ev(false, { userId: 'p', locale: 'sl' }))).rejects.toMatchObject({
+			status: 404
+		});
+		expect(localeOf('p')).toBeNull();
+	});
+
+	// Catches: the salsa admin changing a bachata account's language by its id.
+	it("setLocale is a 404 for the other dance's account", async () => {
+		db.insert(users)
+			.values({ id: 'q', email: 'q@example.com', passwordHash: 'x', dance: 'bachata' })
+			.run();
+		expect(await act('setLocale', ev(true, { userId: 'q', locale: 'sl' }))).toMatchObject({
+			status: 404,
+			data: { message: 'That person is gone.' }
+		});
+		expect(localeOf('q')).toBeNull();
+	});
+});
+
+describe("the admin's own language", () => {
+	// Catches: the new control's refusal left in English for a Slovenian admin.
+	it("refuses an unknown language in the admin's language", async () => {
+		const bad = (await runInLocale('sl', () =>
+			act('setLocale', ev(true, { userId: 'p', locale: 'xx' }))
+		)) as { data: { message: string } };
+		expect(bad.data.message).toBe('Izberite jezik.');
 	});
 });

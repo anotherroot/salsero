@@ -17,7 +17,8 @@ import type { Space, TeamSpace } from '../scope';
 import { NO_FILES, T1_SALSA, U2_SALSA } from '../test-walls';
 import { crossRefs } from '../integrity';
 import { makeMine } from './edit';
-import { compareWith } from './compare';
+import { stepStatus } from './step';
+import { syncView } from './sync';
 import { detach, detachOffer } from './detach';
 import { geneOf } from './genes';
 import { pairBase } from './pairs';
@@ -77,7 +78,7 @@ describe('detach on a person’s own copy', () => {
 		expect(geneOf(db, 'figure', F)).not.toBeNull();
 	});
 
-	it('shows the class’s as a twin tab with no status, and refuses Compare', async () => {
+	it('shows the class’s as a twin tab with no status, and offers no Sync', async () => {
 		const F = published();
 		const C = await mine(F);
 		expect(detach(db, 'u2', 'figure', C, LATER)).toBe(true);
@@ -87,9 +88,9 @@ describe('detach on a person’s own copy', () => {
 			[F, 'twin', null]
 		]);
 		expect(twinsOf(db, 'u2', 'figure', C)).toEqual([F]);
-		expect(compareWith(db, 'u2', 'figure', C, F)).toBeNull();
-		// No banner: nothing was copied from anything any more.
-		expect(sourcesView(db, 'u2', 'figure', C).compare).toBeNull();
+		expect(syncView(db, 'u2', 'figure', C)).toBeNull();
+		// No notice: nothing was copied from anything any more.
+		expect(stepStatus(db, 'u2', 'figure', C)).toEqual({ lines: [] });
 		expect(crossRefs(db)).toEqual([]);
 	});
 
@@ -169,8 +170,6 @@ describe('reconnecting after rejoining (Review Focus 4)', () => {
 		const src = view.sources.find((s) => s.id === F)!;
 		expect(src).toMatchObject({ rejoined: true, status: 'newer' });
 		expect(src.changed).toHaveLength(1);
-		expect(view.compare).toMatchObject({ id: F, place: 'Salsa Tuesdays', rejoined: true });
-		expect(view.compare?.changed).toHaveLength(1);
 		// Yours replaces theirs again where both are listed.
 		expect([...shadowedIds(db, U2_SALSA, 'figure', [F])]).toEqual([F]);
 		expect(mineIdsFor(db, U2_SALSA, 'figure', [F]).get(F)).toBe(C);
@@ -189,6 +188,5 @@ describe('reconnecting after rejoining (Review Focus 4)', () => {
 		const src = sourcesView(db, 'u2', 'figure', C).sources.find((s) => s.id === F)!;
 		expect(src.status).toBe('newer');
 		expect(src.rejoined).toBeUndefined();
-		expect(sourcesView(db, 'u2', 'figure', C).compare?.rejoined).toBeUndefined();
 	});
 });

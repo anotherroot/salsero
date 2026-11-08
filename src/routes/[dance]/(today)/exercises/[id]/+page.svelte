@@ -59,6 +59,7 @@
 	import { menuLabel } from '$lib/menu';
 	import CommentsCard from '$lib/components/comments/CommentsCard.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -178,12 +179,12 @@
 	}
 
 	function stopEditing() {
-		leaveOrAsk(settingsForm ?? null, () => (editing = false), 'Stop editing');
+		leaveOrAsk(settingsForm ?? null, () => (editing = false), t().exercise.page.stopEditing);
 	}
 
 	const messageOf = (data: unknown) => {
 		const m = (data as { message?: unknown } | undefined)?.message;
-		return typeof m === 'string' ? m : 'It did not save.';
+		return typeof m === 'string' ? m : t().exercise.log.didNotSave;
 	};
 
 	// --- Add, on a group drill with no entry of this person's (R7).
@@ -211,7 +212,7 @@
 
 	function deleted(snapshot: string) {
 		undoSnapshot = snapshot || null;
-		say('Set deleted', undoSnapshot ? 'Undo' : undefined);
+		say(t().exercise.log.setDeleted, undoSnapshot ? t().common.undo : undefined);
 	}
 
 	function refused(message: string) {
@@ -226,7 +227,7 @@
 		// the row coming back is the answer.
 		notice = null;
 		if (!snapshot) return;
-		if (!(await restoreSet(snapshot))) say('Could not put the set back.');
+		if (!(await restoreSet(snapshot))) say(t().exercise.log.couldNotPutBack);
 	}
 
 	/*
@@ -259,7 +260,12 @@
 	/** The band's ⋯ is open. */
 	let menuOpen = $state(false);
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
-	const offers = $derived<CloneOffers>({ drop: data.drop, detach: data.detach, copy: data.copyTo });
+	const offers = $derived<CloneOffers>({
+		sync: data.keep?.mode ? data.keep : null,
+		drop: data.drop,
+		detach: data.detach,
+		copy: data.copyTo
+	});
 </script>
 
 <svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
@@ -323,7 +329,10 @@
 
 <!-- The class's comments, after the type's content on the simple page and on the full one alike. -->
 {#snippet classCard()}
-	{#if data.comments}<CommentsCard comments={data.comments} title="Comments on the class" />{/if}
+	{#if data.comments}<CommentsCard
+			comments={data.comments}
+			title={t().exercise.page.comments}
+		/>{/if}
 {/snippet}
 
 <!-- "From class Tue 3 Nov ›": the simple page's way to the lesson. -->
@@ -364,14 +373,14 @@
 	{/if}
 	{#if editing}
 		<section class="flex flex-col gap-2 desk:min-w-0">
-			<h2 class={SECTION_LABEL}>Settings</h2>
+			<h2 class={SECTION_LABEL}>{t().exercise.page.settings}</h2>
 			<form
 				id="exercise-settings"
 				method="POST"
 				action="?/update"
 				bind:this={settingsForm}
 				use:guarded={{
-					label: 'Exercise settings',
+					label: t().exercise.page.settingsLabel,
 					submit: () => {
 						saving = true;
 						updateError = null;
@@ -382,7 +391,7 @@
 								saving = false;
 							}
 							if (result.type === 'success') editing = false;
-							// A clash or gone is the clash sheet's, which holds what was typed.
+							// A clash or gone belongs to the clash sheet, which holds what was typed.
 							else if (result.type === 'failure' && !isClash(result.data))
 								updateError = messageOf(result.data);
 						};
@@ -398,24 +407,26 @@
 					{/if}
 					{#if ownsItself}
 						<label class="block">
-							<span class={LABEL}>Name</span>
+							<span class={LABEL}>{t().exercise.page.name}</span>
 							<input name="name" required maxlength="200" value={title} class={FIELD_ON_CARD} />
 						</label>
 					{/if}
 					{#if !drill}
 						<div class="flex min-h-[52px] items-center gap-3">
 							<span class="flex min-w-0 flex-1 flex-col gap-px">
-								<span class="text-[16px] font-bold text-ink">Active</span>
-								<span class="text-[13px] text-muted">Show it in the to-do list</span>
+								<span class="text-[16px] font-bold text-ink">{t().exercise.page.active}</span>
+								<span class="text-[13px] text-muted">{t().exercise.page.activeHint}</span>
 							</span>
-							<Switch name="active" label="Active" bind:checked={active} />
+							<Switch name="active" label={t().exercise.page.active} bind:checked={active} />
 						</div>
 					{/if}
 					{#if data.warmupSwitch !== null}
 						<WarmupRow bind:checked={warmup} daily={data.list.daily} />
 					{/if}
 					<label class="block">
-						<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
+						<span class={LABEL}
+							>{ownsItself ? t().exercise.page.description : t().exercise.page.practiceNotes}</span
+						>
 						<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA_ON_CARD}
 							>{(drill ? drill.notes : exercise.notes) ?? ''}</textarea
 						>
@@ -428,10 +439,11 @@
 							aria-busy={saving}
 							disabled={saving}
 						>
-							{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+							{#if saving}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span
+								>{:else}{t().common.save}{/if}
 						</button>
 						<button type="button" class={button('secondary', 'md')} onclick={stopEditing}
-							>Cancel</button
+							>{t().common.cancel}</button
 						>
 					</div>
 				</div>
@@ -448,7 +460,7 @@
 						onclick={() => {
 							archiveError = null;
 							archiving = true;
-						}}>Archive exercise</button
+						}}>{t().exercise.page.archive}</button
 					>
 					{#if archiveError}
 						<p class={FIELD_ERROR} role="alert">
@@ -461,7 +473,7 @@
 	{:else}
 		{#if followsTeacher}
 			<div class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 py-3.5 desk:min-w-0">
-				<span class="text-[13px] font-bold text-muted">Comes back</span>
+				<span class="text-[13px] font-bold text-muted">{t().exercise.comesBack.title}</span>
 				<span class="text-[17px] leading-snug font-extrabold text-ink"
 					>{comesBackWords(exercise.comesBack)}</span
 				>
@@ -469,7 +481,7 @@
 					data-dance={data.dance.slug}
 					data-group=""
 					class="inline-flex h-[30px] items-center gap-1.5 self-start rounded-full bg-accent-soft pr-3 pl-2 text-[14px] font-bold text-accent-text"
-					><Icon name="people" size={16} />Set by your teacher</span
+					><Icon name="people" size={16} />{t().exercise.comesBack.setByTeacher}</span
 				>
 			</div>
 		{/if}
@@ -486,8 +498,10 @@
 			<!-- A group's drill reaches Today through a lesson: one already added takes just this drill. -->
 			<div class="flex items-center gap-3 rounded-2xl bg-surface py-2 pr-2 pl-4 desk:min-w-0">
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span class="text-[16px] leading-tight font-bold text-ink">Not on your Today</span>
-					<span class="text-[13px] text-muted">From {data.add.title}</span>
+					<span class="text-[16px] leading-tight font-bold text-ink"
+						>{t().exercise.page.notOnToday}</span
+					>
+					<span class="text-[13px] text-muted">{t().exercise.page.fromLesson(data.add.title)}</span>
 				</span>
 				{#if data.add.added}
 					<form
@@ -508,7 +522,7 @@
 							type="submit"
 							class={button('secondary', 'sm')}
 							aria-busy={addBusy}
-							disabled={addBusy}>Add</button
+							disabled={addBusy}>{t().common.add}</button
 						>
 					</form>
 				{:else if data.add.offer}
@@ -519,7 +533,7 @@
 						onclick={() =>
 							(adding = data.add?.offer
 								? { lessonId: data.add.lessonId, title: data.add.title, offer: data.add.offer }
-								: null)}>Add</button
+								: null)}>{t().common.add}</button
 					>
 				{/if}
 			</div>
@@ -546,13 +560,13 @@
 		<!-- While editing: on the desktop only (the phone shows the settings alone). -->
 		{#if parts.historyTiles}
 			<section class="{editing ? 'hidden desk:flex' : 'flex'} flex-col gap-2 desk:min-w-0">
-				<h2 class={SECTION_LABEL}>History</h2>
+				<h2 class={SECTION_LABEL}>{t().exercise.page.history}</h2>
 				{#if data.summary.sets === 0}
 					<div class="rounded-2xl bg-surface">
 						<EmptyState
 							icon="clock"
-							title="Nothing logged yet"
-							body="Log a set after you practise — it shows up here, grouped by day."
+							title={t().exercise.page.nothingYet}
+							body={t().exercise.page.nothingYetBody}
 						/>
 					</div>
 				{:else}
@@ -576,7 +590,9 @@
 						<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
 					{/each}
 					{#if data.history.length < data.summary.sets}
-						<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
+						<p class="px-4 text-[12px] text-muted">
+							{t().exercise.page.showingLatest(data.history.length)}
+						</p>
 					{/if}
 				{/if}
 			</section>
@@ -585,17 +601,17 @@
 		{#if !editing}
 			{#if parts.settingsBlock}
 				<section class="flex flex-col gap-2 desk:min-w-0">
-					<h2 class={SECTION_LABEL}>Settings</h2>
+					<h2 class={SECTION_LABEL}>{t().exercise.page.settings}</h2>
 					<dl class={GROUP}>
 						<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-							<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
+							<dt class="flex-1 text-[16px] font-bold text-ink">{t().exercise.page.active}</dt>
 							<dd class="text-right text-[15px] font-semibold text-muted">
-								{exercise.active ? 'Yes' : "No — not on Today's list"}
+								{exercise.active ? t().common.yes : t().exercise.page.activeNo}
 							</dd>
 						</div>
 						{#if exercise.notes && !ownsItself}
 							<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
-								<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
+								<dt class="text-[16px] font-bold text-ink">{t().exercise.page.practiceNotes}</dt>
 								<dd>
 									<LinkedText
 										text={exercise.notes}
@@ -624,9 +640,9 @@
 		class={button('tertiary', 'md')}
 		aria-busy={skipping}
 		disabled={skipping}
-		onclick={notToday}>Not today</button
+		onclick={notToday}>{t().today.row.notToday}</button
 	>
-	<p class="text-[13px] text-muted">It comes back tomorrow</p>
+	<p class="text-[13px] text-muted">{t().exercise.page.comesBack}</p>
 {/snippet}
 
 {#snippet notTodayPane()}
@@ -639,7 +655,7 @@
 	<BackButton
 		fallback={{
 			href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
-			label: 'Back to Today'
+			label: t().shell.backTo(t().shell.tabs.today)
 		}}
 	/>
 {/snippet}
@@ -666,7 +682,11 @@
 	{#snippet left()}
 		{#if editing}
 			<span class="contents desk:hidden"
-				><BandButton icon="close" label="Stop editing" onclick={stopEditing} /></span
+				><BandButton
+					icon="close"
+					label={t().exercise.page.stopEditing}
+					onclick={stopEditing}
+				/></span
 			>
 			<span class="hidden desk:contents">{@render back()}</span>
 		{:else}
@@ -676,16 +696,24 @@
 	{#snippet right()}
 		{#if editing}
 			<span class="hidden desk:contents"
-				><BandButton icon="close" label="Stop editing" onclick={stopEditing} /></span
+				><BandButton
+					icon="close"
+					label={t().exercise.page.stopEditing}
+					onclick={stopEditing}
+				/></span
 			>
 		{/if}
 		{#if !editing && parts.historyLink && data.historyHref}
-			<BandButton icon="clock" label="History" href={data.historyHref} />
+			<BandButton icon="clock" label={t().exercise.page.history} href={data.historyHref} />
 		{/if}
 		{#if !editing && parts.editSettings && data.canEdit}
-			<BandButton icon="pencil" label="Edit settings" onclick={startEditing} />
+			<BandButton icon="pencil" label={t().exercise.page.editSettings} onclick={startEditing} />
 		{:else if !editing && parts.editSettings && data.makeMine}
-			<BandButton icon="pencil" label="Edit drill" onclick={() => (makingMine = true)} />
+			<BandButton
+				icon="pencil"
+				label={t().exercise.page.editDrill}
+				onclick={() => (makingMine = true)}
+			/>
 		{/if}
 		{#if !editing && parts.sourceTabs}
 			{#if hasMenu([], offers)}
@@ -716,8 +744,9 @@
 				mineId={data.mineId}
 				self={data.cloneLine.self}
 				{title}
-				compare={data.compare}
 				family={data.family}
+				step={data.step}
+				keep={data.keep}
 				taking={sourcePlace}
 			/>
 		{/if}
@@ -742,7 +771,8 @@
 				aria-busy={saving}
 				disabled={saving}
 			>
-				{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+				{#if saving}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span>{:else}{t()
+						.common.save}{/if}
 			</button>
 		{:else}
 			<button
@@ -781,13 +811,13 @@
 {#if ownsItself}
 	<Dialog
 		open={archiving}
-		title="Archive this drill?"
+		title={t().exercise.page.archiveTitle}
 		body={archiveBody(exercise.name, data.summary.sets)}
 		onclose={() => (archiving = false)}
 	>
 		{#snippet actions()}
 			<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
-				>Cancel</button
+				>{t().common.cancel}</button
 			>
 			<form
 				method="POST"
@@ -824,7 +854,7 @@
 					type="submit"
 					class={button('danger', 'sm')}
 					aria-busy={archiveBusy}
-					disabled={archiveBusy}>Archive</button
+					disabled={archiveBusy}>{t().exercise.page.archiveButton}</button
 				>
 			</form>
 		{/snippet}

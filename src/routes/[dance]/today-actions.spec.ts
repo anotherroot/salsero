@@ -24,6 +24,7 @@ import { dayInputOf, setDailyCount } from '$lib/server/today-picks';
 import { dayList } from '$lib/schedule/today-list';
 import { undoAddSteps } from '$lib/schedule/picks';
 import { U1_SALSA } from '$lib/server/test-walls';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions } from './(today)/+page.server';
 
 const U1 = {
@@ -317,5 +318,45 @@ describe("Coming up's + on a skipped row, and its Undo", () => {
 		await undo(b, plus);
 		expect(allPicks()).toEqual([]);
 		expect(rows()).toEqual(['a:todo']);
+	});
+});
+
+// The hook runs every action in the person's language (`runInLocale` around resolve).
+// Catches: a refusal left in English for someone who reads none.
+describe('refusals in Slovenian', () => {
+	const sl = <T>(fn: () => Promise<T>) => runInLocale('sl', fn);
+
+	it('pick, unpick, next and New exercise say why in Slovenian', async () => {
+		const a = make('a');
+		expect(
+			(await sl(() => call('pick', U1, { exerciseId: String(a), kind: 'x' }))).data?.message
+		).toBe('Izberite vajo, ki jo želite dodati ali preskočiti.');
+		expect(
+			(await sl(() => call('pick', U2, { exerciseId: String(a), kind: 'add' }))).data?.message
+		).toBe('Te vaje ni.');
+		db.update(exercises).set({ active: false }).where(eq(exercises.id, a)).run();
+		expect(
+			(await sl(() => call('pick', U1, { exerciseId: String(a), kind: 'add' }))).data?.message
+		).toBe('Ta vaja je na premoru.');
+		db.update(exercises).set({ archivedAt: Date.now() }).where(eq(exercises.id, a)).run();
+		expect(
+			(await sl(() => call('pick', U1, { exerciseId: String(a), kind: 'skip' }))).data?.message
+		).toBe('Ta vaja je arhivirana.');
+		expect((await sl(() => call('unpick', U1, {}))).data?.message).toBe('Te izbire ni.');
+		expect((await sl(() => call('next', U1))).data?.message).toBe(
+			'Za danes ni več ničesar za dodati.'
+		);
+		expect((await sl(() => call('createExercise', U1, { name: '' }))).data?.message).toBe(
+			'Vpišite ime (do 200 znakov).'
+		);
+		expect(allPicks()).toEqual([]);
+	});
+
+	it('and in English', async () => {
+		expect((await call('unpick', U1, {})).data?.message).toBe('No such pick.');
+		expect((await call('next', U1)).data?.message).toBe('Nothing left to add today.');
+		expect((await call('createExercise', U1, { name: '' })).data?.message).toBe(
+			'Give it a name (up to 200 characters).'
+		);
 	});
 });

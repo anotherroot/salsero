@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
 import { contrast, mix } from './contrast';
@@ -12,6 +13,14 @@ import {
 } from './tokens';
 
 const SCHEMES: Scheme[] = ['light', 'dark'];
+
+/** Edges and icons a person must see (WCAG non-text, 3:1). */
+const edges: [TokenName, TokenName][] = [
+	['field-line', 'surface'],
+	['field-line', 'raised'],
+	['chevron', 'surface'],
+	['disabled-ink', 'disabled-bg']
+];
 
 const pairs: [TokenName, TokenName][] = [
 	['ink', 'ground'],
@@ -73,8 +82,8 @@ describe('theme tokens', () => {
 	});
 
 	it('mixes accent-soft from accent over surface', () => {
-		expect(THEMES.salsa.light['accent-soft']).toBe(mix('#d2401e', '#ffffff', 0.12));
-		expect(THEMES.salsa.dark['accent-soft']).toBe(mix('#d2401e', '#1c1c1f', 0.18));
+		expect(THEMES.salsa.light['accent-soft']).toBe(mix('#a8492f', '#fffdfa', 0.13));
+		expect(THEMES.salsa.dark['accent-soft']).toBe(mix('#b0523a', '#1f1b18', 0.2));
 	});
 
 	for (const d of DANCE_SLUGS)
@@ -86,14 +95,24 @@ describe('theme tokens', () => {
 
 	for (const d of DANCE_SLUGS)
 		for (const s of SCHEMES)
+			it.each(edges)(`${d} ${s}: %s on %s is at least 3 (non-text)`, (fg, bg) => {
+				const t = THEMES[d][s];
+				expect(contrast(t[fg], t[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(3);
+			});
+
+	for (const d of DANCE_SLUGS)
+		for (const s of SCHEMES)
 			it(`${d} ${s}: band-ink on band is at least 3 (large only)`, () => {
 				const t = THEMES[d][s];
 				expect(contrast(t['band-ink'], t.band)).toBeGreaterThanOrEqual(3);
 			});
 
 	it('keeps the band colours of the app icons', () => {
-		expect(THEMES.salsa.light.band).toBe('#D2401E');
-		expect(THEMES.bachata.light.band).toBe('#6B1D4F');
+		// static/icon-<dance>.svg fill their tile with the light band
+		for (const d of DANCE_SLUGS) {
+			const svg = readFileSync(`static/icon-${d}.svg`, 'utf8');
+			expect(svg, d).toContain(`fill="${THEMES[d].light.band}"`);
+		}
 	});
 });
 

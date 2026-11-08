@@ -6,7 +6,8 @@
 	import { iconButton, TEXTAREA } from '$lib/components/ui/styles';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import type { SaveOutcome } from '$lib/unsaved/pending';
-	import { bodyError, COMPOSER_PLACEHOLDER, replyingTo } from '$lib/comments/view';
+	import { bodyError, composerPlaceholder, replyingTo } from '$lib/comments/view';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * The comments sheet's footer: the field, Send, and "Replying to Maja ×".
@@ -47,7 +48,7 @@
 	}
 
 	async function send(): Promise<SaveOutcome> {
-		if (sending) return { ok: false, message: 'Still sending.' };
+		if (sending) return { ok: false, message: t().comments.stillSending };
 		const problem = bodyError(text);
 		if (problem) {
 			error = problem;
@@ -74,7 +75,7 @@
 		const node = form;
 		if (!node) return;
 		return track({
-			label: 'Comment',
+			label: t().comments.comment,
 			node,
 			dirty: () => !sending && text.trim() !== '',
 			sending: () => sending,
@@ -98,7 +99,7 @@
 			<button
 				type="button"
 				class="{iconButton('bare', 'muted')} -my-1.5"
-				aria-label="Write a new comment instead"
+				aria-label={t().comments.newInstead}
 				onclick={() => {
 					oncancelreply();
 					focus();
@@ -108,13 +109,13 @@
 	{/if}
 	<div class="flex items-end gap-2">
 		<label class="min-w-0 flex-1">
-			<span class="sr-only">{replyName ? replyingTo(replyName) : 'Comment'}</span>
+			<span class="sr-only">{replyName ? replyingTo(replyName) : t().comments.comment}</span>
 			<textarea
 				bind:this={field}
 				bind:value={text}
 				data-focus="comment-composer"
 				rows="1"
-				placeholder={COMPOSER_PLACEHOLDER}
+				placeholder={composerPlaceholder()}
 				class="{TEXTAREA} composer"
 				aria-invalid={error ? 'true' : undefined}
 				aria-describedby={error ? errorId : undefined}
@@ -126,7 +127,7 @@
 		<button
 			type="submit"
 			class="{iconButton('filled')} mb-1"
-			aria-label="Send"
+			aria-label={t().comments.send}
 			aria-busy={sending}
 			disabled={sending || text.trim() === ''}
 		>

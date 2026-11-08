@@ -1,14 +1,14 @@
 /** The four faces a person gives a practice. Stored in `sets.rating` (1–5). */
+import { t } from '$lib/i18n/catalog';
+
 export type Feel = 'hard' | 'getting' | 'gotit' | 'easy';
 
 export const FEELS: readonly Feel[] = ['hard', 'getting', 'gotit', 'easy'];
 
-export const FEEL_WORD: Record<Feel, string> = {
-	hard: 'Still hard',
-	getting: 'Getting there',
-	gotit: "I've got it",
-	easy: 'Easy'
-};
+/** A face's name in the current language: "Still hard" … "Easy". */
+export function feelWord(feel: Feel): string {
+	return t().format.feel[feel];
+}
 
 /** What a face writes. */
 export const RATING_OF: Record<Feel, 1 | 2 | 4 | 5> = { hard: 1, getting: 2, gotit: 4, easy: 5 };

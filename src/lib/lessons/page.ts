@@ -1,8 +1,9 @@
 /** PURE, client-safe: what a lesson's page shows. */
 import type { ScheduleState } from '$lib/schedule/schedule';
-import { dayWords, dueWords } from '$lib/schedule/words';
+import { dayWords, dueWords, whenWords } from '$lib/schedule/words';
 import { daysBetween } from '$lib/day/day';
 import { classDayLabel } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import { PARTNER_LABEL } from '$lib/labels';
 import type {
 	LessonExerciseRow,
@@ -24,20 +25,22 @@ import type { StyleLabel } from '$lib/positions/view';
  */
 export function lessonBandLine(day: string, today: string, isClass: boolean): string {
 	const label = classDayLabel(day, today);
-	return isClass ? `Class · ${label}` : label;
+	return isClass ? t().lesson.bandLine(label) : label;
 }
 
 /**
  * When an entry is next on Today, in part 1's due words: "On Today today",
  * "On Today tomorrow", "On Today on Sunday" (within the week), "On Today next
- * week" (7 to 13 days), "On Today on 19 Nov". A paused one is "Paused".
+ * week" (7 to 13 days), "On Today on 19 Nov". A paused one is "Paused". A
+ * weekday is said as a time (`whenWords`: "Na vrsti v nedeljo").
  */
 export function whenOnToday(state: ScheduleState, active: boolean, today: string): string {
-	if (!active) return 'Paused';
+	const w = t().lesson;
+	if (!active) return w.paused;
 	const d = daysBetween(today, state.dueDay);
-	if (d <= 1) return `On Today ${dayWords(state.dueDay, today)}`;
-	if (d >= 7 && d <= 13) return 'On Today next week';
-	return `On Today on ${dayWords(state.dueDay, today)}`;
+	if (d <= 1) return w.onToday(dayWords(state.dueDay, today));
+	if (d >= 7 && d <= 13) return w.onTodayNextWeek;
+	return w.onTodayOn(whenWords(state.dueDay, today));
 }
 
 /** One of the person's entries from a lesson, as the simple page's load collects them. */
@@ -63,7 +66,7 @@ export function practiceRows(
 	return entries.flatMap((e) => {
 		const state = states[e.id];
 		if (!state) return [];
-		const name = e.kind === 'lesson' ? 'Go over this lesson' : e.name;
+		const name = e.kind === 'lesson' ? t().lesson.goOver : e.name;
 		return [{ id: e.id, name, when: whenOnToday(state, e.active, today) }];
 	});
 }

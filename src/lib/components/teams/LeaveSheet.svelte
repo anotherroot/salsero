@@ -18,6 +18,7 @@
 		reconnectNote,
 		usedMeta
 	} from '$lib/teams/leave-view';
+	import { t } from '$lib/i18n/catalog';
 	import type { KeepItem, KeepPreview } from '$lib/types';
 
 	/**
@@ -48,6 +49,7 @@
 	let chosenBytes = $state<number | null>(null);
 	const id = $props.id();
 	const radio = `leave-${id}`;
+	const w = $derived(t().groups.leave);
 
 	const keyOf = (i: Pick<KeepItem, 'kind' | 'id'>) => `${i.kind}:${i.id}`;
 	const url = () => resolve('/api/teams/[id]/keep', { id: String(team.id) });
@@ -73,10 +75,10 @@
 		preview
 			? (
 					[
-						['Lessons', lessons],
-						['Routines', preview.routines],
-						['Figures', preview.figures],
-						['Songs', preview.songs]
+						[w.sections.lessons, lessons],
+						[w.sections.routines, preview.routines],
+						[w.sections.figures, preview.figures],
+						[w.sections.songs, preview.songs]
 					] as [string, KeepItem[]][]
 				).filter(([, rows]) => rows.length > 0)
 			: []
@@ -154,14 +156,14 @@
 		{
 			value: 'all',
 			icon: 'copy',
-			label: 'Keep everything',
+			label: w.keepAll,
 			meta: preview ? everythingMeta(preview) : ''
 		},
-		{ value: 'choose', icon: 'list', label: 'Choose what to keep', meta: '' },
+		{ value: 'choose', icon: 'list', label: w.chooseWhat, meta: '' },
 		{
 			value: 'used',
 			icon: 'route',
-			label: 'Keep only what my routines use',
+			label: w.keepUsed,
 			meta: preview ? usedMeta(preview.usedNames, routineUsed) : '',
 			danger: true
 		}
@@ -187,9 +189,9 @@
 					await gotoWhenSettled(to, { invalidateAll: true });
 				} else if (result.type === 'failure') {
 					const d = result.data as { message?: unknown } | undefined;
-					refused = typeof d?.message === 'string' ? d.message : 'Could not leave. Try again.';
+					refused = typeof d?.message === 'string' ? d.message : w.failed;
 				} else if (result.type === 'error') {
-					refused = 'Could not leave. Try again.';
+					refused = w.failed;
 				} else {
 					await update();
 				}
@@ -200,16 +202,16 @@
 	}
 </script>
 
-<Sheet title={leaveTitle(team.name)} sub={leaveSub} {open} onclose={close}>
+<Sheet title={leaveTitle(team.name)} sub={leaveSub()} {open} onclose={close}>
 	<div class="flex flex-col gap-3 pb-2">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
 		{#if loadFailed}
-			<Banner kind="error">Could not load what you would keep. Close this and try again.</Banner>
+			<Banner kind="error">{w.loadFailed}</Banner>
 		{:else if !preview}
 			<div class="flex justify-center py-8"><Spinner /></div>
 		{:else}
 			<fieldset>
-				<legend class="sr-only">What to keep</legend>
+				<legend class="sr-only">{w.whatToKeep}</legend>
 				<div class={GROUP}>
 					{#each options as o (o.value)}
 						<label class="flex min-h-[64px] cursor-pointer items-center gap-3 px-4 py-2">
@@ -233,7 +235,7 @@
 					{/each}
 				</div>
 			</fieldset>
-			<p class="px-4 text-[13px] text-muted">{reconnectNote}</p>
+			<p class="px-4 text-[13px] text-muted">{reconnectNote()}</p>
 			{#if warn}<Banner kind="warning">{warn}</Banner>{/if}
 		{/if}
 	</div>
@@ -244,7 +246,7 @@
 				type="button"
 				class={button('primary', 'md', true)}
 				disabled={!preview}
-				onclick={() => (choosing = true)}>Choose what to keep</button
+				onclick={() => (choosing = true)}>{w.chooseWhat}</button
 			>
 		{:else}
 			<form method="POST" action="?/leave" use:enhance={submit}>
@@ -254,16 +256,16 @@
 					class={button('danger', 'md', true)}
 					disabled={!preview}
 					aria-busy={busy}
-					aria-label={busy ? 'Leaving' : undefined}
+					aria-label={busy ? w.leaving : undefined}
 				>
-					{#if busy}<Spinner />{:else}Leave{/if}
+					{#if busy}<Spinner />{:else}{w.leave}{/if}
 				</button>
 			</form>
 		{/if}
 	{/snippet}
 </Sheet>
 
-<Sheet title="Choose what to keep" open={open && choosing} back onclose={() => (choosing = false)}>
+<Sheet title={w.chooseWhat} open={open && choosing} back onclose={() => (choosing = false)}>
 	{#if choosing && preview}
 		<div class="flex flex-col gap-3 pb-2">
 			{#if refused}<Banner kind="error">{refused}</Banner>{/if}
@@ -309,7 +311,7 @@
 				type="submit"
 				class={button('danger', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Leaving' : undefined}
+				aria-label={busy ? w.leaving : undefined}
 			>
 				{#if busy}<Spinner />{:else}{chooseButton(keptCount)}{/if}
 			</button>

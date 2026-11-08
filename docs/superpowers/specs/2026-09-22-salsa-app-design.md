@@ -757,6 +757,20 @@ belongs to). Offline is caught before the navigation (`navigator.onLine`),
 because SvelteKit answers an unreachable server with a full page reload; the
 Offline layer lies over the current page so nothing typed is lost.
 
+## Two languages
+
+The app is in English or Slovenian, per account (`users.locale`, null is English).
+The admin picks the language on an invite (`invites.locale`): Join, and the account
+it makes, are in it. A `lang` cookie remembers the last language on a browser for
+the pages drawn before sign-in; Settings has a switch at the top, and the admin page
+sets a person's. Words live in typed catalogs (`src/lib/i18n/`, English the source,
+Slovenian typed against it) read through `t()`; the server keeps the language per
+request, never in a module variable. What people write and the count stay as they
+are. Part 1 (deployed first) is the Follow my class path; the rest of the app and
+the Android app's own text are part 2. The register, the glossary, plurals, dates,
+numbers and the order of work are in
+[`2026-11-07-slovenian-design.md`](2026-11-07-slovenian-design.md).
+
 ## Errors
 
 - Form actions return validation failures that keep entered values; nothing

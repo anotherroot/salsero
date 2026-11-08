@@ -40,6 +40,7 @@ import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import { deletedGroupName } from '$lib/exercises/today';
+import { withLocale } from '$lib/i18n/current';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
 /**
@@ -254,7 +255,8 @@ export function updateExercise(
 			const fields = (e: { name: string; notes: string | null; comesBack: string | null }) => ({
 				name: e.name,
 				notes: e.notes,
-				comesBack: comesBackWords(parseComesBack(e.comesBack) ?? FACES)
+				// History is English (not translated yet): its stored words are too.
+				comesBack: withLocale('en', () => comesBackWords(parseComesBack(e.comesBack) ?? FACES))
 			});
 			const change = fieldChange(fields(current), fields(row), 'drill');
 			if (change) logChange(tx, actingIn(current, by), { ...ofDrill(id), verb, ...change }, now);

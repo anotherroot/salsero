@@ -122,6 +122,10 @@
 	import { minutesFrom } from '$lib/exercises/practice';
 	import { fieldsShown, footerFor, rangeError } from '$lib/exercises/log-view';
 	import { clock, longDayLabel } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
+
+	/** The unit beside Minutes: the same in every language. */
+	const MIN = 'min';
 
 	interface Props extends LogProps {
 		/** The practice panel's latest run, or null. Fills Minutes and the set's `player_json`. */
@@ -235,7 +239,7 @@
 	function load() {
 		fetchPractice(dance.slug, exercise.id)
 			.then((p) => (payload = p))
-			.catch(() => (loadError = 'Could not load this exercise’s details.'));
+			.catch(() => (loadError = t().exercise.log.loadError));
 	}
 	$effect(() => {
 		if (!initial) load();
@@ -276,8 +280,9 @@
 	 * form is asked about.
 	 */
 	function skipPane(s: SessionControls) {
-		if (s.next) leavePageOrAsk((answered) => s.onskip(answered), 'Skip');
-		else away(() => s.onskip(), 'Skip');
+		const verb = t().exercise.log.skip;
+		if (s.next) leavePageOrAsk((answered) => s.onskip(answered), verb);
+		else away(() => s.onskip(), verb);
 	}
 
 	/* ── Undo of a deleted set ─────────────────────────────────────────── */
@@ -296,7 +301,7 @@
 
 	function deleted(snapshot: string) {
 		undoSnapshot = snapshot || null;
-		say('Set deleted', undoSnapshot ? 'Undo' : undefined);
+		say(t().exercise.log.setDeleted, undoSnapshot ? t().common.undo : undefined);
 		// "Last time" may have been this set.
 		load();
 	}
@@ -309,7 +314,7 @@
 		notice = null;
 		if (!snapshot) return;
 		const ok = await restoreSet(snapshot);
-		if (!ok) say('Could not put the set back.');
+		if (!ok) say(t().exercise.log.couldNotPutBack);
 		load();
 	}
 </script>
@@ -324,9 +329,9 @@
 		class="flex flex-col gap-3"
 		bind:this={logForm}
 		use:guarded={{
-			label: 'Practice log',
+			label: t().exercise.log.formLabel,
 			dirty: (changed) => unsaved || changed,
-			blocked: () => (playing ? 'Stop the count to log it.' : null),
+			blocked: () => (playing ? t().exercise.log.stopToLog : null),
 			submit: ({ formData, cancel }) => {
 				// Out of range: the field already says so in red; nothing is sent.
 				if (minutesError !== null || repsError !== null) {
@@ -338,7 +343,7 @@
 				// Captured now, not after `update()`: a success resets the bound
 				// fields (Minutes goes back to ''), so reading `exactS`/`minutes`
 				// afterwards lost a hand-typed value — see finding 1. Same rule as
-				// the server's own (log-form.ts): durationS wins over
+				// the rule of the server (log-form.ts): durationS wins over
 				// durationMin*60, else there is nothing to report.
 				const asSeconds = (v: FormDataEntryValue | null) =>
 					v !== null && String(v) !== '' ? Number(v) : null;
@@ -353,7 +358,7 @@
 					}
 					if (result.type === 'failure') {
 						const m = (result.data as { message?: unknown } | undefined)?.message;
-						refusal = typeof m === 'string' ? m : 'It did not save.';
+						refusal = typeof m === 'string' ? m : t().exercise.log.didNotSave;
 					}
 					if (result.type !== 'success') return;
 					feel = null;
@@ -384,7 +389,7 @@
 			<div class="grid grid-cols-2 items-start gap-3">
 				{#if has('minutes')}
 					<div class="min-w-0">
-						<label for="{formId}-minutes" class={LABEL}>Minutes</label>
+						<label for="{formId}-minutes" class={LABEL}>{t().exercise.log.minutes}</label>
 						<div
 							class="{minutesError
 								? FIELD_INVALID
@@ -410,7 +415,7 @@
 									: undefined}
 								class="h-11 w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted focus-visible:shadow-none! focus-visible:outline-none!"
 							/>
-							<span class="flex-none text-[15px] font-semibold text-muted">min</span>
+							<span class="flex-none text-[15px] font-semibold text-muted">{MIN}</span>
 						</div>
 						{#if minutesError}
 							<p id="{formId}-minutes-msg" class={FIELD_ERROR}>
@@ -418,14 +423,14 @@
 							</p>
 						{:else if exactS !== null}
 							<p id="{formId}-minutes-msg" class="mt-1.5 pl-1 text-[13px] text-muted">
-								From the practice: {clock(exactS)}
+								{t().exercise.log.fromPractice(clock(exactS))}
 							</p>
 						{/if}
 					</div>
 				{/if}
 				{#if has('reps')}
 					<div class="min-w-0">
-						<label for="{formId}-reps" class={LABEL}>Reps</label>
+						<label for="{formId}-reps" class={LABEL}>{t().exercise.log.reps}</label>
 						<input
 							id="{formId}-reps"
 							name="reps"
@@ -466,14 +471,16 @@
 		{#if has('note')}
 			<div>
 				<label for="{formId}-note" class={LABEL}
-					>Note<span class="font-medium text-muted">&nbsp;(optional)</span></label
+					>{t().exercise.log.note}<span class="font-medium text-muted"
+						>&nbsp;{t().exercise.log.optional}</span
+					></label
 				>
 				<textarea
 					id="{formId}-note"
 					name="note"
 					rows="2"
 					maxlength="2000"
-					placeholder="What went well, what to fix"
+					placeholder={t().exercise.log.notePlaceholder}
 					class={TEXTAREA}></textarea>
 			</div>
 		{/if}
@@ -542,7 +549,7 @@
 		>
 			<span class="flex-none text-done"><Icon name="check-circle" size={28} filled /></span>
 			<span class="flex min-w-0 flex-col gap-px">
-				<span class="text-[15px] font-extrabold text-ink">Session done</span>
+				<span class="text-[15px] font-extrabold text-ink">{t().exercise.log.sessionDone}</span>
 				<span class="text-[13px] font-bold text-done">{session.summary}</span>
 			</span>
 		</div>
@@ -559,7 +566,7 @@
 				: button(view.main ? 'secondary' : 'primary', 'md', true)}
 			onclick={session.onfinish}
 		>
-			Finish
+			{t().exercise.log.finish}
 		</button>
 	{/if}
 {/snippet}
@@ -570,13 +577,18 @@
 		under it. The title, "Last time", the sets and the toast are the page's own
 		(its header and History), so none of them is here.
 	-->
-	<section aria-label={simple ? 'I practised this' : 'Log a set'} class="flex flex-col gap-3">
+	<section
+		aria-label={simple ? t().exercise.page.practised : t().exercise.page.logASet}
+		class="flex flex-col gap-3"
+	>
 		{@render doneCard()}
-		<h2 class={SECTION_LABEL}>{simple ? 'I practised this' : 'Log a set'}</h2>
+		<h2 class={SECTION_LABEL}>
+			{simple ? t().exercise.page.practised : t().exercise.page.logASet}
+		</h2>
 		{#if payload}
 			{#if panel}{@render panel(payload)}{/if}
 		{:else if loadError}
-			<Banner kind="error" title={loadError}>You can still log a set.</Banner>
+			<Banner kind="error" title={loadError}>{t().exercise.log.stillLog}</Banner>
 		{/if}
 		{@render theForm()}
 		{#if payload && info.paneContent === 'left'}{@render reference(payload)}{/if}
@@ -586,7 +598,7 @@
 			<div class="flex items-center gap-2.5">
 				{#if session && view.skip}
 					<button type="button" class={button('secondary', 'md')} onclick={() => skipPane(session)}
-						>Skip</button
+						>{t().exercise.log.skip}</button
 					>
 				{/if}
 				{@render mainButton(true)}
@@ -613,18 +625,18 @@
 				<button
 					type="button"
 					class="flex h-11 flex-none cursor-pointer items-center gap-0.5 px-2.5 text-[15px] font-extrabold text-accent-text"
-					onclick={() => away(() => session.onskip(), 'Skip')}
+					onclick={() => away(() => session.onskip(), t().exercise.log.skip)}
 				>
-					Skip<Icon name="chevron-right" size={18} />
+					{t().exercise.log.skip}<Icon name="chevron-right" size={18} />
 				</button>
 			{/if}
 			{#if page.url.pathname !== detailsHref}
 				<a
 					href={detailsHref}
-					aria-label="Details and settings"
+					aria-label={t().exercise.log.detailsLabel}
 					class="flex h-11 flex-none items-center gap-0.5 pr-1 pl-2.5 text-[15px] font-extrabold text-accent-text"
 				>
-					Details<Icon name="chevron-right" size={18} />
+					{t().exercise.log.details}<Icon name="chevron-right" size={18} />
 				</a>
 			{/if}
 		{/snippet}
@@ -634,7 +646,7 @@
 				<div
 					class="flex items-center gap-2.5 rounded-[14px] bg-accent-soft px-3.5 py-2.5 text-[14px] font-extrabold text-accent-text"
 				>
-					<Icon name="calendar" size={20} />Adding to {longDayLabel(backfillDay)}
+					<Icon name="calendar" size={20} />{t().exercise.log.addingTo(longDayLabel(backfillDay))}
 				</div>
 			{/if}
 
@@ -649,10 +661,10 @@
 					{@render reference(payload)}
 				{/if}
 			{:else if loadError}
-				<Banner kind="error" title={loadError}>You can still log a set.</Banner>
+				<Banner kind="error" title={loadError}>{t().exercise.log.stillLog}</Banner>
 			{:else}
 				<div aria-busy="true" class="flex flex-col gap-2.5 px-1 pt-1">
-					<span role="status" class="sr-only">Loading</span>
+					<span role="status" class="sr-only">{t().common.loading}</span>
 					<span class="block h-3 w-[92%] rounded-md bg-skeleton" aria-hidden="true"></span>
 					<span class="block h-3 w-[80%] rounded-md bg-skeleton" aria-hidden="true"></span>
 					<span class="block h-3 w-[56%] rounded-md bg-skeleton" aria-hidden="true"></span>
@@ -673,7 +685,9 @@
 
 			{#if sets.length > 0 && !simple}
 				<div class="flex flex-col gap-2 pt-1">
-					<h3 class={SECTION_LABEL}>{backfillDay ? 'Sets that day' : 'Sets today'}</h3>
+					<h3 class={SECTION_LABEL}>
+						{backfillDay ? t().exercise.log.setsThatDay : t().exercise.log.setsToday}
+					</h3>
 					<SetList
 						{sets}
 						{timezone}

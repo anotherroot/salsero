@@ -10,13 +10,15 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { peopleLine, roleLabel } from '$lib/teams/view';
-	import { REMOVE_BODY } from '$lib/teams/leave-view';
+	import { removeBody } from '$lib/teams/leave-view';
+	import { t } from '$lib/i18n/catalog';
 	import type { Person } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const owner = $derived(data.role === 'owner');
+	const w = $derived(t().groups.people);
 	/** The person a sheet or question is about. */
 	let acting = $state<Person | null>(null);
 	let asking = $state<{ kind: 'handOver' | 'remove'; person: Person } | null>(null);
@@ -28,9 +30,9 @@
 	}
 </script>
 
-<svelte:head><title>People · {data.team.name}</title></svelte:head>
+<svelte:head><title>{w.title} · {data.team.name}</title></svelte:head>
 
-<Screen title="People" subtitle="{data.team.name} · {peopleLine(data.people.length)}" compact>
+<Screen title={w.title} subtitle="{data.team.name} · {peopleLine(data.people.length)}" compact>
 	{#snippet left()}
 		<BackButton
 			fallback={{
@@ -38,14 +40,14 @@
 					dance: data.dance.slug,
 					id: String(data.team.id)
 				}),
-				label: `Back to ${data.team.name}`
+				label: t().shell.backTo(data.team.name)
 			}}
 		/>
 	{/snippet}
 
 	{#if form?.message}<Banner kind="error">{form.message}</Banner>{/if}
 
-	<ul class={GROUP} aria-label="People">
+	<ul class={GROUP} aria-label={w.title}>
 		{#each data.people as person (person.id)}
 			<li class="flex min-h-14 items-center gap-3 px-4 py-2">
 				<span class="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{person.name}</span>
@@ -55,7 +57,7 @@
 					<button
 						type="button"
 						class="flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full text-muted active:bg-step"
-						aria-label="Actions for {person.name}"
+						aria-label={w.actionsFor(person.name)}
 						onclick={() => (acting = person)}><Icon name="more" /></button
 					>
 				{/if}
@@ -89,7 +91,7 @@
 				>
 					<span class="flex-none text-accent-text"><Icon name="edit" size={22} /></span>
 					<span class="text-[16px] font-bold text-ink"
-						>{acting.role === 'editor' ? 'Make member' : 'Make editor'}</span
+						>{acting.role === 'editor' ? w.makeMember : w.makeEditor}</span
 					>
 				</button>
 			</form>
@@ -99,7 +101,7 @@
 				onclick={() => ask('handOver')}
 			>
 				<span class="flex-none text-accent-text"><Icon name="key" size={22} /></span>
-				<span class="text-[16px] font-bold text-ink">Hand over the group</span>
+				<span class="text-[16px] font-bold text-ink">{w.handOverGroup}</span>
 			</button>
 			<button
 				type="button"
@@ -107,7 +109,7 @@
 				onclick={() => ask('remove')}
 			>
 				<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
-				<span class="text-[16px] font-bold text-danger">Remove</span>
+				<span class="text-[16px] font-bold text-danger">{t().common.remove}</span>
 			</button>
 		</div>
 	{/if}
@@ -116,18 +118,16 @@
 <Dialog
 	open={asking !== null}
 	title={asking?.kind === 'handOver'
-		? `Hand over to ${asking.person.name}?`
-		: `Remove ${asking?.person.name ?? ''}?`}
-	body={asking?.kind === 'handOver'
-		? 'They become the owner and you become an editor. Only they can take it back.'
-		: REMOVE_BODY}
+		? w.handOverQuestion(asking.person.name)
+		: w.removeQuestion(asking?.person.name ?? '')}
+	body={asking?.kind === 'handOver' ? w.handOverBody : removeBody()}
 	icon={asking?.kind === 'handOver' ? 'key' : 'trash'}
 	tone="danger"
 	onclose={() => (asking = null)}
 >
 	{#snippet actions()}
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (asking = null)}
-			>Cancel</button
+			>{t().common.cancel}</button
 		>
 		<form
 			method="POST"
@@ -140,7 +140,7 @@
 		>
 			<input type="hidden" name="userId" value={asking?.person.id ?? ''} />
 			<button type="submit" class={button('danger', 'sm')}
-				>{asking?.kind === 'handOver' ? 'Hand over' : 'Remove'}</button
+				>{asking?.kind === 'handOver' ? w.handOver : t().common.remove}</button
 			>
 		</form>
 	{/snippet}

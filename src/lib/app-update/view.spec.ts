@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
-	HIDE_UPDATE,
-	UPDATE_ROW_TITLE,
 	hiddenToday,
 	hideMark,
+	hideUpdate,
 	parseBridge,
 	showsUpdateNeeded,
 	updateNeededNow,
 	updateRowLine,
+	updateRowTitle,
 	updateView,
 	type AppUpdate,
 	type BridgeStatus
@@ -112,8 +113,8 @@ describe('the Update row on Today', () => {
 		expect(updateRowLine(update('available'), null)).toBe('Version 1.1 is ready');
 		expect(updateRowLine({ ...update('available'), latest: null }, null)).toBe('Ready to install');
 		expect(updateRowLine(update('available'), 'No connection.')).toBe('No connection.');
-		expect(UPDATE_ROW_TITLE).toBe('New version of the app');
-		expect(HIDE_UPDATE).toBe('Hide until tomorrow');
+		expect(updateRowTitle()).toBe('New version of the app');
+		expect(hideUpdate()).toBe('Hide until tomorrow');
 	});
 
 	it('× hides it for the rest of the day, for that version', () => {
@@ -122,5 +123,24 @@ describe('the Update row on Today', () => {
 		expect(hiddenToday(hideMark('2026-11-06', 2), '2026-11-06', 3)).toBe(false);
 		expect(hiddenToday(null, '2026-11-06', 2)).toBe(false);
 		expect(hiddenToday('junk', '2026-11-06', 2)).toBe(false);
+	});
+});
+
+describe('in Slovenian', () => {
+	it('says what the Update button is doing, with a non-breaking space before … and %', () => {
+		const sl = withLocale('sl', () => [
+			updateView({ progress: 45 }).label,
+			updateView('failed:offline').label,
+			updateView('idle').label,
+			updateRowLine(update('available'), null),
+			updateRowTitle()
+		]);
+		expect(sl).toEqual([
+			'Prenašanje\u00a0… 45\u00a0%',
+			'Poskusi znova',
+			'Posodobi',
+			'Različica aplikacije 1.1 je pripravljena',
+			'Nova različica aplikacije'
+		]);
 	});
 });

@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { teamMembers, teams, users } from '$lib/server/db/schema';
 import { createTeam } from '$lib/server/teams';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 let db: Db;
@@ -91,6 +92,23 @@ describe('the join step', () => {
 		expect(db.select().from(teamMembers).where(eq(teamMembers.userId, 'ana')).all()).toHaveLength(
 			0
 		);
+	});
+	// Catches: the first run's refusal left in English for a Slovenian reader.
+	it('refuses a wrong or empty code in Slovenian', async () => {
+		const say = async (fields: Record<string, string>) =>
+			(
+				(await runInLocale('sl', () => run(actions.join, event(fields)))) as {
+					data: { message: string };
+				}
+			).data.message;
+		expect(await say({ code: 'ZZZZZZZZ' })).toBe(
+			'Noben tečaj nima te kode. Preverite jo in poskusite znova.'
+		);
+		expect(await say({ code: ' ' })).toBe('Vnesite kodo tečaja.');
+		const level = (await runInLocale('sl', () =>
+			run(actions.level, event({ level: 'expert' }))
+		)) as { data: { message: string } };
+		expect(level.data.message).toBe('Izberite, kaj vse želite videti.');
 	});
 	it('Not now goes to next, but not back to a teacher link', async () => {
 		expect(await redirected(run(actions.skip, event({ next: '/salsa/songs' })))).toBe(

@@ -1,4 +1,5 @@
 /** Coming up: every exercise by the day it comes back. PURE. */
+import { t } from '$lib/i18n/catalog';
 import { awayWords } from './words';
 import { learningWords, rhythmWords } from './comes-back';
 import type { DueState } from './schedule';
@@ -27,7 +28,8 @@ interface Item<E> {
  */
 export function comingMeta(e: Pick<DayExercise, 'warmup'>, state: DueState): string | null {
 	const rhythm = state.every !== null ? rhythmWords(state.every) : null;
-	if (e.warmup) return rhythm ? `Warm-up · ${rhythm.toLowerCase()}` : 'Warm-up';
+	const w = t().exercise.warmup;
+	if (e.warmup) return rhythm ? w.withRhythm(rhythm.toLowerCase()) : w.title;
 	if (rhythm) return rhythm;
 	if (state.learning) return learningWords(state.learning);
 	return null;

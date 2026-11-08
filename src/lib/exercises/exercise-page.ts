@@ -1,7 +1,8 @@
 /** What the exercise page shows: summary tiles, history by day, the owner row. PURE, client-safe. */
 import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
-import { classDayLabel, dateLabel, longDayLabel, setSummary } from '$lib/format';
-import { FEEL_WORD, feelOf, type Feel } from '$lib/schedule/feel';
+import { classDayLabel, dateLabel, firstUpper, longDayLabel, setSummary } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
+import { feelWord, feelOf, type Feel } from '$lib/schedule/feel';
 import type { IconName } from '$lib/icons/icons';
 import type { ExerciseSummary, HistorySet, PracticeContent } from '$lib/types';
 
@@ -16,10 +17,11 @@ export function summaryTiles(
 ): { value: string; label: string; feel: Feel | null }[] {
 	// The recent ratings' mean, read as the face it is closest to.
 	const feel = s.recentRating === null ? null : feelOf(Math.round(s.recentRating));
+	const w = t().exercise.page;
 	return [
-		{ value: String(s.sets), label: s.sets === 1 ? 'set' : 'sets', feel: null },
-		{ value: practisedLabel(s.totalS), label: 'practised', feel: null },
-		{ value: feel === null ? '–' : FEEL_WORD[feel], label: 'recently', feel }
+		{ value: String(s.sets), label: w.tileSets(s.sets), feel: null },
+		{ value: practisedLabel(s.totalS), label: w.tilePractised, feel: null },
+		{ value: feel === null ? '–' : feelWord(feel), label: w.tileRecently, feel }
 	];
 }
 
@@ -40,11 +42,14 @@ export function historyDays(
 }
 
 function dayName(day: string, today: string): string {
+	const f = t().format;
 	const ago = daysBetween(day, today);
-	if (ago === 0) return 'Today';
-	if (ago === 1) return 'Yesterday';
+	if (ago === 0) return firstUpper(f.today);
+	if (ago === 1) return firstUpper(f.yesterday);
 	const label = longDayLabel(day);
-	return day.slice(0, 4) === today.slice(0, 4) ? label : `${label}, ${day.slice(0, 4)}`;
+	return day.slice(0, 4) === today.slice(0, 4)
+		? label
+		: t().exercise.page.dayWithYear(label, day.slice(0, 4));
 }
 
 export function setTitle(s: {
@@ -56,7 +61,10 @@ export function setTitle(s: {
 	rating: number | null;
 } {
 	const text = setSummary({ ...s, rating: null });
-	return { text: text === '' && s.rating === null ? 'Set' : text, rating: s.rating };
+	return {
+		text: text === '' && s.rating === null ? t().exercise.sets.set : text,
+		rating: s.rating
+	};
 }
 
 export function setMeta(s: HistorySet, timezone: string): string {
@@ -71,13 +79,14 @@ export function ownerOf(c: PracticeContent): {
 	meta: string;
 	icon: IconName;
 } | null {
+	const w = t().exercise.page;
 	switch (c.type) {
 		case 'figure':
 			return {
 				kind: 'figure',
 				id: c.figure.id,
 				title: c.figure.name,
-				meta: 'Figure',
+				meta: w.ownerFigure,
 				icon: 'footprints'
 			};
 		case 'lesson':
@@ -85,7 +94,7 @@ export function ownerOf(c: PracticeContent): {
 				kind: 'lesson',
 				id: c.lesson.id,
 				title: c.lesson.title,
-				meta: `Lesson · ${dateLabel(c.lesson.lessonDay)}`,
+				meta: w.ownerLesson(dateLabel(c.lesson.lessonDay)),
 				icon: 'lessons'
 			};
 		case 'routine':
@@ -93,7 +102,7 @@ export function ownerOf(c: PracticeContent): {
 				kind: 'routine',
 				id: c.routine.id,
 				title: c.routine.name,
-				meta: 'Routine',
+				meta: w.ownerRoutine,
 				icon: 'route'
 			};
 		case 'drill':
@@ -102,8 +111,7 @@ export function ownerOf(c: PracticeContent): {
 }
 
 export function archiveBody(name: string, sets: number): string {
-	const head = `${name} leaves Today and every list.`;
-	return sets === 0 ? head : `${head} Its ${sets} ${sets === 1 ? 'set is' : 'sets are'} kept.`;
+	return t().exercise.page.archiveBody(name, sets);
 }
 
 /**
@@ -137,11 +145,11 @@ export function pageParts(simple: boolean, hasClass: boolean): PageParts {
 		setList: !simple,
 		settingsBlock: !simple,
 		fromClass: simple && hasClass,
-		logButton: simple ? 'I practised this' : 'Log a set'
+		logButton: simple ? t().exercise.page.practised : t().exercise.page.logASet
 	};
 }
 
 /** The line to the class an exercise came from: `From class Tue 3 Nov ›`. */
 export function fromClassLabel(lessonDay: string, today: string): string {
-	return `From class ${classDayLabel(lessonDay, today)} ›`;
+	return t().exercise.page.fromClass(classDayLabel(lessonDay, today));
 }

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "50417354-6d2d-4464-8b92-227caca55a26",
+  "id": "e32b6306-3a55-415a-b9d0-5be4454e4636",
   "prevId": "ce741628-991c-43e2-94b1-f997b61c0f62",
   "tables": {
     "app_flags": {
@@ -95,6 +95,52 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "clone_marks": {
+      "name": "clone_marks",
+      "columns": {
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "row_id": {
+          "name": "row_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fields_json": {
+          "name": "fields_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "clone_marks_kind_row_id_pk": {
+          "columns": [
+            "kind",
+            "row_id"
+          ],
+          "name": "clone_marks_kind_row_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "clone_pairs": {
       "name": "clone_pairs",
       "columns": {
@@ -157,6 +203,80 @@
           "value": "\"clone_pairs\".\"kind\" in ('figure', 'routine', 'drill', 'song', 'lesson', 'position')"
         }
       }
+    },
+    "clone_sync": {
+      "name": "clone_sync",
+      "columns": {
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "row_id": {
+          "name": "row_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "on": {
+          "name": "on",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "names": {
+          "name": "names",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "small": {
+          "name": "small",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sections": {
+          "name": "sections",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "media": {
+          "name": "media",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "clone_sync_kind_row_id_pk": {
+          "columns": [
+            "kind",
+            "row_id"
+          ],
+          "name": "clone_sync_kind_row_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "count_takes": {
       "name": "count_takes",
@@ -553,28 +673,6 @@
         },
         "cloned_from": {
           "name": "cloned_from",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "comes_back": {
-          "name": "comes_back",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "warmup": {
-          "name": "warmup",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "warmup_order": {
-          "name": "warmup_order",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,

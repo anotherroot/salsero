@@ -18,7 +18,8 @@ export function parsePositionFilter(
 		// Other is untyped rows too, so it is taken where the dance has no such type (bachata).
 		...(type && (types.includes(type) || type === OTHER_TYPE) ? { type } : {}),
 		// Gaps are the person's own report: group mode has none.
-		...(!groupMode && params.get('gaps') === '1' ? { gaps: '1' as const } : {})
+		...(!groupMode && params.get('gaps') === '1' ? { gaps: '1' as const } : {}),
+		...(params.get('sync') === '1' ? { sync: '1' as const } : {})
 	};
 }
 
@@ -28,7 +29,8 @@ export function positionMatches(r: PositionListRow, f: PositionFilter): boolean 
 	return (
 		(!f.q || fold(r.name).includes(fold(f.q))) &&
 		(!f.type || r.styleTag === f.type || (r.styleTag === null && f.type === OTHER_TYPE)) &&
-		(!f.gaps || hasGap(r))
+		(!f.gaps || hasGap(r)) &&
+		(!f.sync || (r.differ ?? 0) > 0)
 	);
 }
 
@@ -75,5 +77,5 @@ export function positionsView(
  */
 export function nothingAt(l: PositionsLists, f: PositionFilter): boolean {
 	const view = positionsView(l, f);
-	return !(f.q || f.type || f.gaps) && view.rows.length === 0 && view.groups.length === 0;
+	return !(f.q || f.type || f.gaps || f.sync) && view.rows.length === 0 && view.groups.length === 0;
 }

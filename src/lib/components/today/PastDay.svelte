@@ -8,6 +8,7 @@
 	import { pastGroups } from '$lib/exercises/today';
 	import { dayLabel, setSummary } from '$lib/format';
 	import { exerciseGroups } from '$lib/picker/build';
+	import { t } from '$lib/i18n/catalog';
 	import type { Partner, Source } from '$lib/labels';
 	import type { DaySet, PickExercise } from '$lib/types';
 
@@ -43,7 +44,7 @@
 {#if groups.length > 0}
 	<section class="flex flex-col gap-2" aria-labelledby="past-h">
 		<h2 id="past-h" class={SECTION_LABEL}>
-			{today ? 'Logged today' : 'Logged that day'} · {groups.length}
+			{today ? t().today.past.loggedToday : t().today.past.loggedThatDay} · {groups.length}
 		</h2>
 		{#each groups as g (g.exerciseId)}
 			<div class={GROUP}>
@@ -56,7 +57,7 @@
 							<button
 								type="button"
 								class={iconButton('bare', 'accent')}
-								aria-label="Add a set of {g.name} to this day"
+								aria-label={t().today.past.addSet(g.name)}
 								onclick={() => onlog(g.exerciseId)}><Icon name="plus" size={24} /></button
 							>
 						{/if}
@@ -69,7 +70,7 @@
 								>{timeOfDay(s.doneAt, timezone)}</span
 							>
 							<span class="min-w-0 flex-1 text-[14px] text-ink"
-								>{setSummary(s) || 'Set'}{#if s.note}<span
+								>{setSummary(s) || t().today.past.set}{#if s.note}<span
 										class="mt-0.5 block text-[13px] text-muted">“{s.note}”</span
 									>{/if}</span
 							>
@@ -85,17 +86,17 @@
 			<Icon name="calendar" size={26} />
 		</span>
 		<span class="mt-1.5 text-[16px] font-bold text-ink"
-			>{today ? 'Nothing logged today' : 'Nothing logged on this day'}</span
+			>{today ? t().today.past.nothingToday : t().today.past.nothingThatDay}</span
 		>
 	</div>
 {/if}
 
 {#if !today && onlog}
 	<div class="mt-3.5">
-		<p id="past-forgot-label" class={LABEL}>Forgot to log something that day?</p>
+		<p id="past-forgot-label" class={LABEL}>{t().today.past.forgot}</p>
 		<PickerOpener
 			id="past-forgot"
-			label="Pick an exercise…"
+			label={t().today.past.pick}
 			aria-describedby="past-forgot-label"
 			onclick={() => (picking = true)}
 		/>
@@ -103,11 +104,11 @@
 
 	<Picker
 		open={picking}
-		title="Log a set on {dayLabel(day)}"
-		placeholder="Search exercises"
+		title={t().today.past.logOn(dayLabel(day))}
+		placeholder={t().today.past.search}
 		groups={exerciseGroups(exercises)}
 		kind="act"
-		nothingLeft="No exercises yet."
+		nothingLeft={t().today.past.none}
 		onpick={(row) => {
 			picking = false;
 			onlog(row.value);

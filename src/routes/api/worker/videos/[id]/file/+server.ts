@@ -10,7 +10,8 @@ import {
 	uploadsDir,
 	writeChunk
 } from '$lib/server/files';
-import { completeVideoJob, videoJobTarget } from '$lib/server/video-downloads';
+import { completeVideoJob, videoJobRequester, videoJobTarget } from '$lib/server/video-downloads';
+import { flowAfter, rootOfRecording, rootOfVideo } from '$lib/server/clones/flow-hook';
 import { freeDisk } from '$lib/server/storage';
 import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL } from '$lib/limits';
 import type { RequestHandler } from './$types';
@@ -48,6 +49,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		});
 	}
 
+	// Whose save it was, read before the job goes: Keep in step's flow runs as them.
+	const by = videoJobRequester(db, id);
 	// File first, then the row: a crash between the two leaves an orphan file,
 	// which is harmless, rather than a row pointing at nothing.
 	const file = `${randomUUID()}.mp4`;
@@ -71,5 +74,11 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		await unlink(dest).catch(() => {});
 		return failJson(413, done.refused);
 	}
+	// The link became a recording or a lesson video: the flow runs from its root.
+	const root =
+		'recordingId' in done
+			? rootOfRecording(db, done.recordingId)
+			: rootOfVideo(db, done.lessonVideoId);
+	if (root) await flowAfter(by, root.kind, root.id);
 	return json(done, { status: 201 });
 };

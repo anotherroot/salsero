@@ -2,24 +2,22 @@
 	import InviteQr from '$lib/components/admin/InviteQr.svelte';
 	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	const w = $derived(t().shell.getApp);
 </script>
 
-<svelte:head><title>Get the app</title></svelte:head>
+<svelte:head><title>{w.title}</title></svelte:head>
 
-<CardFrame title="Get the app">
-	<p class="text-[16px] text-ink-2">Practise from your phone's home screen.</p>
+<CardFrame title={w.title}>
+	<p class="text-[16px] text-ink-2">{w.intro}</p>
 
 	{#if data.device === 'other'}
 		<div class="{GROUP} flex flex-col items-center gap-3 p-4">
-			<p class="text-[16px] font-bold text-ink">Open this page on your phone.</p>
-			{#if data.qr}<InviteQr
-					size={data.qr.size}
-					cells={data.qr.cells}
-					label="QR code for this page"
-				/>{/if}
+			<p class="text-[16px] font-bold text-ink">{w.openOnPhone}</p>
+			{#if data.qr}<InviteQr size={data.qr.size} cells={data.qr.cells} label={w.qr} />{/if}
 		</div>
 	{:else}
 		{#each data.cards as card (card.dance)}
@@ -29,28 +27,26 @@
 					{#if card.download}
 						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file download -->
 						<a href={card.download.url} download class={button('primary', 'md', true)}>
-							Download {card.label} · {card.download.size}
+							{w.download(card.label, card.download.size)}
 						</a>
 					{:else}
-						<p class="text-[14px] text-muted">The Android app isn't ready yet.</p>
+						<p class="text-[14px] text-muted">{w.notReady}</p>
 					{/if}
 				{:else}
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat route per dance -->
-					<a href={card.open} class={button('primary', 'md', true)}>Open {card.label}</a>
+					<a href={card.open} class={button('primary', 'md', true)}>{w.open(card.label)}</a>
 				{/if}
 			</div>
 		{/each}
 
 		{#if data.device === 'android'}
 			<ol class="flex flex-col gap-2 text-[15px] text-ink-2">
-				<li>1. Your browser asks to allow installing apps from it: allow it, then tap Install.</li>
-				<li>2. If Play Protect says it doesn't know the app, tap Install anyway.</li>
-				<li>3. Open the app and sign in with the account you just made.</li>
+				{#each w.androidSteps as step (step)}<li>{step}</li>{/each}
 			</ol>
 			<svg
 				viewBox="0 0 220 120"
 				role="img"
-				aria-label="Sketch of the allow screen: a switch turned on"
+				aria-label={w.sketch}
 				class="w-full max-w-56 text-muted"
 			>
 				<rect
@@ -70,13 +66,13 @@
 				<rect x="24" y="92" width="50" height="8" rx="4" fill="currentColor" opacity="0.3" />
 			</svg>
 		{:else}
-			<p class="text-[15px] text-ink-2">In Safari, tap Share, then Add to Home Screen.</p>
+			<p class="text-[15px] text-ink-2">{w.ios}</p>
 			<p class="text-[13px] text-muted">
-				On iPhone, lesson videos upload only while the page is open, and there is no daily reminder.
+				{w.iosNote}
 			</p>
 		{/if}
 	{/if}
 
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the dance chooser -->
-	<a href="/" class={button('tertiary', 'md')}> Skip, use it in the browser </a>
+	<a href="/" class={button('tertiary', 'md')}>{w.skip}</a>
 </CardFrame>

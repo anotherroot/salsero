@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { comingHeading } from './coming-view';
 
 const group = (key: string, day: string | null, away: string | null) => ({
@@ -32,5 +33,25 @@ describe('comingHeading', () => {
 			title: 'Paused',
 			away: null
 		});
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('names the day, with the year when it is not this year', () => {
+		expect(
+			sl(() => comingHeading(group('2026-11-08', '2026-11-08', 'čez 3 dni'), '2026-11-05'))
+		).toEqual({ title: 'ned, 8. nov.', away: 'čez 3 dni' });
+		expect(
+			sl(() => comingHeading(group('2027-01-14', '2027-01-14', null), '2026-11-05')).title
+		).toBe('čet, 14. jan. 2027');
+	});
+	it('Next in line and Paused', () => {
+		expect(sl(() => comingHeading(group('waiting', null, null), '2026-11-05')).title).toBe(
+			'Naslednje na vrsti'
+		);
+		expect(sl(() => comingHeading(group('paused', null, null), '2026-11-05')).title).toBe(
+			'Na premoru'
+		);
 	});
 });

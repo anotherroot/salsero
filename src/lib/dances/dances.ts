@@ -51,7 +51,7 @@ export interface Dance {
 	 * looking for `accentInk` in this registry.
 	 */
 	accentDark: string;
-	/** `--color-band`, light and dark alike: the colour of the page band. Same sync rule. */
+	/** `--color-band` in light mode (dark has a deeper one, tokens.ts only): the page band, the manifest's `theme_color` and the icon's tile. Same sync rule. */
 	band: string;
 }
 
@@ -70,9 +70,9 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		countPatterns: ['salsa', 'son', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: true,
-		accent: '#d2401e',
-		accentDark: '#d2401e',
-		band: '#D2401E'
+		accent: '#a8492f',
+		accentDark: '#b0523a',
+		band: '#A8492F'
 	},
 	bachata: {
 		slug: 'bachata',
@@ -92,9 +92,9 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		countPatterns: ['salsa', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: false,
-		accent: '#8e2a66',
-		accentDark: '#f07aae',
-		band: '#6B1D4F'
+		accent: '#7c3b61',
+		accentDark: '#e29abc',
+		band: '#64304F'
 	}
 };
 

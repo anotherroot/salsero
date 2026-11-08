@@ -26,20 +26,30 @@ import {
 	spaceOfRow,
 	wallOf
 } from '$lib/server/scope';
-import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
+import {
+	getSpotLink,
+	linkableSections,
+	linkSpot,
+	SpotLinkError,
+	unlinkSpot
+} from '$lib/server/spot-links';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
 import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
+import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 
 type FromClass = ReturnType<typeof fromClassOf>;
@@ -152,6 +162,9 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			/** A drill's tabs per source (none for an entry: it is no family's). */
 			...pageSources(db, wall.userId, 'drill', own.id, url),
 			family: familyView(db, wall.userId, 'drill', own.id),
+			step: stepStatus(db, wall.userId, 'drill', own.id),
+			/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+			keep: keepView(db, wall.userId, 'drill', own.id),
 			drop: dropOptions(db, wall, 'drill', own.id),
 			detach: detachOffer(db, wall.userId, 'drill', own.id),
 			/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
@@ -251,8 +264,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
 		...pageSources(db, wall.userId, 'drill', row.id, url),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'drill', row.id),
+		step: stepStatus(db, wall.userId, 'drill', row.id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'drill', row.id),
 		drop: null,
 		detach: detachOffer(db, wall.userId, 'drill', row.id),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
@@ -272,7 +288,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	};
 };
 
-export const actions: Actions = {
+/**
+ * Every action runs Keep in step's flow from this drill after it (`flowing`;
+ * an exercise that is no drill is in no family, so nothing runs); a section's
+ * link changes the section's root, so the flow runs from there too.
+ */
+export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
@@ -299,18 +320,18 @@ export const actions: Actions = {
 		return makeMineFrom(db, wallOf(params, locals), 'drill', row.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
-		return takeFrom(db, locals.user!.id, 'drill', row.id, request);
+		return syncFromForm(db, locals.user!.id, 'drill', row.id, request);
 	},
 
-	/** Send mine (board C3 p2): this drill's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
-		return sendFrom(db, locals.user!.id, 'drill', row.id, request);
+		return keepFrom(db, locals.user!.id, 'drill', row.id, request);
 	},
 
 	/** Drop my copy (board C5): this drill goes for another version, whose page opens. */
@@ -363,12 +384,12 @@ export const actions: Actions = {
 		const active = team ? row.active : checkbox(form, 'active');
 		const notes = optionalText(form, 'notes');
 		if (notes === undefined) {
-			return fail(400, { action: 'update', message: 'Check the values and try again.' });
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
 		}
 		const stored = getExercise(db, row.id);
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null,
+			row.teamId !== null || hasCopies(db, 'drill', row.id),
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
 			{ action: 'update' as const },
 			Date.now(),
@@ -377,7 +398,7 @@ export const actions: Actions = {
 		if (clash) return clash;
 		const comesBack = readComesBack(form, parseComesBack(row.comesBack), Date.now());
 		if (comesBack === 'invalid') {
-			return fail(400, { action: 'update', message: 'Check the values and try again.' });
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
 		}
 		// Warm-up is the person's own: a group's drill never takes it. No field keeps.
 		const warmup = team ? undefined : readWarmup(form);
@@ -393,7 +414,7 @@ export const actions: Actions = {
 		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now(), me(params, locals))) {
 			return fail(400, {
 				action: 'archive',
-				message: 'Only custom exercises are archived here. Archive a figure from its page.'
+				message: t().exercise.refused.archiveHere
 			});
 		}
 		throw redirect(303, `/${params.dance}`);
@@ -407,7 +428,7 @@ export const actions: Actions = {
 		const exerciseId = linkableOf(params, locals).id;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
-			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+			return fail(400, { action: 'linkSection', message: t().exercise.refused.pickSection });
 		}
 		try {
 			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { exerciseId });
@@ -417,18 +438,24 @@ export const actions: Actions = {
 			}
 			throw e;
 		}
+		const root = rootOfSpot(getDb(), spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'linkSection', ok: true };
 	},
 
 	unlinkSection: async ({ params, request, locals }) => {
 		const exerciseId = exerciseOf(params, locals).id;
 		const id = int(await request.formData(), 'linkId');
+		// Read before the unlink: the link names its section.
+		const link = id === undefined ? null : getSpotLink(getDb(), id);
 		if (
 			id === undefined ||
 			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
 		) {
-			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+			return fail(404, { action: 'unlinkSection', message: t().exercise.refused.linkGone });
 		}
+		const root = link ? rootOfSpot(getDb(), link.spotId) : null;
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'unlinkSection', ok: true };
 	},
 
@@ -463,4 +490,4 @@ export const actions: Actions = {
 			{ exerciseId: exerciseOf(params, locals).id },
 			me(params, locals)
 		)
-};
+} satisfies Actions);

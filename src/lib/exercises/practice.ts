@@ -17,6 +17,7 @@ import {
 	type Speed
 } from '$lib/labels';
 import type { Dance } from '$lib/dances/dances';
+import { t } from '$lib/i18n/catalog';
 
 /** How often "call on cue" names the figure, in 8-counts. */
 export const CUE_EVERY = [2, 4] as const;
@@ -91,6 +92,57 @@ export function parsePracticeInput(body: unknown, dance: Dance): PracticeInput |
 	return null;
 }
 
+/**
+ * What an exercise remembers, as the endpoint stores it (`parsePracticeInput`'s
+ * shape: the unused half of the pair cleared, the config made total). Null
+ * when nothing is remembered (`none`).
+ */
+export function practiceOf(
+	row: {
+		practiceMode: string;
+		songId: number | null;
+		countBpm: number | null;
+		practiceJson: string | null;
+	},
+	dance: Dance
+): PracticeInput | null {
+	const config = parsePracticeConfig(row.practiceJson, dance);
+	if (row.practiceMode === 'count') {
+		return { mode: 'count', songId: null, countBpm: row.countBpm, config };
+	}
+	if (row.practiceMode === 'song')
+		return { mode: 'song', songId: row.songId, countBpm: null, config };
+	return null;
+}
+
+const sameConfig = (a: PracticeConfig, b: PracticeConfig) =>
+	a.count === b.count && a.clave === b.clave && a.speed === b.speed && a.callEvery === b.callEvery;
+
+/**
+ * What Play should remember, or null when it is what the page already knew
+ * (`known`: what it loaded, or what it last posted). Posting only a change
+ * keeps a stale page from writing back a practice that came in while it was
+ * open (Keep in step flows a drill's practice).
+ */
+export function practiceToPost(
+	known: PracticeInput | null,
+	p: { source: 'count' | 'song'; songId: number | null; bpm: number; config: PracticeConfig }
+): PracticeInput | null {
+	const next: PracticeInput = {
+		mode: p.source,
+		songId: p.source === 'song' ? p.songId : null,
+		countBpm: p.source === 'count' ? p.bpm : null,
+		config: { ...p.config }
+	};
+	const same =
+		known !== null &&
+		known.mode === next.mode &&
+		known.songId === next.songId &&
+		known.countBpm === next.countBpm &&
+		sameConfig(known.config, next.config);
+	return same ? null : next;
+}
+
 export interface PracticeStart {
 	source: 'count' | 'song';
 	/** The picker's song: the one to play, or the first ready one for when "A song" is tapped. */
@@ -133,14 +185,15 @@ export function practiceSummary(
 	p: { mode: 'count' | 'song'; bpm: number; songTitle: string | null; config: PracticeConfig },
 	dance: Dance
 ): string {
+	const w = t().exercise.panel;
 	const parts = [
 		p.mode === 'song' && p.songTitle !== null
-			? `${p.songTitle}${p.config.speed === 1 ? '' : ` ${p.config.speed}×`}`
-			: `Count ${p.bpm}`,
-		COUNT_PATTERN_LABEL[p.config.count]
+			? `${p.songTitle}${p.config.speed === 1 ? '' : ` ${w.speed(p.config.speed)}`}`
+			: w.summaryCount(p.bpm),
+		p.config.count === 'off' ? w.summaryNoCount : COUNT_PATTERN_LABEL[p.config.count]
 	];
-	if (dance.clave && p.config.clave) parts.push(`clave ${p.config.clave}`);
-	if (p.config.callEvery) parts.push(`call every ${p.config.callEvery}`);
+	if (dance.clave && p.config.clave) parts.push(w.summaryClave(p.config.clave));
+	if (p.config.callEvery) parts.push(w.summaryCall(p.config.callEvery));
 	return parts.join(' · ');
 }
 

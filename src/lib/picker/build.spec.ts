@@ -35,6 +35,67 @@ const exercise = (over: Partial<PickExercise> & { id: number; name: string }): P
 	...over
 });
 
+describe('same names in a picker', () => {
+	it('a same-named copy says where it came from; a lone copy does not', () => {
+		const rows = variationEntries([
+			version(1, 1, 'Enchufla', 'Basic'),
+			{ ...version(2, 1, 'Enchufla', 'Basic'), from: 'Sreda 17:30' },
+			{ ...version(3, 1, 'Enchufla', 'Doble'), from: 'Sreda 17:30' }
+		]);
+		const labels = rows.flatMap((h) => h.rows.map((r) => r.label));
+		expect(labels).toEqual([
+			'Enchufla · Basic',
+			'Enchufla · Basic · Sreda 17:30',
+			'Enchufla · Doble'
+		]);
+	});
+
+	it('the Link popup: a same-named copy among its options says where it came from', () => {
+		const option = (id: number, from: string | null): LinkOption => ({
+			target: { figureId: id },
+			label: 'Enchufla · Basic',
+			drill: false,
+			figure: 'Enchufla',
+			name: 'Basic',
+			linked: false,
+			from
+		});
+		const groups = linkOptionGroups({
+			nearTitle: 'Near',
+			near: [],
+			figures: [option(1, null), option(2, 'Sreda 17:30')],
+			drills: [],
+			positions: []
+		} as unknown as LinkOptions);
+		const labels = groups.flatMap((g) =>
+			g.entries.flatMap((e) => (isHeading(e) ? e.rows.map((r) => r.label) : []))
+		);
+		expect(labels).toEqual(['Enchufla · Basic', 'Enchufla · Basic · Sreda 17:30']);
+	});
+
+	it('positions: the same in the type group, and the group’s own section', () => {
+		const pos = (id: number, copiedFrom: string | null): PositionSummary => ({
+			id,
+			name: 'Cerrada',
+			styleTag: null,
+			hold: { hands: null, crossed: null, facing: null, frame: null },
+			teamId: null,
+			archived: false,
+			copiedFrom
+		});
+		const groups = positionGroups(
+			[pos(1, null), pos(2, 'Sreda 17:30')],
+			null,
+			(s) => s ?? 'Other',
+			[]
+		);
+		expect(groups.flatMap((g) => g.entries.map((e) => ('label' in e ? e.label : '')))).toEqual([
+			'Cerrada',
+			'Cerrada · Sreda 17:30'
+		]);
+	});
+});
+
 describe('variationEntries', () => {
 	it('variationEntries: groups variations under their figure, headings alphabetical, rows in id order, keys figure:{id}', () => {
 		const entries = variationEntries([

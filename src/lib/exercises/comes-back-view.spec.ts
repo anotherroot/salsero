@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	comesBackWords,
-	GOOD_MEANS,
+	goodMeans,
 	learningNote,
 	postedFields,
 	teacherLine,
@@ -26,7 +27,8 @@ describe('comes back words', () => {
 		expect(learningNote(2, 3)).toBe("Good means I've got it or Easy. 2 of 3 so far.");
 		expect(learningNote(0, 5)).toBe("Good means I've got it or Easy. 0 of 5 so far.");
 		expect(learningNote(4, 3)).toBe("Good means I've got it or Easy. 3 of 3 so far.");
-		expect(learningNote(null, 3)).toBe(GOOD_MEANS);
+		expect(learningNote(null, 3)).toBe(goodMeans());
+		expect(goodMeans()).toBe("Good means I've got it or Easy.");
 	});
 	it("gives a member's teacher line in lower case after the colon", () => {
 		expect(teacherLine({ kind: 'until', good: 3, since: 0 })).toBe(
@@ -34,6 +36,28 @@ describe('comes back words', () => {
 		);
 		expect(teacherLine({ kind: 'faces' })).toBe('Your teacher set: by how it went');
 		expect(teacherLine({ kind: 'every', days: 7 })).toBe('Your teacher set: weekly');
+	});
+});
+
+describe('comes back words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('names each setting', () => {
+		expect(sl(() => comesBackWords({ kind: 'faces' }))).toBe('Glede na to, kako je šlo');
+		expect(sl(() => comesBackWords({ kind: 'until', good: 3, since: 0 }))).toBe(
+			'Vsak dan, dokler ni 3 dobrih dni'
+		);
+		expect(sl(() => comesBackWords({ kind: 'every', days: 2 }))).toBe('Vsak drugi dan');
+		expect(sl(() => comesBackWords({ kind: 'every', days: 7 }))).toBe('Enkrat na teden');
+	});
+	it('names the faces as the log popup does', () => {
+		expect(sl(() => learningNote(2, 3))).toBe(
+			'Dobro pomeni »Obvladam« ali »Lahko«. Doslej 2 od 3.'
+		);
+	});
+	it("puts the teacher's setting after a colon", () => {
+		expect(sl(() => teacherLine({ kind: 'every', days: 7 }))).toBe(
+			'Nastavitev vodje tečaja: enkrat na teden'
+		);
 	});
 });
 

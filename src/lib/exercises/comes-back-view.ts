@@ -2,7 +2,9 @@
  * Comes back's words for the exercise page, the New exercise sheet and a member's
  * line. PURE. A setting's own words (`comesBackWords`, also History's) live in
  * `$lib/schedule/comes-back`; this file only re-exports them and adds the notes.
+ * Every word is `t().exercise.comesBack`'s, read at call time.
  */
+import { t } from '$lib/i18n/catalog';
 import { comesBackWords, rhythmWords, type ComesBack } from '$lib/schedule/comes-back';
 
 export { comesBackWords, rhythmWords };
@@ -12,17 +14,22 @@ export const RHYTHMS = [1, 2, 3, 7] as const;
 /** The "good days" chips. */
 export const GOOD_DAYS = [3, 5] as const;
 
-export const GOOD_MEANS = "Good means I've got it or Easy.";
+/** "Good means I've got it or Easy.": the faces' own names. */
+export function goodMeans(): string {
+	const feel = t().format.feel;
+	return t().exercise.comesBack.goodMeans(feel.gotit, feel.easy);
+}
 
 /** Under the "good days" chips: "Good means I've got it or Easy. 2 of 3 so far." `good` null: no count. */
 export function learningNote(good: number | null, of: 3 | 5): string {
-	return good === null ? GOOD_MEANS : `${GOOD_MEANS} ${Math.min(good, of)} of ${of} so far.`;
+	const means = goodMeans();
+	return good === null ? means : `${means} ${t().exercise.comesBack.soFar(Math.min(good, of), of)}`;
 }
 
 /** A member's line over the card: "Your teacher set: every day until it feels good on 3 days". */
 export function teacherLine(c: ComesBack): string {
 	const words = comesBackWords(c);
-	return `Your teacher set: ${words.charAt(0).toLowerCase()}${words.slice(1)}`;
+	return t().exercise.comesBack.teacherSet(`${words.charAt(0).toLowerCase()}${words.slice(1)}`);
 }
 
 /** What the Comes back card edits: the page load's `comes` (null where the type has none). */

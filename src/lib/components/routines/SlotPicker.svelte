@@ -12,6 +12,7 @@
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import type { PickGroup as Group, PickHeading, PickRow } from '$lib/picker/model';
 	import {
+		groupTags,
 		anchorText,
 		pickList,
 		variationName,
@@ -72,11 +73,11 @@
 		return c.team ? `${usedAsIs(c.team.name)} · ${where}` : where;
 	}
 
-	const row = (c: Candidate, short?: string): PickRow => ({
+	const row = (c: Candidate, short?: string, tag?: string): PickRow => ({
 		key: `${c.kind}:${c.id}`,
 		value: c.id,
-		label: c.label,
-		short,
+		label: tag ? `${c.label} ${tag}` : c.label,
+		short: short && tag ? `${short} ${tag}` : short,
 		meta: meta(c)
 	});
 
@@ -86,11 +87,14 @@
 		if (list.figures.length > 0) {
 			out.push({
 				title: 'Figures',
-				entries: list.figures.map((g): PickHeading => ({
-					heading: moveHeading(g.name, g.team),
-					collapse: g.single,
-					rows: g.variations.map((v) => row(v, variationName(v)))
-				}))
+				entries: list.figures.map((g): PickHeading => {
+					const tags = groupTags(g);
+					return {
+						heading: moveHeading(g.name, g.team),
+						collapse: g.single,
+						rows: g.variations.map((v) => row(v, variationName(v), tags.get(v.id)))
+					};
+				})
 			});
 		}
 		if (list.routines.length > 0) {

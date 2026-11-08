@@ -51,6 +51,7 @@ import {
 	type Lesson
 } from './db/schema';
 import {
+	actorOf,
 	inSpace,
 	isTeam,
 	ownedBy,
@@ -60,11 +61,13 @@ import {
 	type Wall
 } from './scope';
 import { getTeam, roleOf } from './teams';
+import { copiedFromPlaces } from './clones/genes';
 import { addedLessonIds, addedTeams } from './access';
 import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget } from './entries';
 import { actingIn, fieldChange, logChange } from './changes';
 import { autoAddOnPublish, autoAddPending } from './auto-add';
 import { rootTitle, trashRows, type ArchiveRestore } from './trash';
+import { REVIEW_PREFIX } from '$lib/exercises/name';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -98,9 +101,10 @@ export interface LessonVideoInput {
 /**
  * What the lesson's own exercise is called on Today. Prefixed so a lesson and
  * the figures it taught never read as the same kind of thing in the list.
+ * Stored in English for everyone; drawn in the reader's language (`shownExercise`).
  */
 export function reviewName(title: string): string {
-	return `Review: ${title}`;
+	return `${REVIEW_PREFIX}${title}`;
 }
 
 /**
@@ -1243,8 +1247,16 @@ export function listLinkableFigures(
 
 	const linked = new Set(linkedFigureIds(db, lessonId));
 	const theirs = isTeam(space) ? [] : usableVersions(db, space);
-	return foldVersions(db, space, [...listVersions(db, space), ...theirs]).map((v) => ({
+	const folded = foldVersions(db, space, [...listVersions(db, space), ...theirs]);
+	const origins = copiedFromPlaces(
+		db,
+		actorOf(space),
+		'figure',
+		folded.map((v) => v.id)
+	);
+	return folded.map((v) => ({
 		...v,
+		from: origins.get(v.id) ?? null,
 		linked: [v.id, ...(v.twins ?? []).map((t) => t.id)].some((id) => linked.has(id))
 	}));
 }

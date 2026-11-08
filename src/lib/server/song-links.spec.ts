@@ -17,8 +17,10 @@ import { createSongFromUpload } from './songs';
 import { deleteGroupSong, shareSong, unshareSong } from './song-share';
 import { crossRefs } from './integrity';
 import { cloneInto } from './clones/clone';
-import { compareWith, takeTheirs } from './clones/compare';
-import { familyStatus, sendMine } from './clones/send';
+import { familyStatus } from './clones/send';
+import { stepStatus } from './clones/step';
+import { syncAll, syncView } from './clones/sync';
+import type { CloneKind } from '$lib/types';
 import { sourcesOf } from './clones/sources';
 import { NO_FILES } from './test-walls';
 import { deleteSong } from './songs';
@@ -415,10 +417,22 @@ describe('copies carry Music, never a song', () => {
 	});
 });
 
-describe('Compare, Take and Send know Music', () => {
+describe('Sync knows Music', () => {
 	const U3: Wall = { userId: 'u3', dance: 'salsa' };
-	const songKeys = (c: ReturnType<typeof compareWith>) =>
-		(c?.diffs ?? []).filter((d) => d.key.startsWith('song:'));
+	const songRows = (kind: CloneKind, id: number, who: string) =>
+		(syncView(db, who, kind, id)?.rows ?? []).filter((r) => r.key.startsWith('song:'));
+	/** Sync from `id` as `who`, onto `targets` (every copy they edit when omitted), with `picks`. */
+	async function syncAs(
+		who: string,
+		kind: CloneKind,
+		id: number,
+		picks: Record<string, string | null> = {},
+		only?: number[]
+	) {
+		const view = syncView(db, who, kind, id)!;
+		const targets = view.targets.filter((t) => !only || only.includes(t.id));
+		return syncAll(db, who, kind, id, picks, targets, view.members, NO_FILES, T + 30, 1e15);
+	}
 	/** A published group lesson with song S, and `who`'s own copy of it. */
 	async function lessonAndCopy(who: Wall) {
 		const lesson = lessonIn(ED);
@@ -435,86 +449,56 @@ describe('Compare, Take and Send know Music', () => {
 		return { lesson, S, mine: res.id };
 	}
 
-	it("offers the group's new song, and Take brings it with its note", async () => {
+	it("offers the group's new song, and Update mine brings it with its note", async () => {
 		const { lesson, mine } = await lessonAndCopy(U3);
 		const S2 = song(ED, 'Dale Timbal');
 		addMusic(db, ED, { lessonId: lesson }, S2, 'Listen for the bridge', T + 20);
-		const c = compareWith(db, 'u3', 'lesson', mine, lesson);
-		expect(songKeys(c)).toEqual([
-			expect.objectContaining({ key: `song:#${S2}`, mine: null, side: 'theirs' })
+		expect(syncView(db, 'u3', 'lesson', mine)?.mode).toBe('update');
+		expect(songRows('lesson', mine, 'u3')).toEqual([
+			expect.objectContaining({ key: `song:#${S2}`, kind: 'add' })
 		]);
-		const res = await takeTheirs(
-			db,
-			'u3',
-			'lesson',
-			mine,
-			lesson,
-			{ [`song:#${S2}`]: 'theirs' },
-			c!.seen,
-			NO_FILES,
-			T + 30,
-			Number.POSITIVE_INFINITY
-		);
-		expect(res).toMatchObject({ ok: true });
+		expect(await syncAs('u3', 'lesson', mine)).toEqual({ ok: true, refused: [] });
 		expect(listMusic(db, { lessonId: mine }, 'u3').map((r) => [r.songId, r.note])).toEqual([
 			[expect.any(Number), 'Count it'],
 			[S2, 'Listen for the bridge']
 		]);
 	});
 
-	it("Send takes a song off the group's lesson", async () => {
+	it("Sync takes a song off the group's lesson when the removal is ticked", async () => {
 		const u2: Wall = { userId: 'u2', dance: 'salsa' };
 		const { lesson, S, mine } = await lessonAndCopy(u2);
 		const [row] = listMusic(db, { lessonId: mine }, 'u2');
 		removeMusic(db, u2, row.id, T + 20);
-		const c = compareWith(db, 'u2', 'lesson', mine, lesson);
-		expect(songKeys(c)).toEqual([expect.objectContaining({ key: `song:#${S}`, side: 'mine' })]);
-		const theirsSeen = compareWith(db, 'u2', 'lesson', lesson, mine)!.seen;
-		await sendMine(
-			db,
-			'u2',
-			'lesson',
-			mine,
-			[{ id: lesson, picks: { [`song:#${S}`]: 'theirs' }, seen: theirsSeen }],
-			NO_FILES,
-			T + 30,
-			Number.POSITIVE_INFINITY
-		);
+		const [r] = songRows('lesson', mine, 'u2');
+		expect(r).toMatchObject({ key: `song:#${S}`, kind: 'remove' });
+		expect(await syncAs('u2', 'lesson', mine, { [r.key]: null })).toEqual({
+			ok: true,
+			refused: []
+		});
 		expect(listMusic(db, { lessonId: lesson }, 'u2')).toEqual([]);
 	});
 
 	it('offers nothing the other place could not take', async () => {
 		const u2: Wall = { userId: 'u2', dance: 'salsa' };
-		const { lesson, mine } = await lessonAndCopy(u2);
+		const { mine } = await lessonAndCopy(u2);
 		addMusic(db, u2, { lessonId: mine }, song(u2, 'My own'), null, T + 20);
-		expect(songKeys(compareWith(db, 'u2', 'lesson', mine, lesson))).toEqual([]);
+		expect(songRows('lesson', mine, 'u2')).toEqual([]);
 	});
 
-	it('a song the other place cannot take leaves no banner, tab status or snapshot behind', async () => {
+	it('a song the other place cannot take leaves no notice or tab status behind a Sync', async () => {
 		const u2: Wall = { userId: 'u2', dance: 'salsa' };
 		const { lesson, mine } = await lessonAndCopy(u2);
-		const X = song(u2, 'My own');
-		addMusic(db, u2, { lessonId: mine }, X, null, T + 20);
-		// Send something else so a snapshot is written after an apply.
-		const theirsSeen = compareWith(db, 'u2', 'lesson', lesson, mine)!.seen;
-		await sendMine(
-			db,
-			'u2',
-			'lesson',
-			mine,
-			[{ id: lesson, picks: { [`song:#${X}`]: 'theirs' }, seen: theirsSeen }],
-			NO_FILES,
-			T + 30,
-			Number.POSITIVE_INFINITY
-		);
+		addMusic(db, u2, { lessonId: mine }, song(u2, 'My own'), null, T + 20);
+		expect(await syncAs('u2', 'lesson', mine)).toEqual({ ok: true, refused: [] });
 		const tab = sourcesOf(db, 'u2', 'lesson', mine).find((x) => x.id === lesson);
 		expect(tab?.status).toBe('same');
 		const group = familyStatus(db, 'u2', 'lesson', mine).find((e) => e.member.id === lesson);
 		expect(group?.theirs).toEqual([]);
-		expect(songKeys(compareWith(db, 'u2', 'lesson', mine, lesson))).toEqual([]);
+		expect(stepStatus(db, 'u2', 'lesson', mine)).toEqual({ lines: [] });
+		expect(songRows('lesson', mine, 'u2')).toEqual([]);
 	});
 
-	it("a drill's and a routine's Music are compared too", async () => {
+	it("a drill's Music is merged too", async () => {
 		const drill = drillIn(ED);
 		const S = song(ED, 'Chan Chan');
 		shareSong(db, ED, S, T);
@@ -529,8 +513,8 @@ describe('Compare, Take and Send know Music', () => {
 		);
 		if (!res.ok) throw new Error('no copy');
 		addMusic(db, ED, { exerciseId: drill }, S, 'Shines', T + 20);
-		expect(songKeys(compareWith(db, 'u3', 'drill', res.id, drill))).toEqual([
-			expect.objectContaining({ key: `song:#${S}`, side: 'theirs' })
+		expect(songRows('drill', res.id, 'u3')).toEqual([
+			expect.objectContaining({ key: `song:#${S}`, kind: 'add' })
 		]);
 	});
 });

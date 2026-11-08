@@ -6,6 +6,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { DanceSlug } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * "+ Next 5", the last row of Today's list card (boards "1 left", "All
@@ -31,7 +32,7 @@
 		busy = true;
 		try {
 			const result = await actAt(`/${dance}`, 'next', {});
-			const message = refusalMessage(result, 'Could not add more. Try again.');
+			const message = refusalMessage(result, t().today.refused.addMore);
 			if (message) onrefused(message);
 			else if (result.type === 'success') {
 				// This row is gone once the list reloads (more than one left): focus
@@ -55,6 +56,8 @@
 		data-focus="today-next"
 		onclick={next}
 	>
-		{#if busy}<Spinner size={20} />{:else}<Icon name="plus" size={20} />{/if}Next {daily}
+		{#if busy}<Spinner size={20} />{:else}<Icon name="plus" size={20} />{/if}{t().today.list.next(
+			daily
+		)}
 	</button>
 </li>

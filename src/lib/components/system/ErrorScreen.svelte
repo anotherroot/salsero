@@ -6,6 +6,7 @@
 	import StatusBlock from './StatusBlock.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import type { ErrorView } from '$lib/nav/error-view';
+	import { t } from '$lib/i18n/catalog';
 
 	let {
 		view,
@@ -50,8 +51,8 @@
 			<!-- On the desktop's wide sheet the buttons stop at 280; in the card they fill it. -->
 			<div class="contents {card ? '' : 'desk:flex desk:w-[280px] desk:flex-col desk:gap-2'}">
 				{#if view.retry}
-					<button type="button" class={button('primary', 'md', true)} onclick={onretry}>
-						<Icon name="refresh" size={20} />Try again
+					<button type="button" class={button('primary', 'md', true)} onclick={onretry} data-retry>
+						<Icon name="refresh" size={20} />{t().common.retry}
 					</button>
 				{/if}
 				{#if view.today}
@@ -60,7 +61,7 @@
 						href={todayHref}
 						class={view.retry ? button('tertiary', 'md', true) : button('primary', 'md', true)}
 					>
-						<Icon name="calendar" size={20} />Go to Today
+						<Icon name="calendar" size={20} />{t().shell.error.goToday}
 					</a>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}

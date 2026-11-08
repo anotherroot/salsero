@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { button, CHIP, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { ComesBack } from '$lib/schedule/comes-back';
 	import {
@@ -61,7 +62,7 @@
 
 <section class="flex flex-col gap-2 desk:min-w-0" bind:this={box}>
 	<h2 class={sheet ? 'pl-1 text-[13px] font-bold text-ink-2' : SECTION_LABEL}>
-		{forClass ? 'Comes back, for the class' : 'Comes back'}
+		{forClass ? t().exercise.comesBack.forClass : t().exercise.comesBack.title}
 	</h2>
 	{#if teacher}
 		<p class="px-4 text-[14px] leading-snug text-muted">{teacherLine(teacher)}</p>
@@ -84,9 +85,11 @@
 					}}
 				/>
 				<span class="flex min-w-0 flex-col gap-0.5">
-					<span class="text-[17px] leading-tight font-extrabold text-ink">By how it went</span>
+					<span class="text-[17px] leading-tight font-extrabold text-ink"
+						>{t().exercise.comesBack.byFaces}</span
+					>
 					<span class="text-[14px] leading-snug text-muted"
-						>The faces decide when it comes back.</span
+						>{t().exercise.comesBack.byFacesNote}</span
 					>
 				</span>
 			</label>
@@ -94,17 +97,22 @@
 				<div class="flex flex-col gap-2.5 pl-9">
 					<div class="flex min-h-[44px] items-center gap-3">
 						<span class="flex min-w-0 flex-1 flex-col gap-px">
-							<span class="text-[16px] font-extrabold text-ink">Every day until it feels good</span>
-							<span class="text-[13px] text-muted">Then the faces take over.</span>
+							<span class="text-[16px] font-extrabold text-ink">{t().exercise.comesBack.until}</span
+							>
+							<span class="text-[13px] text-muted">{t().exercise.comesBack.untilNote}</span>
 						</span>
 						<Switch
-							label="Every day until it feels good"
+							label={t().exercise.comesBack.until}
 							bind:checked={until}
 							onchange={() => (touched = true)}
 						/>
 					</div>
 					{#if until}
-						<div class="flex flex-wrap gap-x-2" role="group" aria-label="Good days">
+						<div
+							class="flex flex-wrap gap-x-2"
+							role="group"
+							aria-label={t().exercise.comesBack.goodDaysLabel}
+						>
 							{#each GOOD_DAYS as g (g)}
 								<label class={CHIP}>
 									<input
@@ -117,7 +125,7 @@
 											touched = true;
 										}}
 									/>
-									{g} good days
+									{t().exercise.comesBack.goodDays(g)}
 								</label>
 							{/each}
 						</div>
@@ -140,12 +148,20 @@
 					}}
 				/>
 				<span class="flex min-w-0 flex-col gap-0.5">
-					<span class="text-[17px] leading-tight font-extrabold text-ink">On a fixed rhythm</span>
-					<span class="text-[14px] leading-snug text-muted">Just Done, no faces.</span>
+					<span class="text-[17px] leading-tight font-extrabold text-ink"
+						>{t().exercise.comesBack.fixed}</span
+					>
+					<span class="text-[14px] leading-snug text-muted"
+						>{t().exercise.comesBack.fixedNote(t().exercise.log.done)}</span
+					>
 				</span>
 			</label>
 			{#if mode === 'every'}
-				<div class="flex flex-wrap gap-x-2 pl-9" role="group" aria-label="How often">
+				<div
+					class="flex flex-wrap gap-x-2 pl-9"
+					role="group"
+					aria-label={t().exercise.comesBack.howOften}
+				>
 					{#each RHYTHMS as r (r)}
 						<label class={CHIP}>
 							<input
@@ -166,12 +182,12 @@
 		</div>
 	</div>
 	{#if forClass}
-		<p class="px-4 text-[14px] leading-snug text-muted">Members can change it for themselves.</p>
+		<p class="px-4 text-[14px] leading-snug text-muted">{t().exercise.comesBack.membersCan}</p>
 	{/if}
 	{#if canUseTeacher}
 		<div class="flex justify-center pt-1">
 			<button type="button" class={button('tertiary', 'md')} onclick={pickTeacher}
-				>Use my teacher's</button
+				>{t().exercise.comesBack.useTeacher}</button
 			>
 		</div>
 	{/if}

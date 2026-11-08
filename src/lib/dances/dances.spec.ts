@@ -43,18 +43,17 @@ describe('the dance registry', () => {
 
 	it('carries the redesign accents and bands', () => {
 		const salsa = getDance('salsa');
-		expect(salsa.accent).toBe('#d2401e');
-		expect(salsa.accentDark).toBe('#d2401e');
-		expect(salsa.band).toBe('#D2401E');
+		expect(salsa.accent).toBe('#a8492f');
+		expect(salsa.accentDark).toBe('#b0523a');
+		expect(salsa.band).toBe('#A8492F');
 		const bachata = getDance('bachata');
-		expect(bachata.accent).toBe('#8e2a66');
-		expect(bachata.accentDark).toBe('#f07aae');
-		expect(bachata.band).toBe('#6B1D4F');
+		expect(bachata.accent).toBe('#7c3b61');
+		expect(bachata.accentDark).toBe('#e29abc');
+		expect(bachata.band).toBe('#64304F');
 		for (const slug of DANCE_SLUGS) {
 			expect(DANCES[slug].accent).toBe(THEMES[slug].light.accent);
 			expect(DANCES[slug].accentDark).toBe(THEMES[slug].dark.accent);
 			expect(DANCES[slug].band).toBe(THEMES[slug].light.band);
-			expect(DANCES[slug].band).toBe(THEMES[slug].dark.band);
 		}
 		expect(salsa.clave).toBe(true);
 		expect(salsa.styles).toEqual(['salsa', 'son', 'timba', 'other']);

@@ -2,6 +2,7 @@
  * "Comes back": how a drill returns to Today. By the faces (the default), on a
  * fixed rhythm, or every day until it has felt good a few times. PURE.
  */
+import { t } from '$lib/i18n/catalog';
 import type { Source } from '$lib/labels';
 
 export type ComesBack =
@@ -54,19 +55,24 @@ export function effectiveComesBack(
 	return own ?? drill ?? FACES;
 }
 
-/** "Every day", "Every 2 days", "Every 3 days", "Weekly". */
+/** "Every day", "Every 2 days", "Every 3 days", "Weekly" (`t().exercise.comesBack`). */
 export function rhythmWords(days: 1 | 2 | 3 | 7): string {
-	return days === 1 ? 'Every day' : days === 7 ? 'Weekly' : `Every ${days} days`;
+	return t().exercise.comesBack.rhythm(days);
 }
 
 /** A learning drill's line on Today and in Coming up: "Learning · 2 of 3 good days". */
 export function learningWords(learning: { good: number; of: 3 | 5 }): string {
-	return `Learning · ${learning.good} of ${learning.of} good days`;
+	return t().exercise.comesBack.learning(learning.good, learning.of);
 }
 
-/** A setting in History's words: "By how it went", "Weekly", "Every day until it feels good on 3 days". */
+/**
+ * A setting in words: "By how it went", "Weekly", "Every day until it feels good on 3
+ * days". In the current language; History and a copy's fields, still English, ask in
+ * English (`withLocale('en', …)`).
+ */
 export function comesBackWords(c: ComesBack): string {
-	if (c.kind === 'faces') return 'By how it went';
+	const w = t().exercise.comesBack;
+	if (c.kind === 'faces') return w.byFaces;
 	if (c.kind === 'every') return rhythmWords(c.days);
-	return `Every day until it feels good on ${c.good} days`;
+	return w.untilWords(c.good);
 }

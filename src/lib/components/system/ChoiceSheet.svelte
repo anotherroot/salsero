@@ -37,6 +37,7 @@
 				{#each options as o (o.value)}
 					<label class="flex min-h-[52px] cursor-pointer items-center gap-3 px-4 py-2">
 						<span class="min-w-0 flex-1 text-[16px] font-semibold text-ink">{o.label}</span>
+						<!-- The picked one does not change, so a tap on it only closes. -->
 						<input
 							type="radio"
 							{name}
@@ -45,7 +46,6 @@
 							class="size-[22px] flex-none cursor-pointer"
 							style="accent-color: var(--color-accent)"
 							onchange={() => onpick(o.value)}
-							// The picked one does not change, so it only closes.
 							onclick={() => o.value === value && onclose()}
 						/>
 					</label>

@@ -1,9 +1,9 @@
-"""Scenes for the merge sheets (Compare, Send mine) and the two update bubbles. See README "Scenes".
+"""The `{mergefig}` placeholder and the two update bubbles. See README "Scenes".
 
-The merge scenes need a figure with a copy in a group that differs from it: `{mergefig}` is the
-admin's first live figure with a live group copy (same gene). Make the copies differ in the db
-copy before shooting, or the sheets say there is nothing to do. The update bar needs a release
-beside the db (`<db>.data/releases/<dance>/current.json` and its APK) newer than the agent below.
+`{mergefig}` is the admin's first live figure with a live group copy (same gene): the Sync scenes
+(ext_sync.py) shoot it; Compare and Send mine, whose scenes lived here, are Sync now. The update
+bar needs a release beside the db (`<db>.data/releases/<dance>/current.json` and its APK) newer
+than the agent below.
 """
 from scenes import Scene
 
@@ -25,34 +25,6 @@ def placeholders(db, admin, dance):
             (admin, dance),
         ),
     }
-
-
-def _sheet_up(page):
-    page.wait_for_selector("dialog[open]")
-    # the comparison is fetched when the sheet opens; wait for the spinner to go
-    page.wait_for_timeout(1500)
-
-
-def _compare(page):
-    page.get_by_role("button", name="Compare", exact=True).first.click()
-    _sheet_up(page)
-
-
-def _compare_all_yours(page):
-    _compare(page)
-    page.locator("dialog[open]").get_by_role("button", name="Yours").first.click()
-    page.wait_for_timeout(300)
-
-
-def _send(page):
-    page.get_by_role("button", name="Send mine…").first.click()
-    _sheet_up(page)
-
-
-def _send_rename(page):
-    _send(page)
-    page.locator("dialog[open]").get_by_role("checkbox", name="Rename their copies").click()
-    page.wait_for_timeout(300)
 
 
 def _app_update(page):
@@ -84,10 +56,6 @@ def _stale(page, words=None):
 
 
 SCENES = {
-    "merge-compare": Scene("/{dance}/figures/{mergefig}", _compare),
-    "merge-compare-all-yours": Scene("/{dance}/figures/{mergefig}", _compare_all_yours),
-    "merge-send": Scene("/{dance}/figures/{mergefig}", _send),
-    "merge-send-rename": Scene("/{dance}/figures/{mergefig}", _send_rename),
     "update-available": Scene("/{dance}", _app_update),
     "update-reload": Scene("/{dance}/figures", lambda p: _stale(p, ["The app was updated", "Kept so nothing unsaved is lost."])),
     "update-stale": Scene("/{dance}/figures", _stale),

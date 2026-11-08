@@ -1,9 +1,11 @@
 import { error, json } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { createAndLink, linkOptionsFor, parseLinkBody } from '$lib/server/link-popup';
 import { linkSpot, sectionSpace, SpotLinkError } from '$lib/server/spot-links';
 import { archivedTarget } from '$lib/server/changes';
 import { linkSpotToPosition } from '$lib/server/position-links';
+import { flowAfter, rootOfSpot } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
 /**
@@ -16,13 +18,13 @@ import type { RequestHandler } from './$types';
  */
 function spotId(raw: string): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
-	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, 'No such section');
+	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, t().video.refusal.noSection);
 	return id;
 }
 
 function optionsOr404(id: number, userId: string) {
 	const options = linkOptionsFor(getDb(), id, userId);
-	if (!options) throw error(404, 'No such section');
+	if (!options) throw error(404, t().video.refusal.noSection);
 	return options;
 }
 
@@ -62,5 +64,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		}
 		throw e;
 	}
+	// A section's links are its video's root's: Keep in step's flow runs from there.
+	const root = rootOfSpot(getDb(), id);
+	if (root) await flowAfter(userId, root.kind, root.id);
 	return json(optionsOr404(id, userId));
 };

@@ -9,6 +9,7 @@
 	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { DayList } from '$lib/schedule/today-list';
 	import { listLabels } from '$lib/exercises/today';
+	import { t } from '$lib/i18n/catalog';
 	import { classDayLabel } from '$lib/format';
 	import type { AppUpdate } from '$lib/app-update/view';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -183,7 +184,7 @@
 			to
 		);
 		pending = ids;
-		const fallback = 'Could not save the order. Try again.';
+		const fallback = t().today.refused.warmupOrder;
 		let refused: string | null;
 		try {
 			refused = refusalMessage(
@@ -224,19 +225,16 @@
 
 {#if empty}
 	<div class="pt-10">
-		<EmptyState
-			icon="calendar"
-			title="Nothing to practise yet"
-			body="Build a routine from your figures, or add a custom exercise."
-		>
+		<EmptyState icon="calendar" title={t().today.list.emptyTitle} body={t().today.list.emptyBody}>
 			{#snippet action()}
 				<div class="flex w-[260px] flex-col gap-2">
 					<a
 						href={resolve('/[dance]/(moves)/routines', { dance })}
-						class={button('primary', 'md', true)}><Icon name="route" size={20} />Build a routine</a
+						class={button('primary', 'md', true)}
+						><Icon name="route" size={20} />{t().today.list.buildRoutine}</a
 					>
 					<button type="button" class={button('secondary', 'md', true)} onclick={oncreate}
-						><Icon name="plus" size={20} />New exercise</button
+						><Icon name="plus" size={20} />{t().today.newExercise.title}</button
 					>
 				</div>
 			{/snippet}
@@ -271,7 +269,10 @@
 	{#if labels.warmup && shownWarm.length > 0}
 		<section aria-labelledby="today-warmup-h" class="flex flex-col gap-2 pb-3.5">
 			<h2 id="today-warmup-h" class={SECTION_LABEL}>{labels.warmup}</h2>
-			<!-- A long press lifts a row to drag; its tail click must not also open the exercise. -->
+			<!--
+				A long press lifts a row to drag; its tail click must not also open the exercise. A link
+				drags as a link (the browser's own drag cancels the pointer): not these.
+			-->
 			<ul
 				class="{GROUP} select-none [-webkit-touch-callout:none]"
 				bind:this={warmList}
@@ -286,7 +287,6 @@
 				onpointermove={(e) => press.move(e.clientX, e.clientY)}
 				onpointerup={() => press.up()}
 				onpointercancel={() => press.up()}
-				// A link drags as a link (the browser's own drag cancels the pointer): not these.
 				ondragstart={(e) => e.preventDefault()}
 				oncontextmenu={(e) => {
 					if (drag) e.preventDefault();

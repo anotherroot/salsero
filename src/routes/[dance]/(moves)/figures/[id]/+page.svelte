@@ -73,6 +73,7 @@
 	} from '$lib/figures/page';
 	import { styleLabelOf, tagsEmpty } from '$lib/positions/view';
 	import { localDay } from '$lib/day/day';
+	import { t } from '$lib/i18n/catalog';
 	import type { SubmitFunction as KitSubmit } from '@sveltejs/kit';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
@@ -330,6 +331,7 @@
 	let menuOpen = $state(false);
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
 	const offers = $derived<CloneOffers>({
+		sync: data.keep.mode ? data.keep : null,
 		drop: data.drop,
 		detach: data.detach,
 		copy: data.copyTo,
@@ -476,8 +478,9 @@
 				mineId={data.mineId}
 				self={data.cloneLine.self}
 				title="{figure.name} · {variation.name}"
-				compare={data.compare}
 				family={data.family}
+				step={data.step}
+				keep={data.keep}
 				taking={data.taking ? sourcePlace : null}
 			/>
 		{/if}
@@ -685,7 +688,7 @@
 						url="/api/figures/{variation.id}/recordings"
 						accept="video/*"
 						label="Add video"
-						noun="recording"
+						noun={t().shell.upload.nouns.recording}
 						bind:busy={uploading}
 					/>
 				{/key}

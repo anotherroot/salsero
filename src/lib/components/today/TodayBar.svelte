@@ -30,7 +30,7 @@
 		>
 		{#if hero.bar}
 			<!-- The words under it say the same: the bar is for the eye. -->
-			<span class="block h-2 w-full overflow-hidden rounded-full bg-field-line" aria-hidden="true">
+			<span class="block h-2 w-full overflow-hidden rounded-full bg-track" aria-hidden="true">
 				<span
 					class="block h-full rounded-full bg-done transition-[width] motion-reduce:transition-none"
 					style:width="{Math.round(hero.progress * 100)}%"

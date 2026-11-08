@@ -11,6 +11,7 @@
  * differ only in content. Two figure exercises never differ in whether they
  * have a rating.
  */
+import { t } from '$lib/i18n/catalog';
 import type { Source } from '$lib/labels';
 
 export const EXERCISE_TYPES = ['lesson', 'figure', 'drill', 'routine'] as const;
@@ -38,35 +39,55 @@ const BY_SOURCE: Record<Source, ExerciseType> = {
 	routine: 'routine'
 };
 
+/*
+ * The words are getters, read from the catalog each time they are asked: a
+ * table built at import would keep the language of whoever imported it first.
+ */
 export const TYPES: Record<ExerciseType, TypeInfo> = {
 	lesson: {
 		type: 'lesson',
-		label: 'Lesson review',
+		get label() {
+			return t().exercise.types.lesson;
+		},
 		fields: ['minutes', 'rating', 'note'],
-		ratingQuestion: 'How well do you remember it?',
+		get ratingQuestion() {
+			return t().exercise.types.remember;
+		},
 		paneContent: 'right'
 	},
 	figure: {
 		type: 'figure',
-		label: 'Figure practice',
+		get label() {
+			return t().exercise.types.figure;
+		},
 		fields: ['minutes', 'rating', 'note'],
-		ratingQuestion: 'How did it go?',
+		get ratingQuestion() {
+			return t().exercise.types.howItWent;
+		},
 		paneContent: 'left'
 	},
 	// Reps stay here because a drill is where they mean something: clave
 	// clapping, a hundred basics. A figure is danced, not counted.
 	drill: {
 		type: 'drill',
-		label: 'Drill',
+		get label() {
+			return t().exercise.types.drill;
+		},
 		fields: ['minutes', 'reps', 'rating', 'note'],
-		ratingQuestion: 'How did it go?',
+		get ratingQuestion() {
+			return t().exercise.types.howItWent;
+		},
 		paneContent: 'left'
 	},
 	routine: {
 		type: 'routine',
-		label: 'Routine',
+		get label() {
+			return t().exercise.types.routine;
+		},
 		fields: ['minutes', 'rating', 'note'],
-		ratingQuestion: 'How did it go?',
+		get ratingQuestion() {
+			return t().exercise.types.howItWent;
+		},
 		paneContent: 'right'
 	}
 };

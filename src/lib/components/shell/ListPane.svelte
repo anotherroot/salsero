@@ -43,6 +43,7 @@
 		title,
 		subtitle,
 		deskSubtitle,
+		deskTitle,
 		extra,
 		left,
 		right,
@@ -62,6 +63,8 @@
 		subtitle?: string;
 		/** The desktop's band row subtitle in place of `subtitle`. */
 		deskSubtitle?: string;
+		/** The desktop's band row title in place of `title`. */
+		deskTitle?: string;
 		extra?: Snippet;
 		/** The band's left (a ‹ on a list reached from another page). */
 		left?: Snippet;
@@ -87,6 +90,7 @@
 	{title}
 	{subtitle}
 	{deskSubtitle}
+	{deskTitle}
 	{extra}
 	{left}
 	{right}
