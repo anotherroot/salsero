@@ -773,8 +773,8 @@ export function placeLabel(place: PlaceRef): string {
 	return place.kind === 'team' ? place.name : 'Your app';
 }
 
-/** "1 GB", not "1.0 GB": a limit is a round number. */
-const size = (bytes: number) => byteSize(bytes).replace(/\.0 GB$/, ' GB');
+/** "1 GB", not "1.0 GB" (or "1,0 GB" in Slovenian): a limit is a round number. */
+const size = (bytes: number) => byteSize(bytes).replace(/[.,]0 GB$/, ' GB');
 
 /** A radio's line: "Owner · 412 MB of 1 GB used"; your app has no role. */
 export function placeMeta(

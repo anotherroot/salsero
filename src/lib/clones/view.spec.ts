@@ -1,3 +1,4 @@
+import { withLocale } from '$lib/i18n/current';
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
@@ -737,6 +738,8 @@ describe('Copy to… (board C4)', () => {
 		expect(placeMeta('editor', 80 * MB, GB)).toBe('Editor · 80 MB of 1 GB used');
 		expect(placeMeta(null, 1.5 * GB, 2 * GB)).toBe('1.5 GB of 2 GB used');
 		expect(placeMeta(null, 3 * MB, null)).toBe('3 MB used');
+		// Catches: a Slovenian whole gigabyte left as 1,0 GB (its decimal comma).
+		expect(withLocale('sl', () => placeMeta(null, 1.5 * GB, 2 * GB))).not.toContain('2,0 GB');
 	});
 
 	it('what goes', () => {
