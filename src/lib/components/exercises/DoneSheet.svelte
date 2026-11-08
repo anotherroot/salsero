@@ -30,8 +30,6 @@
 		faces: DoneFace[] | null;
 		/** Read at the tap; null posts no durationS. */
 		seconds: number | null;
-		/** The practice panel's player_json. */
-		run: string | null;
 		day: string | null;
 		/** No note (the levels spec's call, kept). */
 		simple: boolean;
@@ -48,7 +46,6 @@
 		subtitle,
 		faces,
 		seconds,
-		run,
 		day,
 		simple,
 		current,
@@ -136,7 +133,6 @@
 		}}
 	>
 		<input type="hidden" name="exerciseId" value={exerciseId} />
-		{#if run !== null}<input type="hidden" name="run" value={run} />{/if}
 		{#if day !== null}<input type="hidden" name="day" value={day} />{/if}
 
 		{#if !simple}

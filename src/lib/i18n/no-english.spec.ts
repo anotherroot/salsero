@@ -97,7 +97,6 @@ const TRANSLATED: string[] = [
 	'src/lib/components/exercises/kinds/routine/Practice.svelte',
 	'src/lib/components/player/ClaveChips.svelte',
 	'src/lib/components/player/CountChips.svelte',
-	'src/lib/components/player/PracticePanel.svelte',
 	'src/lib/components/player/SongPicker.svelte',
 	'src/lib/components/player/SongProgress.svelte',
 	'src/lib/components/player/SourcePicker.svelte',

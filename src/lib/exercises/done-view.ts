@@ -41,18 +41,13 @@ export function addedMessage(day: string): string {
 	return t().exercise.done.added(dayLabel(day));
 }
 
-/** The pinned bar: Done, or Done today once the day has an entry; waits while a count plays. */
-export function doneBar(i: { doneToday: boolean; playing: boolean }): {
+/** The pinned bar: Done, or Done today once the day has an entry. */
+export function doneBar(i: { doneToday: boolean }): {
 	label: string;
 	kind: 'primary' | 'done-soft';
-	disabled: boolean;
-	hint: string | null;
 } {
-	const w = t().exercise.done;
 	return {
-		label: i.doneToday ? w.doneToday : t().exercise.log.done,
-		kind: i.doneToday ? 'done-soft' : 'primary',
-		disabled: i.playing,
-		hint: i.playing ? w.stopFirst : null
+		label: i.doneToday ? t().exercise.done.doneToday : t().exercise.log.done,
+		kind: i.doneToday ? 'done-soft' : 'primary'
 	};
 }

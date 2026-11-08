@@ -4,6 +4,7 @@ import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import {
+	exercisePlayerHref,
 	playState,
 	practiceBack,
 	routineHeading,
@@ -273,5 +274,16 @@ describe('the Practice page in Slovenian', () => {
 		expect(sl(() => practiceBack({ ...p, from: 'today' }).label)).toBe('Nazaj: Danes');
 		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
 		expect(sl(() => routineHeading(1, 5))).toBe('Kombinacija · mesto 2 od 5');
+	});
+});
+
+describe('the exercise page opens the player', () => {
+	it('links the exercise, where it was opened from, and Play at once when asked', () => {
+		expect(exercisePlayerHref('salsa', 7, 'from=exercise', false)).toBe(
+			'/salsa/player?exercise=7&from=exercise'
+		);
+		expect(exercisePlayerHref('salsa', 7, 'from=run&skip=3,5', true)).toBe(
+			'/salsa/player?exercise=7&from=run&skip=3,5&play=1'
+		);
 	});
 });

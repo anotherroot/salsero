@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, tick, untrack } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { replaceState } from '$app/navigation';
 	import { entryState } from '$lib/sheets/history.svelte';
 	import { page } from '$app/state';
 	import { backFor, goBack } from '$lib/nav/trail.svelte';
@@ -256,6 +257,29 @@
 	}
 
 	let setup: ReturnType<typeof Setup> | undefined = $state();
+
+	/*
+	 * `?play=1` (the exercise page's ▶): start as soon as Play can, once. The
+	 * param is dropped first, so Back or a reload never starts a run by itself.
+	 * A song waits for its grid; one that fails leaves Setup as it is. If the
+	 * browser will not start audio without a tap here, Play's own error shows.
+	 */
+	let autoPlay = $state(untrack(() => page.url.searchParams.get('play') === '1'));
+	onMount(() => {
+		if (!autoPlay) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('play');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- this page's own path; only the query changes
+		replaceState(url, page.state);
+	});
+	$effect(() => {
+		if (!autoPlay || !setup || mode !== 'setup' || starting) return;
+		if (source === 'song' && song.error) autoPlay = false;
+		else if (source === 'count' || picked) {
+			autoPlay = false;
+			setup.playNow();
+		}
+	});
 
 	function handleStop() {
 		finish();

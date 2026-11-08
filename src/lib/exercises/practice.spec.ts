@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DANCES } from '$lib/dances/dances';
 import { withLocale } from '$lib/i18n/current';
 import {
+	practiseWithLine,
 	practiceOf,
 	practiceToPost,
 	defaultPracticeConfig,
@@ -378,5 +379,29 @@ describe('practiceSeed', () => {
 			clave: null,
 			speed: 1
 		});
+	});
+});
+
+describe('practiseWithLine', () => {
+	const none = { bpm: null, count: null, clave: undefined, speed: null, voiceVolume: null };
+	const row = {
+		practiceMode: 'count',
+		songId: null,
+		countBpm: 130,
+		practiceJson: JSON.stringify({ count: 'off', clave: '2-3', speed: 1 })
+	};
+	const songs = [{ id: 4, title: 'Suavemente' }];
+
+	it('says what the player will open with: the exercise’s memory', () => {
+		expect(practiseWithLine(row, songs, none, salsa)).toBe('Count 130 · Off · clave 2-3');
+	});
+	it('names a remembered song that is still there', () => {
+		expect(
+			practiseWithLine({ ...row, practiceMode: 'song', songId: 4 }, songs, none, salsa)
+		).toMatch(/^Suavemente/);
+	});
+	it('falls back to this phone, then the defaults, for an exercise never practised', () => {
+		const fresh = { practiceMode: 'none', songId: null, countBpm: null, practiceJson: null };
+		expect(practiseWithLine(fresh, songs, { ...none, bpm: 150 }, salsa)).toMatch(/^Count 150 · /);
 	});
 });

@@ -212,3 +212,13 @@ export function practiceBack(p: {
 	if (p.exercise) return today;
 	return { href: `/${p.dance}/songs`, label: w.backToMusic };
 }
+
+/** Where the exercise page's Practise with goes: the player for this exercise, ▶ starting it. */
+export function exercisePlayerHref(
+	dance: string,
+	exerciseId: number,
+	from: string,
+	play: boolean
+): string {
+	return `/${dance}/player?exercise=${exerciseId}&${from}${play ? '&play=1' : ''}`;
+}

@@ -39,7 +39,7 @@ export const exercise = {
 		editLinks: 'Edit links on the figure page',
 		figures: 'Figures',
 		practiseInPlayer: 'Practise in player',
-		routineNote: 'A run there saves itself. Tap Done when you practised away from the app.',
+		routineNote: 'Tap Done when you have practised, in the player or away from the app.',
 		/** The drill's Recordings heading: "Recordings", "Recordings · 3". */
 		recordings: (n: number): string => (n === 0 ? 'Recordings' : `Recordings · ${n}`)
 	},
@@ -180,7 +180,6 @@ export const exercise = {
 		added: (day: string): string => `Added to ${day}`,
 		/** The pinned button once the exercise has today's entry. */
 		doneToday: 'Done today',
-		stopFirst: 'Stop the count first.',
 		/** Under the Done sheet's faces: no button, a face saves. */
 		tapFace: 'Tap a face to save it'
 	},

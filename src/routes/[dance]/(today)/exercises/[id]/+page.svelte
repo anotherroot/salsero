@@ -101,11 +101,7 @@
 	// --- The time and Done (spec "The exercise page (one page)").
 	/** Counted while the page is visible, from when it opened; Done saves it. */
 	const clock = pageClock();
-	/** The Practise with card's last run: Done saves its player_json. */
-	let run = $state<{ durationS: number; playerJson: string } | null>(null);
-	/** A count or a song plays in Practise with: Done waits. */
-	let playing = $state(false);
-	/** Remounts Practise with after a save: its run is spent. */
+	/** Remounts Practise with after a save, so its line reads the exercise's new memory. */
 	let practiceKey = $state(0);
 	let doneOpen = $state(false);
 	/** The fixed rhythm's save, out (no sheet holds a spinner for it). */
@@ -113,7 +109,7 @@
 	/** A fixed-rhythm drill: Done saves at once, no faces (plan 3 branches on it too). */
 	const fixed = $derived(data.scheduleAtStart?.every != null);
 
-	/** The fixed rhythm's Done: saves at once, the page's time and run, no face. */
+	/** The fixed rhythm's Done: saves at once, the page's time, no face. */
 	async function saveNow(): Promise<void> {
 		if (saving) return;
 		saving = true;
@@ -124,7 +120,6 @@
 			const result = await act('done', {
 				exerciseId: data.exercise.id,
 				durationS: clock.seconds,
-				run: run?.playerJson ?? '',
 				rating: ''
 			});
 			if (pageId !== at) return;
@@ -147,7 +142,6 @@
 			undo: { setId: r.setId, before: r.before }
 		});
 		doneOpen = false;
-		run = null;
 		practiceKey++;
 		// A session opens its next page. Else back; with no opener to step back to (the
 		// desktop's pane, a cold open) Today takes this page's entry, not one on top of it.
@@ -343,8 +337,6 @@
 			undoSnapshots = null;
 			doneOpen = false;
 			dayOpen = false;
-			run = null;
-			playing = false;
 			saving = false;
 			clock.restart();
 		});
@@ -377,10 +369,7 @@
 				exercise={data.exercise}
 				content={data.practice.content}
 				songs={data.songs}
-				takes={data.takes}
 				playerFrom="from=exercise"
-				onrun={(r) => (run = r)}
-				onactive={(on) => (playing = on)}
 			/>
 		{/key}
 	{/if}
@@ -862,13 +851,7 @@
 		</button>
 	</BottomBar>
 {:else if data.canLog}
-	<DoneBar
-		doneToday={data.entryToday !== null}
-		{playing}
-		busy={saving}
-		sheet={!fixed}
-		onclick={done}
-	/>
+	<DoneBar doneToday={data.entryToday !== null} busy={saving} sheet={!fixed} onclick={done} />
 {/if}
 
 <Toast
@@ -895,7 +878,6 @@
 		})}
 		faces={data.faces}
 		seconds={clock.seconds}
-		run={run?.playerJson ?? null}
 		day={null}
 		{simple}
 		current={data.entryToday}

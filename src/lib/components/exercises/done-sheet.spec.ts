@@ -21,7 +21,6 @@ const base: ComponentProps<typeof DoneSheet> = {
 	subtitle: '4:12',
 	faces,
 	seconds: 252,
-	run: null,
 	day: null,
 	simple: false,
 	current: null,
@@ -47,16 +46,15 @@ describe('DoneSheet', () => {
 		expect(body).toContain('What went well, what to fix');
 		expect(body).toContain('Note');
 		expect(body.indexOf('name="note"')).toBeLessThan(body.indexOf('aria-pressed'));
-		// No run, no day: nothing posted for them.
+		// No day: nothing posted for it. A run is never posted (the player logs nothing).
 		expect(body).not.toMatch(/name="run"/);
 		expect(body).not.toMatch(/name="day"/);
 	});
 
-	it("a past day posts its day to Today's done, and a run its player_json", () => {
-		const body = sheet({ action: '/salsa?/done', day: '2026-11-05', run: '{"bpm":120}' });
+	it("a past day posts its day to Today's done", () => {
+		const body = sheet({ action: '/salsa?/done', day: '2026-11-05' });
 		expect(body).toMatch(/action="\/salsa\?\/done"/);
 		expect(body).toMatch(/name="day" value="2026-11-05"/);
-		expect(body).toMatch(/name="run" value="\{&quot;bpm&quot;:120\}"/);
 	});
 
 	it('the simple sheet has no note', () => {

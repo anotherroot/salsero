@@ -42,26 +42,14 @@ describe('toasts', () => {
 });
 
 describe('doneBar', () => {
-	it('is Done today once the day has an entry', () => {
-		expect(doneBar({ doneToday: true, playing: false })).toEqual({
+	it('is Done today once the day has an entry, and never waits (nothing plays on the page)', () => {
+		expect(doneBar({ doneToday: true })).toEqual({
 			label: 'Done today',
-			kind: 'done-soft',
-			disabled: false,
-			hint: null
+			kind: 'done-soft'
 		});
-		expect(doneBar({ doneToday: false, playing: false })).toEqual({
+		expect(doneBar({ doneToday: false })).toEqual({
 			label: 'Done',
-			kind: 'primary',
-			disabled: false,
-			hint: null
-		});
-	});
-	it('waits for the count to stop', () => {
-		expect(doneBar({ doneToday: false, playing: true })).toEqual({
-			label: 'Done',
-			kind: 'primary',
-			disabled: true,
-			hint: 'Stop the count first.'
+			kind: 'primary'
 		});
 	});
 });
@@ -77,9 +65,6 @@ describe('in Slovenian', () => {
 		).toBe('X · četrtek, 5. novembra');
 	});
 	it('words the bar', () => {
-		expect(sl(() => doneBar({ doneToday: true, playing: false }).label)).toBe('Opravljeno danes');
-		expect(sl(() => doneBar({ doneToday: false, playing: true }).hint)).toBe(
-			'Najprej ustavite štetje.'
-		);
+		expect(sl(() => doneBar({ doneToday: true }).label)).toBe('Opravljeno danes');
 	});
 });

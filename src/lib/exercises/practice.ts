@@ -263,3 +263,35 @@ export const hourOfBars = (bpm: number) => Math.ceil((bpm * 60) / 8);
 
 /** Seconds as the whole minutes the form shows — never 0, since you did practise. */
 export const minutesFrom = (seconds: number) => Math.max(1, Math.round(seconds / 60));
+
+/**
+ * The exercise page's Practise with line: what the player will open with for
+ * this exercise — its own memory, else this phone's, else the defaults (as
+ * Setup seeds it), and a remembered song only while it is still there.
+ */
+export function practiseWithLine(
+	row: {
+		practiceMode: string;
+		songId: number | null;
+		countBpm: number | null;
+		practiceJson: string | null;
+	},
+	songs: readonly { id: number; title: string }[],
+	phone: PhonePractice,
+	dance: Dance
+): string {
+	const start = practiceStart(
+		row,
+		songs.map((s) => s.id)
+	);
+	const seed = practiceSeed(practiceOf(row, dance), phone, dance, DEFAULT_PRACTICE_BPM);
+	return practiceSummary(
+		{
+			mode: start.source,
+			bpm: seed.bpm,
+			songTitle: songs.find((s) => s.id === start.songId)?.title ?? null,
+			config: { count: seed.count, clave: seed.clave, speed: seed.speed }
+		},
+		dance
+	);
+}

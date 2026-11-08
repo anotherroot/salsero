@@ -4,12 +4,10 @@
  * the exercise, figure and lesson pages; Today builds the same from the
  * lists it already loads.
  */
-import { PHRASE_PATTERNS } from '$lib/labels';
 import { localDay } from '$lib/day/day';
 import { shownExercise } from '$lib/exercises/name';
 import type { Wall } from './scope';
 import type { Db } from './db';
-import { listCountTakesFor } from './countTakes';
 import { exerciseHistory, listExercises } from './exercises';
 import { songChoices } from './songs';
 import { listMusic } from './song-links';
@@ -50,8 +48,7 @@ export function pageData(db: Db, wall: Wall, exerciseId: number, tz: string, now
 		exercise,
 		// Fifty is far more sets than one day holds; the filter decides "today".
 		sets: exerciseHistory(db, exerciseId, 50).filter((s) => localDay(s.doneAt, tz) === today),
-		songs: markMusic(db, wall, exerciseId, exercise.name),
-		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
+		songs: markMusic(db, wall, exerciseId, exercise.name)
 	};
 }
 

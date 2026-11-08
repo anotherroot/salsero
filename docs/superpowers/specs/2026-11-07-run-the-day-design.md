@@ -345,18 +345,16 @@ exercise page. Its other uses:
 
 ### The practice panel and the full player
 
-- **The practice panel on the page** (count, song, clave): a run there
-  doesn't save a set on its own. Done saves the page's time plus the panel's
-  `player_json`, as the popup handed it over before. *(My call.)*
-- **The full-screen player** keeps its own Save set screen. When it was opened
-  from a run, its `from` carries the run, and after saving it goes **to the
-  next exercise of the run** (or Done for today); the button reads "Save · next".
-  Back without saving returns to the exercise page, still in the run. A page
-  whose exercise already has a set from this run shows "Done today" in place of
-  Done, so it can't be logged twice by accident. *(My call.)*
-- **A fixed-rhythm drill in the player**: the Save set screen shows no faces,
-  and saves `rating` null. *(My call; otherwise a face would be saved and
-  ignored, and then count if the drill is switched back.)*
+*Replaced 2026-11-08 by [`2026-11-08-one-player-design.md`](2026-11-08-one-player-design.md):*
+
+- **Practise with on the page** shows what the player will open with, and
+  opens it: the card opens the player's setup, its ▶ opens it playing. Nothing
+  plays on the page, so Done never waits for a count.
+- **The player logs nothing.** No Save set screen, no "Save · next", no
+  fixed-rhythm save: Done on the exercise page is the only way a practice
+  becomes a set, and it carries no run (`player_json` stays null on new sets).
+  Back from the player returns to the exercise page, in the run when it was
+  opened from one.
 
 Every log form changes, so **raise PAGE_EPOCH**.
 

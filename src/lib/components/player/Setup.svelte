@@ -180,10 +180,17 @@
 	const uid = $props.id();
 	let playBtn: HTMLButtonElement | undefined = $state();
 	/**
-	 * Back from a refused or abandoned save: keyboard focus lands on Play, not
-	 * <body>. Play can be disabled (no song picked, or it failed to load), and a
+	 * After a run ends: keyboard focus lands on Play, not <body>. Play can be disabled (no song picked, or it failed to load), and a
 	 * disabled button takes no focus: then the screen's heading does.
 	 */
+	/**
+	 * Play now, as a tap on Play would, with the settings shown (the exercise
+	 * page's ▶). Nothing when Play is disabled: the page waits until it is not.
+	 */
+	export function playNow() {
+		if (playBtn && !playBtn.disabled) play();
+	}
+
 	export function focusPlay() {
 		if (playBtn && !playBtn.disabled) {
 			playBtn.focus({ preventScroll: true });
