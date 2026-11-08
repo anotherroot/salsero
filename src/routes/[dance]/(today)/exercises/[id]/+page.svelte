@@ -34,6 +34,7 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import LastTime from '$lib/components/exercises/LastTime.svelte';
+	import { todayBack } from '$lib/nav/today-pane';
 	import { todayPane } from '$lib/components/today/today-context';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import {
@@ -148,13 +149,10 @@
 		doneOpen = false;
 		run = null;
 		practiceKey++;
-		// A session opens its next page (or goes back to Today after the last).
+		// A session opens its next page. Else back; with no opener to step back to (the
+		// desktop's pane, a cold open) Today takes this page's entry, not one on top of it.
 		if (today?.session) today.session.onnext();
-		else
-			void backWhenSettled({
-				href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
-				label: t().shell.backTo(t().shell.tabs.today)
-			});
+		else void backWhenSettled(todayBack(data.dance.slug), { replace: true });
 		clock.restart();
 	}
 
@@ -749,12 +747,7 @@
 {/snippet}
 
 {#snippet back()}
-	<BackButton
-		fallback={{
-			href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
-			label: t().shell.backTo(t().shell.tabs.today)
-		}}
-	/>
+	<BackButton fallback={todayBack(data.dance.slug)} />
 {/snippet}
 
 {#snippet lastTime()}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { besideToday } from './today-pane';
+import { withLocale } from '$lib/i18n/current';
+import { besideToday, todayBack } from './today-pane';
 import { columnOf } from './moves-pane';
 import { listOf, paneBack, inList } from './pane';
 
@@ -39,5 +40,13 @@ describe('Coming up in pane.ts', () => {
 		// An exercise opened from it has no back on the desktop.
 		expect(paneBack('/salsa/coming-up', 'coming', 'salsa')).toBe(false);
 		expect(paneBack('/salsa/coming-up', 'today', 'salsa')).toBe(true);
+	});
+});
+
+describe('todayBack', () => {
+	it("is Today's list, named as the band's back names it", () => {
+		expect(todayBack('salsa')).toEqual({ href: '/salsa', label: 'Back to Today' });
+		expect(todayBack('bachata').href).toBe('/bachata');
+		expect(withLocale('sl', () => todayBack('salsa').label)).toBe('Nazaj: Danes');
 	});
 });

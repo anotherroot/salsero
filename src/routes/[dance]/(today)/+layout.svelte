@@ -14,7 +14,7 @@
 	import TodayList from '$lib/components/today/TodayList.svelte';
 	import ComingUpList from '$lib/components/today/ComingUpList.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
-	import { besideToday } from '$lib/nav/today-pane';
+	import { besideToday, todayBack } from '$lib/nav/today-pane';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
@@ -156,12 +156,9 @@
 		sessionOn && currentId !== null
 			? {
 					onnext: () => {
+						// After the last, back to Today in place of this page (the desktop's pane has no opener).
 						if (nextUp) openRow(nextUp.exercise.id, 'replace');
-						else
-							void backWhenSettled({
-								href: resolve('/[dance]/(today)', { dance }),
-								label: t().shell.backTo(t().shell.tabs.today)
-							});
+						else void backWhenSettled(todayBack(dance), { replace: true });
 					}
 				}
 			: null

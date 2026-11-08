@@ -58,6 +58,12 @@ describe('The log form', () => {
 		expect(sheets[0]).toMatch(/\bfaces=\{null\}/);
 		expect(sheets[0]).toMatch(/\bseconds=\{null\}/);
 		expect(sheets[0]).toMatch(/\bday=\{past\.day\}/);
+		// It starts from that exercise's entry on the day, and a save closes it and says "Added to …".
+		expect(sheets[0]).toMatch(/\bcurrent=\{entry\}/);
+		expect(src).toMatch(/const entry = \$derived\.by\([\s\S]*?mergeDay\(rows\)/);
+		expect(sheets[0]).toMatch(/\bonsaved=\{\(r\) => saved\(r, past\.day\)\}/);
+		const fn = src.match(/function saved\(r: DoneResult, day: string\) \{([\s\S]*?)\n\t\}/)?.[1];
+		expect(fn).toMatch(/doneOpen = false;[\s\S]*announceSaved\(\{[\s\S]*addedMessage\(day\)/);
 	});
 
 	it("Today's layout draws no log popup", () => {
@@ -85,9 +91,16 @@ describe('The log form', () => {
 		const src = readFileSync(EXERCISE, 'utf8');
 		const fn = src.match(/function saved\(r: DoneResult\): void \{([\s\S]*?)\n\t\}/)?.[1] ?? '';
 		expect(fn).toMatch(
-			/announceSaved\([\s\S]*if \(today\?\.session\) today\.session\.onnext\(\);\s*else\s+void backWhenSettled\(/
+			/announceSaved\([\s\S]*if \(today\?\.session\) today\.session\.onnext\(\);\s*else void backWhenSettled\(todayBack\(data\.dance\.slug\), \{ replace: true \}\)/
 		);
 		expect(fn).toMatch(/clock\.restart\(\)/);
+		// The session's end too: on the desktop a pane page has no opener, so back
+		// must replace the saved page, not push Today on top of it.
+		const layout = readFileSync(LAYOUT, 'utf8');
+		expect(layout).toMatch(/else void backWhenSettled\(todayBack\(dance\), \{ replace: true \}\)/);
+		// One Today fallback, never written out again.
+		for (const src2 of [src, layout])
+			expect(src2).not.toContain('t().shell.backTo(t().shell.tabs.today)');
 		expect(src).not.toMatch(/today\??\.(line|logged|follow|key|undoable)\b/);
 	});
 
@@ -186,7 +199,7 @@ describe('Close, then go', () => {
 			/whenSettled\(\(\) =>/
 		);
 		expect(trail.match(/export function backWhenSettled[\s\S]*?\n\}/)?.[0]).toMatch(
-			/whenSettled\(\(\) =>[\s\S]*goBack\(fallback\)/
+			/whenSettled\(\(\) =>[\s\S]*goBack\(fallback, opts\)/
 		);
 	});
 });
