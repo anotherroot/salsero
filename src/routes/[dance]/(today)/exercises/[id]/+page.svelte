@@ -118,10 +118,22 @@
 	let saving = $state(false);
 	/** A fixed-rhythm drill: Done saves at once, no faces (plan 3 branches on it too). */
 	const fixed = $derived(data.scheduleAtStart?.every != null);
+	/**
+	 * A save or Not today landed and the page is on its way out (the next in a
+	 * run, else back). The next page is a round trip away, and this page's Done
+	 * sits where the next one's will: nothing saves or goes on again until
+	 * another exercise is in the page. A second save would hand the toast's
+	 * Undo the wrong snapshot.
+	 */
+	let leaving = $state(false);
+	/** Not today is out (declared here: the lock reads it). */
+	let skipping = $state(false);
+	/** A save, Not today or the way out is under way: Done, Skip and Not today wait. */
+	const locked = $derived(saving || skipping || leaving);
 
 	/** The fixed rhythm's Done: saves at once, the page's time and run, no face. */
 	async function saveNow(): Promise<void> {
-		if (saving) return;
+		if (locked) return;
 		saving = true;
 		/** The exercise this save is for: an answer landing after another one opened acts on nothing. */
 		const at = pageId;
@@ -138,7 +150,8 @@
 			if (refused !== null) say(refused);
 			else if (result.type === 'success') saved(result.data as unknown as DoneResult);
 		} finally {
-			if (pageId === at) saving = false;
+			// Leaving: the spinner stays until the next page takes this one's place.
+			if (pageId === at && !leaving) saving = false;
 		}
 	}
 
@@ -155,24 +168,25 @@
 		doneOpen = false;
 		practiceRun = null;
 		practiceKey++;
+		leaving = true;
 		// In a run: the next in place of this page, once the sheet's Back has landed.
+		// Else back; with no opener to step back to (the desktop's pane, a cold
+		// open) Today takes this page's entry, not one on top of it.
 		if (run) run.after();
-		// Back; with no opener to step back to (the desktop's pane, a cold open)
-		// Today takes this page's entry, not one on top of it.
 		else void backWhenSettled(todayBack(data.dance.slug), { replace: true });
 		clock.restart();
 	}
 
 	function done() {
+		if (locked) return;
 		if (fixed) void saveNow();
 		else doneOpen = true;
 	}
 
 	/** Not today applies while the exercise is a to-do or picked row on Today (not done today). */
 	const canSkip = $derived(data.canLog && !!today?.canSkip(data.exercise.id));
-	let skipping = $state(false);
 	async function notToday() {
-		if (skipping || !today) return;
+		if (locked || !today) return;
 		skipping = true;
 		try {
 			// The row is gone from Today now: in a run the next (the layout's Undo toast
@@ -181,6 +195,7 @@
 			if (await today.notToday(data.exercise.id)) {
 				// Its Undo toast is the one notice: an earlier save's goes.
 				savedToast.dismiss();
+				leaving = true;
 				if (run) run.after();
 				else await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
 			}
@@ -360,6 +375,7 @@
 			practiceRun = null;
 			playing = false;
 			saving = false;
+			leaving = false;
 			clock.restart();
 		});
 	});
@@ -747,7 +763,7 @@
 						type="button"
 						class={button('tertiary', 'md')}
 						aria-busy={skipping}
-						disabled={skipping}
+						disabled={locked}
 						onclick={notToday}>{t().today.row.notToday}</button
 					>
 					<p class="text-[13px] text-muted">{t().exercise.page.comesBack}</p>
@@ -772,12 +788,9 @@
 
 <!-- The run's Skip: on without saving, this run only (never Not today). -->
 {#snippet skipButton()}
-	<!-- Not while a save or Not today is out: its own step goes on when it lands. -->
-	<button
-		type="button"
-		class={rowButton('secondary')}
-		disabled={saving || skipping}
-		onclick={() => run?.skip()}>{t().exercise.done.skip}</button
+	<!-- Not while a save or Not today is out, nor while the page leaves: its own step goes on. -->
+	<button type="button" class={rowButton('secondary')} disabled={locked} onclick={() => run?.skip()}
+		>{t().exercise.done.skip}</button
 	>
 {/snippet}
 

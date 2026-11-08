@@ -70,7 +70,8 @@ def placeholders(db, admin, dance):
 def _start_run(page):
     """Start (the hero's play): the walk's first page, with ?run=1."""
     page.get_by_role("button", name="Start", exact=True).first.click()
-    page.wait_for_url(re.compile(r"/exercises/\d+\?run=1$"), timeout=8000)
+    # Long enough for a cold dev server compiling the exercise route on a busy machine.
+    page.wait_for_url(re.compile(r"/exercises/\d+\?run=1$"), timeout=30000)
     _settle(page)
 
 
@@ -546,7 +547,7 @@ def _player_links_in_run(page):
 
 
 def _moved_on(page, before):
-    page.wait_for_function("(u) => location.href !== u", arg=before, timeout=8000)
+    page.wait_for_function("(u) => location.href !== u", arg=before, timeout=30000)
     _settle(page)
 
 
@@ -577,8 +578,21 @@ def _run_walk(page):
         raise RuntimeError("Done · next is not the done green")
     _step_shot(page, "3-fixed")
     before = page.url
+    # Saves once: taps on the old page's Done while the next one loads post nothing.
+    posts = []
+    page.on("request", lambda r: posts.append(r.url) if r.method == "POST" and "?/done" in r.url else None)
     green.click()
+    for _ in range(60):
+        if page.url != before:
+            break
+        try:
+            page.locator('[data-focus="exercise-done"]').first.click(force=True, no_wait_after=True, timeout=200)
+        except Exception:
+            pass
+        page.wait_for_timeout(50)
     _moved_on(page, before)
+    if len(posts) != 1:
+        raise RuntimeError(f"Done · next posted {len(posts)} saves")
     page.locator("[role=status]", has_text="Saved · back tomorrow").first.wait_for()
     if not _run_url(page) or _place(page) != (3, place[1]):
         raise RuntimeError(f"Done · next went to {page.url}, place {_place(page)}")
@@ -598,9 +612,16 @@ def _run_walk(page):
         before = page.url
         page.get_by_role("button", name="Not today").click()
         _moved_on(page, before)
-        page.locator("[role=status]", has_text=re.compile("Not today|Undo")).first.wait_for()
+        toast = page.locator("[role=status]", has_text=re.compile("Not today|Undo")).first
+        toast.wait_for()
         if not _run_url(page):
             raise RuntimeError(f"Not today went to {page.url}")
+        # Above the pinned bar: its Undo never on the next Done.
+        page.wait_for_timeout(400)
+        t_box = toast.bounding_box()
+        d_box = page.locator('[data-focus="exercise-done"]').first.bounding_box()
+        if t_box and d_box and t_box["y"] + t_box["height"] > d_box["y"]:
+            raise RuntimeError(f"the Not today toast covers Done: {t_box} over {d_box}")
         _step_shot(page, "6-not-today")
     # Skip on to the last (its sheet has no Next:), then a face: Done for today.
     for _ in range(40):
@@ -617,7 +638,7 @@ def _run_walk(page):
         raise RuntimeError("the run never reached its last")
     _step_shot(page, "7-last-sheet")
     page.locator("dialog[open]").get_by_role("button", name=FACES).first.click()
-    page.wait_for_url(re.compile(r"/(salsa|bachata)/done$"), timeout=8000)
+    page.wait_for_url(re.compile(r"/(salsa|bachata)/done$"), timeout=30000)
     _settle(page)
 
 

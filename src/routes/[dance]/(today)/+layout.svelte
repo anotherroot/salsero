@@ -4,6 +4,7 @@
 	import { actAt } from '$lib/act';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { pinned } from '$lib/nav/chrome.svelte';
 	import { page } from '$app/state';
 	import { levelShown, simple } from '$lib/levels/levels';
 	import { listOf } from '$lib/nav/pane';
@@ -357,7 +358,15 @@
 		{@render children()}
 	</ListPane>
 
-	<Toast {toast} onaction={() => toast?.undo?.()} ondismiss={() => (toast = null)} />
+	<!-- Above a pinned bar (a run's Skip | Done), as SavedToast sits: its Undo never on the next Done. -->
+	<Toast
+		{toast}
+		bottom={pinned.bar
+			? 'calc(5.75rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'
+			: undefined}
+		onaction={() => toast?.undo?.()}
+		ondismiss={() => (toast = null)}
+	/>
 {/if}
 
 {#if creating}
