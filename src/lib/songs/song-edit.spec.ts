@@ -4,6 +4,7 @@ import {
 	beatLabel,
 	clearLines,
 	menuHeading,
+	plusSectionBeat,
 	startRow,
 	suggestionLine,
 	tapShift,
@@ -83,5 +84,15 @@ describe('what a tap shows', () => {
 		expect(suggestionLine(149, -1)).toBe(
 			"The beat suggests the 1 is here from 2:29, 1 beat earlier. It can't tell a 1 from a 5."
 		);
+	});
+});
+
+describe('+ Section', () => {
+	it('starts at the 1 of the eight that is playing, or the song’s first beat', () => {
+		const counts = [7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2];
+		expect(plusSectionBeat(counts, 6)).toBe(2);
+		expect(plusSectionBeat(counts, 10)).toBe(10);
+		expect(plusSectionBeat(counts, 1)).toBe(0);
+		expect(plusSectionBeat(counts, -1)).toBe(0);
 	});
 });

@@ -66,6 +66,24 @@ def _suggestion(page):
     card.scroll_into_view_if_needed()
 
 
+def _section_sheet(page):
+    _edit(page)
+    page.locator("[data-beat]").nth(100).click()
+    page.wait_for_timeout(300)
+    page.get_by_role("button", name="Start a section at this eight").click()
+    page.wait_for_selector("dialog[open] >> text=saves as you go")
+    page.wait_for_timeout(300)
+
+
+def _section_other(page):
+    _edit(page)
+    page.get_by_role("button", name="Edit Verse").click()
+    page.wait_for_selector("dialog[open]")
+    page.get_by_role("button", name="Other…").click()
+    page.get_by_label("A name of your own").fill("Coro con pregón")
+    page.wait_for_timeout(200)
+
+
 SCENES = {
     "song-edit-song": Scene(SONG, _song_tab),
     "song-tempo-ask": Scene(SONG, _tempo_ask),
@@ -74,4 +92,6 @@ SCENES = {
     "song-edit-menu": Scene(SONG, _menu),
     "song-edit-tapped": Scene(SONG, _tapped),
     "song-edit-suggestion": Scene(SONG, _suggestion),
+    "song-section-sheet": Scene(SONG, _section_sheet),
+    "song-section-other": Scene(SONG, _section_other),
 }

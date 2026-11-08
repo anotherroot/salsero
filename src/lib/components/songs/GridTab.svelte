@@ -17,7 +17,7 @@
 		type Placed,
 		type Row
 	} from '$lib/songs/sections';
-	import { menuHeading, tapShift, tapToast } from '$lib/songs/song-edit';
+	import { menuHeading, plusSectionBeat, tapShift, tapToast } from '$lib/songs/song-edit';
 	import { tapProblem } from '$lib/songs/song-page';
 	import type { Suggestion } from '$lib/songs/suggest';
 
@@ -161,14 +161,7 @@
 
 	/** + Section: at the 1 of the eight that is playing. */
 	export function addSection() {
-		const at = played ? beatIndexAt(beats, now) : 0;
-		let one = 0;
-		for (let i = Math.max(0, at); i >= 0; i--)
-			if (counts[i] === 1) {
-				one = i;
-				break;
-			}
-		void sectionOn(one);
+		void sectionOn(plusSectionBeat(counts, played ? beatIndexAt(beats, now) : 0));
 	}
 
 	function menuItems(b: number) {

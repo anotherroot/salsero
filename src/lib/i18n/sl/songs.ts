@@ -48,6 +48,23 @@ export const songs: Catalog['songs'] = {
 		section: {
 			unnamed: 'Del',
 			added: 'Del dodan',
+			title: 'Del',
+			saving: 'shranjuje sproti',
+			name: 'Ime',
+			other: 'Drugo …',
+			otherLabel: 'Vaše ime',
+			starts: 'Začetek',
+			onOne: (at) => `${at} · na 1`,
+			earlier: 'Osmico prej',
+			later: 'Osmico pozneje',
+			count: 'Štetje',
+			on: 'Vklopljeno',
+			off: 'Izklopljeno',
+			offHelp: 'Izklopljeno: v tem delu ni štetja. Za premore in prehode.',
+			remove: 'Odstrani del',
+			removed: (name) => `Odstranjeno: ${name}`,
+			saved: 'Shranjeno',
+			unsavedLabel: 'Ime dela',
 			chips: () => ['Uvod', 'Kitica', 'Coro', 'Montuno', 'Mambo', 'Break', 'Zaključek']
 		},
 		// čez + accusative: 1 osmico, 2 osmici, 3 osmice, 5 osmic; 1 dobo, 2 dobi, 3 dobe, 5 dob.

@@ -53,6 +53,23 @@ export const songs = {
 			/** A section with no name yet. */
 			unnamed: 'Section',
 			added: 'Section added',
+			title: 'Section',
+			saving: 'saves as you go',
+			name: 'Name',
+			other: 'Other…',
+			otherLabel: 'A name of your own',
+			starts: 'Starts',
+			onOne: (at: string): string => `${at} · on a 1`,
+			earlier: 'An eight earlier',
+			later: 'An eight later',
+			count: 'Count',
+			on: 'On',
+			off: 'Off',
+			offHelp: 'Off: no count in this section. For breaks and changes.',
+			remove: 'Remove section',
+			removed: (name: string): string => `${name} removed`,
+			saved: 'Saved',
+			unsavedLabel: 'A section’s name',
 			/** The section sheet's name chips. A function: the dance's words (Coro, Mambo) are the same in both languages. */
 			chips: (): string[] => ['Intro', 'Verse', 'Coro', 'Montuno', 'Mambo', 'Break', 'Outro']
 		},

@@ -70,3 +70,9 @@ export function menuHeading(at: number, count: number | null, section: string | 
 export function suggestionLine(at: number, shift: number): string {
 	return t().songs.page.suggest.line(clock(at), Math.abs(shift), shift > 0);
 }
+
+/** + Section: the 1 of the eight playing at `beat` (the last 1 at or before it), else beat 0. */
+export function plusSectionBeat(counts: number[], beat: number): number {
+	for (let i = Math.min(beat, counts.length - 1); i >= 0; i--) if (counts[i] === 1) return i;
+	return 0;
+}

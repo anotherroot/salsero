@@ -13,6 +13,7 @@
 	import SongEdit from '$lib/components/songs/SongEdit.svelte';
 	import SongTab from '$lib/components/songs/SongTab.svelte';
 	import GridTab from '$lib/components/songs/GridTab.svelte';
+	import SectionSheet from '$lib/components/songs/SectionSheet.svelte';
 	import { tick } from 'svelte';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import type { ToastState } from '$lib/act-toast';
@@ -237,6 +238,8 @@
 	let startGroup: HTMLElement | undefined = $state();
 	/** Edit · Grid, whose Tap on the 1 and + Section the pinned bar calls. */
 	let gridPane: ReturnType<typeof GridTab> | undefined = $state();
+	/** The section whose sheet is open, by its index in the stored list. */
+	let sectionOpen = $state<number | null>(null);
 
 	function openEdit() {
 		if (editing) return;
@@ -401,7 +404,7 @@
 						toast={(t) => (editToast = t)}
 						onjump={(i) => seek(grid.beats[i])}
 						onstart={showStart}
-						onsection={() => {}}
+						onsection={(i) => (sectionOpen = i)}
 					/>
 				{/snippet}
 				{#snippet gridBar()}
@@ -587,6 +590,16 @@
 		</form>
 	{/snippet}
 </Dialog>
+
+<SectionSheet
+	section={editing && sectionOpen !== null
+		? (data.sections.find((s) => s.index === sectionOpen) ?? null)
+		: null}
+	sectionsJson={data.sectionsJson}
+	seen={() => seen}
+	onclose={() => (sectionOpen = null)}
+	pageToast={(x) => (editToast = x)}
+/>
 
 <SongDetailsSheet
 	open={detailsOpen}
