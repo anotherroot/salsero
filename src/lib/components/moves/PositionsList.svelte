@@ -19,6 +19,7 @@
 	import HowSheet from '$lib/components/positions/HowSheet.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { groupHeading } from '$lib/moves/figures';
+	import { t } from '$lib/i18n/catalog';
 	import {
 		nothingAt,
 		parsePositionFilter,
@@ -28,12 +29,12 @@
 	import {
 		EMPTY,
 		EMPTY_ACTIONS,
-		GROUP_NOTE,
-		MAP_ROW,
-		NONE_OWN,
-		NO_MATCH,
-		OPTIONAL_LINE,
-		TEMPLATES_BUTTON,
+		groupNote,
+		mapRow,
+		noneOwn,
+		noMatch,
+		optionalLine,
+		templatesButton,
 		listHeading,
 		noPositionRow,
 		positionChips,
@@ -202,7 +203,7 @@
 		{/snippet}
 	</EmptyState>
 	{#if l.inGroupMode}
-		<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{GROUP_NOTE}</p>
+		<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{groupNote()}</p>
 	{/if}
 {:else}
 	<SyncCard
@@ -218,15 +219,15 @@
 	/>
 	<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
 		{#if l.inGroupMode}
-			{GROUP_NOTE}
+			{groupNote()}
 		{:else}
 			<b class="text-ink">{taggedLine(l.tagged)}</b>
-			{OPTIONAL_LINE}
+			{optionalLine()}
 		{/if}
 	</p>
 	<div class="-my-1 -ml-2.5 flex flex-none">
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (templating = true)}>
-			<Icon name="copy" size={20} />{TEMPLATES_BUTTON}
+			<Icon name="copy" size={20} />{templatesButton()}
 		</button>
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (explaining = true)}>
 			<Icon name="info" size={20} />{EMPTY_ACTIONS.how}
@@ -243,8 +244,8 @@
 		<SearchField
 			name="q"
 			bind:value={q}
-			placeholder="Search positions"
-			label="Search positions"
+			placeholder={t().positions.list.search}
+			label={t().positions.list.search}
 			onclear={() => refilter({ q: '' })}
 		/>
 	</form>
@@ -255,7 +256,7 @@
 	-->
 	<div
 		role="group"
-		aria-label="Filter positions"
+		aria-label={t().positions.list.filter}
 		bind:this={chipRow}
 		class="-mr-4 -ml-1 flex flex-none [scrollbar-width:none] gap-2 overflow-x-auto pr-4 pl-1 desk:mr-0 desk:flex-wrap desk:gap-x-1.5 desk:gap-y-0 desk:overflow-visible desk:pr-0 [&::-webkit-scrollbar]:hidden"
 	>
@@ -304,7 +305,8 @@
 						class="flex size-10 flex-none items-center justify-center rounded-xl bg-accent-soft text-accent-text"
 						><Icon name="positions" size={20} /></span
 					>
-					<span class="min-w-0 flex-1 text-[16px] leading-[1.3] font-bold text-ink">{MAP_ROW}</span>
+					<span class="min-w-0 flex-1 text-[16px] leading-[1.3] font-bold text-ink">{mapRow()}</span
+					>
 					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 				</a>
 			{/if}
@@ -326,10 +328,10 @@
 			{/each}
 		</div>
 	{:else if filtered}
-		{#if view.groups.length === 0}<EmptyState icon="search" title={NO_MATCH} />{/if}
+		{#if view.groups.length === 0}<EmptyState icon="search" title={noMatch()} />{/if}
 	{:else}
 		<!-- Only a group's positions so far: the person's own list starts here. -->
-		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">{NONE_OWN}</p>
+		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">{noneOwn()}</p>
 	{/if}
 
 	<!-- Each group's positions the person may use, under a slight heading. -->

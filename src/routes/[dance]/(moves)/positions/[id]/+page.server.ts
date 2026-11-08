@@ -66,6 +66,7 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { sameAsOffer } from '$lib/server/twins';
 import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
+import { t } from '$lib/i18n/catalog';
 import {
 	ARCHIVED_LINKS,
 	LINK_REFUSED,
@@ -196,8 +197,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// A group's figure seen from a person's app reads as the group's; in the
 	// group's own workspace every figure is the group's, so none says so.
 	const teamOf = (fid: number) => {
-		const t = rows.get(fid)?.teamId ?? null;
-		return t === null || isTeam(viewer) ? null : (teams.get(t)?.name ?? null);
+		const tid = rows.get(fid)?.teamId ?? null;
+		return tid === null || isTeam(viewer) ? null : (teams.get(tid)?.name ?? null);
 	};
 	const figureRow = (fid: number) => ({
 		id: fid,
@@ -378,14 +379,14 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 			return fail(400, {
 				...typed,
 				field: 'notes' as const,
-				message: 'Notes are up to 2000 characters.'
+				message: t().positions.refused.notesLong
 			});
 		}
 		if (typed.name.trim().length > 200) {
 			return fail(400, {
 				...typed,
 				field: 'name' as const,
-				message: 'A name is up to 200 characters.'
+				message: t().positions.refused.nameLong
 			});
 		}
 		const saved = updatePosition(

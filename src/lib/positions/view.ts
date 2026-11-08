@@ -1,4 +1,4 @@
-/** Every positions screen's words: PURE, client-safe. Strings come from the design boards. */
+/** Every positions screen's words: PURE, client-safe. The words are the catalog's (`positions`). */
 import { classDayLabel, dayMonth, monthHeading, plural, weekdayDayMonth } from '$lib/format';
 import { spotLabel } from '$lib/video/spots';
 import type { PickGroup, PickRow } from '$lib/picker/model';
@@ -12,36 +12,22 @@ import type {
 import { TWINS_CHIP } from '$lib/clones/twins';
 import { possessive } from '$lib/clones/view';
 import type { MenuItem } from '$lib/menu';
+import { t } from '$lib/i18n/catalog';
+import { lazyWords } from '$lib/i18n/lazy';
+import { styleLabelsOf } from '$lib/moves/figures';
 
 export { holdChips } from './hold';
 
 /** The label of a style tag; null (no type) reads as "Other". */
 export type StyleLabel = (tag: string | null) => string;
 
-const NUMBER_WORDS = [
-	'Zero',
-	'One',
-	'Two',
-	'Three',
-	'Four',
-	'Five',
-	'Six',
-	'Seven',
-	'Eight',
-	'Nine'
-];
-function capNumber(n: number): string {
-	return NUMBER_WORDS[n] ?? String(n);
-}
-
 // ---- the list ----
 
-export function taggedLine(t: { done: number; total: number }): string {
-	return `${t.done} of ${t.total} figures have positions.`;
+export function taggedLine(n: { done: number; total: number }): string {
+	return t().positions.list.tagged(n.done, n.total);
 }
 
-export const OPTIONAL_LINE =
-	'Positions are optional: a figure without one fits anywhere in a routine.';
+export const optionalLine = (): string => t().positions.list.optional;
 
 /**
  * A row's second line. A gap's word (dead end, orphan, island) is drawn after the text;
@@ -52,41 +38,42 @@ export function rowMeta(
 	styleLabel: StyleLabel
 ): {
 	text: string;
-	word: 'dead end' | 'orphan' | 'island' | null;
+	word: string | null;
 	tone: 'danger' | null;
 } {
+	const w = t().positions;
 	const parts = [styleLabel(r.styleTag)];
 	if (r.unused) {
-		parts.push('unused');
+		parts.push(w.list.unused);
 		return { text: parts.join(' · '), word: null, tone: null };
 	}
-	if (r.inCount > 0) parts.push(`${r.inCount} in`);
-	if (r.outCount > 0) parts.push(`${r.outCount} out`);
+	if (r.inCount > 0) parts.push(w.counts.ins(r.inCount));
+	if (r.outCount > 0) parts.push(w.counts.outs(r.outCount));
 	const text = parts.join(' · ');
-	if (r.deadEnd) return { text: `${text} ·`, word: 'dead end', tone: 'danger' };
-	if (r.orphan) return { text: `${text} ·`, word: 'orphan', tone: 'danger' };
-	if (r.island) return { text: `${text} ·`, word: 'island', tone: null };
+	if (r.deadEnd) return { text: `${text} ·`, word: w.gaps.deadEnd, tone: 'danger' };
+	if (r.orphan) return { text: `${text} ·`, word: w.gaps.orphan, tone: 'danger' };
+	if (r.island) return { text: `${text} ·`, word: w.gaps.island, tone: null };
 	return { text, word: null, tone: null };
 }
 
 /** A group's row: "Salsa · from Week 6". */
 export function groupRowMeta(r: PositionListRow, styleLabel: StyleLabel): string {
 	const type = styleLabel(r.styleTag);
-	return r.from ? `${type} · from ${r.from}` : type;
+	return r.from ? t().positions.list.fromLesson(type, r.from) : type;
 }
 
-export function noPositionRow(n: number): { title: 'No position'; meta: string } {
-	return { title: 'No position', meta: `${plural(n, 'figure', 'figures')} · they fit anywhere` };
+export function noPositionRow(n: number): { title: string; meta: string } {
+	const w = t().positions.none;
+	return { title: w.title, meta: w.rowMeta(n) };
 }
 
 export function noPositionHead(n: { none: number; onlyStart: number; onlyEnd: number }): string {
-	return `${plural(n.none + n.onlyStart + n.onlyEnd, 'figure', 'figures')} · ${n.none} with none, ${n.onlyStart + n.onlyEnd} with only a start or an end`;
+	return t().positions.none.head(n.none + n.onlyStart + n.onlyEnd, n.none, n.onlyStart + n.onlyEnd);
 }
 
-export const FITS_ANYWHERE = {
-	title: 'Fits anywhere',
-	body: 'A figure with no position can follow anything and lead into anything: the routine editor offers it everywhere and never marks a break for it.'
-} as const;
+export const FITS_ANYWHERE: { title: string; body: string } = lazyWords(
+	(c) => c.positions.none.fits
+);
 
 /** The No position page's groups (empty ones left out): no start and no end, only an end, only a start. */
 export function noPositionGroups(ids: {
@@ -94,10 +81,11 @@ export function noPositionGroups(ids: {
 	onlyStart: number[];
 	onlyEnd: number[];
 }): { title: string; ids: number[] }[] {
+	const w = t().positions.none.groups;
 	const groups = [
-		{ title: 'No start and no end', ids: ids.none },
-		{ title: 'Only an end', ids: ids.onlyEnd },
-		{ title: 'Only a start', ids: ids.onlyStart }
+		{ title: w.none, ids: ids.none },
+		{ title: w.onlyEnd, ids: ids.onlyEnd },
+		{ title: w.onlyStart, ids: ids.onlyStart }
 	];
 	return groups
 		.filter((g) => g.ids.length > 0)
@@ -106,7 +94,8 @@ export function noPositionGroups(ids: {
 
 /** The tag a half-tagged figure row shows: "ends in A, B" / "starts in A". */
 export function noPositionTag(side: 'start' | 'end', names: string[]): string {
-	return `${side === 'end' ? 'ends in' : 'starts in'} ${names.join(', ')}`;
+	const w = t().positions.none;
+	return side === 'end' ? w.endsIn(names.join(', ')) : w.startsIn(names.join(', '));
 }
 
 /** "Salsa · starts on 1 · 8 counts · 1 recording": the type, then what the figure row says. */
@@ -114,52 +103,52 @@ export function noPositionMeta(
 	type: string,
 	f: { startCount: number | null; lengthCounts: number | null; recordings: number }
 ): string {
+	const c = t();
 	const parts = [type];
-	if (f.startCount !== null) parts.push(`starts on ${f.startCount}`);
-	if (f.lengthCounts !== null) parts.push(plural(f.lengthCounts, 'count', 'counts'));
-	if (f.recordings > 0) parts.push(plural(f.recordings, 'recording', 'recordings'));
+	if (f.startCount !== null) parts.push(c.positions.none.startsOn(f.startCount));
+	if (f.lengthCounts !== null) parts.push(c.nouns.counts(f.lengthCounts));
+	if (f.recordings > 0) parts.push(c.nouns.recordings(f.recordings));
 	return parts.join(' · ');
 }
 
 /** The line under the Fits anywhere card when no figure is missing a position. */
-export const NO_POSITION_EMPTY = 'Every figure has a position on both sides.';
+export const noPositionEmpty = (): string => t().positions.none.empty;
 
-export const EMPTY = {
-	title: 'No positions yet',
-	body: 'Start from a template’s rough positions, or make your own.'
-} as const;
+export const EMPTY: { title: string; body: string } = lazyWords((c) => ({
+	title: c.positions.empty.title,
+	body: c.positions.empty.body
+}));
 
 /** The first-run (wide) body, which counts the figures. */
 export function firstRunBody(figures: number): string {
-	return `Your ${figures} figures have none, and that is fine: they fit anywhere. Add positions when you want routines checked for what can follow what.`;
+	return t().positions.empty.firstRun(figures);
 }
 
-export const GROUP_NOTE = 'The group’s own positions. Its figures can only be tagged with these.';
+export const groupNote = (): string => t().positions.list.groupNote;
 
 /** The empty state's three buttons. */
-export const EMPTY_ACTIONS = {
-	templates: 'Start from a template',
-	create: 'New position',
-	how: 'How positions work'
-} as const;
+export const EMPTY_ACTIONS: { templates: string; create: string; how: string } = lazyWords(
+	(c) => c.positions.empty.actions
+);
 
 /** The label over the list: the person's own as "Yours · 15"; a group's (group mode) by count. */
 export function listHeading(n: number, groupMode: boolean): string {
-	return groupMode ? plural(n, 'position', 'positions') : `Yours · ${n}`;
+	const c = t();
+	return groupMode ? c.nouns.positions(n) : c.positions.list.yours(n);
 }
 
 /** The row into the map, under No position. */
-export const MAP_ROW = 'The map';
+export const mapRow = (): string => t().positions.list.mapRow;
 
 /** A search or a chip that leaves nothing. */
-export const NO_MATCH = 'No positions match';
+export const noMatch = (): string => t().positions.list.noMatch;
 
 /** Only a group's positions so far: the person's own list starts here. */
-export const NONE_OWN = 'No positions of your own yet.';
+export const noneOwn = (): string => t().positions.list.noneOwn;
 
-/** A type's label; an untyped position reads as "Other". */
+/** A type's label, in the reader's language; an untyped position reads as "Other". */
 export function styleLabelOf(labels: Record<string, string>): StyleLabel {
-	return (tag) => (tag === null ? 'Other' : (labels[tag] ?? tag));
+	return (tag) => (tag === null ? t().moves.styles.other : (styleLabelsOf(labels)[tag] ?? tag));
 }
 
 /** The list's filter, as the URL carries it: the search is always a string, the rest only when set. */
@@ -209,6 +198,9 @@ export const OTHER_TYPE = 'other';
  * clears, another replaces. All clears both; no chip drops the search.
  */
 export function positionChips(filter: PositionFilter, o: PositionChipsOf): PositionChip[] {
+	const c = t();
+	const w = c.positions.list.chips;
+	const labels = styleLabelsOf(o.typeLabel);
 	const types =
 		!o.types.includes(OTHER_TYPE) && (o.untyped || filter.type === OTHER_TYPE)
 			? [...o.types, OTHER_TYPE]
@@ -216,22 +208,22 @@ export function positionChips(filter: PositionFilter, o: PositionChipsOf): Posit
 	const chips: PositionChip[] = [
 		{
 			key: 'all',
-			label: 'All',
+			label: w.all,
 			on: !filter.type && !filter.gaps && !filter.sync,
 			change: { type: undefined, gaps: undefined, sync: undefined }
 		},
-		...types.map((t) => ({
-			key: `type:${t}`,
-			label: o.typeLabel[t] ?? (t === OTHER_TYPE ? 'Other' : t),
-			on: filter.type === t,
-			change: { type: filter.type === t ? undefined : t }
+		...types.map((type) => ({
+			key: `type:${type}`,
+			label: labels[type] ?? (type === OTHER_TYPE ? c.moves.styles.other : type),
+			on: filter.type === type,
+			change: { type: filter.type === type ? undefined : type }
 		}))
 	];
 	const { gaps, groupMode } = o;
 	if (!groupMode && (o.hasOwn || filter.gaps)) {
 		chips.push({
 			key: 'gaps',
-			label: 'Gaps',
+			label: w.gaps,
 			count: gaps,
 			on: !!filter.gaps,
 			change: { gaps: filter.gaps ? undefined : '1' }
@@ -250,51 +242,19 @@ export function byGroupName(
 
 // ---- New position / Edit ----
 
-export const SHEET = {
-	newTitle: 'New position',
-	newSub: 'Type starts as your “New figures” type (Settings)',
-	add: 'Add position',
-	save: 'Save',
-	typeHelp: 'One, the same list as a figure’s type.',
-	crossed: 'Right hands on top',
-	archive: 'Archive position',
-	archiveBody:
-		'Archived like a figure: Restore brings it back. Its figures lose it and, with no other, have no position.',
-	picture: 'Picture',
-	change: 'Change',
-	pictureLegend: 'Its points'
-} as const;
+export const SHEET = lazyWords((c) => c.positions.sheet);
 
 /** A position's fields (New, Edit, the picker's create step): labels and hints. */
-export const FIELDS = {
-	name: 'Name',
-	namePlaceholder: 'e.g. Cerrada, Manos cruzadas',
-	type: 'Type',
-	hands: 'Hands',
-	crossed: 'Crossed',
-	facing: 'Facing',
-	frame: 'Frame',
-	notes: 'Notes',
-	notesPlaceholder: 'How the hands meet, where the weight is…'
-} as const;
+export const FIELDS = lazyWords((c) => c.positions.fields);
 
 /** A sheet's request that failed without the server saying why. */
-export const SHEET_FAILED = {
-	save: 'That did not save. Try again.',
-	archive: 'That did not archive. Try again.',
-	templates: 'Those were not added. Try again.'
-} as const;
+export const SHEET_FAILED = lazyWords((c) => c.positions.failed);
 
 /** A busy button's name, for a screen reader, while its spinner shows. */
-export const BUSY = {
-	adding: 'Adding position',
-	addingMany: 'Adding positions',
-	saving: 'Saving',
-	archiving: 'Archiving position'
-} as const;
+export const BUSY = lazyWords((c) => c.positions.busy);
 
 /** Templates' type switch, for a screen reader. */
-export const TEMPLATE_PICK = 'Template';
+export const templatePick = (): string => t().positions.templates.pick;
 
 /** An Unlink button's name: "Unlink Point at 1:12 from Manos cruzadas". */
 export function unlinkLabel(what: string, from: string): string {
@@ -317,26 +277,29 @@ export function notLinked(lesson: string): string {
 }
 
 export function editTitle(name: string): string {
-	return `Edit ${name}`;
+	return t().positions.editTitle(name);
 }
 
 /** A spot's video as the picture line names it: the lesson's title, or the recording's figure. */
 export function spotVideoLabel(v: SectionVideo): string {
-	return v.from.kind === 'lesson' ? v.from.title : `Recording · ${v.from.figure}`;
+	return v.from.kind === 'lesson' ? v.from.title : t().positions.recording(v.from.figure);
 }
 
 /** "From Week 6 · Setenta into Sombrero, video 1 at 1:12" (whole seconds, floored). */
 export function pictureLine(videoLabel: string, ms: number): string {
 	const s = Math.floor(ms / 1000);
-	return `From ${videoLabel} at ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+	return t().positions.pictureLine(
+		videoLabel,
+		`${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+	);
 }
 
 // ---- Templates ----
 
-export const TEMPLATES_TITLE = 'Start from a template';
+export const templatesTitle = (): string => t().positions.templates.title;
 /** The list's button into Templates, beside How positions work. */
-export const TEMPLATES_BUTTON = 'Templates';
-export const YOU_HAVE_IT = 'You have it';
+export const templatesButton = (): string => t().positions.list.templates;
+export const youHaveIt = (): string => t().positions.templates.youHaveIt;
 
 // ---- a position's page ----
 
@@ -349,15 +312,20 @@ export function positionSubtitle(
 	_p: PositionSummary,
 	opts: { teamName?: string; lead?: string; ins: number; outs: number; styleLabel?: StyleLabel }
 ): string {
-	const lead = opts.lead ?? (opts.teamName ? `${possessive(opts.teamName)} position` : 'Position');
-	return `${lead} · ${opts.ins} in · ${opts.outs} out`;
+	const w = t().positions;
+	const lead = opts.lead ?? (opts.teamName ? w.page.teamPosition(opts.teamName) : w.page.position);
+	return `${lead} · ${w.counts.ins(opts.ins)} · ${w.counts.outs(opts.outs)}`;
 }
 
 /** A relation line, led by a group's name for a group's figure in a person's app. */
 function relationLine(line: string, team?: string | null): string {
-	if (team) return line ? `${possessive(team)} · ${line}` : possessive(team);
+	const lead = t().positions.page.team;
+	if (team) return line ? `${lead(team)} · ${line}` : lead(team);
 	return line ? line[0].toUpperCase() + line.slice(1) : '';
 }
+
+/** Names joined " or ". */
+const either = (names: string[]): string => names.join(` ${t().positions.tags.or} `);
 
 /**
  * A figure's line in the Figures from here sheet: where it ends ("Ends in
@@ -365,21 +333,23 @@ function relationLine(line: string, team?: string | null): string {
  * group ("Salsa Tuesdays’ · ends in …"). No end: nothing, or the group alone.
  */
 export function fromMeta(f: { ends: string[]; team?: string | null }): string {
-	return relationLine(f.ends.length === 0 ? '' : `ends in ${f.ends.join(' or ')}`, f.team);
+	return relationLine(f.ends.length === 0 ? '' : t().positions.page.endsIn(either(f.ends)), f.team);
 }
 
 /** A figure's line in the Figures into here sheet: "From Cerrada", led by its group as above. */
 export function intoMeta(f: { starts: string[]; team?: string | null }): string {
-	return relationLine(f.starts.length === 0 ? '' : `from ${f.starts.join(' or ')}`, f.team);
+	return relationLine(
+		f.starts.length === 0 ? '' : t().positions.page.from(either(f.starts)),
+		f.team
+	);
 }
 
 export type PositionRelation = 'from' | 'into' | 'routines';
 
-const RELATION_LABEL: Record<PositionRelation, string> = {
-	from: 'Figures from here',
-	into: 'Figures into here',
-	routines: 'In routines'
-};
+function relationLabel(key: PositionRelation): string {
+	const c = t();
+	return key === 'routines' ? c.figure.relations.routines : c.positions.page.relations[key];
+}
 
 /**
  * The card of three rows at the page's end (as the figure page's Follows from,
@@ -391,22 +361,24 @@ export function relationRows(c: {
 	into: number;
 	routines: number;
 }): { key: PositionRelation; label: string; count: string; opens: boolean }[] {
+	const none = t().figure.relations.none;
 	return (['from', 'into', 'routines'] as const).map((key) => ({
 		key,
-		label: RELATION_LABEL[key],
-		count: c[key] === 0 ? 'None' : String(c[key]),
+		label: relationLabel(key),
+		count: c[key] === 0 ? none : String(c[key]),
 		opens: c[key] > 0
 	}));
 }
 
 /** A row's sheet title: "Figures from here" (its count is on the row), "In 3 routines". */
 export function relationTitle(key: PositionRelation, n: number): string {
-	return key === 'routines' ? `In ${plural(n, 'routine', 'routines')}` : RELATION_LABEL[key];
+	return key === 'routines' ? t().figure.relations.inRoutines(n) : relationLabel(key);
 }
 
 /** The sheet's New in its title row, for a screen reader: a figure starting (or ending) here. */
 export function newFigureLabel(key: 'from' | 'into', name: string): string {
-	return `New figure ${key} ${name}`;
+	const w = t().positions.page;
+	return key === 'from' ? w.newFrom(name) : w.newInto(name);
 }
 
 /**
@@ -421,12 +393,13 @@ export function positionMenuItems(i: {
 	mapHref: string | null;
 	historyHref: string | null;
 }): MenuItem[] {
+	const w = t().positions.page.menu;
 	const items: MenuItem[] = [];
 	if (i.newFrom)
 		items.push({
 			key: 'newFrom',
 			icon: 'plus',
-			label: 'New figure from here',
+			label: w.newFrom,
 			meta: presetLine({ side: 'start', name: i.name }),
 			href: i.newFrom
 		});
@@ -434,36 +407,33 @@ export function positionMenuItems(i: {
 		items.push({
 			key: 'newInto',
 			icon: 'plus',
-			label: 'New figure into here',
+			label: w.newInto,
 			meta: presetLine({ side: 'end', name: i.name }),
 			href: i.newInto
 		});
-	if (i.mapHref)
-		items.push({ key: 'map', icon: 'graph', label: 'Show on the map', href: i.mapHref });
+	if (i.mapHref) items.push({ key: 'map', icon: 'graph', label: w.map, href: i.mapHref });
 	if (i.historyHref)
-		items.push({ key: 'history', icon: 'clock', label: 'History', href: i.historyHref });
+		items.push({ key: 'history', icon: 'clock', label: w.history, href: i.historyHref });
 	return items;
 }
 
 /** The note at the top of a group's position, for a reader: where it came from, and what that means. */
 export function positionFromLessonNote(lesson: string, team: string): string {
-	return `From ${lesson}. Tag your figures with it as it is; it stays ${possessive(team)}.`;
+	return t().positions.page.fromLessonNote(lesson, team);
 }
 
 /** Under a reader's Edit. */
-export const MAKE_MINE_NOTE =
-	'Edit makes it yours (Make it mine); your figures tagged with it move over.';
+export const makeMineNote = (): string => t().positions.page.makeMineNote;
 
 /** An archived position's page: what it says, and its way back. */
-export const ARCHIVED = {
-	title: 'Archived',
-	body: 'Its figures no longer show it. Restore brings it back.',
-	restore: 'Restore'
-} as const;
+export const ARCHIVED: { title: string; body: string; restore: string } = lazyWords(
+	(c) => c.positions.page.archived
+);
 
 /** New move from a position: the line in the sheet that says which tag it gets. */
 export function presetLine(p: { side: 'start' | 'end'; name: string }): string {
-	return `${p.side === 'start' ? 'Starts in' : 'Ends in'} ${p.name}`;
+	const w = t().positions.preset;
+	return p.side === 'start' ? w.starts(p.name) : w.ends(p.name);
 }
 
 /** The figures list's params that open New move and preset its tag (ruling 8). */
@@ -483,34 +453,25 @@ export function withoutPreset(url: URL): string | null {
 }
 
 /** New move from a position whose position is gone (or no longer theirs) since the link was opened. */
-export const PRESET_GONE =
-	'That position can no longer tag a figure here. Add the move without it.';
+export const presetGone = (): string => t().positions.preset.gone;
 
-export function deadEnd(
-	name: string,
-	n: number
-): { title: 'Dead end'; body: string; action: string } {
-	return {
-		title: 'Dead end',
-		body: `${capNumber(n)} ${n === 1 ? 'figure ends' : 'figures end'} in ${name} and nothing you know leaves it. A routine that gets here stops.`,
-		action: `New figure from ${name}`
-	};
+export function deadEnd(name: string, n: number): { title: string; body: string; action: string } {
+	const w = t().positions.page;
+	return { title: w.deadEnd.title, body: w.deadEnd.body(name, n), action: w.newFrom(name) };
 }
 
-export function orphan(name: string, n: number): { title: 'Orphan'; body: string; action: string } {
-	return {
-		title: 'Orphan',
-		body: `${capNumber(n)} ${n === 1 ? 'figure leaves' : 'figures leave'} ${name} and nothing you know ends in it.`,
-		action: `New figure into ${name}`
-	};
+export function orphan(name: string, n: number): { title: string; body: string; action: string } {
+	const w = t().positions.page;
+	return { title: w.orphan.title, body: w.orphan.body(name, n), action: w.newInto(name) };
 }
 
 /** "Slots 2 → 3" / "Slots 5 → 6 and 9 → 10". */
 export function throughMeta(pairs: [number, number][]): string {
+	const w = t().positions.page;
 	const parts = pairs.map(([a, b]) => `${a} → ${b}`);
 	const last = parts.pop();
 	if (last === undefined) return '';
-	return `Slots ${parts.length ? `${parts.join(', ')} and ` : ''}${last}`;
+	return w.through(pairs.length, `${parts.length ? `${parts.join(', ')} ${w.and} ` : ''}${last}`);
 }
 
 /** A point card's second line: its video, and "the picture" when it is the position's. */
@@ -757,47 +718,40 @@ export const HOW_PANE_SUBTITLE = 'Optional: read once, then decide';
 // ---- templates ----
 
 export function templatesNote(typeLabel: string): string {
-	return `Rough positions to start from: rename, change or remove them later. They get the type ${typeLabel}. What you already have by name is skipped.`;
+	return t().positions.templates.note(typeLabel);
 }
 
 export function addLabel(n: number): string {
-	return `Add ${plural(n, 'position', 'positions')}`;
+	return t().positions.templates.add(n);
 }
 
 // ---- the figure's tags ----
 
-export const tagsEmpty = 'No position · fits anywhere';
+export const tagsEmpty = (): string => t().positions.tags.empty;
 
-export const TAGS_HELP =
-	'Any number of each. In a routine, the next figure fits when it starts in any of these ends.';
+export const tagsHelp = (): string => t().positions.tags.help;
 
 /** The picker's group of the figure's own type: "Salsa · this figure’s type". */
 export function figureTypeTitle(type: string): string {
-	return `${type} · this figure’s type`;
+	return t().positions.tags.figureType(type);
 }
 
 /** A group's position in a person's picker: "Salsa · tag with it as it is". */
 export function tagAsItIs(type: string): string {
-	return `${type} · tag with it as it is`;
+	return t().positions.tags.asItIs(type);
 }
 
 /** The picker's clearing row. */
-export const TAGS_CLEAR = { label: 'No position', meta: 'Fits anywhere · the default' } as const;
+export const TAGS_CLEAR: { label: string; meta: string } = lazyWords((c) => c.positions.tags.clear);
 
 /** The two pickers' words; `sub` is "Enchufla · Doble · Salsa". */
-export const TAGS_PICKER = {
-	starts: 'Starts in',
-	ends: 'Ends in',
-	search: 'Search positions',
-	create: 'Position',
-	nothingLeft: 'No positions yet.'
-} as const;
+export const TAGS_PICKER = lazyWords((c) => c.positions.tags.picker);
 
 /** The create step's line under New position. */
-export const TAGS_NEW_SUB = 'Its type starts as this figure’s.';
+export const tagsNewSub = (): string => t().positions.tags.newSub;
 
 /** A create step that failed without the server saying why. */
-export const TAGS_CREATE_FAILED = 'That could not be created. Try it again.';
+export const tagsCreateFailed = (): string => t().positions.tags.createFailed;
 
 export function tagsSub(figureLabel: string, type: string | null): string {
 	return type ? `${figureLabel} · ${type}` : figureLabel;
@@ -805,13 +759,14 @@ export function tagsSub(figureLabel: string, type: string | null): string {
 
 /** The figure page's handholds line: starts and ends joined " or "; none reads "No position". */
 export function handholds(starts: string[], ends: string[]): { from: string; to: string } {
-	const join = (xs: string[]) => (xs.length === 0 ? 'No position' : xs.join(' or '));
+	const none = t().positions.tags.none;
+	const join = (xs: string[]) => (xs.length === 0 ? none : either(xs));
 	return { from: join(starts), to: join(ends) };
 }
 
 /** A sibling's handholds on one line: "Cerrada or Manos cruzadas → Caída"; none at all, "No position". */
 export function holdsLine(starts: string[], ends: string[]): string {
-	if (starts.length === 0 && ends.length === 0) return 'No position';
+	if (starts.length === 0 && ends.length === 0) return t().positions.tags.none;
 	const h = handholds(starts, ends);
 	return `${h.from} → ${h.to}`;
 }

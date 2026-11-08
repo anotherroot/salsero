@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	EMPTY_HOLD,
 	FACING,
 	FRAME,
 	HANDS,
+	HANDS_LABEL,
 	HANDS_SHORT,
+	crossedLabel,
+	notCrossedLabel,
 	holdChips,
 	holdLine,
 	parseHold
@@ -53,5 +57,25 @@ describe('parseHold', () => {
 		f.set('hands', 'three');
 		f.set('facing', '');
 		expect(parseHold(f)).toEqual(EMPTY_HOLD);
+	});
+});
+
+describe('hold words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('reads the chips and the form’s choices in the reader’s language', () => {
+		expect(
+			sl(() => holdChips({ hands: 'two', crossed: null, facing: 'face', frame: 'open' }))
+		).toEqual(['Dve roki', 'Obraz v obraz', 'Odprta']);
+		expect(sl(() => holdLine(full))).toBe(
+			'Dve roki · prekrižani, desna zgoraj · obraz v obraz · odprta'
+		);
+		expect(sl(() => HANDS_LABEL.none)).toBe('Brez rok');
+		expect(sl(() => HANDS.map((h) => HANDS_SHORT[h]))).toEqual(['Dve', 'Ena', 'Brez']);
+		expect(sl(() => [crossedLabel(), notCrossedLabel()])).toEqual([
+			'Prekrižani, desna zgoraj',
+			'Neprekrižani'
+		]);
+		// Read again outside: the table is not stuck in the language it was first read in.
+		expect(HANDS_LABEL.none).toBe('No hands');
 	});
 });

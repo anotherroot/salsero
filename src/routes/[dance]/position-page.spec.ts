@@ -49,7 +49,8 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
-import { ARCHIVED_LINKS, PRESET_GONE } from '$lib/positions/view';
+import { runInLocale } from '$lib/server/i18n-request';
+import { ARCHIVED_LINKS, presetGone } from '$lib/positions/view';
 import { actions, load } from './(moves)/positions/[id]/+page.server';
 import { actions as figureList, load as figureLoad } from './(moves)/figures/+page.server';
 
@@ -564,7 +565,7 @@ describe('New move from a position (ruling 8)', () => {
 		const r = await create('u3', { start: String(theirs) });
 		expect(r).toMatchObject({
 			status: 400,
-			data: { message: PRESET_GONE, presetGone: true, figureName: 'Caída out' }
+			data: { message: presetGone(), presetGone: true, figureName: 'Caída out' }
 		});
 		expect(made()).toEqual([]);
 		expect(db.select().from(figureStartPositions).all()).toEqual([]);
@@ -974,6 +975,24 @@ describe('Video and Lessons: links from the page', () => {
 		expect(await act('unlinkLesson', 'u2', o.p, via)).toMatchObject({
 			status: 400,
 			data: { action: 'unlinkLesson' }
+		});
+	});
+});
+
+describe('update in Slovenian', () => {
+	it('refuses a long name and long notes in Slovenian', async () => {
+		const p = addPosition(db, U2_SALSA, 'Cerrada');
+		expect(
+			await runInLocale('sl', () => act('update', 'u2', p, fields({ name: 'x'.repeat(201) })))
+		).toMatchObject({
+			status: 400,
+			data: { field: 'name', message: 'Ime ima lahko največ 200 znakov.' }
+		});
+		expect(
+			await runInLocale('sl', () => act('update', 'u2', p, fields({ notes: 'x'.repeat(2001) })))
+		).toMatchObject({
+			status: 400,
+			data: { field: 'notes', message: 'Opombe imajo lahko največ 2000 znakov.' }
 		});
 	});
 });

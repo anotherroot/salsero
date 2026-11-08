@@ -9,13 +9,14 @@
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { DANCES, type DanceSlug } from '$lib/dances/dances';
 	import { fold } from '$lib/fold';
+	import { styleLabelsOf } from '$lib/moves/figures';
 	import { TEMPLATES, firstTemplateType, templateTypes } from '$lib/positions/templates';
 	import {
 		BUSY,
 		SHEET_FAILED,
-		TEMPLATE_PICK,
-		TEMPLATES_TITLE,
-		YOU_HAVE_IT,
+		templatePick,
+		templatesTitle,
+		youHaveIt,
 		addLabel,
 		templatesNote
 	} from '$lib/positions/view';
@@ -47,7 +48,7 @@
 
 	const formId = $props.id();
 	const types = $derived(templateTypes(dance));
-	const labels = $derived(DANCES[dance].styleLabel);
+	const labels = $derived(styleLabelsOf(DANCES[dance].styleLabel));
 	// svelte-ignore state_referenced_locally
 	let type = $state<string | null>(firstTemplateType(dance, defaultStyle));
 	const have = $derived(new Set(owned));
@@ -69,7 +70,7 @@
 	}
 </script>
 
-<Sheet title={TEMPLATES_TITLE} {open} {onclose}>
+<Sheet title={templatesTitle()} {open} {onclose}>
 	<form
 		id={formId}
 		method="POST"
@@ -101,7 +102,7 @@
 		{#if types.length > 1}
 			<Segmented
 				name="type"
-				label={TEMPLATE_PICK}
+				label={templatePick()}
 				items={types.map((t) => ({ value: t, label: labels[t] ?? t }))}
 				bind:value={type}
 			/>
@@ -118,7 +119,7 @@
 						<span class="text-[13px] text-muted">{r.description}</span>
 					</span>
 					{#if r.had}
-						<Badge>{YOU_HAVE_IT}</Badge>
+						<Badge>{youHaveIt()}</Badge>
 					{:else}
 						<input
 							type="checkbox"

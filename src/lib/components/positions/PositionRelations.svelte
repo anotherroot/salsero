@@ -14,6 +14,10 @@
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
+
+	/** The figure page's words for the same sheets. */
+	const rel = () => t().figure.relations;
 
 	type FromRow = { id: number; label: string; ends: string[]; team: string | null };
 	type IntoRow = { id: number; label: string; starts: string[]; team: string | null };
@@ -84,7 +88,7 @@
 <!-- tabindex: where focus lands when an Unlink leaves nothing else to take it (`unlinkFocus`). -->
 <ul
 	class={GROUP}
-	aria-label="Figures and routines through this position"
+	aria-label={t().positions.page.relationsLabel}
 	tabindex="-1"
 	data-focus="relations"
 >
@@ -144,19 +148,19 @@
 				onclick={(e) => {
 					e.preventDefault();
 					go(target);
-				}}><Icon name="plus" size={18} />New</a
+				}}><Icon name="plus" size={18} />{t().positions.page.new}</a
 			>
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3">
 		<SearchField
 			bind:value={q}
-			placeholder={shown === 'routines' ? 'Search routines' : 'Search figures'}
-			label={shown === 'routines' ? 'Search routines' : 'Search figures'}
+			placeholder={shown === 'routines' ? rel().searchRoutines : rel().searchFigures}
+			label={shown === 'routines' ? rel().searchRoutines : rel().searchFigures}
 		/>
 		{#if shown === 'routines'}
 			{#if routineRows.length === 0}
-				<p class="px-4 py-3 text-[15px] text-muted">No routine matches.</p>
+				<p class="px-4 py-3 text-[15px] text-muted">{rel().noRoutine}</p>
 			{:else}
 				<ul class={GROUP}>
 					{#each routineRows as r (r.id)}
@@ -165,7 +169,7 @@
 				</ul>
 			{/if}
 		{:else if figures.length === 0}
-			<p class="px-4 py-3 text-[15px] text-muted">No figure matches.</p>
+			<p class="px-4 py-3 text-[15px] text-muted">{rel().noFigure}</p>
 		{:else}
 			<ul class={GROUP}>
 				{#each figures as f (f.id)}

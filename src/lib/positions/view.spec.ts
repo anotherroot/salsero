@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PositionListRow } from '$lib/types';
+import { withLocale } from '$lib/i18n/current';
 import { EMPTY_HOLD } from './hold';
 import * as v from './view';
 
@@ -26,8 +27,8 @@ describe('positions view', () => {
 	it('taggedLine', () => {
 		expect(v.taggedLine({ done: 31, total: 41 })).toBe('31 of 41 figures have positions.');
 	});
-	it('OPTIONAL_LINE', () => {
-		expect(v.OPTIONAL_LINE).toBe(
+	it('optionalLine', () => {
+		expect(v.optionalLine()).toBe(
 			'Positions are optional: a figure without one fits anywhere in a routine.'
 		);
 	});
@@ -88,7 +89,7 @@ describe('positions view', () => {
 			{ title: 'Only an end · 1', ids: [9] }
 		]);
 	});
-	it('noPositionTag, noPositionMeta and NO_POSITION_EMPTY', () => {
+	it('noPositionTag, noPositionMeta and noPositionEmpty', () => {
 		expect(v.noPositionTag('end', ['Manos cruzadas'])).toBe('ends in Manos cruzadas');
 		expect(v.noPositionTag('start', ['Sombrero', 'Cerrada'])).toBe('starts in Sombrero, Cerrada');
 		expect(v.noPositionMeta('Salsa', { startCount: 1, lengthCounts: 8, recordings: 1 })).toBe(
@@ -97,7 +98,7 @@ describe('positions view', () => {
 		expect(v.noPositionMeta('Son', { startCount: null, lengthCounts: null, recordings: 0 })).toBe(
 			'Son'
 		);
-		expect(v.NO_POSITION_EMPTY).toBe('Every figure has a position on both sides.');
+		expect(v.noPositionEmpty()).toBe('Every figure has a position on both sides.');
 	});
 	it('EMPTY and firstRunBody', () => {
 		expect(v.EMPTY).toEqual({
@@ -108,8 +109,8 @@ describe('positions view', () => {
 			'Your 41 figures have none, and that is fine: they fit anywhere. Add positions when you want routines checked for what can follow what.'
 		);
 	});
-	it('GROUP_NOTE', () => {
-		expect(v.GROUP_NOTE).toBe(
+	it('groupNote', () => {
+		expect(v.groupNote()).toBe(
 			'The group’s own positions. Its figures can only be tagged with these.'
 		);
 	});
@@ -227,8 +228,8 @@ describe('positions view', () => {
 		expect(v.addLabel(1)).toBe('Add 1 position');
 	});
 	it('tags words', () => {
-		expect(v.tagsEmpty).toBe('No position · fits anywhere');
-		expect(v.TAGS_HELP).toBe(
+		expect(v.tagsEmpty()).toBe('No position · fits anywhere');
+		expect(v.tagsHelp()).toBe(
 			'Any number of each. In a routine, the next figure fits when it starts in any of these ends.'
 		);
 	});
@@ -256,9 +257,9 @@ describe('the list’s heading, rows and chips', () => {
 		expect(v.listHeading(15, false)).toBe('Yours · 15');
 		expect(v.listHeading(5, true)).toBe('5 positions');
 		expect(v.listHeading(1, true)).toBe('1 position');
-		expect(v.MAP_ROW).toBe('The map');
-		expect(v.NO_MATCH).toBe('No positions match');
-		expect(v.NONE_OWN).toBe('No positions of your own yet.');
+		expect(v.mapRow()).toBe('The map');
+		expect(v.noMatch()).toBe('No positions match');
+		expect(v.noneOwn()).toBe('No positions of your own yet.');
 		expect(v.HOW_EXAMPLE_LABEL).toBe('A position, a figure, the next position');
 	});
 	it('labels a type, an untyped one as Other', () => {
@@ -389,7 +390,7 @@ describe('words that were in the screens', () => {
 			saving: 'Saving',
 			archiving: 'Archiving position'
 		});
-		expect(v.TEMPLATE_PICK).toBe('Template');
+		expect(v.templatePick()).toBe('Template');
 	});
 	it('names what an Unlink takes from where', () => {
 		expect(v.unlinkLabel('Point at 1:12', 'Manos cruzadas')).toBe(
@@ -449,9 +450,9 @@ describe('the position sheet’s words', () => {
 			create: 'New position',
 			how: 'How positions work'
 		});
-		expect(v.TEMPLATES_TITLE).toBe('Start from a template');
-		expect(v.YOU_HAVE_IT).toBe('You have it');
-		expect(v.TEMPLATES_BUTTON).toBe('Templates');
+		expect(v.templatesTitle()).toBe('Start from a template');
+		expect(v.youHaveIt()).toBe('You have it');
+		expect(v.templatesButton()).toBe('Templates');
 	});
 });
 
@@ -485,7 +486,7 @@ describe('a position’s page', () => {
 		expect(v.positionFromLessonNote('Week 6', 'Salsa Tuesdays')).toBe(
 			'From Week 6. Tag your figures with it as it is; it stays Salsa Tuesdays’.'
 		);
-		expect(v.MAKE_MINE_NOTE).toBe(
+		expect(v.makeMineNote()).toBe(
 			'Edit makes it yours (Make it mine); your figures tagged with it move over.'
 		);
 	});
@@ -549,7 +550,7 @@ describe('a position’s page', () => {
 	it('words New move from a position', () => {
 		expect(v.presetLine({ side: 'start', name: 'Caída' })).toBe('Starts in Caída');
 		expect(v.presetLine({ side: 'end', name: 'Caída' })).toBe('Ends in Caída');
-		expect(v.PRESET_GONE).toBe(
+		expect(v.presetGone()).toBe(
 			'That position can no longer tag a figure here. Add the move without it.'
 		);
 	});
@@ -865,5 +866,190 @@ describe("a position's Video and Lessons", () => {
 		});
 		expect(v.POINT_PROBLEM.unplayable.title).toBe('Can’t play here');
 		expect(v.playFrom(72_400)).toBe('Play from 1:12');
+	});
+});
+
+describe('positions in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('counts the list’s heading in the nominative, and the person’s own as Vaši', () => {
+		expect([1, 2, 3, 5].map((n) => sl(() => v.listHeading(n, true)))).toEqual([
+			'1 položaj',
+			'2 položaja',
+			'3 položaji',
+			'5 položajev'
+		]);
+		expect(sl(() => v.listHeading(4, false))).toBe('Vaši · 4');
+	});
+
+	it('counts Add in the accusative', () => {
+		expect([1, 2, 3, 5, 102].map((n) => sl(() => v.addLabel(n)))).toEqual([
+			'Dodaj 1 položaj',
+			'Dodaj 2 položaja',
+			'Dodaj 3 položaje',
+			'Dodaj 5 položajev',
+			'Dodaj 102 položaja'
+		]);
+	});
+
+	it('agrees No position’s verb with the count', () => {
+		expect([1, 2, 3, 5, 101].map((n) => sl(() => v.noPositionRow(n)))).toEqual([
+			{ title: 'Brez položaja', meta: '1 različica · ustreza kjer koli' },
+			{ title: 'Brez položaja', meta: '2 različici · ustrezata kjer koli' },
+			{ title: 'Brez položaja', meta: '3 različice · ustrezajo kjer koli' },
+			{ title: 'Brez položaja', meta: '5 različic · ustreza kjer koli' },
+			{ title: 'Brez položaja', meta: '101 različica · ustreza kjer koli' }
+		]);
+		expect(sl(() => v.noPositionHead({ none: 2, onlyStart: 1, onlyEnd: 2 }))).toBe(
+			'5 različic · brez: 2, le z začetkom ali koncem: 3'
+		);
+		expect(sl(() => v.noPositionTag('end', ['Caída', 'Cerrada']))).toBe('konča v: Caída, Cerrada');
+		expect(
+			sl(() => v.noPositionMeta('Salsa', { startCount: 1, lengthCounts: 8, recordings: 2 }))
+		).toBe('Salsa · začne na 1 · 8 dob · 2 posnetka');
+		expect(
+			sl(() => v.noPositionGroups({ none: [1], onlyStart: [2, 3], onlyEnd: [] })).map(
+				(g) => g.title
+			)
+		).toEqual(['Brez začetka in konca · 1', 'Samo začetek · 2']);
+		expect(sl(() => v.FITS_ANYWHERE.title)).toBe('Ustreza kjer koli');
+		expect(sl(v.noPositionEmpty)).toBe('Vsaka različica ima položaj na začetku in na koncu.');
+	});
+
+	it('words a row: its counts, its gap and a group’s lesson', () => {
+		expect(
+			sl(() => v.rowMeta(row({ styleTag: 'timba', inCount: 2, outCount: 5, deadEnd: true }), label))
+		).toEqual({ text: 'Timba · 2 prihoda · 5 odhodov ·', word: 'slepa ulica', tone: 'danger' });
+		expect(sl(() => v.rowMeta(row({ unused: true }), label)).text).toBe('Salsa · neuporabljen');
+		expect(sl(() => v.rowMeta(row({ outCount: 1, orphan: true }), label)).word).toBe('nedosegljiv');
+		expect(sl(() => v.groupRowMeta(row({ from: 'Week 6' }), label))).toBe(
+			'Salsa · lekcija: Week 6'
+		);
+		expect(sl(() => v.taggedLine({ done: 31, total: 41 }))).toBe('Različice s položaji: 31 od 41.');
+	});
+
+	it('names an untyped position and a type in the reader’s language', () => {
+		const of = v.styleLabelOf({ dominican: 'Dominican', salsa: 'Salsa' });
+		expect(sl(() => [of(null), of('dominican'), of('salsa')])).toEqual([
+			'Drugo',
+			'Dominikanska',
+			'Salsa'
+		]);
+	});
+
+	it('labels the chips', () => {
+		const chips = sl(() =>
+			v.positionChips(
+				{ q: '' },
+				{
+					types: ['dominican'],
+					typeLabel: { dominican: 'Dominican' },
+					gaps: 2,
+					groupMode: false,
+					hasOwn: true,
+					untyped: true
+				}
+			)
+		);
+		expect(chips.map((c) => c.label)).toEqual(['Vsi', 'Dominikanska', 'Drugo', 'Vrzeli']);
+	});
+
+	it('reads the sheet’s words when they are read, not at import', () => {
+		expect(sl(() => [v.SHEET.newTitle, v.FIELDS.type, v.BUSY.adding, v.SHEET_FAILED.save])).toEqual(
+			['Nov položaj', 'Slog', 'Dodajanje položaja', 'Shranjevanje ni uspelo. Poskusite znova.']
+		);
+		expect(v.SHEET.newTitle).toBe('New position');
+		expect(sl(() => v.editTitle('Cerrada'))).toBe('Uredi: Cerrada');
+		expect(sl(() => v.pictureLine('Week 6', 72_400))).toBe('Iz: Week 6, pri 1:12');
+		expect(
+			sl(() =>
+				v.spotVideoLabel({
+					from: { kind: 'recording', figure: 'Kentucky · Doble' }
+				} as never)
+			)
+		).toBe('Posnetek · Kentucky · Doble');
+	});
+
+	it('words Templates', () => {
+		expect(sl(() => [v.templatesTitle(), v.templatesButton(), v.youHaveIt()])).toEqual([
+			'Začni s predlogo',
+			'Predloge',
+			'Že imate'
+		]);
+		expect(sl(() => v.templatesNote('Son'))).toBe(
+			'Grobi položaji za začetek: pozneje jih preimenujte, spremenite ali odstranite. Dobijo slog: Son. Kar že imate s tem imenom, se preskoči.'
+		);
+	});
+
+	it('words a position’s page: its subtitle, its rows and its gaps', () => {
+		expect(sl(() => v.positionSubtitle({} as never, { ins: 4, outs: 3 }))).toBe(
+			'Položaj · 4 prihodi · 3 odhodi'
+		);
+		expect(
+			sl(() => v.positionSubtitle({} as never, { teamName: 'Tuesdays', ins: 1, outs: 0 }))
+		).toBe('Položaj · Tuesdays · 1 prihod · 0 odhodov');
+		expect(sl(() => v.fromMeta({ ends: ['Cerrada', 'Abierta'] }))).toBe(
+			'Konča v: Cerrada ali Abierta'
+		);
+		expect(sl(() => v.intoMeta({ starts: ['Cerrada'], team: 'Tuesdays' }))).toBe(
+			'Skupina · Tuesdays · iz: Cerrada'
+		);
+		expect(sl(() => v.relationRows({ from: 2, into: 0, routines: 1 }))).toEqual([
+			{ key: 'from', label: 'Različice od tod', count: '2', opens: true },
+			{ key: 'into', label: 'Različice, ki vodijo sem', count: 'Nobena', opens: false },
+			{ key: 'routines', label: 'V kombinacijah', count: '1', opens: true }
+		]);
+		expect(sl(() => v.relationTitle('routines', 2))).toBe('V 2 kombinacijah');
+		expect(sl(() => v.deadEnd('Caída', 2))).toEqual({
+			title: 'Slepa ulica',
+			body: 'Tu se končata 2 različici, nič, kar poznate, pa ne gre od tod. Kombinacija, ki pride sem, se ustavi.',
+			action: 'Nova različica od tod: Caída'
+		});
+		expect(sl(() => v.orphan('Caída', 3).body)).toBe(
+			'Od tod gredo 3 različice, nič, kar poznate, pa se ne konča tu.'
+		);
+		expect(sl(() => v.orphan('Caída', 1).body)).toBe(
+			'Od tod gre 1 različica, nič, kar poznate, pa se ne konča tu.'
+		);
+		expect(sl(() => v.throughMeta([[2, 3]]))).toBe('Mesti 2 → 3');
+		expect(
+			sl(() =>
+				v.throughMeta([
+					[5, 6],
+					[9, 10]
+				])
+			)
+		).toBe('Mesta 5 → 6 in 9 → 10');
+		expect(sl(() => v.presetLine({ side: 'end', name: 'Cerrada' }))).toBe('Konča v: Cerrada');
+		expect(sl(v.presetGone)).toBe(
+			'Ta položaj tu ne more več označiti različice. Figuro dodajte brez njega.'
+		);
+		expect(sl(() => v.ARCHIVED.restore)).toBe('Obnovi');
+		expect(
+			sl(() =>
+				v
+					.positionMenuItems({
+						name: 'Cerrada',
+						newFrom: '/a',
+						newInto: null,
+						mapHref: '/m',
+						historyHref: null
+					})
+					.map((i) => [i.label, i.meta ?? null])
+			)
+		).toEqual([
+			['Nova različica od tod', 'Začne v: Cerrada'],
+			['Pokaži na zemljevidu', null]
+		]);
+	});
+
+	it('words a figure’s tags and its handholds', () => {
+		expect(sl(v.tagsEmpty)).toBe('Brez položaja · ustreza kjer koli');
+		expect(sl(() => v.TAGS_PICKER.starts)).toBe('Začne v');
+		expect(sl(() => v.figureTypeTitle('Son'))).toBe('Son · slog te različice');
+		expect(sl(() => v.holdsLine([], []))).toBe('Brez položaja');
+		expect(sl(() => v.holdsLine(['Cerrada', 'Abierta'], []))).toBe(
+			'Cerrada ali Abierta → Brez položaja'
+		);
 	});
 });

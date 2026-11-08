@@ -71,6 +71,7 @@ import { lesson } from './lesson';
 import { moves } from './moves';
 import { nouns } from './nouns';
 import { player } from './player';
+import { positions } from './positions';
 import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
@@ -96,5 +97,6 @@ export const sl: Catalog = {
 	groups,
 	moves,
 	figure,
-	routine
+	routine,
+	positions
 };

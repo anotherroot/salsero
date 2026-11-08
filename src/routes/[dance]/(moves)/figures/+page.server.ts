@@ -10,7 +10,7 @@ import { DANCES } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { actorOf, inSpace, wallOf, type Space } from '$lib/server/scope';
 import { groupModeOf, spaceOf } from '$lib/server/group-mode';
-import { PRESET_GONE } from '$lib/positions/view';
+import { presetGone } from '$lib/positions/view';
 import { t } from '$lib/i18n/catalog';
 import type { Db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -117,7 +117,7 @@ export const actions: Actions = {
 		} catch (e) {
 			if (e !== refused) throw e;
 			// The position is gone or not theirs: say so; the sheet drops it.
-			return fail(400, { message: PRESET_GONE, presetGone: true as const, ...typed });
+			return fail(400, { message: presetGone(), presetGone: true as const, ...typed });
 		}
 		if (!made) {
 			return fail(400, {

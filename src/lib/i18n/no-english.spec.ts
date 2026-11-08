@@ -177,7 +177,20 @@ const TRANSLATED: string[] = [
 	'src/lib/components/routines/SlotList.svelte',
 	'src/lib/components/routines/SlotPicker.svelte',
 	'src/lib/components/routines/Swipeable.svelte',
-	'src/routes/[dance]/(moves)/routines/[id]/+page.svelte'
+	'src/routes/[dance]/(moves)/routines/[id]/+page.svelte',
+	// Positions: the list, No position, the sheet, the hold, Templates, a position's page
+	// and a figure's tags (part 2, Task 5).
+	'src/lib/components/figures/PositionTags.svelte',
+	'src/lib/components/moves/PositionsList.svelte',
+	'src/lib/components/positions/PositionFields.svelte',
+	'src/lib/components/positions/PositionForm.svelte',
+	'src/lib/components/positions/PositionRelations.svelte',
+	'src/lib/components/positions/PositionRow.svelte',
+	'src/lib/components/positions/PositionSheet.svelte',
+	'src/lib/components/positions/TemplatesSheet.svelte',
+	'src/routes/[dance]/(moves)/positions/+page.svelte',
+	'src/routes/[dance]/(moves)/positions/[id]/+page.svelte',
+	'src/routes/[dance]/(moves)/positions/none/+page.svelte'
 ];
 
 describe('englishIn', () => {

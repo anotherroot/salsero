@@ -22,11 +22,11 @@ import { clock, dateLabel, dayMonth, plural } from '$lib/format';
 import { PARTNER_LABEL, TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
 import { spotLabel } from '$lib/video/spots';
 import {
-	CROSSED_LABEL,
+	crossedLabel,
 	FACING_LABEL,
 	FRAME_LABEL,
 	HANDS_LABEL,
-	NOT_CROSSED
+	notCrossedLabel
 } from '$lib/positions/hold';
 import type { Db } from '../db';
 import {
@@ -181,7 +181,7 @@ function positionFlat(db: Db, id: number, b: Builder): void {
 	b.add(
 		'crossed',
 		p.crossed === null ? '' : p.crossed ? '1' : '0',
-		p.crossed === null ? '' : p.crossed ? CROSSED_LABEL : NOT_CROSSED
+		p.crossed === null ? '' : p.crossed ? crossedLabel() : notCrossedLabel()
 	);
 	b.add('facing', p.facing ?? '', p.facing ? (FACING_LABEL[p.facing as Facing] ?? p.facing) : '');
 	b.add('frame', p.frame ?? '', p.frame ? (FRAME_LABEL[p.frame as Frame] ?? p.frame) : '');

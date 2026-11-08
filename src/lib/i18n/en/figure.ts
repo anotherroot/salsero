@@ -3,8 +3,8 @@
 // A move's page and the lists are `moves`; the positions' words are `positions`.
 import { plural } from './plural';
 
-/** "Salsa Tuesdays’", "Ana’s": an English possessive. */
-const possessive = (name: string): string => {
+/** "Salsa Tuesdays’", "Ana’s": an English possessive (`positions` reads it too). */
+export const possessive = (name: string): string => {
 	const n = name.trim();
 	return /s$/i.test(n) ? `${n}’` : `${n}’s`;
 };

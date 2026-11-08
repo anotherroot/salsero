@@ -640,7 +640,7 @@
 			<div class="flex flex-col gap-[3px]">
 				<span class="text-[13px] font-bold text-muted">{t().figure.positions}</span>
 				{#if untagged}
-					<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
+					<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty()}</span>
 				{:else}
 					<!-- Each position links to its page; an empty side reads "No position". -->
 					{#snippet side(refs: { id: number; name: string }[])}

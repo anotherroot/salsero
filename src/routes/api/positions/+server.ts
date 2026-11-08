@@ -6,6 +6,7 @@ import { createPosition, positionSummary } from '$lib/server/positions';
 import { requireFigureAccess } from '$lib/server/scope';
 import { FACING, FRAME, HANDS } from '$lib/positions/hold';
 import { DANCES, isDanceSlug } from '$lib/dances/dances';
+import { t } from '$lib/i18n/catalog';
 import type { Hold } from '$lib/types';
 import type { RequestHandler } from './$types';
 
@@ -50,13 +51,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { space } = requireFigureAccess(db, locals, { dance: row.dance }, figureId, 'edit');
 
 	if (rawName.trim().length > 200) {
-		return json({ message: 'A name is up to 200 characters.', field: 'name' }, { status: 400 });
+		return json({ message: t().positions.refused.nameLong, field: 'name' }, { status: 400 });
 	}
 	// The create step shows the same fields as New position, Notes included.
 	const notes =
 		typeof body.notes === 'string' && body.notes.trim() !== '' ? body.notes.trim() : null;
 	if (notes !== null && notes.length > 2000) {
-		return json({ message: 'Notes are up to 2000 characters.', field: 'notes' }, { status: 400 });
+		return json({ message: t().positions.refused.notesLong, field: 'notes' }, { status: 400 });
 	}
 	const styleTag =
 		typeof body.styleTag === 'string' && DANCES[space.dance].styles.includes(body.styleTag)
