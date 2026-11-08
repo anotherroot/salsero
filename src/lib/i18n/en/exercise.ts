@@ -146,6 +146,14 @@ export const exercise = {
 		/** A call chip: "Every 2" (8-counts). */
 		every: (n: number): string => `Every ${n}`,
 		speedLabel: 'Speed',
+		/** What a practice plays to (SourcePicker): the switch, its two options, the song, the tempo. */
+		source: 'Source',
+		countOnly: 'Count only',
+		aSong: 'A song',
+		song: 'Song',
+		tempo: 'Tempo',
+		/** The seek bar's name. */
+		position: 'Song position',
 		/** A playback speed: "0.8×". */
 		speed: (s: number): string => `${s}×`,
 		/** The collapsed line's parts: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3 · call every 2". */

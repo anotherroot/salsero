@@ -7,6 +7,7 @@ import { exercise } from './exercise';
 import { format } from './format';
 import { settings } from './settings';
 import { shell } from './shell';
+import { songs } from './songs';
 import { today } from './today';
 
-export const en = { common, format, shell, admin, settings, entry, today, exercise };
+export const en = { common, format, shell, admin, settings, entry, today, exercise, songs };

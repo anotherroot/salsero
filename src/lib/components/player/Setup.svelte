@@ -21,7 +21,7 @@
 	import type { PhrasePattern } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import { bpmOf } from '$lib/beatgrid/beatgrid';
-	import { RUN_SOURCES, playState, setupSubtitle, voiceKind } from '$lib/player/view';
+	import { runSources, playState, setupSubtitle, voiceKind } from '$lib/player/view';
 	import { myCountHref } from '$lib/voice/back';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -292,7 +292,7 @@
 					onBand
 					name="player-source"
 					label="Source"
-					items={RUN_SOURCES}
+					items={runSources()}
 					bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
 				/>
 			</div>

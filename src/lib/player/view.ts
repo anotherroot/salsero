@@ -9,6 +9,7 @@ import type { ScheduleState } from '$lib/schedule/schedule';
 import { dueWords } from '$lib/schedule/words';
 import { typeInfo } from '$lib/exercises/kinds';
 import { clock, plural } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
 import type { CountTakeRow } from '$lib/types';
@@ -94,10 +95,13 @@ export function runSubtitle(
 }
 
 /** The Source switch's two options, shared by Setup and SourcePicker. */
-export const RUN_SOURCES = [
-	{ value: 'count', label: 'Count only' },
-	{ value: 'song', label: 'A song' }
-];
+export function runSources(): { value: string; label: string }[] {
+	const w = t().exercise.panel;
+	return [
+		{ value: 'count', label: w.countOnly },
+		{ value: 'song', label: w.aSong }
+	];
+}
 
 /** `calls` null: nothing was called, by design. */
 export function runSummary(durationS: number, calls: number | null): string {

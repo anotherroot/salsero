@@ -134,11 +134,37 @@ describe('in Slovenian', () => {
 	});
 
 	it('spells weekdays and months out in lower case', () => {
-		expect(sl(() => longDayLabel('2026-10-31'))).toBe('sobota, 31. oktober');
-		expect(sl(() => weekdayDayMonth('2026-10-13'))).toBe('torek, 13. oktober');
-		expect(sl(() => fullDateLabel('2026-10-28'))).toBe('28. oktober 2026');
+		expect(sl(() => longDayLabel('2026-10-31'))).toBe('sobota, 31. oktobra');
+		expect(sl(() => weekdayDayMonth('2026-10-13'))).toBe('torek, 13. oktobra');
+		expect(sl(() => fullDateLabel('2026-10-28'))).toBe('28. oktobra 2026');
 		expect(sl(() => monthLabel('2026-01-03'))).toBe('januar 2026');
 		expect(sl(() => monthHeading('2025-12-30', '2026-11-04'))).toBe('december 2025');
+	});
+
+	// After a day number the month is genitive ("3. novembra"); alone it stays nominative.
+	it('puts the month in the genitive after a day number, and every month has one', () => {
+		const genitive = [
+			'januarja',
+			'februarja',
+			'marca',
+			'aprila',
+			'maja',
+			'junija',
+			'julija',
+			'avgusta',
+			'septembra',
+			'oktobra',
+			'novembra',
+			'decembra'
+		];
+		const days = genitive.map((_, m) => `2026-${String(m + 1).padStart(2, '0')}-03`);
+		expect(sl(() => days.map((d) => fullDateLabel(d)))).toEqual(
+			genitive.map((g) => `3. ${g} 2026`)
+		);
+		expect(sl(() => longDayLabel('2026-03-03'))).toBe('torek, 3. marca');
+		expect(sl(() => weekdayDayMonth('2026-05-03'))).toBe('nedelja, 3. maja');
+		expect(sl(() => monthHeading('2026-11-03', '2026-11-04'))).toBe('november');
+		expect(sl(() => monthLabel('2026-03-03'))).toBe('marec 2026');
 	});
 
 	it('writes a size with a decimal comma', () => {

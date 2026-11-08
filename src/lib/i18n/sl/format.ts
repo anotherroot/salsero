@@ -43,6 +43,21 @@ const months = [
 	'november',
 	'december'
 ];
+/** After a day number a month is genitive: "3. novembra", "3. novembra 2026". Alone: `months`. */
+const monthsOfDay = [
+	'januarja',
+	'februarja',
+	'marca',
+	'aprila',
+	'maja',
+	'junija',
+	'julija',
+	'avgusta',
+	'septembra',
+	'oktobra',
+	'novembra',
+	'decembra'
+];
 
 type Forms = [one: string, two: string, few: string, other: string];
 
@@ -74,9 +89,9 @@ export const format: Catalog['format'] = {
 	dayLabel: (p) => `${weekdaysShort[p.weekday]}, ${p.date}. ${monthsShort[p.month]}`,
 	dateLabel: (p) => `${p.date}. ${monthsShort[p.month]} ${p.year}`,
 	dayMonth: (p) => `${p.date}. ${monthsShort[p.month]}`,
-	longDay: (p) => `${weekdays[p.weekday]}, ${p.date}. ${months[p.month]}`,
-	weekdayDayMonth: (p) => `${weekdays[p.weekday]}, ${p.date}. ${months[p.month]}`,
-	fullDate: (p) => `${p.date}. ${months[p.month]} ${p.year}`,
+	longDay: (p) => `${weekdays[p.weekday]}, ${p.date}. ${monthsOfDay[p.month]}`,
+	weekdayDayMonth: (p) => `${weekdays[p.weekday]}, ${p.date}. ${monthsOfDay[p.month]}`,
+	fullDate: (p) => `${p.date}. ${monthsOfDay[p.month]} ${p.year}`,
 	monthYear: (p) => `${months[p.month]} ${p.year}`,
 	daysAgo: (n) => `pred ${slCount(n, DAYS_AGO)}`,
 	minutesAgo: (n) => `pred ${n} min`,

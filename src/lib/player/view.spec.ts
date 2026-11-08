@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getDance } from '$lib/dances/dances';
+import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import {
@@ -8,6 +9,7 @@ import {
 	practiceBack,
 	routineHeading,
 	runSubtitle,
+	runSources,
 	runSummary,
 	runTitleCompact,
 	setupSubtitle,
@@ -211,5 +213,18 @@ describe('the run on desk', () => {
 		expect(runTitleCompact('Valió la pena ahora')).toBe(true); // 19
 		expect(runTitleCompact('Desesperadamente')).toBe(true); // one word of 16
 		expect(runTitleCompact('Ritmo, ritmo y más')).toBe(false); // exactly 18
+	});
+});
+
+describe('runSources', () => {
+	it('names the Source switch in the reader’s language, read when asked', () => {
+		expect(runSources()).toEqual([
+			{ value: 'count', label: 'Count only' },
+			{ value: 'song', label: 'A song' }
+		]);
+		expect(withLocale('sl', () => runSources().map((s) => s.label))).toEqual([
+			'Samo štetje',
+			'Skladba'
+		]);
 	});
 });

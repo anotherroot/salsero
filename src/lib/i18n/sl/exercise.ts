@@ -101,7 +101,7 @@ export const exercise: Catalog['exercise'] = {
 		// "Shranjen ostane 1 vnos", "Shranjena ostaneta 2 vnosa", "Shranjeni ostanejo 3 vnosi",
 		// "Shranjenih ostane 5 vnosov": the verb and participle agree with the count.
 		archiveBody: (name, sets) => {
-			const head = `${name}: izgine z Danes in iz vseh seznamov.`;
+			const head = `${name}: izgine s seznama Danes in iz vseh seznamov.`;
 			if (sets === 0) return head;
 			const kept: Record<SlForm, string> = {
 				one: 'Shranjen ostane',
@@ -146,7 +146,7 @@ export const exercise: Catalog['exercise'] = {
 		resume: 'Nadaljuj',
 		stop: 'Ustavi',
 		voiceVolume: 'Glasnost glasu',
-		banked: (clock) => `Doslej ${clock} – Predvajaj nadaljuje`,
+		banked: (clock) => `Doslej ${clock} · Predvajaj nadaljuje`,
 		songGone: 'Njena skladba ni pripravljena',
 		songGoneBody: 'Izberite drugo ali uporabite štetje.',
 		couldNotStart: 'Štetja ni bilo mogoče začeti.',
@@ -155,6 +155,13 @@ export const exercise: Catalog['exercise'] = {
 		off: 'Brez',
 		every: (n) => `Na ${slCount(n, OSMICA)}`,
 		speedLabel: 'Hitrost',
+		source: 'Vir',
+		countOnly: 'Samo štetje',
+		aSong: 'Skladba',
+		song: 'Skladba',
+		tempo: 'Tempo štetja',
+		// Not "položaj": that is a dance position.
+		position: 'Mesto v skladbi',
 		speed: (s) => `${comma(s)}×`,
 		summaryCount: (bpm) => `Štetje ${bpm}`,
 		summaryNoCount: 'brez štetja',

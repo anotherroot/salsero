@@ -217,7 +217,7 @@ describe('in Slovenian', () => {
 				'2026-10-31'
 			)
 		);
-		expect(d.map((g) => g.label)).toEqual(['Danes', 'Včeraj', 'torek, 30. december 2025']);
+		expect(d.map((g) => g.label)).toEqual(['Danes', 'Včeraj', 'torek, 30. decembra 2025']);
 	});
 
 	it('titles a set with nothing to sum up, and sums one up', () => {
@@ -234,18 +234,20 @@ describe('in Slovenian', () => {
 	});
 
 	it('asks about archiving, the name before a colon and the sets counted', () => {
-		expect(sl(() => archiveBody('Hips', 0))).toBe('Hips: izgine z Danes in iz vseh seznamov.');
+		expect(sl(() => archiveBody('Hips', 0))).toBe(
+			'Hips: izgine s seznama Danes in iz vseh seznamov.'
+		);
 		expect(sl(() => archiveBody('Hips', 1))).toBe(
-			'Hips: izgine z Danes in iz vseh seznamov. Shranjen ostane 1 vnos.'
+			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjen ostane 1 vnos.'
 		);
 		expect(sl(() => archiveBody('Hips', 2))).toBe(
-			'Hips: izgine z Danes in iz vseh seznamov. Shranjena ostaneta 2 vnosa.'
+			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjena ostaneta 2 vnosa.'
 		);
 		expect(sl(() => archiveBody('Hips', 3))).toBe(
-			'Hips: izgine z Danes in iz vseh seznamov. Shranjeni ostanejo 3 vnosi.'
+			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjeni ostanejo 3 vnosi.'
 		);
 		expect(sl(() => archiveBody('Hips', 41))).toBe(
-			'Hips: izgine z Danes in iz vseh seznamov. Shranjenih ostane 41 vnosov.'
+			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjenih ostane 41 vnosov.'
 		);
 	});
 
