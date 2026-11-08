@@ -19,6 +19,7 @@ import { createRoutine } from './routines';
 import { FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 import { readComesBack } from './comes-back-form';
+import { postedFields } from '$lib/exercises/comes-back-view';
 import { scheduleStateOf } from './schedule';
 
 let db: Db;
@@ -315,7 +316,11 @@ describe('updateExercise: warm-up and comes back', () => {
 		const form = new FormData();
 		form.set('name', 'Shines');
 		form.set('notes', 'my notes');
+		const card = { touched: false, useTeacher: false, mode: 'faces', until: false } as const;
+		for (const [k, v] of Object.entries(postedFields({ ...card, good: 3, every: 1 })))
+			form.set(k, v);
 		const comesBack = readComesBack(form, null, CLASS_T);
+		if (comesBack === 'invalid') throw new Error('refused');
 		expect(comesBack).toBeUndefined();
 		updateExercise(db, c.entry, { name: 'Shines', notes: 'my notes', active: true, comesBack });
 		expect(stored(c.entry).comesBack).toBeNull();
