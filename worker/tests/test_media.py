@@ -116,3 +116,42 @@ def test_search_youtube_lists_candidates():
 def test_a_failed_search_is_transient():
     with pytest.raises(RuntimeError):
         media.search_youtube("x", run=fake_run(returncode=1, stderr="ERROR: HTTP Error 429"))
+
+
+FLAT = Path(__file__).parent / "fixtures" / "yt-flat-playlist.json"
+
+
+def test_read_youtube_list_reads_the_flat_playlist():
+    run = fake_run(stdout=FLAT.read_text())
+    lst = media.read_youtube_list("https://www.youtube.com/playlist?list=PL1", run=run)
+    assert run.calls[0] == [
+        "yt-dlp", "--flat-playlist", "--dump-single-json", "--no-warnings", "--playlist-end", "201",
+        "https://www.youtube.com/playlist?list=PL1",
+    ]
+    assert lst.name == "Salsa clásica"
+    assert [(i.title, i.artist, i.duration_s, i.url) for i in lst.items] == [
+        ("Grupo Niche - Cali Pachanguero", None, 312.0, "https://www.youtube.com/watch?v=aaaaaaaaaa1"),
+        ("Idilio", None, None, "https://www.youtube.com/watch?v=bbbbbbbbbb2"),
+        ("Pedro Navaja", None, 441.0, "https://www.youtube.com/watch?v=ccccccccc3"),
+    ]
+    assert lst.truncated is False
+
+
+def test_a_youtube_list_longer_than_200_is_cut():
+    import json
+
+    entries = [{"id": f"id{n:09d}", "title": f"S{n}", "duration": 200} for n in range(201)]
+    lst = media.read_youtube_list("u", run=fake_run(stdout=json.dumps({"title": "Long", "entries": entries})))
+    assert len(lst.items) == 200
+    assert lst.truncated is True
+
+
+@pytest.mark.parametrize("stderr", ["ERROR: The playlist does not exist.", "ERROR: This playlist is private"])
+def test_a_missing_or_private_youtube_list_fails_for_good(stderr):
+    with pytest.raises(media.PermanentError):
+        media.read_youtube_list("u", run=fake_run(returncode=1, stderr=stderr))
+
+
+def test_another_youtube_list_error_is_tried_again():
+    with pytest.raises(RuntimeError):
+        media.read_youtube_list("u", run=fake_run(returncode=1, stderr="ERROR: HTTP Error 429"))

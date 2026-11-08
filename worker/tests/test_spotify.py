@@ -84,3 +84,67 @@ def test_a_server_error_at_spotify_is_tried_again():
 
     with pytest.raises(urllib.error.HTTPError):
         spotify.read_track(f"https://open.spotify.com/track/{TRACK}", urlopen=urlopen)
+
+
+PLAYLIST = Path(__file__).parent / "fixtures" / "spotify-embed-playlist.html"
+ALBUM = Path(__file__).parent / "fixtures" / "spotify-embed-album.html"
+
+
+def test_read_list_reads_a_playlist():
+    seen = []
+    lst = spotify.read_list(
+        "https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W?si=x", urlopen=opener(PLAYLIST.read_bytes(), seen)
+    )
+    assert seen == ["https://open.spotify.com/embed/playlist/37i9dQZF1DX4OzrY981I1W"]
+    assert lst.name == "my life is a movie"
+    assert len(lst.items) == 100
+    first = lst.items[0]
+    assert (first.title, first.artist, first.url) == (
+        "End of Beginning",
+        "Djo",
+        "https://open.spotify.com/track/3qhlB30KknSejmIvZZLjOD",
+    )
+    assert first.duration_s == pytest.approx(159.245)
+    # The embed stops at 100: a list of exactly 100 may be longer.
+    assert lst.truncated is True
+
+
+def test_read_list_reads_an_album_with_its_artists():
+    lst = spotify.read_list("https://open.spotify.com/intl-de/album/4aawyAB9vmqN3uQ7FjRGTy", urlopen=opener(ALBUM.read_bytes()))
+    assert lst.name == "Global Warming"
+    assert len(lst.items) == 18
+    assert lst.items[0].artist == "Pitbull, Sensato"
+    assert lst.truncated is False
+
+
+def test_a_list_page_without_data_or_a_missing_list_fails_for_good():
+    with pytest.raises(PermanentError):
+        spotify.read_list("https://open.spotify.com/playlist/x", urlopen=opener(b"<html></html>"))
+    import urllib.error
+
+    def missing(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+    with pytest.raises(PermanentError):
+        spotify.read_list("https://open.spotify.com/playlist/x", urlopen=missing)
+
+
+def test_a_timeout_reading_a_list_is_tried_again():
+    def slow(req, timeout):
+        raise TimeoutError("timed out")
+
+    with pytest.raises(TimeoutError):
+        spotify.read_list("https://open.spotify.com/playlist/x", urlopen=slow)
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W", True),
+        ("https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy", True),
+        ("https://open.spotify.com/intl-de/album/4aawyAB9vmqN3uQ7FjRGTy", True),
+        (f"https://open.spotify.com/track/{TRACK}", False),
+    ],
+)
+def test_is_spotify_list(url, expected):
+    assert spotify.is_spotify_list(url) is expected

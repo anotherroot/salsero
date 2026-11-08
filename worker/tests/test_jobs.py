@@ -254,3 +254,108 @@ def test_the_worker_pauses_after_youtube_but_not_after_an_analysis():
     api = FakeApi([{"id": 1, "kind": "download", "url": "https://y"}, {"id": 2, "kind": "analyze", "url": None}])
     jobs.run(api, tools(pause=lambda: pauses.append(1)))
     assert pauses == [1]
+
+
+
+from salsa_worker.lists import ListItem, TrackList
+
+LIST = TrackList("Clase", [ListItem("Uno", None, 200.0, "https://www.youtube.com/watch?v=a")], False)
+
+
+class ImportApi(FakeApi):
+    def __init__(self, queue, imports, report=None):
+        super().__init__(queue)
+        self.imports = list(imports)
+        self._report = report
+
+    def claim(self):
+        self.calls.append(("claim",))
+        return super().claim()
+
+    def claim_import(self):
+        self.calls.append(("claim_import",))
+        return self.imports.pop(0) if self.imports else None
+
+    def report_import(self, job_id, lst):
+        self.calls.append(("report_import", job_id, lst.name))
+        if self._report:
+            self._report()
+
+    def fail_import(self, job_id, error, permanent):
+        self.calls.append(("fail_import", job_id, error, permanent))
+
+
+def import_tools(spotify_read=None, youtube_read=None):
+    return jobs.ImportTools(
+        read_spotify=spotify_read or (lambda url: LIST),
+        read_youtube=youtube_read or (lambda url: LIST),
+    )
+
+
+SP_LIST = "https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W"
+YT_LIST = "https://www.youtube.com/playlist?list=PL1"
+
+
+def test_an_import_reads_and_reports_pausing_only_after_youtube():
+    pauses = []
+    api = ImportApi([], [])
+    assert jobs.process_import({"id": 1, "url": SP_LIST}, api, import_tools(), lambda: pauses.append(1)) == "ok"
+    assert pauses == []
+    assert jobs.process_import({"id": 2, "url": YT_LIST}, api, import_tools(), lambda: pauses.append(1)) == "ok"
+    assert pauses == [1]
+    assert [c for c in api.calls if c[0] == "report_import"] == [("report_import", 1, "Clase"), ("report_import", 2, "Clase")]
+
+
+def test_an_import_failure_is_reported_as_it_is():
+    def private(url):
+        raise media.PermanentError("This playlist is private")
+
+    def flaky(url):
+        raise RuntimeError("HTTP 429")
+
+    api = ImportApi([], [])
+    assert jobs.process_import({"id": 1, "url": YT_LIST}, api, import_tools(youtube_read=private), lambda: None) == "permanent"
+    assert jobs.process_import({"id": 2, "url": YT_LIST}, api, import_tools(youtube_read=flaky), lambda: None) == "transient"
+    assert [c for c in api.calls if c[0] == "fail_import"] == [
+        ("fail_import", 1, "This playlist is private", True),
+        ("fail_import", 2, "RuntimeError: HTTP 429", False),
+    ]
+
+
+def test_a_cancelled_import_is_done_not_failed():
+    def gone():
+        raise JobGone("no longer wanted")
+
+    api = ImportApi([], [], report=gone)
+    assert jobs.process_import({"id": 1, "url": SP_LIST}, api, import_tools(), lambda: None) == "ok"
+    assert not [c for c in api.calls if c[0] == "fail_import"]
+
+
+def test_run_reads_imports_before_songs():
+    api = ImportApi([{"id": 7, "kind": "analyze", "url": None}], [{"id": 1, "url": SP_LIST}])
+    assert jobs.run(api, tools(), import_tools=import_tools()) == 2
+    names = [c[0] for c in api.calls]
+    assert names.index("report_import") < names.index("download_audio")
+
+
+def test_a_transient_import_failure_ends_the_run_a_permanent_one_does_not():
+    def flaky(url):
+        raise RuntimeError("HTTP 429")
+
+    api = ImportApi([{"id": 7, "kind": "analyze", "url": None}], [{"id": 1, "url": YT_LIST}])
+    assert jobs.run(api, tools(), import_tools=import_tools(youtube_read=flaky)) == 1
+    assert api.queue  # the song waits for the next tick
+
+    def private(url):
+        raise media.PermanentError("private")
+
+    api = ImportApi([{"id": 7, "kind": "analyze", "url": None}], [{"id": 1, "url": YT_LIST}])
+    assert jobs.run(api, tools(), import_tools=import_tools(youtube_read=private)) == 2
+
+
+def test_no_import_tools_or_an_older_server_still_drains_songs():
+    api = ImportApi([{"id": 7, "kind": "analyze", "url": None}], [{"id": 1, "url": SP_LIST}])
+    assert jobs.run(api, tools()) == 1
+    assert ("claim_import",) not in api.calls
+    api = ImportApi([{"id": 7, "kind": "analyze", "url": None}], [])
+    assert jobs.run(api, tools(), import_tools=import_tools()) == 1

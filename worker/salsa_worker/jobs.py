@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Literal
 
 from . import match, spotify
+from .lists import TrackList
 from .api import JobGone
 from .media import MAX_DURATION_S, Fetched, PermanentError
 
@@ -48,6 +49,37 @@ def _fetch_song(url: str, tools: Tools, workdir: Path) -> tuple[Fetched, str | N
         raise PermanentError("No match on YouTube")
     fetched = tools.fetch(found.url, workdir)
     return fetched, track.title, ", ".join(track.artists) or None
+
+
+@dataclass(frozen=True)
+class ImportTools:
+    read_spotify: Callable[[str], TrackList]
+    read_youtube: Callable[[str], TrackList]
+
+
+def process_import(job: dict, api, tools: ImportTools, pause: Callable[[], None]) -> Outcome:
+    """Read a pasted list and report it; nothing is downloaded. Failures are reported, never raised."""
+    job_id = job["id"]
+    try:
+        if spotify.is_spotify_list(job["url"]):
+            lst = tools.read_spotify(job["url"])
+        else:
+            lst = tools.read_youtube(job["url"])
+            pause()  # a YouTube call, like a download
+        api.report_import(job_id, lst)
+        log.info("import %s: %d songs", job_id, len(lst.items))
+        return "ok"
+    except JobGone:
+        log.info("import %s: no longer wanted", job_id)
+        return "ok"
+    except PermanentError as e:
+        log.warning("import %s failed for good: %s", job_id, e)
+        api.fail_import(job_id, str(e), True)
+        return "permanent"
+    except Exception as e:  # noqa: BLE001 — anything else is worth another try
+        log.exception("import %s failed, will retry", job_id)
+        api.fail_import(job_id, f"{type(e).__name__}: {e}", False)
+        return "transient"
 
 
 def process(job: dict, api, tools: Tools, workdir: Path) -> Outcome:
@@ -117,7 +149,13 @@ def process_video(job: dict, api, tools: VideoTools, workdir: Path) -> bool:
     return False
 
 
-def run(api, tools: Tools, video_tools: VideoTools | None = None, max_jobs: int = 20) -> int:
+def run(
+    api,
+    tools: Tools,
+    video_tools: VideoTools | None = None,
+    import_tools: ImportTools | None = None,
+    max_jobs: int = 20,
+) -> int:
     """Claim and process jobs until the queues are empty or a job fails. Returns how many were processed.
 
     Songs first: a song is seconds of work, an hour of video can be ten minutes
@@ -129,6 +167,15 @@ def run(api, tools: Tools, video_tools: VideoTools | None = None, max_jobs: int 
     back to back.
     """
     done = 0
+    # Pasted lists first: a person is waiting on them, and a read takes seconds.
+    while import_tools is not None and done < max_jobs:
+        job = api.claim_import()
+        if job is None:
+            break
+        outcome = process_import(job, api, import_tools, tools.pause)
+        done += 1
+        if outcome == "transient":
+            return done
     while done < max_jobs:
         job = api.claim()
         if job is None:

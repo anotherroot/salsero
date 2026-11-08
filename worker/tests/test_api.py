@@ -197,3 +197,38 @@ def test_upload_video_needs_to_know_how_far_the_server_is(tmp_path):
     urlopen = scripted_urlopen(Response(204))
     with pytest.raises(RuntimeError, match="how much it has"):
         Api("http://s", "t", urlopen=urlopen).upload_video(7, video, chunk=4)
+
+
+def test_claim_import_is_none_on_204_and_on_an_older_server():
+    assert Api("http://s", "t", urlopen=fake_urlopen(204)).claim_import() is None
+    old = Api("http://s", "t", urlopen=fake_urlopen(error=http_error(404, b'{"message":"Not found"}')))
+    assert old.claim_import() is None
+    got = Api("http://s", "t", urlopen=fake_urlopen(200, b'{"id": 3, "url": "u"}')).claim_import()
+    assert got == {"id": 3, "url": "u"}
+
+
+def test_report_import_posts_the_list():
+    from salsa_worker.lists import ListItem, TrackList
+
+    u = fake_urlopen(204)
+    Api("http://s", "t", urlopen=u).report_import(
+        3, TrackList("Clase", [ListItem("Uno", "A", 200.0, "https://youtu.be/x")], True)
+    )
+    req = u.requests[0]
+    assert req.full_url == "http://s/api/worker/imports/3/items"
+    assert json.loads(req.data) == {
+        "name": "Clase",
+        "items": [{"title": "Uno", "artist": "A", "durationS": 200.0, "url": "https://youtu.be/x"}],
+        "truncated": True,
+    }
+
+
+def test_report_import_after_a_cancel_is_gone_and_a_refusal_permanent():
+    from salsa_worker.lists import TrackList
+
+    gone = Api("http://s", "t", urlopen=fake_urlopen(error=http_error(410, b'{"message":"gone"}')))
+    with pytest.raises(JobGone):
+        gone.report_import(3, TrackList("x", [], False))
+    bad = Api("http://s", "t", urlopen=fake_urlopen(error=http_error(400, b'{"message":"too long"}')))
+    with pytest.raises(PermanentError):
+        bad.report_import(3, TrackList("x", [], False))

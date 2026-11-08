@@ -7,6 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from .lists import MAX_ITEMS, ListItem, TrackList
 from .match import Candidate
 
 # The worker enforces this (yt-dlp's filter for downloads, a check after
@@ -23,6 +24,8 @@ PERMANENT_MARKERS = (
     "This video is not available",
     "members-only",
     "Sign in to confirm your age",
+    "The playlist does not exist",
+    "This playlist is private",
 )
 
 # A saved video: an hour is a whole class, and anything longer is almost always a stream.
@@ -109,6 +112,37 @@ def search_youtube(query: str, n: int = 8, run=subprocess.run) -> list[Candidate
             )
         )
     return out
+
+
+def read_youtube_list(url: str, run=subprocess.run) -> TrackList:
+    """A YouTube playlist's videos, without downloading: one more than the cap, to tell a cut list."""
+    cmd = [
+        "yt-dlp", "--flat-playlist", "--dump-single-json", "--no-warnings",
+        "--playlist-end", str(MAX_ITEMS + 1),
+        url,
+    ]
+    p = run(cmd, capture_output=True, text=True, timeout=300)
+    if p.returncode != 0:
+        msg = _last_line(p.stderr)
+        if any(m in p.stderr for m in PERMANENT_MARKERS):
+            raise PermanentError(msg)
+        raise RuntimeError(msg)
+    data = json.loads(p.stdout or "{}")
+    items: list[ListItem] = []
+    for e in data.get("entries") or []:
+        vid, title = e.get("id"), e.get("title")
+        if not (isinstance(vid, str) and isinstance(title, str)):
+            continue
+        d = e.get("duration")
+        items.append(
+            ListItem(
+                title=title,
+                artist=None,
+                duration_s=float(d) if isinstance(d, (int, float)) else None,
+                url=f"https://www.youtube.com/watch?v={vid}",
+            )
+        )
+    return TrackList(name=data.get("title"), items=items[:MAX_ITEMS], truncated=len(items) > MAX_ITEMS)
 
 
 def fetch_video(url: str, workdir: Path, run=subprocess.run) -> Path:

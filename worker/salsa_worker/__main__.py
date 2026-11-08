@@ -28,8 +28,9 @@ def main() -> int:
         pause=lambda: time.sleep(4),
     )
     video_tools = jobs.VideoTools(fetch_video=media.fetch_video, to_mp4=media.to_mp4)
+    import_tools = jobs.ImportTools(read_spotify=spotify.read_list, read_youtube=media.read_youtube_list)
     try:
-        n = jobs.run(api, tools, video_tools=video_tools)
+        n = jobs.run(api, tools, video_tools=video_tools, import_tools=import_tools)
     except Exception as e:  # server unreachable, laptop offline, token refused: the next tick tries again
         logging.exception("worker run failed: %s", e)
         return 1

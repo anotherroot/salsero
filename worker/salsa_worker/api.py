@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from .lists import TrackList
 from .media import PermanentError
 
 USER_AGENT = "salsa-worker/0.1"
@@ -169,3 +170,36 @@ class Api:
 
     def fail_video(self, job_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/videos/{job_id}/fail", {"error": error[:500], "permanent": permanent})
+
+    # ── Pasted playlists: a third queue, read before songs (see src/lib/server/song-imports.ts) ──
+
+    def claim_import(self) -> dict | None:
+        """None when there is nothing to read, and on a 404: a server older than imports has no queue."""
+        try:
+            with self._request("POST", "/api/worker/imports/claim", data=b"{}") as r:
+                return None if r.status == 204 else json.load(r)
+        except ApiError as e:
+            if e.status == 404:
+                return None
+            raise
+
+    def report_import(self, job_id: int, lst: TrackList) -> None:
+        """A 410: the list was cancelled or dismissed meanwhile. A 400: the server refuses this read."""
+        body = {
+            "name": lst.name,
+            "items": [
+                {"title": i.title, "artist": i.artist, "durationS": i.duration_s, "url": i.url} for i in lst.items
+            ],
+            "truncated": lst.truncated,
+        }
+        try:
+            self._json(f"/api/worker/imports/{job_id}/items", body)
+        except ApiError as e:
+            if e.status == 410:
+                raise JobGone(e.message) from e
+            if e.status == 400:
+                raise PermanentError(f"Server refused the list: {e.message}") from e
+            raise
+
+    def fail_import(self, job_id: int, error: str, permanent: bool) -> None:
+        self._json(f"/api/worker/imports/{job_id}/fail", {"error": error[:500], "permanent": permanent})
