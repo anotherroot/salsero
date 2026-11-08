@@ -54,6 +54,8 @@
 	const picks = $derived(picksOut(items, s));
 	let busy = $state(false);
 	let dismissing = $state(false);
+	/** Dismiss confirmed: what was ticked or typed goes with the list, so leaving asks nothing. */
+	let dismissed = false;
 
 	const editOf = (item: PickItem): PickEdit =>
 		s.edits.get(item.i) ?? { title: item.title, artist: item.artist ?? '', style: null };
@@ -126,6 +128,7 @@
 		class="flex gap-2.5"
 		use:guarded={{
 			label: w.unsaved,
+			dirty: (changed) => changed && !dismissed,
 			submit: ({ cancel }) => {
 				if (busy || picks.length === 0) return cancel();
 				busy = true;
@@ -138,6 +141,8 @@
 	>
 		<input type="hidden" name="picks" value={JSON.stringify(picks)} />
 		<input type="hidden" name="styleForAll" value={s.styleForAll} />
+		<!-- Not read by the server: an edit on a row not ticked is still unsaved work. -->
+		<input type="hidden" name="edits" value={JSON.stringify([...s.edits])} />
 		<button type="button" class={rowButton('secondary')} onclick={() => (dismissing = true)}
 			>{w.dismiss}</button
 		>
@@ -163,7 +168,17 @@
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (dismissing = false)}
 			>{w.cancel}</button
 		>
-		<form method="POST" action="?/dismiss" use:enhance>
+		<form
+			method="POST"
+			action="?/dismiss"
+			use:enhance={() => {
+				dismissed = true;
+				return async ({ result, update }) => {
+					if (result.type !== 'redirect') dismissed = false;
+					await update();
+				};
+			}}
+		>
 			<button type="submit" class={button('primary', 'sm')}>{w.dismiss}</button>
 		</form>
 	{/snippet}

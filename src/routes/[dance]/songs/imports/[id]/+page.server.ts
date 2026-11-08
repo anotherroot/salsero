@@ -29,7 +29,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 export const actions: Actions = {
 	add: async ({ params, request, locals }) => {
 		const db = getDb();
-		const { imp, space } = requireImportAccess(db, locals, params, params.id);
+		// A list added or dismissed meanwhile (another tab, another editor) is refused in words.
+		const { imp, space } = requireImportAccess(db, locals, params, params.id, { finished: true });
+		if (imp.addedAt !== null || imp.dismissedAt !== null)
+			return fail(409, { message: t().songs.imports.gone });
 		const form = await request.formData();
 		const styles = DANCES[space.dance].styles;
 		const styleForAll = oneOf(form, 'styleForAll', styles) ?? styles[0];
@@ -46,7 +49,8 @@ export const actions: Actions = {
 
 	dismiss: ({ params, locals }) => {
 		const db = getDb();
-		const { imp } = requireImportAccess(db, locals, params, params.id);
+		// Already gone (added or dismissed elsewhere): Music shows where it stands.
+		const { imp } = requireImportAccess(db, locals, params, params.id, { finished: true });
 		dismissImport(db, imp.id);
 		redirect(303, `/${params.dance}/songs`);
 	}

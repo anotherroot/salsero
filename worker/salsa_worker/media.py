@@ -114,6 +114,10 @@ def search_youtube(query: str, n: int = 8, run=subprocess.run) -> list[Candidate
     return out
 
 
+# What `--flat-playlist` calls an entry whose video is gone or hidden.
+UNAVAILABLE_TITLES = ("[Private video]", "[Deleted video]", "[Unavailable video]")
+
+
 def read_youtube_list(url: str, run=subprocess.run) -> TrackList:
     """A YouTube playlist's videos, without downloading: one more than the cap, to tell a cut list."""
     cmd = [
@@ -132,6 +136,9 @@ def read_youtube_list(url: str, run=subprocess.run) -> TrackList:
     for e in data.get("entries") or []:
         vid, title = e.get("id"), e.get("title")
         if not (isinstance(vid, str) and isinstance(title, str)):
+            continue
+        # A video gone from YouTube stays in the list under this name: it could never download.
+        if title in UNAVAILABLE_TITLES:
             continue
         d = e.get("duration")
         items.append(

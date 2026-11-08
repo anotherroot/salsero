@@ -112,8 +112,11 @@ export function tapKind(
 	return scrollTop ? 'top' : 'tab';
 }
 
-/** A tab's dot: Groups while something is new there, Music while a read playlist waits to be picked. */
-/** `data` is the page's data, as the tab bar has it: the `[dance]` layout's `groupsNew` and `musicToPick`. */
+/**
+ * A tab's dot: Groups while something is new there, Music while a read playlist
+ * waits to be picked. `data` is the page's data, as the tab bar has it (the
+ * `[dance]` layout's `groupsNew` and `musicToPick`).
+ */
 export function tabDot(id: TabId, data: Record<string, unknown>): boolean {
 	if (id === 'groups') return !!data.groupsNew;
 	if (id === 'music') return !!data.musicToPick;

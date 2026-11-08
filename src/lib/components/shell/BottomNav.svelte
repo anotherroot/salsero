@@ -8,7 +8,6 @@
 	import { tabDot, tabDotLabel, tabFor } from '$lib/nav/tabs';
 	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
-
 	import { intend } from '$lib/nav/trail.svelte';
 	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
 

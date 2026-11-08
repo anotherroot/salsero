@@ -5,7 +5,7 @@ export const songs: Catalog['songs'] = {
 	pick: {
 		styleForAll: 'Slog za vse',
 		selectAll: 'Izberi vse',
-		picked: (n, m) => `izbranih ${n} od ${m}`,
+		picked: (n, m) => `izbrano: ${n} od ${m}`,
 		already: 'Že dodana',
 		onSource: (where, name) => `Na ${where === 'Spotify' ? 'Spotifyju' : 'YouTubu'}: ${name}`,
 		add: (n) => `Dodaj ${slCount(n, ['skladbo', 'skladbi', 'skladbe', 'skladb'])}`,
@@ -20,7 +20,8 @@ export const songs: Catalog['songs'] = {
 		artistField: 'Izvajalec',
 		styleOfSong: 'Slog',
 		unsaved: 'Izbira s seznama',
-		firstN: (n) => `Prebranih je le prvih ${n} skladb seznama.`,
+		firstN: (n) =>
+			`Prebranih je le prvih ${slCount(n, ['skladba', 'skladbi', 'skladbe', 'skladb'])} seznama.`,
 		refused: 'Izberite vsaj eno skladbo.',
 		badPicks: 'Pri izbiri je šlo nekaj narobe. Znova naložite stran in poskusite še enkrat.'
 	},

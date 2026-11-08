@@ -192,3 +192,15 @@ def test_loudness_windows_reads_astats_per_half_second(tmp_path: Path):
     (cmd,) = run.calls
     assert cmd[0] == "ffmpeg"
     assert any("asetnsamples=11025" in part and "astats" in part for part in cmd)
+
+
+def test_a_youtube_list_leaves_out_private_and_deleted_videos():
+    import json
+
+    entries = [
+        {"id": "aaaaaaaaaa1", "title": "[Private video]", "duration": None},
+        {"id": "aaaaaaaaaa2", "title": "[Deleted video]", "duration": None},
+        {"id": "aaaaaaaaaa3", "title": "Idilio", "duration": 342},
+    ]
+    lst = media.read_youtube_list("u", run=fake_run(stdout=json.dumps({"title": "L", "entries": entries})))
+    assert [i.title for i in lst.items] == ["Idilio"]
