@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Face from './Face.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { FEEL_TONE, faceColumns } from '$lib/exercises/face-view';
 	import { RATING_OF, type Feel } from '$lib/schedule/feel';
 	import type { FacePreview } from '$lib/schedule/schedule';
@@ -9,36 +11,65 @@
 		value: Feel | null;
 		onchange: (feel: Feel) => void;
 		/** The time each face would set, or null (a back-filled day, no schedule). */
-		preview?: FacePreview[] | null;
+		preview?: (FacePreview & { learnt?: boolean })[] | null;
 		/** "Done early: …", under the faces. */
 		early?: string | null;
+		/** The sheet's title asks the question: the legend is for screen readers only. */
+		hideQuestion?: boolean;
+		/** The face whose save is in flight: every card is disabled, that one `aria-busy`. */
+		busy?: Feel | null;
 	}
 
-	let { question, value, onchange, preview = null, early = null }: Props = $props();
+	let {
+		question,
+		value,
+		onchange,
+		preview = null,
+		early = null,
+		hideQuestion = false,
+		busy = null
+	}: Props = $props();
 	const columns = $derived(faceColumns(preview));
+	const anyLearnt = $derived(columns.some((c) => c.learnt));
 </script>
 
 <fieldset class="m-0 min-w-0 border-0 p-0">
-	<legend class="block pb-1.5 pl-1 text-[13px] font-bold text-ink-2">{question}</legend>
+	<legend class={hideQuestion ? 'sr-only' : 'block pb-1.5 pl-1 text-[13px] font-bold text-ink-2'}
+		>{question}</legend
+	>
 	<input type="hidden" name="rating" value={value === null ? '' : RATING_OF[value]} />
 	<div class="grid grid-cols-4 gap-1.5">
 		{#each columns as c (c.feel)}
-			{@const on = value === c.feel}
+			<!-- While a face saves it is the one lit, with a spinner for its time; the others dim. -->
+			{@const on = busy === null ? value === c.feel : busy === c.feel}
+			{@const dim = busy === null ? value !== null : busy !== c.feel}
 			{@const tone = FEEL_TONE[c.feel]}
 			<!-- Three fixed rows (face, word, time): the faces sit level however the words wrap. -->
 			<button
 				type="button"
 				aria-pressed={on}
+				aria-busy={busy === c.feel ? true : undefined}
+				disabled={busy !== null}
 				onclick={() => onchange(c.feel)}
-				class="grid min-w-0 cursor-pointer grid-rows-[auto_2.5em_1.4em] justify-items-center gap-1 rounded-[14px] px-1 pt-3 pb-2 text-center ring-inset {tone.bg} {tone.text} {tone.ring} {on
+				class="grid min-w-0 cursor-pointer {anyLearnt
+					? 'grid-rows-[auto_2.5em_2.6em]'
+					: 'grid-rows-[auto_2.5em_1.4em]'} justify-items-center gap-1 rounded-[14px] px-1 pt-3 pb-2 text-center ring-inset {tone.bg} {tone.text} {tone.ring} {on
 					? 'ring-[3px]'
-					: value === null
-						? 'ring-2'
-						: 'opacity-55 ring-2'}"
+					: dim
+						? 'opacity-55 ring-2'
+						: 'ring-2'} disabled:cursor-default"
 			>
 				<Face feel={c.feel} size={36} />
 				<span class="text-[13px] leading-[1.15] font-bold">{c.word}</span>
-				<span class="text-[12px] font-semibold text-ink-2">{c.time ?? ''}</span>
+				{#if busy === c.feel}
+					<span class="flex items-start justify-center text-ink-2"><Spinner size={16} /></span>
+				{:else}
+					<span class="text-[12px] font-semibold text-ink-2"
+						>{c.time ?? ''}{#if c.learnt}<br /><span class="text-done"
+								>{t().exercise.done.learnt}</span
+							>{/if}</span
+					>
+				{/if}
 			</button>
 		{/each}
 	</div>

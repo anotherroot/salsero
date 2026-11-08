@@ -116,10 +116,7 @@ const LINK_STEP: Partial<Record<PlayerSheet, LinkStep>> = {
 };
 
 /** The stack's link sheets as popup steps, bottom first. `create` names the step 'link-new' stands for. */
-export function linkStepsOf(
-	stack: Stack,
-	create: 'variation' | 'figure' | 'drill' | 'position'
-): LinkStep[] {
+export function linkStepsOf(stack: Stack, create: 'variation' | 'drill' | 'position'): LinkStep[] {
 	const steps: LinkStep[] = [];
 	for (const s of stack) {
 		if (s.kind !== 'sheet') continue;

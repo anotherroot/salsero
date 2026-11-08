@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { RATING_OF } from './feel';
 import { FACES } from './comes-back';
-import { goodDaysSince, nextGap, preview, replay, scheduleOf } from './schedule';
+import { doneFaces, goodDaysSince, nextGap, preview, replay, scheduleOf } from './schedule';
 
 const TZ = 'Europe/Ljubljana';
 /** Noon local on a day, as an instant. */
@@ -245,4 +245,57 @@ describe('goodDaysSince', () => {
 			goodDaysSince(sets, since, TZ)
 		);
 	});
+});
+
+describe('doneFaces', () => {
+	const now = at('2026-11-07', 18);
+	const until = (sets: { doneAt: number; rating: number | null }[]) => ({
+		startGap: 3,
+		createdAt: at('2026-11-01'),
+		sets,
+		comesBack: { kind: 'until', good: 3, since: at('2026-11-01') } as const
+	});
+	it('a learning drill one good day short: the good faces finish it, with the gap the faces earned', () => {
+		expect(doneFaces(until([gotit('2026-11-05'), gotit('2026-11-06')]), now, TZ)).toEqual([
+			{ feel: 'hard', gap: 1, learnt: false },
+			{ feel: 'getting', gap: 1, learnt: false },
+			{ feel: 'gotit', gap: 3, learnt: true },
+			{ feel: 'easy', gap: 7, learnt: true }
+		]);
+	});
+	it('two good days short: all four say tomorrow', () =>
+		expect(doneFaces(until([gotit('2026-11-06')]), now, TZ)!.map((f) => [f.gap, f.learnt])).toEqual(
+			[
+				[1, false],
+				[1, false],
+				[1, false],
+				[1, false]
+			]
+		));
+	it('by the faces: the next gaps, none learnt', () =>
+		expect(
+			doneFaces(
+				{ startGap: 3, createdAt: at('2026-11-01'), sets: [gotit('2026-11-04')], comesBack: FACES },
+				now,
+				TZ
+			)!.map((f) => [f.gap, f.learnt])
+		).toEqual([
+			[1, false],
+			[4, false],
+			[5, false],
+			[7, false]
+		]));
+	it('a fixed rhythm has no faces', () =>
+		expect(
+			doneFaces(
+				{
+					startGap: 3,
+					createdAt: at('2026-11-01'),
+					sets: [],
+					comesBack: { kind: 'every', days: 2 }
+				},
+				now,
+				TZ
+			)
+		).toBeNull());
 });

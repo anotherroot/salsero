@@ -5,7 +5,7 @@
  */
 import { PARTNER } from '$lib/labels';
 import { foldMoves } from '$lib/clones/twins';
-import type { FigureRow, MoveRow, TeamRef } from '$lib/types';
+import type { FigureRow, MoveRow, MoveTarget, TeamRef } from '$lib/types';
 import type { FigureFilter } from './figures';
 
 /** The filter in the URL: `q` trimmed, the rest only when valid. */
@@ -56,6 +56,8 @@ export interface FiguresLists {
 	/** Versions no routine can call; null in group mode. */
 	unrouted: number | null;
 	defaultStyle: string;
+	/** New figure's Move field: the space's own live moves (a group's in group mode). */
+	moveTargets: MoveTarget[];
 }
 
 type Shown = MoveRow & { also: string[] };

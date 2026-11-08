@@ -236,7 +236,11 @@ rules the boards follow that are not obvious from looking at them.
   screens shrink the same way on scroll.
 - **Edit** is a pencil on the band. Editing shows × ("Stop editing", asks if
   unsaved) and the form's Save pinned at the bottom — one Save, not a header
-  Done plus a form Save.
+  Done plus a form Save. **One exception:** the song page's Edit (spec
+  2026-11-08) is a live tool — taps cannot wait for a Save — so it saves as
+  you go, each change with Undo in a toast, says so in the band's subtitle
+  ("Editing · saves as you go"), and its × only leaves Edit. Its Song details
+  stays a form with Save.
 - **Every browser `confirm()` becomes a kit dialog** (archive, delete video,
   delete recording, archive song…), with one line saying what is kept or lost.
 - **Split row:** where a row both opens something and has a quick action (a

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { GROUP } from '$lib/theme/tokens';
+	import SavedToast from '$lib/components/exercises/SavedToast.svelte';
 	let { data, children } = $props();
 </script>
 
@@ -19,3 +20,6 @@
 </svelte:head>
 
 {@render children()}
+
+<!-- A save's "Saved · back in 12 days · Undo", on the screen after the one that saved. -->
+<SavedToast />

@@ -1,7 +1,7 @@
 <!-- src/lib/components/player/SourcePicker.svelte -->
 <!--
 	What a practice plays to: count only at a tempo, or one of this dance's
-	ready songs at a speed. Shared by the popup's practice panel and the full
+	ready songs at a speed. Shared by the practice panel and the full
 	player's setup. It only chooses — loading the song is the owner's
 	(`loadSongGrid`), since the owner also mounts the `<audio>`.
 -->

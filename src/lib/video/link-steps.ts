@@ -5,10 +5,10 @@ import type { LinkCreateField, LinkOptions, LinkTarget } from '$lib/types';
 import { lengthText, spotTime } from '$lib/video/spots';
 
 /** The popup's levels, bottom first. 'links': linked list + the Link button. 'pick': the picker.
- *  'variation' | 'figure' | 'drill' | 'position': create steps. 'variation-figure': the variation step's Figure picker.
+ *  'variation' (New figure: its move picked or new) | 'drill' | 'position': create steps. 'variation-figure': the variation step's Figure picker.
  *  'unlink': the "Unlink …?" question, a level of its own only in the player (Back closes just it). */
 export type LinkStep =
-	'links' | 'pick' | 'variation' | 'figure' | 'drill' | 'position' | 'variation-figure' | 'unlink';
+	'links' | 'pick' | 'variation' | 'drill' | 'position' | 'variation-figure' | 'unlink';
 
 /** Where a host opens the popup: straight into the picker when the section has no links. */
 export function openingSteps(linkedCount: number): LinkStep[] {
@@ -57,12 +57,11 @@ export function destination(o: Pick<LinkOptions, 'spot' | 'context'>): string {
 		: `Linked to ${range}`;
 }
 
-export type CreateStep = 'variation' | 'figure' | 'drill' | 'position';
+export type CreateStep = 'variation' | 'drill' | 'position';
 export type CreateSpot = LinkCreateField | 'banner';
 
 const SHOWN: Record<CreateStep, CreateSpot[]> = {
-	variation: ['groupId', 'name', 'style'],
-	figure: ['figureName', 'name', 'style'],
+	variation: ['groupId', 'figureName', 'name', 'style'],
 	drill: ['name'],
 	position: ['name', 'style']
 };
@@ -70,7 +69,6 @@ const SHOWN: Record<CreateStep, CreateSpot[]> = {
 /** The create row's buttons, bare nouns: the picker draws the +. */
 const CREATE_ROW: { key: CreateStep; label: string }[] = [
 	{ key: 'variation', label: 'Figure' },
-	{ key: 'figure', label: 'Move' },
 	{ key: 'drill', label: 'Drill' },
 	{ key: 'position', label: 'Position' }
 ];

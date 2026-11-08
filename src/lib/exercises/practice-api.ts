@@ -1,6 +1,6 @@
 /**
  * The fetch side of `POST /[dance]/exercises/[id]/practice`: remember what an
- * exercise was practised with, for next time. Used by the popup's panel and
+ * exercise was practised with, for next time. Used by the exercise page's panel and
  * the full player, both on Play. A convenience: a failure changes nothing, so
  * it is never awaited and never reported: a background write, not sent offline
  * and never "Needs a connection" (`backgroundWrite`).

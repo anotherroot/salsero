@@ -278,15 +278,22 @@
     {
       "idx": 39,
       "version": "6",
-      "when": 1794147215751,
-      "tag": "0039_open_hawkeye",
+      "when": 1794148313237,
+      "tag": "0039_dapper_talisman",
       "breakpoints": true
     },
     {
       "idx": 40,
       "version": "6",
-      "when": 1794147261062,
-      "tag": "0040_change_log_triggers",
+      "when": 1794172781524,
+      "tag": "0040_friendly_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1794172792697,
+      "tag": "0041_change_log_triggers",
       "breakpoints": true
     }
   ]

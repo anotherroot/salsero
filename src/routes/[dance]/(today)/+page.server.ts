@@ -4,7 +4,7 @@ import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/s
 import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
 import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
-import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
+import { saveDoneFrom, undoDoneFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
 import { setWarmupOrder } from '$lib/server/warmup-order';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
@@ -23,7 +23,7 @@ function zone(locals: App.Locals): string {
 
 /**
  * Today's list is the layout's (`list`). This page adds a past day (`?day=`):
- * its sets and the exercises a forgotten set can be logged against. Today itself
+ * its entries and the exercises a forgotten one can go on. Today itself
  * has nothing of its own: `past` is null.
  */
 export const load: PageServerLoad = ({ url, params, locals }) => {
@@ -56,17 +56,16 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			prevDay: shiftDay(day, -1),
 			nextDay: shiftDay(day, 1),
 			daySets,
-			// For the past-day "add a forgotten set" picker.
+			// For the past day's "Forgot to log something" picker.
 			exercises: listPickExercises(db, wall).map(shownExercise)
 		}
 	};
 };
 
 export const actions: Actions = {
-	/** Log a set: now, or at noon of a past day when back-filling. See `log-form.ts`. */
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
+	/** Done: save the exercise's day, today or a past day (`day`). See `saveDoneFrom`. */
+	done: (event) => saveDoneFrom(event),
+	undoDone: (event) => undoDoneFrom(event),
 
 	/** Put an exercise on today's list by hand (`add`) or take it off for today (`skip`). */
 	pick: async ({ params, request, locals }) => {

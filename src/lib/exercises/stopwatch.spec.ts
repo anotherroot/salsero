@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STOPPED, elapsedMs, pauseWatch, startWatch } from './stopwatch';
+import { STOPPED, elapsedMs, followVisibility, pauseWatch, startWatch } from './stopwatch';
 
 describe('stopwatch', () => {
 	it('counts running time and leaves pauses out', () => {
@@ -20,5 +20,18 @@ describe('stopwatch', () => {
 
 	it('never goes negative if the clock steps backwards', () => {
 		expect(elapsedMs(startWatch(STOPPED, 5_000), 4_000)).toBe(0);
+	});
+
+	it('follows the page: counts while visible, pauses while hidden', () => {
+		expect(followVisibility({ bankedMs: 5000, runningSince: 1000 }, false, 3000)).toEqual({
+			bankedMs: 7000,
+			runningSince: null
+		});
+		expect(followVisibility({ bankedMs: 7000, runningSince: null }, true, 9000)).toEqual({
+			bankedMs: 7000,
+			runningSince: 9000
+		});
+		const running = { bankedMs: 0, runningSince: 1000 };
+		expect(followVisibility(running, true, 5000)).toBe(running);
 	});
 });

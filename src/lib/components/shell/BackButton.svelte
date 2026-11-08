@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import type { BandTone } from '$lib/components/ui/styles';
 	import { listOf, paneBack } from '$lib/nav/pane';
 	import { besideToday } from '$lib/nav/today-pane';
 	import { backByHistory, backFor, intend, listOpener } from '$lib/nav/trail.svelte';
@@ -21,13 +22,21 @@
 	 * keeps its ‹. Anything else in the header's `left` (a Stop editing ×) is not
 	 * gated.
 	 */
-	let { fallback, focusKey }: { fallback: { href: string; label: string }; focusKey?: string } =
-		$props();
+	let {
+		fallback,
+		focusKey,
+		tone: toneProp
+	}: {
+		fallback: { href: string; label: string };
+		focusKey?: string;
+		/** In place of the band's or the pane's look: `float` over the map. */
+		tone?: BandTone;
+	} = $props();
 
 	const target = $derived(backFor(page.url.pathname, fallback));
 	const pane = inPane();
 	// In a pane on the desktop the header is on the ground: a bare ink ‹.
-	const tone = pane ? 'pane-back' : 'band';
+	const tone = $derived(toneProp ?? (pane ? 'pane-back' : 'band'));
 	const hidden = $derived.by(() => {
 		if (!pane) return false;
 		const l = listOf(page.route.id);

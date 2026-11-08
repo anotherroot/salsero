@@ -27,8 +27,8 @@ describe('synced tables', () => {
 		}
 	});
 
-	it('migration 0040 is exactly what scripts/sync-triggers.ts writes', () => {
-		const file = readFileSync('drizzle/0040_change_log_triggers.sql', 'utf8');
+	it('migration 0041 is exactly what scripts/sync-triggers.ts writes', () => {
+		const file = readFileSync('drizzle/0041_change_log_triggers.sql', 'utf8');
 		expect(file).toBe(triggersFile(SYNCED));
 	});
 });

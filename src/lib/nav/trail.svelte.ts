@@ -1,7 +1,7 @@
 import { tick } from 'svelte';
 import { afterNavigate, beforeNavigate, goto, onNavigate } from '$app/navigation';
 import { page } from '$app/state';
-import { gotoWhenSettled } from '$lib/sheets/history.svelte';
+import { gotoWhenSettled, whenSettled } from '$lib/sheets/history.svelte';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { TabId } from './tabs';
 import {
@@ -220,6 +220,26 @@ export async function goBack(
 	if (backByHistory(target.key)) return;
 	// eslint-disable-next-line svelte/no-navigation-without-resolve -- a trail href, built from resolved paths
 	await goto(target.href, { replaceState: opts.replace ?? false });
+}
+
+/**
+ * Close-then-back: once the sheets' Back has landed, the band's back
+ * (`goBack(fallback, opts)`). The caller closes its sheets first, in the same tick
+ * (the Done sheet's face tap, which leaves for where the page was opened
+ * from). Where back goes is worked out once history has settled: until then
+ * the sheets' own entries are on top. `replace`: when there is no history step
+ * (a page with no opener, as the desktop's pane), the fallback takes the page's
+ * entry, so browser Back does not return to it.
+ */
+export function backWhenSettled(
+	fallback: { href: string; label: string },
+	opts: { replace?: boolean } = {}
+): Promise<void> {
+	return new Promise((resolve, reject) => {
+		whenSettled(() => {
+			goBack(fallback, opts).then(resolve, reject);
+		});
+	});
 }
 
 /** Keep the trail in step with the router. Call once, from the root layout. */

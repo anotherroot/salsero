@@ -63,7 +63,7 @@ describe('swRoute', () => {
 			'device-read'
 		);
 		expect(route('GET', '/api/lessons/4/comments')).toBe('device-read');
-		expect(route('GET', '/salsa/exercises/9/practice')).toBe('device-read');
+		expect(route('GET', '/salsa/songs/9/grid')).toBe('device-read');
 		// A network page's data is the server's alone; offline it gets "needs a
 		// connection" (the walk: a failed fetch left the shell with no layout data).
 		expect(route('GET', '/admin/__data.json')).toBe('network-read');
@@ -141,7 +141,7 @@ describe('navigations to what is not a page', () => {
 		expect(route('GET', '/health', 'navigate')).toBe('pass');
 		expect(route('GET', '/manifest-salsa.webmanifest', 'navigate')).toBe('pass');
 		expect(route('GET', '/api/lessons/4/comments', 'navigate')).toBe('pass');
-		expect(route('GET', '/salsa/exercises/9/practice', 'navigate')).toBe('pass');
+		expect(route('GET', '/salsa/songs/9/grid', 'navigate')).toBe('pass');
 		// Pages still get the network first, then the shell.
 		expect(route('GET', '/salsa/exercises/9', 'navigate')).toBe('navigate');
 		expect(route('GET', '/settings', 'navigate')).toBe('navigate');

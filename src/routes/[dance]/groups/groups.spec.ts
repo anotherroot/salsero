@@ -8,10 +8,11 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { exercises, teamChanges, users } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { createTeam, joinTeam, roleOf } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
-import { requireTeam } from '$lib/server/scope';
+import { requireExerciseAccess, requireTeam } from '$lib/server/scope';
 import { actions as listActions } from './+page.server';
 import { load as listLoad } from './+layout.server';
 import { actions as pageActions, load as pageLoad } from './[id]/+page.server';
@@ -227,5 +228,48 @@ describe('Join', () => {
 		expect((await run(() => joinLoad(e))).status).toBe(404);
 		expect((await run(() => joinActions.join!(e))).status).toBe(404);
 		expect(roleOf(db, 'outsider', b.teamId)).toBeNull();
+	});
+});
+
+describe('New drill on the group page', () => {
+	it("makes a drill of the group's, logged, and opens it", async () => {
+		const r = await run(() =>
+			pageActions.createDrill!(ev('owner', { request: post({ name: 'Shines', notes: 'Slow' }) }))
+		);
+		const drill = db.select().from(exercises).where(eq(exercises.name, 'Shines')).get();
+		expect(drill).toMatchObject({ teamId, userId: null, source: 'custom', notes: 'Slow' });
+		expect(r.status).toBe(303);
+		expect(r.location).toBe(`/salsa/exercises/${drill!.id}`);
+		const log = db.select().from(teamChanges).where(eq(teamChanges.teamId, teamId)).all();
+		expect(log.some((c) => c.rootKind === 'drill' && c.rootId === drill!.id)).toBe(true);
+		// Its page opens for the group's editors before any lesson links it.
+		expect(
+			requireExerciseAccess(
+				db,
+				{ user: user('owner') } as never,
+				{ dance: 'salsa' },
+				drill!.id,
+				'edit'
+			).exercise.id
+		).toBe(drill!.id);
+	});
+	it('refuses an empty name under the field', async () => {
+		const r = await run(() =>
+			pageActions.createDrill!(ev('owner', { request: post({ name: ' ' }) }))
+		);
+		expect((r.value as { status: number; data: { field: string } }).data.field).toBe('name');
+		expect(db.select().from(exercises).all()).toHaveLength(0);
+	});
+	it('404s a member and a deleted group', async () => {
+		const asMember = await run(() =>
+			pageActions.createDrill!(ev('member', { request: post({ name: 'X' }) }))
+		);
+		expect(asMember.status).toBe(404);
+		await run(() => pageActions.delete!(ev('owner')));
+		const deleted = await run(() =>
+			pageActions.createDrill!(ev('owner', { request: post({ name: 'X' }) }))
+		);
+		expect(deleted.status).toBe(404);
+		expect(db.select().from(exercises).all()).toHaveLength(0);
 	});
 });

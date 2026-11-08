@@ -19,14 +19,21 @@ class FakeApi:
     def upload_audio(self, song_id, path, mime, title, duration):
         self.calls.append(("upload_audio", song_id, mime, title, duration))
 
-    def post_analysis(self, song_id, beats, downbeats, duration):
-        self.calls.append(("post_analysis", song_id, beats, downbeats, duration))
+    def post_analysis(self, song_id, beats, downbeats, duration, start=None):
+        self.calls.append(("post_analysis", song_id, beats, downbeats, duration, start))
+
+    def starts_wanted(self):
+        wanted, self.wanted = getattr(self, "wanted", []), []
+        return wanted
+
+    def post_start(self, song_id, start):
+        self.calls.append(("post_start", song_id, start))
 
     def fail(self, song_id, error, permanent):
         self.calls.append(("fail", song_id, error, permanent))
 
 
-def tools(fetch=None, analyze=None):
+def tools(fetch=None, analyze=None, music_start=None):
     def default_fetch(url, workdir):
         p = workdir / "audio.m4a"
         p.write_bytes(b"m4a")
@@ -37,6 +44,7 @@ def tools(fetch=None, analyze=None):
         to_wav=lambda src, dest: dest.write_bytes(b"wav"),
         duration_of=lambda path: 42.0,
         analyze=analyze or (lambda wav: ([0.5, 1.0], [0.5])),
+        music_start=music_start or (lambda wav: 1.5),
     )
 
 
@@ -45,14 +53,14 @@ def test_download_job_uploads_then_analyses(tmp_path):
     jobs.process({"id": 7, "kind": "download", "url": "https://y"}, api, tools(), tmp_path)
     assert api.calls == [
         ("upload_audio", 7, "audio/mp4", "Title", 200.0),
-        ("post_analysis", 7, [0.5, 1.0], [0.5], 200.0),
+        ("post_analysis", 7, [0.5, 1.0], [0.5], 200.0, 1.5),
     ]
 
 
 def test_analyze_job_fetches_audio_from_the_server(tmp_path):
     api = FakeApi([])
     jobs.process({"id": 3, "kind": "analyze", "url": None}, api, tools(), tmp_path)
-    assert api.calls == [("download_audio", 3), ("post_analysis", 3, [0.5, 1.0], [0.5], 42.0)]
+    assert api.calls == [("download_audio", 3), ("post_analysis", 3, [0.5, 1.0], [0.5], 42.0, 1.5)]
 
 
 def test_permanent_error_fails_the_song_for_good(tmp_path):
@@ -112,6 +120,7 @@ def test_an_upload_longer_than_15_minutes_fails_for_good(tmp_path):
         to_wav=lambda src, dest: dest.write_bytes(b"wav"),
         duration_of=lambda path: media.MAX_DURATION_S + 1.0,
         analyze=analyze,
+        music_start=lambda wav: 0.0,
     )
     api = FakeApi([])
     assert jobs.process({"id": 4, "kind": "analyze", "url": None}, api, t, tmp_path) is False
@@ -120,7 +129,7 @@ def test_an_upload_longer_than_15_minutes_fails_for_good(tmp_path):
 
 def test_a_refused_analysis_fails_for_good(tmp_path):
     class Refusing(FakeApi):
-        def post_analysis(self, song_id, beats, downbeats, duration):
+        def post_analysis(self, song_id, beats, downbeats, duration, start=None):
             raise media.PermanentError("Server refused the analysis: no beats found")
 
     api = Refusing([])
@@ -190,3 +199,67 @@ def test_a_private_video_fails_for_good(tmp_path):
     api = VideoApi([], [])
     assert jobs.process_video({"id": 9, "url": "u"}, api, video_tools(fetch_video), tmp_path) is False
     assert api.calls == [("fail_video", 9, "ERROR: Private video", True)]
+
+
+def test_run_measures_the_wanted_starts_after_the_songs_queue():
+    api = FakeApi([{"id": 1, "kind": "analyze", "url": None}])
+    api.wanted = [11, 12]
+    assert jobs.run(api, tools()) == 3
+    assert api.calls[-4:] == [
+        ("download_audio", 11),
+        ("post_start", 11, 1.5),
+        ("download_audio", 12),
+        ("post_start", 12, 1.5),
+    ]
+
+
+def test_a_song_that_will_not_decode_is_measured_as_zero():
+    def to_wav(src, dest):
+        raise media.PermanentError("Could not decode the audio")
+
+    api = FakeApi([])
+    api.wanted = [11]
+    t = tools()
+    t = jobs.Tools(fetch=t.fetch, to_wav=to_wav, duration_of=t.duration_of, analyze=t.analyze, music_start=t.music_start)
+    jobs.run(api, t)
+    assert api.calls == [("download_audio", 11), ("post_start", 11, 0.0)]
+
+
+def test_the_starts_pass_counts_against_max_jobs():
+    api = FakeApi([{"id": i, "kind": "analyze", "url": None} for i in range(2)])
+    api.wanted = [11, 12, 13]
+    assert jobs.run(api, tools(), max_jobs=3) == 3
+    assert [c for c in api.calls if c[0] == "post_start"] == [("post_start", 11, 1.5)]
+
+
+def test_a_song_whose_audio_is_gone_is_measured_as_zero_and_the_rest_go_on():
+    from salsa_worker.api import ApiError
+
+    class Missing(FakeApi):
+        def download_audio(self, song_id, dest):
+            if song_id == 11:
+                raise ApiError("GET", "/api/worker/songs/11/audio", 404, "No audio yet")
+            super().download_audio(song_id, dest)
+
+    api = Missing([])
+    api.wanted = [11, 12]
+    jobs.run(api, tools())
+    assert [c for c in api.calls if c[0] == "post_start"] == [("post_start", 11, 0.0), ("post_start", 12, 1.5)]
+
+
+def test_server_trouble_in_the_starts_pass_leaves_the_videos_to_run():
+    from salsa_worker.api import ApiError
+
+    class Down(FakeApi):
+        def download_audio(self, song_id, dest):
+            raise ApiError("GET", "/x", 502, "Bad gateway")
+
+        def claim_video(self):
+            self.calls.append(("claim_video",))
+            return None
+
+    api = Down([])
+    api.wanted = [11, 12]
+    jobs.run(api, tools(), video_tools=video_tools())
+    assert ("claim_video",) in api.calls
+    assert [c for c in api.calls if c[0] == "post_start"] == []

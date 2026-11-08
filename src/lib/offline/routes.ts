@@ -43,8 +43,7 @@ export const DEVICE_ENDPOINTS = [
 	'/api/lessons/[id]/comments',
 	'/api/video-spots',
 	'/api/video-spots/[id]/links',
-	'/[dance]/songs/[id]/grid',
-	'/[dance]/(today)/exercises/[id]/practice'
+	'/[dance]/songs/[id]/grid'
 ];
 
 /** Every other GET endpoint: the server's alone. */
@@ -57,6 +56,7 @@ export const NETWORK_ENDPOINTS = [
 	'/api/device/today',
 	'/api/teams/[id]/keep',
 	'/api/worker/songs/[id]/audio',
+	'/api/worker/starts',
 	'/audio/[file]',
 	'/count/[file]',
 	'/lesson-videos/[file]',

@@ -6,11 +6,20 @@ import { checkSeen, exerciseSeen } from './clash';
 import {
 	archiveExercise,
 	createCustomExercise,
+	deleteDay,
+	exerciseHistory,
+	exerciseSummary,
 	listExercises,
 	listPickExercises,
+	logSet,
+	restoreSets,
+	saveDay,
 	setPracticeSettings,
-	updateExercise
+	undoSave,
+	updateExercise,
+	type SetInput
 } from './exercises';
+import { noonOf } from '$lib/day/day';
 import { createSongFromUpload, storeAnalysis } from './songs';
 import { shareSong, unshareSong } from './song-share';
 import { CLASS_ED, CLASS_T, makeClass, readyGroupSong, type Class } from './test-class';
@@ -384,3 +393,151 @@ describe('the clash check on a drill', () => {
 function col(db: Db, id: number) {
 	return db.select().from(exercises).where(eq(exercises.id, id)).get()!;
 }
+
+describe('one entry a day', () => {
+	const TZ = 'Europe/Ljubljana';
+	const at = (day: string, h: number) => noonOf(day, TZ) + (h - 12) * 3600_000;
+	let ex: number;
+	beforeEach(() => {
+		ex = createCustomExercise(db, U1_SALSA, { name: 'Clave', notes: null }).id;
+	});
+	const input = (o: Partial<SetInput>): SetInput => ({
+		exerciseId: ex,
+		doneAt: at('2026-11-07', 10),
+		durationS: null,
+		reps: null,
+		rating: null,
+		note: null,
+		playerJson: null,
+		...o
+	});
+
+	it('a first save of the day inserts', () => {
+		const r = saveDay(
+			db,
+			input({ doneAt: at('2026-11-07', 10), durationS: 240, rating: 4, note: 'a' }),
+			TZ
+		);
+		expect(r.before).toBeNull();
+		expect(exerciseHistory(db, ex)).toHaveLength(1);
+	});
+
+	it('a first save with an empty note stores null', () => {
+		const r = saveDay(db, input({ note: '' }), TZ);
+		expect(r.set.note).toBeNull();
+	});
+
+	it('a second save that day adds the time and replaces face and note', () => {
+		saveDay(db, input({ durationS: 240, rating: 2, note: 'a', playerJson: '{"x":1}' }), TZ);
+		const r = saveDay(
+			db,
+			input({ doneAt: at('2026-11-07', 20), durationS: 60, rating: 4, note: '', playerJson: null }),
+			TZ
+		);
+		expect(exerciseHistory(db, ex)).toHaveLength(1);
+		expect(r.set).toMatchObject({
+			durationS: 300,
+			rating: 4,
+			note: null,
+			playerJson: '{"x":1}',
+			doneAt: at('2026-11-07', 10)
+		});
+		expect(r.before).toMatchObject({ durationS: 240, rating: 2, note: 'a' });
+	});
+
+	it('a second save with no note keeps the first note; an empty note clears it', () => {
+		saveDay(db, input({ note: 'a' }), TZ);
+		const kept = saveDay(db, input({ doneAt: at('2026-11-07', 20), note: undefined }), TZ);
+		expect(kept.set.note).toBe('a');
+		const cleared = saveDay(db, input({ doneAt: at('2026-11-07', 21), note: '' }), TZ);
+		expect(cleared.set.note).toBeNull();
+	});
+
+	it('a new run replaces the day run', () => {
+		saveDay(db, input({ playerJson: '{"x":1}' }), TZ);
+		const r = saveDay(db, input({ doneAt: at('2026-11-07', 20), playerJson: '{"x":2}' }), TZ);
+		expect(r.set.playerJson).toBe('{"x":2}');
+	});
+
+	it('null time on both saves stays null', () => {
+		saveDay(db, input({}), TZ);
+		expect(saveDay(db, input({ doneAt: at('2026-11-07', 20) }), TZ).set.durationS).toBeNull();
+		expect(
+			saveDay(db, input({ doneAt: at('2026-11-07', 21), durationS: 30 }), TZ).set.durationS
+		).toBe(30);
+	});
+
+	it('a day with two old rows: the latest is updated, the other kept', () => {
+		const first = logSet(db, input({ doneAt: at('2026-11-07', 8), durationS: 100, rating: 1 }));
+		const second = logSet(db, input({ doneAt: at('2026-11-07', 9), durationS: 200, rating: 2 }));
+		const r = saveDay(db, input({ doneAt: at('2026-11-07', 20), durationS: 50, rating: 5 }), TZ);
+		expect(r.set.id).toBe(second.id);
+		expect(r.set).toMatchObject({ durationS: 250, rating: 5 });
+		expect(exerciseHistory(db, ex)).toHaveLength(2);
+		expect(exerciseHistory(db, ex).find((h) => h.id === first.id)).toMatchObject({
+			durationS: 100,
+			rating: 1
+		});
+	});
+
+	it('a back-filled day merges into that day', () => {
+		const doneAt = noonOf('2026-11-05', TZ);
+		saveDay(db, input({ doneAt, rating: 3 }), TZ);
+		saveDay(db, input({ doneAt, rating: 4 }), TZ);
+		expect(exerciseHistory(db, ex)).toHaveLength(1);
+	});
+
+	it('a save near midnight belongs to the local day, not the UTC day', () => {
+		const late = at('2026-11-07', 23.5);
+		saveDay(db, input({ doneAt: late }), TZ);
+		saveDay(db, input({ doneAt: late + 60_000 }), TZ);
+		expect(exerciseHistory(db, ex)).toHaveLength(1);
+		saveDay(db, input({ doneAt: at('2026-11-08', 0.5) }), TZ);
+		expect(exerciseHistory(db, ex)).toHaveLength(2);
+	});
+
+	it('undoSave of a first save deletes it; of a second puts the first back', () => {
+		const a = saveDay(db, input({ durationS: 240, rating: 2, note: 'a' }), TZ);
+		expect(undoSave(db, a.set.id, a.before)).toBe(true);
+		expect(exerciseHistory(db, ex)).toHaveLength(0);
+
+		saveDay(db, input({ durationS: 240, rating: 2, note: 'a', playerJson: '{"x":1}' }), TZ);
+		const b = saveDay(
+			db,
+			input({ doneAt: at('2026-11-07', 20), durationS: 60, rating: 4, note: 'b' }),
+			TZ
+		);
+		expect(undoSave(db, b.set.id, b.before)).toBe(true);
+		expect(exerciseHistory(db, ex)).toMatchObject([
+			{ durationS: 240, rating: 2, note: 'a', doneAt: at('2026-11-07', 10) }
+		]);
+	});
+
+	it('undoSave refuses a before of another exercise and a row that is gone', () => {
+		const other = createCustomExercise(db, U1_SALSA, { name: 'Other', notes: null }).id;
+		saveDay(db, input({ durationS: 240 }), TZ);
+		const b = saveDay(db, input({ doneAt: at('2026-11-07', 20), durationS: 60, rating: 4 }), TZ);
+		expect(undoSave(db, b.set.id, { ...b.before!, exerciseId: other })).toBe(false);
+		expect(exerciseHistory(db, ex)[0]).toMatchObject({ durationS: 300, rating: 4 });
+		expect(undoSave(db, 99999, null)).toBe(false);
+	});
+
+	it('deleteDay deletes that day only and restoreSets brings it back', () => {
+		logSet(db, input({ doneAt: at('2026-10-15', 9), durationS: 240, rating: 2 }));
+		logSet(db, input({ doneAt: at('2026-10-15', 18), durationS: 120, rating: 3, note: 'x' }));
+		logSet(db, input({ doneAt: at('2026-10-16', 9), durationS: 300 }));
+		const snaps = deleteDay(db, ex, '2026-10-15', TZ);
+		expect(snaps.map((s) => s.durationS)).toEqual([240, 120]);
+		expect(exerciseHistory(db, ex)).toHaveLength(1);
+		restoreSets(db, snaps, TZ);
+		expect(exerciseHistory(db, ex)).toHaveLength(3);
+		expect(exerciseSummary(db, ex, TZ).times).toBe(2);
+	});
+
+	it('exerciseSummary counts days, not rows', () => {
+		logSet(db, input({ doneAt: at('2026-10-15', 9), durationS: 240 }));
+		logSet(db, input({ doneAt: at('2026-10-15', 18), durationS: 120 }));
+		logSet(db, input({ doneAt: at('2026-10-16', 9), durationS: 300 }));
+		expect(exerciseSummary(db, ex, TZ)).toEqual({ times: 2, totalS: 660 });
+	});
+});

@@ -81,7 +81,6 @@ describe('deviceAnswers', () => {
 		expect(deviceAnswers('GET', u('/api/video-spots/5/links'))).toBe(true);
 		expect(deviceAnswers('GET', u('/api/lessons/5/comments'))).toBe(true);
 		expect(deviceAnswers('GET', u('/salsa/songs/5/grid'))).toBe(true);
-		expect(deviceAnswers('GET', u('/salsa/exercises/5/practice'))).toBe(true);
 		expect(deviceAnswers('GET', u('/recordings/x.mp4'))).toBe(false);
 		expect(deviceAnswers('GET', u('/api/device/today'))).toBe(false);
 		expect(deviceAnswers('GET', u('/health'))).toBe(false);

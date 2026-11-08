@@ -13,6 +13,8 @@ const NO_BAND: Record<string, string> = {
 	'src/routes/[dance]/(moves)/routines/+page.svelte': 'the (moves) layout draws the band',
 	'src/routes/[dance]/(moves)/positions/+page.svelte':
 		'the (moves) layout draws the band (ListPane); this is the pane: the map, or How positions work',
+	'src/routes/[dance]/(moves)/positions/map/+page.svelte':
+		'the map draws its title floating over itself (spec 2026-11-08)',
 	'src/routes/[dance]/player/+page.svelte': 'Setup draws the band, Running draws the stage',
 	'src/routes/[dance]/lessons/+page.svelte':
 		'the lessons layout draws the band (ListPane); this is only the title',

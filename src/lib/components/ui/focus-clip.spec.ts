@@ -15,7 +15,6 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 	['src/lib/components/songs/UploadRow.svelte', 'h-1.5 overflow-hidden', 'progress track'],
 	['src/routes/voice/+page.svelte', 'h-1.5 flex-1 overflow-hidden', 'progress track'],
 	['src/lib/components/today/TodayBar.svelte', 'h-2 w-full overflow-hidden', 'progress track'],
-	['src/lib/components/exercises/LogShell.svelte', 'aria-hidden', 'skeleton'],
 	['src/lib/components/shell/PageSkeleton.svelte', 'overflow-hidden', 'skeleton, aria-hidden'],
 	[
 		'src/lib/components/positions/PointRow.svelte',
@@ -51,6 +50,21 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 		'src/lib/components/ui/PlayerLayer.svelte',
 		'sheet-panel',
 		'the sheet panel: its header controls sit at least 8 px in; its rows are in their own CLIP cards'
+	],
+	[
+		'src/lib/components/positions/MapPane.svelte',
+		'fixed inset-x-0 top-0',
+		'the phone’s full-screen map: its floating buttons and the tray sit inside the screen, 14 px in'
+	],
+	[
+		'src/lib/components/positions/MapPane.svelte',
+		'desk:overflow-clip desk:rounded-2xl',
+		'the desktop’s map box: its buttons sit 12 px in; the pills draw their own ring in the SVG'
+	],
+	[
+		'src/lib/components/positions/PositionMap.svelte',
+		'touch-none overflow-clip',
+		'the map clips the zoomed drawing; its pills draw their own focus ring in the SVG, no outline'
 	]
 ];
 

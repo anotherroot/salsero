@@ -158,7 +158,7 @@
 	<EmptyState
 		icon="routine"
 		title="No routines yet"
-		body="String some figures together into one you can call as a single set."
+		body="String some figures together and call them as one."
 	>
 		{#snippet action()}
 			<button type="button" class={button('primary')} onclick={() => (creating = true)}>

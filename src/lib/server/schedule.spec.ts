@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { createTeam } from './teams';
 import { archiveExercise, createCustomExercise, logSet } from './exercises';
 import {
+	doneFacesOf,
 	goodDaysOf,
 	listScheduleSets,
 	scheduleForShown,
@@ -159,5 +160,49 @@ describe('goodDaysOf', () => {
 		set(b.id, at('2026-11-05'), RATING_OF.gotit);
 		expect(goodDaysOf(db, a.id, at('2026-11-03'), TZ)).toBe(2);
 		expect(goodDaysOf(db, a.id, at('2026-11-05'), TZ)).toBe(1);
+	});
+});
+
+describe('doneFacesOf', () => {
+	const now = Date.parse('2026-11-07T18:00:00+01:00');
+	it('an own drill with no sets has four faces', () => {
+		const a = drill(U1_SALSA, 'Own');
+		expect(doneFacesOf(db, a.id, TZ, now)!.map((f) => f.feel)).toEqual([
+			'hard',
+			'getting',
+			'gotit',
+			'easy'
+		]);
+	});
+	const until = JSON.stringify({
+		kind: 'until',
+		good: 3,
+		since: Date.parse('2026-11-01T00:00:00+01:00')
+	});
+	it('a learning drill with two good days: the good faces finish it', () => {
+		const a = drill(U1_SALSA, 'Learning', 3);
+		db.update(exercises).set({ comesBack: until }).where(eq(exercises.id, a.id)).run();
+		set(a.id, at('2026-11-05'), RATING_OF.gotit);
+		set(a.id, at('2026-11-06'), RATING_OF.gotit);
+		const f = doneFacesOf(db, a.id, TZ, now)!;
+		expect(f.find((x) => x.feel === 'gotit')).toEqual({ feel: 'gotit', gap: 3, learnt: true });
+		expect(f.find((x) => x.feel === 'getting')!.learnt).toBe(false);
+	});
+	it("a class drill's learning rule reaches the entry", () => {
+		db = openDb(':memory:');
+		const c = makeClass(db);
+		db.update(exercises).set({ comesBack: until }).where(eq(exercises.id, c.drill)).run();
+		set(c.entry, at('2026-11-05'), RATING_OF.gotit);
+		set(c.entry, at('2026-11-06'), RATING_OF.gotit);
+		expect(doneFacesOf(db, c.entry, TZ, now)!.find((x) => x.feel === 'easy')!.learnt).toBe(true);
+	});
+	it('an entry following a class drill set to a fixed rhythm has no faces', () => {
+		db = openDb(':memory:');
+		const c = makeClass(db);
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify({ kind: 'every', days: 1 }) })
+			.where(eq(exercises.id, c.drill))
+			.run();
+		expect(doneFacesOf(db, c.entry, TZ, now)).toBeNull();
 	});
 });
