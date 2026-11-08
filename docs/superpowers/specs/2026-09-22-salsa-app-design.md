@@ -381,7 +381,8 @@ The home page. One page serves both "exercises" and "today".
   [redesign](2026-10-31-redesign-design.md), Moves.
 - **Positions:** Moves' third segment, `/[dance]/positions`: how many figures
   have positions, Templates and How positions work, search, a chip per type
-  and Gaps, No position, the map, then Yours and each group's. Positions are
+  and Gaps, No position, the map (name pills, a sheet per position and a walk
+  that makes a routine: see the [map spec](2026-11-08-map-walk-design.md)), then Yours and each group's. Positions are
   owned like figures (a person's or a group's, with copies, Make it mine and
   twins); a name is unique among the space's live positions, ignoring accents
   and case. See the [positions spec](2026-11-04-positions-design.md).

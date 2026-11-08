@@ -13,6 +13,7 @@ import { invalidateAll } from '$app/navigation';
 import type { ActionResult } from '@sveltejs/kit';
 import { markSent } from '$lib/sheets/history.svelte';
 import { STALE_HEADER } from '$lib/page-epoch';
+import { t } from '$lib/i18n/catalog';
 
 export type Field = string | number | null | (string | number)[];
 
@@ -42,12 +43,41 @@ export function actAt(
 	return post(`${path}?/${name}`, fields);
 }
 
-async function post(url: string, fields: Record<string, Field>): Promise<ActionResult> {
+/**
+ * `actAt` without the page side: the action's result, and nothing else. No
+ * reload, no `form`, and a redirect is not followed. For a save that must not
+ * move the page: the unsaved-changes dialog's Save on the way to somewhere else
+ * (the map's walk), where following the redirect would race the navigation the
+ * person chose.
+ */
+export async function sendAt(
+	path: string,
+	name: string,
+	fields: Record<string, Field>
+): Promise<ActionResult> {
+	try {
+		const res = await fetch(`${path}?/${name}`, {
+			method: 'POST',
+			body: bodyOf(fields),
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
+		});
+		return deserialize(await res.text());
+	} catch {
+		return { type: 'failure', status: 0, data: { message: t().common.unreachable } };
+	}
+}
+
+function bodyOf(fields: Record<string, Field>): FormData {
 	const body = new FormData();
 	for (const [key, value] of Object.entries(fields)) {
 		if (Array.isArray(value)) for (const v of value) body.append(key, String(v));
 		else body.append(key, value === null ? '' : String(value));
 	}
+	return body;
+}
+
+async function post(url: string, fields: Record<string, Field>): Promise<ActionResult> {
+	const body = bodyOf(fields);
 	markSent();
 	let result: ActionResult;
 	let stale = false;
@@ -60,7 +90,7 @@ async function post(url: string, fields: Record<string, Field>): Promise<ActionR
 		stale = res.headers.has(STALE_HEADER);
 		result = deserialize(await res.text());
 	} catch {
-		result = { type: 'failure', status: 0, data: { message: 'Could not reach the server.' } };
+		result = { type: 'failure', status: 0, data: { message: t().common.unreachable } };
 	}
 	// The load re-runs BEFORE `form` is set: re-running it after would lose the
 	// message, and setting it to a success is what clears an earlier refusal

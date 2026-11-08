@@ -271,6 +271,9 @@ Report counts in the boot log, as the integrity checks do. *Built:*
   islands (cut off from the rest), positions with no figures and No position · N
   sit in a tray under it. A tap lights a position's figures in and out and fades
   the rest; a second tap opens it. Pinch to zoom on the phone.
+  *Replaced 2026-11-08 for how the map looks and what a tap does: name pills,
+  a sheet that steps position to position, and a walk that builds a routine;
+  see the [map spec](2026-11-08-map-walk-design.md).*
 
 ## Left to the builder
 

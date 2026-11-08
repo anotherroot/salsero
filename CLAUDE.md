@@ -59,7 +59,7 @@ invites, admin, storage, settings and My count; see
 and positions as their own things (owned like figures, with copies and twins;
 optional: nobody starts with any and a figure without one fits anywhere; any
 number of starts and ends; a type and a hold; a page, Templates, How positions
-work, Gaps and a map; links from sections, points and lessons; see
+work, Gaps and a map you tap and walk to make a routine; links from sections, points and lessons; see
 [`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md))
 and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
@@ -278,9 +278,17 @@ src/lib/graph/       PURE figure graph: positions → what can follow what (`mee
                      ends, orphans, islands, unused), No position. Client-safe
 src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates per dance
                      and type (templates.ts), every positions screen's words and rows
-                     (view.ts), the map's layout (map.ts: a force layout from a fixed
-                     start, the label pass, the tray) and how the page draws it
-                     (map-view.ts: type colours, what a tap lights, the arrows). Client-safe
+                     (view.ts), the map's layout (map.ts: name pills (the pills are the labels),
+                     a force layout from a fixed start in a portrait 7:10 frame, the mark and
+                     Twins lines sized for the longest language, the tray) and how the
+                     page draws it (map-view.ts: type colours, what a tap lights, the arrows).
+                     map-fit.ts: the view (`wholeView`, `fitView`, `clampMapView`, `viewTransform`,
+                     with a `Room` that may keep a `right` inset: `deskRight`, the desktop panel
+                     only while 360 px of map stay beside it, else `aside`: fits steer clear of
+                     it, the map pans under it). map-sheet.ts: a tapped
+                     position's sheet and the trail of steps. map-tray.ts: the tray's chips at rest.
+                     walk.ts: the walk that builds a routine, position to position (immutable
+                     steps, its arrows and pills, the Unsaved save's outcome). Client-safe
 src/lib/schedule/comes-back.ts  PURE: a drill's Comes back (by how it went, learning, or a fixed
                      rhythm): parsing it, the one a row follows (`effectiveComesBack`) and its
                      words. `schedule.ts` holds `scheduleOf` (the setting + the sets → a
@@ -313,13 +321,16 @@ src/lib/server/position-links.ts  sections and points linked to positions
                      (`spot_position_links`): link, unlink (a group's to Recently deleted),
                      and what a position's page lists (its spots, linkable spots, its lessons)
 src/routes/[dance]/(moves)/positions/  the list (Moves' third segment); [id] a position's page;
-                     none the figures with no position; map the map (all under the `(moves)` group,
-                     below)
+                     none the figures with no position; map the map, whose `routine` action makes
+                     a walk into a routine (all under the `(moves)` group, below)
                      src/routes/api/positions is the figure picker's New position (JSON)
 src/lib/components/positions/  the New / Edit position sheet and its fields, Templates,
                      How positions work (`HowBody`: the sheet's and the first-run pane's body),
                      a list row, a point's still and its Recordings row (`PointRow`), the position page's
-                     card of three rows and their sheets (`PositionRelations`), the map and its pane (`MapPane`),
+                     card of three rows and their sheets (`PositionRelations`), the map and its pane (`MapPane`:
+                     `PositionMap` draws the pills; `MapPanel` is the tray, a position's sheet or the walk,
+                     a bottom sheet on the phone and a 320 px card floating over the map on desk, one
+                     history entry; `MapTray`, `MapSheet`, `WalkSheet`, `MapInfoSheet` behind ⓘ),
                      a position page's link picker. `PositionForm` is one form, drawn in the
                      sheet or in place on the desktop, its edit mode fixed at its start
                      (`mode`, not derived)
@@ -339,7 +350,10 @@ src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf
 src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
                      (namespaced; `depends('app:moves')`, so a change not made by a form calls
                      `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
-src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
+src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space; each arrow's
+                     figures (`figs`; a group row whose label collides says its group,
+                     `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
+                     (figures with no start)
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
@@ -714,7 +728,7 @@ src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
 static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dates, `plural`), row types.
-                     act.ts posts a page action without a form (`act`); act-toast.ts is the refusal
+                     act.ts posts a page action without a form (`act`; `sendAt` only posts, a redirect not followed); act-toast.ts is the refusal
                      message and the "removed · Undo" toast Settings and My count share.
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/exercises/  the exercise page's parts: `DoneSheet` (+ `done-submit.ts`), `SavedToast`, `DoneBar`,
