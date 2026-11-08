@@ -114,10 +114,16 @@ export const shell: Catalog['shell'] = {
 	},
 	clearSearch: 'Počisti iskanje',
 	dismiss: 'Zapri',
+	stepper: { slower: 'Počasneje', faster: 'Hitreje' },
 	upload: {
 		title: (pct) => `Nalaganje\u00a0… ${pct}\u00a0%`,
 		helper: 'Aplikacijo lahko uporabljate naprej; zaprtje zavihka nalaganje ustavi',
 		bar: (what) => `Nalaganje: ${what}`,
+		nouns: { file: 'datoteka', recording: 'posnetek', videos: 'videi' },
+		anUpload: 'Nalaganje',
+		failed: 'Nalaganje ni uspelo.',
+		tooLarge: (limit) => `Datoteka je prevelika (največ ${limit}).`,
+		connection: 'Nalaganje ni uspelo. Preverite povezavo in poskusite znova.',
 		inBackground: 'Stisnjeno in naloženo v ozadju'
 	}
 };

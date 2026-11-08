@@ -2,6 +2,7 @@
 	import Face from './Face.svelte';
 	import { feelWord, feelOf } from '$lib/schedule/feel';
 	import { lastTimeParts } from '$lib/exercises/log-view';
+	import { t } from '$lib/i18n/catalog';
 	import type { LastSet } from '$lib/types';
 
 	interface Props {
@@ -25,6 +26,6 @@
 			>{/if}{#if parts.note}
 			{SEP}“{parts.note}”{/if}
 	{:else}
-		First time.
+		{t().exercise.log.firstTime}
 	{/if}
 </p>

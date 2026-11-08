@@ -35,6 +35,7 @@ import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
@@ -329,7 +330,7 @@ export const actions: Actions = {
 		const active = team ? row.active : checkbox(form, 'active');
 		const notes = optionalText(form, 'notes');
 		if (notes === undefined) {
-			return fail(400, { action: 'update', message: 'Check the values and try again.' });
+			return fail(400, { action: 'update', message: t().exercise.refused.checkValues });
 		}
 		const stored = getExercise(db, row.id);
 		const clash = seenRefusal(
@@ -351,7 +352,7 @@ export const actions: Actions = {
 		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now(), me(params, locals))) {
 			return fail(400, {
 				action: 'archive',
-				message: 'Only custom exercises are archived here. Archive a figure from its page.'
+				message: t().exercise.refused.archiveHere
 			});
 		}
 		throw redirect(303, `/${params.dance}`);
@@ -365,7 +366,7 @@ export const actions: Actions = {
 		const exerciseId = linkableOf(params, locals).id;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
-			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+			return fail(400, { action: 'linkSection', message: t().exercise.refused.pickSection });
 		}
 		try {
 			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { exerciseId });
@@ -385,7 +386,7 @@ export const actions: Actions = {
 			id === undefined ||
 			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
 		) {
-			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+			return fail(404, { action: 'unlinkSection', message: t().exercise.refused.linkGone });
 		}
 		return { action: 'unlinkSection', ok: true };
 	},

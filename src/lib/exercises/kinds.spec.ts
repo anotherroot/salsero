@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { SOURCES } from '$lib/labels';
 import { EXERCISE_TYPES, TYPES, hasField, typeInfo, typeOf } from './kinds';
 
@@ -37,5 +38,25 @@ describe('exercise types', () => {
 		expect(TYPES.drill.paneContent).toBe('left');
 		expect(TYPES.routine.paneContent).toBe('right');
 		expect(TYPES.lesson.paneContent).toBe('right');
+	});
+});
+
+describe('exercise types in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('names each type, read when asked', () => {
+		expect(sl(() => EXERCISE_TYPES.map((x) => TYPES[x].label))).toEqual([
+			'Ponavljanje lekcije',
+			'Vaja z različico',
+			'Vaja',
+			'Kombinacija'
+		]);
+		// Read at call time: the same object answers in English outside.
+		expect(TYPES.drill.label).toBe('Drill');
+	});
+
+	it('asks a lesson review about memory, the rest about how it went', () => {
+		expect(sl(() => typeInfo('lesson').ratingQuestion)).toBe('Kako dobro se je spomnite?');
+		expect(sl(() => typeInfo('custom').ratingQuestion)).toBe('Kako je šlo?');
 	});
 });

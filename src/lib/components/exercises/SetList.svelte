@@ -9,6 +9,7 @@
 	import { GROUP, iconButton } from '$lib/components/ui/styles';
 	import { setMeta, setTitle } from '$lib/exercises/exercise-page';
 	import { timeOfDay } from '$lib/day/day';
+	import { t } from '$lib/i18n/catalog';
 	import type { HistorySet } from '$lib/types';
 
 	interface Props {
@@ -57,14 +58,14 @@
 							return;
 						}
 						// A refusal ("already removed") reloads: the list shows what the server has.
-						// Not a stale page's: that reload would be held back for good.
+						// Not on a stale page: its reload would be held back for good.
 						if (result.type === 'failure' && !staleFailure(result)) await invalidateAll();
 						hiding = hiding.filter((id) => id !== s.id);
 						const m =
 							result.type === 'failure'
 								? (result.data as { message?: unknown } | undefined)?.message
 								: undefined;
-						onfailed(typeof m === 'string' ? m : 'Could not delete the set.');
+						onfailed(typeof m === 'string' ? m : t().exercise.sets.deleteFailed);
 					};
 				}}
 			>
@@ -73,7 +74,7 @@
 					data-focus="set-{s.id}"
 					type="submit"
 					class={iconButton('bare', 'muted')}
-					aria-label="Delete set logged at {time}"
+					aria-label={t().exercise.sets.deleteLabel(time)}
 				>
 					<Icon name="trash" size={20} />
 				</button>

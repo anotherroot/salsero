@@ -38,13 +38,17 @@
 //   Session (Start session)               vadba (Začni vadbo)
 //   Paused (an exercise)                  na premoru
 //   Not today                             Ne danes
+//   Log a set / a set's minutes, reps      Nov vnos, Shrani vnos / minute, ponovitve
+//   an 8-count (call every 2)             osmica (napoved na 2 osmici)
+//   Practice (the panel, practising)      vadenje (Vadi ob …); a session stays vadba
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { common } from './common';
 import { entry } from './entry';
+import { exercise } from './exercise';
 import { format } from './format';
 import { settings } from './settings';
 import { shell } from './shell';
 import { today } from './today';
 
-export const sl: Catalog = { common, format, shell, admin, settings, entry, today };
+export const sl: Catalog = { common, format, shell, admin, settings, entry, today, exercise };

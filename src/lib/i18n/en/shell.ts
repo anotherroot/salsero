@@ -128,11 +128,21 @@ export const shell = {
 	clearSearch: 'Clear search',
 	/** A banner's ×. */
 	dismiss: 'Dismiss',
+	/** A stepper's − and + (the tempo). */
+	stepper: { slower: 'Slower', faster: 'Faster' },
 	upload: {
 		title: (pct: number): string => `Uploading… ${pct}%`,
 		helper: 'You can keep using the app; closing the tab stops it',
 		/** The progress bar's name: `what` is "recording", "videos". */
 		bar: (what: string): string => `Uploading ${what}`,
+		/** What goes up, for `bar`. */
+		nouns: { file: 'file', recording: 'recording', videos: 'videos' },
+		/** What Unsaved changes calls an upload in flight. */
+		anUpload: 'An upload',
+		failed: 'Upload failed.',
+		/** A 413: "That file is too large (limit 95 MB)." */
+		tooLarge: (limit: string): string => `That file is too large (limit ${limit}).`,
+		connection: 'Upload failed — check the connection and try again.',
 		/** Under the Android app's upload link. */
 		inBackground: 'Compressed and uploaded in the background'
 	}

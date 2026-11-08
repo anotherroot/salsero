@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FEEL_TONE, faceColumns } from './face-view';
 import { FEELS } from '$lib/schedule/feel';
+import { withLocale } from '$lib/i18n/current';
 
 describe('faceColumns', () => {
 	it('words each face and its time', () => {
@@ -30,5 +31,20 @@ describe('FEEL_TONE', () => {
 		expect(FEEL_TONE.getting.text).toBe('text-warn');
 		expect(FEEL_TONE.gotit.ring).toBe('ring-done');
 		expect(FEEL_TONE.easy).toEqual({ text: 'text-easy', bg: 'bg-easy-soft', ring: 'ring-easy' });
+	});
+});
+
+describe('faceColumns in Slovenian', () => {
+	it('words each face and its time', () => {
+		const cols = withLocale('sl', () =>
+			faceColumns([
+				{ feel: 'hard', gap: 1 },
+				{ feel: 'getting', gap: 3 },
+				{ feel: 'gotit', gap: 21 },
+				{ feel: 'easy', gap: 70 }
+			])
+		);
+		expect(cols.map((c) => c.word)).toEqual(['Še težko', 'Napredujem', 'Obvladam', 'Lahko']);
+		expect(cols.every((c) => c.time !== null)).toBe(true);
 	});
 });
