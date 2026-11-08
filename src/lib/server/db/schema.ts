@@ -18,6 +18,7 @@ import {
 	SOURCES,
 	STYLES
 } from '../../labels';
+import { mintedId } from './ids';
 
 /*
  * Every instant is an INTEGER of epoch milliseconds, never a Date or a string.
@@ -83,7 +84,7 @@ export const users = sqliteTable(
 export const todayPicks = sqliteTable(
 	'today_picks',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('today_picks'),
 		userId: text('user_id')
 			.notNull()
 			.references(() => users.id, { onDelete: 'cascade' }),
@@ -124,7 +125,7 @@ export const defaultStyles = sqliteTable(
  * A device token is accepted on `/api/` only — see `request-user.ts`.
  */
 export const deviceTokens = sqliteTable('device_tokens', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
+	id: mintedId('device_tokens'),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
@@ -169,7 +170,7 @@ export const sessions = sqliteTable('sessions', {
 export const loginAttempts = sqliteTable(
 	'login_attempts',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('login_attempts'),
 		/** `ip:<addr>` or `user:<email>` — both are counted, independently. */
 		key: text('key').notNull(),
 		attemptedAt: integer('attempted_at').notNull().$defaultFn(now)
@@ -183,7 +184,7 @@ export const loginAttempts = sqliteTable(
 export const figureGroups = sqliteTable(
 	'figure_groups',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('figure_groups'),
 		dance: text('dance').notNull(),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
@@ -211,7 +212,7 @@ export const figureGroups = sqliteTable(
 export const figures = sqliteTable(
 	'figures',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('figures'),
 		name: text('name').notNull(),
 		notes: text('notes'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
@@ -310,7 +311,7 @@ export const figures = sqliteTable(
 export const recordings = sqliteTable(
 	'recordings',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('recordings'),
 		figureId: integer('figure_id')
 			.notNull()
 			.references(() => figures.id),
@@ -353,7 +354,7 @@ export const recordings = sqliteTable(
 export const positions = sqliteTable(
 	'positions',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('positions'),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
 		/** VESTIGIAL: read by nothing since the positions move; not dropped, see `figures.style`. New rows get `'p-' + uuid`. */
@@ -444,7 +445,7 @@ export const figureEndPositions = sqliteTable(
 export const spotPositionLinks = sqliteTable(
 	'spot_position_links',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('spot_position_links'),
 		spotId: integer('spot_id')
 			.notNull()
 			.references(() => videoSpots.id),
@@ -494,7 +495,7 @@ export type PositionRow = Position;
 export const routines = sqliteTable(
 	'routines',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('routines'),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
@@ -537,7 +538,7 @@ export const routines = sqliteTable(
 export const routineSteps = sqliteTable(
 	'routine_steps',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('routine_steps'),
 		routineId: integer('routine_id')
 			.notNull()
 			.references(() => routines.id),
@@ -596,7 +597,7 @@ export type RoutineStep = typeof routineSteps.$inferSelect;
 export const songs = sqliteTable(
 	'songs',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('songs'),
 		/** Empty until the user or the worker (from YouTube) names it. */
 		title: text('title').notNull().default(''),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
@@ -680,7 +681,7 @@ export const songDrops = sqliteTable(
 export const exercises = sqliteTable(
 	'exercises',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('exercises'),
 		name: text('name').notNull(),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
@@ -770,7 +771,7 @@ export const exercises = sqliteTable(
 export const sets = sqliteTable(
 	'sets',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('sets'),
 		exerciseId: integer('exercise_id')
 			.notNull()
 			.references(() => exercises.id),
@@ -808,7 +809,7 @@ export const sets = sqliteTable(
 export const lessons = sqliteTable(
 	'lessons',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('lessons'),
 		/** The local day the class happened, `YYYY-MM-DD`. */
 		lessonDay: text('lesson_day').notNull(),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
@@ -848,7 +849,7 @@ export const lessons = sqliteTable(
 export const lessonVideos = sqliteTable(
 	'lesson_videos',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('lesson_videos'),
 		lessonId: integer('lesson_id')
 			.notNull()
 			.references(() => lessons.id),
@@ -885,7 +886,7 @@ export const lessonVideos = sqliteTable(
 export const videoSpots = sqliteTable(
 	'video_spots',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('video_spots'),
 		recordingId: integer('recording_id').references(() => recordings.id),
 		lessonVideoId: integer('lesson_video_id').references(() => lessonVideos.id),
 		startMs: integer('start_ms').notNull(),
@@ -924,7 +925,7 @@ export const videoSpots = sqliteTable(
 export const spotLinks = sqliteTable(
 	'spot_links',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('spot_links'),
 		spotId: integer('spot_id')
 			.notNull()
 			.references(() => videoSpots.id),
@@ -1027,7 +1028,7 @@ export const lessonExercises = sqliteTable(
 export const links = sqliteTable(
 	'links',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('links'),
 		lessonId: integer('lesson_id').references(() => lessons.id),
 		figureId: integer('figure_id').references(() => figures.id),
 		exerciseId: integer('exercise_id').references(() => exercises.id),
@@ -1057,7 +1058,7 @@ export const links = sqliteTable(
 export const songLinks = sqliteTable(
 	'song_links',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('song_links'),
 		songId: integer('song_id')
 			.notNull()
 			.references(() => songs.id),
@@ -1088,7 +1089,7 @@ export const songLinks = sqliteTable(
 export const videoDownloads = sqliteTable(
 	'video_downloads',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('video_downloads'),
 		linkId: integer('link_id')
 			.notNull()
 			.unique()
@@ -1167,7 +1168,7 @@ export const idMarks = sqliteTable(
 export const countTakes = sqliteTable(
 	'count_takes',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('count_takes'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
 		pattern: text('pattern', { enum: COUNT_PATTERNS }).notNull(),
@@ -1208,7 +1209,7 @@ export const invites = sqliteTable('invites', {
 export const storageRequests = sqliteTable(
 	'storage_requests',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('storage_requests'),
 		userId: text('user_id').notNull(),
 		note: text('note'),
 		createdAt: createdAt(),
@@ -1225,7 +1226,7 @@ export const storageRequests = sqliteTable(
 
 /** A group: a class that shares its lessons. Its rows carry `team_id` instead of `user_id`. */
 export const teams = sqliteTable('teams', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
+	id: mintedId('teams'),
 	dance: text('dance').notNull(),
 	name: text('name').notNull(),
 	/** What a person types to join. */
@@ -1289,7 +1290,7 @@ export const lessonAdds = sqliteTable(
 export const lessonComments = sqliteTable(
 	'lesson_comments',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('lesson_comments'),
 		lessonId: integer('lesson_id')
 			.notNull()
 			.references(() => lessons.id),
@@ -1341,7 +1342,7 @@ export const opens = sqliteTable(
 export const teamChanges = sqliteTable(
 	'team_changes',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('team_changes'),
 		teamId: integer('team_id').notNull(),
 		rootKind: text('root_kind').notNull(),
 		rootId: integer('root_id').notNull(),
@@ -1371,7 +1372,7 @@ export const teamChanges = sqliteTable(
 export const teamTrash = sqliteTable(
 	'team_trash',
 	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
+		id: mintedId('team_trash'),
 		teamId: integer('team_id').notNull(),
 		kind: text('kind').notNull(),
 		label: text('label').notNull(),

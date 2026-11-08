@@ -229,12 +229,8 @@ describe('updatePosition', () => {
 			{ startMs: 2000, endMs: 3000, label: null },
 			'u1'
 		)!;
-		db.insert(spotPositionLinks)
-			.values([
-				{ spotId: point.id, positionId: a.id },
-				{ spotId: section.id, positionId: a.id }
-			])
-			.run();
+		for (const spotId of [point.id, section.id])
+			db.insert(spotPositionLinks).values({ spotId, positionId: a.id }).run();
 		expect(updatePosition(db, a.id, input('A', { pictureSpotId: point.id }))).toMatchObject({
 			pictureSpotId: point.id
 		});

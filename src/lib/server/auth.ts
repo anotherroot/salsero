@@ -88,9 +88,9 @@ export function isRateLimited(ip: string, email: string, dance: DanceSlug): bool
 
 export function recordFailedLogin(ip: string, email: string, dance: DanceSlug) {
 	const db = getDb();
-	db.insert(loginAttempts)
-		.values([{ key: `ip:${ip}` }, { key: userKey(dance, email) }])
-		.run();
+	// One row per insert: each mints its own id (src/lib/server/db/ids.ts).
+	for (const key of [`ip:${ip}`, userKey(dance, email)])
+		db.insert(loginAttempts).values({ key }).run();
 	// Opportunistic prune so the table cannot grow without bound.
 	db.delete(loginAttempts)
 		.where(lt(loginAttempts.attemptedAt, Date.now() - WINDOW_MS))
