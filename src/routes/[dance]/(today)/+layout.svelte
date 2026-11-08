@@ -343,7 +343,7 @@
 							if (m) say(m);
 						}
 					);
-		// Else Next N, else the list's add control (Custom exercise, the phone's or the band's).
+		// Else Next N, else the list's add control (New exercise, the phone's or the band's).
 		void focusAfterRemoval(keys, `today-row-${exerciseId}`, ['today-next', 'today-custom']);
 		return true;
 	}

@@ -38,3 +38,28 @@ export interface ComesSettings {
 	/** Good days since the switch, for "N of M so far"; null where there is no log (a group's drill). */
 	good: number | null;
 }
+
+/** What the card has chosen so far (its own state, not the stored setting). */
+export interface ComesBackChoice {
+	/** An entry on its class drill's setting, with none of its own: it posts nothing until touched. */
+	following: boolean;
+	touched: boolean;
+	useTeacher: boolean;
+	mode: 'faces' | 'every';
+	until: boolean;
+	good: 3 | 5;
+	every: 1 | 2 | 3 | 7;
+}
+
+/**
+ * The form fields the card posts (the ones `readComesBack` reads). An entry that
+ * follows its teacher and was not touched posts none, so saving something else
+ * never copies the teacher's setting into the member's own.
+ */
+export function postedFields(c: ComesBackChoice): Record<string, string> {
+	if (c.useTeacher) return { comesBack: 'teacher' };
+	if (c.following && !c.touched) return {};
+	if (c.mode === 'every') return { comesBack: 'every', every: String(c.every) };
+	if (c.until) return { comesBack: 'faces', until: 'on', good: String(c.good) };
+	return { comesBack: 'faces' };
+}

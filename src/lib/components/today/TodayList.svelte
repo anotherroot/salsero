@@ -56,7 +56,7 @@
 		appUpdate: AppUpdate | null;
 		/** A row's +: its log popup (the phone). */
 		onlog: (exerciseId: number) => void;
-		/** Custom exercise: the New exercise sheet. */
+		/** New exercise: its sheet. */
 		oncreate: () => void;
 		/** Next was refused: the layout's toast says why. */
 		onrefused: (message: string) => void;
@@ -98,7 +98,7 @@
 						class={button('primary', 'md', true)}><Icon name="route" size={20} />Build a routine</a
 					>
 					<button type="button" class={button('secondary', 'md', true)} onclick={oncreate}
-						><Icon name="plus" size={20} />Custom exercise</button
+						><Icon name="plus" size={20} />New exercise</button
 					>
 				</div>
 			{/snippet}

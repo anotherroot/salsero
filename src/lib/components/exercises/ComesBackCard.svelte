@@ -5,6 +5,7 @@
 	import type { ComesBack } from '$lib/schedule/comes-back';
 	import {
 		GOOD_DAYS,
+		postedFields,
 		RHYTHMS,
 		learningNote,
 		rhythmWords,
@@ -45,7 +46,11 @@
 	let useTeacher = $state(false);
 
 	const following = $derived(own === null && teacher !== null);
-	const send = $derived(!following || touched);
+	const posted = $derived(
+		Object.entries(
+			postedFields({ following, touched, useTeacher, mode, until, good: goodDays, every: days })
+		)
+	);
 	/** Their own and a class drill's both exist: the way back to the teacher's. */
 	const canUseTeacher = $derived(own !== null && teacher !== null);
 
@@ -64,17 +69,9 @@
 	{#if teacher}
 		<p class="px-4 text-[14px] leading-snug text-muted">{teacherLine(teacher)}</p>
 	{/if}
-	{#if useTeacher}
-		<input type="hidden" name="comesBack" value="teacher" />
-	{:else if send}
-		<input type="hidden" name="comesBack" value={mode === 'every' ? 'every' : 'faces'} />
-		{#if mode === 'faces' && until}
-			<input type="hidden" name="until" value="on" />
-			<input type="hidden" name="good" value={goodDays} />
-		{:else if mode === 'every'}
-			<input type="hidden" name="every" value={days} />
-		{/if}
-	{/if}
+	{#each posted as [name, value] (name)}
+		<input type="hidden" {name} {value} />
+	{/each}
 	<div class={GROUP}>
 		<div class="flex flex-col gap-3 px-4 py-3.5">
 			<label class="flex cursor-pointer items-start gap-3.5">
