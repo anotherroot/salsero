@@ -16,6 +16,11 @@
 	let failed = $state<{ id: number; message: string } | null>(null);
 	let failedSeq = 0;
 
+	// A new save takes the place of an Undo refusal still showing.
+	$effect(() => {
+		if (saved.current) failed = null;
+	});
+
 	const toast = $derived.by(() => {
 		if (failed) return failed;
 		const s = saved.current;

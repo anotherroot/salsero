@@ -111,6 +111,12 @@
 					// While the sheet is still open: the page and the day count the save
 					// (the row is done) before the caller leaves.
 					await update({ reset: false });
+				} catch {
+					// The save landed; only the refresh failed, and leaving loads the
+					// page again. Thrown on, it would skip onsaved and leave the unsaved
+					// dialog waiting for an answer that never comes.
+				}
+				try {
 					onsaved(result.data as unknown as DoneResult);
 				} finally {
 					busy = null;

@@ -123,7 +123,14 @@ describe('The Done sheet', () => {
 
 	it('counts the save on the page before it hands the result on', () => {
 		const src = readFileSync(DONE, 'utf8');
-		expect(src).toMatch(/await update\(\{ reset: false \}\);\s*onsaved\(/);
+		expect(src).toMatch(/await update\(\{ reset: false \}\);[\s\S]*?onsaved\(/);
+	});
+
+	it('a refresh that throws still hands the save on (the save landed; the unsaved dialog settles)', () => {
+		const src = readFileSync(DONE, 'utf8');
+		expect(src).toMatch(
+			/try \{\s*(?:\/\/[^\n]*\s*)*await update\(\{ reset: false \}\);\s*\} catch \{[\s\S]*?\}\s*try \{\s*onsaved\(/
+		);
 	});
 
 	it('reads the time at the tap, and posts none without one', () => {
@@ -138,6 +145,11 @@ describe('The saved toast', () => {
 		const src = readFileSync(SAVED_TOAST, 'utf8');
 		expect(src).toMatch(/actAt\(`\/\$\{s\.dance\}`, 'undoDone', \{/);
 		expect(src).toContain('refusalMessage(result, t().today.refused.undo)');
+	});
+
+	it('a new save takes the place of an Undo refusal still showing', () => {
+		const src = readFileSync(SAVED_TOAST, 'utf8');
+		expect(src).toMatch(/\$effect\(\(\) => \{\s*if \(saved\.current\) failed = null;\s*\}\);/);
 	});
 
 	it('is mounted once, by the dance layout', () => {
