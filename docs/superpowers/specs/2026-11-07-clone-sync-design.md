@@ -344,3 +344,119 @@ Picked from mockups beside real screenshots of the 6 Nov backup
 - Tests: three copies and two people in every order (as `story.spec.ts`), a
   form open across a flow (the clash), a loop-free flow over two groups, and
   every option off and on.
+
+## Decided while building *(built)*
+
+What the builder decided, and what the code does that the text above does
+not say. Each line: what, and why.
+
+### In the merge and Sync
+
+- **The agreed value is read per pair.** A copy's change is judged against
+  every pair snapshot it has, not against "the most recent pair's base". The
+  literal rule preselected a behind copy's stale value and undid a newer
+  change. Two copies never in step that differ are open.
+- **An unticked add or remove box lands nothing.** Nothing is removed
+  without asking: "no pick" on an add row is not "delete the page's piece".
+- **The boxes' defaults come from the page's options**, even when its
+  switch is off. Sync is manual; the options are the person's preference
+  for big pieces (sections, recordings, videos).
+- **A key present on some copies and absent on others, with two or more
+  different values elsewhere, is no box.** A section one copy renamed and
+  another never got is left alone, not offered as an add.
+- **Sync results flow on.** After the landings, the flow runs onward from
+  each landed copy with the keys that landed, so copies the person cannot
+  see whose switch is on (a member's own copy of the club's) also get them.
+- **Every member's `seen` is checked**, the read-only ones too: the sheet
+  posts a digest per member, and any difference in a copy that is not ticked
+  refuses the Sync as stale. A pick naming a value the row does not have is
+  stale too, not a "pick" refusal.
+- **Access is asked again right before each copy lands**, since landings
+  await one another.
+- **A group copy the person only reads is never a target.** What a person
+  who edits only their own copy gets is "Update from <club>"; their own
+  deliberate change stays. A person's pick against a group copy they only
+  read marks that copy's change as behind for its editors: a resolved
+  conflict is recorded for the copy decided on, or it would be asked again
+  for ever.
+- **The notice keeps one "Sync" button** in every case (mockup 2A); only
+  the sheet says "Update from …" for a reader.
+- **A Sync with a name that differs only by a copy suffix** ("Basic (Sreda
+  17:30)" against "Basic") sees no difference; the sheet offers the plain
+  name.
+
+### In the flow
+
+- **Marks, not snapshots, say what a save changed.** `clone_marks` holds a
+  hash per field of what a copy held after its last save or flow. A save
+  with no mark flows nothing and is marked; the first save after deploy
+  therefore flows only what that save changed, and an older difference
+  stays in the notice.
+- **A save marks first, in its own small transaction**, so the next save
+  sees only its own change even when this flow is refused or throws.
+- **The flow runs after the save has committed and never reaches the
+  response.** A flow that throws is logged; the save answers as it would
+  have. What landed or was refused is not sent anywhere, since ids would be
+  other people's copies.
+- **A reader's save never reaches the club.** A member who only reads the
+  club's copy only ever pulls, on the fields they did not change.
+- **A person's own copy is written as that person** when they still read
+  the saver's copy; a group's copy when the saver edits it, filed in
+  History under the saver. A group hop that carries a person's change the
+  saver cannot read is allowed by the rule and leaks nothing.
+- **A hop that links files passes `seen`**, so a save made while files are
+  being linked is refused rather than overwritten. For the same reason an
+  open form across a flow is refused as a clash, never writes the old value
+  back.
+- **A saved YouTube video that becomes a recording keeps its link.** Where
+  recordings and videos are off the recording does not flow, so the link's
+  removal is held back for that copy too, or the club would lose the link.
+- **Play posts only a change.** Practice settings flow as content (a
+  drill's mode and BPM); the page posts them only when they differ from what
+  it loaded, so a Play never writes a stale config over a flowed-in one.
+  A teacher's casual change of a drill's Play settings does reach the clubs'
+  copies they edit.
+- **Keep in step is a page action** of each item page (and a small POST for
+  the Versions level), not a flat API; the kind is validated, and only
+  someone who edits the copy changes it. A setting, not logged in History.
+- **Not hooked, flows on the next save:** History's restore, a saved-video
+  job with no requester, deleting a person's own song. Rare, and the notice
+  still shows the difference.
+- **An own song tapped twice** gets a clash (`seen` is required on songs
+  with copies), as group songs already do.
+
+### In the notice and the lists
+
+- **The notice is derived from the same merge rows Sync shows**, so it is
+  there exactly when Sync has rows.
+- **One copy can give several lines**, one per state (both changed, changed,
+  held, behind), most urgent first; the notice must not hide a difference
+  Sync will act on. A "held" line is the copy's own change that the page's
+  options hold back, per way it went (added, removed).
+- **A page-side add or remove that the receiver's options hold back reads as
+  "behind"**, not "held".
+- **A reader sees no "behind" line.** They cannot Sync to that copy, and
+  their own deliberate change would nag for ever.
+- **No notice where the person edits no copy** and has nothing to update
+  from (no Sync to open).
+- **A suffixed old copy** is no difference, no notice, no Moves mark.
+- **The Moves cards filter in place** on Figures, Routines and Positions
+  (also on desktop beside an open item); the filter can always be cleared,
+  and `differ` stays optional on list rows (a list that forgets it shows
+  nothing).
+- **The same-name display is one thing:** a row's `from` (the place of its
+  `cloned_from`) and `from-tag.ts`, applied in the Moves lists, the pickers
+  and the Link popup. Drawn, never stored.
+
+### Gone, and left
+
+- Compare, Take (of fields) and Send mine are removed with their sheets,
+  actions and API routes; `PAGE_EPOCH` went to 7. `apply.ts` stays: it
+  lands the keys (`landKeys`) and Take a recording uses it. `send.ts` is
+  now only the Versions list's members.
+- Deferred, small: a refused target can be half-landed across two givers
+  (wording only); `outOfStep` runs a merge per copied id of a list;
+  `markFamilies` at boot fails the step for a row whose `flatOf` throws;
+  Move to… a lesson leaves the archived source's mark stale (inert until a
+  restore); the practice panel's local state can post stale locals after a
+  reload while open.
