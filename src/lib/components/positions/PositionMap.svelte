@@ -4,7 +4,7 @@
 	import { button } from '$lib/components/ui/styles';
 	import type { MapLayout } from '$lib/positions/map';
 	import { edgeGeometry, edgeKey, litOf, TONE_VAR, type MapTone } from '$lib/positions/map-view';
-	import { MAP, mapLitLine } from '$lib/positions/view';
+	import { t } from '$lib/i18n/catalog';
 	import {
 		clampView,
 		NO_ZOOM,
@@ -86,7 +86,7 @@
 			.sort((x, y) => Number(x.on) - Number(y.on))
 	);
 	const status = $derived(
-		selected === null ? MAP.hint : mapLitLine(byId.get(selected)?.name ?? '')
+		selected === null ? t().map.hint : t().map.litLine(byId.get(selected)?.name ?? '')
 	);
 
 	const hrefOf = (id: number) =>
@@ -196,11 +196,11 @@
 		if (e.type !== 'pointerup' || !p || p.moved) return;
 		// A double tap on empty space goes back to the whole map.
 		if ((e.target as Element | null)?.closest('a')) return;
-		const t = performance.now();
-		if (t - lastTap < DOUBLE_TAP_MS) {
+		const now = performance.now();
+		if (now - lastTap < DOUBLE_TAP_MS) {
 			view = NO_ZOOM;
 			lastTap = 0;
-		} else lastTap = t;
+		} else lastTap = now;
 	}
 
 	// Ctrl+wheel is how a trackpad pinch arrives; it must be able to stop the page zooming.
@@ -264,9 +264,9 @@
 				aria-label={label}
 			>
 				<defs>
-					{#each TONES as t (t)}
+					{#each TONES as tn (tn)}
 						<marker
-							id="map-head-{t}"
+							id="map-head-{tn}"
 							viewBox="0 0 10 10"
 							refX="7"
 							refY="5"
@@ -275,13 +275,13 @@
 							markerHeight="10"
 							orient="auto-start-reverse"
 						>
-							<path d="M1 1 L9 5 L1 9 z" style:fill={TONE_VAR[t]} />
+							<path d="M1 1 L9 5 L1 9 z" style:fill={TONE_VAR[tn]} />
 						</marker>
 					{/each}
 				</defs>
 
 				{#each arrows as a (a.key)}
-					{@const t = a.on ? tone : 'muted'}
+					{@const tn = a.on ? tone : 'muted'}
 					<g
 						aria-hidden="true"
 						style:opacity={selected === null ? 0.55 : a.on ? 1 : 0.12}
@@ -292,8 +292,8 @@
 							fill="none"
 							stroke-width={a.width}
 							stroke-linecap="round"
-							marker-end="url(#map-head-{t})"
-							style:stroke={TONE_VAR[t]}
+							marker-end="url(#map-head-{tn})"
+							style:stroke={TONE_VAR[tn]}
 						/>
 						{#if a.figures > 1}
 							<text
@@ -304,7 +304,7 @@
 								class="text-[11px] font-extrabold"
 								stroke-width="4"
 								paint-order="stroke"
-								style:fill={TONE_VAR[t]}
+								style:fill={TONE_VAR[tn]}
 								style:stroke="var(--color-surface)">{a.figures}</text
 							>
 						{/if}
@@ -313,7 +313,7 @@
 
 				{#each layout.nodes as n (n.id)}
 					{@const p = byId.get(n.id)}
-					{@const t = p?.tone ?? 'muted'}
+					{@const tn = p?.tone ?? 'muted'}
 					{@const on = selected === n.id}
 					<a
 						href={hrefOf(n.id)}
@@ -336,8 +336,8 @@
 							fill-opacity={on ? 1 : 0.16}
 							stroke-width="2"
 							stroke-dasharray={n.mark === 'orphan' ? '4 4' : undefined}
-							style:fill={TONE_VAR[t]}
-							style:stroke={n.mark ? 'var(--color-danger)' : TONE_VAR[t]}
+							style:fill={TONE_VAR[tn]}
+							style:stroke={n.mark ? 'var(--color-danger)' : TONE_VAR[tn]}
 						/>
 						<!-- The focus ring: the link's own outline would box the whole group. -->
 						<rect
@@ -385,7 +385,7 @@
 								stroke-width="4"
 								paint-order="stroke"
 								style:fill="var(--color-muted)"
-								style:stroke="var(--color-surface)">{MAP.twins}</text
+								style:stroke="var(--color-surface)">{t().map.twins}</text
 							>
 						{/if}
 					</a>
@@ -398,7 +398,7 @@
 		<span role="status" class="text-[13px] text-muted">{status}</span>
 		{#if view.scale > 1}
 			<button type="button" class={button('tertiary', 'sm')} onclick={() => (view = NO_ZOOM)}>
-				{MAP.reset}
+				{t().map.reset}
 			</button>
 		{/if}
 	</div>

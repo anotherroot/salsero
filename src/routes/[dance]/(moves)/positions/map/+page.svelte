@@ -3,7 +3,7 @@
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import MapPane from '$lib/components/positions/MapPane.svelte';
-	import { MAP } from '$lib/positions/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
 	/*
@@ -15,11 +15,11 @@
 	const list = $derived(resolve('/[dance]/(moves)/positions', { dance: data.dance.slug }));
 </script>
 
-<svelte:head><title>{MAP.title} · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{t().map.title} · {data.dance.label}</title></svelte:head>
 
-<Screen title={MAP.title} subtitle={data.map.summary} width="two">
+<Screen title={t().map.title} subtitle={data.map.summary} width="two">
 	{#snippet left()}
-		<BackButton fallback={{ href: list, label: MAP.back }} />
+		<BackButton fallback={{ href: list, label: t().map.back }} />
 	{/snippet}
 
 	<MapPane map={data.map} />

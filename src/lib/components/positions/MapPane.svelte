@@ -8,7 +8,7 @@
 	import { button } from '$lib/components/ui/styles';
 	import { TONE_VAR, type MapData } from '$lib/positions/map-view';
 	import { pickOf } from '$lib/positions/pick';
-	import { MAP, noPositionChip, unusedChip } from '$lib/positions/view';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * The map's body: the map, Not on the map, the islands and the legend. The map
@@ -49,21 +49,23 @@
 {#snippet notOnMap()}
 	{#if map.noPosition > 0 || unused.length > 0}
 		<section class="flex flex-col gap-2.5 rounded-2xl bg-surface p-4">
-			<h2 class="{TRAY_HEAD} text-muted">{MAP.notOnMap}</h2>
+			<h2 class="{TRAY_HEAD} text-muted">{t().map.notOnMap}</h2>
 			<div class="flex flex-wrap gap-2">
 				{#if map.noPosition > 0}
 					<a
 						class="{TRAY_CHIP} border-dashed border-field-line"
 						href={resolve('/[dance]/(moves)/positions/none', { dance })}
-						>{noPositionChip(map.noPosition)}</a
+						>{t().map.chip.noPositionFigures(map.noPosition)}</a
 					>
 				{/if}
 				{#each unused as p (p.id)}
-					<a class="{TRAY_CHIP} border-danger" href={hrefOf(p.id)}>{unusedChip(p.name)}</a>
+					<a class="{TRAY_CHIP} border-danger" href={hrefOf(p.id)}
+						>{t().map.chip.unusedNamed(p.name)}</a
+					>
 				{/each}
 			</div>
 			{#if map.noPosition > 0}
-				<p class="text-[12px] font-semibold text-muted">{MAP.fitsAnywhere}</p>
+				<p class="text-[12px] font-semibold text-muted">{t().map.fitsAnywhere}</p>
 			{/if}
 		</section>
 	{/if}
@@ -74,8 +76,8 @@
 	<div class="contents desk:flex desk:w-full desk:max-w-[800px] desk:flex-col desk:gap-2">
 		{#if map.empty}
 			<div class="flex flex-col items-start gap-3 px-1 pt-2">
-				<p class="text-[14px] leading-[1.45] text-ink-2">{MAP.empty}</p>
-				<a class={button('secondary', 'sm')} href={list}>{MAP.back}</a>
+				<p class="text-[14px] leading-[1.45] text-ink-2">{t().map.empty}</p>
+				<a class={button('secondary', 'sm')} href={list}>{t().map.back}</a>
 			</div>
 			<div class="flex flex-col gap-3 pt-3 pb-4">
 				{@render notOnMap()}
@@ -93,14 +95,14 @@
 						{initial}
 					/>
 				{:else}
-					<p class="px-1 text-[14px] leading-[1.45] text-ink-2">{MAP.unjoined}</p>
+					<p class="px-1 text-[14px] leading-[1.45] text-ink-2">{t().map.unjoined}</p>
 				{/if}
 
 				{@render notOnMap()}
 
 				{#if islands.length > 0}
 					<section class="flex flex-col gap-2.5 rounded-2xl bg-surface p-4">
-						<h2 class="{TRAY_HEAD} text-muted">{MAP.islands}</h2>
+						<h2 class="{TRAY_HEAD} text-muted">{t().map.islands}</h2>
 						<div class="flex flex-wrap gap-2">
 							{#each islands as p (p.id)}
 								<a
@@ -134,22 +136,22 @@
 					{#if !map.inGroupMode}
 						<span class="inline-flex items-center gap-1.5">
 							<span aria-hidden="true" class="size-3.5 rounded-full border-2 border-danger"
-							></span>{MAP.legend.deadEnd}
+							></span>{t().map.legend.deadEnd}
 						</span>
 						<span class="inline-flex items-center gap-1.5">
 							<span
 								aria-hidden="true"
 								class="size-3.5 rounded-full border-2 border-dashed border-danger"
-							></span>{MAP.legend.orphan}
+							></span>{t().map.legend.orphan}
 						</span>
 					{/if}
 					<span class="inline-flex items-center gap-1.5">
 						<span
 							aria-hidden="true"
 							class="size-3.5 rounded-full border-2 border-dotted border-muted"
-						></span>{MAP.legend.island}
+						></span>{t().map.legend.island}
 					</span>
-					<span>{MAP.legend.size}</span>
+					<span>{t().map.legend.size}</span>
 				</div>
 			</div>
 		{/if}
@@ -157,7 +159,7 @@
 {/snippet}
 
 {#if heading}
-	<PaneHeading title={MAP.title} subtitle={map.summary} />
+	<PaneHeading title={t().map.title} subtitle={map.summary} />
 	<div class="px-10 pt-[18px] pb-10">{@render body()}</div>
 {:else}
 	{@render body()}

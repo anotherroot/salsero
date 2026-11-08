@@ -9,7 +9,8 @@ import { noPosition, positionCounts } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
 import { layoutMap, mapInputOf, mapLabel } from '$lib/positions/map';
 import { legendTypes, styleTone, type MapData, type MapFig } from '$lib/positions/map-view';
-import { mapLabelFor, mapNodeName, mapSummary, mapTwinsLine } from '$lib/positions/view';
+import { mapTwinsLine } from '$lib/positions/view';
+import { t } from '$lib/i18n/catalog';
 import type { GroupMode } from '$lib/types';
 
 /**
@@ -57,7 +58,7 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 			ins: c.inCount,
 			outs: c.outCount,
 			twinsLine: twinsLines.get(p.id) ?? null,
-			ariaLabel: mapNodeName({
+			ariaLabel: t().map.nodeName({
 				name: p.name,
 				ins: c.inCount,
 				outs: c.outCount,
@@ -139,7 +140,7 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 		anyFrom,
 		noStart,
 		noPosition: missing,
-		summary: mapSummary({
+		summary: t().map.summary({
 			positions: positions.length,
 			between: graph.figures.filter((f) => f.starts.length > 0 && f.ends.length > 0).length,
 			none: missing,
@@ -150,7 +151,7 @@ export function mapData(db: Db, wall: Wall, mode: GroupMode | null): MapData {
 			DANCES[dance].styleLabel,
 			positions.some((p) => p.tone === 'muted' && !styles.includes(p.styleTag ?? ''))
 		),
-		mapLabel: mapLabelFor(mode !== null),
+		mapLabel: t().map.label(mode !== null),
 		inGroupMode: mode !== null
 	};
 }
