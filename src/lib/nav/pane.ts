@@ -17,6 +17,7 @@ const ROUTES: Record<string, { list: ListId; open: boolean; under?: true }> = {
 	'/[dance]/(today)/coming-up': { list: 'coming', open: false },
 	'/[dance]/songs': { list: 'songs', open: false },
 	'/[dance]/songs/[id]': { list: 'songs', open: true },
+	'/[dance]/songs/imports/[id]': { list: 'songs', open: true },
 	'/[dance]/(moves)/figures': { list: 'figures', open: false },
 	'/[dance]/(moves)/figures/[id]': { list: 'figures', open: true },
 	'/[dance]/(moves)/moves/[id]': { list: 'figures', open: true },

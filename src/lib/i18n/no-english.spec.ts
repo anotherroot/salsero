@@ -59,6 +59,8 @@ const TRANSLATED: string[] = [
 	'src/lib/components/songs/AudioFrom.svelte',
 	'src/lib/components/songs/AudioSwap.svelte',
 	'src/lib/components/songs/ImportRow.svelte',
+	'src/lib/components/songs/PickList.svelte',
+	'src/lib/components/songs/PickRow.svelte',
 	'src/routes/[dance]/groups/[id]/+page.svelte',
 	'src/routes/[dance]/groups/[id]/people/+page.svelte',
 	'src/routes/g/[code]/+page.svelte',

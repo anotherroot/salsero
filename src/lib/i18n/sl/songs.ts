@@ -2,6 +2,28 @@ import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 
 export const songs: Catalog['songs'] = {
+	pick: {
+		styleForAll: 'Slog za vse',
+		selectAll: 'Izberi vse',
+		picked: (n, m) => `izbranih ${n} od ${m}`,
+		already: 'Že dodana',
+		onSource: (where, name) => `Na ${where === 'Spotify' ? 'Spotifyju' : 'YouTubu'}: ${name}`,
+		add: (n) => `Dodaj ${slCount(n, ['skladbo', 'skladbi', 'skladbe', 'skladb'])}`,
+		dismiss: 'Opusti',
+		dismissTitle: 'Opustim ta seznam?',
+		dismissBody: 'Z njega se ne prenese nič.',
+		cancel: 'Prekliči',
+		edit: (title) => `Uredi: ${title}`,
+		done: 'Končano',
+		open: (where) => `Odpri na ${where === 'Spotify' ? 'Spotifyju' : 'YouTubu'}`,
+		titleField: 'Naslov',
+		artistField: 'Izvajalec',
+		styleOfSong: 'Slog',
+		unsaved: 'Izbira s seznama',
+		firstN: (n) => `Prebranih je le prvih ${n} skladb seznama.`,
+		refused: 'Izberite vsaj eno skladbo.',
+		badPicks: 'Pri izbiri je šlo nekaj narobe. Znova naložite stran in poskusite še enkrat.'
+	},
 	imports: {
 		toPick: 'Za izbiro',
 		reading: 'Branje seznama …',

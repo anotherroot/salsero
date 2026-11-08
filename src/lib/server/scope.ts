@@ -448,13 +448,15 @@ export function requireImportAccess(
 	db: Db,
 	locals: App.Locals,
 	params: { dance: string },
-	id: number | string
+	id: number | string,
+	/** The pick list's load: an added or dismissed list of theirs is found, to send them back to Music. */
+	opts: { finished?: boolean } = {}
 ): { imp: SongImport; space: Space } {
 	const wall = wallOf(params, locals);
 	const imp = getImport(db, idOf(id));
 	const missing = () => error(404, 'Not found');
-	if (!imp || imp.dance !== wall.dance || imp.addedAt !== null || imp.dismissedAt !== null)
-		throw missing();
+	const finished = imp !== null && (imp.addedAt !== null || imp.dismissedAt !== null);
+	if (!imp || imp.dance !== wall.dance || (finished && !opts.finished)) throw missing();
 	if (imp.teamId !== null) {
 		const role = roleOf(db, wall.userId, imp.teamId);
 		const team = getTeam(db, imp.teamId);

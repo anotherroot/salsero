@@ -2,6 +2,29 @@
 // area extends this (the list, a song's page, sharing).
 
 export const songs = {
+	/** The pick list (option A2): `PickList`, `PickRow`. */
+	pick: {
+		styleForAll: 'Style for all',
+		selectAll: 'Select all',
+		picked: (n: number, m: number): string => `${n} of ${m} picked`,
+		already: 'Already added',
+		onSource: (where: string, name: string): string => `On ${where}: ${name}`,
+		add: (n: number): string => (n === 1 ? 'Add 1 song' : `Add ${n} songs`),
+		dismiss: 'Dismiss',
+		dismissTitle: 'Dismiss this list?',
+		dismissBody: 'Nothing from it is downloaded.',
+		cancel: 'Cancel',
+		edit: (title: string): string => `Edit ${title}`,
+		done: 'Done',
+		open: (where: string): string => `Open on ${where}`,
+		titleField: 'Title',
+		artistField: 'Artist',
+		styleOfSong: 'Style',
+		unsaved: 'A pick list',
+		firstN: (n: number): string => `Only the first ${n} songs of the list were read.`,
+		refused: 'Pick at least one song.',
+		badPicks: 'Something was off with the picks. Reload and try again.'
+	},
 	/** A pasted playlist's refusals (`retryImport`, `dismissImport`). */
 	imports: {
 		toPick: 'To pick',

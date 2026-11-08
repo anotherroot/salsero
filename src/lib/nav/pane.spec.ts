@@ -5,6 +5,7 @@ describe('listOf', () => {
 	it('names the list a route belongs to, and whether an item is open', () => {
 		expect(listOf('/[dance]/songs')).toEqual({ list: 'songs', open: false });
 		expect(listOf('/[dance]/songs/[id]')).toEqual({ list: 'songs', open: true });
+		expect(listOf('/[dance]/songs/imports/[id]')).toEqual({ list: 'songs', open: true });
 	});
 
 	it('has no list for a page of its own, or a list not yet in a pane', () => {
