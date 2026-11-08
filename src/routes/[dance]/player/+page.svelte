@@ -357,6 +357,8 @@
 		onchange={keep}
 		{starting}
 		back={data.back}
+		title={data.exercise?.name ?? t().player.title}
+		details={data.details}
 		takes={data.takes}
 		songBeats={song.grid?.beats ?? null}
 		{startError}

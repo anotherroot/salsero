@@ -67,6 +67,18 @@ def _row(name):
     return act
 
 
+def _setup_about(page):
+    page.get_by_role("button", name=re.compile(r"^About")).first.click()
+    page.get_by_role("dialog").first.wait_for()
+    page.wait_for_timeout(600)
+
+
+def _setup_about_back(page):
+    _setup_about(page)
+    page.go_back()
+    page.wait_for_timeout(600)
+
+
 def _still(page):
     _run(page)
     page.get_by_role("button", name=re.compile(r"^Routine")).first.click()
@@ -87,7 +99,10 @@ def _setup_back(page):
 SCENES = {
     "op-drill": Scene("/{dance}/player?exercise={opdrill}", _run),
     "op-bare": Scene("/{dance}/player?exercise={opbare}", _run),
-    "op-long-about": Scene("/{dance}/player?exercise={oplong}", _row("About")),
+    "op-long-about": Scene("/{dance}/player?exercise={oplong}", _setup_about),
+    "op-setup": Scene("/{dance}/player?exercise={opdrill}"),
+    "op-setup-bare": Scene("/{dance}/player?exercise={opbare}"),
+    "op-setup-about-back": Scene("/{dance}/player?exercise={opdrill}", _setup_about_back),
     "op-fig": Scene("/{dance}/player?exercise={opfig}", _run),
     "op-fig-about": Scene("/{dance}/player?exercise={opfig}", _row("About")),
     "op-voice": Scene("/{dance}/player?exercise={opdrill}", _row("Voice")),

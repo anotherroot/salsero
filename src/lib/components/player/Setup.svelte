@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
 
 	export interface PlayerSettings {
@@ -24,7 +24,18 @@
 	import { bpmOf } from '$lib/beatgrid/beatgrid';
 	import { parsePhonePractice, practiceSeed, type PracticeInput } from '$lib/exercises/practice';
 	import { loadPhonePractice, savePhonePractice } from '$lib/exercises/phone-practice';
-	import { runSources, playState, setupSubtitle, voiceKind } from '$lib/player/view';
+	import {
+		aboutPreview,
+		hasDetails,
+		runSources,
+		playState,
+		setupSubtitle,
+		voiceKind
+	} from '$lib/player/view';
+	import type { RunDetails } from '$lib/types';
+	import DetailsBody from './DetailsBody.svelte';
+	import RunLayer from './RunLayer.svelte';
+	import RunRows from './RunRows.svelte';
 	import { myCountHref } from '$lib/voice/back';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -83,6 +94,10 @@
 		starting: boolean;
 		/** Where the band's Back goes: where Practice was opened from. */
 		back: { href: string; label: string };
+		/** The band's title: the exercise's name, or "Practice" without one. */
+		title: string;
+		/** The exercise's About, when it has one: a row above the settings opens it. */
+		details: RunDetails | null;
 		/** Every recorded take, for whether the Voice row says Built-in or Yours. */
 		takes: CountTakeRow[];
 		/** The picked song's grid beats, for its tempo; null until they have loaded. */
@@ -109,6 +124,8 @@
 		onchange,
 		starting,
 		back,
+		title,
+		details,
 		takes,
 		songBeats,
 		startError
@@ -177,6 +194,13 @@
 		onplay({ source, bpm, count, clave, speed, voiceVolume });
 	}
 
+	let aboutOpen = $state(false);
+	let aboutRow: ReturnType<typeof RunRows> | undefined = $state();
+	function closeAbout() {
+		aboutOpen = false;
+		void tick().then(() => aboutRow?.focusRow('about'));
+	}
+
 	const uid = $props.id();
 	let playBtn: HTMLButtonElement | undefined = $state();
 	/**
@@ -241,7 +265,7 @@
 	</a>
 {/snippet}
 
-<Screen width="song" title={w.title} subtitle={setupSubtitle(routine)}>
+<Screen width="song" {title} subtitle={setupSubtitle(routine)}>
 	{#snippet left()}
 		<BackButton fallback={back} />
 	{/snippet}
@@ -261,6 +285,16 @@
 	{/snippet}
 
 	<div class="flex flex-col gap-2 pb-32">
+		{#if hasDetails(details)}
+			<!-- About before Play (one-player design): read up, then start. -->
+			<div class="pb-2">
+				<RunRows
+					bind:this={aboutRow}
+					rows={[{ key: 'about', title: w.about, preview: aboutPreview(details), icon: 'notes' }]}
+					onopen={() => (aboutOpen = true)}
+				/>
+			</div>
+		{/if}
 		{#if startError}
 			<Banner kind="error" title={w.couldNotStart}>{w.couldNotStartBody}</Banner>
 		{/if}
@@ -364,3 +398,15 @@
 		{/if}
 	</button>
 </BottomBar>
+
+{#if aboutOpen && hasDetails(details)}
+	<RunLayer
+		label={w.about}
+		title={details.heading}
+		player={null}
+		closeLabel={w.closeLayer}
+		onclose={closeAbout}
+	>
+		<DetailsBody {details} />
+	</RunLayer>
+{/if}
