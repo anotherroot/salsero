@@ -41,12 +41,18 @@
 //   Log a set / a set's minutes, reps      Nov vnos, Shrani vnos / minute, ponovitve
 //   an 8-count (call every 2)             osmica (napoved na 2 osmici)
 //   Practice (the panel, practising)      vadenje (Vadi ob …); a session stays vadba
+//   Class (a lesson's day, "Class · …")   lekcija (Lekcija · tor, 3. nov.); the group is tečaj
+//   Teacher (a comment's tag)             vodja tečaja (right beside a woman's or a man's name)
+//   a heart (on a comment)                srček
+//   Draft (a group's lesson)              osnutek
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
+import { comments } from './comments';
 import { common } from './common';
 import { entry } from './entry';
 import { exercise } from './exercise';
 import { format } from './format';
+import { lesson } from './lesson';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
@@ -61,5 +67,7 @@ export const sl: Catalog = {
 	entry,
 	today,
 	exercise,
-	songs
+	songs,
+	lesson,
+	comments
 };

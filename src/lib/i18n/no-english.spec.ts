@@ -100,7 +100,17 @@ const TRANSLATED: string[] = [
 	'src/lib/components/ui/ChunkedUploadButton.svelte',
 	'src/lib/components/ui/Stepper.svelte',
 	'src/lib/components/ui/UploadButton.svelte',
-	'src/routes/[dance]/(today)/exercises/[id]/+page.svelte'
+	'src/routes/[dance]/(today)/exercises/[id]/+page.svelte',
+	// The simple lesson page, the Lessons list and comments (Task 9).
+	'src/lib/components/comments/CommentItem.svelte',
+	'src/lib/components/comments/CommentsCard.svelte',
+	'src/lib/components/comments/CommentsSheet.svelte',
+	'src/lib/components/comments/Composer.svelte',
+	'src/lib/components/lessons/LessonList.svelte',
+	'src/lib/components/lessons/LessonRow.svelte',
+	'src/lib/components/lessons/SimpleLesson.svelte',
+	'src/routes/[dance]/lessons/+layout.svelte',
+	'src/routes/[dance]/lessons/+page.svelte'
 ];
 
 describe('englishIn', () => {

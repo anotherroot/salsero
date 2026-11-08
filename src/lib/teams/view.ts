@@ -24,7 +24,8 @@ export function noAccountLine(adminFirst: string | null): string {
 	return t().entry.classes.noAccount(adminFirst);
 }
 
-const deletingLead = (name: string, day: string) => `${name} is being deleted on ${day}`;
+/** "Salsa Tuesdays is being deleted on 2 Dec": the simple lesson page shows it too. */
+const deletingLead = (name: string, day: string) => t().lesson.deleting(name, day);
 
 export function deletingLine(name: string, day: string): string {
 	return `${deletingLead(name, day)} · ${MAKE_MINE}`;

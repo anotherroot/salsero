@@ -22,9 +22,9 @@
 	import {
 		commentKey,
 		composerShown,
-		DELETED_WORDS,
-		HIDE_REPLIES,
+		deletedWords,
 		heartToggled,
+		hideReplies,
 		repliesLabel,
 		shownIds,
 		whoSees,
@@ -32,6 +32,7 @@
 		withoutComment,
 		withPosted
 	} from '$lib/comments/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { CommentList, CommentRow } from '$lib/types';
 
 	/**
@@ -127,7 +128,7 @@
 		if (replyTo?.id === row.id) replyTo = null;
 		notice = undoToast(
 			++toastSeq,
-			DELETED_WORDS,
+			deletedWords(),
 			() => (notice = null),
 			() => undo(row.id)
 		);
@@ -144,7 +145,7 @@
 	}
 
 	async function send(body: string): Promise<string | null> {
-		if (!list) return 'That did not work. Try again.';
+		if (!list) return t().comments.failed;
 		const got = await sendComment(lessonId, body, replyTo?.id ?? null);
 		if (isRefused(got)) return got.message;
 		now = Date.now();
@@ -165,7 +166,7 @@
 </script>
 
 <Sheet
-	title="Comments"
+	title={t().comments.title}
 	sub={lessonTitle}
 	{open}
 	{onclose}
@@ -176,14 +177,14 @@
 		<div class="flex flex-col items-center gap-3 py-10 text-center">
 			<p class="text-[15px] text-ink-2" role="alert">{loadError}</p>
 			<button type="button" class={button('secondary', 'sm')} onclick={() => void load()}
-				>Try again</button
+				>{t().common.retry}</button
 			>
 		</div>
 	{:else if !list}
-		<div class="flex justify-center py-10 text-muted"><Spinner label="Loading comments" /></div>
+		<div class="flex justify-center py-10 text-muted"><Spinner label={t().comments.loading} /></div>
 	{:else}
 		{#if list.threads.length === 0}
-			<p class="py-6 text-center text-[15px] text-muted">Be the first to ask or say something</p>
+			<p class="py-6 text-center text-[15px] text-muted">{t().comments.empty}</p>
 		{/if}
 		<ul class="flex flex-col gap-4">
 			{#each list.threads as thread (thread.top.id)}
@@ -205,7 +206,7 @@
 							aria-expanded={shown}
 							onclick={() => toggleThread(thread.top.id)}
 						>
-							{shown ? HIDE_REPLIES : repliesLabel(thread.replies.length)}
+							{shown ? hideReplies() : repliesLabel(thread.replies.length)}
 							<Icon name={shown ? 'chevron-up' : 'chevron-down'} size={18} />
 						</button>
 						{#if shown}

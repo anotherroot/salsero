@@ -88,6 +88,13 @@ describe('a group lesson after leaving, or while its group is deleted', () => {
 		expect(`${notice.text} · ${notice.action}`).toBe(deletingLine('Salsa nadaljevalna', '2 Dec'));
 	});
 
+	it('says it in Slovenian, the name before a "·" (the simple lesson page shows it)', () => {
+		const notice = withLocale('sl', () =>
+			lessonNotice({ name: 'Salsa nadaljevalna', deletedAt }, 'UTC')
+		)!;
+		expect(notice.text).toBe('Salsa nadaljevalna · izbris 2. dec.');
+	});
+
 	it('says nothing while the group lives: someone who left never reaches the lesson', () => {
 		expect(lessonNotice({ name: 'X', deletedAt: null }, 'UTC')).toBeNull();
 	});

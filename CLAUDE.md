@@ -582,7 +582,7 @@ src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.serv
 src/routes/[dance]/lessons/  the same for Lessons: `+layout.svelte` and `+layout.server.ts` hold
                      `components/lessons/LessonList.svelte` beside the open lesson (a lesson
                      page is two columns; no lessons, no column; `lessons/list.ts` has
-                     `PICK_LESSON`, `isOpenLesson`, `groupVideosSubtitle`). The New lesson sheet
+                     `pickLesson()`, `isOpenLesson`, `groupVideosSubtitle`). The New lesson sheet
                      stays mounted in the layout. `components/shell/reveal.ts`: `revealLit` and
                      `revealPicked`, scroll the lit or the new row into view in a list column
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
