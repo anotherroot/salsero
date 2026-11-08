@@ -230,12 +230,9 @@ describe('The saved toast', () => {
 		expect(src.match(/<SavedToast\b/g)?.length).toBe(1);
 	});
 
-	it('the player announces the save before it leaves', () => {
+	it('the player saves nothing, so it announces no save (one-player design)', () => {
 		const src = readFileSync('src/routes/[dance]/player/+page.svelte', 'utf8');
-		const fn = src.match(/async function saved\([^)]*\)[^{]*\{([\s\S]*?)\n\t\}/)?.[1] ?? '';
-		expect(fn).toMatch(
-			/announceSaved\(\{[\s\S]*savedMessage\(r\.backDays \?\? 1\)[\s\S]*\}\);[\s\S]*leaveRun\(\)/
-		);
+		expect(src).not.toMatch(/announceSaved|SaveSetSheet|function saved\(/);
 	});
 });
 

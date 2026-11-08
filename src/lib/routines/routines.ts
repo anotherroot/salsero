@@ -73,23 +73,6 @@ export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
 }
 
 /**
- * Which flat slot a run is on, from the number of calls made so far.
- *
- * Before the first call it is the FIRST slot rather than nothing: the list has
- * to say where the routine is about to start, or it reads as dead for the few
- * seconds before the lead-in ends.
- *
- * The double modulo is not decoration. The index comes from a `findIndex`,
- * which answers -1 when it misses, and `-1 % 5` is `-1` in JavaScript — that
- * indexes off the front of the list and silently highlights no row at all.
- */
-export function slotAt(calledIndex: number | null, slotCount: number): number | null {
-	if (slotCount <= 0) return null;
-	if (calledIndex === null) return 0;
-	return ((calledIndex % slotCount) + slotCount) % slotCount;
-}
-
-/**
  * Every position this slot can be entered from: the union of its options'.
  * `[]` — anywhere — as soon as any option has no start, since that option can
  * be entered from anywhere and so can the slot.

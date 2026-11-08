@@ -211,8 +211,8 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are
   decoded clips scheduled on an `AudioContext` with a 25 ms look-ahead;
   `src/lib/scheduler/scheduler.ts` decides WHAT sounds and WHEN in song time and
-  never touches audio. Figure names go through `speechSynthesis`, which cannot be
-  scheduled and does not need to be.
+  never touches audio. Nothing is spoken but the count (since 2026-11-08): a
+  routine's figures are shown, lit on their first "1" (`onStep`), never called.
 - **Levels hide entry points, never routes.** No route 404s or redirects
   because of a level (the first-run gate for a null level, and My class's tab
   landing on the one class, are the exceptions). Components ask
@@ -403,6 +403,6 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   Not dropped, for the same reason as `style`.
 - **`figures.callable` and `figures.call_text` are vestigial.** They were the
   random drill's pool and a spoken override for the name; the drill was
-  removed and both are read by nothing. Only a routine calls figures, and the
-  voice says the name. Not dropped, for the same reason as `style`.
+  removed and both are read by nothing. Nothing calls a figure any more
+  (2026-11-08). Not dropped, for the same reason as `style`.
 

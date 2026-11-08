@@ -14,11 +14,15 @@ import { elapsedMs, followVisibility, STOPPED, type Stopwatch } from '$lib/exerc
  * `idle`: created (or restarted) at 0 and not counting until `start()` — the
  * desktop's exercise Today opens by itself waits for a tap or key in its pane.
  * `start()` is idempotent, and does nothing to a clock already counting.
+ * `carry(watch)`: go on from the time a trip to the player brought back
+ * (`clock-trip.ts`); `watch` is what the page leaves there when it opens the player.
  */
 export function pageClock(opts?: { idle?: boolean }): {
 	readonly seconds: number;
+	readonly watch: Stopwatch;
 	start(): void;
 	restart(opts?: { idle?: boolean }): void;
+	carry(watch: Stopwatch): void;
 } {
 	let watch = $state<Stopwatch>(STOPPED);
 	/** Bumped by the tick, so a reader of `seconds` redraws once a second. */
@@ -48,9 +52,18 @@ export function pageClock(opts?: { idle?: boolean }): {
 	});
 
 	return {
+		get watch() {
+			return { ...watch };
+		},
 		get seconds() {
 			void beat;
 			return Math.floor(elapsedMs(watch, Date.now()) / 1000);
+		},
+		/** Go on from a trip's time, brought back after the page mounted: it counts at once. */
+		carry(carried: Stopwatch) {
+			idle = false;
+			watch = followVisibility(carried, visible(), Date.now());
+			beat++;
 		},
 		start() {
 			if (!idle) return;

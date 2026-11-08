@@ -19,15 +19,10 @@ import {
 import type { Dance } from '$lib/dances/dances';
 import { t } from '$lib/i18n/catalog';
 
-/** How often "call on cue" names the figure, in 8-counts. */
-export const CUE_EVERY = [2, 4] as const;
-export type CueEvery = (typeof CUE_EVERY)[number];
-
 export interface PracticeConfig {
 	count: CountPattern;
 	clave: ClavePattern | null;
 	speed: Speed;
-	callEvery: CueEvery | null;
 }
 
 export interface PracticeInput {
@@ -41,7 +36,7 @@ export interface PracticeInput {
 export const DEFAULT_PRACTICE_BPM = 180;
 
 export function defaultPracticeConfig(dance: Dance): PracticeConfig {
-	return { count: dance.defaultCountPattern, clave: null, speed: 1, callEvery: null };
+	return { count: dance.defaultCountPattern, clave: null, speed: 1 };
 }
 
 function oneOf<T>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -56,8 +51,7 @@ function configFrom(value: unknown, dance: Dance): PracticeConfig {
 		count: oneOf(v.count, dance.countPatterns, d.count),
 		// A dance without clave never gets one back, whatever was stored.
 		clave: dance.clave ? oneOf(v.clave, [...CLAVE_PATTERNS, null], null) : null,
-		speed: oneOf(v.speed, SPEEDS, d.speed),
-		callEvery: oneOf(v.callEvery, [...CUE_EVERY, null], null)
+		speed: oneOf(v.speed, SPEEDS, d.speed)
 	};
 }
 
@@ -116,7 +110,7 @@ export function practiceOf(
 }
 
 const sameConfig = (a: PracticeConfig, b: PracticeConfig) =>
-	a.count === b.count && a.clave === b.clave && a.speed === b.speed && a.callEvery === b.callEvery;
+	a.count === b.count && a.clave === b.clave && a.speed === b.speed;
 
 /**
  * What Play should remember, or null when it is what the page already knew
@@ -180,6 +174,70 @@ export function practiceStart(
 	};
 }
 
+/**
+ * What this phone last practised with, from its browser store (`phone-practice.ts`).
+ * Every field proves itself; null is "nothing usable here". `clave` keeps a
+ * third state: `undefined` is nothing stored, `null` is clave off.
+ */
+export interface PhonePractice {
+	bpm: number | null;
+	count: CountPattern | null;
+	clave: ClavePattern | null | undefined;
+	speed: Speed | null;
+	voiceVolume: number | null;
+}
+
+export function parsePhonePractice(stored: unknown, dance: Dance): PhonePractice {
+	const v =
+		stored && typeof stored === 'object' && !Array.isArray(stored)
+			? (stored as Record<string, unknown>)
+			: {};
+	const num = (x: unknown, min: number, max: number) =>
+		typeof x === 'number' && x >= min && x <= max ? x : null;
+	// `true` and `false` are what a store written before count patterns held.
+	const count = v.count === true ? 'salsa' : v.count === false ? 'off' : v.count;
+	return {
+		bpm: num(v.bpm, 60, 300),
+		count: oneOf<CountPattern | null>(count, dance.countPatterns, null),
+		// A dance without clave never gets one back: the store is per browser.
+		clave: !dance.clave
+			? null
+			: 'clave' in v
+				? oneOf<ClavePattern | null | undefined>(v.clave, [...CLAVE_PATTERNS, null], undefined)
+				: undefined,
+		speed: oneOf<Speed | null>(v.speed, SPEEDS, null),
+		voiceVolume: num(v.voiceVolume, 0, 1)
+	};
+}
+
+export interface PracticeSeed {
+	bpm: number;
+	count: CountPattern;
+	clave: ClavePattern | null;
+	speed: Speed;
+}
+
+/**
+ * Where a practice's settings start: the exercise's own memory when it has one
+ * (`practiceOf`), else what this phone last used, else the defaults. The full
+ * player and the panel both start here, so the two never disagree.
+ */
+export function practiceSeed(
+	remembered: PracticeInput | null,
+	phone: PhonePractice,
+	dance: Dance,
+	defaultBpm: number
+): PracticeSeed {
+	const d = defaultPracticeConfig(dance);
+	const c = remembered?.config ?? null;
+	return {
+		bpm: remembered?.countBpm ?? phone.bpm ?? defaultBpm,
+		count: c?.count ?? phone.count ?? d.count,
+		clave: !dance.clave ? null : c ? c.clave : (phone.clave ?? null),
+		speed: c?.speed ?? phone.speed ?? d.speed
+	};
+}
+
 /** The panel's one collapsed line: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3". */
 export function practiceSummary(
 	p: { mode: 'count' | 'song'; bpm: number; songTitle: string | null; config: PracticeConfig },
@@ -193,7 +251,6 @@ export function practiceSummary(
 		p.config.count === 'off' ? w.summaryNoCount : COUNT_PATTERN_LABEL[p.config.count]
 	];
 	if (dance.clave && p.config.clave) parts.push(w.summaryClave(p.config.clave));
-	if (p.config.callEvery) parts.push(w.summaryCall(p.config.callEvery));
 	return parts.join(' · ');
 }
 
@@ -206,3 +263,35 @@ export const hourOfBars = (bpm: number) => Math.ceil((bpm * 60) / 8);
 
 /** Seconds as the whole minutes the form shows — never 0, since you did practise. */
 export const minutesFrom = (seconds: number) => Math.max(1, Math.round(seconds / 60));
+
+/**
+ * The exercise page's Practise with line: what the player will open with for
+ * this exercise — its own memory, else this phone's, else the defaults (as
+ * Setup seeds it), and a remembered song only while it is still there.
+ */
+export function practiseWithLine(
+	row: {
+		practiceMode: string;
+		songId: number | null;
+		countBpm: number | null;
+		practiceJson: string | null;
+	},
+	songs: readonly { id: number; title: string }[],
+	phone: PhonePractice,
+	dance: Dance
+): string {
+	const start = practiceStart(
+		row,
+		songs.map((s) => s.id)
+	);
+	const seed = practiceSeed(practiceOf(row, dance), phone, dance, DEFAULT_PRACTICE_BPM);
+	return practiceSummary(
+		{
+			mode: start.source,
+			bpm: seed.bpm,
+			songTitle: songs.find((s) => s.id === start.songId)?.title ?? null,
+			config: { count: seed.count, clave: seed.clave, speed: seed.speed }
+		},
+		dance
+	);
+}

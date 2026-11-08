@@ -1,44 +1,40 @@
 /**
- * A routine as the player's plan: which figure is called on which 8-count.
+ * A routine as the player's plan: which figure starts on which 8-count.
  *
- * PURE. It produces the same `PlanStep[]` `extendPlan` produces, so
- * nothing downstream — `cuesIn`, `attach.ts`, the count, the clave — has any
- * idea a routine exists.
- *
- * Called again and again as the run's horizon grows, exactly the way
- * `extendPlan` is, and for the same reason: a call already announced must never
- * change. The plan itself is the cursor. One step is pushed per resolved slot,
- * so `plan.length` says which slot comes next and where the hands are, and no
- * state has to survive between ticks.
+ * PURE. Called again and again as the run's horizon grows: a step already
+ * decided must never change, so the plan itself is the cursor. Each step says
+ * which slot it answers, so the next one follows the last step's slot, and a
+ * jump (`from`) can restart the walk at any slot without any other state.
  */
 import { figureById, fitsAfter, type Graph } from '$lib/graph/graph';
 import { eightsSpan } from '$lib/graph/timing';
-import type { CallEvery } from '$lib/labels';
 import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
 import { flatten, type OptionsSlot, type RoutineShape } from './routines';
 
+/** Where a jump restarts the walk: this slot, on this 8-count. */
+export interface PlanFrom {
+	eight: number;
+	slot: number;
+}
+
 /**
  * Extend `plan` through `throughEight`, looping the routine when the song
- * outlasts it.
+ * outlasts it. Each figure takes its own length (`eightsSpan`, at least one
+ * 8-count), so the next one starts where it ends.
  *
- * Spacing is `max(every, eights)`, the same expression `extendPlan` uses.
- * `figures.eights` defaults to 1, so spacing by the figure alone would call a
- * new one every 8-count — under three seconds at 180 BPM, which is not
- * danceable. The user's call rate is the better guess where the data is silent,
- * and a figure that carries a real `eights` still gets its own length whenever
- * that is the longer of the two.
+ * With `from`, every step from `from.eight` on is dropped and the walk starts
+ * again there at `from.slot`: tapping a figure in the run. The steps before it
+ * stay, so the hands carry over into the choice of the slot's option.
  *
- * `plan` must consist entirely of steps this same routine produced. Mixing in
- * an `extendPlan`-built prefix, or another routine's walk, desyncs the cursor
- * silently — there is no provenance on a `PlanStep` to catch it.
+ * `plan` must consist entirely of steps this same routine produced.
  */
 export function routinePlan(
 	plan: PlanStep[],
 	shape: RoutineShape,
 	g: Graph,
-	every: CallEvery,
 	throughEight: number,
-	rand: () => number
+	rand: () => number,
+	from?: PlanFrom
 ): PlanStep[] {
 	const flat = flatten(g, shape);
 	if (flat.length === 0) return plan;
@@ -46,17 +42,21 @@ export function routinePlan(
 		const f = figureById(g, id);
 		return f ? eightsSpan(f.length) : 1;
 	};
-	const out = [...plan];
-	let eight =
-		out.length === 0
-			? LEAD_IN_8S
-			: out[out.length - 1].eight + Math.max(every, eightsOf(out[out.length - 1].figureId));
+	const out = from ? plan.filter((s) => s.eight < from.eight) : [...plan];
+	const prev = out.length === 0 ? null : out[out.length - 1];
+	let eight = from ? from.eight : prev ? prev.eight + eightsOf(prev.figureId) : LEAD_IN_8S;
+	let slot = from
+		? ((from.slot % flat.length) + flat.length) % flat.length
+		: prev
+			? (prev.slot + 1) % flat.length
+			: 0;
 	while (eight <= throughEight) {
 		const last = out.length === 0 ? null : out[out.length - 1].figureId;
-		const figureId = choose(g, flat[out.length % flat.length], last, rand());
+		const figureId = choose(g, flat[slot], last, rand());
 		if (figureId === null) break;
-		out.push({ eight, figureId });
-		eight += Math.max(every, eightsOf(figureId));
+		out.push({ eight, figureId, slot });
+		eight += eightsOf(figureId);
+		slot = (slot + 1) % flat.length;
 	}
 	return out;
 }

@@ -18,8 +18,36 @@ export const player = {
 	couldNotStart: 'Could not start the player.',
 	couldNotStartBody: 'Nothing is playing. Tap Play to try again.',
 	loadingGrid: 'Loading the beat grid…',
-	calls: 'Calls',
-	callsLabel: 'Calls · a figure every 1, 2 or 4 eights',
+	/** A routine run: the list moves with the music, or stays put. */
+	follow: 'Follow',
+	still: 'Still',
+	/** The full-screen routine's line: "5 of 16", or the routine's length. */
+	routinePlace: (n: number, total: number): string => `${n} of ${total}`,
+	figures: (n: number): string => plural(n, 'figure', 'figures'),
+	/** A routine row's button in Follow: "Start from 3, Enchufla · Basic". */
+	startFrom: (n: number, names: string): string => `Start from ${n}, ${names}`,
+	or: 'or',
+	showFull: 'Show the routine full screen',
+	closeFull: 'Close the full-screen routine',
+	/** What the run is, first in its subtitle: "Drill · 130 BPM". */
+	kind: { figure: 'Figure', drill: 'Drill', routine: 'Routine' },
+	/** The rows under the band, and what each one's line says. */
+	about: 'About',
+	/** Under the count in Follow: "Next: Enchufla · Basic". */
+	next: (name: string): string => `Next: ${name}`,
+	/** A layer's ✕. */
+	closeLayer: 'Close',
+	/** A figure's timing in About: "1 → 1 · 8 counts". */
+	timing: (start: number, next: number, length: number): string =>
+		`${start} → ${next} · ${length} counts`,
+	/** A figure's own video, in About. */
+	recording: 'Recording',
+	aboutOf: (name: string): string => `About ${name}`,
+	aboutNotes: 'Notes',
+	aboutPositions: 'Positions',
+	aboutSections: (n: number): string => (n === 1 ? 'a lesson section' : `${n} lesson sections`),
+	aboutRecordings: (n: number): string => (n === 1 ? 'a recording' : `${n} recordings`),
+	aboutLinks: (n: number): string => (n === 1 ? 'a link' : `${n} links`),
 	starting: 'Starting…',
 	pickSongFirst: 'Pick a song first.',
 	/** The picked song's grid did not load. */
@@ -28,33 +56,13 @@ export const player = {
 	paused: (clock: string): string => `Paused · ${clock}`,
 	stopAndBack: 'Stop and go back',
 	routine: 'Routine',
-	/** The desktop's heading over the routine: "Routine · 5 slots", "Routine · slot 2 of 5". */
-	routineSlots: (n: number): string => `Routine · ${nouns.slots(n)}`,
-	routineSlotOf: (slot: number, total: number): string => `Routine · slot ${slot} of ${total}`,
 	now: 'Now',
 	/** The count disc's name. */
 	countNotStarted: 'Count not started',
 	countDigit: (digit: string): string => `Count ${digit}`,
 	/** The run's subtitle part for a count-only tempo: "180 BPM". */
 	bpm: (n: number): string => `${n} BPM`,
-	/** Save this run's line: "3:42 · 12 figures called · saved to the day". */
-	called: (n: number): string => `${plural(n, 'figure', 'figures')} called`,
-	saveTitle: 'Save this run',
-	/** What "Unsaved changes" calls the sheet. */
-	unsavedLabel: 'This run',
-	exercise: 'Exercise',
-	chooseExercise: 'Choose an exercise…',
-	chooseExerciseTitle: 'Choose an exercise',
-	searchExercises: 'Search exercises',
-	noExercises: 'No exercises yet.',
-	notePlaceholder: 'Anything to remember?',
-	dontSave: 'Don’t save',
 	/** Where the band's back goes with no opener recorded. */
 	backToToday: 'Back to Today',
-	backToMusic: 'Back to Music',
-	/** What a refused save says. */
-	refused: {
-		couldNotSave: 'Could not save that run.',
-		noteTooLong: 'That note is too long — keep it under 2000 characters.'
-	}
+	backToMusic: 'Back to Music'
 };

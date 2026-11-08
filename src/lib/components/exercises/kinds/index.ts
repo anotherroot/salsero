@@ -6,13 +6,7 @@
 import type { Component, Snippet } from 'svelte';
 import type { Dance } from '$lib/dances/dances';
 import type { ExerciseType } from '$lib/exercises/kinds';
-import type {
-	CountTakeRow,
-	ExerciseItem,
-	PickerSong,
-	PracticeContent,
-	SectionGroup
-} from '$lib/types';
+import type { ExerciseItem, PickerSong, PracticeContent, SectionGroup } from '$lib/types';
 import LessonContent from './lesson/Content.svelte';
 import FigureContent from './figure/Content.svelte';
 import DrillContent from './drill/Content.svelte';
@@ -68,11 +62,10 @@ export interface PracticeProps {
 	exercise: ExerciseItem;
 	content: PracticeContent;
 	songs: PickerSong[];
-	takes: CountTakeRow[];
 	/** The player link's `from` part: 'from=exercise' (plan 3 passes the run's). */
 	playerFrom: string;
-	onrun: (r: { durationS: number; playerJson: string }) => void;
-	onactive: (playing: boolean) => void;
+	/** A link into the player was tapped: the page is about to be left. */
+	onleave?: () => void;
 }
 
 const PRACTICE: Record<ExerciseType, Component<PracticeProps> | null> = {

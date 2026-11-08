@@ -31,37 +31,57 @@ const seeded = (values: number[]) => {
 };
 
 describe('routinePlan', () => {
-	it('calls the slots in order, starting after the lead-in', () => {
-		const plan = routinePlan([], opts(11, 12), g, 1, 3, seeded([0]));
+	it('walks the slots in order, starting after the lead-in', () => {
+		const plan = routinePlan([], opts(11, 12), g, 3, seeded([0]));
 		expect(plan).toEqual([
-			{ eight: LEAD_IN_8S, figureId: 11 },
-			{ eight: LEAD_IN_8S + 1, figureId: 12 }
+			{ eight: LEAD_IN_8S, figureId: 11, slot: 0 },
+			{ eight: LEAD_IN_8S + 1, figureId: 12, slot: 1 }
 		]);
 	});
 
 	it('loops back to the first slot when the song outlasts the routine', () => {
-		const plan = routinePlan([], opts(11, 12), g, 1, 6, seeded([0]));
+		const plan = routinePlan([], opts(11, 12), g, 6, seeded([0]));
 		expect(plan.map((s) => s.figureId)).toEqual([11, 12, 11, 12, 11]);
 	});
 
-	it('spaces by max(every, eights)', () => {
-		// 13 is 2 eights; callEvery is 1, so 13 gets 2 and 14 gets 1.
-		const plan = routinePlan([], opts(13, 14), g, 1, 5, seeded([0]));
+	it('gives each figure its own length', () => {
+		// 13 is 16 counts, two eights; 14 is one.
+		const plan = routinePlan([], opts(13, 14), g, 5, seeded([0]));
 		expect(plan).toEqual([
-			{ eight: 2, figureId: 13 },
-			{ eight: 4, figureId: 14 },
-			{ eight: 5, figureId: 13 }
+			{ eight: 2, figureId: 13, slot: 0 },
+			{ eight: 4, figureId: 14, slot: 1 },
+			{ eight: 5, figureId: 13, slot: 0 }
 		]);
 	});
 
-	it('lets a slower call rate win over a short figure', () => {
-		const plan = routinePlan([], opts(11, 12), g, 4, 10, seeded([0]));
-		expect(plan.map((s) => s.eight)).toEqual([2, 6, 10]);
+	it('restarts at a chosen slot from a chosen 8-count (a jump)', () => {
+		const shape = opts(11, 12, 13, 14);
+		const first = routinePlan([], shape, g, 6, seeded([0]));
+		const jumped = routinePlan(first, shape, g, 9, seeded([0]), { eight: 3, slot: 3 });
+		// The step before the jump stays; from 8-count 3 the walk is 14, then the loop.
+		expect(jumped.slice(0, 1)).toEqual(first.slice(0, 1));
+		expect(jumped.slice(1, 4)).toEqual([
+			{ eight: 3, figureId: 14, slot: 3 },
+			{ eight: 4, figureId: 11, slot: 0 },
+			{ eight: 5, figureId: 12, slot: 1 }
+		]);
+	});
+
+	it('jumps back to a slot already danced, dropping what was planned after it', () => {
+		const shape = opts(11, 12, 14);
+		const first = routinePlan([], shape, g, 8, seeded([0]));
+		const jumped = routinePlan(first, shape, g, 8, seeded([0]), { eight: 6, slot: 0 });
+		expect(jumped.filter((s) => s.eight >= 6).map((s) => [s.eight, s.slot])).toEqual([
+			[6, 0],
+			[7, 1],
+			[8, 2]
+		]);
+		expect(jumped.filter((s) => s.eight < 6)).toEqual(first.filter((s) => s.eight < 6));
 	});
 
 	it('resumes an existing plan without touching what it already decided', () => {
-		const first = routinePlan([], opts(11, 12), g, 1, 3, seeded([0]));
-		const second = routinePlan(first, opts(11, 12), g, 1, 5, seeded([0]));
+		const first = routinePlan([], opts(11, 12), g, 3, seeded([0]));
+		const second = routinePlan(first, opts(11, 12), g, 5, seeded([0]));
 		expect(second.slice(0, first.length)).toEqual(first);
 		expect(second.map((s) => s.figureId)).toEqual([11, 12, 11, 12]);
 	});
@@ -74,9 +94,11 @@ describe('routinePlan', () => {
 		// The test above cannot tell the two apart, because the algorithm is
 		// deterministic and that test hands the second call a fresh rand stream —
 		// so a from-scratch rebuild reproduces a correct resume exactly.
-		const given: PlanStep[] = [{ eight: 7, figureId: 14 }];
-		const out = routinePlan(given, opts(11, 12), g, 1, 9, seeded([0]));
-		expect(out[0]).toEqual({ eight: 7, figureId: 14 });
+		const given: PlanStep[] = [{ eight: 7, figureId: 14, slot: 1 }];
+		const out = routinePlan(given, opts(11, 12), g, 9, seeded([0]));
+		expect(out[0]).toEqual({ eight: 7, figureId: 14, slot: 1 });
+		// It follows the given step's slot: slot 1 was the last, so slot 0 is next.
+		expect(out[1]).toEqual({ eight: 8, figureId: 11, slot: 0 });
 		expect(out.length).toBeGreaterThan(1);
 	});
 
@@ -92,7 +114,7 @@ describe('routinePlan', () => {
 		for (const r of [0, 0.5, 0.99]) {
 			// r = 0 is the load-bearing case: with two options, 0.5 and 0.99 land on the
 			// right answer even if the position filter is skipped entirely. Do not trim it.
-			expect(routinePlan([], shape, g, 1, 3, seeded([r])).map((s) => s.figureId)).toEqual([11, 12]);
+			expect(routinePlan([], shape, g, 3, seeded([r])).map((s) => s.figureId)).toEqual([11, 12]);
 		}
 	});
 
@@ -105,7 +127,7 @@ describe('routinePlan', () => {
 			]
 		};
 		for (const r of [0, 0.5, 0.99]) {
-			expect(routinePlan([], shape, g, 1, 3, seeded([r])).map((s) => s.figureId)).toEqual([15, 12]);
+			expect(routinePlan([], shape, g, 3, seeded([r])).map((s) => s.figureId)).toEqual([15, 12]);
 		}
 	});
 
@@ -118,7 +140,7 @@ describe('routinePlan', () => {
 				{ kind: 'options', figureIds: [14, 10] }
 			]
 		};
-		expect(routinePlan([], shape, g, 1, 3, seeded([0])).map((s) => s.figureId)).toEqual([11, 10]);
+		expect(routinePlan([], shape, g, 3, seeded([0])).map((s) => s.figureId)).toEqual([11, 10]);
 	});
 
 	it('spreads across the options that fit, driven by rand', () => {
@@ -129,17 +151,15 @@ describe('routinePlan', () => {
 				{ kind: 'options', figureIds: [11, 13] }
 			]
 		};
-		expect(routinePlan([], shape, g, 1, 3, seeded([0, 0])).map((s) => s.figureId)).toEqual([
-			12, 11
-		]);
-		expect(routinePlan([], shape, g, 1, 3, seeded([0, 0.99])).map((s) => s.figureId)).toEqual([
+		expect(routinePlan([], shape, g, 3, seeded([0, 0])).map((s) => s.figureId)).toEqual([12, 11]);
+		expect(routinePlan([], shape, g, 3, seeded([0, 0.99])).map((s) => s.figureId)).toEqual([
 			12, 13
 		]);
 	});
 
-	it('calls something anyway when no option fits — a break is not a stop', () => {
+	it('dances something anyway when no option fits — a break is not a stop', () => {
 		// 11 ends closed; 14 needs hammerlock. The routine page warns; the run dances.
-		expect(routinePlan([], opts(11, 14), g, 1, 3, seeded([0])).map((s) => s.figureId)).toEqual([
+		expect(routinePlan([], opts(11, 14), g, 3, seeded([0])).map((s) => s.figureId)).toEqual([
 			11, 14
 		]);
 	});
@@ -151,15 +171,13 @@ describe('routinePlan', () => {
 				{ kind: 'child', routineId: 7, slots: [{ kind: 'options', figureIds: [12] }] }
 			]
 		};
-		expect(routinePlan([], shape, g, 1, 4, seeded([0])).map((s) => s.figureId)).toEqual([
-			11, 12, 11
-		]);
+		expect(routinePlan([], shape, g, 4, seeded([0])).map((s) => s.figureId)).toEqual([11, 12, 11]);
 	});
 
 	it('returns the plan untouched when nothing is danceable', () => {
-		expect(routinePlan([], { slots: [] }, g, 1, 8, seeded([0]))).toEqual([]);
+		expect(routinePlan([], { slots: [] }, g, 8, seeded([0]))).toEqual([]);
 		expect(
-			routinePlan([], { slots: [{ kind: 'options', figureIds: [999] }] }, g, 1, 8, seeded([0]))
+			routinePlan([], { slots: [{ kind: 'options', figureIds: [999] }] }, g, 8, seeded([0]))
 		).toEqual([]);
 	});
 
@@ -170,15 +188,13 @@ describe('routinePlan', () => {
 				{ kind: 'options', figureIds: [11, 13] }
 			]
 		};
-		const a = routinePlan([], shape, g, 1, 20, seeded([0.1, 0.9, 0.4]));
-		const b = routinePlan([], shape, g, 1, 20, seeded([0.1, 0.9, 0.4]));
+		const a = routinePlan([], shape, g, 20, seeded([0.1, 0.9, 0.4]));
+		const b = routinePlan([], shape, g, 20, seeded([0.1, 0.9, 0.4]));
 		expect(a).toEqual(b);
 		expect(a.length).toBeGreaterThan(5);
 	});
 
 	it('cannot run off the end of an option list when rand returns 1', () => {
-		expect(routinePlan([], opts(11), g, 1, 3, seeded([1])).map((s) => s.figureId)).toEqual([
-			11, 11
-		]);
+		expect(routinePlan([], opts(11), g, 3, seeded([1])).map((s) => s.figureId)).toEqual([11, 11]);
 	});
 });

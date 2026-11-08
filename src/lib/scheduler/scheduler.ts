@@ -2,16 +2,19 @@
  * What should sound, and when, while the player runs — as pure functions.
  *
  * The scheduler answers one question: for song time in `[from, to)`, which
- * clips play at which song times, and which figures get called. It owns no
- * clock and no audio; `attach.ts` maps these song times onto the AudioContext
- * and actually makes noise. That split is what makes the hard parts — which
- * clip on which count, the count ducking under a call, the clave's off-beats,
- * no figure twice running — testable without a browser.
+ * clips play at which song times, and which of a routine's figures begin. It
+ * owns no clock and no audio; `attach.ts` maps these song times onto the
+ * AudioContext and actually makes noise. That split is what makes the hard
+ * parts — which clip on which count, the clave's off-beats, where a figure
+ * starts — testable without a browser.
+ *
+ * Nothing is spoken but the count (since 2026-11-08): a routine's figures are
+ * shown, never called, so the run lights each one on its first "1".
  *
  * All times here are SONG seconds: offsets into the music, never instants.
  */
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-import type { CallEvery, ClavePattern, Clip, CountPattern } from '$lib/labels';
+import type { ClavePattern, Clip, CountPattern } from '$lib/labels';
 
 /** Which clip speaks each count. Every count has one; the PATTERN decides. */
 export const COUNT_CLIP: Record<number, Clip> = {
@@ -62,7 +65,7 @@ export function phraseCounts(pattern: CountPattern, half: 'a' | 'b'): number[] {
 	return COUNT_POSITIONS[pattern].filter((c) => (half === 'a' ? c <= 4 : c > 4));
 }
 
-/** 8-counts of count-only before the first figure is called, so a run can settle. */
+/** 8-counts of count-only before the first figure starts, so a run can settle. */
 export const LEAD_IN_8S = 2;
 
 export interface Timeline {
@@ -119,11 +122,10 @@ export interface Cue {
 	clip: Clip;
 }
 
-export interface Call {
+/** A plan step that begins in the window: `at` is its first "1". */
+export interface StepStart {
 	at: number;
-	/** The 8-count the figure STARTS on; the call sounds in the one before. */
-	eight: number;
-	figureId: number;
+	step: PlanStep;
 }
 
 /**
@@ -140,7 +142,6 @@ export interface Phrase {
 export interface Toggles {
 	count: CountPattern;
 	clave: ClavePattern | null;
-	callEvery: CallEvery | null;
 	/**
 	 * True when the run has the user's recorded phrases for this pattern. The
 	 * count then comes back as `phrases` rather than per-beat `cues`; the clave
@@ -149,42 +150,31 @@ export interface Toggles {
 	phrases?: boolean;
 }
 
-/** A figure placed on an 8-count. `extendPlan` generates these; a routine supplies them. */
+/**
+ * A figure placed on an 8-count: the one it starts on, and which of the
+ * routine's slots (as danced, `flatten`) it answers. `routinePlan` makes these.
+ */
 export interface PlanStep {
 	eight: number;
 	figureId: number;
+	slot: number;
 }
 
-/** The count a call starts on, in the 8-count before the figure. */
-const CALL_POS = 5;
-
-/**
- * Everything that should sound in `[from, to)`, sorted by time.
- *
- * A call is spoken over 5-6-7 of the preceding 8-count so the figure begins on
- * the next "1", and the spoken count gets out of its way for those three beats.
- * Suppression is decided from the whole plan, not just the window, so a count
- * near a window edge ducks the same way however the ticks happen to fall.
- */
+/** Everything that should sound in `[from, to)`, and the steps that begin there, sorted by time. */
 export function cuesIn(
 	t: Timeline,
 	plan: PlanStep[],
 	toggles: Toggles,
 	from: number,
 	to: number
-): { cues: Cue[]; phrases: Phrase[]; calls: Call[] } {
+): { cues: Cue[]; phrases: Phrase[]; steps: StepStart[] } {
 	const cues: Cue[] = [];
 	const phrases: Phrase[] = [];
-	const calls: Call[] = [];
-	const talking = new Set<number>();
+	const steps: StepStart[] = [];
 
-	if (toggles.callEvery !== null) {
-		for (const step of plan) {
-			const at = timeAt(t, step.eight - 1, CALL_POS);
-			if (at === null) continue;
-			talking.add(step.eight - 1);
-			if (at >= from && at < to) calls.push({ at, eight: step.eight, figureId: step.figureId });
-		}
+	for (const step of plan) {
+		const at = timeAt(t, step.eight, 1);
+		if (at !== null && at >= from && at < to) steps.push({ at, step });
 	}
 
 	// Start one beat BEFORE the window: a fractional clave position can fall
@@ -199,21 +189,17 @@ export function cuesIn(
 		bars.add(t.eights[i]);
 		if (t.beats[i] < from) continue;
 		if (toggles.phrases) continue;
-		const ducked = talking.has(t.eights[i]) && t.counts[i] >= CALL_POS && t.counts[i] <= 7;
-		if (spoken.has(t.counts[i]) && !ducked) {
+		if (spoken.has(t.counts[i])) {
 			cues.push({ at: t.beats[i], clip: COUNT_CLIP[t.counts[i]] });
 		}
 	}
 
-	// Recorded halves replace the per-beat count. The duck becomes coarser and
-	// simpler: a call takes 5-6-7, which is all of phrase B, so the whole phrase
-	// is dropped rather than individual counts being suppressed inside it.
+	// Recorded halves replace the per-beat count.
 	if (toggles.phrases && spoken.size > 0) {
 		for (const e of bars) {
 			for (const half of ['a', 'b'] as const) {
 				const counts = phraseCounts(toggles.count, half);
 				if (counts.length === 0) continue;
-				if (half === 'b' && talking.has(e)) continue;
 				const at = timeAt(t, e, counts[0]);
 				// The beat after the phrase's last count. For son's 6-7-8 and for
 				// every-count's 5-6-7-8 that is 9, which is the NEXT bar's "1" — this
@@ -238,69 +224,8 @@ export function cuesIn(
 	}
 
 	cues.sort((a, b) => a.at - b.at);
-	calls.sort((a, b) => a.at - b.at);
-	return { cues, phrases, calls };
-}
-
-/**
- * A figure from the pool, never the one just called — hearing the same name
- * twice running reads as a bug, not as randomness. `r` is in `[0, 1)`.
- */
-export function pickFigure(pool: number[], last: number | null, r: number): number | null {
-	if (pool.length === 0) return null;
-	const choices = last === null || pool.length === 1 ? pool : pool.filter((id) => id !== last);
-	return choices[Math.min(choices.length - 1, Math.floor(r * choices.length))];
-}
-
-/**
- * How `extendPlan` chooses its next figure and how long that figure takes.
- *
- * The figure popup's cue passes its one figure's real length here, so a
- * two-eight figure is never called over itself.
- */
-export interface Flow {
-	/** `last` is the figure just called, or null at the start of a run. */
-	pick(pool: number[], last: number | null, r: number): number | null;
-	eights(figureId: number): number;
-}
-
-/**
- * The default: any figure but the last one, every figure one 8-count long.
- */
-export const UNIFORM_FLOW: Flow = {
-	pick: pickFigure,
-	eights: () => 1
-};
-
-/**
- * Grow a plan so it reaches `throughEight`, deciding only the new steps —
- * a figure already announced never changes under the player's feet.
- *
- * Spacing is `max(every, eights)`: calling the next figure one 8-count after a
- * figure that takes three would be undanceable, and with the uniform flow's
- * length of 1 this is the interval exactly, as before.
- */
-export function extendPlan(
-	plan: PlanStep[],
-	pool: number[],
-	every: CallEvery,
-	throughEight: number,
-	rand: () => number,
-	flow: Flow = UNIFORM_FLOW
-): PlanStep[] {
-	const out = [...plan];
-	let eight =
-		out.length === 0
-			? LEAD_IN_8S
-			: out[out.length - 1].eight + Math.max(every, flow.eights(out[out.length - 1].figureId));
-	while (eight <= throughEight) {
-		const last = out.length === 0 ? null : out[out.length - 1].figureId;
-		const figureId = flow.pick(pool, last, rand());
-		if (figureId === null) break;
-		out.push({ eight, figureId });
-		eight += Math.max(every, flow.eights(figureId));
-	}
-	return out;
+	steps.sort((a, b) => a.at - b.at);
+	return { cues, phrases, steps };
 }
 
 /** A plain metronome grid for count-only practice: `bars` 8-counts at `bpm`. */

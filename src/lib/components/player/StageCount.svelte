@@ -8,12 +8,10 @@
 		time: () => number | null;
 		beats: number[];
 		counts: number[];
-		/** The digit box's side in px, before the viewport cap. */
-		size: number;
 		paused: boolean;
 	}
 
-	let { time, beats, counts, size, paused }: Props = $props();
+	let { time, beats, counts, paused }: Props = $props();
 	let index = $state(-1);
 
 	/*
@@ -55,22 +53,29 @@
 	The 1 is what you look for across a room, so it flips to a cream disc
 	with the number in the band's colour.
 -->
-<div class="flex flex-col items-center gap-3 desk:gap-[26px]" aria-live="off">
-	<span
-		role="img"
-		aria-label={digit.text === '–' ? t().player.countNotStarted : t().player.countDigit(digit.text)}
-		class="stage flex items-center justify-center"
-		style="--size: {size}px"
-	>
+<div
+	class="flex min-h-0 w-full flex-1 flex-col items-center gap-3 desk:flex-none desk:gap-[26px]"
+	aria-live="off"
+>
+	<!-- The count fills the band's free room (one-player design): the box is a size container. -->
+	<span class="stage-box flex min-h-0 w-full flex-1 items-center justify-center desk:flex-none">
 		<span
-			class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
-				? 'rounded-full bg-band-ink text-band shadow-[0_10px_30px_rgb(0_0_0/0.22)]'
-				: digit.dim
-					? 'text-band-ink/75'
-					: 'text-band-ink'}">{digit.text}</span
+			role="img"
+			aria-label={digit.text === '–'
+				? t().player.countNotStarted
+				: t().player.countDigit(digit.text)}
+			class="stage flex items-center justify-center"
 		>
+			<span
+				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
+					? 'rounded-full bg-band-ink text-band shadow-[0_10px_30px_rgb(0_0_0/0.22)]'
+					: digit.dim
+						? 'text-band-ink/75'
+						: 'text-band-ink'}">{digit.text}</span
+			>
+		</span>
 	</span>
-	<span class="flex h-4 items-center gap-2.5 desk:h-[22px] desk:gap-4" aria-hidden="true">
+	<span class="flex h-4 flex-none items-center gap-2.5 desk:h-[22px] desk:gap-4" aria-hidden="true">
 		{#each dots as d (d.n)}
 			<span
 				class="flex-none rounded-full {d.size === 16
@@ -82,20 +87,21 @@
 </div>
 
 <style>
+	/* The box takes the band's free height; the digit is the largest square that fits it. */
+	.stage-box {
+		container-type: size;
+	}
 	.stage {
-		--stage: min(var(--size), 30dvh);
+		--stage: min(100cqw - 8px, 100cqh);
 		width: var(--stage);
 		height: var(--stage);
 		font-size: calc(var(--stage) * 0.82);
 	}
-	/* A landscape phone has the whole left half, but little height. */
-	@media (orientation: landscape) and (max-height: 520px) and (width < 1024px) {
-		.stage {
-			--stage: min(var(--size), 46dvh);
-		}
-	}
-	/* The desktop's stage has the whole left side: up to 240, whatever `size` says. */
+	/* The desktop's stage has the whole left side: a fixed size, as before. */
 	@media (width >= 1024px) {
+		.stage-box {
+			container-type: normal;
+		}
 		.stage {
 			--stage: min(240px, 34dvh);
 		}

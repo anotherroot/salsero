@@ -708,21 +708,11 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		expect(getExercise(db, mine)!.countBpm).toBeNull();
 	});
 
-	it('the player offers no exercise of another person, and refuses to save a run on it', async () => {
+	it('the player opens no exercise of another person', () => {
 		const url = new URL(`http://localhost/?exercise=${mine}`);
-		const load = playerPage.load as unknown as (e: unknown) => {
-			exercise: unknown;
-			exercises: unknown[];
-		};
-		const theirs = load({ url, params: { dance: 'salsa' }, locals: { user: U2 } });
-		expect(theirs.exercise).toBeNull();
-		expect(theirs.exercises).toEqual([]);
+		const load = playerPage.load as unknown as (e: unknown) => { exercise: unknown };
+		expect(load({ url, params: { dance: 'salsa' }, locals: { user: U2 } }).exercise).toBeNull();
 		expect(load({ url, params: { dance: 'salsa' }, locals: { user: U1 } }).exercise).not.toBeNull();
-		await refuses(
-			playerPage.actions.save,
-			post(U2, 'salsa', { exerciseId: String(mine), durationS: '60', rating: '4' })
-		);
-		expect(exerciseHistory(db, mine)).toHaveLength(1);
 	});
 });
 

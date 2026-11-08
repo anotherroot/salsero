@@ -12,7 +12,9 @@
 > log popup is gone. The type still owns its content, now on the exercise page
 > (`contentFor`; `logFor` and the per-type `Log.svelte` no longer exist). The
 > practice panel is the page's **Practise with** (`practiceFor`, a
-> `kinds/<type>/Practice.svelte` for figure, drill and routine); reps are not
+> `kinds/<type>/Practice.svelte` for figure, drill and routine), which since the
+> one-player design opens the full player and plays nothing in place
+> ([`2026-11-08-one-player-design.md`](2026-11-08-one-player-design.md)); reps are not
 > asked for any more and time is never typed (the page counts it while visible);
 > a drill's recordings are on its page (`DrillRecordings`); a face and an optional
 > note are chosen in the **Done sheet** (`DoneSheet`), and a save writes the one
@@ -46,7 +48,7 @@ opens the exercise; the **+** opens the popup.
 | **Type**           | What kind of practice an exercise is: lesson review, figure practice, drill, routine. Derived from `source`. |
 | **Log popup**      | The type's sheet: its content, its practice tools, and the form that logs a set.                          |
 | **Link**           | A URL attached to a lesson, a figure or a drill. A YouTube URL renders as an embed.                       |
-| **Practice panel** | The slim player inside the figure and drill popups: count, clave, song. No calls unless asked for.       |
+| **Practice panel** | The slim player inside the figure and drill popups: count, clave, song. Nothing is called (since 2026-11-08). |
 | **Session**        | Walking Today's to-do list popup by popup, "Next →" after each log.                                       |
 
 ## Types
@@ -69,7 +71,7 @@ then, and only then, a `kind` column that stops being derivable.
 | Type            | Minutes | Reps | Rating question               | Note | Practice panel |
 | --------------- | ------- | ---- | ----------------------------- | ---- | -------------- |
 | Lesson review   | ✓       |      | "How well do you remember it?" | ✓    |                |
-| Figure practice | ✓ auto  |      | "How did it go?"               | ✓    | ✓ + call on cue |
+| Figure practice | ✓ auto  |      | "How did it go?"               | ✓    | ✓               |
 | Drill           | ✓ auto  | ✓    | "How did it go?"               | ✓    | ✓              |
 | Routine         | ✓       |      | "How did it go?"               | ✓    | full player    |
 
@@ -126,7 +128,7 @@ review is watching and remembering, not dancing along.
 
 A **Reference** block — the figure's notes, its recordings, its links — open by
 default, collapsible, so the practice panel is one tap from the top on a phone.
-Then the practice panel with **call on cue** (below), then the form.
+Then the practice panel, then the form. (Call on cue went on 2026-11-08 with every call.)
 
 ### Drill
 
@@ -137,7 +139,7 @@ then the form.
 
 The routine's slot sequence as the routine page shows it, and **Practise in
 player →**, which opens the full player with the routine exactly as the routine
-page's Practise link does — calls and routines stay there, and that run saves
+page's Practise link does — routines stay there, and that run saves
 through the player's own save sheet. The popup's form is for a routine
 practised away from the app.
 
@@ -236,7 +238,6 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
 - **Tempo:** BPM (60–300) for count only; speed 0.7–1.0× for a song.
 - **Count pattern:** the dance's `countPatterns`, from the registry.
 - **Clave:** off / 2-3 / 3-2 — rendered only when `dance.clave`.
-- **Call on cue** (figure popup only): off / every 2 / every 4 eights.
 - **While running:** pause/resume, stop, the big count (`LiveCount`), elapsed
   wall-clock time, and the voice-volume slider (live, as in the full player).
 - **The song's progress bar** (`player/SongProgress.svelte`), with a song
@@ -253,12 +254,8 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
 
 `createPlayer` from `src/lib/scheduler/attach.ts`, unchanged but for `seek()`:
 
-- `pool: []` and `callEvery: null` — nothing is called. With **call on cue**,
-  `pool: [figureId]` and `callEvery: 2 | 4`; `pickFigure` already returns the
-  only id in a one-figure pool (the no-repeat rule applies only to pools of two
-  or more), and a flow whose `eights` is the figure's own keeps a multi-eight
-  figure from being called over itself. `sayOf` is the figure's `call_text` or
-  name.
+- No `planner`: count and clave only. (Call on cue, the figure named every 2 or
+  4 eights, was removed on 2026-11-08 with every call.)
 - **Count only:** `audio: null`, grid `syntheticGrid(bpm, bars)` with `bars`
   sized for an hour (`ceil(bpm * 60 / 8)`), not the player page's 400.
 - **The user's recorded count takes** when they exist, falling back to the
@@ -291,17 +288,31 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
 - Reuse `practice_mode` (`'count' | 'song'`; `'none'` now just means "never
   practised", and the panel opens on count), `song_id` and `count_bpm`.
 - One additive column, **`exercises.practice_json`** (text, nullable):
-  `{ count, clave, speed, callEvery }`. Parsed by **`parsePracticeConfig`** in
+  `{ count, clave, speed }` (an older row's `callEvery` is ignored). Parsed by **`parsePracticeConfig`** in
   `src/lib/exercises/practice.ts`, which is **total**: anything missing or
   invalid falls back to the dance's defaults, so a bad value can never break a
   popup.
-- Saved on **Play**, not on every tap, by a JSON
-  `POST /[dance]/exercises/[id]/practice` — no navigation, no reload, and
-  failure is silent (the run still plays; the settings are a convenience). An
+- Saved **as it changes** (since 2026-11-08; it used to be on Play only), by
+  a JSON `POST /[dance]/exercises/[id]/practice`: a change of song, tempo,
+  count, clave or speed, before a run or during one (the full player's count
+  chips), is posted once the settings sit still for 800 ms, and at once on
+  Play and when the page or popup goes (`practiceSaver` in
+  `src/lib/exercises/practice-api.ts`, `keepalive`). Only a change from what
+  the page knows is posted (`practiceToPost`), and an untouched page posts
+  nothing. No navigation, no reload, and failure is silent (the run still
+  plays; the settings are a convenience). An
   endpoint rather than a form action, so the four pages that open a popup do
   not each have to register it. It validates against the registry (count
   pattern in the dance's list, clave only where the dance has it, a song ready
   and in the dance) through the pure `parsePracticeInput`.
+- **One memory, read by both players.** The panel and the full player start
+  from the same place (`practiceSeed`): the exercise's own memory, else what
+  this phone last used (`<dance>.player` in `localStorage`,
+  `src/lib/exercises/phone-practice.ts`, read through `parsePhonePractice`),
+  else the defaults. Both write the phone's memory too. The voice volume is
+  the phone's only, never the exercise's: it is about the room, not the drill.
+  The full player opened without an exercise reads and writes the phone's
+  memory alone.
 - The "Practice" mode radio, the song picker and the BPM field leave the
   exercise settings: the panel is where they are chosen now.
 
@@ -313,9 +324,8 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
   `durationS`, so a hand-entered value wins.
 - This retires the player's known gap "logged `duration_s` is SONG seconds"
   for the panel; the full player keeps its behaviour for now.
-- The set's `player_json` is `{ source, songId, bpm, speed, count, clave,
-  callEvery, calls }` — the full player's shape plus `source`/`songId`/`bpm`,
-  with `called` omitted (one figure). Nothing queries inside it, as before.
+- The set's `player_json` is `{ source, songId, bpm, speed, count, clave }` —
+  the full player's shape without a routine's fields. Nothing queries inside it, as before.
 
 ### A run cannot be lost by accident
 
@@ -462,7 +472,7 @@ Pure and data modules, as ever; no route or component tests, matching the repo.
   Taught-in lookup; the last rating on the plan row.
 - **By hand, against `node build`:** each popup at phone width; a count-only
   run filling Minutes; a song run on a hand-inserted test song (see CLAUDE.md);
-  call on cue; the session walking Due; mirror on a recording and an embed.
+  the session walking Due; mirror on a recording and an embed.
 
 ## Known gaps
 

@@ -174,9 +174,17 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      totals). log-view.ts is `lastTimeParts` only.
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
-src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
-                     the band's subtitles, the run summary, Play's state, Built-in
-                     or Yours, where Back goes. Client-safe
+src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
+                     and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
+                     there is an About (`hasDetails`), Play's state, Built-in or Yours,
+                     where Back goes, the exercise page's player link. Client-safe
+src/lib/server/run-details.ts  what the player's About shows, read-only, through access.ts:
+                     a figure's timing, positions, notes, sections, videos and links;
+                     a drill's (`figureDetails`, `exerciseDetails`)
+src/lib/components/player/  the player's screens: Setup, Running (the band that fills, the
+                     rows), RunLayer (a full-screen layer with a history entry), RunRows,
+                     DetailsBody and RunClip (About), CountChips, SongProgress, StageCount
+src/lib/exercises/clock-trip.ts  PURE: the exercise page's time across a trip to the player
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
                      gives the picker (build.ts); view.ts is what a row ends in, the create
@@ -510,7 +518,7 @@ src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
 src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
-                     25 ms look-ahead loop, speechSynthesis, the wake lock
+                     25 ms look-ahead loop, a routine's steps (`onStep`, `jumpTo`), the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
                      half-bar starts); capture.ts owns the mic and the click.
                      grid.ts (tempo states, takes, the Settings summary), recording.ts

@@ -6,8 +6,8 @@ Moved out of CLAUDE.md on 2026-11-08. When a feature ships, add it to "What is l
 
 Live: phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
-player: voice count, clave, count-only runs, and a finished run logged as a
-set), phase 3a (positions, the figure graph, the gap report), phase 3b
+player: voice count, clave, count-only runs; since 2026-11-08 a run logs
+nothing, Done on the exercise page does), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
@@ -242,6 +242,13 @@ Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language
 lives (account, invite, cookie), how the words are organised, and the order of work.
+One player has its own,
+[`docs/superpowers/specs/2026-11-08-one-player-design.md`](docs/superpowers/specs/2026-11-08-one-player-design.md):
+one practice player (the full page) that logs nothing; Practise with on the exercise
+page opens it; the band that fills the phone; Routine, About and Voice as rows that
+open full-screen layers; a routine run without calls (Follow or Still, the
+full-screen list, a figure's details from it); the time across the trip to the
+player; and what was decided while building.
 The app on the device has its own,
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md):
 why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM), ids from

@@ -45,8 +45,7 @@ export const exercise: Catalog['exercise'] = {
 		editLinks: 'Uredi povezave na strani različice',
 		figures: 'Različice',
 		practiseInPlayer: 'Vadi v predvajalniku',
-		routineNote:
-			'Kar vadite v predvajalniku, se shrani samo. Pritisnite Opravljeno, ko ste vadili brez aplikacije.',
+		routineNote: 'Ko ste vadili, v predvajalniku ali brez aplikacije, pritisnite Opravljeno.',
 		recordings: (n) => (n === 0 ? 'Posnetki' : `Posnetki · ${n}`)
 	},
 	page: {
@@ -115,8 +114,7 @@ export const exercise: Catalog['exercise'] = {
 		speed: (s) => `${comma(s)}×`,
 		summaryCount: (bpm) => `Štetje ${bpm}`,
 		summaryNoCount: 'brez štetja',
-		summaryClave: (pattern) => `clave ${pattern}`,
-		summaryCall: (n) => `napoved na ${slCount(n, OSMICA)}`
+		summaryClave: (pattern) => `clave ${pattern}`
 	},
 	// "Comes back" as a plain question; the teacher is "vodja tečaja" (glossary), and no
 	// past tense agrees with them ("Nastavitev vodje tečaja", not "Vodja je nastavil").
@@ -164,7 +162,6 @@ export const exercise: Catalog['exercise'] = {
 		saved: (back) => `Shranjeno · ${back}`,
 		added: (day) => `Dodano za ${day}`,
 		doneToday: 'Opravljeno danes',
-		stopFirst: 'Najprej ustavite štetje.',
 		tapFace: 'Pritisnite obraz, da ga shranite',
 		place: (at, of) => `${at} od ${of}`,
 		next: (name) => `Naslednja: ${name}`,

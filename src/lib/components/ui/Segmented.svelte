@@ -6,7 +6,8 @@
 		name,
 		label,
 		onchange,
-		clearable = false
+		clearable = false,
+		compact = false
 	}: {
 		items: readonly { value: T; label: string }[];
 		/** Null (only with `clearable`): none is picked, and the form sends nothing. */
@@ -19,6 +20,8 @@
 		onchange?: (value: T) => void;
 		/** A tap on the picked one clears it: a form field that may stay unknown (a position's hold). */
 		clearable?: boolean;
+		/** 36 px tall, 13 px words: a switch on a band strip (the run's full-screen routine). */
+		compact?: boolean;
 	} = $props();
 
 	/** A click on the radio already picked: no change event fires, so clear it here. */
@@ -43,12 +46,14 @@
 <div
 	role="radiogroup"
 	aria-label={label}
-	class="grid h-[50px] gap-0 rounded-full p-[3px] {track}"
+	class="grid {compact ? 'h-9' : 'h-[50px]'} gap-0 rounded-full p-[3px] {track}"
 	style="grid-template-columns: repeat({items.length}, minmax(0, 1fr))"
 >
 	{#each items as item (item.value)}
 		<label
-			class="flex h-11 cursor-pointer items-center justify-center rounded-full font-sans text-[15px] font-bold has-checked:font-extrabold has-focus-visible:outline-2 has-focus-visible:outline-offset-1 {ring} {idle} {picked}"
+			class="flex {compact
+				? 'h-[30px] px-3 text-[13px]'
+				: 'h-11 text-[15px]'} cursor-pointer items-center justify-center rounded-full font-sans font-bold has-checked:font-extrabold has-focus-visible:outline-2 has-focus-visible:outline-offset-1 {ring} {idle} {picked}"
 		>
 			<input
 				type="radio"

@@ -23,7 +23,7 @@ The dev database has no songs and the home worker does not run against it, so
 the player's song mode has nothing to open. To exercise it locally, insert a
 song row by hand with `status='ready'`, an `audio_file` under `.data/audio/`,
 and a `beats_json` array — a click track from ffmpeg plus evenly spaced beats is
-enough to check the count, the clave and the calls. Set `dance` too: it defaults
+enough to check the count, the clave and a routine's Follow. Set `dance` too: it defaults
 to `'salsa'`, so a row inserted without it is invisible from `/bachata/player`.
 
 In dev, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first run; an admin is
