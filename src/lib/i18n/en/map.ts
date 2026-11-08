@@ -61,6 +61,8 @@ export const map = {
 		gestures: 'Pinch to zoom · double tap to see it all'
 	},
 	sheet: {
+		/** The ‹ pill's name for a screen reader: it steps back along the trail. */
+		backTo: (name: string): string => `Back to ${name}`,
 		insOuts: (i: number, o: number): string => `${plural(i, 'figure', 'figures')} in · ${o} out`,
 		open: 'Open',
 		stays: 'Stays here:',

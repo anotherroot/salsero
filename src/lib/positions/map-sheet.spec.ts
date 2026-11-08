@@ -91,6 +91,15 @@ describe('positionSheet', () => {
 		expect(positionSheet(d, 3)!.stepTo.every((r) => r.figs.includes(x))).toBe(true);
 	});
 
+	it('nothing leads in (a loop is not an in), nothing leaves (no row, no Anywhere)', () => {
+		// A: only its own loop comes back to it.
+		expect(positionSheet(d, 1)!.from).toEqual([]);
+		// D: two arrows in, nothing out, no loop, no figure without an end.
+		const s = positionSheet(d, 4)!;
+		expect(s.from.map((p) => p.name)).toEqual(['A', 'C']);
+		expect([s.stepTo, s.anywhere, s.stays]).toEqual([[], [], []]);
+	});
+
 	it('is null for a position that is not drawn', () => {
 		const dd = data(names, [], { drawn: [1, 2, 3, 4] });
 		expect(positionSheet(dd, 9)).toBeNull();

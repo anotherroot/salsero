@@ -65,7 +65,7 @@ export function nextFrom(
 		(a, b) =>
 			b.figs.length - a.figs.length ||
 			Number(b.stays) - Number(a.stays) ||
-			name(a.to as number).localeCompare(name(b.to as number))
+			name(a.to as number).localeCompare(name(b.to as number), 'en')
 	);
 	const any = data.anyFrom.find((a) => a.from === at);
 	if (any && any.figs.length > 0) groups.push({ to: null, stays: false, figs: any.figs });

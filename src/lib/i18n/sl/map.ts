@@ -47,6 +47,7 @@ export const map: Catalog['map'] = {
 		gestures: 'Povečajte s ščipom · dvakrat se dotaknite za ves zemljevid'
 	},
 	sheet: {
+		backTo: (name) => `Nazaj: ${name}`,
 		insOuts: (i, o) =>
 			`${slCount(i, ['različica', 'različici', 'različice', 'različic'])} noter · ${o} ven`,
 		open: 'Odpri',

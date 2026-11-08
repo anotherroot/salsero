@@ -146,9 +146,11 @@ const TRANSLATED: string[] = [
 	'src/lib/components/songs/MusicSection.svelte',
 	'src/routes/[dance]/player/+page.svelte',
 	'src/routes/device/pair/+page.svelte',
-	// The map, full screen (map walk, Task 7).
+	// The map, full screen, and a position's sheet (map walk, Tasks 7 and 8).
 	'src/lib/components/positions/MapInfoSheet.svelte',
 	'src/lib/components/positions/MapPane.svelte',
+	'src/lib/components/positions/MapPanel.svelte',
+	'src/lib/components/positions/MapSheet.svelte',
 	'src/lib/components/positions/MapTray.svelte',
 	'src/lib/components/positions/PositionMap.svelte',
 	'src/routes/[dance]/(moves)/positions/map/+page.svelte'

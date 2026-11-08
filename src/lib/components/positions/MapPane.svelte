@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PositionMap from './PositionMap.svelte';
 	import MapTray from './MapTray.svelte';
+	import MapPanel from './MapPanel.svelte';
+	import MapSheet from './MapSheet.svelte';
 	import MapInfoSheet from './MapInfoSheet.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import PaneHeading from '$lib/components/shell/PaneHeading.svelte';
@@ -13,7 +15,7 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import type { MapData } from '$lib/positions/map-view';
 	import type { Room } from '$lib/positions/map-fit';
-	import { pick, steppedKey, type Trail } from '$lib/positions/map-sheet';
+	import { pick, positionSheet, stepBack, steppedKey, type Trail } from '$lib/positions/map-sheet';
 	import { pickOf } from '$lib/positions/pick';
 	import { t } from '$lib/i18n/catalog';
 
@@ -25,13 +27,15 @@
 	 * title and summary, and ⓘ float over its top, the whole-map ⤢ under ⓘ; the
 	 * tray sits over its foot. The desktop: the pane's heading, then the map (the
 	 * pane's width, at most 800), ⓘ and ⤢ over its top left, and a 320 px panel
-	 * floating over its right holding the tray (the map fits beside it: `room.right`).
+	 * floating over its right holding the tray or a position (the map fits beside it:
+	 * `room.right`).
 	 *
 	 * The state is here: the trail of picks and steps (`map-sheet.ts`), shared with
 	 * the (moves) layout's pick (`getMoves().pick`) so the list lights the picked
 	 * position's row. It arrives as `?pick=<id>` (a position's Show on the map),
-	 * read once; the layout clears it when the map leaves the pane. Escape, or a
-	 * tap on empty space, drops the pick.
+	 * read once; the layout clears it when the map leaves the pane. A picked position
+	 * has its sheet up (`MapSheet`, in `MapPanel`), which holds one history entry: Back,
+	 * Escape or a tap on empty space drops the pick, back to the tray.
 	 */
 	let { map }: { map: MapData } = $props();
 
@@ -57,10 +61,32 @@
 		moves.pick.value = picked;
 	});
 
+	const sheet = $derived(picked === null ? null : positionSheet(map, picked));
+	/** The ‹ pill: where the last step came from. */
+	const prev = $derived.by(() => {
+		const id = picked === null ? undefined : trail.back.at(-1);
+		const p = id === undefined ? undefined : map.positions.find((q) => q.id === id);
+		return p ? { id: p.id, name: p.name } : null;
+	});
+
+	// A pill, or a Step to row: a step when it is one of the picked position's places.
 	const onpick = (id: number) => (trail = pick(trail, id, map));
-	const clear = () => (trail = { picked: null, back: [] });
-	// A tray chip starts afresh: never a step, even to a lit neighbour.
+	// A tray or From chip starts afresh: never a step, even to a lit neighbour.
 	const pickFresh = (id: number) => (trail = { picked: id, back: [] });
+
+	/**
+	 * Back to the tray (Back, Escape, a tap on empty space). Focus that was in the
+	 * sheet goes back to the map, onto the position the sheet was about.
+	 */
+	function close() {
+		const was = picked;
+		const inSheet = document.activeElement?.closest('[data-map-panel]') != null;
+		trail = { picked: null, back: [] };
+		if (was === null || !inSheet) return;
+		void tick().then(() =>
+			document.querySelector<SVGAElement>(`[data-map-pos="${was}"]`)?.focus({ preventScroll: true })
+		);
+	}
 
 	let info = $state(false);
 	let mapView: { whole(): void } | undefined = $state();
@@ -71,7 +97,7 @@
 	let w = $state(0);
 	let h = $state(0);
 	let headH = $state(0);
-	let trayH = $state(0);
+	let panelH = $state(0);
 	// On the desktop the 320 px panel floats over the map's right, 12 px in: the map
 	// fits in what is left of it (`right`).
 	const DESK_TOP = 64;
@@ -80,7 +106,7 @@
 	const room = $derived<Room>(
 		desk.current
 			? { w, h, top: DESK_TOP, bottom: 12, right: DESK_PANEL }
-			: { w, h, top: headH + WHOLE_H, bottom: trayH + 8 }
+			: { w, h, top: headH + WHOLE_H, bottom: panelH + 8 }
 	);
 
 	const SHADOW = 'shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)]';
@@ -91,7 +117,7 @@
 		// An open dialog (ⓘ, a sheet from the list beside the map) takes its own Escape first.
 		if (e.key !== 'Escape' || picked === null || e.defaultPrevented) return;
 		if (document.querySelector('dialog[open]')) return;
-		clear();
+		close();
 	}}
 />
 
@@ -166,7 +192,7 @@
 					{stepped}
 					{room}
 					{onpick}
-					onspace={clear}
+					onspace={close}
 				/>
 			{:else}
 				<!-- Nothing to draw: the words keep the map's place, the tray stays under them. -->
@@ -188,17 +214,20 @@
 				{#if map.layout.nodes.length > 0}{@render wholeButton()}{/if}
 			</div>
 
-			<!-- The tray: the phone's low sheet over the map's foot; on the desktop a panel floating over its right. -->
-			<div
-				bind:offsetHeight={trayH}
-				class="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2.5 rounded-t-[24px] bg-surface px-[18px] pt-2.5 pb-3.5 shadow-[0_-6px_24px_rgb(0_0_0/0.12)] desk:top-3 desk:right-3 desk:bottom-auto desk:left-auto desk:max-h-[calc(100%-24px)] desk:w-[320px] desk:overflow-y-auto desk:rounded-2xl desk:p-5 desk:shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)]"
-			>
-				<div
-					aria-hidden="true"
-					class="h-[5px] w-10 self-center rounded-full bg-track desk:hidden"
-				></div>
-				<MapTray {map} onpick={pickFresh} />
-			</div>
+			<!-- The tray, or the picked position's sheet: the phone's bottom sheet over the map's foot; on the desktop a panel floating over its right. -->
+			<MapPanel mode={sheet ? 'position' : 'tray'} onclose={close} bind:height={panelH}>
+				{#if sheet}
+					<MapSheet
+						{sheet}
+						{prev}
+						onstep={onpick}
+						onfresh={pickFresh}
+						onback={() => (trail = stepBack(trail))}
+					/>
+				{:else}
+					<MapTray {map} onpick={pickFresh} />
+				{/if}
+			</MapPanel>
 		</div>
 	</div>
 </div>

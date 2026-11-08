@@ -42,7 +42,7 @@ export interface PositionSheet {
 const byCountThenName = (
 	a: { figs: MapFig[]; name: string },
 	b: { figs: MapFig[]; name: string }
-) => b.figs.length - a.figs.length || a.name.localeCompare(b.name);
+) => b.figs.length - a.figs.length || a.name.localeCompare(b.name, 'en');
 
 /** Null for an id that is not drawn (an island, unused or unknown). */
 export function positionSheet(data: MapData, id: number): PositionSheet | null {

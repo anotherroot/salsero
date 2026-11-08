@@ -377,6 +377,7 @@
 				{@const rx = Math.min(n.h / 2, 17)}
 				<a
 					href={hrefOf(n.id)}
+					data-map-pos={n.id}
 					aria-label={p?.ariaLabel}
 					class="group cursor-pointer transition-opacity duration-150 focus-visible:shadow-none focus-visible:outline-none motion-reduce:transition-none"
 					style:opacity={picked !== null && !lit.nodes.has(n.id) ? 0.28 : 1}
