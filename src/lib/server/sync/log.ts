@@ -25,7 +25,16 @@ export function changedSince(db: Db, cursor: number): { tbl: string; key: string
 	);
 }
 
-/** Delete rows older than LOG_KEEP_MS; returns how many. */
+/**
+ * Delete the rows before the first one newer than LOG_KEEP_MS; returns how
+ * many. By `seq`, never by `at` alone: `at` is SQLite's clock, which can step
+ * back, and a row pruned out of seq order would be a hole a device's cursor
+ * walks past unseen. With no row that new, all go; the head stays in
+ * `sqlite_sequence`.
+ */
 export function pruneChangeLog(db: Db, now: number): number {
-	return db.run(sql`DELETE FROM change_log WHERE at < ${now - LOG_KEEP_MS}`).changes;
+	const cutoff = now - LOG_KEEP_MS;
+	return db.run(
+		sql`DELETE FROM change_log WHERE seq < coalesce((SELECT min(seq) FROM change_log WHERE at >= ${cutoff}), (SELECT max(seq) FROM change_log) + 1)`
+	).changes;
 }

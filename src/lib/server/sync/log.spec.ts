@@ -113,4 +113,30 @@ describe('change log', () => {
 		expect(logOldest(db)).toBe(2);
 		expect(logHead(db)).toBe(3);
 	});
+
+	it('prunes by seq: an old `at` after a newer row stays, so the log keeps no hole', () => {
+		// A trigger's `at` is SQLite's clock, which can step back: seq order is the truth.
+		const db = fresh();
+		const now = 100 * DAY;
+		const old = now - LOG_KEEP_MS - 1;
+		db.run(sql`INSERT INTO change_log (tbl, key, op, at) VALUES ('a', '1', 'i', ${old})`);
+		db.run(sql`INSERT INTO change_log (tbl, key, op, at) VALUES ('a', '2', 'i', ${now})`);
+		db.run(sql`INSERT INTO change_log (tbl, key, op, at) VALUES ('a', '3', 'i', ${old})`);
+		db.run(sql`INSERT INTO change_log (tbl, key, op, at) VALUES ('a', '4', 'i', ${now})`);
+		expect(pruneChangeLog(db, now)).toBe(1);
+		expect(changedSince(db, 1).map((c) => c.key)).toEqual(['2', '3', '4']);
+		expect(logOldest(db)).toBe(2);
+		expect(logHead(db)).toBe(4);
+	});
+
+	it('prunes every row when none is new enough, and keeps the head', () => {
+		const db = fresh();
+		const now = 100 * DAY;
+		const old = now - LOG_KEEP_MS - 1;
+		db.run(sql`INSERT INTO change_log (tbl, key, op, at) VALUES ('a', '1', 'i', ${old})`);
+		db.run(sql`INSERT INTO change_log (tbl, key, op, at) VALUES ('a', '2', 'i', ${old})`);
+		expect(pruneChangeLog(db, now)).toBe(2);
+		expect(logOldest(db)).toBeNull();
+		expect(logHead(db)).toBe(2);
+	});
 });
