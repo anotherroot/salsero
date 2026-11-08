@@ -12,6 +12,7 @@
 		type ArrowLook,
 		type MapDataPosition
 	} from '$lib/positions/map-view';
+	import { walkPill, type WalkLook } from '$lib/positions/walk';
 	import {
 		clampMapView,
 		fitView,
@@ -41,6 +42,13 @@
 	 * is. Two fingers zoom from the whole map's scale to 4×, one finger moves a
 	 * zoomed map, a double tap on empty space shows the whole map, Ctrl+wheel is
 	 * a trackpad's pinch (`map-fit.ts`). `whole()` is the head's ⤢.
+	 *
+	 * While walking (`walk`, from `walkLook`) the walk is drawn instead: walked
+	 * arrows thick in accent with their step numbers (dashed when no figure runs
+	 * there: `loose`), the next places' arrows dashed, the current pill filled,
+	 * the visited ones bordered, the rest faded; the view follows the walk's `fit`.
+	 * A pill tap then does nothing, except while the walk stands nowhere, when it
+	 * calls `onpick` (where to carry on from).
 	 */
 	interface Props {
 		layout: MapLayout;
@@ -49,32 +57,59 @@
 		label: string;
 		picked: number | null;
 		stepped: string | null;
+		walk?: WalkLook | null;
 		room: Room;
 		onpick: (id: number) => void;
 		onspace: () => void;
 	}
 
-	let { layout, positions, edges, label, picked, stepped, room, onpick, onspace }: Props = $props();
+	let {
+		layout,
+		positions,
+		edges,
+		label,
+		picked,
+		stepped,
+		walk = null,
+		room,
+		onpick,
+		onspace
+	}: Props = $props();
 
 	const uid = $props.id();
 	const DOUBLE_TAP_MS = 300;
 	const TAP_SLOP_PX = 10;
 
-	/** How each arrow tone is drawn: its token, opacity and head. Stepped is thick (4.5 px). */
-	const PAINT: Record<ArrowLook['tone'], { color: string; opacity: number; z: number }> = {
+	/** How each arrow tone is drawn: its token, opacity, dashes and head. Stepped and walked are thick (4.5 px). */
+	const PAINT: Record<
+		ArrowLook['tone'],
+		{ color: string; opacity: number; z: number; dash?: string }
+	> = {
 		out: { color: 'var(--color-accent)', opacity: 1, z: 2 },
 		in: { color: 'var(--color-easy)', opacity: 0.85, z: 1 },
 		stepped: { color: 'var(--color-easy)', opacity: 1, z: 3 },
 		rest: { color: 'var(--color-ink-2)', opacity: 0.42, z: 0 },
-		faded: { color: 'var(--color-ink-2)', opacity: 0.07, z: 0 }
+		faded: { color: 'var(--color-ink-2)', opacity: 0.07, z: 0 },
+		walked: { color: 'var(--color-accent)', opacity: 1, z: 4 },
+		loose: { color: 'var(--color-accent)', opacity: 1, z: 4, dash: '7 6' },
+		next: { color: 'var(--color-accent)', opacity: 0.8, z: 2, dash: '5 5' }
 	};
 	const HEADS: { id: ArrowLook['tone']; color: string; size: number }[] = [
 		{ id: 'out', color: PAINT.out.color, size: 9 },
 		{ id: 'in', color: PAINT.in.color, size: 9 },
 		{ id: 'rest', color: PAINT.rest.color, size: 9 },
-		{ id: 'stepped', color: PAINT.stepped.color, size: 13 }
+		{ id: 'stepped', color: PAINT.stepped.color, size: 13 },
+		{ id: 'walked', color: PAINT.walked.color, size: 13 }
 	];
-	const headOf = (tone: ArrowLook['tone']) => (tone === 'faded' ? 'rest' : tone);
+	const HEAD_OF: Partial<Record<ArrowLook['tone'], ArrowLook['tone']>> = {
+		faded: 'rest',
+		loose: 'walked',
+		next: 'out'
+	};
+	const headOf = (tone: ArrowLook['tone']) => HEAD_OF[tone] ?? tone;
+	const THICK = new Set<ArrowLook['tone']>(['stepped', 'walked', 'loose']);
+	const widthOf = (tone: ArrowLook['tone'], w: number) =>
+		THICK.has(tone) ? 4.5 : tone === 'next' ? 2 : w;
 
 	const dance = $derived(page.params.dance ?? '');
 	const byId = $derived(new Map(positions.map((p) => [p.id, p])));
@@ -82,23 +117,38 @@
 	const lit = $derived(litOf(edges, picked));
 	const frame = $derived({ width: layout.width, height: layout.height });
 
-	// The lit arrows are drawn last, over the faded ones.
+	const FADED: ArrowLook = { tone: 'faded', badge: null, count: null };
+
+	// The lit arrows are drawn last, over the faded ones. A walk's loose arrows (no
+	// figure runs there) are its own, drawn when both ends are on the map.
 	const arrows = $derived(
-		edges
-			.map((e) => {
-				const a = nodeById.get(e.from)!;
-				const b = nodeById.get(e.to)!;
-				const look = arrowLook(e, { picked, stepped });
-				return {
-					key: edgeKey(e),
-					look,
-					paint: PAINT[look.tone],
-					width: look.tone === 'stepped' ? 4.5 : e.width,
-					...edgeGeometry(a, b, e.from === e.to)
-				};
+		[
+			...edges.map((e) => ({
+				key: edgeKey(e),
+				e,
+				w: e.width,
+				look: walk ? (walk.arrows.get(edgeKey(e)) ?? FADED) : arrowLook(e, { picked, stepped })
+			})),
+			...(walk?.loose ?? []).map((l) => ({ key: `loose-${edgeKey(l)}`, e: l, w: 2, look: l.look }))
+		]
+			.flatMap(({ key, e, w, look }) => {
+				const a = nodeById.get(e.from);
+				const b = nodeById.get(e.to);
+				if (!a || !b) return [];
+				return [
+					{
+						key,
+						look,
+						paint: PAINT[look.tone],
+						width: widthOf(look.tone, w),
+						...edgeGeometry(a, b, e.from === e.to)
+					}
+				];
 			})
 			.sort((x, y) => x.paint.z - y.paint.z)
 	);
+	/** A badge's pill: wider for "2,5". */
+	const badgeW = (s: string) => Math.max(20, s.length * 6.6 + 10);
 
 	const hrefOf = (id: number) =>
 		resolve('/[dance]/(moves)/positions/[id]', { dance, id: String(id) });
@@ -106,6 +156,12 @@
 	function choose(e: MouseEvent, id: number) {
 		// A new tab or window opens the position as any link would.
 		if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+		// While walking a pill only picks where to carry on from, and only while the walk stands nowhere.
+		if (walk) {
+			e.preventDefault();
+			if (walk.current === null) onpick(id);
+			return;
+		}
 		// The second tap on the picked position follows the link.
 		if (picked === id) return;
 		e.preventDefault();
@@ -122,7 +178,13 @@
 	let easing = $state(false);
 	/** What the view follows: the lit positions, the whole map (⤢), or the person's own zoom. */
 	let follow = $state<'pick' | 'whole' | null>('pick');
-	let lastPicked: number | null | undefined;
+	let lastFocus: string | undefined;
+	/** What the view fits: the walk's path and next places, else the lit positions. */
+	const focus = $derived(new Set<number>(walk ? walk.fit : lit.nodes));
+	/** A new walk step or a new pick fits again, even after a zoom by hand. */
+	const focusKey = $derived(
+		walk ? `w${walk.current}:${[...walk.fit].sort((a, b) => a - b).join(',')}` : `p${picked}`
+	);
 
 	const roomOk = (r: Room) => r.w > 0 && r.h > 0;
 
@@ -131,19 +193,19 @@
 	// stays inside the new bounds.
 	$effect(() => {
 		const r = room;
-		const p = picked;
+		const k = focusKey;
 		const f = frame;
 		const nodes = layout.nodes;
 		if (!roomOk(r)) return;
 		untrack(() => {
-			if (p !== lastPicked) {
-				lastPicked = p;
+			if (k !== lastFocus) {
+				lastFocus = k;
 				follow = 'pick';
 			}
 			easing = ready;
 			if (follow === 'pick')
 				view = fitView(
-					nodes.filter((n) => lit.nodes.has(n.id)),
+					nodes.filter((n) => focus.has(n.id)),
 					f,
 					r
 				);
@@ -349,6 +411,7 @@
 						fill="none"
 						stroke-width={a.width}
 						stroke-linecap="round"
+						stroke-dasharray={a.paint.dash}
 						marker-end="url(#{uid}-{headOf(a.look.tone)})"
 						style:stroke={a.paint.color}
 					/>
@@ -371,7 +434,9 @@
 			{#each layout.nodes as n (n.id)}
 				{@const p = byId.get(n.id)}
 				{@const tone = TONE_VAR[p?.tone ?? 'muted']}
-				{@const on = picked === n.id}
+				{@const wp = walk ? walkPill(walk, n.id) : null}
+				{@const on = wp ? wp.tone === 'current' : picked === n.id}
+				{@const been = wp?.tone === 'visited'}
 				{@const x0 = n.x - n.w / 2}
 				{@const y0 = n.y - n.h / 2}
 				{@const rx = Math.min(n.h / 2, 17)}
@@ -380,7 +445,7 @@
 					data-map-pos={n.id}
 					aria-label={p?.ariaLabel}
 					class="group cursor-pointer transition-opacity duration-150 focus-visible:shadow-none focus-visible:outline-none motion-reduce:transition-none"
-					style:opacity={picked !== null && !lit.nodes.has(n.id) ? 0.28 : 1}
+					style:opacity={wp ? wp.opacity : picked !== null && !lit.nodes.has(n.id) ? 0.28 : 1}
 					onclick={(e) => choose(e, n.id)}
 				>
 					{#if p?.twinsLine}
@@ -394,10 +459,14 @@
 						width={n.w}
 						height={n.h}
 						{rx}
-						stroke-width={on ? 2.5 : 2}
-						stroke-dasharray={n.mark === 'orphan' && !on ? '5 4' : undefined}
+						stroke-width={on || been ? 2.5 : 2}
+						stroke-dasharray={n.mark === 'orphan' && !on && !been ? '5 4' : undefined}
 						style:fill={on ? 'var(--color-accent)' : 'var(--color-surface)'}
-						style:stroke={on ? 'var(--color-accent)' : n.mark ? 'var(--color-danger)' : tone}
+						style:stroke={on || been
+							? 'var(--color-accent)'
+							: n.mark
+								? 'var(--color-danger)'
+								: tone}
 					/>
 					<!-- The focus ring: the link's own outline would box the whole group. -->
 					<rect
@@ -453,6 +522,33 @@
 						>
 					{/if}
 				</a>
+			{/each}
+
+			<!-- The walk's step numbers on its arrows: over the pills, so a short arrow's still shows. -->
+			{#each arrows as a (a.key)}
+				{#if a.look.badge !== null}
+					<!-- "1", or "2,5" when walked twice. Taps pass through to the pill under it. -->
+					<g aria-hidden="true" class="pointer-events-none">
+						<rect
+							x={a.labelX - badgeW(a.look.badge) / 2}
+							y={a.labelY - 10}
+							width={badgeW(a.look.badge)}
+							height="20"
+							rx="10"
+							stroke-width="2.5"
+							style:fill="var(--color-accent)"
+							style:stroke="var(--color-ground)"
+						/>
+						<text
+							x={a.labelX}
+							y={a.labelY + 0.5}
+							text-anchor="middle"
+							dominant-baseline="central"
+							class="text-[11px] font-extrabold"
+							style:fill="var(--color-on-accent)">{a.look.badge}</text
+						>
+					</g>
+				{/if}
 			{/each}
 		</svg>
 	</div>

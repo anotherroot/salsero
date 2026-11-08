@@ -157,10 +157,19 @@ describe('a position’s sheet in MapPane', () => {
 		expect(src).toContain('onstep={onpick}');
 		expect(src).toContain('onfresh={pickFresh}');
 		expect(src).toContain('onback={() => (trail = stepBack(trail))}');
-		expect(src).toContain('const onpick = (id: number) => (trail = pick(trail, id, map));');
-		expect(src).toContain("<MapPanel mode={sheet ? 'position' : 'tray'} onclose={close}");
-		// Escape and empty space close as Back does.
-		expect(src).toContain('onspace={close}');
+		expect(src).toContain('else trail = pick(trail, id, map);');
+		expect(src).toContain("mode={walk ? 'walk' : sheet ? 'position' : 'tray'}");
+		// Escape and empty space close as Back does; a walk ignores empty space and asks on Escape.
+		expect(src).toContain('if (!walk) close();');
+		expect(src).toContain('leaveWalk(close);');
+	});
+
+	it('walks from the sheet: Walk from here starts it, a pill only jumps, Back asks', () => {
+		const src = code(read(PANE));
+		expect(src).toContain('onwalk={() => (walk = { start: sheet.id, steps: [] })}');
+		expect(src).toContain('if (walk) walk = jumpTo(walk, id);');
+		expect(src).toContain('tryLeave={leaveWalk}');
+		expect(src).toContain('leaveOrAsk(walkNode, leave, t().common.close)');
 	});
 
 	it('the panel holds one history entry while it is up, and lets it go when it closes', () => {

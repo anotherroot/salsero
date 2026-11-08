@@ -65,7 +65,9 @@ export const map: Catalog['map'] = {
 		status: (n, at) =>
 			n === 0
 				? 'Še ni različic'
-				: `${slCount(n, ['različica', 'različici', 'različice', 'različic'])} · zdaj v: ${at}`,
+				: at === null
+					? slCount(n, ['različica', 'različici', 'različice', 'različic'])
+					: `${slCount(n, ['različica', 'različici', 'različice', 'različic'])} · zdaj v: ${at}`,
 		undo: 'Razveljavi',
 		clear: 'Počisti',
 		make: (n) => `Naredi kombinacijo · ${n}`,
@@ -83,6 +85,10 @@ export const map: Catalog['map'] = {
 		defaultName: (start) => `Sprehod: ${start}`,
 		newRoutine: 'Nova kombinacija',
 		name: 'Ime',
-		nameError: 'Kombinaciji dajte ime (do 200 znakov).'
+		nameError: 'Kombinaciji dajte ime (do 200 znakov).',
+		noFigures: 'Najprej dodajte vsaj eno različico.',
+		create: 'Ustvari kombinacijo',
+		creating: 'Ustvarjanje kombinacije',
+		path: 'Sprehod doslej'
 	}
 };

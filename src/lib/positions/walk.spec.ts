@@ -7,7 +7,11 @@ import {
 	figureIds,
 	jumpTo,
 	nextFrom,
+	saveOutcome,
+	stripOf,
 	undo,
+	walkLook,
+	walkPill,
 	visited,
 	walkedArrows,
 	type Walk
@@ -121,5 +125,112 @@ describe('nextFrom', () => {
 
 	it('has no Anywhere group without anyFrom', () => {
 		expect(nextFrom(data([]), C).groups).toEqual([]);
+	});
+});
+
+describe('walkLook: the map while walking', () => {
+	const edges = [
+		{ from: C, to: Cr, figures: 2 },
+		{ from: Cr, to: O2, figures: 1 },
+		{ from: Cr, to: Cr, figures: 1 },
+		{ from: O2, to: E, figures: 3 },
+		{ from: E, to: C, figures: 1 }
+	];
+
+	it('draws walked arrows with their step numbers, the next ones dashed, the rest faded', () => {
+		let w = addFigure(start, fig(5), Cr);
+		w = addFigure(w, fig(6), O2);
+		w = addFigure(w, fig(8), E);
+		w = addFigure(w, fig(9), C);
+		w = addFigure(w, fig(5), Cr);
+		const l = walkLook(w, edges);
+		expect(l.current).toBe(Cr);
+		expect(l.arrows.get('1:2')).toEqual({ tone: 'walked', badge: '1,5', count: null });
+		expect(l.arrows.get('3:4')).toEqual({ tone: 'walked', badge: '3', count: null });
+		// Walked wins over next: Cr → O2 was walked as step 2.
+		expect(l.arrows.get('2:3')).toEqual({ tone: 'walked', badge: '2', count: null });
+		expect(l.arrows.get('2:2')).toEqual({ tone: 'next', badge: null, count: null });
+		expect(l.loose).toEqual([]);
+		expect([...l.next].sort()).toEqual([Cr, O2]);
+		expect(l.fit.sort()).toEqual([C, Cr, O2, E]);
+	});
+
+	it('fades what does not leave the current position', () => {
+		const l = walkLook(start, edges);
+		expect(l.arrows.get('1:2')!.tone).toBe('next');
+		expect(l.arrows.get('2:3')).toEqual({ tone: 'faded', badge: null, count: null });
+		expect(l.arrows.get('4:1')!.tone).toBe('faded');
+		expect(l.fit.sort()).toEqual([C, Cr]);
+	});
+
+	it('draws a walked figure with no data edge as a loose arrow of its own', () => {
+		// A fits-anywhere figure walked at C, ending at O2: no figure runs C → O2.
+		const w = addFigure(start, fig(7), O2);
+		const l = walkLook(w, edges);
+		expect(l.loose).toEqual([
+			{ from: C, to: O2, look: { tone: 'loose', badge: '1', count: null } }
+		]);
+		expect(l.arrows.has('1:3')).toBe(false);
+	});
+
+	it('draws nothing for a no-end figure or the jump after it, and fits the path so far while nowhere', () => {
+		const w = addFigure(start, fig(5), null);
+		const l = walkLook(w, edges);
+		expect(l.current).toBeNull();
+		expect(l.loose).toEqual([]);
+		expect([...l.arrows.values()].every((a) => a.tone === 'faded')).toBe(true);
+		expect(l.next.size).toBe(0);
+		expect(l.fit).toEqual([C]);
+		const j = walkLook(jumpTo(w, O2), edges);
+		expect(j.loose).toEqual([]);
+		expect(j.arrows.get('3:4')!.tone).toBe('next');
+	});
+
+	it('marks the pills: current filled, visited bordered, next strong, the rest at 0.2', () => {
+		const w = addFigure(start, fig(5), Cr);
+		const l = walkLook(w, edges);
+		expect(walkPill(l, Cr)).toEqual({ tone: 'current', opacity: 1 });
+		expect(walkPill(l, C)).toEqual({ tone: 'visited', opacity: 1 });
+		expect(walkPill(l, O2)).toEqual({ tone: 'plain', opacity: 1 });
+		expect(walkPill(l, E)).toEqual({ tone: 'plain', opacity: 0.2 });
+		// Nowhere: every pill is a place to carry on from.
+		const n = walkLook(addFigure(w, fig(6), null), edges);
+		expect(walkPill(n, E)).toEqual({ tone: 'plain', opacity: 1 });
+		expect(walkPill(n, Cr)).toEqual({ tone: 'visited', opacity: 1 });
+	});
+});
+
+describe('stripOf', () => {
+	it('is the start, then numbered figures, and a jump as a plain place', () => {
+		let w = addFigure(start, fig(5, 'Cradle · From closed'), null);
+		w = jumpTo(w, O2);
+		w = addFigure(w, fig(6, 'Enchufla'), E);
+		expect(stripOf(w)).toEqual([
+			{ kind: 'place', at: C },
+			{ kind: 'figure', n: 1, label: 'Cradle · From closed' },
+			{ kind: 'place', at: O2 },
+			{ kind: 'figure', n: 2, label: 'Enchufla' }
+		]);
+		expect(stripOf(start)).toEqual([]);
+	});
+});
+
+describe('saveOutcome', () => {
+	it('takes the redirect as the routine made', () => {
+		expect(
+			saveOutcome({ type: 'redirect', status: 303, location: '/salsa/routines/4' }, 'x')
+		).toEqual({ ok: true });
+	});
+	it("gives a refusal's or an error's message, else the fallback", () => {
+		expect(
+			saveOutcome({ type: 'failure', status: 400, data: { message: 'No name' } }, 'Did not save')
+		).toEqual({ ok: false, message: 'No name' });
+		expect(saveOutcome({ type: 'failure', status: 400 }, 'Did not save')).toEqual({
+			ok: false,
+			message: 'Did not save'
+		});
+		expect(
+			saveOutcome({ type: 'error', status: 404, error: { message: 'Figure not found' } }, 'x')
+		).toEqual({ ok: false, message: 'Figure not found' });
 	});
 });

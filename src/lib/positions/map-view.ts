@@ -140,11 +140,13 @@ export function edgeGeometry(
  * How an arrow looks given the picked position and the edge just stepped:
  * `out` from the picked, `in` into it, `stepped` the edge just taken (wins),
  * `rest` while nothing is picked, `faded` otherwise. The count shows when more
- * than one figure runs along it and it is not faded. The walk's looks and
- * badges come with the walk.
+ * than one figure runs along it and it is not faded. The walk's tones come
+ * from `walkLook` (walk.ts): `walked` (thick accent, its step numbers in
+ * `badge`), `loose` (the same, dashed: a walked figure with no data edge) and
+ * `next` (dashed accent, out of where the walk stands).
  */
 export type ArrowLook = {
-	tone: 'out' | 'in' | 'stepped' | 'rest' | 'faded';
+	tone: 'out' | 'in' | 'stepped' | 'rest' | 'faded' | 'walked' | 'loose' | 'next';
 	badge: string | null;
 	count: number | null;
 };

@@ -5,7 +5,8 @@
  * returns a new walk. PURE and client-safe.
  */
 
-import { edgeKey, type MapData, type MapFig } from './map-view';
+import type { ActionResult } from '@sveltejs/kit';
+import { edgeKey, type ArrowLook, type MapData, type MapFig } from './map-view';
 
 export type WalkStep =
 	| { kind: 'figure'; fig: MapFig; from: number | null; to: number | null }
@@ -108,4 +109,98 @@ export function figureIds(w: Walk): number[] {
 	const ids: number[] = [];
 	for (const s of w.steps) if (s.kind === 'figure') ids.push(s.fig.id);
 	return ids;
+}
+
+/**
+ * The map while walking (spec 2026-11-08-map-walk, "The map while walking"):
+ * each data edge's look (`arrows`, by `edgeKey`): walked with its step numbers
+ * ("2,5"), next (dashed, out of the current position), or faded. `loose` is a
+ * walked figure with no data edge under it (a fits-anywhere figure walked at A,
+ * ending at E): drawn for the walk only, dashed. A figure with no end, and the
+ * jump after it, draw nothing. `fit` is what the view eases to: the positions
+ * visited and the next places (none while the walk stands nowhere: any pill is
+ * a place to carry on from, and the path so far shows where it has been).
+ */
+export interface WalkLook {
+	current: number | null;
+	visited: Set<number>;
+	next: Set<number>;
+	arrows: Map<string, ArrowLook>;
+	loose: { from: number; to: number; look: ArrowLook }[];
+	fit: number[];
+}
+
+export function walkLook(w: Walk, edges: readonly { from: number; to: number }[]): WalkLook {
+	const current = currentOf(w);
+	const seen = visited(w);
+	const walked = walkedArrows(w);
+	const next = new Set<number>();
+	const arrows = new Map<string, ArrowLook>();
+	for (const e of edges) {
+		const key = edgeKey(e);
+		const steps = walked.get(key);
+		const out = current !== null && e.from === current;
+		if (out) next.add(e.to);
+		arrows.set(
+			key,
+			steps
+				? { tone: 'walked', badge: steps.numbers.join(','), count: null }
+				: { tone: out ? 'next' : 'faded', badge: null, count: null }
+		);
+	}
+	const loose = [...walked.entries()]
+		.filter(([key]) => !arrows.has(key))
+		.map(([, a]) => ({
+			from: a.from,
+			to: a.to,
+			look: { tone: 'loose', badge: a.numbers.join(','), count: null } as ArrowLook
+		}));
+	const fit = [...new Set([...seen, ...next])];
+	return { current, visited: seen, next, arrows, loose, fit };
+}
+
+/**
+ * A pill while walking: the current position filled, the ones visited with an
+ * accent border, and everything not visited or next at 0.2 (none while the
+ * walk stands nowhere: every pill is a place to carry on from).
+ */
+export function walkPill(
+	l: WalkLook,
+	id: number
+): { tone: 'current' | 'visited' | 'plain'; opacity: number } {
+	const tone = id === l.current ? 'current' : l.visited.has(id) ? 'visited' : 'plain';
+	const strong = l.current === null || tone !== 'plain' || l.next.has(id);
+	return { tone, opacity: strong ? 1 : 0.2 };
+}
+
+/** The sheet's strip: the start, then each figure numbered, and a jump as a plain place. Empty before the first step. */
+export type StripItem =
+	{ kind: 'place'; at: number } | { kind: 'figure'; n: number; label: string };
+
+export function stripOf(w: Walk): StripItem[] {
+	if (w.steps.length === 0) return [];
+	const out: StripItem[] = [{ kind: 'place', at: w.start }];
+	let n = 0;
+	for (const s of w.steps) {
+		if (s.kind === 'jump') out.push({ kind: 'place', at: s.to });
+		else out.push({ kind: 'figure', n: ++n, label: s.fig.label });
+	}
+	return out;
+}
+
+/**
+ * What the unsaved-changes dialog hears from the walk's Save (the `routine`
+ * action, sent without moving the page): a redirect is the routine made, a
+ * refusal or an error its message (`fallback` when it has none).
+ */
+export function saveOutcome(
+	result: ActionResult,
+	fallback: string
+): { ok: true } | { ok: false; message: string } {
+	if (result.type === 'redirect' || result.type === 'success') return { ok: true };
+	const m =
+		result.type === 'failure'
+			? (result.data as { message?: unknown } | undefined)?.message
+			: (result.error as { message?: unknown } | undefined)?.message;
+	return { ok: false, message: typeof m === 'string' && m !== '' ? m : fallback };
 }

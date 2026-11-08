@@ -42,12 +42,41 @@ export function actAt(
 	return post(`${path}?/${name}`, fields);
 }
 
-async function post(url: string, fields: Record<string, Field>): Promise<ActionResult> {
+/**
+ * `actAt` without the page side: the action's result, and nothing else. No
+ * reload, no `form`, and a redirect is not followed. For a save that must not
+ * move the page: the unsaved-changes dialog's Save on the way to somewhere else
+ * (the map's walk), where following the redirect would race the navigation the
+ * person chose.
+ */
+export async function sendAt(
+	path: string,
+	name: string,
+	fields: Record<string, Field>
+): Promise<ActionResult> {
+	try {
+		const res = await fetch(`${path}?/${name}`, {
+			method: 'POST',
+			body: bodyOf(fields),
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
+		});
+		return deserialize(await res.text());
+	} catch {
+		return { type: 'failure', status: 0, data: { message: 'Could not reach the server.' } };
+	}
+}
+
+function bodyOf(fields: Record<string, Field>): FormData {
 	const body = new FormData();
 	for (const [key, value] of Object.entries(fields)) {
 		if (Array.isArray(value)) for (const v of value) body.append(key, String(v));
 		else body.append(key, value === null ? '' : String(value));
 	}
+	return body;
+}
+
+async function post(url: string, fields: Record<string, Field>): Promise<ActionResult> {
+	const body = bodyOf(fields);
 	markSent();
 	let result: ActionResult;
 	let stale = false;

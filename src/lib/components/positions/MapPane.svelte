@@ -7,6 +7,7 @@
 	import MapPanel from './MapPanel.svelte';
 	import MapSheet from './MapSheet.svelte';
 	import MapInfoSheet from './MapInfoSheet.svelte';
+	import WalkSheet from './WalkSheet.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import PaneHeading from '$lib/components/shell/PaneHeading.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -17,6 +18,16 @@
 	import type { Room } from '$lib/positions/map-fit';
 	import { pick, positionSheet, stepBack, steppedKey, type Trail } from '$lib/positions/map-sheet';
 	import { pickOf } from '$lib/positions/pick';
+	import {
+		addFigure,
+		currentOf,
+		figureCount,
+		jumpTo,
+		undo,
+		walkLook,
+		type Walk
+	} from '$lib/positions/walk';
+	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { t } from '$lib/i18n/catalog';
 
 	/**
@@ -36,6 +47,12 @@
 	 * read once; the layout clears it when the map leaves the pane. A picked position
 	 * has its sheet up (`MapSheet`, in `MapPanel`), which holds one history entry: Back,
 	 * Escape or a tap on empty space drops the pick, back to the tray.
+	 *
+	 * Walk from here turns the sheet into the walk (`WalkSheet`, the model in
+	 * `walk.ts`), drawn on the map by `walkLook`. Clear ends it on the position it
+	 * stands at (the start's, when it stands nowhere). Back and Escape end it to the
+	 * tray, asking first through Unsaved changes while it has figures; a tap on
+	 * empty space does nothing while walking.
 	 */
 	let { map }: { map: MapData } = $props();
 
@@ -57,8 +74,15 @@
 	// A pick the map no longer draws (the data changed under it) is no pick.
 	const picked = $derived(trail.picked !== null && drawn.has(trail.picked) ? trail.picked : null);
 	const stepped = $derived(picked === null ? null : steppedKey(trail));
+
+	let walk = $state<Walk | null>(null);
+	const look = $derived(walk ? walkLook(walk, map.edges) : null);
+	/** The walk's sheet, the scope Back asks about. */
+	let walkNode = $state<HTMLElement | null>(null);
+
 	$effect(() => {
-		moves.pick.value = picked;
+		// The list lights where the walk stands (its start while it stands nowhere).
+		moves.pick.value = walk ? (currentOf(walk) ?? walk.start) : picked;
 	});
 
 	const sheet = $derived(picked === null ? null : positionSheet(map, picked));
@@ -70,7 +94,11 @@
 	});
 
 	// A pill, or a Step to row: a step when it is one of the picked position's places.
-	const onpick = (id: number) => (trail = pick(trail, id, map));
+	const onpick = (id: number) => {
+		// While walking the map only answers a tap while the walk stands nowhere.
+		if (walk) walk = jumpTo(walk, id);
+		else trail = pick(trail, id, map);
+	};
 	// A tray or From chip starts afresh: never a step, even to a lit neighbour.
 	const pickFresh = (id: number) => (trail = { picked: id, back: [] });
 
@@ -81,11 +109,26 @@
 	function close() {
 		const was = picked;
 		const inSheet = document.activeElement?.closest('[data-map-panel]') != null;
+		walk = null;
 		trail = { picked: null, back: [] };
 		if (was === null || !inSheet) return;
 		void tick().then(() =>
 			document.querySelector<SVGAElement>(`[data-map-pos="${was}"]`)?.focus({ preventScroll: true })
 		);
+	}
+
+	/** The walk ends where it stands: that position's sheet (the start's, when it stands nowhere). */
+	function endWalk() {
+		if (!walk) return;
+		const at = currentOf(walk) ?? walk.start;
+		walk = null;
+		trail = { picked: at, back: [] };
+	}
+
+	/** Back or Escape from a walk with figures asks first; the walk's own sheet is the scope. */
+	function leaveWalk(leave: () => void) {
+		if (walk && figureCount(walk) > 0 && walkNode) leaveOrAsk(walkNode, leave, t().common.close);
+		else leave();
 	}
 
 	let info = $state(false);
@@ -115,9 +158,9 @@
 <svelte:window
 	onkeydown={(e) => {
 		// An open dialog (ⓘ, a sheet from the list beside the map) takes its own Escape first.
-		if (e.key !== 'Escape' || picked === null || e.defaultPrevented) return;
+		if (e.key !== 'Escape' || (picked === null && !walk) || e.defaultPrevented) return;
 		if (document.querySelector('dialog[open]')) return;
-		close();
+		leaveWalk(close);
 	}}
 />
 
@@ -190,9 +233,12 @@
 					label={map.mapLabel}
 					{picked}
 					{stepped}
+					walk={look}
 					{room}
 					{onpick}
-					onspace={close}
+					onspace={() => {
+						if (!walk) close();
+					}}
 				/>
 			{:else}
 				<!-- Nothing to draw: the words keep the map's place, the tray stays under them. -->
@@ -215,14 +261,30 @@
 			</div>
 
 			<!-- The tray, or the picked position's sheet: the phone's bottom sheet over the map's foot; on the desktop a panel floating over its right. -->
-			<MapPanel mode={sheet ? 'position' : 'tray'} onclose={close} bind:height={panelH}>
-				{#if sheet}
+			<MapPanel
+				mode={walk ? 'walk' : sheet ? 'position' : 'tray'}
+				onclose={close}
+				tryLeave={leaveWalk}
+				bind:height={panelH}
+			>
+				{#if walk}
+					<WalkSheet
+						{map}
+						{walk}
+						bind:node={walkNode}
+						onadd={(fig, to) => walk && (walk = addFigure(walk, fig, to))}
+						onundo={() => walk && (walk = undo(walk))}
+						onclear={endWalk}
+						onsaved={endWalk}
+					/>
+				{:else if sheet}
 					<MapSheet
 						{sheet}
 						{prev}
 						onstep={onpick}
 						onfresh={pickFresh}
 						onback={() => (trail = stepBack(trail))}
+						onwalk={() => (walk = { start: sheet.id, steps: [] })}
 					/>
 				{:else}
 					<MapTray {map} onpick={pickFresh} />

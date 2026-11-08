@@ -76,8 +76,13 @@ export const map = {
 	},
 	walk: {
 		title: (start: string): string => `Walk from ${start}`,
-		status: (n: number, at: string): string =>
-			n === 0 ? 'No figures yet' : `${plural(n, 'figure', 'figures')} · now in ${at}`,
+		/** `at` null: right after a figure with no end, the walk stands nowhere. */
+		status: (n: number, at: string | null): string =>
+			n === 0
+				? 'No figures yet'
+				: at === null
+					? plural(n, 'figure', 'figures')
+					: `${plural(n, 'figure', 'figures')} · now in ${at}`,
 		undo: 'Undo',
 		clear: 'Clear',
 		make: (n: number): string => `Make routine · ${n}`,
@@ -95,6 +100,11 @@ export const map = {
 		defaultName: (start: string): string => `Walk from ${start}`,
 		newRoutine: 'New routine',
 		name: 'Name',
-		nameError: 'Give the routine a name (up to 200 characters).'
+		nameError: 'Give the routine a name (up to 200 characters).',
+		noFigures: 'Walk at least one figure first.',
+		create: 'Create routine',
+		creating: 'Creating routine',
+		/** The strip's name for a screen reader. */
+		path: 'The walk so far'
 	}
 };

@@ -153,6 +153,8 @@ const TRANSLATED: string[] = [
 	'src/lib/components/positions/MapSheet.svelte',
 	'src/lib/components/positions/MapTray.svelte',
 	'src/lib/components/positions/PositionMap.svelte',
+	// The walk (map walk, Task 9).
+	'src/lib/components/positions/WalkSheet.svelte',
 	'src/routes/[dance]/(moves)/positions/map/+page.svelte'
 ];
 
