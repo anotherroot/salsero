@@ -23,8 +23,9 @@
 	 *
 	 * The phone: the map fills the screen above the tab bar. The back button, the
 	 * title and summary, and ⓘ float over its top, the whole-map ⤢ under ⓘ; the
-	 * tray sits over its foot. The desktop: the pane's heading, then the map (at
-	 * most 800 wide) and a 320 px panel beside it holding the tray.
+	 * tray sits over its foot. The desktop: the pane's heading, then the map (the
+	 * pane's width, at most 800), ⓘ and ⤢ over its top left, and a 320 px panel
+	 * floating over its right holding the tray (the map fits beside it: `room.right`).
 	 *
 	 * The state is here: the trail of picks and steps (`map-sheet.ts`), shared with
 	 * the (moves) layout's pick (`getMoves().pick`) so the list lights the picked
@@ -58,6 +59,8 @@
 
 	const onpick = (id: number) => (trail = pick(trail, id, map));
 	const clear = () => (trail = { picked: null, back: [] });
+	// A tray chip starts afresh: never a step, even to a lit neighbour.
+	const pickFresh = (id: number) => (trail = { picked: id, back: [] });
 
 	let info = $state(false);
 	let mapView: { whole(): void } | undefined = $state();
@@ -69,11 +72,14 @@
 	let h = $state(0);
 	let headH = $state(0);
 	let trayH = $state(0);
+	// On the desktop the 320 px panel floats over the map's right, 12 px in: the map
+	// fits in what is left of it (`right`).
 	const DESK_TOP = 64;
+	const DESK_PANEL = 320 + 12 + 12;
 	const WHOLE_H = 10 + 44 + 6;
 	const room = $derived<Room>(
 		desk.current
-			? { w, h, top: DESK_TOP, bottom: 12 }
+			? { w, h, top: DESK_TOP, bottom: 12, right: DESK_PANEL }
 			: { w, h, top: headH + WHOLE_H, bottom: trayH + 8 }
 	);
 
@@ -112,7 +118,7 @@
 	over the map. The desktop: the pane's column, as tall as the window under the band row.
 -->
 <div
-	class="fixed inset-x-0 top-0 bottom-[var(--pin-bottom)] mx-auto max-w-[560px] overflow-hidden bg-ground desk:static desk:mx-0 desk:flex desk:h-[calc(100dvh-var(--band-row-h))] desk:max-w-none desk:flex-col desk:overflow-visible desk:bg-transparent"
+	class="fixed inset-x-0 top-0 bottom-[var(--pin-bottom)] mx-auto max-w-[560px] overflow-clip bg-ground desk:static desk:mx-0 desk:flex desk:h-[calc(100dvh-var(--band-row-h))] desk:max-w-none desk:flex-col desk:overflow-visible desk:bg-transparent"
 >
 	<div class="hidden desk:block">
 		<PaneHeading title={t().map.title} subtitle={map.summary} />
@@ -143,13 +149,11 @@
 		</div>
 	{/if}
 
-	<div
-		class="contents desk:flex desk:min-h-0 desk:flex-1 desk:gap-5 desk:px-10 desk:pt-4 desk:pb-10"
-	>
+	<div class="contents desk:flex desk:min-h-0 desk:flex-1 desk:px-10 desk:pt-4 desk:pb-10">
 		<div
 			bind:clientWidth={w}
 			bind:clientHeight={h}
-			class="absolute inset-0 desk:relative desk:inset-auto desk:max-w-[800px] desk:min-w-0 desk:flex-1 desk:overflow-hidden desk:rounded-2xl desk:border desk:border-hairline desk:bg-ground"
+			class="absolute inset-0 desk:relative desk:inset-auto desk:max-w-[800px] desk:min-w-0 desk:flex-1 desk:overflow-clip desk:rounded-2xl desk:border desk:border-hairline desk:bg-ground"
 		>
 			{#if map.layout.nodes.length > 0}
 				<PositionMap
@@ -167,7 +171,7 @@
 			{:else}
 				<!-- Nothing to draw: the words keep the map's place, the tray stays under them. -->
 				<div
-					class="absolute inset-x-0 flex flex-col items-start gap-3 px-5"
+					class="absolute inset-x-0 flex flex-col items-start gap-3 px-5 desk:right-[344px]"
 					style:top="{room.top}px"
 				>
 					<p class="text-[14px] leading-[1.45] text-ink-2">
@@ -178,23 +182,23 @@
 					{/if}
 				</div>
 			{/if}
-			<!-- The desktop's ⓘ and ⤢: over the map's top right (the title is the pane's heading). -->
-			<div class="pointer-events-none absolute top-3 right-3 z-10 hidden gap-2 desk:flex">
+			<!-- The desktop's ⓘ and ⤢: over the map's top left (the title is the pane's heading, the panel is on the right). -->
+			<div class="pointer-events-none absolute top-3 left-3 z-10 hidden gap-2 desk:flex">
 				{@render infoButton()}
 				{#if map.layout.nodes.length > 0}{@render wholeButton()}{/if}
 			</div>
-		</div>
 
-		<!-- The tray: the phone's low sheet over the map's foot, the desktop's panel beside it. -->
-		<div
-			bind:offsetHeight={trayH}
-			class="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2.5 rounded-t-[24px] bg-surface px-[18px] pt-2.5 pb-3.5 shadow-[0_-6px_24px_rgb(0_0_0/0.12)] desk:static desk:w-[320px] desk:flex-none desk:self-start desk:rounded-2xl desk:p-5 desk:shadow-none"
-		>
+			<!-- The tray: the phone's low sheet over the map's foot; on the desktop a panel floating over its right. -->
 			<div
-				aria-hidden="true"
-				class="h-[5px] w-10 self-center rounded-full bg-track desk:hidden"
-			></div>
-			<MapTray {map} {onpick} />
+				bind:offsetHeight={trayH}
+				class="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2.5 rounded-t-[24px] bg-surface px-[18px] pt-2.5 pb-3.5 shadow-[0_-6px_24px_rgb(0_0_0/0.12)] desk:top-3 desk:right-3 desk:bottom-auto desk:left-auto desk:max-h-[calc(100%-24px)] desk:w-[320px] desk:overflow-y-auto desk:rounded-2xl desk:p-5 desk:shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)]"
+			>
+				<div
+					aria-hidden="true"
+					class="h-[5px] w-10 self-center rounded-full bg-track desk:hidden"
+				></div>
+				<MapTray {map} onpick={pickFresh} />
+			</div>
 		</div>
 	</div>
 </div>

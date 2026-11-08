@@ -125,13 +125,15 @@
 	let lastPicked: number | null | undefined;
 
 	const roomOk = (r: Room) => r.w > 0 && r.h > 0;
-	const litBoxes = () => layout.nodes.filter((n) => lit.nodes.has(n.id));
 
-	// A new pick, or a new room (a resize, the tray's height): fit again, unless the
-	// person has zoomed by hand, when the view only stays inside its bounds.
+	// A new pick, a new room (a resize, the tray's height) or new data (the frame, the
+	// pills): fit again, unless the person has zoomed by hand, when the view only
+	// stays inside the new bounds.
 	$effect(() => {
 		const r = room;
 		const p = picked;
+		const f = frame;
+		const nodes = layout.nodes;
 		if (!roomOk(r)) return;
 		untrack(() => {
 			if (p !== lastPicked) {
@@ -139,9 +141,14 @@
 				follow = 'pick';
 			}
 			easing = ready;
-			if (follow === 'pick') view = fitView(litBoxes(), frame, r);
-			else if (follow === 'whole') view = wholeView(frame, r);
-			else view = clampMapView(view, frame, r);
+			if (follow === 'pick')
+				view = fitView(
+					nodes.filter((n) => lit.nodes.has(n.id)),
+					f,
+					r
+				);
+			else if (follow === 'whole') view = wholeView(f, r);
+			else view = clampMapView(view, f, r);
 			ready = true;
 		});
 	});
@@ -278,7 +285,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
 	bind:this={el}
-	class="absolute inset-0 touch-none overflow-hidden select-none"
+	class="absolute inset-0 touch-none overflow-clip select-none"
 	onpointerdown={down}
 	onpointermove={move}
 	onpointerup={up}

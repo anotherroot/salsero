@@ -168,3 +168,38 @@ describe('the gestures (pinchMapView, panMapView, wheelMapView)', () => {
 		expect(wheelMapView(at2, p, 100, frame, room).scale).toBeLessThan(2);
 	});
 });
+
+describe('a room with something floating over its right (the desktop panel)', () => {
+	const panel: Room = { w: 800, h: 600, top: 60, bottom: 10, right: 340 };
+	const f = { width: 400, height: 500 };
+
+	it('right is 0 when left out', () => {
+		const plain: Room = { w: 800, h: 600, top: 60, bottom: 10 };
+		expect(wholeView(f, { ...plain, right: 0 })).toEqual(wholeView(f, plain));
+		expect(wholeView(f, panel)).not.toEqual(wholeView(f, plain));
+	});
+
+	it('the whole view centres the frame in the width left of the panel', () => {
+		const v = wholeView(f, panel);
+		// Free: 460 wide (436 less 12 a side), 530 high: min(1, 436 / 400, 530 / 500) is 1.
+		expect(v.scale).toBe(1);
+		expect(v.x).toBeCloseTo((460 - 400) / 2);
+		expect(v.x + f.width * v.scale).toBeLessThanOrEqual(460);
+	});
+
+	it('the width left of the panel limits the scale', () => {
+		const v = wholeView({ width: 1000, height: 100 }, panel);
+		expect(v.scale).toBeCloseTo(436 / 1000);
+	});
+
+	it('a fit centres the boxes left of the panel', () => {
+		const box = { x: 200, y: 250, w: 60, h: 30 };
+		const v = fitView([box], f, panel);
+		expect(box.x * v.scale + v.x).toBeCloseTo(460 / 2);
+	});
+
+	it('a pan never pushes the map under the panel', () => {
+		const v = clampMapView({ scale: 1, x: 9999, y: 100 }, f, panel);
+		expect(v.x).toBeLessThanOrEqual(460 - 48);
+	});
+});

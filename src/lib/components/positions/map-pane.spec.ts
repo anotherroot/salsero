@@ -91,6 +91,12 @@ describe('MapPane', () => {
 		expect(src).not.toMatch(/map\.islands\b/);
 	});
 
+	it('a tray chip starts a fresh trail: never a step', () => {
+		const src = code(read(PANE));
+		expect(src).toContain('<MapTray {map} onpick={pickFresh} />');
+		expect(src).toContain('pickFresh = (id: number) => (trail = { picked: id, back: [] })');
+	});
+
 	it('draws the map’s pills as links, the tray and its hint at rest', () => {
 		const html = pane(
 			data({ nodes: [node(1), node(2, 'orphan', 200, 300)], edges: [{ from: 1, to: 2 }] })
@@ -130,8 +136,9 @@ describe('MapTray', () => {
 
 	it('in group mode, no gap chips', () => {
 		const html = tray(data({ ...gaps, inGroupMode: true }));
-		expect(html).not.toContain('nothing gets to');
-		expect(html).not.toContain('dead ends');
+		// The exact chip words the test above finds.
+		expect(html).not.toContain('1 nothing gets to');
+		expect(html).not.toContain('1 dead end');
 		expect(html).toContain('2 with no position');
 	});
 

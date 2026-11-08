@@ -9,8 +9,11 @@
 import type { Pt, View } from '$lib/video/zoom';
 import type { Box } from './map-view';
 
-/** The screen box, and what floats over its top (the band) and its bottom (the sheet, the bar). */
-export type Room = { w: number; h: number; top: number; bottom: number };
+/**
+ * The screen box, and what floats over its top (the band), its bottom (the
+ * sheet, the bar) and its right (the desktop's panel; 0 when left out).
+ */
+export type Room = { w: number; h: number; top: number; bottom: number; right?: number };
 type Frame = { width: number; height: number };
 
 const PAD = 14;
@@ -19,6 +22,8 @@ const MAX_SCALE = 4;
 const KEEP = 48;
 
 const freeH = (r: Room) => Math.max(1, r.h - r.top - r.bottom);
+/** The free width: the room less what floats over its right. */
+const freeW = (r: Room) => Math.max(1, r.w - (r.right ?? 0));
 /** Kept clear at the room's sides by the whole view, so no pill touches the screen's edge. */
 const SIDE = 12;
 
@@ -26,12 +31,12 @@ const SIDE = 12;
 export function wholeView(frame: Frame, room: Room): View {
 	const scale = Math.min(
 		1,
-		Math.max(1, room.w - 2 * SIDE) / Math.max(1, frame.width),
+		Math.max(1, freeW(room) - 2 * SIDE) / Math.max(1, frame.width),
 		freeH(room) / Math.max(1, frame.height)
 	);
 	return {
 		scale,
-		x: (room.w - frame.width * scale) / 2,
+		x: (freeW(room) - frame.width * scale) / 2,
 		y: room.top + (freeH(room) - frame.height * scale) / 2
 	};
 }
@@ -45,7 +50,7 @@ export function clampMapView(v: View, frame: Frame, room: Room): View {
 	const ky = Math.min(KEEP, fh);
 	return {
 		scale,
-		x: Math.max(kx - fw, Math.min(room.w - kx, v.x)),
+		x: Math.max(kx - fw, Math.min(freeW(room) - kx, v.x)),
 		y: Math.max(room.top + ky - fh, Math.min(room.h - room.bottom - ky, v.y))
 	};
 }
@@ -62,11 +67,11 @@ export function fitView(boxes: Box[], frame: Frame, room: Room, max = 1): View {
 	const t = Math.min(...boxes.map((b) => b.y - b.h / 2)) - PAD;
 	const b = Math.max(...boxes.map((b) => b.y + b.h / 2)) + PAD;
 	const whole = wholeView(frame, room).scale;
-	const scale = Math.max(whole, Math.min(max, room.w / (r - l), freeH(room) / (b - t)));
+	const scale = Math.max(whole, Math.min(max, freeW(room) / (r - l), freeH(room) / (b - t)));
 	return clampMapView(
 		{
 			scale,
-			x: room.w / 2 - ((l + r) / 2) * scale,
+			x: freeW(room) / 2 - ((l + r) / 2) * scale,
 			y: room.top + freeH(room) / 2 - ((t + b) / 2) * scale
 		},
 		frame,

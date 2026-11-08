@@ -59,12 +59,12 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 	],
 	[
 		'src/lib/components/positions/MapPane.svelte',
-		'desk:overflow-hidden desk:rounded-2xl',
+		'desk:overflow-clip desk:rounded-2xl',
 		'the desktop’s map box: its buttons sit 12 px in; the pills draw their own ring in the SVG'
 	],
 	[
 		'src/lib/components/positions/PositionMap.svelte',
-		'touch-none overflow-hidden',
+		'touch-none overflow-clip',
 		'the map clips the zoomed drawing; its pills draw their own focus ring in the SVG, no outline'
 	]
 ];
