@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { EMPTY_PANE, emptyPane, revealTop } from './pane';
 
 describe('emptyPane', () => {
-	it('asks for a figure, with New move', () => {
+	it('asks for a figure, with New figure', () => {
 		const p = emptyPane('figures', false);
 		expect(p.title).toBe('Pick a figure');
 		expect(p.icon).toBe('moves');
 		expect(p.body).toBe(EMPTY_PANE.figures.body);
-		expect(p.action).toBe('New move');
+		expect(p.action).toBe('New figure');
 	});
 
 	it('asks for a routine, with New routine', () => {

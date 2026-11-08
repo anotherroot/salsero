@@ -86,7 +86,7 @@
 	<BandButton
 		icon="plus"
 		label={segment === 'figures'
-			? 'New move'
+			? 'New figure'
 			: segment === 'routines'
 				? 'New routine'
 				: 'New position'}
