@@ -10,7 +10,7 @@
  */
 import { dev, version } from '$app/environment';
 import type { DeviceIn, DeviceOut, DeviceState, SwIn, SwOut, WireFallback } from './protocol';
-import { pullCovers } from './sw-route';
+import { unpulledAfterPull, unpulledAfterSave } from './sw-route';
 
 /** How long a relayed read waits, from the worker's start, for the device to be ready. */
 export const DEVICE_START_LIMIT_MS = 10_000;
@@ -38,8 +38,13 @@ let started = false;
 let worker: Worker | null = null;
 let workerStartedAt = 0;
 let pullTimer: ReturnType<typeof setTimeout> | undefined;
-/** When the service worker last said a write from this page reached the server. */
-let changedAt = 0;
+/**
+ * When this page last saved something its device has not pulled yet (a write
+ * the service worker said reached the server, or an upload, `noteSaved`);
+ * null: nothing. Sent with every state message, so a service worker that
+ * restarted or was replaced since still keeps this page's reads untimed.
+ */
+let unpulledSince: number | null = null;
 /** Relayed reads waiting for the device's state to settle. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- callbacks, never drawn
 const waiting = new Set<() => void>();
@@ -53,7 +58,7 @@ function setState(state: DeviceState | 'off'): void {
 
 /** The service worker keeps each page's state: a read waits for the network less when the device is ready. */
 function tellServiceWorker(): void {
-	const message: SwIn = { type: 'device-state', state: device.state };
+	const message: SwIn = { type: 'device-state', state: device.state, unpulledSince };
 	navigator.serviceWorker.controller?.postMessage(message);
 }
 
@@ -123,16 +128,33 @@ function pull(): void {
 }
 
 /**
- * The device pulled. Once a pull that left after the page's last write has
- * landed (`pullCovers`), the service worker may time this page's reads out
- * again (`DeviceClients`); until then they wait for the network. A pull
- * already out when the write landed does not count.
+ * The device pulled, its request having left at `startedAt`. Every pull goes
+ * to the service worker, which decides by its own mark whether it covers the
+ * page's last save (`DeviceClients.pulled`); the page's own note clears by the
+ * same rule.
  */
 function pulled(startedAt: number): void {
-	if (!pullCovers(startedAt, changedAt)) return;
+	unpulledSince = unpulledAfterPull(unpulledSince, startedAt);
 	const sw = navigator.serviceWorker.controller;
-	sw?.postMessage({ type: 'device-pulled' } satisfies SwIn);
+	sw?.postMessage({ type: 'device-pulled', startedAt } satisfies SwIn);
 	// A service worker that restarted has lost the state too: say it again.
+	tellServiceWorker();
+}
+
+/** A save reached the server now: note it and pull soon. */
+function saved(): void {
+	unpulledSince = unpulledAfterSave(unpulledSince, Date.now());
+	pullSoon();
+}
+
+/**
+ * An upload landed. Uploads bypass the service worker (their progress would
+ * break), so it never hears of them: the page marks itself unpulled and tells
+ * it, as a write's `changed` would, before the reads the upload sets off.
+ */
+export function noteSaved(): void {
+	if (!started) return;
+	saved();
 	tellServiceWorker();
 }
 
@@ -147,8 +169,8 @@ function onServiceWorkerMessage(e: MessageEvent<SwOut>): void {
 		const port = e.ports[0];
 		if (port) void relay(message, port);
 	} else if (message?.type === 'changed') {
-		changedAt = Date.now();
-		pullSoon();
+		// The service worker has marked this page already, by its own clock.
+		saved();
 	} else if (message?.type === 'needs-connection') {
 		window.dispatchEvent(new CustomEvent('salsa:needs-connection'));
 	}

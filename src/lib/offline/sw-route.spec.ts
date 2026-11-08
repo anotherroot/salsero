@@ -8,6 +8,8 @@ import {
 	isNetworkFailure,
 	postsChanged,
 	pullCovers,
+	unpulledAfterPull,
+	unpulledAfterSave,
 	swRoute
 } from './sw-route';
 
@@ -145,33 +147,71 @@ describe('DeviceClients', () => {
 	it('times a read out only when its page has a ready device', () => {
 		const c = new DeviceClients();
 		expect(c.timeoutFor('a')).toBeNull();
-		c.setState('a', 'starting');
+		c.setState('a', 'starting', null);
 		expect(c.timeoutFor('a')).toBeNull();
-		c.setState('a', 'ready');
+		c.setState('a', 'ready', null);
 		expect(c.timeoutFor('a')).toBe(NETWORK_TIMEOUT_MS);
 		expect(c.timeoutFor('b')).toBeNull();
 	});
 
 	it('never times out a page whose write the device has not pulled yet', () => {
 		const c = new DeviceClients();
-		c.setState('a', 'ready');
-		c.setState('b', 'ready');
-		c.changed('a');
+		c.setState('a', 'ready', null);
+		c.setState('b', 'ready', null);
+		c.changed('a', 1000);
 		expect(c.timeoutFor('a')).toBeNull();
 		expect(c.timeoutFor('b')).toBe(NETWORK_TIMEOUT_MS);
-		// Ready again (a state message) does not clear it; only a pull does.
-		c.setState('a', 'ready');
+		// Ready again with nothing unpulled on the page's side does not clear it.
+		c.setState('a', 'ready', null);
 		expect(c.timeoutFor('a')).toBeNull();
-		c.pulled('a');
+		c.pulled('a', 1000);
+		expect(c.timeoutFor('a')).toBe(NETWORK_TIMEOUT_MS);
+	});
+
+	it('clears only for a pull that left after the write landed, whatever the message order', () => {
+		const c = new DeviceClients();
+		c.setState('a', 'ready', null);
+		c.changed('a', 1000);
+		// Already out when the write landed.
+		c.pulled('a', 999);
+		expect(c.timeoutFor('a')).toBeNull();
+		// A second write before the covering pull: only a pull after both clears.
+		c.changed('a', 2000);
+		c.pulled('a', 1500);
+		expect(c.timeoutFor('a')).toBeNull();
+		// An older write noted late never moves the mark back.
+		c.changed('a', 1200);
+		c.pulled('a', 2000);
+		expect(c.timeoutFor('a')).toBe(NETWORK_TIMEOUT_MS);
+	});
+
+	it("learns a page's unpulled save from its state, after a restart or a replacement", () => {
+		const c = new DeviceClients();
+		c.setState('a', 'ready', 1000);
+		expect(c.timeoutFor('a')).toBeNull();
+		c.pulled('a', 900);
+		expect(c.timeoutFor('a')).toBeNull();
+		c.pulled('a', 1000);
 		expect(c.timeoutFor('a')).toBe(NETWORK_TIMEOUT_MS);
 	});
 
 	it('forgets closed pages', () => {
 		const c = new DeviceClients();
-		c.setState('a', 'ready');
-		c.changed('b');
+		c.setState('a', 'ready', null);
+		c.changed('b', 1);
 		c.sweep(new Set(['c']));
 		expect(c.size).toBe(0);
+	});
+});
+
+describe("the page's unpulled save", () => {
+	it('keeps the latest save, and clears for a pull that left after it', () => {
+		expect(unpulledAfterSave(null, 1000)).toBe(1000);
+		expect(unpulledAfterSave(1000, 2000)).toBe(2000);
+		expect(unpulledAfterSave(2000, 1500)).toBe(2000);
+		expect(unpulledAfterPull(1000, 999)).toBe(1000);
+		expect(unpulledAfterPull(1000, 1000)).toBeNull();
+		expect(unpulledAfterPull(null, 5)).toBeNull();
 	});
 });
 

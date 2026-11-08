@@ -96,8 +96,9 @@ sw.addEventListener('message', (event) => {
 	const data = event.data as SwIn | undefined;
 	const source = event.source as Client | null;
 	if (!source) return;
-	if (data?.type === 'device-state') devices.setState(source.id, data.state);
-	else if (data?.type === 'device-pulled') devices.pulled(source.id);
+	if (data?.type === 'device-state')
+		devices.setState(source.id, data.state, data.unpulledSince ?? null);
+	else if (data?.type === 'device-pulled') devices.pulled(source.id, data.startedAt);
 	else return;
 	// Closed pages leave their entries behind; sweep now and then.
 	if (devices.size > 20) {
@@ -278,7 +279,7 @@ async function write(event: FetchEvent): Promise<Response> {
 	if (postsChanged(res)) {
 		// Before the answer reaches the page: the reads its save sets off (the
 		// action's invalidation) must not be timed out onto a copy without it.
-		if (to) devices.changed(to);
+		if (to) devices.changed(to, Date.now());
 		tell(to, { type: 'changed' });
 	}
 	return res;

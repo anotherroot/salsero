@@ -116,46 +116,63 @@ export function postsChanged(res: { status: number; type: ResponseType }): boole
 
 /**
  * What the service worker knows of each page's device: its state (`SwIn`), and
- * whether a write from that page has reached the server since the device last
- * pulled (`dirty`). A read is timed out only for a ready device with nothing
+ * since when a save from that page is not yet in the device's copy (`dirtyAt`,
+ * this worker's clock when the write's answer came, or the page's own
+ * `unpulledSince`). A read is timed out only for a ready device with nothing
  * unpulled: otherwise the device would answer from before the person's own
  * save and the save would seem to vanish, online. A dirty page's reads wait
  * for the network as long as it takes; on a real failure the device may still
- * answer. Lost when the browser stops the service worker: every page then
- * reads as unknown, untimed, until it says its state again.
+ * answer. Only a pull whose request left at or after `dirtyAt` clears it
+ * (`pullCovers`), whatever order the messages come in. Lost when the browser
+ * stops the service worker; every page then reads as unknown, untimed, until
+ * its next state message, which carries its unpulled save again.
  */
 export class DeviceClients {
 	#states = new Map<string, DeviceState | 'off'>();
-	#dirty = new Set<string>();
+	#dirtyAt = new Map<string, number>();
 
-	setState(id: string, state: DeviceState | 'off'): void {
+	/** The page's state, and its own note of an unpulled save (null: none it knows of). */
+	setState(id: string, state: DeviceState | 'off', unpulledSince: number | null): void {
 		this.#states.set(id, state);
+		// Never clears: a write's mark here may be newer than the page has heard of.
+		if (unpulledSince !== null) this.changed(id, unpulledSince);
 	}
 
-	/** A write from this page reached the server. */
-	changed(id: string): void {
-		this.#dirty.add(id);
+	/** A save from this page reached the server at `at`. The mark only moves later. */
+	changed(id: string, at: number): void {
+		this.#dirtyAt.set(id, unpulledAfterSave(this.#dirtyAt.get(id) ?? null, at));
 	}
 
-	/** This page's device has pulled since its last write. */
-	pulled(id: string): void {
-		this.#dirty.delete(id);
+	/** This page's device pulled, its request having left at `startedAt`. */
+	pulled(id: string, startedAt: number): void {
+		const left = unpulledAfterPull(this.#dirtyAt.get(id) ?? null, startedAt);
+		if (left === null) this.#dirtyAt.delete(id);
 	}
 
 	/** How long a read from this page waits for the network before the device answers; null: as long as it takes. */
 	timeoutFor(id: string): number | null {
-		return this.#states.get(id) === 'ready' && !this.#dirty.has(id) ? NETWORK_TIMEOUT_MS : null;
+		return this.#states.get(id) === 'ready' && !this.#dirtyAt.has(id) ? NETWORK_TIMEOUT_MS : null;
 	}
 
 	/** Forget the pages that are gone. */
 	sweep(open: ReadonlySet<string>): void {
 		for (const id of this.#states.keys()) if (!open.has(id)) this.#states.delete(id);
-		for (const id of this.#dirty) if (!open.has(id)) this.#dirty.delete(id);
+		for (const id of this.#dirtyAt.keys()) if (!open.has(id)) this.#dirtyAt.delete(id);
 	}
 
 	get size(): number {
-		return new Set([...this.#states.keys(), ...this.#dirty]).size;
+		return new Set([...this.#states.keys(), ...this.#dirtyAt.keys()]).size;
 	}
+}
+
+/** Since when a save is unpulled, after another save at `at`: the latest one. */
+export function unpulledAfterSave(since: number | null, at: number): number {
+	return since === null ? at : Math.max(since, at);
+}
+
+/** Since when a save is unpulled, after a pull that left at `startedAt`: null once it covers it. */
+export function unpulledAfterPull(since: number | null, startedAt: number): number | null {
+	return since === null || pullCovers(startedAt, since) ? null : since;
 }
 
 /**
