@@ -13,6 +13,7 @@ import {
 	type Candidate
 } from './fit';
 import { fold } from '$lib/fold';
+import { withLocale } from '$lib/i18n/current';
 
 /** Positions: 1 open, 2 closed, 3 hammerlock. None is special. */
 const fig = (
@@ -389,5 +390,35 @@ describe('same names in the routine picker', () => {
 		);
 		expect(list.figures).toHaveLength(1);
 		expect([...groupTags(list.figures[0]).entries()]).toEqual([[2, '· Sreda 17:30']]);
+	});
+});
+
+describe('anchorText in Slovenian', () => {
+	const name = (id: number) => ['', 'Open', 'Closed', 'Hammerlock'][id];
+	const sl = (a: Anchor) => withLocale('sl', () => anchorText(a, name));
+	it('puts the positions after a colon and joins them with “ali”', () => {
+		expect(sl({ kind: 'after', ends: [1, 2], next: 1 })).toBe(
+			'Začne na 1, v položaju: Open ali Closed'
+		);
+		expect(sl({ kind: 'after', ends: [], next: 1 })).toBe('Začne na 1');
+		expect(sl({ kind: 'before', starts: [3], startCounts: [1, 5] })).toBe(
+			'Konča na 8 ali 4, v položaju: Hammerlock'
+		);
+		expect(sl({ kind: 'before', starts: [3], startCounts: [] })).toBe(
+			'Konča v položaju: Hammerlock'
+		);
+		expect(
+			sl({
+				kind: 'between',
+				after: { kind: 'after', ends: [1], next: 1 },
+				before: { kind: 'before', starts: [2], startCounts: [1] }
+			})
+		).toBe('Začne na 1, v položaju: Open · konča na 8, v položaju: Closed');
+		expect(
+			sl({ kind: 'alternative', starts: [], startCount: 1, ends: [3], next: 1, exclude: [] })
+		).toBe('Kjerkoli → Hammerlock, 1→1');
+		expect(
+			sl({ kind: 'alternative', starts: [2], startCount: 1, ends: [], next: 1, exclude: [] })
+		).toBe('Closed → kjerkoli, 1→1');
 	});
 });

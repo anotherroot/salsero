@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	bandCompact,
 	danceable,
@@ -201,5 +202,88 @@ describe('fingerprintToSend', () => {
 	});
 	it('leaves one aimed after the others landed as it is', () => {
 		expect(fingerprintToSend('fp2', [{ sent: 'fp0', after: 'fp1' }])).toBe('fp2');
+	});
+});
+
+describe('the routine page in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('badges loops and counts breaks with their four forms', () => {
+		const badge = (breaks: number) =>
+			sl(() => factBadges({ slots: 3, breaks, timingBreaks: 0, loops: true }))
+				.map((b) => b.text)
+				.slice(1);
+		expect(badge(1)).toEqual(['1 prekinitev']);
+		expect(badge(2)).toEqual(['2 prekinitvi']);
+		expect(badge(3)).toEqual(['3 prekinitve']);
+		expect(badge(5)).toEqual(['5 prekinitev']);
+		expect(sl(() => factBadges({ slots: 3, breaks: 0, timingBreaks: 2, loops: false }))).toEqual([
+			{ tone: 'warn', text: 'Se ne sklene', loop: true },
+			{ tone: 'danger', text: '2 časovni prekinitvi', loop: false }
+		]);
+		expect(sl(() => factBadges({ slots: 3, breaks: 0, timingBreaks: 0, loops: true }))).toEqual([
+			{ tone: 'done', text: 'Se sklene', loop: true }
+		]);
+	});
+
+	it('joins the positions of a side with “ali”', () => {
+		expect(sl(() => factsOf(['Open', 'Closed'], ['Hammerlock']))).toEqual({
+			from: 'Open ali Closed',
+			to: 'Hammerlock'
+		});
+		expect(sl(() => handsLine([1, 2], [3], name))).toBe('Open ali Closed → Hammerlock');
+	});
+
+	it('leads a routine’s slot with its counted slots', () => {
+		const e = { starts: [1], startCounts: [1], ends: [1], next: 1 };
+		expect(sl(() => slotMeta(e, name, 1))).toBe('Kombinacija · 1 mesto · 1→1 · Open → Open');
+		expect(sl(() => slotMeta(e, name, 2))).toBe('Kombinacija · 2 mesti · 1→1 · Open → Open');
+		expect(sl(() => slotMeta(e, name, 3))).toBe('Kombinacija · 3 mesta · 1→1 · Open → Open');
+		expect(sl(() => slotMeta(e, name, 5))).toBe('Kombinacija · 5 mest · 1→1 · Open → Open');
+		expect(
+			sl(() => slotMeta({ starts: [1], startCounts: [1], ends: null, next: 1 }, name, null))
+		).toBe('1→1 · Open → različni konci');
+		expect(
+			sl(() => slotMeta({ starts: [], startCounts: [1], ends: null, next: 1 }, name, null))
+		).toBe('1→1 · različni konci');
+	});
+
+	it('words a seam, the names after a colon', () => {
+		expect(sl(() => seamLabel({ ends: ['Hammerlock'], next: ['Open'] }, null))).toBe(
+			'Konec: Hammerlock, začetek naslednjega: Open'
+		);
+		expect(sl(() => seamLabel(null, { ready: 5, next: [1] }))).toBe(
+			'Pripravljeno na 5, naslednje začne na 1'
+		);
+		expect(
+			sl(() =>
+				seamLabel({ ends: ['Shadow'], next: ['Open', 'Closed'] }, { ready: 5, next: [1, 3] })
+			)
+		).toBe(
+			'Konec: Shadow, začetek naslednjega: Open ali Closed · pripravljeno na 5, naslednje začne na 1 ali 3'
+		);
+	});
+
+	it('titles the selection and captions Make routine', () => {
+		expect(sl(() => selectionTitle(0))).toBe('Izberite mesta');
+		expect(sl(() => selectionTitle(1))).toBe('Izbrano: 1');
+		expect(sl(() => selectionTitle(2))).toBe('Izbrano: 2');
+		expect(sl(() => selectionTitle(3))).toBe('Izbrano: 3');
+		expect(sl(() => selectionTitle(5))).toBe('Izbrano: 5');
+		expect(sl(() => makeRoutineCaption(1))).toBe(
+			'Mesto se premakne v novo kombinacijo, ta pa ga tukaj nadomesti kot eno mesto.'
+		);
+		expect(sl(() => makeRoutineCaption(2))).toBe(
+			'2 mesti se premakneta v novo kombinacijo, ta pa ju tukaj nadomesti kot eno mesto.'
+		);
+		expect(sl(() => makeRoutineCaption(3))).toBe(
+			'3 mesta se premaknejo v novo kombinacijo, ta pa jih tukaj nadomesti kot eno mesto.'
+		);
+		expect(sl(() => makeRoutineCaption(5))).toBe(
+			'5 mest se premakne v novo kombinacijo, ta pa jih tukaj nadomesti kot eno mesto.'
+		);
+		expect(sl(() => makeRoutineCaption(102))).toBe(
+			'102 mesti se premakneta v novo kombinacijo, ta pa ju tukaj nadomesti kot eno mesto.'
+		);
 	});
 });

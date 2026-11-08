@@ -169,7 +169,15 @@ const TRANSLATED: string[] = [
 	'src/lib/components/figures/SectionRow.svelte',
 	'src/lib/components/figures/TopVideo.svelte',
 	'src/lib/components/figures/VariationBar.svelte',
-	'src/routes/[dance]/(moves)/figures/[id]/+page.svelte'
+	'src/routes/[dance]/(moves)/figures/[id]/+page.svelte',
+	// Routines and the routine editor (part 2, Task 4).
+	'src/lib/components/routines/Seam.svelte',
+	'src/lib/components/routines/SelectionBar.svelte',
+	'src/lib/components/routines/SlotCard.svelte',
+	'src/lib/components/routines/SlotList.svelte',
+	'src/lib/components/routines/SlotPicker.svelte',
+	'src/lib/components/routines/Swipeable.svelte',
+	'src/routes/[dance]/(moves)/routines/[id]/+page.svelte'
 ];
 
 describe('englishIn', () => {

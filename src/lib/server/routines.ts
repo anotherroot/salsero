@@ -25,6 +25,7 @@ import {
 	type Routine
 } from './db/schema';
 import { graphFor } from './graph';
+import { t } from '$lib/i18n/catalog';
 import { ownedOrUsable, teamRefs, usableOf, type Usable } from './usable';
 import { withoutShadowed } from './clones/shadow';
 import { addedReach, addedTeams } from './access';
@@ -1379,6 +1380,7 @@ export function extractRoutine(
 
 /**
  * Copy a whole routine, slots and all, as "<name> (copy)" with its own exercise.
+ * The suffix is in the language of whoever copies it (`copyName`).
  *
  * An embedded child is REFERENCED by the copy, not itself duplicated: a routine
  * embedded in two places is one routine seen twice, and copying it would fork it
@@ -1395,7 +1397,13 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 	return db.transaction((tx) => {
 		const routine = tx
 			.insert(routines)
-			.values({ dance, userId, teamId, name: `${source.name} (copy)`, notes: source.notes })
+			.values({
+				dance,
+				userId,
+				teamId,
+				name: t().routine.copyName(source.name),
+				notes: source.notes
+			})
 			.returning()
 			.get();
 		// A group's routine has no exercise of its own: see `insertRoutine`.

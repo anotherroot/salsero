@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { actionBlocks, extractBlock, inOrder } from './selection';
 
 const rows = [
@@ -47,6 +48,33 @@ describe('actionBlocks', () => {
 			below: 'Select one slot to add next to it.',
 			duplicate: null,
 			delete: null,
+			extract: null
+		});
+	});
+});
+
+describe('the selection in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('names why Make routine is greyed, a routine’s name after a colon', () => {
+		expect(sl(() => extractBlock(rows, [], []))).toBe(
+			'Izberite mesta, iz katerih naj nastane kombinacija.'
+		);
+		expect(sl(() => extractBlock(rows, [10, 13], []))).toBe('Izberite sosednja mesta.');
+		expect(sl(() => extractBlock(rows, [11, 12], []))).toBe(
+			'Mesto 3 je kombinacija — vstavljanje gre le eno raven globoko.'
+		);
+		expect(sl(() => extractBlock(rows, [10], ['Social mix', 'Friday']))).toBe(
+			'Ta kombinacija je že vstavljena drugam: Social mix, Friday. Vstavljanje gre le eno raven globoko.'
+		);
+	});
+
+	it('names why each action is greyed', () => {
+		expect(sl(() => actionBlocks(0, null))).toEqual({
+			above: 'Izberite eno mesto, ob katerem želite dodati.',
+			below: 'Izberite eno mesto, ob katerem želite dodati.',
+			duplicate: 'Najprej izberite mesta.',
+			delete: 'Najprej izberite mesta.',
 			extract: null
 		});
 	});

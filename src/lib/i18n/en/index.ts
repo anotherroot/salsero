@@ -12,6 +12,7 @@ import { lesson } from './lesson';
 import { moves } from './moves';
 import { nouns } from './nouns';
 import { player } from './player';
+import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
@@ -35,5 +36,6 @@ export const en = {
 	player,
 	groups,
 	moves,
-	figure
+	figure,
+	routine
 };
