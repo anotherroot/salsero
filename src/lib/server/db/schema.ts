@@ -1489,3 +1489,16 @@ export type SetRow = typeof sets.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type LessonVideo = typeof lessonVideos.$inferSelect;
 export type VideoSpot = typeof videoSpots.$inferSelect;
+
+/**
+ * What changed, for the device's pull (offline phase 2): one row per change to
+ * a synced table, written by triggers (migration 0040), never by code. Keyed on
+ * `seq`, so it does not mint ids. Pruned after 30 days.
+ */
+export const changeLog = sqliteTable('change_log', {
+	seq: integer('seq').primaryKey({ autoIncrement: true }),
+	tbl: text('tbl').notNull(),
+	key: text('key').notNull(),
+	op: text('op', { enum: ['i', 'u', 'd'] }).notNull(),
+	at: integer('at').notNull()
+});
