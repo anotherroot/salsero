@@ -46,7 +46,7 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
-	import { deviceReady } from '$lib/offline/device.svelte';
+	import { device, deviceReady } from '$lib/offline/device.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 
 	let { data, children } = $props();
@@ -264,6 +264,9 @@
 	 * land on the error page. Re-run when the device's state changes.
 	 */
 	$effect(() => {
+		// Read first, always: `cannotLoad()` stops at `navigator.onLine` online, so
+		// a first run online would otherwise never subscribe to the device.
+		void device.state;
 		const body = document.body;
 		const sync = () => {
 			if (!cannotLoad()) {

@@ -14,20 +14,16 @@
  */
 import { build, files, prerendered, version } from '$service-worker';
 import { offlineRead, offlineWrite, type OfflineAnswer } from '$lib/offline/needs-connection';
-import type {
-	DeviceState,
-	SwIn,
-	SwOut,
-	WireFallback,
-	WireRequest,
-	WireResponse
-} from '$lib/offline/protocol';
+import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/offline/protocol';
 import {
 	CACHE_PREFIX,
+	DeviceClients,
 	NETWORK_TIMEOUT_MS,
 	SHELL,
 	cachesToDelete,
+	installOrClean,
 	isNetworkFailure,
+	postsChanged,
 	swRoute,
 	type SwRoute
 } from '$lib/offline/sw-route';
@@ -40,38 +36,44 @@ const DEVICE_REPLY_LIMIT_MS = 15_000;
 const NULL_BODY = new Set([101, 204, 205, 304]);
 
 /**
- * Each page's device, as it last told us (`SwIn`). Lost when the browser stops
+ * Each page's device, as it last told us (`SwIn`), and whether it has pulled
+ * since that page's last write (`DeviceClients`). Lost when the browser stops
  * this worker; a page not in it reads as no device, so its reads wait for the
  * network as long as it takes, as they would without a service worker.
  */
-const deviceStates = new Map<string, DeviceState | 'off'>();
+const devices = new DeviceClients();
 
 sw.addEventListener('install', (event) => {
+	// A failed install deletes its half-filled cache (`installOrClean`).
 	event.waitUntil(
-		(async () => {
-			const cache = await caches.open(CACHE);
-			// Hashed names: the HTTP cache may serve them. Static files keep their
-			// names across builds, so they are revalidated.
-			await cache.addAll(build);
-			await cache.addAll(
-				[...files, ...prerendered].map((f) => new Request(f, { cache: 'no-cache' }))
-			);
-			// The device worker's bundle, so an offline reload can still start it.
-			const list = await fetch(`/_device/${version}/files.json`, { cache: 'no-store' });
-			if (!list.ok) throw new Error(`device files: ${list.status}`);
-			await cache.addAll((await list.json()) as string[]);
-			// The shell, signed out (no cookie, so no hook sends it elsewhere): the
-			// same page at any path. A redirect would cache the wrong page.
-			const shell = await fetch(SHELL, {
-				redirect: 'error',
-				credentials: 'omit',
-				cache: 'no-store'
-			});
-			if (!shell.ok) throw new Error(`shell: ${shell.status}`);
-			await cache.put(SHELL, shell);
-			// Phase 2 queues nothing, so a new build takes over at once.
-			await sw.skipWaiting();
-		})()
+		installOrClean(
+			CACHE,
+			(name) => caches.delete(name),
+			async () => {
+				const cache = await caches.open(CACHE);
+				// Hashed names: the HTTP cache may serve them. Static files keep their
+				// names across builds, so they are revalidated.
+				await cache.addAll(build);
+				await cache.addAll(
+					[...files, ...prerendered].map((f) => new Request(f, { cache: 'no-cache' }))
+				);
+				// The device worker's bundle, so an offline reload can still start it.
+				const list = await fetch(`/_device/${version}/files.json`, { cache: 'no-store' });
+				if (!list.ok) throw new Error(`device files: ${list.status}`);
+				await cache.addAll((await list.json()) as string[]);
+				// The shell, signed out (no cookie, so no hook sends it elsewhere): the
+				// same page at any path. A redirect would cache the wrong page.
+				const shell = await fetch(SHELL, {
+					redirect: 'error',
+					credentials: 'omit',
+					cache: 'no-store'
+				});
+				if (!shell.ok) throw new Error(`shell: ${shell.status}`);
+				await cache.put(SHELL, shell);
+				// Phase 2 queues nothing, so a new build takes over at once.
+				await sw.skipWaiting();
+			}
+		)
 	);
 });
 
@@ -93,15 +95,16 @@ sw.addEventListener('activate', (event) => {
 sw.addEventListener('message', (event) => {
 	const data = event.data as SwIn | undefined;
 	const source = event.source as Client | null;
-	if (data?.type !== 'device-state' || !source) return;
-	deviceStates.set(source.id, data.state);
+	if (!source) return;
+	if (data?.type === 'device-state') devices.setState(source.id, data.state);
+	else if (data?.type === 'device-pulled') devices.pulled(source.id);
+	else return;
 	// Closed pages leave their entries behind; sweep now and then.
-	if (deviceStates.size > 20) {
+	if (devices.size > 20) {
 		event.waitUntil(
-			sw.clients.matchAll({ includeUncontrolled: true }).then((open) => {
-				const ids = new Set(open.map((c) => c.id));
-				for (const id of deviceStates.keys()) if (!ids.has(id)) deviceStates.delete(id);
-			})
+			sw.clients
+				.matchAll({ includeUncontrolled: true })
+				.then((open) => devices.sweep(new Set(open.map((c) => c.id))))
 		);
 	}
 });
@@ -200,17 +203,17 @@ async function navigate(event: FetchEvent): Promise<Response> {
 
 /**
  * A read the device can answer: the network first. When its page's device is
- * ready the network gets NETWORK_TIMEOUT_MS; then whichever answers first, the
+ * ready, with every write of that page pulled (`DeviceClients`), the network
+ * gets NETWORK_TIMEOUT_MS; then whichever answers first, the
  * device or a late network, wins. A network that fails outright goes to the
  * device alone (it may still be starting). Neither: "needs a connection".
  */
 async function deviceRead(event: FetchEvent): Promise<Response> {
 	const request = event.request;
-	const ready = deviceStates.get(event.clientId) === 'ready';
 	const network = fetch(request);
 	let late: Promise<Response> | null = null;
 	try {
-		const res = await within(network, ready ? NETWORK_TIMEOUT_MS : null);
+		const res = await within(network, devices.timeoutFor(event.clientId));
 		if (!isNetworkFailure(res)) return res;
 	} catch (e) {
 		if (e instanceof TooSlow) {
@@ -272,7 +275,12 @@ async function write(event: FetchEvent): Promise<Response> {
 		tell(to, { type: 'needs-connection' });
 		return offline(offlineWrite(isAction, 'Needs a connection.'));
 	}
-	if (res.type === 'opaqueredirect' || res.status < 400) tell(to, { type: 'changed' });
+	if (postsChanged(res)) {
+		// Before the answer reaches the page: the reads its save sets off (the
+		// action's invalidation) must not be timed out onto a copy without it.
+		if (to) devices.changed(to);
+		tell(to, { type: 'changed' });
+	}
 	return res;
 }
 

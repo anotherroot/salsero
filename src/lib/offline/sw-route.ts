@@ -4,7 +4,8 @@
  * nothing changes: every answer is the network's first, and the cache or the
  * device answers only when the network fails.
  */
-import { deviceAnswers, routePattern } from './routes';
+import type { DeviceState } from './protocol';
+import { DEVICE_ENDPOINTS, NETWORK_ENDPOINTS, deviceAnswers, routePattern } from './routes';
 
 /**
  * - `precached`: the build, its static files and the device bundle, from the cache;
@@ -49,6 +50,9 @@ const UPLOADS: [method: string, pattern: RegExp][] = [
 	['POST', routePattern('/api/songs')]
 ];
 
+/** Every GET endpoint (`+server`), device or network: what a navigation there gets is not a page. */
+const ENDPOINTS = [...DEVICE_ENDPOINTS, ...NETWORK_ENDPOINTS].map(routePattern);
+
 export function swRoute(
 	method: string,
 	url: URL,
@@ -68,7 +72,14 @@ export function swRoute(
 	) {
 		return 'precached';
 	}
-	if (mode === 'navigate' && method === 'GET') return 'navigate';
+	if (mode === 'navigate') {
+		// A page load gets the network, then the shell. A form posted without
+		// JavaScript (sign in, /logout) and an endpoint opened in a tab (an APK, a
+		// video, /health) are no page: the shell would be the wrong answer, so the
+		// browser has them as without a service worker.
+		if (method !== 'GET' || ENDPOINTS.some((re) => re.test(path))) return 'pass';
+		return 'navigate';
+	}
 	if (method === 'GET' && deviceAnswers(method, url)) return 'device-read';
 	if (read) return 'pass';
 	return 'write';
@@ -96,4 +107,72 @@ export function cachesToDelete(keys: readonly string[], current: string): string
 		.filter((k) => k.startsWith(CACHE_PREFIX) && k !== current)
 		.sort((a, b) => versionOf(b) - versionOf(a) || (a < b ? 1 : -1));
 	return others.slice(1);
+}
+
+/** A write's answer that asks the page's device to pull: the server took it (or redirected). */
+export function postsChanged(res: { status: number; type: ResponseType }): boolean {
+	return res.type === 'opaqueredirect' || (res.status > 0 && res.status < 400);
+}
+
+/**
+ * What the service worker knows of each page's device: its state (`SwIn`), and
+ * whether a write from that page has reached the server since the device last
+ * pulled (`dirty`). A read is timed out only for a ready device with nothing
+ * unpulled: otherwise the device would answer from before the person's own
+ * save and the save would seem to vanish, online. A dirty page's reads wait
+ * for the network as long as it takes; on a real failure the device may still
+ * answer. Lost when the browser stops the service worker: every page then
+ * reads as unknown, untimed, until it says its state again.
+ */
+export class DeviceClients {
+	#states = new Map<string, DeviceState | 'off'>();
+	#dirty = new Set<string>();
+
+	setState(id: string, state: DeviceState | 'off'): void {
+		this.#states.set(id, state);
+	}
+
+	/** A write from this page reached the server. */
+	changed(id: string): void {
+		this.#dirty.add(id);
+	}
+
+	/** This page's device has pulled since its last write. */
+	pulled(id: string): void {
+		this.#dirty.delete(id);
+	}
+
+	/** How long a read from this page waits for the network before the device answers; null: as long as it takes. */
+	timeoutFor(id: string): number | null {
+		return this.#states.get(id) === 'ready' && !this.#dirty.has(id) ? NETWORK_TIMEOUT_MS : null;
+	}
+
+	/** Forget the pages that are gone. */
+	sweep(open: ReadonlySet<string>): void {
+		for (const id of this.#states.keys()) if (!open.has(id)) this.#states.delete(id);
+		for (const id of this.#dirty) if (!open.has(id)) this.#dirty.delete(id);
+	}
+
+	get size(): number {
+		return new Set([...this.#states.keys(), ...this.#dirty]).size;
+	}
+}
+
+/**
+ * The install's work, and on any failure this build's cache deleted before
+ * the failure goes on: a half-filled `salsa-<version>` would otherwise be kept
+ * by a later build as the newest other (`cachesToDelete`), deleting the cache
+ * of the build open pages run.
+ */
+export async function installOrClean(
+	cache: string,
+	remove: (name: string) => Promise<boolean>,
+	work: () => Promise<void>
+): Promise<void> {
+	try {
+		await work();
+	} catch (e) {
+		await remove(cache).catch(() => false);
+		throw e;
+	}
 }

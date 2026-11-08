@@ -44,5 +44,9 @@ export type SwOut =
 	| { type: 'changed' }
 	| { type: 'needs-connection' };
 
-/** From the page to the service worker: its device's state, on every change (`off`: none started). */
-export type SwIn = { type: 'device-state'; state: DeviceState | 'off' };
+/**
+ * From the page to the service worker: its device's state, on every change
+ * (`off`: none started); `device-pulled`: the device has pulled since the page's
+ * last write (`changed`), so its reads may be timed out again.
+ */
+export type SwIn = { type: 'device-state'; state: DeviceState | 'off' } | { type: 'device-pulled' };
