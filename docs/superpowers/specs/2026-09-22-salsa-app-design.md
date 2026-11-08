@@ -532,8 +532,10 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   goes to where Practice was opened from (`practiceBack` in
   `src/lib/player/view.ts`: a routine's page, `?song=` the song, an exercise
   alone Today, else Music; the routine log popup's link adds `&from=today`, or `&from=exercise` on the exercise page).
-  Back mid-run stops the run and offers Save this run first; Don't save then
-  leaves. The Voice row says Built-in or Yours (Yours: a recorded set fits the
+  Back mid-run stops the run and leaves. The player logs nothing (since
+  2026-11-08, [`2026-11-08-one-player-design.md`](2026-11-08-one-player-design.md)):
+  Stop and the song's end return to setup, and Done on the exercise page is
+  the only way a practice becomes a set. The Voice row says Built-in or Yours (Yours: a recorded set fits the
   run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
   count returns here once it reads them, plan 12; as `&from=…` after the other
   parameters). The running screen is the stage on the band (count disc, dots,
@@ -616,6 +618,7 @@ fixed before shipping. Check here before hunting one of these as a new bug:
   2026-10-01: `SaveSetSheet` counts the run as unsaved, so the backdrop, ✕,
   Escape and a navigation all get the unsaved-changes question (see "Unsaved
   changes" below). "Don't save" still discards at once, because it says so.
+  The sheet itself is gone since 2026-11-08: the player saves nothing.
 - **Pause can let ~100 ms of already-scheduled clips through**, and the
   `AbortError` from a `play()` interrupted by a pause is swallowed.
 - ~~**Stop then Play resumes mid-song**, and the `<audio controls>` is hidden

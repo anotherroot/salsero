@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import { backFor, goBack } from '$lib/nav/trail.svelte';
 	import Running from '$lib/components/player/Running.svelte';
-	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
 	import { practiceOf } from '$lib/exercises/practice';
@@ -20,16 +19,13 @@
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import { exerciseLine, runSubtitle, runSummary, type RoutineView } from '$lib/player/view';
-	import { announceSaved } from '$lib/exercises/saved.svelte';
-	import { savedMessage } from '$lib/exercises/done-view';
-	import type { DoneResult } from '$lib/types';
+	import { runSubtitle, type RoutineView } from '$lib/player/view';
 	import { t } from '$lib/i18n/catalog';
-	import type { ActionData, PageData } from './$types';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
-	let mode = $state<'setup' | 'running' | 'done'>('setup');
+	let mode = $state<'setup' | 'running'>('setup');
 
 	// Where the load says to start, overridden by the picker. Writable
 	// `$derived` rather than `$state`: this route is reused across a param
@@ -100,7 +96,6 @@
 	let activeSlot = $state<number | null>(null);
 	/** Song time of the figure's "1", for the bar under it. */
 	let stepAt = $state<number | null>(null);
-	let dancedIds = $state<number[]>([]);
 	/**
 	 * Follow or Still, this phone's choice for this routine. Writable `$derived`:
 	 * the route is reused across `?routine=`, and then it must follow.
@@ -133,7 +128,6 @@
 	);
 	/** The settings the run started with, so a count changed mid-run is kept with the rest. */
 	let runSettings: PlayerSettings | null = null;
-	let finalElapsed = $state(0);
 	/** The last Play threw. The screen says so in fixed words; the console has the error. */
 	let startError = $state(false);
 	let starting = $state(false);
@@ -142,53 +136,27 @@
 	let runningGrid = $state<{ beats: number[]; counts: number[] } | null>(null);
 	/** The song the running player was built with, or null for count only. */
 	let runningSong = $state<{ id: number; title: string; audioFile: string } | null>(null);
-	/** The count-only tempo of the run, for `player_json`. */
+	/** The count-only tempo of the run, for the band. */
 	let runningBpm = $state<number | null>(null);
-	/**
-	 * The toggles the run is running with, for `player_json` at the end. The
-	 * count pattern can be changed mid-run, so this is the pattern in force when
-	 * the run ENDS — which is the one that describes most of it.
-	 */
+	/** The toggles the run is running with; the count can change mid-run. */
 	let runToggles = $state<{
 		count: PlayerSettings['count'];
 		clave: PlayerSettings['clave'];
 	} | null>(null);
 
 	/**
-	 * How many danced figures to spell out. A long routine run starts one every
-	 * few seconds, so the raw list grows without bound; the summary is only ever
-	 * read back by a person looking at what a session was. `figures` keeps the
-	 * true total, so capping the list loses nothing that matters.
+	 * The run ends and nothing is saved (the player logs nothing; Done on the
+	 * exercise page does). `leave`: the band's back ended it, so go where Back
+	 * goes; Stop and the song's end come back to setup, focus on Play.
 	 */
-	const MAX_DANCED = 250;
-
-	const runJson = $derived(
-		JSON.stringify({
-			// The exercise page's panel logs the same three, so a set says what it was danced to.
-			source: runningSong ? 'song' : 'count',
-			songId: runningSong?.id ?? null,
-			bpm: runningBpm,
-			speed,
-			count: runToggles?.count ?? 'off',
-			clave: runToggles?.clave ?? null,
-			...(data.routine
-				? { routineView, figures: dancedIds.length, danced: dancedIds.slice(-MAX_DANCED) }
-				: {})
-		})
-	);
-
-	/** Set when the run ended through the band's back, so Save this run then leaves. */
-	let leaving = $state(false);
-
-	/** `leave`: the band's back ended the run, not Stop or the song's end. */
-	function finish(leave = false) {
+	async function finish(leave = false) {
 		if (!player) return;
-		leaving = leave;
-		dancedIds = player.danced();
-		finalElapsed = player.songTime();
 		player.stop();
 		player = null;
-		mode = 'done';
+		mode = 'setup';
+		await tick();
+		if (leave) await leaveRun();
+		else setup?.focusPlay();
 	}
 
 	/**
@@ -293,44 +261,9 @@
 		finish();
 	}
 
-	/**
-	 * Save this run closed without saving: a run ended by the band's back then
-	 * goes where Back goes; Stop and the song's end come back to setup.
-	 */
-	async function closeSave() {
-		const leave = leaving;
-		leaving = false;
-		mode = 'setup';
-		if (!leave) {
-			// The sheet that held focus is gone: put it on Play, not <body>.
-			await tick();
-			setup?.focusPlay();
-			return;
-		}
-		await leaveRun();
-	}
-
-	/**
-	 * Save this run logged the run: however it ended, leave as the band's back
-	 * would, with "Saved · back in 12 days · Undo" on the screen it lands on.
-	 */
-	async function saved(r: DoneResult) {
-		announceSaved({
-			dance: data.dance.slug,
-			message: savedMessage(r.backDays ?? 1),
-			undo: { setId: r.setId, before: r.before }
-		});
-		leaving = false;
-		mode = 'setup';
-		await leaveRun();
-	}
-
-	/** The sheet has been told to go (`mode` is off 'done'): once it has, go to the opener. */
+	/** Go to the opener. */
 	async function leaveRun() {
-		// The sheet's form is guarded, so a navigation while it is mounted
-		// would ask "Unsaved changes" about the run: unmount it first, then leave.
-		await tick();
-		// The sheet's own history entry is still on top of the player's: let its
+		// A layer of the run (the routine full screen) held a history entry: let its
 		// Back land first, then replace the player with where Back goes, so one
 		// browser Back from there reaches the page before the player.
 		if (entryState().sheets) {
@@ -372,7 +305,6 @@
 	<audio bind:this={audio} src="/audio/{picked.audioFile}" preload="auto" hidden></audio>
 {/if}
 
-<!-- Save this run is a sheet: it draws over the setup it returns to. -->
 {#if mode !== 'running'}
 	<Setup
 		bind:this={setup}
@@ -447,23 +379,4 @@
 			onback={() => finish(true)}
 		/>
 	</main>
-{:else if mode === 'done'}
-	<SaveSetSheet
-		exercise={data.exercise && {
-			id: data.exercise.id,
-			name: data.exercise.name,
-			line: exerciseLine({
-				source: data.exercise.source,
-				state: data.schedule,
-				today: data.today
-			})
-		}}
-		exercises={data.exercises}
-		summary={runSummary(finalElapsed, data.routine !== null ? dancedIds.length : null)}
-		durationS={finalElapsed}
-		run={runJson}
-		fail={form && 'message' in form && form.message !== undefined ? form : null}
-		onclose={closeSave}
-		onsaved={saved}
-	/>
 {/if}

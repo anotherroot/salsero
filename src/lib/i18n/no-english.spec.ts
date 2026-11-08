@@ -144,7 +144,6 @@ const TRANSLATED: string[] = [
 	// What was left on the Follow my class path (Task 12): Music on a class drill, the
 	// Practice player a class routine or song opens, and pairing the phone.
 	'src/lib/components/player/Running.svelte',
-	'src/lib/components/player/SaveSetSheet.svelte',
 	'src/lib/components/player/Setup.svelte',
 	'src/lib/components/player/StageCount.svelte',
 	'src/lib/components/songs/MusicSection.svelte',

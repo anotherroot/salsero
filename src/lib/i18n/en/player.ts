@@ -46,24 +46,7 @@ export const player = {
 	countDigit: (digit: string): string => `Count ${digit}`,
 	/** The run's subtitle part for a count-only tempo: "180 BPM". */
 	bpm: (n: number): string => `${n} BPM`,
-	/** Save this run's line: "3:42 · 12 figures called · saved to the day". */
-	called: (n: number): string => `${plural(n, 'figure', 'figures')} called`,
-	saveTitle: 'Save this run',
-	/** What "Unsaved changes" calls the sheet. */
-	unsavedLabel: 'This run',
-	exercise: 'Exercise',
-	chooseExercise: 'Choose an exercise…',
-	chooseExerciseTitle: 'Choose an exercise',
-	searchExercises: 'Search exercises',
-	noExercises: 'No exercises yet.',
-	notePlaceholder: 'Anything to remember?',
-	dontSave: 'Don’t save',
 	/** Where the band's back goes with no opener recorded. */
 	backToToday: 'Back to Today',
-	backToMusic: 'Back to Music',
-	/** What a refused save says. */
-	refused: {
-		couldNotSave: 'Could not save that run.',
-		noteTooLong: 'That note is too long — keep it under 2000 characters.'
-	}
+	backToMusic: 'Back to Music'
 };

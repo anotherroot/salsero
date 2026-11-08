@@ -40,27 +40,6 @@ export const player: Catalog['player'] = {
 	countNotStarted: 'Štetje se še ni začelo',
 	countDigit: (digit) => `Štetje ${digit}`,
 	bpm: (n) => `${n} BPM`,
-	// "1 napovedana različica", "2 napovedani različici", "5 napovedanih različic"
-	called: (n) =>
-		slCount(n, [
-			'napovedana različica',
-			'napovedani različici',
-			'napovedane različice',
-			'napovedanih različic'
-		]),
-	saveTitle: 'Shrani vadenje',
-	unsavedLabel: 'To vadenje',
-	exercise: 'Vaja',
-	chooseExercise: 'Izberite vajo\u00a0…',
-	chooseExerciseTitle: 'Izberite vajo',
-	searchExercises: 'Iskanje vaj',
-	noExercises: 'Še ni vaj.',
-	notePlaceholder: 'Kaj si želite zapomniti?',
-	dontSave: 'Ne shrani',
 	backToToday: 'Nazaj: Danes',
-	backToMusic: 'Nazaj: Glasba',
-	refused: {
-		couldNotSave: 'Tega vadenja ni bilo mogoče shraniti.',
-		noteTooLong: 'Opomba je predolga: največ 2000 znakov.'
-	}
+	backToMusic: 'Nazaj: Glasba'
 };

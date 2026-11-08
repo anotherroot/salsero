@@ -7,8 +7,8 @@ dance: the same songs, the same beat grid, a different count pattern.
 
 **Live:** phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
-player: voice count, clave, count-only runs, and a finished run logged as a
-set), phase 3a (positions, the figure graph, the gap report), phase 3b
+player: voice count, clave, count-only runs; since 2026-11-08 a run logs
+nothing, Done on the exercise page does), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the

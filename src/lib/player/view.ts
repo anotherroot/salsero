@@ -5,12 +5,8 @@
  * Back goes.
  */
 import type { Dance, DanceSlug } from '$lib/dances/dances';
-import type { ScheduleState } from '$lib/schedule/schedule';
-import { dueWords } from '$lib/schedule/words';
-import { typeInfo } from '$lib/exercises/kinds';
-import { clock } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
-import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
+import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 import type { CountTakeRow } from '$lib/types';
@@ -151,14 +147,6 @@ export function runSources(): { value: string; label: string }[] {
 	];
 }
 
-/** `calls` null: not a routine run. Gone with the Save screen (one-player plan, Task 1). */
-export function runSummary(durationS: number, calls: number | null): string {
-	const w = t().player;
-	return [clock(durationS), calls === null ? null : w.called(calls)]
-		.filter((p) => p !== null)
-		.join(' · ');
-}
-
 export function playState(p: {
 	source: 'count' | 'song';
 	songId: number | null;
@@ -192,17 +180,6 @@ export function voiceKind(
 	) === null
 		? w.builtIn
 		: w.yours;
-}
-
-/** "Figure practice · Due today"; just the type when the schedule is not known. */
-export function exerciseLine(e: {
-	source: Source;
-	state: ScheduleState | null;
-	today: string;
-}): string {
-	const label = typeInfo(e.source).label;
-	if (!e.state) return label;
-	return `${label} · ${dueWords(e.state, e.today, e.state.lastDay === null)[0].text}`;
 }
 
 /**

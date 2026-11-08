@@ -74,7 +74,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
 import { actions as todayActions, load as todayLoad } from './(today)/+page.server';
-import { actions as playerActions, load as playerLoad } from './player/+page.server';
+import { load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
 import * as exercisePage from './(today)/exercises/[id]/+page.server';
@@ -386,19 +386,14 @@ describe("the player's song picker stays on its own side", () => {
 });
 
 describe("the player refuses the other dance's exercise", () => {
-	it('will not save a run against an exercise from the other dance', async () => {
-		await refuses(
-			playerActions.save,
-			post('salsa', {
-				exerciseId: String(bachataExerciseId),
-				durationS: '120',
-				rating: '4',
-				note: '',
-				run: ''
-			})
-		);
-		// Only the seeded set: the run was never logged.
-		expect(db.select().from(sets).all()).toHaveLength(1);
+	it('opens without an exercise from the other dance', () => {
+		const load = playerLoad as unknown as (e: unknown) => { exercise: unknown };
+		const opened = load({
+			params: { dance: 'salsa' },
+			url: new URL(`http://localhost/salsa/player?exercise=${bachataExerciseId}`),
+			locals: { user: { ...USER, dance: 'salsa' } }
+		});
+		expect(opened.exercise).toBeNull();
 	});
 });
 

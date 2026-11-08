@@ -4,7 +4,6 @@ import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import {
-	exerciseLine,
 	playState,
 	practiceBack,
 	routineHeading,
@@ -13,7 +12,6 @@ import {
 	stepMarks,
 	runSubtitle,
 	runSources,
-	runSummary,
 	runTitleCompact,
 	setupSubtitle,
 	slotTone,
@@ -83,11 +81,6 @@ describe('what the Practice page derives', () => {
 			runSubtitle({ routine: null, song: true, speed: 1, bpm: null, clave: null }, salsa)
 		).toBeUndefined();
 	});
-	it('sums the run up, dropping the calls when nothing was called by design', () => {
-		expect(runSummary(222, 12)).toBe('3:42 · 12 figures called');
-		expect(runSummary(60, 1)).toBe('1:00 · 1 figure called');
-		expect(runSummary(252, null)).toBe('4:12');
-	});
 	it('says why Play cannot start', () => {
 		const base = { source: 'song', songId: 4, ready: true, error: null, starting: false } as const;
 		expect(playState({ ...base, source: 'count', songId: null, ready: false })).toEqual({
@@ -131,18 +124,6 @@ describe('what the Practice page derives', () => {
 		expect(voiceKind(takes, 'all', 180)).toBe('Built-in');
 		expect(voiceKind(takes, 'salsa', 230)).toBe('Built-in');
 		expect(voiceKind(takes, 'salsa', null)).toBe('Built-in');
-	});
-	it('describes the exercise a run logs to', () => {
-		const today = '2026-10-31';
-		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-10-31' };
-		expect(exerciseLine({ source: 'routine', state, today })).toBe('Routine · Due today');
-		expect(
-			exerciseLine({ source: 'figure', state: { ...state, dueDay: '2026-10-29' }, today })
-		).toBe('Figure practice · Due today');
-		expect(exerciseLine({ source: 'figure', state: { ...state, lastDay: null }, today })).toBe(
-			'Figure practice · New'
-		);
-		expect(exerciseLine({ source: 'figure', state: null, today })).toBe('Figure practice');
 	});
 	it('shows no number for a count run without a tempo', () => {
 		expect(
@@ -261,13 +242,11 @@ describe('runSources', () => {
 describe('the Practice page in Slovenian', () => {
 	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
 
-	it('counts the routine’s versions and the calls with Slovenian plurals', () => {
+	it('counts the routine’s versions with Slovenian plurals', () => {
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2] }))).toBe('Prva · 2 različici');
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3, 4, 5] }))).toBe(
 			'Prva · 5 različic'
 		);
-		expect(sl(() => runSummary(222, 3))).toBe('3:42 · 3 napovedane različice');
-		expect(sl(() => runSummary(60, 1))).toBe('1:00 · 1 napovedana različica');
 	});
 
 	it('writes a speed with a decimal comma', () => {
