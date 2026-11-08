@@ -81,7 +81,10 @@
 				const a = nodeById.get(e.from)!;
 				const b = nodeById.get(e.to)!;
 				const key = edgeKey(e);
-				return { ...e, key, on: lit.edges.has(key), ...edgeGeometry(a, b, e.from === e.to) };
+				// Until the pill arrows (Task 3): each pill as the circle of half its height.
+				const ca = { x: a.x, y: a.y, r: a.h / 2 };
+				const cb = e.from === e.to ? ca : { x: b.x, y: b.y, r: b.h / 2 };
+				return { ...e, key, on: lit.edges.has(key), ...edgeGeometry(ca, cb, e.from === e.to) };
 			})
 			.sort((x, y) => Number(x.on) - Number(y.on))
 	);
@@ -326,55 +329,43 @@
 							<!-- Who a twinned node stands for: the pointer's tooltip. -->
 							<title>{p.twinsLine}</title>
 						{/if}
-						{#if on}
-							<circle cx={n.x} cy={n.y} r={n.r + 9} style:fill={TONE_VAR[t]} fill-opacity="0.18" />
-						{/if}
-						{#if n.mark}
-							<circle
-								cx={n.x}
-								cy={n.y}
-								r={n.r + 5}
-								fill="none"
-								stroke-width="2"
-								stroke-dasharray={n.mark === 'orphan' ? '4 4' : undefined}
-								style:stroke="var(--color-danger)"
-							/>
-						{/if}
-						<circle
-							cx={n.x}
-							cy={n.y}
-							r={n.r}
+						<!-- An interim pill until the map's rewrite: its box and its first line. -->
+						<rect
+							x={n.x - n.w / 2}
+							y={n.y - n.h / 2}
+							width={n.w}
+							height={n.h}
+							rx={n.h / 2}
 							fill-opacity={on ? 1 : 0.16}
-							stroke-width="2.2"
+							stroke-width="2"
+							stroke-dasharray={n.mark === 'orphan' ? '4 4' : undefined}
 							style:fill={TONE_VAR[t]}
-							style:stroke={TONE_VAR[t]}
+							style:stroke={n.mark ? 'var(--color-danger)' : TONE_VAR[t]}
 						/>
 						<!-- The focus ring: the link's own outline would box the whole group. -->
-						<circle
-							cx={n.x}
-							cy={n.y}
-							r={n.r + (n.mark ? 9 : 4)}
+						<rect
+							x={n.x - n.w / 2 - 4}
+							y={n.y - n.h / 2 - 4}
+							width={n.w + 8}
+							height={n.h + 8}
+							rx={n.h / 2 + 4}
 							fill="none"
 							stroke-width="2.5"
 							class="opacity-0 group-focus-visible:opacity-100"
 							style:stroke="var(--color-accent)"
 						/>
 						<text
-							x={n.labelX}
-							y={n.labelY}
+							x={n.x}
+							y={n.y}
 							text-anchor="middle"
 							dominant-baseline="central"
-							class="text-[13.5px] font-extrabold"
-							stroke-width="5"
-							stroke-linejoin="round"
-							paint-order="stroke"
-							style:fill="var(--color-ink)"
-							style:stroke="var(--color-surface)">{p?.label}</text
+							class="text-[13px] font-extrabold"
+							style:fill="var(--color-ink)">{n.lines[0]}</text
 						>
 						{#if n.mark && n.markY !== null}
 							<!-- The label's second line, which the layout keeps clear (`markBox`). -->
 							<text
-								x={n.labelX}
+								x={n.x}
 								y={n.markY}
 								text-anchor="middle"
 								dominant-baseline="central"
@@ -389,7 +380,7 @@
 							<!-- Twins are one node (ruling 16): the line after the name's and the
 							     mark's, which the layout keeps clear (`twinsBox`). -->
 							<text
-								x={n.labelX}
+								x={n.x}
 								y={n.twinsY}
 								text-anchor="middle"
 								dominant-baseline="central"

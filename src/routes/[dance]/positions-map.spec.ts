@@ -133,7 +133,8 @@ describe('the map', () => {
 		const node = (id: number) => d.layout.nodes.find((x: any) => x.id === id);
 		expect(node(caida).mark).toBe('dead end');
 		expect(node(cerrada).mark).toBe(null);
-		expect(node(cerrada).r).toBeGreaterThan(node(caida).r);
+		// A pill holds its name; its size comes from the name, not the figures.
+		expect(node(cerrada)).toMatchObject({ lines: ['Cerrada'], w: 93.2, h: 32 });
 
 		const pos = (id: number) => d.positions.find((p: any) => p.id === id);
 		expect(d.positions.map((p: any) => p.id).sort()).toEqual(

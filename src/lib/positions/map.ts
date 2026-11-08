@@ -1,6 +1,6 @@
 /**
- * The map: where each position sits on the Positions map, how big it is, and
- * what goes in the tray under it.
+ * The map: where each position's pill sits on the Positions map, how big it
+ * is, and what goes in the tray under it.
  *
  * PURE and client-safe: no DOM, no randomness, no clock. The same input gives
  * the same layout, whatever order its positions and edges come in, so the map
@@ -11,18 +11,21 @@
  * `tray.unused`, positions in an island to `tray.islands`. A part of ONE
  * position is never an island, so it is drawn, wherever the forces leave it.
  *
+ * Each position is a pill: a rounded box holding its name, on one line or two
+ * (`pillLines`), sized from the name (`pillSize`). A dead end's or orphan's
+ * word sits on a line under the pill (`markBox` at `markY`), and a twinned
+ * position's (ruling 16: twins are one node) "Twins" on the line after that
+ * (`twinsBox` at `twinsY`). The pill and its lines are one outline, and the
+ * layout keeps every outline clear of every other and inside the frame.
+ *
  * The layout: Fruchterman–Reingold over the drawn positions, `steps` (400)
  * steps from a circle in folded-name order (ideal spacing half the classic
  * √(area/n): names need the frame's room more than the springs do), then
- * passes that push circles and label boxes apart until nothing touches —
- * usually well under the brief's 60; the cap is 600 (`MAX_PASSES`), and
- * `onStats` says how many it took and whether it settled. Every node, circle
- * and label stays inside the frame: a label is at most `LABEL_MAX` characters
- * (280 px, the page cuts a longer name with `mapLabel`), and the smallest frame
- * is 360 px. A dead end's or orphan's label has a second line, its word
- * (`markBox` at `markY`), and a twinned position's (ruling 16: twins are one
- * node) a line after that, "Twins" (`twinsBox` at `twinsY`); the layout keeps
- * every line clear.
+ * passes that push outlines apart until nothing touches — usually well under
+ * the brief's 60; the cap is 600 (`MAX_PASSES`), and `onStats` says how many
+ * it took and whether it settled. The frame is portrait (`mapSize`), the
+ * phone's shape. A name is at most `LABEL_MAX` characters (`mapLabel` cuts a
+ * longer one), so the widest pill is 344 px and fits the narrowest frame.
  */
 import { fold } from '$lib/fold';
 import { TWINS_CHIP } from '$lib/clones/twins';
@@ -59,22 +62,24 @@ export interface MapInput {
 
 export interface MapNode {
 	id: number;
+	/** The pill's centre. */
 	x: number;
 	y: number;
-	r: number;
-	/** The centre of the name's box (`labelBox`): text-anchor middle, baseline central. */
-	labelX: number;
-	labelY: number;
+	/** The pill's size (`pillSize`). */
+	w: number;
+	h: number;
+	/** The name in the pill: `mapLabel`'s, split by `pillLines`. */
+	lines: string[];
 	mark: 'dead end' | 'orphan' | null;
 	/**
-	 * The centre of the mark word's line (`markBox`), right under the name's:
-	 * `labelY + LABEL_HEIGHT`. Null without a mark.
+	 * The centre of the mark word's line (`markBox`), right under the pill:
+	 * `y + h / 2 + LINE_GAP + LINE_HEIGHT / 2`. Null without a mark.
 	 */
 	markY: number | null;
 	twins: boolean;
 	/**
-	 * The centre of the Twins line (`twinsBox`): under the name's, or under the
-	 * mark's when there is one. Null unless `twins`.
+	 * The centre of the Twins line (`twinsBox`): under the pill, or under the
+	 * mark's line when there is one. Null unless `twins`.
 	 */
 	twinsY: number | null;
 }
@@ -100,42 +105,40 @@ export interface MapStats {
 	settled: boolean;
 }
 
-/** The label estimate: 7 px a character, 14 px high. */
-export const LABEL_CHAR = 7;
-export const LABEL_HEIGHT = 14;
+/** The pill's name, in px. */
+export const PILL_FONT = 13;
+/** The pill's estimate: 7.6 px a character of its widest line, and 40 for the dot and the ends. */
+const PILL_CHAR = 7.6;
+const PILL_PAD = 40;
+/** A pill's height: one line, or two. */
+const PILL_ONE = 32;
+const PILL_TWO = 46;
+/** A name longer than this goes on two lines, when it has a space to split at. */
+const PILL_SPLIT = 16;
+/** A line under the pill (the mark word, Twins): 14 px high, 2 px below what is above it. */
+export const LINE_HEIGHT = 14;
+const LINE_GAP = 2;
 /**
  * The longest name the map shows whole: past it the page cuts the name to
- * `LABEL_MAX - 1` characters and an ellipsis (`mapLabel`), so no label is wider
- * than 280 px and every one fits the smallest frame.
+ * `LABEL_MAX - 1` characters and an ellipsis (`mapLabel`), so no pill is wider
+ * than 344 px and every one fits the narrowest frame.
  */
 export const LABEL_MAX = 40;
 /**
- * A dead end's or orphan's word, in capitals on a second line under its name
- * (the page's 10.5 px with tracking): about 8 px a character.
+ * A dead end's or orphan's word, in capitals on a line under its pill (the
+ * page's 10.5 px with tracking): about 8 px a character.
  */
 export const MARK_CHAR = 8;
-/** Between a circle's bottom and its label's top. */
-const LABEL_GAP = 4;
 /** Kept clear inside the frame's edge. */
 const PAD = 4;
 /**
- * The push passes act on two things closer than TOUCH and part them to AIR.
+ * The push passes act on two outlines closer than TOUCH and part them to AIR.
  * The slack between the two is what lets the passes settle instead of
  * creeping towards zero forever.
  */
 const TOUCH = 1;
 const AIR = 4;
 export const MAX_PASSES = 600;
-
-/** 7 px a character of what `mapLabel` writes: at most 280 px. */
-function labelWidth(name: string): number {
-	return Math.min([...name].length, LABEL_MAX) * LABEL_CHAR;
-}
-
-/** 14 + 4·√figures, capped at 34. */
-export function nodeRadius(figures: number): number {
-	return Math.min(34, 14 + 4 * Math.sqrt(Math.max(0, figures)));
-}
 
 /** 1 + figures, capped at 6. */
 export function edgeWidth(figures: number): number {
@@ -148,14 +151,37 @@ export function mapLabel(name: string): string {
 	return chars.length <= LABEL_MAX ? name : chars.slice(0, LABEL_MAX - 1).join('') + '…';
 }
 
-/** The box a name is estimated to take on the map (`mapLabel`), centred on (x, y). */
-export function labelBox(
-	name: string,
-	x: number,
-	y: number
-): { x0: number; y0: number; x1: number; y1: number } {
-	const w = labelWidth(name);
-	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
+const length = (s: string) => [...s].length;
+
+/**
+ * The pill's lines: the name on one, or, when it is longer than 16 characters
+ * and has a space, on two split at the space that makes the longer line
+ * shortest (the first such space on a tie).
+ */
+export function pillLines(name: string): string[] {
+	if (length(name) <= PILL_SPLIT) return [name];
+	const words = name.split(/\s+/).filter(Boolean);
+	if (words.length < 2) return [name];
+	let best: string[] = [name];
+	let longest = Infinity;
+	for (let i = 1; i < words.length; i++) {
+		const two = [words.slice(0, i).join(' '), words.slice(i).join(' ')];
+		const m = Math.max(length(two[0]), length(two[1]));
+		if (m < longest) {
+			longest = m;
+			best = two;
+		}
+	}
+	return best;
+}
+
+/** A pill's size: its widest line at 7.6 px a character, and 40; 32 high, or 46 for two lines. */
+export function pillSize(lines: string[]): { w: number; h: number } {
+	const widest = Math.max(0, ...lines.map(length));
+	return {
+		w: Math.round((widest * PILL_CHAR + PILL_PAD) * 10) / 10,
+		h: lines.length > 1 ? PILL_TWO : PILL_ONE
+	};
 }
 
 /** The Twins line's width: the lists' word, at the mark's size (`MARK_CHAR` a character). */
@@ -165,9 +191,9 @@ const TWINS_WIDTH = [...TWINS_CHIP].length * MARK_CHAR;
 export function twinsBox(x: number, y: number): { x0: number; y0: number; x1: number; y1: number } {
 	return {
 		x0: x - TWINS_WIDTH / 2,
-		y0: y - LABEL_HEIGHT / 2,
+		y0: y - LINE_HEIGHT / 2,
 		x1: x + TWINS_WIDTH / 2,
-		y1: y + LABEL_HEIGHT / 2
+		y1: y + LINE_HEIGHT / 2
 	};
 }
 
@@ -183,18 +209,23 @@ export function markBox(
 	y: number
 ): { x0: number; y0: number; x1: number; y1: number } {
 	const w = markWidth(mark);
-	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
+	return { x0: x - w / 2, y0: y - LINE_HEIGHT / 2, x1: x + w / 2, y1: y + LINE_HEIGHT / 2 };
 }
 
+/** The room a position takes in the frame: about 160 × 160 px, a pill and its arrows. */
+const AREA = 160 * 160;
+
 /**
- * The frame for n drawn positions: a square of 140·√n, never under 360 — about
- * 140 × 140 px a position, room for a circle and a name of twenty-odd
- * characters. The page scales it to fit and pinch-zooms it. Nothing drawn: 0.
+ * The frame for n drawn positions: portrait, 7 wide to 10 high (the phone's
+ * shape, between the floating title and the tray; the desktop's map column
+ * beside its panel is about as tall), about `AREA` a position, and never
+ * under 360 across. The page fits the view to it and pinch-zooms it.
+ * Nothing drawn: 0.
  */
 export function mapSize(n: number): { width: number; height: number } {
 	if (n === 0) return { width: 0, height: 0 };
-	const side = Math.max(360, Math.ceil(140 * Math.sqrt(n)));
-	return { width: side, height: side };
+	const width = Math.max(360, Math.ceil(Math.sqrt((n * AREA * 7) / 10)));
+	return { width, height: Math.ceil((width * 10) / 7) };
 }
 
 /** By folded name, then id. */
@@ -263,10 +294,10 @@ function gapsFromEdges(
 const round = (v: number) => Math.round(v * 10) / 10;
 
 /**
- * The drawn positions as the layout moves them: centres in `x`/`y`, and what
- * each one takes around its centre. Typed arrays and plain loops: the layout
- * runs about a million pair checks, and `Math.hypot` or closures there cost
- * tens of milliseconds.
+ * The drawn positions as the layout moves them: pill centres in `x`/`y`, and
+ * the outline each one takes around its centre (the pill, and the lines
+ * under it). Typed arrays and plain loops: the layout runs about a million
+ * pair checks, and `Math.hypot` or closures there cost tens of milliseconds.
  */
 interface Bodies {
 	n: number;
@@ -274,24 +305,21 @@ interface Bodies {
 	height: number;
 	x: Float64Array;
 	y: Float64Array;
-	r: Float64Array;
-	/** The label's width: the widest of its lines. */
-	w: Float64Array;
-	/** The label's height: the name's line, then a dead end's or orphan's word, then Twins. */
-	lh: Float64Array;
-	/** Half the outline's width: the circle or the label, whichever is wider. */
+	/** Half the outline's width: the pill or a line under it, whichever is wider. */
 	half: Float64Array;
-	/** The outline's height: circle, gap and label (one line or two). */
+	/** From the centre up to the outline's top: half the pill's height. */
+	up: Float64Array;
+	/** The outline's height: the pill, then a dead end's or orphan's word, then Twins. */
 	tall: Float64Array;
 }
 
-/** Keeps a body inside the frame, label and all. */
+/** Keeps a body inside the frame, lines and all. */
 function clamp(b: Bodies, i: number) {
 	const x0 = b.half[i] + PAD;
 	const x1 = b.width - b.half[i] - PAD;
 	b.x[i] = x0 > x1 ? b.width / 2 : Math.min(x1, Math.max(x0, b.x[i]));
-	const y0 = b.r[i] + PAD;
-	const y1 = b.height - (b.tall[i] - b.r[i]) - PAD;
+	const y0 = b.up[i] + PAD;
+	const y1 = b.height - (b.tall[i] - b.up[i]) - PAD;
 	b.y[i] = y0 > y1 ? b.height / 2 : Math.min(y1, Math.max(y0, b.y[i]));
 }
 
@@ -347,69 +375,50 @@ function settle(b: Bodies, springs: Int32Array, steps: number) {
 	}
 }
 
-/** Whether circle c touches the label of l. */
-function circleOnLabel(b: Bodies, c: number, l: number): boolean {
-	const top = b.y[l] + b.r[l] + LABEL_GAP;
-	const px = Math.max(b.x[l] - b.w[l] / 2, Math.min(b.x[c], b.x[l] + b.w[l] / 2));
-	const py = Math.max(top, Math.min(b.y[c], top + b.lh[l]));
-	const ux = b.x[c] - px;
-	const uy = b.y[c] - py;
-	const reach = b.r[c] + TOUCH;
-	return ux * ux + uy * uy < reach * reach;
-}
-
 /**
- * How far two outlines overlap top to bottom, when `i` is the upper one: an
- * outline runs from its circle's top to its label's last line, so it is not
- * centred on the circle, and two with labels of different heights reach
- * different lengths below their centres.
+ * Which of two outlines is the upper one: the higher top, the lower index on
+ * a tie. An outline is not centred on its pill (the lines hang under it), so
+ * the tops decide, not the centres.
  */
-function overlapY(b: Bodies, i: number, j: number): number {
-	const [hi, lo] = b.y[i] <= b.y[j] ? [i, j] : [j, i];
-	return b.y[hi] - b.r[hi] + b.tall[hi] - (b.y[lo] - b.r[lo]);
+function upper(b: Bodies, i: number, j: number): number {
+	const ti = b.y[i] - b.up[i];
+	const tj = b.y[j] - b.up[j];
+	return ti < tj || (ti === tj && i < j) ? i : j;
 }
 
-/** Whether two bodies touch: two circles, two labels, or a circle on the other's label. */
-function touch(b: Bodies, i: number, j: number): boolean {
-	const ux = Math.abs(b.x[i] - b.x[j]);
-	const uy = Math.abs(b.y[i] - b.y[j]);
-	// outlines apart: nothing inside them can touch
-	if (ux >= b.half[i] + b.half[j] + TOUCH) return false;
-	if (overlapY(b, i, j) <= -TOUCH) return false;
-	const reach = b.r[i] + b.r[j] + TOUCH;
-	if (ux * ux + uy * uy < reach * reach) return true;
-	// labels: each below its circle, one line high or two
-	const ti = b.y[i] + b.r[i];
-	const tj = b.y[j] + b.r[j];
-	if (ux < (b.w[i] + b.w[j]) / 2 + TOUCH && ti < tj + b.lh[j] + TOUCH && tj < ti + b.lh[i] + TOUCH)
-		return true;
-	return circleOnLabel(b, i, j) || circleOnLabel(b, j, i);
+/** How far two outlines overlap top to bottom: the upper one's bottom less the lower one's top. */
+function overlapY(b: Bodies, hi: number, lo: number): number {
+	return b.y[hi] - b.up[hi] + b.tall[hi] - (b.y[lo] - b.up[lo]);
 }
 
 /**
- * Parts whatever still touches. A body moves as one piece, circle and label
- * together, so two that touch are parted along the shallower overlap of their
- * outlines: parting circles and labels each their own way ping-pongs when one
- * body's circle sits on another's label. Until nothing touches, or the cap.
+ * Parts whatever still touches: two outlines closer than TOUCH both ways. A
+ * body moves as one piece, pill and lines together, along the shallower
+ * overlap of the two outlines. Until nothing touches, or the cap.
  */
 function pushApart(b: Bodies): MapStats {
-	const { n, x, y } = b;
+	const { n, x, y, half } = b;
 	for (let pass = 0; pass < MAX_PASSES; pass++) {
 		let pushed = false;
 		for (let i = 0; i < n; i++)
 			for (let j = i + 1; j < n; j++) {
-				if (!touch(b, i, j)) continue;
+				const ox = half[i] + half[j] - Math.abs(x[i] - x[j]);
+				if (ox <= -TOUCH) continue;
+				const hi = upper(b, i, j);
+				const oy = overlapY(b, hi, hi === i ? j : i);
+				if (oy <= -TOUCH) continue;
 				pushed = true;
-				const ox = b.half[i] + b.half[j] - Math.abs(x[i] - x[j]) + AIR;
-				const oy = overlapY(b, i, j) + AIR;
-				if (oy <= ox) {
-					const s = y[i] < y[j] || (y[i] === y[j] && i < j) ? -1 : 1;
-					y[i] += (s * oy) / 2;
-					y[j] -= (s * oy) / 2;
+				// Two too wide to sit side by side in the frame go one above the other,
+				// whichever overlap is shallower: the frame would only push them back.
+				const side = 2 * (half[i] + half[j]) + 2 * PAD + AIR <= b.width;
+				if (oy <= ox || !side) {
+					const s = hi === i ? -1 : 1;
+					y[i] += (s * (oy + AIR)) / 2;
+					y[j] -= (s * (oy + AIR)) / 2;
 				} else {
 					const s = x[i] < x[j] || (x[i] === x[j] && i < j) ? -1 : 1;
-					x[i] += (s * ox) / 2;
-					x[j] -= (s * ox) / 2;
+					x[i] += (s * (ox + AIR)) / 2;
+					x[j] -= (s * (ox + AIR)) / 2;
 				}
 			}
 		for (let i = 0; i < n; i++) clamp(b, i);
@@ -453,32 +462,28 @@ export function layoutMap(
 	if (n === 0) return { width, height, nodes: [], edges: [], tray };
 
 	const index = new Map(drawn.map((p, i) => [p.id, i]));
-	const r = Float64Array.from(drawn, (p) => nodeRadius(p.figures));
-	// A dead end or orphan writes its word on a second line, under its name.
+	const lines = drawn.map((p) => pillLines(mapLabel(p.name)));
+	const pills = lines.map(pillSize);
+	// A dead end or orphan writes its word on a line under its pill.
 	const marks = drawn.map((p) => {
 		const g = gapsOf(p);
 		return g.deadEnd ? ('dead end' as const) : g.orphan ? ('orphan' as const) : null;
 	});
 	// A twinned one writes Twins on the line after that.
 	const twinned = drawn.map((p) => p.twins ?? false);
-	const w = Float64Array.from(drawn, (p, i) =>
-		Math.max(labelWidth(p.name), markWidth(marks[i]), twinned[i] ? TWINS_WIDTH : 0)
-	);
-	const lh = Float64Array.from(
-		marks,
-		(m, i) => (1 + (m ? 1 : 0) + (twinned[i] ? 1 : 0)) * LABEL_HEIGHT
-	);
+	const under = marks.map((m, i) => (m ? 1 : 0) + (twinned[i] ? 1 : 0));
 	const b: Bodies = {
 		n,
 		width,
 		height,
 		x: new Float64Array(n),
 		y: new Float64Array(n),
-		r,
-		w,
-		lh,
-		half: r.map((ri, i) => Math.max(ri, w[i] / 2)),
-		tall: r.map((ri, i) => 2 * ri + LABEL_GAP + lh[i])
+		half: Float64Array.from(
+			pills,
+			(p, i) => Math.max(p.w, markWidth(marks[i]), twinned[i] ? TWINS_WIDTH : 0) / 2
+		),
+		up: Float64Array.from(pills, (p) => p.h / 2),
+		tall: Float64Array.from(pills, (p, i) => p.h + under[i] * (LINE_GAP + LINE_HEIGHT))
 	};
 
 	// Start: a circle in folded-name order, from the top, clockwise.
@@ -508,19 +513,23 @@ export function layoutMap(
 	opts.onStats?.(stats);
 
 	const nodes: MapNode[] = drawn.map((p, i) => {
-		const labelY = round(b.y[i] + r[i] + LABEL_GAP + LABEL_HEIGHT / 2);
-		const below = marks[i] ? 2 : 1;
+		const x = round(b.x[i]);
+		const y = round(b.y[i]);
+		const { w, h } = pills[i];
+		// The first line's centre under the pill; each next one a gap and a line further.
+		const first = round(y + h / 2 + LINE_GAP + LINE_HEIGHT / 2);
+		const markY = marks[i] ? first : null;
 		return {
 			id: p.id,
-			x: round(b.x[i]),
-			y: round(b.y[i]),
-			r: r[i],
-			labelX: round(b.x[i]),
-			labelY,
+			x,
+			y,
+			w,
+			h,
+			lines: lines[i],
 			mark: marks[i],
-			markY: marks[i] ? round(labelY + LABEL_HEIGHT) : null,
+			markY,
 			twins: twinned[i],
-			twinsY: twinned[i] ? round(labelY + below * LABEL_HEIGHT) : null
+			twinsY: twinned[i] ? (markY === null ? first : round(markY + LINE_GAP + LINE_HEIGHT)) : null
 		};
 	});
 	const drawnEdges = edges
