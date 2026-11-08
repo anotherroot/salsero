@@ -1,95 +1,22 @@
 /**
- * Logging a set and deleting one, shared by every page that opens a log popup:
- * Today, the exercise page, the figure page and the lesson page. One parser,
- * one set of rules — before this, three pages each carried their own bare-log
- * action, each checking the exercise a little differently.
- *
- * Only the fields the exercise's TYPE has are stored (`hasField`): a figure's
- * form posting reps is ignored, not written. And a back-filled set never gets
- * a player run — a run is something that happened now.
+ * Done and its Undo, and deleting a day and putting it back: the exercise page's
+ * and Today's past day's actions. One parser, one set of rules.
  */
 import { error, fail, type ActionFailure } from '@sveltejs/kit';
 import { getDb } from './db';
-import { deleteDay, deleteSet, getSet, logSet, restoreSets, saveDay, undoSave } from './exercises';
+import { deleteDay, getSet, restoreSets, saveDay, undoSave } from './exercises';
 import { int, optionalInt, optionalText } from './form';
 import { requireExerciseInWall, wallOf } from './scope';
 import { scheduleStateOf } from './schedule';
 import { daysBetween, isValidDay, localDay, noonOf } from '$lib/day/day';
-import { hasField } from '$lib/exercises/kinds';
 import { t } from '$lib/i18n/catalog';
 import type { DoneResult, SetSnapshot } from '$lib/types';
 
 export type LogEvent = { params: { dance: string }; request: Request; locals: App.Locals };
 
-export async function logSetFrom({ params, request, locals }: LogEvent) {
-	if (!locals.user) throw error(401);
-	const tz = locals.user.timezone;
-	const wall = wallOf(params, locals);
-	const form = await request.formData();
-	const exerciseId = int(form, 'exerciseId');
-	const durationMin = optionalInt(form, 'durationMin', 0, 600);
-	const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
-	const reps = optionalInt(form, 'reps', 0, 10_000);
-	const rating = optionalInt(form, 'rating', 1, 5);
-	const note = optionalText(form, 'note');
-	// The summary of a run is a nicety; the set is the point. An overlong one is
-	// dropped rather than costing the user the set — the player's own rule.
-	const run = optionalText(form, 'run', 4000);
-	const day = String(form.get('day') ?? '');
-
-	if (
-		exerciseId === undefined ||
-		durationMin === undefined ||
-		durationS === undefined ||
-		reps === undefined ||
-		rating === undefined ||
-		note === undefined
-	) {
-		return fail(400, { action: 'log', message: t().exercise.refused.checkValues });
-	}
-
-	// The id arrives in a form body, so it is checked against the URL's dance
-	// rather than trusted.
-	const exercise = requireExerciseInWall(getDb(), wall, exerciseId);
-	const has = (f: Parameters<typeof hasField>[1]) => hasField(exercise.source, f);
-
-	if (has('rating') && rating === null) {
-		return fail(400, { action: 'log', message: t().exercise.log.pickFeel });
-	}
-
-	const now = Date.now();
-	const backfill = isValidDay(day) && day < localDay(now, tz);
-	// Exact seconds come from the practice panel; typing into Minutes clears
-	// them on the client, so when both arrive the panel's are the truth.
-	const seconds = durationS ?? (durationMin === null ? null : durationMin * 60);
-	try {
-		const { set, before } = saveDay(
-			getDb(),
-			{
-				exerciseId,
-				doneAt: backfill ? noonOf(day, tz) : now,
-				durationS: has('minutes') ? seconds : null,
-				reps: has('reps') ? reps : null,
-				rating: has('rating') ? rating : null,
-				note: has('note') ? note : null,
-				playerJson: backfill ? null : (run ?? null)
-			},
-			tz
-		);
-		return {
-			action: 'log' as const,
-			ok: true,
-			setId: set.id,
-			before: before && JSON.stringify(before)
-		};
-	} catch {
-		return fail(400, { action: 'log', message: t().exercise.refused.gone });
-	}
-}
-
 /**
- * A set snapshot from a form field, or null. The same limits `logSetFrom`
- * applies, plus: the instant is a real past one.
+ * A set snapshot from a form field, or null. Limits: ids and lengths as
+ * Done applies them, and the instant is a real past one.
  */
 export function parseSetSnapshot(raw: string, now: number): SetSnapshot | null {
 	let v: unknown;
@@ -120,51 +47,6 @@ export function parseSetSnapshot(raw: string, now: number): SetSnapshot | null {
 		note: o.note as string | null,
 		playerJson: o.playerJson as string | null
 	};
-}
-
-export async function deleteSetFrom({ params, request, locals }: LogEvent) {
-	const id = int(await request.formData(), 'setId');
-	// A set already gone is a refusal the page can show, not a 404 page.
-	const row = id === undefined ? null : getSet(getDb(), id);
-	if (id === undefined || !row) {
-		return fail(404, { action: 'deleteSet', message: t().exercise.refused.setGone });
-	}
-	// Before the delete, not after: `deleteSet` takes an id alone, so a set from
-	// the other dance would already be gone by the time it answered.
-	requireExerciseInWall(getDb(), wallOf(params, locals), row.exerciseId);
-	if (!deleteSet(getDb(), id)) {
-		return fail(404, { action: 'deleteSet', message: t().exercise.refused.setGone });
-	}
-	const snapshot: SetSnapshot = {
-		exerciseId: row.exerciseId,
-		doneAt: row.doneAt,
-		durationS: row.durationS,
-		reps: row.reps,
-		rating: row.rating,
-		note: row.note,
-		playerJson: row.playerJson
-	};
-	return { action: 'deleteSet' as const, ok: true, snapshot: JSON.stringify(snapshot) };
-}
-
-/**
- * Undo of a delete. The delete happened at once (spec "Additions"); Undo
- * re-inserts the same values with the original instant: a new id, the same
- * set. Nothing is held back on the client.
- */
-export async function restoreSetFrom({ params, request, locals }: LogEvent) {
-	const form = await request.formData();
-	const snap = parseSetSnapshot(String(form.get('snapshot') ?? ''), Date.now());
-	if (!snap) {
-		return fail(400, { action: 'restoreSet', message: t().exercise.refused.putBack });
-	}
-	requireExerciseInWall(getDb(), wallOf(params, locals), snap.exerciseId);
-	try {
-		logSet(getDb(), snap);
-	} catch {
-		return fail(400, { action: 'restoreSet', message: t().exercise.refused.putBack });
-	}
-	return { action: 'restoreSet' as const, ok: true };
 }
 
 /**

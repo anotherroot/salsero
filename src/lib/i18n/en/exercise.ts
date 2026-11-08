@@ -10,59 +10,22 @@ export const exercise = {
 		figure: 'Figure practice',
 		drill: 'Drill',
 		routine: 'Routine',
-		remember: 'How well do you remember it?',
 		howItWent: 'How did it go?'
 	},
-	/** The log form and its footer. */
+	/** The Done sheet's small words. */
 	log: {
-		logSet: 'Log set',
-		/** The simple popup's button. */
 		done: 'Done',
 		saving: 'Saving…',
-		logged: 'Logged',
-		addToDay: 'Add set to this day',
-		stopToLog: 'Stop the count to log it.',
 		pickFeel: 'Pick how it went',
-		/** Where Next goes: "Next: Clave clapping". */
-		next: (name: string): string => `Next: ${name}`,
-		/** Under Minutes or Reps: "0–600". */
-		range: (max: number): string => `0–${max}`,
 		/** `when`: "Yesterday", "3 days ago" (`lastDoneLabel`). */
 		lastTime: (when: string): string => `Last time: ${when}`,
 		firstTime: 'First time.',
-		minutes: 'Minutes',
-		reps: 'Reps',
-		/** Under Minutes, the panel's exact time: "From the practice: 3:12". */
-		fromPractice: (clock: string): string => `From the practice: ${clock}`,
 		note: 'Note',
 		optional: '(optional)',
 		notePlaceholder: 'What went well, what to fix',
-		/** What Unsaved changes calls the log form. */
-		formLabel: 'Practice log',
-		didNotSave: 'It did not save.',
-		loadError: 'Could not load this exercise’s details.',
-		stillLog: 'You can still log a set.',
-		skip: 'Skip',
-		details: 'Details',
-		detailsLabel: 'Details and settings',
-		/** A back-filled day: "Adding to Tuesday, 3 November". */
-		addingTo: (day: string): string => `Adding to ${day}`,
-		setsThatDay: 'Sets that day',
-		setsToday: 'Sets today',
-		setDeleted: 'Set deleted',
-		couldNotPutBack: 'Could not put the set back.',
-		sessionDone: 'Session done',
-		finish: 'Finish'
+		didNotSave: 'It did not save.'
 	},
-	/** A day's sets. */
-	sets: {
-		/** A set with nothing to sum up. */
-		set: 'Set',
-		deleteFailed: 'Could not delete the set.',
-		/** The trash button: "Delete set logged at 18:30". */
-		deleteLabel: (time: string): string => `Delete set logged at ${time}`
-	},
-	/** Each type's content, in the popup and on the page. */
+	/** Each type's content on the page. */
 	content: {
 		description: 'Description',
 		/** A section row's Unlink while a drill's Recordings are edited; `name` is the section's label. */
@@ -98,8 +61,6 @@ export const exercise = {
 			const head = `${name} leaves Today and every list.`;
 			return times === 0 ? head : `${head} Its history is kept.`;
 		},
-		logASet: 'Log a set',
-		practised: 'I practised this',
 		/** The simple page's way to its lesson: "From class Tue 3 Nov ›". */
 		fromClass: (day: string): string => `From class ${day} ›`,
 		comments: 'Comments on the class',
@@ -232,8 +193,6 @@ export const exercise = {
 	refused: {
 		checkValues: 'Check the values and try again.',
 		gone: 'That exercise no longer exists.',
-		setGone: 'That set was already removed.',
-		putBack: 'That set could not be put back.',
 		dayGone: 'That day was already removed.',
 		dayPutBack: 'That day could not be put back.',
 		archiveHere: 'Only custom exercises are archived here. Archive a figure from its page.',

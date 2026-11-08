@@ -1,5 +1,5 @@
 /**
- * The one logging path every popup posts to. Tested through the real function
+ * The Done path: the exercise page and a past day post to it. Tested through the real function
  * with the app's `getDb()` mocked, for the reason `dance-wall.spec.ts` gives:
  * `$env/dynamic/private` does not see a `process.env` write from a test, so
  * mocking the module is the only way to be sure the real database is never
@@ -16,19 +16,16 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { sets } from '$lib/server/db/schema';
-import { createCustomExercise, getSet, logSet } from '$lib/server/exercises';
+import { createCustomExercise, logSet } from '$lib/server/exercises';
 import { addFigureExercise, createFigure } from '$lib/server/figures';
 import { noonOf } from '$lib/day/day';
 import { STEPS } from '$lib/schedule/schedule';
 import { makeClass } from '$lib/server/test-class';
 import {
 	deleteDayFrom,
-	deleteSetFrom,
-	logSetFrom,
 	parseSetSnapshot,
 	parseSetSnapshots,
 	restoreDayFrom,
-	restoreSetFrom,
 	saveDoneFrom,
 	undoDoneFrom
 } from './log-form';
@@ -85,171 +82,6 @@ const only = () => {
 	expect(all).toHaveLength(1);
 	return all[0];
 };
-
-describe('logSetFrom', () => {
-	it('prefers exact seconds over minutes, keeps the run, and drops fields a figure lacks', async () => {
-		await logSetFrom(
-			post('salsa', {
-				exerciseId: String(figureExerciseId),
-				durationMin: '9',
-				durationS: '512',
-				reps: '20',
-				rating: '4',
-				note: 'Clean on the 5',
-				run: '{"source":"count"}'
-			})
-		);
-		expect(only()).toMatchObject({
-			durationS: 512,
-			reps: null,
-			rating: 4,
-			note: 'Clean on the 5',
-			playerJson: '{"source":"count"}'
-		});
-	});
-
-	it('a second log the same day updates the one row, and answers with the Undo snapshot', async () => {
-		const first = (await logSetFrom(
-			post('salsa', { exerciseId: String(drillId), durationS: '240', rating: '2', note: 'a' })
-		)) as { setId: number; before: string | null };
-		expect(first.before).toBeNull();
-		const second = (await logSetFrom(
-			post('salsa', { exerciseId: String(drillId), durationS: '60', rating: '4' })
-		)) as { setId: number; before: string | null };
-		expect(second.setId).toBe(first.setId);
-		expect(JSON.parse(second.before!)).toMatchObject({ durationS: 240, rating: 2, note: 'a' });
-		expect(only()).toMatchObject({ durationS: 300, rating: 4, note: null });
-	});
-
-	it('keeps reps on a drill, and minutes when no exact seconds came', async () => {
-		await logSetFrom(
-			post('salsa', { exerciseId: String(drillId), durationMin: '5', reps: '30', rating: '2' })
-		);
-		expect(only()).toMatchObject({ durationS: 300, reps: 30 });
-	});
-
-	it('back-fills a past day at noon, without a player run', async () => {
-		await logSetFrom(
-			post('salsa', {
-				exerciseId: String(drillId),
-				day: '2020-01-01',
-				rating: '1',
-				run: '{"source":"count"}'
-			})
-		);
-		expect(only()).toMatchObject({ doneAt: noonOf('2020-01-01', TZ), playerJson: null });
-	});
-
-	it('drops an overlong run rather than failing the set', async () => {
-		await logSetFrom(
-			post('salsa', { exerciseId: String(drillId), rating: '4', run: 'x'.repeat(4001) })
-		);
-		expect(only().playerJson).toBeNull();
-	});
-
-	it('refuses a bad rating with a message, storing nothing', async () => {
-		const res = (await logSetFrom(post('salsa', { exerciseId: String(drillId), rating: '9' }))) as {
-			status: number;
-		};
-		expect(res.status).toBe(400);
-		expect(db.select().from(sets).all()).toHaveLength(0);
-	});
-
-	it('refuses a set without a face, storing nothing', async () => {
-		const res = (await logSetFrom(post('salsa', { exerciseId: String(drillId) }))) as {
-			status: number;
-			data: { message: string };
-		};
-		expect(res.status).toBe(400);
-		expect(res.data.message).toBe('Pick how it went');
-		expect(db.select().from(sets).all()).toHaveLength(0);
-	});
-
-	it('stores the rating a face writes', async () => {
-		await logSetFrom(post('salsa', { exerciseId: String(drillId), rating: '5' }));
-		expect(only().rating).toBe(5);
-	});
-
-	it('refuses an exercise of the other dance with a 404, storing nothing', async () => {
-		await expect(
-			logSetFrom(post('salsa', { exerciseId: String(bachataDrillId) }))
-		).rejects.toMatchObject({
-			status: 404
-		});
-		expect(db.select().from(sets).all()).toHaveLength(0);
-	});
-});
-
-describe('deleteSetFrom', () => {
-	it('deletes its own dance’s set and refuses the other’s', async () => {
-		const mine = logSet(db, {
-			exerciseId: drillId,
-			doneAt: 1,
-			durationS: null,
-			reps: null,
-			rating: null,
-			note: null,
-			playerJson: null
-		});
-		const theirs = logSet(db, {
-			exerciseId: bachataDrillId,
-			doneAt: 1,
-			durationS: null,
-			reps: null,
-			rating: null,
-			note: null,
-			playerJson: null
-		});
-		await deleteSetFrom(post('salsa', { setId: String(mine.id) }));
-		expect(getSet(db, mine.id)).toBeNull();
-		await expect(deleteSetFrom(post('salsa', { setId: String(theirs.id) }))).rejects.toMatchObject({
-			status: 404
-		});
-		expect(getSet(db, theirs.id)).not.toBeNull();
-	});
-});
-
-describe('deleteSetFrom, a set already gone', () => {
-	it('answers with a 404 failure and does not throw', async () => {
-		const res = await deleteSetFrom(post('salsa', { setId: '999999' }));
-		expect(res).toMatchObject({ status: 404, data: { action: 'deleteSet' } });
-	});
-});
-
-describe('deleteSetFrom and restoreSetFrom', () => {
-	it('hands back what it deleted, and Undo puts it back on its own day', async () => {
-		const wed = noonOf('2026-10-28', TZ);
-		const s = logSet(db, {
-			exerciseId: drillId,
-			doneAt: wed,
-			durationS: 720,
-			reps: 20,
-			rating: 2,
-			note: 'warm-up',
-			playerJson: '{"bpm":180}'
-		});
-		const res = await deleteSetFrom(post('salsa', { setId: String(s.id) }));
-		expect(getSet(db, s.id)).toBeNull();
-		const snapshot = (res as { snapshot: string }).snapshot;
-		await restoreSetFrom(post('salsa', { snapshot }));
-		const back = db.select().from(sets).all();
-		expect(back).toHaveLength(1);
-		expect(back[0]).toMatchObject({
-			exerciseId: drillId,
-			doneAt: wed,
-			durationS: 720,
-			reps: 20,
-			rating: 2,
-			note: 'warm-up',
-			playerJson: '{"bpm":180}'
-		});
-	});
-	it('refuses a malformed snapshot and inserts nothing', async () => {
-		const res = await restoreSetFrom(post('salsa', { snapshot: 'not json' }));
-		expect(res).toMatchObject({ status: 400 });
-		expect(db.select().from(sets).all()).toHaveLength(0);
-	});
-});
 
 describe('parseSetSnapshot', () => {
 	const ok = {

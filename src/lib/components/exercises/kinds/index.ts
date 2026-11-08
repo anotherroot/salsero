@@ -20,11 +20,6 @@ import RoutineContent from './routine/Content.svelte';
 import FigurePractice from './figure/Practice.svelte';
 import DrillPractice from './drill/Practice.svelte';
 import RoutinePractice from './routine/Practice.svelte';
-import type { LogProps } from '../LogShell.svelte';
-import LessonLog from './lesson/Log.svelte';
-import FigureLog from './figure/Log.svelte';
-import DrillLog from './drill/Log.svelte';
-import RoutineLog from './routine/Log.svelte';
 
 export interface ContentProps {
 	dance: Dance;
@@ -38,8 +33,6 @@ export interface ContentProps {
 	canEdit?: boolean;
 	/** The simple look (Follow my class, Practise and keep my own): videos in the simple player, no editing. */
 	simple?: boolean;
-	/** The popup's look until Task 9 deletes the popup (and this prop). */
-	onPage?: boolean;
 	/**
 	 * The Practise with card, drawn right after the type's description (drill:
 	 * Description; figure: the reference notes; routine: its notes). A lesson has none.
@@ -91,13 +84,3 @@ const PRACTICE: Record<ExerciseType, Component<PracticeProps> | null> = {
 
 /** The type's Practise with card; a lesson has none. */
 export const practiceFor = (type: ExerciseType) => PRACTICE[type];
-
-const LOG: Record<ExerciseType, Component<LogProps>> = {
-	lesson: LessonLog,
-	figure: FigureLog,
-	drill: DrillLog,
-	routine: RoutineLog
-};
-
-export const logFor = (type: ExerciseType) => LOG[type];
-export type { LogProps };

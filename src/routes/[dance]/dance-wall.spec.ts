@@ -420,8 +420,14 @@ describe("the detail pages refuse the other dance's rows", () => {
 			figureName: 'Bare',
 			style: 'salsa'
 		})!;
-		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
+		const res = await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
 		expect(getFigure(db, bare.figure.id, 'u1')?.exercise?.source).toBe('figure');
+		// The page opens the new exercise's page from this.
+		expect(res).toMatchObject({
+			action: 'practise',
+			ok: true,
+			exerciseId: getFigure(db, bare.figure.id, 'u1')?.exercise?.id
+		});
 	});
 
 	it('will not open a bachata figure from a salsa URL', () => {
@@ -434,11 +440,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('will not archive a bachata figure from a salsa URL', async () => {
 		await refuses(figurePage.actions.archive, post('salsa', {}, String(bachataFigureId)));
 		expect(getFigure(db, bachataFigureId, 'u1')?.figure.archivedAt).toBeNull();
-	});
-
-	it("will not delete a bachata figure's set from a salsa URL", async () => {
-		await refuses(figurePage.actions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
-		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
 	/** A complete, valid edit of a variation — each test overrides only what it is about. */
@@ -1305,19 +1306,21 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(() => loadAt(lessonPage.load, 'salsa', String(bachataLessonId))).toThrow(threw404);
 	});
 
-	it('gives the lesson and figure Log the start-of-today schedule and the day', () => {
-		const lesson = loadAt(lessonPage.load, 'bachata', String(bachataLessonId)) as {
-			scheduleAtStart: { gap: number } | null;
-			today: string;
-		};
-		expect(lesson.scheduleAtStart).toMatchObject({ gap: expect.any(Number) });
+	it('gives the lesson and figure the day, and no popup data', () => {
+		const lesson = loadAt(lessonPage.load, 'bachata', String(bachataLessonId)) as Record<
+			string,
+			unknown
+		>;
 		expect(lesson.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		const figure = loadAt(figurePage.load, 'bachata', String(bachataFigureId)) as {
-			scheduleAtStart: { gap: number } | null;
-			today: string;
-		};
-		expect(figure.scheduleAtStart).toMatchObject({ gap: expect.any(Number) });
+		const figure = loadAt(figurePage.load, 'bachata', String(bachataFigureId)) as Record<
+			string,
+			unknown
+		>;
 		expect(figure.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		for (const data of [lesson, figure]) {
+			expect(data).not.toHaveProperty('popup');
+			expect(data).not.toHaveProperty('scheduleAtStart');
+		}
 	});
 
 	it('will not archive a bachata lesson from a salsa URL', async () => {
@@ -1577,11 +1580,7 @@ describe('the JSON endpoints refuse the other dance', () => {
 		});
 	});
 
-	it('will not serve or change a bachata exercise under salsa', async () => {
-		await expect(
-			(async () =>
-				(practiceEndpoint.GET as unknown as Handler)(at('salsa', String(bachataCustomId))))()
-		).rejects.toMatchObject({ status: 404 });
+	it('will not change a bachata exercise under salsa', async () => {
 		await expect(
 			(async () =>
 				(practiceEndpoint.POST as unknown as Handler)(
@@ -1593,13 +1592,6 @@ describe('the JSON endpoints refuse the other dance', () => {
 				))()
 		).rejects.toMatchObject({ status: 404 });
 		expect(getExercise(db, bachataCustomId)?.practiceMode).toBe('none');
-	});
-
-	it('serves its own dance', async () => {
-		const res = (await (practiceEndpoint.GET as unknown as Handler)(
-			at('bachata', String(bachataCustomId))
-		)) as Response;
-		expect(((await res.json()) as { content: { type: string } }).content.type).toBe('drill');
 	});
 });
 

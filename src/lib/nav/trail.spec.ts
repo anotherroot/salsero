@@ -88,7 +88,7 @@ describe('keptSearch', () => {
 	it('strips popup flags and session, keeps day, q and chips', () => {
 		expect(keptSearch('?q=enc&new=1&style=cuban')).toBe('?q=enc&style=cuban');
 		expect(keptSearch('?session=1&day=2026-10-30')).toBe('?day=2026-10-30');
-		expect(keptSearch('?log=1')).toBe('');
+		expect(keptSearch('?new=1')).toBe('');
 		expect(keptSearch('')).toBe('');
 		expect(keptSearch('?add=1&v=2&x=1')).toBe('?x=1');
 	});
@@ -217,7 +217,7 @@ describe('arrive', () => {
 				from: '/salsa/figures',
 				index: 6,
 				kind: 'replace',
-				search: '?q=ab&log=1'
+				search: '?q=ab&new=1'
 			})
 		);
 		expect(t.pages['/salsa/figures'].search).toBe('?q=ab');
@@ -472,7 +472,7 @@ describe('backMove', () => {
 		).toBe('goto');
 		expect(backMove({ 1: '/salsa?session=1', 2: '/salsa/exercises/4' }, 2, '/salsa')).toBe('goto');
 		expect(
-			backMove({ 1: '/salsa/exercises/4?log=1', 2: '/salsa/lessons/5' }, 2, '/salsa/exercises/4')
+			backMove({ 1: '/salsa/exercises/4?new=1', 2: '/salsa/lessons/5' }, 2, '/salsa/exercises/4')
 		).toBe('goto');
 	});
 });

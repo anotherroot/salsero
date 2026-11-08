@@ -18,7 +18,6 @@
 		dance,
 		content,
 		timezone,
-		onPage = false,
 		canEdit = true,
 		simple = false,
 		practice
@@ -28,7 +27,7 @@
 
 {#if content.type === 'figure'}
 	<div class="flex flex-col gap-3">
-		{#if onPage}<h2 class={SECTION_HEAD}>{t().exercise.content.reference}</h2>{/if}
+		<h2 class={SECTION_HEAD}>{t().exercise.content.reference}</h2>
 		{#if content.figure.notes}
 			<LinkedText text={content.figure.notes} class={PROSE} />
 		{/if}
@@ -66,7 +65,7 @@
 				{t().exercise.content.figureEmpty}
 			</p>
 		{/if}
-		{#if onPage && !simple}
+		{#if !simple}
 			<a
 				href={resolve('/[dance]/(moves)/figures/[id]', {
 					dance: dance.slug,

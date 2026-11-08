@@ -32,23 +32,15 @@ describe("Today's list forms", () => {
 });
 
 /*
- * The log form (LogShell) is the figure and lesson pages' until they move to Done;
- * Today draws none. The exercise page and a past day save through the Done sheet.
+ * Today draws no log popup. The exercise page and a past day save through the Done sheet.
  * Each names the route whose action it means; a refusal from another route than
  * the page's reaches the form through the submit result.
  */
-const SHELL = 'src/lib/components/exercises/LogShell.svelte';
 const EXERCISE = 'src/routes/[dance]/(today)/exercises/[id]/+page.svelte';
 const LAYOUT = 'src/routes/[dance]/(today)/+layout.svelte';
 const PAST = 'src/routes/[dance]/(today)/+page.svelte';
 
 describe('The log form', () => {
-	it('LogShell posts where it is told, never to a bare action', () => {
-		const src = readFileSync(SHELL, 'utf8');
-		expect(src).toMatch(/<form\s+id=\{formId\}\s+method="POST"\s+\{action\}/);
-		expect(src).not.toMatch(/action="\?\//);
-	});
-
 	it("a past day's Done sheet posts to Today's done, no time and no faces' times", () => {
 		const src = readFileSync(PAST, 'utf8');
 		expect(src).not.toMatch(/<Log\b/);
@@ -102,13 +94,6 @@ describe('The log form', () => {
 		for (const src2 of [src, layout])
 			expect(src2).not.toContain('t().shell.backTo(t().shell.tabs.today)');
 		expect(src).not.toMatch(/today\??\.(line|logged|follow|key|undoable)\b/);
-	});
-
-	it('LogShell shows a refusal from the submit result', () => {
-		const src = readFileSync(SHELL, 'utf8');
-		expect(src).toMatch(/result\.type === 'failure'/);
-		expect(src).toMatch(/refusal = typeof m === 'string'/);
-		expect(src).toContain('title={shown}');
 	});
 });
 

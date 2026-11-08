@@ -9,9 +9,6 @@ const OSMICA: Forms = ['osmico', 'osmici', 'osmice', 'osmic'];
 /** Comes back's chips: 3 dobri dnevi, 5 dobrih dni. */
 const DOBER_DAN: Forms = ['dober dan', 'dobra dneva', 'dobri dnevi', 'dobrih dni'];
 
-/** 10000 → "10 000": a thousands space (no-break), as Slovenian writes it. */
-const grouped = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-
 /** "0.8" → "0,8". */
 const comma = (x: number): string => String(x).replace('.', ',');
 
@@ -23,47 +20,19 @@ export const exercise: Catalog['exercise'] = {
 		figure: 'Vaja z različico',
 		drill: 'Vaja',
 		routine: 'Kombinacija',
-		remember: 'Kako dobro se je spomnite?',
 		howItWent: 'Kako je šlo?'
 	},
 	log: {
-		logSet: 'Shrani vnos',
 		done: 'Opravljeno',
 		saving: 'Shranjevanje\u00a0…',
-		logged: 'Shranjeno',
-		addToDay: 'Shrani vnos za ta dan',
-		stopToLog: 'Za vnos ustavite štetje.',
 		pickFeel: 'Izberite, kako je šlo',
-		next: (name) => `Naslednja: ${name}`,
-		range: (max) => `Od 0 do ${grouped(max)}`,
 		// Lower case after the colon: "Zadnjič: včeraj".
 		lastTime: (when) => `Zadnjič: ${when.charAt(0).toLowerCase()}${when.slice(1)}`,
 		firstTime: 'Prvič.',
-		minutes: 'Minute',
-		reps: 'Ponovitve',
-		fromPractice: (clock) => `Izmerjeno: ${clock}`,
 		note: 'Opomba',
 		optional: '(neobvezno)',
 		notePlaceholder: 'Kaj je šlo dobro, kaj popraviti',
-		formLabel: 'Vnos vaje',
-		didNotSave: 'Shranjevanje ni uspelo.',
-		loadError: 'Podrobnosti te vaje ni bilo mogoče naložiti.',
-		stillLog: 'Vnos lahko vseeno shranite.',
-		skip: 'Preskoči',
-		details: 'Podrobnosti',
-		detailsLabel: 'Podrobnosti in nastavitve',
-		addingTo: (day) => `Vnos za dan: ${day}`,
-		setsThatDay: 'Vnosi tistega dne',
-		setsToday: 'Današnji vnosi',
-		setDeleted: 'Vnos je izbrisan',
-		couldNotPutBack: 'Vnosa ni bilo mogoče vrniti.',
-		sessionDone: 'Vadba je končana',
-		finish: 'Končaj'
-	},
-	sets: {
-		set: 'Vnos',
-		deleteFailed: 'Vnosa ni bilo mogoče izbrisati.',
-		deleteLabel: (time) => `Izbriši vnos ob ${time}`
+		didNotSave: 'Shranjevanje ni uspelo.'
 	},
 	content: {
 		description: 'Opis',
@@ -96,9 +65,6 @@ export const exercise: Catalog['exercise'] = {
 			const head = `${name}: izgine s seznama Danes in iz vseh seznamov.`;
 			return times === 0 ? head : `${head} Zgodovina ostane shranjena.`;
 		},
-		logASet: 'Nov vnos',
-		// Not "Vadila sem": a past tense would say whether the reader is a man or a woman.
-		practised: 'Opravljeno',
 		fromClass: (day) => `Z lekcije ${day} ›`,
 		comments: 'Komentarji k lekciji',
 		settings: 'Nastavitve',
@@ -208,8 +174,6 @@ export const exercise: Catalog['exercise'] = {
 	refused: {
 		checkValues: 'Preverite vrednosti in poskusite znova.',
 		gone: 'Te vaje ni več.',
-		setGone: 'Ta vnos je že izbrisan.',
-		putBack: 'Vnosa ni bilo mogoče vrniti.',
 		dayGone: 'Ta dan je že izbrisan.',
 		dayPutBack: 'Dneva ni bilo mogoče vrniti.',
 		archiveHere: 'Tukaj se arhivirajo le lastne vaje. Različico arhivirate na njeni strani.',

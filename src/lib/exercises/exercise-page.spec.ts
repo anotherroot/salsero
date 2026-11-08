@@ -11,8 +11,6 @@ import {
 	recordingKeys,
 	ownerOf,
 	practisedLabel,
-	setMeta,
-	setTitle,
 	historyTiles,
 	historyRows
 } from './exercise-page';
@@ -112,28 +110,6 @@ describe('historyRows', () => {
 	});
 });
 
-describe('setTitle / setMeta', () => {
-	it('titles a set', () => {
-		expect(setTitle({ durationS: 360, reps: null, rating: 4 })).toEqual({
-			text: '6 min',
-			rating: 4
-		});
-		expect(setTitle({ durationS: 480, reps: 20, rating: null })).toEqual({
-			text: '8 min · 20 reps',
-			rating: null
-		});
-		expect(setTitle({ durationS: null, reps: null, rating: 3 })).toEqual({ text: '', rating: 3 });
-		expect(setTitle({ durationS: null, reps: null, rating: null })).toEqual({
-			text: 'Set',
-			rating: null
-		});
-	});
-	it('gives the time and note', () => {
-		expect(setMeta(at('2026-10-31', '19:42', 'Turn felt late'), TZ)).toBe('19:42 · Turn felt late');
-		expect(setMeta(at('2026-10-31', '08:15'), TZ)).toBe('08:15');
-	});
-});
-
 describe('ownerOf', () => {
 	it('names the owner by type', () => {
 		expect(ownerOf(figureContent)).toEqual({
@@ -224,13 +200,6 @@ describe('in Slovenian', () => {
 			{ value: '3', label: 'krat' },
 			{ value: '17 min', label: 'skupaj' }
 		]);
-	});
-
-	it('titles a set with nothing to sum up, and sums one up', () => {
-		expect(sl(() => setTitle({ durationS: null, reps: null, rating: null })).text).toBe('Vnos');
-		expect(sl(() => setTitle({ durationS: 300, reps: 12, rating: null })).text).toBe(
-			'5 min · 12 ponovitev'
-		);
 	});
 
 	it('names the owner', () => {

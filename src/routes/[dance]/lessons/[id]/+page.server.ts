@@ -2,7 +2,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { scheduleForShown, scheduleStates } from '$lib/server/schedule';
+import { scheduleForShown } from '$lib/server/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
@@ -60,7 +60,6 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
-import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { readAdd } from '$lib/server/add-form';
 import {
 	addLesson,
@@ -74,7 +73,6 @@ import { inArray } from 'drizzle-orm';
 import { exercises } from '$lib/server/db/schema';
 import { levelShown, simpleLesson } from '$lib/levels/levels';
 import { practiceRows, type PracticeEntry } from '$lib/lessons/page';
-import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -328,13 +326,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 			...shown(found.exercises, visible?.drills).map((e) => ({ id: e.id, mineId: e.mineId }))
 		]),
 		// What "Add figure" pre-selects. Settings picks it.
-		defaultStyle: defaultStyle(db, wall.userId, wall.dance),
-		// This person's own entry for the lesson, never a group's row (risk 22).
-		popup: found.exercise ? popupData(db, wall, found.exercise.id, tz, Date.now()) : null,
-		// The face times: the schedule at the START of today for the person's own exercise.
-		scheduleAtStart: found.exercise
-			? (scheduleStates(db, wall, tz, localDay(Date.now(), tz)).get(found.exercise.id) ?? null)
-			: null
+		defaultStyle: defaultStyle(db, wall.userId, wall.dance)
 	};
 };
 
@@ -501,11 +493,6 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		}
 		throw redirect(303, `/${params.dance}/lessons`);
 	},
-
-	/** Quick-log the review exercise, the same one-tap path the figure page has. See `log-form.ts`. */
-	log: (event) => logSetFrom(event),
-	deleteSet: (event) => deleteSetFrom(event),
-	restoreSet: (event) => restoreSetFrom(event),
 
 	/*
 	 * `createFigure` opens its own transaction, so the figure and the link are two

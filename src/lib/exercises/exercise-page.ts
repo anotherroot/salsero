@@ -1,5 +1,5 @@
 /** What the exercise page shows: summary tiles, history by day, the owner row. PURE, client-safe. */
-import { localDay, timeOfDay } from '$lib/day/day';
+import { localDay } from '$lib/day/day';
 import { classDayLabel, dateLabel, dayLabel, setSummary } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import type { IconName } from '$lib/icons/icons';
@@ -51,26 +51,6 @@ export function historyRows(history: HistorySet[], timezone: string, today: stri
 			note: entry.note
 		};
 	});
-}
-
-export function setTitle(s: {
-	durationS: number | null;
-	reps: number | null;
-	rating: number | null;
-}): {
-	text: string;
-	rating: number | null;
-} {
-	const text = setSummary({ ...s, rating: null });
-	return {
-		text: text === '' && s.rating === null ? t().exercise.sets.set : text,
-		rating: s.rating
-	};
-}
-
-export function setMeta(s: HistorySet, timezone: string): string {
-	const time = timeOfDay(s.doneAt, timezone);
-	return s.note ? `${time} · ${s.note}` : time;
 }
 
 export function ownerOf(c: PracticeContent): {

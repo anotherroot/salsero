@@ -564,7 +564,6 @@
 			dance={data.dance}
 			content={data.practice.content}
 			{timezone}
-			onPage
 			canEdit={data.canEditContent && !simple}
 			{simple}
 			{recordings}

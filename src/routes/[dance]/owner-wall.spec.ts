@@ -665,9 +665,10 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		expect(db.select().from(setsTable).all()).toEqual(before);
 	});
 
-	it('Today no longer takes the old log, delete and restore', () => {
+	it('no page takes the old log, delete and restore', () => {
 		for (const name of ['log', 'deleteSet', 'restoreSet'])
-			expect(todayPage.actions).not.toHaveProperty(name);
+			for (const page of [todayPage, figurePage, lessonPage])
+				expect(page.actions).not.toHaveProperty(name);
 	});
 
 	it('the exercise page: load and every action by id are a 404, nothing changes', async () => {
@@ -693,11 +694,7 @@ describe("Today, the exercise page and the player refuse another person's exerci
 	});
 
 	it('the practice endpoint is a 404 for another person’s exercise', async () => {
-		const get = practiceEndpoint.GET as unknown as (e: unknown) => unknown;
 		const put = practiceEndpoint.POST as unknown as (e: unknown) => Promise<unknown>;
-		expect(() =>
-			get({ params: { dance: 'salsa', id: String(mine) }, locals: { user: U2 } })
-		).toThrow(threw404);
 		await expect(
 			put({
 				params: { dance: 'salsa', id: String(mine) },
@@ -1839,8 +1836,7 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		['addLink', () => ({ urls: 'https://example.com/a' })],
 		['deleteLink', () => ({ linkId: '1' })],
 		['saveVideo', () => ({ linkId: '1' })],
-		['retryVideo', () => ({ linkId: '1' })],
-		['log', ({ e }) => ({ exerciseId: String(e), durationS: '60' })]
+		['retryVideo', () => ({ linkId: '1' })]
 	];
 
 	it.each(LESSON_ACTIONS)(
@@ -2091,11 +2087,6 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		};
 		holdsNothingOfTheDraft(page);
 		expect(page.practice.content.sections.map((s) => s.spot.id)).toEqual([pSection, recSection]);
-		const res = (practiceEndpoint.GET as unknown as (e: unknown) => Response)({
-			params: { dance: 'salsa', id: String(entry.id) },
-			locals: { user: U2 }
-		});
-		holdsNothingOfTheDraft(await res.json());
 		// The editor's own entry sees the whole group, the draft's section included.
 		await call(figurePage.actions.practise, post(U1, 'salsa', {}, String(V2)));
 		const editors = db
