@@ -250,11 +250,14 @@ src/lib/graph/       PURE figure graph: positions → what can follow what (`mee
                      ends, orphans, islands, unused), No position. Client-safe
 src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates per dance
                      and type (templates.ts), every positions screen's words and rows
-                     (view.ts), the map's layout (map.ts: name pills, a force layout from a
-                     fixed start in a portrait 7:10 frame, the label pass, the tray) and how the
+                     (view.ts), the map's layout (map.ts: name pills (the pills are the labels),
+                     a force layout from a fixed start in a portrait 7:10 frame, the mark and
+                     Twins lines sized for the longest language, the tray) and how the
                      page draws it (map-view.ts: type colours, what a tap lights, the arrows).
                      map-fit.ts: the view (`wholeView`, `fitView`, `clampMapView`, `viewTransform`,
-                     with a `Room` that may keep a `right` inset). map-sheet.ts: a tapped
+                     with a `Room` that may keep a `right` inset: `deskRight`, the desktop panel
+                     only while 360 px of map stay beside it, else `aside`: fits steer clear of
+                     it, the map pans under it). map-sheet.ts: a tapped
                      position's sheet and the trail of steps. map-tray.ts: the tray's chips at rest.
                      walk.ts: the walk that builds a routine, position to position (immutable
                      steps, its arrows and pills, the Unsaved save's outcome). Client-safe
@@ -279,8 +282,8 @@ src/lib/server/position-links.ts  sections and points linked to positions
                      (`spot_position_links`): link, unlink (a group's to Recently deleted),
                      and what a position's page lists (its spots, linkable spots, its lessons)
 src/routes/[dance]/(moves)/positions/  the list (Moves' third segment); [id] a position's page;
-                     none the figures with no position; map the map (all under the `(moves)` group,
-                     below)
+                     none the figures with no position; map the map, whose `routine` action makes
+                     a walk into a routine (all under the `(moves)` group, below)
                      src/routes/api/positions is the figure picker's New position (JSON)
 src/lib/components/positions/  the New / Edit position sheet and its fields, Templates,
                      How positions work (`HowBody`: the sheet's and the first-run pane's body),
@@ -308,7 +311,10 @@ src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf
 src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
                      (namespaced; `depends('app:moves')`, so a change not made by a form calls
                      `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
-src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
+src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space; each arrow's
+                     figures (`figs`; a group row whose label collides says its group,
+                     `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
+                     (figures with no start)
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a

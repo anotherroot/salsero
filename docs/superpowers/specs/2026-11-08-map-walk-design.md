@@ -111,7 +111,7 @@ The mockups (live phones, light and dark):
     picks that position; it is not a step. When nothing leads here:
     "Nothing leads here yet" (danger).
   - **Step to**, one row per place you can go: the type dot, the name, the
-    figures in short ("Basic step ×3 · Paso Madrid · To Cradle", moves
+    figures in short ("Basic step ×3, Paso Madrid, To Cradle", moves
     grouped), the count, and a chevron. Tapping a row is a step. Most figures
     first.
   - **Anywhere**: figures that start here and have no end, with the line "No end
@@ -305,21 +305,35 @@ list's empty pane. Both go through `MapPane`, so everything here applies to both
 15. The legend became the ⓘ sheet, and "Bigger: more figures" went: pills no
     longer change size. The pill links lose the global focus halo; the in-map
     ring stays.
-16. The sheet has a fixed height (the smaller of 380 px and 62 % of the map),
-    so a step never refits the view. A short sheet leaves blank space at its foot.
+16. The sheet has a fixed height (the smaller of 380 px, 400 px while walking,
+    and 62 % of the map), so a step never refits the view. A short sheet leaves
+    blank space at its foot.
 17. The map's words are in both catalogs, and the pill marks are translated.
+    The lines under a pill are sized for the longer of the two languages' words,
+    so the layout is the same for every reader.
+18. On the desktop the map fits beside the panel only while at least 360 px of
+    map stay there (`deskRight`). A narrower pane (a window under about
+    1250 px) keeps the map's own size, with the panel floating over its right
+    (`aside`): the map then pans at any scale, so the part under the panel is
+    reached, and a pick's fit centres what it lights left of the panel when at
+    least 160 px are left there.
+19. A person's map can hold a figure and its copy, theirs and a group's they
+    use. Where two labels are the same, the group's row adds its group
+    ("Shadow exit · Basic · Sreda 17:30", `fromTags`) and the person's own stays
+    plain, whichever of the two was copied from the other.
+20. In the sheet's Step to rows the moves are joined with ", ", since a label
+    holds a " · " of its own.
 
 ## Known gaps
 
-- At 1280 px the whole map draws at about 0.71x on the desktop: the frame is
-  portrait for the phone. A landscape frame for wide maps would fix it.
-- Two copies of a figure show identical chip labels in a walk. Nothing tells
-  them apart.
+- The frame is portrait for the phone, so a wide desktop pane draws the whole
+  map smaller than the pane could hold. A landscape frame for wide maps would
+  fix it. Under about 1250 px the panel covers the map's right (decision 18); at
+  1024 px only about 50 px of map show beside it, so a pick sits under the
+  panel until the map is panned.
 - The first open on the phone fits twice, because the room's foot is measured
   a tick late.
 - The Twins line under a pill ("Twins: ...") stays English.
-- In Slovenian the "N neuporabljenih" chip has no noun, and the mark words
-  are wider than the space reserved for them.
 - The sheet pulls focus back to its heading when the map data refreshes.
 - Past about 200 positions the layout takes a noticeable moment (0.5 s at 400).
 - On a short phone about 70 px of map shows above the sheet; the sheet has no
