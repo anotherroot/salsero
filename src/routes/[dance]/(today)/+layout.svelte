@@ -91,7 +91,9 @@
 		if (!first) return;
 		const href = runHref(dance, first.exercise.id, { skip: [] });
 		if (page.url.pathname + page.url.search === href) return;
-		void gotoWhenSettled(href, { replaceState: run !== null });
+		// From a run, or from Done for today beside the list (desktop): the run's one entry.
+		const replaceState = run !== null || page.route.id === '/[dance]/(today)/done';
+		void gotoWhenSettled(href, { replaceState });
 	}
 
 	/*
