@@ -85,6 +85,8 @@
 
 	/** Start: the walk's first (the warm-ups first); with nothing to walk, nothing. */
 	function start() {
+		// A run is never one Today opened by itself: its time counts at once.
+		autoOpened = null;
 		const first = nextInSession(sessionWalk(day.rows), new Set(), null);
 		if (!first) return;
 		const href = runHref(dance, first.exercise.id, { skip: [] });
@@ -117,8 +119,16 @@
 	 */
 	let settled = $state(false);
 	let swapping = false;
-	onNavigate(() => {
+	/*
+	 * The exercise the swap opened, until someone is there: a tap or key in its
+	 * pane (`wake`), a row, Start or any other navigation. Its page's clock
+	 * waits at 0:00 until then (the page asks; the phone never sets it).
+	 */
+	let autoOpened = $state<string | null>(null);
+	onNavigate((nav) => {
 		settled = false;
+		const own = swapping && nav.type === 'goto' && nav.to?.url.pathname === autoOpened;
+		if (!own) autoOpened = null;
 	});
 	afterNavigate(() => {
 		settled = true;
@@ -128,6 +138,7 @@
 		if (!settled || !desk.current || href === null || swapping) return;
 		swapping = true;
 		const done = () => (swapping = false);
+		autoOpened = href.split('?')[0];
 		// The list is beside it: no ‹, whatever opened it before.
 		gotoWhenSettled(href, { replaceState: true, keepFocus: true }, () =>
 			dropOpener(href.split('?')[0])
@@ -204,7 +215,11 @@
 		},
 		say,
 		canSkip: (id) => day.rows.some((r) => r.exercise.id === id && r.kind !== 'done'),
-		notToday
+		notToday,
+		get autoOpened() {
+			return autoOpened;
+		},
+		wake: () => (autoOpened = null)
 	});
 
 	// The bar card: how many are left, done of all, about how long; its play starts the run.
