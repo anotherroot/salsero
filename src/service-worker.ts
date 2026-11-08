@@ -143,6 +143,8 @@ function answer(route: Exclude<SwRoute, 'pass'>, event: FetchEvent): Promise<Res
 			return navigate(event);
 		case 'device-read':
 			return deviceRead(event);
+		case 'network-read':
+			return networkRead(event.request);
 		case 'write':
 			return write(event);
 	}
@@ -225,6 +227,19 @@ async function deviceRead(event: FetchEvent): Promise<Response> {
 	try {
 		return await Promise.any(late ? [device, late] : [device]);
 	} catch {
+		return offline(offlineRead());
+	}
+}
+
+/**
+ * A network page's data: the network, as long as it takes; when it cannot be
+ * reached, "needs a connection", which the error page draws as offline.
+ */
+async function networkRead(request: Request): Promise<Response> {
+	try {
+		return await fetch(request);
+	} catch (e) {
+		console.warn('[sw] a network page could not reach the server', request.url, e);
 		return offline(offlineRead());
 	}
 }

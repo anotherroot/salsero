@@ -11,10 +11,12 @@ import { DEVICE_ENDPOINTS, NETWORK_ENDPOINTS, deviceAnswers, routePattern } from
  * - `precached`: the build, its static files and the device bundle, from the cache;
  * - `navigate`: a page load, the network first, else the cached shell;
  * - `device-read`: the network first, else the device's copy;
+ * - `network-read`: a network page's data (`NETWORK_PAGES`): the network, never
+ *   timed; offline "needs a connection", which the error page draws as offline;
  * - `write`: the network only; offline it gets "Needs a connection";
  * - `pass`: the service worker stays out of it (no `respondWith`).
  */
-export type SwRoute = 'precached' | 'navigate' | 'device-read' | 'write' | 'pass';
+export type SwRoute = 'precached' | 'navigate' | 'device-read' | 'network-read' | 'write' | 'pass';
 
 /** How long a read waits for the network when the device could answer it instead. */
 export const NETWORK_TIMEOUT_MS = 4000;
@@ -50,6 +52,9 @@ const UPLOADS: [method: string, pattern: RegExp][] = [
 	['POST', routePattern('/api/songs')]
 ];
 
+/** A page's data (`+page.server` / `+layout.server` loads), as SvelteKit's client asks for it. */
+const DATA = '/__data.json';
+
 /** Every GET endpoint (`+server`), device or network: what a navigation there gets is not a page. */
 const ENDPOINTS = [...DEVICE_ENDPOINTS, ...NETWORK_ENDPOINTS].map(routePattern);
 
@@ -81,6 +86,10 @@ export function swRoute(
 		return 'navigate';
 	}
 	if (method === 'GET' && deviceAnswers(method, url)) return 'device-read';
+	// A network page drawn by the shell offline asks for its data too: a failed
+	// fetch there would be an unexpected error, and the page would draw without
+	// the root layout's data. "Needs a connection" is an error page it can draw.
+	if (method === 'GET' && path.endsWith(DATA)) return 'network-read';
 	if (read) return 'pass';
 	return 'write';
 }

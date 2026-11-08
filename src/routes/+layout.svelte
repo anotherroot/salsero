@@ -2,7 +2,7 @@
 	import './layout.css';
 	import { untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
-	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
+	import { DANCES, DEFAULT_DANCE, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { deskSkeletonMode, leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
 	import { bottom } from '$lib/nav/chrome.svelte';
@@ -126,13 +126,14 @@
 	 *
 	 * Which dance they lead to: the page's, else the last dance page seen, else
 	 * `appDance` (the account's dance, or the host's before sign-in), the seed
-	 * for the first paint outside a dance (`/settings`, `/voice`).
+	 * for the first paint outside a dance (`/settings`, `/voice`). An error page
+	 * the offline shell draws has no layout data at all: the default dance.
 	 */
 	let seen = $state<DanceSlug | null>(null);
 	$effect(() => {
 		if (dance) seen = dance.slug;
 	});
-	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.appDance]);
+	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.appDance ?? DEFAULT_DANCE]);
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 	/*

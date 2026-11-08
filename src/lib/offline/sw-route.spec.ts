@@ -62,8 +62,11 @@ describe('swRoute', () => {
 		);
 		expect(route('GET', '/api/lessons/4/comments')).toBe('device-read');
 		expect(route('GET', '/salsa/exercises/9/practice')).toBe('device-read');
+		// A network page's data is the server's alone; offline it gets "needs a
+		// connection" (the walk: a failed fetch left the shell with no layout data).
+		expect(route('GET', '/admin/__data.json')).toBe('network-read');
+		expect(route('GET', '/salsa/groups/3/people/__data.json')).toBe('network-read');
 		// The server's alone: no device answer, no offline answer either.
-		expect(route('GET', '/admin/__data.json')).toBe('pass');
 		expect(route('GET', '/api/device/config')).toBe('pass');
 		expect(route('GET', '/salsa/figures')).toBe('pass');
 		expect(route('HEAD', '/salsa/__data.json')).toBe('pass');
