@@ -8,7 +8,8 @@ import {
 	setSampleStart,
 	songSample,
 	setTempoFactor,
-	updateSongMeta
+	updateSongMeta,
+	useAudioUrl
 } from '$lib/server/songs';
 import { deleteGroupSong, shareSong, songUsers, unshareSong } from '$lib/server/song-share';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
@@ -30,6 +31,8 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { songSeen, seenRefusal } from '$lib/server/clash';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
+import { isYouTubeVideo } from '$lib/songs/source';
+import { t } from '$lib/i18n/catalog';
 import { hasCopies } from '$lib/server/clones/genes';
 import { editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
@@ -249,6 +252,27 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		if (!style) return fail(400, { message: 'Pick a style.', ...sent });
 		updateSongMeta(db, song.id, { title, artist, style }, space, now);
+		return { ok: true };
+	},
+
+	/** Use another YouTube link: the song downloads again from it (and its copies kept in step). */
+	audio: async (event) => {
+		const sentOf = (form: FormData) => ({ audioUrl: String(form.get('audioUrl') ?? '') });
+		const { db, song, space, form, now, refused } = await editing(event, sentOf);
+		if (refused) return refused;
+		const words = t().songs.audio;
+		const audioUrl = sentOf(form).audioUrl.trim();
+		const refuse = (status: number, message: string) =>
+			fail(status, { field: 'audioUrl' as const, message, audioUrl });
+		if (!isYouTubeVideo(audioUrl)) return refuse(400, words.notYouTube);
+		// A download, like a retry: refused at or over its owner's limit.
+		const room = roomForOwner(db, ownerOfRow(song), 1, Number.POSITIVE_INFINITY);
+		if (!room.ok) return refuse(413, room.message);
+		const done = useAudioUrl(db, song.id, audioUrl, space, now);
+		if (!done.ok) {
+			if (done.reason === 'missing') throw error(404, 'No such song');
+			return refuse(409, done.reason === 'busy' ? words.busy : words.upload);
+		}
 		return { ok: true };
 	},
 

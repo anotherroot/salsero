@@ -2,6 +2,20 @@
 // area extends this (the list, a song's page, sharing).
 
 export const songs = {
+	/** Add a song's link field (`AddSongSheet`, the list's `addUrl`). */
+	add: {
+		label: 'YouTube or Spotify link',
+		help: 'A song, a playlist or an album. From a playlist you pick which songs to add.',
+		notSong: 'Paste a song, playlist or album',
+		listsSoon: "Playlists come in the next update. Paste one song's link for now.",
+		shortFailed: 'Paste the full open.spotify.com link'
+	},
+	/** Use another YouTube link (`AudioSwap`, the song page's `audio`). */
+	audio: {
+		notYouTube: 'Paste a YouTube video link',
+		busy: 'Wait until this song has finished downloading.',
+		upload: 'An uploaded song has no link to change.'
+	},
 	picker: {
 		title: 'Pick a song',
 		search: 'Search songs',

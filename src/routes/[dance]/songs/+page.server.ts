@@ -6,6 +6,9 @@ import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
 import { ownerValues, requireSongAccess, type Space } from '$lib/server/scope';
 import { spaceOf } from '$lib/server/group-mode';
+import { resolveShortLink } from '$lib/server/short-link';
+import { classifyLink } from '$lib/songs/source';
+import { t } from '$lib/i18n/catalog';
 import type { Actions } from './$types';
 
 // The list itself loads in the layout (+layout.server.ts): it sits beside a song too.
@@ -19,6 +22,10 @@ const roomIn = (space: Space) =>
 	roomForOwner(getDb(), ownerOfRow(ownerValues(space)), 1, Number.POSITIVE_INFINITY);
 
 function httpUrl(raw: string): string | null {
+	// The Spotify app's own `spotify:track:<id>` is kept as its web link.
+	const k = classifyLink(raw);
+	if (raw.trim().startsWith('spotify:') && k.kind === 'spotify-track')
+		return `https://open.spotify.com/track/${k.id}`;
 	try {
 		const u = new URL(raw.trim());
 		return u.protocol === 'https:' || u.protocol === 'http:' ? u.toString() : null;
@@ -34,7 +41,7 @@ export const actions: Actions = {
 		const dance = space.dance;
 		const form = await request.formData();
 		const raw = String(form.get('url') ?? '');
-		const url = httpUrl(raw);
+		let url = httpUrl(raw);
 		const title = optionalText(form, 'title', 200);
 		// A style from the other dance falls back to this dance's first; a
 		// refusal hands back the one that would be filed.
@@ -55,6 +62,19 @@ export const actions: Actions = {
 				...kept
 			});
 		}
+		const words = t().songs.add;
+		let kind = classifyLink(url);
+		if (kind.kind === 'spotify-short') {
+			// Only where it leads tells a song from a playlist.
+			const to = await resolveShortLink(url);
+			if (!to) return fail(400, { field: 'url' as const, message: words.shortFailed, ...kept });
+			url = to;
+			kind = classifyLink(url);
+		}
+		if (kind.kind === 'spotify-other' || kind.kind === 'spotify-short')
+			return fail(400, { field: 'url' as const, message: words.notSong, ...kept });
+		if (kind.kind === 'spotify-list' || kind.kind === 'youtube-list')
+			return fail(400, { field: 'url' as const, message: words.listsSoon, ...kept });
 		// The size is unknown until the worker has it: refuse only an owner already
 		// at or over the limit (one byte more would not fit); it is accepted when it lands.
 		const room = roomIn(space);

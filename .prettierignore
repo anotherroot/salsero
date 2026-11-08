@@ -3,3 +3,6 @@ package-lock.json
 /drizzle/
 /docs/
 /android/
+
+# A page captured from Spotify for the worker tests: data, kept byte for byte.
+worker/tests/fixtures/

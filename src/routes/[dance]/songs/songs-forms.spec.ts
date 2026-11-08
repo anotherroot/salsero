@@ -14,6 +14,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
+const short = vi.hoisted(() => ({ to: null as string | null }));
+vi.mock('$lib/server/short-link', () => ({ resolveShortLink: async () => short.to }));
 
 vi.mock('$lib/server/db', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
@@ -406,5 +408,115 @@ describe('Retry a song when the person is at the storage limit', () => {
 			data: { action: 'retry' }
 		});
 		expect(getSong(db, id)?.status).toBe('failed');
+	});
+});
+
+describe('Add a song: Spotify and lists', () => {
+	const TRACK = 'https://open.spotify.com/track/0wDEs6WvqDHq4XJZC0dHhO?si=7ijevtD4QBSS07u37hj8kw';
+	const add = (url: string) =>
+		call(songList.actions.addUrl, post('salsa', { url, title: '', style: 'salsa' }));
+
+	it('adds a Spotify song waiting to download, its link as pasted', async () => {
+		expect(await add(TRACK)).toEqual({ ok: true });
+		expect(listSongs(db, U1_SALSA)).toMatchObject([
+			{ status: 'waiting_download', sourceUrl: TRACK }
+		]);
+	});
+
+	it('refuses a Spotify link that is no song, playlist or album', async () => {
+		expect(await add('https://open.spotify.com/episode/x1')).toMatchObject({
+			status: 400,
+			data: { field: 'url', message: 'Paste a song, playlist or album' }
+		});
+	});
+
+	it('refuses a playlist for now, with a sentence', async () => {
+		for (const url of [
+			'https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W',
+			'https://www.youtube.com/playlist?list=PLo1L1g'
+		])
+			expect(await add(url)).toMatchObject({
+				status: 400,
+				data: {
+					field: 'url',
+					message: "Playlists come in the next update. Paste one song's link for now."
+				}
+			});
+		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
+	});
+
+	it('follows a short link to the song it names', async () => {
+		short.to = 'https://open.spotify.com/track/0wDEs6WvqDHq4XJZC0dHhO?si=1';
+		expect(await add('https://spotify.link/AbCdE')).toEqual({ ok: true });
+		expect(listSongs(db, U1_SALSA)).toMatchObject([{ sourceUrl: short.to }]);
+	});
+
+	it('asks for the full link when a short one leads nowhere', async () => {
+		short.to = null;
+		expect(await add('https://spotify.link/AbCdE')).toMatchObject({
+			status: 400,
+			data: { field: 'url', message: 'Paste the full open.spotify.com link' }
+		});
+	});
+});
+
+describe('Use another YouTube link', () => {
+	const swap = (id: number, fields: Record<string, string>) =>
+		call(songPage.actions.audio, post('salsa', fields, String(id)));
+
+	it('re-queues a ready song from the new link, keeping its old audio until then', async () => {
+		const id = readySong();
+		expect(await swap(id, { audioUrl: 'https://youtu.be/Fd8nEwF3hHk' })).toEqual({ ok: true });
+		expect(getSong(db, id)).toMatchObject({
+			audioUrl: 'https://youtu.be/Fd8nEwF3hHk',
+			status: 'waiting_download',
+			audioFile: 'a.m4a',
+			anchorsJson: '[]'
+		});
+	});
+
+	it('takes only a YouTube video', async () => {
+		const id = readySong();
+		expect(
+			await swap(id, { audioUrl: 'https://open.spotify.com/track/0wDEs6WvqDHq4XJZC0dHhO' })
+		).toMatchObject({
+			status: 400,
+			data: { field: 'audioUrl', message: 'Paste a YouTube video link' }
+		});
+	});
+
+	it('waits for a song still downloading', async () => {
+		const { id } = createSongFromUrl(db, U1_SALSA, {
+			url: 'https://youtu.be/x',
+			title: 'W',
+			style: 'salsa'
+		});
+		expect(await swap(id, { audioUrl: 'https://youtu.be/Fd8nEwF3hHk' })).toMatchObject({
+			status: 409,
+			data: { field: 'audioUrl', message: 'Wait until this song has finished downloading.' }
+		});
+	});
+
+	it("refuses a group's song without what the editor saw", async () => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		const song = createSongFromUrl(db, T1_SALSA, {
+			url: 'https://youtu.be/x',
+			title: 'G',
+			style: 'salsa'
+		});
+		storeFetchedAudio(db, song.id, {
+			file: 'g.m4a',
+			mime: 'audio/mp4',
+			title: null,
+			durationS: 60
+		});
+		storeAnalysis(db, song.id, { beats: [0.5, 1], downbeats: [], durationS: 60 });
+		const res = await call(
+			songPage.actions.audio,
+			post('salsa', { audioUrl: 'https://youtu.be/Fd8nEwF3hHk' }, String(song.id), { group: '1' })
+		);
+		// A missing `seen` is refused as Song details' is (400), never a quiet overwrite.
+		expect(res).toMatchObject({ status: 400 });
+		expect(getSong(db, song.id)?.audioUrl).toBeNull();
 	});
 });

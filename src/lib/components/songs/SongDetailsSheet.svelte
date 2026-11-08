@@ -10,8 +10,10 @@
 
 	/** What `?/update` handed back: a refusal keeps everything typed. */
 	type DetailsForm = {
-		field?: 'title' | 'artist';
+		/** `audioUrl`: Use another YouTube link's refusal (the page's `audio`). */
+		field?: 'title' | 'artist' | 'audioUrl';
 		message?: string;
+		audioUrl?: string;
 		title?: string;
 		artist?: string;
 		style?: string;

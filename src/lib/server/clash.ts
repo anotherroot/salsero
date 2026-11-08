@@ -160,6 +160,7 @@ export function songSeen(song: {
 	anchorsJson: string;
 	tempoFactor: number;
 	sampleStartS: number | null;
+	audioUrl: string | null;
 }): Seen {
 	return {
 		title: song.title,
@@ -167,7 +168,8 @@ export function songSeen(song: {
 		style: song.style,
 		anchorsJson: song.anchorsJson,
 		tempoFactor: song.tempoFactor,
-		sampleStartS: song.sampleStartS
+		sampleStartS: song.sampleStartS,
+		audioUrl: song.audioUrl
 	};
 }
 

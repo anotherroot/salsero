@@ -429,6 +429,39 @@ export function retrySong(db: Db, id: number): Song | null {
 	);
 }
 
+/**
+ * Use another YouTube link: the song downloads again from `url`, its beat is
+ * found again, and its 1s and sample start are cleared (they index the old
+ * audio). The old file stays until the new one lands (`storeFetchedAudio`
+ * names it). An edit like any other, so History logs it on a group's song and
+ * Keep in step carries it to the copies (the `audio` key). Refused while the
+ * worker is on the song, for an upload (no link to change), and for no song.
+ */
+export function useAudioUrl(
+	db: Db,
+	id: number,
+	url: string,
+	space?: Space,
+	now = serverNow()
+): { ok: true; song: Song } | { ok: false; reason: 'busy' | 'upload' | 'missing' } {
+	const song = getSong(db, id);
+	if (!song || song.archivedAt !== null) return { ok: false, reason: 'missing' };
+	if ((WAITING as readonly string[]).includes(song.status)) return { ok: false, reason: 'busy' };
+	if (!song.sourceUrl) return { ok: false, reason: 'upload' };
+	const after = editSong(db, id, { ...AUDIO_RESET, audioUrl: url }, space, now, 'audio');
+	return after ? { ok: true, song: after } : { ok: false, reason: 'missing' };
+}
+
+/** What new audio clears: the 1s and the sample index the old one; the worker starts afresh. */
+export const AUDIO_RESET = {
+	status: 'waiting_download',
+	anchorsJson: '[]',
+	sampleStartS: null,
+	attempts: 0,
+	error: null,
+	claimedAt: null
+} as const satisfies Partial<typeof songs.$inferInsert>;
+
 /** The count's anchors (a tap, a removal, Reset). False when there is no such song. */
 export function setAnchors(
 	db: Db,

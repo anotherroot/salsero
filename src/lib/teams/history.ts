@@ -48,6 +48,8 @@ const FIELD: Record<string, string> = {
 	anchors: 'count',
 	tempoFactor: 'tempo',
 	sampleStartS: 'sample start',
+	audio: 'audio',
+	audioUrl: 'audio link',
 	practiceMode: 'practice',
 	countBpm: 'practice tempo',
 	comesBack: 'comes back',

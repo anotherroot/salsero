@@ -2,6 +2,19 @@ import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 
 export const songs: Catalog['songs'] = {
+	add: {
+		label: 'Povezava YouTube ali Spotify',
+		help: 'Skladba, seznam predvajanja ali album. S seznama izberete, katere skladbe dodate.',
+		notSong: 'Prilepite skladbo, seznam predvajanja ali album',
+		listsSoon:
+			'Seznami predvajanja pridejo v naslednji posodobitvi. Zdaj prilepite povezavo do ene skladbe.',
+		shortFailed: 'Prilepite celotno povezavo open.spotify.com'
+	},
+	audio: {
+		notYouTube: 'Prilepite povezavo do videa na YouTubu',
+		busy: 'Počakajte, da se skladba prenese do konca.',
+		upload: 'Naložena skladba nima povezave, ki bi jo lahko zamenjali.'
+	},
 	picker: {
 		title: 'Izberite skladbo',
 		search: 'Iskanje skladb',
