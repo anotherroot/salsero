@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { rootsOf, showsTabs, tabFor, tabs, tapKind } from './tabs';
+import { rootsOf, showsTabs, tabDot, tabDotLabel, tabFor, tabs, tapKind } from './tabs';
 
 describe('tabFor', () => {
 	it('lights the tab a path belongs to', () => {
@@ -113,5 +113,19 @@ describe('tapKind', () => {
 	it('goes to the tab, or scrolls the lit list to the top', () => {
 		expect(tapKind(click, false)).toBe('tab');
 		expect(tapKind(click, true)).toBe('top');
+	});
+});
+
+describe('tabDot', () => {
+	it('lights Music while a playlist waits, Groups while something is new, nothing else', () => {
+		expect(tabDot('music', { musicToPick: true })).toBe(true);
+		expect(tabDot('groups', { groupsNew: true })).toBe(true);
+		expect(tabDot('music', { groupsNew: true })).toBe(false);
+		expect(tabDot('groups', { musicToPick: true })).toBe(false);
+		expect(tabDot('today', { groupsNew: true, musicToPick: true })).toBe(false);
+	});
+
+	it("says why in the tab's name", () => {
+		expect(tabDotLabel('music', 'Music')).toBe('Music, a playlist to pick');
 	});
 });

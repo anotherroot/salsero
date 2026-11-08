@@ -1,6 +1,7 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
 import { t } from '$lib/i18n/catalog';
+import { groupsTabLabel } from '$lib/teams/view';
 
 export type TabId = 'today' | 'moves' | 'lessons' | 'music' | 'groups' | 'you';
 
@@ -109,4 +110,18 @@ export function tapKind(
 ): 'pass' | 'tab' | 'top' {
 	if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return 'pass';
 	return scrollTop ? 'top' : 'tab';
+}
+
+/** A tab's dot: Groups while something is new there, Music while a read playlist waits to be picked. */
+export function tabDot(id: TabId, data: { groupsNew?: boolean; musicToPick?: boolean }): boolean {
+	if (id === 'groups') return !!data.groupsNew;
+	if (id === 'music') return !!data.musicToPick;
+	return false;
+}
+
+/** A dotted tab's name for a screen reader: what the dot means. */
+export function tabDotLabel(id: TabId, label: string): string {
+	if (id === 'groups') return groupsTabLabel(true, label);
+	if (id === 'music') return t().shell.tabs.musicToPick(label);
+	return label;
 }

@@ -5,10 +5,10 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
-	import { tabFor } from '$lib/nav/tabs';
+	import { tabDot, tabDotLabel, tabFor } from '$lib/nav/tabs';
 	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
-	import { groupsTabLabel } from '$lib/teams/view';
+
 	import { intend } from '$lib/nav/trail.svelte';
 	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
 
@@ -89,8 +89,8 @@
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
-						aria-label={tab.id === 'groups' && page.data.groupsNew
-							? groupsTabLabel(true, tab.label)
+						aria-label={tabDot(tab.id, page.data)
+							? tabDotLabel(tab.id, tab.label)
 							: here
 								? undefined
 								: tab.label}
@@ -102,7 +102,7 @@
 						{#if here}
 							<span class="text-[14px] font-extrabold whitespace-nowrap">{tab.label}</span>
 						{/if}
-						{#if tab.id === 'groups' && page.data.groupsNew}
+						{#if tabDot(tab.id, page.data)}
 							<span
 								class="absolute top-1 right-1 h-[10px] w-[10px] rounded-full bg-accent ring-2 ring-tab-bg"
 								aria-hidden="true"

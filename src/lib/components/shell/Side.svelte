@@ -8,7 +8,7 @@
 	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
 	import { minePath } from '$lib/teams/mode';
-	import { groupsTabLabel } from '$lib/teams/view';
+	import { tabDot, tabDotLabel } from '$lib/nav/tabs';
 	import { intend } from '$lib/nav/trail.svelte';
 	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
 
@@ -55,7 +55,7 @@
 		{#each tabs as tab, i (tab.id)}
 			{@const here = tab.id === lit}
 			{@const to = targets[i]}
-			{@const fresh = tab.id === 'groups' && !!page.data.groupsNew}
+			{@const fresh = tabDot(tab.id, page.data)}
 			<li>
 				{#if inGroup && tab.id === 'today'}
 					<!-- Mine: the tab bar's one-tap form to the switch (`BottomNav` says why), never lit. -->
@@ -83,7 +83,7 @@
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
-						aria-label={fresh ? groupsTabLabel(true, tab.label) : undefined}
+						aria-label={fresh ? tabDotLabel(tab.id, tab.label) : undefined}
 						class={here ? ON : OFF}
 					>
 						<Icon name={tab.icon} size={24} filled={here} />
