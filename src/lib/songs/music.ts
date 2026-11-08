@@ -13,8 +13,12 @@ export function music() {
 export type PractiseAt =
 	{ routineId: number; entryId: number | null } | { drillEntryId: number } | { lesson: true };
 
-/** The player opened with `songId`, from a routine, a drill or a lesson. */
-export function practiseHref(dance: string, at: PractiseAt, songId: number): string {
+/**
+ * The player opened with `songId`, from a routine, a drill or a lesson. `from`
+ * (a run's `playerFrom`: "from=run&skip=3,5") goes on as given, so its comma
+ * stays a comma.
+ */
+export function practiseHref(dance: string, at: PractiseAt, songId: number, from?: string): string {
 	const q = new URLSearchParams();
 	if ('routineId' in at) {
 		q.set('routine', String(at.routineId));
@@ -23,5 +27,5 @@ export function practiseHref(dance: string, at: PractiseAt, songId: number): str
 		q.set('exercise', String(at.drillEntryId));
 	}
 	q.set('song', String(songId));
-	return `/${dance}/player?${q}`;
+	return `/${dance}/player?${q}${from ? `&${from}` : ''}`;
 }

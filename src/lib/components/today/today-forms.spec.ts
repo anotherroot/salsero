@@ -81,13 +81,26 @@ describe('The log form', () => {
 
 	it('after a save the exercise page goes back, in place of itself', () => {
 		const src = readFileSync(EXERCISE, 'utf8');
-		const fn = src.match(/function saved\(r: DoneResult\): void \{([\s\S]*?)\n\t\}/)?.[1] ?? '';
-		// On the desktop a pane page has no opener, so back must replace the saved
-		// page, not push Today on top of it.
-		expect(fn).toMatch(
-			/announceSaved\([\s\S]*void backWhenSettled\(todayBack\(data\.dance\.slug\), \{ replace: true \}\);\s*clock\.restart\(\)/
-		);
+		/** A function's body with every space gone: the pins below ignore formatting. */
+		const body = (name: string) =>
+			(
+				src.match(new RegExp(`function ${name}\\([^)]*\\)[^{]*\\{([\\s\\S]*?)\\n\\t\\}`))?.[1] ?? ''
+			).replace(/\s+/g, '');
+		const fn = body('saved');
+		// The toast is announced first; then in a run the next, else back. On the
+		// desktop a pane page has no opener, so back must replace the saved page,
+		// not push Today on top of it.
+		const announced = fn.indexOf('announceSaved(');
+		const onward = fn.indexOf('run.after()');
+		const back = fn.indexOf('backWhenSettled(todayBack(data.dance.slug),{replace:true})');
+		expect(announced).toBeGreaterThanOrEqual(0);
+		expect(onward).toBeGreaterThan(announced);
+		expect(back).toBeGreaterThan(announced);
+		expect(fn).toContain('clock.restart()');
 		expect(fn).not.toMatch(/session/);
+		// Not today in a run goes on to the next once the skip has landed.
+		const skip = body('notToday');
+		expect(skip.indexOf('run.after()')).toBeGreaterThan(skip.indexOf('awaittoday.notToday('));
 		// The run's steps replace too (the run is one history entry), after a closing sheet's Back.
 		const layout = readFileSync(LAYOUT, 'utf8');
 		expect(layout).toMatch(

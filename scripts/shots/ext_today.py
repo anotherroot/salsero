@@ -513,3 +513,114 @@ SCENES.update({
     "today-pane-loading": Scene("/{dance}/figures", _pane_loading, desk=True, after=_release),
     "today-back-refetch": Scene("/{dance}", _back_refetch),
 })
+
+
+# ---- plan 3 Task 4: the run on the exercise page ----
+
+_PLACE = re.compile(r"(\d+) of (\d+) · \d+:\d\d")
+
+
+def _place(page):
+    """The band's "3 of 7", as (3, 7); None when it shows no place."""
+    m = _PLACE.search(page.locator("body").inner_text())
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def _step_shot(page, name):
+    """With SHOTS_STEPS set, a shot of each step of the walk (the scene's own shot is the last)."""
+    out = os.environ.get("SHOTS_STEPS")
+    if out:
+        os.makedirs(out, exist_ok=True)
+        page.screenshot(path=os.path.join(out, f"{name}.png"))
+
+
+def _run_url(page):
+    return re.search(r"/exercises/\d+\?run=1(&skip=[\d,]+)?$", page.url) is not None
+
+
+def _player_links_in_run(page):
+    """In a run every link to the player carries the run (from=run), so its Back comes back here."""
+    for href in page.locator('a[href*="/player?"]').evaluate_all("as => as.map(a => a.getAttribute('href'))"):
+        if "from=run" not in href:
+            raise RuntimeError(f"a player link without the run: {href}")
+
+
+def _moved_on(page, before):
+    page.wait_for_function("(u) => location.href !== u", arg=before, timeout=8000)
+    _settle(page)
+
+
+def _run_walk(page):
+    """Start, then the run's steps: a warm-up's place, Skip, a fixed rhythm's green Done · next, the
+    sheet's Next: (closing it saves nothing and stays), Not today going on, Skip to the last, whose
+    face goes to Done for today (/<dance>/done)."""
+    _warm_up_last(page)
+    _start_run(page)
+    place = _place(page)
+    if not place or place[0] != 1 or "warm-up · 1 of" not in page.locator("body").inner_text():
+        raise RuntimeError(f"the warm-up's band says {place}, not warm-up · 1 of N")
+    if page.get_by_role("button", name="Skip", exact=True).count() != 1:
+        raise RuntimeError("no Skip beside Done in a run")
+    _step_shot(page, "1-warmup")
+    # Skip: on to the next, the warm-up in skip=, the place one on.
+    before = page.url
+    page.get_by_role("button", name="Skip", exact=True).click()
+    _moved_on(page, before)
+    if not _run_url(page) or "skip=" not in page.url or _place(page) != (2, place[1]):
+        raise RuntimeError(f"Skip went to {page.url}, place {_place(page)}")
+    _step_shot(page, "2-skipped")
+    # A fixed rhythm: the green Done · next saves at once and goes on, the toast on the next page.
+    _set_comes_back(page, '{"kind":"every","days":1}')
+    green = page.get_by_role("button", name=re.compile(r"Done · next"))
+    green.wait_for()
+    if "bg-done" not in (green.get_attribute("class") or "").split():
+        raise RuntimeError("Done · next is not the done green")
+    _step_shot(page, "3-fixed")
+    before = page.url
+    green.click()
+    _moved_on(page, before)
+    page.locator("[role=status]", has_text="Saved · back tomorrow").first.wait_for()
+    if not _run_url(page) or _place(page) != (3, place[1]):
+        raise RuntimeError(f"Done · next went to {page.url}, place {_place(page)}")
+    _step_shot(page, "4-after-fixed")
+    # The sheet names the next; closing it saves nothing and stays.
+    stay = page.url
+    _open_sheet(page)
+    sheet = page.locator("dialog[open]").first.inner_text()
+    _step_shot(page, "5-sheet")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(600)
+    _no_popup(page, "after closing the Done sheet")
+    if page.url != stay:
+        raise RuntimeError(f"closing the sheet left for {page.url}")
+    if "Next: " in sheet and page.get_by_role("button", name="Not today").count():
+        # Not today goes on too; the layout's Undo toast stays up across the replace.
+        before = page.url
+        page.get_by_role("button", name="Not today").click()
+        _moved_on(page, before)
+        page.locator("[role=status]", has_text=re.compile("Not today|Undo")).first.wait_for()
+        if not _run_url(page):
+            raise RuntimeError(f"Not today went to {page.url}")
+        _step_shot(page, "6-not-today")
+    # Skip on to the last (its sheet has no Next:), then a face: Done for today.
+    for _ in range(40):
+        _player_links_in_run(page)
+        _open_sheet(page)
+        if "Next: " not in page.locator("dialog[open]").first.inner_text():
+            break
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        before = page.url
+        page.get_by_role("button", name="Skip", exact=True).click()
+        _moved_on(page, before)
+    else:
+        raise RuntimeError("the run never reached its last")
+    _step_shot(page, "7-last-sheet")
+    page.locator("dialog[open]").get_by_role("button", name=FACES).first.click()
+    page.wait_for_url(re.compile(r"/(salsa|bachata)/done$"), timeout=8000)
+    _settle(page)
+
+
+SCENES.update({
+    "today-run-walk": Scene("/{dance}", _run_walk),
+})

@@ -44,7 +44,8 @@
 		LABEL,
 		SECTION_LABEL,
 		TEXTAREA_ON_CARD,
-		button
+		button,
+		rowButton
 	} from '$lib/components/ui/styles';
 	import {
 		archiveBody,
@@ -97,12 +98,17 @@
 	const pageId = $derived(page.params.id);
 	/** Today's layout around the page: its run (`?run=1`), its toast, and Not today. */
 	const today = todayPane();
+	/**
+	 * Start on Today's walk (`?run=1&skip=…`): Skip beside Done, "3 of 7" in the
+	 * band, "Next: …" in the sheet, and on to the next after a save. Null outside one.
+	 */
+	const run = $derived(today?.run ?? null);
 
 	// --- The time and Done (spec "The exercise page (one page)").
 	/** Counted while the page is visible, from when it opened; Done saves it. */
 	const clock = pageClock();
 	/** The Practise with card's last run: Done saves its player_json. */
-	let run = $state<{ durationS: number; playerJson: string } | null>(null);
+	let practiceRun = $state<{ durationS: number; playerJson: string } | null>(null);
 	/** A count or a song plays in Practise with: Done waits. */
 	let playing = $state(false);
 	/** Remounts Practise with after a save: its run is spent. */
@@ -124,7 +130,7 @@
 			const result = await act('done', {
 				exerciseId: data.exercise.id,
 				durationS: clock.seconds,
-				run: run?.playerJson ?? '',
+				run: practiceRun?.playerJson ?? '',
 				rating: ''
 			});
 			if (pageId !== at) return;
@@ -138,7 +144,7 @@
 
 	/**
 	 * After any save: the toast with Undo on the next screen, the sheet closed, then
-	 * back where the page was opened from.
+	 * in a run the next (or Done for today), else back where the page was opened from.
 	 */
 	function saved(r: DoneResult): void {
 		announceSaved({
@@ -147,11 +153,13 @@
 			undo: { setId: r.setId, before: r.before }
 		});
 		doneOpen = false;
-		run = null;
+		practiceRun = null;
 		practiceKey++;
+		// In a run: the next in place of this page, once the sheet's Back has landed.
+		if (run) run.after();
 		// Back; with no opener to step back to (the desktop's pane, a cold open)
 		// Today takes this page's entry, not one on top of it.
-		void backWhenSettled(todayBack(data.dance.slug), { replace: true });
+		else void backWhenSettled(todayBack(data.dance.slug), { replace: true });
 		clock.restart();
 	}
 
@@ -167,9 +175,15 @@
 		if (skipping || !today) return;
 		skipping = true;
 		try {
-			// The row is gone from Today now: back to the list (on the desktop it opens the next).
-			if (await today.notToday(data.exercise.id))
-				await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
+			// The row is gone from Today now: in a run the next (the layout's Undo toast
+			// stays up across the replace); else back to the list (on the desktop it
+			// opens the next).
+			if (await today.notToday(data.exercise.id)) {
+				// Its Undo toast is the one notice: an earlier save's goes.
+				savedToast.dismiss();
+				if (run) run.after();
+				else await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
+			}
 		} finally {
 			skipping = false;
 		}
@@ -216,7 +230,7 @@
 			: null
 	);
 
-	/** "Drill · learning · 3:20" while it can be done; the type alone while editing or with nothing to log. */
+	/** "Drill · learning · 3:20" ("Drill · 3 of 7 · 4:12" in a run) while it can be done; the type alone while editing or with nothing to log. */
 	const subtitle = $derived.by(() => {
 		const label = TYPES[type].label;
 		if (editing) return label;
@@ -227,7 +241,8 @@
 			label,
 			warmup: exercise.warmup,
 			learning: !!data.scheduleAtStart?.learning,
-			seconds: clock.seconds
+			seconds: clock.seconds,
+			place: run?.place ?? null
 		});
 	});
 
@@ -342,7 +357,7 @@
 			undoSnapshots = null;
 			doneOpen = false;
 			dayOpen = false;
-			run = null;
+			practiceRun = null;
 			playing = false;
 			saving = false;
 			clock.restart();
@@ -377,8 +392,8 @@
 				content={data.practice.content}
 				songs={data.songs}
 				takes={data.takes}
-				playerFrom="from=exercise"
-				onrun={(r) => (run = r)}
+				playerFrom={run?.playerFrom ?? 'from=exercise'}
+				onrun={(r) => (practiceRun = r)}
 				onactive={(on) => (playing = on)}
 			/>
 		{/key}
@@ -632,7 +647,8 @@
 				practiseHref(
 					data.dance.slug,
 					data.musicEntryId !== null ? { drillEntryId: data.musicEntryId } : { lesson: true },
-					songId
+					songId,
+					run ? run.playerFrom : undefined
 				)}
 		/>
 	{/if}
@@ -754,6 +770,17 @@
 	<LastTime last={data.practice.last} />
 {/snippet}
 
+<!-- The run's Skip: on without saving, this run only (never Not today). -->
+{#snippet skipButton()}
+	<!-- Not while a save or Not today is out: its own step goes on when it lands. -->
+	<button
+		type="button"
+		class={rowButton('secondary')}
+		disabled={saving || skipping}
+		onclick={() => run?.skip()}>{t().exercise.done.skip}</button
+	>
+{/snippet}
+
 <Screen
 	compact
 	width={data.canLog ? 'two' : 'one'}
@@ -861,12 +888,15 @@
 		</button>
 	</BottomBar>
 {:else if data.canLog}
+	<!-- In a run: Skip beside Done; a fixed rhythm's is the green Done · next. -->
 	<DoneBar
 		doneToday={data.entryToday !== null}
 		{playing}
 		busy={saving}
 		sheet={!fixed}
+		fixedInRun={run !== null && fixed}
 		onclick={done}
+		left={run ? skipButton : undefined}
 	/>
 {/if}
 
@@ -890,11 +920,12 @@
 			seconds: clock.seconds,
 			learning: data.scheduleAtStart?.learning ?? null,
 			day: null,
-			name: title
+			name: title,
+			next: run?.next?.name ?? null
 		})}
 		faces={data.faces}
 		seconds={clock.seconds}
-		run={run?.playerJson ?? null}
+		run={practiceRun?.playerJson ?? null}
 		day={null}
 		{simple}
 		current={data.entryToday}

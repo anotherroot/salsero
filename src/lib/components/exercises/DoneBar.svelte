@@ -20,13 +20,23 @@
 		busy?: boolean;
 		/** Done opens the sheet (false: a fixed rhythm saves at once). */
 		sheet: boolean;
+		/** A fixed rhythm in a run: the green Done · next (not once done today). */
+		fixedInRun?: boolean;
 		onclick: () => void;
 		left?: Snippet;
 	}
 
-	let { doneToday, playing, busy = false, sheet, onclick, left }: Props = $props();
+	let {
+		doneToday,
+		playing,
+		busy = false,
+		sheet,
+		fixedInRun = false,
+		onclick,
+		left
+	}: Props = $props();
 
-	const view = $derived(doneBar({ doneToday, playing }));
+	const view = $derived(doneBar({ doneToday, playing, fixedInRun }));
 </script>
 
 <BottomBar width="two">

@@ -77,9 +77,8 @@
 	 * stored: after a save the reloaded rows say what is next. The run is one
 	 * history entry: Start pushes from the list, and every step after it replaces.
 	 */
-	const run = $derived(
-		!isList && !past && currentId !== null ? runOf(page.url.searchParams) : null
-	);
+	// A past day (`?day=`) is a list route: `!isList` already leaves it out.
+	const run = $derived(!isList && currentId !== null ? runOf(page.url.searchParams) : null);
 	const step = $derived(run && currentId !== null ? runStep(dance, day, run, currentId) : null);
 
 	/** Start: the walk's first (the warm-ups first); with nothing to walk, nothing. */
