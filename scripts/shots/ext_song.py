@@ -84,6 +84,13 @@ def _section_other(page):
     page.wait_for_timeout(200)
 
 
+def _switch(page):
+    _edit(page)
+    page.get_by_role("link", name="Dale Timbal Live").first.click()
+    page.wait_for_url("**/songs/4")
+    page.wait_for_timeout(800)
+
+
 SCENES = {
     "song-edit-song": Scene(SONG, _song_tab),
     "song-tempo-ask": Scene(SONG, _tempo_ask),
@@ -94,4 +101,5 @@ SCENES = {
     "song-edit-suggestion": Scene(SONG, _suggestion),
     "song-section-sheet": Scene(SONG, _section_sheet),
     "song-section-other": Scene(SONG, _section_other),
+    "song-edit-switch": Scene(SONG, _switch, desk=True),
 }

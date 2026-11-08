@@ -36,6 +36,7 @@
 		suggestions,
 		start,
 		now,
+		paused,
 		played,
 		audio,
 		seen,
@@ -53,6 +54,7 @@
 		suggestions: Suggestion[];
 		start: { at: number; yours: number | null };
 		now: number;
+		paused: boolean;
 		played: boolean;
 		audio: () => { paused: boolean; currentTime: number } | null;
 		seen: () => string;
@@ -91,7 +93,7 @@
 			fields: { beat },
 			seen,
 			message: tapToast(beats[beat], tapShift(before[beat])),
-			undo: countUndo(),
+			undo: countUndo,
 			toast
 		});
 		if (r.type === 'success') light(beat, before);
@@ -101,16 +103,16 @@
 	let tapping = false;
 	const queued: { t: number; paused: boolean }[] = [];
 
-	async function sendTap(t: number, paused: boolean) {
-		const beat = nearestBeat(beats, t - (paused ? 0 : TAP_LATENCY_S));
+	async function sendTap(t: number, still: boolean) {
+		const beat = nearestBeat(beats, t - (still ? 0 : TAP_LATENCY_S));
 		if (beat < 0) return false;
 		const before = [...counts];
 		const r = await editAct({
 			name: 'tap',
-			fields: { t, paused: paused ? '1' : '0' },
+			fields: { t, paused: still ? '1' : '0' },
 			seen,
 			message: tapToast(beats[beat], tapShift(before[beat])),
-			undo: countUndo(),
+			undo: countUndo,
 			toast
 		});
 		if (r.type !== 'success') return false;
@@ -148,12 +150,22 @@
 
 	/** A section on `beat` (made a 1 first when it is not), then its sheet. */
 	async function sectionOn(beat: number) {
+		// On a beat that is not a 1 the section makes it the 1 too, in one change:
+		// the toast says how far the count moved, and Undo puts both back.
+		const moves = counts[beat] !== 1;
 		const r = await editAct({
 			name: 'sectionAdd',
 			fields: { beat },
 			seen,
-			message: t().songs.page.section.added,
-			undo: sectionsUndo(),
+			message: moves
+				? `${t().songs.page.section.added}. ${tapToast(beats[beat], tapShift(counts[beat]))}`
+				: t().songs.page.section.added,
+			undo: moves
+				? () => ({
+						field: 'countSections',
+						value: { anchors, sections: parseSections(sectionsJson) }
+					})
+				: sectionsUndo,
 			toast
 		});
 		if (r.type === 'success' && typeof r.data?.index === 'number') onsection(r.data.index);
@@ -191,7 +203,7 @@
 						fields: { beat: b },
 						seen,
 						message: w.removed(clock(beats[b])),
-						undo: countUndo(),
+						undo: countUndo,
 						toast
 					})
 				)
@@ -206,7 +218,7 @@
 					fields: { t: beats[b] },
 					seen,
 					message: t().songs.page.edit.start.doneHere(clock(beats[b])),
-					undo: { field: 'start', value: start.yours },
+					undo: () => ({ field: 'start', value: start.yours }),
 					toast
 				})
 			)
@@ -239,6 +251,7 @@
 	{sections}
 	{rows}
 	playing={played ? beatIndexAt(beats, now) : -1}
+	follow={!paused}
 	startS={start.at}
 	lit={lit?.beat ?? null}
 	outlined={shown.map((s) => s.beat)}

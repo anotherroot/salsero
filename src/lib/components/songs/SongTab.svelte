@@ -63,7 +63,7 @@
 			fields: { factor: f },
 			seen,
 			message: w.speed.done(TEMPO_LABEL[f]),
-			undo: { field: 'count', value: count },
+			undo: () => ({ field: 'count', value: count }),
 			toast
 		}).then((r) => {
 			if (r.type !== 'success') tempo = String(tempoFactor);
@@ -122,7 +122,7 @@
 					fields: { t: now },
 					seen,
 					message: w.sample.doneHere(clock(now)),
-					undo: { field: 'sample', value: sampleBefore },
+					undo: () => ({ field: 'sample', value: sampleBefore }),
 					toast
 				})}
 		>
@@ -138,7 +138,7 @@
 						name: 'sampleAuto',
 						seen,
 						message: w.sample.doneBack,
-						undo: { field: 'sample', value: sampleBefore },
+						undo: () => ({ field: 'sample', value: sampleBefore }),
 						toast
 					})}>{w.sample.back}</button
 			>
@@ -161,7 +161,7 @@
 				fields: { t: now },
 				seen,
 				message: w.start.doneHere(clock(now)),
-				undo: { field: 'start', value: start.yours },
+				undo: () => ({ field: 'start', value: start.yours }),
 				toast
 			})}
 	>
@@ -177,7 +177,7 @@
 					name: 'startZero',
 					seen,
 					message: w.start.doneZero,
-					undo: { field: 'start', value: start.yours },
+					undo: () => ({ field: 'start', value: start.yours }),
 					toast
 				})}
 		>
@@ -194,7 +194,7 @@
 					name: 'startFound',
 					seen,
 					message: w.start.doneBack,
-					undo: { field: 'start', value: start.yours },
+					undo: () => ({ field: 'start', value: start.yours }),
 					toast
 				})}>{w.start.back}</button
 		>
@@ -226,7 +226,7 @@
 						name: 'resetAnchors',
 						seen,
 						message: w.clear.doneOnes,
-						undo: { field: 'count', value: count },
+						undo: () => ({ field: 'count', value: count }),
 						toast
 					})}
 			>
@@ -243,7 +243,7 @@
 						name: 'sectionsClear',
 						seen,
 						message: w.clear.doneSections,
-						undo: { field: 'sections', value: JSON.parse(sectionsJson) },
+						undo: () => ({ field: 'sections', value: JSON.parse(sectionsJson) }),
 						toast
 					})}
 			>

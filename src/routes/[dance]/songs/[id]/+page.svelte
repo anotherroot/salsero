@@ -14,7 +14,7 @@
 	import SongTab from '$lib/components/songs/SongTab.svelte';
 	import GridTab from '$lib/components/songs/GridTab.svelte';
 	import SectionSheet from '$lib/components/songs/SectionSheet.svelte';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import type { ToastState } from '$lib/act-toast';
 	import type { TempoFactor } from '$lib/labels';
@@ -245,12 +245,15 @@
 		if (editing) return;
 		editing = true;
 		editTab = 'grid';
+		editSong = data.song.id;
 		editKey = sheetStack.open({
 			tryLeave: (leave) => leave(),
 			close: () => {
 				editing = false;
 				editKey = null;
+				editSong = null;
 				editToast = null;
+				sectionOpen = null;
 			}
 		});
 	}
@@ -266,6 +269,22 @@
 	function leaveEdit() {
 		if (editKey !== null) sheetStack.requestClose(editKey);
 	}
+
+	// Another song opened beside the list (the desktop) ends Edit: its state, its
+	// open sheet and its history entry were this song's.
+	let editSong: number | null = null;
+	$effect(() => {
+		const id = data.song.id;
+		untrack(() => {
+			if (editSong === null || editSong === id) return;
+			if (editKey !== null) sheetStack.closedByOwner(editKey);
+			editing = false;
+			editKey = null;
+			editSong = null;
+			editToast = null;
+			sectionOpen = null;
+		});
+	});
 
 	// Leaving the page while in Edit: its history entry goes too.
 	$effect(() => () => {
@@ -375,7 +394,7 @@
 			onseeked={() => (now = audio?.currentTime ?? 0)}
 		></audio>
 
-		{#if editing}
+		{#if editing && canEdit}
 			<SongEdit
 				bind:tab={editTab}
 				bind:toast={editToast}
@@ -398,6 +417,7 @@
 						suggestions={data.suggestions}
 						start={data.start}
 						{now}
+						{paused}
 						{played}
 						audio={() => (audio && played ? audio : null)}
 						seen={() => seen}

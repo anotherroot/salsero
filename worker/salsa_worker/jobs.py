@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from .api import JobGone
+from .api import ApiError, JobGone
 from .media import MAX_DURATION_S, Fetched, PermanentError
 
 log = logging.getLogger("salsa_worker")
@@ -124,8 +124,24 @@ def run(api, tools: Tools, video_tools: VideoTools | None = None, max_jobs: int 
     # Once the songs queue is empty: ready songs analysed before the worker measured music starts.
     wanted = api.starts_wanted() if done < max_jobs else []
     for song_id in wanted[: max_jobs - done]:
-        with tempfile.TemporaryDirectory(prefix="salsa-start-") as tmp:
-            measure_start(song_id, api, tools, Path(tmp))
+        try:
+            with tempfile.TemporaryDirectory(prefix="salsa-start-") as tmp:
+                measure_start(song_id, api, tools, Path(tmp))
+        except ApiError as e:
+            if not 400 <= e.status < 500:
+                # Server trouble: the next tick tries again; the videos still run now.
+                log.warning("song %s: music start not measured, server trouble: %s", song_id, e)
+                break
+            # The server refused this one (its audio gone, say): measured as 0.0, so it is
+            # never asked for again and never blocks the songs after it.
+            log.warning("song %s: music start not measured: %s", song_id, e)
+            try:
+                api.post_start(song_id, 0.0)
+            except Exception:  # noqa: BLE001 — skipped this tick; the next one asks again
+                log.warning("song %s: could not record its music start", song_id)
+        except Exception as e:  # noqa: BLE001 — network down, laptop offline: try next tick
+            log.warning("song %s: music start not measured: %s", song_id, e)
+            break
         done += 1
     while video_tools is not None and done < max_jobs:
         job = api.claim_video()

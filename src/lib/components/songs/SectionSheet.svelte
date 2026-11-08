@@ -49,7 +49,7 @@
 			fields: { index: section.index, ...fields },
 			seen,
 			message: w.saved,
-			undo: undo(),
+			undo,
 			toast: (x) => (sheetToast = x)
 		});
 	}
@@ -61,7 +61,7 @@
 			fields: { index: section.index, dir },
 			seen,
 			message: w.saved,
-			undo: undo(),
+			undo,
 			toast: (x) => (sheetToast = x)
 		});
 	}
@@ -76,7 +76,7 @@
 			fields: { index },
 			seen,
 			message: w.removed(name),
-			undo: undo(),
+			undo,
 			toast: pageToast
 		});
 	}

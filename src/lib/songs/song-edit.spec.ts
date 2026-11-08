@@ -88,11 +88,19 @@ describe('what a tap shows', () => {
 });
 
 describe('+ Section', () => {
-	it('starts at the 1 of the eight that is playing, or the song’s first beat', () => {
+	it('starts at the 1 of the eight that is playing, or the song’s first 1', () => {
 		const counts = [7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2];
 		expect(plusSectionBeat(counts, 6)).toBe(2);
 		expect(plusSectionBeat(counts, 10)).toBe(10);
-		expect(plusSectionBeat(counts, 1)).toBe(0);
-		expect(plusSectionBeat(counts, -1)).toBe(0);
+		expect(plusSectionBeat(counts, 1)).toBe(2);
+		expect(plusSectionBeat(counts, -1)).toBe(2);
+	});
+});
+
+describe('+ Section before any 1', () => {
+	it('uses the first 1 of the song, never a beat that would re-count it', () => {
+		expect(plusSectionBeat([7, 8, 1, 2, 3], 1)).toBe(2);
+		expect(plusSectionBeat([7, 8, 1, 2, 3], -1)).toBe(2);
+		expect(plusSectionBeat([3, 4, 5], 1)).toBe(0);
 	});
 });

@@ -392,6 +392,21 @@ describe('Edit: sections, the music start and Undo', () => {
 		expect(getSong(db, id)!.anchorsJson).toBe('[10]');
 	});
 
+	it('undoes a section that made its beat the 1: the count and the sections together', async () => {
+		const id = readySong();
+		await run(A.sectionAdd, id, { beat: '2' });
+		expect(
+			await run(A.restore, id, {
+				field: 'countSections',
+				value: '{"anchors":[],"tempo":1,"sections":[]}'
+			})
+		).toEqual({ ok: true });
+		expect(getSong(db, id)).toMatchObject({ anchorsJson: '[]', sectionsJson: '[]' });
+		expect(
+			await run(A.restore, id, { field: 'countSections', value: '{"anchors":[],"tempo":1}' })
+		).toMatchObject({ status: 400 });
+	});
+
 	it('makes a beat the 1', async () => {
 		const id = readySong();
 		expect(await run(A.one, id, { beat: '5' })).toEqual({ ok: true });

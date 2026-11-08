@@ -230,3 +230,36 @@ def test_the_starts_pass_counts_against_max_jobs():
     api.wanted = [11, 12, 13]
     assert jobs.run(api, tools(), max_jobs=3) == 3
     assert [c for c in api.calls if c[0] == "post_start"] == [("post_start", 11, 1.5)]
+
+
+def test_a_song_whose_audio_is_gone_is_measured_as_zero_and_the_rest_go_on():
+    from salsa_worker.api import ApiError
+
+    class Missing(FakeApi):
+        def download_audio(self, song_id, dest):
+            if song_id == 11:
+                raise ApiError("GET", "/api/worker/songs/11/audio", 404, "No audio yet")
+            super().download_audio(song_id, dest)
+
+    api = Missing([])
+    api.wanted = [11, 12]
+    jobs.run(api, tools())
+    assert [c for c in api.calls if c[0] == "post_start"] == [("post_start", 11, 0.0), ("post_start", 12, 1.5)]
+
+
+def test_server_trouble_in_the_starts_pass_leaves_the_videos_to_run():
+    from salsa_worker.api import ApiError
+
+    class Down(FakeApi):
+        def download_audio(self, song_id, dest):
+            raise ApiError("GET", "/x", 502, "Bad gateway")
+
+        def claim_video(self):
+            self.calls.append(("claim_video",))
+            return None
+
+    api = Down([])
+    api.wanted = [11, 12]
+    jobs.run(api, tools(), video_tools=video_tools())
+    assert ("claim_video",) in api.calls
+    assert [c for c in api.calls if c[0] == "post_start"] == []

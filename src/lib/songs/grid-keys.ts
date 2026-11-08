@@ -39,3 +39,16 @@ export function gridKey(key: string, beat: number, rows: Row[]): number | null {
 export function shouldFollow(now: number, lastHandScroll: number): boolean {
 	return now - lastHandScroll >= FOLLOW_PAUSE_MS;
 }
+
+/** The beat that holds the grid's one tab stop: the focused one while drawn, else the playing one, else the first drawn. */
+export function tabBeat(focus: number, rows: Row[], playing: number): number | null {
+	const drawn = (b: number) => rows.some((r) => b >= r.start && b < r.end);
+	if (drawn(focus)) return focus;
+	if (drawn(playing)) return playing;
+	return rows.length > 0 ? rows[0].start : null;
+}
+
+/** The grid scrolls to the song only while it plays, and only when the playing row changes. */
+export function followRow(previous: number, row: number, playing: boolean): boolean {
+	return playing && row >= 0 && row !== previous;
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { countsFor } from '$lib/beatgrid/beatgrid';
 import { gridRows } from './sections';
-import { FOLLOW_PAUSE_MS, gridKey, shouldFollow } from './grid-keys';
+import { FOLLOW_PAUSE_MS, followRow, gridKey, shouldFollow, tabBeat } from './grid-keys';
 
 const beats = Array.from({ length: 30 }, (_, i) => i * 0.5);
 // 1s at 0, 8, 16 and 18 (a short row of 2 from 16), then 26.
@@ -35,5 +35,27 @@ describe('shouldFollow', () => {
 		expect(shouldFollow(10_000, 0)).toBe(true);
 		expect(shouldFollow(10_000, 10_000 - FOLLOW_PAUSE_MS + 1)).toBe(false);
 		expect(shouldFollow(10_000, 10_000 - FOLLOW_PAUSE_MS)).toBe(true);
+	});
+});
+
+describe('the grid’s one tab stop', () => {
+	const loud = rows.slice(1);
+	it('stays on the focused beat while it is drawn', () => {
+		expect(tabBeat(12, rows, -1)).toBe(12);
+	});
+	it('moves to the playing beat, else the first drawn beat, when the focused one is hidden or gone', () => {
+		expect(tabBeat(3, loud, 20)).toBe(20);
+		expect(tabBeat(3, loud, -1)).toBe(8);
+		expect(tabBeat(500, rows, -1)).toBe(0);
+		expect(tabBeat(0, [], -1)).toBeNull();
+	});
+});
+
+describe('when the grid scrolls to the song', () => {
+	it('only while playing, and only when the playing row changes', () => {
+		expect(followRow(2, 3, true)).toBe(true);
+		expect(followRow(3, 3, true)).toBe(false);
+		expect(followRow(2, 3, false)).toBe(false);
+		expect(followRow(2, -1, true)).toBe(false);
 	});
 });

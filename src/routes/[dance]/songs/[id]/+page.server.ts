@@ -105,6 +105,7 @@ function restoredValue(
 	value: string
 ):
 	| { field: 'count'; anchors: number[]; tempo: TempoFactor }
+	| { field: 'countSections'; anchors: number[]; sections: Section[] }
 	| { field: 'sections'; sections: Section[] }
 	| { field: 'sample' | 'start'; at: number | null }
 	| null {
@@ -113,6 +114,19 @@ function restoredValue(
 		v = JSON.parse(value);
 	} catch {
 		return null;
+	}
+	if (field === 'countSections') {
+		// Undo of a section that made its beat the 1: the anchors and the sections together.
+		const o = v as { anchors?: unknown; sections?: unknown } | null;
+		const anchors = o?.anchors;
+		if (!Array.isArray(anchors) || !anchors.every((a) => Number.isInteger(a) && a >= 0))
+			return null;
+		if (!Array.isArray(o?.sections)) return null;
+		return {
+			field,
+			anchors: anchors as number[],
+			sections: parseSections(JSON.stringify(o.sections))
+		};
 	}
 	if (field === 'count') {
 		const o = v as { anchors?: unknown; tempo?: unknown } | null;
@@ -429,13 +443,15 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const ok =
 			v === null
 				? false
-				: v.field === 'count'
-					? restoreCount(db, song.id, v.anchors, v.tempo, space, now)
-					: v.field === 'sections'
-						? setSections(db, song.id, v.sections, space, now)
-						: v.field === 'sample'
-							? setSampleStart(db, song.id, v.at, space, now)
-							: setMusicStart(db, song.id, v.at, space, now);
+				: v.field === 'countSections'
+					? setCountAndSections(db, song.id, v, space, now)
+					: v.field === 'count'
+						? restoreCount(db, song.id, v.anchors, v.tempo, space, now)
+						: v.field === 'sections'
+							? setSections(db, song.id, v.sections, space, now)
+							: v.field === 'sample'
+								? setSampleStart(db, song.id, v.at, space, now)
+								: setMusicStart(db, song.id, v.at, space, now);
 		if (!ok) return refuse('restore', words().songs.page.refused.badValue);
 		return { ok: true };
 	},

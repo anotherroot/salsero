@@ -4,7 +4,8 @@
 	import { clock } from '$lib/format';
 	import { t } from '$lib/i18n/catalog';
 	import { longPress } from '$lib/longpress';
-	import { gridKey, shouldFollow } from '$lib/songs/grid-keys';
+	import { followRow, gridKey, shouldFollow, tabBeat } from '$lib/songs/grid-keys';
+	import { untrack } from 'svelte';
 	import { sectionIndexAt, sectionName, type Placed, type Row } from '$lib/songs/sections';
 	import { beatLabel } from '$lib/songs/song-edit';
 
@@ -21,6 +22,7 @@
 		sections,
 		rows,
 		playing,
+		follow,
 		startS,
 		lit = null,
 		outlined = [],
@@ -37,6 +39,8 @@
 		rows: Row[];
 		/** The beat playing, or -1. */
 		playing: number;
+		/** The song is playing: the grid keeps its row in view. */
+		follow: boolean;
 		/** Where the music starts; the rows before it fold. */
 		startS: number;
 		/** A beat to light (the one just made a 1). */
@@ -84,11 +88,20 @@
 			window.removeEventListener('touchmove', hand);
 		};
 	});
+	// Only while it plays, and only when the playing row changes: a save while
+	// paused (a new 1, a section) must not pull the grid back to the playhead.
+	let followed = -1;
 	$effect(() => {
-		if (playingRow < 0 || !grid || !shouldFollow(Date.now(), lastHand)) return;
-		grid
-			.querySelector(`[data-row="${rows[playingRow].start}"]`)
-			?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		const row = playingRow;
+		const go = followRow(followed, row, follow);
+		followed = row;
+		if (!go) return;
+		untrack(() => {
+			if (!grid || !shouldFollow(Date.now(), lastHand)) return;
+			grid
+				.querySelector(`[data-row="${rows[row].start}"]`)
+				?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		});
 	});
 
 	const press = longPress({
@@ -121,6 +134,8 @@
 	/** The rows a person can reach: the quiet ones only while opened. */
 	const visible = $derived(quietOpen ? rows : rows.filter((r) => !r.quiet));
 	const firstLoud = $derived(rows.find((r) => !r.quiet));
+	/** The one tab stop: the focused beat while drawn, else the playing one, else the first drawn. */
+	const tabbable = $derived(tabBeat(focusBeat, visible, playing));
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -208,7 +223,7 @@
 						<button
 							type="button"
 							data-beat={i}
-							tabindex={i === focusBeat ? 0 : -1}
+							tabindex={i === tabbable ? 0 : -1}
 							aria-label={label(i)}
 							class="relative flex h-9 w-[30px] cursor-pointer items-center justify-center rounded-lg text-[15px] tabular-nums select-none {i ===
 							playing
