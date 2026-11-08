@@ -402,7 +402,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 			},
 			{ actorId: wallOf(params, locals).userId, now: Date.now() }
 		);
-		if (!saved) throw error(404, 'Position not found');
+		if (!saved) throw error(404, t().refusals.positionNotFound);
 		if ('field' in saved)
 			return fail(400, { ...typed, field: saved.field, message: saved.message });
 		return { action: 'update' as const, ok: true };
@@ -427,7 +427,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 		if (done.ok) return { action: 'restore' as const, ok: true };
 		if (done.reason === 'taken')
 			return fail(409, { action: 'restore' as const, message: done.message });
-		throw error(404, 'Position not found');
+		throw error(404, t().refusals.positionNotFound);
 	},
 
 	/** Make it mine: a reader's own copy, their figures, lessons and sections moved onto it (`clones/edit.ts`). */

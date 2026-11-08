@@ -28,7 +28,7 @@ const oneOf = <T extends string>(v: unknown, all: readonly T[]): T | null =>
  * unknown hold part are dropped, as the positions page drops them.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) throw error(401, 'Sign in');
+	if (!locals.user) throw error(401, t().refusals.signIn);
 	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 	const figureId = body?.figureId;
 	const rawName = body?.name;
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		!Number.isSafeInteger(figureId) ||
 		typeof rawName !== 'string'
 	) {
-		throw error(400, 'Bad request');
+		throw error(400, t().refusals.badRequest);
 	}
 	const db = getDb();
 	const row = db
@@ -47,7 +47,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		.where(eq(figures.id, figureId))
 		.get();
 	if (!row || row.archivedAt !== null || !isDanceSlug(row.dance))
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	const { space } = requireFigureAccess(db, locals, { dance: row.dance }, figureId, 'edit');
 
 	if (rawName.trim().length > 200) {

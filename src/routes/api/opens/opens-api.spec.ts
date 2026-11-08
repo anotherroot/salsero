@@ -15,6 +15,7 @@ import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { createSongFromUpload, storeAnalysis } from '$lib/server/songs';
 import { deleteGroupSong, shareSong } from '$lib/server/song-share';
 import type { Space } from '$lib/server/scope';
+import { runInLocale } from '$lib/server/i18n-request';
 import { POST } from './+server';
 
 let db: Db;
@@ -132,5 +133,31 @@ describe('POST /api/opens', () => {
 			expect(await post('u2', { kind: 'song', id: 999 })).toBe(404);
 			expect(rows()).toHaveLength(0);
 		});
+	});
+});
+
+describe('POST /api/opens in Slovenian', () => {
+	it("refuses in the reader's language", async () => {
+		const message = async (user: string | null, body: unknown) => {
+			const request = new Request('http://x/api/opens', {
+				method: 'POST',
+				body: JSON.stringify(body)
+			});
+			try {
+				await runInLocale('sl', () =>
+					(POST as (e: unknown) => Promise<Response>)({
+						request,
+						locals: { user: user ? { id: user } : null }
+					})
+				);
+			} catch (e) {
+				return (e as { body: { message: string } }).body.message;
+			}
+			return null;
+		};
+		expect(await message(null, { kind: 'lesson', id: 1 })).toBe('Prijavite se');
+		expect(await message('u2', { kind: 'nope' })).toBe('Napačna zahteva.');
+		expect(await message('u2', { kind: 'lesson', id: 999 })).toBe('Lekcija ne obstaja.');
+		expect(await message('u2', { kind: 'song', id: 999 })).toBe('Skladba ne obstaja.');
 	});
 });

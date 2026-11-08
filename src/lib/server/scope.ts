@@ -21,6 +21,7 @@
  * Positions are the one exception: a shared list per dance, used by everyone
  * and edited by the admin, so they stand behind the dance alone.
  */
+import { t } from '$lib/i18n/catalog';
 import { error } from '@sveltejs/kit';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -73,7 +74,7 @@ import type { Role } from '$lib/types';
  * no person any more (positions are owned, like figures).
  */
 export function danceOf(params: { dance: string }): DanceSlug {
-	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');
+	if (!isDanceSlug(params.dance)) throw error(404, t().refusals.noDance);
 	return params.dance;
 }
 
@@ -83,10 +84,10 @@ export type Wall = { userId: string; dance: DanceSlug };
 /** The wall this request stands behind: its dance and its signed-in user. */
 export function wallOf(params: { dance: string }, locals: Pick<App.Locals, 'user'>): Wall {
 	const dance = danceOf(params);
-	if (!locals.user) throw error(401, 'Sign in');
+	if (!locals.user) throw error(401, t().refusals.signIn);
 	// An account belongs to one dance (the dance split): the other dance's
 	// pages and rows are a stranger's 404, whatever the host or the URL.
-	if (locals.user.dance !== dance) throw error(404, 'Not found');
+	if (locals.user.dance !== dance) throw error(404, t().refusals.notFound);
 	return { userId: locals.user.id, dance };
 }
 
@@ -173,7 +174,7 @@ export function inWall(row: { dance: string; userId: string | null }, wall: Wall
 
 /** A 404 unless the signed-in user is the admin. */
 export function requireAdmin(locals: Pick<App.Locals, 'user'>): void {
-	if (!locals.user?.isAdmin) throw error(404, 'Not found');
+	if (!locals.user?.isAdmin) throw error(404, t().refusals.notFound);
 }
 
 /** The exercise if it is in this wall, else null — for reads that degrade. */
@@ -188,7 +189,7 @@ export function exerciseInWall(db: Db, wall: Wall, id: number) {
  */
 export function requireExerciseInWall(db: Db, wall: Wall, id: number) {
 	const found = exerciseInWall(db, wall, id);
-	if (!found) throw error(404, 'No such exercise');
+	if (!found) throw error(404, t().refusals.noExercise);
 	return found;
 }
 
@@ -198,7 +199,7 @@ export function requireExerciseInWall(db: Db, wall: Wall, id: number) {
  */
 export function requireSetInWall(db: Db, wall: Wall, id: number) {
 	const set = getSet(db, id);
-	if (!set) throw error(404, 'No such set');
+	if (!set) throw error(404, t().refusals.noSet);
 	requireExerciseInWall(db, wall, set.exerciseId);
 	return set;
 }
@@ -213,7 +214,7 @@ export function requireSetInWall(db: Db, wall: Wall, id: number) {
  */
 export function requireSongInWall(db: Db, wall: Wall, id: number) {
 	const song = getSong(db, id);
-	if (!song || !inWall(song, wall)) throw error(404, 'Song not found');
+	if (!song || !inWall(song, wall)) throw error(404, t().refusals.songNotFound);
 	return song;
 }
 
@@ -270,7 +271,7 @@ export function requireLessonAccess(
 		lesson,
 		(u, l) => judgeLesson(db, u, l),
 		need,
-		'No such lesson'
+		t().refusals.noLesson
 	);
 	return { lesson: g.row, space: g.space, access: g.access, reach: g.reach };
 }
@@ -295,7 +296,7 @@ export function requireFigureAccess(
 		figure,
 		(u, f) => judgeFigure(db, u, f),
 		need,
-		'Figure not found'
+		t().refusals.figureNotFound
 	);
 	return { figure: g.row, space: g.space, access: g.access, reach: g.reach };
 }
@@ -323,7 +324,7 @@ export function requireMoveAccess(
 		move && move.archivedAt === null ? move : null,
 		(u, m) => judgeMove(db, u, m),
 		need,
-		'Move not found'
+		t().refusals.moveNotFound
 	);
 	return { move: g.row, space: g.space, access: g.access, reach: g.reach };
 }
@@ -352,7 +353,7 @@ export function requireRoutineAccess(
 		getRoutine(db, idOf(id)),
 		(u, r) => judgeRoutine(db, u, r),
 		need,
-		'No such routine'
+		t().refusals.noRoutine
 	);
 	return { routine: g.row, space: g.space, access: g.access, reach: g.reach };
 }
@@ -379,7 +380,7 @@ export function requireExerciseAccess(
 		getExercise(db, idOf(id)),
 		(u, e) => judgeDrill(db, u, e),
 		need,
-		'No such exercise'
+		t().refusals.noExercise
 	);
 	return { exercise: g.row, space: g.space, access: g.access, reach: g.reach };
 }
@@ -409,7 +410,7 @@ export function requirePositionAccess(
 		position,
 		(u, p) => judgePosition(db, u, p),
 		need,
-		'Position not found'
+		t().refusals.positionNotFound
 	);
 	return { position: g.row, space: g.space, access: g.access, reach: g.reach };
 }
@@ -429,10 +430,10 @@ export function requireSongAccess(
 	const wall = wallOf(params, locals);
 	const song = getSong(db, idOf(id));
 	if (!song || song.dance !== wall.dance || song.archivedAt !== null) {
-		throw error(404, 'Song not found');
+		throw error(404, t().refusals.songNotFound);
 	}
 	const access = songAccess(db, wall.userId, song);
-	if (access === null || !allows(access, need)) throw error(404, 'Song not found');
+	if (access === null || !allows(access, need)) throw error(404, t().refusals.songNotFound);
 	return { song, space: spaceOfRow(song, wall.userId), access };
 }
 
@@ -455,7 +456,7 @@ export function requireTeam(
 	const team = Number.isInteger(id) ? getTeam(db, id) : null;
 	const role = team ? roleOf(db, wall.userId, team.id) : null;
 	if (!team || team.dance !== wall.dance || !role || TEAM_RANK[role] < TEAM_RANK[need]) {
-		throw error(404, 'No such group');
+		throw error(404, t().refusals.noGroup);
 	}
 	return { team, role, space: { dance: wall.dance, teamId: team.id, actorId: wall.userId } };
 }

@@ -75,6 +75,7 @@ import { nouns } from './nouns';
 import { picker } from './picker';
 import { player } from './player';
 import { positions } from './positions';
+import { refusals } from './refusals';
 import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
@@ -104,5 +105,6 @@ export const sl: Catalog = {
 	positions,
 	picker,
 	links,
-	clones
+	clones,
+	refusals
 };

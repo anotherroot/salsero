@@ -151,7 +151,7 @@ export const actions: Actions = {
 			},
 			userId
 		);
-		if (!made) throw error(404, 'Move not found');
+		if (!made) throw error(404, t().refusals.moveNotFound);
 		throw redirect(303, `/${space.dance}/figures/${made.id}`);
 	}
 };

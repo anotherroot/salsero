@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		!locals.user ||
 		!allows(figureAccess(db, locals.user.id, found.figure), 'edit')
 	)
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	// The figure's owner pays: a group's figure fills the group's room, not the uploader's.
 	const owner = ownerOfRow(found.figure);
 

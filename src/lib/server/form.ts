@@ -1,4 +1,5 @@
 /** Small, strict readers for FormData. Each returns `undefined` on bad input so actions can `fail(400)`. */
+import { t } from '$lib/i18n/catalog';
 
 /** The longest a name may be (a title, a figure's or a variation's name): what `text` takes by default. */
 export const NAME_MAX = 200;
@@ -74,5 +75,5 @@ export function ints(form: FormData, key: string): number[] {
  * ours (a path, a SQL error), so it becomes the generic line.
  */
 export function refusalText(status: number, message: string): string {
-	return status >= 500 ? 'Couldn’t save. Try it again.' : message;
+	return status >= 500 ? t().refusals.couldNotSave : message;
 }

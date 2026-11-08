@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { inWall, requireAdmin, wallOf, type Wall } from './scope';
+import { openDb } from './db';
+import { runInLocale } from './i18n-request';
+import {
+	inWall,
+	requireAdmin,
+	requireExerciseInWall,
+	requireLessonAccess,
+	wallOf,
+	type Wall
+} from './scope';
 
 const user = (isAdmin = false, dance: 'salsa' | 'bachata' = 'bachata') =>
 	({ id: 'u1', email: 'a@x.com', timezone: 'UTC', isAdmin, dance }) as NonNullable<
@@ -46,5 +55,37 @@ describe('requireAdmin', () => {
 		expect(status(() => requireAdmin({ user: user() }))).toBe(404);
 		expect(status(() => requireAdmin({ user: null }))).toBe(404);
 		expect(status(() => requireAdmin({ user: user(true) }))).toBeUndefined();
+	});
+});
+
+describe('a refusal in Slovenian', () => {
+	const refusal = (fn: () => unknown) => {
+		try {
+			fn();
+		} catch (e) {
+			return e as { status?: number; body?: { message?: string } };
+		}
+		return undefined;
+	};
+
+	it("names what is missing, in the reader's language", () => {
+		const db = openDb(':memory:');
+		const locals = { user: user(false, 'salsa'), appAgent: null, locale: 'en' } as App.Locals;
+		const lesson = runInLocale('sl', () =>
+			refusal(() => requireLessonAccess(db, locals, { dance: 'salsa' }, 999, 'read'))
+		);
+		expect(lesson?.status).toBe(404);
+		expect(lesson?.body?.message).toBe('Lekcija ne obstaja.');
+		const exercise = runInLocale('sl', () =>
+			refusal(() => requireExerciseInWall(db, { userId: 'u1', dance: 'salsa' }, 999))
+		);
+		expect(exercise?.body?.message).toBe('Vaja ne obstaja.');
+		const signedOut = runInLocale('sl', () =>
+			refusal(() => wallOf({ dance: 'salsa' }, { user: null }))
+		);
+		expect(signedOut?.body?.message).toBe('Prijavite se');
+		// English stays as it was.
+		const english = refusal(() => requireLessonAccess(db, locals, { dance: 'salsa' }, 999, 'read'));
+		expect(english?.body?.message).toBe('No such lesson');
 	});
 });

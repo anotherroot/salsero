@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runInLocale } from './i18n-request';
 
 // `files.ts` resolves `DATA_DIR` through `$env/dynamic/private`, and
 // SvelteKit bakes that module as a literal snapshot at Vite config time — a
@@ -247,6 +248,25 @@ describe('writeChunk', () => {
 			message: 'Videos only.'
 		});
 		expect(existsSync(partial)).toBe(false);
+	});
+
+	it("says a chunk is in the wrong place in the reader's language, and where the file is", async () => {
+		await write(chunk(0, 4, 10));
+		const wrong = await runInLocale('sl', () => write(chunk(6, 4, 10)));
+		expect(await refusal(wrong)).toEqual({
+			status: 409,
+			message: 'Ta kos se ne začne tam, kjer se datoteka konča.',
+			received: '4'
+		});
+		const noRange = await runInLocale('sl', () => write(chunk(4, 1, 10, 'video/mp4', 'x')));
+		expect(await refusal(noRange)).toMatchObject({
+			status: 400,
+			message: 'Potrebna je glava content-range v obliki bytes <start>-<end>/<total>.'
+		});
+		// English, as before: the worker's uploads (English) read these too.
+		expect(await refusal(await write(chunk(6, 4, 10)))).toMatchObject({
+			message: 'That chunk starts in the wrong place.'
+		});
 	});
 });
 

@@ -198,6 +198,8 @@ export const settings = {
 		micRefusedBody: 'Allow it for this app in the phone’s settings, then try again.',
 		failed: 'Recording failed',
 		failedLine: 'Recording failed.',
+		/** A run that went the distance and captured nothing. */
+		noAudio: 'The microphone produced no audio.',
 		// The server's refusals.
 		unknownTake: 'Unknown take.',
 		takeGone: 'That take is already gone.',

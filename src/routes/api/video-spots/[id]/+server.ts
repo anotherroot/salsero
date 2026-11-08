@@ -49,14 +49,15 @@ export const PATCH: RequestHandler = (event) =>
 async function patch({ params, request, locals }: Parameters<RequestHandler>[0]) {
 	const id = spotId(params.id, locals);
 	const body: unknown = await request.json().catch(() => null);
-	if (!body || typeof body !== 'object' || Array.isArray(body)) throw error(400, 'Bad JSON.');
+	if (!body || typeof body !== 'object' || Array.isArray(body))
+		throw error(400, t().refusals.badJson);
 	// Only the keys sent change: a missing `label` keeps it, and `null` is how
 	// a caller clears it. A body with none of the three is a bad request.
 	const changes: { label?: unknown; startMs?: unknown; endMs?: unknown } = {};
 	for (const key of ['label', 'startMs', 'endMs'] as const) {
 		if (key in body) changes[key] = (body as Record<string, unknown>)[key];
 	}
-	if (Object.keys(changes).length === 0) throw error(400, 'Nothing to change.');
+	if (Object.keys(changes).length === 0) throw error(400, t().refusals.spots.nothingToChange);
 
 	// The clash check: `seen` is what the player last set or got back for this
 	// spot, so a run of nudges never clashes with its own previous one. Only the

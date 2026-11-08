@@ -130,7 +130,7 @@ const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, loc
 
 function variationId(raw: string): number {
 	const id = Number(raw);
-	if (!Number.isInteger(id)) throw error(404, 'Figure not found');
+	if (!Number.isInteger(id)) throw error(404, t().refusals.figureNotFound);
 	return id;
 }
 
@@ -170,11 +170,11 @@ function variationOf(
 	);
 	const found = getFigure(db, variationId(params.id), wallOf(params, locals).userId);
 	if (!found || found.figure.archivedAt !== null || found.figure.groupId === null) {
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	}
 	const group = getGroup(db, found.figure.groupId);
 	if (!group || group.archivedAt !== null || !inSpace(group, space)) {
-		throw error(404, 'Figure not found');
+		throw error(404, t().refusals.figureNotFound);
 	}
 	return { ...found, group, space, access, reach };
 }
@@ -578,10 +578,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// the same answer every other cross-dance id gets here. Tags the form never
 		// showed (archived, not read) are not posted and are kept (ruling 4).
 		if (!setFigureShape(db, figure.id, { startIds, endIds, startCount, lengthCounts }, by)) {
-			throw error(404, 'Figure not found');
+			throw error(404, t().refusals.figureNotFound);
 		}
 		if (!updateVariation(db, figure.id, { name, partner, style, notes }, by)) {
-			throw error(404, 'Figure not found');
+			throw error(404, t().refusals.figureNotFound);
 		}
 		// A case-only change ("enchufla") is a change: the figure keeps its place,
 		// `figureNameTaken` skipped it above, and the new spelling is saved.
@@ -658,7 +658,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				// The variation went in the meantime, or the target is not a live
 				// figure of this dance — a posted id is just a number.
 				case 'gone':
-					throw error(404, 'Figure not found');
+					throw error(404, t().refusals.figureNotFound);
 				case 'same-figure':
 					return fail(400, {
 						action: 'move',
@@ -669,7 +669,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 					return fail(400, {
 						action: 'move',
 						field: 'name',
-						message: taken(target?.name ?? 'That move', name ?? figure.name),
+						message: taken(target?.name ?? t().refusals.thatMove, name ?? figure.name),
 						name: String(form.get('name') ?? '')
 					});
 				}
@@ -693,7 +693,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
 		const done = archiveVariation(db, figure.id, Date.now(), me(params, locals));
-		if (!done) throw error(404, 'Figure not found');
+		if (!done) throw error(404, t().refusals.figureNotFound);
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
 			303,
@@ -788,7 +788,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (recordingId === undefined || !found.recordings.some((r) => r.id === recordingId)) {
 			return fail(404, { action: 'takeRecording', message: recordingGone() });
 		}
-		if (into === undefined) throw error(404, 'Figure not found');
+		if (into === undefined) throw error(404, t().refusals.figureNotFound);
 		const size = found.recordings.find((r) => r.id === recordingId)!.sizeBytes;
 		const res = await takeRecording(
 			getDb(),
@@ -824,7 +824,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 					askForMore: false
 				});
 			default:
-				throw error(404, 'Figure not found');
+				throw error(404, t().refusals.figureNotFound);
 		}
 	},
 

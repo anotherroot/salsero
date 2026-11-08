@@ -127,7 +127,7 @@ function lessonIn(
 	const db = getDb();
 	const { lesson, space, access, reach } = requireLessonAccess(db, locals, params, params.id, need);
 	const found = getLesson(db, lesson.id, wallOf(params, locals).userId, opts);
-	if (!found || found.lesson.archivedAt !== null) throw error(404, 'No such lesson');
+	if (!found || found.lesson.archivedAt !== null) throw error(404, t().refusals.noLesson);
 	return { ...found, space, access, reach };
 }
 
@@ -390,7 +390,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	publish: ({ params, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);
 		// A person's own lesson has nothing to publish: the answer a missing one gets.
-		if (!isTeam(space)) throw error(404, 'No such lesson');
+		if (!isTeam(space)) throw error(404, t().refusals.noLesson);
 		if (!publishLesson(getDb(), space, lesson.id, Date.now())) {
 			return fail(400, { action: 'publish', message: t().lesson.refused.published });
 		}
@@ -407,7 +407,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const { picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
 		if (!addLesson(getDb(), userId, lesson.id, picks, Date.now())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'add', ok: true };
 	},
@@ -416,7 +416,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	notNow: ({ params, locals }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		if (!markSeen(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'notNow', ok: true };
 	},
@@ -431,7 +431,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const stay = (await request.formData()).get('stay') === '1';
 		if (!removeLesson(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
 			if (stay) return fail(404, { action: 'remove', message: t().lesson.page.couldNotUndo });
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		if (stay) return { action: 'remove', ok: true };
 		throw redirect(303, `/${params.dance}/lessons`);
@@ -598,14 +598,14 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const group = getGroup(db, groupId);
 		if (!group || group.archivedAt !== null || !inSpace(group, space)) {
-			throw error(404, 'Figure not found');
+			throw error(404, t().refusals.figureNotFound);
 		}
 		if (variationNameTaken(db, group.id, name, null)) {
 			return refuse(t().moves.refused.figureTaken(group.name, name), 'name');
 		}
 		const made = createVariationIn(db, group.id, { name, partner, style, notes }, actorOf(space));
 		// Checked above; only a race with another tab gets here.
-		if (!made) throw error(404, 'Figure not found');
+		if (!made) throw error(404, t().refusals.figureNotFound);
 		linkFigure(db, id, made.id, actorOf(space));
 		return { action: 'newVariation', ok: true };
 	},

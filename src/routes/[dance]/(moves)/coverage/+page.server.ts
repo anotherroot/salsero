@@ -52,7 +52,7 @@ export const actions: Actions = {
 		// Every id from the page is a live version of this dance; anything else
 		// is a tampered body or a stale page, answered like every other
 		// cross-dance id.
-		if (!made) throw error(404, 'Figure not found');
+		if (!made) throw error(404, t().refusals.figureNotFound);
 		throw redirect(303, `/${dance}/routines/${made.routine.id}`);
 	}
 };

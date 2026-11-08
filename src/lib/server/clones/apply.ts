@@ -31,6 +31,7 @@
  * check, the picks, the files and room, then in one transaction the apply,
  * the pair's next snapshot, History and the reconcile.
  */
+import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
@@ -899,11 +900,12 @@ const embeds = (tx: Db, routineId: number) =>
 
 /* ── The whole flow ─────────────────────────────────────────────────────── */
 
-const DENIED: Extract<SyncResult, { ok: false }> = {
+/** A refusal for a copy that is gone or not this person's: composed in the request, in its language. */
+const denied = (): Extract<SyncResult, { ok: false }> => ({
 	ok: false,
 	reason: 'denied',
-	message: 'Not found.'
-};
+	message: t().refusals.notFoundLine
+});
 
 /** How a kind's change is filed in History: its root, and the thing a change of several fields names. */
 export function logRoot(
@@ -1088,7 +1090,7 @@ export async function landKeys(db: Db, o: LandOptions): Promise<LandResult> {
 	const { actorId, kind, intoId, fromId, keys, snapshot, files, now, freeDiskBytes, seen } = o;
 	if (keys.length === 0) return { ok: true, seen: digest(flatOf(db, kind, intoId)) };
 	const into = rootOf(db, kind, intoId);
-	if (!into) return DENIED;
+	if (!into) return denied();
 	const intoFlat = flatOf(db, kind, intoId);
 	const fromFlat = flatOf(db, kind, fromId);
 	const base = pairBase(db, kind, intoId, fromId);
@@ -1200,14 +1202,14 @@ export async function syncFrom(
 	now: number,
 	freeDiskBytes: number
 ): Promise<SyncResult> {
-	if (intoId === fromId) return DENIED;
+	if (intoId === fromId) return denied();
 	const into = rootOf(db, kind, intoId);
 	const from = rootOf(db, kind, fromId);
-	if (!into || !from || into.archivedAt !== null || from.archivedAt !== null) return DENIED;
+	if (!into || !from || into.archivedAt !== null || from.archivedAt !== null) return denied();
 	const gene = geneOf(db, kind, intoId);
-	if (gene === null || gene !== geneOf(db, kind, fromId)) return DENIED;
-	if (accessTo(db, actorId, kind, intoId) !== 'edit') return DENIED;
-	if (accessTo(db, actorId, kind, fromId) === null) return DENIED;
+	if (gene === null || gene !== geneOf(db, kind, fromId)) return denied();
+	if (accessTo(db, actorId, kind, intoId) !== 'edit') return denied();
+	if (accessTo(db, actorId, kind, fromId) === null) return denied();
 
 	const intoFlat = flatOf(db, kind, intoId);
 	if (digest(intoFlat) !== seen) return { ok: false, reason: 'stale', message: landingStale() };

@@ -1,5 +1,6 @@
 import { parse } from 'devalue';
 import { describe, expect, it } from 'vitest';
+import { withLocale } from './i18n/current';
 import {
 	PAGE_EPOCH,
 	STALE_HEADER,
@@ -189,5 +190,17 @@ describe('staleFailure', () => {
 			false
 		);
 		expect(staleFailure({ type: 'success', status: 200 })).toBe(false);
+	});
+});
+
+describe('the stale refusal in Slovenian', () => {
+	const SL = 'Ta stran je zastarela. Za nadaljevanje jo naložite znova.';
+
+	it("says it in the reader's language, and is still told from any other failure", async () => {
+		const res = withLocale('sl', () => staleAnswer(false));
+		expect(JSON.parse(await res.text())).toEqual({ message: SL });
+		const action = withLocale('sl', () => staleAnswer(true));
+		expect(parse(JSON.parse(await action.text()).data)).toEqual({ message: SL });
+		expect(staleFailure({ type: 'failure', status: 409, data: { message: SL } })).toBe(true);
 	});
 });

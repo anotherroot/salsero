@@ -32,7 +32,7 @@ function targetOf(body: unknown) {
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const target = targetOf(await request.json().catch(() => null));
-	if (!target) throw error(400, 'Say what to restore.');
+	if (!target) throw error(400, t().refusals.sayWhatToRestore);
 	const db = getDb();
 	const table = {
 		figureId: figures,

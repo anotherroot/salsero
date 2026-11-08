@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { constants, createReadStream, createWriteStream, mkdirSync } from 'node:fs';
 import { copyFile, link, readdir, stat, truncate, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -223,26 +224,25 @@ export async function writeChunk(
 	messages: { notVideo: string; tooLarge: string }
 ): Promise<Response | { done: false; received: number } | { done: true; total: number }> {
 	const range = parseContentRange(request.headers.get('content-range'));
-	if (!range)
-		return failJson(400, 'A content-range header of bytes <start>-<end>/<total> is required.');
+	if (!range) return failJson(400, t().refusals.chunk.noRange);
 	if (range.total > maxTotal) return failJson(413, messages.tooLarge);
 	if (range.end - range.start + 1 > MAX_UPLOAD_CHUNK_BYTES)
-		return failJson(413, 'That chunk is too big.');
+		return failJson(413, t().refusals.chunk.tooBig);
 
 	const mime = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
 	if (!mime.startsWith('video/')) return failJson(415, messages.notVideo);
-	if (!request.body) return failJson(400, 'Empty chunk.');
+	if (!request.body) return failJson(400, t().refusals.chunk.empty);
 
 	// A second writer for the same file would interleave appends and corrupt
 	// it. Refusing is right: a client uploads its chunks in sequence.
-	if (writing.has(partial)) return failJson(409, 'That upload is already being written.');
+	if (writing.has(partial)) return failJson(409, t().refusals.chunk.busy);
 	writing.add(partial);
 	let received: number;
 	try {
 		received = await appendStream(request.body, partial, range.start, range.total);
 	} catch (err) {
 		if (err instanceof OffsetError) {
-			return failJson(409, 'That chunk starts in the wrong place.', {
+			return failJson(409, t().refusals.chunk.wrongPlace, {
 				'x-received-bytes': String(err.received)
 			});
 		}
@@ -252,12 +252,9 @@ export async function writeChunk(
 		// not raised it fails every upload, and a generic 400 here would send
 		// whoever debugs that looking in entirely the wrong place.
 		if (typeof err === 'object' && err !== null && 'status' in err && err.status === 413) {
-			return failJson(
-				413,
-				'The server refused a chunk that size. Check BODY_SIZE_LIMIT on the host.'
-			);
+			return failJson(413, t().refusals.chunk.hostLimit);
 		}
-		return failJson(400, 'That chunk could not be saved.');
+		return failJson(400, t().refusals.chunk.notSaved);
 	} finally {
 		writing.delete(partial);
 	}

@@ -38,7 +38,7 @@ function uploadSpace(userId: string, dance: DanceSlug, team: string | null): Spa
 		found.purgedAt !== null ||
 		(role !== 'owner' && role !== 'editor')
 	) {
-		throw error(404, 'No such group');
+		throw error(404, t().refusals.noGroup);
 	}
 	return { dance, teamId: found.id, actorId: userId };
 }
@@ -48,11 +48,11 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	// The endpoint is shared by both dances (it stays flat, out of `[dance]`),
 	// so the caller has to say which one it is uploading into. No default: a
 	// guess here would file the song on the wrong side of the wall.
-	if (!locals.user) throw error(401, 'Sign in');
+	if (!locals.user) throw error(401, t().refusals.signIn);
 	const dance = url.searchParams.get('dance') ?? '';
-	if (!isDanceSlug(dance)) return new Response('Unknown dance', { status: 400 });
+	if (!isDanceSlug(dance)) return new Response(t().refusals.unknownDance, { status: 400 });
 	// Only the account's own dance (the dance split): the other is a stranger's.
-	if (dance !== locals.user.dance) throw error(404, 'Not found');
+	if (dance !== locals.user.dance) throw error(404, t().refusals.notFound);
 	const space = uploadSpace(locals.user.id, dance, url.searchParams.get('team'));
 	const owner: Owner = 'teamId' in space ? { teamId: space.teamId } : { userId: locals.user.id };
 

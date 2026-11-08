@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { getLessonRow } from '$lib/server/lessons';
@@ -23,12 +24,12 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		!Number.isSafeInteger(teamId) ||
 		teamId <= 0
 	)
-		throw error(404, 'Not found');
+		throw error(404, t().refusals.notFound);
 	const user = locals.user!;
 	const db = getDb();
 	const lesson = getLessonRow(db, lessonId);
 	if (!lesson || !isDanceSlug(lesson.dance) || lesson.dance !== user.dance)
-		throw error(404, 'Not found');
+		throw error(404, t().refusals.notFound);
 	const preview = movePreview(
 		db,
 		{ userId: user.id, dance: lesson.dance },
@@ -36,6 +37,6 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		teamId,
 		user.timezone
 	);
-	if (!preview) throw error(404, 'Not found');
+	if (!preview) throw error(404, t().refusals.notFound);
 	return json(preview);
 };

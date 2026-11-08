@@ -64,7 +64,7 @@ const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, loc
  */
 function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const { exercise } = requireExerciseAccess(getDb(), locals, params, params.id, 'edit');
-	if (exercise.archivedAt !== null) throw error(404, 'No such exercise');
+	if (exercise.archivedAt !== null) throw error(404, t().refusals.noExercise);
 	return exercise;
 }
 
@@ -75,7 +75,7 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
  */
 function linkableOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const exercise = exerciseOf(params, locals);
-	if (exercise.source === 'added') throw error(404, 'No such exercise');
+	if (exercise.source === 'added') throw error(404, t().refusals.noExercise);
 	return exercise;
 }
 
@@ -86,13 +86,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const tz = locals.user.timezone;
 	const now = Date.now();
 	const id = Number(params.id);
-	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
+	if (!Number.isInteger(id) || id < 1) throw error(404, t().refusals.noExercise);
 	const {
 		exercise: row,
 		access,
 		reach: visible
 	} = requireExerciseAccess(db, locals, params, id, 'read');
-	if (row.archivedAt !== null) throw error(404, 'No such exercise');
+	if (row.archivedAt !== null) throw error(404, t().refusals.noExercise);
 	// The history's "Today" / "Yesterday": the server's day, so SSR and hydration agree.
 	const today = localDay(now, tz);
 	// The face times: the schedule as of the START of today, so a second log today
@@ -109,7 +109,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		// The person's own row: the page is its log popup's.
 		const own = requireExerciseInWall(db, wall, row.id);
 		const popup = popupData(db, wall, own.id, tz, now);
-		if (!popup) throw error(404, 'No such exercise');
+		if (!popup) throw error(404, t().refusals.noExercise);
 		// Music (spec B): a drill's own; an entry reads its group drill's, never edits it.
 		const musicParent =
 			own.source === 'custom'
@@ -270,11 +270,11 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	 */
 	add: async ({ params, request, locals }) => {
 		const { exercise: row } = requireExerciseAccess(getDb(), locals, params, params.id, 'read');
-		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
+		if (row.teamId === null || row.archivedAt !== null) throw error(404, t().refusals.noExercise);
 		const { lessonId, picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
 		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, Date.now())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'add', ok: true };
 	},
@@ -324,13 +324,13 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 	addDrill: ({ params, locals }) => {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
-		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
+		if (row.teamId === null || row.archivedAt !== null) throw error(404, t().refusals.noExercise);
 		const userId = wallOf(params, locals).userId;
 		const route = drillAddRoute(db, userId, row);
-		if (!route || !route.added) throw error(404, 'No such exercise');
+		if (!route || !route.added) throw error(404, t().refusals.noExercise);
 		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
 		if (!addLesson(db, userId, route.lessonId, picks, Date.now(), { touch: false })) {
-			throw error(404, 'No such exercise');
+			throw error(404, t().refusals.noExercise);
 		}
 		return { action: 'addDrill', ok: true };
 	},
@@ -363,7 +363,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		);
 		if (clash) return clash;
 		if (!updateExercise(db, row.id, { name, notes, active }, me(params, locals))) {
-			throw error(404, 'No such exercise');
+			throw error(404, t().refusals.noExercise);
 		}
 		return { action: 'update', ok: true };
 	},

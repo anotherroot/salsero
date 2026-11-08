@@ -8,9 +8,10 @@
  * a missing row's 404). Reach is computed per call, never stored: like the schedule,
  * it is a function of the rows.
  *
- * Imports only the schema, `teams.ts` and `lesson-links.ts`, so `scope.ts` and
- * the content modules can use it without an import cycle.
+ * Imports only the schema, `teams.ts`, `lesson-links.ts` and the word catalog, so
+ * `scope.ts` and the content modules can use it without an import cycle.
  */
+import { catalogOf } from '$lib/i18n/catalog';
 import { error } from '@sveltejs/kit';
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import type { Db } from './db';
@@ -659,7 +660,8 @@ export function fileAccess(
 		const rec = db.select().from(recordings).where(eq(recordings.file, file)).get();
 		if (rec && allows(recordingAccess(db, userId, rec), 'read')) return rec;
 	}
-	throw error(404, 'Not found');
+	// A media element reads this, not a person: English, as the media servers' own bodies.
+	throw error(404, catalogOf('en').refusals.notFound);
 }
 
 /**

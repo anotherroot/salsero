@@ -53,6 +53,7 @@
  * Writes into a person's own copy log nothing; into a group's, `landKeys`
  * logs one `change` per landing, by the actor; the flow onward as it does.
  */
+import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray } from 'drizzle-orm';
 import type {
 	CloneKind,
@@ -90,7 +91,8 @@ import { digest, hashValue, pairBase, writePair } from './pairs';
 import { syncSettingsOf } from './sync-settings';
 import { flatOf } from './trees';
 
-const DENIED = { ok: false, reason: 'denied', message: 'Not found.' } as const;
+/** A refusal for a copy that is gone or not this person's: composed in the request, in its language. */
+const denied = () => ({ ok: false, reason: 'denied', message: t().refusals.notFoundLine }) as const;
 
 export const placeLabel = (place: PlaceRef) => (place.kind === 'mine' ? 'Yours' : place.name);
 
@@ -303,9 +305,9 @@ export async function syncAll(
 	freeDiskBytes: number
 ): Promise<SyncAllResult> {
 	const fam = familyOf(db, actorId, kind, id);
-	if (!fam || targets.length === 0) return DENIED;
+	if (!fam || targets.length === 0) return denied();
 	const editable = new Set(fam.editable.map((m) => m.id));
-	if (targets.some((t) => !editable.has(t.id))) return DENIED;
+	if (targets.some((t) => !editable.has(t.id))) return denied();
 	const ticked = new Map<number, string>();
 	for (const t of targets) if (!ticked.has(t.id)) ticked.set(t.id, t.seen);
 

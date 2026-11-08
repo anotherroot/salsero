@@ -36,7 +36,7 @@ import type { RequestHandler } from './$types';
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const lessonId = Number(params.id);
 	if (!Number.isInteger(lessonId) || lessonId < 1) return fail(404, t().lesson.upload.noLesson);
-	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, 'Bad upload id.');
+	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, t().refusals.chunk.badUploadId);
 
 	const db = getDb();
 	const found = getLesson(db, lessonId, locals.user?.id ?? '');
@@ -64,7 +64,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (finished && (finished as { lessonId?: unknown }).lessonId === lessonId) {
 		return json(finished, { status: 201 });
 	}
-	if (finished) return fail(404, 'Bad upload id.');
+	if (finished) return fail(404, t().refusals.chunk.badUploadId);
 
 	// The total is declared with every chunk, and a client could change it
 	// mid-upload: check each one against what the finished video will add, before

@@ -270,7 +270,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	archive: ({ params, locals }) => {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
-		if (isTeam(space)) throw error(404, 'Song not found');
+		if (isTeam(space)) throw error(404, t().refusals.songNotFound);
 		archiveSong(db, song.id, Date.now());
 		throw redirect(303, `/${params.dance}/songs`);
 	},
@@ -279,7 +279,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 	share: ({ params, locals }) => {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
-		if (!isTeam(space)) throw error(404, 'Song not found');
+		if (!isTeam(space)) throw error(404, t().refusals.songNotFound);
 		if (!shareSong(db, space, song.id, Date.now())) {
 			return fail(400, { action: 'share' as const, message: t().songs.page.onlyReady });
 		}
@@ -291,7 +291,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (!isTeam(space) || !unshareSong(db, space, song.id, Date.now())) {
-			throw error(404, 'Song not found');
+			throw error(404, t().refusals.songNotFound);
 		}
 		return { ok: true };
 	},
@@ -301,7 +301,7 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song, space } = requireSongAccess(db, locals, params, params.id, 'edit');
 		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, Date.now())) {
-			throw error(404, 'Song not found');
+			throw error(404, t().refusals.songNotFound);
 		}
 		throw redirect(303, `/${params.dance}/songs`);
 	},

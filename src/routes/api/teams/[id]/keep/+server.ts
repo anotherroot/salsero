@@ -14,7 +14,7 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = ({ params, locals, url }) => {
 	const user = locals.user;
-	if (!user) throw error(401, 'Sign in');
+	if (!user) throw error(401, t().refusals.signIn);
 	const id = Number(params.id);
 	const db = getDb();
 	const team = Number.isInteger(id) ? getTeam(db, id) : null;
@@ -23,6 +23,6 @@ export const GET: RequestHandler = ({ params, locals, url }) => {
 	}
 	if (!url.searchParams.has('mode')) return json(keepPreview(db, user.id, team.id));
 	const choice = readKeepChoice(url.searchParams);
-	if (!choice) throw error(400, 'Bad request');
+	if (!choice) throw error(400, t().refusals.badRequest);
 	return json({ bytes: keepBytes(db, user.id, team.id, choice) });
 };

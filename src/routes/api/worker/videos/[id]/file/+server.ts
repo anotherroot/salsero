@@ -13,6 +13,7 @@ import {
 import { completeVideoJob, videoJobRequester, videoJobTarget } from '$lib/server/video-downloads';
 import { flowAfter, rootOfRecording, rootOfVideo } from '$lib/server/clones/flow-hook';
 import { freeDisk } from '$lib/server/storage';
+import { runInLocale } from '$lib/server/i18n-request';
 import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL } from '$lib/limits';
 import type { RequestHandler } from './$types';
 
@@ -37,10 +38,13 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		return failJson(410, GONE);
 	}
 
-	const chunk = await writeChunk(request, partial, MAX_LESSON_VIDEO_BYTES, {
-		notVideo: 'Only a video can be saved.',
-		tooLarge: `That video is bigger than the ${MAX_LESSON_VIDEO_LABEL} limit.`
-	});
+	// A machine reads the protocol's refusals: English, whoever asked for the video.
+	const chunk = await runInLocale('en', () =>
+		writeChunk(request, partial, MAX_LESSON_VIDEO_BYTES, {
+			notVideo: 'Only a video can be saved.',
+			tooLarge: `That video is bigger than the ${MAX_LESSON_VIDEO_LABEL} limit.`
+		})
+	);
 	if (chunk instanceof Response) return chunk;
 	if (!chunk.done) {
 		return new Response(null, {

@@ -31,7 +31,7 @@ function editedGroups(db: ReturnType<typeof getDb>, userId: string, dance: Space
  */
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	const key = url.searchParams.get('key') ?? '';
-	if (!SHARE_KEY_RE.test(key)) throw error(404, 'Nothing was shared');
+	if (!SHARE_KEY_RE.test(key)) throw error(404, t().refusals.nothingShared);
 	if (!locals.user) throw error(401);
 	const db = getDb();
 	const wall = wallOf(params, locals);

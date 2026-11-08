@@ -173,6 +173,7 @@ export const settings: Catalog['settings'] = {
 		micRefusedBody: 'Dovolite ga tej aplikaciji v nastavitvah telefona in poskusite znova.',
 		failed: 'Snemanje ni uspelo',
 		failedLine: 'Snemanje ni uspelo.',
+		noAudio: 'Mikrofon ni zajel nobenega zvoka.',
 		unknownTake: 'Neznan posnetek.',
 		takeGone: 'Ta posnetek je že izbrisan.',
 		newerTake: 'Na tem mestu je zdaj novejši posnetek.',
