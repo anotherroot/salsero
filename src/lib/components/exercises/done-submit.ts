@@ -1,6 +1,7 @@
 import type { SubmitFunction } from '@sveltejs/kit';
 import { RATING_OF, type Feel } from '$lib/schedule/feel';
 import { t } from '$lib/i18n/catalog';
+import { offlineRefusal } from '$lib/act-toast';
 import type { DoneResult } from '$lib/types';
 
 /** What the Done sheet's save reads and writes: the sheet's own state, through getters and setters. */
@@ -60,6 +61,8 @@ export function doneSubmit(f: DoneForm): SubmitFunction {
 				await update();
 				return;
 			}
+			// Offline the root layout has said so, in the person's language.
+			if (offlineRefusal(result)) return;
 			// From the submit's own result: a past day's form posts to Today's
 			// route, whose refusal never reaches this page's `form`.
 			f.refusal = result.type === 'failure' ? messageOf(result.data) : t().exercise.log.didNotSave;

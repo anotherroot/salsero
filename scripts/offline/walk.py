@@ -17,6 +17,7 @@ import struct
 import sys
 import threading
 import time
+from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
@@ -42,6 +43,29 @@ PAGE_CAP_MS = 20_000
 # Pages the device never answers (src/lib/offline/routes.ts NETWORK_PAGES): offline they show the offline
 # error page, by design. Kept here as URL patterns; the walk checks that they do.
 NETWORK_PAGES = [r"^/admin$", r"^/app$", r"^/settings/storage$", r"^/[^/]+/groups/[^/]+/(history/[^/]+/[^/]+|deleted|people|storage)$"]
+
+# Pages that draw no band of their own, by design: src/lib/nav/bands.spec.ts NO_BAND, mirrored by its file.
+# Only the ones whose SCREEN has no band (the others' layout draws one, which the walk sees). Each gets
+# what proves it rendered instead: (route file in bands.spec, URL pattern, selector that must show).
+NO_BAND = [
+    # 'the map draws its title floating over itself (spec 2026-11-08)': MapPane's own title
+    ("src/routes/[dance]/(moves)/positions/map/+page.svelte", r"^/[^/]+/positions/map$", "main h1"),
+]
+
+
+def _no_band_mirrored():
+    spec = open(os.path.join(ROOT, "src", "lib", "nav", "bands.spec.ts")).read()
+    return [f for f, _, _ in NO_BAND if f"'{f}'" not in spec]
+
+
+def proof_for(url):
+    """The selector that proves a band-less page rendered, or None (a band must show)."""
+    path = urlparse(url).path
+    for _, pattern, selector in NO_BAND:
+        if re.match(pattern, path):
+            return selector
+    return None
+
 
 failures = 0
 
@@ -163,24 +187,34 @@ class Watch:
         return out
 
 
-SCREEN_JS = """() => {
+SCREEN_JS = """(proof) => {
     // the band's title is `display: contents`: it shows when something inside it has a box
     const shows = (e) => [e, ...e.querySelectorAll('*')].some((x) => x.getClientRects().length);
     const err = document.querySelector('[data-error-screen]');
-    const band = [...document.querySelectorAll('[data-band-title]')].some(shows);
+    // a page without a band (NO_BAND) shows its own proof instead
+    const band = proof
+        ? [...document.querySelectorAll(proof)].some(shows)
+        : [...document.querySelectorAll('[data-band-title]')].some(shows);
     return { error: err ? err.getAttribute('data-error-screen') : null, band };
 }"""
 
 
 def screen(page):
-    """What is on screen: the error page's tone (or None), and whether a band title shows."""
-    return page.evaluate(SCREEN_JS)
+    """What is on screen: the error page's tone (or None), and whether a band title (or a band-less page's
+    own proof, NO_BAND) shows."""
+    return page.evaluate(SCREEN_JS, proof_for(page.url))
 
 
 def settle(page):
-    """The page has drawn: its band, or an error page, or the cap."""
+    """The page has drawn: its band (or its NO_BAND proof), or an error page, or the cap."""
     try:
-        page.wait_for_function(f"() => {{ const s = ({SCREEN_JS})(); return s.error || s.band; }}", timeout=PAGE_CAP_MS, polling=100)
+        proof = proof_for(page.url)
+        page.wait_for_function(
+            f"(proof) => {{ const s = ({SCREEN_JS})(proof); return s.error || s.band; }}",
+            arg=proof,
+            timeout=PAGE_CAP_MS,
+            polling=100,
+        )
     except Exception:
         pass
     # late errors (a load that throws after the band drew) still count
@@ -197,7 +231,7 @@ def judge(page, watch, what, expect_error=None, allow=()):
         if s["error"]:
             why.append(f"error page ({s['error']})")
         if not s["band"]:
-            why.append("no band")
+            why.append(f"no {proof_for(page.url)} (a page without a band)" if proof_for(page.url) else "no band")
         if errs:
             why.append("; ".join(errs[:3]))
         report(not why, what, " | ".join(why))
@@ -268,6 +302,8 @@ def main():
         sys.exit("usage: walk.py <port> <upstream> <db-copy>")
     port, upstream, db_path = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
     base = f"http://127.0.0.1:{port}"
+    unmirrored = _no_band_mirrored()
+    report(not unmirrored, "walk: its NO_BAND pages are bands.spec.ts's", f"not in bands.spec.ts: {unmirrored}")
     # the server's own copy (serve.sh's mktemp): some scenes' placeholders fill a gap in it, as in shots.py
     db = sqlite3.connect(db_path)
     try:
@@ -413,36 +449,45 @@ def walk(base, db_path, v, lines, net):
                     except Exception as e:
                         report(False, f"offline tap: the group's first lesson {to}", str(e)[:160])
 
-                # 4. Offline, a write: the log popup's send says "Needs a connection" and changes nothing.
+                # 4. Offline, a write: Today's first exercise, its page's Done and a face (run the day plan 2:
+                # the face is the send; a fixed rhythm's Done saves at once). "Needs a connection" shows, the
+                # sheet stays open with its note, and nothing changes on the server or in the copy.
                 page.goto(f"{base}/{DANCE}", wait_until="load", timeout=60_000)
                 settle(page)
                 watch.take()
-                opener = page.locator('button[aria-label^="Log a set of "]').first
                 row = page.locator("main a[href*='/exercises/']").first
-                if not opener.count() or not row.count():
-                    report(False, "offline write: the log popup", "no exercise on Today")
+                if not row.count():
+                    report(False, "offline write: Done", "no exercise on Today")
                 else:
                     ex_path = row.get_attribute("href").split("?")[0]
                     before_rows = sets_count(db_path)
                     before_copy = device_data(page, ex_path)
+                    row.click()
+                    page.wait_for_url(lambda u: ex_path in u, timeout=PAGE_CAP_MS)
+                    settle(page)
                     page.evaluate("() => { window.__nc = 0; addEventListener('salsa:needs-connection', () => window.__nc++); }")
-                    opener.click()
-                    page.locator("dialog[open]").first.wait_for(timeout=PAGE_CAP_MS)
-                    # a face first: Log set waits for one (`footerFor`)
-                    faces = page.locator("dialog[open] fieldset button[aria-pressed]")
-                    if faces.count():
-                        faces.first.click()
-                    minutes = page.locator("dialog[open]").get_by_label("Minutes")
-                    if minutes.count():
-                        minutes.first.fill("5")
-                    send = page.locator("dialog[open]").get_by_role("button", name="Log set", exact=True)
-                    if not send.count():
-                        report(False, "offline write: the log popup", "no Log set button")
+                    done = page.locator('[data-focus="exercise-done"]')
+                    if not done.count():
+                        report(False, "offline write: Done", "no Done on the exercise page")
                     else:
+                        done.first.click()
+                        sheet = page.locator("dialog[open]")
                         try:
-                            send.first.click(timeout=10_000)
-                        except Exception as e:
-                            report(False, "offline write: Log set", str(e)[:160])
+                            sheet.first.wait_for(timeout=3000)
+                        except Exception:
+                            pass
+                        in_sheet = sheet.count() > 0
+                        typed = "walk: offline note"
+                        note = sheet.locator("textarea[name=note]") if in_sheet else None
+                        if note is not None and note.count():
+                            note.first.fill(typed)
+                        if in_sheet:
+                            # FaceRating: four aria-pressed buttons, each named by its word and the time it sets
+                            faces = sheet.locator("fieldset button[aria-pressed]")
+                            if not faces.count():
+                                report(False, "offline write: Done", "no face in the Done sheet")
+                            else:
+                                faces.first.click(timeout=10_000)
                         try:
                             page.wait_for_function("() => window.__nc > 0", timeout=10_000, polling=100)
                             told = True
@@ -450,12 +495,21 @@ def walk(base, db_path, v, lines, net):
                             told = False
                         toast = page.get_by_text("Needs a connection", exact=False)
                         shown = toast.count() > 0 and toast.first.is_visible()
-                        still_open = page.locator("dialog[open]").count() > 0
                         page.wait_for_timeout(500)
+                        stayed = ex_path in page.url
+                        report(told and shown, "offline write: the needs-connection toast shows", f"event {told}, toast {shown}")
+                        report(stayed, "offline write: the exercise page stays", f"went to {page.url.replace(base, '')}")
+                        if in_sheet:
+                            still_open = page.locator("dialog[open]").count() > 0
+                            report(still_open, "offline write: the Done sheet stays open", "the sheet closed")
+                            if note is not None and note.count():
+                                kept = still_open and note.first.input_value() == typed
+                                report(kept, "offline write: the note is kept", "the note is gone")
+                        # nothing of the page's own beside the root layout's toast (it would be English or twice)
+                        own = page.get_by_text("It did not save", exact=False).count()
+                        report(own == 0, "offline write: one message only", "the page's own refusal shows too")
                         after_rows = sets_count(db_path)
                         after_copy = device_data(page, ex_path)
-                        report(told and shown, "offline write: the needs-connection toast shows", f"event {told}, toast {shown}")
-                        report(still_open, "offline write: the sheet stays open", "the sheet closed")
                         report(after_rows == before_rows, "offline write: no new sets row on the server", f"{before_rows} -> {after_rows}")
                         report(after_copy == before_copy, "offline write: the device's copy is unchanged", "its data changed")
                         errs = [e for e in watch.take() if "Failed to load resource" not in e]

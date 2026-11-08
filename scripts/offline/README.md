@@ -25,14 +25,17 @@ values to the walk.
 2. **Offline, every page.** `context.set_offline(True)`, then a full `goto` of every line of
    `scripts/shots/pages.txt`, placeholders filled by `shots.py`'s `placeholders`. A page passes with no
    `pageerror`, no console error (media files are phase 4's), no error page (`[data-error-screen]`) and a
-   band title showing. A network page (`NETWORK_PAGES`: `/admin`, `/app`, `/settings/storage`, a group's
+   band title showing (a page without a band by design, `NO_BAND` in walk.py, mirrored from
+   `src/lib/nav/bands.spec.ts`, shows its own proof instead: the map its title). A network page (`NETWORK_PAGES`: `/admin`, `/app`, `/settings/storage`, a group's
    History, …) must show the offline error page instead; so must `does-not-exist` (offline, `errorView`
    says offline over any status: the copy may be behind).
 3. **Offline, client navigation.** From `/{dance}` with a fresh trail, taps each tab of the tab bar, then
    the first row of its list, with the same checks.
-4. **Offline, a write.** Today's first exercise: the log popup, a face, Log set. The
-   `salsa:needs-connection` toast shows, the sheet stays open, the server's copy has no new `sets` row and
-   the device answers that exercise's data as before.
+4. **Offline, a write.** Today's first exercise: its page, Done, a note typed into the Done sheet and a face
+   (the face is the send; a fixed rhythm's Done saves at once, with no sheet). The `salsa:needs-connection`
+   toast shows and is the only message (no "It did not save" of the page's own), the page stays, the sheet
+   stays open with the note, the server's copy has no new `sets` row and the device answers that exercise's
+   data as before.
 5. **Offline, a network page.** A group lesson's History (`/{dance}/groups/<id>/history/lesson/<id>`: the
    app has no `/groups/<id>/history` page) shows the offline error page, not an empty History.
 6. **Back online.** Renames a figure through its Edit form, waits for the device's next pull
