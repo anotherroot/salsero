@@ -5,6 +5,7 @@ import { comments } from './comments';
 import { common } from './common';
 import { entry } from './entry';
 import { exercise } from './exercise';
+import { figure } from './figure';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
@@ -33,5 +34,6 @@ export const en = {
 	video,
 	player,
 	groups,
-	moves
+	moves,
+	figure
 };

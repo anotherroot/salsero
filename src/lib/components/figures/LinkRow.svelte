@@ -6,6 +6,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { button, iconButton } from '$lib/components/ui/styles';
 	import type { LinkRow } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * A link as a row of the figure page's Recordings card (rework plan 3,
@@ -81,7 +82,7 @@
 				data-focus="link-{link.id}"
 				type="submit"
 				class={iconButton('bare', 'danger')}
-				aria-label="Remove {view.title}"><Icon name="trash" size={22} /></button
+				aria-label={t().figure.links.remove(view.title)}><Icon name="trash" size={22} /></button
 			>
 		</form>
 	{:else if view.end === 'save' || view.end === 'retry'}
@@ -97,16 +98,16 @@
 				aria-busy={posting}
 				disabled={posting}
 				aria-label={view.end === 'save'
-					? `Save ${view.title} as a video`
-					: `Retry saving ${view.title}`}
+					? t().figure.links.saveLabel(view.title)
+					: t().figure.links.retryLabel(view.title)}
 			>
 				<!-- Both in one cell: the label keeps the width while the spinner shows. -->
 				<span class="grid place-items-center">
 					<span class="col-start-1 row-start-1 flex items-center gap-1.5" class:invisible={posting}
 						><Icon name={view.end === 'save' ? 'download' : 'refresh'} size={18} />{view.end ===
 						'save'
-							? 'Save'
-							: 'Retry'}</span
+							? t().common.save
+							: t().figure.links.retry}</span
 					>
 					{#if posting}<span class="col-start-1 row-start-1"><Spinner size={18} /></span>{/if}
 				</span>

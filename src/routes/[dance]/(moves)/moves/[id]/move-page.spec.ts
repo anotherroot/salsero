@@ -129,8 +129,7 @@ describe('a move of your own', () => {
 			await runInLocale('sl', () => act('createFigure', 'u1', groupId, { name: 'Básica' }))
 		).toMatchObject({
 			data: {
-				message:
-					'Različica s tem imenom že obstaja v figuri Enchufla: Básica. Najprej eno preimenujte.'
+				message: 'Različica s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
 			}
 		});
 	});

@@ -3,8 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { gotoWhenSettled, releaseClick } from '$lib/sheets/history.svelte';
-	import { variationNav } from '$lib/figures/page';
-	import { plural } from '$lib/format';
+	import { recordingsLine, variationNav } from '$lib/figures/page';
+	import { t } from '$lib/i18n/catalog';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -105,8 +105,6 @@
 	);
 	const href = (id: number) =>
 		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
-	const recordings = (n: number) =>
-		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
 
 	/*
 	 * A row is a real link (long-press, new tab), but a tap closes the list
@@ -158,7 +156,7 @@
 	its last line clears this.
 -->
 <nav
-	aria-label="Figures of {figureName}"
+	aria-label={t().figure.switcher.of(figureName)}
 	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 desk:left-(--pane-left) {actions
 		? ''
 		: 'desk:hidden'}"
@@ -170,7 +168,7 @@
 		</div>
 	{/if}
 	<div class="mx-auto flex max-w-[560px] items-center gap-2 desk:hidden">
-		{@render step(prev, 'Previous figure', 'chevron-left')}
+		{@render step(prev, t().figure.switcher.previous, 'chevron-left')}
 		<button
 			type="button"
 			aria-haspopup="dialog"
@@ -185,13 +183,13 @@
 			</span>
 			<span class="flex-none text-accent-text"><Icon name="chevron-up" size={18} /></span>
 		</button>
-		{@render step(next, 'Next figure', 'chevron-right')}
+		{@render step(next, t().figure.switcher.next, 'chevron-right')}
 	</div>
 </nav>
 
 {#snippet newVariation()}
 	<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
-		><Icon name="plus" size={20} />New figure</button
+		><Icon name="plus" size={20} />{t().moves.move.newFigure}</button
 	>
 {/snippet}
 
@@ -201,18 +199,18 @@
 		href={moveHref}
 		onclick={openMove}
 		class="flex min-h-8 items-center gap-0.5 self-start text-[14px] font-bold text-accent-text"
-		>Open {figureName}<Icon name="chevron-right" size={16} /></a
+		>{t().figure.switcher.open(figureName)}<Icon name="chevron-right" size={16} /></a
 	>
 {/snippet}
 
 <Sheet
-	title="Figures of {figureName}"
+	title={t().figure.switcher.of(figureName)}
 	subtitle={moveLink}
 	open={listing}
 	onclose={() => (listing = false)}
 	footer={canEdit ? newVariation : undefined}
 >
-	<ul class={GROUP} aria-label="Figures">
+	<ul class={GROUP} aria-label={t().moves.move.figures}>
 		{#each siblings as s (s.id)}
 			{@const here = s.id === currentId}
 			<li>
@@ -230,7 +228,7 @@
 					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 						<span class="text-[16px] leading-tight font-bold text-ink">{s.name}</span>
 						<span class="text-[13px] text-muted">{s.holds}</span>
-						<span class="text-[13px] text-muted">{s.timing} · {recordings(s.videos)}</span>
+						<span class="text-[13px] text-muted">{s.timing} · {recordingsLine(s.videos)}</span>
 					</span>
 				</a>
 			</li>
@@ -240,8 +238,8 @@
 
 <!-- Over the list it steps back to it (‹); opened alone (the desktop's "+ Figure" tab) it closes (×). -->
 <Sheet
-	title="New figure"
-	sub="of {figureName}"
+	title={t().moves.move.newFigure}
+	sub={t().figure.switcher.newOf(figureName)}
 	back={listing}
 	open={adding}
 	onclose={() => (adding = false)}
@@ -253,7 +251,7 @@
 		action="?/createVariation"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New figure',
+			label: t().moves.move.newFigure,
 			submit: () => {
 				busy = true;
 				return async ({ update, result }) => {
@@ -279,13 +277,13 @@
 		}}
 	>
 		<div>
-			<label for="new-variation-name" class={LABEL}>Name</label>
+			<label for="new-variation-name" class={LABEL}>{t().moves.routines.name}</label>
 			<input
 				id="new-variation-name"
 				name="name"
 				required
 				maxlength="200"
-				placeholder="e.g. Doble, From cross"
+				placeholder={t().figure.switcher.namePlaceholder}
 				class={FIELD}
 				aria-invalid={shown ? 'true' : undefined}
 				aria-describedby={shown ? 'new-variation-error' : undefined}
@@ -293,8 +291,7 @@
 			{#if shown}<FieldError id="new-variation-error" message={shown} />{/if}
 		</div>
 		<p class="px-1 text-[14px] leading-[1.45] text-muted">
-			It starts as a copy of {current.name} — handholds, timing and notes, not its recordings. Change
-			them with Edit.
+			{t().figure.switcher.copyOf(current.name)}
 		</p>
 	</form>
 	{#snippet footer()}
@@ -305,7 +302,8 @@
 			aria-busy={busy}
 			disabled={busy}
 		>
-			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}Add figure
+			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}{t().moves.move
+				.addFigure}
 		</button>
 	{/snippet}
 </Sheet>

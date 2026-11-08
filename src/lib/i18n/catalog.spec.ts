@@ -27,7 +27,8 @@ const SAMPLE_ARGS: Readonly<Record<string, unknown[]>> = {
 	'groups.leave.everything': [['x'], 'x'],
 	'groups.leave.used': [['x'], null],
 	'moves.heading.alsoIn': ['x', ['y']],
-	'moves.move.and': [['x', 'y']]
+	'moves.move.and': [['x', 'y']],
+	'figure.relations.slots': [[2, 5], 8]
 };
 
 type Leaf = 'string' | 'function' | 'object' | 'other';

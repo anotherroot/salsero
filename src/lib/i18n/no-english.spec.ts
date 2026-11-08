@@ -155,7 +155,21 @@ const TRANSLATED: string[] = [
 	'src/routes/[dance]/(moves)/coverage/+page.svelte',
 	'src/routes/[dance]/(moves)/figures/+page.svelte',
 	'src/routes/[dance]/(moves)/moves/[id]/+page.svelte',
-	'src/routes/[dance]/(moves)/routines/+page.svelte'
+	'src/routes/[dance]/(moves)/routines/+page.svelte',
+	// The figure page (Task 3; PositionTags is the positions task's).
+	'src/lib/components/figures/AddRecordingSheet.svelte',
+	'src/lib/components/figures/FigureFields.svelte',
+	'src/lib/components/figures/FigureTabs.svelte',
+	'src/lib/components/figures/FigureTiming.svelte',
+	'src/lib/components/figures/LinkRow.svelte',
+	'src/lib/components/figures/MoveSheet.svelte',
+	'src/lib/components/figures/RecordingRow.svelte',
+	'src/lib/components/figures/RelationsCard.svelte',
+	'src/lib/components/figures/RemoveWarning.svelte',
+	'src/lib/components/figures/SectionRow.svelte',
+	'src/lib/components/figures/TopVideo.svelte',
+	'src/lib/components/figures/VariationBar.svelte',
+	'src/routes/[dance]/(moves)/figures/[id]/+page.svelte'
 ];
 
 describe('englishIn', () => {

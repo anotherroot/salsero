@@ -148,7 +148,7 @@ export const moves: Catalog['moves'] = {
 		partnerStyle: 'Izberite, kako se pleše, in slog.',
 		moveTaken: (name) => `Figura s tem imenom že obstaja: ${name}.`,
 		figureTaken: (move, name) =>
-			`Različica s tem imenom že obstaja v figuri ${move}: ${name}. Najprej eno preimenujte.`,
+			`Različica s tem imenom že obstaja: ${move} · ${name}. Najprej eno preimenujte.`,
 		pickOne: 'Izberite vsaj eno različico.'
 	}
 };
