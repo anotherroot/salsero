@@ -10,6 +10,9 @@ import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
 import { practiceStart } from '$lib/exercises/practice';
 import { exerciseInWall, isTeam, requireRoutineAccess, wallOf } from '$lib/server/scope';
+import { exerciseDetails, figureDetails } from '$lib/server/run-details';
+import { hasDetails } from '$lib/player/view';
+import type { RunDetails } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
@@ -100,7 +103,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			songId
 		),
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : 180,
-		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
+		routine:
+			routine && shape
+				? { id: routine.id, name: routine.name, notes: routine.notes, shape, figureIds }
+				: null,
 		// Names only, for `sayOf` and the on-screen call. Empty without a routine:
 		// nothing else calls figures.
 		callNames: listFiguresForCall(db, space, figureIds, usable),
@@ -108,6 +114,12 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph,
 		exercise,
+		// About (one-player design): the exercise's details, and each of the
+		// routine's figures', read through access.ts; only what is worth an About.
+		details: exercise ? exerciseDetails(db, wall, exercise) : null,
+		figureDetails: Object.fromEntries(
+			Object.entries(figureDetails(db, wall.userId, figureIds)).filter(([, d]) => hasDetails(d))
+		) as Record<number, RunDetails>,
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))

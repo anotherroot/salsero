@@ -33,6 +33,11 @@ export const player = {
 	kind: { figure: 'Figure', drill: 'Drill', routine: 'Routine' },
 	/** The rows under the band, and what each one's line says. */
 	about: 'About',
+	/** A figure's timing in About: "1 → 1 · 8 counts". */
+	timing: (start: number, next: number, length: number): string =>
+		`${start} → ${next} · ${length} counts`,
+	/** A figure's own video, in About. */
+	recording: 'Recording',
 	aboutOf: (name: string): string => `About ${name}`,
 	aboutNotes: 'Notes',
 	aboutPositions: 'Positions',

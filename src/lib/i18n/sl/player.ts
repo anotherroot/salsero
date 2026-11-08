@@ -30,6 +30,9 @@ export const player: Catalog['player'] = {
 	closeFull: 'Zapri kombinacijo čez cel zaslon',
 	kind: { figure: 'Različica', drill: 'Vaja', routine: 'Kombinacija' },
 	about: 'Podrobnosti',
+	timing: (start, next, length) =>
+		`${start} → ${next} · ${slCount(length, ['doba', 'dobi', 'dobe', 'dob'])}`,
+	recording: 'Posnetek',
 	aboutOf: (name) => `Podrobnosti: ${name}`,
 	aboutNotes: 'Zapiski',
 	aboutPositions: 'Položaji',
