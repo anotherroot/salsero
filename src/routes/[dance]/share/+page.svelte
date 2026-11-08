@@ -11,9 +11,11 @@
 	import type { ActionResult } from '@sveltejs/kit';
 	import { GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { LessonItem } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	const w = $derived(t().lesson.share);
 
 	// New lesson (spec A4): made here, then the key goes to the app with it,
 	// as a tapped row's does. The `form` there when it opened: an older refusal
@@ -71,11 +73,11 @@
 	});
 </script>
 
-<svelte:head><title>Add to a lesson</title></svelte:head>
+<svelte:head><title>{w.title}</title></svelte:head>
 
-<Screen width="narrow" title="Add to a lesson" subtitle="Compressed and uploaded in the background">
-	{#if data.lessons.length > 0}<h2 class={SECTION_LABEL}>Recent lessons</h2>{/if}
-	{@render list('Lessons', data.lessons, true)}
+<Screen width="narrow" title={w.title} subtitle={t().shell.upload.inBackground}>
+	{#if data.lessons.length > 0}<h2 class={SECTION_LABEL}>{w.recent}</h2>{/if}
+	{@render list(t().shell.tabs.lessons, data.lessons, true)}
 	{#if data.groups.length > 0}
 		{#each data.groups as group (group.id)}
 			<h2 class="{SECTION_LABEL} pt-2">{group.name}</h2>
@@ -103,8 +105,10 @@
 						><Icon name="plus" size={22} /></span
 					>
 					<span class="flex min-w-0 flex-1 flex-col">
-						<span class="truncate text-[16px] font-bold text-accent-text">New lesson</span>
-						<span class="text-[13px] text-muted">Make one for this video</span>
+						<span class="truncate text-[16px] font-bold text-accent-text"
+							>{t().lesson.list.newLesson}</span
+						>
+						<span class="text-[13px] text-muted">{w.newMeta}</span>
 					</span>
 					<span class="flex text-chevron" aria-hidden="true"
 						><Icon name="chevron-right" size={20} /></span
@@ -114,7 +118,6 @@
 		{/if}
 		{#each lessons as lesson (lesson.id)}
 			<li>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 				<a
 					href={uploadLink(
 						{ lesson: lesson.id },
@@ -133,19 +136,19 @@
 					<span class="flex min-w-0 flex-1 flex-col">
 						<span class="flex min-w-0 items-center gap-2">
 							<span class="truncate text-[16px] font-bold text-ink">{lesson.title}</span>
-							{#if lesson.publishedAt === null}<Badge tone="warn">Draft</Badge>{/if}
+							{#if lesson.publishedAt === null}<Badge tone="warn">{t().lesson.list.draft}</Badge
+								>{/if}
 						</span>
 						<span class="text-[13px] text-muted">{dateLabel(lesson.lessonDay)}</span>
 					</span>
 					{#if tapped === lesson.id}
-						<span class="flex text-muted"><Spinner size={22} label="Opening the app" /></span>
+						<span class="flex text-muted"><Spinner size={22} label={w.opening} /></span>
 					{:else}
 						<span class="flex text-chevron" aria-hidden="true"
 							><Icon name="chevron-right" size={20} /></span
 						>
 					{/if}
 				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			</li>
 		{/each}
 	</ul>
@@ -158,6 +161,6 @@
 	{refusal}
 	today={data.today}
 	places={data.places}
-	submit="Make it and add the video"
+	submit={w.submit}
 	handle={made}
 />

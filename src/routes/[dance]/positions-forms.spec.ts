@@ -45,6 +45,7 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions } from './(moves)/positions/+page.server';
 import { load as layoutLoad } from './(moves)/+layout.server';
 import { parsePositionFilter, positionsView, type PositionsLists } from '$lib/positions/filter';
@@ -534,5 +535,37 @@ describe('the list’s chips and group order', () => {
 		expect(d.filter).toEqual({ q: '', type: 'other' });
 		expect(d.rows.map((r: any) => r.id)).toEqual([p]);
 		expect(loadBachata('?type=sensual').rows.map((r: any) => r.id)).toEqual([typed]);
+	});
+});
+
+describe('the actions in Slovenian', () => {
+	const sl = <T>(fn: () => Promise<T>) => runInLocale('sl', fn);
+
+	it('refuses New position’s name and notes in Slovenian', async () => {
+		addPosition(db, U2_SALSA, 'Cerrada');
+		expect(await sl(() => act('create', 'u2', { name: 'cerrada' }))).toMatchObject({
+			status: 400,
+			data: { field: 'name', message: 'Položaj z imenom »cerrada« že imate.' }
+		});
+		expect(
+			await sl(() => act('create', 'u2', { name: 'Abierta', notes: 'x'.repeat(2001) }))
+		).toMatchObject({
+			status: 400,
+			data: { field: 'notes', message: 'Opombe imajo lahko največ 2000 znakov.' }
+		});
+	});
+
+	it('refuses Templates in Slovenian, and writes the notes in Slovenian', async () => {
+		expect(
+			await sl(() => act('templates', 'u2', { type: 'sensual', names: ['Closed'] }))
+		).toMatchObject({ status: 400, data: { message: 'Izberite slog s predlogami.' } });
+		expect(await sl(() => act('templates', 'u2', { type: 'salsa' }))).toMatchObject({
+			status: 400,
+			data: { message: 'Označite vsaj en položaj.' }
+		});
+		await sl(() => act('templates', 'u2', { type: 'son', names: ['Paseo'] }));
+		expect(owned({ userId: 'u2' })).toMatchObject([
+			{ name: 'Paseo', notes: 'Drug ob drugem, v hoji' }
+		]);
 	});
 });

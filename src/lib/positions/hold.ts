@@ -1,27 +1,20 @@
-/** The hold vocabulary: PURE, client-safe. */
+/** The hold vocabulary: PURE, client-safe. Its words are the catalog's, read at call time. */
+import { lazyWords } from '$lib/i18n/lazy';
+import { t } from '$lib/i18n/catalog';
 import type { Facing, Frame, Hands, Hold } from '$lib/types';
 
 export const HANDS = ['two', 'one', 'none'] as const satisfies readonly Hands[];
 export const FACING = ['face', 'side', 'shadow', 'back'] as const satisfies readonly Facing[];
 export const FRAME = ['open', 'closed'] as const satisfies readonly Frame[];
 
-export const HANDS_LABEL: Record<Hands, string> = {
-	two: 'Two hands',
-	one: 'One hand',
-	none: 'No hands'
-};
+export const HANDS_LABEL: Record<Hands, string> = lazyWords((c) => c.positions.hold.hands);
 /** The form's Hands choices: short, under a field that says Hands. */
-export const HANDS_SHORT: Record<Hands, string> = { two: 'Two', one: 'One', none: 'None' };
-export const FACING_LABEL: Record<Facing, string> = {
-	face: 'Face to face',
-	side: 'Side by side',
-	shadow: 'Shadow',
-	back: 'Back to back'
-};
-export const FRAME_LABEL: Record<Frame, string> = { open: 'Open', closed: 'Closed' };
-export const CROSSED_LABEL = 'Crossed, right on top';
+export const HANDS_SHORT: Record<Hands, string> = lazyWords((c) => c.positions.hold.handsShort);
+export const FACING_LABEL: Record<Facing, string> = lazyWords((c) => c.positions.hold.facing);
+export const FRAME_LABEL: Record<Frame, string> = lazyWords((c) => c.positions.hold.frame);
+export const crossedLabel = (): string => t().positions.hold.crossed;
 /** A hold known not to be crossed: shown only where two holds are compared. */
-export const NOT_CROSSED = 'Not crossed';
+export const notCrossedLabel = (): string => t().positions.hold.notCrossed;
 
 export const EMPTY_HOLD: Hold = { hands: null, crossed: null, facing: null, frame: null };
 
@@ -29,7 +22,7 @@ export const EMPTY_HOLD: Hold = { hands: null, crossed: null, facing: null, fram
 export function holdChips(h: Hold): string[] {
 	const chips: string[] = [];
 	if (h.hands) chips.push(HANDS_LABEL[h.hands]);
-	if (h.crossed) chips.push(CROSSED_LABEL);
+	if (h.crossed) chips.push(crossedLabel());
 	if (h.facing) chips.push(FACING_LABEL[h.facing]);
 	if (h.frame) chips.push(FRAME_LABEL[h.frame]);
 	return chips;

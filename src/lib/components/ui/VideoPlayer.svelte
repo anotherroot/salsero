@@ -317,7 +317,6 @@
 		if (dialog.open) dialog.close();
 		onclose(at);
 		// After the close: its Backs have landed, so the new page's entry goes on top of the host page.
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the Link popup passes a resolved href
 		if (leaving) void goto(leaving);
 	}
 

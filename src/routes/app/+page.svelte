@@ -25,7 +25,6 @@
 				<span class="text-[17px] font-bold text-ink">{card.label}</span>
 				{#if data.device === 'android'}
 					{#if card.download}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file download -->
 						<a href={card.download.url} download class={button('primary', 'md', true)}>
 							{w.download(card.label, card.download.size)}
 						</a>
@@ -33,7 +32,6 @@
 						<p class="text-[14px] text-muted">{w.notReady}</p>
 					{/if}
 				{:else}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat route per dance -->
 					<a href={card.open} class={button('primary', 'md', true)}>{w.open(card.label)}</a>
 				{/if}
 			</div>
@@ -73,6 +71,5 @@
 		{/if}
 	{/if}
 
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the dance chooser -->
 	<a href="/" class={button('tertiary', 'md')}>{w.skip}</a>
 </CardFrame>

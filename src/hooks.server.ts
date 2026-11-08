@@ -19,6 +19,7 @@ import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
 import { LOCALE_COOKIE, requestLocale } from '$lib/i18n/locale';
+import { catalogOf } from '$lib/i18n/catalog';
 // Imported for its side: it registers the per-request language with `$lib/i18n/current`.
 import { runInLocale } from '$lib/server/i18n-request';
 import { fillLang, inviteLocaleOf } from '$lib/server/locale';
@@ -110,7 +111,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		userDance: event.locals.user?.dance ?? null
 	});
 	if (moved.kind === 'redirect') throw redirect(303, moved.to);
-	if (moved.kind === 'missing') return new Response('Not found', { status: 404 });
+	if (moved.kind === 'missing')
+		return new Response(catalogOf(loc).refusals.notFound, { status: 404 });
 
 	// Which app this person uses, noted only for a request this host keeps.
 	if (event.locals.user && appAgent && !device) {
@@ -121,7 +123,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// anything acts on what it sent, so it reloads instead. Full page loads, the
 	// Android app's own calls and the worker carry no epoch and are never refused.
 	if (staleEpoch(event.request.headers.get(EPOCH_HEADER), PAGE_EPOCH)) {
-		return staleAnswer(event.request.headers.has('x-sveltekit-action'));
+		return runInLocale(loc, () => staleAnswer(event.request.headers.has('x-sveltekit-action')));
 	}
 
 	const isPublic = isPublicPath(path) || path.startsWith('/_app/');

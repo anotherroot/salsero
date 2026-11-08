@@ -25,7 +25,7 @@ export const shell: Catalog['shell'] = {
 		workIn: 'Delo v',
 		workInGroup: 'Delo v skupini',
 		switchGroup: 'Zamenjaj skupino',
-		workingIn: 'Trenutno tukaj'
+		workingIn: 'Delate tu'
 	},
 	reload: {
 		title: 'Aplikacija je posodobljena',
@@ -128,7 +128,10 @@ export const shell: Catalog['shell'] = {
 		failed: 'Nalaganje ni uspelo.',
 		tooLarge: (limit) => `Datoteka je prevelika (največ ${limit}).`,
 		connection: 'Nalaganje ni uspelo. Preverite povezavo in poskusite znova.',
-		inBackground: 'Stisnjeno in naloženo v ozadju'
+		inBackground: 'Stisnjeno in naloženo v ozadju',
+		larger: (limit) => `Datoteka je večja od ${limit}.`,
+		empty: 'Datoteka je prazna.',
+		interrupted: 'Nalaganje je bilo prekinjeno. Poskusite znova.'
 	},
 	offline: {
 		needsConnection: 'Potrebna je povezava. Nič se ni spremenilo.'

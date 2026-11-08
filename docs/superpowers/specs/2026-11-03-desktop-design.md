@@ -310,6 +310,8 @@ run". Settled round 4 (Option A).
 - **After Log set:** the pane says Logged, the set shows under History ·
   Today, and the row moves to Done today and **stays open**; the main button
   becomes **Next: <the next due one>**.
+> **Replaced 2026-11-08** by the run (run the day, plan 3): Start opens the first exercise of the walk with `?run=1`, the pane shows Skip | Done ("Done · next" for a fixed rhythm) and "3 of 7"; Done for today replaces the Session done card. What follows describes the old session.
+
 - **A session** (Start session) opens the first due one; the pane's header
   says "Session · 2 of 5", Skip and Log set are pinned under the form, the Up
   next row is the open one. The last one logged shows the Session done card
@@ -687,6 +689,8 @@ What the user settled on the boards, newest last:
   (Details ›), so it never stays open over the exercise page. Back from one of
   Today's exercises reloads the list (`today:list`), as the list page's own
   load did, so a set logged there or a new day shows.
+> **Replaced 2026-11-08:** the exercise Today opens by itself on the desktop is idle: its clock waits at 0:00 until a tap or key in the pane, also after a save (the next page opened by itself). Opening from the list is never a run.
+
 - **The session pick-up on reload is the phone's only.** A desktop reload of
   `?session=1` does not open the popup; the desktop session walks the pane
   instead. On the phone, a desk-made `/[dance]/exercises/X?session=1` link

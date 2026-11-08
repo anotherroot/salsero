@@ -4,6 +4,7 @@ import { inviteLink } from '$lib/dances/hosts';
 import { localDay } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
 import { parseLocale } from '$lib/i18n/locale';
+import { readDecimal } from '$lib/i18n/number';
 import { listAppsSeen } from '$lib/server/app-seen';
 import { getDb } from '$lib/server/db';
 import { int } from '$lib/server/form';
@@ -62,15 +63,15 @@ export const load: PageServerLoad = async ({ locals }) => {
  * The limit in GB. A preset button the admin pressed (`preset`) is explicit and
  * wins over whatever is typed; with no preset, the typed `gb` is used (Enter in
  * the field sends only `gb`, since the form's first submit is an unnamed one).
+ * A typed number takes a decimal comma or point ("1,5", "1.5": `readDecimal`).
  * undefined when it is not a positive number.
  */
 function limitFrom(form: FormData): number | undefined {
 	const raw = String(form.get('preset') || form.get('gb') || '').trim();
 	if (raw === '') return undefined;
-	return gbToBytes(Number(raw));
+	const gb = readDecimal(raw);
+	return gb === null ? undefined : gbToBytes(gb);
 }
-
-const BAD_LIMIT = 'Give a limit in GB, more than zero.';
 
 export const actions: Actions = {
 	/**
@@ -106,11 +107,11 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const id = int(form, 'id');
 		const limit = limitFrom(form);
-		if (id === undefined) return fail(400, { message: 'Pick a request.' });
-		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
+		if (id === undefined) return fail(400, { message: t().admin.refused.pickRequest });
+		if (limit === undefined) return fail(400, { message: t().admin.refused.badLimit });
 		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
 		if (!reach || !resolveRequest(getDb(), id, 'granted', limit, serverNow())) {
-			return fail(404, { message: 'That request is already closed.' });
+			return fail(404, { message: t().admin.refused.requestClosed });
 		}
 		return { ok: true };
 	},
@@ -119,10 +120,10 @@ export const actions: Actions = {
 	decline: async ({ locals, request }) => {
 		requireAdmin(locals);
 		const id = int(await request.formData(), 'id');
-		if (id === undefined) return fail(400, { message: 'Pick a request.' });
+		if (id === undefined) return fail(400, { message: t().admin.refused.pickRequest });
 		const reach = adminReaches(getDb(), locals.user!.dance, { requestId: id });
 		if (!reach || !resolveRequest(getDb(), id, 'declined', null, serverNow())) {
-			return fail(404, { message: 'That request is already closed.' });
+			return fail(404, { message: t().admin.refused.requestClosed });
 		}
 		return { ok: true };
 	},
@@ -133,10 +134,10 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const userId = String(form.get('userId') ?? '');
 		const limit = form.get('none') !== null ? null : limitFrom(form);
-		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
+		if (limit === undefined) return fail(400, { message: t().admin.refused.badLimit });
 		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
 		if (!reach || !setStorageLimit(getDb(), userId, limit)) {
-			return fail(404, { message: 'That person is gone.' });
+			return fail(404, { message: t().admin.refused.personGone });
 		}
 		return { ok: true };
 	},
@@ -147,13 +148,13 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const teamId = int(form, 'teamId');
 		const limit = form.get('computed') !== null ? null : limitFrom(form);
-		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
+		if (limit === undefined) return fail(400, { message: t().admin.refused.badLimit });
 		if (
 			teamId === undefined ||
 			!adminReaches(getDb(), locals.user!.dance, { teamId }) ||
 			!setTeamLimit(getDb(), teamId, limit)
 		) {
-			return fail(404, { message: 'That group is gone.' });
+			return fail(404, { message: t().admin.refused.groupGone });
 		}
 		return { ok: true };
 	},
@@ -166,7 +167,7 @@ export const actions: Actions = {
 		const locale = parseLocale(form.get('locale'));
 		if (!locale) return fail(400, { message: t().admin.badLanguage });
 		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
-		if (!reach) return fail(404, { message: 'That person is gone.' });
+		if (!reach) return fail(404, { message: t().admin.refused.personGone });
 		setLocale(getDb(), userId, locale);
 		return { ok: true };
 	},
@@ -179,11 +180,11 @@ export const actions: Actions = {
 		const raw = String(form.get('n') ?? '').trim();
 		const n = form.get('default') !== null || raw === '' ? null : Number(raw);
 		if (n !== null && !(Number.isInteger(n) && n >= 0 && n <= 1000)) {
-			return fail(400, { message: 'Give a whole number of groups, 0 or more.' });
+			return fail(400, { message: t().admin.refused.badGroupLimit });
 		}
 		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
 		if (!reach || !setGroupLimit(getDb(), userId, n)) {
-			return fail(404, { message: 'That person is gone.' });
+			return fail(404, { message: t().admin.refused.personGone });
 		}
 		return { ok: true };
 	}

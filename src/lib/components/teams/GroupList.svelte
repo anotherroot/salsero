@@ -9,6 +9,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import { newPill, peopleLine, roleLabel } from '$lib/teams/view';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { TeamItem } from '$lib/types';
@@ -46,6 +47,7 @@
 
 	// Restore, on a deleted group's row: its refusal (a live group has the name) shows above the list.
 	// It posts to the group's own route (`{href}?/restore`), from any Groups page.
+	const w = $derived(t().groups.list);
 	let restoreError = $state<string | null>(null);
 	let restoring = $state<number | null>(null);
 	const restore =
@@ -57,7 +59,7 @@
 			return async ({ result, update }) => {
 				try {
 					if (result.type === 'failure') {
-						restoreError = String(result.data?.message ?? 'That group could not be restored.');
+						restoreError = String(result.data?.message ?? t().groups.list.restoreFailed);
 					} else await update();
 				} finally {
 					restoring = null;
@@ -69,28 +71,21 @@
 {#if teams.length === 0}
 	<div class="h-[52px] flex-none"></div>
 	{#if onnew}
-		<EmptyState
-			icon="group"
-			title="No groups yet"
-			body="Make a group for your class, then share its code. Everyone in it sees the lessons you publish."
-		>
+		<EmptyState icon="group" title={w.emptyTitle} body={w.emptyBody}>
 			{#snippet action()}
 				<button type="button" class={button('primary')} onclick={onnew}>
-					<Icon name="plus" size={20} /> New group
+					<Icon name="plus" size={20} />
+					{w.newGroup}
 				</button>
 				{#if onjoin}
 					<button type="button" class={button('secondary')} onclick={onjoin}
-						>Join with a code</button
+						>{w.joinWithCode}</button
 					>
 				{/if}
 			{/snippet}
 		</EmptyState>
 	{:else}
-		<EmptyState
-			icon="group"
-			title="No groups yet"
-			body="Your teacher has the code, or open the link they sent."
-		>
+		<EmptyState icon="group" title={w.emptyTitle} body={w.emptyClassBody}>
 			{#snippet action()}
 				<div class="w-full max-w-[320px] text-left"><ClassCodeField action={joinAction} /></div>
 			{/snippet}
@@ -98,7 +93,7 @@
 	{/if}
 {:else}
 	{#if restoreError}<Banner kind="error">{restoreError}</Banner>{/if}
-	<ul class={GROUP} aria-label="Your groups">
+	<ul class={GROUP} aria-label={w.yourGroups}>
 		{#each teams as team (team.id)}
 			{@const href = resolve('/[dance]/groups/[id]', { dance, id: String(team.id) })}
 			{@const lit = team.id === openId}
@@ -106,9 +101,9 @@
 			{@const pill = newPill(team.newCount)}
 			{#snippet badges()}
 				{#if team.deletedAt !== null}
-					<Badge>Deleted</Badge>
+					<Badge>{t().groups.page.deleted}</Badge>
 				{:else}
-					{#if working}<Badge tone="accent" solid={lit}>Working in</Badge>{/if}
+					{#if working}<Badge tone="accent" solid={lit}>{t().shell.groupMode.workingIn}</Badge>{/if}
 					{#if pill}<Badge tone="accent" solid={lit}>{pill}</Badge>{/if}
 				{/if}
 			{/snippet}
@@ -164,10 +159,10 @@
 						<button
 							type="submit"
 							class={button('secondary', 'sm')}
-							aria-label="Restore {team.name}"
+							aria-label={w.restoreName(team.name)}
 							aria-busy={restoring === team.id}
 							disabled={restoring !== null}
-							>{#if restoring === team.id}<Spinner />{:else}Restore{/if}</button
+							>{#if restoring === team.id}<Spinner />{:else}{t().groups.page.restore}{/if}</button
 						>
 					</form>
 				{/if}
@@ -177,7 +172,7 @@
 	{#if onjoin}
 		<div class="px-4 pt-3">
 			<button type="button" class={button('tertiary', 'md', true)} onclick={onjoin}>
-				Join with a code
+				{w.joinWithCode}
 			</button>
 		</div>
 	{/if}

@@ -12,6 +12,7 @@ import { int, optionalInt, optionalText } from '$lib/server/form';
 import { routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
+import { parseSkip } from '$lib/exercises/run';
 import { practiceStart } from '$lib/exercises/practice';
 import {
 	exerciseInWall,
@@ -41,7 +42,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// salsa count.
 	const songs = songChoices(db, wall);
 	if (songId && !songs.some((s) => s.id === songId)) {
-		throw error(404, 'No analysed song here');
+		throw error(404, t().refusals.noAnalysedSong);
 	}
 	// Same id-scoping as the song: an exercise from the other dance is not this
 	// player's to practise, so it comes back as "no exercise" rather than a run
@@ -53,7 +54,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// dance, another person's, or a group's out of reach is not this player's
 	// to walk. A group's routine the person reads is (their entry practises it).
 	const found = routineId ? requireRoutineAccess(db, locals, params, routineId, 'read') : null;
-	if (found && found.routine.archivedAt !== null) throw error(404, 'No such routine');
+	if (found && found.routine.archivedAt !== null) throw error(404, t().refusals.noRoutine);
 	const routine = found?.routine ?? null;
 	// The routine's own space draws it: a group's routine names the group's
 	// variations on the group's graph, never the member's own (risk 26).
@@ -88,9 +89,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			]
 		: [];
 
+	const from = url.searchParams.get('from');
 	const back = practiceBack({
 		dance,
-		from: url.searchParams.get('from'),
+		from,
 		routine: routine && { id: routine.id, name: routine.name },
 		// The URL's `?song=`, not the exercise's memory: Back returns to the page
 		// that opened Practice.
@@ -99,7 +101,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			id: exercise.id,
 			name: exercise.name,
 			archived: exercise.archivedAt !== null
-		}
+		},
+		run: from === 'run' && exercise ? { skip: parseSkip(url.searchParams.get('skip')) } : null
 	});
 
 	return {

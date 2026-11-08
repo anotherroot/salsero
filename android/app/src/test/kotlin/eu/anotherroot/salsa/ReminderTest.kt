@@ -34,17 +34,23 @@ class ReminderTest {
         assertEquals(at(2027, 3, 28, 3, 30), fire)
     }
 
-    @Test fun `nothing due, no notification`() = assertNull(reminderText(emptyList()))
+    @Test fun `nothing due, no notification`() = assertNull(reminderText(emptyList(), Words.en))
 
     @Test fun `names what is due`() = assertEquals(
         "2 exercises due" to "Shines, Cross-body lead",
-        reminderText(listOf("Shines", "Cross-body lead")),
+        reminderText(listOf("Shines", "Cross-body lead"), Words.en),
     )
 
-    @Test fun `one is singular`() = assertEquals("1 exercise due" to "Basics", reminderText(listOf("Basics")))
+    @Test fun `one is singular`() = assertEquals("1 exercise due" to "Basics", reminderText(listOf("Basics"), Words.en))
 
     @Test fun `a long list is cut after four`() = assertEquals(
         "6 exercises due" to "A, B, C, D +2",
-        reminderText(listOf("A", "B", "C", "D", "E", "F")),
+        reminderText(listOf("A", "B", "C", "D", "E", "F"), Words.en),
     )
+
+    @Test fun `in Slovenian`() {
+        assertEquals("2 vaji na vrsti" to "A, B", reminderText(listOf("A", "B"), wordsOf("sl")))
+        assertEquals("6 vaj na vrsti" to "A, B, C, D +2", reminderText(listOf("A", "B", "C", "D", "E", "F"), wordsOf("sl")))
+        assertNull(reminderText(emptyList(), wordsOf("sl")))
+    }
 }

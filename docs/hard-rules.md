@@ -190,12 +190,22 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   Android app needs is an `/api/` endpoint; anything it shows is a page the
   app's WebView opens with the cookie session.
 - **Words go through `t()`.** A screen's words live in the catalogs, never inline:
-  a new screen's words go in both catalogs (en and sl, `src/lib/i18n/`), and its
-  component goes in `TRANSLATED` (`src/lib/i18n/no-english.spec.ts`). Read `t()` at call
-  time (in markup, a `$derived` or inside a function), never into a top-level constant.
-  Slovenian: vikanje in sentences, plurals through `slCount`, a decimal comma, a person's
-  name after a colon or a "·", the glossary at the top of `sl/index.ts`. What people
-  write (names, notes, comments, song titles) and the count are never translated.
+  a new screen's words go in both catalogs (en and sl, `src/lib/i18n/`); every component
+  is checked for bare English (`no-english.spec.ts`; a component it must skip goes in
+  `EXEMPT` with its reason), and every server refusal a person reads goes through `t()`
+  inside the request, never a top-level constant (`refusals-guard.spec.ts`). Read `t()` at
+  call time (in markup, a `$derived` or inside a function), never into a top-level
+  constant; an object table is `lazyWords` (`lazy.ts`). Slovenian: vikanje in sentences,
+  plurals through `slCount` (all four forms), a count after a verb or preposition is its
+  own entry, in its case ("Dodaj 3 položaje", "v 2 kombinacijah"; `nouns` is only the
+  nominative), a decimal comma, quotes » «, a person's name after a colon or a "·", the
+  glossary at the top of `sl/index.ts`. Text the app writes into the database is in the
+  actor's language; text composed at read time (History, refusals) in the reader's.
+  Machines keep English (the worker's queue, the media servers, `/releases`,
+  `/api/app-update`, the 426). What people write (names, notes, comments, song titles)
+  and the count are never translated. The Android app's own words are
+  `android/app/src/main/kotlin/eu/anotherroot/salsa/Words.kt` (the account's language,
+  from `/api/device/config`).
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with
   `toLocaleDateString` — ICU versions disagree and SSR must match hydration.
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are

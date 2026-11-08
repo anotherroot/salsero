@@ -18,6 +18,7 @@ import {
 import { addedLessonIds, reachFrom } from './access';
 import { DANCES, isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { TEMPLATES } from '$lib/positions/templates';
+import { t } from '$lib/i18n/catalog';
 import type { ChangeValues, PositionInput, PositionSummary } from '$lib/types';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
 import { copiedFromPlaces } from './clones/genes';
@@ -87,10 +88,10 @@ export function nameRefusal(db: Db, space: Space, name: string): NameRefusal {
 			.get();
 		return {
 			field: 'name',
-			message: `${team?.name ?? 'This group'} already has a position called ${name}.`
+			message: t().positions.refused.teamTaken(team?.name ?? null, name)
 		};
 	}
-	return { field: 'name', message: `You already have a position called ${name}.` };
+	return { field: 'name', message: t().positions.refused.taken(name) };
 }
 
 /** The columns an input writes; a style outside the dance's is dropped. */
@@ -164,7 +165,7 @@ export function createPosition(
 	now: number
 ): PositionRow | NameRefusal {
 	const name = input.name.trim();
-	if (!name) return { field: 'name', message: 'Give it a name.' };
+	if (!name) return { field: 'name', message: t().positions.refused.noName };
 	return db.transaction((tx) => {
 		if (nameTaken(tx, space, name)) return nameRefusal(tx, space, name);
 		return insert(tx, space, input, name, now);
@@ -186,7 +187,7 @@ export function updatePosition(
 		if (!current) return null;
 		const space = spaceOfRow(current, by?.actorId ?? '');
 		const name = input.name.trim();
-		if (!name) return { field: 'name', message: 'Give it a name.' } as NameRefusal;
+		if (!name) return { field: 'name', message: t().positions.refused.noName } as NameRefusal;
 		if (fold(name) !== fold(current.name) && nameTaken(tx, space, name, id))
 			return nameRefusal(tx, space, name);
 		const row = tx
@@ -290,7 +291,8 @@ export function restorePositionIn(db: Db, space: Space, id: number, now: number)
 /**
  * Add the named templates of a type to the space, skipping names it already
  * has (folded). Each row's type is `type`, its notes the template's
- * description and its hold the template's.
+ * description in the acting person's language (`t()`, inside the request) and its
+ * hold the template's.
  */
 export function addTemplates(
 	db: Db,
@@ -304,14 +306,20 @@ export function addTemplates(
 	return db.transaction((tx) => {
 		const made: PositionRow[] = [];
 		for (const name of names) {
-			const t = templates.find((x) => x.name === name);
-			if (!t || nameTaken(tx, space, t.name)) continue;
+			const tpl = templates.find((x) => x.name === name);
+			if (!tpl || nameTaken(tx, space, tpl.name)) continue;
 			made.push(
 				insert(
 					tx,
 					space,
-					{ name: t.name, styleTag: type, hold: t.hold, notes: t.description, pictureSpotId: null },
-					t.name,
+					{
+						name: tpl.name,
+						styleTag: type,
+						hold: tpl.hold,
+						notes: tpl.description,
+						pictureSpotId: null
+					},
+					tpl.name,
 					now
 				)
 			);

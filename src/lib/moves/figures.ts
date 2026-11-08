@@ -3,7 +3,8 @@
  * which empty state, whether the tiles show, and the words under each row.
  * The page only lays these out. PURE.
  */
-import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
+import { PARTNER, type Partner } from '$lib/labels';
+import { t } from '$lib/i18n/catalog';
 import { movesHeading } from './list';
 
 /** The load's `filter`: the search is always a string, the rest only when set. */
@@ -39,6 +40,16 @@ export function filterQuery(filter: FigureFilter, change: Partial<FigureFilter>)
 }
 
 /**
+ * A dance's style labels (`DANCES[dance].styleLabel`) in the reader's language:
+ * the catalog's word where it has one ("Other" → "Drugo"), else the registry's
+ * (Salsa, Son and Timba are the same everywhere).
+ */
+export function styleLabelsOf(labels: Record<string, string>): Record<string, string> {
+	const words = t().moves.styles;
+	return Object.fromEntries(Object.entries(labels).map(([k, v]) => [k, words[k] ?? v]));
+}
+
+/**
  * The chip row: All · Not linked · the dance's styles · With partner · Solo.
  * Style and partner are single-valued — the on one clears, another replaces.
  * All is on when no chip is, and clears them all; no chip ever drops the search.
@@ -53,13 +64,13 @@ export function filterChips(
 	return [
 		{
 			key: 'all',
-			label: 'All',
+			label: t().moves.chips.all,
 			on: none,
 			change: { style: undefined, partner: undefined, unlinked: undefined, sync: undefined }
 		},
 		{
 			key: 'unlinked',
-			label: 'Not linked',
+			label: t().moves.chips.unlinked,
 			count: unlinkedCount,
 			on: !!filter.unlinked,
 			change: { unlinked: filter.unlinked ? undefined : '1' }
@@ -72,7 +83,7 @@ export function filterChips(
 		})),
 		...PARTNER.map((p) => ({
 			key: `partner:${p}`,
-			label: PARTNER_LABEL[p],
+			label: t().moves.chips[p],
 			on: filter.partner === p,
 			change: { partner: filter.partner === p ? undefined : p }
 		}))
@@ -87,7 +98,7 @@ export function figuresHeading(
 	n: { moves: number; figures: number },
 	filter: FigureFilter
 ): string {
-	if (filter.unlinked) return `${n.figures} with no section or no lesson`;
+	if (filter.unlinked) return t().moves.heading.unlinked(n.figures);
 	return movesHeading(n, !!(filter.q || filter.style || filter.partner || filter.sync));
 }
 
@@ -110,9 +121,18 @@ export function showTiles(count: number, filter: FigureFilter): boolean {
 	return count > 0 && !filter.q;
 }
 
-/** A group's slight heading over its figures in Moves: "Salsa nadaljevalna · 4". */
-export function groupHeading(name: string, count: number): string {
-	return `${name} · ${count}`;
+/**
+ * The line under a group's name where its rows start in a Moves list (the
+ * name itself is the heading, larger than a move's): "Group · 3 figures".
+ */
+export function groupMeta(kind: 'figure' | 'routine' | 'position', count: number): string {
+	const c = t();
+	const counted = {
+		figure: c.nouns.figures,
+		routine: c.nouns.routines,
+		position: c.nouns.positions
+	}[kind];
+	return `${c.moves.heading.group} · ${counted(count)}`;
 }
 
 /** The Coverage tile's meta line (Positions is a Moves segment now, not a tile). */
@@ -120,7 +140,7 @@ export function tileMetas(unrouted: number): { coverage: { text: string; status:
 	return {
 		coverage:
 			unrouted > 0
-				? { text: `${unrouted} in no routine`, status: true }
-				: { text: 'All in a routine', status: false }
+				? { text: t().moves.tile.unrouted(unrouted), status: true }
+				: { text: t().moves.tile.allRouted, status: false }
 	};
 }

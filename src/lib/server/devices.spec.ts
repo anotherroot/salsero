@@ -15,6 +15,7 @@ import {
 	setVideoShortSide,
 	userForDeviceToken
 } from './devices';
+import { setLocale } from './locale';
 
 let db: Db;
 const T0 = 1_760_000_000_000;
@@ -107,14 +108,34 @@ describe('device tokens', () => {
 
 describe('device settings', () => {
 	it('default to no reminder and 480p', () => {
-		expect(deviceSettings(db, 'u1')).toEqual({ reminderMinute: null, shortSide: 480 });
+		expect(deviceSettings(db, 'u1')).toEqual({
+			reminderMinute: null,
+			shortSide: 480,
+			locale: 'en'
+		});
+	});
+
+	it("carry the account's language, English when it has none", () => {
+		setLocale(db, 'u1', 'sl');
+		expect(deviceSettings(db, 'u1').locale).toBe('sl');
+		expect(deviceSettings(db, 'u2').locale).toBe('en');
+		setLocale(db, 'u1', 'en');
+		expect(deviceSettings(db, 'u1').locale).toBe('en');
 	});
 
 	it('save a reminder time and a size', () => {
 		setReminderMinute(db, 'u1', 18 * 60);
 		setVideoShortSide(db, 'u1', 720);
-		expect(deviceSettings(db, 'u1')).toEqual({ reminderMinute: 1080, shortSide: 720 });
-		expect(deviceSettings(db, 'u2')).toEqual({ reminderMinute: null, shortSide: 480 });
+		expect(deviceSettings(db, 'u1')).toEqual({
+			reminderMinute: 1080,
+			shortSide: 720,
+			locale: 'en'
+		});
+		expect(deviceSettings(db, 'u2')).toEqual({
+			reminderMinute: null,
+			shortSide: 480,
+			locale: 'en'
+		});
 		setReminderMinute(db, 'u1', null);
 		expect(deviceSettings(db, 'u1').reminderMinute).toBeNull();
 	});
@@ -125,7 +146,7 @@ describe('device settings', () => {
 		expect(() => setReminderMinute(db, 'u1', -1)).toThrow(RangeError);
 		expect(() => setReminderMinute(db, 'u1', 1.5)).toThrow(RangeError);
 		expect(() => setVideoShortSide(db, 'u1', 600)).toThrow(RangeError);
-		expect(deviceSettings(db, 'u1')).toEqual({ reminderMinute: 600, shortSide: 480 });
+		expect(deviceSettings(db, 'u1')).toEqual({ reminderMinute: 600, shortSide: 480, locale: 'en' });
 	});
 });
 

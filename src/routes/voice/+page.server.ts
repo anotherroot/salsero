@@ -26,7 +26,7 @@ const held = new Hold<CountTake>(UNDO_MS, (row) => {
 const holdKey = (userId: string, id: number) => `take:${userId}:${id}`;
 
 function userIdOf(locals: App.Locals): string {
-	if (!locals.user) throw error(401, 'Sign in');
+	if (!locals.user) throw error(401, t().refusals.signIn);
 	return locals.user.id;
 }
 

@@ -37,12 +37,13 @@
 //           Everything                    Vse
 //   version (of the app)                  različica aplikacije (always with the noun:
 //                                         a bare "različica" is a figure)
-//   Session (Start session)               vadba (Začni vadbo)
+//   Start (Today's play)                  Začni (what it starts is never named on screen)
+//   the day's practice                    vadba (Današnja vadba je končana)
 //   Paused (an exercise)                  na premoru
 //   Not today                             Ne danes
 //   Done (the button, a day's entry)      Opravljeno; an entry is a vnos, never a "set"
 //   an 8-count (call every 2)             osmica (napoved na 2 osmici)
-//   Practice (the panel, practising)      vadenje (Vadi ob …); a session stays vadba
+//   Practice (the panel, practising)      vadenje (Vadi ob …); the day's practice stays vadba
 //   Class (a lesson's day, "Class · …")   lekcija (Lekcija · tor, 3. nov.); the group is tečaj
 //   Teacher (a comment's tag)             vodja tečaja (right beside a woman's or a man's name)
 //   a heart (on a comment)                srček
@@ -55,17 +56,46 @@
 //   a take (My count), a bar (of counts)  posnetek, takt (Takt 2 od 4)
 //   Storage (Settings), the admin         prostor, skrbnik (the admin's section: Skrbništvo)
 //   Paired phones                         Povezani telefoni (lines as nouns: "Povezava: …")
+//   a count (a figure's length)           doba ("8 dob"; the spoken count stays štetje)
+//   slot (in a routine)                   mesto
+//   break (a routine's)                   prekinitev (a timing break: časovna prekinitev)
+//   link                                  povezava
+//   owner / editor / member (a group's)   Vodja / Lahko ureja / Lahko bere
+//   does not loop (a routine)             se ne sklene
+//   Notes (a figure's, a lesson's)        opombe
+//   Map (positions)                       Zemljevid
+//   Walk (the map, to a routine)          sprehod (Sprehod od tu)
+//   Sync (copies)                         Uskladi
+//   Keep in step                          Samodejno usklajevanje
+//   Drop my copy                          Opusti svojo kopijo
+//   Detach                                Odklopi
+//   Unlink (a link, on a row)             Odveži (in a sentence or a label: Odstrani povezavo: …)
+//   Take (a field, a recording)           Prevzemi
+//   Update mine                           Posodobi svojo
+//   Make it mine                          Naredi svojo kopijo
+//   Versions (the list) / Your version    Kopije / Vaša kopija
+//   Twins (the chip)                      Dvojčka
+//   the reminder (Android's channel)      Opomnik za vadenje
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
+import { clones } from './clones';
 import { comments } from './comments';
 import { common } from './common';
 import { entry } from './entry';
 import { exercise } from './exercise';
+import { figure } from './figure';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
+import { links } from './links';
 import { map } from './map';
+import { moves } from './moves';
+import { nouns } from './nouns';
+import { picker } from './picker';
 import { player } from './player';
+import { positions } from './positions';
+import { refusals } from './refusals';
+import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
@@ -74,6 +104,7 @@ import { video } from './video';
 
 export const sl: Catalog = {
 	common,
+	nouns,
 	format,
 	shell,
 	admin,
@@ -87,5 +118,13 @@ export const sl: Catalog = {
 	video,
 	player,
 	groups,
+	moves,
+	figure,
+	routine,
+	positions,
+	picker,
+	links,
+	clones,
+	refusals,
 	map
 };

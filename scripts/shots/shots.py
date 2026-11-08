@@ -10,6 +10,7 @@ and shoots every page. `diff` prints `<slug> <changed-pixels>` per page, exit 1 
 import argparse
 import hashlib
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -92,8 +93,9 @@ def placeholders(db):
         "position": first(db, "select id from positions where user_id=? and dance=? and archived_at is null order by id limit 1", (admin, d))
         or first(db, "select id from positions where dance=? and archived_at is null order by id limit 1", (d,)),
         "exercise": first(db, "select id from exercises where user_id=? and dance=? and archived_at is null order by id limit 1", (admin, d)),
-        # a live group code the admin is not in, of either dance (/g/<code> asks Join?)
-        "joincode": first(db, "select code from teams where deleted_at is null and id not in (select team_id from team_members where user_id=?) order by id limit 1", (admin,)),
+        # a live group code of the admin's dance they are not in (/g/<code> asks Join?; another
+        # dance's code is a 404 since the dance split)
+        "joincode": first(db, "select code from teams where dance=? and deleted_at is null and id not in (select team_id from team_members where user_id=?) order by id limit 1", (d, admin)),
         # the invite the rig inserts into the copy (shoot), so /join shows its form
         "invite": INVITE,
     }
@@ -262,9 +264,35 @@ def _wav_clips(tmp):
     return out
 
 
+def _translate_locators(path):
+    """Scenes name English buttons; with a word map, their names, texts and labels are the
+    page's language. A name the map does not hold (a regex, a person's own text) is kept."""
+    from playwright.sync_api import FrameLocator, Locator, Page
+
+    words = json.load(open(path))
+    tr = lambda s: words.get(s, s) if isinstance(s, str) else s
+    for cls in (Page, Locator, FrameLocator):
+        for meth, key in (("get_by_role", "name"), ("get_by_text", None), ("get_by_label", None),
+                          ("get_by_placeholder", None), ("get_by_title", None)):
+            orig = getattr(cls, meth, None)
+            if orig is None:
+                continue
+
+            def wrapped(self, *args, _orig=orig, _key=key, **kw):
+                if _key is None and args:
+                    args = (tr(args[0]),) + args[1:]
+                elif _key is not None and _key in kw:
+                    kw[_key] = tr(kw[_key])
+                return _orig(self, *args, **kw)
+
+            setattr(cls, meth, wrapped)
+
+
 def scene(a):
     from playwright.sync_api import sync_playwright
 
+    if getattr(a, "words", None):
+        _translate_locators(a.words)
     v = prepare(a)
     all_scenes, _ = _scenes_mod().load_ext()
     w, h = (int(x) for x in a.size.split("x"))
@@ -397,6 +425,7 @@ def main():
     c.add_argument("--scenes", required=True, help="comma list of scene names, or all")
     c.add_argument("--locale", choices=["en", "sl"])
     c.add_argument("--level", choices=["follow", "own", "all"])
+    c.add_argument("--words", help="JSON {english: other}: scenes' English locator names in the page's language (words.ts)")
     d = sub.add_parser("diff")
     d.add_argument("a")
     d.add_argument("b")

@@ -21,6 +21,7 @@
 	import { focusAfterRemoval } from '$lib/focus';
 	import { barFraction, itemMeta, usageLine } from '$lib/storage-view';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import type { StorageItem } from '$lib/types';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData } from './$types';
@@ -31,6 +32,8 @@
 	const key = (i: StorageItem) => `${i.kind}-${i.id}`;
 	const deletable = (i: StorageItem): i is StorageItem & { kind: keyof typeof ACTION } =>
 		i.kind === 'recording' || i.kind === 'lessonVideo';
+
+	const s = $derived(t().settings.storage);
 
 	let refused = $state<Record<string, string>>({});
 	let asking = $state(false);
@@ -48,7 +51,7 @@
 			delete refused[key(item)];
 			return async ({ result, update }) => {
 				if (result.type === 'failure') {
-					refused[key(item)] = String(result.data?.message ?? 'Could not delete.');
+					refused[key(item)] = String(result.data?.message ?? t().settings.storage.couldNotDelete);
 					return;
 				}
 				await update();
@@ -59,21 +62,21 @@
 	};
 </script>
 
-<svelte:head><title>What uses space · {data.team.name}</title></svelte:head>
+<svelte:head><title>{t().groups.storage.head(data.team.name)}</title></svelte:head>
 
 <Screen
-	title="What uses space"
+	title={s.whatUses}
 	subtitle="{data.team.name} · {usageLine(data.storage.usedBytes, data.storage.limitBytes)}"
 	compact
 >
 	{#snippet left()}
-		<BackButton fallback={{ href: groupHref, label: `Back to ${data.team.name}` }} />
+		<BackButton fallback={{ href: groupHref, label: t().shell.backTo(data.team.name) }} />
 	{/snippet}
 
 	<div
 		class="{CLIP} mx-4 h-2 rounded-full bg-chip"
 		role="meter"
-		aria-label="Space used"
+		aria-label={s.spaceUsed}
 		aria-valuemin={0}
 		aria-valuemax={data.storage.limitBytes}
 		aria-valuenow={Math.min(data.storage.usedBytes, data.storage.limitBytes)}
@@ -90,17 +93,17 @@
 				<div class="{ROW_TALL} text-[15px] font-semibold text-muted">{data.asked}</div>
 			{:else}
 				<button type="button" class="{ROW_TALL} w-full text-left" onclick={() => (askOpen = true)}>
-					<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Ask for more</span>
+					<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{s.askForMore}</span>
 				</button>
 			{/if}
 		</div>
 	{/if}
 
 	<span class="{SECTION_LABEL} mt-[14px]" data-focus="storage-back" tabindex="-1"
-		>Biggest first</span
+		>{s.biggestFirst}</span
 	>
 	{#if data.items.length === 0}
-		<EmptyState icon="video" title="Nothing uses space yet" />
+		<EmptyState icon="video" title={s.nothingYet} />
 	{:else}
 		<ul class={GROUP}>
 			{#each data.items as item (key(item))}
@@ -109,12 +112,11 @@
 						{#snippet label()}
 							<span class="flex items-center gap-2">
 								<span class="truncate text-[16px] font-bold text-ink">{item.title}</span>
-								{#if item.archived}<Badge>archived</Badge>{/if}
+								{#if item.archived}<Badge>{s.archived}</Badge>{/if}
 							</span>
 							<span class="truncate text-[13px] text-muted">{itemMeta(item)}</span>
 						{/snippet}
 						{#if item.href}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs carry their own dance -->
 							<a href={item.href} class="flex min-w-0 flex-1 flex-col" data-focus={key(item)}>
 								{@render label()}
 							</a>
@@ -128,9 +130,9 @@
 								<input type="hidden" name="id" value={item.id} />
 								<button
 									class={button('danger-text', 'sm')}
-									aria-label="Delete {item.title}, {item.context}"
+									aria-label={s.deleteLabel(item.title, item.context)}
 								>
-									Delete
+									{t().common.delete}
 								</button>
 							</form>
 						{/if}
@@ -145,26 +147,26 @@
 		</ul>
 	{/if}
 	<p class="px-4 pt-2 text-[13px] text-muted">
-		A deleted video or recording waits 30 days in Recently deleted and still uses space until then.
+		{t().groups.storage.waits}
 	</p>
 </Screen>
 
 {#if data.role === 'owner'}
-	<Sheet title="Ask for more" open={askOpen} onclose={() => (askOpen = false)} size="small">
+	<Sheet title={s.askForMore} open={askOpen} onclose={() => (askOpen = false)} size="small">
 		<form
 			id="ask-more"
 			method="POST"
 			action="?/ask"
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'Ask for more',
+				label: s.askForMore,
 				submit: ({ cancel }) => {
 					if (asking) return cancel();
 					askError = '';
 					asking = true;
 					return async ({ result, update }) => {
 						askError =
-							result.type === 'failure' ? String(result.data?.message ?? 'Could not ask.') : '';
+							result.type === 'failure' ? String(result.data?.message ?? s.couldNotAsk) : '';
 						try {
 							await update();
 							if (result.type === 'success') askOpen = false;
@@ -177,10 +179,10 @@
 		>
 			{#if askError}<Banner kind="error" title={askError} />{/if}
 			<p class="text-[14px] text-muted">
-				The admin sees how much the group uses. A note is optional.
+				{t().groups.storage.askIntro}
 			</p>
 			<label class="block">
-				<span class={LABEL}>Note</span>
+				<span class={LABEL}>{s.note}</span>
 				<textarea name="note" rows="3" maxlength="500" class={TEXTAREA}></textarea>
 			</label>
 		</form>
@@ -191,7 +193,7 @@
 				class={button('primary', 'md', true)}
 				aria-busy={asking}
 			>
-				Ask for more
+				{s.askForMore}
 			</button>
 		{/snippet}
 	</Sheet>

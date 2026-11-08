@@ -60,14 +60,19 @@ class BootReceiver : BroadcastReceiver() {
 
 class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     /** Below Android 12 an expedited job runs as a short foreground service, which needs this. */
-    override suspend fun getForegroundInfo(): ForegroundInfo =
-        Notify.progress(applicationContext, "Practice reminder", "Checking what is due", null)
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val words = Prefs.words(applicationContext)
+        return Notify.progress(applicationContext, words.channelReminder, words.checkingDue, null)
+    }
 
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         try {
+            // The settings first: a language changed in Settings reaches tonight's reminder without a
+            // launch. Best effort: a failed fetch keeps the stored language and the reminder still fires.
+            bestEffort { Api.config(ctx) }?.let { applyConfig(ctx, it) }
             val due = Api.today(ctx)
-            val (title, body) = reminderText(due) ?: return Result.success()
+            val (title, body) = reminderText(due, Prefs.words(ctx)) ?: return Result.success()
             Notify.reminder(ctx, title, body, "/${BuildConfig.DANCE}")
         } catch (e: Unpaired) {
             Notify.unpaired(ctx)
@@ -85,9 +90,7 @@ class ConfigWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         return try {
-            val config = Api.config(ctx)
-            Prefs.setReminderMinute(ctx, config.reminderMinute)
-            Reminders.schedule(ctx, config.reminderMinute)
+            applyConfig(ctx, Api.config(ctx))
             Result.success()
         } catch (e: Unpaired) {
             Result.success() // not paired yet: nothing to schedule
@@ -106,4 +109,18 @@ class ConfigWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             )
         }
     }
+}
+
+/** Keeps what the server said: the reminder time (rescheduled) and the account's language. */
+fun applyConfig(context: Context, config: Config) {
+    Prefs.setReminderMinute(context, config.reminderMinute)
+    Reminders.schedule(context, config.reminderMinute)
+    applyLocale(context, config.locale)
+}
+
+/** Keeps the account's language; a change re-creates the notification channels, which renames them (same ids). */
+fun applyLocale(context: Context, locale: String?) {
+    if (locale == Prefs.locale(context)) return
+    Prefs.setLocale(context, locale)
+    Notify.channels(context)
 }

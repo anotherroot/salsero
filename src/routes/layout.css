@@ -362,6 +362,40 @@ body {
 	--tab-bar-space: calc(var(--tab-bar-h) + var(--safe-bottom));
 }
 
+/*
+ * Scrollbars in the app's look where a mouse scrolls (a phone keeps its own
+ * overlay bars): thin, a rounded thumb in the theme's muted ink, no track, no
+ * arrows. Chromium and Safari read the ::-webkit-scrollbar rules; Firefox the
+ * standard properties. (Chromium drops the ::-webkit rules once
+ * scrollbar-color is set, so the standard ones stay behind the @supports.)
+ */
+@media (hover: hover) and (pointer: fine) {
+	::-webkit-scrollbar {
+		width: 12px;
+		height: 12px;
+		background: transparent;
+	}
+	::-webkit-scrollbar-track,
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	::-webkit-scrollbar-thumb {
+		border: 3px solid transparent;
+		border-radius: 999px;
+		background-clip: padding-box;
+		background-color: color-mix(in srgb, var(--color-muted) 45%, transparent);
+	}
+	::-webkit-scrollbar-button {
+		display: none;
+	}
+	@supports not selector(::-webkit-scrollbar) {
+		* {
+			scrollbar-width: thin;
+			scrollbar-color: color-mix(in srgb, var(--color-muted) 45%, transparent) transparent;
+		}
+	}
+}
+
 @media (width >= 1024px) {
 	:root {
 		--side-w: 188px;

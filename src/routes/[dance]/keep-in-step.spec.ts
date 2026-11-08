@@ -39,7 +39,7 @@ import { setSyncSettings } from '$lib/server/clones/sync-settings';
 import { DEFAULT_SYNC } from '$lib/clones/sync';
 import { cloneInto } from '$lib/server/clones/clone';
 import { hasCopies } from '$lib/server/clones/genes';
-import { MISSING_SEEN, variationSeen } from '$lib/server/clash';
+import { missingSeen, variationSeen } from '$lib/server/clash';
 import { crossRefs, familyIntegrity } from '$lib/server/integrity';
 import { NO_FILES, T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
@@ -99,7 +99,6 @@ const update = (event: ReturnType<typeof post>) =>
 function form(id: number, typed: Record<string, string>, seen: unknown = variationSeen(db, id)) {
 	const r = db.select().from(figures).where(eq(figures.id, id)).get()!;
 	const fields: Record<string, string> = {
-		figureName: 'Enchufla',
 		name: r.name,
 		partner: r.partner,
 		style: r.styleTag ?? 'salsa',
@@ -150,7 +149,7 @@ describe('a save on a copy flows, and a form open across a flow cannot undo it',
 			data: { message: string };
 		};
 		expect(refused.status).toBe(400);
-		expect(refused.data.message).toBe(MISSING_SEEN);
+		expect(refused.data.message).toBe(missingSeen());
 		expect(row(F).notes).toBe('Old notes');
 
 		const bare = createFigure(db, U1_SALSA, {
@@ -161,9 +160,9 @@ describe('a save on a copy flows, and a form open across a flow cannot undo it',
 			notes: null
 		})!.figure.id;
 		expect(hasCopies(db, 'figure', bare)).toBe(false);
-		expect(
-			await update(post(bare, form(bare, { figureName: 'Dile que no', notes: 'Mine' }, null)))
-		).toMatchObject({ ok: true });
+		expect(await update(post(bare, form(bare, { notes: 'Mine' }, null)))).toMatchObject({
+			ok: true
+		});
 		expect(row(bare).notes).toBe('Mine');
 	});
 
@@ -265,7 +264,7 @@ describe('a flat route flows too, and asks for seen on a copy', () => {
 	it('a section on a row with copies must say what it saw', async () => {
 		const { spot } = await withSection();
 		const refused = await patch(spot, { label: 'Inside turn' }).catch((e: unknown) => e);
-		expect(refused).toMatchObject({ status: 400, body: { message: MISSING_SEEN } });
+		expect(refused).toMatchObject({ status: 400, body: { message: missingSeen() } });
 		expect(labelsOn(F)).toEqual(['Turn']);
 	});
 });

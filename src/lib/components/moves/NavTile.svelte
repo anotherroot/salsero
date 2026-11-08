@@ -27,7 +27,6 @@
 	} = $props();
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 <a
 	{href}
 	{onclick}
@@ -52,4 +51,3 @@
 		>
 	</span>
 </a>
-<!-- eslint-enable svelte/no-navigation-without-resolve -->

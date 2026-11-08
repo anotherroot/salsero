@@ -54,9 +54,9 @@ private fun chunkFrom(start: Long, total: Long) = Step.Send(start, min(start + C
 /**
  * What to do after [status] for the chunk [sent]. [received] is the server's
  * `x-received-bytes`, and [message] the server's own words, kept for a
- * failure notification.
+ * failure notification; [words] say it when the server gave none.
  */
-fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, message: String): Step =
+fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, message: String, words: Words): Step =
     when {
         status == 201 -> Step.Done
         status == 204 -> chunkFrom(received ?: (sent.end + 1), total).let {
@@ -65,11 +65,11 @@ fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, message
         // With a count: the client was wrong about the offset. Without: another
         // request for this upload is still being written, so wait for it.
         status == 409 && received != null ->
-            if (received >= total) Step.Fail("The server has the whole video but did not finish it. Try again later.")
+            if (received >= total) Step.Fail(words.serverHasAll)
             else chunkFrom(received, total)
         status == 401 -> Step.Unpaired
         status == 426 -> Step.UpdateNeeded
-        status in listOf(404, 413, 415) -> Step.Fail(message.ifBlank { "The server refused it ($status)." })
+        status in listOf(404, 413, 415) -> Step.Fail(message.ifBlank { words.serverRefused(status) })
         else -> Step.Retry
     }
 

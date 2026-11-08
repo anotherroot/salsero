@@ -5,7 +5,7 @@
 	import { segments } from '$lib/picker/model';
 	import { sampling } from '$lib/songs/sample-player.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { twinsChip } from '$lib/clones/twins';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SampleButton from './SampleButton.svelte';
 	import { t } from '$lib/i18n/catalog';
@@ -58,7 +58,6 @@
 	class="flex min-h-16 items-center gap-1 pl-4 {sample ? 'pr-1' : 'pr-3.5'}"
 	class:bg-accent-soft={current}
 >
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 	<a
 		{href}
 		aria-current={lit}
@@ -74,7 +73,7 @@
 			{#if draft}<Badge tone="warn">{t().songs.row.draft}</Badge>{/if}
 			{#if isNew}<Badge tone="accent">{t().songs.row.isNew}</Badge>{/if}
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
-			{#if twinned}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+			{#if twinned}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
 		</span>
 		{#if sampled && sample}
 			<span class="truncate text-[13px] leading-[1.35] font-bold text-accent-text"
@@ -88,7 +87,6 @@
 			>
 		{/if}
 	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 	{#if sample}
 		<SampleButton song={sample} {name} tinted={current} />
 	{:else}

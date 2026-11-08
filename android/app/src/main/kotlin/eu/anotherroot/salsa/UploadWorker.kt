@@ -32,12 +32,19 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     private val ctx = applicationContext
     private val store = UploadQueue.store(ctx)
     private var lastShown = 0L
-    private var title = "Uploading"
-    /** The running video's file name, once probed; and how many wait behind it. */
-    private var videoName = "the video"
+    /** The progress title: the lesson, then the video and the lesson; null = the plain word. */
+    private var title: String? = null
+    /** The running video's file name, once probed (null = `Words.theVideo`); and how many wait behind it. */
+    private var videoName: String? = null
     private var waiting = 0
 
-    override suspend fun getForegroundInfo(): ForegroundInfo = Notify.progress(ctx, "Uploading", "Preparing", null)
+    /** The app's own words, in the account's language; read as needed, so a change reaches the next line. */
+    private val words get() = Prefs.words(ctx)
+
+    /** The running video's name for a notification. */
+    private val video get() = videoName ?: words.theVideo
+
+    override suspend fun getForegroundInfo(): ForegroundInfo = Notify.progress(ctx, words.uploading, words.preparing, null)
 
     override suspend fun doWork(): Result {
         // The updater waits while this is up (UploadRun); a job left queued does not hold it.
@@ -60,7 +67,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         while (true) {
             val jobs = store.jobs()
             val job = jobs.firstOrNull() ?: return@withContext Result.success()
-            videoName = "the video"
+            videoName = null
             waiting = jobs.size - 1
             val step = try {
                 run(job)
@@ -72,8 +79,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 Step.Retry
             }
             when (step) {
-                Step.Done -> finish(job, "Added to ${job.name}", videoName)
-                is Step.Fail -> finish(job, "Couldn't add ${videoName} to ${job.name}", step.reason)
+                Step.Done -> finish(job, words.addedTo(job.name), video)
+                is Step.Fail -> finish(job, words.couldNotAdd(video, job.name), step.reason)
                 Step.Unpaired -> {
                     // Kept, all of them: pairing again resumes the queue (LinkActivity kicks it).
                     Prefs.setToken(ctx, null)
@@ -82,11 +89,11 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 }
                 Step.Retry -> {
                     if (!givesUp(store.addStall(job.id))) return@withContext Result.retry()
-                    finish(job, "Couldn't add ${videoName} to ${job.name}", "The upload kept failing.")
+                    finish(job, words.couldNotAdd(video, job.name), words.keptFailing)
                 }
                 Step.UpdateNeeded -> {
                     // Kept, not stalled: an update (or the site relaxing its minimum) lets it carry on.
-                    Notify.updateNeeded(ctx, job.id.hashCode() and 0xffff, ctx.getString(R.string.app_name), videoName, job.back)
+                    Notify.updateNeeded(ctx, job.id.hashCode() and 0xffff, ctx.getString(R.string.app_name), video, job.back)
                     return@withContext Result.retry()
                 }
                 is Step.Send -> error("unreachable")
@@ -98,12 +105,12 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     private suspend fun run(job: Job): Step {
         val source = Uri.parse(job.source)
         title = job.name
-        show("Preparing", null)
+        show(words.preparing, null)
         val config = Api.config(ctx)
         val info = try {
             VideoProbe.probe(ctx, source)
         } catch (e: Exception) {
-            return Step.Fail("It is not a video this phone can read.")
+            return Step.Fail(words.notAVideo)
         }
         videoName = info.name
         title = "${info.name} → ${job.name}"
@@ -112,9 +119,9 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val out = store.compressed(job.id)
             if (!out.exists()) {
                 val part = store.compressing(job.id)
-                val error = Compressor.compress(ctx, source, info, config.shortSide, part) { show("Compressing", it) }
-                if (error != null) return Step.Fail("Couldn't compress it: $error")
-                if (!part.renameTo(out)) return Step.Fail("Couldn't keep the compressed video.")
+                val error = Compressor.compress(ctx, source, info, config.shortSide, part) { show(words.compressing, it) }
+                if (error != null) return Step.Fail(words.couldNotCompress(error))
+                if (!part.renameTo(out)) return Step.Fail(words.couldNotKeep)
                 // New bytes: a new upload on the server, never a resume of the old one.
                 store.freshServerId(job.id)
                 store.clearStalls(job.id)
@@ -129,12 +136,12 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     /** The lesson protocol, chunk by chunk, from the saved offset. */
     private fun uploadChunks(job: Job, body: Body): Step {
         val total = body.size
-        if (total <= 0) return Step.Fail("The video is empty.")
+        if (total <= 0) return Step.Fail(words.emptyVideo)
         val serverId = store.serverId(job.id)
         var send: Step.Send = firstChunk(store.offset(job.id).coerceIn(0, total - 1), total)
         while (true) {
             if (isStopped) throw CancellationException("stopped")
-            show("Uploading", (send.start * 100 / total).toInt())
+            show(words.uploading, (send.start * 100 / total).toInt())
             val (status, received, message) = try {
                 putChunk(job, serverId, body, send, total)
             } catch (e: CancellationException) {
@@ -142,7 +149,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             } catch (e: IOException) {
                 Triple(NETWORK_ERROR, null, e.message ?: "")
             }
-            when (val step = nextStep(status, received, send, total, message)) {
+            when (val step = nextStep(status, received, send, total, message, words)) {
                 is Step.Send -> {
                     store.setOffset(job.id, step.start)
                     send = step
@@ -163,7 +170,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             conn.setRequestProperty("x-filename", encodeName(body.name))
             body.open(send.start).use { input ->
                 conn.outputStream.use { out ->
-                    copy(input, out, length) { show("Uploading", ((send.start + it) * 100 / total).toInt()) }
+                    copy(input, out, length) { show(words.uploading, ((send.start + it) * 100 / total).toInt()) }
                 }
             }
             val status = conn.responseCode
@@ -176,8 +183,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     /** A figure recording: one request, under the 95 MiB edge limit. */
     private fun uploadWhole(job: Job, body: Body): Step {
-        if (!fitsRecording(body.size)) return Step.Fail("Even compressed it is over 95 MB, too big for a figure recording.")
-        show("Uploading", 0)
+        if (!fitsRecording(body.size)) return Step.Fail(words.tooBigForRecording)
+        show(words.uploading, 0)
         val conn = Api.open(ctx, "/api/figures/${job.target.id}/recordings", "POST")
         try {
             val status = try {
@@ -186,7 +193,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 conn.setRequestProperty("content-type", body.mime)
                 conn.setRequestProperty("x-filename", encodeName(body.name))
                 body.open(0).use { input ->
-                    conn.outputStream.use { out -> copy(input, out, body.size) { show("Uploading", (it * 100 / body.size).toInt()) } }
+                    conn.outputStream.use { out -> copy(input, out, body.size) { show(words.uploading, (it * 100 / body.size).toInt()) } }
                 }
                 conn.responseCode
             } catch (e: CancellationException) {
@@ -195,7 +202,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 NETWORK_ERROR
             }
             val message = if (status >= 400) Api.errorBody(conn) else ""
-            return when (val step = nextStep(status, null, Step.Send(0, body.size - 1), body.size, message)) {
+            return when (val step = nextStep(status, null, Step.Send(0, body.size - 1), body.size, message, words)) {
                 is Step.Send -> Step.Retry // a 204 or 409 cannot happen here; try again
                 else -> step
             }
@@ -222,8 +229,6 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
     }
 
-    private fun nameOf(job: Job) = Uri.parse(job.source).lastPathSegment?.substringAfter("-") ?: "the video"
-
     /** At most twice a second: the notification is the only progress there is. */
     private fun show(stage: String, percent: Int?) {
         val now = System.currentTimeMillis()
@@ -231,10 +236,10 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         lastShown = now
         val text = buildString {
             append(stage)
-            if (percent != null) append(" · $percent%")
-            if (waiting > 0) append(" · $waiting more waiting")
+            if (percent != null) append(" · ").append(words.percent(percent))
+            if (waiting > 0) append(" · ").append(words.moreWaiting(waiting))
         }
-        setForegroundAsync(Notify.progress(ctx, title, text, percent))
+        setForegroundAsync(Notify.progress(ctx, title ?: words.uploading, text, percent))
     }
 
     /** Copies [length] bytes, giving up between buffers once the run is stopped. */

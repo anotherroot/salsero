@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	figuresEmpty,
 	figuresHeading,
@@ -6,7 +7,9 @@ import {
 	filterQuery,
 	showTiles,
 	tileMetas,
-	type FigureFilter
+	styleLabelsOf,
+	type FigureFilter,
+	groupMeta
 } from './figures';
 
 const none: FigureFilter = { q: '' };
@@ -133,5 +136,72 @@ describe('tileMetas', () => {
 		expect(tileMetas(7)).toEqual({ coverage: { text: '7 in no routine', status: true } });
 		expect(tileMetas(0).coverage).toEqual({ text: 'All in a routine', status: false });
 		expect(tileMetas(1).coverage.text).toBe('1 in no routine');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words the chips, the styles that differ included', () => {
+		const chips = sl(() =>
+			filterChips(
+				none,
+				['salsa', 'son', 'other'],
+				styleLabelsOf({ salsa: 'Salsa', son: 'Son', other: 'Other' }),
+				5
+			)
+		);
+		expect(chips.map((c) => c.label)).toEqual([
+			'Vse',
+			'Nepovezane',
+			'Salsa',
+			'Son',
+			'Drugo',
+			'V paru',
+			'Solo'
+		]);
+	});
+
+	it("keeps a dance's own style labels in English", () => {
+		const labels = { dominican: 'Dominican', sensual: 'Sensual', traditional: 'Traditional' };
+		expect(styleLabelsOf(labels)).toEqual(labels);
+		expect(sl(() => styleLabelsOf(labels))).toEqual({
+			dominican: 'Dominikanska',
+			sensual: 'Senzualna',
+			traditional: 'Tradicionalna'
+		});
+	});
+
+	it('puts the unlinked count after a colon', () => {
+		expect(sl(() => figuresHeading({ moves: 2, figures: 4 }, { q: '', unlinked: '1' }))).toBe(
+			'Brez odseka ali lekcije: 4'
+		);
+		expect(sl(() => figuresHeading({ moves: 2, figures: 3 }, { q: 'en' }))).toBe(
+			'3 različice ustrezajo'
+		);
+	});
+
+	it("words the Coverage tile's meta", () => {
+		expect(sl(() => tileMetas(7))).toEqual({
+			coverage: { text: 'Brez kombinacije: 7', status: true }
+		});
+		expect(sl(() => tileMetas(0)).coverage.text).toBe('Vse so v kombinacijah');
+	});
+});
+
+describe('groupMeta', () => {
+	it("words a group's heading line by what the list holds", () => {
+		expect(groupMeta('figure', 3)).toBe('Group · 3 figures');
+		expect(groupMeta('routine', 1)).toBe('Group · 1 routine');
+		expect(groupMeta('position', 2)).toBe('Group · 2 positions');
+	});
+});
+
+describe('groupMeta in Slovenian', () => {
+	it("counts a group's rows in the nominative", () => {
+		const sl = <T>(fn: () => T) => withLocale('sl', fn);
+		expect(sl(() => groupMeta('figure', 3))).toBe('Skupina · 3 različice');
+		expect(sl(() => groupMeta('routine', 1))).toBe('Skupina · 1 kombinacija');
+		expect(sl(() => groupMeta('position', 5))).toBe('Skupina · 5 položajev');
 	});
 });

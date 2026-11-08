@@ -6,55 +6,14 @@
  * A row's `subject` is the thing a change was to (`section`, `link`, …) or,
  * for a change of one field, that field (`notes`); a change of several fields
  * at once names the thing (`lesson`, `variation`).
+ *
+ * The words are composed when a line is READ, in the reader's language
+ * (`t().groups.history`), from the stored verb, subject and values: nothing
+ * stored is words, so one row reads English to one editor and Slovenian to
+ * another.
  */
+import { t } from '$lib/i18n/catalog';
 import type { ChangeRootKind, ChangeValues, HistoryRow } from '$lib/types';
-
-/** "a section": what an add or a remove of a thing reads as. */
-const A_THING: Record<string, string> = {
-	video: 'a video',
-	section: 'a section',
-	point: 'a point',
-	link: 'a link',
-	recording: 'a recording',
-	slot: 'a slot',
-	option: 'an alternative',
-	'section-link': 'a section link'
-};
-
-/** "the notes": what a change of one field reads as, by its key. */
-const FIELD: Record<string, string> = {
-	title: 'title',
-	lessonDay: 'day',
-	notes: 'notes',
-	name: 'name',
-	figureName: 'move’s name',
-	partner: 'partner',
-	style: 'style',
-	startIds: 'start positions',
-	endIds: 'end positions',
-	// Older History rows wrote a single end.
-	endId: 'end position',
-	// A position's hold and type.
-	styleTag: 'type',
-	hands: 'hands',
-	crossed: 'crossed',
-	facing: 'facing',
-	frame: 'frame',
-	pictureSpotId: 'picture',
-	startCount: 'start count',
-	lengthCounts: 'length',
-	note: 'slot’s note',
-	artist: 'artist',
-	anchors: 'count',
-	tempoFactor: 'tempo',
-	sampleStartS: 'sample start',
-	sectionsJson: 'sections',
-	startS: 'music start',
-	practiceMode: 'practice',
-	countBpm: 'practice tempo',
-	comesBack: 'comes back',
-	slots: 'slots'
-};
 
 /**
  * The fields History can put back: text and times. A change to anything else
@@ -73,102 +32,109 @@ const RESTORABLE = new Set([
 ]);
 
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : null);
-const quoted = (v: unknown) => (text(v) === null ? '' : ` '${text(v)}'`);
+const quoted = (v: unknown) => (text(v) === null ? '' : ` ${t().groups.history.quote(text(v)!)}`);
 const count = (v: ChangeValues | null) => (typeof v?.count === 'number' ? v.count : 1);
 
 /** A spot link's row marks a point (a spot with no end) with `point: 1`; older rows are sections. */
-const linkedSpot = (v: ChangeValues | null) => (v?.point ? 'a point' : 'a section');
+const linkedSpot = (v: ChangeValues | null): Spot => (v?.point ? 'point' : 'section');
 
-/** "1.2", "2": seconds from milliseconds, to one decimal, no trailing ".0". */
+type Spot = 'section' | 'point';
+const spotOf = (subject: string): Spot => (subject === 'point' ? 'point' : 'section');
+
+/** A word of one of History's tables, by a stored key; undefined for a key it does not have. */
+function wordOf(table: Record<string, string>, key: string): string | undefined {
+	return Object.hasOwn(table, key) ? table[key] : undefined;
+}
+
+/** "1.2", "2": seconds from milliseconds, to one decimal, no trailing ".0" (a comma in Slovenian). */
 function seconds(ms: number): string {
-	return (Math.round(Math.abs(ms) / 100) / 10).toString();
+	const s = Math.round(Math.abs(ms) / 100) / 10;
+	return Number.isInteger(s) ? String(s) : t().common.decimal(s, 1);
 }
 
 /** A section's or a point's change: moved, its end moved, or renamed. */
 function spotChange(row: HistoryRow): string {
+	const w = t().groups.history;
 	const b = row.before ?? {};
 	const a = row.after ?? {};
 	const label = text(a.label) ?? text(b.label);
-	const it = label === null ? `a ${row.subject}` : `'${label}'`;
+	const spot = spotOf(row.subject);
 	const moved = (key: 'startMs' | 'endMs') =>
 		typeof a[key] === 'number' && typeof b[key] === 'number' && a[key] !== b[key]
 			? (a[key] as number) - (b[key] as number)
 			: null;
 	const start = moved('startMs');
-	if (start !== null) return `moved ${it} ${seconds(start)} s`;
+	if (start !== null) return w.moved(spot, label, seconds(start));
 	const end = moved('endMs');
-	if (end !== null) return `moved the end of ${it} ${seconds(end)} s`;
-	return label === null
-		? `cleared the name of a ${row.subject}`
-		: `named a ${row.subject} '${label}'`;
+	if (end !== null) return w.movedEnd(spot, label, seconds(end));
+	return label === null ? w.clearedName(spot) : w.named(spot, label);
 }
 
 /**
- * The word a subject is shown as. Stored subjects stay as written: a group's
- * own figure_groups row is `figure` (shown "move"), a figures row `variation`
- * (shown "figure"); under any other root `figure` is already a figure.
+ * The word a subject is shown as, in the reader's language. Stored subjects
+ * stay as written: a group's own figure_groups row is `figure` (shown
+ * "move"), a figures row `variation` (shown "figure"); under any other root
+ * `figure` is already a figure. A subject History has no word for shows as stored.
  */
 export function historySubject(rootKind: ChangeRootKind, subject: string): string {
-	if (subject === 'variation') return 'figure';
-	if (subject === 'figure' && rootKind === 'figure') return 'move';
-	return subject;
+	const key =
+		subject === 'variation'
+			? 'figure'
+			: subject === 'figure' && rootKind === 'figure'
+				? 'move'
+				: subject;
+	return wordOf(t().groups.history.subject, key) ?? key;
 }
 
 function what(row: HistoryRow): string {
+	const w = t().groups.history;
 	const { verb, subject, before, after, rootKind } = row;
 	const name = quoted(after?.name ?? before?.name);
 	const shown = historySubject(rootKind, subject);
+	const thing = wordOf(w.thing, subject);
+	const field = wordOf(w.field, subject);
 	switch (verb) {
 		case 'add':
-			if (subject === 'song') return `added the song${name}`;
-			if (subject === rootKind) return `made the ${shown}`;
+			if (subject === 'song') return w.addedSong(name);
+			if (subject === rootKind) return w.made(shown);
 			if (subject === 'variation' && text(after?.from) !== null) {
-				return `moved${name} here from '${text(after?.from)}'`;
+				return w.movedHere(name, text(after?.from)!);
 			}
-			if (subject === 'extract') return `made the routine${name} from its slots`;
-			if (subject === 'slot' && count(after) > 1) return `added ${count(after)} slots`;
-			if (subject === 'section-link') {
-				const it = linkedSpot(after);
-				return name ? `linked ${it} to${name}` : `linked ${it}`;
-			}
-			if (subject in A_THING) return `added ${A_THING[subject]}`;
-			return `added the ${shown}${name}`;
+			if (subject === 'extract') return w.extracted(name);
+			if (subject === 'slot' && count(after) > 1) return w.addedSlots(count(after));
+			if (subject === 'section-link') return w.linked(linkedSpot(after), name);
+			if (thing !== undefined) return w.added(thing);
+			return w.addedThe(shown, name);
 		case 'remove':
-			if (subject === 'slot' && count(before) > 1) return `removed ${count(before)} slots`;
-			if (subject === 'section-link') {
-				const it = linkedSpot(before);
-				return name ? `unlinked ${it} from${name}` : `unlinked ${it}`;
-			}
-			if (subject in A_THING) return `removed ${A_THING[subject]}`;
-			return `removed the ${shown}${name}`;
+			if (subject === 'slot' && count(before) > 1) return w.removedSlots(count(before));
+			if (subject === 'section-link') return w.unlinked(linkedSpot(before), name);
+			if (thing !== undefined) return w.removed(thing);
+			return w.removedThe(shown, name);
 		case 'archive':
-			return subject === rootKind ? `archived the ${shown}` : `archived the ${shown}${name}`;
+			return w.archived(shown, subject === rootKind ? '' : name);
 		case 'publish':
-			return `published the ${shown}`;
+			return w.published(shown);
 		case 'share':
-			return `shared the ${shown}${name} with the class`;
+			return w.shared(shown, name);
 		case 'unshare':
-			return `stopped sharing the ${shown}${name}`;
+			return w.unshared(shown, name);
 		case 'delete':
-			return `deleted the ${shown}${name}`;
+			return w.deleted(shown, name);
 		case 'edit':
-			if (subject in FIELD) return `changed the ${FIELD[subject]}`;
-			return `changed the ${shown}`;
+			return w.changed(field ?? shown);
 		case 'restore':
 			if ((subject === 'section' || subject === 'point') && before !== null) {
-				const label = text(after?.label) ?? text(before.label);
-				return label === null ? `put a ${shown} back` : `put '${label}' back`;
+				return w.putBack(spotOf(subject), text(after?.label) ?? text(before.label));
 			}
-			if (subject === 'slot')
-				return count(after) > 1 ? `put back ${count(after)} slots` : 'put back a slot';
-			if (subject in FIELD) return `restored the ${FIELD[subject]}`;
-			if (subject in A_THING) return `restored ${A_THING[subject]}`;
-			return `restored the ${shown}${name}`;
+			if (subject === 'slot') return w.putBackSlots(count(after));
+			if (field !== undefined) return w.restored(field);
+			if (thing !== undefined) return w.restoredThing(thing);
+			return w.restored(`${shown}${name}`);
 		case 'change':
 			if (subject === 'section' || subject === 'point') return spotChange(row);
-			if (subject === 'order') return 'moved a slot';
-			if (subject in FIELD) return `changed the ${FIELD[subject]}`;
-			return `changed the ${shown}${subject === rootKind ? '' : name}`;
+			if (subject === 'order') return w.movedSlot;
+			if (field !== undefined) return w.changed(field);
+			return w.changed(`${shown}${subject === rootKind ? '' : name}`);
 	}
 }
 
@@ -177,7 +143,7 @@ function what(row: HistoryRow): string {
  * (`shortNames`); someone missing from it reads as "Someone".
  */
 export function historyLine(row: HistoryRow, names: ReadonlyMap<string, string>): string {
-	return `${names.get(row.actorId) ?? 'Someone'} · ${what(row)}`;
+	return `${names.get(row.actorId) ?? t().groups.history.someone} · ${what(row)}`;
 }
 
 /** Whether History offers Restore: a change to text or times only, with what it was before. */
@@ -189,12 +155,12 @@ export function canRestore(row: HistoryRow): boolean {
 
 /** "Edited by Ana · 10 min ago". */
 export function editedByLine(first: string, ago: string): string {
-	return `Edited by ${first} · ${ago}`;
+	return t().groups.history.editedBy(first, ago);
 }
 
 /** The refusal for a link to something archived since the picker opened. */
 export function archivedByLine(first: string): string {
-	return `Archived by ${first}`;
+	return t().groups.history.archivedBy(first);
 }
 
 /**
@@ -206,5 +172,5 @@ export function previousValue(row: HistoryRow): string | null {
 	const was = Object.values(row.before ?? {})
 		.map((v) => (v === null ? '' : String(v)))
 		.filter((v) => v !== '');
-	return was.length === 0 ? '(empty)' : was.join(' · ');
+	return was.length === 0 ? t().groups.history.empty : was.join(' · ');
 }

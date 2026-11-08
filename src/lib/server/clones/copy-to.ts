@@ -29,7 +29,7 @@ import type {
 } from '$lib/types';
 import { localDay } from '$lib/day/day';
 import type { DanceSlug } from '$lib/dances/dances';
-import { ARCHIVED_SONG_COPY, alreadyLine, twinChoiceMeta, whatGoes } from '$lib/clones/view';
+import { archivedSongCopy, alreadyLine, twinChoiceMeta, whatGoes } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
 	clonePairs,
@@ -513,7 +513,7 @@ export function restoreMember(
 	}
 	if (isTeam(into))
 		return restoreDeleted(db, into, kind === 'figure' ? 'variation' : kind, memberId, now);
-	if (kind === 'song') return { ok: false, message: ARCHIVED_SONG_COPY };
+	if (kind === 'song') return { ok: false, message: archivedSongCopy() };
 	const restore = {
 		figure: restoreVariation,
 		routine: restoreRoutine,

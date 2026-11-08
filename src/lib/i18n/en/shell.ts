@@ -150,7 +150,11 @@ export const shell = {
 		tooLarge: (limit: string): string => `That file is too large (limit ${limit}).`,
 		connection: 'Upload failed — check the connection and try again.',
 		/** Under the Android app's upload link. */
-		inBackground: 'Compressed and uploaded in the background'
+		inBackground: 'Compressed and uploaded in the background',
+		/** An upload route's refusals: "That file is larger than 95 MB." */
+		larger: (limit: string): string => `That file is larger than ${limit}.`,
+		empty: 'Empty upload.',
+		interrupted: 'The upload was interrupted. Try again.'
 	},
 	offline: {
 		/** The toast when a write can't reach the server: the device's copy is read only. */

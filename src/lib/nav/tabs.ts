@@ -42,6 +42,7 @@ export function tabs(): readonly Tab[] {
 const SECTION: Record<string, TabId> = {
 	exercises: 'today',
 	'coming-up': 'today',
+	done: 'today',
 	figures: 'moves',
 	routines: 'moves',
 	moves: 'moves',

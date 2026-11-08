@@ -7,8 +7,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { memberRoute } from '$lib/clones/pages';
-	import { SEPARATE, VERSIONS } from '$lib/clones/view';
-	import { SYNC_MENU, keepLine } from '$lib/clones/step-view';
+	import { separateLabel, versionsTitle } from '$lib/clones/view';
+	import { syncMenu, keepLine } from '$lib/clones/step-view';
 	import type { VersionLine } from '$lib/clones/versions';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { CloneKind, SyncSettings } from '$lib/types';
@@ -68,7 +68,7 @@
 </script>
 
 <Sheet
-	title={VERSIONS}
+	title={versionsTitle()}
 	sub={title}
 	size="small"
 	{open}
@@ -84,7 +84,6 @@
 						<span class="flex-none text-accent-text"><Icon name="check" size={22} /></span>
 					</div>
 				{:else}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved in href() -->
 					<a
 						href={href(l)}
 						class="flex min-h-16 items-center gap-3 py-2 pr-3.5 pl-4"
@@ -94,7 +93,6 @@
 						{#if l.chip}<Badge tone={l.chip.tone}>{l.chip.text}</Badge>{/if}
 						<span class="flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			</li>
 		{/each}
@@ -123,7 +121,7 @@
 				};
 			}}
 		>
-			<button type="submit" class={button('tertiary', 'sm')}>{SEPARATE}</button>
+			<button type="submit" class={button('tertiary', 'sm')}>{separateLabel()}</button>
 		</form>
 	{/if}
 </Sheet>
@@ -136,7 +134,7 @@
 		onclick={() => {
 			onclose();
 			onsync?.();
-		}}><Icon name="refresh" size={20} />{SYNC_MENU}</button
+		}}><Icon name="refresh" size={20} />{syncMenu()}</button
 	>
 {/snippet}
 

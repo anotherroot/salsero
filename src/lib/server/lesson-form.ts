@@ -5,6 +5,7 @@
 import { fail, type ActionFailure } from '@sveltejs/kit';
 import { optionalText, text } from './form';
 import { isValidDay } from '$lib/day/day';
+import { t } from '$lib/i18n/catalog';
 import type { LessonInput } from './lessons';
 
 type Field = 'lessonDay' | 'title' | 'notes';
@@ -44,11 +45,11 @@ export function readNewLesson(
 		})
 	});
 
-	if (!title) return refuse('Give it a title (up to 200 characters).', 'title');
-	if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
-	if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
+	if (!title) return refuse(t().lesson.refused.title, 'title');
+	if (notes === undefined) return refuse(t().moves.refused.notes, 'notes');
+	if (!isValidDay(lessonDay)) return refuse(t().lesson.refused.day, 'lessonDay');
 	// A class you have not attended yet is not a lesson — the same instinct the
 	// Today page has about future days.
-	if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
+	if (lessonDay > today) return refuse(t().lesson.refused.future, 'lessonDay');
 	return { input: { lessonDay, title, notes } };
 }

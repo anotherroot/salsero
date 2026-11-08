@@ -20,6 +20,7 @@
 	 */
 	import { untrack, type Snippet } from 'svelte';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -202,7 +203,7 @@
 			<button
 				type="button"
 				class="{iconButton('tonal')} mr-2.5"
-				aria-label="Play {r.label}"
+				aria-label={t().picker.play(r.label)}
 				onclick={() => onpreview?.(r)}><Icon name="play" size={18} filled /></button
 			>
 		{/if}
@@ -237,20 +238,20 @@
 				<button
 					type="button"
 					class="{iconButton('bare', 'accent')} mr-1.5"
-					aria-label="Link {r.label} and keep picking"
+					aria-label={t().picker.addKeep(r.label)}
 					onclick={() => onadd?.(r)}><Icon name="plus" size={24} /></button
 				>
 			{:else if trail === 'pending'}
 				<span
 					role="status"
-					aria-label="Linking {r.label}"
+					aria-label={t().picker.linking(r.label)}
 					class="mr-1.5 flex size-11 flex-none items-center justify-center text-accent"
 					><Spinner size={22} /></span
 				>
 			{:else if linked}
 				<span
 					class="flex flex-none items-center gap-1 pr-3 pl-1 text-[13px] font-bold whitespace-nowrap text-muted"
-					><Icon name="check" size={16} />Linked</span
+					><Icon name="check" size={16} />{t().picker.linked}</span
 				>
 			{:else if isChosen}
 				<span class="flex flex-none pr-3.5 text-accent-text" aria-hidden="true"
@@ -296,7 +297,7 @@
 	{#if shows === 'loading'}
 		<div class="ml-4 h-3 w-24 rounded-md bg-skeleton" aria-hidden="true"></div>
 		<div class="rounded-2xl bg-surface" aria-busy="true">
-			<span role="status" class="sr-only">Loading</span>
+			<span role="status" class="sr-only">{t().picker.loading}</span>
 			{#each SKELETON as [a, b], i (i)}
 				<div class="flex min-h-16 items-center pl-4" aria-hidden="true">
 					<div
@@ -360,7 +361,7 @@
 		{#if showClear && clear}{@render clearRow(clear)}{/if}
 
 		{#if message}
-			<Banner kind="error" title="That could not be linked." action={archived ? choices : undefined}
+			<Banner kind="error" title={t().picker.refused} action={archived ? choices : undefined}
 				>{message}</Banner
 			>
 		{/if}
@@ -382,12 +383,12 @@
 					aria-busy={archived.restoring}
 					disabled={archived.restoring}
 					onclick={archived.onrestore}
-					>{#if archived.restoring}<Spinner /><span class="sr-only">Restoring…</span
-						>{:else}Restore{/if}</button
+					>{#if archived.restoring}<Spinner /><span class="sr-only">{t().picker.restoring}</span
+						>{:else}{t().picker.restore}{/if}</button
 				>
 			{/if}
 			<button type="button" class={button('tertiary', 'sm')} onclick={archived.onpickanother}
-				>Pick another</button
+				>{t().picker.pickAnother}</button
 			>
 		</div>
 	{/if}
@@ -404,10 +405,8 @@
 					disabled={creating}
 					aria-busy={creating}
 					onclick={() => oncreate?.(m.key, typed)}
-					>{#if creating}<Spinner size={18} /><span class="sr-only">Creating…</span>{:else}<Icon
-							name="plus"
-							size={18}
-						/>{m.label}{/if}</button
+					>{#if creating}<Spinner size={18} /><span class="sr-only">{t().picker.creating}</span
+						>{:else}<Icon name="plus" size={18} />{m.label}{/if}</button
 				>
 			{/each}
 		</div>

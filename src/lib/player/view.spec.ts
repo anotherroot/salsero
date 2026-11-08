@@ -147,7 +147,14 @@ describe('what the Practice page derives', () => {
 		).toBeUndefined();
 	});
 	it('goes back where Practice was opened from', () => {
-		const p = { dance: 'salsa', from: null, routine: null, song: null, exercise: null } as const;
+		const p = {
+			dance: 'salsa',
+			from: null,
+			routine: null,
+			song: null,
+			exercise: null,
+			run: null
+		} as const;
 		expect(practiceBack(p)).toEqual({ href: '/salsa/songs', label: 'Back to Music' });
 		expect(practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } })).toEqual({
 			href: '/salsa/songs/4',
@@ -170,7 +177,12 @@ describe('what the Practice page derives', () => {
 		});
 	});
 	it('goes back to the exercise page when opened from it', () => {
-		const p = { dance: 'salsa', routine: { id: 3, name: 'Casino basics' }, song: null } as const;
+		const p = {
+			dance: 'salsa',
+			routine: { id: 3, name: 'Casino basics' },
+			song: null,
+			run: null
+		} as const;
 		expect(practiceBack({ ...p, from: 'exercise', exercise: EX })).toEqual({
 			href: '/salsa/exercises/9',
 			label: 'Back to Casino drill'
@@ -182,8 +194,32 @@ describe('what the Practice page derives', () => {
 			'/salsa/routines/3'
 		);
 	});
+	it("goes back to the run's exercise page from a run", () => {
+		const p = { dance: 'salsa', routine: null, song: null } as const;
+		expect(
+			practiceBack({
+				...p,
+				from: 'run',
+				exercise: { id: 4, name: 'Warmup' },
+				run: { skip: [3] }
+			})
+		).toEqual({ href: '/salsa/exercises/4?run=1&skip=3', label: 'Back to Warmup' });
+		// An archived exercise's page 404s: Back falls through to Today.
+		expect(
+			practiceBack({
+				...p,
+				from: 'run',
+				exercise: { id: 4, name: 'Warmup', archived: true },
+				run: { skip: [] }
+			}).href
+		).toBe('/salsa');
+		// No run: `from=run` is an unknown `from`.
+		expect(
+			practiceBack({ ...p, from: 'run', exercise: { id: 4, name: 'Warmup' }, run: null }).href
+		).toBe('/salsa');
+	});
 	it('never lets `from` steer Back anywhere but Today', () => {
-		const p = { dance: 'bachata', routine: null, song: null, exercise: null } as const;
+		const p = { dance: 'bachata', routine: null, song: null, exercise: null, run: null } as const;
 		expect(practiceBack({ ...p, from: 'https://evil.example' })).toEqual({
 			href: '/bachata/songs',
 			label: 'Back to Music'
@@ -261,9 +297,66 @@ describe('the Practice page in Slovenian', () => {
 			why: 'Najprej izberite skladbo.'
 		});
 		expect(sl(() => voiceKind([], 'salsa', 180))).toBe('Vgrajen');
-		const p = { dance: 'salsa', routine: null, song: null, exercise: null } as const;
+		const p = { dance: 'salsa', routine: null, song: null, exercise: null, run: null } as const;
 		expect(sl(() => practiceBack({ ...p, from: 'today' }).label)).toBe('Nazaj: Danes');
 		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
 		expect(sl(() => routineHeading(1, 5))).toBe('Kombinacija · mesto 2 od 5');
+	});
+
+	it('counts a routine’s slots with all four forms', () => {
+		expect(sl(() => [1, 2, 3, 5, 101, 102].map((n) => routineHeading(null, n)))).toEqual([
+			'Kombinacija · 1 mesto',
+			'Kombinacija · 2 mesti',
+			'Kombinacija · 3 mesta',
+			'Kombinacija · 5 mest',
+			'Kombinacija · 101 mesto',
+			'Kombinacija · 102 mesti'
+		]);
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3] }))).toBe(
+			'Prva · 3 različice'
+		);
+	});
+
+	it('counts the calls with all four forms', () => {
+		expect(sl(() => [1, 2, 3, 5].map((n) => runSummary(90, n)))).toEqual([
+			'1:30 · 1 napovedana različica',
+			'1:30 · 2 napovedani različici',
+			'1:30 · 3 napovedane različice',
+			'1:30 · 5 napovedanih različic'
+		]);
+		expect(sl(() => runSummary(252, null))).toBe('4:12');
+	});
+
+	it('says Play, starting, and whose voice counts', () => {
+		const base = { source: 'count', songId: null, ready: false, error: null } as const;
+		expect(sl(() => playState({ ...base, starting: false }).label)).toBe('Predvajaj');
+		expect(sl(() => playState({ ...base, starting: true }).label)).toBe('Zaganjanje …');
+		const takes: CountTakeRow[] = (['a', 'b'] as const).map((phrase) => ({
+			id: 1,
+			pattern: 'salsa',
+			bpm: 180,
+			phrase,
+			file: 'x.wav',
+			preRollS: 0.1,
+			lengthS: 1.3
+		}));
+		expect(sl(() => voiceKind(takes, 'salsa', 180))).toBe('Vaš');
+	});
+
+	it('names the exercise a run logs to', () => {
+		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-10-31' };
+		expect(sl(() => exerciseLine({ source: 'figure', state: null, today: '2026-10-31' }))).toBe(
+			'Vaja z različico'
+		);
+		expect(sl(() => exerciseLine({ source: 'routine', state, today: '2026-10-31' }))).toBe(
+			'Kombinacija · Na vrsti danes'
+		);
+	});
+
+	it('goes back to an opener by its own name, after a colon', () => {
+		const p = { dance: 'salsa', from: null, routine: null, exercise: null, run: null } as const;
+		expect(sl(() => practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } }).label)).toBe(
+			'Nazaj: Vivir mi vida'
+		);
 	});
 });

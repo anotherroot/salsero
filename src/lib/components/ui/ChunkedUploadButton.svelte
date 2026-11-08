@@ -105,7 +105,7 @@
 	/** A server message, as a phrase that reads inside brackets after a filename. */
 	function reasonFrom(status: number, body: string): string {
 		const text = messageFromBody(body);
-		return (text || `the server said ${status}`).replace(/\.$/, '');
+		return (text || t().refusals.files.reason.status(status)).replace(/\.$/, '');
 	}
 
 	/**
@@ -129,7 +129,7 @@
 				retrying = true;
 				// A dropped connection leaves the partial truncated to the last good
 				// offset, so retrying the same chunk is always safe.
-				if (++attempts > 3) return 'the connection dropped';
+				if (++attempts > 3) return t().refusals.files.reason.connection;
 				await new Promise((r) => setTimeout(r, 500 * attempts));
 				continue;
 			}
@@ -139,7 +139,7 @@
 				retrying = true;
 				sent = res.received;
 				onBytes(sent);
-				if (++attempts > 3) return 'that upload got out of step';
+				if (++attempts > 3) return t().refusals.files.reason.outOfStep;
 				continue;
 			}
 			if (res.status >= 400) return reasonFrom(res.status, res.body);
@@ -152,7 +152,7 @@
 			if (res.done) return null;
 		}
 
-		return 'the upload finished but the video was not saved';
+		return t().refusals.files.reason.notSaved;
 	}
 
 	async function upload(picked: File[]) {

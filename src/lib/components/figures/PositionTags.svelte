@@ -12,9 +12,9 @@
 		BUSY,
 		SHEET,
 		TAGS_CLEAR,
-		TAGS_CREATE_FAILED,
-		TAGS_HELP,
-		TAGS_NEW_SUB,
+		tagsCreateFailed,
+		tagsHelp,
+		tagsNewSub,
 		TAGS_PICKER,
 		tagsEmpty,
 		tagsSub,
@@ -166,10 +166,10 @@
 			) {
 				errors = { [body.field]: body.message };
 			} else {
-				refused = typeof body?.message === 'string' ? body.message : TAGS_CREATE_FAILED;
+				refused = typeof body?.message === 'string' ? body.message : tagsCreateFailed();
 			}
 		} catch {
-			if (current()) refused = TAGS_CREATE_FAILED;
+			if (current()) refused = tagsCreateFailed();
 		} finally {
 			// Another opening reset `busy` itself; this one's answer leaves it alone.
 			if (current() || level === null) busy = false;
@@ -184,7 +184,7 @@
 		title={TAGS_PICKER.starts}
 		{sub}
 		placeholder={TAGS_PICKER.search}
-		empty={tagsEmpty}
+		empty={tagsEmpty()}
 		groups={offered}
 		clear={TAGS_CLEAR}
 		bind:values={starts}
@@ -198,7 +198,7 @@
 		title={TAGS_PICKER.ends}
 		{sub}
 		placeholder={TAGS_PICKER.search}
-		empty={tagsEmpty}
+		empty={tagsEmpty()}
 		groups={offered}
 		clear={TAGS_CLEAR}
 		bind:values={ends}
@@ -206,7 +206,7 @@
 		{oncreate}
 		nothingLeft={TAGS_PICKER.nothingLeft}
 	/>
-	<p class="-mt-1.5 pl-1 text-[13px] leading-[1.4] text-muted">{TAGS_HELP}</p>
+	<p class="-mt-1.5 pl-1 text-[13px] leading-[1.4] text-muted">{tagsHelp()}</p>
 </div>
 
 <!--
@@ -217,7 +217,7 @@
 <div use:afterForm>
 	<Sheet
 		title={SHEET.newTitle}
-		sub={TAGS_NEW_SUB}
+		sub={tagsNewSub()}
 		open={placed && level !== null}
 		back
 		onclose={() => finish(undefined)}

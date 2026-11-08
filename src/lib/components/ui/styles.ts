@@ -23,7 +23,7 @@ export function swap(cls: string, from: string, to: string): string {
 }
 
 export type ButtonKind =
-	'primary' | 'secondary' | 'tertiary' | 'danger' | 'danger-text' | 'done-soft';
+	'primary' | 'secondary' | 'tertiary' | 'danger' | 'danger-text' | 'done-soft' | 'done';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 export type IconButtonVariant = 'bare' | 'tonal' | 'filled' | 'step';
 
@@ -36,7 +36,8 @@ const BUTTON_KIND: Record<ButtonKind, string> = {
 	tertiary: 'text-accent-text active:opacity-60 disabled:text-disabled-ink',
 	danger: 'bg-danger text-on-danger disabled:bg-disabled-bg disabled:text-disabled-ink',
 	'danger-text': 'text-danger active:opacity-60 disabled:text-disabled-ink',
-	'done-soft': 'bg-done-soft text-done disabled:bg-disabled-bg disabled:text-disabled-ink'
+	'done-soft': 'bg-done-soft text-done disabled:bg-disabled-bg disabled:text-disabled-ink',
+	done: 'bg-done text-on-done disabled:bg-disabled-bg disabled:text-disabled-ink'
 };
 
 const BUTTON_SIZE: Record<ButtonSize, string> = {

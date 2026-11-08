@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { t } from '$lib/i18n/catalog';
 import { scheduleForShown } from '$lib/server/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
@@ -125,7 +126,7 @@ function lessonIn(
 	const db = getDb();
 	const { lesson, space, access, reach } = requireLessonAccess(db, locals, params, params.id, need);
 	const found = getLesson(db, lesson.id, wallOf(params, locals).userId, opts);
-	if (!found || found.lesson.archivedAt !== null) throw error(404, 'No such lesson');
+	if (!found || found.lesson.archivedAt !== null) throw error(404, t().refusals.noLesson);
 	return { ...found, space, access, reach };
 }
 
@@ -356,10 +357,11 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const refuse = (message: string, field: 'lessonDay' | 'title' | 'notes') =>
 			fail(400, { action: 'update', field, message, ...entered });
 
-		if (!title) return refuse('Give it a title (up to 200 characters).', 'title');
-		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
-		if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
-		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
+		const no = t().lesson.refused;
+		if (!title) return refuse(no.title, 'title');
+		if (notes === undefined) return refuse(t().moves.refused.notes, 'notes');
+		if (!isValidDay(lessonDay)) return refuse(no.day, 'lessonDay');
+		if (lessonDay > today) return refuse(no.future, 'lessonDay');
 
 		const stored = getLessonRow(db, id);
 		const clash = seenRefusal(
@@ -372,7 +374,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		);
 		if (clash) return clash;
 		if (!updateLesson(db, id, { lessonDay, title, notes }, wallOf(params, locals).userId)) {
-			return fail(404, { action: 'update', message: 'That lesson no longer exists.' });
+			return fail(404, { action: 'update', message: t().lesson.refused.gone });
 		}
 		return { action: 'update', ok: true };
 	},
@@ -381,9 +383,9 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	publish: ({ params, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);
 		// A person's own lesson has nothing to publish: the answer a missing one gets.
-		if (!isTeam(space)) throw error(404, 'No such lesson');
+		if (!isTeam(space)) throw error(404, t().refusals.noLesson);
 		if (!publishLesson(getDb(), space, lesson.id, serverNow())) {
-			return fail(400, { action: 'publish', message: 'That lesson is already published.' });
+			return fail(400, { action: 'publish', message: t().lesson.refused.published });
 		}
 		return { action: 'publish', ok: true };
 	},
@@ -398,7 +400,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const { picks } = readAdd(await request.formData());
 		const userId = wallOf(params, locals).userId;
 		if (!addLesson(getDb(), userId, lesson.id, picks, serverNow())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'add', ok: true };
 	},
@@ -407,7 +409,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	notNow: ({ params, locals }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		if (!markSeen(getDb(), wallOf(params, locals).userId, lesson.id, serverNow())) {
-			throw error(404, 'No such lesson');
+			throw error(404, t().refusals.noLesson);
 		}
 		return { action: 'notNow', ok: true };
 	},
@@ -421,8 +423,8 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		// The simple page's "Added to Today · Undo" stays on the lesson (`stay`).
 		const stay = (await request.formData()).get('stay') === '1';
 		if (!removeLesson(getDb(), wallOf(params, locals).userId, lesson.id, serverNow())) {
-			if (stay) return fail(404, { action: 'remove', message: 'Could not undo.' });
-			throw error(404, 'No such lesson');
+			if (stay) return fail(404, { action: 'remove', message: t().lesson.page.couldNotUndo });
+			throw error(404, t().refusals.noLesson);
 		}
 		if (stay) return { action: 'remove', ok: true };
 		throw redirect(303, `/${params.dance}/lessons`);
@@ -490,7 +492,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	archive: async ({ params, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);
 		if (!archiveLesson(getDb(), lesson.id, serverNow(), actorOf(space))) {
-			return fail(400, { action: 'archive', message: 'That lesson is already archived.' });
+			return fail(400, { action: 'archive', message: t().lesson.refused.archived });
 		}
 		throw redirect(303, `/${params.dance}/lessons`);
 	},
@@ -522,11 +524,12 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const refuse = (message: string, field?: 'figureName' | 'name' | 'notes') =>
 			fail(400, { action: 'newFigure' as const, ...(field && { field }), message, ...typed });
 
-		if (!figureName) return refuse('Give the move a name (up to 200 characters).', 'figureName');
-		if (!name) return refuse('Give the figure a name (up to 200 characters).', 'name');
-		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		const no = t().moves.refused;
+		if (!figureName) return refuse(no.moveName, 'figureName');
+		if (!name) return refuse(no.figureName, 'name');
+		if (notes === undefined) return refuse(no.notes, 'notes');
 		if (partner === undefined || style === undefined) {
-			return refuse('Pick how it is danced and its style.');
+			return refuse(no.partnerStyle);
 		}
 
 		const db = getDb();
@@ -537,7 +540,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			return fail(400, {
 				action: 'newFigure' as const,
 				field: 'figureName' as const,
-				message: `There's already a move called ${figureName}.`,
+				message: t().moves.refused.moveTaken(figureName),
 				figureName,
 				name,
 				notes: notes ?? ''
@@ -572,24 +575,25 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const refuse = (message: string, field?: 'groupId' | 'name' | 'notes') =>
 			fail(400, { action: 'newVariation' as const, ...(field && { field }), message, ...typed });
 
-		if (groupId === undefined) return refuse('Pick a move.', 'groupId');
-		if (!name) return refuse('Give the figure a name (up to 200 characters).', 'name');
-		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		const no = t().moves.refused;
+		if (groupId === undefined) return refuse(t().lesson.refused.pickMove, 'groupId');
+		if (!name) return refuse(no.figureName, 'name');
+		if (notes === undefined) return refuse(no.notes, 'notes');
 		if (partner === undefined || style === undefined) {
-			return refuse('Pick how it is danced and its style.');
+			return refuse(no.partnerStyle);
 		}
 
 		const db = getDb();
 		const group = getGroup(db, groupId);
 		if (!group || group.archivedAt !== null || !inSpace(group, space)) {
-			throw error(404, 'Figure not found');
+			throw error(404, t().refusals.figureNotFound);
 		}
 		if (variationNameTaken(db, group.id, name, null)) {
-			return refuse(`${group.name} already has a figure called ${name}. Rename one first.`, 'name');
+			return refuse(t().moves.refused.figureTaken(group.name, name), 'name');
 		}
 		const made = createVariationIn(db, group.id, { name, partner, style, notes }, actorOf(space));
 		// Checked above; only a race with another tab gets here.
-		if (!made) throw error(404, 'Figure not found');
+		if (!made) throw error(404, t().refusals.figureNotFound);
 		linkFigure(db, id, made.id, actorOf(space));
 		return { action: 'newVariation', ok: true };
 	},
@@ -607,8 +611,8 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const refuse = (message: string, field?: 'name' | 'notes') =>
 			fail(400, { action: 'newExercise' as const, ...(field && { field }), message, ...typed });
 
-		if (!name) return refuse('Give it a name (up to 200 characters).', 'name');
-		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (!name) return refuse(t().today.refused.name, 'name');
+		if (notes === undefined) return refuse(t().moves.refused.notes, 'notes');
 
 		const db = getDb();
 		const exercise = createCustomExercise(db, space, { name, notes });
@@ -626,7 +630,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 					? null
 					: archivedRefusal(db, space, { figureId }, { action: 'linkFigure' as const });
 			if (archived) return archived;
-			return fail(400, { action: 'linkFigure', message: 'That figure could not be linked.' });
+			return fail(400, { action: 'linkFigure', message: t().lesson.refused.figureLink });
 		}
 		return { action: 'linkFigure', ok: true };
 	},
@@ -642,7 +646,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			figureId === undefined ||
 			!unlinkFigure(getDb(), id, figureId, alsoSections, serverNow(), actorOf(space))
 		) {
-			return fail(400, { action: 'unlinkFigure', message: 'That figure was already unlinked.' });
+			return fail(400, { action: 'unlinkFigure', message: t().lesson.refused.figureUnlinked });
 		}
 		return { action: 'unlinkFigure', ok: true };
 	},
@@ -667,8 +671,8 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const refuse = (message: string, field?: 'name' | 'notes') =>
 			fail(400, { action: 'newRoutine' as const, ...(field && { field }), message, ...typed });
 
-		if (!name) return refuse('Give the routine a name (up to 200 characters).', 'name');
-		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (!name) return refuse(t().moves.refused.routineName, 'name');
+		if (notes === undefined) return refuse(t().moves.refused.notes, 'notes');
 
 		const db = getDb();
 		const { routine } = createRoutine(db, space, { name, notes });
@@ -686,7 +690,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 					? null
 					: archivedRefusal(db, space, { routineId }, { action: 'linkRoutine' as const });
 			if (archived) return archived;
-			return fail(400, { action: 'linkRoutine', message: 'That routine could not be linked.' });
+			return fail(400, { action: 'linkRoutine', message: t().lesson.refused.routineLink });
 		}
 		return { action: 'linkRoutine', ok: true };
 	},
@@ -699,7 +703,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			routineId === undefined ||
 			!unlinkRoutine(getDb(), id, routineId, serverNow(), actorOf(space))
 		) {
-			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
+			return fail(400, { action: 'unlinkRoutine', message: t().lesson.refused.routineUnlinked });
 		}
 		return { action: 'unlinkRoutine', ok: true };
 	},
@@ -742,7 +746,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 					? null
 					: archivedRefusal(db, space, { positionId }, { action: 'linkPosition' as const });
 			if (archived) return archived;
-			return fail(400, { action: 'linkPosition', message: 'That position could not be linked.' });
+			return fail(400, { action: 'linkPosition', message: t().lesson.refused.positionLink });
 		}
 		return { action: 'linkPosition', ok: true };
 	},
@@ -759,7 +763,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		) {
 			return fail(400, {
 				action: 'unlinkPosition',
-				message: 'That position was already unlinked.'
+				message: t().lesson.refused.positionUnlinked
 			});
 		}
 		return { action: 'unlinkPosition', ok: true };
@@ -777,8 +781,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			if (archived) return archived;
 			return fail(400, {
 				action: 'linkExercise',
-				message:
-					'That exercise could not be linked. A figure’s or routine’s exercise lives under it.'
+				message: t().lesson.refused.exerciseLink
 			});
 		}
 		return { action: 'linkExercise', ok: true };
@@ -796,7 +799,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		) {
 			return fail(400, {
 				action: 'unlinkExercise',
-				message: 'That exercise was already unlinked.'
+				message: t().lesson.refused.exerciseUnlinked
 			});
 		}
 		return { action: 'unlinkExercise', ok: true };
@@ -810,7 +813,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		// function deletes by id alone, so an id from another lesson — and so
 		// possibly from another wall — would be gone before anyone noticed.
 		if (id === undefined || !found.videos.some((v) => v.id === id)) {
-			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
+			return fail(404, { action: 'deleteVideo', message: t().lesson.refused.videoGone });
 		}
 		let row;
 		try {
@@ -822,7 +825,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			throw e;
 		}
 		if (!row) {
-			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
+			return fail(404, { action: 'deleteVideo', message: t().lesson.refused.videoGone });
 		}
 		// A group's video is in Recently deleted with its file: the purge deletes it (risk 19).
 		if (row.trashId === null) await unlink(join(lessonVideosDir(), row.file)).catch(() => {});

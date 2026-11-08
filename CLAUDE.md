@@ -135,9 +135,11 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
   `focusAfterRemoval`. A refresh after a sheet or the player closes:
   `refreshWhenSettled()`. Safe area through `--safe-*`, never `env()`.
 - Raise `PAGE_EPOCH` in the commit that breaks older open pages.
-- Words go through `t()`, in both catalogs (en, sl); the component goes in
-  `TRANSLATED`; read `t()` at call time. Slovenian: vikanje, `slCount`, decimal
-  comma, glossary in `sl/index.ts`. User content and the count are never translated.
+- Words go through `t()`, in both catalogs (en, sl), read at call time; every
+  component is checked for bare English (`no-english.spec.ts`, `EXEMPT` with a
+  reason) and every server refusal too (`refusals-guard.spec.ts`). Slovenian:
+  vikanje, `slCount`, decimal comma, » «, glossary in `sl/index.ts`. User content
+  and the count are never translated; machines keep English.
 - Dates on screen built by hand (`format.ts`), never `toLocaleDateString`.
 - Levels hide entry points, never routes; ask `levels.ts` (`levelShown`), never
   compare level strings.

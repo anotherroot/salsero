@@ -9,12 +9,14 @@
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import { CLIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { focusAfterRemoval } from '$lib/focus';
+	import { t } from '$lib/i18n/catalog';
 	import { barFraction, itemMeta, usageLine } from '$lib/storage-view';
 	import type { StorageItem } from '$lib/types';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	const s = $derived(t().settings.storage);
 
 	const ACTION = { recording: 'deleteRecording', lessonVideo: 'deleteVideo', song: 'deleteSong' };
 	const key = (i: StorageItem) => `${i.kind}-${i.id}`;
@@ -31,7 +33,7 @@
 			delete refused[key(item)];
 			return async ({ result, update }) => {
 				if (result.type === 'failure' && result.status === 409) {
-					refused[key(item)] = String(result.data?.message ?? 'Could not delete.');
+					refused[key(item)] = String(result.data?.message ?? t().settings.storage.couldNotDelete);
 					return;
 				}
 				await update();
@@ -42,21 +44,18 @@
 	};
 </script>
 
-<svelte:head><title>What uses space</title></svelte:head>
+<svelte:head><title>{s.whatUses}</title></svelte:head>
 
-<Screen
-	title="What uses space"
-	subtitle={usageLine(data.storage.usedBytes, data.storage.limitBytes)}
->
+<Screen title={s.whatUses} subtitle={usageLine(data.storage.usedBytes, data.storage.limitBytes)}>
 	{#snippet left()}
-		<BandButton icon="back" label="Back to Settings" href="/settings" />
+		<BandButton icon="back" label={t().shell.backTo(t().shell.settings)} href="/settings" />
 	{/snippet}
 
 	{#if data.storage.limitBytes !== null}
 		<div
 			class="{CLIP} mx-4 h-2 rounded-full bg-chip"
 			role="meter"
-			aria-label="Space used"
+			aria-label={s.spaceUsed}
 			aria-valuemin={0}
 			aria-valuemax={data.storage.limitBytes}
 			aria-valuenow={Math.min(data.storage.usedBytes, data.storage.limitBytes)}
@@ -69,10 +68,10 @@
 	{/if}
 
 	<span class="{SECTION_LABEL} mt-[14px]" data-focus="storage-back" tabindex="-1"
-		>Biggest first</span
+		>{s.biggestFirst}</span
 	>
 	{#if data.items.length === 0}
-		<EmptyState icon="video" title="Nothing uses space yet" />
+		<EmptyState icon="video" title={s.nothingYet} />
 	{:else}
 		<ul class={GROUP}>
 			{#each data.items as item (key(item))}
@@ -81,12 +80,11 @@
 						{#snippet label()}
 							<span class="flex items-center gap-2">
 								<span class="truncate text-[16px] font-bold text-ink">{item.title}</span>
-								{#if item.archived}<Badge>archived</Badge>{/if}
+								{#if item.archived}<Badge>{s.archived}</Badge>{/if}
 							</span>
 							<span class="truncate text-[13px] text-muted">{itemMeta(item)}</span>
 						{/snippet}
 						{#if item.href}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs carry their own dance -->
 							<a href={item.href} class="flex min-w-0 flex-1 flex-col" data-focus={key(item)}>
 								{@render label()}
 							</a>
@@ -100,9 +98,9 @@
 								<input type="hidden" name="id" value={item.id} />
 								<button
 									class={button('danger-text', 'sm')}
-									aria-label="Delete {item.title}, {item.context}"
+									aria-label={s.deleteLabel(item.title, item.context)}
 								>
-									Delete
+									{t().common.delete}
 								</button>
 							</form>
 						{:else}
@@ -121,6 +119,6 @@
 		</ul>
 	{/if}
 	<p class="px-4 pt-2 text-[13px] text-muted">
-		Deleting is how you free space. Archived things keep their files until you delete them here.
+		{s.freeNote}
 	</p>
 </Screen>

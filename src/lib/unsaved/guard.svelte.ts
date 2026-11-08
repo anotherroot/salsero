@@ -84,7 +84,7 @@ export function leaveOrAsk(
 /**
  * `leaveOrAsk` for a move that will navigate away from the page: ask about
  * everything the page would lose, and hand `onleave` what the user agreed to
- * lose (empty when nothing was asked), for `passNext`. A desktop session's
+ * lose (empty when nothing was asked), for `passNext`. A run's
  * Skip: the log form and an open settings edit are in one question.
  */
 export function leavePageOrAsk(
@@ -194,7 +194,6 @@ export function guardNavigation(): void {
 				if (delta) history.go(delta);
 				else if (external) location.href = to.href;
 				// `to` is the URL the app was already heading for, resolved by then.
-				// eslint-disable-next-line svelte/no-navigation-without-resolve
 				else void goto(to);
 			}
 		};

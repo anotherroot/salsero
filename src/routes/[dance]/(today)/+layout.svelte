@@ -4,6 +4,7 @@
 	import { actAt } from '$lib/act';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { pinned } from '$lib/nav/chrome.svelte';
 	import { page } from '$app/state';
 	import { levelShown, simple } from '$lib/levels/levels';
 	import { listOf } from '$lib/nav/pane';
@@ -14,7 +15,7 @@
 	import TodayList from '$lib/components/today/TodayList.svelte';
 	import ComingUpList from '$lib/components/today/ComingUpList.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
-	import { besideToday, todayBack } from '$lib/nav/today-pane';
+	import { besideToday } from '$lib/nav/today-pane';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
@@ -25,11 +26,12 @@
 	import { t } from '$lib/i18n/catalog';
 	import { undoAddSteps, type PickReply } from '$lib/schedule/picks';
 	import { dayTotals, defaultOpen } from '$lib/exercises/today-pane';
-	import { setTodayPane, type SessionControls } from '$lib/components/today/today-context';
-	import { backWhenSettled, dropOpener, listOpener } from '$lib/nav/trail.svelte';
+	import { setTodayPane, type RunControls } from '$lib/components/today/today-context';
+	import { dropOpener, listOpener } from '$lib/nav/trail.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { longDayLabel } from '$lib/format';
 	import { nextInSession, sessionWalk } from '$lib/exercises/session';
+	import { playerFrom, runHref, runOf, runStep } from '$lib/exercises/run';
 
 	/*
 	 * Today: the list and the exercise beside it (desktop spec, "Today: the list
@@ -57,57 +59,54 @@
 	/** The two lower levels: New exercise without Comes back. */
 	const simpleLog = $derived(simple(levelShown(page.data.user?.level)));
 	/** The exercise open: the URL's (the page beside the list on the desktop, the page itself on the phone). */
-	const currentId = $derived(isList ? null : Number(page.params.id));
+	// None on a route without an id (Done for today).
+	const currentId = $derived(isList || !page.params.id ? null : Number(page.params.id));
 
 	let creating = $state(false);
 	// The layout's toast: Not today, Coming up's +, a refused Next.
 	let toast = $state<ToastState | null>(null);
 	let toastSeq = 0;
 
-	/*
-	 * Start session, for now (plan 3's run replaces it): it walks the to-do rows,
-	 * then the picked ones, exercise page by exercise page, with `?session=1` in
-	 * the URL. Nothing is stored: after a save the reloaded rows say what is next.
-	 */
-	const sessionOn = $derived(page.url.searchParams.get('session') === '1');
 	const day = $derived(data.list.day);
 	// No live exercise at all: the first run's page.
 	const empty = $derived(data.list.exercises.length === 0);
-	// What the session walks: the to-do rows, then the picked ones, as shown.
-	const walkRows = $derived(sessionWalk(day.rows));
-	const firstUp = $derived(nextInSession(walkRows, new Set(), null));
-	const nextUp = $derived(nextInSession(walkRows, new Set(), currentId));
 
-	const at = (id: number, search = '') =>
-		resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(id) }) + search;
+	const at = (id: number) => resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(id) });
 
-	/**
-	 * The session opens a row's page, at every width. Start pushes (Back leaves the
-	 * session); the next row and a Resume replace, so the session holds one entry.
+	/*
+	 * The run: Start walks the day's exercises, one exercise page after another,
+	 * carried in the URL (`?run=1&skip=…`, `src/lib/exercises/run.ts`). Nothing is
+	 * stored: after a save the reloaded rows say what is next. The run is one
+	 * history entry: Start pushes from the list, and every step after it replaces.
 	 */
-	function openRow(id: number, how: 'push' | 'replace') {
-		const href = at(id, '?session=1');
-		if (page.url.pathname + page.url.search === href) return;
-		void gotoWhenSettled(href, { replaceState: how === 'replace' });
-	}
+	// A past day (`?day=`) is a list route: `!isList` already leaves it out.
+	const run = $derived(!isList && currentId !== null ? runOf(page.url.searchParams) : null);
+	const step = $derived(run && currentId !== null ? runStep(dance, day, run, currentId) : null);
 
-	function startSession() {
-		if (firstUp) openRow(firstUp.exercise.id, 'push');
+	/** Start: the walk's first (the warm-ups first); with nothing to walk, nothing. */
+	function start() {
+		// A run is never one Today opened by itself: its time counts at once.
+		autoOpened = null;
+		const first = nextInSession(sessionWalk(day.rows), new Set(), null);
+		if (!first) return;
+		const href = runHref(dance, first.exercise.id, { skip: [] });
+		if (page.url.pathname + page.url.search === href) return;
+		// From a run, or from Done for today beside the list (desktop): the run's one entry.
+		const replaceState = run !== null || page.route.id === '/[dance]/(today)/done';
+		void gotoWhenSettled(href, { replaceState });
 	}
 
 	/*
 	 * One always open (desktop): the list route opens an exercise by itself, the
-	 * first to-do row, else the first picked (`defaultOpen`); in a session, the
-	 * session's first. It goes to the exercise's own URL with a replace (no
-	 * history entry), so every form in the pane posts to its own route, and a
-	 * Back from it goes where /{dance} would have. With nothing to open, the pane
-	 * holds the day so far. The phone never swaps: /{dance} is its list page.
-	 * Not while New exercise is open: its entry is on top of history, and the
-	 * replace would take its place.
+	 * first to-do row, else the first picked (`defaultOpen`), never as a run. It
+	 * goes to the exercise's own URL with a replace (no history entry), so every
+	 * form in the pane posts to its own route, and a Back from it goes where
+	 * /{dance} would have. With nothing to open, the pane holds the day so far.
+	 * The phone never swaps: /{dance} is its list page. Not while New exercise is
+	 * open: its entry is on top of history, and the replace would take its place.
 	 */
 	const swapTo = $derived.by(() => {
 		if (past || creating || onComing || !isList) return null;
-		if (sessionOn) return firstUp ? at(firstUp.exercise.id, '?session=1') : null;
 		const id = defaultOpen(day);
 		return id === null ? null : at(id);
 	});
@@ -122,8 +121,21 @@
 	 */
 	let settled = $state(false);
 	let swapping = false;
-	onNavigate(() => {
+	/*
+	 * The exercise the swap opened, until someone is there: a tap or key in its
+	 * pane (`wake`), Start, or a row or link opening it. Its page's clock waits
+	 * at 0:00 until then (the page asks; the phone never sets it). A detour
+	 * elsewhere (a row opening another, saved: history steps back here) leaves
+	 * it waiting: only a navigation TO it that is not a history step says
+	 * someone opened it.
+	 */
+	let autoOpened = $state<string | null>(null);
+	onNavigate((nav) => {
 		settled = false;
+		if (autoOpened === null || nav.type === 'popstate') return;
+		if (nav.to?.url.pathname !== autoOpened) return;
+		const own = swapping && nav.type === 'goto';
+		if (!own) autoOpened = null;
 	});
 	afterNavigate(() => {
 		settled = true;
@@ -133,6 +145,7 @@
 		if (!settled || !desk.current || href === null || swapping) return;
 		swapping = true;
 		const done = () => (swapping = false);
+		autoOpened = href.split('?')[0];
 		// The list is beside it: no ‹, whatever opened it before.
 		gotoWhenSettled(href, { replaceState: true, keepFocus: true }, () =>
 			dropOpener(href.split('?')[0])
@@ -151,15 +164,18 @@
 		if (listOf(from.route.id)?.list === 'today') void invalidate('today:list');
 	});
 
-	/** The session as the exercise page sees it: after a save, the next page or back to Today. */
-	const session = $derived<SessionControls | null>(
-		sessionOn && currentId !== null
+	/**
+	 * The run as the exercise page sees it. Skip and after replace this page with
+	 * the next (or Done for today), once a closing sheet's Back has landed.
+	 */
+	const runControls = $derived<RunControls | null>(
+		run && step
 			? {
-					onnext: () => {
-						// After the last, back to Today in place of this page (the desktop's pane has no opener).
-						if (nextUp) openRow(nextUp.exercise.id, 'replace');
-						else void backWhenSettled(todayBack(dance), { replace: true });
-					}
+					place: step.place,
+					next: step.next,
+					playerFrom: playerFrom(run),
+					skip: () => void gotoWhenSettled(step.skipHref, { replaceState: true }),
+					after: () => void gotoWhenSettled(step.afterHref, { replaceState: true })
 				}
 			: null
 	);
@@ -201,23 +217,23 @@
 	}
 
 	setTodayPane({
-		get session() {
-			return session;
+		get run() {
+			return runControls;
 		},
+		say,
 		canSkip: (id) => day.rows.some((r) => r.exercise.id === id && r.kind !== 'done'),
-		notToday
+		notToday,
+		get autoOpened() {
+			return autoOpened;
+		},
+		// Only a tap in that exercise's own pane: one in another's leaves it waiting.
+		wake: () => {
+			if (page.url.pathname === autoOpened) autoOpened = null;
+		}
 	});
 
-	// The bar card: how many are left, done of all; its play starts the session,
-	// or resumes it at its next row while one is on.
-	const hero = $derived(todayHero(day));
-	const resuming = $derived(sessionOn && firstUp !== null);
-	function play() {
-		if (resuming && firstUp) openRow(firstUp.exercise.id, 'replace');
-		else startSession();
-	}
-	// A session on names its next row: tinted "Up next".
-	const upNextId = $derived(resuming ? (firstUp?.exercise.id ?? null) : null);
+	// The bar card: how many are left, done of all, about how long; its play starts the run.
+	const hero = $derived(todayHero(day, data.list.estimateS));
 
 	/** Each exercise's type and partner, for the day so far's tiles; archived ones are absent. */
 	const kinds = $derived(
@@ -269,11 +285,7 @@
 </svelte:head>
 
 {#snippet heroCard()}
-	<TodayBar
-		{hero}
-		playLabel={resuming ? t().today.hero.resume : t().today.hero.start}
-		onplay={play}
-	/>
+	<TodayBar {hero} playLabel={t().today.hero.start} onplay={start} />
 {/snippet}
 
 {#snippet bandRight()}
@@ -328,9 +340,7 @@
 			daily={data.list.daily}
 			{dance}
 			lessonDays={data.list.lessonDays}
-			{upNextId}
 			{currentId}
-			rowSearch={sessionOn && desk.current ? '?session=1' : ''}
 			appUpdate={data.appUpdate}
 			oncreate={() => (creating = true)}
 			onrefused={say}
@@ -374,7 +384,15 @@
 		{@render children()}
 	</ListPane>
 
-	<Toast {toast} onaction={() => toast?.undo?.()} ondismiss={() => (toast = null)} />
+	<!-- Above a pinned bar (a run's Skip | Done), as SavedToast sits: its Undo never on the next Done. -->
+	<Toast
+		{toast}
+		bottom={pinned.bar
+			? 'calc(5.75rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'
+			: undefined}
+		onaction={() => toast?.undo?.()}
+		ondismiss={() => (toast = null)}
+	/>
 {/if}
 
 {#if creating}

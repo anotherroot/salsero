@@ -135,7 +135,6 @@
 			/>
 		</div>
 		{#if !few}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href={myCountHref(from)} class={ROW_TALL}>
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -178,7 +177,6 @@
 			</div>
 		{/if}
 	</div>
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 	<a href="/settings" class="{button('secondary', 'md', true)} mt-1">
 		<Icon name="settings" size={20} />
 		{w.you.allSettings}

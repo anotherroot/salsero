@@ -91,7 +91,6 @@
 		})}
 	{/snippet}
 	{#if href}
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a built href -->
 		<a {href} class="{cls} text-ink" {onclick}>{@render active()}</a>
 	{:else}
 		<button type="button" class="{cls} text-ink" {onclick}>{@render active()}</button>

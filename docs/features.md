@@ -70,8 +70,13 @@ number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
 and run the day, plan 2 (one exercise page per type, with Practise with, a drill's
 Recordings and a pinned Done; the Done sheet with four faces and their gaps; one
 entry per exercise per day (`saveDay`) with a toast and Undo; the log popup gone;
-an interim session, `?session=1`; plan 3, the run, is not built; see
+an interim session, `?session=1`; see
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md))
+and run the day, plan 3 (the run: Start on Today walks the day's exercises page by
+page, `?run=1&skip=…`, warm-ups first, with Skip | Done, "3 of 7" and "Next: …"
+in the Done sheet; Done for today at `/[dance]/done`; the hero's time estimate;
+the player's Back keeps the run; on the desktop the exercise Today opens by itself
+waits for a tap before its clock counts; plans 1, 2 and 3 are all built)
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
@@ -81,10 +86,11 @@ and comments on a class's lessons (a card at the end of the lesson and the
 exercise page, a tall sheet with replies one level deep, hearts, Teacher, delete
 with Undo, "N new"; see
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md))
-and Slovenian (part 1: the app in English or Slovenian per account; the language on
-the invite, Join, the cookie before sign-in, a Settings switch and the admin's per
-person; the Follow my class path in Slovenian, the Practice player and pairing
-included; the rest of the app and the Android app's own text are part 2; see
+and Slovenian (the whole app in English or Slovenian per account: every page, sheet,
+toast, refusal and error page, the admin and the Android app's own text (version 1.8);
+the language on the invite, Join, the cookie before sign-in, a Settings switch and the
+admin's per person; machines keep English (the worker's queue, the media servers,
+`/releases`, `/api/app-update`, the 426); see
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md))
 and the song page (a minimal listening view: the section playing and what comes next;
 Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
@@ -94,7 +100,8 @@ where its music starts, measured by the worker; see
 and a group's + and one figure form (a group page's lessons by month; the band's + opens
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
 switching into the group; every New figure takes its move from one Move field that can
-also make a new move (`PickerField`'s create, `moveFromQuery`); see
+also make a new move (`PickerField`'s create, `moveFromQuery`); Edit asks no move name; a
+group's own heading on the Moves lists (`GroupHeading`); thin scrollbars in the app's colours; see
 [`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md))
 and the app offline, read only (offline phases 1 and 2: ids from slots and one server clock;
 the server logs every change, a device pulls its person's copy into SQLite on the phone, and
@@ -219,7 +226,8 @@ Run the day has its own,
 [`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
 the slower gaps, Comes back (by how it went, every day until it feels good, a
 fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
-lateness, and the exercise page, Done sheet and run still to come.
+lateness, the exercise page, the Done sheet and the run (Start, Skip, Done for today,
+the estimate): all three plans are built.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add

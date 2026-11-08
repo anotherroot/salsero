@@ -28,7 +28,6 @@
 </script>
 
 {#if href}
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a built href -->
 	<a data-focus={focusKey} {href} aria-label={label} class={cls} {onclick}><Icon name={icon} /></a>
 {:else}
 	<button type="button" data-focus={focusKey} aria-label={label} class={cls} {onclick}

@@ -6,6 +6,7 @@ import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from './li
 import { addLinks, listLinks } from './links';
 import { claimVideoJob, failVideoJob } from './video-downloads';
 import { U1_SALSA } from '$lib/server/test-walls';
+import { runInLocale } from '$lib/server/i18n-request';
 
 /** Free disk far above the floor: these tests are about limits, not the disk. */
 const FREE = 100 * 1024 ** 3;
@@ -180,6 +181,35 @@ describe('saveVideoFrom and retryVideoFrom', () => {
 		expect(await retryVideoFrom(form({ linkId: '999' }), db, { figureId }, FREE)).toMatchObject({
 			status: 404,
 			data: { action: 'retryVideo' }
+		});
+	});
+});
+
+describe('the links editor’s refusals in Slovenian', () => {
+	const sl = <T>(fn: () => Promise<T>) => runInLocale('sl', fn);
+	it('words each refusal in the person’s language', async () => {
+		expect(
+			await sl(() => addLinkFrom(form({ urls: 'https://a.org\nnope' }), db, { figureId }))
+		).toMatchObject({ status: 400, data: { message: 'To ni spletna povezava: nope' } });
+		expect(await sl(() => addLinkFrom(form({ urls: ' ' }), db, { figureId }))).toMatchObject({
+			data: { message: 'Najprej prilepite povezavo.' }
+		});
+		expect(
+			await sl(() =>
+				addLinkFrom(form({ urls: 'https://a.org' }), db, { exerciseId: figureExerciseId })
+			)
+		).toMatchObject({
+			data: { message: 'Povezave so na različici ali lekciji, h kateri spada ta vaja.' }
+		});
+		expect(await sl(() => deleteLinkFrom(form({ linkId: '999' }), db, { figureId }))).toMatchObject(
+			{ status: 404, data: { message: 'Ta povezava je bila že odstranjena.' } }
+		);
+		const web = addLinks(db, { figureId }, ['https://a.org'], null)![0].id;
+		expect(
+			await sl(() => saveVideoFrom(form({ linkId: String(web) }), db, { figureId }, FREE))
+		).toMatchObject({
+			status: 400,
+			data: { message: 'Kot video je mogoče shraniti le povezavo do YouTuba.' }
 		});
 	});
 });

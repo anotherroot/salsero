@@ -5,8 +5,9 @@
 	/**
 	 * The bar card over Today's list (board "Today"): "3 left for today", a bar
 	 * in the done colour on the field line, "2 of 5 done", and play, which starts
-	 * the session (or resumes it). Done: a full bar and no play. Nothing left: a
-	 * tick in place of the bar and the play. The words are `todayHero`'s.
+	 * the run: the day's exercises, one page after another. Done: a full bar and
+	 * no play. Nothing left: a tick in place of the bar and the play. The words
+	 * are `todayHero`'s.
 	 */
 	let {
 		hero,
@@ -14,7 +15,7 @@
 		onplay
 	}: {
 		hero: TodayHero;
-		/** "Start session", or "Resume session" while one is on. */
+		/** "Start". */
 		playLabel: string;
 		onplay: () => void;
 	} = $props();

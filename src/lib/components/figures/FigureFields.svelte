@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
+	import { PARTNER, type Partner } from '$lib/labels';
+	import { styleLabelsOf } from '$lib/moves/figures';
+	import { t } from '$lib/i18n/catalog';
 	import type { Dance } from '$lib/dances/dances';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { CHIP, FIELD, LABEL, TEXTAREA } from '$lib/components/ui/styles';
@@ -7,92 +9,38 @@
 	interface Props {
 		/** Whose styles the picker offers. The form is only ever inside one dance. */
 		dance: Dance;
-		/** The figure — "Enchufla". A figure is the variations it holds. */
-		figureName?: string;
-		/**
-		 * Whether to ask for the figure's name. Off where the figure is picked
-		 * instead: a lesson's "Variation of a figure".
-		 */
-		asksFigureName?: boolean;
-		/**
-		 * Whether Figure name takes focus on mount. Only the New figure sheet
-		 * wants it: Edit and the lesson sheet's "New figure" must not raise the
-		 * keyboard.
-		 */
-		autofocus?: boolean;
 		/** The variation this form describes — "Doble". */
 		name?: string;
 		partner?: Partner;
 		style?: string;
 		notes?: string | null;
-		/** A line under Figure name, e.g. "Shared by its 3 variations" on a figure's edit. */
-		figureHelp?: string;
 		/** Refusals, each shown under its own field. */
-		errors?: Partial<Record<'figureName' | 'name' | 'notes', string>>;
+		errors?: Partial<Record<'name' | 'notes', string>>;
 	}
 
-	let {
-		dance,
-		figureName = '',
-		asksFigureName = true,
-		autofocus = false,
-		name = '',
-		partner = 'partner',
-		style,
-		notes = '',
-		figureHelp,
-		errors = {}
-	}: Props = $props();
+	let { dance, name = '', partner = 'partner', style, notes = '', errors = {} }: Props = $props();
 
 	// A new figure's page passes the user's default (Settings); without one it
 	// starts on the dance's. 'salsa' is not a style bachata has, so the
 	// fallback cannot be a literal.
 	const checkedStyle = $derived(style ?? dance.defaultStyle);
+	/** The style chips' words in the reader's language. */
+	const styleLabel = $derived(styleLabelsOf(dance.styleLabel));
 
 	// The lesson page renders two of these at once, so the ids are per instance.
 	const uid = $props.id();
-	const invalid = (k: 'figureName' | 'name' | 'notes') => (errors[k] ? 'true' : undefined);
-	const describe = (k: 'figureName' | 'name' | 'notes') =>
-		errors[k] ? `${uid}-${k}-error` : undefined;
+	const invalid = (k: 'name' | 'notes') => (errors[k] ? 'true' : undefined);
+	const describe = (k: 'name' | 'notes') => (errors[k] ? `${uid}-${k}-error` : undefined);
 </script>
 
-{#if asksFigureName}
-	<div>
-		<label class={LABEL} for="{uid}-figureName">Move name</label>
-		<!-- svelte-ignore a11y_autofocus -->
-		<input
-			id="{uid}-figureName"
-			name="figureName"
-			required
-			{autofocus}
-			maxlength="200"
-			placeholder="e.g. Dile que no, Enchufla"
-			value={figureName}
-			class={FIELD}
-			aria-invalid={invalid('figureName')}
-			aria-describedby={describe('figureName') ??
-				(figureHelp ? `${uid}-figureName-help` : undefined)}
-		/>
-		{#if errors.figureName}<FieldError
-				id="{uid}-figureName-error"
-				message={errors.figureName}
-			/>{:else if figureHelp}<p
-				id="{uid}-figureName-help"
-				class="mt-1.5 pl-1 text-[13px] text-muted"
-			>
-				{figureHelp}
-			</p>{/if}
-	</div>
-{/if}
-
 <div>
-	<label class={LABEL} for="{uid}-name">Figure name</label>
+	<label class={LABEL} for="{uid}-name">{t().moves.move.figureName}</label>
 	<input
 		id="{uid}-name"
 		name="name"
 		required
 		maxlength="200"
-		placeholder="e.g. Basic, Doble, From cross"
+		placeholder={t().figure.fields.figurePlaceholder}
 		value={name}
 		class={FIELD}
 		aria-invalid={invalid('name')}
@@ -102,37 +50,37 @@
 </div>
 
 <fieldset>
-	<legend class={LABEL}>Danced</legend>
+	<legend class={LABEL}>{t().figure.fields.danced}</legend>
 	<div class="flex flex-wrap gap-2">
 		{#each PARTNER as p (p)}
 			<label class={CHIP}>
 				<input type="radio" name="partner" value={p} checked={partner === p} class="sr-only" />
-				{PARTNER_LABEL[p]}
+				{t().moves.chips[p]}
 			</label>
 		{/each}
 	</div>
 </fieldset>
 
 <fieldset>
-	<legend class={LABEL}>Style</legend>
+	<legend class={LABEL}>{t().figure.fields.style}</legend>
 	<div class="flex flex-wrap gap-2">
 		{#each dance.styles as s (s)}
 			<label class={CHIP}>
 				<input type="radio" name="style" value={s} checked={checkedStyle === s} class="sr-only" />
-				{dance.styleLabel[s]}
+				{styleLabel[s]}
 			</label>
 		{/each}
 	</div>
 </fieldset>
 
 <div>
-	<label class={LABEL} for="{uid}-notes">Notes</label>
+	<label class={LABEL} for="{uid}-notes">{t().moves.routines.notes}</label>
 	<textarea
 		id="{uid}-notes"
 		name="notes"
 		rows="2"
 		maxlength="2000"
-		placeholder="Count, hand holds, what the teacher said…"
+		placeholder={t().figure.notes.placeholder}
 		class={TEXTAREA}
 		aria-invalid={invalid('notes')}
 		aria-describedby={describe('notes')}>{notes ?? ''}</textarea

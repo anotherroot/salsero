@@ -21,6 +21,7 @@ import { deleteGroupSong, shareSong } from '$lib/server/song-share';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import { actions, load } from './[id]/history/[kind]/[rootId]/+page.server';
 import { load as lessonLoad } from '../lessons/[id]/+page.server';
+import { runInLocale } from '$lib/server/i18n-request';
 
 let db: Db;
 let lesson: number;
@@ -215,5 +216,60 @@ describe('History of a position', () => {
 		).id;
 		expect(await run(() => load(ev('u1', 'position', theirs)))).toEqual({ status: 404 });
 		expect(await run(() => load(ev('u1', 'routine', id)))).toEqual({ status: 404 });
+	});
+});
+
+describe('History in each reader’s language', () => {
+	it('composes the same stored rows in English for one reader, Slovenian for another', async () => {
+		const en = (await run(() => load(ev('u2')))).value as Loaded;
+		const sl = (await runInLocale('sl', () => run(() => load(ev('u2'))))).value as Loaded;
+		expect(en.changes.map((c) => c.line)).toEqual([
+			'Luka · changed the notes',
+			'Ana · made the lesson'
+		]);
+		expect(sl.changes.map((c) => c.line)).toEqual([
+			'Luka · Spremenjeno: opombe',
+			'Ana · Ustvarjeno: lekcija'
+		]);
+		// The rows themselves hold no words: the same ids, the same stored subject.
+		expect(sl.changes.map((c) => c.id)).toEqual(en.changes.map((c) => c.id));
+		expect(history(db, 1, 'lesson', lesson).map((r) => [r.verb, r.subject])).toEqual([
+			['change', 'notes'],
+			['add', 'lesson']
+		]);
+	});
+
+	it('refuses a Restore in Slovenian, naming who after a "·"', async () => {
+		const change = history(db, 1, 'lesson', lesson).find((r) => r.verb === 'change')!;
+		updateLesson(
+			db,
+			lesson,
+			{ lessonDay: '2026-11-01', title: 'C', notes: 'newer' },
+			'u1',
+			Date.now() + 2_000
+		);
+		const refused = await runInLocale('sl', () =>
+			run(() => actions.restore!(ev('u2', 'lesson', lesson, post({ changeId: String(change.id) }))))
+		);
+		expect(refused.value).toMatchObject({
+			status: 409,
+			data: {
+				message: expect.stringMatching(
+					/^Spremenjeno · Ana · pravkar\. Obnovitev bi razveljavila tudi to, zato ni bila izvedena\.$/
+				)
+			}
+		});
+	});
+
+	it('names the lesson’s last change in Slovenian', () => {
+		updateLesson(db, lesson, { lessonDay: '2026-11-01', title: 'C', notes: 'x' }, 'u2', Date.now());
+		const page = runInLocale('sl', () =>
+			lessonLoad({
+				params: { dance: 'salsa', id: String(lesson) },
+				locals: { user: user('u1') },
+				url: new URL(`http://localhost/salsa/lessons/${lesson}`)
+			} as never)
+		) as unknown as { edited: string | null };
+		expect(page.edited).toBe('Zadnja sprememba: Luka · pravkar');
 	});
 });

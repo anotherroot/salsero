@@ -4,7 +4,8 @@
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { FITS_ANYWHERE, NO_POSITION_EMPTY } from '$lib/positions/view';
+	import { FITS_ANYWHERE, noPositionEmpty } from '$lib/positions/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -16,14 +17,14 @@
 	const editHref = (id: number) => `${figureHref(id)}?edit=1`;
 </script>
 
-<svelte:head><title>No position · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{t().positions.none.title} · {data.dance.label}</title></svelte:head>
 
-<Screen title="No position" subtitle={data.head}>
+<Screen title={t().positions.none.title} subtitle={data.head}>
 	{#snippet left()}
 		<BackButton
 			fallback={{
 				href: resolve('/[dance]/(moves)/positions', { dance: slug }),
-				label: 'Back to Positions'
+				label: t().shell.backTo(t().moves.segments.positions)
 			}}
 		/>
 	{/snippet}
@@ -35,7 +36,7 @@
 		</div>
 
 		{#if data.empty}
-			<p class="px-1 pt-2 text-[14px] text-muted">{NO_POSITION_EMPTY}</p>
+			<p class="px-1 pt-2 text-[14px] text-muted">{noPositionEmpty()}</p>
 		{/if}
 
 		{#each data.groups as g (g.title)}
@@ -54,8 +55,9 @@
 							</span>
 						</a>
 						{#if f.canEdit}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the resolved figure URL plus ?edit=1 -->
-							<a class={button('secondary', 'sm')} href={editHref(f.id)}>Positions</a>
+							<a class={button('secondary', 'sm')} href={editHref(f.id)}
+								>{t().positions.none.edit}</a
+							>
 						{:else}
 							<span class="flex flex-none text-chevron"
 								><Icon name="chevron-right" size={20} /></span

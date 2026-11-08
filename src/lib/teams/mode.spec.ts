@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	groupCookie,
 	groupLabel,
@@ -50,5 +51,25 @@ describe('workInRows', () => {
 		expect(minePath('/bachata/songs/3', 'bachata')).toBe('/bachata/songs');
 		expect(minePath('/salsa/groups/2', 'salsa')).toBe('/salsa/groups');
 		expect(minePath('/settings', 'salsa')).toBe('/salsa');
+	});
+});
+
+// Catches: the band's group line and the Work in sheet in English for a Slovenian
+// editor, or a role or count not in its Slovenian word.
+describe('group mode in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	const choices = [
+		{ teamId: 4, name: 'Torek', role: 'owner' as const, people: 14 },
+		{ teamId: 7, name: 'Sreda', role: 'editor' as const, people: 2 }
+	];
+
+	it('labels the group after a "·" and words the rows', () => {
+		expect(sl(() => groupLabel('Salsa torek'))).toBe('Salsa torek · skupina');
+		const rows = sl(() => workInRows(choices, null));
+		expect(rows.map((r) => [r.name, r.meta])).toEqual([
+			['Moje', 'Vaše lastne stvari'],
+			['Torek', 'Vodja · 14 oseb'],
+			['Sreda', 'Lahko ureja · 2 osebi']
+		]);
 	});
 });

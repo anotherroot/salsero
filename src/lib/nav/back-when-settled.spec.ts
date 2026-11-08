@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /*
  * `backWhenSettled` (trail.svelte.ts) run against a stand-in router: the sheets'
  * Back has landed at once, and the trail is empty, so there is no history step
- * to take and the fallback is where back goes. A save outside a session, or a
- * session's end, on the desktop (a pane page has no opener) lands here: the
+ * to take and the fallback is where back goes. A save outside a run on the
+ * desktop (a pane page has no opener) lands here: the
  * fallback must take the saved page's entry, or browser Back returns to it.
  */
 const nav = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));

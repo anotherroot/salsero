@@ -20,8 +20,9 @@ describe('native links', () => {
 		);
 	});
 
-	it('hand the token over, encoded', () => {
-		expect(pairedLink('a+b/c=')).toBe('salsa://paired?token=a%2Bb%2Fc%3D');
+	it("hand the token over, encoded, with the account's language", () => {
+		expect(pairedLink('a+b/c=', 'en')).toBe('salsa://paired?token=a%2Bb%2Fc%3D&locale=en');
+		expect(pairedLink('t', 'sl')).toBe('salsa://paired?token=t&locale=sl');
 	});
 
 	it('know a share key when they see one', () => {

@@ -218,7 +218,6 @@ export async function goBack(
 	const target = backFor(location.pathname, fallback);
 	intend('back');
 	if (backByHistory(target.key)) return;
-	// eslint-disable-next-line svelte/no-navigation-without-resolve -- a trail href, built from resolved paths
 	await goto(target.href, { replaceState: opts.replace ?? false });
 }
 
@@ -337,7 +336,6 @@ export function syncTrail(): void {
 			const gone = isGone(page.status, navigator.onLine);
 			set(vacate(gone ? forget(trail.value, path) : trail.value, index, kind));
 			if (gone && (it === 'tab' || it === 'back'))
-				// eslint-disable-next-line svelte/no-navigation-without-resolve -- a trail href, built from resolved paths
 				void goto(goneHref(trail.value, path), { replaceState: true });
 			return;
 		}

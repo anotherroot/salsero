@@ -14,6 +14,7 @@ export type ListId =
 const ROUTES: Record<string, { list: ListId; open: boolean; under?: true }> = {
 	'/[dance]/(today)': { list: 'today', open: false },
 	'/[dance]/(today)/exercises/[id]': { list: 'today', open: true },
+	'/[dance]/(today)/done': { list: 'today', open: true },
 	'/[dance]/(today)/coming-up': { list: 'coming', open: false },
 	'/[dance]/songs': { list: 'songs', open: false },
 	'/[dance]/songs/[id]': { list: 'songs', open: true },
@@ -43,7 +44,7 @@ const ROUTES: Record<string, { list: ListId; open: boolean; under?: true }> = {
  * dance itself, so only its items prefix counts as "in" it.
  */
 export const LIST_HOME: Record<ListId, { root: string; items: string[] }> = {
-	today: { root: '', items: ['/exercises'] },
+	today: { root: '', items: ['/exercises', '/done'] },
 	coming: { root: '/coming-up', items: ['/coming-up'] },
 	songs: { root: '/songs', items: ['/songs'] },
 	figures: { root: '/figures', items: ['/figures', '/moves', '/coverage'] },

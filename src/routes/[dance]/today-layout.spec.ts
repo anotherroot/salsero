@@ -1,7 +1,7 @@
 /**
  * Today's list is the (today) layout's load, and it must never read `url`:
  * SvelteKit reruns a load that read it on every change of the URL, so opening
- * an exercise, a session's flag or a past day would reload the whole list
+ * an exercise, a run's flag or a past day would reload the whole list
  * beside it. The page's load is the one that reads `?day=`.
  *
  * Like `dance-wall.spec.ts`, `getDb()` is mocked: each test gets its own
@@ -18,7 +18,8 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb } from '$lib/server/db';
-import { createCustomExercise } from '$lib/server/exercises';
+import { createCustomExercise, logSet } from '$lib/server/exercises';
+import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { load } from './(today)/+layout.server';
 
@@ -120,5 +121,37 @@ describe('Coming up (the layout load)', () => {
 
 	it('is empty with no exercise', () => {
 		expect(loadComing().list.coming).toEqual([]);
+	});
+});
+
+describe("Today's time estimate (the layout load)", () => {
+	const estimate = () =>
+		(load as unknown as (e: unknown) => { list: { estimateS: number | null } })({
+			params: { dance: 'salsa' },
+			locals: { user: USER },
+			depends: () => {}
+		}).list.estimateS;
+	const everyDay = (name: string) =>
+		createCustomExercise(handle.db as never, U1_SALSA, {
+			name,
+			notes: null,
+			comesBack: { kind: 'every', days: 1 }
+		});
+
+	it('adds up the typical time of what is still to walk', () => {
+		const e = everyDay('Timed');
+		logSet(handle.db as never, {
+			exerciseId: e.id,
+			doneAt: noonOf(shiftDay(localDay(Date.now(), USER.timezone), -1), USER.timezone),
+			durationS: 600,
+			reps: null,
+			rating: null,
+			playerJson: null
+		});
+		expect(estimate()).toBe(600);
+	});
+	it('is null when nothing to walk was ever timed', () => {
+		everyDay('Never timed');
+		expect(estimate()).toBeNull();
 	});
 });

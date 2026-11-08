@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { FigureRow, MoveRow, TeamRef } from '$lib/types';
 import {
 	foldMoves,
@@ -7,6 +8,7 @@ import {
 	foldSongs,
 	twinPickMeta,
 	twinRows,
+	twinsChip,
 	twinUseMeta
 } from './twins';
 
@@ -158,6 +160,33 @@ describe('the twin meta', () => {
 				{ id: 3, figure: 'Setenta', name: 'Basic', team: null }
 			])
 		).toBe('Yours, twin of your Setenta · Basic · yours is used');
+	});
+
+	it('in Slovenian: no possessive, each place after a colon', () => {
+		const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+		expect(sl(twinsChip)).toBe('Dvojčka');
+		expect(twinsChip()).toBe('Twins');
+		expect(
+			sl(() =>
+				twinPickMeta({ figure: 'Enchufla' }, [
+					{ id: 11, figure: 'Enchufla', name: 'Básica', team: TUE }
+				])
+			)
+		).toBe('Vaša · enaka kot: Básica (skupina: Salsa Tuesdays) · uporablja se vaša');
+		expect(
+			sl(() =>
+				twinPickMeta({ figure: 'Enchufla', team: TUE }, [
+					{ id: 21, figure: 'Enchufla', name: 'Doble', team: RUEDA }
+				])
+			)
+		).toBe('Skupina: Salsa Tuesdays · enaka kot: Doble (skupina: Rueda club) · uporablja se ta');
+		expect(
+			sl(() =>
+				twinPickMeta({ figure: 'Enchufla' }, [
+					{ id: 3, figure: 'Setenta', name: 'Basic', team: null }
+				])
+			)
+		).toBe('Vaša · enaka kot: Setenta · Basic (vaša) · uporablja se vaša');
 	});
 });
 

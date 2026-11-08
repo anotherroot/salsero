@@ -8,8 +8,17 @@ the log popup removed everywhere. Decided while building: the Done sheet's four
 faces come from the sets replayed with that face added now (`doneFaces`), so a
 learning drill's learnt face shows the gap the faces earned and "learnt"; a
 fixed-rhythm drill saves at once with no face; the Today session is an interim
-walk of pages, `?session=1` (`SessionControls`), which plan 3 replaces. Plan 3
-(the run, Recordings in a run) is not built.
+walk of pages, `?session=1` (`SessionControls`), which plan 3 replaced.
+Plan 3 is built (2026-11-08, branch exercise-flow): the run is `?run=1&skip=`,
+nothing stored; Done for today at `/[dance]/done`; the hero's estimate. Decided
+while building: the estimate covers what is left to walk; the learning line in a
+run keeps the learning words; Task 6 was cut to the player's Back keeping the run,
+because the one-player design (branch practice-player) removes the player's Save;
+Not today in a run goes on, and its toast replaces an earlier Saved toast; a save
+locks the page until it leaves (no double save); on the desktop the exercise Today
+opens by itself waits for a tap, and so does the next page it opens by itself
+after a save; Done for today's streak counts days with any warm-up set and shows
+from 2. Recordings in a run are not built.
 The design boards:
 https://claude.ai/artifact/4udVsxmwPMRTWebNdpWpsz (round 1, directions A–C),
 https://claude.ai/artifact/WYKy9HYn6GBmujnPCydT2W (rounds 2 and 3: direction B,

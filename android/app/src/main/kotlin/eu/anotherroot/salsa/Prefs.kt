@@ -3,7 +3,7 @@ package eu.anotherroot.salsa
 import android.content.Context
 import androidx.core.content.edit
 
-/** What the app remembers: its device token, and a link waiting for pairing to finish. */
+/** What the app remembers: its device token, a link waiting for pairing to finish, and the account's settings. */
 object Prefs {
     private fun prefs(context: Context) = context.getSharedPreferences("salsa", Context.MODE_PRIVATE)
 
@@ -20,4 +20,12 @@ object Prefs {
     fun reminderMinute(context: Context): Int? = prefs(context).getInt("reminderMinute", -1).takeIf { it >= 0 }
 
     fun setReminderMinute(context: Context, minute: Int?) = prefs(context).edit { putInt("reminderMinute", minute ?: -1) }
+
+    /** The account's language last read from the server (`Config.locale`); null before 1.8 read it, or from an older server. */
+    fun locale(context: Context): String? = prefs(context).getString("locale", null)
+
+    fun setLocale(context: Context, locale: String?) = prefs(context).edit { putString("locale", locale) }
+
+    /** The app's own words, in the account's language. */
+    fun words(context: Context): Words = wordsOf(locale(context))
 }

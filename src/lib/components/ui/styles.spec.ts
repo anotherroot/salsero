@@ -44,6 +44,11 @@ describe('button', () => {
 		expect(c).toContain('bg-done-soft');
 		expect(c).toContain('text-done');
 	});
+	it('done is the solid green of Done · next in a run', () => {
+		const c = tokens(rowButton('done'));
+		expect(c.has('bg-done') && c.has('text-on-done') && c.has('flex-1')).toBe(true);
+		expect(c.has('flex-none')).toBe(false);
+	});
 	it('tertiary has no background', () => expect(button('tertiary')).not.toContain('bg-'));
 	it('full width', () => expect(button('primary', 'lg', true)).toContain('w-full'));
 	it('a row button grows with the others, never flex-none (the pane log bar)', () => {
@@ -60,7 +65,8 @@ describe('button', () => {
 			'tertiary',
 			'danger',
 			'danger-text',
-			'done-soft'
+			'done-soft',
+			'done'
 		] as const)
 			expect(button(k)).toContain('disabled:');
 		for (const v of ['bare', 'tonal', 'filled', 'step'] as const)

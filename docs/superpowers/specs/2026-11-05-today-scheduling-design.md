@@ -198,7 +198,7 @@ The Start session card becomes the **bar card** (board "Today"):
 
 - Title "3 left for today"; under it a bar (`done` colour on `field_line`) and
   "2 of 5 done". No dots (they do not fit 20), no minutes.
-- Play starts the existing session, walking the to-do rows in order.
+- Play starts the run (run the day, plan 3): the warm-ups, then the to-do rows, then the picked ones, one page each. The card's meta adds "about 30 min", the typical time of what is left to walk (left out when none of it has a timed day).
 - All done: "All 5 done", a full bar, "That's today's practice", no play.
 
 ### Next 5
@@ -231,7 +231,7 @@ Board: "1 left", "All done".
 
 ### Undo
 
-After a set is logged (any way: the log popup, the session, the player): a
+After a set is logged (any way: the exercise page's Done, the run, the player): a
 toast "Basic step on 1 · back in 75 days · Undo" for the toast's usual time.
 Undo deletes that set (sets are already a hard-delete kind). Board: "Undo".
 
@@ -253,7 +253,7 @@ Board: "The log popup".
   with each other however the words wrap (a fixed three-row grid).
 - **A face is required to log a set** *(my call)*: Log set stays disabled until
   one is picked. Minutes, reps and note stay as each type has them.
-- **The player's Save set sheet** and the session ask the same faces.
+- **The player's Save set sheet** and the run ask the same faces.
 - **Where a rating is shown** (the Today row's five dots, the history's stars,
   `LastTime`): the face and its word instead.
 
@@ -381,7 +381,7 @@ in them:
 
 - The exact toast wording and timing, beyond what is quoted here.
 - Whether `today_picks` older than today are purged, and when.
-- How the session (Start session) treats picked rows: walking them after the
+- How the run (Start) treats picked rows: walking them after the
   to-do rows is the expectation.
 - The dark-theme pair for Easy's blue (contrast-checked like the rest of
   `tokens.ts`).

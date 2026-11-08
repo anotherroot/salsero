@@ -44,7 +44,8 @@
 		LABEL,
 		SECTION_LABEL,
 		TEXTAREA_ON_CARD,
-		button
+		button,
+		rowButton
 	} from '$lib/components/ui/styles';
 	import {
 		archiveBody,
@@ -58,6 +59,7 @@
 	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
 	import { announceSaved, saved as savedToast } from '$lib/exercises/saved.svelte';
 	import { pageClock } from '$lib/exercises/page-clock.svelte';
+	import { desk } from '$lib/nav/desk.svelte';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { comesBackWords } from '$lib/exercises/comes-back-view';
@@ -95,14 +97,31 @@
 	 * with the entry's id in the form, never to the entry's URL.
 	 */
 	const pageId = $derived(page.params.id);
-	/** Today's layout around the page: its session (`?session=1`), and Not today. */
+	/** Today's layout around the page: its run (`?run=1`), its toast, and Not today. */
 	const today = todayPane();
+	/**
+	 * Start on Today's walk (`?run=1&skip=…`): Skip beside Done, "3 of 7" in the
+	 * band, "Next: …" in the sheet, and on to the next after a save. Null outside one.
+	 */
+	const run = $derived(today?.run ?? null);
 
 	// --- The time and Done (spec "The exercise page (one page)").
-	/** Counted while the page is visible, from when it opened; Done saves it. */
-	const clock = pageClock();
+	/**
+	 * The exercise Today opened by itself (desktop): its time waits at 0:00 until a
+	 * tap or key in the pane says someone is there. One a person opened (a row,
+	 * Start) counts at once. Read when the page, or another exercise in it, mounts.
+	 */
+	const autoIdle = () => desk.current && today?.autoOpened === page.url.pathname;
+	/** Counted while the page is visible, from when it opened (or from a tap, `autoIdle`); Done saves it. */
+	const clock = pageClock({ idle: autoIdle() });
+	// Someone is there (a tap, a key, a row, Start): the waiting clock starts.
+	$effect(() => {
+		if (today?.autoOpened !== page.url.pathname) untrack(() => clock.start());
+	});
+	/** A tap or key anywhere in the page's pane. */
+	const wake = () => today?.wake();
 	/** The Practise with card's last run: Done saves its player_json. */
-	let run = $state<{ durationS: number; playerJson: string } | null>(null);
+	let practiceRun = $state<{ durationS: number; playerJson: string } | null>(null);
 	/** A count or a song plays in Practise with: Done waits. */
 	let playing = $state(false);
 	/** Remounts Practise with after a save: its run is spent. */
@@ -112,10 +131,22 @@
 	let saving = $state(false);
 	/** A fixed-rhythm drill: Done saves at once, no faces (plan 3 branches on it too). */
 	const fixed = $derived(data.scheduleAtStart?.every != null);
+	/**
+	 * A save or Not today landed and the page is on its way out (the next in a
+	 * run, else back). The next page is a round trip away, and this page's Done
+	 * sits where the next one's will: nothing saves or goes on again until
+	 * another exercise is in the page. A second save would hand the toast's
+	 * Undo the wrong snapshot.
+	 */
+	let leaving = $state(false);
+	/** Not today is out (declared here: the lock reads it). */
+	let skipping = $state(false);
+	/** A save, Not today or the way out is under way: Done, Skip and Not today wait. */
+	const locked = $derived(saving || skipping || leaving);
 
 	/** The fixed rhythm's Done: saves at once, the page's time and run, no face. */
 	async function saveNow(): Promise<void> {
-		if (saving) return;
+		if (locked) return;
 		saving = true;
 		/** The exercise this save is for: an answer landing after another one opened acts on nothing. */
 		const at = pageId;
@@ -124,7 +155,7 @@
 			const result = await act('done', {
 				exerciseId: data.exercise.id,
 				durationS: clock.seconds,
-				run: run?.playerJson ?? '',
+				run: practiceRun?.playerJson ?? '',
 				rating: ''
 			});
 			if (pageId !== at) return;
@@ -133,13 +164,14 @@
 				if (!offlineRefusal(result)) say(refused);
 			} else if (result.type === 'success') saved(result.data as unknown as DoneResult);
 		} finally {
-			if (pageId === at) saving = false;
+			// Leaving: the spinner stays until the next page takes this one's place.
+			if (pageId === at && !leaving) saving = false;
 		}
 	}
 
 	/**
 	 * After any save: the toast with Undo on the next screen, the sheet closed, then
-	 * on through the session or back where the page was opened from.
+	 * in a run the next (or Done for today), else back where the page was opened from.
 	 */
 	function saved(r: DoneResult): void {
 		announceSaved({
@@ -148,30 +180,39 @@
 			undo: { setId: r.setId, before: r.before }
 		});
 		doneOpen = false;
-		run = null;
+		practiceRun = null;
 		practiceKey++;
-		// A session opens its next page. Else back; with no opener to step back to (the
-		// desktop's pane, a cold open) Today takes this page's entry, not one on top of it.
-		if (today?.session) today.session.onnext();
+		leaving = true;
+		// In a run: the next in place of this page, once the sheet's Back has landed.
+		// Else back; with no opener to step back to (the desktop's pane, a cold
+		// open) Today takes this page's entry, not one on top of it.
+		if (run) run.after();
 		else void backWhenSettled(todayBack(data.dance.slug), { replace: true });
 		clock.restart();
 	}
 
 	function done() {
+		if (locked) return;
 		if (fixed) void saveNow();
 		else doneOpen = true;
 	}
 
 	/** Not today applies while the exercise is a to-do or picked row on Today (not done today). */
 	const canSkip = $derived(data.canLog && !!today?.canSkip(data.exercise.id));
-	let skipping = $state(false);
 	async function notToday() {
-		if (skipping || !today) return;
+		if (locked || !today) return;
 		skipping = true;
 		try {
-			// The row is gone from Today now: back to the list (on the desktop it opens the next).
-			if (await today.notToday(data.exercise.id))
-				await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
+			// The row is gone from Today now: in a run the next (the layout's Undo toast
+			// stays up across the replace); else back to the list (on the desktop it
+			// opens the next).
+			if (await today.notToday(data.exercise.id)) {
+				// Its Undo toast is the one notice: an earlier save's goes.
+				savedToast.dismiss();
+				leaving = true;
+				if (run) run.after();
+				else await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
+			}
 		} finally {
 			skipping = false;
 		}
@@ -218,7 +259,7 @@
 			: null
 	);
 
-	/** "Drill · learning · 3:20" while it can be done; the type alone while editing or with nothing to log. */
+	/** "Drill · learning · 3:20" ("Drill · 3 of 7 · 4:12" in a run) while it can be done; the type alone while editing or with nothing to log. */
 	const subtitle = $derived.by(() => {
 		const label = TYPES[type].label;
 		if (editing) return label;
@@ -229,7 +270,8 @@
 			label,
 			warmup: exercise.warmup,
 			learning: !!data.scheduleAtStart?.learning,
-			seconds: clock.seconds
+			seconds: clock.seconds,
+			place: run?.place ?? null
 		});
 	});
 
@@ -344,10 +386,11 @@
 			undoSnapshots = null;
 			doneOpen = false;
 			dayOpen = false;
-			run = null;
+			practiceRun = null;
 			playing = false;
 			saving = false;
-			clock.restart();
+			leaving = false;
+			clock.restart({ idle: autoIdle() });
 		});
 	});
 	/** An entry on its class drill's setting: the page says whose it is, at every level. */
@@ -379,8 +422,8 @@
 				content={data.practice.content}
 				songs={data.songs}
 				takes={data.takes}
-				playerFrom="from=exercise"
-				onrun={(r) => (run = r)}
+				playerFrom={run?.playerFrom ?? 'from=exercise'}
+				onrun={(r) => (practiceRun = r)}
 				onactive={(on) => (playing = on)}
 			/>
 		{/key}
@@ -419,7 +462,6 @@
 		<!-- While editing the phone shows the settings alone; the desktop keeps the row. -->
 		<ul class="{GROUP} desk:min-w-0{editing ? ' hidden desk:block' : ''}">
 			<li>
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built with resolve() above -->
 				<a href={ownerHref} class="flex min-h-[60px] items-center gap-3 py-2 pr-3.5 pl-4">
 					<span
 						class="grid size-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-text"
@@ -633,8 +675,12 @@
 			practise={(songId) =>
 				practiseHref(
 					data.dance.slug,
-					data.musicEntryId !== null ? { drillEntryId: data.musicEntryId } : { lesson: true },
-					songId
+					data.musicEntryId !== null
+						? { drillEntryId: data.musicEntryId }
+						: // In a run, the page's id: the player's Back finds the run after a reload.
+							{ lesson: true, exerciseId: run ? data.exercise.id : undefined },
+					songId,
+					run ? run.playerFrom : undefined
 				)}
 		/>
 	{/if}
@@ -733,7 +779,7 @@
 						type="button"
 						class={button('tertiary', 'md')}
 						aria-busy={skipping}
-						disabled={skipping}
+						disabled={locked}
 						onclick={notToday}>{t().today.row.notToday}</button
 					>
 					<p class="text-[13px] text-muted">{t().exercise.page.comesBack}</p>
@@ -756,238 +802,256 @@
 	<LastTime last={data.practice.last} />
 {/snippet}
 
-<Screen
-	compact
-	width={data.canLog ? 'two' : 'one'}
-	{title}
-	{subtitle}
-	below={data.canLog ? lastTime : undefined}
->
-	<!--
-		Editing: the phone's × is on the left, in place of ‹; the desktop's is on the
-		right, in place of the pencil, and its ‹ stays (BackButton gates itself there).
-	-->
-	{#snippet left()}
-		{#if editing}
-			<span class="contents desk:hidden"
-				><BandButton
-					icon="close"
-					label={t().exercise.page.stopEditing}
-					onclick={stopEditing}
-				/></span
-			>
-			<span class="hidden desk:contents">{@render back()}</span>
-		{:else}
-			{@render back()}
-		{/if}
-	{/snippet}
-	{#snippet right()}
-		{#if editing}
-			<span class="hidden desk:contents"
-				><BandButton
-					icon="close"
-					label={t().exercise.page.stopEditing}
-					onclick={stopEditing}
-				/></span
-			>
-		{/if}
-		{#if !editing && parts.historyLink && data.historyHref}
-			<BandButton icon="clock" label={t().exercise.page.history} href={data.historyHref} />
-		{/if}
-		{#if !editing && parts.editSettings && data.canEdit}
-			<BandButton icon="pencil" label={t().exercise.page.editSettings} onclick={startEditing} />
-		{:else if !editing && parts.editSettings && data.makeMine}
-			<BandButton
-				icon="pencil"
-				label={t().exercise.page.editDrill}
-				onclick={() => (makingMine = true)}
-			/>
-		{/if}
-		{#if !editing && parts.sourceTabs}
-			{#if hasMenu([], offers)}
+<!-- The run's Skip: on without saving, this run only (never Not today). -->
+{#snippet skipButton()}
+	<!-- Not while a save or Not today is out, nor while the page leaves: its own step goes on. -->
+	<button type="button" class={rowButton('secondary')} disabled={locked} onclick={() => run?.skip()}
+		>{t().exercise.done.skip}</button
+	>
+{/snippet}
+
+<!--
+	The page in its pane. A tap or key anywhere in it (its sheets and bars included) says
+	someone is there: the exercise Today opened by itself starts its clock (desktop).
+-->
+<div class="contents" role="presentation" onpointerdowncapture={wake} onkeydowncapture={wake}>
+	<Screen
+		compact
+		width={data.canLog ? 'two' : 'one'}
+		{title}
+		{subtitle}
+		below={data.canLog ? lastTime : undefined}
+	>
+		<!--
+			Editing: the phone's × is on the left, in place of ‹; the desktop's is on the
+			right, in place of the pencil, and its ‹ stays (BackButton gates itself there).
+		-->
+		{#snippet left()}
+			{#if editing}
+				<span class="contents desk:hidden"
+					><BandButton
+						icon="close"
+						label={t().exercise.page.stopEditing}
+						onclick={stopEditing}
+					/></span
+				>
+				<span class="hidden desk:contents">{@render back()}</span>
+			{:else}
+				{@render back()}
+			{/if}
+		{/snippet}
+		{#snippet right()}
+			{#if editing}
+				<span class="hidden desk:contents"
+					><BandButton
+						icon="close"
+						label={t().exercise.page.stopEditing}
+						onclick={stopEditing}
+					/></span
+				>
+			{/if}
+			{#if !editing && parts.historyLink && data.historyHref}
+				<BandButton icon="clock" label={t().exercise.page.history} href={data.historyHref} />
+			{/if}
+			{#if !editing && parts.editSettings && data.canEdit}
+				<BandButton icon="pencil" label={t().exercise.page.editSettings} onclick={startEditing} />
+			{:else if !editing && parts.editSettings && data.makeMine}
 				<BandButton
-					icon="more"
-					label={menuLabel('drill')}
-					focusKey="item-menu"
-					onclick={() => (menuOpen = true)}
+					icon="pencil"
+					label={t().exercise.page.editDrill}
+					onclick={() => (makingMine = true)}
 				/>
 			{/if}
-		{/if}
-	{/snippet}
-
-	<!--
-		The exercise in its pane (desktop spec, "Today: the list and the open exercise"):
-		from a 780 px pane two columns, 1 : 1, the exercise on the left and Music,
-		History and Settings on the right; one column below that, in the phone's order.
-		Versions (its toast is `fixed`) sits above the columns: nothing pinned lives in
-		their container. Done is pinned at both widths, so the foot leaves it room.
-	-->
-	<div class="flex flex-col gap-3.5 {editing ? 'pb-28 desk:pb-0' : 'pb-28'}">
-		{#if !editing && parts.sourceTabs}
-			<Versions
-				sources={data.sources}
-				kind="drill"
-				dance={data.dance.slug}
-				current={data.drill?.id ?? exercise.id}
-				mineId={data.mineId}
-				self={data.cloneLine.self}
-				{title}
-				family={data.family}
-				step={data.step}
-				keep={data.keep}
-				taking={sourcePlace}
-			/>
-		{/if}
-		<PaneColumns
-			ratio="1:1"
-			class="gap-3.5"
-			top={data.canLog ? undefined : whole}
-			left={data.canLog ? about : nothing}
-			right={data.canLog ? aside : nothing}
-		/>
-	</div>
-</Screen>
-
-{#if editing}
-	<!-- The phone's Save: the desktop saves in place. -->
-	<BottomBar mode class="desk:hidden">
-		<button
-			type="submit"
-			form="exercise-settings"
-			class={button('primary', 'md', true)}
-			aria-busy={savingSettings}
-			disabled={savingSettings}
-		>
-			{#if savingSettings}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span
-				>{:else}{t().common.save}{/if}
-		</button>
-	</BottomBar>
-{:else if data.canLog}
-	<DoneBar
-		doneToday={data.entryToday !== null}
-		{playing}
-		busy={saving}
-		sheet={!fixed}
-		onclick={done}
-	/>
-{/if}
-
-<Toast
-	toast={notice}
-	bottom="calc(5.75rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
-	onaction={undo}
-	ondismiss={() => {
-		notice = null;
-		undoSnapshots = null;
-	}}
-/>
-
-{#if data.canLog}
-	<DoneSheet
-		open={doneOpen}
-		onclose={() => (doneOpen = false)}
-		action="?/done"
-		exerciseId={data.exercise.id}
-		subtitle={doneSubtitle({
-			seconds: clock.seconds,
-			learning: data.scheduleAtStart?.learning ?? null,
-			day: null,
-			name: title
-		})}
-		faces={data.faces}
-		seconds={clock.seconds}
-		run={run?.playerJson ?? null}
-		day={null}
-		{simple}
-		current={data.entryToday}
-		onsaved={saved}
-	/>
-{/if}
-
-{#if openDay}
-	<HistoryDaySheet
-		open={dayOpen}
-		onclose={() => (dayOpen = false)}
-		day={openDay}
-		exerciseId={data.exercise.id}
-		ondeleted={dayDeleted}
-	/>
-{/if}
-
-{#if adding}
-	<AddSheet
-		open={true}
-		onclose={() => (adding = null)}
-		title={adding.title}
-		lessonId={adding.lessonId}
-		offer={adding.offer}
-		action="?/add"
-	/>
-{/if}
-
-{#if ownsItself}
-	<Dialog
-		open={archiving}
-		title={t().exercise.page.archiveTitle}
-		body={archiveBody(exercise.name, data.summary.times)}
-		onclose={() => (archiving = false)}
-	>
-		{#snippet actions()}
-			<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
-				>{t().common.cancel}</button
-			>
-			<form
-				method="POST"
-				action="?/archive"
-				use:enhance={() => {
-					archiveBusy = true;
-					return async ({ update, result }) => {
-						if (result.type === 'redirect') {
-							// Archived: the settings form goes first, so leaving for Today
-							// is not asked about as unsaved changes. Then the dialog, with
-							// the move already under way: `leaveRemoved` drops the refresh
-							// its close would owe for the form sent in it, which would
-							// reload this exercise, gone now, as a 404 in place of Today.
-							editing = false;
-							await tick();
-							archiving = false;
-							await leaveRemoved(result.location);
-							archiveBusy = false;
-							return;
-						}
-						try {
-							await update();
-						} finally {
-							archiveBusy = false;
-						}
-						if (result.type === 'failure') {
-							archiving = false;
-							archiveError = messageOf(result.data);
-						}
-					};
-				}}
-			>
-				<button
-					type="submit"
-					class={button('danger', 'sm')}
-					aria-busy={archiveBusy}
-					disabled={archiveBusy}>{t().exercise.page.archiveButton}</button
-				>
-			</form>
+			{#if !editing && parts.sourceTabs}
+				{#if hasMenu([], offers)}
+					<BandButton
+						icon="more"
+						label={menuLabel('drill')}
+						focusKey="item-menu"
+						onclick={() => (menuOpen = true)}
+					/>
+				{/if}
+			{/if}
 		{/snippet}
-	</Dialog>
-{/if}
 
-{#if data.makeMine}
-	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
-{/if}
+		<!--
+			The exercise in its pane (desktop spec, "Today: the list and the open exercise"):
+			from a 780 px pane two columns, 1 : 1, the exercise on the left and Music,
+			History and Settings on the right; one column below that, in the phone's order.
+			Versions (its toast is `fixed`) sits above the columns: nothing pinned lives in
+			their container. Done is pinned at both widths, so the foot leaves it room.
+		-->
+		<div class="flex flex-col gap-3.5 {editing ? 'pb-28 desk:pb-0' : 'pb-28'}">
+			{#if !editing && parts.sourceTabs}
+				<Versions
+					sources={data.sources}
+					kind="drill"
+					dance={data.dance.slug}
+					current={data.drill?.id ?? exercise.id}
+					mineId={data.mineId}
+					self={data.cloneLine.self}
+					{title}
+					family={data.family}
+					step={data.step}
+					keep={data.keep}
+					taking={sourcePlace}
+				/>
+			{/if}
+			<PaneColumns
+				ratio="1:1"
+				class="gap-3.5"
+				top={data.canLog ? undefined : whole}
+				left={data.canLog ? about : nothing}
+				right={data.canLog ? aside : nothing}
+			/>
+		</div>
+	</Screen>
 
-<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
-<ItemMenu
-	bind:open={menuOpen}
-	{title}
-	kind="drill"
-	current={data.drill?.id ?? exercise.id}
-	own={[]}
-	{offers}
-/>
+	{#if editing}
+		<!-- The phone's Save: the desktop saves in place. -->
+		<BottomBar mode class="desk:hidden">
+			<button
+				type="submit"
+				form="exercise-settings"
+				class={button('primary', 'md', true)}
+				aria-busy={savingSettings}
+				disabled={savingSettings}
+			>
+				{#if savingSettings}<Spinner /><span class="sr-only">{t().exercise.log.saving}</span
+					>{:else}{t().common.save}{/if}
+			</button>
+		</BottomBar>
+	{:else if data.canLog}
+		<!-- In a run: Skip beside Done; a fixed rhythm's is the green Done · next. -->
+		<DoneBar
+			doneToday={data.entryToday !== null}
+			{playing}
+			busy={saving}
+			sheet={!fixed}
+			fixedInRun={run !== null && fixed}
+			onclick={done}
+			left={run ? skipButton : undefined}
+		/>
+	{/if}
+
+	<Toast
+		toast={notice}
+		bottom="calc(5.75rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
+		onaction={undo}
+		ondismiss={() => {
+			notice = null;
+			undoSnapshots = null;
+		}}
+	/>
+
+	{#if data.canLog}
+		<DoneSheet
+			open={doneOpen}
+			onclose={() => (doneOpen = false)}
+			action="?/done"
+			exerciseId={data.exercise.id}
+			subtitle={doneSubtitle({
+				seconds: clock.seconds,
+				learning: data.scheduleAtStart?.learning ?? null,
+				day: null,
+				name: title,
+				next: run?.next?.name ?? null
+			})}
+			faces={data.faces}
+			seconds={clock.seconds}
+			run={practiceRun?.playerJson ?? null}
+			day={null}
+			{simple}
+			current={data.entryToday}
+			onsaved={saved}
+		/>
+	{/if}
+
+	{#if openDay}
+		<HistoryDaySheet
+			open={dayOpen}
+			onclose={() => (dayOpen = false)}
+			day={openDay}
+			exerciseId={data.exercise.id}
+			ondeleted={dayDeleted}
+		/>
+	{/if}
+
+	{#if adding}
+		<AddSheet
+			open={true}
+			onclose={() => (adding = null)}
+			title={adding.title}
+			lessonId={adding.lessonId}
+			offer={adding.offer}
+			action="?/add"
+		/>
+	{/if}
+
+	{#if ownsItself}
+		<Dialog
+			open={archiving}
+			title={t().exercise.page.archiveTitle}
+			body={archiveBody(exercise.name, data.summary.times)}
+			onclose={() => (archiving = false)}
+		>
+			{#snippet actions()}
+				<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
+					>{t().common.cancel}</button
+				>
+				<form
+					method="POST"
+					action="?/archive"
+					use:enhance={() => {
+						archiveBusy = true;
+						return async ({ update, result }) => {
+							if (result.type === 'redirect') {
+								// Archived: the settings form goes first, so leaving for Today
+								// is not asked about as unsaved changes. Then the dialog, with
+								// the move already under way: `leaveRemoved` drops the refresh
+								// its close would owe for the form sent in it, which would
+								// reload this exercise, gone now, as a 404 in place of Today.
+								editing = false;
+								await tick();
+								archiving = false;
+								await leaveRemoved(result.location);
+								archiveBusy = false;
+								return;
+							}
+							try {
+								await update();
+							} finally {
+								archiveBusy = false;
+							}
+							if (result.type === 'failure') {
+								archiving = false;
+								archiveError = messageOf(result.data);
+							}
+						};
+					}}
+				>
+					<button
+						type="submit"
+						class={button('danger', 'sm')}
+						aria-busy={archiveBusy}
+						disabled={archiveBusy}>{t().exercise.page.archiveButton}</button
+					>
+				</form>
+			{/snippet}
+		</Dialog>
+	{/if}
+
+	{#if data.makeMine}
+		<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
+	{/if}
+
+	<!-- The ⋯ menu and its sheets, once: the band (drawn twice) only holds its button. -->
+	<ItemMenu
+		bind:open={menuOpen}
+		{title}
+		kind="drill"
+		current={data.drill?.id ?? exercise.id}
+		own={[]}
+		{offers}
+	/>
+</div>

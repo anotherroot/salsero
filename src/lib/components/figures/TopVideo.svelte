@@ -8,6 +8,7 @@
 	import { CLIP } from '$lib/components/ui/styles';
 	import type { TopVideo } from '$lib/figures/page';
 	import type { LinkedSection, RecordingRow } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * The figure page's first thing (figure page rework, "The video"): the first
@@ -39,14 +40,16 @@
 		top.kind === 'section' ? top.section.video.src : `/recordings/${top.recording.file}`
 	);
 	const startS = $derived(top.kind === 'section' ? top.section.spot.startMs / 1000 : 0);
-	const label = $derived(top.kind === 'section' ? spotLabel(top.section.spot) : 'Recording');
+	const label = $derived(
+		top.kind === 'section' ? spotLabel(top.section.spot) : t().figure.recordings.recording
+	);
 	const caption = $derived.by(() => {
-		if (top.kind === 'recording') return `Recording · ${day}`;
+		if (top.kind === 'recording') return t().figure.recordings.recordingOf(day);
 		const s = top.section;
 		const from =
 			s.video.from.kind === 'lesson'
 				? `${s.video.from.title} · ${dateLabel(s.video.from.lessonDay)}`
-				: `Recording · ${s.video.from.figure}`;
+				: t().figure.recordings.recordingOf(s.video.from.figure);
 		const range = spotLabel({ ...s.spot, label: null });
 		return `${spotLabel(s.spot)} · ${from} · ${range}`;
 	});
@@ -60,7 +63,7 @@
 <button
 	type="button"
 	class="{CLIP} relative block aspect-video w-full cursor-pointer rounded-2xl bg-black text-left desk:max-h-[70dvh]"
-	aria-label="Play {label}"
+	aria-label={t().figure.recordings.playLabel(label)}
 	onclick={() => {
 		prefs = loadVideoPrefs();
 		open = true;
@@ -103,7 +106,7 @@
 			owner={{ recordingId: top.recording.id }}
 			startAt={0}
 			{title}
-			subtitle="Recording"
+			subtitle={t().figure.recordings.recording}
 			{linking}
 			{canEdit}
 			mirror={prefs.mirror}

@@ -14,6 +14,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, FIELD_ERROR, LABEL, button } from '$lib/components/ui/styles';
 	import { linkFound } from '$lib/links';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		open: boolean;
@@ -56,24 +57,24 @@
 	};
 </script>
 
-<Sheet title="Add a link" {open} {onclose}>
+<Sheet title={t().links.add.title} {open} {onclose}>
 	<form
 		id="{uid}-form"
 		method="POST"
 		{action}
 		novalidate
 		class="flex flex-col gap-3.5"
-		use:guarded={{ label: 'A link', submit }}
+		use:guarded={{ label: t().links.add.label, submit }}
 	>
 		<div>
-			<label class={LABEL} for="{uid}-url">Link</label>
+			<label class={LABEL} for="{uid}-url">{t().links.add.link}</label>
 			<input
 				id="{uid}-url"
 				name="urls"
 				type="url"
 				inputmode="url"
 				autocomplete="off"
-				placeholder="Paste a YouTube or web link"
+				placeholder={t().links.add.placeholder}
 				class={FIELD}
 				bind:value={url}
 				aria-invalid={message ? 'true' : undefined}
@@ -108,7 +109,8 @@
 		</div>
 		<div>
 			<label class={LABEL} for="{uid}-title"
-				>Title <span class="font-medium text-muted">(optional)</span></label
+				>{t().links.add.titleField}
+				<span class="font-medium text-muted">{t().links.add.optional}</span></label
 			>
 			<input id="{uid}-title" name="title" maxlength="200" class={FIELD} />
 		</div>
@@ -121,7 +123,8 @@
 			aria-busy={busy}
 			disabled={busy}
 		>
-			{#if busy}<Spinner /><span class="sr-only">Adding…</span>{:else}Add link{/if}
+			{#if busy}<Spinner /><span class="sr-only">{t().links.add.adding}</span>{:else}{t().links.add
+					.submit}{/if}
 		</button>
 	{/snippet}
 </Sheet>

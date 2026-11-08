@@ -8,10 +8,13 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		ARCHIVED_SONG_COPY,
-		MAKE_MINE,
-		MAKE_MINE_SUB,
-		YOU_GET,
+		archivedSongCopy,
+		makeMine,
+		makeMineBusy,
+		makeMineFailed,
+		makeMineRefused,
+		makeMineSub,
+		youGetLabel,
 		makeMineSize,
 		makeMineTitle,
 		restoreLine,
@@ -20,6 +23,7 @@
 		youGet
 	} from '$lib/clones/view';
 	import type { MakeMineOffer } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 
 	/**
 	 * Edit on a class's thing the person only reads (board C2 p1): what Make it
@@ -60,7 +64,7 @@
 
 <Sheet
 	title={makeMineTitle(offer.label)}
-	sub={restoring ? restoreLine : MAKE_MINE_SUB}
+	sub={restoring ? restoreLine() : makeMineSub()}
 	{open}
 	onclose={close}
 >
@@ -71,18 +75,20 @@
 				<Banner kind="error">
 					{r.message}
 					{#snippet action()}
-						<a href={resolve('/settings/storage')} class={button('tertiary', 'sm')}>Ask for more</a>
+						<a href={resolve('/settings/storage')} class={button('tertiary', 'sm')}
+							>{t().settings.storage.askForMore}</a
+						>
 					{/snippet}
 				</Banner>
 			{:else}
 				<Banner kind="error">{r.message}</Banner>
 			{/if}
 		{:else if blocked}
-			<Banner kind="warning">{ARCHIVED_SONG_COPY}</Banner>
+			<Banner kind="warning">{archivedSongCopy()}</Banner>
 		{/if}
 		<div class="flex flex-col gap-3 rounded-2xl bg-surface py-4">
 			<div class="flex flex-col gap-1">
-				<h3 class={SECTION_LABEL}>{YOU_GET}</h3>
+				<h3 class={SECTION_LABEL}>{youGetLabel()}</h3>
 				<p class="px-4 text-[15px] leading-[1.4] text-ink">{youGet(offer.kind)}</p>
 			</div>
 			{#if stays}
@@ -124,12 +130,11 @@
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown; askForMore?: unknown } | undefined;
 							refused = {
-								message:
-									typeof data?.message === 'string' ? data.message : 'That copy could not be made.',
+								message: typeof data?.message === 'string' ? data.message : makeMineRefused(),
 								askForMore: data?.askForMore === true
 							};
 						} else if (result.type === 'error') {
-							refused = { message: 'That copy could not be made. Try again.', askForMore: false };
+							refused = { message: makeMineFailed(), askForMore: false };
 						} else {
 							await update();
 						}
@@ -139,15 +144,17 @@
 				};
 			}}
 		>
-			<button type="button" class={button('tertiary', 'md', true)} onclick={close}>Cancel</button>
+			<button type="button" class={button('tertiary', 'md', true)} onclick={close}
+				>{t().common.cancel}</button
+			>
 			<button
 				type="submit"
 				class={button('primary', 'md', true)}
 				disabled={blocked}
 				aria-busy={busy}
-				aria-label={busy ? 'Making it yours' : undefined}
+				aria-label={busy ? makeMineBusy() : undefined}
 			>
-				{#if busy}<Spinner />{:else}<Icon name="pencil" size={20} />{MAKE_MINE}{/if}
+				{#if busy}<Spinner />{:else}<Icon name="pencil" size={20} />{makeMine()}{/if}
 			</button>
 		</form>
 	{/snippet}

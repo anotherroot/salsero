@@ -3,6 +3,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
 
 	/*
@@ -11,18 +12,15 @@
 	 * the desktop. The phone draws none of it: there the list page is the list.
 	 */
 	let { data }: { data: PageData } = $props();
+	const title = $derived(t().shell.tabs.music);
 </script>
 
-<svelte:head><title>Music · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
 
-<EmptyState
-	icon="music"
-	title="Pick a song"
-	body="Its count, the 1s you tapped and its sample open here, beside the list."
->
+<EmptyState icon="music" title={t().songs.picker.title} body={t().songs.list.paneBody}>
 	{#snippet action()}
 		<a href={resolve(`/${data.dance.slug}/player?bpm=180`)} class={button('secondary', 'md')}>
-			<Icon name="metronome" size={20} />Practice with the count only
+			<Icon name="metronome" size={20} />{t().songs.list.paneCountOnly}
 		</a>
 	{/snippet}
 </EmptyState>

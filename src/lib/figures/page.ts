@@ -2,8 +2,8 @@
  * What a figure's page derives for display. PURE and client-safe.
  */
 import { fold } from '$lib/fold';
-import { longDayLabel, plural } from '$lib/format';
-import { possessive } from '$lib/clones/view';
+import { longDayLabel } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { MenuItem } from '$lib/menu';
@@ -16,9 +16,8 @@ import { dueWords } from '$lib/schedule/words';
 /** "Slot 3 of 6", "Slots 2 and 5 of 8", "Slots 1, 4 and 6 of 9". */
 export function routineUseMeta(u: Pick<RoutineUse, 'slots' | 'slotCount'>): string {
 	const { slots, slotCount } = u;
-	if (slots.length === 1) return `Slot ${slots[0]} of ${slotCount}`;
-	const head = slots.slice(0, -1).join(', ');
-	return `Slots ${head} and ${slots[slots.length - 1]} of ${slotCount}`;
+	const w = t().figure.relations;
+	return slots.length === 1 ? w.slot(slots[0], slotCount) : w.slots(slots, slotCount);
 }
 
 /**
@@ -33,8 +32,9 @@ export function practiceLine(
 	active = true
 ): MetaPart | null {
 	if (!state) return null;
-	if (!neverDone && state.lastDay === today) return { text: 'Done today', tone: 'done' };
-	if (!active) return { text: "Paused · not on Today's list", tone: null };
+	const w = t().figure.practice;
+	if (!neverDone && state.lastDay === today) return { text: w.doneToday, tone: 'done' };
+	if (!active) return { text: w.paused, tone: null };
 	return dueWords(state, today, neverDone)[0];
 }
 
@@ -43,13 +43,10 @@ export function practiceLine(
  * " · 2 eights" (whole eights past one) or " · one 8-count".
  */
 export function timingLine(start: number, length: number): { main: string; extra: string } {
+	const w = t().figure.timing;
 	const extra =
-		length === 8
-			? ' · one 8-count'
-			: length % 8 === 0 && length > 8
-				? ` · ${length / 8} eights`
-				: '';
-	return { main: `Starts on ${start} · ${length} counts`, extra };
+		length === 8 ? w.oneEight : length % 8 === 0 && length > 8 ? w.eights(length / 8) : '';
+	return { main: w.line(start, length), extra };
 }
 
 /**
@@ -61,24 +58,26 @@ export function archiveCopy(
 	variation: string,
 	last: boolean
 ): { title: string; button: string; caption: string } {
-	const kept = 'Its recordings and practice history are kept.';
+	const w = t().figure.archive;
 	return last
 		? {
-				title: `Archive ${variation}?`,
-				button: 'Archive and remove move',
-				caption: `${figure} goes with it: ${variation} is its last figure. ${kept}`
+				title: w.title(variation),
+				button: w.buttonLast,
+				caption: `${w.captionLast(figure, variation)} ${w.kept}`
 			}
 		: {
-				title: `Archive ${variation}?`,
-				button: `Archive ${variation}`,
-				caption: `${variation} leaves ${figure}. ${kept}`
+				title: w.title(variation),
+				button: w.button(variation),
+				caption: `${w.caption(figure, variation)} ${w.kept}`
 			};
 }
 
 /** A recording's day: "Wednesday, 28 October", with ", 2025" when it is not this year. */
 export function recordingDay(day: string, today: string): string {
 	const year = day.slice(0, 4);
-	return year === today.slice(0, 4) ? longDayLabel(day) : `${longDayLabel(day)}, ${year}`;
+	return year === today.slice(0, 4)
+		? longDayLabel(day)
+		: t().figure.recordings.dayWithYear(longDayLabel(day), year);
 }
 
 /**
@@ -100,7 +99,7 @@ export function variationNav(
 		count,
 		prev: step(-1),
 		next: step(1),
-		position: `${index + 1} of ${count} ${count === 1 ? 'figure' : 'figures'}`
+		position: t().figure.switcher.position(index + 1, count)
 	};
 }
 
@@ -117,17 +116,11 @@ export function moveState(i: {
 	const wanted = i.joinName.trim().toLowerCase();
 	const clashes =
 		i.chosen !== null && i.chosen.variations.some((v) => v.trim().toLowerCase() === wanted);
+	const w = t().figure.moveTo;
 	return {
-		cta: i.last
-			? 'Move and remove move'
-			: i.chosen
-				? `Move to ${i.chosen.name}`
-				: 'Make it its own move',
+		cta: i.last ? w.ctaLast : i.chosen ? w.ctaTo(i.chosen.name) : w.ctaOwn,
 		danger: i.last,
-		clash:
-			clashes && i.chosen
-				? `${i.chosen.name} already has a ${i.joinName.trim()}. Pick another name.`
-				: null,
+		clash: clashes && i.chosen ? w.clash(i.chosen.name, i.joinName.trim()) : null,
 		blocked: i.chosen !== null && (wanted === '' || clashes)
 	};
 }
@@ -140,18 +133,13 @@ export function lengthError(value: string): string | null {
 	const v = value.trim();
 	return /^\d+$/.test(v) && isLengthCounts(Number(v))
 		? null
-		: `1 to ${MAX_LENGTH_COUNTS} counts. One 8-count is 8.`;
+		: t().figure.length.error(MAX_LENGTH_COUNTS);
 }
 
 /** The delete question's body: which recording, and the saved sections that go with it. */
 export function deleteRecordingBody(day: string, size: string, sections: number): string {
-	const goes =
-		sections === 0
-			? ''
-			: sections === 1
-				? 'Its 1 saved section goes with it. '
-				: `Its ${sections} saved sections go with it. `;
-	return `${day} · ${size}. ${goes}This can’t be undone.`;
+	const w = t().figure.recordings;
+	return w.deleteBody(day, size, w.sectionsGo(sections));
 }
 
 /** The figure page's band subtitle: "Figure · starts on 1 · 16 counts", or "Figure". */
@@ -162,9 +150,10 @@ export function figureSubtitle(
 	},
 	team?: string
 ): string {
-	const lead = team ? `${possessive(team)} figure` : 'Figure';
+	const w = t().figure.subtitle;
+	const lead = team ? w.teamFigure(team) : w.figure;
 	if (f.startCount === null || f.lengthCounts === null) return lead;
-	return `${lead} · starts on ${f.startCount} · ${f.lengthCounts} counts`;
+	return w.timing(lead, f.startCount, f.lengthCounts);
 }
 
 /** What the top of the page plays: the first section, else the first video recording, else nothing. */
@@ -184,7 +173,13 @@ export function topVideo<S, R extends { id: number; kind: 'video' | 'audio' }>(
 
 /** "Recordings", or "Recordings · 3" with sections and recordings counted together. */
 export function recordingsTitle(n: number): string {
-	return n === 0 ? 'Recordings' : `Recordings · ${n}`;
+	const w = t().figure.recordings;
+	return n === 0 ? w.title : w.titleCount(n);
+}
+
+/** A variation's recordings in the switcher's list: "no recordings", "3 recordings". */
+export function recordingsLine(n: number): string {
+	return n === 0 ? t().figure.recordings.none : t().nouns.recordings(n);
 }
 
 /** A recording row's meta: "Video · 24 MB", "From YouTube · 24 MB" for a saved one. */
@@ -193,14 +188,15 @@ export function recordingMetaLine(
 	size: string,
 	fromYouTube = false
 ): string {
-	const what = fromYouTube ? 'From YouTube' : kind === 'video' ? 'Video' : 'Audio';
+	const w = t().figure.recordings;
+	const what = fromYouTube ? w.fromYouTube : kind === 'video' ? w.video : w.audio;
 	return `${what} · ${size}`;
 }
 
 /** The add sheet's Video from the phone while a video goes up: one upload at a time. */
 export function addVideoRow(uploading: boolean): { disabled: boolean; meta: string | null } {
 	return uploading
-		? { disabled: true, meta: 'Wait for the upload to finish' }
+		? { disabled: true, meta: t().figure.recordings.waitUpload }
 		: { disabled: false, meta: null };
 }
 
@@ -211,11 +207,10 @@ export function showRecordings(i: { canEdit: boolean; items: number }): boolean 
 
 export type RelationKey = 'follows' | 'leads' | 'routines';
 
-const RELATION_LABEL: Record<RelationKey, string> = {
-	follows: 'Follows from',
-	leads: 'Leads to',
-	routines: 'In routines'
-};
+/** The three rows' labels, in the reader's language: read at call time. */
+function relationLabel(key: RelationKey): string {
+	return t().figure.relations[key];
+}
 
 /** The card of three rows: each with its count, an empty one "None" and not opening. */
 export function relationRows(c: {
@@ -223,17 +218,18 @@ export function relationRows(c: {
 	leads: number;
 	routines: number;
 }): { key: RelationKey; label: string; count: string; opens: boolean }[] {
+	const none = t().figure.relations.none;
 	return (['follows', 'leads', 'routines'] as const).map((key) => ({
 		key,
-		label: RELATION_LABEL[key],
-		count: c[key] === 0 ? 'None' : String(c[key]),
+		label: relationLabel(key),
+		count: c[key] === 0 ? none : String(c[key]),
 		opens: c[key] > 0
 	}));
 }
 
 /** A row's sheet title: "Follows from", "Leads to", "In 10 routines". */
 export function relationTitle(key: RelationKey, n: number): string {
-	return key === 'routines' ? `In ${plural(n, 'routine', 'routines')}` : RELATION_LABEL[key];
+	return key === 'routines' ? t().figure.relations.inRoutines(n) : relationLabel(key);
 }
 
 /** Routines that loop first, then by name. */
@@ -274,12 +270,13 @@ export function figureMenuItems(
 	},
 	on: { create: () => void; move: () => void; archive: () => void }
 ): MenuItem[] {
+	const w = t().figure.menu;
 	const items: MenuItem[] = [];
 	if (i.exercise) {
 		items.push({
 			key: 'exercise',
 			icon: 'today',
-			label: 'Its exercise',
+			label: w.exercise,
 			meta: i.exercise.line,
 			href: i.exercise.href
 		});
@@ -287,25 +284,25 @@ export function figureMenuItems(
 		items.push({
 			key: 'create',
 			icon: 'plus',
-			label: 'Create exercise',
-			meta: 'Put it on Today on its own',
+			label: w.create,
+			meta: w.createMeta,
 			onclick: on.create
 		});
 	}
 	if (i.historyHref)
-		items.push({ key: 'history', icon: 'clock', label: 'History', href: i.historyHref });
+		items.push({ key: 'history', icon: 'clock', label: w.history, href: i.historyHref });
 	if (i.canEdit) {
 		items.push({
 			key: 'moveFigure',
 			icon: 'move-to',
-			label: 'Move to another move…',
-			meta: 'Or a new move of its own',
+			label: w.move,
+			meta: w.moveMeta,
 			onclick: on.move
 		});
 		items.push({
 			key: 'archive',
 			icon: 'trash',
-			label: `Archive ${i.variationName}`,
+			label: w.archive(i.variationName),
 			danger: true,
 			onclick: on.archive
 		});
@@ -362,18 +359,19 @@ export function linkRowView(
 		};
 	}
 	const href = youtubeWatch(parsed.id, parsed.start);
+	const w = t().figure.links;
 	const title = link.title ?? 'YouTube';
 	// A save is the editor's business: a reader, who cannot save or retry, sees the link only.
 	if (!canSave)
 		return { youtube: true, title, meta: 'youtube.com', failed: false, href, end: 'open' };
 	if (link.saving?.status === 'queued') {
-		return { youtube: true, title, meta: 'Saving at 480p…', failed: false, href, end: 'open' };
+		return { youtube: true, title, meta: w.saving, failed: false, href, end: 'open' };
 	}
 	if (link.saving?.status === 'failed') {
 		return {
 			youtube: true,
 			title,
-			meta: `Couldn’t save: ${link.saving.error ?? 'unknown error'}`,
+			meta: w.failed(link.saving.error ?? w.unknownError),
 			failed: true,
 			href,
 			end: 'retry'

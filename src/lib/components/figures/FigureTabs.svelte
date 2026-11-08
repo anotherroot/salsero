@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { DanceSlug } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
 	import type { SiblingSummary } from '$lib/types';
 
 	/**
@@ -41,7 +42,7 @@
 </script>
 
 <nav
-	aria-label="{moveName}: figures"
+	aria-label={t().figure.switcher.tabs(moveName)}
 	class="hidden flex-wrap items-center gap-2 desk:-mt-2.5 desk:mb-3.5 desk:flex"
 >
 	{#each siblings as s (s.id)}
@@ -59,15 +60,15 @@
 		<button
 			type="button"
 			aria-haspopup="dialog"
-			aria-label="New figure"
+			aria-label={t().moves.move.newFigure}
 			onclick={onnew}
 			class="{PILL} cursor-pointer gap-1.5 border-[1.5px] border-dashed border-accent-text font-bold text-accent-text"
-			><Icon name="plus" size={18} />Figure</button
+			><Icon name="plus" size={18} />{t().figure.switcher.tab}</button
 		>
 	{/if}
 	<a
 		href={moveHref}
 		class="ml-auto flex min-h-9 items-center gap-0.5 text-[14px] font-extrabold text-accent-text"
-		>Open {moveName}<Icon name="chevron-right" size={16} /></a
+		>{t().figure.switcher.open(moveName)}<Icon name="chevron-right" size={16} /></a
 	>
 </nav>

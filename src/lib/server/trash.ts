@@ -64,6 +64,7 @@ import { getTeam, roleOf } from './teams';
 import type { TeamSpace } from './scope';
 import { localDay } from '$lib/day/day';
 import { clock } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import { TRASH_MS } from '$lib/limits';
 import { trashRefusalLine, type TrashRefusal } from '$lib/teams/deleted';
 import type { ChangeRootKind, DeletedItem, DeletedKind, TrashKind } from '$lib/types';
@@ -395,7 +396,7 @@ export function trashSpace(
  */
 export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem[] {
 	const items: (Omit<DeletedItem, 'by'> & { actorId: string | null })[] = [];
-	for (const t of db
+	for (const entry of db
 		.select()
 		.from(teamTrash)
 		.where(
@@ -403,12 +404,12 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 		)
 		.all()) {
 		items.push({
-			kind: t.kind as TrashKind,
-			id: t.id,
-			label: t.label,
-			actorId: t.deletedBy,
-			at: t.deletedAt,
-			purgeOn: localDay(t.deletedAt + TRASH_MS, timeZone)
+			kind: entry.kind as TrashKind,
+			id: entry.id,
+			label: entry.label,
+			actorId: entry.deletedBy,
+			at: entry.deletedAt,
+			purgeOn: localDay(entry.deletedAt + TRASH_MS, timeZone)
 		});
 	}
 
@@ -476,7 +477,7 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 		.from(songs)
 		.where(and(eq(songs.teamId, teamId), isNotNull(songs.archivedAt)))
 		.all())
-		archived('song', s.id, s.title || 'Untitled song', s.at!);
+		archived('song', s.id, s.title || t().groups.deleted.untitledSong, s.at!);
 
 	for (const p of db
 		.select({ id: positions.id, name: positions.name, at: positions.archivedAt })
