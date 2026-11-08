@@ -42,7 +42,6 @@
 	aria-label={t().exercise.panel.label}
 	class="flex flex-none items-center gap-2.5 rounded-[18px] bg-surface py-3 pr-3 pl-4"
 >
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- exercisePlayerHref builds both links -->
 	<a
 		href={exercisePlayerHref(dance.slug, exercise.id, from, false)}
 		class="flex min-h-12 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-lg text-left"
@@ -59,5 +58,4 @@
 	>
 		<Icon name="play" size={24} filled />
 	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 </section>

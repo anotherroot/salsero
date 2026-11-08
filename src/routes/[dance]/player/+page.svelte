@@ -282,7 +282,6 @@
 		);
 		const url = new URL(page.url);
 		url.searchParams.delete('play');
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- this page's own path; only the query changes
 		replaceState(url, page.state);
 	});
 	$effect(() => {

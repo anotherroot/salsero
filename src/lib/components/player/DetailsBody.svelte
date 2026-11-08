@@ -50,7 +50,6 @@
 	{/each}
 	{#if details.links.length > 0}
 		<div class={GROUP}>
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- links go outside the app -->
 			{#each details.links as link, k (k)}
 				<a
 					href={link.url}
@@ -72,7 +71,6 @@
 					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 				</a>
 			{/each}
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</div>
 	{/if}
 </section>
