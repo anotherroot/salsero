@@ -536,7 +536,6 @@
 									? 'border-b border-hairline'
 									: ''}"
 							>
-								<!-- eslint-disable svelte/no-navigation-without-resolve -- targetHref resolves; a position's page is joined to /[dance]/positions until its route lands -->
 								<a
 									{href}
 									class="flex min-h-14 min-w-0 flex-1 items-center gap-2 self-stretch py-2 text-[16px] leading-[1.3] font-bold {l.archived
@@ -558,7 +557,6 @@
 										><Icon name="chevron-right" size={20} /></span
 									></a
 								>
-								<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								<button
 									data-focus="linked-{linkRowId(l)}"
 									type="button"

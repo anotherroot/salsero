@@ -186,10 +186,12 @@ export function spotSeen(spot: {
 }
 
 /**
- * A variation's edit form — the figure's name with it — or null when the
- * variation or its figure is archived or gone.
+ * A variation's edit form, or null when the variation or its figure is
+ * archived or gone. The move's name only `withMove`: Edit no longer asks for
+ * it (the move's page renames it), so a rename there is no clash; an older
+ * open page that still sends it is checked against it.
  */
-export function variationSeen(db: Db, figureId: number): Seen | null {
+export function variationSeen(db: Db, figureId: number, withMove = false): Seen | null {
 	const row = db
 		.select({
 			figure: figures,
@@ -204,7 +206,7 @@ export function variationSeen(db: Db, figureId: number): Seen | null {
 	const { figure } = row;
 	const tags = figurePositions(db, figureId);
 	return {
-		figureName: row.groupName,
+		...(withMove ? { figureName: row.groupName } : {}),
 		name: figure.name,
 		partner: figure.partner,
 		style: figure.styleTag,

@@ -28,12 +28,9 @@ export const figure: Catalog['figure'] = {
 		placeholder: 'Štetje, drže, kar ste slišali na tečaju\u00a0…'
 	},
 	fields: {
-		movePlaceholder: 'npr. Dile que no, Enchufla',
 		figurePlaceholder: 'npr. Básica, Doble, Iz križa',
 		danced: 'Kako se pleše',
-		style: 'Slog',
-		// The count after a colon: "deli" would have to agree with it.
-		shared: (n) => `Skupno imajo: ${nouns.figures(n)}`
+		style: 'Slog'
 	},
 	length: {
 		startsOn: 'Začne na',
@@ -196,7 +193,7 @@ export const figure: Catalog['figure'] = {
 	},
 	refused: {
 		notAdded: 'Za vadenje dodajte lekcijo s to različico.',
-		names: 'Vpišite ime figure in različice (do 200 znakov).',
+		names: 'Vpišite ime različice (do 200 znakov).',
 		timing: (max) => `Različica se začne na eni od dob 1–8 in traja od 1 do ${max} dob.`,
 		newMoveName: 'Vpišite ime nove figure (do 200 znakov).',
 		pickTarget: 'Izberite, kam jo želite premakniti.',

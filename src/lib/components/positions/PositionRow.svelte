@@ -40,7 +40,6 @@
 	);
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 <a
 	class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
 	class:bg-accent-soft={current || picked}

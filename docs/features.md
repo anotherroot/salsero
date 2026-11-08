@@ -95,7 +95,8 @@ where its music starts, measured by the worker; see
 and a group's + and one figure form (a group page's lessons by month; the band's + opens
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
 switching into the group; every New figure takes its move from one Move field that can
-also make a new move (`PickerField`'s create, `moveFromQuery`); see
+also make a new move (`PickerField`'s create, `moveFromQuery`); Edit asks no move name; a
+group's own heading on the Moves lists (`GroupHeading`); thin scrollbars in the app's colours; see
 [`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md)).
 
 

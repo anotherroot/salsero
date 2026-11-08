@@ -37,12 +37,9 @@ export const figure = {
 	},
 	/** The edit form's fields (FigureFields, also the New move sheet's). */
 	fields: {
-		movePlaceholder: 'e.g. Dile que no, Enchufla',
 		figurePlaceholder: 'e.g. Basic, Doble, From cross',
 		danced: 'Danced',
-		style: 'Style',
-		/** Under Move name on a figure's edit: "Shared by its 3 figures". */
-		shared: (n: number): string => `Shared by its ${plural(n, 'figure', 'figures')}`
+		style: 'Style'
 	},
 	/** Starts on and Counts (FigureTiming). */
 	length: {
@@ -223,7 +220,7 @@ export const figure = {
 	/** The page's refusals, composed in the request. */
 	refused: {
 		notAdded: 'Add a lesson with this figure to practise it.',
-		names: 'Give the move and the figure a name (up to 200 characters).',
+		names: 'Give the figure a name (up to 200 characters).',
 		timing: (max: number): string =>
 			`A figure starts on a count from 1 to 8 and takes 1 to ${max} counts.`,
 		newMoveName: 'Give the new move a name (up to 200 characters).',

@@ -85,7 +85,7 @@ describe('the figure page in Slovenian', () => {
 
 	it('refuses a blank name and a timing out of range', async () => {
 		expect(await sl(() => act('update', doble, save({ name: ' ' })))).toMatchObject({
-			data: { message: 'Vpišite ime figure in različice (do 200 znakov).' }
+			data: { message: 'Vpišite ime različice (do 200 znakov).' }
 		});
 		expect(await sl(() => act('update', doble, save({ lengthCounts: '0' })))).toMatchObject({
 			data: {

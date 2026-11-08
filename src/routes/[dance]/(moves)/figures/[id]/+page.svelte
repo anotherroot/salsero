@@ -551,12 +551,9 @@
 				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
 				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				<div class={EDIT_HALF}>
+					<!-- No Move name here: the move's own page renames it. -->
 					<FigureFields
 						dance={data.dance}
-						figureName={figure.name}
-						figureHelp={data.siblings.length > 1
-							? t().figure.fields.shared(data.siblings.length)
-							: undefined}
 						name={variation.name}
 						partner={variation.partner}
 						style={variation.styleTag ?? undefined}
@@ -1041,7 +1038,6 @@
 	onaction={() => {
 		const href = toast?.href;
 		toast = null;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by exerciseHref
 		if (href) void goto(href);
 	}}
 	ondismiss={() => (toast = null)}

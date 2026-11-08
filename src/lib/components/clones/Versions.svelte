@@ -153,7 +153,6 @@
 	onaction={() => {
 		const href = copied.toast?.href;
 		copied.clear();
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the server built the copy's path
 		if (href) goto(href);
 	}}
 	ondismiss={() => {

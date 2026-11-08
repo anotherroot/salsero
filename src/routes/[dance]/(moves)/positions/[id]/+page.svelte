@@ -379,7 +379,6 @@
 			<Banner kind="warning" title={gap.title}>
 				{gap.body}
 				{#snippet action()}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built from resolve() -->
 					<a href={gap.href} class={button('secondary', 'sm')}>{gap.action}</a>
 				{/snippet}
 			</Banner>

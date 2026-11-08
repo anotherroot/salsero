@@ -56,14 +56,12 @@
 					</button>
 				{/if}
 				{#if view.today}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- a built dance path -->
 					<a
 						href={todayHref}
 						class={view.retry ? button('tertiary', 'md', true) : button('primary', 'md', true)}
 					>
 						<Icon name="calendar" size={20} />{t().shell.error.goToday}
 					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			</div>
 		{/snippet}

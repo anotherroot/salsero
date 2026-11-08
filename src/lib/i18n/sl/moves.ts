@@ -22,6 +22,7 @@ export const moves: Catalog['moves'] = {
 			])
 	},
 	heading: {
+		group: 'Skupina',
 		yours: 'Vaše',
 		matching: (n) =>
 			slCount(n, [

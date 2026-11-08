@@ -19,6 +19,8 @@ export const moves = {
 		differ: (n: number): string => plural(n, 'copy differs', 'copies differ')
 	},
 	heading: {
+		/** Over a group's rows in a Moves list: "Group · 3 figures". */
+		group: 'Group',
 		/** The owner word before the count: "Yours · 14 figures". */
 		yours: 'Yours',
 		matching: (n: number): string => plural(n, 'figure matches', 'figures match'),

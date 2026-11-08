@@ -118,7 +118,6 @@
 		{/if}
 		{#each lessons as lesson (lesson.id)}
 			<li>
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 				<a
 					href={uploadLink(
 						{ lesson: lesson.id },
@@ -150,7 +149,6 @@
 						>
 					{/if}
 				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 			</li>
 		{/each}
 	</ul>

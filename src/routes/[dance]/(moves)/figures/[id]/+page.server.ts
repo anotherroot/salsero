@@ -522,7 +522,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 			'edit'
 		);
 		const form = await request.formData();
-		const figureName = text(form, 'figureName');
+		// Edit no longer asks for the move's name (the move's own page renames it):
+		// left out, the move keeps its name. An older open page still sends it.
+		const renames = form.has('figureName');
+		const figureName = renames ? text(form, 'figureName') : null;
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
@@ -533,7 +536,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const startCount = int(form, 'startCount');
 		const lengthCounts = int(form, 'lengthCounts');
 
-		if (!figureName || !name || !partner || !style || notes === undefined) {
+		if ((renames && !figureName) || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
 				message: t().figure.refused.names
@@ -551,7 +554,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const clash = seenRefusal(
 			form,
 			row.teamId !== null || hasCopies(db, 'figure', row.id),
-			variationSeen(db, row.id),
+			variationSeen(db, row.id, renames),
 			{ action: 'update' as const },
 			serverNow(),
 			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
@@ -559,7 +562,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (clash) return clash;
 		const { figure, group } = variationOf(params, locals);
 		const by = me(params, locals);
-		if (figureNameTaken(db, space, figureName, group.id)) {
+		if (figureName && figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		if (variationNameRefused(db, group.id, figure, name)) {
@@ -577,7 +580,11 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		}
 		// A case-only change ("enchufla") is a change: the figure keeps its place,
 		// `figureNameTaken` skipped it above, and the new spelling is saved.
-		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName, by)) {
+		if (
+			figureName &&
+			figureName !== group.name.trim() &&
+			!renameFigure(db, group.id, figureName, by)
+		) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		return { action: 'update', ok: true };

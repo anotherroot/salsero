@@ -15,7 +15,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
-	import { groupHeading } from '$lib/moves/figures';
+	import { groupMeta } from '$lib/moves/figures';
+	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
 	import {
 		fromClass,
 		routineBadges,
@@ -193,12 +194,10 @@
 		</div>
 	{/if}
 
-	<!-- Each group's routines from the lessons the person added: opened, not edited, under a slight heading. -->
+	<!-- Each group's routines from the lessons the person added: opened, not edited, under the group's own heading. -->
 	{#each view.groups as g (g.team.id)}
 		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
-				<Icon name="people" size={16} />{groupHeading(g.team.name, g.routines.length)}
-			</h2>
+			<GroupHeading name={g.team.name} meta={groupMeta('routine', g.routines.length)} />
 			<div class={GROUP}>
 				{#each g.routines as routine (routine.id)}
 					{@render routineRow(routine, [])}

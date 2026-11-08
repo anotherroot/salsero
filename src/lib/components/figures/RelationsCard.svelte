@@ -103,7 +103,6 @@
 	{/each}
 </ul>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- the page resolves its hrefs -->
 {#snippet routineList(list: RoutineUse[])}
 	<ul class={GROUP}>
 		{#each list as use (use.id)}
@@ -181,4 +180,3 @@
 		{/if}
 	</div>
 </Sheet>
-<!-- eslint-enable svelte/no-navigation-without-resolve -->

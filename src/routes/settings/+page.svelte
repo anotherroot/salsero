@@ -222,7 +222,6 @@
 					</div>
 				{/if}
 			</div>
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/settings/storage" class={ROW_TALL}>
 				<LeadTile icon="sliders" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -255,7 +254,6 @@
 			/>
 		</div>
 		{#if !few}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/voice" class={ROW_TALL}>
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -283,7 +281,6 @@
 
 	{#if !data.app && !few}
 		<div class="{GROUP} mt-[14px]">
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/app" class={ROW_TALL}>
 				<LeadTile icon="phone" />
 				<span class="flex min-w-0 flex-1 flex-col">
@@ -371,7 +368,6 @@
 	{#if data.isAdmin}
 		<span class="{SECTION_LABEL} mt-[14px]">{w.admin.label}</span>
 		<div class={GROUP}>
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 			<a href="/admin" class={ROW_TALL}>
 				<LeadTile icon="people" />
 				<span class="flex min-w-0 flex-1 flex-col">

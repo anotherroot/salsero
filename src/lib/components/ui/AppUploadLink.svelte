@@ -20,9 +20,7 @@
 	let { href, label, hint, icon = 'video', kind = 'secondary' }: Props = $props();
 </script>
 
-<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 <a {href} class={kind === 'dashed' ? DASHED_ADD : button(kind, 'md', true)}
 	><Icon name={kind === 'dashed' ? 'upload' : icon} size={20} />{label}</a
 >
-<!-- eslint-enable svelte/no-navigation-without-resolve -->
 <p class="mt-1.5 text-center text-[13px] text-muted">{hint ?? t().shell.upload.inBackground}</p>
