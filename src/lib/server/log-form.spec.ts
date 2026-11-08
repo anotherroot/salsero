@@ -95,6 +95,19 @@ describe('logSetFrom', () => {
 		});
 	});
 
+	it('a second log the same day updates the one row, and answers with the Undo snapshot', async () => {
+		const first = (await logSetFrom(
+			post('salsa', { exerciseId: String(drillId), durationS: '240', rating: '2', note: 'a' })
+		)) as { setId: number; before: string | null };
+		expect(first.before).toBeNull();
+		const second = (await logSetFrom(
+			post('salsa', { exerciseId: String(drillId), durationS: '60', rating: '4' })
+		)) as { setId: number; before: string | null };
+		expect(second.setId).toBe(first.setId);
+		expect(JSON.parse(second.before!)).toMatchObject({ durationS: 240, rating: 2, note: 'a' });
+		expect(only()).toMatchObject({ durationS: 300, rating: 4, note: null });
+	});
+
 	it('keeps reps on a drill, and minutes when no exact seconds came', async () => {
 		await logSetFrom(
 			post('salsa', { exerciseId: String(drillId), durationMin: '5', reps: '30', rating: '2' })

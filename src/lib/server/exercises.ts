@@ -1,17 +1,4 @@
-import {
-	and,
-	asc,
-	count,
-	desc,
-	eq,
-	gte,
-	inArray,
-	isNotNull,
-	isNull,
-	lt,
-	sql,
-	sum
-} from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import {
 	FACES,
 	effectiveComesBack,
@@ -41,7 +28,15 @@ import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import { deletedGroupName } from '$lib/exercises/today';
 import { withLocale } from '$lib/i18n/current';
-import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
+import { localDay, noonOf } from '$lib/day/day';
+import type {
+	DaySet,
+	ExerciseItem,
+	ExerciseSummary,
+	HistorySet,
+	PickExercise,
+	SetSnapshot
+} from '$lib/types';
 
 /**
  * Every exercise that has not been archived, with its figure's partner flag
@@ -396,6 +391,101 @@ export function logSet(db: Db, input: SetInput) {
 	return db.insert(sets).values(input).returning().get();
 }
 
+const DAY_MS = 24 * 3600_000;
+
+/** An exercise's rows on one local day, oldest first. The window is widened and filtered with `localDay`, the rule `listSetsBetween`'s callers follow. */
+function dayRows(db: Db, exerciseId: number, day: string, tz: string) {
+	const noon = noonOf(day, tz);
+	return db
+		.select()
+		.from(sets)
+		.where(
+			and(
+				eq(sets.exerciseId, exerciseId),
+				gte(sets.doneAt, noon - DAY_MS),
+				lt(sets.doneAt, noon + DAY_MS)
+			)
+		)
+		.orderBy(asc(sets.doneAt), asc(sets.id))
+		.all()
+		.filter((r) => localDay(r.doneAt, tz) === day);
+}
+
+const snapshotOf = (r: typeof sets.$inferSelect): SetSnapshot => ({
+	exerciseId: r.exerciseId,
+	doneAt: r.doneAt,
+	durationS: r.durationS,
+	reps: r.reps,
+	rating: r.rating,
+	note: r.note,
+	playerJson: r.playerJson
+});
+
+/** The day's row for input.exerciseId on localDay(input.doneAt, tz): inserted, or the latest one updated. */
+export function saveDay(
+	db: Db,
+	input: SetInput,
+	tz: string
+): { set: typeof sets.$inferSelect; before: SetSnapshot | null } {
+	return db.transaction((tx) => {
+		const rows = dayRows(tx, input.exerciseId, localDay(input.doneAt, tz), tz);
+		const old = rows[rows.length - 1];
+		if (!old) return { set: tx.insert(sets).values(input).returning().get(), before: null };
+		const durationS =
+			old.durationS === null && input.durationS === null
+				? null
+				: (old.durationS ?? 0) + (input.durationS ?? 0);
+		const set = tx
+			.update(sets)
+			.set({
+				durationS,
+				rating: input.rating,
+				note: input.note === '' ? null : input.note,
+				playerJson: input.playerJson ?? old.playerJson
+			})
+			.where(eq(sets.id, old.id))
+			.returning()
+			.get();
+		return { set, before: snapshotOf(old) };
+	});
+}
+
+/** Undo of saveDay: before null → the row is deleted; else the row takes before's fields back. False when the row is gone or before.exerciseId differs. */
+export function undoSave(db: Db, setId: number, before: SetSnapshot | null): boolean {
+	return db.transaction((tx) => {
+		const row = tx.select().from(sets).where(eq(sets.id, setId)).get();
+		if (!row || (before !== null && before.exerciseId !== row.exerciseId)) return false;
+		if (before === null) return tx.delete(sets).where(eq(sets.id, setId)).run().changes > 0;
+		tx.update(sets).set(before).where(eq(sets.id, setId)).run();
+		return true;
+	});
+}
+
+/** Every row of that exercise on that local day, deleted; their snapshots, oldest first. */
+export function deleteDay(db: Db, exerciseId: number, day: string, tz: string): SetSnapshot[] {
+	return db.transaction((tx) => {
+		const rows = dayRows(tx, exerciseId, day, tz);
+		if (rows.length > 0) {
+			tx.delete(sets)
+				.where(
+					inArray(
+						sets.id,
+						rows.map((r) => r.id)
+					)
+				)
+				.run();
+		}
+		return rows.map(snapshotOf);
+	});
+}
+
+/** Re-inserts snapshots in one transaction (Undo of deleteDay). */
+export function restoreSets(db: Db, snaps: SetSnapshot[]): void {
+	db.transaction((tx) => {
+		for (const snap of snaps) tx.insert(sets).values(snap).run();
+	});
+}
+
 /**
  * One set by id. A set carries no dance of its own — it belongs to the dance of
  * its exercise — so this is how a route resolves the one from the other before
@@ -476,29 +566,15 @@ export function exerciseHistory(db: Db, id: number, limit = 200): HistorySet[] {
 		.all();
 }
 
-/** How many ratings "recent" means on the summary line. */
-const RECENT_RATED = 5;
-
-export function exerciseSummary(db: Db, id: number): ExerciseSummary {
-	const totals = db
-		.select({ sets: count(), totalS: sum(sets.durationS) })
+/** How many days an exercise was practised (a day with several rows counts once) and the time in all. */
+export function exerciseSummary(db: Db, id: number, tz: string): ExerciseSummary {
+	const rows = db
+		.select({ doneAt: sets.doneAt, durationS: sets.durationS })
 		.from(sets)
 		.where(eq(sets.exerciseId, id))
-		.get();
-	const rated = db
-		.select({ rating: sets.rating })
-		.from(sets)
-		.where(and(eq(sets.exerciseId, id), isNotNull(sets.rating)))
-		.orderBy(desc(sets.doneAt))
-		.limit(RECENT_RATED)
 		.all();
-	const mean =
-		rated.length === 0 ? null : rated.reduce((a, r) => a + (r.rating ?? 0), 0) / rated.length;
-	return {
-		sets: totals?.sets ?? 0,
-		totalS: Number(totals?.totalS ?? 0),
-		recentRating: mean === null ? null : Math.round(mean * 10) / 10
-	};
+	const days = new Set(rows.map((r) => localDay(r.doneAt, tz)));
+	return { times: days.size, totalS: rows.reduce((a, r) => a + (r.durationS ?? 0), 0) };
 }
 
 export function lastSet(db: Db, exerciseId: number): HistorySet | null {

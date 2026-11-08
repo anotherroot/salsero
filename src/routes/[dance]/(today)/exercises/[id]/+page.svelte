@@ -19,7 +19,6 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import Face from '$lib/components/exercises/Face.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -47,7 +46,7 @@
 		historyDays,
 		ownerOf,
 		pageParts,
-		summaryTiles
+		historyTiles
 	} from '$lib/exercises/exercise-page';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
@@ -157,7 +156,7 @@
 		if (owner.kind === 'lesson') return resolve('/[dance]/lessons/[id]', params);
 		return resolve('/[dance]/(moves)/routines/[id]', params);
 	});
-	const tiles = $derived(summaryTiles(data.summary));
+	const tiles = $derived(historyTiles(data.summary));
 	const days = $derived(historyDays(data.history, timezone, data.today));
 
 	// --- Edit mode: the settings behind the band's pencil, one Save pinned.
@@ -561,7 +560,7 @@
 		{#if parts.historyTiles}
 			<section class="{editing ? 'hidden desk:flex' : 'flex'} flex-col gap-2 desk:min-w-0">
 				<h2 class={SECTION_LABEL}>{t().exercise.page.history}</h2>
-				{#if data.summary.sets === 0}
+				{#if data.summary.times === 0}
 					<div class="rounded-2xl bg-surface">
 						<EmptyState
 							icon="clock"
@@ -575,11 +574,8 @@
 							{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"
 								></span>{/if}
 							<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
-								<span
-									class="flex items-center gap-1.5 font-display leading-[1.05] font-extrabold text-ink {tile.feel
-										? 'text-[17px]'
-										: 'text-[24px]'}"
-									>{#if tile.feel}<Face feel={tile.feel} size={22} />{/if}{tile.value}</span
+								<span class="font-display text-[24px] leading-[1.05] font-extrabold text-ink"
+									>{tile.value}</span
 								>
 								<span class="text-[12px] font-bold text-muted">{tile.label}</span>
 							</div>
@@ -589,7 +585,7 @@
 						<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
 						<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
 					{/each}
-					{#if data.history.length < data.summary.sets}
+					{#if data.history.length < data.summary.times}
 						<p class="px-4 text-[12px] text-muted">
 							{t().exercise.page.showingLatest(data.history.length)}
 						</p>
@@ -812,7 +808,7 @@
 	<Dialog
 		open={archiving}
 		title={t().exercise.page.archiveTitle}
-		body={archiveBody(exercise.name, data.summary.sets)}
+		body={archiveBody(exercise.name, data.summary.times)}
 		onclose={() => (archiving = false)}
 	>
 		{#snippet actions()}

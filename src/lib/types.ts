@@ -77,11 +77,10 @@ export interface LastSet extends HistorySet {
 
 /** The line on top of an exercise's history. */
 export interface ExerciseSummary {
-	sets: number;
-	/** Every logged duration, summed. Sets with no duration add nothing. */
+	/** Distinct local days with an entry. */
+	times: number;
+	/** Every logged duration, summed. Entries with no duration add nothing. */
 	totalS: number;
-	/** Mean of the latest five rated sets, to one decimal; null when none is rated. */
-	recentRating: number | null;
 }
 
 export interface SongItem {

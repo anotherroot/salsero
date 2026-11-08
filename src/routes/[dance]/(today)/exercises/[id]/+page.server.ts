@@ -146,7 +146,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			musicEntryId: own.id as number | null,
 			practice: practicePayload(db, own, tz, now),
 			history: exerciseHistory(db, own.id),
-			summary: exerciseSummary(db, own.id),
+			summary: exerciseSummary(db, own.id, tz),
 			scheduleAtStart: scheduleAtStart(own.id),
 			today,
 			// Only a drill's sections are its own; the others show their owner's.
@@ -250,9 +250,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			visible ?? undefined
 		),
 		history: popup ? exerciseHistory(db, popup.exercise.id) : [],
-		summary: popup
-			? exerciseSummary(db, popup.exercise.id)
-			: { sets: 0, totalS: 0, recentRating: null },
+		summary: popup ? exerciseSummary(db, popup.exercise.id, tz) : { times: 0, totalS: 0 },
 		scheduleAtStart: popup ? scheduleAtStart(popup.exercise.id) : null,
 		today,
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],

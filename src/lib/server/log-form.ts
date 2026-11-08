@@ -10,7 +10,7 @@
  */
 import { error, fail } from '@sveltejs/kit';
 import { getDb } from './db';
-import { deleteSet, getSet, logSet } from './exercises';
+import { deleteSet, getSet, logSet, saveDay } from './exercises';
 import { int, optionalInt, optionalText } from './form';
 import { requireExerciseInWall, wallOf } from './scope';
 import { isValidDay, localDay, noonOf } from '$lib/day/day';
@@ -62,16 +62,25 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 	// them on the client, so when both arrive the panel's are the truth.
 	const seconds = durationS ?? (durationMin === null ? null : durationMin * 60);
 	try {
-		const set = logSet(getDb(), {
-			exerciseId,
-			doneAt: backfill ? noonOf(day, tz) : now,
-			durationS: has('minutes') ? seconds : null,
-			reps: has('reps') ? reps : null,
-			rating: has('rating') ? rating : null,
-			note: has('note') ? note : null,
-			playerJson: backfill ? null : (run ?? null)
-		});
-		return { action: 'log' as const, ok: true, setId: set.id };
+		const { set, before } = saveDay(
+			getDb(),
+			{
+				exerciseId,
+				doneAt: backfill ? noonOf(day, tz) : now,
+				durationS: has('minutes') ? seconds : null,
+				reps: has('reps') ? reps : null,
+				rating: has('rating') ? rating : null,
+				note: has('note') ? note : null,
+				playerJson: backfill ? null : (run ?? null)
+			},
+			tz
+		);
+		return {
+			action: 'log' as const,
+			ok: true,
+			setId: set.id,
+			before: before && JSON.stringify(before)
+		};
 	} catch {
 		return fail(400, { action: 'log', message: t().exercise.refused.gone });
 	}

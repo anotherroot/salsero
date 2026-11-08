@@ -1,20 +1,13 @@
 import type { Catalog } from '../catalog';
-import { slCount, slForm, type SlForm } from '../plural';
+import { slCount } from '../plural';
 
 type Forms = [one: string, two: string, few: string, other: string];
 
-const VNOS: Forms = ['vnos', 'vnosa', 'vnosi', 'vnosov'];
 const VIDEO: Forms = ['video', 'videa', 'videi', 'videov'];
 /** An 8-count, after "na" (accusative): na 1 osmico, na 2 osmici, na 4 osmice. */
 const OSMICA: Forms = ['osmico', 'osmici', 'osmice', 'osmic'];
 /** Comes back's chips: 3 dobri dnevi, 5 dobrih dni. */
 const DOBER_DAN: Forms = ['dober dan', 'dobra dneva', 'dobri dnevi', 'dobrih dni'];
-
-/** The noun alone in the form `n` takes: 1 vnos, 2 vnosa … (the tile prints the number). */
-function formOf(n: number, forms: Forms): string {
-	const at: Record<SlForm, number> = { one: 0, two: 1, few: 2, other: 3 };
-	return forms[at[slForm(n)]];
-}
 
 /** 10000 → "10 000": a thousands space (no-break), as Slovenian writes it. */
 const grouped = (n: number): string => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -93,25 +86,16 @@ export const exercise: Catalog['exercise'] = {
 			'Kar vadite v predvajalniku, se shrani samo. Tukaj vnesite vajo, opravljeno brez aplikacije.'
 	},
 	page: {
-		tileSets: (n) => formOf(n, VNOS),
-		tilePractised: 'skupaj',
-		tileRecently: 'nedavno',
+		// "3 / krat": the number is the tile's value, the word stays.
+		times: () => 'krat',
+		inAll: 'skupaj',
 		dayWithYear: (label, year) => `${label} ${year}`,
 		ownerFigure: 'Različica',
 		ownerLesson: (date) => `Lekcija · ${date}`,
 		ownerRoutine: 'Kombinacija',
-		// "Shranjen ostane 1 vnos", "Shranjena ostaneta 2 vnosa", "Shranjeni ostanejo 3 vnosi",
-		// "Shranjenih ostane 5 vnosov": the verb and participle agree with the count.
-		archiveBody: (name, sets) => {
+		archiveBody: (name, times) => {
 			const head = `${name}: izgine s seznama Danes in iz vseh seznamov.`;
-			if (sets === 0) return head;
-			const kept: Record<SlForm, string> = {
-				one: 'Shranjen ostane',
-				two: 'Shranjena ostaneta',
-				few: 'Shranjeni ostanejo',
-				other: 'Shranjenih ostane'
-			};
-			return `${head} ${kept[slForm(sets)]} ${slCount(sets, VNOS)}.`;
+			return times === 0 ? head : `${head} Zgodovina ostane shranjena.`;
 		},
 		logASet: 'Nov vnos',
 		// Not "Vadila sem": a past tense would say whether the reader is a man or a woman.

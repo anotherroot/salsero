@@ -12,7 +12,7 @@ import {
 	practisedLabel,
 	setMeta,
 	setTitle,
-	summaryTiles
+	historyTiles
 } from './exercise-page';
 
 const TZ = 'Europe/Ljubljana';
@@ -58,21 +58,13 @@ describe('practisedLabel', () => {
 	});
 });
 
-describe('summaryTiles', () => {
-	it('gives three tiles', () => {
-		expect(summaryTiles({ sets: 23, totalS: 15000, recentRating: 3.8 })).toEqual([
-			{ value: '23', label: 'sets', feel: null },
-			{ value: '4 h 10', label: 'practised', feel: null },
-			{ value: "I've got it", label: 'recently', feel: 'gotit' }
+describe('historyTiles', () => {
+	it('gives two tiles: the times and the time in all', () => {
+		expect(historyTiles({ times: 3, totalS: 1020 })).toEqual([
+			{ value: '3', label: 'times' },
+			{ value: '17 min', label: 'in all' }
 		]);
-		expect(
-			summaryTiles({ sets: 1, totalS: 0, recentRating: null }).map((t) => [t.value, t.label])
-		).toEqual([
-			['1', 'set'],
-			['0 min', 'practised'],
-			['–', 'recently']
-		]);
-		expect(summaryTiles({ sets: 2, totalS: 60, recentRating: 4.6 })[2].value).toBe('Easy');
+		expect(historyTiles({ times: 1, totalS: 0 })[0]).toEqual({ value: '1', label: 'time' });
 	});
 });
 
@@ -146,11 +138,8 @@ describe('ownerOf', () => {
 });
 
 describe('archiveBody', () => {
-	it('counts the kept sets', () => {
-		expect(archiveBody('Clave clapping · 2-3', 41)).toBe(
-			'Clave clapping · 2-3 leaves Today and every list. Its 41 sets are kept.'
-		);
-		expect(archiveBody('Hips', 1)).toBe('Hips leaves Today and every list. Its 1 set is kept.');
+	it('says the history is kept once there is any', () => {
+		expect(archiveBody('Clave', 3)).toBe('Clave leaves Today and every list. Its history is kept.');
 		expect(archiveBody('Hips', 0)).toBe('Hips leaves Today and every list.');
 	});
 });
@@ -195,18 +184,11 @@ describe('fromClassLabel', () => {
 describe('in Slovenian', () => {
 	const sl = <T>(fn: () => T) => withLocale('sl', fn);
 
-	it('labels the tiles with the right plural', () => {
-		const label = (sets: number) => sl(() => summaryTiles({ sets, totalS: 0, recentRating: null }));
-		expect(label(1).map((x) => x.label)).toEqual(['vnos', 'skupaj', 'nedavno']);
-		expect(label(2)[0].label).toBe('vnosa');
-		expect(label(3)[0].label).toBe('vnosi');
-		expect(label(23)[0].label).toBe('vnosov');
-		expect(label(104)[0].label).toBe('vnosi');
-		expect(label(5)[0].label).toBe('vnosov');
-		expect(label(101)[0].label).toBe('vnos');
-		expect(sl(() => summaryTiles({ sets: 2, totalS: 60, recentRating: 4.6 }))[2].value).toBe(
-			'Lahko'
-		);
+	it('words the history tiles', () => {
+		expect(sl(() => historyTiles({ times: 3, totalS: 1020 }))).toEqual([
+			{ value: '3', label: 'krat' },
+			{ value: '17 min', label: 'skupaj' }
+		]);
 	});
 
 	it('names the days of the history', () => {
@@ -233,21 +215,12 @@ describe('in Slovenian', () => {
 		expect(sl(() => ownerOf(routineContent))?.meta).toBe('Kombinacija');
 	});
 
-	it('asks about archiving, the name before a colon and the sets counted', () => {
+	it('asks about archiving, the name before a colon', () => {
 		expect(sl(() => archiveBody('Hips', 0))).toBe(
 			'Hips: izgine s seznama Danes in iz vseh seznamov.'
 		);
-		expect(sl(() => archiveBody('Hips', 1))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjen ostane 1 vnos.'
-		);
 		expect(sl(() => archiveBody('Hips', 2))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjena ostaneta 2 vnosa.'
-		);
-		expect(sl(() => archiveBody('Hips', 3))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjeni ostanejo 3 vnosi.'
-		);
-		expect(sl(() => archiveBody('Hips', 41))).toBe(
-			'Hips: izgine s seznama Danes in iz vseh seznamov. Shranjenih ostane 41 vnosov.'
+			'Hips: izgine s seznama Danes in iz vseh seznamov. Zgodovina ostane shranjena.'
 		);
 	});
 

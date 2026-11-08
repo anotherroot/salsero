@@ -85,18 +85,17 @@ export const exercise = {
 	},
 	/** The exercise page. */
 	page: {
-		/** The summary tiles: "23 / sets", "4 h 10 / practised", "Easy / recently". */
-		tileSets: (n: number): string => (n === 1 ? 'set' : 'sets'),
-		tilePractised: 'practised',
-		tileRecently: 'recently',
+		/** The history tiles: "3 / times", "17 min / in all". */
+		times: (n: number): string => (n === 1 ? 'time' : 'times'),
+		inAll: 'in all',
 		/** A history day in another year: "Tuesday, 30 December, 2025". */
 		dayWithYear: (label: string, year: string): string => `${label}, ${year}`,
 		ownerFigure: 'Figure',
 		ownerLesson: (date: string): string => `Lesson · ${date}`,
 		ownerRoutine: 'Routine',
-		archiveBody: (name: string, sets: number): string => {
+		archiveBody: (name: string, times: number): string => {
 			const head = `${name} leaves Today and every list.`;
-			return sets === 0 ? head : `${head} Its ${sets} ${sets === 1 ? 'set is' : 'sets are'} kept.`;
+			return times === 0 ? head : `${head} Its history is kept.`;
 		},
 		logASet: 'Log a set',
 		practised: 'I practised this',

@@ -2,7 +2,6 @@
 import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
 import { classDayLabel, dateLabel, firstUpper, longDayLabel, setSummary } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
-import { feelWord, feelOf, type Feel } from '$lib/schedule/feel';
 import type { IconName } from '$lib/icons/icons';
 import type { ExerciseSummary, HistorySet, PracticeContent } from '$lib/types';
 
@@ -12,16 +11,11 @@ export function practisedLabel(totalS: number): string {
 	return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
 }
 
-export function summaryTiles(
-	s: ExerciseSummary
-): { value: string; label: string; feel: Feel | null }[] {
-	// The recent ratings' mean, read as the face it is closest to.
-	const feel = s.recentRating === null ? null : feelOf(Math.round(s.recentRating));
+export function historyTiles(s: ExerciseSummary): { value: string; label: string }[] {
 	const w = t().exercise.page;
 	return [
-		{ value: String(s.sets), label: w.tileSets(s.sets), feel: null },
-		{ value: practisedLabel(s.totalS), label: w.tilePractised, feel: null },
-		{ value: feel === null ? '–' : feelWord(feel), label: w.tileRecently, feel }
+		{ value: String(s.times), label: w.times(s.times) },
+		{ value: practisedLabel(s.totalS), label: w.inAll }
 	];
 }
 
@@ -110,8 +104,8 @@ export function ownerOf(c: PracticeContent): {
 	}
 }
 
-export function archiveBody(name: string, sets: number): string {
-	return t().exercise.page.archiveBody(name, sets);
+export function archiveBody(name: string, times: number): string {
+	return t().exercise.page.archiveBody(name, times);
 }
 
 /**

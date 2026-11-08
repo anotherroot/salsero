@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
-import { listPickExercises, logSet } from '$lib/server/exercises';
+import { listPickExercises, saveDay } from '$lib/server/exercises';
 import { scheduleStateOf } from '$lib/server/schedule';
 import { localDay } from '$lib/day/day';
 import { listCountTakesFor } from '$lib/server/countTakes';
@@ -166,19 +166,23 @@ export const actions: Actions = {
 		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
 		let setId: number;
 		try {
-			setId = logSet(getDb(), {
-				exerciseId,
-				doneAt: Date.now(),
-				durationS,
-				reps: null,
-				rating,
-				note,
-				// The summary of what the run was is a nicety; the set is the point.
-				// An overlong one (a marathon routine with a great many calls) is
-				// dropped rather than costing the user the whole session — and it
-				// must never be reported as a problem with their note.
-				playerJson: run ?? null
-			}).id;
+			setId = saveDay(
+				getDb(),
+				{
+					exerciseId,
+					doneAt: Date.now(),
+					durationS,
+					reps: null,
+					rating,
+					note,
+					// The summary of what the run was is a nicety; the set is the point.
+					// An overlong one (a marathon routine with a great many calls) is
+					// dropped rather than costing the user the whole session — and it
+					// must never be reported as a problem with their note.
+					playerJson: run ?? null
+				},
+				locals.user?.timezone ?? 'UTC'
+			).set.id;
 		} catch {
 			return fail(400, { message: t().exercise.refused.gone, ...entered });
 		}
