@@ -24,6 +24,7 @@ import { separateFamily, setTwins } from './twins';
 import { placeOfRow } from './clones/genes';
 import { itemHref } from './make-mine-form';
 import type { Wall } from './scope';
+import { serverNow } from '$lib/server/server-clock';
 
 const int = (v: FormDataEntryValue | null) =>
 	typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : null;
@@ -74,7 +75,7 @@ export async function takeFrom(
 		picks,
 		seen,
 		realCloneFiles(),
-		Date.now(),
+		serverNow(),
 		await freeDisk()
 	);
 	if (res.ok) return { action: 'take' as const, taken: true };
@@ -138,7 +139,7 @@ export async function sendFrom(
 		fromId,
 		targets,
 		realCloneFiles(),
-		Date.now(),
+		serverNow(),
 		await freeDisk()
 	);
 	if (results.every((r) => !r.result.ok && r.result.reason === 'denied'))
@@ -161,7 +162,7 @@ export async function dropFrom(db: Db, wall: Wall, kind: CloneKind, id: number, 
 	if (to === null || addLessonId === null)
 		throw error(400, 'This page is out of date. Reload it and try again.');
 	if (!dropOptions(db, wall, kind, id)) throw error(404, 'Not found');
-	const res = dropCopy(db, wall, kind, id, to, { addLessonId }, Date.now());
+	const res = dropCopy(db, wall, kind, id, to, { addLessonId }, serverNow());
 	if (!res.ok) return fail(409, { action: 'drop' as const, message: res.message });
 	throw redirect(303, itemHref(wall, kind, res.toId));
 }
@@ -173,7 +174,7 @@ export async function dropFrom(db: Db, wall: Wall, kind: CloneKind, id: number, 
  * missing row's 404.
  */
 export function detachFrom(db: Db, userId: string, kind: CloneKind, id: number) {
-	if (!detachOffer(db, userId, kind, id) || !detach(db, userId, kind, id, Date.now()))
+	if (!detachOffer(db, userId, kind, id) || !detach(db, userId, kind, id, serverNow()))
 		throw error(404, 'Not found');
 	return { action: 'detach' as const, detached: true };
 }
@@ -239,7 +240,7 @@ export async function copyToFrom(
 	};
 
 	if (restore !== undefined) {
-		const done = restoreMember(db, wall.userId, kind, id, into, restore, Date.now(), use);
+		const done = restoreMember(db, wall.userId, kind, id, into, restore, serverNow(), use);
 		if (done === null) throw error(404, 'Not found');
 		if (!done.ok) return fail(409, { action: 'copy' as const, message: done.message });
 		return existing(restore);
@@ -253,7 +254,7 @@ export async function copyToFrom(
 		into,
 		use,
 		realCloneFiles(),
-		Date.now(),
+		serverNow(),
 		await freeDisk()
 	);
 	if (res.ok) {
@@ -315,7 +316,7 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 		choices,
 		use,
 		realCloneFiles(),
-		Date.now(),
+		serverNow(),
 		await freeDisk()
 	);
 	if (res.ok) throw redirect(303, itemHref(wall, 'lesson', res.id));

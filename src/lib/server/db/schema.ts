@@ -19,6 +19,7 @@ import {
 	STYLES
 } from '../../labels';
 import { mintedId } from './ids';
+import { serverNow } from '../server-clock';
 
 /*
  * Every instant is an INTEGER of epoch milliseconds, never a Date or a string.
@@ -26,7 +27,7 @@ import { mintedId } from './ids';
  * them without conversion, and "which day was this" is always decided by
  * `localDay` in the user's zone — never by SQLite's UTC date functions.
  */
-const now = () => Date.now();
+const now = () => serverNow();
 const createdAt = () => integer('created_at').notNull().$defaultFn(now);
 
 /* ── Identity ───────────────────────────────────────────────────────────── */

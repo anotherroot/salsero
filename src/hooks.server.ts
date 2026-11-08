@@ -17,6 +17,7 @@ import { hostRedirect } from '$lib/dances/hosts';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
+import { serverNow } from '$lib/server/server-clock';
 
 /** The home worker's API: no session, a bearer token instead. */
 const WORKER_PREFIX = '/api/worker/';
@@ -39,7 +40,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				level: parseLevel(session.level),
 				dance: session.dance
 			}
-		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
+		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), serverNow());
 
 	// Which app asks: its user agent suffix, else the native header.
 	const native = parseAppVersion(event.request.headers.get('x-app-version'));
@@ -90,7 +91,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Which app this person uses, noted only for a request this host keeps.
 	if (event.locals.user && appAgent) {
-		noteAppSeen(getDb(), event.locals.user.id, appAgent, Date.now());
+		noteAppSeen(getDb(), event.locals.user.id, appAgent, serverNow());
 	}
 
 	// A page older than a breaking deploy (`$lib/page-epoch.ts`): refused before

@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { listComments, postComment } from '$lib/server/comments';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * A group lesson's comments. Flat, like /api/video-spots: the person is the
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (replyTo !== null && (typeof replyTo !== 'number' || !Number.isInteger(replyTo))) {
 		throw error(400, 'Bad JSON.');
 	}
-	const made = postComment(getDb(), locals.user.id, id, b.body, replyTo, Date.now());
+	const made = postComment(getDb(), locals.user.id, id, b.body, replyTo, serverNow());
 	if ('refused' in made) {
 		if (made.refused === 'missing') throw error(404, 'No such lesson');
 		const status = made.refused === 'closed' ? 403 : 400;

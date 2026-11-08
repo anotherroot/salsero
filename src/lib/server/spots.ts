@@ -23,6 +23,7 @@ import { positionNamesOf } from './position-links';
 import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
 import { isTeam, spaceOfRow } from './scope';
 import { rootTitle, spotWords, trashRows } from './trash';
+import { serverNow } from '$lib/server/server-clock';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -207,7 +208,7 @@ function logSpot(
 		after?: Record<string, string | number | null>;
 		trashId?: number | null;
 	},
-	now = Date.now()
+	now = serverNow()
 ): void {
 	const { row, ...at } = root;
 	logChange(
@@ -240,7 +241,7 @@ export function updateSpot(
 	id: number,
 	changes: { label?: unknown; startMs?: unknown; endMs?: unknown },
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ): Spot | null {
 	return db.transaction((tx) => {
@@ -283,7 +284,7 @@ export function deleteSpot(
 	db: Db,
 	id: number,
 	by?: string,
-	now = Date.now()
+	now = serverNow()
 ): { trashId: number | null } | null {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { spotId: id });

@@ -5,6 +5,7 @@ import { localDay } from '$lib/day/day';
 import { groupModeOf } from '$lib/server/group-mode';
 import { figuresLists, positionsLists, routinesList } from '$lib/server/moves-lists';
 import type { LayoutServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The Figures, Routines and Positions lists, once and unfiltered, for the list
@@ -26,7 +27,7 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, depends }) => 
 	return {
 		lists: {
 			figures: figuresLists(db, wall, mode),
-			routines: routinesList(db, wall, mode, localDay(Date.now(), locals.user.timezone)),
+			routines: routinesList(db, wall, mode, localDay(serverNow(), locals.user.timezone)),
 			positions: positionsLists(db, wall, mode)
 		}
 	};

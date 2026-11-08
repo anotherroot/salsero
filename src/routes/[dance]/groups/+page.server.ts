@@ -7,6 +7,7 @@ import { createTeam, teamLimit } from '$lib/server/teams';
 import { limitLine, NAME_REFUSAL } from '$lib/teams/view';
 import { levelShown } from '$lib/levels/levels';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The list is the layout's load (`+layout.server.ts`). At Follow my class the
@@ -27,7 +28,7 @@ export const actions: Actions = {
 		const wall = wallOf(params, locals);
 		const db = getDb();
 		const name = String((await request.formData()).get('name') ?? '');
-		const made = createTeam(db, wall.userId, wall.dance, name, Date.now());
+		const made = createTeam(db, wall.userId, wall.dance, name, serverNow());
 		if (!made.ok) {
 			const message =
 				made.reason === 'limit' ? limitLine(teamLimit(db, wall.userId)) : NAME_REFUSAL;
@@ -42,7 +43,7 @@ export const actions: Actions = {
 		const wall = wallOf(params, locals);
 		const code = String((await request.formData()).get('code') ?? '').trim();
 		if (!code) return fail(400, { action: 'joinCode', message: CODE_REFUSALS.empty });
-		const joined = joinWithCode(getDb(), wall.userId, code, Date.now());
+		const joined = joinWithCode(getDb(), wall.userId, code, serverNow());
 		if (!joined.ok) {
 			return fail(400, { action: 'joinCode', message: CODE_REFUSALS[joined.reason] });
 		}

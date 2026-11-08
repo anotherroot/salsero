@@ -4,6 +4,7 @@ import { getDance } from '$lib/dances/dances';
 import { getDb } from '$lib/server/db';
 import { createDeviceToken } from '$lib/server/devices';
 import type { Actions } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * Pairing an Android app. The app opens this page when it holds no token;
@@ -19,7 +20,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		// The account's own dance names the app (the dance split): "Bachata app".
 		const label = `${getDance(locals.user.dance).label} app`;
-		const { token } = createDeviceToken(getDb(), locals.user.id, label, Date.now());
+		const { token } = createDeviceToken(getDb(), locals.user.id, label, serverNow());
 		return { link: pairedLink(token) };
 	}
 };

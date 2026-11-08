@@ -4,6 +4,7 @@ import { getDance } from '$lib/dances/dances';
 import { peopleOf, roleOf, teamByCode } from '$lib/server/teams';
 import { joinClass } from '$lib/server/auto-add';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const STALE = 'This code no longer works';
 
@@ -32,7 +33,7 @@ export const actions: Actions = {
 		const team = teamByCode(db, params.code);
 		if (!team || team.dance !== locals.user.dance) throw error(404, STALE);
 		// A first join brings the class's newest lesson to Today when auto-add is on.
-		if (joinClass(db, locals.user.id, team.id, Date.now()) === 'refused') {
+		if (joinClass(db, locals.user.id, team.id, serverNow()) === 'refused') {
 			return fail(404, { message: STALE });
 		}
 		throw redirect(303, `/${team.dance}/groups/${team.id}`);

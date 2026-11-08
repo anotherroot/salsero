@@ -29,6 +29,7 @@ import { parseLevel } from '$lib/levels/levels';
 import { isVideoShortSide } from '$lib/video-sizes';
 import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * A removed phone, held for Undo, keyed by user and id so only the user who
@@ -44,7 +45,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tz = locals.user.timezone;
 	// /settings has no dance in its URL: it is the account's (the dance split).
 	const dance = locals.user.dance;
-	const today = localDay(Date.now(), tz);
+	const today = localDay(serverNow(), tz);
 	const asked = openRequest(db, locals.user.id);
 	return {
 		dance,
@@ -106,7 +107,7 @@ export const actions: Actions = {
 		}
 		const note = optionalText(await request.formData(), 'note', 500);
 		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
-		const res = askForMore(getDb(), { userId: locals.user.id }, note, Date.now());
+		const res = askForMore(getDb(), { userId: locals.user.id }, note, serverNow());
 		return { asked: res === 'asked' };
 	},
 

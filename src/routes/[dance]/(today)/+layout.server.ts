@@ -11,6 +11,7 @@ import { PHRASE_PATTERNS } from '$lib/labels';
 import { dayListOf, workOf } from '$lib/schedule/today-list';
 import { comingUpOf } from '$lib/schedule/coming-up';
 import type { LayoutServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const DAY_MS = 86_400_000;
 
@@ -27,7 +28,7 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;
-	const now = Date.now();
+	const now = serverNow();
 	const today = localDay(now, tz);
 
 	const db = getDb();

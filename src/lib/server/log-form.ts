@@ -16,6 +16,7 @@ import { requireExerciseInWall, wallOf } from './scope';
 import { isValidDay, localDay, noonOf } from '$lib/day/day';
 import { hasField } from '$lib/exercises/kinds';
 import type { SetSnapshot } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 export type LogEvent = { params: { dance: string }; request: Request; locals: App.Locals };
 
@@ -55,7 +56,7 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 		return fail(400, { action: 'log', message: 'Pick how it went' });
 	}
 
-	const now = Date.now();
+	const now = serverNow();
 	const backfill = isValidDay(day) && day < localDay(now, tz);
 	// Exact seconds come from the practice panel; typing into Minutes clears
 	// them on the client, so when both arrive the panel's are the truth.
@@ -143,7 +144,7 @@ export async function deleteSetFrom({ params, request, locals }: LogEvent) {
  */
 export async function restoreSetFrom({ params, request, locals }: LogEvent) {
 	const form = await request.formData();
-	const snap = parseSetSnapshot(String(form.get('snapshot') ?? ''), Date.now());
+	const snap = parseSetSnapshot(String(form.get('snapshot') ?? ''), serverNow());
 	if (!snap) {
 		return fail(400, { action: 'restoreSet', message: 'That set could not be put back.' });
 	}

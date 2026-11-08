@@ -3,6 +3,7 @@ import { getDb } from '$lib/server/db';
 import { restoreTrash, trashSpace } from '$lib/server/trash';
 import { trashRefusalLine } from '$lib/teams/deleted';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * Restore one trash entry: the player's Undo for a group's section, so the
@@ -15,7 +16,7 @@ export const POST: RequestHandler = ({ params, locals }) => {
 	const db = getDb();
 	const found = locals.user && id > 0 ? trashSpace(db, locals.user.id, id) : null;
 	if (!found) throw error(404, 'No such thing to restore');
-	const done = restoreTrash(db, found.space, id, Date.now());
+	const done = restoreTrash(db, found.space, id, serverNow());
 	if (done.ok) return json({ ok: true });
 	if (done.reason === 'not-found') throw error(404, 'No such thing to restore');
 	return json({ message: trashRefusalLine(found.kind, done.reason) }, { status: 409 });

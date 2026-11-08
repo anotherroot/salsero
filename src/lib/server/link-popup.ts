@@ -58,6 +58,7 @@ import type {
 	SectionTarget,
 	TeamRef
 } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 const key = (t: LinkTarget) =>
 	'figureId' in t ? `f${t.figureId}` : 'exerciseId' in t ? `e${t.exerciseId}` : `p${t.positionId}`;
@@ -441,7 +442,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				tx,
 				space,
 				{ name, styleTag: create.styleTag, hold: EMPTY_HOLD, notes: null, pictureSpotId: null },
-				Date.now()
+				serverNow()
 			);
 			// The refusal's own field: tsc flags it here if a refusal ever names one the popup lacks.
 			if ('field' in made) throw new SpotLinkError(made.message, 400, made.field);

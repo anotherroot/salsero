@@ -21,6 +21,7 @@ import {
 	wallOf
 } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	const wall = wallOf(params, locals);
@@ -123,7 +124,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// Its due words in the Save sheet: the schedule, from the sets.
 		schedule:
 			exercise && locals.user ? scheduleStateOf(db, exercise.id, locals.user.timezone) : null,
-		today: localDay(Date.now(), locals.user?.timezone ?? 'UTC'),
+		today: localDay(serverNow(), locals.user?.timezone ?? 'UTC'),
 		exercises: listPickExercises(db, wall),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
@@ -166,7 +167,7 @@ export const actions: Actions = {
 		try {
 			setId = logSet(getDb(), {
 				exerciseId,
-				doneAt: Date.now(),
+				doneAt: serverNow(),
 				durationS,
 				reps: null,
 				rating,

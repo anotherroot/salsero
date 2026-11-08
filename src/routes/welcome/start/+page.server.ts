@@ -14,6 +14,7 @@ import { setLevel } from '$lib/server/levels';
 import { peopleOf, roleOf, teamByCode } from '$lib/server/teams';
 import { safeNext } from '$lib/safe-next';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The first run (levels spec): slides, How much app?, Join your class. One
@@ -77,7 +78,7 @@ export const actions: Actions = {
 		// The typed code, or the teacher's link's own (`teamCode`).
 		const code = String(form.get('code') || form.get('teamCode') || '').trim();
 		if (!code) return fail(400, { message: CODE_REFUSALS.empty, code });
-		const joined = joinWithCode(getDb(), locals.user.id, code, Date.now());
+		const joined = joinWithCode(getDb(), locals.user.id, code, serverNow());
 		if (!joined.ok) return fail(400, { message: CODE_REFUSALS[joined.reason], code });
 		throw redirect(303, afterJoin(next, joined.dance));
 	},

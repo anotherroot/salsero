@@ -8,6 +8,7 @@ import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today
 import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const DAY_MS = 86_400_000;
 
@@ -25,7 +26,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const tz = zone(locals);
-	const today = localDay(Date.now(), tz);
+	const today = localDay(serverNow(), tz);
 
 	const requested = url.searchParams.get('day');
 	if (requested !== null && (!isValidDay(requested) || requested >= today)) {
@@ -72,7 +73,7 @@ export const actions: Actions = {
 		if (exerciseId === undefined || (kind !== 'add' && kind !== 'skip')) {
 			return fail(400, { action: 'pick', message: 'Pick an exercise to add or skip.' });
 		}
-		const now = Date.now();
+		const now = serverNow();
 		try {
 			const day = localDay(now, zone(locals));
 			const { created, unskipped } = addPicks(getDb(), wall, [exerciseId], day, kind, now);
@@ -100,7 +101,7 @@ export const actions: Actions = {
 	 */
 	next: async ({ params, locals }) => {
 		const wall = wallOf(params, locals);
-		const now = Date.now();
+		const now = serverNow();
 		const tz = zone(locals);
 		const db = getDb();
 		const input = dayInputOf(db, wall, tz, now);

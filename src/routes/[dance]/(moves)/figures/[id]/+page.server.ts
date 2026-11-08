@@ -80,6 +80,7 @@ import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/vi
 import { realCloneFiles } from '$lib/server/clones/files';
 import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * A figure's handholds as its page shows them: its own tags by their real ids
@@ -184,7 +185,7 @@ const taken = (figure: string, name: string) =>
 const figureTaken = (name: string) => `There's already a move called ${name}.`;
 
 export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
-	const now = Date.now();
+	const now = serverNow();
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 
@@ -537,7 +538,7 @@ export const actions: Actions = {
 			row.teamId !== null,
 			variationSeen(db, row.id),
 			{ action: 'update' as const },
-			Date.now(),
+			serverNow(),
 			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
 		);
 		if (clash) return clash;
@@ -668,7 +669,7 @@ export const actions: Actions = {
 	archive: ({ params, locals }) => {
 		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
-		const done = archiveVariation(db, figure.id, Date.now(), me(params, locals));
+		const done = archiveVariation(db, figure.id, serverNow(), me(params, locals));
 		if (!done) throw error(404, 'Figure not found');
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
@@ -772,7 +773,7 @@ export const actions: Actions = {
 			into,
 			recordingId,
 			realCloneFiles(),
-			Date.now(),
+			serverNow(),
 			await freeDisk()
 		);
 		if (res.ok) return { action: 'takeRecording', taken: recordingId };
@@ -882,7 +883,7 @@ export const actions: Actions = {
 		if (
 			!link ||
 			!(ownTarget || onOwnRecording) ||
-			!unlinkSpot(getDb(), link.id, link.target, Date.now(), me(params, locals))
+			!unlinkSpot(getDb(), link.id, link.target, serverNow(), me(params, locals))
 		) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}

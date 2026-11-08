@@ -5,6 +5,7 @@ import { allows, spotAccess } from '$lib/server/access';
 import { unlinkFromSection } from '$lib/server/spot-links';
 import { unlinkSpotFromPosition } from '$lib/server/position-links';
 import type { RequestHandler } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 const id = (raw: string, what: string): number => {
 	const n = /^\d+$/.test(raw) ? Number(raw) : 0;
@@ -31,8 +32,8 @@ export const DELETE: RequestHandler = ({ params, url, locals }) => {
 	const alsoLesson = url.searchParams.get('alsoLesson') === '1';
 	const gone =
 		kind === 'position'
-			? unlinkSpotFromPosition(db, linkId, Date.now(), locals.user.id, { spotId, alsoLesson })
-			: unlinkFromSection(db, spotId, linkId, alsoLesson, Date.now(), locals.user.id);
+			? unlinkSpotFromPosition(db, linkId, serverNow(), locals.user.id, { spotId, alsoLesson })
+			: unlinkFromSection(db, spotId, linkId, alsoLesson, serverNow(), locals.user.id);
 	if (!gone) throw error(404, 'No such link');
 	const options = linkOptionsFor(db, spotId, locals.user!.id);
 	if (!options) throw error(404, 'No such section');

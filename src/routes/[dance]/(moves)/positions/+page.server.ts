@@ -7,6 +7,7 @@ import { wallOf } from '$lib/server/scope';
 import { mapData } from '$lib/server/positions-map';
 import { templateTypes } from '$lib/positions/templates';
 import type { Actions, PageServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The map: on the desktop the pane beside the list with nothing open (the
@@ -31,7 +32,7 @@ export const actions: Actions = {
 		if (!('input' in read)) {
 			return fail(400, { ...typed, field: read.field, message: read.message });
 		}
-		const made = createPosition(db, space, read.input, Date.now());
+		const made = createPosition(db, space, read.input, serverNow());
 		if ('field' in made) return fail(400, { ...typed, field: made.field, message: made.message });
 		throw redirect(303, `/${space.dance}/positions/${made.id}`);
 	},
@@ -48,7 +49,7 @@ export const actions: Actions = {
 		if (names.length === 0) {
 			return fail(400, { action: 'templates' as const, message: 'Tick at least one position.' });
 		}
-		const made = addTemplates(db, space, space.dance, type, names, Date.now());
+		const made = addTemplates(db, space, space.dance, type, names, serverNow());
 		return { action: 'templates' as const, added: made.length };
 	}
 };

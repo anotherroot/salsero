@@ -33,6 +33,7 @@ import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import { deletedGroupName } from '$lib/exercises/today';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * Every exercise that has not been archived, with its figure's partner flag
@@ -166,7 +167,7 @@ export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsI
 			tx,
 			space,
 			{ ...ofDrill(drill.id), verb: 'add', subject: 'drill', after: { name: drill.name } },
-			Date.now()
+			serverNow()
 		);
 		return drill;
 	});
@@ -188,7 +189,7 @@ export function updateExercise(
 	id: number,
 	input: SettingsInput,
 	by?: string,
-	now = Date.now(),
+	now = serverNow(),
 	verb: 'change' | 'restore' = 'change'
 ) {
 	return db.transaction((tx) => {

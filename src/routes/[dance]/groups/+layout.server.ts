@@ -3,6 +3,7 @@ import { wallOf } from '$lib/server/scope';
 import { myClassOf, teamsWithNew } from '$lib/server/my-class';
 import { levelShown } from '$lib/levels/levels';
 import type { LayoutServerLoad } from './$types';
+import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The Groups list, once, for the list page and for a group (or its People,
@@ -21,5 +22,5 @@ export const load: LayoutServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const teams = teamsWithNew(db, wall);
 	if (levelShown(locals.user!.level) !== 'follow') return { teams, myClass: null };
-	return { teams, myClass: myClassOf(db, wall, teams, locals.user!.timezone, Date.now()) };
+	return { teams, myClass: myClassOf(db, wall, teams, locals.user!.timezone, serverNow()) };
 };
