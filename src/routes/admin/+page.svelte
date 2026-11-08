@@ -38,9 +38,16 @@
 	let copied = $state(false);
 	/** The invite's language: most people invited are Slovenian. */
 	let inviteLocale = $state<Locale | null>('sl');
+	/**
+	 * What the server took for each person since the page loaded: the list's copy of a
+	 * person lags behind it until it refreshes, and a reopen must show the new one.
+	 */
+	let savedLocales = $state<Record<string, Locale | null>>({});
+	const localeOf = (p: PageData['people'][number]): Locale | null =>
+		(p.id in savedLocales ? savedLocales[p.id] : p.locale) ?? null;
 	/** The open person's language: what the Sheet shows, and what the server last took. */
-	let localeChoice = $derived<Locale | null>(person?.locale ?? null);
-	let localeSaved = $derived<Locale | null>(person?.locale ?? null);
+	let localeChoice = $derived<Locale | null>(person ? localeOf(person) : null);
+	let localeSaved = $derived<Locale | null>(person ? localeOf(person) : null);
 	let localeSaving = $state(false);
 	let localeError = $state('');
 	let localeForm = $state<HTMLFormElement>();
@@ -339,13 +346,16 @@
 					return cancel();
 				}
 				const sent = formData.get('locale') as Locale;
+				const who = String(formData.get('userId'));
 				localeSending = sent;
 				localeSaving = true;
 				localeError = '';
 				return async ({ result, update }) => {
 					try {
-						if (result.type === 'success') localeSaved = sent;
-						else {
+						if (result.type === 'success') {
+							savedLocales[who] = sent;
+							localeSaved = sent;
+						} else {
 							localeError =
 								result.type === 'failure'
 									? String(result.data?.message ?? t().admin.languageFailed)
