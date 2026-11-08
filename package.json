@@ -13,6 +13,7 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run",
+		"test:device": "vitest --run -c vitest.device.config.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:studio": "drizzle-kit studio",
 		"check:types": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -46,6 +47,7 @@
 	"dependencies": {
 		"@fontsource-variable/bricolage-grotesque": "^5.3.0",
 		"@fontsource-variable/manrope": "^5.3.0",
+		"@sqlite.org/sqlite-wasm": "3.54.1-build1",
 		"better-sqlite3": "^12.2.0",
 		"drizzle-orm": "^0.45.2",
 		"qrcode": "1.5.4"
