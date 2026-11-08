@@ -1216,3 +1216,23 @@ export type MergeRow = {
 	pick: string | null | undefined;
 	kind: 'field' | 'add' | 'remove';
 };
+
+/**
+ * The Sync sheet (`syncView`): the merge's rows across every live copy the
+ * person reads (the page's first), the copies they edit to land it on
+ * ("Sync to", the page's first, each with its digest for `seen`), and every
+ * copy by name, for the tiles' holders. `mode 'update'`: they edit only their
+ * own copy and read the others, so the sheet is "Update from <club>".
+ */
+export type SyncView = {
+	title: string;
+	rows: MergeRow[];
+	targets: { id: number; label: string; role: string; seen: string; ticked: boolean }[];
+	mode: 'sync' | 'update';
+	members: { id: number; label: string }[];
+};
+
+/** A Sync's answer: landed, less the copies refused alone; or refused as a whole. */
+export type SyncAllResult =
+	| { ok: true; refused: { id: number; message: string }[] }
+	| { ok: false; reason: 'pick' | 'denied'; message: string };

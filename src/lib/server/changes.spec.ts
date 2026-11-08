@@ -115,6 +115,7 @@ import type { CloneFiles } from './clones/files';
 import { compareWith, takeTheirs } from './clones/compare';
 import { sendMine, sendPreview } from './clones/send';
 import { flowFrom } from './clones/flow';
+import { syncAll, syncView } from './clones/sync';
 import { detach } from './clones/detach';
 import { copyTo } from './clones/copy-to';
 import { moveLesson } from './clones/move';
@@ -1075,6 +1076,39 @@ const MUTATIONS: {
 			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Flowed' });
 			const report = await flowFrom(db, 'u1', 'figure', mine.id, cloneFiles, T, GB);
 			return report.landed.includes(w.V) ? report : null;
+		}
+	},
+	// clones/sync.ts: Sync from u1's own copy lands her notes on the group's figure
+	// (landKeys logs it, as the actor: one change; her own copy logs nothing)
+	{
+		name: 'syncAll',
+		root: 'figure',
+		verb: 'change',
+		rootId: (w) => w.G,
+		teamOnly: true,
+		run: async (w) => {
+			const mine = await cloneInto(
+				db,
+				{ kind: 'figure', id: w.V, into: U1_SALSA, recordings: false },
+				cloneFiles,
+				T
+			);
+			if (!mine.ok) return null;
+			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Synced' });
+			const view = syncView(db, 'u1', 'figure', mine.id);
+			if (!view || view.targets.length !== 2) return null;
+			const res = await syncAll(
+				db,
+				'u1',
+				'figure',
+				mine.id,
+				{},
+				view.targets.map((t) => ({ id: t.id, seen: t.seen })),
+				cloneFiles,
+				T,
+				GB
+			);
+			return res.ok && res.refused.length === 0 ? res : null;
 		}
 	},
 	// clones/detach.ts: a group's figure leaves its family (an ordinary edit: one change)

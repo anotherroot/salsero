@@ -14,6 +14,7 @@ import { freeDisk } from './storage';
 import { realCloneFiles } from './clones/files';
 import { takeTheirs } from './clones/compare';
 import { sendMine } from './clones/send';
+import { syncAll } from './clones/sync';
 import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
 import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
@@ -144,6 +145,92 @@ export async function sendFrom(
 	if (results.every((r) => !r.result.ok && r.result.reason === 'denied'))
 		throw error(404, 'Not found');
 	return { action: 'send' as const, results };
+}
+
+/** At most this many picks in one Sync: far more than any item's fields. */
+export const MAX_SYNC_PICKS = 2000;
+
+/**
+ * The Sync sheet's picks (`{ key: <value hash> | null }`, as JSON: null is
+ * "absent"), or null when malformed.
+ */
+export function syncPicksFrom(
+	raw: FormDataEntryValue | null
+): Record<string, string | null> | null {
+	if (typeof raw !== 'string') return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+	const entries = Object.entries(parsed);
+	if (entries.length > MAX_SYNC_PICKS) return null;
+	const picks: Record<string, string | null> = {};
+	for (const [key, value] of entries) {
+		if (value !== null && typeof value !== 'string') return null;
+		picks[key] = value;
+	}
+	return picks;
+}
+
+/** The Sync sheet's ticked copies (`[{ id, seen }]`, as JSON), or null when malformed. */
+export function syncTargetsFrom(
+	raw: FormDataEntryValue | null
+): { id: number; seen: string }[] | null {
+	if (typeof raw !== 'string') return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_SEND_TARGETS)
+		return null;
+	const out: { id: number; seen: string }[] = [];
+	for (const t of parsed) {
+		if (!t || typeof t !== 'object') return null;
+		const { id, seen } = t as Record<string, unknown>;
+		if (!Number.isSafeInteger(id) || (id as number) <= 0 || typeof seen !== 'string') return null;
+		out.push({ id: id as number, seen });
+	}
+	return out;
+}
+
+/**
+ * The `sync` action (the Sync sheet, and a reader's Update mine): the merge
+ * the sheet picked lands on every ticked copy, each in its own transaction
+ * (`clones/sync.ts`). Answers `{ action: 'sync', refused }`, the copies that
+ * did not land with their words; a 409 while a row is open; the missing row's
+ * 404 when the person may not sync from this row or into a ticked copy.
+ */
+export async function syncFromForm(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	id: number,
+	request: Request
+) {
+	const form = await request.formData();
+	const picks = syncPicksFrom(form.get('picks'));
+	const targets = syncTargetsFrom(form.get('targets'));
+	if (picks === null || targets === null)
+		throw error(400, 'This page is out of date. Reload it and try again.');
+	const res = await syncAll(
+		db,
+		userId,
+		kind,
+		id,
+		picks,
+		targets,
+		realCloneFiles(),
+		Date.now(),
+		await freeDisk()
+	);
+	if (res.ok) return { action: 'sync' as const, refused: res.refused };
+	if (res.reason === 'denied') throw error(404, 'Not found');
+	return fail(409, { action: 'sync' as const, reason: res.reason, message: res.message });
 }
 
 /**

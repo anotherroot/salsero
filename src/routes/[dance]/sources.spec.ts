@@ -42,6 +42,7 @@ import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
 import * as compareApi from '../api/clones/compare/+server';
 import * as sendApi from '../api/clones/send/+server';
+import * as syncApi from '../api/clones/sync/+server';
 import * as copyApi from '../api/clones/copy/+server';
 import * as moveApi from '../api/clones/move/+server';
 import * as lessonPage from './lessons/[id]/+page.server';
@@ -322,6 +323,85 @@ describe('Copies you can see, and Send mine', () => {
 		expect(
 			await run(figurePage.actions.send, ev('u2', C, { form: { targets: JSON.stringify(many) } }))
 		).toMatchObject({ status: 400 });
+	});
+});
+
+describe('Sync', () => {
+	const preview = (uid: string, kind: string, id: number) =>
+		run(syncApi.GET, {
+			url: new URL(`http://localhost/api/clones/sync?kind=${kind}&id=${id}`),
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } }
+		});
+
+	it('an editor’s own copy syncs into the group’s; a stale sheet is refused for that copy', async () => {
+		const { F } = await setenta();
+		const mine = await copyInto('figure', F, { userId: 'u3', dance: 'salsa' });
+		db.update(figures).set({ notes: 'Hips first' }).where(eq(figures.id, mine)).run();
+		const view = await (await preview('u3', 'figure', mine)).json();
+		expect(view.mode).toBe('sync');
+		expect(view.targets.map((t: Answer) => [t.id, t.role])).toEqual([
+			[mine, 'this one'],
+			[F, 'editor']
+		]);
+		const form = {
+			picks: '{}',
+			targets: JSON.stringify(view.targets.map((t: Answer) => ({ id: t.id, seen: t.seen })))
+		};
+		expect(await run(figurePage.actions.sync, ev('u3', mine, { form }))).toEqual({
+			action: 'sync',
+			refused: []
+		});
+		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.notes).toBe('Hips first');
+		// The same sheet again: the group's changed since it was opened.
+		db.update(figures).set({ notes: 'Later' }).where(eq(figures.id, F)).run();
+		expect(await run(figurePage.actions.sync, ev('u3', mine, { form }))).toMatchObject({
+			action: 'sync',
+			refused: [{ id: F }]
+		});
+	});
+
+	it('a reader updates only their own; the group’s copy as a target is the missing row', async () => {
+		const { F, C } = await setenta();
+		db.update(figures).set({ notes: 'Club' }).where(eq(figures.id, F)).run();
+		const view = await (await preview('u2', 'figure', C)).json();
+		expect(view).toMatchObject({ mode: 'update', title: 'Update from Salsa Tuesdays' });
+		const seen = (id: number) => view.targets.find((t: Answer) => t.id === id)?.seen;
+		const into = (targets: object[]) => ({ picks: '{}', targets: JSON.stringify(targets) });
+		expect(
+			await run(figurePage.actions.sync, ev('u2', C, { form: into([{ id: F, seen: 'x' }]) }))
+		).toMatchObject({ status: 404 });
+		expect(
+			await run(figurePage.actions.sync, ev('u2', C, { form: into([{ id: C, seen: seen(C) }]) }))
+		).toEqual({ action: 'sync', refused: [] });
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.notes).toBe('Club');
+		expect(await preview('u4', 'figure', C)).toMatchObject({ status: 404 });
+		expect(await preview('u2', 'nonsense', C)).toMatchObject({ status: 404 });
+		expect(
+			await run(figurePage.actions.sync, ev('u2', C, { form: { picks: '{}', targets: '[]' } }))
+		).toMatchObject({ status: 400 });
+		expect(
+			await run(figurePage.actions.sync, ev('u2', C, { form: { picks: '[1]', targets: '[]' } }))
+		).toMatchObject({ status: 400 });
+	});
+
+	it('an open row is a 409 with its words', async () => {
+		const { F, C } = await setenta();
+		db.update(figures).set({ notes: 'Club' }).where(eq(figures.id, F)).run();
+		db.update(figures).set({ notes: 'Mine' }).where(eq(figures.id, C)).run();
+		const view = await (await preview('u2', 'figure', C)).json();
+		const form = {
+			picks: '{}',
+			targets: JSON.stringify([{ id: C, seen: view.targets[0].seen }])
+		};
+		expect(await run(figurePage.actions.sync, ev('u2', C, { form }))).toMatchObject({
+			status: 409,
+			data: { action: 'sync', reason: 'pick' }
+		});
+	});
+
+	it('every item page has the action', () => {
+		for (const page of [figurePage, routinePage, lessonPage])
+			expect(typeof (page.actions as Answer).sync).toBe('function');
 	});
 });
 

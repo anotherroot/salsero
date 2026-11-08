@@ -56,6 +56,7 @@ import {
 	dropFrom,
 	sameAsFrom,
 	sendFrom,
+	syncFromForm,
 	separateFrom,
 	takeFrom
 } from '$lib/server/take-form';
@@ -430,6 +431,12 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 	send: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return sendFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
+	},
+
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return syncFromForm(getDb(), locals.user!.id, 'routine', routine.id, request);
 	},
 
 	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */

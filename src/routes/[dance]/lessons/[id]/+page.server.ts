@@ -49,6 +49,7 @@ import {
 	moveToFrom,
 	sameAsFrom,
 	sendFrom,
+	syncFromForm,
 	separateFrom,
 	takeFrom
 } from '$lib/server/take-form';
@@ -452,6 +453,12 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 	send: ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return sendFrom(getDb(), locals.user!.id, 'lesson', lesson.id, request);
+	},
+
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return syncFromForm(getDb(), locals.user!.id, 'lesson', lesson.id, request);
 	},
 
 	/** Drop my copy (board C5): this lesson goes for the class’s, whose page opens. */

@@ -982,3 +982,25 @@ export function sameAsEmpty(kind: TwinKind): string {
 export const SAME_AS_SEARCH = sameAsSearch('figure');
 export const SAME_AS_EMPTY = sameAsEmpty('figure');
 export const SAME_AS_FAILED = 'That could not be saved. Try again.';
+
+/** The Sync sheet's title: "Sync Enchufla · Doble". */
+export function syncTitle(label: string): string {
+	return `Sync ${label}`;
+}
+
+/** A reader's sheet: "Update from Salsa Tuesdays". */
+export function updateTitle(place: string): string {
+	return `Update from ${place}`;
+}
+
+/** A copy that changed while the Sync sheet was open: it is left as it is. */
+export const SYNC_STALE = 'Changed since you opened Sync. Open it again.';
+
+/** A Sync sent with a row still open. */
+export const SYNC_PICK = 'Pick a value where copies differ.';
+
+/** A copy a Sync could not land on for a reason of its own (a missing file). */
+export const SYNC_FAILED = 'That copy could not be synced. Try again.';
+
+/** "Sync to": the page's own copy. */
+export const SYNC_THIS_ONE = 'this one';

@@ -78,7 +78,14 @@ import { flowAfter, flowing, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import {
+	copyToFrom,
+	detachFrom,
+	dropFrom,
+	sendFrom,
+	syncFromForm,
+	takeFrom
+} from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -736,6 +743,12 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 	send: ({ params, locals, request }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return sendFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
+	},
+
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return syncFromForm(getDb(), locals.user!.id, 'figure', figure.id, request);
 	},
 
 	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */

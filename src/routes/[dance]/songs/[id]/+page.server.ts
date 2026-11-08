@@ -18,6 +18,7 @@ import {
 	dropFrom,
 	sameAsFrom,
 	sendFrom,
+	syncFromForm,
 	separateFrom,
 	takeFrom
 } from '$lib/server/take-form';
@@ -325,6 +326,13 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
 		return sendFrom(db, locals.user!.id, 'song', song.id, request);
+	},
+
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
+		const db = getDb();
+		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
+		return syncFromForm(db, locals.user!.id, 'song', song.id, request);
 	},
 
 	/** Drop my copy (board C5): this song goes for the class’s, whose page opens. */
