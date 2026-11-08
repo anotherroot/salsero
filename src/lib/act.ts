@@ -13,6 +13,7 @@ import { invalidateAll } from '$app/navigation';
 import type { ActionResult } from '@sveltejs/kit';
 import { markSent } from '$lib/sheets/history.svelte';
 import { STALE_HEADER } from '$lib/page-epoch';
+import { t } from '$lib/i18n/catalog';
 
 export type Field = string | number | null | (string | number)[];
 
@@ -62,7 +63,7 @@ export async function sendAt(
 		});
 		return deserialize(await res.text());
 	} catch {
-		return { type: 'failure', status: 0, data: { message: 'Could not reach the server.' } };
+		return { type: 'failure', status: 0, data: { message: t().common.unreachable } };
 	}
 }
 
@@ -89,7 +90,7 @@ async function post(url: string, fields: Record<string, Field>): Promise<ActionR
 		stale = res.headers.has(STALE_HEADER);
 		result = deserialize(await res.text());
 	} catch {
-		result = { type: 'failure', status: 0, data: { message: 'Could not reach the server.' } };
+		result = { type: 'failure', status: 0, data: { message: t().common.unreachable } };
 	}
 	// The load re-runs BEFORE `form` is set: re-running it after would lose the
 	// message, and setting it to a success is what clears an earlier refusal

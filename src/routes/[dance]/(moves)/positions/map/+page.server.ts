@@ -40,7 +40,7 @@ export const actions: Actions = {
 		const made = createRoutineFromFigures(db, space, { name, notes: null }, figureIds);
 		// Every id from the page is a figure the space may use; anything else is a
 		// tampered body or a stale page, answered as every other id out of reach.
-		if (!made) throw error(404, 'Figure not found');
+		if (!made) throw error(404, t().map.walk.notFound);
 		throw redirect(303, `/${space.dance}/routines/${made.routine.id}`);
 	}
 };

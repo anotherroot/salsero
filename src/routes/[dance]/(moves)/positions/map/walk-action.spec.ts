@@ -26,6 +26,7 @@ import { createTeam, joinTeam } from '$lib/server/teams';
 import { groupCookie } from '$lib/teams/mode';
 import type { Space } from '$lib/server/scope';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions } from './+page.server';
 
 let db: Db;
@@ -139,7 +140,8 @@ describe('the map’s routine action', () => {
 		const mine = figure(U2_SALSA);
 		const theirs = figure(U1_SALSA);
 		await expect(run(post('u2', [['name', 'Theft'], ...ids(mine, theirs)]))).rejects.toMatchObject({
-			status: 404
+			status: 404,
+			body: { message: 'Figure not found' }
 		});
 		expect(db.select().from(routines).all()).toEqual([]);
 	});
@@ -154,5 +156,32 @@ describe('the map’s routine action', () => {
 			.get()!;
 		expect(r).toMatchObject({ teamId: 1, userId: null });
 		expect(slotFigures(r.id)).toEqual([[club], [club]]);
+	});
+});
+
+describe('the map’s routine action in Slovenian', () => {
+	/** What the action refuses with, run as the hook runs a request: inside `runInLocale`. */
+	const said = (event: ReturnType<typeof post>) =>
+		runInLocale('sl', async () => {
+			try {
+				const res = (await run(event)) as { data?: { message?: string } };
+				return res.data?.message;
+			} catch (e) {
+				return (e as { body?: { message?: string } }).body?.message;
+			}
+		});
+
+	it('refuses in the person’s language: no name, no figures, a figure out of reach', async () => {
+		const mine = figure(U2_SALSA);
+		const theirs = figure(U1_SALSA);
+		expect(await said(post('u2', [['name', ''], ...ids(mine)]))).toBe(
+			'Kombinaciji dajte ime (do 200 znakov).'
+		);
+		expect(await said(post('u2', [['name', 'Prazno']]))).toBe(
+			'Najprej dodajte vsaj eno različico.'
+		);
+		expect(await said(post('u2', [['name', 'Kraja'], ...ids(theirs)]))).toBe(
+			'Različice ni mogoče najti'
+		);
 	});
 });

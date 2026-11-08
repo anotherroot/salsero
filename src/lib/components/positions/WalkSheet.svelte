@@ -10,6 +10,8 @@
 	import { guarded, track } from '$lib/unsaved/guard.svelte';
 	import { holdReloadWhile } from '$lib/nav/fresh.svelte';
 	import { sendAt } from '$lib/act';
+	import { invalidate } from '$app/navigation';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { TONE_VAR, type MapData, type MapFig } from '$lib/positions/map-view';
 	import {
 		currentOf,
@@ -43,6 +45,7 @@
 		onundo,
 		onclear,
 		onsaved,
+		onmade,
 		node = $bindable(null)
 	}: {
 		map: MapData;
@@ -53,6 +56,8 @@
 		onclear: () => void;
 		/** The dialog's Save made the routine: the walk is over. */
 		onsaved: () => void;
+		/** Make routine made it: the walk and its panel close before the routine page opens. */
+		onmade: () => void;
 		node?: HTMLElement | null;
 	} = $props();
 
@@ -106,7 +111,11 @@
 					}),
 					t().shell.unsaved.didNotSave
 				);
-				if (o.ok) onsaved();
+				if (o.ok) {
+					// The (moves) lists load once: the Routines list must hear of the new routine.
+					await invalidate('app:moves');
+					onsaved();
+				}
 				return o;
 			}
 		});
@@ -311,9 +320,14 @@
 								else if (result.type === 'error') {
 									const o = saveOutcome(result, t().shell.unsaved.didNotSave);
 									refusal = { message: o.ok ? undefined : o.message };
-								}
-								// A redirect: on to the new routine, its own page.
-								else await update();
+								} else if (result.type === 'redirect') {
+									// As the Routines list does: the sheets close (this one, the walk, the
+									// panel), then the new routine opens once their Back has landed, so
+									// no map entry is left between it and the page before.
+									naming = false;
+									onmade();
+									await gotoWhenSettled(result.location, { invalidateAll: true });
+								} else await update();
 							} finally {
 								busy = false;
 								making = false;

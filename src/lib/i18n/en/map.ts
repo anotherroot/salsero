@@ -102,6 +102,8 @@ export const map = {
 		name: 'Name',
 		nameError: 'Give the routine a name (up to 200 characters).',
 		noFigures: 'Walk at least one figure first.',
+		/** A walked figure the space may no longer use (a stale page). */
+		notFound: 'Figure not found',
 		create: 'Create routine',
 		creating: 'Creating routine',
 		/** The strip's name for a screen reader. */

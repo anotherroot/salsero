@@ -276,6 +276,7 @@
 						onundo={() => walk && (walk = undo(walk))}
 						onclear={endWalk}
 						onsaved={endWalk}
+						onmade={close}
 					/>
 				{:else if sheet}
 					<MapSheet

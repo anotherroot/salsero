@@ -87,6 +87,7 @@ export const map: Catalog['map'] = {
 		name: 'Ime',
 		nameError: 'Kombinaciji dajte ime (do 200 znakov).',
 		noFigures: 'Najprej dodajte vsaj eno različico.',
+		notFound: 'Različice ni mogoče najti',
 		create: 'Ustvari kombinacijo',
 		creating: 'Ustvarjanje kombinacije',
 		path: 'Sprehod doslej'
