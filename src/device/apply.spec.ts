@@ -10,7 +10,8 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { pull as rawPull, serverDigest } from '$lib/server/sync/pull';
 import { syncScope } from '$lib/server/sync/scope';
-import { makeWorld } from '$lib/server/sync/test-world';
+import { addFigureSlot, moveSlotTo } from '$lib/server/routines';
+import { makeWorld, type World } from '$lib/server/sync/test-world';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { SYNCED } from '$lib/sync/tables';
 import type { PullResponse } from '$lib/sync/wire';
@@ -19,11 +20,12 @@ import { applyPull, deviceDigests, pullRequestOf, wipeCopy } from './apply';
 import { repoMigrations } from './test-migrations';
 
 let server: Db;
+let world: World;
 let device: Database.Database;
 
 beforeEach(() => {
 	server = openDb(':memory:');
-	makeWorld(server);
+	world = makeWorld(server);
 	device = new Database(':memory:');
 	migrateDevice(device, repoMigrations());
 	device.pragma('foreign_keys = ON');
@@ -123,9 +125,44 @@ describe('applyPull', () => {
 			})
 		).toThrow();
 		expect(counts()).toEqual(before);
-		expect(readMeta(device)).toEqual(metaBefore);
 		expect(device.pragma('foreign_keys', { simple: true })).toBe(1);
 		expect(device.inTransaction).toBe(false);
+		// The next pull asks for everything: a failed one must not be sent again as it was.
+		expect(readMeta(device)).toEqual({ ...metaBefore, full: true });
+	});
+
+	it('a swap of two slots that conflicts as upserts is healed by a full pull', async () => {
+		const own = world.own.u1;
+		const second = addFigureSlot(server, own.routine, own.figure)!;
+		expect(second).toBeTruthy();
+		applyPull(device, pull('u1'));
+		expect(readMeta(device).full).toBe(false);
+		expect(moveSlotTo(server, own.routine, second, 0)).toBe(true);
+
+		const incremental = rawPull(server, 'u1', await pullRequestOf(device, SCHEMA_TAG));
+		if ('refused' in incremental) throw new Error('refused');
+		expect(incremental.full).not.toContain('routine_steps');
+		expect(incremental.changed.routine_steps.rows.length).toBeGreaterThan(1);
+
+		const before = counts();
+		const slots = () =>
+			device
+				.prepare('SELECT id, position FROM routine_steps WHERE routine_id = ? ORDER BY id')
+				.all(own.routine);
+		const slotsBefore = slots();
+		expect(() => applyPull(device, incremental)).toThrow(/UNIQUE/);
+		expect(counts()).toEqual(before);
+		expect(slots()).toEqual(slotsBefore);
+		expect(readMeta(device).full).toBe(true);
+		expect('digests' in (await pullRequestOf(device, SCHEMA_TAG))).toBe(false);
+
+		applyPull(device, pull('u1'));
+		const serverSlots = server.all(
+			sql`SELECT id, position FROM routine_steps WHERE routine_id = ${own.routine} ORDER BY id`
+		);
+		expect(slots()).toEqual(serverSlots);
+		expect(slots()).not.toEqual(slotsBefore);
+		expect(readMeta(device).full).toBe(false);
 	});
 
 	it('takes rows that point at rows the device never gets', () => {

@@ -88,10 +88,18 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 		} catch {
 			/* the transaction is already gone */
 		}
-		throw e;
-	} finally {
 		db.pragma('foreign_keys = ON');
+		// An incremental pull can fail for good (a non-key unique index that two swapped
+		// rows trip over) and the cursor did not move, so it would be sent again and fail
+		// again. A full pull deletes before it inserts and cannot conflict: ask for that one.
+		try {
+			writeMetaValue(db, 'full', '1');
+		} catch {
+			/* the database itself is failing; the original error is the one to report */
+		}
+		throw e;
 	}
+	db.pragma('foreign_keys = ON');
 }
 
 async function sha256Hex(text: string): Promise<string> {
