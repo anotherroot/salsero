@@ -94,7 +94,7 @@
 	 * with the entry's id in the form, never to the entry's URL.
 	 */
 	const pageId = $derived(page.params.id);
-	/** Today's list beside the pane (desktop): its session, and the session's line. */
+	/** Today's layout around the page: its session (`?session=1`), and Not today. */
 	const today = todayPane();
 
 	// --- The time and Done (spec "The exercise page (one page)").
@@ -148,18 +148,13 @@
 		doneOpen = false;
 		run = null;
 		practiceKey++;
-		// Until Task 8 shrinks the layout's session: its tally and walk, then its next.
-		today?.logged(clock.seconds);
-		const session = today?.session ?? null;
-		if (session) {
-			if (session.next) session.onnext();
-			else session.onfinish();
-		} else {
+		// A session opens its next page (or goes back to Today after the last).
+		if (today?.session) today.session.onnext();
+		else
 			void backWhenSettled({
 				href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
 				label: t().shell.backTo(t().shell.tabs.today)
 			});
-		}
 		clock.restart();
 	}
 
@@ -763,8 +758,6 @@
 {/snippet}
 
 {#snippet lastTime()}
-	<!-- A session's place, above Last time (desktop: the pane's header). -->
-	{#if today?.line}<p class="text-[13px] font-extrabold text-accent-text">{today.line}</p>{/if}
 	<LastTime last={data.practice.last} />
 {/snippet}
 

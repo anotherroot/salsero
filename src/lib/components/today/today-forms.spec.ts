@@ -32,13 +32,15 @@ describe("Today's list forms", () => {
 });
 
 /*
- * The log form is drawn by Today's layout (the phone's popup, on the list route or
- * beside an open exercise) and by a past day; the exercise page saves through its
- * Done sheet. Each names the route whose action it means; a refusal from another
- * route than the page's reaches the form through the submit result.
+ * The log form (LogShell) is the figure and lesson pages' until they move to Done;
+ * Today draws none. The exercise page and a past day save through the Done sheet.
+ * Each names the route whose action it means; a refusal from another route than
+ * the page's reaches the form through the submit result.
  */
 const SHELL = 'src/lib/components/exercises/LogShell.svelte';
 const EXERCISE = 'src/routes/[dance]/(today)/exercises/[id]/+page.svelte';
+const LAYOUT = 'src/routes/[dance]/(today)/+layout.svelte';
+const PAST = 'src/routes/[dance]/(today)/+page.svelte';
 
 describe('The log form', () => {
 	it('LogShell posts where it is told, never to a bare action', () => {
@@ -47,16 +49,23 @@ describe('The log form', () => {
 		expect(src).not.toMatch(/action="\?\//);
 	});
 
-	it("Today's popup posts to Today", () => {
-		expect(readFileSync('src/routes/[dance]/(today)/+layout.svelte', 'utf8')).toContain(
-			'action="/{dance}?/log"'
-		);
+	it("a past day's Done sheet posts to Today's done, no time and no faces' times", () => {
+		const src = readFileSync(PAST, 'utf8');
+		expect(src).not.toMatch(/<Log\b/);
+		const sheets = src.match(/<DoneSheet\b[\s\S]*?\/>/g) ?? [];
+		expect(sheets.length).toBe(1);
+		expect(sheets[0]).toContain('action="/{data.dance.slug}?/done"');
+		expect(sheets[0]).toMatch(/\bfaces=\{null\}/);
+		expect(sheets[0]).toMatch(/\bseconds=\{null\}/);
+		expect(sheets[0]).toMatch(/\bday=\{past\.day\}/);
 	});
 
-	it("a past day's popup posts to Today", () => {
-		expect(readFileSync('src/routes/[dance]/(today)/+page.svelte', 'utf8')).toContain(
-			'action="/{data.dance.slug}?/log"'
-		);
+	it("Today's layout draws no log popup", () => {
+		const src = readFileSync(LAYOUT, 'utf8');
+		expect(src).not.toMatch(/<Log\b/);
+		expect(src).not.toMatch(/\blogFor\b/);
+		expect(src).not.toContain('?/log');
+		expect(src).not.toMatch(/\bpagePopup\b/);
 	});
 
 	it("the exercise page's Done sheet posts to the page's own done, never an exercise URL", () => {
@@ -72,6 +81,16 @@ describe('The log form', () => {
 		expect(src).toMatch(/act\('done', \{/);
 	});
 
+	it('after a save the exercise page goes on through the session, else back', () => {
+		const src = readFileSync(EXERCISE, 'utf8');
+		const fn = src.match(/function saved\(r: DoneResult\): void \{([\s\S]*?)\n\t\}/)?.[1] ?? '';
+		expect(fn).toMatch(
+			/announceSaved\([\s\S]*if \(today\?\.session\) today\.session\.onnext\(\);\s*else\s+void backWhenSettled\(/
+		);
+		expect(fn).toMatch(/clock\.restart\(\)/);
+		expect(src).not.toMatch(/today\??\.(line|logged|follow|key|undoable)\b/);
+	});
+
 	it('LogShell shows a refusal from the submit result', () => {
 		const src = readFileSync(SHELL, 'utf8');
 		expect(src).toMatch(/result\.type === 'failure'/);
@@ -80,16 +99,19 @@ describe('The log form', () => {
 	});
 });
 
-/*
- * Never two log forms (Review Focus 5): on the desktop the pane's form is the
- * open exercise's, so Today's popup is the phone's alone, whatever opened it
- * (Start session, Resume, a window that widened with it open).
- */
-describe("Today's popup", () => {
-	it('is never drawn on the desktop', () => {
-		const src = readFileSync('src/routes/[dance]/(today)/+layout.svelte', 'utf8');
-		const popup = src.match(/\{#if ([^}]*)\}\s*\{#key `\$\{open\.id\}/);
-		expect(popup?.[1]).toMatch(/!desk\.current\b/);
+/* Today's rows open the exercise's page: no + of their own, a muted chevron at every width. */
+describe("Today's rows", () => {
+	it('ExerciseRow has no log button', () => {
+		const src = readFileSync('src/lib/components/today/ExerciseRow.svelte', 'utf8');
+		expect(src).not.toMatch(/logSet/);
+		expect(src).not.toMatch(/\bonlog\b/);
+		expect(src).toMatch(/class="[^"]*\btext-chevron\b[^"]*"><Icon name="chevron-right"/);
+	});
+
+	it('TodayList passes no onlog', () => {
+		expect(readFileSync('src/lib/components/today/TodayList.svelte', 'utf8')).not.toMatch(
+			/\bonlog\b/
+		);
 	});
 });
 

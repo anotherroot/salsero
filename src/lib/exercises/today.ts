@@ -166,11 +166,6 @@ export function nothingLeftMeta(next: { day: string; more: number }, today: stri
 	return next.more > 0 ? t().today.list.andMore(day, next.more) : day;
 }
 
-/** The toast after a set, worded as the row: "Setenta · back in a week", "Setenta · back tomorrow". */
-export function undoLogMessage(name: string, gap: number): string {
-	return `${name} · ${lower(backWords(gap))}`;
-}
-
 /** Not today's toast: "Setenta · Not today". */
 export function notTodayMessage(name: string): string {
 	return t().today.toast.notToday(name);

@@ -40,7 +40,6 @@
 		currentId,
 		rowSearch,
 		appUpdate,
-		onlog,
 		oncreate,
 		onrefused,
 		onskip
@@ -60,8 +59,6 @@
 		/** Appended to each row's link. */
 		rowSearch: string;
 		appUpdate: AppUpdate | null;
-		/** A row's +: its log popup (the phone). */
-		onlog: (exerciseId: number) => void;
 		/** New exercise: its sheet. */
 		oncreate: () => void;
 		/** Next was refused: the layout's toast says why. */
@@ -257,7 +254,6 @@
 				upNext={row.exercise.id === upNextId}
 				current={row.exercise.id === currentId}
 				search={rowSearch}
-				onlog={() => onlog(row.exercise.id)}
 				onskip={row.kind === 'done' ? undefined : () => onskip(row.exercise.id)}
 				swiped={swiped?.key === `today:${row.exercise.id}` ? swiped.side : null}
 				onswipe={(side) => (swiped = side ? { key: `today:${row.exercise.id}`, side } : null)}

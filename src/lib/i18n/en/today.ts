@@ -1,4 +1,4 @@
-// Today: the list and its rows, the bar card, a session's lines, Coming up, a past
+// Today: the list and its rows, the bar card, Coming up, a past
 // day, New exercise, the toasts and the refusals. The schedule's own words (the gap,
 // due, back in …) are `format`'s (`src/lib/schedule/words.ts`).
 import { plural } from './plural';
@@ -16,8 +16,7 @@ export const today = {
 		/** The session's next row. */
 		upNext: 'Up next',
 		/** The swipe's button, and Coming up's skipped row. */
-		notToday: 'Not today',
-		logSet: (name: string): string => `Log a set of ${name}`
+		notToday: 'Not today'
 	},
 	/** A lesson's own exercise, named after the lesson (`shownExercise`, `src/lib/exercises/name.ts`). */
 	reviewOf: (title: string): string => `Review: ${title}`,
@@ -64,15 +63,6 @@ export const today = {
 		/** The pane with nothing open (desktop). */
 		soFar: 'Today so far'
 	},
-	session: {
-		/** "Session · 2 of 5 · 1 logged so far". */
-		line: (i: number, n: number, logged: number): string =>
-			`Session · ${i} of ${n}` + (logged > 0 ? ` · ${logged} logged so far` : ''),
-		/** The Session done card's second line: "3 exercises, 25 min". */
-		summary: (count: number, minutes: number): string =>
-			`${plural(count, 'exercise', 'exercises')}${minutes > 0 ? `, ${minutes} min` : ''}`,
-		nothingLogged: 'Nothing logged'
-	},
 	/** A past day's totals: "7 exercises". */
 	totals: (exercises: number): string => plural(exercises, 'exercise', 'exercises'),
 	coming: {
@@ -87,14 +77,14 @@ export const today = {
 	past: {
 		loggedToday: 'Logged today',
 		loggedThatDay: 'Logged that day',
-		addSet: (name: string): string => `Add a set of ${name} to this day`,
+		addSet: (name: string): string => `Add ${name} to this day`,
 		/** An entry with nothing to sum up. */
 		done: 'Done',
 		nothingToday: 'Nothing logged today',
 		nothingThatDay: 'Nothing logged on this day',
 		forgot: 'Forgot to log something that day?',
 		pick: 'Pick an exercise…',
-		logOn: (day: string): string => `Log a set on ${day}`,
+		logOn: (day: string): string => `Add to ${day}`,
 		search: 'Search exercises',
 		none: 'No exercises yet.'
 	},
@@ -129,7 +119,6 @@ export const today = {
 		addToToday: 'Could not add it to Today. Try again.',
 		skip: 'Could not skip it. Try again.',
 		putBack: 'Could not put it back. Try again.',
-		undoSet: 'Could not undo that set. Try again.',
 		undo: 'Could not undo that. Try again.',
 		addExercise: 'Could not add the exercise.',
 		pickWhat: 'Pick an exercise to add or skip.',

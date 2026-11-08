@@ -2,31 +2,54 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { levelShown, simple } from '$lib/levels/levels';
-	import { logFor } from '$lib/components/exercises/kinds';
+	import DoneSheet from '$lib/components/exercises/DoneSheet.svelte';
 	import PastDay from '$lib/components/today/PastDay.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { dayLabel, lastDoneLabel } from '$lib/format';
 	import { daysBetween } from '$lib/day/day';
-	import { typeOf } from '$lib/exercises/kinds';
+	import { mergeDay } from '$lib/exercises/day-entry';
+	import { addedMessage, doneSubtitle } from '$lib/exercises/done-view';
+	import { announceSaved } from '$lib/exercises/saved.svelte';
 	import { t } from '$lib/i18n/catalog';
-	import type { ActionData, PageData } from './$types';
+	import type { DoneResult } from '$lib/types';
+	import type { PageData } from './$types';
 
 	/*
-	 * A past day (`?day=`): what was logged, and a set added after the fact. Today
-	 * itself is the (today) layout's list; this page draws nothing then (on the
-	 * desktop the list's pane is the day so far, the layout's too).
+	 * A past day (`?day=`): what was logged, and Done added after the fact (a row's
+	 * +, or Forgot to log something). Today itself is the (today) layout's list;
+	 * this page draws nothing then (on the desktop the list's pane is the day so
+	 * far, the layout's too).
 	 */
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
-	let openId = $state<number | null>(null);
+	/** The exercise the Done sheet is for; kept while the sheet closes, so it closes as it was. */
+	let pickedId = $state<number | null>(null);
+	let doneOpen = $state(false);
 
-	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
-	// Every live exercise, paused ones too: a forgotten set can go on any of them.
-	const open = $derived(data.list.exercises.find((e) => e.id === openId) ?? null);
-	const openSets = $derived(data.past?.daySets.filter((s) => s.exerciseId === openId) ?? []);
-	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
+	// Every live exercise, paused ones too: a forgotten day can go on any of them.
+	const picked = $derived(data.list.exercises.find((e) => e.id === pickedId) ?? null);
+	/** That exercise's entry on the day, its rows read as one: the sheet starts from it. */
+	const entry = $derived.by(() => {
+		const rows = data.past?.daySets.filter((s) => s.exerciseId === pickedId) ?? [];
+		return rows.length === 0 ? null : mergeDay(rows);
+	});
+
+	function pick(id: number) {
+		pickedId = id;
+		doneOpen = true;
+	}
+
+	/** Added: the sheet closes, and "Added to Thu 5 Nov · Undo" shows over the day. */
+	function saved(r: DoneResult, day: string) {
+		doneOpen = false;
+		announceSaved({
+			dance: data.dance.slug,
+			message: addedMessage(day),
+			undo: { setId: r.setId, before: r.before }
+		});
+	}
 
 	/** Each exercise's type and partner, for a past day's tiles; archived ones are absent. */
 	const kinds = $derived(
@@ -34,11 +57,6 @@
 			data.list.exercises.map((e) => [e.id, { source: e.source, partner: e.partner }])
 		)
 	);
-
-	const failure = (action: string) =>
-		form && 'action' in form && form.action === action && 'message' in form
-			? (form.message ?? null)
-			: null;
 </script>
 
 <svelte:head>
@@ -82,25 +100,24 @@
 			daySets={past.daySets}
 			exercises={past.exercises}
 			{kinds}
-			onlog={(id) => (openId = id)}
+			onlog={pick}
 		/>
 	</Screen>
 
-	{#if open && Log}
-		{#key open.id}
-			<Log
-				dance={data.dance}
-				exercise={open}
-				sets={openSets}
-				songs={data.list.songs}
-				takes={data.list.takes}
-				backfillDay={past.day}
-				simple={simple(levelShown(page.data.user?.level))}
-				{timezone}
-				message={failure('log')}
-				action="/{data.dance.slug}?/log"
-				onclose={() => (openId = null)}
-			/>
-		{/key}
+	{#if picked}
+		<DoneSheet
+			open={doneOpen}
+			onclose={() => (doneOpen = false)}
+			action="/{data.dance.slug}?/done"
+			exerciseId={picked.id}
+			subtitle={doneSubtitle({ seconds: null, learning: null, day: past.day, name: picked.name })}
+			faces={null}
+			seconds={null}
+			run={null}
+			day={past.day}
+			simple={simple(levelShown(page.data.user?.level))}
+			current={entry}
+			onsaved={(r) => saved(r, past.day)}
+		/>
 	{/if}
 {/if}

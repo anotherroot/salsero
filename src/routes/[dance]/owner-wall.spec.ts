@@ -628,18 +628,31 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		expect(listExercises(db, U1_SALSA).map((e) => e.name)).toEqual(['Clave']);
 	});
 
-	it('logging, deleting and restoring a set of another person is a 404', async () => {
+	it("Done, a past day's Done and Undo on another person's exercise are a 404", async () => {
+		const before = db.select().from(setsTable).all();
 		await refuses(
-			todayPage.actions.log,
-			post(U2, 'salsa', { exerciseId: String(mine), reps: '5' })
+			todayPage.actions.done,
+			post(U2, 'salsa', { exerciseId: String(mine), rating: '4' })
 		);
-		await refuses(todayPage.actions.deleteSet, post(U2, 'salsa', { setId: String(setId) }));
 		await refuses(
-			todayPage.actions.restoreSet,
+			todayPage.actions.done,
 			post(U2, 'salsa', {
-				snapshot: JSON.stringify({
+				exerciseId: String(mine),
+				rating: '4',
+				day: shiftDay(localDay(Date.now(), U1.timezone), -1)
+			})
+		);
+		await refuses(
+			todayPage.actions.undoDone,
+			post(U2, 'salsa', { setId: String(setId), before: '' })
+		);
+		await refuses(
+			todayPage.actions.undoDone,
+			post(U2, 'salsa', {
+				setId: String(setId),
+				before: JSON.stringify({
 					exerciseId: mine,
-					doneAt: 1000,
+					doneAt: Date.now(),
 					durationS: 5,
 					reps: null,
 					rating: null,
@@ -649,7 +662,12 @@ describe("Today, the exercise page and the player refuse another person's exerci
 			})
 		);
 		expect(exerciseHistory(db, mine)).toHaveLength(1);
-		expect(db.select().from(setsTable).all()).toHaveLength(1);
+		expect(db.select().from(setsTable).all()).toEqual(before);
+	});
+
+	it('Today no longer takes the old log, delete and restore', () => {
+		for (const name of ['log', 'deleteSet', 'restoreSet'])
+			expect(todayPage.actions).not.toHaveProperty(name);
 	});
 
 	it('the exercise page: load and every action by id are a 404, nothing changes', async () => {

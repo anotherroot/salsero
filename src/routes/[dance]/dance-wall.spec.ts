@@ -227,27 +227,24 @@ beforeEach(() => {
 });
 
 describe("Today refuses the other dance's rows", () => {
-	it('will not log a set on an exercise from the other dance', async () => {
-		await refuses(
-			todayActions.log,
-			post('salsa', {
-				exerciseId: String(bachataExerciseId),
-				durationMin: '',
-				reps: '',
-				rating: '',
-				note: '',
-				day: ''
-			})
-		);
+	it('will not save Done on an exercise from the other dance, today or a past day', async () => {
+		for (const day of ['', '2020-01-01'])
+			await refuses(
+				todayActions.done,
+				post('salsa', { exerciseId: String(bachataExerciseId), rating: '4', note: '', day })
+			);
 		expect(db.select().from(sets).all()).toHaveLength(1);
 	});
 
-	it('will not delete a set that belongs to the other dance', async () => {
-		await refuses(todayActions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
+	it("will not undo a save of the other dance's", async () => {
+		await refuses(
+			todayActions.undoDone,
+			post('salsa', { setId: String(bachataSetId), before: '' })
+		);
 		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
-	it('will not restore a set onto an exercise of the other dance', async () => {
+	it("will not put back the other dance's entry, by Undo or a day's restore", async () => {
 		const snapshot = JSON.stringify({
 			exerciseId: bachataExerciseId,
 			doneAt: 1_000,
@@ -257,13 +254,27 @@ describe("Today refuses the other dance's rows", () => {
 			note: null,
 			playerJson: null
 		});
-		const before = db.select().from(sets).all().length;
-		await refuses(todayActions.restoreSet, post('salsa', { snapshot }));
+		const salsaSet = logSet(db, {
+			exerciseId: salsaExerciseId,
+			doneAt: 1_000,
+			durationS: 60,
+			reps: null,
+			rating: 3,
+			note: null,
+			playerJson: null
+		});
+		const before = db.select().from(sets).all();
+		// The salsa row's Undo, handed the bachata exercise's snapshot: refused, nothing changes.
+		const undone = await call(
+			todayActions.undoDone,
+			post('salsa', { setId: String(salsaSet.id), before: snapshot })
+		);
+		expect(undone).toMatchObject({ status: 400 });
 		await refuses(
 			exercisePage.actions.restoreDay,
 			post('salsa', { snapshots: `[${snapshot}]` }, String(salsaExerciseId))
 		);
-		expect(db.select().from(sets).all()).toHaveLength(before);
+		expect(db.select().from(sets).all()).toEqual(before);
 	});
 
 	it('will not archive an exercise from the other dance', async () => {
@@ -296,7 +307,7 @@ describe("Today refuses the other dance's rows", () => {
 			note: null,
 			playerJson: null
 		});
-		await call(todayActions.deleteSet, post('salsa', { setId: String(salsaSet.id) }));
+		await call(todayActions.undoDone, post('salsa', { setId: String(salsaSet.id), before: '' }));
 		expect(getSet(db, salsaSet.id)).toBeNull();
 	});
 });

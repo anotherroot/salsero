@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
 import type { DaySet } from '$lib/types';
-import { defaultOpen, dayTotals, sessionLine } from './today-pane';
+import { defaultOpen, dayTotals } from './today-pane';
 
 type Kind = 'done' | 'todo' | 'picked';
 const r = (id: number, kind: Kind) => ({ exercise: { id }, kind });
@@ -17,24 +17,6 @@ describe('defaultOpen', () => {
 	it('opens nothing when everything is done', () => {
 		expect(defaultOpen(day(r(1, 'done')))).toBeNull();
 		expect(defaultOpen(day())).toBeNull();
-	});
-});
-
-describe('sessionLine', () => {
-	it('opens the first walked item as 1, and a walked id also still due as its walked place', () => {
-		expect(sessionLine([1, 2], [3], 1, 2)).toBe('Session · 1 of 3 · 2 logged so far');
-		expect(sessionLine([4], [4, 5], 4, 0)).toBe('Session · 1 of 2');
-	});
-	it('counts the walked and the rest', () => {
-		expect(sessionLine([1], [2, 3, 4, 5], 2, 1)).toBe('Session · 2 of 5 · 1 logged so far');
-		expect(sessionLine([1, 2], [3, 4, 5], 2, 2)).toBe('Session · 2 of 5 · 2 logged so far');
-		expect(sessionLine([], [1, 2, 3], 1, 0)).toBe('Session · 1 of 3');
-	});
-	it('counts a skipped one still due once', () => {
-		expect(sessionLine([4], [4, 5], 5, 0)).toBe('Session · 2 of 2');
-	});
-	it('is null for an exercise outside the walk', () => {
-		expect(sessionLine([1], [2], 9, 1)).toBeNull();
 	});
 });
 
@@ -78,19 +60,6 @@ describe('in Slovenian', () => {
 	});
 	const sets = (exercises: number, total: number) =>
 		Array.from({ length: total }, (_, i) => set(i + 1, (i % exercises) + 1));
-
-	it.each([
-		[1, 'Vadba · 2 od 5 · doslej 1 vnos'],
-		[2, 'Vadba · 2 od 5 · doslej 2 vnosa'],
-		[3, 'Vadba · 2 od 5 · doslej 3 vnosi'],
-		[5, 'Vadba · 2 od 5 · doslej 5 vnosov']
-	])('the session line counts what was logged: %s', (logged, line) => {
-		expect(sl(() => sessionLine([1], [2, 3, 4, 5], 2, logged))).toBe(line);
-	});
-
-	it('the session line before anything is logged', () => {
-		expect(sl(() => sessionLine([], [1, 2, 3], 1, 0))).toBe('Vadba · 1 od 3');
-	});
 
 	it.each([
 		[1, 1, '1 vaja'],
