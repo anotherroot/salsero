@@ -11,7 +11,9 @@ import { readDecimal } from './number';
  */
 const ALLOWED_SAME: ReadonlySet<string> = new Set([
 	// ⋯ is a symbol in both languages.
-	'common.more'
+	'common.more',
+	// "Solo" is the word in Slovenian too (a solo figure, a chip).
+	'moves.chips.solo'
 ]);
 
 /**
@@ -23,7 +25,9 @@ const SAMPLE_ARGS: Readonly<Record<string, unknown[]>> = {
 	'format.inSpan': [2, 'week'],
 	'settings.voice.leaveSilent': [[2, 6]],
 	'groups.leave.everything': [['x'], 'x'],
-	'groups.leave.used': [['x'], null]
+	'groups.leave.used': [['x'], null],
+	'moves.heading.alsoIn': ['x', ['y']],
+	'moves.move.and': [['x', 'y']]
 };
 
 type Leaf = 'string' | 'function' | 'object' | 'other';

@@ -145,7 +145,17 @@ const TRANSLATED: string[] = [
 	'src/lib/components/player/StageCount.svelte',
 	'src/lib/components/songs/MusicSection.svelte',
 	'src/routes/[dance]/player/+page.svelte',
-	'src/routes/device/pair/+page.svelte'
+	'src/routes/device/pair/+page.svelte',
+	// Part 2. The Moves lists, a move's page and Coverage (Task 2).
+	'src/lib/components/moves/FiguresList.svelte',
+	'src/lib/components/moves/NavTile.svelte',
+	'src/lib/components/moves/RoutinesList.svelte',
+	'src/lib/components/moves/SyncCard.svelte',
+	'src/routes/[dance]/(moves)/+layout.svelte',
+	'src/routes/[dance]/(moves)/coverage/+page.svelte',
+	'src/routes/[dance]/(moves)/figures/+page.svelte',
+	'src/routes/[dance]/(moves)/moves/[id]/+page.svelte',
+	'src/routes/[dance]/(moves)/routines/+page.svelte'
 ];
 
 describe('englishIn', () => {
@@ -169,6 +179,14 @@ describe('englishIn', () => {
 		expect(
 			englishIn(
 				'<style>.a { color: red }</style><!-- a note --><p>{f({ a: "No way" })} Save it</p>'
+			)
+		).toEqual(['Save it']);
+	});
+
+	it('skips a comment inside an expression, an apostrophe in it included', () => {
+		expect(
+			englishIn(
+				"<form use:guarded={{\n\t// the layout's list stays\n\tlabel: t().a /* it's */\n}}>Save it</form>"
 			)
 		).toEqual(['Save it']);
 	});

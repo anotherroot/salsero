@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	figuresEmpty,
 	figuresHeading,
@@ -6,6 +7,7 @@ import {
 	filterQuery,
 	showTiles,
 	tileMetas,
+	styleLabelsOf,
 	type FigureFilter
 } from './figures';
 
@@ -133,5 +135,55 @@ describe('tileMetas', () => {
 		expect(tileMetas(7)).toEqual({ coverage: { text: '7 in no routine', status: true } });
 		expect(tileMetas(0).coverage).toEqual({ text: 'All in a routine', status: false });
 		expect(tileMetas(1).coverage.text).toBe('1 in no routine');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words the chips, the styles that differ included', () => {
+		const chips = sl(() =>
+			filterChips(
+				none,
+				['salsa', 'son', 'other'],
+				styleLabelsOf({ salsa: 'Salsa', son: 'Son', other: 'Other' }),
+				5
+			)
+		);
+		expect(chips.map((c) => c.label)).toEqual([
+			'Vse',
+			'Nepovezane',
+			'Salsa',
+			'Son',
+			'Drugo',
+			'V paru',
+			'Solo'
+		]);
+	});
+
+	it("keeps a dance's own style labels in English", () => {
+		const labels = { dominican: 'Dominican', sensual: 'Sensual', traditional: 'Traditional' };
+		expect(styleLabelsOf(labels)).toEqual(labels);
+		expect(sl(() => styleLabelsOf(labels))).toEqual({
+			dominican: 'Dominikanska',
+			sensual: 'Senzualna',
+			traditional: 'Tradicionalna'
+		});
+	});
+
+	it('puts the unlinked count after a colon', () => {
+		expect(sl(() => figuresHeading({ moves: 2, figures: 4 }, { q: '', unlinked: '1' }))).toBe(
+			'Brez odseka ali lekcije: 4'
+		);
+		expect(sl(() => figuresHeading({ moves: 2, figures: 3 }, { q: 'en' }))).toBe(
+			'3 različice ustrezajo'
+		);
+	});
+
+	it("words the Coverage tile's meta", () => {
+		expect(sl(() => tileMetas(7))).toEqual({
+			coverage: { text: 'Brez kombinacije: 7', status: true }
+		});
+		expect(sl(() => tileMetas(0)).coverage.text).toBe('Vse so v kombinacijah');
 	});
 });

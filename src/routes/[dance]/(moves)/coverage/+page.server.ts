@@ -6,6 +6,7 @@ import { ints, text } from '$lib/server/form';
 import { coverage, coverageGroups } from '$lib/routines/coverage';
 import { wallOf } from '$lib/server/scope';
 import { groupModeOf } from '$lib/server/group-mode';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals, cookies }) => {
@@ -40,12 +41,12 @@ export const actions: Actions = {
 		if (!name) {
 			return fail(400, {
 				field: 'name',
-				message: 'Give the routine a name (up to 200 characters).',
+				message: t().moves.refused.routineName,
 				name: String(form.get('name') ?? '')
 			});
 		}
 		if (figureIds.length === 0) {
-			return fail(400, { message: 'Pick at least one figure.', name });
+			return fail(400, { message: t().moves.refused.pickOne, name });
 		}
 		const made = createRoutineFromFigures(getDb(), wall, { name, notes: null }, figureIds);
 		// Every id from the page is a live version of this dance; anything else

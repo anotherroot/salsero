@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { MOVES_SEGMENTS, segmentOf } from './segment';
 
 describe('segmentOf', () => {
@@ -27,5 +28,15 @@ describe('MOVES_SEGMENTS', () => {
 	it('is Figures, Routines, then Positions', () => {
 		expect(MOVES_SEGMENTS.map((s) => s.label)).toEqual(['Figures', 'Routines', 'Positions']);
 		expect(MOVES_SEGMENTS.map((s) => s.value)).toEqual(['figures', 'routines', 'positions']);
+	});
+});
+
+describe('MOVES_SEGMENTS in Slovenian', () => {
+	it('is Figure, Kombinacije, Položaji (the tab is Figure, a move is figura)', () => {
+		expect(withLocale('sl', () => MOVES_SEGMENTS.map((s) => s.label))).toEqual([
+			'Figure',
+			'Kombinacije',
+			'Položaji'
+		]);
 	});
 });

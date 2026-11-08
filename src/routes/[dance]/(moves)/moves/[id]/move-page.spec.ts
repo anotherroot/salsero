@@ -19,6 +19,7 @@ import { createFigure, createVariationIn, listGroupVariations } from '$lib/serve
 import { addFigureSlot, createRoutine } from '$lib/server/routines';
 import { createLesson, linkFigure } from '$lib/server/lessons';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 const locals = (id: string) =>
@@ -113,6 +114,25 @@ describe('a move of your own', () => {
 		});
 		expect(await act('rename', 'u1', groupId, { name: 'Enchufla 2' })).toMatchObject({ ok: true });
 		expect(loadAs('u1', groupId).move.name).toBe('Enchufla 2');
+	});
+
+	it('refuses in Slovenian inside a Slovenian request, the names after a colon', async () => {
+		expect(
+			await runInLocale('sl', () => act('rename', 'u1', groupId, { name: 'Other' }))
+		).toMatchObject({
+			data: { message: 'Figura s tem imenom že obstaja: Other.' }
+		});
+		expect(
+			await runInLocale('sl', () => act('rename', 'u1', groupId, { name: ' ' }))
+		).toMatchObject({ data: { message: 'Vpišite ime figure (do 200 znakov).' } });
+		expect(
+			await runInLocale('sl', () => act('createFigure', 'u1', groupId, { name: 'Básica' }))
+		).toMatchObject({
+			data: {
+				message:
+					'Različica s tem imenom že obstaja v figuri Enchufla: Básica. Najprej eno preimenujte.'
+			}
+		});
 	});
 
 	it('refuses another person renaming it', async () => {

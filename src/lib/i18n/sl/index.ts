@@ -67,6 +67,7 @@ import { exercise } from './exercise';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
+import { moves } from './moves';
 import { nouns } from './nouns';
 import { player } from './player';
 import { settings } from './settings';
@@ -90,5 +91,6 @@ export const sl: Catalog = {
 	comments,
 	video,
 	player,
-	groups
+	groups,
+	moves
 };

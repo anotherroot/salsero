@@ -15,7 +15,6 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
-	import { plural } from '$lib/format';
 	import { groupHeading } from '$lib/moves/figures';
 	import {
 		fromClass,
@@ -25,7 +24,8 @@
 		type RoutinesLists
 	} from '$lib/moves/routines';
 	import { TWINS_CHIP } from '$lib/clones/twins';
-	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
+	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
+	import { t } from '$lib/i18n/catalog';
 	import type { Dance } from '$lib/dances/dances';
 	import type { OpenRow } from '$lib/nav/moves-pane';
 
@@ -124,7 +124,7 @@
 			<span
 				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
 			>
-				<span>{plural(routine.slots, 'slot', 'slots')}</span>
+				<span>{t().nouns.slots(routine.slots)}</span>
 				{#if routine.classDay}
 					<!-- Spec A5 (A2): the latest class it is from. Not a link: the row is the one link. -->
 					<span aria-hidden="true" class="-mx-0.5">·</span>
@@ -144,7 +144,7 @@
 				{/if}
 				{#if routine.membersSee === false}
 					<span class="flex items-center gap-1 whitespace-nowrap"
-						><Icon name="eye-off" size={16} />{HIDDEN_FROM_MEMBERS}</span
+						><Icon name="eye-off" size={16} />{hiddenFromMembers()}</span
 					>
 				{/if}
 			</span>
@@ -155,14 +155,11 @@
 
 {#if lists.routines.length === 0 && lists.groups.length === 0}
 	<div class="h-10 flex-none"></div>
-	<EmptyState
-		icon="routine"
-		title="No routines yet"
-		body="String some figures together into one you can call as a single set."
-	>
+	<EmptyState icon="routine" title={t().moves.routines.empty} body={t().moves.routines.emptyBody}>
 		{#snippet action()}
 			<button type="button" class={button('primary')} onclick={() => (creating = true)}>
-				<Icon name="plus" size={20} /> New routine
+				<Icon name="plus" size={20} />
+				{t().moves.newRoutine}
 			</button>
 		{/snippet}
 	</EmptyState>
@@ -185,10 +182,10 @@
 	{#if view.routines.length > 0}
 		{#if anyHidden(view.routines)}
 			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
-				{MEMBERS_NOTE}
+				{membersNote()}
 			</p>
 		{/if}
-		<h2 class="{SECTION_LABEL} pt-1">{plural(view.routines.length, 'routine', 'routines')}</h2>
+		<h2 class="{SECTION_LABEL} pt-1">{t().nouns.routines(view.routines.length)}</h2>
 		<div class={GROUP}>
 			{#each view.routines as routine (routine.id)}
 				{@render routineRow(routine, routineBadges(routine))}
@@ -211,7 +208,7 @@
 	{/each}
 {/if}
 
-<Sheet title="New routine" open={creating} onclose={close}>
+<Sheet title={t().moves.newRoutine} open={creating} onclose={close}>
 	<form
 		id="new-routine"
 		method="POST"
@@ -219,7 +216,7 @@
 		class="flex flex-col gap-3.5"
 		bind:this={formEl}
 		use:guarded={{
-			label: 'New routine',
+			label: t().moves.newRoutine,
 			submit: ({ cancel }) => {
 				// One routine per tap: a second tap while the first is out is dropped.
 				if (busy) return cancel();
@@ -248,7 +245,7 @@
 		{#if otherError}<Banner kind="error">{otherError}</Banner>{/if}
 
 		<div>
-			<label class={LABEL} for="routine-name">Name</label>
+			<label class={LABEL} for="routine-name">{t().moves.routines.name}</label>
 			<!-- The sheet exists to type this one thing. -->
 			<!-- svelte-ignore a11y_autofocus -->
 			<input
@@ -258,7 +255,7 @@
 				autofocus
 				maxlength="200"
 				value={refusal?.name ?? ''}
-				placeholder="Basic combo"
+				placeholder={t().moves.routines.namePlaceholder}
 				class={FIELD}
 				aria-invalid={nameError ? 'true' : undefined}
 				aria-describedby={nameError ? 'routine-name-error' : undefined}
@@ -267,13 +264,13 @@
 		</div>
 
 		<div>
-			<label class={LABEL} for="routine-notes">Notes</label>
+			<label class={LABEL} for="routine-notes">{t().moves.routines.notes}</label>
 			<textarea
 				id="routine-notes"
 				name="notes"
 				rows="4"
 				maxlength="2000"
-				placeholder="What this is for, when to reach for it…"
+				placeholder={t().moves.routines.notesPlaceholder}
 				class={TEXTAREA}
 				aria-invalid={notesError ? 'true' : undefined}
 				aria-describedby={notesError ? 'routine-notes-error' : undefined}
@@ -289,9 +286,9 @@
 			form="new-routine"
 			class={button('primary', 'md', true)}
 			aria-busy={busy}
-			aria-label={busy ? 'Creating routine' : undefined}
+			aria-label={busy ? t().moves.routines.creating : undefined}
 		>
-			{#if busy}<Spinner />{:else}Create routine{/if}
+			{#if busy}<Spinner />{:else}{t().moves.routines.create}{/if}
 		</button>
 	{/snippet}
 </Sheet>

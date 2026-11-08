@@ -3,13 +3,22 @@
  * `/[dance]/(moves)/routines` and `/[dance]/(moves)/positions` — under one band, the (moves)
  * layout's, whose switch picks between them. PURE.
  */
+import { t } from '$lib/i18n/catalog';
 
 export type MovesSegment = 'figures' | 'routines' | 'positions';
 
+const segment = (value: MovesSegment): { value: MovesSegment; label: string } => ({
+	value,
+	// Read when drawn: the reader's language.
+	get label() {
+		return t().moves.segments[value];
+	}
+});
+
 export const MOVES_SEGMENTS: readonly { value: MovesSegment; label: string }[] = [
-	{ value: 'figures', label: 'Figures' },
-	{ value: 'routines', label: 'Routines' },
-	{ value: 'positions', label: 'Positions' }
+	segment('figures'),
+	segment('routines'),
+	segment('positions')
 ];
 
 const ROUTES: Record<string, MovesSegment> = {
