@@ -31,8 +31,12 @@ export type DeviceState = 'waiting' | 'starting' | 'empty' | 'ready' | 'failed';
 /** To the worker. `device-fetch` carries a reply port: `WireResponse` or `WireFallback` comes back on it. */
 export type DeviceIn = { type: 'device-fetch'; request: WireRequest } | { type: 'pull' };
 
-/** From the worker. */
-export type DeviceOut = { type: 'state'; state: DeviceState } | { type: 'pulled'; cursor: number };
+/**
+ * From the worker. `pulled`: a pull landed; `startedAt` is when its request
+ * left (the wall clock the page shares), so the page knows which writes it holds.
+ */
+export type DeviceOut =
+	{ type: 'state'; state: DeviceState } | { type: 'pulled'; cursor: number; startedAt: number };
 
 /**
  * From the service worker to the page. `device-fetch` carries a reply port and

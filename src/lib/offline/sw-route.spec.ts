@@ -7,6 +7,7 @@ import {
 	installOrClean,
 	isNetworkFailure,
 	postsChanged,
+	pullCovers,
 	swRoute
 } from './sw-route';
 
@@ -204,5 +205,16 @@ describe('installOrClean', () => {
 			async () => {}
 		);
 		expect(removed).toEqual([]);
+	});
+});
+
+describe('pullCovers', () => {
+	it('counts a pull whose request left after the page saw its write land', () => {
+		expect(pullCovers(1000, 1000)).toBe(true);
+		expect(pullCovers(1500, 1000)).toBe(true);
+		// Already out when the write landed: it may not hold it.
+		expect(pullCovers(999, 1000)).toBe(false);
+		// No write yet: any pull will do.
+		expect(pullCovers(5, 0)).toBe(true);
 	});
 });

@@ -39,6 +39,8 @@ export type DeviceDeps = {
 	online: () => boolean;
 	userAgent: string;
 	log: Pick<Console, 'info' | 'warn' | 'error'>;
+	/** The wall clock the page shares: a `pulled` says when its request left (`startedAt`). */
+	now: () => number;
 };
 
 export type Device = {
@@ -138,8 +140,13 @@ export function createDevice(deps: DeviceDeps): Device {
 
 	async function pullOnce(): Promise<'again' | 'done'> {
 		let res: Response;
+		// Taken just before the request leaves: a write the server took before
+		// this instant is in the answer (the page's `pullCovers`).
+		let startedAt: number;
 		try {
-			res = await deps.fetchPull(JSON.stringify(await pullRequestOf(db, deps.schema)));
+			const request = JSON.stringify(await pullRequestOf(db, deps.schema));
+			startedAt = deps.now();
+			res = await deps.fetchPull(request);
 		} catch (e) {
 			log.warn('[device] pull: no network, the copy stays', String(e));
 			return 'done';
@@ -174,7 +181,7 @@ export function createDevice(deps: DeviceDeps): Device {
 			return 'again';
 		}
 		await serve();
-		deps.post({ type: 'pulled', cursor: body.cursor });
+		deps.post({ type: 'pulled', cursor: body.cursor, startedAt });
 		return 'done';
 	}
 

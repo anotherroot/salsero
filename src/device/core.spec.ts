@@ -75,6 +75,7 @@ function harness(over: Partial<DeviceDeps> = {}) {
 		online: () => true,
 		userAgent: 'Phone/1.0',
 		log,
+		now: () => 0,
 		...over
 	};
 	const wrapped = deps.fetchPull;
@@ -238,6 +239,32 @@ describe('start', () => {
 });
 
 describe('pull', () => {
+	it('says when each pull asked the server, a queued one its own later time', async () => {
+		let clock = 100;
+		let release: () => void = () => {};
+		let calls = 0;
+		const h = harness({
+			now: () => clock,
+			fetchPull: async (body) => {
+				calls += 1;
+				// The second pull of the test (after start's) hangs until released.
+				if (calls === 2) await new Promise<void>((r) => (release = r));
+				return answerAsServer(body);
+			}
+		});
+		await h.dev.start();
+		clock = 200;
+		const first = h.dev.pull();
+		await vi.waitFor(() => expect(calls).toBe(2));
+		// A write lands while the first pull is out; its page asks for another.
+		clock = 300;
+		const second = h.dev.pull();
+		release();
+		await Promise.all([first, second]);
+		const pulled = h.posted.flatMap((m) => (m.type === 'pulled' ? [m.startedAt] : []));
+		expect(pulled).toEqual([100, 200, 300]);
+	});
+
 	it('signed out: wipes the copy and is empty', async () => {
 		let status = 200;
 		const h = harness({

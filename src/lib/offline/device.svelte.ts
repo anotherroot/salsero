@@ -10,6 +10,7 @@
  */
 import { dev, version } from '$app/environment';
 import type { DeviceIn, DeviceOut, DeviceState, SwIn, SwOut, WireFallback } from './protocol';
+import { pullCovers } from './sw-route';
 
 /** How long a relayed read waits, from the worker's start, for the device to be ready. */
 export const DEVICE_START_LIMIT_MS = 10_000;
@@ -37,9 +38,8 @@ let started = false;
 let worker: Worker | null = null;
 let workerStartedAt = 0;
 let pullTimer: ReturnType<typeof setTimeout> | undefined;
-/** When the service worker last said a write reached the server, and when a pull was last asked. */
+/** When the service worker last said a write from this page reached the server. */
 let changedAt = 0;
-let askedAt = 0;
 /** Relayed reads waiting for the device's state to settle. */
 // eslint-disable-next-line svelte/prefer-svelte-reactivity -- callbacks, never drawn
 const waiting = new Set<() => void>();
@@ -69,7 +69,7 @@ function startWorker(): Worker | null {
 	}
 	worker.addEventListener('message', (e: MessageEvent<DeviceOut>) => {
 		if (e.data?.type === 'state') setState(e.data.state);
-		else if (e.data?.type === 'pulled') pulled();
+		else if (e.data?.type === 'pulled') pulled(e.data.startedAt);
 	});
 	worker.addEventListener('error', (e) => {
 		console.error('[device] worker error', e.message, e.filename, e.lineno);
@@ -119,19 +119,17 @@ async function relay(message: Extract<DeviceIn, { type: 'device-fetch' }>, port:
 }
 
 function pull(): void {
-	askedAt = Date.now();
 	worker?.postMessage({ type: 'pull' } satisfies DeviceIn);
 }
 
 /**
- * The device pulled. Once a pull asked after the page's last write has
- * pulled, the service worker may time this page's reads out again
- * (`DeviceClients`); until then they wait for the network. A pull that was
- * already running when the write landed may end after that ask and clear it
- * early; it must then have outlasted the 1 s wait (a known, narrow gap).
+ * The device pulled. Once a pull that left after the page's last write has
+ * landed (`pullCovers`), the service worker may time this page's reads out
+ * again (`DeviceClients`); until then they wait for the network. A pull
+ * already out when the write landed does not count.
  */
-function pulled(): void {
-	if (askedAt < changedAt) return;
+function pulled(startedAt: number): void {
+	if (!pullCovers(startedAt, changedAt)) return;
 	const sw = navigator.serviceWorker.controller;
 	sw?.postMessage({ type: 'device-pulled' } satisfies SwIn);
 	// A service worker that restarted has lost the state too: say it again.

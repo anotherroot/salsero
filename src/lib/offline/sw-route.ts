@@ -176,3 +176,14 @@ export async function installOrClean(
 		throw e;
 	}
 }
+
+/**
+ * Whether a pull holds the page's last write: its request left (`startedAt`,
+ * the worker's clock, which the page shares) no earlier than the page saw that
+ * write land (`changedAt`, when `changed` came). The write committed before
+ * its answer came back, so the server read after it. A pull already out when
+ * the write landed may not hold it, and must not clear the page's dirty mark.
+ */
+export function pullCovers(startedAt: number, changedAt: number): boolean {
+	return startedAt >= changedAt;
+}

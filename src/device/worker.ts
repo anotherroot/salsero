@@ -72,6 +72,7 @@ async function open(): Promise<Device> {
 		post,
 		online: () => navigator.onLine,
 		userAgent: navigator.userAgent,
+		now: () => Date.now(),
 		log: console
 	});
 }
