@@ -422,6 +422,11 @@ describe('one entry a day', () => {
 		expect(exerciseHistory(db, ex)).toHaveLength(1);
 	});
 
+	it('a first save with an empty note stores null', () => {
+		const r = saveDay(db, input({ note: '' }), TZ);
+		expect(r.set.note).toBeNull();
+	});
+
 	it('a second save that day adds the time and replaces face and note', () => {
 		saveDay(db, input({ durationS: 240, rating: 2, note: 'a', playerJson: '{"x":1}' }), TZ);
 		const r = saveDay(

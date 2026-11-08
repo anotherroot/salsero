@@ -8,15 +8,16 @@
  * form posting reps is ignored, not written. And a back-filled set never gets
  * a player run — a run is something that happened now.
  */
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, type ActionFailure } from '@sveltejs/kit';
 import { getDb } from './db';
-import { deleteSet, getSet, logSet, saveDay } from './exercises';
+import { deleteDay, deleteSet, getSet, logSet, restoreSets, saveDay, undoSave } from './exercises';
 import { int, optionalInt, optionalText } from './form';
 import { requireExerciseInWall, wallOf } from './scope';
-import { isValidDay, localDay, noonOf } from '$lib/day/day';
+import { scheduleStateOf } from './schedule';
+import { daysBetween, isValidDay, localDay, noonOf } from '$lib/day/day';
 import { hasField } from '$lib/exercises/kinds';
 import { t } from '$lib/i18n/catalog';
-import type { SetSnapshot } from '$lib/types';
+import type { DoneResult, SetSnapshot } from '$lib/types';
 
 export type LogEvent = { params: { dance: string }; request: Request; locals: App.Locals };
 
@@ -164,4 +165,146 @@ export async function restoreSetFrom({ params, request, locals }: LogEvent) {
 		return fail(400, { action: 'restoreSet', message: t().exercise.refused.putBack });
 	}
 	return { action: 'restoreSet' as const, ok: true };
+}
+
+/**
+ * Done: save the exercise's day (`saveDay`: one row a day, time added, face and
+ * note replaced). Fields: exerciseId, durationS (0..86400, optional), rating
+ * (1..5, optional), note (≤2000), run (≤4000, dropped when longer), day (a past
+ * day: back-filled at noon, no run, no time). A fixed rhythm stores no face
+ * whatever was posted; any other exercise refuses a missing one. The exercise is
+ * checked against the wall, so a group's own drill (not the member's entry) is a 404.
+ */
+export async function saveDoneFrom({
+	params,
+	request,
+	locals
+}: LogEvent): Promise<
+	ActionFailure<{ action: 'done'; message: string }> | (DoneResult & { action: 'done' })
+> {
+	if (!locals.user) throw error(401);
+	const tz = locals.user.timezone;
+	const wall = wallOf(params, locals);
+	const form = await request.formData();
+	const exerciseId = int(form, 'exerciseId');
+	const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
+	const rating = optionalInt(form, 'rating', 1, 5);
+	const note = optionalText(form, 'note', 2000);
+	const run = optionalText(form, 'run', 4000);
+	const day = String(form.get('day') ?? '');
+
+	if (
+		exerciseId === undefined ||
+		durationS === undefined ||
+		rating === undefined ||
+		note === undefined
+	) {
+		return fail(400, { action: 'done', message: t().exercise.refused.checkValues });
+	}
+	const db = getDb();
+	requireExerciseInWall(db, wall, exerciseId);
+	const fixed = scheduleStateOf(db, exerciseId, tz).every !== null;
+	if (!fixed && rating === null) {
+		return fail(400, { action: 'done', message: t().exercise.log.pickFeel });
+	}
+
+	const now = Date.now();
+	const backfill = isValidDay(day) && day < localDay(now, tz);
+	let saved: ReturnType<typeof saveDay>;
+	try {
+		saved = saveDay(
+			db,
+			{
+				exerciseId,
+				doneAt: backfill ? noonOf(day, tz) : now,
+				durationS: backfill ? null : durationS,
+				reps: null,
+				rating: fixed ? null : rating,
+				note,
+				playerJson: backfill ? null : (run ?? null)
+			},
+			tz
+		);
+	} catch {
+		return fail(400, { action: 'done', message: t().exercise.refused.gone });
+	}
+	return {
+		action: 'done',
+		ok: true,
+		setId: saved.set.id,
+		before: saved.before && JSON.stringify(saved.before),
+		backDays: backfill
+			? null
+			: daysBetween(localDay(now, tz), scheduleStateOf(db, exerciseId, tz).dueDay)
+	};
+}
+
+/**
+ * Undo of Done. Fields: setId, before ('' = the day had no row). The set must be
+ * the wall's; `before` must be a snapshot of the same exercise.
+ */
+export async function undoDoneFrom({ params, request, locals }: LogEvent) {
+	const form = await request.formData();
+	const refused = () => fail(400, { action: 'undoDone', message: t().today.refused.undo });
+	const setId = int(form, 'setId');
+	const row = setId === undefined ? null : getSet(getDb(), setId);
+	if (setId === undefined || !row) return refused();
+	requireExerciseInWall(getDb(), wallOf(params, locals), row.exerciseId);
+	const raw = String(form.get('before') ?? '');
+	const before = raw === '' ? null : parseSetSnapshot(raw, Date.now());
+	if (raw !== '' && (!before || before.exerciseId !== row.exerciseId)) return refused();
+	if (!undoSave(getDb(), setId, before)) return refused();
+	return { action: 'undoDone' as const, ok: true as const };
+}
+
+/** Every snapshot valid and of one exercise, in order; else null (also for an empty list). */
+export function parseSetSnapshots(raw: string, now: number): SetSnapshot[] | null {
+	let v: unknown;
+	try {
+		v = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!Array.isArray(v) || v.length === 0) return null;
+	const snaps: SetSnapshot[] = [];
+	for (const item of v) {
+		const snap = parseSetSnapshot(JSON.stringify(item), now);
+		if (!snap || (snap.exerciseId !== snaps[0]?.exerciseId && snaps.length > 0)) return null;
+		snaps.push(snap);
+	}
+	return snaps;
+}
+
+/** Delete a whole day of an exercise. Fields: exerciseId, day. Answers the rows as a JSON array for Undo. */
+export async function deleteDayFrom({ params, request, locals }: LogEvent) {
+	if (!locals.user) throw error(401);
+	const form = await request.formData();
+	const exerciseId = int(form, 'exerciseId');
+	const day = String(form.get('day') ?? '');
+	if (exerciseId === undefined || !isValidDay(day)) {
+		return fail(400, { action: 'deleteDay', message: t().exercise.refused.dayGone });
+	}
+	// Before the delete: `deleteDay` takes an id alone, like `deleteSet`.
+	requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
+	const snapshots = deleteDay(getDb(), exerciseId, day, locals.user.timezone);
+	if (snapshots.length === 0) {
+		return fail(404, { action: 'deleteDay', message: t().exercise.refused.dayGone });
+	}
+	return { action: 'deleteDay' as const, ok: true as const, snapshots: JSON.stringify(snapshots) };
+}
+
+/** Undo of a day's delete. Fields: snapshots. */
+export async function restoreDayFrom({ params, request, locals }: LogEvent) {
+	const form = await request.formData();
+	const snaps = parseSetSnapshots(String(form.get('snapshots') ?? ''), Date.now());
+	if (!snaps) {
+		return fail(400, { action: 'restoreDay', message: t().exercise.refused.dayPutBack });
+	}
+	requireExerciseInWall(getDb(), wallOf(params, locals), snaps[0].exerciseId);
+	try {
+		restoreSets(getDb(), snaps);
+	} catch {
+		return fail(400, { action: 'restoreDay', message: t().exercise.refused.dayPutBack });
+	}
+	return { action: 'restoreDay' as const, ok: true as const };
 }

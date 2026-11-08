@@ -207,6 +207,8 @@ export const exercise: Catalog['exercise'] = {
 		gone: 'Te vaje ni več.',
 		setGone: 'Ta vnos je že izbrisan.',
 		putBack: 'Vnosa ni bilo mogoče vrniti.',
+		dayGone: 'Ta dan je že izbrisan.',
+		dayPutBack: 'Dneva ni bilo mogoče vrniti.',
 		archiveHere: 'Tukaj se arhivirajo le lastne vaje. Različico arhivirate na njeni strani.',
 		pickSection: 'Izberite odsek.',
 		linkGone: 'Ta povezava je že odstranjena.'

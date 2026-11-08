@@ -394,7 +394,7 @@
 		)}
 		durationS={finalElapsed}
 		run={runJson}
-		fail={form && 'message' in form ? form : null}
+		fail={form && 'message' in form && form.message !== undefined ? form : null}
 		onclose={closeSave}
 		onsaved={saved}
 	/>

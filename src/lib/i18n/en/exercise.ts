@@ -228,6 +228,8 @@ export const exercise = {
 		gone: 'That exercise no longer exists.',
 		setGone: 'That set was already removed.',
 		putBack: 'That set could not be put back.',
+		dayGone: 'That day was already removed.',
+		dayPutBack: 'That day could not be put back.',
 		archiveHere: 'Only custom exercises are archived here. Archive a figure from its page.',
 		pickSection: 'Pick a section.',
 		linkGone: 'That link was already removed.'

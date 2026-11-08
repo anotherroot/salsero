@@ -430,7 +430,15 @@ export function saveDay(
 	return db.transaction((tx) => {
 		const rows = dayRows(tx, input.exerciseId, localDay(input.doneAt, tz), tz);
 		const old = rows[rows.length - 1];
-		if (!old) return { set: tx.insert(sets).values(input).returning().get(), before: null };
+		if (!old)
+			return {
+				set: tx
+					.insert(sets)
+					.values({ ...input, note: input.note === '' ? null : input.note })
+					.returning()
+					.get(),
+				before: null
+			};
 		const durationS =
 			old.durationS === null && input.durationS === null
 				? null

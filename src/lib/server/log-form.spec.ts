@@ -19,7 +19,19 @@ import { sets } from '$lib/server/db/schema';
 import { createCustomExercise, getSet, logSet } from '$lib/server/exercises';
 import { addFigureExercise, createFigure } from '$lib/server/figures';
 import { noonOf } from '$lib/day/day';
-import { deleteSetFrom, logSetFrom, parseSetSnapshot, restoreSetFrom } from './log-form';
+import { STEPS } from '$lib/schedule/schedule';
+import { makeClass } from '$lib/server/test-class';
+import {
+	deleteDayFrom,
+	deleteSetFrom,
+	logSetFrom,
+	parseSetSnapshot,
+	parseSetSnapshots,
+	restoreDayFrom,
+	restoreSetFrom,
+	saveDoneFrom,
+	undoDoneFrom
+} from './log-form';
 
 const TZ = 'Europe/Ljubljana';
 const USER = { id: 'u1', email: 'u@example.com', timezone: TZ, dance: 'salsa' };
@@ -260,4 +272,198 @@ describe('parseSetSnapshot', () => {
 		['an overlong note', { ...ok, note: 'x'.repeat(2001) }],
 		['an overlong run', { ...ok, playerJson: 'x'.repeat(4001) }]
 	])('refuses %s', (_, v) => expect(parseSetSnapshot(JSON.stringify(v), 2_000)).toBeNull());
+});
+
+describe('saveDoneFrom', () => {
+	it('stores the day, with no before and the gap the face earned', async () => {
+		const res = await saveDoneFrom(
+			post('salsa', { exerciseId: String(drillId), durationS: '252', rating: '4', note: 'ok' })
+		);
+		expect(res).toMatchObject({
+			action: 'done',
+			ok: true,
+			before: null,
+			backDays: Math.max(STEPS.gotit.floor, 2)
+		});
+		expect(only()).toMatchObject({ durationS: 252, rating: 4, note: 'ok' });
+	});
+
+	it('stores no face for a fixed rhythm, whatever was posted', async () => {
+		const fixed = createCustomExercise(db, U1_SALSA, {
+			name: 'Fixed',
+			notes: null,
+			comesBack: { kind: 'every', days: 2 }
+		}).id;
+		const res = await saveDoneFrom(post('salsa', { exerciseId: String(fixed), rating: '5' }));
+		expect(res).toMatchObject({ ok: true, backDays: 2 });
+		expect(only().rating).toBeNull();
+	});
+
+	it('refuses a by-how-it-went exercise without a face, storing nothing', async () => {
+		const res = await saveDoneFrom(post('salsa', { exerciseId: String(drillId) }));
+		expect(res).toMatchObject({
+			status: 400,
+			data: { action: 'done', message: 'Pick how it went' }
+		});
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+
+	it('backfills a past day at noon with no time and no run', async () => {
+		const res = await saveDoneFrom(
+			post('salsa', {
+				exerciseId: String(drillId),
+				day: '2026-11-05',
+				rating: '3',
+				durationS: '90',
+				run: '{"x":1}'
+			})
+		);
+		expect(res).toMatchObject({ ok: true, backDays: null });
+		expect(only()).toMatchObject({
+			doneAt: noonOf('2026-11-05', TZ),
+			durationS: null,
+			playerJson: null
+		});
+	});
+
+	it('a second save the same day keeps one row, and Undo restores the first', async () => {
+		await saveDoneFrom(post('salsa', { exerciseId: String(drillId), rating: '3', note: 'a' }));
+		const first = only();
+		const res = (await saveDoneFrom(
+			post('salsa', { exerciseId: String(drillId), rating: '4', note: 'b' })
+		)) as { setId: number; before: string };
+		expect(only()).toMatchObject({ rating: 4, note: 'b' });
+		const undo = await undoDoneFrom(
+			post('salsa', { setId: String(res.setId), before: res.before })
+		);
+		expect(undo).toMatchObject({ action: 'undoDone', ok: true });
+		expect(only()).toMatchObject({ id: first.id, rating: 3, note: 'a' });
+	});
+
+	it('refuses the group drill itself, not a member entry, with a 404', async () => {
+		const c = makeClass(db);
+		const ev = post('salsa', { exerciseId: String(c.drill), rating: '4' });
+		ev.locals = { user: { ...USER, id: 'u3' } } as App.Locals;
+		await expect(saveDoneFrom(ev)).rejects.toMatchObject({ status: 404 });
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+});
+
+describe('undoDoneFrom', () => {
+	it('refuses a before of another exercise, leaving the row', async () => {
+		await saveDoneFrom(post('salsa', { exerciseId: String(drillId), rating: '3' }));
+		const row = only();
+		const forged = JSON.stringify({
+			exerciseId: figureExerciseId,
+			doneAt: 1000,
+			durationS: null,
+			reps: null,
+			rating: 1,
+			note: null,
+			playerJson: null
+		});
+		const res = await undoDoneFrom(post('salsa', { setId: String(row.id), before: forged }));
+		expect(res).toMatchObject({
+			status: 400,
+			data: { action: 'undoDone', message: 'Could not undo that. Try again.' }
+		});
+		expect(only()).toEqual(row);
+	});
+
+	it('is a 404 for a set of another person, leaving it', async () => {
+		const c = makeClass(db);
+		const s = logSet(db, {
+			exerciseId: c.entry,
+			doneAt: Date.now(),
+			durationS: null,
+			reps: null,
+			rating: 3,
+			note: null,
+			playerJson: null
+		});
+		await expect(
+			undoDoneFrom(post('salsa', { setId: String(s.id), before: '' }))
+		).rejects.toMatchObject({ status: 404 });
+		expect(db.select().from(sets).all()).toHaveLength(1);
+	});
+
+	it('deletes the day when before is empty', async () => {
+		const res = (await saveDoneFrom(
+			post('salsa', { exerciseId: String(drillId), rating: '3' })
+		)) as { setId: number };
+		await undoDoneFrom(post('salsa', { setId: String(res.setId), before: '' }));
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+});
+
+describe('deleteDayFrom and restoreDayFrom', () => {
+	it('hands back the day’s rows and Undo puts them all back', async () => {
+		const day = '2026-10-28';
+		for (const [h, rating] of [
+			[0, 2],
+			[3, 4]
+		]) {
+			logSet(db, {
+				exerciseId: drillId,
+				doneAt: noonOf(day, TZ) + h * 3_600_000,
+				durationS: 60,
+				reps: null,
+				rating,
+				note: null,
+				playerJson: null
+			});
+		}
+		const before = db.select().from(sets).all();
+		const res = (await deleteDayFrom(post('salsa', { exerciseId: String(drillId), day }))) as {
+			ok: true;
+			snapshots: string;
+		};
+		expect(res).toMatchObject({ action: 'deleteDay', ok: true });
+		expect(db.select().from(sets).all()).toHaveLength(0);
+		await restoreDayFrom(post('salsa', { snapshots: res.snapshots }));
+		expect(
+			db
+				.select()
+				.from(sets)
+				.all()
+				.map((r) => [r.doneAt, r.rating])
+		).toEqual(before.map((r) => [r.doneAt, r.rating]));
+	});
+
+	it('refuses another dance’s exercise, and a bad day', async () => {
+		await expect(
+			deleteDayFrom(post('salsa', { exerciseId: String(bachataDrillId), day: '2026-10-28' }))
+		).rejects.toMatchObject({ status: 404 });
+		const res = await deleteDayFrom(post('salsa', { exerciseId: String(drillId), day: 'nope' }));
+		expect(res).toMatchObject({ status: 400, data: { action: 'deleteDay' } });
+	});
+
+	it('refuses malformed snapshots, storing nothing', async () => {
+		const res = await restoreDayFrom(post('salsa', { snapshots: 'nope' }));
+		expect(res).toMatchObject({
+			status: 400,
+			data: { action: 'restoreDay', message: 'That day could not be put back.' }
+		});
+	});
+});
+
+describe('parseSetSnapshots', () => {
+	const ok = {
+		exerciseId: 1,
+		doneAt: 1_000,
+		durationS: null,
+		reps: null,
+		rating: 4,
+		note: null,
+		playerJson: null
+	};
+	it('reads a list of one exercise', () =>
+		expect(parseSetSnapshots(JSON.stringify([ok, { ...ok, doneAt: 5 }]), 2_000)).toHaveLength(2));
+	it.each([
+		['not json', 'nope'],
+		['not a list', JSON.stringify(ok)],
+		['an empty list', '[]'],
+		['two exercises', JSON.stringify([ok, { ...ok, exerciseId: 2 }])],
+		['one bad row', JSON.stringify([ok, { ...ok, rating: 9 }])]
+	])('refuses %s', (_, raw) => expect(parseSetSnapshots(raw, 2_000)).toBeNull());
 });

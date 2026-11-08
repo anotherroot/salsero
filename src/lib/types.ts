@@ -659,6 +659,14 @@ export interface DeviceRow {
 	lastUsedAt: number | null;
 }
 
+/** What saving a day answers (Today's `done`, the player's `save`): the row, what it held before (a JSON `SetSnapshot`, null for a new day) and the days until it is due, null for a past day. */
+export interface DoneResult {
+	ok: true;
+	setId: number;
+	before: string | null;
+	backDays: number | null;
+}
+
 /** A deleted set, whole, so Undo can put the same values back. */
 export interface SetSnapshot {
 	exerciseId: number;

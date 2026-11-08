@@ -18,7 +18,8 @@ vi.mock('$lib/server/db', async () => {
 
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
-import { exercises, todayPicks, users } from '$lib/server/db/schema';
+import { exercises, sets, todayPicks, users } from '$lib/server/db/schema';
+import { noonOf } from '$lib/day/day';
 import { createCustomExercise } from '$lib/server/exercises';
 import { dayInputOf, setDailyCount } from '$lib/server/today-picks';
 import { dayList } from '$lib/schedule/today-list';
@@ -358,5 +359,43 @@ describe('refusals in Slovenian', () => {
 		expect((await call('createExercise', U1, { name: '' })).data?.message).toBe(
 			'Give it a name (up to 200 characters).'
 		);
+	});
+});
+
+describe('done and undoDone', () => {
+	const rows = () => db.select().from(sets).all();
+
+	it('done saves a day, undoDone with its before restores the first save', async () => {
+		const a = make('a');
+		const first = await call('done', U1, { exerciseId: String(a), rating: '3', note: 'x' });
+		expect(first).toMatchObject({ action: 'done', ok: true, before: null });
+		const second = (await call('done', U1, { exerciseId: String(a), rating: '4' })) as unknown as {
+			setId: number;
+			before: string;
+		};
+		expect(rows()).toMatchObject([{ rating: 4 }]);
+		const undo = await call('undoDone', U1, { setId: String(second.setId), before: second.before });
+		expect(undo).toMatchObject({ action: 'undoDone', ok: true });
+		expect(rows()).toMatchObject([{ rating: 3, note: 'x' }]);
+	});
+
+	it('done with a past day backfills it at noon', async () => {
+		const a = make('a');
+		await call('done', U1, { exerciseId: String(a), rating: '4', day: '2026-11-05' });
+		expect(rows()).toMatchObject([{ doneAt: noonOf('2026-11-05', 'Europe/Ljubljana') }]);
+	});
+
+	it("done on another person's exercise is a 404, undoDone on their set too", async () => {
+		const a = make('a');
+		await expect(call('done', U2, { exerciseId: String(a), rating: '4' })).rejects.toMatchObject({
+			status: 404
+		});
+		const saved = (await call('done', U1, { exerciseId: String(a), rating: '4' })) as unknown as {
+			setId: number;
+		};
+		await expect(
+			call('undoDone', U2, { setId: String(saved.setId), before: '' })
+		).rejects.toMatchObject({ status: 404 });
+		expect(rows()).toHaveLength(1);
 	});
 });

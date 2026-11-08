@@ -10,7 +10,7 @@
 	import FaceRating from '$lib/components/exercises/FaceRating.svelte';
 	import { feelOf, type Feel } from '$lib/schedule/feel';
 	import { exerciseGroups } from '$lib/picker/build';
-	import type { PickExercise } from '$lib/types';
+	import type { DoneResult, PickExercise } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
@@ -32,11 +32,14 @@
 		} | null;
 		/** "Don't save": leaves without logging anything. */
 		onclose: () => void;
-		/** The run was logged: the page leaves (the save's own redirect is not followed). */
-		onsaved: () => void;
+		/** The run was logged: the page leaves. */
+		onsaved: (result: DoneResult) => void;
 	}
 
 	let { exercise, exercises, summary, durationS, run, fail, onclose, onsaved }: Props = $props();
+
+	/** The action's data is the save's `DoneResult` (typed loosely by the form result). */
+	const doneOf = (data: unknown) => data as DoneResult;
 
 	// Seeded once from a failed save (a page reloaded without JS). While the
 	// sheet stays mounted `fail` only echoes what these already hold, and
@@ -64,10 +67,10 @@
 			submit: () => {
 				busy = true;
 				return async ({ result, update }) => {
-					// Logged: where the run goes next is the page's call (back to its
-					// opener), not the action's redirect to Today.
-					if (result.type === 'redirect') {
-						onsaved();
+					// Logged: where the run goes next is for the page to decide (back to its
+					// opener).
+					if (result.type === 'success') {
+						onsaved(doneOf(result.data));
 						return;
 					}
 					await update();

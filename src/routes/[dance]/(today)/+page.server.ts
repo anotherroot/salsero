@@ -4,7 +4,13 @@ import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/s
 import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
 import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
-import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
+import {
+	deleteSetFrom,
+	logSetFrom,
+	restoreSetFrom,
+	saveDoneFrom,
+	undoDoneFrom
+} from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
 import { setWarmupOrder } from '$lib/server/warmup-order';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
@@ -66,6 +72,10 @@ export const actions: Actions = {
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
+
+	/** Done: save the exercise's day. See `saveDoneFrom`. */
+	done: (event) => saveDoneFrom(event),
+	undoDone: (event) => undoDoneFrom(event),
 
 	/** Put an exercise on today's list by hand (`add`) or take it off for today (`skip`). */
 	pick: async ({ params, request, locals }) => {
