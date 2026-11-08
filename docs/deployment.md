@@ -307,6 +307,30 @@ shares with Firefly, Grafana, muscle and nikaudio.
   on the worker's two cores; a song queued meanwhile waits for the next run.
   A worker older than this never asks for video jobs, so deploying the server
   first is safe; the links just stay "Saving" until the worker is updated.
+- **Spotify songs** (2026-11-08): a Spotify track link is read from Spotify's
+  public embed page (`open.spotify.com/embed/track/<id>`, its `__NEXT_DATA__`
+  JSON; no account, no key), searched on YouTube (`yt-dlp ytsearch8:`), scored
+  (`worker/salsa_worker/match.py`) and the best result downloaded. Nothing
+  found is a permanent failure, "No match on YouTube". If Spotify ever stops
+  serving that page, the fallback is its Web API with a client id and secret
+  on the worker only (never the server). The worker pauses 4 s after every
+  download, and a song that fails for good no longer stops the run (only a
+  transient failure does), so a long pick does not hit YouTube back to back.
+  **Deploy order:** the server first (migration 0040 adds `songs.audio_url`,
+  `fetched_url`, `fetched_title` at boot), then the worker. An older worker
+  sends no `x-artist`/`x-fetched-*` headers and the new server stores nulls;
+  a newer worker against an older server only loses those headers.
+- **Playlists** (2026-11-08, plan 2): a pasted YouTube or Spotify playlist or
+  album is an import, read by the worker from a third queue
+  (`/api/worker/imports/*`: claim, items, fail), drained **before** songs: a
+  person is waiting on it. YouTube lists with `yt-dlp --flat-playlist
+  --playlist-end 201`, Spotify lists from the embed page (at most 100 songs: a
+  list of 100 is shown as "the first 100"). The server keeps at most 200 and
+  only YouTube videos and Spotify tracks. Nothing downloads until the person
+  picks. **Deploy order:** the server first (migration 0040 at boot: the song
+  audio columns and `song_imports`), then the worker. An old worker leaves
+  imports reading (Cancel works); a new worker reads a 404 on
+  `imports/claim` as none, so it is safe against an old server.
 - **Auth:** `secrets/salsa-worker.env.age` holds `SALSA_WORKER_TOKEN`,
   readable by cloud (which checks it, as a second `EnvironmentFile` on the
   salsa unit) and by the worker host (which sends it as a bearer token). It is

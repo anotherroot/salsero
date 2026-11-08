@@ -78,6 +78,7 @@ import {
 } from '../lessons';
 import { unlinkSpotFromPosition } from '../position-links';
 import { routineSlots } from '../routines';
+import { AUDIO_RESET } from '../songs';
 import { deleteLink, type LinkOwner } from '../links';
 import { deleteSpot } from '../spots';
 import { SpotLinkedError, unlinkSpot } from '../spot-links';
@@ -111,7 +112,10 @@ export type ApplyOutcome =
 			before: ChangeValues;
 			after: ChangeValues;
 	  }
-	| { ok: false; reason: 'name' | 'linked'; message: string };
+	| { ok: false; reason: 'name' | 'linked' | 'busy'; message: string };
+
+/** A copy the worker is still downloading or analysing: new audio waits for it to finish. */
+const BUSY = 'This copy is still being downloaded. Try again when it is ready.';
 
 /** A refusal raised inside the apply, so its savepoint rolls back. */
 class Refused extends Error {
@@ -432,22 +436,36 @@ class Applier {
 			set.style = g.style;
 			this.changed('style', t.style, g.style);
 		}
-		if (has('count')) {
-			// One family, one audio: the anchors index the same beats on both sides.
+		// New audio (Use another YouTube link): downloaded again here too, its 1s
+		// cleared. Not while the worker is on this copy: it would land the old link.
+		let audioUrl = t.audioUrl;
+		const waiting = t.status === 'waiting_download' || t.status === 'waiting_analysis';
+		// Refused, not skipped: a skip would write the snapshot as if the copy had
+		// taken it, and Sync would then offer the old audio back as the copy's change.
+		if (has('audio') && waiting && t.sourceUrl !== null)
+			throw new Refused({ ok: false, reason: 'busy', message: BUSY });
+		if (has('audio') && t.sourceUrl !== null) {
+			Object.assign(set, AUDIO_RESET, { audioUrl: g.audioUrl });
+			audioUrl = g.audioUrl;
+			this.changed('audioUrl', t.audioUrl, g.audioUrl);
+		}
+		// One audio, one count: the 1s index the same beats only when both hold it.
+		const sameAudio = t.sourceUrl === g.sourceUrl && audioUrl === g.audioUrl;
+		if (has('count') && sameAudio) {
 			set.anchorsJson = g.anchorsJson;
 			set.tempoFactor = g.tempoFactor;
 			this.changed('anchors', t.anchorsJson, g.anchorsJson);
 			this.changed('tempoFactor', t.tempoFactor, g.tempoFactor);
 		}
-		if (has('sample')) {
+		if (has('sample') && sameAudio) {
 			set.sampleStartS = g.sampleStartS;
 			this.changed('sampleStartS', t.sampleStartS, g.sampleStartS);
 		}
-		if (has('sections')) {
+		if (has('sections') && sameAudio) {
 			set.sectionsJson = g.sectionsJson;
 			this.changed('sectionsJson', t.sectionsJson, g.sectionsJson);
 		}
-		if (has('musicStart')) {
+		if (has('musicStart') && sameAudio) {
 			set.startS = g.startS;
 			this.changed('startS', t.startS, g.startS);
 		}

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spotify and playlists · mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#f5f1eb;--surface:#fffdfa;--sheet:#f5f1eb;--field:#f3eee7;--hairline:#e7e0d6;--field-line:#8f867c;--track:#e2dacf;
+  --ink:#1e1a16;--ink-2:#45403a;--muted:#665e55;--chevron:#8e8479;--chip:#ece5dc;--tab-bg:#fbf8f3;--tab-line:#e2dacf;
+  --done:#2f7650;--done-soft:#e4f0e7;--danger:#b3343f;--danger-soft:#f8e6e6;--warn:#975210;--warn-soft:#f8ecdc;
+  --band:#A8492F;--band-ink:#FFF6EC;--accent:#a8492f;--accent-text:#933f28;--accent-soft:#f3e3db;
+  --display:'Bricolage Grotesque','Manrope',sans-serif;--sans:'Manrope',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9e3da;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:1240px;margin:0 auto;padding:24px 16px 80px}
+h1.top{font-family:var(--display);font-size:30px;margin:8px 0 6px}
+p.lead{color:var(--ink-2);max-width:720px;line-height:1.5;margin:0 0 8px}
+section.screen{margin:40px 0 0}
+section.screen>h2{font-family:var(--display);font-size:22px;margin:0 0 4px}
+section.screen>p{color:var(--ink-2);max-width:760px;line-height:1.5;margin:0 0 14px;font-size:15px}
+.pair{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.col{width:390px;max-width:100%}
+.tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:99px;margin-bottom:8px}
+.tag.now{background:#d9d2c8;color:#45403a}.tag.new{background:var(--band);color:var(--band-ink)}
+.shot{width:390px;max-width:100%;border-radius:22px;display:block;box-shadow:0 6px 24px #0002}
+.note{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.45}
+
+/* the phone */
+.phone{width:390px;max-width:100%;background:var(--band);border-radius:22px;overflow:hidden;position:relative;box-shadow:0 6px 24px #0002;font-size:15px}
+.band{color:var(--band-ink);padding:22px 20px 34px;display:flex;align-items:flex-start;gap:12px}
+.band .big{font-family:var(--display);font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1;flex:1;padding-top:8px}
+.band .t{flex:1;min-width:0}
+.band .title{font-family:var(--display);font-size:28px;font-weight:700;line-height:1.1}
+.band .sub{font-size:14px;font-weight:600;opacity:.9;margin-top:6px}
+.band .ic{width:24px;height:24px;flex:none;margin-top:6px}
+.body{background:var(--ground);border-radius:28px 28px 0 0;margin-top:-14px;padding:16px 16px 18px;position:relative}
+.search{background:var(--surface);border:1px solid var(--hairline);border-radius:99px;height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--muted)}
+.card{background:var(--surface);border-radius:16px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--hairline);min-height:56px}
+.row:first-child{border-top:0}
+.row .main{flex:1;min-width:0}
+.row .name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.lbl{font-size:13px;font-weight:700;color:var(--muted);margin:18px 2px 8px}
+.tile{width:40px;height:40px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;flex:none}
+.playb{width:34px;height:34px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;flex:none}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:99px;font-weight:800;font-size:16px;height:52px;border:0;width:100%}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.tonal{background:var(--accent-soft);color:var(--accent-text)}
+.btn.tert{background:none;color:var(--accent-text)}
+.btn.sm{height:36px;font-size:14px;width:auto;padding:0 14px}
+.btn.danger{background:none;color:var(--danger)}
+.pill{font-size:12px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--chip);color:var(--ink-2);white-space:nowrap}
+.pill.accent{background:var(--accent);color:#fff}
+.pill.ok{background:var(--done-soft);color:var(--done)}
+.tabbar{background:var(--tab-bg);border-top:1px solid var(--tab-line);display:flex;justify-content:space-around;align-items:center;height:62px;padding:0 10px}
+.tabbar .t{width:44px;height:40px;display:grid;place-items:center;color:var(--ink-2);position:relative}
+.tabbar .t.on{width:auto;padding:0 22px;background:var(--accent-soft);color:var(--accent-text);border-radius:99px;display:flex;gap:8px;font-weight:800;font-size:15px}
+.dot{position:absolute;width:10px;height:10px;border-radius:99px;background:var(--danger);border:2px solid var(--tab-bg)}
+.tabbar .t .dot{top:5px;right:6px}
+.tabbar .t.on .dot{top:2px;right:12px;border-color:var(--accent-soft)}
+.field{background:var(--surface);border:1.5px solid var(--field-line);border-radius:14px;height:50px;display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--ink);font-size:16px}
+.field.ph{color:var(--muted)}
+.field.focus{border:2px solid var(--accent);box-shadow:0 0 0 3px #a8492f33}
+.flabel{font-size:14px;font-weight:700;color:var(--ink-2);margin:14px 2px 6px}
+.flabel span{font-weight:500;color:var(--muted)}
+.help{font-size:13px;color:var(--muted);margin:6px 2px 0;line-height:1.4}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:8px 16px;border-radius:99px;background:var(--chip);font-weight:700;font-size:14px}
+.chip.on{background:var(--accent);color:#fff}
+.scrim{position:absolute;inset:0;background:#00000073}
+.sheet{position:relative;background:var(--sheet);border-radius:26px 26px 0 0;padding:10px 20px 22px;margin-top:-60px}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--track);margin:0 auto 10px}
+.sheet h3{font-family:var(--display);font-size:24px;margin:0;flex:1}
+.shead{display:flex;align-items:center}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px;margin:16px 0}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--hairline)}
+.check{width:24px;height:24px;border-radius:7px;border:2px solid var(--field-line);flex:none;display:grid;place-items:center;background:var(--surface)}
+.check.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.out{color:var(--accent-text);display:grid;place-items:center;width:36px;height:36px;border-radius:99px;flex:none}
+.pin{position:sticky;bottom:0;background:var(--tab-bg);border-top:1px solid var(--tab-line);padding:12px 16px;display:flex;gap:10px}
+.pin .btn{flex:1}
+.steps .row{min-height:64px}
+.sdot{width:28px;height:28px;border-radius:99px;display:grid;place-items:center;flex:none}
+.sdot.done{background:var(--done);color:#fff}
+.sdot.now{border:3px solid var(--accent);}
+.sdot.now:after{content:"";width:10px;height:10px;border-radius:99px;background:var(--accent)}
+.sdot.todo{border:2px solid var(--track)}
+.from{font-size:13px;color:var(--muted);text-align:center;line-height:1.6}
+.from a{color:var(--accent-text);font-weight:700;text-decoration:none}
+.srcbox{background:var(--surface);border-radius:16px;padding:4px 0}
+.srcbox .row{min-height:60px}
+.dlg{position:absolute;left:24px;right:24px;top:220px;background:var(--surface);border-radius:24px;padding:22px 20px 14px;box-shadow:0 10px 40px #0004}
+.dlg h4{font-family:var(--display);font-size:21px;margin:0 0 10px}
+.dlg p{margin:0 0 10px;color:var(--ink-2);line-height:1.45;font-size:15px}
+.dlg .acts{display:flex;gap:10px;margin-top:14px}
+.dlg .acts .btn{flex:1;height:46px;font-size:15px}
+.edit-in{background:var(--field);border-radius:12px;padding:10px 12px;margin-top:6px}
+.mini{background:var(--surface);border:1.5px solid var(--field-line);border-radius:10px;height:40px;display:flex;align-items:center;padding:0 10px;font-size:15px;margin-top:6px}
+.mini.ph{color:var(--muted)}
+.mini-l{font-size:12px;font-weight:700;color:var(--muted);margin-top:8px}
+.spot{color:#1db954}
+.callout{background:var(--warn-soft);color:var(--warn);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;font-weight:600}
+.opt{font-family:var(--display);font-size:18px;margin:0 0 8px}
+</style>
+</head>
+<style>
+.chip.s{padding:6px 12px;font-size:13px}
+.ed{margin-top:8px}
+.ed .mini{margin-top:4px}
+.ed .mini-l{margin-top:10px}
+.inplace{background:var(--surface);border:1.5px solid var(--field-line);border-radius:10px;height:40px;display:flex;align-items:center;padding:0 10px}
+.inplace.t{font-weight:700;font-size:16px}
+.inplace.a{font-size:14px;color:var(--ink-2);height:36px;margin-top:6px}
+.rowopen{background:var(--surface)}
+.closeb{font-weight:800;color:var(--accent-text);font-size:14px}
+.ic-pencil,.ic-out{display:grid}
+</style>
+<body>
+<div class="page">
+<h1 class="top">Pick list · 3A, second round</h1>
+<p class="lead">Option A, changed in two ways. The pencil now opens Title, Artist <b>and Style</b> for that one song. The open fields no longer sit in a grey box: they're part of the row. Two ways to do that are below. A song whose style differs from the rest shows it in its grey line ("· Son").</p>
+
+<section class="screen">
+<div class="pair">
+
+<div class="col"><p class="opt">Option A1 · fields under the song</p>
+<div class="phone">
+  <div class="band" style="padding-bottom:30px">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+    <div class="t"><div class="title">Salsa clásica · class</div><div class="sub">Spotify playlist · 32 songs</div></div>
+  </div>
+  <div class="body" style="padding-bottom:0">
+    <div class="flabel" style="margin-top:2px">Style for all</div>
+    <div class="chips"><span class="chip on">Salsa</span><span class="chip">Son</span><span class="chip">Timba</span><span class="chip">Other</span></div>
+    <div style="display:flex;align-items:center;margin:16px 2px 8px"><div class="check on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><span style="font-weight:800;margin-left:12px;flex:1">Select all</span><span style="color:var(--muted);font-size:14px;font-weight:600">4 of 32 picked</span></div>
+    <div class="card"><div class="row"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Cali Pachanguero</div><div class="meta">Grupo Niche · 5:11</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row" style="flex-direction:column;align-items:stretch;gap:0"><div style="display:flex;align-items:center;gap:12px"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Que Locura Enamorarme De Ti</div><div class="meta">Eddie Santiago · 4:58 · Son</div></div><div class="out"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div><div style="padding-left:36px;padding-bottom:4px"><div class="mini-l">Title</div><div class="mini" style="border:2px solid var(--accent)">Qué locura</div>
+  <div class="mini-l">Artist</div><div class="mini">Eddie Santiago</div>
+  <div class="mini-l">Style</div><div style="margin-top:6px"><div class="chips"><span class="chip s">Salsa</span><span class="chip s on">Son</span><span class="chip s">Timba</span><span class="chip s">Other</span></div></div></div></div><div class="row"><div class="check"></div><div class="main"><div class="name">Suavemente</div><div class="meta">Elvis Crespo · 4:28</div></div><span class="pill ok">Already added</span><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Idilio</div><div class="meta">Willie Colón · 5:42</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Timba Timbera</div><div class="meta">Pupy y Los que Son Son · 4:40 · Timba</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row"><div class="check"></div><div class="main"><div class="name">Pedro Navaja</div><div class="meta">Rubén Blades · 7:21</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div></div>
+    <div style="height:14px"></div>
+  </div>
+  <div class="pin" style="position:static"><div class="btn tonal" style="flex:0 0 120px">Dismiss</div><div class="btn primary">Add 4 songs</div></div>
+</div>
+<p class="note">The song's own name stays on top, and the three fields open under it with small labels, on the row's own white. ✓ closes it.</p>
+</div>
+
+<div class="col"><p class="opt">Option A2 · the row becomes the form</p>
+<div class="phone">
+  <div class="band" style="padding-bottom:30px">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+    <div class="t"><div class="title">Salsa clásica · class</div><div class="sub">Spotify playlist · 32 songs</div></div>
+  </div>
+  <div class="body" style="padding-bottom:0">
+    <div class="flabel" style="margin-top:2px">Style for all</div>
+    <div class="chips"><span class="chip on">Salsa</span><span class="chip">Son</span><span class="chip">Timba</span><span class="chip">Other</span></div>
+    <div style="display:flex;align-items:center;margin:16px 2px 8px"><div class="check on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12h14"/></svg></div><span style="font-weight:800;margin-left:12px;flex:1">Select all</span><span style="color:var(--muted);font-size:14px;font-weight:600">4 of 32 picked</span></div>
+    <div class="card"><div class="row"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Cali Pachanguero</div><div class="meta">Grupo Niche · 5:11</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row" style="flex-direction:column;align-items:stretch;gap:0"><div style="display:flex;align-items:center;gap:12px"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="inplace t" style="border:2px solid var(--accent)">Qué locura</div></div><div class="out"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div><div style="padding-left:36px;padding-bottom:4px"><div class="inplace a">Eddie Santiago</div>
+ <div style="margin-top:10px"><div class="chips"><span class="chip s">Salsa</span><span class="chip s on">Son</span><span class="chip s">Timba</span><span class="chip s">Other</span></div></div>
+ <div style="color:var(--muted);font-size:13px;margin-top:8px">On Spotify: Que Locura Enamorarme De Ti · 4:58</div></div></div><div class="row"><div class="check"></div><div class="main"><div class="name">Suavemente</div><div class="meta">Elvis Crespo · 4:28</div></div><span class="pill ok">Already added</span><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Idilio</div><div class="meta">Willie Colón · 5:42</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row"><div class="check on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="main"><div class="name">Timba Timbera</div><div class="meta">Pupy y Los que Son Son · 4:40 · Timba</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div><div class="row"><div class="check"></div><div class="main"><div class="name">Pedro Navaja</div><div class="meta">Rubén Blades · 7:21</div></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div><div class="out"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg></div></div></div>
+    <div style="height:14px"></div>
+  </div>
+  <div class="pin" style="position:static"><div class="btn tonal" style="flex:0 0 120px">Dismiss</div><div class="btn primary">Add 4 songs</div></div>
+</div>
+<p class="note">Title and artist turn into fields where the text was, with no labels. The Spotify name moves to a small line under them, so you can still see what it was. Tighter, and more like editing the text itself.</p>
+</div>
+
+</div>
+</section>
+<p class="lead" style="margin-top:30px">At the top, "Style for all" sets every song's style. A song you gave its own style keeps it when you change "Style for all" later.</p>
+</div>
+</body>
+</html>

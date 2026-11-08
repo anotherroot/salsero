@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from .lists import TrackList
 from .media import PermanentError
 
 USER_AGENT = "salsa-worker/0.1"
@@ -81,10 +82,28 @@ class Api:
         with self._request("GET", f"/api/worker/songs/{song_id}/audio", timeout=300) as r, open(dest, "wb") as f:
             shutil.copyfileobj(r, f)
 
-    def upload_audio(self, song_id: int, path: Path, mime: str, title: str | None, duration: float | None) -> None:
+    def upload_audio(
+        self,
+        song_id: int,
+        path: Path,
+        mime: str,
+        title: str | None,
+        duration: float | None,
+        *,
+        artist: str | None = None,
+        fetched_url: str | None = None,
+        fetched_title: str | None = None,
+    ) -> None:
+        """An older server ignores the artist and the fetched video; it still takes the audio."""
         headers = {"Content-Type": mime, "Content-Length": str(path.stat().st_size)}
-        if title:
-            headers["x-title"] = urllib.parse.quote(title)
+        for name, value in (
+            ("x-title", title),
+            ("x-artist", artist),
+            ("x-fetched-url", fetched_url),
+            ("x-fetched-title", fetched_title),
+        ):
+            if value:
+                headers[name] = urllib.parse.quote(value)
         if duration:
             headers["x-duration"] = str(duration)
         with open(path, "rb") as f:
@@ -167,3 +186,36 @@ class Api:
 
     def fail_video(self, job_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/videos/{job_id}/fail", {"error": error[:500], "permanent": permanent})
+
+    # ── Pasted playlists: a third queue, read before songs (see src/lib/server/song-imports.ts) ──
+
+    def claim_import(self) -> dict | None:
+        """None when there is nothing to read, and on a 404: a server older than imports has no queue."""
+        try:
+            with self._request("POST", "/api/worker/imports/claim", data=b"{}") as r:
+                return None if r.status == 204 else json.load(r)
+        except ApiError as e:
+            if e.status == 404:
+                return None
+            raise
+
+    def report_import(self, job_id: int, lst: TrackList) -> None:
+        """A 410: the list was cancelled or dismissed meanwhile. A 400: the server refuses this read."""
+        body = {
+            "name": lst.name,
+            "items": [
+                {"title": i.title, "artist": i.artist, "durationS": i.duration_s, "url": i.url} for i in lst.items
+            ],
+            "truncated": lst.truncated,
+        }
+        try:
+            self._json(f"/api/worker/imports/{job_id}/items", body)
+        except ApiError as e:
+            if e.status == 410:
+                raise JobGone(e.message) from e
+            if e.status == 400:
+                raise PermanentError(f"Server refused the list: {e.message}") from e
+            raise
+
+    def fail_import(self, job_id: int, error: str, permanent: bool) -> None:
+        self._json(f"/api/worker/imports/{job_id}/fail", {"error": error[:500], "permanent": permanent})

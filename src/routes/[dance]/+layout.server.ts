@@ -3,6 +3,7 @@ import { error } from '@sveltejs/kit';
 import { getDance, isDanceSlug } from '$lib/dances/dances';
 import { getDb } from '$lib/server/db';
 import { whatsNew } from '$lib/server/whats-new';
+import { importsWaiting } from '$lib/server/song-imports';
 import { groupChoices, groupModeOf } from '$lib/server/group-mode';
 import { outsideGroupMode } from '$lib/teams/mode';
 import type { GroupChoice, GroupMode } from '$lib/types';
@@ -28,6 +29,7 @@ export const load: LayoutServerLoad = ({ params, cookies, url, locals }) => {
 	let groupMode: GroupMode | null = null;
 	let choices: GroupChoice[] = [];
 	let groupsNew = false;
+	let musicToPick = false;
 	if (locals.user) {
 		const db = getDb();
 		if (!outsideGroupMode(url.pathname, dance))
@@ -43,6 +45,8 @@ export const load: LayoutServerLoad = ({ params, cookies, url, locals }) => {
 				}
 			: undefined;
 		groupsNew = whatsNew(db, locals.user.id, dance, opening).byTeam.size > 0;
+		// Derived, never stored: a read playlist of theirs, or of a group they edit, not yet picked.
+		musicToPick = importsWaiting(db, locals.user.id, dance);
 	}
-	return { dance: getDance(dance), groupMode, groupChoices: choices, groupsNew };
+	return { dance: getDance(dance), groupMode, groupChoices: choices, groupsNew, musicToPick };
 };

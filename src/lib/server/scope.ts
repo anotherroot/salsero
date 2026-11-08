@@ -49,11 +49,13 @@ import {
 	type Lesson,
 	type PositionRow,
 	type Routine,
-	type Song
+	type Song,
+	type SongImport
 } from './db/schema';
 import { getExercise, getSet } from './exercises';
 import { getRoutine } from './routines';
 import { getSong } from './songs';
+import { getImport } from './song-imports';
 import { getTeam, roleOf, type Team } from './teams';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 import type { Role } from '$lib/types';
@@ -435,6 +437,34 @@ export function requireSongAccess(
 	const access = songAccess(db, wall.userId, song);
 	if (access === null || !allows(access, need)) throw error(404, t().refusals.songNotFound);
 	return { song, space: spaceOfRow(song, wall.userId), access };
+}
+
+/**
+ * A pasted playlist the person may pick from: their own, or a group's they own
+ * or edit (a live group). Anything else, and an added or dismissed one, is the
+ * same 404. Its space is the import's, so a group's list is acted on from Mine
+ * too.
+ */
+export function requireImportAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	/** The pick list's load: an added or dismissed list of theirs is found, to send them back to Music. */
+	opts: { finished?: boolean } = {}
+): { imp: SongImport; space: Space } {
+	const wall = wallOf(params, locals);
+	const imp = getImport(db, idOf(id));
+	const missing = () => error(404, t().refusals.notFound);
+	const finished = imp !== null && (imp.addedAt !== null || imp.dismissedAt !== null);
+	if (!imp || imp.dance !== wall.dance || (finished && !opts.finished)) throw missing();
+	if (imp.teamId !== null) {
+		const role = roleOf(db, wall.userId, imp.teamId);
+		const team = getTeam(db, imp.teamId);
+		if (role !== 'owner' && role !== 'editor') throw missing();
+		if (!team || team.deletedAt !== null || team.purgedAt !== null) throw missing();
+	} else if (imp.userId !== wall.userId) throw missing();
+	return { imp, space: spaceOfRow(imp, wall.userId) };
 }
 
 const TEAM_RANK = { member: 0, editor: 1, owner: 2 } as const;

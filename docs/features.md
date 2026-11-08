@@ -102,7 +102,12 @@ Add to the group: Lesson and Drill made there, Music, Figure, Routine and Positi
 switching into the group; every New figure takes its move from one Move field that can
 also make a new move (`PickerField`'s create, `moveFromQuery`); Edit asks no move name; a
 group's own heading on the Moves lists (`GroupHeading`); thin scrollbars in the app's colours; see
-[`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md)).
+[`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md))
+and Spotify links and playlists (a Spotify song link in Add a song is found on YouTube by the
+home worker; "Audio from" and Use another YouTube link on a song, reaching its copies kept in
+step; a YouTube or Spotify playlist or album is read by the worker into a pick list under
+"To pick", a dot on Music, and only the ticked songs download; see
+[`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md)).
 
 
 ## Specs
@@ -233,6 +238,12 @@ Comments have theirs,
 [`docs/superpowers/specs/2026-11-05-lesson-comments-design.md`](docs/superpowers/specs/2026-11-05-lesson-comments-design.md):
 who reads and writes, the soft delete, hearts, "N new" from an `opens` row, the
 card, the sheet, the keyboard, the API, and what was decided while building.
+Spotify links and playlists have theirs,
+[`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md):
+a Spotify song found on YouTube (the match rules, no list of matches), where the audio came
+from and swapping it (copies kept in step follow; the count, sample, sections and start stay
+with their audio), the pick list (option A2), the imports queue and the Music dot. Its mockups
+are in `2026-11-08-spotify-mockups/`.
 Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language

@@ -281,6 +281,13 @@
       "when": 1794148313237,
       "tag": "0039_dapper_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794174401497,
+      "tag": "0040_dark_power_pack",
+      "breakpoints": true
     }
   ]
 }

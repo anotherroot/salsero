@@ -235,6 +235,8 @@ export const groups: Catalog['groups'] = {
 			sampleStartS: 'začetek odlomka',
 			sectionsJson: 'deli',
 			startS: 'začetek glasbe',
+			audio: 'zvok',
+			audioUrl: 'povezava do zvoka',
 			practiceMode: 'vadenje',
 			countBpm: 'tempo vadenja',
 			comesBack: 'kdaj pride spet na vrsto',

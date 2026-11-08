@@ -33,6 +33,9 @@ function song(id: number, title: string, over: Partial<SongItem> = {}): SongItem
 		artist: null,
 		style: 'salsa',
 		sourceUrl: null,
+		audioUrl: null,
+		fetchedUrl: null,
+		fetchedTitle: null,
 		status: 'ready',
 		error: null,
 		durationS: 323,
@@ -118,6 +121,20 @@ describe('words', () => {
 			meta: 'Salsa',
 			tone: null,
 			badge: { text: 'Waiting to download', tone: 'neutral', icon: 'clock' }
+		});
+		// A Spotify song: the badge says it is being found; the line keeps the artist.
+		expect(
+			songState(
+				song(1, 'x', {
+					status: 'waiting_download',
+					artist: 'Grupo Niche',
+					sourceUrl: 'https://open.spotify.com/track/abc'
+				}),
+				L
+			)
+		).toMatchObject({
+			meta: 'Grupo Niche · Salsa',
+			badge: { text: 'Finding it on YouTube', tone: 'neutral', icon: 'clock' }
 		});
 		expect(songState(song(1, 'x', { status: 'waiting_analysis' }), L).badge).toEqual({
 			text: 'Finding the beat',
@@ -263,6 +280,24 @@ describe('Stop sharing and Delete', () => {
 		expect(deleteSongBody(1)).toBe(
 			"It goes to Recently deleted for 30 days. Used in 1 person's practice. They'll switch to count only until you restore it."
 		);
+	});
+});
+
+describe('libraryView with pasted playlists', () => {
+	it('is a list, not empty, while a playlist is there, and counts it as being added', () => {
+		const v = libraryView([], '', false, 1);
+		expect(v).toMatchObject({ kind: 'list', addingHeading: 'Being added · 1' });
+		const w = libraryView(
+			[
+				song(1, 'a', { status: 'waiting_download' }),
+				song(2, 'b', { status: 'waiting_analysis' }),
+				song(3, 'c')
+			],
+			'',
+			false,
+			1
+		);
+		expect(w).toMatchObject({ addingHeading: 'Being added · 3', restHeading: 'All songs A–Z · 1' });
 	});
 });
 

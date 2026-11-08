@@ -22,6 +22,7 @@ import {
 	routines,
 	routineStepOptions,
 	routineSteps,
+	songImports,
 	spotLinks,
 	spotPositionLinks,
 	teamMembers,
@@ -304,6 +305,24 @@ describe('positions', () => {
 		expect(ownerIntegrity(db)).toEqual([
 			`positions ${both}: needs exactly one of user_id and team_id`,
 			`positions ${neither}: needs exactly one of user_id and team_id`
+		]);
+	});
+
+	it('ownerIntegrity reports a pasted playlist with both owners', () => {
+		const both = db
+			.insert(songImports)
+			.values({
+				dance: 'salsa',
+				url: 'https://www.youtube.com/playlist?list=PL1',
+				kind: 'youtube-playlist',
+				status: 'reading',
+				userId: 'u1',
+				teamId: 1
+			})
+			.returning()
+			.get().id;
+		expect(ownerIntegrity(db)).toEqual([
+			`song_imports ${both}: needs exactly one of user_id and team_id`
 		]);
 	});
 

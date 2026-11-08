@@ -47,7 +47,7 @@ function insertSong(db: Db, space: Space, values: typeof songs.$inferInsert, now
 export function createSongFromUrl(
 	db: Db,
 	space: Space,
-	input: { url: string; title: string; style: string },
+	input: { url: string; title: string; style: string; artist?: string | null },
 	now = serverNow()
 ): Song {
 	return insertSong(
@@ -56,6 +56,7 @@ export function createSongFromUrl(
 		{
 			sourceUrl: input.url,
 			title: input.title,
+			artist: input.artist ?? null,
 			style: input.style,
 			status: 'waiting_download'
 		},
@@ -173,6 +174,9 @@ function songItem(s: Song, recent: number[]): SongItem {
 		artist: s.artist,
 		style: s.style,
 		sourceUrl: s.sourceUrl,
+		audioUrl: s.audioUrl,
+		fetchedUrl: s.fetchedUrl,
+		fetchedTitle: s.fetchedTitle,
 		status: s.status,
 		error: s.error,
 		durationS: s.durationS,
@@ -428,6 +432,43 @@ export function retrySong(db: Db, id: number): Song | null {
 	);
 }
 
+/**
+ * Use another YouTube link: the song downloads again from `url`, its beat is
+ * found again, and its 1s and sample start are cleared (they index the old
+ * audio). The old file stays until the new one lands (`storeFetchedAudio`
+ * names it). An edit like any other, so History logs it on a group's song and
+ * Keep in step carries it to the copies (the `audio` key). Refused while the
+ * worker is on the song, for an upload (no link to change), and for no song.
+ */
+export function useAudioUrl(
+	db: Db,
+	id: number,
+	url: string,
+	space?: Space,
+	now = serverNow()
+): { ok: true; song: Song } | { ok: false; reason: 'busy' | 'upload' | 'missing' } {
+	const song = getSong(db, id);
+	if (!song || song.archivedAt !== null) return { ok: false, reason: 'missing' };
+	if ((WAITING as readonly string[]).includes(song.status)) return { ok: false, reason: 'busy' };
+	if (!song.sourceUrl) return { ok: false, reason: 'upload' };
+	const after = editSong(db, id, { ...AUDIO_RESET, audioUrl: url }, space, now, 'audio');
+	return after ? { ok: true, song: after } : { ok: false, reason: 'missing' };
+}
+
+/** What new audio clears: the 1s, the sample, the sections and the start index the old one; the worker starts afresh. */
+export const AUDIO_RESET = {
+	status: 'waiting_download',
+	anchorsJson: '[]',
+	sampleStartS: null,
+	// Sections and the music start are seconds of the old recording too.
+	sectionsJson: '[]',
+	startS: null,
+	startFoundS: null,
+	attempts: 0,
+	error: null,
+	claimedAt: null
+} as const satisfies Partial<typeof songs.$inferInsert>;
+
 /** The count's anchors (a tap, a removal, Reset). False when there is no such song. */
 export function setAnchors(
 	db: Db,
@@ -586,7 +627,7 @@ export function claimJob(db: Db, now: number): Job | null {
 		return {
 			id: next.id,
 			kind: next.status === 'waiting_download' ? 'download' : 'analyze',
-			url: next.status === 'waiting_download' ? next.sourceUrl : null
+			url: next.status === 'waiting_download' ? (next.audioUrl ?? next.sourceUrl) : null
 		};
 	});
 }
@@ -595,7 +636,10 @@ export function claimJob(db: Db, now: number): Job | null {
  * The worker downloaded the audio. Release the lease and move on to analysis;
  * the worker claims the analysis job next, normally straight away.
  * Only a song still waiting for its download takes audio this way; anything
- * else is left untouched and gives false.
+ * else is left untouched and gives `{ ok: false }`. A song whose audio is
+ * being swapped (Use another YouTube link) still holds its old file:
+ * `replaced` names it, for the caller to unlink once this has landed.
+ * The artist fills only an empty one, as the title does.
  */
 export function storeFetchedAudio(
 	db: Db,
@@ -604,13 +648,16 @@ export function storeFetchedAudio(
 		file: string;
 		mime: string;
 		title: string | null;
+		artist?: string | null;
+		fetchedUrl?: string | null;
+		fetchedTitle?: string | null;
 		durationS: number | null;
 		sizeBytes?: number;
 	}
-): boolean {
+): { ok: true; replaced: string | null } | { ok: false } {
 	const song = getSong(db, id);
-	if (!song || song.status !== 'waiting_download') return false;
-	return (
+	if (!song || song.status !== 'waiting_download') return { ok: false };
+	const stored =
 		db
 			.update(songs)
 			.set({
@@ -619,13 +666,20 @@ export function storeFetchedAudio(
 				durationS: input.durationS,
 				sizeBytes: input.sizeBytes ?? null,
 				title: song.title === '' && input.title ? input.title.slice(0, 200) : song.title,
+				artist: !song.artist && input.artist ? input.artist.slice(0, 200) : song.artist,
+				fetchedUrl: input.fetchedUrl ?? null,
+				fetchedTitle: input.fetchedTitle ?? null,
 				status: 'waiting_analysis',
 				claimedAt: null,
 				error: null
 			})
 			.where(and(eq(songs.id, id), eq(songs.status, 'waiting_download')))
-			.run().changes > 0
-	);
+			.run().changes > 0;
+	if (!stored) return { ok: false };
+	return {
+		ok: true,
+		replaced: song.audioFile && song.audioFile !== input.file ? song.audioFile : null
+	};
 }
 
 export function storeAnalysis(

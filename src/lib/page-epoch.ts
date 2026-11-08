@@ -17,7 +17,7 @@ import { mayReloadNow, type Quiet } from '$lib/nav/fresh';
 import { catalogOf, t } from '$lib/i18n/catalog';
 import { LOCALES } from '$lib/i18n/locale';
 
-export const PAGE_EPOCH = 11;
+export const PAGE_EPOCH = 12;
 
 export const EPOCH_HEADER = 'x-page-epoch';
 export const STALE_HEADER = 'x-page-stale';

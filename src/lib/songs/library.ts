@@ -7,6 +7,7 @@ import { t } from '$lib/i18n/catalog';
 import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
 import type { SongItem } from '$lib/types';
 import { byTitle, groupSongs, searchSongs } from './search';
+import { sourceOf } from './song-page';
 
 /** A song's name: its title, else where it came from, else a placeholder. */
 export function songName(s: { title: string; sourceUrl: string | null }): string {
@@ -34,7 +35,11 @@ export type LibraryView<S> =
 export function libraryView<S extends SongItem>(
 	songs: S[],
 	query: string,
-	uploading: boolean
+	uploading: boolean,
+	/** Pasted playlists in Music (To pick and Being added): the list is not empty while one is there. */
+	imports = 0,
+	/** Of those, the ones in Being added (reading or failed): they count in its heading. */
+	importsAdding = imports
 ): LibraryView<S> {
 	if (query.trim()) {
 		const hits = searchSongs(songs, query);
@@ -44,13 +49,13 @@ export function libraryView<S extends SongItem>(
 			heading: t().songs.list.searchHeading(hits.length)
 		};
 	}
-	if (songs.length === 0 && !uploading) return { kind: 'empty' };
+	if (songs.length === 0 && !uploading && imports === 0) return { kind: 'empty' };
 	const adding = songs.filter((s) => s.status !== 'ready');
 	const { recent, rest } = groupSongs(songs.filter((s) => s.status === 'ready'));
 	return {
 		kind: 'list',
 		adding,
-		addingHeading: t().songs.list.beingAdded(adding.length + (uploading ? 1 : 0)),
+		addingHeading: t().songs.list.beingAdded(adding.length + (uploading ? 1 : 0) + importsAdding),
 		recent,
 		rest,
 		restHeading: t().songs.list.allAZ(rest.length),
@@ -79,12 +84,19 @@ export function songState(
 } {
 	const style = styleLabel[s.style] ?? s.style;
 	switch (s.status) {
-		case 'waiting_download':
+		case 'waiting_download': {
+			// A Spotify song is found on YouTube before it downloads.
+			const spotify = sourceOf(s.sourceUrl) === 'spotify';
 			return {
-				meta: style,
+				meta: spotify ? [s.artist, style].filter(Boolean).join(' · ') : style,
 				tone: null,
-				badge: { text: t().songs.list.waitingDownload, tone: 'neutral', icon: 'clock' }
+				badge: {
+					text: spotify ? t().songs.source.findingIt : t().songs.list.waitingDownload,
+					tone: 'neutral',
+					icon: 'clock'
+				}
 			};
+		}
 		case 'waiting_analysis':
 			return {
 				meta: style,
@@ -151,9 +163,11 @@ export type ClassLibraryView<S> =
 export function classLibraryView<S extends SongItem>(
 	songs: S[],
 	query: string,
-	uploading: boolean
+	uploading: boolean,
+	imports = 0,
+	importsAdding = imports
 ): ClassLibraryView<S> {
-	const view = libraryView(songs, query, uploading);
+	const view = libraryView(songs, query, uploading, imports, importsAdding);
 	if (view.kind !== 'list') return view;
 	const ready = songs.filter((s) => s.status === 'ready');
 	const az = (xs: S[]) => [...xs].sort(byTitle);

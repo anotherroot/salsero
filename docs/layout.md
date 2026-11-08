@@ -210,6 +210,19 @@ src/lib/server/song-links.ts  Music (spec 2026-11-05 part B): a lesson's, drill'
                      song), and Take a recording's and Sync's `musicFits`/`takeMusic`/`dropMusic`.
                      music-form.ts is the pages' three actions; components/songs/MusicSection.svelte
                      the list, and SongPickSheet.svelte the "Pick a song" popup (SongPicker's too)
+src/lib/songs/source.ts  PURE: what a pasted link is (`classifyLink`: a YouTube or Spotify song,
+                     a playlist or album, a spotify.link short link), `songKeyOf` ("same song").
+                     song-page.ts's `sourceOf`/`sourceRows` draw "Audio from". imports.ts: a pasted
+                     playlist's row in Music (To pick, Being added); pick-list.ts: the pick list's
+                     state (option A2). Client-safe
+src/lib/server/short-link.ts  follows a spotify.link redirect (headers only, one hop): the
+                     one outbound request the server makes for Spotify
+src/lib/server/song-imports.ts  a pasted playlist (`song_imports`): create, the worker's claim,
+                     items and failure, retry, dismiss, Music's list, the dot (`importsWaiting`),
+                     `pickItems` and Add (`addFromImport`). import-form.ts reads the posted picks.
+                     `requireImportAccess` (scope.ts) guards it; `/[dance]/songs/imports/[id]` is the
+                     pick list (components/songs/PickList, PickRow, ImportRow)
+src/lib/server/clones/audio-reach.ts  how many copies new audio reaches (the flow's walk, no writes)
 src/lib/songs/music.ts  PURE: Music's words and "Practise to this" (`practiseHref`)
 src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
                      and its fade. search.ts is PURE: the song popup's folded
@@ -317,6 +330,8 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      the builders in video/styles.ts; no palette or icons of
                      their own
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
+                     spotify.py reads a Spotify track or list from its embed page; match.py scores
+                     YouTube results (`best`); lists.py is a read playlist
 android/             the Android apps (Kotlin): one per dance as Gradle flavors, each a WebView launcher, salsa:// links, the upload
                      and reminder workers. No screens of its own. Pure parts (Links,
                      UploadPlan, Reminder, Api parsing, Words) have JVM tests. `Words.kt` is its
@@ -564,7 +579,7 @@ src/routes/[dance]/  every page lives under its dance. Flat routes — login,
 src/routes/          pages + actions. api/figures/[id]/recordings and api/songs
                      take raw-body uploads; api/lessons/[id]/videos/[uploadId]
                      takes ONE CHUNK per request, as does api/worker/videos/[id]/file;
-                     api/worker/* is the worker's queue (songs, then videos)
+                     api/worker/* is the worker's queue (imports, then songs, then videos)
                      recordings/[file], audio/[file], count/[file] and
                      lesson-videos/[file] serve with HTTP Range
 src/lib/media.ts     shared: telling a missing media file from an undecodable one

@@ -24,7 +24,7 @@ def fake_run(returncode=0, stdout="", stderr="", make=None):
 def test_fetch_reads_title_and_duration(tmp_path: Path):
     run = fake_run(stdout="Vivir Mi Vida\t327\n", make=tmp_path / "audio.m4a")
     got = media.fetch("https://youtu.be/x", tmp_path, run=run)
-    assert got == media.Fetched(tmp_path / "audio.m4a", "Vivir Mi Vida", 327.0)
+    assert got == media.Fetched(tmp_path / "audio.m4a", "Vivir Mi Vida", 327.0, "https://youtu.be/x")
     cmd = run.calls[0]
     # --print implies --simulate unless told otherwise: without this nothing downloads.
     assert "--no-simulate" in cmd
@@ -94,6 +94,69 @@ def test_to_mp4_is_small_h264_that_streams(tmp_path: Path):
         media.to_mp4(tmp_path / "a", tmp_path / "b", run=fake_run(1, stderr="Invalid data"))
 
 
+def test_search_youtube_lists_candidates():
+    out = (
+        '{"entries": ['
+        '{"url": "https://www.youtube.com/watch?v=a1", "title": "Cali Pachanguero", "channel": "Grupo Niche - Topic", "duration": 313},'
+        '{"webpage_url": "https://www.youtube.com/watch?v=b2", "title": "Live", "uploader": "Fan", "duration": null}'
+        ']}'
+    )
+    run = fake_run(stdout=out)
+    got = media.search_youtube("Grupo Niche Cali Pachanguero", run=run)
+    assert run.calls[0] == [
+        "yt-dlp", "--flat-playlist", "--dump-single-json", "--no-warnings",
+        "ytsearch8:Grupo Niche Cali Pachanguero",
+    ]
+    assert got == [
+        media.Candidate("https://www.youtube.com/watch?v=a1", "Cali Pachanguero", "Grupo Niche - Topic", 313.0),
+        media.Candidate("https://www.youtube.com/watch?v=b2", "Live", "Fan", None),
+    ]
+
+
+def test_a_failed_search_is_transient():
+    with pytest.raises(RuntimeError):
+        media.search_youtube("x", run=fake_run(returncode=1, stderr="ERROR: HTTP Error 429"))
+
+
+FLAT = Path(__file__).parent / "fixtures" / "yt-flat-playlist.json"
+
+
+def test_read_youtube_list_reads_the_flat_playlist():
+    run = fake_run(stdout=FLAT.read_text())
+    lst = media.read_youtube_list("https://www.youtube.com/playlist?list=PL1", run=run)
+    assert run.calls[0] == [
+        "yt-dlp", "--flat-playlist", "--dump-single-json", "--no-warnings", "--playlist-end", "201",
+        "https://www.youtube.com/playlist?list=PL1",
+    ]
+    assert lst.name == "Salsa clásica"
+    assert [(i.title, i.artist, i.duration_s, i.url) for i in lst.items] == [
+        ("Grupo Niche - Cali Pachanguero", None, 312.0, "https://www.youtube.com/watch?v=aaaaaaaaaa1"),
+        ("Idilio", None, None, "https://www.youtube.com/watch?v=bbbbbbbbbb2"),
+        ("Pedro Navaja", None, 441.0, "https://www.youtube.com/watch?v=ccccccccc3"),
+    ]
+    assert lst.truncated is False
+
+
+def test_a_youtube_list_longer_than_200_is_cut():
+    import json
+
+    entries = [{"id": f"id{n:09d}", "title": f"S{n}", "duration": 200} for n in range(201)]
+    lst = media.read_youtube_list("u", run=fake_run(stdout=json.dumps({"title": "Long", "entries": entries})))
+    assert len(lst.items) == 200
+    assert lst.truncated is True
+
+
+@pytest.mark.parametrize("stderr", ["ERROR: The playlist does not exist.", "ERROR: This playlist is private"])
+def test_a_missing_or_private_youtube_list_fails_for_good(stderr):
+    with pytest.raises(media.PermanentError):
+        media.read_youtube_list("u", run=fake_run(returncode=1, stderr=stderr))
+
+
+def test_another_youtube_list_error_is_tried_again():
+    with pytest.raises(RuntimeError):
+        media.read_youtube_list("u", run=fake_run(returncode=1, stderr="ERROR: HTTP Error 429"))
+
+
 def test_music_start_finds_where_the_music_rises_and_stays():
     # 18 s of silence, 12 s very quiet, then the song (median -18 dB).
     levels = [-120.0] * 36 + [-55.0] * 24 + [-18.0] * 400
@@ -129,3 +192,15 @@ def test_loudness_windows_reads_astats_per_half_second(tmp_path: Path):
     (cmd,) = run.calls
     assert cmd[0] == "ffmpeg"
     assert any("asetnsamples=11025" in part and "astats" in part for part in cmd)
+
+
+def test_a_youtube_list_leaves_out_private_and_deleted_videos():
+    import json
+
+    entries = [
+        {"id": "aaaaaaaaaa1", "title": "[Private video]", "duration": None},
+        {"id": "aaaaaaaaaa2", "title": "[Deleted video]", "duration": None},
+        {"id": "aaaaaaaaaa3", "title": "Idilio", "duration": 342},
+    ]
+    lst = media.read_youtube_list("u", run=fake_run(stdout=json.dumps({"title": "L", "entries": entries})))
+    assert [i.title for i in lst.items] == ["Idilio"]

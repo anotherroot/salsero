@@ -6,6 +6,7 @@ import { storedTwinSets } from '$lib/server/twins';
 import { foldSongs } from '$lib/clones/twins';
 import { wallOf } from '$lib/server/scope';
 import { groupModeOf } from '$lib/server/group-mode';
+import { groupImportsToPick, listImports } from '$lib/server/song-imports';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -27,9 +28,12 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }
 	const wall = wallOf(params, locals);
 	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
 	if (mode) {
-		const list = listSongs(db, { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId });
+		const team = { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId };
+		const list = listSongs(db, team);
 		return {
 			songs: list,
+			/** The group's pasted playlists: reading, ready, failed. */
+			imports: listImports(db, team),
 			groups: [],
 			twinned: [] as number[],
 			users: Object.fromEntries(
@@ -48,6 +52,8 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }
 	);
 	return {
 		songs: folded.mine,
+		/** The person's own pasted playlists, then the ready lists of the groups they edit. */
+		imports: [...listImports(db, wall), ...groupImportsToPick(db, wall.userId, wall.dance)],
 		groups: folded.groups.map((g) => ({
 			team: g.team,
 			songs: g.rows.map((s) => ({ ...s, isNew: fresh.has(s.id) }))

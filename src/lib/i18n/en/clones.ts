@@ -176,6 +176,7 @@ export const clones = {
 		sample: 'Sample',
 		sections: 'Sections',
 		musicStart: 'Music start',
+		audio: 'Audio',
 		slots: 'Slots',
 		note: 'Note',
 		sectionLinks: 'Section links'

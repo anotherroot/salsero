@@ -235,6 +235,8 @@ export const groups = {
 			sampleStartS: 'sample start',
 			sectionsJson: 'sections',
 			startS: 'music start',
+			audio: 'audio',
+			audioUrl: 'audio link',
 			practiceMode: 'practice',
 			countBpm: 'practice tempo',
 			comesBack: 'comes back',
