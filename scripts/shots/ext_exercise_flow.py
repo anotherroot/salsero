@@ -35,7 +35,7 @@ def _face_and_back(page, where):
 
 
 def _figure(page):
-    page.get_by_role("link", name="Practise").first.click()
+    page.locator("a:has-text(\"Practise\"), button:has-text(\"Practise\")").first.click()
     _face_and_back(page, r"/figures/\d+")
 
 
