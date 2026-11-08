@@ -770,3 +770,60 @@ it('reads a 502 and a Cloudflare 522 as the network failing, a 404 as an answer'
      - open Today, Moves, a figure, Lessons, a lesson, Music, a song, Practice and Settings;
      - send a log: "Needs a connection" shows;
      - switch airplane mode off: everything works as before.
+
+---
+
+## Appendix: what was decided while building (2026-11-08)
+
+Every ruling made during the build, with what it costs if wrong, and the minor findings left for later. The design spec's "Decided while building phase 2" holds the ones that shape the design.
+
+### Rulings
+
+- Pre-flight: Ruling: worker message types (DeviceState, in/out messages) live in src/lib/offline/protocol.ts beside WireRequest, not in src/device/worker.ts — src/lib must not import from the device bundle's entry — cost if wrong: a moved type.
+- Pre-flight: Ruling: if a spec in Task 5 requires every PUBLIC_PATHS entry to be a route, Task 5 creates src/routes/shell/+page.ts (ssr=false, prerender=false) and an empty +page.svelte early; Task 7 keeps them — cost if wrong: none.
+- Pre-flight: Ruling: NETWORK_TIMEOUT_MS = 4000 is exported from src/lib/offline/sw-route.ts — cost if wrong: a moved constant.
+- Task 2: Ruling: a deleted comment that is kept (has live replies) goes with body '', author_id '' and deleted_by NULL, and adds no users row; one with no live reply is left out — matches listComments — cost if wrong: a device comment list that needs the author id of a deleted comment (none does today)
+- Task 2: Ruling: other people's lesson_comment_hearts rows stay in scope (the count needs them; the key is (comment_id,user_id) so it can't be blanked); clone_sync on a group's rows and video_downloads.requested_by/error stay — low sensitivity, ids only — cost if wrong: a member's device knows who hearted a comment
+- Task 1: Ruling: no separate re-review dispatched for the one-line type annotation (diff read in full by controller: `(v: unknown): v is SQLiteTable`) — cost if wrong: none at runtime, spec-only
+- Task 3: Ruling (pre-dispatch): a teams row's redacted code depends on the person's role (team_members), which the log records on team_members, not teams; so pull treats a changed team_members key as a change to its team's teams row too — test: Luka demoted to member → his next pull carries teams.code hidden — cost if wrong: a demoted editor's device keeps the real code until the team row changes
+- Task 4: Ruling: applyPull on any failure after ROLLBACK sets device_meta full='1' (its own statement, outside the rolled-back transaction) and rethrows; the next pullRequestOf sends no digests and the full replace can't conflict; Task 6's worker re-pulls once at once after such a failure — cost if wrong: one extra full pull after any apply error
+- Task 7: Ruling (pre-dispatch, from Task 6's concern): the SW never posts 'changed' for POST /api/sync/pull (else pull→changed→pull loops) — cost if wrong: none
+- Task 7: Ruling (pre-dispatch): POST /api/sync/pull is 'pass' in swRoute (no respondWith): the device worker's own pull must neither post 'changed' (loop) nor 'needs-connection' (a toast every offline pull) — cost if wrong: none
+- Task 7: Ruling (pre-dispatch): Task 5 created no /shell route; Task 7 creates it (as the plan says)
+- Task 7: Ruling: accept the implementer's deviation — uploads (chunk PUTs, recording/song POSTs) and /_app/version.json are 'pass' in swRoute, HEAD is 'pass' — keeps XHR upload progress and memory, and deploy detection; no 'changed' after an upload, the device catches up at the next pull — cost if wrong: an upload's new row shows offline only after the next pull (≤5 min)
+- Task 7: Ruling: (1) is a deploy setting outside this worktree: Task 9 documents it in docs/deployment.md and the ship step checks the live header and asks the user before changing nginx/Cloudflare — cost if wrong: a broken SW lingers up to the edge TTL
+- Task 7: Ruling: (2) fix now — the SW marks a client dirty when it posts 'changed' and leaves that client's reads untimed until the page reports the device pulled; the plan's 4 s rule yields to the global "online does not change" — cost if wrong: after a write, reads wait for the network as today until the next pull
+- Task 7: Ruling: fix round 2 (re-review's minors + out-of-scope upload gap, all the "online change vanishes" class the global constraint forbids): the SW decides clearing alone (DeviceClients stores its own dirtyAt; device-pulled carries startedAt; clear only when startedAt ≥ dirtyAt); the page re-sends a dirty flag with device-state while a save is unpulled (survives SW replace); upload completions (recording, song, lesson-video chunk end) mark the page dirty through the same path — cost if wrong: reads stay untimed (as today) a little longer after saves
+- Task 8: Ruling (implementer's, accepted): network pages' __data.json are a new 'network-read' swRoute (offline → needs-connection, not a rejected fetch crashing the error page) — cost if wrong: see final review
+- Task 8: Ruling (implementer's, accepted): background writes (/api/opens, practice memory) go through backgroundWrite: nothing sent offline, `x-salsa-quiet` so the SW stays silent — cost if wrong: an open made offline isn't recorded
+- Task 8: Ruling (implementer's, accepted): the walk cuts the network with its own relay (Playwright offline doesn't hold for a SW); walk.py takes <port> <upstream> <db> — cost if wrong: none (test tooling)
+- Final: Ruling: fix all 4 Important (person switch pull vs old cursor/digests; sign-out/person change not wiping or gating the copy; 0041 trigger-migration trap for the next synced table; slow navigation getting the shell when no device is ready) plus Minor 1 (English/double toast offline), Minor 2 (prune by seq), Minor 4 (changed to every client) — all small, each a promise the plan makes
+- Final: Ruling (fixer's, accepted): a page that can't know its person yet (the offline shell, a page the copy drew) is still answered from the copy — else offline can't work; sign-out and any other person wipe it — cost if wrong: none beyond the shell case
+- Final: Ruling: parked — a sign-out no worker hears (login page closed within ~2 s, or another tab holding the lock) leaves the copy until the next online page or pull; opened offline before that, the shell is answered from the signed-out person's copy. Never mixes two people. Hardening option for phase 3: `Clear-Site-Data: "storage"` on /logout or a persisted signed-out marker — cost if wrong: a signed-out person's pages readable offline on that browser until it next goes online
+
+### Deferred minors
+
+- Task 1: minor (deferred): log.spec.ts dead imports kept alive with `void sets; void lessonFigures;`
+- Task 1: minor (deferred): log.spec.ts _k guard only tested on composite keys; no explicit "unchanged key writes no d" assert
+- Task 1: minor (deferred): trash.ts prune uses Promise.resolve().then(...) to catch a sync throw; try/catch simpler
+- Task 2: minor (deferred): holds()/idsOf() assume single-id parent tables, unchecked
+- Task 3: minor (deferred): pull.ts:68 `r[c] ?? null` hides a column the scope row lacks; no assert that scope row keys == columns
+- Task 3: minor (deferred): pull.spec key-shape test runs `UPDATE default_styles SET dance = dance` without asserting it
+- Task 3: minor (deferred): no test of one table's digest missing while others match (rule 4)
+- Task 3: minor (deferred): pull.ts:50 unguarded JSON.parse of a team_members key
+- Task 3: minor (deferred): TDD order — implementation written before specs ran; RED shown with a stub
+- Task 4: minor (deferred): column filter dropping a key column also throws every pull — covered by the same full fallback
+- Task 4: minor (deferred): applyPull's foreign_keys OFF and BEGIN sit outside the try; a BEGIN failure would leave FKs off
+- Task 6: minor (deferred): take-over retries end after ~1.4 s; a closing tab that holds handles longer leaves the new tab 'failed' until reload
+- Task 7: minor (deferred): shell cached without cookies → lang en + system theme offline until client applies the choice (Task 8 walk to look)
+- Task 7: minor (deferred): native (non-enhanced) form POST offline shows raw JSON 503, no toast
+- Task 7: minor (deferred): unused navigation preload warnings for 'precached' navigations
+- Task 7: minor (deferred): each deploy re-downloads the 1.1 MB device bundle; worker starts on signed-out pages too
+- Task 7: minor (deferred): noteSaved's postMessage and the following refresh fetch are not strictly ordered by spec (in practice the message is first)
+- Task 8: minor (deferred): first device start 8–27 s under load; 41 migrations each in its own commit — one transaction would cut it
+- Task 8: minor (deferred): offline error page outside a dance draws salsa's look for a bachata account; lesson "last edited by" missing offline (team_changes never synced)
+- Task 8: minor (deferred): an unknown URL offline shows the offline page, not 404 (errorView: offline wins)
+- Final: minor (deferred): clone_pairs not synced → offline Sync notice / "N copies differ" may differ from online
+- Final: minor (deferred): a full syncScope + digest per pull on the single Node thread, a log insert per row written (bulk clone/rescue) — watch at scale
+- Final: minor (deferred): writes to /api/ endpoints (not form actions) still get an English message offline; pages with their own refusal fallback show it beside the root toast
+- Final: minor (deferred): pages rendering `result.data?.message ?? fallback` show their (some English, pre-existing) fallback beside the root toast offline; non-action JSON writes carry English messages
