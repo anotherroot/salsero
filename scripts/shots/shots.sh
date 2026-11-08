@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Screenshot rig: see README.md.
-# usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES]
+# usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES] [--locale en|sl] [--level follow|own|all]
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 DB="${1:-}"; OUT="${2:-}"; SIZE="${3:-}"
 if [ -z "$DB" ] || [ -z "$OUT" ] || [ -z "$SIZE" ]; then
-  echo "usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES]" >&2; exit 2
+  echo "usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES] [--locale en|sl] [--level follow|own|all]" >&2; exit 2
 fi
 shift 3
-THEME=light; PAGES="$HERE/pages.txt"; GROUP=""; VIEWPORT=""; NOSESSION=""; UNNAMED=""; SCENES=""
+THEME=light; PAGES="$HERE/pages.txt"; GROUP=""; VIEWPORT=""; NOSESSION=""; UNNAMED=""; SCENES=""; LOCALE=""; LEVEL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --theme) THEME="${2:-}"; shift 2 ;;
@@ -19,9 +19,13 @@ while [ $# -gt 0 ]; do
     --no-session) NOSESSION=1; shift ;;
     --unnamed) UNNAMED=1; shift ;;
     --scenes) SCENES="${2:-}"; shift 2 ;;
+    --locale) LOCALE="${2:-}"; shift 2 ;;
+    --level) LEVEL="${2:-}"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+case "$LOCALE" in ""|en|sl) ;; *) echo "--locale: en or sl" >&2; exit 2 ;; esac
+case "$LEVEL" in ""|follow|own|all) ;; *) echo "--level: follow, own or all" >&2; exit 2 ;; esac
 [ -f "$DB" ] || { echo "no such db: $DB" >&2; exit 2; }
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"; PAGES="$(cd "$(dirname "$PAGES")" && pwd)/$(basename "$PAGES")"
 
@@ -92,6 +96,8 @@ else
   [ -n "${DELAY_FROM:-}" ] && CMD+=(--delay-from "$DELAY_FROM")
   [ -n "$UNNAMED" ] && CMD+=(--unnamed)
 fi
+[ -n "$LOCALE" ] && CMD+=(--locale "$LOCALE")
+[ -n "$LEVEL" ] && CMD+=(--level "$LEVEL")
 timeout 900 nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \
   -c python3 -I "$HERE/shots.py" "${CMD[@]}"
 exit $?
