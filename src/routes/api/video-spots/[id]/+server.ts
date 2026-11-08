@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { allows, spotAccess } from '$lib/server/access';
 import { eq } from 'drizzle-orm';
@@ -18,9 +19,10 @@ import type { RequestHandler } from './$types';
  */
 function spotId(raw: string, locals: App.Locals): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
-	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, 'No such spot');
+	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, t().video.refusal.noSpot);
 	const userId = locals.user?.id;
-	if (!userId || !allows(spotAccess(getDb(), userId, id), 'edit')) throw error(404, 'No such spot');
+	if (!userId || !allows(spotAccess(getDb(), userId, id), 'edit'))
+		throw error(404, t().video.refusal.noSpot);
 	return id;
 }
 
@@ -67,7 +69,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 		.from(videoSpots)
 		.where(eq(videoSpots.id, id))
 		.get();
-	if (!row) throw error(404, 'No such spot');
+	if (!row) throw error(404, t().video.refusal.noSpot);
 	const pick = (all: Record<string, unknown>) =>
 		Object.fromEntries(
 			Object.keys(changes)
@@ -89,7 +91,7 @@ async function patch({ params, request, locals }: Parameters<RequestHandler>[0])
 	}
 	try {
 		const spot = updateSpot(db, id, changes, locals.user?.id);
-		if (!spot) throw error(404, 'No such spot');
+		if (!spot) throw error(404, t().video.refusal.noSpot);
 		return json(spot);
 	} catch (e) {
 		if (e instanceof SpotError) throw error(400, e.message);
@@ -113,6 +115,6 @@ export const DELETE: RequestHandler = ({ params, locals }) => {
 		if (e instanceof SpotLinkedError) throw error(409, e.message);
 		throw e;
 	}
-	if (!gone) throw error(404, 'No such spot');
+	if (!gone) throw error(404, t().video.refusal.noSpot);
 	return json({ trashId: gone.trashId });
 };

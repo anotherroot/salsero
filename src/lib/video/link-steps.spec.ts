@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	destination,
 	linkHeading,
@@ -150,5 +151,13 @@ describe('nameFromServer', () => {
 	it('asks nothing for a section with a name of its own, or with no link', () => {
 		expect(nameFromServer('Madrid', ['Paso Madrid · Basic'])).toBe(false);
 		expect(nameFromServer(null, [])).toBe(false);
+	});
+});
+
+describe('the heading’s range in Slovenian', () => {
+	it('drops a whole second’s tenth, with a decimal comma', () => {
+		expect(
+			withLocale('sl', () => linkHeading({ startMs: 42_000, endMs: 55_500, label: null }).range)
+		).toBe('0:42–0:55,5');
 	});
 });

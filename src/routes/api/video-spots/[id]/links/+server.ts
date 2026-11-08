@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { createAndLink, linkOptionsFor, parseLinkBody } from '$lib/server/link-popup';
 import { linkSpot, sectionSpace, SpotLinkError } from '$lib/server/spot-links';
@@ -16,13 +17,13 @@ import type { RequestHandler } from './$types';
  */
 function spotId(raw: string): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
-	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, 'No such section');
+	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, t().video.refusal.noSection);
 	return id;
 }
 
 function optionsOr404(id: number, userId: string) {
 	const options = linkOptionsFor(getDb(), id, userId);
-	if (!options) throw error(404, 'No such section');
+	if (!options) throw error(404, t().video.refusal.noSection);
 	return options;
 }
 

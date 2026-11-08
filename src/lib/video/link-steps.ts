@@ -22,7 +22,7 @@ export function stacked(steps: LinkStep[], step: LinkStep): boolean {
 
 /** A time for a range: `0:42`, or `0:42.5` when it is not on a whole second. */
 function rangeTime(ms: number): string {
-	return spotTime(ms).replace(/\.0$/, '');
+	return spotTime(ms).replace(/[.,]0$/, '');
 }
 
 /**

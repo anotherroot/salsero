@@ -45,6 +45,10 @@
 //   Teacher (a comment's tag)             vodja tečaja (right beside a woman's or a man's name)
 //   a heart (on a comment)                srček
 //   Draft (a group's lesson)              osnutek
+//   Mark point / Start section (player)   Označi točko / Začni odsek
+//   Loop, Looping (a section)             Ponavljaj, Se ponavlja
+//   Mirror, Mirrored (the picture)        Zrcali, Zrcaljeno
+//   Full video / Lesson video             Cel video / Video lekcije (the default title: Videoposnetek)
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { comments } from './comments';
@@ -57,6 +61,7 @@ import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
 import { today } from './today';
+import { video } from './video';
 
 export const sl: Catalog = {
 	common,
@@ -69,5 +74,6 @@ export const sl: Catalog = {
 	exercise,
 	songs,
 	lesson,
-	comments
+	comments,
+	video
 };

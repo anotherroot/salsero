@@ -110,7 +110,23 @@ const TRANSLATED: string[] = [
 	'src/lib/components/lessons/LessonRow.svelte',
 	'src/lib/components/lessons/SimpleLesson.svelte',
 	'src/routes/[dance]/lessons/+layout.svelte',
-	'src/routes/[dance]/lessons/+page.svelte'
+	'src/routes/[dance]/lessons/+page.svelte',
+	// The video player and the inline video (Task 10).
+	'src/lib/components/ui/SectionCard.svelte',
+	'src/lib/components/ui/SectionPlayer.svelte',
+	'src/lib/components/ui/VideoFrame.svelte',
+	'src/lib/components/ui/VideoPlayer.svelte',
+	'src/lib/components/video/PlayerSheet.svelte',
+	'src/lib/components/video/SectionRow.svelte',
+	'src/lib/components/video/SectionView.svelte',
+	'src/lib/components/video/SpotEditor.svelte',
+	'src/lib/components/video/SpotList.svelte',
+	'src/lib/components/video/Timeline.svelte',
+	'src/lib/components/video/Toast.svelte',
+	'src/lib/components/video/TopBar.svelte',
+	'src/lib/components/video/Transport.svelte',
+	'src/lib/components/video/TrimStrip.svelte',
+	'src/lib/components/video/VideoGestures.svelte'
 ];
 
 describe('englishIn', () => {

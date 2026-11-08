@@ -11,6 +11,7 @@ import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
 import { today } from './today';
+import { video } from './video';
 
 export const en = {
 	common,
@@ -23,5 +24,6 @@ export const en = {
 	exercise,
 	songs,
 	lesson,
-	comments
+	comments,
+	video
 };
