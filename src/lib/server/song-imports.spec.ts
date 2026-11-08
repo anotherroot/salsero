@@ -8,7 +8,8 @@ import { openDb, type Db } from './db';
 import { songImports, songs, users } from './db/schema';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { setRole } from './membership';
-import { claimJob, LEASE_MS, MAX_ATTEMPTS } from './songs';
+import { archiveSong, claimJob, createSongFromUrl, LEASE_MS, MAX_ATTEMPTS } from './songs';
+import { teamChanges } from './db/schema';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
 import {
@@ -21,6 +22,8 @@ import {
 	importsWaiting,
 	listImports,
 	MAX_IMPORT_ITEMS,
+	addFromImport,
+	pickItems,
 	retryImport,
 	storeImportItems
 } from './song-imports';
@@ -202,5 +205,87 @@ describe('song imports', () => {
 		expect(listImports(db, U2_SALSA)).toEqual([]);
 		deleteTeam(db, 1, 'u1', T);
 		expect(importsWaiting(db, 'u3', 'salsa')).toBe(false);
+	});
+});
+
+describe('Add from a pick list', () => {
+	const TRACK = 'https://open.spotify.com/track/0wDEs6WvqDHq4XJZC0dHhO';
+	function readyOf(space: Space, items: ReturnType<typeof item>[]) {
+		const imp = make(space);
+		storeImportItems(db, imp.id, { name: 'Clase', items, truncated: false });
+		return getImport(db, imp.id)!;
+	}
+
+	it('marks a song already in the space by its link', () => {
+		const imp = readyOf(U1_SALSA, [item(1, TRACK), item(2), item(3)]);
+		createSongFromUrl(db, U1_SALSA, { url: `${TRACK}?si=abc`, title: 'x', style: 'salsa' }, T);
+		const yt = createSongFromUrl(
+			db,
+			U1_SALSA,
+			{ url: 'https://youtu.be/zzz', title: 'y', style: 'salsa' },
+			T
+		);
+		db.update(songs).set({ audioUrl: 'https://youtu.be/vid2' }).where(eq(songs.id, yt.id)).run();
+		expect(pickItems(db, imp).map((p) => [p.i, p.already])).toEqual([
+			[0, true],
+			[1, true],
+			[2, false]
+		]);
+		// Another person's or an archived song is not "already added" here.
+		const other = readyOf(U2_SALSA, [item(1, TRACK)]);
+		expect(pickItems(db, other)[0].already).toBe(false);
+		archiveSong(db, yt.id, T);
+		expect(pickItems(db, imp)[1].already).toBe(false);
+	});
+
+	it('adds the picks as songs, once', () => {
+		const imp = readyOf(T1_SALSA, [item(1), item(2), item(3, TRACK)]);
+		const before = db.select().from(teamChanges).all().length;
+		const r = addFromImport(
+			db,
+			T1_SALSA,
+			imp.id,
+			[
+				{ i: 0, title: 'Uno', artist: 'A', style: 'son' },
+				{ i: 1, title: 'Dos', artist: null, style: 'salsa' },
+				{ i: 2, title: 'Tres', artist: 'C', style: 'salsa' }
+			],
+			T
+		);
+		if (!r.ok) throw new Error('expected ok');
+		expect(new Set(r.songIds).size).toBe(3);
+		const made = db.select().from(songs).all();
+		expect(made).toHaveLength(3);
+		expect(made[0]).toMatchObject({
+			status: 'waiting_download',
+			teamId: 1,
+			userId: null,
+			sharedAt: null,
+			title: 'Uno',
+			artist: 'A',
+			style: 'son',
+			sourceUrl: 'https://www.youtube.com/watch?v=vid1'
+		});
+		expect(made[2].sourceUrl).toBe(TRACK);
+		const logged = db.select().from(teamChanges).all().slice(before);
+		expect(logged.map((l) => l.verb)).toEqual(['add', 'add', 'add']);
+		expect(getImport(db, imp.id)?.addedAt).toBe(T);
+		expect(
+			addFromImport(db, T1_SALSA, imp.id, [{ i: 0, title: 'x', artist: null, style: 'salsa' }], T)
+		).toEqual({
+			ok: false,
+			reason: 'gone'
+		});
+		expect(db.select().from(songs).all()).toHaveLength(3);
+	});
+
+	it('refuses a dismissed list and an empty pick', () => {
+		const imp = readyOf(U1_SALSA, [item(1)]);
+		expect(addFromImport(db, U1_SALSA, imp.id, [], T)).toEqual({ ok: false, reason: 'empty' });
+		dismissImport(db, imp.id, T);
+		expect(
+			addFromImport(db, U1_SALSA, imp.id, [{ i: 0, title: 'x', artist: null, style: 'salsa' }], T)
+		).toEqual({ ok: false, reason: 'gone' });
+		expect(db.select().from(songs).all()).toEqual([]);
 	});
 });

@@ -9,14 +9,14 @@
  */
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { songImports, teamMembers, teams, type SongImport } from './db/schema';
+import { songImports, songs, teamMembers, teams, type SongImport } from './db/schema';
 import { ownedBy, ownerValues, type Space } from './scope';
-import { LEASE_MS, MAX_ATTEMPTS } from './songs';
+import { createSongFromUrl, LEASE_MS, MAX_ATTEMPTS } from './songs';
 import { serverNow } from '$lib/server/server-clock';
-import { classifyLink } from '$lib/songs/source';
+import { classifyLink, songKeyOf } from '$lib/songs/source';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { SongImportKind } from '$lib/labels';
-import type { ImportItem, SongImportRow, TeamRef } from '$lib/types';
+import type { ImportItem, PickItem, SongImportRow, TeamRef } from '$lib/types';
 
 /** The most songs one list brings: the worker stops there, and the server refuses more. */
 export const MAX_IMPORT_ITEMS = 200;
@@ -269,4 +269,76 @@ export function importsWaiting(db: Db, userId: string, dance: DanceSlug): boolea
 		.limit(1)
 		.get();
 	return own !== undefined || groupImportsToPick(db, userId, dance).length > 0;
+}
+
+/** One ticked song as the pick list sends it (`readPicks`): an item's index and what was typed. */
+export type Pick = { i: number; title: string; artist: string | null; style: string };
+
+/** The import's items; null when unreadable. */
+export function itemsOf(imp: SongImport): ImportItem[] {
+	try {
+		const v = JSON.parse(imp.itemsJson ?? '[]');
+		return Array.isArray(v) ? (v as ImportItem[]) : [];
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * The pick list's rows: each item with `already` when a live song of the
+ * import's space has the same link (its own, or the one chosen for its audio).
+ */
+export function pickItems(db: Db, imp: SongImport): PickItem[] {
+	const space =
+		imp.teamId !== null
+			? { dance: imp.dance as DanceSlug, teamId: imp.teamId, actorId: '' }
+			: { dance: imp.dance as DanceSlug, userId: imp.userId! };
+	const have = new Set<string>();
+	for (const s of db
+		.select({ sourceUrl: songs.sourceUrl, audioUrl: songs.audioUrl })
+		.from(songs)
+		.where(and(ownedBy(songs, space), isNull(songs.archivedAt)))
+		.all())
+		for (const url of [s.sourceUrl, s.audioUrl]) {
+			const key = songKeyOf(url);
+			if (key) have.add(key);
+		}
+	return itemsOf(imp).map((item, i) => {
+		const key = songKeyOf(item.url);
+		return { ...item, i, already: key !== null && have.has(key) };
+	});
+}
+
+/**
+ * Add: the ticked songs as `waiting_download` songs of `space` (the import's:
+ * the caller passes it), one insert and, in a group, one History line each, in
+ * one transaction that first marks the import added, so a second Add (a double
+ * tap, another tab) finds it gone.
+ */
+export function addFromImport(
+	db: Db,
+	space: Space,
+	id: number,
+	picks: Pick[],
+	now = serverNow()
+): { ok: true; songIds: number[] } | { ok: false; reason: 'gone' | 'empty' } {
+	if (picks.length === 0) return { ok: false, reason: 'empty' };
+	return db.transaction((t) => {
+		const tx = t as unknown as Db;
+		const imp = getImport(tx, id);
+		if (!imp || imp.status !== 'ready' || imp.addedAt !== null || imp.dismissedAt !== null)
+			return { ok: false as const, reason: 'gone' as const };
+		tx.update(songImports).set({ addedAt: now }).where(eq(songImports.id, id)).run();
+		const items = itemsOf(imp);
+		const songIds = picks.map(
+			(p) =>
+				createSongFromUrl(
+					tx,
+					space,
+					{ url: items[p.i].url, title: p.title, artist: p.artist, style: p.style },
+					now
+				).id
+		);
+		return { ok: true as const, songIds };
+	});
 }

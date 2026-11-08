@@ -106,6 +106,15 @@ import {
 	updateSongMeta
 } from './songs';
 import { deleteGroupSong, shareSong, unshareSong } from './song-share';
+import {
+	addFromImport,
+	claimImportJob,
+	createImport,
+	dismissImport,
+	failImportJob,
+	retryImport,
+	storeImportItems
+} from './song-imports';
 import { addMusic, removeMusic, setMusicNote } from './song-links';
 import { restoreDeleted } from './trash';
 import { eq } from 'drizzle-orm';
@@ -261,6 +270,9 @@ const musicLinkOf = (lesson: number) =>
  * MUTATION MUST BE ADDED HERE: this list is what proves each one logs once in a
  * group and never for a person. `prep` runs first and is not counted.
  */
+/** The pasted playlist `addFromImport`'s prep made. */
+let importId = 0;
+
 const MUTATIONS: {
 	name: string;
 	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'position';
@@ -816,6 +828,28 @@ const MUTATIONS: {
 			createSongFromUrl(db, s, { url: 'https://youtu.be/x', title: 'New', style: 'salsa' }, T)
 	},
 	{
+		// One `add` line per ticked song: Add from a pick list of one.
+		name: 'addFromImport',
+		root: 'song',
+		verb: 'add',
+		rootId: () => 0,
+		prep: (_, s) => {
+			importId = createImport(
+				db,
+				s,
+				{ url: 'https://www.youtube.com/playlist?list=PL1', kind: 'youtube-playlist' },
+				T
+			).id;
+			storeImportItems(db, importId, {
+				name: 'Clase',
+				items: [{ title: 'Uno', artist: null, durationS: 200, url: 'https://youtu.be/x1' }],
+				truncated: false
+			});
+		},
+		run: (_, s) =>
+			addFromImport(db, s, importId, [{ i: 0, title: 'Uno', artist: null, style: 'salsa' }], T).ok
+	},
+	{
 		name: 'createSongFromUpload',
 		root: 'song',
 		verb: 'add',
@@ -1224,6 +1258,27 @@ describe('every team mutation logs once; a person’s none', () => {
 		m.prep?.(pw, U1_SALSA);
 		expect(await m.run(pw, U1_SALSA)).toBeTruthy();
 		expect(count()).toBe(0);
+	});
+
+	it("logs nothing for an import itself: creating, the worker's read, retry and dismiss change no content", () => {
+		world(T1_SALSA);
+		const before = count();
+		const imp = createImport(
+			db,
+			T1_SALSA,
+			{ url: 'https://www.youtube.com/playlist?list=PL1', kind: 'youtube-playlist' },
+			T
+		);
+		claimImportJob(db, T);
+		failImportJob(db, imp.id, 'Private playlist', true);
+		retryImport(db, imp.id);
+		storeImportItems(db, imp.id, {
+			name: 'Clase',
+			items: [{ title: 'Uno', artist: null, durationS: 200, url: 'https://youtu.be/x1' }],
+			truncated: false
+		});
+		dismissImport(db, imp.id, T);
+		expect(count()).toBe(before);
 	});
 
 	it('refuses a group change that names no one, writing nothing', () => {

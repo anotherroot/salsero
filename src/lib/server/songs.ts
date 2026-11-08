@@ -45,7 +45,7 @@ function insertSong(db: Db, space: Space, values: typeof songs.$inferInsert, now
 export function createSongFromUrl(
 	db: Db,
 	space: Space,
-	input: { url: string; title: string; style: string },
+	input: { url: string; title: string; style: string; artist?: string | null },
 	now = serverNow()
 ): Song {
 	return insertSong(
@@ -54,6 +54,7 @@ export function createSongFromUrl(
 		{
 			sourceUrl: input.url,
 			title: input.title,
+			artist: input.artist ?? null,
 			style: input.style,
 			status: 'waiting_download'
 		},
