@@ -72,7 +72,6 @@
 	/** The row whose "Not today" is showing (one at a time); a tap anywhere else closes it. */
 	let swiped = $state<{ key: string; side: Side } | null>(null);
 
-	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
 	/**
 	 * The Warm-up card's drag. A long press on a warm-up row lifts it (a plain tap still
 	 * opens the exercise, the + still logs); the arithmetic is the routine editor's
@@ -84,7 +83,7 @@
 		null
 	);
 	let warmList = $state<HTMLElement>();
-	let lastDown = { x: 0, y: 0, pointerId: 0 };
+	let lastDownY = 0;
 
 	const shownWarm = $derived.by(() => {
 		const rows = day.rows.filter((r) => r.list === 'warmup');
@@ -114,7 +113,7 @@
 	const press = longPress({
 		ms: 350,
 		tolerancePx: 8,
-		enabled: () => drag === null && shownWarm.length > 1,
+		enabled: () => drag === null && pending === null && shownWarm.length > 1,
 		onLongPress: (id) => startDrag(id)
 	});
 
@@ -125,7 +124,7 @@
 		swiped = null;
 		const boxes = els.map((el) => el.getBoundingClientRect());
 		const centers = boxes.map((b) => b.top + b.height / 2 + window.scrollY);
-		const startY = lastDown.y;
+		const startY = lastDownY;
 		const startScroll = window.scrollY;
 		drag = { id, from: index, to: index, dy: 0, step: boxes[index].height };
 
@@ -184,9 +183,18 @@
 			to
 		);
 		pending = ids;
-		const result = await actAt(`/${dance}`, 'warmupOrder', { ids: ids.join(',') });
-		pending = null;
-		const refused = refusalMessage(result, 'Could not save the order. Try again.');
+		const fallback = 'Could not save the order. Try again.';
+		let refused: string | null;
+		try {
+			refused = refusalMessage(
+				await actAt(`/${dance}`, 'warmupOrder', { ids: ids.join(',') }),
+				fallback
+			);
+		} catch {
+			refused = fallback;
+		} finally {
+			pending = null;
+		}
 		if (refused) onrefused(refused);
 	}
 
@@ -197,6 +205,7 @@
 			moving: drag !== null
 		}) as const;
 
+	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
 	const lessonDayOf = (e: { lessonId: number | null }) => {
 		const d = e.lessonId === null ? undefined : lessonDays[e.lessonId];
 		return d ? classDayLabel(d, day.today) : null;
@@ -271,7 +280,7 @@
 						.closest?.('li[data-warm-row]')
 						?.getAttribute('data-warm-row');
 					if (id === null || id === undefined || e.button !== 0) return;
-					lastDown = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+					lastDownY = e.clientY;
 					press.down(Number(id), e.clientX, e.clientY);
 				}}
 				onpointermove={(e) => press.move(e.clientX, e.clientY)}

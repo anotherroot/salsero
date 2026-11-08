@@ -57,8 +57,7 @@ describe('setWarmupOrder', () => {
 		const plain = createCustomExercise(db, U1_SALSA, { name: 'P', notes: null }).id;
 		const gone = warm(U1_SALSA, 'G', 9);
 		db.update(exercises).set({ archivedAt: 1 }).where(eq(exercises.id, gone)).run();
-		const cls = makeClass(db);
-		void cls;
+		makeClass(db);
 		const group = createCustomExercise(db, CLASS_ED, { name: 'Gr', notes: null }).id;
 		db.update(exercises).set({ warmup: true, warmupOrder: 4 }).where(eq(exercises.id, group)).run();
 
