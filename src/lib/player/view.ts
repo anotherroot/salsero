@@ -259,3 +259,25 @@ export function exercisePlayerHref(
 ): string {
 	return `/${dance}/player?exercise=${exerciseId}&${from}${play ? '&play=1' : ''}`;
 }
+
+/**
+ * What a slot's ⓘ (Follow) or tap (Still) opens in the routine list: each of the
+ * slot's figures in order, one without details by its name only.
+ */
+export function slotDetails(
+	figureIds: readonly number[],
+	details: Record<number, RunDetails>,
+	labelOf: (id: number) => string
+): RunDetails[] {
+	return figureIds.map(
+		(id) =>
+			details[id] ?? {
+				heading: labelOf(id),
+				facts: [],
+				hasPositions: false,
+				notes: null,
+				clips: [],
+				links: []
+			}
+	);
+}

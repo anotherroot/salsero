@@ -12,6 +12,7 @@
 		routinePlace,
 		routinePreview,
 		routineViews,
+		slotDetails,
 		slotTone,
 		stepDone,
 		stepMarks,
@@ -23,7 +24,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
-	import { CLIP, button } from '$lib/components/ui/styles';
+	import { CLIP, button, iconButton } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 	import { RUN_STOP as STOP } from './styles';
 	import CountChips from './CountChips.svelte';
@@ -235,10 +236,31 @@
 	const marks = $derived(stepMarks(stepLength));
 	const done = $derived(stepAt === null ? 0 : stepDone(beats, stepAt, liveTime, marks));
 
-	/** A tap on a row in Follow: the run moves there. Still: rows are only to read. */
+	/** A tap on a row in Follow: the run moves there. */
 	function jump(i: number) {
 		if (follow) onjump(i);
 	}
+
+	/*
+	 * A slot's details, over the routine list: its ⓘ in Follow (a tap jumps), a
+	 * tap in Still (a tap does nothing else there). ✕ or Back returns to the list.
+	 */
+	let figureSlot = $state<number | null>(null);
+	const slotName = (i: number) => slots[i]?.figureIds.map(nameOf).join(' / ') ?? '';
+	function closeFigure() {
+		const was = figureSlot;
+		figureSlot = null;
+		if (was === null) return;
+		void tick().then(() =>
+			fullList
+				?.querySelector<HTMLElement>(`[data-slot-about="${was}"]`)
+				?.focus({ preventScroll: true })
+		);
+	}
+	// The list closing (Back from it, Stop) takes the figure over it along.
+	$effect(() => {
+		if (layer !== 'routine' && figureSlot !== null) untrack(() => (figureSlot = null));
+	});
 
 	/*
 	 * Play's button is gone once this mounts, so focus would fall to <body>.
@@ -440,11 +462,11 @@
 				{#each slots as slot, i (i)}
 					{@const tone = slotTone(i, lit)}
 					{@const on = tone === 'now'}
-					<li bind:this={fullEls[i]} aria-current={on ? 'step' : undefined}>
+					<li bind:this={fullEls[i]} aria-current={on ? 'step' : undefined} class="relative">
 						{#if follow}
 							<button
 								type="button"
-								class="focus-inset flex w-full cursor-pointer flex-wrap items-center gap-x-3 rounded-xl px-3 py-2.5 text-left {on
+								class="focus-inset flex w-full cursor-pointer flex-wrap items-center gap-x-3 rounded-xl py-2.5 pr-14 pl-3 text-left {on
 									? 'bg-accent-soft'
 									: ''}"
 								aria-label={w.startFrom(i + 1, slot.figureIds.map(nameOf).join(` ${w.or} `))}
@@ -452,14 +474,52 @@
 							>
 								{@render bigRow(slot, i, tone)}
 							</button>
+							<button
+								type="button"
+								data-slot-about={i}
+								class="{iconButton('bare', 'muted')} absolute top-1 right-1"
+								aria-label={w.aboutOf(slotName(i))}
+								aria-haspopup="dialog"
+								onclick={() => (figureSlot = i)}
+							>
+								<Icon name="info" size={22} />
+							</button>
 						{:else}
-							<div class="flex flex-wrap items-center gap-x-3 px-3 py-2.5">
+							<button
+								type="button"
+								data-slot-about={i}
+								class="focus-inset flex w-full cursor-pointer flex-wrap items-center gap-x-3 rounded-xl px-3 py-2.5 text-left active:bg-step"
+								aria-label={w.aboutOf(slotName(i))}
+								aria-haspopup="dialog"
+								onclick={() => (figureSlot = i)}
+							>
 								{@render bigRow(slot, i, tone)}
-							</div>
+							</button>
 						{/if}
 					</li>
 				{/each}
 			</ol>
+		</RunLayer>
+	{/if}
+
+	{#if layer === 'routine' && figureSlot !== null}
+		<RunLayer
+			over
+			label={w.about}
+			title={slotName(figureSlot)}
+			place={w.routinePlace(figureSlot + 1, slots.length)}
+			{player}
+			{beats}
+			{counts}
+			{paused}
+			closeLabel={w.closeLayer}
+			onclose={closeFigure}
+		>
+			<div class="flex flex-col gap-8">
+				{#each slotDetails(slots[figureSlot]?.figureIds ?? [], figureDetails, nameOf) as d, k (k)}
+					<DetailsBody details={d} />
+				{/each}
+			</div>
 		</RunLayer>
 	{/if}
 

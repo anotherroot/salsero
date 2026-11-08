@@ -4,6 +4,7 @@ import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow, RunClip, RunDetails } from '$lib/types';
 import {
+	slotDetails,
 	aboutPreview,
 	hasDetails,
 	routinePreview,
@@ -348,5 +349,31 @@ describe('the run in one player (B2)', () => {
 		expect(sl(() => aboutPreview({ ...none, notes: 'x', links: [link, link] }))).toBe(
 			'Zapiski · 2 povezavi'
 		);
+	});
+});
+
+describe('a slot’s details, from the routine list', () => {
+	const nine: RunDetails = {
+		heading: 'Enchufla · Doble',
+		facts: ['1 → 1 · 8 counts'],
+		hasPositions: false,
+		notes: 'Two turns',
+		clips: [],
+		links: []
+	};
+	const labelOf = (id: number) => (id === 3 ? 'Enchufla · Basic' : `#${id}`);
+
+	it('gives each of the slot’s figures, in order; one without details by name only', () => {
+		expect(slotDetails([3, 9], { 9: nine }, labelOf)).toEqual([
+			{
+				heading: 'Enchufla · Basic',
+				facts: [],
+				hasPositions: false,
+				notes: null,
+				clips: [],
+				links: []
+			},
+			nine
+		]);
 	});
 });
