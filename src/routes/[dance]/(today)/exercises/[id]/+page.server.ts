@@ -18,7 +18,8 @@ import { classLessonOf, commentsOn } from '$lib/server/comments';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
-import { scheduleStates } from '$lib/server/schedule';
+import { goodDaysOf, scheduleStates } from '$lib/server/schedule';
+import type { ComesSettings } from '$lib/exercises/comes-back-view';
 import {
 	requireExerciseAccess,
 	requireExerciseInWall,
@@ -109,9 +110,25 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				: own.source === 'added' && own.drillId !== null
 					? { exerciseId: own.drillId }
 					: null;
+		const item = popup.exercise;
+		const isDrill = item.source === 'custom' || item.source === 'added';
 		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
 			...popup,
+			comes: isDrill
+				? ({
+						value: item.comesBack,
+						own: item.comesBackOwn,
+						teacher: item.comesBackTeacher,
+						forClass: false,
+						good:
+							item.comesBack.kind === 'until'
+								? goodDaysOf(db, item.id, item.comesBack.since, tz)
+								: 0
+					} satisfies ComesSettings)
+				: null,
+			/** Warm-up is the person's own: every row of theirs has the switch. */
+			warmupSwitch: item.warmup as boolean | null,
 			music: musicParent ? listMusic(db, musicParent, wall.userId) : [],
 			musicChoices: own.source === 'custom' ? musicChoices(db, wall) : [],
 			musicShown: musicParent !== null,
@@ -193,6 +210,16 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	});
 	return {
 		music: listMusic(db, { exerciseId: row.id }, wall.userId),
+		comes: canEdit
+			? ({
+					value: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+					own: parseComesBack(row.comesBack),
+					teacher: null,
+					forClass: true,
+					good: null
+				} satisfies ComesSettings)
+			: null,
+		warmupSwitch: null as boolean | null,
 		musicChoices: canEdit ? musicChoices(db, spaceOfRow(row, wall.userId)) : [],
 		musicShown: true,
 		musicEdit: canEdit,

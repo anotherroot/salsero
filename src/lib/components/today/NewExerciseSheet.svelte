@@ -3,6 +3,8 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import WarmupRow from '$lib/components/exercises/WarmupRow.svelte';
+	import ComesBackCard from '$lib/components/exercises/ComesBackCard.svelte';
 	import { button, FIELD, FIELD_ERROR, LABEL, TEXTAREA } from '$lib/components/ui/styles';
 	import type { DanceSlug } from '$lib/dances/dances';
 
@@ -18,11 +20,16 @@
 		message: string | null;
 		/** What was typed, handed back by a failed action. */
 		values: { name?: string; notes?: string } | null;
+		/** The person's daily number: the Warm-up line says it doesn't count toward it. */
+		daily: number;
+		/** Follow my class has no Comes back. */
+		simple: boolean;
 		onclose: () => void;
 	}
 
-	let { dance, message, values, onclose }: Props = $props();
+	let { dance, message, values, daily, simple, onclose }: Props = $props();
 	let busy = $state(false);
+	let warmup = $state(false);
 	// The last submit's refusal, from its result: shown when the page form has none.
 	let refused = $state<string | null>(null);
 	const error = $derived(message ?? refused);
@@ -80,6 +87,17 @@
 				>{values?.notes ?? ''}</textarea
 			>
 		</label>
+		<WarmupRow bind:checked={warmup} {daily} />
+		{#if !simple}
+			<ComesBackCard
+				sheet
+				value={{ kind: 'faces' }}
+				own={null}
+				teacher={null}
+				forClass={false}
+				good={null}
+			/>
+		{/if}
 	</form>
 	{#snippet footer()}
 		<button

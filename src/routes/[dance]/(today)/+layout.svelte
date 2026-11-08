@@ -539,7 +539,7 @@
 		>
 		<BandButton
 			icon="plus"
-			label="Custom exercise"
+			label="New exercise"
 			focusKey="today-custom"
 			onclick={() => (creating = true)}
 		/>
@@ -657,6 +657,8 @@
 	<NewExerciseSheet
 		{dance}
 		message={failure('createExercise')}
+		daily={data.list.daily}
+		simple={simpleLog}
 		values={page.form?.action === 'createExercise' && 'name' in page.form
 			? { name: page.form.name as string, notes: page.form.notes as string }
 			: null}

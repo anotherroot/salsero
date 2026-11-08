@@ -108,6 +108,37 @@ export function preview(
 	};
 }
 
+/** The days with a set, and each day's last rating; `beforeDay` leaves out that day on. */
+function ratedDays(sets: ScheduleSet[], timeZone: string, beforeDay?: string) {
+	const days = new Set<string>();
+	const lastRated = new Map<string, { doneAt: number; rating: number }>();
+	for (const s of sets) {
+		const day = localDay(s.doneAt, timeZone);
+		if (beforeDay !== undefined && day >= beforeDay) continue;
+		days.add(day);
+		const prev = lastRated.get(day);
+		if (s.rating !== null && (!prev || s.doneAt >= prev.doneAt))
+			lastRated.set(day, { doneAt: s.doneAt, rating: s.rating });
+	}
+	return { days, lastRated };
+}
+
+function goodDays(
+	lastRated: Map<string, { doneAt: number; rating: number }>,
+	since: number,
+	timeZone: string
+): number {
+	const from = localDay(since, timeZone);
+	let good = 0;
+	for (const [day, r] of lastRated) if (day >= from && r.rating >= RATING_OF.gotit) good++;
+	return good;
+}
+
+/** Local days since `since` whose last set ended on I've got it or Easy: "2 of 3 so far". */
+export function goodDaysSince(sets: ScheduleSet[], since: number, timeZone: string): number {
+	return goodDays(ratedDays(sets, timeZone).lastRated, since, timeZone);
+}
+
 export interface DueState extends ScheduleState {
 	every: 1 | 2 | 3 | 7 | null;
 	/** Set only while still learning. */
@@ -131,16 +162,7 @@ export function scheduleOf(
 	const faces = replay(startGap, createdAt, sets, timeZone, beforeDay);
 	if (comesBack.kind === 'faces') return { ...faces, every: null, learning: null };
 
-	const days = new Set<string>();
-	const lastRated = new Map<string, { doneAt: number; rating: number }>();
-	for (const s of sets) {
-		const day = localDay(s.doneAt, timeZone);
-		if (beforeDay !== undefined && day >= beforeDay) continue;
-		days.add(day);
-		const prev = lastRated.get(day);
-		if (s.rating !== null && (!prev || s.doneAt >= prev.doneAt))
-			lastRated.set(day, { doneAt: s.doneAt, rating: s.rating });
-	}
+	const { days, lastRated } = ratedDays(sets, timeZone, beforeDay);
 	const lastDay = [...days].sort().at(-1) ?? null;
 	const created = localDay(createdAt, timeZone);
 
@@ -154,9 +176,7 @@ export function scheduleOf(
 		};
 	}
 
-	const from = localDay(comesBack.since, timeZone);
-	let good = 0;
-	for (const [day, r] of lastRated) if (day >= from && r.rating >= RATING_OF.gotit) good++;
+	const good = goodDays(lastRated, comesBack.since, timeZone);
 	if (good >= comesBack.good) return { ...faces, every: null, learning: null };
 	return {
 		gap: 1,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { RATING_OF } from './feel';
 import { FACES } from './comes-back';
-import { nextGap, preview, replay, scheduleOf } from './schedule';
+import { goodDaysSince, nextGap, preview, replay, scheduleOf } from './schedule';
 
 const TZ = 'Europe/Ljubljana';
 /** Noon local on a day, as an instant. */
@@ -228,5 +228,21 @@ describe('scheduleOf', () => {
 		const sets = [gotit(day(0)), gotit(day(1)), gotit(day(2))];
 		const until3 = { kind: 'until', good: 3, since: at(D0) } as const;
 		expect(scheduleOf(3, at(D0), sets, until3, TZ, day(2)).learning).toEqual({ good: 2, of: 3 });
+	});
+});
+
+describe('goodDaysSince', () => {
+	it("counts the days since the switch whose last rated set is I've got it or Easy", () => {
+		const sets = [gotit(day(0)), gotit(day(2)), getting(day(3)), easy(day(4))];
+		expect(goodDaysSince(sets, at(day(2)), TZ)).toBe(2);
+		expect(goodDaysSince(sets, at(D0), TZ)).toBe(3);
+		expect(goodDaysSince([], at(D0), TZ)).toBe(0);
+	});
+	it('agrees with the learning count of scheduleOf', () => {
+		const sets = [gotit(day(0)), getting(day(1))];
+		const since = at(D0);
+		expect(scheduleOf(3, at(D0), sets, { kind: 'until', good: 3, since }, TZ).learning?.good).toBe(
+			goodDaysSince(sets, since, TZ)
+		);
 	});
 });

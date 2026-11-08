@@ -24,6 +24,8 @@
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import WarmupRow from '$lib/components/exercises/WarmupRow.svelte';
+	import ComesBackCard from '$lib/components/exercises/ComesBackCard.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import LastTime from '$lib/components/exercises/LastTime.svelte';
@@ -49,6 +51,7 @@
 	} from '$lib/exercises/exercise-page';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
+	import { comesBackWords } from '$lib/exercises/comes-back-view';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
@@ -163,11 +166,13 @@
 	let saving = $state(false);
 	let settingsForm: HTMLFormElement | undefined = $state();
 	let active = $state(true);
+	let warmup = $state(false);
 	/** The last `update` refusal, until the next save or the next time editing starts. */
 	let updateError = $state<string | null>(null);
 
 	function startEditing() {
 		active = exercise.active;
+		warmup = data.warmupSwitch === true;
 		updateError = null;
 		editing = true;
 	}
@@ -247,6 +252,10 @@
 			logging = page.url.searchParams.get('log') === '1';
 		});
 	});
+	/** An entry on its class drill's setting: the page says whose it is (hidden at Follow my class). */
+	const followsTeacher = $derived(
+		!simple && exercise.comesBackOwn === null && exercise.comesBackTeacher !== null
+	);
 	/** The band's ⋯ is open. */
 	let menuOpen = $state(false);
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
@@ -356,32 +365,32 @@
 	{#if editing}
 		<section class="flex flex-col gap-2 desk:min-w-0">
 			<h2 class={SECTION_LABEL}>Settings</h2>
-			<div class="rounded-2xl bg-surface p-4">
-				<form
-					id="exercise-settings"
-					method="POST"
-					action="?/update"
-					bind:this={settingsForm}
-					use:guarded={{
-						label: 'Exercise settings',
-						submit: () => {
-							saving = true;
-							updateError = null;
-							return async ({ update, result }) => {
-								try {
-									await update({ reset: false });
-								} finally {
-									saving = false;
-								}
-								if (result.type === 'success') editing = false;
-								// A clash or gone is the clash sheet's, which holds what was typed.
-								else if (result.type === 'failure' && !isClash(result.data))
-									updateError = messageOf(result.data);
-							};
-						}
-					}}
-					class="flex flex-col gap-3.5"
-				>
+			<form
+				id="exercise-settings"
+				method="POST"
+				action="?/update"
+				bind:this={settingsForm}
+				use:guarded={{
+					label: 'Exercise settings',
+					submit: () => {
+						saving = true;
+						updateError = null;
+						return async ({ update, result }) => {
+							try {
+								await update({ reset: false });
+							} finally {
+								saving = false;
+							}
+							if (result.type === 'success') editing = false;
+							// A clash or gone is the clash sheet's, which holds what was typed.
+							else if (result.type === 'failure' && !isClash(result.data))
+								updateError = messageOf(result.data);
+						};
+					}
+				}}
+				class="flex flex-col gap-6"
+			>
+				<div class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4">
 					<!-- What this form saw: a save that saw another version is refused (the clash check). -->
 					<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 					{#if updateError}
@@ -401,6 +410,9 @@
 							</span>
 							<Switch name="active" label="Active" bind:checked={active} />
 						</div>
+					{/if}
+					{#if data.warmupSwitch !== null}
+						<WarmupRow bind:checked={warmup} daily={data.list.daily} />
 					{/if}
 					<label class="block">
 						<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
@@ -422,8 +434,11 @@
 							>Cancel</button
 						>
 					</div>
-				</form>
-			</div>
+				</div>
+				{#if data.comes && !simple}
+					<ComesBackCard {...data.comes} />
+				{/if}
+			</form>
 			{#if ownsItself}
 				<div class="flex flex-col items-center pt-1">
 					<button
@@ -444,6 +459,20 @@
 			{/if}
 		</section>
 	{:else}
+		{#if followsTeacher}
+			<div class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 py-3.5 desk:min-w-0">
+				<span class="text-[13px] font-bold text-muted">Comes back</span>
+				<span class="text-[17px] leading-snug font-extrabold text-ink"
+					>{comesBackWords(exercise.comesBack)}</span
+				>
+				<span
+					data-dance={data.dance.slug}
+					data-group=""
+					class="inline-flex h-[30px] items-center gap-1.5 self-start rounded-full bg-accent-soft pr-3 pl-2 text-[14px] font-bold text-accent-text"
+					><Icon name="people" size={16} />Set by your teacher</span
+				>
+			</div>
+		{/if}
 		{#if !contentLeft}
 			{@render pageContent()}
 		{:else if !desk.current}

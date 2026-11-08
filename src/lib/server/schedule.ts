@@ -3,7 +3,7 @@ import type { Db } from './db';
 import { exercises, sets } from './db/schema';
 import { ownedBy, type Wall } from './scope';
 import { alias } from 'drizzle-orm/sqlite-core';
-import { scheduleOf, type DueState, type ScheduleSet } from '$lib/schedule/schedule';
+import { goodDaysSince, scheduleOf, type DueState, type ScheduleSet } from '$lib/schedule/schedule';
 import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 
 /** Every set of the wall's exercises (archived ones too), with its exercise. */
@@ -121,4 +121,14 @@ export function scheduleForShown(
 		if (own != null) out[r.id] = states.get(own)!;
 	}
 	return out;
+}
+
+/** The good days since `since` on one exercise's sets (the Comes back card's "2 of 3 so far"). Not owner-scoped: check access first. */
+export function goodDaysOf(db: Db, exerciseId: number, since: number, timeZone: string): number {
+	const rows = db
+		.select({ doneAt: sets.doneAt, rating: sets.rating })
+		.from(sets)
+		.where(eq(sets.exerciseId, exerciseId))
+		.all();
+	return goodDaysSince(rows, since, timeZone);
 }
