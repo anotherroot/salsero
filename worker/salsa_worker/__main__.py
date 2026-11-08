@@ -3,8 +3,9 @@
 import logging
 import os
 import sys
+import time
 
-from . import jobs, media
+from . import jobs, media, spotify
 from .api import Api
 
 
@@ -22,6 +23,9 @@ def main() -> int:
         to_wav=media.to_wav,
         duration_of=media.duration_of,
         analyze=media.Analyzer(checkpoint),
+        search=media.search_youtube,
+        read_track=spotify.read_track,
+        pause=lambda: time.sleep(4),
     )
     video_tools = jobs.VideoTools(fetch_video=media.fetch_video, to_mp4=media.to_mp4)
     try:

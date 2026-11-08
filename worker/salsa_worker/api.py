@@ -81,10 +81,28 @@ class Api:
         with self._request("GET", f"/api/worker/songs/{song_id}/audio", timeout=300) as r, open(dest, "wb") as f:
             shutil.copyfileobj(r, f)
 
-    def upload_audio(self, song_id: int, path: Path, mime: str, title: str | None, duration: float | None) -> None:
+    def upload_audio(
+        self,
+        song_id: int,
+        path: Path,
+        mime: str,
+        title: str | None,
+        duration: float | None,
+        *,
+        artist: str | None = None,
+        fetched_url: str | None = None,
+        fetched_title: str | None = None,
+    ) -> None:
+        """An older server ignores the artist and the fetched video; it still takes the audio."""
         headers = {"Content-Type": mime, "Content-Length": str(path.stat().st_size)}
-        if title:
-            headers["x-title"] = urllib.parse.quote(title)
+        for name, value in (
+            ("x-title", title),
+            ("x-artist", artist),
+            ("x-fetched-url", fetched_url),
+            ("x-fetched-title", fetched_title),
+        ):
+            if value:
+                headers[name] = urllib.parse.quote(value)
         if duration:
             headers["x-duration"] = str(duration)
         with open(path, "rb") as f:

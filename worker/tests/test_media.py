@@ -24,7 +24,7 @@ def fake_run(returncode=0, stdout="", stderr="", make=None):
 def test_fetch_reads_title_and_duration(tmp_path: Path):
     run = fake_run(stdout="Vivir Mi Vida\t327\n", make=tmp_path / "audio.m4a")
     got = media.fetch("https://youtu.be/x", tmp_path, run=run)
-    assert got == media.Fetched(tmp_path / "audio.m4a", "Vivir Mi Vida", 327.0)
+    assert got == media.Fetched(tmp_path / "audio.m4a", "Vivir Mi Vida", 327.0, "https://youtu.be/x")
     cmd = run.calls[0]
     # --print implies --simulate unless told otherwise: without this nothing downloads.
     assert "--no-simulate" in cmd
@@ -92,3 +92,27 @@ def test_to_mp4_is_small_h264_that_streams(tmp_path: Path):
     assert cmd[-1] == str(tmp_path / "out.mp4")
     with pytest.raises(media.PermanentError):
         media.to_mp4(tmp_path / "a", tmp_path / "b", run=fake_run(1, stderr="Invalid data"))
+
+
+def test_search_youtube_lists_candidates():
+    out = (
+        '{"entries": ['
+        '{"url": "https://www.youtube.com/watch?v=a1", "title": "Cali Pachanguero", "channel": "Grupo Niche - Topic", "duration": 313},'
+        '{"webpage_url": "https://www.youtube.com/watch?v=b2", "title": "Live", "uploader": "Fan", "duration": null}'
+        ']}'
+    )
+    run = fake_run(stdout=out)
+    got = media.search_youtube("Grupo Niche Cali Pachanguero", run=run)
+    assert run.calls[0] == [
+        "yt-dlp", "--flat-playlist", "--dump-single-json", "--no-warnings",
+        "ytsearch8:Grupo Niche Cali Pachanguero",
+    ]
+    assert got == [
+        media.Candidate("https://www.youtube.com/watch?v=a1", "Cali Pachanguero", "Grupo Niche - Topic", 313.0),
+        media.Candidate("https://www.youtube.com/watch?v=b2", "Live", "Fan", None),
+    ]
+
+
+def test_a_failed_search_is_transient():
+    with pytest.raises(RuntimeError):
+        media.search_youtube("x", run=fake_run(returncode=1, stderr="ERROR: HTTP Error 429"))

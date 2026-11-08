@@ -6,10 +6,13 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Literal
 
+from . import match, spotify
 from .api import JobGone
 from .media import MAX_DURATION_S, Fetched, PermanentError
+
+Outcome = Literal["ok", "permanent", "transient"]
 
 log = logging.getLogger("salsa_worker")
 
@@ -20,6 +23,11 @@ class Tools:
     to_wav: Callable[[Path, Path], None]
     duration_of: Callable[[Path], float]
     analyze: Callable[[Path], tuple[list[float], list[float]]]
+    # A Spotify song: read it from Spotify, then search YouTube for it.
+    search: Callable[[str], list[match.Candidate]] | None = None
+    read_track: Callable[[str], spotify.Track] | None = None
+    # Between jobs that went to YouTube, so a long pick does not look like a bot.
+    pause: Callable[[], None] = lambda: None
 
 
 @dataclass(frozen=True)
@@ -28,16 +36,39 @@ class VideoTools:
     to_mp4: Callable[[Path, Path], None]
 
 
-def process(job: dict, api, tools: Tools, workdir: Path) -> bool:
-    """Download (if needed), analyse, report. Failures are reported, never raised. True on success."""
+def _fetch_song(url: str, tools: Tools, workdir: Path) -> tuple[Fetched, str | None, str | None]:
+    """The audio, with the title and artist to report: Spotify's for a Spotify song, else the download's."""
+    if not spotify.is_spotify_track(url):
+        fetched = tools.fetch(url, workdir)
+        return fetched, fetched.title, None
+    track = tools.read_track(url)
+    query = " ".join([", ".join(track.artists), track.title]).strip()
+    found = match.best(track, tools.search(query))
+    if found is None:
+        raise PermanentError("No match on YouTube")
+    fetched = tools.fetch(found.url, workdir)
+    return fetched, track.title, ", ".join(track.artists) or None
+
+
+def process(job: dict, api, tools: Tools, workdir: Path) -> Outcome:
+    """Download (if needed), analyse, report. Failures are reported, never raised."""
     song_id = job["id"]
     try:
         duration: float | None = None
         if job["kind"] == "download":
-            fetched = tools.fetch(job["url"], workdir)
+            fetched, title, artist = _fetch_song(job["url"], tools, workdir)
             # Upload first: once the server has the audio, a crash during
             # analysis only costs a re-analysis, not a re-download.
-            api.upload_audio(song_id, fetched.path, "audio/mp4", fetched.title, fetched.duration)
+            api.upload_audio(
+                song_id,
+                fetched.path,
+                "audio/mp4",
+                title,
+                fetched.duration,
+                artist=artist,
+                fetched_url=fetched.url or None,
+                fetched_title=fetched.title,
+            )
             audio, duration = fetched.path, fetched.duration
         else:
             audio = workdir / "source"
@@ -53,14 +84,15 @@ def process(job: dict, api, tools: Tools, workdir: Path) -> bool:
         beats, downbeats = tools.analyze(wav)
         api.post_analysis(song_id, beats, downbeats, duration)
         log.info("song %s: %d beats", song_id, len(beats))
-        return True
+        return "ok"
     except PermanentError as e:
         log.warning("song %s failed for good: %s", song_id, e)
         api.fail(song_id, str(e), True)
+        return "permanent"
     except Exception as e:  # noqa: BLE001 — anything else is worth another try
         log.exception("song %s failed, will retry", song_id)
         api.fail(song_id, f"{type(e).__name__}: {e}", False)
-    return False
+        return "transient"
 
 
 def process_video(job: dict, api, tools: VideoTools, workdir: Path) -> bool:
@@ -89,9 +121,12 @@ def run(api, tools: Tools, video_tools: VideoTools | None = None, max_jobs: int 
     """Claim and process jobs until the queues are empty or a job fails. Returns how many were processed.
 
     Songs first: a song is seconds of work, an hour of video can be ten minutes
-    of encoding. Stopping after a failure keeps one bad run (network down, a
-    YouTube change) from spinning through the whole queue; the next timer tick
-    carries on.
+    of encoding. Stopping after a transient failure keeps one bad run (network
+    down, a YouTube change) from spinning through the whole queue; the next
+    timer tick carries on. A song that failed for good (no match, unavailable)
+    says nothing about the next one, so the run goes on. After every download
+    the worker pauses, so a long pick from a playlist does not hit YouTube
+    back to back.
     """
     done = 0
     while done < max_jobs:
@@ -99,9 +134,11 @@ def run(api, tools: Tools, video_tools: VideoTools | None = None, max_jobs: int 
         if job is None:
             break
         with tempfile.TemporaryDirectory(prefix="salsa-") as tmp:
-            ok = process(job, api, tools, Path(tmp))
+            outcome = process(job, api, tools, Path(tmp))
         done += 1
-        if not ok:
+        if job["kind"] == "download":
+            tools.pause()
+        if outcome == "transient":
             return done
     while video_tools is not None and done < max_jobs:
         job = api.claim_video()

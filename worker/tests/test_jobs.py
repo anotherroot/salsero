@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from salsa_worker import jobs, media
+from salsa_worker import jobs, media, spotify
 from salsa_worker.api import JobGone
 
 
@@ -16,8 +16,9 @@ class FakeApi:
         self.calls.append(("download_audio", song_id))
         dest.write_bytes(b"mp3")
 
-    def upload_audio(self, song_id, path, mime, title, duration):
+    def upload_audio(self, song_id, path, mime, title, duration, *, artist=None, fetched_url=None, fetched_title=None):
         self.calls.append(("upload_audio", song_id, mime, title, duration))
+        self.found = {"artist": artist, "fetched_url": fetched_url, "fetched_title": fetched_title}
 
     def post_analysis(self, song_id, beats, downbeats, duration):
         self.calls.append(("post_analysis", song_id, beats, downbeats, duration))
@@ -26,17 +27,20 @@ class FakeApi:
         self.calls.append(("fail", song_id, error, permanent))
 
 
-def tools(fetch=None, analyze=None):
+def tools(fetch=None, analyze=None, search=None, read_track=None, pause=None):
     def default_fetch(url, workdir):
         p = workdir / "audio.m4a"
         p.write_bytes(b"m4a")
-        return media.Fetched(p, "Title", 200.0)
+        return media.Fetched(p, "Title", 200.0, url)
 
     return jobs.Tools(
         fetch=fetch or default_fetch,
         to_wav=lambda src, dest: dest.write_bytes(b"wav"),
         duration_of=lambda path: 42.0,
         analyze=analyze or (lambda wav: ([0.5, 1.0], [0.5])),
+        search=search or (lambda q: []),
+        read_track=read_track or (lambda url: None),
+        pause=pause or (lambda: None),
     )
 
 
@@ -89,8 +93,8 @@ def test_process_says_whether_it_succeeded(tmp_path):
         raise RuntimeError("model crashed")
 
     job = {"id": 1, "kind": "analyze", "url": None}
-    assert jobs.process(job, FakeApi([]), tools(), tmp_path) is True
-    assert jobs.process(job, FakeApi([]), tools(analyze=analyze), tmp_path) is False
+    assert jobs.process(job, FakeApi([]), tools(), tmp_path) == "ok"
+    assert jobs.process(job, FakeApi([]), tools(analyze=analyze), tmp_path) == "transient"
 
 
 def test_run_stops_after_a_failed_job():
@@ -114,7 +118,7 @@ def test_an_upload_longer_than_15_minutes_fails_for_good(tmp_path):
         analyze=analyze,
     )
     api = FakeApi([])
-    assert jobs.process({"id": 4, "kind": "analyze", "url": None}, api, t, tmp_path) is False
+    assert jobs.process({"id": 4, "kind": "analyze", "url": None}, api, t, tmp_path) == "permanent"
     assert api.calls == [("download_audio", 4), ("fail", 4, "Longer than 15 minutes.", True)]
 
 
@@ -124,7 +128,7 @@ def test_a_refused_analysis_fails_for_good(tmp_path):
             raise media.PermanentError("Server refused the analysis: no beats found")
 
     api = Refusing([])
-    assert jobs.process({"id": 5, "kind": "analyze", "url": None}, api, tools(), tmp_path) is False
+    assert jobs.process({"id": 5, "kind": "analyze", "url": None}, api, tools(), tmp_path) == "permanent"
     assert api.calls[-1] == ("fail", 5, "Server refused the analysis: no beats found", True)
 
 
@@ -190,3 +194,63 @@ def test_a_private_video_fails_for_good(tmp_path):
     api = VideoApi([], [])
     assert jobs.process_video({"id": 9, "url": "u"}, api, video_tools(fetch_video), tmp_path) is False
     assert api.calls == [("fail_video", 9, "ERROR: Private video", True)]
+
+
+SPOTIFY = "https://open.spotify.com/track/0wDEs6WvqDHq4XJZC0dHhO"
+HOJA = spotify.Track(title="Hoja En Blanco", artists=["Monchy & Alexandra"], duration_s=307.2, url=SPOTIFY)
+
+
+def test_a_spotify_song_is_found_on_youtube(tmp_path):
+    searched, fetched = [], []
+    match = media.Candidate("https://www.youtube.com/watch?v=hoja", "Hoja En Blanco", "Monchy & Alexandra - Topic", 307.0)
+
+    def fetch(url, workdir):
+        fetched.append(url)
+        p = workdir / "audio.m4a"
+        p.write_bytes(b"m4a")
+        return media.Fetched(p, "Monchy & Alexandra - Hoja En Blanco (Audio)", 307.0, url)
+
+    def search(q):
+        searched.append(q)
+        return [media.Candidate("https://www.youtube.com/watch?v=live", "Hoja En Blanco (En Vivo)", "Fan", 290.0), match]
+
+    api = FakeApi([])
+    t = tools(fetch=fetch, search=search, read_track=lambda url: HOJA)
+    assert jobs.process({"id": 7, "kind": "download", "url": SPOTIFY}, api, t, tmp_path) == "ok"
+    assert searched == ["Monchy & Alexandra Hoja En Blanco"]
+    assert fetched == [match.url]
+    assert api.calls[0] == ("upload_audio", 7, "audio/mp4", "Hoja En Blanco", 307.0)
+    assert api.found == {
+        "artist": "Monchy & Alexandra",
+        "fetched_url": match.url,
+        "fetched_title": "Monchy & Alexandra - Hoja En Blanco (Audio)",
+    }
+
+
+def test_no_match_on_youtube_fails_for_good(tmp_path):
+    api = FakeApi([])
+    t = tools(search=lambda q: [], read_track=lambda url: HOJA)
+    assert jobs.process({"id": 7, "kind": "download", "url": SPOTIFY}, api, t, tmp_path) == "permanent"
+    assert api.calls == [("fail", 7, "No match on YouTube", True)]
+
+
+def test_a_youtube_song_reports_what_it_downloaded(tmp_path):
+    api = FakeApi([])
+    jobs.process({"id": 8, "kind": "download", "url": "https://youtu.be/x"}, api, tools(), tmp_path)
+    assert api.found == {"artist": None, "fetched_url": "https://youtu.be/x", "fetched_title": "Title"}
+
+
+def test_a_song_that_fails_for_good_does_not_stop_the_run():
+    def fetch(url, workdir):
+        raise media.PermanentError("Video unavailable")
+
+    api = FakeApi([{"id": 1, "kind": "download", "url": "https://y"}, {"id": 2, "kind": "analyze", "url": None}])
+    assert jobs.run(api, tools(fetch=fetch)) == 2
+    assert api.calls[-1][0] == "post_analysis"
+
+
+def test_the_worker_pauses_after_youtube_but_not_after_an_analysis():
+    pauses = []
+    api = FakeApi([{"id": 1, "kind": "download", "url": "https://y"}, {"id": 2, "kind": "analyze", "url": None}])
+    jobs.run(api, tools(pause=lambda: pauses.append(1)))
+    assert pauses == [1]

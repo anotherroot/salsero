@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from .match import Candidate
 
 # The worker enforces this (yt-dlp's filter for downloads, a check after
 # decoding for uploads): longer songs fail for good rather than being analysed.
@@ -35,6 +38,8 @@ class Fetched:
     path: Path
     title: str | None
     duration: float | None
+    # The link the audio came from: reported to the server as `fetched_url`.
+    url: str = ""
 
 
 def _last_line(text: str) -> str:
@@ -79,7 +84,31 @@ def fetch(url: str, workdir: Path, run=subprocess.run) -> Fetched:
         seconds = float(duration)
     except ValueError:
         seconds = None
-    return Fetched(path, title or None, seconds)
+    return Fetched(path, title or None, seconds, url)
+
+
+def search_youtube(query: str, n: int = 8, run=subprocess.run) -> list[Candidate]:
+    """The first n YouTube results for a query, without downloading anything."""
+    cmd = ["yt-dlp", "--flat-playlist", "--dump-single-json", "--no-warnings", f"ytsearch{n}:{query}"]
+    p = run(cmd, capture_output=True, text=True, timeout=120)
+    if p.returncode != 0:
+        # The bot check, the network, a YouTube change: worth another try.
+        raise RuntimeError(_last_line(p.stderr))
+    out = []
+    for e in json.loads(p.stdout or "{}").get("entries") or []:
+        url = e.get("url") or e.get("webpage_url")
+        if not url:
+            continue
+        d = e.get("duration")
+        out.append(
+            Candidate(
+                url=url,
+                title=e.get("title") or "",
+                channel=e.get("channel") or e.get("uploader") or "",
+                duration_s=float(d) if isinstance(d, (int, float)) else None,
+            )
+        )
+    return out
 
 
 def fetch_video(url: str, workdir: Path, run=subprocess.run) -> Path:
