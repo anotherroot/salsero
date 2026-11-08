@@ -742,6 +742,19 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
 		});
 
+		it('update without a move name leaves the move as it is (Edit no longer asks for it)', async () => {
+			const { figureName: _, ...withoutMove } = edit({});
+			void _;
+			const before = getGroup(db, groupOf(salsaFigureId))!.name;
+			const result = await call(
+				figurePage.actions.update,
+				post('salsa', withoutMove, String(salsaFigureId))
+			);
+			expect(result).toEqual({ action: 'update', ok: true });
+			expect(getFigure(db, salsaFigureId, 'u1')!.figure.name).toBe('Renamed');
+			expect(getGroup(db, groupOf(salsaFigureId))!.name).toBe(before);
+		});
+
 		const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);
 		type Choices = { title: string; entries: { value: number; label: string; meta?: string }[] }[];
 		const valuesIn = (groups: Choices) => groups.flatMap((g) => g.entries.map((e) => e.value));

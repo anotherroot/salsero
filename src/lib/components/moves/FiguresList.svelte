@@ -469,7 +469,6 @@
 			/>
 			<FigureFields
 				{dance}
-				asksFigureName={false}
 				name={refusal?.name}
 				style={lists.defaultStyle}
 				notes={refusal?.notes}

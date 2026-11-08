@@ -82,3 +82,11 @@ made.
   move (the move is known); Edit renames the move with its text field.
 - New figure in an existing move keeps its existing refusals ("Enchufla already
   has a figure called Doble"), shown under Figure name.
+
+## 3. Edit asks no move name (2026-11-08)
+
+A figure's Edit no longer shows Move name: the move's own page renames it.
+The page's `update` takes `figureName` only when it is sent (an older open page
+still sends it) and otherwise leaves the move as it is. `FigureFields` has no
+Move name field any more: every New figure form takes its move from the Move
+field (section 2).
