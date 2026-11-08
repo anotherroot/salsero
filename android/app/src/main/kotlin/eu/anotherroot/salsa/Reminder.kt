@@ -31,3 +31,18 @@ fun reminderText(due: List<String>, words: Words): Pair<String, String>? {
     val more = if (due.size > NAMES_SHOWN) " +${due.size - NAMES_SHOWN}" else ""
     return title to due.take(NAMES_SHOWN).joinToString(", ") + more
 }
+
+/**
+ * [fetch]'s answer, or null when it failed for any reason but the two that stop
+ * the caller anyway ([Unpaired], [UpdateNeeded], rethrown). The reminder reads
+ * its settings this way, so a settings fetch that times out never silences it.
+ */
+fun <T> bestEffort(fetch: () -> T): T? = try {
+    fetch()
+} catch (e: Unpaired) {
+    throw e
+} catch (e: UpdateNeeded) {
+    throw e
+} catch (e: Exception) {
+    null
+}

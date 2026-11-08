@@ -23,8 +23,11 @@ sealed interface Link {
      */
     data class Upload(val target: Target, val share: String?, val back: String, val name: String?) : Link
 
-    /** `/device/pair` minted a token for this app. */
-    data class Paired(val token: String) : Link
+    /**
+     * `/device/pair` minted a token for this app. [locale] is the account's language
+     * (1.8 servers send it), so the first words after pairing are in it; null = keep what is stored.
+     */
+    data class Paired(val token: String, val locale: String?) : Link
 }
 
 const val SCHEME = "salsa"
@@ -57,7 +60,7 @@ fun parseLink(uri: String): Link? {
             if (share != null && (target !is Target.Lesson || !SHARE_KEY.matches(share))) return null
             Link.Upload(target, share, sitePath(query["back"]), query["name"]?.takeIf { it.isNotBlank() })
         }
-        "paired" -> query["token"]?.takeIf { it.isNotEmpty() }?.let(Link::Paired)
+        "paired" -> query["token"]?.takeIf { it.isNotEmpty() }?.let { Link.Paired(it, query["locale"]?.takeIf(String::isNotEmpty)) }
         else -> null
     }
 }

@@ -49,6 +49,8 @@ class LinkActivity : ComponentActivity() {
 
     private fun paired(paired: Link.Paired) {
         Prefs.setToken(this, paired.token)
+        // Before the toast: the first words after pairing are in the account's language.
+        paired.locale?.let { applyLocale(this, it) }
         AppStart.refreshConfig(this)
         // Uploads parked by a 401 carry on now.
         if (!UploadQueue.store(this).isEmpty()) UploadQueue.kick(this)

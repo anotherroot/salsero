@@ -6,6 +6,8 @@
  * the native side work through `salsa://` links instead of file inputs. See
  * docs/superpowers/specs/2026-10-14-android-app-design.md.
  */
+import type { Locale } from '$lib/i18n/locale';
+
 export const APP_COOKIE = 'salsa_app';
 export const APP_PARAM = 'app';
 export const APP_VALUE = 'android';
@@ -33,7 +35,11 @@ export function uploadLink(
 	return `${APP_SCHEME}://upload?${params}`;
 }
 
-/** Where `/device/pair` sends the fresh token: to the app, and nowhere else. */
-export function pairedLink(token: string): string {
-	return `${APP_SCHEME}://paired?token=${encodeURIComponent(token)}`;
+/**
+ * Where `/device/pair` sends the fresh token: to the app, and nowhere else. It carries the
+ * account's language, so the app's first words ("Phone paired") are already in it; an app
+ * older than 1.8 reads only the token.
+ */
+export function pairedLink(token: string, locale: Locale): string {
+	return `${APP_SCHEME}://paired?token=${encodeURIComponent(token)}&locale=${encodeURIComponent(locale)}`;
 }

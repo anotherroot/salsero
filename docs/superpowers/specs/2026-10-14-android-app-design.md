@@ -17,13 +17,17 @@ changed, creates the channels again with the same ids, which renames them; the
 reminder reads the config before what is due, so a change in Settings reaches
 the next reminder without a launch. An older server sends no `locale`, which is
 English. `/api/device/today` gains no key: older apps read every key of it as a
-dance.
+dance. Pairing carries it too (`salsa://paired?token=…&locale=`), so "Phone
+paired" is already in it; an older app reads only the token. The reminder reads
+the config best effort (`bestEffort`): a failed fetch keeps the stored language
+and the reminder still fires.
 
 The words are `Words.kt` (pure, `en` and `sl`, `wordsOf(locale)`; anything
 but `sl` is English) with Slovenian plurals in `Plural.kt`, both JVM-tested.
 The one exception is the share sheet's entry (`share_label`): Android draws it
-in the phone's language, so it has a `values-sl` resource per flavor. Before
-the first pairing the app knows no account, so its few words then are English.
+in the phone's language, so it has a `values-sl` resource per flavor.
+Before the first pairing the app knows no account, so its few words then (a
+share, a download) are English.
 
 ## Updates and channels (2026-11-03)
 

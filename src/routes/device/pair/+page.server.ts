@@ -21,6 +21,7 @@ export const actions: Actions = {
 		// The account's own dance names the app (the dance split): "Bachata app".
 		const label = t().settings.devices.appLabel(getDance(locals.user.dance).label);
 		const { token } = createDeviceToken(getDb(), locals.user.id, label, Date.now());
-		return { link: pairedLink(token) };
+		// The account's language rides along: the app's first words ("Phone paired") are in it.
+		return { link: pairedLink(token, locals.user.locale ?? 'en') };
 	}
 };

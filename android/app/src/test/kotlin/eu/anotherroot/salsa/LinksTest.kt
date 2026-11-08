@@ -33,7 +33,12 @@ class LinksTest {
     }
 
     @Test fun `a token, decoded`() =
-        assertEquals(Link.Paired("a+b/c="), parseLink("salsa://paired?token=a%2Bb%2Fc%3D"))
+        assertEquals(Link.Paired("a+b/c=", null), parseLink("salsa://paired?token=a%2Bb%2Fc%3D"))
+
+    @Test fun `a token with the account's language`() {
+        assertEquals(Link.Paired("t", "sl"), parseLink("salsa://paired?token=t&locale=sl"))
+        assertEquals(Link.Paired("t", null), parseLink("salsa://paired?token=t&locale="))
+    }
 
     @Test fun `nonsense is nothing`() {
         assertNull(parseLink("salsa://upload"))

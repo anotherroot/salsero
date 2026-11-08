@@ -68,8 +68,9 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         try {
-            // The settings first: a language changed in Settings reaches tonight's reminder without a launch.
-            applyConfig(ctx, Api.config(ctx))
+            // The settings first: a language changed in Settings reaches tonight's reminder without a
+            // launch. Best effort: a failed fetch keeps the stored language and the reminder still fires.
+            bestEffort { Api.config(ctx) }?.let { applyConfig(ctx, it) }
             val due = Api.today(ctx)
             val (title, body) = reminderText(due, Prefs.words(ctx)) ?: return Result.success()
             Notify.reminder(ctx, title, body, "/${BuildConfig.DANCE}")
@@ -110,16 +111,16 @@ class ConfigWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     }
 }
 
-/**
- * Keeps what the server said: the reminder time (rescheduled) and the account's
- * language. A changed language re-creates the notification channels, which
- * renames them (same ids).
- */
+/** Keeps what the server said: the reminder time (rescheduled) and the account's language. */
 fun applyConfig(context: Context, config: Config) {
     Prefs.setReminderMinute(context, config.reminderMinute)
     Reminders.schedule(context, config.reminderMinute)
-    if (config.locale != Prefs.locale(context)) {
-        Prefs.setLocale(context, config.locale)
-        Notify.channels(context)
-    }
+    applyLocale(context, config.locale)
+}
+
+/** Keeps the account's language; a change re-creates the notification channels, which renames them (same ids). */
+fun applyLocale(context: Context, locale: String?) {
+    if (locale == Prefs.locale(context)) return
+    Prefs.setLocale(context, locale)
+    Notify.channels(context)
 }
