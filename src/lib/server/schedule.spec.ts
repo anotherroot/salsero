@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { createTeam } from './teams';
 import { archiveExercise, createCustomExercise, logSet } from './exercises';
 import {
+	doneFacesOf,
 	goodDaysOf,
 	listScheduleSets,
 	scheduleForShown,
@@ -159,5 +160,27 @@ describe('goodDaysOf', () => {
 		set(b.id, at('2026-11-05'), RATING_OF.gotit);
 		expect(goodDaysOf(db, a.id, at('2026-11-03'), TZ)).toBe(2);
 		expect(goodDaysOf(db, a.id, at('2026-11-05'), TZ)).toBe(1);
+	});
+});
+
+describe('doneFacesOf', () => {
+	const now = Date.parse('2026-11-07T18:00:00+01:00');
+	it('an own drill with no sets has four faces', () => {
+		const a = drill(U1_SALSA, 'Own');
+		expect(doneFacesOf(db, a.id, TZ, now)!.map((f) => f.feel)).toEqual([
+			'hard',
+			'getting',
+			'gotit',
+			'easy'
+		]);
+	});
+	it('an entry following a class drill set to a fixed rhythm has no faces', () => {
+		db = openDb(':memory:');
+		const c = makeClass(db);
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify({ kind: 'every', days: 1 }) })
+			.where(eq(exercises.id, c.drill))
+			.run();
+		expect(doneFacesOf(db, c.entry, TZ, now)).toBeNull();
 	});
 });

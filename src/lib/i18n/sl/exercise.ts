@@ -193,6 +193,9 @@ export const exercise: Catalog['exercise'] = {
 		note: (daily) => `Naredite jo najprej. Ne šteje v dnevno število (${daily}).`,
 		withRhythm: (rhythm) => `Ogrevanje · ${rhythm}`
 	},
+	done: {
+		learnt: 'osvojeno'
+	},
 	refused: {
 		checkValues: 'Preverite vrednosti in poskusite znova.',
 		gone: 'Te vaje ni več.',

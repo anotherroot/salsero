@@ -207,6 +207,11 @@ export const exercise = {
 		/** Coming up's line: "Warm-up · every day". */
 		withRhythm: (rhythm: string): string => `Warm-up · ${rhythm}`
 	},
+	/** The Done sheet. */
+	done: {
+		/** Under a face's time when saving it finishes a learning drill. */
+		learnt: 'learnt'
+	},
 	/** What a refused log or page action says. */
 	refused: {
 		checkValues: 'Check the values and try again.',

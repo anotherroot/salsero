@@ -3,7 +3,14 @@ import type { Db } from './db';
 import { exercises, sets } from './db/schema';
 import { ownedBy, type Wall } from './scope';
 import { alias } from 'drizzle-orm/sqlite-core';
-import { goodDaysSince, scheduleOf, type DueState, type ScheduleSet } from '$lib/schedule/schedule';
+import {
+	doneFaces,
+	goodDaysSince,
+	scheduleOf,
+	type DoneFace,
+	type DueState,
+	type ScheduleSet
+} from '$lib/schedule/schedule';
 import { effectiveComesBack, parseComesBack } from '$lib/schedule/comes-back';
 
 /** Every set of the wall's exercises (archived ones too), with its exercise. */
@@ -88,6 +95,47 @@ export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): D
 			parseComesBack(row.comesBack),
 			parseComesBack(teacher?.comesBack)
 		),
+		timeZone
+	);
+}
+
+/**
+ * What each face would set if saved now (`doneFaces`), from the same inputs
+ * `scheduleStateOf` reads. Not owner-scoped: check access first.
+ */
+export function doneFacesOf(
+	db: Db,
+	exerciseId: number,
+	timeZone: string,
+	now: number
+): DoneFace[] | null {
+	const row = db.select().from(exercises).where(eq(exercises.id, exerciseId)).get();
+	if (!row) throw new Error(`No exercise ${exerciseId}`);
+	const teacher =
+		row.source === 'added' && row.drillId !== null
+			? db
+					.select({ comesBack: exercises.comesBack })
+					.from(exercises)
+					.where(eq(exercises.id, row.drillId))
+					.get()
+			: undefined;
+	const rows = db
+		.select({ doneAt: sets.doneAt, rating: sets.rating })
+		.from(sets)
+		.where(eq(sets.exerciseId, exerciseId))
+		.all();
+	return doneFaces(
+		{
+			startGap: row.everyDays,
+			createdAt: row.createdAt,
+			sets: rows,
+			comesBack: effectiveComesBack(
+				row.source,
+				parseComesBack(row.comesBack),
+				parseComesBack(teacher?.comesBack)
+			)
+		},
+		now,
 		timeZone
 	);
 }
