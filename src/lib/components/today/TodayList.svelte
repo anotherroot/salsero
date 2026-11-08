@@ -8,7 +8,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { DayList } from '$lib/schedule/today-list';
-	import { listLabel } from '$lib/exercises/today';
+	import { listLabels } from '$lib/exercises/today';
 	import { classDayLabel } from '$lib/format';
 	import type { AppUpdate } from '$lib/app-update/view';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -18,11 +18,11 @@
 	/**
 	 * Today's list: one "Today · N" card (done, to do, picked: `dayList`'s order),
 	 * "+ Next 5" as its last row when one or none is left; once nothing is left
-	 * to pull, what comes next; Custom exercise; or, with no exercise at all, the
+	 * to pull, what comes next; or, with no exercise at all, the
 	 * first run's empty state. The (today) layout renders it once (`ListPane`):
 	 * the phone's Today and, on the desktop, the column beside the open exercise,
 	 * whose row is lit (`currentId`). The desktop logs from the pane, so a row has
-	 * no + there, and Custom exercise is the band's +.
+	 * no + there, and New exercise is the band's +, at every width.
 	 */
 	let {
 		day,
@@ -109,37 +109,41 @@
 		<div class="pb-3.5"><NothingLeft next={day.nothingLeft} {dance} today={day.today} /></div>
 	{/if}
 
-	{#if day.rows.length > 0 || day.showNext}
+	{@const labels = listLabels(day)}
+	{@const warmRows = day.rows.filter((r) => r.list === 'warmup')}
+	{@const practiceRows = day.rows.filter((r) => r.list === 'practice')}
+	{#snippet rowsOf(rows: typeof day.rows)}
+		{#each rows as row (row.exercise.id)}
+			<ExerciseRow
+				{row}
+				{dance}
+				today={day.today}
+				lessonDay={lessonDayOf(row.exercise)}
+				upNext={row.exercise.id === upNextId}
+				current={row.exercise.id === currentId}
+				search={rowSearch}
+				onlog={() => onlog(row.exercise.id)}
+				onskip={row.kind === 'done' ? undefined : () => onskip(row.exercise.id)}
+				swiped={swiped?.key === `today:${row.exercise.id}` ? swiped.side : null}
+				onswipe={(side) => (swiped = side ? { key: `today:${row.exercise.id}`, side } : null)}
+			/>
+		{/each}
+	{/snippet}
+
+	{#if labels.warmup && warmRows.length > 0}
+		<section aria-labelledby="today-warmup-h" class="flex flex-col gap-2 pb-3.5">
+			<h2 id="today-warmup-h" class={SECTION_LABEL}>{labels.warmup}</h2>
+			<ul class={GROUP}>{@render rowsOf(warmRows)}</ul>
+		</section>
+	{/if}
+
+	{#if practiceRows.length > 0 || day.showNext}
 		<section aria-labelledby="today-list-h" class="flex flex-col gap-2">
-			<h2 id="today-list-h" class={SECTION_LABEL}>
-				{listLabel(day)}
-			</h2>
+			<h2 id="today-list-h" class={SECTION_LABEL}>{labels.practice}</h2>
 			<ul class={GROUP}>
-				{#each day.rows as row (row.exercise.id)}
-					<ExerciseRow
-						{row}
-						{dance}
-						today={day.today}
-						lessonDay={lessonDayOf(row.exercise)}
-						upNext={row.exercise.id === upNextId}
-						current={row.exercise.id === currentId}
-						search={rowSearch}
-						onlog={() => onlog(row.exercise.id)}
-						onskip={row.kind === 'done' ? undefined : () => onskip(row.exercise.id)}
-						swiped={swiped?.key === `today:${row.exercise.id}` ? swiped.side : null}
-						onswipe={(side) => (swiped = side ? { key: `today:${row.exercise.id}`, side } : null)}
-					/>
-				{/each}
+				{@render rowsOf(practiceRows)}
 				{#if day.showNext}<NextRow {dance} {daily} {onrefused} />{/if}
 			</ul>
 		</section>
 	{/if}
-
-	<!-- The desktop's Custom exercise is the band's +. -->
-	<button
-		type="button"
-		data-focus="today-custom"
-		class="mt-3.5 {button('secondary', 'md', true)} desk:hidden"
-		onclick={oncreate}><Icon name="plus" size={20} />Custom exercise</button
-	>
 {/if}

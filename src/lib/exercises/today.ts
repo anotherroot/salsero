@@ -156,13 +156,6 @@ export function listLabels(day: Pick<DayList<unknown>, 'total' | 'warmups' | 'no
 	};
 }
 
-/** Kept until the components switch to `listLabels`; Task 5 deletes it. */
-export function listLabel(
-	day: Pick<DayList<unknown>, 'total' | 'warmups' | 'nothingLeft'>
-): string {
-	return listLabels(day).practice;
-}
-
 /** What comes back first, once nothing is left: "Tomorrow · and 3 more", "Sunday". */
 export function nothingLeftMeta(next: { day: string; more: number }, today: string): string {
 	const when = dayWords(next.day, today);

@@ -533,18 +533,16 @@
 			label="Coming up"
 			href={resolve('/[dance]/(today)/coming-up', { dance })}
 		/>
-		<!-- The phone's Settings; the desktop has it in the side, and Custom exercise here. -->
+		<!-- The phone's Settings (the desktop has it in the side); New exercise is the + at every width. -->
 		<span class="contents desk:hidden"
 			><BandButton icon="settings" label="Settings" href={resolve('/settings')} /></span
 		>
-		<span class="hidden desk:contents"
-			><BandButton
-				icon="plus"
-				label="Custom exercise"
-				focusKey="today-custom"
-				onclick={() => (creating = true)}
-			/></span
-		>
+		<BandButton
+			icon="plus"
+			label="Custom exercise"
+			focusKey="today-custom"
+			onclick={() => (creating = true)}
+		/>
 	{/if}
 {/snippet}
 
