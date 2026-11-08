@@ -54,6 +54,14 @@ export const songs: Catalog['songs'] = {
 			eights: (name, n) => `${name} čez ${slCount(n, ['osmico', 'osmici', 'osmice', 'osmic'])}`,
 			last: (name) => `${name} po tej osmici`,
 			beats: (name, n) => `${name} čez ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])}`
+		},
+		refused: {
+			taken: 'Tam se že začne drug del',
+			ends: 'To je čez konec skladbe',
+			missing: 'Tega dela ni več. Znova naložite stran.',
+			badValue: 'Shranjevanje ni uspelo.',
+			start: 'Izberite čas znotraj skladbe.',
+			beat: 'Te dobe ni v skladbi.'
 		}
 	}
 };

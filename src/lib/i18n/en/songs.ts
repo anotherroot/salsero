@@ -61,6 +61,15 @@ export const songs = {
 				`${name} in ${n} ${n === 1 ? 'eight' : 'eights'}`,
 			last: (name: string): string => `${name} after this eight`,
 			beats: (name: string, n: number): string => `${name} in ${n} ${n === 1 ? 'beat' : 'beats'}`
+		},
+		/** Why an Edit change was not saved. */
+		refused: {
+			taken: 'Another section starts there',
+			ends: 'That is past the end of the song',
+			missing: 'That section is gone. Reload the page.',
+			badValue: 'That could not be saved.',
+			start: 'Pick a time inside the song.',
+			beat: 'That beat is not in the song.'
 		}
 	}
 };
