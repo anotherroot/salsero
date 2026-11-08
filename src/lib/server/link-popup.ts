@@ -48,6 +48,7 @@ import { defaultStyle } from './default-styles';
 import { PARTNER, type Partner } from '$lib/labels';
 import { isStyleOf } from '$lib/dances/dances';
 import { EMPTY_HOLD } from '$lib/positions/hold';
+import { t } from '$lib/i18n/catalog';
 import type {
 	Hold,
 	LinkContext,
@@ -248,7 +249,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			.where(eq(lessonVideos.id, video.owner.lessonVideoId))
 			.get()!;
 		context = { kind: 'lesson', lessonId: lesson.id, title: lesson.title };
-		nearTitle = 'In this lesson';
+		nearTitle = t().links.near.lesson;
 		const side = lessonSide(db, lesson.id);
 		byHand = side.byHand;
 		// Every variation of a figure the lesson teaches is near, not just the taught one.
@@ -267,7 +268,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			.where(eq(recordings.id, video.owner.recordingId))
 			.get()!;
 		context = { kind: 'recording', groupId: own.groupId, figure: own.figure };
-		nearTitle = 'This figure';
+		nearTitle = t().links.near.recording;
 		isNear = (_o, groupId) => groupId === own.groupId;
 		const tags = figureTags(db, own.figureId);
 		nearPosition = (id) => tags.has(id);
@@ -414,7 +415,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
  */
 export function createAndLink(db: Db, userId: string, spotId: number, create: LinkCreate): number {
 	const space = sectionSpace(db, userId, spotId);
-	if (!space) throw new SpotLinkError('No such section.');
+	if (!space) throw new SpotLinkError(t().links.refused.noSection);
 	return createAndLinkIn(db, space, spotId, create);
 }
 
@@ -428,18 +429,18 @@ export function createAndLink(db: Db, userId: string, spotId: number, create: Li
 export function createAndLinkIn(db: Db, space: Space, spotId: number, create: LinkCreate): number {
 	return db.transaction((tx) => {
 		const video = videoOfSpot(tx, spotId);
-		if (!video || !inSpace(video, space)) throw new SpotLinkError('No such section.');
+		if (!video || !inSpace(video, space)) throw new SpotLinkError(t().links.refused.noSection);
 		const dance = space.dance;
 		// A point links positions only (ruling 10): refused before anything is made.
 		if (!video.isSection && create.kind !== 'position') {
-			throw new SpotLinkError('A point links positions only.');
+			throw new SpotLinkError(t().links.refused.pointPositions);
 		}
 		const name = create.name.trim();
-		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
+		if (!name) throw new SpotLinkError(t().links.refused.noName, 400, 'name');
 
 		if (create.kind === 'position') {
 			if (create.styleTag !== null && !isStyleOf(dance, create.styleTag)) {
-				throw new SpotLinkError('That type does not belong to this dance.', 400, 'style');
+				throw new SpotLinkError(t().links.refused.typeDance, 400, 'style');
 			}
 			const made = createPosition(
 				tx,
@@ -456,13 +457,13 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 		if (create.kind === 'variation') {
 			const group = getGroup(tx, create.groupId);
 			if (!group || group.archivedAt !== null || !inSpace(group, space)) {
-				throw new SpotLinkError('No such move.', 400, 'groupId');
+				throw new SpotLinkError(t().links.refused.noMove, 400, 'groupId');
 			}
 			if (variationNameTaken(tx, group.id, name, null)) {
-				throw new SpotLinkError(`${group.name} already has a ${name}.`, 400, 'name');
+				throw new SpotLinkError(t().links.refused.variationTaken(group.name, name), 400, 'name');
 			}
 			if (create.style !== undefined && !isStyleOf(dance, create.style)) {
-				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
+				throw new SpotLinkError(t().links.refused.styleDance, 400, 'style');
 			}
 			const first = listGroupVariations(tx, group.id)[0];
 			const made = createVariationIn(
@@ -476,16 +477,16 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				},
 				actorOf(space)
 			);
-			if (!made) throw new SpotLinkError('That figure could not be made.');
+			if (!made) throw new SpotLinkError(t().links.refused.figureNotMade);
 			target = { figureId: made.id };
 		} else if (create.kind === 'figure') {
 			const figureName = create.figureName.trim();
-			if (!figureName) throw new SpotLinkError('Give it a name.', 400, 'figureName');
+			if (!figureName) throw new SpotLinkError(t().links.refused.noName, 400, 'figureName');
 			if (!isStyleOf(dance, create.style)) {
-				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
+				throw new SpotLinkError(t().links.refused.styleDance, 400, 'style');
 			}
 			if (figureNameTaken(tx, space, figureName, null)) {
-				throw new SpotLinkError(`There's already a move called ${figureName}.`, 400, 'figureName');
+				throw new SpotLinkError(t().links.refused.moveTaken(figureName), 400, 'figureName');
 			}
 			const made = createFigure(tx, space, {
 				figureName,
@@ -494,7 +495,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				style: create.style,
 				notes: null
 			});
-			if (!made) throw new SpotLinkError('That move could not be made.');
+			if (!made) throw new SpotLinkError(t().links.refused.moveNotMade);
 			target = { figureId: made.figure.id };
 		} else {
 			const made = createCustomExercise(tx, space, {

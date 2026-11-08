@@ -19,7 +19,8 @@ import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { timingLine } from '$lib/figures/page';
 import { localDay } from '$lib/day/day';
 import { clock, dateLabel, dayMonth, plural } from '$lib/format';
-import { PARTNER_LABEL, TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
+import { TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
+import { t } from '$lib/i18n/catalog';
 import { spotLabel } from '$lib/video/spots';
 import {
 	crossedLabel,
@@ -106,7 +107,7 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	const f = db.select().from(figures).where(eq(figures.id, id)).get() ?? missing('figure', id);
 	b.add('name', f.name);
 	b.add('notes', f.notes ?? '');
-	b.add('partner', f.partner, PARTNER_LABEL[f.partner as Partner] ?? f.partner);
+	b.add('partner', f.partner, t().moves.chips[f.partner as Partner] ?? f.partner);
 	const style = f.styleTag ?? '';
 	b.add('style', style, styleShow(f.dance, style));
 	const start = f.startCount ?? DEFAULT_START_COUNT;

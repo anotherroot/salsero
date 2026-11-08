@@ -7,6 +7,8 @@
  * rendered as a link comes from anywhere else.
  */
 
+import { t } from '$lib/i18n/catalog';
+
 export type ParsedLink =
 	{ kind: 'youtube'; id: string; start: number | null } | { kind: 'web'; host: string };
 
@@ -42,8 +44,8 @@ export function linkFound(raw: string): { youtube: boolean; title: string; line:
 	const parsed = parseLink(text);
 	if (!parsed) return null;
 	return parsed.kind === 'youtube'
-		? { youtube: true, title: 'YouTube video', line: 'You can save it at 480p after adding' }
-		: { youtube: false, title: parsed.host, line: 'Web page' };
+		? { youtube: true, title: t().links.found.youtube, line: t().links.found.youtubeLine }
+		: { youtube: false, title: parsed.host, line: t().links.found.web };
 }
 
 export function parseLink(raw: string): ParsedLink | null {

@@ -16,6 +16,7 @@
 	 * busy; it re-enables when it settles, and a refusal shows in the sheet.
 	 */
 	import Picker from './Picker.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
@@ -102,8 +103,6 @@
 			: [...values, row.value];
 	}
 
-	const GENERIC = 'Try it again.';
-
 	async function make(_key: string, query: string) {
 		if (creating || !oncreate) return;
 		creating = true;
@@ -116,9 +115,9 @@
 			else if (row) {
 				if (!made.some((r) => r.value === row.value)) made = [...made, row];
 				if (!values.includes(row.value)) values = [...values, row.value];
-			} else createMessage = GENERIC;
+			} else createMessage = t().picker.tryAgain;
 		} catch {
-			if (epoch === sheetEpoch) createMessage = GENERIC;
+			if (epoch === sheetEpoch) createMessage = t().picker.tryAgain;
 		} finally {
 			creating = false;
 		}
@@ -180,7 +179,7 @@
 >
 	{#snippet top()}
 		{#if createMessage}
-			<Banner kind="error" title="That could not be created.">{createMessage}</Banner>
+			<Banner kind="error" title={t().picker.notCreated}>{createMessage}</Banner>
 		{/if}
 	{/snippet}
 </Picker>

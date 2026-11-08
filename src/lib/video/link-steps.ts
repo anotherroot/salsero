@@ -1,6 +1,7 @@
 /**
  * The Link popup's levels. PURE and client-safe.
  */
+import { t } from '$lib/i18n/catalog';
 import type { LinkCreateField, LinkOptions, LinkTarget } from '$lib/types';
 import { lengthText, spotTime } from '$lib/video/spots';
 
@@ -40,7 +41,7 @@ export function linkHeading(spot: {
 	if (spot.endMs === null) {
 		return {
 			range: rangeTime(spot.startMs),
-			sub: spot.label ? `${spot.label} · point` : 'Point'
+			sub: spot.label ? t().links.pointOf(spot.label) : t().links.point
 		};
 	}
 	return {
@@ -52,9 +53,14 @@ export function linkHeading(spot: {
 /** Where a created thing is linked. */
 export function destination(o: Pick<LinkOptions, 'spot' | 'context'>): string {
 	const range = linkHeading(o.spot).range;
-	return o.context.kind === 'lesson'
-		? `Linked to ${range} and to ${o.context.title}`
-		: `Linked to ${range}`;
+	const to = t().links.linkedTo;
+	const point = o.spot.endMs === null;
+	if (o.context.kind === 'lesson') {
+		return point
+			? to.pointAndLesson(range, o.context.title)
+			: to.sectionAndLesson(range, o.context.title);
+	}
+	return point ? to.point(range) : to.section(range);
 }
 
 export type CreateStep = 'variation' | 'figure' | 'drill' | 'position';
@@ -68,12 +74,9 @@ const SHOWN: Record<CreateStep, CreateSpot[]> = {
 };
 
 /** The create row's buttons, bare nouns: the picker draws the +. */
-const CREATE_ROW: { key: CreateStep; label: string }[] = [
-	{ key: 'variation', label: 'Figure' },
-	{ key: 'figure', label: 'Move' },
-	{ key: 'drill', label: 'Drill' },
-	{ key: 'position', label: 'Position' }
-];
+const CREATE_KEYS: CreateStep[] = ['variation', 'figure', 'drill', 'position'];
+const createRow = (keys: CreateStep[]): { key: CreateStep; label: string }[] =>
+	keys.map((key) => ({ key, label: t().links.createRow[key] }));
 
 /**
  * The popup's words for what it links: a section links figures, drills and
@@ -86,19 +89,16 @@ export function linkWords(point: boolean | null): {
 	placeholder: string;
 	create: { key: CreateStep; label: string }[];
 } {
-	if (point === null) return { opener: 'Link…', placeholder: 'Search', create: [] };
+	const w = t().links;
+	if (point === null) return { opener: w.opener.any, placeholder: w.search.any, create: [] };
 	return point
-		? {
-				opener: 'Link a position…',
-				placeholder: 'Search positions',
-				create: CREATE_ROW.filter((c) => c.key === 'position')
-			}
-		: {
-				opener: 'Link a figure, drill or position…',
-				placeholder: 'Search figures, drills and positions',
-				create: CREATE_ROW
-			};
+		? { opener: w.opener.point, placeholder: w.search.point, create: createRow(['position']) }
+		: { opener: w.opener.section, placeholder: w.search.section, create: createRow(CREATE_KEYS) };
 }
+
+/** What the spot is, for the words that differ by it. */
+const whatOf = (point: boolean | null): 'any' | 'point' | 'section' =>
+	point === null ? 'any' : point ? 'point' : 'section';
 
 /**
  * The links level's and the picker's titles: by the range once the heading is
@@ -109,15 +109,16 @@ export function linkTitles(
 	heading: { range: string } | null,
 	point: boolean | null
 ): { links: string; pick: string } {
-	if (heading) return { links: `Link ${heading.range}`, pick: `Link ${heading.range} to…` };
-	const what = point === null ? '' : point ? ' a point' : ' a section';
-	return { links: `Link${what}`, pick: `Link${what} to…` };
+	const w = t().links.titles;
+	if (heading) return { links: w.links(heading.range), pick: w.pick(heading.range) };
+	const what = whatOf(point);
+	return { links: w.linksOf[what], pick: w.pickOf[what] };
 }
 
 /** The popup's words when its options did not load: a section's, a point's, or just "these". */
 export function loadFailed(point: boolean | null): { title: string; body: string } {
-	const whose = point === null ? 'these' : point ? 'this point’s' : 'this section’s';
-	return { title: `Couldn’t load ${whose} links.`, body: 'Close and tap the link button again.' };
+	const w = t().links.loadFailed;
+	return { title: w[whatOf(point)], body: w.body };
 }
 
 /** A target's picker key: `figure:3`, `exercise:3`, `position:3` (the builders' keys). */
@@ -141,7 +142,9 @@ export function unlinkKind(t: LinkTarget): 'position' | undefined {
 }
 
 /** "Use this moment as a point": the full-screen player's, under a section's popup. */
-export const MOMENT_LABEL = 'Use this moment as a point';
+export function momentLabel(): string {
+	return t().links.moment;
+}
 
 /**
  * Where "Use this moment as a point" shows: on the popup's bottom level (the

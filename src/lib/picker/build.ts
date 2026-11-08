@@ -6,6 +6,7 @@
  * pickers spec).
  */
 import { dateLabel } from '$lib/format';
+import { t } from '$lib/i18n/catalog';
 import { moveHeading, possessive, usedAsIs } from '$lib/clones/view';
 import { twinPickMeta } from '$lib/clones/twins';
 import { spotLabel } from '$lib/video/spots';
@@ -85,7 +86,7 @@ export function figureRows(ts: { id: number; name: string; variations: string[] 
 
 /** "4 slots · loops", "1 slot". */
 function routineMeta(slots: number, loops: boolean): string {
-	return `${slots} ${slots === 1 ? 'slot' : 'slots'}${loops ? ' · loops' : ''}`;
+	return t().picker.routineMeta(slots, loops);
 }
 
 /** key `routine:{id}`, meta per the second-line constraint. */
@@ -152,10 +153,10 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 	);
 
 	const groups: PickGroup[] = [
-		{ title: 'Figures', entries: figures },
-		{ title: 'Routines', entries: flat('routine') },
-		{ title: 'Drills', entries: flat('custom', 'added') },
-		{ title: 'Lessons', entries: flat('lesson') }
+		{ title: t().picker.groups.figures, entries: figures },
+		{ title: t().picker.groups.routines, entries: flat('routine') },
+		{ title: t().picker.groups.drills, entries: flat('custom', 'added') },
+		{ title: t().picker.groups.lessons, entries: flat('lesson') }
 	];
 	return groups.filter((g) => g.entries.length > 0);
 }
@@ -170,7 +171,7 @@ export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[
 		const title =
 			g.video.from.kind === 'lesson'
 				? `${g.video.from.title} · ${dateLabel(g.video.from.lessonDay)}`
-				: `Recording · ${g.video.from.figure}`;
+				: t().video.recordingOf(g.video.from.figure);
 		return {
 			heading: title,
 			collapse: false,
@@ -197,7 +198,7 @@ export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[
 	};
 	const groups: PickGroup[] = [
 		{ title: nearTitle, entries: gs.filter((g) => g.taughtHere).map(heading) },
-		{ title: 'Other videos', entries: gs.filter((g) => !g.taughtHere).map(heading) }
+		{ title: t().picker.groups.otherVideos, entries: gs.filter((g) => !g.taughtHere).map(heading) }
 	];
 	return groups.filter((g) => g.entries.length > 0);
 }
@@ -264,9 +265,9 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 			title: o.nearTitle,
 			entries: [...variations(o.near), ...drills(o.near), ...positions(o.near)]
 		},
-		{ title: 'Figures', entries: variations(o.figures) },
-		{ title: 'Drills', entries: drills(o.drills) },
-		{ title: 'Positions', entries: positions(o.positions) }
+		{ title: t().picker.groups.figures, entries: variations(o.figures) },
+		{ title: t().picker.groups.drills, entries: drills(o.drills) },
+		{ title: t().picker.groups.positions, entries: positions(o.positions) }
 	];
 	return groups.filter((g) => g.entries.length > 0);
 }

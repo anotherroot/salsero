@@ -142,7 +142,7 @@ function targetDance(db: Db, space: Space, target: SectionTarget): string {
 			.where(eq(figures.id, target.figureId))
 			.get();
 		if (!f || !(sameOwner(f, space) || usableBy(db, space, 'figures', f))) {
-			throw new SpotLinkError('No such figure.');
+			throw new SpotLinkError(t().links.refused.noFigure);
 		}
 		return f.dance;
 	}
@@ -158,9 +158,9 @@ function targetDance(db: Db, space: Space, target: SectionTarget): string {
 		.where(eq(exercises.id, target.exerciseId))
 		.get();
 	if (!e || !(sameOwner(e, space) || usableBy(db, space, 'drills', e))) {
-		throw new SpotLinkError('No such exercise.');
+		throw new SpotLinkError(t().links.refused.noExercise);
 	}
-	if (e.source !== 'custom') throw new SpotLinkError('Only a drill can have sections of its own.');
+	if (e.source !== 'custom') throw new SpotLinkError(t().links.refused.drillOnly);
 	return e.dance;
 }
 
@@ -189,7 +189,7 @@ export const targetColumn = (target: SectionTarget) =>
  */
 export function linkSpot(db: Db, userId: string, spotId: number, target: SectionTarget): number {
 	const space = sectionSpace(db, userId, spotId);
-	if (!space) throw new SpotLinkError('No such section.');
+	if (!space) throw new SpotLinkError(t().links.refused.noSection);
 	return linkInSpace(db, space, spotId, target);
 }
 
@@ -202,17 +202,17 @@ export function linkSpot(db: Db, userId: string, spotId: number, target: Section
  */
 export function linkInSpace(db: Db, space: Space, spotId: number, target: SectionTarget): number {
 	const video = videoOfSpot(db, spotId);
-	if (!video || !inSpace(video, space)) throw new SpotLinkError('No such section.');
-	if (!video.isSection) throw new SpotLinkError('Only a section can be linked, not a point.');
+	if (!video || !inSpace(video, space)) throw new SpotLinkError(t().links.refused.noSection);
+	if (!video.isSection) throw new SpotLinkError(t().links.refused.sectionOnly);
 	if (targetDance(db, space, target) !== video.dance) {
-		throw new SpotLinkError('That section is from the other dance.');
+		throw new SpotLinkError(t().links.refused.otherDance);
 	}
 	const taken = db
 		.select({ id: spotLinks.id })
 		.from(spotLinks)
 		.where(and(eq(spotLinks.spotId, spotId), targetColumn(target)))
 		.get();
-	if (taken) throw new SpotLinkError('Already linked.', 409);
+	if (taken) throw new SpotLinkError(t().links.refused.already, 409);
 	return db.transaction((tx) => {
 		const id = tx
 			.insert(spotLinks)
@@ -568,7 +568,7 @@ export function linksBlocking(db: Db, scope: { spotId: number } | SpotOwner): st
 					.all()
 					.map((p) => ({ label: positionLinkLabel(p.name), archived: p.archivedAt !== null }));
 	const labels = [...[...linkChips(db, spotIds).values()].flat(), ...positionChips].map((c) =>
-		c.archived ? `${c.label} (archived)` : c.label
+		c.archived ? `${c.label} ${t().video.archived}` : c.label
 	);
 	return [...new Set(labels)].sort((a, b) => a.localeCompare(b));
 }

@@ -206,7 +206,19 @@ const TRANSLATED: string[] = [
 	'src/lib/components/lessons/UnlinkVia.svelte',
 	'src/lib/components/lessons/VideoSections.svelte',
 	'src/routes/[dance]/lessons/[id]/+page.svelte',
-	'src/routes/[dance]/share/+page.svelte'
+	'src/routes/[dance]/share/+page.svelte',
+	// The Link popup, the links editor and the shared pickers (part 2, Task 8).
+	'src/lib/components/links/AddLinkSheet.svelte',
+	'src/lib/components/links/LinkLevel.svelte',
+	'src/lib/components/links/LinkList.svelte',
+	'src/lib/components/links/LinkPopup.svelte',
+	'src/lib/components/links/LinksEditor.svelte',
+	'src/lib/components/links/YouTubeCard.svelte',
+	'src/lib/components/picker/Picker.svelte',
+	'src/lib/components/picker/PickerField.svelte',
+	'src/lib/components/picker/PickerMultiField.svelte',
+	'src/lib/components/picker/PickerOpener.svelte',
+	'src/lib/components/ui/LinkSectionSheet.svelte'
 ];
 
 describe('englishIn', () => {

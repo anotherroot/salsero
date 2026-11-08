@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { t } from '$lib/i18n/catalog';
 import { figures, exercises, positions, routines } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { editsTeam } from '$lib/server/trash';
@@ -46,7 +47,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		.get();
 	const userId = locals.user?.id;
 	if (!row || row.teamId === null || !userId || !editsTeam(db, userId, row.teamId)) {
-		throw error(404, 'No such thing to restore');
+		throw error(404, t().links.refused.nothingToRestore);
 	}
 	const space = { dance: row.dance, teamId: row.teamId, actorId: userId } as TeamSpace;
 	const restore = {
@@ -57,6 +58,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}[target.key];
 	const done = restore(db, space, target.id, Date.now());
 	if (done.ok) return json({ ok: true });
-	if (done.reason === 'gone') throw error(404, 'No such thing to restore');
+	if (done.reason === 'gone') throw error(404, t().links.refused.nothingToRestore);
 	return json({ message: done.message }, { status: 409 });
 };

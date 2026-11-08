@@ -68,8 +68,10 @@ import { figure } from './figure';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
+import { links } from './links';
 import { moves } from './moves';
 import { nouns } from './nouns';
+import { picker } from './picker';
 import { player } from './player';
 import { positions } from './positions';
 import { routine } from './routine';
@@ -98,5 +100,7 @@ export const sl: Catalog = {
 	moves,
 	figure,
 	routine,
-	positions
+	positions,
+	picker,
+	links
 };

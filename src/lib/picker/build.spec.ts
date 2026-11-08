@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import {
 	exerciseGroups,
 	figureRows,
@@ -594,5 +595,65 @@ describe('positionGroups', () => {
 		]);
 		// The input is left as it was.
 		expect(groups[0].entries).toHaveLength(2);
+	});
+});
+
+describe('the builders’ words in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('counts a routine’s slots with their own forms, and says it loops', () => {
+		const metas = sl(() =>
+			routineRows([
+				{ id: 1, name: 'A', slots: 1, loops: false },
+				{ id: 2, name: 'B', slots: 2, loops: true },
+				{ id: 3, name: 'C', slots: 4, loops: false },
+				{ id: 4, name: 'D', slots: 5, loops: true }
+			]).map((r) => r.meta)
+		);
+		expect(metas).toEqual(['1 mesto', '2 mesti · se sklene', '4 mesta', '5 mest · se sklene']);
+	});
+	it('titles the groups', () => {
+		const out = sl(() =>
+			exerciseGroups([
+				exercise({ id: 1, name: 'E', source: 'figure', figure: 'Enchufla', variation: 'Doble' }),
+				exercise({ id: 2, name: 'R', source: 'routine' }),
+				exercise({ id: 3, name: 'D' }),
+				exercise({ id: 4, name: 'L', source: 'lesson' })
+			])
+		);
+		expect(out.map((g) => g.title)).toEqual(['Različice', 'Kombinacije', 'Vaje', 'Lekcije']);
+	});
+	it('heads a recording’s sections and the other videos', () => {
+		const out = sl(() =>
+			sectionGroups(
+				[
+					{
+						video: {
+							owner: { recordingId: 1 },
+							src: '/recordings/1.mp4',
+							from: { kind: 'recording', figure: 'Enchufla · Doble' }
+						},
+						taughtHere: false,
+						sections: [{ id: 1, startMs: 0, endMs: 900, label: null, linkedTo: [], linked: false }]
+					}
+				],
+				'V tej lekciji'
+			)
+		);
+		expect(out.map((g) => g.title)).toEqual(['Drugi videi']);
+		expect((out[0].entries[0] as PickHeading).heading).toBe('Posnetek · Enchufla · Doble');
+	});
+	it('titles the Link popup’s groups', () => {
+		const opt = (target: LinkOption['target'], label: string) =>
+			({ target, label, name: label, figure: 'Enchufla', linked: false }) as LinkOption;
+		const out = sl(() =>
+			linkOptionGroups({
+				nearTitle: 'V tej lekciji',
+				near: [],
+				figures: [opt({ figureId: 1 }, 'Enchufla · Doble')],
+				drills: [opt({ exerciseId: 2 }, 'Clave')],
+				positions: [opt({ positionId: 3 }, 'Cerrada')]
+			} as unknown as LinkOptions)
+		);
+		expect(out.map((g) => g.title)).toEqual(['Različice', 'Vaje', 'Položaji']);
 	});
 });
