@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 /**
  * The Sync sheet's data: `?kind=figure&id=<id>`, the merge across every copy
  * the person reads and the copies they edit to land it on (`syncView`). Flat
- * like `/api/clones/send`: a row the person does not read, or one with
+ * like `/api/clones/copy`: a row the person does not read, or one with
  * nothing to sync, is a 404.
  */
 const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];

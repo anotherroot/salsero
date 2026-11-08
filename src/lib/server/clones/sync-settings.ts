@@ -10,6 +10,16 @@ import type { Db } from '../db';
 import { cloneSync } from '../db/schema';
 import { accessTo } from './genes';
 
+/** The six kinds a copy can be: `clone_sync.kind` has no CHECK, so a write asks here. */
+export const CLONE_KINDS: readonly CloneKind[] = [
+	'figure',
+	'routine',
+	'drill',
+	'song',
+	'lesson',
+	'position'
+];
+
 export function syncSettingsOf(db: Db, kind: CloneKind, id: number): SyncSettings {
 	const row = db
 		.select()
@@ -26,7 +36,7 @@ export function syncSettingsOf(db: Db, kind: CloneKind, id: number): SyncSetting
 	};
 }
 
-/** Writes the settings; false (nothing written) unless `actorId` may edit the copy. */
+/** Writes the settings; false (nothing written) unless `kind` is a copy's and `actorId` may edit it. */
 export function setSyncSettings(
 	db: Db,
 	actorId: string,
@@ -35,7 +45,7 @@ export function setSyncSettings(
 	s: SyncSettings,
 	now: number
 ): boolean {
-	if (accessTo(db, actorId, kind, id) !== 'edit') return false;
+	if (!CLONE_KINDS.includes(kind) || accessTo(db, actorId, kind, id) !== 'edit') return false;
 	const values = {
 		on: s.on,
 		names: s.names,

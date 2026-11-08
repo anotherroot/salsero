@@ -54,16 +54,15 @@ import {
 	copyToFrom,
 	detachFrom,
 	dropFrom,
+	keepFrom,
 	sameAsFrom,
-	sendFrom,
-	syncFromForm,
 	separateFrom,
-	takeFrom
+	syncFromForm
 } from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
-import { stepStatus } from '$lib/server/clones/step';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
@@ -258,9 +257,11 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		musicChoices: canEdit ? musicChoices(db, space) : [],
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'routine', routine.id, url, !inGroupMode),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'routine', routine.id),
 		step: stepStatus(db, wall.userId, 'routine', routine.id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'routine', routine.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),
@@ -423,22 +424,16 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return makeMineFrom(getDb(), wallOf(params, locals), 'routine', routine.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
-		const { routine } = routineIn(params, locals, 'read');
-		return takeFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
-	},
-
-	/** Send mine (board C3 p2): this routine's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
-		const { routine } = routineIn(params, locals, 'read');
-		return sendFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
-	},
-
 	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
 	sync: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return syncFromForm(getDb(), locals.user!.id, 'routine', routine.id, request);
+	},
+
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return keepFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
 	},
 
 	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */

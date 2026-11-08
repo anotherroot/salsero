@@ -78,18 +78,11 @@ import { flowAfter, flowing, rootOfSpot } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import {
-	copyToFrom,
-	detachFrom,
-	dropFrom,
-	sendFrom,
-	syncFromForm,
-	takeFrom
-} from '$lib/server/take-form';
+import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
-import { stepStatus } from '$lib/server/clones/step';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
@@ -362,11 +355,11 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		/** What the band's subtitle says of where this row comes from (`cloneSubtitle`). */
 		cloneLine: versions.line,
 		mineId: versions.mineId,
-		/** The banner over your copy when its group's source moved: "… changed it since you took it · Compare". */
-		compare: versions.compare,
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'figure', id),
 		step: stepStatus(db, wall.userId, 'figure', id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'figure', id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'figure', id),
 		detach: detachOffer(db, wall.userId, 'figure', id),
@@ -735,22 +728,16 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		return makeMineFrom(getDb(), wallOf(params, locals), 'figure', figure.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
-		const { figure } = variationOf(params, locals, 'read');
-		return takeFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
-	},
-
-	/** Send mine (board C3 p2): this figure's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
-		const { figure } = variationOf(params, locals, 'read');
-		return sendFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
-	},
-
 	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
 	sync: ({ params, locals, request }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return syncFromForm(getDb(), locals.user!.id, 'figure', figure.id, request);
+	},
+
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return keepFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
 	},
 
 	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */

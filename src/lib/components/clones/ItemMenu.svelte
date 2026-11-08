@@ -5,6 +5,7 @@
 	import CopyToSheet from './CopyToSheet.svelte';
 	import MoveToSheet from './MoveToSheet.svelte';
 	import SameAsSheet from './SameAsSheet.svelte';
+	import SyncSheet from './SyncSheet.svelte';
 	import { copied } from './copied.svelte';
 	import { cloneMenuItems, type CloneOffers, type CloneSheet } from '$lib/clones/menu';
 	import { orderMenu, type MenuItem } from '$lib/menu';
@@ -12,7 +13,7 @@
 
 	/**
 	 * A family page's ⋯ menu (spec 2026-11-06): the page's own items (`own`),
-	 * then Copy to…, Same as…, Move to…, Detach and Drop my copy, each when its
+	 * then Sync…, Copy to…, Same as…, Move to…, Detach and Drop my copy, each when its
 	 * offer is set, and the sheets they open. Mount it once in the page's body,
 	 * never in the band (the band is drawn twice); the band's ⋯ is the page's
 	 * own `BandButton`, shown when `hasMenu(own, offers)`, setting `open`.
@@ -48,6 +49,9 @@
 
 <MenuSheet {title} {items} bind:open />
 
+{#if offers.sync}
+	<SyncSheet open={opened === 'sync'} onclose={close} {kind} id={current} />
+{/if}
 {#if offers.drop}
 	<DropSheet open={opened === 'drop'} onclose={close} drop={offers.drop} fromId={current} />
 {/if}

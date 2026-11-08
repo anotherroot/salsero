@@ -35,18 +35,11 @@ import {
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import {
-	copyToFrom,
-	detachFrom,
-	dropFrom,
-	sendFrom,
-	syncFromForm,
-	takeFrom
-} from '$lib/server/take-form';
+import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
-import { stepStatus } from '$lib/server/clones/step';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
@@ -150,6 +143,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			...pageSources(db, wall.userId, 'drill', own.id, url),
 			family: familyView(db, wall.userId, 'drill', own.id),
 			step: stepStatus(db, wall.userId, 'drill', own.id),
+			/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+			keep: keepView(db, wall.userId, 'drill', own.id),
 			drop: dropOptions(db, wall, 'drill', own.id),
 			detach: detachOffer(db, wall.userId, 'drill', own.id),
 			/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
@@ -234,9 +229,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
 		...pageSources(db, wall.userId, 'drill', row.id, url),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'drill', row.id),
 		step: stepStatus(db, wall.userId, 'drill', row.id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'drill', row.id),
 		drop: null,
 		detach: detachOffer(db, wall.userId, 'drill', row.id),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
@@ -288,25 +285,18 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		return makeMineFrom(db, wallOf(params, locals), 'drill', row.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
-		const db = getDb();
-		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
-		return takeFrom(db, locals.user!.id, 'drill', row.id, request);
-	},
-
-	/** Send mine (board C3 p2): this drill's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
-		const db = getDb();
-		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
-		return sendFrom(db, locals.user!.id, 'drill', row.id, request);
-	},
-
 	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
 	sync: ({ params, locals, request }) => {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
 		return syncFromForm(db, locals.user!.id, 'drill', row.id, request);
+	},
+
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
+		return keepFrom(db, locals.user!.id, 'drill', row.id, request);
 	},
 
 	/** Drop my copy (board C5): this drill goes for another version, whose page opens. */

@@ -330,6 +330,7 @@
 	let menuOpen = $state(false);
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
 	const offers = $derived<CloneOffers>({
+		sync: data.keep.mode ? data.keep : null,
 		drop: data.drop,
 		detach: data.detach,
 		copy: data.copyTo,
@@ -476,8 +477,9 @@
 				mineId={data.mineId}
 				self={data.cloneLine.self}
 				title="{figure.name} · {variation.name}"
-				compare={data.compare}
 				family={data.family}
+				step={data.step}
+				keep={data.keep}
 				taking={data.taking ? sourcePlace : null}
 			/>
 		{/if}

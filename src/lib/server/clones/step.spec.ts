@@ -6,7 +6,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
-import { figures, users } from '../db/schema';
+import { figures, links, users } from '../db/schema';
+import { addLinks, deleteLink } from '../links';
 import { createTeam, joinTeam } from '../teams';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
@@ -17,7 +18,7 @@ import { makeMine } from './edit';
 import type { CloneFiles } from './files';
 import { DEFAULT_SYNC } from '$lib/clones/sync';
 import { setSyncSettings } from './sync-settings';
-import { outOfStep, stepStatus } from './step';
+import { keepView, outOfStep, stepStatus } from './step';
 
 const T0 = Date.UTC(2026, 10, 7, 12);
 const ROOMY = 1024 ** 4;
@@ -125,9 +126,8 @@ describe('stepStatus', () => {
 		]);
 		expect(lines[0]).toMatchObject({ place: 'Salsa Tuesdays', fields: ['Timing'] });
 		expect(lines[1]).toMatchObject({ place: 'Rueda club' });
-		expect(lines[1].fields).toHaveLength(2);
-		expect(lines[1].fields[0]).toBe('Notes');
-		expect(lines[1].fields[1]).toMatch(/^Recording/);
+		// The notice's words: root fields by label, pieces counted.
+		expect(lines[1].fields).toEqual(['Notes', '1 recording']);
 		expect(lines[2].fields).toEqual(lines[1].fields);
 	});
 
@@ -166,8 +166,23 @@ describe('stepStatus', () => {
 		recording(G1); // media off by default
 		const { lines } = stepStatus(db, 'u1', 'figure', T);
 		expect(lines).toHaveLength(1);
-		expect(lines[0]).toMatchObject({ id: G1, state: 'held' });
-		expect(lines[0].fields).toHaveLength(1);
+		expect(lines[0]).toMatchObject({
+			id: G1,
+			state: 'held',
+			how: 'added',
+			fields: ['1 recording']
+		});
+	});
+
+	it('a copy removed a link: held, removed (a removal starts unticked)', async () => {
+		const D = mk('Doble', 'Dile');
+		addLinks(db, { figureId: D }, ['https://example.org/doble'], 'Doble', 'u1');
+		const C = await copy(D, T1_SALSA);
+		const [link] = db.select().from(links).where(eq(links.figureId, C)).all();
+		expect(deleteLink(db, { figureId: C }, link.id, 'u1')).toBe(true);
+		expect(stepStatus(db, 'u1', 'figure', D).lines).toEqual([
+			{ id: C, place: 'Salsa Tuesdays', state: 'held', how: 'removed', fields: ['1 link'] }
+		]);
 	});
 
 	it('Luka, who only reads the club’s: its copy behind his is no line', () => {
@@ -215,5 +230,32 @@ describe('outOfStep', () => {
 			])
 		);
 		expect(outOfStep(db, 'u1', 'figure', [])).toEqual(new Map());
+	});
+});
+
+describe('keepView', () => {
+	it('the page row’s settings, whether the person edits them, and how Sync opens', () => {
+		setSyncSettings(db, 'u1', 'figure', G1, { ...DEFAULT_SYNC, on: false }, T0);
+		expect(keepView(db, 'u1', 'figure', G1)).toEqual({
+			settings: { ...DEFAULT_SYNC, on: false },
+			editable: true,
+			mode: 'sync'
+		});
+		// Luka reads the club's copy: its settings drawn, not his to change; Sync is Update mine.
+		expect(keepView(db, 'u2', 'figure', G1)).toEqual({
+			settings: { ...DEFAULT_SYNC, on: false },
+			editable: false,
+			mode: 'update'
+		});
+		expect(keepView(db, 'u2', 'figure', F2)).toMatchObject({ editable: true, mode: 'update' });
+	});
+
+	it('a row with no other copy the person reads: no Sync', () => {
+		const lone = mk('Solo', 'Setenta');
+		expect(keepView(db, 'u1', 'figure', lone)).toEqual({
+			settings: DEFAULT_SYNC,
+			editable: true,
+			mode: null
+		});
 	});
 });

@@ -812,7 +812,7 @@ export type FlatField = {
 	key: string; // see Task 7's key grammar
 	label: string; // "Timing", "Notes", "Recording · Ana, 3 Nov"
 	value: string; // canonical text; equal values mean equal content
-	show: string; // what the compare sheet prints
+	show: string; // what the Sync sheet prints
 };
 export type Flat = Record<string, FlatField>;
 export type PairBase = { fields: Record<string, string>; skip: string[] }; // key → hash
@@ -844,23 +844,6 @@ export type Source = {
 	rejoined?: boolean; // Task 28: last in step before the person's current membership began
 };
 
-/**
- * Two members of a family side by side (`compareWith`): what differs since
- * the pair was last in step, what Take preselects, the receiving member's
- * digest the take must still match (`seen`), and whether the pair has a
- * snapshot at all (`synced`).
- */
-export type Comparison = {
-	diffs: FieldDiff[];
-	picks: Picks;
-	seen: string;
-	synced: boolean;
-	/** The person edits `mine`: Take theirs is offered. */
-	canTake: boolean;
-	/** The person edits `theirs`: Send mine is offered. */
-	canSend: boolean;
-};
-
 /** A Take or a Send into one member: written, or refused with words for the sheet. */
 export type SyncResult =
 	| { ok: true }
@@ -869,22 +852,6 @@ export type SyncResult =
 			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed';
 			message: string;
 	  };
-
-/**
- * The line over a member's page when the member it was copied from (a
- * group's) changed since the two were last in step: "Salsa Tuesdays changed
- * it since you took it: timing · Compare".
- */
-export type CompareOffer = {
-	/** The source to compare with. */
-	id: number;
-	/** Its place's name. */
-	place: string;
-	/** What differs, as `changedLabels` says it. */
-	changed: string[];
-	/** The person's copy was last in step before their current membership began: "Reconnected with…". */
-	rejoined?: boolean;
-};
 
 /** Detach on a member page (`detachOffer`): the place it stops following, and whether the row is a group's. */
 export type DetachOffer = { place: string; group: boolean };
@@ -969,30 +936,10 @@ export type FamilyEntry = {
 	editable: boolean;
 };
 
-/** The page's family as the list and the banners draw it; null when no other member is editable. */
+/** The page's family as the Versions list draws it; null when no other member is editable. */
 export type FamilyView = {
 	entries: FamilyEntry[];
-	/** The person edits the page's row and some other live member: Send mine… is offered. */
-	canSend: boolean;
-	/** "Rueda club’s copy differs: timing · Compare", one per copy that moved. */
-	banners: CompareOffer[];
 };
-
-/** One target of Send mine (`sendPreview`), compared from the target's side. */
-export type SendTarget = {
-	target: Member;
-	/** `mine` = the target, `theirs` = your member; `picks` say what lands (`sendPicks`). */
-	comparison: Comparison;
-	/** Your deletes it still has: a box each, unticked. */
-	removals: FieldDiff[];
-	/** Fields both changed: picked on the second level. */
-	both: FieldDiff[];
-	/** The files the default picks bring, charged to the target's owner. */
-	bytes: number;
-};
-
-/** One target's answer to Send mine. */
-export type SendResult = { id: number; result: SyncResult };
 
 /** One thing a person could keep of a group when they leave (Keep, `keepPreview`). */
 export type KeepItem = {
@@ -1244,12 +1191,29 @@ export type SyncAllResult =
 	| { ok: true; refused: { id: number; message: string }[] }
 	| { ok: false; reason: 'pick' | 'denied' | 'stale'; message: string };
 
-/** One other copy against the page's: how it stands, and the fields (the Sync sheet's labels). */
+/**
+ * One other copy against the page's: how it stands, and what differs in the
+ * notice's words (`changedLabels`: "Timing", "1 recording"). A `held` line
+ * says whether the copy added or removed what the options keep from flowing.
+ */
 export type StepLine = {
 	id: number;
 	place: string;
 	state: 'behind' | 'changed' | 'both' | 'held';
 	fields: string[];
+	how?: 'added' | 'removed';
 };
 /** Where a page's copies stand (`stepStatus`); empty `lines` when they agree. */
 export type StepView = { lines: StepLine[] };
+
+/**
+ * Keep in step on a page (`keepView`): the page row's settings, whether the
+ * person may change them, and how Sync opens from it: `sync`, `update` (a
+ * reader's Update mine), or null when there is no Sync (no other copy the
+ * person reads, or none they edit).
+ */
+export type KeepView = {
+	settings: SyncSettings;
+	editable: boolean;
+	mode: 'sync' | 'update' | null;
+};

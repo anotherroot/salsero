@@ -6,6 +6,7 @@ import { createTeam, joinTeam } from '../teams';
 import { setRole } from '../membership';
 import { createFigure } from '../figures';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
+import type { CloneKind } from '$lib/types';
 import { setSyncSettings, syncSettingsOf } from './sync-settings';
 
 const T = Date.UTC(2026, 10, 7, 20);
@@ -49,6 +50,12 @@ describe('sync settings', () => {
 		const club = figure(T1_SALSA);
 		expect(setSyncSettings(db, 'u2', 'figure', club, other, T)).toBe(false);
 		expect(setSyncSettings(db, 'u2', 'figure', 999, other, T)).toBe(false);
+		expect(db.select().from(cloneSync).all()).toEqual([]);
+	});
+
+	it('a kind that is none of the six writes nothing (the column has no CHECK)', () => {
+		const id = figure(U1_SALSA);
+		expect(setSyncSettings(db, 'u1', 'set' as CloneKind, id, other, T)).toBe(false);
 		expect(db.select().from(cloneSync).all()).toEqual([]);
 	});
 

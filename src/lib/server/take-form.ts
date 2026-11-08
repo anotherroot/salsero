@@ -1,20 +1,20 @@
 /**
- * Take theirs and Send mine on an item page (figure, routine, drill, song,
- * lesson): the `take` action the compare sheet posts, the `send` action the
- * send sheet posts, the `drop` action of Drop my copy, Copy to…'s `copyTo` and Move to…'s `moveTo`. The data side is
- * `clones/compare.ts`, `clones/send.ts`, `clones/drop.ts` and `clones/copy-to.ts`;
+ * The copy actions on an item page (figure, routine, drill, song, lesson,
+ * position): Sync's `sync` (the Sync sheet, and a reader's Update mine), Keep
+ * in step's `keep`, Drop my copy's `drop`, Detach, Copy to…'s `copyTo`, Move
+ * to…'s `moveTo`, and Same as…. The data side is `clones/sync.ts`,
+ * `clones/sync-settings.ts`, `clones/drop.ts`, `clones/copy-to.ts` and the rest;
  * this is the route's share: reading the form, the real files and the free
- * disk, and the refusals' answers. Whoever may not take into the row gets the
+ * disk, and the refusals' answers. Whoever may not act on the row gets the
  * missing row's 404.
  */
 import { error, fail, redirect } from '@sveltejs/kit';
-import type { CloneKind, Picks, TwinKind } from '$lib/types';
+import type { CloneKind, SyncSettings, TwinKind } from '$lib/types';
 import type { Db } from './db';
 import { freeDisk } from './storage';
 import { realCloneFiles } from './clones/files';
-import { takeTheirs } from './clones/compare';
-import { sendMine } from './clones/send';
 import { syncAll } from './clones/sync';
+import { setSyncSettings } from './clones/sync-settings';
 import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
 import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
@@ -29,123 +29,8 @@ import type { Wall } from './scope';
 const int = (v: FormDataEntryValue | null) =>
 	typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : null;
 
-/** The sheet's picks (`{ key: 'mine' | 'theirs' }`, as JSON), or null when malformed. */
-export function picksFrom(raw: FormDataEntryValue | null): Picks | null {
-	if (typeof raw !== 'string') return null;
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(raw);
-	} catch {
-		return null;
-	}
-	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-	const picks: Picks = {};
-	for (const [key, side] of Object.entries(parsed)) {
-		if (side !== 'mine' && side !== 'theirs') return null;
-		picks[key] = side;
-	}
-	return picks;
-}
-
-/**
- * The `take` action: `intoId` (the page's row) receives `from`'s fields picked
- * `'theirs'`. Answers `{ action: 'take', taken: true }`, or a refusal the
- * sheet shows: 409 for a stale sheet, a missing pick, a name taken, a linked
- * section; 413 for room.
- */
-export async function takeFrom(
-	db: Db,
-	userId: string,
-	kind: CloneKind,
-	intoId: number,
-	request: Request
-) {
-	const form = await request.formData();
-	const from = int(form.get('from'));
-	const picks = picksFrom(form.get('picks'));
-	const seen = form.get('seen');
-	if (from === null || picks === null || typeof seen !== 'string')
-		throw error(400, 'This page is out of date. Reload it and try again.');
-	const res = await takeTheirs(
-		db,
-		userId,
-		kind,
-		intoId,
-		from,
-		picks,
-		seen,
-		realCloneFiles(),
-		Date.now(),
-		await freeDisk()
-	);
-	if (res.ok) return { action: 'take' as const, taken: true };
-	if (res.reason === 'denied') throw error(404, 'Not found');
-	return fail(res.reason === 'room' ? 413 : 409, {
-		action: 'take' as const,
-		reason: res.reason,
-		message: res.message
-	});
-}
-
-/** At most this many targets in one send: a person edits far fewer places. */
-export const MAX_SEND_TARGETS = 50;
-
-/** The send sheet's targets (`[{ id, picks, seen }]`, as JSON), or null when malformed. */
-export function targetsFrom(
-	raw: FormDataEntryValue | null
-): { id: number; picks: Picks; seen: string }[] | null {
-	if (typeof raw !== 'string') return null;
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(raw);
-	} catch {
-		return null;
-	}
-	if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_SEND_TARGETS)
-		return null;
-	const out: { id: number; picks: Picks; seen: string }[] = [];
-	for (const t of parsed) {
-		if (!t || typeof t !== 'object') return null;
-		const { id, picks, seen } = t as Record<string, unknown>;
-		const p = picksFrom(JSON.stringify(picks ?? null));
-		if (!Number.isSafeInteger(id) || (id as number) <= 0 || p === null || typeof seen !== 'string')
-			return null;
-		out.push({ id: id as number, picks: p, seen });
-	}
-	return out;
-}
-
-/**
- * The `send` action (board C3 p2): the page's row `fromId` gives to each
- * target the sheet ticked, each in its own transaction (`sendMine`). Answers
- * `{ action: 'send', results }`, one per target, landed or refused with its
- * words, so the sheet shows which did not land; a 404 when nothing could be
- * reached at all.
- */
-export async function sendFrom(
-	db: Db,
-	userId: string,
-	kind: CloneKind,
-	fromId: number,
-	request: Request
-) {
-	const form = await request.formData();
-	const targets = targetsFrom(form.get('targets'));
-	if (targets === null) throw error(400, 'This page is out of date. Reload it and try again.');
-	const results = await sendMine(
-		db,
-		userId,
-		kind,
-		fromId,
-		targets,
-		realCloneFiles(),
-		Date.now(),
-		await freeDisk()
-	);
-	if (results.every((r) => !r.result.ok && r.result.reason === 'denied'))
-		throw error(404, 'Not found');
-	return { action: 'send' as const, results };
-}
+/** At most this many copies in one Sync: a person edits far fewer places. */
+export const MAX_SYNC_TARGETS = 50;
 
 /** At most this many picks in one Sync: far more than any item's fields. */
 export const MAX_SYNC_PICKS = 2000;
@@ -189,7 +74,7 @@ export function syncTargetsFrom(
 	} catch {
 		return null;
 	}
-	if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_SEND_TARGETS)
+	if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_SYNC_TARGETS)
 		return null;
 	const out: { id: number; seen: string }[] = [];
 	for (const t of parsed) {
@@ -237,6 +122,36 @@ export async function syncFromForm(
 	if (res.ok) return { action: 'sync' as const, refused: res.refused };
 	if (res.reason === 'denied') throw error(404, 'Not found');
 	return fail(409, { action: 'sync' as const, reason: res.reason, message: res.message });
+}
+
+/** The Keep in step form's five switches (`1` on, `0` off), or null when one is missing or malformed. */
+export function keepSettingsFrom(form: FormData): SyncSettings | null {
+	const out: Partial<SyncSettings> = {};
+	for (const key of ['on', 'names', 'small', 'sections', 'media'] as const) {
+		const v = form.get(key);
+		if (v !== '1' && v !== '0') return null;
+		out[key] = v === '1';
+	}
+	return out as SyncSettings;
+}
+
+/**
+ * The `keep` action (Keep in step, under Versions): the page's row's switch
+ * and its four options, all five posted on every tap. A setting, not content:
+ * nothing is logged and nothing flows. Answers `{ action: 'keep', settings }`;
+ * a row the person does not edit is the missing row's 404.
+ */
+export async function keepFrom(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	id: number,
+	request: Request
+) {
+	const settings = keepSettingsFrom(await request.formData());
+	if (settings === null) throw error(400, 'This page is out of date. Reload it and try again.');
+	if (!setSyncSettings(db, userId, kind, id, settings, Date.now())) throw error(404, 'Not found');
+	return { action: 'keep' as const, settings };
 }
 
 /**

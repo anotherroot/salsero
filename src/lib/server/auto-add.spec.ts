@@ -37,7 +37,12 @@ import { createAndLinkIn } from './link-popup';
 import { setAutoAdd, setLevel } from './levels';
 import { crossRefs } from './integrity';
 import { cloneInto } from './clones/clone';
-import { compareWith, takeTheirs } from './clones/compare';
+import { syncFrom } from './clones/apply';
+import type { CloneFiles } from './clones/files';
+import { digest, hashValue, pairBase } from './clones/pairs';
+import { flatOf } from './clones/trees';
+import { diff } from '$lib/clones/diff';
+import type { CloneKind } from '$lib/types';
 import { flowFrom } from './clones/flow';
 import { autoAddOnJoin, autoAddOnPublish, autoAddPending, joinClass } from './auto-add';
 import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
@@ -47,6 +52,22 @@ import type { Level } from '$lib/levels/levels';
 const T = Date.UTC(2001, 0, 1);
 
 let db: Db;
+
+/** Take every field of `fromId` into `intoId` (`syncFrom`, what Take theirs was). */
+async function takeAll(
+	actorId: string,
+	kind: CloneKind,
+	intoId: number,
+	fromId: number,
+	files: CloneFiles,
+	now: number,
+	free: number
+) {
+	const into = flatOf(db, kind, intoId);
+	const diffs = diff(pairBase(db, kind, intoId, fromId), into, flatOf(db, kind, fromId), hashValue);
+	const picks = Object.fromEntries(diffs.map((d) => [d.key, 'theirs' as const]));
+	return syncFrom(db, actorId, kind, intoId, fromId, picks, digest(into), files, now, free);
+}
 
 /**
  * Salsa Tuesdays (T1), owned by u1 (the teacher, Everything). Its members:
@@ -470,20 +491,7 @@ const RUNS: Record<string, () => Promise<Grown> | Grown> = {
 		);
 		if (!mineLesson.ok || !mineDrill.ok) throw new Error('copy refused');
 		expect(linkExercise(db, mineLesson.id, mineDrill.id, 'u1')).toBe(true);
-		const c = compareWith(db, 'u1', 'lesson', L, mineLesson.id)!;
-		const picks = Object.fromEntries(c.diffs.map((d) => [d.key, 'theirs' as const]));
-		const r = await takeTheirs(
-			db,
-			'u1',
-			'lesson',
-			L,
-			mineLesson.id,
-			picks,
-			c.seen,
-			NO_FILES,
-			Date.now(),
-			1e12
-		);
+		const r = await takeAll('u1', 'lesson', L, mineLesson.id, NO_FILES, Date.now(), 1e12);
 		expect(r).toEqual({ ok: true });
 		return { drillId: D2 };
 	},

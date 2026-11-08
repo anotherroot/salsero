@@ -16,18 +16,17 @@ import {
 	copyToFrom,
 	detachFrom,
 	dropFrom,
+	keepFrom,
 	sameAsFrom,
-	sendFrom,
-	syncFromForm,
 	separateFrom,
-	takeFrom
+	syncFromForm
 } from '$lib/server/take-form';
 import { sameAsOffer } from '$lib/server/twins';
 import { inGroupModeOn } from '$lib/server/group-mode';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
-import { stepStatus } from '$lib/server/clones/step';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { songSeen, seenRefusal } from '$lib/server/clash';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
@@ -96,9 +95,11 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'song', song.id),
 		step: stepStatus(db, wall.userId, 'song', song.id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'song', song.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'song', song.id),
 		detach: detachOffer(db, wall.userId, 'song', song.id),
@@ -316,25 +317,18 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		return makeMineFrom(db, wallOf(params, locals), 'song', song.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
-		const db = getDb();
-		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
-		return takeFrom(db, locals.user!.id, 'song', song.id, request);
-	},
-
-	/** Send mine (board C3 p2): this song's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
-		const db = getDb();
-		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
-		return sendFrom(db, locals.user!.id, 'song', song.id, request);
-	},
-
 	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
 	sync: ({ params, locals, request }) => {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
 		return syncFromForm(db, locals.user!.id, 'song', song.id, request);
+	},
+
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
+		const db = getDb();
+		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
+		return keepFrom(db, locals.user!.id, 'song', song.id, request);
 	},
 
 	/** Drop my copy (board C5): this song goes for the class’s, whose page opens. */

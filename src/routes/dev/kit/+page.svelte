@@ -48,7 +48,8 @@
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import MenuSheet from '$lib/components/ui/MenuSheet.svelte';
 	import type { MenuItem } from '$lib/menu';
-	import type { CompareOffer, Source } from '$lib/types';
+	import type { KeepView, Source, StepView } from '$lib/types';
+	import { DEFAULT_SYNC } from '$lib/clones/sync';
 
 	const kitSource = (id: number, label: string, relation: Source['relation']): Source => ({
 		id,
@@ -59,19 +60,29 @@
 		changed: []
 	});
 	const YOURS_SRC = kitSource(1, 'Yours', 'self');
-	const KIT_VERSIONS: { sources: Source[]; compare: CompareOffer | null }[] = [
-		{ sources: [YOURS_SRC], compare: null },
+	const KIT_KEEP: KeepView = { settings: DEFAULT_SYNC, editable: true, mode: 'sync' };
+	const KIT_VERSIONS: { sources: Source[]; step: StepView }[] = [
+		{ sources: [YOURS_SRC], step: { lines: [] } },
 		{
 			sources: [
 				YOURS_SRC,
 				kitSource(2, 'Intenziuci poletje 2026', 'clone'),
 				kitSource(3, 'Sreda 17:30', 'clone')
 			],
-			compare: null
+			step: { lines: [] }
 		},
 		{
-			sources: [YOURS_SRC, kitSource(3, 'Sreda 17:30', 'clone')],
-			compare: { id: 3, place: 'Sreda 17:30', changed: ['Notes'] }
+			sources: [
+				YOURS_SRC,
+				kitSource(2, 'Intenziuci poletje 2026', 'clone'),
+				kitSource(3, 'Sreda 17:30', 'clone')
+			],
+			step: {
+				lines: [
+					{ id: 2, place: 'Intenziuci poletje 2026', state: 'changed', fields: ['Timing'] },
+					{ id: 3, place: 'Sreda 17:30', state: 'behind', fields: ['Notes', '1 recording'] }
+				]
+			}
 		}
 	];
 	let kitMenu = $state(false);
@@ -439,7 +450,7 @@
 			</section>
 
 			<section class="flex flex-col gap-3">
-				<h2 class={SECTION_LABEL}>Whose version (one, three, one out of sync)</h2>
+				<h2 class={SECTION_LABEL}>Whose version (one, three, three that disagree)</h2>
 				{#each KIT_VERSIONS as v, i (i)}
 					<Versions
 						sources={v.sources}
@@ -449,7 +460,8 @@
 						mineId={1}
 						self={{ kind: 'mine' }}
 						title="Cerrada"
-						compare={v.compare}
+						step={v.step}
+						keep={KIT_KEEP}
 					/>
 				{/each}
 				<div class="flex items-center gap-2 rounded-2xl bg-band px-2 py-1">

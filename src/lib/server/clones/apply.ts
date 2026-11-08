@@ -1155,8 +1155,9 @@ export async function landKeys(db: Db, o: LandOptions): Promise<SyncResult> {
 
 /**
  * One member (`intoId`) receives another's (`fromId`) fields picked
- * `'theirs'`, against a comparison from `intoId`'s side (`compareWith`):
- * Take theirs, and each target of Send mine. Refused, writing nothing:
+ * `'theirs'`, against a comparison from `intoId`'s side (`diff`):
+ * what Take theirs and Send mine were (no route calls it since Sync; the
+ * specs still take through it). Refused, writing nothing:
  * `denied` unless the actor edits `intoId` and reads `fromId`, both live and
  * of one family; `stale` when `intoId` no longer reads as `seen`; `pick`
  * while a field both changed has no pick; `room` when the pieces brought do

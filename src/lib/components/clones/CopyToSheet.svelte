@@ -10,7 +10,6 @@
 	import {
 		ALREADY_THERE,
 		CANCEL,
-		COMPARE,
 		COMPARE_FAILED,
 		CONTINUE,
 		COPY_FAILED,
@@ -29,7 +28,8 @@
 		whichTitle
 	} from '$lib/clones/view';
 	import type { CopyOffer, CopyPlanView, CopyTarget } from '$lib/types';
-	import CompareSheet from './CompareSheet.svelte';
+	import SyncSheet from './SyncSheet.svelte';
+	import { SYNC_MENU } from '$lib/clones/step-view';
 
 	/**
 	 * Copy to… (board C4 p1, p2): the page's row into your app or a group you
@@ -37,9 +37,9 @@
 	 * goes and what the place has already (fetched for the place picked). When
 	 * something that goes has twins in your app, "Which Enchufla · Doble?" asks
 	 * for each family before the copy (p4): only one version goes. A place that
-	 * holds a member already gets Compare instead of Copy (Restore first when
-	 * it is archived): the server answers that member, and the comparison opens
-	 * over this sheet, taking into the member's own page. A landed copy closes
+	 * holds a member already gets Sync… instead of Copy (Restore first when
+	 * it is archived): the server answers that member, and Sync opens on it
+	 * over this sheet, posting to the member's own page. A landed copy closes
 	 * the sheet and `ondone` shows its toast.
 	 */
 	let {
@@ -72,13 +72,8 @@
 	let use = $state<Record<string, number>>({});
 	/** The chosen twin's archived member in the place, as the copy answered it: Restore applies to it. */
 	let archivedTwin = $state<number | null>(null);
-	/** The member already there, compared with the row it would have copied. */
-	let comparing = $state<{
-		mineId: number;
-		theirsId: number;
-		place: string;
-		action: string;
-	} | null>(null);
+	/** The member already there: Sync opens on it, posting to its own page. */
+	let comparing = $state<{ id: number; action: string } | null>(null);
 	let compareOpen = $state(false);
 	let form: HTMLFormElement | undefined = $state();
 
@@ -247,12 +242,7 @@
 								typeof data.from === 'number' &&
 								typeof data.href === 'string'
 							) {
-								comparing = {
-									mineId: data.existing,
-									theirsId: data.from,
-									place: typeof data.place === 'string' ? data.place : '',
-									action: `${data.href}?/take`
-								};
+								comparing = { id: data.existing, action: `${data.href}?/sync` };
 								compareOpen = true;
 							} else if (typeof data.restore === 'number') {
 								// The chosen twin's member there is archived (or this row's, archived since
@@ -290,7 +280,7 @@
 				{:else if here?.archived}
 					<Icon name="undo" size={20} />{RESTORE}
 				{:else if here}
-					<Icon name="refresh" size={20} />{COMPARE}
+					<Icon name="refresh" size={20} />{SYNC_MENU}
 				{:else}
 					<Icon name="copy" size={20} />{copyButton(offer.kind, target.place)}
 				{/if}
@@ -345,7 +335,7 @@
 {/if}
 
 {#if comparing}
-	<CompareSheet
+	<SyncSheet
 		open={open && compareOpen}
 		onclose={async () => {
 			compareOpen = false;
@@ -354,9 +344,7 @@
 			await refreshWhenSettled();
 		}}
 		kind={offer.kind}
-		mineId={comparing.mineId}
-		theirsId={comparing.theirsId}
-		place={comparing.place}
+		id={comparing.id}
 		action={comparing.action}
 	/>
 {/if}

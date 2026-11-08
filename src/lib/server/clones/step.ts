@@ -11,15 +11,19 @@
  *   - an add or remove row M's side made that the page's options would not
  *     carry (its box starts unticked): `held`.
  * A copy gives one line per state it is in, most urgent first (both > changed >
- * held > behind), listing the labels of its rows in that state. A copy the person only reads gets no `behind` line (they cannot
+ * held > behind), listing its rows in that state as the notice says them
+ * (`changedLabels`: "Notes", "1 recording"); a held line per way it went
+ * (`how`: added, removed). A copy the person only reads gets no `behind` line (they cannot
  * Sync to it, and their own deliberate change would nag forever).
  * A name that differs only by a copy suffix is no difference.
  */
-import type { CloneKind, Flat, MergeRow, StepLine, StepView } from '$lib/types';
+import type { CloneKind, Flat, KeepView, MergeRow, StepLine, StepView } from '$lib/types';
 import { isCopySuffix, NAME_KEYS } from '$lib/clones/diff';
+import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
-import { familyRows, geneOf } from './genes';
+import { accessTo, familyRows, geneOf } from './genes';
 import { familyOf, placeLabel, rowsOf } from './sync';
+import { syncSettingsOf } from './sync-settings';
 import { flatOf } from './trees';
 
 const URGENCY = { behind: 0, held: 1, changed: 2, both: 3 } as const;
@@ -57,20 +61,49 @@ export function stepStatus(db: Db, userId: string, kind: CloneKind, id: number):
 	const lines: StepLine[] = [];
 	for (const m of fam.members) {
 		if (m.id === id) continue;
-		// One line per state the copy is in, with the labels of its rows in that state.
-		const byState = new Map<State, string[]>();
+		// One line per state the copy is in (a held one per way), with its rows in that state.
+		const byState = new Map<
+			string,
+			{ state: State; how?: 'added' | 'removed'; rows: MergeRow[] }
+		>();
 		for (const r of rows) {
 			const s = stateOf(r, id, m.id);
 			if (s === null || (s === 'behind' && m.access !== 'edit')) continue;
-			const f = byState.get(s) ?? [];
-			if (!f.includes(r.label)) f.push(r.label);
-			byState.set(s, f);
+			const how =
+				s === 'held'
+					? r.values.find((v) => v.holders.includes(m.id))?.field === null
+						? ('removed' as const)
+						: ('added' as const)
+					: undefined;
+			const at = how ? `${s}:${how}` : s;
+			const group = byState.get(at) ?? { state: s, ...(how ? { how } : {}), rows: [] };
+			group.rows.push(r);
+			byState.set(at, group);
 		}
-		for (const [state, fields] of byState)
-			lines.push({ id: m.id, place: placeLabel(m.place), state, fields });
+		for (const g of byState.values())
+			lines.push({
+				id: m.id,
+				place: placeLabel(m.place),
+				state: g.state,
+				fields: changedLabels(g.rows),
+				...(g.how ? { how: g.how } : {})
+			});
 	}
 	// Most urgent first (both > changed > held > behind); the sort is stable, so places keep their order.
 	return { lines: lines.sort((a, b) => URGENCY[b.state] - URGENCY[a.state]) };
+}
+
+/**
+ * Keep in step on a page: the row's settings, whether the person edits them
+ * (the level draws its switches disabled otherwise), and how Sync opens from
+ * the row (`familyOf`'s mode; null where Sync has no sheet).
+ */
+export function keepView(db: Db, userId: string, kind: CloneKind, id: number): KeepView {
+	return {
+		settings: syncSettingsOf(db, kind, id),
+		editable: accessTo(db, userId, kind, id) === 'edit',
+		mode: familyOf(db, userId, kind, id)?.mode ?? null
+	};
 }
 
 /** id → how many other copies differ; only ids whose gene has another live copy are worked out. */

@@ -13,7 +13,7 @@
 		DROP_BUTTON,
 		DROP_FAILED,
 		DROP_TITLE,
-		SEND_FIRST,
+		SYNC_FIRST,
 		USE_INSTEAD,
 		addToo,
 		cantFollow,
@@ -25,7 +25,7 @@
 		possessive
 	} from '$lib/clones/view';
 	import type { DropChoice, DropOptions } from '$lib/types';
-	import SendSheet from './SendSheet.svelte';
+	import SyncSheet from './SyncSheet.svelte';
 	import { dropped } from './dropped.svelte';
 
 	/**
@@ -33,8 +33,8 @@
 	 * a version they read. One version: the sheet names it. Several: radios,
 	 * the one copied from preselected; under one no added lesson holds, a
 	 * ticked "Add Week 2 too" makes the practice follow (R8). What only theirs
-	 * has is said; where they edit the version, Send mine first opens the Send
-	 * sheet for it, and once that lands the drop is sent. The version's page
+	 * has is said; where they edit the version, Sync first opens the Sync
+	 * sheet with only it ticked, and once that lands the drop is sent. The version's page
 	 * opens in this page's place (the copy is archived) with a toast.
 	 */
 	let {
@@ -82,7 +82,7 @@
 		onclose();
 	}
 
-	/** Send mine landed: the drop goes next, as it stands. */
+	/** Sync first landed: the drop goes next, as it stands. */
 	async function sentThenDrop() {
 		sending = false;
 		await tick();
@@ -160,7 +160,7 @@
 					class={button('secondary', 'md', true)}
 					aria-haspopup="dialog"
 					disabled={busy}
-					onclick={() => (sending = true)}><Icon name="upload" size={20} />{SEND_FIRST}</button
+					onclick={() => (sending = true)}><Icon name="refresh" size={20} />{SYNC_FIRST}</button
 				>
 			{/if}
 			<form
@@ -225,12 +225,12 @@
 </Sheet>
 
 {#if sendable}
-	<SendSheet
+	<SyncSheet
 		open={open && sending}
 		onclose={() => (sending = false)}
 		kind={drop.kind}
-		{fromId}
+		id={fromId}
 		only={choice.id}
-		onsent={sentThenDrop}
+		onsynced={sentThenDrop}
 	/>
 {/if}
