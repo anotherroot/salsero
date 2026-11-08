@@ -121,13 +121,18 @@
 	let swapping = false;
 	/*
 	 * The exercise the swap opened, until someone is there: a tap or key in its
-	 * pane (`wake`), a row, Start or any other navigation. Its page's clock
-	 * waits at 0:00 until then (the page asks; the phone never sets it).
+	 * pane (`wake`), Start, or a row or link opening it. Its page's clock waits
+	 * at 0:00 until then (the page asks; the phone never sets it). A detour
+	 * elsewhere (a row opening another, saved: history steps back here) leaves
+	 * it waiting: only a navigation TO it that is not a history step says
+	 * someone opened it.
 	 */
 	let autoOpened = $state<string | null>(null);
 	onNavigate((nav) => {
 		settled = false;
-		const own = swapping && nav.type === 'goto' && nav.to?.url.pathname === autoOpened;
+		if (autoOpened === null || nav.type === 'popstate') return;
+		if (nav.to?.url.pathname !== autoOpened) return;
+		const own = swapping && nav.type === 'goto';
 		if (!own) autoOpened = null;
 	});
 	afterNavigate(() => {
@@ -219,7 +224,10 @@
 		get autoOpened() {
 			return autoOpened;
 		},
-		wake: () => (autoOpened = null)
+		// Only a tap in that exercise's own pane: one in another's leaves it waiting.
+		wake: () => {
+			if (page.url.pathname === autoOpened) autoOpened = null;
+		}
 	});
 
 	// The bar card: how many are left, done of all, about how long; its play starts the run.

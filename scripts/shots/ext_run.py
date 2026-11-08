@@ -211,9 +211,8 @@ def _run_player_back(page):
     page.get_by_role("link", name=re.compile("Practise in player")).first.click()
     page.wait_for_url(re.compile(r"/player"), timeout=30000)
     _settle(page, 800)
-    # a real tap at the band's back (two stacked links share its place, both going to the run's page)
-    box = page.locator('a[aria-label^="Back"]:visible').first.bounding_box()
-    page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    # the band's back (the slim band's copy is inert, so the role query skips it)
+    page.get_by_role("link", name=re.compile("^Back to")).click()
     page.wait_for_url(re.compile(r"/exercises/\d+\?run=1"), timeout=30000)
     _settle(page)
 
@@ -224,6 +223,46 @@ def _desk_run(page):
     if page.get_by_role("button", name="Skip", exact=True).count() != 1:
         raise RuntimeError("no Skip in the pane")
     page.get_by_role("button", name=re.compile("Done · next")).first.wait_for()
+
+
+def _desk_detour_idle(page):
+    """Desk: Today opens A by itself; a row opens B; B saved with a face steps history back to A,
+    which still waits at 0:00 (nobody tapped it)."""
+    import sqlite3
+    _prep(page)
+    db = sqlite3.connect(f"{os.environ['SHOTS_TMP']}/salsa.db")
+    try:
+        every = {r[0] for r in db.execute("select id from exercises where comes_back is not null")}
+    finally:
+        db.close()
+    dance = page.url.split("/")[3]
+    page.goto(page.url.split("/" + dance)[0] + "/" + dance)
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=30000)
+    _settle(page, 2000)
+    auto = page.url
+    auto_id = int(auto.rsplit("/", 1)[1])
+    rows = page.locator('a[data-focus^="today-row-"]:visible')
+    b = None
+    for i in range(rows.count()):
+        rid = int(rows.nth(i).get_attribute("data-focus").rsplit("-", 1)[1])
+        if rid != auto_id and rid not in every:
+            b = rows.nth(i)
+            break
+    if b is None:
+        raise RuntimeError("no other row to open")
+    b.click()
+    page.wait_for_function("(u) => location.href !== u", arg=auto, timeout=30000)
+    _settle(page)
+    _sheet(page)
+    page.locator("dialog[open]").get_by_role("button", name=FACES).first.click()
+    page.wait_for_url(auto, timeout=30000)
+    page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
+    _settle(page, 1500)
+    _later(page, 5)
+    page.wait_for_timeout(1500)
+    sub = _pane_subtitle(page)
+    if not sub.endswith("0:00"):
+        raise RuntimeError(f"back on the exercise Today opened by itself, it counts before a tap: {sub!r}")
 
 
 def _flat(act):
@@ -244,4 +283,5 @@ SCENES.update({
     "run-done": Scene("/{dance}", _flat(_run_done)),
     "run-player-back": Scene("/{dance}", _flat(_run_player_back)),
     "desk-run": Scene("/{dance}", _flat(_desk_run), desk=True),
+    "desk-detour-idle": Scene("/{dance}", _flat(_desk_detour_idle), desk=True),
 })

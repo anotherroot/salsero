@@ -34,9 +34,9 @@ export interface TodayPane {
 	canSkip(exerciseId: number): boolean;
 	/** Not today: posts the skip, toasts Undo; false when it was refused. */
 	notToday(exerciseId: number): Promise<boolean>;
-	/** The path the list route opened by itself (desktop), until a tap or key in its pane, a row, or Start. */
+	/** The path the list route opened by itself (desktop), until a tap or key in its pane, a row or link to it, or Start; a history step back to it keeps it waiting. */
 	readonly autoOpened: string | null;
-	/** A tap or key in the pane: the auto-opened page's clock may start. */
+	/** A tap or key in the pane: the auto-opened page's clock may start (only in its own pane). */
 	wake(): void;
 }
 
