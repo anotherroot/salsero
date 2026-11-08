@@ -24,6 +24,25 @@ export const groups = {
 		newLesson: 'New lesson',
 		/** The band's +: add to this group (a lesson, music, a figure …). */
 		add: 'Add to the group',
+		/** Add to the group's rows, in `ADD_KINDS` order. */
+		addMenu: {
+			lesson: 'Lesson',
+			music: 'Music',
+			figure: 'Figure',
+			routine: 'Routine',
+			position: 'Position',
+			drill: 'Drill'
+		},
+		/** Add to the group → Drill: a drill of the group's, linked in a lesson later. */
+		newDrill: {
+			title: 'New drill',
+			name: 'Name',
+			notes: 'Notes',
+			hint: 'Members see it once you link it in a published lesson.',
+			create: 'Make drill',
+			noName: 'Give it a name (up to 200 characters).',
+			longNotes: 'Notes are up to 2000 characters.'
+		},
 		noLessons: 'No lessons yet',
 		added: 'Added',
 		people: 'People',

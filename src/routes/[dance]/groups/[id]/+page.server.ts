@@ -7,7 +7,8 @@ import { readNewLesson } from '$lib/server/lesson-form';
 import { readAdd } from '$lib/server/add-form';
 import { addLesson, addOffer, addState, defaultPicks } from '$lib/server/entries';
 import { autoAddStored, setAutoAdd } from '$lib/server/levels';
-import { int } from '$lib/server/form';
+import { int, optionalText, text } from '$lib/server/form';
+import { createCustomExercise } from '$lib/server/exercises';
 import {
 	addsAtOnce,
 	autoAddOn,
@@ -100,6 +101,41 @@ export const actions: Actions = {
 		if ('refused' in read) return read.refused;
 		const { lesson } = createLesson(db, space, read.input);
 		throw redirect(303, `/${team.dance}/lessons/${lesson.id}`);
+	},
+
+	/**
+	 * Add to the group → Drill: a drill of the group's with no lesson yet, opened.
+	 * It reaches members once an editor links it in a published lesson.
+	 */
+	createDrill: async ({ params, locals, request }) => {
+		const db = getDb();
+		const { team, space } = requireTeam(db, locals, params, 'editor');
+		if (team.deletedAt !== null) throw error(404, 'No such group');
+		const form = await request.formData();
+		const name = text(form, 'name');
+		const notes = optionalText(form, 'notes');
+		const typed = {
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? '')
+		};
+		const w = t().groups.page.newDrill;
+		if (!name)
+			return fail(400, {
+				action: 'drill' as const,
+				field: 'name' as const,
+				message: w.noName,
+				...typed
+			});
+		if (notes === undefined) {
+			return fail(400, {
+				action: 'drill' as const,
+				field: 'notes' as const,
+				message: w.longNotes,
+				...typed
+			});
+		}
+		const drill = createCustomExercise(db, space, { name, notes });
+		throw redirect(303, `/${team.dance}/exercises/${drill.id}`);
 	},
 
 	/**

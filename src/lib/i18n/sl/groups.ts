@@ -23,6 +23,23 @@ export const groups: Catalog['groups'] = {
 		lessons: 'Lekcije',
 		newLesson: 'Nova lekcija',
 		add: 'Dodaj v skupino',
+		addMenu: {
+			lesson: 'Lekcija',
+			music: 'Glasba',
+			figure: 'Različica',
+			routine: 'Kombinacija',
+			position: 'Položaj',
+			drill: 'Vaja'
+		},
+		newDrill: {
+			title: 'Nova vaja',
+			name: 'Ime',
+			notes: 'Opombe',
+			hint: 'Člani jo vidijo, ko jo povežete v objavljeni lekciji.',
+			create: 'Ustvari vajo',
+			noName: 'Vnesite ime (do 200 znakov).',
+			longNotes: 'Opombe so lahko dolge do 2000 znakov.'
+		},
 		noLessons: 'Še ni lekcij',
 		added: 'Dodano',
 		people: 'Ljudje',
