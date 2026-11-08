@@ -47,10 +47,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 
 	// The language this request is drawn in: a signed-in person's own; signed out,
-	// the invite's on Join, then the browser's cookie, then English.
+	// the invite's on Join, then the browser's cookie, then its Accept-Language, then English.
 	const loc = requestLocale({
 		user: event.locals.user,
 		cookie: event.cookies.get(LOCALE_COOKIE),
+		acceptLanguage: event.request.headers.get('accept-language'),
 		invite:
 			path === '/join' ? inviteLocaleOf(getDb(), event.url.searchParams.get('code') ?? '') : null
 	});

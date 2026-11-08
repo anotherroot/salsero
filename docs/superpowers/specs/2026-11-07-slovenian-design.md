@@ -118,7 +118,9 @@ Slovenian, without her choosing or understanding anything in English.
 - **A cookie** remembering the last language on this browser, set on Join,
   on sign-in and on the Settings switch. It only decides pages drawn before
   anyone is signed in: the login page, an error page, `/g/<code>` when
-  signed out. Without it they are English.
+  signed out. Without it they follow the browser's `Accept-Language` (a
+  first tag of `sl` or `en` by q order: a Slovenian phone sends `sl-SI`), then
+  English (`requestLocale`, `src/lib/i18n/locale.ts`).
 - **Signed-in pages** are in `locals.user.locale`, never the cookie.
 - **The admin page can set a person's language** too, beside their limits
   **(Claude's call)**: an invite sent in the wrong language, or an account
@@ -235,3 +237,6 @@ that changes a form field or an API shape older open pages would send.
 - **The rig shoots the class**: `scripts/shots/seed.sh` seeds a class into a db
   copy, `--locale` and `--level` set the admin's language and level, and
   `pages-follow.txt` with the `follow-*` scenes is the path (README "A class").
+- **Signed out, `Accept-Language` comes after the cookie**: the Android app's
+  WebView has its own cookie jar and never saw Join, so its first login page
+  would otherwise be English on a Slovenian phone. Signed-in pages never read it.

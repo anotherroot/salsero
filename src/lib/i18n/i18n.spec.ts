@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { catalogOf, t } from './catalog';
 import { locale, withLocale } from './current';
-import { LOCALE_NAME, LOCALES, parseLocale, requestLocale } from './locale';
+import { acceptedLocale, LOCALE_NAME, LOCALES, parseLocale, requestLocale } from './locale';
 import { slCount, slForm } from './plural';
 
 describe('slForm', () => {
@@ -119,6 +119,54 @@ describe('requestLocale', () => {
 	it('an unknown cookie is English', () => {
 		expect(requestLocale({ user: null, cookie: 'xx', invite: null })).toBe('en');
 		expect(requestLocale({ user: null, cookie: undefined, invite: null })).toBe('en');
+	});
+
+	it('signed out, the cookie beats the browser language', () => {
+		expect(
+			requestLocale({ user: null, cookie: 'en', invite: null, acceptLanguage: 'sl-SI,sl;q=0.9' })
+		).toBe('en');
+	});
+
+	it('signed out with no cookie, a Slovenian phone is Slovenian', () => {
+		expect(
+			requestLocale({
+				user: null,
+				cookie: undefined,
+				invite: null,
+				acceptLanguage: 'sl-SI,sl;q=0.9,en;q=0.8'
+			})
+		).toBe('sl');
+	});
+
+	it('signed in, the browser language does not count', () => {
+		expect(
+			requestLocale({ user: { locale: null }, cookie: undefined, invite: null, acceptLanguage: 'sl' })
+		).toBe('en');
+	});
+
+	it('the browser language: en-US is English, garbage and none are English', () => {
+		const at = (acceptLanguage: string | null) =>
+			requestLocale({ user: null, cookie: undefined, invite: null, acceptLanguage });
+		expect(at('en-US')).toBe('en');
+		expect(at('garbage;;q=,,')).toBe('en');
+		expect(at('')).toBe('en');
+		expect(at(null)).toBe('en');
+	});
+});
+
+describe('acceptedLocale', () => {
+	it('takes the first tag of ours by q order', () => {
+		expect(acceptedLocale('de-DE,de;q=0.9,sl;q=0.8,en;q=0.7')).toBe('sl');
+		expect(acceptedLocale('en;q=0.5,sl;q=0.9')).toBe('sl');
+		expect(acceptedLocale('sl;q=0.5,en-GB;q=0.9')).toBe('en');
+		expect(acceptedLocale('SL-si')).toBe('sl');
+	});
+
+	it('keeps header order among equal q, and skips q=0 and tags not ours', () => {
+		expect(acceptedLocale('en-US,sl')).toBe('en');
+		expect(acceptedLocale('sl;q=0,en;q=0.1')).toBe('en');
+		expect(acceptedLocale('slk,hr-HR,*')).toBeNull();
+		expect(acceptedLocale(undefined)).toBeNull();
 	});
 });
 

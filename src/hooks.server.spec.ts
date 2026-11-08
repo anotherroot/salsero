@@ -205,7 +205,12 @@ describe('the language', () => {
 	 */
 	async function draw(
 		path: string,
-		opts: { cookie?: string; userLocale?: string | null; invite?: string | null } = {}
+		opts: {
+			cookie?: string;
+			userLocale?: string | null;
+			invite?: string | null;
+			acceptLanguage?: string;
+		} = {}
 	) {
 		const db = openDb(':memory:');
 		handleDb.db = db;
@@ -241,7 +246,9 @@ describe('the language', () => {
 		const locals = {} as App.Locals;
 		const event = {
 			url,
-			request: new Request(url),
+			request: new Request(url, {
+				headers: opts.acceptLanguage ? { 'accept-language': opts.acceptLanguage } : {}
+			}),
 			cookies: {
 				get: (name: string) =>
 					name === SESSION_COOKIE ? session : name === LOCALE_COOKIE ? opts.cookie : undefined,
@@ -287,6 +294,23 @@ describe('the language', () => {
 	it("draws a signed-out page in the cookie's language", async () => {
 		expect(await draw('/login', { cookie: 'sl' })).toMatchObject({ html: '<html lang="sl">' });
 		expect(await draw('/login', { cookie: 'xx' })).toMatchObject({ html: '<html lang="en">' });
+	});
+
+	// Catches: the Android app's first login (no cookie in its own jar) drawn in English
+	// on a Slovenian phone, and the header beating the cookie or a person's own language.
+	it("falls back to the browser's Accept-Language, after the cookie", async () => {
+		const sl = 'sl-SI,sl;q=0.9,en;q=0.8';
+		expect(await draw('/login', { acceptLanguage: sl })).toEqual({
+			html: '<html lang="sl">',
+			during: 'sl',
+			locals: 'sl'
+		});
+		expect(await draw('/login', { acceptLanguage: sl, cookie: 'en' })).toMatchObject({
+			html: '<html lang="en">'
+		});
+		expect(await draw('/salsa', { acceptLanguage: sl, userLocale: null })).toMatchObject({
+			html: '<html lang="en">'
+		});
 	});
 
 	// Catches: an invite's code read on a page that is not Join.
