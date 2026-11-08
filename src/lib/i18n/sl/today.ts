@@ -13,7 +13,6 @@ export const today: Catalog['today'] = {
 		added: 'Dodano',
 		ahead: 'Vnaprej',
 		fromClass: (day) => `z lekcije ${day}`,
-		upNext: 'Naslednja',
 		notToday: 'Ne danes'
 	},
 	reviewOf: (title) => `Ponovitev: ${title}`,
@@ -33,12 +32,11 @@ export const today: Catalog['today'] = {
 		nothingDueMeta: 'Spodaj lahko vadite vnaprej',
 		nothingOn: 'Danes ni ničesar',
 		nothingOnMeta: 'Vse vaje so na premoru',
-		start: 'Začni vadbo',
-		resume: 'Nadaljuj vadbo'
+		start: 'Začni'
 	},
 	list: {
 		warmup: (n) => `Ogrevanje · ${n}`,
-		// Not "Vadba": that is a session (glossary).
+		// Not "Vadba": that is the day's practice (glossary).
 		practice: (nothingLeft, n) => `${nothingLeft ? 'Opravljeno danes' : 'Vaje'} · ${n}`,
 		next: (n) => `Dodaj še ${n}`,
 		nextUp: 'Naslednja na vrsti',

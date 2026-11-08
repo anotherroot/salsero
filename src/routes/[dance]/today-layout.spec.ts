@@ -1,7 +1,7 @@
 /**
  * Today's list is the (today) layout's load, and it must never read `url`:
  * SvelteKit reruns a load that read it on every change of the URL, so opening
- * an exercise, a session's flag or a past day would reload the whole list
+ * an exercise, a run's flag or a past day would reload the whole list
  * beside it. The page's load is the one that reads `?day=`.
  *
  * Like `dance-wall.spec.ts`, `getDb()` is mocked: each test gets its own

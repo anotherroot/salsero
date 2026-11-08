@@ -163,6 +163,13 @@ function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
 }
 
 describe('todayHero', () => {
+	// Catches: the play still named after plan 2's interim session, or its Resume and Up next left over.
+	it('the play reads Start', () => {
+		expect(t().today.hero.start).toBe('Start');
+		expect(withLocale('sl', () => t().today.hero.start)).toBe('Začni');
+		expect('resume' in t().today.hero).toBe(false);
+		expect('upNext' in t().today.row).toBe(false);
+	});
 	it('the hero says about how long', () => {
 		expect(todayHero(list({ done: 0, total: 7, left: 7 }), 1800).meta).toBe(
 			'0 of 7 done · about 30 min'

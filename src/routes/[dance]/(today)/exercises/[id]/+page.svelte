@@ -95,7 +95,7 @@
 	 * with the entry's id in the form, never to the entry's URL.
 	 */
 	const pageId = $derived(page.params.id);
-	/** Today's layout around the page: its session (`?session=1`), and Not today. */
+	/** Today's layout around the page: its run (`?run=1`), its toast, and Not today. */
 	const today = todayPane();
 
 	// --- The time and Done (spec "The exercise page (one page)").
@@ -138,7 +138,7 @@
 
 	/**
 	 * After any save: the toast with Undo on the next screen, the sheet closed, then
-	 * on through the session or back where the page was opened from.
+	 * back where the page was opened from.
 	 */
 	function saved(r: DoneResult): void {
 		announceSaved({
@@ -149,10 +149,9 @@
 		doneOpen = false;
 		run = null;
 		practiceKey++;
-		// A session opens its next page. Else back; with no opener to step back to (the
-		// desktop's pane, a cold open) Today takes this page's entry, not one on top of it.
-		if (today?.session) today.session.onnext();
-		else void backWhenSettled(todayBack(data.dance.slug), { replace: true });
+		// Back; with no opener to step back to (the desktop's pane, a cold open)
+		// Today takes this page's entry, not one on top of it.
+		void backWhenSettled(todayBack(data.dance.slug), { replace: true });
 		clock.restart();
 	}
 

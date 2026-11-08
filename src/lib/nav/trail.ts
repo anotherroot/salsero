@@ -57,8 +57,8 @@ export interface Arrival {
 	intent: Intent;
 }
 
-/** Popup flags and the Today session are not a place to come back to. */
-const DROPPED = new Set(['log', 'new', 'add', 'session', 'v']);
+/** Popup flags are not a place to come back to (a run's `run` and `skip` are: they stay). */
+const DROPPED = new Set(['log', 'new', 'add', 'v']);
 
 /** The query worth keeping: day, q and chips stay; popup flags go. */
 export function keptSearch(search: string): string {
@@ -386,8 +386,8 @@ export function scrollFor(t: Trail, a: Arrival): number | null {
 
 /**
  * Whether Back can step the browser's history (the slot before is the target)
- * or has to go to the page. A slot whose search carries a popup flag or a
- * Today session would bring it back, so that one is gone to instead.
+ * or has to go to the page. A slot whose search carries a popup flag would
+ * bring it back, so that one is gone to instead.
  */
 export function backMove(
 	entries: Record<number, string>,

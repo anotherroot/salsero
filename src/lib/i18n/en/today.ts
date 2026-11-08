@@ -13,8 +13,6 @@ export const today = {
 		ahead: 'Ahead',
 		/** A lesson's row: "New · from class Tue 3 Nov". */
 		fromClass: (day: string): string => `from class ${day}`,
-		/** The session's next row. */
-		upNext: 'Up next',
 		/** The swipe's button, and Coming up's skipped row. */
 		notToday: 'Not today'
 	},
@@ -39,8 +37,8 @@ export const today = {
 		nothingDueMeta: 'You can practise ahead below',
 		nothingOn: 'Nothing on Today',
 		nothingOnMeta: 'Every exercise is paused',
-		start: 'Start session',
-		resume: 'Resume session'
+		/** The play: walks the day's exercises page by page. */
+		start: 'Start'
 	},
 	list: {
 		/** The Warm-up card's heading: "Warm-up · 2". */

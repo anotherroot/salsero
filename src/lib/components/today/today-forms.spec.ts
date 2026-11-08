@@ -79,17 +79,23 @@ describe('The log form', () => {
 		expect(src).toMatch(/act\('done', \{/);
 	});
 
-	it('after a save the exercise page goes on through the session, else back', () => {
+	it('after a save the exercise page goes back, in place of itself', () => {
 		const src = readFileSync(EXERCISE, 'utf8');
 		const fn = src.match(/function saved\(r: DoneResult\): void \{([\s\S]*?)\n\t\}/)?.[1] ?? '';
+		// On the desktop a pane page has no opener, so back must replace the saved
+		// page, not push Today on top of it.
 		expect(fn).toMatch(
-			/announceSaved\([\s\S]*if \(today\?\.session\) today\.session\.onnext\(\);\s*else void backWhenSettled\(todayBack\(data\.dance\.slug\), \{ replace: true \}\)/
+			/announceSaved\([\s\S]*void backWhenSettled\(todayBack\(data\.dance\.slug\), \{ replace: true \}\);\s*clock\.restart\(\)/
 		);
-		expect(fn).toMatch(/clock\.restart\(\)/);
-		// The session's end too: on the desktop a pane page has no opener, so back
-		// must replace the saved page, not push Today on top of it.
+		expect(fn).not.toMatch(/session/);
+		// The run's steps replace too (the run is one history entry), after a closing sheet's Back.
 		const layout = readFileSync(LAYOUT, 'utf8');
-		expect(layout).toMatch(/else void backWhenSettled\(todayBack\(dance\), \{ replace: true \}\)/);
+		expect(layout).toMatch(
+			/skip: \(\) => void gotoWhenSettled\(step\.skipHref, \{ replaceState: true \}\)/
+		);
+		expect(layout).toMatch(
+			/after: \(\) => void gotoWhenSettled\(step\.afterHref, \{ replaceState: true \}\)/
+		);
 		// One Today fallback, never written out again.
 		for (const src2 of [src, layout])
 			expect(src2).not.toContain('t().shell.backTo(t().shell.tabs.today)');

@@ -1,4 +1,4 @@
-"""Today: the exercise page per type, the Done sheet, the toast, a session of pages, and the desk checks of Today's pane. See README "Scenes"."""
+"""Today: the exercise page per type, the Done sheet, the toast, the run, and the desk checks of Today's pane. See README "Scenes"."""
 import os
 import re
 from datetime import datetime, timezone
@@ -28,9 +28,8 @@ def _group_drill(db, admin, dance):
     ).fetchone()
 
 
-def _quiet_day(db, admin, dance):
-    """1 when Today has nothing to open: every active exercise of the admin has a set on the rig's day
-    (instant.txt, in their zone), or none is active. Gates the scenes of the day so far."""
+def _day_start(db, admin):
+    """The rig's day (instant.txt) in the admin's zone: its start, epoch ms."""
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "instant.txt")) as fh:
         now = datetime.strptime(fh.read().strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     tz = (db.execute("select timezone from users where id = ?", (admin,)).fetchone() or [None])[0]
@@ -39,7 +38,13 @@ def _quiet_day(db, admin, dance):
         local = now.astimezone(ZoneInfo(tz or "UTC"))
     except Exception:  # no tz database: the UTC day
         local = now
-    start = int(local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+    return int(local.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
+
+
+def _quiet_day(db, admin, dance):
+    """1 when Today has nothing to open: every active exercise of the admin has a set on the rig's day
+    (instant.txt, in their zone), or none is active. Gates the scenes of the day so far."""
+    start = _day_start(db, admin)
     left = db.execute(
         "select count(*) from exercises e where e.user_id = ? and e.dance = ? and e.active = 1 "
         "and e.archived_at is null and not exists (select 1 from sets s where s.exercise_id = e.id "
@@ -62,8 +67,11 @@ def placeholders(db, admin, dance):
     }
 
 
-def _start_session(page):
-    page.get_by_role("button", name=re.compile(r"Start session")).first.click()
+def _start_run(page):
+    """Start (the hero's play): the walk's first page, with ?run=1."""
+    page.get_by_role("button", name="Start", exact=True).first.click()
+    page.wait_for_url(re.compile(r"/exercises/\d+\?run=1$"), timeout=8000)
+    _settle(page)
 
 
 def _new(page):
@@ -297,7 +305,7 @@ def _settle(page, ms=500):
     page.wait_for_timeout(ms)
 
 
-# ---- plan 2: the exercise page per type, the Done sheet, the toast, a session of pages ----
+# ---- plan 2: the exercise page per type, the Done sheet, the toast, the run ----
 
 FACES = re.compile("Still hard|Getting there|I've got it|Easy")
 
@@ -371,21 +379,45 @@ def _past_day_sheet(page):
     page.wait_for_timeout(500)
 
 
-def _session_pages(page):
-    """Start, a face: the next page's URL carries ?session=1."""
-    _start_session(page)
-    page.wait_for_url(re.compile(r"/exercises/\d+\?.*session=1|/exercises/\d+.*session=1"), timeout=8000)
+def _warm_up_last(page):
+    """Make the admin's last exercise not done on the rig's day a warm-up, in the rig's temp db; reload.
+    Returns its id: the run walks the warm-ups first, so Start opens it."""
+    import sqlite3
+    db = sqlite3.connect(f"{os.environ['SHOTS_TMP']}/salsa.db")
+    try:
+        admin = db.execute("select user_id from sessions where id = 'shots'").fetchone()[0]
+        dance = page.url.split("/")[3]
+        start = _day_start(db, admin)
+        row = db.execute(
+            "select e.id from exercises e where e.user_id = ? and e.dance = ? and e.active = 1 "
+            "and e.archived_at is null and not exists (select 1 from sets s where s.exercise_id = e.id "
+            "and s.done_at >= ?) order by e.id desc limit 1",
+            (admin, dance, start),
+        ).fetchone()
+        if not row:
+            raise RuntimeError("no exercise to make a warm-up")
+        db.execute("update exercises set warmup = 1, warmup_order = 0 where id = ?", (row[0],))
+        db.commit()
+    finally:
+        db.close()
+    page.reload(wait_until="networkidle")
+    return row[0]
+
+
+def _run_back(page):
+    """Start opens the first warm-up's page with ?run=1; one Back returns to Today."""
+    warm = _warm_up_last(page)
+    today = page.url
+    _start_run(page)
+    if not re.search(rf"/exercises/{warm}\?run=1$", page.url):
+        raise RuntimeError(f"Start opened {page.url}, not the warm-up {warm}")
+    page.go_back()
+    page.wait_for_url(today, timeout=8000)
     _settle(page)
-    first = page.url
-    _save_face(page)
-    page.wait_for_url(lambda u: u != first and "session=1" in u, timeout=8000)
-    _settle(page)
-    if "/exercises/" not in page.url:
-        raise RuntimeError(f"the session went to {page.url}, not a next page")
 
 
 SCENES.update({
-    "today-session": Scene("/{dance}", _start_session),
+    "today-run": Scene("/{dance}", _start_run),
     "today-new": Scene("/{dance}", _new),
     "exercise-page-figure": Scene("/{dance}/exercises/{figex}"),
     "exercise-page-drill": Scene("/{dance}/exercises/{drillex}"),
@@ -398,10 +430,10 @@ SCENES.update({
     "done-toast": Scene("/{dance}/exercises/{lessonex}", _save_face),
     "done-today": Scene("/{dance}/exercises/{routineex}", _done_today),
     "done-past-day": Scene("/{dance}?day={yesterday}", _past_day_sheet),
-    "today-session-pages": Scene("/{dance}", _session_pages),
+    "today-run-back": Scene("/{dance}", _run_back),
     # desk only
     "pane-edit": Scene("/{dance}/exercises/{figex}", _edit, desk=True),
-    "pane-session": Scene("/{dance}", _start_session, desk=True),
+    "pane-run": Scene("/{dance}", _start_run, desk=True),
     "pane-group-drill": Scene(
         "/{dance}/lessons/{groupdrilllesson}#open={groupdrill}", _open_group_drill, desk=True
     ),
