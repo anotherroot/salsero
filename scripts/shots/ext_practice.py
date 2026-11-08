@@ -77,6 +77,21 @@ def _save(page):
     page.get_by_text("Save this run", exact=True).first.wait_for()
 
 
+def _saved(page):
+    # the JSON save: a face, Save, then the screen the player returns to, with the toast
+    _save(page)
+    choose = page.locator("dialog[open]").get_by_text("Choose an exercise…", exact=True)
+    if choose.count():  # a routine with no exercise of its own: pick the first one offered
+        choose.first.click()
+        page.wait_for_timeout(600)
+        page.locator("dialog[open]").last.get_by_role("button").filter(has_text=re.compile(r"\w{3}")).nth(1).click()
+        page.wait_for_timeout(500)
+    page.locator("dialog[open]").get_by_role("button", name=re.compile("Still hard|Getting there|I.ve got it|Easy")).first.click()
+    page.locator("dialog[open]").get_by_role("button", name="Save", exact=True).click()
+    page.locator("[role=status]", has_text="Saved").first.wait_for()
+    page.wait_for_timeout(400)
+
+
 def _run_masks(page):
     return [
         page.get_by_role("img", name=re.compile(r"^Count")),
@@ -111,7 +126,8 @@ SCENES = {
     "practice-running": Scene("/{dance}/player?routine={routine}", _running, _run_masks),
     "practice-running-long": Scene("/{dance}/player?routine={longroutine}", _running, _run_masks),
     "practice-paused": Scene("/{dance}/player?routine={routine}", _paused, _run_masks),
-    "practice-save": Scene("/{dance}/player?routine={routine}", _save, _run_masks),
+    "practice-save": Scene("/{dance}/player?routine={routine}", _saved, _run_masks),
+    "practice-save-sheet": Scene("/{dance}/player?routine={routine}", _save, _run_masks),
     "player-keys": Scene("/{dance}/figures/{recfigure}", _player_keys),
     "my-count-recording": Scene("/voice", _my_count),
     "admin-person": Scene("/admin", _admin_person),

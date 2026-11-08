@@ -394,7 +394,6 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		exercise: found.exercise,
 		// Practise on its own: a group's variation only from a lesson the person added.
 		practisable: practisable(db, wall.userId, figure),
-		today: localDay(now, zone),
 		// Derived per request, never stored — the same rule the schedule follows.
 		routines: routinesUsing(
 			graph,
