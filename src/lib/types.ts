@@ -1229,10 +1229,11 @@ export type SyncView = {
 	rows: MergeRow[];
 	targets: { id: number; label: string; role: string; seen: string; ticked: boolean }[];
 	mode: 'sync' | 'update';
-	members: { id: number; label: string }[];
+	/** Every copy shown, with its digest: `syncAll` refuses when one not ticked changed since. */
+	members: { id: number; label: string; seen: string }[];
 };
 
 /** A Sync's answer: landed, less the copies refused alone; or refused as a whole. */
 export type SyncAllResult =
 	| { ok: true; refused: { id: number; message: string }[] }
-	| { ok: false; reason: 'pick' | 'denied'; message: string };
+	| { ok: false; reason: 'pick' | 'denied' | 'stale'; message: string };

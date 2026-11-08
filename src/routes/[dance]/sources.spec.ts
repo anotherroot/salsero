@@ -46,6 +46,9 @@ import * as syncApi from '../api/clones/sync/+server';
 import * as copyApi from '../api/clones/copy/+server';
 import * as moveApi from '../api/clones/move/+server';
 import * as lessonPage from './lessons/[id]/+page.server';
+import * as drillPage from './(today)/exercises/[id]/+page.server';
+import * as songPage from './songs/[id]/+page.server';
+import * as positionPage from './(moves)/positions/[id]/+page.server';
 import { archiveVariation } from '$lib/server/figures';
 import { figures, lessons } from '$lib/server/db/schema';
 
@@ -345,7 +348,8 @@ describe('Sync', () => {
 		]);
 		const form = {
 			picks: '{}',
-			targets: JSON.stringify(view.targets.map((t: Answer) => ({ id: t.id, seen: t.seen })))
+			targets: JSON.stringify(view.targets.map((t: Answer) => ({ id: t.id, seen: t.seen }))),
+			members: JSON.stringify(view.members)
 		};
 		expect(await run(figurePage.actions.sync, ev('u3', mine, { form }))).toEqual({
 			action: 'sync',
@@ -366,7 +370,11 @@ describe('Sync', () => {
 		const view = await (await preview('u2', 'figure', C)).json();
 		expect(view).toMatchObject({ mode: 'update', title: 'Update from Salsa Tuesdays' });
 		const seen = (id: number) => view.targets.find((t: Answer) => t.id === id)?.seen;
-		const into = (targets: object[]) => ({ picks: '{}', targets: JSON.stringify(targets) });
+		const into = (targets: object[]) => ({
+			picks: '{}',
+			targets: JSON.stringify(targets),
+			members: JSON.stringify(view.members)
+		});
 		expect(
 			await run(figurePage.actions.sync, ev('u2', C, { form: into([{ id: F, seen: 'x' }]) }))
 		).toMatchObject({ status: 404 });
@@ -391,7 +399,8 @@ describe('Sync', () => {
 		const view = await (await preview('u2', 'figure', C)).json();
 		const form = {
 			picks: '{}',
-			targets: JSON.stringify([{ id: C, seen: view.targets[0].seen }])
+			targets: JSON.stringify([{ id: C, seen: view.targets[0].seen }]),
+			members: JSON.stringify(view.members)
 		};
 		expect(await run(figurePage.actions.sync, ev('u2', C, { form }))).toMatchObject({
 			status: 409,
@@ -400,7 +409,7 @@ describe('Sync', () => {
 	});
 
 	it('every item page has the action', () => {
-		for (const page of [figurePage, routinePage, lessonPage])
+		for (const page of [figurePage, routinePage, lessonPage, drillPage, songPage, positionPage])
 			expect(typeof (page.actions as Answer).sync).toBe('function');
 	});
 });

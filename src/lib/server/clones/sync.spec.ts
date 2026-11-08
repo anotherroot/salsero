@@ -11,6 +11,8 @@ import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
 import { clonePairs, figures, recordings, teamChanges, users } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
+import { setRole } from '../membership';
+import { SYNC_NO_ACCESS } from '$lib/clones/view';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { addLinks } from '../links';
@@ -21,7 +23,8 @@ import type { MergeRow } from '$lib/types';
 import { cloneInto } from './clone';
 import { makeMine } from './edit';
 import type { CloneFiles } from './files';
-import { digest, hashValue, pairBase } from './pairs';
+import { digest, hashValue, pairBase, writePair } from './pairs';
+import { initialBase } from '$lib/clones/diff';
 import { flatOf } from './trees';
 import { readMark } from './marks';
 import { setSyncSettings } from './sync-settings';
@@ -35,9 +38,14 @@ const URL_A = 'https://example.org/a';
 
 let db: Db;
 let named = 0;
+/** Runs once while a file is being linked: something changing between landings. */
+let whileLinking: (() => void) | null = null;
 const files: CloneFiles = {
 	async link(_kind, file) {
 		await Promise.resolve();
+		const during = whileLinking;
+		whileLinking = null;
+		during?.();
 		return `copy-${++named}-${file}`;
 	},
 	async unlink() {}
@@ -56,6 +64,7 @@ async function copy(id: number, into: Space) {
 
 beforeEach(async () => {
 	db = openDb(':memory:');
+	whileLinking = null;
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },
@@ -116,8 +125,9 @@ const sync = (
 	actor: string,
 	id: number,
 	picks: Record<string, string | null>,
-	targets: { id: number; seen: string }[]
-) => syncAll(db, actor, 'figure', id, picks, targets, files, NOW, ROOMY);
+	targets: { id: number; seen: string }[],
+	members = syncView(db, actor, 'figure', id)?.members ?? []
+) => syncAll(db, actor, 'figure', id, picks, targets, members, files, NOW, ROOMY);
 const ticked = (actor: string, id: number) =>
 	syncView(db, actor, 'figure', id)!.targets.map((t) => ({ id: t.id, seen: t.seen }));
 const integrity = () => {
@@ -177,7 +187,9 @@ describe('syncView', () => {
 		const view = syncView(db, 'u1', 'figure', own)!;
 		expect(view.rows.map((r) => r.key)).toEqual(['notes']);
 		const targets = view.targets.map((t) => ({ id: t.id, seen: t.seen }));
-		expect(await syncAll(db, 'u1', 'figure', own, {}, targets, files, NOW, ROOMY)).toEqual({
+		expect(
+			await syncAll(db, 'u1', 'figure', own, {}, targets, view.members, files, NOW, ROOMY)
+		).toEqual({
 			ok: true,
 			refused: []
 		});
@@ -257,13 +269,104 @@ describe('syncAll', () => {
 
 	it('a stale seen on G2 refuses G2 alone; the others land', async () => {
 		save(G1, { notes: 'Club notes' });
+		const opened = syncView(db, 'u1', 'figure', T)!;
 		const targets = ticked('u1', T);
 		save(G2, { name: 'Basic two' }); // after the sheet opened
-		const res = await sync('u1', T, {}, targets);
+		const res = await sync('u1', T, {}, targets, opened.members);
 		expect(res).toMatchObject({ ok: true, refused: [{ id: G2 }] });
 		expect(row(T)).toMatchObject({ notes: 'Club notes', name: 'Basic' }); // nothing of G2's handed on
 		expect(row(G2).notes).toBe('Old notes');
 		fresh(T, G1);
+		integrity();
+	});
+
+	it('a pick naming a value the stale copy held is stale, not unpicked', async () => {
+		save(T, { notes: 'Ana notes' });
+		save(G1, { notes: 'Club notes' });
+		const opened = syncView(db, 'u1', 'figure', T)!;
+		const notes = rowOf(opened.rows, 'notes');
+		const targets = ticked('u1', T);
+		save(G2, { name: 'Basic two' });
+		const res = await sync('u1', T, { notes: valueOf(notes, G2).hash }, targets, opened.members);
+		expect(res).toMatchObject({ ok: false, reason: 'stale' });
+		expect(row(G1).notes).toBe('Club notes');
+		// No pick at all on the open row: that is the person's to make.
+		expect(await sync('u1', T, {}, ticked('u1', T))).toMatchObject({ ok: false, reason: 'pick' });
+	});
+
+	it('a copy shown but not ticked that changed since: the whole Sync is stale', async () => {
+		// Luka reads G1 only; the club edits it while his Update sheet is open.
+		save(G1, { notes: 'Club notes' });
+		const opened = syncView(db, 'u2', 'figure', F2)!;
+		save(G1, { notes: 'Club notes, later' });
+		const res = await sync('u2', F2, {}, ticked('u2', F2), opened.members);
+		expect(res).toMatchObject({ ok: false, reason: 'stale' });
+		expect(row(F2).notes).toBe('Old notes');
+		expect(pairBase(db, 'figure', F2, G1)!.fields.notes).toBe(hashValue('Old notes'));
+		// Ana's G2 left unticked, changed meanwhile: the same.
+		const ana = syncView(db, 'u1', 'figure', T)!;
+		save(G2, { notes: 'Rueda notes' });
+		const two = ana.targets.filter((t) => t.id !== G2).map((t) => ({ id: t.id, seen: t.seen }));
+		expect(await sync('u1', T, {}, two, ana.members)).toMatchObject({ ok: false, reason: 'stale' });
+		// A copy the sheet did not show (or missing from what it posted): stale too.
+		expect(
+			await sync(
+				'u1',
+				T,
+				{},
+				two,
+				ana.members.filter((m) => m.id !== G2)
+			)
+		).toMatchObject({ ok: false, reason: 'stale' });
+	});
+
+	it('a ticked copy the person can no longer edit when its turn comes is refused alone', async () => {
+		// u3 edits both clubs (not Ana's own); G1 has a new recording, G2 new notes.
+		db.insert(users)
+			.values({ id: 'u3', email: 'u3@x.si', passwordHash: 'x', firstName: 'Mia' })
+			.run();
+		joinTeam(db, 'u3', 1, T0);
+		joinTeam(db, 'u3', 2, T0);
+		setRole(db, 1, 'u3', 'editor');
+		setRole(db, 2, 'u3', 'editor');
+		// The clubs' copies in step with each other (u3 cannot see Ana's own).
+		writePair(db, 'figure', G1, G2, initialBase(flat(G1), [], hashValue), T0);
+		expect(setSyncSettings(db, 'u1', 'figure', G1, { ...DEFAULT_SYNC, media: true }, T0)).toBe(
+			true
+		);
+		addRecording(
+			db,
+			{
+				figureId: G1,
+				file: 'b.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 50,
+				note: null
+			},
+			'u1'
+		);
+		save(G2, { notes: 'Rueda notes' }, 'u3');
+		const view = syncView(db, 'u3', 'figure', G1)!;
+		expect(view.targets.map((t) => t.id)).toEqual([G1, G2]);
+		// G2 lands first (the recording's file links); meanwhile u3 stops editing Salsa Tuesdays.
+		whileLinking = () => setRole(db, 1, 'u3', 'member');
+		const order = [...view.targets].reverse().map((t) => ({ id: t.id, seen: t.seen }));
+		const res = await syncAll(db, 'u3', 'figure', G1, {}, order, view.members, files, NOW, ROOMY);
+		expect(res).toEqual({ ok: true, refused: [{ id: G1, message: SYNC_NO_ACCESS }] });
+		expect(db.select().from(recordings).where(eq(recordings.figureId, G2)).all()).toHaveLength(1);
+		expect(row(G1).notes).toBe('Old notes');
+		integrity();
+	});
+
+	it('what lands flows on: Luka’s own copy (switch on, reads G1) gets it; unticked G2 does not', async () => {
+		save(T, { notes: 'Ana notes' });
+		const view = syncView(db, 'u1', 'figure', T)!;
+		const two = view.targets.filter((t) => t.id !== G2).map((t) => ({ id: t.id, seen: t.seen }));
+		expect(await sync('u1', T, {}, two, view.members)).toEqual({ ok: true, refused: [] });
+		expect(row(G1).notes).toBe('Ana notes');
+		expect(row(F2).notes).toBe('Ana notes');
+		expect(row(G2).notes).toBe('Old notes');
 		integrity();
 	});
 

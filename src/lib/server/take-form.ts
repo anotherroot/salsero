@@ -175,7 +175,10 @@ export function syncPicksFrom(
 	return picks;
 }
 
-/** The Sync sheet's ticked copies (`[{ id, seen }]`, as JSON), or null when malformed. */
+/**
+ * The Sync sheet's ticked copies, or every copy it showed (`[{ id, seen }]`,
+ * as JSON, 1–50), or null when malformed.
+ */
 export function syncTargetsFrom(
 	raw: FormDataEntryValue | null
 ): { id: number; seen: string }[] | null {
@@ -202,7 +205,8 @@ export function syncTargetsFrom(
  * The `sync` action (the Sync sheet, and a reader's Update mine): the merge
  * the sheet picked lands on every ticked copy, each in its own transaction
  * (`clones/sync.ts`). Answers `{ action: 'sync', refused }`, the copies that
- * did not land with their words; a 409 while a row is open; the missing row's
+ * did not land with their words; a 409 while a row is open or the sheet is out
+ * of date (a copy changed since it was opened); the missing row's
  * 404 when the person may not sync from this row or into a ticked copy.
  */
 export async function syncFromForm(
@@ -215,7 +219,8 @@ export async function syncFromForm(
 	const form = await request.formData();
 	const picks = syncPicksFrom(form.get('picks'));
 	const targets = syncTargetsFrom(form.get('targets'));
-	if (picks === null || targets === null)
+	const members = syncTargetsFrom(form.get('members'));
+	if (picks === null || targets === null || members === null)
 		throw error(400, 'This page is out of date. Reload it and try again.');
 	const res = await syncAll(
 		db,
@@ -224,6 +229,7 @@ export async function syncFromForm(
 		id,
 		picks,
 		targets,
+		members,
 		realCloneFiles(),
 		Date.now(),
 		await freeDisk()

@@ -28,6 +28,12 @@
  *   (it lands on the copies without it). Otherwise it is open.
  * - A name or title where every value but one is another's copy suffix
  *   ("Basic (Sreda 17:30)" against "Basic") starts on the plain name.
+ * - A piece (or a part of one) a copy was made without is no row: when every
+ *   copy lacking it has a pair with a copy holding it that skips it, and no
+ *   verdict on it at all (no pair of its that does not skip it), while the
+ *   copies holding it agree. It was left out on purpose, as `diff` reads it.
+ *   A copy that had the piece in step with some copy and lost it has that
+ *   pair's verdict, so a real removal stays a row.
  * - A recording, video or section present on some copies only goes whole:
  *   its parts (a recording's note and sections, a section's links) are not
  *   rows, as in `diff`.
@@ -111,6 +117,18 @@ export function mergeRows(
 		for (const v of values) {
 			v.changed = v.holders.some((id) => verdict.get(id) === true);
 			if (!v.changed && !v.holders.some((id) => verdict.has(id))) unknown++;
+		}
+		const absentNow = byHash.get(null);
+		if (absentNow && values.length === 2) {
+			const holders = values.find((v) => v.hash !== null)!.holders;
+			const leftOut = (id: number) =>
+				!verdict.has(id) &&
+				live.some(
+					(p) =>
+						skipped(key, p.base.skip) &&
+						((p.a === id && holders.includes(p.b)) || (p.b === id && holders.includes(p.a)))
+				);
+			if (absentNow.holders.every(leftOut)) continue;
 		}
 		const changed = values.filter((v) => v.changed);
 		const one = changed.length === 1 && unknown === 0 ? changed[0] : null;

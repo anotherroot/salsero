@@ -117,9 +117,41 @@ export async function flowFrom(
 		return changedKeys(named, flat, hashValue);
 	});
 	if (saved.length === 0 || !syncSettingsOf(db, kind, id).on) return report;
+	return flowOnward(
+		db,
+		actorId,
+		kind,
+		gene,
+		[{ from: id, keys: saved }],
+		[id],
+		files,
+		now,
+		freeDiskBytes
+	);
+}
 
-	const visited = new Set<number>([id]);
-	const queue: { from: number; keys: string[] }[] = [{ from: id, keys: saved }];
+/**
+ * Steps 2–5 of the algorithm from given starts: each `from` carries exactly
+ * `keys` (what just landed on it; its mark already fresh) into the copies
+ * that have a snapshot with it, hop by hop. `visited` copies are never
+ * written (each start, and any copy the caller has decided about: a Sync's
+ * own copies). Exported for the Sync, whose landings flow on to the copies
+ * the person does not see.
+ */
+export async function flowOnward(
+	db: Db,
+	actorId: string,
+	kind: CloneKind,
+	gene: string,
+	starts: { from: number; keys: string[] }[],
+	visitedIds: number[],
+	files: CloneFiles,
+	now: number,
+	freeDiskBytes: number
+): Promise<FlowReport> {
+	const report: FlowReport = { landed: [], refused: [] };
+	const visited = new Set<number>([...visitedIds, ...starts.map((s) => s.from)]);
+	const queue = starts.filter((s) => s.keys.length > 0).map((s) => ({ ...s }));
 	while (queue.length > 0) {
 		const { from, keys } = queue.shift()!;
 		for (const y of familyRows(db, kind, gene)) {

@@ -1002,5 +1002,8 @@ export const SYNC_PICK = 'Pick a value where copies differ.';
 /** A copy a Sync could not land on for a reason of its own (a missing file). */
 export const SYNC_FAILED = 'That copy could not be synced. Try again.';
 
+/** A ticked copy the person can no longer edit (their role changed during the Sync). */
+export const SYNC_NO_ACCESS = 'You can no longer edit that copy.';
+
 /** "Sync to": the page's own copy. */
 export const SYNC_THIS_ONE = 'this one';

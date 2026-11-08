@@ -1104,6 +1104,7 @@ const MUTATIONS: {
 				mine.id,
 				{},
 				view.targets.map((t) => ({ id: t.id, seen: t.seen })),
+				view.members,
 				cloneFiles,
 				T,
 				GB

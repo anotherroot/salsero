@@ -10,11 +10,15 @@
  *
  * 1. Refused whole, writing nothing: `denied` unless the person reads the
  *    page's row and edits every ticked copy (a group's copy they only read, or
- *    another person's own, is never a target); `pick` while a row is open or
- *    a pick names no value.
+ *    another person's own, is never a target); `stale` when a copy that is
+ *    not ticked changed since the sheet was opened (its `seen` in
+ *    `members`), or a copy came or went: its unseen values would be handed
+ *    on, or written as the pair's base; `pick` while a row is open; `stale`
+ *    when a pick names a value the row does not have (a stale copy's).
  * 2. A ticked copy that changed since the sheet was opened (`seen`, its
  *    digest) is refused alone, and left out of the merge, so nothing of what
- *    the person did not see is handed on from it.
+ *    the person did not see is handed on from it. Each ticked copy's access is
+ *    asked again right before it lands (the landings await one another).
  * 3. For each ticked copy, each `{giver, keys}` of `mergeTargets` lands with
  *    `landKeys` (`snapshot: 'keys'`) in its own transaction, `seen` re-checked
  *    on the first; a refusal (a name, no room, a linked section) or a throw
@@ -35,15 +39,18 @@
  *      than an open row again. No new pair is made here: two people's own
  *      copies never pair, and a pair decides where flows go;
  *    - and every landed copy's mark.
+ * 5. What landed flows on (`flowOnward`) from each copy that landed whole,
+ *    with exactly its landed keys, to the copies the person does not see
+ *    whose switch is on (a member's own copy, as if they had pulled it). Every
+ *    copy of the sheet is visited: none is written back, an unticked one
+ *    included.
  *
  * Picks are by value hash (`MergeRow.pick`'s grammar), keyed as the rows name
  * them; a key the sheet named before a copy stamped a gene still lands
  * (`currentKey`). A row the picks do not mention takes its preselection.
  *
  * Writes into a person's own copy log nothing; into a group's, `landKeys`
- * logs one `change` per landing, by the actor. A copy outside what the person
- * reads (another member's own) is not written here: it takes the result on
- * its own Update.
+ * logs one `change` per landing, by the actor; the flow onward as it does.
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import type {
@@ -58,9 +65,9 @@ import type {
 } from '$lib/types';
 import { mergeRows, mergeTargets, unresolved, type MergePair } from '$lib/clones/merge';
 import { pieceParts } from '$lib/clones/flat';
-import { skipped } from '$lib/clones/diff';
 import {
 	SYNC_FAILED,
+	SYNC_NO_ACCESS,
 	SYNC_PICK,
 	SYNC_STALE,
 	SYNC_THIS_ONE,
@@ -74,7 +81,8 @@ import { musicFits } from '../song-links';
 import { currentKey, landKeys } from './apply';
 import { rowOf } from './edit';
 import type { CloneFiles } from './files';
-import { visibleMembers } from './genes';
+import { accessTo, geneOf, visibleMembers } from './genes';
+import { flowOnward } from './flow';
 import { markNow } from './marks';
 import { digest, hashValue, pairBase, writePair } from './pairs';
 import { syncSettingsOf } from './sync-settings';
@@ -132,12 +140,8 @@ function pairsAmong(db: Db, kind: CloneKind, ids: number[]): MergePair[] {
 
 /**
  * The merge's rows across `members` (`flats` theirs, in their order), less
- * what is no difference to resolve:
- * - a recording or video (or a part of one) that every copy lacking it was
- *   made without (its pair with a copy holding it skips the piece), while the
- *   copies holding it agree: left out on purpose, as `diff` reads it;
- * - a song only some copies suggest that none of the others could take
- *   (`musicFits`): nothing could resolve it.
+ * a song only some copies suggest that none of the others could take
+ * (`musicFits`): nothing could resolve it.
  */
 function rowsOf(
 	db: Db,
@@ -147,31 +151,21 @@ function rowsOf(
 	members: Member[],
 	flats: Map<number, Flat>
 ): MergeRow[] {
-	const pairs = pairsAmong(
-		db,
-		kind,
-		members.map((m) => m.id)
-	);
 	const rows = mergeRows(
 		members.map((m) => ({ id: m.id, flat: flats.get(m.id)! })),
-		pairs,
+		pairsAmong(
+			db,
+			kind,
+			members.map((m) => m.id)
+		),
 		hashValue,
 		syncSettingsOf(db, kind, pageId)
 	);
-	const leftOut = (key: string, without: number, holders: number[]) =>
-		pairs.some(
-			(p) =>
-				skipped(key, p.base.skip) &&
-				((p.a === without && holders.includes(p.b)) || (p.b === without && holders.includes(p.a)))
-		);
 	return rows.filter((r) => {
+		if (!r.key.startsWith('song:')) return true;
 		const absent = r.values.find((v) => v.hash === null);
 		if (!absent) return true;
-		const present = r.values.filter((v) => v.hash !== null);
-		const holders = present.flatMap((v) => v.holders);
-		if (present.length === 1 && absent.holders.every((id) => leftOut(r.key, id, holders)))
-			return false;
-		if (!r.key.startsWith('song:')) return true;
+		const holders = r.values.filter((v) => v.hash !== null).flatMap((v) => v.holders);
 		const ref = r.key.slice('song:'.length);
 		return absent.holders.some((to) =>
 			holders.some((from) => musicFits(db, kind, from, to, ref, userId))
@@ -225,7 +219,11 @@ export function syncView(
 			ticked: true
 		})),
 		mode: fam.mode,
-		members: fam.members.map((m) => ({ id: m.id, label: placeLabel(m.place) }))
+		members: fam.members.map((m) => ({
+			id: m.id,
+			label: placeLabel(m.place),
+			seen: digest(flatOf(db, kind, m.id))
+		}))
 	};
 }
 
@@ -283,7 +281,8 @@ function snapshotOf(
 /**
  * Merge once and land it on every ticked copy (see the module's comment).
  * `picks`: row key → the chosen value's hash (null: absent). `targets`: the
- * ticked copies with the digest each had when the sheet was opened.
+ * ticked copies with the digest each had when the sheet was opened;
+ * `members`: every copy the sheet showed, with its digest then.
  */
 export async function syncAll(
 	db: Db,
@@ -292,6 +291,7 @@ export async function syncAll(
 	id: number,
 	picks: Record<string, string | null>,
 	targets: { id: number; seen: string }[],
+	shown: { id: number; seen: string }[],
 	files: CloneFiles,
 	now: number,
 	freeDiskBytes: number
@@ -303,29 +303,52 @@ export async function syncAll(
 	const ticked = new Map<number, string>();
 	for (const t of targets) if (!ticked.has(t.id)) ticked.set(t.id, t.seen);
 
+	const STALE = { ok: false, reason: 'stale', message: SYNC_STALE } as const;
+	const sawThen = new Map(shown.map((m) => [m.id, m.seen]));
+	if (sawThen.size !== fam.members.length || fam.members.some((m) => !sawThen.has(m.id)))
+		return STALE;
+
 	const refused: { id: number; message: string }[] = [];
 	const stale = new Set<number>();
 	const flats = new Map<number, Flat>();
 	for (const m of fam.members) {
 		const f = flatOf(db, kind, m.id);
-		if (ticked.has(m.id) && digest(f) !== ticked.get(m.id)) {
-			stale.add(m.id);
-			refused.push({ id: m.id, message: SYNC_STALE });
-		} else flats.set(m.id, f);
+		if (ticked.has(m.id)) {
+			if (digest(f) !== ticked.get(m.id)) {
+				stale.add(m.id);
+				refused.push({ id: m.id, message: SYNC_STALE });
+				continue;
+			}
+		} else if (digest(f) !== sawThen.get(m.id)) return STALE;
+		flats.set(m.id, f);
 	}
 	const members = fam.members.filter((m) => !stale.has(m.id));
 	const rows = members.length < 2 ? [] : rowsOf(db, actorId, kind, id, members, flats);
 	const chosen: Record<string, string | null> = {};
 	for (const [key, value] of Object.entries(picks)) chosen[currentKey(db, key)] = value;
-	if (unresolved(rows, chosen).length > 0) return { ok: false, reason: 'pick', message: SYNC_PICK };
+	const open = unresolved(rows, chosen);
+	if (open.length > 0) {
+		// A pick naming a value the row no longer has (a stale copy's, left out
+		// above): the sheet was out of date, not unpicked.
+		if (open.some((key) => Object.hasOwn(chosen, key))) return STALE;
+		return { ok: false, reason: 'pick', message: SYNC_PICK };
+	}
 	const plan = mergeTargets(rows, chosen, flats);
 
 	const landed: number[] = [];
+	const carried = new Map<number, string[]>();
 	for (const [target, seen] of ticked) {
 		if (stale.has(target)) continue;
+		// Asked again: an earlier landing awaited, and a role may have changed meanwhile.
+		if (accessTo(db, actorId, kind, target) !== 'edit') {
+			refused.push({ id: target, message: SYNC_NO_ACCESS });
+			continue;
+		}
 		let first = true;
 		let ok = true;
+		const keysIn: string[] = [];
 		for (const g of plan.get(target) ?? []) {
+			const keys = g.keys.map((k) => currentKey(db, k));
 			let res;
 			try {
 				res = await landKeys(db, {
@@ -333,7 +356,7 @@ export async function syncAll(
 					kind,
 					intoId: target,
 					fromId: g.giver,
-					keys: g.keys.map((k) => currentKey(db, k)),
+					keys,
 					snapshot: 'keys',
 					files,
 					now,
@@ -346,13 +369,17 @@ export async function syncAll(
 				res = { ok: false as const, reason: 'failed' as const, message: SYNC_FAILED };
 			}
 			first = false;
+			if (res.ok) keysIn.push(...keys);
 			if (!res.ok) {
 				refused.push({ id: target, message: res.reason === 'stale' ? SYNC_STALE : res.message });
 				ok = false;
 				break;
 			}
 		}
-		if (ok) landed.push(target);
+		if (ok) {
+			landed.push(target);
+			carried.set(target, keysIn);
+		}
 	}
 	if (landed.length === 0) return { ok: true, refused };
 
@@ -390,5 +417,23 @@ export async function syncAll(
 			}
 		for (const a of landed) markNow(tx, kind, a, now);
 	});
+
+	// On to the copies the person does not see: from each copy that landed whole.
+	const gene = geneOf(db, kind, id);
+	if (gene !== null) {
+		const report = await flowOnward(
+			db,
+			actorId,
+			kind,
+			gene,
+			landed.map((from) => ({ from, keys: carried.get(from) ?? [] })),
+			fam.members.map((m) => m.id),
+			files,
+			now,
+			freeDiskBytes
+		);
+		if (report.refused.length > 0)
+			console.error(`Sync: ${kind} ${id}: ${report.refused.length} onward hop(s) refused`);
+	}
 	return { ok: true, refused };
 }
