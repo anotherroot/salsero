@@ -24,7 +24,7 @@ import {
 	groupMenu,
 	lastClassLine,
 	MY_CLASS,
-	ADDED_TO_TODAY,
+	addedToToday,
 	onlyClass
 } from './view';
 
@@ -114,8 +114,8 @@ describe('groupsTabLabel', () => {
 		expect(groupsTabLabel(true)).toBe('Groups, new in your groups');
 	});
 	it('uses the tab’s own word at Follow my class', () => {
-		expect(groupsTabLabel(false, 'My class')).toBe('My class');
-		expect(groupsTabLabel(true, 'My class')).toBe('My class, something new');
+		expect(groupsTabLabel(false, true)).toBe('My class');
+		expect(groupsTabLabel(true, true)).toBe('My class, something new');
 	});
 });
 
@@ -227,7 +227,7 @@ describe('My class', () => {
 			menu: 'Class menu',
 			pick: { title: 'Pick a class', body: 'Its classes and songs open here.' }
 		});
-		expect(ADDED_TO_TODAY).toBe('Added to Today');
+		expect(addedToToday()).toBe('Added to Today');
 	});
 });
 
@@ -252,6 +252,30 @@ describe('the class lines in Slovenian', () => {
 			expect(MY_CLASS.title).toBe('Moj tečaj');
 			expect(MY_CLASS.earlier).toBe('Prejšnje lekcije');
 			expect(MY_CLASS.pick.title).toBe('Izberite tečaj');
+		});
+	});
+});
+
+// Catches: My class's tab name, its Add toast, the People page's roles and the
+// band's line left in English for a Slovenian reader, or the tab's name told
+// apart by its English word.
+describe('the group page and its tab in Slovenian', () => {
+	it('names the tab by what it is, not by its word', () => {
+		withLocale('sl', () => {
+			expect(groupsTabLabel(false)).toBe('Skupine');
+			expect(groupsTabLabel(true)).toBe('Skupine, novo v vaših skupinah');
+			expect(groupsTabLabel(false, true)).toBe('Moj tečaj');
+			expect(groupsTabLabel(true, true)).toBe('Moj tečaj, nekaj novega');
+		});
+	});
+
+	it('says the toast, the pill, the roles and the band line', () => {
+		withLocale('sl', () => {
+			expect(addedToToday()).toBe('Dodano v Danes');
+			expect([1, 2, 3, 5].map(newPill)).toEqual(['1 nov', '2 nova', '3 novi', '5 novih']);
+			expect(roleLabel('owner')).toBe('Vodja');
+			expect(roleLabel('member')).toBe('Sodeluje');
+			expect(youLine('editor')).toBe('urejate jo');
 		});
 	});
 });

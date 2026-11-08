@@ -3,7 +3,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TWINS_CHIP } from '$lib/clones/twins';
-	import { copyMeta, COPY_CHIP } from '$lib/teams/leave-view';
+	import { copyChip, copyMeta } from '$lib/teams/leave-view';
 	import { dateTile, lessonCounts, videoMeta } from '$lib/lessons/list';
 	import { t } from '$lib/i18n/catalog';
 	import type { LessonItem } from '$lib/types';
@@ -66,7 +66,7 @@
 				>
 				{#if draft}<Badge tone="warn" solid={current}>{t().lesson.list.draft}</Badge>{/if}
 				{#if isNew}<Badge tone="accent" solid={current}>{t().lesson.list.isNew}</Badge>{/if}
-				{#if lesson.copyOf}<Badge>{COPY_CHIP}</Badge>{/if}
+				{#if lesson.copyOf}<Badge>{copyChip()}</Badge>{/if}
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if lesson.twinned}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 			</span>

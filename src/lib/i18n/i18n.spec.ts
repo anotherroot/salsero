@@ -140,7 +140,12 @@ describe('requestLocale', () => {
 
 	it('signed in, the browser language does not count', () => {
 		expect(
-			requestLocale({ user: { locale: null }, cookie: undefined, invite: null, acceptLanguage: 'sl' })
+			requestLocale({
+				user: { locale: null },
+				cookie: undefined,
+				invite: null,
+				acceptLanguage: 'sl'
+			})
 		).toBe('en');
 	});
 
@@ -199,7 +204,8 @@ describe.each([
 	'comments',
 	'video',
 	'settings',
-	'player'
+	'player',
+	'groups'
 ] as const)('%s', (area) => {
 	it('has every English word in Slovenian, and none left in English', () => {
 		const en = leaves(catalogOf('en')[area]);

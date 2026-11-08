@@ -18,6 +18,8 @@ export const songs = {
 		yours: 'Your songs',
 		all: 'All songs A–Z'
 	},
+	/** A song row's badges (`SongRow`). */
+	row: { draft: 'Draft', isNew: 'New' },
 	sample: {
 		/** Under the song while its sample plays: "Sample from 1:04". */
 		from: (clock: string): string => `Sample from ${clock}`,

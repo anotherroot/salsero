@@ -35,12 +35,17 @@ const TAB_IDS: Record<Level, readonly Tab['id'][]> = {
 	all: ['today', 'moves', 'lessons', 'groups', 'music']
 };
 
+/** Whether the Groups tab is My class at this level (Follow my class): its name, not its route. */
+export function myClassTab(level: Level): boolean {
+	return level === 'follow';
+}
+
 /** `tabs()` filtered for a level, in that order. At Follow my class, Groups is "My class": same route and icon. */
 export function tabsFor(level: Level): readonly Tab[] {
 	return tabs()
 		.filter((tab) => TAB_IDS[level].includes(tab.id))
 		.map((tab) =>
-			level === 'follow' && tab.id === 'groups' ? { ...tab, label: t().shell.tabs.myClass } : tab
+			myClassTab(level) && tab.id === 'groups' ? { ...tab, label: t().shell.tabs.myClass } : tab
 		);
 }
 

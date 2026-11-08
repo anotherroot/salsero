@@ -22,9 +22,9 @@ describe('the group page in its pane', () => {
 		);
 		expect(snippet('space')).toContain('/[dance]/groups/[id]/storage');
 		// The member's own auto-add switch sits in the group's space too.
-		expect(snippet('space')).toContain('Add new lessons to Today automatically');
-		expect(snippet('lessons')).toContain('aria-label="Lessons"');
-		expect(snippet('songs')).toContain('aria-label="Class songs"');
+		expect(snippet('space')).toContain('label={w.autoAdd}');
+		expect(snippet('lessons')).toContain('aria-label={w.lessons}');
+		expect(snippet('songs')).toContain('aria-label={t().entry.classes.songs}');
 	});
 
 	it('keeps a deleted group one column', () => {
@@ -37,7 +37,7 @@ describe('the group page in its pane', () => {
 
 	it('opens the group menu and Rename as small dialogs, and New lesson, Add, Leave and Delete as before', () => {
 		expect(page).toMatch(/<Sheet title=\{data\.team\.name\} open=\{menu\}[^\n]*size="small">/);
-		expect(page).toMatch(/<Sheet title="Rename group"[^\n]*size="small">/);
+		expect(page).toMatch(/<Sheet title=\{w\.renameGroup\}[^\n]*size="small">/);
 		expect(page.match(/size="small"/g)).toHaveLength(2);
 		for (const tag of ['<NewLessonSheet', '<AddSheet', '<LeaveSheet', '<Dialog']) {
 			const start = page.indexOf(tag);

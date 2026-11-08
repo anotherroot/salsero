@@ -1,3 +1,4 @@
+import { t } from '$lib/i18n/catalog';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
 import { inviteQr } from '$lib/server/invites';
@@ -129,9 +130,10 @@ export const actions: Actions = {
 		const lesson = lessonId === undefined ? null : getLessonRow(db, lessonId);
 		const offer =
 			lesson && lesson.teamId === team.id ? addOffer(db, space.actorId, lesson.id) : null;
-		if (!lesson || !offer) return fail(404, { action: 'addNow', message: 'No such lesson' });
+		if (!lesson || !offer)
+			return fail(404, { action: 'addNow', message: t().groups.page.noLesson });
 		if (!addLesson(db, space.actorId, lesson.id, defaultPicks(offer), Date.now())) {
-			return fail(404, { action: 'addNow', message: 'No such lesson' });
+			return fail(404, { action: 'addNow', message: t().groups.page.noLesson });
 		}
 		return { action: 'addNow', ok: true };
 	},
@@ -140,10 +142,11 @@ export const actions: Actions = {
 	autoAdd: async ({ params, locals, request }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'member');
-		if (team.deletedAt !== null) return fail(404, { action: 'autoAdd', message: 'No such group' });
+		if (team.deletedAt !== null)
+			return fail(404, { action: 'autoAdd', message: t().groups.page.noGroup });
 		const on = (await request.formData()).get('on');
 		if (on !== '1' && on !== '0')
-			return fail(400, { action: 'autoAdd', message: 'Could not save.' });
+			return fail(400, { action: 'autoAdd', message: t().groups.page.couldNotSave });
 		setAutoAdd(db, space.actorId, team.id, on === '1');
 		return { action: 'autoAdd', ok: true };
 	},
@@ -174,16 +177,16 @@ export const actions: Actions = {
 		if (team.deletedAt !== null) throw error(404, 'No such group');
 		// What to keep comes from the leave sheet; no choice is no leaving.
 		const choice = readKeepChoice(await request.formData());
-		if (!choice) return fail(400, { action: 'leave', message: 'Choose what to keep.' });
+		if (!choice) return fail(400, { action: 'leave', message: t().groups.page.chooseKeep });
 		let left: 'left' | 'owner';
 		try {
 			left = await leaveTeam(db, team.id, space.actorId, choice, realCloneFiles(), Date.now());
 		} catch (err) {
 			console.error(`[groups] leaving group ${team.id} failed for ${space.actorId}`, err);
-			return fail(500, { action: 'leave', message: 'Could not keep your copies. Try again.' });
+			return fail(500, { action: 'leave', message: t().groups.page.keepFailed });
 		}
 		if (left === 'owner') {
-			return fail(400, { action: 'leave', message: 'Hand the group over before you leave it.' });
+			return fail(400, { action: 'leave', message: t().groups.page.handOverFirst });
 		}
 		throw redirect(303, `/${team.dance}/groups`);
 	},

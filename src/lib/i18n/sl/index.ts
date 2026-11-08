@@ -59,6 +59,7 @@ import { common } from './common';
 import { entry } from './entry';
 import { exercise } from './exercise';
 import { format } from './format';
+import { groups } from './groups';
 import { lesson } from './lesson';
 import { player } from './player';
 import { settings } from './settings';
@@ -80,5 +81,6 @@ export const sl: Catalog = {
 	lesson,
 	comments,
 	video,
-	player
+	player,
+	groups
 };

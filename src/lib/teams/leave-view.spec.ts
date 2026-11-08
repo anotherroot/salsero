@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	chooseButton,
-	COPY_CHIP,
+	copyChip,
 	copyMeta,
 	everythingMeta,
 	leaveSub,
@@ -9,9 +9,10 @@ import {
 	lockedMeta,
 	overLimitLine,
 	reconnectNote,
-	REMOVE_BODY,
+	removeBody,
 	usedMeta
 } from './leave-view';
+import { withLocale } from '$lib/i18n/current';
 import type { KeepPreview } from '$lib/types';
 
 const GB = 1024 ** 3;
@@ -31,15 +32,15 @@ const preview = (
 describe('leave lines', () => {
 	it('say the board’s words', () => {
 		expect(leaveTitle('Salsa Tuesdays')).toBe('Leave Salsa Tuesdays?');
-		expect(leaveSub).toBe(
+		expect(leaveSub()).toBe(
 			'After leaving you see nothing of the group. You keep copies of what you choose.'
 		);
-		expect(reconnectNote).toBe(
+		expect(reconnectNote()).toBe(
 			'What you keep becomes your copies. Rejoin later and they reconnect.'
 		);
 		expect(chooseButton(3)).toBe('Leave and keep 3');
-		expect(REMOVE_BODY).toBe('They leave the group and keep copies of what they had.');
-		expect(COPY_CHIP).toBe('Copy');
+		expect(removeBody()).toBe('They leave the group and keep copies of what they had.');
+		expect(copyChip()).toBe('Copy');
 		expect(copyMeta('Salsa Tuesdays')).toBe('Your copy · from Salsa Tuesdays');
 	});
 
@@ -75,5 +76,37 @@ describe('leave lines', () => {
 		expect(lockedMeta('1 recording', 'routine')).toBe('1 recording · used by your routine');
 		expect(lockedMeta('2 videos', 'lesson')).toBe('2 videos · used by your lesson');
 		expect(lockedMeta('', 'routine')).toBe('Used by your routine');
+	});
+});
+
+// Catches: the Leave sheet in English for a Slovenian member leaving a class, a
+// count not in its Slovenian form, a name declined, or "1,0 GB" left unstripped.
+describe('leave lines in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('ask and explain', () => {
+		expect(sl(() => leaveTitle('Salsa torek'))).toBe('Želite zapustiti »Salsa torek«?');
+		expect(sl(() => chooseButton(3))).toBe('Zapusti in obdrži 3');
+		expect(sl(() => copyMeta('Salsa torek'))).toBe('Vaša kopija · vir: Salsa torek');
+		expect(sl(leaveSub)).not.toBe(leaveSub());
+	});
+
+	it('count in four forms and say a whole gigabyte plainly', () => {
+		expect(sl(() => everythingMeta(preview({ lessons: 1, figures: 2, songs: 5 }, GB)))).toBe(
+			'1 lekcija, 2 različici, 5 skladb · 1 GB v vašem prostoru'
+		);
+		expect(sl(() => everythingMeta(preview({ routines: 3 }, 1.2 * GB)))).toBe(
+			'3 kombinacije · 1,2 GB v vašem prostoru'
+		);
+		expect(sl(() => overLimitLine(GB))).toContain('(1 GB)');
+		expect(sl(() => everythingMeta(preview({}, 0)))).toBe('Ni česa obdržati');
+	});
+
+	it('put the routine after a colon and lock a row', () => {
+		expect(sl(() => usedMeta(['Setenta', 'Dile que no'], 'Teden 4'))).toBe(
+			'Setenta in Dile que no · uporablja: Teden 4. Vse drugo izgine'
+		);
+		expect(sl(() => lockedMeta('2 videa', 'lesson'))).toBe('2 videa · v uporabi: vaša lekcija');
+		expect(sl(() => lockedMeta('', 'routine'))).toBe('V uporabi: vaša kombinacija');
 	});
 });

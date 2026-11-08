@@ -17,6 +17,8 @@ export const songs: Catalog['songs'] = {
 		yours: 'Vaše skladbe',
 		all: 'Vse skladbe A–Ž'
 	},
+	// Skladba is feminine: Nova.
+	row: { draft: 'Osnutek', isNew: 'Nova' },
 	sample: {
 		from: (clock) => `Odlomek od ${clock}`,
 		play: 'Predvajaj odlomek',

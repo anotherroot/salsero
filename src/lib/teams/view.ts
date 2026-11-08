@@ -8,7 +8,7 @@ import { MAKE_MINE } from '$lib/clones/view';
 import type { Level } from '$lib/levels/levels';
 
 export function roleLabel(role: Role): string {
-	return role === 'owner' ? 'Owner' : role === 'editor' ? 'Editor' : 'Member';
+	return t().groups.role[role];
 }
 
 export function peopleLine(n: number): string {
@@ -55,21 +55,24 @@ export function lessonNotice(
 
 /** The band's line under a group's people count. */
 export function youLine(role: Role): string {
-	return role === 'owner' ? 'you own it' : role === 'editor' ? 'you edit it' : 'you are a member';
+	return t().groups.you[role];
 }
 
 /** The pill on a group in the list: how many of its lessons and songs are new. */
 export function newPill(n: number): string | null {
-	return n > 0 ? `${n} new` : null;
+	return n > 0 ? t().groups.newPill(n) : null;
 }
 
 /**
- * The Groups tab's accessible name: it says so when something is new. `label`
- * is the tab's own word: "My class" at Follow my class (`tabsFor`).
+ * The Groups tab's accessible name: it says so when something is new. `myClass`:
+ * the tab is My class (Follow my class, `myClassTab` in levels.ts), named by its
+ * own word.
  */
-export function groupsTabLabel(isNew: boolean, label = 'Groups'): string {
-	if (!isNew) return label;
-	return label === 'Groups' ? 'Groups, new in your groups' : `${label}, something new`;
+export function groupsTabLabel(isNew: boolean, myClass = false): string {
+	const w = t();
+	if (myClass)
+		return isNew ? w.shell.tabs.myClass + w.entry.classes.somethingNew : w.shell.tabs.myClass;
+	return isNew ? w.groups.tabNew : w.shell.tabs.groups;
 }
 
 export function limitLine(n: number): string {
@@ -118,7 +121,7 @@ export const MY_CLASS = {
 };
 
 /** The toast after a one-tap Add in My class; its action is Undo. */
-export const ADDED_TO_TODAY = 'Added to Today';
+export const addedToToday = (): string => t().groups.page.addedToToday;
 
 /**
  * My class: the newest published class (the big card) and the rest, newest

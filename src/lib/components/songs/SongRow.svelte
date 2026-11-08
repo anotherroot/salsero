@@ -8,6 +8,7 @@
 	import { TWINS_CHIP } from '$lib/clones/twins';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SampleButton from './SampleButton.svelte';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * A song in a list: the text part is the link; the sample button, or the
@@ -24,6 +25,7 @@
 		isNew = false,
 		twinned = false,
 		current = false,
+		onopen,
 		trailing
 	}: {
 		href: string;
@@ -40,6 +42,8 @@
 		twinned?: boolean;
 		/** The song open beside the list (desktop): tinted, and the link says so. */
 		current?: boolean;
+		/** A tap on the link, before it goes (My class records the song as opened). */
+		onopen?: () => void;
 		trailing?: Snippet;
 	} = $props();
 
@@ -55,21 +59,26 @@
 	class:bg-accent-soft={current}
 >
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
-	<a {href} aria-current={lit} class="flex min-w-0 flex-1 flex-col gap-0.5 py-[9px]">
+	<a
+		{href}
+		aria-current={lit}
+		onclick={onopen}
+		class="flex min-w-0 flex-1 flex-col gap-0.5 py-[9px]"
+	>
 		<span class="flex min-w-0 items-center gap-2">
 			<span class="truncate text-[16px] leading-[1.3] font-bold text-ink"
 				>{#each segs as seg, i (i)}{#if seg.hit}<mark
 							class="rounded bg-accent-soft px-px font-extrabold text-accent-text">{seg.text}</mark
 						>{:else}{seg.text}{/if}{/each}</span
 			>
-			{#if draft}<Badge tone="warn">Draft</Badge>{/if}
-			{#if isNew}<Badge tone="accent">New</Badge>{/if}
+			{#if draft}<Badge tone="warn">{t().songs.row.draft}</Badge>{/if}
+			{#if isNew}<Badge tone="accent">{t().songs.row.isNew}</Badge>{/if}
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 			{#if twinned}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 		</span>
 		{#if sampled && sample}
 			<span class="truncate text-[13px] leading-[1.35] font-bold text-accent-text"
-				>Sample from {clock(sample.startS)}</span
+				>{t().songs.sample.from(clock(sample.startS))}</span
 			>
 		{:else}
 			<span
