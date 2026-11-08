@@ -15,9 +15,11 @@
 	import ClassCodeField from '$lib/components/teams/ClassCodeField.svelte';
 	import GroupList from '$lib/components/teams/GroupList.svelte';
 	import ClassList from '$lib/components/teams/ClassList.svelte';
-	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
+	import { FIELD, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { MY_CLASS, PICK_GROUP } from '$lib/teams/view';
-	import { canMakeGroup, levelShown, type Level } from '$lib/levels/levels';
+	import { canMakeGroup, levelShown, youPath, type Level } from '$lib/levels/levels';
+	import { fullName } from '$lib/names';
+	import YouSettings from '$lib/components/settings/YouSettings.svelte';
 
 	/*
 	 * Groups: the list and the group beside it (desktop spec, "A list and the
@@ -46,9 +48,15 @@
 	const classCount = $derived(data.teams.filter((t) => t.deletedAt === null).length);
 	const oneClass = $derived(myClass !== null && classCount === 1 && !isList);
 	const empty = $derived(myClass ? classCount === 0 : data.teams.length === 0);
-	const title = $derived(myClass ? MY_CLASS.title : 'Groups');
+	// Above Follow my class the phone's tab is You: the groups, then the settings
+	// (`you`); the desktop keeps Groups, with Settings in the side.
+	const you = $derived(data.you);
+	const title = $derived(myClass ? MY_CLASS.title : 'You');
+	const deskTitle = $derived(myClass ? undefined : 'Groups');
+	const user = $derived(page.data.user);
+	const deskSubtitle = $derived(myClass ? undefined : 'Share lessons with a class');
 	const subtitle = $derived.by(() => {
-		if (!myClass) return 'Share lessons with a class';
+		if (!myClass) return user ? fullName(user) : undefined;
 		return classCount > 1 ? MY_CLASS.classes : undefined;
 	});
 
@@ -95,6 +103,7 @@
 			{joinAction}
 		/>
 	{:else}
+		{#if you}<h2 class="{SECTION_LABEL} desk:hidden">Groups</h2>{/if}
 		<GroupList
 			teams={data.teams}
 			dance={data.dance.slug}
@@ -104,6 +113,16 @@
 			onjoin={joining ? () => (codeOpen = true) : undefined}
 			{joinAction}
 		/>
+		{#if you}
+			<!-- The phone's You: the settings under the groups. The desktop has Settings in the side. -->
+			<div class="contents desk:hidden">
+				<YouSettings
+					settings={you}
+					theme={page.data.theme}
+					from={youPath(level, data.dance.slug)}
+				/>
+			</div>
+		{/if}
 	{/if}
 {/snippet}
 
@@ -117,7 +136,9 @@
 {#if l && !oneClass}
 	<ListPane
 		{title}
+		{deskTitle}
 		{subtitle}
+		{deskSubtitle}
 		{isList}
 		solo={isList && empty}
 		soloWidth="narrow"

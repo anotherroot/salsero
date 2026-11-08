@@ -93,6 +93,8 @@ describe('sideLit', () => {
 		expect(sideLit('/settings', 'salsa')).toBe('settings');
 		expect(sideLit('/voice', 'salsa')).toBe('settings');
 		expect(sideLit('/admin', 'salsa')).toBe('settings');
+		// The side has no You: the You page's settings are Settings'.
+		expect(sideLit('/salsa/you', 'salsa')).toBe('settings');
 		expect(sideLit('/bachata', 'salsa')).toBeNull();
 	});
 });

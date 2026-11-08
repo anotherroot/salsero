@@ -33,7 +33,7 @@
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
-	import { LEVEL_WORDS, fewSettings, levelShown, type Level } from '$lib/levels/levels';
+	import { LEVEL_WORDS, fewSettings, levelShown, youPath, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
@@ -151,7 +151,7 @@
 <Screen title="Settings">
 	{#snippet left()}
 		<span class="contents desk:hidden" data-desk-hidden>
-			<BandButton icon="back" label="Back to Today" href={`/${data.dance}`} />
+			<BandButton icon="back" label="Back to You" href={youPath(level, data.dance)} />
 		</span>
 	{/snippet}
 

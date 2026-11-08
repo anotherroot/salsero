@@ -25,3 +25,4 @@
 /admin
 /app
 /{dance}/does-not-exist
+/{dance}/you

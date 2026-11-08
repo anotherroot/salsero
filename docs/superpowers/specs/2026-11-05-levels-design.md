@@ -140,11 +140,23 @@ The class code field is new: today a group is joined only through the
 
 ## Tabs per level
 
-`TABS` stays the list of five; `tabsFor(level)` filters it, and My class
-replaces Groups at Follow my class: same route (`/[dance]/groups`), same icon,
-the label "My class". Everything that reads `TABS` reads `tabsFor(level)`
-instead: `BottomNav`, `Side`, `tabTargets`, `error-view.ts`'s fallback. The
-Groups dot (`groupsNew`) shows on My class.
+`TABS` is the list of every tab (Today, Moves, Lessons, Music, Groups, You);
+`tabsFor(level)` filters it for the phone's bar. Above Follow my class the Groups
+tab is You (the person icon, the label "You"): the groups, then a short list of
+settings (2026-11-07, so Settings is one tab away from anywhere). At Follow my class
+Groups is My class (same route `/[dance]/groups`, same icon, the label "My class")
+and You is a tab of its own, `/[dance]/you`, the settings alone:
+
+| Level | Phone tabs |
+|---|---|
+| Everything | Today · Moves · Lessons · Music · You |
+| Practise and keep my own | Today · Lessons · Music · You |
+| Follow my class | Today · My class · You |
+
+The desktop side reads `sideTabsFor(level)`: the same without You, Groups keeping
+its name and icon, Settings at its foot (`/[dance]/you` lights Settings there).
+`BottomNav`, `tabTargets` and `error-view.ts`'s fallback read `tabsFor`. The Groups
+dot (`groupsNew`) shows on You, and on My class at Follow my class.
 
 A page whose tab is hidden lights no tab, except a class's (group's) lesson at
 Follow my class, which lights My class (`litAt`, ruling R13); a person's own
@@ -349,6 +361,11 @@ At Follow my class, Settings shows only: How much app?, Exercises a day, the
 daily reminder, theme, name, paired phones, sign out, and for the admin the
 Admin row (their only way to `/admin`, kept at every level). (Storage, the
 count voice, Get the app and the app's version row are not drawn.)
+
+You (`YouSettings.svelte`) carries the rows changed most: How much app?, Exercises
+a day, My count (not at Follow my class, as above), Theme and the daily reminder,
+each posting to Settings' own actions, then All settings. Settings' ‹ goes back
+to You (`youPath`), and so does My count's when opened from You.
 
 ## Desktop
 

@@ -40,10 +40,11 @@ describe('list routes keep their document title', () => {
 		});
 	}
 
-	// At Follow my class the Groups tab is My class, and so is its title.
-	it('Groups: the title is My class at Follow my class', () => {
+	// At Follow my class the Groups tab is My class, and so is its title; above it
+	// the phone's tab is You and the desktop's Groups, and so is the title.
+	it('Groups: the title is My class at Follow my class, else You or Groups', () => {
 		expect(read('./groups/+page.svelte')).toContain(
-			"const title = $derived(data.myClass ? MY_CLASS.title : 'Groups');"
+			"const title = $derived(data.myClass ? MY_CLASS.title : desk.current ? 'Groups' : 'You');"
 		);
 	});
 });

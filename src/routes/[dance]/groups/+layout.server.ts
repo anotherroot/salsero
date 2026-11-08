@@ -2,6 +2,7 @@ import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
 import { myClassOf, teamsWithNew } from '$lib/server/my-class';
 import { levelShown } from '$lib/levels/levels';
+import { youSettingsOf } from '$lib/server/you';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -14,12 +15,18 @@ import type { LayoutServerLoad } from './$types';
  *
  * At Follow my class the tab is My class (`myClass`): each class's last class
  * day for the list of classes (an account belongs to one dance, so only this
- * dance's classes).
+ * dance's classes). Above it the tab is You on the phone: the list, then the
+ * settings rows (`you`).
  */
 export const load: LayoutServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
 	const teams = teamsWithNew(db, wall);
-	if (levelShown(locals.user!.level) !== 'follow') return { teams, myClass: null };
-	return { teams, myClass: myClassOf(db, wall, teams, locals.user!.timezone, Date.now()) };
+	if (levelShown(locals.user!.level) !== 'follow')
+		return { teams, myClass: null, you: youSettingsOf(db, wall.userId) };
+	return {
+		teams,
+		myClass: myClassOf(db, wall, teams, locals.user!.timezone, Date.now()),
+		you: null
+	};
 };
