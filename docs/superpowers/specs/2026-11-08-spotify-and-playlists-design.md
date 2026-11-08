@@ -1,6 +1,6 @@
 # Spotify links and playlists — design
 
-2026-11-08. Status: agreed in conversation. Plan 1 (Spotify songs) built; plan 2 (playlists) not yet.
+2026-11-08. Status: agreed in conversation; plans 1 (Spotify songs) and 2 (playlists) built.
 
 ## Why
 
@@ -302,3 +302,17 @@ Nothing new is drawn at Follow my class, which has no Music tab.
 - The mockups for every screen, and the pick list as A2 with a style per
   song. (user, 2026-11-08)
 - Everything marked "My call" above is the designer's, for the user to check.
+
+## Decided while building (plan 2)
+
+- Select all ticks every song but the already added; those can still be ticked by hand.
+- A group's read list also shows under To pick in its editors' own Music, named by its group,
+  so the dot always points at a row; reading and failed group lists show in group mode only.
+- "Being added · N" counts a list being read or failed; the A–Z count is songs only.
+- Cancel and Dismiss are one action; finished imports are kept, so a second Add is refused.
+- Spotify's embed page lists at most 100 songs and gives no total: a list of exactly 100 shows
+  "Only the first 100 songs of the list were read."
+- A list link hides the box's Title and Style: each song gets its own on the pick list.
+- New audio also clears a song's sections and music start (from master's song page work):
+  they are seconds of the old recording, like the count.
+
