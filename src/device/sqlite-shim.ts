@@ -20,7 +20,9 @@ export async function initDeviceSqlite(opts: { locateFile?: (f: string) => strin
 /** Install the `opfs-sahpool` VFS (browser worker only). Files opened by path go there. */
 export async function openPool(name: string): Promise<PoolUtil> {
 	if (!sqlite3) throw new Error('initDeviceSqlite first');
-	pool = await sqlite3.installOpfsSAHPoolVfs({ name });
+	// By default a failed install deletes the whole pool (`removeVfs`), the copy with it:
+	// a failure must leave the database where it is.
+	pool = await sqlite3.installOpfsSAHPoolVfs({ name, preserveOnInitFailure: true });
 	return pool;
 }
 

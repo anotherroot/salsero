@@ -70,7 +70,6 @@ describe('deviceAnswers', () => {
 		expect(deviceAnswers('GET', u('/salsa/groups/3/people/__data.json'))).toBe(false);
 		expect(deviceAnswers('GET', u('/admin/__data.json'))).toBe(false);
 		expect(deviceAnswers('GET', u('/g/abc/__data.json'))).toBe(false);
-		expect(deviceAnswers('GET', u('/salsa/group-mode/__data.json'))).toBe(false);
 	});
 	it('does not answer a write', () => {
 		expect(deviceAnswers('POST', u('/salsa/figures?/create'))).toBe(false);

@@ -21,8 +21,6 @@ export function routePattern(routeId: string): RegExp {
 	return new RegExp(`^${body === '' ? '/?' : body}/?$`);
 }
 
-const DANCE = '/[' + 'dance]';
-
 /** Pages the device never answers: they need the server (accounts, storage, group admin, sign-in). */
 export const NETWORK_PAGES = [
 	'/admin',
@@ -37,9 +35,7 @@ export const NETWORK_PAGES = [
 	'/[dance]/groups/[id]/people',
 	'/[dance]/groups/[id]/storage',
 	'/welcome',
-	'/dev/kit',
-	// Built, not written out: route-ids.spec scans for literals and group-mode has only a +page.server.ts.
-	`${DANCE}/group-mode`
+	'/dev/kit'
 ];
 
 /** GET endpoints answerable from synced rows. */
