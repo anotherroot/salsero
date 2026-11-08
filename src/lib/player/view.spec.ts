@@ -354,7 +354,7 @@ describe('the Practice page in Slovenian', () => {
 	});
 
 	it('goes back to an opener by its own name, after a colon', () => {
-		const p = { dance: 'salsa', from: null, routine: null, exercise: null } as const;
+		const p = { dance: 'salsa', from: null, routine: null, exercise: null, run: null } as const;
 		expect(sl(() => practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } }).label)).toBe(
 			'Nazaj: Vivir mi vida'
 		);
