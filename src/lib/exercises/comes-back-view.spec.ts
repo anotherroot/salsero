@@ -38,8 +38,8 @@ describe('comes back words', () => {
 });
 
 describe('postedFields', () => {
+	/** An untouched card, as each kind of row opens it. */
 	const base: ComesBackChoice = {
-		following: false,
 		touched: false,
 		useTeacher: false,
 		mode: 'faces',
@@ -47,35 +47,42 @@ describe('postedFields', () => {
 		good: 3,
 		every: 1
 	};
-	it("posts nothing for an entry following its teacher's setting until it is touched", () => {
-		expect(postedFields({ ...base, following: true, mode: 'every', every: 7 })).toEqual({});
-		expect(postedFields({ ...base, following: true, until: true })).toEqual({});
+	const touched: ComesBackChoice = { ...base, touched: true };
+	it('posts nothing for an entry whose class drill has no setting (or an unreadable one)', () => {
+		// The card shows the faces; saving the notes must not make them the member's own.
+		expect(postedFields(base)).toEqual({});
 	});
-	it('posts the chosen setting once a following entry is touched', () => {
-		expect(
-			postedFields({ ...base, following: true, touched: true, mode: 'every', every: 2 })
-		).toEqual({
+	it("posts nothing for an entry following its teacher's setting", () => {
+		expect(postedFields({ ...base, mode: 'every', every: 7 })).toEqual({});
+		expect(postedFields({ ...base, until: true })).toEqual({});
+	});
+	it('posts nothing for an untouched own drill, group drill or New exercise', () => {
+		expect(postedFields({ ...base, mode: 'every', every: 2 })).toEqual({});
+		expect(postedFields({ ...base, until: true, good: 5 })).toEqual({});
+		expect(postedFields(base)).toEqual({});
+	});
+	it('posts the chosen setting once touched', () => {
+		expect(postedFields({ ...touched, mode: 'every', every: 2 })).toEqual({
 			comesBack: 'every',
 			every: '2'
 		});
+		expect(postedFields(touched)).toEqual({ comesBack: 'faces' });
 	});
-	it("posts only the teacher marker for Use my teacher's, even if following and touched", () => {
-		expect(postedFields({ ...base, useTeacher: true, touched: true, mode: 'every' })).toEqual({
+	it("posts only the teacher marker for Use my teacher's, touched or not", () => {
+		expect(postedFields({ ...touched, useTeacher: true, mode: 'every' })).toEqual({
 			comesBack: 'teacher'
 		});
-	});
-	it('always posts a setting of its own', () => {
-		expect(postedFields(base)).toEqual({ comesBack: 'faces' });
+		expect(postedFields({ ...base, useTeacher: true })).toEqual({ comesBack: 'teacher' });
 	});
 	it('posts until and good only for faces with the switch on', () => {
-		expect(postedFields({ ...base, until: true, good: 5 })).toEqual({
+		expect(postedFields({ ...touched, until: true, good: 5 })).toEqual({
 			comesBack: 'faces',
 			until: 'on',
 			good: '5'
 		});
 	});
 	it('posts every without until or good', () => {
-		expect(postedFields({ ...base, mode: 'every', every: 3, until: true, good: 5 })).toEqual({
+		expect(postedFields({ ...touched, mode: 'every', every: 3, until: true, good: 5 })).toEqual({
 			comesBack: 'every',
 			every: '3'
 		});

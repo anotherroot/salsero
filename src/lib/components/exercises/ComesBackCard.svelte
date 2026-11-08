@@ -15,9 +15,9 @@
 	/**
 	 * Comes back: "By how it went" (with "Every day until it feels good"), or "On a
 	 * fixed rhythm". It posts hidden `comesBack`, `until`, `good` and `every` (the
-	 * fields `readComesBack` reads); the radios and chips carry no form names. An
-	 * entry that follows its class drill posts nothing until the person changes
-	 * something, so saving the notes never turns the teacher's setting into theirs.
+	 * fields `readComesBack` reads); the radios and chips carry no form names. It
+	 * posts nothing until the person changes something, so saving the notes never
+	 * turns what it shows (the teacher's, or the faces) into the row's own.
 	 */
 	interface Props {
 		/** What it shows selected: its own, else the class drill's, else the faces. */
@@ -45,11 +45,8 @@
 	let touched = $state(false);
 	let useTeacher = $state(false);
 
-	const following = $derived(own === null && teacher !== null);
 	const posted = $derived(
-		Object.entries(
-			postedFields({ following, touched, useTeacher, mode, until, good: goodDays, every: days })
-		)
+		Object.entries(postedFields({ touched, useTeacher, mode, until, good: goodDays, every: days }))
 	);
 	/** Their own and a class drill's both exist: the way back to the teacher's. */
 	const canUseTeacher = $derived(own !== null && teacher !== null);

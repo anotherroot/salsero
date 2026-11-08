@@ -41,8 +41,7 @@ export interface ComesSettings {
 
 /** What the card has chosen so far (its own state, not the stored setting). */
 export interface ComesBackChoice {
-	/** An entry on its class drill's setting, with none of its own: it posts nothing until touched. */
-	following: boolean;
+	/** The person changed something on the card. */
 	touched: boolean;
 	useTeacher: boolean;
 	mode: 'faces' | 'every';
@@ -52,13 +51,14 @@ export interface ComesBackChoice {
 }
 
 /**
- * The form fields the card posts (the ones `readComesBack` reads). An entry that
- * follows its teacher and was not touched posts none, so saving something else
- * never copies the teacher's setting into the member's own.
+ * The form fields the card posts (the ones `readComesBack` reads). An untouched card
+ * posts none, for every row, so saving something else keeps what is stored: an
+ * entry keeps following its class drill (even one with no setting yet), and a row
+ * with none stays null (a group drill's `seen` does not change under another editor).
  */
 export function postedFields(c: ComesBackChoice): Record<string, string> {
 	if (c.useTeacher) return { comesBack: 'teacher' };
-	if (c.following && !c.touched) return {};
+	if (!c.touched) return {};
 	if (c.mode === 'every') return { comesBack: 'every', every: String(c.every) };
 	if (c.until) return { comesBack: 'faces', until: 'on', good: String(c.good) };
 	return { comesBack: 'faces' };

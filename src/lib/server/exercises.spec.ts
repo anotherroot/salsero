@@ -18,6 +18,8 @@ import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
 import { FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { readComesBack } from './comes-back-form';
+import { scheduleStateOf } from './schedule';
 
 let db: Db;
 beforeEach(() => {
@@ -304,6 +306,32 @@ describe('updateExercise: warm-up and comes back', () => {
 			comesBack: 'teacher'
 		});
 		expect(stored(c.entry).comesBack).toBeNull();
+	});
+
+	it("keeps an entry on its teacher's setting through a save that posts no comes-back fields", () => {
+		const c = makeClass(db);
+		// The class drill's setting is unreadable: the card shows the faces, untouched.
+		db.update(exercises).set({ comesBack: 'junk' }).where(eq(exercises.id, c.drill)).run();
+		const form = new FormData();
+		form.set('name', 'Shines');
+		form.set('notes', 'my notes');
+		const comesBack = readComesBack(form, null, CLASS_T);
+		expect(comesBack).toBeUndefined();
+		updateExercise(db, c.entry, { name: 'Shines', notes: 'my notes', active: true, comesBack });
+		expect(stored(c.entry).comesBack).toBeNull();
+		expect(scheduleStateOf(db, c.entry, 'Europe/Ljubljana').every).toBeNull();
+
+		// The teacher sets a rhythm later: it reaches the member's entry.
+		updateExercise(
+			db,
+			c.drill,
+			{ name: 'Shines', notes: null, active: true, comesBack: { kind: 'every', days: 7 } },
+			'u2'
+		);
+		expect(scheduleStateOf(db, c.entry, 'Europe/Ljubljana').every).toBe(7);
+		expect(
+			listExercises(db, { userId: 'u3', dance: 'salsa' }).find((e) => e.id === c.entry)!.comesBack
+		).toEqual({ kind: 'every', days: 7 });
 	});
 
 	it("takes a member's entry warm-up (the person's own row)", () => {
