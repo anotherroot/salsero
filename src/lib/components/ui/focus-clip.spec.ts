@@ -10,11 +10,6 @@ import { describe, expect, it } from 'vitest';
 const CLIPS = /\boverflow-(hidden|clip)\b/;
 
 const ALLOWED: [file: string, line: string, why: string][] = [
-	[
-		'src/lib/components/player/RunLayer.svelte',
-		'run-layer',
-		'the desktop layer rounds its top-left corner; its controls sit 16 px in'
-	],
 	['src/lib/components/shell/NavProgress.svelte', 'overflow-hidden', 'a bar, nothing inside'],
 	['src/lib/components/ui/UploadCard.svelte', 'h-1.5 overflow-hidden', 'progress track'],
 	['src/lib/components/songs/UploadRow.svelte', 'h-1.5 overflow-hidden', 'progress track'],

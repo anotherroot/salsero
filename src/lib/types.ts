@@ -265,6 +265,8 @@ export interface SongGrid {
 	counts: number[];
 	/** Where the music starts: a player seeks here before playing from 0:00 (`playFrom`, `$lib/songs/music-start`). */
 	startS: number;
+	/** The song's sections as stored (raw seconds, `$lib/songs/sections`): the player keeps count-off ones quiet. */
+	sections: { at: number; name: string; countOff: boolean }[];
 }
 
 /**
