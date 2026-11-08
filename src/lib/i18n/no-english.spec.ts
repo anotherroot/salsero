@@ -234,7 +234,14 @@ const TRANSLATED: string[] = [
 	'src/lib/components/clones/KeepInStep.svelte',
 	'src/lib/components/clones/MakeMineSheet.svelte',
 	'src/lib/components/clones/SyncNotice.svelte',
-	'src/lib/components/clones/SyncSheet.svelte'
+	'src/lib/components/clones/SyncSheet.svelte',
+	// Copy to…, Move to…, Same as…, Versions and the ⋯ menu (part 2, Task 12).
+	'src/lib/components/clones/CopyToSheet.svelte',
+	'src/lib/components/clones/ItemMenu.svelte',
+	'src/lib/components/clones/MoveToSheet.svelte',
+	'src/lib/components/clones/SameAsSheet.svelte',
+	'src/lib/components/clones/Versions.svelte',
+	'src/lib/components/clones/VersionsSheet.svelte'
 ];
 
 describe('englishIn', () => {

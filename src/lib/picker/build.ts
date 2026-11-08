@@ -7,7 +7,7 @@
  */
 import { dateLabel } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
-import { moveHeading, possessive, usedAsIs } from '$lib/clones/view';
+import { moveHeading, usedAsIs } from '$lib/clones/view';
 import { twinPickMeta } from '$lib/clones/twins';
 import { spotLabel } from '$lib/video/spots';
 import { holdLine } from '$lib/positions/hold';
@@ -324,7 +324,7 @@ export function positionGroups(
 	const theirs: PickGroup[] = groups.map((g) => {
 		const theirTags = positionTags(g.rows);
 		return {
-			title: possessive(g.team.name),
+			title: t().clones.groupRows(g.team.name),
 			entries: g.rows.map((p) => ({
 				key: `position:${p.id}`,
 				value: p.id,

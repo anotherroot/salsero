@@ -19,7 +19,7 @@ import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
 import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
 import { moveLesson, movePreview } from './clones/move';
-import { MOVE_GONE, SAME_AS_FAILED } from '$lib/clones/view';
+import { moveGone, sameAsFailed } from '$lib/clones/view';
 import { ints } from './form';
 import { separateFamily, setTwins } from './twins';
 import { placeOfRow } from './clones/genes';
@@ -334,7 +334,7 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 		case 'name':
 			return fail(409, { action: 'move' as const, message: res.message });
 		case 'denied':
-			return fail(409, { action: 'move' as const, message: MOVE_GONE });
+			return fail(409, { action: 'move' as const, message: moveGone() });
 	}
 }
 
@@ -342,7 +342,7 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 export async function sameAsFrom(db: Db, wall: Wall, kind: TwinKind, id: number, request: Request) {
 	const form = await request.formData();
 	if (!setTwins(db, wall, kind, id, ints(form, 'twin')))
-		return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+		return fail(400, { action: 'sameAs', message: sameAsFailed() });
 	return { action: 'sameAs' };
 }
 

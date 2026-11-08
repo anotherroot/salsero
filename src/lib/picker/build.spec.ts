@@ -656,4 +656,20 @@ describe('the builders’ words in Slovenian', () => {
 		);
 		expect(out.map((g) => g.title)).toEqual(['Različice', 'Vaje', 'Položaji']);
 	});
+	it('heads a group’s positions with its name after a colon, never a possessive', () => {
+		const p = (id: number, teamId: number | null) => ({
+			id,
+			name: `P${id}`,
+			styleTag: null,
+			hold: { hands: null, crossed: null, facing: null, frame: null },
+			teamId,
+			archived: false
+		});
+		const out = sl(() =>
+			positionGroups([p(1, null)], null, () => 'Drugo', [
+				{ team: { id: 7, name: 'Salsa Tuesdays' }, rows: [p(20, 7)] }
+			])
+		);
+		expect(out.at(-1)?.title).toBe('Skupina: Salsa Tuesdays');
+	});
 });

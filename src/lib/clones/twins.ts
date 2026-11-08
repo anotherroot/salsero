@@ -9,10 +9,10 @@
  * no twins, so its callers never ask.
  */
 import type { MoveRow, TeamRef, TwinNote } from '$lib/types';
-import { possessive } from './view';
+import { t } from '$lib/i18n/catalog';
 
 /** The chip on a row that stands for its twins. */
-export const TWINS_CHIP = 'Twins';
+export const twinsChip = (): string => t().clones.twins.chip;
 
 /**
  * The member a set is shown as: the person's own first (`team` null), then
@@ -203,14 +203,11 @@ export function foldSongs<R extends { id: number; status: string }>(
  * A twinned picker row's meta: "Yours, twin of Salsa Tuesdays’ Básica · yours
  * is used"; without the person's own member, "Salsa Tuesdays’, twin of Rueda
  * club’s Doble · Salsa Tuesdays’ is used". `theirs` names the twins behind the
- * row as their places say them ("Salsa Tuesdays’ Básica"); when `mine` is
- * false, the first entry is the used row's group, by its name.
+ * row as their places say them (`named`: "Salsa Tuesdays’ Básica"); when `mine`
+ * is false, the first entry is the used row's group, by its name.
  */
 export function twinUseMeta(theirs: string[], mine: boolean): string {
-	if (mine) return `Yours, twin of ${theirs.join(', ')} · yours is used`;
-	const [used, ...rest] = theirs;
-	const whose = possessive(used);
-	return `${whose}, twin of ${rest.join(', ')} · ${whose} is used`;
+	return t().clones.twins.useMeta(theirs, mine);
 }
 
 /**
@@ -222,11 +219,12 @@ export function twinPickMeta(
 	row: { figure: string | null; team?: TeamRef | null },
 	twins: TwinNote[]
 ): string {
-	const names = twins.map((t) => {
+	const named = t().clones.twins.named;
+	const names = twins.map((tw) => {
 		// Routines, lessons and songs have no move above them: just the name.
 		const what =
-			row.figure === null || t.figure === row.figure ? t.name : `${t.figure} · ${t.name}`;
-		return t.team ? `${possessive(t.team.name)} ${what}` : `your ${what}`;
+			row.figure === null || tw.figure === row.figure ? tw.name : `${tw.figure} · ${tw.name}`;
+		return named(what, tw.team ? tw.team.name : null);
 	});
 	return row.team ? twinUseMeta([row.team.name, ...names], false) : twinUseMeta(names, true);
 }

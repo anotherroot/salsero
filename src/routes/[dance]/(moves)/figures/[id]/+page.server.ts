@@ -86,7 +86,7 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
-import { alreadyInYours, recordingGone, SAME_AS_FAILED } from '$lib/clones/view';
+import { alreadyInYours, recordingGone, sameAsFailed } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
 import { t } from '$lib/i18n/catalog';
 import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
@@ -759,7 +759,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const { figure } = variationOf(params, locals, 'read');
 		const form = await request.formData();
 		if (!setTwins(getDb(), wallOf(params, locals), 'figure', figure.id, ints(form, 'twin')))
-			return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+			return fail(400, { action: 'sameAs', message: sameAsFailed() });
 		return { action: 'sameAs' };
 	},
 

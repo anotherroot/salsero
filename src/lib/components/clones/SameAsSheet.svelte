@@ -10,9 +10,9 @@
 	import { fold } from '$lib/fold';
 	import {
 		cancelLabel,
-		MARK_SAME,
+		markSame,
 		sameAsEmpty,
-		SAME_AS_FAILED,
+		sameAsFailed,
 		sameAsSearch,
 		sameAsTitle,
 		twinChoiceLabel,
@@ -113,7 +113,7 @@
 							onclose();
 							await refreshWhenSettled();
 						} else {
-							refused = SAME_AS_FAILED;
+							refused = sameAsFailed();
 						}
 					} finally {
 						busy = false;
@@ -132,7 +132,7 @@
 				disabled={busy || !changed}
 				aria-busy={busy}
 			>
-				{#if busy}<Spinner />{:else}<Icon name="check" size={20} />{MARK_SAME}{/if}
+				{#if busy}<Spinner />{:else}<Icon name="check" size={20} />{markSame()}{/if}
 			</button>
 		</form>
 	{/snippet}

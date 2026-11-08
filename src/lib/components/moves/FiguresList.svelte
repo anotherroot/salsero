@@ -35,7 +35,7 @@
 	} from '$lib/moves/figures';
 	import { figuresView, parseFigureFilter, type FiguresLists } from '$lib/moves/filter';
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
-	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { twinsChip } from '$lib/clones/twins';
 	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
 	import { t } from '$lib/i18n/catalog';
 	import { presetLine, withoutPreset } from '$lib/positions/view';
@@ -230,7 +230,7 @@
 					>{f.name}{#if tag}<span class="ml-1 font-normal text-muted">{tag}</span>{/if}</span
 				>
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
-				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
 			</span>
 			<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
 			<span class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted">

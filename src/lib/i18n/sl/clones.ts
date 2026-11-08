@@ -1,8 +1,11 @@
 // Copies: Make it mine, the sources, Sync, Samodejno usklajevanje (Keep in step),
-// Drop and Detach. A place (a group, "Sreda 17:30") is a name: it stands before
-// a "·" or after a colon, never inside a phrase that would decline it, and no
-// past tense agrees with it ("Sreda 17:30 · spremenjeno: opombe"). The person's
-// own copy is »vaša kopija«; Sync is »Uskladi«.
+// Drop, Detach, Copy to…, Move to…, twins, Versions and the ⋯ menu. A place (a
+// group, "Sreda 17:30") is a name: it stands before a "·" or after a colon, never
+// inside a phrase that would decline it, and no past tense agrees with it
+// ("Sreda 17:30 · spremenjeno: opombe"). The person's own copy is »vaša kopija«;
+// Sync is »Uskladi«. "Version" (a member of a family) is »kopija«, never
+// »različica«: that word is a figure. No possessive of a name: "Salsa Tuesdays’"
+// is »Skupina: Salsa Tuesdays« or »· Salsa Tuesdays«.
 import type { Catalog } from '../catalog';
 import type { CloneKind } from '$lib/types';
 import { slCount, slForm } from '../plural';
@@ -24,6 +27,50 @@ const KIND: Record<CloneKind, string> = {
 	position: 'položaj'
 };
 const capital = (s: string) => `${s[0].toUpperCase()}${s.slice(1)}`;
+
+/** "Twins show as one …": a kind, one of it, in the nominative. */
+const ONE: Record<CloneKind, string> = {
+	figure: 'ena različica',
+	routine: 'ena kombinacija',
+	drill: 'ena vaja',
+	song: 'ena skladba',
+	lesson: 'ena lekcija',
+	position: 'en položaj'
+};
+
+/** "Iščite med svojimi …": a kind's plural in the instrumental. */
+const AMONG: Record<CloneKind, string> = {
+	figure: 'različicami',
+	routine: 'kombinacijami',
+	drill: 'vajami',
+	song: 'skladbami',
+	lesson: 'lekcijami',
+	position: 'položaji'
+};
+
+/** "No other … match.": the subject agrees with its kind. */
+const NONE_OTHER: Record<CloneKind, string> = {
+	figure: 'Nobena druga različica ne ustreza.',
+	routine: 'Nobena druga kombinacija ne ustreza.',
+	drill: 'Nobena druga vaja ne ustreza.',
+	song: 'Nobena druga skladba ne ustreza.',
+	lesson: 'Nobena druga lekcija ne ustreza.',
+	position: 'Noben drug položaj ne ustreza.'
+};
+
+/** "Meni …": a kind in the genitive. */
+const OF_KIND: Record<CloneKind, string> = {
+	figure: 'različice',
+	routine: 'kombinacije',
+	drill: 'vaje',
+	song: 'skladbe',
+	lesson: 'lekcije',
+	position: 'položaja'
+};
+
+/** A verb before a count agrees with it: 1 uporablja, 2 uporabljata, 3–4 uporabljajo, 5+ uporablja. */
+const uses = (n: number): string =>
+	({ one: 'Uporablja', two: 'Uporabljata', few: 'Uporabljajo', other: 'Uporablja' })[slForm(n)];
 
 /** A noun without a number, by how many names follow it: kombinacija, kombinaciji, kombinacije. */
 const named = (n: number, forms: [one: string, two: string, many: string]) =>
@@ -237,5 +284,123 @@ export const clones: Catalog['clones'] = {
 		off: 'Brez samodejnega usklajevanja',
 		on: 'Samodejno usklajevanje',
 		onWith: (options) => `Samodejno usklajevanje · ${options}`
-	}
+	},
+	versions: {
+		title: 'Kopije',
+		count: 'Kopije:',
+		yours: 'Vaša kopija',
+		familyTitle: 'Kopije, ki jih vidite',
+		thisOne: 'Ta kopija',
+		yourVersion: 'Vaša kopija',
+		placeVersion: (place) => `Kopija · ${place}`,
+		also: (others) => `Tudi: ${others}`,
+		twin: 'Označeno kot enako',
+		// The chips speak of the copy (»kopija«): feminine.
+		chip: { behind: 'Zaostaja', newer: 'Novejša', differs: 'Razlikuje se' },
+		role: { owner: 'Vodja', editor: 'Lahko ureja', member: 'Lahko bere' },
+		behind: (pageMine, what) => `zaostaja za ${pageMine ? 'vašo kopijo' : 'to kopijo'}${what}`,
+		newer: (pageMine, what) => `novejša od ${pageMine ? 'vaše kopije' : 'te kopije'}${what}`,
+		differs: 'razlikuje se v obe smeri',
+		same: 'usklajena',
+		selfChanged: (changed) => `Ta kopija · vaše spremembe: ${changed}`
+	},
+	copy: {
+		menu: 'Kopiraj v …',
+		title: (name) => `Kam želite kopirati: ${name}?`,
+		// »Izvirnik« (masculine) whatever the kind: »ta« would have to agree with it.
+		sub: (gets, fromMine) => {
+			const stays = fromMine ? 'Svojo obdržite.' : 'Izvirnik ostane, kakršen je.';
+			if (gets === 'mine') return `Dobite svojo kopijo. ${stays}`;
+			return `Skupina dobi ${gets === 'draft' ? 'osnutek' : 'kopijo'}. ${stays}`;
+		},
+		yourApp: 'Vaša aplikacija',
+		placeMeta: (role, used, limit) => {
+			const space = limit === null ? `zasedeno: ${used}` : `zasedeno: ${used} od ${limit}`;
+			return role ? `${role} · ${space}` : capital(space);
+		},
+		whatGoes: 'KAJ SE KOPIRA',
+		alreadyThere: 'ŽE TAM',
+		audio: 'zvok',
+		notes: 'opombe',
+		charged: (size, team) => ` (${size}, ${team ? 'na račun skupine' : 'na vaš račun'})`,
+		just: (kind) => `Samo ${KIND[kind]}`,
+		// The group after a "·": nothing declines it.
+		already: (label, place, when, yours) => {
+			const reused = 'Uporabi se obstoječe, nič se ne podvoji.';
+			if (place === null) return `${label}: to že imate (od ${when}). ${reused}`;
+			return yours
+				? `${label}: skupina ima vašo kopijo od ${when} · ${place}. ${reused}`
+				: `${label}: skupina to že ima, od ${when} · ${place}. ${reused}`;
+		},
+		button: 'Kopiraj',
+		buttonDraft: 'Kopiraj kot osnutek',
+		existing: (place, archived) => {
+			if (place === null)
+				return archived
+					? 'Imate arhivirano kopijo. Obnovite jo, nato uskladite.'
+					: 'To že imate. Uskladite kopiji.';
+			return archived
+				? `Skupina ima arhivirano kopijo · ${place}. Obnovite jo, nato uskladite.`
+				: `Skupina to že ima · ${place}. Uskladite kopiji.`;
+		},
+		restore: 'Obnovi',
+		toast: (place, draft) =>
+			place === null
+				? 'Kopirano v vašo aplikacijo.'
+				: `Kopirano${draft ? ' kot osnutek' : ''} v: ${place}.`,
+		failed: 'Kopiranje ni uspelo. Poskusite znova.',
+		open: 'Odpri'
+	},
+	twins: {
+		chip: 'Dvojčka',
+		whichTitle: (label) => `Kateri dvojček: ${label}?`,
+		// The accusative of »dvojček«: vidite 2 dvojčka, 3 dvojčke, 5 dvojčkov.
+		whichSub: (_kind, versions, place) =>
+			`Vidite ${slCount(versions, ['dvojčka', 'dvojčka', 'dvojčke', 'dvojčkov'])}. Kateri naj gre v: ${place}?`,
+		// Neuter, as »Vaše · v 2 skupinah«: it fits every kind.
+		mine: 'Vaše',
+		team: (team) => `Skupina: ${team}`,
+		changed: (day) => `Nazadnje spremenjeno: ${day}`,
+		oneGoes: 'V vaši aplikaciji so dvojčki. Gre samo eden; skupina nikoli ne dobi dvojčkov.',
+		continue: 'Naprej',
+		// A picker's twins are figures and routines: »različica«, »kombinacija«, feminine.
+		named: (what, team) => (team === null ? `${what} (vaša)` : `${what} (skupina: ${team})`),
+		useMeta: (theirs, mine) => {
+			if (mine) return `Vaša · enaka kot: ${theirs.join(', ')} · uporablja se vaša`;
+			const [used, ...rest] = theirs;
+			return `Skupina: ${used} · enaka kot: ${rest.join(', ')} · uporablja se ta`;
+		},
+		sameAs: 'Enako kot …',
+		sameAsTitle: (label) => `${label} · enako kot\u00a0…`,
+		note: (kind) =>
+			`Dvojčki so prikazani kot ${ONE[kind]}. Nikoli se ne usklajujejo in to združitev vidite samo vi.`,
+		markSame: 'Označi kot enako',
+		separate: 'Ni enako? Loči',
+		search: (kind) => `Iščite med svojimi ${AMONG[kind]}`,
+		empty: (kind) => NONE_OTHER[kind],
+		failed: 'Tega ni bilo mogoče shraniti. Poskusite znova.'
+	},
+	move: {
+		menu: 'Premakni v …',
+		title: (lesson, place) => `Premakni lekcijo: ${lesson} → ${place}`,
+		sub: 'Lekcija bo v skupini in ne več med vašimi lekcijami. Kaj prinese s sabo:',
+		// What the lesson brings is a figure, a routine or a drill: all feminine.
+		keepMine: 'Obdrži tudi svojo',
+		useGroups: 'Uporabi skupinsko',
+		note: '»Uporabi skupinsko«: vaša kopija se opusti, vaše druge lekcije in kombinacije pa uporabijo skupinsko.',
+		practiceStays: 'Vadenje tega, kar opustite, ostane pri vaši arhivirani kopiji.',
+		button: 'Premakni kot osnutek',
+		onlyThisLesson: 'Samo v tej lekciji',
+		youPractise: 'To vadite',
+		usedByLessons: (n) =>
+			`${uses(n)} še ${slCount(n, ['lekcija', 'lekciji', 'lekcije', 'lekcij'])}`,
+		usedByRoutine: (routine) => `V kombinaciji: ${routine}`,
+		usedByRoutines: (n) =>
+			`${uses(n)} ${slCount(n, ['kombinacija', 'kombinaciji', 'kombinacije', 'kombinacij'])}`,
+		toast: (place) => `Premaknjeno kot osnutek v: ${place}.`,
+		failed: 'Premik ni uspel. Poskusite znova.',
+		gone: 'Kar lekcija prinese, se je spremenilo. Naložite znova in izberite še enkrat.'
+	},
+	menuLabel: (kind) => `Meni ${OF_KIND[kind]}`,
+	groupRows: (team) => `Skupina: ${team}`
 };

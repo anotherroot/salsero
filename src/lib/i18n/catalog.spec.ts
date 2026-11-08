@@ -40,7 +40,9 @@ const SAMPLE_ARGS: Readonly<Record<string, unknown[]>> = {
 	'clones.sources.team': ['x', 'figure'],
 	'clones.detach.group': ['figure'],
 	'clones.sync.holders': [['x', 'y']],
-	'clones.sync.stays': [['x', '1 y']]
+	'clones.sync.stays': [['x', '1 y']],
+	'clones.twins.useMeta': [['x', 'y'], false],
+	'clones.twins.empty': ['figure']
 };
 
 type Leaf = 'string' | 'function' | 'object' | 'other';

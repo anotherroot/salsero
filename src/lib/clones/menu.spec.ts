@@ -1,3 +1,4 @@
+import { withLocale } from '$lib/i18n/current';
 import { describe, expect, it } from 'vitest';
 import { cloneMenuItems, hasMenu, type CloneSheet } from './menu';
 import { DEFAULT_SYNC } from './sync';
@@ -72,5 +73,24 @@ describe('hasMenu', () => {
 		expect(hasMenu([], { copy: null, drop: null })).toBe(false);
 		expect(hasMenu([], { copy: COPY })).toBe(true);
 		expect(hasMenu([{ key: 'history', icon: 'clock', label: 'History' }], {})).toBe(true);
+	});
+});
+
+describe('the copy actions in Slovenian', () => {
+	it('labels every item in the reader’s language', () => {
+		const items = withLocale('sl', () =>
+			cloneMenuItems(
+				{ sync: SYNC, copy: COPY, sameAs: TWIN, move: MOVE, detach: DETACH, drop: DROP },
+				() => {}
+			)
+		);
+		expect(items.map((i) => i.label)).toEqual([
+			'Uskladi …',
+			'Kopiraj v …',
+			'Enako kot …',
+			'Premakni v …',
+			'Odklopi',
+			'Opusti svojo kopijo'
+		]);
 	});
 });

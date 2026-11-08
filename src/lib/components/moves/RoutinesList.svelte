@@ -23,7 +23,7 @@
 		type RoutineBadge,
 		type RoutinesLists
 	} from '$lib/moves/routines';
-	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { twinsChip } from '$lib/clones/twins';
 	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
 	import { t } from '$lib/i18n/catalog';
 	import type { Dance } from '$lib/dances/dances';
@@ -135,7 +135,7 @@
 					>
 				{/if}
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
-				{#if twinned.has(routine.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+				{#if twinned.has(routine.id)}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
 				{#each badges as b (b.text)}
 					<Badge tone={b.tone}>{b.text}</Badge>
 				{/each}

@@ -287,6 +287,9 @@ describe('layoutMap', () => {
 		const width = (b: { x0: number; x1: number }) => b.x1 - b.x0;
 		expect(width(markBox('orphan', 0, 0))).toBe(6 * MARK_CHAR);
 		expect(withLocale('sl', () => width(markBox('orphan', 0, 0)))).toBe(11 * MARK_CHAR);
+		// The Twins line too: "Twins" is 5 characters, »Dvojčka« 7.
+		expect(width(twinsBox(0, 0))).toBe(5 * MARK_CHAR);
+		expect(withLocale('sl', () => width(twinsBox(0, 0)))).toBe(7 * MARK_CHAR);
 	});
 
 	it('gives a twinned position room for its Twins line, under the mark when it has one', () => {

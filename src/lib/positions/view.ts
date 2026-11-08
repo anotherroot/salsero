@@ -9,7 +9,7 @@ import type {
 	SectionVideo,
 	TeamRef
 } from '$lib/types';
-import { TWINS_CHIP } from '$lib/clones/twins';
+import { twinsChip } from '$lib/clones/twins';
 import { markWord, type MapMark } from './map';
 import type { MenuItem } from '$lib/menu';
 import { t } from '$lib/i18n/catalog';
@@ -792,7 +792,7 @@ export const MAP: {
 		empty: w.empty,
 		unjoined: w.unjoined,
 		reset: w.reset,
-		twins: TWINS_CHIP
+		twins: twinsChip()
 	};
 });
 
@@ -850,7 +850,7 @@ export function mapNodeName(n: {
 export function mapTwinsLine(members: { name: string; team: TeamRef | null }[]): string {
 	const w = t().positions.map;
 	const each = members.map((m) => (m.team ? w.teamTwin(m.team.name, m.name) : w.yourTwin(m.name)));
-	return `${TWINS_CHIP}: ${each.join(', ')}`;
+	return `${twinsChip()}: ${each.join(', ')}`;
 }
 
 /** The tray's way into No position. */

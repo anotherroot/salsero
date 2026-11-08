@@ -1,3 +1,4 @@
+import { withLocale } from '$lib/i18n/current';
 import { describe, expect, it } from 'vitest';
 import { menuLabel, orderMenu, type MenuItem } from './menu';
 
@@ -34,5 +35,19 @@ describe('menuLabel', () => {
 		expect(menuLabel('drill')).toBe('Drill menu');
 		expect(menuLabel('song')).toBe('Song menu');
 		expect(menuLabel('lesson')).toBe('Lesson menu');
+	});
+});
+
+describe('menuLabel in Slovenian', () => {
+	it('names the kind in the genitive', () => {
+		const kinds = ['figure', 'position', 'routine', 'drill', 'song', 'lesson'] as const;
+		expect(withLocale('sl', () => kinds.map(menuLabel))).toEqual([
+			'Meni različice',
+			'Meni položaja',
+			'Meni kombinacije',
+			'Meni vaje',
+			'Meni skladbe',
+			'Meni lekcije'
+		]);
 	});
 });

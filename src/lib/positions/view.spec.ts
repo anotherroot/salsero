@@ -3,7 +3,6 @@ import type { PositionListRow } from '$lib/types';
 import { withLocale } from '$lib/i18n/current';
 import { EMPTY_HOLD } from './hold';
 import * as v from './view';
-import { TWINS_CHIP } from '$lib/clones/twins';
 import type { PickRow } from '$lib/picker/model';
 
 const label = (t: string | null) => (t === null ? 'Other' : t[0].toUpperCase() + t.slice(1));
@@ -1126,8 +1125,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 					{ name: 'Closed', team: { id: 1, name: 'Salsa Tuesdays' } }
 				])
 			)
-			// The chip's own word (`TWINS_CHIP`) is the clones' to translate.
-		).toBe(`${TWINS_CHIP}: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)`);
+		).toBe('Dvojčka: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)');
 	});
 
 	it('words the map’s fixed lines', () => {
@@ -1136,6 +1134,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 		expect(sl(() => v.MAP.notOnMap)).toBe('Ni na zemljevidu');
 		expect(sl(() => v.MAP.legend.deadEnd)).toBe('slepa ulica: nič ne gre od tod');
 		expect(sl(() => v.MAP.reset)).toBe('Ponastavi povečavo');
+		expect(sl(() => v.MAP.twins)).toBe('Dvojčka');
 		expect(sl(() => v.mapLabelFor(false))).toBe('Zemljevid vaših položajev');
 		expect(sl(() => v.mapLabelFor(true))).toBe('Zemljevid položajev skupine');
 	});

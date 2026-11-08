@@ -7,7 +7,7 @@ import type {
 	MoveOffer,
 	TwinOffer
 } from '$lib/types';
-import { COPY_TO, detachButton, dropButton, MOVE_TO, SAME_AS } from './view';
+import { copyTo, detachButton, dropButton, moveTo, sameAs } from './view';
 import { syncMenu } from './step-view';
 
 /** The sheet a copy action in the ⋯ menu opens. */
@@ -32,9 +32,9 @@ const ITEMS: {
 	danger?: boolean;
 }[] = [
 	{ key: 'sync', icon: 'refresh', label: syncMenu },
-	{ key: 'copy', icon: 'copy', label: () => COPY_TO },
-	{ key: 'sameAs', icon: 'link', label: () => SAME_AS },
-	{ key: 'move', icon: 'move-to', label: () => MOVE_TO },
+	{ key: 'copy', icon: 'copy', label: copyTo },
+	{ key: 'sameAs', icon: 'link', label: sameAs },
+	{ key: 'move', icon: 'move-to', label: moveTo },
 	{ key: 'detach', icon: 'unlink', label: detachButton },
 	{ key: 'drop', icon: 'undo', label: dropButton, danger: true }
 ];

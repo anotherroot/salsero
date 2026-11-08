@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { twinsChip } from '$lib/clones/twins';
 	import { differLabel } from '$lib/moves/sync';
 	import { groupRowMeta, rowMeta, type StyleLabel } from '$lib/positions/view';
 	import type { PositionListRow } from '$lib/types';
@@ -53,7 +53,7 @@
 				>{row.name}{#if tag}<span class="ml-1 font-normal text-muted">{tag}</span>{/if}</span
 			>
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
-			{#if row.twins}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+			{#if row.twins}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
 		</span>
 		<span class="text-[13px] leading-[1.35] text-muted">
 			{#if meta}

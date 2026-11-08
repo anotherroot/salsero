@@ -25,7 +25,7 @@
  * every line clear.
  */
 import { fold } from '$lib/fold';
-import { TWINS_CHIP } from '$lib/clones/twins';
+import { twinsChip } from '$lib/clones/twins';
 import { t } from '$lib/i18n/catalog';
 import { positionCounts, type Graph, type GraphFigure } from '$lib/graph/graph';
 
@@ -159,15 +159,16 @@ export function labelBox(
 	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
 }
 
-/** The Twins line's width: the lists' word, at the mark's size (`MARK_CHAR` a character). */
-const TWINS_WIDTH = [...TWINS_CHIP].length * MARK_CHAR;
+/** The Twins line's width: the lists' word in the reader's language, at the mark's size (`MARK_CHAR` a character). */
+const twinsWidth = (): number => [...twinsChip()].length * MARK_CHAR;
 
 /** The box the Twins line takes (`MapNode.twinsY`), centred on (x, y). */
 export function twinsBox(x: number, y: number): { x0: number; y0: number; x1: number; y1: number } {
+	const w = twinsWidth();
 	return {
-		x0: x - TWINS_WIDTH / 2,
+		x0: x - w / 2,
 		y0: y - LABEL_HEIGHT / 2,
-		x1: x + TWINS_WIDTH / 2,
+		x1: x + w / 2,
 		y1: y + LABEL_HEIGHT / 2
 	};
 }
@@ -476,7 +477,7 @@ export function layoutMap(
 	// A twinned one writes Twins on the line after that.
 	const twinned = drawn.map((p) => p.twins ?? false);
 	const w = Float64Array.from(drawn, (p, i) =>
-		Math.max(labelWidth(p.name), markWidth(marks[i]), twinned[i] ? TWINS_WIDTH : 0)
+		Math.max(labelWidth(p.name), markWidth(marks[i]), twinned[i] ? twinsWidth() : 0)
 	);
 	const lh = Float64Array.from(
 		marks,
