@@ -14,6 +14,8 @@ import {
 	COUNT_PATTERNS,
 	PARTNER,
 	PRACTICE_MODES,
+	SONG_IMPORT_KINDS,
+	SONG_IMPORT_STATUSES,
 	SONG_STATUSES,
 	SOURCES,
 	STYLES
@@ -679,6 +681,48 @@ export const songDrops = sqliteTable(
 	},
 	(t) => [primaryKey({ columns: [t.exerciseId, t.songId] })]
 );
+
+/**
+ * A pasted playlist or album (YouTube or Spotify): read by the home worker into
+ * a pick list, from which the person adds the songs they tick. Nothing
+ * downloads by itself. Owned like a root row (exactly one of `user_id` and
+ * `team_id`); a group's is its editors'. The items are written once, by the
+ * worker. Kept once added or dismissed, as bookkeeping: nothing reads such a
+ * row but a second Add's refusal. See
+ * docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md.
+ */
+export const songImports = sqliteTable(
+	'song_imports',
+	{
+		id: mintedId('song_imports'),
+		/** The owner. Nullable and without a foreign key on purpose, as `songs.user_id`. */
+		userId: text('user_id'),
+		teamId: integer('team_id').references((): AnySQLiteColumn => teams.id),
+		dance: text('dance').notNull(),
+		/** Normalised: `https://open.spotify.com/<playlist|album>/<id>` or `https://www.youtube.com/playlist?list=<id>`. */
+		url: text('url').notNull(),
+		kind: text('kind', { enum: SONG_IMPORT_KINDS }).notNull(),
+		/** The list's own name, from the worker. */
+		name: text('name'),
+		status: text('status', { enum: SONG_IMPORT_STATUSES }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		claimedAt: integer('claimed_at'),
+		/** `ImportItem[]` as JSON; null until read. */
+		itemsJson: text('items_json'),
+		/** 1 when the list was longer than `MAX_IMPORT_ITEMS` and was cut. */
+		truncated: integer('truncated').notNull().default(0),
+		createdAt: createdAt(),
+		addedAt: integer('added_at'),
+		dismissedAt: integer('dismissed_at')
+	},
+	(t) => [
+		index('song_imports_status_idx').on(t.status, t.createdAt),
+		index('song_imports_user_idx').on(t.userId, t.dance),
+		index('song_imports_team_idx').on(t.teamId, t.dance)
+	]
+);
+export type SongImport = typeof songImports.$inferSelect;
 
 /* ── Exercises & sets ───────────────────────────────────────────────────── */
 

@@ -3,6 +3,8 @@ import type {
 	CountPattern,
 	Partner,
 	PracticeMode,
+	SongImportKind,
+	SongImportStatus,
 	SongStatus,
 	Source as ExerciseSource,
 	TempoFactor
@@ -12,6 +14,27 @@ import type { DanceSlug } from './dances/dances';
 
 /** A group, as a list names it. */
 export type TeamRef = { id: number; name: string };
+
+/** One song of a pasted playlist, as the worker read it (`song_imports.items_json`). */
+export type ImportItem = {
+	title: string;
+	artist: string | null;
+	durationS: number | null;
+	url: string;
+};
+/** An item on the pick list: its index, and whether the space already has the song. */
+export type PickItem = ImportItem & { i: number; already: boolean };
+/** A pasted playlist as Music lists it. `group` names a group's import shown in an editor's own Music. */
+export type SongImportRow = {
+	id: number;
+	kind: SongImportKind;
+	name: string | null;
+	status: SongImportStatus;
+	error: string | null;
+	count: number;
+	truncated: boolean;
+	group: TeamRef | null;
+};
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {

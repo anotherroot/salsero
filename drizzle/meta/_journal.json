@@ -281,6 +281,13 @@
       "when": 1794166794998,
       "tag": "0039_light_marvel_zombies",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794172436622,
+      "tag": "0040_bright_black_crow",
+      "breakpoints": true
     }
   ]
 }
