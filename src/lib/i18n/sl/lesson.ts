@@ -34,7 +34,7 @@ export const lesson: Catalog['lesson'] = {
 		download: 'Prenesi',
 		cantDelete: 'Tega videa ni mogoče izbrisati',
 		notInPractice: 'Še ni med vašimi vajami',
-		adding: 'Dodajanje …',
+		adding: 'Dodajanje\u00a0…',
 		added: 'Dodano na seznam Danes',
 		couldNotAdd: 'Dodajanje ni uspelo.',
 		couldNotUndo: 'Razveljavitev ni uspela.',

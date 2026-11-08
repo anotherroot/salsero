@@ -46,7 +46,8 @@ export const entry: Catalog['entry'] = {
 	welcome: {
 		title: 'Dobrodošli',
 		subtitle: 'Kako naj vas kličemo?',
-		note: 'Člani vaše skupine bodo videli to namesto vašega e-poštnega naslova.',
+		// The class's word first: the Slovenian reader is most often a class member.
+		note: 'Drugi na vašem tečaju ali v skupini vidijo to namesto vašega e-poštnega naslova.',
 		form: 'Vaše ime',
 		continue: 'Naprej',
 		saving: 'Shranjevanje\u00a0…'

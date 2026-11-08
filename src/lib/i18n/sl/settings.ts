@@ -116,7 +116,7 @@ export const settings: Catalog['settings'] = {
 		barFor: (counts) => `Takt za štetje ${counts}`,
 		bar: (n) => `Takt ${n}`,
 		listen: (n) => `Poslušaj takt ${n}`,
-		saving: 'Shranjevanje …',
+		saving: 'Shranjevanje\u00a0…',
 		keep: 'Obdrži izbrane',
 		recordAgain: 'Posnemi znova',
 		unsaved: 'Vaše posneto štetje',
@@ -159,6 +159,6 @@ export const settings: Catalog['settings'] = {
 		openApp: 'Odpri aplikacijo',
 		pairPhone: 'Poveži ta telefon',
 		body: 'Tako lahko aplikacija v ozadju nalaga videe in vas opomni, kaj je na vrsti. V Nastavitvah lahko povezavo spet odstranite.',
-		pairing: 'Povezovanje …'
+		pairing: 'Povezovanje\u00a0…'
 	}
 };

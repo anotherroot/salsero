@@ -8,7 +8,7 @@ const before = (n: number, one: string, forms: Forms) =>
 	n === 1 ? `pred ${one}` : `pred ${slCount(n, forms)}`;
 
 // A name is never declined or the subject of a past tense: it stands before a
-// "·" or after a colon ("Odgovarjate: Maja").
+// "·" or after a colon ("Odgovor za: Maja").
 export const comments: Catalog['comments'] = {
 	title: 'Komentarji',
 	empty: 'Še ni komentarjev. Vprašajte ali povejte kaj.',
@@ -25,8 +25,8 @@ export const comments: Catalog['comments'] = {
 	reply: 'Odgovori',
 	more: 'Možnosti komentarja',
 	comment: 'Komentar',
-	placeholder: 'Napišite komentar …',
-	replyingTo: (name) => `Odgovarjate: ${name}`,
+	placeholder: 'Napišite komentar\u00a0…',
+	replyingTo: (name) => `Odgovor za: ${name}`,
 	newInstead: 'Namesto tega napišite nov komentar',
 	send: 'Pošlji',
 	stillSending: 'Pošiljanje še poteka.',

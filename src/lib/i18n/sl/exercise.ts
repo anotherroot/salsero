@@ -34,7 +34,7 @@ export const exercise: Catalog['exercise'] = {
 	log: {
 		logSet: 'Shrani vnos',
 		done: 'Opravljeno',
-		saving: 'Shranjevanje …',
+		saving: 'Shranjevanje\u00a0…',
 		logged: 'Shranjeno',
 		addToDay: 'Shrani vnos za ta dan',
 		stopToLog: 'Za vnos ustavite štetje.',
@@ -74,7 +74,7 @@ export const exercise: Catalog['exercise'] = {
 		description: 'Opis',
 		sections: 'Odseki',
 		links: 'Povezave',
-		linkSection: 'Poveži odsek …',
+		linkSection: 'Poveži odsek\u00a0…',
 		unlinkSection: 'Odstrani povezavo z odsekom',
 		reference: 'Gradivo',
 		hide: 'Skrij',
