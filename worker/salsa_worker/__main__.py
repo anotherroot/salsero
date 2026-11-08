@@ -22,6 +22,7 @@ def main() -> int:
         to_wav=media.to_wav,
         duration_of=media.duration_of,
         analyze=media.Analyzer(checkpoint),
+        music_start=media.music_start_of,
     )
     video_tools = jobs.VideoTools(fetch_video=media.fetch_video, to_mp4=media.to_mp4)
     try:
