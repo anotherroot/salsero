@@ -281,13 +281,27 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
   `src/lib/exercises/practice.ts`, which is **total**: anything missing or
   invalid falls back to the dance's defaults, so a bad value can never break a
   popup.
-- Saved on **Play**, not on every tap, by a JSON
-  `POST /[dance]/exercises/[id]/practice` — no navigation, no reload, and
-  failure is silent (the run still plays; the settings are a convenience). An
+- Saved **as it changes** (since 2026-11-08; it used to be on Play only), by
+  a JSON `POST /[dance]/exercises/[id]/practice`: a change of song, tempo,
+  count, clave or speed, before a run or during one (the full player's count
+  chips), is posted once the settings sit still for 800 ms, and at once on
+  Play and when the page or popup goes (`practiceSaver` in
+  `src/lib/exercises/practice-api.ts`, `keepalive`). Only a change from what
+  the page knows is posted (`practiceToPost`), and an untouched page posts
+  nothing. No navigation, no reload, and failure is silent (the run still
+  plays; the settings are a convenience). An
   endpoint rather than a form action, so the four pages that open a popup do
   not each have to register it. It validates against the registry (count
   pattern in the dance's list, clave only where the dance has it, a song ready
   and in the dance) through the pure `parsePracticeInput`.
+- **One memory, read by both players.** The panel and the full player start
+  from the same place (`practiceSeed`): the exercise's own memory, else what
+  this phone last used (`<dance>.player` in `localStorage`,
+  `src/lib/exercises/phone-practice.ts`, read through `parsePhonePractice`),
+  else the defaults. Both write the phone's memory too. The voice volume is
+  the phone's only, never the exercise's: it is about the room, not the drill.
+  The full player opened without an exercise reads and writes the phone's
+  memory alone.
 - The "Practice" mode radio, the song picker and the BPM field leave the
   exercise settings: the panel is where they are chosen now.
 

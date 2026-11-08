@@ -17,10 +17,12 @@
 	import type { CountTakeRow, PickerSong } from '$lib/types';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { CALL_EVERY, CLAVE_PATTERNS, PHRASE_PATTERNS, SPEEDS } from '$lib/labels';
+	import { CALL_EVERY, PHRASE_PATTERNS } from '$lib/labels';
 	import type { PhrasePattern } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import { bpmOf } from '$lib/beatgrid/beatgrid';
+	import { parsePhonePractice, practiceSeed, type PracticeInput } from '$lib/exercises/practice';
+	import { loadPhonePractice, savePhonePractice } from '$lib/exercises/phone-practice';
 	import { RUN_SOURCES, playState, setupSubtitle, voiceKind } from '$lib/player/view';
 	import { myCountHref } from '$lib/voice/back';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -56,8 +58,11 @@
 		songError: string | null;
 		/** The picked song's element, for the progress bar before Play. */
 		audio: HTMLAudioElement | undefined;
-		/** The exercise's remembered count-only tempo, which beats this browser's. */
-		rememberedBpm: number | null;
+		/**
+		 * What the exercise remembers (`practiceOf`), which beats this phone's; null
+		 * without an exercise or for one never practised. Read when this mounts.
+		 */
+		remembered: PracticeInput | null;
 		/** Shown when the exercise's remembered song can no longer be played. */
 		songGone: boolean;
 		defaultBpm: number;
@@ -69,6 +74,8 @@
 		 */
 		routine?: { name: string; figureIds: number[] } | null;
 		onplay: (settings: PlayerSettings) => void;
+		/** A setting changed (not on mount): the page keeps it on the exercise. */
+		onchange?: (settings: PlayerSettings) => void;
 		/** True while the player is starting, so Play cannot be tapped a second time. */
 		starting: boolean;
 		/** Where the band's Back goes: where Practice was opened from. */
@@ -88,12 +95,13 @@
 		songReady,
 		songError,
 		audio,
-		rememberedBpm,
+		remembered,
 		songGone,
 		defaultBpm,
 		dance,
 		routine = null,
 		onplay,
+		onchange,
 		starting,
 		back,
 		takes,
@@ -101,97 +109,51 @@
 		startError
 	}: Props = $props();
 
-	// Keyed per dance so the two dances keep separate saved settings — without
-	// this, opening the other dance's player would silently overwrite (on the
-	// first render's persist effect) whatever the first dance had saved, before
-	// the user touched anything. Salsa's slug IS 'salsa', so this key is
-	// unchanged for salsa and every already-stored setting survives untouched;
-	// bachata simply gets its own key, `'bachata.player'`.
-	//
-	// `$derived`, not a plain `const`: `/[dance]/player` is ONE route, and
-	// SvelteKit reuses this component across a param change rather than
-	// remounting it (see the comment at `[dance]/songs/+page.svelte:11-16`) —
-	// a plain `const` would freeze at whichever dance first mounted the
-	// component. `loadStored()` and the persist `$effect` below both read
-	// through this same binding, so they never disagree about which key is
-	// current.
-	const STORAGE_KEY = $derived(`${dance.slug}.player`);
-
+	// What this phone last used, per dance (`phone-practice.ts`). `$derived`, not
+	// a plain `const`: `/[dance]/player` is ONE route, and SvelteKit reuses this
+	// component across a param change rather than remounting it (see the comment
+	// at `[dance]/songs/+page.svelte:11-16`), so a `const` would freeze at
+	// whichever dance first mounted it.
+	const stored = $derived(loadPhonePractice(dance.slug));
 	/**
-	 * Deliberately `unknown`, not `Partial<PlayerSettings>`: this is arbitrary
-	 * JSON from a previous version of the app or a hand-edited browser store, and
-	 * typing it as our own settings would let TypeScript wave it through. Every
-	 * field below has to prove itself.
-	 *
-	 * Wrapped in try/catch: private-mode Safari throws on any localStorage access.
+	 * Where the settings start: the exercise's own memory, else this phone's,
+	 * else the defaults (`practiceSeed`). Every stored value proves itself there:
+	 * an unrecognised count or clave would throw inside the 25 ms scheduling tick,
+	 * a player that plays nothing at all.
 	 */
-	function loadStored(): Record<string, unknown> {
-		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
-			const parsed: unknown = raw ? JSON.parse(raw) : null;
-			return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
-		} catch {
-			return {};
-		}
-	}
-
-	const stored = loadStored();
+	const seed = $derived(
+		practiceSeed(remembered, parsePhonePractice(stored, dance), dance, defaultBpm)
+	);
 
 	/** A stored value only survives if it is still one of the allowed ones. */
 	function pick<T>(value: unknown, allowed: readonly T[], fallback: T): T {
 		return (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback;
 	}
-	const num = (value: unknown, min: number, max: number, fallback: number) =>
-		typeof value === 'number' && value >= min && value <= max ? value : fallback;
 
 	// The stored `source` is no longer read back: the page decides it, from
 	// `?song=` or the exercise's own memory.
-	// A seed, read once: the Stepper owns the tempo after that. Nothing in the
-	// player links to another player, so these props do not change under it.
-	let bpm = $state(untrack(() => rememberedBpm ?? num(stored.bpm, 60, 300, defaultBpm)));
+	// Seeds, read once: the Stepper and the chips own them after that.
+	let bpm = $state(untrack(() => seed.bpm));
+	let speed = $state<Speed>(untrack(() => seed.speed));
 	// `count` and `clave` need to do two things at once: start from a value
-	// that depends on `dance` (through `pick`, below) AND stay editable by the
-	// pickers afterwards. A plain `$state` can only do the second — its
-	// initializer runs once, so a direct `dance` read inside it goes stale the
-	// same way `STORAGE_KEY` did. Splitting each into a `$derived` (tracks
-	// `dance`) plus an override `$state` (tracks the user's own tap) gets both:
-	// the override is `undefined` until the picker is touched, so the derived
-	// default keeps following `dance` right up until then.
-	//
-	// Through `pick`, for the same reason as the clave default below: an
-	// unrecognised pattern reaches COUNT_POSITIONS[...] as undefined and
-	// `for…of undefined` throws inside the scheduling tick. `true` is what a
-	// store written before patterns existed holds, and it means salsa.
+	// that depends on `dance` AND stay editable by the pickers afterwards. A
+	// `$derived` (tracks the seed) plus an override `$state` (tracks the user's
+	// own tap) gets both: the override is `undefined` until the picker is
+	// touched, so the seed keeps following `dance` right up until then.
+	// `null` is a legitimate clave ("off"), so `undefined` means "not touched".
 	let countOverride = $state<CountPattern | undefined>(undefined);
-	const count = $derived(
-		countOverride ??
-			(stored.count === true
-				? 'salsa'
-				: stored.count === false
-					? 'off'
-					: pick(stored.count, dance.countPatterns, dance.defaultCountPattern))
-	);
-	// `null` is a legitimate choice ("clave off"), so the override needs a
-	// third state — `undefined` — to mean "not touched yet"; `clave ===
-	// undefined` would otherwise be indistinguishable from "off".
-	//
-	// An unrecognised clave would reach CLAVE_POSITIONS[...] as undefined and
-	// throw inside the 25 ms scheduling tick — which never surfaces as an error
-	// the user sees, just a player that plays nothing at all. A dance without
-	// clave (bachata) must never restore one from a store written while in
-	// salsa — the store is per-browser, not per-dance.
+	const count = $derived(countOverride ?? seed.count);
 	let claveOverride = $state<ClavePattern | null | undefined>(undefined);
-	const clave = $derived(
-		claveOverride !== undefined
-			? claveOverride
-			: dance.clave
-				? pick(stored.clave, [...CLAVE_PATTERNS, null], null)
-				: null
+	const clave = $derived(claveOverride !== undefined ? claveOverride : seed.clave);
+	let callEvery = $state<CallEvery | null>(
+		untrack(() => pick(stored.callEvery, [...CALL_EVERY, null], 2))
 	);
-	let callEvery = $state<CallEvery | null>(pick(stored.callEvery, [...CALL_EVERY, null], 2));
-	let speed = $state<Speed>(pick(stored.speed, SPEEDS, 1));
-	let voiceVolume = $state(num(stored.voiceVolume, 0, 1, 1));
+	let voiceVolume = $state(untrack(() => parsePhonePractice(stored, dance).voiceVolume ?? 1));
 
+	// Every change is kept at once: on this phone, and through `onchange` on
+	// the exercise. Not on the first run, which only reads what was seeded: an
+	// untouched page writes nothing back.
+	let primed = false;
 	$effect(() => {
 		const settings: PlayerSettings = {
 			source,
@@ -202,11 +164,15 @@
 			speed,
 			voiceVolume
 		};
-		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-		} catch {
-			// Private mode, or storage full — settings just don't persist.
+		void songId;
+		if (!primed) {
+			primed = true;
+			return;
 		}
+		untrack(() => {
+			savePhonePractice(dance.slug, settings);
+			onchange?.(settings);
+		});
 	});
 
 	function play() {

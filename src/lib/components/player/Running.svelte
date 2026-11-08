@@ -53,6 +53,8 @@
 		onback: () => void;
 		oncount: (pattern: CountPattern) => void;
 		onstop: () => void;
+		/** The voice slider moved: the page keeps it on this phone. */
+		onvolume?: (volume: number) => void;
 	}
 
 	let {
@@ -74,7 +76,8 @@
 		backLabel,
 		onback,
 		oncount,
-		onstop
+		onstop,
+		onvolume
 	}: Props = $props();
 
 	let paused = $state(false);
@@ -318,7 +321,10 @@
 						<Slider
 							label="Voice volume"
 							bind:value={voiceVolume}
-							oninput={() => player.setVoiceVolume(voiceVolume)}
+							oninput={() => {
+								player.setVoiceVolume(voiceVolume);
+								onvolume?.(voiceVolume);
+							}}
 						/>
 					</div>
 				</div>

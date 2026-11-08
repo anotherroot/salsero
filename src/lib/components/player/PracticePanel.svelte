@@ -25,9 +25,12 @@
 		practiceOf,
 		practiceStart,
 		practiceSummary,
+		parsePhonePractice,
+		practiceSeed,
 		type CueEvery
 	} from '$lib/exercises/practice';
-	import { rememberPractice } from '$lib/exercises/practice-api';
+	import { practiceSaver } from '$lib/exercises/practice-api';
+	import { loadPhonePractice, savePhonePractice } from '$lib/exercises/phone-practice';
 	import { STOPPED, elapsedMs, pauseWatch, startWatch } from '$lib/exercises/stopwatch';
 	import { clock } from '$lib/format';
 	import type { Dance } from '$lib/dances/dances';
@@ -52,19 +55,21 @@
 	/** A group's label: 13/700 muted, 4 px over its control. */
 	const GROUP_LABEL = 'mb-1 block text-[13px] font-bold text-muted';
 
-	// Seeded once from what the exercise remembers, on purpose (`untrack`): the
-	// popup remounts this component after every logged set, so "once" is per
-	// set, which is right. Following the props live would undo the user's own
-	// picks whenever the page reloads its data.
+	// Seeded once, on purpose (`untrack`): the popup remounts this component
+	// after every logged set, so "once" is per set, which is right. Following
+	// the props live would undo the user's own picks whenever the page reloads
+	// its data. The exercise's own memory, else this phone's (`practiceSeed`).
 	const seed = untrack(() => {
 		const remembered = parsePracticeConfig(exercise.practiceJson, dance);
+		const phone = parsePhonePractice(loadPhonePractice(dance.slug), dance);
 		return {
 			remembered,
 			start: practiceStart(
 				exercise,
 				songs.map((s) => s.id)
 			),
-			bpm: exercise.countBpm ?? DEFAULT_PRACTICE_BPM,
+			settings: practiceSeed(practiceOf(exercise, dance), phone, dance, DEFAULT_PRACTICE_BPM),
+			voiceVolume: phone.voiceVolume ?? 1,
 			callEvery: cue ? remembered.callEvery : null
 		};
 	});
@@ -72,15 +77,50 @@
 
 	let source = $state<'count' | 'song'>(seed.start.source);
 	let songId = $state<number | null>(seed.start.songId);
-	let bpm = $state(seed.bpm);
-	let count = $state<CountPattern>(seed.remembered.count);
-	let clave = $state<ClavePattern | null>(seed.remembered.clave);
-	let speed = $state<Speed>(seed.remembered.speed);
+	let bpm = $state(seed.settings.bpm);
+	let count = $state<CountPattern>(seed.settings.count);
+	let clave = $state<ClavePattern | null>(seed.settings.clave);
+	let speed = $state<Speed>(seed.settings.speed);
 	let callEvery = $state<CueEvery | null>(seed.callEvery);
-	let voiceVolume = $state(1);
-	// What the exercise remembers as this page knows it: what it loaded (newer data
-	// replaces it), or what Play last posted. Play posts only a change from it.
-	let known = $derived(practiceOf(exercise, dance));
+	let voiceVolume = $state(seed.voiceVolume);
+	// What the exercise remembers, kept as settings change: posted only when it
+	// differs from what the page knows, which newer data replaces.
+	const saver = untrack(() => practiceSaver(dance.slug, exercise.id, practiceOf(exercise, dance)));
+	$effect(() => {
+		const loaded = practiceOf(exercise, dance);
+		untrack(() => saver.reset(loaded));
+	});
+	/** Without a cue the run calls nothing; the remembered cue stays as it was. */
+	const choice = () => ({
+		source,
+		songId,
+		bpm,
+		config: { count, clave, speed, callEvery: cue ? callEvery : seed.remembered.callEvery }
+	});
+	// Every change is kept at once, on the exercise and on this phone. Not on
+	// the first run, which only reads what was seeded.
+	let primed = false;
+	$effect(() => {
+		const c = choice();
+		if (!primed) {
+			primed = true;
+			return;
+		}
+		untrack(() => {
+			saver.change(c);
+			savePhonePractice(dance.slug, {
+				bpm: c.bpm,
+				count: c.config.count,
+				clave: c.config.clave,
+				speed: c.config.speed
+			});
+		});
+	});
+	$effect(() => {
+		const flush = () => saver.flush();
+		window.addEventListener('pagehide', flush);
+		return () => window.removeEventListener('pagehide', flush);
+	});
 	let expanded = $state(songGone);
 
 	const song = loadSongGrid(
@@ -199,18 +239,9 @@
 		paused = false;
 		watch = startWatch(watch, Date.now());
 		starting = false;
-		known = rememberPractice(
-			dance.slug,
-			exercise.id,
-			{
-				source,
-				songId,
-				bpm,
-				// Without a cue the run calls nothing; the remembered cue stays as it was.
-				config: { count, clave, speed, callEvery: cue ? callEvery : seed.remembered.callEvery }
-			},
-			known
-		);
+		// The run is what "last time" means: kept at once, not in a moment.
+		saver.change(choice());
+		saver.flush();
 	}
 
 	/**
@@ -262,6 +293,7 @@
 	// in flight when that happens — `player` alone is not enough, see `play()`.
 	onDestroy(() => {
 		destroyed = true;
+		saver.flush();
 		player?.stop();
 	});
 	$effect(() => {
@@ -308,7 +340,10 @@
 			<Slider
 				label="Voice volume"
 				bind:value={voiceVolume}
-				oninput={() => player?.setVoiceVolume(voiceVolume)}
+				oninput={() => {
+					player?.setVoiceVolume(voiceVolume);
+					savePhonePractice(dance.slug, { voiceVolume });
+				}}
 			/>
 		</div>
 	{:else}

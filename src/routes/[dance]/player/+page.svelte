@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { entryState } from '$lib/sheets/history.svelte';
 	import { page } from '$app/state';
 	import { backFor, goBack } from '$lib/nav/trail.svelte';
@@ -7,8 +7,9 @@
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
-	import { parsePracticeConfig, practiceOf } from '$lib/exercises/practice';
-	import { rememberPractice } from '$lib/exercises/practice-api';
+	import { practiceOf } from '$lib/exercises/practice';
+	import { practiceSaver } from '$lib/exercises/practice-api';
+	import { savePhonePractice } from '$lib/exercises/phone-practice';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { routinePlan } from '$lib/routines/plan';
@@ -27,7 +28,50 @@
 	let source = $derived(data.start.source);
 	let songId = $derived(data.start.songId);
 	// What the exercise remembers as this page knows it (loaded, or last posted at Play).
-	let known = $derived(data.exercise ? practiceOf(data.exercise, data.dance) : null);
+	// What the exercise remembers, kept as settings change (`practiceSaver`).
+	// One saver per exercise: keyed on its id, so newer data for the same
+	// exercise only resets what it knows, and a waiting change is flushed when
+	// the exercise changes under this reused route, or the page goes.
+	const exerciseId = $derived(data.exercise?.id ?? null);
+	const saver = $derived(
+		exerciseId === null
+			? null
+			: practiceSaver(
+					data.dance.slug,
+					exerciseId,
+					untrack(() => (data.exercise ? practiceOf(data.exercise, data.dance) : null))
+				)
+	);
+	$effect(() => {
+		const loaded = data.exercise ? practiceOf(data.exercise, data.dance) : null;
+		untrack(() => saver?.reset(loaded));
+	});
+	$effect(() => {
+		const s = saver;
+		if (!s) return;
+		const flush = () => s.flush();
+		window.addEventListener('pagehide', flush);
+		return () => {
+			window.removeEventListener('pagehide', flush);
+			s.flush();
+		};
+	});
+
+	/**
+	 * Keep a choice on the exercise. A run's song is the one it plays: one that
+	 * did not load ran on the count. Its call interval is the panel's and is
+	 * kept as it was: the two players offer different ones.
+	 */
+	function keep(s: Pick<PlayerSettings, 'source' | 'bpm' | 'count' | 'clave' | 'speed'>) {
+		if (!saver) return;
+		const callEvery = saver.known?.config.callEvery ?? null;
+		saver.change({
+			source: s.source,
+			songId,
+			bpm: s.bpm,
+			config: { count: s.count, clave: s.clave, speed: s.speed, callEvery }
+		});
+	}
 	const song = loadSongGrid(
 		() => data.dance.slug,
 		() => (source === 'song' ? songId : null)
@@ -64,6 +108,8 @@
 			: []
 	);
 	const activeSlot = $derived(slotAt(calledIndex, dancedSlots.length));
+	/** The settings the run started with, so a count changed mid-run is kept with the rest. */
+	let runSettings: PlayerSettings | null = null;
 	let finalElapsed = $state(0);
 	/** The last Play threw. The screen says so in fixed words; the console has the error. */
 	let startError = $state(false);
@@ -214,24 +260,12 @@
 		runningGrid = grid;
 		runningSong = runSong;
 		runningBpm = runSong ? null : settings.bpm;
-		// Remember the choices on the exercise, as the popup's panel does, so the
-		// next run for it opens on the same song. Its call interval is the
-		// panel's and is kept as it was: the two players offer different ones.
-		// Only a change from what the page knows is posted (`practiceToPost`).
-		if (data.exercise) {
-			const kept = parsePracticeConfig(data.exercise.practiceJson, data.dance);
-			known = rememberPractice(
-				data.dance.slug,
-				data.exercise.id,
-				{
-					source: useSong ? 'song' : 'count',
-					songId,
-					bpm: settings.bpm,
-					config: { ...kept, count: settings.count, clave: settings.clave, speed: settings.speed }
-				},
-				known
-			);
-		}
+		// Keep what the run plays on the exercise at once, not in a moment: the
+		// run is what "last time" means. Only a change from what the page knows
+		// is posted (`practiceToPost`).
+		runSettings = { ...settings, source: useSong ? 'song' : 'count' };
+		keep(runSettings);
+		saver?.flush();
 		calledFigureId = null;
 		calledIndex = null;
 		mode = 'running';
@@ -324,12 +358,13 @@
 		songReady={picked !== null}
 		songError={song.error}
 		{audio}
-		rememberedBpm={data.start.bpm}
+		remembered={saver?.known ?? null}
 		songGone={data.start.songGone}
 		defaultBpm={data.bpm}
 		dance={data.dance}
 		routine={data.routine}
 		onplay={handlePlay}
+		onchange={keep}
 		{starting}
 		back={data.back}
 		takes={data.takes}
@@ -358,8 +393,14 @@
 				if (!runToggles) return;
 				runToggles = { ...runToggles, count: p };
 				player?.setToggles(runToggles);
+				savePhonePractice(data.dance.slug, { count: p });
+				if (runSettings) {
+					runSettings = { ...runSettings, count: p };
+					keep(runSettings);
+				}
 			}}
 			onstop={handleStop}
+			onvolume={(v) => savePhonePractice(data.dance.slug, { voiceVolume: v })}
 			title={runningSong?.title ?? 'Practice'}
 			subtitle={runSubtitle(
 				{

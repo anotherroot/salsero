@@ -103,14 +103,11 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		songs,
 		// Where the setup opens: `?song=`, else what the exercise was last
 		// practised with, else the count.
-		start: {
-			...practiceStart(
-				exercise,
-				songs.map((s) => s.id),
-				songId
-			),
-			bpm: exercise?.practiceMode === 'count' ? exercise.countBpm : null
-		},
+		start: practiceStart(
+			exercise,
+			songs.map((s) => s.id),
+			songId
+		),
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : 180,
 		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
 		// Names only, for `sayOf` and the on-screen call. Empty without a routine:

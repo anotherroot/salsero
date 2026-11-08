@@ -179,6 +179,70 @@ export function practiceStart(
 	};
 }
 
+/**
+ * What this phone last practised with, from its browser store (`phone-practice.ts`).
+ * Every field proves itself; null is "nothing usable here". `clave` keeps a
+ * third state: `undefined` is nothing stored, `null` is clave off.
+ */
+export interface PhonePractice {
+	bpm: number | null;
+	count: CountPattern | null;
+	clave: ClavePattern | null | undefined;
+	speed: Speed | null;
+	voiceVolume: number | null;
+}
+
+export function parsePhonePractice(stored: unknown, dance: Dance): PhonePractice {
+	const v =
+		stored && typeof stored === 'object' && !Array.isArray(stored)
+			? (stored as Record<string, unknown>)
+			: {};
+	const num = (x: unknown, min: number, max: number) =>
+		typeof x === 'number' && x >= min && x <= max ? x : null;
+	// `true` and `false` are what a store written before count patterns held.
+	const count = v.count === true ? 'salsa' : v.count === false ? 'off' : v.count;
+	return {
+		bpm: num(v.bpm, 60, 300),
+		count: oneOf<CountPattern | null>(count, dance.countPatterns, null),
+		// A dance without clave never gets one back: the store is per browser.
+		clave: !dance.clave
+			? null
+			: 'clave' in v
+				? oneOf<ClavePattern | null | undefined>(v.clave, [...CLAVE_PATTERNS, null], undefined)
+				: undefined,
+		speed: oneOf<Speed | null>(v.speed, SPEEDS, null),
+		voiceVolume: num(v.voiceVolume, 0, 1)
+	};
+}
+
+export interface PracticeSeed {
+	bpm: number;
+	count: CountPattern;
+	clave: ClavePattern | null;
+	speed: Speed;
+}
+
+/**
+ * Where a practice's settings start: the exercise's own memory when it has one
+ * (`practiceOf`), else what this phone last used, else the defaults. The full
+ * player and the panel both start here, so the two never disagree.
+ */
+export function practiceSeed(
+	remembered: PracticeInput | null,
+	phone: PhonePractice,
+	dance: Dance,
+	defaultBpm: number
+): PracticeSeed {
+	const d = defaultPracticeConfig(dance);
+	const c = remembered?.config ?? null;
+	return {
+		bpm: remembered?.countBpm ?? phone.bpm ?? defaultBpm,
+		count: c?.count ?? phone.count ?? d.count,
+		clave: !dance.clave ? null : c ? c.clave : (phone.clave ?? null),
+		speed: c?.speed ?? phone.speed ?? d.speed
+	};
+}
+
 /** The panel's one collapsed line: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3". */
 export function practiceSummary(
 	p: { mode: 'count' | 'song'; bpm: number; songTitle: string | null; config: PracticeConfig },

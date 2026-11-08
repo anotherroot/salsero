@@ -367,8 +367,7 @@ describe("the player's song picker stays on its own side", () => {
 		expect(openPlayer('salsa', `exercise=${salsaExerciseId}`).start).toEqual({
 			source: 'song',
 			songId: salsaSong,
-			songGone: false,
-			bpm: null
+			songGone: false
 		});
 		// The same exercise id under bachata is no exercise at all, so nothing is remembered.
 		expect(openPlayer('bachata', `exercise=${salsaExerciseId}`).start.source).toBe('count');

@@ -498,8 +498,9 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   panel), so the `<audio>` has its `src` before the Play tap. It opens on
   `?song=` (the song page's Play), else the exercise's remembered practice
   (`practiceStart` in `src/lib/exercises/practice.ts`, shared with the
-  panel), else the count. A run for an exercise remembers its source, song,
-  tempo, count, clave and speed on Play through the panel's own
+  panel), else the count. Its settings start where the panel's do
+  (`practiceSeed`: the exercise's memory, else this phone's). An exercise remembers its source, song,
+  tempo, count, clave and speed as they change, a count changed mid-run too, through the panel's own
   `POST /[dance]/exercises/[id]/practice`, keeping the panel's call interval
   as it was — the two offer different ones. The routine page's Practise goes
   straight here; its sheet of songs is gone. The song's progress bar
