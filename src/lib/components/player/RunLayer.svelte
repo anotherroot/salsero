@@ -15,7 +15,8 @@
 	 * Pause (the run bar, z-20) stay on top of it, on the desktop too. It holds a history entry like
 	 * a sheet (`sheetStack`), so Back closes it, not the run, and a layer over a
 	 * layer closes first. On the desktop it fills the 520 px column, the stage
-	 * left untouched. Without a player (Setup) the strip has no count.
+	 * left untouched, and the strip has no count of its own (the stage shows it).
+	 * Without a player (Setup) the strip has no count.
 	 */
 	interface Props {
 		/** The layer's name for a screen reader ("About", "Routine"). */
@@ -98,7 +99,7 @@
 
 <div
 	bind:this={box}
-	class="run-layer fixed inset-0 flex flex-col bg-ground desk:inset-auto desk:top-(--band-row-h) desk:right-0 desk:bottom-0 desk:w-[520px] desk:overflow-hidden desk:rounded-tl-[28px] {over
+	class="run-layer fixed inset-0 flex flex-col bg-ground desk:inset-auto desk:top-(--band-row-h) desk:right-0 desk:bottom-0 desk:w-[520px] {over
 		? 'z-[16]'
 		: 'z-[15]'}"
 	role="dialog"
@@ -115,7 +116,7 @@
 		<BandButton icon="close" label={closeLabel} onclick={close} focusKey="layer-close" />
 		{#if player}
 			<span
-				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums"
+				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden"
 				aria-hidden="true">{stageDigit(count, paused).text}</span
 			>
 		{/if}
