@@ -12,6 +12,8 @@
 	import { mergeDay } from '$lib/exercises/day-entry';
 	import { addedMessage, doneSubtitle } from '$lib/exercises/done-view';
 	import { announceSaved } from '$lib/exercises/saved.svelte';
+	import { actAt } from '$lib/act';
+	import { refusalMessage } from '$lib/act-toast';
 	import { t } from '$lib/i18n/catalog';
 	import type { DoneResult } from '$lib/types';
 	import type { PageData } from './$types';
@@ -36,9 +38,22 @@
 		return rows.length === 0 ? null : mergeDay(rows);
 	});
 
+	/** A fixed-rhythm drill stores no face: its past day saves at once, like its page's Done. */
+	const fixedRhythm = (id: number) =>
+		data.list.exercises.find((e) => e.id === id)?.comesBack.kind === 'every';
+
 	function pick(id: number) {
 		pickedId = id;
-		doneOpen = true;
+		if (fixedRhythm(id) && data.past) void saveFixed(id, data.past.day);
+		else doneOpen = true;
+	}
+
+	/** No sheet, no face, no note field (the day keeps its note): the day's row is added to. */
+	async function saveFixed(id: number, day: string) {
+		const result = await actAt(`/${data.dance.slug}`, 'done', { exerciseId: id, day, rating: '' });
+		const refused = refusalMessage(result, t().exercise.log.didNotSave);
+		if (refused !== null) announceSaved({ dance: data.dance.slug, message: refused, undo: null });
+		else if (result.type === 'success') saved(result.data as unknown as DoneResult, day);
 	}
 
 	/** Added: the sheet closes, and "Added to Thu 5 Nov · Undo" shows over the day. */

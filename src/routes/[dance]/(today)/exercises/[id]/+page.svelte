@@ -56,7 +56,7 @@
 		type HistoryDay
 	} from '$lib/exercises/exercise-page';
 	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
-	import { announceSaved } from '$lib/exercises/saved.svelte';
+	import { announceSaved, saved as savedToast } from '$lib/exercises/saved.svelte';
 	import { pageClock } from '$lib/exercises/page-clock.svelte';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
@@ -295,6 +295,8 @@
 	let undoSnapshots: string | null = null;
 
 	function say(message: string, action?: string) {
+		// The saved toast (the layout's) sits in the same spot: one notice at a time.
+		savedToast.dismiss();
 		notice = { id: ++noticeSeq, message, action };
 	}
 
