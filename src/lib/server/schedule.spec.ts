@@ -174,6 +174,28 @@ describe('doneFacesOf', () => {
 			'easy'
 		]);
 	});
+	const until = JSON.stringify({
+		kind: 'until',
+		good: 3,
+		since: Date.parse('2026-11-01T00:00:00+01:00')
+	});
+	it('a learning drill with two good days: the good faces finish it', () => {
+		const a = drill(U1_SALSA, 'Learning', 3);
+		db.update(exercises).set({ comesBack: until }).where(eq(exercises.id, a.id)).run();
+		set(a.id, at('2026-11-05'), RATING_OF.gotit);
+		set(a.id, at('2026-11-06'), RATING_OF.gotit);
+		const f = doneFacesOf(db, a.id, TZ, now)!;
+		expect(f.find((x) => x.feel === 'gotit')).toEqual({ feel: 'gotit', gap: 3, learnt: true });
+		expect(f.find((x) => x.feel === 'getting')!.learnt).toBe(false);
+	});
+	it("a class drill's learning rule reaches the entry", () => {
+		db = openDb(':memory:');
+		const c = makeClass(db);
+		db.update(exercises).set({ comesBack: until }).where(eq(exercises.id, c.drill)).run();
+		set(c.entry, at('2026-11-05'), RATING_OF.gotit);
+		set(c.entry, at('2026-11-06'), RATING_OF.gotit);
+		expect(doneFacesOf(db, c.entry, TZ, now)!.find((x) => x.feel === 'easy')!.learnt).toBe(true);
+	});
 	it('an entry following a class drill set to a fixed rhythm has no faces', () => {
 		db = openDb(':memory:');
 		const c = makeClass(db);

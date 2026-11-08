@@ -8,6 +8,7 @@ import {
 	goodDaysSince,
 	scheduleOf,
 	type DoneFace,
+	type DoneInput,
 	type DueState,
 	type ScheduleSet
 } from '$lib/schedule/schedule';
@@ -69,8 +70,8 @@ export function scheduleStates(
 	);
 }
 
-/** One exercise's schedule, archived or not. Not owner-scoped: callers must check access first. */
-export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): DueState {
+/** The inputs a schedule is replayed from: the row, its sets and the rule it follows. */
+function scheduleInputsOf(db: Db, exerciseId: number): DoneInput {
 	const row = db.select().from(exercises).where(eq(exercises.id, exerciseId)).get();
 	if (!row) throw new Error(`No exercise ${exerciseId}`);
 	const teacher =
@@ -86,17 +87,22 @@ export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): D
 		.from(sets)
 		.where(eq(sets.exerciseId, exerciseId))
 		.all();
-	return scheduleOf(
-		row.everyDays,
-		row.createdAt,
-		rows,
-		effectiveComesBack(
+	return {
+		startGap: row.everyDays,
+		createdAt: row.createdAt,
+		sets: rows,
+		comesBack: effectiveComesBack(
 			row.source,
 			parseComesBack(row.comesBack),
 			parseComesBack(teacher?.comesBack)
-		),
-		timeZone
-	);
+		)
+	};
+}
+
+/** One exercise's schedule, archived or not. Not owner-scoped: callers must check access first. */
+export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): DueState {
+	const i = scheduleInputsOf(db, exerciseId);
+	return scheduleOf(i.startGap, i.createdAt, i.sets, i.comesBack, timeZone);
 }
 
 /**
@@ -109,35 +115,7 @@ export function doneFacesOf(
 	timeZone: string,
 	now: number
 ): DoneFace[] | null {
-	const row = db.select().from(exercises).where(eq(exercises.id, exerciseId)).get();
-	if (!row) throw new Error(`No exercise ${exerciseId}`);
-	const teacher =
-		row.source === 'added' && row.drillId !== null
-			? db
-					.select({ comesBack: exercises.comesBack })
-					.from(exercises)
-					.where(eq(exercises.id, row.drillId))
-					.get()
-			: undefined;
-	const rows = db
-		.select({ doneAt: sets.doneAt, rating: sets.rating })
-		.from(sets)
-		.where(eq(sets.exerciseId, exerciseId))
-		.all();
-	return doneFaces(
-		{
-			startGap: row.everyDays,
-			createdAt: row.createdAt,
-			sets: rows,
-			comesBack: effectiveComesBack(
-				row.source,
-				parseComesBack(row.comesBack),
-				parseComesBack(teacher?.comesBack)
-			)
-		},
-		now,
-		timeZone
-	);
+	return doneFaces(scheduleInputsOf(db, exerciseId), now, timeZone);
 }
 
 /**
