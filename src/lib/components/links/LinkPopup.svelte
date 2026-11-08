@@ -164,6 +164,15 @@
 			variationStyle = c.style ?? options.defaults.style;
 		});
 	});
+	// A new move has no first figure: its figure starts on the person's defaults.
+	$effect(() => {
+		if (!newMove) return;
+		untrack(() => {
+			if (!options) return;
+			variationPartner = options.defaults.partner;
+			variationStyle = options.defaults.style;
+		});
+	});
 	let drillName = $state('');
 	let positionName = $state('');
 	/** The new position's type; null: none. Starts on the user's style. */

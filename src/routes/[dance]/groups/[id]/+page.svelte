@@ -25,7 +25,6 @@
 	import type { IconName } from '$lib/icons/icons';
 	import {
 		FIELD,
-		FIELD_INVALID,
 		GROUP,
 		LABEL,
 		ROW,
@@ -488,7 +487,7 @@
 					maxlength="200"
 					required
 					value={drillRefusal?.name ?? ''}
-					class={drillRefusal?.field === 'name' ? FIELD_INVALID : FIELD}
+					class={FIELD}
 					aria-invalid={drillRefusal?.field === 'name' ? 'true' : undefined}
 				/>
 				{#if drillRefusal?.field === 'name'}<FieldError

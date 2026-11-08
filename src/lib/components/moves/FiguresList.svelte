@@ -431,6 +431,8 @@
 								// figure opens once its Back has landed, with every load fresh.
 								creating = false;
 								refusal = null;
+								moveId = null;
+								newMove = null;
 								await gotoWhenSettled(result.location, { invalidateAll: true });
 							} else {
 								await update();
