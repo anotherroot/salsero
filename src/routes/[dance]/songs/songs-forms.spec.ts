@@ -25,7 +25,7 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { songs, teams, users } from '$lib/server/db/schema';
+import { songImports, songs, teams, users } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { groupCookie } from '$lib/teams/mode';
 import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
@@ -39,6 +39,7 @@ import {
 	failJob
 } from '$lib/server/songs';
 import { songSeen } from '$lib/server/clash';
+import { listImports, storeImportItems } from '$lib/server/song-imports';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
 
@@ -430,19 +431,62 @@ describe('Add a song: Spotify and lists', () => {
 		});
 	});
 
-	it('refuses a playlist for now, with a sentence', async () => {
-		for (const url of [
-			'https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W',
-			'https://www.youtube.com/playlist?list=PLo1L1g'
-		])
-			expect(await add(url)).toMatchObject({
-				status: 400,
-				data: {
-					field: 'url',
-					message: "Playlists come in the next update. Paste one song's link for now."
-				}
-			});
+	const importsOf = () => listImports(db, U1_SALSA);
+
+	it('reads a playlist or album into an import, never a song', async () => {
+		expect(await add('https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W?si=x')).toEqual({
+			ok: true
+		});
+		expect(await add('https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy')).toEqual({
+			ok: true
+		});
+		expect(await add('https://music.youtube.com/playlist?list=PLx')).toEqual({ ok: true });
+		expect(await add('spotify:album:1ATL5GLyefJaxhQzSPVrLX')).toEqual({ ok: true });
+		const rows = db.select().from(songImports).all();
+		expect(rows.map((r) => [r.kind, r.url])).toEqual([
+			['spotify-playlist', 'https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W'],
+			['spotify-album', 'https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy'],
+			['youtube-playlist', 'https://www.youtube.com/playlist?list=PLx'],
+			['spotify-album', 'https://open.spotify.com/album/1ATL5GLyefJaxhQzSPVrLX']
+		]);
 		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
+		expect(importsOf()).toHaveLength(4);
+	});
+
+	it('follows a short link to the list it names', async () => {
+		short.to = 'https://open.spotify.com/playlist/37i9dQZF1DX4OzrY981I1W?si=1';
+		expect(await add('https://spotify.link/AbCdE')).toEqual({ ok: true });
+		expect(db.select().from(songImports).all()[0]).toMatchObject({ kind: 'spotify-playlist' });
+	});
+
+	it('refuses a list at the storage limit', async () => {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u@example.com', passwordHash: 'x', storageLimitBytes: 0 })
+			.run();
+		expect(await add('https://www.youtube.com/playlist?list=PLx')).toMatchObject({
+			status: 413,
+			data: { field: 'url' }
+		});
+		expect(db.select().from(songImports).all()).toEqual([]);
+	});
+
+	it('reads a failed list again, and dismisses one', async () => {
+		await add('https://www.youtube.com/playlist?list=PLx');
+		const id = db.select().from(songImports).all()[0].id;
+		const act = (name: 'retryImport' | 'dismissImport') =>
+			call(songList.actions[name], post('salsa', { id: String(id) }));
+		storeImportItems(db, id, {
+			name: 'x',
+			items: [{ title: 'a', artist: null, durationS: 1, url: 'https://youtu.be/a' }],
+			truncated: false
+		});
+		expect(await act('retryImport')).toMatchObject({
+			status: 409,
+			data: { message: 'Only a failed list can be read again.' }
+		});
+		expect(await act('dismissImport')).toEqual({ ok: true });
+		expect(importsOf()).toEqual([]);
+		expect(await act('dismissImport')).toMatchObject({ status: 404 });
 	});
 
 	it('follows a short link to the song it names', async () => {

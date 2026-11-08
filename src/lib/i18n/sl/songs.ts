@@ -2,6 +2,10 @@ import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 
 export const songs: Catalog['songs'] = {
+	imports: {
+		retryRefused: 'Znova je mogoče prebrati le seznam, ki ni uspel.',
+		gone: 'Ta seznam je bil že dodan ali opuščen.'
+	},
 	source: {
 		from: 'Iz',
 		fromSpotify: 'S Spotifyja',

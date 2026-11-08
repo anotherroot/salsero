@@ -43,6 +43,8 @@ import { archiveSong, getSong } from '$lib/server/songs';
 import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
 import { songSeen } from '$lib/server/clash';
 import { history } from '$lib/server/changes';
+import { createImport, getImport, storeImportItems } from '$lib/server/song-imports';
+import * as songList from './+page.server';
 import { groupCookie } from '$lib/teams/mode';
 import type { PickerSong } from '$lib/types';
 
@@ -429,5 +431,75 @@ describe('opening a group song', () => {
 		const before = groupsAs('u3');
 		expect(await open('u3', c.shared)).toBe(204);
 		expect(groupsAs('u3')).toBe(before - 1);
+	});
+});
+
+describe("a group's pasted playlist", () => {
+	const LIST = 'https://www.youtube.com/playlist?list=PL1';
+	type WithImports = Music & { imports: { id: number; group: unknown }[] };
+	/** The action's status: a refusal's, a thrown one's, or 200. */
+	async function act(
+		name: 'dismissImport' | 'retryImport',
+		id: number,
+		as: string
+	): Promise<number> {
+		try {
+			const r = (await (songList.actions[name] as unknown as (e: unknown) => unknown)({
+				params: { dance: 'salsa' },
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({ id: String(id) })
+				}),
+				locals: { user: user(as) },
+				cookies: cookiesFor(undefined)
+			})) as { status?: number };
+			return r.status ?? 200;
+		} catch (thrown) {
+			return (thrown as { status: number }).status;
+		}
+	}
+	function readyGroupImport() {
+		const id = createImport(
+			db,
+			{ dance: 'salsa', teamId: 1, actorId: 'u1' },
+			{ url: LIST, kind: 'youtube-playlist' }
+		).id;
+		storeImportItems(db, id, {
+			name: 'Clase',
+			items: [{ title: 'Uno', artist: null, durationS: 200, url: 'https://youtu.be/x1' }],
+			truncated: false
+		});
+		return id;
+	}
+
+	it('is filed in the group from group mode', async () => {
+		await (songList.actions.addUrl as unknown as (e: unknown) => Promise<unknown>)({
+			params: { dance: 'salsa' },
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ url: LIST, title: '', style: 'salsa' })
+			}),
+			locals: { user: user('u2') },
+			cookies: cookiesFor(1)
+		});
+		const id = (musicAs('u2', 1) as WithImports).imports[0].id;
+		expect(getImport(db, id)).toMatchObject({ teamId: 1, userId: null });
+	});
+
+	it("shows a ready one in an editor's own Music, never a member's", () => {
+		const id = readyGroupImport();
+		expect((musicAs('u2') as WithImports).imports).toEqual([
+			expect.objectContaining({ id, group: { id: 1, name: 'Salsa Tuesdays' } })
+		]);
+		expect((musicAs('u3') as WithImports).imports).toEqual([]);
+	});
+
+	it('is 404 to a member and to someone of no group', async () => {
+		const id = readyGroupImport();
+		expect(await act('dismissImport', id, 'u3')).toBe(404);
+		expect(await act('dismissImport', id, 'u4')).toBe(404);
+		expect(getImport(db, id)?.dismissedAt).toBeNull();
 	});
 });

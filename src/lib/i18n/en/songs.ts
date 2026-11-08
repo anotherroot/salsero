@@ -2,6 +2,11 @@
 // area extends this (the list, a song's page, sharing).
 
 export const songs = {
+	/** A pasted playlist's refusals (`retryImport`, `dismissImport`). */
+	imports: {
+		retryRefused: 'Only a failed list can be read again.',
+		gone: 'This list was already added or dismissed.'
+	},
 	/** Where a song's audio came from, and changing it (song page, Song details, `AudioFrom`, `AudioSwap`). */
 	source: {
 		from: 'From',
