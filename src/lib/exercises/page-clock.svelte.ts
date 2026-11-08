@@ -9,10 +9,16 @@ import { elapsedMs, followVisibility, STOPPED, type Stopwatch } from '$lib/exerc
  * `seconds` reads the wall clock when it is read, so the value taken at a tap
  * is exact; the 1 s tick, run only while the page is visible, is what redraws
  * the band. `restart()` counts again from 0 (another exercise opened in the
- * same page).
+ * same page). `carried`: the time a trip to the player brought back
+ * (`clock-trip.ts`), which this one goes on from; `watch` is what the page
+ * leaves there when it opens the player.
  */
-export function pageClock(): { readonly seconds: number; restart(): void } {
-	let watch = $state<Stopwatch>(STOPPED);
+export function pageClock(carried: Stopwatch | null = null): {
+	readonly seconds: number;
+	readonly watch: Stopwatch;
+	restart(): void;
+} {
+	let watch = $state<Stopwatch>(carried ?? STOPPED);
 	/** Bumped by the tick, so a reader of `seconds` redraws once a second. */
 	let beat = $state(0);
 
@@ -38,6 +44,9 @@ export function pageClock(): { readonly seconds: number; restart(): void } {
 	});
 
 	return {
+		get watch() {
+			return { ...watch };
+		},
 		get seconds() {
 			void beat;
 			return Math.floor(elapsedMs(watch, Date.now()) / 1000);

@@ -58,6 +58,7 @@
 	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
 	import { announceSaved, saved as savedToast } from '$lib/exercises/saved.svelte';
 	import { pageClock } from '$lib/exercises/page-clock.svelte';
+	import { backFromPlayer, leaveForPlayer } from '$lib/exercises/clock-trip';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { comesBackWords } from '$lib/exercises/comes-back-view';
@@ -99,8 +100,26 @@
 	const today = todayPane();
 
 	// --- The time and Done (spec "The exercise page (one page)").
-	/** Counted while the page is visible, from when it opened; Done saves it. */
-	const clock = pageClock();
+	/**
+	 * Counted while the page is visible, from when it opened; Done saves it. A trip
+	 * to the player and back is one visit: the page leaves its watch when it opens
+	 * the player and takes it back here (`clock-trip.ts`, the tab's sessionStorage).
+	 */
+	const clock = pageClock(untrack(() => tripBack(data.exercise.id)));
+	function tripBack(exerciseId: number) {
+		try {
+			return backFromPlayer(sessionStorage, exerciseId, Date.now());
+		} catch {
+			return null;
+		}
+	}
+	function tripLeave() {
+		try {
+			leaveForPlayer(sessionStorage, data.exercise.id, clock.watch, Date.now());
+		} catch {
+			// No storage (a private window): the time starts over on the way back.
+		}
+	}
 	/** Remounts Practise with after a save, so its line reads the exercise's new memory. */
 	let practiceKey = $state(0);
 	let doneOpen = $state(false);
@@ -370,6 +389,7 @@
 				content={data.practice.content}
 				songs={data.songs}
 				playerFrom="from=exercise"
+				onleave={tripLeave}
 			/>
 		{/key}
 	{/if}
