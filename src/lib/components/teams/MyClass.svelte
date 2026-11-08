@@ -6,6 +6,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SongRow from '$lib/components/songs/SongRow.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { t } from '$lib/i18n/catalog';
 	import { dateTile } from '$lib/lessons/list';
 	import { classMeta, classSongsHeading, latestAndEarlier, MY_CLASS } from '$lib/teams/view';
 	import { readyMeta, songName } from '$lib/songs/library';
@@ -50,17 +51,18 @@
 	const href = (id: number) => resolve('/[dance]/lessons/[id]', { dance, id: String(id) });
 	/** Add is drawn on a class that can be added and is not yet. */
 	const addable = (l: ClassLesson) => l.add !== null && !l.add.added && l.add.offer !== null;
+	const w = $derived(t().entry.classes);
 </script>
 
 {#snippet add(l: ClassLesson)}
 	<button
 		type="button"
 		class={button('secondary', 'sm')}
-		aria-label="Add {l.title}"
+		aria-label={w.addLesson(l.title)}
 		aria-busy={addingNow === l.id}
 		disabled={addingNow !== null}
 		onclick={() => onadd(l.id)}
-		>{#if addingNow === l.id}<Spinner />{:else}Add{/if}</button
+		>{#if addingNow === l.id}<Spinner />{:else}{w.add}{/if}</button
 	>
 {/snippet}
 
@@ -88,7 +90,7 @@
 					<span class="font-display text-[22px] leading-[1.15] font-extrabold text-ink"
 						><span class="sr-only">{tile.label}, </span>{l.title}</span
 					>
-					{#if l.isNew}<Badge tone="accent">New</Badge>{/if}
+					{#if l.isNew}<Badge tone="accent">{w.isNew}</Badge>{/if}
 				</span>
 				{#if meta}<span class="text-[15px] text-muted">{meta}</span>{/if}
 			</span>
@@ -130,7 +132,7 @@
 					<span class="text-[16px] leading-[1.3] font-bold text-ink"
 						><span class="sr-only">{tile.label}, </span>{l.title}</span
 					>
-					{#if l.isNew}<Badge tone="accent">New</Badge>{/if}
+					{#if l.isNew}<Badge tone="accent">{w.isNew}</Badge>{/if}
 				</span>
 				{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
 			</span>
@@ -144,7 +146,7 @@
 
 {#snippet classesColumn()}
 	{#if classes.latest}
-		<section class="flex flex-col gap-2" aria-label="Latest class">
+		<section class="flex flex-col gap-2" aria-label={w.latest}>
 			{@render latestCard(classes.latest)}
 		</section>
 		{#if classes.earlier.length > 0}
@@ -156,7 +158,7 @@
 			</section>
 		{/if}
 	{:else}
-		<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">No classes yet</div>
+		<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">{w.noClasses}</div>
 	{/if}
 {/snippet}
 
@@ -164,7 +166,7 @@
 	{#if songs.length > 0}
 		<section class="flex flex-col gap-2">
 			<h2 class={SECTION_LABEL}>{classSongsHeading(songs.length)}</h2>
-			<ul class={GROUP} aria-label="Class songs">
+			<ul class={GROUP} aria-label={w.songs}>
 				{#each songs as s (s.id)}
 					<SongRow
 						href={resolve('/[dance]/songs/[id]', { dance, id: String(s.id) })}

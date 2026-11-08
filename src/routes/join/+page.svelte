@@ -5,6 +5,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -13,24 +14,23 @@
 		typeof Intl === 'undefined' ? '' : (Intl.DateTimeFormat().resolvedOptions().timeZone ?? '')
 	);
 	const live = $derived(data.valid && !form?.dead);
+	const w = $derived(t().entry);
 </script>
 
-<svelte:head><title>Join</title></svelte:head>
+<svelte:head><title>{w.join.title}</title></svelte:head>
 
 <div data-dance={data.dance} style:display="contents">
 	<CardFrame
-		title="Join"
-		subtitle={live ? 'You were invited' : undefined}
-		note={live
-			? 'At least 12 characters, mixing three of lower, upper, digit and symbol.'
-			: undefined}
+		title={w.join.title}
+		subtitle={live ? w.join.invited : undefined}
+		note={live ? w.join.passwordRule : undefined}
 	>
 		{#if live}
 			<form
 				method="POST"
 				class="flex flex-col gap-4 rounded-[22px] bg-surface px-4 pt-5 pb-4"
 				use:guarded={{
-					label: 'Your account',
+					label: w.join.form,
 					submit: ({ cancel }) => {
 						if (submitting) return cancel();
 						submitting = true;
@@ -55,7 +55,7 @@
 				/>
 
 				<label class="block">
-					<span class={LABEL}>Email</span>
+					<span class={LABEL}>{w.email}</span>
 					<input
 						name="email"
 						type="email"
@@ -67,7 +67,7 @@
 				</label>
 
 				<label class="block">
-					<span class={LABEL}>Password</span>
+					<span class={LABEL}>{w.password}</span>
 					<input
 						name="password"
 						type="password"
@@ -84,15 +84,15 @@
 
 				<button type="submit" class={button('primary', 'lg', true)} aria-busy={submitting}>
 					{#if submitting}
-						<Spinner size={24} /> Creating…
+						<Spinner size={24} /> {w.join.creating}
 					{:else}
-						Create account
+						{w.join.create}
 					{/if}
 				</button>
 			</form>
 		{:else}
 			<div class="rounded-[22px] bg-surface px-4 py-5">
-				<Banner kind="error" title="This invite no longer works. Ask for a new one." />
+				<Banner kind="error" title={w.join.dead} />
 			</div>
 		{/if}
 	</CardFrame>

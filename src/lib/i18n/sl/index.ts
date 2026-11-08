@@ -38,8 +38,9 @@
 import type { Catalog } from '../catalog';
 import { admin } from './admin';
 import { common } from './common';
+import { entry } from './entry';
 import { format } from './format';
 import { settings } from './settings';
 import { shell } from './shell';
 
-export const sl: Catalog = { common, format, shell, admin, settings };
+export const sl: Catalog = { common, format, shell, admin, settings, entry };

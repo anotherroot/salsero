@@ -10,6 +10,7 @@ import { openDb, type Db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { sessions, users } from '$lib/server/db/schema';
 import { createInvite } from '$lib/server/invites';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions as adminActions, load as adminLoad } from '../admin/+page.server';
 import { actions, load } from './+page.server';
 
@@ -207,13 +208,40 @@ describe('join in the invite language', () => {
 		expect(set).toHaveBeenCalledWith('lang', 'en', expect.anything());
 	});
 
-	// Task 6: Join's refusals come back in the invite's language once the `entry` words exist.
-	// Until then: a refused Join makes no account and leaves the cookie alone.
-	it('a refused Join on a Slovenian invite sets no cookie and makes no account', async () => {
+	// The hook draws a Join on a Slovenian invite in Slovenian (`runInLocale` around the action).
+	// Catches: a refusal left in English for someone who reads none.
+	it('a refused Join on a Slovenian invite says why in Slovenian, sets no cookie and makes no account', async () => {
 		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'sl');
-		const { event, set } = post(fields(code, { password: 'short' }));
-		expect(await run(event)).toMatchObject({ status: 400 });
-		expect(set).not.toHaveBeenCalled();
+		const refusal = async (over: Record<string, string>) => {
+			const { event, set } = post(fields(code, over));
+			const out = (await runInLocale('sl', () => run(event))) as {
+				status: number;
+				data: { message: string };
+			};
+			expect(out.status).toBe(400);
+			expect(set).not.toHaveBeenCalled();
+			return out.data.message;
+		};
+		expect(await refusal({ email: '' })).toBe('Vnesite e-pošto in geslo.');
+		expect(await refusal({ password: 'short' })).toBe('Geslo mora imeti vsaj 12 znakov.');
+		expect(await refusal({ email: 'not-an-email' })).toBe('Vnesite veljaven e-poštni naslov.');
+		expect(await refusal({ firstName: '' })).toBe('Vnesite svoje ime (največ 60 znakov).');
+		expect(await refusal({ code: 'nope' })).toBe('To povabilo ne velja več. Prosite za novo.');
 		expect(db.select().from(users).all()).toHaveLength(1);
+	});
+
+	it('the same refusals stay English in English', async () => {
+		const { code } = createInvite(db, 'admin', 'salsa', Date.now(), 'en');
+		const msg = async (over: Record<string, string>) =>
+			((await run(post(fields(code, over)).event)) as { data: { message: string } }).data.message;
+		expect(await msg({ email: '' })).toBe('Email and password are required.');
+		expect(await msg({ password: 'short' })).toBe('Password must be at least 12 characters.');
+		expect(await msg({ password: 'aaaaaaaaaaaaaa' })).toBe(
+			'Password is a single repeated character.'
+		);
+		expect(await msg({ password: 'alllowercase1234' })).toBe(
+			'Password must mix at least three of: lower, upper, digit, symbol.'
+		);
+		expect(await msg({ code: 'nope' })).toBe('This invite no longer works. Ask for a new one.');
 	});
 });

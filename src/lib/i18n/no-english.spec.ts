@@ -20,7 +20,7 @@ const TRANSLATED: string[] = [
 	'src/lib/components/shell/ReloadBar.svelte',
 	'src/lib/components/shell/SheetCorner.svelte',
 	'src/lib/components/shell/Side.svelte',
-	// The system screens (Task 5; NameFields is the way in's, Task 6).
+	// The system screens (Task 5; NameFields is with the way in, below).
 	'src/lib/components/system/AppUpdateBar.svelte',
 	'src/lib/components/system/ChoiceSheet.svelte',
 	'src/lib/components/system/ErrorScreen.svelte',
@@ -47,7 +47,18 @@ const TRANSLATED: string[] = [
 	'src/lib/components/ui/UnsavedDialog.svelte',
 	'src/lib/components/ui/UploadCard.svelte',
 	'src/routes/+error.svelte',
-	'src/routes/app/+page.svelte'
+	'src/routes/app/+page.svelte',
+	// The way in: login, Join, welcome, the first run, a class code (Task 6).
+	'src/lib/components/levels/LevelCards.svelte',
+	'src/lib/components/system/NameFields.svelte',
+	'src/lib/components/teams/ClassCodeField.svelte',
+	'src/lib/components/teams/ClassList.svelte',
+	'src/lib/components/teams/MyClass.svelte',
+	'src/routes/g/[code]/+page.svelte',
+	'src/routes/join/+page.svelte',
+	'src/routes/login/+page.svelte',
+	'src/routes/welcome/+page.svelte',
+	'src/routes/welcome/start/+page.svelte'
 ];
 
 describe('englishIn', () => {

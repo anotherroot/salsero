@@ -35,7 +35,7 @@
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
-	import { LEVEL_WORDS, fewSettings, levelShown, type Level } from '$lib/levels/levels';
+	import { fewSettings, levelShown, levelWords, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
@@ -187,7 +187,7 @@
 			onclick={() => (sheet = 'level')}
 		>
 			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">How much app?</span>
-			<span class="truncate text-[15px] font-semibold text-muted">{LEVEL_WORDS[level].title}</span>
+			<span class="truncate text-[15px] font-semibold text-muted">{levelWords(level).title}</span>
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</button>
 	</div>

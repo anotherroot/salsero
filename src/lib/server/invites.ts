@@ -3,13 +3,14 @@ import { and, eq, gt, isNull, or, type SQL } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import type { Db } from './db';
 import { invites, users } from './db/schema';
-import { rejectWeak } from './admin';
+import { weakReason } from './admin';
 import { hashInviteCode } from './invite-code';
 import { hashPassword } from './password';
 import { cleanName } from '$lib/names';
 import { DEFAULT_STORAGE_LIMIT_BYTES, INVITE_TTL_MS } from '$lib/limits';
 import type { DanceSlug } from '$lib/dances/dances';
 import { parseLocale, type Locale } from '$lib/i18n/locale';
+import { t } from '$lib/i18n/catalog';
 
 export type JoinResult =
 	| {
@@ -24,7 +25,10 @@ export type JoinResult =
 			message: string;
 	  };
 
-export const INVITE_REFUSAL = 'This invite no longer works. Ask for a new one.';
+/** What a dead invite says, in the request's language. */
+export function inviteRefusal(): string {
+	return t().entry.join.dead;
+}
 
 /**
  * An invite's dance: its own, or salsa's for one made before the dance split
@@ -114,25 +118,23 @@ export async function redeemInvite(
 	},
 	now: number
 ): Promise<JoinResult> {
+	// The refusals are read in the request's language (`runInLocale`: the invite's on /join).
+	const w = t().entry;
 	const email = input.email.trim().toLowerCase();
 	if (!EMAIL.test(email)) {
-		return { ok: false, reason: 'email', message: 'Enter a valid email address.' };
+		return { ok: false, reason: 'email', message: w.join.badEmail };
 	}
 	const firstName = cleanName(input.firstName);
 	if (!firstName) {
-		return {
-			ok: false,
-			reason: 'first-name',
-			message: 'Enter your first name (up to 60 letters).'
-		};
+		return { ok: false, reason: 'first-name', message: w.name.firstRefusal };
 	}
 	const lastName = cleanName(input.lastName);
 	if (!lastName) {
-		return { ok: false, reason: 'last-name', message: 'Enter your last name (up to 60 letters).' };
+		return { ok: false, reason: 'last-name', message: w.name.lastRefusal };
 	}
-	const weak = rejectWeak(input.password);
-	if (weak) return { ok: false, reason: 'weak', message: `Password ${weak}.` };
-	const dead: JoinResult = { ok: false, reason: 'invite', message: INVITE_REFUSAL };
+	const weak = weakReason(input.password);
+	if (weak) return { ok: false, reason: 'weak', message: w.join.weak[weak] };
+	const dead: JoinResult = { ok: false, reason: 'invite', message: inviteRefusal() };
 	if (!inviteValid(db, input.code, input.dance, now)) return dead;
 	// Unique per dance: the same email may hold an account in the other dance.
 	if (
@@ -142,7 +144,7 @@ export async function redeemInvite(
 			.where(and(eq(users.dance, input.dance), eq(users.email, email)))
 			.get()
 	) {
-		return { ok: false, reason: 'email-taken', message: 'That email already has an account.' };
+		return { ok: false, reason: 'email-taken', message: t().entry.join.taken };
 	}
 
 	// Hash before the transaction: it is async, and the transaction must be synchronous.
@@ -190,7 +192,7 @@ export async function redeemInvite(
 		if (!claimed) return dead;
 	} catch (e) {
 		if (e === taken) {
-			return { ok: false, reason: 'email-taken', message: 'That email already has an account.' };
+			return { ok: false, reason: 'email-taken', message: t().entry.join.taken };
 		}
 		throw e;
 	}

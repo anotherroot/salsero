@@ -13,6 +13,7 @@ import {
 import { requestDanceOf } from '$lib/server/hosts';
 import { setLocaleCookie } from '$lib/server/locale';
 import { parseLocale } from '$lib/i18n/locale';
+import { t } from '$lib/i18n/catalog';
 import { safeNext } from '$lib/safe-next';
 import { adminFirstName } from '$lib/server/teams';
 import { noAccountLine } from '$lib/teams/view';
@@ -49,14 +50,11 @@ export const actions: Actions = {
 		const dance = requestDanceOf(url, null, next);
 
 		if (!email || !password) {
-			return fail(400, { message: 'Email and password are required.', email });
+			return fail(400, { message: t().entry.required, email });
 		}
 
 		if (isRateLimited(getClientAddress(), email, dance)) {
-			return fail(429, {
-				message: 'Too many attempts. Wait 15 minutes and try again.',
-				email
-			});
+			return fail(429, { message: t().entry.tooMany, email });
 		}
 
 		const user = getDb()
@@ -71,7 +69,7 @@ export const actions: Actions = {
 		if (!user || !ok) {
 			recordFailedLogin(getClientAddress(), email, dance);
 			// Deliberately identical for "no such account" and "wrong password".
-			return fail(400, { message: 'Incorrect email or password.', email });
+			return fail(400, { message: t().entry.login.wrong, email });
 		}
 
 		clearLoginAttempts(email, dance);

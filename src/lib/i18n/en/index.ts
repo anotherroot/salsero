@@ -2,8 +2,9 @@
 // One area per file; later areas are added beside `common`.
 import { admin } from './admin';
 import { common } from './common';
+import { entry } from './entry';
 import { format } from './format';
 import { settings } from './settings';
 import { shell } from './shell';
 
-export const en = { common, format, shell, admin, settings };
+export const en = { common, format, shell, admin, settings, entry };

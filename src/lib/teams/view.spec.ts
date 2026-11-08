@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAKE_MINE } from '$lib/clones/view';
+import { classDayLabel } from '$lib/format';
+import { withLocale } from '$lib/i18n/current';
 import {
 	codeAction,
 	COPY_FAILED,
@@ -219,5 +221,32 @@ describe('My class', () => {
 			pick: { title: 'Pick a class', body: 'Its classes and songs open here.' }
 		});
 		expect(ADDED_TO_TODAY).toBe('Added to Today');
+	});
+});
+
+// Catches: My class and the way in drawn in English for a Slovenian reader, a
+// count not in its Slovenian form, or a name declined inside the sentence.
+describe('the class lines in Slovenian', () => {
+	it('count, ask and say when a class last met', () => {
+		withLocale('sl', () => {
+			expect([1, 2, 3, 5].map(peopleLine)).toEqual(['1 oseba', '2 osebi', '3 osebe', '5 oseb']);
+			expect(joinQuestion('Salsa nadaljevalna')).toBe(
+				'Se pridružite skupini »Salsa nadaljevalna«?'
+			);
+			expect(noAccountLine('Tilen')).toBe(
+				'Ta koda doda le tiste, ki že imajo račun. Za povabilo prosite: Tilen.'
+			);
+			expect(classMeta(2, 4)).toBe('2 videa · 4 za vadbo');
+			expect(classMeta(5, 0)).toBe('5 videov');
+			expect(classSongsHeading(3)).toBe('Skladbe s tečaja · 3');
+			expect(classSongsHeading(0)).toBe('Skladbe s tečaja');
+			expect(lastClassLine(null, '2026-11-05')).toBe('Še ni lekcij');
+			expect(lastClassLine('2026-11-03', '2026-11-05')).toBe(
+				`Zadnja lekcija: ${classDayLabel('2026-11-03', '2026-11-05')}`
+			);
+			expect(MY_CLASS.title).toBe('Moj tečaj');
+			expect(MY_CLASS.earlier).toBe('Prejšnje lekcije');
+			expect(MY_CLASS.pick.title).toBe('Izberite tečaj');
+		});
 	});
 });

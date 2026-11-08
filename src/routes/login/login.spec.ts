@@ -13,6 +13,7 @@ import { openDb, type Db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
 import { users } from '$lib/server/db/schema';
 import { hashPassword } from '$lib/server/password';
+import { runInLocale } from '$lib/server/i18n-request';
 import { actions, load } from './+page.server';
 
 let db: Db;
@@ -45,6 +46,25 @@ describe('login', () => {
 	it('falls back to "the admin" and stays quiet for other pages', async () => {
 		expect((await run('/g/ABC')).noAccount).toContain('Ask the admin for an invite');
 		expect((await run('/salsa')).noAccount).toBeNull();
+	});
+	// Catches: the login page's line left in English, or a name declined inside the sentence.
+	it('says who to ask in Slovenian, the name after a colon', async () => {
+		expect((await runInLocale('sl', () => run('/g/ABC'))).noAccount).toBe(
+			'Ta koda doda le tiste, ki že imajo račun. Za povabilo prosite skrbnika.'
+		);
+		db.insert(users)
+			.values({
+				id: 'a',
+				email: 'a@x.si',
+				passwordHash: 'x',
+				isAdmin: true,
+				firstName: 'Tilen',
+				dance: 'salsa'
+			})
+			.run();
+		expect((await runInLocale('sl', () => run('/g/ABC'))).noAccount).toBe(
+			'Ta koda doda le tiste, ki že imajo račun. Za povabilo prosite: Tilen.'
+		);
 	});
 });
 
@@ -112,6 +132,11 @@ describe('signing in, per dance', () => {
 		const none = await signIn('bachata.anotherroot.eu', 'pw-bachata');
 		expect(none.result).toMatchObject({ status: 303 });
 		expect(none.set).toHaveBeenCalledWith('lang', 'en', expect.anything());
+	});
+
+	it('refuses in Slovenian when the page is Slovenian', async () => {
+		const { result } = await runInLocale('sl', () => signIn('salsa.anotherroot.eu', 'wrong'));
+		expect(result).toMatchObject({ status: 400, data: { message: 'Napačna e-pošta ali geslo.' } });
 	});
 
 	it('a refused sign-in leaves the cookie alone', async () => {
