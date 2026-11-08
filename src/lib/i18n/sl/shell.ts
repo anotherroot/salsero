@@ -21,7 +21,7 @@ export const shell: Catalog['shell'] = {
 		myCount: 'Moje štetje'
 	},
 	groupMode: {
-		workIn: 'Delam v',
+		workIn: 'Delo v',
 		workInGroup: 'Delo v skupini',
 		switchGroup: 'Zamenjaj skupino',
 		workingIn: 'Trenutno tukaj'
@@ -31,9 +31,9 @@ export const shell: Catalog['shell'] = {
 		staleTitle: 'Ta stran je zastarela',
 		staleLine: 'Za nadaljevanje jo znova naložite.',
 		reload: 'Znova naloži',
-		unsaved: 'Ostaja, da se nič neshranjenega ne izgubi.',
-		held: 'Ostaja, dokler to teče.',
-		open: 'Ostaja, dokler je to odprto.',
+		unsaved: 'Stran ostane odprta, da se nič neshranjenega ne izgubi.',
+		held: 'Stran ostane odprta, dokler to teče.',
+		open: 'Stran ostane odprta, dokler je to odprto.',
 		next: 'Posodobitev se naloži na naslednji strani.'
 	},
 	error: {
@@ -55,7 +55,7 @@ export const shell: Catalog['shell'] = {
 		downloading: (pct) => `Prenašanje\u00a0… ${pct}\u00a0%`,
 		installing: 'Nameščanje\u00a0…',
 		update: 'Posodobi',
-		fromPlay: 'Posodobi v Google Play',
+		fromPlay: 'Posodobi prek Google Play',
 		permission: 'Tej aplikaciji dovolite nameščanje posodobitev, nato se vrnite.',
 		busy: 'Posodobitev sledi, ko se nalaganje konča.',
 		current: 'Imate najnovejšo različico aplikacije.',
@@ -79,12 +79,12 @@ export const shell: Catalog['shell'] = {
 		notReady: 'Aplikacija za Android še ni pripravljena.',
 		open: (app) => `Odpri ${app}`,
 		androidSteps: [
-			'1. Brskalnik vpraša, ali dovolite nameščanje aplikacij iz njega: dovolite, nato tapnite Namesti.',
-			'2. Če Play Protect pravi, da aplikacije ne pozna, tapnite Vseeno namesti.',
+			'1. Brskalnik vpraša, ali dovolite nameščanje aplikacij iz njega: dovolite, nato pritisnite Namesti.',
+			'2. Če Play Protect pravi, da aplikacije ne pozna, pritisnite Vseeno namesti.',
 			'3. Odprite aplikacijo in se prijavite s svojim novim računom.'
 		],
 		sketch: 'Skica zaslona z dovoljenjem: vklopljeno stikalo',
-		ios: 'V Safariju tapnite Deli, nato Dodaj na začetni zaslon.',
+		ios: 'V Safariju pritisnite Deli, nato Dodaj na začetni zaslon.',
 		iosNote:
 			'Na iPhonu se videi lekcij naložijo le, dokler je stran odprta, dnevnega opomnika pa ni.',
 		skip: 'Preskoči, uporabljaj v brskalniku'
@@ -104,7 +104,7 @@ export const shell: Catalog['shell'] = {
 	clash: {
 		goneSub: 'Nič ni bilo shranjeno. Preden to zaprete, kopirajte svoje besedilo.',
 		sub: 'Njihovo je shranjeno, vaše še ne: uredite ga, nato izberite.',
-		nothingTyped: 'Ničesar ni bilo vpisanega.',
+		nothingTyped: 'Nič ni bilo vpisano.',
 		theirs: 'Njihovo',
 		yours: 'Vaše',
 		empty: '(prazno)',

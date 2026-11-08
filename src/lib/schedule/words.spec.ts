@@ -120,8 +120,8 @@ describe('in Slovenian', () => {
 		expect(sl(() => dueWords(state(TODAY), TODAY, true))).toEqual([
 			{ text: 'Nova', tone: 'status' }
 		]);
-		expect(sl(() => dueWords(state('2026-11-04'), TODAY, false)[0].text)).toBe('Zamuja 1 dan');
-		expect(sl(() => dueWords(state('2026-11-03'), TODAY, false)[0].text)).toBe('Zamuja 2 dneva');
+		expect(sl(() => dueWords(state('2026-11-04'), TODAY, false)[0].text)).toBe('1 dan zamude');
+		expect(sl(() => dueWords(state('2026-11-03'), TODAY, false)[0].text)).toBe('2 dneva zamude');
 		expect(sl(() => dueWords(state(TODAY), TODAY, false)[0].text)).toBe('Na vrsti danes');
 		expect(sl(() => dueWords(state('2026-11-08'), TODAY, false)[0].text)).toBe(
 			'Na vrsti v nedeljo'

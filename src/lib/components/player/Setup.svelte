@@ -17,7 +17,8 @@
 	import type { CountTakeRow, PickerSong } from '$lib/types';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { CALL_EVERY, CLAVE_PATTERNS, PHRASE_PATTERNS, SPEEDS } from '$lib/labels';
+	import { CALL_EVERY, CLAVE_NAME, CLAVE_PATTERNS, PHRASE_PATTERNS, SPEEDS } from '$lib/labels';
+	import { t } from '$lib/i18n/catalog';
 	import type { PhrasePattern } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import { bpmOf } from '$lib/beatgrid/beatgrid';
@@ -244,6 +245,8 @@
 		}
 	}
 
+	const w = $derived(t().player);
+	const panel = $derived(t().exercise.panel);
 	const ps = $derived(playState({ source, songId, ready: songReady, error: songError, starting }));
 
 	/**
@@ -272,15 +275,15 @@
 {#snippet voiceRow()}
 	<a class={VOICE_ROW} href={voiceHref}>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-			<span class="text-[16px] font-bold text-ink">Voice</span>
-			<span class="text-[13px] text-muted">Record your own count</span>
+			<span class="text-[16px] font-bold text-ink">{w.voice}</span>
+			<span class="text-[13px] text-muted">{w.recordOwn}</span>
 		</span>
 		<span class="text-[16px] whitespace-nowrap text-muted">{voice}</span>
 		<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
 	</a>
 {/snippet}
 
-<Screen width="song" title="Practice" subtitle={setupSubtitle(routine)}>
+<Screen width="song" title={w.title} subtitle={setupSubtitle(routine)}>
 	{#snippet left()}
 		<BackButton fallback={back} />
 	{/snippet}
@@ -291,7 +294,7 @@
 				<Segmented
 					onBand
 					name="player-source"
-					label="Source"
+					label={panel.source}
 					items={runSources()}
 					bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
 				/>
@@ -301,51 +304,49 @@
 
 	<div class="flex flex-col gap-2 pb-32">
 		{#if startError}
-			<Banner kind="error" title="Could not start the player."
-				>Nothing is playing. Tap Play to try again.</Banner
-			>
+			<Banner kind="error" title={w.couldNotStart}>{w.couldNotStartBody}</Banner>
 		{/if}
 		{#if songGone}
-			<Banner kind="info" title="Its song is not ready">Pick another, or use the count.</Banner>
+			<Banner kind="info" title={panel.songGone}>{panel.songGoneBody}</Banner>
 		{/if}
 
 		{#if source === 'count'}
 			<div class={GROUP}>
 				<div class="py-3 pr-3 pl-4">
-					<Stepper label="Tempo" unit="BPM" min={60} max={300} step={5} bind:value={bpm} />
+					<Stepper label={panel.tempo} unit="BPM" min={60} max={300} step={5} bind:value={bpm} />
 				</div>
 				{@render voiceRow()}
 			</div>
 		{:else}
-			<span class={LABEL} id="{uid}-song">Song</span>
+			<span class={LABEL} id="{uid}-song">{panel.song}</span>
 			<SongPicker variant="card" {songs} bind:songId labelId="{uid}-song" invalid={!!songError}>
 				{#if songReady && audio}
 					<!-- Before Play too: skip an intro, or rewind after a Stop left it mid-song. -->
 					<div class="pr-2 pl-1">
 						<SongProgress
 							{audio}
-							onseek={(t) => {
-								if (audio) audio.currentTime = t;
+							onseek={(time) => {
+								if (audio) audio.currentTime = time;
 							}}
 						/>
 					</div>
 				{:else if songId !== null && !songReady && !songError}
 					<div class="flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold text-muted">
-						<Spinner size={18} />Loading the beat grid…
+						<Spinner size={18} />{w.loadingGrid}
 					</div>
 				{/if}
 			</SongPicker>
 			{#if songError}
 				<p class={FIELD_ERROR} role="alert"><Icon name="warning" size={16} />{songError}</p>
 			{/if}
-			<span class={LABEL} aria-hidden="true">Speed</span>
+			<span class={LABEL} aria-hidden="true">{panel.speedLabel}</span>
 			<SpeedChips name="player-speed" value={speed} onchange={(s) => (speed = s)} />
 		{/if}
 
 		<!-- Only a routine calls figures; without one the run is count and clave. -->
 		{#if routine}
-			<span class={LABEL} aria-hidden="true">Calls · a figure every 1, 2 or 4 eights</span>
-			<div role="radiogroup" aria-label="Calls" class="flex flex-wrap gap-x-2 gap-y-1">
+			<span class={LABEL} aria-hidden="true">{w.callsLabel}</span>
+			<div role="radiogroup" aria-label={w.calls} class="flex flex-wrap gap-x-2 gap-y-1">
 				<label class={CHIP}>
 					<input
 						type="radio"
@@ -354,7 +355,7 @@
 						onchange={() => (callEvery = null)}
 						class="sr-only"
 					/>
-					Off
+					{panel.off}
 				</label>
 				{#each CALL_EVERY as n (n)}
 					<label class={CHIP}>
@@ -365,32 +366,32 @@
 							onchange={() => (callEvery = n)}
 							class="sr-only"
 						/>
-						Every {n}
+						{panel.every(n)}
 					</label>
 				{/each}
 			</div>
 		{/if}
 
-		<span class={LABEL} aria-hidden="true">Voice count</span>
+		<span class={LABEL} aria-hidden="true">{panel.voiceCount}</span>
 		<CountChips
-			label="Voice count"
+			label={panel.voiceCount}
 			patterns={dance.countPatterns}
 			value={count}
 			onchange={(p) => (countOverride = p)}
 		/>
 
 		{#if dance.clave}
-			<span class={LABEL} aria-hidden="true">Clave</span>
-			<ClaveChips label="Clave" value={clave} onchange={(c) => (claveOverride = c)} />
+			<span class={LABEL} aria-hidden="true">{CLAVE_NAME}</span>
+			<ClaveChips label={CLAVE_NAME} value={clave} onchange={(c) => (claveOverride = c)} />
 		{/if}
 
 		{#if source === 'song'}
 			<div class="{GROUP} mt-2">{@render voiceRow()}</div>
 		{/if}
 
-		<span class={LABEL} aria-hidden="true">Voice volume</span>
+		<span class={LABEL} aria-hidden="true">{panel.voiceVolume}</span>
 		<div class="rounded-2xl bg-surface px-4 py-2">
-			<Slider label="Voice volume" bind:value={voiceVolume} />
+			<Slider label={panel.voiceVolume} bind:value={voiceVolume} />
 		</div>
 	</div>
 </Screen>
@@ -408,9 +409,9 @@
 		onclick={play}
 	>
 		{#if ps.busy}
-			<Spinner size={22} />Starting…
+			<Spinner size={22} />{ps.label}
 		{:else}
-			<Icon name="play" size={22} filled />Play
+			<Icon name="play" size={22} filled />{ps.label}
 		{/if}
 	</button>
 </BottomBar>

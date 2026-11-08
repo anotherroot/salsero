@@ -129,7 +129,16 @@ const TRANSLATED: string[] = [
 	'src/lib/components/video/VideoGestures.svelte',
 	// Settings and My count (Task 11).
 	'src/routes/settings/+page.svelte',
-	'src/routes/voice/+page.svelte'
+	'src/routes/voice/+page.svelte',
+	// What was left on the Follow my class path (Task 12): Music on a class drill, the
+	// Practice player a class routine or song opens, and pairing the phone.
+	'src/lib/components/player/Running.svelte',
+	'src/lib/components/player/SaveSetSheet.svelte',
+	'src/lib/components/player/Setup.svelte',
+	'src/lib/components/player/StageCount.svelte',
+	'src/lib/components/songs/MusicSection.svelte',
+	'src/routes/[dance]/player/+page.svelte',
+	'src/routes/device/pair/+page.svelte'
 ];
 
 describe('englishIn', () => {

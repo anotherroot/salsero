@@ -140,7 +140,7 @@ describe('in Slovenian', () => {
 			deleted: 'Izbrisano: 120 BPM · štetje 1 2 3'
 		});
 		expect(sl(() => keptMessage(152, ['a', 'b'], 'salsa'))).toBe(
-			'Shranjeni obe polovici za 152 BPM'
+			'Obe polovici sta shranjeni za 152 BPM'
 		);
 		expect(sl(() => keptMessage(152, ['b'], 'salsa'))).toBe('Shranjeno štetje 5 6 7 za 152 BPM');
 	});

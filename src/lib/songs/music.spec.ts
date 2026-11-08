@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MUSIC, practiseHref } from './music';
+import { music, practiseHref } from './music';
 
 describe('practiseHref', () => {
 	it("opens a routine's practice with the song, the person's entry kept", () => {
@@ -20,9 +20,9 @@ describe('practiseHref', () => {
 	});
 });
 
-describe('MUSIC', () => {
+describe('music', () => {
 	it('holds the words the list and its sheets use', () => {
-		expect(MUSIC).toMatchObject({
+		expect(music()).toMatchObject({
 			heading: 'Music',
 			add: 'Add a song',
 			noteLabel: 'Note',

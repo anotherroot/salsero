@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import {
 	linkSummary,
 	edgeViewTime,
@@ -324,5 +325,12 @@ describe('spots in Slovenian: a decimal comma, the words', () => {
 				})
 			)
 		).toBe('0:12,0–0:19,0 · Povezano: Cross · Basic, Stara vaja (arhivirano)');
+	});
+
+	it('the steps’ words: a tenth with a comma, a minus sign, a plus', () => {
+		expect(sl(() => t().video.secs(0.1))).toBe('0,1 s');
+		expect(sl(() => t().video.minus(0.1))).toBe('−0,1 s');
+		expect(sl(() => t().video.plus(1))).toBe('+1 s');
+		expect(sl(() => t().video.rate(0.25))).toBe('0,25×');
 	});
 });

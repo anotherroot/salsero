@@ -65,6 +65,7 @@ import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget 
 import { actingIn, fieldChange, logChange } from './changes';
 import { autoAddOnPublish, autoAddPending } from './auto-add';
 import { rootTitle, trashRows, type ArchiveRestore } from './trash';
+import { REVIEW_PREFIX } from '$lib/exercises/name';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -98,9 +99,10 @@ export interface LessonVideoInput {
 /**
  * What the lesson's own exercise is called on Today. Prefixed so a lesson and
  * the figures it taught never read as the same kind of thing in the list.
+ * Stored in English for everyone; drawn in the reader's language (`shownExercise`).
  */
 export function reviewName(title: string): string {
-	return `Review: ${title}`;
+	return `${REVIEW_PREFIX}${title}`;
 }
 
 /**

@@ -63,7 +63,7 @@ export const entry: Catalog['entry'] = {
 			},
 			{
 				title: 'Vi odločite, kdaj pride spet na vrsto',
-				body: 'Po vaji tapnite, kako je šlo. Aplikacija si zapomni namesto vas.'
+				body: 'Po vaji izberite, kako je šlo. Aplikacija si zapomni namesto vas.'
 			}
 		],
 		skip: 'Preskoči',
@@ -105,15 +105,17 @@ export const entry: Catalog['entry'] = {
 		}
 	},
 	classes: {
-		// A group's name stays as written: in quotes after the noun it would decline.
+		// A group's name stays as written (never declined). The band's title is the name
+		// alone: with "Pridružite se:" before it, two lines no longer held the name, and
+		// the button under it says Pridruži se.
 		joinTitle: (name) => `Pridružitev: ${name}`,
-		joinQuestion: (name) => `Se pridružite skupini »${name}«?`,
+		joinQuestion: (name) => name,
 		people: (n) => slCount(n, ['oseba', 'osebi', 'osebe', 'oseb']),
 		// A person's name after a colon, never declined.
 		noAccount: (admin) =>
 			admin
-				? `${NO_ACCOUNT} Za povabilo prosite: ${admin}.`
-				: `${NO_ACCOUNT} Za povabilo prosite skrbnika.`,
+				? `${NO_ACCOUNT} Za povabilo se obrnite na skrbnika: ${admin}.`
+				: `${NO_ACCOUNT} Za povabilo se obrnite na skrbnika.`,
 		stale: 'Ta koda ne velja več',
 		signIn: 'Prijavite se',
 		lastClass: (day) => `Zadnja lekcija: ${day}`,

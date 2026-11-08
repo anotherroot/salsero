@@ -18,6 +18,7 @@ export const today: Catalog['today'] = {
 		notToday: 'Ne danes',
 		logSet: (name) => `Nov vnos: ${name}`
 	},
+	reviewOf: (title) => `Ponovitev: ${title}`,
 	hero: {
 		left: (n) => `Še ${slCount(n, VAJA)} za danes`,
 		doneOf: (done, total) => `Opravljeno: ${done} od ${total}`,

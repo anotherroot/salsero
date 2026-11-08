@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
+import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
@@ -53,7 +54,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			nextDay: shiftDay(day, 1),
 			daySets,
 			// For the past-day "add a forgotten set" picker.
-			exercises: listPickExercises(db, wall)
+			exercises: listPickExercises(db, wall).map(shownExercise)
 		}
 	};
 };

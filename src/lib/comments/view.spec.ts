@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import {
 	atReply,
 	bodyError,
@@ -248,6 +249,15 @@ describe('in Slovenian', () => {
 		expect(ago(15 * 24 * 60 * MIN)).toBe('pred 2 tednoma');
 		expect(ago(400 * 24 * 60 * MIN)).toBe('pred enim letom');
 		expect(ago(3 * 365 * 24 * 60 * MIN)).toBe('pred 3 leti');
+	});
+
+	it('picks the instrumental by the last two digits: 21 and 22 as 5, 101 as 1, 102 as 2', () => {
+		const weeks = (n: number) => sl(() => t().comments.ago.weeks(n));
+		expect(weeks(21)).toBe('pred 21 tedni');
+		expect(weeks(22)).toBe('pred 22 tedni');
+		expect(weeks(101)).toBe('pred 101 tednom');
+		expect(weeks(102)).toBe('pred 102 tednoma');
+		expect(sl(() => t().comments.ago.years(21))).toBe('pred 21 leti');
 	});
 
 	it('is English again outside', () => {

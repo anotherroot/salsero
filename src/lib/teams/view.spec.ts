@@ -237,11 +237,9 @@ describe('the class lines in Slovenian', () => {
 	it('count, ask and say when a class last met', () => {
 		withLocale('sl', () => {
 			expect([1, 2, 3, 5].map(peopleLine)).toEqual(['1 oseba', '2 osebi', '3 osebe', '5 oseb']);
-			expect(joinQuestion('Salsa nadaljevalna')).toBe(
-				'Se pridružite skupini »Salsa nadaljevalna«?'
-			);
+			expect(joinQuestion('Salsa nadaljevalna')).toBe('Salsa nadaljevalna');
 			expect(noAccountLine('Tilen')).toBe(
-				'Ta koda doda le tiste, ki že imajo račun. Za povabilo prosite: Tilen.'
+				'Ta koda doda le tiste, ki že imajo račun. Za povabilo se obrnite na skrbnika: Tilen.'
 			);
 			expect(classMeta(2, 4)).toBe('2 videa · 4 za vadbo');
 			expect(classMeta(5, 0)).toBe('5 videov');

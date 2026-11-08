@@ -22,5 +22,23 @@ export const songs: Catalog['songs'] = {
 		play: 'Predvajaj odlomek',
 		playOf: (name) => `Predvajaj odlomek: ${name}`,
 		stop: 'Ustavi odlomek'
+	},
+	music: {
+		heading: 'Glasba',
+		add: 'Dodaj skladbo',
+		noteLabel: 'Opomba',
+		notePlaceholder: 'Kaj vaditi ob njej',
+		noteHelp: 'Vsi v skupini jo vidijo pod skladbo.',
+		addButton: 'Dodaj v Glasbo',
+		save: 'Shrani',
+		practise: 'Vadi ob tej skladbi',
+		edit: 'Uredi opombo',
+		remove: 'Odstrani',
+		notShared: 'Ni deljena',
+		notSharedLine: 'Ni deljena: drugi v skupini je ne vidijo, dokler je spet ne delite.',
+		pick: 'Izberite skladbo',
+		optional: '(neobvezno)',
+		unsavedLabel: 'Opomba',
+		saveFailed: 'Shranjevanje ni uspelo.'
 	}
 };

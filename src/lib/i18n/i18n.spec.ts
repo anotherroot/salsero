@@ -150,7 +150,8 @@ describe.each([
 	'lesson',
 	'comments',
 	'video',
-	'settings'
+	'settings',
+	'player'
 ] as const)('%s', (area) => {
 	it('has every English word in Slovenian, and none left in English', () => {
 		const en = leaves(catalogOf('en')[area]);

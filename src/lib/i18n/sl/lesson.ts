@@ -45,7 +45,7 @@ export const lesson: Catalog['lesson'] = {
 	list: {
 		empty: 'Še ni lekcij',
 		emptyGroup:
-			'Dodajte jo po naslednji uri tečaja: videe in opombe. Člani jo vidijo, ko jo objavite.',
+			'Dodajte jo po naslednji uri tečaja: videe in opombe. Vidijo jo vsi v tečaju, ko jo objavite.',
 		emptyOwn:
 			'Dodajte jo po naslednji uri tečaja: videe, opombe in nekaj na seznamu Danes, da jo boste ponovili.',
 		newLesson: 'Nova lekcija',

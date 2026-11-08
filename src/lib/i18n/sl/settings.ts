@@ -119,7 +119,7 @@ export const settings: Catalog['settings'] = {
 		saving: 'Shranjevanje …',
 		keep: 'Obdrži izbrane',
 		recordAgain: 'Posnemi znova',
-		unsaved: 'vaše posneto štetje',
+		unsaved: 'Vaše posneto štetje',
 		pickFirst: 'Najprej izberite takt, ki ga želite obdržati.',
 		couldNotDo: 'Tega ni bilo mogoče narediti.',
 		uploadFailed: 'Nalaganje ni uspelo.',
@@ -132,7 +132,7 @@ export const settings: Catalog['settings'] = {
 		takeMeta: (pattern, letter) => `${pattern} · fraza ${letter}`,
 		deleteLabel: (bpm, letter) => `Izbriši ${bpm} BPM, fraza ${letter}`,
 		deleted: (title) => `Izbrisano: ${title}`,
-		keptBoth: (bpm) => `Shranjeni obe polovici za ${bpm} BPM`,
+		keptBoth: (bpm) => `Obe polovici sta shranjeni za ${bpm} BPM`,
 		kept: (counts, bpm) => `Shranjeno štetje ${counts} za ${bpm} BPM`,
 		nothingCaptured: 'Nič uporabnega ni bilo posneto',
 		checkMic: 'Preverite dovoljenje za mikrofon.',
@@ -151,5 +151,14 @@ export const settings: Catalog['settings'] = {
 		takeGone: 'Ta posnetek je že izbrisan.',
 		newerTake: 'Na tem mestu je zdaj novejši posnetek.',
 		takeTooLarge: (limit) => `Posnetek je večji od ${limit}.`
+	},
+	pair: {
+		title: 'Povezava z\u00a0aplikacijo',
+		paired: 'Povezano',
+		pairedBody: 'Aplikacija se zdaj odpira. Če se ne odpre sama, pritisnite gumb.',
+		openApp: 'Odpri aplikacijo',
+		pairPhone: 'Poveži ta telefon',
+		body: 'Tako lahko aplikacija v ozadju nalaga videe in vas opomni, kaj je na vrsti. V Nastavitvah lahko povezavo spet odstranite.',
+		pairing: 'Povezovanje …'
 	}
 };

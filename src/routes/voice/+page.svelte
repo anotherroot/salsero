@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getDance } from '$lib/dances/dances';
 	import { uploadFailure } from '$lib/upload-error';
 	import { page } from '$app/state';
 	import { act } from '$lib/act';
@@ -301,7 +302,7 @@
 	};
 </script>
 
-<svelte:head><title>{`${myCount} · Salsa`}</title></svelte:head>
+<svelte:head><title>{`${myCount} · ${getDance(data.appDance).label}`}</title></svelte:head>
 
 {#snippet back()}
 	<BandButton icon="back" label={backTo.label} href={backTo.href} />

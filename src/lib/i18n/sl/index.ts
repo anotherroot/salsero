@@ -60,6 +60,7 @@ import { entry } from './entry';
 import { exercise } from './exercise';
 import { format } from './format';
 import { lesson } from './lesson';
+import { player } from './player';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
@@ -78,5 +79,6 @@ export const sl: Catalog = {
 	songs,
 	lesson,
 	comments,
-	video
+	video,
+	player
 };

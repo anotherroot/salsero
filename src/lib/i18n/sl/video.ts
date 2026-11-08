@@ -11,7 +11,7 @@ export const video: Catalog['video'] = {
 	mirror: 'Zrcali',
 	mirrored: 'Zrcaljeno',
 	mute: 'Brez zvoka',
-	repeat: 'Ponavljaj',
+	repeat: 'Ponavljaj vse',
 	play: 'Predvajaj',
 	pause: 'Začasno ustavi',
 	fullScreen: 'Čez cel zaslon',
@@ -110,7 +110,7 @@ export const video: Catalog['video'] = {
 		mark: 'označi točko (cel video)',
 		section: 'začni / končaj odsek (cel video)',
 		edges: 'začetek / konec na zdaj (urejanje)',
-		jump: 'skok na začetek / zadnji 2 s',
+		jump: 'skok na začetek / zadnji dve sekundi',
 		loop: 'ustavi / nadaljuj ponavljanje (urejanje)',
 		back: 'eno raven nazaj',
 		help: 'te tipke'

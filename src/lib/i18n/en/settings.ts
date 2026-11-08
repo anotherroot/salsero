@@ -170,5 +170,15 @@ export const settings = {
 		takeGone: 'That take is already gone.',
 		newerTake: 'A newer take holds that slot now.',
 		takeTooLarge: (limit: string): string => `That take is larger than ${limit}.`
+	},
+	/** /device/pair: the Android app pairs the phone with the account. */
+	pair: {
+		title: 'Pair the app',
+		paired: 'Paired',
+		pairedBody: 'Opening the app now. If it does not open by itself, tap the button.',
+		openApp: 'Open the app',
+		pairPhone: 'Pair this phone',
+		body: 'Lets the app upload videos in the background and remind you what is due. You can remove it again in Settings.',
+		pairing: 'Pairing…'
 	}
 };

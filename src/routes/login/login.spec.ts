@@ -50,7 +50,7 @@ describe('login', () => {
 	// Catches: the login page's line left in English, or a name declined inside the sentence.
 	it('says who to ask in Slovenian, the name after a colon', async () => {
 		expect((await runInLocale('sl', () => run('/g/ABC'))).noAccount).toBe(
-			'Ta koda doda le tiste, ki že imajo račun. Za povabilo prosite skrbnika.'
+			'Ta koda doda le tiste, ki že imajo račun. Za povabilo se obrnite na skrbnika.'
 		);
 		db.insert(users)
 			.values({
@@ -63,7 +63,7 @@ describe('login', () => {
 			})
 			.run();
 		expect((await runInLocale('sl', () => run('/g/ABC'))).noAccount).toBe(
-			'Ta koda doda le tiste, ki že imajo račun. Za povabilo prosite: Tilen.'
+			'Ta koda doda le tiste, ki že imajo račun. Za povabilo se obrnite na skrbnika: Tilen.'
 		);
 	});
 });

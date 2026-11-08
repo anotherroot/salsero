@@ -19,6 +19,8 @@ export const today = {
 		notToday: 'Not today',
 		logSet: (name: string): string => `Log a set of ${name}`
 	},
+	/** A lesson's own exercise, named after the lesson (`shownExercise`, `src/lib/exercises/name.ts`). */
+	reviewOf: (title: string): string => `Review: ${title}`,
 	/** The bar card over the list. */
 	hero: {
 		left: (n: number): string => `${n} left for today`,

@@ -24,5 +24,25 @@ export const songs = {
 		play: 'Play a sample',
 		playOf: (name: string): string => `Play a sample of ${name}`,
 		stop: 'Stop the sample'
+	},
+	/** A lesson's, drill's or routine's Music list and its sheets (`MusicSection`). */
+	music: {
+		heading: 'Music',
+		add: 'Add a song',
+		noteLabel: 'Note',
+		notePlaceholder: 'What to practise to it',
+		noteHelp: 'Members see it under the song.',
+		addButton: 'Add to Music',
+		save: 'Save',
+		practise: 'Practise to this',
+		edit: 'Edit note',
+		remove: 'Remove',
+		notShared: 'Not shared',
+		notSharedLine: "Not shared: members don't see it until it is shared again.",
+		pick: 'Pick a song',
+		optional: '(optional)',
+		/** What "Unsaved changes" calls the note sheet. */
+		unsavedLabel: 'A note',
+		saveFailed: 'That could not be saved.'
 	}
 };
