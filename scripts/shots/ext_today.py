@@ -591,6 +591,11 @@ def _run_walk(page):
             pass
         page.wait_for_timeout(50)
     _moved_on(page, before)
+    # A hammered click that landed after the navigation opened the new page's Done sheet: close it.
+    page.wait_for_timeout(300)
+    if page.locator("dialog[open]").count():
+        page.keyboard.press("Escape")
+        page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
     if len(posts) != 1:
         raise RuntimeError(f"Done · next posted {len(posts)} saves")
     page.locator("[role=status]", has_text="Saved · back tomorrow").first.wait_for()
@@ -603,7 +608,8 @@ def _run_walk(page):
     sheet = page.locator("dialog[open]").first.inner_text()
     _step_shot(page, "5-sheet")
     page.keyboard.press("Escape")
-    page.wait_for_timeout(600)
+    page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
+    page.wait_for_timeout(300)
     _no_popup(page, "after closing the Done sheet")
     if page.url != stay:
         raise RuntimeError(f"closing the sheet left for {page.url}")
@@ -630,7 +636,7 @@ def _run_walk(page):
         if "Next: " not in page.locator("dialog[open]").first.inner_text():
             break
         page.keyboard.press("Escape")
-        page.wait_for_timeout(500)
+        page.locator("dialog[open]").wait_for(state="detached", timeout=10000)
         before = page.url
         page.get_by_role("button", name="Skip", exact=True).click()
         _moved_on(page, before)
