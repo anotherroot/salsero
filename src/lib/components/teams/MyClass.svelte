@@ -10,6 +10,8 @@
 	import { dateTile } from '$lib/lessons/list';
 	import { classMeta, classSongsHeading, latestAndEarlier, MY_CLASS } from '$lib/teams/view';
 	import { readyMeta, songName } from '$lib/songs/library';
+	import { practiseHref } from '$lib/songs/music';
+	import { reportOpen } from '$lib/teams/opens-api';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { AddState, SongItem, TeamLessonItem } from '$lib/types';
 
@@ -19,7 +21,9 @@
 	 * songs with their samples. A class not added yet (one from before the person
 	 * joined) has a small Add: one tap, the default picks (`onadd`, the page's
 	 * `addNow`). An added class shows nothing extra. Each class opens its lesson
-	 * page; each song its song page.
+	 * page; each song opens Practice with it (`practiseHref`), not the song page, whose
+	 * tools are an editor's: My class is drawn only at Follow my class (`simpleClass`,
+	 * levels.ts). The tap records the song as opened, as the song page would.
 	 */
 	type ClassLesson = TeamLessonItem & {
 		isNew: boolean;
@@ -169,7 +173,8 @@
 			<ul class={GROUP} aria-label={w.songs}>
 				{#each songs as s (s.id)}
 					<SongRow
-						href={resolve('/[dance]/songs/[id]', { dance, id: String(s.id) })}
+						href={practiseHref(dance, { lesson: true }, s.id)}
+						onopen={() => reportOpen('song', s.id)}
 						name={songName(s)}
 						meta={readyMeta(s, styleLabel)}
 						sample={s.sample}

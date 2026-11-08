@@ -90,3 +90,14 @@ describe('PaneColumns with a lead', () => {
 		);
 	});
 });
+
+// Catches: a class member at Follow my class sent to the song page (an editor's
+// tools, part 2's words) instead of Practice, or the song staying "New" after it.
+describe("My class's songs", () => {
+	it('open Practice with the song, and count as opened', () => {
+		const my = read('src/lib/components/teams/MyClass.svelte');
+		expect(my).toContain('href={practiseHref(dance, { lesson: true }, s.id)}');
+		expect(my).toContain("onopen={() => reportOpen('song', s.id)}");
+		expect(my).not.toContain("'/[dance]/songs/[id]'");
+	});
+});
