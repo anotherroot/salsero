@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { FEEL_WORD, type Feel } from '$lib/schedule/feel';
+	import { feelWord, type Feel } from '$lib/schedule/feel';
 	import { FEEL_TONE } from '$lib/exercises/face-view';
 
 	interface Props {
@@ -23,7 +23,7 @@
 	stroke-linejoin="round"
 	class="shrink-0 {FEEL_TONE[feel].text}"
 	role={label ? 'img' : undefined}
-	aria-label={label ? FEEL_WORD[feel] : undefined}
+	aria-label={label ? feelWord(feel) : undefined}
 	aria-hidden={label ? undefined : 'true'}
 >
 	<circle cx="22" cy="22" r="20" />

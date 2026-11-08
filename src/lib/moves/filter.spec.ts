@@ -6,6 +6,7 @@ const fig = (id: number, name: string, o: Partial<FigureRow> = {}): FigureRow =>
 	id,
 	name,
 	label: name,
+	from: null,
 	startCount: null,
 	lengthCounts: null,
 	recordings: 0,

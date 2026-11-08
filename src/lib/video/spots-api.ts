@@ -3,6 +3,7 @@
  * network failure or a non-2xx answer, so the player has exactly one thing to
  * catch and never shows a spot the server did not keep.
  */
+import { t } from '$lib/i18n/catalog';
 import type { Spot, SpotOwner } from '$lib/types';
 import type { ClashInfo, Seen } from '$lib/clash/clash';
 
@@ -25,11 +26,16 @@ export class SpotsApiError extends Error {
 	}
 }
 
+/** What a refusal with nothing in its body says: its status, in the reader's language. */
+export function fallbackMessage(status: number): string {
+	return t().video.refusal.failed(status);
+}
+
 export async function ok(res: Response): Promise<Response> {
 	if (res.ok) return res;
 	const body: unknown = await res.json().catch(() => null);
 	const said = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-	const message = typeof said.message === 'string' ? said.message : `video-spots: ${res.status}`;
+	const message = typeof said.message === 'string' ? said.message : fallbackMessage(res.status);
 	const field = typeof said.field === 'string' ? said.field : undefined;
 	const clash =
 		res.status === 409 && said.clash && typeof said.clash === 'object'

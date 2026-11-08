@@ -97,3 +97,10 @@ back into view, never on its own the moment the hold ends. The "This page is
 out of date" variant is the same toast: "This page is out of date" and
 "Reload to continue.". Placement rules stay (not on Practice or My count, not
 over an edit's Save bar; on the desktop over the pane, above the run column).
+
+---
+
+*Amended 2026-11-07:* the Compare and Take sheet and the Send mine sheet,
+and the name rule in them, are replaced by one Sync sheet (see
+[keeping copies in step](2026-11-07-clone-sync-design.md)). The update
+bubbles are not affected.

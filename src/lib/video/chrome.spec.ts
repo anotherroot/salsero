@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { Spot } from '$lib/types';
 import {
 	TOAST_ICON,
@@ -292,5 +293,69 @@ describe('chrome', () => {
 		for (const e of ['playing', 'canplay', 'seeked', 'pause', 'error', 'emptied'] as const)
 			expect(buffering(true, e)).toBe(false);
 		expect(buffering(false, 'seeked')).toBe(false);
+	});
+});
+
+describe('chrome in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('says speed with a decimal comma and mirror on the corner badge', () => {
+		expect(sl(() => cornerBadge(0.5, true))).toBe('0,5× · Zrcaljeno');
+		expect(sl(() => cornerBadge(0.25, false))).toBe('0,25×');
+		expect(sl(() => cornerBadge(1, true))).toBe('Zrcaljeno');
+	});
+	it('words the link entry', () => {
+		expect(sl(() => linkEntry([], true, 'badge'))).toEqual({
+			kind: 'open',
+			text: 'Poveži',
+			label: 'Poveži ta odsek',
+			invite: true
+		});
+		expect(sl(() => linkEntry([], true, 'badge', true))).toMatchObject({
+			label: 'Poveži to točko'
+		});
+		expect(sl(() => linkEntry([], true, 'editor'))).toMatchObject({
+			text: 'Poveži z različico, vajo ali položajem'
+		});
+		expect(sl(() => linkEntry([], true, 'editor', true))).toMatchObject({
+			text: 'Poveži s položajem'
+		});
+		expect(sl(() => linkEntry(['A', 'B'], true, 'editor'))).toEqual({
+			kind: 'open',
+			text: 'Povezano: A +1',
+			label: 'Povezave: A, B',
+			invite: false
+		});
+		expect(sl(() => linkEntry(['A', 'B'], false, 'editor'))).toEqual({
+			kind: 'show',
+			text: 'Povezano: A, B'
+		});
+	});
+	it('keeps the second lines, times with a decimal comma', () => {
+		expect(sl(() => editorSub(sec()))).toBe('1:04,0–1:11,2 · 7,2 s');
+		expect(sl(() => editorSub(pt))).toBe('Točka pri 1:38,50');
+		expect(sl(() => listMeta(pt))).toBe('1:38,5 · točka');
+		expect(sl(() => spotLine(sec({ label: null })))).toBe('1:04,0–1:11,2 · 7,2 s');
+	});
+	it('asks before a delete, and refuses a linked section', () => {
+		expect(sl(() => deleteCopy(sec()))).toEqual({
+			title: 'Želite izbrisati »Enchufla doble«?',
+			sub: '1:04,0–1:11,2 · 7,2 s',
+			body: 'Odsek bo izbrisan iz tega videa. Še nekaj sekund lahko to razveljavite.',
+			blocked: null
+		});
+		expect(sl(() => deleteCopy(pt).body)).toBe(
+			'Točka bo izbrisana iz tega videa. Še nekaj sekund lahko to razveljavite.'
+		);
+		expect(sl(() => deleteCopy(sec({ linkedTo: ['Enchufla · Doble'] })))).toMatchObject({
+			body: null,
+			blocked: {
+				title: 'Povezano: Enchufla · Doble',
+				body: 'Povezavo najprej odstranite tam; do takrat ta odsek ostane.'
+			}
+		});
+		expect(sl(() => deleteCopy(sec({ label: null })).title)).toBe(
+			'Želite izbrisati »1:04,0–1:11,2«?'
+		);
 	});
 });

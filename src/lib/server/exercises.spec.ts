@@ -1,19 +1,26 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, songDrops } from './db/schema';
+import { exercises, songDrops, teamChanges } from './db/schema';
+import { checkSeen, exerciseSeen } from './clash';
 import {
 	archiveExercise,
 	createCustomExercise,
+	listExercises,
 	listPickExercises,
-	setPracticeSettings
+	setPracticeSettings,
+	updateExercise
 } from './exercises';
 import { createSongFromUpload, storeAnalysis } from './songs';
 import { shareSong, unshareSong } from './song-share';
 import { CLASS_ED, CLASS_T, makeClass, readyGroupSong, type Class } from './test-class';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
+import { FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { readComesBack } from './comes-back-form';
+import { postedFields } from '$lib/exercises/comes-back-view';
+import { scheduleStateOf } from './schedule';
 
 let db: Db;
 beforeEach(() => {
@@ -194,3 +201,186 @@ describe('a song of their own, picked after a drop', () => {
 		expect([row.practiceMode, row.songId]).toEqual(['song', own]);
 	});
 });
+
+describe('listExercises: comes back and warm-up', () => {
+	const MAJA = { userId: 'u3', dance: 'salsa' as const };
+	const EVERY_2 = JSON.stringify({ kind: 'every', days: 2 });
+	const EVERY_7 = JSON.stringify({ kind: 'every', days: 7 });
+
+	it("gives an entry its class drill's setting, and its own when it has one", () => {
+		const c = makeClass(db);
+		db.update(exercises).set({ comesBack: EVERY_2 }).where(eq(exercises.id, c.drill)).run();
+		const entry = () => listExercises(db, MAJA).find((e) => e.id === c.entry)!;
+		expect(entry().comesBack).toEqual({ kind: 'every', days: 2 });
+		expect(entry().comesBackOwn).toBeNull();
+		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
+
+		db.update(exercises).set({ comesBack: EVERY_7 }).where(eq(exercises.id, c.entry)).run();
+		expect(entry().comesBack).toEqual({ kind: 'every', days: 7 });
+		expect(entry().comesBackOwn).toEqual({ kind: 'every', days: 7 });
+		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
+	});
+
+	it('reads a lesson review as faces whatever the column holds, and junk as faces', () => {
+		const c = makeClass(db);
+		const reviewId = db
+			.insert(exercises)
+			.values({
+				name: 'Review',
+				source: 'lesson',
+				lessonId: c.lesson,
+				userId: 'u3',
+				dance: 'salsa',
+				comesBack: EVERY_2
+			})
+			.returning({ id: exercises.id })
+			.get().id;
+		expect(listExercises(db, MAJA).find((e) => e.id === reviewId)!.comesBack).toEqual(FACES);
+
+		const own = createCustomExercise(db, U1_SALSA, { name: 'Junk', everyDays: 2, notes: null });
+		db.update(exercises).set({ comesBack: 'junk' }).where(eq(exercises.id, own.id)).run();
+		const row = listExercises(db, U1_SALSA).find((e) => e.id === own.id)!;
+		expect(row.comesBack).toEqual(FACES);
+		expect(row.comesBackOwn).toBeNull();
+	});
+
+	it('has no warm-up by default', () => {
+		createCustomExercise(db, U1_SALSA, { name: 'A', everyDays: 2, notes: null });
+		const [row] = listExercises(db, U1_SALSA);
+		expect(row.warmup).toBe(false);
+		expect(row.warmupOrder).toBeNull();
+	});
+});
+
+describe('updateExercise: warm-up and comes back', () => {
+	const EVERY_2 = { kind: 'every', days: 2 } as const;
+	const stored = (id: number) => db.select().from(exercises).where(eq(exercises.id, id)).get()!;
+
+	it('saves them on a person drill, and keeps them when left out', () => {
+		const d = createCustomExercise(db, U1_SALSA, { name: 'A', notes: null });
+		updateExercise(db, d.id, {
+			name: 'A',
+			notes: null,
+			active: true,
+			warmup: true,
+			comesBack: EVERY_2
+		});
+		expect(stored(d.id).warmup).toBe(true);
+		expect(parseComesBack(stored(d.id).comesBack)).toEqual(EVERY_2);
+		updateExercise(db, d.id, { name: 'A', notes: 'n', active: true });
+		expect(stored(d.id).warmup).toBe(true);
+		expect(parseComesBack(stored(d.id).comesBack)).toEqual(EVERY_2);
+	});
+
+	it('creates with them', () => {
+		const d = createCustomExercise(db, U1_SALSA, {
+			name: 'B',
+			notes: null,
+			warmup: true,
+			comesBack: { kind: 'until', good: 3, since: 7 }
+		});
+		expect(d.warmup).toBe(true);
+		expect(parseComesBack(d.comesBack)).toEqual({ kind: 'until', good: 3, since: 7 });
+	});
+
+	it('leaves a lesson review on faces (the column stays null)', () => {
+		const c = makeClass(db);
+		const id = db
+			.insert(exercises)
+			.values({ name: 'R', source: 'lesson', lessonId: c.lesson, userId: 'u3', dance: 'salsa' })
+			.returning({ id: exercises.id })
+			.get().id;
+		updateExercise(db, id, { name: 'R', notes: null, active: true, comesBack: EVERY_2 });
+		expect(stored(id).comesBack).toBeNull();
+	});
+
+	it("clears a member's entry with 'teacher'", () => {
+		const c = makeClass(db);
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify(EVERY_2) })
+			.where(eq(exercises.id, c.entry))
+			.run();
+		updateExercise(db, c.entry, {
+			name: 'Shines',
+			notes: null,
+			active: true,
+			comesBack: 'teacher'
+		});
+		expect(stored(c.entry).comesBack).toBeNull();
+	});
+
+	it("keeps an entry on its teacher's setting through a save that posts no comes-back fields", () => {
+		const c = makeClass(db);
+		// The class drill's setting is unreadable: the card shows the faces, untouched.
+		db.update(exercises).set({ comesBack: 'junk' }).where(eq(exercises.id, c.drill)).run();
+		const form = new FormData();
+		form.set('name', 'Shines');
+		form.set('notes', 'my notes');
+		const card = { touched: false, useTeacher: false, mode: 'faces', until: false } as const;
+		for (const [k, v] of Object.entries(postedFields({ ...card, good: 3, every: 1 })))
+			form.set(k, v);
+		const comesBack = readComesBack(form, null, CLASS_T);
+		if (comesBack === 'invalid') throw new Error('refused');
+		expect(comesBack).toBeUndefined();
+		updateExercise(db, c.entry, { name: 'Shines', notes: 'my notes', active: true, comesBack });
+		expect(stored(c.entry).comesBack).toBeNull();
+		expect(scheduleStateOf(db, c.entry, 'Europe/Ljubljana').every).toBeNull();
+
+		// The teacher sets a rhythm later: it reaches the member's entry.
+		updateExercise(
+			db,
+			c.drill,
+			{ name: 'Shines', notes: null, active: true, comesBack: { kind: 'every', days: 7 } },
+			'u2'
+		);
+		expect(scheduleStateOf(db, c.entry, 'Europe/Ljubljana').every).toBe(7);
+		expect(
+			listExercises(db, { userId: 'u3', dance: 'salsa' }).find((e) => e.id === c.entry)!.comesBack
+		).toEqual({ kind: 'every', days: 7 });
+	});
+
+	it("takes a member's entry warm-up (the person's own row)", () => {
+		const c = makeClass(db);
+		expect(stored(c.entry).teamId).toBeNull();
+		updateExercise(db, c.entry, { name: 'Shines', notes: null, active: true, warmup: true });
+		expect(stored(c.entry).warmup).toBe(true);
+	});
+
+	it("never writes a group drill's warm-up, and names a Comes back change in History", () => {
+		const c = makeClass(db);
+		updateExercise(
+			db,
+			c.drill,
+			{ name: 'Shines', notes: null, active: true, warmup: true, comesBack: EVERY_2 },
+			'u2'
+		);
+		expect(stored(c.drill).warmup).toBe(false);
+		expect(parseComesBack(stored(c.drill).comesBack)).toEqual(EVERY_2);
+		const line = db
+			.select()
+			.from(teamChanges)
+			.all()
+			.find((r) => r.verb === 'change' && r.rootId === c.drill)!;
+		expect(line.subject).toBe('comesBack');
+		expect(line.afterJson).toContain('Every 2 days');
+	});
+});
+
+describe('the clash check on a drill', () => {
+	it("refuses a stale form that saw another Comes back on a group's drill", () => {
+		const c = makeClass(db);
+		const seen = exerciseSeen(col(db, c.drill));
+		updateExercise(
+			db,
+			c.drill,
+			{ name: 'Shines', notes: null, active: true, comesBack: { kind: 'every', days: 7 } },
+			'u2'
+		);
+		const check = checkSeen(exerciseSeen(col(db, c.drill)), seen);
+		expect(check).toMatchObject({ ok: false, changed: ['comesBack'] });
+	});
+});
+
+function col(db: Db, id: number) {
+	return db.select().from(exercises).where(eq(exercises.id, id)).get()!;
+}

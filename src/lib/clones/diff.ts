@@ -12,14 +12,14 @@
  *   change and does not ask again.
  */
 import type { FieldDiff, Flat, PairBase, Picks, Side } from '$lib/types';
-import { pieceOf, pieceParts, ROOT_KEYS, SET_PREFIXES, setPrefixOf } from './flat';
+import { BASE_DEFAULTS, pieceOf, pieceParts, ROOT_KEYS, SET_PREFIXES, setPrefixOf } from './flat';
 
-type Hash = (v: string) => string;
+export type Hash = (v: string) => string;
 
 const PART_RANK = { piece: 0, note: 1, spot: 2, links: 2 } as const;
 
 /** Where a key sorts: root fields in grammar order, set members, pieces by label. */
-function sortKey(key: string, label: string, mine: Flat, theirs: Flat): (string | number)[] {
+export function sortKey(key: string, label: string, mine: Flat, theirs: Flat): (string | number)[] {
 	const labelOf = (k: string) => (mine[k] ?? theirs[k])?.label ?? k;
 	const root = (ROOT_KEYS as readonly string[]).indexOf(key);
 	if (root >= 0) return [0, root];
@@ -38,7 +38,7 @@ function sortKey(key: string, label: string, mine: Flat, theirs: Flat): (string 
 	return [3, key];
 }
 
-function compareKeys(a: (string | number)[], b: (string | number)[]): number {
+export function compareKeys(a: (string | number)[], b: (string | number)[]): number {
 	for (let i = 0; i < Math.min(a.length, b.length); i++) {
 		if (a[i] < b[i]) return -1;
 		if (a[i] > b[i]) return 1;
@@ -46,7 +46,8 @@ function compareKeys(a: (string | number)[], b: (string | number)[]): number {
 	return a.length - b.length;
 }
 
-function skipped(key: string, skip: string[]): boolean {
+/** Whether a pair's `skip` leaves this key out (the key, or the piece it belongs to). */
+export function skipped(key: string, skip: string[]): boolean {
 	const piece = pieceOf(key);
 	return skip.includes(key) || (piece !== null && skip.includes(piece));
 }
@@ -65,7 +66,8 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 		if (mh === th) continue;
 		let side: Side = 'both';
 		if (base) {
-			const was = base.fields[key] ?? null;
+			const was =
+				base.fields[key] ?? (Object.hasOwn(BASE_DEFAULTS, key) ? hash(BASE_DEFAULTS[key]) : null);
 			const mineChanged = mh !== was;
 			const theirsChanged = th !== was;
 			side = mineChanged && theirsChanged ? 'both' : mineChanged ? 'mine' : 'theirs';

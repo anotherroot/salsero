@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { seekTime } from '$lib/gestures/seek';
 	import { clock } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		/** The song's element; undefined until it mounts. Read, never written. */
@@ -61,10 +62,10 @@
 	/** Seek once, on release: a seek per pointer move would clear the count's queue each time. */
 	function up(e: PointerEvent) {
 		if (dragging === null) return;
-		const t = at(e);
+		const time = at(e);
 		dragging = null;
-		current = t;
-		onseek(t);
+		current = time;
+		onseek(time);
 	}
 
 	function key(e: KeyboardEvent) {
@@ -81,9 +82,9 @@
 							: null;
 		if (to === null) return;
 		e.preventDefault();
-		const t = Math.min(duration, Math.max(0, to));
-		current = t;
-		onseek(t);
+		const time = Math.min(duration, Math.max(0, to));
+		current = time;
+		onseek(time);
 	}
 </script>
 
@@ -93,7 +94,7 @@
 		bind:this={bar}
 		role="slider"
 		tabindex="0"
-		aria-label="Song position"
+		aria-label={t().exercise.panel.position}
 		aria-valuemin={0}
 		aria-valuemax={known ? Math.round(duration) : 0}
 		aria-valuenow={Math.round(shown)}

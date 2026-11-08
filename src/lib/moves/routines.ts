@@ -1,5 +1,6 @@
 import { plural } from '$lib/format';
 import type { RoutineItem, TeamRef } from '$lib/types';
+import { outOfSync } from './sync';
 
 /** The Routines list as the (moves) layout loads it. */
 export interface RoutinesLists {
@@ -32,4 +33,16 @@ export function routineBadges(r: {
 /** A routine's class day as a screen reader hears it: "From class Tue 3 Nov". */
 export function fromClass(label: string): string {
 	return `From class ${label}`;
+}
+
+/** The Routines list under `?sync=1`: only the routines a copy of which differs. */
+export function routinesView(l: RoutinesLists, sync: boolean): RoutinesLists {
+	if (!sync) return l;
+	return {
+		...l,
+		routines: l.routines.filter(outOfSync),
+		groups: l.groups
+			.map((g) => ({ team: g.team, routines: g.routines.filter(outOfSync) }))
+			.filter((g) => g.routines.length > 0)
+	};
 }

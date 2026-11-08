@@ -1,3 +1,4 @@
+import { FACES } from './comes-back';
 import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { RATING_OF } from './feel';
@@ -27,6 +28,9 @@ const ex = (name: string, createdDay: string, over: Partial<DayExercise> = {}): 
 	archived: false,
 	createdAt: at(createdDay, 9),
 	everyDays: 3,
+	comesBack: FACES,
+	warmup: false,
+	warmupOrder: null,
 	...over
 });
 const set = (e: DayExercise, d: string, h = 12, rating: number | null = RATING_OF.gotit) => ({
@@ -266,5 +270,99 @@ describe('one worked day for the list and Coming up', () => {
 		const w = workOf(x);
 		expect(dayListOf(w)).toEqual(dayList(x));
 		expect(comingUpOf(w)).toEqual(comingUp(x));
+	});
+});
+
+describe('warm-ups', () => {
+	const due = (n: string, over: Partial<DayExercise> = {}) => ex(n, day(-2), over);
+
+	it('sit outside the daily number: 2 warm-ups + 6 practice, daily 5', () => {
+		const w1 = due('w1', { warmup: true });
+		const w2 = due('w2', { warmup: true });
+		const p = 'abcdef'.split('').map((n, i) => ex(n, day(-8 + i)));
+		const x = input([...p, w1, w2]);
+		const l = dayList(x);
+		expect(names(l)).toEqual(['w1', 'w2', 'a', 'b', 'c', 'd', 'e']);
+		expect(l.rows.map((r) => r.list)).toEqual(['warmup', 'warmup', ...Array(5).fill('practice')]);
+		expect([l.warmups, l.total, l.left]).toEqual([2, 7, 7]);
+		expect(inLine(x).map((e) => e.name)).toEqual(['f']);
+	});
+
+	it('Next N never takes a warm-up, even one that is not due yet', () => {
+		const ahead = ex('ahead', day(-3), { warmup: true });
+		const dueSoon = ex('soon', day(-2));
+		const x = input([ahead, dueSoon], { sets: [set(ahead, day(-1))], daily: 0 });
+		// The warm-up is not a row and not skipped: only the guard keeps it out.
+		expect(dayList(x).rows).toEqual([]);
+		expect(inLine(x).map((e) => e.name)).toEqual(['soon']);
+	});
+
+	it('a done and a picked warm-up leave the daily number untouched', () => {
+		const done = ex('done', day(-20), { warmup: true });
+		const aheadW = ex('ahead', day(-3), { warmup: true });
+		const p = 'abcdef'.split('').map((n, i) => ex(n, day(-8 + i)));
+		const x = input([...p, done, aheadW], {
+			sets: [set(done, TODAY), set(aheadW, day(-1))],
+			picks: [pick(aheadW, 'add')]
+		});
+		const l = dayList(x);
+		expect(l.rows.filter((r) => r.list === 'practice').map((r) => r.exercise.name)).toEqual([
+			'a',
+			'b',
+			'c',
+			'd',
+			'e'
+		]);
+		expect([l.warmups, l.total, l.done, l.left]).toEqual([2, 7, 1, 6]);
+	});
+
+	it('only warm-ups left to do: not nothing left', () => {
+		const w = due('w', { warmup: true });
+		const p = ex('p', day(-2));
+		const l = dayList(input([w, p], { sets: [set(p, TODAY)] }));
+		expect([l.done, l.left, l.nothingLeft]).toEqual([1, 1, null]);
+	});
+
+	it('only practice, no warm-ups: as before', () => {
+		const p = ex('p', day(-2));
+		const l = dayList(input([p], { sets: [set(p, TODAY)] }));
+		expect([l.warmups, l.done, l.left]).toEqual([0, 1, 0]);
+		expect(l.nothingLeft).not.toBeNull();
+	});
+
+	it('go by their order, a null order last, then by due day', () => {
+		const late = due('late', { warmup: true, warmupOrder: null });
+		const two = due('two', { warmup: true, warmupOrder: 2 });
+		const one = due('one', { warmup: true, warmupOrder: 1 });
+		const none = ex('none', day(-9), { warmup: true, warmupOrder: null });
+		expect(names(dayList(input([late, two, one, none])))).toEqual(['one', 'two', 'none', 'late']);
+	});
+
+	it('paused, archived and skipped ones are not rows', () => {
+		const paused = due('paused', { warmup: true, active: false });
+		const gone = due('gone', { warmup: true, archived: true });
+		const skip = due('skip', { warmup: true });
+		const kept = due('kept', { warmup: true });
+		const l = dayList(input([paused, gone, skip, kept], { picks: [pick(skip, 'skip')] }));
+		expect(names(l)).toEqual(['kept']);
+	});
+
+	it('done today: a done row in the warm-up list', () => {
+		const w = due('w', { warmup: true });
+		const l = dayList(input([w], { sets: [set(w, TODAY)] }));
+		expect(l.rows.map((r) => [r.exercise.name, r.kind, r.list])).toEqual([['w', 'done', 'warmup']]);
+		expect([l.done, l.left]).toEqual([1, 0]);
+	});
+
+	it('picked ahead of its day: a picked row in the warm-up list', () => {
+		const w = ex('w', day(-1), { warmup: true });
+		const x = input([w], { sets: [set(w, day(-1))], picks: [pick(w, 'add')] });
+		const l = dayList(x);
+		expect(l.rows.map((r) => [r.kind, r.list])).toEqual([['picked', 'warmup']]);
+	});
+
+	it('not due and not picked: not a row', () => {
+		const w = ex('w', day(-1), { warmup: true });
+		expect(names(dayList(input([w], { sets: [set(w, day(-1))] })))).toEqual([]);
 	});
 });

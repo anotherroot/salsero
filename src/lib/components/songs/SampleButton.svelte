@@ -3,6 +3,7 @@
 	import { SAMPLE_LENGTH_S } from '$lib/songs/sample';
 	import { playSample, sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * ▶ plays a 15 s sample of the song, ■ stops it. A tonal disc on a 48 px
@@ -18,9 +19,10 @@
 	}: { song: SampleSong; name?: string; tinted?: boolean; class?: string } = $props();
 
 	const on = $derived(sampling.id === song.id);
-	const label = $derived(
-		on ? 'Stop the sample' : name ? `Play a sample of ${name}` : 'Play a sample'
-	);
+	const label = $derived.by(() => {
+		const w = t().songs.sample;
+		return on ? w.stop : name ? w.playOf(name) : w.play;
+	});
 </script>
 
 <button

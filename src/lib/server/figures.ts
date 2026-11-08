@@ -18,7 +18,16 @@ import {
 	type FigureGroup
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
-import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
+import {
+	actorOf,
+	inSpace,
+	isTeam,
+	ownedBy,
+	ownerValues,
+	spaceOfRow,
+	type Space,
+	type Wall
+} from './scope';
 import { entryFor, reconcileEntries, reviveEntries } from './entries';
 import { trashRows, type ArchiveRestore } from './trash';
 import { takenLine } from '$lib/teams/deleted';
@@ -26,6 +35,7 @@ import { addedReach, addedTeams, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import { ownedOrUsable, usableOf, type Usable } from './usable';
 import { shadowedIds } from './clones/shadow';
+import { copiedFromPlaces } from './clones/genes';
 import type { Partner } from '$lib/labels';
 import { figureMatches } from '$lib/moves/filter';
 import type { FigureFilter as FigureFilterIn } from '$lib/moves/figures';
@@ -166,6 +176,35 @@ export function variationNameTaken(
 ): boolean {
 	const wanted = norm(name);
 	return listGroupVariations(db, groupId).some((v) => v.id !== exceptId && norm(v.name) === wanted);
+}
+
+/**
+ * Whether saving `name` on variation `id` must be refused: the name CHANGED
+ * (folded) and another live variation of the figure has it. A figure keeps a
+ * name a copy shares; only typing a taken name onto a row is refused.
+ */
+export function variationNameRefused(
+	db: Db,
+	groupId: number,
+	current: { id: number; name: string },
+	name: string
+): boolean {
+	return norm(name) !== norm(current.name) && variationNameTaken(db, groupId, name, current.id);
+}
+
+/** `versions` with where each copy came from (`copiedFromPlaces`), for pickers and lists that draw a same name apart. */
+export function withFigureOrigins<T extends { id: number }>(
+	db: Db,
+	userId: string,
+	versions: T[]
+): (T & { from: string | null })[] {
+	const origins = copiedFromPlaces(
+		db,
+		userId,
+		'figure',
+		versions.map((v) => v.id)
+	);
+	return versions.map((v) => ({ ...v, from: origins.get(v.id) ?? null }));
 }
 
 /**
@@ -326,7 +365,8 @@ export function updateVariation(
 		const current = tx.select().from(figures).where(eq(figures.id, id)).get();
 		if (!current || current.archivedAt !== null || current.groupId === null) return null;
 		if (!isStyleOf(current.dance, input.style) || !input.name.trim()) return null;
-		if (variationNameTaken(tx, current.groupId, input.name, id)) return null;
+		// Refused only when the name CHANGED: a copy may share the one it has.
+		if (variationNameRefused(tx, current.groupId, current, input.name)) return null;
 		const figure = tx
 			.update(figures)
 			.set(values(input))
@@ -721,6 +761,12 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Mo
 		unlinked: filter.unlinked ? '1' : undefined
 	};
 	const items: MoveRow[] = [];
+	const origins = copiedFromPlaces(
+		db,
+		actorOf(space),
+		'figure',
+		rows.map((r) => r.id)
+	);
 	for (const g of groups) {
 		const vs = rows.filter((r) => r.groupId === g.id && (!filter.only || filter.only.has(r.id)));
 		const listed: FigureRow[] = [];
@@ -738,7 +784,8 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Mo
 				lengthCounts: v.lengthCounts,
 				recordings: v.recordings,
 				hasSection,
-				hasLesson
+				hasLesson,
+				from: origins.get(v.id) ?? null
 			});
 		}
 		if (listed.length > 0) items.push({ id: g.id, name: g.name, figures: listed });

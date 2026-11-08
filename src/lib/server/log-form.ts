@@ -15,6 +15,7 @@ import { int, optionalInt, optionalText } from './form';
 import { requireExerciseInWall, wallOf } from './scope';
 import { isValidDay, localDay, noonOf } from '$lib/day/day';
 import { hasField } from '$lib/exercises/kinds';
+import { t } from '$lib/i18n/catalog';
 import type { SetSnapshot } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
 
@@ -44,7 +45,7 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 		rating === undefined ||
 		note === undefined
 	) {
-		return fail(400, { action: 'log', message: 'Check the values and try again.' });
+		return fail(400, { action: 'log', message: t().exercise.refused.checkValues });
 	}
 
 	// The id arrives in a form body, so it is checked against the URL's dance
@@ -53,7 +54,7 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 	const has = (f: Parameters<typeof hasField>[1]) => hasField(exercise.source, f);
 
 	if (has('rating') && rating === null) {
-		return fail(400, { action: 'log', message: 'Pick how it went' });
+		return fail(400, { action: 'log', message: t().exercise.log.pickFeel });
 	}
 
 	const now = serverNow();
@@ -73,7 +74,7 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 		});
 		return { action: 'log' as const, ok: true, setId: set.id };
 	} catch {
-		return fail(400, { action: 'log', message: 'That exercise no longer exists.' });
+		return fail(400, { action: 'log', message: t().exercise.refused.gone });
 	}
 }
 
@@ -117,13 +118,13 @@ export async function deleteSetFrom({ params, request, locals }: LogEvent) {
 	// A set already gone is a refusal the page can show, not a 404 page.
 	const row = id === undefined ? null : getSet(getDb(), id);
 	if (id === undefined || !row) {
-		return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
+		return fail(404, { action: 'deleteSet', message: t().exercise.refused.setGone });
 	}
 	// Before the delete, not after: `deleteSet` takes an id alone, so a set from
 	// the other dance would already be gone by the time it answered.
 	requireExerciseInWall(getDb(), wallOf(params, locals), row.exerciseId);
 	if (!deleteSet(getDb(), id)) {
-		return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
+		return fail(404, { action: 'deleteSet', message: t().exercise.refused.setGone });
 	}
 	const snapshot: SetSnapshot = {
 		exerciseId: row.exerciseId,
@@ -146,13 +147,13 @@ export async function restoreSetFrom({ params, request, locals }: LogEvent) {
 	const form = await request.formData();
 	const snap = parseSetSnapshot(String(form.get('snapshot') ?? ''), serverNow());
 	if (!snap) {
-		return fail(400, { action: 'restoreSet', message: 'That set could not be put back.' });
+		return fail(400, { action: 'restoreSet', message: t().exercise.refused.putBack });
 	}
 	requireExerciseInWall(getDb(), wallOf(params, locals), snap.exerciseId);
 	try {
 		logSet(getDb(), snap);
 	} catch {
-		return fail(400, { action: 'restoreSet', message: 'That set could not be put back.' });
+		return fail(400, { action: 'restoreSet', message: t().exercise.refused.putBack });
 	}
 	return { action: 'restoreSet' as const, ok: true };
 }

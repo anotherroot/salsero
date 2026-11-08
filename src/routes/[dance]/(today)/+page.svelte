@@ -10,6 +10,7 @@
 	import { dayLabel, lastDoneLabel } from '$lib/format';
 	import { daysBetween } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
+	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 
 	/*
@@ -53,12 +54,12 @@
 		{#snippet right()}
 			<BandButton
 				icon="chevron-left"
-				label="Previous day"
+				label={t().today.list.previousDay}
 				href={resolve(`/${data.dance.slug}?day=${past.prevDay}`)}
 			/>
 			<BandButton
 				icon="chevron-right"
-				label="Next day"
+				label={t().today.list.nextDay}
 				href={past.nextDay === data.list.today
 					? resolve('/[dance]/(today)', { dance: data.dance.slug })
 					: resolve(`/${data.dance.slug}?day=${past.nextDay}`)}
@@ -71,7 +72,7 @@
 			>
 				<span
 					class="inline-flex h-8 items-center gap-1.5 rounded-2xl bg-band-track pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small"
-					><Icon name="calendar" size={18} />Back to today</span
+					><Icon name="calendar" size={18} />{t().today.list.backToToday}</span
 				>
 			</a>
 		{/snippet}

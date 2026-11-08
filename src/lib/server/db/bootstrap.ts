@@ -6,13 +6,14 @@ import { splitAccounts } from '../dance-split';
 import { realCloneFiles } from '../clones/files';
 import { importNoteLinks } from '../links';
 import { movePositionsToOwners } from '../positions-move';
+import { markFamilies } from '../clones/marks';
 import { nameLinkedSpots } from '../section-names';
 import { backfillSongSizes } from '../storage';
 import { startTrashPurge } from '../trash';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
 import { getDb, type Db } from './index';
-import { serverNow } from '../server-clock';
 
+import { serverNow } from '../server-clock';
 let ready: Promise<void> | undefined;
 
 /**
@@ -74,6 +75,11 @@ export function bootstrap(): Promise<void> {
 			// Once EVER (`app_flags`), so a name cleared later stays cleared.
 			const named = nameLinkedSpots(getDb(), serverNow());
 			if (named.ran) console.info(`[sections] named ${named.named}`);
+		})
+		.then(() => {
+			// A mark for every copy in a family: what it held, so a save knows what it changed.
+			const marks = markFamilies(getDb(), serverNow());
+			if (marks.ran) console.info(`[clone-marks] marked ${marks.marked}`);
 		})
 		.then(() => backfillSongSizes(getDb(), serverNow()))
 		.then(() => {

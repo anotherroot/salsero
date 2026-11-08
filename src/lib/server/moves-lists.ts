@@ -8,6 +8,7 @@ import { defaultStyle } from './default-styles';
 import { listAddedFigures, listFigures, listVersions } from './figures';
 import { canonicalOf, graphFor } from './graph';
 import { listPositions, positionsFrom, positionSummary } from './positions';
+import { copiedFromPlaces } from './clones/genes';
 import { listAddedRoutines, listRoutines, routineShapes } from './routines';
 import { usableOf, usablePositions } from './usable';
 import { withoutShadowed } from './clones/shadow';
@@ -15,8 +16,9 @@ import { storedTwinSets } from './twins';
 import { publishedReach } from './access';
 import { routineClassDays } from './lessons';
 import { classDayLabel } from '$lib/format';
-import type { GroupMode } from '$lib/types';
+import type { CloneKind, GroupMode, MoveRow } from '$lib/types';
 import type { Space, Wall } from './scope';
+import { outOfStep } from './clones/step';
 import { coverage } from '$lib/routines/coverage';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { noPosition, positionCounts, taggedCount } from '$lib/graph/graph';
@@ -34,6 +36,33 @@ import type { PositionRow } from './db/schema';
 const figureCount = (moves: { figures: unknown[] }[]) =>
 	moves.reduce((n, m) => n + m.figures.length, 0);
 
+/** The rows with `differ`: how many other copies of each disagree with it. */
+function withDiffer<T extends { id: number }>(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	rows: T[]
+): (T & { differ: number })[] {
+	const n = outOfStep(
+		db,
+		userId,
+		kind,
+		rows.map((r) => r.id)
+	);
+	return rows.map((r) => ({ ...r, differ: n.get(r.id) ?? 0 }));
+}
+
+const figureDiffer = (db: Db, userId: string, moves: MoveRow[]): MoveRow[] => {
+	const all = withDiffer(
+		db,
+		userId,
+		'figure',
+		moves.flatMap((m) => m.figures)
+	);
+	const by = new Map(all.map((f) => [f.id, f]));
+	return moves.map((m) => ({ ...m, figures: m.figures.map((f) => by.get(f.id) ?? f) }));
+};
+
 export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): FiguresLists {
 	const dance = wall.dance;
 	const defStyle = defaultStyle(db, wall.userId, dance);
@@ -42,10 +71,14 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 		// reach it. Coverage is the person's own.
 		const space = { dance, teamId: mode.teamId, actorId: wall.userId };
 		const reach = publishedReach(db, mode.teamId);
-		const mine = listFigures(db, space).map((m) => ({
-			...m,
-			figures: m.figures.map((f) => ({ ...f, membersSee: reach.variations.has(f.id) }))
-		}));
+		const mine = figureDiffer(
+			db,
+			wall.userId,
+			listFigures(db, space).map((m) => ({
+				...m,
+				figures: m.figures.map((f) => ({ ...f, membersSee: reach.variations.has(f.id) }))
+			}))
+		);
 		return {
 			mine,
 			groups: [],
@@ -57,9 +90,12 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 		};
 	}
 	return {
-		mine: listFigures(db, wall),
+		mine: figureDiffer(db, wall.userId, listFigures(db, wall)),
 		// Each group's figures from the lessons the person added, after their own.
-		groups: listAddedFigures(db, wall),
+		groups: listAddedFigures(db, wall).map((g) => ({
+			...g,
+			moves: figureDiffer(db, wall.userId, g.moves)
+		})),
 		sets: storedTwinSets(db, wall.userId, 'figure'),
 		groupMode: false,
 		// Figures with no section or no lesson, whatever the filter: the header's
@@ -99,8 +135,16 @@ export function routinesList(
 				added.map((g) => ({ team: g.team, rows: g.routines })),
 				storedTwinSets(db, wall.userId, 'routine')
 			);
-	const own = folded ? folded.mine : listRoutines(db, space);
-	const groupRows = folded ? folded.groups : [];
+	const own = withDiffer(
+		db,
+		wall.userId,
+		'routine',
+		folded ? folded.mine : listRoutines(db, space)
+	);
+	const groupRows = (folded ? folded.groups : []).map((g) => ({
+		...g,
+		rows: withDiffer(db, wall.userId, 'routine', g.rows)
+	}));
 	// Spec A5: the latest class a routine is from, as its row says it.
 	const days = routineClassDays(
 		db,
@@ -156,10 +200,17 @@ export function positionsLists(db: Db, wall: Wall, mode: GroupMode | null): Posi
 			...new Set([...own, ...theirs].map((p) => canonicalOf(graph, p.id)))
 		]).map((c) => [c.id, c])
 	);
+	const origins = copiedFromPlaces(
+		db,
+		wall.userId,
+		'position',
+		[...own, ...theirs].map((p) => p.id)
+	);
 	const row = (p: PositionRow, from: string | null): PositionListRow => {
 		const c = counts.get(canonicalOf(graph, p.id))!;
 		return {
 			...positionSummary(p, space),
+			copiedFrom: origins.get(p.id) ?? null,
 			inCount: c.inCount,
 			outCount: c.outCount,
 			// The gap report is hidden in group mode.
@@ -168,10 +219,17 @@ export function positionsLists(db: Db, wall: Wall, mode: GroupMode | null): Posi
 			island: !mode && c.island,
 			unused: c.unused,
 			from,
-			twins: false
+			twins: false,
+			differ: differ.get(p.id) ?? 0
 		};
 	};
 
+	const differ = outOfStep(
+		db,
+		wall.userId,
+		'position',
+		[...own, ...theirs].map((p) => p.id)
+	);
 	let mine = own.map((p) => row(p, null));
 	let groups: { team: TeamRef; rows: PositionListRow[] }[] = [];
 	if (!mode) {

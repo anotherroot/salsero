@@ -52,15 +52,16 @@ import {
 	copyToFrom,
 	detachFrom,
 	dropFrom,
+	keepFrom,
 	sameAsFrom,
-	sendFrom,
 	separateFrom,
-	takeFrom
+	syncFromForm
 } from '$lib/server/take-form';
 import { pageSources } from '$lib/server/clones/sources';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { sameAsOffer } from '$lib/server/twins';
 import { DANCES } from '$lib/dances/dances';
@@ -73,6 +74,8 @@ import {
 	videoKey,
 	type VideoPlace
 } from '$lib/positions/view';
+import { flowAfter, flowing, idParam, rootOfSpot } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
@@ -159,8 +162,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const canon = canonicalOf(graph, id);
 	const [counts] = positionCounts(graph, [canon]);
 
-	// Rows of figures: their label, their type (or their group's name), and the
-	// positions they come from or go to, each with its type when it is not this one's.
+	// Rows of figures: their label, their group's name, and the positions they
+	// come from or go to, each with its type when it is not this one's.
 	const styleLabel = styleLabelOf(DANCES[wall.dance].styleLabel);
 	const named = new Map(graph.positions.map((p) => [p.id, p]));
 	const nameOf = (pid: number) => {
@@ -180,7 +183,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		(shown.length === 0
 			? []
 			: db
-					.select({ id: figures.id, styleTag: figures.styleTag, teamId: figures.teamId })
+					.select({ id: figures.id, teamId: figures.teamId })
 					.from(figures)
 					.where(inArray(figures.id, shown))
 					.all()
@@ -204,12 +207,10 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	});
 	const from = fromIds.map((fid) => ({
 		...figureRow(fid),
-		style: inGroupMode ? '' : styleLabel(rows.get(fid)?.styleTag ?? null),
 		ends: names(figureById(graph, fid)?.ends ?? [])
 	}));
 	const into = intoIds.map((fid) => ({
 		...figureRow(fid),
-		style: '',
 		starts: names(figureById(graph, fid)?.starts ?? [])
 	}));
 
@@ -307,8 +308,11 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		routines,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'position', id, url, !inGroupMode),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'position', id),
+		step: stepStatus(db, wall.userId, 'position', id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'position', id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'position', id),
 		detach: detachOffer(db, wall.userId, 'position', id),
@@ -339,7 +343,12 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	};
 };
 
-export const actions: Actions = {
+/**
+ * Every action runs Keep in step's flow from this position after it
+ * (`flowing`); a link on a section or a lesson changes that row, so the flow
+ * runs from there too.
+ */
+export const actions: Actions = flowing('position', (e) => idParam(e.params.id), {
 	/**
 	 * The edit sheet's Save: name, type, hold, notes and picture together. The
 	 * clash check (a group's needs `seen`; an archived one is gone) comes before
@@ -358,7 +367,7 @@ export const actions: Actions = {
 		};
 		const clash = seenRefusal(
 			form,
-			position.teamId !== null,
+			position.teamId !== null || hasCopies(db, 'position', position.id),
 			positionSeen(db, position.id),
 			typed,
 			serverNow(),
@@ -427,16 +436,16 @@ export const actions: Actions = {
 		return makeMineFrom(getDb(), wallOf(params, locals), 'position', position.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
 		const { position } = positionIn(params, locals, 'read');
-		return takeFrom(getDb(), locals.user!.id, 'position', position.id, request);
+		return syncFromForm(getDb(), locals.user!.id, 'position', position.id, request);
 	},
 
-	/** Send mine (board C3 p2): this position's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
 		const { position } = positionIn(params, locals, 'read');
-		return sendFrom(getDb(), locals.user!.id, 'position', position.id, request);
+		return keepFrom(getDb(), locals.user!.id, 'position', position.id, request);
 	},
 
 	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */
@@ -493,6 +502,8 @@ export const actions: Actions = {
 			}
 			throw e;
 		}
+		const root = rootOfSpot(getDb(), spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'linkSpot' as const, ok: true };
 	},
 
@@ -522,6 +533,8 @@ export const actions: Actions = {
 				message: LINK_REFUSED.linkGone
 			});
 		}
+		const root = rootOfSpot(db, link.spotId);
+		if (root) await flowAfter(locals.user?.id, root.kind, root.id);
 		return { action: 'unlinkSpot' as const, ok: true };
 	},
 
@@ -559,6 +572,7 @@ export const actions: Actions = {
 		if (!linkPosition(db, lesson.id, position.id, actorOf(space))) {
 			return refuse(400, notLinked(lesson.title));
 		}
+		await flowAfter(locals.user?.id, 'lesson', lesson.id);
 		return { action: 'linkLesson' as const, ok: true };
 	},
 
@@ -584,6 +598,7 @@ export const actions: Actions = {
 				message: LINK_REFUSED.lessonGone
 			});
 		}
+		await flowAfter(locals.user?.id, 'lesson', lesson.id);
 		return { action: 'unlinkLesson' as const, ok: true };
 	}
-};
+} satisfies Actions);

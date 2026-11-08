@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { stageDigit, stageDots } from '$lib/player/view';
+	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
 		/** Polled every animation frame; null when there is no position yet. */
@@ -57,7 +58,7 @@
 <div class="flex flex-col items-center gap-3 desk:gap-[26px]" aria-live="off">
 	<span
 		role="img"
-		aria-label={digit.text === '–' ? 'Count not started' : `Count ${digit.text}`}
+		aria-label={digit.text === '–' ? t().player.countNotStarted : t().player.countDigit(digit.text)}
 		class="stage flex items-center justify-center"
 		style="--size: {size}px"
 	>

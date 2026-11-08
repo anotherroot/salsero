@@ -353,9 +353,11 @@ beside the list", "A group · as its owner".
 - **A move's page** opens in the pane (its heading lit in the list): its
   figures, New figure, where they are used; Rename is the pencil in the
   header.
-- **A position** in its pane: left the picture (a still from a linked point),
-  the hold, notes, figures from here and into here (+ New figure from it);
-  right the linked video sections and points, lessons, routines through it.
+- **A position** in its pane (in the figure page's order since 2026-11-07):
+  left the picture (a still from a linked point), the facts card (type, hold,
+  notes) and Recordings (its sections and points, + Add); right Lessons
+  (+ Link) and the card of three rows, Figures from here, Figures into here
+  and In routines.
 - **A lesson** follows the same split: left the notes, the review exercise,
   Figures, Routines, Positions, Exercises; right Videos (with their sections,
   uploads and YouTube saves in progress) and Links. Copy to…, Move to… and
@@ -387,8 +389,8 @@ desktop lays them out:
   positions, No position).
 - **Picking on the map:** a click picks a position (its figures in and out lit
   in its type's colour, the rest faded); a second click on a lit position
-  opens it; click again or Esc clears. The position's page has a map button
-  that opens the map with it picked.
+  opens it; click again or Esc clears. The position's ⋯ has Show on the map,
+  which opens the map with it picked (a band button until 2026-11-07).
 - **No position** is the list's first row and opens in the pane: the figures
   with none, then those with only a start or only an end, each with +
   Positions.

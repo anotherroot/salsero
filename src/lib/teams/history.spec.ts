@@ -186,6 +186,7 @@ describe('a take’s fields, in plain words', () => {
 			historyLine(row({ rootKind: 'drill', subject, before: {}, after: {} }), names);
 		expect(one('practiceMode')).toBe('Ana · changed the practice');
 		expect(one('countBpm')).toBe('Ana · changed the practice tempo');
+		expect(one('comesBack')).toBe('Ana · changed the comes back');
 		expect(historyLine(row({ rootKind: 'routine', subject: 'slots' }), names)).toBe(
 			'Ana · changed the slots'
 		);

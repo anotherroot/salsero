@@ -3,6 +3,7 @@ import { and, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { getDb, type Db } from './db';
 import { loginAttempts, sessions, users } from './db/schema';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
+import { parseLocale } from '$lib/i18n/locale';
 
 import { hashPassword, verifyPassword } from './password';
 import { serverNow } from '$lib/server/server-clock';
@@ -34,7 +35,9 @@ export function validateSession(id: string | undefined, db: Db = getDb()) {
 			isAdmin: users.isAdmin,
 			// How much app: the layouts draw the tabs from it without a query.
 			level: users.level,
-			dance: users.dance
+			dance: users.dance,
+			// The language the pages are drawn in (`$lib/i18n/locale.ts`).
+			locale: users.locale
 		})
 		.from(sessions)
 		.innerJoin(users, eq(users.id, sessions.userId))
@@ -42,7 +45,7 @@ export function validateSession(id: string | undefined, db: Db = getDb()) {
 		.get();
 	// An account the dance split has not placed signs in nowhere.
 	if (!row || !row.dance || !isDanceSlug(row.dance)) return null;
-	return { ...row, dance: row.dance };
+	return { ...row, dance: row.dance, locale: parseLocale(row.locale) };
 }
 
 export function destroySession(id: string | undefined) {

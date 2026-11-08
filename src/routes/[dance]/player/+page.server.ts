@@ -20,9 +20,11 @@ import {
 	requireRoutineAccess,
 	wallOf
 } from '$lib/server/scope';
+import { shownExercise } from '$lib/exercises/name';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
-import { serverNow } from '$lib/server/server-clock';
 
+import { serverNow } from '$lib/server/server-clock';
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
@@ -125,7 +127,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		schedule:
 			exercise && locals.user ? scheduleStateOf(db, exercise.id, locals.user.timezone) : null,
 		today: localDay(serverNow(), locals.user?.timezone ?? 'UTC'),
-		exercises: listPickExercises(db, wall),
+		exercises: listPickExercises(db, wall).map(shownExercise),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
@@ -150,12 +152,12 @@ export const actions: Actions = {
 		};
 
 		if (exerciseId === undefined || durationS === undefined || rating === undefined) {
-			return fail(400, { message: 'Could not save that run.', ...entered });
+			return fail(400, { message: t().player.refused.couldNotSave, ...entered });
 		}
-		if (rating === null) return fail(400, { message: 'Pick how it went', ...entered });
+		if (rating === null) return fail(400, { message: t().exercise.log.pickFeel, ...entered });
 		if (note === undefined) {
 			return fail(400, {
-				message: 'That note is too long — keep it under 2000 characters.',
+				message: t().player.refused.noteTooLong,
 				...entered
 			});
 		}
@@ -179,7 +181,7 @@ export const actions: Actions = {
 				playerJson: run ?? null
 			}).id;
 		} catch {
-			return fail(400, { message: 'That exercise no longer exists.', ...entered });
+			return fail(400, { message: t().exercise.refused.gone, ...entered });
 		}
 		// Today shows the "back in …" toast with Undo for this set, then drops the param.
 		throw redirect(303, `/${params.dance}?logged=${setId}`);

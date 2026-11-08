@@ -72,7 +72,12 @@ export const users = sqliteTable(
 		 * checked in `setLevel`, not by a CHECK. Null until chosen (the first run asks);
 		 * accounts made before levels were backfilled to `all` by migration 0031.
 		 */
-		level: text('level')
+		level: text('level'),
+		/**
+		 * The language the app speaks to this person: `en` or `sl` (`$lib/i18n/locale.ts`),
+		 * checked in `setLocale` (`$lib/server/locale.ts`), not by a CHECK. Null is English.
+		 */
+		locale: text('locale')
 	},
 	(t) => [uniqueIndex('users_dance_email_idx').on(t.dance, t.email)]
 );
@@ -732,7 +737,13 @@ export const exercises = sqliteTable(
 		notes: text('notes'),
 		createdAt: createdAt(),
 		geneId: text('gene_id'),
-		clonedFrom: integer('cloned_from')
+		clonedFrom: integer('cloned_from'),
+		/** JSON of `ComesBack`, null = not set. Read with `parseComesBack`; only drills use it. */
+		comesBack: text('comes_back'),
+		/** The person's own warm-up flag (never a group row's). */
+		warmup: integer('warmup', { mode: 'boolean' }).notNull().default(false),
+		/** Position among the warm-ups; null = not placed. */
+		warmupOrder: integer('warmup_order')
 	},
 	(t) => [
 		check('exercises_every_days_ck', sql`${t.everyDays} > 0`),
@@ -1203,7 +1214,12 @@ export const invites = sqliteTable('invites', {
 	usedAt: integer('used_at'),
 	usedBy: text('used_by'),
 	/** The dance Join makes the account in. Null on invites from before the split: salsa's. */
-	dance: text('dance')
+	dance: text('dance'),
+	/**
+	 * The language Join is drawn in and the new account starts with: `en` or `sl`,
+	 * read through `parseLocale` (`inviteLocaleOf`), not a CHECK. Null is English.
+	 */
+	locale: text('locale')
 });
 
 /** A request for more storage. `outcome` is 'granted' | 'declined', validated in code. */
@@ -1417,6 +1433,34 @@ export const clonePairs = sqliteTable(
 			sql`${t.kind} in ('figure', 'routine', 'drill', 'song', 'lesson', 'position')`
 		)
 	]
+);
+
+/** Keep in step, per copy: the switch and the four options (a missing row reads the defaults). */
+export const cloneSync = sqliteTable(
+	'clone_sync',
+	{
+		kind: text('kind').notNull(),
+		rowId: integer('row_id').notNull(),
+		on: integer('on', { mode: 'boolean' }).notNull(),
+		names: integer('names', { mode: 'boolean' }).notNull(),
+		small: integer('small', { mode: 'boolean' }).notNull(),
+		sections: integer('sections', { mode: 'boolean' }).notNull(),
+		media: integer('media', { mode: 'boolean' }).notNull(),
+		at: integer('at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.kind, t.rowId] })]
+);
+
+/** What a copy last held per field (hashes), so a save knows which fields it changed. */
+export const cloneMarks = sqliteTable(
+	'clone_marks',
+	{
+		kind: text('kind').notNull(),
+		rowId: integer('row_id').notNull(),
+		fieldsJson: text('fields_json').notNull(),
+		at: integer('at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.kind, t.rowId] })]
 );
 
 /** A person's own "same as": items of one kind that they treat as one. */

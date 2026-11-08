@@ -2,6 +2,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { dateLabel } from '$lib/format';
+	import { t } from '$lib/i18n/catalog';
 	import { spotLabel } from '$lib/video/spots';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import SectionPlayer from './SectionPlayer.svelte';
@@ -35,7 +36,7 @@
 	const from = $derived(
 		section.video.from.kind === 'lesson'
 			? `${section.video.from.title} · ${dateLabel(section.video.from.lessonDay)}`
-			: `Recording · ${section.video.from.figure}`
+			: t().video.recordingOf(section.video.from.figure)
 	);
 	const range = $derived(spotLabel({ ...section.spot, label: null }));
 </script>

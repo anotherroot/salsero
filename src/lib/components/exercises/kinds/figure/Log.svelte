@@ -2,6 +2,7 @@
 	import LogShell, { type LogProps } from '../../LogShell.svelte';
 	import PracticePanel from '$lib/components/player/PracticePanel.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import { SECTION_HEAD } from '../prose';
 	import Content from './Content.svelte';
 
@@ -32,7 +33,7 @@
 >
 	{#snippet reference(payload)}
 		<div class="flex items-center justify-between pr-1">
-			<h3 class={SECTION_HEAD}>Reference</h3>
+			<h3 class={SECTION_HEAD}>{t().exercise.content.reference}</h3>
 			<button
 				type="button"
 				class="-my-1.5 flex h-11 cursor-pointer items-center gap-1 px-2.5 text-[14px] font-extrabold text-accent-text"
@@ -40,7 +41,7 @@
 				aria-controls={contentId}
 				onclick={() => (showReference = !showReference)}
 			>
-				{showReference ? 'Hide' : 'Show'}<Icon
+				{showReference ? t().exercise.content.hide : t().exercise.content.show}<Icon
 					name={showReference ? 'chevron-up' : 'chevron-down'}
 					size={18}
 				/>

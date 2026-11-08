@@ -61,10 +61,14 @@ export function frameNow(
 	return frameOf(now.routeId, signedIn);
 }
 
-/** Which side entry is lit: a tab inside the dance, Settings for the shared pages. */
+/**
+ * Which side entry is lit: a tab inside the dance, Settings for the shared pages
+ * and for You (`/[dance]/you`: the side has no You tab, its settings are Settings').
+ */
 export function sideLit(path: string, dance: DanceSlug): TabId | 'settings' | null {
 	if (SHARED_SIDE.has(path)) return 'settings';
-	return tabFor(path, dance);
+	const tab = tabFor(path, dance);
+	return tab === 'you' ? 'settings' : tab;
 }
 
 /**

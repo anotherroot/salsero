@@ -8,8 +8,11 @@
  *
  * On a group's row a save without `seen` is refused (risk 27): group rows are
  * new, so no tab open from before the check can lack it, and a save path that
- * forgot it would overwrite silently. On a person's own row a save without
- * `seen` is accepted as before, so a tab opened before the check still saves.
+ * forgot it would overwrite silently. So is one on a row with copies
+ * (`hasCopies`, Keep in step): a change may flow in while its form is open,
+ * and a save that did not say what it saw would write the old value back. On
+ * a person's own row in no family a save without `seen` is accepted as
+ * before, so a tab opened before the check still saves.
  */
 import { fail, type ActionFailure } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
@@ -66,26 +69,27 @@ export function seesAll(seen: Seen | null, keys: string[]): boolean {
 	return seen !== null && keys.every((k) => k in seen);
 }
 
-/** The refusal for a group's save that carried no `seen`. */
+/** The refusal for a save that had to carry `seen` (a group's row, or one with copies) and did not. */
 export const MISSING_SEEN = 'This page is out of date. Reload it and try again.';
 
 /**
  * A form save's clash check, as the failure to return (or null to go on):
- * 400 for a group's save without `seen`, 409 carrying `clash` (the other
- * version), 410 carrying `gone`. `extra` is the action's own failure fields
- * (its `action`, what was typed), so the page keeps the typed values. `who`
- * names who changed or archived it (History's `editedBy`).
+ * 400 for a save without `seen` where one is `required` (a group's row, or
+ * a row with copies: `row.teamId !== null || hasCopies(...)`), 409 carrying
+ * `clash` (the other version), 410 carrying `gone`. `extra` is the action's
+ * own failure fields (its `action`, what was typed), so the page keeps the
+ * typed values. `who` names who changed or archived it (History's `editedBy`).
  */
 export function seenRefusal<T extends Record<string, unknown>>(
 	form: FormData,
-	team: boolean,
+	required: boolean,
 	current: Seen | null,
 	extra: T,
 	now = serverNow(),
 	who: Who = nobody
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
 	const seen = seenFrom(form);
-	if (team && current !== null && !seesAll(seen, Object.keys(current))) {
+	if (required && current !== null && !seesAll(seen, Object.keys(current))) {
 		return fail(400, { ...extra, message: MISSING_SEEN });
 	}
 	const check = checkSeen(current, seen, who);
@@ -135,9 +139,12 @@ export function exerciseSeen(row: {
 	notes: string | null;
 	active: boolean;
 	teamId: number | null;
+	comesBack: string | null;
 }): Seen {
 	const content: Seen = { notes: row.notes };
 	if (row.source === 'custom') content.name = row.name;
+	// A drill's Comes back is content too: the raw stored value is what the form saw.
+	if (row.source === 'custom' || row.source === 'added') content.comesBack = row.comesBack;
 	return row.teamId !== null ? content : { ...content, active: row.active ? 'on' : '' };
 }
 

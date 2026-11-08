@@ -1,0 +1,16 @@
+# Follow my class (shots.sh --level follow, on a db seeded by seed.sh): what a class member sees
+/{dance}
+/{dance}?day={yesterday}
+/{dance}/coming-up
+/{dance}/exercises/{classdrill}
+/{dance}/exercises/{classsection}
+/{dance}/exercises/{classreview}
+/{dance}/exercises/{classroutine}
+/{dance}/lessons/{classlesson}
+/{dance}/groups/{group}
+/{dance}/player?routine={classroutineid}&exercise={classroutine}&from=today
+/settings
+/settings/storage
+/voice
+/app
+/device/pair

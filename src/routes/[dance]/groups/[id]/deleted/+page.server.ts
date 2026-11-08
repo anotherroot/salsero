@@ -5,10 +5,20 @@ import { listTrash, restoreDeleted } from '$lib/server/trash';
 import { int } from '$lib/server/form';
 import { KIND_NAME } from '$lib/teams/deleted';
 import type { DeletedKind } from '$lib/types';
+import { flowAfter, rootOfTrash } from '$lib/server/clones/flow-hook';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
 const KINDS = Object.keys(KIND_NAME) as DeletedKind[];
+/** The kinds that are `team_trash` entries (the rest are archived root rows). */
+const TRASH_KINDS = new Set<DeletedKind>([
+	'video',
+	'section',
+	'link',
+	'spot-link',
+	'recording',
+	'position-link'
+]);
 
 /**
  * The group, for its editors and owner only: a member gets the stranger's
@@ -49,6 +59,10 @@ export const actions: Actions = {
 				: restoreDeleted(db, space, kind, id, serverNow());
 		if (!done) return fail(404, { action: 'restore', key, message: 'That is no longer here.' });
 		if (!done.ok) return fail(409, { action: 'restore', key, message: done.message });
+		// A trash entry that came back (a section, link, recording, video) changes its
+		// root: Keep in step's flow runs from there. A restored root row flows nothing new.
+		const root = id !== undefined && TRASH_KINDS.has(kind!) ? rootOfTrash(db, id) : null;
+		if (root) await flowAfter(space.actorId, root.kind, root.id);
 		return { action: 'restore', ok: true, key };
 	}
 };

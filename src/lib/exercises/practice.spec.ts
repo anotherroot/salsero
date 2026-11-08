@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DANCES } from '$lib/dances/dances';
+import { withLocale } from '$lib/i18n/current';
 import {
+	practiceOf,
+	practiceToPost,
 	defaultPracticeConfig,
 	hourOfBars,
 	minutesFrom,
@@ -179,5 +182,108 @@ describe('practiceStart', () => {
 			songId: null,
 			songGone: true
 		});
+	});
+});
+
+// The panel's collapsed line in Slovenian: the count stays Spanish digits, the speed a comma.
+describe('practiceSummary in Slovenian', () => {
+	const summary = (p: Parameters<typeof practiceSummary>[0]) =>
+		withLocale('sl', () => practiceSummary(p, salsa));
+
+	it('names the tempo, the count and the clave', () => {
+		expect(
+			summary({
+				mode: 'count',
+				bpm: 180,
+				songTitle: null,
+				config: { count: 'son', clave: '2-3', speed: 1, callEvery: null }
+			})
+		).toBe('Štetje 180 · 2 3 4 · 6 7 8 · clave 2-3');
+	});
+	it('names the song, a slowed speed with a comma, and the call', () => {
+		expect(
+			summary({
+				mode: 'song',
+				bpm: 180,
+				songTitle: 'El Cantante',
+				config: { count: 'salsa', clave: null, speed: 0.8, callEvery: 2 }
+			})
+		).toBe('El Cantante 0,8× · 1 2 3 · 5 6 7 · napoved na 2 osmici');
+		expect(
+			summary({
+				mode: 'count',
+				bpm: 150,
+				songTitle: null,
+				config: { count: 'off', clave: null, speed: 1, callEvery: 4 }
+			})
+		).toBe('Štetje 150 · brez štetja · napoved na 4 osmice');
+	});
+	it('keeps "Off" in English', () => {
+		expect(
+			practiceSummary(
+				{
+					mode: 'count',
+					bpm: 150,
+					songTitle: null,
+					config: { count: 'off', clave: null, speed: 1, callEvery: null }
+				},
+				salsa
+			)
+		).toBe('Count 150 · Off');
+	});
+});
+
+describe('practiceToPost', () => {
+	const row = {
+		practiceMode: 'count' as const,
+		songId: null,
+		countBpm: 180,
+		practiceJson: JSON.stringify({ count: 'salsa', clave: '2-3', speed: 1, callEvery: null })
+	};
+	const config = { count: 'salsa', clave: '2-3', speed: 1, callEvery: null } as const;
+	const loaded = () => practiceOf(row, salsa);
+
+	it('reads what the page loaded as the endpoint would store it', () => {
+		expect(loaded()).toEqual({ mode: 'count', songId: null, countBpm: 180, config });
+		expect(practiceOf({ ...row, practiceMode: 'none' }, salsa)).toBeNull();
+		expect(practiceOf({ ...row, practiceMode: 'song', songId: 4, countBpm: 120 }, salsa)).toEqual({
+			mode: 'song',
+			songId: 4,
+			countBpm: null,
+			config
+		});
+	});
+
+	it('posts nothing when Play keeps what was loaded', () => {
+		// The song picker's songId is not stored for a count run.
+		expect(
+			practiceToPost(loaded(), { source: 'count', songId: 9, bpm: 180, config: { ...config } })
+		).toBeNull();
+	});
+
+	it('posts what differs: the bpm, the source, the song or the config', () => {
+		const next = { source: 'count' as const, songId: null, bpm: 180, config: { ...config } };
+		expect(practiceToPost(loaded(), { ...next, bpm: 150 })).toEqual({
+			mode: 'count',
+			songId: null,
+			countBpm: 150,
+			config
+		});
+		expect(practiceToPost(loaded(), { ...next, source: 'song', songId: 3 })).toEqual({
+			mode: 'song',
+			songId: 3,
+			countBpm: null,
+			config
+		});
+		expect(practiceToPost(loaded(), { ...next, config: { ...config, speed: 0.8 } })).not.toBeNull();
+		expect(
+			practiceToPost(loaded(), { ...next, config: { ...config, clave: null } })
+		).not.toBeNull();
+	});
+
+	it('posts on first practice, when nothing was remembered', () => {
+		expect(
+			practiceToPost(null, { source: 'count', songId: null, bpm: 180, config: { ...config } })
+		).not.toBeNull();
 	});
 });

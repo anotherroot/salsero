@@ -17,6 +17,12 @@ import {
 	usedBytesOf
 } from '$lib/server/storage';
 import { askedLine } from '$lib/storage-view';
+import {
+	flowAfter,
+	rootOfRecording,
+	rootOfVideo,
+	type FlowRoot
+} from '$lib/server/clones/flow-hook';
 import type { StorageItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
@@ -55,6 +61,8 @@ const gone = (action: string) => fail(404, { action, message: 'That is already g
 /**
  * Row first, then file. In a group the delete trashes the row and the file
  * waits for the purge (risk 19): a trash id back means the route must not unlink.
+ * Keep in step's flow then runs from the root the file was on (`rootOf`, read
+ * before the delete), as `actorId`.
  */
 async function remove(
 	action: string,
@@ -62,13 +70,16 @@ async function remove(
 	kind: StorageItem['kind'],
 	form: FormData,
 	del: (id: number) => { file: string; trashId: number | null } | null,
-	dir: () => string
+	dir: () => string,
+	rootOf: (id: number) => FlowRoot | null,
+	actorId: string
 ) {
 	const id = int(form, 'id');
 	const mine =
 		id !== undefined &&
 		listTeamStorageItems(getDb(), teamId).some((i) => i.kind === kind && i.id === id);
 	if (!mine || id === undefined) return gone(action);
+	const root = rootOf(id);
 	let row;
 	try {
 		row = del(id);
@@ -78,6 +89,7 @@ async function remove(
 	}
 	if (!row) return gone(action);
 	if (row.trashId === null) await unlink(join(dir(), row.file)).catch(() => {});
+	if (root) await flowAfter(actorId, root.kind, root.id);
 	return { action, ok: true, id };
 }
 
@@ -90,7 +102,9 @@ export const actions: Actions = {
 			'recording',
 			await request.formData(),
 			(id) => deleteRecording(getDb(), id, locals.user!.id),
-			recordingsDir
+			recordingsDir,
+			(id) => rootOfRecording(getDb(), id),
+			locals.user!.id
 		);
 	},
 
@@ -102,7 +116,9 @@ export const actions: Actions = {
 			'lessonVideo',
 			await request.formData(),
 			(id) => deleteLessonVideo(getDb(), id, locals.user!.id),
-			lessonVideosDir
+			lessonVideosDir,
+			(id) => rootOfVideo(getDb(), id),
+			locals.user!.id
 		);
 	},
 

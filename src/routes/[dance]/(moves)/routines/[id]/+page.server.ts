@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
-import { figureLabels, listVersions } from '$lib/server/figures';
+import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
@@ -54,17 +54,20 @@ import {
 	copyToFrom,
 	detachFrom,
 	dropFrom,
+	keepFrom,
 	sameAsFrom,
-	sendFrom,
 	separateFrom,
-	takeFrom
+	syncFromForm
 } from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
+import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
+import { flowing, idParam } from '$lib/server/clones/flow-hook';
+import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
@@ -114,7 +117,9 @@ function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract'
 	}
 	const sent = form.get('fingerprint');
 	if (typeof sent !== 'string' || sent === '') {
-		return routine.teamId !== null ? fail(400, { ...named, message: MISSING_SEEN }) : null;
+		// A group's routine, or one with copies (a change may flow in), must say what it saw.
+		const required = routine.teamId !== null || hasCopies(db, 'routine', routine.id);
+		return required ? fail(400, { ...named, message: MISSING_SEEN }) : null;
 	}
 	if (sent === fingerprintOf(db, routine.id)) return null;
 	return fail(409, { ...named, message: staleRoutine(who().by), stale: true });
@@ -194,11 +199,15 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		? []
 		: [
 				// Twins show as one (board C7): a set is one candidate; a group's routine folds nothing.
-				...foldVersions(db, space, [
-					...listVersions(db, space),
-					// A person's routine may use the group figures they reach, each under its group.
-					...(usable ? usableVersions(db, wall, usable) : [])
-				]).flatMap((v): Candidate[] => {
+				...withFigureOrigins(
+					db,
+					wall.userId,
+					foldVersions(db, space, [
+						...listVersions(db, space),
+						// A person's routine may use the group figures they reach, each under its group.
+						...(usable ? usableVersions(db, wall, usable) : [])
+					])
+				).flatMap((v): Candidate[] => {
 					const node = figureById(graph, v.id);
 					if (!node) return [];
 					return [
@@ -208,6 +217,7 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 							groupId: v.groupId,
 							figure: v.figure,
 							label: v.label,
+							from: v.from,
 							starts: node.starts,
 							startCounts: [node.start],
 							ends: node.ends,
@@ -248,8 +258,11 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		musicChoices: canEdit ? musicChoices(db, space) : [],
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'routine', routine.id, url, !inGroupMode),
-		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'routine', routine.id),
+		step: stepStatus(db, wall.userId, 'routine', routine.id),
+		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
+		keep: keepView(db, wall.userId, 'routine', routine.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),
@@ -357,7 +370,8 @@ function slotFail(message: string, stepId: number | undefined) {
 	return stepId === undefined ? fail(400, { message }) : fail(400, { message, stepId });
 }
 
-export const actions: Actions = {
+/** Every action runs Keep in step's flow from this routine after it (`flowing`). */
+export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), {
 	rename: async ({ params, request, locals }) => {
 		const db = getDb();
 		const form = await request.formData();
@@ -385,7 +399,7 @@ export const actions: Actions = {
 		}
 		const clash = seenRefusal(
 			form,
-			routine.teamId !== null,
+			routine.teamId !== null || hasCopies(db, 'routine', routine.id),
 			routine.archivedAt === null ? routineSeen(routine) : null,
 			{ action: 'rename' as const, ...typed },
 			serverNow(),
@@ -411,16 +425,16 @@ export const actions: Actions = {
 		return makeMineFrom(getDb(), wallOf(params, locals), 'routine', routine.id);
 	},
 
-	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
-	take: ({ params, locals, request }) => {
+	/** Sync (the Sync sheet, or a reader's Update mine): the merge lands on every ticked copy (`clones/sync.ts`). */
+	sync: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
-		return takeFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
+		return syncFromForm(getDb(), locals.user!.id, 'routine', routine.id, request);
 	},
 
-	/** Send mine (board C3 p2): this routine's changes into each copy the person edits. */
-	send: ({ params, locals, request }) => {
+	/** Keep in step (under Versions): this copy's switch and options (`clones/sync-settings.ts`). */
+	keep: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
-		return sendFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
+		return keepFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
 	},
 
 	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */
@@ -711,4 +725,4 @@ export const actions: Actions = {
 		}
 		return done(routine.id, { stepId: made.stepId });
 	}
-};
+} satisfies Actions);

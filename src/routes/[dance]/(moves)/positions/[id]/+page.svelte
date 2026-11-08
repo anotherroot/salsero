@@ -22,12 +22,12 @@
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import PointStill from '$lib/components/positions/PointStill.svelte';
-	import PointCard from '$lib/components/positions/PointCard.svelte';
+	import PointRow from '$lib/components/positions/PointRow.svelte';
+	import PositionRelations from '$lib/components/positions/PositionRelations.svelte';
 	import PositionLinkPicker from '$lib/components/positions/PositionLinkPicker.svelte';
-	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import SectionRow from '$lib/components/figures/SectionRow.svelte';
 	import SectionPlayer from '$lib/components/ui/SectionPlayer.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import { CLIP, GROUP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { cloneSubtitle } from '$lib/clones/view';
@@ -37,43 +37,35 @@
 	import type { PickRow } from '$lib/picker/model';
 	import type { SectionVideo, Spot, ViaSection } from '$lib/types';
 	import {
+		ADD_SPOT,
 		LESSON_PICK,
 		LINK_LESSON,
-		LINK_SPOT,
 		LINK_SPOTS,
 		lessonMeta,
 		lessonPickGroups,
 		lessonPickTitle,
 		lessonsTitle,
+		recordingsTitle,
 		unlinkFocus,
 		unlinkLabel,
 		linkSpotsSub,
 		linkSpotsTitle,
 		pointLabel,
+		positionMenuItems,
 		spotPickGroups,
-		videoTitle,
 		ARCHIVED,
 		BUSY,
 		MAKE_MINE_NOTE,
-		NEW_FIGURE,
-		NONE_YET,
 		deadEnd,
 		editTitle,
-		figureFromRow,
-		figureIntoRow,
-		fromTitle,
 		holdChips,
-		intoTitle,
-		moreLine,
 		orphan,
 		pictureLine,
 		positionFromLessonNote,
 		positionSubtitle,
-		routinesTitle,
 		SHEET,
 		spotVideoLabel,
-		styleLabelOf,
-		throughMeta
+		styleLabelOf
 	} from '$lib/positions/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
@@ -100,6 +92,8 @@
 	const figuresHref = $derived(resolve('/[dance]/(moves)/figures', { dance: slug }));
 	const newFrom = $derived(`${figuresHref}?new=1&start=${position.id}`);
 	const newInto = $derived(`${figuresHref}?new=1&end=${position.id}`);
+	/** New figure from or into it: an editor's, where a figure of theirs may take it (a reader of a group's gets none). */
+	const canNew = $derived(data.canTag && data.canEdit);
 	const figureHref = (id: number) =>
 		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	const routineHref = (id: number) =>
@@ -117,7 +111,7 @@
 					: null
 	);
 
-	// Show on the map (desktop): the map in the pane, this position picked.
+	// Show on the map: the map (in the pane on the desktop), this position picked.
 	const mapHref = $derived(
 		`${resolve('/[dance]/(moves)/positions/map', { dance: slug })}?pick=${position.id}`
 	);
@@ -159,9 +153,6 @@
 		editing = null;
 	});
 	let makingMine = $state(false);
-	/** "In routines": three, then "and N more" shows the rest in place. */
-	let allRoutines = $state(false);
-	const routines = $derived(allRoutines ? data.routines : data.routines.slice(0, 3));
 
 	// Restore (an archived position): one tap, its refusal under it, the button back.
 	let restoring = $state(false);
@@ -182,13 +173,9 @@
 			: null
 	);
 
-	// --- Video and Lessons: an editor links from the pickers; a row's Unlink takes it away.
+	// --- Recordings and Lessons: an editor links from the pickers; a row's Unlink takes it away.
 	/** Links are an editor's, while the position is live. */
 	const canLink = $derived(data.canEdit && !archived);
-	/** The right column's first list: its heading drops its top padding from `two:`. */
-	const rightFirst = $derived(
-		data.spots.length > 0 || canLink ? 'video' : data.lessons.length > 0 ? 'lessons' : 'routines'
-	);
 	let linking = $state<'spot' | 'lesson' | null>(null);
 	const lessonHref = (id: number) =>
 		resolve('/[dance]/lessons/[id]', { dance: slug, id: String(id) });
@@ -198,7 +185,7 @@
 			? String(form.message)
 			: null;
 	// One-tap unlinks: once one lands, focus goes to the next row, else the list's
-	// opener, Edit, or (a reader's own) the list's heading (`unlinkFocus`).
+	// Add or Link, Edit, or (a reader's own) the list's heading (`unlinkFocus`).
 	const unlinkSpot =
 		(linkId: number): SubmitFunction =>
 		() => {
@@ -251,11 +238,22 @@
 	let menuOpen = $state(false);
 	/** What the ⋯ offers of the copy actions (ItemMenu, mounted once below the page). */
 	const offers = $derived<CloneOffers>({
+		sync: data.keep.mode ? data.keep : null,
 		drop: data.drop,
 		detach: data.detach,
 		copy: data.copyTo,
 		sameAs: data.sameAs
 	});
+	/** The page's own ⋯ items: New figure from and into here, Show on the map, History. */
+	const ownMenu = $derived(
+		positionMenuItems({
+			name: position.name,
+			newFrom: canNew ? newFrom : null,
+			newInto: canNew ? newInto : null,
+			mapHref: archived ? null : mapHref,
+			historyHref: data.historyHref
+		})
+	);
 </script>
 
 <svelte:head><title>{position.name} · {data.dance.label}</title></svelte:head>
@@ -279,17 +277,8 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		<!-- While editing in the pane, the Save pinned at the bottom saves and closes edit mode. -->
+		<!-- As the figure page's band: Edit and ⋯. While editing in the pane, the Save pinned at the bottom saves and closes edit mode. -->
 		{#if editing !== 'pane'}
-			{#if !archived}
-				<!-- The desktop's map button: the map in the pane, with this position picked. -->
-				<span class="hidden desk:contents"
-					><BandButton icon="graph" label="Show on the map" href={mapHref} /></span
-				>
-			{/if}
-			{#if data.historyHref}
-				<BandButton icon="clock" label="History" href={data.historyHref} />
-			{/if}
 			{#if data.canEdit && !archived}
 				<BandButton
 					focusKey="edit-position"
@@ -298,7 +287,7 @@
 					onclick={startEditing}
 				/>
 			{/if}
-			{#if hasMenu([], offers)}
+			{#if hasMenu(ownMenu, offers)}
 				<BandButton
 					icon="more"
 					label={menuLabel('position')}
@@ -332,12 +321,12 @@
 </Screen>
 
 <!--
-	The position in its pane (desktop spec, "Two columns"): the type, a reader's note,
-	a gap and the source tabs under the header, then two columns from a 780 px pane,
-	1 : 1 (the picture, the hold, notes and its figures on the left; video, lessons and
-	routines on the right). One column below that and on the phone, in the phone's
-	order. Versions (whose toast is `fixed`) sits outside PaneColumns: nothing pinned
-	lives in its size container.
+	The position in its pane (desktop spec, "Two columns"), in the figure page's
+	order: a reader's note, a gap and the source tabs under the header, then two
+	columns from a 780 px pane, 1 : 1 (the picture, the facts and Recordings on the
+	left; Lessons and the card of figures on the right). One column below that and
+	on the phone, in that order. Versions (whose toast is `fixed`) sits outside
+	PaneColumns: nothing pinned lives in its size container.
 -->
 {#snippet content()}
 	<div class="flex flex-col gap-2 {data.makeMine ? 'pb-40' : 'pb-4'}">
@@ -371,11 +360,6 @@
 			{/if}
 		{/if}
 
-		<!-- The boards' order: the type, a reader's note, a gap, then the sources and their row. -->
-		<div class="flex flex-wrap gap-1.5">
-			<Badge tone="accent">{styleLabel(position.styleTag)}</Badge>
-		</div>
-
 		{#if readerTeam && data.fromLesson}
 			<p
 				class="flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
@@ -403,240 +387,210 @@
 			mineId={data.mineId}
 			self={data.cloneLine.self}
 			title={position.name}
-			compare={data.compare}
 			family={data.family}
+			step={data.step}
+			keep={data.keep}
 		/>
 
-		<PaneColumns ratio="1:1" class="gap-2" left={about} right={watched} />
+		<PaneColumns ratio="1:1" class="gap-2" left={about} right={around} />
 	</div>
 {/snippet}
 
 {#snippet about()}
+	<!-- The picture first, when there is one: a still, chosen in Edit among the linked points. -->
 	{#if data.picture}
 		{@const picture = data.picture}
-		<div class="{CLIP} rounded-2xl bg-surface">
-			<PointStill src={picture.video.src} ms={picture.spot.startMs} />
-			<div class="flex min-h-11 items-center gap-2 py-1 pr-1.5 pl-3.5">
-				<span class="flex-none text-muted"><Icon name="bookmark" size={18} /></span>
-				<span class="min-w-0 flex-1 text-[13px] text-muted"
-					>{pictureLine(spotVideoLabel(picture.video), picture.spot.startMs)}</span
-				>
-				{#if data.canEdit && !archived}
-					<!-- The picture is chosen in the edit form, among the linked points. -->
-					<button
-						type="button"
-						class={button('tertiary', 'sm')}
-						aria-haspopup="dialog"
-						onclick={startEditing}>{SHEET.change}</button
-					>
-				{/if}
-			</div>
+		<div class="{CLIP} relative rounded-2xl bg-surface">
+			<PointStill
+				src={picture.video.src}
+				ms={picture.spot.startMs}
+				label={pictureLine(spotVideoLabel(picture.video), picture.spot.startMs)}
+				class="aspect-video w-full"
+			/>
+			<span
+				class="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-b from-transparent to-black/65 px-3 pt-6 pb-2.5 text-[13px] font-semibold text-white"
+				aria-hidden="true">{pictureLine(spotVideoLabel(picture.video), picture.spot.startMs)}</span
+			>
 		</div>
 	{/if}
 
-	{#if chips.length > 0}
-		<ul class="flex flex-wrap gap-1.5" aria-label="Hold">
-			{#each chips as chip (chip)}
-				<li><Badge>{chip}</Badge></li>
-			{/each}
-		</ul>
-	{/if}
-
-	{#if position.notes}
-		<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
-			<h2 class="text-[13px] font-bold text-muted">Notes</h2>
+	<!-- The position's own facts: its type, the hold, the notes. -->
+	<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
+		<div class="flex flex-wrap gap-1.5">
+			<Badge tone="accent">{styleLabel(position.styleTag)}</Badge>
+		</div>
+		{#if chips.length > 0}
+			<div class="flex flex-col gap-1.5">
+				<span class="text-[13px] font-bold text-muted">Hold</span>
+				<ul class="flex flex-wrap gap-1.5" aria-label="Hold">
+					{#each chips as chip (chip)}
+						<li><Badge>{chip}</Badge></li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+		{#if position.notes}
+			<div class="-mx-4 h-px bg-hairline"></div>
 			<LinkedText
 				text={position.notes}
-				class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink-2"
+				class="text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2"
 			/>
-		</section>
-	{/if}
-
-	<div class="flex min-h-11 items-center justify-between pt-1.5 pr-1">
-		<h2 class={SECTION_LABEL} tabindex="-1" data-focus="from-heading">
-			{fromTitle(data.from.length)}
-		</h2>
-		<!-- A reader of a group's position gets no New here (the boards show none). -->
-		{#if data.canTag && data.canEdit}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built from resolve() -->
-			<a href={newFrom} class={button('tertiary', 'sm')}
-				><Icon name="plus" size={18} />{NEW_FIGURE}</a
-			>
 		{/if}
-	</div>
-	{#if data.from.length === 0}
-		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">{NONE_YET}</p>
-	{:else}
-		<ul class={GROUP}>
-			{#each data.from as f (f.id)}
-				<li>{@render figureRow(f.id, f.label, figureFromRow(f))}</li>
-			{/each}
-		</ul>
-	{/if}
+	</section>
 
-	<h2 class="{SECTION_LABEL} pt-2.5">{intoTitle(data.into.length)}</h2>
-	{#if data.into.length === 0}
-		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">{NONE_YET}</p>
-	{:else}
-		<ul class={GROUP}>
-			{#each data.into as f (f.id)}
-				<li>{@render figureRow(f.id, f.label, figureIntoRow(f))}</li>
-			{/each}
-		</ul>
+	<!--
+		Recordings (as the figure page's): the linked sections and points in one card,
+		an editor's + Add in the heading row. Sections loop full screen; a point opens
+		the player at its moment. A reader with nothing here sees nothing.
+	-->
+	{#if data.spots.length > 0 || canLink}
+		<section class="flex flex-col gap-2 pt-3.5">
+			<div class="flex min-h-11 items-center justify-between">
+				<h2 class={SECTION_LABEL} tabindex="-1" data-focus="recordings-heading">
+					{recordingsTitle(data.spots.length)}
+				</h2>
+				{#if canLink}
+					<button
+						type="button"
+						data-focus="link-spot"
+						class={button('tertiary', 'sm')}
+						aria-label={ADD_SPOT.aria}
+						aria-haspopup="dialog"
+						onclick={() => (linking = 'spot')}
+						><Icon name="plus" size={20} />{ADD_SPOT.label}</button
+					>
+				{/if}
+			</div>
+			{#if data.spots.length > 0}
+				<ul class={GROUP}>
+					{#each data.spots as s (s.linkId)}
+						{#snippet unlinkThis()}{@render unlinkSpotButton(s)}{/snippet}
+						<li>
+							{#if s.point}
+								<PointRow
+									spot={s}
+									picture={data.picture?.linkId === s.linkId}
+									focusKey="spot-{s.linkId}"
+									canEdit={s.canEdit}
+									trailing={s.canUnlink ? unlinkThis : undefined}
+								/>
+							{:else}
+								<SectionRow
+									section={s}
+									focusKey="spot-{s.linkId}"
+									canEdit={s.canEdit}
+									trailing={s.canUnlink ? unlinkThis : undefined}
+								/>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if refusal('unlinkSpot')}
+				<FieldError id="unlink-spot-error" message={refusal('unlinkSpot') ?? ''} />
+			{/if}
+		</section>
 	{/if}
 {/snippet}
 
-{#snippet watched()}
-	<!-- Video: sections loop full screen (SectionCard), points play inline from their moment (PointCard). -->
-	<!-- The right column's first heading sits level with the picture from `two:`. -->
-	{#if data.spots.length > 0 || canLink}
-		<h2 class="{SECTION_LABEL} pt-2.5 two:pt-0" tabindex="-1" data-focus="video-heading">
-			{videoTitle(data.spots.length)}
-		</h2>
-		{#if data.spots.length > 0}
-			<ul class="flex flex-col gap-2">
-				{#each data.spots as s (s.linkId)}
-					{#snippet unlinkThis()}{@render unlinkSpotButton(s)}{/snippet}
-					<li>
-						{#if s.point}
-							<PointCard
-								spot={s}
-								picture={data.picture?.linkId === s.linkId}
-								focusKey="spot-{s.linkId}"
-								action={s.canUnlink ? unlinkThis : undefined}
-							/>
-						{:else if s.canUnlink}
-							<SectionCard
-								section={s}
-								focusKey="spot-{s.linkId}"
-								canEdit={s.canEdit}
-								unlink={unlinkThis}
-							/>
-						{:else}
-							<SectionCard section={s} focusKey="spot-{s.linkId}" canEdit={s.canEdit} />
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		{#if refusal('unlinkSpot')}
-			<FieldError id="unlink-spot-error" message={refusal('unlinkSpot') ?? ''} />
-		{/if}
-		{#if canLink}
-			<PickerOpener label={LINK_SPOT} data-focus="link-spot" onclick={() => (linking = 'spot')} />
-		{/if}
-	{/if}
-
+{#snippet around()}
 	<!-- Lessons: linked by hand, or there through a section or point of their videos. -->
+	<!-- The right column's first heading sits level with the picture from `two:`. -->
 	{#if data.lessons.length > 0 || canLink}
-		<h2
-			class="{SECTION_LABEL} pt-2.5 {rightFirst === 'lessons' ? 'two:pt-0' : ''}"
-			tabindex="-1"
-			data-focus="lessons-heading"
-		>
-			{lessonsTitle(data.lessons.length)}
-		</h2>
-		{#if data.lessons.length > 0}
-			<ul class={GROUP}>
-				{#each data.lessons as l (l.id)}
-					{@const via = viaBadge(l.viaSections)}
-					<li class="flex items-center">
-						<a
-							href={lessonHref(l.id)}
-							data-focus="lesson-{l.id}"
-							class="flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2 pr-2 pl-4"
-						>
-							<span
-								class="flex size-10 flex-none items-center justify-center rounded-xl bg-accent-soft text-accent-text"
-								aria-hidden="true"><Icon name="lessons" size={20} /></span
-							>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-tight font-bold text-ink">{l.title}</span>
-								<span class="flex flex-wrap items-center gap-1.5 text-[13px] text-muted"
-									>{lessonMeta({
-										teamName: data.inGroupMode ? null : l.teamName,
-										lessonDay: l.lessonDay
-									})}{#if via}<Badge>{via}</Badge>{/if}</span
-								>
-							</span>
-							{#if !l.canUnlink}
-								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-							{/if}
-						</a>
-						{#if l.canUnlink}
-							{#if l.viaSections.length > 0}
-								<!-- There through its videos: Unlink asks, and takes those links too. -->
-								<button
-									type="button"
-									aria-haspopup="dialog"
-									aria-label={unlinkLabel(position.name, l.title)}
-									class="{iconButton('bare', 'muted')} mr-1.5"
-									onclick={() => askUnlinkVia(l)}><Icon name="unlink" size={22} /></button
-								>
-							{:else}
-								<form
-									method="POST"
-									action="?/unlinkLesson"
-									class="mr-1.5 flex"
-									use:enhance={unlinkLesson(l.id)}
-								>
-									<input type="hidden" name="lessonId" value={l.id} />
-									<button
-										type="submit"
-										aria-label={unlinkLabel(position.name, l.title)}
-										aria-describedby={refusal('unlinkLesson') ? 'unlink-lesson-error' : undefined}
-										class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
-									>
-								</form>
-							{/if}
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		{#if refusal('unlinkLesson')}
-			<FieldError id="unlink-lesson-error" message={refusal('unlinkLesson') ?? ''} />
-		{/if}
-		{#if canLink}
-			<PickerOpener
-				label={LINK_LESSON}
-				data-focus="link-lesson"
-				onclick={() => (linking = 'lesson')}
-			/>
-		{/if}
-	{/if}
-
-	{#if data.routines.length > 0}
-		<h2 class="{SECTION_LABEL} pt-2.5 {rightFirst === 'routines' ? 'two:pt-0' : ''}">
-			{routinesTitle(data.routines.length)}
-		</h2>
-		<ul class={GROUP}>
-			{#each routines as r (r.id)}
-				<li>
-					<a
-						href={routineHref(r.id)}
-						class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
-					>
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-tight font-bold text-ink">{r.name}</span>
-							<span class="text-[13px] text-muted">{throughMeta(r.pairs)}</span>
-						</span>
-						<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</a>
-				</li>
-			{/each}
-			{#if !allRoutines && data.routines.length > 3}
-				<li>
+		<section class="flex flex-col gap-2 pt-3.5 two:pt-0">
+			<div class="flex min-h-11 items-center justify-between">
+				<h2 class={SECTION_LABEL} tabindex="-1" data-focus="lessons-heading">
+					{lessonsTitle(data.lessons.length)}
+				</h2>
+				{#if canLink}
 					<button
 						type="button"
-						class="flex min-h-12 w-full cursor-pointer items-center py-2 pr-3.5 pl-4 text-left text-[15px] font-bold text-accent-text"
-						aria-expanded="false"
-						onclick={() => (allRoutines = true)}>{moreLine(data.routines.length - 3)}</button
+						data-focus="link-lesson"
+						class={button('tertiary', 'sm')}
+						aria-label={LINK_LESSON.aria}
+						aria-haspopup="dialog"
+						onclick={() => (linking = 'lesson')}
+						><Icon name="plus" size={20} />{LINK_LESSON.label}</button
 					>
-				</li>
+				{/if}
+			</div>
+			{#if data.lessons.length > 0}
+				<ul class={GROUP}>
+					{#each data.lessons as l (l.id)}
+						{@const via = viaBadge(l.viaSections)}
+						<li class="flex items-center">
+							<a
+								href={lessonHref(l.id)}
+								data-focus="lesson-{l.id}"
+								class="flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2 pr-2 pl-4"
+							>
+								<span
+									class="flex size-10 flex-none items-center justify-center rounded-xl bg-accent-soft text-accent-text"
+									aria-hidden="true"><Icon name="lessons" size={20} /></span
+								>
+								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+									<span class="text-[16px] leading-tight font-bold text-ink">{l.title}</span>
+									<span class="flex flex-wrap items-center gap-1.5 text-[13px] text-muted"
+										>{lessonMeta({
+											teamName: data.inGroupMode ? null : l.teamName,
+											lessonDay: l.lessonDay
+										})}{#if via}<Badge>{via}</Badge>{/if}</span
+									>
+								</span>
+								{#if !l.canUnlink}
+									<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+								{/if}
+							</a>
+							{#if l.canUnlink}
+								{#if l.viaSections.length > 0}
+									<!-- There through its videos: Unlink asks, and takes those links too. -->
+									<button
+										type="button"
+										aria-haspopup="dialog"
+										aria-label={unlinkLabel(position.name, l.title)}
+										class="{iconButton('bare', 'muted')} mr-1.5"
+										onclick={() => askUnlinkVia(l)}><Icon name="unlink" size={22} /></button
+									>
+								{:else}
+									<form
+										method="POST"
+										action="?/unlinkLesson"
+										class="mr-1.5 flex"
+										use:enhance={unlinkLesson(l.id)}
+									>
+										<input type="hidden" name="lessonId" value={l.id} />
+										<button
+											type="submit"
+											aria-label={unlinkLabel(position.name, l.title)}
+											aria-describedby={refusal('unlinkLesson') ? 'unlink-lesson-error' : undefined}
+											class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
+										>
+									</form>
+								{/if}
+							{/if}
+						</li>
+					{/each}
+				</ul>
 			{/if}
-		</ul>
+			{#if refusal('unlinkLesson')}
+				<FieldError id="unlink-lesson-error" message={refusal('unlinkLesson') ?? ''} />
+			{/if}
+		</section>
 	{/if}
+
+	<!-- What grows with use: three rows, each opening a sheet with search (as the figure page's). -->
+	<div class="pt-3.5 {data.lessons.length > 0 || canLink ? '' : 'two:pt-0'}">
+		<PositionRelations
+			name={position.name}
+			from={data.from}
+			into={data.into}
+			routines={data.routines}
+			newFrom={canNew ? newFrom : null}
+			newInto={canNew ? newInto : null}
+			{figureHref}
+			{routineHref}
+		/>
+	</div>
 {/snippet}
 
 <!-- A spot's Unlink: one tap; a group's goes to Recently deleted. -->
@@ -653,20 +607,6 @@
 			class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
 		>
 	</form>
-{/snippet}
-
-{#snippet figureRow(id: number, label: string, meta: string)}
-	<a href={figureHref(id)} class="flex min-h-[60px] items-center gap-3 py-2 pr-3.5 pl-4">
-		<span
-			class="flex size-10 flex-none items-center justify-center rounded-xl bg-accent-soft text-accent-text"
-			aria-hidden="true"><Icon name="figures" size={22} /></span
-		>
-		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-			<span class="text-[16px] leading-tight font-bold text-ink">{label}</span>
-			{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
-		</span>
-		<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-	</a>
 {/snippet}
 
 <!-- A reader's pinned row: Edit makes the position theirs (Make it mine). -->
@@ -774,6 +714,6 @@
 	title={position.name}
 	kind="position"
 	current={position.id}
-	own={[]}
+	own={ownMenu}
 	{offers}
 />

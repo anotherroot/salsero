@@ -3,8 +3,8 @@ import { getDb } from '$lib/server/db';
 import { getDance } from '$lib/dances/dances';
 import { parseLevel } from '$lib/levels/levels';
 import {
-	CODE_REFUSALS,
 	afterJoin,
+	codeRefusal,
 	afterSkip,
 	inviteCodeOf,
 	joinStepHref
@@ -13,9 +13,10 @@ import { joinWithCode } from '$lib/server/join-code';
 import { setLevel } from '$lib/server/levels';
 import { peopleOf, roleOf, teamByCode } from '$lib/server/teams';
 import { safeNext } from '$lib/safe-next';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
-import { serverNow } from '$lib/server/server-clock';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * The first run (levels spec): slides, How much app?, Join your class. One
  * route; the slides and the level step are page state, the join step is
@@ -66,7 +67,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		const form = await request.formData();
 		const level = parseLevel(form.get('level'));
-		if (!level) return fail(400, { message: 'Pick how much app you want.' });
+		if (!level) return fail(400, { message: t().entry.firstRun.level.refusal });
 		setLevel(getDb(), locals.user.id, level);
 		throw redirect(303, joinStepHref(nextOf(form, url)));
 	},
@@ -77,9 +78,9 @@ export const actions: Actions = {
 		const next = nextOf(form, url);
 		// The typed code, or the teacher's link's own (`teamCode`).
 		const code = String(form.get('code') || form.get('teamCode') || '').trim();
-		if (!code) return fail(400, { message: CODE_REFUSALS.empty, code });
+		if (!code) return fail(400, { message: codeRefusal('empty'), code });
 		const joined = joinWithCode(getDb(), locals.user.id, code, serverNow());
-		if (!joined.ok) return fail(400, { message: CODE_REFUSALS[joined.reason], code });
+		if (!joined.ok) return fail(400, { message: codeRefusal(joined.reason), code });
 		throw redirect(303, afterJoin(next, joined.dance));
 	},
 

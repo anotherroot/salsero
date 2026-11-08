@@ -5,6 +5,7 @@ import { practicePayload } from '$lib/server/practice-content';
 import { requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { DANCES } from '$lib/dances/dances';
 import { parsePracticeInput } from '$lib/exercises/practice';
+import { flowAfter } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 
@@ -38,5 +39,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!input || !setPracticeSettings(getDb(), exercise.id, input)) {
 		throw error(400, 'Those practice settings cannot be used');
 	}
+	// A drill's practice is one of its fields: Keep in step's flow runs from it
+	// (an exercise that is no drill is in no family, so nothing runs).
+	await flowAfter(locals.user?.id, 'drill', exercise.id);
 	return new Response(null, { status: 204 });
 };

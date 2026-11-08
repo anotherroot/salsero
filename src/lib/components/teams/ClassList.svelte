@@ -3,8 +3,9 @@
 	import ClassCodeField from '$lib/components/teams/ClassCodeField.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP } from '$lib/components/ui/styles';
-	import { JOIN_STEP } from '$lib/levels/first-run';
-	import { lastClassLine } from '$lib/teams/view';
+	import { t } from '$lib/i18n/catalog';
+	import { joinStep } from '$lib/levels/first-run';
+	import { MY_CLASS, lastClassLine } from '$lib/teams/view';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { TeamItem } from '$lib/types';
 
@@ -35,24 +36,25 @@
 		joinAction: string;
 	} = $props();
 
-	const classes = $derived(teams.filter((t) => t.deletedAt === null));
+	const classes = $derived(teams.filter((team) => team.deletedAt === null));
+	const w = $derived(joinStep());
 </script>
 
 {#if classes.length === 0}
 	<div class="flex flex-col gap-4 pt-2">
 		<div class="flex flex-col gap-1 px-1">
 			<h2 class="font-display text-[22px] leading-[1.15] font-extrabold text-ink">
-				{JOIN_STEP.title}
+				{w.title}
 			</h2>
-			<p class="text-[15px] leading-[1.45] text-muted">{JOIN_STEP.subtitle}</p>
+			<p class="text-[15px] leading-[1.45] text-muted">{w.subtitle}</p>
 		</div>
 		<div class="rounded-[22px] bg-surface px-4 pt-5 pb-4">
 			<ClassCodeField action={joinAction} />
 		</div>
-		<p class="px-1 text-[13px] leading-[1.45] text-muted">{JOIN_STEP.or}</p>
+		<p class="px-1 text-[13px] leading-[1.45] text-muted">{w.or}</p>
 	</div>
 {:else}
-	<ul class={GROUP} aria-label="Your classes">
+	<ul class={GROUP} aria-label={MY_CLASS.classes}>
 		{#each classes as team (team.id)}
 			{@const lit = team.id === openId}
 			{@const fresh = team.newCount > 0}
@@ -74,7 +76,8 @@
 					</span>
 					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 						<span class="truncate text-[16px] leading-[1.3] font-bold text-ink"
-							>{team.name}{#if fresh}<span class="sr-only">, something new</span>{/if}</span
+							>{team.name}{#if fresh}<span class="sr-only">{t().entry.classes.somethingNew}</span
+								>{/if}</span
 						>
 						<span class="text-[13px] text-muted"
 							>{lastClassLine(lastDays[team.id] ?? null, today)}</span

@@ -4,8 +4,14 @@
  * the full player, both on Play. A convenience: a failure changes nothing, so
  * it is never awaited and never reported.
  */
-import type { PracticeConfig } from './practice';
+import { practiceToPost, type PracticeConfig, type PracticeInput } from './practice';
 
+/**
+ * Posts only what differs from `known` (what the page loaded, or last posted:
+ * `practiceOf`), and answers what the page knows now: the posted value, or
+ * `known` when nothing was sent. A stale page then never writes back a
+ * practice that came in while it was open.
+ */
 export function rememberPractice(
 	danceSlug: string,
 	exerciseId: number,
@@ -14,16 +20,15 @@ export function rememberPractice(
 		songId: number | null;
 		bpm: number;
 		config: PracticeConfig;
-	}
-): void {
+	},
+	known: PracticeInput | null
+): PracticeInput | null {
+	const next = practiceToPost(known, p);
+	if (next === null) return known;
 	void fetch(`/${danceSlug}/exercises/${exerciseId}/practice`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			mode: p.source,
-			songId: p.source === 'song' ? p.songId : null,
-			countBpm: p.source === 'count' ? p.bpm : null,
-			config: p.config
-		})
+		body: JSON.stringify(next)
 	}).catch(() => {});
+	return next;
 }

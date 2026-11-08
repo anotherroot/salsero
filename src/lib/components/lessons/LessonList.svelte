@@ -6,6 +6,7 @@
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { emptyLessonsBody, isOpenLesson, monthGroups, splitDrafts } from '$lib/lessons/list';
 	import type { DanceSlug } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
 	import type { LessonItem } from '$lib/types';
 
 	/**
@@ -42,21 +43,22 @@
 	<div class="h-[52px] flex-none"></div>
 	<EmptyState
 		icon="lessons"
-		title="No lessons yet"
+		title={t().lesson.list.empty}
 		body={emptyLessonsBody(groupMode)}
 		action={onnew ? newLesson : undefined}
 	/>
 	{#snippet newLesson()}
 		<button type="button" class={button('primary')} onclick={onnew}>
-			<Icon name="plus" size={20} /> New lesson
+			<Icon name="plus" size={20} />
+			{t().lesson.list.newLesson}
 		</button>
 	{/snippet}
 {:else}
 	<div class="flex flex-col gap-3.5">
 		{#if split.drafts.length > 0}
 			<section class="flex flex-col gap-2">
-				<h2 class={SECTION_LABEL}>Drafts</h2>
-				<ul class={GROUP} aria-label="Drafts">
+				<h2 class={SECTION_LABEL}>{t().lesson.list.drafts}</h2>
+				<ul class={GROUP} aria-label={t().lesson.list.drafts}>
 					{#each split.drafts as lesson (lesson.id)}
 						<LessonRow
 							{lesson}

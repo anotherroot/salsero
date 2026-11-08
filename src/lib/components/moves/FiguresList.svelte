@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fromTags } from '$lib/clones/from-tag';
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -7,6 +8,8 @@
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
 	import NavTile from './NavTile.svelte';
+	import SyncCard from './SyncCard.svelte';
+	import { outOfSyncCount } from '$lib/moves/sync';
 	import { revealLit } from '$lib/components/shell/reveal';
 	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -137,7 +140,7 @@
 		inGroup && !filter.unlinked
 			? movesHeading(
 					{ moves: count, figures: figureCount },
-					!!(filter.q || filter.style || filter.partner),
+					!!(filter.q || filter.style || filter.partner || filter.sync),
 					null
 				)
 			: figuresHeading({ moves: count, figures: figureCount }, filter)
@@ -146,6 +149,16 @@
 	const chips = $derived(filterChips(filter, dance.styles, dance.styleLabel, lists.unlinked));
 	// Group mode has no Coverage tile: coverage is the person's own.
 	const tiles = $derived(lists.unrouted !== null ? tileMetas(lists.unrouted) : null);
+	// Out of sync: the card's number counts the whole list, whatever the other filters.
+	const syncN = $derived(
+		outOfSyncCount(
+			[...lists.mine, ...lists.groups.flatMap((g) => g.moves)].flatMap((m) => m.figures)
+		)
+	);
+	const syncHref = $derived.by(() => {
+		const qs = filterQuery(filter, { sync: filter.sync ? undefined : '1' });
+		return qs ? `${listPath}?${qs}` : listPath;
+	});
 	// What is typed; follows the filter when it changes under it.
 	let q = $derived(filter.q);
 
@@ -194,8 +207,13 @@
 	const isOpen = (kind: 'figure' | 'move', id: number) => open?.kind === kind && open.id === id;
 </script>
 
-{#snippet figureRow(f: (typeof view.figures)[number]['figures'][number], showLacks: boolean)}
+{#snippet figureRow(
+	f: (typeof view.figures)[number]['figures'][number],
+	showLacks: boolean,
+	tags: Map<number, string>
+)}
 	{@const lit = isOpen('figure', f.id)}
+	{@const tag = tags.get(f.id)}
 	<a
 		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
 		class:bg-accent-soft={lit}
@@ -204,7 +222,9 @@
 	>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-				<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
+				<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
+					>{f.name}{#if tag}<span class="ml-1 font-normal text-muted">{tag}</span>{/if}</span
+				>
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 			</span>
@@ -213,7 +233,11 @@
 				{#each figureRowParts(showLacks ? f : { ...f, hasSection: true, hasLesson: true }) as part, i (part.text)}
 					<span class="whitespace-nowrap"
 						>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
-							class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span
+							class={part.status
+								? 'font-bold text-status'
+								: part.warn
+									? 'font-bold text-warn'
+									: undefined}>{part.text}</span
 						></span
 					>
 				{/each}
@@ -232,6 +256,8 @@
      that groups' twins folded into says where else it is (board C7 p3). -->
 {#snippet moveSection(m: (typeof view.figures)[number], showLacks: boolean)}
 	{@const lit = isOpen('move', m.id)}
+	<!-- Two figures of one move that share a name: a copy says where it came from. -->
+	{@const tags = fromTags(m.figures)}
 	<section aria-label={m.name} class="flex flex-col gap-1.5">
 		<div class="flex flex-col">
 			<a
@@ -251,7 +277,7 @@
 		</div>
 		<div class={GROUP}>
 			{#each m.figures as f (f.id)}
-				{@render figureRow(f, showLacks)}
+				{@render figureRow(f, showLacks, tags)}
 			{/each}
 		</div>
 	</section>
@@ -278,6 +304,20 @@
 				current={open?.kind === 'coverage'}
 			/>
 		</div>
+	{/if}
+
+	{#if syncN > 0 || filter.sync}
+		<SyncCard
+			kind="figure"
+			n={syncN}
+			on={!!filter.sync}
+			href={syncHref}
+			onclick={(e) => {
+				if (isList) return;
+				e.preventDefault();
+				refilter({ sync: filter.sync ? undefined : '1' }, true);
+			}}
+		/>
 	{/if}
 
 	{#if anyHidden(view.figures.flatMap((m) => m.figures))}

@@ -97,6 +97,7 @@ describe('words', () => {
 	it('names fields', () => {
 		expect(fieldLabel('lessonDay')).toBe('Day of the class');
 		expect(fieldLabel('figureName')).toBe('Move name');
+		expect(fieldLabel('comesBack')).toBe('Comes back');
 		expect(fieldLabel('whatever')).toBe('Whatever');
 	});
 });

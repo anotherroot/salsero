@@ -10,6 +10,7 @@
 	import { longDayLabel } from '$lib/format';
 	import type { MediaProblem } from '$lib/media';
 	import { lessonVideoCaption } from '$lib/video/caption';
+	import { t } from '$lib/i18n/catalog';
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
@@ -34,8 +35,9 @@
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span class="truncate text-[16px] font-bold">{content.lesson.title}</span>
 					<span class="truncate text-[13px] text-muted"
-						>{longDayLabel(content.lesson.lessonDay)} · {content.videos.length}
-						{content.videos.length === 1 ? 'video' : 'videos'}</span
+						>{longDayLabel(content.lesson.lessonDay)} · {t().exercise.content.videos(
+							content.videos.length
+						)}</span
 					>
 				</span>
 				<span class="flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
@@ -45,8 +47,10 @@
 			<LinkedText text={content.lesson.notes} class={PROSE} />
 		{/if}
 		{#if content.figures.length > 0}
-			{#if onPage}<h2 class={SECTION_HEAD}>Figures</h2>{:else}<h3 class={SECTION_HEAD}>
-					Figures
+			{#if onPage}<h2 class={SECTION_HEAD}>{t().exercise.content.figures}</h2>{:else}<h3
+					class={SECTION_HEAD}
+				>
+					{t().exercise.content.figures}
 				</h3>{/if}
 			<ul class="-mt-1.5 flex flex-wrap gap-2">
 				{#each content.figures as f (f.id)}
@@ -69,8 +73,8 @@
 				{#if broken[video.id]}
 					<p class="p-4 text-[13px] text-muted">
 						{broken[video.id] === 'missing'
-							? 'The file for this video is missing.'
-							: "This browser can't play this file."}
+							? t().exercise.content.videoMissing
+							: t().exercise.content.cantPlay}
 					</p>
 				{:else}
 					<VideoFrame

@@ -30,7 +30,15 @@ import {
 	videoSpots
 } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
-import { addRecording, createFigure, createVariationIn, deleteRecording } from '../figures';
+import {
+	addRecording,
+	createFigure,
+	createVariationIn,
+	deleteRecording,
+	listFigures,
+	updateVariation
+} from '../figures';
+import { fromTags, shownName } from '$lib/clones/from-tag';
 import { createCustomExercise } from '../exercises';
 import {
 	addLessonVideo,
@@ -56,7 +64,7 @@ import { crossRefs, familyIntegrity } from '../integrity';
 import { linkPositionInSpace } from '../position-links';
 import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import { TRASH_MS } from '$lib/limits';
-import { geneOf, memberIn } from './genes';
+import { copiedFromPlaces, geneOf, memberIn } from './genes';
 import { hashValue, pairBase } from './pairs';
 import { defaultPicks, diff } from '$lib/clones/diff';
 import { flatOf } from './trees';
@@ -362,7 +370,7 @@ describe('cloneInto: figures', () => {
 		expect(diffs.map((d) => d.key)).toEqual([key]);
 	});
 
-	it('a taken name is suffixed', async () => {
+	it('a taken name is kept: the copy shares it, no suffix and no refusal', async () => {
 		const src = groupFigure();
 		figure(U2_SALSA, 'Enchufla', 'Doble');
 		const r = await cloneInto(
@@ -371,11 +379,56 @@ describe('cloneInto: figures', () => {
 			fakeFiles().files,
 			T
 		);
-		expect(r.ok && figureRow(r.id).name).toBe('Doble (Salsa Tuesdays)');
+		expect(r.ok && figureRow(r.id).name).toBe('Doble');
 		expect(r.ok && moveName(r.id)).toBe('Enchufla');
 	});
 
-	it('from my own app the suffix is my shown name, then numbered', async () => {
+	it('saving other fields of a figure whose name a copy shares works; a rename onto a taken name does not', async () => {
+		const src = groupFigure();
+		const mine = figure(U2_SALSA, 'Enchufla', 'Doble');
+		await cloneInto(
+			db,
+			{ kind: 'figure', id: src.id, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		expect(
+			updateVariation(db, mine.figure.id, { name: 'Doble', ...shape, notes: 'n' })
+		).not.toBeNull();
+		const other = createVariationIn(db, mine.group.id, { name: 'Otro', ...shape }, 'u2')!;
+		expect(updateVariation(db, other.id, { name: 'doble', ...shape })).toBeNull();
+	});
+
+	it('the Figures list says where a same-named copy came from, from a place the viewer reads', async () => {
+		const src = groupFigure();
+		figure(U2_SALSA, 'Enchufla', 'Doble');
+		const r = await cloneInto(
+			db,
+			{ kind: 'figure', id: src.id, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!r.ok) throw new Error('expected a copy');
+		const rows = listFigures(db, U2_SALSA).flatMap((m) => m.figures);
+		expect(rows.map((f) => [f.name, f.from])).toEqual([
+			['Doble', null],
+			['Doble', 'Salsa Tuesdays']
+		]);
+		const tags = fromTags(rows);
+		expect(rows.map((f) => shownName(f, tags))).toEqual(['Doble', 'Doble · Salsa Tuesdays']);
+		// A source in the person's own app is "Yours": never a tag.
+		const own = figure(U1_SALSA, 'Setenta', 'Basic').figure.id;
+		const inClub = await cloneInto(
+			db,
+			{ kind: 'figure', id: own, into: T1_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!inClub.ok) throw new Error('expected a copy');
+		expect(copiedFromPlaces(db, 'u1', 'figure', [inClub.id]).size).toBe(0);
+	});
+
+	it('from my own app a taken name is kept too', async () => {
 		const own = figure(U1_SALSA, 'Enchufla', 'Doble').figure.id;
 		const theirs = figure(T1_SALSA, 'Enchufla', 'Doble').group.id;
 		createVariationIn(db, theirs, { name: 'Doble (Ana)', ...shape }, 'u1');
@@ -385,7 +438,7 @@ describe('cloneInto: figures', () => {
 			fakeFiles().files,
 			T
 		);
-		expect(r.ok && figureRow(r.id).name).toBe('Doble (Ana 2)');
+		expect(r.ok && figureRow(r.id).name).toBe('Doble');
 	});
 
 	it('denied without read or edit', async () => {
@@ -519,41 +572,6 @@ describe('cloneInto: refusals leave nothing behind', () => {
 		expect(r).toMatchObject({ ok: false, reason: 'room' });
 	});
 
-	it('a name with no free suffix is refused, unlinking every linked file and writing nothing', async () => {
-		const own = figure(U1_SALSA, 'Enchufla', 'Doble').figure.id;
-		recording(own, 'a.mp4', 100);
-		recording(own, 'b.mp4', 100);
-		const theirs = figure(T1_SALSA, 'Enchufla', 'Doble').group.id;
-		createVariationIn(db, theirs, { name: 'Doble (Ana)', ...shape }, 'u1');
-		for (let n = 2; n <= 9; n++)
-			createVariationIn(db, theirs, { name: `Doble (Ana ${n})`, ...shape }, 'u1');
-		const figuresBefore = db.select().from(figures).all().length;
-		const recsBefore = db.select().from(recordings).all().length;
-		const changesBefore = db.select().from(teamChanges).all().length;
-		const f = fakeFiles();
-		const r = await cloneInto(
-			db,
-			{ kind: 'figure', id: own, into: T1_SALSA, recordings: true },
-			f.files,
-			T
-		);
-		expect(r).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'Doble is taken in Enchufla; rename one first.'
-		});
-		expect(f.linked).toHaveLength(2);
-		expect(f.unlinked).toEqual([
-			['recording', 'copy-a.mp4'],
-			['recording', 'copy-b.mp4']
-		]);
-		expect(db.select().from(figures).all()).toHaveLength(figuresBefore);
-		expect(db.select().from(recordings).all()).toHaveLength(recsBefore);
-		expect(db.select().from(teamChanges).all()).toHaveLength(changesBefore);
-		expect(geneOf(db, 'figure', own)).toBeNull();
-		expect(recsOf(own).map((x) => x.geneId)).toEqual([null, null]);
-	});
-
 	it('a throw inside the transaction unlinks every linked file and rethrows', async () => {
 		const own = figure(U1_SALSA, 'Enchufla', 'Doble').figure.id;
 		recording(own, 'a.mp4', 100);
@@ -583,7 +601,14 @@ describe('cloneInto: drills and songs', () => {
 			notes: 'Arms'
 		}).id;
 		db.update(exercises)
-			.set({ practiceMode: 'count', countBpm: 90, practiceJson: '{"count":true}' })
+			.set({
+				practiceMode: 'count',
+				countBpm: 90,
+				practiceJson: '{"count":true}',
+				comesBack: '{"kind":"every","days":2}',
+				warmup: true,
+				warmupOrder: 3
+			})
 			.where(eq(exercises.id, drill))
 			.run();
 		addLinks(db, { exerciseId: drill }, ['https://example.org/shines'], null);
@@ -603,6 +628,9 @@ describe('cloneInto: drills and songs', () => {
 			userId: null,
 			practiceMode: 'count',
 			countBpm: 90,
+			comesBack: '{"kind":"every","days":2}',
+			warmup: false,
+			warmupOrder: null,
 			songId: null,
 			clonedFrom: drill
 		});
@@ -1442,7 +1470,7 @@ describe('cloneInto: positions', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('a taken name gets the source’s place; another person may not copy it', async () => {
+	it('a taken name is kept; another person may not copy it', async () => {
 		position(T1_SALSA, 'cerrada');
 		const cerrada = position(U1_SALSA, 'Cerrada');
 		const r = await cloneInto(
@@ -1452,7 +1480,7 @@ describe('cloneInto: positions', () => {
 			T
 		);
 		if (!r.ok) throw new Error('expected a clone');
-		expect(row(r.id).name).toBe('Cerrada (Ana)');
+		expect(row(r.id).name).toBe('Cerrada');
 		// u2 reads nothing of u1's own, and edits no group.
 		expect(
 			await cloneInto(

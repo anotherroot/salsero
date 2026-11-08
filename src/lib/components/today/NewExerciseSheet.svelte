@@ -3,8 +3,11 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import WarmupRow from '$lib/components/exercises/WarmupRow.svelte';
+	import ComesBackCard from '$lib/components/exercises/ComesBackCard.svelte';
 	import { button, FIELD, FIELD_ERROR, LABEL, TEXTAREA } from '$lib/components/ui/styles';
 	import type { DanceSlug } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
 
 	/*
 	 * Rendered by the (today) layout, so it is on the page beside an open exercise
@@ -18,24 +21,29 @@
 		message: string | null;
 		/** What was typed, handed back by a failed action. */
 		values: { name?: string; notes?: string } | null;
+		/** The person's daily number: the Warm-up line says it doesn't count toward it. */
+		daily: number;
+		/** Follow my class has no Comes back. */
+		simple: boolean;
 		onclose: () => void;
 	}
 
-	let { dance, message, values, onclose }: Props = $props();
+	let { dance, message, values, daily, simple, onclose }: Props = $props();
 	let busy = $state(false);
+	let warmup = $state(false);
 	// The last submit's refusal, from its result: shown when the page form has none.
 	let refused = $state<string | null>(null);
 	const error = $derived(message ?? refused);
 </script>
 
-<Sheet title="New exercise" open={true} {onclose}>
+<Sheet title={t().today.newExercise.title} open={true} {onclose}>
 	<form
 		id="new-exercise"
 		method="POST"
 		action="/{dance}?/createExercise"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New exercise',
+			label: t().today.newExercise.title,
 			submit: () => {
 				busy = true;
 				refused = null;
@@ -43,7 +51,7 @@
 					try {
 						if (result.type === 'failure') {
 							const m = (result.data as { message?: unknown } | undefined)?.message;
-							refused = typeof m === 'string' ? m : 'Could not add the exercise.';
+							refused = typeof m === 'string' ? m : t().today.refused.addExercise;
 						}
 						await update();
 						if (result.type === 'success') onclose();
@@ -55,13 +63,13 @@
 		}}
 	>
 		<div>
-			<label for="new-exercise-name" class={LABEL}>Name</label>
+			<label for="new-exercise-name" class={LABEL}>{t().today.newExercise.name}</label>
 			<input
 				id="new-exercise-name"
 				name="name"
 				required
 				maxlength="200"
-				placeholder="e.g. Son basic, clave clapping"
+				placeholder={t().today.newExercise.placeholder}
 				value={values?.name ?? ''}
 				class={FIELD}
 				aria-invalid={error ? 'true' : undefined}
@@ -75,11 +83,26 @@
 			{/if}
 		</div>
 		<label class="block">
-			<span class={LABEL}>Notes<span class="font-normal text-muted">&nbsp;(optional)</span></span>
+			<span class={LABEL}
+				>{t().today.newExercise.notes}<span class="font-normal text-muted"
+					>&nbsp;{t().today.newExercise.optional}</span
+				></span
+			>
 			<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA}
 				>{values?.notes ?? ''}</textarea
 			>
 		</label>
+		<WarmupRow bind:checked={warmup} {daily} />
+		{#if !simple}
+			<ComesBackCard
+				sheet
+				value={{ kind: 'faces' }}
+				own={null}
+				teacher={null}
+				forClass={false}
+				good={null}
+			/>
+		{/if}
 	</form>
 	{#snippet footer()}
 		<button
@@ -89,10 +112,10 @@
 			aria-busy={busy}
 			disabled={busy}
 		>
-			{#if busy}<Spinner size={18} />{/if}Add exercise
+			{#if busy}<Spinner size={18} />{/if}{t().today.newExercise.add}
 		</button>
 		<p class="mx-1 mt-1 text-[13px] leading-snug text-muted">
-			To practise a figure on its own, open it and tap Practise on its own.
+			{t().today.newExercise.hint}
 		</p>
 	{/snippet}
 </Sheet>

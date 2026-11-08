@@ -4,13 +4,15 @@
  */
 import type { PhrasePattern } from '$lib/labels';
 import { COUNT_POSITIONS } from '$lib/scheduler/scheduler';
+import { t } from '$lib/i18n/catalog';
 
 export type Dot = 'said' | 'current' | 'silent' | 'next';
 
-export const NOTHING_CAPTURED = {
-	title: 'Nothing usable was captured',
-	body: 'Check the microphone permission.'
-};
+/** The banner when the click ran but no whole bar was usable. */
+export function nothingCaptured(): { title: string; body: string } {
+	const w = t().settings.voice;
+	return { title: w.nothingCaptured, body: w.checkMic };
+}
 
 const silentCounts = (pattern: PhrasePattern) =>
 	[1, 2, 3, 4, 5, 6, 7, 8].filter((n) => !COUNT_POSITIONS[pattern].includes(n));
@@ -31,6 +33,7 @@ export function recordingView(
 	barsDone: number;
 	barFraction: number;
 } {
+	const w = t().settings.voice;
 	const silent = silentCounts(pattern);
 	const counting = beat !== null && beat.bar >= 0;
 	const dots = [1, 2, 3, 4, 5, 6, 7, 8].map((n): Dot => {
@@ -39,13 +42,13 @@ export function recordingView(
 		return counting && n < beat!.count ? 'said' : 'next';
 	});
 	if (!beat) {
-		return { heading: 'Get ready', say: null, line: null, dots, barsDone: 0, barFraction: 0 };
+		return { heading: w.getReady, say: null, line: null, dots, barsDone: 0, barFraction: 0 };
 	}
 	if (beat.bar < 0) {
 		return {
-			heading: 'Count-in',
+			heading: w.countIn,
 			say: null,
-			line: 'Start counting on the next 1',
+			line: w.startOnNext,
 			dots,
 			barsDone: 0,
 			barFraction: 0
@@ -53,9 +56,9 @@ export function recordingView(
 	}
 	const isSilent = silent.includes(beat.count);
 	return {
-		heading: `Bar ${beat.bar + 1} of ${bars}`,
+		heading: w.barOf(beat.bar + 1, bars),
 		say: isSilent ? null : String(beat.count),
-		line: isSilent ? `Silent on ${beat.count}` : null,
+		line: isSilent ? w.silentOn(beat.count) : null,
 		dots,
 		barsDone: beat.bar,
 		barFraction: beat.count / 8
@@ -65,17 +68,14 @@ export function recordingView(
 /** The arming card's third step. */
 export function silentLine(pattern: PhrasePattern): string {
 	const s = silentCounts(pattern);
-	return s.length === 0
-		? 'Count evenly, every beat.'
-		: `Count evenly and leave beats ${s.join(' and ')} silent.`;
+	const w = t().settings.voice;
+	return s.length === 0 ? w.everyBeat : w.leaveSilent(s);
 }
 
 /** A recording failure as a banner's title and body. */
 export function voiceError(e: unknown): { title: string; body: string } {
+	const w = t().settings.voice;
 	if (e instanceof Error && e.name === 'NotAllowedError')
-		return {
-			title: 'The microphone was refused',
-			body: 'Allow it for this app in the phone’s settings, then try again.'
-		};
-	return { title: 'Recording failed', body: e instanceof Error ? e.message : 'Recording failed.' };
+		return { title: w.micRefused, body: w.micRefusedBody };
+	return { title: w.failed, body: e instanceof Error ? e.message : w.failedLine };
 }

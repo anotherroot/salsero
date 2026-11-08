@@ -1,5 +1,6 @@
 <!-- src/lib/components/video/Transport.svelte -->
 <script lang="ts">
+	import { t } from '$lib/i18n/catalog';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { roundButton } from './styles';
 
@@ -36,6 +37,7 @@
 		float: { side: 48, play: 56, gap: 'gap-2.5', glyph: 24 }
 	} as const;
 
+	const w = $derived(t().video);
 	const compact = $derived(size === 'compact');
 	const five = $derived(steps === 'five');
 	const spec = $derived(compact ? null : SIZES[size as 'normal' | 'large' | 'float']);
@@ -59,26 +61,26 @@
 		<button
 			type="button"
 			class="{side} text-[14px]"
-			aria-label="−5 s, back"
-			onclick={() => onfive?.(-1)}>−5 s</button
+			aria-label={w.backBy(5)}
+			onclick={() => onfive?.(-1)}>{w.minus(5)}</button
 		>
 	{:else}
 		{#if !compact}
 			<button
 				type="button"
 				class="{side} text-[14px]"
-				aria-label="−1 s, back"
-				onclick={() => onstep(-1)}>−1 s</button
+				aria-label={w.backBy(1)}
+				onclick={() => onstep(-1)}>{w.minus(1)}</button
 			>
 		{/if}
 		<button
 			type="button"
 			class="{side} text-[13px]"
-			aria-label="−0.1 s, back"
-			onclick={() => ontenth(-1)}>−0.1 s</button
+			aria-label={w.backBy(0.1)}
+			onclick={() => ontenth(-1)}>{w.minus(0.1)}</button
 		>
 	{/if}
-	<button type="button" class={play} aria-label={paused ? 'Play' : 'Pause'} onclick={ontoggle}>
+	<button type="button" class={play} aria-label={paused ? w.play : w.pause} onclick={ontoggle}>
 		{#if paused}
 			<span class="ml-[3px] flex"><Icon name="play" filled size={glyph} /></span>
 		{:else}
@@ -89,22 +91,22 @@
 		<button
 			type="button"
 			class="{side} text-[14px]"
-			aria-label="+5 s, forward"
-			onclick={() => onfive?.(1)}>+5 s</button
+			aria-label={w.forwardBy(5)}
+			onclick={() => onfive?.(1)}>{w.plus(5)}</button
 		>
 	{:else}
 		<button
 			type="button"
 			class="{side} text-[13px]"
-			aria-label="+0.1 s, forward"
-			onclick={() => ontenth(1)}>+0.1 s</button
+			aria-label={w.forwardBy(0.1)}
+			onclick={() => ontenth(1)}>{w.plus(0.1)}</button
 		>
 		{#if !compact}
 			<button
 				type="button"
 				class="{side} text-[14px]"
-				aria-label="+1 s, forward"
-				onclick={() => onstep(1)}>+1 s</button
+				aria-label={w.forwardBy(1)}
+				onclick={() => onstep(1)}>{w.plus(1)}</button
 			>
 		{/if}
 	{/if}

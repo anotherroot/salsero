@@ -28,6 +28,7 @@ import {
 	spotPositionLinks,
 	teamChanges,
 	teamTrash,
+	clonePairs,
 	users,
 	videoSpots
 } from '../db/schema';
@@ -69,7 +70,8 @@ import { digest, hashValue, pairBase } from './pairs';
 import { flatOf } from './trees';
 import { cloneInto, fileKey } from './clone';
 import type { CloneFiles } from './files';
-import { applyInto, syncFrom } from './apply';
+import { applyInto, landKeys, syncFrom } from './apply';
+import { readMark } from './marks';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const NOW = T + 1000;
@@ -193,25 +195,59 @@ describe('root fields', () => {
 		expect(db.select().from(spotLinks).where(eq(spotLinks.spotId, spot)).all()).toHaveLength(1);
 	});
 
-	it('a name lands when free (entries renamed), and is refused, writing nothing, when taken', async () => {
+	it('a name lands as it is, even where a sibling has it (entries renamed)', async () => {
 		const { F, M, move } = await world();
 		createVariationIn(db, move, { name: 'Básico', ...shape }, 'u1');
 		updateVariation(db, M, { name: 'Básico', ...shape, notes: 'n' });
 
-		expect(apply('figure', F, M, ['notes', 'name'])).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'Básico is taken in Enchufla; rename one first.'
-		});
+		expect(apply('figure', F, M, ['notes', 'name']).ok).toBe(true);
 		expect(db.select().from(figures).where(eq(figures.id, F)).get()).toMatchObject({
-			name: 'Doble',
-			notes: null
+			name: 'Básico',
+			notes: 'n'
 		});
+		expect(entryFor(db, 'u2', { figureId: F })!.name).toBe('Enchufla · Básico');
+	});
 
-		updateVariation(db, M, { name: 'Doble suave', ...shape, notes: 'n' });
-		expect(apply('figure', F, M, ['name']).ok).toBe(true);
-		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.name).toBe('Doble suave');
-		expect(entryFor(db, 'u2', { figureId: F })!.name).toBe('Enchufla · Doble suave');
+	it('a drill’s Comes back is a field: Compare lists it and Take writes theirs; Warm-up is not', async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const D2 = await copy('drill', D, T1_SALSA);
+		expect(differing('drill', D2, D)).toEqual([]);
+		const every2 = JSON.stringify({ kind: 'every', days: 2 });
+		db.update(exercises)
+			.set({ comesBack: every2, warmup: true, warmupOrder: 1 })
+			.where(eq(exercises.id, D))
+			.run();
+		expect(differing('drill', D2, D)).toEqual(['comesBack']);
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(db.select().from(exercises).where(eq(exercises.id, D2)).get()).toMatchObject({
+			comesBack: every2,
+			warmup: false,
+			warmupOrder: null
+		});
+		expect(differing('drill', D2, D)).toEqual([]);
+	});
+
+	it('Take of an until setting starts it now, unless the receiver was already on until', async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const D2 = await copy('drill', D, T1_SALSA);
+		const set = (id: number, v: object) =>
+			db
+				.update(exercises)
+				.set({ comesBack: JSON.stringify(v) })
+				.where(eq(exercises.id, id))
+				.run();
+		const read = (id: number) =>
+			JSON.parse(
+				db.select().from(exercises).where(eq(exercises.id, id)).get()!.comesBack as string
+			);
+		set(D, { kind: 'until', good: 3, since: 5 });
+		// Onto faces: turned on for the receiver now, not the giver's day.
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(read(D2)).toEqual({ kind: 'until', good: 3, since: NOW });
+		// Onto an until already running since T: its own start is kept, the count is taken.
+		set(D2, { kind: 'until', good: 5, since: T });
+		expect(apply('drill', D2, D, ['comesBack']).ok).toBe(true);
+		expect(read(D2)).toEqual({ kind: 'until', good: 3, since: T });
 	});
 
 	it('a drill’s practice, a song’s count and a lesson’s title land, with the lesson’s exercise', async () => {
@@ -562,44 +598,7 @@ describe('positions', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('Send a tag whose position cannot be copied (every name taken): refused, nothing written', async () => {
-		const { F, M } = await tagged();
-		const own = db
-			.insert(positions)
-			.values({ ...ownerValues(U1_SALSA), slug: 'p-own', name: 'Mi posición' })
-			.returning()
-			.get().id;
-		tag(M, 'end', own);
-		const taken = ['Mi posición', 'Mi posición (Ana)'];
-		for (let n = 2; n <= 9; n++) taken.push(`Mi posición (Ana ${n})`);
-		for (const name of taken)
-			db.insert(positions)
-				.values({ ...ownerValues(T1_SALSA), slug: `p-${name}`, name })
-				.run();
-		const before = db.select().from(positions).all().length;
-		const out = await syncFrom(
-			db,
-			'u1',
-			'figure',
-			F,
-			M,
-			{ [`end:#${own}`]: 'theirs' },
-			digest(flatOf(db, 'figure', F)),
-			files,
-			NOW,
-			Infinity
-		);
-		expect(out).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'Salsa Tuesdays already has a position called Mi posición.'
-		});
-		expect(db.select().from(positions).all()).toHaveLength(before);
-		expect(figurePositions(db, F).endIds).toEqual([]);
-		expect(crossRefs(db)).toEqual([]);
-	});
-
-	it('a position’s name, type, hold and notes land in place; a taken name is refused', async () => {
+	it('a position’s name, type, hold and notes land in place, a taken name included', async () => {
 		const P = groupPosition('Cerrada');
 		const mineP = await copy('position', P, U1_SALSA);
 		db.update(positions)
@@ -620,11 +619,12 @@ describe('positions', () => {
 		db.insert(positions)
 			.values({ ...ownerValues(U1_SALSA), slug: 'p-taken', name: 'cerrada BAJA' })
 			.run();
-		expect(apply('position', mineP, P, ['notes', 'name'])).toEqual({
-			ok: false,
-			reason: 'name',
-			message: 'You already have a position called Cerrada baja.'
-		});
+		// A name lands as it is, though a sibling of the place has it.
+		expect(apply('position', mineP, P, ['name']).ok).toBe(true);
+		expect(db.select().from(positions).where(eq(positions.id, mineP)).get()!.name).toBe(
+			'Cerrada baja'
+		);
+		db.update(positions).set({ name: 'Cerrada' }).where(eq(positions.id, mineP)).run();
 		expect(db.select().from(positions).where(eq(positions.id, mineP)).get()!.notes).toBeNull();
 
 		const out = apply('position', mineP, P, keys.slice(1));
@@ -658,7 +658,7 @@ describe('positions', () => {
 			NOW,
 			Infinity
 		);
-		expect(out).toEqual({ ok: true });
+		expect(out).toMatchObject({ ok: true });
 		expect(db.select().from(positions).where(eq(positions.id, P)).get()!.hands).toBe('one');
 		const [line] = db
 			.select()
@@ -734,5 +734,96 @@ describe('positions', () => {
 			db.select().from(spotPositionLinks).where(eq(spotPositionLinks.spotId, mySpot.id)).all()
 		).toEqual([]);
 		expect(differing('lesson', myL, L)).toEqual([]);
+	});
+});
+
+describe('landKeys', () => {
+	const land = (o: { intoId: number; fromId: number; keys: string[]; snapshot: 'full' | 'keys' }) =>
+		landKeys(db, {
+			actorId: 'u1',
+			kind: 'figure',
+			files,
+			now: NOW,
+			freeDiskBytes: 1e12,
+			...o
+		});
+
+	it('a keys landing moves only those keys in the pair, and marks the target', async () => {
+		const { F, M } = await world();
+		db.update(figures)
+			.set({ notes: 'Club notes', startCount: 5, lengthCounts: 16 })
+			.where(eq(figures.id, F))
+			.run();
+		const before = pairBase(db, 'figure', M, F)!;
+		const res = await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' });
+		// Landed, with the digest the landing left: a next landing's `seen`.
+		expect(res).toEqual({ ok: true, seen: digest(flatOf(db, 'figure', M)) });
+		expect(db.select().from(figures).where(eq(figures.id, M)).get()).toMatchObject({
+			notes: 'Club notes'
+		});
+		const after = pairBase(db, 'figure', M, F)!;
+		const giver = flatOf(db, 'figure', F);
+		expect(after.fields.timing).toBe(before.fields.timing);
+		expect(after.fields.timing).not.toBe(hashValue(giver.timing.value));
+		expect(after.fields.notes).toBe(hashValue(giver.notes.value));
+		const mine = flatOf(db, 'figure', M);
+		expect(readMark(db, 'figure', M)).toEqual(
+			Object.fromEntries(Object.entries(mine).map(([k, v]) => [k, hashValue(v.value)]))
+		);
+	});
+
+	it('a keys landing of a whole new recording snapshots it and its parts under its gene', async () => {
+		const { F, M } = await world();
+		const rec = recording(F, 'new.mp4');
+		addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 900, label: 'New' }, 'u1');
+		const key = `rec:#${rec}`;
+		expect(Object.keys(flatOf(db, 'figure', F))).toContain(key);
+		expect(await land({ intoId: M, fromId: F, keys: [key], snapshot: 'keys' })).toMatchObject({
+			ok: true
+		});
+		const gene = geneOf(db, 'recording', rec)!;
+		const giver = flatOf(db, 'figure', F);
+		const parts = Object.keys(giver).filter((k) => k.startsWith(`rec:${gene}`));
+		expect(parts.length).toBe(4); // the piece, its note, its section, the section's links
+		const after = pairBase(db, 'figure', M, F)!;
+		for (const k of parts) expect(after.fields[k]).toBe(hashValue(giver[k].value));
+		expect(Object.keys(after.fields).filter((k) => k.startsWith(key))).toEqual([]);
+		// So the two read as in step on the recording.
+		const d = diff(after, flatOf(db, 'figure', M), giver, hashValue);
+		expect(d.filter((x) => x.key.startsWith(`rec:${gene}`))).toEqual([]);
+	});
+
+	it('a keys landing makes no pair when there is none; no keys writes nothing', async () => {
+		const { F, M } = await world();
+		db.update(figures).set({ notes: 'Club notes' }).where(eq(figures.id, F)).run();
+		db.delete(clonePairs).run();
+		const marked = readMark(db, 'figure', M);
+		expect(await land({ intoId: M, fromId: F, keys: [], snapshot: 'keys' })).toEqual({
+			ok: true,
+			seen: digest(flatOf(db, 'figure', M))
+		});
+		expect(readMark(db, 'figure', M)).toEqual(marked);
+		await land({ intoId: M, fromId: F, keys: ['notes'], snapshot: 'keys' });
+		expect(pairBase(db, 'figure', M, F)).toBeNull();
+		expect(readMark(db, 'figure', M)).not.toEqual(marked);
+	});
+
+	it('a stale seen refuses and writes nothing', async () => {
+		const { F, M } = await world();
+		db.update(figures).set({ notes: 'Club notes' }).where(eq(figures.id, F)).run();
+		const out = await landKeys(db, {
+			actorId: 'u1',
+			kind: 'figure',
+			intoId: M,
+			fromId: F,
+			keys: ['notes'],
+			snapshot: 'full',
+			files,
+			now: NOW,
+			freeDiskBytes: 1e12,
+			seen: 'nope'
+		});
+		expect(out).toMatchObject({ ok: false, reason: 'stale' });
+		expect(db.select().from(figures).where(eq(figures.id, M)).get()!.notes).not.toBe('Club notes');
 	});
 });

@@ -5,11 +5,11 @@
 	import { iconButton } from '$lib/components/ui/styles';
 	import { localDay } from '$lib/day/day';
 	import {
-		HIDE_UPDATE,
-		UPDATE_ROW_TITLE,
 		hiddenToday,
 		hideMark,
+		hideUpdate,
 		updateRowLine,
+		updateRowTitle,
 		type AppUpdate
 	} from '$lib/app-update/view';
 	import UpdateButton from './UpdateButton.svelte';
@@ -67,14 +67,14 @@
 			class="size-11 flex-none rounded-xl"
 		/>
 		<div class="flex min-w-0 flex-1 flex-col">
-			<span class="text-[15px] leading-snug font-extrabold text-ink">{UPDATE_ROW_TITLE}</span>
+			<span class="text-[15px] leading-snug font-extrabold text-ink">{updateRowTitle()}</span>
 			<span class="text-[13px] leading-snug text-muted">{updateRowLine(update, line)}</span>
 		</div>
 		<UpdateButton {update} size="sm" onstatus={(l) => (line = l)} />
 		<button
 			type="button"
 			class={iconButton('bare', 'muted')}
-			aria-label={HIDE_UPDATE}
+			aria-label={hideUpdate()}
 			onclick={hide}><Icon name="close" size={20} /></button
 		>
 	</div>

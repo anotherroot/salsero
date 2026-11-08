@@ -357,10 +357,10 @@ it('widens four CHECKs to learn positions and keeps the rows written before (002
 	raw(db).close();
 });
 
-it("continues each table's ids after the highest ever used (0035)", () => {
+it("continues each table's ids after the highest ever used (0038)", () => {
 	const file = join(temp('salsa-db-'), 'old.db');
 	const old = oldDb(file);
-	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0033_material_echo') });
+	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0036_striped_kulan_gath') });
 	const add = old.prepare(
 		`insert into songs (status, source_url, created_at) values ('ready', 'u', 1) returning id`
 	);

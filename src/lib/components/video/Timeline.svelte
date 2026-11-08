@@ -1,5 +1,6 @@
 <!-- src/lib/components/video/Timeline.svelte -->
 <script lang="ts">
+	import { t } from '$lib/i18n/catalog';
 	import { preciseTime } from '$lib/video/spots';
 	import { seekKey } from '$lib/songs/timeline';
 
@@ -76,7 +77,7 @@
 <div
 	role="slider"
 	tabindex="0"
-	aria-label="Position"
+	aria-label={t().video.timeline}
 	aria-orientation="horizontal"
 	aria-valuemin={fromMs}
 	aria-valuemax={toMs}

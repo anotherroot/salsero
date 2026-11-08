@@ -300,6 +300,30 @@ describe('keepFromTeam: Keep everything', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
+	it('the drill’s copy keeps the entry’s warm-up, its order and its own Comes back', async () => {
+		const s = story();
+		const own = JSON.stringify({ kind: 'until', good: 5, since: T });
+		const entryD = () =>
+			db
+				.select()
+				.from(exercises)
+				.where(and(eq(exercises.userId, 'u2'), eq(exercises.drillId, s.D)))
+				.get()!;
+		db.update(exercises)
+			.set({ warmup: true, warmupOrder: 2, comesBack: own })
+			.where(eq(exercises.id, entryD().id))
+			.run();
+		await keepFromTeam(db, 'u2', 1, { mode: 'all' }, fakeFiles().files, NOW);
+		const [D] = copyOf('drill', s.D)!;
+		const copy = db.select().from(exercises).where(eq(exercises.id, D.id)).get()!;
+		expect(copy).toMatchObject({
+			archivedAt: null,
+			warmup: true,
+			warmupOrder: 2,
+			comesBack: own
+		});
+	});
+
 	it('a merged-away entry is timed one instant before, so a restore never doubles practice', async () => {
 		const s = story();
 		await keepFromTeam(db, 'u2', 1, { mode: 'all' }, fakeFiles().files, NOW);

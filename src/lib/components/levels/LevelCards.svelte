@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { LEVELS, LEVEL_WORDS, tabsFor, type Level } from '$lib/levels/levels';
+	import { levelStep } from '$lib/levels/first-run';
+	import { LEVELS, levelWords, tabsFor, type Level } from '$lib/levels/levels';
 
 	/**
 	 * How much app? The three levels as large radio cards, each with its tabs
@@ -16,9 +17,9 @@
 </script>
 
 <fieldset class="flex flex-col gap-3">
-	<legend class="sr-only">How much app?</legend>
+	<legend class="sr-only">{levelStep().title}</legend>
 	{#each LEVELS as l (l)}
-		{@const words = LEVEL_WORDS[l]}
+		{@const words = levelWords(l)}
 		<label
 			class="flex cursor-pointer items-start gap-3.5 rounded-[18px] bg-surface px-4 py-3.5 ring-1 ring-hairline ring-inset has-checked:ring-2 has-checked:ring-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
 		>

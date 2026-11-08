@@ -147,6 +147,17 @@ export function videoJobTarget(db: Db, id: number): 'recording' | 'lesson-video'
 	return job.figureId !== null ? 'recording' : 'lesson-video';
 }
 
+/** Who pressed Save on a job (null for a job from before that was kept, or a missing one). */
+export function videoJobRequester(db: Db, id: number): string | null {
+	return (
+		db
+			.select({ by: videoDownloads.requestedBy })
+			.from(videoDownloads)
+			.where(eq(videoDownloads.id, id))
+			.get()?.by ?? null
+	);
+}
+
 /**
  * The video arrived. One transaction: the recording or lesson video with its
  * source, a point spot at the link's start time if it had one, then the job

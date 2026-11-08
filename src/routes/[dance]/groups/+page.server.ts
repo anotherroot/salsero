@@ -1,14 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
-import { CODE_REFUSALS } from '$lib/levels/first-run';
+import { codeRefusal } from '$lib/levels/first-run';
 import { joinWithCode } from '$lib/server/join-code';
 import { createTeam, teamLimit } from '$lib/server/teams';
 import { limitLine, NAME_REFUSAL } from '$lib/teams/view';
 import { levelShown } from '$lib/levels/levels';
 import type { Actions, PageServerLoad } from './$types';
-import { serverNow } from '$lib/server/server-clock';
 
+import { serverNow } from '$lib/server/server-clock';
 /**
  * The list is the layout's load (`+layout.server.ts`). At Follow my class the
  * tab is My class, and in one class it opens that class's page (levels spec,
@@ -42,10 +42,10 @@ export const actions: Actions = {
 	joinCode: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const code = String((await request.formData()).get('code') ?? '').trim();
-		if (!code) return fail(400, { action: 'joinCode', message: CODE_REFUSALS.empty });
+		if (!code) return fail(400, { action: 'joinCode', message: codeRefusal('empty') });
 		const joined = joinWithCode(getDb(), wall.userId, code, serverNow());
 		if (!joined.ok) {
-			return fail(400, { action: 'joinCode', message: CODE_REFUSALS[joined.reason] });
+			return fail(400, { action: 'joinCode', message: codeRefusal(joined.reason) });
 		}
 		throw redirect(303, `/${joined.dance}/groups/${joined.teamId}`);
 	}

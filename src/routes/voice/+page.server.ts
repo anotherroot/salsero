@@ -7,6 +7,7 @@ import { getDb } from '$lib/server/db';
 import { countDir } from '$lib/server/files';
 import { int } from '$lib/server/form';
 import { Hold, UNDO_MS } from '$lib/server/undo-hold';
+import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -37,9 +38,9 @@ export const actions: Actions = {
 	/** Hard delete, like a recording: the row now, the file when Undo runs out. */
 	delete: async ({ request, locals }) => {
 		const id = int(await request.formData(), 'id');
-		if (id === undefined) return fail(400, { message: 'Unknown take.' });
+		if (id === undefined) return fail(400, { message: t().settings.voice.unknownTake });
 		const row = deleteCountTake(getDb(), userIdOf(locals), id);
-		if (!row) return fail(404, { message: 'That take is already gone.' });
+		if (!row) return fail(404, { message: t().settings.voice.takeGone });
 		held.put(holdKey(row.userId ?? '', id), row);
 		return { deleted: id };
 	},
@@ -47,12 +48,12 @@ export const actions: Actions = {
 	restore: async ({ request, locals }) => {
 		const id = int(await request.formData(), 'id');
 		const row = id === undefined ? null : held.take(holdKey(userIdOf(locals), id));
-		if (!row) return fail(410, { message: 'Too late to undo.' });
+		if (!row) return fail(410, { message: t().settings.refusals.tooLate });
 		if (restoreCountTake(getDb(), row) === 'taken') {
 			// Recorded again meanwhile: the newer take stays and this one's file
 			// is of no use to anyone.
 			await unlink(join(countDir(), row.file)).catch(() => {});
-			return fail(409, { message: 'A newer take holds that slot now.' });
+			return fail(409, { message: t().settings.voice.newerTake });
 		}
 		return { ok: true };
 	}

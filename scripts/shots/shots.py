@@ -1,7 +1,7 @@
 """Screenshot rig, the Python side.
 
-  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID] [--viewport] [--no-session] [--unnamed]
-  shots.py scene --db DB --base URL --out DIR --size WxH [--theme light|dark] [--group ID] [--viewport] --scenes NAMES|all
+  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID] [--viewport] [--no-session] [--unnamed] [--locale en|sl] [--level follow|own|all]
+  shots.py scene --db DB --base URL --out DIR --size WxH [--theme light|dark] [--group ID] [--viewport] --scenes NAMES|all [--locale en|sl] [--level follow|own|all]
   shots.py diff DIR_A DIR_B
 
 `shoot` fills the placeholders in the pages file from the db, inserts a session row,
@@ -51,6 +51,9 @@ STYLE = (
     "[data-shots-mask]{visibility:hidden!important}"
     "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
 )
+# SHOTS_CSS=<file>: extra CSS injected into every page (a palette tried over the tokens, say)
+if os.environ.get("SHOTS_CSS"):
+    STYLE += open(os.environ["SHOTS_CSS"]).read()
 
 
 def _scenes_mod():
@@ -70,7 +73,8 @@ def first(db, sql, args=()):
 
 
 def placeholders(db):
-    admin = first(db, "select id from users where is_admin = 1 order by created_at limit 1")
+    # an account belongs to one dance (the dance split): the dance's admin, else its first account
+    admin = first(db, "select id from users where dance = ? order by is_admin desc, created_at limit 1", (DANCE,))
     if admin is None:
         sys.exit("shots: no admin user in the db")
     tz = first(db, "select timezone from users where id = ?", (admin,)) or "UTC"
@@ -111,7 +115,7 @@ def slug(line):
 
 
 def prepare(a):
-    """Insert the session and the invite into the db copy (and unname the admin if asked); return the placeholders."""
+    """Insert the session and the invite into the db copy (unname the admin, set their language or level, if asked); return the placeholders."""
     db = sqlite3.connect(a.db)
     admin, v = placeholders(db)
     now = max(int(time.time() * 1000), int(INSTANT.timestamp() * 1000))
@@ -129,6 +133,13 @@ def prepare(a):
     if getattr(a, "unnamed", False):
         # a person made before names: every page sends them to /welcome
         db.execute("update users set first_name = null, last_name = null where id = ?", (admin,))
+    if getattr(a, "locale", None):
+        # the admin's language, and the invite's (Join is drawn in it, signed out)
+        db.execute("update users set locale = ? where id = ?", (a.locale, admin))
+        db.execute("update invites set locale = ? where id = 'shots'", (a.locale,))
+    if getattr(a, "level", None):
+        # how much app the admin sees (src/lib/levels/levels.ts)
+        db.execute("update users set level = ? where id = ?", (a.level, admin))
     db.commit()
     db.close()
     return v
@@ -155,6 +166,9 @@ def shoot(a):
         ctx.clock.set_fixed_time(INSTANT)
         if not a.no_session:
             ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])
+        elif a.locale:
+            # signed out, the language comes from the browser's cookie (src/lib/i18n/locale.ts)
+            ctx.add_cookies([{"name": "lang", "value": a.locale, "url": a.base}])
         if a.group is not None:
             # group mode (src/lib/teams/mode.ts `groupCookie`): the admin must own or edit the group
             ctx.add_cookies([{"name": f"group_{DANCE}", "value": str(a.group), "url": a.base}])
@@ -370,6 +384,8 @@ def main():
     s.add_argument("--delay-from", help="shoot each page while loading: open this page first, then follow a link to it with its __data.json held")
     s.add_argument("--no-session", action="store_true", help="no session cookie: the signed-out pages")
     s.add_argument("--unnamed", action="store_true", help="the admin has no name in the copy, so pages send them to /welcome")
+    s.add_argument("--locale", choices=["en", "sl"], help="the admin's language (and the invite's, and signed out the cookie's)")
+    s.add_argument("--level", choices=["follow", "own", "all"], help="the admin's level")
     c = sub.add_parser("scene")
     c.add_argument("--db", required=True)
     c.add_argument("--base", required=True)
@@ -379,6 +395,8 @@ def main():
     c.add_argument("--group", type=int)
     c.add_argument("--viewport", action="store_true")
     c.add_argument("--scenes", required=True, help="comma list of scene names, or all")
+    c.add_argument("--locale", choices=["en", "sl"])
+    c.add_argument("--level", choices=["follow", "own", "all"])
     d = sub.add_parser("diff")
     d.add_argument("a")
     d.add_argument("b")

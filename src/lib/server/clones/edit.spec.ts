@@ -311,6 +311,33 @@ describe('makeMine: a drill', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
+	it('the copy keeps the entry’s warm-up, its order and its own Comes back', async () => {
+		const { D, entry } = practisedDrill();
+		const own = JSON.stringify({ kind: 'every', days: 7 });
+		db.update(exercises)
+			.set({ warmup: true, warmupOrder: 4, comesBack: own })
+			.where(eq(exercises.id, entry.id))
+			.run();
+		// The teacher's own setting on the drill, which the copy would otherwise carry.
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify({ kind: 'every', days: 2 }) })
+			.where(eq(exercises.id, D))
+			.run();
+		const res = (await mine('drill', D)) as { id: number };
+		expect(exerciseRow(res.id)).toMatchObject({ warmup: true, warmupOrder: 4, comesBack: own });
+		// The group's drill never takes the person's warm-up.
+		expect(exerciseRow(D)).toMatchObject({ warmup: false, warmupOrder: null });
+	});
+
+	it('an entry following its teacher: the copy carries the teacher’s Comes back', async () => {
+		const { D, entry } = practisedDrill();
+		const teacher = JSON.stringify({ kind: 'every', days: 2 });
+		db.update(exercises).set({ comesBack: teacher }).where(eq(exercises.id, D)).run();
+		db.update(exercises).set({ warmup: true }).where(eq(exercises.id, entry.id)).run();
+		const res = (await mine('drill', D)) as { id: number };
+		expect(exerciseRow(res.id)).toMatchObject({ warmup: true, comesBack: teacher });
+	});
+
 	it('restores an archived copy', async () => {
 		const { D } = practisedDrill();
 		const first = (await mine('drill', D)) as { id: number };

@@ -31,6 +31,7 @@ export const ROOT_KEYS = [
 	'style',
 	'timing',
 	'practice',
+	'comesBack',
 	'title',
 	'day',
 	'artist',
@@ -51,6 +52,7 @@ const ROOT_LABELS: Record<string, string> = {
 	style: 'Style',
 	timing: 'Timing',
 	practice: 'Practice',
+	comesBack: 'Comes back',
 	title: 'Title',
 	day: 'Day',
 	artist: 'Artist',
@@ -63,6 +65,13 @@ const ROOT_LABELS: Record<string, string> = {
 	facing: 'Facing',
 	frame: 'Frame'
 };
+
+/**
+ * A root key's value in a pair snapshot written before the key existed. Such a
+ * snapshot has no hash for it, and it reads as this value's, so a member that
+ * holds the default is not "changed" by the key's arrival.
+ */
+export const BASE_DEFAULTS: Readonly<Record<string, string>> = { comesBack: 'faces' };
 
 /** The set members' prefixes, in the order a comparison lists them. */
 export const SET_PREFIXES = [
@@ -119,7 +128,7 @@ export function setPrefixOf(key: string): string | null {
 	return Object.hasOwn(SET_LABELS, prefix) && key.length > i + 1 ? prefix : null;
 }
 
-/** What the compare sheet calls a field. Throws on a key outside the grammar. */
+/** What the Sync sheet calls a field. Throws on a key outside the grammar. */
 export function fieldLabel(key: string, show: string): string {
 	if (Object.hasOwn(ROOT_LABELS, key)) return ROOT_LABELS[key];
 	const prefix = setPrefixOf(key);

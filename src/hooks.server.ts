@@ -17,8 +17,12 @@ import { hostRedirect } from '$lib/dances/hosts';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
-import { serverNow } from '$lib/server/server-clock';
+import { LOCALE_COOKIE, requestLocale } from '$lib/i18n/locale';
+// Imported for its side: it registers the per-request language with `$lib/i18n/current`.
+import { runInLocale } from '$lib/server/i18n-request';
+import { fillLang, inviteLocaleOf } from '$lib/server/locale';
 
+import { serverNow } from '$lib/server/server-clock';
 /** The home worker's API: no session, a bearer token instead. */
 const WORKER_PREFIX = '/api/worker/';
 
@@ -38,9 +42,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 				timezone: session.timezone,
 				isAdmin: session.isAdmin,
 				level: parseLevel(session.level),
-				dance: session.dance
+				dance: session.dance,
+				locale: session.locale
 			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), serverNow());
+
+	// The language this request is drawn in: a signed-in person's own; signed out,
+	// the invite's on Join, then the browser's cookie, then its Accept-Language, then English.
+	const loc = requestLocale({
+		user: event.locals.user,
+		cookie: event.cookies.get(LOCALE_COOKIE),
+		acceptLanguage: event.request.headers.get('accept-language'),
+		invite:
+			path === '/join' ? inviteLocaleOf(getDb(), event.url.searchParams.get('code') ?? '') : null
+	});
+	event.locals.locale = loc;
 
 	// Which app asks: its user agent suffix, else the native header.
 	const native = parseAppVersion(event.request.headers.get('x-app-version'));
@@ -72,6 +88,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (!workerTokenOk(event.request.headers.get('authorization'), env.SALSA_WORKER_TOKEN)) {
 			return new Response('Bad worker token', { status: 401 });
 		}
+		// The worker reads no words: English, whatever its cookies say.
+		event.locals.locale = 'en';
 		return resolve(event);
 	}
 
@@ -122,9 +140,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Light or dark, as chosen in Settings, and the page epoch: written into
-	// <html> for app.html's script.
+	// <html> for app.html's script. The language goes into `<html lang>`.
 	const theme = themeChoice(event.cookies.get(THEME_COOKIE));
-	return resolve(event, {
-		transformPageChunk: ({ html }) => fillEpoch(fillTheme(html, theme))
-	});
+	// Every word drawn for this request reads its language from here (`runInLocale`).
+	return runInLocale(loc, () =>
+		resolve(event, {
+			transformPageChunk: ({ html }) => fillLang(fillEpoch(fillTheme(html, theme)), loc)
+		})
+	);
 };

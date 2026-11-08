@@ -17,6 +17,7 @@ import { purgeTeams } from './team-purge';
 import { recordOpen } from './whats-new';
 import {
 	classLessonOf,
+	closedMessage,
 	commentCard,
 	commentsOn,
 	deleteComment,
@@ -28,6 +29,7 @@ import {
 	type CommentRefusal
 } from './comments';
 import { T1_SALSA, U2_SALSA } from './test-walls';
+import { runInLocale } from './i18n-request';
 import { TEAM_PURGE_MS } from '$lib/limits';
 import type { CloneFiles } from './clones/files';
 
@@ -421,5 +423,39 @@ describe('purge', () => {
 		expect(left.map((x) => x.lessonId)).toEqual([otherLesson]);
 		expect(db.select().from(lessonCommentHearts).all()).toEqual([]);
 		expect(db.select().from(opens).all()).toEqual([]);
+	});
+});
+
+describe('refusals in the reader’s language', () => {
+	const sl = <T>(fn: () => T) => runInLocale('sl', fn);
+
+	it('the body, a reply and a deleted group, in Slovenian', () => {
+		expect(sl(() => post('u2', ' '))).toEqual({
+			refused: 'body',
+			message: 'Najprej kaj napišite.'
+		});
+		const other = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'Other',
+			notes: null
+		}).lesson.id;
+		publishLesson(db, T1_SALSA, other, 6);
+		const elsewhere = ok(post('u2', 'elsewhere', null, 100, other));
+		expect(sl(() => post('u2', 'x', elsewhere.id))).toEqual({
+			refused: 'reply',
+			message: 'Tega komentarja ni v tej lekciji.'
+		});
+		const gone = ok(post('u2', 'gone'));
+		deleteComment(db, 'u2', gone.id, 200);
+		expect(sl(() => post('u2', 'x', gone.id))).toEqual({
+			refused: 'reply',
+			message: 'Ta komentar je izbrisan.'
+		});
+		deleteTeam(db, 1, 'u1', 1000);
+		expect(sl(() => post('u1', 'x'))).toEqual({
+			refused: 'closed',
+			message: 'Ta tečaj je izbrisan, zato lahko komentarje le še berete.'
+		});
+		expect(closedMessage()).toBe('This class has been deleted, so its comments can only be read.');
 	});
 });

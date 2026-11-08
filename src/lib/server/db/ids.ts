@@ -7,7 +7,7 @@
  * JavaScript number holds every id exactly.
  *
  * `id_marks` holds the highest id used per table and slot. An `AFTER INSERT`
- * trigger on each id table keeps it (migration 0035), so ids that arrive with
+ * trigger on each id table keeps it (migration 0038), so ids that arrive with
  * a row — a device's, a restore's — count too, and a deleted id is never
  * handed out again.
  *

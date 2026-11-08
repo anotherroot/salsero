@@ -4,7 +4,15 @@ import { exercises, users } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { createTeam } from './teams';
 import { archiveExercise, createCustomExercise, logSet } from './exercises';
-import { listScheduleSets, scheduleForShown, scheduleStateOf, scheduleStates } from './schedule';
+import {
+	goodDaysOf,
+	listScheduleSets,
+	scheduleForShown,
+	scheduleStateOf,
+	scheduleStates
+} from './schedule';
+import { RATING_OF } from '$lib/schedule/feel';
+import { makeClass } from './test-class';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 
 let db: Db;
@@ -48,7 +56,13 @@ describe('scheduleStates', () => {
 
 		const m = scheduleStates(db, U1_SALSA, TZ);
 		expect([...m.keys()].sort()).toEqual([a.id, b.id].sort());
-		expect(m.get(a.id)).toEqual({ gap: 25, lastDay: '2026-10-11', dueDay: '2026-11-05' });
+		expect(m.get(a.id)).toEqual({
+			gap: 15,
+			lastDay: '2026-10-11',
+			dueDay: '2026-10-26',
+			every: null,
+			learning: null
+		});
 		expect(m.get(b.id)!.lastDay).toBeNull();
 		expect(m.get(b.id)!.gap).toBe(10);
 	});
@@ -65,7 +79,7 @@ describe('scheduleStateOf and listScheduleSets', () => {
 		const a = drill(U1_SALSA, 'A');
 		set(a.id, at('2026-10-11'), 4);
 		set(a.id, at('2026-10-01'), 4);
-		expect(scheduleStateOf(db, a.id, TZ).gap).toBe(25);
+		expect(scheduleStateOf(db, a.id, TZ).gap).toBe(15);
 		expect(listScheduleSets(db, U1_SALSA)).toHaveLength(2);
 		expect(listScheduleSets(db, U2_SALSA)).toEqual([]);
 	});
@@ -104,5 +118,46 @@ describe('scheduleForShown', () => {
 		]);
 		expect(shown[g.id].lastDay).toBe('2026-10-02');
 		expect(shown[own.id].lastDay).toBe('2026-10-03');
+	});
+});
+
+describe('scheduleStateOf: comes back', () => {
+	it('an every-1 drill with one set yesterday is due the next day', () => {
+		const a = drill(U1_SALSA, 'Daily', 10);
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify({ kind: 'every', days: 1 }) })
+			.where(eq(exercises.id, a.id))
+			.run();
+		set(a.id, at('2026-11-05'), 4);
+		const s = scheduleStateOf(db, a.id, TZ);
+		expect(s.dueDay).toBe('2026-11-06');
+		expect(s.every).toBe(1);
+		expect(scheduleStates(db, U1_SALSA, TZ).get(a.id)!.every).toBe(1);
+	});
+
+	it("gives an entry its class drill's rhythm when it has none of its own", () => {
+		db = openDb(':memory:');
+		const c = makeClass(db);
+		db.update(exercises)
+			.set({ comesBack: JSON.stringify({ kind: 'every', days: 7 }) })
+			.where(eq(exercises.id, c.drill))
+			.run();
+		set(c.entry, at('2026-11-05'), 4);
+		const s = scheduleStates(db, { userId: 'u3', dance: 'salsa' }, TZ).get(c.entry)!;
+		expect(s.every).toBe(7);
+		expect(s.dueDay).toBe('2026-11-12');
+	});
+});
+
+describe('goodDaysOf', () => {
+	it("counts one exercise's good days since the switch, and no other exercise's", () => {
+		const a = drill(U1_SALSA, 'A');
+		const b = drill(U1_SALSA, 'B');
+		set(a.id, at('2026-11-03'), RATING_OF.gotit);
+		set(a.id, at('2026-11-04'), RATING_OF.getting);
+		set(a.id, at('2026-11-05'), RATING_OF.easy);
+		set(b.id, at('2026-11-05'), RATING_OF.gotit);
+		expect(goodDaysOf(db, a.id, at('2026-11-03'), TZ)).toBe(2);
+		expect(goodDaysOf(db, a.id, at('2026-11-05'), TZ)).toBe(1);
 	});
 });

@@ -305,7 +305,7 @@ own block:
   An `AFTER INSERT` trigger on each id table keeps it, so ids that arrive
   with a row (a device's, a restore's) count too. It was seeded from
   `sqlite_sequence`, so an id deleted before phase 1 is never handed out
-  again (migrations 0034, 0035).
+  again (migrations 0037, 0038).
 - Every id column defaults to `mintedId('<table>')`
   (`src/lib/server/db/ids.ts`): an app-side `$defaultFn` returning SQL,
   "this table's mark in my slot, plus one". SQLite works that out once per
@@ -313,7 +313,7 @@ own block:
   ids. Several new rows in one insert collide loudly (a UNIQUE error).
 - `ids.spec.ts` scans that every id column mints for its own table, that no
   server code inserts into an id table with raw SQL, and that no migration
-  after 0035 inserts into one without its id.
+  after 0038 inserts into one without its id.
 - `users` and `sessions` keep their text ids.
 
 ### The device's copy (pull)

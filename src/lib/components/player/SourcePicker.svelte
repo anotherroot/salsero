@@ -7,13 +7,14 @@
 -->
 <script lang="ts">
 	import { musicFirst } from '$lib/songs/search';
-	import { RUN_SOURCES } from '$lib/player/view';
+	import { runSources } from '$lib/player/view';
+	import { t } from '$lib/i18n/catalog';
 	import type { PickerSong } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import { FIELD_ERROR } from '$lib/components/ui/styles';
-	import type { Speed } from '$lib/labels';
+	import { BPM, type Speed } from '$lib/labels';
 	import SongPicker from './SongPicker.svelte';
 	import SpeedChips from './SpeedChips.svelte';
 
@@ -48,11 +49,11 @@
 {#if songs.length > 0}
 	<div>
 		<!-- The radiogroup carries the same name for a screen reader. -->
-		<span class={GROUP_LABEL} aria-hidden="true">Source</span>
+		<span class={GROUP_LABEL} aria-hidden="true">{t().exercise.panel.source}</span>
 		<Segmented
-			label="Source"
+			label={t().exercise.panel.source}
 			name="{name}-source"
-			items={RUN_SOURCES}
+			items={runSources()}
 			bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
 		/>
 	</div>
@@ -60,18 +61,25 @@
 
 {#if source === 'song'}
 	<div>
-		<span class={GROUP_LABEL} id="{uid}-song">Song</span>
+		<span class={GROUP_LABEL} id="{uid}-song">{t().exercise.panel.song}</span>
 		<SongPicker bind:songId {songs} first={musicFirst(songs)} labelId="{uid}-song" />
 		{#if error}
 			<p class={FIELD_ERROR}><Icon name="warning" size={16} />{error}</p>
 		{/if}
 	</div>
 	<div>
-		<span class={GROUP_LABEL} aria-hidden="true">Speed</span>
+		<span class={GROUP_LABEL} aria-hidden="true">{t().exercise.panel.speedLabel}</span>
 		<SpeedChips name="{name}-speed" value={speed} onchange={(s) => (speed = s)} />
 	</div>
 {:else}
 	<div class="py-0.5">
-		<Stepper label="Tempo" unit="BPM" min={60} max={300} step={5} bind:value={bpm} />
+		<Stepper
+			label={t().exercise.panel.tempo}
+			unit={BPM}
+			min={60}
+			max={300}
+			step={5}
+			bind:value={bpm}
+		/>
 	</div>
 {/if}

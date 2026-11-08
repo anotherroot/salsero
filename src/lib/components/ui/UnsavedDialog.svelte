@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { prompt } from '$lib/unsaved/guard.svelte';
+	import { t } from '$lib/i18n/catalog';
 	import Icon from './Icon.svelte';
 	import { button } from './styles';
 
@@ -112,12 +113,12 @@
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
-					Saved
+					{t().shell.unsaved.saved}
 				</h2>
 				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-5 space-y-2">
 					<button type="button" class={primary} onclick={leave}>{ask.verb}</button>
-					<button type="button" class={secondary} onclick={stay}>Stay</button>
+					<button type="button" class={secondary} onclick={stay}>{t().shell.unsaved.stay}</button>
 				</div>
 			{:else if phase === 'failed'}
 				<span
@@ -128,7 +129,7 @@
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
-					Not saved
+					{t().shell.unsaved.notSaved}
 				</h2>
 				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-2 space-y-1" role="alert">
@@ -141,8 +142,12 @@
 					{/each}
 				</div>
 				<div class="mt-5 space-y-2">
-					<button type="button" class={primary} onclick={stay}>Stay and fix it</button>
-					<button type="button" class={danger} onclick={leave}>{ask.verb} without saving</button>
+					<button type="button" class={primary} onclick={stay}
+						>{t().shell.unsaved.stayAndFix}</button
+					>
+					<button type="button" class={danger} onclick={leave}
+						>{t().shell.unsaved.without(ask.verb)}</button
+					>
 				</div>
 			{:else}
 				<span
@@ -153,11 +158,10 @@
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
-					Unsaved changes
+					{t().shell.unsaved.title}
 				</h2>
 				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">
-					{labels.join(', ')}
-					{plural ? 'are' : 'is'} not saved yet.
+					{t().shell.unsaved.line(labels.join(', '), plural)}
 				</p>
 				{#if blocked}
 					<p class="mt-2 text-[13px] text-muted">{blocked}</p>
@@ -168,14 +172,15 @@
 							type="button"
 							class={primary}
 							disabled={phase === 'saving' || blocked !== null}
-							onclick={save}>{phase === 'saving' ? 'Saving…' : 'Save'}</button
+							onclick={save}
+							>{phase === 'saving' ? t().shell.unsaved.saving : t().common.save}</button
 						>
 					{/if}
 					<button type="button" class={secondary} disabled={phase === 'saving'} onclick={stay}
-						>Stay</button
+						>{t().shell.unsaved.stay}</button
 					>
 					<button type="button" class={danger} disabled={phase === 'saving'} onclick={leave}
-						>{ask.verb} without saving</button
+						>{t().shell.unsaved.without(ask.verb)}</button
 					>
 				</div>
 			{/if}

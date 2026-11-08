@@ -11,6 +11,7 @@
 	import type { ComingGroup } from '$lib/schedule/coming-up';
 	import type { PickReply } from '$lib/schedule/picks';
 	import type { DanceSlug } from '$lib/dances/dances';
+	import { t } from '$lib/i18n/catalog';
 	import type { ExerciseItem } from '$lib/types';
 
 	/**
@@ -45,7 +46,7 @@
 		busy = new Set([...busy, exercise.id]);
 		try {
 			const result = await actAt(`/${dance}`, 'pick', { exerciseId: exercise.id, kind: 'add' });
-			const message = refusalMessage(result, 'Could not add it to Today. Try again.');
+			const message = refusalMessage(result, t().today.refused.addToToday);
 			if (message) onrefused(message);
 			else {
 				onadded(exercise, (result as { data?: PickReply }).data ?? {});
@@ -60,7 +61,7 @@
 </script>
 
 {#if groups.length === 0}
-	<p class="px-4 pt-6 text-center text-[15px] text-muted">Nothing is coming up yet.</p>
+	<p class="px-4 pt-6 text-center text-[15px] text-muted">{t().today.coming.nothing}</p>
 {/if}
 
 {#each groups as group (group.key)}
@@ -96,9 +97,11 @@
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 							<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{ex.name}</span
 							>
-							{#if row.state === 'skipped'}
+							{#if row.state === 'skipped' || row.meta}
 								<span class="text-[13px] leading-[1.35] {lit ? 'text-ink-2' : 'text-muted'}"
-									>Not today</span
+									>{row.state === 'skipped'
+										? [t().today.row.notToday, row.meta].filter(Boolean).join(' · ')
+										: row.meta}</span
 								>
 							{/if}
 						</span>
@@ -109,18 +112,18 @@
 							class={plus}
 							disabled={busy.has(ex.id)}
 							aria-busy={busy.has(ex.id)}
-							aria-label="Put {ex.name} on Today"
+							aria-label={t().today.coming.putOn(ex.name)}
 							onclick={() => add(ex)}
 						>
 							{#if busy.has(ex.id)}<Spinner size={20} />{:else}<Icon name="plus" />{/if}
 						</button>
 					{:else if row.state === 'onToday'}
-						<span class="pr-2.5"><Badge tone="done">On Today</Badge></span>
+						<span class="pr-2.5"><Badge tone="done">{t().today.coming.onToday}</Badge></span>
 					{:else if row.state === 'doneToday'}
-						<span class="pr-2.5 text-[13px] font-bold text-done">Done today</span>
+						<span class="pr-2.5 text-[13px] font-bold text-done">{t().today.coming.doneToday}</span>
 					{:else}
 						<span class="pr-2.5 text-[13px] font-bold {lit ? 'text-ink-2' : 'text-muted'}"
-							>Paused</span
+							>{t().today.coming.paused}</span
 						>
 					{/if}
 				</li>
