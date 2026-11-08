@@ -487,9 +487,18 @@ export function deleteDay(db: Db, exerciseId: number, day: string, tz: string): 
 	});
 }
 
-/** Re-inserts snapshots in one transaction (Undo of deleteDay). */
-export function restoreSets(db: Db, snaps: SetSnapshot[]): void {
+/**
+ * Re-inserts snapshots in one transaction (Undo of deleteDay). Throws, inserting
+ * nothing, when the exercise already has a row on any of their local days (a
+ * double submit, or a save after the delete): one entry a day.
+ */
+export function restoreSets(db: Db, snaps: SetSnapshot[], tz: string): void {
 	db.transaction((tx) => {
+		for (const snap of snaps) {
+			if (dayRows(tx, snap.exerciseId, localDay(snap.doneAt, tz), tz).length > 0) {
+				throw new Error('That day already has an entry');
+			}
+		}
 		for (const snap of snaps) tx.insert(sets).values(snap).run();
 	});
 }

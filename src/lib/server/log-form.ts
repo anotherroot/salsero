@@ -244,6 +244,8 @@ export async function saveDoneFrom({
  * the wall's; `before` must be a snapshot of the same exercise.
  */
 export async function undoDoneFrom({ params, request, locals }: LogEvent) {
+	if (!locals.user) throw error(401);
+	const tz = locals.user.timezone;
 	const form = await request.formData();
 	const refused = () => fail(400, { action: 'undoDone', message: t().today.refused.undo });
 	const setId = int(form, 'setId');
@@ -252,7 +254,15 @@ export async function undoDoneFrom({ params, request, locals }: LogEvent) {
 	requireExerciseInWall(getDb(), wallOf(params, locals), row.exerciseId);
 	const raw = String(form.get('before') ?? '');
 	const before = raw === '' ? null : parseSetSnapshot(raw, Date.now());
-	if (raw !== '' && (!before || before.exerciseId !== row.exerciseId)) return refused();
+	// The snapshot must be this exercise's, on this row's own day: Undo puts a day back, never moves it.
+	if (
+		raw !== '' &&
+		(!before ||
+			before.exerciseId !== row.exerciseId ||
+			localDay(before.doneAt, tz) !== localDay(row.doneAt, tz))
+	) {
+		return refused();
+	}
 	if (!undoSave(getDb(), setId, before)) return refused();
 	return { action: 'undoDone' as const, ok: true as const };
 }
@@ -300,9 +310,10 @@ export async function restoreDayFrom({ params, request, locals }: LogEvent) {
 	if (!snaps) {
 		return fail(400, { action: 'restoreDay', message: t().exercise.refused.dayPutBack });
 	}
+	if (!locals.user) throw error(401);
 	requireExerciseInWall(getDb(), wallOf(params, locals), snaps[0].exerciseId);
 	try {
-		restoreSets(getDb(), snaps);
+		restoreSets(getDb(), snaps, locals.user.timezone);
 	} catch {
 		return fail(400, { action: 'restoreDay', message: t().exercise.refused.dayPutBack });
 	}

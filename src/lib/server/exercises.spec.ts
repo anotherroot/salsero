@@ -521,7 +521,7 @@ describe('one entry a day', () => {
 		const snaps = deleteDay(db, ex, '2026-10-15', TZ);
 		expect(snaps.map((s) => s.durationS)).toEqual([240, 120]);
 		expect(exerciseHistory(db, ex)).toHaveLength(1);
-		restoreSets(db, snaps);
+		restoreSets(db, snaps, TZ);
 		expect(exerciseHistory(db, ex)).toHaveLength(3);
 		expect(exerciseSummary(db, ex, TZ).times).toBe(2);
 	});

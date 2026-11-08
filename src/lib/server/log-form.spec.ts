@@ -51,6 +51,7 @@ function post(dance: string, fields: Record<string, string>) {
 let db: Db;
 let figureExerciseId: number;
 let drillId: number;
+const DRILL_EVERY_DAYS = 2;
 let bachataDrillId: number;
 
 beforeEach(() => {
@@ -69,7 +70,7 @@ beforeEach(() => {
 	)!.id;
 	drillId = createCustomExercise(db, U1_SALSA, {
 		name: 'Son switch',
-		everyDays: 2,
+		everyDays: DRILL_EVERY_DAYS,
 		notes: null
 	}).id;
 	bachataDrillId = createCustomExercise(db, U1_BACHATA, {
@@ -283,7 +284,7 @@ describe('saveDoneFrom', () => {
 			action: 'done',
 			ok: true,
 			before: null,
-			backDays: Math.max(STEPS.gotit.floor, 2)
+			backDays: Math.max(STEPS.gotit.floor, DRILL_EVERY_DAYS)
 		});
 		expect(only()).toMatchObject({ durationS: 252, rating: 4, note: 'ok' });
 	});
@@ -370,6 +371,23 @@ describe('undoDoneFrom', () => {
 		expect(only()).toEqual(row);
 	});
 
+	it('refuses a same-exercise before from another day, leaving the row', async () => {
+		await saveDoneFrom(post('salsa', { exerciseId: String(drillId), rating: '3' }));
+		const row = only();
+		const other = JSON.stringify({
+			exerciseId: drillId,
+			doneAt: noonOf('2026-10-01', TZ),
+			durationS: null,
+			reps: null,
+			rating: 1,
+			note: null,
+			playerJson: null
+		});
+		const res = await undoDoneFrom(post('salsa', { setId: String(row.id), before: other }));
+		expect(res).toMatchObject({ status: 400, data: { action: 'undoDone' } });
+		expect(only()).toEqual(row);
+	});
+
 	it('is a 404 for a set of another person, leaving it', async () => {
 		const c = makeClass(db);
 		const s = logSet(db, {
@@ -436,6 +454,87 @@ describe('deleteDayFrom and restoreDayFrom', () => {
 		).rejects.toMatchObject({ status: 404 });
 		const res = await deleteDayFrom(post('salsa', { exerciseId: String(drillId), day: 'nope' }));
 		expect(res).toMatchObject({ status: 400, data: { action: 'deleteDay' } });
+	});
+
+	const U2 = { ...USER, id: 'u2' };
+	const day = '2026-10-28';
+	const snapOf = (exerciseId: number, hour = 12) =>
+		JSON.stringify([
+			{
+				exerciseId,
+				doneAt: noonOf(day, TZ) + (hour - 12) * 3_600_000,
+				durationS: 60,
+				reps: null,
+				rating: 3,
+				note: null,
+				playerJson: null
+			}
+		]);
+	const asU2 = (fields: Record<string, string>) => {
+		const ev = post('salsa', fields);
+		ev.locals = { user: U2 } as App.Locals;
+		return ev;
+	};
+
+	it('refuses another person’s snapshots with a 404, writing nothing', async () => {
+		makeClass(db);
+		await expect(restoreDayFrom(asU2({ snapshots: snapOf(drillId) }))).rejects.toMatchObject({
+			status: 404
+		});
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+
+	it('refuses a group drill’s snapshots with a 404, writing nothing', async () => {
+		const c = makeClass(db);
+		const ev = post('salsa', { snapshots: snapOf(c.drill) });
+		ev.locals = { user: { ...USER, id: 'u3' } } as App.Locals;
+		await expect(restoreDayFrom(ev)).rejects.toMatchObject({ status: 404 });
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+
+	it('deleteDayFrom on another person’s exercise is a 404, deleting nothing', async () => {
+		makeClass(db);
+		logSet(db, {
+			exerciseId: drillId,
+			doneAt: noonOf(day, TZ),
+			durationS: null,
+			reps: null,
+			rating: 3,
+			note: null,
+			playerJson: null
+		});
+		await expect(deleteDayFrom(asU2({ exerciseId: String(drillId), day }))).rejects.toMatchObject({
+			status: 404
+		});
+		expect(db.select().from(sets).all()).toHaveLength(1);
+	});
+
+	it('refuses a restore when the day already has a row, inserting nothing', async () => {
+		const snapshots = snapOf(drillId);
+		await restoreDayFrom(post('salsa', { snapshots }));
+		expect(db.select().from(sets).all()).toHaveLength(1);
+		const again = await restoreDayFrom(post('salsa', { snapshots }));
+		expect(again).toMatchObject({
+			status: 400,
+			data: { action: 'restoreDay', message: 'That day could not be put back.' }
+		});
+		expect(db.select().from(sets).all()).toHaveLength(1);
+	});
+
+	it('refuses a restore after a new save that day, keeping the new save', async () => {
+		const snapshots = snapOf(drillId, 9);
+		logSet(db, {
+			exerciseId: drillId,
+			doneAt: noonOf(day, TZ),
+			durationS: null,
+			reps: null,
+			rating: 5,
+			note: 'new',
+			playerJson: null
+		});
+		const res = await restoreDayFrom(post('salsa', { snapshots }));
+		expect(res).toMatchObject({ status: 400, data: { action: 'restoreDay' } });
+		expect(db.select().from(sets).all()).toMatchObject([{ rating: 5, note: 'new' }]);
 	});
 
 	it('refuses malformed snapshots, storing nothing', async () => {
