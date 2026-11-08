@@ -88,6 +88,21 @@ of the two local days; 0 for two sets on one day; for the first set, `e = 0`):
 
 **Slower since the run-the-day design (2026-11-07):** these are the G3 numbers; see [`2026-11-07-run-the-day-design.md`](2026-11-07-run-the-day-design.md). Gotit every time now runs 3, 5, 8, 12, 18, 27, 41, 62, 93; Easy runs 7, 14, 28, 56, 112, 224, 365.
 
+**Comes back (run the day, plan 1).** A drill (`source` custom or added) can
+change how it comes back. Every other type is "by how it went", whatever is
+stored. A drill has three ways, set in Edit:
+
+- **By how it went:** the faces above decide.
+- **Every day until it feels good:** the gap is 1 day while learning. It ends
+  after 3 or 5 good days in a row (the person picks); good means I've got it or
+  Easy. Then the faces take over. The days are counted from the sets, never stored.
+- **A fixed rhythm:** every day, every 2 days, every 3 days or weekly. A plain
+  Done, no faces. The gap is N days.
+
+This is the one place a person sets a frequency. It is stored as a choice
+(`exercises.comes_back`), never as a due day. A member's entry follows the class
+drill's setting until they set their own.
+
 where `used = min(e, gap)`, and "done early" means `e < gap`.
 
 - **`used = min(e, gap)`** is the user's cap: only the days it was meant to
@@ -390,6 +405,20 @@ in them:
 - The figure page, the player and the lesson page show due-day words where
   they showed a frequency.
 
+## Warm-ups, and no lateness (run the day, plan 1)
+
+- **Warm-up** is a switch on a person's own exercise (`exercises.warmup`). A
+  warm-up has its own list, first on Today: "Warm-up · N". It sits outside the
+  daily number: the number counts the "Practice · N" list only. A group's
+  exercise never shows or saves it.
+- **Order:** warm-ups are dragged into the person's own order
+  (`warmup_order`). A drop orders the warm-ups shown today first. The rest keep
+  their order after them.
+- **Hero:** "N for today" before anything is done, "N left for today" after.
+- **No lateness.** Nothing says late or overdue. A row due today or past its day
+  shows no due wording on Today. Coming up's old "Waiting" group is "Next in
+  line".
+
 ## Decided while building
 
 - **One review per local day.** `replay` groups a day's sets; the day's **last
@@ -420,3 +449,18 @@ in them:
   exercises or the pickers' exercises; the column stays, read only as the
   first gap.
 - Coming up, Not today and Undo are built to the sections above.
+
+### Run the day, plan 1
+
+- **A skipped warm-up stays in Next in line.** A due warm-up marked Not today
+  stays in Coming up, so it can be undone. Coming up reads such a row "Not
+  today · <meta>".
+- **The gap while learning is 1 day.** Under a fixed rhythm it is N.
+- **Take and Send of "until it feels good".** The receiver keeps their own start
+  day if they already run one. Otherwise it starts on the day of the Take. A
+  copy keeps the source's start day. Clones carry Comes back, never Warm-up.
+- **Old clone pairs.** A pair written before Comes back existed reads the
+  missing field as "by how it went", so old pairs show no false difference.
+- **A following entry posts no Comes back fields.** A member's entry that follows
+  its teacher sends nothing for the card until they touch it, so saving notes
+  never copies the teacher's setting into their own.

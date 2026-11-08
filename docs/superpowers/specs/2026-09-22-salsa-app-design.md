@@ -335,6 +335,8 @@ for the data model, the popups and the panel in full.
 
 > **Replaced 2026-11-05** by [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md): Today is a number a day (default 5) taken in due-day order, not four bands; every set carries one of four faces and the gap is replayed from them; Next N brings more; Not today and Undo; Coming up lists the rest. The urgency ratio, the frequency presets and the Due / Not yet due / Inactive bands below describe the old Today and are kept for history. Past days are unchanged.
 
+> **Run the day, plan 1 (2026-11-07)** ([`2026-11-07-run-the-day-design.md`](2026-11-07-run-the-day-design.md)): Today has two lists, "Warm-up · N" first (outside the daily number) and "Practice · N". The hero reads "N for today", then "N left for today". Nothing says late. A drill can come back on a fixed rhythm or every day until it feels good, and gaps are slower; see the scheduling spec.
+
 The home page. One page serves both "exercises" and "today".
 
 - **Header:** today shows ‹ (previous day) and Settings on the band; a past
