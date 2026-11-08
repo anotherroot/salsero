@@ -257,20 +257,26 @@ describe('nothingLeftMeta', () => {
 });
 
 describe('pastGroups', () => {
-	const set = (id: number, exerciseId: number, t: string): DaySet => ({
+	const set = (
+		id: number,
+		exerciseId: number,
+		t: string,
+		durationS: number | null = null
+	): DaySet => ({
 		id,
 		exerciseId,
 		exerciseName: `E${exerciseId}`,
 		doneAt: Date.parse(`2026-10-30T${t}:00Z`),
-		durationS: null,
+		durationS,
 		reps: null,
 		rating: null,
 		note: null
 	});
-	it('groups by exercise, first done first, oldest set first', () => {
-		const g = pastGroups([set(3, 1, '20:10'), set(1, 1, '19:42'), set(2, 2, '18:05')]);
+	it('one merged entry per exercise, first done first', () => {
+		const g = pastGroups([set(3, 1, '20:10', 120), set(1, 1, '19:42', 240), set(2, 2, '18:05')]);
 		expect(g.map((x) => x.exerciseId)).toEqual([2, 1]);
-		expect(g[1].sets.map((s) => s.id)).toEqual([1, 3]);
+		expect(g[1].entry.durationS).toBe(360);
+		expect(g[0].entry.durationS).toBeNull();
 	});
 });
 

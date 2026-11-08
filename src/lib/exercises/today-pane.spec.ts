@@ -49,18 +49,18 @@ describe('dayTotals', () => {
 		rating: null,
 		note: null
 	});
-	it('counts distinct exercises, sets and time', () => {
+	it('counts distinct exercises and time', () => {
 		const sets = [
 			set(1, 1, 3900 - 8 * 60),
 			...[2, 3, 4, 5, 6, 7, 7].map((e, i) => set(i + 2, e, 60)),
 			set(9, 1, 8 * 60 - 7 * 60)
 		];
 		expect(sets).toHaveLength(9);
-		expect(dayTotals(sets)).toBe('7 exercises · 9 sets · 1 h 05');
+		expect(dayTotals(sets)).toBe('7 exercises · 1 h 05');
 	});
 	it('leaves time out when none', () => {
-		expect(dayTotals([set(1, 1, null)])).toBe('1 exercise · 1 set');
-		expect(dayTotals([])).toBe('0 exercises · 0 sets');
+		expect(dayTotals([set(1, 1, null)])).toBe('1 exercise');
+		expect(dayTotals([])).toBe('0 exercises');
 	});
 });
 
@@ -93,11 +93,11 @@ describe('in Slovenian', () => {
 	});
 
 	it.each([
-		[1, 1, '1 vaja · 1 vnos'],
-		[2, 2, '2 vaji · 2 vnosa'],
-		[3, 3, '3 vaje · 3 vnosi'],
-		[5, 5, '5 vaj · 5 vnosov']
-	])("a day's totals: %s exercises, %s sets", (e, n, line) => {
+		[1, 1, '1 vaja'],
+		[2, 2, '2 vaji'],
+		[3, 3, '3 vaje'],
+		[5, 5, '5 vaj']
+	])("a day's totals: %s exercises, %s rows", (e, n, line) => {
 		expect(sl(() => dayTotals(sets(e, n)))).toBe(line);
 	});
 });

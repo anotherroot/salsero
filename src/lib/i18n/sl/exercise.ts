@@ -194,7 +194,13 @@ export const exercise: Catalog['exercise'] = {
 		withRhythm: (rhythm) => `Ogrevanje · ${rhythm}`
 	},
 	done: {
-		learnt: 'naučeno'
+		learnt: 'naučeno',
+		learning: 'učenje',
+		warmup: 'ogrevanje',
+		saved: (back) => `Shranjeno · ${back}`,
+		added: (day) => `Dodano za ${day}`,
+		doneToday: 'Opravljeno danes',
+		stopFirst: 'Najprej ustavite štetje.'
 	},
 	refused: {
 		checkValues: 'Preverite vrednosti in poskusite znova.',

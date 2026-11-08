@@ -39,7 +39,6 @@ export const player = {
 	bpm: (n: number): string => `${n} BPM`,
 	/** Save this run's line: "3:42 · 12 figures called · logged as a set". */
 	called: (n: number): string => `${plural(n, 'figure', 'figures')} called`,
-	loggedAsSet: 'logged as a set',
 	saveTitle: 'Save this run',
 	/** What "Unsaved changes" calls the sheet. */
 	unsavedLabel: 'This run',

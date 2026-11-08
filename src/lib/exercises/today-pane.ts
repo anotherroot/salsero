@@ -34,11 +34,9 @@ export function sessionLine(
 	return t().today.session.line(i, n, logged);
 }
 
-/** A past day's totals: "7 exercises · 9 sets · 1 h 05". */
+/** A past day's totals: "7 exercises · 1 h 05". */
 export function dayTotals(sets: DaySet[]): string {
 	const exercises = new Set(sets.map((s) => s.exerciseId)).size;
 	const totalS = sets.reduce((a, s) => a + (s.durationS ?? 0), 0);
-	return (
-		t().today.totals(exercises, sets.length) + (totalS > 0 ? ` · ${practisedLabel(totalS)}` : '')
-	);
+	return t().today.totals(exercises) + (totalS > 0 ? ` · ${practisedLabel(totalS)}` : '');
 }

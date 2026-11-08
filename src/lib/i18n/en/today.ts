@@ -73,9 +73,8 @@ export const today = {
 			`${plural(count, 'exercise', 'exercises')}${minutes > 0 ? `, ${minutes} min` : ''}`,
 		nothingLogged: 'Nothing logged'
 	},
-	/** A past day's totals: "7 exercises · 9 sets". */
-	totals: (exercises: number, sets: number): string =>
-		`${plural(exercises, 'exercise', 'exercises')} · ${plural(sets, 'set', 'sets')}`,
+	/** A past day's totals: "7 exercises". */
+	totals: (exercises: number): string => plural(exercises, 'exercise', 'exercises'),
 	coming: {
 		/** The due ones beyond today's number (never "late"). */
 		waiting: 'Next in line',
@@ -89,8 +88,8 @@ export const today = {
 		loggedToday: 'Logged today',
 		loggedThatDay: 'Logged that day',
 		addSet: (name: string): string => `Add a set of ${name} to this day`,
-		/** A set with nothing to sum up. */
-		set: 'Set',
+		/** An entry with nothing to sum up. */
+		done: 'Done',
 		nothingToday: 'Nothing logged today',
 		nothingThatDay: 'Nothing logged on this day',
 		forgot: 'Forgot to log something that day?',

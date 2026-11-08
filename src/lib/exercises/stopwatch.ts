@@ -26,3 +26,8 @@ export function pauseWatch(w: Stopwatch, now: number): Stopwatch {
 export function elapsedMs(w: Stopwatch, now: number): number {
 	return w.bankedMs + (w.runningSince === null ? 0 : Math.max(0, now - w.runningSince));
 }
+
+/** Counts only while the page is visible: start when it is, pause when it is hidden. */
+export function followVisibility(w: Stopwatch, visible: boolean, now: number): Stopwatch {
+	return visible ? startWatch(w, now) : pauseWatch(w, now);
+}

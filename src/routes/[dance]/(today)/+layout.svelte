@@ -595,7 +595,7 @@
 {#snippet daySoFar()}
 	<PaneHeading title={t().today.list.soFar} subtitle={dayTotals(data.list.todaySets)} />
 	<div class="max-w-[800px] px-10 pt-[18px] pb-10">
-		<PastDay today daySets={data.list.todaySets} {kinds} {timezone} />
+		<PastDay today daySets={data.list.todaySets} {kinds} />
 	</div>
 {/snippet}
 

@@ -1,8 +1,17 @@
 /** What the exercise page shows: summary tiles, history by day, the owner row. PURE, client-safe. */
 import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
-import { classDayLabel, dateLabel, firstUpper, longDayLabel, setSummary } from '$lib/format';
+import {
+	classDayLabel,
+	dateLabel,
+	dayLabel,
+	firstUpper,
+	longDayLabel,
+	setSummary
+} from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import type { IconName } from '$lib/icons/icons';
+import { feelOf, type Feel } from '$lib/schedule/feel';
+import { mergeDay } from './day-entry';
 import type { ExerciseSummary, HistorySet, PracticeContent } from '$lib/types';
 
 export function practisedLabel(totalS: number): string {
@@ -33,6 +42,38 @@ export function historyDays(
 		else days.push({ day, label: dayName(day, today), sets: [set] });
 	}
 	return days;
+}
+
+/** One day of the page's history: its rows merged into one entry. */
+export interface HistoryDay {
+	day: string;
+	label: string;
+	amount: string | null;
+	feel: Feel | null;
+	note: string | null;
+}
+
+/** History arrives newest first; each local day is one row, merged (`mergeDay`). */
+export function historyRows(history: HistorySet[], timezone: string, today: string): HistoryDay[] {
+	const byDay = new Map<string, HistorySet[]>();
+	for (const set of history) {
+		const day = localDay(set.doneAt, timezone);
+		byDay.set(day, [...(byDay.get(day) ?? []), set]);
+	}
+	return [...byDay].map(([day, rows]) => {
+		const entry = mergeDay(rows);
+		const label = dayLabel(day);
+		return {
+			day,
+			label:
+				day.slice(0, 4) === today.slice(0, 4)
+					? label
+					: t().exercise.page.dayWithYear(label, day.slice(0, 4)),
+			amount: setSummary({ ...entry, rating: null }) || null,
+			feel: feelOf(entry.rating),
+			note: entry.note
+		};
+	});
 }
 
 function dayName(day: string, today: string): string {

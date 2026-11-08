@@ -9,6 +9,7 @@ import { backWords, dueWords, whenWords } from '$lib/schedule/words';
 import { learningWords, rhythmWords } from '$lib/schedule/comes-back';
 import type { DueState } from '$lib/schedule/schedule';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
+import { mergeDay, type DayEntry } from './day-entry';
 import type { DaySet, ExerciseItem } from '$lib/types';
 
 export type MetaPart = { text: string; tone: 'status' | 'done' | null };
@@ -180,17 +181,17 @@ export function onTodayMessage(name: string): string {
 	return t().today.toast.onToday(name);
 }
 
-/** A past day's sets, grouped by exercise in the order they were first done. */
+/** A past day's sets, one merged entry per exercise, in the order they were first done. */
 export function pastGroups(
 	daySets: DaySet[]
-): { exerciseId: number; name: string; sets: DaySet[] }[] {
+): { exerciseId: number; name: string; entry: DayEntry }[] {
 	const groups: { exerciseId: number; name: string; sets: DaySet[] }[] = [];
 	for (const s of [...daySets].reverse()) {
 		let g = groups.find((x) => x.exerciseId === s.exerciseId);
 		if (!g) groups.push((g = { exerciseId: s.exerciseId, name: s.exerciseName, sets: [] }));
 		g.sets.push(s);
 	}
-	return groups;
+	return groups.map((g) => ({ exerciseId: g.exerciseId, name: g.name, entry: mergeDay(g.sets) }));
 }
 
 /**

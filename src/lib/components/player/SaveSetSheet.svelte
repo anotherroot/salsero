@@ -17,7 +17,7 @@
 		/** The exercise the run was opened from, or null when opened from a song with none. */
 		exercise: { id: number; name: string; line: string } | null;
 		exercises: PickExercise[];
-		/** "3:42 · 12 figures called · logged as a set" (`runSummary`). */
+		/** "3:42 · 12 figures called" (`runSummary`). */
 		summary: string;
 		/** Posted as `durationS`. */
 		durationS: number;

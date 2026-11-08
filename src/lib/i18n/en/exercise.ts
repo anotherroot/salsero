@@ -210,7 +210,17 @@ export const exercise = {
 	/** The Done sheet. */
 	done: {
 		/** Under a face's time when saving it finishes a learning drill. */
-		learnt: 'learnt'
+		learnt: 'learnt',
+		/** The band's subtitle: "Drill · learning · 3:20". */
+		learning: 'learning',
+		warmup: 'warm-up',
+		/** The toast after Done; `back`: when it comes back, lower case. */
+		saved: (back: string): string => `Saved · ${back}`,
+		/** The toast after Done on a past day; `day`: "Thu 5 Nov". */
+		added: (day: string): string => `Added to ${day}`,
+		/** The pinned button once the exercise has today's entry. */
+		doneToday: 'Done today',
+		stopFirst: 'Stop the count first.'
 	},
 	/** What a refused log or page action says. */
 	refused: {

@@ -60,7 +60,7 @@ export const today: Catalog['today'] = {
 		summary: (count, minutes) => `${slCount(count, VAJA)}${minutes > 0 ? `, ${minutes} min` : ''}`,
 		nothingLogged: 'Ni vnosov'
 	},
-	totals: (exercises, sets) => `${slCount(exercises, VAJA)} · ${slCount(sets, VNOS)}`,
+	totals: (exercises) => slCount(exercises, VAJA),
 	coming: {
 		waiting: 'Naslednje na vrsti',
 		paused: 'Na premoru',
@@ -73,7 +73,7 @@ export const today: Catalog['today'] = {
 		loggedToday: 'Vneseno danes',
 		loggedThatDay: 'Vneseno tisti dan',
 		addSet: (name) => `Dodaj vnos za ta dan: ${name}`,
-		set: 'Vnos',
+		done: 'Opravljeno',
 		nothingToday: 'Danes še ni vnosov',
 		nothingThatDay: 'Ta dan ni vnosov',
 		forgot: 'Manjka kakšen vnos za ta dan?',

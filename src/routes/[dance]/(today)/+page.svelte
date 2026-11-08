@@ -82,7 +82,6 @@
 			daySets={past.daySets}
 			exercises={past.exercises}
 			{kinds}
-			{timezone}
 			onlog={(id) => (openId = id)}
 		/>
 	</Screen>

@@ -12,7 +12,8 @@ import {
 	practisedLabel,
 	setMeta,
 	setTitle,
-	historyTiles
+	historyTiles,
+	historyRows
 } from './exercise-page';
 
 const TZ = 'Europe/Ljubljana';
@@ -65,6 +66,48 @@ describe('historyTiles', () => {
 			{ value: '17 min', label: 'in all' }
 		]);
 		expect(historyTiles({ times: 1, totalS: 0 })[0]).toEqual({ value: '1', label: 'time' });
+	});
+});
+
+describe('historyRows', () => {
+	const row = (
+		day: string,
+		hhmm: string,
+		durationS: number | null,
+		rating: number | null,
+		note: string | null
+	): HistorySet => ({
+		...at(day, hhmm, note),
+		durationS,
+		rating
+	});
+	it('merges a day into one row, newest day first', () => {
+		const rows = historyRows(
+			[
+				row('2026-10-15', '21:00', 120, 2, 'Lost the clave'),
+				row('2026-10-15', '10:00', 240, 4, null),
+				row('2026-10-10', '10:00', null, null, null)
+			],
+			TZ,
+			'2026-11-07'
+		);
+		expect(rows).toEqual([
+			{
+				day: '2026-10-15',
+				label: 'Thu 15 Oct',
+				amount: '6 min',
+				feel: 'getting',
+				note: 'Lost the clave'
+			},
+			{ day: '2026-10-10', label: 'Sat 10 Oct', amount: null, feel: null, note: null }
+		]);
+	});
+	it('adds old reps to the amount and writes another year in full', () => {
+		const old = { ...row('2025-12-31', '10:00', 360, null, null), reps: 40 };
+		expect(historyRows([old], TZ, '2026-11-07')[0]).toMatchObject({
+			label: 'Wed 31 Dec, 2025',
+			amount: '6 min · 40 reps'
+		});
 	});
 });
 
