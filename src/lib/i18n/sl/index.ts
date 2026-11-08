@@ -24,6 +24,8 @@
 //   Position                              položaj
 //   Hold                                  drža
 //   Section (of a video)                  odsek
+//   Section (of a song: Intro, Mambo …)   del (Uvod, Kitica, Coro, Montuno, Mambo, Break, Zaključek)
+//   Count off (a song's section)          brez štetja
 //   Point (a saved moment)                točka
 //   Recording                             posnetek
 //   Set (a logged practice)               vnos

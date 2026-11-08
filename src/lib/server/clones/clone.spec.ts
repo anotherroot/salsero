@@ -663,6 +663,9 @@ describe('cloneInto: drills and songs', () => {
 				anchorsJson: '[[0,1]]',
 				tempoFactor: 2,
 				sampleStartS: 30,
+				sectionsJson: '[{"at":4,"name":"Mambo","countOff":false}]',
+				startS: 3,
+				startFoundS: 18,
 				sourceUrl: 'https://youtu.be/x'
 			})
 			.where(eq(songs.id, song))
@@ -700,6 +703,9 @@ describe('cloneInto: drills and songs', () => {
 			'anchorsJson',
 			'tempoFactor',
 			'sampleStartS',
+			'sectionsJson',
+			'startS',
+			'startFoundS',
 			'sizeBytes'
 		] as const)
 			expect(made[k]).toEqual(src[k]);

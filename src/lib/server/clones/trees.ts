@@ -19,6 +19,7 @@ import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { timingLine } from '$lib/figures/page';
 import { localDay } from '$lib/day/day';
 import { clock, dateLabel, dayMonth, plural } from '$lib/format';
+import { parseSections, sectionsJson } from '$lib/songs/sections';
 import { PARTNER_LABEL, TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
 import { comesBackWords, FACES, parseComesBack } from '$lib/schedule/comes-back';
 import { spotLabel } from '$lib/video/spots';
@@ -341,6 +342,18 @@ function songFlat(db: Db, id: number, b: Builder): void {
 		'sample',
 		s.sampleStartS === null ? '' : String(s.sampleStartS),
 		s.sampleStartS === null ? 'Automatic' : `From ${clock(s.sampleStartS)}`
+	);
+	// The whole list is one field, as a routine's slots are; an unreadable one compares as none.
+	const sections = parseSections(s.sectionsJson);
+	b.add(
+		'sections',
+		sections.length === 0 ? '' : sectionsJson(sections),
+		sections.length === 0 ? 'None' : plural(sections.length, 'section', 'sections')
+	);
+	b.add(
+		'musicStart',
+		s.startS === null ? '' : String(s.startS),
+		s.startS === null ? 'As found' : `Starts at ${clock(s.startS)}`
 	);
 }
 

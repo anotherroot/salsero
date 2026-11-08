@@ -19,7 +19,7 @@ function times(v: unknown, name: string): number[] | string {
 
 export function parseAnalysis(
 	body: unknown
-): { beats: number[]; downbeats: number[]; durationS: number } | string {
+): { beats: number[]; downbeats: number[]; durationS: number; startS: number | null } | string {
 	if (typeof body !== 'object' || body === null) return 'body must be an object';
 	const b = body as Record<string, unknown>;
 	const beats = times(b.beats, 'beats');
@@ -37,5 +37,12 @@ export function parseAnalysis(
 	if (downbeats.length > 0 && downbeats[downbeats.length - 1] > end) {
 		return 'downbeats run past the end of the song';
 	}
-	return { beats, downbeats, durationS };
+	// Where the music starts (spec 2026-11-08); an older worker sends none.
+	const startS = b.startS ?? null;
+	if (
+		startS !== null &&
+		(typeof startS !== 'number' || !Number.isFinite(startS) || startS < 0 || startS >= durationS)
+	)
+		return 'startS must be a time inside the song';
+	return { beats, downbeats, durationS, startS };
 }
