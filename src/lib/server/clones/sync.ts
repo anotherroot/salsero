@@ -105,7 +105,7 @@ type Family = { page: Member; members: Member[]; editable: Member[]; mode: 'sync
  * Null when they cannot read the page's row, it is archived, it has no other
  * live copy they read, or they edit none of them.
  */
-function familyOf(db: Db, userId: string, kind: CloneKind, id: number): Family | null {
+export function familyOf(db: Db, userId: string, kind: CloneKind, id: number): Family | null {
 	const all = visibleMembers(db, userId, kind, id);
 	const page = all.find((m) => m.id === id);
 	if (!page || page.archived) return null;

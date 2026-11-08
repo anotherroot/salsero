@@ -117,15 +117,42 @@ describe('stepStatus', () => {
 		save(T, { notes: 'New notes' });
 		recording(T);
 		const { lines } = stepStatus(db, 'u1', 'figure', T);
-		expect(lines).toHaveLength(2);
-		const g1 = lines.find((l) => l.id === G1)!;
-		const g2 = lines.find((l) => l.id === G2)!;
-		expect(g1).toMatchObject({ place: 'Salsa Tuesdays', state: 'changed', fields: ['Timing'] });
-		expect(g2.place).toBe('Rueda club');
-		expect(g2.state).toBe('behind');
-		expect(g2.fields).toContain('Notes');
-		expect(g2.fields).toHaveLength(2);
-		expect(g2.fields[1]).toMatch(/^Recording/);
+		// G1 changed timing AND is behind on the rest; G2 is only behind. Most urgent first.
+		expect(lines.map((l) => [l.id, l.state])).toEqual([
+			[G1, 'changed'],
+			[G2, 'behind'], // places in order within a state: Rueda club, Salsa Tuesdays
+			[G1, 'behind']
+		]);
+		expect(lines[0]).toMatchObject({ place: 'Salsa Tuesdays', fields: ['Timing'] });
+		expect(lines[1]).toMatchObject({ place: 'Rueda club' });
+		expect(lines[1].fields).toHaveLength(2);
+		expect(lines[1].fields[0]).toBe('Notes');
+		expect(lines[1].fields[1]).toMatch(/^Recording/);
+		expect(lines[2].fields).toEqual(lines[1].fields);
+	});
+
+	it('one member in two states gives two lines, counted as one copy', () => {
+		save(T, { notes: 'Ana notes' });
+		setStart(G1, 3);
+		const { lines } = stepStatus(db, 'u1', 'figure', T);
+		expect(lines.filter((l) => l.id === G1).map((l) => l.state)).toEqual(['changed', 'behind']);
+		expect(outOfStep(db, 'u1', 'figure', [T]).get(T)).toBe(2); // G1 and G2, not three lines
+	});
+
+	it('a person who edits no live copy of the family gets no lines and no count', async () => {
+		// Luka reads the club's copy only; make a second club copy he reads too, differing.
+		const LU = createLesson(db, T2_SALSA, { lessonDay: '2026-11-05', title: 'Week 2', notes: null })
+			.lesson.id;
+		linkFigure(db, LU, G2, 'u1');
+		publishLesson(db, T2_SALSA, LU, T0);
+		joinTeam(db, 'u2', 2, T0);
+		await db.delete(figures).where(eq(figures.id, F2)).run();
+		save(G1, { notes: 'One' });
+		save(G2, { notes: 'Two' });
+		expect(stepStatus(db, 'u2', 'figure', G1)).toEqual({ lines: [] });
+		expect(outOfStep(db, 'u2', 'figure', [G1, G2])).toEqual(new Map());
+		// Ana, who edits them, is told.
+		expect(stepStatus(db, 'u1', 'figure', G1).lines.length).toBeGreaterThan(0);
 	});
 
 	it('both changed the notes: both', () => {
