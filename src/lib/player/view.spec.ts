@@ -2,21 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { getDance } from '$lib/dances/dances';
 import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
-import type { CountTakeRow } from '$lib/types';
+import type { CountTakeRow, RunClip, RunDetails } from '$lib/types';
 import {
-	exerciseLine,
+	aboutShown,
+	mayAutoPlay,
+	slotDetails,
+	aboutPreview,
+	hasDetails,
+	routinePreview,
+	runTitle,
+	voicePreview,
+	exercisePlayerHref,
 	playState,
 	practiceBack,
-	routineHeading,
+	routinePlace,
+	stepDone,
+	stepMarks,
 	runSubtitle,
 	runSources,
-	runSummary,
-	runTitleCompact,
 	setupSubtitle,
 	slotTone,
 	stageDigit,
 	stageDots,
-	stageSize,
 	voiceKind
 } from './view';
 
@@ -26,12 +33,6 @@ const bachata = getDance('bachata');
 const EX = { id: 9, name: 'Casino drill' };
 
 describe('what the Practice page derives', () => {
-	it('sizes the stage by what else shares the screen', () => {
-		expect(stageSize(true, true)).toBe(136);
-		expect(stageSize(false, true)).toBe(176);
-		expect(stageSize(true, false)).toBe(176);
-		expect(stageSize(false, false)).toBe(230);
-	});
 	it('puts the 1 in a disc, dims a paused count, shows – before the first beat', () => {
 		expect(stageDigit(1, false)).toEqual({ text: '1', disc: true, dim: false });
 		expect(stageDigit(1, true)).toEqual({ text: '1', disc: false, dim: true });
@@ -53,37 +54,6 @@ describe('what the Practice page derives', () => {
 		);
 		expect(setupSubtitle({ name: 'Uno', figureIds: [9] })).toBe('Uno · 1 figure');
 		expect(setupSubtitle(null)).toBeUndefined();
-	});
-	it('says what the run is running with', () => {
-		expect(
-			runSubtitle(
-				{ routine: 'Casino basics', song: true, speed: 0.9, bpm: null, clave: '3-2' },
-				salsa
-			)
-		).toBe('Casino basics · 0.9× · clave 3-2');
-		expect(
-			runSubtitle({ routine: null, song: false, speed: 1, bpm: 180, clave: '2-3' }, salsa)
-		).toBe('180 BPM · clave 2-3');
-		expect(
-			runSubtitle(
-				{ routine: 'Sensual flow', song: false, speed: 1, bpm: 128, clave: null },
-				bachata
-			)
-		).toBe('Sensual flow · 128 BPM');
-		expect(
-			runSubtitle(
-				{ routine: 'Sensual flow', song: false, speed: 1, bpm: 128, clave: '3-2' },
-				bachata
-			)
-		).toBe('Sensual flow · 128 BPM');
-		expect(
-			runSubtitle({ routine: null, song: true, speed: 1, bpm: null, clave: null }, salsa)
-		).toBeUndefined();
-	});
-	it('sums the run up, dropping the calls when nothing was called by design', () => {
-		expect(runSummary(222, 12)).toBe('3:42 · 12 figures called');
-		expect(runSummary(60, 1)).toBe('1:00 · 1 figure called');
-		expect(runSummary(252, null)).toBe('4:12');
 	});
 	it('says why Play cannot start', () => {
 		const base = { source: 'song', songId: 4, ready: true, error: null, starting: false } as const;
@@ -128,23 +98,6 @@ describe('what the Practice page derives', () => {
 		expect(voiceKind(takes, 'all', 180)).toBe('Built-in');
 		expect(voiceKind(takes, 'salsa', 230)).toBe('Built-in');
 		expect(voiceKind(takes, 'salsa', null)).toBe('Built-in');
-	});
-	it('describes the exercise a run logs to', () => {
-		const today = '2026-10-31';
-		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-10-31' };
-		expect(exerciseLine({ source: 'routine', state, today })).toBe('Routine · Due today');
-		expect(
-			exerciseLine({ source: 'figure', state: { ...state, dueDay: '2026-10-29' }, today })
-		).toBe('Figure practice · Due today');
-		expect(exerciseLine({ source: 'figure', state: { ...state, lastDay: null }, today })).toBe(
-			'Figure practice · New'
-		);
-		expect(exerciseLine({ source: 'figure', state: null, today })).toBe('Figure practice');
-	});
-	it('shows no number for a count run without a tempo', () => {
-		expect(
-			runSubtitle({ routine: null, song: false, speed: 1, bpm: null, clave: null }, salsa)
-		).toBeUndefined();
 	});
 	it('goes back where Practice was opened from', () => {
 		const p = {
@@ -236,19 +189,31 @@ describe('the run on desk', () => {
 		expect(slotTone(0, null)).toBe('next');
 		expect(slotTone(0, 0)).toBe('now'); // a looping routine back at its first slot: nothing is past
 	});
+});
 
-	it('heads the routine with the slot it is on', () => {
-		expect(routineHeading(1, 6)).toBe('Routine · slot 2 of 6');
-		expect(routineHeading(null, 6)).toBe('Routine · 6 slots');
-		expect(routineHeading(null, 1)).toBe('Routine · 1 slot');
+describe('the routine run', () => {
+	it('says where the run is, or how long the routine is', () => {
+		expect(routinePlace(4, 16)).toBe('5 of 16');
+		expect(routinePlace(null, 16)).toBe('16 figures');
+		expect(routinePlace(null, 1)).toBe('1 figure');
 	});
 
-	it('makes the band title compact past 18 characters or with a word over 10', () => {
-		expect(runTitleCompact('Practice')).toBe(false);
-		expect(runTitleCompact('Vivir mi vida')).toBe(false); // 13
-		expect(runTitleCompact('Valió la pena ahora')).toBe(true); // 19
-		expect(runTitleCompact('Desesperadamente')).toBe(true); // one word of 16
-		expect(runTitleCompact('Ritmo, ritmo y más')).toBe(false); // exactly 18
+	it('marks each count of a figure up to 16, else each 8-count', () => {
+		expect(stepMarks(8)).toEqual({ marks: 8, per: 1 });
+		expect(stepMarks(16)).toEqual({ marks: 16, per: 1 });
+		expect(stepMarks(32)).toEqual({ marks: 4, per: 8 });
+		expect(stepMarks(0)).toEqual({ marks: 1, per: 1 });
+	});
+
+	it('fills a mark per beat from the figure\'s "1"', () => {
+		const beats = Array.from({ length: 64 }, (_, i) => i * 0.5);
+		const eight = stepMarks(8);
+		expect(stepDone(beats, 4, 4, eight)).toBe(1);
+		expect(stepDone(beats, 4, 5.1, eight)).toBe(3);
+		expect(stepDone(beats, 4, 30, eight)).toBe(8);
+		expect(stepDone(beats, 4, 3, eight)).toBe(0);
+		const long = stepMarks(32);
+		expect(stepDone(beats, 4, 8.5, long)).toBe(2);
 	});
 });
 
@@ -268,21 +233,11 @@ describe('runSources', () => {
 describe('the Practice page in Slovenian', () => {
 	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
 
-	it('counts the routine’s versions and the calls with Slovenian plurals', () => {
+	it('counts the routine’s versions with Slovenian plurals', () => {
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2] }))).toBe('Prva · 2 različici');
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3, 4, 5] }))).toBe(
 			'Prva · 5 različic'
 		);
-		expect(sl(() => runSummary(222, 3))).toBe('3:42 · 3 napovedane različice');
-		expect(sl(() => runSummary(60, 1))).toBe('1:00 · 1 napovedana različica');
-	});
-
-	it('writes a speed with a decimal comma', () => {
-		expect(
-			sl(() =>
-				runSubtitle({ routine: 'Prva', song: true, speed: 0.8, bpm: null, clave: '2-3' }, salsa)
-			)
-		).toBe('Prva · 0,8× · clave 2-3');
 	});
 
 	it('says why Play waits, whose voice counts, and where Back goes', () => {
@@ -300,31 +255,215 @@ describe('the Practice page in Slovenian', () => {
 		const p = { dance: 'salsa', routine: null, song: null, exercise: null, run: null } as const;
 		expect(sl(() => practiceBack({ ...p, from: 'today' }).label)).toBe('Nazaj: Danes');
 		expect(sl(() => practiceBack({ ...p, from: null }).label)).toBe('Nazaj: Glasba');
-		expect(sl(() => routineHeading(1, 5))).toBe('Kombinacija · mesto 2 od 5');
+	});
+});
+
+describe('the exercise page opens the player', () => {
+	it('links the exercise, where it was opened from, and Play at once when asked', () => {
+		expect(exercisePlayerHref('salsa', 7, 'from=exercise', false)).toBe(
+			'/salsa/player?exercise=7&from=exercise'
+		);
+		expect(exercisePlayerHref('salsa', 7, 'from=run&skip=3,5', true)).toBe(
+			'/salsa/player?exercise=7&from=run&skip=3,5&play=1'
+		);
+	});
+});
+
+describe('the run in one player (B2)', () => {
+	const none: RunDetails = {
+		heading: 'Clave countind and clapping',
+		facts: [],
+		hasPositions: false,
+		notes: null,
+		clips: [],
+		links: []
+	};
+	const section = (n: number): RunClip => ({
+		kind: 'section',
+		src: '/lesson-videos/a.mp4',
+		startMs: n,
+		endMs: n + 1000,
+		caption: 'Nadaljevalna · 0:42–0:58'
+	});
+	const recording: RunClip = {
+		kind: 'recording',
+		src: '/recordings/r.mp4',
+		startMs: 0,
+		endMs: null,
+		caption: 'Recording'
+	};
+	const link = { url: 'https://youtu.be/x', title: 'Pa ti pa mi' };
+
+	it('has details only when there is something to read', () => {
+		expect(hasDetails(null)).toBe(false);
+		expect(hasDetails(none)).toBe(false);
+		expect(hasDetails({ ...none, facts: ['1 → 1 · 8 counts'] })).toBe(false);
+		expect(hasDetails({ ...none, notes: 'x' })).toBe(true);
+		expect(hasDetails({ ...none, hasPositions: true, facts: ['1 → 1', 'A → B'] })).toBe(true);
+		expect(hasDetails({ ...none, links: [link] })).toBe(true);
+		expect(hasDetails({ ...none, clips: [recording] })).toBe(true);
 	});
 
-	it('counts a routine’s slots with all four forms', () => {
-		expect(sl(() => [1, 2, 3, 5, 101, 102].map((n) => routineHeading(null, n)))).toEqual([
-			'Kombinacija · 1 mesto',
-			'Kombinacija · 2 mesti',
-			'Kombinacija · 3 mesta',
-			'Kombinacija · 5 mest',
-			'Kombinacija · 101 mesto',
-			'Kombinacija · 102 mesti'
+	it('previews About: a description’s first line, else what is inside', () => {
+		const drill =
+			'Do 1 to 3 repetitions of salsa step the switch to son then back to salsa and so on';
+		expect(aboutPreview({ ...none, notes: drill })).toBe(drill);
+		expect(aboutPreview({ ...none, notes: '1. Basic on 1\n2. Son' })).toBe('1. Basic on 1');
+		expect(aboutPreview({ ...none, notes: 'x', clips: [section(0)], links: [link] })).toBe(
+			'Notes · a lesson section · a link'
+		);
+		expect(aboutPreview({ ...none, clips: [section(0), section(5), recording] })).toBe(
+			'2 lesson sections · a recording'
+		);
+		expect(aboutPreview({ ...none, hasPositions: true })).toBe('Positions');
+	});
+
+	it('previews Voice: the count and the volume, or Off', () => {
+		expect(voicePreview('salsa', 1)).toBe('1 2 3 · 5 6 7 · 100%');
+		expect(voicePreview('son', 0.55)).toBe('2 3 4 · 6 7 8 · 55%');
+		expect(voicePreview('off', 0.5)).toBe('Off');
+	});
+
+	it('previews Routine: where the run is in Follow, how long it is in Still', () => {
+		expect(routinePreview(4, 16, 'follow')).toBe('5 of 16 · Follow');
+		expect(routinePreview(null, 16, 'follow')).toBe('1 of 16 · Follow');
+		expect(routinePreview(4, 16, 'still')).toBe('16 figures · Still');
+	});
+
+	it('titles the run: the exercise, else the routine, else the song, else Count only', () => {
+		expect(runTitle({ exercise: 'Warmup', routine: null, song: 'Suavemente' })).toBe('Warmup');
+		expect(runTitle({ exercise: null, routine: 'Learning pa ti', song: null })).toBe(
+			'Learning pa ti'
+		);
+		expect(runTitle({ exercise: null, routine: null, song: 'Suavemente' })).toBe('Suavemente');
+		expect(runTitle({ exercise: null, routine: null, song: null })).toBe('Count only');
+	});
+
+	it('subtitles the run: what it is, the song, the tempo as played, the clave', () => {
+		const base = {
+			kind: null,
+			songInTitle: false,
+			song: null,
+			bpm: null,
+			speed: 1,
+			clave: null
+		} as const;
+		expect(runSubtitle({ ...base, kind: 'figure', bpm: 130, clave: '2-3' }, salsa)).toBe(
+			'Figure · 130 BPM · clave 2-3'
+		);
+		expect(
+			runSubtitle(
+				{ ...base, kind: 'drill', song: { title: 'Suavemente', bpm: 125 }, speed: 0.8 },
+				salsa
+			)
+		).toBe('Drill · Suavemente · 100 BPM · 0.8×');
+		expect(
+			runSubtitle({ ...base, songInTitle: true, song: { title: 'Suavemente', bpm: 125 } }, salsa)
+		).toBe('125 BPM');
+		expect(
+			runSubtitle(
+				{ ...base, songInTitle: true, song: { title: 'X', bpm: null }, speed: 0.9 },
+				salsa
+			)
+		).toBe('0.9×');
+		expect(runSubtitle({ ...base, kind: 'routine', bpm: 128, clave: '3-2' }, bachata)).toBe(
+			'Routine · 128 BPM'
+		);
+		expect(runSubtitle(base, salsa)).toBeUndefined();
+	});
+
+	it('words it all in Slovenian', () => {
+		const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+		expect(sl(() => routinePreview(4, 16, 'follow'))).toBe('5 od 16 · Sledi');
+		expect(sl(() => runTitle({ exercise: null, routine: null, song: null }))).toBe('Samo štetje');
+		expect(
+			sl(() =>
+				runSubtitle(
+					{ kind: 'drill', songInTitle: false, song: null, bpm: 130, speed: 1, clave: '2-3' },
+					salsa
+				)
+			)
+		).toBe('Vaja · 130 BPM · clave 2-3');
+		expect(sl(() => aboutPreview({ ...none, notes: 'x', links: [link, link] }))).toBe(
+			'Zapiski · 2 povezavi'
+		);
+	});
+});
+
+describe('a slot’s details, from the routine list', () => {
+	const nine: RunDetails = {
+		heading: 'Enchufla · Doble',
+		facts: ['1 → 1 · 8 counts'],
+		hasPositions: false,
+		notes: 'Two turns',
+		clips: [],
+		links: []
+	};
+	const labelOf = (id: number) => (id === 3 ? 'Enchufla · Basic' : `#${id}`);
+
+	it('gives each of the slot’s figures, in order; one without details by name only', () => {
+		expect(slotDetails([3, 9], { 9: nine }, labelOf)).toEqual([
+			{
+				heading: 'Enchufla · Basic',
+				facts: [],
+				hasPositions: false,
+				notes: null,
+				clips: [],
+				links: []
+			},
+			nine
 		]);
+	});
+});
+
+describe('About in the run', () => {
+	const d = (heading: string): RunDetails => ({
+		heading,
+		facts: [],
+		hasPositions: false,
+		notes: 'x',
+		clips: [],
+		links: []
+	});
+	const figureDetails = { 3: d('Guapea'), 9: d('Enchufla') };
+
+	it('in a routine, shows the figure lit when it opened, until it is closed', () => {
+		expect(aboutShown({ routine: true, pinned: 9, details: null, figureDetails })?.heading).toBe(
+			'Enchufla'
+		);
+		expect(aboutShown({ routine: true, pinned: null, details: null, figureDetails })).toBeNull();
+		expect(aboutShown({ routine: true, pinned: 4, details: null, figureDetails })).toBeNull();
+	});
+	it('otherwise shows the exercise’s, when it has any', () => {
+		expect(
+			aboutShown({ routine: false, pinned: null, details: d('Warmup'), figureDetails })?.heading
+		).toBe('Warmup');
+		expect(
+			aboutShown({
+				routine: false,
+				pinned: null,
+				details: { ...d('X'), notes: null },
+				figureDetails
+			})
+		).toBeNull();
+	});
+});
+
+describe('▶ on the exercise page', () => {
+	it('starts by itself only after a tap in this page, where the browser can tell', () => {
+		expect(mayAutoPlay({ hasBeenActive: true })).toBe(true);
+		expect(mayAutoPlay({ hasBeenActive: false })).toBe(false);
+		expect(mayAutoPlay(undefined)).toBe(true);
+	});
+});
+
+describe('the Practice page in Slovenian, more', () => {
+	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
+
+	it('counts a routine’s figures with the noun forms', () => {
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3] }))).toBe(
 			'Prva · 3 različice'
 		);
-	});
-
-	it('counts the calls with all four forms', () => {
-		expect(sl(() => [1, 2, 3, 5].map((n) => runSummary(90, n)))).toEqual([
-			'1:30 · 1 napovedana različica',
-			'1:30 · 2 napovedani različici',
-			'1:30 · 3 napovedane različice',
-			'1:30 · 5 napovedanih različic'
-		]);
-		expect(sl(() => runSummary(252, null))).toBe('4:12');
 	});
 
 	it('says Play, starting, and whose voice counts', () => {
@@ -341,16 +480,6 @@ describe('the Practice page in Slovenian', () => {
 			lengthS: 1.3
 		}));
 		expect(sl(() => voiceKind(takes, 'salsa', 180))).toBe('Vaš');
-	});
-
-	it('names the exercise a run logs to', () => {
-		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-10-31' };
-		expect(sl(() => exerciseLine({ source: 'figure', state: null, today: '2026-10-31' }))).toBe(
-			'Vaja z različico'
-		);
-		expect(sl(() => exerciseLine({ source: 'routine', state, today: '2026-10-31' }))).toBe(
-			'Kombinacija · Na vrsti danes'
-		);
 	});
 
 	it('goes back to an opener by its own name, after a colon', () => {

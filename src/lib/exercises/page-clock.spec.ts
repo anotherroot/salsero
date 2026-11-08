@@ -34,8 +34,10 @@ class FakeDocument extends EventTarget {
 let flush: () => void;
 type Clock = {
 	readonly seconds: number;
+	readonly watch: { bankedMs: number; runningSince: number | null };
 	start(): void;
 	restart(opts?: { idle?: boolean }): void;
+	carry(watch: { bankedMs: number; runningSince: number | null }): void;
 };
 let pageClock: (opts?: { idle?: boolean }) => Clock;
 let root: (setup: () => void) => () => void;
@@ -76,6 +78,34 @@ function mount(opts?: { idle?: boolean }): { clock: Clock; stop: () => void } {
 }
 
 describe('pageClock', () => {
+	it('goes on from the time a trip to the player brought back, idle or not', () => {
+		const { clock, stop } = mount({ idle: true });
+		clock.carry({ bankedMs: 600_000, runningSince: null });
+		expect(clock.seconds).toBe(600);
+		vi.advanceTimersByTime(5_000);
+		expect(clock.seconds).toBe(605);
+		clock.restart();
+		expect(clock.seconds).toBe(0);
+		stop();
+	});
+
+	it('carries a trip’s time brought back after it mounted (back from the player)', () => {
+		const { clock, stop } = mount();
+		vi.advanceTimersByTime(2_000);
+		clock.carry({ bankedMs: 600_000, runningSince: null });
+		expect(clock.seconds).toBe(600);
+		vi.advanceTimersByTime(5_000);
+		expect(clock.seconds).toBe(605);
+		stop();
+	});
+
+	it('hands out its watch, for the trip to the player', () => {
+		const { clock, stop } = mount();
+		vi.advanceTimersByTime(5_000);
+		expect(clock.watch).toEqual({ bankedMs: 0, runningSince: 1_700_000_000_000 });
+		stop();
+	});
+
 	it('counts the seconds since the page opened', () => {
 		const { clock, stop } = mount();
 		expect(clock.seconds).toBe(0);

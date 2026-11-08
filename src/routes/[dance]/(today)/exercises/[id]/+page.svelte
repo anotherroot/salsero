@@ -4,7 +4,7 @@
 	import { backWhenSettled, leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -59,6 +59,7 @@
 	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
 	import { announceSaved, saved as savedToast } from '$lib/exercises/saved.svelte';
 	import { pageClock } from '$lib/exercises/page-clock.svelte';
+	import { backFromPlayer, dropTrip, leaveForPlayer } from '$lib/exercises/clock-trip';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
@@ -120,11 +121,31 @@
 	});
 	/** A tap or key anywhere in the page's pane. */
 	const wake = () => today?.wake();
-	/** The Practise with card's last run: Done saves its player_json. */
-	let practiceRun = $state<{ durationS: number; playerJson: string } | null>(null);
-	/** A count or a song plays in Practise with: Done waits. */
-	let playing = $state(false);
-	/** Remounts Practise with after a save: its run is spent. */
+	/*
+	 * A trip to the player and back is one visit (one-player design): the page
+	 * leaves its watch when Practise with opens the player and takes it back,
+	 * the trip's time counted, only when Back from the player lands here
+	 * (`clock-trip.ts`, the tab's sessionStorage). Reached any other way, the
+	 * trip is not this visit's.
+	 */
+	afterNavigate(({ from }) => {
+		try {
+			if (from?.route.id === '/[dance]/player') {
+				const carried = backFromPlayer(sessionStorage, data.exercise.id, Date.now());
+				if (carried) clock.carry(carried);
+			} else dropTrip(sessionStorage, data.exercise.id);
+		} catch {
+			// No storage (a private window): the time starts over.
+		}
+	});
+	function tripLeave() {
+		try {
+			leaveForPlayer(sessionStorage, data.exercise.id, clock.watch, Date.now());
+		} catch {
+			// No storage: the time starts over on the way back.
+		}
+	}
+	/** Remounts Practise with after a save, so its line reads the exercise's new memory. */
 	let practiceKey = $state(0);
 	let doneOpen = $state(false);
 	/** The fixed rhythm's save, out (no sheet holds a spinner for it). */
@@ -155,7 +176,6 @@
 			const result = await act('done', {
 				exerciseId: data.exercise.id,
 				durationS: clock.seconds,
-				run: practiceRun?.playerJson ?? '',
 				rating: ''
 			});
 			if (pageId !== at) return;
@@ -179,7 +199,6 @@
 			undo: { setId: r.setId, before: r.before }
 		});
 		doneOpen = false;
-		practiceRun = null;
 		practiceKey++;
 		leaving = true;
 		// In a run: the next in place of this page, once the sheet's Back has landed.
@@ -385,8 +404,6 @@
 			undoSnapshots = null;
 			doneOpen = false;
 			dayOpen = false;
-			practiceRun = null;
-			playing = false;
 			saving = false;
 			leaving = false;
 			clock.restart({ idle: autoIdle() });
@@ -420,10 +437,8 @@
 				exercise={data.exercise}
 				content={data.practice.content}
 				songs={data.songs}
-				takes={data.takes}
 				playerFrom={run?.playerFrom ?? 'from=exercise'}
-				onrun={(r) => (practiceRun = r)}
-				onactive={(on) => (playing = on)}
+				onleave={tripLeave}
 			/>
 		{/key}
 	{/if}
@@ -924,7 +939,6 @@
 		<!-- In a run: Skip beside Done; a fixed rhythm's is the green Done · next. -->
 		<DoneBar
 			doneToday={data.entryToday !== null}
-			{playing}
 			busy={saving}
 			sheet={!fixed}
 			fixedInRun={run !== null && fixed}
@@ -958,7 +972,6 @@
 			})}
 			faces={data.faces}
 			seconds={clock.seconds}
-			run={practiceRun?.playerJson ?? null}
 			day={null}
 			{simple}
 			current={data.entryToday}
