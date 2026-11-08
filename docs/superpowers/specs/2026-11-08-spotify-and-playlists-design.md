@@ -65,13 +65,26 @@ with a spec):
 | YouTube Music (`music.youtube.com`) | Classified like YouTube: `watch?v=` a song, `playlist?list=` a pick list |
 | Anything else | As today (yt-dlp tries it) |
 
-The box's placeholder and helper line say it takes YouTube or Spotify,
-songs or playlists. A Spotify icon is added to the icon set beside YouTube's.
+The box's label is "YouTube or Spotify link", with the helper line "A song, a
+playlist or an album. From a playlist you pick which songs to add." The
+button says what will happen as the link is typed: "Add song" for a song,
+"Read the playlist" for a playlist or album, which also hides Title (each
+song gets its own in the pick list). A Spotify icon is added to the icon set
+beside YouTube's.
+
+The mockups the user approved (2026-11-08, `2026-11-08-spotify-mockups/`:
+`screens.html`, and `pick-list.html` for the pick list, option A2) are the look for every screen
+below: Music's "To pick" section, the steps page, Song details' "Audio from"
+card and the question before downloading again.
 
 ### A Spotify song
 
-It appears in Being added like any pasted song, with the same steps (Added,
-Download, Find the beat). When it lands, its title and artist are Spotify's
+It appears in Being added like any pasted song, its grey line saying where it
+is ("Grupo Niche · Finding it on YouTube"). Its page has one more step:
+Added ("From Spotify"), **Find it on YouTube** (done: the video's title and
+length), Download, Find the beat. When the search finds nothing it fails with
+"No match on YouTube", offering Retry, **Use a YouTube link** and Upload a
+file instead. When it lands, its title and artist are Spotify's
 (cleaner than a YouTube video title), unless the person typed a title in the
 box, which wins as it does today.
 
@@ -80,12 +93,19 @@ box, which wins as it does today.
 The song page and Song details today show "From <url>" as plain text. They
 become links (opening in a new tab):
 
-- A YouTube song: "From YouTube ↗" (the video).
-- A Spotify song: "From Spotify ↗ · Audio from YouTube ↗", the second being
-  the video the worker actually downloaded.
+- The steps page and a failed song: "From Spotify ↗ · Audio from YouTube ↗"
+  (a YouTube song: "From YouTube ↗").
+- Song details: an **Audio from** card under Save, a row per source: Spotify
+  (its title · artist, ↗) and "YouTube · the audio" (the video's title, ↗),
+  the second being the video the worker actually downloaded. A YouTube song
+  has only the YouTube row.
 
-Song details gets **Use another YouTube link**: a field taking a YouTube video
-link. Saving it asks first (a dialog, not `confirm()`): the song downloads
+Song details gets **Use another YouTube link** (a tonal button under the
+card). It opens an "Another YouTube link" field in the sheet, with the help
+line "The song downloads again and its beat is found again. The 1s you tapped
+are cleared.", **Download this one** and Cancel. Download this one asks first
+(a dialog, not `confirm()`: "Download the audio again?", saying how many
+copies kept in step get it too): the song downloads
 again, its beat grid is found again, and **the 1s tapped for the count are
 cleared**, so the count needs tapping again; the sample start goes back to
 automatic. The song goes back to Being added with the usual steps, then is
@@ -111,31 +131,51 @@ version), not for an uploaded file.
 
 ### A playlist
 
-1. Pasting a playlist link closes the box and puts a row at the top of Music:
-   "Reading playlist… · the home PC picks it up within a minute or two",
-   with Cancel. It does not count as a song.
-2. When the worker has read it, the row becomes "Pick songs · <playlist
-   name> · N songs" and **the Music tab shows a dot** (phone tab bar and the
-   desktop side). Tapping the row opens the pick list.
+1. Pasting a playlist link closes the box and puts a row in Music's Being
+   added: "Reading playlist…", "YouTube · the home PC reads it within a
+   minute or two", with Cancel. It does not count as a song.
+2. When the worker has read it, it moves to a **To pick** section at the top
+   of Music, above Being added: a row with the playlist's name, "Spotify
+   playlist · N songs" and a "Pick songs" pill, and **the Music tab shows a
+   dot** (phone tab bar and the desktop side). Tapping the row opens the pick
+   list.
 3. If reading fails (private playlist, a bad link), the row shows the error
    with Retry and Dismiss, like a failed song.
 
 **The pick list** is a page in the Music area (on desktop, in the item pane
-beside the Music list):
+beside the Music list). Its look was picked from mockups (option A2,
+2026-11-08):
 
-- The playlist's name and count, a style picker for the songs it adds
-  (default: the dance's first style), and **Select all** / none.
-- A row per song: a tick box, the title and artist as editable fields, the
-  length, and a link that opens the song on YouTube or Spotify in a new tab
-  so the teacher can listen first. A YouTube playlist has no artist; the
-  artist field starts empty.
+- The band: back, the playlist's name, "Spotify playlist · N songs" (or
+  YouTube).
+- **Style for all**: the dance's style chips (default: the dance's first
+  style). A song given its own style keeps it when Style for all changes
+  later.
+- **Select all** (a tick box that shows all, some or none) and "N of M
+  picked".
+- A row per song, one line: a tick box, the title, a grey line "artist ·
+  length" (plus "· Son" when its style differs from Style for all), a pencil,
+  and ↗ that opens the song on YouTube or Spotify in a new tab so the teacher
+  can listen first. A YouTube playlist has no artist; the line shows only the
+  length.
+- **The pencil opens the row as a form (A2):** the title and the artist become
+  fields where their text was, with no labels and no box around them; the
+  style chips for that one song sit under them; a small line under those
+  keeps the original "On Spotify: <name> · <length>" (or "On YouTube").
+  ✓ in place of the pencil closes it. One row open at a time.
 - A song already in the same space's library (same YouTube video or same
   Spotify track as a song's link) shows "Already added" and starts unticked.
   It can still be ticked. My call: matched by link, not by title.
 - Nothing starts ticked except by Select all. My call: the user said the
   teacher decides yes and no, so the default is no.
-- A bar at the bottom: **Add N songs** and **Dismiss**. Add queues the ticked
-  songs with their edited titles and artists and the chosen style, closes the
+- Songs carry a style per song, as today. Whether styles should grow, be the
+  person's own, or go from songs is an open question in the notes, outside
+  this work: the pick list draws whatever list the dance has.
+- A song already added has no pencil; its row shows the "Already added" pill
+  and ↗.
+- A bar pinned at the bottom: **Dismiss** (tonal) and **Add N songs**
+  (primary). Add queues the ticked songs with their edited titles, artists
+  and styles, closes the
   list, and the songs show in Being added. Dismiss asks, then throws the list
   away with nothing downloaded.
 - The form uses `use:guarded`, so leaving with ticks or edits asks "Unsaved
@@ -254,4 +294,6 @@ Nothing new is drawn at Follow my class, which has no Music tab.
   from. (user)
 - New audio goes to every copy kept in step; the others keep the old audio
   and stop sharing the count. (user)
+- The mockups for every screen, and the pick list as A2 with a style per
+  song. (user, 2026-11-08)
 - Everything marked "My call" above is the designer's, for the user to check.
