@@ -129,6 +129,7 @@ Slovenian, without her choosing or understanding anything in English.
   | does not loop (a routine) | se ne sklene |
   | Notes (a figure's, a lesson's) | opombe |
   | Map (positions) | Zemljevid |
+  | Walk (the map, to a routine) | sprehod (Sprehod od tu) |
   | Sync (copies) | Uskladi |
   | Keep in step | Samodejno usklajevanje |
   | Drop my copy | Opusti svojo kopijo |

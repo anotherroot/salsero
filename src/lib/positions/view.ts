@@ -10,7 +10,6 @@ import type {
 	TeamRef
 } from '$lib/types';
 import { twinsChip } from '$lib/clones/twins';
-import { markWord, type MapMark } from './map';
 import type { MenuItem } from '$lib/menu';
 import { t } from '$lib/i18n/catalog';
 import { lazyWords } from '$lib/i18n/lazy';
@@ -764,108 +763,14 @@ export function holdsLine(starts: string[], ends: string[]): string {
 
 // ---- the map ----
 
-export const MAP: {
-	title: string;
-	hint: string;
-	back: string;
-	legend: { deadEnd: string; orphan: string; island: string; size: string };
-	notOnMap: string;
-	fitsAnywhere: string;
-	islands: string;
-	/** No positions at all. */
-	empty: string;
-	/** Positions, but no figure joins any of them. */
-	unjoined: string;
-	reset: string;
-	/** Under a node that stands for twinned positions (Same as…): the lists' chip. */
-	twins: string;
-} = lazyWords((c) => {
-	const w = c.positions.map;
-	return {
-		title: w.title,
-		hint: w.hint,
-		back: c.shell.backTo(c.moves.segments.positions),
-		legend: w.legend,
-		notOnMap: w.notOnMap,
-		fitsAnywhere: w.fitsAnywhere,
-		islands: w.islands,
-		empty: w.empty,
-		unjoined: w.unjoined,
-		reset: w.reset,
-		twins: twinsChip()
-	};
-});
-
-/** The SVG's name for a screen reader. */
-export function mapLabelFor(groupMode: boolean): string {
-	const w = t().positions.map.label;
-	return groupMode ? w.group : w.own;
-}
-
-/**
- * "15 positions · 32 figures between them · 10 with none · 4 stranded": figures
- * between them have a start and an end; with none counts every figure the map
- * draws no arrow for (no position, or only a start or only an end), the same
- * count as the tray's No position chip, the list's No position row and
- * /positions/none; stranded positions are dead ends, orphans and islands. Zero
- * parts after the first are left out.
- */
-export function mapSummary(n: {
-	positions: number;
-	between: number;
-	none: number;
-	stranded: number;
-}): string {
-	const c = t();
-	const w = c.positions.map;
-	const parts = [c.nouns.positions(n.positions)];
-	if (n.between > 0) parts.push(w.between(n.between));
-	if (n.none > 0) parts.push(w.withNone(n.none));
-	if (n.stranded > 0) parts.push(w.stranded(n.stranded));
-	return parts.join(' · ');
-}
-
-/**
- * A position's accessible name on the map: "Cerrada · 6 in · 8 out", then its
- * mark, then its twins line (`mapTwinsLine`) when it stands for twins.
- */
-export function mapNodeName(n: {
-	name: string;
-	ins: number;
-	outs: number;
-	mark: MapMark | null;
-	twins: string | null;
-}): string {
-	const w = t().positions;
-	const parts = [n.name, w.counts.ins(n.ins), w.counts.outs(n.outs)];
-	if (n.mark) parts.push(markWord(n.mark));
-	if (n.twins) parts.push(n.twins);
-	return parts.join(' · ');
-}
-
 /**
  * Who a twinned node stands for (ruling 16), each by its place, in the order
  * given: "Twins: your Cerrada, Salsa Tuesdays’ Closed". The node's tooltip.
  */
 export function mapTwinsLine(members: { name: string; team: TeamRef | null }[]): string {
-	const w = t().positions.map;
+	const w = t().map;
 	const each = members.map((m) => (m.team ? w.teamTwin(m.team.name, m.name) : w.yourTwin(m.name)));
 	return `${twinsChip()}: ${each.join(', ')}`;
-}
-
-/** The tray's way into No position. */
-export function noPositionChip(n: number): string {
-	return t().positions.map.noPositionChip(n);
-}
-
-/** An unused position in the tray. */
-export function unusedChip(name: string): string {
-	return t().positions.map.unusedChip(name);
-}
-
-/** Under the map while a position is lit. */
-export function mapLitLine(name: string): string {
-	return t().positions.map.litLine(name);
 }
 
 /** A link or unlink posted to an archived position's page (another tab, a replay). */

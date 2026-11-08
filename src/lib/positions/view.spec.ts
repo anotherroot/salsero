@@ -559,31 +559,6 @@ describe('a position’s page', () => {
 });
 
 describe('the map', () => {
-	it('mapSummary: the board’s line (with none: every figure drawn as no arrow, the load’s count), leaving out what is zero', () => {
-		expect(v.mapSummary({ positions: 15, between: 32, none: 10, stranded: 4 })).toBe(
-			'15 positions · 32 figures between them · 10 with none · 4 stranded'
-		);
-		expect(v.mapSummary({ positions: 1, between: 1, none: 0, stranded: 0 })).toBe(
-			'1 position · 1 figure between them'
-		);
-		expect(v.mapSummary({ positions: 3, between: 0, none: 2, stranded: 0 })).toBe(
-			'3 positions · 2 with none'
-		);
-	});
-	it('mapNodeName: what a screen reader hears for a position', () => {
-		expect(v.mapNodeName({ name: 'Cerrada', ins: 6, outs: 8, mark: null, twins: null })).toBe(
-			'Cerrada · 6 in · 8 out'
-		);
-		expect(
-			v.mapNodeName({
-				name: 'Caída',
-				ins: 2,
-				outs: 0,
-				mark: 'dead end',
-				twins: 'Twins: your Caída, Salsa Tuesdays’ Drop'
-			})
-		).toBe('Caída · 2 in · 0 out · dead end · Twins: your Caída, Salsa Tuesdays’ Drop');
-	});
 	it('mapTwinsLine: who a twinned node stands for, each by its place', () => {
 		expect(
 			v.mapTwinsLine([
@@ -592,30 +567,6 @@ describe('the map', () => {
 				{ name: 'Closed', team: { id: 2, name: 'Rueda club' } }
 			])
 		).toBe('Twins: your Cerrada, Salsa Tuesdays’ Closed, Rueda club’s Closed');
-	});
-	it('the tray’s chips', () => {
-		expect(v.noPositionChip(10)).toBe('No position · 10 figures');
-		expect(v.noPositionChip(1)).toBe('No position · 1 figure');
-		expect(v.unusedChip('Sombra')).toBe('Sombra · no figures');
-	});
-	it('mapLitLine: what a lit position says under the map', () => {
-		expect(v.mapLitLine('Cerrada')).toBe('Cerrada · tap again to open');
-	});
-	it('the fixed words', () => {
-		expect(v.MAP.title).toBe('The map');
-		expect(v.MAP.hint).toBe('Pinch to zoom, tap a position to light its figures.');
-		expect(v.MAP.legend).toEqual({
-			deadEnd: 'dead end: nothing leaves',
-			orphan: 'orphan: nothing gets there',
-			island: 'island: cut off from the rest',
-			size: 'Bigger: more figures · arrows: how many'
-		});
-		expect(v.MAP.notOnMap).toBe('Not on the map');
-		expect(v.MAP.fitsAnywhere).toBe('Figures without a position fit anywhere.');
-		expect(v.MAP.islands).toBe('Islands · cut off from the rest');
-		expect(v.MAP.twins).toBe('Twins');
-		expect(v.mapLabelFor(false)).toBe('The map of your positions');
-		expect(v.mapLabelFor(true)).toBe('The map of the group’s positions');
 	});
 });
 
@@ -1110,33 +1061,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 		expect(sl(v.howPaneSubtitle)).toBe('Neobvezno: preberite enkrat, nato se odločite');
 	});
 
-	it('counts the map’s summary in the nominative', () => {
-		expect(sl(() => v.mapSummary({ positions: 3, between: 2, none: 0, stranded: 0 }))).toBe(
-			'3 položaji · 2 različici med njimi'
-		);
-		expect(sl(() => v.mapSummary({ positions: 5, between: 5, none: 0, stranded: 0 }))).toBe(
-			'5 položajev · 5 različic med njimi'
-		);
-		expect(sl(() => v.mapSummary({ positions: 1, between: 1, none: 10, stranded: 4 }))).toBe(
-			'1 položaj · 1 različica med njimi · brez položaja: 10 · z vrzeljo: 4'
-		);
-	});
-
-	it('words the tray’s chips, the lit line and the node’s name', () => {
-		expect([1, 2, 3, 5].map((n) => sl(() => v.noPositionChip(n)))).toEqual([
-			'Brez položaja · 1 različica',
-			'Brez položaja · 2 različici',
-			'Brez položaja · 3 različice',
-			'Brez položaja · 5 različic'
-		]);
-		expect(sl(() => v.unusedChip('Sombra'))).toBe('Sombra · brez različic');
-		expect(sl(() => v.mapLitLine('Cerrada'))).toBe('Cerrada · tapnite znova, da ga odprete');
-		expect(
-			sl(() => v.mapNodeName({ name: 'Caída', ins: 2, outs: 0, mark: 'dead end', twins: null }))
-		).toBe('Caída · 2 prihoda · 0 odhodov · slepa ulica');
-		expect(
-			sl(() => v.mapNodeName({ name: 'Paseo', ins: 0, outs: 3, mark: 'orphan', twins: null }))
-		).toBe('Paseo · 0 prihodov · 3 odhodi · nedosegljiv');
+	it('words a twinned node’s members', () => {
 		expect(
 			sl(() =>
 				v.mapTwinsLine([
@@ -1145,17 +1070,6 @@ describe('How positions work, the map and the links in Slovenian', () => {
 				])
 			)
 		).toBe('Dvojčka: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)');
-	});
-
-	it('words the map’s fixed lines', () => {
-		expect(sl(() => v.MAP.title)).toBe('Zemljevid');
-		expect(sl(() => v.MAP.back)).toBe('Nazaj: Položaji');
-		expect(sl(() => v.MAP.notOnMap)).toBe('Ni na zemljevidu');
-		expect(sl(() => v.MAP.legend.deadEnd)).toBe('slepa ulica: nič ne gre od tod');
-		expect(sl(() => v.MAP.reset)).toBe('Ponastavi povečavo');
-		expect(sl(() => v.MAP.twins)).toBe('Dvojčka');
-		expect(sl(() => v.mapLabelFor(false))).toBe('Zemljevid vaših položajev');
-		expect(sl(() => v.mapLabelFor(true))).toBe('Zemljevid položajev skupine');
 	});
 
 	it('words the Recordings and Lessons headings and their openers', () => {

@@ -77,3 +77,19 @@ export function ints(form: FormData, key: string): number[] {
 export function refusalText(status: number, message: string): string {
 	return status >= 500 ? t().refusals.couldNotSave : message;
 }
+
+/**
+ * Every value under one key, as integers, in the order sent and with repeats
+ * kept: a routine's figures, where the same figure may come twice. Empty and
+ * non-integer entries are dropped, as `ints` does.
+ */
+export function orderedInts(form: FormData, key: string): number[] {
+	const out: number[] = [];
+	for (const entry of form.getAll(key)) {
+		const raw = String(entry).trim();
+		if (raw === '') continue;
+		const v = Number(raw);
+		if (Number.isInteger(v)) out.push(v);
+	}
+	return out;
+}

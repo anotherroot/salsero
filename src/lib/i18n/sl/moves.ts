@@ -6,7 +6,7 @@ import { nouns } from './nouns';
 
 export const moves: Catalog['moves'] = {
 	segments: { figures: 'Figure', routines: 'Kombinacije', positions: 'Položaji' },
-	newMove: 'Nova figura',
+	newFigure: 'Nova različica',
 	newRoutine: 'Nova kombinacija',
 	newPosition: 'Nov položaj',
 	row: {
@@ -87,8 +87,8 @@ export const moves: Catalog['moves'] = {
 		allLinkedBody: 'Vsaka različica ima odsek in lekcijo.',
 		noMatch: 'Nobena različica ne ustreza',
 		noneOwn: 'Še nimate svojih figur.',
-		adding: 'Dodajanje figure',
-		add: 'Dodaj figuro',
+		adding: 'Dodajanje različice',
+		add: 'Dodaj različico',
 		recordingsNext: 'Posnetke lahko dodate v naslednjem koraku.'
 	},
 	routines: {
@@ -146,6 +146,7 @@ export const moves: Catalog['moves'] = {
 		routineName: 'Vpišite ime kombinacije (do 200 znakov).',
 		notes: 'Opombe imajo lahko največ 2000 znakov.',
 		partnerStyle: 'Izberite, kako se pleše, in slog.',
+		pickMove: 'Izberite figuro.',
 		moveTaken: (name) => `Figura s tem imenom že obstaja: ${name}.`,
 		figureTaken: (move, name) =>
 			`Različica s tem imenom že obstaja: ${move} · ${name}. Najprej eno preimenujte.`,

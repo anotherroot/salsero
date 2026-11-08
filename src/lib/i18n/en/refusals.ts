@@ -1,6 +1,6 @@
 // The refusals no area owns: a missing row on an error page, a sign-in a request
 // lacked, a request only a hand-built body sends, a chunk in the wrong place, the
-// file checks before an upload, an unreachable server.
+// file checks before an upload.
 export const refusals = {
 	signIn: 'Sign in',
 	notFound: 'Not found',
@@ -28,8 +28,6 @@ export const refusals = {
 	couldNotSave: 'Couldn’t save. Try it again.',
 	/** An older open page sent what the server no longer takes (the page epoch). */
 	stale: 'This page is out of date. Reload to continue.',
-	/** The fetch itself failed. */
-	offline: 'Could not reach the server.',
 	sayWhatToRestore: 'Say what to restore.',
 	practiceSettings: 'Those practice settings cannot be used',
 	/** Saving a section or point (the video player's API). */

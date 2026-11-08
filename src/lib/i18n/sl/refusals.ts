@@ -27,7 +27,6 @@ export const refusals: Catalog['refusals'] = {
 	badJson: 'Napačen JSON.',
 	couldNotSave: 'Shranjevanje ni uspelo. Poskusite znova.',
 	stale: 'Ta stran je zastarela. Za nadaljevanje jo naložite znova.',
-	offline: 'Strežnik ni dosegljiv.',
 	sayWhatToRestore: 'Navedite, kaj želite obnoviti.',
 	practiceSettings: 'Teh nastavitev vadenja ni mogoče uporabiti.',
 	spots: {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
 import {
+	arrowLook,
 	edgeGeometry,
 	edgeKey,
 	legendTypes,
@@ -99,51 +100,91 @@ describe('litOf', () => {
 });
 
 describe('edgeGeometry', () => {
-	const a = { x: 100, y: 100, r: 20 };
-	const b = { x: 300, y: 100, r: 30 };
+	// Pill boxes, x and y the centre.
+	const a = { x: 100, y: 100, w: 100, h: 28 };
+	const b = { x: 400, y: 100, w: 120, h: 28 };
 	/** The numbers of a path, in order. */
 	const nums = (d: string) => d.match(/-?\d+(\.\d+)?/g)!.map(Number);
 
-	it('runs from just outside the start to just outside the end, bowed to one side', () => {
+	it('leaves the right edge of the first box and stops a head-gap left of the second', () => {
 		const g = edgeGeometry(a, b);
-		const [sx, sy, cx, cy, ex, ey] = nums(g.d);
+		const [sx, , cx, cy, ex, ey] = nums(g.d);
 		expect(g.d.startsWith('M')).toBe(true);
 		expect(g.d).toContain('Q');
-		// Leaves the start circle, lands outside the end circle (room for the arrow head).
-		expect(Math.hypot(sx - a.x, sy - a.y)).toBeGreaterThan(a.r);
-		expect(Math.hypot(ex - b.x, ey - b.y)).toBeGreaterThan(b.r);
-		expect(Math.hypot(ex - b.x, ey - b.y)).toBeLessThan(b.r + 10);
-		// Between the two, off the straight line.
+		expect(Math.abs(sx - (a.x + a.w / 2))).toBeLessThan(1);
+		expect(ex).toBeLessThan(b.x - b.w / 2);
+		expect(b.x - b.w / 2 - ex).toBeLessThan(6);
+		expect(b.x - b.w / 2 - ex).toBeGreaterThan(1);
+		expect(Math.abs(ey - 100)).toBeLessThan(b.h / 2);
 		expect(cx).toBeGreaterThan(a.x);
 		expect(cx).toBeLessThan(b.x);
 		expect(cy).not.toBe(100);
-		// The count sits on the curve, between the ends.
-		expect(g.labelX).toBeGreaterThan(sx);
-		expect(g.labelX).toBeLessThan(ex);
-		expect(Math.sign(g.labelY - 100)).toBe(Math.sign(cy - 100));
+		expect(g.labelX).toBeGreaterThan(a.x + a.w / 2);
+		expect(g.labelX).toBeLessThan(b.x - b.w / 2);
 	});
 
-	it('bows the two directions of a pair to opposite sides, so both show', () => {
-		const there = nums(edgeGeometry(a, b).d);
-		const back = nums(edgeGeometry(b, a).d);
-		expect(Math.sign(there[3] - 100)).toBe(-Math.sign(back[3] - 100));
+	it('leaves a box below through its bottom edge', () => {
+		const below = { x: 100, y: 300, w: 100, h: 28 };
+		const [, sy] = nums(edgeGeometry(a, below).d);
+		expect(Math.abs(sy - (a.y + a.h / 2))).toBeLessThan(1);
 	});
 
-	it('draws a loop as a curl beside its own circle', () => {
+	it('bows the two directions of a pair apart, so both show', () => {
+		const there = edgeGeometry(a, b);
+		const back = edgeGeometry(b, a);
+		expect(there.labelY).not.toBe(back.labelY);
+		expect(Math.sign(nums(there.d)[3] - 100)).toBe(-Math.sign(nums(back.d)[3] - 100));
+	});
+
+	it("curls a loop off the box's top right corner, starting and ending on the top edge", () => {
 		const g = edgeGeometry(a, a);
 		expect(g.d).toContain('C');
 		const [sx, sy, , , , , ex, ey] = nums(g.d);
-		expect(Math.hypot(sx - a.x, sy - a.y)).toBeGreaterThanOrEqual(a.r);
-		expect(Math.hypot(ex - a.x, ey - a.y)).toBeGreaterThanOrEqual(a.r);
-		expect(g.labelY).toBeLessThan(a.y - a.r);
+		const top = a.y - a.h / 2;
+		expect(Math.abs(sy - top)).toBeLessThan(1);
+		expect(Math.abs(ey - top)).toBeLessThan(6);
+		for (const x of [sx, ex]) {
+			expect(x).toBeGreaterThan(a.x);
+			expect(x).toBeLessThanOrEqual(a.x + a.w / 2);
+		}
+		expect(g.labelY).toBeLessThan(top);
 	});
 
 	it('is the same for the same input', () => {
 		expect(edgeGeometry(a, b)).toEqual(edgeGeometry(a, b));
 	});
 
-	it('survives two circles at one spot', () => {
-		const g = edgeGeometry({ x: 50, y: 50, r: 10 }, { x: 50, y: 50, r: 10 }, false);
+	it('survives two boxes at one spot', () => {
+		const g = edgeGeometry({ x: 50, y: 50, w: 40, h: 20 }, { x: 50, y: 50, w: 40, h: 20 }, false);
 		expect(nums(g.d).every(Number.isFinite)).toBe(true);
+	});
+});
+
+describe('arrowLook', () => {
+	const e = { from: 1, to: 2, figures: 3 };
+	const none = { picked: null, stepped: null };
+	it('is at rest when nothing is picked, with its count', () => {
+		expect(arrowLook(e, none)).toEqual({ tone: 'rest', badge: null, count: 3 });
+		expect(arrowLook({ ...e, figures: 1 }, none).count).toBeNull();
+	});
+	it('is out from the picked position and in into it', () => {
+		expect(arrowLook(e, { picked: 1, stepped: null }).tone).toBe('out');
+		expect(arrowLook(e, { picked: 2, stepped: null }).tone).toBe('in');
+	});
+	it('fades what does not touch the picked position, with no count', () => {
+		expect(arrowLook(e, { picked: 9, stepped: null })).toEqual({
+			tone: 'faded',
+			badge: null,
+			count: null
+		});
+	});
+	it('treats a loop on the picked position as out, not in', () => {
+		expect(arrowLook({ from: 4, to: 4, figures: 1 }, { picked: 4, stepped: null }).tone).toBe(
+			'out'
+		);
+	});
+	it('lets the stepped edge win over in', () => {
+		expect(arrowLook(e, { picked: 2, stepped: '1:2' }).tone).toBe('stepped');
+		expect(arrowLook(e, { picked: 2, stepped: '2:1' }).tone).toBe('in');
 	});
 });

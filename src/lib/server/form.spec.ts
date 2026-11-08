@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { int, ints, refusalText } from './form';
+import { int, ints, orderedInts, refusalText } from './form';
 
 describe('int', () => {
 	it('parses a good integer', () => {
@@ -77,5 +77,14 @@ describe('refusalText in Slovenian', () => {
 		expect(withLocale('sl', () => refusalText(500, 'SQLITE_BUSY'))).toBe(
 			'Shranjevanje ni uspelo. Poskusite znova.'
 		);
+	});
+});
+
+describe('orderedInts', () => {
+	it('keeps order and repeats, drops empty and non-integer entries', () => {
+		const form = new FormData();
+		for (const v of ['3', '1', '3', '', 'x', '2.5', ' 7 ']) form.append('figureIds', v);
+		expect(orderedInts(form, 'figureIds')).toEqual([3, 1, 3, 7]);
+		expect(orderedInts(new FormData(), 'figureIds')).toEqual([]);
 	});
 });

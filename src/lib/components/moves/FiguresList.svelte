@@ -20,6 +20,8 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import { figureRows } from '$lib/picker/build';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
@@ -67,7 +69,7 @@
 		open: OpenRow;
 		/** The list route; otherwise an item is open (beside it on the desktop, alone on the phone). */
 		isList: boolean;
-		/** The New move sheet; the band's + and the empty pane open it too. */
+		/** The New figure sheet; the band's + and the empty pane open it too. */
 		creating?: boolean;
 	} = $props();
 
@@ -92,17 +94,25 @@
 		refusal?.presetGone ? null : ((page.data.preset ?? null) as Preset | null)
 	);
 	/**
-	 * New move closed: the URL's `?new=1&start=…` goes (a replace, once the
+	 * New figure closed: the URL's `?new=1&start=…` goes (a replace, once the
 	 * sheet's Back has landed), so the next + and a reload are untagged.
 	 */
 	function closeNew() {
 		creating = false;
 		refusal = null;
+		moveId = null;
+		newMove = null;
 		if (!isList) return;
 		const href = withoutPreset(page.url);
 		if (href) void gotoWhenSettled(href, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 	let busy = $state(false);
+	/** New figure's move: a picked one (`groupId`), or a new one made with the figure (`figureName`). */
+	let moveId = $state<number | null>(null);
+	let newMove = $state<string | null>(null);
+	const moveGroups = $derived([
+		{ title: t().picker.moveField.group, entries: figureRows(lists.moveTargets) }
+	]);
 	// A refusal about one field names it; the rest (a style that is not the dance's) do not.
 	const field = $derived(refusal?.field);
 	const otherError = $derived(refusal?.message && !field ? refusal.message : null);
@@ -293,7 +303,7 @@
 		{#snippet action()}
 			<button type="button" class={button('primary')} onclick={() => (creating = true)}>
 				<Icon name="plus" size={20} />
-				{t().moves.newMove}
+				{t().moves.newFigure}
 			</button>
 		{/snippet}
 	</EmptyState>
@@ -410,14 +420,14 @@
 {/if}
 
 {#if creating}
-	<Sheet title={t().moves.newMove} open={true} onclose={closeNew}>
+	<Sheet title={t().moves.newFigure} open={true} onclose={closeNew}>
 		<form
 			id="new-figure"
 			method="POST"
 			action={`/${dance.slug}/figures?/create`}
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: t().moves.newMove,
+				label: t().moves.newFigure,
 				submit: ({ cancel }) => {
 					// One figure per tap: a second tap while the first is out is dropped.
 					if (busy) return cancel();
@@ -431,6 +441,8 @@
 								// figure opens once its Back has landed, with every load fresh.
 								creating = false;
 								refusal = null;
+								moveId = null;
+								newMove = null;
 								await gotoWhenSettled(result.location, { invalidateAll: true });
 							} else {
 								await update();
@@ -451,10 +463,27 @@
 					<span class="flex-none"><Icon name="positions" size={18} /></span>{presetLine(preset)}
 				</p>
 			{/if}
+			<PickerField
+				name="groupId"
+				label={t().picker.moveField.label}
+				placeholder={t().picker.moveField.placeholder}
+				title={t().picker.moveField.title}
+				search={t().picker.moveField.search}
+				groups={moveGroups}
+				nothingLeft={t().picker.moveField.none}
+				bind:value={moveId}
+				bind:newName={newMove}
+				create={{
+					label: t().picker.moveField.label,
+					tag: t().picker.moveField.tag,
+					name: 'figureName'
+				}}
+				required
+				error={fieldErrors.figureName ?? null}
+			/>
 			<FigureFields
 				{dance}
-				figureName={refusal?.figureName}
-				autofocus
+				asksFigureName={false}
 				name={refusal?.name}
 				style={lists.defaultStyle}
 				notes={refusal?.notes}

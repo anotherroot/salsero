@@ -1,5 +1,5 @@
 // Positions: the list, No position, New position and Edit (the sheet), the hold,
-// Templates, a position's page and the figure's tags, How positions work, the map,
+// Templates, a position's page and the figure's tags, How positions work,
 // and the links to sections, points and lessons.
 import { possessive } from './figure';
 import { nouns } from './nouns';
@@ -318,43 +318,6 @@ export const positions = {
 			}
 		],
 		done: 'Got it'
-	},
-	/** The map. */
-	map: {
-		title: 'The map',
-		hint: 'Pinch to zoom, tap a position to light its figures.',
-		legend: {
-			deadEnd: 'dead end: nothing leaves',
-			orphan: 'orphan: nothing gets there',
-			island: 'island: cut off from the rest',
-			size: 'Bigger: more figures · arrows: how many'
-		},
-		notOnMap: 'Not on the map',
-		fitsAnywhere: 'Figures without a position fit anywhere.',
-		islands: 'Islands · cut off from the rest',
-		/** No positions at all. */
-		empty: 'No positions yet. Add some on Positions and tag your figures’ starts and ends.',
-		/** Positions, but no figure joins any of them. */
-		unjoined: 'Nothing joins your positions yet: tag a figure’s start and end.',
-		reset: 'Reset zoom',
-		/** The SVG's name for a screen reader. */
-		label: {
-			own: 'The map of your positions',
-			group: 'The map of the group’s positions'
-		},
-		/** The summary's parts after the positions: "32 figures between them · 10 with none · 4 stranded". */
-		between: (n: number): string => `${nouns.figures(n)} between them`,
-		withNone: (n: number): string => `${n} with none`,
-		stranded: (n: number): string => `${n} stranded`,
-		/** A twinned node's members, each by its place: "your Cerrada", "Salsa Tuesdays’ Closed". */
-		yourTwin: (name: string): string => `your ${name}`,
-		teamTwin: (team: string, name: string): string => `${possessive(team)} ${name}`,
-		/** The tray's way into No position. */
-		noPositionChip: (n: number): string => `No position · ${nouns.figures(n)}`,
-		/** An unused position in the tray. */
-		unusedChip: (name: string): string => `${name} · no figures`,
-		/** Under the map while a position is lit. */
-		litLine: (name: string): string => `${name} · tap again to open`
 	},
 	/** A position's Recordings and Lessons: the links to sections, points and lessons. */
 	links: {

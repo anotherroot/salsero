@@ -23,6 +23,15 @@ export const picker: Catalog['picker'] = {
 	pickAnother: 'Izberi drugo',
 	creating: 'Ustvarjanje …',
 	notCreated: 'Tega ni bilo mogoče ustvariti.',
+	moveField: {
+		label: 'Figura',
+		placeholder: 'Izberite ali vnesite figuro …',
+		title: 'Izberite figuro',
+		search: 'Iščite ali poimenujte novo figuro',
+		none: 'Figur še ni. Vnesite ime, da jo ustvarite.',
+		tag: 'Nova figura',
+		group: 'Figure'
+	},
 	groups: {
 		figures: 'Različice',
 		routines: 'Kombinacije',

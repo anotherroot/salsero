@@ -34,6 +34,18 @@ export const picker = {
 	creating: 'Creating…',
 	/** A many-value field's create, refused. */
 	notCreated: 'That could not be created.',
+	/** The Move field (New figure, the Link popup, a lesson): a move picked, or a new one typed. */
+	moveField: {
+		label: 'Move',
+		placeholder: 'Choose or type a move…',
+		title: 'Choose a move',
+		search: 'Search or name a new move',
+		none: 'There are no moves yet. Type a name to make one.',
+		/** After a typed name in the field: what it will make. */
+		tag: 'New move',
+		/** The picker's group of moves. */
+		group: 'Moves'
+	},
 	/** The builders' group titles. */
 	groups: {
 		figures: 'Figures',

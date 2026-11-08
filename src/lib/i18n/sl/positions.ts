@@ -286,37 +286,6 @@ export const positions: Catalog['positions'] = {
 		],
 		done: 'Razumem'
 	},
-	map: {
-		title: 'Zemljevid',
-		hint: 'Povečajte z dvema prstoma; tapnite položaj, da se osvetlijo njegove različice.',
-		legend: {
-			deadEnd: 'slepa ulica: nič ne gre od tod',
-			orphan: 'nedosegljiv: nič ne pride sem',
-			island: 'otok: odrezan od drugih',
-			size: 'Večji: več različic · puščice: koliko'
-		},
-		notOnMap: 'Ni na zemljevidu',
-		fitsAnywhere: 'Različice brez položaja ustrezajo kjer koli.',
-		islands: 'Otoki · odrezani od drugih',
-		empty:
-			'Še ni položajev. Dodajte jih na strani Položaji in označite, kje se vaše različice začnejo in končajo.',
-		unjoined: 'Vaših položajev še nič ne povezuje: označite začetek in konec različice.',
-		reset: 'Ponastavi povečavo',
-		label: {
-			own: 'Zemljevid vaših položajev',
-			group: 'Zemljevid položajev skupine'
-		},
-		between: (n) => `${nouns.figures(n)} med njimi`,
-		// Counts after a colon: the adjective would have to agree with them.
-		withNone: (n) => `brez položaja: ${n}`,
-		stranded: (n) => `z vrzeljo: ${n}`,
-		// Names are never declined: the place goes in brackets after them.
-		yourTwin: (name) => `${name} (vaš)`,
-		teamTwin: (team, name) => `${name} (skupina: ${team})`,
-		noPositionChip: (n) => `Brez položaja · ${nouns.figures(n)}`,
-		unusedChip: (name) => `${name} · brez različic`,
-		litLine: (name) => `${name} · tapnite znova, da ga odprete`
-	},
 	links: {
 		lessons: 'Lekcije',
 		lessonsCount: (n) => `Lekcije · ${n}`,

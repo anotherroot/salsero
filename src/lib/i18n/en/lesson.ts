@@ -117,8 +117,6 @@ export const lesson = {
 			search: 'Search figures',
 			group: 'Figures',
 			none: 'There are no figures yet.',
-			/** The create row's two choices. */
-			move: 'Move',
 			figure: 'Figure'
 		},
 		routine: {
@@ -146,15 +144,6 @@ export const lesson = {
 	create: {
 		figure: {
 			title: 'New figure',
-			/** The switch: a move of its own, or a figure of one. */
-			make: 'Make',
-			newMove: 'New move',
-			inMove: 'New figure in a move',
-			noMoves: 'There are no moves yet.',
-			move: 'Move',
-			choose: 'Choose a move…',
-			chooseTitle: 'Choose a move',
-			search: 'Search moves',
 			/** The move picker's two groups. */
 			inLesson: 'In this lesson',
 			moves: 'Moves',

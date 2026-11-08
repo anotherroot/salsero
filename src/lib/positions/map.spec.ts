@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest';
 import type { Graph, GraphFigure } from '$lib/graph/graph';
 import { positionCounts } from '$lib/graph/graph';
 import { withLocale } from '$lib/i18n/current';
+import { t } from '$lib/i18n/catalog';
 import {
 	edgeWidth,
-	LABEL_HEIGHT,
-	labelBox,
+	LINE_HEIGHT,
 	layoutMap,
-	MARK_CHAR,
 	markBox,
-	markWord,
+	MARK_CHAR,
 	MAX_PASSES,
 	mapInputOf,
 	mapLabel,
 	mapSize,
-	nodeRadius,
+	pillLines,
+	pillSize,
 	twinsBox,
 	type MapInput,
 	type MapLayout,
@@ -58,82 +58,126 @@ function fifteen(): MapInput {
 	return { positions, edges };
 }
 
+/**
+ * The mockup's bigger library (`big/data1.part`): 20 positions, 88 figures.
+ * Each position with the figures through it; each edge with the figures from
+ * its start to its end (a figure with two starts counts on both edges).
+ */
+const MOCKUP_POSITIONS: [string, number][] = [
+	['Lasso', 3],
+	['Open, one hand', 16],
+	['Back to back', 2],
+	['Side by side', 4],
+	['Cross-hand', 7],
+	['Corner step end', 3],
+	['Butterfly', 2],
+	['Open, two hands', 45],
+	['Sombrero', 5],
+	['Hammerlock', 5],
+	['Special late turn side', 5],
+	['Reverse hammerlock', 4],
+	['Shadow Open', 9],
+	['Cradle', 11],
+	['Sweetheart', 6],
+	['Shadow Closed', 6],
+	['Closed', 28],
+	['Titanic', 2],
+	['Hip hold', 4],
+	['Dip', 6]
+];
+// prettier-ignore
+const MOCKUP_EDGES: [number, number, number][] = [
+	[1, 2, 1], [1, 13, 1], [2, 1, 1], [2, 8, 6], [2, 11, 2], [2, 17, 2], [3, 2, 1], [3, 8, 1],
+	[4, 4, 1], [4, 8, 1], [4, 13, 1], [5, 8, 1], [5, 9, 1], [5, 12, 1], [5, 17, 1], [6, 5, 1],
+	[6, 6, 1], [6, 8, 1], [7, 8, 1], [8, 2, 2], [8, 4, 1], [8, 5, 2], [8, 6, 1], [8, 7, 1],
+	[8, 8, 11], [8, 9, 1], [8, 10, 2], [8, 11, 2], [8, 12, 1], [8, 13, 2], [8, 14, 3], [8, 15, 1],
+	[8, 17, 3], [9, 8, 1], [9, 14, 1], [9, 17, 1], [10, 8, 1], [10, 12, 1], [10, 17, 1],
+	[11, 8, 1], [11, 17, 1], [12, 8, 1], [12, 15, 1], [13, 2, 1], [13, 17, 2], [14, 8, 1],
+	[14, 11, 1], [14, 14, 1], [14, 16, 1], [14, 17, 2], [15, 8, 1], [15, 15, 1], [15, 16, 1],
+	[15, 18, 1], [16, 13, 1], [16, 16, 1], [16, 19, 1], [17, 8, 3], [17, 14, 1], [17, 15, 1],
+	[17, 16, 1], [17, 17, 6], [17, 19, 1], [17, 20, 3], [18, 13, 1], [19, 17, 1], [19, 20, 1],
+	[20, 8, 1], [20, 17, 1]
+];
+function mockup(): MapInput {
+	return {
+		positions: MOCKUP_POSITIONS.map(([name, figures], i) => pos(i + 1, name, figures)),
+		edges: MOCKUP_EDGES.map(([from, to, figures]) => edge(from, to, figures))
+	};
+}
+
 function shuffled<T>(xs: T[]): T[] {
 	// a fixed permutation: reverse, then rotate by 3
 	const r = [...xs].reverse();
 	return [...r.slice(3), ...r.slice(0, 3)];
 }
 
-function nameOf(input: MapInput, id: number): string {
-	return input.positions.find((p) => p.id === id)!.name;
-}
-
 type Box = { x0: number; y0: number; x1: number; y1: number };
 const boxesOverlap = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-function circleHitsBox(n: MapNode, b: Box): boolean {
-	const cx = Math.max(b.x0, Math.min(n.x, b.x1));
-	const cy = Math.max(b.y0, Math.min(n.y, b.y1));
-	return Math.hypot(n.x - cx, n.y - cy) < n.r;
+const pillBox = (n: MapNode): Box => ({
+	x0: n.x - n.w / 2,
+	y0: n.y - n.h / 2,
+	x1: n.x + n.w / 2,
+	y1: n.y + n.h / 2
+});
+
+/** A node's parts: its pill, then a dead end's or orphan's word, then Twins. */
+function partsOf(n: MapNode): Box[] {
+	const parts = [pillBox(n)];
+	if (n.mark === null) expect(n.markY).toBe(null);
+	else parts.push(markBox(n.mark, n.x, n.markY!));
+	if (!n.twins) expect(n.twinsY).toBe(null);
+	else parts.push(twinsBox(n.x, n.twinsY!));
+	return parts;
+}
+
+/** A node's outline: the box round its pill and the lines under it. */
+function outlineOf(n: MapNode): Box {
+	const parts = partsOf(n);
+	return {
+		x0: Math.min(...parts.map((p) => p.x0)),
+		y0: Math.min(...parts.map((p) => p.y0)),
+		x1: Math.max(...parts.map((p) => p.x1)),
+		y1: Math.max(...parts.map((p) => p.y1))
+	};
 }
 
 function expectClean(input: MapInput, out: MapLayout) {
-	const boxes = out.nodes.map((n) => labelBox(nameOf(input, n.id), n.labelX, n.labelY));
-	// A dead end or orphan says so on a line under its name, and a twinned
-	// position says Twins on the line after that: each a box of its own.
-	const lines = out.nodes.map((n) => {
-		const own: Box[] = [];
-		if (n.mark === null) expect(n.markY).toBe(null);
-		else own.push(markBox(n.mark, n.labelX, n.markY!));
-		if (!n.twins) expect(n.twinsY).toBe(null);
-		else own.push(twinsBox(n.labelX, n.twinsY!));
-		return own;
-	});
-	for (let i = 0; i < out.nodes.length; i++) {
-		let above = boxes[i];
-		for (const m of lines[i]) {
-			expect(m.y0).toBeGreaterThanOrEqual(above.y1);
-			above = m;
-			expect(m.x0).toBeGreaterThanOrEqual(0);
-			expect(m.y0).toBeGreaterThanOrEqual(0);
-			expect(m.x1).toBeLessThanOrEqual(out.width);
-			expect(m.y1).toBeLessThanOrEqual(out.height);
-			for (let j = 0; j < out.nodes.length; j++) {
-				expect(circleHitsBox(out.nodes[j], m)).toBe(false);
-				if (j === i) continue;
-				expect(boxesOverlap(m, boxes[j])).toBe(false);
-				for (const o of lines[j]) expect(boxesOverlap(m, o)).toBe(false);
-			}
-		}
+	for (const n of out.nodes) {
+		// The pill is sized from its name, cut at LABEL_MAX and split as pillLines does.
+		const name = input.positions.find((p) => p.id === n.id)!.name;
+		expect(n.lines).toEqual(pillLines(mapLabel(name)));
+		expect({ w: n.w, h: n.h }).toEqual(pillSize(n.lines));
+		// The lines sit under the pill, each under the last.
+		const parts = partsOf(n);
+		for (let k = 1; k < parts.length; k++)
+			expect(parts[k].y0).toBeGreaterThanOrEqual(parts[k - 1].y1);
 	}
-	for (let i = 0; i < out.nodes.length; i++) {
-		const a = out.nodes[i];
-		// inside the frame, label included
-		expect(a.x - a.r).toBeGreaterThanOrEqual(0);
-		expect(a.y - a.r).toBeGreaterThanOrEqual(0);
-		expect(a.x + a.r).toBeLessThanOrEqual(out.width);
-		expect(a.y + a.r).toBeLessThanOrEqual(out.height);
-		expect(boxes[i].x0).toBeGreaterThanOrEqual(0);
-		expect(boxes[i].y0).toBeGreaterThanOrEqual(0);
-		expect(boxes[i].x1).toBeLessThanOrEqual(out.width);
-		expect(boxes[i].y1).toBeLessThanOrEqual(out.height);
-		for (let j = 0; j < out.nodes.length; j++) {
-			if (i === j) continue;
-			const b = out.nodes[j];
-			if (j > i) {
-				expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(a.r + b.r);
-				expect(boxesOverlap(boxes[i], boxes[j])).toBe(false);
-			}
-			expect(circleHitsBox(a, boxes[j])).toBe(false);
-		}
+	const outlines = out.nodes.map(outlineOf);
+	for (let i = 0; i < outlines.length; i++) {
+		const a = outlines[i];
+		// inside the frame, lines included
+		expect(a.x0).toBeGreaterThanOrEqual(0);
+		expect(a.y0).toBeGreaterThanOrEqual(0);
+		expect(a.x1).toBeLessThanOrEqual(out.width);
+		expect(a.y1).toBeLessThanOrEqual(out.height);
+		for (let j = i + 1; j < outlines.length; j++) expect(boxesOverlap(a, outlines[j])).toBe(false);
 	}
 }
 
 describe('sizes', () => {
-	it('grows a circle with the figures through it, capped at 34', () => {
-		expect(nodeRadius(0)).toBe(14);
-		expect(nodeRadius(4)).toBe(22);
-		expect(nodeRadius(25)).toBe(34);
-		expect(nodeRadius(400)).toBe(34);
+	it('splits a name longer than 16 characters into two balanced lines, at a space', () => {
+		expect(pillLines('Special late turn side')).toEqual(['Special late', 'turn side']);
+		expect(pillLines('Cradle')).toEqual(['Cradle']);
+		// 16 characters stay on one line, 17 do not
+		expect(pillLines('Open, two hands!')).toEqual(['Open, two hands!']);
+		expect(pillLines('Open, two hands!!')).toEqual(['Open, two', 'hands!!']);
+		// no space: one line, however long
+		expect(pillLines('Supercalifragilistic')).toEqual(['Supercalifragilistic']);
+		expect(pillLines('Crossed hands, right on top')).toEqual(['Crossed hands,', 'right on top']);
+	});
+	it('sizes a pill from its widest line: 7.6 px a character and 40, 32 high or 46 for two', () => {
+		expect(pillSize(['Cradle'])).toEqual({ w: 85.6, h: 32 });
+		expect(pillSize(['Special late', 'turn side'])).toEqual({ w: 131.2, h: 46 });
 	});
 	it('widens an edge with its figures, capped at 6', () => {
 		expect(edgeWidth(1)).toBe(2);
@@ -141,14 +185,12 @@ describe('sizes', () => {
 		expect(edgeWidth(5)).toBe(6);
 		expect(edgeWidth(40)).toBe(6);
 	});
-	it('estimates a label at 7 px a character by 14 px, centred on its point', () => {
-		expect(labelBox('Cuddle', 100, 50)).toEqual({ x0: 79, y0: 43, x1: 121, y1: 57 });
-	});
-	it('picks a square frame from the node count, never under 360', () => {
+	it('picks a portrait frame from the node count, never under 360 across', () => {
 		expect(mapSize(0)).toEqual({ width: 0, height: 0 });
-		expect(mapSize(1)).toEqual({ width: 360, height: 360 });
-		expect(mapSize(16)).toEqual({ width: 560, height: 560 });
-		expect(mapSize(64)).toEqual({ width: 1120, height: 1120 });
+		expect(mapSize(1)).toEqual({ width: 360, height: 515 });
+		// about the mockup's 600 × 860 for its 20 positions
+		expect(mapSize(20)).toEqual({ width: 599, height: 856 });
+		expect(mapSize(64)).toEqual({ width: 1071, height: 1530 });
 	});
 });
 
@@ -184,12 +226,25 @@ describe('layoutMap', () => {
 		expect(out.nodes.map((n) => n.id)).toEqual([2, 3, 1]);
 	});
 
-	it('keeps 15 positions apart: no circle, label or frame overlap', () => {
+	it('keeps 15 positions apart: no pill, line or frame overlap', () => {
 		const input = fifteen();
 		const out = layoutMap(input);
 		expect(out.width).toBe(mapSize(15).width);
 		expect(out.height).toBe(mapSize(15).height);
 		expectClean(input, out);
+	});
+
+	it("keeps the mockup's 20 positions apart, and the pushing settles", () => {
+		const input = mockup();
+		let stats: MapStats | null = null;
+		const out = layoutMap(input, { onStats: (s) => (stats = s) });
+		expect(out.nodes).toHaveLength(20);
+		expect(out.nodes.find((n) => n.id === 11)!.lines).toEqual(['Special late', 'turn side']);
+		expect(out.nodes.find((n) => n.id === 3)!.mark).toBe('orphan');
+		expectClean(input, out);
+		expect(stats).toEqual({ passes: expect.any(Number), settled: true });
+		expect(stats!.passes).toBeLessThan(MAX_PASSES / 3);
+		expectClean(input, layoutMap(input, { steps: 0 }));
 	});
 
 	it('keeps them apart even before the force steps have done anything', () => {
@@ -216,14 +271,15 @@ describe('layoutMap', () => {
 		expect(t).toBeLessThan(0.8);
 	});
 
-	it('sizes circles and edges, and keeps a self-loop', () => {
+	it('sizes pills from their names and edges from their figures, and keeps a self-loop', () => {
 		const out = layoutMap({
-			positions: [pos(1, 'A', 4), pos(2, 'B', 100)],
+			positions: [pos(1, 'Cradle', 4), pos(2, 'Special late turn side', 100)],
 			edges: [edge(1, 2, 3), edge(2, 1, 9), edge(2, 2, 1)]
 		});
-		expect(out.nodes.map((n) => [n.id, n.r])).toEqual([
-			[1, 22],
-			[2, 34]
+		// The figures through a position do not size its pill: its name does.
+		expect(out.nodes.map((n) => [n.id, n.lines, n.w, n.h])).toEqual([
+			[1, ['Cradle'], 85.6, 32],
+			[2, ['Special late', 'turn side'], 131.2, 46]
 		]);
 		expect(out.edges).toEqual([
 			{ from: 1, to: 2, width: 4 },
@@ -269,27 +325,14 @@ describe('layoutMap', () => {
 		expect(marked).toHaveLength(24);
 		const d = out.nodes.find((n) => n.id === 2)!;
 		expect(d.mark).toBe('dead end');
-		// The word's line sits right under the name's.
-		expect(d.markY).toBe(d.labelY + LABEL_HEIGHT);
+		// The word's line sits right under the pill: 2 px down, a line 14 px high.
+		expect(d.markY).toBeCloseTo(d.y + d.h / 2 + 2 + LINE_HEIGHT / 2, 5);
+		// Wider than a two-letter pill: the outline is the word's.
 		const word = markBox('dead end', 0, 0);
-		expect(word.x1 - word.x0).toBeGreaterThan(labelBox('D2', 0, 0).x1 - labelBox('D2', 0, 0).x0);
+		expect(word.x1 - word.x0).toBeGreaterThan(d.w);
+		expect(outlineOf(d).x1 - outlineOf(d).x0).toBeCloseTo(word.x1 - word.x0, 5);
 		expectClean(input, out);
 		expectClean(input, layoutMap(input, { steps: 0 }));
-	});
-
-	it('draws and measures the mark in the reader’s language', () => {
-		expect([markWord('dead end'), markWord('orphan')]).toEqual(['dead end', 'orphan']);
-		expect(withLocale('sl', () => [markWord('dead end'), markWord('orphan')])).toEqual([
-			'slepa ulica',
-			'nedosegljiv'
-		]);
-		// »nedosegljiv« is 11 characters, "orphan" 6: the box the layout keeps clear grows with it.
-		const width = (b: { x0: number; x1: number }) => b.x1 - b.x0;
-		expect(width(markBox('orphan', 0, 0))).toBe(6 * MARK_CHAR);
-		expect(withLocale('sl', () => width(markBox('orphan', 0, 0)))).toBe(11 * MARK_CHAR);
-		// The Twins line too: "Twins" is 5 characters, »Dvojčka« 7.
-		expect(width(twinsBox(0, 0))).toBe(5 * MARK_CHAR);
-		expect(withLocale('sl', () => width(twinsBox(0, 0)))).toBe(7 * MARK_CHAR);
 	});
 
 	it('gives a twinned position room for its Twins line, under the mark when it has one', () => {
@@ -309,15 +352,15 @@ describe('layoutMap', () => {
 		const hub = out.nodes.find((n) => n.id === 1)!;
 		// No mark: the Twins line is the second.
 		expect(hub).toMatchObject({ mark: null, markY: null, twins: true });
-		expect(hub.twinsY).toBe(hub.labelY + LABEL_HEIGHT);
-		// A dead end: the name, the mark, then Twins.
+		expect(hub.twinsY).toBeCloseTo(hub.y + hub.h / 2 + 2 + LINE_HEIGHT / 2, 5);
+		// A dead end: the pill, the mark, then Twins.
 		const d = out.nodes.find((n) => n.id === 2)!;
 		expect(d).toMatchObject({ mark: 'dead end', twins: true });
-		expect(d.twinsY).toBe(d.labelY + 2 * LABEL_HEIGHT);
+		expect(d.twinsY).toBeCloseTo(d.markY! + 2 + LINE_HEIGHT, 5);
 		expect(out.nodes.find((n) => n.id === 3)!.twinsY).toBe(null);
-		// Wider than a two-letter name: the box is the word's.
-		const word = twinsBox(0, 0);
-		expect(word.x1 - word.x0).toBeGreaterThan(labelBox('D2', 0, 0).x1 - labelBox('D2', 0, 0).x0);
+		// The outline reaches past both lines under the pill.
+		expect(outlineOf(d).y1 - (d.y + d.h / 2)).toBeCloseTo(2 * (2 + LINE_HEIGHT), 5);
+		expect(twinsBox(0, 0).y1 - twinsBox(0, 0).y0).toBe(LINE_HEIGHT);
 		expectClean(input, out);
 		expectClean(input, layoutMap(input, { steps: 0 }));
 		expectClean(input, layoutMap(input, { steps: 40 }));
@@ -423,10 +466,10 @@ describe('layoutMap', () => {
 		expect(seen[0].passes).toBeLessThan(MAX_PASSES);
 	});
 
-	it('keeps a crowd of big circles round a hub apart', () => {
-		// 40 positions at the biggest circle, every one joined to a hub, and a ring
+	it('keeps a crowd of wide pills round a hub apart', () => {
+		// 40 positions with long one-line names, every one joined to a hub, and a ring
 		const positions = Array.from({ length: 40 }, (_, i) =>
-			pos(i + 1, `Big position ${i + 1}`, 100)
+			pos(i + 1, `Big_position_number_${i + 1}`, 100)
 		);
 		positions.push(pos(41, 'Hub', 400));
 		const edges = [];
@@ -437,25 +480,28 @@ describe('layoutMap', () => {
 		let stats: MapStats | null = null;
 		const out = layoutMap(input, { onStats: (s) => (stats = s) });
 		expect(out.nodes).toHaveLength(41);
-		expect(out.nodes.every((n) => n.r === 34)).toBe(true);
+		expect(out.nodes.filter((n) => n.lines.length === 1 && n.w > 180)).toHaveLength(40);
 		expect(stats!.settled).toBe(true);
 		expectClean(input, out);
 	});
 
-	it('cuts a long name at 40 characters, so its label still fits the frame', () => {
+	it('cuts a long name at 40 characters, so its pill still fits the frame', () => {
 		const long = 'A very long position name of sixty characters, really long!!';
 		expect([...long]).toHaveLength(60);
 		expect(mapLabel(long)).toBe(long.slice(0, 39) + '…');
 		expect([...mapLabel(long)]).toHaveLength(40);
 		expect(mapLabel('Cuddle')).toBe('Cuddle');
-		expect(labelBox(long, 0, 0).x1 - labelBox(long, 0, 0).x0).toBe(280);
+		// No space to split at: one line of 40 characters, the widest pill there is.
+		const word = 'x'.repeat(60);
+		expect(pillSize(pillLines(mapLabel(word))).w).toBe(344);
 
 		const input = {
-			positions: [pos(1, long, 3), pos(2, 'Cuddle', 3), pos(3, long + ' too', 1)],
-			edges: [edge(1, 2, 2), edge(2, 3, 1), edge(3, 1, 1)]
+			positions: [pos(1, long, 3), pos(2, 'Cuddle', 3), pos(3, long + ' too', 1), pos(4, word, 1)],
+			edges: [edge(1, 2, 2), edge(2, 3, 1), edge(3, 4, 1), edge(4, 1, 1)]
 		};
 		const out = layoutMap(input);
 		expect(out.width).toBe(360);
+		expect(out.nodes.find((n) => n.id === 1)!.lines).toHaveLength(2);
 		expectClean(input, out);
 	});
 });
@@ -532,5 +578,21 @@ describe('mapInputOf', () => {
 		const out = layoutMap(mapInputOf(g));
 		expect(out.tray.islands).toEqual(islands);
 		expect(out.nodes.map((n) => n.id)).toEqual([4, 5]);
+	});
+});
+
+describe('the words under a pill have room in every language', () => {
+	const width = (b: { x0: number; x1: number }) => b.x1 - b.x0;
+	it.each(['en', 'sl'] as const)('%s: the mark words and Twins fit their boxes', (locale) => {
+		withLocale(locale, () => {
+			const m = t().map;
+			expect(width(markBox('dead end', 0, 0))).toBeGreaterThanOrEqual(
+				[...m.mark.deadEnd].length * MARK_CHAR
+			);
+			expect(width(markBox('orphan', 0, 0))).toBeGreaterThanOrEqual(
+				[...m.mark.orphan].length * MARK_CHAR
+			);
+			expect(width(twinsBox(0, 0))).toBeGreaterThanOrEqual([...m.twins].length * MARK_CHAR);
+		});
 	});
 });

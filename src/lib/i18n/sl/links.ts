@@ -15,7 +15,6 @@ export const links: Catalog['links'] = {
 	},
 	createRow: {
 		variation: 'Različica',
-		figure: 'Figura',
 		drill: 'Vaja',
 		position: 'Položaj'
 	},
@@ -64,7 +63,6 @@ export const links: Catalog['links'] = {
 	create: {
 		titles: {
 			variation: 'Nova različica',
-			figure: 'Nova figura',
 			drill: 'Nova vaja',
 			position: 'Nov položaj'
 		},
@@ -76,9 +74,7 @@ export const links: Catalog['links'] = {
 		moves: 'Figure',
 		pickMove: 'Izberite figuro.',
 		figureName: 'Ime različice',
-		moveName: 'Ime figure',
 		// As the figure fields' example: the Spanish name dancers use.
-		firstName: 'Básica',
 		name: 'Ime',
 		positionPlaceholder: 'npr. Cerrada, Manos cruzadas',
 		// A position's type is its style, as in the position sheet.

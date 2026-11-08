@@ -10,6 +10,7 @@ import {
 	isOpenLesson,
 	lessonCounts,
 	monthGroups,
+	byMonth,
 	splitDrafts,
 	videoMeta
 } from './list';
@@ -38,6 +39,25 @@ describe('monthGroups', () => {
 			['2025-12', 'December 2025', 1]
 		]);
 		expect(monthGroups([])).toEqual([]);
+	});
+});
+
+describe('byMonth', () => {
+	it('puts drafts in their month by date, not first', () => {
+		// The group page's load: drafts first, then published, each newest first.
+		const rows = [
+			lesson('2026-10-12', { id: 1 }),
+			lesson('2026-09-15', { id: 2 }),
+			lesson('2026-11-02', { id: 3 }),
+			lesson('2026-10-19', { id: 4 })
+		];
+		const groups = byMonth(rows);
+		expect(groups.map((g) => [g.key, g.lessons.map((l) => l.id)])).toEqual([
+			['2026-11', [3]],
+			['2026-10', [4, 1]],
+			['2026-09', [2]]
+		]);
+		expect(rows.map((l) => l.id)).toEqual([1, 2, 3, 4]);
 	});
 });
 

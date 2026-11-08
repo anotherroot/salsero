@@ -22,7 +22,7 @@ export const EMPTY_PANE: Record<'figures' | 'routines', PaneWords> = {
 			return t().moves.pane.figures.group;
 		},
 		get action() {
-			return t().moves.newMove;
+			return t().moves.newFigure;
 		}
 	},
 	routines: {

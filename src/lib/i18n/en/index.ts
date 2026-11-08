@@ -11,6 +11,7 @@ import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
 import { links } from './links';
+import { map } from './map';
 import { moves } from './moves';
 import { nouns } from './nouns';
 import { picker } from './picker';
@@ -47,5 +48,6 @@ export const en = {
 	picker,
 	links,
 	clones,
-	refusals
+	refusals,
+	map
 };

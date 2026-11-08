@@ -63,6 +63,7 @@
 //   does not loop (a routine)             se ne sklene
 //   Notes (a figure's, a lesson's)        opombe
 //   Map (positions)                       Zemljevid
+//   Walk (the map, to a routine)          sprehod (Sprehod od tu)
 //   Sync (copies)                         Uskladi
 //   Keep in step                          Samodejno usklajevanje
 //   Drop my copy                          Opusti svojo kopijo
@@ -86,6 +87,7 @@ import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
 import { links } from './links';
+import { map } from './map';
 import { moves } from './moves';
 import { nouns } from './nouns';
 import { picker } from './picker';
@@ -122,5 +124,6 @@ export const sl: Catalog = {
 	picker,
 	links,
 	clones,
-	refusals
+	refusals,
+	map
 };

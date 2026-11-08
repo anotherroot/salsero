@@ -7,7 +7,7 @@ export const moves = {
 	/** The band's switch (the tab itself is `shell.tabs.moves`). */
 	segments: { figures: 'Figures', routines: 'Routines', positions: 'Positions' },
 	/** The band's +, by the list it sits over. */
-	newMove: 'New move',
+	newFigure: 'New figure',
 	newRoutine: 'New routine',
 	newPosition: 'New position',
 	/** Under a figure row and over the Figures list. */
@@ -82,8 +82,8 @@ export const moves = {
 		allLinkedBody: 'Every figure has a section and a lesson.',
 		noMatch: 'No figures match',
 		noneOwn: 'No figures of your own yet.',
-		adding: 'Adding move',
-		add: 'Add move',
+		adding: 'Adding figure',
+		add: 'Add figure',
 		recordingsNext: 'You can add recordings next.'
 	},
 	routines: {
@@ -147,6 +147,7 @@ export const moves = {
 		routineName: 'Give the routine a name (up to 200 characters).',
 		notes: 'Notes are up to 2000 characters.',
 		partnerStyle: 'Pick how it is danced and its style.',
+		pickMove: 'Pick a move.',
 		moveTaken: (name: string): string => `There's already a move called ${name}.`,
 		figureTaken: (move: string, name: string): string =>
 			`${move} already has a figure called ${name}. Rename one first.`,

@@ -107,7 +107,6 @@ export const lesson: Catalog['lesson'] = {
 			search: 'Iskanje različic',
 			group: 'Različice',
 			none: 'Različic še ni.',
-			move: 'Figura',
 			figure: 'Različica'
 		},
 		routine: {
@@ -134,14 +133,6 @@ export const lesson: Catalog['lesson'] = {
 	create: {
 		figure: {
 			title: 'Nova različica',
-			make: 'Ustvari',
-			newMove: 'Nova figura',
-			inMove: 'Nova različica v figuri',
-			noMoves: 'Figur še ni.',
-			move: 'Figura',
-			choose: 'Izberite figuro …',
-			chooseTitle: 'Izberite figuro',
-			search: 'Iskanje figur',
 			inLesson: 'V tej lekciji',
 			moves: 'Figure',
 			first: 'Figure iz te lekcije so na vrhu',

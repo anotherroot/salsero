@@ -18,7 +18,6 @@ export const links = {
 	/** The picker's create row, bare nouns (the picker draws the +). */
 	createRow: {
 		variation: 'Figure',
-		figure: 'Move',
 		drill: 'Drill',
 		position: 'Position'
 	},
@@ -72,7 +71,6 @@ export const links = {
 	create: {
 		titles: {
 			variation: 'New figure',
-			figure: 'New move',
 			drill: 'New drill',
 			position: 'New position'
 		},
@@ -85,9 +83,6 @@ export const links = {
 		moves: 'Moves',
 		pickMove: 'Pick a move.',
 		figureName: 'Figure name',
-		moveName: 'Move name',
-		/** A new move's first figure, until it is renamed. */
-		firstName: 'Basic',
 		name: 'Name',
 		positionPlaceholder: 'e.g. Cerrada, Manos cruzadas',
 		type: 'Type',
