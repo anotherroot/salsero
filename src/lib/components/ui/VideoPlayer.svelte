@@ -236,7 +236,13 @@
 		held.set(id, new Set([...(held.get(id) ?? []), ...keys]));
 	let clash = $state<ClashAsk | null>(null);
 	type ToastAction = { label: string; run: () => void };
-	let toast = $state<{ text: string; tone: ToastTone; actions: ToastAction[] } | null>(null);
+	let toast = $state<{
+		id: number;
+		text: string;
+		tone: ToastTone;
+		actions: ToastAction[];
+	} | null>(null);
+	let toastSeq = 0;
 	type LinkCreateStep = 'variation' | 'figure' | 'drill' | 'position';
 	/** The player's sheet for each of the Link popup's levels; every create step is 'link-new'. */
 	const LINK_SHEET: Record<LinkStep, SheetKind> = {
@@ -373,10 +379,19 @@
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 	/** A toast; one offering Link stays a little longer, since linking is the next step. */
 	function say(text: string, tone: ToastTone, ...actions: ToastAction[]) {
-		toast = { text, tone, actions };
+		toast = { id: ++toastSeq, text, tone, actions };
 		clearTimeout(toastTimer);
-		const long = actions.some((a) => a.label === w.link);
-		toastTimer = setTimeout(() => (toast = null), long ? 6000 : 4000);
+		toastTimer = setTimeout(() => (toast = null), toastMs());
+	}
+	const toastMs = () => (toast?.actions.some((a) => a.label === w.link) ? 6000 : 4000);
+	/** A finger on the toast stops its clock; letting go starts it again, in full. */
+	function holdToast(held: boolean) {
+		clearTimeout(toastTimer);
+		if (!held && toast) toastTimer = setTimeout(() => (toast = null), toastMs());
+	}
+	function dropToast() {
+		clearTimeout(toastTimer);
+		toast = null;
 	}
 	onMount(() => () => clearTimeout(toastTimer));
 
@@ -1345,7 +1360,14 @@
 			{/if}
 			{#if toast && toastPlace(mode, chromeLevel, toast.tone) === 'video'}
 				<div class="absolute inset-x-4 bottom-3 z-30 mx-auto max-w-md">
-					<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
+					<Toast
+						id={toast.id}
+						text={toast.text}
+						tone={toast.tone}
+						actions={toast.actions}
+						ondismiss={dropToast}
+						onhold={holdToast}
+					/>
 				</div>
 			{/if}
 		</div>
@@ -1571,7 +1593,14 @@
 
 		{#if toast && toastPlace(mode, chromeLevel, toast.tone) === 'bottom'}
 			<div class="absolute inset-x-4 z-30 mx-auto max-w-md" style:bottom="20px">
-				<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
+				<Toast
+					id={toast.id}
+					text={toast.text}
+					tone={toast.tone}
+					actions={toast.actions}
+					ondismiss={dropToast}
+					onhold={holdToast}
+				/>
 			</div>
 		{/if}
 
