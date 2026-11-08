@@ -37,6 +37,7 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { t } from '$lib/i18n/catalog';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
+	import { byMonth } from '$lib/lessons/list';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -125,6 +126,13 @@
 		creating = true;
 	}
 
+	/** The band's +: for now straight to New lesson (the chooser comes after the pick). */
+	function openAdd() {
+		openNewLesson();
+	}
+
+	const months = $derived(byMonth(data.lessons));
+
 	function openRename() {
 		seen = form;
 		menu = false;
@@ -159,6 +167,9 @@
 	left={backShown ? back : undefined}
 >
 	{#snippet right()}
+		{#if data.canEdit && !data.simple}
+			<BandButton icon="plus" label={w.add} onclick={openAdd} />
+		{/if}
 		{#if !deleted}
 			<BandButton
 				icon="more"
@@ -234,20 +245,15 @@
 {/snippet}
 
 {#snippet lessons()}
-	<section class="flex flex-col gap-2">
-		<div class="flex items-center justify-between pr-1">
-			<h2 class={SECTION_LABEL}>{w.lessons}</h2>
-			{#if data.canEdit}
-				<button type="button" class={button('tertiary', 'sm')} onclick={openNewLesson}
-					><Icon name="plus" size={18} />{w.newLesson}</button
-				>
-			{/if}
-		</div>
+	<!-- By month, as the Lessons tab: the month heading tells when a class was; New lesson is the band's +. -->
+	<section class="flex flex-col gap-2" aria-label={w.lessons}>
 		{#if data.lessons.length === 0}
 			<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">{w.noLessons}</div>
-		{:else}
-			<ul class={GROUP} aria-label={w.lessons}>
-				{#each data.lessons as lesson (lesson.id)}
+		{/if}
+		{#each months as month (month.key)}
+			<h2 class={SECTION_LABEL}>{month.label}</h2>
+			<ul class={GROUP} aria-label={month.label}>
+				{#each month.lessons as lesson (lesson.id)}
 					<LessonRow
 						{lesson}
 						draft={lesson.publishedAt === null}
@@ -288,7 +294,7 @@
 					{/snippet}
 				{/each}
 			</ul>
-		{/if}
+		{/each}
 	</section>
 {/snippet}
 

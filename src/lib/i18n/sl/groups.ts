@@ -22,6 +22,7 @@ export const groups: Catalog['groups'] = {
 		addedToToday: 'Dodano v Danes',
 		lessons: 'Lekcije',
 		newLesson: 'Nova lekcija',
+		add: 'Dodaj v skupino',
 		noLessons: 'Še ni lekcij',
 		added: 'Dodano',
 		people: 'Ljudje',

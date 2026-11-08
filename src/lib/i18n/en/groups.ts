@@ -22,6 +22,8 @@ export const groups = {
 		addedToToday: 'Added to Today',
 		lessons: 'Lessons',
 		newLesson: 'New lesson',
+		/** The band's +: add to this group (a lesson, music, a figure …). */
+		add: 'Add to the group',
 		noLessons: 'No lessons yet',
 		added: 'Added',
 		people: 'People',
