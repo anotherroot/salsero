@@ -178,6 +178,11 @@ Today as a number a day has its own,
 the four faces, the replayed gap and its numbers, the day's list from the start
 of the day, Next N, Not today and Undo, Coming up, the reminder, and what was
 decided while building.
+Run the day has its own,
+[`docs/superpowers/specs/2026-11-07-run-the-day-design.md`](docs/superpowers/specs/2026-11-07-run-the-day-design.md):
+the slower gaps, Comes back (by how it went, every day until it feels good, a
+fixed rhythm; a teacher's for the class), Warm-up, Today's two lists, no
+lateness, and the exercise page, Done sheet and run still to come.
 Levels have theirs,
 [`docs/superpowers/specs/2026-11-05-levels-design.md`](docs/superpowers/specs/2026-11-05-levels-design.md):
 the three levels and what each draws, the first run, tabs per level, auto-add

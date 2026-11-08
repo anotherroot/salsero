@@ -1,6 +1,9 @@
 # Run the day: one page per exercise, warm-ups, slower gaps
 
-Status: agreed in brainstorming on 2026-11-07, not built. The design boards:
+Status: agreed in brainstorming on 2026-11-07. Plan 1 is built (slower gaps,
+Comes back, Warm-up, Today's two lists, no lateness; branch exercise-flow);
+plans 2 and 3 (the exercise page and Done sheet, the run, Recordings) are not.
+The design boards:
 https://claude.ai/artifact/4udVsxmwPMRTWebNdpWpsz (round 1, directions A–C),
 https://claude.ai/artifact/WYKy9HYn6GBmujnPCydT2W (rounds 2 and 3: direction B,
 the picks L1 F1 T1, and the gap growth G1–G3) and
