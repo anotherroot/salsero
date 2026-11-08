@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { askedLine, barFraction, itemMeta, usageLine } from './storage-view';
 
 const MB = 1024 * 1024;
@@ -20,5 +21,19 @@ describe('storage view', () => {
 	});
 	it('words the open request', () => {
 		expect(askedLine('2026-11-02')).toBe('Asked on 2 Nov 2026 · waiting');
+	});
+});
+
+describe('storage view in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words the usage with a decimal comma', () => {
+		expect(sl(() => usageLine(820 * MB, 1229 * MB))).toBe('Uporabljate 820 MB od 1,2 GB');
+		expect(sl(() => usageLine(820 * MB, null))).toBe('Uporabljate 820 MB');
+	});
+	it('words the open request', () => {
+		expect(sl(() => askedLine('2026-11-02'))).toBe(
+			'Prošnja poslana 2. nov. 2026 · čaka na odgovor'
+		);
 	});
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import { myCountHref, voiceBack } from './back';
 
 describe('voiceBack', () => {
@@ -51,5 +52,12 @@ describe('myCountHref', () => {
 		expect(new URL(myCountHref('/bachata/player'), 'http://x').searchParams.get('from')).toBe(
 			'/bachata/player'
 		);
+	});
+});
+
+describe('voiceBack in Slovenian', () => {
+	it('says where Back goes', () => {
+		expect(withLocale('sl', () => voiceBack(null).label)).toBe('Nazaj: Nastavitve');
+		expect(withLocale('sl', () => voiceBack('/salsa/player').label)).toBe('Nazaj: Vadenje');
 	});
 });

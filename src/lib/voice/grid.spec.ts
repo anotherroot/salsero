@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { withLocale } from '$lib/i18n/current';
 import type { CountPattern } from '$lib/labels';
 import {
 	keptMessage,
@@ -114,5 +115,33 @@ describe('keptMessage', () => {
 		expect(keptMessage(152, ['a', 'b'], 'salsa')).toBe('Kept both halves for 152 BPM');
 		expect(keptMessage(152, ['b'], 'salsa')).toBe('Kept counts 5 6 7 for 152 BPM');
 		expect(keptMessage(152, ['a'], 'son')).toBe('Kept counts 2 3 4 for 152 BPM');
+	});
+});
+
+describe('in Slovenian', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+
+	it('words the grid', () => {
+		expect(sl(() => ownVoiceSummary([]))).toBe('0 od 21 tempov z vašim glasom');
+		expect(sl(() => recordedLabel(takes, 'salsa'))).toBe('Tempi · posnetih 3 od 7');
+		expect(sl(() => tempoMeta({ state: 'done' }, 'salsa').text)).toBe('Posneto');
+		expect(sl(() => tempoMeta({ state: 'half', half: 'a' }, 'salsa').text)).toBe(
+			'Pol posneto · štetje 1 2 3'
+		);
+		expect(sl(() => tempoMeta({ state: 'none' }, 'all').text)).toBe('Ni posneto');
+	});
+
+	it('words a take row and the toasts', () => {
+		expect(sl(() => takeRows([k('salsa', 120, 'a', 1)], 'salsa')[0])).toEqual({
+			id: 1,
+			title: '120 BPM · štetje 1 2 3',
+			meta: '1 2 3 · 5 6 7 · fraza A',
+			deleteLabel: 'Izbriši 120 BPM, fraza A',
+			deleted: 'Izbrisano: 120 BPM · štetje 1 2 3'
+		});
+		expect(sl(() => keptMessage(152, ['a', 'b'], 'salsa'))).toBe(
+			'Shranjeni obe polovici za 152 BPM'
+		);
+		expect(sl(() => keptMessage(152, ['b'], 'salsa'))).toBe('Shranjeno štetje 5 6 7 za 152 BPM');
 	});
 });

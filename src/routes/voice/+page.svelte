@@ -14,7 +14,8 @@
 	import { CHIP, GROUP, ROW, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { tick, type Snippet } from 'svelte';
 	import { keptMessage, recordedLabel, takeRows, tempoMeta, tempoState } from '$lib/voice/grid';
-	import { NOTHING_CAPTURED, recordingView, silentLine, voiceError } from '$lib/voice/recording';
+	import { nothingCaptured, recordingView, silentLine, voiceError } from '$lib/voice/recording';
+	import { t } from '$lib/i18n/catalog';
 	import { voiceBack } from '$lib/voice/back';
 	import { invalidateAll } from '$app/navigation';
 	import { leaveOrAsk, track } from '$lib/unsaved/guard.svelte';
@@ -150,7 +151,7 @@
 					stage = 'arming';
 				} else {
 					stage = 'grid';
-					error = NOTHING_CAPTURED;
+					error = nothingCaptured();
 				}
 			} catch (e) {
 				if (mine !== gen) return;
@@ -195,7 +196,7 @@
 			},
 			body: encodeWav(take.frames, take.sampleRate) as BodyInit
 		});
-		if (!res.ok) throw new Error(uploadFailure(await res.text(), 'Upload failed.'));
+		if (!res.ok) throw new Error(uploadFailure(await res.text(), t().settings.voice.uploadFailed));
 	}
 
 	/** Upload the chosen bars. True when they all landed. */
@@ -223,7 +224,7 @@
 			});
 			return true;
 		} catch (e) {
-			keepError = e instanceof Error ? e.message : 'Could not save the takes.';
+			keepError = e instanceof Error ? e.message : t().settings.voice.couldNotSaveTakesLine;
 			return false;
 		} finally {
 			saving = false;
@@ -234,13 +235,13 @@
 	// "Back" is the one way out that does not, because it says so.
 	$effect(() =>
 		track({
-			label: 'Your recorded count',
+			label: t().settings.voice.unsaved,
 			dirty: () => stage === 'choosing' && capture !== null,
-			blocked: () => (chosen.a === null && chosen.b === null ? 'Pick a bar to keep first.' : null),
+			blocked: () => (chosen.a === null && chosen.b === null ? t().settings.voice.pickFirst : null),
 			save: async () =>
 				(await keep())
 					? { ok: true }
-					: { ok: false, message: keepError ?? 'Could not save the takes.' }
+					: { ok: false, message: keepError ?? t().settings.voice.couldNotSaveTakesLine }
 		})
 	);
 
@@ -252,7 +253,7 @@
 	let seq = 0;
 
 	function refused(result: Awaited<ReturnType<typeof act>>) {
-		const message = refusalMessage(result, 'Could not do that.');
+		const message = refusalMessage(result, t().settings.voice.couldNotDo);
 		if (message === null) return false;
 		toast = { id: ++seq, message };
 		return true;
@@ -289,6 +290,8 @@
 	}
 
 	const view = $derived(recordingView(pattern, BARS, beat));
+	const w = $derived(t().settings.voice);
+	const myCount = $derived(t().shell.lists.myCount);
 	const dotLook: Record<string, string> = {
 		current:
 			'bg-accent text-on-accent shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
@@ -298,14 +301,14 @@
 	};
 </script>
 
-<svelte:head><title>My count · Salsa</title></svelte:head>
+<svelte:head><title>{`${myCount} · Salsa`}</title></svelte:head>
 
 {#snippet back()}
 	<BandButton icon="back" label={backTo.label} href={backTo.href} />
 {/snippet}
 {#snippet stageBack()}
 	<!-- An in-page stage change, not a history entry: the stage is not a place. -->
-	<BandButton icon="back" label="Back to My count" onclick={leaveStage} />
+	<BandButton icon="back" label={t().shell.backTo(myCount)} onclick={leaveStage} />
 {/snippet}
 {#snippet patterns()}
 	<!-- The band row's toggle on the desktop: 480 wide, as the board draws it. -->
@@ -313,7 +316,7 @@
 		<Segmented
 			onBand
 			name="pattern"
-			label="Count pattern"
+			label={w.countPattern}
 			items={PHRASE_PATTERNS.map((p) => ({ value: p, label: COUNT_PATTERN_LABEL[p] }))}
 			bind:value={pattern}
 		/>
@@ -322,17 +325,17 @@
 
 <Screen
 	title={stage === 'grid'
-		? 'My count'
+		? myCount
 		: stage === 'arming'
 			? `${bpm} BPM`
 			: stage === 'recording'
-				? 'Recording'
-				: 'Pick the bars'}
+				? w.recording
+				: w.pickBars}
 	subtitle={stage === 'arming'
-		? `Count ${COUNT_PATTERN_LABEL[pattern]}`
+		? w.countSub(COUNT_PATTERN_LABEL[pattern])
 		: stage === 'grid'
 			? undefined
-			: `${COUNT_PATTERN_LABEL[pattern]} at ${bpm} BPM`}
+			: w.atBpm(COUNT_PATTERN_LABEL[pattern], bpm)}
 	left={stage === 'grid' ? back : stageBack}
 	extra={stage === 'grid' ? patterns : undefined}
 >
@@ -341,21 +344,20 @@
 			<Banner kind="error" title={error.title}>{error.body}</Banner>
 		{:else}
 			<p class="mx-1 text-[15px] text-ink-2">
-				Record yourself counting and the player uses your voice. A tempo with nothing recorded uses
-				the built-in count.
+				{w.intro}
 			</p>
 		{/if}
 
 		<span class="{SECTION_LABEL} mt-1.5" tabindex="-1" data-focus="tempos-heading"
 			>{recordedLabel(data.takes, pattern)}</span
 		>
-		<ul class={GROUP} aria-label="Tempos">
-			{#each TEMPO_LADDER as t (t)}
-				{@const state = tempoState(data.takes, pattern, t)}
+		<ul class={GROUP} aria-label={w.tempos}>
+			{#each TEMPO_LADDER as tempo (tempo)}
+				{@const state = tempoState(data.takes, pattern, tempo)}
 				{@const meta = tempoMeta(state, pattern)}
 				<li class="{ROW} min-h-16 pr-3">
 					<span class="flex min-w-0 flex-1 flex-col">
-						<span class="text-[16px] font-bold text-ink tabular-nums">{t} BPM</span>
+						<span class="text-[16px] font-bold text-ink tabular-nums">{`${tempo} BPM`}</span>
 						<span
 							class="text-[13px] {meta.tone === 'done'
 								? 'font-bold text-done'
@@ -367,14 +369,14 @@
 					<button
 						type="button"
 						class={state.state === 'none' ? button('secondary', 'sm') : button('tertiary', 'sm')}
-						aria-label="{state.state === 'none' ? 'Record' : 'Redo'} {t} BPM"
+						aria-label={state.state === 'none' ? w.recordLabel(tempo) : w.redoLabel(tempo)}
 						onclick={() => {
-							bpm = t;
+							bpm = tempo;
 							error = null;
 							stage = 'arming';
 						}}
 					>
-						{#if state.state === 'none'}<Icon name="mic" size={18} />Record{:else}Redo{/if}
+						{#if state.state === 'none'}<Icon name="mic" size={18} />{w.record}{:else}{w.redo}{/if}
 					</button>
 				</li>
 			{/each}
@@ -382,7 +384,7 @@
 
 		{#if rows.length}
 			<span class="{SECTION_LABEL} mt-3.5" tabindex="-1" data-focus="takes-heading"
-				>Recorded takes</span
+				>{w.recordedTakes}</span
 			>
 			<ul class={GROUP} bind:this={takesList}>
 				{#each rows as r (r.id)}
@@ -408,10 +410,10 @@
 				Not a suggestion. Through a speaker the click lands in the recording,
 				and the browser's echo cancellation then ducks the voice to cancel it.
 			-->
-			<Banner kind="warning" title="Put headphones on first">
-				Through a speaker the click gets recorded along with your voice.
+			<Banner kind="warning" title={w.headphones}>
+				{w.headphonesBody}
 			</Banner>
-			<span class="{SECTION_LABEL} mt-3.5">How it goes</span>
+			<span class="{SECTION_LABEL} mt-3.5">{w.howItGoes}</span>
 			<ol class="rounded-[22px] bg-surface py-1">
 				{#snippet step(n: number, text: Snippet)}
 					<li class="flex items-start gap-3.5 py-3 pr-4 pl-3.5">
@@ -422,8 +424,10 @@
 						<span class="pt-[3px] text-[15px] leading-[1.45] text-ink">{@render text()}</span>
 					</li>
 				{/snippet}
-				{#snippet one()}One bar of clicks to find the tempo.{/snippet}
-				{#snippet two()}Count <strong>{COUNT_PATTERN_LABEL[pattern]}</strong> out loud for {BARS} bars.{/snippet}
+				{#snippet one()}{w.stepOne}{/snippet}
+				{#snippet two()}{w.stepTwoBefore}
+					<strong>{COUNT_PATTERN_LABEL[pattern]}</strong>
+					{w.stepTwoAfter(BARS)}{/snippet}
 				{#snippet three()}{silentLine(pattern)}{/snippet}
 				{@render step(1, one)}
 				{@render step(2, two)}
@@ -432,7 +436,7 @@
 		</div>
 		<BottomBar>
 			<button type="button" class={button('primary', 'lg', true)} onclick={record}
-				><Icon name="mic" size={24} />Start</button
+				><Icon name="mic" size={24} />{w.start}</button
 			>
 		</BottomBar>
 	{:else if stage === 'recording'}
@@ -442,7 +446,7 @@
 			>
 				<span
 					class="inline-flex h-[30px] items-center gap-2 rounded-full bg-danger-soft px-3 text-[13px] font-extrabold text-danger"
-					><span class="size-2 rounded-full bg-danger"></span>Recording</span
+					><span class="size-2 rounded-full bg-danger"></span>{w.recording}</span
 				>
 				<p class="text-center">
 					<span
@@ -454,7 +458,9 @@
 						<span
 							class="mt-1.5 block text-[15px] font-semibold text-muted desk:mt-2.5 desk:text-[18px]"
 						>
-							{#if view.say}Say <strong class="text-ink">{view.say}</strong> now{:else}{view.line}{/if}
+							{#if view.say}{w.sayBefore}
+								<strong class="text-ink">{view.say}</strong>
+								{w.sayAfter}{:else}{view.line}{/if}
 						</span>
 					{/if}
 				</p>
@@ -469,7 +475,7 @@
 				</div>
 				<div
 					role="progressbar"
-					aria-label="Bars counted"
+					aria-label={w.barsCounted}
 					aria-valuemin={0}
 					aria-valuemax={BARS}
 					aria-valuenow={view.barsDone}
@@ -496,19 +502,19 @@
 				did count; Redo throws the lot away and starts the count-in again.
 			-->
 			<p class="px-4 pt-1.5 text-[13px] text-muted">
-				Stop keeps the whole bars you counted. Redo throws them away and starts the count-in again.
+				{w.stopNote}
 			</p>
 		</div>
 		<BottomBar>
 			<div class="flex gap-2.5">
 				<div class="flex flex-1">
 					<button type="button" class={button('secondary', 'lg', true)} onclick={redo}
-						><Icon name="refresh" size={24} />Redo</button
+						><Icon name="refresh" size={24} />{w.redo}</button
 					>
 				</div>
 				<div class="flex flex-1">
 					<button type="button" class={button('primary', 'lg', true)} onclick={stopRecording}
-						><Icon name="stop" size={24} />Stop</button
+						><Icon name="stop" size={24} />{w.stop}</button
 					>
 				</div>
 			</div>
@@ -516,25 +522,20 @@
 	{:else}
 		<div class="flex flex-col gap-2 pb-36">
 			{#if keepError}
-				<Banner kind="error" title="Could not save the takes">{keepError}</Banner>
+				<Banner kind="error" title={w.couldNotSaveTakes}>{keepError}</Banner>
 			{/if}
 			<p class="mx-1 text-[15px] text-ink-2">
-				Pick the best bar for each half. Listen before you keep it: a rushed or muttered one is
-				worse than the built-in voice.
+				{w.pickIntro}
 			</p>
 			{#each ['a', 'b'] as const as half (half)}
 				{@const counts = phraseCounts(pattern, half).join(' ')}
-				<span class="{SECTION_LABEL} mt-1.5">{half === 'a' ? 'First half' : 'Second half'}</span>
+				<span class="{SECTION_LABEL} mt-1.5">{half === 'a' ? w.firstHalf : w.secondHalf}</span>
 				<div class="flex flex-col gap-2.5 rounded-[22px] bg-surface p-4">
-					<span class="text-[16px] font-bold text-ink">Counts {counts}</span>
+					<span class="text-[16px] font-bold text-ink">{w.counts(counts)}</span>
 					{#if slices[half].length === 0}
-						<span class="text-[14px] text-muted">Nothing usable in this half.</span>
+						<span class="text-[14px] text-muted">{w.nothingUsable}</span>
 					{:else}
-						<div
-							role="radiogroup"
-							aria-label="Bar for counts {counts}"
-							class="flex flex-wrap gap-1.5"
-						>
+						<div role="radiogroup" aria-label={w.barFor(counts)} class="flex flex-wrap gap-1.5">
 							{#each [...slices[half].keys()] as i (i)}
 								<label class={CHIP}>
 									<input
@@ -544,13 +545,13 @@
 										onchange={() => (chosen = { ...chosen, [half]: i })}
 										class="sr-only"
 									/>
-									Bar {i + 1}
+									{w.bar(i + 1)}
 								</label>
 							{/each}
 						</div>
 						<div>
 							<button type="button" class={button('secondary', 'sm')} onclick={() => listen(half)}
-								><Icon name="play" size={18} />Listen to bar {(chosen[half] ?? 0) + 1}</button
+								><Icon name="play" size={18} />{w.listen((chosen[half] ?? 0) + 1)}</button
 							>
 						</div>
 					{/if}
@@ -566,13 +567,16 @@
 					aria-busy={saving}
 					onclick={keep}
 				>
-					{#if saving}<Spinner size={22} />Saving…{:else}<Icon name="check" size={24} />Keep these{/if}
+					{#if saving}<Spinner size={22} />{w.saving}{:else}<Icon
+							name="check"
+							size={24}
+						/>{w.keep}{/if}
 				</button>
 				<button
 					type="button"
 					class={button('tertiary', 'md', true)}
 					disabled={saving}
-					onclick={record}><Icon name="refresh" size={20} />Record again</button
+					onclick={record}><Icon name="refresh" size={20} />{w.recordAgain}</button
 				>
 			</div>
 		</BottomBar>

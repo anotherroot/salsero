@@ -6,6 +6,7 @@
  */
 import { DANCE_SLUGS } from '$lib/dances/dances';
 import type { PhrasePattern } from '$lib/labels';
+import { t } from '$lib/i18n/catalog';
 
 const PRACTICE = new RegExp(`^/(${DANCE_SLUGS.join('|')})/player(\\?.*)?$`);
 
@@ -25,10 +26,11 @@ export function myCountHref(from?: string, pattern?: PhrasePattern): string {
  */
 export function voiceBack(from: string | null): {
 	href: string;
-	label: 'Back to Settings' | 'Back to Practice';
+	label: string;
 } {
+	const w = t();
 	if (from && PRACTICE.test(from) && !from.includes('//') && !from.includes('\\')) {
-		return { href: from, label: 'Back to Practice' };
+		return { href: from, label: w.settings.voice.backToPractice };
 	}
-	return { href: '/settings', label: 'Back to Settings' };
+	return { href: '/settings', label: w.shell.backTo(w.shell.settings) };
 }

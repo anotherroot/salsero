@@ -126,7 +126,10 @@ const TRANSLATED: string[] = [
 	'src/lib/components/video/TopBar.svelte',
 	'src/lib/components/video/Transport.svelte',
 	'src/lib/components/video/TrimStrip.svelte',
-	'src/lib/components/video/VideoGestures.svelte'
+	'src/lib/components/video/VideoGestures.svelte',
+	// Settings and My count (Task 11).
+	'src/routes/settings/+page.svelte',
+	'src/routes/voice/+page.svelte'
 ];
 
 describe('englishIn', () => {

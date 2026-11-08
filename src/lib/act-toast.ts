@@ -5,6 +5,7 @@
  */
 import type { IconName } from '$lib/icons/icons';
 import type { ActionResult } from '@sveltejs/kit';
+import { t } from '$lib/i18n/catalog';
 
 export type ToastState = {
 	id: number;
@@ -35,7 +36,7 @@ export function undoToast(
 	return {
 		id,
 		message,
-		action: 'Undo',
+		action: t().common.undo,
 		undo: async () => {
 			clear();
 			await restore();

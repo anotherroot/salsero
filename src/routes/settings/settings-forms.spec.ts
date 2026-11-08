@@ -25,6 +25,7 @@ import { dailyCountOf } from '$lib/server/today-picks';
 import { levelOf } from '$lib/server/levels';
 import { localeOf } from '$lib/server/locale';
 import { withLocale } from '$lib/i18n/current';
+import { runInLocale } from '$lib/server/i18n-request';
 import { t } from '$lib/i18n/catalog';
 import { actions, load } from './+page.server';
 
@@ -239,5 +240,49 @@ describe('ask for more with no limit', () => {
 		expect(res.status).toBe(400);
 		const data = (await (load as (e: unknown) => unknown)(post({}))) as { asked: string | null };
 		expect(data.asked).toBeNull();
+	});
+});
+
+describe('refusals in Slovenian', () => {
+	const sl = (fn: () => Promise<unknown>) => runInLocale('sl', fn);
+
+	it('words each refusal in the person’s language', async () => {
+		expect(
+			await sl(() => call(actions.name, post({ firstName: '', lastName: 'B' })))
+		).toMatchObject({ status: 400, data: { message: 'Vnesite svoje ime (največ 60 znakov).' } });
+		expect(await sl(() => call(actions.theme, post({ theme: 'pink' })))).toMatchObject({
+			data: { message: 'Izberite eno od tem.' }
+		});
+		expect(await sl(() => call(actions.style, post({ style: 'x' })))).toMatchObject({
+			data: { message: 'Izberite enega od slogov.' }
+		});
+		expect(await sl(() => call(actions.reminder, post({ reminder: 'x' })))).toMatchObject({
+			data: { message: 'Izberite uro ali opomnik izklopite.' }
+		});
+		expect(await sl(() => call(actions.videoSize, post({ shortSide: '1' })))).toMatchObject({
+			data: { message: 'Izberite eno od velikosti.' }
+		});
+		expect(await sl(() => call(actions.level, post({ level: 'x' })))).toMatchObject({
+			data: { message: 'Izberite eno od treh možnosti.' }
+		});
+		expect(await sl(() => call(actions.dailyCount, post({ count: '99' })))).toMatchObject({
+			data: { message: 'Izberite število od 1 do 30.' }
+		});
+		expect(await sl(() => call(actions.removeDevice, post({ id: '999' })))).toMatchObject({
+			data: { message: 'Ta telefon je že odstranjen.' }
+		});
+		expect(await sl(() => call(actions.restoreDevice, post({ id: '999' })))).toMatchObject({
+			data: { message: 'Prepozno za razveljavitev.' }
+		});
+		expect(await sl(() => call(actions.ask, post({})))).toMatchObject({
+			data: { message: 'Nimate omejitve, zato vam ni treba prositi za več.' }
+		});
+	});
+
+	it('words the load’s lines', async () => {
+		const data = (await sl(async () => (load as (e: unknown) => unknown)(post({})))) as {
+			ownVoice: string;
+		};
+		expect(data.ownVoice).toBe('0 od 21 tempov z vašim glasom');
 	});
 });
