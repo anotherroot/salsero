@@ -43,6 +43,23 @@ nix develop .#android -c ./android/gradlew -p android test assembleDebug   # the
 In dev `DANCE_HOSTS` is unset, so the path decides the dance (bachata login:
 `/login?dance=bachata`); `ADMIN_EMAIL`/`ADMIN_PASSWORD` create an admin per dance.
 
+## Building in a slot
+
+Several slots share one 8-core machine, and the full check takes 10–40 minutes,
+so a plan runs it twice, not after every task. This overrides a plan's "npm run
+check must pass at the end of every task".
+
+- Build natively: the slot's own agent builds every task, with one review of
+  the whole branch at the end. Subagent-driven only when the user asks for it.
+- After each task, check only what it touched: its specs
+  (`npx vitest run <files>` or `npx vitest related <changed files>`), and
+  `npx eslint` and `npx prettier --check` on the changed files. Commit.
+- The full `npm run check` runs before the final review, and again after
+  merging master in, right before the merge into master.
+- Vitest at most `--maxWorkers=4`. A build killed with exit 143 (memory):
+  `nix develop -c sh -c "systemd-run --user --scope -q -p MemoryMax=5G npx vite build"`,
+  then `./scripts/deploy.sh --skip-build`.
+
 ## Layout in short (full map: docs/layout.md)
 
 ```
