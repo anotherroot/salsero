@@ -64,7 +64,11 @@ export const NETWORK_ENDPOINTS = [
 	'/releases/[dance]/[file]',
 	'/health',
 	'/manifest-[dance].webmanifest',
-	'/.well-known/assetlinks.json'
+	'/.well-known/assetlinks.json',
+	// The AI connector's discovery documents (machines, the network's).
+	'/.well-known/oauth-authorization-server',
+	'/.well-known/oauth-protected-resource',
+	'/.well-known/oauth-protected-resource/mcp'
 ];
 
 const DATA = '/__data.json';

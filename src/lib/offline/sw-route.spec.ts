@@ -321,3 +321,13 @@ describe('tellsNeedsConnection', () => {
 		expect(tellsNeedsConnection(new Headers({ [QUIET_HEADER]: '1' }))).toBe(false);
 	});
 });
+
+describe('the AI connector', () => {
+	it('stays out of the connector and its sign-in entirely', () => {
+		expect(route('POST', '/mcp')).toBe('pass');
+		expect(route('GET', '/oauth/authorize?client_id=x', 'navigate')).toBe('pass');
+		expect(route('POST', '/oauth/authorize?/approve', 'navigate')).toBe('pass');
+		expect(route('POST', '/oauth/token')).toBe('pass');
+		expect(route('GET', '/.well-known/oauth-authorization-server')).toBe('pass');
+	});
+});
