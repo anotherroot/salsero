@@ -292,9 +292,44 @@ def sets_count(db_path):
 def device_data(page, path):
     """A page's data as the device answers it now (offline: through the service worker)."""
     return page.evaluate(
-        "async (p) => { const r = await fetch(p + '/__data.json?x-sveltekit-invalidated=1'); return r.status + ' ' + (await r.text()); }",
+        "async (p) => { const r = await fetch(p + '/__data.json'); return r.status + ' ' + (await r.text()); }",
         path,
     )
+
+
+def outbox(page):
+    """The device's outbox as the page knows it (offline phase 3)."""
+    return page.evaluate("() => (window.__device && window.__device.outbox) || null")
+
+
+def wait_outbox(page, test, ms=30_000):
+    """Waits until `test` (a JS expression over `o`, the outbox) holds; False on time out."""
+    try:
+        page.wait_for_function(
+            f"() => {{ const o = window.__device && window.__device.outbox; return !!o && ({test}); }}",
+            timeout=ms,
+            polling=200,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def server_rows(db_path, sql, *args):
+    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        return db.execute(sql, args).fetchall()
+    finally:
+        db.close()
+
+
+def server_write(db_path, sql, *args):
+    db = sqlite3.connect(db_path)
+    try:
+        db.execute(sql, args)
+        db.commit()
+    finally:
+        db.close()
 
 
 def main():
@@ -450,8 +485,8 @@ def walk(base, db_path, v, lines, net):
                         report(False, f"offline tap: the group's first lesson {to}", str(e)[:160])
 
                 # 4. Offline, a write: Today's first exercise, its page's Done and a face (run the day plan 2:
-                # the face is the send; a fixed rhythm's Done saves at once). "Needs a connection" shows, the
-                # sheet stays open with its note, and nothing changes on the server or in the copy.
+                # the face is the send). Offline phase 3: it saves on the device, the sheet closes, nothing reaches
+                # the server yet, and after the grace the band says "· 1 waiting".
                 page.goto(f"{base}/{DANCE}", wait_until="load", timeout=60_000)
                 settle(page)
                 watch.take()
@@ -488,30 +523,20 @@ def walk(base, db_path, v, lines, net):
                                 report(False, "offline write: Done", "no face in the Done sheet")
                             else:
                                 faces.first.click(timeout=10_000)
-                        try:
-                            page.wait_for_function("() => window.__nc > 0", timeout=10_000, polling=100)
-                            told = True
-                        except Exception:
-                            told = False
-                        toast = page.get_by_text("Needs a connection", exact=False)
-                        shown = toast.count() > 0 and toast.first.is_visible()
-                        page.wait_for_timeout(500)
-                        stayed = ex_path in page.url
-                        report(told and shown, "offline write: the needs-connection toast shows", f"event {told}, toast {shown}")
-                        report(stayed, "offline write: the exercise page stays", f"went to {page.url.replace(base, '')}")
-                        if in_sheet:
-                            still_open = page.locator("dialog[open]").count() > 0
-                            report(still_open, "offline write: the Done sheet stays open", "the sheet closed")
-                            if note is not None and note.count():
-                                kept = still_open and note.first.input_value() == typed
-                                report(kept, "offline write: the note is kept", "the note is gone")
-                        # nothing of the page's own beside the root layout's toast (it would be English or twice)
-                        own = page.get_by_text("It did not save", exact=False).count()
-                        report(own == 0, "offline write: one message only", "the page's own refusal shows too")
+                        page.wait_for_timeout(800)
+                        closed = page.locator("dialog[open]").count() == 0
+                        report(closed, "offline write: saved on the device, the Done sheet closes", "the sheet stayed open")
+                        report(page.evaluate("() => window.__nc") == 0, "offline write: no needs-connection", "it said needs a connection")
                         after_rows = sets_count(db_path)
+                        report(after_rows == before_rows, "offline write: nothing on the server yet", f"{before_rows} -> {after_rows}")
                         after_copy = device_data(page, ex_path)
-                        report(after_rows == before_rows, "offline write: no new sets row on the server", f"{before_rows} -> {after_rows}")
-                        report(after_copy == before_copy, "offline write: the device's copy is unchanged", "its data changed")
+                        report(after_copy != before_copy, "offline write: the device's copy holds the log", "its data did not change")
+                        ob = outbox(page)
+                        report(bool(ob) and ob["waiting"] >= 1, "offline write: one change waits", f"outbox {ob}")
+                        made_at = ob["oldestWaitingAt"] if ob else None
+                        page.wait_for_timeout(2600)
+                        waits = page.get_by_text(re.compile(r"\d+ waiting")).count() > 0
+                        report(waits, "offline write: after the grace the band says waiting", "no 'N waiting' on the page")
                         errs = [e for e in watch.take() if "Failed to load resource" not in e]
                         report(not errs, "offline write: no errors", "; ".join(errs[:3]))
 
@@ -549,6 +574,11 @@ def walk(base, db_path, v, lines, net):
                     report(True, "online: renamed, and the device pulled")
                 except Exception as e:
                     report(False, "online: renamed, and the device pulled", str(e)[:200])
+                # the pull invalidates the page: let that load finish before the network goes, or its fetch fails
+                try:
+                    page.wait_for_load_state("networkidle", timeout=10_000)
+                except Exception:
+                    pass
                 watch.take()
                 offline(ctx, True)
                 page.goto(fig, wait_until="load", timeout=60_000)
@@ -556,6 +586,135 @@ def walk(base, db_path, v, lines, net):
                 judge(page, watch, "offline: the renamed figure's page")
                 has = page.get_by_text(new_name, exact=False).count() > 0
                 report(has, "offline: the figure page shows the new name", f"no {new_name!r} on the page")
+
+                # 7. Offline, an edit: rename the figure on the device; its page shows it and it waits (step 4.s log
+                # went up when step 6 came online).
+                offline_name = f"Offline {int(time.time()) % 100000}"
+                try:
+                    page.get_by_role("button", name="Edit", exact=True).first.click()
+                    page.locator('#edit-form input[name="name"]').fill(offline_name)
+                    page.locator("#edit-form").evaluate("(f) => f.requestSubmit()")
+                    page.locator("#edit-form").wait_for(state="detached", timeout=PAGE_CAP_MS)
+                    settle(page)
+                    report(page.get_by_text(offline_name, exact=False).count() > 0, "offline edit: the page shows the new name", "not shown")
+                except Exception as e:
+                    report(False, "offline edit: renamed on the device", str(e)[:200])
+                ob = outbox(page)
+                report(bool(ob) and ob["waiting"] >= 1, "offline edit: the rename waits", f"outbox {ob}")
+
+                # 8. Back online: everything goes up once, dated when it was made, with the device's ids.
+                offline(ctx, False)
+                page.evaluate("() => window.dispatchEvent(new Event('online'))")
+                landed = wait_outbox(page, "o.waiting === 0 && o.refused === 0")
+                report(landed, "online again: everything synced", f"outbox {outbox(page)}")
+                rows = server_rows(db_path, "select id, done_at from sets where id >= 4294967296 order by id")
+                report(len(rows) == 1, "online again: exactly one set from the device, with its own id", f"{rows}")
+                if rows and made_at:
+                    report(abs(rows[0][1] - made_at) <= 1000, "online again: the set is dated when it was made", f"done_at {rows[0][1]}, made {made_at}")
+                name = server_rows(db_path, "select name from figures where id = ?", v["figure"])
+                report(bool(name) and name[0][0] == offline_name, "online again: the server has the offline rename", f"{name}")
+                page.wait_for_timeout(400)
+                report(page.get_by_text(re.compile(r"\d+ waiting")).count() == 0, "online again: the band says nothing", "it still says waiting")
+
+                # 10. Refused: offline, a note on the figure; meanwhile the figure is archived on the server.
+                offline(ctx, True)
+                page.goto(fig, wait_until="load", timeout=60_000)
+                settle(page)
+                try:
+                    page.get_by_role("button", name="Edit", exact=True).first.click()
+                    page.locator('#edit-form textarea[name="notes"]').fill("walk: offline note")
+                    page.locator("#edit-form").evaluate("(f) => f.requestSubmit()")
+                    page.locator("#edit-form").wait_for(state="detached", timeout=PAGE_CAP_MS)
+                    report(True, "refused: a note made offline")
+                except Exception as e:
+                    report(False, "refused: a note made offline", str(e)[:200])
+                server_write(db_path, "update figures set archived_at = ? where id = ?", int(time.time() * 1000), v["figure"])
+                offline(ctx, False)
+                page.evaluate("() => window.dispatchEvent(new Event('online'))")
+                refused = wait_outbox(page, "o.refused === 1")
+                report(refused, "refused: the change couldn't sync", f"outbox {outbox(page)}")
+                page.wait_for_timeout(400)
+                pill = page.locator("a[href$='/sync']:visible", has_text=re.compile(r"couldn.t sync"))
+                report(pill.count() > 0, "refused: the band shows the pill", "no pill")
+                if pill.count():
+                    pill.first.click()
+                    try:
+                        page.wait_for_url(lambda u: u.endswith("/sync"), timeout=PAGE_CAP_MS)
+                    except Exception:
+                        pass
+                settle(page)
+                report(page.get_by_text("archived or deleted meanwhile", exact=False).count() > 0, "refused: the Sync page says why", "no reason shown")
+                discard = page.get_by_role("button", name="Discard", exact=True)
+                if discard.count():
+                    discard.first.click()
+                    page.locator("dialog[open]").get_by_role("button", name="Discard", exact=True).click()
+                    try:
+                        page.get_by_text("Everything is synced.").wait_for(timeout=10_000)
+                        report(True, "refused: discarded, everything is synced")
+                    except Exception:
+                        report(False, "refused: discarded, everything is synced", "not said")
+                else:
+                    report(False, "refused: Discard", "no Discard on the Sync page")
+                server_write(db_path, "update figures set archived_at = null where id = ?", v["figure"])
+
+                # 11. Online, no nag: a log made online never shows "waiting", and lands.
+                page.goto(f"{base}/{DANCE}/exercises/{v['exercise']}", wait_until="load", timeout=60_000)
+                wait_ready(page)
+                done = page.locator('[data-focus="exercise-done"]')
+                if done.count():
+                    done.first.click()
+                    sheet = page.locator("dialog[open]")
+                    try:
+                        sheet.first.wait_for(timeout=3000)
+                        faces = sheet.locator("fieldset button[aria-pressed]")
+                        if faces.count():
+                            faces.first.click(timeout=10_000)
+                    except Exception:
+                        pass
+                    nag = False
+                    for _ in range(10):
+                        page.wait_for_timeout(200)
+                        if page.get_by_text(re.compile(r"\d+ waiting")).count():
+                            nag = True
+                    report(not nag, "online: a log never shows waiting", "it showed waiting")
+                    report(wait_outbox(page, "o.waiting === 0"), "online: the log lands", f"outbox {outbox(page)}")
+                else:
+                    report(False, "online: a log", "no Done on the exercise page")
+
+                # 12. Needs a connection: offline, the figure's ⋯ greys what needs one under one note (none
+                # of its own items does, so no note unless a group's Copy to is there), and Settings' Storage
+                # is greyed and a tap says so instead of opening it.
+                offline(ctx, True)
+                page.goto(fig, wait_until="load", timeout=60_000)
+                settle(page)
+                more = page.get_by_role("button", name=re.compile(r"menu$", re.I))
+                if more.count():
+                    more.first.click()
+                    page.locator("dialog[open]").first.wait_for(timeout=5000)
+                    page.wait_for_timeout(300)
+                    note = page.get_by_text("Needs a connection for these").count() > 0
+                    copy = page.locator("dialog[open]").get_by_text("Copy to", exact=False)
+                    if copy.count():
+                        greyed = copy.first.evaluate("(e) => !!e.closest('button')?.disabled")
+                        report(note and greyed, "needs a connection: the menu greys Copy to under one note", f"note {note}, greyed {greyed}")
+                    else:
+                        report(not note, "needs a connection: a menu with nothing that needs one has no note", "the note shows")
+                    page.keyboard.press("Escape")
+                else:
+                    report(False, "needs a connection: the figure's menu", "no ⋯ menu")
+                page.goto(f"{base}/settings", wait_until="load", timeout=60_000)
+                settle(page)
+                storage = page.locator("a[href='/settings/storage']")
+                if storage.count():
+                    page.evaluate("() => { window.__nc = 0; addEventListener('salsa:needs-connection', () => window.__nc++); }")
+                    marked = storage.first.get_attribute("data-offline") is not None
+                    storage.first.click(force=True)  # aria-disabled: Playwright would wait for it
+                    page.wait_for_timeout(500)
+                    told = page.evaluate("() => window.__nc") > 0
+                    stayed = page.url.rstrip("/").endswith("/settings")
+                    report(marked and told and stayed, "needs a connection: Settings' Storage is greyed and says so", f"greyed {marked}, told {told}, at {page.url.replace(base, '')}")
+                else:
+                    report(False, "needs a connection: Settings' Storage", "no Storage row")
             finally:
                 ctx.close()
         finally:
