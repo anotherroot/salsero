@@ -13,6 +13,7 @@ import {
 	runTitle,
 	voicePreview,
 	exercisePlayerHref,
+	routinePractiseHref,
 	playState,
 	practiceBack,
 	routinePlace,
@@ -266,6 +267,15 @@ describe('the exercise page opens the player', () => {
 		expect(exercisePlayerHref('salsa', 7, 'from=run&skip=3,5', true)).toBe(
 			'/salsa/player?exercise=7&from=run&skip=3,5&play=1'
 		);
+	});
+});
+
+describe("the routine page's Practise", () => {
+	it('lands on its exercise page when it has one', () => {
+		expect(routinePractiseHref('salsa', 14, 79)).toBe('/salsa/exercises/79');
+	});
+	it('opens the player on the routine alone when it has none', () => {
+		expect(routinePractiseHref('salsa', 14, null)).toBe('/salsa/player?routine=14');
 	});
 });
 

@@ -275,6 +275,21 @@ export function exercisePlayerHref(
 }
 
 /**
+ * The routine page's Practise: its exercise's page when it has one, where the
+ * Practise card and Done are (as the figure page's Practise lands); without
+ * one, the player on the routine alone. Nothing is made either way.
+ */
+export function routinePractiseHref(
+	dance: string,
+	routineId: number,
+	exerciseId: number | null
+): `/${string}` {
+	return exerciseId === null
+		? `/${dance}/player?routine=${routineId}`
+		: `/${dance}/exercises/${exerciseId}`;
+}
+
+/**
  * What a slot's ⓘ (Follow) or tap (Still) opens in the routine list: each of the
  * slot's figures in order, one without details by its name only.
  */

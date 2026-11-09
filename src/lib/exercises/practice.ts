@@ -238,9 +238,18 @@ export function practiceSeed(
 	};
 }
 
-/** The panel's one collapsed line: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3". */
+/**
+ * The panel's one collapsed line: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3". A
+ * routine's view (Follow or Still) comes after the song: "BAILE · Follow · Off".
+ */
 export function practiceSummary(
-	p: { mode: 'count' | 'song'; bpm: number; songTitle: string | null; config: PracticeConfig },
+	p: {
+		mode: 'count' | 'song';
+		bpm: number;
+		songTitle: string | null;
+		config: PracticeConfig;
+		view?: string | null;
+	},
 	dance: Dance
 ): string {
 	const w = t().exercise.panel;
@@ -248,6 +257,7 @@ export function practiceSummary(
 		p.mode === 'song' && p.songTitle !== null
 			? `${p.songTitle}${p.config.speed === 1 ? '' : ` ${w.speed(p.config.speed)}`}`
 			: w.summaryCount(p.bpm),
+		...(p.view ? [p.view] : []),
 		p.config.count === 'off' ? w.summaryNoCount : COUNT_PATTERN_LABEL[p.config.count]
 	];
 	if (dance.clave && p.config.clave) parts.push(w.summaryClave(p.config.clave));
@@ -278,7 +288,8 @@ export function practiseWithLine(
 	},
 	songs: readonly { id: number; title: string }[],
 	phone: PhonePractice,
-	dance: Dance
+	dance: Dance,
+	view: string | null = null
 ): string {
 	const start = practiceStart(
 		row,
@@ -290,7 +301,8 @@ export function practiseWithLine(
 			mode: start.source,
 			bpm: seed.bpm,
 			songTitle: songs.find((s) => s.id === start.songId)?.title ?? null,
-			config: { count: seed.count, clave: seed.clave, speed: seed.speed }
+			config: { count: seed.count, clave: seed.clave, speed: seed.speed },
+			view
 		},
 		dance
 	);

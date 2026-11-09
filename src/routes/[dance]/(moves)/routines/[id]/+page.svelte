@@ -6,6 +6,7 @@
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import { routinePractiseHref } from '$lib/player/view';
 	import { tick } from 'svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
@@ -355,9 +356,7 @@
 	const danceable = $derived(hasCounts(data.edges));
 
 	const practiseHref = $derived(
-		data.exerciseId === null
-			? resolve(`/${data.dance.slug}/player?routine=${routine.id}`)
-			: resolve(`/${data.dance.slug}/player?routine=${routine.id}&exercise=${data.exerciseId}`)
+		resolve(routinePractiseHref(data.dance.slug, routine.id, data.exerciseId))
 	);
 
 	/* ── Talking to the server ─────────────────────────────────────────── */

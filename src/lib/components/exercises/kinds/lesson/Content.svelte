@@ -13,7 +13,7 @@
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { dance, content, canEdit = true, simple = false }: ContentProps = $props();
+	let { dance, content, canEdit = true, simple = false, practice }: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
@@ -22,6 +22,7 @@
 		{#if content.lesson.notes}
 			<LinkedText text={content.lesson.notes} class={PROSE} />
 		{/if}
+		{@render practice?.()}
 		{#if content.figures.length > 0}
 			<h2 class={SECTION_HEAD}>{t().exercise.content.figures}</h2>
 			<ul class="-mt-1.5 flex flex-wrap gap-2">
