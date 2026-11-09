@@ -167,3 +167,14 @@ Everything under the main design's "Media on the device" is the builder's
 queued, resumed and limited, how Android tells the web page it is on Wi-Fi
 (the browser's Network Information API where there is one), and the
 order 4b's downloads run in (newest lesson first is the obvious one).
+
+## Decided while building 4a (2026-11-10)
+
+- The service worker answers `/audio/<file>` and `/count/<file>` from the
+  phone even online (no data, no wait); the player is unchanged. An answer
+  from the phone carries `X-Salsa-From: device`.
+- The device brings the store to the copy after its start, after every sync
+  that reached the server and after a person change. A person change empties
+  the store before the new copy serves; a download in flight then stops
+  between files, and one more pass removes a file that landed after.
+- Settings → On this phone shows only where the browser has the store.

@@ -116,7 +116,9 @@ SvelteKit's own server code answers from it when the network fails; a change mad
 signal saves on the phone and syncs later, dated when it was made: an amber strip above the
 bottom bars says "Offline · 5 changes waiting" (then "Sending 5 …", "All sent"), the band
 "1 couldn't sync ›", a Sync page with Retry and Discard, a Waiting badge on
-queued group things, and what needs a connection greyed; phases 4–5 to come; see
+queued group things, and what needs a connection greyed; songs and the count play with no signal
+(the phone keeps every song's audio by itself; Settings → On this phone says how much); the rest of
+phase 4 (videos) and phase 5 to come; see
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)
 and [`docs/superpowers/specs/2026-11-09-offline-phase-3-design.md`](docs/superpowers/specs/2026-11-09-offline-phase-3-design.md)).
 and the group view (2026-11-09: the group's look follows where you are, not a switch: a page

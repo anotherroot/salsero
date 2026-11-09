@@ -48,8 +48,9 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   table gets its rule there and a case in `scope.spec.ts`. The scope is not
   closed over foreign keys, so the device never checks them.
 - **A new GET endpoint is classified** in `src/lib/offline/routes.ts`: the
-  device answers it only when synced rows can (`DEVICE_ENDPOINTS`), otherwise
-  `NETWORK_ENDPOINTS`; a page that needs the server's own state goes in
+  device answers it only when synced rows can (`DEVICE_ENDPOINTS`), a file the
+  device keeps comes from the phone first (`MEDIA_ENDPOINTS`: song audio and count
+  takes, offline phase 4a), otherwise `NETWORK_ENDPOINTS`; a page that needs the server's own state goes in
   `NETWORK_PAGES`. `routes.spec.ts` fails on an unclassified one.
 - **Writes run on the device first** (offline phase 3). Every form action
   and endpoint write is classified in `src/lib/offline/routes.ts`
