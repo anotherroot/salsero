@@ -94,6 +94,7 @@
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
 	import { reportOpen } from '$lib/teams/opens-api';
+	import { openOnce } from '$lib/teams/open-once';
 	import type { AddOffer, ViaSection } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
@@ -287,12 +288,11 @@
 		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
 	);
 	// Shown, not preloaded: a group's lesson counts as opened here, and again after
-	// the editor's own Publish reloads the data with a new publishedAt.
+	// the editor's own Publish reloads the data with a new publishedAt. Once per
+	// lesson and publish: the report's landing reloads the data (`openOnce`).
+	const shown = openOnce(reportOpen);
 	$effect(() => {
-		if (data.team) {
-			void lesson.publishedAt;
-			reportOpen('lesson', lesson.id);
-		}
+		if (data.team) shown('lesson', lesson.id, lesson.publishedAt);
 	});
 	/** An exercise's schedule (its due words), when it is this person's own. */
 	const scheduleOf = (exerciseId: number | null) =>

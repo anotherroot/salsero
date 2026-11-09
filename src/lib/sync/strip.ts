@@ -2,16 +2,18 @@
  * The offline strip (offline phase 3, look C2, picked 2026-11-09): an amber
  * strip above the page's own bottom bar and the tab bar that says the phone is
  * offline and how many changes wait; back online it says it is sending, then
- * "all sent" for a moment. PURE, client-safe: the component keeps the marks
- * and the clock.
+ * "all sent" for a moment. Online, an ordinary save never shows, however slow
+ * (the person's ask after the phone test): only changes stuck for a minute do.
+ * PURE, client-safe: the component keeps the marks and the clock.
  */
 import type { OutboxSummary } from '$lib/offline/protocol';
-import { WAITING_GRACE_MS } from './status';
 
 /** How long after the connection comes back waiting changes read "sending". */
-export const SENDING_WINDOW_MS = 30_000;
+export const SENDING_WINDOW_MS = 60_000;
 /** How long "all sent" stays. */
 export const SENT_SHOW_MS = 2000;
+/** Online, how long a change waits before the strip calls it stuck. */
+export const STUCK_MS = SENDING_WINDOW_MS;
 
 export type Strip =
 	| { kind: 'offline'; count: number }
@@ -36,8 +38,8 @@ export function stripState(
 		if (marks.backOnlineAt !== null && now - marks.backOnlineAt < SENDING_WINDOW_MS) {
 			return { kind: 'sending', count: waiting };
 		}
-		// A change that goes up within the grace never shows (no nag online).
-		if (s.oldestWaitingAt !== null && s.oldestWaitingAt + WAITING_GRACE_MS <= now) {
+		// Online a save shows only when it is stuck (no nag on every save).
+		if (s.oldestWaitingAt !== null && s.oldestWaitingAt + STUCK_MS <= now) {
 			return { kind: 'waiting', count: waiting };
 		}
 		return null;
@@ -46,8 +48,9 @@ export function stripState(
 }
 
 /**
- * The marks after a change of connection or outbox: back online sets the
- * moment; changes that were on the strip and are now all gone set "all sent".
+ * The marks after a change of connection or outbox: back online with changes
+ * waiting sets the moment; changes that were on the strip and are now all gone
+ * set "all sent" and end the sending, so later saves are ordinary again.
  */
 export function nextMarks(
 	prev: { online: boolean; waiting: number; shown: boolean },
@@ -57,9 +60,10 @@ export function nextMarks(
 ): StripMarks {
 	let { backOnlineAt, sentUntil } = marks;
 	if (!next.online) backOnlineAt = null;
-	else if (!prev.online) backOnlineAt = now;
-	if (next.online && prev.waiting > 0 && next.waiting === 0 && prev.shown) {
-		sentUntil = now + SENT_SHOW_MS;
+	else if (!prev.online && next.waiting > 0) backOnlineAt = now;
+	if (next.online && prev.waiting > 0 && next.waiting === 0) {
+		if (prev.shown) sentUntil = now + SENT_SHOW_MS;
+		backOnlineAt = null;
 	}
 	return { backOnlineAt, sentUntil };
 }
@@ -67,7 +71,7 @@ export function nextMarks(
 /** When the strip's words would next change by the clock alone (grace, window, "all sent"); null: never. */
 export function nextTick(s: OutboxSummary | null, now: number, marks: StripMarks): number | null {
 	const at = [
-		s && s.waiting > 0 && s.oldestWaitingAt !== null ? s.oldestWaitingAt + WAITING_GRACE_MS : null,
+		s && s.waiting > 0 && s.oldestWaitingAt !== null ? s.oldestWaitingAt + STUCK_MS : null,
 		marks.backOnlineAt !== null ? marks.backOnlineAt + SENDING_WINDOW_MS : null,
 		marks.sentUntil
 	].filter((t): t is number => t !== null && t > now);
