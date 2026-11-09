@@ -150,7 +150,8 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
 
 - Deny-by-default auth (`hooks.server.ts`); public routes go in `PUBLIC_PATHS`. The AI
   connector's endpoints are self-authed (`csrf.ts`, judged on `routedPath`); CSRF lives in the
-  hook; the connector reads only through `viewOf`/`syncScope`.
+  hook; the connector reads only through `viewOf`/`syncScope`; its queue tools write only `ai_*`
+  tables, and a run goes through the form's own data function, as the person.
 - Offline: every table is classified in `src/lib/sync/tables.ts` (a newly synced
   one gets its triggers in a NEW custom migration, `scripts/sync-triggers.ts <table>`;
   never edit 0042); no row

@@ -265,7 +265,7 @@ an MCP connector any AI app can add (OAuth with Client ID Metadata Documents or
 registration), reading what the person may read; every change the AI wants as an action
 in a queue the person runs in the app (groups, dependencies, the AI edits its pending
 queue), the queue's look (option A of its board), and the video sections experiment.
-Plan 1 (the connector and reading) is built.
+Plans 1 (the connector and reading) and 2 (the queue and the Suggestions page) are built.
 Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language

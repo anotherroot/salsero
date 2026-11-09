@@ -492,6 +492,15 @@ src/lib/server/mcp/  the connector's tools: view.ts (what the person may read = 
                      read.ts (search, list, get_*, list_groups, vocabulary), args.ts, host.ts, modules.ts
 src/routes/mcp/, src/routes/oauth/{authorize,token,register}/, src/routes/.well-known/oauth-*/
                      the connector's endpoints; /oauth/authorize is the consent page
+src/lib/server/ai-queue/  the AI's queue of actions (plan 2): store.ts (propose, change, withdraw,
+                     move, groups, queueOf, pendingCount), kinds/ (one object per kind of change:
+                     parse, prepare, run, undo through the form's own data function; all.ts registers
+                     them), reach.ts (what the person may edit: `editable`, `teamSpaceFor`), refs.ts
+                     ({"ref": action}), run.ts (runActions, drop, toggle, undo), view.ts (the page's cards)
+src/lib/ai-queue/diff.ts  PURE: the word diff a card shows
+src/lib/server/mcp/queue.ts  the AI's tools for its queue (they write only ai_* tables)
+src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,
+                     section preview and the row on You
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
                      (refuses at or over the limit), and `listStorageItems` for What uses space
 src/lib/server/invites.ts  one-time invites into one dance, and joining with one
