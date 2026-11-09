@@ -380,6 +380,13 @@ def _past_day_sheet(page):
     page.wait_for_timeout(500)
 
 
+def _past_day_calendar(page):
+    """A past day: the strip's middle opens the calendar, the shown day in view."""
+    page.locator('[data-focus="day-strip-pick"]').first.click()
+    page.locator("dialog[open]").first.wait_for()
+    page.wait_for_timeout(900)
+
+
 def _warm_up_last(page):
     """Make the admin's last exercise not done on the rig's day a warm-up, in the rig's temp db; reload.
     Returns its id: the run walks the warm-ups first, so Start opens it."""
@@ -431,6 +438,7 @@ SCENES.update({
     "done-toast": Scene("/{dance}/exercises/{lessonex}", _save_face),
     "done-today": Scene("/{dance}/exercises/{routineex}", _done_today),
     "done-past-day": Scene("/{dance}?day={yesterday}", _past_day_sheet),
+    "past-day-calendar": Scene("/{dance}?day={yesterday}", _past_day_calendar),
     "today-run-back": Scene("/{dance}", _run_back),
     # desk only
     "pane-edit": Scene("/{dance}/exercises/{figex}", _edit, desk=True),

@@ -77,9 +77,9 @@ export const today: Catalog['today'] = {
 	past: {
 		nothingToday: 'Danes še ni vnosov',
 		nothingThatDay: 'Ta dan ni vpisane vadbe',
-		ifPractised: 'Če ste vadili, jo dodajte.',
+		ifPractised: 'Vadbo lahko dodate tudi za nazaj.',
 		add: 'Dodaj vajo za ta dan',
-		edit: (name) => `Spremeni za ta dan: ${name}`,
+		editHint: 'Spremeni ta vnos',
 		quote: (text) => `»${text}«`,
 		logOn: (day) => `Dodaj za ${day}`,
 		search: 'Iskanje vaj',

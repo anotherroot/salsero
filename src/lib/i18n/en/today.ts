@@ -93,8 +93,8 @@ export const today = {
 		ifPractised: 'If you practised, add it.',
 		/** The list's last row, and the empty day's. */
 		add: 'Add an exercise to this day',
-		/** A row's button: opens the Done sheet on its entry. */
-		edit: (name: string): string => `Change ${name} on this day`,
+		/** A row's button, read after its content: opens the Done sheet on its entry. */
+		editHint: 'Change this entry',
 		/** An entry's note under its name. */
 		quote: (text: string): string => `“${text}”`,
 		logOn: (day: string): string => `Add to ${day}`,

@@ -70,7 +70,7 @@
 					<button
 						type="button"
 						class="flex min-h-[66px] w-full cursor-pointer items-center gap-3 py-2.5 pr-3 pl-4 text-left"
-						aria-label={t().today.past.edit(g.name)}
+						aria-describedby="past-edit-hint"
 						onclick={() => onlog?.(g.exerciseId)}
 					>
 						{@render content(g, live)}
@@ -106,6 +106,7 @@
 </div>
 
 {#if adding}
+	<span id="past-edit-hint" class="sr-only">{t().today.past.editHint}</span>
 	<Picker
 		open={picking}
 		title={t().today.past.logOn(dayLabel(day))}

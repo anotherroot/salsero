@@ -31,9 +31,18 @@
 	$effect(() => {
 		if (!open || !body) return;
 		const el = body;
-		requestAnimationFrame(() =>
-			el.querySelector('[aria-current="date"]')?.scrollIntoView({ block: 'center' })
-		);
+		requestAnimationFrame(() => {
+			const shown = el.querySelector<HTMLElement>('[aria-current="date"]');
+			const scroller = el.closest<HTMLElement>('.body');
+			if (!shown) return;
+			// The sheet's body scrolls, never the page behind it (`scrollIntoView` could).
+			if (scroller) {
+				const box = scroller.getBoundingClientRect();
+				const at = shown.getBoundingClientRect();
+				scroller.scrollTop += at.top - box.top - (box.height - at.height) / 2;
+			}
+			shown.focus({ preventScroll: true });
+		});
 	});
 
 	/** Monday first: the catalog's short weekdays start on Sunday. */
@@ -59,9 +68,11 @@
 <Sheet title={t().today.past.pickDay} {open} {onclose} tall>
 	<div bind:this={body} class="flex flex-col gap-6 pb-2">
 		{#each months as m (m.first)}
-			<section aria-label={monthLabel(m.first)}>
+			<div role="group" aria-labelledby="cal-{m.first}">
 				<h3 class="flex items-baseline justify-between gap-3 px-0.5 pb-2">
-					<span class="font-display text-[22px] leading-tight font-extrabold text-ink"
+					<span
+						id="cal-{m.first}"
+						class="font-display text-[22px] leading-tight font-extrabold text-ink"
 						>{monthLabel(m.first)}</span
 					>
 					{#if m.activeDays > 0}<span class="text-[13px] font-bold text-muted"
@@ -96,7 +107,7 @@
 						{/if}
 					{/each}
 				</div>
-			</section>
+			</div>
 		{/each}
 	</div>
 

@@ -13,7 +13,7 @@
 	import { dayLabel, lastDoneLabel } from '$lib/format';
 	import { daysBetween } from '$lib/day/day';
 	import { mergeDay } from '$lib/exercises/day-entry';
-	import { addedMessage, doneSubtitle } from '$lib/exercises/done-view';
+	import { addedMessage, changedMessage, doneSubtitle } from '$lib/exercises/done-view';
 	import { announceSaved } from '$lib/exercises/saved.svelte';
 	import { actAt } from '$lib/act';
 	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
@@ -48,9 +48,14 @@
 	const fixedRhythm = (id: number) =>
 		data.list.exercises.find((e) => e.id === id)?.comesBack.kind === 'every';
 
+	/** The picked exercise had an entry that day: its save is a change, not an add. */
+	let changing = false;
+
 	function pick(id: number) {
 		pickedId = id;
-		if (fixedRhythm(id) && data.past) void saveFixed(id, data.past.day);
+		changing = !!data.past?.daySets.some((s) => s.exerciseId === id);
+		// A fixed rhythm with no entry yet saves at once; one with an entry opens the sheet.
+		if (fixedRhythm(id) && data.past && !changing) void saveFixed(id, data.past.day);
 		else doneOpen = true;
 	}
 
@@ -69,7 +74,7 @@
 		doneOpen = false;
 		announceSaved({
 			dance: data.dance.slug,
-			message: addedMessage(day),
+			message: changing ? changedMessage(day) : addedMessage(day),
 			undo: { setId: r.setId, before: r.before }
 		});
 	}
@@ -132,6 +137,8 @@
 		today={data.list.today}
 		onpick={(day) => {
 			calendarOpen = false;
+			// The shown day: only the sheet closes, no second step in history.
+			if (day === past.day) return;
 			void gotoWhenSettled(
 				day >= data.list.today ? todayHref : resolve(`/${data.dance.slug}?day=${day}`)
 			);
