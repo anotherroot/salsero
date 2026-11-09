@@ -9,6 +9,13 @@ afterEach(() => {
 });
 
 describe('deviceRuntime', () => {
+	it('carries the device slot', () => {
+		g.__salsaDevice = { userId: 'u1', cookies: {}, slot: 4 };
+		expect(deviceRuntime()?.slot).toBe(4);
+		g.__salsaDevice = { userId: 'u1', cookies: {}, slot: null };
+		expect(deviceRuntime()?.slot).toBeNull();
+	});
+
 	it('is off unless the device worker set it', () => {
 		expect(deviceRuntime()).toBeNull();
 		g.__salsaDevice = { userId: 'u1', cookies: { a: 'b' } };

@@ -8,12 +8,13 @@ import { describe, expect, it } from 'vitest';
  * silently: no type checks a string in a Set or a Record key.
  */
 const IDS = new Set(
-	globSync('src/routes/**/+{page.svelte,server.ts}').map(
+	// A page with only a server half (`/[dance]/group-mode`: actions, no markup) is a route too.
+	globSync('src/routes/**/+{page.svelte,page.server.ts,server.ts}').map(
 		(file) =>
 			'/' +
 			file
 				.replace(/^src\/routes\//, '')
-				.replace(/\/?\+(page\.svelte|server\.ts)$/, '')
+				.replace(/\/?\+(page\.svelte|page\.server\.ts|server\.ts)$/, '')
 				.replace(/\/$/, '')
 	)
 );

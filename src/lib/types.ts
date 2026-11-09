@@ -1352,3 +1352,43 @@ export interface RunDetails {
 	 */
 	figures: { name: string; details: RunDetails | null }[];
 }
+
+/** The Suggestions page (the AI's queue), built on the server (`src/lib/server/ai-queue/view.ts`). */
+export interface SuggestionsView {
+	/** Who suggests: the AI app's name, or "Your AI". */
+	who: string;
+	waiting: number;
+	groups: SuggestionGroup[];
+}
+export interface SuggestionGroup {
+	id: number;
+	title: string;
+	/** Pending actions in it, in order (Run group). */
+	pending: number[];
+	actions: SuggestionAction[];
+}
+export interface SuggestionAction {
+	id: number;
+	n: number;
+	title: string;
+	version: number;
+	/** When the AI changed it: how long ago, and its earlier title. */
+	changed: { line: string; previousTitle: string } | null;
+	state: 'pending' | 'partly' | 'done' | 'dropped';
+	/** The numbers of what it still waits for. */
+	waitsFor: number[];
+	lines: SuggestionLine[];
+}
+export interface SuggestionLine {
+	id: number;
+	status: 'pending' | 'left_out' | 'done' | 'dropped' | 'withdrawn' | 'undone';
+	/** Built by the app from the change itself, never the AI's own words. */
+	heading: string;
+	/** "Salsa Ljubljana will see this", for a group's row. */
+	where: string | null;
+	fields: { label: string; parts: import('$lib/ai-queue/diff').DiffPart[] }[];
+	section: { src: string; startMs: number; endMs: number } | null;
+	warning: string | null;
+	refusal: string | null;
+	canUndo: boolean;
+}

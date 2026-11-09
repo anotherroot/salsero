@@ -4,6 +4,7 @@
  * same transaction (`logChange`); the clash check's side is `positionSeen`
  * (`clash.ts`).
  */
+import { replayName } from '$lib/server/replay-context';
 import { and, asc, eq, inArray, isNull, isNotNull } from 'drizzle-orm';
 import type { Db } from './db';
 import { fold } from '$lib/fold';
@@ -158,8 +159,9 @@ export function createPosition(
 	const name = input.name.trim();
 	if (!name) return { field: 'name', message: t().positions.refused.noName };
 	return db.transaction((tx) => {
-		if (nameTaken(tx, space, name)) return nameRefusal(tx, space, name);
-		return insert(tx, space, input, name, now);
+		const named = replayName(name, (n) => nameTaken(tx, space, n));
+		if (nameTaken(tx, space, named)) return nameRefusal(tx, space, named);
+		return insert(tx, space, input, named, now);
 	});
 }
 
@@ -177,8 +179,12 @@ export function updatePosition(
 		const current = getPosition(tx, id);
 		if (!current) return null;
 		const space = spaceOfRow(current, by?.actorId ?? '');
-		const name = input.name.trim();
-		if (!name) return { field: 'name', message: t().positions.refused.noName } as NameRefusal;
+		const typed = input.name.trim();
+		if (!typed) return { field: 'name', message: t().positions.refused.noName } as NameRefusal;
+		const name =
+			fold(typed) !== fold(current.name)
+				? replayName(typed, (n) => nameTaken(tx, space, n, id))
+				: typed;
 		if (fold(name) !== fold(current.name) && nameTaken(tx, space, name, id))
 			return nameRefusal(tx, space, name);
 		const row = tx

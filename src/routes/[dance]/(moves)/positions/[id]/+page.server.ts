@@ -372,7 +372,7 @@ export const actions: Actions = flowing('position', (e) => idParam(e.params.id),
 		};
 		const clash = seenRefusal(
 			form,
-			position.teamId !== null || hasCopies(db, 'position', position.id),
+			{ team: position.teamId !== null, copies: hasCopies(db, 'position', position.id) },
 			positionSeen(db, position.id),
 			typed,
 			serverNow(),

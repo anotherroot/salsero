@@ -22,6 +22,8 @@ import { flowFrom } from './flow';
 import { geneOf } from './genes';
 
 import { serverNow } from '$lib/server/server-clock';
+import { deviceRuntime } from '../device-runtime';
+import { replaying } from '../replay-context';
 /** The root row a write changed: the member of a family it belongs to. */
 export type FlowRoot = { kind: CloneKind; id: number };
 
@@ -43,6 +45,14 @@ export async function flowAfter(
 	id: number | null
 ): Promise<void> {
 	if (!actorId || id === null) return;
+	// On the device the server flows on replay, and the pull brings the result.
+	if (deviceRuntime()) return;
+	// A replay flows after its per-field merge, from what the merge kept.
+	const ctx = replaying();
+	if (ctx?.deferFlows) {
+		ctx.flows.push({ actorId, kind, id });
+		return;
+	}
 	try {
 		const db = getDb();
 		// A row in no family has nowhere to flow.

@@ -274,8 +274,13 @@ async function editing<T extends Record<string, unknown>>(
 	const now = serverNow();
 	const refused =
 		isTeam(space) || hasCopies(db, 'song', song.id)
-			? seenRefusal(form, true, songSeen(song), extra(form), now, () =>
-					editedBy(db, song.teamId, 'song', song.id)
+			? seenRefusal(
+					form,
+					{ team: isTeam(space), copies: !isTeam(space) },
+					songSeen(song),
+					extra(form),
+					now,
+					() => editedBy(db, song.teamId, 'song', song.id)
 				)
 			: null;
 	return { db, song, space, form, now, refused };

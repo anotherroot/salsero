@@ -1,4 +1,5 @@
 <script lang="ts">
+	import WaitingBadge from '$lib/components/ui/WaitingBadge.svelte';
 	import type { Snippet } from 'svelte';
 	import type { SampleSong } from '$lib/types';
 	import { clock } from '$lib/format';
@@ -22,6 +23,7 @@
 		tone = null,
 		sample = null,
 		draft = false,
+		songId,
 		isNew = false,
 		twinned = false,
 		cloned = false,
@@ -34,6 +36,8 @@
 		query?: string;
 		meta: string;
 		tone?: 'danger' | null;
+		/** The song's id: its Waiting badge while it was added offline (offline phase 3). */
+		songId?: number;
 		sample?: SampleSong | null;
 		/** A group's song only its editors see yet. */
 		draft?: boolean;
@@ -74,6 +78,7 @@
 						>{:else}{seg.text}{/if}{/each}</span
 			>
 			{#if draft}<Badge tone="warn">{t().songs.row.draft}</Badge>{/if}
+			{#if songId !== undefined}<WaitingBadge table="songs" id={songId} />{/if}
 			{#if isNew}<Badge tone="accent">{t().songs.row.isNew}</Badge>{/if}
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 			{#if twinned}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}

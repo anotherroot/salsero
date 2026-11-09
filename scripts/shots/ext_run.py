@@ -433,7 +433,8 @@ def _band_at(frac):
         page.wait_for_timeout(800)
         pin = page.evaluate(
             "() => { const m = document.querySelector('main'); const s = document.querySelector('[data-slim-band]');"
-            " return m.getBoundingClientRect().top + scrollY - s.clientHeight; }"
+            " const top = Math.min(m.getBoundingClientRect().top, m.querySelector(':scope > [data-band-hero]')?.getBoundingClientRect().top ?? Infinity);"
+            " return top + scrollY - s.clientHeight; }"
         )
         page.evaluate(f"window.scrollTo(0, {pin} * {frac})")
         page.wait_for_timeout(400)
@@ -446,6 +447,6 @@ def _band_at(frac):
     return act
 
 
-for _path, _tag in (("/{dance}/figures", "list"), ("/{dance}/exercises/109", "item")):
+for _path, _tag in (("/{dance}/figures", "list"), ("/{dance}/exercises/109", "item"), ("/{dance}", "today")):
     for _frac, _name in ((0.35, "a"), (0.7, "b"), (0.98, "c"), (1.0, "d"), (1.6, "e")):
         SCENES[f"band-{_tag}-{_name}"] = Scene(_path, _band_at(_frac))

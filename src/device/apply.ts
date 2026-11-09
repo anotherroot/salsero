@@ -17,13 +17,13 @@ function deviceColumns(db: SqliteDb, table: string): string[] {
 	return info.map((c) => c.name);
 }
 
-/** Empties the synced tables and the meta; never removes the database file. */
+/** Empties the synced tables and the meta; never removes the database file. The device key and slot stay: they are the database's, not a person's. */
 export function wipeCopy(db: SqliteDb): void {
 	db.pragma('foreign_keys = OFF');
 	db.exec('BEGIN');
 	try {
 		for (const t of Object.keys(SYNCED)) db.exec(`DELETE FROM ${q(t)}`);
-		db.exec('DELETE FROM device_meta');
+		db.exec("DELETE FROM device_meta WHERE key NOT IN ('deviceKey', 'slot')");
 		db.exec('COMMIT');
 	} catch (e) {
 		db.exec('ROLLBACK');
@@ -81,6 +81,7 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 		writeMetaValue(db, 'schema', res.schema);
 		writeMetaValue(db, 'cookies', JSON.stringify(res.cookies));
 		writeMetaValue(db, 'full', '0');
+		if (res.slot !== undefined) writeMetaValue(db, 'slot', String(res.slot));
 		db.exec('COMMIT');
 	} catch (e) {
 		try {
@@ -128,6 +129,17 @@ export async function deviceDigests(db: SqliteDb): Promise<Record<string, string
 export async function pullRequestOf(db: SqliteDb, schema: string): Promise<PullRequest> {
 	const meta = readMeta(db);
 	const userId = meta.userId;
-	if (meta.full) return { cursor: meta.cursor, schema, userId };
-	return { cursor: meta.cursor, schema, userId, digests: await deviceDigests(db) };
+	const req: PullRequest = { cursor: meta.cursor, schema, userId };
+	if (meta.deviceKey !== null) req.device = meta.deviceKey;
+	if (!meta.full) req.digests = await deviceDigests(db);
+	return req;
+}
+
+/** This database's key, written the first time (offline phase 3): the server keys its id slot on it. */
+export function ensureDeviceKey(db: SqliteDb, newKey: () => string): string {
+	const have = readMeta(db).deviceKey;
+	if (have !== null) return have;
+	const key = newKey();
+	writeMetaValue(db, 'deviceKey', key);
+	return key;
 }

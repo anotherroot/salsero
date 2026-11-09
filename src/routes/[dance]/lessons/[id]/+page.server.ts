@@ -1,4 +1,5 @@
 import { unlink } from 'node:fs/promises';
+import { replayName } from '$lib/server/replay-context';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
@@ -365,7 +366,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const stored = getLessonRow(db, id);
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null || hasCopies(db, 'lesson', id),
+			{ team: row.teamId !== null, copies: hasCopies(db, 'lesson', id) },
 			stored && stored.archivedAt === null ? lessonSeen(stored) : null,
 			{ action: 'update' as const, ...entered },
 			serverNow(),
@@ -572,7 +573,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		const id = lesson.id;
 		const form = await request.formData();
 		const groupId = int(form, 'groupId');
-		const name = text(form, 'name');
+		let name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
@@ -597,6 +598,7 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		if (!group || group.archivedAt !== null || !inSpace(group, space)) {
 			throw error(404, t().refusals.figureNotFound);
 		}
+		name = replayName(name, (n) => variationNameTaken(db, group.id, n, null));
 		if (variationNameTaken(db, group.id, name, null)) {
 			return refuse(t().moves.refused.figureTaken(group.name, name), 'name');
 		}

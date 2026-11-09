@@ -358,6 +358,35 @@ describe('the language', () => {
 	});
 });
 
+describe('the write gate at the hook (offline phase 3)', () => {
+	it("lets a replay's own write through while the replay holds the gate alone", async () => {
+		const { writeGate } = await import('$lib/server/sync/gate');
+		const { runReplaying } = await import('$lib/server/replay-context');
+		handleDb.db = openDb(':memory:');
+		const url = new URL('https://salsa.example/login');
+		const event = {
+			url,
+			request: new Request(url, { method: 'POST' }),
+			cookies: { get: () => undefined, set: () => {} },
+			locals: {}
+		} as unknown as RequestEvent;
+		const resolve = vi.fn(async () => new Response('ok'));
+		const inner = await writeGate.exclusive(
+			() =>
+				runReplaying(
+					{ entryId: 'e1', madeAt: 1, minted: new Map(), flows: [], deferFlows: true },
+					() =>
+						Promise.race([
+							Promise.resolve(handle({ event, resolve })).then((r) => r.status),
+							new Promise<string>((r) => setTimeout(() => r('waited on the gate'), 1000))
+						])
+				),
+			100
+		);
+		expect(inner).toEqual({ ran: true, value: 200 });
+	});
+});
+
 describe('the AI connector at the hook', () => {
 	async function run(path: string, init: RequestInit, cookie?: string) {
 		const db = openDb(':memory:');

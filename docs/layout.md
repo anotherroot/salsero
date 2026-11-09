@@ -498,6 +498,15 @@ src/lib/server/mcp/  the connector's tools: view.ts (what the person may read = 
                      read.ts (search, list, get_*, list_groups, vocabulary), args.ts, host.ts, modules.ts
 src/routes/mcp/, src/routes/oauth/{authorize,token,register}/, src/routes/.well-known/oauth-*/
                      the connector's endpoints; /oauth/authorize is the consent page
+src/lib/server/ai-queue/  the AI's queue of actions (plan 2): store.ts (propose, change, withdraw,
+                     move, groups, queueOf, pendingCount), kinds/ (one object per kind of change:
+                     parse, prepare, run, undo through the form's own data function; all.ts registers
+                     them), reach.ts (what the person may edit: `editable`, `teamSpaceFor`), refs.ts
+                     ({"ref": action}), run.ts (runActions, drop, toggle, undo), view.ts (the page's cards)
+src/lib/ai-queue/diff.ts  PURE: the word diff a card shows
+src/lib/server/mcp/queue.ts  the AI's tools for its queue (they write only ai_* tables)
+src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,
+                     section preview and the row on You
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
                      (refuses at or over the limit), and `listStorageItems` for What uses space
 src/lib/server/invites.ts  one-time invites into one dance, and joining with one
@@ -605,13 +614,27 @@ src/lib/sync/        PURE, client-safe, shared by the server, the device and the
                      in exactly one), triggers.ts (`triggerSql`: the change-log triggers;
                      `scripts/sync-triggers.ts <table>…` writes them for a NEW custom migration
                      when a table is newly synced; 0042 is frozen), digest.ts (`keyString`,
-                     `digestInput`), wire.ts (the pull's request and answer), schema-tag.ts (`SCHEMA_TAG`)
+                     `digestInput`), wire.ts (the pull's request and answer), schema-tag.ts (`SCHEMA_TAG`).
+                     Phase 3: owners.ts (`OWNERS`, `ownerOf`: a captured row's person or group),
+                     outbox.ts (the push's wire types, `foldCaptured`, `mintedIn`, `dependsOn`/`heldBy`,
+                     `queuedMarks`, `entryLabel`, `bodyFields`; PUSH_BATCH, PUSH_RETRY_MS, OUTBOX_HEADER),
+                     status.ts (`syncStatus`, the 2 s grace, `waitingMark`), view.ts (the status's,
+                     a label's and a reason's words; Discard's and Sign out's questions), resolve.ts
+                     (`resendFields`: a clash's Mine sent again)
 src/lib/server/sync/  log.ts (`change_log`: head, oldest, `changedSince`, the 30-day prune in
                      `startTrashPurge`), scope.ts (`syncScope`: every row a person may read,
                      redacted — other people's users rows, a group's code, deleted comments),
                      pull.ts (`pull`: changes since the cursor, whole tables when a key-set digest
                      differs), test-world.ts (specs only). Served by POST /api/sync/pull (cookie
-                     session only)
+                     session only). Phase 3: slots.ts (`slotFor`: a device's id slot, `device_slots`),
+                     landed.ts (`sync_landed`: a resent entry is a no-op), gate.ts (`writeGate`:
+                     writes shared, a replay alone; `gatedRequest`), merge.ts (per-field later-wins
+                     on own rows, child sets restored), outcome.ts (a replayed response → landed,
+                     refused and why), replay.ts (`replayRequest`, `replayEntry`, `push`: one
+                     transaction per entry), test-replay.ts (specs). Served by POST /api/sync/push
+src/lib/server/replay-context.ts  the replay's AsyncLocalStorage: `replaying()` (made-at for
+                     `serverNow()`, the device's minted ids for `mintId`, deferred flows),
+                     `runReplaying`, `replayName` (a taken name gets a suffix on replay)
 src/lib/server/device-runtime.ts  `deviceRuntime()`: set only inside the device worker; the hook
                      then takes the user from the copy (`deviceUser`) and bootstrap does nothing
 src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page data but
@@ -622,18 +645,39 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      registers the SW, starts the device worker, relays, pulls; `noteSaved` after
                      an upload; `setPerson`), person.ts (PURE: `pagePerson`, who the server says
                      is signed in, from the root layout's `drawnBy`; the device wipes for anyone
-                     else), background-write.ts (opens and practice memory: never offline)
+                     else), background-write.ts (opens and practice memory: never offline).
+                     Phase 3: routes.ts also classifies every write (`ACTIONS`, `ENDPOINT_WRITES`,
+                     `writeClass`, `matchRoute`); device.svelte.ts holds `sync` (the outbox summary)
+                     and `syncNow`, `outboxList`, `retryEntry`, `discardEntry`,
+                     `unsyncedBeforeSignOut`, `forgetCopy`; relay.ts (`createRelay`: a second tab
+                     reaches the device over a BroadcastChannel), connection.svelte.ts (online or
+                     not), needs-connection-action.ts (`use:needsConnection`: greyed offline, a tap
+                     toasts); `src/lib/epoch.ts` holds PAGE_EPOCH for the SW and the device
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,
                      `readMeta`), apply.ts (`applyPull`, `wipeCopy`, `deviceDigests`,
                      `pullRequestOf`), pool.ts (taking over from a closing tab), core.ts (the
-                     worker's logic, tested in node), worker.ts (the browser wiring), request.ts,
-                     node-stubs/
-src/service-worker.ts  network first; on a failure: navigations → the cached /shell, reads → the
-                     device, writes → "Needs a connection". src/routes/shell is the client-rendered
+                     worker's logic, tested in node: `write()` device-first in one lane, `sync()`
+                     pushes then pulls, a 401 keeps the copy), worker.ts (the browser wiring: a
+                     push 300 ms after a write, on `online`, and every 30 s while entries wait),
+                     request.ts, capture.ts (`installCapture`: the capture triggers into
+                     `capture_rows`; the device-only `outbox`, `outbox_capture`), outbox.ts
+                     (`recordEntry`, `toSend`, `applyResults`, `outboxSummary`, `outboxItems`,
+                     `retryEntry`, `discardEntry`, `forgetPerson`), node-stubs/
+src/service-worker.ts  network first for reads; on a failure: navigations → the cached /shell,
+                     reads → the device, writes → "Needs a connection". Phase 3: device/queued
+                     writes go to the device first; reads come from the device while entries
+                     wait; an update holds while older-epoch entries wait (`holdsUpdate`); the
+                     outbox state survives in the `outbox-state` cache. src/routes/shell is the client-rendered
                      shell (ssr = false)
-scripts/offline/     serve.sh + walk.py: every page offline in a real browser, and the timing
+src/routes/[dance]/sync/  the Sync page (2B): Couldn't sync first (Retry or Compare, Discard),
+                     then Waiting; components/sync/SyncEntry.svelte one change. The band's status:
+                     components/system/SyncStatus.svelte (in BandHeader: every phone header, the
+                     desktop's band row); ui/WaitingBadge.svelte (lesson, song, link and comment
+                     rows); system/NeedsConnectionNote.svelte (a menu's one note, `offlineMenu`)
+scripts/offline/     serve.sh + walk.py: every page offline in a real browser, the timing, and changes made
+                     offline landing once, dated, with their ids (phase 3)
 src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
                      `wallOf(params, locals)`, `inWall(row, wall)` and the
                      `require*InWall` guards on ids, so a request only ever reaches

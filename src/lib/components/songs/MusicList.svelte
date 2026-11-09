@@ -212,6 +212,7 @@
 {#snippet addingRow(s: SongItem, q: string)}
 	{@const st = songState(s, styleLabel)}
 	<SongRow
+		songId={s.id}
 		href={songHref(s)}
 		name={songName(s)}
 		query={q}
@@ -254,6 +255,7 @@
 
 {#snippet readyRow(s: SongItem, q: string, isNew = false)}
 	<SongRow
+		songId={s.id}
 		href={songHref(s)}
 		name={songName(s)}
 		query={q}

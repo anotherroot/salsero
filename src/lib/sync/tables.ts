@@ -61,9 +61,16 @@ export const NEVER_SYNCED: readonly string[] = [
 	'change_log',
 	// The home worker's playlist queue (worker state): Music's "To pick" waits for the network.
 	'song_imports',
+	// Offline phase 3's own bookkeeping: a device's id slot, the entries already replayed.
+	'device_slots',
+	'sync_landed',
 	// The AI connector's OAuth state: clients, grants and hashed secrets.
 	'oauth_clients',
 	'oauth_grants',
 	'oauth_codes',
-	'oauth_tokens'
+	'oauth_tokens',
+	// The AI's queue of actions: the server's alone, the page needs the network.
+	'ai_groups',
+	'ai_actions',
+	'ai_lines'
 ];

@@ -13,6 +13,8 @@ import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import type { PullRefusal, PullRequest, PullResponse, TableRows } from '$lib/sync/wire';
 import { changedSince, logHead, logOldest } from './log';
 import { syncScope, type Row } from './scope';
+import { slotFor } from './slots';
+import { serverNow } from '../server-clock';
 
 /** The sha256 hex of a table's sorted keys; the device computes the same with WebCrypto. */
 export function serverDigest(keys: Iterable<string>): string {
@@ -70,6 +72,16 @@ export function pull(db: Db, userId: string, req: PullRequest): PullResponse | P
 			const cols = columnsOf(tx, table);
 			changed[table] = { cols, rows: send.map((r) => cols.map((c) => r[c] ?? null)) };
 		}
-		return { userId, cursor: head, schema: SCHEMA_TAG, full, changed, cookies: {} };
+		const out: PullResponse = {
+			userId,
+			cursor: head,
+			schema: SCHEMA_TAG,
+			full,
+			changed,
+			cookies: {}
+		};
+		// A device that names itself gets its id slot (offline phase 3).
+		if (req.device !== undefined) out.slot = slotFor(tx, userId, req.device, serverNow());
+		return out;
 	});
 }

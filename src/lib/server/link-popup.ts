@@ -5,6 +5,7 @@
  * (ruling 10 of the positions plan). See
  * `docs/superpowers/specs/2026-10-29-section-link-popup-design.md`.
  */
+import { replayName } from '$lib/server/replay-context';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import {
@@ -436,7 +437,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 		if (!video.isSection && create.kind !== 'position') {
 			throw new SpotLinkError(t().links.refused.pointPositions);
 		}
-		const name = create.name.trim();
+		let name = create.name.trim();
 		if (!name) throw new SpotLinkError(t().links.refused.noName, 400, 'name');
 
 		if (create.kind === 'position') {
@@ -460,6 +461,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 			if (!group || group.archivedAt !== null || !inSpace(group, space)) {
 				throw new SpotLinkError(t().links.refused.noMove, 400, 'groupId');
 			}
+			name = replayName(name, (n) => variationNameTaken(tx, group.id, n, null));
 			if (variationNameTaken(tx, group.id, name, null)) {
 				throw new SpotLinkError(t().links.refused.variationTaken(group.name, name), 400, 'name');
 			}
@@ -481,11 +483,12 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 			if (!made) throw new SpotLinkError(t().links.refused.figureNotMade);
 			target = { figureId: made.id };
 		} else if (create.kind === 'figure') {
-			const figureName = create.figureName.trim();
+			let figureName = create.figureName.trim();
 			if (!figureName) throw new SpotLinkError(t().links.refused.noName, 400, 'figureName');
 			if (!isStyleOf(dance, create.style)) {
 				throw new SpotLinkError(t().links.refused.styleDance, 400, 'style');
 			}
+			figureName = replayName(figureName, (n) => figureNameTaken(tx, space, n, null));
 			if (figureNameTaken(tx, space, figureName, null)) {
 				throw new SpotLinkError(t().links.refused.moveTaken(figureName), 400, 'figureName');
 			}

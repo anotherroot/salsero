@@ -58,6 +58,8 @@
 //   Paired phones                         Povezani telefoni (lines as nouns: "Povezava: …")
 //   a count (a figure's length)           doba ("8 dob"; the spoken count stays štetje)
 //   slot (in a routine)                   mesto
+//   sync (the device's changes reaching  sinhronizacija
+//     the server)
 //   break (a routine's)                   prekinitev (a timing break: časovna prekinitev)
 //   link                                  povezava
 //   owner / editor / member (a group's)   Vodja / Lahko ureja / Lahko bere
@@ -100,6 +102,8 @@ import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
+import { suggestions } from './suggestions';
+import { sync } from './sync';
 import { today } from './today';
 import { video } from './video';
 
@@ -127,5 +131,7 @@ export const sl: Catalog = {
 	links,
 	clones,
 	refusals,
-	map
+	map,
+	suggestions,
+	sync
 };

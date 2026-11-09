@@ -1,4 +1,5 @@
 <script lang="ts">
+	import WaitingBadge from '$lib/components/ui/WaitingBadge.svelte';
 	import { tick } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { textPieces } from '$lib/links';
@@ -73,6 +74,7 @@
 		{:else}
 			<p class="text-[13px] leading-snug">
 				<span class="font-bold text-ink">{row.authorName}</span>
+				<WaitingBadge table="lesson_comments" id={row.id} />
 				{#if row.teacher}<span class="text-muted">·</span>
 					<span class="font-extrabold text-accent-text">{teacherTag()}</span>{/if}
 				<span class="text-muted">· {shortAgo(row.at, now)}</span>

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { writeGate } from '$lib/server/sync/gate';
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, json } from '@sveltejs/kit';
@@ -84,12 +85,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		await unlink(path).catch(() => {});
 		throw error(413, after.message);
 	}
-	const recording = addRecording(
-		db,
-		{ figureId, file, mime, kind, sizeBytes: bytes, note },
-		locals.user?.id
-	);
-	// Keep in step: the variation gained a recording; the flow runs from it.
-	await flowAfter(locals.user?.id, 'figure', figureId);
+	// Under the write gate: the body is in, only the database write waits for a replay.
+	const recording = await writeGate.shared(async () => {
+		const made = addRecording(
+			db,
+			{ figureId, file, mime, kind, sizeBytes: bytes, note },
+			locals.user?.id
+		);
+		// Keep in step: the variation gained a recording; the flow runs from it.
+		await flowAfter(locals.user?.id, 'figure', figureId);
+		return made;
+	});
 	return json(recording, { status: 201 });
 };

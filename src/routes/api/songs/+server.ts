@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { writeGate } from '$lib/server/sync/gate';
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, json } from '@sveltejs/kit';
@@ -97,12 +98,15 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	}
 
 	const title = name.replace(/\.[a-z0-9]{1,5}$/i, '').slice(0, 200);
-	const song = createSongFromUpload(getDb(), space, {
-		file,
-		mime,
-		title,
-		style,
-		sizeBytes: bytes
-	});
+	// Under the write gate: the body is in, only the database write waits for a replay.
+	const song = await writeGate.shared(async () =>
+		createSongFromUpload(getDb(), space, {
+			file,
+			mime,
+			title,
+			style,
+			sizeBytes: bytes
+		})
+	);
 	return json({ id: song.id }, { status: 201 });
 };

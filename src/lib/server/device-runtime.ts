@@ -8,9 +8,14 @@ import { users } from './db/schema';
 /**
  * Set by the device worker (offline phase 2) before it builds SvelteKit's
  * `Server` over the local copy: whose copy it is, and the cookies the browser
- * holds for the site. Absent on the real server.
+ * holds for the site, and the device's id slot (offline phase 3; null until the
+ * server hands one out). Absent on the real server.
  */
-export type DeviceRuntime = { userId: string; cookies: Record<string, string> };
+export type DeviceRuntime = {
+	userId: string;
+	cookies: Record<string, string>;
+	slot: number | null;
+};
 
 export function deviceRuntime(): DeviceRuntime | null {
 	return (globalThis as { __salsaDevice?: DeviceRuntime }).__salsaDevice ?? null;

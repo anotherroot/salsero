@@ -7,10 +7,28 @@
  * The service worker cannot reach a dedicated worker, so every request the
  * device answers comes through the page that owns it, with a reply port the
  * worker answers on.
+ *
+ * Offline phase 3: the page also knows the device's outbox (`sync`), tells the
+ * service worker when changes wait, and serves the Sync page's calls. A tab
+ * whose worker waits for the lock reaches the owning tab's device through a
+ * BroadcastChannel relay, and shows the owner's state.
  */
 import { dev, version } from '$app/environment';
-import type { DeviceIn, DeviceOut, DeviceState, SwIn, SwOut, WireFallback } from './protocol';
+import type {
+	DeviceIn,
+	DeviceOut,
+	DeviceState,
+	OutboxItem,
+	OutboxSummary,
+	SwIn,
+	SwOut,
+	WireFallback,
+	WireResponse
+} from './protocol';
 import { unpulledAfterPull, unpulledAfterSave } from './sw-route';
+import { createRelay } from './relay';
+import { graceEndsAt } from '$lib/sync/status';
+import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 
 /** How long a relayed read waits, from the worker's start, for the device to be ready. */
 export const DEVICE_START_LIMIT_MS = 10_000;
@@ -22,12 +40,21 @@ const PULL_AFTER_WRITE_MS = 1000;
 declare global {
 	interface Window {
 		/** The device's state and how many pulls have landed, for the browser walk (scripts/offline). */
-		__device?: { state: DeviceState | 'off'; pulls: number };
+		__device?: { state: DeviceState | 'off'; pulls: number; outbox: OutboxSummary | null };
 	}
 }
 
 /** The device's state on this page; `off` until its worker starts (and for good in dev). */
 export const device = $state<{ state: DeviceState | 'off' }>({ state: 'off' });
+
+/**
+ * The outbox as this page knows it (its own device's, or the owning tab's), and
+ * a clock the band reads: `now` moves when a waiting change's grace ends.
+ */
+export const sync = $state<{ summary: OutboxSummary | null; now: number }>({
+	summary: null,
+	now: 0
+});
 
 /** Whether the device answers reads on this page now. */
 export function deviceReady(): boolean {
@@ -36,6 +63,10 @@ export function deviceReady(): boolean {
 
 let started = false;
 let worker: Worker | null = null;
+/** This page's own worker's state; `device.state` shows the owning tab's while it waits. */
+let own: DeviceState | 'off' = 'off';
+let relayTo: ReturnType<typeof createRelay> | null = null;
+let graceTimer: ReturnType<typeof setTimeout> | undefined;
 /** Who the server says is signed in on this page (`setPerson`); undefined: not known yet. */
 let person: string | null | undefined = undefined;
 let workerStartedAt = 0;
@@ -54,16 +85,75 @@ let unpulledSince: number | null = null;
 const waiting = new Set<() => void>();
 
 function setState(state: DeviceState | 'off'): void {
-	device.state = state;
-	window.__device = { state, pulls };
+	own = state;
+	showState();
+	// A plain copy: a $state proxy cannot cross a BroadcastChannel.
+	if (state !== 'waiting') relayTo?.announce(state as DeviceState, $state.snapshot(sync.summary));
+}
+
+/** What this page shows: its own state, or the owning tab's while its own waits for the lock. */
+function showState(): void {
+	const owner = own === 'waiting' ? relayTo?.owner() : null;
+	device.state = owner ? owner.state : own;
+	if (owner) setSummary(owner.summary);
+	window.__device = { state: device.state, pulls, outbox: sync.summary };
 	tellServiceWorker();
 	for (const wake of [...waiting]) wake();
 }
 
 /** The service worker keeps each page's state: a read waits for the network less when the device is ready. */
 function tellServiceWorker(): void {
-	const message: SwIn = { type: 'device-state', state: device.state, unpulledSince };
+	const message: SwIn = {
+		type: 'device-state',
+		state: device.state,
+		unpulledSince,
+		waiting: sync.summary?.waiting ?? 0,
+		outboxSeq: sync.summary?.seq ?? 0
+	};
 	navigator.serviceWorker.controller?.postMessage(message);
+}
+
+/** The outbox's newest word: drawn, sent to the service worker, and the band's clock set for the grace. */
+function setSummary(summary: OutboxSummary | null): void {
+	sync.summary = summary;
+	sync.now = Date.now();
+	if (window.__device) window.__device.outbox = summary;
+	clearTimeout(graceTimer);
+	const at = graceEndsAt(summary, sync.now);
+	if (at !== null) graceTimer = setTimeout(() => (sync.now = Date.now()), at - sync.now + 10);
+}
+
+function onOutbox(summary: OutboxSummary): void {
+	setSummary(summary);
+	relayTo?.announce(own as DeviceState, summary);
+	const message: SwIn = { type: 'outbox', waiting: summary.waiting, epochs: summary.epochs };
+	navigator.serviceWorker.controller?.postMessage(message);
+	// This page's own count and seq too: its reads go back to the network once all has landed.
+	tellServiceWorker();
+	void navigator.serviceWorker
+		.getRegistration()
+		.then((r) => r?.waiting?.postMessage(message))
+		.catch(() => {});
+	tellServiceWorker();
+}
+
+/** Asks this page's own worker on a reply port; null without one. */
+function askWorker(message: DeviceIn): Promise<unknown> | null {
+	if (!worker || own !== 'ready') return null;
+	const w = worker;
+	return new Promise((resolve) => {
+		const channel = new MessageChannel();
+		channel.port1.onmessage = (e) => {
+			channel.port1.close();
+			resolve(e.data);
+		};
+		w.postMessage(message, [channel.port2]);
+	});
+}
+
+/** The device's answer to a Sync-page call: this page's own worker, or the owning tab's through the relay. */
+function ask(message: DeviceIn): Promise<unknown> {
+	return askWorker(message) ?? relayTo?.ask(message) ?? Promise.resolve(null);
 }
 
 function startWorker(): Worker | null {
@@ -78,7 +168,8 @@ function startWorker(): Worker | null {
 	}
 	worker.addEventListener('message', (e: MessageEvent<DeviceOut>) => {
 		if (e.data?.type === 'state') setState(e.data.state);
-		else if (e.data?.type === 'pulled') pulled(e.data.startedAt);
+		else if (e.data?.type === 'pulled') pulled(e.data.startedAt, e.data.landed);
+		else if (e.data?.type === 'outbox') onOutbox(e.data.summary);
 	});
 	if (person !== undefined)
 		worker.postMessage({ type: 'person', userId: person } satisfies DeviceIn);
@@ -122,6 +213,19 @@ async function relay(message: Extract<DeviceIn, { type: 'device-fetch' }>, port:
 	try {
 		const w = startWorker();
 		if (!w) return fallback('no device worker');
+		// Another tab owns the copy: ask its device through the relay.
+		if (own === 'waiting' && relayTo?.owner()?.state === 'ready') {
+			const answer = (await relayTo.ask({ ...message, person })) as
+				WireResponse | WireFallback | null;
+			if (!answer) return fallback('no tab answered');
+			if ('fallback' in answer) return port.postMessage(answer);
+			return port.postMessage(answer, [answer.body]);
+		}
+		// A write never waits for a device still starting: the network takes it now.
+		const m = message.request.method.toUpperCase();
+		if (m !== 'GET' && m !== 'HEAD' && device.state !== 'ready') {
+			return fallback(`device ${device.state}`);
+		}
 		if (!(await whenReady())) return fallback(`device ${device.state}`);
 		// The page's person goes with it: the copy answers only its own person's page.
 		w.postMessage({ ...message, person } satisfies DeviceIn, [port]);
@@ -151,9 +255,11 @@ function pull(): void {
  * page's last save (`DeviceClients.pulled`); the page's own note clears by the
  * same rule.
  */
-function pulled(startedAt: number): void {
+function pulled(startedAt: number, landed = 0): void {
 	pulls += 1;
 	if (window.__device) window.__device.pulls = pulls;
+	// Changes went up and the server's state came back: draw it.
+	if (landed > 0) void refreshWhenSettled();
 	unpulledSince = unpulledAfterPull(unpulledSince, startedAt);
 	const sw = navigator.serviceWorker.controller;
 	sw?.postMessage({ type: 'device-pulled', startedAt } satisfies SwIn);
@@ -207,7 +313,7 @@ export function startDevice(): void {
 	if (started || dev || typeof window === 'undefined') return;
 	if (!('serviceWorker' in navigator) || typeof Worker === 'undefined') return;
 	started = true;
-	window.__device = { state: device.state, pulls };
+	window.__device = { state: device.state, pulls, outbox: sync.summary };
 	try {
 		const sw = navigator.serviceWorker;
 		sw.addEventListener('message', onServiceWorkerMessage);
@@ -217,6 +323,18 @@ export function startDevice(): void {
 		sw.register('/service-worker.js').catch((e) =>
 			console.error('[device] the service worker would not register', e)
 		);
+
+		if ('BroadcastChannel' in window) {
+			relayTo = createRelay({
+				channel: new BroadcastChannel('salsa-device'),
+				self: crypto.randomUUID(),
+				// Only the tab whose worker owns the copy answers.
+				answer: (m) => (own === 'ready' ? relayAnswer(m) : null),
+				onState: () => {
+					if (own === 'waiting') showState();
+				}
+			});
+		}
 
 		if (!navigator.onLine) startWorker();
 		else if ('requestIdleCallback' in window)
@@ -233,4 +351,53 @@ export function startDevice(): void {
 	} catch (e) {
 		console.error('[device] could not start', e);
 	}
+}
+
+/** A relayed ask, answered by this page's own worker (a device-fetch on a port of its own). */
+function relayAnswer(message: DeviceIn): Promise<unknown> | null {
+	if (message.type !== 'device-fetch') return askWorker(message);
+	if (!worker) return null;
+	const w = worker;
+	return new Promise((resolve) => {
+		const channel = new MessageChannel();
+		channel.port1.onmessage = (e) => {
+			channel.port1.close();
+			resolve(e.data);
+		};
+		w.postMessage(message, [channel.port2]);
+	});
+}
+
+/** Push and pull now; the outbox afterwards (null without a device). */
+export async function syncNow(): Promise<OutboxSummary | null> {
+	return (await ask({ type: 'sync-now' })) as OutboxSummary | null;
+}
+
+export async function outboxList(): Promise<OutboxItem[]> {
+	return ((await ask({ type: 'outbox-list' })) as OutboxItem[] | null) ?? [];
+}
+
+export async function retryEntry(id: string): Promise<number> {
+	return ((await ask({ type: 'retry', id })) as number | null) ?? 0;
+}
+
+export async function discardEntry(id: string): Promise<number> {
+	return ((await ask({ type: 'discard', id })) as number | null) ?? 0;
+}
+
+/** A clash settled on the Sync page: that change goes, the ones held behind it are sent. */
+export async function resolveEntry(id: string): Promise<number> {
+	return ((await ask({ type: 'resolve', id })) as number | null) ?? 0;
+}
+
+/** Pushes what it can, then how many changes would be lost (waiting + refused + held). */
+export async function unsyncedBeforeSignOut(): Promise<number> {
+	if (!started) return 0;
+	const s = await syncNow();
+	return s ? s.waiting + s.refused + s.held : 0;
+}
+
+/** Sign out, confirmed: the copy and this person's changes go. */
+export async function forgetCopy(): Promise<void> {
+	await ask({ type: 'forget' });
 }

@@ -16,8 +16,10 @@ import type { ActionResult } from '@sveltejs/kit';
 import { mayReloadNow, type Quiet } from '$lib/nav/fresh';
 import { catalogOf, t } from '$lib/i18n/catalog';
 import { LOCALES } from '$lib/i18n/locale';
+import { PAGE_EPOCH } from './epoch';
 
-export const PAGE_EPOCH = 13;
+/** The number lives in a leaf, `$lib/epoch`, so the service worker and the device read it; raise it there. */
+export { PAGE_EPOCH };
 
 export const EPOCH_HEADER = 'x-page-epoch';
 export const STALE_HEADER = 'x-page-stale';
