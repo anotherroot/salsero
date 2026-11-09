@@ -13,7 +13,8 @@ vi.mock('$lib/server/db', async () => {
 
 import type { Cookies } from '@sveltejs/kit';
 import { openDb, type Db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { inArray } from 'drizzle-orm';
+import { figures, users } from '$lib/server/db/schema';
 import { addLesson } from '$lib/server/entries';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson, linkFigure, publishLesson } from '$lib/server/lessons';
@@ -36,8 +37,9 @@ const open = (uid: string, id: number, groupMode?: string) =>
 		} as unknown as Cookies,
 		url: new URL(`http://localhost/salsa/figures/${id}`)
 	}) as {
-		siblings: { id: number; name: string; team: { name: string } | null }[];
+		siblings: { id: number; name: string; team: { name: string } | null; copies: number }[];
 		lastInMove: boolean;
+		switcherId: number;
 	};
 const FIG = { partner: 'partner', style: 'salsa', notes: null } as const;
 const figureIn = (space: typeof T1_SALSA | typeof U2_SALSA, move: string, name: string) =>
@@ -105,5 +107,47 @@ describe('the switcher of a merged move', () => {
 
 	it('the variation order is the list’s even when the opened one sits last', () => {
 		expect(open('u2', vuelta).siblings.map((s) => s.id)).toEqual([basic, vuelta, doble]);
+	});
+});
+
+describe('a figure and its copy', () => {
+	// The group's Doble is a copy of a Doble of u2's own: one family (gene).
+	let mineDoble: number;
+	beforeEach(() => {
+		const enchufla = db
+			.select()
+			.from(figures)
+			.where(inArray(figures.id, [basic]))
+			.get()!;
+		mineDoble = createVariationIn(db, enchufla.groupId!, { ...FIG, name: 'Doble' })!.id;
+		db.update(figures)
+			.set({ geneId: 'g-doble' })
+			.where(inArray(figures.id, [mineDoble, doble]))
+			.run();
+	});
+	const rows = (d: ReturnType<typeof open>) =>
+		d.siblings.map((s) => [s.name, s.team?.name ?? null, s.copies]);
+	const ONE_ROW = [
+		['Basic', null, 0],
+		['Con vuelta', null, 0],
+		['Doble', null, 1]
+	];
+
+	it('on yours: one row for both, marked with its copy', () => {
+		const d = open('u2', mineDoble);
+		expect(rows(d)).toEqual(ONE_ROW);
+		expect(d.switcherId).toBe(mineDoble);
+	});
+
+	it("on the group's copy: the same list, your row lit", () => {
+		const d = open('u2', doble);
+		expect(rows(d)).toEqual(ONE_ROW);
+		expect(d.switcherId).toBe(mineDoble);
+	});
+
+	it('in group mode the group’s copy is its own row', () => {
+		const d = open('u1', doble, '1');
+		expect(d.siblings.map((s) => s.name)).toEqual(['Doble']);
+		expect(d.switcherId).toBe(doble);
 	});
 });

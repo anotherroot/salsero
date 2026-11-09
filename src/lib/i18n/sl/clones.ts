@@ -377,8 +377,10 @@ export const clones: Catalog['clones'] = {
 		failed: 'Kopiranje ni uspelo. Poskusite znova.',
 		open: 'Odpri'
 	},
+	cloneChip: 'Klon',
 	twins: {
-		chip: 'Dvojčka',
+		// The chip says what the row is, however many there are.
+		chip: 'Dvojček',
 		whichTitle: (label) => `Kateri dvojček: ${label}?`,
 		// The accusative of »dvojček«: vidite 2 dvojčka, 3 dvojčke, 5 dvojčkov.
 		whichSub: (_kind, versions, place) =>

@@ -14,6 +14,9 @@ import { t } from '$lib/i18n/catalog';
 /** The chip on a row that stands for its twins. */
 export const twinsChip = (): string => t().clones.twins.chip;
 
+/** The chip on a row with clones (`copies` > 0): "Clone". */
+export const cloneChip = (): string => t().clones.cloneChip;
+
 /**
  * The member a set is shown as: the person's own first (`team` null), then
  * by group name, then by the order given.

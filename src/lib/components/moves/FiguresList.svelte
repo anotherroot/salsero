@@ -44,7 +44,7 @@
 		type MergedMove
 	} from '$lib/moves/filter';
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
-	import { twinsChip } from '$lib/clones/twins';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
 	import { t } from '$lib/i18n/catalog';
 	import { presetLine, withoutPreset } from '$lib/positions/view';
@@ -248,6 +248,8 @@
 				>
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+				<!-- A figure with clones (copies in your app or a group's), marked as a twin is. -->
+				{#if (f.copies ?? 0) > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
 			</span>
 			<!-- A group's figure: its group, as a group's lesson shows it on the Lessons list. -->
 			{#if f.team}<GroupMark name={f.team.name} />{/if}

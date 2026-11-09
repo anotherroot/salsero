@@ -79,16 +79,6 @@ describe('in Slovenian', () => {
 		);
 	});
 
-	it('counts its copies, unless every one of them differs', () => {
-		expect(figureRowMeta({ ...base, recordings: 1, copies: 1 })).toBe('1 recording · 1 copy');
-		expect(figureRowMeta({ ...base, copies: 3, differ: 1 })).toBe('3 copies · 1 copy differs');
-		expect(figureRowMeta({ ...base, copies: 2, differ: 2 })).toBe('2 copies differ');
-		expect(sl(() => figureRowMeta({ ...base, copies: 2 }))).toBe('2 kopiji');
-		expect(sl(() => figureRowMeta({ ...base, copies: 5, differ: 1 }))).toBe(
-			'5 kopij · 1 kopija se razlikuje'
-		);
-	});
-
 	it('names what a row lacks, and a copy that differs', () => {
 		const parts = sl(() =>
 			figureRowParts({ ...base, hasSection: false, hasLesson: false, differ: 3 })

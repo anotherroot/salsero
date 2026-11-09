@@ -8,6 +8,8 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GroupMark from '$lib/components/moves/GroupMark.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import { cloneChip } from '$lib/clones/twins';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { button, iconButton, FIELD, GROUP, LABEL } from '$lib/components/ui/styles';
@@ -227,7 +229,11 @@
 						>
 					{/if}
 					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span class="text-[16px] leading-tight font-bold text-ink">{s.name}</span>
+						<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+							<span class="text-[16px] leading-tight font-bold text-ink">{s.name}</span>
+							<!-- A figure with clones, marked as on the Figures list. -->
+							{#if s.copies > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
+						</span>
 						<!-- A group's figure, marked as on the Figures list. -->
 						{#if s.team}<GroupMark name={s.team.name} />{/if}
 						<span class="text-[13px] text-muted">{s.holds}</span>

@@ -164,7 +164,7 @@ describe('the twin meta', () => {
 
 	it('in Slovenian: no possessive, each place after a colon', () => {
 		const sl = <T>(fn: () => T): T => withLocale('sl', fn);
-		expect(sl(twinsChip)).toBe('Dvojčka');
+		expect(sl(twinsChip)).toBe('Dvojček');
 		expect(twinsChip()).toBe('Twins');
 		expect(
 			sl(() =>

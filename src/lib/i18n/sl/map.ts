@@ -17,7 +17,7 @@ export const map: Catalog['map'] = {
 		'Še ni položajev. Dodajte jih na strani Položaji in označite, kje se vaše figure začnejo in končajo.',
 	unjoined: 'Vaših položajev še nič ne povezuje: označite začetek in konec figure.',
 	mark: { deadEnd: positions.gaps.deadEnd, orphan: positions.gaps.orphan },
-	twins: 'Dvojčka',
+	twins: 'Dvojček',
 	// Names are never declined: the place goes in brackets after them.
 	yourTwin: (name) => `${name} (vaš)`,
 	teamTwin: (team, name) => `${name} (skupina: ${team})`,
