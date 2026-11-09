@@ -34,16 +34,13 @@ describe('parseComesBack', () => {
 
 describe('effectiveComesBack', () => {
 	const every2 = { kind: 'every', days: 2 } as const;
-	it('a lesson review is always faces', () =>
-		expect(effectiveComesBack('lesson', every2, null)).toEqual(FACES));
-	it('an entry follows its class drill', () =>
-		expect(effectiveComesBack('added', null, every2)).toEqual(every2));
-	it("the member's own wins", () =>
-		expect(effectiveComesBack('added', FACES, every2)).toEqual(FACES));
-	it('a custom drill uses its own, else faces', () => {
-		expect(effectiveComesBack('custom', every2, null)).toEqual(every2);
-		expect(effectiveComesBack('custom', null, null)).toEqual(FACES);
+	it('any type uses its own, else faces (a lesson review, a routine, a figure too)', () => {
+		expect(effectiveComesBack(every2, null)).toEqual(every2);
+		expect(effectiveComesBack(null, null)).toEqual(FACES);
 	});
+	it('an entry follows its class drill', () =>
+		expect(effectiveComesBack(null, every2)).toEqual(every2));
+	it("the member's own wins", () => expect(effectiveComesBack(FACES, every2)).toEqual(FACES));
 });
 
 describe('rhythmWords', () => {

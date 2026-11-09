@@ -410,3 +410,17 @@ def _run_bar(page):
 
 
 SCENES.update({"run-bar": Scene("/{dance}", _flat(_run_bar))})
+
+
+def _figure_comes_back(page):
+    """A figure's exercise has Comes back too (2026-11-09): Edit shows the card."""
+    page.wait_for_load_state("networkidle")
+    page.get_by_role("button", name=re.compile("^(Edit settings|Uredi nastavitve)$")).first.click()
+    page.wait_for_timeout(800)
+    card = page.get_by_text(re.compile("^(Comes back|Kdaj pride spet na vrsto)$")).first
+    card.wait_for(timeout=10000)
+    card.scroll_into_view_if_needed()
+    page.wait_for_timeout(300)
+
+
+SCENES.update({"figure-comes-back": Scene("/{dance}/exercises/109", _figure_comes_back)})
