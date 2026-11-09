@@ -424,7 +424,6 @@ export const groups = {
 	},
 	/** Group mode: the band's line and the Work in sheet. */
 	mode: {
-		label: (name: string): string => `${name} · group`,
 		/** Mine's line in the Work in sheet. */
 		mineMeta: 'Your own space'
 	}

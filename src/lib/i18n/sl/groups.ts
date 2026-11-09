@@ -392,7 +392,6 @@ export const groups: Catalog['groups'] = {
 			'Izbrisan video ali posnetek počaka 30 dni v »Nedavno izbrisano« in do takrat še zaseda prostor.'
 	},
 	mode: {
-		label: (name) => `${name} · skupina`,
 		mineMeta: 'Vaše lastne stvari'
 	}
 };

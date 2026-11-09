@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { groupLabel, minePath, outsideGroupMode, returnPath, workInRows } from './mode';
+import { minePath, outsideGroupMode, returnPath, workInRows } from './mode';
 
 describe('group mode, pure', () => {
 	it('leaves group mode on Today and its pages', () => {
@@ -15,7 +15,6 @@ describe('group mode, pure', () => {
 		expect(returnPath('/bachata/figures', 'salsa')).toBe('/salsa/figures');
 		expect(returnPath(null, 'salsa')).toBe('/salsa/figures');
 	});
-	it('labels a group', () => expect(groupLabel('Salsa Tuesdays')).toBe('Salsa Tuesdays · group'));
 });
 
 describe('workInRows', () => {
@@ -64,7 +63,6 @@ describe('group mode in Slovenian', () => {
 	];
 
 	it('labels the group after a "·" and words the rows', () => {
-		expect(sl(() => groupLabel('Salsa torek'))).toBe('Salsa torek · skupina');
 		const rows = sl(() => workInRows(choices, null, '/salsa/lessons'));
 		expect(rows.map((r) => [r.name, r.meta])).toEqual([
 			['Moje', 'Vaše lastne stvari'],

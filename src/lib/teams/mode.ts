@@ -33,8 +33,6 @@ export function minePath(path: string, dance: DanceSlug): string {
 	return roots.find((r) => r === path) ?? roots[0];
 }
 
-export const groupLabel = (name: string): string => t().groups.mode.label(name);
-
 /** The Work in sheet: Mine first, then each group the person can write in, each a link to `path` in its view. */
 export function workInRows(
 	choices: GroupChoice[],

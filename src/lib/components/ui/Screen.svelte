@@ -4,6 +4,9 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
+	import GroupBadge from '$lib/components/shell/GroupBadge.svelte';
+	import { page } from '$app/state';
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import { inPane } from '$lib/components/shell/pane-context';
 
 	let {
@@ -121,6 +124,10 @@
 		<!-- The same 560 px column as the page, inside the full-width bar. -->
 		<div class="mx-auto flex h-16 max-w-[560px] items-center gap-1">
 			{#if left}{@render left()}{/if}
+			{#if page.data.groupMode ?? frameView.current}
+				<!-- Scrolled, a group's view keeps its badge before the title (group view spec). -->
+				<span class="mr-[5px] flex"><GroupBadge size={26} /></span>
+			{/if}
 			{#if compact && subtitle}
 				<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
 				<span class="flex min-w-0 flex-1 flex-col gap-px">

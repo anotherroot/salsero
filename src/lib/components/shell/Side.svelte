@@ -4,6 +4,8 @@
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import GroupCard from './GroupCard.svelte';
+	import type { GroupMode } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
@@ -22,7 +24,9 @@
 	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
 	// In group mode Today is not a tab: Mine, back to the personal side.
-	const inGroup = $derived(!!(page.data.groupMode ?? frameView.current));
+	// The group's view: the side opens with its card (group view spec), Mine for Today.
+	const group = $derived((page.data.groupMode ?? frameView.current) as GroupMode | null);
+	const inGroup = $derived(group !== null);
 	const lit = $derived(
 		litAt(
 			sideLit(path, dance),
@@ -63,45 +67,48 @@
 	aria-label={t().shell.mainNav}
 	data-side
 >
-	<ul class="flex flex-col gap-1">
-		{#each tabs as tab, i (tab.id)}
-			{@const here = tab.id === lit}
-			{@const to = targets[i]}
-			{@const fresh = tabDot(tab.id, page.data)}
-			<li>
-				{#if inGroup && tab.id === 'today'}
-					<!-- Mine: the tab bar's plain link out of the group's view (`BottomNav` says where), never lit. -->
-					<a
-						href={mine}
-						onclick={leaveGroup}
-						class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
-					>
-						<Icon name="back" size={24} />
-						{t().shell.mine}
-					</a>
-				{:else}
-					<a
-						href={to ?? resolve(tab.path, { dance })}
-						onclick={(e) => tapTab(e, to === null)}
-						aria-current={here ? 'page' : undefined}
-						aria-label={fresh ? tabDotLabel(tab.id, tab.label) : undefined}
-						class={here ? ON : OFF}
-					>
-						<Icon name={tab.icon} size={24} filled={here} />
-						{tab.label}
-						{#if fresh}
-							<span
-								class="mt-3 -ml-1 h-[9px] w-[9px] flex-none self-start rounded-full {here
-									? 'bg-band'
-									: 'bg-band-ink'}"
-								aria-hidden="true"
-							></span>
-						{/if}
-					</a>
-				{/if}
-			</li>
-		{/each}
-	</ul>
+	<div class="flex flex-col">
+		{#if group}<GroupCard {group} />{/if}
+		<ul class="flex flex-col gap-1">
+			{#each tabs as tab, i (tab.id)}
+				{@const here = tab.id === lit}
+				{@const to = targets[i]}
+				{@const fresh = tabDot(tab.id, page.data)}
+				<li>
+					{#if inGroup && tab.id === 'today'}
+						<!-- Mine: the tab bar's plain link out of the group's view (`BottomNav` says where), never lit. -->
+						<a
+							href={mine}
+							onclick={leaveGroup}
+							class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
+						>
+							<Icon name="back" size={24} />
+							{t().shell.mine}
+						</a>
+					{:else}
+						<a
+							href={to ?? resolve(tab.path, { dance })}
+							onclick={(e) => tapTab(e, to === null)}
+							aria-current={here ? 'page' : undefined}
+							aria-label={fresh ? tabDotLabel(tab.id, tab.label) : undefined}
+							class={here ? ON : OFF}
+						>
+							<Icon name={tab.icon} size={24} filled={here} />
+							{tab.label}
+							{#if fresh}
+								<span
+									class="mt-3 -ml-1 h-[9px] w-[9px] flex-none self-start rounded-full {here
+										? 'bg-band'
+										: 'bg-band-ink'}"
+									aria-hidden="true"
+								></span>
+							{/if}
+						</a>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</div>
 	<a
 		href={resolve('/settings')}
 		aria-current={lit === 'settings' ? 'page' : undefined}

@@ -137,6 +137,19 @@
 	});
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.appDance ?? DEFAULT_DANCE]);
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
+	/*
+	 * In a group's view the phone's tab bar is filled with the band's colour, and
+	 * the Android app draws its navigation bar over it (edge to edge): its icons
+	 * turn light then (`data-bars`, read by `salsaTheme` in app.html).
+	 */
+	$effect(() => {
+		const filled = tabs && Boolean(page.data.groupMode ?? frameView.current);
+		const root = document.documentElement;
+		if ((root.dataset.bars === 'dark') === filled) return;
+		if (filled) root.dataset.bars = 'dark';
+		else delete root.dataset.bars;
+		(window as { salsaTheme?: () => void }).salsaTheme?.();
+	});
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 	/*
 	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`): the page's own

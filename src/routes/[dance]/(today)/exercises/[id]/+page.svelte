@@ -656,7 +656,6 @@
 				>
 				<span
 					data-dance={data.dance.slug}
-					data-group=""
 					class="inline-flex h-[30px] items-center gap-1.5 self-start rounded-full bg-accent-soft pr-3 pl-2 text-[14px] font-bold text-accent-text"
 					><Icon name="people" size={16} />{t().exercise.comesBack.setByTeacher}</span
 				>

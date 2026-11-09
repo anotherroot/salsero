@@ -52,10 +52,16 @@
 <!--
 	`--icon-knockout`: filled icons cut their details out in the bar's colour.
 	On the desktop the side (`Side.svelte`) is the main nav and this bar is gone.
+	In a group's view the bar is filled with the band's colour (group view spec):
+	cream tabs, the lit one a cream pill.
 -->
 <nav
-	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg desk:hidden"
-	style="height: calc(var(--tab-bar-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); --icon-knockout: var(--color-tab-bg)"
+	class="fixed inset-x-0 bottom-0 z-30 desk:hidden {inGroup
+		? 'bg-band'
+		: 'border-t border-tab-line bg-tab-bg'}"
+	style="height: calc(var(--tab-bar-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); --icon-knockout: {inGroup
+		? 'var(--color-band)'
+		: 'var(--color-tab-bg)'}"
 	aria-label={t().shell.mainNav}
 	data-tab-bar
 >
@@ -79,7 +85,7 @@
 					<a
 						href={mine}
 						onclick={leaveGroup}
-						class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
+						class="flex h-11 w-full items-center justify-center gap-2 px-3 text-band-ink"
 					>
 						<Icon name="back" size={28} />
 						<span class="text-[14px] font-extrabold whitespace-nowrap">{t().shell.mine}</span>
@@ -95,8 +101,12 @@
 								? undefined
 								: tab.label}
 						class="relative flex h-11 items-center justify-center gap-2 rounded-full {here
-							? 'w-full bg-accent/12 px-3 text-accent-text'
-							: 'w-11 text-muted'}"
+							? inGroup
+								? 'w-full bg-band-ink px-3 text-band [--icon-knockout:var(--color-band-ink)]'
+								: 'w-full bg-accent/12 px-3 text-accent-text'
+							: inGroup
+								? 'w-11 text-band-ink/70'
+								: 'w-11 text-muted'}"
 					>
 						<Icon name={tab.icon} size={28} filled={here} />
 						{#if here}
@@ -104,7 +114,9 @@
 						{/if}
 						{#if tabDot(tab.id, page.data)}
 							<span
-								class="absolute top-1 right-1 h-[10px] w-[10px] rounded-full bg-accent ring-2 ring-tab-bg"
+								class="absolute top-1 right-1 h-[10px] w-[10px] rounded-full ring-2 {inGroup
+									? 'bg-band-ink ring-band'
+									: 'bg-accent ring-tab-bg'}"
 								aria-hidden="true"
 							></span>
 						{/if}
