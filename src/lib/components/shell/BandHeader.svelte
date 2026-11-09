@@ -3,6 +3,9 @@
 	import { page } from '$app/state';
 	import { groupLabel } from '$lib/teams/mode';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import SyncStatus from '$lib/components/system/SyncStatus.svelte';
+	import { sync } from '$lib/offline/device.svelte';
+	import { syncStatus } from '$lib/sync/status';
 	import { PANE_PAD_DESK, PANE_TITLE_DESK } from '$lib/components/ui/styles';
 	import type { GroupMode } from '$lib/types';
 
@@ -69,6 +72,10 @@
 		/** The pane's desk-only row under the title and `extra`; never on the phone. */
 		below?: Snippet;
 	} = $props();
+
+	/** The band's subtitle carries the sync status (offline phase 3): the band only, never a pane's or a card's. */
+	const withStatus = $derived(variant === 'band');
+	const statusShows = $derived(withStatus && syncStatus(sync.summary, sync.now).kind !== 'none');
 
 	/** In group mode the band says whose space this is. */
 	const group = $derived((page.data.groupMode ?? null) as GroupMode | null);
@@ -180,20 +187,23 @@
 				>
 			</svelte:element>
 			{#if deskSubtitle}
-				{#if subtitle}
+				{#if subtitle || statusShows}
 					<span
 						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
-						class:pl-[38px]={!!left}>{subtitle}</span
+						class:pl-[38px]={!!left}
+						>{#if withStatus}<SyncStatus {subtitle} />{:else}{subtitle}{/if}</span
 					>
 				{/if}
 				<span
 					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
-					class:pl-[38px]={!!left}>{deskSubtitle}</span
+					class:pl-[38px]={!!left}
+					>{#if withStatus}<SyncStatus subtitle={deskSubtitle} />{:else}{deskSubtitle}{/if}</span
 				>
-			{:else if subtitle}
+			{:else if subtitle || statusShows}
 				<span
 					class="order-last basis-full text-[15px] font-semibold text-band-small {D.sub}"
-					class:pl-[38px]={!!left}>{subtitle}</span
+					class:pl-[38px]={!!left}
+					>{#if withStatus}<SyncStatus {subtitle} />{:else}{subtitle}{/if}</span
 				>
 			{/if}
 		</div>

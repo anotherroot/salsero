@@ -1,4 +1,5 @@
 <script lang="ts">
+	import WaitingBadge from '$lib/components/ui/WaitingBadge.svelte';
 	import type { Snippet } from 'svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -64,6 +65,7 @@
 					><span class="sr-only">{tile.label}, </span>{lesson.title}</span
 				>
 				{#if draft}<Badge tone="warn" solid={current}>{t().lesson.list.draft}</Badge>{/if}
+				<WaitingBadge table="lessons" id={lesson.id} />
 				{#if isNew}<Badge tone="accent" solid={current}>{t().lesson.list.isNew}</Badge>{/if}
 				{#if lesson.copyOf}<Badge>{copyChip()}</Badge>{/if}
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
