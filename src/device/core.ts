@@ -20,6 +20,7 @@ import { installCapture, startCapture, stopCapture } from './capture';
 import {
 	applyResults,
 	discardEntry,
+	resolveEntry,
 	forgetPerson,
 	outboxItems,
 	outboxSummary,
@@ -96,6 +97,8 @@ export type Device = {
 	retry(id: string): Promise<number>;
 	/** A refused entry and those held by it are dropped; then a sync restores the server's state. How many. */
 	discard(id: string): Promise<number>;
+	/** A clash settled (Mine landed, or Theirs kept): only that entry goes, its held ones wait again; then a sync. */
+	resolve(id: string): Promise<number>;
 	/** Sign out, confirmed: the copy and this person's entries go. */
 	forget(): Promise<void>;
 	/**
@@ -603,6 +606,15 @@ export function createDevice(deps: DeviceDeps): Device {
 			const n = await exclusive(async () => discardEntry(db, user, id));
 			postSummary();
 			// The next pull puts back the server's state where the change was.
+			await sync();
+			return n;
+		},
+
+		async resolve(id) {
+			const user = copyUser();
+			if (user === null) return 0;
+			const n = await exclusive(async () => resolveEntry(db, user, id));
+			postSummary();
 			await sync();
 			return n;
 		},

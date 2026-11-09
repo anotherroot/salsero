@@ -46,6 +46,7 @@ export type DeviceIn =
 	| { type: 'outbox-list' }
 	| { type: 'retry'; id: string }
 	| { type: 'discard'; id: string }
+	| { type: 'resolve'; id: string }
 	| { type: 'sync-now' }
 	| { type: 'forget' };
 

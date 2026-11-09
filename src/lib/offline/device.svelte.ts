@@ -380,6 +380,11 @@ export async function discardEntry(id: string): Promise<number> {
 	return ((await ask({ type: 'discard', id })) as number | null) ?? 0;
 }
 
+/** A clash settled on the Sync page: that change goes, the ones held behind it are sent. */
+export async function resolveEntry(id: string): Promise<number> {
+	return ((await ask({ type: 'resolve', id })) as number | null) ?? 0;
+}
+
 /** Pushes what it can, then how many changes would be lost (waiting + refused + held). */
 export async function unsyncedBeforeSignOut(): Promise<number> {
 	if (!started) return 0;

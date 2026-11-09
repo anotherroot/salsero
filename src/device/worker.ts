@@ -180,6 +180,7 @@ async function answerPort(port: MessagePort, message: DeviceIn): Promise<void> {
 			if (message.type === 'outbox-list') out = await device.outboxList();
 			else if (message.type === 'retry') out = await device.retry(message.id);
 			else if (message.type === 'discard') out = await device.discard(message.id);
+			else if (message.type === 'resolve') out = await device.resolve(message.id);
 			else if (message.type === 'sync-now') {
 				await syncNow();
 				out = device.summary();

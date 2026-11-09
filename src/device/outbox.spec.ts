@@ -12,6 +12,7 @@ import {
 	outboxSummary,
 	recordEntry,
 	resetSending,
+	resolveEntry,
 	retryEntry,
 	setStates,
 	toSend,
@@ -141,6 +142,17 @@ describe('the outbox', () => {
 		]);
 		expect(discardEntry(db, 'u1', a.id)).toBe(2);
 		expect(states()).toEqual([[c.id, 'waiting', null]]);
+	});
+
+	it('resolve (a clash settled, Mine or Theirs) drops only that entry; its held ones go again', () => {
+		const a = entry({ rows: [{ tbl: 'lessons', key: '4', op: 'u', before: null, after: null }] });
+		const b = entry({ rows: [{ tbl: 'lessons', key: '4', op: 'u', before: null, after: null }] });
+		for (const e of [a, b]) recordEntry(db, e);
+		applyResults(db, 'u1', [
+			{ id: a.id, state: 'refused', reason: 'clash', message: null, clash: null, gone: null }
+		]);
+		expect(resolveEntry(db, 'u1', a.id)).toBe(1);
+		expect(states()).toEqual([[b.id, 'waiting', null]]);
 	});
 
 	it("keeps another person's entries aside: never counted, listed or sent", async () => {

@@ -5,7 +5,7 @@
 	import { clashView, fieldLabel, type Seen } from '$lib/clash/clash';
 	import { t } from '$lib/i18n/catalog';
 	import { clashPrompt } from '$lib/unsaved/guard.svelte';
-	import { discardEntry, retryEntry } from '$lib/offline/device.svelte';
+	import { discardEntry, resolveEntry, retryEntry } from '$lib/offline/device.svelte';
 	import type { OutboxItem } from '$lib/offline/protocol';
 	import { resendFields } from '$lib/sync/resolve';
 	import { discardQuestion, labelText, reasonText } from '$lib/sync/view';
@@ -55,6 +55,14 @@
 		onchange(item.id);
 	}
 
+	/** A clash settled: this change goes; the ones held behind it are sent (never dropped with it). */
+	async function resolve() {
+		busy = true;
+		await resolveEntry(item.id);
+		busy = false;
+		onchange(item.id);
+	}
+
 	/** The clash screen, as for a save online: mine sends again over theirs, theirs drops mine. */
 	function compare() {
 		const clash = item.clash;
@@ -66,7 +74,7 @@
 			view: clashView(clash, sent, seen, () => 'text'),
 			typed: [],
 			mine: (values) => void sendMine(values),
-			theirs: () => void discard()
+			theirs: () => void resolve()
 		};
 	}
 
@@ -82,7 +90,7 @@
 				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
 			});
 			const result = deserialize(await res.text());
-			if (result.type === 'success' || result.type === 'redirect') return discard();
+			if (result.type === 'success' || result.type === 'redirect') return resolve();
 			const message =
 				result.type === 'failure'
 					? (result.data as { message?: string } | undefined)?.message

@@ -303,6 +303,22 @@ export function discardEntry(db: SqliteDb, userId: string, id: string): number {
 	return res.changes;
 }
 
+/**
+ * A clash settled on the Sync page (Mine sent again and landed, or Theirs
+ * kept): that entry goes, and those held by it wait again. Returns 1 when it
+ * was there.
+ */
+export function resolveEntry(db: SqliteDb, userId: string, id: string): number {
+	db.prepare(
+		`UPDATE outbox SET state = 'waiting', reason = NULL, message = NULL, detail_json = NULL, held_by = NULL
+		 WHERE user_id = ? AND held_by = ?`
+	).run(userId, id);
+	const res = db.prepare('DELETE FROM outbox WHERE user_id = ? AND id = ?').run(userId, id) as {
+		changes: number;
+	};
+	return res.changes;
+}
+
 /** Every entry of that person (Sign out, confirmed). */
 export function forgetPerson(db: SqliteDb, userId: string): void {
 	db.prepare('DELETE FROM outbox WHERE user_id = ?').run(userId);
