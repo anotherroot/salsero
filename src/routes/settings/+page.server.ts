@@ -21,7 +21,8 @@ import { askedLine } from '$lib/storage-view';
 import { Hold, UNDO_MS } from '$lib/server/undo-hold';
 import { int, optionalText, text } from '$lib/server/form';
 import { isStyleOf } from '$lib/dances/dances';
-import { deviceMeta } from '$lib/settings/view';
+import { appMeta, deviceMeta } from '$lib/settings/view';
+import { listGrants, restoreGrant, revokeGrant } from '$lib/server/oauth/store';
 import { ownVoiceSummary } from '$lib/voice/grid';
 import { DAILY_MAX, DAILY_MIN, dailyCountOf, setDailyCount } from '$lib/server/today-picks';
 import { levelOf, setLevel } from '$lib/server/levels';
@@ -64,6 +65,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 			meta: deviceMeta(
 				localDay(d.createdAt, tz),
 				d.lastUsedAt === null ? null : localDay(d.lastUsedAt, tz),
+				today
+			)
+		})),
+		// The AI apps this account is connected to (the AI connector), host first.
+		apps: listGrants(db, locals.user.id, serverNow()).map((g) => ({
+			id: g.id,
+			host: g.host,
+			name: g.clientName && g.clientName !== g.host ? g.clientName : null,
+			meta: appMeta(
+				localDay(g.createdAt, tz),
+				g.lastUsedAt === null ? null : localDay(g.lastUsedAt, tz),
 				today
 			)
 		})),
@@ -205,6 +217,24 @@ export const actions: Actions = {
 		if (!snap || !restoreDevice(getDb(), locals.user.id, snap)) {
 			return fail(410, { message: t().settings.refusals.tooLate });
 		}
+		return { ok: true };
+	},
+
+	/** One tap: the AI app's tokens stop working at once (the grant is revoked, kept for Undo). */
+	disconnectApp: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const id = int(await request.formData(), 'id');
+		if (id === undefined || !revokeGrant(getDb(), locals.user.id, id, serverNow()))
+			return fail(404, { message: t().settings.connector.apps.gone });
+		return { removed: id };
+	},
+
+	/** The toast's Undo: only the person's own app, within a minute (`RESTORE_MS`). */
+	reconnectApp: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const id = int(await request.formData(), 'id');
+		if (id === undefined || !restoreGrant(getDb(), locals.user.id, id, serverNow()))
+			return fail(410, { message: t().settings.refusals.tooLate });
 		return { ok: true };
 	}
 };

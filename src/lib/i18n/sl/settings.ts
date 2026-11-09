@@ -100,6 +100,18 @@ export const settings: Catalog['settings'] = {
 		cancel: 'Prekliči',
 		otherDance: (dance) =>
 			`Ta povezava je za aplikacijo ${dance}. Tam se prijavite s svojim računom za ${dance}.`,
+		apps: {
+			label: 'Povezane aplikacije AI',
+			// Nouns, as for phones: a participle would agree with the app's gender.
+			connected: (date) => `Povezava: ${date}`,
+			lastUsed: (connected, when) => `${connected} · zadnja uporaba: ${when}`,
+			disconnect: 'Prekini povezavo',
+			disconnectLabel: (host) => `Prekini povezavo: ${host}`,
+			disconnected: (host) => `Povezava prekinjena: ${host}`,
+			empty:
+				'V svoji aplikaciji AI (Claude, ChatGPT …) dodajte to aplikacijo kot povezavo po meri, na tem naslovu:',
+			gone: 'Ta aplikacija ni več povezana.'
+		},
 		badRequest: 'Ta povezava za povezovanje aplikacije ni veljavna. Začnite znova v aplikaciji.'
 	},
 	admin: { label: 'Skrbništvo', sub: 'Povabite nekoga' },

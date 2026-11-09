@@ -118,6 +118,21 @@ export const settings = {
 		cancel: 'Cancel',
 		otherDance: (dance: string): string =>
 			`This connector is for the ${dance} app. Sign in there with your ${dance} account.`,
+		/** Settings: the section of connected AI apps. */
+		apps: {
+			label: 'Connected AI apps',
+			/** `date` as `dateLabel` writes it. */
+			connected: (date: string): string => `Connected ${date}`,
+			/** `when`: today, yesterday, or a date. */
+			lastUsed: (connected: string, when: string): string => `${connected} · last used ${when}`,
+			disconnect: 'Disconnect',
+			disconnectLabel: (host: string): string => `Disconnect ${host}`,
+			disconnected: (host: string): string => `${host} disconnected`,
+			/** No app connected yet: where to add this app as a connector. */
+			empty:
+				'Add this app in your AI app (Claude, ChatGPT …) as a custom connector, at this address:',
+			gone: 'That app is already disconnected.'
+		},
 		badRequest: 'This link to connect an app is not valid. Start again from the app.'
 	},
 	admin: { label: 'Admin', sub: 'Invite someone' },
