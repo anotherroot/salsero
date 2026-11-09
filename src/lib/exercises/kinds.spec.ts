@@ -42,11 +42,10 @@ describe('exercise types in Slovenian', () => {
 describe('the type registry: Practise with', () => {
 	const src = readFileSync(join(__dirname, '../components/exercises/kinds/index.ts'), 'utf8');
 
-	it('has a practice component for a drill, a figure and a routine, and none for a lesson', () => {
+	it('has a practice component for every type, a lesson included', () => {
 		expect(src).toMatch(/export const practiceFor/);
 		const map = /const PRACTICE[^=]*=\s*\{([^}]*)\}/.exec(src)?.[1] ?? '';
-		expect(map).toMatch(/lesson:\s*null/);
-		for (const type of ['figure', 'drill', 'routine'])
+		for (const type of ['figure', 'drill', 'routine', 'lesson'])
 			expect(map).toMatch(new RegExp(`${type}:\\s*\\w+Practice`));
 	});
 
@@ -58,10 +57,7 @@ describe('the type registry: Practise with', () => {
 });
 
 describe('the exercise content words', () => {
-	it('points the routine note at Done and counts the recordings, in both languages', () => {
-		expect(t().exercise.content.routineNote).toBe(
-			'Tap Done when you have practised, in the player or away from the app.'
-		);
+	it('counts the recordings, in both languages', () => {
 		expect(t().exercise.content.recordings(0)).toBe('Recordings');
 		expect(t().exercise.content.recordings(3)).toBe('Recordings · 3');
 		expect(withLocale('sl', () => t().exercise.content.recordings(3))).toBe('Posnetki · 3');

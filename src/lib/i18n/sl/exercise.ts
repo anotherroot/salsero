@@ -44,8 +44,6 @@ export const exercise: Catalog['exercise'] = {
 		figureEmpty: 'Še ni opomb, posnetkov, odsekov ali povezav. Dodate jih na strani figure.',
 		editLinks: 'Uredi povezave na strani figure',
 		figures: 'Figure',
-		practiseInPlayer: 'Vadi v predvajalniku',
-		routineNote: 'Ko ste vadili, v predvajalniku ali brez aplikacije, pritisnite Opravljeno.',
 		recordings: (n) => (n === 0 ? 'Posnetki' : `Posnetki · ${n}`)
 	},
 	page: {
@@ -90,6 +88,8 @@ export const exercise: Catalog['exercise'] = {
 	panel: {
 		label: 'Vadenje',
 		practiseWith: 'Vadi ob',
+		change: 'Spremeni',
+		practise: 'Vadi',
 		play: 'Predvajaj',
 		pause: 'Premor',
 		resume: 'Nadaljuj',

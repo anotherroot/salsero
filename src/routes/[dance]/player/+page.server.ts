@@ -1,3 +1,4 @@
+import { shownExercise } from '$lib/exercises/name';
 import { error } from '@sveltejs/kit';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
@@ -36,7 +37,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// Same id-scoping as the song: an exercise from the other dance is not this
 	// player's to practise, so it comes back as "no exercise" rather than a run
 	// that would log its set on the far side of the wall.
-	const exercise = exerciseId ? exerciseInWall(db, wall, exerciseId) : null;
+	// A lesson's own exercise is named in the reader's language, as on Today (`shownExercise`).
+	const inWall = exerciseId ? exerciseInWall(db, wall, exerciseId) : null;
+	const exercise = inWall ? shownExercise(inWall) : null;
 
 	const routineId = Number(url.searchParams.get('routine')) || null;
 	// Same id-scoping as the song and the exercise: a routine of the other

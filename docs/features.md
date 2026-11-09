@@ -280,6 +280,11 @@ page opens it; the band that fills the phone; Routine, About and Voice as rows t
 open full-screen layers; a routine run without calls (Follow or Still, the
 full-screen list, a figure's details from it); the time across the trip to the
 player; and what was decided while building.
+The Practise card has its own,
+[`docs/superpowers/specs/2026-11-09-practise-card-design.md`](docs/superpowers/specs/2026-11-09-practise-card-design.md):
+one card on every exercise, lesson included (Practise with, Change to Setup, ▶ Practise
+playing at once); a Setup change shows on the card after Back; a lesson's About in the
+player; a video played with sound in About pauses the music until Resume.
 The app on the device has its own,
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md):
 why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM), ids from

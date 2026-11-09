@@ -51,6 +51,8 @@ Mockups: board B2 (drills, figures) and "A routine in B2", from 2026-11-08.
 
 ### Getting there
 
+- (2026-11-09, practise-card design: the card is now one card on every type,
+  lesson included, with Change and ▶ Practise in words; a lesson has an About.)
 - The exercise page (slot 3's) keeps a **Practise with** card where the
   practice panel sat, but it no longer plays in place: it opens the full player
   for that exercise (`/[dance]/player?exercise=<id>&from=…`), with the
@@ -128,6 +130,8 @@ something:
   links.
 - **A drill**: its description, then its Recordings (slot 3's list: linked
   sections, then links).
+- **A lesson** (2026-11-09): its notes, its figures (each opens its own details
+  in place), its videos (they wait for ▶) and its links.
 - The heading is "About" for the exercise itself, the figure's label for a
   routine's figure.
 

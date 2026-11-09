@@ -14,9 +14,18 @@
 		title: string | null;
 		/** The lesson page: a closed card is a 112 x 64 thumbnail beside its title. */
 		compact?: boolean;
+		/** The embed is open (bindable: the player's About closes it when another video takes the sound). */
+		playing?: boolean;
+		/** The thumbnail was tapped: the video is about to play, with sound. */
+		onplay?: () => void;
 	}
 
-	let { id, start, title, compact = false }: Props = $props();
+	let { id, start, title, compact = false, playing = $bindable(false), onplay }: Props = $props();
+
+	function play() {
+		playing = true;
+		onplay?.();
+	}
 
 	/** The site's name under the title: the same in every language. */
 	const HOST = 'youtube.com';
@@ -26,7 +35,6 @@
 	 * on mobile data before anyone pressed play; one image each costs almost
 	 * nothing, and the tap that swaps in the iframe also starts it (autoplay=1).
 	 */
-	let playing = $state(false);
 	let mirror = $state(false);
 	onMount(() => {
 		mirror = loadVideoPrefs().mirror;
@@ -44,7 +52,7 @@
 			type="button"
 			class="relative block h-16 w-28 flex-none cursor-pointer overflow-hidden rounded-xl bg-black"
 			aria-label={title === null ? t().links.youtube.playVideo : t().links.youtube.play(title)}
-			onclick={() => (playing = true)}
+			onclick={play}
 		>
 			<img src={youtubeThumb(id)} alt="" loading="lazy" class="size-full object-cover" />
 			<span class="absolute inset-0 grid place-items-center">
@@ -83,7 +91,7 @@
 			type="button"
 			class="relative block aspect-video w-full cursor-pointer bg-black desk:max-h-[70dvh]"
 			aria-label={title === null ? t().links.youtube.playVideo : t().links.youtube.play(title)}
-			onclick={() => (playing = true)}
+			onclick={play}
 		>
 			<img
 				src={youtubeThumb(id)}

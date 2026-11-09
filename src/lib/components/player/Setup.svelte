@@ -57,7 +57,8 @@
 	import SongPicker from './SongPicker.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import SpeedChips from './SpeedChips.svelte';
-	import { stopSample } from '$lib/songs/sample-player.svelte';
+	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
+	import { releaseSound, videoSound } from '$lib/player/video-sound.svelte';
 
 	interface Props {
 		/** This dance's ready songs (own and the groups' shared), for the picker. Without any, only the count is offered. */
@@ -189,10 +190,20 @@
 	});
 
 	function play() {
-		// A sample must never play under a run.
+		// A sample must never play under a run, nor a video aloud (it would pause it at once).
 		stopSample();
+		releaseSound(videoSound.key ?? '');
 		onplay({ source, bpm, count, clave, speed, voiceVolume });
 	}
+
+	// Nothing runs in Setup, but a song sample can: a video played with sound
+	// stops it, and a sample started takes the sound back from the video.
+	$effect(() => {
+		if (videoSound.key !== null) untrack(() => stopSample());
+	});
+	$effect(() => {
+		if (sampling.id !== null) untrack(() => releaseSound(videoSound.key ?? ''));
+	});
 
 	let aboutOpen = $state(false);
 	let aboutRow: ReturnType<typeof RunRows> | undefined = $state();

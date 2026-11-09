@@ -14,6 +14,7 @@ import RoutineContent from './routine/Content.svelte';
 import FigurePractice from './figure/Practice.svelte';
 import DrillPractice from './drill/Practice.svelte';
 import RoutinePractice from './routine/Practice.svelte';
+import LessonPractice from './lesson/Practice.svelte';
 
 export interface ContentProps {
 	dance: Dance;
@@ -29,7 +30,7 @@ export interface ContentProps {
 	simple?: boolean;
 	/**
 	 * The Practise with card, drawn right after the type's description (drill:
-	 * Description; figure: the reference notes; routine: its notes). A lesson has none.
+	 * Description; figure: the reference notes; routine: its notes; lesson: its notes).
 	 */
 	practice?: Snippet;
 	/**
@@ -69,11 +70,11 @@ export interface PracticeProps {
 }
 
 const PRACTICE: Record<ExerciseType, Component<PracticeProps> | null> = {
-	lesson: null,
+	lesson: LessonPractice,
 	figure: FigurePractice,
 	drill: DrillPractice,
 	routine: RoutinePractice
 };
 
-/** The type's Practise with card; a lesson has none. */
+/** The type's Practise card: the same card on every type (practise-card design). */
 export const practiceFor = (type: ExerciseType) => PRACTICE[type];
