@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -21,7 +22,7 @@
 	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
 	// In group mode Today is not a tab: Mine, back to the personal side.
-	const inGroup = $derived(!!page.data.groupMode);
+	const inGroup = $derived(!!(page.data.groupMode ?? frameView.current));
 	const lit = $derived(
 		litAt(
 			sideLit(path, dance),
@@ -33,6 +34,16 @@
 	const tabs = $derived(sideTabsFor(levelShown(page.data.user?.level)));
 	const view = $derived(page.data.groupMode?.teamId ?? null);
 	const targets = $derived(tabTargets(tabs, dance, path, view));
+	// Mine on a page that holds the view (a drill being edited): stop editing, stay.
+	function leaveGroup(e: MouseEvent) {
+		const stop = frameView.stop;
+		if (stop) {
+			e.preventDefault();
+			stop();
+			return;
+		}
+		intend('tab');
+	}
 	const mine = $derived((page.data.mineHref as string | undefined) ?? minePath(path, dance));
 
 	const ITEM =
@@ -62,7 +73,7 @@
 					<!-- Mine: the tab bar's plain link out of the group's view (`BottomNav` says where), never lit. -->
 					<a
 						href={mine}
-						onclick={() => intend('tab')}
+						onclick={leaveGroup}
 						class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
 					>
 						<Icon name="back" size={24} />

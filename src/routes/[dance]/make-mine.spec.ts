@@ -188,6 +188,25 @@ describe('the routine and drill pages', () => {
 		expect(res.location).not.toBe(`/salsa/routines/${R}`);
 	});
 
+	// Group view spec, rule 5: editing a group's drill shows the group's view, so the
+	// page hands its editors the group (a member, who cannot edit it, gets none).
+	it('a group drill gives its editor the group to show while editing, a member none', async () => {
+		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		published((id) => linkExercise(db, id, D, 'u1'));
+		expect((await run(exercisePage.load, ev('u3', D))).editView).toMatchObject({ teamId: 1 });
+		expect((await run(exercisePage.load, ev('u2', D))).editView).toBeNull();
+		const own = createCustomExercise(
+			db,
+			{ userId: 'u3', dance: 'salsa' },
+			{
+				name: 'Mine',
+				everyDays: 3,
+				notes: null
+			}
+		).id;
+		expect((await run(exercisePage.load, ev('u3', own))).editView).toBeNull();
+	});
+
 	it('a group drill: Make it mine opens the copy', async () => {
 		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
 		published((id) => linkExercise(db, id, D, 'u1'));

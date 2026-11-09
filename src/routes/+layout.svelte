@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import './layout.css';
 	import { untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
@@ -496,7 +497,7 @@
 	-->
 	<div
 		data-dance={navDance.slug}
-		data-group={page.data.groupMode ? '' : undefined}
+		data-group={(page.data.groupMode ?? frameView.current) ? '' : undefined}
 		data-frame={frame}
 		style:display="contents"
 		style:--pin-bottom={tabs ? 'var(--tab-bar-space)' : '0px'}

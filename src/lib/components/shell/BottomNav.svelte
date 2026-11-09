@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -18,7 +19,7 @@
 	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
 	// In group mode Today is not a tab: a plain Mine button back to the personal side.
-	const inGroup = $derived(!!page.data.groupMode);
+	const inGroup = $derived(!!(page.data.groupMode ?? frameView.current));
 	// A class's lesson lights My class at Follow my class (`litAt`).
 	const lit = $derived(
 		litAt(
@@ -35,6 +36,16 @@
 	const view = $derived(page.data.groupMode?.teamId ?? null);
 	const targets = $derived(tabTargets(tabs, dance, path, view));
 	// Mine: your own copy of what is open, else this tab's own list (group view spec).
+	// Mine on a page that holds the view (a drill being edited): stop editing, stay.
+	function leaveGroup(e: MouseEvent) {
+		const stop = frameView.stop;
+		if (stop) {
+			e.preventDefault();
+			stop();
+			return;
+		}
+		intend('tab');
+	}
 	const mine = $derived((page.data.mineHref as string | undefined) ?? minePath(path, dance));
 </script>
 
@@ -67,7 +78,7 @@
 					-->
 					<a
 						href={mine}
-						onclick={() => intend('tab')}
+						onclick={leaveGroup}
 						class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
 					>
 						<Icon name="back" size={28} />

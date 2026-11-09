@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { groupLabel } from '$lib/teams/mode';
@@ -70,8 +71,8 @@
 		below?: Snippet;
 	} = $props();
 
-	/** In group mode the band says whose space this is. */
-	const group = $derived((page.data.groupMode ?? null) as GroupMode | null);
+	/** In a group's view the band says whose space this is (a held view too: a drill being edited). */
+	const group = $derived((page.data.groupMode ?? frameView.current) as GroupMode | null);
 
 	/* Each element's desktop classes, by variant. The phone's are written in the markup. */
 	const D = $derived(

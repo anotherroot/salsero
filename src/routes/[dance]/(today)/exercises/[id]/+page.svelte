@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { holdView } from '$lib/teams/frame-view.svelte';
 	import MusicSection from '$lib/components/songs/MusicSection.svelte';
 	import { practiseHref } from '$lib/songs/music';
 	import { backWhenSettled, leaveRemoved } from '$lib/nav/trail.svelte';
@@ -364,6 +365,14 @@
 	function stopEditing() {
 		leaveOrAsk(settingsForm ?? null, () => (editing = false), t().exercise.page.stopEditing);
 	}
+
+	// Editing a group's drill shows the group's view (group view spec, rule 5): what
+	// changes here reaches the group's people. Mine stops editing (the × path).
+	$effect(() => {
+		const mode = data.editView;
+		if (!editing || !mode) return;
+		return holdView(mode, stopEditing);
+	});
 
 	const messageOf = (data: unknown) => {
 		const m = (data as { message?: unknown } | undefined)?.message;
