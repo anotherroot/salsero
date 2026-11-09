@@ -5,6 +5,7 @@
 	import { navigating, page, updated } from '$app/state';
 	import { DANCES, DEFAULT_DANCE, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { deskSkeletonMode, leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
+	import { droppedMove, watchDropped } from '$lib/nav/dropped';
 	import { showsTabs } from '$lib/nav/tabs';
 	import { bottom } from '$lib/nav/chrome.svelte';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
@@ -121,6 +122,35 @@
 		return () => clearTimeout(timer);
 	});
 	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id, ahead.url.search) : null);
+	/*
+	 * A navigation SvelteKit dropped for a refresh that started while it loaded
+	 * stays under way for good, the skeleton over the old page
+	 * (`$lib/nav/dropped.ts`): it goes again, and loads whole when it keeps
+	 * being dropped. `beforeNavigate` never sees it (SvelteKit skips it while
+	 * a navigation is under way), so `navigating` is watched instead.
+	 */
+	let dropped = 0;
+	let watched: Promise<void> | null = null;
+	afterNavigate(() => (dropped = 0));
+	$effect(() => {
+		const complete = navigating.complete;
+		const to = navigating.to;
+		// Once per navigation, so a drop goes again once.
+		if (!complete || !to || complete === watched) return;
+		watched = complete;
+		const nav = { complete, href: to.url.href, popstate: navigating.type === 'popstate' };
+		watchDropped(
+			nav,
+			() => navigating.complete,
+			({ href, popstate }) => {
+				dropped += 1;
+				console.warn('[nav] a navigation was dropped; going again', href);
+				// After a Back the history entry is the page's already.
+				if (droppedMove(dropped) === 'goto') void goto(href, { replaceState: popstate });
+				else loadAgreed(href);
+			}
+		);
+	});
 	/*
 	 * The tabs show inside a dance except Practice and share (`showsTabs`), judged
 	 * on where the app is going so the bar comes or goes with the tap, and step
