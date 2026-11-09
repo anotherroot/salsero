@@ -51,7 +51,11 @@ function post(user: string, fields: [string, string][], cookies: Cookies = jar()
 		locals: {
 			user: { id: user, email: `${user}@x.si`, timezone: 'Europe/Ljubljana', dance: 'salsa' }
 		},
-		cookies
+		cookies,
+		// The view is in the address (`?in=`): the jar's group goes there.
+		url: new URL(
+			`http://localhost/salsa/positions/map?/routine${cookies.get(groupCookie('salsa')) ? `&in=${cookies.get(groupCookie('salsa'))}` : ''}`
+		)
 	};
 }
 const run = (event: ReturnType<typeof post>) =>

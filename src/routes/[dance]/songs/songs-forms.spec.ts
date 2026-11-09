@@ -56,7 +56,7 @@ function post(
 ) {
 	return {
 		params: { dance, id },
-		url: new URL(`http://localhost/${dance}/songs/${id}`),
+		url: new URL(`http://localhost/${dance}/songs/${id}${as.group ? `?in=${as.group}` : ''}`),
 		request: new Request('http://localhost/', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },

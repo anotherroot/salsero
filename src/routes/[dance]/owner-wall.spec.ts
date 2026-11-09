@@ -95,6 +95,7 @@ function post(user: User, dance: string, fields: Record<string, string>, id = ''
 			body: new URLSearchParams(fields)
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
+		url: new URL('http://localhost/'),
 		locals: { user }
 	};
 }

@@ -23,9 +23,9 @@ export const actions: Actions = {
 	 * Coverage's `ints`). In group mode it is the group's (`spaceOf`). Forms post
 	 * here by the explicit URL: on the desktop the map is the Positions list's pane.
 	 */
-	routine: async ({ params, request, locals, cookies }) => {
+	routine: async ({ params, request, locals, url }) => {
 		const db = getDb();
-		const space = spaceOf(db, params, locals, cookies);
+		const space = spaceOf(db, params, locals, url);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const figureIds = orderedInts(form, 'figureIds');

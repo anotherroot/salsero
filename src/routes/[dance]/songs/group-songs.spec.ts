@@ -191,7 +191,7 @@ const cookiesFor = (group?: number) =>
 	}) as unknown as Cookies;
 const ev = (as: string, id: number | string, fields: Fields = {}, group?: number) => ({
 	params: { dance: 'salsa', id: String(id) },
-	url: new URL(`http://localhost/salsa/songs/${id}`),
+	url: new URL(`http://localhost/salsa/songs/${id}${group ? `?in=${group}` : ''}`),
 	request: new Request('http://localhost/', {
 		method: 'POST',
 		headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -512,7 +512,8 @@ describe("a group's pasted playlist", () => {
 				body: new URLSearchParams({ url: LIST, title: '', style: 'salsa' })
 			}),
 			locals: { user: user('u2') },
-			cookies: cookiesFor(1)
+			cookies: cookiesFor(1),
+			url: new URL('http://localhost/salsa/songs?/addUrl&in=1')
 		});
 		const id = (musicAs('u2', 1) as WithImports).imports[0].id;
 		expect(getImport(db, id)).toMatchObject({ teamId: 1, userId: null });

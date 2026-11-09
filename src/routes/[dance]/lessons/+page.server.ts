@@ -13,9 +13,9 @@ function zone(locals: App.Locals): string {
 }
 
 export const actions: Actions = {
-	create: async ({ params, request, locals, cookies }) => {
+	create: async ({ params, request, locals, url }) => {
 		const db = getDb();
-		const space = spaceOf(db, params, locals, cookies);
+		const space = spaceOf(db, params, locals, url);
 		const today = localDay(serverNow(), zone(locals));
 		const form = await request.formData();
 		const read = readNewLesson(form, today);

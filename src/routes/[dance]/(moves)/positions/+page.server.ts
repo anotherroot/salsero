@@ -22,11 +22,11 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 };
 
 export const actions: Actions = {
-	create: async ({ params, request, locals, cookies }) => {
+	create: async ({ params, request, locals, url }) => {
 		const db = getDb();
 		// The cookie is the client's: `spaceOf` re-checks it, so a member who
 		// is not an editor creates in their own space, never in the group.
-		const space = spaceOf(db, params, locals, cookies);
+		const space = spaceOf(db, params, locals, url);
 		const form = await request.formData();
 		const read = readNewPosition(form, space.dance);
 		const typed = { action: 'create' as const, ...read.typed };
@@ -38,9 +38,9 @@ export const actions: Actions = {
 		throw redirect(303, `/${space.dance}/positions/${made.id}`);
 	},
 
-	templates: async ({ params, request, locals, cookies }) => {
+	templates: async ({ params, request, locals, url }) => {
 		const db = getDb();
-		const space = spaceOf(db, params, locals, cookies);
+		const space = spaceOf(db, params, locals, url);
 		const form = await request.formData();
 		const type = String(form.get('type') ?? '');
 		const names = form.getAll('names').map(String);

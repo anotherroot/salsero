@@ -496,10 +496,12 @@ describe('Make it mine', () => {
 describe('New move from a position (ruling 8)', () => {
 	async function create(user: string, extra: Record<string, string>, cookies: Cookies = jar()) {
 		try {
+			const view = cookies.get(groupCookie('salsa'));
 			return await (figureList.create as (e: unknown) => unknown)({
 				params: { dance: 'salsa' },
 				locals: locals(user),
 				cookies,
+				url: new URL(`http://x/salsa/figures?/create${view ? `&in=${view}` : ''}`),
 				request: body({
 					figureName: 'Caída out',
 					name: 'Basic',
@@ -507,8 +509,7 @@ describe('New move from a position (ruling 8)', () => {
 					style: 'salsa',
 					notes: '',
 					...extra
-				}),
-				url: new URL('http://x/salsa/figures')
+				})
 			});
 		} catch (e) {
 			return e as any;

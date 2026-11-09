@@ -55,6 +55,11 @@ function jar(value?: string) {
 	} as unknown as Cookies;
 	return { cookies, calls };
 }
+// The view is in the address now (`?in=`): the jar's group goes there.
+const viewUrl = (cookies: Cookies) => {
+	const v = cookies.get(groupCookie('salsa'));
+	return new URL(`http://x/salsa${v === undefined ? '' : `?/create&in=${v}`}`);
+};
 const locals = (id: string) =>
 	({
 		user: { id, timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
@@ -79,7 +84,7 @@ const call = async (
 			locals: locals(user),
 			cookies,
 			request: post(fields),
-			url: new URL('http://x/salsa')
+			url: viewUrl(cookies)
 		});
 	} catch (e) {
 		return e; // a redirect
@@ -141,7 +146,6 @@ describe('creating in group mode', () => {
 		await call(figureActions.create, 'u3', j.cookies, FIGURE);
 		const g = db.select().from(figureGroups).get()!;
 		expect([g.userId, g.teamId]).toEqual(['u3', null]);
-		expect(j.calls.deleted).toBe(1);
 	});
 	it('creates a routine in the group in group mode, and in Mine for a member', async () => {
 		await call(routineActions.create, 'u2', jar('1').cookies, { name: 'R', notes: '' });
@@ -151,7 +155,6 @@ describe('creating in group mode', () => {
 		await call(routineActions.create, 'u3', j.cookies, { name: 'M', notes: '' });
 		const m = db.select().from(routines).where(eq(routines.name, 'M')).get()!;
 		expect([m.userId, m.teamId]).toEqual(['u3', null]);
-		expect(j.calls.deleted).toBe(1);
 	});
 	it('creates a lesson draft in the group in group mode, and in Mine for a member', async () => {
 		await call(lessonActions.create, 'u2', jar('1').cookies, LESSON);
@@ -161,7 +164,6 @@ describe('creating in group mode', () => {
 		await call(lessonActions.create, 'u3', j.cookies, { ...LESSON, title: 'Mine', everyDays: '3' });
 		const m = db.select().from(lessons).where(eq(lessons.title, 'Mine')).get()!;
 		expect([m.userId, m.teamId]).toEqual(['u3', null]);
-		expect(j.calls.deleted).toBe(1);
 	});
 });
 

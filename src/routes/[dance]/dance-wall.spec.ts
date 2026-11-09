@@ -123,6 +123,7 @@ function post(dance: string, fields: Record<string, string | string[]>, id = '')
 			body
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
+		url: new URL('http://localhost/'),
 		locals: { user: { ...USER, dance } }
 	};
 }

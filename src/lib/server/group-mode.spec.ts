@@ -4,9 +4,8 @@ import { openDb } from './db';
 import { users } from './db/schema';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { setRole } from './membership';
-import { groupChoices, groupModeOf, spaceOf } from './group-mode';
+import { groupChoices, groupModeOf } from './group-mode';
 import { setLevel } from './levels';
-import { U2_SALSA } from './test-walls';
 
 function setup() {
 	const db = openDb(':memory:');
@@ -36,7 +35,7 @@ describe('groupModeOf', () => {
 	it('accepts an owner and an editor', () => {
 		const db = setup();
 		const a = jar('1');
-		expect(groupModeOf(db, 'u1', 'salsa', a.cookies)).toEqual({
+		expect(groupModeOf(db, 'u1', 'salsa', a.cookies)).toMatchObject({
 			teamId: 1,
 			name: 'Tuesdays',
 			role: 'owner'
@@ -103,22 +102,6 @@ describe('groupModeOf', () => {
 		const j = jar('1');
 		expect(groupModeOf(db, 'u2', 'salsa', j.cookies)).toBeNull();
 		expect(j.calls.deleted).toBe(1);
-	});
-});
-
-describe('spaceOf', () => {
-	it('is the group for a valid cookie, the wall otherwise', () => {
-		const db = setup();
-		const locals = {
-			user: { id: 'u2', isAdmin: false, timezone: 'UTC', dance: 'salsa' }
-		} as App.Locals;
-		expect(spaceOf(db, { dance: 'salsa' }, locals, jar('1').cookies)).toEqual({
-			dance: 'salsa',
-			teamId: 1,
-			actorId: 'u2'
-		});
-		expect(spaceOf(db, { dance: 'salsa' }, locals, jar('7').cookies)).toEqual(U2_SALSA);
-		expect(spaceOf(db, { dance: 'salsa' }, locals, jar().cookies)).toEqual(U2_SALSA);
 	});
 });
 

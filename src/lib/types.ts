@@ -861,10 +861,17 @@ export interface DeletedItem {
 }
 
 /** The group a person has switched the app into (group mode). */
-export type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor' };
+/** A group a person works in (the group view): its people, and up to three others' initials. */
+export type GroupMode = {
+	teamId: number;
+	name: string;
+	role: 'owner' | 'editor';
+	people: number;
+	faces: string[];
+};
 
 /** A group a person may switch into: they own or edit it. */
-export type GroupChoice = GroupMode & { people: number };
+export type GroupChoice = Pick<GroupMode, 'teamId' | 'name' | 'role' | 'people'>;
 
 // Clones and twins: the shapes every clone-engine task shares.
 export type CloneKind = 'figure' | 'routine' | 'drill' | 'song' | 'lesson' | 'position'; // 'figure' = a `figures` row

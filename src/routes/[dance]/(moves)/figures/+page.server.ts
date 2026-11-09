@@ -52,8 +52,8 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 };
 
 export const actions: Actions = {
-	create: async ({ params, request, locals, cookies }) => {
-		const space = spaceOf(getDb(), params, locals, cookies);
+	create: async ({ params, request, locals, url }) => {
+		const space = spaceOf(getDb(), params, locals, url);
 		const dance = space.dance;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');

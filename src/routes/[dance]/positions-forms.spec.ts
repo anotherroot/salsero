@@ -109,7 +109,9 @@ async function act(
 			locals: locals(user),
 			cookies,
 			request: body(fields),
-			url: new URL('http://x/salsa/positions')
+			url: new URL(
+				`http://x/salsa/positions?/${name}${cookies.get(groupCookie('salsa')) ? `&in=${cookies.get(groupCookie('salsa'))}` : ''}`
+			)
 		});
 	} catch (e) {
 		return e; // a redirect or an error
@@ -226,12 +228,11 @@ describe('New position', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('never creates in a group for a member who is not an editor: their cookie falls back to Mine', async () => {
+	it('never creates in a group for a member who is not an editor: their in falls back to Mine', async () => {
 		const j = jar('1');
 		await act('create', 'u3', { name: 'Cerrada' }, j.cookies);
 		expect(owned({ teamId: 1 })).toEqual([]);
 		expect(owned({ userId: 'u3' }).map((p) => p.name)).toEqual(['Cerrada']);
-		expect(j.calls.deleted).toBe(1);
 		expect(db.select().from(teamChanges).where(eq(teamChanges.rootKind, 'position')).all()).toEqual(
 			[]
 		);
