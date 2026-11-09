@@ -117,7 +117,7 @@ const positionNames = (v: View, table: string, figureId: unknown) =>
 		.map((p) => String(p.name));
 
 /** What a section links to, by name. */
-function sectionLinks(v: View, spotId: unknown) {
+export function sectionLinks(v: View, spotId: unknown) {
 	return v.where('spot_links', 'spot_id', spotId).map((l) =>
 		l.figure_id !== null
 			? { figure: v.label(l.figure_id), figure_id: l.figure_id }
@@ -128,7 +128,7 @@ function sectionLinks(v: View, spotId: unknown) {
 	);
 }
 
-function sections(v: View, column: 'recording_id' | 'lesson_video_id', id: unknown) {
+export function sections(v: View, column: 'recording_id' | 'lesson_video_id', id: unknown) {
 	return v
 		.where('video_spots', column, id)
 		.sort((a, b) => Number(a.start_ms) - Number(b.start_ms))
