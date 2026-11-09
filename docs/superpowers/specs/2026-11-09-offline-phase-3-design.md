@@ -272,3 +272,41 @@ an older PAGE_EPOCH and the device is online and can still drain them
   change-log triggers, from `SYNCED`).
 - The Sync page's route and its components, within the picked look.
 - The ~2 s grace before "waiting" shows.
+
+## Decided while building
+
+Built 2026-11-09 (plan `docs/superpowers/plans/2026-11-09-offline-phase-3-changes-offline.md`,
+migration 0043). The calls made on the way, beyond the picks above:
+
+- **Network-only:** cookie-setting actions (Settings' theme and language, `group-mode`), Sign
+  out (`/logout` must reach the server), and the media writes and deletes (phase 4's, with the
+  uploads). Uploads stay `pass` in the service worker.
+- **"A group's row online goes to the server"** is decided by the rows the write captured on the
+  device (any group's row, or one whose owner the copy cannot tell), not by a route param.
+  Comments, hearts and publishing a lesson are group rows: online they go to the server as
+  before; offline they queue with the Waiting badge.
+- **An entry of any other epoch than the server's is refused** ("The app was updated since"),
+  and the service worker holds an update while older-epoch entries wait.
+- **One transaction per entry needs a write gate:** every other write holds `writeGate`
+  shared, a replay alone; an upload only around its db write.
+- **`flowAfter` does nothing on the device;** the server flows on replay, after the merge, and
+  the pull brings the result.
+- **A landed entry is deleted from the outbox at once;** `sync_landed` on the server makes a
+  resend a no-op. "Last synced" says when.
+- **The Waiting badge has the same 2 s grace** as the status, or it would flicker online.
+- **The status shows in every phone header** (a figure's page too), and on the desktop in the
+  band row only (a pane or a card sits under it).
+- **A 401 keeps the copy and its outbox** ("Sign in to sync"); only the app's own Sign out
+  forgets them, after asking when changes have not synced.
+- **One connection per database file on the device:** the SQLite WASM shim shares it, so a
+  device write and the capture of what it changed are one transaction.
+- **A second tab reaches the device over a BroadcastChannel relay** (what it announces is a
+  plain snapshot, never a Svelte proxy).
+- **A Sync entry shows its typed fields whole** (two lines each), and a clash's Compare compares
+  with theirs alone (`seen` never travels in the listed fields).
+- **Menus:** the copy sheets (Copy to, Move to, Detach, Drop, Sync, Make mine, Leave, Code) get
+  no note of their own: they open only from ⋯ items that are greyed offline. Lone buttons that
+  need a connection are greyed with `use:needsConnection` on Settings (What uses space, theme,
+  language, Sign out) and a group's page (People, Recently deleted, Storage, Delete).
+- **Left for later (minor):** minted ids are not verified after a replay; made-at has no lower
+  bound; entries carry no user id; later-wins compares the row's last change, not the field's.

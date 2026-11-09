@@ -108,11 +108,14 @@ home worker; "Audio from" and Use another YouTube link on a song, reaching its c
 step; a YouTube or Spotify playlist or album is read by the worker into a pick list under
 "To pick", a dot on Music, and only the ticked songs download; see
 [`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md))
-and the app offline, read only (offline phases 1 and 2: ids from slots and one server clock;
+and the app offline (offline phases 1–3: ids from slots and one server clock;
 the server logs every change, a device pulls its person's copy into SQLite on the phone, and
-SvelteKit's own server code answers from it when the network fails; a change made offline
-says "Needs a connection"; phases 3–5 to come; see
-[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)).
+SvelteKit's own server code answers from it when the network fails; a change made with no
+signal saves on the phone and syncs later, dated when it was made: the band says "· 3
+waiting" or "1 couldn't sync ›", a Sync page with Retry and Discard, a Waiting badge on
+queued group things, and what needs a connection greyed; phases 4–5 to come; see
+[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)
+and [`docs/superpowers/specs/2026-11-09-offline-phase-3-design.md`](docs/superpowers/specs/2026-11-09-offline-phase-3-design.md)).
 
 
 ## Specs

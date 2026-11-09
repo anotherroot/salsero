@@ -517,6 +517,11 @@ whole-page offline screen.
    until phase 3's design.
 3. **Offline changes:** the outbox, replay, the clash rules, queued and
    blocked actions, sync status and "Couldn't sync" (designed first).
+   Built 2026-11-09 (migration 0043: `device_slots`, `sync_landed`; spec
+   `docs/superpowers/specs/2026-11-09-offline-phase-3-design.md`, plan
+   `docs/superpowers/plans/2026-11-09-offline-phase-3-changes-offline.md`):
+   writes run on the device first and replay through `/api/sync/push`, and
+   the walk proves a change made offline lands once, dated, with its ids.
 4. **Videos on the device:** phone-only by default, Upload, Download,
    Remove server copy, Keep on this phone, the space in Settings, the iPhone
    popup, Android's native store and the chunked recording upload (designed
