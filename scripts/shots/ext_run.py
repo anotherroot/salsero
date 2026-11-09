@@ -424,3 +424,27 @@ def _figure_comes_back(page):
 
 
 SCENES.update({"figure-comes-back": Scene("/{dance}/exercises/109", _figure_comes_back)})
+
+
+def _band_at(offset):
+    """The phone's band while scrolling: `offset` px from where the slim band pins."""
+    def act(page):
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(800)
+        pin = page.evaluate(
+            "() => { const m = document.querySelector('main'); const s = document.querySelector('[data-slim-band]');"
+            " return m.getBoundingClientRect().top + scrollY - s.clientHeight; }"
+        )
+        page.evaluate(f"window.scrollTo(0, {pin} + ({offset}))")
+        page.wait_for_timeout(400)
+        op = page.evaluate("getComputedStyle(document.querySelector('[data-slim-band]')).opacity")
+        print(f"band {offset:+}: pin {pin}, slim opacity {op}", flush=True)
+    return act
+
+
+SCENES.update({
+    "band-scroll-before": Scene("/{dance}/figures", _band_at(-60)),
+    "band-scroll-mid": Scene("/{dance}/figures", _band_at(-20)),
+    "band-scroll-pinned": Scene("/{dance}/figures", _band_at(0)),
+    "band-scroll-after": Scene("/{dance}/figures", _band_at(120)),
+})
