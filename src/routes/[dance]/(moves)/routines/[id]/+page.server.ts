@@ -5,7 +5,7 @@ import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figur
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
-import { groupModeFor } from '$lib/server/group-mode';
+import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
 	addOption,
@@ -475,7 +475,11 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		// row is archived either way and the list omits it — so a second attempt is
 		// a no-op worth redirecting, not an error worth reporting.
 		archiveRoutine(getDb(), routine.id, serverNow(), by(params, locals));
-		throw redirect(303, `/${params.dance}/routines`);
+		const wall = wallOf(params, locals);
+		throw redirect(
+			303,
+			listInViewOf(getDb(), wall, locals.user?.level, routine.teamId, `/${params.dance}/routines`)
+		);
 	},
 
 	addOption: async ({ params, request, locals }) => {

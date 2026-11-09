@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
+	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
@@ -69,6 +71,8 @@
 		styleLabelOf
 	} from '$lib/positions/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -90,7 +94,9 @@
 	);
 
 	// New figure from it (ruling 8): the figures list's New move, tagged with it.
-	const figuresHref = $derived(resolve('/[dance]/(moves)/figures', { dance: slug }));
+	const figuresHref = $derived(
+		withView(resolve('/[dance]/(moves)/figures', { dance: slug }), viewTeam)
+	);
 	const newFrom = $derived(`${figuresHref}?new=1&start=${position.id}`);
 	const newInto = $derived(`${figuresHref}?new=1&end=${position.id}`);
 	/** New figure from or into it: an editor's, where a figure of theirs may take it (a reader of a group's gets none). */
@@ -114,7 +120,10 @@
 
 	// Show on the map: the map (in the pane on the desktop), this position picked.
 	const mapHref = $derived(
-		`${resolve('/[dance]/(moves)/positions/map', { dance: slug })}?pick=${position.id}`
+		withView(
+			`${resolve('/[dance]/(moves)/positions/map', { dance: slug })}?pick=${position.id}`,
+			viewTeam
+		)
 	);
 
 	/**
@@ -276,7 +285,7 @@
 		{:else}
 			<BackButton
 				fallback={{
-					href: resolve('/[dance]/(moves)/positions', { dance: slug }),
+					href: withView(resolve('/[dance]/(moves)/positions', { dance: slug }), viewTeam),
 					label: t().shell.backTo(t().moves.segments.positions)
 				}}
 			/>

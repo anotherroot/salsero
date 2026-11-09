@@ -5,7 +5,7 @@
  */
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import type { DanceSlug } from '$lib/dances/dances';
-import { rowKindOf, viewParam, type RowKind } from '$lib/teams/group-view';
+import { rowKindOf, viewParam, withView, type RowKind } from '$lib/teams/group-view';
 import { initialOf } from '$lib/comments/view';
 import type { GroupChoice, GroupMode } from '$lib/types';
 import type { Db } from './db';
@@ -150,4 +150,18 @@ export function viewOf(
 	// By the route, not the path: a layout that read the path would rerun on every step.
 	if (routeId === '/[dance]/(today)' || routeId?.startsWith('/[dance]/(today)/')) return null;
 	return groupModeFor(db, wall.userId, wall.dance, asked, level);
+}
+
+/**
+ * `path` (a list) in the view of a row owned by `teamId`: the group's list when the
+ * person works in that group, else their own. For a step back to a list from a row.
+ */
+export function listInViewOf(
+	db: Db,
+	wall: Wall,
+	level: Level | null | undefined,
+	teamId: number | null,
+	path: string
+): string {
+	return withView(path, groupModeFor(db, wall.userId, wall.dance, teamId, level)?.teamId ?? null);
 }

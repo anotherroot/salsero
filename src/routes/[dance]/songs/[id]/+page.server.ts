@@ -42,6 +42,7 @@ import {
 } from '$lib/server/take-form';
 import { sameAsOffer } from '$lib/server/twins';
 import { groupModeFor } from '$lib/server/group-mode';
+import { withView } from '$lib/teams/group-view';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -573,7 +574,8 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, serverNow())) {
 			throw error(404, t().refusals.songNotFound);
 		}
-		throw redirect(303, `/${params.dance}/songs`);
+		// Back to the group's Music: the editor was in its view (group view spec).
+		throw redirect(303, withView(`/${params.dance}/songs`, space.teamId));
 	},
 
 	/**

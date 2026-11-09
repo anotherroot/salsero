@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rowKindOf, viewedList, viewParam, withView } from './group-view';
+import { rowKindOf, tabHrefIn, viewedList, viewParam, withView } from './group-view';
 
 // Catches: a list in a group's view losing `in` on a filter or a tab (back to your own
 // list unasked), an action URL whose `?/create` is pushed behind `in` (SvelteKit then
@@ -76,5 +76,25 @@ describe('which lists follow the view', () => {
 			'/bachata/figures'
 		])
 			expect(viewedList(p, 'salsa'), p).toBe(false);
+	});
+});
+
+// Catches: the trail reopening a tab at the address it was left at, `in` and all, so
+// your own view lands in a group's list (or a group's view on your own list).
+describe('a tab’s target in the current view', () => {
+	it('puts the current view on a viewed list, whatever the trail remembered', () => {
+		expect(tabHrefIn('/salsa/figures?in=4&q=x', 'salsa', null)).toBe('/salsa/figures?q=x');
+		expect(tabHrefIn('/salsa/figures?q=x', 'salsa', 7)).toBe('/salsa/figures?q=x&in=7');
+		expect(tabHrefIn('/salsa/figures?in=4', 'salsa', 7)).toBe('/salsa/figures?in=7');
+	});
+	it('a page of one thing keeps its address: it decides by its row', () => {
+		expect(tabHrefIn('/salsa/lessons/12', 'salsa', 7)).toBe('/salsa/lessons/12');
+	});
+	it('Groups, You and Today never carry in', () => {
+		expect(tabHrefIn('/salsa/groups?in=4', 'salsa', 7)).toBe('/salsa/groups');
+		expect(tabHrefIn('/salsa', 'salsa', 7)).toBe('/salsa');
+	});
+	it('no target stays none (the lit tab on its own list)', () => {
+		expect(tabHrefIn(null, 'salsa', 7)).toBeNull();
 	});
 });

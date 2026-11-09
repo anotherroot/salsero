@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -33,7 +32,10 @@
 	const tabs = $derived(tabsFor(level));
 
 	// Where each tab leads, and a tap on the lit list's own tab (`$lib/nav/tab-links.svelte.ts`).
-	const targets = $derived(tabTargets(tabs, dance, path));
+	const view = $derived(page.data.groupMode?.teamId ?? null);
+	const targets = $derived(tabTargets(tabs, dance, path, view));
+	// Mine: your own copy of what is open, else this tab's own list (group view spec).
+	const mine = $derived((page.data.mineHref as string | undefined) ?? minePath(path, dance));
 </script>
 
 <!--
@@ -58,30 +60,19 @@
 			<li class="flex justify-center">
 				{#if inGroup && tab.id === 'today'}
 					<!--
-						Mine: back icon and the word, accent text, no fill. A one-tap form to the
-						switch action (team=mine), never a plain link: leaving group mode is the
-						switch's, and a load never clears it (preload would). It lands on the
-						same tab's own list (`minePath`): Lessons stays Lessons, now yours.
+						Mine: back icon and the word, no fill. A plain link out of the group's
+						view (group view spec): to your own copy of what is open (`mineHref`),
+						else the same tab's own list (`minePath`). Nothing to switch, so a
+						preload is harmless.
 					-->
-					<form
-						method="POST"
-						action="/{dance}/group-mode"
-						class="flex w-full"
-						use:enhance={() => {
-							intend('tab');
-							return async ({ update }) => update({ reset: false });
-						}}
+					<a
+						href={mine}
+						onclick={() => intend('tab')}
+						class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
 					>
-						<input type="hidden" name="team" value="mine" />
-						<input type="hidden" name="to" value={minePath(path, dance)} />
-						<button
-							type="submit"
-							class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
-						>
-							<Icon name="back" size={28} />
-							<span class="text-[14px] font-extrabold whitespace-nowrap">{t().shell.mine}</span>
-						</button>
-					</form>
+						<Icon name="back" size={28} />
+						<span class="text-[14px] font-extrabold whitespace-nowrap">{t().shell.mine}</span>
+					</a>
 				{:else}
 					<a
 						href={to ?? resolve(tab.path, { dance })}

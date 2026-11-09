@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
+	import { page } from '$app/state';
 	import MusicSection from '$lib/components/songs/MusicSection.svelte';
 	import { practiseHref as musicHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
@@ -66,6 +68,8 @@
 	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -682,7 +686,7 @@
 	{:else}
 		<BackButton
 			fallback={{
-				href: resolve('/[dance]/(moves)/routines', { dance: data.dance.slug }),
+				href: withView(resolve('/[dance]/(moves)/routines', { dance: data.dance.slug }), viewTeam),
 				label: t().shell.backTo(t().shell.tabs.moves)
 			}}
 		/>

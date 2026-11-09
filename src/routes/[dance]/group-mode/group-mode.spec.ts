@@ -132,16 +132,18 @@ describe('the [dance] layout and the view', () => {
 	});
 });
 
-describe('Mine in the tab bar', () => {
-	it('posts team=mine to the switch action, back to the same tab’s own list', () => {
-		const src = readFileSync('src/lib/components/shell/BottomNav.svelte', 'utf8');
-		const form = /<form[\s\S]*?action="\/\{dance\}\/group-mode"[\s\S]*?<\/form>/.exec(src)?.[0];
-		expect(form).toBeDefined();
-		expect(form).toMatch(/method="POST"/);
-		expect(form).toMatch(/name="team" value="mine"/);
-		expect(form).toMatch(/name="to" value=\{minePath\(path, dance\)\}/);
-		expect(form).toMatch(/>\{t\(\)\.shell\.mine\}</);
-		// No link may lead to Today in its place.
-		expect(src).not.toMatch(/href=\{resolve\('\/\[dance\]', \{ dance \}\)\}/);
+describe('Mine in the tab bar and the side', () => {
+	// Group view spec: Mine is a plain link out of the group's view (nothing to switch,
+	// so preload is harmless), to your own copy of what is open, else the tab's own list.
+	it('is a link to mineHref, else the same tab’s own list, never a form or Today', () => {
+		for (const file of ['BottomNav', 'Side']) {
+			const src = readFileSync(`src/lib/components/shell/${file}.svelte`, 'utf8');
+			expect(src, file).not.toMatch(/group-mode/);
+			expect(src, file).toMatch(/href=\{mine\}/);
+			expect(src, file).toMatch(
+				/const mine = \$derived\(\(page\.data\.mineHref as string \| undefined\) \?\? minePath\(path, dance\)\)/
+			);
+			expect(src, file).not.toMatch(/href=\{resolve\('\/\[dance\]', \{ dance \}\)\}/);
+		}
 	});
 });

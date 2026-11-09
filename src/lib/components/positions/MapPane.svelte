@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { tick, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -36,6 +37,8 @@
 	} from '$lib/positions/walk';
 	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { t } from '$lib/i18n/catalog';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The map, full screen (spec 2026-11-08-map-walk): the map route's page, and on
@@ -216,7 +219,10 @@
 		class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-2.5 px-3.5 pt-[calc(var(--safe-top)+14px)] desk:hidden"
 	>
 		<span class="pointer-events-auto contents"
-			><BackButton tone="float" fallback={{ href: list, label: t().map.back }} /></span
+			><BackButton
+				tone="float"
+				fallback={{ href: withView(list, viewTeam), label: t().map.back }}
+			/></span
 		>
 		<div
 			class="pointer-events-auto flex min-w-0 flex-col rounded-[20px] bg-surface px-3.5 pt-[7px] pb-2 {SHADOW}"

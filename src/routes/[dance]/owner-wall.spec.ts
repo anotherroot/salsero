@@ -99,7 +99,7 @@ function post(user: User, dance: string, fields: Record<string, string>, id = ''
 		locals: { user }
 	};
 }
-type Event = Omit<ReturnType<typeof post>, 'cookies'> & { cookies?: unknown };
+type Event = Omit<ReturnType<typeof post>, 'cookies' | 'url'> & { cookies?: unknown; url?: URL };
 type Invoke = (event: Event) => Promise<unknown>;
 const call = (action: unknown, event: Event) => (action as Invoke)(event);
 

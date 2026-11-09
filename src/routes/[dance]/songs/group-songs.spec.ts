@@ -347,9 +347,10 @@ describe('a group song’s page', () => {
 	it('Stop sharing and Delete take it from members', async () => {
 		expect(await act(songPage.actions.unshare, ev('u2', c.shared))).toEqual({ ok: true });
 		expect(musicAs('u3').groups).toEqual([]);
+		// Back to the group's Music (group view spec).
 		expect(await act(songPage.actions.delete, ev('u2', c.draft))).toMatchObject({
 			status: 303,
-			location: '/salsa/songs'
+			location: '/salsa/songs?in=1'
 		});
 		expect(getSong(db, c.draft)!.archivedAt).not.toBeNull();
 		expect(history(db, 1, 'song', c.draft)[0].verb).toBe('delete');

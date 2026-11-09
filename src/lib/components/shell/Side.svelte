@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -32,7 +31,9 @@
 	);
 	// The person's level's tabs, as in the tab bar but without You (`sideTabsFor`).
 	const tabs = $derived(sideTabsFor(levelShown(page.data.user?.level)));
-	const targets = $derived(tabTargets(tabs, dance, path));
+	const view = $derived(page.data.groupMode?.teamId ?? null);
+	const targets = $derived(tabTargets(tabs, dance, path, view));
+	const mine = $derived((page.data.mineHref as string | undefined) ?? minePath(path, dance));
 
 	const ITEM =
 		'flex h-12 items-center gap-3 rounded-[24px] pr-[18px] pl-[14px] text-[16px] whitespace-nowrap';
@@ -58,25 +59,15 @@
 			{@const fresh = tabDot(tab.id, page.data)}
 			<li>
 				{#if inGroup && tab.id === 'today'}
-					<!-- Mine: the tab bar's one-tap form to the switch (`BottomNav` says why), never lit. -->
-					<form
-						method="POST"
-						action="/{dance}/group-mode"
-						use:enhance={() => {
-							intend('tab');
-							return async ({ update }) => update({ reset: false });
-						}}
+					<!-- Mine: the tab bar's plain link out of the group's view (`BottomNav` says where), never lit. -->
+					<a
+						href={mine}
+						onclick={() => intend('tab')}
+						class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
 					>
-						<input type="hidden" name="team" value="mine" />
-						<input type="hidden" name="to" value={minePath(path, dance)} />
-						<button
-							type="submit"
-							class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
-						>
-							<Icon name="back" size={24} />
-							{t().shell.mine}
-						</button>
-					</form>
+						<Icon name="back" size={24} />
+						{t().shell.mine}
+					</a>
 				{:else}
 					<a
 						href={to ?? resolve(tab.path, { dance })}

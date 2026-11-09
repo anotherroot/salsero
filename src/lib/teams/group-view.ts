@@ -61,3 +61,18 @@ export function viewedList(path: string, dance: DanceSlug): boolean {
 	const prefix = `/${dance}`;
 	return path.startsWith(`${prefix}/`) && VIEWED.test(path.slice(prefix.length));
 }
+
+/**
+ * A tab's target (`tabHref`, from the trail) in the current view: a viewed list
+ * takes `view`, whatever `in` it was left with; any other page drops `in` (a page
+ * of one thing decides by its row). Null (the lit tab on its own list) stays null.
+ */
+export function tabHrefIn(
+	href: string | null,
+	dance: DanceSlug,
+	view: number | null
+): string | null {
+	if (href === null) return null;
+	const path = href.split(/[?#]/)[0];
+	return withView(href, viewedList(path, dance) ? view : null);
+}

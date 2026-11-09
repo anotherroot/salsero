@@ -33,6 +33,7 @@ import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { actions as figureActions } from './(moves)/figures/+page.server';
 import { actions as routineActions } from './(moves)/routines/+page.server';
+import { actions as routinePageActions } from './(moves)/routines/[id]/+page.server';
 import { actions as lessonActions } from './lessons/+page.server';
 import { load as lessonsLoad } from './lessons/+layout.server';
 import { load as coverageLoad } from './(moves)/coverage/+page.server';
@@ -168,6 +169,38 @@ describe('creating in group mode', () => {
 		await call(lessonActions.create, 'u3', j.cookies, { ...LESSON, title: 'Mine', everyDays: '3' });
 		const m = db.select().from(lessons).where(eq(lessons.title, 'Mine')).get()!;
 		expect([m.userId, m.teamId]).toEqual(['u3', null]);
+	});
+});
+
+// Group view spec: a step back to a list from a group's row keeps the group's view.
+describe('back to the list from a group’s row', () => {
+	it('archiving a group’s routine lands on the group’s Routines', async () => {
+		const R = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		const thrown = (await call(
+			(e: unknown) =>
+				(routinePageActions.archive as (e: unknown) => unknown)({
+					...(e as object),
+					params: { dance: 'salsa', id: String(R) }
+				}),
+			'u2',
+			jar().cookies,
+			{}
+		)) as { status?: number; location?: string };
+		expect([thrown.status, thrown.location]).toEqual([303, '/salsa/routines?in=1']);
+	});
+	it('archiving your own routine lands on your Routines', async () => {
+		const R = createRoutine(db, U2_SALSA, { name: 'Own', notes: null }).routine.id;
+		const thrown = (await call(
+			(e: unknown) =>
+				(routinePageActions.archive as (e: unknown) => unknown)({
+					...(e as object),
+					params: { dance: 'salsa', id: String(R) }
+				}),
+			'u2',
+			jar().cookies,
+			{}
+		)) as { status?: number; location?: string };
+		expect(thrown.location).toBe('/salsa/routines');
 	});
 });
 

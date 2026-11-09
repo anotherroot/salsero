@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -7,6 +9,8 @@
 	import { FITS_ANYWHERE, noPositionEmpty } from '$lib/positions/view';
 	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	let { data }: { data: PageData } = $props();
 
@@ -23,7 +27,7 @@
 	{#snippet left()}
 		<BackButton
 			fallback={{
-				href: resolve('/[dance]/(moves)/positions', { dance: slug }),
+				href: withView(resolve('/[dance]/(moves)/positions', { dance: slug }), viewTeam),
 				label: t().shell.backTo(t().moves.segments.positions)
 			}}
 		/>
