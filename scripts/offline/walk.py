@@ -542,7 +542,7 @@ def walk(base, db_path, v, lines, net):
                 new_name = f"Walk {int(time.time()) % 100000}"
                 try:
                     page.get_by_role("button", name="Edit", exact=True).first.click()
-                    page.locator('#edit-form input[name="figureName"]').fill(new_name)
+                    page.locator('#edit-form input[name="name"]').fill(new_name)  # the variation's name (master: Edit asks no move name)
                     page.locator("#edit-form").evaluate("(f) => f.requestSubmit()")
                     page.locator("#edit-form").wait_for(state="detached", timeout=PAGE_CAP_MS)
                     page.wait_for_function(f"() => window.__device.pulls > {pulls}", timeout=READY_CAP_MS, polling=100)
