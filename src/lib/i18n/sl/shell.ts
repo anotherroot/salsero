@@ -97,7 +97,6 @@ export const shell: Catalog['shell'] = {
 		// No agreement with what is unsaved: its noun's gender is the caller's.
 		line: (labels) => `Še ni shranjeno: ${labels}.`,
 		saving: 'Shranjevanje\u00a0…',
-		saved: 'Shranjeno',
 		notSaved: 'Ni shranjeno',
 		stay: 'Ostani',
 		stayAndFix: 'Ostani in popravi',

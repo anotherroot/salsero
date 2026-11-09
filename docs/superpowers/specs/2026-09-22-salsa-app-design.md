@@ -723,8 +723,10 @@ unsaved.
   page's light `LinkPopup` is its own `<dialog>`, not a Sheet, so Back there
   still leaves the page.
 - **What it offers.** Save · Stay · *Leave* without saving. Save submits the
-  real form(s) and waits for the server's answer: Saved ✓ then offers Leave or
-  Stay; a failure shows the server's message with "Stay and fix it". A form
+  real form(s) and waits for the server's answer: saved, it goes straight on the
+  way out (Leave, Close, Stop editing), with no second question (2026-11-09: the
+  old "Saved ✓ · Leave or Stay" step was a dead end where the save itself ended
+  the edit); a failure shows the server's message with "Stay and fix it". A form
   that fails its own checks (an empty required name) is never sent — the
   dialog closes and the browser points at the field. Save is disabled, with
   the reason, while the count is playing.
