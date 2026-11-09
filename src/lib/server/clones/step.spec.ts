@@ -1,5 +1,5 @@
 /**
- * Where copies stand (`stepStatus`, `outOfStep`). Ana (u1) has her own
+ * Where copies stand (`stepStatus`, `outOfStep`, `copyCounts`). Ana (u1) has her own
  * Enchufla · Basic (T), copied into Salsa Tuesdays (G1) and Rueda club (G2),
  * both hers. Luka (u2) is a plain member of G1 and made it his own (F2).
  */
@@ -18,7 +18,7 @@ import { makeMine } from './edit';
 import type { CloneFiles } from './files';
 import { DEFAULT_SYNC } from '$lib/clones/sync';
 import { setSyncSettings } from './sync-settings';
-import { keepView, outOfStep, stepStatus } from './step';
+import { copyCounts, keepView, outOfStep, stepStatus } from './step';
 
 const T0 = Date.UTC(2026, 10, 7, 12);
 const ROOMY = 1024 ** 4;
@@ -268,5 +268,32 @@ describe('keepView', () => {
 			editable: true,
 			mode: null
 		});
+	});
+});
+
+describe('copyCounts', () => {
+	it("counts the other copies the person reads, never another person's own", () => {
+		// Ana: her own Basic has the two clubs' copies; Luka's own copy is his.
+		expect(copyCounts(db, 'u1', 'figure', [T, G1, G2])).toEqual(
+			new Map([
+				[T, 2],
+				[G1, 2],
+				[G2, 2]
+			])
+		);
+		// Luka reads Salsa Tuesdays' copy only; Ana's own and Rueda club's are not his.
+		expect(copyCounts(db, 'u2', 'figure', [F2, G1])).toEqual(
+			new Map([
+				[F2, 1],
+				[G1, 1]
+			])
+		);
+	});
+
+	it('an archived copy no longer counts, and a figure with none is absent', () => {
+		db.update(figures).set({ archivedAt: T0 }).where(eq(figures.id, G2)).run();
+		expect(copyCounts(db, 'u1', 'figure', [T]).get(T)).toBe(1);
+		const lone = mk('Lone', 'Dile que no');
+		expect(copyCounts(db, 'u1', 'figure', [lone])).toEqual(new Map());
 	});
 });
