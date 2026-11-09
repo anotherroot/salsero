@@ -103,7 +103,7 @@ switching into the group; every New figure takes its move from one Move field th
 also make a new move (`PickerField`'s create, `moveFromQuery`); Edit asks no move name; the
 groups' figures, routines and positions mixed in among yours on the Moves lists, a group's
 figures under your move of the same name, each marked with its group as on Lessons
-(`GroupMark`, 2026-11-09); thin scrollbars in the app's colours; see
+(`GroupMark`, 2026-11-09); thin scrollbars in the app's colours; the page never pinch- or double-tap-zooms, as a native screen (`app.html` viewport, `touch-action` on html; a video and the map zoom inside themselves, 2026-11-09); see
 [`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md))
 and Spotify links and playlists (a Spotify song link in Add a song is found on YouTube by the
 home worker; "Audio from" and Use another YouTube link on a song, reaching its copies kept in
@@ -269,7 +269,10 @@ an MCP connector any AI app can add (OAuth with Client ID Metadata Documents or
 registration), reading what the person may read; every change the AI wants as an action
 in a queue the person runs in the app (groups, dependencies, the AI edits its pending
 queue), the queue's look (option A of its board), and the video sections experiment.
-Plan 1 (the connector and reading) is built.
+Plans 1 (the connector and reading), 2 (the queue and the Suggestions page) and 3 (the video
+sections experiment: `videos` and `video_timeline`, frames every 2 s and the sound prepared by
+the home worker, `scripts/ai-sections/measure.ts` to compare the AI's sections with the
+person's) are built.
 Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language
@@ -281,6 +284,11 @@ page opens it; the band that fills the phone; Routine, About and Voice as rows t
 open full-screen layers; a routine run without calls (Follow or Still, the
 full-screen list, a figure's details from it); the time across the trip to the
 player; and what was decided while building.
+The Practise card has its own,
+[`docs/superpowers/specs/2026-11-09-practise-card-design.md`](docs/superpowers/specs/2026-11-09-practise-card-design.md):
+one card on every exercise, lesson included (Practise with, Change to Setup, ▶ Practise
+playing at once); a Setup change shows on the card after Back; a lesson's About in the
+player; a video played with sound in About pauses the music until Resume.
 The app on the device has its own,
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md):
 why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM), ids from

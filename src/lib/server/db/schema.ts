@@ -204,6 +204,121 @@ export const oauthTokens = sqliteTable(
 	]
 );
 
+/*
+ * The AI's queue of actions (docs/superpowers/plans/2026-11-09-ai-connector-2-queue.md,
+ * `src/lib/server/ai-queue/`): a group is a heading, an action one card, a line one
+ * change of one kind. Nothing here changes the person's things until they run it.
+ */
+
+export const aiGroups = sqliteTable(
+	'ai_groups',
+	{
+		id: mintedId('ai_groups'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		title: text('title').notNull(),
+		sort: integer('sort').notNull(),
+		createdAt: createdAt(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(t) => [index('ai_groups_user_idx').on(t.userId, t.dance)]
+);
+
+export const aiActions = sqliteTable(
+	'ai_actions',
+	{
+		id: mintedId('ai_actions'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		groupId: integer('group_id')
+			.notNull()
+			.references(() => aiGroups.id, { onDelete: 'cascade' }),
+		sort: integer('sort').notNull(),
+		/** The AI's own line for the card; never the only thing shown. */
+		title: text('title').notNull(),
+		grantId: integer('grant_id').references(() => oauthGrants.id, { onDelete: 'set null' }),
+		/** A JSON array of the action ids this one needs done first. */
+		needs: text('needs').notNull().default('[]'),
+		/** Bumped on every change the AI makes; a run sends the version the page showed. */
+		version: integer('version').notNull().default(1),
+		/** JSON `{ title, lines }` as it was before the AI's last change. */
+		previous: text('previous'),
+		createdAt: createdAt(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(t) => [index('ai_actions_user_idx').on(t.userId, t.dance)]
+);
+
+export const aiLines = sqliteTable(
+	'ai_lines',
+	{
+		id: mintedId('ai_lines'),
+		actionId: integer('action_id')
+			.notNull()
+			.references(() => aiActions.id, { onDelete: 'cascade' }),
+		sort: integer('sort').notNull(),
+		kind: text('kind').notNull(),
+		payload: text('payload').notNull(),
+		/** JSON: the values this line overwrites, as they were when it was proposed. */
+		before: text('before'),
+		status: text('status').notNull().default('pending'),
+		/** JSON `{ code, args }`: why a run refused this still pending line. */
+		refusal: text('refusal'),
+		/** JSON: what the run made and wrote (ids, values), for refs and Undo. */
+		result: text('result'),
+		ranAt: integer('ran_at'),
+		undoneAt: integer('undone_at')
+	},
+	(t) => [
+		check(
+			'ai_lines_status_ck',
+			sql`${t.status} in ('pending', 'left_out', 'done', 'dropped', 'withdrawn', 'undone')`
+		),
+		index('ai_lines_action_idx').on(t.actionId)
+	]
+);
+
+/**
+ * A video made ready for the AI to look at (AI connector plan 3): the home
+ * worker cuts frames every 2 s and minute pieces of sound into
+ * `$DATA_DIR/timelines/<id>/<k>.json`. Derived, never synced, never counted
+ * toward storage. No foreign keys: a video's hard delete must not wait on it;
+ * the hourly sweep drops a timeline whose video is gone, or that went unused
+ * for 30 days. Exactly one video, a lesson video or a recording.
+ */
+export const aiTimelines = sqliteTable(
+	'ai_timelines',
+	{
+		id: mintedId('ai_timelines'),
+		lessonVideoId: integer('lesson_video_id'),
+		recordingId: integer('recording_id'),
+		status: text('status', { enum: ['queued', 'ready', 'failed'] }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		/** The worker's lease, epoch ms. */
+		claimedAt: integer('claimed_at'),
+		failedAt: integer('failed_at'),
+		pieces: integer('pieces'),
+		durationMs: integer('duration_ms'),
+		readyAt: integer('ready_at'),
+		usedAt: integer('used_at'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check(
+			'ai_timelines_owner_ck',
+			sql`(${t.lessonVideoId} is not null) + (${t.recordingId} is not null) = 1`
+		),
+		check('ai_timelines_status_ck', sql`${t.status} in ('queued', 'ready', 'failed')`),
+		uniqueIndex('ai_timelines_lesson_video_idx').on(t.lessonVideoId),
+		uniqueIndex('ai_timelines_recording_idx').on(t.recordingId)
+	]
+);
+
 /**
  * The newest app version each person has opened, per dance. Written by the
  * request hook (`app-seen.ts`), read by the admin's list of who needs an update.

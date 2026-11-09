@@ -132,9 +132,13 @@
 		</span>
 		{#if strip}<div class="flex-none">{@render strip()}</div>{/if}
 	</div>
-	<div
-		class="relative -mt-7 min-h-0 flex-1 overflow-y-auto rounded-t-[28px] bg-ground px-4 pt-5 pb-[112px]"
-	>
+	<!--
+		The ground's rounded top is its own plain cap, not the scroller's corners:
+		Android Chrome paints a rounded scroller's corners black once a video in
+		it plays (the scroller becomes its own layer), over the band.
+	-->
+	<div class="relative -mt-7 h-7 flex-none rounded-t-[28px] bg-ground" aria-hidden="true"></div>
+	<div class="relative min-h-0 flex-1 overflow-y-auto bg-ground px-4 pb-[112px]">
 		{@render children()}
 	</div>
 </div>

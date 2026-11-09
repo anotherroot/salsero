@@ -204,3 +204,72 @@ def test_a_youtube_list_leaves_out_private_and_deleted_videos():
     ]
     lst = media.read_youtube_list("u", run=fake_run(stdout=json.dumps({"title": "L", "entries": entries})))
     assert [i.title for i in lst.items] == ["Idilio"]
+
+
+def test_timeline_frames_command_and_times(tmp_path: Path):
+    out = tmp_path / "frames"
+
+    def run(cmd, **kwargs):
+        run.cmd = cmd
+        out.mkdir(exist_ok=True)
+        for n in (2, 1):
+            (out / f"f{n:05d}.jpg").write_bytes(b"jpg")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    got = media.timeline_frames(tmp_path / "v.mp4", out, run=run)
+    assert got == [(0, out / "f00001.jpg"), (2000, out / "f00002.jpg")]
+    # round=up: frame n shows (n - 1) * 2 s; the default (near) showed ~1 s later (measured on testsrc).
+    assert "fps=1/2:round=up,scale=384:-2" in run.cmd
+    assert run.cmd[run.cmd.index("-q:v") + 1] == "6"
+
+
+def test_timeline_frames_failure_is_permanent(tmp_path: Path):
+    with pytest.raises(media.PermanentError, match="Could not read the video"):
+        media.timeline_frames(tmp_path / "v.mp4", tmp_path / "f", run=fake_run(returncode=1, stderr="moov atom not found"))
+
+
+def test_timeline_sound_pieces_in_order(tmp_path: Path):
+    out = tmp_path / "sound"
+
+    def run(cmd, **kwargs):
+        run.cmd = cmd
+        out.mkdir(exist_ok=True)
+        for n in (1, 0):
+            (out / f"a{n:04d}.mp3").write_bytes(b"mp3")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    assert media.timeline_sound(tmp_path / "v.mp4", out, run=run) == [out / "a0000.mp3", out / "a0001.mp3"]
+    assert run.cmd[run.cmd.index("-segment_time") + 1] == "60"
+    assert run.cmd[run.cmd.index("-b:a") + 1] == "24k"
+
+
+def test_timeline_sound_none_on_failure(tmp_path: Path):
+    got = media.timeline_sound(tmp_path / "v.mp4", tmp_path / "s", run=fake_run(returncode=1, stderr="does not contain any stream"))
+    assert got == []
+
+
+def test_timeline_duration_from_the_header(tmp_path: Path):
+    assert media.timeline_duration(tmp_path / "v.mp4", run=fake_run(stdout="70.040000\n")) == 70.04
+
+
+def test_timeline_duration_of_a_webm_without_one_is_decoded(tmp_path: Path):
+    # MediaRecorder's WebM often has no duration in its header: ffprobe says N/A.
+    answers = [
+        subprocess.CompletedProcess([], 0, "N/A\n", ""),
+        subprocess.CompletedProcess([], 0, "", "frame=  10 time=00:00:41.20 bitrate=N/A\nframe=  20 time=00:01:02.48 bitrate=N/A speed=9x\n"),
+    ]
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        return answers.pop(0)
+
+    assert media.timeline_duration(tmp_path / "v.webm", run=run) == 62.48
+    assert calls[1][:2] == ["ffmpeg", "-nostdin"]
+    assert calls[1][-3:] == ["-f", "null", "-"]
+
+
+def test_timeline_duration_unknown_is_permanent(tmp_path: Path):
+    answers = [subprocess.CompletedProcess([], 0, "N/A\n", ""), subprocess.CompletedProcess([], 1, "", "Invalid data")]
+    with pytest.raises(media.PermanentError, match="length"):
+        media.timeline_duration(tmp_path / "v.webm", run=lambda cmd, **kw: answers.pop(0))

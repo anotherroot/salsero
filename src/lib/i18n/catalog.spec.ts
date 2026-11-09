@@ -18,7 +18,9 @@ const ALLOWED_SAME: ReadonlySet<string> = new Set([
 	'groups.list.namePlaceholder',
 	// "video" and "tempo" are the Slovenian words too (History's subject and field).
 	'groups.history.subject.video',
-	'groups.history.field.tempoFactor'
+	'groups.history.field.tempoFactor',
+	// "AI" is the Slovenian short too (the label over You's AI suggestions row).
+	'suggestions.section'
 ]);
 
 /**

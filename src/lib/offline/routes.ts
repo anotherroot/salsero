@@ -37,7 +37,9 @@ export const NETWORK_PAGES = [
 	'/welcome',
 	'/dev/kit',
 	// The AI connector's consent page: the server's own answer, never the device's.
-	'/oauth/authorize'
+	'/oauth/authorize',
+	// The AI's queue: the server's alone (its tables are never synced).
+	'/[dance]/suggestions'
 ];
 
 /** GET endpoints answerable from synced rows. */
@@ -59,6 +61,7 @@ export const NETWORK_ENDPOINTS = [
 	'/api/teams/[id]/keep',
 	'/api/worker/songs/[id]/audio',
 	'/api/worker/starts',
+	'/api/worker/timelines/[id]/source',
 	'/audio/[file]',
 	'/count/[file]',
 	'/lesson-videos/[file]',
@@ -373,6 +376,17 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		approve: 'network',
 		cancel: 'network'
 	},
+	// The AI's queue lives only on the server (never synced): every run and drop needs it.
+	'/[dance]/suggestions': {
+		drop: 'network',
+		dropAll: 'network',
+		run: 'network',
+		runAll: 'network',
+		runGroup: 'network',
+		runUpTo: 'network',
+		toggleLine: 'network',
+		undo: 'network'
+	},
 	'/settings': {
 		ask: 'network',
 		dailyCount: 'device',
@@ -439,6 +453,10 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/worker/songs/[id]/audio': { PUT: 'network' },
 	'/api/worker/songs/[id]/fail': { POST: 'network' },
 	'/api/worker/songs/[id]/start': { POST: 'network' },
+	'/api/worker/timelines/[id]/done': { POST: 'network' },
+	'/api/worker/timelines/[id]/fail': { POST: 'network' },
+	'/api/worker/timelines/[id]/pieces/[k]': { PUT: 'network' },
+	'/api/worker/timelines/claim': { POST: 'network' },
 	'/api/worker/videos/[id]/fail': { POST: 'network' },
 	'/api/worker/videos/[id]/file': { PUT: 'network' },
 	'/api/worker/videos/claim': { POST: 'network' },

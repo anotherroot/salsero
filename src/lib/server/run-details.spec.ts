@@ -5,6 +5,7 @@ import { exercises, lessons } from './db/schema';
 import { createCustomExercise } from './exercises';
 import { addFigureExercise, addRecording, createFigure, createVariationIn } from './figures';
 import { addLessonVideo, createLesson, linkFigure, linkRoutine } from './lessons';
+import { addLesson } from './entries';
 import { addLinks } from './links';
 import { addFigureSlot, createRoutine } from './routines';
 import { addSpot } from './spots';
@@ -154,5 +155,72 @@ describe('a group’s figures', () => {
 		expect(Object.keys(seen).map(Number)).toEqual([v2]);
 		expect(seen[v2].notes).toBe('Published notes');
 		expect(Object.keys(figureDetails(db, 'u4', [v2, v3]))).toEqual([]);
+	});
+});
+
+describe('a lesson’s details', () => {
+	it('hold its notes, its figures (each with its own details), its videos and its links', () => {
+		const noted = own('Enchufla', 'Turn on 5');
+		const plain = own('Dile que no');
+		const made = createLesson(db, U1_SALSA, {
+			lessonDay: '2026-09-21',
+			title: 'Salsa nadaljevalna',
+			notes: '  Son cubana  '
+		});
+		const lessonId = made.lesson.id;
+		linkFigure(db, lessonId, noted, 'u1');
+		linkFigure(db, lessonId, plain, 'u1');
+		addLessonVideo(db, { lessonId, file: 'l.mp4', mime: 'video/mp4', sizeBytes: 1 });
+		addLinks(db, { lessonId }, ['https://example.com/notes'], null);
+
+		const d = exerciseDetails(db, U1_SALSA, exerciseRow(made.exercise.id))!;
+		expect(d.heading).toBe(made.exercise.name);
+		expect(d.notes).toBe('Son cubana');
+		// In the lesson's own order, as its page lists them.
+		const byName = new Map(d.figures.map((f) => [f.name, f.details]));
+		expect([...byName.keys()].sort()).toEqual(['Dile que no · Basic', 'Enchufla · Basic']);
+		expect(byName.get('Enchufla · Basic')?.notes).toBe('Turn on 5');
+		expect(byName.get('Dile que no · Basic')).toBeNull();
+		expect(d.clips).toEqual([
+			{
+				kind: 'lesson',
+				src: '/lesson-videos/l.mp4',
+				startMs: 0,
+				endMs: null,
+				caption: expect.any(String)
+			}
+		]);
+		expect(d.links).toEqual([{ url: 'https://example.com/notes', title: null }]);
+	});
+
+	it('reach a member only through the published lesson they added', () => {
+		createTeam(db, 'u1', 'salsa', 'Tuesdays', 1);
+		joinTeam(db, 'u2', 1, 2);
+		const v2 = createFigure(db, T1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: 'Published notes'
+		})!.figure.id;
+		const published = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-02',
+			title: 'P',
+			notes: 'Class notes'
+		}).lesson.id;
+		linkFigure(db, published, v2, 'u1');
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, published)).run();
+		addLesson(
+			db,
+			'u2',
+			published,
+			{ lesson: true, routineIds: [], drillIds: [], figureIds: [] },
+			3
+		);
+		const entry = db.select().from(exercises).where(eq(exercises.userId, 'u2')).get()!;
+
+		const d = exerciseDetails(db, { userId: 'u2', dance: 'salsa' }, entry)!;
+		expect(d.notes).toBe('Class notes');
+		expect(d.figures.map((f) => f.details?.notes)).toEqual(['Published notes']);
 	});
 });

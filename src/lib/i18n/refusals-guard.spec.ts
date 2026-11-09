@@ -15,7 +15,12 @@ const MACHINES = [
 	/^src\/routes\/releases\//,
 	/^src\/routes\/api\/app-update\//,
 	// The device worker's pull: read by code, never shown.
-	/^src\/routes\/api\/sync\//
+	/^src\/routes\/api\/sync\//,
+	// The AI's queue: one-line messages to the AI app (MCP), English like every tool text.
+	// What the person reads is a refusal code worded by `t().suggestions` on the page.
+	/^src\/lib\/server\/ai-queue\/(kinds\/|store\.ts)/,
+	// The AI's video tools: what they say goes to the AI app (MCP), English like every tool text.
+	/^src\/lib\/server\/mcp\/video\.ts$/
 ];
 
 function walk(dir: string): string[] {

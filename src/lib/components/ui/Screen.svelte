@@ -72,7 +72,7 @@
 	let sheet = $state<HTMLElement>();
 	let slimH = $state(0);
 	/*
-	 * The scroll at which the sheet's top edge meets the slim band's bottom: there
+	 * The scroll at which the sheet's top edge (or a hero above it) meets the slim band's bottom: there
 	 * the big band would start to leave, so the slim one takes over. Read again as
 	 * the page scrolls or resizes (a title that wraps, a band that grows).
 	 */
@@ -80,7 +80,11 @@
 		void scrollY;
 		void innerWidth;
 		if (!sheet || slimH === 0) return null;
-		return sheet.getBoundingClientRect().top + window.scrollY - slimH;
+		// A hero (Today's card) rises over the band: the band pins where the card
+		// meets it, so the card never covers the title still on its way up.
+		const hero = sheet.querySelector(':scope > [data-band-hero]')?.getBoundingClientRect();
+		const lead = hero && hero.height > 0 ? hero.top : Infinity;
+		return Math.min(sheet.getBoundingClientRect().top, lead) + window.scrollY - slimH;
 	});
 	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
@@ -99,11 +103,43 @@
 			? "font-variation-settings: 'opsz' 30; letter-spacing: -0.015em"
 			: "font-variation-settings: 'opsz' 46; letter-spacing: -0.02em"
 	);
+	/** A group's view: the slim band keeps the group's row, shrunk, over the title. */
+	const groupView = $derived(
+		(page.data.groupMode ?? frameView.current) as { name: string } | null | undefined
+	);
 	let slimEl = $state<HTMLElement>();
 	const fold = bandCollapse();
 	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
 	const driven = typeof window !== 'undefined' && scrollDriven();
+	/**
+	 * Bumped when the bands change under the fold: a part drawn anew (data that
+	 * arrives after a navigation re-renders the group row, the title, the
+	 * subtitle), a font that loaded, a band that changed size (the app's inset
+	 * landing). The fold then measures and hands itself on again; without it a new
+	 * element stayed unfolded until the pin or the title changed.
+	 */
+	let bandsChanged = $state(0);
 	$effect(() => {
+		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
+		const slimBand = slimEl;
+		if (!header || !slimBand) return;
+		const again = () => {
+			fold.invalidate();
+			bandsChanged++;
+		};
+		// Elements only: the fold's own writes are attributes, a ticking clock is text.
+		const added = new MutationObserver(again);
+		for (const el of [header, slimBand]) added.observe(el, { childList: true, subtree: true });
+		const sized = new ResizeObserver(again);
+		for (const el of [header, slimBand]) sized.observe(el);
+		document.fonts?.ready.then(again).catch(() => {});
+		return () => {
+			added.disconnect();
+			sized.disconnect();
+		};
+	});
+	$effect(() => {
+		void bandsChanged;
 		const y = scrollY;
 		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
 		if (desk.current || split === 'item' || !header || !slimEl || pinAt === null) {
@@ -112,10 +148,10 @@
 		}
 		// What the rest positions hang on. Not the subtitle's words (an exercise's clock
 		// ticks there every second), only whether there is one.
-		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}`;
+		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}|${groupView?.name ?? ''}`;
 		// Half-pixel steps: a pin that wobbles by a fraction does not rewrite the fold.
 		if (driven) fold.drive(header, slimEl, Math.round(pinAt * 2) / 2, key);
-		else fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
+		else fold.update(header, slimEl, y, pinAt, bandProgress(y, compact, pinAt), key);
 	});
 
 	/*
@@ -179,11 +215,26 @@
 		<!-- The same 560 px column as the page, inside the full-width bar. -->
 		<div class="mx-auto flex h-16 max-w-[560px] items-center gap-1">
 			{#if left}{@render left()}{/if}
-			{#if page.data.groupMode ?? frameView.current}
-				<!-- Scrolled, a group's view keeps its badge before the title (group view spec). -->
-				<span class="mr-[5px] flex"><GroupBadge size={26} /></span>
-			{/if}
-			{#if compact && subtitle}
+			{#if groupView}
+				<!--
+					Scrolled, a group's view keeps its row, shrunk: the badge and the name
+					over the title (the big band's row folds into it). The subtitle steps aside.
+				-->
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="flex min-w-0 items-center gap-1.5">
+						<span class="flex" data-slim-gbadge><GroupBadge size={16} /></span>
+						<span
+							class="truncate text-[12px] leading-[1.3] font-extrabold text-band-ink"
+							data-slim-gname>{groupView.name}</span
+						>
+					</span>
+					<span
+						class="truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+						style={slimType}
+						data-slim-name>{title}</span
+					>
+				</span>
+			{:else if compact && subtitle}
 				<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span
@@ -238,7 +289,10 @@
 	style="--page-w: {PAGE_WIDTH[width]}px"
 >
 	<!-- A list's hero (`split`): on the desktop it is its column's first card (`ListPane`). -->
-	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk && !split ? '' : ' desk:hidden'}">
+	{#if hero}<div
+			class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk && !split ? '' : ' desk:hidden'}"
+			data-band-hero
+		>
 			{@render hero()}
 		</div>{/if}
 	{@render children()}

@@ -246,6 +246,10 @@ rules the boards follow that are not obvious from looking at them.
   swap at the pin changes no letter. Measuring reads the layout (offsets), so the
   fold is never taken off mid-scroll, and an exercise's ticking clock in the
   subtitle measures nothing again.
+  A title on two lines cannot shrink into the slim band's one line: from 60 % of
+  the way it crossfades into its twin, the title on one line cut where the slim
+  band cuts it; its first line rides on the twin, so only the second line fades
+  out and the rest of the line fades in. It never fades away (2026-11-09).
 - **Edit** is a pencil on the band. Editing shows × ("Stop editing", asks if
   unsaved) and the form's Save pinned at the bottom — one Save, not a header
   Done plus a form Save. **One exception:** the song page's Edit (spec

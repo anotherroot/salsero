@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import YouSettings from '$lib/components/settings/YouSettings.svelte';
+	import SuggestionsRow from '$lib/components/suggestions/SuggestionsRow.svelte';
 	import { fullName } from '$lib/names';
 	import { t } from '$lib/i18n/catalog';
 
@@ -12,6 +13,7 @@
 <svelte:head><title>{t().shell.tabs.you} · {data.dance.label}</title></svelte:head>
 
 <Screen title={t().shell.tabs.you} subtitle={user ? fullName(user) : undefined} width="narrow">
+	<SuggestionsRow dance={data.dance.slug} heading={false} />
 	<YouSettings
 		settings={data.you}
 		theme={page.data.theme}

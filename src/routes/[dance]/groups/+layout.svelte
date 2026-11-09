@@ -19,6 +19,7 @@
 	import { MY_CLASS, PICK_GROUP } from '$lib/teams/view';
 	import { canMakeGroup, levelShown, youPath, type Level } from '$lib/levels/levels';
 	import { fullName } from '$lib/names';
+	import SuggestionsRow from '$lib/components/suggestions/SuggestionsRow.svelte';
 	import YouSettings from '$lib/components/settings/YouSettings.svelte';
 	import { t } from '$lib/i18n/catalog';
 
@@ -105,7 +106,10 @@
 			{joinAction}
 		/>
 	{:else}
-		{#if you}<h2 class="{SECTION_LABEL} desk:hidden">{t().shell.tabs.groups}</h2>{/if}
+		{#if you}
+			<div class="contents desk:hidden"><SuggestionsRow dance={data.dance.slug} /></div>
+			<h2 class="{SECTION_LABEL} desk:hidden">{t().shell.tabs.groups}</h2>
+		{/if}
 		<GroupList
 			teams={data.teams}
 			dance={data.dance.slug}
@@ -116,7 +120,7 @@
 			{joinAction}
 		/>
 		{#if you}
-			<!-- The phone's You: the settings under the groups. The desktop has Settings in the side. -->
+			<!-- The phone's You: the AI row above the groups, the settings under them. The desktop has Settings in the side. -->
 			<div class="contents desk:hidden">
 				<YouSettings
 					settings={you}

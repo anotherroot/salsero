@@ -29,6 +29,7 @@ import { fillLang, inviteLocaleOf } from '$lib/server/locale';
 
 import { serverNow } from '$lib/server/server-clock';
 import { isCrossSiteForm, isSelfAuthed, routedPath } from '$lib/server/csrf';
+import { noteWorkerSeen } from '$lib/server/worker-seen';
 
 /** What the CSRF check reads from a request. */
 const formOf = (r: Request) => ({
@@ -137,6 +138,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (!workerTokenOk(event.request.headers.get('authorization'), env.SALSA_WORKER_TOKEN)) {
 			return new Response('Bad worker token', { status: 401 });
 		}
+		noteWorkerSeen(serverNow());
 		// The worker reads no words: English, whatever its cookies say.
 		event.locals.locale = 'en';
 		return pass(() => Promise.resolve(resolve(event)));

@@ -230,6 +230,15 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   bearer token only. The connector reads only through `viewOf` (`syncScope`):
   never a query of its own on a content table. A client document is fetched
   only through `safe-fetch.ts` (public addresses only, no redirects).
+- **The AI's queue changes nothing by itself.** Its MCP tools write only the
+  `ai_*` tables (`queue.spec.ts` counts every other table). A run happens on the
+  Suggestions page, by the person, through the data function the app's own form
+  calls (a kind in `src/lib/server/ai-queue/kinds/`), as the person: no "AI"
+  mark anywhere others see. A line keeps the values it overwrites and refuses
+  `changed` when they moved; a run sends the versions the page showed. The
+  video tools (`mcp/video.ts`) write only `ai_timelines` (`video.spec.ts`
+  counts), and the server only stores and reads the worker's pieces: frames and
+  sound are cut at home, never on the server.
 - **A device token signs in on `/api/` only** — never a page, never
   `/api/worker/` (`request-user.ts`). Only its SHA-256 is stored. Anything the
   Android app needs is an `/api/` endpoint; anything it shows is a page the

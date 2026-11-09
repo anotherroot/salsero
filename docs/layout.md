@@ -185,10 +185,16 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
                      there is an About (`hasDetails`), Play's state, Built-in or Yours,
-                     where Back goes, the exercise page's player link. Client-safe
+                     where Back goes, the exercise page's player link, the routine page's
+                     Practise (`routinePractiseHref`). Client-safe.
+                     video-sound.svelte.ts: which About video has the sound (`claimSound`,
+                     `releaseSound`); the run pauses for it (`pauseForVideo`), Setup stops a sample
 src/lib/server/run-details.ts  what the player's About shows, read-only, through access.ts:
                      a figure's timing, positions, notes, sections, videos and links;
-                     a drill's (`figureDetails`, `exerciseDetails`)
+                     a drill's; a lesson's notes, figures (`RunDetails.figures`, each with
+                     its own details), videos and links (`figureDetails`, `exerciseDetails`)
+                     practice-content.ts `practiceContentOf`: what an exercise page shows of
+                     its target, through the person's reach
 src/lib/components/player/  the player's screens: Setup, Running (the band that fills, the
                      rows), RunLayer (a full-screen layer with a history entry), RunRows,
                      DetailsBody and RunClip (About), CountChips, SongProgress, StageCount
@@ -492,6 +498,24 @@ src/lib/server/mcp/  the connector's tools: view.ts (what the person may read = 
                      read.ts (search, list, get_*, list_groups, vocabulary), args.ts, host.ts, modules.ts
 src/routes/mcp/, src/routes/oauth/{authorize,token,register}/, src/routes/.well-known/oauth-*/
                      the connector's endpoints; /oauth/authorize is the consent page
+src/lib/server/ai-queue/  the AI's queue of actions (plan 2): store.ts (propose, change, withdraw,
+                     move, groups, queueOf, pendingCount), kinds/ (one object per kind of change:
+                     parse, prepare, run, undo through the form's own data function; all.ts registers
+                     them), reach.ts (what the person may edit: `editable`, `teamSpaceFor`), refs.ts
+                     ({"ref": action}), run.ts (runActions, drop, toggle, undo), view.ts (the page's cards)
+src/lib/ai-queue/diff.ts  PURE: the word diff a card shows
+src/lib/server/mcp/queue.ts  the AI's tools for its queue (they write only ai_* tables)
+src/lib/server/mcp/video.ts  the video sections experiment (plan 3): videos, video_timeline (frames as
+                     images, the sound as audio; the only write is the video's ai_timelines row)
+src/lib/server/ai-timelines/  a video made ready for the AI: store.ts (ask, claim, fail, finish, the
+                     30-day sweep run by the hourly purge), piece.ts (a minute: frames + sound, checked),
+                     files.ts ($DATA_DIR/timelines/<id>/<k>.json, never counted as storage)
+src/lib/server/worker-seen.ts  when the home worker last called (in memory: online, offline, unknown)
+src/routes/api/worker/timelines/  the worker's side: claim, source (the video), pieces/[k], done, fail
+src/lib/ai-queue/measure.ts  PURE: the AI's sections against the person's (pairs, missed, extra);
+                     scripts/ai-sections/measure.ts runs it on a backup copy
+src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,
+                     section preview and the row on You
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
                      (refuses at or over the limit), and `listStorageItems` for What uses space
 src/lib/server/invites.ts  one-time invites into one dance, and joining with one

@@ -38,8 +38,6 @@ export const exercise = {
 		figureEmpty: 'No notes, recordings, sections or links yet — add them on the figure page.',
 		editLinks: 'Edit links on the figure page',
 		figures: 'Figures',
-		practiseInPlayer: 'Practise in player',
-		routineNote: 'Tap Done when you have practised, in the player or away from the app.',
 		/** The drill's Recordings heading: "Recordings", "Recordings · 3". */
 		recordings: (n: number): string => (n === 0 ? 'Recordings' : `Recordings · ${n}`)
 	},
@@ -89,6 +87,10 @@ export const exercise = {
 	panel: {
 		label: 'Practice',
 		practiseWith: 'Practise with',
+		/** The card's way to Setup, where nothing plays. */
+		change: 'Change',
+		/** The card's way into the player, playing at once. */
+		practise: 'Practise',
 		play: 'Play',
 		pause: 'Pause',
 		resume: 'Resume',

@@ -30,6 +30,17 @@ export function lessonVideosDir(): string {
 }
 
 /**
+ * `$DATA_DIR/timelines`, created on first use: the AI's frames and sound
+ * pieces, one folder per `ai_timelines` row. Derived; never counted as storage.
+ */
+export function timelinesDir(): string {
+	if (!env.DATA_DIR) throw new Error('DATA_DIR is not set');
+	const dir = join(env.DATA_DIR, 'timelines');
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}
+
+/**
  * `$DATA_DIR/uploads`, created on first use — where a chunked upload
  * accumulates before it is renamed into place. Nothing here is referenced by a
  * row, so `sweepUploads` can delete anything stale.
