@@ -115,12 +115,14 @@ export function tapKind(
 
 /**
  * A tab's dot: Groups while something is new there, Music while a read playlist
- * waits to be picked. `data` is the page's data, as the tab bar has it (the
- * `[dance]` layout's `groupsNew` and `musicToPick`).
+ * waits to be picked, You while the AI's suggestions wait to be run. `data` is the
+ * page's data, as the tab bar has it (the `[dance]` layout's `groupsNew`,
+ * `musicToPick` and `aiPending`).
  */
 export function tabDot(id: TabId, data: Record<string, unknown>): boolean {
 	if (id === 'groups') return !!data.groupsNew;
 	if (id === 'music') return !!data.musicToPick;
+	if (id === 'you') return Number(data.aiPending ?? 0) > 0;
 	return false;
 }
 
@@ -128,5 +130,6 @@ export function tabDot(id: TabId, data: Record<string, unknown>): boolean {
 export function tabDotLabel(id: TabId, label: string): string {
 	if (id === 'groups') return groupsTabLabel(true, label);
 	if (id === 'music') return t().shell.tabs.musicToPick(label);
+	if (id === 'you') return t().suggestions.tabLabel(label);
 	return label;
 }

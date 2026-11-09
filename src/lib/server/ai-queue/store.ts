@@ -122,7 +122,7 @@ function checkNeeds(db: Db, who: Who, ids: number[]): Fail | null {
 	return null;
 }
 
-function pendingCount(db: Db, who: Who): number {
+function openLines(db: Db, who: Who): number {
 	const row = db
 		.select({ n: sql<number>`count(*)` })
 		.from(aiLines)
@@ -183,7 +183,7 @@ export function propose(
 		return fail(`title must be text of 1 to ${TITLE_MAX} characters.`);
 	const prepared = prepareLines(db, who, input.lines);
 	if (!prepared.ok) return prepared;
-	if (pendingCount(db, who) + prepared.rows.length > MAX_PENDING)
+	if (openLines(db, who) + prepared.rows.length > MAX_PENDING)
 		return fail(
 			`The queue holds at most ${MAX_PENDING} waiting changes. Let the person run or drop some first.`
 		);
@@ -494,4 +494,16 @@ export function queueOf(db: Db, userId: string, dance: string, now: number): Que
 		if (acts.length) out.push({ id: g.id, title: g.title, actions: acts });
 	}
 	return out;
+}
+/** Lines still waiting to run, of this person in this dance. */
+export function pendingCount(db: Db, userId: string, dance: string): number {
+	const row = db
+		.select({ n: sql<number>`count(*)` })
+		.from(aiLines)
+		.innerJoin(aiActions, eq(aiActions.id, aiLines.actionId))
+		.where(
+			and(eq(aiActions.userId, userId), eq(aiActions.dance, dance), eq(aiLines.status, 'pending'))
+		)
+		.get();
+	return Number(row?.n ?? 0);
 }

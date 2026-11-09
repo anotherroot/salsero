@@ -100,6 +100,7 @@ import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
+import { suggestions } from './suggestions';
 import { today } from './today';
 import { video } from './video';
 
@@ -127,5 +128,6 @@ export const sl: Catalog = {
 	links,
 	clones,
 	refusals,
-	map
+	map,
+	suggestions
 };

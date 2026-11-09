@@ -37,7 +37,9 @@ export const NETWORK_PAGES = [
 	'/welcome',
 	'/dev/kit',
 	// The AI connector's consent page: the server's own answer, never the device's.
-	'/oauth/authorize'
+	'/oauth/authorize',
+	// The AI's queue: the server's alone (its tables are never synced).
+	'/[dance]/suggestions'
 ];
 
 /** GET endpoints answerable from synced rows. */
