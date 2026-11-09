@@ -97,6 +97,9 @@ export type MergedFigure = FigureRow & { team: TeamRef | null };
 /** A move as the merged list draws it: the heading opens `id` (the person's own when they have it). */
 export type MergedMove = { id: number; name: string; figures: MergedFigure[]; also: string[] };
 
+/** What makes two moves one in the merged list: the name, trimmed and case-blind. */
+export const moveKey = (name: string) => name.trim().toLocaleLowerCase();
+
 /**
  * The person's moves and the groups' as one list, as the Lessons list mixes a
  * group's lessons into the months: a group's move whose name is one of theirs
@@ -108,7 +111,7 @@ export function mergeGroups(
 	mine: Shown[],
 	groups: { team: TeamRef; moves: Shown[] }[]
 ): MergedMove[] {
-	const key = (name: string) => name.trim().toLocaleLowerCase();
+	const key = moveKey;
 	const byKey = new Map<string, MergedMove>();
 	const out: MergedMove[] = [];
 	const add = (m: Shown, team: TeamRef | null) => {

@@ -22,11 +22,11 @@ import { copyCounts, outOfStep } from './clones/step';
 import { coverage } from '$lib/routines/coverage';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { noPosition, positionCounts, taggedCount } from '$lib/graph/graph';
-import { foldSections } from '$lib/clones/twins';
+import { foldMoves, foldSections } from '$lib/clones/twins';
 import { DANCES } from '$lib/dances/dances';
 import { fold } from '$lib/fold';
 import { byGroupName } from '$lib/positions/view';
-import type { FiguresLists } from '$lib/moves/filter';
+import { mergeGroups, moveKey, type FiguresLists, type MergedFigure } from '$lib/moves/filter';
 import type { PositionsLists } from '$lib/positions/filter';
 import type { RoutinesLists } from '$lib/moves/routines';
 import type { PositionListRow, TeamRef } from '$lib/types';
@@ -117,6 +117,24 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 		defaultStyle: defStyle,
 		moveTargets: listMoveTargets(db, wall, null)
 	};
+}
+
+/**
+ * The figures the Figures list shows under the move named `name`: the person's
+ * own and those of the groups whose lessons they added, merged by name
+ * (`mergeGroups`), twins folded, as the list draws them. Empty when the list
+ * has no such move. A figure's switcher steps through these.
+ */
+export function mergedMoveFigures(db: Db, wall: Wall, name: string): MergedFigure[] {
+	const folded = foldMoves(
+		listFigures(db, wall),
+		listAddedFigures(db, wall),
+		storedTwinSets(db, wall.userId, 'figure')
+	);
+	const key = moveKey(name);
+	return (
+		mergeGroups(folded.mine, folded.groups).find((m) => moveKey(m.name) === key)?.figures ?? []
+	);
 }
 
 export function routinesList(
