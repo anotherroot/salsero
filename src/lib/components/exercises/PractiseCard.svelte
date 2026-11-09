@@ -58,7 +58,7 @@
 		>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[13px] font-bold text-muted">{t().exercise.panel.practiseWith}</span>
-			<span class="text-[15px] leading-[1.3] font-bold text-ink">{line}</span>
+			<span class="line-clamp-2 text-[15px] leading-[1.3] font-bold text-ink">{line}</span>
 		</span>
 		<a
 			href={exercisePlayerHref(dance.slug, exercise.id, from, false)}
