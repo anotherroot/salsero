@@ -40,7 +40,9 @@ const ID_TABLES = [
 	'teams',
 	'lesson_comments',
 	'team_changes',
-	'team_trash'
+	'team_trash',
+	'oauth_clients',
+	'oauth_grants'
 ] as const;
 
 const raw = (d: Db) => (d as unknown as { $client: Database.Database }).$client;
