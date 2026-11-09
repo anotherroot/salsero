@@ -35,7 +35,9 @@ export const NETWORK_PAGES = [
 	'/[dance]/groups/[id]/people',
 	'/[dance]/groups/[id]/storage',
 	'/welcome',
-	'/dev/kit'
+	'/dev/kit',
+	// The AI connector's consent page: the server's own answer, never the device's.
+	'/oauth/authorize'
 ];
 
 /** GET endpoints answerable from synced rows. */

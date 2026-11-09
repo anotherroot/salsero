@@ -107,6 +107,19 @@ export const settings = {
 		lastUsed: (paired: string, when: string): string => `${paired} · last used ${when}`,
 		gone: 'That phone is already gone.'
 	},
+	/** The AI connector: its consent page (`/oauth/authorize`) and Connected AI apps. */
+	connector: {
+		/** The consent page's title; `host` is where the AI app's sign-in comes from. */
+		title: (host: string): string => `Connect ${host}?`,
+		/** The client's own name, shown second: anyone can call themselves anything. */
+		calls: (name: string): string => `It calls itself ${name}.`,
+		can: 'It will read your moves, figures, routines, drills, lessons, positions and groups. Later it can suggest changes; nothing changes until you run them in the app.',
+		approve: 'Connect',
+		cancel: 'Cancel',
+		otherDance: (dance: string): string =>
+			`This connector is for the ${dance} app. Sign in there with your ${dance} account.`,
+		badRequest: 'This link to connect an app is not valid. Start again from the app.'
+	},
 	admin: { label: 'Admin', sub: 'Invite someone' },
 	account: { label: 'Account', name: 'Name', signedIn: 'Signed in', signOut: 'Sign out' },
 	refusals: {
