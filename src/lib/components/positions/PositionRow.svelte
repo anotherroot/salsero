@@ -1,23 +1,24 @@
 <script lang="ts">
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { twinsChip } from '$lib/clones/twins';
+	import GroupMark from '$lib/components/moves/GroupMark.svelte';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { differLabel } from '$lib/moves/sync';
 	import { groupRowMeta, rowMeta, type StyleLabel } from '$lib/positions/view';
-	import type { PositionListRow } from '$lib/types';
+	import type { PositionListRow, TeamRef } from '$lib/types';
 
 	/**
 	 * One row of the Positions list: the name (and the Twins chip), then the
 	 * type and counts with the one gap word that matters, or, for a group's
-	 * row, the type and the lesson it came from. `current`: open in the pane
-	 * beside the list (desktop), lit. `picked`: picked on the map beside the list,
+	 * row, its group (the mark), then the type and the lesson it came from.
+	 * `current`: open in the pane beside the list (desktop), lit. `picked`: picked on the map beside the list,
 	 * lit too (the current item of the list, not the page).
 	 */
 	let {
 		row,
 		href,
 		styleLabel,
-		group = false,
+		team = null,
 		current = false,
 		picked = false,
 		tag
@@ -25,7 +26,8 @@
 		row: PositionListRow;
 		href: string;
 		styleLabel: StyleLabel;
-		group?: boolean;
+		/** A group's row: the group it is from. */
+		team?: TeamRef | null;
 		current?: boolean;
 		picked?: boolean;
 		/** "· Sreda 17:30": where a same-named copy came from (`fromTags`). */
@@ -33,7 +35,7 @@
 	} = $props();
 
 	const differ = $derived(differLabel(row.differ));
-	const meta = $derived(group ? null : rowMeta(row, styleLabel));
+	const meta = $derived(team ? null : rowMeta(row, styleLabel));
 	// Dead end and orphan are faults (danger); an island is cut off but not broken (warn).
 	const wordClass = $derived(
 		meta?.tone === 'danger' ? 'font-bold text-danger' : 'font-bold text-warn'
@@ -53,7 +55,10 @@
 			>
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 			{#if row.twins}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+			<!-- With clones (copies in your app or a group's), as the Figures list marks them. -->
+			{#if (row.copies ?? 0) > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
 		</span>
+		{#if team}<GroupMark name={team.name} />{/if}
 		<span class="text-[13px] leading-[1.35] text-muted">
 			{#if meta}
 				{meta.text}{#if meta.word}

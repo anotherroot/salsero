@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { figureMatches, figuresView, parseFigureFilter, type FiguresLists } from './filter';
+import {
+	figureMatches,
+	figuresView,
+	mergeGroups,
+	parseFigureFilter,
+	type FiguresLists
+} from './filter';
 import type { FigureRow, MoveRow } from '$lib/types';
 
 const fig = (id: number, name: string, o: Partial<FigureRow> = {}): FigureRow => ({
@@ -99,5 +105,45 @@ describe('parseFigureFilter', () => {
 		expect(
 			parseFigureFilter(new URLSearchParams('q=%20en%20&style=On1&unlinked=1'), ['On1'])
 		).toEqual({ q: 'en', style: 'On1', unlinked: '1' });
+	});
+});
+
+describe('mergeGroups', () => {
+	const shown = (m: MoveRow) => ({ ...m, also: [] as string[] });
+	const tue = { id: 5, name: 'Tue' };
+	const wed = { id: 6, name: 'Wed' };
+	it('a group move of the same name joins the person’s, its figures after theirs and marked', () => {
+		const out = mergeGroups(
+			[shown(move(1, 'Enchufla', [fig(11, 'Doble')]))],
+			[{ team: tue, moves: [shown(move(9, ' enchufla', [fig(21, 'Uno')]))] }]
+		);
+		expect(out).toHaveLength(1);
+		expect(out[0].id).toBe(1);
+		expect(out[0].figures.map((f) => [f.id, f.team?.name ?? null])).toEqual([
+			[11, null],
+			[21, 'Tue']
+		]);
+	});
+	it('a group move of its own name sits among the person’s by name; two groups share one', () => {
+		const out = mergeGroups(
+			[shown(move(1, 'Enchufla', [fig(11, 'Doble')])), shown(move(2, 'Setenta', [fig(12, 'A')]))],
+			[
+				{ team: tue, moves: [shown(move(9, 'Dile que no', [fig(21, 'Uno')]))] },
+				{ team: wed, moves: [shown(move(8, 'Dile que no', [fig(31, 'Dos')]))] }
+			]
+		);
+		expect(out.map((m) => [m.id, m.name])).toEqual([
+			[9, 'Dile que no'],
+			[1, 'Enchufla'],
+			[2, 'Setenta']
+		]);
+		expect(out[0].figures.map((f) => f.team?.name)).toEqual(['Tue', 'Wed']);
+	});
+	it('keeps where twins folded in', () => {
+		const out = mergeGroups(
+			[{ ...move(1, 'A', [fig(1, 'A')]), also: ['Tue'] }],
+			[{ team: wed, moves: [{ ...move(2, 'a', [fig(2, 'B')]), also: ['Tue', 'Rueda'] }] }]
+		);
+		expect(out[0].also).toEqual(['Tue', 'Rueda']);
 	});
 });

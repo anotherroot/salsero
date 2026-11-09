@@ -25,7 +25,7 @@ src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current la
                      format, groups, lesson, links, map, moves, nouns, picker, player,
                      positions, refusals, routine, settings, shell, songs, today, video) with an `index.ts`
                      (the glossary heads `sl/index.ts`). `nouns` is the counted nouns in the
-                     nominative, number included (`t().nouns.figures(3)`: "3 različice"); a count
+                     nominative, number included (`t().nouns.figures(3)`: "3 figure"); a count
                      in another case is its area's own entry. `refusals` is what no area owns
                      (missing rows, error pages, chunks, file checks). `current.ts` (the current
                      language: a `withLocale` override for specs, the server's per-request
@@ -121,19 +121,27 @@ src/lib/components/positions/  the New / Edit position sheet and its fields, Tem
 src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
-                     filter.ts is the Figures list's filter (chips, search, the entered set).
-                     sync.ts the out-of-sync card and a row's "N copies differ" (`differ` on a row).
+                     filter.ts is the Figures list's filter (chips, search, the entered set)
+                     and `mergeGroups` (a group's figures under your move of the same name).
+                     mix.ts mixes a group's rows in among yours (Routines, Positions), each
+                     marked with its group (`components/moves/GroupMark`, the Lessons row's too).
+                     sync.ts the out-of-sync card and a row's "N copies differ" (`differ` on a row);
+                     a figure row also says "N copies" (`copies`: `copyCounts`, the Versions list's).
                      segment.ts the three segments, pane.ts the empty pane's words and keeping
                      the lit row in view, routines.ts the Routines list's shape. PURE
 src/lib/positions/filter.ts  PURE: the Positions list's search, chips and gaps, from the
-                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe
+                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe; order.ts the list's
+                     order (`positionOrder`, the server's `sortPositions` too)
 src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf`) and which row
                      is lit (`OpenRow`: figure, move, routine, position, Coverage, No position,
                      the Map row), from the route, the path and the opener. The Figures
                      list owns a move's page and Coverage
 src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
                      (namespaced; `depends('app:moves')`, so a change not made by a form calls
-                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
+                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`).
+                     `mergedMoveFigures`: one merged move's figures, as the list shows them;
+                     `mergedMoveRows`: that move for its page and its figures' switcher and tabs
+                     (a copy or a twin set one row, `standIn`)
 src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space; each arrow's
                      figures (`figs`; a group row whose label collides says its group,
                      `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
@@ -416,7 +424,7 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      its spec lists every save path), sync.ts (`syncView`, `syncAll`: the sheet's
                      rows and the landing on every ticked copy, then the flow onward) and step.ts
                      (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, from the
-                     same merge rows). The routes' side: `take-form.ts`, `make-mine-form.ts`,
+                     same merge rows; `copyCounts`, a figure row's "N copies"). The routes' side: `take-form.ts`, `make-mine-form.ts`,
                      `keep-form.ts`, the page action `keep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
 src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
                      embeds, lesson and section links): `usableOf` (their added lessons'

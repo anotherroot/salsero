@@ -23,7 +23,7 @@ import type { CloneKind, Flat, KeepView, MergeRow, StepLine, StepView } from '$l
 import { isCopySuffix, NAME_KEYS } from '$lib/clones/diff';
 import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
-import { accessTo, familyRows, geneOf } from './genes';
+import { accessTo, familyRows, geneOf, visibleMembers } from './genes';
 import { familyOf, placeLabel, rowsOf } from './sync';
 import { syncSettingsOf } from './sync-settings';
 import { flatOf } from './trees';
@@ -112,6 +112,25 @@ export function keepView(db: Db, userId: string, kind: CloneKind, id: number): K
 	};
 }
 
+/**
+ * The ids among `ids` whose gene has another live copy, anywhere (another
+ * person's own included): only these can have a copy the person reads. Each
+ * family is looked up once.
+ */
+function withLiveCopies(db: Db, kind: CloneKind, ids: number[]): number[] {
+	const family = new Map<string, boolean>();
+	return ids.filter((id) => {
+		const gene = geneOf(db, kind, id);
+		if (gene === null) return false;
+		let many = family.get(gene);
+		if (many === undefined) {
+			many = familyRows(db, kind, gene).filter((r) => r.archivedAt === null).length > 1;
+			family.set(gene, many);
+		}
+		return many;
+	});
+}
+
 /** id → how many other copies differ; only ids whose gene has another live copy are worked out. */
 export function outOfStep(
 	db: Db,
@@ -120,17 +139,27 @@ export function outOfStep(
 	ids: number[]
 ): Map<number, number> {
 	const out = new Map<number, number>();
-	const family = new Map<string, boolean>();
-	for (const id of ids) {
-		const gene = geneOf(db, kind, id);
-		if (gene === null) continue;
-		let many = family.get(gene);
-		if (many === undefined) {
-			many = familyRows(db, kind, gene).filter((r) => r.archivedAt === null).length > 1;
-			family.set(gene, many);
-		}
-		if (!many) continue;
+	for (const id of withLiveCopies(db, kind, ids)) {
 		const n = new Set(stepStatus(db, userId, kind, id).lines.map((l) => l.id)).size;
+		if (n > 0) out.set(id, n);
+	}
+	return out;
+}
+
+/**
+ * id → how many other live copies the person reads: the Versions list's
+ * copies (`send.ts`), in their own app and their groups. Another person's own
+ * copy never counts. Ids with none are absent.
+ */
+export function copyCounts(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	ids: number[]
+): Map<number, number> {
+	const out = new Map<number, number>();
+	for (const id of withLiveCopies(db, kind, ids)) {
+		const n = visibleMembers(db, userId, kind, id).filter((m) => m.id !== id && !m.archived).length;
 		if (n > 0) out.set(id, n);
 	}
 	return out;

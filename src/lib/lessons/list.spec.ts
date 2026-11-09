@@ -191,10 +191,10 @@ describe('the Lessons list in Slovenian', () => {
 	it('counts sections, routines and figures in four forms', () => {
 		const words = (n: number) =>
 			sl(() => lessonCounts({ sections: n, routines: n, figures: n })).map((c) => c.word);
-		expect(words(1)).toEqual(['odsek', 'kombinacija', 'različica']);
-		expect(words(2)).toEqual(['odseka', 'kombinaciji', 'različici']);
-		expect(words(3)).toEqual(['odseki', 'kombinacije', 'različice']);
-		expect(words(0)).toEqual(['odsekov', 'kombinacij', 'različic']);
+		expect(words(1)).toEqual(['odsek', 'kombinacija', 'figura']);
+		expect(words(2)).toEqual(['odseka', 'kombinaciji', 'figuri']);
+		expect(words(3)).toEqual(['odseki', 'kombinacije', 'figure']);
+		expect(words(0)).toEqual(['odsekov', 'kombinacij', 'figur']);
 	});
 
 	it('the subtitles, the empty list and the empty pane', () => {

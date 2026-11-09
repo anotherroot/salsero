@@ -84,8 +84,8 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
 
 - What is due is never stored: no due/last-done column, no cron, no frequency.
   It is replayed from the sets' days and faces (`sets.rating`, `src/lib/schedule/`).
-  `today_picks` holds only a day's choices. A drill's Comes back is the one
-  setting; due is still derived. A warm-up is outside the daily number.
+  `today_picks` holds only a day's choices. An exercise's Comes back (any type)
+  is the one setting; due is still derived. A warm-up is outside the daily number.
 - Elapsed time sorts; calendar days speak (`localDay`/`daysBetween`, user's zone).
   No `Date.now()` in `src/lib/day` or `src/lib/schedule`.
 - Server code reads time through `serverNow()`, never `Date.now()`/`new Date()`

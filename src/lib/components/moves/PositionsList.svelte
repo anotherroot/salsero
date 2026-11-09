@@ -18,8 +18,8 @@
 	import TemplatesSheet from '$lib/components/positions/TemplatesSheet.svelte';
 	import HowSheet from '$lib/components/positions/HowSheet.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { groupMeta } from '$lib/moves/figures';
-	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
+	import { mixGroups } from '$lib/moves/mix';
+	import { positionOrder } from '$lib/positions/order';
 	import { t } from '$lib/i18n/catalog';
 	import {
 		nothingAt,
@@ -32,7 +32,6 @@
 		EMPTY_ACTIONS,
 		groupNote,
 		mapRow,
-		noneOwn,
 		noMatch,
 		optionalLine,
 		templatesButton,
@@ -50,7 +49,8 @@
 
 	/**
 	 * The Positions list: the line on tagging, Templates and How, the search and
-	 * chips, No position and the map, then the positions and each group's. The
+	 * chips, No position and the map, then the positions, the groups' mixed in,
+	 * each marked with its group. The
 	 * (moves) layout renders it once (`ListPane`): the phone's list page, and on
 	 * the desktop the column beside an open position, No position or the map.
 	 * Its sheets post to the list route's actions by name; they read their own
@@ -111,7 +111,9 @@
 	// Two rows of one section that share a name: a copy says where it came from.
 	const tagsOf = (rows: { id: number; name: string; copiedFrom?: string | null }[]) =>
 		fromTags(rows.map((r) => ({ id: r.id, name: r.name, from: r.copiedFrom ?? null })));
-	const mineTags = $derived(tagsOf(view.rows));
+	// The groups' positions among the person's, in the list's order, as Lessons mixes a group's lessons in.
+	const rows = $derived(mixGroups(view.rows, view.groups, positionOrder(l.types)));
+	const tags = $derived(tagsOf(rows));
 	const filtered = $derived(!!(filter.q || filter.type || filter.gaps || filter.sync));
 	const syncN = $derived(outOfSyncCount([...l.rows, ...l.groups.flatMap((g) => g.rows)]));
 	const syncHref = $derived.by(() => {
@@ -312,47 +314,26 @@
 		</div>
 	{/if}
 
-	{#if view.rows.length > 0}
-		<h2 class="{SECTION_LABEL} pt-1">{listHeading(view.rows.length, l.inGroupMode)}</h2>
+	{#if rows.length > 0}
+		<h2 class="{SECTION_LABEL} pt-1">
+			{listHeading(rows.length, l.inGroupMode || rows.some((r) => r.team))}
+		</h2>
 		<div class={GROUP}>
-			{#each view.rows as r (r.id)}
+			{#each rows as r (r.id)}
 				<PositionRow
 					row={r}
 					href={positionHref(r.id)}
 					{styleLabel}
-					tag={mineTags.get(r.id)}
+					tag={tags.get(r.id)}
+					team={r.team}
 					current={isOpen(r.id)}
 					picked={picked === r.id}
 				/>
 			{/each}
 		</div>
 	{:else if filtered}
-		{#if view.groups.length === 0}<EmptyState icon="search" title={noMatch()} />{/if}
-	{:else}
-		<!-- Only a group's positions so far: the person's own list starts here. -->
-		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">{noneOwn()}</p>
+		<EmptyState icon="search" title={noMatch()} />
 	{/if}
-
-	<!-- Each group's positions the person may use, under the group's own heading. -->
-	{#each view.groups as g (g.team.id)}
-		{@const groupTags = tagsOf(g.rows)}
-		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<GroupHeading name={g.team.name} meta={groupMeta('position', g.rows.length)} />
-			<div class={GROUP}>
-				{#each g.rows as r (r.id)}
-					<PositionRow
-						row={r}
-						href={positionHref(r.id)}
-						{styleLabel}
-						tag={groupTags.get(r.id)}
-						group
-						current={isOpen(r.id)}
-						picked={picked === r.id}
-					/>
-				{/each}
-			</div>
-		</section>
-	{/each}
 {/if}
 
 {#if creating}

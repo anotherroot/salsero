@@ -100,6 +100,29 @@ move's name, and "Group · 3 figures" under it (`groupMeta`). The lists stay
 apart: yours first, then each group. Merging same-named moves (options B and C)
 was not chosen.
 
+**Replaced 2026-11-09:** the groups' rows are mixed in among the person's, as the
+Lessons list mixes a group's lessons into the months. Figures: a group's move
+whose name is one of yours (case-blind) puts its figures under yours, the rest
+join by name (`mergeGroups`, `moves/filter.ts`). Routines (newest first) and
+Positions (the list's order) mix the same way (`moves/mix.ts`,
+`positions/order.ts`). Each group row carries the group's mark under its name
+(`components/moves/GroupMark`, the Lessons row's own: option A of two shot on
+the phone; B, a chip beside the name, was not chosen). `GroupHeading` and
+`groupMeta` are gone; a list with a group's rows says no "Yours".
+
+A figure's switcher (the phone's bottom bar, the desktop's tabs) steps through
+the same merged move, yours and the groups' figures alike, each group's marked
+(`mergedMoveFigures`, `server/moves-lists.ts`). The move's own figures stay as
+the page reads them (an editor's drafts too); group mode keeps the group's alone.
+The move's page lists the same merged move (`mergedMoveRows`). A figure the list
+folds (your own copy replaces the group's; a twin stands for its set) is that
+row, lit on either page. Rows with copies carry a Clone chip (Klon) on every
+list — figures, routines, positions, lessons, songs, the move page, the
+switcher — in place of "2 copies"; the twin chip and subtitle say Dvojček
+whatever the count. Keep in step shows only beside a clone: twins never sync.
+The switcher's recordings count is the figure page's (recordings, linked
+sections and links).
+
 ## 5. Scrollbars
 
 Thin rounded scrollbars in the theme's muted ink, no track, no arrows

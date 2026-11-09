@@ -11,22 +11,22 @@ import { listPositions, positionsFrom, positionSummary } from './positions';
 import { copiedFromPlaces } from './clones/genes';
 import { listAddedRoutines, listRoutines, routineShapes } from './routines';
 import { usableOf, usablePositions } from './usable';
-import { withoutShadowed } from './clones/shadow';
+import { mineIdsFor, withoutShadowed } from './clones/shadow';
 import { storedTwinSets } from './twins';
 import { publishedReach } from './access';
 import { routineClassDays } from './lessons';
 import { classDayLabel } from '$lib/format';
 import type { CloneKind, GroupMode, MoveRow } from '$lib/types';
 import type { Space, Wall } from './scope';
-import { outOfStep } from './clones/step';
+import { copyCounts, outOfStep } from './clones/step';
 import { coverage } from '$lib/routines/coverage';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { noPosition, positionCounts, taggedCount } from '$lib/graph/graph';
-import { foldSections } from '$lib/clones/twins';
+import { foldMoves, foldSections } from '$lib/clones/twins';
 import { DANCES } from '$lib/dances/dances';
 import { fold } from '$lib/fold';
 import { byGroupName } from '$lib/positions/view';
-import type { FiguresLists } from '$lib/moves/filter';
+import { mergeGroups, moveKey, type FiguresLists, type MergedFigure } from '$lib/moves/filter';
 import type { PositionsLists } from '$lib/positions/filter';
 import type { RoutinesLists } from '$lib/moves/routines';
 import type { PositionListRow, TeamRef } from '$lib/types';
@@ -36,22 +36,23 @@ import type { PositionRow } from './db/schema';
 const figureCount = (moves: { figures: unknown[] }[]) =>
 	moves.reduce((n, m) => n + m.figures.length, 0);
 
-/** The rows with `differ`: how many other copies of each disagree with it. */
+/**
+ * The rows with `differ` (how many other copies of each disagree with it) and
+ * `copies` (how many other copies the person reads: the row's Clone chip).
+ */
 function withDiffer<T extends { id: number }>(
 	db: Db,
 	userId: string,
 	kind: CloneKind,
 	rows: T[]
-): (T & { differ: number })[] {
-	const n = outOfStep(
-		db,
-		userId,
-		kind,
-		rows.map((r) => r.id)
-	);
-	return rows.map((r) => ({ ...r, differ: n.get(r.id) ?? 0 }));
+): (T & { differ: number; copies: number })[] {
+	const ids = rows.map((r) => r.id);
+	const n = outOfStep(db, userId, kind, ids);
+	const copies = copyCounts(db, userId, kind, ids);
+	return rows.map((r) => ({ ...r, differ: n.get(r.id) ?? 0, copies: copies.get(r.id) ?? 0 }));
 }
 
+/** A list's figures with `differ` and `copies`. */
 const figureDiffer = (db: Db, userId: string, moves: MoveRow[]): MoveRow[] => {
 	const all = withDiffer(
 		db,
@@ -111,6 +112,84 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 		defaultStyle: defStyle,
 		moveTargets: listMoveTargets(db, wall, null)
 	};
+}
+
+/**
+ * The figures the Figures list shows under the move named `name`: the person's
+ * own and those of the groups whose lessons they added, merged by name
+ * (`mergeGroups`), twins folded, as the list draws them. Empty when the list
+ * has no such move. `twinOf`: a folded twin's id → the id shown for it. A
+ * figure's switcher steps through these.
+ */
+export function mergedMoveFigures(
+	db: Db,
+	wall: Wall,
+	name: string
+): { figures: MergedFigure[]; twinOf: Map<number, number> } {
+	const folded = foldMoves(
+		listFigures(db, wall),
+		listAddedFigures(db, wall),
+		storedTwinSets(db, wall.userId, 'figure')
+	);
+	const key = moveKey(name);
+	const twinOf = new Map<number, number>();
+	for (const [shown, hidden] of folded.twinOf) for (const h of hidden) twinOf.set(h, shown);
+	const move = mergeGroups(folded.mine, folded.groups).find((m) => moveKey(m.name) === key);
+	return { figures: move?.figures ?? [], twinOf };
+}
+
+/**
+ * One move as the Figures list shows it, for its own page and its figures'
+ * switcher: the person's own and the added groups' moves of the same name as
+ * one (`mergeGroups`), each group's figure marked (`team`). This move's own
+ * figures stay as the page reads them (`own`: an editor's drafts too, a
+ * reader's reach), where the list puts them. A figure the list folds into
+ * another row (your own copy replaces the group's; a twin stands for its set)
+ * is that row: `standIn` names it, and `twinned` holds the rows that stand
+ * for twins. `live`: every live figure of this move. In group mode
+ * (`merge` false) the move is its own figures, unmarked.
+ */
+export function mergedMoveRows<F extends { id: number }>(
+	db: Db,
+	wall: Wall,
+	move: { name: string; teamId: number | null },
+	own: F[],
+	live: number[],
+	merge: boolean,
+	team: TeamRef | null
+): {
+	rows: ((F & { team: TeamRef | null }) | MergedFigure)[];
+	standIn: (id: number) => number | null;
+	twinned: Set<number>;
+} {
+	const twinned = new Set<number>();
+	if (!merge) return { rows: own.map((f) => ({ ...f, team: null })), standIn: () => null, twinned };
+	const merged = mergedMoveFigures(db, wall, move.name);
+	for (const shown of merged.twinOf.values()) twinned.add(shown);
+	const listed = new Set(merged.figures.map((f) => f.id));
+	const yours =
+		move.teamId === null
+			? new Map<number, number>()
+			: mineIdsFor(
+					db,
+					wall,
+					'figure',
+					own.map((f) => f.id)
+				);
+	const standIn = (id: number) => {
+		if (listed.has(id)) return null;
+		const to = merged.twinOf.get(id) ?? yours.get(id);
+		return to !== undefined && listed.has(to) ? to : null;
+	};
+	const mine = own.filter((f) => standIn(f.id) === null).map((f) => ({ ...f, team }));
+	const ofThis = new Set(live);
+	const rows: ((F & { team: TeamRef | null }) | MergedFigure)[] = [];
+	for (const f of merged.figures) {
+		if (!ofThis.has(f.id)) rows.push(f);
+		else if (mine.length > 0) rows.push(...mine.splice(0));
+	}
+	rows.push(...mine);
+	return { rows, standIn, twinned };
 }
 
 export function routinesList(
@@ -222,11 +301,18 @@ export function positionsLists(db: Db, wall: Wall, mode: GroupMode | null): Posi
 			unused: c.unused,
 			from,
 			twins: false,
-			differ: differ.get(p.id) ?? 0
+			differ: differ.get(p.id) ?? 0,
+			copies: copies.get(p.id) ?? 0
 		};
 	};
 
 	const differ = outOfStep(
+		db,
+		wall.userId,
+		'position',
+		[...own, ...theirs].map((p) => p.id)
+	);
+	const copies = copyCounts(
 		db,
 		wall.userId,
 		'position',

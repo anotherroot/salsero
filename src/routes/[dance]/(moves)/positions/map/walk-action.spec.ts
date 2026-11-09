@@ -177,11 +177,9 @@ describe('the map’s routine action in Slovenian', () => {
 		expect(await said(post('u2', [['name', ''], ...ids(mine)]))).toBe(
 			'Kombinaciji dajte ime (do 200 znakov).'
 		);
-		expect(await said(post('u2', [['name', 'Prazno']]))).toBe(
-			'Najprej dodajte vsaj eno različico.'
-		);
+		expect(await said(post('u2', [['name', 'Prazno']]))).toBe('Najprej dodajte vsaj eno figuro.');
 		expect(await said(post('u2', [['name', 'Kraja'], ...ids(theirs)]))).toBe(
-			'Različice ni mogoče najti'
+			'Figure ni mogoče najti'
 		);
 	});
 });

@@ -100,7 +100,7 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 		const teacher = r.source === 'added' ? parseComesBack(drillComesBack) : null;
 		return {
 			...r,
-			comesBack: effectiveComesBack(r.source, own, teacher),
+			comesBack: effectiveComesBack(own, teacher),
 			comesBackOwn: own,
 			comesBackTeacher: teacher,
 			archived: false,
@@ -232,14 +232,13 @@ export function updateExercise(
 		if (!current) return null;
 		const name = current.source === 'custom' && input.name ? input.name : current.name;
 		const { warmup, comesBack, ...rest } = input;
-		const isDrill = current.source === 'custom' || current.source === 'added';
 		const row = tx
 			.update(exercises)
 			.set({
 				...rest,
 				name,
 				...(warmup !== undefined && current.teamId === null ? { warmup } : {}),
-				...(comesBack !== undefined && isDrill ? { comesBack: storedComesBack(comesBack) } : {})
+				...(comesBack !== undefined ? { comesBack: storedComesBack(comesBack) } : {})
 			})
 			.where(eq(exercises.id, id))
 			.returning()

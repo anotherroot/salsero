@@ -42,7 +42,6 @@ export const positions = {
 		yours: (n: number): string => `Yours · ${n}`,
 		mapRow: 'The map',
 		noMatch: 'No positions match',
-		noneOwn: 'No positions of your own yet.',
 		groupNote: 'The group’s own positions. Its figures can only be tagged with these.',
 		templates: 'Templates',
 		search: 'Search positions',

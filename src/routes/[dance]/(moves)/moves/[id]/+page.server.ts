@@ -1,6 +1,11 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { requireMoveAccess, wallOf } from '$lib/server/scope';
+import { groupModeOf } from '$lib/server/group-mode';
+import { mergedMoveRows } from '$lib/server/moves-lists';
+import { copyCounts } from '$lib/server/clones/step';
+import { teamRefs } from '$lib/server/usable';
+import type { Cookies } from '@sveltejs/kit';
 import {
 	createVariationIn,
 	figureNameTaken,
@@ -22,7 +27,7 @@ import { serverNow } from '$lib/server/server-clock';
 
 const moveTaken = (name: string) => t().moves.refused.moveTaken(name);
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const db = getDb();
 	const { move, space, access, reach } = requireMoveAccess(db, locals, params, params.id, 'read');
 	// A reader's lists hold only what the published lessons reach.
@@ -62,9 +67,41 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			usedIn.push({ kind: 'lesson', id: l.id, name: l.title, meta: usedInMeta('lesson', []) })
 		);
 
+	// The figures as the Figures list shows this move (`mergedMoveRows`): the
+	// person's own and the added groups' of the same name, each group's marked,
+	// a copy or a twin set one row with its chip. In this group's own workspace
+	// (read-only on the cookie: a load never sets or deletes it) the group's alone.
+	const wall = wallOf(params, locals);
+	const inGroupMode =
+		move.teamId !== null &&
+		groupModeOf(db, wall.userId, wall.dance, {
+			get: (name: string) => cookies?.get(name),
+			delete: () => {}
+		} as unknown as Cookies)?.teamId === move.teamId;
+	const team = move.teamId === null ? null : (teamRefs(db, [move.teamId]).get(move.teamId) ?? null);
+	const merged = mergedMoveRows(
+		db,
+		wall,
+		{ name: move.name, teamId: move.teamId },
+		figures,
+		listGroupVariations(db, move.id).map((f) => f.id),
+		!inGroupMode,
+		team
+	);
+	const copies = copyCounts(
+		db,
+		wall.userId,
+		'figure',
+		merged.rows.map((f) => f.id)
+	);
+
 	return {
 		move: { id: move.id, name: move.name },
-		figures,
+		figures: merged.rows.map((f) => ({
+			...f,
+			copies: copies.get(f.id) ?? 0,
+			twins: merged.twinned.has(f.id)
+		})),
 		usedIn,
 		canEdit: access === 'edit',
 		// What the rename form saw (the clash check).

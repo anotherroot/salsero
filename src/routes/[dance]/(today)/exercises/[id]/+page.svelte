@@ -44,8 +44,7 @@
 		LABEL,
 		SECTION_LABEL,
 		TEXTAREA_ON_CARD,
-		button,
-		rowButton
+		button
 	} from '$lib/components/ui/styles';
 	import {
 		archiveBody,
@@ -59,7 +58,12 @@
 	import { bandSubtitle, doneSubtitle, savedMessage } from '$lib/exercises/done-view';
 	import { announceSaved, saved as savedToast } from '$lib/exercises/saved.svelte';
 	import { pageClock } from '$lib/exercises/page-clock.svelte';
-	import { backFromPlayer, dropTrip, leaveForPlayer } from '$lib/exercises/clock-trip';
+	import {
+		backFromPlayer,
+		dropTrip,
+		leaveByUnload,
+		leaveForPlayer
+	} from '$lib/exercises/clock-trip';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
@@ -125,18 +129,44 @@
 	 * A trip to the player and back is one visit (one-player design): the page
 	 * leaves its watch when Practise with opens the player and takes it back,
 	 * the trip's time counted, only when Back from the player lands here
-	 * (`clock-trip.ts`, the tab's sessionStorage). Reached any other way, the
-	 * trip is not this visit's.
+	 * (`clock-trip.ts`, the tab's sessionStorage). A load of the whole page (a
+	 * new version made the way back a full load, a reload) goes on from the time
+	 * the page left as it unloaded. Reached any other way, the trip is not this
+	 * visit's.
 	 */
 	afterNavigate(({ from }) => {
 		try {
-			if (from?.route.id === '/[dance]/player') {
+			if (from === null || from.route.id === '/[dance]/player') {
 				const carried = backFromPlayer(sessionStorage, data.exercise.id, Date.now());
 				if (carried) clock.carry(carried);
 			} else dropTrip(sessionStorage, data.exercise.id);
 		} catch {
 			// No storage (a private window): the time starts over.
 		}
+	});
+	$effect(() => {
+		const unload = () => {
+			try {
+				leaveByUnload(sessionStorage, data.exercise.id, clock.watch, Date.now());
+			} catch {
+				// No storage: the time starts over.
+			}
+		};
+		// Back from the browser's cache: the page kept its time, the stored one is stale.
+		const shown = (e: PageTransitionEvent) => {
+			if (!e.persisted) return;
+			try {
+				dropTrip(sessionStorage, data.exercise.id);
+			} catch {
+				// No storage: nothing was stored.
+			}
+		};
+		window.addEventListener('pagehide', unload);
+		window.addEventListener('pageshow', shown);
+		return () => {
+			window.removeEventListener('pagehide', unload);
+			window.removeEventListener('pageshow', shown);
+		};
 	});
 	function tripLeave() {
 		try {
@@ -278,13 +308,16 @@
 			: null
 	);
 
-	/** "Drill · learning · 3:20" ("Drill · 3 of 7 · 4:12" in a run) while it can be done; the type alone while editing or with nothing to log. */
+	/**
+	 * "Drill · learning · 3:20" ("Drill · 3 of 7 · 4:12" in a run) while it can be
+	 * done: the time wins over where a copy comes from (2026-11-09), which the
+	 * item's own page says. With nothing to log, the copy line or the type alone;
+	 * the type alone while editing.
+	 */
 	const subtitle = $derived.by(() => {
 		const label = TYPES[type].label;
 		if (editing) return label;
-		const clone = simple ? null : cloneSubtitle(data.cloneLine);
-		if (clone) return clone;
-		if (!data.canLog) return label;
+		if (!data.canLog) return (simple ? null : cloneSubtitle(data.cloneLine)) ?? label;
 		return bandSubtitle({
 			label,
 			warmup: exercise.warmup,
@@ -820,8 +853,11 @@
 <!-- The run's Skip: on without saving, this run only (never Not today). -->
 {#snippet skipButton()}
 	<!-- Not while a save or Not today is out, nor while the page leaves: its own step goes on. -->
-	<button type="button" class={rowButton('secondary')} disabled={locked} onclick={() => run?.skip()}
-		>{t().exercise.done.skip}</button
+	<button
+		type="button"
+		class={button('secondary', 'md')}
+		disabled={locked}
+		onclick={() => run?.skip()}>{t().exercise.done.skip}</button
 	>
 {/snippet}
 
@@ -937,12 +973,12 @@
 			</button>
 		</BottomBar>
 	{:else if data.canLog}
-		<!-- In a run: Skip beside Done; a fixed rhythm's is the green Done · next. -->
+		<!-- In a run: Skip beside Done · next. -->
 		<DoneBar
 			doneToday={data.entryToday !== null}
 			busy={saving}
 			sheet={!fixed}
-			fixedInRun={run !== null && fixed}
+			inRun={run !== null}
 			onclick={done}
 			left={run ? skipButton : undefined}
 		/>

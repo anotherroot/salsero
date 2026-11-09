@@ -8,8 +8,7 @@ import {
 	showTiles,
 	tileMetas,
 	styleLabelsOf,
-	type FigureFilter,
-	groupMeta
+	type FigureFilter
 } from './figures';
 
 const none: FigureFilter = { q: '' };
@@ -177,7 +176,7 @@ describe('in Slovenian', () => {
 			'Brez odseka ali lekcije: 4'
 		);
 		expect(sl(() => figuresHeading({ moves: 2, figures: 3 }, { q: 'en' }))).toBe(
-			'3 različice ustrezajo'
+			'3 figure ustrezajo'
 		);
 	});
 
@@ -186,22 +185,5 @@ describe('in Slovenian', () => {
 			coverage: { text: 'Brez kombinacije: 7', status: true }
 		});
 		expect(sl(() => tileMetas(0)).coverage.text).toBe('Vse so v kombinacijah');
-	});
-});
-
-describe('groupMeta', () => {
-	it("words a group's heading line by what the list holds", () => {
-		expect(groupMeta('figure', 3)).toBe('Group · 3 figures');
-		expect(groupMeta('routine', 1)).toBe('Group · 1 routine');
-		expect(groupMeta('position', 2)).toBe('Group · 2 positions');
-	});
-});
-
-describe('groupMeta in Slovenian', () => {
-	it("counts a group's rows in the nominative", () => {
-		const sl = <T>(fn: () => T) => withLocale('sl', fn);
-		expect(sl(() => groupMeta('figure', 3))).toBe('Skupina · 3 različice');
-		expect(sl(() => groupMeta('routine', 1))).toBe('Skupina · 1 kombinacija');
-		expect(sl(() => groupMeta('position', 5))).toBe('Skupina · 5 položajev');
 	});
 });

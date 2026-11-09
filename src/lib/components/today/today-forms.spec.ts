@@ -145,7 +145,7 @@ describe('The log form', () => {
 		expect(body('saveNow').startsWith('if(locked)return;')).toBe(true);
 		expect(body('done').startsWith('if(locked)return;')).toBe(true);
 		expect(body('notToday').startsWith('if(locked||!today)return;')).toBe(true);
-		expect(flat).toMatch(/class=\{rowButton\('secondary'\)\}disabled=\{locked\}/);
+		expect(flat).toMatch(/class=\{button\('secondary','md'\)\}disabled=\{locked\}/);
 		// The fixed save's own busy is not given up while the page is leaving.
 		expect(body('saveNow')).toContain('if(pageId===at&&!leaving)saving=false;');
 		// Only another exercise in the page clears it (the pane on the desktop).

@@ -1,5 +1,5 @@
-// Stran različice: dejstva, Posnetki in njihova okna, tri vrstice, preklopnik,
-// Nova različica, Premakni v …, Arhiviraj, urejanje in zavrnitve strani.
+// Stran figure: dejstva, Posnetki in njihova okna, tri vrstice, preklopnik,
+// Nova figura, Premakni v …, Arhiviraj, urejanje in zavrnitve strani.
 // Names people gave (a move, a figure, a position) go after a colon or a "·",
 // or in »…« in a question, never declined.
 import type { Catalog } from '../catalog';
@@ -8,8 +8,8 @@ import { nouns } from './nouns';
 
 export const figure: Catalog['figure'] = {
 	subtitle: {
-		figure: 'Različica',
-		teamFigure: (team) => `Različica · ${team}`,
+		figure: 'Figura',
+		teamFigure: (team) => `Figura · ${team}`,
 		timing: (lead, start, length) => `${lead} · začne na ${start} · ${nouns.counts(length)}`,
 		editing: (variation) => `Urejanje · ${variation}`
 	},
@@ -61,23 +61,23 @@ export const figure: Catalog['figure'] = {
 		create: 'Vadi samostojno',
 		createMeta: 'Doda jo na Danes kot samostojno vajo',
 		history: 'Zgodovina',
-		move: 'Premakni v drugo figuro\u00a0…',
-		moveMeta: 'Ali v novo, samostojno figuro',
-		archive: () => 'Arhiviraj različico'
+		move: 'Premakni v drug gib\u00a0…',
+		moveMeta: 'Ali v nov, samostojen gib',
+		archive: () => 'Arhiviraj figuro'
 	},
 	archive: {
 		title: (variation) => `Želite arhivirati »${variation}«?`,
-		button: () => 'Arhiviraj različico',
-		buttonLast: 'Arhiviraj in odstrani figuro',
+		button: () => 'Arhiviraj figuro',
+		buttonLast: 'Arhiviraj in odstrani gib',
 		kept: 'Njeni posnetki in zgodovina vadenja se ohranijo.',
 		captionLast: (move, variation) =>
-			`Z njo gre tudi figura: ${move}. »${variation}« je njena zadnja različica.`,
-		caption: (move, variation) => `»${variation}« zapusti figuro: ${move}.`
+			`Z njo gre tudi gib: ${move}. »${variation}« je njegova zadnja figura.`,
+		caption: (move, variation) => `»${variation}« zapusti gib: ${move}.`
 	},
 	remove: {
-		title: (move) => `Figura bo odstranjena: ${move}`,
+		title: (move) => `Gib bo odstranjen: ${move}`,
 		body: (variation) =>
-			`To je njena zadnja različica (${variation}), figura brez različic pa ne obstaja. Izgine s seznama figur.`,
+			`To je njegova zadnja figura (${variation}), gib brez figur pa ne obstaja. Izgine s seznama figur.`,
 		kept: ' Njeni posnetki in zgodovina vadenja se ohranijo.'
 	},
 	recordings: {
@@ -142,12 +142,12 @@ export const figure: Catalog['figure'] = {
 		inRoutines: (n) =>
 			`V ${slCount(n, ['kombinaciji', 'kombinacijah', 'kombinacijah', 'kombinacijah'])}`,
 		none: 'Nobena',
-		label: 'Različice in kombinacije okoli te različice',
+		label: 'Figure in kombinacije okoli te figure',
 		loops: 'se sklene',
 		searchRoutines: 'Iskanje kombinacij',
-		searchFigures: 'Iskanje različic',
+		searchFigures: 'Iskanje figur',
 		noRoutine: 'Nobena kombinacija ne ustreza.',
-		noFigure: 'Nobena različica ne ustreza.',
+		noFigure: 'Nobena figura ne ustreza.',
 		slot: (n, of) => `Mesto ${n} od ${of}`,
 		slots: (slots, of) => {
 			const head = slots.slice(0, -1).join(', ');
@@ -157,16 +157,15 @@ export const figure: Catalog['figure'] = {
 	},
 	taughtIn: (n) => `Na lekcijah · ${n}`,
 	switcher: {
-		// The genitive after "od": 1 različice, 2+ različic.
-		position: (i, count) =>
-			`${i} od ${slCount(count, ['različice', 'različic', 'različic', 'različic'])}`,
-		previous: 'Prejšnja različica',
-		next: 'Naslednja različica',
-		of: (move) => `Različice figure: ${move}`,
-		tabs: (move) => `Različice figure: ${move}`,
-		tab: 'Različica',
+		// The genitive after "od": 1 figure, 2+ figur.
+		position: (i, count) => `${i} od ${slCount(count, ['figure', 'figur', 'figur', 'figur'])}`,
+		previous: 'Prejšnja figura',
+		next: 'Naslednja figura',
+		of: (move) => `Figure giba: ${move}`,
+		tabs: (move) => `Figure giba: ${move}`,
+		tab: 'Figura',
 		open: (move) => `Odpri: ${move}`,
-		newOf: (move) => `Figura: ${move}`,
+		newOf: (move) => `Gib: ${move}`,
 		namePlaceholder: 'npr. Doble, Iz križa',
 		copyOf: (variation) =>
 			`Začne kot kopija: ${variation}. Prevzame drže, začetek in dolžino ter opombe, posnetkov ne. Spremenite jih z Uredi.`
@@ -174,31 +173,30 @@ export const figure: Catalog['figure'] = {
 	moveTo: {
 		title: (variation) => `Premakni »${variation}« v\u00a0…`,
 		label: (variation) => `Premik · ${variation}`,
-		ownMove: 'Nova, samostojna figura',
-		ownMoveMeta: (variation) => `Postane njena prva različica: ${variation}`,
-		newName: 'Ime nove figure',
-		join: 'Ali jo dodajte k drugi figuri',
-		noOthers: 'Drugih figur še ni.',
-		move: 'Figura',
-		choose: 'Izberite figuro\u00a0…',
-		pickTitle: 'Dodaj k figuri',
-		search: 'Iskanje figur',
-		moves: 'Figure',
-		nameIn: (move) => `Ime v figuri: ${move}`,
-		ctaLast: 'Premakni in odstrani figuro',
+		ownMove: 'Nov, samostojen gib',
+		ownMoveMeta: (variation) => `Postane njegova prva figura: ${variation}`,
+		newName: 'Ime novega giba',
+		join: 'Ali jo dodajte k drugemu gibu',
+		noOthers: 'Drugih gibov še ni.',
+		move: 'Gib',
+		choose: 'Izberite gib\u00a0…',
+		pickTitle: 'Dodaj h gibu',
+		search: 'Iskanje gibov',
+		moves: 'Gibi',
+		nameIn: (move) => `Ime v gibu: ${move}`,
+		ctaLast: 'Premakni in odstrani gib',
 		ctaTo: (move) => `Premakni v: ${move}`,
-		ctaOwn: 'Premakni v novo figuro',
-		clash: (move, name) =>
-			`Različica s tem imenom že obstaja: ${move} · ${name}. Izberite drugo ime.`
+		ctaOwn: 'Premakni v nov gib',
+		clash: (move, name) => `Figura s tem imenom že obstaja: ${move} · ${name}. Izberite drugo ime.`
 	},
 	refused: {
-		notAdded: 'Za vadenje dodajte lekcijo s to različico.',
-		names: 'Vpišite ime različice (do 200 znakov).',
-		timing: (max) => `Različica se začne na eni od dob 1–8 in traja od 1 do ${max} dob.`,
-		newMoveName: 'Vpišite ime nove figure (do 200 znakov).',
+		notAdded: 'Za vadenje dodajte lekcijo s to figuro.',
+		names: 'Vpišite ime figure (do 200 znakov).',
+		timing: (max) => `Figura se začne na eni od dob 1–8 in traja od 1 do ${max} dob.`,
+		newMoveName: 'Vpišite ime novega giba (do 200 znakov).',
 		pickTarget: 'Izberite, kam jo želite premakniti.',
-		sameMove: (variation, move) => `Različica je že v tej figuri: ${move} · ${variation}.`,
-		alreadyPractised: 'To različico že vadite samostojno.',
+		sameMove: (variation, move) => `Figura je že v tem gibu: ${move} · ${variation}.`,
+		alreadyPractised: 'To figuro že vadite samostojno.',
 		recordingGone: 'Ta posnetek je bil že odstranjen.',
 		pickSection: 'Izberite odsek.',
 		linkGone: 'Ta povezava je bila že odstranjena.',

@@ -32,7 +32,7 @@ describe('MOVES_SEGMENTS', () => {
 });
 
 describe('MOVES_SEGMENTS in Slovenian', () => {
-	it('is Figure, Kombinacije, Položaji (the tab is Figure, a move is figura)', () => {
+	it('is Figure, Kombinacije, Položaji (the tab is Figure, a move is gib)', () => {
 		expect(withLocale('sl', () => MOVES_SEGMENTS.map((s) => s.label))).toEqual([
 			'Figure',
 			'Kombinacije',

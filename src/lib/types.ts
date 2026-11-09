@@ -213,6 +213,8 @@ export interface LessonItem {
 	team: { id: number; name: string } | null;
 	/** The group a person's own lesson was kept or copied from; null otherwise. */
 	copyOf: string | null;
+	/** Its other copies the person reads (the Lessons list): a Clone chip. */
+	copies?: number;
 	/** Stands for its twins in the Lessons list (board C7): the "Twins" chip. */
 	twinned?: boolean;
 	/** With `twinned`: the other members of the set, so the open lesson can light the row. */
@@ -413,6 +415,8 @@ export type FigureRow = {
 	id: number;
 	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
 	differ?: number;
+	/** Its other copies the person reads (Moves lists; 0 or absent when none). */
+	copies?: number;
 	/** The figure's own name — "Doble". */
 	name: string;
 	/** "Enchufla · Doble". */
@@ -444,16 +448,25 @@ export interface MoveTarget {
 	variations: string[];
 }
 
-/** One live variation of the figure being viewed, as its variations sheet lists it. */
+/**
+ * One figure of the move being viewed, as its switcher lists it: the move's own,
+ * and those of the same-named moves the Figures list merges with it.
+ */
 export interface SiblingSummary {
 	id: number;
 	/** The variation's own name — "Doble". */
 	name: string;
+	/** The group it is from, marked as on the Figures list; null for the person's own (and in group mode). */
+	team: TeamRef | null;
+	/** Its other copies the person reads (a group's copy of yours folds into your row): "2 copies". */
+	copies: number;
+	/** It stands for its twins (Same as…), as the Figures list folds them: a Twins chip. */
+	twins: boolean;
 	/** "Cross-hand → Open two hands": each side joined with " / ", an untagged side empty; "No position" when both are. */
 	holds: string;
 	/** "Starts on 5 · 4 counts". */
 	timing: string;
-	/** Its recordings, video and audio alike. */
+	/** What its Recordings list holds: recordings, linked sections and links (`recordingsCount`). */
 	videos: number;
 }
 
@@ -471,6 +484,8 @@ export interface RoutineItem {
 	id: number;
 	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
 	differ?: number;
+	/** Its other copies the person reads (Moves lists): a Clone chip. */
+	copies?: number;
 	name: string;
 	notes: string | null;
 	/** Slots, children counted as one. */
@@ -1127,6 +1142,8 @@ export interface PositionSummary {
 export interface PositionListRow extends PositionSummary {
 	/** Copies of it that differ (0 or absent when in step). */
 	differ?: number;
+	/** Its other copies the person reads: a Clone chip. */
+	copies?: number;
 	inCount: number;
 	outCount: number;
 	deadEnd: boolean;

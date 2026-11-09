@@ -23,6 +23,7 @@ export function figureRowParts(
 	if (f.recordings > 0) {
 		parts.push({ text: w.nouns.recordings(f.recordings), status: false });
 	}
+	// A row with copies says so in its Clone chip (`cloneChip`), as a twin's does, not here.
 	if (!f.hasSection) parts.push({ text: w.moves.row.noSection, status: true });
 	if (!f.hasLesson) parts.push({ text: w.moves.row.noLesson, status: true });
 	const differs = differLabel(f.differ);

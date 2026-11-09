@@ -6,8 +6,8 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   a pure function of the sets' days and faces (`sets.rating`), replayed per
   request (`src/lib/schedule/`); `today_picks` keeps only the person's choices
   for one day (Next N, add, skip), never what is due. There is no frequency
-  to set: the gap is earned from the faces. The one exception is a drill's
-  **Comes back** (`exercises.comes_back`): "every day until it feels good" or a
+  to set: the gap is earned from the faces. The one exception is an exercise's
+  **Comes back** (`exercises.comes_back`, any type since 2026-11-09; a drill's only before): "every day until it feels good" or a
   fixed rhythm of 1, 2, 3 or 7 days, the person's choice. Even then what is due
   is worked out from the sets, never stored. A **warm-up** (`exercises.warmup`)
   sits outside the daily number.

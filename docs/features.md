@@ -64,7 +64,7 @@ and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
 see
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
-and run the day, plan 1 (slower gaps; Comes back on a drill, by how it went or on
+and run the day, plan 1 (slower gaps; Comes back on any exercise since 2026-11-09, a drill only before; by how it went or on
 a fixed rhythm; Warm-up, its own list first on Today and outside the daily
 number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
 and run the day, plan 2 (one exercise page per type, with Practise with, a drill's
@@ -100,8 +100,10 @@ where its music starts, measured by the worker; see
 and a group's + and one figure form (a group page's lessons by month; the band's + opens
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
 switching into the group; every New figure takes its move from one Move field that can
-also make a new move (`PickerField`'s create, `moveFromQuery`); Edit asks no move name; a
-group's own heading on the Moves lists (`GroupHeading`); thin scrollbars in the app's colours; see
+also make a new move (`PickerField`'s create, `moveFromQuery`); Edit asks no move name; the
+groups' figures, routines and positions mixed in among yours on the Moves lists, a group's
+figures under your move of the same name, each marked with its group as on Lessons
+(`GroupMark`, 2026-11-09); thin scrollbars in the app's colours; see
 [`docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md`](docs/superpowers/specs/2026-11-08-group-add-and-one-figure-form-design.md))
 and Spotify links and playlists (a Spotify song link in Add a song is found on YouTube by the
 home worker; "Audio from" and Use another YouTube link on a song, reaching its copies kept in

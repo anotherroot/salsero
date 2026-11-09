@@ -188,7 +188,7 @@ export const exercise = {
 		next: (name: string): string => `Next: ${name}`,
 		/** The run's pinned bar: on without saving, this run only. */
 		skip: 'Skip',
-		/** A fixed rhythm's Done in a run: saves and goes on. */
+		/** Done in a run: saves (a fixed rhythm at once, else a face) and goes on. */
 		doneNext: 'Done · next'
 	},
 	/** What a refused log or page action says. */

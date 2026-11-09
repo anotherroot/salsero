@@ -67,7 +67,6 @@ export function scheduleStates(
 				r.createdAt,
 				byExercise.get(r.id) ?? [],
 				effectiveComesBack(
-					r.source,
 					parseComesBack(r.own),
 					r.source === 'added' ? parseComesBack(r.drill) : null
 				),
@@ -99,11 +98,7 @@ function scheduleInputsOf(db: Db, exerciseId: number): DoneInput {
 		startGap: row.everyDays,
 		createdAt: row.createdAt,
 		sets: rows,
-		comesBack: effectiveComesBack(
-			row.source,
-			parseComesBack(row.comesBack),
-			parseComesBack(teacher?.comesBack)
-		)
+		comesBack: effectiveComesBack(parseComesBack(row.comesBack), parseComesBack(teacher?.comesBack))
 	};
 }
 

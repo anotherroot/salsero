@@ -315,7 +315,7 @@ describe('chrome in Slovenian', () => {
 			label: 'Poveži to točko'
 		});
 		expect(sl(() => linkEntry([], true, 'editor'))).toMatchObject({
-			text: 'Poveži z različico, vajo ali položajem'
+			text: 'Poveži z figuro, vajo ali položajem'
 		});
 		expect(sl(() => linkEntry([], true, 'editor', true))).toMatchObject({
 			text: 'Poveži s položajem'

@@ -97,13 +97,13 @@ describe('doneBar', () => {
 			kind: 'primary'
 		});
 	});
-	it('is the green Done · next for a fixed rhythm in a run', () => {
-		expect(doneBar({ doneToday: false, fixedInRun: true })).toEqual({
+	it('is Done · next in a run, the same colour as Done', () => {
+		expect(doneBar({ doneToday: false, inRun: true })).toEqual({
 			label: 'Done · next',
-			kind: 'done'
+			kind: 'primary'
 		});
 		// Done today already: as outside a run.
-		expect(doneBar({ doneToday: true, fixedInRun: true }).kind).toBe('done-soft');
+		expect(doneBar({ doneToday: true, inRun: true }).kind).toBe('done-soft');
 	});
 });
 
@@ -132,9 +132,7 @@ describe('in Slovenian', () => {
 		expect(
 			sl(() => doneSubtitle({ seconds: 252, learning: null, day: null, name: 'X', next: 'Y' }))
 		).toBe('4:12 · Naslednja: Y');
-		expect(sl(() => doneBar({ doneToday: false, fixedInRun: true }).label)).toBe(
-			'Opravljeno · naprej'
-		);
+		expect(sl(() => doneBar({ doneToday: false, inRun: true }).label)).toBe('Opravljeno · naprej');
 	});
 	it('words the bar', () => {
 		expect(sl(() => doneBar({ doneToday: true }).label)).toBe('Opravljeno danes');

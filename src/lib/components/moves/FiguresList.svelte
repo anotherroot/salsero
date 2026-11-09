@@ -19,14 +19,13 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
-	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
+	import GroupMark from '$lib/components/moves/GroupMark.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
 	import { figureRows } from '$lib/picker/build';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
-		groupMeta,
 		figuresHeading,
 		filterChips,
 		filterQuery,
@@ -36,9 +35,16 @@
 		type FigureChip,
 		type FigureFilter
 	} from '$lib/moves/figures';
-	import { figuresView, parseFigureFilter, type FiguresLists } from '$lib/moves/filter';
+	import {
+		figuresView,
+		mergeGroups,
+		parseFigureFilter,
+		type FiguresLists,
+		type MergedFigure,
+		type MergedMove
+	} from '$lib/moves/filter';
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
-	import { twinsChip } from '$lib/clones/twins';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
 	import { t } from '$lib/i18n/catalog';
 	import { presetLine, withoutPreset } from '$lib/positions/view';
@@ -46,10 +52,11 @@
 	import type { OpenRow } from '$lib/nav/moves-pane';
 
 	/**
-	 * The Figures list: Coverage, the search and chips, each move's figures, then
-	 * each group's. The (moves) layout renders it once (`ListPane`), so it is the
-	 * phone's list page and, on the desktop, the column beside an open figure,
-	 * move or Coverage. Its form posts to the list route's action by name (a bare
+	 * The Figures list: Coverage, the search and chips, then each move's figures,
+	 * the groups' mixed in under the same moves, each marked with its group. The
+	 * (moves) layout renders it once (`ListPane`), so it is the phone's list page
+	 * and, on the desktop, the column beside an open figure, move or Coverage.
+	 * Its form posts to the list route's action by name (a bare
 	 * `?/create` would post to the open page), and a refusal is read from the
 	 * submit's result: beside an item SvelteKit applies no `form` here.
 	 *
@@ -143,14 +150,18 @@
 	});
 
 	const view = $derived(figuresView(lists, filter));
+	// The groups' figures under the same moves as the person's, as Lessons mixes them in.
+	const moves = $derived(mergeGroups(view.figures, view.groups));
 	// The figures that stand for their twins (board C7 p3): a "Twins" chip.
 	const twinned = $derived(new Set(view.twinned));
-	const count = $derived(view.figures.length);
-	const figureCount = $derived(view.figures.reduce((n, m) => n + m.figures.length, 0));
-	// Group mode has no coverage (null): its heading carries no "Yours".
+	const count = $derived(moves.length);
+	const figureCount = $derived(moves.reduce((n, m) => n + m.figures.length, 0));
+	// Group mode has no coverage (null): its heading carries no "Yours"; nor does
+	// a list with a group's figures in it.
 	const inGroup = $derived(lists.unrouted === null);
+	const withGroups = $derived(moves.some((m) => m.figures.some((f) => f.team)));
 	const heading = $derived(
-		inGroup && !filter.unlinked
+		(inGroup || withGroups) && !filter.unlinked
 			? movesHeading(
 					{ moves: count, figures: figureCount },
 					!!(filter.q || filter.style || filter.partner || filter.sync),
@@ -221,11 +232,7 @@
 	const isOpen = (kind: 'figure' | 'move', id: number) => open?.kind === kind && open.id === id;
 </script>
 
-{#snippet figureRow(
-	f: (typeof view.figures)[number]['figures'][number],
-	showLacks: boolean,
-	tags: Map<number, string>
-)}
+{#snippet figureRow(f: MergedFigure, tags: Map<number, string>)}
 	{@const lit = isOpen('figure', f.id)}
 	{@const tag = tags.get(f.id)}
 	<a
@@ -241,10 +248,14 @@
 				>
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+				<!-- A figure with clones (copies in your app or a group's), marked as a twin is. -->
+				{#if (f.copies ?? 0) > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
 			</span>
+			<!-- A group's figure: its group, as a group's lesson shows it on the Lessons list. -->
+			{#if f.team}<GroupMark name={f.team.name} />{/if}
 			<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
 			<span class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted">
-				{#each figureRowParts(showLacks ? f : { ...f, hasSection: true, hasLesson: true }) as part, i (part.text)}
+				{#each figureRowParts(f.team ? { ...f, hasSection: true, hasLesson: true } : f) as part, i (part.text)}
 					<span class="whitespace-nowrap"
 						>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
 							class={part.status
@@ -268,7 +279,7 @@
 
 <!-- A move's name over its figures: the heading opens the move's page. A move
      that groups' twins folded into says where else it is (board C7 p3). -->
-{#snippet moveSection(m: (typeof view.figures)[number], showLacks: boolean)}
+{#snippet moveSection(m: MergedMove)}
 	{@const lit = isOpen('move', m.id)}
 	<!-- Two figures of one move that share a name: a copy says where it came from. -->
 	{@const tags = fromTags(m.figures)}
@@ -291,13 +302,13 @@
 		</div>
 		<div class={GROUP}>
 			{#each m.figures as f (f.id)}
-				{@render figureRow(f, showLacks, tags)}
+				{@render figureRow(f, tags)}
 			{/each}
 		</div>
 	</section>
 {/snippet}
 
-{#if empty === 'none' && view.groups.length === 0}
+{#if empty === 'none'}
 	<div class="h-10 flex-none"></div>
 	<EmptyState icon="moves" title={t().moves.figures.empty} body={t().moves.figures.emptyBody}>
 		{#snippet action()}
@@ -387,37 +398,13 @@
 			body={t().moves.figures.allLinkedBody}
 		/>
 	{:else if empty === 'no-match'}
-		{#if view.groups.length === 0}<EmptyState
-				icon="search"
-				title={t().moves.figures.noMatch}
-			/>{/if}
-	{:else if empty === 'none'}
-		<!-- Only a group's figures so far: the person's own list starts here. -->
-		<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
-			{t().moves.figures.noneOwn}
-		</p>
+		<EmptyState icon="search" title={t().moves.figures.noMatch} />
 	{:else}
 		<h2 class="{SECTION_LABEL} pt-0.5">{heading}</h2>
-		{#each view.figures as m (m.id)}
-			{@render moveSection(m, true)}
+		{#each moves as m (m.id)}
+			{@render moveSection(m)}
 		{/each}
 	{/if}
-
-	<!-- Each group's moves from the lessons the person added: viewed and practised, under the group's own heading. -->
-	{#each view.groups as g (g.team.id)}
-		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<GroupHeading
-				name={g.team.name}
-				meta={groupMeta(
-					'figure',
-					g.moves.reduce((n, m) => n + m.figures.length, 0)
-				)}
-			/>
-			{#each g.moves as m (m.id)}
-				{@render moveSection(m, false)}
-			{/each}
-		</section>
-	{/each}
 {/if}
 
 {#if creating}

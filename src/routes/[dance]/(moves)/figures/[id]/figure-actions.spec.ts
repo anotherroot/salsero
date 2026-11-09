@@ -75,36 +75,36 @@ describe('the figure page in Slovenian', () => {
 		expect(await sl(() => act('update', doble, save({ name: 'Básica' })))).toMatchObject({
 			status: 400,
 			data: {
-				message: 'Različica s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
+				message: 'Figura s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
 			}
 		});
 		expect(await sl(() => act('update', doble, save({ figureName: 'Setenta' })))).toMatchObject({
-			data: { message: 'Figura s tem imenom že obstaja: Setenta.' }
+			data: { message: 'Gib s tem imenom že obstaja: Setenta.' }
 		});
 	});
 
 	it('refuses a blank name and a timing out of range', async () => {
 		expect(await sl(() => act('update', doble, save({ name: ' ' })))).toMatchObject({
-			data: { message: 'Vpišite ime različice (do 200 znakov).' }
+			data: { message: 'Vpišite ime figure (do 200 znakov).' }
 		});
 		expect(await sl(() => act('update', doble, save({ lengthCounts: '0' })))).toMatchObject({
 			data: {
-				message: 'Različica se začne na eni od dob 1–8 in traja od 1 do 64 dob.'
+				message: 'Figura se začne na eni od dob 1–8 in traja od 1 do 64 dob.'
 			}
 		});
 	});
 
 	it('New figure and Move to… refuse in Slovenian', async () => {
 		expect(await sl(() => act('createVariation', doble, { name: '' }))).toMatchObject({
-			data: { message: 'Vpišite ime različice (do 200 znakov).' }
+			data: { message: 'Vpišite ime figure (do 200 znakov).' }
 		});
 		expect(await sl(() => act('createVariation', doble, { name: 'Básica' }))).toMatchObject({
 			data: {
-				message: 'Različica s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
+				message: 'Figura s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
 			}
 		});
 		expect(await sl(() => act('move', doble, { target: 'new', figureName: '' }))).toMatchObject({
-			data: { message: 'Vpišite ime nove figure (do 200 znakov).' }
+			data: { message: 'Vpišite ime novega giba (do 200 znakov).' }
 		});
 		expect(await sl(() => act('move', doble, { target: 'x' }))).toMatchObject({
 			data: { message: 'Izberite, kam jo želite premakniti.' }
@@ -114,7 +114,7 @@ describe('the figure page in Slovenian', () => {
 	it('Practise, a recording and a link already gone', async () => {
 		addFigureExercise(db, 'u1', basica);
 		expect(await sl(() => act('practise', basica))).toMatchObject({
-			data: { message: 'To različico že vadite samostojno.' }
+			data: { message: 'To figuro že vadite samostojno.' }
 		});
 		expect(await sl(() => act('deleteRecording', basica, { recordingId: '999' }))).toMatchObject({
 			data: { message: 'Ta posnetek je bil že odstranjen.' }
