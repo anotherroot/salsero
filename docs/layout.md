@@ -557,7 +557,12 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start, the r
                      Skip, the player's `from`; `TodayPane.autoOpened`: on the desktop the
                      exercise Today opened by itself, whose clock waits for a tap: `page-clock.svelte.ts`
                      takes `{ idle: true }` and `start()`); the Done sheet and band take `place`/`next`
-                     from `done-view.ts`.
+                     from `done-view.ts`. A past day (`?day=`) is the list route's own page:
+                     `components/today/PastDay.svelte` (one row per exercise, also the desktop's day so
+                     far), `DayTiles.svelte` (its tiles and Done for today's), `DayStrip.svelte` (‹ the day ›
+                     and Today under the title; the slim band's buttons are `Screen`'s `slimRight`) and
+                     `CalendarSheet.svelte`; `lib/exercises/calendar.ts` is PURE: exercises per day
+                     (`dayCounts`) and the months (`calendarMonths`).
                      `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list

@@ -77,6 +77,10 @@ page, `?run=1&skip=…`, warm-ups first, with Skip | Done, "3 of 7" and "Next: �
 in the Done sheet; Done for today at `/[dance]/done`; the hero's time estimate;
 the player's Back keeps the run; on the desktop the exercise Today opens by itself
 waits for a tap before its clock counts; plans 1, 2 and 3 are all built)
+and past days (a day reads like Done for today: tiles, one row per exercise that opens its
+Done sheet, Add an exercise to this day; a day strip ‹ day › with Today, and a calendar of
+months with each day's count; see
+[`docs/superpowers/specs/2026-11-09-past-days-design.md`](docs/superpowers/specs/2026-11-09-past-days-design.md))
 and levels (how much app a person sees: Follow my class, Practise and keep my
 own, Everything; a first run that asks, with a class code; class lessons that
 come to Today by themselves; My class; a simple lesson page, video player,
