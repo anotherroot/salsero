@@ -13,7 +13,7 @@ import {
 } from '../../db/schema';
 import { makeWorld, type World } from '../../sync/test-world';
 import { updateVariation } from '../../figures';
-import { KINDS, type Who } from '.';
+import { KINDS, type Ran, type Who } from '.';
 import './all';
 
 const T = 1_800_000_000_000;
@@ -40,9 +40,9 @@ function queued(db: Db, kind: string, payload: Record<string, unknown>, who: Who
 			db.transaction(() => k.undo!(db, who, parsed.args, result, T))
 	};
 }
-const ran = (r: { ok: boolean }) => {
+const ran = (r: Ran) => {
 	if (!r.ok) throw new Error(JSON.stringify(r));
-	return (r as { result: Record<string, unknown> }).result;
+	return r.result;
 };
 
 describe('the edit kinds write through the form`s own functions', () => {
