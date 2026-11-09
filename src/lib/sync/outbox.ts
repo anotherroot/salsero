@@ -31,7 +31,8 @@ export type WireEntry = {
 	minted: Record<string, number[]>;
 	rows: CapturedRow[];
 };
-export type PushRequest = { device: string; entries: WireEntry[] };
+/** `user`: the copy's person, whose entries these are; the server refuses them under another session. */
+export type PushRequest = { device: string; user: string; entries: WireEntry[] };
 export type RefusalReason =
 	'clash' | 'gone' | 'stale' | 'refused' | 'access' | 'error' | 'not-allowed' | 'bad-ids';
 export type EntryResult =

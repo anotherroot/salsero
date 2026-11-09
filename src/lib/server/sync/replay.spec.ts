@@ -94,7 +94,7 @@ function entry(
 }
 
 const pushAll = (entries: WireEntry[], o = opts()) =>
-	push(db, run, 'u1', { device: 'dev-test-1', entries }, o);
+	push(db, run, 'u1', { device: 'dev-test-1', user: 'u1', entries }, o);
 
 const done = (exerciseId: number, over: Partial<WireEntry> = {}) =>
 	entry(
@@ -296,7 +296,7 @@ describe('push', () => {
 			db,
 			throwing,
 			'u1',
-			{ device: 'dev-test-1', entries: [done(ex)] },
+			{ device: 'dev-test-1', user: 'u1', entries: [done(ex)] },
 			opts()
 		);
 		expect(out.results[0]).toMatchObject({ state: 'refused', reason: 'error' });
@@ -339,7 +339,7 @@ describe('push, after the Part A review', () => {
 			db,
 			toLogin,
 			'u1',
-			{ device: 'dev-test-1', entries: [done(w.own.u1.exercise)] },
+			{ device: 'dev-test-1', user: 'u1', entries: [done(w.own.u1.exercise)] },
 			opts()
 		);
 		expect(out.results[0]).toMatchObject({ state: 'refused', reason: 'access' });
@@ -363,7 +363,7 @@ describe('push, after the Part A review', () => {
 			db,
 			spy,
 			'u1',
-			{ device: 'dev-test-1', entries: [e] },
+			{ device: 'dev-test-1', user: 'u1', entries: [e] },
 			opts({ session: 'salsa_session=push-session' })
 		);
 		expect(seen.split('; ').sort()).toEqual(['salsa_session=push-session', 'theme=dark']);
@@ -377,7 +377,7 @@ describe('push, after the Part A review', () => {
 		const gate = new WriteGate();
 		let release!: () => void;
 		void gate.exclusive(() => new Promise<void>((r) => (release = r)));
-		const pending = push(db, run, 'u1', { device: 'dev-test-9', entries: [] }, opts({ gate }));
+		const pending = push(db, run, 'u1', { device: 'dev-test-9', user: 'u1', entries: [] }, opts({ gate }));
 		await new Promise((r) => setTimeout(r, 5));
 		expect(
 			db.get<{ n: number }>(

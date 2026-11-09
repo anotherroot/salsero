@@ -885,6 +885,20 @@ describe('writes on the device', () => {
 			expect(meta('signedOut')).toBe('1');
 		});
 
+		it("names the copy's person on every push, and a 409 (another person signed in) keeps the entries", async () => {
+			const users: string[] = [];
+			const { dev } = await writer({
+				fetchPush: async (body: string) => {
+					users.push((JSON.parse(body) as { user: string }).user);
+					return Response.json({ message: 'Not yours' }, { status: 409 });
+				}
+			});
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			expect(await dev.sync()).toBe('signed-out');
+			expect(users).toEqual(['u1']);
+			expect(dev.summary()).toMatchObject({ signedOut: true, waiting: 1 });
+		});
+
 		it('a signed-out page never wipes the copy', async () => {
 			const { dev } = await writer();
 			const sets = count('sets');

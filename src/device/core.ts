@@ -369,7 +369,7 @@ export function createDevice(deps: DeviceDeps): Device {
 			let res: Response;
 			try {
 				res = await deps.fetchPush(
-					JSON.stringify({ device: meta.deviceKey, entries: rows.map(toWire) })
+					JSON.stringify({ device: meta.deviceKey, user, entries: rows.map(toWire) })
 				);
 			} catch (e) {
 				resetSending(db);
@@ -377,7 +377,8 @@ export function createDevice(deps: DeviceDeps): Device {
 				log.warn('[device] push: no network, the changes wait', String(e));
 				return 'offline';
 			}
-			if (res.status === 401) {
+			// 409: the browser is signed in as someone else; theirs wait for their own person.
+			if (res.status === 401 || res.status === 409) {
 				resetSending(db);
 				writeMetaValue(db, 'signedOut', '1');
 				postSummary();

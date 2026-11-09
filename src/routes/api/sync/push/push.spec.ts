@@ -40,7 +40,7 @@ function call(opts: { cookies?: Record<string, string>; body?: unknown; user?: b
 
 describe('POST /api/sync/push', () => {
 	it('refuses no session, a device token and a malformed body', async () => {
-		const body = { device: 'dev-test-1', entries: [] };
+		const body = { device: 'dev-test-1', user: 'u1', entries: [] };
 		expect((await call({ body })).status).toBe(401);
 		createDeviceToken(db, 'u1', 'phone', WORLD_T);
 		expect((await call({ body, user: true })).status).toBe(401);
@@ -54,5 +54,13 @@ describe('POST /api/sync/push', () => {
 		const ok = await call({ cookies, body });
 		expect(ok.status).toBe(200);
 		expect(await ok.json()).toEqual({ slot: 1, results: [] });
+		expect((await call({ cookies, body: { device: 'dev-test-1', entries: [] } })).status).toBe(400);
+	});
+
+	it("refuses another person's changes under this session: they wait for their own person", async () => {
+		db.run(sql`UPDATE users SET dance = 'salsa' WHERE id = 'u1'`);
+		const cookies = { [SESSION_COOKIE]: createSession('u1', db).id };
+		const res = await call({ cookies, body: { device: 'dev-test-1', user: 'u2', entries: [] } });
+		expect(res.status).toBe(409);
 	});
 });

@@ -47,10 +47,11 @@ function readEntry(v: unknown): WireEntry | null {
 function readPush(body: unknown): PushRequest | null {
 	if (!isObj(body)) return null;
 	if (typeof body.device !== 'string' || !KEY.test(body.device)) return null;
+	if (typeof body.user !== 'string' || body.user === '') return null;
 	if (!Array.isArray(body.entries) || body.entries.length > 2 * PUSH_BATCH) return null;
 	const entries = body.entries.map(readEntry);
 	if (entries.some((e) => e === null)) return null;
-	return { device: body.device, entries: entries as WireEntry[] };
+	return { device: body.device, user: body.user, entries: entries as WireEntry[] };
 }
 
 /**
@@ -68,6 +69,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 	const req = readPush(body);
 	if (!req) return json({ message: 'Bad request' }, { status: 400 });
+	// Another person's changes (the copy outlived their session): they wait for them.
+	if (req.user !== session.userId) return json({ message: 'Sign in' }, { status: 409 });
 	return json(
 		await push(getDb(), (r) => event.fetch(r, { credentials: 'omit' }), session.userId, req, {
 			now: serverNow(),
