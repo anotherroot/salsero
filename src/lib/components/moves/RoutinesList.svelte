@@ -15,8 +15,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
-	import { groupMeta } from '$lib/moves/figures';
-	import GroupHeading from '$lib/components/moves/GroupHeading.svelte';
+	import GroupMark from '$lib/components/moves/GroupMark.svelte';
+	import { mixGroups, newestFirst } from '$lib/moves/mix';
 	import {
 		fromClass,
 		routineBadges,
@@ -28,12 +28,14 @@
 	import { anyHidden, hiddenFromMembers, membersNote } from '$lib/moves/members';
 	import { t } from '$lib/i18n/catalog';
 	import type { Dance } from '$lib/dances/dances';
+	import type { RoutineItem, TeamRef } from '$lib/types';
 	import type { OpenRow } from '$lib/nav/moves-pane';
 
 	/**
-	 * The Routines list: the space's routines, then each group's. The (moves)
-	 * layout renders it once (`ListPane`): the phone's list page, and on the
-	 * desktop the column beside an open routine (or a figure opened from one).
+	 * The Routines list: the space's routines, newest first, the groups' mixed in,
+	 * each marked with its group. The (moves) layout renders it once (`ListPane`):
+	 * the phone's list page, and on the desktop the column beside an open routine
+	 * (or a figure opened from one).
 	 * New routine posts to the list route's action by name, and its refusal is
 	 * read from the submit's result, never from `form`.
 	 */
@@ -54,6 +56,8 @@
 		creating?: boolean;
 	} = $props();
 
+	/** A row: the person's own carry what the graph says of them; a group's do not. */
+	type RoutineRow = RoutineItem & { loops?: boolean; breaks?: number };
 	type Refusal = { field?: 'name' | 'notes'; message?: string; name?: string; notes?: string };
 
 	// `?new=1` opens the sheet on arrival, as it does on Figures.
@@ -74,6 +78,14 @@
 		new URLSearchParams(isList ? page.url.searchParams : held).get('sync') === '1'
 	);
 	const view = $derived(routinesView(lists, sync));
+	// The groups' routines among the person's, as Lessons mixes a group's lessons in.
+	const rows = $derived(
+		mixGroups<RoutineRow>(
+			view.routines,
+			view.groups.map((g) => ({ team: g.team, rows: g.routines })),
+			newestFirst
+		)
+	);
 	const syncN = $derived(
 		outOfSyncCount([...lists.routines, ...lists.groups.flatMap((g) => g.routines)])
 	);
@@ -99,17 +111,7 @@
 	}
 </script>
 
-{#snippet routineRow(
-	routine: {
-		id: number;
-		name: string;
-		slots: number;
-		membersSee?: boolean;
-		classDay?: string | null;
-		differ?: number;
-	},
-	badges: RoutineBadge[]
-)}
+{#snippet routineRow(routine: RoutineRow & { team: TeamRef | null }, badges: RoutineBadge[])}
 	{@const lit = open?.kind === 'routine' && open.id === routine.id}
 	<a
 		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
@@ -122,6 +124,8 @@
 	>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{routine.name}</span>
+			<!-- A group's routine: its group, as a group's lesson shows it on the Lessons list. -->
+			{#if routine.team}<GroupMark name={routine.team.name} />{/if}
 			<span
 				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
 			>
@@ -177,34 +181,26 @@
 			keepFilter(listPath, held, held);
 		}}
 	/>
-	{#if sync && view.routines.length === 0 && view.groups.length === 0}
+	{#if sync && rows.length === 0}
 		<EmptyState icon="check-circle" title={SYNC_EMPTY.title} body={SYNC_EMPTY.body} />
 	{/if}
-	{#if view.routines.length > 0}
+	{#if rows.length > 0}
 		{#if anyHidden(view.routines)}
 			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
 				{membersNote()}
 			</p>
 		{/if}
-		<h2 class="{SECTION_LABEL} pt-1">{t().nouns.routines(view.routines.length)}</h2>
+		<h2 class="{SECTION_LABEL} pt-1">{t().nouns.routines(rows.length)}</h2>
 		<div class={GROUP}>
-			{#each view.routines as routine (routine.id)}
-				{@render routineRow(routine, routineBadges(routine))}
+			{#each rows as routine (routine.id)}
+				<!-- A group's routine is opened, not edited: no badges about its loop. -->
+				{@render routineRow(
+					routine,
+					routine.team ? [] : routineBadges({ loops: false, breaks: 0, ...routine })
+				)}
 			{/each}
 		</div>
 	{/if}
-
-	<!-- Each group's routines from the lessons the person added: opened, not edited, under the group's own heading. -->
-	{#each view.groups as g (g.team.id)}
-		<section aria-label={g.team.name} class="flex flex-col gap-2">
-			<GroupHeading name={g.team.name} meta={groupMeta('routine', g.routines.length)} />
-			<div class={GROUP}>
-				{#each g.routines as routine (routine.id)}
-					{@render routineRow(routine, [])}
-				{/each}
-			</div>
-		</section>
-	{/each}
 {/if}
 
 <Sheet title={t().moves.newRoutine} open={creating} onclose={close}>

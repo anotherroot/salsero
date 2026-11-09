@@ -22,7 +22,6 @@ export const moves: Catalog['moves'] = {
 			])
 	},
 	heading: {
-		group: 'Skupina',
 		yours: 'Vaše',
 		matching: (n) =>
 			slCount(n, ['figura ustreza', 'figuri ustrezata', 'figure ustrezajo', 'figur ustreza']),
@@ -82,7 +81,6 @@ export const moves: Catalog['moves'] = {
 		allLinked: 'Vse je povezano',
 		allLinkedBody: 'Vsaka figura ima odsek in lekcijo.',
 		noMatch: 'Nobena figura ne ustreza',
-		noneOwn: 'Še nimate svojih figur.',
 		adding: 'Dodajanje figure',
 		add: 'Dodaj figuro',
 		recordingsNext: 'Posnetke lahko dodate v naslednjem koraku.'

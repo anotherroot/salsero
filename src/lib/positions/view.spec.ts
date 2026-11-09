@@ -261,7 +261,6 @@ describe('the list’s heading, rows and chips', () => {
 		expect(v.listHeading(1, true)).toBe('1 position');
 		expect(v.mapRow()).toBe('The map');
 		expect(v.noMatch()).toBe('No positions match');
-		expect(v.noneOwn()).toBe('No positions of your own yet.');
 		expect(v.howExampleLabel()).toBe('A position, a figure, the next position');
 	});
 	it('labels a type, an untyped one as Other', () => {

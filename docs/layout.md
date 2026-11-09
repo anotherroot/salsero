@@ -121,12 +121,16 @@ src/lib/components/positions/  the New / Edit position sheet and its fields, Tem
 src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
-                     filter.ts is the Figures list's filter (chips, search, the entered set).
+                     filter.ts is the Figures list's filter (chips, search, the entered set)
+                     and `mergeGroups` (a group's figures under your move of the same name).
+                     mix.ts mixes a group's rows in among yours (Routines, Positions), each
+                     marked with its group (`components/moves/GroupMark`, the Lessons row's too).
                      sync.ts the out-of-sync card and a row's "N copies differ" (`differ` on a row).
                      segment.ts the three segments, pane.ts the empty pane's words and keeping
                      the lit row in view, routines.ts the Routines list's shape. PURE
 src/lib/positions/filter.ts  PURE: the Positions list's search, chips and gaps, from the
-                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe
+                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe; order.ts the list's
+                     order (`positionOrder`, the server's `sortPositions` too)
 src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf`) and which row
                      is lit (`OpenRow`: figure, move, routine, position, Coverage, No position,
                      the Map row), from the route, the path and the opener. The Figures
