@@ -7,7 +7,7 @@
 import { backgroundWrite } from '$lib/offline/background-write';
 
 export function reportOpen(kind: 'lesson' | 'song' | 'comments', id: number): void {
-	backgroundWrite('/api/opens', {
+	void backgroundWrite('/api/opens', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ kind, id }),

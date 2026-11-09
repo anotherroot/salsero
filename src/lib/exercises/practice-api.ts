@@ -19,7 +19,7 @@ export interface PracticeChoice {
 	config: PracticeConfig;
 }
 
-type Post = (url: string, body: PracticeInput) => void;
+type Post = (url: string, body: PracticeInput) => Promise<void>;
 
 /** `keepalive`, so a flush from a page being left still reaches the server. */
 const postJson: Post = (url, body) =>
@@ -35,8 +35,11 @@ export interface PracticeSaver {
 	readonly known: PracticeInput | null;
 	/** A setting changed: post it once things settle, if it differs from `known`. */
 	change(choice: PracticeChoice): void;
-	/** Post a waiting change now (Play, leaving the page). */
-	flush(): void;
+	/**
+	 * Post a waiting change now (Play, leaving the page). True once that post
+	 * has landed; false at once when nothing was waiting.
+	 */
+	flush(): Promise<boolean>;
 	/** Newer data loaded: it is what the server holds, unless a change of ours is still waiting. */
 	reset(known: PracticeInput | null): void;
 }
@@ -56,13 +59,13 @@ export function practiceSaver(
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	const url = `/${danceSlug}/exercises/${exerciseId}/practice`;
 
-	function flush() {
+	function flush(): Promise<boolean> {
 		if (timer !== null) clearTimeout(timer);
 		timer = null;
-		if (waiting === null) return;
+		if (waiting === null) return Promise.resolve(false);
 		const body = waiting;
 		waiting = null;
-		post(url, body);
+		return Promise.resolve(post(url, body)).then(() => true);
 	}
 
 	return {
@@ -75,7 +78,7 @@ export function practiceSaver(
 			known = next;
 			waiting = next;
 			if (timer !== null) clearTimeout(timer);
-			timer = setTimeout(flush, SAVE_DELAY_MS);
+			timer = setTimeout(() => void flush(), SAVE_DELAY_MS);
 		},
 		flush,
 		reset(loaded) {
