@@ -25,6 +25,7 @@ export const refusals: Catalog['refusals'] = {
 	thatMove: 'ta gib',
 	badRequest: 'Napačna zahteva',
 	badJson: 'Napačen JSON.',
+	crossSite: 'Pošiljanje obrazca z drugega spletnega mesta ni dovoljeno.',
 	couldNotSave: 'Shranjevanje ni uspelo. Poskusite znova.',
 	stale: 'Ta stran je zastarela. Za nadaljevanje jo naložite znova.',
 	sayWhatToRestore: 'Navedite, kaj želite obnoviti.',

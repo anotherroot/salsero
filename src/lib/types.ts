@@ -706,6 +706,16 @@ export interface DeviceRow {
 	lastUsedAt: number | null;
 }
 
+/** A connected AI app in Settings (`src/lib/server/oauth/store.ts`). `host` is shown first: a client can call itself anything. */
+export interface GrantRow {
+	id: number;
+	clientId: string;
+	clientName: string | null;
+	host: string;
+	createdAt: number;
+	lastUsedAt: number | null;
+}
+
 /** What saving a day answers (Today's `done`, the player's `save`): the row, what it held before (a JSON `SetSnapshot`, null for a new day) and the days until it is due, null for a past day. */
 export interface DoneResult {
 	ok: true;

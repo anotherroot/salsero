@@ -1,9 +1,9 @@
 /**
- * "Comes back": how a drill returns to Today. By the faces (the default), on a
- * fixed rhythm, or every day until it has felt good a few times. PURE.
+ * "Comes back": how an exercise returns to Today. By the faces (the default), on a
+ * fixed rhythm, or every day until it has felt good a few times. Every type has
+ * it (2026-11-09; a drill only before). PURE.
  */
 import { t } from '$lib/i18n/catalog';
-import type { Source } from '$lib/labels';
 
 export type ComesBack =
 	| { kind: 'faces' }
@@ -45,13 +45,8 @@ export function parseComesBack(raw: string | null | undefined): ComesBack | null
 
 export const serializeComesBack = (c: ComesBack): string => JSON.stringify(c);
 
-/** Only drills have it: other sources are FACES. Own wins, else the class drill's (entries), else FACES. */
-export function effectiveComesBack(
-	source: Source,
-	own: ComesBack | null,
-	drill: ComesBack | null
-): ComesBack {
-	if (source !== 'custom' && source !== 'added') return FACES;
+/** Own wins, else the class drill's (an entry of a group's drill), else FACES. */
+export function effectiveComesBack(own: ComesBack | null, drill: ComesBack | null): ComesBack {
 	return own ?? drill ?? FACES;
 }
 

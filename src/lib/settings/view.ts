@@ -27,3 +27,13 @@ export function deviceMeta(paired: string, lastUsed: string | null, today: strin
 	const when = ago <= 0 ? w.format.today : ago === 1 ? w.format.yesterday : dateLabel(lastUsed);
 	return w.settings.devices.lastUsed(base, when);
 }
+
+/** A connected AI app's line in Settings: when it was connected, and when it was last used. */
+export function appMeta(connected: string, lastUsed: string | null, today: string): string {
+	const w = t();
+	const base = w.settings.connector.apps.connected(dateLabel(connected));
+	if (lastUsed === null) return base;
+	const ago = daysBetween(lastUsed, today);
+	const when = ago <= 0 ? w.format.today : ago === 1 ? w.format.yesterday : dateLabel(lastUsed);
+	return w.settings.connector.apps.lastUsed(base, when);
+}

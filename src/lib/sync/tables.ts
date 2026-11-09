@@ -60,5 +60,10 @@ export const NEVER_SYNCED: readonly string[] = [
 	'clone_marks',
 	'change_log',
 	// The home worker's playlist queue (worker state): Music's "To pick" waits for the network.
-	'song_imports'
+	'song_imports',
+	// The AI connector's OAuth state: clients, grants and hashed secrets.
+	'oauth_clients',
+	'oauth_grants',
+	'oauth_codes',
+	'oauth_tokens'
 ];

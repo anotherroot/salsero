@@ -149,22 +149,18 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 					? { exerciseId: own.drillId }
 					: null;
 		const item = rowData.exercise;
-		const isDrill = item.source === 'custom' || item.source === 'added';
 		const fromClass = fromClassOf(db, wall.userId, own);
 		return {
 			...rowData,
-			comes: isDrill
-				? ({
-						value: item.comesBack,
-						own: item.comesBackOwn,
-						teacher: item.comesBackTeacher,
-						forClass: false,
-						good:
-							item.comesBack.kind === 'until'
-								? goodDaysOf(db, item.id, item.comesBack.since, tz)
-								: 0
-					} satisfies ComesSettings)
-				: null,
+			// Every type's Comes back (2026-11-09): By how it went unless set.
+			comes: {
+				value: item.comesBack,
+				own: item.comesBackOwn,
+				teacher: item.comesBackTeacher,
+				forClass: false,
+				good:
+					item.comesBack.kind === 'until' ? goodDaysOf(db, item.id, item.comesBack.since, tz) : 0
+			} as ComesSettings | null,
 			/** Warm-up is the person's own: every row of theirs has the switch. */
 			warmupSwitch: item.warmup as boolean | null,
 			music: musicParent ? listMusic(db, musicParent, wall.userId) : [],
@@ -231,7 +227,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		archived: false,
 		notes: row.notes,
 		createdAt: row.createdAt,
-		comesBack: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+		comesBack: effectiveComesBack(parseComesBack(row.comesBack), null),
 		comesBackOwn: parseComesBack(row.comesBack),
 		comesBackTeacher: null,
 		warmup: false,
@@ -253,7 +249,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		music: listMusic(db, { exerciseId: row.id }, wall.userId),
 		comes: canEdit
 			? ({
-					value: effectiveComesBack(row.source, parseComesBack(row.comesBack), null),
+					value: effectiveComesBack(parseComesBack(row.comesBack), null),
 					own: parseComesBack(row.comesBack),
 					teacher: null,
 					forClass: true,

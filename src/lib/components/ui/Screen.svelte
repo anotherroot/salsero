@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { bandMode } from '$lib/nav/band';
+	import { bandMode, bandProgress } from '$lib/nav/band';
+	import { bandCollapse, scrollDriven } from '$lib/components/shell/band-collapse';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
@@ -66,8 +67,56 @@
 	} = $props();
 
 	let scrollY = $state(0);
-	const mode = $derived(bandMode(scrollY, compact, desk.current));
+	let innerWidth = $state(0);
+	/** The sheet and the slim band's height: where the slim band pins (`bandMode`). */
+	let sheet = $state<HTMLElement>();
+	let slimH = $state(0);
+	/*
+	 * The scroll at which the sheet's top edge meets the slim band's bottom: there
+	 * the big band would start to leave, so the slim one takes over. Read again as
+	 * the page scrolls or resizes (a title that wraps, a band that grows).
+	 */
+	const pinAt = $derived.by(() => {
+		void scrollY;
+		void innerWidth;
+		if (!sheet || slimH === 0) return null;
+		return sheet.getBoundingClientRect().top + window.scrollY - slimH;
+	});
+	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
+	/*
+	 * On the way to the pin the big band folds into the slim one: its title shrinks
+	 * into the slim title's place and its buttons move to the slim row
+	 * (`band-collapse.ts`), so at the pin the slim band takes over unseen.
+	 */
+	/*
+	 * The slim title is drawn as the big one shrunk: the big band's optical size
+	 * (Bricolage's opsz axis, 46 or 30) and letter spacing, so at the pin the swap
+	 * changes no letter (at its own 22 px the font would pick wider, lighter shapes).
+	 */
+	const slimType = $derived(
+		compact
+			? "font-variation-settings: 'opsz' 30; letter-spacing: -0.015em"
+			: "font-variation-settings: 'opsz' 46; letter-spacing: -0.02em"
+	);
+	let slimEl = $state<HTMLElement>();
+	const fold = bandCollapse();
+	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
+	const driven = typeof window !== 'undefined' && scrollDriven();
+	$effect(() => {
+		const y = scrollY;
+		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
+		if (desk.current || split === 'item' || !header || !slimEl || pinAt === null) {
+			fold.clear(header, slimEl);
+			return;
+		}
+		// What the rest positions hang on. Not the subtitle's words (an exercise's clock
+		// ticks there every second), only whether there is one.
+		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}`;
+		// Half-pixel steps: a pin that wobbles by a fraction does not rewrite the fold.
+		if (driven) fold.drive(header, slimEl, Math.round(pinAt * 2) / 2, key);
+		else fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
+	});
 
 	/*
 	 * Inside a list's item pane (desktop spec, "A list and the item beside it"), the
@@ -102,7 +151,7 @@
 	);
 </script>
 
-<svelte:window bind:scrollY />
+<svelte:window bind:scrollY bind:innerWidth />
 
 {#if split !== 'item'}
 	<!--
@@ -111,10 +160,16 @@
 	-->
 	<div aria-hidden="true" class="fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-band"></div>
 
-	<!-- The slim band: fixed, fades in once the big one has scrolled away. Never on the desktop. -->
+	<!--
+		The slim band: fixed, there from the pin on. The big band has folded into it by
+		then (title and buttons in its places), so it takes over without a fade. Never
+		on the desktop.
+	-->
 	<div
 		data-slim-band
-		class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] transition-opacity duration-150 motion-reduce:transition-none desk:hidden"
+		bind:this={slimEl}
+		bind:clientHeight={slimH}
+		class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] desk:hidden"
 		class:opacity-0={!slim}
 		class:pointer-events-none={!slim}
 		aria-hidden={slim ? undefined : 'true'}
@@ -132,17 +187,20 @@
 				<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span
-						class="truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-						>{title}</span
+						class="truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+						style={slimType}
+						data-slim-name>{title}</span
 					>
-					<span class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
-						>{subtitle}</span
+					<span
+						class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
+						data-slim-sub>{subtitle}</span
 					>
 				</span>
 			{:else}
 				<span
-					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-					>{title}</span
+					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+					style={slimType}
+					data-slim-name>{title}</span
 				>
 			{/if}
 			{#if right}<div class="flex items-center">{@render right()}</div>{/if}
@@ -174,6 +232,7 @@
 -->
 <svelte:element
 	this={main ? 'main' : 'div'}
+	bind:this={sheet}
 	class="{SHEET} {SHEET_DESK}"
 	class:pt-5={!hero}
 	style="--page-w: {PAGE_WIDTH[width]}px"
