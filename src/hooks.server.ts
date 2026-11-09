@@ -9,6 +9,9 @@ import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
 import { deviceRuntime, deviceUser } from '$lib/server/device-runtime';
+import { gatedRequest, writeGate } from '$lib/server/sync/gate';
+import { replaying } from '$lib/server/replay-context';
+import { setIdSlot } from '$lib/server/db/ids';
 import { needsLevel, needsName } from '$lib/names';
 import { parseLevel } from '$lib/levels/levels';
 import { currentRelease } from '$lib/server/releases';
@@ -32,6 +35,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 	await bootstrap();
 
 	const device = deviceRuntime();
+	// The device mints its new rows' ids in its own slot (offline phase 3).
+	if (device && device.slot !== null) setIdSlot(device.slot);
+	// Every write but the sync's own holds the write gate shared, so a replay can run alone.
+	const gated = gatedRequest(
+		event.request.method,
+		event.url.pathname,
+		device !== null,
+		replaying() !== undefined
+	);
+	const pass = (run: () => Promise<Response>) => (gated ? writeGate.shared(run) : run());
 	const session = device ? null : validateSession(event.cookies.get(SESSION_COOKIE));
 	const path = event.url.pathname;
 	// No session: a paired Android app may still sign in with its device
@@ -96,7 +109,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 		// The worker reads no words: English, whatever its cookies say.
 		event.locals.locale = 'en';
-		return resolve(event);
+		return pass(() => Promise.resolve(resolve(event)));
 	}
 
 	// Each dance on its own host (the dance split): the other dance's pages, and a
@@ -115,7 +128,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return new Response(catalogOf(loc).refusals.notFound, { status: 404 });
 
 	// Which app this person uses, noted only for a request this host keeps.
-	if (event.locals.user && appAgent && !device) {
+	if (event.locals.user && appAgent && !device && !replaying()) {
 		noteAppSeen(getDb(), event.locals.user.id, appAgent, serverNow());
 	}
 
@@ -150,9 +163,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// <html> for app.html's script. The language goes into `<html lang>`.
 	const theme = themeChoice(event.cookies.get(THEME_COOKIE));
 	// Every word drawn for this request reads its language from here (`runInLocale`).
-	return runInLocale(loc, () =>
-		resolve(event, {
-			transformPageChunk: ({ html }) => fillLang(fillEpoch(fillTheme(html, theme)), loc)
-		})
+	return pass(() =>
+		Promise.resolve(
+			runInLocale(loc, () =>
+				resolve(event, {
+					transformPageChunk: ({ html }) => fillLang(fillEpoch(fillTheme(html, theme)), loc)
+				})
+			)
+		)
 	);
 };

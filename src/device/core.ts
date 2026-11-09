@@ -19,7 +19,12 @@ import { readMeta, type SqliteDb } from './migrate';
 import { DeviceRequest } from './request';
 
 /** What the server code reads to know it runs on the device (`$lib/server/device-runtime`). */
-export type DeviceRuntime = { userId: string; cookies: Record<string, string> };
+export type DeviceRuntime = {
+	userId: string;
+	cookies: Record<string, string>;
+	/** The id slot new rows are minted in (offline phase 3); null until the server hands one out. */
+	slot: number | null;
+};
 
 /** SvelteKit's `server.respond`, bound to the device's client address. */
 export type Responder = (request: Request) => Promise<Response>;
@@ -153,8 +158,10 @@ export function createDevice(deps: DeviceDeps): Device {
 		const meta = readMeta(db);
 		if (meta.userId === null) throw new Error('serve() with no copy');
 		// One object, updated in place: the server reads it on every request.
-		if (runtime) Object.assign(runtime, { userId: meta.userId, cookies: meta.cookies });
-		else deps.setRuntime((runtime = { userId: meta.userId, cookies: meta.cookies }));
+		if (runtime)
+			Object.assign(runtime, { userId: meta.userId, cookies: meta.cookies, slot: meta.slot });
+		else
+			deps.setRuntime((runtime = { userId: meta.userId, cookies: meta.cookies, slot: meta.slot }));
 		serverStart ??= deps.startServer().then(
 			(r) => {
 				respond = r;
