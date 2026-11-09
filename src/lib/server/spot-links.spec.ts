@@ -641,9 +641,7 @@ describe('the refusals in Slovenian', () => {
 		expect(() => sl(() => linkSpot(db, 'u1', point, { figureId }))).toThrow(
 			'Povezati je mogoče le odsek, ne točke.'
 		);
-		expect(() => sl(() => linkSpot(db, 'u1', section, { figureId: 999 }))).toThrow(
-			'Te različice ni.'
-		);
+		expect(() => sl(() => linkSpot(db, 'u1', section, { figureId: 999 }))).toThrow('Te figure ni.');
 		expect(() => sl(() => linkSpot(db, 'u1', 999, { figureId }))).toThrow('Tega odseka ni.');
 		linkSpot(db, 'u1', section, { figureId });
 		expect(() => sl(() => linkSpot(db, 'u1', section, { figureId }))).toThrow('Že povezano.');

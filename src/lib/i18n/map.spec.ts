@@ -48,11 +48,11 @@ describe('the map’s words', () => {
 		sl(() => {
 			const m = t().map;
 			expect(m.summary({ positions: 2, between: 3, none: 0, stranded: 0 })).toBe(
-				'2 položaja · 3 različice med njimi'
+				'2 položaja · 3 figure med njimi'
 			);
 			expect(m.walk.next('Zaprta', 5)).toBe('Naprej od: Zaprta · 5 možnosti');
-			expect(m.walk.status(0, 'x')).toBe('Še ni različic');
-			expect(m.walk.status(2, 'Zaprta')).toBe('2 različici · zdaj: Zaprta');
+			expect(m.walk.status(0, 'x')).toBe('Še ni figur');
+			expect(m.walk.status(2, 'Zaprta')).toBe('2 figuri · zdaj: Zaprta');
 		});
 	});
 	it('Slovenian counts the stranded and the unused, and names a node with the list’s words', () => {
@@ -60,7 +60,7 @@ describe('the map’s words', () => {
 			const m = t().map;
 			// Counts after a colon: the adjective would have to agree with them.
 			expect(m.summary({ positions: 1, between: 1, none: 10, stranded: 4 })).toBe(
-				'1 položaj · 1 različica med njimi · brez položaja: 10 · z vrzeljo: 4'
+				'1 položaj · 1 figura med njimi · brez položaja: 10 · z vrzeljo: 4'
 			);
 			expect([1, 2, 3, 5].map((n) => m.chip.unused(n))).toEqual([
 				'1 neuporabljen položaj',

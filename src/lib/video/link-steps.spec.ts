@@ -189,10 +189,10 @@ describe('the popup’s words in Slovenian', () => {
 	});
 	it('words the opener, the search and the create row', () => {
 		expect(sl(() => linkWords(false))).toEqual({
-			opener: 'Poveži z različico, vajo ali položajem …',
-			placeholder: 'Iskanje različic, vaj in položajev',
+			opener: 'Poveži z figuro, vajo ali položajem …',
+			placeholder: 'Iskanje figur, vaj in položajev',
 			create: [
-				{ key: 'variation', label: 'Različica' },
+				{ key: 'variation', label: 'Figura' },
 				{ key: 'drill', label: 'Vaja' },
 				{ key: 'position', label: 'Položaj' }
 			]

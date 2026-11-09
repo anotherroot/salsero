@@ -386,7 +386,7 @@ describe('the full lesson page in Slovenian', () => {
 
 	it('the + Add, the draft band and Publish', () => {
 		expect(sl(() => ({ ...ADD_LABEL }))).toEqual({
-			figure: 'Dodaj različico',
+			figure: 'Dodaj figuro',
 			routine: 'Dodaj kombinacijo',
 			exercise: 'Dodaj vajo',
 			position: 'Dodaj položaj',

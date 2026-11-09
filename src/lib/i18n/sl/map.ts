@@ -14,14 +14,14 @@ export const map: Catalog['map'] = {
 	info: 'Kako deluje zemljevid',
 	hint: 'Pritisnite položaj, da vidite, kam vodi.',
 	empty:
-		'Še ni položajev. Dodajte jih na strani Položaji in označite, kje se vaše različice začnejo in končajo.',
-	unjoined: 'Vaših položajev še nič ne povezuje: označite začetek in konec različice.',
+		'Še ni položajev. Dodajte jih na strani Položaji in označite, kje se vaše figure začnejo in končajo.',
+	unjoined: 'Vaših položajev še nič ne povezuje: označite začetek in konec figure.',
 	mark: { deadEnd: positions.gaps.deadEnd, orphan: positions.gaps.orphan },
 	twins: 'Dvojčka',
 	// Names are never declined: the place goes in brackets after them.
 	yourTwin: (name) => `${name} (vaš)`,
 	teamTwin: (team, name) => `${name} (skupina: ${team})`,
-	fitsAnywhere: 'Različice brez položaja ustrezajo kjer koli.',
+	fitsAnywhere: 'Figure brez položaja ustrezajo kjer koli.',
 	label: (groupMode) => (groupMode ? 'Zemljevid položajev skupine' : 'Zemljevid vaših položajev'),
 	summary: (n) => {
 		const parts = [nouns.positions(n.positions)];
@@ -53,7 +53,7 @@ export const map: Catalog['map'] = {
 		deadEnd: 'slepa ulica: nič ne gre od tod',
 		orphan: 'nedosegljiv: nič ne pride sem',
 		island: 'otok: odrezan od drugih',
-		arrows: 'Debelejše puščice: več različic · številka: koliko',
+		arrows: 'Debelejše puščice: več figur · številka: koliko',
 		out: 'Vinsko rdeča: kam vodi',
 		in: 'Modra: od kod prihaja',
 		gestures: 'Povečajte z dvema prstoma · dvakrat pritisnite za ves zemljevid'
@@ -75,7 +75,7 @@ export const map: Catalog['map'] = {
 		title: (start) => `Sprehod: ${start}`,
 		status: (n, at) =>
 			n === 0
-				? 'Še ni različic'
+				? 'Še ni figur'
 				: at === null
 					? nouns.figures(n)
 					: `${nouns.figures(n)} · zdaj: ${at}`,
@@ -92,14 +92,14 @@ export const map: Catalog['map'] = {
 		carryOn: (fig) =>
 			`${fig}: konec ni določen, zato lahko sledi karkoli. Za nadaljevanje pritisnite položaj na zemljevidu.`,
 		stuck: (name) => `${name}: od tod ne vodi nič. Razveljavite ali naredite kombinacijo, kot je.`,
-		hint: 'Pritisnite različico spodaj, da jo dodate. Vsaka se začne tam, kjer se je prejšnja končala.',
+		hint: 'Pritisnite figuro spodaj, da jo dodate. Vsaka se začne tam, kjer se je prejšnja končala.',
 		unsaved: 'Sprehod po zemljevidu',
 		defaultName: (start) => `Sprehod: ${start}`,
 		newRoutine: 'Nova kombinacija',
 		name: 'Ime',
 		nameError: 'Kombinaciji dajte ime (do 200 znakov).',
-		noFigures: 'Najprej dodajte vsaj eno različico.',
-		notFound: 'Različice ni mogoče najti',
+		noFigures: 'Najprej dodajte vsaj eno figuro.',
+		notFound: 'Figure ni mogoče najti',
 		create: 'Ustvari kombinacijo',
 		creating: 'Ustvarjanje kombinacije',
 		path: 'Sprehod doslej'

@@ -176,7 +176,7 @@ describe('in Slovenian', () => {
 			'Brez odseka ali lekcije: 4'
 		);
 		expect(sl(() => figuresHeading({ moves: 2, figures: 3 }, { q: 'en' }))).toBe(
-			'3 različice ustrezajo'
+			'3 figure ustrezajo'
 		);
 	});
 

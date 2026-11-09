@@ -776,11 +776,11 @@ describe('in Slovenian', () => {
 				)
 			)
 		).toBe(
-			'Na vašo kopijo preide: različica Setenta · Con giro (s tem položajem), lekcija Mi clase in 2 odseka.'
+			'Na vašo kopijo preide: figura Setenta · Con giro (s tem položajem), lekcija Mi clase in 2 odseka.'
 		);
 		const three = [7, 8, 9].map((id) => ({ id, label: `F${id}` }));
 		expect(sl(() => switchNote(report({ figures: three }), false))).toBe(
-			'Na vašo kopijo preide: 3 različice s tem položajem.'
+			'Na vašo kopijo preide: 3 figure s tem položajem.'
 		);
 		expect(sl(() => switchNote(report(), false))).toBeNull();
 	});
@@ -798,10 +798,10 @@ describe('in Slovenian', () => {
 			)
 		).toEqual(['Vaše · v 1 skupini', 'Vaše · v 2 skupinah', 'Vaše · v 5 skupinah']);
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 1, kind: 'figure' }))).toBe(
-			'Dvojčka · 2 različici'
+			'Dvojčka · 2 figuri'
 		);
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 2, kind: 'figure' }))).toBe(
-			'Dvojčki · 3 različice'
+			'Dvojčki · 3 figure'
 		);
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 4, kind: 'routine' }))).toBe(
 			'Dvojčki · 5 kombinacij'
@@ -839,7 +839,7 @@ describe('in Slovenian', () => {
 					d('fig:g9', 'x')
 				])
 			)
-		).toEqual(['Opombe', '2 posnetka', '1 začetni položaj', '3 končni položaji', '1 različica']);
+		).toEqual(['Opombe', '2 posnetka', '1 začetni položaj', '3 končni položaji', '1 figura']);
 	});
 
 	it('Drop my copy', () => {
@@ -899,7 +899,7 @@ describe('in Slovenian', () => {
 		expect(sl(syncStale)).toBe('Med usklajevanjem se je spremenilo; preverite znova.');
 		expect(sl(syncNoAccess)).toBe('Te kopije ne morete več urejati.');
 		expect(sl(() => nameTaken('Doble', 'Enchufla'))).toBe(
-			'Različica s tem imenom že obstaja: Enchufla · Doble. Najprej eno preimenujte.'
+			'Figura s tem imenom že obstaja: Enchufla · Doble. Najprej eno preimenujte.'
 		);
 	});
 
@@ -967,10 +967,10 @@ describe('in Slovenian', () => {
 		expect(sl(() => [whatGoesTitle(), alreadyThere()])).toEqual(['KAJ SE KOPIRA', 'ŽE TAM']);
 		expect(
 			sl(() => whatGoes({ ...zero, kind: 'lesson', figures: 2, positions: 5, into: team }))
-		).toBe('2 različici · 5 položajev');
+		).toBe('2 figuri · 5 položajev');
 		const lesson = { ...zero, kind: 'lesson' as const, figures: 3, videos: 2, notes: true };
 		const charged = sl(() => whatGoes({ ...lesson, bytes: 1.2 * GB, into: team }));
-		expect(charged).toBe('3 različice · 2 videa (1,2 GB, na račun skupine) · opombe');
+		expect(charged).toBe('3 figure · 2 videa (1,2 GB, na račun skupine) · opombe');
 		expect(charged).toContain('1,2 GB');
 		expect(
 			sl(() => whatGoes({ ...zero, kind: 'lesson', videos: 1, bytes: 5 * MB, into: mine }))
@@ -1089,7 +1089,7 @@ describe('in Slovenian', () => {
 		expect(sl(sameAs)).toBe('Enako kot …');
 		expect(sl(() => sameAsTitle('Enchufla · Doble'))).toBe('Enchufla · Doble · enako kot …');
 		expect(sl(() => twinsNote('figure'))).toBe(
-			'Dvojčki so prikazani kot ena različica. Nikoli se ne usklajujejo in to združitev vidite samo vi.'
+			'Dvojčki so prikazani kot ena figura. Nikoli se ne usklajujejo in to združitev vidite samo vi.'
 		);
 		expect(sl(() => twinsNote('position'))).toContain('kot en položaj.');
 		expect(sl(() => sameAsSearch('routine'))).toBe('Iščite med svojimi kombinacijami');

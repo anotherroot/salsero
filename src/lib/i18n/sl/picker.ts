@@ -24,16 +24,16 @@ export const picker: Catalog['picker'] = {
 	creating: 'Ustvarjanje …',
 	notCreated: 'Tega ni bilo mogoče ustvariti.',
 	moveField: {
-		label: 'Figura',
-		placeholder: 'Izberite ali vnesite figuro …',
-		title: 'Izberite figuro',
-		search: 'Iščite ali poimenujte novo figuro',
-		none: 'Figur še ni. Vnesite ime, da jo ustvarite.',
-		tag: 'Nova figura',
-		group: 'Figure'
+		label: 'Gib',
+		placeholder: 'Izberite ali vnesite gib …',
+		title: 'Izberite gib',
+		search: 'Iščite ali poimenujte nov gib',
+		none: 'Gibov še ni. Vnesite ime, da ga ustvarite.',
+		tag: 'Nov gib',
+		group: 'Gibi'
 	},
 	groups: {
-		figures: 'Različice',
+		figures: 'Figure',
 		routines: 'Kombinacije',
 		drills: 'Vaje',
 		lessons: 'Lekcije',

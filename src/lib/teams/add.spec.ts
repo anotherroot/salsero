@@ -55,10 +55,10 @@ describe('the Add sheet in Slovenian', () => {
 	it('says what the lesson holds in four forms', () => {
 		expect(
 			sl(() => holdsLine({ videos: 1, sections: 6, figures: 5, routines: 1, drills: 2 }))
-		).toBe('1 video · 6 odsekov · 5 različic · 1 kombinacija · 2 vaji');
+		).toBe('1 video · 6 odsekov · 5 figur · 1 kombinacija · 2 vaji');
 		expect(
 			sl(() => holdsLine({ videos: 2, sections: 3, figures: 2, routines: 5, drills: 4 }))
-		).toBe('2 videa · 3 odseki · 2 različici · 5 kombinacij · 4 vaje');
+		).toBe('2 videa · 3 odseki · 2 figuri · 5 kombinacij · 4 vaje');
 		expect(
 			sl(() => holdsLine({ videos: 0, sections: 0, figures: 0, routines: 0, drills: 0 }))
 		).toBe('V njej še ni ničesar');
@@ -84,11 +84,11 @@ describe('the Add sheet in Slovenian', () => {
 		expect(sl(() => (['lesson', 'routine', 'figure', 'drill'] as const).map(addItemKind))).toEqual([
 			'Ponavljanje lekcije',
 			'Kombinacija',
-			'Različica',
+			'Figura',
 			'Vaja'
 		]);
 		expect(sl(figuresCaption)).toBe(
-			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne zasedajo vašega prostora.'
+			'Neoznačene figure so še vedno v zavihku Figure, pod skupino. Ne zasedajo vašega prostora.'
 		);
 	});
 });

@@ -12,8 +12,8 @@
 //   ------------------------------------  ------------------------------------
 //   Today                                 Danes
 //   Moves (tab)                           Figure
-//   a move                                figura
-//   a figure (a version of a move)        različica
+//   a move                                gib (Nov gib, Ime giba; a figura once, until 2026-11-09)
+//   a figure (a version of a move)        figura
 //   Routine                               kombinacija
 //   Drill, exercise                       vaja
 //   Lesson                                lekcija
@@ -36,7 +36,7 @@
 //           Practise and keep my own      Vadim in imam svoje
 //           Everything                    Vse
 //   version (of the app)                  različica aplikacije (always with the noun:
-//                                         a bare "različica" is a figure)
+//                                         a bare "različica" names nothing)
 //   Start (Today's play)                  Začni (what it starts is never named on screen)
 //   the day's practice                    vadba (Današnja vadba je končana)
 //   Paused (an exercise)                  na premoru

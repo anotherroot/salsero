@@ -317,13 +317,13 @@ describe('History in Slovenian', () => {
 					}),
 					names
 				)
-			).toBe('Ana · Arhivirano: različica »Doble«');
+			).toBe('Ana · Arhivirano: figura »Doble«');
 			expect(
 				historyLine(
 					row({ rootKind: 'figure', verb: 'add', subject: 'figure', after: { name: 'Enchufla' } }),
 					names
 				)
-			).toBe('Ana · Ustvarjeno: figura');
+			).toBe('Ana · Ustvarjeno: gib');
 		});
 	});
 
@@ -385,8 +385,8 @@ describe('History in Slovenian', () => {
 				'Ana · Poimenovano: odsek »Vrtenje«'
 			);
 			expect(historyLine(row({ actorId: 'gone' }), names)).toBe('Nekdo · Spremenjeno: opombe');
-			expect(historySubject('figure', 'figure')).toBe('figura');
-			expect(historySubject('lesson', 'variation')).toBe('različica');
+			expect(historySubject('figure', 'figure')).toBe('gib');
+			expect(historySubject('lesson', 'variation')).toBe('figura');
 			expect(previousValue(row({ before: { notes: null }, after: { notes: 'x' } }))).toBe(
 				'(prazno)'
 			);

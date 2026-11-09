@@ -5,7 +5,7 @@ import { nouns } from './nouns';
 export const player: Catalog['player'] = {
 	title: 'Vadenje',
 	pageTitle: (dance) => `Vadenje · ${dance}`,
-	// A routine's figures are versions (glossary: različica).
+	// A routine's figures are versions (glossary: figura).
 	routineLine: (name, figures) => `${name} · ${nouns.figures(figures)}`,
 	voice: 'Glas',
 	recordOwn: 'Posnemite svoje štetje',
@@ -22,7 +22,7 @@ export const player: Catalog['player'] = {
 	or: 'ali',
 	showFull: 'Pokaži kombinacijo čez cel zaslon',
 	closeFull: 'Zapri kombinacijo čez cel zaslon',
-	kind: { figure: 'Različica', drill: 'Vaja', routine: 'Kombinacija' },
+	kind: { figure: 'Figura', drill: 'Vaja', routine: 'Kombinacija' },
 	about: 'Podrobnosti',
 	next: (name) => `Naslednja: ${name}`,
 	closeLayer: 'Zapri',
