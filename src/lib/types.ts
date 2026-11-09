@@ -413,6 +413,8 @@ export type FigureRow = {
 	id: number;
 	/** Copies of it that differ (Moves lists; 0 or absent when in step). */
 	differ?: number;
+	/** Its other copies the person reads (Moves lists; 0 or absent when none). */
+	copies?: number;
 	/** The figure's own name — "Doble". */
 	name: string;
 	/** "Enchufla · Doble". */

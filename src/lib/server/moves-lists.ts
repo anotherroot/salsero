@@ -18,7 +18,7 @@ import { routineClassDays } from './lessons';
 import { classDayLabel } from '$lib/format';
 import type { CloneKind, GroupMode, MoveRow } from '$lib/types';
 import type { Space, Wall } from './scope';
-import { outOfStep } from './clones/step';
+import { copyCounts, outOfStep } from './clones/step';
 import { coverage } from '$lib/routines/coverage';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { noPosition, positionCounts, taggedCount } from '$lib/graph/graph';
@@ -52,13 +52,19 @@ function withDiffer<T extends { id: number }>(
 	return rows.map((r) => ({ ...r, differ: n.get(r.id) ?? 0 }));
 }
 
+/** A list's figures with `differ` and `copies` (how many other copies the person reads). */
 const figureDiffer = (db: Db, userId: string, moves: MoveRow[]): MoveRow[] => {
-	const all = withDiffer(
+	const flat = moves.flatMap((m) => m.figures);
+	const copies = copyCounts(
 		db,
 		userId,
 		'figure',
-		moves.flatMap((m) => m.figures)
+		flat.map((f) => f.id)
 	);
+	const all = withDiffer(db, userId, 'figure', flat).map((f) => ({
+		...f,
+		copies: copies.get(f.id) ?? 0
+	}));
 	const by = new Map(all.map((f) => [f.id, f]));
 	return moves.map((m) => ({ ...m, figures: m.figures.map((f) => by.get(f.id) ?? f) }));
 };
