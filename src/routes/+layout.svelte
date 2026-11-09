@@ -130,11 +130,14 @@
 	 * a navigation is under way), so `navigating` is watched instead.
 	 */
 	let dropped = 0;
+	let watched: Promise<void> | null = null;
 	afterNavigate(() => (dropped = 0));
 	$effect(() => {
 		const complete = navigating.complete;
 		const to = navigating.to;
-		if (!complete || !to) return;
+		// Once per navigation, so a drop goes again once.
+		if (!complete || !to || complete === watched) return;
+		watched = complete;
 		const nav = { complete, href: to.url.href, popstate: navigating.type === 'popstate' };
 		watchDropped(
 			nav,
