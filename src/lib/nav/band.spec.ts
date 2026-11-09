@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAND_FADE, bandMode, slimFade } from './band';
+import { bandMode, bandProgress, lerp } from './band';
 
 describe('bandMode', () => {
 	it('is full or compact at the top', () => {
@@ -23,22 +23,20 @@ describe('bandMode', () => {
 	});
 });
 
-describe('slimFade', () => {
-	it('follows the scroll over the last stretch before the pin', () => {
-		expect(slimFade(0, false, 90)).toBe(0);
-		expect(slimFade(90 - BAND_FADE, false, 90)).toBe(0);
-		expect(slimFade(90 - BAND_FADE / 2, false, 90)).toBe(0.5);
-		expect(slimFade(90, false, 90)).toBe(1);
-		expect(slimFade(500, false, 90)).toBe(1);
+describe('bandProgress', () => {
+	it('folds over the whole way to the pin', () => {
+		expect(bandProgress(0, false, 100)).toBe(0);
+		expect(bandProgress(25, false, 100)).toBe(0.25);
+		expect(bandProgress(100, false, 100)).toBe(1);
+		expect(bandProgress(400, false, 100)).toBe(1);
+		expect(bandProgress(-20, false, 100)).toBe(0);
 	});
-	it('a band that pins within the fade starts it at the top, not before', () => {
-		expect(slimFade(0, false, 20)).toBe(0);
-		expect(slimFade(10, false, 20)).toBe(0.5);
-		expect(slimFade(20, false, 20)).toBe(1);
-		expect(slimFade(0, false, 0)).toBe(1);
+	it('a band that pins at the top is folded already; unmeasured, the band height', () => {
+		expect(bandProgress(0, false, 0)).toBe(1);
+		expect(bandProgress(74, false)).toBe(0.5);
 	});
-	it('before it is measured: the band height', () => {
-		expect(slimFade(148, false)).toBe(1);
-		expect(slimFade(112 - BAND_FADE, true)).toBe(0);
+	it('lerps', () => {
+		expect(lerp(10, 20, 0.5)).toBe(15);
+		expect(lerp(10, 20, 0)).toBe(10);
 	});
 });

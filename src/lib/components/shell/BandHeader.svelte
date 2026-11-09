@@ -153,13 +153,14 @@
 				<div
 					class="flex basis-full items-center gap-1.5 text-band-small {D.groupLine}"
 					data-group-line
+					data-band-fade
 				>
 					<Icon name="people" size={16} />
 					<span class="truncate text-[13px] font-bold">{groupLabel(group.name)}</span>
 				</div>
 			{/if}
 			{#if left}
-				<div class="-ml-[10px] flex {D.left}">
+				<div class="-ml-[10px] flex {D.left}" data-band-left>
 					{@render left()}
 				</div>
 			{/if}
@@ -173,7 +174,7 @@
 					? 'text-[30px] leading-[1.1] tracking-[-0.015em]'
 					: 'text-[46px] leading-[1.05] tracking-[-0.02em]'}"
 			>
-				<span class="line-clamp-2 min-w-0 break-words {D.name}"
+				<span class="line-clamp-2 min-w-0 break-words {D.name}" data-band-name
 					>{#if deskTitle}<span class="desk:hidden">{title}</span><span class="hidden desk:inline"
 							>{deskTitle}</span
 						>{:else}{title}{/if}</span
@@ -183,28 +184,31 @@
 				{#if subtitle}
 					<span
 						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
-						class:pl-[38px]={!!left}>{subtitle}</span
+						class:pl-[38px]={!!left}
+						data-band-sub>{subtitle}</span
 					>
 				{/if}
 				<span
 					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
-					class:pl-[38px]={!!left}>{deskSubtitle}</span
+					class:pl-[38px]={!!left}
+					data-band-fade>{deskSubtitle}</span
 				>
 			{:else if subtitle}
 				<span
 					class="order-last basis-full text-[15px] font-semibold text-band-small {D.sub}"
-					class:pl-[38px]={!!left}>{subtitle}</span
+					class:pl-[38px]={!!left}
+					data-band-sub>{subtitle}</span
 				>
 			{/if}
 		</div>
 		{#if right}
-			<div class="-mr-[10px] ml-2 flex items-center {D.right}">
+			<div class="-mr-[10px] ml-2 flex items-center {D.right}" data-band-right>
 				{@render right()}
 			</div>
 		{/if}
 	</div>
 	{#if extra}
-		<div class="mt-4 {D.extra}">{@render extra()}</div>
+		<div class="mt-4 {D.extra}" data-band-fade>{@render extra()}</div>
 	{/if}
 	{#if below && variant === 'pane'}
 		<div class="hidden desk:block desk:basis-full" data-below>{@render below()}</div>

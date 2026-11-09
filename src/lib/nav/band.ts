@@ -2,9 +2,6 @@
 export const BAND_FULL_H = 148;
 export const BAND_COMPACT_H = 112;
 
-/** How many px of scroll the slim band takes to come in, ending where it pins. */
-export const BAND_FADE = 40;
-
 export type BandMode = 'full' | 'compact' | 'slim';
 
 /**
@@ -26,17 +23,22 @@ export function bandMode(
 }
 
 /**
- * How far the slim band has come in, 0 to 1: it follows the scroll over the last
- * `BAND_FADE` px before it pins, so it is picked up as the page moves, never
- * popped in after.
+ * How far the big band has folded into the slim one, 0 at the top to 1 where it
+ * pins: the title shrinks and moves into the slim band's place over the whole
+ * way (`components/shell/band-collapse.ts`), so at the pin the two are one.
  */
-export function slimFade(scrollY: number, compact: boolean, pinAt: number | null = null): number {
+export function bandProgress(
+	scrollY: number,
+	compact: boolean,
+	pinAt: number | null = null
+): number {
 	const at = pinFrom(compact, pinAt);
-	// A short band pins sooner than the fade is long: the fade starts at the top, not before it.
-	const from = Math.max(0, at - BAND_FADE);
-	if (at <= from) return scrollY >= at ? 1 : 0;
-	return Math.min(1, Math.max(0, (scrollY - from) / (at - from)));
+	if (at <= 0) return 1;
+	return Math.min(1, Math.max(0, scrollY / at));
 }
+
+/** `a` at 0, `b` at 1. */
+export const lerp = (a: number, b: number, p: number): number => a + (b - a) * p;
 
 const pinFrom = (compact: boolean, pinAt: number | null) =>
 	pinAt ?? (compact ? BAND_COMPACT_H : BAND_FULL_H);
