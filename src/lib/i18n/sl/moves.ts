@@ -22,7 +22,6 @@ export const moves: Catalog['moves'] = {
 			])
 	},
 	heading: {
-		group: 'Skupina',
 		yours: 'Vaše',
 		matching: (n) =>
 			slCount(n, [
@@ -87,7 +86,6 @@ export const moves: Catalog['moves'] = {
 		allLinked: 'Vse je povezano',
 		allLinkedBody: 'Vsaka različica ima odsek in lekcijo.',
 		noMatch: 'Nobena različica ne ustreza',
-		noneOwn: 'Še nimate svojih figur.',
 		adding: 'Dodajanje različice',
 		add: 'Dodaj različico',
 		recordingsNext: 'Posnetke lahko dodate v naslednjem koraku.'

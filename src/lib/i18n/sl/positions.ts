@@ -30,7 +30,6 @@ export const positions: Catalog['positions'] = {
 		yours: (n) => `Vaši · ${n}`,
 		mapRow: 'Zemljevid',
 		noMatch: 'Noben položaj ne ustreza',
-		noneOwn: 'Svojih položajev še nimate.',
 		groupNote: 'Položaji skupine. Njene različice lahko označite le z njimi.',
 		templates: 'Predloge',
 		search: 'Iskanje položajev',
