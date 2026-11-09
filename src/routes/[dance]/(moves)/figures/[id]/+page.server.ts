@@ -27,6 +27,7 @@ import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
 import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
 import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
 import { mergedMoveRows } from '$lib/server/moves-lists';
+import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor } from '$lib/server/group-mode';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
@@ -410,6 +411,8 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'figure', id),
 		/** Same as… (board C7): the other figures in your app; none in a group's workspace, which has no twins. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'figure', id) : null,
 		sameAs,
 		/**
 		 * Opened from the person's copy: Take brings a recording into it (`into`),

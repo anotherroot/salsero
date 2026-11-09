@@ -5,6 +5,7 @@ import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figur
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
+import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
@@ -269,6 +270,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),
 		/** Same as… (board C7): the other routines in your app; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'routine', routine.id) : null,
 		sameAs: sameAsOffer(db, wall, 'routine', routine.id, routine.name, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'routine', routine.id),

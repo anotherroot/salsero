@@ -123,6 +123,16 @@ describe('the switcher of a merged move', () => {
 		expect(own).toBeGreaterThan(0);
 	});
 
+	it('Mine from the group’s figure opens your own figure in the move', () => {
+		const d = open('u1', doble) as unknown as { mineHref: string | null };
+		expect(d.mineHref).toBeNull();
+		const own = figureIn(U1_SALSA, 'Enchufla', 'Mine').figure.id;
+		const after = open('u1', doble) as unknown as { mineHref: string | null };
+		expect(after.mineHref).toBe(`/salsa/figures/${own}`);
+		// Your own figure is not in a group's view: no Mine.
+		expect((open('u2', basic) as unknown as { mineHref: string | null }).mineHref).toBeNull();
+	});
+
 	it('the variation order is the list’s even when the opened one sits last', () => {
 		expect(open('u2', vuelta).siblings.map((s) => s.id)).toEqual([basic, vuelta, doble]);
 	});

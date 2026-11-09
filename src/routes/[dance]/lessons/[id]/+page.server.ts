@@ -59,6 +59,7 @@ import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
+import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { readAdd } from '$lib/server/add-form';
@@ -265,6 +266,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		drop: dropOptions(db, wall, 'lesson', found.lesson.id),
 		detach: detachOffer(db, wall.userId, 'lesson', found.lesson.id),
 		/** Same as… (board C7): the other lessons in your app; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'lesson', found.lesson.id) : null,
 		sameAs: sameAsOffer(db, wall, 'lesson', found.lesson.id, found.lesson.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'lesson', found.lesson.id),

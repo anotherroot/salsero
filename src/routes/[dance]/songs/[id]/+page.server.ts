@@ -41,6 +41,7 @@ import {
 	syncFromForm
 } from '$lib/server/take-form';
 import { sameAsOffer } from '$lib/server/twins';
+import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor } from '$lib/server/group-mode';
 import { withView } from '$lib/teams/group-view';
 import { copyOffer } from '$lib/server/clones/copy-to';
@@ -200,6 +201,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		drop: dropOptions(db, wall, 'song', song.id),
 		detach: detachOffer(db, wall.userId, 'song', song.id),
 		/** Same as… (board C7): the other songs in your Music; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'song', song.id) : null,
 		sameAs: sameAsOffer(db, wall, 'song', song.id, song.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'song', song.id),

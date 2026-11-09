@@ -34,6 +34,7 @@ import { viaSections } from '$lib/server/lesson-links';
 import { linkPosition, listLessons, unlinkPosition } from '$lib/server/lessons';
 import { teamRefs, usableOf } from '$lib/server/usable';
 import { getTeam } from '$lib/server/teams';
+import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor } from '$lib/server/group-mode';
 import {
 	actorOf,
@@ -321,6 +322,8 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'position', id),
 		/** Same as… (board C7): the other positions in your app; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'position', id) : null,
 		sameAs: sameAsOffer(db, wall, 'position', id, position.name, inGroupMode),
 		/** A group's position, for a reader: whose it is (the band and the note). */
 		team: groupTeam,
