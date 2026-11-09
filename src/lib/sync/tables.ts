@@ -60,5 +60,8 @@ export const NEVER_SYNCED: readonly string[] = [
 	'clone_marks',
 	'change_log',
 	// The home worker's playlist queue (worker state): Music's "To pick" waits for the network.
-	'song_imports'
+	'song_imports',
+	// Offline phase 3's own bookkeeping: a device's id slot, the entries already replayed.
+	'device_slots',
+	'sync_landed'
 ];

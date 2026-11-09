@@ -16,7 +16,7 @@ import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { SYNCED } from '$lib/sync/tables';
 import type { PullResponse } from '$lib/sync/wire';
 import { migrateDevice, readMeta } from './migrate';
-import { applyPull, deviceDigests, pullRequestOf, wipeCopy } from './apply';
+import { applyPull, deviceDigests, ensureDeviceKey, pullRequestOf, wipeCopy } from './apply';
 import { repoMigrations } from './test-migrations';
 
 let server: Db;
@@ -223,6 +223,25 @@ describe('wipeCopy', () => {
 			n: 0
 		});
 		expect(device.pragma('foreign_keys', { simple: true })).toBe(1);
+	});
+});
+
+describe('the device key and slot', () => {
+	it('keeps the device key and slot through a wipe', () => {
+		const key = ensureDeviceKey(device, () => 'dev-key-0001');
+		expect(ensureDeviceKey(device, () => 'another-key-02')).toBe(key);
+		applyPull(device, { ...pull('u1'), slot: 3 });
+		expect(readMeta(device)).toMatchObject({ deviceKey: key, slot: 3 });
+		wipeCopy(device);
+		expect(readMeta(device)).toMatchObject({ deviceKey: key, slot: 3, userId: null });
+	});
+
+	it('sends its device key with every pull request', async () => {
+		expect((await pullRequestOf(device, SCHEMA_TAG)).device).toBeUndefined();
+		const key = ensureDeviceKey(device, () => 'dev-key-0001');
+		expect((await pullRequestOf(device, SCHEMA_TAG)).device).toBe(key);
+		applyPull(device, pull('u1'));
+		expect((await pullRequestOf(device, SCHEMA_TAG)).device).toBe(key);
 	});
 });
 
