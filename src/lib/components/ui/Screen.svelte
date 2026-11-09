@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { bandMode, bandProgress } from '$lib/nav/band';
-	import { bandCollapse } from '$lib/components/shell/band-collapse';
+	import { bandCollapse, scrollDriven } from '$lib/components/shell/band-collapse';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
@@ -88,15 +88,19 @@
 	 */
 	let slimEl = $state<HTMLElement>();
 	const fold = bandCollapse();
+	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
+	const driven = typeof window !== 'undefined' && scrollDriven();
 	$effect(() => {
 		const y = scrollY;
 		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
 		if (desk.current || split === 'item' || !header || !slimEl || pinAt === null) {
-			fold.clear(header);
+			fold.clear(header, slimEl);
 			return;
 		}
 		const key = `${innerWidth}|${title}|${subtitle ?? ''}|${compact}`;
-		fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
+		// Half-pixel steps: a pin that wobbles by a fraction does not rewrite the fold.
+		if (driven) fold.drive(header, slimEl, Math.round(pinAt * 2) / 2, key);
+		else fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
 	});
 
 	/*
