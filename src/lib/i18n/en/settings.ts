@@ -76,19 +76,7 @@ export const settings = {
 		label: 'Appearance',
 		theme: 'Theme',
 		themeIntro: "System follows the phone's or computer's own light or dark setting.",
-		note: 'For this browser or phone only.',
-		/** TRIAL: the page animations being tried out (`$lib/trial/page-motion`). */
-		motion: 'Page animation (trial)',
-		motionIntro:
-			'Ways of changing pages, on the phone only. Pick one, use the app for a while, then try another.',
-		motions: {
-			off: 'Off',
-			close: 'Closes',
-			slim: 'Closes to the slim band',
-			dip: 'Dips',
-			deep: 'Dips away',
-			swap: 'Dip and swap'
-		}
+		note: 'For this browser or phone only.'
 	},
 	getAppSub: "For your phone's home screen",
 	/** The You page's short list (YouSettings): the rest is Settings' own words. */
