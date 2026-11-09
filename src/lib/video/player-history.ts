@@ -10,7 +10,8 @@
  *
  * Plain TypeScript behind an injected port, so it runs under the node test
  * project; `VideoPlayer.svelte` wires the port to SvelteKit's shallow routing
- * (`pushState`/`replaceState`, depth in `page.state.videoPlayer`). A popstate
+ * (`pushState`/`replaceState`, depth in the entry's `videoPlayer`, read through
+ * `entryState` since a refresh empties `page.state`). A popstate
  * between those entries is shallow to SvelteKit: it updates `page.state` and
  * runs no `beforeNavigate`, so the unsaved-changes guard never sees it.
  */
@@ -105,7 +106,7 @@ export class PlayerHistory {
 		this.port.go(common - this.#stack.length);
 	}
 
-	/** The depth history now holds (`page.state.videoPlayer`); undefined or 0 once it has left the player. */
+	/** The depth history now holds (the entry's `videoPlayer`); undefined or 0 once it has left the player. */
 	sync(depth: number | undefined): void {
 		if (this.#closed) return;
 		if (!depth) {

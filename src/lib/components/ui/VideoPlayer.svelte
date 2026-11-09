@@ -358,9 +358,15 @@
 		return () => document.removeEventListener('fullscreenchange', left);
 	});
 
+	/*
+	 * Run on every change of `page.state`, but the depth is the history entry's
+	 * own (`entryState`, as the sheets read theirs): a refresh (`invalidateAll`,
+	 * e.g. after a write lands from the device) resets `page.state` to {} while
+	 * the entry keeps its depth, and must not close the player.
+	 */
 	$effect(() => {
-		const depth = page.state.videoPlayer;
-		if (opened) untrack(() => nav.sync(depth));
+		void page.state;
+		if (opened) untrack(() => nav.sync(entryState().videoPlayer));
 	});
 
 	/* A new level starts with its loop running and the start selected. */
