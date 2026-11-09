@@ -364,6 +364,7 @@ src/lib/teams/frame-view.svelte.ts  a view the frame shows without the address: 
 src/lib/components/shell/GroupBadge.svelte, GroupFaces.svelte, GroupCard.svelte  the group view's
                      badge, the others' faces and count, the desktop side's card
 src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
+src/lib/teams/open-once.ts  PURE: `openOnce`, an open reported once per item and stamp, not per data load
 src/routes/[dance]/group-mode  the old switch, kept for pages opened before the group view: it lands
                      on the address with or without `in` and writes nothing. Its GET goes to Moves
 src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
