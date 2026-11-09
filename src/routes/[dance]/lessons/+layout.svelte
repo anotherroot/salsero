@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { desk } from '$lib/nav/desk.svelte';
@@ -18,6 +19,8 @@
 	import { button } from '$lib/components/ui/styles';
 	import { diskSubtitle, groupVideosSubtitle, pickLesson } from '$lib/lessons/list';
 	import { t } from '$lib/i18n/catalog';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/*
 	 * Lessons: the list and the lesson beside it (desktop spec, "A list and the
@@ -168,7 +171,7 @@
 <NewLessonSheet
 	open={creating}
 	onclose={close}
-	action={`/${data.dance.slug}/lessons?/create`}
+	action={withView(`/${data.dance.slug}/lessons?/create`, viewTeam)}
 	{refusal}
 	today={data.today}
 	{handle}

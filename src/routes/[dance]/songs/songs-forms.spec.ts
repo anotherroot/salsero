@@ -27,7 +27,8 @@ import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { songImports, songs, teams, users } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import {
 	createSongFromUpload,
@@ -56,7 +57,7 @@ function post(
 ) {
 	return {
 		params: { dance, id },
-		url: new URL(`http://localhost/${dance}/songs/${id}`),
+		url: new URL(`http://localhost/${dance}/songs/${id}${as.group ? `?in=${as.group}` : ''}`),
 		request: new Request('http://localhost/', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -64,7 +65,7 @@ function post(
 		}),
 		locals: { user: { ...USER, dance, ...(as.user ? { id: as.user } : {}) } },
 		cookies: {
-			get: (n: string) => (n === groupCookie(dance as 'salsa' | 'bachata') ? as.group : undefined),
+			get: (n: string) => (n === VIEW ? as.group : undefined),
 			set: () => {},
 			delete: () => {}
 		} as unknown as Cookies

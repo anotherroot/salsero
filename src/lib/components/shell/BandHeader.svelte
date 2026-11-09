@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
-	import { groupLabel } from '$lib/teams/mode';
-	import Icon from '$lib/components/ui/Icon.svelte';
+	import GroupBadge from './GroupBadge.svelte';
+	import GroupFaces from './GroupFaces.svelte';
 	import SyncStatus from '$lib/components/system/SyncStatus.svelte';
 	import { sync } from '$lib/offline/device.svelte';
 	import { syncStatus } from '$lib/sync/status';
@@ -83,8 +84,8 @@
 	/** The desktop's subtitle when it differs from the phone's (its own text, or no status). */
 	const deskText = $derived(deskSubtitle ?? (deskStatus ? undefined : subtitle));
 
-	/** In group mode the band says whose space this is. */
-	const group = $derived((page.data.groupMode ?? null) as GroupMode | null);
+	/** In a group's view the band says whose space this is (a held view too: a drill being edited). */
+	const group = $derived((page.data.groupMode ?? frameView.current) as GroupMode | null);
 
 	/* Each element's desktop classes, by variant. The phone's are written in the markup. */
 	const D = $derived(
@@ -92,11 +93,9 @@
 			? {
 					header:
 						'desk:fixed desk:inset-x-0 desk:top-0 desk:z-30 desk:grid desk:h-[var(--band-row-h)] desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] desk:items-center desk:gap-x-6 desk:py-0 desk:pr-10 desk:pl-[max(var(--side-w),var(--band-x))] desk:[--band-x:var(--band-left)] desk:has-[[data-desk-hidden]]:[--band-x:30px]',
-					edge: 'desk:fixed desk:top-0',
 					row: 'desk:contents',
 					block:
 						'desk:col-start-1 desk:row-start-1 desk:ml-[calc(var(--band-x)-max(var(--side-w),var(--band-x)))] desk:grid desk:min-w-0 desk:grid-cols-[max-content_minmax(0,max-content)_minmax(0,1fr)] desk:items-center desk:justify-start',
-					groupLine: 'desk:col-start-2 desk:col-end-4 desk:row-start-1 desk:mb-1 desk:min-w-0',
 					left: 'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[14px] desk:ml-0 desk:has-[[data-desk-hidden]]:hidden',
 					h1: 'desk:col-start-2 desk:row-start-2 desk:self-baseline',
 					name: 'desk:block desk:truncate',
@@ -107,10 +106,8 @@
 			: variant === 'card'
 				? {
 						header: 'desk:w-[480px] desk:max-w-full desk:p-0 desk:pl-2',
-						edge: 'desk:fixed desk:top-0',
 						row: '',
 						block: '',
-						groupLine: 'desk:col-start-2 desk:col-end-4 desk:row-start-1 desk:mb-1 desk:min-w-0',
 						left: '',
 						h1: 'desk:col-start-2 desk:row-start-2 desk:self-baseline',
 						name: '',
@@ -122,11 +119,9 @@
 						header:
 							'[--focus-ring:var(--color-band-ink)] desk:flex-row desk:flex-wrap desk:items-start desk:justify-between desk:gap-x-4 desk:gap-y-3 desk:bg-transparent desk:[--focus-ring:var(--color-accent)] ' +
 							PANE_PAD_DESK,
-						edge: 'desk:hidden',
 						row: 'desk:contents',
 						block:
 							'desk:grid desk:min-w-0 desk:flex-1 desk:grid-cols-[auto_minmax(0,1fr)] desk:items-center',
-						groupLine: 'desk:hidden',
 						left: 'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[6px]',
 						h1: 'desk:col-start-2 desk:row-start-1 desk:text-ink ' + PANE_TITLE_DESK,
 						name: 'desk:block desk:truncate',
@@ -151,27 +146,25 @@
 	inert={slim}
 	style="{ring}--band-left: {left ? 18 : 30}px"
 >
-	{#if group}
-		<!-- A thin striped edge from the band's own ink, never a colour of its own. -->
-		<div
-			aria-hidden="true"
-			data-group-edge
-			class="absolute inset-x-0 top-[var(--safe-top)] h-[6px] {D.edge}"
-			style="background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-band-ink) 35%, transparent) 0 6px, transparent 6px 12px)"
-		></div>
-	{/if}
 	<div class="flex flex-wrap items-center gap-x-1 gap-y-[6px] {D.row}">
-		<div class="contents {D.block}" data-band-title>
-			{#if group}
-				<div
-					class="flex basis-full items-center gap-1.5 text-band-small {D.groupLine}"
-					data-group-line
-					data-band-fade
+		{#if group}
+			<!--
+				The group's row (group view spec): whose space this is and who sees it.
+				The phone's only: on the desktop the side's card says it.
+			-->
+			<div
+				class="flex basis-full items-center gap-2.5 pb-1.5 desk:hidden"
+				data-group-row
+				data-band-fade
+			>
+				<GroupBadge size={30} />
+				<span class="min-w-0 flex-1 truncate text-[17px] font-extrabold text-band-ink"
+					>{group.name}</span
 				>
-					<Icon name="people" size={16} />
-					<span class="truncate text-[13px] font-bold">{groupLabel(group.name)}</span>
-				</div>
-			{/if}
+				<GroupFaces faces={group.faces} people={group.people} />
+			</div>
+		{/if}
+		<div class="contents {D.block}" data-band-title>
 			{#if left}
 				<div class="-ml-[10px] flex {D.left}" data-band-left>
 					{@render left()}

@@ -278,7 +278,7 @@ an older PAGE_EPOCH and the device is online and can still drain them
 Built 2026-11-09 (plan `docs/superpowers/plans/2026-11-09-offline-phase-3-changes-offline.md`,
 migration 0044). The calls made on the way, beyond the picks above:
 
-- **Network-only:** cookie-setting actions (Settings' theme and language, `group-mode`), Sign
+- **Network-only:** cookie-setting actions (Settings' theme and language; the group view lives in the address, so an entry replays in the space it was made in), Sign
   out (`/logout` must reach the server), and the media writes and deletes (phase 4's, with the
   uploads). Uploads stay `pass` in the service worker.
 - **"A group's row online goes to the server"** is decided by the rows the write captured on the

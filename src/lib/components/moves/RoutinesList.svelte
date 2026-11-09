@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -30,6 +31,8 @@
 	import type { Dance } from '$lib/dances/dances';
 	import type { RoutineItem, TeamRef } from '$lib/types';
 	import type { OpenRow } from '$lib/nav/moves-pane';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The Routines list: the space's routines, newest first, the groups' mixed in,
@@ -90,7 +93,7 @@
 		outOfSyncCount([...lists.routines, ...lists.groups.flatMap((g) => g.routines)])
 	);
 	const listPath = $derived(resolve('/[dance]/(moves)/routines', { dance: dance.slug }));
-	const syncHref = $derived(sync ? listPath : `${listPath}?sync=1`);
+	const syncHref = $derived(withView(sync ? listPath : `${listPath}?sync=1`, viewTeam));
 	afterNavigate(() => {
 		if (isList) {
 			held = sync ? 'sync=1' : '';
@@ -210,7 +213,7 @@
 	<form
 		id="new-routine"
 		method="POST"
-		action={`/${dance.slug}/routines?/create`}
+		action={withView(`/${dance.slug}/routines?/create`, viewTeam)}
 		class="flex flex-col gap-3.5"
 		bind:this={formEl}
 		use:guarded={{

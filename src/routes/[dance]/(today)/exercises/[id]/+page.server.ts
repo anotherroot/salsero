@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { groupModeFor } from '$lib/server/group-mode';
 import {
 	archiveExercise,
 	exerciseHistory,
@@ -193,6 +194,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			copyTo: copyOffer(db, wall.userId, 'drill', own.id),
 			makeMine: null,
 			drill: null,
+			editView: null,
 			historyHref: null,
 			add: null,
 			// A lesson review's own class (the simple page's "From class …").
@@ -284,6 +286,10 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
 		canEdit,
 		canEditContent: canEdit,
+		/** The group the frame shows while its editor edits it (group view spec, rule 5). */
+		editView: canEdit
+			? groupModeFor(db, wall.userId, wall.dance, row.teamId, locals.user.level)
+			: null,
 		/** The drill's History: its editors'. */
 		historyHref: canEdit ? `/${wall.dance}/groups/${row.teamId}/history/drill/${row.id}` : null,
 		seen: exerciseSeen(row),

@@ -2,15 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
 import { contrast, mix } from './contrast';
-import {
-	BAND_TRACK,
-	GROUP,
-	MEDIA,
-	THEMES,
-	TOKEN_NAMES,
-	type Scheme,
-	type TokenName
-} from './tokens';
+import { BAND_TRACK, MEDIA, THEMES, TOKEN_NAMES, type Scheme, type TokenName } from './tokens';
 
 const SCHEMES: Scheme[] = ['light', 'dark'];
 
@@ -116,32 +108,10 @@ describe('theme tokens', () => {
 	});
 });
 
+// Group view spec (2026-11-09): navy is gone; a group's view keeps the dance's colours.
 describe('group palette', () => {
-	it('defines the group palette in both schemes and it passes contrast', () => {
-		const keys = [
-			'band',
-			'band-ink',
-			'band-small',
-			'on-cream',
-			'accent',
-			'accent-text',
-			'accent-soft',
-			'on-accent',
-			'status',
-			'inverse-accent'
-		] as const;
-		expect(GROUP.light.band).toBe('#26345E');
-		expect(GROUP.light['band-ink']).toBe('#EAF0FF');
-		for (const s of SCHEMES) {
-			for (const k of keys) expect(GROUP[s][k], `${s} ${k}`).toMatch(/^#[0-9a-f]{6}$/i);
-			// the group palette laid over each dance's theme: every pair still reads
-			for (const d of DANCE_SLUGS) {
-				const t = { ...THEMES[d][s], ...GROUP[s] };
-				for (const [fg, bg] of pairs)
-					expect(contrast(t[fg], t[bg]), `${d} ${s} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
-				expect(contrast(t['band-ink'], t.band)).toBeGreaterThanOrEqual(4.5);
-			}
-		}
+	it('is gone: no palette of its own', async () => {
+		expect('GROUP' in (await import('./tokens'))).toBe(false);
 	});
 });
 

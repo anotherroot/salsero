@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
-import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { spaceOf, viewOf } from '$lib/server/group-mode';
 import { mapData } from '$lib/server/positions-map';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { orderedInts, text } from '$lib/server/form';
@@ -9,11 +9,11 @@ import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
 /** The map (`mapData`), under its own key: the layouts' `groupMode` is another thing. */
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, route, url }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	return { map: mapData(db, wall, groupModeOf(db, wall.userId, wall.dance, cookies)) };
+	return { map: mapData(db, wall, viewOf(db, wall, locals.user?.level, { route, params, url })) };
 };
 
 export const actions: Actions = {
@@ -23,9 +23,9 @@ export const actions: Actions = {
 	 * Coverage's `ints`). In group mode it is the group's (`spaceOf`). Forms post
 	 * here by the explicit URL: on the desktop the map is the Positions list's pane.
 	 */
-	routine: async ({ params, request, locals, cookies }) => {
+	routine: async ({ params, request, locals, url }) => {
 		const db = getDb();
-		const space = spaceOf(db, params, locals, cookies);
+		const space = spaceOf(db, params, locals, url);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const figureIds = orderedInts(form, 'figureIds');

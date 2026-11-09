@@ -60,7 +60,8 @@ import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
-import { groupModeOf } from '$lib/server/group-mode';
+import { mineTarget } from '$lib/server/mine-target';
+import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { readAdd } from '$lib/server/add-form';
 import {
@@ -94,7 +95,6 @@ import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { editedByLine } from '$lib/teams/history';
 import { agoText } from '$lib/format';
-import type { Cookies } from '@sveltejs/kit';
 import { pageSources } from '$lib/server/clones/sources';
 import { sameAsOffer } from '$lib/server/twins';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
@@ -208,18 +208,15 @@ function practising(
 	return practiceRows(entries, states, today);
 }
 
-export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
-	// In this group's own group mode the page is the group's: its link cards open
-	// the group's rows, never the person's copies. Read-only on the cookie: a load
-	// never sets or deletes it.
-	const mode = groupModeOf(db, wall.userId, wall.dance, {
-		get: (name: string) => cookies?.get(name),
-		delete: () => {}
-	} as unknown as Cookies);
+	// A group's lesson the person edits is in the group's view (group view spec):
+	// its link cards open the group's rows, never the person's copies.
 	const row = getLessonRow(db, Number(params.id));
-	const inGroupMode = row !== null && row.teamId !== null && mode?.teamId === row.teamId;
+	const inGroupMode =
+		row !== null &&
+		groupModeFor(db, wall.userId, wall.dance, row.teamId, locals.user?.level) !== null;
 	const {
 		space,
 		access,
@@ -270,6 +267,8 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		drop: dropOptions(db, wall, 'lesson', found.lesson.id),
 		detach: detachOffer(db, wall.userId, 'lesson', found.lesson.id),
 		/** Same as… (board C7): the other lessons in your app; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'lesson', found.lesson.id) : null,
 		sameAs: sameAsOffer(db, wall, 'lesson', found.lesson.id, found.lesson.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'lesson', found.lesson.id),
@@ -495,7 +494,17 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		if (!archiveLesson(getDb(), lesson.id, serverNow(), actorOf(space))) {
 			return fail(400, { action: 'archive', message: t().lesson.refused.archived });
 		}
-		throw redirect(303, `/${params.dance}/lessons`);
+		// Back to the list in the lesson's view: the group's Lessons for a group's.
+		throw redirect(
+			303,
+			listInViewOf(
+				getDb(),
+				wallOf(params, locals),
+				locals.user?.level,
+				lesson.teamId,
+				`/${params.dance}/lessons`
+			)
+		);
 	},
 
 	/*

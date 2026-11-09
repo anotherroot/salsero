@@ -68,7 +68,7 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   store across an await (`getRequestEvent`, `$app/server`): the device's
   `AsyncLocalStorage` is a stub.
 - **A cookie-setting action is network-only** (Settings' theme and
-  language, `group-mode`): a service worker's answer cannot set the
+  language): a service worker's answer cannot set the
   browser's cookie. So is Sign out (`/logout` must reach the server), and the
   media writes wait for phase 4.
 - **Replay reads the entry.** On `/api/sync/push` each entry runs as the

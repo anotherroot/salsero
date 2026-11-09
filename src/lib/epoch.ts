@@ -4,4 +4,4 @@
  * here (`$lib/page-epoch` re-exports it): in the commit that makes the
  * server refuse what an older page would still send.
  */
-export const PAGE_EPOCH = 12;
+export const PAGE_EPOCH = 13;

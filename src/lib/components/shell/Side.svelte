@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import GroupCard from './GroupCard.svelte';
+	import type { GroupMode } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
 	import { sideLit } from '$lib/nav/frame';
@@ -22,7 +24,9 @@
 	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
 	// In group mode Today is not a tab: Mine, back to the personal side.
-	const inGroup = $derived(!!page.data.groupMode);
+	// The group's view: the side opens with its card (group view spec), Mine for Today.
+	const group = $derived((page.data.groupMode ?? frameView.current) as GroupMode | null);
+	const inGroup = $derived(group !== null);
 	const lit = $derived(
 		litAt(
 			sideLit(path, dance),
@@ -32,7 +36,19 @@
 	);
 	// The person's level's tabs, as in the tab bar but without You (`sideTabsFor`).
 	const tabs = $derived(sideTabsFor(levelShown(page.data.user?.level)));
-	const targets = $derived(tabTargets(tabs, dance, path));
+	const view = $derived(page.data.groupMode?.teamId ?? null);
+	const targets = $derived(tabTargets(tabs, dance, path, view));
+	// Mine on a page that holds the view (a drill being edited): stop editing, stay.
+	function leaveGroup(e: MouseEvent) {
+		const stop = frameView.stop;
+		if (stop) {
+			e.preventDefault();
+			stop();
+			return;
+		}
+		intend('tab');
+	}
+	const mine = $derived((page.data.mineHref as string | undefined) ?? minePath(path, dance));
 
 	const ITEM =
 		'flex h-12 items-center gap-3 rounded-[24px] pr-[18px] pl-[14px] text-[16px] whitespace-nowrap';
@@ -51,55 +67,48 @@
 	aria-label={t().shell.mainNav}
 	data-side
 >
-	<ul class="flex flex-col gap-1">
-		{#each tabs as tab, i (tab.id)}
-			{@const here = tab.id === lit}
-			{@const to = targets[i]}
-			{@const fresh = tabDot(tab.id, page.data)}
-			<li>
-				{#if inGroup && tab.id === 'today'}
-					<!-- Mine: the tab bar's one-tap form to the switch (`BottomNav` says why), never lit. -->
-					<form
-						method="POST"
-						action="/{dance}/group-mode"
-						use:enhance={() => {
-							intend('tab');
-							return async ({ update }) => update({ reset: false });
-						}}
-					>
-						<input type="hidden" name="team" value="mine" />
-						<input type="hidden" name="to" value={minePath(path, dance)} />
-						<button
-							type="submit"
+	<div class="flex flex-col">
+		{#if group}<GroupCard {group} />{/if}
+		<ul class="flex flex-col gap-1">
+			{#each tabs as tab, i (tab.id)}
+				{@const here = tab.id === lit}
+				{@const to = targets[i]}
+				{@const fresh = tabDot(tab.id, page.data)}
+				<li>
+					{#if inGroup && tab.id === 'today'}
+						<!-- Mine: the tab bar's plain link out of the group's view (`BottomNav` says where), never lit. -->
+						<a
+							href={mine}
+							onclick={leaveGroup}
 							class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
 						>
 							<Icon name="back" size={24} />
 							{t().shell.mine}
-						</button>
-					</form>
-				{:else}
-					<a
-						href={to ?? resolve(tab.path, { dance })}
-						onclick={(e) => tapTab(e, to === null)}
-						aria-current={here ? 'page' : undefined}
-						aria-label={fresh ? tabDotLabel(tab.id, tab.label) : undefined}
-						class={here ? ON : OFF}
-					>
-						<Icon name={tab.icon} size={24} filled={here} />
-						{tab.label}
-						{#if fresh}
-							<span
-								class="mt-3 -ml-1 h-[9px] w-[9px] flex-none self-start rounded-full {here
-									? 'bg-band'
-									: 'bg-band-ink'}"
-								aria-hidden="true"
-							></span>
-						{/if}
-					</a>
-				{/if}
-			</li>
-		{/each}
-	</ul>
+						</a>
+					{:else}
+						<a
+							href={to ?? resolve(tab.path, { dance })}
+							onclick={(e) => tapTab(e, to === null)}
+							aria-current={here ? 'page' : undefined}
+							aria-label={fresh ? tabDotLabel(tab.id, tab.label) : undefined}
+							class={here ? ON : OFF}
+						>
+							<Icon name={tab.icon} size={24} filled={here} />
+							{tab.label}
+							{#if fresh}
+								<span
+									class="mt-3 -ml-1 h-[9px] w-[9px] flex-none self-start rounded-full {here
+										? 'bg-band'
+										: 'bg-band-ink'}"
+									aria-hidden="true"
+								></span>
+							{/if}
+						</a>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</div>
 	<a
 		href={resolve('/settings')}
 		aria-current={lit === 'settings' ? 'page' : undefined}

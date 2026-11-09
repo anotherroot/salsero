@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
+	import { page } from '$app/state';
 	import { fromTags } from '$lib/clones/from-tag';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
@@ -19,6 +21,8 @@
 	import { groupHeading, pickNumber, pickedRows, togglePick } from '$lib/moves/picks';
 	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -109,7 +113,7 @@
 		{:else}
 			<BackButton
 				fallback={{
-					href: resolve('/[dance]/(moves)/figures', { dance: data.dance.slug }),
+					href: withView(resolve('/[dance]/(moves)/figures', { dance: data.dance.slug }), viewTeam),
 					label: t().shell.backTo(t().shell.tabs.moves)
 				}}
 			/>

@@ -7,19 +7,21 @@ import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { oneOf } from '$lib/server/form';
 import { DANCES } from '$lib/dances/dances';
 import { t } from '$lib/i18n/catalog';
+import { withView } from '$lib/teams/group-view';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
  * The pick list of a pasted playlist (option A2). The import's own space: a
  * group's list is its editors', picked from Mine too. A list no longer
- * waiting (added, dismissed, still reading, failed) sends back to Music.
+ * waiting (added, dismissed, still reading, failed) sends back to Music, the
+ * group's for a group's list (group view spec).
  */
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const { imp } = requireImportAccess(db, locals, params, params.id, { finished: true });
 	// Added from another tab, dismissed, or not read yet: Music shows where it stands.
 	if (imp.status !== 'ready' || imp.addedAt !== null || imp.dismissedAt !== null)
-		redirect(303, `/${params.dance}/songs`);
+		redirect(303, withView(`/${params.dance}/songs`, imp.teamId));
 	return {
 		imp: { id: imp.id, kind: imp.kind, name: imp.name, truncated: imp.truncated === 1 },
 		items: pickItems(db, imp)
@@ -44,7 +46,7 @@ export const actions: Actions = {
 		if (!room.ok) return fail(413, { message: room.message });
 		const done = addFromImport(db, space, imp.id, picks);
 		if (!done.ok) return fail(409, { message: t().songs.imports.gone });
-		redirect(303, `/${params.dance}/songs`);
+		redirect(303, withView(`/${params.dance}/songs`, imp.teamId));
 	},
 
 	dismiss: ({ params, locals }) => {
@@ -52,6 +54,6 @@ export const actions: Actions = {
 		// Already gone (added or dismissed elsewhere): Music shows where it stands.
 		const { imp } = requireImportAccess(db, locals, params, params.id, { finished: true });
 		dismissImport(db, imp.id);
-		redirect(303, `/${params.dance}/songs`);
+		redirect(303, withView(`/${params.dance}/songs`, imp.teamId));
 	}
 };

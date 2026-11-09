@@ -22,7 +22,7 @@
 	 */
 	interface Props {
 		row: CommentRow;
-		/** The dance, so the avatar can take the group's colours (`[data-dance][data-group]`). */
+		/** The dance, so the avatar takes the dance's colours (`[data-dance]`) wherever the list is drawn. */
 		dance: string;
 		now: number;
 		/** Posting is open: Reply and the heart act (false in a deleted group). */
@@ -63,7 +63,6 @@
 >
 	<span
 		data-dance={dance}
-		data-group=""
 		class="mt-0.5 flex size-9 flex-none items-center justify-center rounded-full font-display text-[16px] font-extrabold {deleted
 			? 'bg-chip text-muted'
 			: 'bg-accent-soft text-accent-text'}"

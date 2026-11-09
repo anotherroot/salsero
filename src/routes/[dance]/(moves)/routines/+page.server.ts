@@ -7,8 +7,8 @@ import { t } from '$lib/i18n/catalog';
 import type { Actions } from './$types';
 
 export const actions: Actions = {
-	create: async ({ params, request, locals, cookies }) => {
-		const space = spaceOf(getDb(), params, locals, cookies);
+	create: async ({ params, request, locals, url }) => {
+		const space = spaceOf(getDb(), params, locals, url);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');

@@ -6,7 +6,7 @@ import { storedTwinSets } from '$lib/server/twins';
 import { copyCounts } from '$lib/server/clones/step';
 import { foldSongs } from '$lib/clones/twins';
 import { wallOf } from '$lib/server/scope';
-import { groupModeOf } from '$lib/server/group-mode';
+import { viewOf } from '$lib/server/group-mode';
 import { groupImportsToPick, listImports } from '$lib/server/song-imports';
 import type { LayoutServerLoad } from './$types';
 
@@ -19,7 +19,7 @@ import type { LayoutServerLoad } from './$types';
  * with each shared one. Otherwise the person's own songs, then a section per
  * group with its shared songs, each marked when it is new to them.
  */
-export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }) => {
+export const load: LayoutServerLoad = ({ params, locals, url, depends, route }) => {
 	// Every navigation reads the list afresh, as the list page's own load did: a
 	// song opened since is no longer new, a song added or archived shows.
 	void url.pathname;
@@ -27,7 +27,7 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }
 	depends('app:songs');
 	const db = getDb();
 	const wall = wallOf(params, locals);
-	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	const mode = viewOf(db, wall, locals.user?.level, { route, params, url });
 	if (mode) {
 		const team = { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId };
 		const list = listSongs(db, team);

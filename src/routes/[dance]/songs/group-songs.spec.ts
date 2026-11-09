@@ -45,7 +45,8 @@ import { songSeen } from '$lib/server/clash';
 import { history } from '$lib/server/changes';
 import { createImport, getImport, storeImportItems } from '$lib/server/song-imports';
 import * as songList from './+page.server';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import type { PickerSong } from '$lib/types';
 
 const user = (id: string) => ({
@@ -185,13 +186,13 @@ describe('the player and a group song', () => {
 type Fields = Record<string, string>;
 const cookiesFor = (group?: number) =>
 	({
-		get: (n: string) => (n === groupCookie('salsa') && group ? String(group) : undefined),
+		get: (n: string) => (n === VIEW && group ? String(group) : undefined),
 		set: () => {},
 		delete: () => {}
 	}) as unknown as Cookies;
 const ev = (as: string, id: number | string, fields: Fields = {}, group?: number) => ({
 	params: { dance: 'salsa', id: String(id) },
-	url: new URL(`http://localhost/salsa/songs/${id}`),
+	url: new URL(`http://localhost/salsa/songs/${id}${group ? `?in=${group}` : ''}`),
 	request: new Request('http://localhost/', {
 		method: 'POST',
 		headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -230,7 +231,7 @@ type Music = {
 const musicAs = (as: string, group?: number) =>
 	(musicLoad as unknown as (e: unknown) => Music)({
 		params: { dance: 'salsa' },
-		url: new URL('http://localhost/salsa/songs'),
+		url: new URL(`http://localhost/salsa/songs${group ? `?in=${group}` : ''}`),
 		locals: { user: user(as) },
 		cookies: cookiesFor(group),
 		depends: () => {}
@@ -346,9 +347,10 @@ describe('a group song’s page', () => {
 	it('Stop sharing and Delete take it from members', async () => {
 		expect(await act(songPage.actions.unshare, ev('u2', c.shared))).toEqual({ ok: true });
 		expect(musicAs('u3').groups).toEqual([]);
+		// Back to the group's Music (group view spec).
 		expect(await act(songPage.actions.delete, ev('u2', c.draft))).toMatchObject({
 			status: 303,
-			location: '/salsa/songs'
+			location: '/salsa/songs?in=1'
 		});
 		expect(getSong(db, c.draft)!.archivedAt).not.toBeNull();
 		expect(history(db, 1, 'song', c.draft)[0].verb).toBe('delete');
@@ -512,7 +514,8 @@ describe("a group's pasted playlist", () => {
 				body: new URLSearchParams({ url: LIST, title: '', style: 'salsa' })
 			}),
 			locals: { user: user('u2') },
-			cookies: cookiesFor(1)
+			cookies: cookiesFor(1),
+			url: new URL('http://localhost/salsa/songs?/addUrl&in=1')
 		});
 		const id = (musicAs('u2', 1) as WithImports).imports[0].id;
 		expect(getImport(db, id)).toMatchObject({ teamId: 1, userId: null });

@@ -36,7 +36,8 @@ import { createRoutine } from '$lib/server/routines';
 import { createLesson, linkFigure, linkRoutine, publishLesson } from '$lib/server/lessons';
 import { cloneInto } from '$lib/server/clones/clone';
 import { NO_FILES, T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import type { Wall } from '$lib/server/scope';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
@@ -56,7 +57,7 @@ let db: Db;
 
 function jar(group?: number): Cookies {
 	return {
-		get: (n: string) => (n === groupCookie('salsa') && group ? String(group) : undefined),
+		get: (n: string) => (n === VIEW && group ? String(group) : undefined),
 		set: () => {},
 		delete: () => {}
 	} as unknown as Cookies;

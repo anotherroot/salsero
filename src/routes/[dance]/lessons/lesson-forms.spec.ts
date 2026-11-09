@@ -36,6 +36,7 @@ function post(dance: string, fields: Record<string, string>, id?: number) {
 			body: new URLSearchParams(fields)
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
+		url: new URL(`http://localhost/${dance}/lessons`),
 		locals: { user: { ...USER, dance } }
 	};
 }

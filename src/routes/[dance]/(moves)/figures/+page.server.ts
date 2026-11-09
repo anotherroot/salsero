@@ -10,7 +10,7 @@ import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { actorOf, inSpace, wallOf, type Space } from '$lib/server/scope';
-import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { spaceOf, viewOf } from '$lib/server/group-mode';
 import { presetGone } from '$lib/positions/view';
 import { t } from '$lib/i18n/catalog';
 import type { Db } from '$lib/server/db';
@@ -42,19 +42,19 @@ function presetOf(
 	return null;
 }
 
-export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
+export const load: PageServerLoad = ({ url, params, locals, route }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	const mode = viewOf(db, wall, locals.user?.level, { route, params, url });
 	const space = mode ? { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId } : wall;
 	/** New move from a position: the tag the new figure gets (ruling 8). */
 	return { preset: presetOf(db, space, url) };
 };
 
 export const actions: Actions = {
-	create: async ({ params, request, locals, cookies }) => {
-		const space = spaceOf(getDb(), params, locals, cookies);
+	create: async ({ params, request, locals, url }) => {
+		const space = spaceOf(getDb(), params, locals, url);
 		const dance = space.dance;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');

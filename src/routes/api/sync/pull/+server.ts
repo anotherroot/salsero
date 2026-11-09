@@ -6,14 +6,12 @@ import { pull } from '$lib/server/sync/pull';
 import { THEME_COOKIE } from '$lib/theme/scheme';
 import { APP_COOKIE } from '$lib/app-mode';
 import { LOCALE_COOKIE } from '$lib/i18n/locale';
-import { groupCookie } from '$lib/teams/mode';
-import { DANCE_SLUGS } from '$lib/dances/dances';
 import type { PullRequest } from '$lib/sync/wire';
 
 /** A browser database's key (offline phase 3): what `slotFor` keys a slot on. */
 const DEVICE_KEY = /^[A-Za-z0-9-]{8,64}$/;
 
-const ECHOED = [THEME_COOKIE, APP_COOKIE, LOCALE_COOKIE, ...DANCE_SLUGS.map(groupCookie)];
+const ECHOED = [THEME_COOKIE, APP_COOKIE, LOCALE_COOKIE];
 
 function readRequest(body: unknown): PullRequest | null {
 	if (typeof body !== 'object' || body === null) return null;

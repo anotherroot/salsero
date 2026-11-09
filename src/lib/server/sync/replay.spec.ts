@@ -260,14 +260,11 @@ describe('push', () => {
 		expect(setRow(id)?.done_at).toBe(NOW);
 	});
 
-	it("replays with the entry's group-mode cookie, not the push's", async () => {
+	it("lands in the space it was made in: the group's view rides in the entry's address", async () => {
 		const e = entry(
-			'/salsa/lessons?/create',
+			'/salsa/lessons?/create&in=1',
 			{ title: 'For the class', lessonDay: '2026-11-08', notes: '' },
-			{
-				cookie: 'group_salsa=1',
-				minted: { lessons: [S() + 1] }
-			}
+			{ minted: { lessons: [S() + 1] } }
 		);
 		const out = await pushAll([e]);
 		expect(out.results[0]).toEqual({ id: e.id, state: 'landed' });

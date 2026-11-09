@@ -346,13 +346,20 @@ android/             the Android apps (Kotlin): one per dance as Gradle flavors,
                      own text in English and Slovenian, by the account's language
                      (`/api/device/config`, `Prefs.locale`), never the phone's. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
-src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
-                     `spaceOf`, which every create action calls itself (the layout's copy may be old)
-src/lib/teams/mode.ts  PURE: the cookie name, which paths show no group mode (Today), return path, labels. Client-safe
+src/lib/server/group-mode.ts  the group view: `viewOf` (a load's view: a row page by its row, a list by
+                     `?in=`), `groupModeFor` (the re-check, with the group's people and faces),
+                     `rowTeam`, `listInViewOf`, `groupChoices`, and `spaceOf` (a create action's
+                     space, from its URL's `in`)
+src/lib/server/mine-target.ts  where Mine lands from a group's row: your clone, twin, or own figure in the move
+src/lib/teams/mode.ts  PURE: which paths show no group view (Today), return path, Mine's list, Work in rows. Client-safe
+src/lib/teams/group-view.ts  PURE: the view's address: `VIEW_PARAM` (`in`), `viewParam`, `withView`,
+                     `rowKindOf` (row routes), `viewedList`, `tabHrefIn`. Client-safe
+src/lib/teams/frame-view.svelte.ts  a view the frame shows without the address: a group drill being edited
+src/lib/components/shell/GroupBadge.svelte, GroupFaces.svelte, GroupCard.svelte  the group view's
+                     badge, the others' faces and count, the desktop side's card
 src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
-src/routes/[dance]/group-mode  the switch: a page action (default) between Mine and a group, the only
-                     thing that switches the cookie (never a load: preload runs loads; `groupModeOf`
-                     only drops an invalid one). Its GET goes to Moves
+src/routes/[dance]/group-mode  the old switch, kept for pages opened before the group view: it lands
+                     on the address with or without `in` and writes nothing. Its GET goes to Moves
 src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
 src/lib/server/whats-new.ts  what is new to a person in their groups, against their opens
 src/lib/server/song-share.ts  share, stop sharing and restore a group song; `song_drops`

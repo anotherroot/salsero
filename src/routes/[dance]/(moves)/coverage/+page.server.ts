@@ -5,17 +5,17 @@ import { createRoutineFromFigures, listRoutines, routineShapes } from '$lib/serv
 import { ints, text } from '$lib/server/form';
 import { coverage, coverageGroups } from '$lib/routines/coverage';
 import { wallOf } from '$lib/server/scope';
-import { groupModeOf } from '$lib/server/group-mode';
+import { viewOf } from '$lib/server/group-mode';
+import { withView } from '$lib/teams/group-view';
 import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, route, url }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	// Coverage is the person's own; in group mode the Figures page is the way back.
-	if (groupModeOf(db, wall.userId, wall.dance, cookies)) {
-		throw redirect(303, `/${wall.dance}/figures`);
-	}
+	// Coverage is the person's own; in a group's view the group's Figures is the way back.
+	const view = viewOf(db, wall, locals.user?.level, { route, params, url });
+	if (view) throw redirect(303, withView(`/${wall.dance}/figures`, view.teamId));
 	// Derived per request, never stored: a slot edited on a routine page
 	// changes these answers with nothing else touched.
 	return {
