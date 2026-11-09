@@ -18,10 +18,13 @@ import { figures, users } from '$lib/server/db/schema';
 import { addLesson } from '$lib/server/entries';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson, linkFigure, publishLesson } from '$lib/server/lessons';
-import { createFigure, createVariationIn } from '$lib/server/figures';
+import { addRecording, createFigure, createVariationIn } from '$lib/server/figures';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
+import * as movePage from './(moves)/moves/[id]/+page.server';
+import { markTwins } from '$lib/server/twins';
+import { addLinks } from '$lib/server/links';
 
 const T = Date.UTC(2026, 10, 3, 20);
 let db: Db;
@@ -37,7 +40,14 @@ const open = (uid: string, id: number, groupMode?: string) =>
 		} as unknown as Cookies,
 		url: new URL(`http://localhost/salsa/figures/${id}`)
 	}) as {
-		siblings: { id: number; name: string; team: { name: string } | null; copies: number }[];
+		siblings: {
+			id: number;
+			name: string;
+			team: { name: string } | null;
+			copies: number;
+			twins: boolean;
+			videos: number;
+		}[];
 		lastInMove: boolean;
 		switcherId: number;
 	};
@@ -149,5 +159,72 @@ describe('a figure and its copy', () => {
 		const d = open('u1', doble, '1');
 		expect(d.siblings.map((s) => s.name)).toEqual(['Doble']);
 		expect(d.switcherId).toBe(doble);
+	});
+});
+
+describe('twins and what a row holds', () => {
+	it('marks the row that stands for its twins', () => {
+		// u2's Con vuelta and the group's Doble: Same as…, the group's folded into u2's.
+		expect(markTwins(db, U2_SALSA, 'figure', [vuelta, doble])).toBe(true);
+		for (const at of [vuelta, doble]) {
+			const d = open('u2', at);
+			expect(d.siblings.map((s) => [s.name, s.twins])).toEqual([
+				['Basic', false],
+				['Con vuelta', true]
+			]);
+			expect(d.switcherId).toBe(vuelta);
+		}
+	});
+
+	it('counts recordings and links, as its Recordings list does', () => {
+		addRecording(db, {
+			figureId: vuelta,
+			file: 'v.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		});
+		addLinks(db, { figureId: vuelta }, ['https://www.youtube.com/watch?v=abcdefghijk'], null);
+		addLinks(db, { figureId: doble }, ['https://www.youtube.com/watch?v=bcdefghijkl'], null, 'u1');
+		expect(open('u2', basic).siblings.map((s) => [s.name, s.videos])).toEqual([
+			['Basic', 0],
+			['Con vuelta', 2],
+			['Doble', 1]
+		]);
+	});
+});
+
+describe('the move page', () => {
+	const move = (uid: string, id: number, groupMode?: string) =>
+		(movePage.load as (e: unknown) => unknown)({
+			params: { dance: 'salsa', id: String(id) },
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
+			cookies: {
+				get: (n: string) => (n === groupCookie('salsa') ? groupMode : undefined),
+				set: () => {},
+				delete: () => {}
+			} as unknown as Cookies,
+			url: new URL(`http://localhost/salsa/moves/${id}`)
+		}) as { figures: { name: string; team: { name: string } | null; copies: number }[] };
+	const moveOf = (fid: number) =>
+		db
+			.select()
+			.from(figures)
+			.where(inArray(figures.id, [fid]))
+			.get()!.groupId!;
+
+	it("lists the move as the Figures list merges it, from yours or the group's", () => {
+		for (const at of [basic, doble]) {
+			expect(move('u2', moveOf(at)).figures.map((f) => [f.name, f.team?.name ?? null])).toEqual([
+				['Basic', null],
+				['Con vuelta', null],
+				['Doble', 'Tuesdays']
+			]);
+		}
+	});
+
+	it('in group mode the group’s move is its own figures', () => {
+		expect(move('u1', moveOf(doble), '1').figures.map((f) => f.name)).toEqual(['Doble']);
 	});
 });

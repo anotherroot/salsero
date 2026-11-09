@@ -26,7 +26,7 @@ import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/f
 import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
 import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
 import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
-import { mergedMoveFigures } from '$lib/server/moves-lists';
+import { mergedMoveRows } from '$lib/server/moves-lists';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
@@ -49,7 +49,7 @@ import { scheduleStateOf } from '$lib/server/schedule';
 import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
-import { practiceLine } from '$lib/figures/page';
+import { practiceLine, recordingsCount } from '$lib/figures/page';
 import { figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -82,7 +82,6 @@ import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { copyCounts, keepView, stepStatus } from '$lib/server/clones/step';
-import { mineIdsFor } from '$lib/server/clones/shadow';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
@@ -258,45 +257,21 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			delete: () => {}
 		} as unknown as Cookies)?.teamId === figure.teamId;
 
-	// The switcher steps through the move as the Figures list shows it: the
-	// person's own and the added groups' moves of the same name, one move
-	// (`mergeGroups`), each group's figure marked. This move's own figures stay
-	// as this page reads them (an editor's drafts too), where the list puts them.
-	// A figure the list folds into another row (your own copy replaces the
-	// group's; a twin stands for its set) is that row here too: one row, marked
-	// with its copies, lit when either is open.
-	const team = inGroupMode ? null : groupTeam;
-	const rows: { id: number; name: string; team: TeamRef | null }[] = [];
-	let standIn: number | null = null;
-	if (inGroupMode) rows.push(...shown.map((s) => ({ id: s.id, name: s.name, team })));
-	else {
-		const merged = mergedMoveFigures(db, wall, group.name);
-		const listed = new Set(merged.figures.map((f) => f.id));
-		const yours =
-			figure.teamId === null
-				? new Map<number, number>()
-				: mineIdsFor(
-						db,
-						wall,
-						'figure',
-						shown.map((s) => s.id)
-					);
-		const folded = (fid: number) => {
-			if (listed.has(fid)) return null;
-			const to = merged.twinOf.get(fid) ?? yours.get(fid);
-			return to !== undefined && listed.has(to) ? to : null;
-		};
-		standIn = folded(id);
-		const own = shown
-			.filter((s) => folded(s.id) === null)
-			.map((s) => ({ id: s.id, name: s.name, team }));
-		const ofThis = new Set(live.map((s) => s.id));
-		for (const f of merged.figures) {
-			if (!ofThis.has(f.id)) rows.push({ id: f.id, name: f.name, team: f.team });
-			else if (own.length > 0) rows.push(...own.splice(0));
-		}
-		rows.push(...own);
-	}
+	// The switcher steps through the move as the Figures list shows it
+	// (`mergedMoveRows`): one row for a figure and its copy or twins, lit when
+	// either is open, marked with its group, its copies and its twins.
+	const merged = mergedMoveRows(
+		db,
+		wall,
+		{ name: group.name, teamId: figure.teamId },
+		shown.map((s) => ({ id: s.id, name: s.name })),
+		live.map((s) => s.id),
+		!inGroupMode,
+		groupTeam
+	);
+	const rows = merged.rows;
+	const standIn = merged.standIn(id);
+	const twinned = merged.twinned;
 	const copies = copyCounts(
 		db,
 		wall.userId,
@@ -306,6 +281,22 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// Another move's figures are timed in the person's graph: a group's graph lacks theirs.
 	const other = rows.some((r) => !live.some((s) => s.id === r.id));
 	const theirGraph = other && isTeam(space) ? graphFor(db, wall) : graph;
+	// What each row's Recordings would list, as this page counts its own
+	// (`recordingsCount`): its recordings, the sections linked to it and its links,
+	// each read as its own page would for this person.
+	const videosOf = (fid: number) => {
+		const reach = fid === id ? visible : requireFigureAccess(db, locals, params, fid, 'read').reach;
+		return recordingsCount({
+			recordings: getFigure(db, fid, wall.userId)?.recordings.length ?? 0,
+			sections: sectionsFor(
+				db,
+				{ figureId: fid },
+				reach ?? undefined,
+				inGroupMode ? undefined : wall.userId
+			).length,
+			links: listLinks(db, { figureId: fid }).length
+		});
+	};
 	const holdsOf = handholdsOf(db, wall.userId, [id, ...rows.map((s) => s.id)]);
 	const names = (refs: PositionRef[]) => refs.map((p) => p.name);
 	const siblings: SiblingSummary[] = rows.map((s) => {
@@ -316,15 +307,13 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			name: s.name,
 			team: s.team,
 			copies: copies.get(s.id) ?? 0,
+			twins: twinned.has(s.id),
 			holds: holdsLine(names(h.starts), names(h.ends)),
 			timing: t().figure.timing.line(
 				n?.start ?? DEFAULT_START_COUNT,
 				n?.length ?? DEFAULT_LENGTH_COUNTS
 			),
-			videos:
-				s.id === id
-					? found.recordings.length
-					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
+			videos: videosOf(s.id)
 		};
 	});
 

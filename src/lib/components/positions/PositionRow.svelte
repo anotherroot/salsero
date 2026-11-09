@@ -2,7 +2,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GroupMark from '$lib/components/moves/GroupMark.svelte';
-	import { twinsChip } from '$lib/clones/twins';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { differLabel } from '$lib/moves/sync';
 	import { groupRowMeta, rowMeta, type StyleLabel } from '$lib/positions/view';
 	import type { PositionListRow, TeamRef } from '$lib/types';
@@ -55,6 +55,8 @@
 			>
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 			{#if row.twins}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+			<!-- With clones (copies in your app or a group's), as the Figures list marks them. -->
+			{#if (row.copies ?? 0) > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
 		</span>
 		{#if team}<GroupMark name={team.name} />{/if}
 		<span class="text-[13px] leading-[1.35] text-muted">

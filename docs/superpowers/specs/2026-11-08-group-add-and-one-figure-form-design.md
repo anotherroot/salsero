@@ -114,6 +114,14 @@ A figure's switcher (the phone's bottom bar, the desktop's tabs) steps through
 the same merged move, yours and the groups' figures alike, each group's marked
 (`mergedMoveFigures`, `server/moves-lists.ts`). The move's own figures stay as
 the page reads them (an editor's drafts too); group mode keeps the group's alone.
+The move's page lists the same merged move (`mergedMoveRows`). A figure the list
+folds (your own copy replaces the group's; a twin stands for its set) is that
+row, lit on either page. Rows with copies carry a Clone chip (Klon) on every
+list — figures, routines, positions, lessons, songs, the move page, the
+switcher — in place of "2 copies"; the twin chip and subtitle say Dvojček
+whatever the count. Keep in step shows only beside a clone: twins never sync.
+The switcher's recordings count is the figure page's (recordings, linked
+sections and links).
 
 ## 5. Scrollbars
 

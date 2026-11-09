@@ -146,7 +146,8 @@ export const clones: Catalog['clones'] = {
 		copyFrom: (place) => `Vaša kopija · vir: ${place}`,
 		inGroups: (n) => `Vaše · v ${slCount(n, ['skupini', 'skupinah', 'skupinah', 'skupinah'])}`,
 		// Counted as the kind itself: »Dvojčki · 3 kombinacije«, not »figure« (a figure).
-		twins: (n, kind) => `${slForm(n) === 'two' ? 'Dvojčka' : 'Dvojčki'} · ${TWIN_NOUN[kind](n)}`,
+		// »Dvojček« whatever the count, as the chip says it.
+		twins: (n, kind) => `Dvojček · ${TWIN_NOUN[kind](n)}`,
 		note: (place) => `Kopija · ${place}, samo za branje. Kar želite, prevzemite v svojo.`,
 		held: (size) => `${size} · že v vaši kopiji`,
 		new: (size) => `Nov · ${size}`,
