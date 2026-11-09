@@ -73,9 +73,15 @@
 		below?: Snippet;
 	} = $props();
 
-	/** The band's subtitle carries the sync status (offline phase 3): the band only, never a pane's or a card's. */
-	const withStatus = $derived(variant === 'band');
-	const statusShows = $derived(withStatus && syncStatus(sync.summary, sync.now).kind !== 'none');
+	/**
+	 * The subtitle carries the sync status (offline phase 3): on the phone every
+	 * screen's big header; on the desktop the band row only (a pane or a card sits
+	 * under the list's band row, which already says it).
+	 */
+	const deskStatus = $derived(variant === 'band');
+	const statusShows = $derived(syncStatus(sync.summary, sync.now).kind !== 'none');
+	/** The desktop's subtitle when it differs from the phone's (its own text, or no status). */
+	const deskText = $derived(deskSubtitle ?? (deskStatus ? undefined : subtitle));
 
 	/** In group mode the band says whose space this is. */
 	const group = $derived((page.data.groupMode ?? null) as GroupMode | null);
@@ -186,24 +192,24 @@
 						>{:else}{title}{/if}</span
 				>
 			</svelte:element>
-			{#if deskSubtitle}
+			{#if deskSubtitle || !deskStatus}
 				{#if subtitle || statusShows}
 					<span
 						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
-						class:pl-[38px]={!!left}
-						>{#if withStatus}<SyncStatus {subtitle} />{:else}{subtitle}{/if}</span
+						class:pl-[38px]={!!left}><SyncStatus {subtitle} /></span
 					>
 				{/if}
-				<span
-					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
-					class:pl-[38px]={!!left}
-					>{#if withStatus}<SyncStatus subtitle={deskSubtitle} />{:else}{deskSubtitle}{/if}</span
-				>
+				{#if deskText}
+					<span
+						class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
+						class:pl-[38px]={!!left}
+						>{#if deskStatus}<SyncStatus subtitle={deskText} />{:else}{deskText}{/if}</span
+					>
+				{/if}
 			{:else if subtitle || statusShows}
 				<span
 					class="order-last basis-full text-[15px] font-semibold text-band-small {D.sub}"
-					class:pl-[38px]={!!left}
-					>{#if withStatus}<SyncStatus {subtitle} />{:else}{subtitle}{/if}</span
+					class:pl-[38px]={!!left}><SyncStatus {subtitle} /></span
 				>
 			{/if}
 		</div>
