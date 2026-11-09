@@ -393,7 +393,7 @@
 				bind:value={time}
 				disabled={!on}
 				onchange={saveReminder}
-				class="h-11 w-28 min-w-24 flex-none rounded-full bg-field px-3 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums disabled:bg-disabled-bg disabled:text-disabled-ink"
+				class="field-sizing-content h-11 min-w-28 flex-none rounded-full bg-field px-3.5 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums disabled:bg-disabled-bg disabled:text-disabled-ink"
 			/>
 		</div>
 		{#if !few}
