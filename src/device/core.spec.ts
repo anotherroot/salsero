@@ -894,6 +894,42 @@ describe('writes on the device', () => {
 			expect(pushes).toEqual([[e.id]]);
 		});
 
+		it("a failed push's reset is never undone by a write rolling back meanwhile", async () => {
+			let blocking = false;
+			let release: () => void = () => {};
+			let entered: () => void = () => {};
+			const inside = new Promise<void>((r) => (entered = r));
+			let failPush: () => void = () => {};
+			let pushing: () => void = () => {};
+			const pushStarted = new Promise<void>((r) => (pushing = r));
+			const run = actionRunner(U1, ROUTES);
+			const { dev } = await writer({
+				startServer: async () => async (req: Request) => {
+					if (!blocking) return run(req);
+					entered();
+					await new Promise<void>((r) => (release = r));
+					return new Response('boom', { status: 500 });
+				},
+				fetchPush: () =>
+					new Promise<Response>((_, reject) => {
+						failPush = () => reject(new Error('offline'));
+						pushing();
+					})
+			});
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			const synced = dev.sync();
+			await pushStarted;
+			blocking = true;
+			const blocked = dev.answer(done(world.own.u1.exercise), 'u1');
+			await inside;
+			failPush();
+			await new Promise((r) => setTimeout(r, 20));
+			release();
+			await blocked;
+			await synced;
+			expect(waiting().map((r) => r.state)).toEqual(['waiting']);
+		});
+
 		it('keeps the copy and the outbox on a 401, and says sign in', async () => {
 			const { fetchPush } = pusher(() => new Response('Sign in', { status: 401 }));
 			const { dev } = await writer({ fetchPush });

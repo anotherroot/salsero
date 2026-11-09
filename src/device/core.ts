@@ -299,7 +299,7 @@ export function createDevice(deps: DeviceDeps): Device {
 		}
 		if (res.status === 401) {
 			// Signed out (an expired session): the copy and the outbox stay, the page says sign in.
-			writeMetaValue(db, 'signedOut', '1');
+			await exclusive(async () => writeMetaValue(db, 'signedOut', '1'));
 			postSummary();
 			log.info('[device] pull: signed out, the copy stays');
 			return 'signed-out';
@@ -375,20 +375,22 @@ export function createDevice(deps: DeviceDeps): Device {
 					JSON.stringify({ device: meta.deviceKey, user, entries: rows.map(toWire) })
 				);
 			} catch (e) {
-				resetSending(db);
+				await exclusive(async () => resetSending(db));
 				postSummary();
 				log.warn('[device] push: no network, the changes wait', String(e));
 				return 'offline';
 			}
 			// 409: the browser is signed in as someone else; theirs wait for their own person.
 			if (res.status === 401 || res.status === 409) {
-				resetSending(db);
-				writeMetaValue(db, 'signedOut', '1');
+				await exclusive(async () => {
+					resetSending(db);
+					writeMetaValue(db, 'signedOut', '1');
+				});
 				postSummary();
 				return 'signed-out';
 			}
 			if (!res.ok) {
-				resetSending(db);
+				await exclusive(async () => resetSending(db));
 				postSummary();
 				log.warn(`[device] push: the server answered ${res.status}, the changes wait`);
 				return 'offline';
@@ -397,13 +399,13 @@ export function createDevice(deps: DeviceDeps): Device {
 			try {
 				body = (await res.json()) as PushResponse;
 			} catch {
-				resetSending(db);
+				await exclusive(async () => resetSending(db));
 				postSummary();
 				return 'offline';
 			}
 			const { landed } = await exclusive(async () => applyResults(db, user, body.results));
 			lastLanded += landed;
-			writeMetaValue(db, 'signedOut', '0');
+			await exclusive(async () => writeMetaValue(db, 'signedOut', '0'));
 			postSummary();
 			// Deferred entries (the server was busy) wait for the next sync.
 			if (body.results.some((r) => r.state === 'deferred')) return 'waiting';
@@ -641,7 +643,7 @@ export function createDevice(deps: DeviceDeps): Device {
 			if (!started) return;
 			const mine = ++switches;
 			try {
-				wipeOther();
+				await exclusive(async () => wipeOther());
 				if (copyFits()) return await serve();
 				if (userId === null) return setState('empty');
 				setState('starting');
