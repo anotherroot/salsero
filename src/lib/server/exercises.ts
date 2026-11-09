@@ -27,6 +27,7 @@ import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import { deletedGroupName } from '$lib/exercises/today';
+import { shownExercise } from '$lib/exercises/name';
 import { withLocale } from '$lib/i18n/current';
 import { localDay, noonOf } from '$lib/day/day';
 import type {
@@ -531,6 +532,7 @@ export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): D
 			id: sets.id,
 			exerciseId: sets.exerciseId,
 			name: exercises.name,
+			source: exercises.source,
 			// An entry whose group is purged: the group's name, found through what it practised.
 			purgedTeam: sql<string | null>`(select t.name from teams t where t.purged_at is not null
 				and t.id = coalesce(
@@ -559,9 +561,13 @@ export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): D
 		)
 		.orderBy(desc(sets.doneAt))
 		.all()
-		.map(({ name, purgedTeam, lessonTitle, ...set }) => ({
+		.map(({ name, source, purgedTeam, lessonTitle, ...set }) => ({
 			...set,
-			exerciseName: purgedTeam === null ? name : deletedGroupName(lessonTitle ?? name, purgedTeam)
+			// Drawn as everywhere else: a lesson's own exercise in the reader's language.
+			exerciseName:
+				purgedTeam === null
+					? shownExercise({ name, source }).name
+					: deletedGroupName(lessonTitle ?? name, purgedTeam)
 		}));
 }
 

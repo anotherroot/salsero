@@ -75,17 +75,19 @@ export const today: Catalog['today'] = {
 		doneToday: 'Opravljeno danes'
 	},
 	past: {
-		loggedToday: 'Vneseno danes',
-		loggedThatDay: 'Vneseno tisti dan',
-		addSet: (name) => `Dodaj za ta dan: ${name}`,
-		done: 'Opravljeno',
 		nothingToday: 'Danes še ni vnosov',
-		nothingThatDay: 'Ta dan ni vnosov',
-		forgot: 'Manjka kakšen vnos za ta dan?',
-		pick: 'Izberite vajo\u00a0…',
+		nothingThatDay: 'Ta dan ni vpisane vadbe',
+		ifPractised: 'Če ste vadili, jo dodajte.',
+		add: 'Dodaj vajo za ta dan',
+		edit: (name) => `Spremeni za ta dan: ${name}`,
+		quote: (text) => `»${text}«`,
 		logOn: (day) => `Dodaj za ${day}`,
 		search: 'Iskanje vaj',
-		none: 'Še ni vaj.'
+		none: 'Še ni vaj.',
+		pickDay: 'Izberite dan',
+		legend: 'Številka = vaje tisti dan',
+		monthTotals: (days, exercises) => `${slCount(days, DAN)} · ${slCount(exercises, VAJA)}`,
+		dayCount: (label, n) => (n === 0 ? label : `${label}, ${slCount(n, VAJA)}`)
 	},
 	newExercise: {
 		title: 'Nova vaja',

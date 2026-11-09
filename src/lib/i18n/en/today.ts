@@ -88,18 +88,27 @@ export const today = {
 		doneToday: 'Done today'
 	},
 	past: {
-		loggedToday: 'Logged today',
-		loggedThatDay: 'Logged that day',
-		addSet: (name: string): string => `Add ${name} to this day`,
-		/** An entry with nothing to sum up. */
-		done: 'Done',
 		nothingToday: 'Nothing logged today',
-		nothingThatDay: 'Nothing logged on this day',
-		forgot: 'Forgot to log something that day?',
-		pick: 'Pick an exercise…',
+		nothingThatDay: 'Nothing logged this day',
+		ifPractised: 'If you practised, add it.',
+		/** The list's last row, and the empty day's. */
+		add: 'Add an exercise to this day',
+		/** A row's button: opens the Done sheet on its entry. */
+		edit: (name: string): string => `Change ${name} on this day`,
+		/** An entry's note under its name. */
+		quote: (text: string): string => `“${text}”`,
 		logOn: (day: string): string => `Add to ${day}`,
 		search: 'Search exercises',
-		none: 'No exercises yet.'
+		none: 'No exercises yet.',
+		/** The strip's middle button and the calendar sheet's title. */
+		pickDay: 'Pick a day',
+		legend: 'Number = exercises that day',
+		/** Beside a month's name: "3 days · 15 exercises". */
+		monthTotals: (days: number, exercises: number): string =>
+			`${plural(days, 'day', 'days')} · ${plural(exercises, 'exercise', 'exercises')}`,
+		/** A day's tile, read out: "Mon 2 Nov, 11 exercises". */
+		dayCount: (label: string, n: number): string =>
+			n === 0 ? label : `${label}, ${plural(n, 'exercise', 'exercises')}`
 	},
 	newExercise: {
 		title: 'New exercise',

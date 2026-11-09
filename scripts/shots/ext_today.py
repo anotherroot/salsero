@@ -370,8 +370,8 @@ def _done_today(page):
 
 
 def _past_day_sheet(page):
-    """A past day: Forgot to log something, pick the first exercise: the Done sheet with no time."""
-    page.locator("#past-forgot").click()
+    """A past day: Add an exercise to this day, pick the first exercise: the Done sheet with no time."""
+    page.locator('[data-focus="past-add"]').click()
     page.locator("dialog[open]").first.wait_for()
     page.wait_for_timeout(600)
     rows = page.locator("dialog[open] button").filter(has_text=re.compile(r"\w{3}"))

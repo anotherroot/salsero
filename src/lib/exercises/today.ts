@@ -3,7 +3,9 @@
  * card's words and a past day's groups. The rows themselves, and their order,
  * are `dayList`'s (`src/lib/schedule/today-list.ts`).
  */
-import { firstUpper } from '$lib/format';
+import { firstUpper, setSummary } from '$lib/format';
+import { timeOfDay } from '$lib/day/day';
+import { practisedLabel } from './exercise-page';
 import { t } from '$lib/i18n/catalog';
 import { backWords, dueWords, whenWords } from '$lib/schedule/words';
 import { learningWords, rhythmWords } from '$lib/schedule/comes-back';
@@ -178,17 +180,40 @@ export function onTodayMessage(name: string): string {
 	return t().today.toast.onToday(name);
 }
 
-/** A past day's sets, one merged entry per exercise, in the order they were first done. */
+/**
+ * A past day's sets, one merged entry per exercise, in the order they were first
+ * done; `at` is when its first set was.
+ */
 export function pastGroups(
 	daySets: DaySet[]
-): { exerciseId: number; name: string; entry: DayEntry }[] {
+): { exerciseId: number; name: string; at: number; entry: DayEntry }[] {
 	const groups: { exerciseId: number; name: string; sets: DaySet[] }[] = [];
 	for (const s of [...daySets].reverse()) {
 		let g = groups.find((x) => x.exerciseId === s.exerciseId);
 		if (!g) groups.push((g = { exerciseId: s.exerciseId, name: s.exerciseName, sets: [] }));
 		g.sets.push(s);
 	}
-	return groups.map((g) => ({ exerciseId: g.exerciseId, name: g.name, entry: mergeDay(g.sets) }));
+	return groups.map((g) => ({
+		exerciseId: g.exerciseId,
+		name: g.name,
+		at: Math.min(...g.sets.map((s) => s.doneAt)),
+		entry: mergeDay(g.sets)
+	}));
+}
+
+/** A past day's row under its name: "10:51 · 7 min", "10:51 · 3 reps", "10:51". */
+export function pastLine(at: number, entry: DayEntry, tz: string): string {
+	const amount = setSummary({ durationS: entry.durationS, reps: entry.reps, rating: null });
+	return amount ? `${timeOfDay(at, tz)} · ${amount}` : timeOfDay(at, tz);
+}
+
+/** A day's two tiles: how many exercises, and the minutes practised. */
+export function pastTiles(entries: DayEntry[]): { value: string; label: string }[] {
+	const seconds = entries.reduce((sum, e) => sum + (e.durationS ?? 0), 0);
+	return [
+		{ value: String(entries.length), label: t().today.doneToday.exercises(entries.length) },
+		{ value: practisedLabel(seconds), label: t().today.doneToday.practised }
+	];
 }
 
 /**
