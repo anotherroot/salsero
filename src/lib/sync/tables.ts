@@ -65,5 +65,9 @@ export const NEVER_SYNCED: readonly string[] = [
 	'oauth_clients',
 	'oauth_grants',
 	'oauth_codes',
-	'oauth_tokens'
+	'oauth_tokens',
+	// The AI's queue of actions: the server's alone, the page needs the network.
+	'ai_groups',
+	'ai_actions',
+	'ai_lines'
 ];

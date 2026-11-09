@@ -204,6 +204,84 @@ export const oauthTokens = sqliteTable(
 	]
 );
 
+/*
+ * The AI's queue of actions (docs/superpowers/plans/2026-11-09-ai-connector-2-queue.md,
+ * `src/lib/server/ai-queue/`): a group is a heading, an action one card, a line one
+ * change of one kind. Nothing here changes the person's things until they run it.
+ */
+
+export const aiGroups = sqliteTable(
+	'ai_groups',
+	{
+		id: mintedId('ai_groups'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		title: text('title').notNull(),
+		sort: integer('sort').notNull(),
+		createdAt: createdAt(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(t) => [index('ai_groups_user_idx').on(t.userId, t.dance)]
+);
+
+export const aiActions = sqliteTable(
+	'ai_actions',
+	{
+		id: mintedId('ai_actions'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		groupId: integer('group_id')
+			.notNull()
+			.references(() => aiGroups.id, { onDelete: 'cascade' }),
+		sort: integer('sort').notNull(),
+		/** The AI's own line for the card; never the only thing shown. */
+		title: text('title').notNull(),
+		grantId: integer('grant_id').references(() => oauthGrants.id, { onDelete: 'set null' }),
+		/** A JSON array of the action ids this one needs done first. */
+		needs: text('needs').notNull().default('[]'),
+		/** Bumped on every change the AI makes; a run sends the version the page showed. */
+		version: integer('version').notNull().default(1),
+		/** JSON `{ title, lines }` as it was before the AI's last change. */
+		previous: text('previous'),
+		createdAt: createdAt(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	(t) => [index('ai_actions_user_idx').on(t.userId, t.dance)]
+);
+
+export const aiLines = sqliteTable(
+	'ai_lines',
+	{
+		id: mintedId('ai_lines'),
+		actionId: integer('action_id')
+			.notNull()
+			.references(() => aiActions.id, { onDelete: 'cascade' }),
+		sort: integer('sort').notNull(),
+		kind: text('kind').notNull(),
+		payload: text('payload').notNull(),
+		/** JSON: the values this line overwrites, as they were when it was proposed. */
+		before: text('before'),
+		status: text('status').notNull().default('pending'),
+		/** JSON `{ code, args }`: why a run refused this still pending line. */
+		refusal: text('refusal'),
+		/** JSON: what the run made and wrote (ids, values), for refs and Undo. */
+		result: text('result'),
+		ranAt: integer('ran_at'),
+		undoneAt: integer('undone_at')
+	},
+	(t) => [
+		check(
+			'ai_lines_status_ck',
+			sql`${t.status} in ('pending', 'left_out', 'done', 'dropped', 'withdrawn', 'undone')`
+		),
+		index('ai_lines_action_idx').on(t.actionId)
+	]
+);
+
 /**
  * The newest app version each person has opened, per dance. Written by the
  * request hook (`app-seen.ts`), read by the admin's list of who needs an update.
