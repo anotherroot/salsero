@@ -68,6 +68,13 @@ async function open(): Promise<Device> {
 				headers: { 'content-type': 'application/json' },
 				body
 			}),
+		fetchPush: (body) =>
+			fetch('/api/sync/push', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'content-type': 'application/json' },
+				body
+			}),
 		startServer,
 		setRuntime: (runtime: DeviceRuntime) => {
 			(globalThis as { __salsaDevice?: DeviceRuntime }).__salsaDevice = runtime;

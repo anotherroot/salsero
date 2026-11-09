@@ -16,18 +16,33 @@ import {
 	mintedIn,
 	type CapturedRow
 } from '$lib/sync/outbox';
-import { startCapture, stopCapture } from './capture';
-import { recordEntry } from './outbox';
+import { installCapture, startCapture, stopCapture } from './capture';
+import {
+	applyResults,
+	discardEntry,
+	forgetPerson,
+	outboxItems,
+	outboxSummary,
+	recordEntry,
+	resetSending,
+	retryEntry,
+	setStates,
+	toSend,
+	toWire
+} from './outbox';
 import type {
 	DeviceOut,
 	DeviceState,
+	OutboxItem,
+	OutboxSummary,
 	WireFallback,
 	WireRequest,
 	WireResponse
 } from '$lib/offline/protocol';
+import type { PushResponse } from '$lib/sync/outbox';
 import type { PullResponse } from '$lib/sync/wire';
-import { applyPull, pullRequestOf, wipeCopy } from './apply';
-import { readMeta, type SqliteDb } from './migrate';
+import { applyPull, ensureDeviceKey, pullRequestOf, wipeCopy } from './apply';
+import { readMeta, writeMetaValue, type SqliteDb } from './migrate';
 import { DeviceRequest } from './request';
 
 /** What the server code reads to know it runs on the device (`$lib/server/device-runtime`). */
@@ -48,6 +63,8 @@ export type DeviceDeps = {
 	schema: string;
 	/** POSTs a pull request body to the server; rejects when the network fails. */
 	fetchPull: (body: string) => Promise<Response>;
+	/** POSTs the outbox's entries to /api/sync/push; rejects when the network fails. */
+	fetchPush: (body: string) => Promise<Response>;
 	/** Builds SvelteKit's `Server` over the copy; called once, after the runtime is set. */
 	startServer: () => Promise<Responder>;
 	/** Sets `globalThis.__salsaDevice`. */
@@ -69,8 +86,18 @@ export type DeviceDeps = {
 export type Device = {
 	/** Inside the lock: the first pull when there is no copy, then the server. */
 	start(): Promise<void>;
-	/** At most one pull at a time; asking during one queues exactly one more. */
+	/** At most one sync at a time; asking during one queues exactly one more. */
 	pull(): Promise<void>;
+	/** Push the outbox, then pull once nothing waits (offline phase 3). */
+	sync(): Promise<SyncResult>;
+	summary(): OutboxSummary;
+	outboxList(): Promise<OutboxItem[]>;
+	/** A refused entry and those held by it wait again; then a sync. How many. */
+	retry(id: string): Promise<number>;
+	/** A refused entry and those held by it are dropped; then a sync restores the server's state. How many. */
+	discard(id: string): Promise<number>;
+	/** Sign out, confirmed: the copy and this person's entries go. */
+	forget(): Promise<void>;
 	/**
 	 * Who the page says is signed in, from the server's own answer: null wipes
 	 * the copy (signed out); another person than the copy's wipes it and pulls
@@ -183,6 +210,8 @@ function actionOutcome(bytes: ArrayBuffer): { type: string | null } {
 	}
 }
 
+export type SyncResult = 'synced' | 'waiting' | 'offline' | 'signed-out';
+
 export function createDevice(deps: DeviceDeps): Device {
 	const { db, log } = deps;
 	let state: DeviceState | null = null;
@@ -214,17 +243,18 @@ export function createDevice(deps: DeviceDeps): Device {
 		const user = copyUser();
 		return user !== null && (wanted === undefined || user === wanted);
 	};
-	/** The copy goes when it is not the page's person's. */
+	/**
+	 * The copy goes when it is another person's (offline phase 3: never for a
+	 * signed-out page, since the copy may hold changes still on their way; the
+	 * outbox keeps the first person's entries for them either way).
+	 */
 	const wipeOther = () => {
 		const user = copyUser();
-		if (user === null || wanted === undefined || user === wanted) return;
+		if (user === null || wanted === undefined || wanted === null || user === wanted) return;
 		wipeCopy(db);
-		log.info(
-			wanted === null
-				? '[device] signed out: the copy is wiped'
-				: '[device] another person: the copy is wiped, theirs is pulled'
-		);
+		log.info('[device] another person: the copy is wiped, theirs is pulled');
 	};
+	const postSummary = () => deps.post({ type: 'outbox', summary: outboxSummary(db, copyUser()) });
 
 	/** The runtime from the copy's meta; the server once; then `ready`. */
 	async function serve(): Promise<void> {
@@ -250,11 +280,12 @@ export function createDevice(deps: DeviceDeps): Device {
 		setState(copyFits() ? 'ready' : 'empty');
 	}
 
-	async function pullOnce(): Promise<'again' | 'done'> {
+	async function pullOnce(): Promise<'again' | 'done' | 'dropped' | 'signed-out'> {
 		let res: Response;
 		// Taken just before the request leaves: a write the server took before
 		// this instant is in the answer (the page's `pullCovers`).
 		let startedAt: number;
+		const seqBefore = outboxSummary(db, copyUser()).seq;
 		try {
 			const request = JSON.stringify(await pullRequestOf(db, deps.schema));
 			startedAt = deps.now();
@@ -264,11 +295,11 @@ export function createDevice(deps: DeviceDeps): Device {
 			return 'done';
 		}
 		if (res.status === 401) {
-			// Signed out means no copy (phase 3 revisits this once there is an outbox).
-			wipeCopy(db);
-			setState('empty');
-			log.info('[device] signed out: the copy is wiped');
-			return 'done';
+			// Signed out (an expired session): the copy and the outbox stay, the page says sign in.
+			writeMetaValue(db, 'signedOut', '1');
+			postSummary();
+			log.info('[device] pull: signed out, the copy stays');
+			return 'signed-out';
 		}
 		if (res.status === 409) {
 			log.warn('[device] schema behind, waiting for the update');
@@ -291,29 +322,123 @@ export function createDevice(deps: DeviceDeps): Device {
 			return 'done';
 		}
 		try {
-			await exclusive(async () => applyPull(db, body));
+			const applied = await exclusive(async () => {
+				// A write recorded while the answer was on its way is not in it: applying would erase it.
+				const sum = outboxSummary(db, copyUser());
+				if (sum.seq !== seqBefore || sum.waiting > 0) return false;
+				applyPull(db, body);
+				writeMetaValue(db, 'signedOut', '0');
+				writeMetaValue(db, 'lastSyncedAt', String(deps.now()));
+				return true;
+			});
+			if (!applied) {
+				log.info('[device] pull: a change was made meanwhile, the answer is dropped');
+				return 'dropped';
+			}
 		} catch (e) {
 			// applyPull has asked for a full pull next (meta full = '1').
 			log.error('[device] pull: applying failed', e);
 			return 'again';
 		}
 		await serve();
-		deps.post({ type: 'pulled', cursor: body.cursor, startedAt });
+		postSummary();
+		deps.post({ type: 'pulled', cursor: body.cursor, startedAt, landed: lastLanded });
+		lastLanded = 0;
 		return 'done';
 	}
 
-	const pull = oneAtATime(async () => {
-		try {
-			// A failed apply pulls once more at once, a full pull; a second failure waits for the next ask.
-			if ((await pullOnce()) === 'again' && (await pullOnce()) === 'again') {
-				log.error('[device] pull: applying failed twice, waiting for the next pull');
+	/** How many entries landed since the last `pulled` was posted. */
+	let lastLanded = 0;
+
+	/** Sends what waits, batch by batch, until nothing waits or the server can't be reached. */
+	async function pushAll(): Promise<SyncResult | 'pushed'> {
+		const meta = readMeta(db);
+		const user = meta.userId;
+		if (user === null || meta.deviceKey === null) return 'pushed';
+		for (;;) {
+			const rows = await exclusive(async () => {
+				const next = toSend(db, user);
+				setStates(
+					db,
+					next.map((r) => r.id),
+					'sending'
+				);
+				return next;
+			});
+			if (rows.length === 0) return 'pushed';
+			let res: Response;
+			try {
+				res = await deps.fetchPush(
+					JSON.stringify({ device: meta.deviceKey, entries: rows.map(toWire) })
+				);
+			} catch (e) {
+				resetSending(db);
+				postSummary();
+				log.warn('[device] push: no network, the changes wait', String(e));
+				return 'offline';
 			}
+			if (res.status === 401) {
+				resetSending(db);
+				writeMetaValue(db, 'signedOut', '1');
+				postSummary();
+				return 'signed-out';
+			}
+			if (!res.ok) {
+				resetSending(db);
+				postSummary();
+				log.warn(`[device] push: the server answered ${res.status}, the changes wait`);
+				return 'offline';
+			}
+			let body: PushResponse;
+			try {
+				body = (await res.json()) as PushResponse;
+			} catch {
+				resetSending(db);
+				postSummary();
+				return 'offline';
+			}
+			const { landed } = await exclusive(async () => applyResults(db, user, body.results));
+			lastLanded += landed;
+			writeMetaValue(db, 'signedOut', '0');
+			postSummary();
+			// Deferred entries (the server was busy) wait for the next sync.
+			if (body.results.some((r) => r.state === 'deferred')) return 'waiting';
+		}
+	}
+
+	const sync = oneAtATime(async () => {
+		syncResult = await syncOnce();
+	});
+	let syncResult: SyncResult = 'synced';
+
+	async function syncOnce(): Promise<SyncResult> {
+		try {
+			for (let round = 0; round < 2; round++) {
+				const pushed = await pushAll();
+				if (pushed !== 'pushed') return pushed;
+				if (outboxSummary(db, copyUser()).waiting > 0) return 'waiting';
+				// A failed apply pulls once more at once, a full pull; a second failure waits for the next ask.
+				let out = await pullOnce();
+				if (out === 'again') out = await pullOnce();
+				if (out === 'again') {
+					log.error('[device] pull: applying failed twice, waiting for the next pull');
+					return 'synced';
+				}
+				if (out === 'signed-out') return 'signed-out';
+				// A change was made while the answer was on its way: push it, then pull once more.
+				if (out === 'dropped') continue;
+				return outboxSummary(db, copyUser()).waiting > 0 ? 'waiting' : 'synced';
+			}
+			return 'waiting';
 		} catch (e) {
 			// The server would not start, or the database itself fails.
-			log.error('[device] pull failed', e);
+			log.error('[device] sync failed', e);
 			if (state !== 'ready') setState('failed');
+			return 'offline';
 		}
-	});
+	}
+
+	const pull = () => sync();
 
 	/**
 	 * A device-first write: run here in one transaction with its capture, then
@@ -428,7 +553,13 @@ export function createDevice(deps: DeviceDeps): Device {
 			started = true;
 			setState('starting');
 			try {
+				// The outbox and the capture triggers, rebuilt to the migrated columns at every open.
+				installCapture(db);
+				// After a restart nothing is on its way: what was being sent waits again.
+				resetSending(db);
+				ensureDeviceKey(db, deps.newId);
 				wipeOther();
+				postSummary();
 				if (wanted === null) return setState('empty');
 				if (deps.online()) {
 					const pulled = pull();
@@ -443,6 +574,47 @@ export function createDevice(deps: DeviceDeps): Device {
 		},
 
 		pull,
+
+		async sync() {
+			await sync();
+			return syncResult;
+		},
+
+		summary: () => outboxSummary(db, copyUser()),
+
+		outboxList: async () => {
+			const user = copyUser();
+			return user === null ? [] : outboxItems(db, user);
+		},
+
+		async retry(id) {
+			const user = copyUser();
+			if (user === null) return 0;
+			const n = await exclusive(async () => retryEntry(db, user, id));
+			postSummary();
+			void sync();
+			return n;
+		},
+
+		async discard(id) {
+			const user = copyUser();
+			if (user === null) return 0;
+			const n = await exclusive(async () => discardEntry(db, user, id));
+			postSummary();
+			// The next pull puts back the server's state where the change was.
+			await sync();
+			return n;
+		},
+
+		async forget() {
+			await exclusive(async () => {
+				const user = copyUser();
+				wipeCopy(db);
+				if (user !== null) forgetPerson(db, user);
+			});
+			postSummary();
+			setState('empty');
+		},
 
 		async person(userId) {
 			if (userId === wanted) return;

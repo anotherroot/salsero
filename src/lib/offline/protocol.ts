@@ -46,7 +46,11 @@ export type DeviceIn =
  * left (the wall clock the page shares), so the page knows which writes it holds.
  */
 export type DeviceOut =
-	{ type: 'state'; state: DeviceState } | { type: 'pulled'; cursor: number; startedAt: number };
+	| { type: 'state'; state: DeviceState }
+	/** `landed`: how many outbox entries the pushes before this pull landed. */
+	| { type: 'pulled'; cursor: number; startedAt: number; landed: number }
+	/** After every change to the outbox or its meta (offline phase 3). */
+	| { type: 'outbox'; summary: OutboxSummary };
 
 /**
  * From the service worker to the page. `device-fetch` carries a reply port and
