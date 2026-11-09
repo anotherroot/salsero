@@ -103,6 +103,10 @@
 			? "font-variation-settings: 'opsz' 30; letter-spacing: -0.015em"
 			: "font-variation-settings: 'opsz' 46; letter-spacing: -0.02em"
 	);
+	/** A group's view: the slim band keeps the group's row, shrunk, over the title. */
+	const groupView = $derived(
+		(page.data.groupMode ?? frameView.current) as { name: string } | null | undefined
+	);
 	let slimEl = $state<HTMLElement>();
 	const fold = bandCollapse();
 	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
@@ -116,10 +120,10 @@
 		}
 		// What the rest positions hang on. Not the subtitle's words (an exercise's clock
 		// ticks there every second), only whether there is one.
-		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}`;
+		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}|${groupView?.name ?? ''}`;
 		// Half-pixel steps: a pin that wobbles by a fraction does not rewrite the fold.
 		if (driven) fold.drive(header, slimEl, Math.round(pinAt * 2) / 2, key);
-		else fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
+		else fold.update(header, slimEl, y, pinAt, bandProgress(y, compact, pinAt), key);
 	});
 
 	/*
@@ -183,11 +187,26 @@
 		<!-- The same 560 px column as the page, inside the full-width bar. -->
 		<div class="mx-auto flex h-16 max-w-[560px] items-center gap-1">
 			{#if left}{@render left()}{/if}
-			{#if page.data.groupMode ?? frameView.current}
-				<!-- Scrolled, a group's view keeps its badge before the title (group view spec). -->
-				<span class="mr-[5px] flex"><GroupBadge size={26} /></span>
-			{/if}
-			{#if compact && subtitle}
+			{#if groupView}
+				<!--
+					Scrolled, a group's view keeps its row, shrunk: the badge and the name
+					over the title (the big band's row folds into it). The subtitle steps aside.
+				-->
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="flex min-w-0 items-center gap-1.5">
+						<span class="flex" data-slim-gbadge><GroupBadge size={16} /></span>
+						<span
+							class="truncate text-[12px] leading-[1.3] font-extrabold text-band-ink"
+							data-slim-gname>{groupView.name}</span
+						>
+					</span>
+					<span
+						class="truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+						style={slimType}
+						data-slim-name>{title}</span
+					>
+				</span>
+			{:else if compact && subtitle}
 				<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span

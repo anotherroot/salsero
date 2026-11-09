@@ -152,16 +152,17 @@
 				The group's row (group view spec): whose space this is and who sees it.
 				The phone's only: on the desktop the side's card says it.
 			-->
-			<div
-				class="flex basis-full items-center gap-2.5 pb-1.5 desk:hidden"
-				data-group-row
-				data-band-fade
-			>
-				<GroupBadge size={30} />
-				<span class="min-w-0 flex-1 truncate text-[17px] font-extrabold text-band-ink"
-					>{group.name}</span
+			<!-- Scrolled, it shrinks into the slim band's line over the title (`band-collapse.ts`). -->
+			<div class="flex basis-full items-center gap-2.5 pb-1.5 desk:hidden" data-group-row>
+				<span class="flex" data-band-gbadge><GroupBadge size={30} /></span>
+				<!-- Block, not inline: a transform moves only a box. -->
+				<span
+					class="min-w-0 flex-1 truncate text-[17px] font-extrabold text-band-ink"
+					data-band-gname>{group.name}</span
 				>
-				<GroupFaces faces={group.faces} people={group.people} />
+				<span class="flex" data-band-fade
+					><GroupFaces faces={group.faces} people={group.people} /></span
+				>
 			</div>
 		{/if}
 		<div class="contents {D.block}" data-band-title>
@@ -186,6 +187,18 @@
 						>{:else}{title}{/if}</span
 				>
 			</svelte:element>
+			<!--
+				The title on one line, as the slim band will cut it: a two-line title
+				crossfades into it on the way up (`band-collapse.ts` shows, sizes and
+				places it on the title's first line). Outside the h1: not the page's name twice.
+			-->
+			<span
+				class="pointer-events-none absolute top-0 left-0 hidden truncate font-display font-extrabold text-band-ink opacity-0 desk:hidden {compact
+					? 'text-[30px] leading-[1.1] tracking-[-0.015em]'
+					: 'text-[46px] leading-[1.05] tracking-[-0.02em]'}"
+				aria-hidden="true"
+				data-band-twin>{title}</span
+			>
 			{#if deskSubtitle || !deskStatus}
 				{#if subtitle || statusShows}
 					<span
