@@ -375,6 +375,17 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		approve: 'network',
 		cancel: 'network'
 	},
+	// The AI's queue lives only on the server (never synced): every run and drop needs it.
+	'/[dance]/suggestions': {
+		drop: 'network',
+		dropAll: 'network',
+		run: 'network',
+		runAll: 'network',
+		runGroup: 'network',
+		runUpTo: 'network',
+		toggleLine: 'network',
+		undo: 'network'
+	},
 	'/settings': {
 		ask: 'network',
 		dailyCount: 'device',
