@@ -28,6 +28,7 @@
 	import { listOpener, openerAhead, syncTrail } from '$lib/nav/trail.svelte';
 	import { columnOf } from '$lib/nav/moves-pane';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
+	import { openPickersOnClick } from '$lib/native-picker';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
@@ -315,6 +316,8 @@
 		window.addEventListener('salsa:needs-connection', show);
 		return () => window.removeEventListener('salsa:needs-connection', show);
 	});
+	// Date and time fields have no picker button: a mouse click opens the picker ($lib/native-picker).
+	$effect(() => openPickersOnClick());
 	/*
 	 * No preloading while offline (and the device cannot answer). A link touched
 	 * offline would try to fetch the route's data and code and fail, and the
