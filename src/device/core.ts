@@ -17,6 +17,8 @@ import {
 	type CapturedRow
 } from '$lib/sync/outbox';
 import { installCapture, startCapture, stopCapture } from './capture';
+import { wantedMedia } from './media';
+import type { MediaFile } from '$lib/offline/media-store';
 import {
 	applyResults,
 	discardEntry,
@@ -82,6 +84,8 @@ export type DeviceDeps = {
 	newId: () => string;
 	/** A write went in the outbox: the worker posts the summary and pushes soon. */
 	onRecorded: () => void;
+	/** Empties the media store (offline phase 4a): its files are the copy's person's. */
+	clearMedia: () => Promise<void>;
 };
 
 export type Device = {
@@ -92,6 +96,8 @@ export type Device = {
 	/** Push the outbox, then pull once nothing waits (offline phase 3). */
 	sync(): Promise<SyncResult>;
 	summary(): OutboxSummary;
+	/** The files the copy wants on the phone (offline phase 4a); none without a copy. */
+	wantedMedia(): MediaFile[];
 	outboxList(): Promise<OutboxItem[]>;
 	/** A refused entry and those held by it wait again; then a sync. How many. */
 	retry(id: string): Promise<number>;
@@ -251,10 +257,11 @@ export function createDevice(deps: DeviceDeps): Device {
 	 * signed-out page, since the copy may hold changes still on their way; the
 	 * outbox keeps the first person's entries for them either way).
 	 */
-	const wipeOther = () => {
+	const wipeOther = async () => {
 		const user = copyUser();
 		if (user === null || wanted === undefined || wanted === null || user === wanted) return;
 		wipeCopy(db);
+		await deps.clearMedia();
 		log.info('[device] another person: the copy is wiped, theirs is pulled');
 	};
 	const postSummary = () => deps.post({ type: 'outbox', summary: outboxSummary(db, copyUser()) });
@@ -570,7 +577,7 @@ export function createDevice(deps: DeviceDeps): Device {
 				// After a restart nothing is on its way: what was being sent waits again.
 				resetSending(db);
 				ensureDeviceKey(db, deps.newId);
-				wipeOther();
+				await wipeOther();
 				postSummary();
 				if (wanted === null) return setState('empty');
 				if (deps.online()) {
@@ -593,6 +600,11 @@ export function createDevice(deps: DeviceDeps): Device {
 		},
 
 		summary: () => outboxSummary(db, copyUser()),
+
+		wantedMedia: () => {
+			const user = copyUser();
+			return user === null ? [] : wantedMedia(db, user);
+		},
 
 		outboxList: async () => {
 			const user = copyUser();
@@ -631,6 +643,7 @@ export function createDevice(deps: DeviceDeps): Device {
 			await exclusive(async () => {
 				const user = copyUser();
 				wipeCopy(db);
+				await deps.clearMedia();
 				if (user !== null) forgetPerson(db, user);
 			});
 			postSummary();
