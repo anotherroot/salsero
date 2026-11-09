@@ -62,6 +62,9 @@
 	const row = $derived(versionRow({ sources, current, self }));
 	const lines = $derived(versionList({ sources, current, family, self }));
 	const canSync = $derived(!!keep?.mode);
+	// Keep in step is about clones: a row whose other versions are only its twins
+	// (which never sync) has nothing to keep in step with.
+	const cloned = $derived(lines.some((l) => !l.current && !l.twin));
 	// Copy to…'s toast belongs to this page: gone with it, so it never shows on a later one.
 	$effect(() => () => copied.clear());
 
@@ -117,10 +120,10 @@
 		{dance}
 		{mineId}
 		onsync={canSync ? () => (syncing = true) : undefined}
-		keep={keep?.settings ?? null}
-		onkeep={keep ? () => (keeping = true) : undefined}
+		keep={cloned ? (keep?.settings ?? null) : null}
+		onkeep={keep && cloned ? () => (keeping = true) : undefined}
 	/>
-	{#if keep}
+	{#if keep && cloned}
 		<KeepInStep open={listing && keeping} onclose={() => (keeping = false)} {keep} {title} />
 	{/if}
 {/if}

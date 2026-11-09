@@ -81,7 +81,8 @@ import { copyToFrom, detachFrom, dropFrom, keepFrom, syncFromForm } from '$lib/s
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
-import { keepView, stepStatus } from '$lib/server/clones/step';
+import { copyCounts, keepView, stepStatus } from '$lib/server/clones/step';
+import { mineIdsFor } from '$lib/server/clones/shadow';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
@@ -261,18 +262,47 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// person's own and the added groups' moves of the same name, one move
 	// (`mergeGroups`), each group's figure marked. This move's own figures stay
 	// as this page reads them (an editor's drafts too), where the list puts them.
+	// A figure the list folds into another row (your own copy replaces the
+	// group's; a twin stands for its set) is that row here too: one row, marked
+	// with its copies, lit when either is open.
 	const team = inGroupMode ? null : groupTeam;
 	const rows: { id: number; name: string; team: TeamRef | null }[] = [];
-	const own = shown.map((s) => ({ id: s.id, name: s.name, team }));
-	if (inGroupMode) rows.push(...own);
+	let standIn: number | null = null;
+	if (inGroupMode) rows.push(...shown.map((s) => ({ id: s.id, name: s.name, team })));
 	else {
+		const merged = mergedMoveFigures(db, wall, group.name);
+		const listed = new Set(merged.figures.map((f) => f.id));
+		const yours =
+			figure.teamId === null
+				? new Map<number, number>()
+				: mineIdsFor(
+						db,
+						wall,
+						'figure',
+						shown.map((s) => s.id)
+					);
+		const folded = (fid: number) => {
+			if (listed.has(fid)) return null;
+			const to = merged.twinOf.get(fid) ?? yours.get(fid);
+			return to !== undefined && listed.has(to) ? to : null;
+		};
+		standIn = folded(id);
+		const own = shown
+			.filter((s) => folded(s.id) === null)
+			.map((s) => ({ id: s.id, name: s.name, team }));
 		const ofThis = new Set(live.map((s) => s.id));
-		for (const f of mergedMoveFigures(db, wall, group.name)) {
+		for (const f of merged.figures) {
 			if (!ofThis.has(f.id)) rows.push({ id: f.id, name: f.name, team: f.team });
 			else if (own.length > 0) rows.push(...own.splice(0));
 		}
 		rows.push(...own);
 	}
+	const copies = copyCounts(
+		db,
+		wall.userId,
+		'figure',
+		rows.map((r) => r.id)
+	);
 	// Another move's figures are timed in the person's graph: a group's graph lacks theirs.
 	const other = rows.some((r) => !live.some((s) => s.id === r.id));
 	const theirGraph = other && isTeam(space) ? graphFor(db, wall) : graph;
@@ -285,6 +315,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			id: s.id,
 			name: s.name,
 			team: s.team,
+			copies: copies.get(s.id) ?? 0,
 			holds: holdsLine(names(h.starts), names(h.ends)),
 			timing: t().figure.timing.line(
 				n?.start ?? DEFAULT_START_COUNT,
@@ -375,6 +406,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		siblings,
 		/** The move holds no other live figure: archiving this one archives the move. */
 		lastInMove: live.length === 1,
+		/** The switcher's row for this figure: the one the list shows for it (its own copy, its twin), else itself. */
+		switcherId: standIn ?? id,
 		canEdit,
 		/** The family and twins the person reads, as tabs; empty for fewer than two. */
 		sources: versions.sources,

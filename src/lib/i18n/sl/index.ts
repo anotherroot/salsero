@@ -74,7 +74,8 @@
 //   Update mine                           Posodobi svojo
 //   Make it mine                          Naredi svojo kopijo
 //   Versions (the list) / Your version    Kopije / Vaša kopija
-//   Twins (the chip)                      Dvojčka
+//   Twins (the chip)                      Dvojček
+//   Clone (the chip)                      Klon
 //   the reminder (Android's channel)      Opomnik za vadenje
 import type { Catalog } from '../catalog';
 import { admin } from './admin';

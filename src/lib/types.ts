@@ -456,6 +456,8 @@ export interface SiblingSummary {
 	name: string;
 	/** The group it is from, marked as on the Figures list; null for the person's own (and in group mode). */
 	team: TeamRef | null;
+	/** Its other copies the person reads (a group's copy of yours folds into your row): "2 copies". */
+	copies: number;
 	/** "Cross-hand → Open two hands": each side joined with " / ", an untagged side empty; "No position" when both are. */
 	holds: string;
 	/** "Starts on 5 · 4 counts". */

@@ -10,7 +10,7 @@ import { differLabel } from './sync';
 export function figureRowParts(
 	f: Pick<
 		FigureRow,
-		'startCount' | 'lengthCounts' | 'recordings' | 'hasSection' | 'hasLesson' | 'differ' | 'copies'
+		'startCount' | 'lengthCounts' | 'recordings' | 'hasSection' | 'hasLesson' | 'differ'
 	>
 ): { text: string; status: boolean; warn?: true }[] {
 	const w = t();
@@ -23,11 +23,7 @@ export function figureRowParts(
 	if (f.recordings > 0) {
 		parts.push({ text: w.nouns.recordings(f.recordings), status: false });
 	}
-	// "2 copies": how many copies it has. When every one of them differs, "2 copies
-	// differ" already says so.
-	const copies = f.copies ?? 0;
-	if (copies > 0 && copies !== (f.differ ?? 0))
-		parts.push({ text: w.nouns.copies(copies), status: false });
+	// A row with copies says so in its Clone chip (`cloneChip`), as a twin's does, not here.
 	if (!f.hasSection) parts.push({ text: w.moves.row.noSection, status: true });
 	if (!f.hasLesson) parts.push({ text: w.moves.row.noLesson, status: true });
 	const differs = differLabel(f.differ);
@@ -35,7 +31,7 @@ export function figureRowParts(
 	return parts;
 }
 
-/** "Starts on 1 · 16 counts · 2 recordings · 1 copy", with "No section" / "No lesson" last. */
+/** "Starts on 1 · 16 counts · 2 recordings", with "No section" / "No lesson" last. */
 export function figureRowMeta(f: Parameters<typeof figureRowParts>[0]): string {
 	return figureRowParts(f)
 		.map((p) => p.text)

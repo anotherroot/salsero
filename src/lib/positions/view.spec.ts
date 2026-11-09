@@ -1068,7 +1068,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 					{ name: 'Closed', team: { id: 1, name: 'Salsa Tuesdays' } }
 				])
 			)
-		).toBe('Dvojčka: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)');
+		).toBe('Dvojček: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)');
 	});
 
 	it('words the Recordings and Lessons headings and their openers', () => {

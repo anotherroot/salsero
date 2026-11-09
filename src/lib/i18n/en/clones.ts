@@ -467,6 +467,8 @@ export const clones = {
 		/** The copied toast's action: the copy's page. */
 		open: 'Open'
 	},
+	/** The chip on a row that has clones (copies of it, in your app or a group's), as Twins marks a twin. */
+	cloneChip: 'Clone',
 	/** Twins: Copy to…'s and Move to…'s question, Same as…, the chip and a picker's meta (board C7). */
 	twins: {
 		/** The chip on a row that stands for its twins. */

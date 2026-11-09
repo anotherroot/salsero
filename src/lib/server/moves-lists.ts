@@ -123,18 +123,24 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
  * The figures the Figures list shows under the move named `name`: the person's
  * own and those of the groups whose lessons they added, merged by name
  * (`mergeGroups`), twins folded, as the list draws them. Empty when the list
- * has no such move. A figure's switcher steps through these.
+ * has no such move. `twinOf`: a folded twin's id → the id shown for it. A
+ * figure's switcher steps through these.
  */
-export function mergedMoveFigures(db: Db, wall: Wall, name: string): MergedFigure[] {
+export function mergedMoveFigures(
+	db: Db,
+	wall: Wall,
+	name: string
+): { figures: MergedFigure[]; twinOf: Map<number, number> } {
 	const folded = foldMoves(
 		listFigures(db, wall),
 		listAddedFigures(db, wall),
 		storedTwinSets(db, wall.userId, 'figure')
 	);
 	const key = moveKey(name);
-	return (
-		mergeGroups(folded.mine, folded.groups).find((m) => moveKey(m.name) === key)?.figures ?? []
-	);
+	const twinOf = new Map<number, number>();
+	for (const [shown, hidden] of folded.twinOf) for (const h of hidden) twinOf.set(h, shown);
+	const move = mergeGroups(folded.mine, folded.groups).find((m) => moveKey(m.name) === key);
+	return { figures: move?.figures ?? [], twinOf };
 }
 
 export function routinesList(

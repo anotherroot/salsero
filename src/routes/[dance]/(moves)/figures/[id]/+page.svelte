@@ -488,7 +488,7 @@
 				moveName={figure.name}
 				moveId={figure.id}
 				siblings={data.siblings}
-				currentId={variation.id}
+				currentId={data.switcherId}
 				{slug}
 				canEdit={data.canEdit}
 				onnew={() => (addingFigure = true)}
@@ -883,7 +883,7 @@
 		figureName={figure.name}
 		moveId={data.figure.id}
 		siblings={data.siblings}
-		currentId={variation.id}
+		currentId={data.switcherId}
 		{slug}
 		failed={failed('createVariation')}
 		canEdit={data.canEdit}
