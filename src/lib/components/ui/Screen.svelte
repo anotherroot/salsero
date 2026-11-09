@@ -86,6 +86,16 @@
 	 * into the slim title's place and its buttons move to the slim row
 	 * (`band-collapse.ts`), so at the pin the slim band takes over unseen.
 	 */
+	/*
+	 * The slim title is drawn as the big one shrunk: the big band's optical size
+	 * (Bricolage's opsz axis, 46 or 30) and letter spacing, so at the pin the swap
+	 * changes no letter (at its own 22 px the font would pick wider, lighter shapes).
+	 */
+	const slimType = $derived(
+		compact
+			? "font-variation-settings: 'opsz' 30; letter-spacing: -0.015em"
+			: "font-variation-settings: 'opsz' 46; letter-spacing: -0.02em"
+	);
 	let slimEl = $state<HTMLElement>();
 	const fold = bandCollapse();
 	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
@@ -97,7 +107,9 @@
 			fold.clear(header, slimEl);
 			return;
 		}
-		const key = `${innerWidth}|${title}|${subtitle ?? ''}|${compact}`;
+		// What the rest positions hang on. Not the subtitle's words (an exercise's clock
+		// ticks there every second), only whether there is one.
+		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}`;
 		// Half-pixel steps: a pin that wobbles by a fraction does not rewrite the fold.
 		if (driven) fold.drive(header, slimEl, Math.round(pinAt * 2) / 2, key);
 		else fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
@@ -168,7 +180,8 @@
 				<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span
-						class="truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
+						class="truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+						style={slimType}
 						data-slim-name>{title}</span
 					>
 					<span
@@ -178,7 +191,8 @@
 				</span>
 			{:else}
 				<span
-					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
+					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+					style={slimType}
 					data-slim-name>{title}</span
 				>
 			{/if}
