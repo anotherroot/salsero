@@ -283,6 +283,43 @@ export const aiLines = sqliteTable(
 );
 
 /**
+ * A video made ready for the AI to look at (AI connector plan 3): the home
+ * worker cuts frames every 2 s and minute pieces of sound into
+ * `$DATA_DIR/timelines/<id>/<k>.json`. Derived, never synced, never counted
+ * toward storage. No foreign keys: a video's hard delete must not wait on it;
+ * the hourly sweep drops a timeline whose video is gone, or that went unused
+ * for 30 days. Exactly one video, a lesson video or a recording.
+ */
+export const aiTimelines = sqliteTable(
+	'ai_timelines',
+	{
+		id: mintedId('ai_timelines'),
+		lessonVideoId: integer('lesson_video_id'),
+		recordingId: integer('recording_id'),
+		status: text('status', { enum: ['queued', 'ready', 'failed'] }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		/** The worker's lease, epoch ms. */
+		claimedAt: integer('claimed_at'),
+		failedAt: integer('failed_at'),
+		pieces: integer('pieces'),
+		durationMs: integer('duration_ms'),
+		readyAt: integer('ready_at'),
+		usedAt: integer('used_at'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check(
+			'ai_timelines_owner_ck',
+			sql`(${t.lessonVideoId} is not null) + (${t.recordingId} is not null) = 1`
+		),
+		check('ai_timelines_status_ck', sql`${t.status} in ('queued', 'ready', 'failed')`),
+		uniqueIndex('ai_timelines_lesson_video_idx').on(t.lessonVideoId),
+		uniqueIndex('ai_timelines_recording_idx').on(t.recordingId)
+	]
+);
+
+/**
  * The newest app version each person has opened, per dance. Written by the
  * request hook (`app-seen.ts`), read by the admin's list of who needs an update.
  */

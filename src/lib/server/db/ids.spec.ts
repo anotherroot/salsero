@@ -45,7 +45,8 @@ const ID_TABLES = [
 	'oauth_grants',
 	'ai_groups',
 	'ai_actions',
-	'ai_lines'
+	'ai_lines',
+	'ai_timelines'
 ] as const;
 
 const raw = (d: Db) => (d as unknown as { $client: Database.Database }).$client;
