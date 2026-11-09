@@ -64,7 +64,18 @@ export const settings: Catalog['settings'] = {
 		label: 'Videz',
 		theme: 'Tema',
 		themeIntro: 'Sistemska sledi svetli ali temni nastavitvi telefona ali računalnika.',
-		note: 'Velja le za ta brskalnik ali telefon.'
+		note: 'Velja le za ta brskalnik ali telefon.',
+		motion: 'Animacija strani (preizkus)',
+		motionIntro:
+			'Načini menjave strani, le na telefonu. Izberite enega, nekaj časa uporabljajte aplikacijo, nato poskusite drugega.',
+		motions: {
+			off: 'Izklopljeno',
+			close: 'Zapre se',
+			slim: 'Zapre se do ozkega pasu',
+			dip: 'Se spusti',
+			deep: 'Se spusti do konca',
+			swap: 'Spust in zamenjava'
+		}
 	},
 	getAppSub: 'Za začetni zaslon telefona',
 	you: {
