@@ -308,13 +308,16 @@
 			: null
 	);
 
-	/** "Drill · learning · 3:20" ("Drill · 3 of 7 · 4:12" in a run) while it can be done; the type alone while editing or with nothing to log. */
+	/**
+	 * "Drill · learning · 3:20" ("Drill · 3 of 7 · 4:12" in a run) while it can be
+	 * done: the time wins over where a copy comes from (2026-11-09), which the
+	 * item's own page says. With nothing to log, the copy line or the type alone;
+	 * the type alone while editing.
+	 */
 	const subtitle = $derived.by(() => {
 		const label = TYPES[type].label;
 		if (editing) return label;
-		const clone = simple ? null : cloneSubtitle(data.cloneLine);
-		if (clone) return clone;
-		if (!data.canLog) return label;
+		if (!data.canLog) return (simple ? null : cloneSubtitle(data.cloneLine)) ?? label;
 		return bandSubtitle({
 			label,
 			warmup: exercise.warmup,

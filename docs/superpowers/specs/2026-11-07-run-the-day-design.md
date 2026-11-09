@@ -274,7 +274,8 @@ The page at `/[dance]/exercises/[id]` becomes the place you practise:
 - **The band** shows the name and a subtitle with the type, the place in a run
   and the running time: "Drill · 4:12", in a run "Drill · 3 of 7 · 4:12", a
   warm-up "Drill · warm-up · 1 of 7 · 6:30", a learning drill "Drill · learning
-  · 3:20".
+  · 3:20". The time wins over a copy's line ("Yours · in 2 groups", a group's
+  name; 2026-11-09): that line shows only where nothing is logged.
 - **The body** shows what the type shows today on the page and in the popup's
   practice panel: the description, the **Practise with** card (count, song,
   clave, play; moved from the popup to right after the description), and the
