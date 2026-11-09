@@ -51,7 +51,8 @@ import {
 } from '$lib/server/lessons';
 import { cloneInto } from '$lib/server/clones/clone';
 import { NO_FILES, T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import type { Space } from '$lib/server/scope';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
@@ -65,7 +66,7 @@ let db: Db;
 
 function jar(group?: number): Cookies {
 	return {
-		get: (n: string) => (n === groupCookie('salsa') && group ? String(group) : undefined),
+		get: (n: string) => (n === VIEW && group ? String(group) : undefined),
 		set: () => {},
 		delete: () => {}
 	} as unknown as Cookies;
@@ -187,6 +188,25 @@ describe('the routine and drill pages', () => {
 		expect(res.location).not.toBe(`/salsa/routines/${R}`);
 	});
 
+	// Group view spec, rule 5: editing a group's drill shows the group's view, so the
+	// page hands its editors the group (a member, who cannot edit it, gets none).
+	it('a group drill gives its editor the group to show while editing, a member none', async () => {
+		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		published((id) => linkExercise(db, id, D, 'u1'));
+		expect((await run(exercisePage.load, ev('u3', D))).editView).toMatchObject({ teamId: 1 });
+		expect((await run(exercisePage.load, ev('u2', D))).editView).toBeNull();
+		const own = createCustomExercise(
+			db,
+			{ userId: 'u3', dance: 'salsa' },
+			{
+				name: 'Mine',
+				everyDays: 3,
+				notes: null
+			}
+		).id;
+		expect((await run(exercisePage.load, ev('u3', own))).editView).toBeNull();
+	});
+
 	it('a group drill: Make it mine opens the copy', async () => {
 		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
 		published((id) => linkExercise(db, id, D, 'u1'));
@@ -240,7 +260,9 @@ describe('the lesson page', () => {
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u2')).all()).toEqual([]);
 	});
 
-	it('in the group’s own group mode, link cards open the group’s rows, not the editor’s copies', async () => {
+	// Group view spec: an editor on the group's lesson is in the group's view, however
+	// they came (no `in` needed), and its link cards open the group's rows.
+	it('an editor on the group’s lesson is in its view: link cards open the group’s rows, not the editor’s copies', async () => {
 		const F = figure(T1_SALSA, 'Setenta');
 		const L = published((id) => linkFigure(db, id, F, 'u1'));
 		const made = await cloneInto(
@@ -257,7 +279,8 @@ describe('the lesson page', () => {
 					mineId: number | null;
 				}[]
 			).find((f) => f.id === F)!.mineId;
-		expect(await card()).toBe(mineId);
+		expect(mineId).toBeGreaterThan(0);
+		expect(await card()).toBeNull();
 		expect(await card(1)).toBeNull();
 	});
 });

@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
  * open figure, routine or position too. A bare `?/create` would post to that
  * page's own actions; every form in a list names its list route's action. And a
  * refusal is read from the submit's result: beside an item SvelteKit applies no
- * `form` to the list. Read as text, as class-rules.spec.ts reads components.
+ * `form` to the list. In a group's view the action keeps it (`withView`, group
+ * view spec). Read as text, as class-rules.spec.ts reads components.
  */
 const LISTS = ['FiguresList', 'RoutinesList', 'PositionsList'].map(
 	(n) => `src/lib/components/moves/${n}.svelte`
@@ -17,9 +18,12 @@ describe('Moves list forms', () => {
 	for (const file of LISTS) {
 		const src = readFileSync(file, 'utf8');
 		it(`${file}: posts to its list route, by name`, () => {
-			const actions = [...src.matchAll(/\baction=("[^"]*"|\{[^}]*\})/g)].map((m) => m[1]);
+			const actions = [
+				...src.matchAll(/\baction=("[^"]*"|\{withView\(`[^`]*`, viewTeam\)\}|\{[^}]*\})/g)
+			].map((m) => m[1]);
 			expect(actions.length, file).toBeGreaterThanOrEqual(1);
-			for (const a of actions) expect(a, a).toMatch(/^\{`\/\$\{/);
+			for (const a of actions)
+				expect(a, a).toMatch(/^\{withView\(`\/\$\{[^`]*\?\/[a-z]+`, viewTeam\)\}$/i);
 			expect(src).not.toMatch(/action="\?\//);
 		});
 		it(`${file}: reads no form prop`, () => {
@@ -30,10 +34,10 @@ describe('Moves list forms', () => {
 
 	it('names each list route and action', () => {
 		const [figures, routines, positions] = LISTS.map((f) => readFileSync(f, 'utf8'));
-		expect(figures).toContain('action={`/${dance.slug}/figures?/create`}');
-		expect(routines).toContain('action={`/${dance.slug}/routines?/create`}');
-		expect(positions).toContain('action={`/${dance}/positions?/create`}');
-		expect(positions).toContain('action={`/${dance}/positions?/templates`}');
+		expect(figures).toContain('action={withView(`/${dance.slug}/figures?/create`, viewTeam)}');
+		expect(routines).toContain('action={withView(`/${dance.slug}/routines?/create`, viewTeam)}');
+		expect(positions).toContain('action={withView(`/${dance}/positions?/create`, viewTeam)}');
+		expect(positions).toContain('action={withView(`/${dance}/positions?/templates`, viewTeam)}');
 	});
 
 	it('TemplatesSheet posts where it is told, ?/templates by default', () => {

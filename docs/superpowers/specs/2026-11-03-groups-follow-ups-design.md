@@ -51,6 +51,10 @@ fail on today's code.
 
 ## 2. Group mode, for owners and editors
 
+*Since 2026-11-09 the look and when it is on are the group view's:
+[`2026-11-09-group-view-design.md`](2026-11-09-group-view-design.md) (no navy, no
+cookie; a page of one thing decides by its row, a list carries `?in=`).*
+
 **What it is** *(user)*: an owner or editor flips the app into one group.
 Moves, Lessons and Music then show only that group's things, and + makes
 things that belong to the group. Members never get it: they edit nothing.

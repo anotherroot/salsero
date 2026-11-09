@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -37,6 +38,8 @@
 		button,
 		iconButton
 	} from '$lib/components/ui/styles';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The simple lesson page (levels spec, "The simple lesson page"): at Follow
@@ -192,7 +195,7 @@
 						label: t().shell.backTo(t().shell.tabs.myClass)
 					}
 				: {
-						href: resolve('/[dance]/lessons', { dance }),
+						href: withView(resolve('/[dance]/lessons', { dance }), viewTeam),
 						label: t().shell.backTo(t().shell.tabs.lessons)
 					}}
 		/>

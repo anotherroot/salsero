@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { fromTags } from '$lib/clones/from-tag';
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
@@ -46,6 +47,8 @@
 	} from '$lib/positions/view';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { OpenRow } from '$lib/nav/moves-pane';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The Positions list: the line on tagging, Templates and How, the search and
@@ -118,7 +121,7 @@
 	const syncN = $derived(outOfSyncCount([...l.rows, ...l.groups.flatMap((g) => g.rows)]));
 	const syncHref = $derived.by(() => {
 		const qs = positionQuery(filter, { sync: filter.sync ? undefined : '1' });
-		return qs ? `${list}?${qs}` : list;
+		return withView(qs ? `${list}?${qs}` : list, viewTeam);
 	});
 	const styleLabel = $derived(styleLabelOf(l.styleLabel));
 	const chips = $derived(
@@ -160,7 +163,11 @@
 			keepFilter(list, qs, qs);
 			return;
 		}
-		goto(qs ? `${list}?${qs}` : list, { keepFocus: true, replaceState: true, noScroll });
+		goto(withView(qs ? `${list}?${qs}` : list, viewTeam), {
+			keepFocus: true,
+			replaceState: true,
+			noScroll
+		});
 	}
 
 	function toggle(e: Event & { currentTarget: HTMLInputElement }, chip: PositionChip) {
@@ -341,7 +348,7 @@
 		open={true}
 		onclose={() => (creating = false)}
 		mode="new"
-		action={`/${dance}/positions?/create`}
+		action={withView(`/${dance}/positions?/create`, viewTeam)}
 		{dance}
 		defaultStyle={l.defaultStyle}
 	/>
@@ -349,7 +356,7 @@
 
 {#if templating}
 	<TemplatesSheet
-		action={`/${dance}/positions?/templates`}
+		action={withView(`/${dance}/positions?/templates`, viewTeam)}
 		open={true}
 		onclose={() => (templating = false)}
 		{dance}

@@ -1,4 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
+import { withView } from '$lib/teams/group-view';
 import { getDb, type Db } from '$lib/server/db';
 import { requireTeam } from '$lib/server/scope';
 import { history, restoreChange, rootInTeam, teamNames } from '$lib/server/changes';
@@ -39,7 +40,13 @@ function rootOf(
 }
 
 /** What the band names, and where Back goes: the thing's own page. */
-function thing(db: Db, dance: string, kind: Kind, id: number): { title: string; href: string } {
+function thing(
+	db: Db,
+	dance: string,
+	kind: Kind,
+	id: number,
+	teamId: number
+): { title: string; href: string } {
 	const w = t().groups.history.untitled;
 	switch (kind) {
 		case 'lesson':
@@ -52,7 +59,11 @@ function thing(db: Db, dance: string, kind: Kind, id: number): { title: string; 
 		case 'routine':
 			return { title: getRoutine(db, id)?.name ?? w.routine, href: `/${dance}/routines/${id}` };
 		case 'drill':
-			return { title: getExercise(db, id)?.name ?? w.drill, href: `/${dance}/exercises/${id}` };
+			// A drill's page takes the group's view only from `in` (group view spec, rule 5).
+			return {
+				title: getExercise(db, id)?.name ?? w.drill,
+				href: withView(`/${dance}/exercises/${id}`, teamId)
+			};
 		case 'song':
 			return { title: getSong(db, id)?.title || w.song, href: `/${dance}/songs/${id}` };
 		case 'position':
@@ -73,7 +84,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	);
 	return {
 		team: { id: team.id, name: team.name },
-		root: { kind, id: rootId, ...thing(db, team.dance, kind, rootId) },
+		root: { kind, id: rootId, ...thing(db, team.dance, kind, rootId, team.id) },
 		changes: rows.map((r) => ({
 			id: r.id,
 			line: historyLine(r, names),

@@ -220,40 +220,6 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 	}
 };
 
-const GROUP_INK = '#EAF0FF';
-
-/**
- * Group mode's palette: navy instead of the dance's colour. It carries exactly the
- * dance tokens the bachata block overrides, and layout.css's `[data-dance][data-group]`
- * outranks `[data-dance='bachata']`. The band is the same in both schemes.
- */
-export const GROUP: Record<Scheme, Pick<Theme, DanceTokens>> = {
-	light: {
-		band: '#26345E',
-		'band-ink': GROUP_INK,
-		'band-small': GROUP_INK,
-		'on-cream': '#26345E',
-		accent: '#3a55a8',
-		'accent-text': '#3a55a8',
-		'accent-soft': mix('#3a55a8', LIGHT.surface, 0.13),
-		'on-accent': '#ffffff',
-		status: '#3a55a8',
-		'inverse-accent': '#9db4ff'
-	},
-	dark: {
-		band: '#26345E',
-		'band-ink': GROUP_INK,
-		'band-small': GROUP_INK,
-		'on-cream': '#26345E',
-		accent: '#8fa8ff',
-		'accent-text': '#8fa8ff',
-		'accent-soft': mix('#8fa8ff', DARK.surface, 0.2),
-		'on-accent': '#0b0b0d',
-		status: '#8fa8ff',
-		'inverse-accent': '#3a55a8'
-	}
-};
-
 const MEDIA_SURFACE = '#1c1c1f';
 
 /**

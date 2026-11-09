@@ -1,9 +1,13 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { bandMode, slimFade } from '$lib/nav/band';
+	import { bandMode, bandProgress } from '$lib/nav/band';
+	import { bandCollapse, scrollDriven } from '$lib/components/shell/band-collapse';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
+	import GroupBadge from '$lib/components/shell/GroupBadge.svelte';
+	import { page } from '$app/state';
+	import { frameView } from '$lib/teams/frame-view.svelte';
 	import { inPane } from '$lib/components/shell/pane-context';
 
 	let {
@@ -80,7 +84,39 @@
 	});
 	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
-	const fade = $derived(desk.current ? 0 : slimFade(scrollY, compact, pinAt));
+	/*
+	 * On the way to the pin the big band folds into the slim one: its title shrinks
+	 * into the slim title's place and its buttons move to the slim row
+	 * (`band-collapse.ts`), so at the pin the slim band takes over unseen.
+	 */
+	/*
+	 * The slim title is drawn as the big one shrunk: the big band's optical size
+	 * (Bricolage's opsz axis, 46 or 30) and letter spacing, so at the pin the swap
+	 * changes no letter (at its own 22 px the font would pick wider, lighter shapes).
+	 */
+	const slimType = $derived(
+		compact
+			? "font-variation-settings: 'opsz' 30; letter-spacing: -0.015em"
+			: "font-variation-settings: 'opsz' 46; letter-spacing: -0.02em"
+	);
+	let slimEl = $state<HTMLElement>();
+	const fold = bandCollapse();
+	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
+	const driven = typeof window !== 'undefined' && scrollDriven();
+	$effect(() => {
+		const y = scrollY;
+		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
+		if (desk.current || split === 'item' || !header || !slimEl || pinAt === null) {
+			fold.clear(header, slimEl);
+			return;
+		}
+		// What the rest positions hang on. Not the subtitle's words (an exercise's clock
+		// ticks there every second), only whether there is one.
+		const key = `${innerWidth}|${title}|${!!subtitle}|${compact}`;
+		// Half-pixel steps: a pin that wobbles by a fraction does not rewrite the fold.
+		if (driven) fold.drive(header, slimEl, Math.round(pinAt * 2) / 2, key);
+		else fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
+	});
 
 	/*
 	 * Inside a list's item pane (desktop spec, "A list and the item beside it"), the
@@ -125,15 +161,17 @@
 	<div aria-hidden="true" class="fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-band"></div>
 
 	<!--
-		The slim band: fixed, coming in with the scroll over the last stretch before the
-		big band would leave, so the band is picked up, not popped in. Never on the desktop.
+		The slim band: fixed, there from the pin on. The big band has folded into it by
+		then (title and buttons in its places), so it takes over without a fade. Never
+		on the desktop.
 	-->
 	<div
 		data-slim-band
+		bind:this={slimEl}
 		bind:clientHeight={slimH}
 		class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] desk:hidden"
+		class:opacity-0={!slim}
 		class:pointer-events-none={!slim}
-		style:opacity={fade}
 		aria-hidden={slim ? undefined : 'true'}
 		inert={!slim}
 		style="padding-top: var(--safe-top); height: calc(4rem + var(--safe-top)); --focus-ring: var(--color-band-ink)"
@@ -141,21 +179,28 @@
 		<!-- The same 560 px column as the page, inside the full-width bar. -->
 		<div class="mx-auto flex h-16 max-w-[560px] items-center gap-1">
 			{#if left}{@render left()}{/if}
+			{#if page.data.groupMode ?? frameView.current}
+				<!-- Scrolled, a group's view keeps its badge before the title (group view spec). -->
+				<span class="mr-[5px] flex"><GroupBadge size={26} /></span>
+			{/if}
 			{#if compact && subtitle}
 				<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span
-						class="truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-						>{title}</span
+						class="truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+						style={slimType}
+						data-slim-name>{title}</span
 					>
-					<span class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
-						>{subtitle}</span
+					<span
+						class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
+						data-slim-sub>{subtitle}</span
 					>
 				</span>
 			{:else}
 				<span
-					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-					>{title}</span
+					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold text-band-ink"
+					style={slimType}
+					data-slim-name>{title}</span
 				>
 			{/if}
 			{#if right}<div class="flex items-center">{@render right()}</div>{/if}

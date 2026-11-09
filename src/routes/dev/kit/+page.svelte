@@ -1,5 +1,8 @@
 <script lang="ts">
 	import Screen from '$lib/components/ui/Screen.svelte';
+	import GroupBadge from '$lib/components/shell/GroupBadge.svelte';
+	import GroupFaces from '$lib/components/shell/GroupFaces.svelte';
+	import GroupCard from '$lib/components/shell/GroupCard.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -226,19 +229,16 @@
 			</section>
 
 			<section class="flex flex-col gap-3">
-				<h2 class={SECTION_LABEL}>Group mode</h2>
-				<!-- Static: the real band reads page.data.groupMode (Screen), the tab bar too (BottomNav). -->
-				<div data-dance={dance} data-group class="flex flex-col gap-3">
-					<div class="relative flex flex-col gap-1.5 rounded-2xl bg-band px-5 pt-6 pb-6">
-						<div
-							aria-hidden="true"
-							class="absolute inset-x-0 top-0 h-[6px] rounded-t-2xl"
-							style="background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-band-ink) 35%, transparent) 0 6px, transparent 6px 12px)"
-						></div>
-						<div class="flex items-center gap-1.5 text-band-small">
-							<Icon name="people" size={16} /><span class="text-[13px] font-bold"
-								>Tuesday class · group</span
+				<h2 class={SECTION_LABEL}>Group view</h2>
+				<!-- Static: the real band reads page.data.groupMode (BandHeader), the tab bar and side too. -->
+				<div data-dance={dance} class="flex flex-col gap-3">
+					<div class="flex flex-col gap-1.5 rounded-2xl bg-band px-5 pt-5 pb-6">
+						<div class="flex items-center gap-2.5 pb-1.5">
+							<GroupBadge size={30} />
+							<span class="min-w-0 flex-1 truncate text-[17px] font-extrabold text-band-ink"
+								>Tuesday class</span
 							>
+							<GroupFaces faces={['AK', 'BL', 'CM']} people={14} />
 						</div>
 						<div class="flex items-center justify-between">
 							<span class="font-display text-[30px] leading-[1.1] font-extrabold text-band-ink"
@@ -250,22 +250,31 @@
 							</div>
 						</div>
 					</div>
+					<div class="flex items-center gap-2 rounded-2xl bg-band px-3 py-3">
+						<GroupBadge size={26} />
+						<span class="font-display text-[22px] font-extrabold text-band-ink">Basic</span>
+					</div>
 					<div
-						class="grid grid-cols-[2fr_1fr_2fr] items-center gap-1 rounded-2xl bg-tab-bg px-2 py-2"
+						class="grid grid-cols-[2fr_1fr_2fr] items-center gap-1 rounded-2xl bg-band px-2 py-2"
 					>
-						<span class="flex h-11 items-center justify-center gap-2 px-3 text-accent-text"
+						<span class="flex h-11 items-center justify-center gap-2 px-3 text-band-ink"
 							><Icon name="back" size={28} /><span class="text-[14px] font-extrabold">Mine</span
 							></span
 						>
-						<span class="flex h-11 items-center justify-center text-muted"
+						<span class="flex h-11 items-center justify-center text-band-ink/70"
 							><Icon name="moves" size={28} /></span
 						>
 						<span
-							class="flex h-11 items-center justify-center gap-2 rounded-full bg-accent/12 px-3 text-accent-text"
+							class="flex h-11 items-center justify-center gap-2 rounded-full bg-band-ink px-3 text-band [--icon-knockout:var(--color-band-ink)]"
 							><Icon name="lessons" size={28} filled /><span class="text-[14px] font-extrabold"
 								>Lessons</span
 							></span
 						>
+					</div>
+					<div class="w-[188px] rounded-2xl bg-band px-[22px] py-4">
+						<GroupCard
+							group={{ teamId: 1, name: 'Tuesday class', role: 'owner', people: 14, faces: [] }}
+						/>
 					</div>
 				</div>
 			</section>

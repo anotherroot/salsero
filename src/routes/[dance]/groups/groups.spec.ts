@@ -323,7 +323,8 @@ describe('New drill on the group page', () => {
 		const drill = db.select().from(exercises).where(eq(exercises.name, 'Shines')).get();
 		expect(drill).toMatchObject({ teamId, userId: null, source: 'custom', notes: 'Slow' });
 		expect(r.status).toBe(303);
-		expect(r.location).toBe(`/salsa/exercises/${drill!.id}`);
+		// Opened from the group's page, in the group's view (group view spec, rule 5).
+		expect(r.location).toBe(`/salsa/exercises/${drill!.id}?in=${teamId}`);
 		const log = db.select().from(teamChanges).where(eq(teamChanges.teamId, teamId)).all();
 		expect(log.some((c) => c.rootKind === 'drill' && c.rootId === drill!.id)).toBe(true);
 		// Its page opens for the group's editors before any lesson links it.

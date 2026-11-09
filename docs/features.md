@@ -42,8 +42,8 @@ designed error pages) and accounts (one-time invites from the admin, a person's 
 drills into a person's own practice, with per-person entries; a clash check on
 shared edits; History; Recently deleted for 30 days; the group's own storage;
 Make my own copy, since Make it mine; names) and group follow-ups (group mode: a Mine / group switch that
-shows only that side's Moves, Lessons and Music and makes new rows there, in the
-group's own navy look; notifications: a dot on Groups, "N new" pills and "New"
+shows only that side's Moves, Lessons and Music and makes new rows there, since 2026-11-09 the
+group view below; notifications: a dot on Groups, "N new" pills and "New"
 markers, cleared by opening; class songs: a teacher shares a song with the group,
 members practise to it, a section per group in Music) and app updates (a Get the app page for friends, release-signed apps that update themselves, open pages that reload when the site changes)
 and clones and twins (a gene id and cloned-from on every copyable row; Copy
@@ -114,7 +114,15 @@ and the app offline, read only (offline phases 1 and 2: ids from slots and one s
 the server logs every change, a device pulls its person's copy into SQLite on the phone, and
 SvelteKit's own server code answers from it when the network fails; a change made offline
 says "Needs a connection"; phases 3–5 to come; see
-[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)).
+[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md))
+and the group view (2026-11-09: the group's look follows where you are, not a switch: a page
+of one thing of a group you own or edit is in that group's view however you reach it, a list
+carries `?in=<team>` and every forward step keeps it, Back gives back the view; Mine opens
+your own copy of what is open; the dance's colours with the group's row at the top of the
+band, the badge in the slim band, the tab bar filled with the band's colour and the desktop
+side's cream card; navy and the group cookie are gone; a group drill shows the view while
+edited; see
+[`docs/superpowers/specs/2026-11-09-group-view-design.md`](docs/superpowers/specs/2026-11-09-group-view-design.md)).
 
 
 ## Specs

@@ -41,7 +41,9 @@ import {
 	syncFromForm
 } from '$lib/server/take-form';
 import { sameAsOffer } from '$lib/server/twins';
-import { inGroupModeOn } from '$lib/server/group-mode';
+import { mineTarget } from '$lib/server/mine-target';
+import { groupModeFor } from '$lib/server/group-mode';
+import { withView } from '$lib/teams/group-view';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -152,14 +154,15 @@ function restoredValue(
 	return null;
 }
 
-export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const { song, access } = requireSongAccess(db, locals, params, params.id, 'read');
 	const canEdit = access === 'edit';
 	const wall = wallOf(params, locals);
 	const team = song.teamId !== null ? getTeam(db, song.teamId) : null;
 	// Group mode has no twins: no twin tab, no Same as….
-	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, song.teamId, cookies);
+	const inGroupMode =
+		groupModeFor(db, wall.userId, wall.dance, song.teamId, locals.user?.level) !== null;
 	const anchors = parse(song.anchorsJson);
 	const count = song.status === 'ready' ? countOf(song, anchors) : null;
 	const grid = count
@@ -198,6 +201,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		drop: dropOptions(db, wall, 'song', song.id),
 		detach: detachOffer(db, wall.userId, 'song', song.id),
 		/** Same as… (board C7): the other songs in your Music; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'song', song.id) : null,
 		sameAs: sameAsOffer(db, wall, 'song', song.id, song.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'song', song.id),
@@ -572,7 +577,8 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		if (!isTeam(space) || !deleteGroupSong(db, space, song.id, serverNow())) {
 			throw error(404, t().refusals.songNotFound);
 		}
-		throw redirect(303, `/${params.dance}/songs`);
+		// Back to the group's Music: the editor was in its view (group view spec).
+		throw redirect(303, withView(`/${params.dance}/songs`, space.teamId));
 	},
 
 	/**

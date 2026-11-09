@@ -38,9 +38,9 @@ function httpUrl(raw: string): string | null {
 }
 
 export const actions: Actions = {
-	addUrl: async ({ params, request, locals, cookies }) => {
-		// Group mode files the song as the group's draft; the cookie is re-checked.
-		const space = spaceOf(getDb(), params, locals, cookies);
+	addUrl: async ({ params, request, locals, url: at }) => {
+		// The group view (`?in=`) files the song as the group's draft, re-checked.
+		const space = spaceOf(getDb(), params, locals, at);
 		const dance = space.dance;
 		const form = await request.formData();
 		const raw = String(form.get('url') ?? '');

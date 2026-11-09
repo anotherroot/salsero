@@ -23,7 +23,8 @@ import { routineSlots } from '$lib/server/routines';
 import { createLesson, linkFigure, publishLesson } from '$lib/server/lessons';
 import { addLesson } from '$lib/server/entries';
 import { createTeam, joinTeam } from '$lib/server/teams';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import type { Space } from '$lib/server/scope';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { runInLocale } from '$lib/server/i18n-request';
@@ -33,7 +34,7 @@ let db: Db;
 
 const jar = (value?: string) =>
 	({
-		get: (n: string) => (n === groupCookie('salsa') ? value : undefined),
+		get: (n: string) => (n === VIEW ? value : undefined),
 		set: () => {},
 		delete: () => {}
 	}) as unknown as Cookies;
@@ -51,7 +52,11 @@ function post(user: string, fields: [string, string][], cookies: Cookies = jar()
 		locals: {
 			user: { id: user, email: `${user}@x.si`, timezone: 'Europe/Ljubljana', dance: 'salsa' }
 		},
-		cookies
+		cookies,
+		// The view is in the address (`?in=`): the jar's group goes there.
+		url: new URL(
+			`http://localhost/salsa/positions/map?/routine${cookies.get(VIEW) ? `&in=${cookies.get(VIEW)}` : ''}`
+		)
 	};
 }
 const run = (event: ReturnType<typeof post>) =>

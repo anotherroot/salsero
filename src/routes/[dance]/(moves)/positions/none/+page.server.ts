@@ -7,7 +7,7 @@ import { figureLabels } from '$lib/server/figures';
 import { figureAccess } from '$lib/server/access';
 import { usableOf } from '$lib/server/usable';
 import { wallOf, type Space } from '$lib/server/scope';
-import { groupModeOf } from '$lib/server/group-mode';
+import { viewOf } from '$lib/server/group-mode';
 import { noPosition } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
 import { styleLabelsOf } from '$lib/moves/figures';
@@ -19,12 +19,12 @@ import {
 } from '$lib/positions/view';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, route, url }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const db = getDb();
-	const mode = groupModeOf(db, wall.userId, dance, cookies);
+	const mode = viewOf(db, wall, locals.user?.level, { route, params, url });
 	// The graph is the viewer's (ruling 14): their figures plus the group figures
 	// they may use; in group mode, the group's.
 	const space: Space = mode ? { dance, teamId: mode.teamId, actorId: wall.userId } : wall;

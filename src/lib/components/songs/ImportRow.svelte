@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { t } from '$lib/i18n/catalog';
@@ -7,6 +9,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import type { SongImportRow } from '$lib/types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * A pasted playlist in Music: a read one links to its pick list (To pick); one
@@ -83,7 +87,7 @@
 		{@render tile()}
 		{@render text()}
 		{#if view.action === 'retry-dismiss'}
-			<form method="POST" action="/{dance}/songs?/retryImport" use:enhance>
+			<form method="POST" action={withView(`/${dance}/songs?/retryImport`, viewTeam)} use:enhance>
 				<input type="hidden" name="id" value={row.id} />
 				<button
 					type="submit"
@@ -93,7 +97,11 @@
 				>
 			</form>
 		{/if}
-		<form method="POST" action="/{dance}/songs?/dismissImport" use:enhance={removal}>
+		<form
+			method="POST"
+			action={withView(`/${dance}/songs?/dismissImport`, viewTeam)}
+			use:enhance={removal}
+		>
 			<input type="hidden" name="id" value={row.id} />
 			<button
 				type="submit"

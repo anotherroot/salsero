@@ -261,7 +261,7 @@ src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled t
                      variants), drawn by components/ui/Icon.svelte (`stroke` for
                      the heavier checks)
 src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the bar
-                     shows. band.ts: the big or slim band by scroll (the slim one pins where the sheet meets it, `pinAt`, and comes in with the scroll, `slimFade`). pending.ts: what a tap shows
+                     shows. band.ts: the big or slim band by scroll (the slim one pins where the sheet meets it, `pinAt`; `bandProgress` is how far the big one has folded into it, drawn by `components/shell/band-collapse.ts`). pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
                      a band (a page without one is named in the spec with its reason).
@@ -280,7 +280,7 @@ src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: side, bare, card, no
                      `listOf` (which list column a path belongs to) and `paneBack` (whether an
                      item's ‹ shows). desk.svelte.ts: the `desk` media query (from 1024 px)
 src/lib/components/shell/  Side.svelte (the band-coloured side with the tabs), SheetCorner (the
-                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions),
+                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions; its parts marked `data-band-*` for band-collapse.ts, the phone band folding into the slim one),
                      ListPane (a list column with its band) and Pane (the item beside it;
                      `pane-context.ts` tells a page it is in one), CardFrame (the centred 480 px
                      card on the band colour: sign in, Join, Welcome, Get the app, Pair, `/g/<code>`
@@ -346,13 +346,20 @@ android/             the Android apps (Kotlin): one per dance as Gradle flavors,
                      own text in English and Slovenian, by the account's language
                      (`/api/device/config`, `Prefs.locale`), never the phone's. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
-src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
-                     `spaceOf`, which every create action calls itself (the layout's copy may be old)
-src/lib/teams/mode.ts  PURE: the cookie name, which paths show no group mode (Today), return path, labels. Client-safe
+src/lib/server/group-mode.ts  the group view: `viewOf` (a load's view: a row page by its row, a list by
+                     `?in=`), `groupModeFor` (the re-check, with the group's people and faces),
+                     `rowTeam`, `listInViewOf`, `groupChoices`, and `spaceOf` (a create action's
+                     space, from its URL's `in`)
+src/lib/server/mine-target.ts  where Mine lands from a group's row: your clone, twin, or own figure in the move
+src/lib/teams/mode.ts  PURE: which paths show no group view (Today), return path, Mine's list, Work in rows. Client-safe
+src/lib/teams/group-view.ts  PURE: the view's address: `VIEW_PARAM` (`in`), `viewParam`, `withView`,
+                     `rowKindOf` (row routes), `viewedList`, `tabHrefIn`. Client-safe
+src/lib/teams/frame-view.svelte.ts  a view the frame shows without the address: a group drill being edited
+src/lib/components/shell/GroupBadge.svelte, GroupFaces.svelte, GroupCard.svelte  the group view's
+                     badge, the others' faces and count, the desktop side's card
 src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
-src/routes/[dance]/group-mode  the switch: a page action (default) between Mine and a group, the only
-                     thing that switches the cookie (never a load: preload runs loads; `groupModeOf`
-                     only drops an invalid one). Its GET goes to Moves
+src/routes/[dance]/group-mode  the old switch, kept for pages opened before the group view: it lands
+                     on the address with or without `in` and writes nothing. Its GET goes to Moves
 src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
 src/lib/server/whats-new.ts  what is new to a person in their groups, against their opens
 src/lib/server/song-share.ts  share, stop sharing and restore a group song; `song_drops`

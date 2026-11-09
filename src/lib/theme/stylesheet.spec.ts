@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
-import { BAND_TRACK, GROUP, MEDIA, SCRIM, THEMES, TOKEN_NAMES } from './tokens';
+import { BAND_TRACK, MEDIA, SCRIM, THEMES, TOKEN_NAMES } from './tokens';
 
 const css = readFileSync('src/routes/layout.css', 'utf8').toLowerCase();
 const block = (sel: RegExp) => css.match(sel)?.[1] ?? '';
@@ -104,15 +104,10 @@ describe('layout.css', () => {
 		] as const)
 			expect(bachata, n).toContain(`--color-${n}: ${MEDIA.bachata[n].toLowerCase()};`);
 	});
-	it('carries the group palette', () => {
-		const light = block(/\n\s*\[data-dance\]\[data-group\]\s*\{([^}]*)\}/);
-		const dark = block(/:root\[data-theme='dark'\]\s+\[data-dance\]\[data-group\]\s*\{([^}]*)\}/);
-		const keys = Object.keys(GROUP.light) as (keyof typeof GROUP.light)[];
-		expect(keys.length).toBe(10);
-		for (const n of keys) {
-			expect(light, n).toContain(`--color-${n}: ${GROUP.light[n].toLowerCase()};`);
-			expect(dark, n).toContain(`--color-${n}: ${GROUP.dark[n].toLowerCase()};`);
-		}
+	// Group view spec (2026-11-09): a group's view keeps the dance's colours.
+	it('gives a group’s view no colours of its own', () => {
+		expect(css).not.toMatch(/\[data-dance\]\[data-group\]\s*\{/);
+		expect(css).not.toMatch(/\[data-group\] \[data-frame-band\]/);
 	});
 	it('paints the strip beside the band row in each theme’s band', () => {
 		/** The `--gutter-band` of the block opened by exactly `selector`. */
@@ -128,8 +123,5 @@ describe('layout.css', () => {
 		expect(gutter(bachata)).toBe(RESOLVED.bachata.light.band);
 		expect(gutter(dark + salsa)).toBe(RESOLVED.salsa.dark.band);
 		expect(gutter(dark + bachata)).toBe(RESOLVED.bachata.dark.band);
-		const group = gutter(':root body:has([data-dance][data-group] [data-frame-band])');
-		expect(group).toBe(GROUP.light.band.toLowerCase());
-		expect(GROUP.dark.band).toBe(GROUP.light.band);
 	});
 });

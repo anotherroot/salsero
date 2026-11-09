@@ -3,7 +3,8 @@ import { t } from '$lib/i18n/catalog';
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
 import { groupChoices } from '$lib/server/group-mode';
-import { groupCookie, returnPath } from '$lib/teams/mode';
+import { returnPath } from '$lib/teams/mode';
+import { withView } from '$lib/teams/group-view';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Not a page: only the switch below. A visit lands on Moves. */
@@ -12,33 +13,23 @@ export const load: PageServerLoad = ({ params }) => {
 };
 
 /**
- * Switch group mode on (a group the person owns or edits) or off ('mine').
- * A page action, not an endpoint, so `use:enhance` gets a redirect result it
- * can read (an endpoint's 303 would be followed to HTML and fail to parse).
+ * The Work in switch, kept for pages opened before the group view: it lands on
+ * the same address in the chosen group's view (`?in=`), or without it for
+ * 'mine'. It writes no cookie: the view lives in the address now.
  */
 export const actions: Actions = {
-	default: async ({ params, locals, request, cookies, url }) => {
+	default: async ({ params, locals, request }) => {
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
 		const team = String(form.get('team') ?? '');
 		const to = form.get('to');
-		const name = groupCookie(wall.dance);
-		if (team === 'mine') {
-			cookies.delete(name, { path: '/' });
-		} else {
-			const id = Number(team);
-			const ok =
-				/^[1-9][0-9]*$/.test(team) &&
-				groupChoices(getDb(), wall.userId, wall.dance).some((c) => c.teamId === id);
-			if (!ok) throw error(404, t().groups.page.noGroup);
-			cookies.set(name, String(id), {
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: url.protocol === 'https:',
-				maxAge: 60 * 60 * 24 * 365
-			});
-		}
-		throw redirect(303, returnPath(typeof to === 'string' ? to : null, wall.dance));
+		const back = returnPath(typeof to === 'string' ? to : null, wall.dance);
+		if (team === 'mine') throw redirect(303, withView(back, null));
+		const id = Number(team);
+		const ok =
+			/^[1-9][0-9]*$/.test(team) &&
+			groupChoices(getDb(), wall.userId, wall.dance).some((c) => c.teamId === id);
+		if (!ok) throw error(404, t().groups.page.noGroup);
+		throw redirect(303, withView(back, id));
 	}
 };
