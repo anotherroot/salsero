@@ -450,3 +450,29 @@ def _band_at(frac):
 for _path, _tag in (("/{dance}/figures", "list"), ("/{dance}/exercises/109", "item"), ("/{dance}", "today"), ("/{dance}/groups/1?in=1", "group")):
     for _frac, _name in ((0.35, "a"), (0.6, "f"), (0.7, "b"), (0.8, "g"), (0.9, "h"), (0.98, "c"), (1.0, "d"), (1.6, "e")):
         SCENES[f"band-{_tag}-{_name}"] = Scene(_path, _band_at(_frac))
+
+
+def _band_redrawn(page):
+    """Debug: the band's parts drawn anew after the fold started (as data arriving
+    after a navigation does): the fold must take the new elements too."""
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(1200)
+    page.evaluate("""() => { for (const sel of ['[data-band-name]', '[data-band-gname]', '[data-band-gbadge]']) {
+        const el = [...document.querySelectorAll(sel)].find(e => e.offsetParent);
+        if (!el) continue;
+        const fresh = el.cloneNode(true);
+        fresh.removeAttribute('data-fold'); fresh.removeAttribute('style');
+        el.replaceWith(fresh);
+    } }""")
+    page.wait_for_timeout(500)
+    probe = """() => { const q = (s) => [...document.querySelectorAll(s)].find(e => e.offsetParent);
+        const n = q('[data-band-name]'), g = q('[data-band-gname]');
+        return { y: Math.round(scrollY), name: [n?.getAttribute('data-fold'), getComputedStyle(n).transform],
+          gname: [g?.getAttribute('data-fold'), g && getComputedStyle(g).transform] } }"""
+    for y in (0, 40, 80):
+        page.evaluate(f"window.scrollTo(0, {y})")
+        page.wait_for_timeout(300)
+        print(f"  redrawn {page.evaluate(probe)}", flush=True)
+
+
+SCENES.update({"band-redrawn": Scene("/{dance}/figures/73?in=1", _band_redrawn)})
