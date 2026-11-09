@@ -20,7 +20,7 @@
 	const action = $derived(`/${page.params.dance}/group-mode`);
 	const to = $derived(page.url.pathname);
 	const label = $derived(mode ? t().shell.groupMode.switchGroup : t().shell.groupMode.workInGroup);
-	const rows = $derived(workInRows(choices, mode?.teamId ?? null));
+	const rows = $derived(workInRows(choices, mode?.teamId ?? null, to));
 
 	let open = $state(false);
 

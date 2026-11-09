@@ -3,6 +3,7 @@ import type { DanceSlug } from '$lib/dances/dances';
 import { rootsOf, tabFor } from '$lib/nav/tabs';
 import { t } from '$lib/i18n/catalog';
 import type { GroupChoice } from '$lib/types';
+import { withView } from './group-view';
 
 export const groupCookie = (dance: DanceSlug): string => `group_${dance}`;
 
@@ -36,19 +37,27 @@ export function minePath(path: string, dance: DanceSlug): string {
 
 export const groupLabel = (name: string): string => t().groups.mode.label(name);
 
-/** The Work in sheet: Mine first, then each group the person can write in. */
+/** The Work in sheet: Mine first, then each group the person can write in, each a link to `path` in its view. */
 export function workInRows(
 	choices: GroupChoice[],
-	current: number | null
-): { teamId: number | 'mine'; name: string; meta: string; on: boolean }[] {
+	current: number | null,
+	path: string
+): { teamId: number | 'mine'; name: string; meta: string; on: boolean; href: string }[] {
 	const w = t();
 	return [
-		{ teamId: 'mine', name: w.shell.mine, meta: w.groups.mode.mineMeta, on: current === null },
+		{
+			teamId: 'mine' as const,
+			name: w.shell.mine,
+			meta: w.groups.mode.mineMeta,
+			on: current === null,
+			href: withView(path, null)
+		},
 		...choices.map((c) => ({
 			teamId: c.teamId,
 			name: c.name,
 			meta: `${w.groups.role[c.role]} · ${w.entry.classes.people(c.people)}`,
-			on: c.teamId === current
+			on: c.teamId === current,
+			href: withView(path, c.teamId)
 		}))
 	];
 }

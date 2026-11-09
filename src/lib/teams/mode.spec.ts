@@ -32,16 +32,24 @@ describe('workInRows', () => {
 		{ teamId: 7, name: 'Open floor', role: 'editor' as const, people: 1 }
 	];
 	it('lists Mine first and marks Mine when no group is current', () => {
-		const rows = workInRows(choices, null);
+		const rows = workInRows(choices, null, '/salsa/lessons');
 		expect(rows.map((r) => r.teamId)).toEqual(['mine', 4, 7]);
 		expect(rows.map((r) => r.on)).toEqual([true, false, false]);
 	});
 	it('marks the current group and words the meta', () => {
-		const rows = workInRows(choices, 7);
+		const rows = workInRows(choices, 7, '/salsa/lessons');
 		expect(rows.map((r) => r.on)).toEqual([false, false, true]);
 		expect(rows[1].meta).toBe('Owner · 14 people');
 		expect(rows[2].meta).toBe('Editor · 1 person');
 		expect(rows[0].name).toBe('Mine');
+	});
+	it('links each row to the list it was opened on, in that view', () => {
+		const rows = workInRows(choices, 4, '/salsa/lessons?in=4&q=x');
+		expect(rows.map((r) => r.href)).toEqual([
+			'/salsa/lessons?q=x',
+			'/salsa/lessons?q=x&in=4',
+			'/salsa/lessons?q=x&in=7'
+		]);
 	});
 	it('Mine stays on the tab: its list, or the tab’s first list from a page in it', () => {
 		expect(minePath('/salsa/lessons', 'salsa')).toBe('/salsa/lessons');
@@ -65,7 +73,7 @@ describe('group mode in Slovenian', () => {
 
 	it('labels the group after a "·" and words the rows', () => {
 		expect(sl(() => groupLabel('Salsa torek'))).toBe('Salsa torek · skupina');
-		const rows = sl(() => workInRows(choices, null));
+		const rows = sl(() => workInRows(choices, null, '/salsa/lessons'));
 		expect(rows.map((r) => [r.name, r.meta])).toEqual([
 			['Moje', 'Vaše lastne stvari'],
 			['Torek', 'Vodja · 14 oseb'],
