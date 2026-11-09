@@ -59,6 +59,11 @@ export function addedMessage(day: string): string {
 	return t().exercise.done.added(dayLabel(day));
 }
 
+/** "Changed on Thu 5 Nov": a past day's entry that was there before. */
+export function changedMessage(day: string): string {
+	return t().exercise.done.changed(dayLabel(day));
+}
+
 /**
  * The pinned bar: Done, or Done today once the day has an entry. In a run, not
  * done today: Done · next, the same colour as Done (a fixed rhythm saves and goes

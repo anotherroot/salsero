@@ -353,9 +353,10 @@ The home page. One page serves both "exercises" and "today".
      look is in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).)
   4. **Inactive** — dimmed, collapsed by default, alphabetical. Parking an
      exercise beats its urgency, so an overdue inactive one stays here.
-- **Viewing a past day:** the exercises done that day with their sets (read-only
-  list plus the ability to add a forgotten set to that day or delete a mistaken
-  one). No urgency ordering — it answers "what did I do that day".
+- **Viewing a past day (changed 2026-11-09: one row per exercise like Done for today, a
+  day strip and a calendar; see [`2026-11-09-past-days-design.md`](2026-11-09-past-days-design.md)):**
+  the exercises done that day (read-only list plus the ability to add a forgotten exercise
+  to that day or change its entry). No urgency ordering — it answers "what did I do that day".
 - **Logging (changed 2026-11-08: the row opens the exercise page, where Done opens the
   Done sheet; one entry per exercise per local day, saved by `saveDay`, and a past day's
   history is grouped by day; the rest of this bullet is how it was):** the row opens the exercise page; **+** opens the type's log

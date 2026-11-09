@@ -21,6 +21,7 @@
 		split,
 		left,
 		right,
+		slimRight,
 		extra,
 		below,
 		hero,
@@ -51,6 +52,11 @@
 		split?: 'list' | 'item';
 		left?: Snippet;
 		right?: Snippet;
+		/**
+		 * The slim band's buttons, in place of `right`: for a band whose buttons live
+		 * in `extra` at rest (a past day's strip). The big band never draws it.
+		 */
+		slimRight?: Snippet;
 		extra?: Snippet;
 		/**
 		 * In a pane on the desktop, a row under the title (and `extra`, which joins
@@ -254,7 +260,8 @@
 					data-slim-name>{title}</span
 				>
 			{/if}
-			{#if right}<div class="flex items-center">{@render right()}</div>{/if}
+			{#if slimRight}<div class="flex items-center gap-1">{@render slimRight()}</div>
+			{:else if right}<div class="flex items-center">{@render right()}</div>{/if}
 		</div>
 	</div>
 {/if}

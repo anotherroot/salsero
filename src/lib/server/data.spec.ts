@@ -34,6 +34,7 @@ import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
 import { createSongFromUpload, songChoices } from './songs';
 import { createRoutine } from './routines';
 import { T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { withLocale } from '$lib/i18n/current';
 
 let db: Db;
 beforeEach(() => {
@@ -183,6 +184,25 @@ describe('exercises and sets', () => {
 		expect(listSetsBetween(db, 5500, 10_000, U1_SALSA)).toHaveLength(1);
 		expect(deleteSet(db, s.id)).toBe(true);
 		expect(listSetTimes(db, U1_SALSA)).toEqual([{ exerciseId: ex.id, doneAt: 6000 }]);
+	});
+
+	it("names a lesson's own exercise in the reader's language, nothing else", () => {
+		const { exercise } = createLesson(db, U1_SALSA, {
+			lessonDay: '2026-11-01',
+			title: 'Rueda',
+			notes: null
+		});
+		const own = createCustomExercise(db, U1_SALSA, {
+			name: 'Review: my words',
+			everyDays: 1,
+			notes: null
+		});
+		logSet(db, bareSet(exercise!.id, 5000));
+		logSet(db, bareSet(own.id, 6000));
+		const names = withLocale('sl', () =>
+			listSetsBetween(db, 0, 10_000, U1_SALSA).map((s) => s.exerciseName)
+		);
+		expect(names).toEqual(['Review: my words', 'Ponovitev: Rueda']);
 	});
 
 	it('refuses a rating outside 1–5', () => {

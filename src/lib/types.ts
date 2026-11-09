@@ -83,6 +83,31 @@ export interface DaySet {
 	note: string | null;
 }
 
+/** A day in the past day's calendar (`calendarMonths`). */
+export interface CalendarDay {
+	day: string;
+	/** Day of the month, 1–31. */
+	date: number;
+	/** Distinct exercises logged that day. */
+	count: number;
+	when: 'past' | 'today' | 'future';
+	/** The day the page shows. */
+	shown: boolean;
+}
+
+/** A month of the calendar, Monday first. */
+export interface CalendarMonth {
+	/** `YYYY-MM-01`. */
+	first: string;
+	/** Blank cells before day 1. */
+	lead: number;
+	days: CalendarDay[];
+	/** Days with an entry. */
+	activeDays: number;
+	/** The day counts added up. */
+	exercises: number;
+}
+
 /** One set as an exercise's own history lists it. */
 export interface HistorySet {
 	id: number;
