@@ -611,3 +611,47 @@ a[href]:active {
 		opacity: 0.55;
 	}
 }
+
+/*
+ * The phone band folding into the slim one, run by the scroll itself
+ * (`components/shell/band-collapse.ts` sets `data-fold`, the end values and the
+ * range in px of scroll): nothing runs on the main thread while the page
+ * scrolls, so the title moves with the finger, never a frame behind. Where the
+ * browser has no scroll timelines the script draws it instead.
+ */
+@keyframes band-fly {
+	to {
+		transform: translate(var(--fly-x, 0px), var(--fly-y, 0px)) scale(var(--fly-k, 1));
+	}
+}
+@keyframes band-fade {
+	to {
+		opacity: 0;
+	}
+}
+@keyframes band-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+@supports (animation-timeline: scroll()) {
+	[data-fold] {
+		animation-duration: auto;
+		animation-timing-function: linear;
+		animation-fill-mode: both;
+		animation-timeline: scroll(root block);
+		animation-range: var(--fold-from, 0px) var(--fold-to, 0px);
+	}
+	[data-fold='fly'] {
+		animation-name: band-fly;
+	}
+	[data-fold='fade'] {
+		animation-name: band-fade;
+	}
+	[data-fold='in'] {
+		animation-name: band-in;
+	}
+}

@@ -439,6 +439,10 @@ def _band_at(frac):
         page.wait_for_timeout(400)
         op = page.evaluate("getComputedStyle(document.querySelector('[data-slim-band]')).opacity")
         print(f"band {frac}: pin {pin:.0f}, scroll {page.evaluate('scrollY')}, slim opacity {op}", flush=True)
+        # The rig stops every animation before its own shot; the fold runs on the scroll, so shoot it live.
+        live = os.environ.get("BAND_LIVE_DIR")
+        if live:
+            page.screenshot(path=os.path.join(live, f"live-{frac}-{page.url.rsplit('/', 1)[-1]}.png"))
     return act
 
 
