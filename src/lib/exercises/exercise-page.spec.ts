@@ -203,7 +203,7 @@ describe('in Slovenian', () => {
 	});
 
 	it('names the owner', () => {
-		expect(sl(() => ownerOf(figureContent))?.meta).toBe('Različica');
+		expect(sl(() => ownerOf(figureContent))?.meta).toBe('Figura');
 		expect(sl(() => ownerOf(lessonContent))?.meta).toBe('Lekcija · 22. okt. 2026');
 		expect(sl(() => ownerOf(routineContent))?.meta).toBe('Kombinacija');
 	});

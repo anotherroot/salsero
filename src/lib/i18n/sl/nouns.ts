@@ -1,11 +1,11 @@
-// Counted nouns in the nominative, the number included: 1 različica, 2 različici,
-// 3 različice, 5 različic. Another case is another entry, in its own area.
+// Counted nouns in the nominative, the number included: 1 figura, 2 figuri,
+// 3 figure, 5 figur. Another case is another entry, in its own area.
 import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 
 export const nouns: Catalog['nouns'] = {
-	figures: (n) => slCount(n, ['različica', 'različici', 'različice', 'različic']),
-	moves: (n) => slCount(n, ['figura', 'figuri', 'figure', 'figur']),
+	figures: (n) => slCount(n, ['figura', 'figuri', 'figure', 'figur']),
+	moves: (n) => slCount(n, ['gib', 'giba', 'gibi', 'gibov']),
 	routines: (n) => slCount(n, ['kombinacija', 'kombinaciji', 'kombinacije', 'kombinacij']),
 	drills: (n) => slCount(n, ['vaja', 'vaji', 'vaje', 'vaj']),
 	lessons: (n) => slCount(n, ['lekcija', 'lekciji', 'lekcije', 'lekcij']),

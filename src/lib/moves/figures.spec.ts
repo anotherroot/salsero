@@ -177,7 +177,7 @@ describe('in Slovenian', () => {
 			'Brez odseka ali lekcije: 4'
 		);
 		expect(sl(() => figuresHeading({ moves: 2, figures: 3 }, { q: 'en' }))).toBe(
-			'3 različice ustrezajo'
+			'3 figure ustrezajo'
 		);
 	});
 
@@ -200,7 +200,7 @@ describe('groupMeta', () => {
 describe('groupMeta in Slovenian', () => {
 	it("counts a group's rows in the nominative", () => {
 		const sl = <T>(fn: () => T) => withLocale('sl', fn);
-		expect(sl(() => groupMeta('figure', 3))).toBe('Skupina · 3 različice');
+		expect(sl(() => groupMeta('figure', 3))).toBe('Skupina · 3 figure');
 		expect(sl(() => groupMeta('routine', 1))).toBe('Skupina · 1 kombinacija');
 		expect(sl(() => groupMeta('position', 5))).toBe('Skupina · 5 položajev');
 	});

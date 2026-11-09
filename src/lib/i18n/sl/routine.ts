@@ -70,7 +70,7 @@ export const routine: Catalog['routine'] = {
 		}
 	},
 	slot: {
-		aFigure: 'različica',
+		aFigure: 'figura',
 		aRoutine: 'kombinacija',
 		archived: (name) => `${name} (arhivirana)`,
 		empty: 'Prazno — tu ni česa napovedati',
@@ -92,8 +92,8 @@ export const routine: Catalog['routine'] = {
 		title: (n) => `Mesta · ${n}`,
 		none: 'Še ni mest.',
 		emptyTitle: 'Še ni mest',
-		emptyBody: 'Prvo mesto je začetek kombinacije. Dodajte različico in gradite naprej od nje.',
-		addFigure: 'Dodaj različico',
+		emptyBody: 'Prvo mesto je začetek kombinacije. Dodajte figuro in gradite naprej od nje.',
+		addFigure: 'Dodaj figuro',
 		addSlot: 'Dodaj mesto',
 		addSlotAfter: (n) => `Dodaj mesto za mestom ${n}`
 	},
@@ -102,20 +102,20 @@ export const routine: Catalog['routine'] = {
 		after: (n) => `Dodaj za mestom ${n}`,
 		before: (n) => `Dodaj pred mestom ${n}`,
 		alternative: (label) => `Alternativa · ${label}`,
-		search: 'Iskanje različic in kombinacij',
+		search: 'Iskanje figur in kombinacij',
 		filters: 'Filtri',
 		count: 'Štetje',
 		hold: 'Drža',
 		holdOff: 'Izklopi držo',
 		countOff: 'Izklopi štetje',
 		toSeeRest: ', da vidite ostale.',
-		noAlternative: 'Nobena druga različica se ne začne in konča tako kot ta.',
+		noAlternative: 'Nobena druga figura se ne začne in konča tako kot ta.',
 		noMatch: (q) => `Nič ne ustreza »${q}«.`,
 		// The context line after a colon, as it reads on its own: "Nič, kar poznate, ne ustreza:
 		// začne na 1 · konča na 8." (a "ne" before the first verb would not reach the second).
 		nothingFits: (context) =>
 			`Nič, kar poznate, ne ustreza: ${context[0].toLowerCase()}${context.slice(1)}.`,
-		noFigures: 'V tem plesu še ni različic.',
+		noFigures: 'V tem plesu še ni figur.',
 		startsOnFrom: (n, from) => `Začne na ${n}, v položaju: ${from}`,
 		startsOn: (n) => `Začne na ${n}`,
 		startsFrom: (from) => `Začne v položaju: ${from}`,
@@ -160,15 +160,15 @@ export const routine: Catalog['routine'] = {
 	copyName: (name) => `${name} (kopija)`,
 	refused: {
 		copy: 'Te kombinacije ni bilo mogoče kopirati.',
-		readSlot: 'Mesta ali različice ni bilo mogoče prebrati.',
+		readSlot: 'Mesta ali figure ni bilo mogoče prebrati.',
 		notThisRoutine: 'To mesto ni del te kombinacije.',
 		notAlternative:
-			'Ta različica se ne začne in konča tako kot različica na tem mestu, zato ni alternativa.',
+			'Ta figura se ne začne in konča tako kot figura na tem mestu, zato ni alternativa.',
 		holdSomething: 'Mesto ne sme biti prazno.',
 		note: 'Opomba ima lahko največ 200 znakov.',
 		readInsert: 'Ni bilo mogoče prebrati, kaj dodati in kam.',
 		embed: 'Te kombinacije ni mogoče vstaviti sem.',
-		notThisDance: 'Ta različica ni del tega plesa.',
+		notThisDance: 'Ta figura ni del tega plesa.',
 		move: 'Tega mesta ni mogoče premakniti tja.',
 		gone: 'Teh mest ni več.',
 		putBack: 'Teh mest ni bilo mogoče vrniti.',

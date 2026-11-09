@@ -40,8 +40,8 @@ describe('exerciseTile in Slovenian', () => {
 	it('names each kind', () => {
 		const label = (source: 'figure' | 'routine' | 'lesson' | 'custom', partner: 'solo' | null) =>
 			sl(() => exerciseTile({ source, partner }).label);
-		expect(label('figure', null)).toBe('Različica, v paru');
-		expect(label('figure', 'solo')).toBe('Različica, solo');
+		expect(label('figure', null)).toBe('Figura, v paru');
+		expect(label('figure', 'solo')).toBe('Figura, solo');
 		expect(label('routine', null)).toBe('Kombinacija');
 		expect(label('lesson', null)).toBe('Ponavljanje lekcije');
 		expect(label('custom', null)).toBe('Vaja');

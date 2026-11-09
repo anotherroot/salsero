@@ -164,14 +164,14 @@ describe('nouns', () => {
 	const each = (noun: keyof ReturnType<typeof t>['nouns'], ns: number[]) =>
 		sl(() => ns.map((n) => t().nouns[noun](n)));
 
-	it('counts a figure (različica) in all four forms, 101 like 1, 102 like 2', () => {
+	it('counts a figure (figura) in all four forms, 101 like 1, 102 like 2', () => {
 		expect(each('figures', [1, 2, 3, 5, 101, 102])).toEqual([
-			'1 različica',
-			'2 različici',
-			'3 različice',
-			'5 različic',
-			'101 različica',
-			'102 različici'
+			'1 figura',
+			'2 figuri',
+			'3 figure',
+			'5 figur',
+			'101 figura',
+			'102 figuri'
 		]);
 	});
 
@@ -201,7 +201,7 @@ describe('nouns', () => {
 
 	it('the other nouns, in all four forms', () => {
 		const forms = (noun: Parameters<typeof each>[0]) => each(noun, [1, 2, 3, 5]);
-		expect(forms('moves')).toEqual(['1 figura', '2 figuri', '3 figure', '5 figur']);
+		expect(forms('moves')).toEqual(['1 gib', '2 giba', '3 gibi', '5 gibov']);
 		expect(forms('drills')).toEqual(['1 vaja', '2 vaji', '3 vaje', '5 vaj']);
 		expect(forms('lessons')).toEqual(['1 lekcija', '2 lekciji', '3 lekcije', '5 lekcij']);
 		expect(forms('sections')).toEqual(['1 odsek', '2 odseka', '3 odseki', '5 odsekov']);

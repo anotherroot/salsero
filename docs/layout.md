@@ -25,7 +25,7 @@ src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current la
                      format, groups, lesson, links, map, moves, nouns, picker, player,
                      positions, refusals, routine, settings, shell, songs, today, video) with an `index.ts`
                      (the glossary heads `sl/index.ts`). `nouns` is the counted nouns in the
-                     nominative, number included (`t().nouns.figures(3)`: "3 različice"); a count
+                     nominative, number included (`t().nouns.figures(3)`: "3 figure"); a count
                      in another case is its area's own entry. `refusals` is what no area owns
                      (missing rows, error pages, chunks, file checks). `current.ts` (the current
                      language: a `withLocale` override for specs, the server's per-request

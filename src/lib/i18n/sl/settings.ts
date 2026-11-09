@@ -56,8 +56,8 @@ export const settings: Catalog['settings'] = {
 		more: 'Več',
 		perDayNote: (n) =>
 			`Toliko vaj pokaže zavihek Danes. Ko jih opravite, jih z gumbom »Dodaj še ${n}« dobite več.`,
-		newFigures: 'Slog novih različic',
-		styleIntro: 'Slog, v katerem se začne nova različica. Na različici ga lahko spremenite.',
+		newFigures: 'Slog novih figur',
+		styleIntro: 'Slog, v katerem se začne nova figura. Na figuri ga lahko spremenite.',
 		style: 'Slog'
 	},
 	appearance: {
