@@ -16,7 +16,9 @@
 >
 	<GroupBadge size={34} tone="band" />
 	<div class="flex min-w-0 flex-col">
-		<span class="truncate text-[15px] leading-[1.3] font-extrabold">{group.name}</span>
+		<span class="line-clamp-2 text-[15px] leading-[1.3] font-extrabold break-words"
+			>{group.name}</span
+		>
 		<span class="text-[13px] leading-[1.3] font-bold opacity-80"
 			>{t().entry.classes.people(group.people)}</span
 		>
