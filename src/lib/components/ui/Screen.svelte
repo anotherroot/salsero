@@ -111,7 +111,35 @@
 	const fold = bandCollapse();
 	/** The scroll runs the fold itself where it can (no script per frame); read once, in the browser. */
 	const driven = typeof window !== 'undefined' && scrollDriven();
+	/**
+	 * Bumped when the bands change under the fold: a part drawn anew (data that
+	 * arrives after a navigation re-renders the group row, the title, the
+	 * subtitle), a font that loaded, a band that changed size (the app's inset
+	 * landing). The fold then measures and hands itself on again; without it a new
+	 * element stayed unfolded until the pin or the title changed.
+	 */
+	let bandsChanged = $state(0);
 	$effect(() => {
+		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
+		const slimBand = slimEl;
+		if (!header || !slimBand) return;
+		const again = () => {
+			fold.invalidate();
+			bandsChanged++;
+		};
+		// Elements only: the fold's own writes are attributes, a ticking clock is text.
+		const added = new MutationObserver(again);
+		for (const el of [header, slimBand]) added.observe(el, { childList: true, subtree: true });
+		const sized = new ResizeObserver(again);
+		for (const el of [header, slimBand]) sized.observe(el);
+		document.fonts?.ready.then(again).catch(() => {});
+		return () => {
+			added.disconnect();
+			sized.disconnect();
+		};
+	});
+	$effect(() => {
+		void bandsChanged;
 		const y = scrollY;
 		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
 		if (desk.current || split === 'item' || !header || !slimEl || pinAt === null) {
