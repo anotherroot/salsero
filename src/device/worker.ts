@@ -14,8 +14,8 @@ import { PAGE_EPOCH } from '$lib/epoch';
 import type { Server as KitServer, SSRManifest } from '@sveltejs/kit';
 import type { DeviceIn, DeviceOut, WireFallback, WireRequest } from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
-import { createDevice, oneAtATime, type Device, type DeviceRuntime, type Responder } from './core';
-import { syncMedia } from './media';
+import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
+import { mediaKeeper } from './media';
 import { opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
 import { migrateDevice } from './migrate';
 import { deviceMigrations } from './migrations';
@@ -38,26 +38,16 @@ let device: Device | null = null;
 /** The media store (offline phase 4a), opened once; null where this browser has none. */
 let mediaStore: Promise<MediaStore | null> | undefined;
 const store = () => (mediaStore ??= opfsMediaStore());
-/** Bumped when the store is emptied for another person: a run in flight stops between files. */
-let mediaGen = 0;
-
-/** Brings the songs on the phone to the copy; one run at a time, a run asked during one queues one more. */
-const syncSongs = oneAtATime(async () => {
-	if (!device || device.state() !== 'ready') return;
-	const media = await store();
-	if (!media) return;
-	const gen = mediaGen;
-	const out = await syncMedia({
-		wanted: device.wantedMedia(),
-		store: media,
-		fetchMedia: (path) => fetch(path, { credentials: 'same-origin' }),
-		online: () => navigator.onLine && gen === mediaGen,
-		log: console
-	});
-	if (out.fetched || out.removed || out.failed) console.info('[device] songs on the phone', out);
-	// Emptied for another person meanwhile: a file that landed after is not theirs.
-	if (gen !== mediaGen) void syncSongs();
+/** The songs on the phone: one pass at a time; `clear` stops a pass in flight before it empties the store. */
+const songs = mediaKeeper({
+	store,
+	wanted: () => (device && device.state() === 'ready' ? device.wantedMedia() : null),
+	fetchMedia: (path, signal) => fetch(path, { credentials: 'same-origin', signal }),
+	online: () => navigator.onLine,
+	log: console
 });
+const syncSongs = () => songs.sync();
+
 /** The page's person, kept for a device that opens later (`Device.person`). */
 let person: string | null | undefined = undefined;
 
@@ -118,10 +108,7 @@ async function open(): Promise<Device> {
 		now: () => Date.now(),
 		epoch: PAGE_EPOCH,
 		newId: () => crypto.randomUUID(),
-		clearMedia: async () => {
-			mediaGen++;
-			await (await store())?.clear();
-		},
+		clearMedia: () => songs.clear(),
 		onRecorded: () => {
 			if (device) post({ type: 'outbox', summary: device.summary() });
 			syncSoon();

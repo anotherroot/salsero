@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { memoryMediaStore, type MediaFile, type MediaStore } from '$lib/offline/media-store';
 import { migrateDevice } from './migrate';
 import { repoMigrations } from './test-migrations';
-import { syncMedia, wantedMedia } from './media';
+import { mediaKeeper, syncMedia, wantedMedia } from './media';
 
 let db: Database.Database;
 beforeEach(() => {
@@ -144,5 +144,81 @@ describe('syncMedia: the store follows the copy', () => {
 		expect(await result).toEqual({ fetched: 0, removed: 0, failed: 0 });
 		expect(fetched).toEqual([]);
 		expect((await store.list()).map((f) => f.file)).toEqual(['a.m4a']);
+	});
+});
+
+describe('mediaKeeper: another person mid-download (the final review)', () => {
+	/** A fetch that waits until released, then gives its bytes unless aborted. */
+	function slowFetch() {
+		const started: string[] = [];
+		let release: () => void = () => {};
+		const fetchMedia = (path: string, signal: AbortSignal) => {
+			started.push(path);
+			return new Promise<Response>((resolve, reject) => {
+				signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+				release = () => resolve(new Response(`bytes of ${path}`));
+			});
+		};
+		return { fetchMedia, started, release: () => release() };
+	}
+
+	it('clear stops the download in flight, and nothing of the first person lands after', async () => {
+		const store = memoryMediaStore();
+		await store.write(A, new Response('a'));
+		const slow = slowFetch();
+		const keeper = mediaKeeper({
+			store: async () => store,
+			wanted: () => [A, B, T],
+			fetchMedia: slow.fetchMedia,
+			online: () => true,
+			log: { info: vi.fn(), warn: vi.fn() }
+		});
+		const running = keeper.sync();
+		await vi.waitFor(() => expect(slow.started).toEqual(['/audio/b.m4a']));
+		await keeper.clear();
+		expect(await store.list()).toEqual([]);
+		slow.release();
+		await running;
+		await new Promise((r) => setTimeout(r, 0));
+		expect(await store.list()).toEqual([]);
+		expect(slow.started).toEqual(['/audio/b.m4a']);
+	});
+
+	it('no copy to read: nothing is fetched or removed', async () => {
+		const store = memoryMediaStore();
+		await store.write(A, new Response('a'));
+		const fetchMedia = vi.fn();
+		const keeper = mediaKeeper({
+			store: async () => store,
+			wanted: () => null,
+			fetchMedia,
+			online: () => true,
+			log: { info: vi.fn(), warn: vi.fn() }
+		});
+		await keeper.sync();
+		expect(fetchMedia).not.toHaveBeenCalled();
+		expect((await store.list()).map((f) => f.file)).toEqual(['a.m4a']);
+	});
+
+	it('a sync asked during one runs once more after it', async () => {
+		const store = memoryMediaStore();
+		let wanted: MediaFile[] = [A];
+		const slow = slowFetch();
+		const keeper = mediaKeeper({
+			store: async () => store,
+			wanted: () => wanted,
+			fetchMedia: slow.fetchMedia,
+			online: () => true,
+			log: { info: vi.fn(), warn: vi.fn() }
+		});
+		const first = keeper.sync();
+		await vi.waitFor(() => expect(slow.started).toHaveLength(1));
+		wanted = [A, B];
+		const second = keeper.sync();
+		slow.release();
+		await vi.waitFor(() => expect(slow.started).toHaveLength(2));
+		slow.release();
+		await Promise.all([first, second]);
+		expect((await store.list()).map((f) => f.file).sort()).toEqual(['a.m4a', 'b.m4a']);
 	});
 });

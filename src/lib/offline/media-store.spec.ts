@@ -88,7 +88,7 @@ class FakeFile {
 				if (this.dir.fail('write', this.name)) throw new Error(`disk full at ${this.name}`);
 				const parts: BlobPart[] = [];
 				return new WritableStream<Uint8Array>({
-					write: (c) => void parts.push(c),
+					write: (c) => void parts.push(new Uint8Array(c)),
 					close: () => void (this.data = new Blob(parts))
 				});
 			};
