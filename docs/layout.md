@@ -25,7 +25,7 @@ src/lib/i18n/        the words, client-safe: `catalog.ts` (`t()`, the current la
                      format, groups, lesson, links, map, moves, nouns, picker, player,
                      positions, refusals, routine, settings, shell, songs, today, video) with an `index.ts`
                      (the glossary heads `sl/index.ts`). `nouns` is the counted nouns in the
-                     nominative, number included (`t().nouns.figures(3)`: "3 različice"); a count
+                     nominative, number included (`t().nouns.figures(3)`: "3 figure"); a count
                      in another case is its area's own entry. `refusals` is what no area owns
                      (missing rows, error pages, chunks, file checks). `current.ts` (the current
                      language: a `withLocale` override for specs, the server's per-request
@@ -121,19 +121,27 @@ src/lib/components/positions/  the New / Edit position sheet and its fields, Tem
 src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
-                     filter.ts is the Figures list's filter (chips, search, the entered set).
-                     sync.ts the out-of-sync card and a row's "N copies differ" (`differ` on a row).
+                     filter.ts is the Figures list's filter (chips, search, the entered set)
+                     and `mergeGroups` (a group's figures under your move of the same name).
+                     mix.ts mixes a group's rows in among yours (Routines, Positions), each
+                     marked with its group (`components/moves/GroupMark`, the Lessons row's too).
+                     sync.ts the out-of-sync card and a row's "N copies differ" (`differ` on a row);
+                     a figure row also says "N copies" (`copies`: `copyCounts`, the Versions list's).
                      segment.ts the three segments, pane.ts the empty pane's words and keeping
                      the lit row in view, routines.ts the Routines list's shape. PURE
 src/lib/positions/filter.ts  PURE: the Positions list's search, chips and gaps, from the
-                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe
+                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe; order.ts the list's
+                     order (`positionOrder`, the server's `sortPositions` too)
 src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf`) and which row
                      is lit (`OpenRow`: figure, move, routine, position, Coverage, No position,
                      the Map row), from the route, the path and the opener. The Figures
                      list owns a move's page and Coverage
 src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
                      (namespaced; `depends('app:moves')`, so a change not made by a form calls
-                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
+                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`).
+                     `mergedMoveFigures`: one merged move's figures, as the list shows them;
+                     `mergedMoveRows`: that move for its page and its figures' switcher and tabs
+                     (a copy or a twin set one row, `standIn`)
 src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space; each arrow's
                      figures (`figs`; a group row whose label collides says its group,
                      `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
@@ -253,7 +261,7 @@ src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled t
                      variants), drawn by components/ui/Icon.svelte (`stroke` for
                      the heavier checks)
 src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the bar
-                     shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
+                     shows. band.ts: the big or slim band by scroll (the slim one pins where the sheet meets it, `pinAt`; `bandProgress` is how far the big one has folded into it, drawn by `components/shell/band-collapse.ts`). pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
                      a band (a page without one is named in the spec with its reason).
@@ -272,7 +280,7 @@ src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: side, bare, card, no
                      `listOf` (which list column a path belongs to) and `paneBack` (whether an
                      item's ‹ shows). desk.svelte.ts: the `desk` media query (from 1024 px)
 src/lib/components/shell/  Side.svelte (the band-coloured side with the tabs), SheetCorner (the
-                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions),
+                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions; its parts marked `data-band-*` for band-collapse.ts, the phone band folding into the slim one),
                      ListPane (a list column with its band) and Pane (the item beside it;
                      `pane-context.ts` tells a page it is in one), CardFrame (the centred 480 px
                      card on the band colour: sign in, Join, Welcome, Get the app, Pair, `/g/<code>`
@@ -416,7 +424,7 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      its spec lists every save path), sync.ts (`syncView`, `syncAll`: the sheet's
                      rows and the landing on every ticked copy, then the flow onward) and step.ts
                      (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, from the
-                     same merge rows). The routes' side: `take-form.ts`, `make-mine-form.ts`,
+                     same merge rows; `copyCounts`, a figure row's "N copies"). The routes' side: `take-form.ts`, `make-mine-form.ts`,
                      `keep-form.ts`, the page action `keep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
 src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
                      embeds, lesson and section links): `usableOf` (their added lessons'
@@ -464,6 +472,19 @@ src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByD
 src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
                      deleted voice take); a take's wav is unlinked when its hold expires
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
+src/lib/server/csrf.ts  PURE: the hook's form check (kit's own is off, vite.config.ts), `routedPath`
+                     (the path kit routes on) and SELF_AUTHED_PATHS (the AI connector's endpoints:
+                     no session, no login or host redirect)
+src/lib/mcp/         PURE: the MCP protocol by hand (protocol.ts, http.ts: stateless, JSON only);
+                     sdk-compat.spec.ts drives it with the official client (a devDependency)
+src/lib/server/oauth/  the AI connector's sign-in: discovery (metadata.ts), clients from any origin
+                     (client.ts, fetch-client.ts through safe-fetch.ts, the SSRF guard; register.ts,
+                     RFC 7591), PKCE, the consent checks (authorize.ts), the token store (store.ts,
+                     hashes only), in-memory rate limits (limits.ts)
+src/lib/server/mcp/  the connector's tools: view.ts (what the person may read = `syncScope`),
+                     read.ts (search, list, get_*, list_groups, vocabulary), args.ts, host.ts, modules.ts
+src/routes/mcp/, src/routes/oauth/{authorize,token,register}/, src/routes/.well-known/oauth-*/
+                     the connector's endpoints; /oauth/authorize is the consent page
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
                      (refuses at or over the limit), and `listStorageItems` for What uses space
 src/lib/server/invites.ts  one-time invites into one dance, and joining with one

@@ -121,20 +121,6 @@ export function showTiles(count: number, filter: FigureFilter): boolean {
 	return count > 0 && !filter.q;
 }
 
-/**
- * The line under a group's name where its rows start in a Moves list (the
- * name itself is the heading, larger than a move's): "Group · 3 figures".
- */
-export function groupMeta(kind: 'figure' | 'routine' | 'position', count: number): string {
-	const c = t();
-	const counted = {
-		figure: c.nouns.figures,
-		routine: c.nouns.routines,
-		position: c.nouns.positions
-	}[kind];
-	return `${c.moves.heading.group} · ${counted(count)}`;
-}
-
 /** The Coverage tile's meta line (Positions is a Moves segment now, not a tile). */
 export function tileMetas(unrouted: number): { coverage: { text: string; status: boolean } } {
 	return {

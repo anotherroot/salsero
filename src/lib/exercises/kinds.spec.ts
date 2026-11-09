@@ -30,7 +30,7 @@ describe('exercise types in Slovenian', () => {
 	it('names each type, read when asked', () => {
 		expect(sl(() => EXERCISE_TYPES.map((x) => TYPES[x].label))).toEqual([
 			'Ponavljanje lekcije',
-			'Vaja z različico',
+			'Vaja z figuro',
 			'Vaja',
 			'Kombinacija'
 		]);

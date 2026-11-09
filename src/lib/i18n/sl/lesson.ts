@@ -55,7 +55,7 @@ export const lesson: Catalog['lesson'] = {
 		videos: (n) => slCount(n, ['video', 'videa', 'videi', 'videov']),
 		sections: (n) => form(n, ['odsek', 'odseka', 'odseki', 'odsekov']),
 		routines: (n) => form(n, ['kombinacija', 'kombinaciji', 'kombinacije', 'kombinacij']),
-		figures: (n) => form(n, ['različica', 'različici', 'različice', 'različic']),
+		figures: (n) => form(n, ['figura', 'figuri', 'figure', 'figur']),
 		onDisk: (size) => `Videi na disku: ${size}`,
 		groupVideos: (used, limit) => `Videi skupine: ${used} od ${limit}`,
 		pick: {
@@ -73,7 +73,7 @@ export const lesson: Catalog['lesson'] = {
 		notInLessons: 'Še ni med vašimi lekcijami',
 		notesHelp: 'Povezave v opombah se odprejo, ko jih pritisnete.',
 		archiveLesson: 'Arhiviraj lekcijo',
-		figures: 'Različice',
+		figures: 'Figure',
 		routines: 'Kombinacije',
 		exercises: 'Vaje',
 		positions: 'Položaji',
@@ -103,11 +103,11 @@ export const lesson: Catalog['lesson'] = {
 
 	pickers: {
 		figure: {
-			title: 'Poveži različico',
-			search: 'Iskanje različic',
-			group: 'Različice',
-			none: 'Različic še ni.',
-			figure: 'Različica'
+			title: 'Poveži figuro',
+			search: 'Iskanje figur',
+			group: 'Figure',
+			none: 'Figur še ni.',
+			figure: 'Figura'
 		},
 		routine: {
 			title: 'Poveži kombinacijo',
@@ -119,7 +119,7 @@ export const lesson: Catalog['lesson'] = {
 		exercise: {
 			title: 'Poveži vajo',
 			search: 'Iskanje vaj',
-			none: 'Ni več ničesar, kar bi lahko povezali. Vaja različice ali kombinacije je na njeni strani.',
+			none: 'Ni več ničesar, kar bi lahko povezali. Vaja figure ali kombinacije je na njeni strani.',
 			create: 'Vaja'
 		},
 		position: {
@@ -132,12 +132,12 @@ export const lesson: Catalog['lesson'] = {
 
 	create: {
 		figure: {
-			title: 'Nova različica',
+			title: 'Nova figura',
 			inLesson: 'V tej lekciji',
-			moves: 'Figure',
-			first: 'Figure iz te lekcije so na vrhu',
+			moves: 'Gibi',
+			first: 'Gibi iz te lekcije so na vrhu',
 			busy: 'Dodajanje',
-			add: 'Dodaj različico'
+			add: 'Dodaj figuro'
 		},
 		routine: {
 			title: 'Nova kombinacija iz te lekcije',
@@ -160,7 +160,7 @@ export const lesson: Catalog['lesson'] = {
 	fields: {
 		day: 'Datum lekcije',
 		title: 'Naslov',
-		titlePlaceholder: 'Rueda v sredo: enchufla in njene različice',
+		titlePlaceholder: 'Rueda v sredo: enchufla in njene figure',
 		notes: 'Opombe',
 		optional: '(neobvezno)',
 		notesPlaceholder: 'Kar ste slišali na tečaju, kaj popraviti, kaj vam ni šlo …'
@@ -242,7 +242,7 @@ export const lesson: Catalog['lesson'] = {
 	positionLink: (name) => `Položaj · ${name}`,
 
 	addLabel: {
-		figure: 'Dodaj različico',
+		figure: 'Dodaj figuro',
 		routine: 'Dodaj kombinacijo',
 		exercise: 'Dodaj vajo',
 		position: 'Dodaj položaj',
@@ -273,15 +273,14 @@ export const lesson: Catalog['lesson'] = {
 		gone: 'Te lekcije ni več.',
 		published: 'Lekcija je že objavljena.',
 		archived: 'Lekcija je že arhivirana.',
-		pickMove: 'Izberite figuro.',
-		figureLink: 'Različice ni bilo mogoče povezati.',
-		figureUnlinked: 'Povezava z različico je že odstranjena.',
+		pickMove: 'Izberite gib.',
+		figureLink: 'Figure ni bilo mogoče povezati.',
+		figureUnlinked: 'Povezava z figuro je že odstranjena.',
 		routineLink: 'Kombinacije ni bilo mogoče povezati.',
 		routineUnlinked: 'Povezava s kombinacijo je že odstranjena.',
 		positionLink: 'Položaja ni bilo mogoče povezati.',
 		positionUnlinked: 'Povezava s položajem je že odstranjena.',
-		exerciseLink:
-			'Vaje ni bilo mogoče povezati. Vaja različice ali kombinacije je na njeni strani.',
+		exerciseLink: 'Vaje ni bilo mogoče povezati. Vaja figure ali kombinacije je na njeni strani.',
 		exerciseUnlinked: 'Povezava z vajo je že odstranjena.',
 		videoGone: 'Ta video je bil že odstranjen.'
 	},

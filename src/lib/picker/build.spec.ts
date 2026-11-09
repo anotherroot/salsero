@@ -620,7 +620,7 @@ describe('the builders’ words in Slovenian', () => {
 				exercise({ id: 4, name: 'L', source: 'lesson' })
 			])
 		);
-		expect(out.map((g) => g.title)).toEqual(['Različice', 'Kombinacije', 'Vaje', 'Lekcije']);
+		expect(out.map((g) => g.title)).toEqual(['Figure', 'Kombinacije', 'Vaje', 'Lekcije']);
 	});
 	it('heads a recording’s sections and the other videos', () => {
 		const out = sl(() =>
@@ -654,7 +654,7 @@ describe('the builders’ words in Slovenian', () => {
 				positions: [opt({ positionId: 3 }, 'Cerrada')]
 			} as unknown as LinkOptions)
 		);
-		expect(out.map((g) => g.title)).toEqual(['Različice', 'Vaje', 'Položaji']);
+		expect(out.map((g) => g.title)).toEqual(['Figure', 'Vaje', 'Položaji']);
 	});
 	it('heads a group’s positions with its name after a colon, never a possessive', () => {
 		const p = (id: number, teamId: number | null) => ({

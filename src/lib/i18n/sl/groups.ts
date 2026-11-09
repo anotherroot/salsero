@@ -32,7 +32,7 @@ export const groups: Catalog['groups'] = {
 		addMenu: {
 			lesson: 'Lekcija',
 			music: 'Glasba',
-			figure: 'Različica',
+			figure: 'Figura',
 			routine: 'Kombinacija',
 			position: 'Položaj',
 			drill: 'Vaja'
@@ -96,7 +96,7 @@ export const groups: Catalog['groups'] = {
 		copyMeta: (group) => `Vaša kopija · vir: ${group}`,
 		choose: (n) => `Zapusti in obdrži ${n}`,
 		lessons: (n) => slCount(n, ['lekcija', 'lekciji', 'lekcije', 'lekcij']),
-		figures: (n) => slCount(n, ['različica', 'različici', 'različice', 'različic']),
+		figures: (n) => slCount(n, ['figura', 'figuri', 'figure', 'figur']),
 		routines: (n) => slCount(n, ['kombinacija', 'kombinaciji', 'kombinacije', 'kombinacij']),
 		songs: (n) => slCount(n, ['skladba', 'skladbi', 'skladbe', 'skladb']),
 		nothing: 'Ni česa obdržati',
@@ -110,7 +110,7 @@ export const groups: Catalog['groups'] = {
 		overLimit: (size) =>
 			`S tem presežete svoj prostor (${size}). Vadite lahko še naprej, nova nalaganja pa počakajo, dokler ne boste spet pod mejo.`,
 		locked: (meta, by) => {
-			const who = { routine: 'vaša kombinacija', lesson: 'vaša lekcija', figure: 'vaša različica' }[
+			const who = { routine: 'vaša kombinacija', lesson: 'vaša lekcija', figure: 'vaša figura' }[
 				by
 			];
 			return meta ? `${meta} · v uporabi: ${who}` : `V uporabi: ${who}`;
@@ -118,7 +118,7 @@ export const groups: Catalog['groups'] = {
 		sections: {
 			lessons: 'Lekcije',
 			routines: 'Kombinacije',
-			figures: 'Različice',
+			figures: 'Figure',
 			songs: 'Skladbe'
 		},
 		keepAll: 'Obdrži vse',
@@ -172,9 +172,9 @@ export const groups: Catalog['groups'] = {
 		// "V njej": the lesson (lekcija).
 		nothing: 'V njej še ni ničesar',
 		onToday: 'V Danes',
-		alsoFigures: 'Vadi tudi različice',
+		alsoFigures: 'Vadi tudi figure',
 		figuresCaption:
-			'Neoznačene različice so še vedno v zavihku Figure, pod skupino. Ne zasedajo vašega prostora.',
+			'Neoznačene figure so še vedno v zavihku Figure, pod skupino. Ne zasedajo vašega prostora.',
 		// The adjective agrees with the count.
 		newRoutines: (n) =>
 			slCount(n, ['nova kombinacija', 'novi kombinaciji', 'nove kombinacije', 'novih kombinacij']),
@@ -182,7 +182,7 @@ export const groups: Catalog['groups'] = {
 		kind: {
 			lesson: 'Ponavljanje lekcije',
 			routine: 'Kombinacija',
-			figure: 'Različica',
+			figure: 'Figura',
 			drill: 'Vaja'
 		},
 		label: (title) => `Dodaj: ${title}`,
@@ -213,7 +213,7 @@ export const groups: Catalog['groups'] = {
 			lessonDay: 'datum',
 			notes: 'opombe',
 			name: 'ime',
-			figureName: 'ime figure',
+			figureName: 'ime giba',
 			partner: 'v paru ali solo',
 			style: 'slog',
 			startIds: 'začetni položaji',
@@ -244,8 +244,8 @@ export const groups: Catalog['groups'] = {
 		},
 		subject: {
 			lesson: 'lekcija',
-			move: 'figura',
-			figure: 'različica',
+			move: 'gib',
+			figure: 'figura',
 			routine: 'kombinacija',
 			drill: 'vaja',
 			song: 'skladba',
@@ -301,7 +301,7 @@ export const groups: Catalog['groups'] = {
 		inDeleted: 'V »Nedavno izbrisano«',
 		untitled: {
 			lesson: 'Lekcija',
-			figure: 'Figura',
+			figure: 'Gib',
 			routine: 'Kombinacija',
 			drill: 'Vaja',
 			song: 'Skladba',
@@ -321,7 +321,7 @@ export const groups: Catalog['groups'] = {
 			'spot-link': 'Povezava odseka',
 			recording: 'Posnetek',
 			lesson: 'Lekcija',
-			variation: 'Različica',
+			variation: 'Figura',
 			routine: 'Kombinacija',
 			drill: 'Vaja',
 			song: 'Skladba',
@@ -370,7 +370,7 @@ export const groups: Catalog['groups'] = {
 			lessonDay: 'Datum lekcije',
 			notes: 'Opombe',
 			name: 'Ime',
-			figureName: 'Ime figure',
+			figureName: 'Ime giba',
 			partner: 'V paru ali solo',
 			style: 'Slog',
 			startIds: 'Začne v',

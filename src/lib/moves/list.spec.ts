@@ -58,16 +58,16 @@ describe('in Slovenian', () => {
 
 	it('agrees the verb with the count while matching', () => {
 		const h = (figures: number) => sl(() => movesHeading({ moves: 1, figures }, true));
-		expect(h(1)).toBe('1 različica ustreza');
-		expect(h(2)).toBe('2 različici ustrezata');
-		expect(h(3)).toBe('3 različice ustrezajo');
-		expect(h(5)).toBe('5 različic ustreza');
-		expect(h(101)).toBe('101 različica ustreza');
+		expect(h(1)).toBe('1 figura ustreza');
+		expect(h(2)).toBe('2 figuri ustrezata');
+		expect(h(3)).toBe('3 figure ustrezajo');
+		expect(h(5)).toBe('5 figur ustreza');
+		expect(h(101)).toBe('101 figura ustreza');
 	});
 
 	it('says Vaše over the list, and no owner word in a group', () => {
-		expect(sl(() => movesHeading({ moves: 5, figures: 14 }, false))).toBe('Vaše · 14 različic');
-		expect(sl(() => movesHeading({ moves: 1, figures: 2 }, false, null))).toBe('2 različici');
+		expect(sl(() => movesHeading({ moves: 5, figures: 14 }, false))).toBe('Vaše · 14 figur');
+		expect(sl(() => movesHeading({ moves: 1, figures: 2 }, false, null))).toBe('2 figuri');
 	});
 
 	it('counts dobe and posnetki in a row meta', () => {
@@ -92,11 +92,9 @@ describe('in Slovenian', () => {
 
 	it('says where else a move is, the groups after a colon', async () => {
 		const { moveMeta } = await import('./list');
-		expect(sl(() => moveMeta(1, ['Salsa torek']))).toBe(
-			'1 različica · tudi v skupini: Salsa torek'
-		);
+		expect(sl(() => moveMeta(1, ['Salsa torek']))).toBe('1 figura · tudi v skupini: Salsa torek');
 		expect(sl(() => moveMeta(3, ['Salsa torek', 'Rueda']))).toBe(
-			'3 različice · tudi v skupinah: Salsa torek, Rueda'
+			'3 figure · tudi v skupinah: Salsa torek, Rueda'
 		);
 	});
 });

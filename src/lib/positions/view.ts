@@ -130,10 +130,13 @@ export const EMPTY_ACTIONS: { templates: string; create: string; how: string } =
 	(c) => c.positions.empty.actions
 );
 
-/** The label over the list: the person's own as "Yours · 15"; a group's (group mode) by count. */
-export function listHeading(n: number, groupMode: boolean): string {
+/**
+ * The label over the list: the person's own as "Yours · 15"; by count alone
+ * (`plain`) in group mode, or with a group's positions mixed in.
+ */
+export function listHeading(n: number, plain: boolean): string {
 	const c = t();
-	return groupMode ? c.nouns.positions(n) : c.positions.list.yours(n);
+	return plain ? c.nouns.positions(n) : c.positions.list.yours(n);
 }
 
 /** The row into the map, under No position. */
@@ -141,9 +144,6 @@ export const mapRow = (): string => t().positions.list.mapRow;
 
 /** A search or a chip that leaves nothing. */
 export const noMatch = (): string => t().positions.list.noMatch;
-
-/** Only a group's positions so far: the person's own list starts here. */
-export const noneOwn = (): string => t().positions.list.noneOwn;
 
 /** A type's label, in the reader's language; an untyped position reads as "Other". */
 export function styleLabelOf(labels: Record<string, string>): StyleLabel {

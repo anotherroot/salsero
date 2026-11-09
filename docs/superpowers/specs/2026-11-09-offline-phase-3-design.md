@@ -276,7 +276,7 @@ an older PAGE_EPOCH and the device is online and can still drain them
 ## Decided while building
 
 Built 2026-11-09 (plan `docs/superpowers/plans/2026-11-09-offline-phase-3-changes-offline.md`,
-migration 0043). The calls made on the way, beyond the picks above:
+migration 0044). The calls made on the way, beyond the picks above:
 
 - **Network-only:** cookie-setting actions (Settings' theme and language, `group-mode`), Sign
   out (`/logout` must reach the server), and the media writes and deletes (phase 4's, with the

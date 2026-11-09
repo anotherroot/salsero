@@ -3,7 +3,8 @@
 	import type { Snippet } from 'svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { twinsChip } from '$lib/clones/twins';
+	import GroupMark from '$lib/components/moves/GroupMark.svelte';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { copyChip, copyMeta } from '$lib/teams/leave-view';
 	import { dateTile, lessonCounts, videoMeta } from '$lib/lessons/list';
 	import { t } from '$lib/i18n/catalog';
@@ -70,12 +71,12 @@
 				{#if lesson.copyOf}<Badge>{copyChip()}</Badge>{/if}
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if lesson.twinned}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+				<!-- With clones, as the Figures list marks them; a kept copy already says Copy. -->
+				{#if (lesson.copies ?? 0) > 0 && !lesson.copyOf}<Badge
+						><Icon name="copy" size={14} />{cloneChip()}</Badge
+					>{/if}
 			</span>
-			{#if group}
-				<span class="flex items-center gap-1 text-[13px] font-bold text-accent-text"
-					><Icon name="people" size={16} />{group}</span
-				>
-			{/if}
+			{#if group}<GroupMark name={group} />{/if}
 			{#if lesson.copyOf}<span class="text-[13px] text-muted">{copyMeta(lesson.copyOf)}</span>{/if}
 			{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
 			<!-- Always all three, in the same place: a zero is muted rather than vanishing, so a lesson still missing something shows it. -->

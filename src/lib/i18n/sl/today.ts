@@ -97,8 +97,8 @@ export const today: Catalog['today'] = {
 		hint: 'Za samostojno vadbo figure jo odprite in pritisnite »Vadi samostojno«.'
 	},
 	tile: {
-		figurePartner: 'Različica, v paru',
-		figureSolo: 'Različica, solo',
+		figurePartner: 'Figura, v paru',
+		figureSolo: 'Figura, solo',
 		routine: 'Kombinacija',
 		lesson: 'Ponavljanje lekcije',
 		drill: 'Vaja',

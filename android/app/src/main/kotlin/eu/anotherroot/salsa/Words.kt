@@ -122,7 +122,7 @@ private object Sl : Words {
     override fun couldNotCompress(error: String) = "Stiskanje ni uspelo: $error"
     override val couldNotKeep = "Stisnjenega videa ni bilo mogoče shraniti."
     override val emptyVideo = "Video je prazen."
-    override val tooBigForRecording = "Tudi stisnjen ima več kot 95 MB, kar je preveč za posnetek različice."
+    override val tooBigForRecording = "Tudi stisnjen ima več kot 95 MB, kar je preveč za posnetek figure."
     override val serverHasAll = "Strežnik ima že ves video, a ga ni dokončal. Poskusite znova pozneje."
     override fun serverRefused(status: Int) = "Strežnik ga je zavrnil ($status)."
     override val phonePaired = "Telefon je povezan"

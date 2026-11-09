@@ -272,7 +272,7 @@ describe('the clash sheet in Slovenian', () => {
 	it('names the fields, and an unknown key as it is', () => {
 		sl(() => {
 			expect(fieldLabel('lessonDay')).toBe('Datum lekcije');
-			expect(fieldLabel('figureName')).toBe('Ime figure');
+			expect(fieldLabel('figureName')).toBe('Ime giba');
 			expect(fieldLabel('notes')).toBe('Opombe');
 			expect(fieldLabel('whatever')).toBe('Whatever');
 		});

@@ -19,6 +19,7 @@ import {
 import { addedLessonIds, reachFrom } from './access';
 import { DANCES, isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { TEMPLATES } from '$lib/positions/templates';
+import { positionOrder } from '$lib/positions/order';
 import { t } from '$lib/i18n/catalog';
 import type { ChangeValues, PositionInput, PositionSummary } from '$lib/types';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
@@ -55,17 +56,7 @@ export function sortPositions<T extends { id: number; name: string; styleTag: st
 	rows: T[],
 	dance: DanceSlug
 ): T[] {
-	const order = DANCES[dance].styles;
-	const rank = (r: T) => {
-		const i = r.styleTag === null ? -1 : order.indexOf(r.styleTag);
-		return i < 0 ? order.length : i;
-	};
-	return rows.sort(
-		(a, b) =>
-			rank(a) - rank(b) ||
-			(fold(a.name) < fold(b.name) ? -1 : fold(a.name) > fold(b.name) ? 1 : 0) ||
-			a.id - b.id
-	);
+	return rows.sort(positionOrder(DANCES[dance].styles));
 }
 
 /** One position by id, whatever its owner: callers check access. */

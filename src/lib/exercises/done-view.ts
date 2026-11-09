@@ -60,15 +60,16 @@ export function addedMessage(day: string): string {
 }
 
 /**
- * The pinned bar: Done, or Done today once the day has an entry. A fixed rhythm
- * in a run, not done today: the green Done · next, which saves and goes on.
+ * The pinned bar: Done, or Done today once the day has an entry. In a run, not
+ * done today: Done · next, the same colour as Done (a fixed rhythm saves and goes
+ * on; a face in the sheet does the same).
  */
-export function doneBar(i: { doneToday: boolean; fixedInRun?: boolean }): {
+export function doneBar(i: { doneToday: boolean; inRun?: boolean }): {
 	label: string;
 	kind: 'primary' | 'done-soft' | 'done';
 } {
 	const w = t().exercise.done;
-	if (i.fixedInRun && !i.doneToday) return { label: w.doneNext, kind: 'done' };
+	if (i.inRun && !i.doneToday) return { label: w.doneNext, kind: 'primary' };
 	return {
 		label: i.doneToday ? w.doneToday : t().exercise.log.done,
 		kind: i.doneToday ? 'done-soft' : 'primary'

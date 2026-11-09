@@ -199,7 +199,7 @@ describe('the links editor’s refusals in Slovenian', () => {
 				addLinkFrom(form({ urls: 'https://a.org' }), db, { exerciseId: figureExerciseId })
 			)
 		).toMatchObject({
-			data: { message: 'Povezave so na različici ali lekciji, h kateri spada ta vaja.' }
+			data: { message: 'Povezave so na figuri ali lekciji, h kateri spada ta vaja.' }
 		});
 		expect(await sl(() => deleteLinkFrom(form({ linkId: '999' }), db, { figureId }))).toMatchObject(
 			{ status: 404, data: { message: 'Ta povezava je bila že odstranjena.' } }

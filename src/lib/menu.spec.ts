@@ -42,7 +42,7 @@ describe('menuLabel in Slovenian', () => {
 	it('names the kind in the genitive', () => {
 		const kinds = ['figure', 'position', 'routine', 'drill', 'song', 'lesson'] as const;
 		expect(withLocale('sl', () => kinds.map(menuLabel))).toEqual([
-			'Meni različice',
+			'Meni figure',
 			'Meni položaja',
 			'Meni kombinacije',
 			'Meni vaje',

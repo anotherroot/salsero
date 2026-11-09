@@ -1,12 +1,12 @@
 // Položaji: seznam, Brez položaja, Nov položaj in urejanje, drža, predloge, stran
-// položaja, oznake različice, Kako delujejo položaji, zemljevid ter povezave z odseki,
+// položaja, oznake figure, Kako delujejo položaji, zemljevid ter povezave z odseki,
 // točkami in lekcijami. Position names are people's own (or dance terms):
 // after a colon or in » «, never declined.
 import type { Catalog } from '../catalog';
 import { slCount, slForm, type SlForm } from '../plural';
 import { nouns } from './nouns';
 
-/** A verb agreeing with a count of različice: 1 ustreza, 2 ustrezata, 3 ustrezajo, 5 ustreza. */
+/** A verb agreeing with a count of figure: 1 ustreza, 2 ustrezata, 3 ustrezajo, 5 ustreza. */
 const agree = (n: number, forms: Record<SlForm, string>): string => forms[slForm(n)];
 
 export const positions: Catalog['positions'] = {
@@ -22,16 +22,15 @@ export const positions: Catalog['positions'] = {
 	},
 	list: {
 		// The count after a colon: the verb would have to agree with it.
-		tagged: (done, total) => `Različice s položaji: ${done} od ${total}.`,
-		optional: 'Položaji niso obvezni: različica brez položaja v kombinaciji ustreza kjer koli.',
+		tagged: (done, total) => `Figure s položaji: ${done} od ${total}.`,
+		optional: 'Položaji niso obvezni: figura brez položaja v kombinaciji ustreza kjer koli.',
 		unused: 'neuporabljen',
 		// The lesson's title is the teacher's: after a colon.
 		fromLesson: (type, lesson) => `${type} · lekcija: ${lesson}`,
 		yours: (n) => `Vaši · ${n}`,
 		mapRow: 'Zemljevid',
 		noMatch: 'Noben položaj ne ustreza',
-		noneOwn: 'Svojih položajev še nimate.',
-		groupNote: 'Položaji skupine. Njene različice lahko označite le z njimi.',
+		groupNote: 'Položaji skupine. Njene figure lahko označite le z njimi.',
 		templates: 'Predloge',
 		search: 'Iskanje položajev',
 		filter: 'Filtri položajev',
@@ -41,7 +40,7 @@ export const positions: Catalog['positions'] = {
 		title: 'Še ni položajev',
 		body: 'Začnite z grobimi položaji iz predloge ali naredite svoje.',
 		firstRun: (figures) =>
-			`Vaše različice (${figures}) nimajo položajev, in to je v redu: ustrezajo kjer koli. Položaje dodajte, ko želite, da kombinacije preverijo, kaj lahko sledi čemu.`,
+			`Vaše figure (${figures}) nimajo položajev, in to je v redu: ustrezajo kjer koli. Položaje dodajte, ko želite, da kombinacije preverijo, kaj lahko sledi čemu.`,
 		actions: {
 			templates: 'Začni s predlogo',
 			create: 'Nov položaj',
@@ -56,7 +55,7 @@ export const positions: Catalog['positions'] = {
 			`${nouns.figures(total)} · brez: ${none}, le z začetkom ali koncem: ${partial}`,
 		fits: {
 			title: 'Ustreza kjer koli',
-			body: 'Različica brez položaja lahko sledi čemur koli in vodi v kar koli: urejevalnik kombinacij jo ponudi povsod in pri njej nikoli ne označi prekinitve.'
+			body: 'Figura brez položaja lahko sledi čemur koli in vodi v kar koli: urejevalnik kombinacij jo ponudi povsod in pri njej nikoli ne označi prekinitve.'
 		},
 		groups: {
 			none: 'Brez začetka in konca',
@@ -66,19 +65,19 @@ export const positions: Catalog['positions'] = {
 		endsIn: (names) => `konča v: ${names}`,
 		startsIn: (names) => `začne v: ${names}`,
 		startsOn: (n) => `začne na ${n}`,
-		empty: 'Vsaka različica ima položaj na začetku in na koncu.',
+		empty: 'Vsaka figura ima položaj na začetku in na koncu.',
 		edit: 'Položaji'
 	},
 	sheet: {
 		newTitle: 'Nov položaj',
-		newSub: 'Slog je sprva vaš slog novih različic (Nastavitve)',
+		newSub: 'Slog je sprva vaš slog novih figur (Nastavitve)',
 		add: 'Dodaj položaj',
 		save: 'Shrani',
-		typeHelp: 'En slog, iz istega seznama kot pri različici.',
+		typeHelp: 'En slog, iz istega seznama kot pri figuri.',
 		crossed: 'Desni roki zgoraj',
 		archive: 'Arhiviraj položaj',
 		archiveBody:
-			'Arhivira se kot različica: Obnovi ga vrne. Različice ga izgubijo in brez drugega nimajo položaja.',
+			'Arhivira se kot figura: Obnovi ga vrne. Figure ga izgubijo in brez drugega nimajo položaja.',
 		picture: 'Slika',
 		change: 'Zamenjaj',
 		pictureLegend: 'Njegove točke'
@@ -185,26 +184,26 @@ export const positions: Catalog['positions'] = {
 		endsIn: (names) => `konča v: ${names}`,
 		from: (names) => `iz: ${names}`,
 		relations: {
-			from: 'Različice od tod',
-			into: 'Različice, ki vodijo sem'
+			from: 'Figure od tod',
+			into: 'Figure, ki vodijo sem'
 		},
 		new: 'Nova',
-		newFrom: (name) => `Nova različica od tod: ${name}`,
-		newInto: (name) => `Nova različica, ki vodi sem: ${name}`,
-		relationsLabel: 'Različice in kombinacije skozi ta položaj',
+		newFrom: (name) => `Nova figura od tod: ${name}`,
+		newInto: (name) => `Nova figura, ki vodi sem: ${name}`,
+		relationsLabel: 'Figure in kombinacije skozi ta položaj',
 		menu: {
-			newFrom: 'Nova različica od tod',
-			newInto: 'Nova različica, ki vodi sem',
+			newFrom: 'Nova figura od tod',
+			newInto: 'Nova figura, ki vodi sem',
 			map: 'Pokaži na zemljevidu',
 			history: 'Zgodovina'
 		},
 		fromLessonNote: (lesson, team) =>
-			`Iz lekcije: ${lesson}. Z njim označite svoje različice, kakršen je; ostane položaj skupine: ${team}.`,
+			`Iz lekcije: ${lesson}. Z njim označite svoje figure, kakršen je; ostane položaj skupine: ${team}.`,
 		makeMineNote: (label) =>
-			`Uredi naredi vašo kopijo (${label}); vaše različice, označene s tem položajem, se preselijo nanjo.`,
+			`Uredi naredi vašo kopijo (${label}); vaše figure, označene s tem položajem, se preselijo nanjo.`,
 		archived: {
 			title: 'Arhivirano',
-			body: 'Različice ga ne kažejo več. Obnovi ga vrne.',
+			body: 'Figure ga ne kažejo več. Obnovi ga vrne.',
 			restore: 'Obnovi'
 		},
 		// The verb agrees with the count; the position is the page's own, so "tu".
@@ -227,12 +226,12 @@ export const positions: Catalog['positions'] = {
 	preset: {
 		starts: (name) => `Začne v: ${name}`,
 		ends: (name) => `Konča v: ${name}`,
-		gone: 'Ta položaj tu ne more več označiti različice. Figuro dodajte brez njega.'
+		gone: 'Ta položaj tu ne more več označiti figure. Figuro dodajte brez njega.'
 	},
 	tags: {
 		empty: 'Brez položaja · ustreza kjer koli',
-		help: 'Na vsaki strani poljubno število. V kombinaciji naslednja različica ustreza, če se začne v katerem koli od teh koncev.',
-		figureType: (type) => `${type} · slog te različice`,
+		help: 'Na vsaki strani poljubno število. V kombinaciji naslednja figura ustreza, če se začne v katerem koli od teh koncev.',
+		figureType: (type) => `${type} · slog te figure`,
 		asItIs: (type) => `${type} · označite z njim, kakršen je`,
 		clear: { label: 'Brez položaja', meta: 'Ustreza kjer koli · privzeto' },
 		picker: {
@@ -242,7 +241,7 @@ export const positions: Catalog['positions'] = {
 			create: 'Položaj',
 			nothingLeft: 'Še ni položajev.'
 		},
-		newSub: 'Slog je sprva slog te različice.',
+		newSub: 'Slog je sprva slog te figure.',
 		createFailed: 'Položaja ni bilo mogoče ustvariti. Poskusite znova.',
 		none: 'Brez položaja',
 		or: 'ali'
@@ -259,29 +258,29 @@ export const positions: Catalog['positions'] = {
 				: `Položaj z imenom »${name}« v tej skupini že obstaja.`
 	},
 	how: {
-		exampleLabel: 'Položaj, različica, naslednji položaj',
+		exampleLabel: 'Položaj, figura, naslednji položaj',
 		paneSubtitle: 'Neobvezno: preberite enkrat, nato se odločite',
 		// Salsa, Son, Timba are the styles' own names, the same in both.
 		sections: [
 			{
 				title: 'Kaj je položaj?',
-				body: 'Kako se partnerja držita med različicami: odprto z obema rokama, zaprto, s prekrižanimi rokami, v hammerlocku, drug ob drugem.'
+				body: 'Kako se partnerja držita med figurami: odprto z obema rokama, zaprto, s prekrižanimi rokami, v hammerlocku, drug ob drugem.'
 			},
 			{
-				title: 'Zakaj z njimi označevati različice?',
-				body: 'Vsaka različica se začne v nekem položaju in konča v nekem položaju. Tako aplikacija ve, kaj lahko sledi čemu: urejevalnik kombinacij ponudi le, kar ustreza, zemljevid pa pokaže, kje se zataknete.'
+				title: 'Zakaj z njimi označevati figure?',
+				body: 'Vsaka figura se začne v nekem položaju in konča v nekem položaju. Tako aplikacija ve, kaj lahko sledi čemu: urejevalnik kombinacij ponudi le, kar ustreza, zemljevid pa pokaže, kje se zataknete.'
 			},
 			{
 				title: 'Slogi',
-				body: 'Vsakemu položaju dajte slog, tako kot različici: Salsa, Son, Timba. Ko označujete različico, so najprej ponujeni položaji njenega sloga; različica pa lahko vseeno gre iz enega sloga v drugega.'
+				body: 'Vsakemu položaju dajte slog, tako kot figuri: Salsa, Son, Timba. Ko označujete figuro, so najprej ponujeni položaji njenega sloga; figura pa lahko vseeno gre iz enega sloga v drugega.'
 			},
 			{
 				title: 'Neobvezno',
-				body: 'Različica nima položaja, dokler ji ga ne daste, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.'
+				body: 'Figura nima položaja, dokler ji ga ne daste, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.'
 			},
 			{
 				title: 'Kje začeti',
-				body: 'Dodajte grobe položaje iz predloge in jih sproti preimenujte ali spremenite, ali pa naredite svoje. Skupine imajo svoje, tako kot različice, in lahko jih kopirate.'
+				body: 'Dodajte grobe položaje iz predloge in jih sproti preimenujte ali spremenite, ali pa naredite svoje. Skupine imajo svoje, tako kot figure, in lahko jih kopirate.'
 			}
 		],
 		done: 'Razumem'

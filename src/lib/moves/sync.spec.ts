@@ -159,7 +159,7 @@ describe('in Slovenian', () => {
 
 	it('words the card, the count after a colon', () => {
 		expect(sl(() => syncCard('figure', 3))).toEqual({
-			title: 'Ni usklajeno: 3 različice',
+			title: 'Ni usklajeno: 3 figure',
 			meta: 'Vaše kopije in kopije skupin se ne ujemajo'
 		});
 		expect(sl(() => syncCard('routine', 1)?.title)).toBe('Ni usklajeno: 1 kombinacija');

@@ -14,19 +14,19 @@ export const links: Catalog['links'] = {
 		pointAndLesson: (range, title) => `Povezano s točko ${range} in z lekcijo: ${title}`
 	},
 	createRow: {
-		variation: 'Različica',
+		variation: 'Figura',
 		drill: 'Vaja',
 		position: 'Položaj'
 	},
 	opener: {
 		any: 'Poveži …',
 		point: 'Poveži s položajem …',
-		section: 'Poveži z različico, vajo ali položajem …'
+		section: 'Poveži z figuro, vajo ali položajem …'
 	},
 	search: {
 		any: 'Iskanje',
 		point: 'Iskanje položajev',
-		section: 'Iskanje različic, vaj in položajev'
+		section: 'Iskanje figur, vaj in položajev'
 	},
 	titles: {
 		links: (range) => `Poveži ${range}`,
@@ -62,18 +62,18 @@ export const links: Catalog['links'] = {
 	},
 	create: {
 		titles: {
-			variation: 'Nova različica',
+			variation: 'Nova figura',
 			drill: 'Nova vaja',
 			position: 'Nov položaj'
 		},
-		move: 'Figura',
-		chooseMove: 'Izberite figuro …',
-		chooseMoveTitle: 'Izberite figuro',
-		searchMoves: 'Iskanje figur',
-		noMoves: 'Figur še ni.',
-		moves: 'Figure',
-		pickMove: 'Izberite figuro.',
-		figureName: 'Ime različice',
+		move: 'Gib',
+		chooseMove: 'Izberite gib …',
+		chooseMoveTitle: 'Izberite gib',
+		searchMoves: 'Iskanje gibov',
+		noMoves: 'Gibov še ni.',
+		moves: 'Gibi',
+		pickMove: 'Izberite gib.',
+		figureName: 'Ime figure',
 		// As the figure fields' example: the Spanish name dancers use.
 		name: 'Ime',
 		positionPlaceholder: 'npr. Cerrada, Manos cruzadas',
@@ -123,7 +123,7 @@ export const links: Catalog['links'] = {
 	},
 
 	refused: {
-		noFigure: 'Te različice ni.',
+		noFigure: 'Te figure ni.',
 		noExercise: 'Te vaje ni.',
 		drillOnly: 'Lastne odseke ima lahko le vaja.',
 		noSection: 'Tega odseka ni.',
@@ -134,16 +134,16 @@ export const links: Catalog['links'] = {
 		noName: 'Vpišite ime.',
 		typeDance: 'Ta slog ne spada k temu plesu.',
 		styleDance: 'Ta slog ne spada k temu plesu.',
-		noMove: 'Te figure ni.',
-		variationTaken: (move, name) => `Različica s tem imenom že obstaja: ${move} · ${name}.`,
-		moveTaken: (name) => `Figura s tem imenom že obstaja: ${name}.`,
-		figureNotMade: 'Različice ni bilo mogoče ustvariti.',
-		moveNotMade: 'Figure ni bilo mogoče ustvariti.',
+		noMove: 'Tega giba ni.',
+		variationTaken: (move, name) => `Figura s tem imenom že obstaja: ${move} · ${name}.`,
+		moveTaken: (name) => `Gib s tem imenom že obstaja: ${name}.`,
+		figureNotMade: 'Figure ni bilo mogoče ustvariti.',
+		moveNotMade: 'Giba ni bilo mogoče ustvariti.',
 		notWeb: (lines) => `To ni spletna povezava: ${lines}`,
 		pasteFirst: 'Najprej prilepite povezavo.',
 		tooLong: 'Ta povezava je predolga.',
 		titleLong: 'Naslov ima lahko največ 200 znakov.',
-		drillLinks: 'Povezave so na različici ali lekciji, h kateri spada ta vaja.',
+		drillLinks: 'Povezave so na figuri ali lekciji, h kateri spada ta vaja.',
 		gone: 'Ta povezava je bila že odstranjena.',
 		youtubeOnly: 'Kot video je mogoče shraniti le povezavo do YouTuba.',
 		nothingToRestore: 'Tega ni več mogoče obnoviti.'

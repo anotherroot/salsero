@@ -100,7 +100,7 @@ describe('the exercise page refuses in Slovenian', () => {
 				?.message
 		).toBe('Preverite vrednosti in poskusite znova.');
 		expect((await sl(() => call('archive', {}, figureExercise))).data?.message).toBe(
-			'Tukaj se arhivirajo le lastne vaje. Različico arhivirate na njeni strani.'
+			'Tukaj se arhivirajo le lastne vaje. Figuro arhivirate na njeni strani.'
 		);
 		expect((await sl(() => call('linkSection', {}, drill))).data?.message).toBe('Izberite odsek.');
 		expect((await sl(() => call('unlinkSection', { linkId: '999' }, drill))).data?.message).toBe(

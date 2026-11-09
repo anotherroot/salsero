@@ -91,3 +91,42 @@ export function figuresView(
 	const folded = foldMoves(mine, groups, l.sets);
 	return { figures: folded.mine, groups: folded.groups, twinned: [...folded.twinOf.keys()] };
 }
+
+/** A figure as the merged list draws it: `team` names the group it is from, null for the person's own. */
+export type MergedFigure = FigureRow & { team: TeamRef | null };
+/** A move as the merged list draws it: the heading opens `id` (the person's own when they have it). */
+export type MergedMove = { id: number; name: string; figures: MergedFigure[]; also: string[] };
+
+/** What makes two moves one in the merged list: the name, trimmed and case-blind. */
+export const moveKey = (name: string) => name.trim().toLocaleLowerCase();
+
+/**
+ * The person's moves and the groups' as one list, as the Lessons list mixes a
+ * group's lessons into the months: a group's move whose name is one of theirs
+ * (case-blind, trimmed) adds its figures under it, after theirs; the rest join
+ * as their own sections, by name. Each group figure keeps its group (`team`),
+ * the row's mark. Two groups' moves of one name share a section too.
+ */
+export function mergeGroups(
+	mine: Shown[],
+	groups: { team: TeamRef; moves: Shown[] }[]
+): MergedMove[] {
+	const key = moveKey;
+	const byKey = new Map<string, MergedMove>();
+	const out: MergedMove[] = [];
+	const add = (m: Shown, team: TeamRef | null) => {
+		const figures = m.figures.map((f) => ({ ...f, team }));
+		const at = byKey.get(key(m.name));
+		if (at) {
+			at.figures.push(...figures);
+			for (const a of m.also) if (!at.also.includes(a)) at.also.push(a);
+			return;
+		}
+		const merged = { id: m.id, name: m.name, figures, also: [...m.also] };
+		byKey.set(key(m.name), merged);
+		out.push(merged);
+	};
+	for (const m of mine) add(m, null);
+	for (const g of groups) for (const m of g.moves) add(m, g.team);
+	return out.sort((a, b) => a.name.localeCompare(b.name));
+}

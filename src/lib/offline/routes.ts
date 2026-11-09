@@ -35,7 +35,9 @@ export const NETWORK_PAGES = [
 	'/[dance]/groups/[id]/people',
 	'/[dance]/groups/[id]/storage',
 	'/welcome',
-	'/dev/kit'
+	'/dev/kit',
+	// The AI connector's consent page: the server's own answer, never the device's.
+	'/oauth/authorize'
 ];
 
 /** GET endpoints answerable from synced rows. */
@@ -64,7 +66,12 @@ export const NETWORK_ENDPOINTS = [
 	'/releases/[dance]/[file]',
 	'/health',
 	'/manifest-[dance].webmanifest',
-	'/.well-known/assetlinks.json'
+	'/.well-known/assetlinks.json',
+	// The AI connector: `/mcp` (POST only; GET is a 405) and its discovery documents.
+	'/mcp',
+	'/.well-known/oauth-authorization-server',
+	'/.well-known/oauth-protected-resource',
+	'/.well-known/oauth-protected-resource/mcp'
 ];
 
 const DATA = '/__data.json';
@@ -361,12 +368,19 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 	'/login': {
 		default: 'network'
 	},
+	// The AI connector's consent: the server's own answer, never the device's.
+	'/oauth/authorize': {
+		approve: 'network',
+		cancel: 'network'
+	},
 	'/settings': {
 		ask: 'network',
 		dailyCount: 'device',
+		disconnectApp: 'network',
 		language: 'network',
 		level: 'device',
 		name: 'device',
+		reconnectApp: 'network',
 		reminder: 'device',
 		removeDevice: 'network',
 		restoreDevice: 'network',
@@ -428,7 +442,11 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/worker/videos/[id]/fail': { POST: 'network' },
 	'/api/worker/videos/[id]/file': { PUT: 'network' },
 	'/api/worker/videos/claim': { POST: 'network' },
-	'/logout': { POST: 'network' }
+	'/logout': { POST: 'network' },
+	// The AI connector (a server's own, other apps call it): the service worker stays out.
+	'/mcp': { POST: 'pass', DELETE: 'pass' },
+	'/oauth/register': { POST: 'pass' },
+	'/oauth/token': { POST: 'pass' }
 };
 
 const staticSegments = (id: string) =>

@@ -261,7 +261,6 @@ describe('the list’s heading, rows and chips', () => {
 		expect(v.listHeading(1, true)).toBe('1 position');
 		expect(v.mapRow()).toBe('The map');
 		expect(v.noMatch()).toBe('No positions match');
-		expect(v.noneOwn()).toBe('No positions of your own yet.');
 		expect(v.howExampleLabel()).toBe('A position, a figure, the next position');
 	});
 	it('labels a type, an untyped one as Other', () => {
@@ -855,7 +854,7 @@ describe('positions in Slovenian', () => {
 
 	it('names Make it mine in the note under Edit', () => {
 		expect(sl(v.makeMineNote)).toBe(
-			'Uredi naredi vašo kopijo (Naredi svojo kopijo); vaše različice, označene s tem položajem, se preselijo nanjo.'
+			'Uredi naredi vašo kopijo (Naredi svojo kopijo); vaše figure, označene s tem položajem, se preselijo nanjo.'
 		);
 	});
 
@@ -871,14 +870,14 @@ describe('positions in Slovenian', () => {
 
 	it('agrees No position’s verb with the count', () => {
 		expect([1, 2, 3, 5, 101].map((n) => sl(() => v.noPositionRow(n)))).toEqual([
-			{ title: 'Brez položaja', meta: '1 različica · ustreza kjer koli' },
-			{ title: 'Brez položaja', meta: '2 različici · ustrezata kjer koli' },
-			{ title: 'Brez položaja', meta: '3 različice · ustrezajo kjer koli' },
-			{ title: 'Brez položaja', meta: '5 različic · ustreza kjer koli' },
-			{ title: 'Brez položaja', meta: '101 različica · ustreza kjer koli' }
+			{ title: 'Brez položaja', meta: '1 figura · ustreza kjer koli' },
+			{ title: 'Brez položaja', meta: '2 figuri · ustrezata kjer koli' },
+			{ title: 'Brez položaja', meta: '3 figure · ustrezajo kjer koli' },
+			{ title: 'Brez položaja', meta: '5 figur · ustreza kjer koli' },
+			{ title: 'Brez položaja', meta: '101 figura · ustreza kjer koli' }
 		]);
 		expect(sl(() => v.noPositionHead({ none: 2, onlyStart: 1, onlyEnd: 2 }))).toBe(
-			'5 različic · brez: 2, le z začetkom ali koncem: 3'
+			'5 figur · brez: 2, le z začetkom ali koncem: 3'
 		);
 		expect(sl(() => v.noPositionTag('end', ['Caída', 'Cerrada']))).toBe('konča v: Caída, Cerrada');
 		expect(
@@ -890,7 +889,7 @@ describe('positions in Slovenian', () => {
 			)
 		).toEqual(['Brez začetka in konca · 1', 'Samo začetek · 2']);
 		expect(sl(() => v.FITS_ANYWHERE.title)).toBe('Ustreza kjer koli');
-		expect(sl(v.noPositionEmpty)).toBe('Vsaka različica ima položaj na začetku in na koncu.');
+		expect(sl(v.noPositionEmpty)).toBe('Vsaka figura ima položaj na začetku in na koncu.');
 	});
 
 	it('words a row: its counts, its gap and a group’s lesson', () => {
@@ -902,7 +901,7 @@ describe('positions in Slovenian', () => {
 		expect(sl(() => v.groupRowMeta(row({ from: 'Week 6' }), label))).toBe(
 			'Salsa · lekcija: Week 6'
 		);
-		expect(sl(() => v.taggedLine({ done: 31, total: 41 }))).toBe('Različice s položaji: 31 od 41.');
+		expect(sl(() => v.taggedLine({ done: 31, total: 41 }))).toBe('Figure s položaji: 31 od 41.');
 	});
 
 	it('names an untyped position and a type in the reader’s language', () => {
@@ -972,21 +971,21 @@ describe('positions in Slovenian', () => {
 			'Skupina · Tuesdays · iz: Cerrada'
 		);
 		expect(sl(() => v.relationRows({ from: 2, into: 0, routines: 1 }))).toEqual([
-			{ key: 'from', label: 'Različice od tod', count: '2', opens: true },
-			{ key: 'into', label: 'Različice, ki vodijo sem', count: 'Nobena', opens: false },
+			{ key: 'from', label: 'Figure od tod', count: '2', opens: true },
+			{ key: 'into', label: 'Figure, ki vodijo sem', count: 'Nobena', opens: false },
 			{ key: 'routines', label: 'V kombinacijah', count: '1', opens: true }
 		]);
 		expect(sl(() => v.relationTitle('routines', 2))).toBe('V 2 kombinacijah');
 		expect(sl(() => v.deadEnd('Caída', 2))).toEqual({
 			title: 'Slepa ulica',
-			body: 'Tu se končata 2 različici, nič, kar poznate, pa ne gre od tod. Kombinacija, ki pride sem, se ustavi.',
-			action: 'Nova različica od tod: Caída'
+			body: 'Tu se končata 2 figuri, nič, kar poznate, pa ne gre od tod. Kombinacija, ki pride sem, se ustavi.',
+			action: 'Nova figura od tod: Caída'
 		});
 		expect(sl(() => v.orphan('Caída', 3).body)).toBe(
-			'Od tod gredo 3 različice, nič, kar poznate, pa se ne konča tu.'
+			'Od tod gredo 3 figure, nič, kar poznate, pa se ne konča tu.'
 		);
 		expect(sl(() => v.orphan('Caída', 1).body)).toBe(
-			'Od tod gre 1 različica, nič, kar poznate, pa se ne konča tu.'
+			'Od tod gre 1 figura, nič, kar poznate, pa se ne konča tu.'
 		);
 		expect(sl(() => v.throughMeta([[2, 3]]))).toBe('Mesti 2 → 3');
 		expect(
@@ -999,7 +998,7 @@ describe('positions in Slovenian', () => {
 		).toBe('Mesta 5 → 6 in 9 → 10');
 		expect(sl(() => v.presetLine({ side: 'end', name: 'Cerrada' }))).toBe('Konča v: Cerrada');
 		expect(sl(v.presetGone)).toBe(
-			'Ta položaj tu ne more več označiti različice. Figuro dodajte brez njega.'
+			'Ta položaj tu ne more več označiti figure. Figuro dodajte brez njega.'
 		);
 		expect(sl(() => v.ARCHIVED.restore)).toBe('Obnovi');
 		expect(
@@ -1015,7 +1014,7 @@ describe('positions in Slovenian', () => {
 					.map((i) => [i.label, i.meta ?? null])
 			)
 		).toEqual([
-			['Nova različica od tod', 'Začne v: Cerrada'],
+			['Nova figura od tod', 'Začne v: Cerrada'],
 			['Pokaži na zemljevidu', null]
 		]);
 	});
@@ -1023,7 +1022,7 @@ describe('positions in Slovenian', () => {
 	it('words a figure’s tags and its handholds', () => {
 		expect(sl(v.tagsEmpty)).toBe('Brez položaja · ustreza kjer koli');
 		expect(sl(() => v.TAGS_PICKER.starts)).toBe('Začne v');
-		expect(sl(() => v.figureTypeTitle('Son'))).toBe('Son · slog te različice');
+		expect(sl(() => v.figureTypeTitle('Son'))).toBe('Son · slog te figure');
 		expect(sl(() => v.holdsLine([], []))).toBe('Brez položaja');
 		expect(sl(() => v.holdsLine(['Cerrada', 'Abierta'], []))).toBe(
 			'Cerrada ali Abierta → Brez položaja'
@@ -1043,7 +1042,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 			],
 			sections: [
 				'Kaj je položaj?',
-				'Zakaj z njimi označevati različice?',
+				'Zakaj z njimi označevati figure?',
 				'Slogi',
 				'Neobvezno',
 				'Kje začeti'
@@ -1051,13 +1050,13 @@ describe('How positions work, the map and the links in Slovenian', () => {
 			done: 'Razumem'
 		});
 		expect(sl(() => v.HOW.sections.map((s) => s.body))).toEqual([
-			'Kako se partnerja držita med različicami: odprto z obema rokama, zaprto, s prekrižanimi rokami, v hammerlocku, drug ob drugem.',
-			'Vsaka različica se začne v nekem položaju in konča v nekem položaju. Tako aplikacija ve, kaj lahko sledi čemu: urejevalnik kombinacij ponudi le, kar ustreza, zemljevid pa pokaže, kje se zataknete.',
-			'Vsakemu položaju dajte slog, tako kot različici: Salsa, Son, Timba. Ko označujete različico, so najprej ponujeni položaji njenega sloga; različica pa lahko vseeno gre iz enega sloga v drugega.',
-			'Različica nima položaja, dokler ji ga ne daste, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.',
-			'Dodajte grobe položaje iz predloge in jih sproti preimenujte ali spremenite, ali pa naredite svoje. Skupine imajo svoje, tako kot različice, in lahko jih kopirate.'
+			'Kako se partnerja držita med figurami: odprto z obema rokama, zaprto, s prekrižanimi rokami, v hammerlocku, drug ob drugem.',
+			'Vsaka figura se začne v nekem položaju in konča v nekem položaju. Tako aplikacija ve, kaj lahko sledi čemu: urejevalnik kombinacij ponudi le, kar ustreza, zemljevid pa pokaže, kje se zataknete.',
+			'Vsakemu položaju dajte slog, tako kot figuri: Salsa, Son, Timba. Ko označujete figuro, so najprej ponujeni položaji njenega sloga; figura pa lahko vseeno gre iz enega sloga v drugega.',
+			'Figura nima položaja, dokler ji ga ne daste, in do takrat ustreza kjer koli: urejevalnik kombinacij pri njej ne preverja ničesar. Položaje uporabljajte, če vam pomagajo; če ne, jih izpustite.',
+			'Dodajte grobe položaje iz predloge in jih sproti preimenujte ali spremenite, ali pa naredite svoje. Skupine imajo svoje, tako kot figure, in lahko jih kopirate.'
 		]);
-		expect(sl(v.howExampleLabel)).toBe('Položaj, različica, naslednji položaj');
+		expect(sl(v.howExampleLabel)).toBe('Položaj, figura, naslednji položaj');
 		expect(sl(v.howPaneSubtitle)).toBe('Neobvezno: preberite enkrat, nato se odločite');
 	});
 
@@ -1069,7 +1068,7 @@ describe('How positions work, the map and the links in Slovenian', () => {
 					{ name: 'Closed', team: { id: 1, name: 'Salsa Tuesdays' } }
 				])
 			)
-		).toBe('Dvojčka: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)');
+		).toBe('Dvojček: Cerrada (vaš), Closed (skupina: Salsa Tuesdays)');
 	});
 
 	it('words the Recordings and Lessons headings and their openers', () => {

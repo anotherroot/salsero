@@ -10,7 +10,7 @@
 	/*
 	 * The exercise page's pinned ✓ Done (Done today once the day has an entry).
 	 * On the desktop it pins to the pane. `left`
-	 * goes beside it (plan 3's Skip): then both are equal row buttons.
+	 * goes beside it (plan 3's Skip, as wide as its word): Done takes the rest.
 	 */
 	interface Props {
 		doneToday: boolean;
@@ -18,15 +18,15 @@
 		busy?: boolean;
 		/** Done opens the sheet (false: a fixed rhythm saves at once). */
 		sheet: boolean;
-		/** A fixed rhythm in a run: the green Done · next (not once done today). */
-		fixedInRun?: boolean;
+		/** In a run: Done · next (not once done today). */
+		inRun?: boolean;
 		onclick: () => void;
 		left?: Snippet;
 	}
 
-	let { doneToday, busy = false, sheet, fixedInRun = false, onclick, left }: Props = $props();
+	let { doneToday, busy = false, sheet, inRun = false, onclick, left }: Props = $props();
 
-	const view = $derived(doneBar({ doneToday, fixedInRun }));
+	const view = $derived(doneBar({ doneToday, inRun }));
 </script>
 
 <BottomBar width="two">

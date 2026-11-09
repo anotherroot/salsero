@@ -1,12 +1,12 @@
 // Figure (the tab): the three lists, a move's page, Pokritost, the band's switch and
-// the empty pane. A move is a figura, a figure (its version) a različica.
+// the empty pane. A move is a gib, a figure (its version) a figura.
 import type { Catalog } from '../catalog';
 import { slCount } from '../plural';
 import { nouns } from './nouns';
 
 export const moves: Catalog['moves'] = {
 	segments: { figures: 'Figure', routines: 'Kombinacije', positions: 'Položaji' },
-	newFigure: 'Nova različica',
+	newFigure: 'Nova figura',
 	newRoutine: 'Nova kombinacija',
 	newPosition: 'Nov položaj',
 	row: {
@@ -22,15 +22,9 @@ export const moves: Catalog['moves'] = {
 			])
 	},
 	heading: {
-		group: 'Skupina',
 		yours: 'Vaše',
 		matching: (n) =>
-			slCount(n, [
-				'različica ustreza',
-				'različici ustrezata',
-				'različice ustrezajo',
-				'različic ustreza'
-			]),
+			slCount(n, ['figura ustreza', 'figuri ustrezata', 'figure ustrezajo', 'figur ustreza']),
 		unlinked: (n) => `Brez odseka ali lekcije: ${n}`,
 		// Group names are people's own: after a colon, never declined.
 		alsoIn: (figures, groups) =>
@@ -67,9 +61,9 @@ export const moves: Catalog['moves'] = {
 	},
 	pane: {
 		figures: {
-			title: 'Izberite različico',
-			body: 'Njen začetek in dolžina, posnetki in kombinacije se odprejo tukaj, ob seznamu. Ime figure odpre figuro.',
-			group: 'Različice skupine se odprejo tukaj.'
+			title: 'Izberite figuro',
+			body: 'Njen začetek in dolžina, posnetki in kombinacije se odprejo tukaj, ob seznamu. Ime giba odpre gib.',
+			group: 'Figure skupine se odprejo tukaj.'
 		},
 		routines: {
 			title: 'Izberite kombinacijo',
@@ -85,16 +79,15 @@ export const moves: Catalog['moves'] = {
 		search: 'Iskanje figur',
 		filter: 'Filtri figur',
 		allLinked: 'Vse je povezano',
-		allLinkedBody: 'Vsaka različica ima odsek in lekcijo.',
-		noMatch: 'Nobena različica ne ustreza',
-		noneOwn: 'Še nimate svojih figur.',
-		adding: 'Dodajanje različice',
-		add: 'Dodaj različico',
+		allLinkedBody: 'Vsaka figura ima odsek in lekcijo.',
+		noMatch: 'Nobena figura ne ustreza',
+		adding: 'Dodajanje figure',
+		add: 'Dodaj figuro',
 		recordingsNext: 'Posnetke lahko dodate v naslednjem koraku.'
 	},
 	routines: {
 		empty: 'Še ni kombinacij',
-		emptyBody: 'Nanizajte nekaj različic in jih napovejte kot celoto.',
+		emptyBody: 'Nanizajte nekaj figur in jih napovejte kot celoto.',
 		badLoop: 'se ne sklene',
 		fromClass: (label) => `Z lekcije ${label}`,
 		name: 'Ime',
@@ -105,36 +98,36 @@ export const moves: Catalog['moves'] = {
 		create: 'Ustvari kombinacijo'
 	},
 	move: {
-		subtitle: (figures) => `Figura · ${figures}`,
+		subtitle: (figures) => `Gib · ${figures}`,
 		routine: 'Kombinacija',
 		lesson: 'Lekcija',
 		and: (names) =>
 			names.length <= 1
 				? names.join('')
 				: `${names.slice(0, -1).join(', ')} in ${names[names.length - 1]}`,
-		rename: 'Preimenuj figuro',
+		rename: 'Preimenuj gib',
 		renameItem: 'Preimenuj',
 		more: 'Več',
-		newFigure: 'Nova različica',
-		figures: 'Različice',
+		newFigure: 'Nova figura',
+		figures: 'Figure',
 		usedIn: 'Uporabljeno v',
-		moveName: 'Ime figure',
-		figureName: 'Ime različice',
+		moveName: 'Ime giba',
+		figureName: 'Ime figure',
 		figurePlaceholder: 'npr. Doble',
-		startsAs: (move) => `Začne na 1 in traja 8 dob, v slogu figure: ${move}.`,
-		addFigure: 'Dodaj različico'
+		startsAs: (move) => `Začne na 1 in traja 8 dob, v slogu giba: ${move}.`,
+		addFigure: 'Dodaj figuro'
 	},
 	coverage: {
 		title: 'Pokritost',
-		subtitle: 'Različice po tem, v koliko kombinacijah so',
+		subtitle: 'Figure po tem, v koliko kombinacijah so',
 		selected: (n) => `Izbrano: ${n}`,
 		stopSelecting: 'Končaj izbiranje',
 		select: 'Izberi',
 		tapInOrder: 'Pritiskajte v vrstnem redu, v katerem naj jih kombinacija napove.',
-		empty: 'Še ni različic',
+		empty: 'Še ni figur',
 		isSelected: 'Izbrano,',
 		notSelected: 'Ni izbrano,',
-		picked: 'Izbrane različice',
+		picked: 'Izbrane figure',
 		pickedLine: (n) =>
 			`Izbrano: ${nouns.figures(n)}, v vrstnem redu izbire. Vrstni red uredite na strani kombinacije.`,
 		none: 'V nobeni kombinaciji',
@@ -142,15 +135,15 @@ export const moves: Catalog['moves'] = {
 		many: 'V 2+ kombinacijah'
 	},
 	refused: {
-		moveName: 'Vpišite ime figure (do 200 znakov).',
-		figureName: 'Vpišite ime različice (do 200 znakov).',
+		moveName: 'Vpišite ime giba (do 200 znakov).',
+		figureName: 'Vpišite ime figure (do 200 znakov).',
 		routineName: 'Vpišite ime kombinacije (do 200 znakov).',
 		notes: 'Opombe imajo lahko največ 2000 znakov.',
 		partnerStyle: 'Izberite, kako se pleše, in slog.',
-		pickMove: 'Izberite figuro.',
-		moveTaken: (name) => `Figura s tem imenom že obstaja: ${name}.`,
+		pickMove: 'Izberite gib.',
+		moveTaken: (name) => `Gib s tem imenom že obstaja: ${name}.`,
 		figureTaken: (move, name) =>
-			`Različica s tem imenom že obstaja: ${move} · ${name}. Najprej eno preimenujte.`,
-		pickOne: 'Izberite vsaj eno različico.'
+			`Figura s tem imenom že obstaja: ${move} · ${name}. Najprej eno preimenujte.`,
+		pickOne: 'Izberite vsaj eno figuro.'
 	}
 };

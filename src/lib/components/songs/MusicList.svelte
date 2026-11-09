@@ -60,6 +60,8 @@
 			songs: SongItem[];
 			groups: { team: { id: number; name: string }; songs: (SongItem & { isNew: boolean })[] }[];
 			twinned: number[];
+			/** Songs with clones: the "Clone" chip. */
+			cloned: number[];
 			users: Record<number, number>;
 			/** Pasted playlists: the space's own, then (in Mine) the ready lists of groups the person edits. */
 			imports?: SongImportRow[];
@@ -149,6 +151,7 @@
 	const team = $derived(data.groupMode?.teamId ?? null);
 	// The songs that stand for their twins (board C7): a "Twins" chip.
 	const twinned = $derived(new Set(data.twinned));
+	const cloned = $derived(new Set(data.cloned));
 	const imports = $derived(data.imports ?? []);
 	const sections = $derived(importSections(imports));
 	const view = $derived(
@@ -256,6 +259,7 @@
 		draft={team !== null && s.sharedAt === null}
 		{isNew}
 		twinned={twinned.has(s.id)}
+		cloned={cloned.has(s.id)}
 		current={current(s)}
 	/>
 {/snippet}

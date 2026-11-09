@@ -387,3 +387,13 @@ describe('writes and the outbox (offline phase 3)', () => {
 		).not.toContain(OUTBOX_STATE_CACHE);
 	});
 });
+
+describe('the AI connector', () => {
+	it('stays out of the connector and its sign-in entirely', () => {
+		expect(route('POST', '/mcp')).toBe('pass');
+		expect(route('GET', '/oauth/authorize?client_id=x', 'navigate')).toBe('pass');
+		expect(route('POST', '/oauth/authorize?/approve', 'navigate')).toBe('pass');
+		expect(route('POST', '/oauth/token')).toBe('pass');
+		expect(route('GET', '/.well-known/oauth-authorization-server')).toBe('pass');
+	});
+});

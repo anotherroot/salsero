@@ -6,7 +6,7 @@
 	import { segments } from '$lib/picker/model';
 	import { sampling } from '$lib/songs/sample-player.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { twinsChip } from '$lib/clones/twins';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SampleButton from './SampleButton.svelte';
 	import { t } from '$lib/i18n/catalog';
@@ -26,6 +26,7 @@
 		songId,
 		isNew = false,
 		twinned = false,
+		cloned = false,
 		current = false,
 		onopen,
 		trailing
@@ -44,6 +45,8 @@
 		isNew?: boolean;
 		/** Stands for its twins (board C7): the "Twins" chip. */
 		twinned?: boolean;
+		/** Has clones (copies in your app or a group's): the "Clone" chip. */
+		cloned?: boolean;
 		/** The song open beside the list (desktop): tinted, and the link says so. */
 		current?: boolean;
 		/** A tap on the link, before it goes (My class records the song as opened). */
@@ -79,6 +82,7 @@
 			{#if isNew}<Badge tone="accent">{t().songs.row.isNew}</Badge>{/if}
 			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 			{#if twinned}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+			{#if cloned}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
 		</span>
 		{#if sampled && sample}
 			<span class="truncate text-[13px] leading-[1.35] font-bold text-accent-text"

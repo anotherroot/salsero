@@ -227,15 +227,25 @@ def _run_done_next(page):
 
 
 def _run_player_back(page):
+    """A run's trip to the player and back is one visit: the band's time goes on, not from 0:00."""
     _prep(page, first="routine")
     _start(page)
+    _later(page, 65)
+    page.wait_for_timeout(1500)
+    before = _pane_subtitle(page)
+    print(f"run-player-back: before the player {before!r}", flush=True)
     page.get_by_role("link", name=re.compile("Practise in player")).first.click()
     page.wait_for_url(re.compile(r"/player"), timeout=30000)
     _settle(page, 800)
+    _later(page, 10)
     # the band's back (the slim band's copy is inert, so the role query skips it)
     page.get_by_role("link", name=re.compile("^Back to")).click()
     page.wait_for_url(re.compile(r"/exercises/\d+\?run=1"), timeout=30000)
-    _settle(page)
+    _settle(page, 1500)
+    after = _pane_subtitle(page)
+    print(f"run-player-back: back from the player {after!r}", flush=True)
+    if after.endswith(("0:00", "0:01", "0:02")):
+        raise RuntimeError(f"the time started over after the player: {before!r} -> {after!r}")
 
 
 def _desk_run(page):
@@ -331,3 +341,111 @@ SCENES.update({
     "desk-done-start": Scene("/{dance}", _flat(_desk_done_start), desk=True),
     "desk-detour-idle": Scene("/{dance}", _flat(_desk_detour_idle), desk=True),
 })
+
+
+def _run_figure_player_back(page):
+    """A figure in a run: Practise with → the player → Back; the band's time goes on."""
+    page.wait_for_load_state("networkidle")
+    _start(page)
+    _later(page, 65)
+    page.wait_for_timeout(1500)
+    before = _pane_subtitle(page)
+    print(f"run-figure-player-back: before the player {before!r} at {page.url}", flush=True)
+    page.get_by_role("link", name=re.compile("Practise with")).first.click()
+    page.wait_for_url(re.compile(r"/player"), timeout=30000)
+    _settle(page, 800)
+    _later(page, 10)
+    page.get_by_role("link", name=re.compile("^Back to")).click()
+    page.wait_for_url(re.compile(r"/exercises/\d+\?run=1"), timeout=30000)
+    _settle(page, 1500)
+    after = _pane_subtitle(page)
+    print(f"run-figure-player-back: back from the player {after!r} at {page.url}", flush=True)
+    if after.endswith(("0:00", "0:01", "0:02")):
+        raise RuntimeError(f"the time started over after the player: {before!r} -> {after!r}")
+
+
+SCENES.update({"run-figure-player-back": Scene("/{dance}", _flat(_run_figure_player_back))})
+
+
+def _trip(page, how):
+    page.wait_for_load_state("networkidle")
+    _start(page)
+    _later(page, 65)
+    page.wait_for_timeout(1500)
+    before = _pane_subtitle(page)
+    if how == "play":
+        page.get_by_role("link", name=re.compile("^Play$")).first.click()
+    else:
+        page.get_by_role("link", name=re.compile("Practise with")).first.click()
+    page.wait_for_url(re.compile(r"/player"), timeout=30000)
+    _settle(page, 2000)
+    _later(page, 10)
+    print(f"trip {how}: in the player {page.url}", flush=True)
+    if how in ("history", "play"):
+        page.go_back()
+    elif how == "full":
+        # a new version out: the way back loads the page whole
+        page.goto(page.url.replace("/player?exercise=", "/exercises/").split("&")[0] + "?run=1")
+    else:
+        page.get_by_role("link", name=re.compile("^Back to")).click()
+    page.wait_for_url(re.compile(r"/exercises/\d+\?run=1"), timeout=30000)
+    _settle(page, 1500)
+    after = _pane_subtitle(page)
+    print(f"trip {how}: {before!r} -> {after!r}", flush=True)
+    if after.endswith(("0:00", "0:01", "0:02")):
+        raise RuntimeError(f"the time started over after the player ({how}): {before!r} -> {after!r}")
+
+
+SCENES.update({
+    "run-trip-history": Scene("/{dance}", lambda p: _trip(p, "history")),
+    "run-trip-play": Scene("/{dance}", lambda p: _trip(p, "play")),
+    "run-trip-full": Scene("/{dance}", lambda p: _trip(p, "full")),
+})
+
+
+def _run_bar(page):
+    """The run's first exercise on the phone: Skip as wide as its word, Done · next the rest."""
+    page.wait_for_load_state("networkidle")
+    _start(page)
+
+
+SCENES.update({"run-bar": Scene("/{dance}", _flat(_run_bar))})
+
+
+def _figure_comes_back(page):
+    """A figure's exercise has Comes back too (2026-11-09): Edit shows the card."""
+    page.wait_for_load_state("networkidle")
+    page.get_by_role("button", name=re.compile("^(Edit settings|Uredi nastavitve)$")).first.click()
+    page.wait_for_timeout(800)
+    card = page.get_by_text(re.compile("^(Comes back|Kdaj pride spet na vrsto)$")).first
+    card.wait_for(timeout=10000)
+    card.scroll_into_view_if_needed()
+    page.wait_for_timeout(300)
+
+
+SCENES.update({"figure-comes-back": Scene("/{dance}/exercises/109", _figure_comes_back)})
+
+
+def _band_at(frac):
+    """The phone band folding as the page scrolls: `frac` of the way to where the slim band pins."""
+    def act(page):
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(800)
+        pin = page.evaluate(
+            "() => { const m = document.querySelector('main'); const s = document.querySelector('[data-slim-band]');"
+            " return m.getBoundingClientRect().top + scrollY - s.clientHeight; }"
+        )
+        page.evaluate(f"window.scrollTo(0, {pin} * {frac})")
+        page.wait_for_timeout(400)
+        op = page.evaluate("getComputedStyle(document.querySelector('[data-slim-band]')).opacity")
+        print(f"band {frac}: pin {pin:.0f}, scroll {page.evaluate('scrollY')}, slim opacity {op}", flush=True)
+        # The rig stops every animation before its own shot; the fold runs on the scroll, so shoot it live.
+        live = os.environ.get("BAND_LIVE_DIR")
+        if live:
+            page.screenshot(path=os.path.join(live, f"live-{frac}-{page.url.rsplit('/', 1)[-1]}.png"))
+    return act
+
+
+for _path, _tag in (("/{dance}/figures", "list"), ("/{dance}/exercises/109", "item")):
+    for _frac, _name in ((0.35, "a"), (0.7, "b"), (0.98, "c"), (1.0, "d"), (1.6, "e")):
+        SCENES[f"band-{_tag}-{_name}"] = Scene(_path, _band_at(_frac))

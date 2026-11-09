@@ -16,7 +16,7 @@ const comma = (x: number): string => String(x).replace('.', ',');
 export const exercise: Catalog['exercise'] = {
 	types: {
 		lesson: 'Ponavljanje lekcije',
-		figure: 'Vaja z različico',
+		figure: 'Vaja z figuro',
 		drill: 'Vaja',
 		routine: 'Kombinacija',
 		howItWent: 'Kako je šlo?'
@@ -41,9 +41,9 @@ export const exercise: Catalog['exercise'] = {
 		recordingMissing: 'Datoteke tega posnetka ni.',
 		videoMissing: 'Datoteke tega videa ni.',
 		cantPlay: 'Ta brskalnik te datoteke ne more predvajati.',
-		figureEmpty: 'Še ni opomb, posnetkov, odsekov ali povezav. Dodate jih na strani različice.',
-		editLinks: 'Uredi povezave na strani različice',
-		figures: 'Različice',
+		figureEmpty: 'Še ni opomb, posnetkov, odsekov ali povezav. Dodate jih na strani figure.',
+		editLinks: 'Uredi povezave na strani figure',
+		figures: 'Figure',
 		practiseInPlayer: 'Vadi v predvajalniku',
 		routineNote: 'Ko ste vadili, v predvajalniku ali brez aplikacije, pritisnite Opravljeno.',
 		recordings: (n) => (n === 0 ? 'Posnetki' : `Posnetki · ${n}`)
@@ -53,7 +53,7 @@ export const exercise: Catalog['exercise'] = {
 		times: () => 'krat',
 		inAll: 'skupaj',
 		dayWithYear: (label, year) => `${label} ${year}`,
-		ownerFigure: 'Različica',
+		ownerFigure: 'Figura',
 		ownerLesson: (date) => `Lekcija · ${date}`,
 		ownerRoutine: 'Kombinacija',
 		archiveBody: (name, times) => {
@@ -173,7 +173,7 @@ export const exercise: Catalog['exercise'] = {
 		gone: 'Te vaje ni več.',
 		dayGone: 'Ta dan je že izbrisan.',
 		dayPutBack: 'Dneva ni bilo mogoče vrniti.',
-		archiveHere: 'Tukaj se arhivirajo le lastne vaje. Različico arhivirate na njeni strani.',
+		archiveHere: 'Tukaj se arhivirajo le lastne vaje. Figuro arhivirate na njeni strani.',
 		pickSection: 'Izberite odsek.',
 		linkGone: 'Ta povezava je že odstranjena.'
 	}

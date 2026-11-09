@@ -109,7 +109,9 @@ describe('hostRedirect', () => {
 			'/api/app-update/bachata',
 			'/releases/bachata/7.apk',
 			'/health',
-			'/_app/immutable/x.js'
+			'/_app/immutable/x.js',
+			// The consent page says itself that this host is the other dance's.
+			'/oauth/authorize'
 		]) {
 			expect(at('salsa.anotherroot.eu', path, { userDance: 'bachata' })).toEqual({ kind: 'pass' });
 		}

@@ -63,5 +63,10 @@ export const NEVER_SYNCED: readonly string[] = [
 	'song_imports',
 	// Offline phase 3's own bookkeeping: a device's id slot, the entries already replayed.
 	'device_slots',
-	'sync_landed'
+	'sync_landed',
+	// The AI connector's OAuth state: clients, grants and hashed secrets.
+	'oauth_clients',
+	'oauth_grants',
+	'oauth_codes',
+	'oauth_tokens'
 ];

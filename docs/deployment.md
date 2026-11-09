@@ -292,6 +292,29 @@ the user's go:
    on the new host and cannot tell their user to update; install 1.6 by hand
    from `bachata.anotherroot.eu/app`.
 
+## The AI connector
+
+`https://salsa.anotherroot.eu/mcp` and `https://bachata.anotherroot.eu/mcp`
+(spec `docs/superpowers/specs/2026-11-09-ai-connector-design.md`). Nothing on the
+host: nginx already proxies every path to node, no new secret, and the issuer is
+the request's own origin, so each host is its own authorization server.
+
+- **Kit's CSRF check is off** (`vite.config.ts`, `csrf.trustedOrigins: ['*']`):
+  it refused the token request (a form POST with no Origin) in production
+  builds only. The hook does the same check (`src/lib/server/csrf.ts`) with that
+  one exemption. A dev server does not show the difference: try the full
+  sign-in against `npm run build && node build`.
+- **Rate limits are in memory**, per client address (`getClientAddress()`, as
+  the login uses): 30 failed token requests per 15 minutes, 20 registrations
+  per hour. A restart forgets them.
+- **The service worker stays out** of `/mcp`, `/oauth/` and
+  `/.well-known/oauth-` (`sw-route.ts`): a browser with the old worker reloads
+  the consent page once.
+- **Adding it:** in claude.ai, Settings → Connectors → Add custom connector →
+  `https://salsa.anotherroot.eu/mcp`; in ChatGPT, a custom connector (developer
+  mode) at the same address. The consent page asks the signed-in person, and
+  Settings → Connected AI apps disconnects.
+
 ## Home worker
 
 Songs are downloaded and beat-analysed at home, never on the server: YouTube

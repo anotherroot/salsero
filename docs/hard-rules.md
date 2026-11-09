@@ -6,8 +6,8 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   a pure function of the sets' days and faces (`sets.rating`), replayed per
   request (`src/lib/schedule/`); `today_picks` keeps only the person's choices
   for one day (Next N, add, skip), never what is due. There is no frequency
-  to set: the gap is earned from the faces. The one exception is a drill's
-  **Comes back** (`exercises.comes_back`): "every day until it feels good" or a
+  to set: the gap is earned from the faces. The one exception is an exercise's
+  **Comes back** (`exercises.comes_back`, any type since 2026-11-09; a drill's only before): "every day until it feels good" or a
   fixed rhythm of 1, 2, 3 or 7 days, the person's choice. Even then what is due
   is worked out from the sets, never stored. A **warm-up** (`exercises.warmup`)
   sits outside the daily number.
@@ -221,6 +221,15 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
 - **Raise PAGE_EPOCH (src/lib/epoch.ts, re-exported by page-epoch.ts) in the commit that breaks older open pages** — a changed form field, action or API shape they would still send. Open pages then reload instead of failing.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
+- **The AI connector's endpoints answer for themselves** (`csrf.ts`
+  SELF_AUTHED_PATHS: `/mcp`, `/oauth/token`, `/oauth/register`,
+  `/.well-known/oauth-*`): the hook gives them no session user, no login or
+  host redirect. Paths are judged after `routedPath` (`/m%63p` is `/mcp`).
+  Kit's CSRF check is off (`vite.config.ts`) because the token request is a form
+  POST with no Origin; the hook re-does it for everything else. `/mcp` takes a
+  bearer token only. The connector reads only through `viewOf` (`syncScope`):
+  never a query of its own on a content table. A client document is fetched
+  only through `safe-fetch.ts` (public addresses only, no redirects).
 - **A device token signs in on `/api/` only** — never a page, never
   `/api/worker/` (`request-user.ts`). Only its SHA-256 is stored. Anything the
   Android app needs is an `/api/` endpoint; anything it shows is a page the

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	backFromPlayer,
 	dropTrip,
+	leaveByUnload,
 	leaveForPlayer,
 	TRIP_MAX_MS,
 	type TripStore
@@ -71,5 +72,19 @@ describe('the exercise page’s time across a trip to the player', () => {
 		leaveForPlayer(s, 7, running, left);
 		dropTrip(s, 7);
 		expect(backFromPlayer(s, 7, back)).toBeNull();
+	});
+
+	it('keeps the time across a whole load, stopped while the page was gone', () => {
+		const s = store();
+		leaveByUnload(s, 7, running, left);
+		// Loaded again 10 minutes later: the 4 minutes it had, not the time away.
+		expect(backFromPlayer(s, 7, back)).toEqual({ bankedMs: 4 * MIN, runningSince: null });
+	});
+
+	it('an unload into the player keeps the trip, whose time away is practice', () => {
+		const s = store();
+		leaveForPlayer(s, 7, running, left);
+		leaveByUnload(s, 7, running, left);
+		expect(backFromPlayer(s, 7, back)).toEqual({ bankedMs: 14 * MIN, runningSince: null });
 	});
 });

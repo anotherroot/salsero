@@ -28,11 +28,35 @@ import { runInLocale } from '$lib/server/i18n-request';
 import { fillLang, inviteLocaleOf } from '$lib/server/locale';
 
 import { serverNow } from '$lib/server/server-clock';
+import { isCrossSiteForm, isSelfAuthed, routedPath } from '$lib/server/csrf';
+
+/** What the CSRF check reads from a request. */
+const formOf = (r: Request) => ({
+	method: r.method,
+	contentType: r.headers.get('content-type'),
+	origin: r.headers.get('origin')
+});
+
 /** The home worker's API: no session, a bearer token instead. */
 const WORKER_PREFIX = '/api/worker/';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	await bootstrap();
+
+	// The path kit routes on (`/m%63p` is `/mcp`): every check below that names a
+	// path judges this one, so an encoded path can neither dodge nor borrow one.
+	const routed = routedPath(event.url.pathname);
+
+	// The AI connector's own endpoints answer for themselves (a bearer token, a
+	// code, or nothing): no session, no login or host redirect, machine English.
+	if (isSelfAuthed(routed)) {
+		event.locals.user = null;
+		event.locals.appAgent = null;
+		event.locals.locale = 'en';
+		if (isCrossSiteForm(formOf(event.request), event.url.origin, routed))
+			return new Response(catalogOf('en').refusals.crossSite, { status: 403 });
+		return resolve(event);
+	}
 
 	const device = deviceRuntime();
 	// The device mints its new rows' ids in its own slot (offline phase 3).
@@ -46,7 +70,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	);
 	const pass = (run: () => Promise<Response>) => (gated ? writeGate.shared(run) : run());
 	const session = device ? null : validateSession(event.cookies.get(SESSION_COOKIE));
-	const path = event.url.pathname;
+	// Every gate below judges the routed path: an encoded `/api/%77orker/` is still the worker's.
+	const path = routed;
 	// No session: a paired Android app may still sign in with its device
 	// token — on the API only, never a page and never the worker's prefix.
 	// On the device the user is the copy's own person: no session, no token.
@@ -76,6 +101,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 			path === '/join' ? inviteLocaleOf(getDb(), event.url.searchParams.get('code') ?? '') : null
 	});
 	event.locals.locale = loc;
+
+	// Kit's own CSRF check is off (vite.config.ts) for the connector's token
+	// request; this is the same check, for everything else.
+	if (isCrossSiteForm(formOf(event.request), event.url.origin, routed))
+		return new Response(catalogOf(loc).refusals.crossSite, { status: 403 });
 
 	// Which app asks: its user agent suffix, else the native header.
 	const native = parseAppVersion(event.request.headers.get('x-app-version'));

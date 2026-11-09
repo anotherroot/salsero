@@ -234,9 +234,9 @@ describe('the Practice page in Slovenian', () => {
 	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
 
 	it('counts the routine’s versions with Slovenian plurals', () => {
-		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2] }))).toBe('Prva · 2 različici');
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2] }))).toBe('Prva · 2 figuri');
 		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3, 4, 5] }))).toBe(
-			'Prva · 5 različic'
+			'Prva · 5 figur'
 		);
 	});
 
@@ -461,9 +461,7 @@ describe('the Practice page in Slovenian, more', () => {
 	const sl = <T>(fn: () => T): T => withLocale('sl', fn);
 
 	it('counts a routine’s figures with the noun forms', () => {
-		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3] }))).toBe(
-			'Prva · 3 različice'
-		);
+		expect(sl(() => setupSubtitle({ name: 'Prva', figureIds: [1, 2, 3] }))).toBe('Prva · 3 figure');
 	});
 
 	it('says Play, starting, and whose voice counts', () => {

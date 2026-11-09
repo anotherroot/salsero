@@ -899,11 +899,11 @@ describe('the Link popup’s server words in Slovenian', () => {
 	it.each([
 		[
 			{ kind: 'variation', groupId: 0, name: 'Doble' },
-			'Različica s tem imenom že obstaja: Enchufla · Doble.'
+			'Figura s tem imenom že obstaja: Enchufla · Doble.'
 		],
 		[
 			{ kind: 'figure', figureName: 'Enchufla', name: 'Basic', partner: 'partner', style: 'salsa' },
-			'Figura s tem imenom že obstaja: Enchufla.'
+			'Gib s tem imenom že obstaja: Enchufla.'
 		],
 		[
 			{ kind: 'figure', figureName: 'Sombrero', name: 'Basic', partner: 'partner', style: 'x' },

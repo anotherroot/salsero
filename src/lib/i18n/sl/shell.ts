@@ -67,7 +67,7 @@ export const shell: Catalog['shell'] = {
 		install: 'Namestitev ni uspela.',
 		rowTitle: 'Nova različica aplikacije',
 		hide: 'Skrij do jutri',
-		// Always with the noun: a bare "različica" is a figure (the glossary).
+		// Always with the noun »aplikacija« (the glossary).
 		version: (name) => `Različica aplikacije ${name} je pripravljena`,
 		ready: 'Pripravljeno za namestitev',
 		neededTitle: 'Potrebna je posodobitev',

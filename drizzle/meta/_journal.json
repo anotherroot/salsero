@@ -306,8 +306,15 @@
     {
       "idx": 43,
       "version": "6",
-      "when": 1794221433701,
-      "tag": "0043_special_jimmy_woo",
+      "when": 1794217392549,
+      "tag": "0043_lush_wither",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1794228650465,
+      "tag": "0044_fancy_wind_dancer",
       "breakpoints": true
     }
   ]
