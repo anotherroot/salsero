@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { bandMode } from '$lib/nav/band';
+	import { bandMode, slimFade } from '$lib/nav/band';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
@@ -63,8 +63,24 @@
 	} = $props();
 
 	let scrollY = $state(0);
-	const mode = $derived(bandMode(scrollY, compact, desk.current));
+	let innerWidth = $state(0);
+	/** The sheet and the slim band's height: where the slim band pins (`bandMode`). */
+	let sheet = $state<HTMLElement>();
+	let slimH = $state(0);
+	/*
+	 * The scroll at which the sheet's top edge meets the slim band's bottom: there
+	 * the big band would start to leave, so the slim one takes over. Read again as
+	 * the page scrolls or resizes (a title that wraps, a band that grows).
+	 */
+	const pinAt = $derived.by(() => {
+		void scrollY;
+		void innerWidth;
+		if (!sheet || slimH === 0) return null;
+		return sheet.getBoundingClientRect().top + window.scrollY - slimH;
+	});
+	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
+	const fade = $derived(desk.current ? 0 : slimFade(scrollY, compact, pinAt));
 
 	/*
 	 * Inside a list's item pane (desktop spec, "A list and the item beside it"), the
@@ -99,7 +115,7 @@
 	);
 </script>
 
-<svelte:window bind:scrollY />
+<svelte:window bind:scrollY bind:innerWidth />
 
 {#if split !== 'item'}
 	<!--
@@ -108,12 +124,16 @@
 	-->
 	<div aria-hidden="true" class="fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-band"></div>
 
-	<!-- The slim band: fixed, fades in once the big one has scrolled away. Never on the desktop. -->
+	<!--
+		The slim band: fixed, coming in with the scroll over the last stretch before the
+		big band would leave, so the band is picked up, not popped in. Never on the desktop.
+	-->
 	<div
 		data-slim-band
-		class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] transition-opacity duration-150 motion-reduce:transition-none desk:hidden"
-		class:opacity-0={!slim}
+		bind:clientHeight={slimH}
+		class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] desk:hidden"
 		class:pointer-events-none={!slim}
+		style:opacity={fade}
 		aria-hidden={slim ? undefined : 'true'}
 		inert={!slim}
 		style="padding-top: var(--safe-top); height: calc(4rem + var(--safe-top)); --focus-ring: var(--color-band-ink)"
@@ -167,6 +187,7 @@
 -->
 <svelte:element
 	this={main ? 'main' : 'div'}
+	bind:this={sheet}
 	class="{SHEET} {SHEET_DESK}"
 	class:pt-5={!hero}
 	style="--page-w: {PAGE_WIDTH[width]}px"
