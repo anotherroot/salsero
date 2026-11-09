@@ -238,10 +238,22 @@ export function outboxSummary(db: SqliteDb, userId: string | null): OutboxSummar
 		oldestWaitingAt: waiting.length ? Math.min(...waiting.map((r) => r.madeAt)) : null,
 		refused: rows.filter((r) => r.state === 'refused').length,
 		held: rows.filter((r) => r.state === 'held').length,
-		seq: rows.length ? Math.max(...rows.map((r) => r.seq)) : 0,
+		seq: newestSeq(db),
 		queued,
 		epochs: [...new Set(waiting.map((r) => r.epoch))].sort((a, b) => a - b)
 	};
+}
+
+/**
+ * The newest seq ever handed out, landed or not: a high-water mark. A landed
+ * entry is deleted at once, so the max of the rows left would fall back, and
+ * the service worker's "this page wrote seq N" would then outlive the landing.
+ */
+function newestSeq(db: SqliteDb): number {
+	const row = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'outbox'").get() as
+		| { seq: number }
+		| undefined;
+	return row?.seq ?? 0;
 }
 
 export async function outboxItems(db: SqliteDb, userId: string): Promise<OutboxItem[]> {

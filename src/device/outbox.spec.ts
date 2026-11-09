@@ -186,6 +186,15 @@ describe('the outbox', () => {
 		expect(outboxSummary(db, 'u1').queued).toEqual({});
 	});
 
+	it("keeps seq at the newest entry ever recorded after it lands (the SW's wrote mark never drops)", () => {
+		const e = entry();
+		recordEntry(db, e);
+		const seq = outboxSummary(db, 'u1').seq;
+		expect(seq).toBeGreaterThan(0);
+		applyResults(db, 'u1', [{ id: e.id, state: 'landed' }]);
+		expect(outboxSummary(db, 'u1')).toMatchObject({ waiting: 0, seq });
+	});
+
 	it('lists an entry with its label, reason and what was typed', async () => {
 		const e = entry({ body: body({ note: 'from the studio', seen: '{}' }) });
 		recordEntry(db, e);

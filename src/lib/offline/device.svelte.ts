@@ -128,6 +128,8 @@ function onOutbox(summary: OutboxSummary): void {
 	relayTo?.announce(own as DeviceState, summary);
 	const message: SwIn = { type: 'outbox', waiting: summary.waiting, epochs: summary.epochs };
 	navigator.serviceWorker.controller?.postMessage(message);
+	// This page's own count and seq too: its reads go back to the network once all has landed.
+	tellServiceWorker();
 	void navigator.serviceWorker
 		.getRegistration()
 		.then((r) => r?.waiting?.postMessage(message))

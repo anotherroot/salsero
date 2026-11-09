@@ -678,6 +678,13 @@ def walk(base, db_path, v, lines, net):
                             nag = True
                     report(not nag, "online: a log never shows waiting", "it showed waiting")
                     report(wait_outbox(page, "o.waiting === 0"), "online: the log lands", f"outbox {outbox(page)}")
+                    # Once all has landed, the page's reads go to the server again: a change made on the
+                    # server alone (the device has not pulled it) shows.
+                    server_only = f"Server {int(time.time()) % 100000}"
+                    server_write(db_path, "update figures set name = ? where id = ?", server_only, v["figure"])
+                    page.wait_for_timeout(300)
+                    fresh = device_data(page, f"/{DANCE}/figures/{v['figure']}")
+                    report(server_only in fresh, "online: after the landing, reads come from the server again", "the device answered")
                 else:
                     report(False, "online: a log", "no Done on the exercise page")
 
