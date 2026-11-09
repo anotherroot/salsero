@@ -37,9 +37,17 @@ export type DeviceState = 'waiting' | 'starting' | 'empty' | 'ready' | 'failed';
  * on the page, sent at the start and on every change (null: signed out).
  */
 export type DeviceIn =
+	/** Reads and writes. */
 	| { type: 'device-fetch'; request: WireRequest; person?: string | null }
+	/** Sync: push, then pull. */
 	| { type: 'pull' }
-	| { type: 'person'; userId: string | null };
+	| { type: 'person'; userId: string | null }
+	/** The Sync page's (offline phase 3); each carries a reply port. */
+	| { type: 'outbox-list' }
+	| { type: 'retry'; id: string }
+	| { type: 'discard'; id: string }
+	| { type: 'sync-now' }
+	| { type: 'forget' };
 
 /**
  * From the worker. `pulled`: a pull landed; `startedAt` is when its request

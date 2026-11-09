@@ -49,6 +49,8 @@ export type EntryResult =
 export type PushResponse = { slot: number; results: EntryResult[] };
 
 export const PUSH_BATCH = 20;
+/** A device whose push failed while the browser says it is online tries again after this. */
+export const PUSH_RETRY_MS = 30_000;
 export const PUSH_MAX_BYTES = 4 * 1024 * 1024;
 export const OUTBOX_HEADER = 'x-salsa-outbox';
 /** The request headers an entry keeps: what the action reads. */
