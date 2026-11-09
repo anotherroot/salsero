@@ -66,7 +66,8 @@ export function spaceOf(db: Db, params: { dance: string }, locals: App.Locals, u
 /**
  * The group view (spec 2026-11-09): `teamId`'s group when the person may work in
  * it (alive, this dance, owner or editor, at Everything), with its people: how
- * many, and up to three others' initials. `level` as in `groupModeOf`.
+ * many, and up to three others' initials. `level`: the person's level when the caller
+ * has it (`locals.user.level`); left out, it is read here.
  */
 export function groupModeFor(
 	db: Db,
