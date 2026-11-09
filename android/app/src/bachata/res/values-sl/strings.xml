@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- The share sheet's entry on a phone set to Slovenian. Android draws it in the phone's
-         language, not the account's, so it is a resource (the English is resValue in build.gradle.kts). -->
-    <string name="share_label">Lekcija bachate</string>
+         language, not the account's, so it is a resource (the English is resValue in build.gradle.kts,
+         which lint cannot see, hence tools:ignore). -->
+    <string name="share_label" tools:ignore="ExtraTranslation">Lekcija bachate</string>
 </resources>
