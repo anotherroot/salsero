@@ -45,6 +45,13 @@ const VERSION_JSON = '/_app/version.json';
 const PULL = '/api/sync/pull';
 
 /**
+ * The AI connector and its sign-in (docs/superpowers/specs/2026-11-09-ai-connector-design.md):
+ * never the device's, never the shell. The consent page must be the server's own answer.
+ */
+const CONNECTOR = (path: string) =>
+	path === '/mcp' || path.startsWith('/oauth/') || path.startsWith('/.well-known/oauth-');
+
+/**
  * Raw-body uploads (XHR with upload progress). Through a `respondWith` the
  * browser hands the body to the service worker at once and the bar jumps to
  * the end, then sits: the progress the components promise (an 8 MiB chunk on
@@ -76,6 +83,7 @@ export function swRoute(
 	const read = method === 'GET' || method === 'HEAD';
 	if (path === VERSION_JSON) return 'pass';
 	if (path === PULL) return 'pass';
+	if (CONNECTOR(path)) return 'pass';
 	if (UPLOADS.some(([m, re]) => m === method && re.test(path))) return 'pass';
 	if (
 		method === 'GET' &&

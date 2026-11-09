@@ -28,6 +28,9 @@ import { withLocale } from '$lib/i18n/current';
 import { runInLocale } from '$lib/server/i18n-request';
 import { t } from '$lib/i18n/catalog';
 import { actions, load } from './+page.server';
+import { createHash } from 'node:crypto';
+import { approve, exchangeCode, listGrants } from '$lib/server/oauth/store';
+import { serverNow } from '$lib/server/server-clock';
 
 const USER = {
 	id: 'u1',
@@ -284,5 +287,56 @@ describe('refusals in Slovenian', () => {
 			ownVoice: string;
 		};
 		expect(data.ownVoice).toBe('0 od 21 tempov z vašim glasom');
+	});
+});
+
+describe('Connected AI apps', () => {
+	const connect = (userId = 'u1') => {
+		const verifier = 'v'.repeat(50);
+		const code = approve(
+			db,
+			{
+				userId,
+				clientId: 'https://claude.ai/meta',
+				clientName: 'Claude',
+				redirectUri: 'https://claude.ai/cb',
+				codeChallenge: createHash('sha256').update(verifier).digest('base64url')
+			},
+			serverNow()
+		);
+		const r = exchangeCode(
+			db,
+			{ code, verifier, redirectUri: 'https://claude.ai/cb', clientId: 'https://claude.ai/meta' },
+			serverNow()
+		);
+		if ('error' in r) throw new Error(r.description);
+		return listGrants(db, userId, serverNow())[0].id;
+	};
+	const apps = async () =>
+		(
+			(await (load as (e: unknown) => unknown)(post({}))) as {
+				apps: { id: number; host: string }[];
+			}
+		).apps;
+
+	it('lists a connected app by its host', async () => {
+		const id = connect();
+		expect(await apps()).toEqual([expect.objectContaining({ id, host: 'claude.ai' })]);
+	});
+
+	it('disconnects, and Undo brings it back', async () => {
+		const id = connect();
+		expect(await call(actions.disconnectApp, post({ id: String(id) }))).toEqual({ removed: id });
+		expect(await apps()).toEqual([]);
+		expect(await call(actions.reconnectApp, post({ id: String(id) }))).toEqual({ ok: true });
+		expect((await apps()).map((a) => a.id)).toEqual([id]);
+	});
+
+	it("never touches another person's app", async () => {
+		const id = connect();
+		expect(await call(actions.disconnectApp, post({ id: String(id) }, OTHER))).toMatchObject({
+			status: 404
+		});
+		expect((await apps()).map((a) => a.id)).toEqual([id]);
 	});
 });

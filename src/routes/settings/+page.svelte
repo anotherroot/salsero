@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { act } from '$lib/act';
 	import { offlineRefusal, refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -146,6 +147,22 @@
 		// Compress videos to is the fallback; at Follow my class it is not drawn, so Name is.
 		await focusAfterRemoval(keys, `device-${id}`, ['devices-fallback', 'name-row']);
 	}
+
+	async function disconnect(id: number, host: string) {
+		const keys = data.apps.map((a) => `app-${a.id}`);
+		const result = await act('disconnectApp', { id });
+		if (failed(result)) return;
+		toast = undoToast(
+			++seq,
+			t().settings.connector.apps.disconnected(host),
+			() => (toast = null),
+			async () => failed(await act('reconnectApp', { id }))
+		);
+		await focusAfterRemoval(keys, `app-${id}`, ['apps-fallback', 'name-row']);
+	}
+
+	/** Where an AI app adds this app as a connector. */
+	const connectorUrl = $derived(new URL('/mcp', page.url.origin).href);
 
 	const savedSize = $derived(String(data.device.shortSide));
 
@@ -363,6 +380,38 @@
 				</li>
 			{/each}
 		</ul>
+	{/if}
+
+	{#if data.apps.length || !few}
+		<span class="{SECTION_LABEL} mt-[14px]">{w.connector.apps.label}</span>
+	{/if}
+	{#if data.apps.length}
+		<ul class={GROUP}>
+			{#each data.apps as a (a.id)}
+				<li class="{ROW} min-h-16 pr-1.5">
+					<LeadTile icon="link" />
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="truncate text-[16px] font-bold text-ink">{a.host}</span>
+						{#if a.name}<span class="truncate text-[13px] text-muted"
+								>{w.connector.calls(a.name)}</span
+							>{/if}
+						<span class="text-[13px] text-muted">{a.meta}</span>
+					</span>
+					<button
+						data-focus="app-{a.id}"
+						type="button"
+						class={button('danger-text', 'sm')}
+						aria-label={w.connector.apps.disconnectLabel(a.host)}
+						onclick={() => disconnect(a.id, a.host)}>{w.connector.apps.disconnect}</button
+					>
+				</li>
+			{/each}
+		</ul>
+	{:else if !few}
+		<div class="{GROUP} px-4 py-3" data-focus="apps-fallback" tabindex="-1">
+			<p class="text-ink2 text-[14px]">{w.connector.apps.empty}</p>
+			<p class="mt-1 font-bold break-all text-ink select-all">{connectorUrl}</p>
+		</div>
 	{/if}
 
 	{#if data.isAdmin}

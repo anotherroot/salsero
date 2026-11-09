@@ -90,8 +90,8 @@ export function inviteLink(i: {
 		: `${i.protocol}//${i.host}/join?code=${code}&dance=${i.dance}`;
 }
 
-/** What both hosts serve as they are: the worker, the update check, the APKs, health, assets. */
-const EVERY_HOST = ['/api/worker/', '/api/app-update/', '/releases/', '/_app/'];
+/** What both hosts serve as they are: the worker, the update check, the APKs, health, assets, and the connector's consent page (it says itself when the account is the other dance's). */
+const EVERY_HOST = ['/api/worker/', '/api/app-update/', '/releases/', '/_app/', '/oauth/'];
 
 /**
  * What a mapped host does with a request before anything else: pass it,

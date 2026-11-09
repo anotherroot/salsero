@@ -251,6 +251,13 @@ a Spotify song found on YouTube (the match rules, no list of matches), where the
 from and swapping it (copies kept in step follow; the count, sample, sections and start stay
 with their audio), the pick list (option A2), the imports queue and the Music dot. Its mockups
 are in `2026-11-08-spotify-mockups/`.
+The AI connector has its own,
+[`docs/superpowers/specs/2026-11-09-ai-connector-design.md`](docs/superpowers/specs/2026-11-09-ai-connector-design.md):
+an MCP connector any AI app can add (OAuth with Client ID Metadata Documents or
+registration), reading what the person may read; every change the AI wants as an action
+in a queue the person runs in the app (groups, dependencies, the AI edits its pending
+queue), the queue's look (option A of its board), and the video sections experiment.
+Plan 1 (the connector and reading) is built.
 Slovenian has its own,
 [`docs/superpowers/specs/2026-11-07-slovenian-design.md`](docs/superpowers/specs/2026-11-07-slovenian-design.md):
 the register (vikanje), the glossary, plurals, dates and numbers, where the language

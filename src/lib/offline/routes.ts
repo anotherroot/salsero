@@ -35,7 +35,9 @@ export const NETWORK_PAGES = [
 	'/[dance]/groups/[id]/people',
 	'/[dance]/groups/[id]/storage',
 	'/welcome',
-	'/dev/kit'
+	'/dev/kit',
+	// The AI connector's consent page: the server's own answer, never the device's.
+	'/oauth/authorize'
 ];
 
 /** GET endpoints answerable from synced rows. */
@@ -64,7 +66,12 @@ export const NETWORK_ENDPOINTS = [
 	'/releases/[dance]/[file]',
 	'/health',
 	'/manifest-[dance].webmanifest',
-	'/.well-known/assetlinks.json'
+	'/.well-known/assetlinks.json',
+	// The AI connector: `/mcp` (POST only; GET is a 405) and its discovery documents.
+	'/mcp',
+	'/.well-known/oauth-authorization-server',
+	'/.well-known/oauth-protected-resource',
+	'/.well-known/oauth-protected-resource/mcp'
 ];
 
 const DATA = '/__data.json';

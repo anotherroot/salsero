@@ -357,3 +357,116 @@ describe('the language', () => {
 		}
 	});
 });
+
+describe('the AI connector at the hook', () => {
+	async function run(path: string, init: RequestInit, cookie?: string) {
+		const db = openDb(':memory:');
+		handleDb.db = db;
+		db.insert(users)
+			.values({
+				id: 'u1',
+				email: 'a@example.com',
+				passwordHash: 'x',
+				dance: 'salsa',
+				firstName: 'Ana',
+				level: 'all'
+			})
+			.run();
+		const session = cookie ?? createSession('u1', db).id;
+		const url = new URL(`https://salsa.example${path}`);
+		const event = {
+			url,
+			request: new Request(url, init),
+			cookies: { get: (n: string) => (n === SESSION_COOKIE ? session : undefined), set: () => {} },
+			locals: {} as App.Locals
+		} as unknown as RequestEvent;
+		const resolve = vi.fn(async () => new Response('ok'));
+		try {
+			const res = await handle({ event, resolve });
+			return {
+				status: res.status,
+				user: (event.locals as App.Locals).user,
+				resolved: resolve.mock.calls.length
+			};
+		} catch (e) {
+			return { status: (e as { status: number }).status, user: undefined, resolved: 0 };
+		}
+	}
+
+	it('gives /mcp no session user, even under an encoded path with a session cookie', async () => {
+		for (const path of ['/mcp', '/m%63p']) {
+			const r = await run(path, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			});
+			expect(r.resolved, path).toBe(1);
+			expect(r.user, path).toBeNull();
+		}
+	});
+	it('lets the token request through with no Origin, and only it', async () => {
+		const form = { 'content-type': 'application/x-www-form-urlencoded' };
+		expect(
+			(await run('/oauth/token', { method: 'POST', headers: form, body: 'a=b' })).resolved
+		).toBe(1);
+		expect(
+			(await run('/oauth/%74oken', { method: 'POST', headers: form, body: 'a=b' })).resolved
+		).toBe(1);
+		expect(
+			(await run('/oauth/authorize', { method: 'POST', headers: form, body: 'a=b' })).status
+		).toBe(403);
+	});
+	it('refuses a form posted from another site, as kit did', async () => {
+		const r = await run('/salsa/figures', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/x-www-form-urlencoded',
+				origin: 'https://evil.example'
+			},
+			body: 'a=b'
+		});
+		expect(r.status).toBe(403);
+		const same = await run('/salsa/figures', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/x-www-form-urlencoded',
+				origin: 'https://salsa.example'
+			},
+			body: 'a=b'
+		});
+		expect(same.resolved).toBe(1);
+	});
+});
+
+describe('encoded paths at the hook', () => {
+	it('an encoded /api/worker/ path still needs the worker token', async () => {
+		const db = openDb(':memory:');
+		handleDb.db = db;
+		db.insert(users)
+			.values({
+				id: 'u1',
+				email: 'a@example.com',
+				passwordHash: 'x',
+				dance: 'salsa',
+				firstName: 'Ana',
+				level: 'all'
+			})
+			.run();
+		const session = createSession('u1', db).id;
+		const url = new URL('https://salsa.example/api/%77orker/claim');
+		const event = {
+			url,
+			request: new Request(url, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			}),
+			cookies: { get: (n: string) => (n === SESSION_COOKIE ? session : undefined), set: () => {} },
+			locals: {} as App.Locals
+		} as unknown as RequestEvent;
+		const resolve = vi.fn(async () => new Response('ok'));
+		const res = await handle({ event, resolve });
+		expect(res.status).toBe(401);
+		expect(resolve).not.toHaveBeenCalled();
+	});
+});

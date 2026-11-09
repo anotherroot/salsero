@@ -24,6 +24,8 @@ export const refusals = {
 	thatMove: 'That move',
 	badRequest: 'Bad request',
 	badJson: 'Bad JSON.',
+	/** A form posted from another site (the hook's CSRF check, `csrf.ts`). */
+	crossSite: 'Cross-site form submissions are forbidden.',
 	/** A 5xx: the server's own message is a path or a SQL error, never shown. */
 	couldNotSave: 'Couldn’t save. Try it again.',
 	/** An older open page sent what the server no longer takes (the page epoch). */

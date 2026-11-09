@@ -13,6 +13,10 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
+			// Kit's own CSRF check refuses an AI app's token request (a form POST
+			// with no Origin) before the hook runs; `src/lib/server/csrf.ts`
+			// re-does it in the hook with that one exemption.
+			csrf: { trustedOrigins: ['*'] },
 			// An open page asks for `version.json` this often and `updated.current`
 			// turns true once a new build is out (`$lib/nav/fresh.ts`). The
 			// version's `name` stays SvelteKit's default: the build time.

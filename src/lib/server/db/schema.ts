@@ -143,6 +143,67 @@ export const deviceTokens = sqliteTable('device_tokens', {
 	lastUsedAt: integer('last_used_at')
 });
 
+/*
+ * The AI connector's OAuth state (docs/superpowers/specs/2026-11-09-ai-connector-design.md,
+ * `src/lib/server/oauth/`). Secrets are stored only as SHA-256 hex; none of it is synced.
+ */
+
+/** A client that registered itself (RFC 7591). Clients known by a metadata document have no row. */
+export const oauthClients = sqliteTable('oauth_clients', {
+	id: mintedId('oauth_clients'),
+	clientId: text('client_id').notNull().unique(),
+	clientName: text('client_name'),
+	/** A JSON array of the exact redirect URIs. */
+	redirectUris: text('redirect_uris').notNull(),
+	createdAt: createdAt()
+});
+
+/** One person's approval of one AI client. Revoking keeps the row. */
+export const oauthGrants = sqliteTable(
+	'oauth_grants',
+	{
+		id: mintedId('oauth_grants'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		clientId: text('client_id').notNull(),
+		clientName: text('client_name'),
+		redirectUri: text('redirect_uri').notNull(),
+		createdAt: createdAt(),
+		lastUsedAt: integer('last_used_at'),
+		revokedAt: integer('revoked_at')
+	},
+	(t) => [index('oauth_grants_user_idx').on(t.userId)]
+);
+
+export const oauthCodes = sqliteTable('oauth_codes', {
+	hash: text('hash').primaryKey(),
+	grantId: integer('grant_id')
+		.notNull()
+		.references(() => oauthGrants.id, { onDelete: 'cascade' }),
+	codeChallenge: text('code_challenge').notNull(),
+	redirectUri: text('redirect_uri').notNull(),
+	expiresAt: integer('expires_at').notNull(),
+	usedAt: integer('used_at')
+});
+
+export const oauthTokens = sqliteTable(
+	'oauth_tokens',
+	{
+		hash: text('hash').primaryKey(),
+		grantId: integer('grant_id')
+			.notNull()
+			.references(() => oauthGrants.id, { onDelete: 'cascade' }),
+		kind: text('kind').notNull(),
+		expiresAt: integer('expires_at').notNull(),
+		replacedAt: integer('replaced_at')
+	},
+	(t) => [
+		check('oauth_tokens_kind_ck', sql`${t.kind} in ('access', 'refresh')`),
+		index('oauth_tokens_grant_idx').on(t.grantId)
+	]
+);
+
 /**
  * The newest app version each person has opened, per dance. Written by the
  * request hook (`app-seen.ts`), read by the admin's list of who needs an update.
