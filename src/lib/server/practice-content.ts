@@ -31,7 +31,7 @@ export function practicePayload(
 	tz: string,
 	now: number
 ): PracticePayload {
-	return { content: contentOf(db, exercise), last: lastOf(db, exercise.id, tz, now) };
+	return { content: practiceContentOf(db, exercise), last: lastOf(db, exercise.id, tz, now) };
 }
 
 /**
@@ -94,7 +94,8 @@ function seenBy(
 	return { visible: judged.reach ?? undefined };
 }
 
-function contentOf(db: Db, exercise: Exercise): PracticeContent {
+/** What the exercise's page shows of its target, read through the person's reach. */
+export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
 	switch (typeOf(exercise.source)) {
 		case 'lesson': {
 			const found =

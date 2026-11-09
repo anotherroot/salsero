@@ -16,6 +16,8 @@ import type { Wall } from './scope';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT, nextCount } from '$lib/graph/timing';
 import { handsLine } from '$lib/routines/page';
 import { hasDetails } from '$lib/player/view';
+import { lessonVideoCaption } from '$lib/video/caption';
+import { practiceContentOf } from './practice-content';
 import { clock } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import type { RunClip, RunDetails } from '$lib/types';
@@ -126,7 +128,8 @@ export function figureDetails(
 			hasPositions: hands !== '',
 			notes: trimmed(f.notes),
 			clips: [...sectionClips(db, userId, { figureId: f.id }, visible), ...own],
-			links: linksOf(db, { figureId: f.id })
+			links: linksOf(db, { figureId: f.id }),
+			figures: []
 		};
 	}
 	return out;
@@ -135,8 +138,9 @@ export function figureDetails(
 /**
  * Details for the exercise a run is for: a figure exercise's figure (under the
  * exercise's name), a drill's description, sections and links (an entry reads
- * its group's drill). A routine's details are its figures'; a lesson review has
- * none. Null when there is nothing worth an About.
+ * its group's drill), a lesson's notes, figures, videos and links (as its
+ * exercise page shows them, through the person's reach). A routine's details
+ * are its figures'. Null when there is nothing worth an About.
  */
 export function exerciseDetails(db: Db, wall: Wall, exercise: ExerciseRow): RunDetails | null {
 	let d: RunDetails | null = null;
@@ -155,8 +159,35 @@ export function exerciseDetails(db: Db, wall: Wall, exercise: ExerciseRow): RunD
 					: undefined;
 			d = { ...drill(db, wall.userId, group, visible), heading: exercise.name };
 		}
+	} else if (exercise.source === 'lesson') {
+		d = lesson(db, wall.userId, exercise);
 	}
 	return hasDetails(d) ? d : null;
+}
+
+function lesson(db: Db, userId: string, exercise: ExerciseRow): RunDetails | null {
+	const content = practiceContentOf(db, exercise);
+	if (content.type !== 'lesson') return null;
+	const ids = content.figures.map((f) => f.id);
+	const figs = figureDetails(db, userId, ids);
+	return {
+		heading: exercise.name,
+		facts: [],
+		hasPositions: false,
+		notes: trimmed(content.lesson.notes),
+		clips: content.videos.map((v, i): RunClip => ({
+			kind: 'lesson',
+			src: `/lesson-videos/${v.file}`,
+			startMs: 0,
+			endMs: null,
+			caption: lessonVideoCaption(i, v).title
+		})),
+		links: content.links.map((l) => ({ url: l.url, title: l.title })),
+		figures: content.figures.map((f) => {
+			const d = figs[f.id];
+			return { name: d?.heading ?? f.name, details: hasDetails(d ?? null) ? d : null };
+		})
+	};
 }
 
 function drill(db: Db, userId: string, row: ExerciseRow, visible: Visible | undefined): RunDetails {
@@ -166,6 +197,7 @@ function drill(db: Db, userId: string, row: ExerciseRow, visible: Visible | unde
 		hasPositions: false,
 		notes: trimmed(row.notes),
 		clips: sectionClips(db, userId, { exerciseId: row.id }, visible),
-		links: linksOf(db, { exerciseId: row.id })
+		links: linksOf(db, { exerciseId: row.id }),
+		figures: []
 	};
 }

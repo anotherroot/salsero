@@ -40,6 +40,7 @@
 	import ClaveChips from './ClaveChips.svelte';
 	import CountChips from './CountChips.svelte';
 	import DetailsBody from './DetailsBody.svelte';
+	import { pauseForVideo, releaseSound, videoSound } from '$lib/player/video-sound.svelte';
 	import RunLayer from './RunLayer.svelte';
 	import RunRows, { type RunRow, type RunRowKey } from './RunRows.svelte';
 	import SongProgress from './SongProgress.svelte';
@@ -307,8 +308,21 @@
 	let pauseBtn: HTMLButtonElement | undefined = $state();
 	onMount(() => pauseBtn?.focus({ preventScroll: true }));
 
+	// A video in About took the sound: the run pauses, and waits for Resume.
+	$effect(() => {
+		const key = videoSound.key;
+		untrack(() => {
+			if (pauseForVideo(key, paused)) {
+				player.pause();
+				paused = true;
+			}
+		});
+	});
+
 	function togglePause() {
 		if (paused) {
+			// Resume gives the sound back to the music: the video goes quiet.
+			releaseSound(videoSound.key ?? '');
 			void player.resume();
 			paused = false;
 		} else {
@@ -495,7 +509,7 @@
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
-			<DetailsBody details={shown} />
+			<DetailsBody details={shown} musicPaused={paused} onresume={togglePause} />
 		</RunLayer>
 	{:else if layer === 'routine'}
 		<!-- The full-screen routine: the list in large type, to read from a few metres away. -->
@@ -587,7 +601,12 @@
 		>
 			<div class="flex flex-col gap-8">
 				{#each slotDetails(slots[figureSlot]?.figureIds ?? [], figureDetails, nameOf) as d, k (k)}
-					<DetailsBody details={d} />
+					<!-- One "Music paused" strip for the layer: over the first figure. -->
+					<DetailsBody
+						details={d}
+						musicPaused={paused}
+						onresume={k === 0 ? togglePause : undefined}
+					/>
 				{/each}
 			</div>
 		</RunLayer>

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { practiceSaver, SAVE_DELAY_MS } from './practice-api';
+import { practiceSaver, reloadAfterLeave, SAVE_DELAY_MS } from './practice-api';
 import type { PracticeInput } from './practice';
 
 const config = { count: 'salsa', clave: null, speed: 1 } as const;
@@ -83,5 +83,65 @@ describe('practiceSaver', () => {
 		s.change(at(180));
 		s.flush();
 		expect(post).toHaveBeenCalledWith('/salsa/exercises/7/practice', loaded);
+	});
+});
+
+describe('practiceSaver.flush, on the way back', () => {
+	it('resolves true only once the post has landed', async () => {
+		let land = () => {};
+		const post = vi.fn(() => new Promise<void>((r) => (land = r)));
+		const s = practiceSaver('salsa', 7, loaded, post);
+		s.change(at(150));
+		let done: boolean | null = null;
+		const flushed = s.flush().then((v) => (done = v));
+		await Promise.resolve();
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(done).toBeNull();
+		land();
+		await flushed;
+		expect(done).toBe(true);
+	});
+
+	it('resolves false and posts nothing when nothing was waiting', async () => {
+		const post = vi.fn(() => Promise.resolve());
+		const s = practiceSaver('salsa', 7, loaded, post);
+		await expect(s.flush()).resolves.toBe(false);
+		expect(post).not.toHaveBeenCalled();
+	});
+});
+
+describe('reloadAfterLeave', () => {
+	const deferred = <T>() => {
+		let resolve!: (v: T) => void;
+		let reject!: (e: unknown) => void;
+		const promise = new Promise<T>((res, rej) => ((resolve = res), (reject = rej)));
+		return { promise, resolve, reject };
+	};
+
+	it('waits for the page it lands on, even when the post landed first', async () => {
+		const reload = vi.fn();
+		const landed = deferred<void>();
+		const done = reloadAfterLeave(Promise.resolve(true), landed.promise, reload);
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(reload).not.toHaveBeenCalled();
+		landed.resolve();
+		await done;
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not reload when nothing was posted', async () => {
+		const reload = vi.fn();
+		await reloadAfterLeave(Promise.resolve(false), Promise.resolve(), reload);
+		expect(reload).not.toHaveBeenCalled();
+	});
+
+	it('does not reload when the navigation did not happen', async () => {
+		const reload = vi.fn();
+		const landed = deferred<void>();
+		const done = reloadAfterLeave(Promise.resolve(true), landed.promise, reload);
+		landed.reject(new Error('cancelled'));
+		await done;
+		expect(reload).not.toHaveBeenCalled();
 	});
 });
