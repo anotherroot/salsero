@@ -5,7 +5,7 @@
  * shows as any refused save does. Client glue over `act`; no DOM.
  */
 import { act, type Field } from '$lib/act';
-import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+import { offlineRefusal, refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 import { t } from '$lib/i18n/catalog';
 import { serial } from '$lib/serial';
 import type { ActionResult } from '@sveltejs/kit';
@@ -45,7 +45,8 @@ async function send(opts: Parameters<typeof editAct>[0]): Promise<ActionResult> 
 	const result = await act(opts.name, { ...opts.fields, ...(seen ? { seen } : {}) });
 	const id = ++next;
 	if (result.type !== 'success') {
-		opts.toast({ id, message: refusalMessage(result, t().songs.page.refused.badValue) ?? '' });
+		if (!offlineRefusal(result))
+			opts.toast({ id, message: refusalMessage(result, t().songs.page.refused.badValue) ?? '' });
 		return result;
 	}
 	opts.toast(

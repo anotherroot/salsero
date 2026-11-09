@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { uploadFailure } from '$lib/upload-error';
 	import { invalidateAll } from '$app/navigation';
+	import { noteSaved } from '$lib/offline/device.svelte';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { holdReload } from '$lib/nav/fresh.svelte';
 	import { MAX_RECORDING_LABEL } from '$lib/limits';
@@ -93,6 +94,8 @@
 			progress = null;
 			if (input) input.value = '';
 			if (xhr.status === 201) {
+				// The device's copy has none of it yet (`noteSaved`).
+				noteSaved();
 				await invalidateAll();
 				return;
 			}

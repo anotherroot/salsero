@@ -8,6 +8,7 @@ import { noteAppSeen } from '$lib/server/app-seen';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { deviceRuntime, deviceUser } from '$lib/server/device-runtime';
 import { needsLevel, needsName } from '$lib/names';
 import { parseLevel } from '$lib/levels/levels';
 import { currentRelease } from '$lib/server/releases';
@@ -30,23 +31,27 @@ const WORKER_PREFIX = '/api/worker/';
 export const handle: Handle = async ({ event, resolve }) => {
 	await bootstrap();
 
-	const session = validateSession(event.cookies.get(SESSION_COOKIE));
+	const device = deviceRuntime();
+	const session = device ? null : validateSession(event.cookies.get(SESSION_COOKIE));
 	const path = event.url.pathname;
 	// No session: a paired Android app may still sign in with its device
 	// token — on the API only, never a page and never the worker's prefix.
-	event.locals.user = session
-		? {
-				id: session.userId,
-				email: session.email,
-				firstName: session.firstName,
-				lastName: session.lastName,
-				timezone: session.timezone,
-				isAdmin: session.isAdmin,
-				level: parseLevel(session.level),
-				dance: session.dance,
-				locale: session.locale
-			}
-		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), serverNow());
+	// On the device the user is the copy's own person: no session, no token.
+	event.locals.user = device
+		? deviceUser(getDb(), device.userId)
+		: session
+			? {
+					id: session.userId,
+					email: session.email,
+					firstName: session.firstName,
+					lastName: session.lastName,
+					timezone: session.timezone,
+					isAdmin: session.isAdmin,
+					level: parseLevel(session.level),
+					dance: session.dance,
+					locale: session.locale
+				}
+			: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), serverNow());
 
 	// The language this request is drawn in: a signed-in person's own; signed out,
 	// the invite's on Join, then the browser's cookie, then its Accept-Language, then English.
@@ -110,7 +115,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return new Response(catalogOf(loc).refusals.notFound, { status: 404 });
 
 	// Which app this person uses, noted only for a request this host keeps.
-	if (event.locals.user && appAgent) {
+	if (event.locals.user && appAgent && !device) {
 		noteAppSeen(getDb(), event.locals.user.id, appAgent, serverNow());
 	}
 

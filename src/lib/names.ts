@@ -46,7 +46,7 @@ export function shortNames(people: (Named & { id: string })[]): Map<string, stri
  * /logout are left alone, so the app, a download and signing out keep working.
  */
 const PASS = ['/api/', '/recordings/', '/audio/', '/count/', '/lesson-videos/', '/_app/'];
-const PASS_EXACT = ['/welcome', '/logout', '/health'];
+const PASS_EXACT = ['/welcome', '/logout', '/health', '/shell'];
 export function needsName(path: string, user: { firstName: string | null } | null): boolean {
 	if (!user || user.firstName) return false;
 	if (PASS_EXACT.includes(path)) return false;

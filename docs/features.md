@@ -107,7 +107,12 @@ and Spotify links and playlists (a Spotify song link in Add a song is found on Y
 home worker; "Audio from" and Use another YouTube link on a song, reaching its copies kept in
 step; a YouTube or Spotify playlist or album is read by the worker into a pick list under
 "To pick", a dot on Music, and only the ticked songs download; see
-[`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md)).
+[`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md))
+and the app offline, read only (offline phases 1 and 2: ids from slots and one server clock;
+the server logs every change, a device pulls its person's copy into SQLite on the phone, and
+SvelteKit's own server code answers from it when the network fails; a change made offline
+says "Needs a connection"; phases 3–5 to come; see
+[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)).
 
 
 ## Specs
@@ -255,3 +260,9 @@ page opens it; the band that fills the phone; Routine, About and Voice as rows t
 open full-screen layers; a routine run without calls (Follow or Still, the
 full-screen list, a figure's details from it); the time across the trip to the
 player; and what was decided while building.
+The app on the device has its own,
+[`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md):
+why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM), ids from
+slots, the device's copy (pull: the change log, scope, digests), offline changes (push,
+phase 3), media on the device (phase 4) and the phases. The spike's findings are in
+[`docs/superpowers/specs/2026-11-07-offline-spike-findings.md`](docs/superpowers/specs/2026-11-07-offline-spike-findings.md).

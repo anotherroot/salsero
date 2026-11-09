@@ -4,6 +4,8 @@ import { THEME_COOKIE, themeChoice } from '$lib/theme/scheme';
 import { updateState } from '$lib/app-update/agent';
 import type { AppUpdate } from '$lib/app-update/view';
 import { currentRelease } from '$lib/server/releases';
+import { deviceRuntime } from '$lib/server/device-runtime';
+import { drawnBy } from '$lib/offline/person';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -42,6 +44,8 @@ export const load: LayoutServerLoad = ({ locals, cookies, url, depends }) => {
 	}
 	return {
 		user: locals.user,
+		// Whether `user` is the server's word or the device's copy's (`pagePerson`).
+		drawnBy: drawnBy(deviceRuntime() !== null, url.pathname),
 		appUpdate,
 		appDance: requestDanceOf(url, locals.user),
 		// Light, dark or system (Settings): the theme-color tags and the Settings row read it.

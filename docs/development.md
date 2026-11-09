@@ -15,6 +15,8 @@ npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/make-clips.sh   # regenerate static/clips/ — only when the voice changes
 ./scripts/make-icons.sh   # regenerate static/icons/ — only when an icon SVG changes
 nix develop .#android -c ./android/gradlew -p android test assembleDebug   # the APK; see docs/deployment.md
+npm run test:device  # the whole suite on the device's SQLite WASM shim (slow; not in check)
+scripts/offline/serve.sh <db> &   # a production build on a copy of <db>; then walk.py (README there)
 ```
 
 The dev database has no songs and the home worker does not run against it, so

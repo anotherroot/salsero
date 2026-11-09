@@ -26,6 +26,19 @@ export function refusalMessage(result: ActionResult, fallback: string): string |
 	return message ?? fallback;
 }
 
+/**
+ * Whether a refused result is the service worker's offline refusal (a write
+ * that could not reach the server, `$lib/offline/needs-connection`). The root
+ * layout has said so already, in the person's language: a page shows no
+ * refusal of its own for it, but still treats it as refused.
+ */
+export function offlineRefusal(result: ActionResult): boolean {
+	return (
+		result.type === 'failure' &&
+		(result.data as { offline?: unknown } | undefined)?.offline === true
+	);
+}
+
 /** A toast with an Undo that clears itself first, then runs `restore`. */
 export function undoToast(
 	id: number,

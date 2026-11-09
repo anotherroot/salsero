@@ -39,6 +39,8 @@
 		<!-- The desktop's sheet: the message a little way down, as the boards place it. -->
 		<div aria-hidden="true" class="hidden desk:block desk:h-[90px] desk:flex-none"></div>
 	{/if}
+	<!-- The offline walk (scripts/offline) tells an error page, and its tone, by this mark. -->
+	<span hidden data-error-screen={view.tone}></span>
 	<StatusBlock
 		icon={view.icon}
 		tone={view.tone}

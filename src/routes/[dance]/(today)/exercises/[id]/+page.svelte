@@ -10,7 +10,7 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
 	import { act } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { contentFor, practiceFor } from '$lib/components/exercises/kinds';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -180,8 +180,9 @@
 			});
 			if (pageId !== at) return;
 			const refused = refusalMessage(result, t().exercise.log.didNotSave);
-			if (refused !== null) say(refused);
-			else if (result.type === 'success') saved(result.data as unknown as DoneResult);
+			if (refused !== null) {
+				if (!offlineRefusal(result)) say(refused);
+			} else if (result.type === 'success') saved(result.data as unknown as DoneResult);
 		} finally {
 			// Leaving: the spinner stays until the next page takes this one's place.
 			if (pageId === at && !leaving) saving = false;
@@ -379,7 +380,7 @@
 		if (!snapshots) return;
 		const result = await act('restoreDay', { snapshots });
 		const refused = refusalMessage(result, t().exercise.refused.dayPutBack);
-		if (refused !== null) say(refused);
+		if (refused !== null && !offlineRefusal(result)) say(refused);
 	}
 
 	/*

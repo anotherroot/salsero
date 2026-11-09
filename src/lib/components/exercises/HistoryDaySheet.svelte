@@ -9,6 +9,7 @@
 	import { feelWord } from '$lib/schedule/feel';
 	import type { HistoryDay } from '$lib/exercises/exercise-page';
 	import { t } from '$lib/i18n/catalog';
+	import { offlineRefusal } from '$lib/act-toast';
 
 	/*
 	 * One day of the history: what it holds (the time, the face, the note) and
@@ -77,7 +78,8 @@
 							ondeleted(typeof snapshots === 'string' ? snapshots : '', day.label);
 						} else if (result.type === 'failure') {
 							// Shown here, from the submit's result: the page's `form` stays as it was.
-							refusal = messageOf(result.data);
+							// Offline the root layout has said so, translated.
+							if (!offlineRefusal(result)) refusal = messageOf(result.data);
 						} else {
 							await update();
 						}

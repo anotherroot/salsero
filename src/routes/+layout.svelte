@@ -2,7 +2,7 @@
 	import './layout.css';
 	import { untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
-	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
+	import { DANCES, DEFAULT_DANCE, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { deskSkeletonMode, leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
 	import { bottom } from '$lib/nav/chrome.svelte';
@@ -46,6 +46,9 @@
 	import { levelShown } from '$lib/levels/levels';
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
+	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
+	import { pagePerson } from '$lib/offline/person';
+	import Toast from '$lib/components/ui/Toast.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -124,13 +127,14 @@
 	 *
 	 * Which dance they lead to: the page's, else the last dance page seen, else
 	 * `appDance` (the account's dance, or the host's before sign-in), the seed
-	 * for the first paint outside a dance (`/settings`, `/voice`).
+	 * for the first paint outside a dance (`/settings`, `/voice`). An error page
+	 * the offline shell draws has no layout data at all: the default dance.
 	 */
 	let seen = $state<DanceSlug | null>(null);
 	$effect(() => {
 		if (dance) seen = dance.slug;
 	});
-	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.appDance]);
+	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.appDance ?? DEFAULT_DANCE]);
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 	/*
@@ -191,7 +195,7 @@
 	afterNavigate((nav) => {
 		if (!data.appUpdate) return;
 		// A hash link stays on the page, with whatever it holds.
-		const samePage = nav.from?.url.pathname === nav.to?.url.pathname;
+		const samePage = nav.from?.url?.pathname === nav.to?.url.pathname;
 		judgeUpdate(nav.type === 'enter' || samePage ? 'refresh' : 'navigated');
 		if (nav.type !== 'enter') void invalidate('app:update');
 	});
@@ -211,7 +215,12 @@
 	 * it starts and the Offline screen is laid OVER the page (not instead of it,
 	 * so whatever was typed stays). Registered after `guardNavigation()` so the
 	 * unsaved-changes guard has already had its say on the same navigation.
+	 *
+	 * Only while the device cannot answer instead (`deviceReady`, offline phase
+	 * 2): once it can, the navigation goes ahead and the service worker hands its
+	 * data to the device.
 	 */
+	const cannotLoad = () => !navigator.onLine && !deviceReady();
 	let offline = $state<URL | null>(null);
 	let layer = $state<HTMLDialogElement>();
 	// Taken before the layer mounts: its own <title> is already in place by then.
@@ -226,7 +235,7 @@
 		}
 		if (!to?.route.id || willUnload || to.url.origin !== page.url.origin) return;
 		if (to.url.href === page.url.href) return;
-		if (navigator.onLine) return;
+		if (!cannotLoad()) return;
 		// The unsaved-changes guard is asking: leaving is not decided yet.
 		if (prompt.ask) return;
 		cancel();
@@ -235,14 +244,43 @@
 	});
 	afterNavigate(() => (offline = null));
 	/*
-	 * No preloading while offline. A link touched offline would try to fetch the
-	 * route's data and code and fail, and the browser keeps a failed module import
-	 * for good, so Try again later would land on the error page.
+	 * A write that could not reach the server (the service worker's
+	 * `needs-connection`, `$lib/offline/device.svelte.ts`): nothing changed, and
+	 * the toast says so in the person's language. It stands in for phase 3's
+	 * designed "Needs a connection".
+	 */
+	let needsConnection = $state<{ id: number; message: string } | null>(null);
+	/*
+	 * The device's person: who the server says is signed in (`pagePerson`). Its
+	 * copy is wiped on sign-out and for anyone else; a page the copy drew
+	 * (offline) cannot tell, and says nothing.
 	 */
 	$effect(() => {
+		const person = pagePerson(data);
+		if (person !== undefined) setPerson(person);
+	});
+	$effect(() => {
+		const show = () =>
+			(needsConnection = {
+				id: (needsConnection?.id ?? 0) + 1,
+				message: t().shell.offline.needsConnection
+			});
+		window.addEventListener('salsa:needs-connection', show);
+		return () => window.removeEventListener('salsa:needs-connection', show);
+	});
+	/*
+	 * No preloading while offline (and the device cannot answer). A link touched
+	 * offline would try to fetch the route's data and code and fail, and the
+	 * browser keeps a failed module import for good, so Try again later would
+	 * land on the error page. Re-run when the device's state changes.
+	 */
+	$effect(() => {
+		// Read first, always: `cannotLoad()` stops at `navigator.onLine` online, so
+		// a first run online would otherwise never subscribe to the device.
+		void device.state;
 		const body = document.body;
 		const sync = () => {
-			if (navigator.onLine) {
+			if (!cannotLoad()) {
 				body.dataset.sveltekitPreloadData = 'hover';
 				delete body.dataset.sveltekitPreloadCode;
 			} else {
@@ -507,6 +545,8 @@
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />
 		<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
+		<!-- In here too: it sits above the tab bar (`--pin-bottom`). -->
+		{@render needsConnectionToast()}
 	</div>
 {:else}
 	<!-- Signed out (sign in, Join): never the side, so no band around a sheet either. -->
@@ -515,7 +555,12 @@
 	</div>
 	<UnsavedDialog />
 	<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
+	{@render needsConnectionToast()}
 {/if}
+
+{#snippet needsConnectionToast()}
+	<Toast toast={needsConnection} duration={4000} ondismiss={() => (needsConnection = null)} />
+{/snippet}
 
 {#if offline}
 	<!--

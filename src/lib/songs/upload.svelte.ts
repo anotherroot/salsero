@@ -1,4 +1,5 @@
 import { invalidateAll } from '$app/navigation';
+import { noteSaved } from '$lib/offline/device.svelte';
 import type { DanceSlug } from '$lib/dances/dances';
 import { MAX_RECORDING_LABEL } from '$lib/limits';
 import { uploadFailure } from '$lib/upload-error';
@@ -76,6 +77,8 @@ export function startSongUpload(
 	xhr.onload = async () => {
 		if (xhr.status === 201) {
 			release();
+			// The device's copy has none of it yet (`noteSaved`).
+			noteSaved();
 			// The song's own row replaces this one once the list has it. A reload
 			// that fails must not leave Upload disabled behind a finished upload.
 			try {

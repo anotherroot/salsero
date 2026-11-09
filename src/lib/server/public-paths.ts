@@ -10,6 +10,8 @@ export const PUBLIC_PATHS = new Set([
 	// The invite's link carries its code in the query string, so the path is what is public.
 	'/join',
 	'/health',
+	// The device's shell page: cached signed out, or mid-first-run, without a redirect.
+	'/shell',
 	'/manifest-salsa.webmanifest',
 	'/manifest-bachata.webmanifest',
 	'/icon-salsa.svg',

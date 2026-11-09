@@ -288,6 +288,20 @@
       "when": 1794174401497,
       "tag": "0040_dark_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1794208049825,
+      "tag": "0041_tearful_jubilee",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1794208051553,
+      "tag": "0042_change_log_triggers",
+      "breakpoints": true
     }
   ]
 }

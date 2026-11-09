@@ -3,8 +3,10 @@
  * exercise is practised with, for next time. Used by the exercise page's panel
  * and the full player, on every change of a setting (before a run or during one), not
  * only on Play. A convenience: a failure changes nothing, so it is never
- * awaited and never reported.
+ * awaited and never reported: a background write, not sent offline and never
+ * "Needs a connection" (`backgroundWrite`).
  */
+import { backgroundWrite } from '$lib/offline/background-write';
 import { practiceToPost, type PracticeConfig, type PracticeInput } from './practice';
 
 /** How long the settings must sit still before they are posted: a tempo stepper sends many changes. */
@@ -20,14 +22,13 @@ export interface PracticeChoice {
 type Post = (url: string, body: PracticeInput) => void;
 
 /** `keepalive`, so a flush from a page being left still reaches the server. */
-const postJson: Post = (url, body) => {
-	void fetch(url, {
+const postJson: Post = (url, body) =>
+	backgroundWrite(url, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify(body),
 		keepalive: true
-	}).catch(() => {});
-};
+	});
 
 export interface PracticeSaver {
 	/** What the server holds as this page knows it: loaded, or posted (or about to be). */

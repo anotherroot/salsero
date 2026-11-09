@@ -17,6 +17,11 @@ export default defineConfig({
 			// turns true once a new build is out (`$lib/nav/fresh.ts`). The
 			// version's `name` stays SvelteKit's default: the build time.
 			version: { pollInterval: 300_000 },
+			// Absolute asset URLs: the cached shell (`/shell`) is served at any path
+			// offline, and a relative `./_app/…` would resolve under that path.
+			paths: { relative: false },
+			// The page registers it (`$lib/offline/device.svelte.ts`), in a build only.
+			serviceWorker: { register: false },
 			typescript: {
 				config: (config) => {
 					config.include.push('../drizzle.config.ts');

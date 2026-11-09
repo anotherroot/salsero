@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { actAt } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -51,6 +51,11 @@
 		busy = true;
 		const result = await actAt(`/${dance}`, 'next', {});
 		const message = refusalMessage(result, t().today.refused.addMore);
+		// Offline the root layout's toast says it, once, in the person's language.
+		if (offlineRefusal(result)) {
+			busy = false;
+			return;
+		}
 		const first =
 			result.type === 'success'
 				? (result.data as { exerciseIds?: number[] } | undefined)?.exerciseIds?.[0]

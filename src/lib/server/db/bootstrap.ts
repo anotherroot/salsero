@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { deviceRuntime } from '../device-runtime';
 import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
 import { crossRefs, danceIntegrity, familyIntegrity, ownerIntegrity } from '../integrity';
@@ -45,6 +46,8 @@ function checkIntegrity(db: Db): void {
  * Awaited by the first request so nothing can race an unmigrated schema.
  */
 export function bootstrap(): Promise<void> {
+	// The device's copy is already migrated and seeded; none of the server's boot work applies.
+	if (deviceRuntime()) return Promise.resolve();
 	// Every account in one dance first (the dance split): a session must never
 	// see an unplaced account, and the boot admin counts accounts per dance.
 	ready ??= splitAccounts(getDb(), realCloneFiles(), serverNow())

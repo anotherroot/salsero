@@ -57,6 +57,7 @@ import { restoreDrill } from './exercises';
 import { restoreSong } from './song-share';
 import { restorePositionIn } from './positions';
 import { purgeTeams } from './team-purge';
+import { pruneChangeLog } from './sync/log';
 import { realCloneFiles } from './clones/files';
 import { settleFormerMembers } from './clones/settle';
 import { getTeam, roleOf } from './teams';
@@ -635,6 +636,9 @@ export function startTrashPurge(db: () => Db, afterSettle: () => void = () => {}
 			.catch((err) => console.warn('[trash] purge failed', err))
 			.then(() => purgeTeams(db(), now))
 			.catch((err) => console.warn('[team-purge] purge failed', err));
+		void Promise.resolve()
+			.then(() => pruneChangeLog(db(), now))
+			.catch((err) => console.warn('[sync] prune failed', err));
 	};
 	const settle = async () => {
 		const n = await settleFormerMembers(db(), realCloneFiles(), serverNow());

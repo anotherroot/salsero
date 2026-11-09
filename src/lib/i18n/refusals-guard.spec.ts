@@ -13,7 +13,9 @@ const MACHINES = [
 	/^src\/routes\/api\/worker\//,
 	/^src\/routes\/(recordings|audio|count|lesson-videos)\/\[file\]\//,
 	/^src\/routes\/releases\//,
-	/^src\/routes\/api\/app-update\//
+	/^src\/routes\/api\/app-update\//,
+	// The device worker's pull: read by code, never shown.
+	/^src\/routes\/api\/sync\//
 ];
 
 function walk(dir: string): string[] {

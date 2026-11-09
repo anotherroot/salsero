@@ -1,6 +1,7 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
 import { t } from '$lib/i18n/catalog';
+import { NEEDS_CONNECTION } from '$lib/offline/needs-connection';
 import { tabFor } from '$lib/nav/tabs';
 import { tabsFor, type Level } from '$lib/levels/levels';
 
@@ -18,14 +19,14 @@ export interface ErrorView {
 // SvelteKit's own words for a status; they say nothing a person can use.
 const GENERIC = new Set(['Not Found', 'Internal Error', 'Error']);
 
-/** What an error page says. `offline` wins over any status: the server was never reached. */
+/** What an error page says. `offline` wins over any status: the server was never reached (or the device could not answer: needs-connection). */
 export function errorView(
 	status: number,
 	message: string | undefined,
 	offline: boolean
 ): ErrorView {
 	const w = t().shell.error;
-	if (offline) {
+	if (offline || message === NEEDS_CONNECTION) {
 		return {
 			title: w.offlineTitle,
 			icon: 'refresh',

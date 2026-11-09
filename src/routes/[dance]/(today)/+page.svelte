@@ -13,7 +13,7 @@
 	import { addedMessage, doneSubtitle } from '$lib/exercises/done-view';
 	import { announceSaved } from '$lib/exercises/saved.svelte';
 	import { actAt } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import { t } from '$lib/i18n/catalog';
 	import type { DoneResult } from '$lib/types';
 	import type { PageData } from './$types';
@@ -52,8 +52,10 @@
 	async function saveFixed(id: number, day: string) {
 		const result = await actAt(`/${data.dance.slug}`, 'done', { exerciseId: id, day, rating: '' });
 		const refused = refusalMessage(result, t().exercise.log.didNotSave);
-		if (refused !== null) announceSaved({ dance: data.dance.slug, message: refused, undo: null });
-		else if (result.type === 'success') saved(result.data as unknown as DoneResult, day);
+		if (refused !== null) {
+			if (!offlineRefusal(result))
+				announceSaved({ dance: data.dance.slug, message: refused, undo: null });
+		} else if (result.type === 'success') saved(result.data as unknown as DoneResult, day);
 	}
 
 	/** Added: the sheet closes, and "Added to Thu 5 Nov · Undo" shows over the day. */

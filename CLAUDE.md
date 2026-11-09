@@ -38,6 +38,8 @@ npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/deploy.sh   # see docs/deployment.md
 # slots: C-1…C-9 in tmux; prefix C-a for reset-db and close slot (tmux_project)
 nix develop .#android -c ./android/gradlew -p android test assembleDebug   # the APK
+npm run test:device   # the suite on the WASM shim (slow; not in check)
+scripts/offline/serve.sh <db> + walk.py   # every page offline (scripts/offline/README.md)
 ```
 
 In dev `DANCE_HOSTS` is unset, so the path decides the dance (bachata login:
@@ -147,6 +149,12 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
 **Auth and walls**
 
 - Deny-by-default auth (`hooks.server.ts`); public routes go in `PUBLIC_PATHS`.
+- Offline: every table is classified in `src/lib/sync/tables.ts` (a newly synced
+  one gets its triggers in a NEW custom migration, `scripts/sync-triggers.ts <table>`;
+  never edit 0042); no row
+  leaves the server outside `syncScope`; every GET endpoint is classified in
+  `src/lib/offline/routes.ts`; the device answers only when the network
+  fails, and only GETs (docs/hard-rules.md).
 - A device token signs in on `/api/` only (not pages, not `/api/worker/`); hash only.
 - An account belongs to one dance (`users.dance`): `wallOf` 404s another dance;
   a flat route takes the account's dance, never the request's.

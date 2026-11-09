@@ -1204,7 +1204,7 @@ export const appFlags = sqliteTable('app_flags', {
 
 /**
  * The highest id used per table and slot (`src/lib/server/db/ids.ts`). Kept by
- * an `AFTER INSERT` trigger on each id table (migration 0035), read by every
+ * an `AFTER INSERT` trigger on each id table (migration 0037), read by every
  * id column's default. Each database keeps its own: never synced.
  */
 export const idMarks = sqliteTable(
@@ -1549,3 +1549,16 @@ export type SetRow = typeof sets.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type LessonVideo = typeof lessonVideos.$inferSelect;
 export type VideoSpot = typeof videoSpots.$inferSelect;
+
+/**
+ * What changed, for the device's pull (offline phase 2): one row per change to
+ * a synced table, written by triggers (migration 0042), never by code. Keyed on
+ * `seq`, so it does not mint ids. Pruned after 30 days.
+ */
+export const changeLog = sqliteTable('change_log', {
+	seq: integer('seq').primaryKey({ autoIncrement: true }),
+	tbl: text('tbl').notNull(),
+	key: text('key').notNull(),
+	op: text('op', { enum: ['i', 'u', 'd'] }).notNull(),
+	at: integer('at').notNull()
+});

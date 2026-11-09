@@ -24,11 +24,37 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   insert into an id table, and no migration insert without `id`. A new
   integer-id table gets `mintedId` and a mark trigger (as in migration 0038).
   `ids.spec.ts` checks all of it.
+  The one exception is `change_log.seq`: a log, never synced, each database
+  keeps its own.
 - **Server code reads the time through `serverNow()`**
   (`src/lib/server/server-clock.ts`), never `Date.now()` or `new Date()`:
   offline replay will set it to when a change was made.
   `server-clock.spec.ts` scans for it. Pure modules still take `now` as an
   argument.
+- **Every table is classified for sync** in `src/lib/sync/tables.ts`: synced
+  (with its key columns) or never synced; `tables.spec.ts` fails on an
+  unclassified table. A table newly synced gets its four change-log triggers
+  in a NEW custom migration (`npx drizzle-kit generate --custom`, filled by
+  `node scripts/sync-triggers.ts <table>`); never edit an applied migration:
+  production never runs 0042 again. `tables.spec.ts` freezes 0042's tables,
+  and `log.spec.ts` fails until every synced table has its triggers.
+- **No row leaves the server outside `syncScope`**
+  (`src/lib/server/sync/scope.ts`): what a person may read, row by row, as
+  `access.ts` decides, redacted where the server shows less (other people's
+  users rows, a group's code to plain members, deleted comments). A new synced
+  table gets its rule there and a case in `scope.spec.ts`. The scope is not
+  closed over foreign keys, so the device never checks them.
+- **A new GET endpoint is classified** in `src/lib/offline/routes.ts`: the
+  device answers it only when synced rows can (`DEVICE_ENDPOINTS`), otherwise
+  `NETWORK_ENDPOINTS`; a page that needs the server's own state goes in
+  `NETWORK_PAGES`. `routes.spec.ts` fails on an unclassified one.
+- **The device answers only when the network fails, and only GETs** (until
+  phase 3). Online every request reaches the server first, as without a
+  service worker; after a save, a page's reads wait for the network until
+  the device has pulled it (`DeviceClients` in `sw-route.ts`). A write
+  offline gets "Needs a connection" and changes nothing. Server code never
+  reads the request store across an await (`getRequestEvent`, `$app/server`):
+  the device's `AsyncLocalStorage` is a stub.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
   while a live exercise uses it, archived ones lose `song_id`; a group song's

@@ -35,9 +35,11 @@
 		bottom?: string;
 		/** Absolute within its container (a dialog) instead of fixed to the viewport. */
 		contained?: boolean;
+		/** How long it shows, in ms (six seconds unless said). */
+		duration?: number;
 	}
 
-	let { toast, onaction, ondismiss, bottom, contained = false }: Props = $props();
+	let { toast, onaction, ondismiss, bottom, contained = false, duration = 6000 }: Props = $props();
 
 	const offset = $derived(
 		bottom ??
@@ -53,7 +55,7 @@
 		if (toast === null || held) return;
 		// Read the id so the effect re-runs, and the timer restarts, per toast.
 		void toast.id;
-		const timer = setTimeout(ondismiss, 6000);
+		const timer = setTimeout(ondismiss, duration);
 		return () => clearTimeout(timer);
 	});
 

@@ -94,6 +94,15 @@ describe('the Done sheet’s save', () => {
 		expect(update).not.toHaveBeenCalled();
 	});
 
+	it('offline: says nothing of its own (the root layout says it, translated), keeps the face and note', async () => {
+		const { f, saved } = sheet();
+		await run(f, { type: 'failure', status: 503, data: { offline: true } });
+		expect(f.busy).toBeNull();
+		expect(f.refusal).toBeNull();
+		expect(f.feel).toBe('gotit');
+		expect(saved).toEqual([]);
+	});
+
 	it('an error or a refusal without words says it did not save', async () => {
 		for (const result of [
 			{ type: 'error', error: new Error('500') },

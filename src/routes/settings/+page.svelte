@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { act } from '$lib/act';
-	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+	import { offlineRefusal, refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -91,7 +91,7 @@
 	function failed(result: ActionResult) {
 		const message = refusalMessage(result, t().settings.couldNotSave);
 		if (message === null) return false;
-		toast = { id: ++seq, message };
+		if (!offlineRefusal(result)) toast = { id: ++seq, message };
 		return true;
 	}
 

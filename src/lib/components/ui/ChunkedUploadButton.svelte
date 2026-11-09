@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { messageFromBody } from '$lib/upload-error';
 	import { invalidateAll } from '$app/navigation';
+	import { noteSaved } from '$lib/offline/device.svelte';
 	import { tick } from 'svelte';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { holdReload } from '$lib/nav/fresh.svelte';
@@ -199,7 +200,11 @@
 		if (hadFocus) input?.focus();
 		// Once, at the end: refreshing between files would tear down and re-mount
 		// the <video> elements already on the page, mid-upload.
-		if (added > 0) await invalidateAll();
+		if (added > 0) {
+			// The device's copy has none of it yet (`noteSaved`).
+			noteSaved();
+			await invalidateAll();
+		}
 	}
 </script>
 

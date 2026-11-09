@@ -133,5 +133,8 @@ export const shell: Catalog['shell'] = {
 		larger: (limit) => `Datoteka je večja od ${limit}.`,
 		empty: 'Datoteka je prazna.',
 		interrupted: 'Nalaganje je bilo prekinjeno. Poskusite znova.'
+	},
+	offline: {
+		needsConnection: 'Potrebna je povezava. Nič se ni spremenilo.'
 	}
 };
