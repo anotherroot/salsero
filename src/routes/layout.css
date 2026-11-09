@@ -611,3 +611,8 @@ a[href]:active {
 		opacity: 0.55;
 	}
 }
+
+/* An action that needs a connection, while offline (use:needsConnection, offline phase 3): greyed, never recoloured. */
+[data-offline] {
+	opacity: 0.4;
+}

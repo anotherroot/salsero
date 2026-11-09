@@ -32,6 +32,11 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UpdateButton from '$lib/components/system/UpdateButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import { connection } from '$lib/offline/connection.svelte';
+	import { needsConnection } from '$lib/offline/needs-connection-action';
+	import { forgetCopy, unsyncedBeforeSignOut } from '$lib/offline/device.svelte';
+	import { signOutQuestion } from '$lib/sync/view';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
@@ -87,6 +92,29 @@
 
 	let toast = $state<ToastState | null>(null);
 	let seq = 0;
+
+	/**
+	 * Sign out (offline phase 3): what waits goes up first; if anything still has
+	 * not synced, it asks before the device forgets it. The copy and its changes
+	 * go with the session, never later.
+	 */
+	let signOutForm = $state<HTMLFormElement | undefined>();
+	let losing = $state(0);
+	async function signOut(e: SubmitEvent) {
+		e.preventDefault();
+		const n = await unsyncedBeforeSignOut();
+		if (n > 0) {
+			losing = n;
+			return;
+		}
+		await forgetCopy();
+		signOutForm?.submit();
+	}
+	async function signOutAnyway() {
+		losing = 0;
+		await forgetCopy();
+		signOutForm?.submit();
+	}
 
 	function failed(result: ActionResult) {
 		const message = refusalMessage(result, t().settings.couldNotSave);
@@ -163,10 +191,17 @@
 <svelte:head><title>{t().shell.settings} · {dance.label}</title></svelte:head>
 
 <!-- A row that opens a sheet: its label, what is chosen, a chevron. -->
-{#snippet opener(label: string, value: string, onclick: () => void, focus?: string)}
+{#snippet opener(
+	label: string,
+	value: string,
+	onclick: () => void,
+	focus?: string,
+	network = false
+)}
 	<button
 		type="button"
 		data-focus={focus}
+		use:needsConnection={network ? connection.online : undefined}
 		class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
 		{onclick}
 	>
@@ -188,7 +223,13 @@
 	{/snippet}
 
 	<div class={GROUP}>
-		{@render opener(w.language, LOCALE_NAME[data.locale], () => (sheet = 'language'))}
+		{@render opener(
+			w.language,
+			LOCALE_NAME[data.locale],
+			() => (sheet = 'language'),
+			undefined,
+			true
+		)}
 	</div>
 
 	<div class={GROUP}>
@@ -222,7 +263,7 @@
 					</div>
 				{/if}
 			</div>
-			<a href="/settings/storage" class={ROW_TALL}>
+			<a href="/settings/storage" class={ROW_TALL} use:needsConnection={connection.online}>
 				<LeadTile icon="sliders" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{w.storage.whatUses}</span>
@@ -275,7 +316,13 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">{w.appearance.label}</span>
 	<div class={GROUP}>
-		{@render opener(w.appearance.theme, themeLabel(data.theme), () => (sheet = 'theme'))}
+		{@render opener(
+			w.appearance.theme,
+			themeLabel(data.theme),
+			() => (sheet = 'theme'),
+			undefined,
+			true
+		)}
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">{w.appearance.note}</p>
 
@@ -400,7 +447,13 @@
 				A POST, not a link: /logout has always been a POST so that a prefetch or
 				a crawled link cannot sign you out from under you.
 			-->
-			<form method="POST" action="/logout">
+			<form
+				method="POST"
+				action="/logout"
+				bind:this={signOutForm}
+				onsubmit={signOut}
+				use:needsConnection={connection.online}
+			>
 				<button class={button('tertiary', 'sm')}
 					><Icon name="logout" size={18} />{w.account.signOut}</button
 				>
@@ -469,6 +522,24 @@
 	}}
 	onclose={() => (sheet = null)}
 />
+
+<Dialog
+	open={losing > 0}
+	tone="danger"
+	icon="logout"
+	title={signOutQuestion(losing).title}
+	body={signOutQuestion(losing).body}
+	onclose={() => (losing = 0)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('danger', 'md', true)} onclick={signOutAnyway}
+			>{signOutQuestion(losing).confirm}</button
+		>
+		<button type="button" class={button('secondary', 'md', true)} onclick={() => (losing = 0)}
+			>{t().common.cancel}</button
+		>
+	{/snippet}
+</Dialog>
 
 <Sheet title={w.storage.askForMore} open={sheet === 'ask'} onclose={() => (sheet = null)}>
 	<form

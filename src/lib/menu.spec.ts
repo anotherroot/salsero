@@ -1,6 +1,6 @@
 import { withLocale } from '$lib/i18n/current';
 import { describe, expect, it } from 'vitest';
-import { menuLabel, orderMenu, type MenuItem } from './menu';
+import { menuLabel, offlineMenu, orderMenu, type MenuItem } from './menu';
 
 const item = (key: string, danger = false): MenuItem => ({
 	key,
@@ -49,5 +49,25 @@ describe('menuLabel in Slovenian', () => {
 			'Meni skladbe',
 			'Meni lekcije'
 		]);
+	});
+});
+
+describe('offlineMenu', () => {
+	const items: MenuItem[] = [
+		{ key: 'edit', icon: 'edit', label: 'Edit' },
+		{ key: 'copy', icon: 'copy', label: 'Copy to…', network: true }
+	];
+	it('greys the items that need a connection, offline only, with one note', () => {
+		expect(offlineMenu(items, true)).toEqual({
+			note: false,
+			items: items.map((i) => ({ ...i, disabled: false }))
+		});
+		const off = offlineMenu(items, false);
+		expect(off.note).toBe(true);
+		expect(off.items.map((i) => [i.key, i.disabled])).toEqual([
+			['edit', false],
+			['copy', true]
+		]);
+		expect(offlineMenu([items[0]], false).note).toBe(false);
 	});
 });

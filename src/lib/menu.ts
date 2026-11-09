@@ -16,6 +16,8 @@ export type MenuItem = {
 	danger?: boolean;
 	href?: string;
 	onclick?: () => void;
+	/** Needs a connection: greyed offline (offline phase 3). */
+	network?: boolean;
 };
 
 /**
@@ -31,4 +33,16 @@ export function orderMenu(own: MenuItem[], copies: MenuItem[]): MenuItem[] {
 /** The ⋯ button's name: "Position menu", in the reader's language. */
 export function menuLabel(kind: CloneKind): string {
 	return t().clones.menuLabel(kind);
+}
+
+/**
+ * The menu offline (offline phase 3, look 4B): the items that need a
+ * connection greyed, and one note at the top saying so; online, as it is.
+ */
+export function offlineMenu(
+	items: MenuItem[],
+	online: boolean
+): { note: boolean; items: (MenuItem & { disabled: boolean })[] } {
+	const out = items.map((i) => ({ ...i, disabled: !online && !!i.network }));
+	return { note: out.some((i) => i.disabled), items: out };
 }
