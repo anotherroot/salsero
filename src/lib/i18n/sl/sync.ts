@@ -1,4 +1,11 @@
 import type { Catalog } from '../catalog';
+import { slCount, slForm } from '../plural';
+
+/** "5 sprememb čaka", "2 spremembi čakata": the verb agrees with the count. */
+const changesWait = (n: number) =>
+	`${slCount(n, ['sprememba', 'spremembi', 'spremembe', 'sprememb'])} ${
+		{ one: 'čaka', two: 'čakata', few: 'čakajo', other: 'čaka' }[slForm(n)]
+	}`;
 
 // Sinhronizacija (offline phase 3). A person's name stands after a "·".
 export const sync: Catalog['sync'] = {
@@ -7,6 +14,13 @@ export const sync: Catalog['sync'] = {
 		waiting: (n) => `${n} v čakanju`,
 		refused: (n) => `Ni sinhronizirano: ${n}`,
 		signIn: 'Prijavite se za sinhronizacijo'
+	},
+	strip: {
+		offline: (n) => (n === 0 ? 'Brez povezave' : `Brez povezave · ${changesWait(n)}`),
+		waiting: (n) => `${changesWait(n)} na pošiljanje`,
+		sending: (n) => `Pošiljam ${n} …`,
+		sent: 'Vse poslano',
+		see: 'Poglej'
 	},
 	refusedHeading: 'Ni sinhronizirano',
 	waitingHeading: 'V čakanju',

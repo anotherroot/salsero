@@ -10,6 +10,15 @@ export const sync = {
 		refused: (n: number): string => `${n} couldn't sync`,
 		signIn: 'Sign in to sync'
 	},
+	/** The offline strip above the tab bar (look C2). */
+	strip: {
+		offline: (n: number): string =>
+			n === 0 ? 'Offline' : `Offline · ${n === 1 ? '1 change' : `${n} changes`} waiting`,
+		waiting: (n: number): string => `${n === 1 ? '1 change' : `${n} changes`} waiting to be sent`,
+		sending: (n: number): string => `Sending ${n} …`,
+		sent: 'All sent',
+		see: 'See'
+	},
 	refusedHeading: "Couldn't sync",
 	waitingHeading: 'Waiting',
 	retry: 'Retry',

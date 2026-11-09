@@ -50,6 +50,7 @@
 	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
 	import { pagePerson } from '$lib/offline/person';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -236,6 +237,8 @@
 	 */
 	const cannotLoad = () => !navigator.onLine && !deviceReady();
 	let offline = $state<URL | null>(null);
+	/** The offline strip's height (`--strip-h`): toasts sit above it, the page ends in a spacer as tall. */
+	let stripH = $state(0);
 	let layer = $state<HTMLDialogElement>();
 	// Taken before the layer mounts: its own <title> is already in place by then.
 	let titleBefore = '';
@@ -515,6 +518,7 @@
 		style:display="contents"
 		style:--pin-bottom={tabs ? 'var(--tab-bar-space)' : '0px'}
 		style:--pin-safe={tabs ? '0px' : 'var(--safe-bottom)'}
+		style:--strip-h="{stripH}px"
 	>
 		<!-- The sheet: the phone's 560 column, or on the desktop the window past the frame. -->
 		<div
@@ -523,6 +527,7 @@
 				: ''} {SHEET[frame]}"
 		>
 			{@render children()}
+			<div aria-hidden="true" style:height="var(--strip-h)"></div>
 		</div>
 		{#if skeleton}
 			<PageSkeleton
@@ -547,6 +552,7 @@
 		{#if tabs}
 			<BottomNav dance={navDance.slug} path={shownPath} />
 		{/if}
+		<OfflineStrip dance={navDance.slug} onheight={(px) => (stripH = px)} />
 		<!-- After the content, in the tab bar's place (desktop spec, "Keyboard and focus"). -->
 		{#if frame === 'side'}
 			<Side dance={navDance.slug} path={shownPath} />

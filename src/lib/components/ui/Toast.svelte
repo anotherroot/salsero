@@ -41,11 +41,11 @@
 
 	let { toast, onaction, ondismiss, bottom, contained = false, duration = 6000 }: Props = $props();
 
+	// Above the offline strip too when it shows (`--strip-h`, the layout's).
 	const offset = $derived(
-		bottom ??
-			(contained
-				? '1rem'
-				: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))')
+		contained
+			? (bottom ?? '1rem')
+			: `calc(${bottom ?? 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'} + var(--strip-h, 0px))`
 	);
 
 	/** A finger is on the toast: its clock waits. */

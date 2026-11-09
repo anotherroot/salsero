@@ -8,6 +8,7 @@ import { weekdayShort } from '$lib/format';
 import type { OutboxItem } from '$lib/offline/protocol';
 import type { EntryLabel } from './outbox';
 import type { SyncStatus } from './status';
+import type { Strip } from './strip';
 
 /** The band's words for a status; null when it says nothing. */
 export function statusText(s: SyncStatus): string | null {
@@ -16,6 +17,16 @@ export function statusText(s: SyncStatus): string | null {
 	if (s.kind === 'refused') return w.refused(s.count);
 	if (s.kind === 'signin') return w.signIn;
 	return null;
+}
+
+/** The offline strip's words; null: no strip. */
+export function stripText(s: Strip): string | null {
+	const w = t().sync.strip;
+	if (s === null) return null;
+	if (s.kind === 'offline') return w.offline(s.count);
+	if (s.kind === 'waiting') return w.waiting(s.count);
+	if (s.kind === 'sending') return w.sending(s.count);
+	return w.sent;
 }
 
 const when = (at: number, tz: string) => `${weekdayShort(localDay(at, tz))} ${timeOfDay(at, tz)}`;

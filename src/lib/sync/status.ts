@@ -25,6 +25,12 @@ export function syncStatus(s: OutboxSummary | null, now: number): SyncStatus {
 	return { kind: 'none' };
 }
 
+/** What the band says: only what needs the person (couldn't sync, sign in); what waits is the offline strip's (look C2). */
+export function bandStatus(s: OutboxSummary | null, now: number): SyncStatus {
+	const status = syncStatus(s, now);
+	return status.kind === 'waiting' ? { kind: 'none' } : status;
+}
+
 /** When "waiting" would start showing, if later than now; null otherwise. */
 export function graceEndsAt(s: OutboxSummary | null, now: number): number | null {
 	if (!s || s.waiting === 0 || s.oldestWaitingAt === null) return null;

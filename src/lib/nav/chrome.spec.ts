@@ -35,8 +35,8 @@ async function build(name: string, source: string) {
 let flushSync: () => void;
 let bottom: { readonly claimed: boolean };
 let claimBottom: (active: () => boolean) => void;
-let pinned: { readonly bar: boolean };
-let pinBar: () => void;
+let pinned: { readonly bar: boolean; readonly height: number };
+let pinBar: (height?: () => number) => void;
 let flag: (v: boolean) => { value: boolean };
 let root: (setup: () => void) => () => void;
 
@@ -102,5 +102,22 @@ describe('pinBar', () => {
 		stopB();
 		flushSync();
 		expect(pinned.bar).toBe(false);
+	});
+
+	it("says the tallest mounted bar's height, as it changes, and 0 with none", () => {
+		const h = flag(56 as unknown as boolean) as unknown as { value: number };
+		const stopA = root(() => pinBar(() => h.value));
+		const stopB = root(() => pinBar(() => 40));
+		flushSync();
+		expect(pinned.height).toBe(56);
+		h.value = 30;
+		flushSync();
+		expect(pinned.height).toBe(40);
+		stopB();
+		flushSync();
+		expect(pinned.height).toBe(30);
+		stopA();
+		flushSync();
+		expect(pinned.height).toBe(0);
 	});
 });

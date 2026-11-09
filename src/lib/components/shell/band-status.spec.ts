@@ -64,6 +64,17 @@ describe('the band says what could not sync', () => {
 		expect(desk.map((r) => r.text).join(' ')).not.toContain("couldn't sync");
 	});
 
+	it("never says what waits: that is the offline strip's (look C2)", () => {
+		sync.summary = { ...SUMMARY, refused: 0, waiting: 3, oldestWaitingAt: 1 };
+		for (const variant of ['band', 'pane'] as const) {
+			const text = subtitles(variant)
+				.map((r) => r.text)
+				.join(' ');
+			expect(text).not.toContain('waiting');
+			expect(text).toContain('Figure · 8 counts');
+		}
+	});
+
 	it('the band row says it at both widths', () => {
 		const rows = subtitles('band');
 		expect(rows.some((r) => r.phone && r.text.includes("couldn't sync"))).toBe(true);

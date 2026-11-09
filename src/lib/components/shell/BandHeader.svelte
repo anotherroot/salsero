@@ -6,7 +6,7 @@
 	import GroupFaces from './GroupFaces.svelte';
 	import SyncStatus from '$lib/components/system/SyncStatus.svelte';
 	import { sync } from '$lib/offline/device.svelte';
-	import { syncStatus } from '$lib/sync/status';
+	import { bandStatus } from '$lib/sync/status';
 	import { PANE_PAD_DESK, PANE_TITLE_DESK } from '$lib/components/ui/styles';
 	import type { GroupMode } from '$lib/types';
 
@@ -80,7 +80,7 @@
 	 * under the list's band row, which already says it).
 	 */
 	const deskStatus = $derived(variant === 'band');
-	const statusShows = $derived(syncStatus(sync.summary, sync.now).kind !== 'none');
+	const statusShows = $derived(bandStatus(sync.summary, sync.now).kind !== 'none');
 	/** The desktop's subtitle when it differs from the phone's (its own text, or no status). */
 	const deskText = $derived(deskSubtitle ?? (deskStatus ? undefined : subtitle));
 

@@ -29,17 +29,39 @@ export function claimBottom(active: () => boolean): void {
  * sit above the bar rather than on it (`SavedToast`). Bars count, as claims do.
  */
 let pins = $state(0);
+/** Each mounted bar's height, by a key of its own (the offline strip sits above the tallest). */
+const heights = $state<Record<number, number>>({});
+let nextKey = 0;
 
 export const pinned = {
 	get bar() {
 		return pins > 0;
+	},
+	/** The tallest pinned bar's height in px; 0 with none. */
+	get height() {
+		return Math.max(0, ...Object.values(heights));
 	}
 };
 
-/** Call during a pinned bar's init: counts it while it is mounted. */
-export function pinBar(): void {
+/** Call during a pinned bar's init: counts it while it is mounted, and its height if given. */
+export function pinBar(height?: () => number): void {
 	$effect(() => {
 		untrack(() => pins++);
 		return () => untrack(() => pins--);
 	});
+	if (height) barHeight(height);
+}
+
+/**
+ * Call during the init of a bar at the foot of the page: its height lifts the
+ * offline strip above it (`pinned.height`), without counting it as pinned for
+ * toasts (the figure switcher: its page's toasts already clear it).
+ */
+export function barHeight(height: () => number): void {
+	const key = nextKey++;
+	$effect(() => {
+		const h = height();
+		untrack(() => (heights[key] = h));
+	});
+	$effect(() => () => untrack(() => delete heights[key]));
 }

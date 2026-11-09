@@ -7,12 +7,46 @@ import {
 	lastSyncedText,
 	reasonText,
 	signOutQuestion,
-	statusText
+	statusText,
+	stripText
 } from './view';
 
 // Tue 2026-11-10 10:04 UTC
 const TUE = Date.UTC(2026, 10, 10, 10, 4);
 const en = <T>(fn: () => T) => withLocale('en', fn);
+
+describe('the offline strip words', () => {
+	const sl = <T>(fn: () => T) => withLocale('sl', fn);
+	it('says offline and how many changes wait, in both languages', () => {
+		expect(en(() => stripText({ kind: 'offline', count: 0 }))).toBe('Offline');
+		expect(en(() => stripText({ kind: 'offline', count: 1 }))).toBe('Offline · 1 change waiting');
+		expect(en(() => stripText({ kind: 'offline', count: 5 }))).toBe('Offline · 5 changes waiting');
+		expect(sl(() => stripText({ kind: 'offline', count: 0 }))).toBe('Brez povezave');
+		expect(sl(() => stripText({ kind: 'offline', count: 1 }))).toBe(
+			'Brez povezave · 1 sprememba čaka'
+		);
+		expect(sl(() => stripText({ kind: 'offline', count: 2 }))).toBe(
+			'Brez povezave · 2 spremembi čakata'
+		);
+		expect(sl(() => stripText({ kind: 'offline', count: 3 }))).toBe(
+			'Brez povezave · 3 spremembe čakajo'
+		);
+		expect(sl(() => stripText({ kind: 'offline', count: 5 }))).toBe(
+			'Brez povezave · 5 sprememb čaka'
+		);
+	});
+
+	it('says waiting online, sending, and all sent', () => {
+		expect(en(() => stripText({ kind: 'waiting', count: 2 }))).toBe('2 changes waiting to be sent');
+		expect(sl(() => stripText({ kind: 'waiting', count: 2 }))).toBe(
+			'2 spremembi čakata na pošiljanje'
+		);
+		expect(en(() => stripText({ kind: 'sending', count: 5 }))).toBe('Sending 5 …');
+		expect(sl(() => stripText({ kind: 'sending', count: 5 }))).toBe('Pošiljam 5 …');
+		expect(en(() => stripText({ kind: 'sent' }))).toBe('All sent');
+		expect(sl(() => stripText({ kind: 'sent' }))).toBe('Vse poslano');
+	});
+});
 
 describe('the Sync words', () => {
 	it('says a log as "Log · Enchufla drill · Tue 10:04"', () => {
