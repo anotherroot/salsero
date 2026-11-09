@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { bandMode, slimFade } from '$lib/nav/band';
+	import { bandMode, bandProgress } from '$lib/nav/band';
+	import { bandCollapse } from '$lib/components/shell/band-collapse';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
@@ -80,7 +81,23 @@
 	});
 	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
-	const fade = $derived(desk.current ? 0 : slimFade(scrollY, compact, pinAt));
+	/*
+	 * On the way to the pin the big band folds into the slim one: its title shrinks
+	 * into the slim title's place and its buttons move to the slim row
+	 * (`band-collapse.ts`), so at the pin the slim band takes over unseen.
+	 */
+	let slimEl = $state<HTMLElement>();
+	const fold = bandCollapse();
+	$effect(() => {
+		const y = scrollY;
+		const header = (sheet?.previousElementSibling as HTMLElement | null) ?? null;
+		if (desk.current || split === 'item' || !header || !slimEl || pinAt === null) {
+			fold.clear(header);
+			return;
+		}
+		const key = `${innerWidth}|${title}|${subtitle ?? ''}|${compact}`;
+		fold.update(header, slimEl, y, bandProgress(y, compact, pinAt), key);
+	});
 
 	/*
 	 * Inside a list's item pane (desktop spec, "A list and the item beside it"), the
@@ -125,15 +142,17 @@
 	<div aria-hidden="true" class="fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-band"></div>
 
 	<!--
-		The slim band: fixed, coming in with the scroll over the last stretch before the
-		big band would leave, so the band is picked up, not popped in. Never on the desktop.
+		The slim band: fixed, there from the pin on. The big band has folded into it by
+		then (title and buttons in its places), so it takes over without a fade. Never
+		on the desktop.
 	-->
 	<div
 		data-slim-band
+		bind:this={slimEl}
 		bind:clientHeight={slimH}
 		class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] desk:hidden"
+		class:opacity-0={!slim}
 		class:pointer-events-none={!slim}
-		style:opacity={fade}
 		aria-hidden={slim ? undefined : 'true'}
 		inert={!slim}
 		style="padding-top: var(--safe-top); height: calc(4rem + var(--safe-top)); --focus-ring: var(--color-band-ink)"
@@ -146,16 +165,17 @@
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span
 						class="truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-						>{title}</span
+						data-slim-name>{title}</span
 					>
-					<span class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
-						>{subtitle}</span
+					<span
+						class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
+						data-slim-sub>{subtitle}</span
 					>
 				</span>
 			{:else}
 				<span
 					class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-					>{title}</span
+					data-slim-name>{title}</span
 				>
 			{/if}
 			{#if right}<div class="flex items-center">{@render right()}</div>{/if}

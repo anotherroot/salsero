@@ -261,7 +261,7 @@ src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled t
                      variants), drawn by components/ui/Icon.svelte (`stroke` for
                      the heavier checks)
 src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the bar
-                     shows. band.ts: the big or slim band by scroll (the slim one pins where the sheet meets it, `pinAt`, and comes in with the scroll, `slimFade`). pending.ts: what a tap shows
+                     shows. band.ts: the big or slim band by scroll (the slim one pins where the sheet meets it, `pinAt`; `bandProgress` is how far the big one has folded into it, drawn by `components/shell/band-collapse.ts`). pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
                      a band (a page without one is named in the spec with its reason).
@@ -280,7 +280,7 @@ src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: side, bare, card, no
                      `listOf` (which list column a path belongs to) and `paneBack` (whether an
                      item's ‹ shows). desk.svelte.ts: the `desk` media query (from 1024 px)
 src/lib/components/shell/  Side.svelte (the band-coloured side with the tabs), SheetCorner (the
-                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions),
+                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions; its parts marked `data-band-*` for band-collapse.ts, the phone band folding into the slim one),
                      ListPane (a list column with its band) and Pane (the item beside it;
                      `pane-context.ts` tells a page it is in one), CardFrame (the centred 480 px
                      card on the band colour: sign in, Join, Welcome, Get the app, Pair, `/g/<code>`

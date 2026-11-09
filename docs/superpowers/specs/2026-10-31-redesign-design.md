@@ -235,8 +235,11 @@ rules the boards follow that are not obvious from looking at them.
   shrink to a slim band (≈64 px: back, name, actions) once scrolled. Main
   screens shrink the same way on scroll. The band is picked up, never dropped
   (2026-11-09): it scrolls until the sheet meets the slim band's bottom and
-  stops there, the slim title coming in over the last 40 px of scroll (it used
-  to scroll away whole, the slim band fading in after).
+  stops there. On the way the big title shrinks into the slim title's place,
+  Back and the actions move to the slim row, a compact screen's subtitle to
+  the slim one's, and the rest under the title fades; at the pin the slim band
+  takes over unseen, nothing fades in (it used to scroll away whole, the slim
+  band fading in after).
 - **Edit** is a pencil on the band. Editing shows × ("Stop editing", asks if
   unsaved) and the form's Save pinned at the bottom — one Save, not a header
   Done plus a form Save. **One exception:** the song page's Edit (spec
