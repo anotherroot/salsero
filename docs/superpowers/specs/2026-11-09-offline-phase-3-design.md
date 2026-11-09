@@ -77,9 +77,10 @@ backup; not in the repo). The picks:
 band did not say the phone was offline. What waits moved to an amber strip
 (the theme's warn colours) above the page's own bottom bar (the figure
 switcher, Done, Save) and the tab bar, on every screen: offline "Offline · 5
-changes waiting" (or just "Offline"); online and still waiting after the grace,
-"5 changes waiting to be sent"; back online "Sending 5 …", then "All sent" for
-2 s, then gone. "See ›" opens the Sync page; toasts sit above the strip. The
+changes waiting" (or just "Offline"); back online with changes waiting
+"Sending 5 …", then "All sent" for 2 s, then gone. Online an ordinary save
+never shows, however slow (the person's second ask: only offline or a problem):
+only changes stuck for a minute say "5 changes waiting to be sent". "See ›" opens the Sync page; toasts sit above the strip. The
 band keeps only the pills (couldn't sync, sign in). `src/lib/sync/strip.ts`,
 `components/system/OfflineStrip.svelte`.
 
