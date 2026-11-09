@@ -61,7 +61,8 @@ export interface Ask {
 	scoped: boolean;
 	/** The word on the way out: Leave, Close, Skip. */
 	verb: string;
-	onleave: () => void;
+	/** The way out; `moved`: the dialog's Save already took the page elsewhere (a redirect). */
+	onleave: (after?: { moved: boolean }) => void;
 }
 
 /** The question on screen, if any. `UnsavedDialog` shows it. */
@@ -187,11 +188,12 @@ export function guardNavigation(): void {
 			entries: list,
 			scoped: false,
 			verb: t().shell.unsaved.leave,
-			onleave: () => {
+			onleave: (after) => {
 				passing = true;
 				// Back and forward replay the history move, rather than pushing
-				// the page they were heading for as a new entry.
-				if (delta) history.go(delta);
+				// the page they were heading for as a new entry; not from where a
+				// save's redirect has already moved the page.
+				if (delta && !after?.moved) history.go(delta);
 				else if (external) location.href = to.href;
 				// `to` is the URL the app was already heading for, resolved by then.
 				else void goto(to);
