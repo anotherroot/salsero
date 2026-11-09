@@ -129,3 +129,22 @@ describe('the Suggestions page', () => {
 		expect(tabDot('you', { aiPending: 0 })).toBe(false);
 	});
 });
+
+describe('a refused undo says why', () => {
+	it('answers the reason, worded for the person', async () => {
+		const a = add([{ kind: 'edit_routine', routine_id: w.own.u1.routine, notes: 'x' }]);
+		const r = (await call(
+			actions.run,
+			ev({ ids: JSON.stringify([a]), versions: JSON.stringify({ [a]: 1 }) })
+		)) as { done: number[] };
+		db.update(routines)
+			.set({ notes: 'changed by hand' })
+			.where(eq(routines.id, w.own.u1.routine))
+			.run();
+		expect(await call(actions.undo, ev({ lineIds: JSON.stringify(r.done) }))).toMatchObject({
+			done: [],
+			refused: 1,
+			reasons: [expect.stringMatching(/^Changed since/)]
+		});
+	});
+});

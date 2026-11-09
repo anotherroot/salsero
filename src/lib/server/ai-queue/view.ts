@@ -17,6 +17,7 @@ import './kinds/all';
 import { queueOf, type QueueAction, type QueueLine } from './store';
 export { pendingCount } from './store';
 import { UNDO_MS } from './run';
+import { madeId, type Made } from './refs';
 
 type Row = Record<string, unknown>;
 type Ref = number | { ref: number };
@@ -36,7 +37,8 @@ function whoSuggests(db: Db, actions: QueueAction[]): string {
 
 const ms = (v: unknown) => clock(Number(v) / 1000);
 
-function refusalText(r: Refusal | null): string | null {
+/** A refusal in the reader`s words. */
+export function refusalText(r: Refusal | null): string | null {
 	if (!r) return null;
 	const w = t().suggestions;
 	const a = r.args ?? {};
@@ -72,7 +74,7 @@ function refusalText(r: Refusal | null): string | null {
 }
 
 /** Names of the things a card talks about, from the person's own view. */
-function namer(v: View, numberOf: (actionId: number) => number, made: Map<number, number>) {
+function namer(v: View, numberOf: (actionId: number) => number, made: Map<number, Made>) {
 	const w = t().suggestions;
 	const TABLE = {
 		move: 'figure_groups',
@@ -91,15 +93,18 @@ function namer(v: View, numberOf: (actionId: number) => number, made: Map<number
 			return String(r.label ?? '') || `${ms(r.start_ms)}–${r.end_ms === null ? '' : ms(r.end_ms)}`;
 		return String(r.name ?? '');
 	};
-	const resolve = (id: Ref): number | null =>
-		typeof id === 'number' ? id : (made.get(id.ref) ?? null);
+	const resolve = (id: Ref, thing?: string): number | null => {
+		if (typeof id === 'number') return id;
+		const m = made.get(id.ref);
+		return m ? madeId(m, thing === 'move' ? 'move' : null) : null;
+	};
 	return {
 		row: (thing: Thing, id: Ref) => {
-			const n = resolve(id);
+			const n = resolve(id, thing);
 			return n === null ? undefined : v.byId(TABLE[thing], n);
 		},
 		name(thing: Thing, id: Ref): string {
-			const n = resolve(id);
+			const n = resolve(id, thing);
 			const r = n === null ? undefined : v.byId(TABLE[thing], n);
 			if (r) return nameOfRow(thing, r);
 			return typeof id === 'number' ? `#${id}` : w.madeBy(numberOf(id.ref));
@@ -298,10 +303,14 @@ export function suggestionsView(
 	const groups = queueOf(db, userId, dance, now);
 	const actions = groups.flatMap((g) => g.actions);
 	const byId = new Map(actions.map((a) => [a.id, a]));
-	const made = new Map<number, number>();
+	const made = new Map<number, Made>();
 	for (const a of actions) {
 		const r = a.lines.find((l) => l.status === 'done' && typeof l.result?.id === 'number');
-		if (r) made.set(a.id, r.result!.id as number);
+		if (r)
+			made.set(a.id, {
+				id: r.result!.id as number,
+				...(typeof r.result!.moveId === 'number' ? { moveId: r.result!.moveId } : {})
+			});
 	}
 	const v = viewOf(db, userId);
 	const names = namer(v, (id) => byId.get(id)?.n ?? 0, made);

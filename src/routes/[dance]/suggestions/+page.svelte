@@ -58,7 +58,7 @@
 					++seq,
 					w.ran(done.length),
 					() => (toast = null),
-					() => post('undo', { lineIds: JSON.stringify(done) })
+					() => undo(done)
 				)
 			: { id: ++seq, message: w.refusals.failed };
 	}
@@ -74,6 +74,14 @@
 		}
 		asking = null;
 		await focusAfterRemoval(keys, `suggestion-${id}`, ['suggestions-top']);
+	}
+
+	/** Undo, and when it was refused, why (someone changed it since, or it is too late). */
+	async function undo(lineIds: number[]) {
+		const r = await post('undo', { lineIds: JSON.stringify(lineIds) });
+		const reasons = (r?.reasons as (string | null)[] | undefined) ?? [];
+		if (r && Number(r.refused ?? 0) > 0)
+			toast = { id: ++seq, message: reasons[0] ?? w.refusals.failed };
 	}
 
 	// While the page is in sight it follows the AI: a desktop tab fills as it works.
@@ -122,7 +130,7 @@
 							onupto={() => run('runUpTo', { id: a.id })}
 							ondrop={() => drop(a.id)}
 							ontoggle={(lineId) => post('toggleLine', { lineId })}
-							onundo={(lineIds) => post('undo', { lineIds: JSON.stringify(lineIds) })}
+							onundo={(lineIds) => undo(lineIds)}
 						/>
 					</div>
 				</div>

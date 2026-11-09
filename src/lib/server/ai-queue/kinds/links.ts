@@ -91,6 +91,8 @@ const linkLesson: LineKind<LinkLesson> = {
 			: { ok: false, refusal: { code: 'cannotLink' } };
 	},
 	undo(db, who, p, result, now) {
+		if (!editable(db, who.userId, who.dance, 'lesson', Number(result.lessonId)))
+			return { ok: false, refusal: { code: 'gone' } };
 		return TARGETS[p.key].unlink(
 			db,
 			Number(result.lessonId),

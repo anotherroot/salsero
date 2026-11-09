@@ -23,7 +23,7 @@ import { defaultStyle } from '../../default-styles';
 import type { Space } from '../../scope';
 import type { Hold } from '$lib/types';
 import { refuse, unknownKey, wholeNumber, type Parsed } from '../../mcp/args';
-import { editable, teamSpaceFor } from '../reach';
+import { editable, teamSpaceFor, type Thing } from '../reach';
 import { idOrRef, isRef, resolved, type IdOrRef } from './ids';
 import { NAME_MAX, TEXT_MAX } from './edit';
 import { registerKinds, type LineKind, type Who } from '.';
@@ -57,6 +57,9 @@ const noGroup = (groupId: number | null) =>
 
 const gone = { ok: false as const, refusal: { code: 'gone' } };
 const archivedBy = (ok: boolean) => (ok ? { ok: true as const } : gone);
+/** Undo archives what was made: only while the person may still edit it (a demoted editor may not). */
+const stillMine = (db: Db, who: Who, thing: Thing, result: Record<string, unknown>) =>
+	editable(db, who.userId, who.dance, thing, Number(result.id)) ? null : gone;
 
 type CreateFigure = {
 	move: IdOrRef | null;
@@ -161,6 +164,7 @@ const createFigureKind: LineKind<CreateFigure> = {
 		return made ? { ok: true, result: { id: made.figure.id, moveId: made.group.id } } : gone;
 	},
 	undo: (db, who, _p, result, now) =>
+		stillMine(db, who, 'figure', result) ??
 		archivedBy(archiveVariation(db, Number(result.id), now, who.userId) !== null),
 	flows: () => null
 };
@@ -205,7 +209,9 @@ function simple(
 				return { ok: false, refusal: { code: 'nameTaken', args: { name: p.name } } };
 			return id === null ? gone : { ok: true, result: { id } };
 		},
-		undo: (db, who, _p, result, now) => archivedBy(archive(db, Number(result.id), now, who.userId)),
+		undo: (db, who, _p, result, now) =>
+			stillMine(db, who, thing as Thing, result) ??
+			archivedBy(archive(db, Number(result.id), now, who.userId)),
 		flows: () => null
 	};
 }
@@ -272,6 +278,7 @@ const createRoutineKind: LineKind<CreateRoutine> = {
 			: { ok: false, refusal: { code: 'badSlot' } };
 	},
 	undo: (db, who, _p, result, now) =>
+		stillMine(db, who, 'routine', result) ??
 		archivedBy(archiveRoutine(db, Number(result.id), now, who.userId)),
 	flows: () => null
 };
@@ -319,6 +326,7 @@ const createLessonKind: LineKind<CreateLesson> = {
 		};
 	},
 	undo: (db, who, _p, result, now) =>
+		stillMine(db, who, 'lesson', result) ??
 		archivedBy(archiveLesson(db, Number(result.id), now, who.userId)),
 	flows: () => null
 };

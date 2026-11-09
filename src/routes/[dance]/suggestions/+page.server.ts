@@ -14,7 +14,7 @@ import {
 	undoLines,
 	type RunReport
 } from '$lib/server/ai-queue/run';
-import { suggestionsView } from '$lib/server/ai-queue/view';
+import { refusalText, suggestionsView } from '$lib/server/ai-queue/view';
 import type { Who } from '$lib/server/ai-queue/kinds';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -140,6 +140,8 @@ export const actions: Actions = {
 		);
 		const mine = own(who, now);
 		if (!ids.length || ids.some((id) => !mine.lines.has(id))) missing();
-		return answer(await undoLines(getDb(), who, ids, now));
+		const r = await undoLines(getDb(), who, ids, now);
+		// An Undo refused says why (it is not kept on the line: the line stays done).
+		return { ...answer(r), reasons: r.refused.map((x) => refusalText(x.refusal)) };
 	}
 };

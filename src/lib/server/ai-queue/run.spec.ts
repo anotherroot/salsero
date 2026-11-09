@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { describe, expect, it, vi } from 'vitest';
+
+/** A hook into the await after a line's run: where the AI could change the queue mid-run. */
+const during = vi.hoisted(() => ({ fn: null as null | (() => void) }));
+vi.mock('../clones/flow-hook', async (importOriginal) => ({
+	...(await importOriginal<typeof import('../clones/flow-hook')>()),
+	flowAfter: async () => {
+		const fn = during.fn;
+		during.fn = null;
+		fn?.();
+	}
+}));
+import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
-import { lessons, routines, spotLinks } from '../db/schema';
+import { exercises, lessons, routines, spotLinks, teamMembers } from '../db/schema';
 import { makeWorld, type World } from '../sync/test-world';
 import { updateRoutine } from '../routines';
-import { propose, queueOf, type ActionIn } from './store';
+import { changeAction, propose, queueOf, type ActionIn } from './store';
 import { actionsUpTo, allPending, dropActions, runActions, toggleLine, undoLines } from './run';
 import type { Who } from './kinds';
 import './kinds/all';
@@ -212,5 +223,76 @@ describe('dropping, up to here, undo', () => {
 		const u4: Who = { userId: 'u4', dance: 'salsa', grantId: null };
 		expect(await runActions(db, u4, [a], versions(db), T)).toEqual({ done: [], refused: [] });
 		expect(toggleLine(db, u4, lineOf(db, a).id, T).ok).toBe(false);
+	});
+});
+
+describe('review fixes', () => {
+	it('a ref to a new move in create_figure is the move, not its first figure', async () => {
+		const { db, w } = setup();
+		// One more figure first, so the new figure's id and the new move's id differ.
+		const first = add(db, {
+			lines: [{ kind: 'create_figure', move_id: w.own.u1.move, name: 'Extra' }]
+		});
+		await runActions(db, u1, [first], versions(db), T);
+		const a = add(db, { lines: [{ kind: 'create_figure', move_name: 'Setenta', name: 'Basic' }] });
+		const b = add(db, { lines: [{ kind: 'create_figure', move_id: { ref: a }, name: 'Doble' }] });
+		const r = await runActions(db, u1, [a, b], versions(db), T);
+		expect(r.refused).toEqual([]);
+		const made = (id: number) => lineOf(db, id).result as { id: number; moveId: number };
+		expect(made(a).id).not.toBe(made(a).moveId);
+		expect(made(b).moveId).toBe(made(a).moveId);
+	});
+
+	it('undo of a group create refuses once the person may no longer edit the group', async () => {
+		const { db } = setup();
+		const u2: Who = { userId: 'u2', dance: 'salsa', grantId: null };
+		const r = propose(
+			db,
+			u2,
+			{
+				group: { title: 'G' },
+				title: 'A',
+				lines: [{ kind: 'create_drill', name: 'Shines', group_id: 1 }]
+			},
+			T
+		);
+		if (!r.ok) throw new Error(r.message);
+		const v = Object.fromEntries(
+			queueOf(db, 'u2', 'salsa', T).flatMap((g) => g.actions.map((a) => [a.id, a.version]))
+		);
+		await runActions(db, u2, [r.actionId], v, T);
+		const line = queueOf(db, 'u2', 'salsa', T)[0].actions[0].lines[0];
+		db.update(teamMembers)
+			.set({ role: 'member' })
+			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
+			.run();
+		const undo = await undoLines(db, u2, [line.id], T + 1000);
+		expect(undo.refused).toEqual([{ lineId: line.id, refusal: { code: 'gone' } }]);
+		expect(
+			db
+				.select()
+				.from(exercises)
+				.where(eq(exercises.id, Number(line.result!.id)))
+				.get()!.archivedAt
+		).toBeNull();
+	});
+});
+
+describe('the AI changes the queue during a run', () => {
+	it('an action changed after the run began is refused, not run as it was', async () => {
+		const { db, w } = setup();
+		const a = add(db, {
+			lines: [{ kind: 'edit_routine', routine_id: w.own.u1.routine, notes: 'first' }]
+		});
+		const b = add(db, {
+			lines: [{ kind: 'edit_lesson', lesson_id: w.own.u1.lesson, notes: 'old plan' }]
+		});
+		const seen = versions(db);
+		during.fn = () => changeAction(db, u1, b, { title: 'Changed while running' }, T);
+		const r = await runActions(db, u1, [a, b], seen, T);
+		expect(r.refused).toEqual([{ lineId: lineOf(db, b).id, refusal: { code: 'claudeChanged' } }]);
+		expect(
+			db.select().from(lessons).where(eq(lessons.id, w.own.u1.lesson)).get()!.notes
+		).toBeNull();
 	});
 });

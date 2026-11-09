@@ -12,7 +12,13 @@ import { aiActions, aiLines } from '../db/schema';
 import { flowAfter } from '../clones/flow-hook';
 import { KINDS, type Refusal, type Who } from './kinds';
 import { queueOf, type QueueAction, type QueueLine } from './store';
-import { resolveRefs } from './refs';
+import { resolveRefs, type Made } from './refs';
+
+/** What a create's result made, for refs. */
+const madeOf = (r: Record<string, unknown>): Made => ({
+	id: r.id as number,
+	...(typeof r.moveId === 'number' ? { moveId: r.moveId } : {})
+});
 
 export const UNDO_MS = 30 * 86_400_000;
 
@@ -37,14 +43,14 @@ const isPending = (a: QueueAction) => a.lines.some((l) => l.status === 'pending'
 const isGone = (a: QueueAction) =>
 	a.lines.every((l) => l.status === 'dropped' || l.status === 'withdrawn');
 
-/** Every action's id → the id its first create made (refs resolve to these). */
-function createdIds(actions: QueueAction[]): Map<number, number> {
-	const out = new Map<number, number>();
+/** Every action`s id → what its first create made (refs resolve to these). */
+function createdIds(actions: QueueAction[]): Map<number, Made> {
+	const out = new Map<number, Made>();
 	for (const a of actions) {
 		const made = a.lines.find(
 			(l) => l.status === 'done' && l.result && typeof l.result.id === 'number'
 		);
-		if (made) out.set(a.id, made.result!.id as number);
+		if (made) out.set(a.id, madeOf(made.result!));
 	}
 	return out;
 }
@@ -60,18 +66,28 @@ function saveRefusal(db: Db, lineId: number, refusal: Refusal) {
 function runLine(
 	db: Db,
 	who: Who,
+	action: { id: number; version: number },
 	line: QueueLine,
-	created: Map<number, number>,
+	created: Map<number, Made>,
 	now: number
 ): { ok: true; result: Record<string, unknown> } | { ok: false; refusal: Refusal } | null {
 	const kind = KINDS[line.kind];
 	try {
 		return db.transaction((tx) => {
+			// The page`s version, read again here: the AI may have changed the action
+			// while an earlier line of this run waited on its flow.
+			const now_ = tx
+				.select({ version: aiActions.version })
+				.from(aiActions)
+				.where(eq(aiActions.id, action.id))
+				.get();
+			if (now_?.version !== action.version) throw new Refused({ code: 'claudeChanged' });
 			const fresh = tx
 				.select({ status: aiLines.status })
 				.from(aiLines)
 				.where(eq(aiLines.id, line.id))
 				.get();
+			if (!fresh) throw new Refused({ code: 'claudeChanged' });
 			if (fresh?.status !== 'pending') return null;
 			const payload = resolveRefs(line.payload, created) as Record<string, unknown>;
 			if (payload && 'missing' in payload && Object.keys(payload).length === 1)
@@ -101,7 +117,7 @@ async function flowFor(
 	db: Db,
 	who: Who,
 	line: QueueLine,
-	created: Map<number, number>,
+	created: Map<number, Made>,
 	result: Record<string, unknown>
 ) {
 	const kind = KINDS[line.kind];
@@ -161,11 +177,13 @@ export async function runActions(
 				} else {
 					const created = createdIds(all);
 					for (const line of a.lines.filter((l) => l.status === 'pending')) {
-						const r = runLine(db, who, line, created, now);
+						const r = runLine(db, who, { id: a.id, version: versions[a.id] }, line, created, now);
 						if (r === null) continue;
 						if (r.ok) {
 							report.done.push(line.id);
-							if (typeof r.result.id === 'number') created.set(a.id, r.result.id);
+							// The action's first create is what its refs stand for.
+							if (typeof r.result.id === 'number' && !created.has(a.id))
+								created.set(a.id, madeOf(r.result));
 							await flowFor(db, who, line, created, r.result);
 						} else report.refused.push({ lineId: line.id, refusal: r.refusal });
 					}

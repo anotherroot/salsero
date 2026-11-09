@@ -16,8 +16,8 @@ describe('refs', () => {
 			resolveRefs(
 				{ section_id: { ref: 4 }, slots: [{ ref: 2 }, 7] },
 				new Map([
-					[4, 40],
-					[2, 20]
+					[4, { id: 40 }],
+					[2, { id: 20 }]
 				])
 			)
 		).toEqual({
@@ -27,5 +27,16 @@ describe('refs', () => {
 	});
 	it('names the first ref it cannot resolve', () => {
 		expect(resolveRefs({ section_id: { ref: 4 } }, new Map())).toEqual({ missing: 4 });
+	});
+});
+
+describe('a ref under move', () => {
+	it('is the move a new figure was made in', () => {
+		expect(
+			resolveRefs({ move: { ref: 1 }, name: 'x' }, new Map([[1, { id: 10, moveId: 7 }]]))
+		).toEqual({
+			move: 7,
+			name: 'x'
+		});
 	});
 });

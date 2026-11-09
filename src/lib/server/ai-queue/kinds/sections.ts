@@ -175,6 +175,8 @@ const linkSection: LineKind<LinkSection> = {
 		}
 	},
 	undo(db, who, _p, result, now) {
+		if (!editable(db, who.userId, who.dance, 'section', Number(result.spotId)))
+			return { ok: false, refusal: { code: 'gone' } };
 		return unlinkFromSection(db, Number(result.spotId), Number(result.id), false, now, who.userId)
 			? { ok: true }
 			: { ok: false, refusal: { code: 'gone' } };
