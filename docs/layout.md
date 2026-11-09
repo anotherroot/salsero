@@ -474,6 +474,9 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
                      the reload-hold counter (`holdReload`, `holdReloadWhile`: an upload, a
                      run). shell/ReloadBar.svelte is "New version · Reload" and "This page is
                      out of date"
+src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
+                     loaded (it stays under way for good, the skeleton over the old page); the
+                     root layout watches `navigating`, goes again, and loads whole after 2 tries
 src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
                      the APKs; app-seen.ts which app version each device last showed (table
                      `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the
