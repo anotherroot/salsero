@@ -53,10 +53,18 @@ function fromData(status: number, data: Record<string, unknown> | null): Outcome
 	return byStatus(status, message);
 }
 
+/** A redirect the hook throws before the action runs: to sign in, or to the first run. Nothing ran. */
+function toSignIn(location: unknown): boolean {
+	if (typeof location !== 'string') return false;
+	const path = new URL(location, 'http://x').pathname;
+	return /^\/(login|welcome)(\/|$)/.test(path);
+}
+
 export async function outcomeOf(res: Response, isAction: boolean): Promise<Outcome> {
 	if (isAction) {
 		const body = await bodyJson(res);
 		const type = body?.type;
+		if (type === 'redirect' && toSignIn(body!.location)) return refused('access');
 		if (type === 'success' || type === 'redirect') return { landed: true };
 		if (type === 'failure') {
 			let data: Record<string, unknown> | null = null;
@@ -75,6 +83,9 @@ export async function outcomeOf(res: Response, isAction: boolean): Promise<Outco
 		return res.ok || (res.status >= 300 && res.status < 400)
 			? { landed: true }
 			: byStatus(res.status, null);
+	}
+	if (res.status >= 300 && res.status < 400 && toSignIn(res.headers.get('location'))) {
+		return refused('access');
 	}
 	if (res.status < 400) return { landed: true };
 	return fromData(res.status, await bodyJson(res));

@@ -66,10 +66,19 @@ export class WriteGate {
 	}
 }
 
+/** The routes whose body is a file: their database write takes the gate itself. */
+const UPLOADS = [
+	/^\/api\/figures\/[^/]+\/recordings$/,
+	/^\/api\/songs$/,
+	/^\/api\/lessons\/[^/]+\/videos\/[^/]+$/,
+	/^\/api\/worker\/songs\/[^/]+\/audio$/,
+	/^\/api\/worker\/videos\/[^/]+\/file$/
+];
+
 /** The server's one gate. */
 export const writeGate = new WriteGate();
 
-/** Whether the hook holds the gate for this request: every write but the sync's own, never on the device or inside a replay. */
+/** Whether the hook holds the gate for this request: every write and the pull, not the push (it takes the gate per entry), never on the device or inside a replay. */
 export function gatedRequest(
 	method: string,
 	path: string,
@@ -79,6 +88,10 @@ export function gatedRequest(
 	const m = method.toUpperCase();
 	if (m === 'GET' || m === 'HEAD') return false;
 	if (onDevice || replay) return false;
-	if (path === '/api/sync/push' || path === '/api/sync/pull') return false;
+	// The push takes the gate itself, one entry at a time; the pull reads under it.
+	if (path === '/api/sync/push') return false;
+	// An upload holds the gate only around its database write (in the route): a slow
+	// body on a weak signal must not keep every replay waiting.
+	if (UPLOADS.some((re) => re.test(path))) return false;
 	return true;
 }

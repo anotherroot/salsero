@@ -30,7 +30,7 @@ import {
 import { GATE_WAIT_MS, writeGate, type WriteGate } from './gate';
 import { isLanded, markLanded } from './landed';
 import { logHead } from './log';
-import { restoreOwnFields, snapshotRows } from './merge';
+import { restoreOwnFields, restoreOwnSets, snapshotRows, snapshotSets } from './merge';
 import { outcomeOf } from './outcome';
 import { slotFor } from './slots';
 
@@ -42,6 +42,12 @@ export type ReplayOptions = {
 	gate?: WriteGate;
 	/** How long a replay waits for the gate; GATE_WAIT_MS when absent. */
 	waitMs?: number;
+	/**
+	 * The push's session as a cookie (`salsa_session=…`): the replay's only
+	 * session. The route runs it with `credentials: 'omit'`, so the push's other
+	 * cookies (its group mode) never fill in what the entry lacks.
+	 */
+	session?: string;
 };
 
 const ACTION_IDS = Object.keys(ACTIONS);
@@ -65,7 +71,7 @@ function withoutSession(cookie: string): string {
 		.join('; ');
 }
 
-export function replayRequest(entry: WireEntry, origin: string): Request {
+export function replayRequest(entry: WireEntry, origin: string, session?: string): Request {
 	const at = new URL(entry.url, origin);
 	const url = new URL(at.pathname + at.search, origin);
 	const headers = new Headers();
@@ -80,6 +86,11 @@ export function replayRequest(entry: WireEntry, origin: string): Request {
 		}
 		headers.set(k, value);
 	}
+	// The push's session, and the entry's own cookies: a cookie the entry lacked (Mine:
+	// no group cookie) stays missing.
+	const jar = [session, headers.get('cookie')].filter((c): c is string => !!c).join('; ');
+	if (jar) headers.set('cookie', jar);
+	else headers.delete('cookie');
 	headers.set(EPOCH_HEADER, String(PAGE_EPOCH));
 	// SvelteKit refuses a cross-site form post: the replay is this site's own.
 	headers.set('origin', origin);
@@ -116,6 +127,7 @@ async function replayInside(
 	const madeAt = Math.min(entry.madeAt, o.now);
 	const seqBefore = logHead(db);
 	const snap = snapshotRows(db, entry.rows);
+	const sets = snapshotSets(db, entry.rows);
 	const ctx: ReplayContext = {
 		entryId: entry.id,
 		madeAt,
@@ -123,10 +135,12 @@ async function replayInside(
 		flows: [],
 		deferFlows: true
 	};
-	const request = replayRequest(entry, o.origin);
-	const isAction = isActionEntry(request.method, new URL(request.url));
-	raw.exec('BEGIN IMMEDIATE');
+	let open = false;
 	try {
+		const request = replayRequest(entry, o.origin, o.session);
+		const isAction = isActionEntry(request.method, new URL(request.url));
+		raw.exec('BEGIN IMMEDIATE');
+		open = true;
 		const res = await runReplaying(ctx, () => run(request));
 		const outcome = await outcomeOf(res, isAction);
 		if (!outcome.landed) {
@@ -135,17 +149,19 @@ async function replayInside(
 			return { id: entry.id, state: 'refused', reason, message, clash, gone };
 		}
 		restoreOwnFields(db, entry.rows, snap, madeAt);
-		db.run(sql`UPDATE change_log SET at = ${madeAt} WHERE seq > ${seqBefore}`);
+		restoreOwnSets(db, entry.rows, sets);
 		ctx.minted.clear();
 		ctx.deferFlows = false;
 		await runReplaying(ctx, async () => {
 			for (const f of ctx.flows) await flowAfter(f.actorId, f.kind, f.id);
 		});
+		// Every line this entry wrote, its flows' included, dated when it was made.
+		db.run(sql`UPDATE change_log SET at = ${madeAt} WHERE seq > ${seqBefore}`);
 		markLanded(db, entry.id, userId, o.now);
 		raw.exec('COMMIT');
 		return { id: entry.id, state: 'landed' };
 	} catch (e) {
-		if (raw.inTransaction) raw.exec('ROLLBACK');
+		if (open && raw.inTransaction) raw.exec('ROLLBACK');
 		console.error(`[sync] entry ${entry.id}: ${e instanceof Error ? e.message : String(e)}`);
 		return refusedResult(entry.id, 'error');
 	}
@@ -177,7 +193,10 @@ export async function push(
 	req: PushRequest,
 	o: ReplayOptions
 ): Promise<PushResponse> {
-	const slot = slotFor(db, userId, req.device, o.now);
+	// Under the gate: never a savepoint inside another device's open replay, rolled back with it.
+	const slot = await (o.gate ?? writeGate).shared(async () =>
+		slotFor(db, userId, req.device, o.now)
+	);
 	const results: EntryResult[] = [];
 	/** Refused or held entries of this push, and the refused root each one waits on. */
 	const blocked: { entry: WireEntry; root: string }[] = [];
@@ -190,22 +209,34 @@ export async function push(
 			continue;
 		}
 		let result: EntryResult;
-		const url = new URL(entry.url, o.origin);
-		const cls = writeClass(entry.method, url);
-		if (entry.epoch !== PAGE_EPOCH) result = refusedResult(entry.id, 'stale');
-		else if (cls !== 'device' && cls !== 'queued') result = refusedResult(entry.id, 'not-allowed');
-		else if (
-			Object.values(entry.minted)
-				.flat()
-				.some((id) => slotOf(id) !== slot)
-		) {
-			result = refusedResult(entry.id, 'bad-ids');
-		} else {
-			result = await replayEntry(db, run, userId, slot, entry, o);
-			if (result.state === 'deferred') {
-				for (const rest of req.entries.slice(i)) results.push({ id: rest.id, state: 'deferred' });
-				break;
+		try {
+			// A landed entry is landed, whatever changed since (a deploy, its answer lost).
+			if (isLanded(db, entry.id, userId)) {
+				results.push({ id: entry.id, state: 'landed' });
+				continue;
 			}
+			const url = new URL(entry.url, o.origin);
+			const cls = writeClass(entry.method, url);
+			if (entry.epoch !== PAGE_EPOCH) result = refusedResult(entry.id, 'stale');
+			else if (cls !== 'device' && cls !== 'queued')
+				result = refusedResult(entry.id, 'not-allowed');
+			else if (
+				Object.values(entry.minted)
+					.flat()
+					.some((id) => slotOf(id) !== slot)
+			) {
+				result = refusedResult(entry.id, 'bad-ids');
+			} else {
+				result = await replayEntry(db, run, userId, slot, entry, o);
+				if (result.state === 'deferred') {
+					for (const rest of req.entries.slice(i)) results.push({ id: rest.id, state: 'deferred' });
+					break;
+				}
+			}
+		} catch (e) {
+			// One bad entry never stalls the rest: it is refused, they carry on.
+			console.error(`[sync] entry ${entry.id}: ${e instanceof Error ? e.message : String(e)}`);
+			result = refusedResult(entry.id, 'error');
 		}
 		if (result.state === 'refused') blocked.push({ entry, root: entry.id });
 		results.push(result);

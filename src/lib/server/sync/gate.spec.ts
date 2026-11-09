@@ -94,12 +94,16 @@ describe('the write gate', () => {
 
 	it('gates writes, not reads, not the sync endpoints, not the device or a replay', () => {
 		expect(gatedRequest('POST', '/salsa', false, false)).toBe(true);
-		expect(gatedRequest('PUT', '/api/lessons/1/videos/x', false, false)).toBe(true);
+		// An upload takes the gate only around its database write (in the route).
+		expect(gatedRequest('PUT', '/api/lessons/1/videos/x', false, false)).toBe(false);
+		expect(gatedRequest('POST', '/api/figures/3/recordings', false, false)).toBe(false);
+		expect(gatedRequest('PUT', '/api/worker/videos/4/file', false, false)).toBe(false);
 		expect(gatedRequest('POST', '/api/worker/claim', false, false)).toBe(true);
 		expect(gatedRequest('GET', '/salsa', false, false)).toBe(false);
 		expect(gatedRequest('HEAD', '/salsa', false, false)).toBe(false);
 		expect(gatedRequest('POST', '/api/sync/push', false, false)).toBe(false);
-		expect(gatedRequest('POST', '/api/sync/pull', false, false)).toBe(false);
+		// The pull reads under the gate: never a replay's uncommitted rows (the Part A review).
+		expect(gatedRequest('POST', '/api/sync/pull', false, false)).toBe(true);
 		expect(gatedRequest('POST', '/salsa', true, false)).toBe(false);
 		expect(gatedRequest('POST', '/salsa', false, true)).toBe(false);
 	});

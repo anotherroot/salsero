@@ -69,9 +69,11 @@ export const POST: RequestHandler = async (event) => {
 	const req = readPush(body);
 	if (!req) return json({ message: 'Bad request' }, { status: 400 });
 	return json(
-		await push(getDb(), (r) => event.fetch(r), session.userId, req, {
+		await push(getDb(), (r) => event.fetch(r, { credentials: 'omit' }), session.userId, req, {
 			now: serverNow(),
-			origin: event.url.origin
+			origin: event.url.origin,
+			// The replay's only session: the push's other cookies never fill in what an entry lacked.
+			session: `${SESSION_COOKIE}=${event.cookies.get(SESSION_COOKIE)}`
 		})
 	);
 };

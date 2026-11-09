@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { writeGate } from '$lib/server/sync/gate';
 import { rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { json } from '@sveltejs/kit';
@@ -61,11 +62,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const dest = join(target === 'recording' ? recordingsDir() : lessonVideosDir(), file);
 	await rename(partial, dest);
 	// The file is already on the disk: the floor is what is free without it.
-	const done = completeVideoJob(
-		db,
-		id,
-		{ file, mime: 'video/mp4', sizeBytes: chunk.total },
-		(await freeDisk()) + chunk.total
+	const free = (await freeDisk()) + chunk.total;
+	// Under the write gate: the body is in, only the database write waits for a replay.
+	const done = await writeGate.shared(async () =>
+		completeVideoJob(db, id, { file, mime: 'video/mp4', sizeBytes: chunk.total }, free)
 	);
 	if (!done) {
 		// The link was removed while the last chunk streamed in.
@@ -83,6 +83,6 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		'recordingId' in done
 			? rootOfRecording(db, done.recordingId)
 			: rootOfVideo(db, done.lessonVideoId);
-	if (root) await flowAfter(by, root.kind, root.id);
+	if (root) await writeGate.shared(() => flowAfter(by, root.kind, root.id));
 	return json(done, { status: 201 });
 };

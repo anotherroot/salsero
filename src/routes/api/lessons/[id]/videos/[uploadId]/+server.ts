@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { writeGate } from '$lib/server/sync/gate';
 import { readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { json } from '@sveltejs/kit';
@@ -115,8 +116,11 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	let row;
+	// Under the write gate: the body is in, only the database write waits for a replay.
 	try {
-		row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id);
+		row = await writeGate.shared(async () =>
+			addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id)
+		);
 	} catch {
 		await unlink(target).catch(() => {});
 		return fail(500, t().lesson.upload.notSaved);
@@ -124,6 +128,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	// Remembered for a day (swept with the partials), for a client whose 201 got lost.
 	await writeFile(done, JSON.stringify(row)).catch(() => {});
 	// Keep in step, on the last chunk only: the lesson gained a video.
-	await flowAfter(locals.user?.id, 'lesson', lessonId);
+	await writeGate.shared(() => flowAfter(locals.user?.id, 'lesson', lessonId));
 	return json(row, { status: 201 });
 };

@@ -8,6 +8,7 @@
  */
 import { sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db';
+import { keyString } from '$lib/sync/digest';
 import { ownerOf } from '$lib/sync/owners';
 import { SYNCED } from '$lib/sync/tables';
 import type { CapturedRow, Row } from '$lib/sync/outbox';
@@ -23,6 +24,12 @@ function norm(v: unknown): string | number | null {
 }
 const same = (a: unknown, b: unknown) => norm(a) === norm(b);
 
+/**
+ * Columns never put back: an order the action renumbers across rows (put back
+ * on one row it would collide with its neighbours' unique slots).
+ */
+const NO_RESTORE = new Set(['position', 'warmup_order', 'sort_order']);
+
 /** PURE: the columns to put back after a replayed update of an own row. */
 export function fieldsToRestore(
 	device: { before: Row; after: Row },
@@ -32,7 +39,7 @@ export function fieldsToRestore(
 ): Row {
 	const out: Row = {};
 	for (const c of Object.keys(server.after)) {
-		if (!(c in server.before)) continue;
+		if (!(c in server.before) || NO_RESTORE.has(c)) continue;
 		const entryChanged = !same(device.before[c], device.after[c]);
 		if (!entryChanged) {
 			if (!same(server.after[c], server.before[c])) out[c] = server.before[c];
@@ -132,8 +139,104 @@ export function restoreOwnFields(
 			names.map((c) => sql`${ident(c)} = ${put[c]}`),
 			sql`, `
 		);
-		db.run(sql`UPDATE ${ident(r.tbl)} SET ${set} WHERE ${where}`);
-		changed++;
+		try {
+			db.run(sql`UPDATE ${ident(r.tbl)} SET ${set} WHERE ${where}`);
+			changed++;
+		} catch (e) {
+			// The action's value stands; one row that cannot take the server's back never refuses the entry.
+			console.warn(`[sync] merge: ${r.tbl} ${r.key} kept as replayed`, String(e));
+		}
+	}
+	return changed;
+}
+
+/**
+ * Sets of rows an action replaces whole from its form (a figure's Starts in and
+ * Ends in): the parent they hang on. A stale form would otherwise delete what
+ * the PC added since, or put back what it removed; rows the entry itself added
+ * or removed stay as it made them.
+ */
+const CHILD_SETS: Record<string, { col: string; parent: string }> = {
+	figure_start_positions: { col: 'figure_id', parent: 'figures' },
+	figure_end_positions: { col: 'figure_id', parent: 'figures' }
+};
+
+/** table → parent id → the server's rows before the action. */
+export type SetSnapshot = Map<string, Map<number, Row[]>>;
+
+const childRows = (db: Db, table: string, col: string, parentId: number): Row[] =>
+	db.all<Row>(sql`SELECT * FROM ${ident(table)} WHERE ${ident(col)} = ${parentId}`);
+
+/** The parents an entry touched (their row, or a row of their set), each set's rows now. */
+export function snapshotSets(db: Db, rows: CapturedRow[]): SetSnapshot {
+	const out: SetSnapshot = new Map();
+	for (const [table, { col, parent }] of Object.entries(CHILD_SETS)) {
+		const parents = new Set<number>();
+		for (const r of rows) {
+			if (r.tbl === parent) {
+				const id = Number(r.key);
+				if (Number.isInteger(id)) parents.add(id);
+			} else if (r.tbl === table) {
+				const id = (r.after ?? r.before)?.[col];
+				if (typeof id === 'number') parents.add(id);
+			}
+		}
+		if (parents.size === 0) continue;
+		out.set(table, new Map([...parents].map((id) => [id, childRows(db, table, col, id)])));
+	}
+	return out;
+}
+
+/** After the action, on a person's own parents only: their sets as the server had them, plus the entry's own changes. */
+export function restoreOwnSets(db: Db, rows: CapturedRow[], snap: SetSnapshot): number {
+	const parentRow = (table: string, id: number) =>
+		db.get<Record<string, unknown> | undefined>(
+			sql`SELECT * FROM ${ident(table)} WHERE id = ${id}`
+		) ?? null;
+	let changed = 0;
+	for (const [table, byParent] of snap) {
+		const { col, parent } = CHILD_SETS[table];
+		const key = SYNCED[table];
+		const keyOf = (row: Row) => keyString(key.map((k) => row[k]));
+		const added = new Set(rows.filter((r) => r.tbl === table && r.op === 'i').map((r) => r.key));
+		const removed = new Set(rows.filter((r) => r.tbl === table && r.op === 'd').map((r) => r.key));
+		const cols = columnsOf(db, table);
+		for (const [parentId, before] of byParent) {
+			const owner = parentRow(parent, parentId);
+			if (!owner || ownerOf(parent, owner, parentRow) !== 'person') continue;
+			const now = childRows(db, table, col, parentId);
+			const nowKeys = new Set(now.map(keyOf));
+			const beforeKeys = new Set(before.map(keyOf));
+			try {
+				for (const row of before) {
+					const k = keyOf(row);
+					if (nowKeys.has(k) || removed.has(k)) continue;
+					const names = Object.keys(row).filter((c) => cols.has(c));
+					db.run(
+						sql`INSERT INTO ${ident(table)} (${sql.join(
+							names.map((c) => ident(c)),
+							sql`, `
+						)}) VALUES (${sql.join(
+							names.map((c) => sql`${row[c]}`),
+							sql`, `
+						)})`
+					);
+					changed++;
+				}
+				for (const row of now) {
+					const k = keyOf(row);
+					if (beforeKeys.has(k) || added.has(k)) continue;
+					const where = sql.join(
+						key.map((c) => sql`${ident(c)} = ${row[c]}`),
+						sql` AND `
+					);
+					db.run(sql`DELETE FROM ${ident(table)} WHERE ${where}`);
+					changed++;
+				}
+			} catch (e) {
+				console.warn(`[sync] merge: ${table} of ${parent} ${parentId} kept as replayed`, String(e));
+			}
+		}
 	}
 	return changed;
 }

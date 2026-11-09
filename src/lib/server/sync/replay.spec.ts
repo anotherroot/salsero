@@ -315,3 +315,76 @@ describe('push', () => {
 		release();
 	});
 });
+
+describe('push, after the Part A review', () => {
+	it('answers landed for a landed entry resent after a deploy, before any other check', async () => {
+		const e = done(w.own.u1.exercise, { minted: { sets: [S() + 1] } });
+		await pushAll([e]);
+		const again = await pushAll([{ ...e, epoch: PAGE_EPOCH + 1 }]);
+		expect(again.results).toEqual([{ id: e.id, state: 'landed' }]);
+	});
+
+	it('refuses one malformed entry and carries on with the rest', async () => {
+		const bad = { ...done(w.own.u1.exercise), body: '%%% not base64 %%%' };
+		const good = done(w.own.u1.exercise, { minted: { sets: [S() + 1] } });
+		const out = await pushAll([bad, good]);
+		expect(out.results[0]).toMatchObject({ state: 'refused', reason: 'error' });
+		expect(out.results[1]).toEqual({ id: good.id, state: 'landed' });
+	});
+
+	it('reads a redirect to sign in as refused, not landed', async () => {
+		const toLogin: Runner = async () =>
+			Response.json({ type: 'redirect', status: 303, location: '/login?next=%2Fsalsa' });
+		const out = await push(
+			db,
+			toLogin,
+			'u1',
+			{ device: 'dev-test-1', entries: [done(w.own.u1.exercise)] },
+			opts()
+		);
+		expect(out.results[0]).toMatchObject({ state: 'refused', reason: 'access' });
+	});
+
+	it("replays with only the entry's cookies and the push's session, never the push's group mode", async () => {
+		let seen = '';
+		const spy: Runner = async (r) => {
+			seen = r.headers.get('cookie') ?? '';
+			return run(r);
+		};
+		const e = entry(
+			'/salsa/lessons?/create',
+			{ title: 'Mine', lessonDay: '2026-11-08', notes: '' },
+			{
+				cookie: 'salsa_session=old-session; theme=dark',
+				minted: { lessons: [S() + 1] }
+			}
+		);
+		await push(
+			db,
+			spy,
+			'u1',
+			{ device: 'dev-test-1', entries: [e] },
+			opts({ session: 'salsa_session=push-session' })
+		);
+		expect(seen.split('; ').sort()).toEqual(['salsa_session=push-session', 'theme=dark']);
+		const row = db.get<{ team_id: number | null }>(
+			sql`SELECT team_id FROM lessons WHERE id = ${S() + 1}`
+		);
+		expect(row.team_id).toBeNull();
+	});
+
+	it("takes the device's slot under the gate, never inside another replay's transaction", async () => {
+		const gate = new WriteGate();
+		let release!: () => void;
+		void gate.exclusive(() => new Promise<void>((r) => (release = r)));
+		const pending = push(db, run, 'u1', { device: 'dev-test-9', entries: [] }, opts({ gate }));
+		await new Promise((r) => setTimeout(r, 5));
+		expect(
+			db.get<{ n: number }>(
+				sql`SELECT count(*) AS n FROM device_slots WHERE device_key = 'dev-test-9'`
+			).n
+		).toBe(0);
+		release();
+		expect((await pending).slot).toBeGreaterThan(0);
+	});
+});
