@@ -28,6 +28,7 @@
 	import { listOpener, openerAhead, syncTrail } from '$lib/nav/trail.svelte';
 	import { columnOf } from '$lib/nav/moves-pane';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
+	import { openPickersOnClick } from '$lib/native-picker';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
@@ -52,6 +53,7 @@
 	import { pagePerson } from '$lib/offline/person';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
+	import { pageMotion, pageMotionHooks } from '$lib/trial/page-motion.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -121,7 +123,10 @@
 		const timer = setTimeout(() => (late = true), SKELETON_DELAY_MS);
 		return () => clearTimeout(timer);
 	});
-	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id, ahead.url.search) : null);
+	// TRIAL: while a page animation holds the card away, that is the wait (`$lib/trial/page-motion`).
+	const skeleton = $derived(
+		late && ahead && !pageMotion.away ? skeletonFor(ahead.route.id, ahead.url.search) : null
+	);
 	/*
 	 * A navigation SvelteKit dropped for a refresh that started while it loaded
 	 * stays under way for good, the skeleton over the old page
@@ -315,6 +320,8 @@
 		window.addEventListener('salsa:needs-connection', show);
 		return () => window.removeEventListener('salsa:needs-connection', show);
 	});
+	// Date and time fields have no picker button: a mouse click opens the picker ($lib/native-picker).
+	$effect(() => openPickersOnClick());
 	/*
 	 * No preloading while offline (and the device cannot answer). A link touched
 	 * offline would try to fetch the route's data and code and fail, and the
@@ -523,6 +530,9 @@
 	 * run on Practice or a Save bar would otherwise fail without a word.
 	 */
 	const staleBar = $derived(stale && !staleLeaving);
+
+	// TRIAL: last, so every other handler has had its say on a navigation first.
+	pageMotionHooks();
 </script>
 
 <svelte:head>
