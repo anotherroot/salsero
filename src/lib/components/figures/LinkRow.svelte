@@ -1,4 +1,5 @@
 <script lang="ts">
+	import WaitingBadge from '$lib/components/ui/WaitingBadge.svelte';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { linkRowView } from '$lib/figures/page';
@@ -60,6 +61,7 @@
 			>{view.meta}</span
 		>
 	</span>
+	<WaitingBadge table="links" id={link.id} />
 {/snippet}
 
 <div class="flex min-h-[60px] items-center pr-1.5 pl-4">

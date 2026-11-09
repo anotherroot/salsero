@@ -30,13 +30,15 @@ const ITEMS: {
 	icon: MenuItem['icon'];
 	label: () => string;
 	danger?: boolean;
+	/** Changes several places at once on the server: needs a connection. */
+	network?: boolean;
 }[] = [
-	{ key: 'sync', icon: 'refresh', label: syncMenu },
-	{ key: 'copy', icon: 'copy', label: copyTo },
+	{ key: 'sync', icon: 'refresh', label: syncMenu, network: true },
+	{ key: 'copy', icon: 'copy', label: copyTo, network: true },
 	{ key: 'sameAs', icon: 'link', label: sameAs },
-	{ key: 'move', icon: 'move-to', label: moveTo },
-	{ key: 'detach', icon: 'unlink', label: detachButton },
-	{ key: 'drop', icon: 'undo', label: dropButton, danger: true }
+	{ key: 'move', icon: 'move-to', label: moveTo, network: true },
+	{ key: 'detach', icon: 'unlink', label: detachButton, network: true },
+	{ key: 'drop', icon: 'undo', label: dropButton, danger: true, network: true }
 ];
 
 /**
@@ -50,6 +52,7 @@ export function cloneMenuItems(o: CloneOffers, open: (s: CloneSheet) => void): M
 		icon: i.icon,
 		label: i.label(),
 		...(i.danger ? { danger: true } : {}),
+		...(i.network ? { network: true } : {}),
 		onclick: () => open(i.key)
 	}));
 }

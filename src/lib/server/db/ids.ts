@@ -18,6 +18,7 @@
  */
 import { sql, type SQL } from 'drizzle-orm';
 import { integer } from 'drizzle-orm/sqlite-core';
+import { replaying } from '../replay-context';
 
 export const SLOT_SIZE = 2 ** 32;
 /** 2²¹ slots of 2³² ids: the last id is just under 2⁵³. */
@@ -41,8 +42,14 @@ export function slotOf(id: number): number {
 	return Math.floor(id / SLOT_SIZE);
 }
 
-/** The next id of `table` in this runtime's slot, as SQL worked out by the insert. */
+/**
+ * The next id of `table` in this runtime's slot, as SQL worked out by the insert.
+ * While an offline change is replayed, the id the device minted for it, in order
+ * (offline phase 3): the server's row gets the device's id.
+ */
 export function mintId(table: string): SQL {
+	const next = replaying()?.minted.get(table)?.shift();
+	if (next !== undefined) return sql`${next}`;
 	return sql`(select coalesce((select hi from id_marks where tbl = ${table} and slot = ${slot}), ${slot * SLOT_SIZE}) + 1)`;
 }
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { writeGate } from '$lib/server/sync/gate';
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error } from '@sveltejs/kit';
@@ -49,7 +50,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	try {
 		owner = ownerOfRow(s);
 	} catch {
-		failJob(getDb(), s.id, 'Song has no owner', true);
+		await writeGate.shared(async () => failJob(getDb(), s.id, 'Song has no owner', true));
 		throw error(409, 'Song has no owner');
 	}
 	const declared = Number(request.headers.get('content-length') ?? 0);
@@ -75,17 +76,20 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		throw error(413, after.message);
 	}
 	const duration = Number(request.headers.get('x-duration'));
-	const stored = storeFetchedAudio(getDb(), s.id, {
-		file,
-		mime,
-		title,
-		// An older worker sends none of these: they stay null.
-		artist: header('x-artist', 200),
-		fetchedUrl: header('x-fetched-url', 2000),
-		fetchedTitle: header('x-fetched-title', 200),
-		durationS: Number.isFinite(duration) && duration > 0 ? duration : null,
-		sizeBytes
-	});
+	// Under the write gate: the body is in, only the database write waits for a replay.
+	const stored = await writeGate.shared(async () =>
+		storeFetchedAudio(getDb(), s.id, {
+			file,
+			mime,
+			title,
+			// An older worker sends none of these: they stay null.
+			artist: header('x-artist', 200),
+			fetchedUrl: header('x-fetched-url', 2000),
+			fetchedTitle: header('x-fetched-title', 200),
+			durationS: Number.isFinite(duration) && duration > 0 ? duration : null,
+			sizeBytes
+		})
+	);
 	if (!stored.ok) {
 		// The song moved on while the body streamed in.
 		await unlink(path).catch(() => {});

@@ -10,6 +10,7 @@
  * holds it for its life. A second tab's worker says `waiting` and takes over
  * when the first closes; its requests go to the network meanwhile.
  */
+import { PAGE_EPOCH } from '$lib/epoch';
 import type { Server as KitServer, SSRManifest } from '@sveltejs/kit';
 import type { DeviceIn, DeviceOut, WireFallback, WireRequest } from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
@@ -17,6 +18,9 @@ import { createDevice, type Device, type DeviceRuntime, type Responder } from '.
 import { migrateDevice } from './migrate';
 import { deviceMigrations } from './migrations';
 import { openCopy } from './pool';
+import { installCapture } from './capture';
+import { ensureDeviceKey } from './apply';
+import { PUSH_RETRY_MS } from '$lib/sync/outbox';
 import Database, { initDeviceSqlite, openPool, pausePool } from './sqlite-shim';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
@@ -54,7 +58,11 @@ async function open(): Promise<Device> {
 	const db = await openCopy({
 		pool: () => openPool('salsa'),
 		db: () => new Database(DB_PATH),
-		migrate: (d) => migrateDevice(d, deviceMigrations()),
+		migrate: (d) => {
+			migrateDevice(d, deviceMigrations());
+			installCapture(d);
+			ensureDeviceKey(d, () => crypto.randomUUID());
+		},
 		release: pausePool
 	});
 	return createDevice({
@@ -62,6 +70,13 @@ async function open(): Promise<Device> {
 		schema: SCHEMA_TAG,
 		fetchPull: (body) =>
 			fetch('/api/sync/pull', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'content-type': 'application/json' },
+				body
+			}),
+		fetchPush: (body) =>
+			fetch('/api/sync/push', {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: { 'content-type': 'application/json' },
@@ -75,9 +90,35 @@ async function open(): Promise<Device> {
 		online: () => navigator.onLine,
 		userAgent: navigator.userAgent,
 		now: () => Date.now(),
+		epoch: PAGE_EPOCH,
+		newId: () => crypto.randomUUID(),
+		onRecorded: () => {
+			if (device) post({ type: 'outbox', summary: device.summary() });
+			syncSoon();
+		},
 		log: console
 	});
 }
+
+let soon: ReturnType<typeof setTimeout> | undefined;
+let retry: ReturnType<typeof setTimeout> | undefined;
+
+/** A sync shortly after a write, debounced: a run of saves goes up together. */
+function syncSoon(): void {
+	clearTimeout(soon);
+	soon = setTimeout(() => void syncNow(), 300);
+}
+
+/** A sync now; one that could not reach the server while the browser says online tries again later. */
+async function syncNow(): Promise<void> {
+	if (!device) return;
+	clearTimeout(retry);
+	const out = await device.sync();
+	if (out === 'offline' && navigator.onLine)
+		retry = setTimeout(() => void syncNow(), PUSH_RETRY_MS);
+}
+
+scope.addEventListener('online', () => void syncNow());
 
 async function run(): Promise<void> {
 	post({ type: 'state', state: 'waiting' });
@@ -125,9 +166,35 @@ scope.addEventListener('message', (e: MessageEvent<DeviceIn>) => {
 		void device?.person(message.userId);
 	} else if (message?.type === 'pull') {
 		// Before the lock is ours there is nothing to pull into; start pulls anyway.
-		void device?.pull();
+		void syncNow();
+	} else if (message && e.ports[0]) {
+		void answerPort(e.ports[0], message);
 	}
 });
+
+/** The Sync page's questions, each answered on its port; null when no device is open. */
+async function answerPort(port: MessagePort, message: DeviceIn): Promise<void> {
+	let out: unknown = null;
+	try {
+		if (device) {
+			if (message.type === 'outbox-list') out = await device.outboxList();
+			else if (message.type === 'retry') out = await device.retry(message.id);
+			else if (message.type === 'discard') out = await device.discard(message.id);
+			else if (message.type === 'resolve') out = await device.resolve(message.id);
+			else if (message.type === 'sync-now') {
+				await syncNow();
+				out = device.summary();
+			} else if (message.type === 'forget') {
+				await device.forget();
+				out = true;
+			}
+		}
+	} catch (e) {
+		console.error('[device] answering the page failed', message.type, e);
+		out = null;
+	}
+	port.postMessage(out);
+}
 
 scope.addEventListener('error', (e) => console.error('[device] uncaught', e.message, e.error));
 scope.addEventListener('unhandledrejection', (e) =>

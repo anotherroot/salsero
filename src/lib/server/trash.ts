@@ -58,6 +58,8 @@ import { restoreSong } from './song-share';
 import { restorePositionIn } from './positions';
 import { purgeTeams } from './team-purge';
 import { pruneChangeLog } from './sync/log';
+import { pruneLanded } from './sync/landed';
+import { writeGate } from './sync/gate';
 import { realCloneFiles } from './clones/files';
 import { settleFormerMembers } from './clones/settle';
 import { getTeam, roleOf } from './teams';
@@ -630,14 +632,17 @@ const timer = globalThis as { __salsaTrashPurge?: ReturnType<typeof setInterval>
  */
 export function startTrashPurge(db: () => Db, afterSettle: () => void = () => {}): void {
 	if (timer.__salsaTrashPurge) return;
-	const run = () => {
+	// Under the write gate (offline phase 3): never inside a replay's open transaction.
+	const run = () => void writeGate.shared(async () => runPurge());
+	const runPurge = async () => {
 		const now = serverNow();
-		void purgeTrash(db(), now)
+		await purgeTrash(db(), now)
 			.catch((err) => console.warn('[trash] purge failed', err))
 			.then(() => purgeTeams(db(), now))
 			.catch((err) => console.warn('[team-purge] purge failed', err));
-		void Promise.resolve()
+		await Promise.resolve()
 			.then(() => pruneChangeLog(db(), now))
+			.then(() => pruneLanded(db(), now))
 			.catch((err) => console.warn('[sync] prune failed', err));
 	};
 	const settle = async () => {

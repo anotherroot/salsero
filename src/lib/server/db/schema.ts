@@ -1701,3 +1701,26 @@ export const changeLog = sqliteTable('change_log', {
 	op: text('op', { enum: ['i', 'u', 'd'] }).notNull(),
 	at: integer('at').notNull()
 });
+
+/**
+ * A device's id slot (offline phase 3): handed out the first time a device
+ * names itself in a pull, by `slotFor`. The slot belongs to the browser's
+ * database (`device_key`), not to a person. `slot` is not a row id, so it does
+ * not mint. Never synced.
+ */
+export const deviceSlots = sqliteTable('device_slots', {
+	slot: integer('slot').primaryKey(),
+	deviceKey: text('device_key').notNull().unique(),
+	userId: text('user_id').notNull(),
+	createdAt: integer('created_at').notNull()
+});
+
+/**
+ * Outbox entries the server has replayed (offline phase 3), so a resent entry
+ * is never applied twice. Pruned after 180 days. Never synced.
+ */
+export const syncLanded = sqliteTable('sync_landed', {
+	entryId: text('entry_id').primaryKey(),
+	userId: text('user_id').notNull(),
+	landedAt: integer('landed_at').notNull()
+});

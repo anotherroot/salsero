@@ -118,15 +118,34 @@ class Statement {
 	}
 }
 
+/**
+ * One SQLite connection per file, shared by every `Database` opened on it
+ * (offline phase 3): the worker's own and the server code's `getDb()` are
+ * then one connection, so a write the worker wraps in BEGIN … COMMIT is one
+ * transaction with what the server code writes inside it, and the two never
+ * lock each other out.
+ */
+const shared = new Map<string, { db: any; refs: number }>();
+
 export default class Database {
 	readonly _db: any;
+	readonly #path: string | null;
 	#stmts = new Map<string, any>();
 	#depth = 0;
 
 	constructor(path: string) {
 		const s = lib();
-		this._db =
-			path === ':memory:' || !pool ? new s.oo1.DB(':memory:', 'c') : new pool.OpfsSAHPoolDb(path);
+		if (path === ':memory:' || !pool) {
+			this.#path = null;
+			this._db = new s.oo1.DB(':memory:', 'c');
+			return;
+		}
+		this.#path = path;
+		let open = shared.get(path);
+		if (!open || !open.db.isOpen())
+			shared.set(path, (open = { db: new pool.OpfsSAHPoolDb(path), refs: 0 }));
+		open.refs++;
+		this._db = open.db;
 	}
 
 	/** One compiled statement per SQL text, reused: oo1 statements are never GC-finalized. */
@@ -218,6 +237,10 @@ export default class Database {
 	close() {
 		for (const s of this.#stmts.values()) s.finalize();
 		this.#stmts.clear();
+		if (this.#path === null) return this._db.close();
+		const open = shared.get(this.#path);
+		if (open && --open.refs > 0) return;
+		shared.delete(this.#path);
 		this._db.close();
 	}
 }

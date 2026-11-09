@@ -2,7 +2,9 @@
 	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 	import { GROUP } from './styles';
-	import type { MenuItem } from '$lib/menu';
+	import { offlineMenu, type MenuItem } from '$lib/menu';
+	import NeedsConnectionNote from '$lib/components/system/NeedsConnectionNote.svelte';
+	import { connection } from '$lib/offline/connection.svelte';
 
 	/**
 	 * The small sheet a page's ⋯ opens, titled with the item's name (spec
@@ -22,15 +24,23 @@
 		open?: boolean;
 	} = $props();
 
+	/** Offline, what needs a connection is greyed, with one note at the top (look 4B). */
+	const menu = $derived(offlineMenu(items, connection.online));
+
 	const ROW =
 		'flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step';
 </script>
 
 {#if items.length > 0}
 	<Sheet {title} size="small" {open} onclose={() => (open = false)}>
+		{#if menu.note}<NeedsConnectionNote />{/if}
 		<div class={GROUP}>
-			{#each items as item (item.key)}
-				{#if item.href}
+			{#each menu.items as item (item.key)}
+				{#if item.disabled}
+					<button type="button" class="{ROW} opacity-40" aria-disabled="true">
+						{@render body(item)}
+					</button>
+				{:else if item.href}
 					<a href={item.href} class={ROW}>
 						{@render body(item)}
 					</a>

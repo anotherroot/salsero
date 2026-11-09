@@ -23,6 +23,7 @@ import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
 import { suggestions } from './suggestions';
+import { sync } from './sync';
 import { today } from './today';
 import { video } from './video';
 
@@ -51,5 +52,6 @@ export const en = {
 	clones,
 	refusals,
 	map,
-	suggestions
+	suggestions,
+	sync
 };

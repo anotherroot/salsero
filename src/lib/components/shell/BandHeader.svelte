@@ -4,6 +4,9 @@
 	import { page } from '$app/state';
 	import GroupBadge from './GroupBadge.svelte';
 	import GroupFaces from './GroupFaces.svelte';
+	import SyncStatus from '$lib/components/system/SyncStatus.svelte';
+	import { sync } from '$lib/offline/device.svelte';
+	import { syncStatus } from '$lib/sync/status';
 	import { PANE_PAD_DESK, PANE_TITLE_DESK } from '$lib/components/ui/styles';
 	import type { GroupMode } from '$lib/types';
 
@@ -70,6 +73,16 @@
 		/** The pane's desk-only row under the title and `extra`; never on the phone. */
 		below?: Snippet;
 	} = $props();
+
+	/**
+	 * The subtitle carries the sync status (offline phase 3): on the phone every
+	 * screen's big header; on the desktop the band row only (a pane or a card sits
+	 * under the list's band row, which already says it).
+	 */
+	const deskStatus = $derived(variant === 'band');
+	const statusShows = $derived(syncStatus(sync.summary, sync.now).kind !== 'none');
+	/** The desktop's subtitle when it differs from the phone's (its own text, or no status). */
+	const deskText = $derived(deskSubtitle ?? (deskStatus ? undefined : subtitle));
 
 	/** In a group's view the band says whose space this is (a held view too: a drill being edited). */
 	const group = $derived((page.data.groupMode ?? frameView.current) as GroupMode | null);
@@ -173,24 +186,27 @@
 						>{:else}{title}{/if}</span
 				>
 			</svelte:element>
-			{#if deskSubtitle}
-				{#if subtitle}
+			{#if deskSubtitle || !deskStatus}
+				{#if subtitle || statusShows}
 					<span
 						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
 						class:pl-[38px]={!!left}
-						data-band-sub>{subtitle}</span
+						data-band-sub><SyncStatus {subtitle} /></span
 					>
 				{/if}
-				<span
-					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
-					class:pl-[38px]={!!left}
-					data-band-fade>{deskSubtitle}</span
-				>
-			{:else if subtitle}
+				{#if deskText}
+					<span
+						class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
+						class:pl-[38px]={!!left}
+						data-band-fade
+						>{#if deskStatus}<SyncStatus subtitle={deskText} />{:else}{deskText}{/if}</span
+					>
+				{/if}
+			{:else if subtitle || statusShows}
 				<span
 					class="order-last basis-full text-[15px] font-semibold text-band-small {D.sub}"
 					class:pl-[38px]={!!left}
-					data-band-sub>{subtitle}</span
+					data-band-sub><SyncStatus {subtitle} /></span
 				>
 			{/if}
 		</div>

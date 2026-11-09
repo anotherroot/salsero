@@ -134,7 +134,7 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
 - A clipping card uses `GROUP` or `CLIP`. After a one-tap removal,
   `focusAfterRemoval`. A refresh after a sheet or the player closes:
   `refreshWhenSettled()`. Safe area through `--safe-*`, never `env()`.
-- Raise `PAGE_EPOCH` in the commit that breaks older open pages.
+- Raise `PAGE_EPOCH` (`src/lib/epoch.ts`) in the commit that breaks older open pages.
 - Words go through `t()`, in both catalogs (en, sl), read at call time; every
   component is checked for bare English (`no-english.spec.ts`, `EXEMPT` with a
   reason) and every server refusal too (`refusals-guard.spec.ts`). Slovenian:
@@ -156,8 +156,11 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
   one gets its triggers in a NEW custom migration, `scripts/sync-triggers.ts <table>`;
   never edit 0042); no row
   leaves the server outside `syncScope`; every GET endpoint is classified in
-  `src/lib/offline/routes.ts`; the device answers only when the network
-  fails, and only GETs (docs/hard-rules.md).
+  `src/lib/offline/routes.ts`, and every write too (`ACTIONS`, `ENDPOINT_WRITES`):
+  device/queued writes run on the device first and replay via `/api/sync/push`
+  (made-at clock, device ids, per-field merge on own rows, `replayName`); a
+  group's row online goes to the server; cookie-setting actions and Sign out are
+  network-only; every non-GET holds `writeGate` (docs/hard-rules.md).
 - A device token signs in on `/api/` only (not pages, not `/api/worker/`); hash only.
 - An account belongs to one dance (`users.dance`): `wallOf` 404s another dance;
   a flat route takes the account's dance, never the request's.

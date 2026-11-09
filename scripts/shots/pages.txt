@@ -17,6 +17,7 @@
 /{dance}/groups
 /{dance}/groups/{group}
 /{dance}/songs
+/{dance}/sync
 /{dance}/songs/{song}
 /{dance}/player
 /settings

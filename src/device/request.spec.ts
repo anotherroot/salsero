@@ -15,4 +15,20 @@ describe('DeviceRequest', () => {
 		expect(req.method).toBe('GET');
 		expect(req).toBeInstanceOf(Request);
 	});
+
+	it('parses a multipart body through its own content type', async () => {
+		const fd = new FormData();
+		fd.set('note', 'from the studio');
+		const sent = new Request('https://x/', { method: 'POST', body: fd });
+		const headers = new Headers({
+			'content-type': sent.headers.get('content-type')!,
+			cookie: 'a=b'
+		});
+		const req = new DeviceRequest(
+			'https://salsa.test/salsa?/done',
+			{ method: 'POST', body: await sent.arrayBuffer() },
+			headers
+		);
+		expect((await req.formData()).get('note')).toBe('from the studio');
+	});
 });

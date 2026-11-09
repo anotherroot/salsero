@@ -8,6 +8,9 @@ import { APP_COOKIE } from '$lib/app-mode';
 import { LOCALE_COOKIE } from '$lib/i18n/locale';
 import type { PullRequest } from '$lib/sync/wire';
 
+/** A browser database's key (offline phase 3): what `slotFor` keys a slot on. */
+const DEVICE_KEY = /^[A-Za-z0-9-]{8,64}$/;
+
 const ECHOED = [THEME_COOKIE, APP_COOKIE, LOCALE_COOKIE];
 
 function readRequest(body: unknown): PullRequest | null {
@@ -23,7 +26,9 @@ function readRequest(body: unknown): PullRequest | null {
 		digests = b.digests as Record<string, string>;
 	}
 	if (b.userId !== undefined && b.userId !== null && typeof b.userId !== 'string') return null;
-	return { cursor: b.cursor, schema: b.schema, digests, userId: b.userId };
+	if (b.device !== undefined && (typeof b.device !== 'string' || !DEVICE_KEY.test(b.device)))
+		return null;
+	return { cursor: b.cursor, schema: b.schema, digests, userId: b.userId, device: b.device };
 }
 
 export const POST: RequestHandler = async ({ request, cookies }) => {

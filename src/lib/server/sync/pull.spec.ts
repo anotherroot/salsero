@@ -55,6 +55,16 @@ const synced = (userId: string, first: PullResponse): Partial<PullRequest> => ({
 });
 
 describe('pull', () => {
+	it('assigns a slot to a device that names itself', () => {
+		expect(pull('u1', { device: 'dev-a' }).slot).toBe(1);
+		expect(pull('u2', { device: 'dev-b' }).slot).toBe(2);
+		expect(pull('u1', { device: 'dev-a' }).slot).toBe(1);
+	});
+
+	it('says no slot to a device that does not', () => {
+		expect('slot' in pull('u1')).toBe(false);
+	});
+
 	it('sends every table in full to a device with no digests', () => {
 		const out = pull('u1');
 		expect(out.full.sort()).toEqual(Object.keys(SYNCED).sort());
