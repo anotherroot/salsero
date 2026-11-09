@@ -411,6 +411,7 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/positions': { POST: 'device' },
 	'/api/songs': { POST: 'pass' },
 	'/api/sync/pull': { POST: 'pass' },
+	'/api/sync/push': { POST: 'pass' },
 	'/api/trash/[id]': { POST: 'network' },
 	'/api/video-spots': { POST: 'device' },
 	'/api/video-spots/[id]': { DELETE: 'device', PATCH: 'device' },
