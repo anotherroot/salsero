@@ -352,6 +352,15 @@ export function bandCollapse() {
 				else unfold(el);
 			}
 		},
+		/**
+		 * The bands changed under the fold (a part drawn anew, a font, a size): the
+		 * next `drive` or `update` measures again and writes every part, the fold
+		 * left running where it is.
+		 */
+		invalidate(): void {
+			rest = null;
+			driven = null;
+		},
 		/** Back to rest: the desktop, or a page whose band does not fold. */
 		clear(header: HTMLElement | null, slim?: HTMLElement | null): void {
 			rest = null;
