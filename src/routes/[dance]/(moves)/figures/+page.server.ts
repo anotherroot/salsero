@@ -1,4 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { replayName } from '$lib/server/replay-context';
 import { getDb } from '$lib/server/db';
 import { createFigure, createVariationIn, getGroup, variationNameTaken } from '$lib/server/figures';
 import { getPosition } from '$lib/server/positions';
@@ -59,7 +60,7 @@ export const actions: Actions = {
 		const figureName = text(form, 'figureName');
 		// New figure in a move that exists (the Move field picked one); else a new move.
 		const groupId = int(form, 'groupId');
-		const name = text(form, 'name');
+		let name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
@@ -111,6 +112,8 @@ export const actions: Actions = {
 					...typed
 				});
 			}
+			const moveId = move.id;
+			if (name) name = replayName(name, (n) => variationNameTaken(db, moveId, n, null));
 			if (variationNameTaken(db, move.id, name, null)) {
 				return fail(400, {
 					field: 'name' as const,

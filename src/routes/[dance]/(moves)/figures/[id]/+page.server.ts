@@ -1,4 +1,6 @@
 import { unlink } from 'node:fs/promises';
+import { replayName } from '$lib/server/replay-context';
+import { norm } from '$lib/server/clones/names';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
@@ -525,8 +527,8 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// Edit no longer asks for the move's name (the move's own page renames it):
 		// left out, the move keeps its name. An older open page still sends it.
 		const renames = form.has('figureName');
-		const figureName = renames ? text(form, 'figureName') : null;
-		const name = text(form, 'name');
+		let figureName = renames ? text(form, 'figureName') : null;
+		let name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		const notes = optionalText(form, 'notes');
@@ -553,7 +555,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// of the variation or its figure's name is refused with theirs.
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null || hasCopies(db, 'figure', row.id),
+			{ team: row.teamId !== null, copies: hasCopies(db, 'figure', row.id) },
 			variationSeen(db, row.id, renames),
 			{ action: 'update' as const },
 			serverNow(),
@@ -562,6 +564,11 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		if (clash) return clash;
 		const { figure, group } = variationOf(params, locals);
 		const by = me(params, locals);
+		if (figureName)
+			figureName = replayName(figureName, (n) => figureNameTaken(db, space, n, group.id));
+		if (name && norm(name) !== norm(figure.name)) {
+			name = replayName(name, (n) => variationNameRefused(db, group.id, figure, n));
+		}
 		if (figureName && figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}

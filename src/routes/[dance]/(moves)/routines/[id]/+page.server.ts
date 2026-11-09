@@ -400,7 +400,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		}
 		const clash = seenRefusal(
 			form,
-			routine.teamId !== null || hasCopies(db, 'routine', routine.id),
+			{ team: routine.teamId !== null, copies: hasCopies(db, 'routine', routine.id) },
 			routine.archivedAt === null ? routineSeen(routine) : null,
 			{ action: 'rename' as const, ...typed },
 			serverNow(),

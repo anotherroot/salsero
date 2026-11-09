@@ -52,7 +52,12 @@ export async function noteSongFrom(request: Request, db: Db, space: Space, paren
 	// the clash check never answers with what someone else's note says.
 	const found = linkId === undefined ? null : musicLinkIn(db, space, linkId, parent);
 	if (!found) return fail(404, { ...typed, message: words().gone });
-	const clash = seenRefusal(form, isTeam(space), musicSeen(found.link), typed);
+	const clash = seenRefusal(
+		form,
+		{ team: isTeam(space), copies: false },
+		musicSeen(found.link),
+		typed
+	);
 	if (clash) return clash;
 	if (!setMusicNote(db, space, found.link.id, note, serverNow(), parent)) {
 		return fail(404, { ...typed, message: words().gone });

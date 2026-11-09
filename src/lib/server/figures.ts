@@ -1,4 +1,5 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
+import { replayName } from '$lib/server/replay-context';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import { assertUnlinked, clearPictures } from './spot-links';
@@ -220,9 +221,10 @@ export function createFigure(
 	space: Space,
 	input: FigureInput & { figureName: string }
 ): { figure: Figure; group: FigureGroup } | null {
-	const { figureName, ...rest } = input;
+	const { figureName: typed, ...rest } = input;
 	if (!isStyleOf(space.dance, rest.style)) return null;
-	if (!figureName.trim() || !rest.name.trim()) return null;
+	if (!typed.trim() || !rest.name.trim()) return null;
+	const figureName = replayName(typed, (n) => figureNameTaken(db, space, n, null));
 	if (figureNameTaken(db, space, figureName, null)) return null;
 	return db.transaction((tx) => {
 		const group = tx
@@ -273,6 +275,10 @@ export function createVariationIn(
 		const group = getGroup(tx, groupId);
 		if (!group || group.archivedAt !== null) return null;
 		if (!isStyleOf(group.dance as DanceSlug, input.style)) return null;
+		input = {
+			...input,
+			name: replayName(input.name, (n) => variationNameTaken(tx, group.id, n, null))
+		};
 		if (variationNameTaken(tx, group.id, input.name, null)) return null;
 		const made = tx
 			.insert(figures)
@@ -308,6 +314,8 @@ export function createVariationFrom(
 	return db.transaction((tx) => {
 		const src = tx.select().from(figures).where(eq(figures.id, fromId)).get();
 		if (!src || src.archivedAt !== null || src.groupId === null) return null;
+		const groupId = src.groupId;
+		name = replayName(name, (n) => variationNameTaken(tx, groupId, n, null));
 		if (variationNameTaken(tx, src.groupId, name, null)) return null;
 		const copy = tx
 			.insert(figures)
@@ -366,6 +374,13 @@ export function updateVariation(
 		if (!current || current.archivedAt !== null || current.groupId === null) return null;
 		if (!isStyleOf(current.dance, input.style) || !input.name.trim()) return null;
 		// Refused only when the name CHANGED: a copy may share the one it has.
+		const groupId = current.groupId;
+		if (norm(input.name) !== norm(current.name)) {
+			input = {
+				...input,
+				name: replayName(input.name, (n) => variationNameTaken(tx, groupId, n, current.id))
+			};
+		}
 		if (variationNameRefused(tx, current.groupId, current, input.name)) return null;
 		const figure = tx
 			.update(figures)
@@ -409,6 +424,7 @@ export function renameFigure(
 	return db.transaction((tx) => {
 		const group = tx.select().from(figureGroups).where(eq(figureGroups.id, groupId)).get();
 		if (!group || !name.trim()) return false;
+		name = replayName(name, (n) => figureNameTaken(tx, ownerSpace(group), n, groupId));
 		if (figureNameTaken(tx, ownerSpace(group), name, groupId)) return false;
 		tx.update(figureGroups).set({ name }).where(eq(figureGroups.id, groupId)).run();
 		syncExerciseNames(tx, eq(figures.groupId, groupId));
@@ -629,10 +645,12 @@ export function moveVariation(db: Db, id: number, to: MoveTo, by?: string): Move
 			}
 			if (g.id === from) return { ok: false, reason: 'same-figure' };
 			if (to.name?.trim()) name = to.name.trim();
+			name = replayName(name, (n) => variationNameTaken(tx, g.id, n, id));
 			if (variationNameTaken(tx, g.id, name, id)) return { ok: false, reason: 'name-taken' };
 			target = g.id;
 		} else {
-			const name = to.newFigure.trim();
+			const typed = to.newFigure.trim();
+			const name = typed && replayName(typed, (n) => figureNameTaken(tx, ownerSpace(row), n, null));
 			if (!name || figureNameTaken(tx, ownerSpace(row), name, null)) {
 				return { ok: false, reason: 'figure-name-taken' };
 			}

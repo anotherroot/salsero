@@ -425,7 +425,7 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 		const stored = getExercise(db, row.id);
 		const clash = seenRefusal(
 			form,
-			row.teamId !== null || hasCopies(db, 'drill', row.id),
+			{ team: row.teamId !== null, copies: hasCopies(db, 'drill', row.id) },
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
 			{ action: 'update' as const },
 			serverNow(),
