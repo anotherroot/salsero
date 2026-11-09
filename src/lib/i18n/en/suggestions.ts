@@ -10,6 +10,8 @@ export const suggestions = {
 	theAi: 'Your AI',
 	/** The row at the top of You. */
 	youRow: 'AI suggestions',
+	/** The label over that row on the phone's You. */
+	section: 'AI',
 	/** The You tab's name for a screen reader while suggestions wait. */
 	tabLabel: (label: string): string => `${label}, AI suggestions waiting`,
 	waiting: (n: number): string => `${n} waiting`,

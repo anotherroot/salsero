@@ -6,6 +6,7 @@ export const suggestions: Catalog['suggestions'] = {
 	subtitle: (who, n) => `${who} · ${n} čaka`,
 	theAi: 'Vaša AI',
 	youRow: 'Predlogi AI',
+	section: 'AI',
 	tabLabel: (label) => `${label}, čakajo predlogi AI`,
 	waiting: (n) => `${n} čaka`,
 	run: 'Izvedi',

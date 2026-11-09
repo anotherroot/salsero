@@ -13,7 +13,7 @@
 <svelte:head><title>{t().shell.tabs.you} · {data.dance.label}</title></svelte:head>
 
 <Screen title={t().shell.tabs.you} subtitle={user ? fullName(user) : undefined} width="narrow">
-	<SuggestionsRow dance={data.dance.slug} />
+	<SuggestionsRow dance={data.dance.slug} heading={false} />
 	<YouSettings
 		settings={data.you}
 		theme={page.data.theme}

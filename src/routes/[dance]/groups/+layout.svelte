@@ -106,7 +106,10 @@
 			{joinAction}
 		/>
 	{:else}
-		{#if you}<h2 class="{SECTION_LABEL} desk:hidden">{t().shell.tabs.groups}</h2>{/if}
+		{#if you}
+			<div class="contents desk:hidden"><SuggestionsRow dance={data.dance.slug} /></div>
+			<h2 class="{SECTION_LABEL} desk:hidden">{t().shell.tabs.groups}</h2>
+		{/if}
 		<GroupList
 			teams={data.teams}
 			dance={data.dance.slug}
@@ -117,9 +120,8 @@
 			{joinAction}
 		/>
 		{#if you}
-			<!-- The phone's You: the settings under the groups. The desktop has Settings in the side. -->
+			<!-- The phone's You: the AI row above the groups, the settings under them. The desktop has Settings in the side. -->
 			<div class="contents desk:hidden">
-				<SuggestionsRow dance={data.dance.slug} />
 				<YouSettings
 					settings={you}
 					theme={page.data.theme}
