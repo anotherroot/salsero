@@ -64,7 +64,7 @@ and Today as a number a day (four faces on every logged set, an Anki-style gap
 replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
 see
 [`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md))
-and run the day, plan 1 (slower gaps; Comes back on a drill, by how it went or on
+and run the day, plan 1 (slower gaps; Comes back on any exercise since 2026-11-09, a drill only before; by how it went or on
 a fixed rhythm; Warm-up, its own list first on Today and outside the daily
 number; Today's lists "Warm-up · N" and "Practice · N"; no lateness anywhere)
 and run the day, plan 2 (one exercise page per type, with Practise with, a drill's

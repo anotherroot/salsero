@@ -228,7 +228,7 @@ describe('listExercises: comes back and warm-up', () => {
 		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
 	});
 
-	it('reads a lesson review as faces whatever the column holds, and junk as faces', () => {
+	it('reads a lesson review by its own Comes back (any type has it), and junk as faces', () => {
 		const c = makeClass(db);
 		const reviewId = db
 			.insert(exercises)
@@ -242,7 +242,9 @@ describe('listExercises: comes back and warm-up', () => {
 			})
 			.returning({ id: exercises.id })
 			.get().id;
-		expect(listExercises(db, MAJA).find((e) => e.id === reviewId)!.comesBack).toEqual(FACES);
+		expect(listExercises(db, MAJA).find((e) => e.id === reviewId)!.comesBack).toEqual(
+			JSON.parse(EVERY_2)
+		);
 
 		const own = createCustomExercise(db, U1_SALSA, { name: 'Junk', everyDays: 2, notes: null });
 		db.update(exercises).set({ comesBack: 'junk' }).where(eq(exercises.id, own.id)).run();
@@ -290,7 +292,7 @@ describe('updateExercise: warm-up and comes back', () => {
 		expect(parseComesBack(d.comesBack)).toEqual({ kind: 'until', good: 3, since: 7 });
 	});
 
-	it('leaves a lesson review on faces (the column stays null)', () => {
+	it("saves a lesson review's Comes back too", () => {
 		const c = makeClass(db);
 		const id = db
 			.insert(exercises)
@@ -298,7 +300,7 @@ describe('updateExercise: warm-up and comes back', () => {
 			.returning({ id: exercises.id })
 			.get().id;
 		updateExercise(db, id, { name: 'R', notes: null, active: true, comesBack: EVERY_2 });
-		expect(stored(id).comesBack).toBeNull();
+		expect(JSON.parse(stored(id).comesBack!)).toEqual(EVERY_2);
 	});
 
 	it("clears a member's entry with 'teacher'", () => {
