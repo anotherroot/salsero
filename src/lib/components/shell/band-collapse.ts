@@ -5,9 +5,13 @@
  * compact screen's), and what else is under the title (the group line, a
  * subtitle the slim band drops, `extra`) fades. At the pin (`bandMode`) the
  * slim band takes over with nothing to fade: it holds the same things in the
- * same places. Inline styles on the big band's marked parts (`data-band-*` in
- * `BandHeader`), measured against the slim band's (`data-slim-name`,
- * `data-slim-sub`); never on the desktop (`clear`). Not PURE: the math is
+ * same places. A group's row (its badge and name) shrinks into the slim band's
+ * group line the same way. A title on two lines cannot become the slim band's
+ * one: it shrinks as two and dissolves over the last `WRAPPED_FADE` px before
+ * the pin, its subtitle fading early out of its way, and the slim band's title
+ * and subtitle come in over as many px after it. The rest is in place either way. Inline styles on the big
+ * band's marked parts (`data-band-*` in `BandHeader`), measured against the
+ * slim band's (`data-slim-name`, `data-slim-sub`, `data-slim-g*`); never on the desktop (`clear`). Not PURE: the math is
  * `$lib/nav/band`.
  *
  * Where the browser has scroll timelines (`scrollDriven`), `drive` hands the
@@ -28,8 +32,19 @@ import { lerp } from '$lib/nav/band';
  */
 type Spot = { x: number; cy: number; pad: number };
 
+/** How many px a two-line title takes to dissolve before the pin, and the slim one to come in after. */
+export const WRAPPED_FADE = 12;
+
 type Rest = {
 	name: Spot | null;
+	/** The title wraps onto a second line (it crossfades into the slim band's one). */
+	wrapped: boolean;
+	gbadge: Spot | null;
+	gname: Spot | null;
+	slimGbadge: Spot | null;
+	slimGname: Spot | null;
+	gbadgeScale: number;
+	gnameScale: number;
 	sub: Spot | null;
 	left: Spot | null;
 	right: Spot | null;
@@ -46,10 +61,14 @@ type Rest = {
 
 const parts = (header: HTMLElement) => ({
 	name: header.querySelector<HTMLElement>('[data-band-name]'),
+	/** The title's h1: a two-line title dissolves through it (the name's own animation flies). */
+	h1: header.querySelector<HTMLElement>('[data-band-name]')?.parentElement ?? null,
 	// The phone's subtitle (the desktop's is hidden there, and has no box).
 	sub:
 		[...header.querySelectorAll<HTMLElement>('[data-band-sub]')].find((el) => el.offsetParent) ??
 		null,
+	gbadge: header.querySelector<HTMLElement>('[data-band-gbadge]'),
+	gname: header.querySelector<HTMLElement>('[data-band-gname]'),
 	left: header.querySelector<HTMLElement>('[data-band-left]'),
 	right: header.querySelector<HTMLElement>('[data-band-right]'),
 	fades: [...header.querySelectorAll<HTMLElement>('[data-band-fade]')]
@@ -107,9 +126,22 @@ function measure(header: HTMLElement, slim: HTMLElement): Rest {
 	const p = parts(header);
 	const slimName = slim.querySelector<HTMLElement>('[data-slim-name]');
 	const slimSub = slim.querySelector<HTMLElement>('[data-slim-sub]');
+	const slimGbadge = slim.querySelector<HTMLElement>('[data-slim-gbadge]');
+	const slimGname = slim.querySelector<HTMLElement>('[data-slim-gname]');
 	const band = placed(slim);
+	const lineH = p.name ? parseFloat(getComputedStyle(p.name).lineHeight) || fontSize(p.name) : 0;
 	return {
 		name: spot(p.name),
+		wrapped: !!p.name && p.name.offsetHeight > lineH * 1.5,
+		gbadge: spot(p.gbadge),
+		gname: spot(p.gname),
+		slimGbadge: spot(slimGbadge),
+		slimGname: spot(slimGname),
+		gbadgeScale:
+			p.gbadge && slimGbadge && p.gbadge.offsetWidth
+				? slimGbadge.offsetWidth / p.gbadge.offsetWidth
+				: 1,
+		gnameScale: p.gname && slimGname ? fontSize(slimGname) / fontSize(p.gname) : 1,
 		sub: spot(p.sub),
 		left: spot(p.left),
 		right: spot(p.right),
@@ -120,6 +152,17 @@ function measure(header: HTMLElement, slim: HTMLElement): Rest {
 		subScale: p.sub && slimSub ? fontSize(slimSub) / fontSize(p.sub) : 1
 	};
 }
+
+/** The slim band's title and subtitle: what a two-line title's dissolve brings in. */
+const slimText = (slim: HTMLElement) =>
+	[
+		slim.querySelector<HTMLElement>('[data-slim-name]'),
+		slim.querySelector<HTMLElement>('[data-slim-sub]')
+	].filter((el): el is HTMLElement => el !== null);
+
+/** 0 to 1 over `from`..`to` of scroll. */
+const ramp = (y: number, from: number, to: number) =>
+	Math.min(1, Math.max(0, (y - from) / Math.max(1e-6, to - from)));
 
 export function bandCollapse() {
 	/** The rest positions and what they were measured for (the band's key). */
@@ -134,13 +177,18 @@ export function bandCollapse() {
 
 	function reset(header: HTMLElement, slim?: HTMLElement | null) {
 		const p = parts(header);
-		for (const el of [p.name, p.sub, p.left, p.right, ...p.fades]) {
+		for (const el of [p.name, p.h1, p.sub, p.gbadge, p.gname, p.left, p.right, ...p.fades]) {
 			if (!el) continue;
 			el.style.transform = '';
 			el.style.opacity = '';
 			unfold(el);
 		}
-		if (slim) unfold(slim);
+		if (slim) {
+			for (const el of [slim, ...slimText(slim)]) {
+				unfold(el);
+				el.style.opacity = '';
+			}
+		}
 	}
 
 	return {
@@ -153,6 +201,7 @@ export function bandCollapse() {
 			header: HTMLElement,
 			slim: HTMLElement,
 			scrollY: number,
+			pin: number,
 			progress: number,
 			key: string
 		): void {
@@ -170,7 +219,14 @@ export function bandCollapse() {
 				)}px) scale(${lerp(1, scale, progress)})`;
 			};
 			fly(p.name, r.name, r.slimName, r.scale);
-			fly(p.sub, r.sub, r.slimSub, r.subScale);
+			if (!r.wrapped) fly(p.sub, r.sub, r.slimSub, r.subScale);
+			fly(p.gbadge, r.gbadge, r.slimGbadge, r.gbadgeScale);
+			fly(p.gname, r.gname, r.slimGname, r.gnameScale);
+			// A two-line title dissolves before the pin; the slim title comes in after it.
+			if (p.h1)
+				p.h1.style.opacity = r.wrapped ? String(1 - ramp(scrollY, pin - WRAPPED_FADE, pin)) : '';
+			for (const el of slimText(slim))
+				el.style.opacity = r.wrapped ? String(ramp(scrollY, pin, pin + WRAPPED_FADE)) : '';
 			for (const [el, at] of [
 				[p.left, r.left],
 				[p.right, r.right]
@@ -180,8 +236,8 @@ export function bandCollapse() {
 			// What sits under the title fades in the first part of the way, out of the title's path.
 			const fade = String(Math.max(0, 1 - progress * 1.6));
 			for (const el of p.fades) el.style.opacity = fade;
-			// A subtitle the slim band drops fades with the rest.
-			if (p.sub && !r.slimSub) p.sub.style.opacity = fade;
+			// A subtitle the slim band drops fades with the rest, and one under a two-line title.
+			if (p.sub && (!r.slimSub || r.wrapped)) p.sub.style.opacity = fade;
 		},
 		/**
 		 * Hand the fold to the scroll (`scrollDriven` browsers): the end of each part's
@@ -207,16 +263,29 @@ export function bandCollapse() {
 				});
 			};
 			flyTo(p.name, r.name, r.slimName, r.scale);
-			flyTo(p.sub, r.sub, r.slimSub, r.subScale);
+			if (r.wrapped) {
+				if (p.sub) unfold(p.sub);
+			} else flyTo(p.sub, r.sub, r.slimSub, r.subScale);
+			flyTo(p.gbadge, r.gbadge, r.slimGbadge, r.gbadgeScale);
+			flyTo(p.gname, r.gname, r.slimGname, r.gnameScale);
 			for (const [el, from] of [
 				[p.left, r.left],
 				[p.right, r.right]
 			] as const) {
 				if (el && from) fold(el, 'fly', 0, pin, { '--fly-y': `${r.slimRow - from.cy + pin}px` });
 			}
-			const fades = [...p.fades, ...(p.sub && !r.slimSub ? [p.sub] : [])];
+			const fades = [...p.fades, ...(p.sub && (!r.slimSub || r.wrapped) ? [p.sub] : [])];
 			for (const el of fades) fold(el, 'fade', 0, pin / 1.6);
+			// One line lands as the slim title: the slim band takes over at the pin.
 			fold(slim, 'in', Math.max(0, pin - 0.5), pin);
+			// Two lines cannot: the big title dissolves before the pin, the slim one comes in after.
+			if (r.wrapped) {
+				if (p.h1) fold(p.h1, 'fade', Math.max(0, pin - WRAPPED_FADE), pin);
+				for (const el of slimText(slim)) fold(el, 'in', pin, pin + WRAPPED_FADE);
+			} else {
+				if (p.h1) unfold(p.h1);
+				for (const el of slimText(slim)) unfold(el);
+			}
 		},
 		/** Back to rest: the desktop, or a page whose band does not fold. */
 		clear(header: HTMLElement | null, slim?: HTMLElement | null): void {

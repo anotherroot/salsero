@@ -39,9 +39,12 @@ the faces of the group's people as small overlapping initial circles with a coun
 ("2 people"). Below it the band is as on any page: Back, the title, the actions, the
 subtitle.
 
-**Phone, scrolled.** The slim band (once the big one has scrolled away) puts the same
-round badge before the title. *(my call, from round 3: the group's name as a second line
-crowded a compact page's slim band, which already has a subtitle.)*
+**Phone, scrolled.** The slim band keeps the group's row, shrunk: a small line with the
+badge and the group's name over the title, the subtitle stepping aside there. The big
+row folds into it as the page scrolls (the badge and the name shrink into place, the
+faces fade), so nothing pops in. *(user, 2026-11-09: "maybe we keep the above heading
+about the group, just scaled down"; it was the badge before the title, which left a
+gap while the title flew to its place.)*
 
 **Phone, tab bar** *(user: "G's colour idea")*. Filled with the band's colour. Icons and
 labels in cream at about 70 %; the lit tab a cream pill with band-coloured icon and

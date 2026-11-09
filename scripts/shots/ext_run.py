@@ -447,6 +447,6 @@ def _band_at(frac):
     return act
 
 
-for _path, _tag in (("/{dance}/figures", "list"), ("/{dance}/exercises/109", "item"), ("/{dance}", "today")):
+for _path, _tag in (("/{dance}/figures", "list"), ("/{dance}/exercises/109", "item"), ("/{dance}", "today"), ("/{dance}/groups/1?in=1", "group")):
     for _frac, _name in ((0.35, "a"), (0.7, "b"), (0.98, "c"), (1.0, "d"), (1.6, "e")):
         SCENES[f"band-{_tag}-{_name}"] = Scene(_path, _band_at(_frac))
