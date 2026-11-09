@@ -3,6 +3,7 @@ import { listSharedSongs, listSongs } from '$lib/server/songs';
 import { songUsers } from '$lib/server/song-share';
 import { whatsNew } from '$lib/server/whats-new';
 import { storedTwinSets } from '$lib/server/twins';
+import { copyCounts } from '$lib/server/clones/step';
 import { foldSongs } from '$lib/clones/twins';
 import { wallOf } from '$lib/server/scope';
 import { groupModeOf } from '$lib/server/group-mode';
@@ -36,6 +37,7 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }
 			imports: listImports(db, team),
 			groups: [],
 			twinned: [] as number[],
+			cloned: [] as number[],
 			users: Object.fromEntries(
 				list.filter((s) => s.sharedAt !== null).map((s) => [s.id, songUsers(db, s.id)])
 			) as Record<number, number>
@@ -60,6 +62,13 @@ export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }
 		})),
 		/** The songs that stand for their twins: the "Twins" chip. */
 		twinned: [...folded.twinOf.keys()],
+		/** The songs with other copies the person reads: the "Clone" chip. */
+		cloned: [
+			...copyCounts(db, wall.userId, 'song', [
+				...folded.mine.map((s) => s.id),
+				...folded.groups.flatMap((g) => g.rows.map((s) => s.id))
+			]).keys()
+		],
 		users: {} as Record<number, number>
 	};
 };

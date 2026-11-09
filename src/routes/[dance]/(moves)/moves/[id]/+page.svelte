@@ -8,6 +8,9 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import GroupMark from '$lib/components/moves/GroupMark.svelte';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { fromTags } from '$lib/clones/from-tag';
 	import { figureRowMeta } from '$lib/moves/list';
@@ -119,11 +122,17 @@
 						href={figureHref(f.id)}
 					>
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
-								>{f.name}{#if tags.get(f.id)}<span class="ml-1 font-normal text-muted"
-										>{tags.get(f.id)}</span
-									>{/if}</span
-							>
+							<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+								<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
+									>{f.name}{#if tags.get(f.id)}<span class="ml-1 font-normal text-muted"
+											>{tags.get(f.id)}</span
+										>{/if}</span
+								>
+								<!-- Marked as on the Figures list: its twins, its clones, its group. -->
+								{#if f.twins}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
+								{#if f.copies > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
+							</span>
+							{#if f.team}<GroupMark name={f.team.name} />{/if}
 							<span class="text-[13px] leading-[1.35] text-muted">{figureRowMeta(f)}</span>
 						</span>
 						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>

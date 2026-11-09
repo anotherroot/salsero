@@ -9,7 +9,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GroupMark from '$lib/components/moves/GroupMark.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { cloneChip } from '$lib/clones/twins';
+	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { button, iconButton, FIELD, GROUP, LABEL } from '$lib/components/ui/styles';
@@ -232,6 +232,8 @@
 						<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
 							<span class="text-[16px] leading-tight font-bold text-ink">{s.name}</span>
 							<!-- A figure with clones, marked as on the Figures list. -->
+							<!-- The twin icon is the kit's `link`, as on the Figures list. -->
+							{#if s.twins}<Badge><Icon name="link" size={14} />{twinsChip()}</Badge>{/if}
 							{#if s.copies > 0}<Badge><Icon name="copy" size={14} />{cloneChip()}</Badge>{/if}
 						</span>
 						<!-- A group's figure, marked as on the Figures list. -->
