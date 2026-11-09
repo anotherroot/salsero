@@ -3,8 +3,8 @@
  * as the song is picked — never on the Play tap, which must reach `start()`
  * without awaiting anything or iOS keeps the audio locked. Shared by the
  * practice panel and the full player. Call it while a component initialises:
- * the fetch lives in an `$effect`, and a pick that changes mid-fetch drops the
- * stale answer.
+ * the fetch lives in an `$effect`, a pick that changes mid-fetch drops the
+ * stale answer, and the same song asked again keeps what it has.
  */
 import type { SongGrid } from '$lib/types';
 import { t } from '$lib/i18n/catalog';
@@ -18,26 +18,32 @@ export function loadSongGrid(
 		grid: null,
 		error: null
 	});
+	// What is loaded (or loading), as "dance/song". A page load that runs again
+	// (a practice saved, the device's pull) hands the same song back: the grid
+	// stays, so the page keeps the <audio> a run plays on. Only a newer pick's
+	// answer is taken (`asked`).
+	let current: string | null = null;
+	let asked = 0;
 	$effect(() => {
 		const id = songId();
 		const slug = danceSlug();
+		const key = id === null ? null : `${slug}/${id}`;
+		if (key === current) return;
+		current = key;
+		const mine = ++asked;
 		state.grid = null;
 		state.error = null;
 		if (id === null) return;
-		let cancelled = false;
 		fetch(`/${slug}/songs/${id}/grid`)
 			.then((r) =>
 				r.ok ? (r.json() as Promise<SongGrid>) : Promise.reject(new Error(String(r.status)))
 			)
 			.then((g) => {
-				if (!cancelled) state.grid = g;
+				if (mine === asked) state.grid = g;
 			})
 			.catch(() => {
-				if (!cancelled) state.error = t().player.songFailed;
+				if (mine === asked) state.error = t().player.songFailed;
 			});
-		return () => {
-			cancelled = true;
-		};
 	});
 	return state;
 }
