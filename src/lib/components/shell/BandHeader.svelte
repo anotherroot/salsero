@@ -139,7 +139,11 @@
 				The group's row (group view spec): whose space this is and who sees it.
 				The phone's only: on the desktop the side's card says it.
 			-->
-			<div class="flex basis-full items-center gap-2.5 pb-1.5 desk:hidden" data-group-row data-band-fade>
+			<div
+				class="flex basis-full items-center gap-2.5 pb-1.5 desk:hidden"
+				data-group-row
+				data-band-fade
+			>
 				<GroupBadge size={30} />
 				<span class="min-w-0 flex-1 truncate text-[17px] font-extrabold text-band-ink"
 					>{group.name}</span
