@@ -29,6 +29,9 @@ const CANONICAL = {
 	'chevron-up': '<path d="M6 15l6-6 6 6"></path>',
 	close: '<path d="M6 6l12 12M18 6L6 18"></path>',
 	check: '<path d="M5 12.5l4.5 4.5L19 7.5"></path>',
+	// Offline (the offline strip): a cloud, struck through.
+	'cloud-off':
+		'<path d="M3 3l18 18"></path><path d="M6.2 6.6A6 6 0 0 0 8 18.5h9.5"></path><path d="M20.4 16.5A4 4 0 0 0 17 10h-1.2A6 6 0 0 0 10 6.1"></path>',
 	search: '<circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path>',
 	play: '<path d="M8 5.5v13l11-6.5z"></path>',
 	pause:

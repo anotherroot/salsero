@@ -297,6 +297,14 @@ def device_data(page, path):
     )
 
 
+def shot(page, name):
+    """With WALK_SHOTS=<dir>, a picture of the page as the walk sees it (the offline strip, for a look)."""
+    out = os.environ.get("WALK_SHOTS")
+    if out:
+        os.makedirs(out, exist_ok=True)
+        page.screenshot(path=os.path.join(out, f"{name}.png"))
+
+
 def outbox(page):
     """The device's outbox as the page knows it (offline phase 3)."""
     return page.evaluate("() => (window.__device && window.__device.outbox) || null")
@@ -534,9 +542,10 @@ def walk(base, db_path, v, lines, net):
                         ob = outbox(page)
                         report(bool(ob) and ob["waiting"] >= 1, "offline write: one change waits", f"outbox {ob}")
                         made_at = ob["oldestWaitingAt"] if ob else None
-                        page.wait_for_timeout(2600)
-                        waits = page.get_by_text(re.compile(r"\d+ waiting")).count() > 0
-                        report(waits, "offline write: after the grace the band says waiting", "no 'N waiting' on the page")
+                        strip = page.locator("[data-offline-strip]")
+                        said = strip.inner_text() if strip.count() else ""
+                        report("Offline" in said and "1 change waiting" in said, "offline write: the strip says offline and that 1 change waits", f"strip {said!r}")
+                        shot(page, "offline-exercise")
                         errs = [e for e in watch.take() if "Failed to load resource" not in e]
                         report(not errs, "offline write: no errors", "; ".join(errs[:3]))
 
@@ -597,6 +606,15 @@ def walk(base, db_path, v, lines, net):
                     page.locator("#edit-form").wait_for(state="detached", timeout=PAGE_CAP_MS)
                     settle(page)
                     report(page.get_by_text(offline_name, exact=False).count() > 0, "offline edit: the page shows the new name", "not shown")
+                    # The strip sits above the figure switcher (look C2), not on it.
+                    strip = page.locator("[data-offline-strip]")
+                    bar = page.locator("nav[aria-label^='Figures of']").first
+                    if strip.count() and bar.count():
+                        sb, bb = strip.bounding_box(), bar.bounding_box()
+                        report(sb["y"] + sb["height"] <= bb["y"] + 1, "offline edit: the strip sits above the figure switcher", f"strip {sb}, bar {bb}")
+                        shot(page, "offline-figure")
+                    else:
+                        report(False, "offline edit: the strip above the figure switcher", f"strip {strip.count()}, bar {bar.count()}")
                 except Exception as e:
                     report(False, "offline edit: renamed on the device", str(e)[:200])
                 ob = outbox(page)
@@ -613,8 +631,11 @@ def walk(base, db_path, v, lines, net):
                     report(abs(rows[0][1] - made_at) <= 1000, "online again: the set is dated when it was made", f"done_at {rows[0][1]}, made {made_at}")
                 name = server_rows(db_path, "select name from figures where id = ?", v["figure"])
                 report(bool(name) and name[0][0] == offline_name, "online again: the server has the offline rename", f"{name}")
-                page.wait_for_timeout(400)
-                report(page.get_by_text(re.compile(r"\d+ waiting")).count() == 0, "online again: the band says nothing", "it still says waiting")
+                try:
+                    page.locator("[data-offline-strip]").wait_for(state="detached", timeout=6000)
+                    report(True, "online again: the strip goes (after All sent)")
+                except Exception:
+                    report(False, "online again: the strip goes", page.locator("[data-offline-strip]").inner_text())
 
                 # 10. Refused: offline, a note on the figure; meanwhile the figure is archived on the server.
                 offline(ctx, True)
@@ -674,9 +695,9 @@ def walk(base, db_path, v, lines, net):
                     nag = False
                     for _ in range(10):
                         page.wait_for_timeout(200)
-                        if page.get_by_text(re.compile(r"\d+ waiting")).count():
+                        if page.locator("[data-offline-strip]").count():
                             nag = True
-                    report(not nag, "online: a log never shows waiting", "it showed waiting")
+                    report(not nag, "online: a log never shows the strip", "the strip showed")
                     report(wait_outbox(page, "o.waiting === 0"), "online: the log lands", f"outbox {outbox(page)}")
                     # Once all has landed, the page's reads go to the server again: a change made on the
                     # server alone (the device has not pulled it) shows.

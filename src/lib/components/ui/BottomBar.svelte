@@ -30,8 +30,9 @@
 	} = $props();
 
 	claimBottom(() => mode);
-	// A layout's toast (SavedToast) sits above it.
-	pinBar();
+	// A layout's toast (SavedToast) sits above it, and the offline strip above its height.
+	let height = $state(0);
+	pinBar(() => height);
 
 	// The phone's foot padding, written as a class on a card page so the desktop can drop it
 	// (an inline style would outrank it). Its value is the inline style's.
@@ -50,6 +51,7 @@
 	style:--bar-pb={card ? pad : undefined}
 	style:bottom={mode ? '0px' : 'var(--pin-bottom, 0px)'}
 	style:padding-bottom={card ? undefined : pad}
+	bind:offsetHeight={height}
 >
 	<div class="mx-auto max-w-[560px] desk:max-w-(--bar-w)">{@render children()}</div>
 </div>

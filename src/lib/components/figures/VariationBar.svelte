@@ -2,6 +2,7 @@
 	import { untrack, type Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { barHeight as reportHeight } from '$lib/nav/chrome.svelte';
 	import { gotoWhenSettled, releaseClick } from '$lib/sheets/history.svelte';
 	import { recordingsLine, variationNav } from '$lib/figures/page';
 	import { t } from '$lib/i18n/catalog';
@@ -131,6 +132,10 @@
 		// The variation already shown: no navigation follows, so the list's close goes now.
 		else releaseClick();
 	}
+
+	// The offline strip sits above this bar (`pinned.height`).
+	let barHeight = $state(0);
+	reportHeight(() => barHeight);
 </script>
 
 {#snippet step(
@@ -164,6 +169,7 @@
 		? ''
 		: 'desk:hidden'}"
 	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
+	bind:offsetHeight={barHeight}
 >
 	{#if actions}
 		<div class="mx-auto mb-2.5 grid max-w-[560px] grid-cols-2 gap-2 desk:mb-0">

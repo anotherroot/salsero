@@ -17,12 +17,16 @@
 	 * the frame's sheet corners), as it sits over the run on the phone.
 	 */
 	let { stale = false, why = '' }: { stale?: boolean; why?: string } = $props();
+
+	/** Above the tab bar or the safe area, and above the offline strip when it shows. */
+	const BOTTOM =
+		'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)) + var(--strip-h, 0px))';
 </script>
 
 <div
 	role="status"
 	class="fixed inset-x-0 z-30 mx-auto max-w-[560px] px-4 desk:left-(--pane-left) desk:z-[32]"
-	style:bottom="calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
+	style:bottom={BOTTOM}
 >
 	<div
 		class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1.5 pr-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)]"

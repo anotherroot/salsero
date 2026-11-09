@@ -35,8 +35,8 @@ values to the walk.
 4. **Offline, a write.** Today's first exercise: its page, Done, a note typed into the Done sheet and a face
    (the face is the send). It saves on the device: the sheet closes, no `salsa:needs-connection`, the
    server's copy has no new `sets` row yet, the device answers that exercise's data with the log, one change
-   waits (`window.__device.outbox`; its `oldestWaitingAt` is the made-at checked in 8), and after the 2 s
-   grace the band says "N waiting".
+   waits (`window.__device.outbox`; its `oldestWaitingAt` is the made-at checked in 8), and
+   the offline strip says "Offline · 1 change waiting".
 5. **Offline, a network page.** A group lesson's History (`/{dance}/groups/<id>/history/lesson/<id>`: the
    app has no `/groups/<id>/history` page) shows the offline error page, not an empty History.
 6. **Back online.** Renames a figure through its Edit form, waits for the device's next pull
@@ -45,7 +45,7 @@ values to the walk.
 7. **Offline, an edit.** Renames the figure again on the device: its page shows the name, and it waits.
 8. **Online again.** Back online (both switches, and an `online` event): the outbox drains with nothing
    refused; the server has exactly one `sets` row with an id from the device's slot (≥ 2³²), its `done_at`
-   within 1 s of 4's made-at, and the offline name; the band says nothing.
+   within 1 s of 4's made-at, and the offline name; the strip says "All sent", then goes.
 9. **Once.** 8's "exactly one" row is the check that nothing landed twice.
 10. **Refused.** Offline, a note on the figure; the walk archives the figure in the server's db; online,
     the change is refused: the band's pill "1 couldn't sync ›" opens the Sync page, which says why ("It was
@@ -57,6 +57,8 @@ values to the walk.
     (`data-offline`) and a tap says so (`salsa:needs-connection`) and stays on Settings.
 
 The walk writes to the server's copy (10's archive), so run it on a fresh `serve.sh` each time.
+`WALK_SHOTS=<dir>` (an environment variable) saves a picture of the offline strip on the exercise and
+the figure page.
 
 **Offline is two switches.** `context.set_offline(True)` (the page's `navigator.onLine`), and the walk's own
 network: a TCP relay on `port` to `upstream` that, switched off, resets every open connection and every new
