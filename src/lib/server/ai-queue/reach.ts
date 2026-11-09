@@ -41,11 +41,19 @@ function judged<R extends Row>(
 	return { row, space: spaceOfRow(row, '') };
 }
 
-/** The live row the person may edit, with its space (actor: the person), or null. */
-export function editable(db: Db, userId: string, dance: DanceSlug, thing: Thing, id: number) {
+/** The row the person may edit (live, or with `state` archived ones only), with its space (actor: the person), or null. */
+export function editable(
+	db: Db,
+	userId: string,
+	dance: DanceSlug,
+	thing: Thing,
+	id: number,
+	state: 'live' | 'archived' = 'live'
+) {
 	const withActor = <R extends Row>(e: Editable<R> | null): Editable<R> | null =>
 		e && { row: e.row, space: spaceOfRow(e.row, userId) };
-	const live = (r: { archivedAt: number | null }) => r.archivedAt === null;
+	const live = (r: { archivedAt: number | null }) =>
+		state === 'live' ? r.archivedAt === null : r.archivedAt !== null;
 	switch (thing) {
 		case 'move':
 			return withActor(
@@ -65,7 +73,7 @@ export function editable(db: Db, userId: string, dance: DanceSlug, thing: Thing,
 					(r) =>
 						live(r) &&
 						!!move &&
-						move.archivedAt === null &&
+						(state === 'archived' || move.archivedAt === null) &&
 						allows(judgeFigure(db, userId, r).access, 'edit')
 				)
 			);

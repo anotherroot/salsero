@@ -3,3 +3,5 @@ import './edit';
 import './sections';
 import './links';
 import './publish';
+import './create';
+import './archive';
