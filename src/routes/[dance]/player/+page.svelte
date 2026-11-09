@@ -8,7 +8,7 @@
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
 	import { practiceOf } from '$lib/exercises/practice';
-	import { practiceSaver } from '$lib/exercises/practice-api';
+	import { practiceSaver, reloadAfterLeave } from '$lib/exercises/practice-api';
 	import {
 		loadRoutineView,
 		saveRoutineView,
@@ -59,11 +59,16 @@
 	// Leaving for another page (Setup's Back, the browser's Back): the page it
 	// lands on loads before this one is torn down, so a teardown flush would land
 	// after that load and the Practise card would still name the old choice.
-	// Flush now, and once the post has landed, load the page again.
-	beforeNavigate(() => {
-		void saver?.flush().then((posted) => {
-			if (posted) void invalidateAll();
-		});
+	// Flush now, and once both the post and the page have landed, load it again.
+	beforeNavigate((nav) => {
+		const s = saver;
+		if (!s) return;
+		// Leaving the app: the post goes out (keepalive); nothing is left to reload.
+		if (nav.type === 'leave') {
+			void s.flush();
+			return;
+		}
+		void reloadAfterLeave(s.flush(), nav.complete, invalidateAll);
 	});
 	$effect(() => {
 		const s = saver;

@@ -86,3 +86,23 @@ export function practiceSaver(
 		}
 	};
 }
+
+/**
+ * Leaving the player with a change still waiting: once the post has landed AND
+ * the next page has (`landed`, the navigation's `complete`), load that page
+ * again so its Practise card names the new choice. Reloading before the
+ * navigation lands would cancel it (SvelteKit drops a navigation whose token
+ * an invalidation replaced). A navigation that did not happen reloads nothing.
+ */
+export function reloadAfterLeave(
+	flushed: Promise<boolean>,
+	landed: Promise<unknown>,
+	reload: () => unknown
+): Promise<void> {
+	return Promise.all([flushed, landed]).then(
+		([posted]) => {
+			if (posted) void reload();
+		},
+		() => {}
+	);
+}

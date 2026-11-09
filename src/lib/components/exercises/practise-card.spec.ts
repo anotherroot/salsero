@@ -19,7 +19,7 @@ const exercise = {
 	practiceJson: null
 } as unknown as ExerciseItem;
 
-const html = (props: { view?: 'follow' | 'still' | null } = {}) =>
+const html = (props: { view?: 'follow' | 'still' | null; routineId?: number | null } = {}) =>
 	render(PractiseCard, {
 		props: { dance: DANCES.salsa, exercise, songs: [], from: 'from=exercise', ...props }
 	}).body;
@@ -42,6 +42,12 @@ describe('PractiseCard', () => {
 		const play = links(html()).filter((l) => l.text === 'Practise');
 		expect(play).toHaveLength(1);
 		expect(play[0].href.endsWith('&play=1')).toBe(true);
+	});
+
+	it("runs a routine's exercise on its routine, both ways in", () => {
+		const hrefs = links(html({ routineId: 14, view: 'follow' })).map((l) => l.href);
+		expect(hrefs).toHaveLength(2);
+		for (const href of hrefs) expect(href).toContain('routine=14&exercise=7');
 	});
 
 	it('has no bare round play button', () => {

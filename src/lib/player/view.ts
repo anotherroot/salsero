@@ -278,14 +278,20 @@ export function practiceBack(p: {
 	return { href: `/${p.dance}/songs`, label: w.backToMusic };
 }
 
-/** Where the exercise page's Practise with goes: the player for this exercise, ▶ starting it. */
+/**
+ * Where the exercise page's Practise card goes: the player for this exercise,
+ * ▶ starting it. A routine's exercise runs on its routine (`routineId`): the
+ * player reads the routine only from `?routine=`.
+ */
 export function exercisePlayerHref(
 	dance: string,
 	exerciseId: number,
 	from: string,
-	play: boolean
+	play: boolean,
+	routineId: number | null = null
 ): string {
-	return `/${dance}/player?exercise=${exerciseId}&${from}${play ? '&play=1' : ''}`;
+	const routine = routineId === null ? '' : `routine=${routineId}&`;
+	return `/${dance}/player?${routine}exercise=${exerciseId}&${from}${play ? '&play=1' : ''}`;
 }
 
 /**

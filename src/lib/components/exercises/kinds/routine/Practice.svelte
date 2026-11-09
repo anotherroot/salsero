@@ -13,4 +13,12 @@
 	});
 </script>
 
-<PractiseCard {dance} {exercise} {songs} {view} from={playerFrom} {onleave} />
+<PractiseCard
+	{dance}
+	{exercise}
+	{songs}
+	{view}
+	routineId={content.type === 'routine' ? content.routine.id : null}
+	from={playerFrom}
+	{onleave}
+/>

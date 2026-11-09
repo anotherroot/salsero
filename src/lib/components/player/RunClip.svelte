@@ -22,7 +22,9 @@
 	let { clip }: Props = $props();
 	let video: HTMLVideoElement | undefined = $state();
 	const long = $derived(clip.kind === 'lesson');
-	const key = $derived(`${clip.src}#${clip.startMs}`);
+	// Per clip, not per section: two figures in one slot can link the same one.
+	const uid = $props.id();
+	const key = `clip:${uid}`;
 	/** This video has the sound. */
 	const loud = $derived(videoSound.key === key);
 	/** A lesson video, once its ▶ is tapped. */
@@ -87,7 +89,7 @@
 	onDestroy(() => releaseSound(key));
 </script>
 
-<figure class="{CLIP} relative flex-none rounded-2xl bg-black">
+<figure class="{CLIP} relative flex-none rounded-2xl bg-black" data-sound={key}>
 	{#if long && !started}
 		<button
 			type="button"

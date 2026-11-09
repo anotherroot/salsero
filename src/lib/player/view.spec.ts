@@ -268,6 +268,11 @@ describe('the exercise page opens the player', () => {
 			'/salsa/player?exercise=7&from=run&skip=3,5&play=1'
 		);
 	});
+	it("runs a routine's exercise on its routine", () => {
+		expect(exercisePlayerHref('salsa', 79, 'from=exercise', true, 14)).toBe(
+			'/salsa/player?routine=14&exercise=79&from=exercise&play=1'
+		);
+	});
 });
 
 describe("the routine page's Practise", () => {

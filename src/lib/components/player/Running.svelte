@@ -601,7 +601,12 @@
 		>
 			<div class="flex flex-col gap-8">
 				{#each slotDetails(slots[figureSlot]?.figureIds ?? [], figureDetails, nameOf) as d, k (k)}
-					<DetailsBody details={d} musicPaused={paused} onresume={togglePause} />
+					<!-- One "Music paused" strip for the layer: over the first figure. -->
+					<DetailsBody
+						details={d}
+						musicPaused={paused}
+						onresume={k === 0 ? togglePause : undefined}
+					/>
 				{/each}
 			</div>
 		</RunLayer>

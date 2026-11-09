@@ -24,11 +24,13 @@
 		from: string;
 		/** A routine's Follow or Still on this phone, said after the song; null for the others. */
 		view?: 'follow' | 'still' | null;
+		/** A routine's exercise: the routine it runs on in the player. */
+		routineId?: number | null;
 		/** Either link was tapped: the page is about to be left for the player. */
 		onleave?: () => void;
 	}
 
-	let { dance, exercise, songs, from, view = null, onleave }: Props = $props();
+	let { dance, exercise, songs, from, view = null, routineId = null, onleave }: Props = $props();
 
 	// This phone's memory is read once mounted: the server has none, and the
 	// first render must match it.
@@ -61,13 +63,13 @@
 			<span class="line-clamp-2 text-[15px] leading-[1.3] font-bold text-ink">{line}</span>
 		</span>
 		<a
-			href={exercisePlayerHref(dance.slug, exercise.id, from, false)}
+			href={exercisePlayerHref(dance.slug, exercise.id, from, false, routineId)}
 			class={button('secondary', 'sm')}
 			onclick={onleave}><Icon name="sliders" size={18} />{t().exercise.panel.change}</a
 		>
 	</div>
 	<a
-		href={exercisePlayerHref(dance.slug, exercise.id, from, true)}
+		href={exercisePlayerHref(dance.slug, exercise.id, from, true, routineId)}
 		class={button('primary', 'md', true)}
 		onclick={onleave}><Icon name="play" size={20} filled />{t().exercise.panel.practise}</a
 	>
