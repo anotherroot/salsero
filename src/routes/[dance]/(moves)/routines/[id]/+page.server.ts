@@ -5,7 +5,7 @@ import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figur
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
-import { inGroupModeOn } from '$lib/server/group-mode';
+import { groupModeFor } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
 	addOption,
@@ -153,13 +153,14 @@ function unionOfEnds(g: Graph, slots: OptionsSlot[]): number[] {
 	return [...new Set(ends)].sort((a, b) => a - b);
 }
 
-export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
 	const { routine, space, access, reach: visible } = routineIn(params, locals, 'read');
 	const canEdit = access === 'edit';
 	// Group mode has no twins: no twin tab, no Same as….
-	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, routine.teamId, cookies);
+	const inGroupMode =
+		groupModeFor(db, wall.userId, wall.dance, routine.teamId, locals.user?.level) !== null;
 	// A reader's lists hold only what the published lessons reach (risk 20).
 	// A person's routine may hold the group figures and routines they may use
 	// (`usableOf`): those are on the graph, named, and offered to embed.

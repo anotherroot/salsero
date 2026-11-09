@@ -45,7 +45,8 @@ import { songSeen } from '$lib/server/clash';
 import { history } from '$lib/server/changes';
 import { createImport, getImport, storeImportItems } from '$lib/server/song-imports';
 import * as songList from './+page.server';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import type { PickerSong } from '$lib/types';
 
 const user = (id: string) => ({
@@ -185,7 +186,7 @@ describe('the player and a group song', () => {
 type Fields = Record<string, string>;
 const cookiesFor = (group?: number) =>
 	({
-		get: (n: string) => (n === groupCookie('salsa') && group ? String(group) : undefined),
+		get: (n: string) => (n === VIEW && group ? String(group) : undefined),
 		set: () => {},
 		delete: () => {}
 	}) as unknown as Cookies;
@@ -230,7 +231,7 @@ type Music = {
 const musicAs = (as: string, group?: number) =>
 	(musicLoad as unknown as (e: unknown) => Music)({
 		params: { dance: 'salsa' },
-		url: new URL('http://localhost/salsa/songs'),
+		url: new URL(`http://localhost/salsa/songs${group ? `?in=${group}` : ''}`),
 		locals: { user: user(as) },
 		cookies: cookiesFor(group),
 		depends: () => {}

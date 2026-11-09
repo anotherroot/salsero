@@ -49,7 +49,7 @@ function setup(): Db {
 }
 
 const at = (routeId: string, id: string | null, href: string) => ({
-	routeId,
+	route: { id: routeId },
 	params: id === null ? { dance: 'salsa' } : { dance: 'salsa', id },
 	url: new URL(`http://x${href}`)
 });

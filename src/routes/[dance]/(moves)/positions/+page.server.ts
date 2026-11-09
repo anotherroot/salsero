@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { addTemplates, createPosition } from '$lib/server/positions';
 import { readNewPosition } from '$lib/server/position-form';
-import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { spaceOf, viewOf } from '$lib/server/group-mode';
 import { wallOf } from '$lib/server/scope';
 import { mapData } from '$lib/server/positions-map';
 import { templateTypes } from '$lib/positions/templates';
@@ -14,11 +14,11 @@ import { serverNow } from '$lib/server/server-clock';
  * The map: on the desktop the pane beside the list with nothing open (the
  * phone's list page does not draw it). Its own key, as on the map route.
  */
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, route, url }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	return { map: mapData(db, wall, groupModeOf(db, wall.userId, wall.dance, cookies)) };
+	return { map: mapData(db, wall, viewOf(db, wall, locals.user?.level, { route, params, url })) };
 };
 
 export const actions: Actions = {

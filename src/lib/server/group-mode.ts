@@ -1,12 +1,10 @@
 /**
- * Group mode: a per-dance cookie names the group a person has switched into.
- * The cookie is the client's, so it is never trusted: `groupModeOf` re-checks
- * the group and the role on every call and drops a cookie that fails.
+ * The group view (spec 2026-11-09): which group a request works in. A page of
+ * one thing decides by its row, a list by its `?in=`; whatever names a group is
+ * the client's, so it is re-checked on every call (`groupModeFor`).
  */
-import type { Cookies } from '@sveltejs/kit';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import type { DanceSlug } from '$lib/dances/dances';
-import { groupCookie, outsideGroupMode } from '$lib/teams/mode';
 import { rowKindOf, viewParam, type RowKind } from '$lib/teams/group-view';
 import { initialOf } from '$lib/comments/view';
 import type { GroupChoice, GroupMode } from '$lib/types';
@@ -49,57 +47,6 @@ export function groupChoices(db: Db, userId: string, dance: DanceSlug): GroupCho
 		.orderBy(asc(teams.name), asc(teams.id))
 		.all()
 		.filter((r) => r.role === 'owner' || r.role === 'editor') as GroupChoice[];
-}
-
-/**
- * `level`: the person's level when the caller has it (`locals.user.level`), so
- * the per-request callers skip the lookup; left out, it is read here.
- */
-export function groupModeOf(
-	db: Db,
-	userId: string,
-	dance: DanceSlug,
-	cookies: Cookies,
-	level?: Level | null
-): GroupMode | null {
-	const name = groupCookie(dance);
-	const raw = cookies.get(name);
-	if (raw === undefined) return null;
-	const refuse = () => {
-		cookies.delete(name, { path: '/' });
-		return null;
-	};
-	if (!/^[1-9][0-9]{0,9}$/.test(raw)) return refuse();
-	// The switch is drawn only at Everything: a cookie left from there does not
-	// keep a lower level writing into the group. Null (not chosen yet) is the first run's.
-	const chosen = level === undefined ? levelOf(db, userId) : level;
-	if (chosen !== null && !groupModeShown(chosen)) return refuse();
-	const team = getTeam(db, Number(raw));
-	if (!team || team.dance !== dance || team.deletedAt !== null || team.purgedAt !== null)
-		return refuse();
-	const role = roleOf(db, userId, team.id);
-	if (role !== 'owner' && role !== 'editor') return refuse();
-	return groupModeFor(db, userId, dance, team.id, chosen);
-}
-
-/**
- * Whether the request is in this group's own workspace (group mode on
- * `teamId`): twins show nothing there. Read-only on the cookie: a load never
- * sets or deletes it.
- */
-export function inGroupModeOn(
-	db: Db,
-	userId: string,
-	dance: DanceSlug,
-	teamId: number | null,
-	cookies: Pick<Cookies, 'get'> | undefined
-): boolean {
-	if (teamId === null) return false;
-	const quiet = {
-		get: (name: string) => cookies?.get(name),
-		delete: () => {}
-	} as unknown as Cookies;
-	return groupModeOf(db, userId, dance, quiet)?.teamId === teamId;
 }
 
 /** Whose content this request stands in: the group its `in` names (re-checked), else the person. */
@@ -175,7 +122,8 @@ export function rowTeam(
 
 /**
  * Which group's view a request is in (spec 2026-11-09, "When you are in a
- * group's view"): a page of one thing by its row, never by `in`; a group's
+ * group's view"): `at` is the load event (a missing route or URL is no group).
+ * A page of one thing by its row, never by `in`; a group's
  * drill by `in` only when `in` names the drill's group; Today and its pages
  * never; any other page by `in`. Everything re-checked (`groupModeFor`).
  */
@@ -183,10 +131,15 @@ export function viewOf(
 	db: Db,
 	wall: Wall,
 	level: Level | null | undefined,
-	at: { routeId: string | null; params: Partial<Record<string, string>>; url: URL }
+	at: {
+		route?: { id: string | null };
+		params: Partial<Record<string, string>>;
+		url?: URL;
+	}
 ): GroupMode | null {
-	const kind = rowKindOf(at.routeId);
-	const asked = viewParam(at.url.searchParams);
+	const routeId = at.route?.id ?? null;
+	const kind = rowKindOf(routeId);
+	const asked = at.url ? viewParam(at.url.searchParams) : null;
 	if (kind !== null) {
 		const id = Number(at.params.id);
 		const row = Number.isInteger(id) && id > 0 ? rowTeam(db, kind, id) : null;
@@ -194,6 +147,7 @@ export function viewOf(
 		if (kind === 'drill' && asked !== row.teamId) return null;
 		return groupModeFor(db, wall.userId, wall.dance, row.teamId, level);
 	}
-	if (outsideGroupMode(at.url.pathname, wall.dance)) return null;
+	// By the route, not the path: a layout that read the path would rerun on every step.
+	if (routeId === '/[dance]/(today)' || routeId?.startsWith('/[dance]/(today)/')) return null;
 	return groupModeFor(db, wall.userId, wall.dance, asked, level);
 }

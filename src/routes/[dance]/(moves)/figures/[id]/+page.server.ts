@@ -27,8 +27,7 @@ import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
 import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
 import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
 import { mergedMoveRows } from '$lib/server/moves-lists';
-import { groupModeOf } from '$lib/server/group-mode';
-import type { Cookies } from '@sveltejs/kit';
+import { groupModeFor } from '$lib/server/group-mode';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { holdsLine, styleLabelOf } from '$lib/positions/view';
@@ -192,7 +191,7 @@ function practisable(db: Db, userId: string, figure: { id: number; teamId: numbe
 const taken = (figure: string, name: string) => t().moves.refused.figureTaken(figure, name);
 const figureTaken = (name: string) => t().moves.refused.moveTaken(name);
 
-export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, url, locals }) => {
 	const now = serverNow();
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
@@ -248,14 +247,10 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// person's OWN routines that use it (their wall, their graph, their shapes).
 	const groupTeam =
 		figure.teamId === null ? null : (teamRefs(db, [figure.teamId]).get(figure.teamId) ?? null);
-	// In this group's own workspace the page is the group's alone: no one's own
-	// sections or routines. Read-only on the cookie: a load never sets or deletes it.
+	// A group's figure the person edits is in the group's view (group view spec):
+	// the page is the group's alone, no one's own sections or routines.
 	const inGroupMode =
-		figure.teamId !== null &&
-		groupModeOf(db, wall.userId, wall.dance, {
-			get: (name: string) => cookies?.get(name),
-			delete: () => {}
-		} as unknown as Cookies)?.teamId === figure.teamId;
+		groupModeFor(db, wall.userId, wall.dance, figure.teamId, locals.user?.level) !== null;
 
 	// The switcher steps through the move as the Figures list shows it
 	// (`mergedMoveRows`): one row for a figure and its copy or twins, lit when
@@ -266,7 +261,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		{ name: group.name, teamId: figure.teamId },
 		shown.map((s) => ({ id: s.id, name: s.name })),
 		live.map((s) => s.id),
-		!inGroupMode,
+		// Merged in every view (the user's exception): stepping onto your own figure leaves the group.
+		true,
 		groupTeam
 	);
 	const rows = merged.rows;

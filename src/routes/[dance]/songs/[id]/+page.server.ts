@@ -41,7 +41,7 @@ import {
 	syncFromForm
 } from '$lib/server/take-form';
 import { sameAsOffer } from '$lib/server/twins';
-import { inGroupModeOn } from '$lib/server/group-mode';
+import { groupModeFor } from '$lib/server/group-mode';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -152,14 +152,15 @@ function restoredValue(
 	return null;
 }
 
-export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const { song, access } = requireSongAccess(db, locals, params, params.id, 'read');
 	const canEdit = access === 'edit';
 	const wall = wallOf(params, locals);
 	const team = song.teamId !== null ? getTeam(db, song.teamId) : null;
 	// Group mode has no twins: no twin tab, no Same as….
-	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, song.teamId, cookies);
+	const inGroupMode =
+		groupModeFor(db, wall.userId, wall.dance, song.teamId, locals.user?.level) !== null;
 	const anchors = parse(song.anchorsJson);
 	const count = song.status === 'ready' ? countOf(song, anchors) : null;
 	const grid = count

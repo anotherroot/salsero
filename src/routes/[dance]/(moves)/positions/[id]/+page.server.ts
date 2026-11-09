@@ -34,7 +34,7 @@ import { viaSections } from '$lib/server/lesson-links';
 import { linkPosition, listLessons, unlinkPosition } from '$lib/server/lessons';
 import { teamRefs, usableOf } from '$lib/server/usable';
 import { getTeam } from '$lib/server/teams';
-import { inGroupModeOn } from '$lib/server/group-mode';
+import { groupModeFor } from '$lib/server/group-mode';
 import {
 	actorOf,
 	inSpace,
@@ -136,14 +136,15 @@ const archivedLinks = (
 	action: 'linkSpot' | 'unlinkSpot' | 'linkLesson' | 'unlinkLesson'
 ) => (position.archivedAt === null ? null : fail(400, { action, message: archivedLinksLine() }));
 
-export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, url, locals }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const { position, space, access, reach } = positionIn(params, locals, 'read');
 	const id = position.id;
 	const canEdit = access === 'edit';
 	// In the group's own workspace the page is the group's: its graph, no twins.
-	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, position.teamId, cookies);
+	const inGroupMode =
+		groupModeFor(db, wall.userId, wall.dance, position.teamId, locals.user?.level) !== null;
 	const groupTeam =
 		position.teamId === null
 			? null

@@ -57,27 +57,28 @@ beforeEach(() => {
 	handle.db = db;
 });
 
+// The switch is kept for pages opened before the group view: it lands on the address
+// in the chosen view (`?in=`) and writes no cookie.
 describe('the /[dance]/group-mode action', () => {
-	it('an editor switches in and returns', async () => {
+	it('an editor switches in: the same list with in', async () => {
 		const r = await call('u2', { team: '1', to: '/salsa/routines' });
 		expect(r.status).toBe(303);
-		expect(r.location).toBe('/salsa/routines');
-		expect(r.sets[0].slice(0, 2)).toEqual(['group_salsa', '1']);
+		expect(r.location).toBe('/salsa/routines?in=1');
+		expect(r.sets).toHaveLength(0);
 	});
 	it('a member is refused', async () => {
 		const r = await call('u3', { team: '1', to: '/salsa/routines' });
 		expect(r.status).toBe(404);
-		expect(r.sets).toHaveLength(0);
 	});
-	it('mine deletes the cookie', async () => {
-		const r = await call('u2', { team: 'mine', to: '/salsa/lessons' });
+	it('mine drops in and keeps the rest', async () => {
+		const r = await call('u2', { team: 'mine', to: '/salsa/lessons?in=1&q=x' });
 		expect(r.status).toBe(303);
-		expect(r.deletes[0][0]).toBe('group_salsa');
-		expect(r.sets).toHaveLength(0);
+		expect(r.location).toBe('/salsa/lessons?q=x');
+		expect(r.deletes).toHaveLength(0);
 	});
 	it('an off-site return goes to Moves', async () => {
 		const r = await call('u2', { team: '1', to: '//x' });
-		expect(r.location).toBe('/salsa/figures');
+		expect(r.location).toBe('/salsa/figures?in=1');
 	});
 	it('junk is 404', async () => {
 		expect((await call('u2', { team: 'abc' })).status).toBe(404);
@@ -96,47 +97,38 @@ describe('GET /[dance]/group-mode', () => {
 	});
 });
 
-/** The [dance] layout reads group mode; it never switches it (preload runs it too). */
-function layoutAt(uid: string, path: string, cookie: string | undefined) {
+/** The [dance] layout reads the view from the address; it writes nothing (preload runs it too). */
+function layoutAt(uid: string, path: string, routeId: string, id?: string) {
 	const sets: unknown[][] = [];
 	const deletes: unknown[][] = [];
 	const cookies = {
 		set: (...a: unknown[]) => sets.push(a),
 		delete: (...a: unknown[]) => deletes.push(a),
-		get: (name: string) => (name === 'group_salsa' ? cookie : undefined)
+		get: () => undefined
 	};
 	const data = layoutLoad({
-		params: { dance: 'salsa' },
+		params: id === undefined ? { dance: 'salsa' } : { dance: 'salsa', id },
+		route: { id: routeId },
 		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		cookies,
 		url: new URL(`http://localhost${path}`)
 	} as never) as { groupMode: { teamId: number } | null };
-	return {
-		groupMode: data.groupMode,
-		deletes,
-		groupSets: sets.filter((a) => a[0] === 'group_salsa')
-	};
+	return { groupMode: data.groupMode, writes: sets.length + deletes.length };
 }
 
-describe('the [dance] layout and the group cookie', () => {
-	it('outside Today it reads group mode and leaves the cookie alone', () => {
-		const r = layoutAt('u2', '/salsa/figures', '1');
+describe('the [dance] layout and the view', () => {
+	it('a list follows its in, writing nothing', () => {
+		const r = layoutAt('u2', '/salsa/figures?in=1', '/[dance]/(moves)/figures');
 		expect(r.groupMode?.teamId).toBe(1);
-		expect(r.deletes).toEqual([]);
-		expect(r.groupSets).toEqual([]);
+		expect(r.writes).toBe(0);
+		expect(layoutAt('u2', '/salsa/figures', '/[dance]/(moves)/figures').groupMode).toBeNull();
 	});
-	it('on Today’s pages it shows no group mode and does NOT delete the cookie', () => {
-		for (const path of ['/salsa', '/salsa/exercises/3']) {
-			const r = layoutAt('u2', path, '1');
-			expect(r.groupMode).toBeNull();
-			expect(r.deletes).toEqual([]);
-			expect(r.groupSets).toEqual([]);
-		}
+	it('Today’s pages are never in a group’s view', () => {
+		expect(layoutAt('u2', '/salsa?in=1', '/[dance]/(today)').groupMode).toBeNull();
+		expect(layoutAt('u2', '/salsa/done?in=1', '/[dance]/(today)/done').groupMode).toBeNull();
 	});
-	it('an invalid cookie is dropped (a validity check, not navigation)', () => {
-		const r = layoutAt('u3', '/salsa/figures', '1');
-		expect(r.groupMode).toBeNull();
-		expect(r.deletes.map((d) => d[0])).toEqual(['group_salsa']);
+	it('a member’s in is no view', () => {
+		expect(layoutAt('u3', '/salsa/figures?in=1', '/[dance]/(moves)/figures').groupMode).toBeNull();
 	});
 });
 

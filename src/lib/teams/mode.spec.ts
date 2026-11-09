@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import {
-	groupCookie,
-	groupLabel,
-	minePath,
-	outsideGroupMode,
-	returnPath,
-	workInRows
-} from './mode';
+import { groupLabel, minePath, outsideGroupMode, returnPath, workInRows } from './mode';
 
 describe('group mode, pure', () => {
-	it('names the cookie per dance', () => expect(groupCookie('salsa')).toBe('group_salsa'));
 	it('leaves group mode on Today and its pages', () => {
 		expect(outsideGroupMode('/salsa', 'salsa')).toBe(true);
 		expect(outsideGroupMode('/salsa/exercises/3', 'salsa')).toBe(true);

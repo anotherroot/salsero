@@ -28,7 +28,8 @@ import { createSongFromUpload } from '$lib/server/songs';
 import { shareSong } from '$lib/server/song-share';
 import { markTwins, twinCandidates } from '$lib/server/twins';
 import { U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import { eq } from 'drizzle-orm';
 import { load as layoutLoad } from './(moves)/+layout.server';
 
@@ -56,7 +57,7 @@ const user = (id: string) => ({
 	dance: 'salsa'
 });
 const cookies = (mode?: string) => ({
-	get: (n: string) => (n === groupCookie('salsa') ? mode : undefined),
+	get: (n: string) => (n === VIEW ? mode : undefined),
 	set: () => {},
 	delete: () => {}
 });

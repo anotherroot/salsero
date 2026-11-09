@@ -19,8 +19,9 @@ import { addLesson } from '$lib/server/entries';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson, linkFigure, publishLesson } from '$lib/server/lessons';
 import { addRecording, createFigure, createVariationIn } from '$lib/server/figures';
-import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as movePage from './(moves)/moves/[id]/+page.server';
 import { markTwins } from '$lib/server/twins';
@@ -34,7 +35,7 @@ const open = (uid: string, id: number, groupMode?: string) =>
 		params: { dance: 'salsa', id: String(id) },
 		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 		cookies: {
-			get: (n: string) => (n === groupCookie('salsa') ? groupMode : undefined),
+			get: (n: string) => (n === VIEW ? groupMode : undefined),
 			set: () => {},
 			delete: () => {}
 		} as unknown as Cookies,
@@ -110,9 +111,16 @@ describe('the switcher of a merged move', () => {
 		expect(steps(open('u2', other))).toEqual([['Basic', 'Tuesdays']]);
 	});
 
-	it('in group mode the move is the group’s alone, unmarked', () => {
-		expect(steps(open('u1', doble, '1'))).toEqual([['Doble', null]]);
-		expect(steps(open('u1', other, '1'))).toEqual([['Basic', null]]);
+	// The user's exception (group view spec): in the group's view the switcher is
+	// still the merged move, so stepping onto your own figure is possible.
+	it('in the group’s view the switcher is still the merged move, the group’s marked', () => {
+		expect(steps(open('u1', doble))).toEqual([['Doble', 'Tuesdays']]);
+		const own = figureIn(U1_SALSA, 'Enchufla', 'Mine').figure.id;
+		expect(steps(open('u1', doble))).toEqual([
+			['Mine', null],
+			['Doble', 'Tuesdays']
+		]);
+		expect(own).toBeGreaterThan(0);
 	});
 
 	it('the variation order is the list’s even when the opened one sits last', () => {
@@ -201,7 +209,7 @@ describe('the move page', () => {
 			params: { dance: 'salsa', id: String(id) },
 			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC', dance: 'salsa' } },
 			cookies: {
-				get: (n: string) => (n === groupCookie('salsa') ? groupMode : undefined),
+				get: (n: string) => (n === VIEW ? groupMode : undefined),
 				set: () => {},
 				delete: () => {}
 			} as unknown as Cookies,

@@ -1,11 +1,9 @@
-/** PURE: group mode's cookie name, where it ends, where a switch returns to. */
+/** PURE: where the group view ends, where a switch returns to, where Mine lands. */
 import type { DanceSlug } from '$lib/dances/dances';
 import { rootsOf, tabFor } from '$lib/nav/tabs';
 import { t } from '$lib/i18n/catalog';
 import type { GroupChoice } from '$lib/types';
 import { withView } from './group-view';
-
-export const groupCookie = (dance: DanceSlug): string => `group_${dance}`;
 
 /**
  * Today and its pages are always personal: they show no group mode. They do
