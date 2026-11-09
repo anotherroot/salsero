@@ -546,6 +546,29 @@ select.own-arrow {
 }
 
 /*
+ * Date and time fields: no picker button of the browser's (an unstyled ▾ on
+ * Android, a clock or calendar on the desktop, near invisible in dark). The
+ * field is the button: a tap opens the picker, a mouse click too
+ * ($lib/native-picker). Unlayered, like select, so it wins.
+ */
+input[type='date'],
+input[type='time'] {
+	appearance: none;
+	-webkit-appearance: none;
+}
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+	display: none;
+}
+
+/* A finger cannot drag a text box's corner: no resize grip on a touch screen. */
+@media (pointer: coarse) {
+	textarea {
+		resize: none;
+	}
+}
+
+/*
  * A link dims under the finger, so a tap shows before anything loads — the
  * first of the three signs in "Pending navigation" (design spec). Links only:
  * buttons already answer on the spot.

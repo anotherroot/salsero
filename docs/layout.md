@@ -321,6 +321,8 @@ src/lib/sheets/      `whenSettled(fn)` (history.svelte.ts) runs fn after the she
                      after history has caught up with the sheets' own Back moves.
                      `gotoWhenSettled(href, opts)` is close-then-go: the caller closes its
                      sheets, and the navigation (often a replace) goes once their Back has landed
+src/lib/native-picker.ts  client-safe: a mouse click opens a date or time field's picker (layout.css
+                     hides the browser's picker button; a tap opens it by itself)
 src/lib/fold.ts      accent and case folding, shared by the shared picker, the
                      routine picker and the song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
