@@ -50,6 +50,12 @@ export const DEVICE_ENDPOINTS = [
 	'/[dance]/songs/[id]/grid'
 ];
 
+/**
+ * GET endpoints whose files the device keeps (offline phase 4a): the service
+ * worker answers them from the media store (`media-store.ts`), else the network.
+ */
+export const MEDIA_ENDPOINTS = ['/audio/[file]', '/count/[file]'];
+
 /** Every other GET endpoint: the server's alone. */
 export const NETWORK_ENDPOINTS = [
 	'/api/app-update/[dance]',
@@ -62,8 +68,6 @@ export const NETWORK_ENDPOINTS = [
 	'/api/worker/songs/[id]/audio',
 	'/api/worker/starts',
 	'/api/worker/timelines/[id]/source',
-	'/audio/[file]',
-	'/count/[file]',
 	'/lesson-videos/[file]',
 	'/recordings/[file]',
 	'/releases/[dance]/[file]',

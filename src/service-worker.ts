@@ -20,6 +20,8 @@ import { offlineRead, offlineWrite, type OfflineAnswer } from '$lib/offline/need
 import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/offline/protocol';
 import { PAGE_EPOCH } from '$lib/epoch';
 import { writeClass } from '$lib/offline/routes';
+import { FROM_HEADER, rangeResponse } from '$lib/offline/media-range';
+import { mediaOf, opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
 import { OUTBOX_HEADER } from '$lib/sync/outbox';
 import {
 	CACHE_PREFIX,
@@ -197,9 +199,37 @@ function answer(route: Exclude<SwRoute, 'pass'>, event: FetchEvent): Promise<Res
 			return deviceRead(event);
 		case 'network-read':
 			return networkRead(event.request);
+		case 'media':
+			return media(event.request);
 		case 'write':
 			return write(event);
 	}
+}
+
+/** The media store, opened once; null where this browser has none. */
+let mediaStore: Promise<MediaStore | null> | undefined;
+
+/**
+ * Song audio and count takes (offline phase 4a): the phone's file first, with
+ * Range, online too (no data, no wait); else the network as before. A store
+ * that fails is never worse than no store.
+ */
+async function media(request: Request): Promise<Response> {
+	const want = mediaOf(new URL(request.url).pathname);
+	if (want) {
+		try {
+			const store = await (mediaStore ??= opfsMediaStore());
+			const held = await store?.read(want.kind, want.file);
+			if (held) {
+				const res = rangeResponse(held.body, request.headers.get('range'), held.mime);
+				res.headers.set(FROM_HEADER, 'device');
+				return res;
+			}
+		} catch (e) {
+			console.warn('[sw] media store', e);
+		}
+	}
+	return fetch(request);
 }
 
 /** This build's copy first (a static file may differ from the build before), then any, then the network. */

@@ -7,6 +7,7 @@
 import type { DeviceState } from './protocol';
 import {
 	DEVICE_ENDPOINTS,
+	MEDIA_ENDPOINTS,
 	NETWORK_ENDPOINTS,
 	deviceAnswers,
 	isNetworkPage,
@@ -19,10 +20,13 @@ import {
  * - `device-read`: the network first, else the device's copy;
  * - `network-read`: a network page's data (`NETWORK_PAGES`): the network, never
  *   timed; offline "needs a connection", which the error page draws as offline;
+ * - `media`: song audio and count takes (offline phase 4a): the phone's file
+ *   first, with Range, else the network;
  * - `write`: the network only; offline it gets "Needs a connection";
  * - `pass`: the service worker stays out of it (no `respondWith`).
  */
-export type SwRoute = 'precached' | 'navigate' | 'device-read' | 'network-read' | 'write' | 'pass';
+export type SwRoute =
+	'precached' | 'navigate' | 'device-read' | 'network-read' | 'media' | 'write' | 'pass';
 
 /** How long a read waits for the network when the device could answer it instead. */
 export const NETWORK_TIMEOUT_MS = 4000;
@@ -70,7 +74,8 @@ const UPLOADS: [method: string, pattern: RegExp][] = [
 const DATA = '/__data.json';
 
 /** Every GET endpoint (`+server`), device or network: what a navigation there gets is not a page. */
-const ENDPOINTS = [...DEVICE_ENDPOINTS, ...NETWORK_ENDPOINTS].map(routePattern);
+const ENDPOINTS = [...DEVICE_ENDPOINTS, ...MEDIA_ENDPOINTS, ...NETWORK_ENDPOINTS].map(routePattern);
+const MEDIA = MEDIA_ENDPOINTS.map(routePattern);
 
 export function swRoute(
 	method: string,
@@ -100,6 +105,7 @@ export function swRoute(
 		if (method !== 'GET' || ENDPOINTS.some((re) => re.test(path))) return 'pass';
 		return 'navigate';
 	}
+	if (method === 'GET' && MEDIA.some((re) => re.test(path))) return 'media';
 	if (method === 'GET' && deviceAnswers(method, url)) return 'device-read';
 	// A network page drawn by the shell offline asks for its data too: a failed
 	// fetch there would be an unexpected error, and the page would draw without

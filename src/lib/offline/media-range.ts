@@ -45,3 +45,6 @@ export function rangeResponse(body: Blob, range: string | null, mime: string): R
 		}
 	});
 }
+
+/** Set to `device` on an answer from the phone's file (the walk checks it). */
+export const FROM_HEADER = 'X-Salsa-From';
