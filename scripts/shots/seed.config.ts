@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
-		include: ['scripts/shots/seed-class.ts'],
+		include: ['scripts/shots/seed-class.ts', 'scripts/shots/seed-suggestions.ts'],
 		environment: 'node',
 		testTimeout: 120_000
 	}

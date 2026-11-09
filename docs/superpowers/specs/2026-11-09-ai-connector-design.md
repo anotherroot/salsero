@@ -1,6 +1,6 @@
 # An AI connector with a queue of actions
 
-Status: design, 2026-11-09. Not built.
+Status: plan 1 (connector, reading) built and deployed 2026-11-09; plan 2 (the queue, the Suggestions page) built; plan 3 (video sections) to come.
 
 ## Intent
 

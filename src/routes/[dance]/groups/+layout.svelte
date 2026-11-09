@@ -19,6 +19,7 @@
 	import { MY_CLASS, PICK_GROUP } from '$lib/teams/view';
 	import { canMakeGroup, levelShown, youPath, type Level } from '$lib/levels/levels';
 	import { fullName } from '$lib/names';
+	import SuggestionsRow from '$lib/components/suggestions/SuggestionsRow.svelte';
 	import YouSettings from '$lib/components/settings/YouSettings.svelte';
 	import { t } from '$lib/i18n/catalog';
 
@@ -118,6 +119,7 @@
 		{#if you}
 			<!-- The phone's You: the settings under the groups. The desktop has Settings in the side. -->
 			<div class="contents desk:hidden">
+				<SuggestionsRow dance={data.dance.slug} />
 				<YouSettings
 					settings={you}
 					theme={page.data.theme}
