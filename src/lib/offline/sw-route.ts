@@ -43,6 +43,7 @@ const VERSION_JSON = '/_app/version.json';
  * and offline `needs-connection` (a toast on every pull).
  */
 const PULL = '/api/sync/pull';
+const PUSH = '/api/sync/push';
 
 /**
  * Raw-body uploads (XHR with upload progress). Through a `respondWith` the
@@ -75,7 +76,7 @@ export function swRoute(
 	const path = url.pathname;
 	const read = method === 'GET' || method === 'HEAD';
 	if (path === VERSION_JSON) return 'pass';
-	if (path === PULL) return 'pass';
+	if (path === PULL || path === PUSH) return 'pass';
 	if (UPLOADS.some(([m, re]) => m === method && re.test(path))) return 'pass';
 	if (
 		method === 'GET' &&
@@ -108,6 +109,23 @@ export function isNetworkFailure(res: Response): boolean {
 
 /** The prefix of every cache this app's service worker makes: `salsa-<version>`. */
 export const CACHE_PREFIX = 'salsa-';
+
+/**
+ * Where the service worker keeps the outbox's last word (`/__outbox-state`:
+ * `{ waiting, epochs }`) across its own restarts. No `salsa-` prefix, so
+ * `cachesToDelete` never takes it.
+ */
+export const OUTBOX_STATE_CACHE = 'outbox-state';
+export const OUTBOX_STATE_KEY = '/__outbox-state';
+
+/**
+ * Whether a new build waits before taking over (offline phase 3): while the
+ * outbox holds entries of an older build and the device is online, so they can
+ * still be sent and land. Offline it never waits: they would wait forever.
+ */
+export function holdsUpdate(epochs: readonly number[], current: number, online: boolean): boolean {
+	return online && epochs.some((e) => e < current);
+}
 
 const versionOf = (key: string): number => Number(key.slice(CACHE_PREFIX.length));
 
@@ -158,12 +176,52 @@ export function postsChanged(res: { status: number; type: ResponseType }): boole
 export class DeviceClients {
 	#states = new Map<string, DeviceState | 'off'>();
 	#dirtyAt = new Map<string, number>();
+	/** Outbox entries waiting, as the page's last state said (offline phase 3). */
+	#waiting = new Map<string, number>();
+	/** The newest outbox entry the page's last state carried. */
+	#seqSeen = new Map<string, number>();
+	/** The newest entry a device write of this page answered with (x-salsa-outbox). */
+	#wroteSeq = new Map<string, number>();
 
-	/** The page's state, and its own note of an unpulled save (null: none it knows of). */
-	setState(id: string, state: DeviceState | 'off', unpulledSince: number | null): void {
+	/** The page's state, its own note of an unpulled save (null: none it knows of), and its outbox. */
+	setState(
+		id: string,
+		state: DeviceState | 'off',
+		unpulledSince: number | null,
+		waiting?: number,
+		outboxSeq?: number
+	): void {
 		this.#states.set(id, state);
 		// Never clears: a write's mark here may be newer than the page has heard of.
 		if (unpulledSince !== null) this.changed(id, unpulledSince);
+		if (waiting !== undefined) this.#waiting.set(id, waiting);
+		if (outboxSeq !== undefined) this.#seqSeen.set(id, outboxSeq);
+	}
+
+	/** A write of this page was answered by its device, as outbox entry `seq`. */
+	wrote(id: string, seq: number): void {
+		this.#wroteSeq.set(id, Math.max(this.#wroteSeq.get(id) ?? 0, seq));
+	}
+
+	/**
+	 * Whether this page's reads come from its device first: the server lacks the
+	 * device's changes while any waits, or while a write's entry is newer than
+	 * the page's last word on its outbox.
+	 */
+	readsFromDevice(id: string): boolean {
+		if ((this.#waiting.get(id) ?? 0) > 0) return true;
+		return (this.#wroteSeq.get(id) ?? 0) > (this.#seqSeen.get(id) ?? 0);
+	}
+
+	/**
+	 * Whether a write from this page tries its device first: yes unless the page
+	 * said its device is anything but ready. A page the service worker knows
+	 * nothing of (it was stopped and started again) is tried: the device falls
+	 * back itself when it cannot take the write.
+	 */
+	writesToDevice(id: string): boolean {
+		const state = this.#states.get(id);
+		return state === undefined || state === 'ready';
 	}
 
 	/** A save from this page reached the server at `at`. The mark only moves later. */
@@ -197,8 +255,9 @@ export class DeviceClients {
 
 	/** Forget the pages that are gone. */
 	sweep(open: ReadonlySet<string>): void {
-		for (const id of this.#states.keys()) if (!open.has(id)) this.#states.delete(id);
-		for (const id of this.#dirtyAt.keys()) if (!open.has(id)) this.#dirtyAt.delete(id);
+		for (const map of [this.#states, this.#dirtyAt, this.#waiting, this.#seqSeen, this.#wroteSeq]) {
+			for (const id of map.keys()) if (!open.has(id)) map.delete(id);
+		}
 	}
 
 	get size(): number {

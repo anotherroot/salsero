@@ -3,11 +3,14 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 /*
- * The service worker (offline phase 2). Online nothing changes: every page,
- * read and write goes to the network first. Only when the network fails does
- * a page load get the cached shell (`/shell`), a read the device's copy (via
- * the page that sent it, which relays to its device worker), and a write
- * "Needs a connection". What goes where is `swRoute` ($lib/offline/sw-route).
+ * The service worker. Reads go to the network first; only when the network
+ * fails does a page load get the cached shell (`/shell`) and a read the
+ * device's copy (via the page that sent it, which relays to its device
+ * worker). Since offline phase 3 a write the device can make goes to it first,
+ * online too, and its outbox carries it to the server; while the outbox
+ * waits, reads come from the device, which has what the server does not yet.
+ * Anything else goes to the network, and offline says "Needs a connection".
+ * What goes where is `swRoute` ($lib/offline/sw-route).
  *
  * Registered by the page (`$lib/offline/device.svelte.ts`), never in dev
  * (`serviceWorker.register: false` in vite.config.ts).
@@ -15,9 +18,15 @@
 import { build, files, prerendered, version } from '$service-worker';
 import { offlineRead, offlineWrite, type OfflineAnswer } from '$lib/offline/needs-connection';
 import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/offline/protocol';
+import { PAGE_EPOCH } from '$lib/epoch';
+import { writeClass } from '$lib/offline/routes';
+import { OUTBOX_HEADER } from '$lib/sync/outbox';
 import {
 	CACHE_PREFIX,
 	DeviceClients,
+	OUTBOX_STATE_CACHE,
+	OUTBOX_STATE_KEY,
+	holdsUpdate,
 	SHELL,
 	cachesToDelete,
 	changedTo,
@@ -44,6 +53,33 @@ const NULL_BODY = new Set([101, 204, 205, 304]);
  * network as long as it takes, as they would without a service worker.
  */
 const devices = new DeviceClients();
+
+type OutboxState = { waiting: number; epochs: number[] };
+
+/** The outbox's last word, kept across this worker's restarts. */
+async function outboxState(): Promise<OutboxState> {
+	try {
+		const cache = await caches.open(OUTBOX_STATE_CACHE);
+		const res = await cache.match(OUTBOX_STATE_KEY);
+		return res ? ((await res.json()) as OutboxState) : { waiting: 0, epochs: [] };
+	} catch {
+		return { waiting: 0, epochs: [] };
+	}
+}
+
+async function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
+	const cache = await caches.open(OUTBOX_STATE_CACHE);
+	const state = { ...(await outboxState()), ...next };
+	await cache.put(OUTBOX_STATE_KEY, Response.json(state));
+	// A new build that waited for older entries to be sent takes over once they are.
+	if (heldInstall && !holdsUpdate(state.epochs, PAGE_EPOCH, navigator.onLine)) {
+		heldInstall = false;
+		await sw.skipWaiting();
+	}
+}
+
+/** This build installed while the outbox held older entries, and waits for them. */
+let heldInstall = false;
 
 sw.addEventListener('install', (event) => {
 	// A failed install deletes its half-filled cache (`installOrClean`).
@@ -72,8 +108,11 @@ sw.addEventListener('install', (event) => {
 				});
 				if (!shell.ok) throw new Error(`shell: ${shell.status}`);
 				await cache.put(SHELL, shell);
-				// Phase 2 queues nothing, so a new build takes over at once.
-				await sw.skipWaiting();
+				// A new build takes over at once, unless entries of an older one are still to
+				// be sent while online: they would be refused as made by another build.
+				const { epochs } = await outboxState();
+				if (holdsUpdate(epochs, PAGE_EPOCH, navigator.onLine)) heldInstall = true;
+				else await sw.skipWaiting();
 			}
 		)
 	);
@@ -98,10 +137,19 @@ sw.addEventListener('message', (event) => {
 	const data = event.data as SwIn | undefined;
 	const source = event.source as Client | null;
 	if (!source) return;
-	if (data?.type === 'device-state')
-		devices.setState(source.id, data.state, data.unpulledSince ?? null);
-	else if (data?.type === 'device-pulled') devices.pulled(source.id, data.startedAt);
-	else return;
+	if (data?.type === 'device-state') {
+		devices.setState(
+			source.id,
+			data.state,
+			data.unpulledSince ?? null,
+			data.waiting,
+			data.outboxSeq
+		);
+		if (data.waiting !== undefined) event.waitUntil(keepOutboxState({ waiting: data.waiting }));
+	} else if (data?.type === 'device-pulled') devices.pulled(source.id, data.startedAt);
+	else if (data?.type === 'outbox') {
+		event.waitUntil(keepOutboxState({ waiting: data.waiting, epochs: data.epochs }));
+	} else return;
 	// Closed pages leave their entries behind; sweep now and then.
 	if (devices.size > 20) {
 		event.waitUntil(
@@ -199,6 +247,11 @@ async function aDeviceAnswers(): Promise<boolean> {
 async function navigate(event: FetchEvent): Promise<Response> {
 	const shell = await cachedShell();
 	const preload = event.preloadResponse as Promise<Response | undefined> | undefined;
+	// Changes still on their way: the device draws them, the server does not have them yet.
+	if (shell && (await outboxState()).waiting > 0) {
+		event.waitUntil(Promise.resolve(preload).catch(() => undefined));
+		return shell;
+	}
 	if (navigator.onLine || !shell) {
 		const ms = navigationTimeout(new URL(event.request.url).pathname, {
 			device: shell ? await aDeviceAnswers() : false,
@@ -233,6 +286,11 @@ async function navigate(event: FetchEvent): Promise<Response> {
  */
 async function deviceRead(event: FetchEvent): Promise<Response> {
 	const request = event.request;
+	// The server lacks this page's device's changes yet: the device first.
+	if (devices.readsFromDevice(event.clientId)) {
+		const mine = await viaDevice(request, event.clientId);
+		if (mine) return mine;
+	}
 	const network = fetch(request);
 	let late: Promise<Response> | null = null;
 	try {
@@ -278,11 +336,13 @@ async function viaDevice(request: Request, clientId: string): Promise<Response |
 			resolve(e.data);
 		};
 	});
+	const method = request.method.toUpperCase();
 	const wire: WireRequest = {
 		url: request.url,
 		method: request.method,
 		headers: [...request.headers],
-		body: null
+		// A write carries its body (offline phase 3).
+		body: method === 'GET' || method === 'HEAD' ? null : await request.arrayBuffer()
 	};
 	client.postMessage({ type: 'device-fetch', request: wire } satisfies SwOut, [channel.port2]);
 	const r = await reply;
@@ -303,6 +363,20 @@ async function write(event: FetchEvent): Promise<Response> {
 	const request = event.request;
 	const isAction = request.headers.has('x-sveltekit-action');
 	const to = event.clientId || event.resultingClientId;
+	// A write the device can make goes to it first, online too: its outbox sends it on.
+	const cls = writeClass(request.method, new URL(request.url));
+	if (
+		(cls === 'device' || cls === 'queued') &&
+		event.clientId &&
+		devices.writesToDevice(event.clientId)
+	) {
+		const mine = await viaDevice(request.clone(), event.clientId);
+		if (mine) {
+			const seq = Number(mine.headers.get(OUTBOX_HEADER));
+			if (seq > 0) devices.wrote(event.clientId, seq);
+			return mine;
+		}
+	}
 	let res: Response;
 	try {
 		res = await fetch(request);

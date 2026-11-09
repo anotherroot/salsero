@@ -79,8 +79,18 @@ export type SwOut =
  * - `device-pulled`: its device pulled, the request having left at `startedAt`.
  */
 export type SwIn =
-	| { type: 'device-state'; state: DeviceState | 'off'; unpulledSince: number | null }
-	| { type: 'device-pulled'; startedAt: number };
+	| {
+			type: 'device-state';
+			state: DeviceState | 'off';
+			unpulledSince: number | null;
+			/** Outbox entries waiting (offline phase 3); absent from an older page. */
+			waiting?: number;
+			/** The newest outbox entry the device holds. */
+			outboxSeq?: number;
+	  }
+	| { type: 'device-pulled'; startedAt: number }
+	/** The outbox changed: what the service worker keeps across its restarts. */
+	| { type: 'outbox'; waiting: number; epochs: number[] };
 
 /** What the band and the Sync page need to know about the outbox (offline phase 3). */
 export type OutboxSummary = {

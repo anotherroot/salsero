@@ -14,7 +14,10 @@ import {
 	unpulledAfterSave,
 	swRoute,
 	QUIET_HEADER,
-	tellsNeedsConnection
+	tellsNeedsConnection,
+	holdsUpdate,
+	OUTBOX_STATE_CACHE,
+	CACHE_PREFIX
 } from './sw-route';
 
 const ORIGIN = 'https://salsa.test';
@@ -319,5 +322,68 @@ describe('tellsNeedsConnection', () => {
 	it("says so for the person's writes, not for a quiet one", () => {
 		expect(tellsNeedsConnection(new Headers({ 'x-sveltekit-action': 'true' }))).toBe(true);
 		expect(tellsNeedsConnection(new Headers({ [QUIET_HEADER]: '1' }))).toBe(false);
+	});
+});
+
+describe('writes and the outbox (offline phase 3)', () => {
+	it('reads from the device while its outbox waits, online too', () => {
+		const d = new DeviceClients();
+		d.setState('a', 'ready', null, 0, 0);
+		expect(d.readsFromDevice('a')).toBe(false);
+		d.setState('a', 'ready', null, 2, 5);
+		expect(d.readsFromDevice('a')).toBe(true);
+		d.setState('a', 'ready', null, 0, 5);
+		expect(d.readsFromDevice('a')).toBe(false);
+	});
+
+	it('keeps reading from the device after a device write until a state carries that entry', () => {
+		const d = new DeviceClients();
+		d.setState('a', 'ready', null, 0, 4);
+		d.wrote('a', 5);
+		expect(d.readsFromDevice('a')).toBe(true);
+		d.setState('a', 'ready', null, 0, 4);
+		expect(d.readsFromDevice('a')).toBe(true);
+		d.setState('a', 'ready', null, 0, 5);
+		expect(d.readsFromDevice('a')).toBe(false);
+	});
+
+	it('tries the device for a write when it knows nothing of the page', () => {
+		expect(new DeviceClients().writesToDevice('unknown')).toBe(true);
+	});
+
+	it('never sends a write to a device that is waiting or failed', () => {
+		const d = new DeviceClients();
+		for (const state of ['waiting', 'failed', 'empty', 'starting', 'off'] as const) {
+			d.setState('a', state, null);
+			expect(d.writesToDevice('a'), state).toBe(false);
+		}
+		d.setState('a', 'ready', null);
+		expect(d.writesToDevice('a')).toBe(true);
+	});
+
+	it('holds an update only for older entries, and only online', () => {
+		expect(holdsUpdate([11, 12], 12, true)).toBe(true);
+		expect(holdsUpdate([12], 12, true)).toBe(false);
+		expect(holdsUpdate([11], 12, false)).toBe(false);
+		expect(holdsUpdate([], 12, true)).toBe(false);
+	});
+
+	it('passes the push', () => {
+		expect(
+			swRoute(
+				'POST',
+				new URL('https://salsa.test/api/sync/push'),
+				'cors',
+				'https://salsa.test',
+				new Set()
+			)
+		).toBe('pass');
+	});
+
+	it('never deletes the outbox state cache', () => {
+		expect(OUTBOX_STATE_CACHE.startsWith(CACHE_PREFIX)).toBe(false);
+		expect(
+			cachesToDelete([OUTBOX_STATE_CACHE, 'salsa-1', 'salsa-2', 'salsa-3'], 'salsa-3')
+		).not.toContain(OUTBOX_STATE_CACHE);
 	});
 });
