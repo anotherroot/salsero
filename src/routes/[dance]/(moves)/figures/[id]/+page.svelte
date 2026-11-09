@@ -113,7 +113,7 @@
 	const slug = $derived(data.dance.slug);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	/** Its figure's only variation: taking it away removes the figure. */
-	const last = $derived(data.siblings.length === 1);
+	const last = $derived(data.lastInMove);
 	/** `move`'s refusal with the field it is about, for the sheet to place. */
 	const moveFailed = $derived(
 		form && 'action' in form && form.action === 'move' && 'message' in form

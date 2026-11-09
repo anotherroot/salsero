@@ -25,7 +25,7 @@
 	}: {
 		moveName: string;
 		moveId: number;
-		/** Live figures of the move, id order, the open one included. */
+		/** The move's figures as the Figures list merges them (groups' same-named moves too), the open one included. */
 		siblings: SiblingSummary[];
 		currentId: number;
 		slug: DanceSlug;
@@ -51,9 +51,14 @@
 			href={href(s.id)}
 			data-sveltekit-replacestate
 			aria-current={here ? 'page' : undefined}
-			class="{PILL} {here
+			title={s.team?.name}
+			class="{PILL} gap-1.5 {here
 				? 'bg-accent font-extrabold text-on-accent'
-				: 'bg-chip font-bold text-chip-ink'}">{s.name}</a
+				: 'bg-chip font-bold text-chip-ink'}"
+			><!-- A group's figure: the group's people icon, its name in the title and for a screen reader. -->{#if s.team}<Icon
+					name="people"
+					size={16}
+				/><span class="sr-only">{s.team.name}:</span>{/if}{s.name}</a
 		>
 	{/each}
 	{#if canEdit}

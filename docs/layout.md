@@ -137,7 +137,9 @@ src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf
                      list owns a move's page and Coverage
 src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
                      (namespaced; `depends('app:moves')`, so a change not made by a form calls
-                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
+                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`).
+                     `mergedMoveFigures`: one merged move's figures, as the list shows them
+                     (a figure page's switcher and tabs)
 src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space; each arrow's
                      figures (`figs`; a group row whose label collides says its group,
                      `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`

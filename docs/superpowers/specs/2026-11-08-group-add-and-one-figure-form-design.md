@@ -110,6 +110,11 @@ Positions (the list's order) mix the same way (`moves/mix.ts`,
 the phone; B, a chip beside the name, was not chosen). `GroupHeading` and
 `groupMeta` are gone; a list with a group's rows says no "Yours".
 
+A figure's switcher (the phone's bottom bar, the desktop's tabs) steps through
+the same merged move, yours and the groups' figures alike, each group's marked
+(`mergedMoveFigures`, `server/moves-lists.ts`). The move's own figures stay as
+the page reads them (an editor's drafts too); group mode keeps the group's alone.
+
 ## 5. Scrollbars
 
 Thin rounded scrollbars in the theme's muted ink, no track, no arrows

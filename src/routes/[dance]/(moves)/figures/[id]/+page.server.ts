@@ -26,6 +26,7 @@ import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/f
 import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
 import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
 import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
+import { mergedMoveFigures } from '$lib/server/moves-lists';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
@@ -240,26 +241,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// Every live variation of the figure, this one included, as its sheet lists
 	// them: what each starts and ends on, and its timing. The handholds are each
 	// one's own live tags (`handholdsOf`); none at all reads "No position".
-	const shown = listGroupVariations(db, group.id).filter((s) => seen(visible?.variations, s.id));
-	const holdsOf = handholdsOf(db, wall.userId, [id, ...shown.map((s) => s.id)]);
-	const names = (refs: PositionRef[]) => refs.map((p) => p.name);
-	const siblings: SiblingSummary[] = shown.map((s) => {
-		const n = figureById(graph, s.id);
-		const h = holdsOf(s.id);
-		return {
-			id: s.id,
-			name: s.name,
-			holds: holdsLine(names(h.starts), names(h.ends)),
-			timing: t().figure.timing.line(
-				n?.start ?? DEFAULT_START_COUNT,
-				n?.length ?? DEFAULT_LENGTH_COUNTS
-			),
-			videos:
-				s.id === id
-					? found.recordings.length
-					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
-		};
-	});
+	const live = listGroupVariations(db, group.id);
+	const shown = live.filter((s) => seen(visible?.variations, s.id));
 
 	// A group's figure: who owns it, which added lesson brought it, and the
 	// person's OWN routines that use it (their wall, their graph, their shapes).
@@ -273,6 +256,47 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			get: (name: string) => cookies?.get(name),
 			delete: () => {}
 		} as unknown as Cookies)?.teamId === figure.teamId;
+
+	// The switcher steps through the move as the Figures list shows it: the
+	// person's own and the added groups' moves of the same name, one move
+	// (`mergeGroups`), each group's figure marked. This move's own figures stay
+	// as this page reads them (an editor's drafts too), where the list puts them.
+	const team = inGroupMode ? null : groupTeam;
+	const rows: { id: number; name: string; team: TeamRef | null }[] = [];
+	const own = shown.map((s) => ({ id: s.id, name: s.name, team }));
+	if (inGroupMode) rows.push(...own);
+	else {
+		const ofThis = new Set(live.map((s) => s.id));
+		for (const f of mergedMoveFigures(db, wall, group.name)) {
+			if (!ofThis.has(f.id)) rows.push({ id: f.id, name: f.name, team: f.team });
+			else if (own.length > 0) rows.push(...own.splice(0));
+		}
+		rows.push(...own);
+	}
+	// Another move's figures are timed in the person's graph: a group's graph lacks theirs.
+	const other = rows.some((r) => !live.some((s) => s.id === r.id));
+	const theirGraph = other && isTeam(space) ? graphFor(db, wall) : graph;
+	const holdsOf = handholdsOf(db, wall.userId, [id, ...rows.map((s) => s.id)]);
+	const names = (refs: PositionRef[]) => refs.map((p) => p.name);
+	const siblings: SiblingSummary[] = rows.map((s) => {
+		const n = figureById(graph, s.id) ?? figureById(theirGraph, s.id);
+		const h = holdsOf(s.id);
+		return {
+			id: s.id,
+			name: s.name,
+			team: s.team,
+			holds: holdsLine(names(h.starts), names(h.ends)),
+			timing: t().figure.timing.line(
+				n?.start ?? DEFAULT_START_COUNT,
+				n?.length ?? DEFAULT_LENGTH_COUNTS
+			),
+			videos:
+				s.id === id
+					? found.recordings.length
+					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
+		};
+	});
+
 	let fromLesson: string | null = null;
 	let myRoutines: ReturnType<typeof routinesUsing> = [];
 	if (groupTeam && !inGroupMode) {
@@ -349,6 +373,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			)
 		},
 		siblings,
+		/** The move holds no other live figure: archiving this one archives the move. */
+		lastInMove: live.length === 1,
 		canEdit,
 		/** The family and twins the person reads, as tabs; empty for fewer than two. */
 		sources: versions.sources,
