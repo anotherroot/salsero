@@ -1782,7 +1782,8 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect([draft.canEdit, draft.draft]).toEqual([true, true]);
 		const figure = open('figure', U1, V2) as { canEdit: boolean; siblings: { id: number }[] };
 		expect(figure.canEdit).toBe(true);
-		expect(figure.siblings.map((s) => s.id)).toEqual([V2, V3]);
+		// Their own Enchufla first: the switcher steps through the move as the Figures list merges it.
+		expect(figure.siblings.map((s) => s.id)).toEqual([figureId, V2, V3]);
 		expect((open('routine', U1, RD) as { canEdit: boolean }).canEdit).toBe(true);
 		expect((open('exercise', U1, draftDrill) as { canEdit: boolean }).canEdit).toBe(true);
 	});
