@@ -221,6 +221,11 @@ async function relay(message: Extract<DeviceIn, { type: 'device-fetch' }>, port:
 			if ('fallback' in answer) return port.postMessage(answer);
 			return port.postMessage(answer, [answer.body]);
 		}
+		// A write never waits for a device still starting: the network takes it now.
+		const m = message.request.method.toUpperCase();
+		if (m !== 'GET' && m !== 'HEAD' && device.state !== 'ready') {
+			return fallback(`device ${device.state}`);
+		}
 		if (!(await whenReady())) return fallback(`device ${device.state}`);
 		// The page's person goes with it: the copy answers only its own person's page.
 		w.postMessage({ ...message, person } satisfies DeviceIn, [port]);

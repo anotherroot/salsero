@@ -44,6 +44,8 @@ const CACHE = `${CACHE_PREFIX}${version}`;
 const PRECACHED: ReadonlySet<string> = new Set([...build, ...files, ...prerendered]);
 /** How long a read waits for its page's device (which may still be starting: its own limit is 10 s). */
 const DEVICE_REPLY_LIMIT_MS = 15_000;
+/** A write commits on the device by this long before the limit, or not at all (then the network has it). */
+const DEVICE_COMMIT_MARGIN_MS = 3_000;
 const NULL_BODY = new Set([101, 204, 205, 304]);
 
 /**
@@ -341,8 +343,11 @@ async function viaDevice(request: Request, clientId: string): Promise<Response |
 		url: request.url,
 		method: request.method,
 		headers: [...request.headers],
-		// A write carries its body (offline phase 3).
-		body: method === 'GET' || method === 'HEAD' ? null : await request.arrayBuffer()
+		// A write carries its body, and the moment after which it must not commit (offline phase 3).
+		body: method === 'GET' || method === 'HEAD' ? null : await request.arrayBuffer(),
+		...(method === 'GET' || method === 'HEAD'
+			? {}
+			: { deadline: Date.now() + DEVICE_REPLY_LIMIT_MS - DEVICE_COMMIT_MARGIN_MS })
 	};
 	client.postMessage({ type: 'device-fetch', request: wire } satisfies SwOut, [channel.port2]);
 	const r = await reply;

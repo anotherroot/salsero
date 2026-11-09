@@ -641,8 +641,31 @@ describe('writes on the device', () => {
 		expect(recorded).toHaveBeenCalledTimes(1);
 	});
 
-	it('records nothing and answers the refusal when the action refuses', async () => {
+	it('online, a refusal on the device goes to the server instead (the copy may be behind)', async () => {
 		const { dev } = await writer();
+		const before = count('sets');
+		const ans = await dev.answer(done(world.own.u1.exercise, { rating: '' }), 'u1');
+		expect(ans).toMatchObject({ fallback: true });
+		expect(entries()).toHaveLength(0);
+		expect(count('sets')).toBe(before);
+	});
+
+	it('a write past its deadline (the service worker has given up) rolls back and falls back', async () => {
+		const { dev } = await writer();
+		const before = count('sets');
+		const late = { ...done(world.own.u1.exercise), deadline: now - 1 };
+		expect(await dev.answer(late, 'u1')).toMatchObject({ fallback: true });
+		expect(entries()).toHaveLength(0);
+		expect(count('sets')).toBe(before);
+		const inTime = { ...done(world.own.u1.exercise), deadline: now + 5000 };
+		expect(isFallback(await dev.answer(inTime, 'u1'))).toBe(false);
+		expect(entries()).toHaveLength(1);
+	});
+
+	it('offline, records nothing and answers the refusal when the action refuses', async () => {
+		let online = true;
+		const { dev } = await writer({ online: () => online });
+		online = false;
 		const before = count('sets');
 		const ans = (await dev.answer(done(world.own.u1.exercise, { rating: '' }), 'u1')) as {
 			status: number;

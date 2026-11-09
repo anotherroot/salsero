@@ -500,8 +500,9 @@ export function createDevice(deps: DeviceDeps): Device {
 			if (!landed) {
 				undo();
 				if (res.status >= 500) return fallback('the device failed');
-				// Refused as online: the person sees the refusal here.
-				return answer();
+				// Online the copy may be behind the server (a drill added on the PC a minute ago):
+				// the server decides. Offline the person sees the refusal here.
+				return deps.online() ? fallback('refused on the device') : answer();
 			}
 			if (rows.length === 0) {
 				undo();
@@ -527,6 +528,11 @@ export function createDevice(deps: DeviceDeps): Device {
 			);
 			const cookie = headers.get('cookie');
 			if (cookie) kept.push(['cookie', cookie]);
+			// The service worker gave up waiting and went to the network: this one must not land too.
+			if (wire.deadline !== undefined && deps.now() > wire.deadline) {
+				undo();
+				return fallback('too late');
+			}
 			const seq = recordEntry(db, {
 				id: deps.newId(),
 				userId: runtime.userId,

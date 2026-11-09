@@ -12,6 +12,11 @@ export type WireRequest = {
 	method: string;
 	headers: [string, string][];
 	body: ArrayBuffer | null;
+	/**
+	 * A write's last moment to commit (epoch ms, offline phase 3): after it the
+	 * service worker has gone to the network, so the device rolls back.
+	 */
+	deadline?: number;
 };
 
 /** The device's answer, taken apart the same way. */
