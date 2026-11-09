@@ -72,7 +72,7 @@
 	let sheet = $state<HTMLElement>();
 	let slimH = $state(0);
 	/*
-	 * The scroll at which the sheet's top edge meets the slim band's bottom: there
+	 * The scroll at which the sheet's top edge (or a hero above it) meets the slim band's bottom: there
 	 * the big band would start to leave, so the slim one takes over. Read again as
 	 * the page scrolls or resizes (a title that wraps, a band that grows).
 	 */
@@ -80,7 +80,11 @@
 		void scrollY;
 		void innerWidth;
 		if (!sheet || slimH === 0) return null;
-		return sheet.getBoundingClientRect().top + window.scrollY - slimH;
+		// A hero (Today's card) rises over the band: the band pins where the card
+		// meets it, so the card never covers the title still on its way up.
+		const hero = sheet.querySelector(':scope > [data-band-hero]')?.getBoundingClientRect();
+		const lead = hero && hero.height > 0 ? hero.top : Infinity;
+		return Math.min(sheet.getBoundingClientRect().top, lead) + window.scrollY - slimH;
 	});
 	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
@@ -238,7 +242,10 @@
 	style="--page-w: {PAGE_WIDTH[width]}px"
 >
 	<!-- A list's hero (`split`): on the desktop it is its column's first card (`ListPane`). -->
-	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk && !split ? '' : ' desk:hidden'}">
+	{#if hero}<div
+			class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk && !split ? '' : ' desk:hidden'}"
+			data-band-hero
+		>
 			{@render hero()}
 		</div>{/if}
 	{@render children()}
