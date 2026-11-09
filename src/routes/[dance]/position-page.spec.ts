@@ -47,7 +47,8 @@ import { createRoutineFromFigures } from '$lib/server/routines';
 import { positionSeen } from '$lib/server/clash';
 import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import { crossRefs } from '$lib/server/integrity';
 import { runInLocale } from '$lib/server/i18n-request';
 import { archivedLinksLine, presetGone } from '$lib/positions/view';
@@ -58,7 +59,7 @@ let db: Db;
 
 function jar(value?: string): Cookies {
 	return {
-		get: (n: string) => (n === groupCookie('salsa') ? value : undefined),
+		get: (n: string) => (n === VIEW ? value : undefined),
 		set: () => {},
 		delete: () => {}
 	} as unknown as Cookies;
@@ -496,10 +497,12 @@ describe('Make it mine', () => {
 describe('New move from a position (ruling 8)', () => {
 	async function create(user: string, extra: Record<string, string>, cookies: Cookies = jar()) {
 		try {
+			const view = cookies.get(VIEW);
 			return await (figureList.create as (e: unknown) => unknown)({
 				params: { dance: 'salsa' },
 				locals: locals(user),
 				cookies,
+				url: new URL(`http://x/salsa/figures?/create${view ? `&in=${view}` : ''}`),
 				request: body({
 					figureName: 'Caída out',
 					name: 'Basic',
@@ -507,8 +510,7 @@ describe('New move from a position (ruling 8)', () => {
 					style: 'salsa',
 					notes: '',
 					...extra
-				}),
-				url: new URL('http://x/salsa/figures')
+				})
 			});
 		} catch (e) {
 			return e as any;
@@ -528,7 +530,9 @@ describe('New move from a position (ruling 8)', () => {
 				params: { dance: 'salsa' },
 				locals: locals(user),
 				cookies,
-				url: new URL(`http://x/salsa/figures${search}`)
+				url: new URL(
+					`http://x/salsa/figures${search}${cookies.get(VIEW) ? `&in=${cookies.get(VIEW)}` : ''}`
+				)
 			}).preset;
 		expect(at('u2', `?new=1&start=${caida}`)).toEqual({ side: 'start', id: caida, name: 'Caída' });
 		expect(at('u2', `?new=1&end=${caida}`)).toEqual({ side: 'end', id: caida, name: 'Caída' });
@@ -750,9 +754,10 @@ describe('Video and Lessons: links from the page', () => {
 		]);
 		expect(d.linkable).toEqual([]);
 		expect(d.linkableLessons).toEqual([]);
-		// Its editor gets the group's lessons to link, named with the group.
+		// Its editor (in the group's view: group view spec) gets the group's lessons to
+		// link, unnamed, since they are all the group's there.
 		expect(loadOf('u2', g.hammer).linkableLessons).toMatchObject([
-			{ id: g.lesson, team: 'Tuesdays', linked: true, via: true }
+			{ id: g.lesson, team: null, linked: true, via: true }
 		]);
 	});
 

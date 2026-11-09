@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -19,6 +20,8 @@
 	import { setMoves } from '$lib/components/moves/moves-context';
 	import { revealLit } from '$lib/components/shell/reveal';
 	import { t } from '$lib/i18n/catalog';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/*
 	 * Moves: Figures, Routines or Positions, and the item beside it (desktop spec,
@@ -66,7 +69,10 @@
 	 * it pushes: the item was a place. Each list comes back with its filter.
 	 */
 	function openList(to: MovesList) {
-		goto(rememberedHref(resolve(ROOT[to], { dance })), { replaceState: isList, keepFocus: true });
+		goto(withView(rememberedHref(resolve(ROOT[to], { dance })), viewTeam), {
+			replaceState: isList,
+			keepFocus: true
+		});
 	}
 
 	// The lit row stays in view in the column (desktop: the column scrolls on its own).

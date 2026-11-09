@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import {
-	groupCookie,
-	groupLabel,
-	minePath,
-	outsideGroupMode,
-	returnPath,
-	workInRows
-} from './mode';
+import { minePath, workInPath, outsideGroupMode, returnPath, workInRows } from './mode';
 
 describe('group mode, pure', () => {
-	it('names the cookie per dance', () => expect(groupCookie('salsa')).toBe('group_salsa'));
 	it('leaves group mode on Today and its pages', () => {
 		expect(outsideGroupMode('/salsa', 'salsa')).toBe(true);
 		expect(outsideGroupMode('/salsa/exercises/3', 'salsa')).toBe(true);
@@ -23,7 +15,6 @@ describe('group mode, pure', () => {
 		expect(returnPath('/bachata/figures', 'salsa')).toBe('/salsa/figures');
 		expect(returnPath(null, 'salsa')).toBe('/salsa/figures');
 	});
-	it('labels a group', () => expect(groupLabel('Salsa Tuesdays')).toBe('Salsa Tuesdays · group'));
 });
 
 describe('workInRows', () => {
@@ -32,16 +23,24 @@ describe('workInRows', () => {
 		{ teamId: 7, name: 'Open floor', role: 'editor' as const, people: 1 }
 	];
 	it('lists Mine first and marks Mine when no group is current', () => {
-		const rows = workInRows(choices, null);
+		const rows = workInRows(choices, null, '/salsa/lessons');
 		expect(rows.map((r) => r.teamId)).toEqual(['mine', 4, 7]);
 		expect(rows.map((r) => r.on)).toEqual([true, false, false]);
 	});
 	it('marks the current group and words the meta', () => {
-		const rows = workInRows(choices, 7);
+		const rows = workInRows(choices, 7, '/salsa/lessons');
 		expect(rows.map((r) => r.on)).toEqual([false, false, true]);
 		expect(rows[1].meta).toBe('Owner · 14 people');
 		expect(rows[2].meta).toBe('Editor · 1 person');
 		expect(rows[0].name).toBe('Mine');
+	});
+	it('links each row to the list it was opened on, in that view', () => {
+		const rows = workInRows(choices, 4, '/salsa/lessons?in=4&q=x');
+		expect(rows.map((r) => r.href)).toEqual([
+			'/salsa/lessons?q=x',
+			'/salsa/lessons?q=x&in=4',
+			'/salsa/lessons?q=x&in=7'
+		]);
 	});
 	it('Mine stays on the tab: its list, or the tab’s first list from a page in it', () => {
 		expect(minePath('/salsa/lessons', 'salsa')).toBe('/salsa/lessons');
@@ -64,12 +63,29 @@ describe('group mode in Slovenian', () => {
 	];
 
 	it('labels the group after a "·" and words the rows', () => {
-		expect(sl(() => groupLabel('Salsa torek'))).toBe('Salsa torek · skupina');
-		const rows = sl(() => workInRows(choices, null));
+		const rows = sl(() => workInRows(choices, null, '/salsa/lessons'));
 		expect(rows.map((r) => [r.name, r.meta])).toEqual([
 			['Moje', 'Vaše lastne stvari'],
 			['Torek', 'Vodja · 14 oseb'],
 			['Sreda', 'Lahko ureja · 2 osebi']
 		]);
+	});
+});
+
+// Catches (review): Work in beside an open item on the desktop pointing at the item's
+// own address, where `in` is ignored (the row decides), so the switch did nothing.
+describe('workInPath', () => {
+	it('on a list: the list as it is, its search kept', () => {
+		expect(workInPath('/salsa/lessons', '?q=x&in=4', '/[dance]/lessons', 'salsa')).toBe(
+			'/salsa/lessons?q=x&in=4'
+		);
+	});
+	it('beside an open item: the tab’s own list', () => {
+		expect(workInPath('/salsa/lessons/12', '', '/[dance]/lessons/[id]', 'salsa')).toBe(
+			'/salsa/lessons'
+		);
+		expect(workInPath('/salsa/figures/3', '?x=1', '/[dance]/(moves)/figures/[id]', 'salsa')).toBe(
+			'/salsa/figures'
+		);
 	});
 });

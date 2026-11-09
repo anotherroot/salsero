@@ -6,7 +6,7 @@ import { wallOf } from '$lib/server/scope';
 import { storedTwinSets } from '$lib/server/twins';
 import { copyCounts } from '$lib/server/clones/step';
 import { foldRows } from '$lib/clones/twins';
-import { groupModeOf } from '$lib/server/group-mode';
+import { viewOf } from '$lib/server/group-mode';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { myClassOf, teamsWithNew } from '$lib/server/my-class';
 import { levelShown } from '$lib/levels/levels';
@@ -15,10 +15,10 @@ import { serverNow } from '$lib/server/server-clock';
 
 /**
  * The Lessons list, once, for the list page and for a lesson open beside it
- * (desktop: the list column is the layout's). Reads `params`, `locals` and
- * `cookies` only, never `url`, so opening another lesson does not rerun it; a
- * form on the lesson page reruns it (`invalidateAll`), so Add, Remove and
- * archive refresh the column.
+ * (desktop: the list column is the layout's). Its view (`viewOf`): the open
+ * lesson's group, else the list's `in`; it reads `in` alone of the URL. A form
+ * on the lesson page reruns it (`invalidateAll`), so Add, Remove and archive
+ * refresh the column.
  */
 function zone(locals: App.Locals): string {
 	if (!locals.user) throw error(401);
@@ -53,10 +53,10 @@ function foldedLessons(db: ReturnType<typeof getDb>, wall: ReturnType<typeof wal
 		.sort((a, b) => b.lessonDay.localeCompare(a.lessonDay) || b.id - a.id);
 }
 
-export const load: LayoutServerLoad = ({ params, locals, cookies }) => {
+export const load: LayoutServerLoad = ({ params, locals, route, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
-	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	const mode = viewOf(db, wall, locals.user?.level, { route, params, url });
 	if (mode) {
 		// The group's lessons, drafts first; the person's own are in Mine.
 		return {

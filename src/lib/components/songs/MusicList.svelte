@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { afterNavigate, beforeNavigate, invalidate, replaceState } from '$app/navigation';
@@ -36,6 +37,8 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { Dance } from '$lib/dances/dances';
 	import type { GroupMode, SongImportRow, SongItem } from '$lib/types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The Music list: search, Count only, Being added, Recent, A–Z with samples,
@@ -82,7 +85,7 @@
 	const songsHref = (key: string, value: string) => {
 		const kept = [...page.url.searchParams].filter(([k]) => k !== key);
 		const qs = new URLSearchParams(value ? [...kept, [key, value]] : kept).toString();
-		return qs ? `${list}?${qs}` : list;
+		return withView(qs ? `${list}?${qs}` : list, viewTeam);
 	};
 
 	/*
@@ -226,7 +229,11 @@
 
 {#snippet retryStrip(s: SongItem)}
 	<li class="border-t border-hairline px-2 pt-1 pb-2">
-		<form method="POST" action="/{dance}/songs?/retry" use:enhance={retry(s.id)}>
+		<form
+			method="POST"
+			action={withView(`/${dance}/songs?/retry`, viewTeam)}
+			use:enhance={retry(s.id)}
+		>
 			<input type="hidden" name="id" value={s.id} />
 			<button
 				type="submit"
@@ -444,7 +451,7 @@
 {/each}
 
 <AddSongSheet
-	action="/{dance}/songs?/addUrl"
+	action={withView(`/${dance}/songs?/addUrl`, viewTeam)}
 	open={adding}
 	onclose={() => (adding = false)}
 	dance={data.dance}

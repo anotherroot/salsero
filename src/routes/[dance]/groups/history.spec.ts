@@ -186,6 +186,19 @@ describe('a class song’s History', () => {
 	});
 });
 
+// Group view spec, rule 5: Back from a group drill's History opens it in the group's view.
+describe('a group drill’s History', () => {
+	it('goes back to the drill in the group’s view', async () => {
+		const drill = createCustomExercise(db, T1_SALSA, {
+			name: 'Shines',
+			everyDays: 3,
+			notes: null
+		}).id;
+		const { value } = await run(() => load(ev('u2', 'drill', drill)));
+		expect((value as { root: { href: string } }).root.href).toBe(`/salsa/exercises/${drill}?in=1`);
+	});
+});
+
 describe('History of a position', () => {
 	const input = (name: string, notes: string | null = null): PositionInput => ({
 		name,

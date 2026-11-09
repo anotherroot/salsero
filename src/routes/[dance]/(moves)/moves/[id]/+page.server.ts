@@ -1,11 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { requireMoveAccess, wallOf } from '$lib/server/scope';
-import { groupModeOf } from '$lib/server/group-mode';
+import { groupModeFor } from '$lib/server/group-mode';
 import { mergedMoveRows } from '$lib/server/moves-lists';
 import { copyCounts } from '$lib/server/clones/step';
 import { teamRefs } from '$lib/server/usable';
-import type { Cookies } from '@sveltejs/kit';
 import {
 	createVariationIn,
 	figureNameTaken,
@@ -27,7 +26,7 @@ import { serverNow } from '$lib/server/server-clock';
 
 const moveTaken = (name: string) => t().moves.refused.moveTaken(name);
 
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const { move, space, access, reach } = requireMoveAccess(db, locals, params, params.id, 'read');
 	// A reader's lists hold only what the published lessons reach.
@@ -73,11 +72,7 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	// (read-only on the cookie: a load never sets or deletes it) the group's alone.
 	const wall = wallOf(params, locals);
 	const inGroupMode =
-		move.teamId !== null &&
-		groupModeOf(db, wall.userId, wall.dance, {
-			get: (name: string) => cookies?.get(name),
-			delete: () => {}
-		} as unknown as Cookies)?.teamId === move.teamId;
+		groupModeFor(db, wall.userId, wall.dance, move.teamId, locals.user?.level) !== null;
 	const team = move.teamId === null ? null : (teamRefs(db, [move.teamId]).get(move.teamId) ?? null);
 	const merged = mergedMoveRows(
 		db,

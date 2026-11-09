@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
+	import { page } from '$app/state';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -51,6 +53,8 @@
 	import { clock } from '$lib/format';
 	import { watchMedia } from '$lib/media';
 	import type { ActionData, PageData } from './$types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	/** The page's words, in the current language. */
@@ -331,7 +335,7 @@
 		{:else}
 			<BackButton
 				fallback={{
-					href: resolve('/[dance]/songs', { dance: data.dance.slug }),
+					href: withView(resolve('/[dance]/songs', { dance: data.dance.slug }), viewTeam),
 					label: t().player.backToMusic
 				}}
 			/>
@@ -541,7 +545,10 @@
 				</button>
 				{#if retryRefusal}<Banner kind="error" title={retryRefusal} />{/if}
 			</form>
-			<a href={resolve(`/${data.dance.slug}/songs?add=1`)} class={button('secondary', 'md', true)}>
+			<a
+				href={withView(resolve(`/${data.dance.slug}/songs?add=1`), viewTeam)}
+				class={button('secondary', 'md', true)}
+			>
 				<Icon name="upload" size={20} />{w.uploadInstead}
 			</a>
 			{#if canSwap}

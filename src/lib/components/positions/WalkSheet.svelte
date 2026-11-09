@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -24,6 +25,8 @@
 		type Walk
 	} from '$lib/positions/walk';
 	import { t } from '$lib/i18n/catalog';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The walk (spec 2026-11-08-map-walk, "Walking a routine"), in the map's panel:
@@ -63,7 +66,7 @@
 	} = $props();
 
 	const dance = $derived(page.params.dance ?? '');
-	const action = $derived(`/${dance}/positions/map`);
+	const action = $derived(withView(`/${dance}/positions/map`, viewTeam));
 	const routineAction = $derived(`${action}?/routine`);
 	const nameOf = (id: number) => map.positions.find((p) => p.id === id)?.name ?? '';
 	const toneOf = (id: number) => TONE_VAR[map.positions.find((p) => p.id === id)?.tone ?? 'muted'];

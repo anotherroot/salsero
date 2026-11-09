@@ -31,9 +31,11 @@ import { createRoutine } from '$lib/server/routines';
 import { createFigure, createVariationIn } from '$lib/server/figures';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
-import { groupCookie } from '$lib/teams/mode';
 import { actions as figureActions } from './(moves)/figures/+page.server';
 import { actions as routineActions } from './(moves)/routines/+page.server';
+import { actions as routinePageActions } from './(moves)/routines/[id]/+page.server';
+import { actions as lessonPageActions } from './lessons/[id]/+page.server';
+import { actions as figurePageActions } from './(moves)/figures/[id]/+page.server';
 import { actions as lessonActions } from './lessons/+page.server';
 import { load as lessonsLoad } from './lessons/+layout.server';
 import { load as coverageLoad } from './(moves)/coverage/+page.server';
@@ -44,10 +46,12 @@ import { addPosition } from '$lib/server/test-positions';
 
 let db: Db;
 
+// The group view is in the address (`?in=`): a jar carries the group the URL names.
 function jar(value?: string) {
 	const calls = { deleted: 0 };
 	const cookies = {
-		get: (n: string) => (n === groupCookie('salsa') ? value : undefined),
+		view: value,
+		get: () => undefined,
 		set: () => {},
 		delete: () => {
 			calls.deleted++;
@@ -55,6 +59,12 @@ function jar(value?: string) {
 	} as unknown as Cookies;
 	return { cookies, calls };
 }
+// The view is in the address now (`?in=`): the jar's group goes there.
+const viewOfJar = (cookies: Cookies) => (cookies as unknown as { view?: string }).view;
+const viewUrl = (cookies: Cookies) => {
+	const v = viewOfJar(cookies);
+	return new URL(`http://x/salsa${v === undefined ? '' : `?/create&in=${v}`}`);
+};
 const locals = (id: string) =>
 	({
 		user: { id, timezone: 'Europe/Ljubljana', dance: 'salsa', role: 'user' }
@@ -79,7 +89,7 @@ const call = async (
 			locals: locals(user),
 			cookies,
 			request: post(fields),
-			url: new URL('http://x/salsa')
+			url: viewUrl(cookies)
 		});
 	} catch (e) {
 		return e; // a redirect
@@ -90,7 +100,9 @@ const loadOf = (fn: unknown, user: string, cookies: Cookies) =>
 		params: { dance: 'salsa' },
 		locals: locals(user),
 		cookies,
-		url: new URL('http://x/salsa'),
+		url: new URL(
+			`http://x/salsa${viewOfJar(cookies) === undefined ? '' : `?in=${viewOfJar(cookies)}`}`
+		),
 		depends: () => {}
 	}) as never as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -141,7 +153,6 @@ describe('creating in group mode', () => {
 		await call(figureActions.create, 'u3', j.cookies, FIGURE);
 		const g = db.select().from(figureGroups).get()!;
 		expect([g.userId, g.teamId]).toEqual(['u3', null]);
-		expect(j.calls.deleted).toBe(1);
 	});
 	it('creates a routine in the group in group mode, and in Mine for a member', async () => {
 		await call(routineActions.create, 'u2', jar('1').cookies, { name: 'R', notes: '' });
@@ -151,7 +162,6 @@ describe('creating in group mode', () => {
 		await call(routineActions.create, 'u3', j.cookies, { name: 'M', notes: '' });
 		const m = db.select().from(routines).where(eq(routines.name, 'M')).get()!;
 		expect([m.userId, m.teamId]).toEqual(['u3', null]);
-		expect(j.calls.deleted).toBe(1);
 	});
 	it('creates a lesson draft in the group in group mode, and in Mine for a member', async () => {
 		await call(lessonActions.create, 'u2', jar('1').cookies, LESSON);
@@ -161,7 +171,58 @@ describe('creating in group mode', () => {
 		await call(lessonActions.create, 'u3', j.cookies, { ...LESSON, title: 'Mine', everyDays: '3' });
 		const m = db.select().from(lessons).where(eq(lessons.title, 'Mine')).get()!;
 		expect([m.userId, m.teamId]).toEqual(['u3', null]);
-		expect(j.calls.deleted).toBe(1);
+	});
+});
+
+// Group view spec: a step back to a list from a group's row keeps the group's view.
+describe('back to the list from a group’s row', () => {
+	it('archiving a group’s routine lands on the group’s Routines', async () => {
+		const R = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		const thrown = (await call(
+			(e: unknown) =>
+				(routinePageActions.archive as (e: unknown) => unknown)({
+					...(e as object),
+					params: { dance: 'salsa', id: String(R) }
+				}),
+			'u2',
+			jar().cookies,
+			{}
+		)) as { status?: number; location?: string };
+		expect([thrown.status, thrown.location]).toEqual([303, '/salsa/routines?in=1']);
+	});
+	const archive = async (action: unknown, id: number) =>
+		(await call(
+			(e: unknown) =>
+				(action as (e: unknown) => unknown)({
+					...(e as object),
+					params: { dance: 'salsa', id: String(id) }
+				}),
+			'u2',
+			jar().cookies,
+			{}
+		)) as { status?: number; location?: string };
+	it('archiving a group’s lesson lands on the group’s Lessons', async () => {
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title: 'D', notes: null })
+			.lesson.id;
+		expect((await archive(lessonPageActions.archive, L)).location).toBe('/salsa/lessons?in=1');
+	});
+	it('archiving a group’s last figure lands on the group’s Figures', async () => {
+		const F = createFigure(db, T1_SALSA, { ...FIGURE, notes: null } as never)!.figure.id;
+		expect((await archive(figurePageActions.archive, F)).location).toBe('/salsa/figures?in=1');
+	});
+	it('archiving your own routine lands on your Routines', async () => {
+		const R = createRoutine(db, U2_SALSA, { name: 'Own', notes: null }).routine.id;
+		const thrown = (await call(
+			(e: unknown) =>
+				(routinePageActions.archive as (e: unknown) => unknown)({
+					...(e as object),
+					params: { dance: 'salsa', id: String(R) }
+				}),
+			'u2',
+			jar().cookies,
+			{}
+		)) as { status?: number; location?: string };
+		expect(thrown.location).toBe('/salsa/routines');
 	});
 });
 
@@ -211,6 +272,24 @@ describe('listing in group mode', () => {
 		const data = loadOf(lessonsLoad, 'u2', jar('1').cookies);
 		expect(data.lessons.map((l: any) => l.title)).toEqual(['Draft']); // eslint-disable-line @typescript-eslint/no-explicit-any
 	});
+	// Group view spec: a group's lesson opens beside the group's lessons, however it
+	// was reached (no `in`), never beside the person's own Lessons.
+	it("puts the group's lessons beside a group's lesson, with no in", async () => {
+		const draft = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'Draft',
+			notes: null
+		}).lesson.id;
+		createLesson(db, U2_SALSA, { lessonDay: '2026-11-02', title: 'Own', notes: null });
+		const data = (lessonsLoad as unknown as (e: unknown) => { lessons: { title: string }[] })({
+			params: { dance: 'salsa', id: String(draft) },
+			route: { id: '/[dance]/lessons/[id]' },
+			locals: locals('u2'),
+			url: new URL(`http://x/salsa/lessons/${draft}`),
+			depends: () => {}
+		});
+		expect(data.lessons.map((l: { title: string }) => l.title)).toEqual(['Draft']);
+	});
 	it("carries the group's storage in group mode, and none outside it", async () => {
 		const inGroup = loadOf(lessonsLoad, 'u2', jar('1').cookies);
 		expect(inGroup.groupStorage).toEqual({
@@ -227,7 +306,8 @@ describe('listing in group mode', () => {
 		} catch (e) {
 			thrown = e;
 		}
-		expect([thrown?.status, thrown?.location]).toEqual([303, '/salsa/figures']);
+		// It keeps the view: back to the group's Figures.
+		expect([thrown?.status, thrown?.location]).toEqual([303, '/salsa/figures?in=1']);
 	});
 
 	it('positions: counts the group figures and hides the gap report in group mode', () => {

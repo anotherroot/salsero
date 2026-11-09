@@ -36,9 +36,10 @@ import { createLesson } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
 import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import type { Space } from '$lib/server/scope';
-import { groupModeOf } from '$lib/server/group-mode';
+import { groupModeFor } from '$lib/server/group-mode';
 import { mapData } from '$lib/server/positions-map';
 import { load } from './(moves)/positions/map/+page.server';
 import { load as listLoad } from './(moves)/positions/+page.server';
@@ -47,7 +48,7 @@ let db: Db;
 
 const jar = (value?: string) =>
 	({
-		get: (n: string) => (n === groupCookie('salsa') ? value : undefined),
+		get: (n: string) => (n === VIEW ? value : undefined),
 		set: () => {},
 		delete: () => {}
 	}) as unknown as Cookies;
@@ -58,7 +59,11 @@ const locals = (id: string) =>
 	}) as unknown as App.Locals;
 
 const loadOf = (user: string, cookies: Cookies = jar()) =>
-	mapData(db, { userId: user, dance: 'salsa' }, groupModeOf(db, user, 'salsa', cookies)) as any;
+	mapData(
+		db,
+		{ userId: user, dance: 'salsa' },
+		groupModeFor(db, user, 'salsa', cookies.get(VIEW) ? Number(cookies.get(VIEW)) : null)
+	) as any;
 
 /** A route's load, as SvelteKit calls it. */
 const routeLoad = (fn: unknown, user: string | null, cookies: Cookies = jar()) =>
@@ -66,7 +71,7 @@ const routeLoad = (fn: unknown, user: string | null, cookies: Cookies = jar()) =
 		params: { dance: 'salsa' },
 		locals: user === null ? {} : locals(user),
 		cookies,
-		url: new URL('http://x/salsa/positions')
+		url: new URL(`http://x/salsa/positions${cookies.get(VIEW) ? `?in=${cookies.get(VIEW)}` : ''}`)
 	}) as any;
 
 const FIGURE = { name: 'Basic', partner: 'partner', style: 'salsa' };

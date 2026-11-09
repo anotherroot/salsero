@@ -112,24 +112,6 @@
 	}
 
 	/*
-	 * Group mode: navy in place of the dance's colour (`GROUP` in tokens.ts).
-	 * `[data-dance][data-group]` outranks `[data-dance='bachata']`, so it wins in
-	 * both dances; the dark block outranks the dark bachata one the same way.
-	 */
-	[data-dance][data-group] {
-		--color-band: #26345e;
-		--color-band-ink: #eaf0ff;
-		--color-on-cream: #26345e;
-		--color-band-small: #eaf0ff;
-		--color-accent: #3a55a8;
-		--color-accent-text: #3a55a8;
-		--color-accent-soft: #e5e7ef;
-		--color-on-accent: #ffffff;
-		--color-status: #3a55a8;
-		--color-inverse-accent: #9db4ff;
-	}
-
-	/*
 	 * Dark mode. `data-theme` on <html> is set before the first paint by the
 	 * script in `src/app.html`: from the Settings choice (`$lib/theme/scheme.ts`),
 	 * or from `prefers-color-scheme` when the choice is System. An attribute
@@ -211,19 +193,6 @@
 		--color-on-accent: #2a0f1d;
 		--color-status: #e29abc;
 		--color-inverse-accent: #7c3b61;
-	}
-
-	:root[data-theme='dark'] [data-dance][data-group] {
-		--color-band: #26345e;
-		--color-band-ink: #eaf0ff;
-		--color-on-cream: #26345e;
-		--color-band-small: #eaf0ff;
-		--color-accent: #8fa8ff;
-		--color-accent-text: #8fa8ff;
-		--color-accent-soft: #353746;
-		--color-on-accent: #0b0b0d;
-		--color-status: #8fa8ff;
-		--color-inverse-accent: #3a55a8;
 	}
 
 	/*
@@ -406,9 +375,9 @@ body {
 	}
 
 	/*
-	 * Around the sheet the window is band. Body cannot paint it: the dance and
-	 * group colours are set on the root layout's wrapper, below body, so body
-	 * would be salsa's band on a bachata page or in group mode. The wrapper
+	 * Around the sheet the window is band. Body cannot paint it: the dance's
+	 * colours are set on the root layout's wrapper, below body, so body
+	 * would be salsa's band on a bachata page. The wrapper
 	 * draws a fixed band backdrop instead (`data-frame-band`, under everything),
 	 * and body lets it through where a frame shows.
 	 */
@@ -421,11 +390,11 @@ body {
  * The window's scrollbar on the desktop runs from the band row's foot to the
  * bottom, not beside the band row: the track starts --band-row-h down, and the
  * strip beside the band row is band. Chromium styles the window's scrollbar from
- * <body> (before <html>), so the rules sit on body. The dance and group colours
+ * <body> (before <html>), so the rules sit on body. The dance's colours
  * live on the root layout's wrapper, below body, so `--gutter-band` is set here
  * from what the wrapper holds. Keep the hexes IN SYNC with each theme's
- * `--color-band` above (`stylesheet.spec.ts` checks). Group ties bachata dark
- * on specificity and wins by coming last.
+ * `--color-band` above (`stylesheet.spec.ts` checks). A group's view keeps the
+ * dance's colours (group view spec).
  */
 @media (hover: hover) and (pointer: fine) and (width >= 1024px) {
 	body:has([data-frame-band]) {
@@ -439,9 +408,6 @@ body {
 	}
 	:root[data-theme='dark'] body:has([data-dance='bachata'] [data-frame-band]) {
 		--gutter-band: #4d2640;
-	}
-	:root body:has([data-dance][data-group] [data-frame-band]) {
-		--gutter-band: #26345e;
 	}
 	body:has([data-frame-band])::-webkit-scrollbar {
 		background: linear-gradient(var(--gutter-band) var(--band-row-h), transparent 0);
@@ -474,8 +440,8 @@ body {
 	@media (hover: hover) and (width >= 1024px) {
 		/*
 		 * The mix is written in each rule, not on :root: a variable holding it would
-		 * resolve once, at :root, with the light dance's ink and band ink, so group
-		 * mode's navy band and the media palette would get the wrong overlay.
+		 * resolve once, at :root, with the light dance's ink and band ink, so the
+		 * bachata band and the media palette would get the wrong overlay.
 		 * Dark sets only what to mix.
 		 */
 		:root[data-theme='dark'] {

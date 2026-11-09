@@ -104,7 +104,9 @@ describe('a group’s figure page', () => {
 		expect(data.variation.sections.map((s) => s.spot.id)).not.toContain(section);
 	});
 
-	it('shows an editor their own section and routine outside group mode, not in the group’s mode', () => {
+	// Group view spec: an editor on the group's figure is in the group's view however
+	// they came, so the page is the group's alone; Mine reaches their own.
+	it('shows an editor on the group’s figure none of their own sections and routines', () => {
 		const E = { id: 'u5', dance: 'salsa' as const };
 		const wall = { userId: E.id, dance: E.dance };
 		const routine = createRoutine(db, wall, { name: 'Eva’s own', notes: null }).routine.id;
@@ -121,9 +123,10 @@ describe('a group’s figure page', () => {
 		const spot = addSpot(db, { lessonVideoId: video }, { startMs: 0, endMs: 1000, label: 'E' })!.id;
 		linkSpot(db, 'u5', spot, { figureId: F });
 		const ids = (d: Data) => d.variation.sections.map((x) => x.spot.id);
+		expect(routine).toBeGreaterThan(0);
 		const outside = loadAs('u5', F);
-		expect(ids(outside)).toContain(spot);
-		expect(outside.myRoutines.map((r) => r.id)).toEqual([routine]);
+		expect(ids(outside)).not.toContain(spot);
+		expect(outside.myRoutines).toEqual([]);
 		const inMode = loadAs('u5', F, '1');
 		expect(ids(inMode)).not.toContain(spot);
 		expect(inMode.myRoutines).toEqual([]);

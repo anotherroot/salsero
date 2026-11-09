@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { fromTags } from '$lib/clones/from-tag';
 	import { onMount, tick } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
@@ -50,6 +51,8 @@
 	import { presetLine, withoutPreset } from '$lib/positions/view';
 	import type { Dance } from '$lib/dances/dances';
 	import type { OpenRow } from '$lib/nav/moves-pane';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The Figures list: Coverage, the search and chips, then each move's figures,
@@ -183,7 +186,7 @@
 	);
 	const syncHref = $derived.by(() => {
 		const qs = filterQuery(filter, { sync: filter.sync ? undefined : '1' });
-		return qs ? `${listPath}?${qs}` : listPath;
+		return withView(qs ? `${listPath}?${qs}` : listPath, viewTeam);
 	});
 	// What is typed; follows the filter when it changes under it.
 	let q = $derived(filter.q);
@@ -215,7 +218,11 @@
 			keepFilter(listPath, qs, qs);
 			return;
 		}
-		goto(qs ? `${listPath}?${qs}` : listPath, { keepFocus: true, replaceState: true, noScroll });
+		goto(withView(qs ? `${listPath}?${qs}` : listPath, viewTeam), {
+			keepFocus: true,
+			replaceState: true,
+			noScroll
+		});
 	}
 
 	function toggle(e: Event & { currentTarget: HTMLInputElement }, chip: FigureChip) {
@@ -322,7 +329,7 @@
 	{#if tiles && showTiles(count, filter)}
 		<div class="flex flex-none gap-2">
 			<NavTile
-				href={resolve('/[dance]/(moves)/coverage', { dance: dance.slug })}
+				href={withView(resolve('/[dance]/(moves)/coverage', { dance: dance.slug }), viewTeam)}
 				icon="routine"
 				title={t().moves.figures.coverage}
 				meta={tiles.coverage.text}
@@ -412,7 +419,7 @@
 		<form
 			id="new-figure"
 			method="POST"
-			action={`/${dance.slug}/figures?/create`}
+			action={withView(`/${dance.slug}/figures?/create`, viewTeam)}
 			class="flex flex-col gap-3.5"
 			use:guarded={{
 				label: t().moves.newFigure,

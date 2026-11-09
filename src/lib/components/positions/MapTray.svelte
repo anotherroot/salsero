@@ -1,9 +1,12 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { trayChips } from '$lib/positions/map-tray';
 	import { TONE_VAR, type MapData } from '$lib/positions/map-view';
 	import { t } from '$lib/i18n/catalog';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	/**
 	 * The map at rest, under it (spec 2026-11-08-map-walk, "At rest"): the hint and
@@ -50,7 +53,7 @@
 				{:else if c.kind === 'noPosition'}
 					<a
 						class="{CHIP} border-[1.5px] border-dashed border-field-line text-ink-2 active:bg-step"
-						href={resolve('/[dance]/(moves)/positions/none', { dance })}
+						href={withView(resolve('/[dance]/(moves)/positions/none', { dance }), viewTeam)}
 						>{t().map.chip.noPosition(c.count)}</a
 					>
 				{:else}

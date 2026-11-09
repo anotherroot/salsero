@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withView } from '$lib/teams/group-view';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
@@ -96,6 +97,8 @@
 	import type { AddOffer, ViaSection } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
+	// The page's group view (`?in=`, or its row's): links to the lists keep it.
+	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -709,7 +712,7 @@
 			{:else}
 				<BackButton
 					fallback={{
-						href: resolve('/[dance]/lessons', { dance: data.dance.slug }),
+						href: withView(resolve('/[dance]/lessons', { dance: data.dance.slug }), viewTeam),
 						label: t().shell.backTo(t().shell.tabs.lessons)
 					}}
 				/>
@@ -1101,10 +1104,13 @@
 									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 										<a
 											data-focus="exercise-{exercise.id}"
-											href={resolve('/[dance]/(today)/exercises/[id]', {
-												dance: data.dance.slug,
-												id: String(exercise.mineId ?? exercise.id)
-											})}
+											href={withView(
+												resolve('/[dance]/(today)/exercises/[id]', {
+													dance: data.dance.slug,
+													id: String(exercise.mineId ?? exercise.id)
+												}),
+												viewTeam
+											)}
 											class="flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-1"
 										>
 											<span class="flex min-w-0 flex-1 flex-col gap-0.5">

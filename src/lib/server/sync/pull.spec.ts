@@ -228,6 +228,7 @@ describe('POST /api/sync/pull', () => {
 		expect((await call({ body, user: true })).status).toBe(401);
 	});
 
+	// The group cookies are gone (the group view is in the address): an old one is not echoed.
 	it('echoes the page cookies and never the session', async () => {
 		db.run(sql`UPDATE users SET dance = 'salsa' WHERE id = 'u1'`);
 		const session = createSession('u1', db).id;
@@ -248,9 +249,7 @@ describe('POST /api/sync/pull', () => {
 		expect(out.cookies).toEqual({
 			theme: 'dark',
 			salsa_app: 'android',
-			lang: 'sl',
-			group_salsa: '1',
-			group_bachata: '2'
+			lang: 'sl'
 		});
 		expect(out.userId).toBe('u1');
 	});

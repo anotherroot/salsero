@@ -5,7 +5,8 @@ import { figureLabels, listVersions, withFigureOrigins } from '$lib/server/figur
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
-import { inGroupModeOn } from '$lib/server/group-mode';
+import { mineTarget } from '$lib/server/mine-target';
+import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
 	addOption,
@@ -153,13 +154,14 @@ function unionOfEnds(g: Graph, slots: OptionsSlot[]): number[] {
 	return [...new Set(ends)].sort((a, b) => a - b);
 }
 
-export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
 	const { routine, space, access, reach: visible } = routineIn(params, locals, 'read');
 	const canEdit = access === 'edit';
 	// Group mode has no twins: no twin tab, no Same as….
-	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, routine.teamId, cookies);
+	const inGroupMode =
+		groupModeFor(db, wall.userId, wall.dance, routine.teamId, locals.user?.level) !== null;
 	// A reader's lists hold only what the published lessons reach (risk 20).
 	// A person's routine may hold the group figures and routines they may use
 	// (`usableOf`): those are on the graph, named, and offered to embed.
@@ -268,6 +270,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),
 		/** Same as… (board C7): the other routines in your app; none in a group's workspace. */
+		/** Where Mine lands in the group's view (group view spec, rule 6); null: the tab's list. */
+		mineHref: inGroupMode ? mineTarget(db, wall, 'routine', routine.id) : null,
 		sameAs: sameAsOffer(db, wall, 'routine', routine.id, routine.name, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'routine', routine.id),
@@ -474,7 +478,11 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		// row is archived either way and the list omits it — so a second attempt is
 		// a no-op worth redirecting, not an error worth reporting.
 		archiveRoutine(getDb(), routine.id, serverNow(), by(params, locals));
-		throw redirect(303, `/${params.dance}/routines`);
+		const wall = wallOf(params, locals);
+		throw redirect(
+			303,
+			listInViewOf(getDb(), wall, locals.user?.level, routine.teamId, `/${params.dance}/routines`)
+		);
 	},
 
 	addOption: async ({ params, request, locals }) => {

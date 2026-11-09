@@ -43,7 +43,8 @@ import { createLesson } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
 import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import { crossRefs } from '$lib/server/integrity';
 import { runInLocale } from '$lib/server/i18n-request';
 import { actions } from './(moves)/positions/+page.server';
@@ -70,7 +71,7 @@ let db: Db;
 function jar(value?: string) {
 	const calls = { deleted: 0 };
 	const cookies = {
-		get: (n: string) => (n === groupCookie('salsa') ? value : undefined),
+		get: (n: string) => (n === VIEW ? value : undefined),
 		set: () => {},
 		delete: () => {
 			calls.deleted++;
@@ -109,7 +110,9 @@ async function act(
 			locals: locals(user),
 			cookies,
 			request: body(fields),
-			url: new URL('http://x/salsa/positions')
+			url: new URL(
+				`http://x/salsa/positions?/${name}${cookies.get(VIEW) ? `&in=${cookies.get(VIEW)}` : ''}`
+			)
 		});
 	} catch (e) {
 		return e; // a redirect or an error
@@ -121,7 +124,9 @@ const loadOf = (user: string, cookies: Cookies = jar().cookies, search = '') =>
 		params: { dance: 'salsa' },
 		locals: locals(user),
 		cookies,
-		url: new URL(`http://x/salsa/positions${search}`)
+		url: new URL(
+			`http://x/salsa/positions${search}${cookies.get(VIEW) ? `${search ? '&' : '?'}in=${cookies.get(VIEW)}` : ''}`
+		)
 	}) as any;
 
 const FIGURE = { figureName: 'Enchufla', name: 'Basic', partner: 'partner', style: 'salsa' };
@@ -226,12 +231,11 @@ describe('New position', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('never creates in a group for a member who is not an editor: their cookie falls back to Mine', async () => {
+	it('never creates in a group for a member who is not an editor: their in falls back to Mine', async () => {
 		const j = jar('1');
 		await act('create', 'u3', { name: 'Cerrada' }, j.cookies);
 		expect(owned({ teamId: 1 })).toEqual([]);
 		expect(owned({ userId: 'u3' }).map((p) => p.name)).toEqual(['Cerrada']);
-		expect(j.calls.deleted).toBe(1);
 		expect(db.select().from(teamChanges).where(eq(teamChanges.rootKind, 'position')).all()).toEqual(
 			[]
 		);
@@ -407,7 +411,9 @@ describe('No position', () => {
 			params: { dance: 'salsa' },
 			locals: locals(user),
 			cookies,
-			url: new URL('http://x/salsa/positions/none')
+			url: new URL(
+				`http://x/salsa/positions/none${cookies.get(VIEW) ? `?in=${cookies.get(VIEW)}` : ''}`
+			)
 		}) as any;
 
 	it('groups the figures missing a side, with the tag on the side they have', () => {

@@ -22,7 +22,8 @@ import { addLesson } from '$lib/server/entries';
 import { markTwins } from '$lib/server/twins';
 import { U2_SALSA } from '$lib/server/test-walls';
 import { cloneSubtitle } from '$lib/clones/view';
-import { groupCookie } from '$lib/teams/mode';
+// The group view is in the address now (`?in=`); a jar only carries the group a test's URL names.
+const VIEW = 'view';
 import { load as layoutLoad } from '../+layout.server';
 import { figuresView, type FiguresLists } from '$lib/moves/filter';
 import { load as figureLoad } from './[id]/+page.server';
@@ -37,7 +38,7 @@ const user = (id: string) => ({
 	dance: 'salsa'
 });
 const cookies = (mode?: string) => ({
-	get: (n: string) => (n === groupCookie('salsa') ? mode : undefined),
+	get: (n: string) => (n === VIEW ? mode : undefined),
 	set: () => {},
 	delete: () => {}
 });
@@ -47,7 +48,7 @@ type Loose = Record<string, any>;
 const listAs = (id: string, mode?: string): Loose => {
 	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
 		params: { dance: 'salsa' },
-		url: new URL('http://localhost/salsa/figures'),
+		url: new URL(`http://localhost/salsa/figures${mode ? `?in=${mode}` : ''}`),
 		locals: { user: user(id) },
 		cookies: cookies(mode),
 		depends: () => {}
@@ -147,8 +148,9 @@ describe('the figure page of a twin', () => {
 		expect(cloneSubtitle(data.cloneLine)).toBe('Twins · 3 versions');
 	});
 
-	it('in group mode the group’s figure has no twin tab and no Same as…', () => {
-		expect(pageAs('u2', f.tueBasica).sources).toHaveLength(2);
+	// Group view spec: an editor on the group's figure is in its view however they came.
+	it('the group’s figure, for its editor, has no twin tab and no Same as…', () => {
+		expect(pageAs('u2', f.tueBasica).sources).toEqual([]);
 		const data = pageAs('u2', f.tueBasica, '1');
 		expect(data.sources).toEqual([]);
 		expect(data.sameAs).toBeNull();
