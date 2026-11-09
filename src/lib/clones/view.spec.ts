@@ -798,13 +798,13 @@ describe('in Slovenian', () => {
 			)
 		).toEqual(['Vaše · v 1 skupini', 'Vaše · v 2 skupinah', 'Vaše · v 5 skupinah']);
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 1, kind: 'figure' }))).toBe(
-			'Dvojčka · 2 figuri'
+			'Dvojček · 2 figuri'
 		);
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 2, kind: 'figure' }))).toBe(
-			'Dvojčki · 3 figure'
+			'Dvojček · 3 figure'
 		);
 		expect(sl(() => cloneSubtitle({ ...none, self: mine, twins: 4, kind: 'routine' }))).toBe(
-			'Dvojčki · 5 kombinacij'
+			'Dvojček · 5 kombinacij'
 		);
 		expect(cloneSubtitle({ ...none, self: mine, twins: 4, kind: 'routine' })).toBe(
 			'Twins · 5 versions'

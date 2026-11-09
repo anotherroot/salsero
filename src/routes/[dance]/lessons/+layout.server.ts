@@ -4,6 +4,7 @@ import { lessonVideoBytes, listMyLessons, listTeamLessons } from '$lib/server/le
 import { localDay } from '$lib/day/day';
 import { wallOf } from '$lib/server/scope';
 import { storedTwinSets } from '$lib/server/twins';
+import { copyCounts } from '$lib/server/clones/step';
 import { foldRows } from '$lib/clones/twins';
 import { groupModeOf } from '$lib/server/group-mode';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
@@ -27,10 +28,18 @@ function zone(locals: App.Locals): string {
 /**
  * Twins show as one (board C7): each set is one row, yours if you have one,
  * else the first group by name, dated by the newest member's day, with the
- * "Twins" chip. Newest class first.
+ * "Twins" chip. Newest class first. Each row says how many other copies the
+ * person reads (`copies`: the Clone chip).
  */
 function foldedLessons(db: ReturnType<typeof getDb>, wall: ReturnType<typeof wallOf>) {
-	const all = listMyLessons(db, wall);
+	const listed = listMyLessons(db, wall);
+	const copies = copyCounts(
+		db,
+		wall.userId,
+		'lesson',
+		listed.map((l) => l.id)
+	);
+	const all = listed.map((l) => ({ ...l, copies: copies.get(l.id) ?? 0 }));
 	const sets = storedTwinSets(db, wall.userId, 'lesson');
 	if (sets.length === 0) return all;
 	const byId = new Map(all.map((l) => [l.id, l]));
