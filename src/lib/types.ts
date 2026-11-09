@@ -1317,9 +1317,13 @@ export type KeepView = {
 	mode: 'sync' | 'update' | null;
 };
 
-/** A video in the player's details: a linked section (its range loops) or a figure's own recording. */
+/**
+ * A video in the player's details: a linked section (its range loops), a
+ * figure's own recording (loops), or a lesson's video (long, with its own
+ * sound: it waits for ▶).
+ */
 export interface RunClip {
-	kind: 'section' | 'recording';
+	kind: 'section' | 'recording' | 'lesson';
 	src: string;
 	startMs: number;
 	endMs: number | null;
@@ -1339,7 +1343,12 @@ export interface RunDetails {
 	hasPositions: boolean;
 	/** Trimmed; empty is null. */
 	notes: string | null;
-	/** Linked sections, then a figure's own video recordings. */
+	/** Linked sections, then a figure's own video recordings; a lesson's videos. */
 	clips: RunClip[];
 	links: { url: string; title: string | null }[];
+	/**
+	 * A lesson's figures, each with its own details to open in place (null when
+	 * it has nothing worth showing); [] for everything else.
+	 */
+	figures: { name: string; details: RunDetails | null }[];
 }

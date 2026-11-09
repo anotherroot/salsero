@@ -45,6 +45,8 @@ export const player: Catalog['player'] = {
 		n === 1 ? 'posnetek' : slCount(n, ['posnetek', 'posnetka', 'posnetki', 'posnetkov']),
 	aboutLinks: (n) =>
 		n === 1 ? 'povezava' : slCount(n, ['povezava', 'povezavi', 'povezave', 'povezav']),
+	aboutFigures: (n) => (n === 1 ? 'figura' : slCount(n, ['figura', 'figuri', 'figure', 'figur'])),
+	aboutVideos: (n) => (n === 1 ? 'video' : slCount(n, ['video', 'videa', 'videi', 'videov'])),
 	starting: 'Zaganjanje\u00a0…',
 	pickSongFirst: 'Najprej izberite skladbo.',
 	songFailed: 'Te skladbe ni bilo mogoče naložiti. Izberite drugo ali uporabite štetje.',

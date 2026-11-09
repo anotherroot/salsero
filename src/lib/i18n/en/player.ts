@@ -48,6 +48,9 @@ export const player = {
 	aboutSections: (n: number): string => (n === 1 ? 'a lesson section' : `${n} lesson sections`),
 	aboutRecordings: (n: number): string => (n === 1 ? 'a recording' : `${n} recordings`),
 	aboutLinks: (n: number): string => (n === 1 ? 'a link' : `${n} links`),
+	/** A lesson's About. */
+	aboutFigures: (n: number): string => (n === 1 ? 'a figure' : `${n} figures`),
+	aboutVideos: (n: number): string => (n === 1 ? 'a video' : `${n} videos`),
 	starting: 'Starting…',
 	pickSongFirst: 'Pick a song first.',
 	/** The picked song's grid did not load. */

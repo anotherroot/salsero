@@ -286,7 +286,8 @@ describe('the run in one player (B2)', () => {
 		hasPositions: false,
 		notes: null,
 		clips: [],
-		links: []
+		links: [],
+		figures: []
 	};
 	const section = (n: number): RunClip => ({
 		kind: 'section',
@@ -312,6 +313,15 @@ describe('the run in one player (B2)', () => {
 		expect(hasDetails({ ...none, hasPositions: true, facts: ['1 → 1', 'A → B'] })).toBe(true);
 		expect(hasDetails({ ...none, links: [link] })).toBe(true);
 		expect(hasDetails({ ...none, clips: [recording] })).toBe(true);
+		expect(hasDetails({ ...none, figures: [{ name: 'Adios · Basic', details: null }] })).toBe(true);
+	});
+
+	it("previews a lesson's About: notes, its figures, its videos", () => {
+		const video: RunClip = { ...recording, kind: 'lesson', caption: 'Video 1' };
+		const fig = { name: 'Adios · Basic', details: null };
+		expect(
+			aboutPreview({ ...none, notes: 'x', figures: [fig, fig, fig], clips: [video, video] })
+		).toBe('Notes · 3 figures · 2 videos');
 	});
 
 	it('previews About: a description’s first line, else what is inside', () => {
@@ -407,7 +417,8 @@ describe('a slot’s details, from the routine list', () => {
 		hasPositions: false,
 		notes: 'Two turns',
 		clips: [],
-		links: []
+		links: [],
+		figures: []
 	};
 	const labelOf = (id: number) => (id === 3 ? 'Enchufla · Basic' : `#${id}`);
 
@@ -419,7 +430,8 @@ describe('a slot’s details, from the routine list', () => {
 				hasPositions: false,
 				notes: null,
 				clips: [],
-				links: []
+				links: [],
+				figures: []
 			},
 			nine
 		]);
@@ -433,7 +445,8 @@ describe('About in the run', () => {
 		hasPositions: false,
 		notes: 'x',
 		clips: [],
-		links: []
+		links: [],
+		figures: []
 	});
 	const figureDetails = { 3: d('Guapea'), 9: d('Enchufla') };
 

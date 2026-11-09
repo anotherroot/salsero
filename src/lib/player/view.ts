@@ -145,20 +145,34 @@ export function runTitle(p: {
 
 /** Whether there is an About: notes, a clip, a link or positions. Timing alone is not (every figure has it). */
 export function hasDetails(d: RunDetails | null): d is RunDetails {
-	return !!d && (!!d.notes || d.clips.length > 0 || d.links.length > 0 || d.hasPositions);
+	return (
+		!!d &&
+		(!!d.notes ||
+			d.clips.length > 0 ||
+			d.links.length > 0 ||
+			d.hasPositions ||
+			d.figures.length > 0)
+	);
 }
 
 /** About's line: a description alone shows its first line; else what is inside. */
 export function aboutPreview(d: RunDetails): string {
 	const w = t().player;
 	const sections = d.clips.filter((c) => c.kind === 'section').length;
-	const recordings = d.clips.length - sections;
-	if (d.notes && sections + recordings + d.links.length === 0 && !d.hasPositions) {
+	const videos = d.clips.filter((c) => c.kind === 'lesson').length;
+	const recordings = d.clips.length - sections - videos;
+	if (
+		d.notes &&
+		sections + recordings + videos + d.links.length + d.figures.length === 0 &&
+		!d.hasPositions
+	) {
 		return d.notes.split('\n')[0].trim();
 	}
 	return [
 		d.notes ? w.aboutNotes : null,
 		d.hasPositions ? w.aboutPositions : null,
+		d.figures.length ? w.aboutFigures(d.figures.length) : null,
+		videos ? w.aboutVideos(videos) : null,
 		sections ? w.aboutSections(sections) : null,
 		recordings ? w.aboutRecordings(recordings) : null,
 		d.links.length ? w.aboutLinks(d.links.length) : null
@@ -306,7 +320,8 @@ export function slotDetails(
 				hasPositions: false,
 				notes: null,
 				clips: [],
-				links: []
+				links: [],
+				figures: []
 			}
 	);
 }
