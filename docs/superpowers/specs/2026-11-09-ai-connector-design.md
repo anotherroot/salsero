@@ -27,7 +27,8 @@ their AI writes at once. The queue is new here.
   `bachata.anotherroot.eu/mcp`), OAuth 2.1, added in the AI app as a custom
   connector. An account belongs to one dance, so a connection does too.
 - Read tools covering what the person can read, own and group.
-- Write tools that only add actions to the queue. The AI may propose creating,
+- Write tools that only manage the pending queue (add, change, delete,
+  group, order). The AI may propose creating,
   editing, linking, archiving and publishing, on the person's own things and
   on group things the person may edit.
 - A queue page in the app that fills while the AI works (desktop tab beside
@@ -157,13 +158,43 @@ everything the app already enforces holds without a second copy: `scope.ts`,
 `flowing`/`flowAfter` on copies kept in step, `usableOf`, `figureLabels`.
 The exact kind list is the builder's to settle against those functions.
 
-### Actions that depend on each other
+### Groups (user's ruling, 2026-11-09)
 
-A create returns a reference (`@4`: the fourth action) the AI can use in
-later actions ("add @4 to routine Basic"). Running a later action resolves
-the reference to the real id. If the action it depends on was dropped or
-failed, the later one refuses ("Depends on an action you dropped") and is
-not run.
+The AI puts actions into **groups** it names ("Spelling", "Sections: 15
+salsa cubana moves", "Publish"). A group is a heading in the queue with its
+own Run group and Drop group; inside it the actions keep their order. An
+action belongs to exactly one group. Groups are ordered like actions; Run all
+goes group by group.
+
+### Actions that depend on each other (user's ruling, 2026-11-09)
+
+Two kinds of order, both shown on the page:
+
+- **Independent:** actions that only happen to be listed in order. Each can
+  be run or dropped on its own.
+- **Dependent:** an action says which earlier actions it needs (`needs`).
+  It cannot be run until they are done: its Run is off and it says "Waits
+  for 3". Dropping an action the others need offers to drop them too. A
+  create returns a reference (`@4`) that later actions use ("add @4 to
+  routine Basic"); using a reference makes the dependency by itself.
+
+A dependency always points to an earlier action (no cycles), possibly in
+another group.
+
+### The AI edits its own queue (user's ruling, 2026-11-09)
+
+Reviewing is a conversation: the user sees something wrong, says so in the
+chat, and the AI fixes its proposals. So the AI has full create / read /
+update / delete over the **pending** part of the queue: add, change, delete
+and reorder actions and lines, move them between groups, make, rename,
+reorder and delete groups, set and clear `needs`. It cannot touch what is
+done, dropped or failed (that is the user's record; to reverse a done action
+it proposes a new one), and it never runs anything.
+
+Every AI edit of an action is visible: "Changed by Claude 10 s ago", with
+the earlier version one tap away. A run sends the version the user saw; if
+the AI changed the action since, the run refuses ("Claude changed this just
+now, have a look") instead of running something the user did not see.
 
 ### Running
 
@@ -196,12 +227,17 @@ and refreshes by itself while open, so a desktop tab fills as the AI works
 (polling while visible is enough; the builder's call). Same queue on every
 device.
 
-Its look is not designed yet. Before building it, show the user 2–4 options
-on real screenshots (a copy of the latest `~/Backups/salsa/db` backup,
-`scripts/shots`), to the phone, and build the one picked. The options must
-cover: the list of pending actions, a batched action opened, a text edit
-word by word, a video section with a Play that loops the proposed stretch, a
-refused action, and where the queue lives (a tab, a band dot, a sheet).
+**The look (user's pick, 2026-11-09: option A of the board
+https://claude.ai/artifact/FX91ZKLGWgo7cg9YWQUHCi):** its own page,
+"Predlogi" / "Suggestions", reached from a row at the top of the You tab
+("Predlogi AI · 7", "2 new") and a dot on the You tab. A long list of cards
+under group headings, each card the change itself (struck through → new,
+word by word), with Drop · Up to here · Run; a batched card lists its lines
+with ticks; a video section card plays the stretch; a publish card carries
+the can't-undo warning; a refused card says why. A dependent card hangs
+under what it needs and says "Waits for 3". A fixed bar at the bottom: Drop
+all · Run all. Done today below, with Undo. The board's A2 artboard is the
+reference; the dark theme is drawn when building.
 
 ## The video sections experiment
 
