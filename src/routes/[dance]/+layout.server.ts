@@ -1,4 +1,6 @@
 import { pendingCount } from '$lib/server/ai-queue/store';
+import { listGrants } from '$lib/server/oauth/store';
+import { serverNow } from '$lib/server/server-clock';
 import { t } from '$lib/i18n/catalog';
 import { error } from '@sveltejs/kit';
 import { getDance, isDanceSlug } from '$lib/dances/dances';
@@ -27,6 +29,7 @@ export const load: LayoutServerLoad = ({ params, url, route, locals }) => {
 	let groupsNew = false;
 	let musicToPick = false;
 	let aiPending = 0;
+	let aiConnected = false;
 	if (locals.user) {
 		const db = getDb();
 		groupMode = viewOf(db, { userId: locals.user.id, dance }, locals.user.level, {
@@ -49,6 +52,7 @@ export const load: LayoutServerLoad = ({ params, url, route, locals }) => {
 		musicToPick = importsWaiting(db, locals.user.id, dance);
 		// The AI's suggestions waiting to be run (the You tab's dot and its row).
 		aiPending = pendingCount(db, locals.user.id, dance);
+		aiConnected = listGrants(db, locals.user.id, serverNow()).length > 0;
 	}
 	return {
 		dance: getDance(dance),
@@ -56,6 +60,7 @@ export const load: LayoutServerLoad = ({ params, url, route, locals }) => {
 		groupChoices: choices,
 		groupsNew,
 		musicToPick,
-		aiPending
+		aiPending,
+		aiConnected
 	};
 };

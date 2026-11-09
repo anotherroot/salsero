@@ -53,7 +53,8 @@ const SECTION: Record<string, TabId> = {
 	groups: 'groups',
 	songs: 'music',
 	player: 'music',
-	you: 'you'
+	you: 'you',
+	suggestions: 'you'
 };
 
 /**
@@ -120,7 +121,7 @@ export function tapKind(
  * `musicToPick` and `aiPending`).
  */
 export function tabDot(id: TabId, data: Record<string, unknown>): boolean {
-	if (id === 'groups') return !!data.groupsNew;
+	if (id === 'groups') return !!data.groupsNew || Number(data.aiPending ?? 0) > 0;
 	if (id === 'music') return !!data.musicToPick;
 	if (id === 'you') return Number(data.aiPending ?? 0) > 0;
 	return false;

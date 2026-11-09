@@ -495,10 +495,10 @@ export function queueOf(db: Db, userId: string, dance: string, now: number): Que
 	}
 	return out;
 }
-/** Lines still waiting to run, of this person in this dance. */
+/** Actions (cards) with something still waiting to run, of this person in this dance. */
 export function pendingCount(db: Db, userId: string, dance: string): number {
 	const row = db
-		.select({ n: sql<number>`count(*)` })
+		.select({ n: sql<number>`count(distinct ${aiActions.id})` })
 		.from(aiLines)
 		.innerJoin(aiActions, eq(aiActions.id, aiLines.actionId))
 		.where(
