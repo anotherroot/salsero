@@ -377,7 +377,13 @@ describe('push, after the Part A review', () => {
 		const gate = new WriteGate();
 		let release!: () => void;
 		void gate.exclusive(() => new Promise<void>((r) => (release = r)));
-		const pending = push(db, run, 'u1', { device: 'dev-test-9', user: 'u1', entries: [] }, opts({ gate }));
+		const pending = push(
+			db,
+			run,
+			'u1',
+			{ device: 'dev-test-9', user: 'u1', entries: [] },
+			opts({ gate })
+		);
 		await new Promise((r) => setTimeout(r, 5));
 		expect(
 			db.get<{ n: number }>(

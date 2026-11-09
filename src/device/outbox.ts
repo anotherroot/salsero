@@ -251,8 +251,7 @@ export function outboxSummary(db: SqliteDb, userId: string | null): OutboxSummar
  */
 function newestSeq(db: SqliteDb): number {
 	const row = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'outbox'").get() as
-		| { seq: number }
-		| undefined;
+		{ seq: number } | undefined;
 	return row?.seq ?? 0;
 }
 
