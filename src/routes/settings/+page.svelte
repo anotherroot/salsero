@@ -28,7 +28,9 @@
 	import { styleLabelsOf } from '$lib/moves/figures';
 	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
-	import { barFraction, usageLine } from '$lib/storage-view';
+	import { barFraction, songsOnPhoneLine, usageLine } from '$lib/storage-view';
+	import { opfsMediaStore } from '$lib/offline/media-store';
+	import { onMount } from 'svelte';
 	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UpdateButton from '$lib/components/system/UpdateButton.svelte';
@@ -72,6 +74,17 @@
 	let askError = $state('');
 
 	const w = $derived(t().settings);
+
+	/** What the songs take on this phone (offline phase 4a); null: no store here, no line. */
+	let songsBytes = $state<number | null>(null);
+	onMount(() => {
+		void opfsMediaStore()
+			.then((store) => store?.usage())
+			.then((n) => {
+				if (n !== undefined) songsBytes = n;
+			})
+			.catch(() => {});
+	});
 	const themeOptions = $derived(THEME_CHOICES.map((c) => ({ value: c, label: themeLabel(c) })));
 	const languageOptions = LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }));
 
@@ -295,6 +308,15 @@
 					{@render opener(w.storage.askForMore, '', () => (sheet = 'ask'))}
 				{/if}
 			{/if}
+		</div>
+	{/if}
+
+	{#if songsBytes !== null}
+		<span class="{SECTION_LABEL} mt-[14px]">{w.onPhone.label}</span>
+		<div class={GROUP}>
+			<div class="px-4 py-3 text-[16px] font-bold text-ink" data-songs-on-phone>
+				{songsOnPhoneLine(songsBytes)}
+			</div>
 		</div>
 	{/if}
 

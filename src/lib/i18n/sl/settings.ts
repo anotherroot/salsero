@@ -49,6 +49,10 @@ export const settings: Catalog['settings'] = {
 			inDeleted: (label) => `${label} · v »Nedavno izbrisano«`
 		}
 	},
+	onPhone: {
+		label: 'Na tem telefonu',
+		songs: (size) => `Pesmi in vaše štetje · ${size}`
+	},
 	practice: {
 		label: 'Vadenje',
 		perDay: 'Vaj na dan',
