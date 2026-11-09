@@ -10,6 +10,7 @@
  * holds it for its life. A second tab's worker says `waiting` and takes over
  * when the first closes; its requests go to the network meanwhile.
  */
+import { PAGE_EPOCH } from '$lib/epoch';
 import type { Server as KitServer, SSRManifest } from '@sveltejs/kit';
 import type { DeviceIn, DeviceOut, WireFallback, WireRequest } from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
@@ -75,6 +76,10 @@ async function open(): Promise<Device> {
 		online: () => navigator.onLine,
 		userAgent: navigator.userAgent,
 		now: () => Date.now(),
+		epoch: PAGE_EPOCH,
+		newId: () => crypto.randomUUID(),
+		// Task 11 posts the summary and pushes.
+		onRecorded: () => {},
 		log: console
 	});
 }

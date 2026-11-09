@@ -2,10 +2,22 @@
  * The device worker's logic (offline phase 2), apart from the browser: the
  * copy's start, the pull and the answering. worker.ts gives it the real
  * SQLite, `fetch` and SvelteKit's `Server`; specs give it better-sqlite3 and
- * fakes. Read only: it answers GETs and nothing else.
+ * fakes. Reads answer from the copy; since offline phase 3 a device-first
+ * write runs here too, in one transaction with its capture, and goes in the
+ * outbox.
  */
 import { isDanceSlug } from '$lib/dances/dances';
-import { deviceAnswers } from '$lib/offline/routes';
+import { deviceAnswers, writeClass } from '$lib/offline/routes';
+import { OWNERS, ownerOf } from '$lib/sync/owners';
+import {
+	OUTBOX_HEADER,
+	RECORDED_HEADERS,
+	entryLabel,
+	mintedIn,
+	type CapturedRow
+} from '$lib/sync/outbox';
+import { startCapture, stopCapture } from './capture';
+import { recordEntry } from './outbox';
 import type {
 	DeviceOut,
 	DeviceState,
@@ -46,6 +58,12 @@ export type DeviceDeps = {
 	log: Pick<Console, 'info' | 'warn' | 'error'>;
 	/** The wall clock the page shares: a `pulled` says when its request left (`startedAt`). */
 	now: () => number;
+	/** The build's `PAGE_EPOCH`: a page of another build writes through the network. */
+	epoch: number;
+	/** A new outbox entry's id (`crypto.randomUUID`). */
+	newId: () => string;
+	/** A write went in the outbox: the worker posts the summary and pushes soon. */
+	onRecorded: () => void;
 };
 
 export type Device = {
@@ -96,9 +114,12 @@ export function oneAtATime(task: () => Promise<void>): () => Promise<void> {
 export function deviceHeaders(
 	wire: [string, string][],
 	cookies: Record<string, string>,
-	userAgent: string
+	userAgent: string,
+	origin?: string
 ): Headers {
 	const h = new Headers(wire);
+	// SvelteKit refuses a form post from another origin: a write here is the site's own.
+	if (origin) h.set('origin', origin);
 	const jar = Object.entries(cookies)
 		.map(([name, value]) => `${name}=${encodeURIComponent(value)}`)
 		.join('; ');
@@ -117,6 +138,51 @@ export function copyHasUser(db: SqliteDb, userId: string): boolean {
 
 const fallback = (reason: string): WireFallback => ({ fallback: true, reason });
 
+const q = (name: string) => `"${name.replaceAll('"', '""')}"`;
+const rowById = (db: SqliteDb, table: string, id: number) =>
+	(db.prepare(`SELECT * FROM ${q(table)} WHERE id = ?`).get(id) as
+		Record<string, unknown> | undefined) ?? null;
+const nameOf = (row: Record<string, unknown> | null | undefined): string | null => {
+	for (const c of ['name', 'title', 'label']) {
+		const v = row?.[c];
+		if (typeof v === 'string' && v.trim()) return v;
+	}
+	return null;
+};
+
+/** What the Sync page names an entry by: a log's drill, else the row it changed, else that row's parent. */
+export function thingName(db: SqliteDb, action: string, rows: CapturedRow[]): string | null {
+	const sideOf = (r: CapturedRow) => (r.after ?? r.before ?? {}) as Record<string, unknown>;
+	if (action === 'done') {
+		const set = rows.find((r) => r.tbl === 'sets');
+		const ex = set ? sideOf(set).exercise_id : undefined;
+		return typeof ex === 'number' ? nameOf(rowById(db, 'exercises', ex)) : null;
+	}
+	for (const r of rows) {
+		const own = nameOf(sideOf(r));
+		if (own) return own;
+		const rule = OWNERS[r.tbl];
+		if (!rule || !('via' in rule)) continue;
+		for (const { col, table } of rule.via) {
+			const id = sideOf(r)[col];
+			if (typeof id !== 'number') continue;
+			const parent = nameOf(rowById(db, table, id));
+			if (parent) return parent;
+		}
+	}
+	return null;
+}
+
+/** An action's answer (`x-sveltekit-action`): its JSON `type` and status. */
+function actionOutcome(bytes: ArrayBuffer): { type: string | null } {
+	try {
+		const body = JSON.parse(new TextDecoder().decode(bytes)) as { type?: unknown };
+		return { type: typeof body.type === 'string' ? body.type : null };
+	} catch {
+		return { type: null };
+	}
+}
+
 export function createDevice(deps: DeviceDeps): Device {
 	const { db, log } = deps;
 	let state: DeviceState | null = null;
@@ -128,6 +194,13 @@ export function createDevice(deps: DeviceDeps): Device {
 	/** Bumped by every `person`: a later one decides the state, not an older one finishing. */
 	let switches = 0;
 	let started = false;
+	/** Writes, and the pull's apply, one at a time: a write's capture never mixes with another's. */
+	let lane: Promise<unknown> = Promise.resolve();
+	function exclusive<T>(fn: () => Promise<T>): Promise<T> {
+		const run = lane.then(fn, fn);
+		lane = run.catch(() => {});
+		return run;
+	}
 
 	const setState = (next: DeviceState) => {
 		if (state === next) return;
@@ -218,7 +291,7 @@ export function createDevice(deps: DeviceDeps): Device {
 			return 'done';
 		}
 		try {
-			applyPull(db, body);
+			await exclusive(async () => applyPull(db, body));
 		} catch (e) {
 			// applyPull has asked for a full pull next (meta full = '1').
 			log.error('[device] pull: applying failed', e);
@@ -241,6 +314,114 @@ export function createDevice(deps: DeviceDeps): Device {
 			if (state !== 'ready') setState('failed');
 		}
 	});
+
+	/**
+	 * A device-first write: run here in one transaction with its capture, then
+	 * recorded in the outbox, or rolled back and handed to the network.
+	 */
+	async function write(
+		wire: WireRequest,
+		person: string | null | undefined
+	): Promise<WireResponse | WireFallback> {
+		if (state !== 'ready' || !respond || !runtime) return fallback(`device ${state ?? 'off'}`);
+		if (person !== undefined && person !== runtime.userId) {
+			return fallback("the copy is not this page's person's");
+		}
+		const slot = runtime.slot;
+		if (slot === null) return fallback('the device has no id slot yet');
+		const url = new URL(wire.url);
+		const cls = writeClass(wire.method, url);
+		if (cls !== 'device' && cls !== 'queued') return fallback('the network answers this');
+		const epoch = new Headers(wire.headers).get('x-page-epoch');
+		if (epoch === null || Number(epoch) !== deps.epoch) return fallback('a page of another build');
+		if (!copyHasUser(db, runtime.userId)) return fallback('the copy has no user');
+
+		const madeAt = deps.now();
+		const marks = Object.fromEntries(
+			(
+				db.prepare('SELECT tbl, hi FROM id_marks WHERE slot = ?').all(slot) as {
+					tbl: string;
+					hi: number;
+				}[]
+			).map((r) => [r.tbl, r.hi])
+		);
+		const headers = deviceHeaders(wire.headers, runtime.cookies, deps.userAgent, url.origin);
+		let open = false;
+		const undo = () => {
+			if (open) db.exec('ROLLBACK');
+			open = false;
+		};
+		try {
+			db.exec('BEGIN');
+			open = true;
+			startCapture(db);
+			const res = await respond(
+				new DeviceRequest(url, { method: wire.method, body: wire.body }, headers)
+			);
+			const bytes = await res.arrayBuffer();
+			const rows = stopCapture(db);
+			const answer = (extra: [string, string][] = []): WireResponse => ({
+				status: res.status,
+				headers: [...res.headers, ...extra],
+				body: bytes
+			});
+			const isAction = headers.has('x-sveltekit-action');
+			const type = isAction ? actionOutcome(bytes).type : null;
+			const landed = isAction ? type === 'success' || type === 'redirect' : res.status < 400;
+			if (!landed) {
+				undo();
+				if (res.status >= 500) return fallback('the device failed');
+				// Refused as online: the person sees the refusal here.
+				return answer();
+			}
+			if (rows.length === 0) {
+				undo();
+				return deps.online() ? fallback('nothing on the device') : answer();
+			}
+			if (deps.online()) {
+				const get = (table: string, id: number) => rowById(db, table, id);
+				const team = rows.some(
+					(r) =>
+						ownerOf(r.tbl, (r.after ?? r.before ?? {}) as Record<string, unknown>, get) !== 'person'
+				);
+				// A group's row online goes to the server first: a clash shows at once, in place.
+				if (team) {
+					undo();
+					return fallback('group-online');
+				}
+			}
+			const action =
+				[...url.searchParams.keys()].find((k) => k.startsWith('/'))?.slice(1) ?? 'default';
+			const recorded = new Set<string>(RECORDED_HEADERS);
+			const kept: [string, string][] = wire.headers.filter(
+				([k]) => recorded.has(k.toLowerCase()) && k.toLowerCase() !== 'cookie'
+			);
+			const cookie = headers.get('cookie');
+			if (cookie) kept.push(['cookie', cookie]);
+			const seq = recordEntry(db, {
+				id: deps.newId(),
+				userId: runtime.userId,
+				madeAt,
+				epoch: deps.epoch,
+				cls,
+				url: url.pathname + url.search,
+				method: wire.method.toUpperCase(),
+				headers: kept,
+				body: wire.body === null ? null : new Uint8Array(wire.body),
+				minted: mintedIn(rows, slot, marks),
+				rows,
+				label: entryLabel(action, rows, thingName(db, action, rows))
+			});
+			db.exec('COMMIT');
+			open = false;
+			deps.onRecorded();
+			return answer([[OUTBOX_HEADER, String(seq)]]);
+		} catch (e) {
+			undo();
+			log.error('[device] a write failed', wire.url, e);
+			return fallback(String(e));
+		}
+	}
 
 	return {
 		async start() {
@@ -283,6 +464,8 @@ export function createDevice(deps: DeviceDeps): Device {
 		},
 
 		async answer(wire, person) {
+			const m = wire.method.toUpperCase();
+			if (m !== 'GET' && m !== 'HEAD') return exclusive(() => write(wire, person));
 			if (state !== 'ready' || !respond || !runtime) return fallback(`device ${state ?? 'off'}`);
 			if (person !== undefined && person !== runtime.userId) {
 				return fallback("the copy is not this page's person's");

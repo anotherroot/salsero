@@ -1,15 +1,26 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { sql } from 'drizzle-orm';
 
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 vi.mock('$lib/server/db', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
-	return { ...actual, getDb: () => undefined };
+	return { ...actual, getDb: () => handle.db };
 });
 
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { openDb, type Db } from '$lib/server/db';
+import * as schema from '$lib/server/db/schema';
+import { setIdSlot } from '$lib/server/db/ids';
+import { getLessonRow } from '$lib/server/lessons';
+import { lessonSeen } from '$lib/server/clash';
+import { actionRunner } from '$lib/server/sync/test-replay';
+import { PAGE_EPOCH } from '$lib/epoch';
+import * as exercisePage from '../routes/[dance]/(today)/exercises/[id]/+page.server';
+import * as lessonPage from '../routes/[dance]/lessons/[id]/+page.server';
+import { installCapture } from './capture';
 import { pull as serverPull } from '$lib/server/sync/pull';
-import { makeWorld } from '$lib/server/sync/test-world';
+import { makeWorld, type World } from '$lib/server/sync/test-world';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import type { PullRequest } from '$lib/sync/wire';
 import type { DeviceOut, WireRequest } from '$lib/offline/protocol';
@@ -26,9 +37,10 @@ import {
 } from './core';
 
 let server: Db;
+let world: World;
 beforeAll(() => {
 	server = openDb(':memory:');
-	makeWorld(server);
+	world = makeWorld(server);
 	// The world's people predate the dance split; the hook needs one.
 	server.run(sql`UPDATE users SET dance = 'salsa'`);
 });
@@ -81,6 +93,9 @@ function harness(over: Partial<DeviceDeps> = {}) {
 		userAgent: 'Phone/1.0',
 		log,
 		now: () => 0,
+		epoch: PAGE_EPOCH,
+		newId: () => crypto.randomUUID(),
+		onRecorded: () => {},
 		...over
 	};
 	const wrapped = deps.fetchPull;
@@ -515,6 +530,252 @@ describe('answer', () => {
 		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).toMatchObject({
 			fallback: true,
 			reason: 'Error: boom'
+		});
+	});
+});
+
+describe('writes on the device', () => {
+	const S = 2 ** 32;
+	const U1 = {
+		id: 'u1',
+		email: 'u1@x.si',
+		firstName: 'Ana',
+		lastName: null,
+		timezone: 'UTC',
+		isAdmin: false,
+		level: 'all' as const,
+		dance: 'salsa' as const,
+		locale: 'en' as const
+	};
+	const ROUTES = [
+		{ id: '/[dance]/(today)/exercises/[id]', module: exercisePage },
+		{ id: '/[dance]/lessons/[id]', module: lessonPage }
+	];
+	let now = 1_800_000_000_000;
+	let ids = 0;
+
+	beforeEach(() => {
+		installCapture(device);
+		handle.db = drizzle(device, { schema });
+		setIdSlot(5);
+		now = 1_800_000_000_000;
+		ids = 0;
+	});
+	afterEach(() => {
+		setIdSlot(0);
+		handle.db = undefined;
+	});
+
+	async function writer(over: Partial<DeviceDeps> = {}) {
+		const recorded = vi.fn();
+		const h = harness({
+			fetchPull: async (body) => {
+				const res = answerAsServer(body);
+				const json = (await res.json()) as Record<string, unknown>;
+				return Response.json({ ...json, slot: 5 });
+			},
+			startServer: async () => actionRunner(U1, ROUTES),
+			epoch: PAGE_EPOCH,
+			newId: () => `entry-${String(++ids).padStart(4, '0')}`,
+			onRecorded: recorded,
+			now: () => now,
+			...over
+		});
+		await h.dev.start();
+		expect(h.dev.state()).toBe('ready');
+		return { ...h, recorded };
+	}
+
+	const form = (fields: Record<string, string>) =>
+		new TextEncoder().encode(new URLSearchParams(fields).toString()).buffer as ArrayBuffer;
+	const post = (path: string, fields: Record<string, string>, epoch = PAGE_EPOCH): WireRequest => ({
+		url: `https://salsa.test${path}`,
+		method: 'POST',
+		headers: [
+			['content-type', 'application/x-www-form-urlencoded'],
+			['accept', 'application/json'],
+			['x-sveltekit-action', 'true'],
+			['x-page-epoch', String(epoch)]
+		],
+		body: form(fields)
+	});
+	const done = (ex: number, fields: Record<string, string> = {}) =>
+		post(`/salsa/exercises/${ex}?/done`, {
+			exerciseId: String(ex),
+			durationS: '60',
+			rating: '3',
+			note: 'studio',
+			...fields
+		});
+	const entries = () =>
+		device.prepare('SELECT * FROM outbox ORDER BY seq').all() as {
+			id: string;
+			made_at: number;
+			minted_json: string;
+			label_json: string;
+			cls: string;
+		}[];
+	const isFallback = (a: unknown) => !!(a as { fallback?: boolean }).fallback;
+
+	it('answers a log from the device at once and records one entry with its id and made-at', async () => {
+		const { dev, recorded } = await writer();
+		const before = count('sets');
+		const ans = await dev.answer(done(world.own.u1.exercise), 'u1');
+		expect(isFallback(ans)).toBe(false);
+		const res = ans as { status: number; headers: [string, string][] };
+		expect(res.status).toBe(200);
+		expect(res.headers.find(([k]) => k === 'x-salsa-outbox')?.[1]).toBe('1');
+		expect(count('sets')).toBe(before + 1);
+		const [e] = entries();
+		const minted = JSON.parse(e.minted_json) as Record<string, number[]>;
+		expect(minted.sets).toHaveLength(1);
+		expect(Math.floor(minted.sets[0] / S)).toBe(5);
+		expect(device.prepare('SELECT id FROM sets WHERE id = ?').get(minted.sets[0])).toBeTruthy();
+		expect(e.made_at).toBe(now);
+		expect(recorded).toHaveBeenCalledTimes(1);
+	});
+
+	it('records nothing and answers the refusal when the action refuses', async () => {
+		const { dev } = await writer();
+		const before = count('sets');
+		const ans = (await dev.answer(done(world.own.u1.exercise, { rating: '' }), 'u1')) as {
+			status: number;
+			body: ArrayBuffer;
+		};
+		expect(ans.status).toBe(400);
+		expect(JSON.parse(new TextDecoder().decode(ans.body)).type).toBe('failure');
+		expect(entries()).toHaveLength(0);
+		expect(count('sets')).toBe(before);
+	});
+
+	it('falls back and keeps nothing when the action throws', async () => {
+		const ex = world.own.u1.exercise;
+		const { dev } = await writer({
+			startServer: async () => async () => {
+				device
+					.prepare(`INSERT INTO sets (id, exercise_id, done_at, rating) VALUES (?, ?, 1, 3)`)
+					.run(5 * S + 99, ex);
+				throw new Error('boom');
+			}
+		});
+		const before = count('sets');
+		expect(isFallback(await dev.answer(done(ex), 'u1'))).toBe(true);
+		expect(count('sets')).toBe(before);
+		expect(entries()).toHaveLength(0);
+	});
+
+	it("sends a group's row to the network while online, and records it offline", async () => {
+		let online = true;
+		const { dev } = await writer({ online: () => online });
+		const id = world.group.published;
+		const row = getLessonRow(handle.db as Db, id)!;
+		const edit = post(`/salsa/lessons/${id}?/update`, {
+			title: 'Edited on the phone',
+			lessonDay: row.lessonDay,
+			notes: row.notes ?? '',
+			seen: JSON.stringify(lessonSeen(row))
+		});
+		expect(await dev.answer(edit, 'u1')).toMatchObject({ fallback: true, reason: 'group-online' });
+		expect(getLessonRow(handle.db as Db, id)!.title).toBe(row.title);
+		online = false;
+		expect(isFallback(await dev.answer(edit, 'u1'))).toBe(false);
+		expect(entries()).toHaveLength(1);
+	});
+
+	it('falls back for a network-only write, and before the device has a slot', async () => {
+		const { dev } = await writer();
+		expect(
+			isFallback(await dev.answer(post(`/salsa/lessons/${world.own.u1.lesson}?/copyTo`, {}), 'u1'))
+		).toBe(true);
+		device.prepare("DELETE FROM device_meta WHERE key = 'slot'").run();
+		const fresh = await writer({ fetchPull: async (body) => answerAsServer(body) });
+		expect(isFallback(await fresh.dev.answer(done(world.own.u1.exercise), 'u1'))).toBe(true);
+		expect(entries()).toHaveLength(0);
+	});
+
+	it('falls back for a page of another epoch', async () => {
+		const { dev } = await writer();
+		const old = { ...done(world.own.u1.exercise) };
+		old.headers = old.headers.map(([k, v]) =>
+			k === 'x-page-epoch' ? [k, String(PAGE_EPOCH - 1)] : [k, v]
+		);
+		expect(isFallback(await dev.answer(old, 'u1'))).toBe(true);
+		expect(entries()).toHaveLength(0);
+	});
+
+	it('runs a multipart form action on the device', async () => {
+		const { dev } = await writer();
+		const fd = new FormData();
+		const ex = world.own.u1.exercise;
+		for (const [k, v] of Object.entries({
+			exerciseId: String(ex),
+			durationS: '60',
+			rating: '3',
+			note: 'm'
+		})) {
+			fd.set(k, v);
+		}
+		const req = new Request('https://salsa.test/x', { method: 'POST', body: fd });
+		const wire: WireRequest = {
+			url: `https://salsa.test/salsa/exercises/${ex}?/done`,
+			method: 'POST',
+			headers: [
+				['content-type', req.headers.get('content-type')!],
+				['accept', 'application/json'],
+				['x-sveltekit-action', 'true'],
+				['x-page-epoch', String(PAGE_EPOCH)]
+			],
+			body: await req.arrayBuffer()
+		};
+		const ans = await dev.answer(wire, 'u1');
+		expect(isFallback(ans)).toBe(false);
+		expect(entries()).toHaveLength(1);
+	});
+
+	it('runs writes one at a time, their captures apart', async () => {
+		const { dev } = await writer();
+		const ex = world.own.u1.exercise;
+		const lesson = world.own.u1.lesson;
+		const row = getLessonRow(handle.db as Db, lesson)!;
+		const [a, b] = await Promise.all([
+			dev.answer(done(ex), 'u1'),
+			dev.answer(
+				post(`/salsa/lessons/${lesson}?/update`, {
+					title: 'T2',
+					lessonDay: row.lessonDay,
+					notes: ''
+				}),
+				'u1'
+			)
+		]);
+		expect(isFallback(a) || isFallback(b)).toBe(false);
+		const rows = (
+			device.prepare('SELECT rows_json FROM outbox ORDER BY seq').all() as { rows_json: string }[]
+		).map((r) => (JSON.parse(r.rows_json) as { tbl: string }[]).map((x) => x.tbl));
+		expect(rows[0]).toContain('sets');
+		expect(rows[0]).not.toContain('lessons');
+		expect(rows[1]).toContain('lessons');
+		expect(rows[1]).not.toContain('sets');
+	});
+
+	it("labels a log with its drill's name", async () => {
+		const { dev } = await writer();
+		const ex = world.own.u1.exercise;
+		await dev.answer(done(ex), 'u1');
+		const name = (
+			device.prepare('SELECT name FROM exercises WHERE id = ?').get(ex) as { name: string }
+		).name;
+		expect(JSON.parse(entries()[0].label_json)).toEqual({ kind: 'log', thing: name });
+	});
+
+	it('online, a write that changed nothing on the device goes to the network', async () => {
+		const { dev } = await writer({
+			startServer: async () => async () =>
+				Response.json({ type: 'success', status: 200, data: '[null]' })
+		});
+		expect(await dev.answer(done(world.own.u1.exercise), 'u1')).toMatchObject({
+			fallback: true,
+			reason: 'nothing on the device'
 		});
 	});
 });
