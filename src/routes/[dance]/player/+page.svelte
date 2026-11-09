@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
-	import { replaceState } from '$app/navigation';
+	import { beforeNavigate, invalidateAll, replaceState } from '$app/navigation';
 	import { entryState } from '$lib/sheets/history.svelte';
 	import { page } from '$app/state';
 	import { backFor, goBack } from '$lib/nav/trail.svelte';
@@ -8,7 +8,7 @@
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
 	import { practiceOf } from '$lib/exercises/practice';
-	import { practiceSaver } from '$lib/exercises/practice-api';
+	import { practiceSaver, reloadAfterLeave } from '$lib/exercises/practice-api';
 	import {
 		loadRoutineView,
 		saveRoutineView,
@@ -56,14 +56,28 @@
 		const loaded = data.exercise ? practiceOf(data.exercise, data.dance) : null;
 		untrack(() => saver?.reset(loaded));
 	});
+	// Leaving for another page (Setup's Back, the browser's Back): the page it
+	// lands on loads before this one is torn down, so a teardown flush would land
+	// after that load and the Practise card would still name the old choice.
+	// Flush now, and once both the post and the page have landed, load it again.
+	beforeNavigate((nav) => {
+		const s = saver;
+		if (!s) return;
+		// Leaving the app: the post goes out (keepalive); nothing is left to reload.
+		if (nav.type === 'leave') {
+			void s.flush();
+			return;
+		}
+		void reloadAfterLeave(s.flush(), nav.complete, invalidateAll);
+	});
 	$effect(() => {
 		const s = saver;
 		if (!s) return;
-		const flush = () => s.flush();
+		const flush = () => void s.flush();
 		window.addEventListener('pagehide', flush);
 		return () => {
 			window.removeEventListener('pagehide', flush);
-			s.flush();
+			void s.flush();
 		};
 	});
 
@@ -262,7 +276,7 @@
 		// is posted (`practiceToPost`).
 		runSettings = { ...settings, source: useSong ? 'song' : 'count' };
 		keep(runSettings);
-		saver?.flush();
+		void saver?.flush();
 		nowFigureId = null;
 		activeSlot = null;
 		stepAt = null;

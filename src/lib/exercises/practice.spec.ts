@@ -125,6 +125,20 @@ describe('practiceSummary', () => {
 			)
 		).toBe('El Cantante 0.8× · 1 2 3 · 5 6 7');
 	});
+	it("puts a routine's view after the song", () => {
+		expect(
+			practiceSummary(
+				{
+					mode: 'song',
+					bpm: 180,
+					songTitle: 'BAILE',
+					config: { count: 'off', clave: null, speed: 1 },
+					view: 'Follow'
+				},
+				salsa
+			)
+		).toBe('BAILE · Follow · Off');
+	});
 });
 
 describe('sizes', () => {

@@ -185,10 +185,16 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
                      there is an About (`hasDetails`), Play's state, Built-in or Yours,
-                     where Back goes, the exercise page's player link. Client-safe
+                     where Back goes, the exercise page's player link, the routine page's
+                     Practise (`routinePractiseHref`). Client-safe.
+                     video-sound.svelte.ts: which About video has the sound (`claimSound`,
+                     `releaseSound`); the run pauses for it (`pauseForVideo`), Setup stops a sample
 src/lib/server/run-details.ts  what the player's About shows, read-only, through access.ts:
                      a figure's timing, positions, notes, sections, videos and links;
-                     a drill's (`figureDetails`, `exerciseDetails`)
+                     a drill's; a lesson's notes, figures (`RunDetails.figures`, each with
+                     its own details), videos and links (`figureDetails`, `exerciseDetails`)
+                     practice-content.ts `practiceContentOf`: what an exercise page shows of
+                     its target, through the person's reach
 src/lib/components/player/  the player's screens: Setup, Running (the band that fills, the
                      rows), RunLayer (a full-screen layer with a history entry), RunRows,
                      DetailsBody and RunClip (About), CountChips, SongProgress, StageCount

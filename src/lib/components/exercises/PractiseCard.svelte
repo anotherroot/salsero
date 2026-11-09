@@ -2,7 +2,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { PLAY_ROUND } from '$lib/components/ui/styles';
+	import { button } from '$lib/components/ui/styles';
 	import { parsePhonePractice, practiseWithLine } from '$lib/exercises/practice';
 	import { loadPhonePractice } from '$lib/exercises/phone-practice';
 	import { exercisePlayerHref } from '$lib/player/view';
@@ -11,9 +11,10 @@
 	import type { ExerciseItem, PickerSong } from '$lib/types';
 
 	/*
-	 * The exercise page's Practise with: what the player will open with, and the
-	 * way into it (one-player design). Nothing plays here: the card opens the
-	 * player's setup, ▶ opens it playing. The player logs nothing; Done does.
+	 * The exercise page's Practise card, the same on every type (practise-card
+	 * design): what the player will open with, Change (the player's Setup,
+	 * nothing plays) and ▶ Practise (the player, playing). Both are said in
+	 * words. Nothing plays here; the player logs nothing, Done does.
 	 */
 	interface Props {
 		dance: Dance;
@@ -21,11 +22,15 @@
 		songs: PickerSong[];
 		/** The player link's `from` part: 'from=exercise', or a run's. */
 		from: string;
+		/** A routine's Follow or Still on this phone, said after the song; null for the others. */
+		view?: 'follow' | 'still' | null;
+		/** A routine's exercise: the routine it runs on in the player. */
+		routineId?: number | null;
 		/** Either link was tapped: the page is about to be left for the player. */
 		onleave?: () => void;
 	}
 
-	let { dance, exercise, songs, from, onleave }: Props = $props();
+	let { dance, exercise, songs, from, view = null, routineId = null, onleave }: Props = $props();
 
 	// This phone's memory is read once mounted: the server has none, and the
 	// first render must match it.
@@ -34,28 +39,38 @@
 		stored = loadPhonePractice(dance.slug);
 	});
 	const line = $derived(
-		practiseWithLine(exercise, songs, parsePhonePractice(stored, dance), dance)
+		practiseWithLine(
+			exercise,
+			songs,
+			parsePhonePractice(stored, dance),
+			dance,
+			view === null ? null : t().player[view]
+		)
 	);
 </script>
 
 <section
 	aria-label={t().exercise.panel.label}
-	class="flex flex-none items-center gap-2.5 rounded-[18px] bg-surface py-3 pr-3 pl-4"
+	class="flex flex-none flex-col gap-3 rounded-[18px] bg-surface p-3"
 >
+	<div class="flex items-center gap-3 pl-1">
+		<span
+			class="flex size-10 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
+			><Icon name="music" size={20} /></span
+		>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[13px] font-bold text-muted">{t().exercise.panel.practiseWith}</span>
+			<span class="line-clamp-2 text-[15px] leading-[1.3] font-bold text-ink">{line}</span>
+		</span>
+		<a
+			href={exercisePlayerHref(dance.slug, exercise.id, from, false, routineId)}
+			class={button('secondary', 'sm')}
+			onclick={onleave}><Icon name="sliders" size={18} />{t().exercise.panel.change}</a
+		>
+	</div>
 	<a
-		href={exercisePlayerHref(dance.slug, exercise.id, from, false)}
-		class="flex min-h-12 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-lg text-left"
-		onclick={onleave}
+		href={exercisePlayerHref(dance.slug, exercise.id, from, true, routineId)}
+		class={button('primary', 'md', true)}
+		onclick={onleave}><Icon name="play" size={20} filled />{t().exercise.panel.practise}</a
 	>
-		<span class="text-[13px] font-bold text-muted">{t().exercise.panel.practiseWith}</span>
-		<span class="text-[15px] leading-[1.3] font-bold text-ink">{line}</span>
-	</a>
-	<a
-		href={exercisePlayerHref(dance.slug, exercise.id, from, true)}
-		aria-label={t().exercise.panel.play}
-		class={PLAY_ROUND}
-		onclick={onleave}
-	>
-		<Icon name="play" size={24} filled />
-	</a>
 </section>
