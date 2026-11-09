@@ -23,6 +23,7 @@ import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { asSeen, changedFields, clashTitle, goneTitle, type Seen } from '$lib/clash/clash';
 import { t } from '$lib/i18n/catalog';
 import { serverNow } from '$lib/server/server-clock';
+import { replaying } from './replay-context';
 
 export type SeenCheck =
 	| { ok: true }
@@ -73,22 +74,36 @@ export function seesAll(seen: Seen | null, keys: string[]): boolean {
 /** The refusal for a save that had to carry `seen` (a group's row, or one with copies) and did not; the reader's words. */
 export const missingSeen = (): string => t().groups.clash.missingSeen;
 
+/** Whose row a save writes, for the clash check: a group's, and whether it has copies (Keep in step). */
+export type SeenRule = { team: boolean; copies: boolean };
+
+/**
+ * Whether `seen` is checked at all: always on a group's row; on a person's own
+ * row, never while an offline change is replayed (offline phase 3: own rows
+ * merge per field, the later edit winning, after the action).
+ */
+export function seenApplies(team: boolean): boolean {
+	return team || !replaying();
+}
+
 /**
  * A form save's clash check, as the failure to return (or null to go on):
- * 400 for a save without `seen` where one is `required` (a group's row, or
- * a row with copies: `row.teamId !== null || hasCopies(...)`), 409 carrying
+ * 400 for a save without `seen` where one is required (a group's row, or
+ * a row with copies: `rule`), 409 carrying
  * `clash` (the other version), 410 carrying `gone`. `extra` is the action's
  * own failure fields (its `action`, what was typed), so the page keeps the
  * typed values. `who` names who changed or archived it (History's `editedBy`).
  */
 export function seenRefusal<T extends Record<string, unknown>>(
 	form: FormData,
-	required: boolean,
+	rule: SeenRule,
 	current: Seen | null,
 	extra: T,
 	now = serverNow(),
 	who: Who = nobody
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
+	if (current !== null && !seenApplies(rule.team)) return null;
+	const required = rule.team || rule.copies;
 	const seen = seenFrom(form);
 	if (required && current !== null && !seesAll(seen, Object.keys(current))) {
 		return fail(400, { ...extra, message: missingSeen() });

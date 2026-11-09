@@ -10,6 +10,8 @@ export type PullRequest = {
 	schema: string;
 	digests?: Record<string, string>;
 	userId?: string | null;
+	/** The device key (offline phase 3): the server hands this database its id slot. */
+	device?: string;
 };
 export type PullResponse = {
 	userId: string;
@@ -21,5 +23,7 @@ export type PullResponse = {
 	changed: Record<string, TableRows>;
 	/** The page cookies the loads read. */
 	cookies: Record<string, string>;
+	/** The device's id slot: present when the request named its `device`. */
+	slot?: number;
 };
 export type PullRefusal = { refused: 'schema'; schema: string };

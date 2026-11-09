@@ -59,6 +59,7 @@ import { addSpot } from '$lib/server/spots';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { stampGene } from './genes';
 import { flowAfter, flowing, rootOfRecording, rootOfSpot, rootOfVideo } from './flow-hook';
+import { runReplaying, type ReplayContext } from '../replay-context';
 
 let db: Db;
 let F: number;
@@ -172,6 +173,33 @@ describe('flowing', () => {
 });
 
 describe('flowAfter', () => {
+	it('defers a flow during a replay and runs it when asked', async () => {
+		const ctx: ReplayContext = {
+			entryId: 'e1',
+			madeAt: 1000,
+			minted: new Map(),
+			flows: [],
+			deferFlows: true
+		};
+		await runReplaying(ctx, () => flowAfter('u1', 'figure', F));
+		expect(handle.calls).toEqual([]);
+		expect(ctx.flows).toEqual([{ actorId: 'u1', kind: 'figure', id: F }]);
+		ctx.deferFlows = false;
+		await runReplaying(ctx, () => flowAfter('u1', 'figure', F));
+		expect(handle.calls).toEqual([['u1', 'figure', F]]);
+	});
+
+	it('does nothing on the device', async () => {
+		const g = globalThis as { __salsaDevice?: unknown };
+		g.__salsaDevice = { userId: 'u1', cookies: {} };
+		try {
+			await flowAfter('u1', 'figure', F);
+		} finally {
+			delete g.__salsaDevice;
+		}
+		expect(handle.calls).toEqual([]);
+	});
+
 	it('runs the flow for a row in a family, as the actor', async () => {
 		await flowAfter('u1', 'figure', F);
 		expect(handle.calls).toEqual([['u1', 'figure', F]]);

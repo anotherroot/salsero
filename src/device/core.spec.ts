@@ -1,15 +1,26 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { sql } from 'drizzle-orm';
 
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 vi.mock('$lib/server/db', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
-	return { ...actual, getDb: () => undefined };
+	return { ...actual, getDb: () => handle.db };
 });
 
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { openDb, type Db } from '$lib/server/db';
+import * as schema from '$lib/server/db/schema';
+import { setIdSlot } from '$lib/server/db/ids';
+import { getLessonRow } from '$lib/server/lessons';
+import { lessonSeen } from '$lib/server/clash';
+import { actionRunner } from '$lib/server/sync/test-replay';
+import { PAGE_EPOCH } from '$lib/epoch';
+import * as exercisePage from '../routes/[dance]/(today)/exercises/[id]/+page.server';
+import * as lessonPage from '../routes/[dance]/lessons/[id]/+page.server';
+import { installCapture } from './capture';
 import { pull as serverPull } from '$lib/server/sync/pull';
-import { makeWorld } from '$lib/server/sync/test-world';
+import { makeWorld, type World } from '$lib/server/sync/test-world';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import type { PullRequest } from '$lib/sync/wire';
 import type { DeviceOut, WireRequest } from '$lib/offline/protocol';
@@ -26,9 +37,10 @@ import {
 } from './core';
 
 let server: Db;
+let world: World;
 beforeAll(() => {
 	server = openDb(':memory:');
-	makeWorld(server);
+	world = makeWorld(server);
 	// The world's people predate the dance split; the hook needs one.
 	server.run(sql`UPDATE users SET dance = 'salsa'`);
 });
@@ -81,6 +93,12 @@ function harness(over: Partial<DeviceDeps> = {}) {
 		userAgent: 'Phone/1.0',
 		log,
 		now: () => 0,
+		epoch: PAGE_EPOCH,
+		newId: () => crypto.randomUUID(),
+		onRecorded: () => {},
+		fetchPush: async () => {
+			throw new Error('no push in this spec');
+		},
 		...over
 	};
 	const wrapped = deps.fetchPull;
@@ -173,9 +191,13 @@ describe('start', () => {
 		expect(h.states()).toEqual(['starting', 'ready']);
 		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled' });
 		expect(count('figures')).toBeGreaterThan(0);
-		expect(h.runtimes).toEqual([{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' } }]);
+		expect(h.runtimes).toEqual([
+			{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' }, slot: 1 }
+		]);
 		expect(h.startServer).toHaveBeenCalledTimes(1);
-		expect(h.bodies).toEqual([{ cursor: 0, schema: SCHEMA_TAG, userId: null }]);
+		expect(h.bodies).toEqual([
+			{ cursor: 0, schema: SCHEMA_TAG, userId: null, device: expect.any(String) }
+		]);
 	});
 
 	it('with no copy and offline, is empty and asks nothing', async () => {
@@ -227,19 +249,20 @@ describe('start', () => {
 		expect(h.dev.state()).toBe('ready');
 	});
 
-	it('is empty, not ready, when signing out wiped the copy while the server started', async () => {
+	it('keeps serving its copy when the start finds the session expired (offline phase 3)', async () => {
 		await harness().dev.start();
-		let started: (r: Responder) => void = () => {};
+		let started: ((r: Responder) => void) | null = null;
 		const h = harness({
 			fetchPull: async () => Response.json({}, { status: 401 }),
 			startServer: () => new Promise<Responder>((r) => (started = r))
 		});
 		const starting = h.dev.start();
-		await vi.waitFor(() => expect(h.dev.state()).toBe('empty'));
-		started(async () => new Response('ok'));
+		await vi.waitFor(() => expect(started).not.toBeNull());
+		(started as unknown as (r: Responder) => void)(async () => new Response('ok'));
 		await starting;
-		expect(h.dev.state()).toBe('empty');
-		expect(h.states()).not.toContain('ready');
+		await h.dev.sync();
+		expect(h.dev.state()).toBe('ready');
+		expect(h.dev.summary().signedOut).toBe(true);
 	});
 });
 
@@ -270,21 +293,19 @@ describe('pull', () => {
 		expect(pulled).toEqual([100, 200, 300]);
 	});
 
-	it('signed out: wipes the copy and is empty', async () => {
+	it('signed out (a 401): keeps the copy and the outbox, and says sign in', async () => {
 		let status = 200;
 		const h = harness({
 			fetchPull: async (body) =>
 				status === 200 ? answerAsServer(body) : Response.json({}, { status })
 		});
 		await h.dev.start();
+		const figures = count('figures');
 		status = 401;
 		await h.dev.pull();
-		expect(h.dev.state()).toBe('empty');
-		expect(count('figures')).toBe(0);
-		expect(readMeta(device).userId).toBeNull();
-		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).toMatchObject({
-			fallback: true
-		});
+		expect(count('figures')).toBe(figures);
+		expect(readMeta(device).userId).toBe('u1');
+		expect(h.dev.summary().signedOut).toBe(true);
 		// Signed in again: the next pull brings the copy back and serves it.
 		status = 200;
 		await h.dev.pull();
@@ -351,26 +372,28 @@ describe('pull', () => {
 });
 
 describe("the page's person", () => {
-	it('signed out (null) wipes the copy and is empty', async () => {
+	it('a signed-out page (null) keeps the copy and is answered nothing', async () => {
 		const h = harness();
 		await h.dev.start();
 		expect(h.dev.state()).toBe('ready');
+		const figures = count('figures');
 		await h.dev.person(null);
 		expect(h.dev.state()).toBe('empty');
-		expect(count('figures')).toBe(0);
-		expect(readMeta(device).userId).toBeNull();
+		expect(count('figures')).toBe(figures);
+		expect(readMeta(device).userId).toBe('u1');
 		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).toMatchObject({
 			fallback: true
 		});
 	});
 
-	it('signed out before the start: the copy is wiped and nothing is pulled', async () => {
+	it('signed out before the start: the copy stays, answers nothing, and nothing is pulled', async () => {
 		await harness().dev.start();
+		const figures = count('figures');
 		const h = harness();
 		await h.dev.person(null);
 		await h.dev.start();
 		expect(h.states()).toEqual(['starting', 'empty']);
-		expect(count('figures')).toBe(0);
+		expect(count('figures')).toBe(figures);
 		expect(h.bodies).toEqual([]);
 	});
 
@@ -513,6 +536,548 @@ describe('answer', () => {
 		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).toMatchObject({
 			fallback: true,
 			reason: 'Error: boom'
+		});
+	});
+});
+
+describe('writes on the device', () => {
+	const S = 2 ** 32;
+	const U1 = {
+		id: 'u1',
+		email: 'u1@x.si',
+		firstName: 'Ana',
+		lastName: null,
+		timezone: 'UTC',
+		isAdmin: false,
+		level: 'all' as const,
+		dance: 'salsa' as const,
+		locale: 'en' as const
+	};
+	const ROUTES = [
+		{ id: '/[dance]/(today)/exercises/[id]', module: exercisePage },
+		{ id: '/[dance]/lessons/[id]', module: lessonPage }
+	];
+	let now = 1_800_000_000_000;
+	let ids = 0;
+
+	beforeEach(() => {
+		installCapture(device);
+		handle.db = drizzle(device, { schema });
+		setIdSlot(5);
+		now = 1_800_000_000_000;
+		ids = 0;
+	});
+	afterEach(() => {
+		setIdSlot(0);
+		handle.db = undefined;
+	});
+
+	async function writer(over: Partial<DeviceDeps> = {}) {
+		const recorded = vi.fn();
+		const h = harness({
+			fetchPull: async (body) => {
+				const res = answerAsServer(body);
+				const json = (await res.json()) as Record<string, unknown>;
+				return Response.json({ ...json, slot: 5 });
+			},
+			startServer: async () => actionRunner(U1, ROUTES),
+			epoch: PAGE_EPOCH,
+			newId: () => `entry-${String(++ids).padStart(4, '0')}`,
+			onRecorded: recorded,
+			now: () => now,
+			...over
+		});
+		await h.dev.start();
+		expect(h.dev.state()).toBe('ready');
+		return { ...h, recorded };
+	}
+
+	const form = (fields: Record<string, string>) =>
+		new TextEncoder().encode(new URLSearchParams(fields).toString()).buffer as ArrayBuffer;
+	const post = (path: string, fields: Record<string, string>, epoch = PAGE_EPOCH): WireRequest => ({
+		url: `https://salsa.test${path}`,
+		method: 'POST',
+		headers: [
+			['content-type', 'application/x-www-form-urlencoded'],
+			['accept', 'application/json'],
+			['x-sveltekit-action', 'true'],
+			['x-page-epoch', String(epoch)]
+		],
+		body: form(fields)
+	});
+	const done = (ex: number, fields: Record<string, string> = {}) =>
+		post(`/salsa/exercises/${ex}?/done`, {
+			exerciseId: String(ex),
+			durationS: '60',
+			rating: '3',
+			note: 'studio',
+			...fields
+		});
+	const entries = () =>
+		device.prepare('SELECT * FROM outbox ORDER BY seq').all() as {
+			id: string;
+			made_at: number;
+			minted_json: string;
+			label_json: string;
+			cls: string;
+		}[];
+	const isFallback = (a: unknown) => !!(a as { fallback?: boolean }).fallback;
+
+	it('answers a log from the device at once and records one entry with its id and made-at', async () => {
+		const { dev, recorded } = await writer();
+		const before = count('sets');
+		const ans = await dev.answer(done(world.own.u1.exercise), 'u1');
+		expect(isFallback(ans)).toBe(false);
+		const res = ans as { status: number; headers: [string, string][] };
+		expect(res.status).toBe(200);
+		expect(res.headers.find(([k]) => k === 'x-salsa-outbox')?.[1]).toBe('1');
+		expect(count('sets')).toBe(before + 1);
+		const [e] = entries();
+		const minted = JSON.parse(e.minted_json) as Record<string, number[]>;
+		expect(minted.sets).toHaveLength(1);
+		expect(Math.floor(minted.sets[0] / S)).toBe(5);
+		expect(device.prepare('SELECT id FROM sets WHERE id = ?').get(minted.sets[0])).toBeTruthy();
+		expect(e.made_at).toBe(now);
+		expect(recorded).toHaveBeenCalledTimes(1);
+	});
+
+	it('online, a refusal on the device goes to the server instead (the copy may be behind)', async () => {
+		const { dev } = await writer();
+		const before = count('sets');
+		const ans = await dev.answer(done(world.own.u1.exercise, { rating: '' }), 'u1');
+		expect(ans).toMatchObject({ fallback: true });
+		expect(entries()).toHaveLength(0);
+		expect(count('sets')).toBe(before);
+	});
+
+	it('a write past its deadline (the service worker has given up) rolls back and falls back', async () => {
+		const { dev } = await writer();
+		const before = count('sets');
+		const late = { ...done(world.own.u1.exercise), deadline: now - 1 };
+		expect(await dev.answer(late, 'u1')).toMatchObject({ fallback: true });
+		expect(entries()).toHaveLength(0);
+		expect(count('sets')).toBe(before);
+		const inTime = { ...done(world.own.u1.exercise), deadline: now + 5000 };
+		expect(isFallback(await dev.answer(inTime, 'u1'))).toBe(false);
+		expect(entries()).toHaveLength(1);
+	});
+
+	it('offline, records nothing and answers the refusal when the action refuses', async () => {
+		let online = true;
+		const { dev } = await writer({ online: () => online });
+		online = false;
+		const before = count('sets');
+		const ans = (await dev.answer(done(world.own.u1.exercise, { rating: '' }), 'u1')) as {
+			status: number;
+			body: ArrayBuffer;
+		};
+		expect(ans.status).toBe(400);
+		expect(JSON.parse(new TextDecoder().decode(ans.body)).type).toBe('failure');
+		expect(entries()).toHaveLength(0);
+		expect(count('sets')).toBe(before);
+	});
+
+	it('falls back and keeps nothing when the action throws', async () => {
+		const ex = world.own.u1.exercise;
+		const { dev } = await writer({
+			startServer: async () => async () => {
+				device
+					.prepare(`INSERT INTO sets (id, exercise_id, done_at, rating) VALUES (?, ?, 1, 3)`)
+					.run(5 * S + 99, ex);
+				throw new Error('boom');
+			}
+		});
+		const before = count('sets');
+		expect(isFallback(await dev.answer(done(ex), 'u1'))).toBe(true);
+		expect(count('sets')).toBe(before);
+		expect(entries()).toHaveLength(0);
+	});
+
+	it("sends a group's row to the network while online, and records it offline", async () => {
+		let online = true;
+		const { dev } = await writer({ online: () => online });
+		const id = world.group.published;
+		const row = getLessonRow(handle.db as Db, id)!;
+		const edit = post(`/salsa/lessons/${id}?/update`, {
+			title: 'Edited on the phone',
+			lessonDay: row.lessonDay,
+			notes: row.notes ?? '',
+			seen: JSON.stringify(lessonSeen(row))
+		});
+		expect(await dev.answer(edit, 'u1')).toMatchObject({ fallback: true, reason: 'group-online' });
+		expect(getLessonRow(handle.db as Db, id)!.title).toBe(row.title);
+		online = false;
+		expect(isFallback(await dev.answer(edit, 'u1'))).toBe(false);
+		expect(entries()).toHaveLength(1);
+	});
+
+	it('falls back for a network-only write, and before the device has a slot', async () => {
+		const { dev } = await writer();
+		expect(
+			isFallback(await dev.answer(post(`/salsa/lessons/${world.own.u1.lesson}?/copyTo`, {}), 'u1'))
+		).toBe(true);
+		device.prepare("DELETE FROM device_meta WHERE key = 'slot'").run();
+		const fresh = await writer({ fetchPull: async (body) => answerAsServer(body) });
+		expect(isFallback(await fresh.dev.answer(done(world.own.u1.exercise), 'u1'))).toBe(true);
+		expect(entries()).toHaveLength(0);
+	});
+
+	it('falls back for a page of another epoch', async () => {
+		const { dev } = await writer();
+		const old = { ...done(world.own.u1.exercise) };
+		old.headers = old.headers.map(([k, v]) =>
+			k === 'x-page-epoch' ? [k, String(PAGE_EPOCH - 1)] : [k, v]
+		);
+		expect(isFallback(await dev.answer(old, 'u1'))).toBe(true);
+		expect(entries()).toHaveLength(0);
+	});
+
+	it('runs a multipart form action on the device', async () => {
+		const { dev } = await writer();
+		const fd = new FormData();
+		const ex = world.own.u1.exercise;
+		for (const [k, v] of Object.entries({
+			exerciseId: String(ex),
+			durationS: '60',
+			rating: '3',
+			note: 'm'
+		})) {
+			fd.set(k, v);
+		}
+		const req = new Request('https://salsa.test/x', { method: 'POST', body: fd });
+		const wire: WireRequest = {
+			url: `https://salsa.test/salsa/exercises/${ex}?/done`,
+			method: 'POST',
+			headers: [
+				['content-type', req.headers.get('content-type')!],
+				['accept', 'application/json'],
+				['x-sveltekit-action', 'true'],
+				['x-page-epoch', String(PAGE_EPOCH)]
+			],
+			body: await req.arrayBuffer()
+		};
+		const ans = await dev.answer(wire, 'u1');
+		expect(isFallback(ans)).toBe(false);
+		expect(entries()).toHaveLength(1);
+	});
+
+	it('runs writes one at a time, their captures apart', async () => {
+		const { dev } = await writer();
+		const ex = world.own.u1.exercise;
+		const lesson = world.own.u1.lesson;
+		const row = getLessonRow(handle.db as Db, lesson)!;
+		const [a, b] = await Promise.all([
+			dev.answer(done(ex), 'u1'),
+			dev.answer(
+				post(`/salsa/lessons/${lesson}?/update`, {
+					title: 'T2',
+					lessonDay: row.lessonDay,
+					notes: ''
+				}),
+				'u1'
+			)
+		]);
+		expect(isFallback(a) || isFallback(b)).toBe(false);
+		const rows = (
+			device.prepare('SELECT rows_json FROM outbox ORDER BY seq').all() as { rows_json: string }[]
+		).map((r) => (JSON.parse(r.rows_json) as { tbl: string }[]).map((x) => x.tbl));
+		expect(rows[0]).toContain('sets');
+		expect(rows[0]).not.toContain('lessons');
+		expect(rows[1]).toContain('lessons');
+		expect(rows[1]).not.toContain('sets');
+	});
+
+	it("labels a log with its drill's name", async () => {
+		const { dev } = await writer();
+		const ex = world.own.u1.exercise;
+		await dev.answer(done(ex), 'u1');
+		const name = (
+			device.prepare('SELECT name FROM exercises WHERE id = ?').get(ex) as { name: string }
+		).name;
+		expect(JSON.parse(entries()[0].label_json)).toEqual({ kind: 'log', thing: name });
+	});
+
+	it('online, a write that changed nothing on the device goes to the network', async () => {
+		const { dev } = await writer({
+			startServer: async () => async () =>
+				Response.json({ type: 'success', status: 200, data: '[null]' })
+		});
+		expect(await dev.answer(done(world.own.u1.exercise), 'u1')).toMatchObject({
+			fallback: true,
+			reason: 'nothing on the device'
+		});
+	});
+
+	describe('sync: push, then pull', () => {
+		type Results = (ids: string[]) => Response | Promise<Response>;
+		function pusher(
+			answer: Results = (ids) =>
+				Response.json({ slot: 5, results: ids.map((id) => ({ id, state: 'landed' })) })
+		) {
+			const pushes: string[][] = [];
+			const fetchPush = async (body: string) => {
+				const ids = (JSON.parse(body) as { entries: { id: string }[] }).entries.map((e) => e.id);
+				pushes.push(ids);
+				return answer(ids);
+			};
+			return { pushes, fetchPush };
+		}
+		const waiting = () =>
+			device.prepare('SELECT id, state, held_by AS heldBy FROM outbox ORDER BY seq').all() as {
+				id: string;
+				state: string;
+				heldBy: string | null;
+			}[];
+		const meta = (key: string) =>
+			(
+				device.prepare('SELECT value FROM device_meta WHERE key = ?').get(key) as
+					{ value: string } | undefined
+			)?.value;
+		const lessonEdit = (title: string) => {
+			const row = getLessonRow(handle.db as Db, world.own.u1.lesson)!;
+			return post(`/salsa/lessons/${world.own.u1.lesson}?/update`, {
+				title,
+				lessonDay: row.lessonDay,
+				notes: ''
+			});
+		};
+
+		it('pushes waiting entries, then pulls', async () => {
+			const { pushes, fetchPush } = pusher();
+			const { dev, bodies } = await writer({ fetchPush });
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			const [e] = entries();
+			const pullsBefore = bodies.length;
+			expect(await dev.sync()).toBe('synced');
+			expect(pushes).toEqual([[e.id]]);
+			expect(bodies.length).toBe(pullsBefore + 1);
+			expect(entries()).toHaveLength(0);
+			expect(Number(meta('lastSyncedAt'))).toBe(now);
+		});
+
+		it('never pulls while an entry waits', async () => {
+			const { fetchPush } = pusher((ids) =>
+				Response.json({ slot: 5, results: ids.map((id) => ({ id, state: 'deferred' })) })
+			);
+			const { dev, bodies } = await writer({ fetchPush });
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			const pullsBefore = bodies.length;
+			expect(await dev.sync()).toBe('waiting');
+			expect(bodies.length).toBe(pullsBefore);
+			expect(waiting().map((r) => r.state)).toEqual(['waiting']);
+		});
+
+		it('drops a pull answer when a write was recorded meanwhile', async () => {
+			const ref: { dev?: Awaited<ReturnType<typeof writer>>['dev'] } = {};
+			let writeDuringPull = false;
+			const { pushes, fetchPush } = pusher((ids) =>
+				Response.json({ slot: 5, results: ids.map((id) => ({ id, state: 'deferred' })) })
+			);
+			const h = await writer({
+				fetchPush,
+				fetchPull: async (body) => {
+					if (writeDuringPull) {
+						writeDuringPull = false;
+						await ref.dev!.answer(done(world.own.u1.exercise), 'u1');
+					}
+					const res = answerAsServer(body);
+					const json = (await res.json()) as Record<string, unknown>;
+					return Response.json({ ...json, slot: 5 });
+				}
+			});
+			ref.dev = h.dev;
+			writeDuringPull = true;
+			await h.dev.sync();
+			const [e] = entries();
+			const minted = (JSON.parse(e.minted_json) as { sets: number[] }).sets[0];
+			expect(device.prepare('SELECT id FROM sets WHERE id = ?').get(minted)).toBeTruthy();
+			expect(pushes).toEqual([[e.id]]);
+		});
+
+		it("a failed push's reset is never undone by a write rolling back meanwhile", async () => {
+			let blocking = false;
+			let release: () => void = () => {};
+			let entered: () => void = () => {};
+			const inside = new Promise<void>((r) => (entered = r));
+			let failPush: () => void = () => {};
+			let pushing: () => void = () => {};
+			const pushStarted = new Promise<void>((r) => (pushing = r));
+			const run = actionRunner(U1, ROUTES);
+			const { dev } = await writer({
+				startServer: async () => async (req: Request) => {
+					if (!blocking) return run(req);
+					entered();
+					await new Promise<void>((r) => (release = r));
+					return new Response('boom', { status: 500 });
+				},
+				fetchPush: () =>
+					new Promise<Response>((_, reject) => {
+						failPush = () => reject(new Error('offline'));
+						pushing();
+					})
+			});
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			const synced = dev.sync();
+			await pushStarted;
+			blocking = true;
+			const blocked = dev.answer(done(world.own.u1.exercise), 'u1');
+			await inside;
+			failPush();
+			await new Promise((r) => setTimeout(r, 20));
+			release();
+			await blocked;
+			await synced;
+			expect(waiting().map((r) => r.state)).toEqual(['waiting']);
+		});
+
+		it('keeps the copy and the outbox on a 401, and says sign in', async () => {
+			const { fetchPush } = pusher(() => new Response('Sign in', { status: 401 }));
+			const { dev } = await writer({ fetchPush });
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			const sets = count('sets');
+			expect(await dev.sync()).toBe('signed-out');
+			expect(dev.summary()).toMatchObject({ signedOut: true, waiting: 1 });
+			expect(count('sets')).toBe(sets);
+			const pull401 = await writer({ fetchPull: async () => new Response('x', { status: 401 }) });
+			await pull401.dev.sync();
+			expect(count('sets')).toBeGreaterThan(0);
+			expect(meta('signedOut')).toBe('1');
+		});
+
+		it("names the copy's person on every push, and a 409 (another person signed in) keeps the entries", async () => {
+			const users: string[] = [];
+			const { dev } = await writer({
+				fetchPush: async (body: string) => {
+					users.push((JSON.parse(body) as { user: string }).user);
+					return Response.json({ message: 'Not yours' }, { status: 409 });
+				}
+			});
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			expect(await dev.sync()).toBe('signed-out');
+			expect(users).toEqual(['u1']);
+			expect(dev.summary()).toMatchObject({ signedOut: true, waiting: 1 });
+		});
+
+		it('a signed-out page never wipes the copy', async () => {
+			const { dev } = await writer();
+			const sets = count('sets');
+			await dev.person(null);
+			expect(count('sets')).toBe(sets);
+			expect(readMeta(device).userId).toBe('u1');
+			expect(dev.state()).not.toBe('ready');
+		});
+
+		it("another person gets an empty copy; the first person's entries wait for them", async () => {
+			let who = 'u1';
+			const { dev } = await writer({
+				fetchPush: async () => {
+					throw new Error('offline');
+				},
+				fetchPull: async (body) => {
+					const json = (await answerAsServer(body, who).json()) as Record<string, unknown>;
+					return Response.json({ ...json, slot: 5 });
+				}
+			});
+			who = 'u4';
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			await dev.person('u4');
+			expect(readMeta(device).userId).toBe('u4');
+			expect(
+				(
+					device.prepare("SELECT count(*) AS n FROM outbox WHERE user_id = 'u1'").get() as {
+						n: number;
+					}
+				).n
+			).toBe(1);
+			expect(dev.summary().waiting).toBe(0);
+		});
+
+		it("forget wipes the copy and that person's entries", async () => {
+			const { dev } = await writer({
+				fetchPush: async () => {
+					throw new Error('offline');
+				}
+			});
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			await dev.forget();
+			expect(entries()).toHaveLength(0);
+			expect(count('sets')).toBe(0);
+			expect(dev.state()).toBe('empty');
+		});
+
+		it('a refused entry stays, and what depends on it is held and never sent', async () => {
+			let first = true;
+			const { pushes, fetchPush } = pusher((ids) => {
+				if (!first)
+					return Response.json({ slot: 5, results: ids.map((id) => ({ id, state: 'landed' })) });
+				first = false;
+				return Response.json({
+					slot: 5,
+					results: [
+						{
+							id: ids[0],
+							state: 'refused',
+							reason: 'gone',
+							message: 'Gone',
+							clash: null,
+							gone: null
+						},
+						...ids.slice(1).map((id) => ({ id, state: 'held', heldBy: ids[0] }))
+					]
+				});
+			});
+			const { dev } = await writer({ fetchPush });
+			await dev.answer(lessonEdit('One'), 'u1');
+			await dev.answer(lessonEdit('Two'), 'u1');
+			await dev.sync();
+			await dev.sync();
+			expect(pushes).toHaveLength(1);
+			expect(waiting().map((r) => r.state)).toEqual(['refused', 'held']);
+			expect(dev.summary()).toMatchObject({ refused: 1, held: 1, waiting: 0 });
+		});
+
+		it('a lost answer resends the same entry ids', async () => {
+			let lose = true;
+			const { pushes, fetchPush } = pusher((ids) => {
+				if (lose) {
+					lose = false;
+					throw new Error('the answer was lost');
+				}
+				return Response.json({ slot: 5, results: ids.map((id) => ({ id, state: 'landed' })) });
+			});
+			const { dev } = await writer({ fetchPush });
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			expect(await dev.sync()).toBe('offline');
+			expect(waiting().map((r) => r.state)).toEqual(['waiting']);
+			await dev.sync();
+			expect(pushes).toHaveLength(2);
+			expect(pushes[1]).toEqual(pushes[0]);
+		});
+
+		it('retry resends; discard removes and pulls', async () => {
+			let refuse = true;
+			const { pushes, fetchPush } = pusher((ids) =>
+				Response.json({
+					slot: 5,
+					results: ids.map((id) =>
+						refuse
+							? { id, state: 'refused', reason: 'refused', message: 'No', clash: null, gone: null }
+							: { id, state: 'landed' }
+					)
+				})
+			);
+			const { dev, bodies } = await writer({ fetchPush });
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			await dev.sync();
+			const [e] = entries();
+			expect(await dev.retry(e.id)).toBe(1);
+			await dev.sync();
+			expect(pushes).toEqual([[e.id], [e.id]]);
+			const before = bodies.length;
+			expect(await dev.discard(e.id)).toBe(1);
+			expect(entries()).toHaveLength(0);
+			expect(bodies.length).toBeGreaterThan(before);
+			refuse = false;
 		});
 	});
 });

@@ -22,6 +22,7 @@ import { routine } from './routine';
 import { settings } from './settings';
 import { shell } from './shell';
 import { songs } from './songs';
+import { sync } from './sync';
 import { today } from './today';
 import { video } from './video';
 
@@ -49,5 +50,6 @@ export const en = {
 	links,
 	clones,
 	refusals,
-	map
+	map,
+	sync
 };

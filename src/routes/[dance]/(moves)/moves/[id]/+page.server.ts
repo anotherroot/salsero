@@ -1,4 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { replayName } from '$lib/server/replay-context';
 import { getDb } from '$lib/server/db';
 import { requireMoveAccess, wallOf } from '$lib/server/scope';
 import { groupModeFor } from '$lib/server/group-mode';
@@ -111,7 +112,7 @@ export const actions: Actions = {
 		const { move, space } = requireMoveAccess(db, locals, params, params.id, 'edit');
 		const form = await request.formData();
 		const typed = String(form.get('name') ?? '');
-		const name = text(form, 'name');
+		let name = text(form, 'name');
 		if (!name) {
 			return fail(400, {
 				action: 'rename' as const,
@@ -122,13 +123,14 @@ export const actions: Actions = {
 		}
 		const clash = seenRefusal(
 			form,
-			move.teamId !== null,
+			{ team: move.teamId !== null, copies: false },
 			moveSeen(db, move.id),
 			{ action: 'rename' as const },
 			serverNow(),
 			() => editedBy(db, move.teamId, 'figure', move.id)
 		);
 		if (clash) return clash;
+		if (name) name = replayName(name, (n) => figureNameTaken(db, space, n, move.id));
 		if (figureNameTaken(db, space, name, move.id)) {
 			return fail(400, {
 				action: 'rename' as const,
@@ -154,7 +156,7 @@ export const actions: Actions = {
 		const { move, space } = requireMoveAccess(db, locals, params, params.id, 'edit');
 		const form = await request.formData();
 		const typed = String(form.get('name') ?? '');
-		const name = text(form, 'name');
+		let name = text(form, 'name');
 		if (!name) {
 			return fail(400, {
 				action: 'createFigure' as const,
@@ -163,6 +165,7 @@ export const actions: Actions = {
 				name: typed
 			});
 		}
+		name = replayName(name, (n) => variationNameTaken(db, move.id, n, null));
 		if (variationNameTaken(db, move.id, name, null)) {
 			return fail(400, {
 				action: 'createFigure' as const,

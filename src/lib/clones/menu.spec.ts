@@ -67,6 +67,23 @@ describe('cloneMenuItems', () => {
 	});
 });
 
+describe('the copy actions offline', () => {
+	it('marks Sync, Copy to, Move to, Detach and Drop as needing a connection', () => {
+		const items = cloneMenuItems(
+			{ sync: SYNC, copy: COPY, sameAs: TWIN, move: MOVE, detach: DETACH, drop: DROP },
+			() => {}
+		);
+		expect(items.filter((i) => i.network).map((i) => i.key)).toEqual([
+			'sync',
+			'copy',
+			'move',
+			'detach',
+			'drop'
+		]);
+		expect(items.find((i) => i.key === 'sameAs')?.network).toBeUndefined();
+	});
+});
+
 describe('hasMenu', () => {
 	it('is true with an own item or any offer, false with neither', () => {
 		expect(hasMenu([], {})).toBe(false);

@@ -578,6 +578,11 @@ a[href]:active {
 	}
 }
 
+/* An action that needs a connection, while offline (use:needsConnection, offline phase 3): greyed, never recoloured. */
+[data-offline] {
+	opacity: 0.4;
+}
+
 /*
  * The phone band folding into the slim one, run by the scroll itself
  * (`components/shell/band-collapse.ts` sets `data-fold`, the end values and the

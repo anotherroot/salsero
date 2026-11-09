@@ -1,7 +1,8 @@
 # The offline walk
 
-Proves in a real browser that every page renders from the device's copy (offline phase 2), and is the
-gate for shipping it. Two scripts:
+Proves in a real browser that every page renders from the device's copy (offline phase 2) and that
+changes made offline land on the server once, dated and with their ids (phase 3), and is the gate for
+shipping it. Two scripts:
 
     scripts/offline/serve.sh <db-copy>               # SKIP_BUILD=1 serves the build already in build/
     scripts/offline/walk.py <port> <upstream> <db>   # run under the Playwright command below
@@ -32,14 +33,30 @@ values to the walk.
 3. **Offline, client navigation.** From `/{dance}` with a fresh trail, taps each tab of the tab bar, then
    the first row of its list, with the same checks.
 4. **Offline, a write.** Today's first exercise: its page, Done, a note typed into the Done sheet and a face
-   (the face is the send; a fixed rhythm's Done saves at once, with no sheet). The `salsa:needs-connection`
-   toast shows and is the only message (no "It did not save" of the page's own), the page stays, the sheet
-   stays open with the note, the server's copy has no new `sets` row and the device answers that exercise's
-   data as before.
+   (the face is the send). It saves on the device: the sheet closes, no `salsa:needs-connection`, the
+   server's copy has no new `sets` row yet, the device answers that exercise's data with the log, one change
+   waits (`window.__device.outbox`; its `oldestWaitingAt` is the made-at checked in 8), and after the 2 s
+   grace the band says "N waiting".
 5. **Offline, a network page.** A group lesson's History (`/{dance}/groups/<id>/history/lesson/<id>`: the
    app has no `/groups/<id>/history` page) shows the offline error page, not an empty History.
 6. **Back online.** Renames a figure through its Edit form, waits for the device's next pull
-   (`window.__device.pulls`), then offline again the figure page shows the new name.
+   (`window.__device.pulls`), then offline again the figure page shows the new name. (Coming online sends
+   4's log up too.)
+7. **Offline, an edit.** Renames the figure again on the device: its page shows the name, and it waits.
+8. **Online again.** Back online (both switches, and an `online` event): the outbox drains with nothing
+   refused; the server has exactly one `sets` row with an id from the device's slot (≥ 2³²), its `done_at`
+   within 1 s of 4's made-at, and the offline name; the band says nothing.
+9. **Once.** 8's "exactly one" row is the check that nothing landed twice.
+10. **Refused.** Offline, a note on the figure; the walk archives the figure in the server's db; online,
+    the change is refused: the band's pill "1 couldn't sync ›" opens the Sync page, which says why ("It was
+    archived or deleted meanwhile."); Discard (asked in its dialog) leaves "Everything is synced.". The
+    walk then un-archives the figure.
+11. **Online, no nag.** A log made online never shows "waiting" over 2 s, and lands.
+12. **Needs a connection.** Offline, the figure's ⋯: with a group's Copy to, it is greyed under one note;
+    without one (nothing of its own needs a connection), no note. Settings' Storage is greyed
+    (`data-offline`) and a tap says so (`salsa:needs-connection`) and stays on Settings.
+
+The walk writes to the server's copy (10's archive), so run it on a fresh `serve.sh` each time.
 
 **Offline is two switches.** `context.set_offline(True)` (the page's `navigator.onLine`), and the walk's own
 network: a TCP relay on `port` to `upstream` that, switched off, resets every open connection and every new

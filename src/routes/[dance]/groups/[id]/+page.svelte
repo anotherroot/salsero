@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { connection } from '$lib/offline/connection.svelte';
+	import { needsConnection } from '$lib/offline/needs-connection-action';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -265,6 +267,7 @@
 {#snippet space()}
 	{#if data.storage}
 		<a
+			use:needsConnection={connection.online}
 			href={resolve('/[dance]/groups/[id]/storage', {
 				dance: data.dance.slug,
 				id: String(data.team.id)
@@ -382,6 +385,7 @@
 <Sheet title={data.team.name} open={menu} onclose={() => (menu = false)} size="small">
 	<div class={GROUP}>
 		<a
+			use:needsConnection={connection.online}
 			href={resolve('/[dance]/groups/[id]/people', {
 				dance: data.dance.slug,
 				id: String(data.team.id)
@@ -393,6 +397,7 @@
 		</a>
 		{#if menuItems.includes('deleted')}
 			<a
+				use:needsConnection={connection.online}
 				href={resolve('/[dance]/groups/[id]/deleted', {
 					dance: data.dance.slug,
 					id: String(data.team.id)
@@ -623,7 +628,7 @@
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = false)}
 			>{t().common.cancel}</button
 		>
-		<form method="POST" action="?/delete" use:enhance>
+		<form method="POST" action="?/delete" use:enhance use:needsConnection={connection.online}>
 			<button type="submit" class={button('danger', 'sm')}>{w.deleteGroup}</button>
 		</form>
 	{/snippet}

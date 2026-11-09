@@ -25,6 +25,10 @@ export type DeviceMeta = {
 	cookies: Record<string, string>;
 	/** The next pull must replace every table: nothing pulled yet, or the schema just changed. */
 	full: boolean;
+	/** This browser database's key (offline phase 3): kept through a wipe. */
+	deviceKey: string | null;
+	/** Its id slot, from the server; kept through a wipe. */
+	slot: number | null;
 };
 
 const BREAKPOINT = '--> statement-breakpoint';
@@ -41,7 +45,9 @@ export function readMeta(db: SqliteDb): DeviceMeta {
 		schema: m.get('schema') ?? null,
 		cookies: m.has('cookies') ? (JSON.parse(m.get('cookies')!) as Record<string, string>) : {},
 		// A copy that was never pulled, or was wiped, has nothing to be incremental over.
-		full: m.has('full') ? m.get('full') === '1' : true
+		full: m.has('full') ? m.get('full') === '1' : true,
+		deviceKey: m.get('deviceKey') ?? null,
+		slot: m.has('slot') ? Number(m.get('slot')) : null
 	};
 }
 

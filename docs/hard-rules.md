@@ -24,8 +24,11 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   insert into an id table, and no migration insert without `id`. A new
   integer-id table gets `mintedId` and a mark trigger (as in migration 0038).
   `ids.spec.ts` checks all of it.
-  The one exception is `change_log.seq`: a log, never synced, each database
-  keeps its own.
+  The exceptions: `change_log.seq` (a log, never synced, each database keeps
+  its own); `device_slots.slot` (a slot handed out by `slotFor`, not a row
+  id); and the device-only `outbox`, `capture_rows` and `outbox_capture`
+  (local bookkeeping outside `schema.ts`, made by `installCapture`; the
+  server never sees their keys).
 - **Server code reads the time through `serverNow()`**
   (`src/lib/server/server-clock.ts`), never `Date.now()` or `new Date()`:
   offline replay will set it to when a change was made.
@@ -48,13 +51,46 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   device answers it only when synced rows can (`DEVICE_ENDPOINTS`), otherwise
   `NETWORK_ENDPOINTS`; a page that needs the server's own state goes in
   `NETWORK_PAGES`. `routes.spec.ts` fails on an unclassified one.
-- **The device answers only when the network fails, and only GETs** (until
-  phase 3). Online every request reaches the server first, as without a
-  service worker; after a save, a page's reads wait for the network until
-  the device has pulled it (`DeviceClients` in `sw-route.ts`). A write
-  offline gets "Needs a connection" and changes nothing. Server code never
-  reads the request store across an await (`getRequestEvent`, `$app/server`):
-  the device's `AsyncLocalStorage` is a stub.
+- **Writes run on the device first** (offline phase 3). Every form action
+  and endpoint write is classified in `src/lib/offline/routes.ts`
+  (`ACTIONS`, `ENDPOINT_WRITES`: `device`, `queued`, `network`, or `pass`
+  for the sync itself and uploads); `routes.spec.ts` fails on an
+  unclassified one. A `device` or `queued` write runs on the device, online
+  or offline, lands in its outbox and replays through `/api/sync/push`; a
+  `network` one goes to the server, and offline says "Needs a connection".
+  A write that touched a group's row (or one whose owner the copy cannot
+  tell) goes to the server while online, so its clash shows in place.
+  Device-first needs a ready device with a slot, the page's person and the
+  page's `PAGE_EPOCH`; otherwise the write goes to the network as in phase 2.
+  Reads come from the device while entries wait, so a page never shows the
+  server's older state over a change it made. GETs the device answers only
+  when the network fails, as before. Server code never reads the request
+  store across an await (`getRequestEvent`, `$app/server`): the device's
+  `AsyncLocalStorage` is a stub.
+- **A cookie-setting action is network-only** (Settings' theme and
+  language): a service worker's answer cannot set the
+  browser's cookie. So is Sign out (`/logout` must reach the server), and the
+  media writes wait for phase 4.
+- **Replay reads the entry.** On `/api/sync/push` each entry runs as the
+  original request inside a replay context (`src/lib/server/replay-context.ts`):
+  `serverNow()` is the entry's made-at and `mintId` hands out the ids the
+  device minted, so rows land dated when they were made and with their
+  device ids. Own rows skip `seenRefusal` on replay (`SeenRule` in
+  `src/lib/server/clash.ts`) and merge per field, later change wins
+  (`src/lib/server/sync/merge.ts`); group rows keep the clash check. Flows
+  (`flowAfter`) are deferred until after the merge. Names on create and
+  rename paths go through `replayName` (a taken name gets a suffix instead
+  of a refusal), and a new uniqueness check must too. One transaction per
+  entry; `sync_landed` makes a resend a no-op.
+- **The write gate.** Every non-GET request holds `writeGate`
+  (`src/lib/server/sync/gate.ts`) shared, and a replay holds it alone: on
+  the one better-sqlite3 connection another request's write would otherwise
+  join the replay's transaction. An upload holds it only around its db
+  write.
+- **The copy goes only through the app's own Sign out,** and only after it
+  asks when changes have not synced (`unsyncedBeforeSignOut`). An expired
+  session (a 401 on push or pull) keeps the copy and its outbox: "Sign in to
+  sync".
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
   while a live exercise uses it, archived ones lose `song_id`; a group song's
@@ -182,7 +218,7 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   removed row's focus would fall to `<body>`.
 - **A refresh after a sheet or the player closes goes through `refreshWhenSettled()`.**
   SvelteKit drops a reload that a popstate overtakes, and a close's Back is one.
-- **Raise PAGE_EPOCH (src/lib/page-epoch.ts) in the commit that breaks older open pages** — a changed form field, action or API shape they would still send. Open pages then reload instead of failing.
+- **Raise PAGE_EPOCH (src/lib/epoch.ts, re-exported by page-epoch.ts) in the commit that breaks older open pages** — a changed form field, action or API shape they would still send. Open pages then reload instead of failing.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **The AI connector's endpoints answer for themselves** (`csrf.ts`
