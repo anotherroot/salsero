@@ -4,6 +4,7 @@ import { getDb } from '$lib/server/db';
 import { songGrid } from '$lib/server/grid';
 import { requireSongAccess } from '$lib/server/scope';
 import { musicStart } from '$lib/songs/music-start';
+import { parseSections } from '$lib/songs/sections';
 import type { SongGrid } from '$lib/types';
 import type { RequestHandler } from './$types';
 
@@ -18,6 +19,11 @@ export const GET: RequestHandler = ({ params, locals }) => {
 	if (song.status !== 'ready' || !song.audioFile) {
 		throw error(404, t().refusals.noAnalysedSong);
 	}
-	const body: SongGrid = { audioFile: song.audioFile, ...songGrid(song), startS: musicStart(song) };
+	const body: SongGrid = {
+		audioFile: song.audioFile,
+		...songGrid(song),
+		startS: musicStart(song),
+		sections: parseSections(song.sectionsJson)
+	};
 	return json(body);
 };

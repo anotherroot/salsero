@@ -9,7 +9,8 @@ export const shell: Catalog['shell'] = {
 		groups: 'Skupine',
 		music: 'Glasba',
 		myClass: 'Moj tečaj',
-		you: 'Jaz'
+		you: 'Jaz',
+		musicToPick: (label) => `${label}, seznam čaka na izbiro`
 	},
 	mainNav: 'Glavno',
 	mine: 'Moje',

@@ -509,7 +509,7 @@ whole-page offline screen.
 2. **The device's copy, read only:** the server's change log, pull, the
    local runtime and the service worker. The app opens and reads offline;
    changes still need signal.
-   Built 2026-11-08 (migrations 0040–0041, plan
+   Built 2026-11-08 (migrations 0041–0042, plan
    `docs/superpowers/plans/2026-11-08-offline-phase-2-read-only-copy.md`):
    every page opens offline from the device in the walk
    (`scripts/offline/`), and pages open no slower online. Song audio and

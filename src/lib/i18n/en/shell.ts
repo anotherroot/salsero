@@ -11,7 +11,9 @@ export const shell = {
 		/** Groups at Follow my class. */
 		myClass: 'My class',
 		/** Above Follow my class the Groups tab (the groups, then the settings); at Follow my class its own tab (the settings). */
-		you: 'You'
+		you: 'You',
+		/** The Music tab's name while a playlist waits to be picked (its dot). */
+		musicToPick: (label: string): string => `${label}, a playlist to pick`
 	},
 	/** The main nav's name (the tab bar, the side). */
 	mainNav: 'Main',

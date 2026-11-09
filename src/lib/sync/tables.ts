@@ -58,5 +58,7 @@ export const NEVER_SYNCED: readonly string[] = [
 	'app_flags',
 	'id_marks',
 	'clone_marks',
-	'change_log'
+	'change_log',
+	// The home worker's playlist queue (worker state): Music's "To pick" waits for the network.
+	'song_imports'
 ];

@@ -2,6 +2,15 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
 	import { clock } from '$lib/format';
+	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+	import { CLAVE_NAME, type ClavePattern } from '$lib/labels';
+	import {
+		aheadLine,
+		aheadOf,
+		sectionIndexAt,
+		sectionName,
+		type Placed
+	} from '$lib/songs/sections';
 	import type { CountPattern, Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
@@ -28,6 +37,7 @@
 	import { CLIP, button, iconButton } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 	import { RUN_STOP as STOP } from './styles';
+	import ClaveChips from './ClaveChips.svelte';
 	import CountChips from './CountChips.svelte';
 	import DetailsBody from './DetailsBody.svelte';
 	import RunLayer from './RunLayer.svelte';
@@ -64,6 +74,11 @@
 		figureDetails: Record<number, RunDetails>;
 		/** The routine's own notes, over its full-screen list. */
 		routineNotes: string | null;
+		/** The song's sections, placed on its 1s: the band names the one playing and the next. */
+		sections: Placed[];
+		/** The clave in force, changed from the Voice layer. Owned by the page. */
+		clave: ClavePattern | null;
+		onclave: (clave: ClavePattern | null) => void;
 		song: { id: number; title: string; audioFile: string | null } | null;
 		/** The song's `<audio>` element, rendered by the page so it exists before Play is pressed. */
 		audio: HTMLAudioElement | undefined;
@@ -104,6 +119,9 @@
 		details,
 		figureDetails,
 		routineNotes,
+		sections,
+		clave,
+		onclave,
 		song,
 		audio,
 		speed,
@@ -138,6 +156,19 @@
 	});
 
 	const w = $derived(t().player);
+
+	/* A song's sections: the one playing (a count-off one is quiet) and what comes next. */
+	const sectionBeat = $derived(sections.length > 0 ? beatIndexAt(beats, elapsed) : -1);
+	const sectionNow = $derived(
+		sections.length > 0 ? (sections[sectionIndexAt(sections, sectionBeat)] ?? null) : null
+	);
+	/** The count-off sections' spans: the count shows a dash there, its dots all alike. */
+	const quietSpans = $derived(
+		sections.flatMap((s, k) =>
+			s.countOff ? [{ from: s.t, to: sections[k + 1]?.t ?? Infinity }] : []
+		)
+	);
+	const sectionNext = $derived(sections.length > 0 ? aheadOf(sections, counts, sectionBeat) : null);
 	const follow = $derived(view === 'follow');
 	/**
 	 * The slot lit, in Follow only. Before the first figure starts it is the first
@@ -331,7 +362,7 @@
 		<div
 			class="run-stage mt-2 flex min-h-0 flex-1 flex-col items-center gap-2.5 desk:absolute desk:top-(--band-row-h) desk:right-[520px] desk:bottom-0 desk:left-0 desk:mt-0 desk:justify-center-safe desk:gap-[22px] desk:px-8 desk:pb-10"
 		>
-			<StageCount time={() => player.songTime()} {beats} {counts} {paused} />
+			<StageCount time={() => player.songTime()} {beats} {counts} {paused} quiet={quietSpans} />
 			{#if lit !== null}
 				<!-- 32 px, a little less under 390 px wide: a long name stays two whole lines at 360. -->
 				<p
@@ -346,6 +377,23 @@
 				>
 					{nextName ? w.next(nextName) : ''}
 				</p>
+			{/if}
+			{#if sections.length > 0}
+				<!-- The song's section: its name (quiet: no count), and the next one coming. -->
+				<div class="flex flex-none flex-col items-center gap-1" aria-live="polite">
+					<span
+						class="inline-flex h-[30px] items-center gap-1.5 rounded-full bg-band-ink/15 px-3.5 text-[15px] font-extrabold text-band-ink desk:h-9 desk:text-[17px]"
+					>
+						{#if sectionNow?.countOff}<Icon name="mute" size={16} />{/if}
+						{sectionNow ? sectionName(sectionNow) : '–'}
+						{#if sectionNow?.countOff}<span class="font-semibold text-band-small"
+								>· {t().songs.page.listen.countOff}</span
+							>{/if}
+					</span>
+					<span class="min-h-[1.3em] text-[13px] font-semibold text-band-small desk:text-[15px]"
+						>{sectionNext ? aheadLine(sectionNext) : ''}</span
+					>
+				</div>
 			{/if}
 			{#if paused}
 				<span
@@ -395,6 +443,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
@@ -413,6 +462,14 @@
 							scroll={false}
 						/>
 					</div>
+					{#if dance.clave}
+						<div class="flex flex-col gap-1.5 border-t border-hairline px-3 py-2.5">
+							<span class="px-1 text-[13px] font-bold text-muted" aria-hidden="true"
+								>{CLAVE_NAME}</span
+							>
+							<ClaveChips label={CLAVE_NAME} value={clave} onchange={onclave} name="runClave" />
+						</div>
+					{/if}
 					<div class="border-t border-hairline px-4 py-1">
 						<Slider
 							label={t().exercise.panel.voiceVolume}
@@ -434,6 +491,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
@@ -449,6 +507,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeFull}
 			onclose={closeLayer}
 		>
@@ -522,6 +581,7 @@
 			{beats}
 			{counts}
 			{paused}
+			quiet={quietSpans}
 			closeLabel={w.closeLayer}
 			onclose={closeFigure}
 		>

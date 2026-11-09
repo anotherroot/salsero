@@ -3,8 +3,9 @@
 import logging
 import os
 import sys
+import time
 
-from . import jobs, media
+from . import jobs, media, spotify
 from .api import Api
 
 
@@ -23,10 +24,14 @@ def main() -> int:
         duration_of=media.duration_of,
         analyze=media.Analyzer(checkpoint),
         music_start=media.music_start_of,
+        search=media.search_youtube,
+        read_track=spotify.read_track,
+        pause=lambda: time.sleep(4),
     )
     video_tools = jobs.VideoTools(fetch_video=media.fetch_video, to_mp4=media.to_mp4)
+    import_tools = jobs.ImportTools(read_spotify=spotify.read_list, read_youtube=media.read_youtube_list)
     try:
-        n = jobs.run(api, tools, video_tools=video_tools)
+        n = jobs.run(api, tools, video_tools=video_tools, import_tools=import_tools)
     except Exception as e:  # server unreachable, laptop offline, token refused: the next tick tries again
         logging.exception("worker run failed: %s", e)
         return 1

@@ -12,7 +12,8 @@ import {
 	setSections,
 	songSample,
 	setTempoFactor,
-	updateSongMeta
+	updateSongMeta,
+	useAudioUrl
 } from '$lib/server/songs';
 import {
 	addSectionAt,
@@ -48,7 +49,9 @@ import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { songSeen, seenRefusal } from '$lib/server/clash';
 import { flowing, idParam } from '$lib/server/clones/flow-hook';
+import { isYouTubeVideo } from '$lib/songs/source';
 import { hasCopies } from '$lib/server/clones/genes';
+import { audioReach } from '$lib/server/clones/audio-reach';
 import { editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import {
@@ -170,6 +173,9 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 			artist: song.artist,
 			style: song.style,
 			sourceUrl: song.sourceUrl,
+			audioUrl: song.audioUrl,
+			fetchedUrl: song.fetchedUrl,
+			fetchedTitle: song.fetchedTitle,
 			status: song.status,
 			error: song.error,
 			audioFile: song.audioFile,
@@ -179,6 +185,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		},
 		/** Taps, the count speed, the sample and the details: the owner's or an editor's. */
 		canEdit,
+		/** How many copies kept in step new audio would reach (the question before a swap). */
+		copiesInStep: canEdit && song.sourceUrl ? audioReach(db, wall.userId, song.id) : 0,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
 		/** Copies you can see, for the Versions list (`clones/send.ts`). */
@@ -484,6 +492,32 @@ export const actions: Actions = flowing('song', (e) => idParam(e.params.id), {
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		if (!style) return fail(400, { message: t().songs.page.pickStyle, ...sent });
 		updateSongMeta(db, song.id, { title, artist, style }, space, now);
+		return { ok: true };
+	},
+
+	/** Use another YouTube link: the song downloads again from it (and its copies kept in step). */
+	audio: async (event) => {
+		// Every refusal, the clash check's too, names the field: Song details shows it there.
+		const sentOf = (form: FormData) => ({
+			field: 'audioUrl' as const,
+			audioUrl: String(form.get('audioUrl') ?? '')
+		});
+		const { db, song, space, form, now, refused } = await editing(event, sentOf);
+		if (refused) return refused;
+		const words = t().songs.audio;
+		const { audioUrl: typed } = sentOf(form);
+		const audioUrl = typed.trim();
+		const refuse = (status: number, message: string) =>
+			fail(status, { field: 'audioUrl' as const, message, audioUrl });
+		if (!isYouTubeVideo(audioUrl)) return refuse(400, words.notYouTube);
+		// A download, like a retry: refused at or over its owner's limit.
+		const room = roomForOwner(db, ownerOfRow(song), 1, Number.POSITIVE_INFINITY);
+		if (!room.ok) return refuse(413, room.message);
+		const done = useAudioUrl(db, song.id, audioUrl, space, now);
+		if (!done.ok) {
+			if (done.reason === 'missing') throw error(404, t().refusals.songNotFound);
+			return refuse(409, done.reason === 'busy' ? words.busy : words.upload);
+		}
 		return { ok: true };
 	},
 

@@ -50,7 +50,7 @@
  */
 import type { Flat, FlatField, MergeRow, MergeValue, PairBase, SyncSettings } from '$lib/types';
 import { compareKeys, isCopySuffix, NAME_KEYS, skipped, sortKey, type Hash } from './diff';
-import { pieceParts } from './flat';
+import { boundAcross, pieceParts } from './flat';
 import { classOf } from './sync';
 
 export type MergeMember = { id: number; flat: Flat };
@@ -94,7 +94,10 @@ export function mergeRows(
 		for (const key of Object.keys(m.flat)) if (!Object.hasOwn(union, key)) union[key] = m.flat[key];
 
 	const found: MergeRow[] = [];
+	const flats = members.map((m) => m.flat);
 	for (const key of Object.keys(union)) {
+		// The 1s of one recording mean nothing on another.
+		if (boundAcross(key, flats)) continue;
 		const now = new Map<number, string | null>();
 		const byHash = new Map<string | null, MergeValue>();
 		for (const m of members) {

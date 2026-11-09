@@ -26,6 +26,12 @@ export const TEMPO_LABEL: Record<TempoFactor, string> = { 0.5: '×½', 1: '×1',
 export const SONG_STATUSES = ['waiting_download', 'waiting_analysis', 'ready', 'failed'] as const;
 export type SongStatus = (typeof SONG_STATUSES)[number];
 
+/** A pasted playlist's kind and its life (`song_imports`). */
+export const SONG_IMPORT_KINDS = ['youtube-playlist', 'spotify-playlist', 'spotify-album'] as const;
+export type SongImportKind = (typeof SONG_IMPORT_KINDS)[number];
+export const SONG_IMPORT_STATUSES = ['reading', 'ready', 'failed'] as const;
+export type SongImportStatus = (typeof SONG_IMPORT_STATUSES)[number];
+
 /** The clips shipped in `static/clips/`. See `scripts/make-clips.sh`. */
 export const CLIPS = [
 	'uno',

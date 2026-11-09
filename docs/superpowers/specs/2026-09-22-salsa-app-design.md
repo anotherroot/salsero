@@ -425,8 +425,20 @@ The home page. One page serves both "exercises" and "today".
 
 ## Songs & player (phase 2)
 
-**Adding a song:** paste a YouTube URL (status `waiting_download`) or upload
-an audio file (`waiting_analysis`). The home worker claims waiting songs with a
+**Adding a song:** paste a YouTube or Spotify song link (status
+`waiting_download`) or upload an audio file (`waiting_analysis`). A Spotify
+song is found on YouTube by the worker (Spotify's audio is DRM'd): its name,
+artist and length from Spotify, the best-scoring YouTube result downloaded.
+Song details shows where the audio came from ("Audio from": the Spotify song
+and the video it plays) and **Use another YouTube link** fixes a wrong match:
+the song downloads again, its 1s are cleared, and copies kept in step get the
+new audio too. A YouTube or Spotify **playlist or album** link is not downloaded:
+the worker reads it (`song_imports`, a third queue it drains first; at most 200
+songs, and Spotify's page shows at most 100), it waits under **To pick** at the
+top of Music with a dot on the Music tab, and the pick list (option A2) adds only
+the ticked songs, each a `waiting_download` song with the title, artist and
+style picked. A group's list is its editors', its songs the group's drafts. See
+[`2026-11-08-spotify-and-playlists-design.md`](2026-11-08-spotify-and-playlists-design.md). The home worker claims waiting songs with a
 15-minute lease, so a job that dies mid-way is picked up again. A transient
 failure keeps its lease, so the next try waits out the 15 minutes rather than
 following straight away, and the worker stops its run after any failed job.

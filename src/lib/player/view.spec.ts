@@ -489,3 +489,14 @@ describe('the Practice page in Slovenian, more', () => {
 		);
 	});
 });
+
+describe('the count in a quiet section (count off)', () => {
+	it('shows a dash, never the number or the disc', () => {
+		expect(stageDigit(1, false, true)).toEqual({ text: '–', disc: false, dim: true });
+		expect(stageDigit(5, false, true).text).toBe('–');
+	});
+	it('draws the eight dots alike: no beat lit, no 4 and 8 apart', () => {
+		const dots = stageDots(3, false, true);
+		expect(new Set(dots.map((d) => `${d.size}:${d.tone}`))).toEqual(new Set(['10:quiet']));
+	});
+});

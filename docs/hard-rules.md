@@ -36,7 +36,7 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   unclassified table. A table newly synced gets its four change-log triggers
   in a NEW custom migration (`npx drizzle-kit generate --custom`, filled by
   `node scripts/sync-triggers.ts <table>`); never edit an applied migration:
-  production never runs 0041 again. `tables.spec.ts` freezes 0041's tables,
+  production never runs 0042 again. `tables.spec.ts` freezes 0042's tables,
   and `log.spec.ts` fails until every synced table has its triggers.
 - **No row leaves the server outside `syncScope`**
   (`src/lib/server/sync/scope.ts`): what a person may read, row by row, as

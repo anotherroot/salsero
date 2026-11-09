@@ -12,7 +12,15 @@
  *   change and does not ask again.
  */
 import type { FieldDiff, Flat, PairBase, Picks, Side } from '$lib/types';
-import { BASE_DEFAULTS, pieceOf, pieceParts, ROOT_KEYS, SET_PREFIXES, setPrefixOf } from './flat';
+import {
+	baseDefault,
+	boundToAudio,
+	pieceOf,
+	pieceParts,
+	ROOT_KEYS,
+	SET_PREFIXES,
+	setPrefixOf
+} from './flat';
 
 export type Hash = (v: string) => string;
 
@@ -58,7 +66,7 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 	const keys = [...new Set([...Object.keys(mine), ...Object.keys(theirs)])];
 	const found: FieldDiff[] = [];
 	for (const key of keys) {
-		if (skipped(key, skip)) continue;
+		if (skipped(key, skip) || boundToAudio(key, mine, theirs)) continue;
 		const m = mine[key] ?? null;
 		const t = theirs[key] ?? null;
 		const mh = m ? hash(m.value) : null;
@@ -66,8 +74,8 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 		if (mh === th) continue;
 		let side: Side = 'both';
 		if (base) {
-			const was =
-				base.fields[key] ?? (Object.hasOwn(BASE_DEFAULTS, key) ? hash(BASE_DEFAULTS[key]) : null);
+			const fallback = baseDefault(key, (m ?? t)!.value);
+			const was = base.fields[key] ?? (fallback === null ? null : hash(fallback));
 			const mineChanged = mh !== was;
 			const theirsChanged = th !== was;
 			side = mineChanged && theirsChanged ? 'both' : mineChanged ? 'mine' : 'theirs';

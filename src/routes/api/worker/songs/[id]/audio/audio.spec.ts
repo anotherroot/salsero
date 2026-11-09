@@ -1,6 +1,6 @@
 /** The worker's song audio is charged to the song's owner and held to the disk floor. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -47,16 +47,18 @@ beforeEach(async () => {
 });
 afterEach(() => rm(envMock.DATA_DIR, { recursive: true, force: true }));
 
-function put(bytes: number) {
+function put(bytes: number, headers: Record<string, string> = {}) {
 	return PUT({
 		params: { id: String(songId) },
 		request: new Request('http://localhost/x', {
 			method: 'PUT',
-			headers: { 'content-type': 'audio/mp4' },
+			headers: { 'content-type': 'audio/mp4', ...headers },
 			body: new Uint8Array(bytes)
 		})
 	} as never);
 }
+
+const row = () => db.select().from(songs).where(eq(songs.id, songId)).get()!;
 
 describe('PUT /api/worker/songs/[id]/audio', () => {
 	it('stores audio that fits', async () => {
@@ -108,5 +110,40 @@ describe("a group's song", () => {
 		db.update(teams).set({ storageLimitBytes: 500 }).where(eq(teams.id, 1)).run();
 		await expect(put(1000)).rejects.toMatchObject({ status: 413 });
 		expect(await readdir(join(envMock.DATA_DIR, 'audio'))).toEqual([]);
+	});
+});
+
+describe('what the worker found', () => {
+	it('lands the artist and the video it downloaded', async () => {
+		const res = await put(1000, {
+			'x-artist': encodeURIComponent('Monchy & Alexandra'),
+			'x-fetched-url': encodeURIComponent('https://www.youtube.com/watch?v=hoja'),
+			'x-fetched-title': encodeURIComponent('Hoja En Blanco (Audio)')
+		});
+		expect(res.status).toBe(204);
+		expect(row()).toMatchObject({
+			artist: 'Monchy & Alexandra',
+			fetchedUrl: 'https://www.youtube.com/watch?v=hoja',
+			fetchedTitle: 'Hoja En Blanco (Audio)'
+		});
+	});
+
+	it("takes an older worker's upload with none of it", async () => {
+		expect((await put(1000)).status).toBe(204);
+		expect(row()).toMatchObject({
+			status: 'waiting_analysis',
+			artist: null,
+			fetchedUrl: null,
+			fetchedTitle: null
+		});
+	});
+
+	it("unlinks a swapped song's old file once the new one landed", async () => {
+		await writeFile(join(envMock.DATA_DIR, 'audio', 'old.m4a'), 'old');
+		db.update(songs).set({ audioFile: 'old.m4a' }).where(eq(songs.id, songId)).run();
+		expect((await put(1000)).status).toBe(204);
+		const files = await readdir(join(envMock.DATA_DIR, 'audio'));
+		expect(files).not.toContain('old.m4a');
+		expect(files).toEqual([row().audioFile]);
 	});
 });

@@ -151,7 +151,7 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
 - Deny-by-default auth (`hooks.server.ts`); public routes go in `PUBLIC_PATHS`.
 - Offline: every table is classified in `src/lib/sync/tables.ts` (a newly synced
   one gets its triggers in a NEW custom migration, `scripts/sync-triggers.ts <table>`;
-  never edit 0041); no row
+  never edit 0042); no row
   leaves the server outside `syncScope`; every GET endpoint is classified in
   `src/lib/offline/routes.ts`; the device answers only when the network
   fails, and only GETs (docs/hard-rules.md).

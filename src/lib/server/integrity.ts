@@ -10,7 +10,8 @@ const ROOTS = [
 	'exercises',
 	'lessons',
 	'songs',
-	'positions'
+	'positions',
+	'song_imports'
 ] as const;
 
 /**

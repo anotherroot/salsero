@@ -14,6 +14,7 @@ import { findInServer } from '../server-sources';
 
 /** The integer-id tables: each has an `AFTER INSERT` trigger that keeps `id_marks`. */
 const ID_TABLES = [
+	'song_imports',
 	'today_picks',
 	'device_tokens',
 	'login_attempts',

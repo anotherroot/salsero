@@ -163,6 +163,7 @@ export function songSeen(song: {
 	sampleStartS: number | null;
 	sectionsJson: string;
 	startS: number | null;
+	audioUrl: string | null;
 }): Seen {
 	return {
 		title: song.title,
@@ -172,7 +173,8 @@ export function songSeen(song: {
 		tempoFactor: song.tempoFactor,
 		sampleStartS: song.sampleStartS,
 		sectionsJson: song.sectionsJson,
-		startS: song.startS
+		startS: song.startS,
+		audioUrl: song.audioUrl
 	};
 }
 

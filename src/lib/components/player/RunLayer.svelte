@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { onMount, tick, type Snippet } from 'svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { clock } from '$lib/format';
 	import { stageDigit } from '$lib/player/view';
@@ -15,7 +16,8 @@
 	 * Pause (the run bar, z-20) stay on top of it, on the desktop too. It holds a history entry like
 	 * a sheet (`sheetStack`), so Back closes it, not the run, and a layer over a
 	 * layer closes first. On the desktop it fills the 520 px column, the stage
-	 * left untouched. Without a player (Setup) the strip has no count.
+	 * left untouched, and the strip has no count of its own (the stage shows it).
+	 * Without a player (Setup) the strip has no count.
 	 */
 	interface Props {
 		/** The layer's name for a screen reader ("About", "Routine"). */
@@ -28,6 +30,8 @@
 		beats?: number[];
 		counts?: number[];
 		paused?: boolean;
+		/** A song's count-off sections: the strip's count is a dash there. */
+		quiet?: QuietRange[];
 		/** A layer over another one draws over it. */
 		over?: boolean;
 		/** The close button's name. */
@@ -46,6 +50,7 @@
 		beats = [],
 		counts = [],
 		paused = false,
+		quiet = [],
 		over = false,
 		closeLabel,
 		onclose,
@@ -80,6 +85,7 @@
 
 	/* The strip's own count: read every frame, like StageCount. */
 	let count = $state<number | null>(null);
+	let off = $state(false);
 	let time = $state(0);
 	$effect(() => {
 		const p = player;
@@ -88,6 +94,7 @@
 		const loop = () => {
 			time = p.songTime();
 			const i = beatIndexAt(beats, time);
+			off = isQuiet(quiet, time);
 			count = i >= 0 ? (counts[i] ?? null) : null;
 			frame = requestAnimationFrame(loop);
 		};
@@ -98,7 +105,7 @@
 
 <div
 	bind:this={box}
-	class="run-layer fixed inset-0 flex flex-col bg-ground desk:inset-auto desk:top-(--band-row-h) desk:right-0 desk:bottom-0 desk:w-[520px] desk:overflow-hidden desk:rounded-tl-[28px] {over
+	class="run-layer fixed inset-0 flex flex-col bg-ground desk:inset-auto desk:top-(--band-row-h) desk:right-0 desk:bottom-0 desk:w-[520px] {over
 		? 'z-[16]'
 		: 'z-[15]'}"
 	role="dialog"
@@ -115,8 +122,8 @@
 		<BandButton icon="close" label={closeLabel} onclick={close} focusKey="layer-close" />
 		{#if player}
 			<span
-				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums"
-				aria-hidden="true">{stageDigit(count, paused).text}</span
+				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden"
+				aria-hidden="true">{stageDigit(count, paused, off).text}</span
 			>
 		{/if}
 		<span class="min-w-0 flex-1 text-[13px] leading-tight font-bold text-band-small tabular-nums">

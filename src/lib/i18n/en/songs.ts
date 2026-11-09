@@ -2,6 +2,85 @@
 // area extends this (the list, a song's page, sharing).
 
 export const songs = {
+	/** The pick list (option A2): `PickList`, `PickRow`. */
+	pick: {
+		styleForAll: 'Style for all',
+		selectAll: 'Select all',
+		picked: (n: number, m: number): string => `${n} of ${m} picked`,
+		already: 'Already added',
+		onSource: (where: string, name: string): string => `On ${where}: ${name}`,
+		add: (n: number): string => (n === 1 ? 'Add 1 song' : `Add ${n} songs`),
+		dismiss: 'Dismiss',
+		dismissTitle: 'Dismiss this list?',
+		dismissBody: 'Nothing from it is downloaded.',
+		cancel: 'Cancel',
+		edit: (title: string): string => `Edit ${title}`,
+		done: 'Done',
+		open: (where: string): string => `Open on ${where}`,
+		titleField: 'Title',
+		artistField: 'Artist',
+		styleOfSong: 'Style',
+		unsaved: 'A pick list',
+		firstN: (n: number): string => `Only the first ${n} songs of the list were read.`,
+		refused: 'Pick at least one song.',
+		badPicks: 'Something was off with the picks. Reload and try again.'
+	},
+	/** A pasted playlist's refusals (`retryImport`, `dismissImport`). */
+	imports: {
+		toPick: 'To pick',
+		reading: 'Reading playlist…',
+		readingMeta: (where: string): string =>
+			`${where} · the home PC reads it within a minute or two`,
+		pickSongs: 'Pick songs',
+		cancel: 'Cancel',
+		retry: 'Retry',
+		dismiss: 'Dismiss',
+		failed: (error: string): string => (error ? `Failed: ${error}` : 'Failed'),
+		kinds: {
+			'spotify-playlist': 'Spotify playlist',
+			'spotify-album': 'Spotify album',
+			'youtube-playlist': 'YouTube playlist'
+		},
+		songs: (n: number): string => (n === 1 ? '1 song' : `${n} songs`),
+		firstN: (n: number): string => `the first ${n}`,
+		/** A screen reader's name for a row's action: "Cancel Salsa clásica". */
+		actionOf: (action: string, name: string): string => `${action} ${name}`,
+		retryRefused: 'Only a failed list can be read again.',
+		gone: 'This list was already added or dismissed.'
+	},
+	/** Where a song's audio came from, and changing it (song page, Song details, `AudioFrom`, `AudioSwap`). */
+	source: {
+		from: 'From',
+		fromSpotify: 'From Spotify',
+		findOnYouTube: 'Find it on YouTube',
+		fromVideo: 'From the video it finds',
+		findingIt: 'Finding it on YouTube',
+		youtubeAudio: 'YouTube · the audio',
+		audioFrom: 'Audio from',
+		useAnother: 'Use another YouTube link',
+		useLink: 'Use a YouTube link',
+		anotherLabel: 'Another YouTube link',
+		swapHelp:
+			'The song downloads again and its beat is found again. The 1s you tapped are cleared.',
+		downloadThis: 'Download this one',
+		cancel: 'Cancel',
+		askTitle: 'Download the audio again?',
+		askCopies: (n: number): string =>
+			n === 1
+				? 'This song gets the audio from the new link, and so does 1 copy kept in step with it.'
+				: `This song gets the audio from the new link, and so do ${n} copies kept in step with it.`,
+		askSelf: 'This song gets the audio from the new link.',
+		askBody:
+			'The beat is found again, and the 1s tapped for the count are cleared, so the count needs tapping again.',
+		download: 'Download'
+	},
+	/** Add a song's link field (`AddSongSheet`, the list's `addUrl`). */
+	/** Use another YouTube link (`AudioSwap`, the song page's `audio`). */
+	audio: {
+		notYouTube: 'Paste a YouTube video link',
+		busy: 'Wait until this song has finished downloading.',
+		upload: 'An uploaded song has no link to change.'
+	},
 	picker: {
 		title: 'Pick a song',
 		search: 'Search songs',
@@ -309,6 +388,11 @@ export const songs = {
 	},
 	/** The Add a song sheet, and the upload's own words. */
 	add: {
+		readList: 'Read the playlist',
+		label: 'YouTube or Spotify link',
+		help: 'A song, a playlist or an album. From a playlist you pick which songs to add.',
+		notSong: 'Paste a song, playlist or album',
+		shortFailed: 'Paste the full open.spotify.com link',
 		youtubeLink: 'YouTube link',
 		title: 'Title',
 		titlePlaceholder: 'Song title',

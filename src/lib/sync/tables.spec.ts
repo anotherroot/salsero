@@ -6,12 +6,12 @@ import { NEVER_SYNCED, SYNCED } from './tables';
 import { triggersFile } from './triggers';
 
 /**
- * The synced tables as migration 0041 wrote their triggers. Frozen: production
- * has applied 0041 and never runs it again, so a table synced later gets its
+ * The synced tables as migration 0042 wrote their triggers. Frozen: production
+ * has applied 0042 and never runs it again, so a table synced later gets its
  * triggers in a NEW custom migration (`scripts/sync-triggers.ts <table>`), and
- * log.spec.ts fails until one does. Never edit this list or 0041.
+ * log.spec.ts fails until one does. Never edit this list or 0042.
  */
-const SYNCED_AT_0041: Readonly<Record<string, readonly string[]>> = {
+const SYNCED_AT_0042: Readonly<Record<string, readonly string[]>> = {
 	users: ['id'],
 	today_picks: ['id'],
 	default_styles: ['user_id', 'dance'],
@@ -73,9 +73,9 @@ describe('synced tables', () => {
 		}
 	});
 
-	it('migration 0041 is the triggers of the tables synced when it was written, never regenerated', () => {
-		const file = readFileSync('drizzle/0041_change_log_triggers.sql', 'utf8');
-		expect(Object.keys(SYNCED_AT_0041)).toHaveLength(37);
-		expect(file).toBe(triggersFile(SYNCED_AT_0041));
+	it('migration 0042 is the triggers of the tables synced when it was written, never regenerated', () => {
+		const file = readFileSync('drizzle/0042_change_log_triggers.sql', 'utf8');
+		expect(Object.keys(SYNCED_AT_0042)).toHaveLength(37);
+		expect(file).toBe(triggersFile(SYNCED_AT_0042));
 	});
 });

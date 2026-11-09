@@ -56,6 +56,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const room = roomForOwner(getDb(), owner, declared, await freeDisk());
 	if (!room.ok) throw error(413, room.message);
 
+	const header = (name: string, max: number) =>
+		(safeDecodeHeader(request.headers.get(name)) || '').slice(0, max) || null;
 	const title = safeDecodeHeader(request.headers.get('x-title')) || null;
 	const file = `${randomUUID()}.${extensionFor(mime, '')}`;
 	const path = join(audioDir(), file);
@@ -77,13 +79,19 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		file,
 		mime,
 		title,
+		// An older worker sends none of these: they stay null.
+		artist: header('x-artist', 200),
+		fetchedUrl: header('x-fetched-url', 2000),
+		fetchedTitle: header('x-fetched-title', 200),
 		durationS: Number.isFinite(duration) && duration > 0 ? duration : null,
 		sizeBytes
 	});
-	if (!stored) {
+	if (!stored.ok) {
 		// The song moved on while the body streamed in.
 		await unlink(path).catch(() => {});
 		throw error(409, NOT_WAITING);
 	}
+	// A swap (Use another YouTube link): the old audio goes once the new one is stored.
+	if (stored.replaced) await unlink(join(audioDir(), stored.replaced)).catch(() => {});
 	return new Response(null, { status: 204 });
 };

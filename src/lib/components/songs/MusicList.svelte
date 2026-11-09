@@ -16,6 +16,10 @@
 	import SongRow from './SongRow.svelte';
 	import UploadRow from './UploadRow.svelte';
 	import AddSongSheet from './AddSongSheet.svelte';
+	import ImportRow from './ImportRow.svelte';
+	import { importSections } from '$lib/songs/imports';
+	import { focusAfterRemoval } from '$lib/focus';
+	import { t } from '$lib/i18n/catalog';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
 		classLibraryView,
@@ -29,10 +33,9 @@
 	} from '$lib/songs/library';
 	import { upload } from '$lib/songs/upload.svelte';
 	import { styleLabelsOf } from '$lib/moves/figures';
-	import { t } from '$lib/i18n/catalog';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { Dance } from '$lib/dances/dances';
-	import type { GroupMode, SongItem } from '$lib/types';
+	import type { GroupMode, SongImportRow, SongItem } from '$lib/types';
 
 	/**
 	 * The Music list: search, Count only, Being added, Recent, A–Z with samples,
@@ -58,6 +61,8 @@
 			groups: { team: { id: number; name: string }; songs: (SongItem & { isNew: boolean })[] }[];
 			twinned: number[];
 			users: Record<number, number>;
+			/** Pasted playlists: the space's own, then (in Mine) the ready lists of groups the person edits. */
+			imports?: SongImportRow[];
 		};
 		/** The list route; otherwise a song is open (beside it on the desktop, alone on the phone). */
 		isList: boolean;
@@ -144,11 +149,21 @@
 	const team = $derived(data.groupMode?.teamId ?? null);
 	// The songs that stand for their twins (board C7): a "Twins" chip.
 	const twinned = $derived(new Set(data.twinned));
+	const imports = $derived(data.imports ?? []);
+	const sections = $derived(importSections(imports));
 	const view = $derived(
 		team !== null
-			? classLibraryView(data.songs, query, uploadHere)
-			: libraryView(data.songs, query, uploadHere)
+			? classLibraryView(data.songs, query, uploadHere, imports.length, sections.adding.length)
+			: libraryView(data.songs, query, uploadHere, imports.length, sections.adding.length)
 	);
+	const importHref = (id: number) => resolve(`/${dance}/songs/imports/${id}`);
+	/** After Cancel or Dismiss: focus the next list's row, else the one before. */
+	const removed = (id: number) =>
+		focusAfterRemoval(
+			imports.map((r) => `import-${r.id}`),
+			`import-${id}`,
+			[]
+		);
 	/** Below the person's own: each group's shared songs (none in group mode). */
 	const groups = $derived(groupSections(data.groups, query));
 
@@ -159,7 +174,10 @@
 	 * Only the list's load reruns (`app:songs`, the layout's): `invalidateAll`
 	 * would rerun the open song's load too, and its fields would snap back mid-edit.
 	 */
-	const waiting = $derived(data.songs.some((s) => s.status.startsWith('waiting_')));
+	const waiting = $derived(
+		data.songs.some((s) => s.status.startsWith('waiting_')) ||
+			imports.some((r) => r.status === 'reading')
+	);
 	$effect(() => {
 		if (!waiting || !(isList || desk.current)) return;
 		const t = setInterval(() => invalidate('app:songs'), 10_000);
@@ -240,9 +258,28 @@
 	/>
 {/snippet}
 
+{#snippet toPick()}
+	{#if sections.toPick.length}
+		<h2 class="{SECTION_LABEL} pt-2.5">{t().songs.imports.toPick} · {sections.toPick.length}</h2>
+		<ul class={GROUP}>
+			{#each sections.toPick as r (r.id)}
+				<ImportRow
+					row={r}
+					{dance}
+					href={importHref(r.id)}
+					current={page.url.pathname === importHref(r.id)}
+				/>
+			{/each}
+		</ul>
+	{/if}
+{/snippet}
+
 {#snippet addingGroup(adding: SongItem[], heading: string)}
 	<h2 class="{SECTION_LABEL} pt-2.5">{heading}</h2>
 	<ul class={GROUP}>
+		{#each sections.adding as r (r.id)}
+			<ImportRow row={r} {dance} href={importHref(r.id)} onremoved={() => removed(r.id)} />
+		{/each}
 		<UploadRow {dance} />
 		{#each adding as s (s.id)}
 			{@render addingRow(s, '')}
@@ -301,7 +338,11 @@
 {/if}
 
 {#if view.kind === 'class'}
-	{#if view.adding.length || uploadHere}{@render addingGroup(view.adding, view.addingHeading)}{/if}
+	{@render toPick()}
+	{#if view.adding.length || uploadHere || sections.adding.length}{@render addingGroup(
+			view.adding,
+			view.addingHeading
+		)}{/if}
 	{#if view.worker}{@render workerNote()}{/if}
 	{#if view.drafts.length}
 		<h2 class="{SECTION_LABEL} pt-2.5">{view.draftsHeading}</h2>
@@ -316,7 +357,11 @@
 		</ul>
 	{/if}
 {:else if view.kind === 'list'}
-	{#if view.adding.length || uploadHere}{@render addingGroup(view.adding, view.addingHeading)}{/if}
+	{@render toPick()}
+	{#if view.adding.length || uploadHere || sections.adding.length}{@render addingGroup(
+			view.adding,
+			view.addingHeading
+		)}{/if}
 	{#if view.worker}{@render workerNote()}{/if}
 	{#if view.recent.length}
 		<h2 class="{SECTION_LABEL} pt-2.5">{t().songs.picker.recent}</h2>

@@ -479,3 +479,15 @@ describe('mergeTargets', () => {
 		]);
 	});
 });
+
+describe('a song whose copies hold different audio', () => {
+	it('offers no count or sample row across them, and the audio row still', () => {
+		const song = flat(['title', 'Hoja'], ['audio', 'a|'], ['count', '[1]|1'], ['sample', '']);
+		const swapped = edit(song, { audio: 'a|b', count: '[]|1' });
+		const other = edit(song, { count: '[2]|1', sample: '12' });
+		const keys = rows(swapped, song, other).map((r) => r.key);
+		expect(keys).toContain('audio');
+		expect(keys).not.toContain('count');
+		expect(keys).not.toContain('sample');
+	});
+});

@@ -1,8 +1,8 @@
 {
-  "id": "a8ca4e63-059d-4c2c-a863-6001aa99c397",
-  "prevId": "9fab9e86-0f03-4990-9b36-353d1c8ad93f",
   "version": "6",
   "dialect": "sqlite",
+  "id": "932a5ad6-20f6-4be1-83c5-0dde25196a3e",
+  "prevId": "89d1f162-c778-4771-a748-9899e70435ab",
   "tables": {
     "app_flags": {
       "name": "app_flags",
@@ -72,15 +72,15 @@
         "app_installs_user_id_users_id_fk": {
           "name": "app_installs_user_id_users_id_fk",
           "tableFrom": "app_installs",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -472,15 +472,15 @@
         "default_styles_user_id_users_id_fk": {
           "name": "default_styles_user_id_users_id_fk",
           "tableFrom": "default_styles",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -554,15 +554,15 @@
         "device_tokens_user_id_users_id_fk": {
           "name": "device_tokens_user_id_users_id_fk",
           "tableFrom": "device_tokens",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -776,8 +776,8 @@
             "user_id",
             "lesson_id"
           ],
-          "where": "\"exercises\".\"lesson_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"exercises\".\"lesson_id\" is not null"
         },
         "exercises_entry_routine_idx": {
           "name": "exercises_entry_routine_idx",
@@ -785,8 +785,8 @@
             "user_id",
             "routine_id"
           ],
-          "where": "\"exercises\".\"routine_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"exercises\".\"routine_id\" is not null"
         },
         "exercises_entry_figure_idx": {
           "name": "exercises_entry_figure_idx",
@@ -794,8 +794,8 @@
             "user_id",
             "figure_id"
           ],
-          "where": "\"exercises\".\"figure_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"exercises\".\"figure_id\" is not null"
         },
         "exercises_entry_drill_idx": {
           "name": "exercises_entry_drill_idx",
@@ -803,8 +803,8 @@
             "user_id",
             "drill_id"
           ],
-          "where": "\"exercises\".\"drill_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"exercises\".\"drill_id\" is not null"
         },
         "exercises_gene_user_idx": {
           "name": "exercises_gene_user_idx",
@@ -812,8 +812,8 @@
             "gene_id",
             "user_id"
           ],
-          "where": "\"exercises\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"exercises\".\"gene_id\" is not null"
         },
         "exercises_gene_team_idx": {
           "name": "exercises_gene_team_idx",
@@ -821,75 +821,75 @@
             "gene_id",
             "team_id"
           ],
-          "where": "\"exercises\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"exercises\".\"gene_id\" is not null"
         }
       },
       "foreignKeys": {
         "exercises_figure_id_figures_id_fk": {
           "name": "exercises_figure_id_figures_id_fk",
           "tableFrom": "exercises",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "exercises_song_id_songs_id_fk": {
           "name": "exercises_song_id_songs_id_fk",
           "tableFrom": "exercises",
+          "tableTo": "songs",
           "columnsFrom": [
             "song_id"
           ],
-          "tableTo": "songs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "exercises_lesson_id_lessons_id_fk": {
           "name": "exercises_lesson_id_lessons_id_fk",
           "tableFrom": "exercises",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "exercises_routine_id_routines_id_fk": {
           "name": "exercises_routine_id_routines_id_fk",
           "tableFrom": "exercises",
+          "tableTo": "routines",
           "columnsFrom": [
             "routine_id"
           ],
-          "tableTo": "routines",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "exercises_drill_id_exercises_id_fk": {
           "name": "exercises_drill_id_exercises_id_fk",
           "tableFrom": "exercises",
+          "tableTo": "exercises",
           "columnsFrom": [
             "drill_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -943,28 +943,28 @@
         "figure_end_positions_figure_id_figures_id_fk": {
           "name": "figure_end_positions_figure_id_figures_id_fk",
           "tableFrom": "figure_end_positions",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "figure_end_positions_position_id_positions_id_fk": {
           "name": "figure_end_positions_position_id_positions_id_fk",
           "tableFrom": "figure_end_positions",
+          "tableTo": "positions",
           "columnsFrom": [
             "position_id"
           ],
-          "tableTo": "positions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1100,28 +1100,28 @@
         "figure_start_positions_figure_id_figures_id_fk": {
           "name": "figure_start_positions_figure_id_figures_id_fk",
           "tableFrom": "figure_start_positions",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "figure_start_positions_position_id_positions_id_fk": {
           "name": "figure_start_positions_position_id_positions_id_fk",
           "tableFrom": "figure_start_positions",
+          "tableTo": "positions",
           "columnsFrom": [
             "position_id"
           ],
-          "tableTo": "positions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1329,8 +1329,8 @@
             "gene_id",
             "user_id"
           ],
-          "where": "\"figures\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"figures\".\"gene_id\" is not null"
         },
         "figures_gene_team_idx": {
           "name": "figures_gene_team_idx",
@@ -1338,49 +1338,49 @@
             "gene_id",
             "team_id"
           ],
-          "where": "\"figures\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"figures\".\"gene_id\" is not null"
         }
       },
       "foreignKeys": {
         "figures_end_position_id_positions_id_fk": {
           "name": "figures_end_position_id_positions_id_fk",
           "tableFrom": "figures",
+          "tableTo": "positions",
           "columnsFrom": [
             "end_position_id"
           ],
-          "tableTo": "positions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "figures_parent_id_figures_id_fk": {
           "name": "figures_parent_id_figures_id_fk",
           "tableFrom": "figures",
+          "tableTo": "figures",
           "columnsFrom": [
             "parent_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "figures_group_id_figure_groups_id_fk": {
           "name": "figures_group_id_figure_groups_id_fk",
           "tableFrom": "figures",
+          "tableTo": "figure_groups",
           "columnsFrom": [
             "group_id"
           ],
-          "tableTo": "figure_groups",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1553,15 +1553,15 @@
         "lesson_adds_lesson_id_lessons_id_fk": {
           "name": "lesson_adds_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_adds",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1606,28 +1606,28 @@
         "lesson_comment_hearts_comment_id_lesson_comments_id_fk": {
           "name": "lesson_comment_hearts_comment_id_lesson_comments_id_fk",
           "tableFrom": "lesson_comment_hearts",
+          "tableTo": "lesson_comments",
           "columnsFrom": [
             "comment_id"
           ],
-          "tableTo": "lesson_comments",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_comment_hearts_user_id_users_id_fk": {
           "name": "lesson_comment_hearts_user_id_users_id_fk",
           "tableFrom": "lesson_comment_hearts",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1723,67 +1723,67 @@
         "lesson_comments_lesson_id_lessons_id_fk": {
           "name": "lesson_comments_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_comments",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_comments_author_id_users_id_fk": {
           "name": "lesson_comments_author_id_users_id_fk",
           "tableFrom": "lesson_comments",
+          "tableTo": "users",
           "columnsFrom": [
             "author_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_comments_thread_id_lesson_comments_id_fk": {
           "name": "lesson_comments_thread_id_lesson_comments_id_fk",
           "tableFrom": "lesson_comments",
+          "tableTo": "lesson_comments",
           "columnsFrom": [
             "thread_id"
           ],
-          "tableTo": "lesson_comments",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_comments_reply_to_id_lesson_comments_id_fk": {
           "name": "lesson_comments_reply_to_id_lesson_comments_id_fk",
           "tableFrom": "lesson_comments",
+          "tableTo": "lesson_comments",
           "columnsFrom": [
             "reply_to_id"
           ],
-          "tableTo": "lesson_comments",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_comments_deleted_by_users_id_fk": {
           "name": "lesson_comments_deleted_by_users_id_fk",
           "tableFrom": "lesson_comments",
+          "tableTo": "users",
           "columnsFrom": [
             "deleted_by"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1828,28 +1828,28 @@
         "lesson_exercises_lesson_id_lessons_id_fk": {
           "name": "lesson_exercises_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_exercises",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_exercises_exercise_id_exercises_id_fk": {
           "name": "lesson_exercises_exercise_id_exercises_id_fk",
           "tableFrom": "lesson_exercises",
+          "tableTo": "exercises",
           "columnsFrom": [
             "exercise_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1902,28 +1902,28 @@
         "lesson_figures_lesson_id_lessons_id_fk": {
           "name": "lesson_figures_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_figures",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_figures_figure_id_figures_id_fk": {
           "name": "lesson_figures_figure_id_figures_id_fk",
           "tableFrom": "lesson_figures",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1976,28 +1976,28 @@
         "lesson_positions_lesson_id_lessons_id_fk": {
           "name": "lesson_positions_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_positions",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_positions_position_id_positions_id_fk": {
           "name": "lesson_positions_position_id_positions_id_fk",
           "tableFrom": "lesson_positions",
+          "tableTo": "positions",
           "columnsFrom": [
             "position_id"
           ],
-          "tableTo": "positions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -2050,28 +2050,28 @@
         "lesson_routines_lesson_id_lessons_id_fk": {
           "name": "lesson_routines_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_routines",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "lesson_routines_routine_id_routines_id_fk": {
           "name": "lesson_routines_routine_id_routines_id_fk",
           "tableFrom": "lesson_routines",
+          "tableTo": "routines",
           "columnsFrom": [
             "routine_id"
           ],
-          "tableTo": "routines",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -2180,15 +2180,15 @@
         "lesson_videos_lesson_id_lessons_id_fk": {
           "name": "lesson_videos_lesson_id_lessons_id_fk",
           "tableFrom": "lesson_videos",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2314,8 +2314,8 @@
             "gene_id",
             "user_id"
           ],
-          "where": "\"lessons\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"lessons\".\"gene_id\" is not null"
         },
         "lessons_gene_team_idx": {
           "name": "lessons_gene_team_idx",
@@ -2323,8 +2323,8 @@
             "gene_id",
             "team_id"
           ],
-          "where": "\"lessons\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"lessons\".\"gene_id\" is not null"
         }
       },
       "foreignKeys": {},
@@ -2417,41 +2417,41 @@
         "links_lesson_id_lessons_id_fk": {
           "name": "links_lesson_id_lessons_id_fk",
           "tableFrom": "links",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "links_figure_id_figures_id_fk": {
           "name": "links_figure_id_figures_id_fk",
           "tableFrom": "links",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "links_exercise_id_exercises_id_fk": {
           "name": "links_exercise_id_exercises_id_fk",
           "tableFrom": "links",
+          "tableTo": "exercises",
           "columnsFrom": [
             "exercise_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2713,8 +2713,8 @@
             "gene_id",
             "user_id"
           ],
-          "where": "\"positions\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"positions\".\"gene_id\" is not null"
         },
         "positions_gene_team_idx": {
           "name": "positions_gene_team_idx",
@@ -2722,8 +2722,8 @@
             "gene_id",
             "team_id"
           ],
-          "where": "\"positions\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"positions\".\"gene_id\" is not null"
         }
       },
       "foreignKeys": {},
@@ -2839,15 +2839,15 @@
         "recordings_figure_id_figures_id_fk": {
           "name": "recordings_figure_id_figures_id_fk",
           "tableFrom": "recordings",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2892,28 +2892,28 @@
         "routine_step_options_step_id_routine_steps_id_fk": {
           "name": "routine_step_options_step_id_routine_steps_id_fk",
           "tableFrom": "routine_step_options",
+          "tableTo": "routine_steps",
           "columnsFrom": [
             "step_id"
           ],
-          "tableTo": "routine_steps",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "routine_step_options_figure_id_figures_id_fk": {
           "name": "routine_step_options_figure_id_figures_id_fk",
           "tableFrom": "routine_step_options",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -2995,28 +2995,28 @@
         "routine_steps_routine_id_routines_id_fk": {
           "name": "routine_steps_routine_id_routines_id_fk",
           "tableFrom": "routine_steps",
+          "tableTo": "routines",
           "columnsFrom": [
             "routine_id"
           ],
-          "tableTo": "routines",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "routine_steps_child_routine_id_routines_id_fk": {
           "name": "routine_steps_child_routine_id_routines_id_fk",
           "tableFrom": "routine_steps",
+          "tableTo": "routines",
           "columnsFrom": [
             "child_routine_id"
           ],
-          "tableTo": "routines",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3129,8 +3129,8 @@
             "gene_id",
             "user_id"
           ],
-          "where": "\"routines\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"routines\".\"gene_id\" is not null"
         },
         "routines_gene_team_idx": {
           "name": "routines_gene_team_idx",
@@ -3138,8 +3138,8 @@
             "gene_id",
             "team_id"
           ],
-          "where": "\"routines\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"routines\".\"gene_id\" is not null"
         }
       },
       "foreignKeys": {},
@@ -3184,15 +3184,15 @@
         "sessions_user_id_users_id_fk": {
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3287,15 +3287,15 @@
         "sets_exercise_id_exercises_id_fk": {
           "name": "sets_exercise_id_exercises_id_fk",
           "tableFrom": "sets",
+          "tableTo": "exercises",
           "columnsFrom": [
             "exercise_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3343,6 +3343,169 @@
           "name": "song_drops_exercise_id_song_id_pk"
         }
       },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "song_imports": {
+      "name": "song_imports",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dance": {
+          "name": "dance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "items_json": {
+          "name": "items_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "truncated": {
+          "name": "truncated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dismissed_at": {
+          "name": "dismissed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "song_imports_status_idx": {
+          "name": "song_imports_status_idx",
+          "columns": [
+            "status",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "song_imports_user_idx": {
+          "name": "song_imports_user_idx",
+          "columns": [
+            "user_id",
+            "dance"
+          ],
+          "isUnique": false
+        },
+        "song_imports_team_idx": {
+          "name": "song_imports_team_idx",
+          "columns": [
+            "team_id",
+            "dance"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "song_imports_team_id_teams_id_fk": {
+          "name": "song_imports_team_id_teams_id_fk",
+          "tableFrom": "song_imports",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -3443,54 +3606,54 @@
         "song_links_song_id_songs_id_fk": {
           "name": "song_links_song_id_songs_id_fk",
           "tableFrom": "song_links",
+          "tableTo": "songs",
           "columnsFrom": [
             "song_id"
           ],
-          "tableTo": "songs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "song_links_lesson_id_lessons_id_fk": {
           "name": "song_links_lesson_id_lessons_id_fk",
           "tableFrom": "song_links",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "song_links_exercise_id_exercises_id_fk": {
           "name": "song_links_exercise_id_exercises_id_fk",
           "tableFrom": "song_links",
+          "tableTo": "exercises",
           "columnsFrom": [
             "exercise_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "song_links_routine_id_routines_id_fk": {
           "name": "song_links_routine_id_routines_id_fk",
           "tableFrom": "song_links",
+          "tableTo": "routines",
           "columnsFrom": [
             "routine_id"
           ],
-          "tableTo": "routines",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3561,6 +3724,27 @@
         },
         "source_url": {
           "name": "source_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "audio_url": {
+          "name": "audio_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fetched_url": {
+          "name": "fetched_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fetched_title": {
+          "name": "fetched_title",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -3756,8 +3940,8 @@
             "gene_id",
             "user_id"
           ],
-          "where": "\"songs\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"songs\".\"gene_id\" is not null"
         },
         "songs_gene_team_idx": {
           "name": "songs_gene_team_idx",
@@ -3765,23 +3949,23 @@
             "gene_id",
             "team_id"
           ],
-          "where": "\"songs\".\"gene_id\" is not null",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"songs\".\"gene_id\" is not null"
         }
       },
       "foreignKeys": {
         "songs_team_id_teams_id_fk": {
           "name": "songs_team_id_teams_id_fk",
           "tableFrom": "songs",
+          "tableTo": "teams",
           "columnsFrom": [
             "team_id"
           ],
-          "tableTo": "teams",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3872,41 +4056,41 @@
         "spot_links_spot_id_video_spots_id_fk": {
           "name": "spot_links_spot_id_video_spots_id_fk",
           "tableFrom": "spot_links",
+          "tableTo": "video_spots",
           "columnsFrom": [
             "spot_id"
           ],
-          "tableTo": "video_spots",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "spot_links_figure_id_figures_id_fk": {
           "name": "spot_links_figure_id_figures_id_fk",
           "tableFrom": "spot_links",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "spot_links_exercise_id_exercises_id_fk": {
           "name": "spot_links_exercise_id_exercises_id_fk",
           "tableFrom": "spot_links",
+          "tableTo": "exercises",
           "columnsFrom": [
             "exercise_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3971,28 +4155,28 @@
         "spot_position_links_spot_id_video_spots_id_fk": {
           "name": "spot_position_links_spot_id_video_spots_id_fk",
           "tableFrom": "spot_position_links",
+          "tableTo": "video_spots",
           "columnsFrom": [
             "spot_id"
           ],
-          "tableTo": "video_spots",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "spot_position_links_position_id_positions_id_fk": {
           "name": "spot_position_links_position_id_positions_id_fk",
           "tableFrom": "spot_position_links",
+          "tableTo": "positions",
           "columnsFrom": [
             "position_id"
           ],
-          "tableTo": "positions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4233,8 +4417,8 @@
           "columns": [
             "team_id"
           ],
-          "where": "\"team_members\".\"role\" = 'owner'",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"team_members\".\"role\" = 'owner'"
         },
         "team_members_user_idx": {
           "name": "team_members_user_idx",
@@ -4248,15 +4432,15 @@
         "team_members_team_id_teams_id_fk": {
           "name": "team_members_team_id_teams_id_fk",
           "tableFrom": "team_members",
+          "tableTo": "teams",
           "columnsFrom": [
             "team_id"
           ],
-          "tableTo": "teams",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -4541,28 +4725,28 @@
         "today_picks_user_id_users_id_fk": {
           "name": "today_picks_user_id_users_id_fk",
           "tableFrom": "today_picks",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "today_picks_exercise_id_exercises_id_fk": {
           "name": "today_picks_exercise_id_exercises_id_fk",
           "tableFrom": "today_picks",
+          "tableTo": "exercises",
           "columnsFrom": [
             "exercise_id"
           ],
-          "tableTo": "exercises",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4879,41 +5063,41 @@
         "video_downloads_link_id_links_id_fk": {
           "name": "video_downloads_link_id_links_id_fk",
           "tableFrom": "video_downloads",
+          "tableTo": "links",
           "columnsFrom": [
             "link_id"
           ],
-          "tableTo": "links",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "video_downloads_figure_id_figures_id_fk": {
           "name": "video_downloads_figure_id_figures_id_fk",
           "tableFrom": "video_downloads",
+          "tableTo": "figures",
           "columnsFrom": [
             "figure_id"
           ],
-          "tableTo": "figures",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "video_downloads_lesson_id_lessons_id_fk": {
           "name": "video_downloads_lesson_id_lessons_id_fk",
           "tableFrom": "video_downloads",
+          "tableTo": "lessons",
           "columnsFrom": [
             "lesson_id"
           ],
-          "tableTo": "lessons",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -5023,28 +5207,28 @@
         "video_spots_recording_id_recordings_id_fk": {
           "name": "video_spots_recording_id_recordings_id_fk",
           "tableFrom": "video_spots",
+          "tableTo": "recordings",
           "columnsFrom": [
             "recording_id"
           ],
-          "tableTo": "recordings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "video_spots_lesson_video_id_lesson_videos_id_fk": {
           "name": "video_spots_lesson_video_id_lesson_videos_id_fk",
           "tableFrom": "video_spots",
+          "tableTo": "lesson_videos",
           "columnsFrom": [
             "lesson_video_id"
           ],
-          "tableTo": "lesson_videos",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -5064,9 +5248,9 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
   },
   "internal": {
     "indexes": {}

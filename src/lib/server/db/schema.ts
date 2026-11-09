@@ -14,6 +14,8 @@ import {
 	COUNT_PATTERNS,
 	PARTNER,
 	PRACTICE_MODES,
+	SONG_IMPORT_KINDS,
+	SONG_IMPORT_STATUSES,
 	SONG_STATUSES,
 	SOURCES,
 	STYLES
@@ -617,6 +619,11 @@ export const songs = sqliteTable(
 		sharedAt: integer('shared_at'),
 		style: text('style').notNull().default('salsa'),
 		sourceUrl: text('source_url'),
+		/** The person's link for the audio, set by Use another YouTube link; null = `source_url`. */
+		audioUrl: text('audio_url'),
+		/** What the worker downloaded, reported with the audio (the "Audio from" card). */
+		fetchedUrl: text('fetched_url'),
+		fetchedTitle: text('fetched_title'),
 		status: text('status', { enum: SONG_STATUSES }).notNull(),
 		error: text('error'),
 		attempts: integer('attempts').notNull().default(0),
@@ -685,6 +692,48 @@ export const songDrops = sqliteTable(
 	},
 	(t) => [primaryKey({ columns: [t.exerciseId, t.songId] })]
 );
+
+/**
+ * A pasted playlist or album (YouTube or Spotify): read by the home worker into
+ * a pick list, from which the person adds the songs they tick. Nothing
+ * downloads by itself. Owned like a root row (exactly one of `user_id` and
+ * `team_id`); a group's is its editors'. The items are written once, by the
+ * worker. Kept once added or dismissed, as bookkeeping: nothing reads such a
+ * row but a second Add's refusal. See
+ * docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md.
+ */
+export const songImports = sqliteTable(
+	'song_imports',
+	{
+		id: mintedId('song_imports'),
+		/** The owner. Nullable and without a foreign key on purpose, as `songs.user_id`. */
+		userId: text('user_id'),
+		teamId: integer('team_id').references((): AnySQLiteColumn => teams.id),
+		dance: text('dance').notNull(),
+		/** Normalised: `https://open.spotify.com/<playlist|album>/<id>` or `https://www.youtube.com/playlist?list=<id>`. */
+		url: text('url').notNull(),
+		kind: text('kind', { enum: SONG_IMPORT_KINDS }).notNull(),
+		/** The list's own name, from the worker. */
+		name: text('name'),
+		status: text('status', { enum: SONG_IMPORT_STATUSES }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		claimedAt: integer('claimed_at'),
+		/** `ImportItem[]` as JSON; null until read. */
+		itemsJson: text('items_json'),
+		/** 1 when the list was longer than `MAX_IMPORT_ITEMS` and was cut. */
+		truncated: integer('truncated').notNull().default(0),
+		createdAt: createdAt(),
+		addedAt: integer('added_at'),
+		dismissedAt: integer('dismissed_at')
+	},
+	(t) => [
+		index('song_imports_status_idx').on(t.status, t.createdAt),
+		index('song_imports_user_idx').on(t.userId, t.dance),
+		index('song_imports_team_idx').on(t.teamId, t.dance)
+	]
+);
+export type SongImport = typeof songImports.$inferSelect;
 
 /* ── Exercises & sets ───────────────────────────────────────────────────── */
 
@@ -1503,7 +1552,7 @@ export type VideoSpot = typeof videoSpots.$inferSelect;
 
 /**
  * What changed, for the device's pull (offline phase 2): one row per change to
- * a synced table, written by triggers (migration 0041), never by code. Keyed on
+ * a synced table, written by triggers (migration 0042), never by code. Keyed on
  * `seq`, so it does not mint ids. Pruned after 30 days.
  */
 export const changeLog = sqliteTable('change_log', {

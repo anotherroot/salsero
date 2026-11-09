@@ -147,6 +147,12 @@ def prepare(a):
     return v
 
 
+# SHOTS_SCROLLBARS=1 keeps the window's scrollbars, which headless Chromium hides.
+SHOW_SCROLLBARS = (
+    {"ignore_default_args": ["--hide-scrollbars"]} if os.environ.get("SHOTS_SCROLLBARS") == "1" else {}
+)
+
+
 def shoot(a):
     from playwright.sync_api import sync_playwright
 
@@ -158,7 +164,7 @@ def shoot(a):
     bad = 0
     wrote = 0
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(**SHOW_SCROLLBARS)
         ctx = browser.new_context(
             viewport={"width": w, "height": h},
             color_scheme=a.theme,
@@ -312,7 +318,7 @@ def scene(a):
             "--use-fake-device-for-media-stream",
             "--use-fake-ui-for-media-stream",
             "--autoplay-policy=no-user-gesture-required",
-        ])
+        ], **SHOW_SCROLLBARS)
         ctx = browser.new_context(
             viewport={"width": w, "height": h},
             color_scheme=a.theme,

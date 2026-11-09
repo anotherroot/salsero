@@ -172,6 +172,48 @@ describe('the end of a song', () => {
 	});
 });
 
+describe('a quiet part of a song', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	const beats = Array.from({ length: 32 }, (_, i) => i * 0.5);
+	const counts = beats.map((_, i) => (i % 8) + 1);
+
+	async function sounded(quiet: { from: number; to: number }[]) {
+		const ctx = fakeBrowser();
+		let started = 0;
+		ctx.createBufferSource = () => ({
+			buffer: null,
+			playbackRate: { value: 1 },
+			connect: () => {},
+			start: () => void started++,
+			stop: () => {},
+			onended: null
+		});
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'all', clave: '2-3' },
+			voiceVolume: 1,
+			quiet,
+			onStep: () => {},
+			onEnd: () => {}
+		});
+		await player.start();
+		await vi.advanceTimersByTimeAsync(TICK_MS * 4);
+		player.stop();
+		return started;
+	}
+
+	it('plays no count and no clave inside it, and both outside it', async () => {
+		expect(await sounded([{ from: 0, to: Infinity }])).toBe(0);
+		expect(await sounded([])).toBeGreaterThan(0);
+	});
+});
+
 describe('a routine run', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();

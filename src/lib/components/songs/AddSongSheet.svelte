@@ -12,9 +12,10 @@
 	import { CHIP, FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import { styleLabelsOf } from '$lib/moves/figures';
 	import { t } from '$lib/i18n/catalog';
+	import { classifyLink } from '$lib/songs/source';
 
 	/** An address, the same in every language. */
-	const URL_EXAMPLE = 'https://www.youtube.com/watch?v=…';
+	const URL_EXAMPLE = 'https://open.spotify.com/track/…';
 
 	/** What `?/addUrl` handed back: a refusal keeps everything typed. */
 	type AddForm = {
@@ -45,6 +46,8 @@
 	} = $props();
 
 	let busy = $state(false);
+	/** What is in the link field now: a playlist is told apart as it is pasted. */
+	let typed = $state<string | null>(null);
 	/**
 	 * The refusal Add song came back with, read from the submit's result: the
 	 * page's `form` is not this sheet's (beside a song, SvelteKit does not apply a
@@ -62,6 +65,10 @@
 	const first = $derived(dance.styles[0]);
 	const sent = $derived(form?.style && dance.styles.includes(form.style) ? form.style : null);
 	let style = $derived(sent ?? first);
+	const isList = $derived.by(() => {
+		const k = classifyLink(typed ?? form?.url ?? '').kind;
+		return k === 'spotify-list' || k === 'youtube-list';
+	});
 	/** Why the picked file was not sent, under the Upload button. */
 	let fileProblem = $state<string | null>(null);
 	/** One upload at a time: another is moving and has not failed. */
@@ -75,6 +82,7 @@
 	function close() {
 		fileProblem = null;
 		form = null;
+		typed = null;
 		// The fields come back empty on reopen; so does the pick.
 		style = first;
 		onclose();
@@ -121,12 +129,12 @@
 			{#if otherError}<Banner kind="error" title={otherError} />{/if}
 
 			<div>
-				<label class={LABEL} for="add-song-url">{t().songs.add.youtubeLink}</label>
+				<label class={LABEL} for="add-song-url">{t().songs.add.label}</label>
 				<div class="relative">
 					<span
 						class="pointer-events-none absolute top-1/2 left-3.5 flex -translate-y-1/2 text-muted"
 					>
-						<Icon name="youtube" size={20} />
+						<Icon name="link" size={20} />
 					</span>
 					<!-- The sheet exists to paste this one thing. -->
 					<!-- svelte-ignore a11y_autofocus -->
@@ -139,15 +147,23 @@
 						autofocus
 						placeholder={URL_EXAMPLE}
 						value={form?.url ?? ''}
+						oninput={(e) => (typed = e.currentTarget.value)}
 						class="{FIELD} pl-11"
 						aria-invalid={urlError ? 'true' : undefined}
-						aria-describedby={urlError ? 'add-song-url-error' : undefined}
+						aria-describedby={urlError ? 'add-song-url-error' : 'add-song-url-help'}
 					/>
 				</div>
-				{#if urlError}<FieldError id="add-song-url-error" message={urlError} />{/if}
+				{#if urlError}
+					<FieldError id="add-song-url-error" message={urlError} />
+				{:else}
+					<p id="add-song-url-help" class="mt-1.5 text-[13px] leading-[1.4] text-muted">
+						{t().songs.add.help}
+					</p>
+				{/if}
 			</div>
 
-			<div>
+			<!-- A list: each song gets its title and style on the pick list. -->
+			<div hidden={isList}>
 				<label class={LABEL} for="add-song-title"
 					>{t().songs.add.title}
 					<span class="font-normal text-muted">{t().songs.music.optional}</span></label
@@ -165,7 +181,7 @@
 				{#if titleError}<FieldError id="add-song-title-error" message={titleError} />{/if}
 			</div>
 
-			<fieldset>
+			<fieldset hidden={isList}>
 				<legend class={LABEL}>{t().songs.add.style}</legend>
 				<div class="flex flex-wrap gap-2">
 					{#each dance.styles as s (s)}
@@ -183,7 +199,8 @@
 				aria-busy={busy}
 				aria-label={busy ? t().songs.add.adding : undefined}
 			>
-				{#if busy}<Spinner />{:else}{t().songs.add.submit}{/if}
+				{#if busy}<Spinner />{:else if isList}{t().songs.add.readList}{:else}{t().songs.add
+						.submit}{/if}
 			</button>
 		</form>
 

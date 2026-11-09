@@ -169,6 +169,7 @@ export const clones: Catalog['clones'] = {
 		sample: 'Odlomek',
 		sections: 'Deli',
 		musicStart: 'Začetek glasbe',
+		audio: 'Zvok',
 		slots: 'Mesta',
 		note: 'Opomba',
 		sectionLinks: 'Povezave odseka'

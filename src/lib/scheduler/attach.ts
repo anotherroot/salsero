@@ -8,6 +8,7 @@
  * `HORIZON_S` directly on the audio clock, which is sample-accurate and immune
  * to main-thread jank. (The standard "A Tale of Two Clocks" pattern.)
  */
+import { isQuiet, type QuietRange } from './quiet';
 import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
 import { CLIPS, type Clip } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
@@ -134,6 +135,8 @@ export interface PlayerOptions {
 	) => PlanStep[];
 	/** Count and clave loudness, 0–1, independent of the music. */
 	voiceVolume: number;
+	/** A song's parts with the count off (`quietRanges`): no count and no clave there. */
+	quiet?: QuietRange[];
 	/**
 	 * The user's recorded half-bars for the chosen pattern, if any. An empty
 	 * list — or a tempo too far from every take — falls back to the shipped
@@ -309,7 +312,11 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		// Decide the routine a bar or two ahead of where we are scheduling sound.
 		if (opts.planner) plan = opts.planner(plan, eightAt(until) + 2, Math.random);
 
-		const { cues, phrases: due, steps } = cuesIn(tl, plan, toggles, cursor, until);
+		const found = cuesIn(tl, plan, toggles, cursor, until);
+		const quiet = opts.quiet ?? [];
+		const cues = found.cues.filter((c) => !isQuiet(quiet, c.at));
+		const due = found.phrases.filter((p) => !isQuiet(quiet, p.at));
+		const steps = found.steps;
 
 		for (const cue of cues) {
 			const src = ctx.createBufferSource();

@@ -1,7 +1,7 @@
 // The change-log triggers for synced tables (src/lib/sync/tables.ts).
 //
 // A table newly added to SYNCED gets its triggers in a NEW custom migration,
-// never in 0041 (production applied it once and never runs it again):
+// never in 0042 (production applied it once and never runs it again):
 //   npx drizzle-kit generate --custom --name=<name>
 //   node scripts/sync-triggers.ts <table>… > drizzle/<that migration>.sql
 // With no table, it prints the triggers of every synced table, for reference.

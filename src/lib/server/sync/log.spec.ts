@@ -34,7 +34,7 @@ describe('change log', () => {
 	});
 
 	it("every synced table's triggers, after all migrations, are triggerSql's for its key", () => {
-		// A table synced after 0041 passes only through a new migration (scripts/sync-triggers.ts <table>).
+		// A table synced after 0042 passes only through a new migration (scripts/sync-triggers.ts <table>).
 		const db = fresh();
 		const live = new Map(
 			db

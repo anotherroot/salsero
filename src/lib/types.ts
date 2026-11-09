@@ -3,6 +3,8 @@ import type {
 	CountPattern,
 	Partner,
 	PracticeMode,
+	SongImportKind,
+	SongImportStatus,
 	SongStatus,
 	Source as ExerciseSource,
 	TempoFactor
@@ -12,6 +14,27 @@ import type { DanceSlug } from './dances/dances';
 
 /** A group, as a list names it. */
 export type TeamRef = { id: number; name: string };
+
+/** One song of a pasted playlist, as the worker read it (`song_imports.items_json`). */
+export type ImportItem = {
+	title: string;
+	artist: string | null;
+	durationS: number | null;
+	url: string;
+};
+/** An item on the pick list: its index, and whether the space already has the song. */
+export type PickItem = ImportItem & { i: number; already: boolean };
+/** A pasted playlist as Music lists it. `group` names a group's import shown in an editor's own Music. */
+export type SongImportRow = {
+	id: number;
+	kind: SongImportKind;
+	name: string | null;
+	status: SongImportStatus;
+	error: string | null;
+	count: number;
+	truncated: boolean;
+	group: TeamRef | null;
+};
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
@@ -90,6 +113,11 @@ export interface SongItem {
 	/** Widened to plain text: validated against `DANCES[dance].styles`, not the vestigial `Style` enum. */
 	style: string;
 	sourceUrl: string | null;
+	/** The person's link for the audio (Use another YouTube link); null = `sourceUrl`. */
+	audioUrl: string | null;
+	/** What the worker downloaded: the "Audio from" card. */
+	fetchedUrl: string | null;
+	fetchedTitle: string | null;
 	status: SongStatus;
 	error: string | null;
 	durationS: number | null;
@@ -237,6 +265,8 @@ export interface SongGrid {
 	counts: number[];
 	/** Where the music starts: a player seeks here before playing from 0:00 (`playFrom`, `$lib/songs/music-start`). */
 	startS: number;
+	/** The song's sections as stored (raw seconds, `$lib/songs/sections`): the player keeps count-off ones quiet. */
+	sections: { at: number; name: string; countOff: boolean }[];
 }
 
 /**
@@ -867,7 +897,7 @@ export type SyncResult =
 	| { ok: true }
 	| {
 			ok: false;
-			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed';
+			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed' | 'busy';
 			message: string;
 	  };
 

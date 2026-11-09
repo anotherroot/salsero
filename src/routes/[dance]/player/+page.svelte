@@ -17,6 +17,9 @@
 	import { figureById } from '$lib/graph/graph';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
+	import { quietRanges } from '$lib/scheduler/quiet';
+	import { placeSections, type Placed } from '$lib/songs/sections';
+	import { playFrom } from '$lib/songs/music-start';
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
@@ -135,6 +138,8 @@
 	let starting = $state(false);
 	let voiceVolume = $state(1);
 	/** The grid the running player was actually built with — song or synthetic. */
+	/** The running song's sections, placed on its 1s: the band says where the run is. */
+	let runningSections = $state<Placed[]>([]);
 	let runningGrid = $state<{ beats: number[]; counts: number[] } | null>(null);
 	/** The song the running player was built with, or null for count only. */
 	let runningSong = $state<{ id: number; title: string; audioFile: string } | null>(null);
@@ -203,7 +208,12 @@
 		if (useSong && el) {
 			el.playbackRate = settings.speed;
 			el.preservesPitch = true;
+			// Where the music starts (the song page's start): a song at 0:00 seeks there first.
+			const from = g0 ? playFrom(el.currentTime, g0.startS, el.duration) : null;
+			if (from !== null) el.currentTime = from;
 		}
+		// A song's sections with the count off play with no count and no clave.
+		const songSections = useSong && g0 ? g0.sections : [];
 
 		// Read once, before the closure below is built: the planner runs inside
 		// the 25 ms tick for the whole run, and a reactive read in there would
@@ -217,6 +227,7 @@
 			audio: useSong && el ? el : null,
 			grid,
 			toggles: { count: settings.count, clave: settings.clave },
+			quiet: quietRanges(songSections, grid.beats, grid.counts),
 			planner: shape
 				? (plan, through, rand, from) => routinePlan(plan, shape, graph, through, rand, from)
 				: undefined,
@@ -243,6 +254,7 @@
 		}
 		player = handle;
 		runningGrid = grid;
+		runningSections = placeSections(songSections, grid.beats, grid.counts);
 		runningSong = runSong;
 		runningBpm = runSong ? null : settings.bpm;
 		// Keep what the run plays on the exercise at once, not in a moment: the
@@ -385,6 +397,18 @@
 			onview={setView}
 			onjump={(slot) => player?.jumpTo(slot)}
 			details={data.details}
+			sections={runningSections}
+			clave={runToggles?.clave ?? null}
+			onclave={(c) => {
+				if (!runToggles) return;
+				runToggles = { ...runToggles, clave: c };
+				player?.setToggles(runToggles);
+				savePhonePractice(data.dance.slug, { clave: c });
+				if (runSettings) {
+					runSettings = { ...runSettings, clave: c };
+					keep(runSettings);
+				}
+			}}
 			figureDetails={data.figureDetails}
 			routineNotes={data.routine?.notes ?? null}
 			song={runningSong}
