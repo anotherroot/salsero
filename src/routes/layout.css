@@ -272,6 +272,14 @@ body {
 }
 
 /*
+ * The page never zooms, as a native screen doesn't (app.html's viewport says so
+ * too; iOS ignores that). A video and the positions map zoom inside themselves.
+ */
+html {
+	touch-action: pan-x pan-y;
+}
+
+/*
  * SCRIM, written out: `::backdrop` does not inherit custom properties in every
  * engine the phone or the work PC may run.
  */
