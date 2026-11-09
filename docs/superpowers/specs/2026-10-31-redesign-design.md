@@ -241,7 +241,11 @@ rules the boards follow that are not obvious from looking at them.
   takes over unseen, nothing fades in (it used to scroll away whole, the slim
   band fading in after). The fold runs on the scroll itself (CSS scroll timelines,
   `data-fold`), so it never lags the finger; a browser without them draws it
-  from script on each scroll.
+  from script on each scroll. The slim title is the big one shrunk: the big
+  band's optical size (Bricolage's opsz, 46 or 30) and letter spacing, so the
+  swap at the pin changes no letter. Measuring reads the layout (offsets), so the
+  fold is never taken off mid-scroll, and an exercise's ticking clock in the
+  subtitle measures nothing again.
 - **Edit** is a pencil on the band. Editing shows × ("Stop editing", asks if
   unsaved) and the form's Save pinned at the bottom — one Save, not a header
   Done plus a form Save. **One exception:** the song page's Edit (spec

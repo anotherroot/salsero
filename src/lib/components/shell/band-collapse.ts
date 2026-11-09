@@ -3,28 +3,32 @@
  * title shrinks and moves to the slim band's title, Back and the actions move
  * to the slim band's row, the subtitle to the slim band's when it has one (a
  * compact screen's), and what else is under the title (the group line, a
- * subtitle the slim band drops, `extra`) fades. At the pin (`bandMode`) the slim band takes over
- * with nothing to fade: it holds the same things in the same places. Inline
- * styles on the big band's marked parts (`data-band-*` in `BandHeader`), measured
- * against the slim band's (`data-slim-name`, `data-slim-sub`); never on the desktop (`clear`). Not PURE:
- * the math is `$lib/nav/band`.
+ * subtitle the slim band drops, `extra`) fades. At the pin (`bandMode`) the
+ * slim band takes over with nothing to fade: it holds the same things in the
+ * same places. Inline styles on the big band's marked parts (`data-band-*` in
+ * `BandHeader`), measured against the slim band's (`data-slim-name`,
+ * `data-slim-sub`); never on the desktop (`clear`). Not PURE: the math is
+ * `$lib/nav/band`.
  *
  * Where the browser has scroll timelines (`scrollDriven`), `drive` hands the
  * fold to the scroll itself (`data-fold` and the `band-*` keyframes in
  * layout.css): it only writes the end values and the range, again when the pin
  * or the band changes, and nothing runs while the page scrolls, so nothing
  * lags the finger. Elsewhere `update` draws each scroll from script.
+ *
+ * Positions are read from the layout (`offsetTop`/`offsetLeft`), which a
+ * transform or a running fold does not move: measuring never takes the fold
+ * off, so the big title never shows at rest for a frame mid-scroll.
  */
 import { lerp } from '$lib/nav/band';
 
 /**
- * A part at rest (no transform), in page coordinates: where its text starts
- * (its left plus its left padding, `pad`: a subtitle's indent) and its centre.
+ * A part at rest, in page coordinates: where its text starts (its left plus
+ * its left padding, `pad`: a subtitle's indent) and its centre.
  */
 type Spot = { x: number; cy: number; pad: number };
 
 type Rest = {
-	key: string;
 	name: Spot | null;
 	sub: Spot | null;
 	left: Spot | null;
@@ -51,11 +55,22 @@ const parts = (header: HTMLElement) => ({
 	fades: [...header.querySelectorAll<HTMLElement>('[data-band-fade]')]
 });
 
-function spot(el: HTMLElement | null, scrollY: number): Spot | null {
+/** Where the layout puts `el`, transforms aside: page coordinates, or the screen's inside a fixed box. */
+function placed(el: HTMLElement): { left: number; top: number } {
+	let left = 0;
+	let top = 0;
+	for (let at: HTMLElement | null = el; at; at = at.offsetParent as HTMLElement | null) {
+		left += at.offsetLeft;
+		top += at.offsetTop;
+	}
+	return { left, top };
+}
+
+function spot(el: HTMLElement | null): Spot | null {
 	if (!el) return null;
-	const r = el.getBoundingClientRect();
+	const { left, top } = placed(el);
 	const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
-	return { x: r.left + pad, cy: r.top + r.height / 2 + scrollY, pad };
+	return { x: left + pad, cy: top + el.offsetHeight / 2, pad };
 }
 
 const fontSize = (el: Element) => parseFloat(getComputedStyle(el).fontSize) || 1;
@@ -71,7 +86,10 @@ function unfold(el: HTMLElement) {
 	for (const v of FOLD_VARS) el.style.removeProperty(v);
 }
 
-/** Hand one part to the scroll: `kind` its keyframes, over `from`..`to` px of scroll. */
+/**
+ * Hand one part to the scroll: `kind` its keyframes, over `from`..`to` px of
+ * scroll. A part already folding only takes the new values: its animation runs on.
+ */
 function fold(
 	el: HTMLElement,
 	kind: 'fly' | 'fade' | 'in',
@@ -82,55 +100,54 @@ function fold(
 	el.style.setProperty('--fold-from', `${from}px`);
 	el.style.setProperty('--fold-to', `${to}px`);
 	for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
-	el.setAttribute('data-fold', kind);
+	if (el.getAttribute('data-fold') !== kind) el.setAttribute('data-fold', kind);
+}
+
+function measure(header: HTMLElement, slim: HTMLElement): Rest {
+	const p = parts(header);
+	const slimName = slim.querySelector<HTMLElement>('[data-slim-name]');
+	const slimSub = slim.querySelector<HTMLElement>('[data-slim-sub]');
+	const band = placed(slim);
+	return {
+		name: spot(p.name),
+		sub: spot(p.sub),
+		left: spot(p.left),
+		right: spot(p.right),
+		slimName: spot(slimName),
+		slimSub: spot(slimSub),
+		slimRow: band.top + slim.offsetHeight - 32,
+		scale: p.name && slimName ? fontSize(slimName) / fontSize(p.name) : 1,
+		subScale: p.sub && slimSub ? fontSize(slimSub) / fontSize(p.sub) : 1
+	};
 }
 
 export function bandCollapse() {
-	let rest: Rest | null = null;
+	/** The rest positions and what they were measured for (the band's key). */
+	let rest: (Rest & { key: string }) | null = null;
 	/** What `drive` last handed to the scroll: the pin and the key. */
 	let driven: string | null = null;
 
+	const restFor = (header: HTMLElement, slim: HTMLElement, key: string): Rest => {
+		if (rest?.key !== key) rest = { ...measure(header, slim), key };
+		return rest;
+	};
+
 	function reset(header: HTMLElement, slim?: HTMLElement | null) {
 		const p = parts(header);
-		for (const el of [p.name, p.sub, p.left, p.right]) {
+		for (const el of [p.name, p.sub, p.left, p.right, ...p.fades]) {
 			if (!el) continue;
 			el.style.transform = '';
-			unfold(el);
-		}
-		for (const el of [...p.fades, p.sub]) {
-			if (!el) continue;
 			el.style.opacity = '';
 			unfold(el);
 		}
 		if (slim) unfold(slim);
 	}
 
-	function measure(header: HTMLElement, slim: HTMLElement, key: string): Rest {
-		reset(header, slim);
-		const p = parts(header);
-		const y = window.scrollY;
-		const slimName = slim.querySelector<HTMLElement>('[data-slim-name]');
-		const s = slimName?.getBoundingClientRect();
-		const slimSub = slim.querySelector<HTMLElement>('[data-slim-sub]');
-		const ss = slimSub?.getBoundingClientRect();
-		return {
-			key,
-			name: spot(p.name, y),
-			sub: spot(p.sub, y),
-			left: spot(p.left, y),
-			right: spot(p.right, y),
-			slimName: s ? { x: s.left, cy: s.top + s.height / 2, pad: 0 } : null,
-			slimSub: ss ? { x: ss.left, cy: ss.top + ss.height / 2, pad: 0 } : null,
-			slimRow: slim.getBoundingClientRect().bottom - 32,
-			scale: p.name && slimName ? fontSize(slimName) / fontSize(p.name) : 1,
-			subScale: p.sub && slimSub ? fontSize(slimSub) / fontSize(p.sub) : 1
-		};
-	}
-
 	return {
 		/**
-		 * Draw the fold at `scrollY`, `progress` of the way to the pin. `key` names
-		 * what the rest positions hang on (the width, the title): a new one measures again.
+		 * Draw the fold at `scrollY`, `progress` of the way to the pin (browsers
+		 * without scroll timelines). `key` names what the rest positions hang on
+		 * (the width, the title): a new one measures again.
 		 */
 		update(
 			header: HTMLElement,
@@ -139,8 +156,7 @@ export function bandCollapse() {
 			progress: number,
 			key: string
 		): void {
-			if (rest?.key !== key) rest = measure(header, slim, key);
-			const r = rest;
+			const r = restFor(header, slim, key);
 			const p = parts(header);
 			// Where a part is now without a transform: its rest centre, moved up by the scroll.
 			const moved = (from: number, to: number) => lerp(from, to, progress) - (from - scrollY);
@@ -169,14 +185,15 @@ export function bandCollapse() {
 		},
 		/**
 		 * Hand the fold to the scroll (`scrollDriven` browsers): the end of each part's
-		 * way at `pin` and its range. Writes only when the pin or `key` changed. The
-		 * slim band comes in at the pin itself, in the same frame the title lands.
+		 * way at `pin` and its range. Writes only when the pin or `key` changed, and
+		 * then only new values: the running fold is never taken off. The slim band
+		 * comes in at the pin itself, in the same frame the title lands.
 		 */
 		drive(header: HTMLElement, slim: HTMLElement, pin: number, key: string): void {
 			const at = `${pin}|${key}`;
 			if (driven === at) return;
 			driven = at;
-			const r = (rest = measure(header, slim, key));
+			const r = restFor(header, slim, key);
 			const p = parts(header);
 			// At the pin a part has moved up by the pin and must sit at its target:
 			// the way is (target − rest) + pin, linear in the scroll as the script's is.
@@ -195,10 +212,7 @@ export function bandCollapse() {
 				[p.left, r.left],
 				[p.right, r.right]
 			] as const) {
-				if (el && from) {
-					el.style.transformOrigin = '';
-					fold(el, 'fly', 0, pin, { '--fly-y': `${r.slimRow - from.cy + pin}px` });
-				}
+				if (el && from) fold(el, 'fly', 0, pin, { '--fly-y': `${r.slimRow - from.cy + pin}px` });
 			}
 			const fades = [...p.fades, ...(p.sub && !r.slimSub ? [p.sub] : [])];
 			for (const el of fades) fold(el, 'fade', 0, pin / 1.6);
