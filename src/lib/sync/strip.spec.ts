@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { OutboxSummary } from '$lib/offline/protocol';
-import { nextMarks, SENDING_WINDOW_MS, SENT_SHOW_MS, stripState, type StripMarks } from './strip';
-import { WAITING_GRACE_MS } from './status';
+import {
+	nextMarks,
+	SENDING_WINDOW_MS,
+	SENT_SHOW_MS,
+	STUCK_MS,
+	stripState,
+	type StripMarks
+} from './strip';
 
 const NOW = 1_000_000;
 const sum = (over: Partial<OutboxSummary> = {}): OutboxSummary => ({
@@ -32,17 +38,18 @@ describe('the offline strip (offline phase 3, look C2)', () => {
 		expect(stripState(true, null, NOW, none)).toBeNull();
 	});
 
-	it('online: a change that goes up within the grace never shows', () => {
-		const s = sum({ waiting: 1, oldestWaitingAt: NOW - WAITING_GRACE_MS + 1 });
+	it('online: an ordinary save never shows, even a slow one', () => {
+		const s = sum({ waiting: 1, oldestWaitingAt: NOW - STUCK_MS + 1 });
 		expect(stripState(true, s, NOW, none)).toBeNull();
 	});
 
-	it('online: changes still waiting after the grace say so', () => {
-		const s = sum({ waiting: 3, oldestWaitingAt: NOW - WAITING_GRACE_MS });
+	it('online: changes stuck for a minute are a problem and say so', () => {
+		expect(STUCK_MS).toBe(60_000);
+		const s = sum({ waiting: 3, oldestWaitingAt: NOW - STUCK_MS });
 		expect(stripState(true, s, NOW, none)).toEqual({ kind: 'waiting', count: 3 });
 	});
 
-	it('just back online: sending, whatever the grace', () => {
+	it('just back online: sending, then stuck once the window ends', () => {
 		const s = sum({ waiting: 5, oldestWaitingAt: NOW });
 		const marks = { backOnlineAt: NOW - 1000, sentUntil: null };
 		expect(stripState(true, s, NOW, marks)).toEqual({ kind: 'sending', count: 5 });
@@ -55,6 +62,25 @@ describe('the offline strip (offline phase 3, look C2)', () => {
 		const marks = { backOnlineAt: NOW - 3000, sentUntil: NOW + 500 };
 		expect(stripState(true, sum(), NOW, marks)).toEqual({ kind: 'sent' });
 		expect(stripState(true, sum(), NOW + 500, marks)).toBeNull();
+	});
+
+	it('back online with nothing waiting: no "sending" for later saves', () => {
+		expect(
+			nextMarks({ online: false, waiting: 0, shown: true }, { online: true, waiting: 0 }, NOW, none)
+				.backOnlineAt
+		).toBeNull();
+	});
+
+	it('once all is sent, later saves are ordinary again (no "sending")', () => {
+		const marks = nextMarks(
+			{ online: true, waiting: 2, shown: true },
+			{ online: true, waiting: 0 },
+			NOW,
+			{ backOnlineAt: NOW - 1000, sentUntil: null }
+		);
+		expect(marks.backOnlineAt).toBeNull();
+		const save = sum({ waiting: 1, oldestWaitingAt: NOW + 3000 });
+		expect(stripState(true, save, NOW + 3000, marks)).toBeNull();
 	});
 
 	it('marks the moment the connection comes back', () => {
