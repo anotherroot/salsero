@@ -48,6 +48,10 @@ export const player = {
 	aboutSections: (n: number): string => (n === 1 ? 'a lesson section' : `${n} lesson sections`),
 	aboutRecordings: (n: number): string => (n === 1 ? 'a recording' : `${n} recordings`),
 	aboutLinks: (n: number): string => (n === 1 ? 'a link' : `${n} links`),
+	/** A video in About: a tap plays it aloud, and the music pauses. */
+	withSound: (caption: string): string => `Play ${caption} with sound`,
+	/** Over About while a video has the sound. */
+	musicPaused: 'Music paused',
 	/** A lesson's About. */
 	aboutFigures: (n: number): string => (n === 1 ? 'a figure' : `${n} figures`),
 	aboutVideos: (n: number): string => (n === 1 ? 'a video' : `${n} videos`),

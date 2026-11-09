@@ -3,7 +3,10 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
-	import { GROUP } from '$lib/components/ui/styles';
+	import { CLIP, GROUP, button } from '$lib/components/ui/styles';
+	import YouTubeCard from '$lib/components/links/YouTubeCard.svelte';
+	import { parseLink } from '$lib/links';
+	import { claimSound, videoSound } from '$lib/player/video-sound.svelte';
 	import type { RunDetails } from '$lib/types';
 	import RunClip from './RunClip.svelte';
 	import DetailsBody from './DetailsBody.svelte';
@@ -12,13 +15,30 @@
 	 * What About shows (one-player design), read-only: the heading, the facts as
 	 * chips, the notes, a lesson's figures, the videos, the links. Only the parts
 	 * that hold something are drawn; nothing here edits. A lesson's figure opens
-	 * its own details in place, under a row back to the lesson.
+	 * its own details in place, under a row back to the lesson. A video played
+	 * with sound (a clip, a lesson video, a YouTube link, which plays here) takes
+	 * the sound (`videoSound`); while the run is paused for it, a strip says so,
+	 * with Resume.
 	 */
 	interface Props {
 		details: RunDetails;
+		/** The run is paused (a running player only; Setup passes nothing). */
+		musicPaused?: boolean;
+		/** The run's Resume: it stops the video's sound and the music goes on. */
+		onresume?: () => void;
 	}
 
-	let { details }: Props = $props();
+	let { details, musicPaused = false, onresume }: Props = $props();
+
+	const links = $derived(details.links.map((link) => ({ link, parsed: parseLink(link.url) })));
+	/** Each YouTube card's embed, open or not: one that lost the sound closes. */
+	let open = $state<Record<string, boolean>>({});
+	$effect(() => {
+		const holder = videoSound.key;
+		for (const id of Object.keys(open)) {
+			if (open[id] && holder !== `yt:${id}`) open[id] = false;
+		}
+	});
 
 	/** The lesson's figure open in place, by its index; null shows the lesson. */
 	let opened = $state<number | null>(null);
@@ -37,6 +57,19 @@
 	const whereOf = (url: string) => url.replace(/^https?:\/\/(www\.)?/, '');
 </script>
 
+{#if onresume && musicPaused && videoSound.key !== null}
+	<div
+		class="mb-3.5 flex items-center gap-2 rounded-2xl bg-inverse-bg py-2 pr-2 pl-3.5 text-[14px] font-bold text-inverse-ink"
+		role="status"
+	>
+		<Icon name="pause" size={16} filled /><span class="min-w-0 flex-1"
+			>{t().player.musicPaused}</span
+		>
+		<button type="button" class={button('secondary', 'sm')} onclick={onresume}
+			>{t().exercise.panel.resume}</button
+		>
+	</div>
+{/if}
 {#if openedDetails}
 	<div class="flex flex-col gap-3.5">
 		<button
@@ -92,9 +125,22 @@
 		{#each details.clips as clip, k (k)}
 			<RunClip {clip} />
 		{/each}
-		{#if details.links.length > 0}
+		{#each links as { link, parsed }, k (k)}
+			{#if parsed?.kind === 'youtube'}
+				<div class="{CLIP} rounded-2xl bg-surface">
+					<YouTubeCard
+						id={parsed.id}
+						start={parsed.start}
+						title={link.title}
+						bind:playing={() => open[parsed.id] ?? false, (v) => (open[parsed.id] = v)}
+						onplay={() => claimSound(`yt:${parsed.id}`)}
+					/>
+				</div>
+			{/if}
+		{/each}
+		{#if links.some((l) => l.parsed?.kind !== 'youtube')}
 			<div class={GROUP}>
-				{#each details.links as link, k (k)}
+				{#each links.filter((l) => l.parsed?.kind !== 'youtube') as { link }, k (k)}
 					<a
 						href={link.url}
 						target="_blank"
