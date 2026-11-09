@@ -35,7 +35,7 @@ values to the walk.
 4. **Offline, a write.** Today's first exercise: its page, Done, a note typed into the Done sheet and a face
    (the face is the send). It saves on the device: the sheet closes, no `salsa:needs-connection`, the
    server's copy has no new `sets` row yet, the device answers that exercise's data with the log, one change
-   waits (`window.__device.outbox`; its `oldestWaitingAt` is the made-at checked in 8), and after the 2 s
+   waits (`window.__device.outbox`; its `oldestWaitingAt` is the made-at checked in 8), and
    the offline strip says "Offline · 1 change waiting".
 5. **Offline, a network page.** A group lesson's History (`/{dance}/groups/<id>/history/lesson/<id>`: the
    app has no `/groups/<id>/history` page) shows the offline error page, not an empty History.
