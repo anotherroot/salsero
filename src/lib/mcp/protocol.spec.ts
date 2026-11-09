@@ -129,6 +129,23 @@ describe('handleRpc', () => {
 			}
 		});
 	});
+	it('tools/call carries audio after images', async () => {
+		const withAudio: ToolHost = {
+			tools: host.tools,
+			call: async () => ({
+				isError: false,
+				text: 'Here',
+				images: [{ data: 'QUJD', mimeType: 'image/jpeg' }],
+				audio: [{ data: 'REVG', mimeType: 'audio/mpeg' }]
+			})
+		};
+		const r = (await handleRpc(
+			{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'echo' } },
+			withAudio
+		)) as { result: { content: { type: string }[] } };
+		expect(r.result.content.map((c) => c.type)).toEqual(['text', 'image', 'audio']);
+		expect(r.result.content[2]).toEqual({ type: 'audio', data: 'REVG', mimeType: 'audio/mpeg' });
+	});
 	it('names itself salsaapp', async () => {
 		expect(await rpc('initialize', { protocolVersion: '2025-06-18' })).toMatchObject({
 			result: { serverInfo: { name: 'salsaapp', version: '1.0.0' } }

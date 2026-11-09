@@ -28,6 +28,8 @@ export interface ToolResult {
 	text: string;
 	/** Base64 images, sent as image content after the text. */
 	images?: { data: string; mimeType: string }[];
+	/** Base64 sound, sent as audio content after the images (MCP 2025-03-26 and later). */
+	audio?: { data: string; mimeType: string }[];
 }
 
 export interface ToolHost {
@@ -98,7 +100,8 @@ export async function handleRpc(msg: unknown, host: ToolHost): Promise<object | 
 			return ok(id, {
 				content: [
 					{ type: 'text', text: r.text },
-					...(r.images ?? []).map((i) => ({ type: 'image', data: i.data, mimeType: i.mimeType }))
+					...(r.images ?? []).map((i) => ({ type: 'image', data: i.data, mimeType: i.mimeType })),
+					...(r.audio ?? []).map((a) => ({ type: 'audio', data: a.data, mimeType: a.mimeType }))
 				],
 				isError: r.isError
 			});
