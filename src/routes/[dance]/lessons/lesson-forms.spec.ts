@@ -521,10 +521,10 @@ describe('the refusals in Slovenian', () => {
 					post('salsa', { figureName: ' ', name: 'Doble', partner: 'partner', style: 'salsa' }, id)
 				)
 			)
-		).toMatchObject({ data: { message: 'Vpišite ime figure (do 200 znakov).' } });
+		).toMatchObject({ data: { message: 'Vpišite ime giba (do 200 znakov).' } });
 		expect(
 			await sl(() => call(lessonActions.newVariation, post('salsa', { name: 'Doble' }, id)))
-		).toMatchObject({ data: { field: 'groupId', message: 'Izberite figuro.' } });
+		).toMatchObject({ data: { field: 'groupId', message: 'Izberite gib.' } });
 		expect(
 			await sl(() => call(lessonActions.newExercise, post('salsa', { name: ' ' }, id)))
 		).toMatchObject({ data: { message: 'Vpišite ime (do 200 znakov).' } });
@@ -540,14 +540,14 @@ describe('the refusals in Slovenian', () => {
 		const one = (action: unknown, fields: Record<string, string>) =>
 			sl(() => call(action, post('salsa', fields, id)));
 		expect(await one(lessonActions.linkFigure, { figureId: '999' })).toMatchObject({
-			data: { message: 'Različice ni bilo mogoče povezati.' }
+			data: { message: 'Figure ni bilo mogoče povezati.' }
 		});
 		expect(await one(lessonActions.unlinkRoutine, { routineId: '999' })).toMatchObject({
 			data: { message: 'Povezava s kombinacijo je že odstranjena.' }
 		});
 		expect(await one(lessonActions.linkExercise, { exerciseId: '999' })).toMatchObject({
 			data: {
-				message: 'Vaje ni bilo mogoče povezati. Vaja različice ali kombinacije je na njeni strani.'
+				message: 'Vaje ni bilo mogoče povezati. Vaja figure ali kombinacije je na njeni strani.'
 			}
 		});
 		expect(await one(lessonActions.unlinkPosition, { positionId: '999' })).toMatchObject({

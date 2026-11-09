@@ -49,8 +49,8 @@ describe('revealTop', () => {
 describe('emptyPane in Slovenian', () => {
 	it('asks for a figure or a routine', () => {
 		const f = withLocale('sl', () => emptyPane('figures', false));
-		expect(f.title).toBe('Izberite različico');
-		expect(f.action).toBe('Nova različica');
+		expect(f.title).toBe('Izberite figuro');
+		expect(f.action).toBe('Nova figura');
 		const r = withLocale('sl', () => emptyPane('routines', true));
 		expect(r.title).toBe('Izberite kombinacijo');
 		expect(r.action).toBe('Nova kombinacija');

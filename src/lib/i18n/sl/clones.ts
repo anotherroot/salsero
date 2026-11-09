@@ -4,7 +4,7 @@
 // inside a phrase that would decline it, and no past tense agrees with it
 // ("Sreda 17:30 · spremenjeno: opombe"). The person's own copy is »vaša kopija«;
 // Sync is »Uskladi«. "Version" (a member of a family) is »kopija«, never
-// »različica«: that word is a figure. No possessive of a name: "Salsa Tuesdays’"
+// »različica« (only the app has one) or »figura« (a figure). No possessive of a name: "Salsa Tuesdays’"
 // is »Skupina: Salsa Tuesdays« or »· Salsa Tuesdays«.
 import type { Catalog } from '../catalog';
 import type { CloneKind } from '$lib/types';
@@ -19,7 +19,7 @@ const listed = (names: string[]): string =>
 
 /** A kind's noun, as a subtitle or "ostane … skupine" says it. */
 const KIND: Record<CloneKind, string> = {
-	figure: 'različica',
+	figure: 'figura',
 	routine: 'kombinacija',
 	drill: 'vaja',
 	song: 'skladba',
@@ -40,7 +40,7 @@ const capital = (s: string) => `${s[0].toUpperCase()}${s.slice(1)}`;
 
 /** "Twins show as one …": a kind, one of it, in the nominative. */
 const ONE: Record<CloneKind, string> = {
-	figure: 'ena različica',
+	figure: 'ena figura',
 	routine: 'ena kombinacija',
 	drill: 'ena vaja',
 	song: 'ena skladba',
@@ -50,7 +50,7 @@ const ONE: Record<CloneKind, string> = {
 
 /** "Iščite med svojimi …": a kind's plural in the instrumental. */
 const AMONG: Record<CloneKind, string> = {
-	figure: 'različicami',
+	figure: 'figurami',
 	routine: 'kombinacijami',
 	drill: 'vajami',
 	song: 'skladbami',
@@ -60,7 +60,7 @@ const AMONG: Record<CloneKind, string> = {
 
 /** "No other … match.": the subject agrees with its kind. */
 const NONE_OTHER: Record<CloneKind, string> = {
-	figure: 'Nobena druga različica ne ustreza.',
+	figure: 'Nobena druga figura ne ustreza.',
 	routine: 'Nobena druga kombinacija ne ustreza.',
 	drill: 'Nobena druga vaja ne ustreza.',
 	song: 'Nobena druga skladba ne ustreza.',
@@ -70,7 +70,7 @@ const NONE_OTHER: Record<CloneKind, string> = {
 
 /** "Meni …": a kind in the genitive. */
 const OF_KIND: Record<CloneKind, string> = {
-	figure: 'različice',
+	figure: 'figure',
 	routine: 'kombinacije',
 	drill: 'vaje',
 	song: 'skladbe',
@@ -120,7 +120,7 @@ export const clones: Catalog['clones'] = {
 		// A list after the colon, each in the nominative: nothing agrees with it.
 		switchNote: (r) => {
 			const parts: string[] = [];
-			if (r.figures.length === 1) parts.push(`različica ${r.figures[0]} (s tem položajem)`);
+			if (r.figures.length === 1) parts.push(`figura ${r.figures[0]} (s tem položajem)`);
 			else if (r.figures.length > 1)
 				parts.push(`${nouns.figures(r.figures.length)} s tem položajem`);
 			if (r.routines.length > 0)
@@ -145,7 +145,7 @@ export const clones: Catalog['clones'] = {
 		team: (team, kind) => `${capital(KIND[kind])} · ${team}`,
 		copyFrom: (place) => `Vaša kopija · vir: ${place}`,
 		inGroups: (n) => `Vaše · v ${slCount(n, ['skupini', 'skupinah', 'skupinah', 'skupinah'])}`,
-		// Counted as the kind itself: »Dvojčki · 3 kombinacije«, not »različice« (a figure).
+		// Counted as the kind itself: »Dvojčki · 3 kombinacije«, not »figure« (a figure).
 		twins: (n, kind) => `${slForm(n) === 'two' ? 'Dvojčka' : 'Dvojčki'} · ${TWIN_NOUN[kind](n)}`,
 		note: (place) => `Kopija · ${place}, samo za branje. Kar želite, prevzemite v svojo.`,
 		held: (size) => `${size} · že v vaši kopiji`,
@@ -190,7 +190,7 @@ export const clones: Catalog['clones'] = {
 		stale: 'Medtem se je spremenilo; preverite znova.',
 		pickBoth: 'Kjer sta se spremenili obe, izberite svojo ali njihovo.',
 		nameTaken: (name, move) =>
-			`Različica s tem imenom že obstaja: ${move} · ${name}. Najprej eno preimenujte.`,
+			`Figura s tem imenom že obstaja: ${move} · ${name}. Najprej eno preimenujte.`,
 		loadFailed: 'Tega ni bilo mogoče naložiti. Poskusite znova.'
 	},
 	drop: {
@@ -389,7 +389,7 @@ export const clones: Catalog['clones'] = {
 		changed: (day) => `Nazadnje spremenjeno: ${day}`,
 		oneGoes: 'V vaši aplikaciji so dvojčki. Gre samo eden; skupina nikoli ne dobi dvojčkov.',
 		continue: 'Naprej',
-		// A picker's twins are figures and routines: »različica«, »kombinacija«, feminine.
+		// A picker's twins are figures and routines: »figura«, »kombinacija«, feminine.
 		named: (what, team) => (team === null ? `${what} (vaša)` : `${what} (skupina: ${team})`),
 		useMeta: (theirs, mine) => {
 			if (mine) return `Vaša · enaka kot: ${theirs.join(', ')} · uporablja se vaša`;

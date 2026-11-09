@@ -25,11 +25,11 @@ describe('usedInMeta', () => {
 describe('in Slovenian', () => {
 	const sl = <T>(fn: () => T) => withLocale('sl', fn);
 
-	it("counts a move's figures as različice", () => {
-		expect(sl(() => moveSubtitle(1))).toBe('Figura · 1 različica');
-		expect(sl(() => moveSubtitle(2))).toBe('Figura · 2 različici');
-		expect(sl(() => moveSubtitle(3))).toBe('Figura · 3 različice');
-		expect(sl(() => moveSubtitle(5))).toBe('Figura · 5 različic');
+	it("counts a move's figures as figure", () => {
+		expect(sl(() => moveSubtitle(1))).toBe('Gib · 1 figura');
+		expect(sl(() => moveSubtitle(2))).toBe('Gib · 2 figuri');
+		expect(sl(() => moveSubtitle(3))).toBe('Gib · 3 figure');
+		expect(sl(() => moveSubtitle(5))).toBe('Gib · 5 figur');
 	});
 
 	it('joins the names with "in"', () => {

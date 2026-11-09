@@ -120,16 +120,16 @@ describe('a move of your own', () => {
 		expect(
 			await runInLocale('sl', () => act('rename', 'u1', groupId, { name: 'Other' }))
 		).toMatchObject({
-			data: { message: 'Figura s tem imenom že obstaja: Other.' }
+			data: { message: 'Gib s tem imenom že obstaja: Other.' }
 		});
 		expect(
 			await runInLocale('sl', () => act('rename', 'u1', groupId, { name: ' ' }))
-		).toMatchObject({ data: { message: 'Vpišite ime figure (do 200 znakov).' } });
+		).toMatchObject({ data: { message: 'Vpišite ime giba (do 200 znakov).' } });
 		expect(
 			await runInLocale('sl', () => act('createFigure', 'u1', groupId, { name: 'Básica' }))
 		).toMatchObject({
 			data: {
-				message: 'Različica s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
+				message: 'Figura s tem imenom že obstaja: Enchufla · Básica. Najprej eno preimenujte.'
 			}
 		});
 	});

@@ -60,7 +60,7 @@ export const video: Catalog['video'] = {
 	linkPoint: 'Poveži to točko',
 	linkSection: 'Poveži ta odsek',
 	linkToPosition: 'Poveži s položajem',
-	linkToAny: 'Poveži z različico, vajo ali položajem',
+	linkToAny: 'Poveži z figuro, vajo ali položajem',
 
 	spots: 'Odseki in točke',
 	spotsCount: (n) => `Odseki in točke · ${n}`,

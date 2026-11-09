@@ -95,7 +95,7 @@ describe('leave lines in Slovenian', () => {
 
 	it('count in four forms and say a whole gigabyte plainly', () => {
 		expect(sl(() => everythingMeta(preview({ lessons: 1, figures: 2, songs: 5 }, GB)))).toBe(
-			'1 lekcija, 2 različici, 5 skladb · 1 GB v vašem prostoru'
+			'1 lekcija, 2 figuri, 5 skladb · 1 GB v vašem prostoru'
 		);
 		expect(sl(() => everythingMeta(preview({ routines: 3 }, 1.2 * GB)))).toBe(
 			'3 kombinacije · 1,2 GB v vašem prostoru'

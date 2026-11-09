@@ -81,8 +81,8 @@ Slovenian, without her choosing or understanding anything in English.
   |---|---|
   | Today | Danes |
   | Moves (tab) | Figure |
-  | a move | figura |
-  | a figure (a version of a move) | različica |
+  | a move | gib (until 2026-11-09: figura) |
+  | a figure (a version of a move) | figura (until 2026-11-09: različica) |
   | Routine | kombinacija |
   | Drill, exercise | vaja |
   | Lesson | lekcija |
@@ -103,7 +103,7 @@ Slovenian, without her choosing or understanding anything in English.
   | Copy, twins | kopija, dvojčka |
   | Levels: Follow my class / Practise and keep my own / Everything | Sledim svojemu tečaju / Vadim in imam svoje / Vse |
   | You (the tab: the settings, and above Follow my class the groups) | Jaz |
-  | version (of the app) | različica aplikacije (always with the noun: a bare "različica" is a figure) |
+  | version (of the app) | različica aplikacije (always with the noun) |
   | Session (Start session) | vadba (Začni vadbo) |
   | Paused (an exercise) | na premoru |
   | Not today | Ne danes |
@@ -298,7 +298,7 @@ that changes a form field or an API shape older open pages would send.
   on an English literal in a server refusal (`fail`, `error(4xx)`, `failJson`,
   `message:`) outside the machines' routes.
 - **Cases are entries of their own.** `t().nouns` holds the counted nouns in the
-  nominative, number included ("3 različice"); a count after a verb or preposition
+  nominative, number included ("3 figure"); a count after a verb or preposition
   takes its case and is its area's own four-form entry ("Dodaj 3 položaje", "v 2
   kombinacijah"). Adjectives and verbs agree with the count, or the line is rephrased
   with a colon ("Povezano: 3").

@@ -118,7 +118,7 @@ describe('fieldLabel in Slovenian', () => {
 
 	it('names a set member, a piece and its parts, the value as it is', () => {
 		expect(sl('start:g4', 'Cerrada')).toBe('Začne v · Cerrada');
-		expect(sl('fig:g7', 'Enchufla · Doble')).toBe('Različica · Enchufla · Doble');
+		expect(sl('fig:g7', 'Enchufla · Doble')).toBe('Figura · Enchufla · Doble');
 		expect(sl('rec:g1', 'Ana, 3. nov.')).toBe('Posnetek · Ana, 3. nov.');
 		expect(sl('rec:g1:note', 'x')).toBe('Opomba · x');
 		expect(sl('rec:g1:spot:s1', '0:01')).toBe('Odsek · 0:01');

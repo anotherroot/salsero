@@ -491,34 +491,34 @@ describe('in Slovenian', () => {
 
 	it("puts a group's name after a ·, never declined", () => {
 		expect(sl(() => figureSubtitle({ startCount: 1, lengthCounts: 16 }, 'Salsa Tuesdays'))).toBe(
-			'Različica · Salsa Tuesdays · začne na 1 · 16 dob'
+			'Figura · Salsa Tuesdays · začne na 1 · 16 dob'
 		);
-		expect(sl(() => figureSubtitle({ startCount: null, lengthCounts: null }))).toBe('Različica');
+		expect(sl(() => figureSubtitle({ startCount: null, lengthCounts: null }))).toBe('Figura');
 	});
 
 	it('the switcher counts in the genitive after od', () => {
 		const ids = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i + 1 }));
-		expect(sl(() => variationNav(ids(1), 1).position)).toBe('1 od 1 različice');
-		expect(sl(() => variationNav(ids(2), 2).position)).toBe('2 od 2 različic');
-		expect(sl(() => variationNav(ids(5), 3).position)).toBe('3 od 5 različic');
+		expect(sl(() => variationNav(ids(1), 1).position)).toBe('1 od 1 figure');
+		expect(sl(() => variationNav(ids(2), 2).position)).toBe('2 od 2 figur');
+		expect(sl(() => variationNav(ids(5), 3).position)).toBe('3 od 5 figur');
 	});
 
 	it('archives and moves with the names after a colon', () => {
 		expect(sl(() => archiveCopy('Enchufla', 'Doble', false))).toEqual({
 			title: 'Želite arhivirati »Doble«?',
-			button: 'Arhiviraj različico',
-			caption: '»Doble« zapusti figuro: Enchufla. Njeni posnetki in zgodovina vadenja se ohranijo.'
+			button: 'Arhiviraj figuro',
+			caption: '»Doble« zapusti gib: Enchufla. Njeni posnetki in zgodovina vadenja se ohranijo.'
 		});
 		expect(sl(() => archiveCopy('Enchufla', 'Doble', true).caption)).toBe(
-			'Z njo gre tudi figura: Enchufla. »Doble« je njena zadnja različica. Njeni posnetki in zgodovina vadenja se ohranijo.'
+			'Z njo gre tudi gib: Enchufla. »Doble« je njegova zadnja figura. Njeni posnetki in zgodovina vadenja se ohranijo.'
 		);
 		const chosen = { name: 'Enchufla', variations: ['Doble'] };
 		expect(sl(() => moveState({ last: false, chosen, joinName: 'doble' }))).toMatchObject({
 			cta: 'Premakni v: Enchufla',
-			clash: 'Različica s tem imenom že obstaja: Enchufla · doble. Izberite drugo ime.'
+			clash: 'Figura s tem imenom že obstaja: Enchufla · doble. Izberite drugo ime.'
 		});
 		expect(sl(() => moveState({ last: true, chosen: null, joinName: '' }).cta)).toBe(
-			'Premakni in odstrani figuro'
+			'Premakni in odstrani gib'
 		);
 	});
 
@@ -555,8 +555,8 @@ describe('in Slovenian', () => {
 		expect(items).toEqual([
 			'Vadi samostojno',
 			'Zgodovina',
-			'Premakni v drugo figuro …',
-			'Arhiviraj različico'
+			'Premakni v drug gib …',
+			'Arhiviraj figuro'
 		]);
 		expect(sl(() => relationRows({ follows: 0, leads: 2, routines: 1 }))).toMatchObject([
 			{ label: 'Pred njo', count: 'Nobena' },

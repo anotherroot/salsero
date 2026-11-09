@@ -65,7 +65,7 @@ describe('Recently deleted in Slovenian', () => {
 
 	it('names the kinds when read, and says why a restore was refused', () => {
 		// The same table, read in each language.
-		expect(sl(() => KIND_NAME.variation)).toBe('Različica');
+		expect(sl(() => KIND_NAME.variation)).toBe('Figura');
 		expect(KIND_NAME.variation).toBe('Figure');
 		sl(() => {
 			expect(KIND_NAME['position-link']).toBe('Povezava s položajem');
