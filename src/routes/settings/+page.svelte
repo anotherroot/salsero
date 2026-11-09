@@ -41,12 +41,6 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
-	import {
-		PAGE_MOTIONS,
-		pageMotion,
-		setPageMotion,
-		type PageMotion
-	} from '$lib/trial/page-motion.svelte';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
 	import { fewSettings, levelShown, levelWords, youPath, type Level } from '$lib/levels/levels';
 	import type { ActionResult } from '@sveltejs/kit';
@@ -69,12 +63,8 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<
-		'level' | 'style' | 'size' | 'theme' | 'motion' | 'language' | 'ask' | 'name' | null
-	>(null);
-	// TRIAL: page animations (`$lib/trial/page-motion`).
-	const motionOptions = $derived(
-		PAGE_MOTIONS.map((m) => ({ value: m, label: t().settings.appearance.motions[m] }))
+	let sheet = $state<'level' | 'style' | 'size' | 'theme' | 'language' | 'ask' | 'name' | null>(
+		null
 	);
 	let naming = $state(false);
 	let nameError = $state<{ field?: 'firstName' | 'lastName'; message: string } | null>(null);
@@ -350,11 +340,6 @@
 			undefined,
 			true
 		)}
-		{@render opener(
-			w.appearance.motion,
-			w.appearance.motions[pageMotion.current],
-			() => (sheet = 'motion')
-		)}
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">{w.appearance.note}</p>
 
@@ -571,19 +556,6 @@
 	onpick={(theme) => {
 		sheet = null;
 		void saveTheme(theme as ThemeChoice);
-	}}
-	onclose={() => (sheet = null)}
-/>
-<ChoiceSheet
-	open={sheet === 'motion'}
-	title={w.appearance.motion}
-	intro={w.appearance.motionIntro}
-	legend={w.appearance.motion}
-	options={motionOptions}
-	value={pageMotion.current}
-	onpick={(m) => {
-		sheet = null;
-		setPageMotion(m as PageMotion);
 	}}
 	onclose={() => (sheet = null)}
 />
