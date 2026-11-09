@@ -235,7 +235,10 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   Suggestions page, by the person, through the data function the app's own form
   calls (a kind in `src/lib/server/ai-queue/kinds/`), as the person: no "AI"
   mark anywhere others see. A line keeps the values it overwrites and refuses
-  `changed` when they moved; a run sends the versions the page showed.
+  `changed` when they moved; a run sends the versions the page showed. The
+  video tools (`mcp/video.ts`) write only `ai_timelines` (`video.spec.ts`
+  counts), and the server only stores and reads the worker's pieces: frames and
+  sound are cut at home, never on the server.
 - **A device token signs in on `/api/` only** — never a page, never
   `/api/worker/` (`request-user.ts`). Only its SHA-256 is stored. Anything the
   Android app needs is an `/api/` endpoint; anything it shows is a page the

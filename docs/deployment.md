@@ -368,6 +368,18 @@ shares with Firefly, Grafana, muscle and nikaudio.
   audio columns and `song_imports`), then the worker. An old worker leaves
   imports reading (Cancel works); a new worker reads a 404 on
   `imports/claim` as none, so it is safe against an old server.
+- **Videos for the AI** (2026-11-09, AI connector plan 3): the first
+  `video_timeline` call on a video queues it (`ai_timelines`); the worker claims
+  it from `/api/worker/timelines/*` after the songs, downloads the video, cuts
+  frames every 2 s (384 px JPEG) and the sound in minute pieces (mono MP3,
+  24 kbit/s; none for a silent video), and uploads a JSON piece per minute (about
+  1 MB) to `$DATA_DIR/timelines/<id>/`. The hourly purge drops a timeline 30
+  days after its last use or once its video is gone. **Deploy order:** the server
+  first (migration 0046 adds `ai_timelines`), then the worker (`nix flake update
+  salsaapp` in nixos-config, switch the worker host). An older worker never
+  claims timelines: the AI is told the video is being prepared until it is
+  updated. The AI hears "worker offline" when no worker request came for 15
+  minutes (in memory: right after a server restart it says "being prepared").
 - **Auth:** `secrets/salsa-worker.env.age` holds `SALSA_WORKER_TOKEN`,
   readable by cloud (which checks it, as a second `EnvironmentFile` on the
   salsa unit) and by the worker host (which sends it as a bearer token). It is

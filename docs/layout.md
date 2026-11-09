@@ -499,6 +499,15 @@ src/lib/server/ai-queue/  the AI's queue of actions (plan 2): store.ts (propose,
                      ({"ref": action}), run.ts (runActions, drop, toggle, undo), view.ts (the page's cards)
 src/lib/ai-queue/diff.ts  PURE: the word diff a card shows
 src/lib/server/mcp/queue.ts  the AI's tools for its queue (they write only ai_* tables)
+src/lib/server/mcp/video.ts  the video sections experiment (plan 3): videos, video_timeline (frames as
+                     images, the sound as audio; the only write is the video's ai_timelines row)
+src/lib/server/ai-timelines/  a video made ready for the AI: store.ts (ask, claim, fail, finish, the
+                     30-day sweep run by the hourly purge), piece.ts (a minute: frames + sound, checked),
+                     files.ts ($DATA_DIR/timelines/<id>/<k>.json, never counted as storage)
+src/lib/server/worker-seen.ts  when the home worker last called (in memory: online, offline, unknown)
+src/routes/api/worker/timelines/  the worker's side: claim, source (the video), pieces/[k], done, fail
+src/lib/ai-queue/measure.ts  PURE: the AI's sections against the person's (pairs, missed, extra);
+                     scripts/ai-sections/measure.ts runs it on a backup copy
 src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,
                      section preview and the row on You
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
