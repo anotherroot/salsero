@@ -146,7 +146,10 @@ something:
 - **The exercise page's time keeps counting while its player is open.** Slot
   3's clock counts while the page is visible and restarts when the page is
   reopened; a trip to the player and back is one visit, so the time spent in
-  the player is part of it. The player itself still records nothing.
+  the player is part of it. The player itself still records nothing. So is a
+  load of the whole page (2026-11-09): a new version out makes the way back
+  from the player a full load, and a reload drops the page; the page leaves its
+  time as it unloads (stopped) and a whole load takes it back.
 - A section or recording in the details plays inline, muted and looping, so
   the count keeps going; it never opens the full-screen video player from here.
   A link opens outside the app, as links do elsewhere.

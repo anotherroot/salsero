@@ -291,10 +291,13 @@ The page at `/[dance]/exercises/[id]` becomes the place you practise:
   at its end. Someone who can't edit the drill (a class member) and has nothing
   linked sees no Recordings, as on the figure page. Music stays as it is.
   Order: description, Practise with, Recordings, Music, History, Settings.
-- **Pinned bottom**: **✓ Done**, full width. For a fixed-rhythm drill in a run
-  it reads **✓ Done · next** in the done green and saves at once.
-- **In a run** the pinned bar has two equal buttons: **Skip** (on to the next
-  without saving; a skip only for this run, not Not today) and Done. Edit, Not
+- **Pinned bottom**: **✓ Done**, full width. In a run it reads **✓ Done · next**
+  for every exercise, in Done's own colour (2026-11-09; it was the done green,
+  and only a fixed rhythm's): a fixed rhythm saves at once, the others open the
+  sheet, and a face saves and goes on.
+- **In a run** the pinned bar has **Skip** (on to the next without saving; a
+  skip only for this run, not Not today), as wide as its word, and Done · next
+  taking the rest (2026-11-09; they were two equal halves). Edit, Not
   today and archive stay where they are now.
 - The empty history says "Tap Done after you practise — it shows up here,
   grouped by day."

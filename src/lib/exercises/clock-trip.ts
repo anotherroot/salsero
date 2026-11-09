@@ -5,9 +5,15 @@
  * player and takes it back when it mounts again. PURE: the store (the tab's
  * sessionStorage) and `now` are arguments.
  *
+ * A page loaded whole is the same visit too: a new version out makes the way
+ * back from the player a full load, and a reload or the phone dropping the
+ * page drops its watch. So the page leaves its time here as it unloads
+ * (`leaveByUnload`, stopped: the time away is not practice) and a whole load
+ * takes it back like a trip.
+ *
  * Only a return within `TRIP_MAX_MS` counts, and a stored trip is read once.
  */
-import { elapsedMs, type Stopwatch } from './stopwatch';
+import { elapsedMs, pauseWatch, type Stopwatch } from './stopwatch';
 
 export type TripStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -23,6 +29,21 @@ export function leaveForPlayer(
 	now: number
 ): void {
 	store.setItem(keyOf(exerciseId), JSON.stringify({ watch, at: now }));
+}
+
+/**
+ * The page unloads (a full load, a reload, the tab closing): its time, stopped,
+ * unless a trip to the player is already stored (a full load into the player
+ * after Practise with), whose time away is practice.
+ */
+export function leaveByUnload(
+	store: TripStore,
+	exerciseId: number,
+	watch: Stopwatch,
+	now: number
+): void {
+	if (store.getItem(keyOf(exerciseId)) !== null) return;
+	store.setItem(keyOf(exerciseId), JSON.stringify({ watch: pauseWatch(watch, now), at: now }));
 }
 
 /** The page's watch as it should start again, banked; null when there is no trip to take. */
