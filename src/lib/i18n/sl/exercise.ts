@@ -161,6 +161,7 @@ export const exercise: Catalog['exercise'] = {
 		warmup: 'ogrevanje',
 		saved: (back) => `Shranjeno · ${back}`,
 		added: (day) => `Dodano za ${day}`,
+		changed: (day) => `Spremenjeno za ${day}`,
 		doneToday: 'Opravljeno danes',
 		tapFace: 'Pritisnite obraz, da ga shranite',
 		place: (at, of) => `${at} od ${of}`,

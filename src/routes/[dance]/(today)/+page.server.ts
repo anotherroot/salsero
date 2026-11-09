@@ -1,6 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
+import {
+	createCustomExercise,
+	listPickExercises,
+	listSetTimes,
+	listSetsBetween
+} from '$lib/server/exercises';
+import { dayCounts } from '$lib/exercises/calendar';
 import { shownExercise } from '$lib/exercises/name';
 import { int, optionalText, text } from '$lib/server/form';
 import { readComesBack, readWarmup } from '$lib/server/comes-back-form';
@@ -56,8 +62,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			prevDay: shiftDay(day, -1),
 			nextDay: shiftDay(day, 1),
 			daySets,
-			// For the past day's "Forgot to log something" picker.
-			exercises: listPickExercises(db, wall).map(shownExercise)
+			// For the past day's "Add an exercise to this day" picker.
+			exercises: listPickExercises(db, wall).map(shownExercise),
+			// The calendar's numbers: exercises per day, every day with an entry.
+			counts: dayCounts(listSetTimes(db, wall), tz)
 		}
 	};
 };

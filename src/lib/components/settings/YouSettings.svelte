@@ -172,7 +172,7 @@
 					aria-label={w.android.reminderTime}
 					bind:value={time}
 					onchange={() => void saveReminder()}
-					class="h-11 w-28 min-w-24 flex-none rounded-full bg-field px-3 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums"
+					class="field-sizing-content h-11 min-w-28 flex-none rounded-full bg-field px-3.5 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums"
 				/>
 			</div>
 		{/if}

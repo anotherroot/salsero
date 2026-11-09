@@ -1,26 +1,30 @@
 <script lang="ts">
 	import Picker from '$lib/components/picker/Picker.svelte';
-	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
+	import Face from '$lib/components/exercises/Face.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { GROUP, LABEL, SECTION_LABEL, iconButton } from '$lib/components/ui/styles';
-	import { pastGroups } from '$lib/exercises/today';
-	import { dayLabel, setSummary } from '$lib/format';
+	import DayTiles from './DayTiles.svelte';
+	import { GROUP } from '$lib/components/ui/styles';
+	import { pastGroups, pastLine, pastTiles } from '$lib/exercises/today';
+	import { dayLabel } from '$lib/format';
+	import { feelOf } from '$lib/schedule/feel';
 	import { exerciseGroups } from '$lib/picker/build';
 	import { t } from '$lib/i18n/catalog';
 	import type { Partner, Source } from '$lib/labels';
 	import type { DaySet, PickExercise } from '$lib/types';
 
 	/*
-	 * A day's sets, by exercise. A past day (`?day=`) adds a set to an exercise
-	 * (its +) and to any other (Forgot to log something). `today`: the day so far,
-	 * beside Today's list on the desktop; the list logs, so it has neither.
+	 * A day's entries, one row per exercise, like Done for today. A past day
+	 * (`?day=`) shows its numbers on top; a row opens the Done sheet on its entry
+	 * and the last row adds an exercise to the day. `today`: the day so far,
+	 * beside Today's list on the desktop; the list logs, so its rows do nothing.
 	 */
 	let {
 		day = '',
 		daySets,
 		exercises = [],
 		kinds,
+		tz,
 		today = false,
 		onlog
 	}: {
@@ -30,70 +34,79 @@
 		exercises?: PickExercise[];
 		/** By exercise id; an archived exercise is missing. */
 		kinds: Record<number, { source: Source; partner: Partner | null }>;
+		/** The person's zone: an entry's time of day. */
+		tz: string;
 		today?: boolean;
 		onlog?: (exerciseId: number) => void;
 	} = $props();
 
 	let picking = $state(false);
 	const groups = $derived(pastGroups(daySets));
+	const adding = $derived(!today && !!onlog);
 </script>
 
-{#if groups.length > 0}
-	<section class="flex flex-col gap-2" aria-labelledby="past-h">
-		<h2 id="past-h" class={SECTION_LABEL}>
-			{today ? t().today.past.loggedToday : t().today.past.loggedThatDay} · {groups.length}
-		</h2>
+{#snippet content(g: (typeof groups)[number], live: boolean)}
+	{@const feel = feelOf(g.entry.rating)}
+	{#if live}<TypeTile tone="accent" exercise={kinds[g.exerciseId]} />
+	{:else}<TypeTile tone="done" />{/if}
+	<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+		<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{g.name}</span>
+		<span class="text-[13px] leading-[1.35] text-muted">{pastLine(g.at, g.entry, tz)}</span>
+		{#if g.entry.note}<span class="line-clamp-2 text-[13px] leading-[1.4] text-ink-2"
+				>{t().today.past.quote(g.entry.note)}</span
+			>{/if}
+	</span>
+	{#if feel}<Face {feel} size={30} label />{/if}
+{/snippet}
+
+<div class="flex flex-col gap-3.5">
+	{#if groups.length > 0 && !today}<DayTiles tiles={pastTiles(groups.map((g) => g.entry))} />{/if}
+
+	<ul class={GROUP}>
 		{#each groups as g (g.exerciseId)}
-			<div class={GROUP}>
-				<div class="pl-4">
-					<div class="flex min-h-[60px] items-center gap-3 py-2 pr-1.5">
-						<TypeTile tone="done" exercise={kinds[g.exerciseId]} />
-						<span class="min-w-0 flex-1 text-[16px] font-bold break-words text-ink">{g.name}</span>
-						{#if kinds[g.exerciseId] && onlog && !today}
-							<!-- An archived exercise can't take a set, so it gets no "+". -->
-							<button
-								type="button"
-								class={iconButton('bare', 'accent')}
-								aria-label={t().today.past.addSet(g.name)}
-								onclick={() => onlog(g.exerciseId)}><Icon name="plus" size={24} /></button
-							>
-						{/if}
+			{@const live = !!kinds[g.exerciseId]}
+			<li>
+				{#if live && adding}
+					<button
+						type="button"
+						class="flex min-h-[66px] w-full cursor-pointer items-center gap-3 py-2.5 pr-3 pl-4 text-left"
+						aria-describedby="past-edit-hint"
+						onclick={() => onlog?.(g.exerciseId)}
+					>
+						{@render content(g, live)}
+						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</button>
+				{:else}
+					<!-- Archived (it can take no entry), or the day so far: the list beside it logs. -->
+					<div class="flex min-h-[66px] items-center gap-3 px-4 py-2.5">
+						{@render content(g, live)}
 					</div>
-				</div>
-				<div class="pl-[68px]">
-					<div class="py-[11px] pr-4">
-						<span class="block text-[14px] text-ink"
-							>{setSummary(g.entry) || t().today.past.done}{#if g.entry.note}<span
-									class="mt-0.5 block text-[13px] text-muted">“{g.entry.note}”</span
-								>{/if}</span
-						>
-					</div>
-				</div>
-			</div>
+				{/if}
+			</li>
+		{:else}
+			<li class="flex flex-col items-center gap-1 px-5 pt-5 pb-4 text-center">
+				<span class="text-[16px] font-bold text-ink"
+					>{today ? t().today.past.nothingToday : t().today.past.nothingThatDay}</span
+				>
+				{#if adding}<span class="text-[14px] text-muted">{t().today.past.ifPractised}</span>{/if}
+			</li>
 		{/each}
-	</section>
-{:else}
-	<div class="flex flex-col items-center gap-1.5 px-6 pt-7 pb-2 text-center">
-		<span class="flex h-14 w-14 items-center justify-center rounded-full bg-chip text-muted">
-			<Icon name="calendar" size={26} />
-		</span>
-		<span class="mt-1.5 text-[16px] font-bold text-ink"
-			>{today ? t().today.past.nothingToday : t().today.past.nothingThatDay}</span
-		>
-	</div>
-{/if}
+		{#if adding}
+			<li>
+				<button
+					type="button"
+					class="flex min-h-14 w-full cursor-pointer items-center justify-center gap-1.5 px-4 text-[15px] font-extrabold text-accent-text"
+					data-focus="past-add"
+					onclick={() => (picking = true)}
+					><Icon name="plus" size={20} />{t().today.past.add}</button
+				>
+			</li>
+		{/if}
+	</ul>
+</div>
 
-{#if !today && onlog}
-	<div class="mt-3.5">
-		<p id="past-forgot-label" class={LABEL}>{t().today.past.forgot}</p>
-		<PickerOpener
-			id="past-forgot"
-			label={t().today.past.pick}
-			aria-describedby="past-forgot-label"
-			onclick={() => (picking = true)}
-		/>
-	</div>
-
+{#if adding}
+	<span id="past-edit-hint" class="sr-only">{t().today.past.editHint}</span>
 	<Picker
 		open={picking}
 		title={t().today.past.logOn(dayLabel(day))}
@@ -103,7 +116,7 @@
 		nothingLeft={t().today.past.none}
 		onpick={(row) => {
 			picking = false;
-			onlog(row.value);
+			onlog?.(row.value);
 		}}
 		onclose={() => (picking = false)}
 	/>

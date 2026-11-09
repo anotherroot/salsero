@@ -12,6 +12,8 @@ import {
 	notTodayMessage,
 	onTodayMessage,
 	pastGroups,
+	pastLine,
+	pastTiles,
 	rowMeta,
 	tileTone,
 	todayHero
@@ -294,6 +296,31 @@ describe('pastGroups', () => {
 		expect(g[1].entry.durationS).toBe(360);
 		expect(g[0].entry.durationS).toBeNull();
 	});
+
+	it("carries the time of the exercise's first set that day", () => {
+		const g = pastGroups([set(2, 1, '10:00'), set(1, 1, '09:00')]);
+		expect(g[0].at).toBe(Date.parse('2026-10-30T09:00:00Z'));
+	});
+});
+
+describe('pastLine', () => {
+	const at = Date.parse('2026-11-02T09:51:00Z');
+	const entry = { durationS: null, reps: null, rating: 2, note: null };
+	it('the time, then minutes or reps, never the feeling', () => {
+		expect(pastLine(at, { ...entry, durationS: 420 }, 'Europe/Ljubljana')).toBe('10:51 · 7 min');
+		expect(pastLine(at, { ...entry, reps: 3 }, 'Europe/Ljubljana')).toBe('10:51 · 3 reps');
+		expect(pastLine(at, entry, 'Europe/Ljubljana')).toBe('10:51');
+	});
+});
+
+describe('pastTiles', () => {
+	it('counts the exercises and adds up the minutes', () => {
+		const e = (durationS: number | null) => ({ durationS, reps: null, rating: null, note: null });
+		expect(pastTiles([e(420), e(480), e(null), e(312)])).toEqual([
+			{ value: '4', label: 'exercises' },
+			{ value: '20 min', label: 'practised' }
+		]);
+	});
 });
 
 describe('deletedGroupName', () => {
@@ -306,17 +333,22 @@ describe('deletedGroupName', () => {
 });
 describe("a past day's words", () => {
 	it('adds an exercise to the day, never a set', () => {
-		expect(t().today.past.addSet('Setenta')).toBe('Add Setenta to this day');
+		expect(t().today.past.add).toBe('Add an exercise to this day');
 		expect(t().today.past.logOn('Thu 5 Nov')).toBe('Add to Thu 5 Nov');
+		expect(t().today.past.monthTotals(3, 15)).toBe('3 days · 15 exercises');
+		expect(t().today.past.monthTotals(1, 1)).toBe('1 day · 1 exercise');
+		expect(t().today.past.dayCount('Mon 2 Nov', 11)).toBe('Mon 2 Nov, 11 exercises');
+		expect(t().today.past.dayCount('Tue 3 Nov', 0)).toBe('Tue 3 Nov');
 	});
 
 	it('in Slovenian', () => {
-		expect(withLocale('sl', () => t().today.past.addSet('Setenta'))).toBe(
-			'Dodaj za ta dan: Setenta'
-		);
-		expect(withLocale('sl', () => t().today.past.logOn('čet, 5. nov.'))).toBe(
-			'Dodaj za čet, 5. nov.'
-		);
+		const sl = <T>(fn: () => T) => withLocale('sl', fn);
+		expect(sl(() => t().today.past.add)).toBe('Dodaj vajo za ta dan');
+		expect(sl(() => t().today.past.logOn('čet, 5. nov.'))).toBe('Dodaj za čet, 5. nov.');
+		expect(sl(() => t().today.past.monthTotals(3, 15))).toBe('3 dnevi · 15 vaj');
+		expect(sl(() => t().today.past.monthTotals(2, 2))).toBe('2 dneva · 2 vaji');
+		expect(sl(() => t().today.past.dayCount('pon, 2. nov.', 11))).toBe('pon, 2. nov., 11 vaj');
+		expect(sl(() => t().today.past.nothingThatDay)).toBe('Ta dan ni vpisane vadbe');
 	});
 });
 

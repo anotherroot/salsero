@@ -6,11 +6,14 @@
 	import PastDay from '$lib/components/today/PastDay.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
-	import Icon from '$lib/components/ui/Icon.svelte';
+	import CalendarSheet from '$lib/components/today/CalendarSheet.svelte';
+	import DayStrip from '$lib/components/today/DayStrip.svelte';
+	import { calendarMonths } from '$lib/exercises/calendar';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { dayLabel, lastDoneLabel } from '$lib/format';
 	import { daysBetween } from '$lib/day/day';
 	import { mergeDay } from '$lib/exercises/day-entry';
-	import { addedMessage, doneSubtitle } from '$lib/exercises/done-view';
+	import { addedMessage, changedMessage, doneSubtitle } from '$lib/exercises/done-view';
 	import { announceSaved } from '$lib/exercises/saved.svelte';
 	import { actAt } from '$lib/act';
 	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
@@ -19,8 +22,9 @@
 	import type { PageData } from './$types';
 
 	/*
-	 * A past day (`?day=`): what was logged, and Done added after the fact (a row's
-	 * +, or Forgot to log something). Today itself is the (today) layout's list;
+	 * A past day (`?day=`): what was logged, and Done added after the fact (a row,
+	 * or Add an exercise to this day); the day strip and its calendar go to another
+	 * day. Today itself is the (today) layout's list;
 	 * this page draws nothing then (on the desktop the list's pane is the day so
 	 * far, the layout's too).
 	 */
@@ -29,6 +33,8 @@
 	/** The exercise the Done sheet is for; kept while the sheet closes, so it closes as it was. */
 	let pickedId = $state<number | null>(null);
 	let doneOpen = $state(false);
+	/** The calendar sheet, from the day strip's middle. */
+	let calendarOpen = $state(false);
 
 	// Every live exercise, paused ones too: a forgotten day can go on any of them.
 	const picked = $derived(data.list.exercises.find((e) => e.id === pickedId) ?? null);
@@ -42,9 +48,14 @@
 	const fixedRhythm = (id: number) =>
 		data.list.exercises.find((e) => e.id === id)?.comesBack.kind === 'every';
 
+	/** The picked exercise had an entry that day: its save is a change, not an add. */
+	let changing = false;
+
 	function pick(id: number) {
 		pickedId = id;
-		if (fixedRhythm(id) && data.past) void saveFixed(id, data.past.day);
+		changing = !!data.past?.daySets.some((s) => s.exerciseId === id);
+		// A fixed rhythm with no entry yet saves at once; one with an entry opens the sheet.
+		if (fixedRhythm(id) && data.past && !changing) void saveFixed(id, data.past.day);
 		else doneOpen = true;
 	}
 
@@ -63,7 +74,7 @@
 		doneOpen = false;
 		announceSaved({
 			dance: data.dance.slug,
-			message: addedMessage(day),
+			message: changing ? changedMessage(day) : addedMessage(day),
 			undo: { setId: r.setId, before: r.before }
 		});
 	}
@@ -82,34 +93,31 @@
 
 {#if data.past}
 	{@const past = data.past}
-	<Screen
-		title={dayLabel(past.day)}
-		subtitle={lastDoneLabel(daysBetween(past.day, data.list.today))}
-	>
-		{#snippet right()}
-			<BandButton
-				icon="chevron-left"
-				label={t().today.list.previousDay}
-				href={resolve(`/${data.dance.slug}?day=${past.prevDay}`)}
-			/>
-			<BandButton
-				icon="chevron-right"
-				label={t().today.list.nextDay}
-				href={past.nextDay === data.list.today
-					? resolve('/[dance]/(today)', { dance: data.dance.slug })
-					: resolve(`/${data.dance.slug}?day=${past.nextDay}`)}
+	{@const todayHref = resolve('/[dance]/(today)', { dance: data.dance.slug })}
+	{@const prevHref = resolve(`/${data.dance.slug}?day=${past.prevDay}`)}
+	{@const nextHref =
+		past.nextDay === data.list.today
+			? todayHref
+			: resolve(`/${data.dance.slug}?day=${past.nextDay}`)}
+	<Screen title={dayLabel(past.day)}>
+		{#snippet extra()}
+			<DayStrip
+				{prevHref}
+				{nextHref}
+				{todayHref}
+				label={lastDoneLabel(daysBetween(past.day, data.list.today))}
+				onpick={() => (calendarOpen = true)}
 			/>
 		{/snippet}
-		{#snippet extra()}
+		{#snippet slimRight()}
+			<BandButton icon="chevron-left" label={t().today.list.previousDay} href={prevHref} />
+			<BandButton icon="chevron-right" label={t().today.list.nextDay} href={nextHref} />
 			<a
-				href={resolve('/[dance]/(today)', { dance: data.dance.slug })}
-				class="inline-flex h-11 items-center"
+				href={todayHref}
+				aria-label={t().today.list.backToToday}
+				class="ml-1 inline-flex h-8 flex-none items-center rounded-full bg-band-ink px-3 text-[14px] font-extrabold text-band active:opacity-80"
+				>{t().shell.tabs.today}</a
 			>
-				<span
-					class="inline-flex h-8 items-center gap-1.5 rounded-2xl bg-band-track pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small"
-					><Icon name="calendar" size={18} />{t().today.list.backToToday}</span
-				>
-			</a>
 		{/snippet}
 
 		<PastDay
@@ -117,9 +125,25 @@
 			daySets={past.daySets}
 			exercises={past.exercises}
 			{kinds}
+			tz={data.list.tz}
 			onlog={pick}
 		/>
 	</Screen>
+
+	<CalendarSheet
+		open={calendarOpen}
+		onclose={() => (calendarOpen = false)}
+		months={calendarMonths(past.counts, past.day, data.list.today)}
+		today={data.list.today}
+		onpick={(day) => {
+			calendarOpen = false;
+			// The shown day: only the sheet closes, no second step in history.
+			if (day === past.day) return;
+			void gotoWhenSettled(
+				day >= data.list.today ? todayHref : resolve(`/${data.dance.slug}?day=${day}`)
+			);
+		}}
+	/>
 
 	{#if picked}
 		<DoneSheet

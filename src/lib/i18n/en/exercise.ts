@@ -180,6 +180,8 @@ export const exercise = {
 		saved: (back: string): string => `Saved · ${back}`,
 		/** The toast after Done on a past day; `day`: "Thu 5 Nov". */
 		added: (day: string): string => `Added to ${day}`,
+		/** The toast after changing a past day's entry; `day`: "Thu 5 Nov". */
+		changed: (day: string): string => `Changed on ${day}`,
 		/** The pinned button once the exercise has today's entry. */
 		doneToday: 'Done today',
 		/** Under the Done sheet's faces: no button, a face saves. */

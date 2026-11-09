@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { addedMessage, bandSubtitle, doneBar, doneSubtitle, savedMessage } from './done-view';
+import {
+	addedMessage,
+	bandSubtitle,
+	changedMessage,
+	doneBar,
+	doneSubtitle,
+	savedMessage
+} from './done-view';
 
 describe('bandSubtitle', () => {
 	it('says the kind and the time', () => {
@@ -83,6 +90,7 @@ describe('toasts', () => {
 	});
 	it('added names the day', () => {
 		expect(addedMessage('2026-11-05')).toBe('Added to Thu 5 Nov');
+		expect(changedMessage('2026-11-05')).toBe('Changed on Thu 5 Nov');
 	});
 });
 

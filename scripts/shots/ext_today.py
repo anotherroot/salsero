@@ -370,14 +370,21 @@ def _done_today(page):
 
 
 def _past_day_sheet(page):
-    """A past day: Forgot to log something, pick the first exercise: the Done sheet with no time."""
-    page.locator("#past-forgot").click()
+    """A past day: Add an exercise to this day, pick the first exercise: the Done sheet with no time."""
+    page.locator('[data-focus="past-add"]').click()
     page.locator("dialog[open]").first.wait_for()
     page.wait_for_timeout(600)
     rows = page.locator("dialog[open] button").filter(has_text=re.compile(r"\w{3}"))
     rows.filter(has_not_text=re.compile("^(Close|Cancel|Back)$")).nth(1).click()
     page.get_by_text("How did it go?", exact=True).first.wait_for()
     page.wait_for_timeout(500)
+
+
+def _past_day_calendar(page):
+    """A past day: the strip's middle opens the calendar, the shown day in view."""
+    page.locator('[data-focus="day-strip-pick"]').first.click()
+    page.locator("dialog[open]").first.wait_for()
+    page.wait_for_timeout(900)
 
 
 def _warm_up_last(page):
@@ -431,6 +438,7 @@ SCENES.update({
     "done-toast": Scene("/{dance}/exercises/{lessonex}", _save_face),
     "done-today": Scene("/{dance}/exercises/{routineex}", _done_today),
     "done-past-day": Scene("/{dance}?day={yesterday}", _past_day_sheet),
+    "past-day-calendar": Scene("/{dance}?day={yesterday}", _past_day_calendar),
     "today-run-back": Scene("/{dance}", _run_back),
     # desk only
     "pane-edit": Scene("/{dance}/exercises/{figex}", _edit, desk=True),

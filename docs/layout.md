@@ -321,6 +321,8 @@ src/lib/sheets/      `whenSettled(fn)` (history.svelte.ts) runs fn after the she
                      after history has caught up with the sheets' own Back moves.
                      `gotoWhenSettled(href, opts)` is close-then-go: the caller closes its
                      sheets, and the navigation (often a replace) goes once their Back has landed
+src/lib/native-picker.ts  client-safe: a mouse click opens a date or time field's picker (layout.css
+                     hides the browser's picker button; a tap opens it by itself)
 src/lib/fold.ts      accent and case folding, shared by the shared picker, the
                      routine picker and the song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
@@ -364,6 +366,7 @@ src/lib/teams/frame-view.svelte.ts  a view the frame shows without the address: 
 src/lib/components/shell/GroupBadge.svelte, GroupFaces.svelte, GroupCard.svelte  the group view's
                      badge, the others' faces and count, the desktop side's card
 src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
+src/lib/teams/open-once.ts  PURE: `openOnce`, an open reported once per item and stamp, not per data load
 src/routes/[dance]/group-mode  the old switch, kept for pages opened before the group view: it lands
                      on the address with or without `in` and writes nothing. Its GET goes to Moves
 src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
@@ -474,6 +477,9 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
                      the reload-hold counter (`holdReload`, `holdReloadWhile`: an upload, a
                      run). shell/ReloadBar.svelte is "New version · Reload" and "This page is
                      out of date"
+src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
+                     loaded (it stays under way for good, the skeleton over the old page); the
+                     root layout watches `navigating`, goes again, and loads whole after 2 tries
 src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
                      the APKs; app-seen.ts which app version each device last showed (table
                      `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the
@@ -553,7 +559,12 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start, the r
                      Skip, the player's `from`; `TodayPane.autoOpened`: on the desktop the
                      exercise Today opened by itself, whose clock waits for a tap: `page-clock.svelte.ts`
                      takes `{ idle: true }` and `start()`); the Done sheet and band take `place`/`next`
-                     from `done-view.ts`.
+                     from `done-view.ts`. A past day (`?day=`) is the list route's own page:
+                     `components/today/PastDay.svelte` (one row per exercise, also the desktop's day so
+                     far), `DayTiles.svelte` (its tiles and Done for today's), `DayStrip.svelte` (‹ the day ›
+                     and Today under the title; the slim band's buttons are `Screen`'s `slimRight`) and
+                     `CalendarSheet.svelte`; `lib/exercises/calendar.ts` is PURE: exercises per day
+                     (`dayCounts`) and the months (`calendarMonths`).
                      `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list

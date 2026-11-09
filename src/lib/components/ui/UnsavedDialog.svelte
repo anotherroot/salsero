@@ -8,13 +8,14 @@
 	/*
 	 * The one "you have unsaved changes" question, for a navigation and for a
 	 * sheet closing alike. Save sends the real form(s) and waits for the
-	 * server's answer before offering the way out; it never leaves on its own.
+	 * server's answer: saved, it goes on the way out (Leave, Close…) with no
+	 * second question; refused, it shows why and offers Stay and fix it.
 	 * Mounted once, in the root layout. A modal opened after a sheet stacks
 	 * above it, so this sits on top of whatever asked.
 	 */
 
 	let dialog: HTMLDialogElement | undefined = $state();
-	let phase = $state<'ask' | 'saving' | 'saved' | 'failed'>('ask');
+	let phase = $state<'ask' | 'saving' | 'failed'>('ask');
 	let messages = $state<string[]>([]);
 
 	const ask = $derived(prompt.ask);
@@ -73,14 +74,16 @@
 			failed.push(o.message);
 		}
 		if (prompt.ask !== a) return;
-		// A sheet whose save redirected is already gone with its page: there is
-		// nothing left to stay on or close.
-		if (moved && a.scoped && failed.length === 0) {
-			prompt.ask = null;
+		if (failed.length > 0) {
+			messages = failed;
+			phase = 'failed';
 			return;
 		}
-		messages = failed;
-		phase = failed.length > 0 ? 'failed' : 'saved';
+		// Saved: on the way out the person asked for, with no second question.
+		// A sheet whose save redirected is already gone with its page.
+		prompt.ask = null;
+		if (moved && a.scoped) return;
+		a.onleave({ moved });
 	}
 
 	const primary = button('primary', 'md', true);
@@ -104,23 +107,7 @@
 >
 	{#if ask}
 		<div class="p-6">
-			{#if phase === 'saved'}
-				<span
-					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-done-soft text-done"
-					aria-hidden="true"><Icon name="check" size={22} /></span
-				>
-				<h2
-					id="unsaved-title"
-					class="font-display text-[22px] leading-tight font-extrabold text-ink"
-				>
-					{t().shell.unsaved.saved}
-				</h2>
-				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
-				<div class="mt-5 space-y-2">
-					<button type="button" class={primary} onclick={leave}>{ask.verb}</button>
-					<button type="button" class={secondary} onclick={stay}>{t().shell.unsaved.stay}</button>
-				</div>
-			{:else if phase === 'failed'}
+			{#if phase === 'failed'}
 				<span
 					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-danger-soft text-danger"
 					aria-hidden="true"><Icon name="warning" size={22} /></span

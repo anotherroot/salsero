@@ -353,9 +353,10 @@ The home page. One page serves both "exercises" and "today".
      look is in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).)
   4. **Inactive** — dimmed, collapsed by default, alphabetical. Parking an
      exercise beats its urgency, so an overdue inactive one stays here.
-- **Viewing a past day:** the exercises done that day with their sets (read-only
-  list plus the ability to add a forgotten set to that day or delete a mistaken
-  one). No urgency ordering — it answers "what did I do that day".
+- **Viewing a past day (changed 2026-11-09: one row per exercise like Done for today, a
+  day strip and a calendar; see [`2026-11-09-past-days-design.md`](2026-11-09-past-days-design.md)):**
+  the exercises done that day (read-only list plus the ability to add a forgotten exercise
+  to that day or change its entry). No urgency ordering — it answers "what did I do that day".
 - **Logging (changed 2026-11-08: the row opens the exercise page, where Done opens the
   Done sheet; one entry per exercise per local day, saved by `saveDay`, and a past day's
   history is grouped by day; the rest of this bullet is how it was):** the row opens the exercise page; **+** opens the type's log
@@ -723,8 +724,10 @@ unsaved.
   page's light `LinkPopup` is its own `<dialog>`, not a Sheet, so Back there
   still leaves the page.
 - **What it offers.** Save · Stay · *Leave* without saving. Save submits the
-  real form(s) and waits for the server's answer: Saved ✓ then offers Leave or
-  Stay; a failure shows the server's message with "Stay and fix it". A form
+  real form(s) and waits for the server's answer: saved, it goes straight on the
+  way out (Leave, Close, Stop editing), with no second question (2026-11-09: the
+  old "Saved ✓ · Leave or Stay" step was a dead end where the save itself ended
+  the edit); a failure shows the server's message with "Stay and fix it". A form
   that fails its own checks (an empty required name) is never sent — the
   dialog closes and the browser points at the field. Save is disabled, with
   the reason, while the count is playing.

@@ -69,6 +69,8 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			// The daily number: what "+ Next 5" says.
 			daily: input.daily,
 			todaySets,
+			// The person's zone: an entry's time of day on a past day and the day so far.
+			tz,
 			// The day of each class, for "New · from class Tue 3 Nov" on a lesson's row.
 			lessonDays: lessonDays(db, wall)
 		}

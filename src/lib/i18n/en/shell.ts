@@ -107,7 +107,6 @@ export const shell = {
 		line: (labels: string, many: boolean): string =>
 			`${labels} ${many ? 'are' : 'is'} not saved yet.`,
 		saving: 'Saving…',
-		saved: 'Saved',
 		notSaved: 'Not saved',
 		stay: 'Stay',
 		stayAndFix: 'Stay and fix it',
