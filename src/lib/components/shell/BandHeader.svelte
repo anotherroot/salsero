@@ -187,6 +187,18 @@
 						>{:else}{title}{/if}</span
 				>
 			</svelte:element>
+			<!--
+				The title on one line, as the slim band will cut it: a two-line title
+				crossfades into it on the way up (`band-collapse.ts` shows, sizes and
+				places it on the title's first line). Outside the h1: not the page's name twice.
+			-->
+			<span
+				class="pointer-events-none absolute top-0 left-0 hidden truncate font-display font-extrabold text-band-ink opacity-0 desk:hidden {compact
+					? 'text-[30px] leading-[1.1] tracking-[-0.015em]'
+					: 'text-[46px] leading-[1.05] tracking-[-0.02em]'}"
+				aria-hidden="true"
+				data-band-twin>{title}</span
+			>
 			{#if deskSubtitle || !deskStatus}
 				{#if subtitle || statusShows}
 					<span

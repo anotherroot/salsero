@@ -625,4 +625,17 @@ a[href]:active {
 	[data-fold='in'] {
 		animation-name: band-in;
 	}
+	/* Flying and fading at once (a two-line title into its one-line twin): two ranges. */
+	[data-fold='fly-out'],
+	[data-fold='fly-in'] {
+		animation-range:
+			var(--fold-from, 0px) var(--fold-to, 0px),
+			var(--fade-from, 0px) var(--fade-to, 0px);
+	}
+	[data-fold='fly-out'] {
+		animation-name: band-fly, band-fade;
+	}
+	[data-fold='fly-in'] {
+		animation-name: band-fly, band-in;
+	}
 }
