@@ -31,7 +31,7 @@ def main() -> int:
     video_tools = jobs.VideoTools(fetch_video=media.fetch_video, to_mp4=media.to_mp4)
     import_tools = jobs.ImportTools(read_spotify=spotify.read_list, read_youtube=media.read_youtube_list)
     timeline_tools = jobs.TimelineTools(
-        frames=media.timeline_frames, sound=media.timeline_sound, duration_of=media.duration_of
+        frames=media.timeline_frames, sound=media.timeline_sound, duration=media.timeline_duration
     )
     try:
         n = jobs.run(

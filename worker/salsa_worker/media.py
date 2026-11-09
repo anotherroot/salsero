@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -319,12 +320,13 @@ FRAME_EVERY_MS = 2000
 
 
 def timeline_frames(src: Path, outdir: Path, run=subprocess.run) -> list[tuple[int, Path]]:
-    """Small JPEG frames, one every 2 s, 384 px wide: frame n (from 1) shows (n - 1) * 2 s."""
+    """Small JPEG frames, one every 2 s, 384 px wide: frame n (from 1) shows (n - 1) * 2 s.
+    round=up picks the frame AT each 2 s mark; fps's default (near) gave the one ~1 s later."""
     outdir.mkdir(parents=True, exist_ok=True)
     p = run(
         [
             "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src),
-            "-vf", "fps=1/2,scale=384:-2", "-q:v", "6",
+            "-vf", "fps=1/2:round=up,scale=384:-2", "-q:v", "6",
             str(outdir / "f%05d.jpg"),
         ],
         capture_output=True,
@@ -355,3 +357,29 @@ def timeline_sound(src: Path, outdir: Path, run=subprocess.run) -> list[Path]:
     if p.returncode != 0:
         return []
     return sorted(outdir.glob("a*.mp3"))
+
+
+def timeline_duration(src: Path, run=subprocess.run) -> float:
+    """The video's length in seconds: the header's, else measured by decoding it once
+    (MediaRecorder's WebM often has no duration in its header). Unknown is permanent."""
+    p = run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(src)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    try:
+        return float(p.stdout.strip())
+    except ValueError:
+        pass
+    p = run(
+        ["ffmpeg", "-nostdin", "-hide_banner", "-stats", "-i", str(src), "-map", "0:v:0?", "-map", "0:a:0?", "-f", "null", "-"],
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
+    times = re.findall(r"time=(\d+):(\d\d):(\d\d(?:\.\d+)?)", p.stderr) if p.returncode == 0 else []
+    if not times:
+        raise PermanentError(f"Could not find the video's length: {_last_line(p.stderr)}")
+    h, m, s = times[-1]
+    return int(h) * 3600 + int(m) * 60 + float(s)

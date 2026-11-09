@@ -156,7 +156,7 @@ def process_video(job: dict, api, tools: VideoTools, workdir: Path) -> bool:
 class TimelineTools:
     frames: Callable[[Path, Path], list[tuple[int, Path]]]
     sound: Callable[[Path, Path], list[Path]]
-    duration_of: Callable[[Path], float]
+    duration: Callable[[Path], float]
 
 
 # A piece of a timeline: one minute of frames and sound, one upload.
@@ -170,7 +170,7 @@ def process_timeline(job: dict, api, tools: TimelineTools, workdir: Path) -> boo
     try:
         src = workdir / "source.mp4"
         api.download_timeline_source(job_id, src)
-        duration = tools.duration_of(src)
+        duration = tools.duration(src)
         if duration > MAX_VIDEO_S:
             raise PermanentError("Longer than an hour.")
         duration_ms = max(1, round(duration * 1000))

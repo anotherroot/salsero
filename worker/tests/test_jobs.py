@@ -478,7 +478,7 @@ def timeline_tools(duration=150.0, sounds=3):
             got.append(p)
         return got
 
-    return jobs.TimelineTools(frames=frames, sound=sound, duration_of=lambda p: duration)
+    return jobs.TimelineTools(frames=frames, sound=sound, duration=lambda p: duration)
 
 
 def test_process_timeline_groups_by_minute(tmp_path):
