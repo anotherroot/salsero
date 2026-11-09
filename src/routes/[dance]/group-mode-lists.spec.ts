@@ -34,6 +34,8 @@ import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { actions as figureActions } from './(moves)/figures/+page.server';
 import { actions as routineActions } from './(moves)/routines/+page.server';
 import { actions as routinePageActions } from './(moves)/routines/[id]/+page.server';
+import { actions as lessonPageActions } from './lessons/[id]/+page.server';
+import { actions as figurePageActions } from './(moves)/figures/[id]/+page.server';
 import { actions as lessonActions } from './lessons/+page.server';
 import { load as lessonsLoad } from './lessons/+layout.server';
 import { load as coverageLoad } from './(moves)/coverage/+page.server';
@@ -187,6 +189,26 @@ describe('back to the list from a group’s row', () => {
 			{}
 		)) as { status?: number; location?: string };
 		expect([thrown.status, thrown.location]).toEqual([303, '/salsa/routines?in=1']);
+	});
+	const archive = async (action: unknown, id: number) =>
+		(await call(
+			(e: unknown) =>
+				(action as (e: unknown) => unknown)({
+					...(e as object),
+					params: { dance: 'salsa', id: String(id) }
+				}),
+			'u2',
+			jar().cookies,
+			{}
+		)) as { status?: number; location?: string };
+	it('archiving a group’s lesson lands on the group’s Lessons', async () => {
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title: 'D', notes: null })
+			.lesson.id;
+		expect((await archive(lessonPageActions.archive, L)).location).toBe('/salsa/lessons?in=1');
+	});
+	it('archiving a group’s last figure lands on the group’s Figures', async () => {
+		const F = createFigure(db, T1_SALSA, { ...FIGURE, notes: null } as never)!.figure.id;
+		expect((await archive(figurePageActions.archive, F)).location).toBe('/salsa/figures?in=1');
 	});
 	it('archiving your own routine lands on your Routines', async () => {
 		const R = createRoutine(db, U2_SALSA, { name: 'Own', notes: null }).routine.id;

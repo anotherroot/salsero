@@ -3,7 +3,7 @@ import type { DanceSlug } from '$lib/dances/dances';
 import { rootsOf, tabFor } from '$lib/nav/tabs';
 import { t } from '$lib/i18n/catalog';
 import type { GroupChoice } from '$lib/types';
-import { withView } from './group-view';
+import { rowKindOf, withView } from './group-view';
 
 /**
  * Today and its pages are always personal: they show no group mode. They do
@@ -56,4 +56,17 @@ export function workInRows(
 			href: withView(path, c.teamId)
 		}))
 	];
+}
+
+/**
+ * Where Work in leads from here: the list as it is, search kept; beside an open item
+ * (desktop) the tab's own list, since a row page decides by its row and ignores `in`.
+ */
+export function workInPath(
+	pathname: string,
+	search: string,
+	routeId: string | null,
+	dance: DanceSlug
+): string {
+	return rowKindOf(routeId) === null ? pathname + search : minePath(pathname, dance);
 }

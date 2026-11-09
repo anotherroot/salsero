@@ -50,7 +50,7 @@ function ownLive(db: Db, wall: Wall, kind: Kind, id: number): boolean {
 
 export function mineTarget(db: Db, wall: Wall, kind: RowKind, id: number): string | null {
 	if (kind === 'group') return `/${wall.dance}/groups`;
-	if (kind === 'move') return null;
+	if (kind === 'move' || kind === 'import') return null;
 	const at = (own: number) => `/${wall.dance}/${PATHS[kind]}/${own}`;
 	const gene = geneOf(db, kind as CloneKind, id);
 	if (gene !== null) {

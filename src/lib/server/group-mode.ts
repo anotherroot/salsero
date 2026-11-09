@@ -16,6 +16,7 @@ import {
 	lessons,
 	positions,
 	routines,
+	songImports,
 	songs,
 	teamMembers,
 	teams,
@@ -103,7 +104,8 @@ const ROW_TABLES = {
 	position: positions,
 	move: figureGroups,
 	song: songs,
-	drill: exercises
+	drill: exercises,
+	import: songImports
 } as const;
 
 /** The group a row belongs to (null: a person's own), or null for no such row. */

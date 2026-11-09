@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { minePath, outsideGroupMode, returnPath, workInRows } from './mode';
+import { minePath, workInPath, outsideGroupMode, returnPath, workInRows } from './mode';
 
 describe('group mode, pure', () => {
 	it('leaves group mode on Today and its pages', () => {
@@ -69,5 +69,23 @@ describe('group mode in Slovenian', () => {
 			['Torek', 'Vodja · 14 oseb'],
 			['Sreda', 'Lahko ureja · 2 osebi']
 		]);
+	});
+});
+
+// Catches (review): Work in beside an open item on the desktop pointing at the item's
+// own address, where `in` is ignored (the row decides), so the switch did nothing.
+describe('workInPath', () => {
+	it('on a list: the list as it is, its search kept', () => {
+		expect(workInPath('/salsa/lessons', '?q=x&in=4', '/[dance]/lessons', 'salsa')).toBe(
+			'/salsa/lessons?q=x&in=4'
+		);
+	});
+	it('beside an open item: the tab’s own list', () => {
+		expect(workInPath('/salsa/lessons/12', '', '/[dance]/lessons/[id]', 'salsa')).toBe(
+			'/salsa/lessons'
+		);
+		expect(workInPath('/salsa/figures/3', '?x=1', '/[dance]/(moves)/figures/[id]', 'salsa')).toBe(
+			'/salsa/figures'
+		);
 	});
 });

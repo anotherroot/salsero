@@ -60,7 +60,7 @@ import { familyView } from '$lib/server/clones/send';
 import { keepView, stepStatus } from '$lib/server/clones/step';
 import { dropOptions } from '$lib/server/clones/drop';
 import { mineTarget } from '$lib/server/mine-target';
-import { groupModeFor } from '$lib/server/group-mode';
+import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { readAdd } from '$lib/server/add-form';
 import {
@@ -493,7 +493,17 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		if (!archiveLesson(getDb(), lesson.id, serverNow(), actorOf(space))) {
 			return fail(400, { action: 'archive', message: t().lesson.refused.archived });
 		}
-		throw redirect(303, `/${params.dance}/lessons`);
+		// Back to the list in the lesson's view: the group's Lessons for a group's.
+		throw redirect(
+			303,
+			listInViewOf(
+				getDb(),
+				wallOf(params, locals),
+				locals.user?.level,
+				lesson.teamId,
+				`/${params.dance}/lessons`
+			)
+		);
 	},
 
 	/*

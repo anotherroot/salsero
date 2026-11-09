@@ -7,6 +7,7 @@ import { setLevel } from './levels';
 import { createFigure } from './figures';
 import { createLesson } from './lessons';
 import { createCustomExercise } from './exercises';
+import { createImport } from './song-imports';
 import { groupModeFor, spaceOf, viewOf } from './group-mode';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 
@@ -160,6 +161,25 @@ describe('viewOf on a page of one thing', () => {
 		expect(viewOf(db, U1_SALSA, 'all', at(DRILL, d, `/salsa/exercises/${d}`))).toBeNull();
 		expect(viewOf(db, U1_SALSA, 'all', at(DRILL, d, `/salsa/exercises/${d}?in=1`))?.teamId).toBe(1);
 		expect(viewOf(db, U1_SALSA, 'all', at(DRILL, d, `/salsa/exercises/${d}?in=4`))).toBeNull();
+	});
+});
+
+describe('viewOf on a playlist’s pick list', () => {
+	it('is in the group’s view when the list is the group’s, for its editor', () => {
+		const db = setup();
+		const imp = createImport(
+			db,
+			{ dance: 'salsa', teamId: 1, actorId: 'u1' },
+			{ url: 'https://www.youtube.com/playlist?list=x', kind: 'youtube-playlist' }
+		).id;
+		const route = '/[dance]/songs/imports/[id]';
+		const href = `/salsa/songs/imports/${imp}`;
+		expect(viewOf(db, U2_SALSA, 'all', at(route, String(imp), href))?.teamId).toBe(1);
+		const own = createImport(db, U2_SALSA, {
+			url: 'https://www.youtube.com/playlist?list=y',
+			kind: 'youtube-playlist'
+		}).id;
+		expect(viewOf(db, U2_SALSA, 'all', at(route, String(own), `${href}?in=1`))).toBeNull();
 	});
 });
 

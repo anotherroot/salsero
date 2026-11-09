@@ -33,7 +33,7 @@ export function withView(href: string, teamId: number | null): string {
 
 /** The kind of row a page of one thing shows; `group` is a group's own pages. */
 export type RowKind =
-	'lesson' | 'figure' | 'routine' | 'position' | 'move' | 'song' | 'drill' | 'group';
+	'lesson' | 'figure' | 'routine' | 'position' | 'move' | 'song' | 'drill' | 'group' | 'import';
 
 const ROW_ROUTES: Record<string, RowKind> = {
 	'/[dance]/lessons/[id]': 'lesson',
@@ -42,7 +42,9 @@ const ROW_ROUTES: Record<string, RowKind> = {
 	'/[dance]/(moves)/positions/[id]': 'position',
 	'/[dance]/(moves)/moves/[id]': 'move',
 	'/[dance]/songs/[id]': 'song',
-	'/[dance]/(today)/exercises/[id]': 'drill'
+	'/[dance]/(today)/exercises/[id]': 'drill',
+	// A playlist's pick list adds into the list's own space.
+	'/[dance]/songs/imports/[id]': 'import'
 };
 
 /** Which row a route shows, by its SvelteKit route id; null for lists and the rest. */
@@ -53,8 +55,7 @@ export function rowKindOf(routeId: string | null): RowKind | null {
 	return ROW_ROUTES[routeId] ?? null;
 }
 
-const VIEWED =
-	/^\/(figures|routines|positions(\/(map|none))?|coverage|lessons|songs(\/imports\/[^/]+)?)$/;
+const VIEWED = /^\/(figures|routines|positions(\/(map|none))?|coverage|lessons|songs)$/;
 
 /** Whether `path` is a list whose content follows the view (it keeps `in`). */
 export function viewedList(path: string, dance: DanceSlug): boolean {

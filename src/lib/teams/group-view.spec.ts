@@ -39,12 +39,13 @@ describe('which pages decide by their row', () => {
 		expect(rowKindOf('/[dance]/groups/[id]')).toBe('group');
 		expect(rowKindOf('/[dance]/groups/[id]/history/[kind]/[rootId]')).toBe('group');
 		expect(rowKindOf('/[dance]/groups/[id]/people')).toBe('group');
+		// A playlist's pick list adds into its own space: it decides by its import (review).
+		expect(rowKindOf('/[dance]/songs/imports/[id]')).toBe('import');
 	});
 
 	it('lists and other pages have no row', () => {
 		expect(rowKindOf('/[dance]/(moves)/figures')).toBeNull();
 		expect(rowKindOf('/[dance]/groups')).toBeNull();
-		expect(rowKindOf('/[dance]/songs/imports/[id]')).toBeNull();
 		expect(rowKindOf(null)).toBeNull();
 	});
 });
@@ -59,8 +60,7 @@ describe('which lists follow the view', () => {
 			'/salsa/positions/none',
 			'/salsa/coverage',
 			'/salsa/lessons',
-			'/salsa/songs',
-			'/salsa/songs/imports/3'
+			'/salsa/songs'
 		])
 			expect(viewedList(p, 'salsa'), p).toBe(true);
 	});
@@ -72,6 +72,7 @@ describe('which lists follow the view', () => {
 			'/salsa/you',
 			'/salsa/figures/3',
 			'/salsa/lessons/3',
+			'/salsa/songs/imports/3',
 			'/settings',
 			'/bachata/figures'
 		])

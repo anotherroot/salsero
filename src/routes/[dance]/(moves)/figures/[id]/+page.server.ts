@@ -28,7 +28,7 @@ import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/us
 import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
 import { mergedMoveRows } from '$lib/server/moves-lists';
 import { mineTarget } from '$lib/server/mine-target';
-import { groupModeFor } from '$lib/server/group-mode';
+import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { holdsLine, styleLabelOf } from '$lib/positions/view';
@@ -743,7 +743,15 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
 			303,
-			first ? `/${params.dance}/figures/${first.id}` : `/${params.dance}/figures`
+			first
+				? `/${params.dance}/figures/${first.id}`
+				: listInViewOf(
+						db,
+						wallOf(params, locals),
+						locals.user?.level,
+						figure.teamId,
+						`/${params.dance}/figures`
+					)
 		);
 	},
 

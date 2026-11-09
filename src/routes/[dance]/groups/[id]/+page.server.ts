@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n/catalog';
+import { withView } from '$lib/teams/group-view';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
 import { inviteQr } from '$lib/server/invites';
@@ -135,7 +136,8 @@ export const actions: Actions = {
 			});
 		}
 		const drill = createCustomExercise(db, space, { name, notes });
-		throw redirect(303, `/${team.dance}/exercises/${drill.id}`);
+		// Made from the group's page: opened in the group's view (group view spec, rule 5).
+		throw redirect(303, withView(`/${team.dance}/exercises/${drill.id}`, team.id));
 	},
 
 	/**

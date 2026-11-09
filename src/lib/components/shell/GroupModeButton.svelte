@@ -4,7 +4,8 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
-	import { workInRows } from '$lib/teams/mode';
+	import { workInPath, workInRows } from '$lib/teams/mode';
+	import type { DanceSlug } from '$lib/dances/dances';
 	import { withView } from '$lib/teams/group-view';
 	import type { GroupChoice, GroupMode } from '$lib/types';
 
@@ -17,7 +18,10 @@
 	 */
 	const choices = $derived((page.data.groupChoices ?? []) as GroupChoice[]);
 	const mode = $derived((page.data.groupMode ?? null) as GroupMode | null);
-	const to = $derived(page.url.pathname + page.url.search);
+	// Beside an open item, the tab's own list: the item's own address ignores `in`.
+	const to = $derived(
+		workInPath(page.url.pathname, page.url.search, page.route.id, page.params.dance as DanceSlug)
+	);
 	const label = $derived(mode ? t().shell.groupMode.switchGroup : t().shell.groupMode.workInGroup);
 	const rows = $derived(workInRows(choices, mode?.teamId ?? null, to));
 
