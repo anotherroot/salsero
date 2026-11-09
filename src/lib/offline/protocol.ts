@@ -3,6 +3,8 @@
  * (offline phase 2). PURE types, client-safe: the worker, the service worker
  * and the page all import them.
  */
+import type { ClashInfo, GoneInfo } from '$lib/clash/clash';
+import type { EntryLabel, RefusalReason } from '$lib/sync/outbox';
 
 /** A request as it crosses a `MessagePort`: the service worker's `Request`, taken apart. */
 export type WireRequest = {
@@ -67,3 +69,38 @@ export type SwOut =
 export type SwIn =
 	| { type: 'device-state'; state: DeviceState | 'off'; unpulledSince: number | null }
 	| { type: 'device-pulled'; startedAt: number };
+
+/** What the band and the Sync page need to know about the outbox (offline phase 3). */
+export type OutboxSummary = {
+	/** Waiting and sending. */
+	waiting: number;
+	/** The made-at of the oldest of them. */
+	oldestWaitingAt: number | null;
+	refused: number;
+	held: number;
+	signedOut: boolean;
+	lastSyncedAt: number | null;
+	/** The newest entry's seq (0: none). */
+	seq: number;
+	/** queuedMarks of waiting queued entries → their made-at. */
+	queued: Record<string, number>;
+	/** Distinct epochs of waiting entries. */
+	epochs: number[];
+};
+
+/** One entry as the Sync page lists it. */
+export type OutboxItem = {
+	id: string;
+	seq: number;
+	state: 'waiting' | 'sending' | 'refused' | 'held';
+	madeAt: number;
+	url: string;
+	label: EntryLabel;
+	reason: RefusalReason | null;
+	message: string | null;
+	clash: ClashInfo | null;
+	gone: GoneInfo | null;
+	heldBy: string | null;
+	dependents: number;
+	fields: [string, string][];
+};
