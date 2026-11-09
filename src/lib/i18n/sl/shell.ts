@@ -135,6 +135,8 @@ export const shell: Catalog['shell'] = {
 		interrupted: 'Nalaganje je bilo prekinjeno. Poskusite znova.'
 	},
 	offline: {
-		needsConnection: 'Potrebna je povezava. Nič se ni spremenilo.'
+		needsConnection: 'Potrebna je povezava. Nič se ni spremenilo.',
+		/** At the top of a sheet whose actions need a connection (offline phase 3). */
+		needsConnectionFor: 'Za te je potrebna povezava'
 	}
 };
