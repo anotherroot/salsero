@@ -233,7 +233,10 @@ rules the boards follow that are not obvious from looking at them.
 
 - **Pushed screens** use the compact band (30 px title) for long names and
   shrink to a slim band (≈64 px: back, name, actions) once scrolled. Main
-  screens shrink the same way on scroll.
+  screens shrink the same way on scroll. The band is picked up, never dropped
+  (2026-11-09): it scrolls until the sheet meets the slim band's bottom and
+  stops there, the slim title coming in over the last 40 px of scroll (it used
+  to scroll away whole, the slim band fading in after).
 - **Edit** is a pencil on the band. Editing shows × ("Stop editing", asks if
   unsaved) and the form's Save pinned at the bottom — one Save, not a header
   Done plus a form Save. **One exception:** the song page's Edit (spec
