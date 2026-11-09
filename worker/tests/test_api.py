@@ -256,3 +256,50 @@ def test_post_start_and_the_analysis_carry_where_the_music_starts():
     assert json.loads(start.data) == {"startS": 18.5}
     assert json.loads(analysis.data)["startS"] == 2.0
     assert "startS" not in json.loads(old.data)
+
+
+def test_timeline_routes(tmp_path):
+    urlopen = scripted_urlopen(
+        Response(200, b'{"id": 7}'),
+        Response(200, b"video"),
+        Response(204),
+        Response(201, b"{}"),
+        Response(204),
+    )
+    api = Api("http://s", "t", urlopen=urlopen)
+    assert api.claim_timeline() == {"id": 7}
+    dest = tmp_path / "src.mp4"
+    api.download_timeline_source(7, dest)
+    assert dest.read_bytes() == b"video"
+    api.put_piece(7, 1, [(60000, b"jpg")], b"mp3")
+    api.finish_timeline(7, 2, 90000)
+    api.fail_timeline(7, "boom", False)
+    assert [r.full_url for r in urlopen.requests] == [
+        "http://s/api/worker/timelines/claim",
+        "http://s/api/worker/timelines/7/source",
+        "http://s/api/worker/timelines/7/pieces/1",
+        "http://s/api/worker/timelines/7/done",
+        "http://s/api/worker/timelines/7/fail",
+    ]
+    piece = urlopen.requests[2]
+    assert piece.get_method() == "PUT"
+    assert content_type(piece) == "application/json"
+    assert json.loads(piece.data) == {"frames": [{"t_ms": 60000, "data": "anBn"}], "sound": "bXAz"}
+    assert json.loads(urlopen.requests[3].data) == {"pieces": 2, "duration_ms": 90000}
+
+
+def test_put_piece_without_sound(tmp_path):
+    urlopen = fake_urlopen(204)
+    Api("http://s", "t", urlopen=urlopen).put_piece(7, 0, [], None)
+    assert json.loads(urlopen.requests[0].data) == {"frames": [], "sound": None}
+
+
+def test_put_piece_410_is_gone():
+    api = Api("http://s", "t", urlopen=fake_urlopen(error=http_error(410, b'{"message": "gone"}')))
+    with pytest.raises(JobGone):
+        api.put_piece(7, 0, [], None)
+
+
+def test_claim_timeline_on_an_older_server_is_none():
+    assert Api("http://s", "t", urlopen=fake_urlopen(error=http_error(404, b"{}"))).claim_timeline() is None
+    assert Api("http://s", "t", urlopen=fake_urlopen(204)).claim_timeline() is None

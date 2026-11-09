@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import shutil
 import urllib.error
@@ -219,3 +220,42 @@ class Api:
 
     def fail_import(self, job_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/imports/{job_id}/fail", {"error": error[:500], "permanent": permanent})
+
+    # ── Timelines: a video prepared for the AI (see src/lib/server/ai-timelines in the app) ──
+
+    def claim_timeline(self) -> dict | None:
+        """None when there is nothing to prepare, and on a 404: a server older than timelines."""
+        try:
+            with self._request("POST", "/api/worker/timelines/claim", data=b"{}") as r:
+                return None if r.status == 204 else json.load(r)
+        except ApiError as e:
+            if e.status == 404:
+                return None
+            raise
+
+    def _timeline(self, method: str, path: str, data=None, timeout: int = 60):
+        """A 410: the video was deleted meanwhile; the job is gone."""
+        try:
+            return self._request(method, path, data=data, timeout=timeout)
+        except ApiError as e:
+            if e.status == 410:
+                raise JobGone(e.message) from e
+            raise
+
+    def download_timeline_source(self, job_id: int, dest: Path) -> None:
+        with self._timeline("GET", f"/api/worker/timelines/{job_id}/source", timeout=600) as r, open(dest, "wb") as f:
+            shutil.copyfileobj(r, f)
+
+    def put_piece(self, job_id: int, k: int, frames: list[tuple[int, bytes]], sound: bytes | None) -> None:
+        body = {
+            "frames": [{"t_ms": t, "data": base64.b64encode(b).decode()} for t, b in frames],
+            "sound": base64.b64encode(sound).decode() if sound is not None else None,
+        }
+        self._timeline("PUT", f"/api/worker/timelines/{job_id}/pieces/{k}", data=json.dumps(body).encode(), timeout=120).close()
+
+    def finish_timeline(self, job_id: int, pieces: int, duration_ms: int) -> None:
+        body = json.dumps({"pieces": pieces, "duration_ms": duration_ms}).encode()
+        self._timeline("POST", f"/api/worker/timelines/{job_id}/done", data=body).close()
+
+    def fail_timeline(self, job_id: int, error: str, permanent: bool) -> None:
+        self._json(f"/api/worker/timelines/{job_id}/fail", {"error": error[:500], "permanent": permanent})

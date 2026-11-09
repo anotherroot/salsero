@@ -204,3 +204,44 @@ def test_a_youtube_list_leaves_out_private_and_deleted_videos():
     ]
     lst = media.read_youtube_list("u", run=fake_run(stdout=json.dumps({"title": "L", "entries": entries})))
     assert [i.title for i in lst.items] == ["Idilio"]
+
+
+def test_timeline_frames_command_and_times(tmp_path: Path):
+    out = tmp_path / "frames"
+
+    def run(cmd, **kwargs):
+        run.cmd = cmd
+        out.mkdir(exist_ok=True)
+        for n in (2, 1):
+            (out / f"f{n:05d}.jpg").write_bytes(b"jpg")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    got = media.timeline_frames(tmp_path / "v.mp4", out, run=run)
+    assert got == [(0, out / "f00001.jpg"), (2000, out / "f00002.jpg")]
+    assert "fps=1/2,scale=384:-2" in run.cmd
+    assert run.cmd[run.cmd.index("-q:v") + 1] == "6"
+
+
+def test_timeline_frames_failure_is_permanent(tmp_path: Path):
+    with pytest.raises(media.PermanentError, match="Could not read the video"):
+        media.timeline_frames(tmp_path / "v.mp4", tmp_path / "f", run=fake_run(returncode=1, stderr="moov atom not found"))
+
+
+def test_timeline_sound_pieces_in_order(tmp_path: Path):
+    out = tmp_path / "sound"
+
+    def run(cmd, **kwargs):
+        run.cmd = cmd
+        out.mkdir(exist_ok=True)
+        for n in (1, 0):
+            (out / f"a{n:04d}.mp3").write_bytes(b"mp3")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    assert media.timeline_sound(tmp_path / "v.mp4", out, run=run) == [out / "a0000.mp3", out / "a0001.mp3"]
+    assert run.cmd[run.cmd.index("-segment_time") + 1] == "60"
+    assert run.cmd[run.cmd.index("-b:a") + 1] == "24k"
+
+
+def test_timeline_sound_none_on_failure(tmp_path: Path):
+    got = media.timeline_sound(tmp_path / "v.mp4", tmp_path / "s", run=fake_run(returncode=1, stderr="does not contain any stream"))
+    assert got == []

@@ -311,3 +311,47 @@ def music_start_of(wav: Path, run=subprocess.run) -> float:
         return music_start(loudness_windows(wav, run=run))
     except Exception:  # noqa: BLE001 — a measurement is a nicety, never a failed job
         return 0.0
+
+
+# ── Timelines: what the AI looks at (frames every 2 s, the sound a minute at a time) ──
+
+FRAME_EVERY_MS = 2000
+
+
+def timeline_frames(src: Path, outdir: Path, run=subprocess.run) -> list[tuple[int, Path]]:
+    """Small JPEG frames, one every 2 s, 384 px wide: frame n (from 1) shows (n - 1) * 2 s."""
+    outdir.mkdir(parents=True, exist_ok=True)
+    p = run(
+        [
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src),
+            "-vf", "fps=1/2,scale=384:-2", "-q:v", "6",
+            str(outdir / "f%05d.jpg"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
+    if p.returncode != 0:
+        raise PermanentError(f"Could not read the video: {_last_line(p.stderr)}")
+    files = sorted(outdir.glob("f*.jpg"))
+    return [((int(f.stem[1:]) - 1) * FRAME_EVERY_MS, f) for f in files]
+
+
+def timeline_sound(src: Path, outdir: Path, run=subprocess.run) -> list[Path]:
+    """The sound in minute pieces, mono 16 kHz MP3 at 24 kbit/s: piece k is minute k.
+    A video without sound (or one ffmpeg cannot decode the sound of) gives none."""
+    outdir.mkdir(parents=True, exist_ok=True)
+    p = run(
+        [
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src),
+            "-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "24k",
+            "-f", "segment", "-segment_time", "60", "-reset_timestamps", "1",
+            str(outdir / "a%04d.mp3"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
+    if p.returncode != 0:
+        return []
+    return sorted(outdir.glob("a*.mp3"))

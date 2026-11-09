@@ -432,3 +432,91 @@ def test_server_trouble_in_the_starts_pass_leaves_the_videos_to_run():
     jobs.run(api, tools(), video_tools=video_tools())
     assert ("claim_video",) in api.calls
     assert [c for c in api.calls if c[0] == "post_start"] == []
+
+
+class TimelineApi(VideoApi):
+    def __init__(self, queue=(), videos=(), timelines=(), gone_on_piece=False):
+        super().__init__(list(queue), list(videos))
+        self.timelines = list(timelines)
+        self.gone_on_piece = gone_on_piece
+
+    def claim_timeline(self):
+        return self.timelines.pop(0) if self.timelines else None
+
+    def download_timeline_source(self, job_id, dest):
+        dest.write_bytes(b"mp4")
+        self.calls.append(("source", job_id))
+
+    def put_piece(self, job_id, k, frames, sound):
+        if self.gone_on_piece:
+            raise JobGone("no longer wanted")
+        self.calls.append(("piece", job_id, k, [t for t, _ in frames], sound))
+
+    def finish_timeline(self, job_id, pieces, duration_ms):
+        self.calls.append(("finish", job_id, pieces, duration_ms))
+
+    def fail_timeline(self, job_id, error, permanent):
+        self.calls.append(("fail_timeline", job_id, error, permanent))
+
+
+def timeline_tools(duration=150.0, sounds=3):
+    def frames(src, out):
+        out.mkdir()
+        got = []
+        for i in range(int(duration // 2)):
+            p = out / f"f{i + 1:05d}.jpg"
+            p.write_bytes(b"jpg")
+            got.append((i * 2000, p))
+        return got
+
+    def sound(src, out):
+        out.mkdir()
+        got = []
+        for k in range(sounds):
+            p = out / f"a{k:04d}.mp3"
+            p.write_bytes(f"s{k}".encode())
+            got.append(p)
+        return got
+
+    return jobs.TimelineTools(frames=frames, sound=sound, duration_of=lambda p: duration)
+
+
+def test_process_timeline_groups_by_minute(tmp_path):
+    api = TimelineApi()
+    assert jobs.process_timeline({"id": 3}, api, timeline_tools(), tmp_path) is True
+    pieces = [c for c in api.calls if c[0] == "piece"]
+    assert [len(c[3]) for c in pieces] == [30, 30, 15]
+    assert pieces[1][3][0] == 60000
+    assert [c[4] for c in pieces] == [b"s0", b"s1", b"s2"]
+    assert api.calls[-1] == ("finish", 3, 3, 150000)
+
+
+def test_no_audio_stream_still_uploads_frames(tmp_path):
+    api = TimelineApi()
+    assert jobs.process_timeline({"id": 3}, api, timeline_tools(sounds=0), tmp_path) is True
+    pieces = [c for c in api.calls if c[0] == "piece"]
+    assert len(pieces) == 3
+    assert all(c[4] is None for c in pieces)
+
+
+def test_a_gone_timeline_is_not_a_failure(tmp_path):
+    api = TimelineApi(gone_on_piece=True)
+    assert jobs.process_timeline({"id": 3}, api, timeline_tools(), tmp_path) is True
+    assert not [c for c in api.calls if c[0] == "fail_timeline"]
+
+
+def test_a_video_over_an_hour_fails_for_good(tmp_path):
+    api = TimelineApi()
+    assert jobs.process_timeline({"id": 3}, api, timeline_tools(duration=3700.0), tmp_path) is False
+    assert api.calls[-1] == ("fail_timeline", 3, "Longer than an hour.", True)
+
+
+def test_run_prepares_timelines_after_songs_before_videos():
+    api = TimelineApi(
+        queue=[{"id": 1, "kind": "analyze", "url": None}],
+        videos=[{"id": 9, "url": "https://y"}],
+        timelines=[{"id": 3}],
+    )
+    assert jobs.run(api, tools(), video_tools(), timeline_tools=timeline_tools(duration=10.0, sounds=1)) == 3
+    kinds = [c[0] for c in api.calls]
+    assert kinds.index("post_analysis") < kinds.index("finish") < kinds.index("upload_video")

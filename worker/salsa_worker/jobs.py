@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Callable, Literal
 from . import match, spotify
 from .lists import TrackList
 from .api import ApiError, JobGone
-from .media import MAX_DURATION_S, Fetched, PermanentError
+from .media import MAX_DURATION_S, MAX_VIDEO_S, Fetched, PermanentError
 
 Outcome = Literal["ok", "permanent", "transient"]
 
@@ -150,6 +151,50 @@ def process_video(job: dict, api, tools: VideoTools, workdir: Path) -> bool:
     return False
 
 
+
+@dataclass(frozen=True)
+class TimelineTools:
+    frames: Callable[[Path, Path], list[tuple[int, Path]]]
+    sound: Callable[[Path, Path], list[Path]]
+    duration_of: Callable[[Path], float]
+
+
+# A piece of a timeline: one minute of frames and sound, one upload.
+PIECE_MS = 60_000
+
+
+def process_timeline(job: dict, api, tools: TimelineTools, workdir: Path) -> bool:
+    """Frames every 2 s and the sound a minute at a time, uploaded a minute per piece, then done.
+    Failures are reported, never raised. True unless it failed."""
+    job_id = job["id"]
+    try:
+        src = workdir / "source.mp4"
+        api.download_timeline_source(job_id, src)
+        duration = tools.duration_of(src)
+        if duration > MAX_VIDEO_S:
+            raise PermanentError("Longer than an hour.")
+        duration_ms = max(1, round(duration * 1000))
+        pieces = math.ceil(duration_ms / PIECE_MS)
+        frames = tools.frames(src, workdir / "frames")
+        sounds = tools.sound(src, workdir / "sound")
+        for k in range(pieces):
+            minute = [(t, p.read_bytes()) for t, p in frames if t // PIECE_MS == k]
+            sound = sounds[k].read_bytes() if k < len(sounds) else None
+            api.put_piece(job_id, k, minute, sound)
+        api.finish_timeline(job_id, pieces, duration_ms)
+        log.info("timeline %s: %d piece(s), %d frame(s)", job_id, pieces, len(frames))
+        return True
+    except JobGone:
+        log.info("timeline %s: no longer wanted", job_id)
+        return True
+    except PermanentError as e:
+        log.warning("timeline %s failed for good: %s", job_id, e)
+        api.fail_timeline(job_id, str(e), True)
+    except Exception as e:  # noqa: BLE001 — anything else is worth another try
+        log.exception("timeline %s failed, will retry", job_id)
+        api.fail_timeline(job_id, f"{type(e).__name__}: {e}", False)
+    return False
+
 def measure_start(song_id: int, api, tools: Tools, workdir: Path) -> None:
     """The one-off pass for a ready song that has no music start yet: fetch, decode, measure, report.
     Audio that will not decode is reported as 0.0, so it is never asked for again; a download that
@@ -172,11 +217,13 @@ def run(
     tools: Tools,
     video_tools: VideoTools | None = None,
     import_tools: ImportTools | None = None,
+    timeline_tools: TimelineTools | None = None,
     max_jobs: int = 20,
 ) -> int:
     """Claim and process jobs until the queues are empty or a job fails. Returns how many were processed.
 
-    Pasted lists first (a person waits on them), then songs, then the music
+    Pasted lists first (a person waits on them), then songs, then videos the
+    AI asked to look at (a person waits in a chat), then the music
     start of ready songs that have none, then videos. A song is seconds of
     work, an hour of video can be ten minutes of encoding. Stopping after a
     transient failure keeps one bad run (network down, a YouTube change) from
@@ -205,6 +252,17 @@ def run(
         if job["kind"] == "download":
             tools.pause()
         if outcome == "transient":
+            return done
+    # Videos the AI asked to look at: a person is waiting in a chat, and it is
+    # one download and two ffmpeg passes, far less than saving a video.
+    while timeline_tools is not None and done < max_jobs:
+        job = api.claim_timeline()
+        if job is None:
+            break
+        with tempfile.TemporaryDirectory(prefix="salsa-timeline-") as tmp:
+            ok = process_timeline(job, api, timeline_tools, Path(tmp))
+        done += 1
+        if not ok:
             return done
     # Once the songs queue is empty: ready songs analysed before the worker measured music starts.
     wanted = api.starts_wanted() if done < max_jobs else []
