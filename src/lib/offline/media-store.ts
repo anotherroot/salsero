@@ -72,15 +72,19 @@ export function memoryMediaStore(): MediaStore {
 }
 
 /*
- * OPFS: `media/<kind>/<file>` is a whole file, `<file>.mime` its type beside
- * it. A download goes to `<file>.part` and is moved into place once whole;
- * `list` and `read` never see a `.part`.
+ * OPFS: `media/<kind>/<file>` holds the bytes and `<file>.meta` (`{ mime, size }`)
+ * says they are whole. The meta is written last, after the bytes are in place
+ * under their name, and dropped first; a file counts only when its meta is
+ * there and its size matches. So a crash or a full disk at any step leaves
+ * nothing that reads as whole, on every path (`move()`, a copy, Safari's sync
+ * handle), and the next pass fetches it again. A download goes to
+ * `<file>.part` first.
  */
 const PART = '.part';
-const MIME = '.mime';
+const META = '.meta';
 const ROOT = 'media';
 
-type Writable = { write(data: Blob | BufferSource): Promise<void>; close(): Promise<void> };
+type Meta = { mime: string; size: number };
 type SyncHandle = {
 	truncate(n: number): void;
 	write(data: BufferSource, opts?: { at: number }): number;
@@ -88,7 +92,7 @@ type SyncHandle = {
 	close(): void;
 };
 type FileHandle = FileSystemFileHandle & {
-	createWritable?: () => Promise<Writable & WritableStream>;
+	createWritable?: () => Promise<WritableStream>;
 	createSyncAccessHandle?: () => Promise<SyncHandle>;
 	move?: (name: string) => Promise<void>;
 };
@@ -102,7 +106,7 @@ async function writeFile(
 	if (handle.createWritable) {
 		const w = await handle.createWritable();
 		if (res.body) await res.body.pipeTo(w);
-		else await w.close();
+		else await w.getWriter().close();
 		return;
 	}
 	// Safari before createWritable: a sync handle, which only a dedicated worker has.
@@ -118,6 +122,7 @@ async function writeFile(
 	}
 }
 
+/** `from` under the name `to`: `move()` where there is one, else a copy (the meta, written after, vouches for it). */
 async function rename(dir: FileSystemDirectoryHandle, from: string, to: string): Promise<void> {
 	const handle = (await dir.getFileHandle(from)) as FileHandle;
 	if (handle.move) {
@@ -128,7 +133,7 @@ async function rename(dir: FileSystemDirectoryHandle, from: string, to: string):
 	await dir.removeEntry(from);
 }
 
-async function exists(dir: FileSystemDirectoryHandle, name: string): Promise<File | null> {
+async function fileOf(dir: FileSystemDirectoryHandle, name: string): Promise<File | null> {
 	try {
 		return await (await dir.getFileHandle(name)).getFile();
 	} catch {
@@ -152,40 +157,59 @@ async function names(dir: FileSystemDirectoryHandle): Promise<string[]> {
 	return out;
 }
 
+/** The bytes and their meta when they are whole; null otherwise. */
+async function whole(
+	dir: FileSystemDirectoryHandle,
+	file: string
+): Promise<{ body: File; meta: Meta } | null> {
+	const metaFile = await fileOf(dir, file + META);
+	if (!metaFile) return null;
+	let meta: Meta;
+	try {
+		meta = JSON.parse(await metaFile.text()) as Meta;
+	} catch {
+		return null;
+	}
+	const body = await fileOf(dir, file);
+	if (!body || typeof meta.size !== 'number' || body.size !== meta.size) return null;
+	return { body, meta };
+}
+
 /** The store in OPFS; null where this browser has none (it then plays from the network, as before). */
 export async function opfsMediaStore(): Promise<MediaStore | null> {
 	if (typeof navigator === 'undefined' || !navigator.storage?.getDirectory) return null;
 	let root: FileSystemDirectoryHandle;
 	try {
-		root = await (
-			await navigator.storage.getDirectory()
-		).getDirectoryHandle(ROOT, { create: true });
+		root = await navigator.storage.getDirectory();
 	} catch {
 		return null;
 	}
-	const dirOf = (kind: MediaKind) => root.getDirectoryHandle(kind, { create: true });
-	const wholeNames = async (kind: MediaKind) =>
-		(await names(await dirOf(kind))).filter((n) => !n.endsWith(PART) && !n.endsWith(MIME));
+	return mediaStoreIn(root);
+}
 
-	const store: MediaStore = {
+/** The store under `top`'s `media/` (OPFS's root in a browser; a stand-in in the specs). */
+export function mediaStoreIn(top: FileSystemDirectoryHandle): MediaStore {
+	const rootP = top.getDirectoryHandle(ROOT, { create: true });
+	const dirOf = async (kind: MediaKind) => (await rootP).getDirectoryHandle(kind, { create: true });
+	const fileNames = async (kind: MediaKind) =>
+		(await names(await dirOf(kind))).filter((n) => !n.endsWith(PART) && !n.endsWith(META));
+
+	return {
 		async list() {
 			const out: MediaFile[] = [];
 			for (const kind of KINDS) {
 				const dir = await dirOf(kind);
-				for (const file of await wholeNames(kind)) {
-					const mime = await exists(dir, file + MIME);
-					out.push({ kind, file, mime: mime ? await mime.text() : 'application/octet-stream' });
+				for (const file of await fileNames(kind)) {
+					const w = await whole(dir, file);
+					if (w) out.push({ kind, file, mime: w.meta.mime });
 				}
 			}
 			return out;
 		},
 		async read(kind, file) {
-			if (!NAME.test(file) || file.endsWith(PART) || file.endsWith(MIME)) return null;
-			const dir = await dirOf(kind);
-			const body = await exists(dir, file);
-			if (!body) return null;
-			const mime = await exists(dir, file + MIME);
-			return { body, mime: mime ? await mime.text() : 'application/octet-stream' };
+			if (!NAME.test(file) || file.endsWith(PART) || file.endsWith(META)) return null;
+			const w = await whole(await dirOf(kind), file);
+			return w ? { body: w.body, mime: w.meta.mime } : null;
 		},
 		async write(f, res) {
 			if (!NAME.test(f.file)) throw new Error(`not a media name: ${f.file}`);
@@ -197,21 +221,35 @@ export async function opfsMediaStore(): Promise<MediaStore | null> {
 				await removeIfThere(dir, part);
 				throw e;
 			}
-			await writeFile(dir, f.file + MIME, new Response(f.mime));
+			const size = (await fileOf(dir, part))?.size ?? -1;
+			// The old vouch goes first: from here until the new one, the name reads as missing.
+			await removeIfThere(dir, f.file + META);
 			await removeIfThere(dir, f.file);
 			await rename(dir, part, f.file);
+			const meta: Meta = { mime: f.mime, size };
+			await writeFile(dir, f.file + META, new Response(JSON.stringify(meta)));
 		},
 		async remove(kind, file) {
 			const dir = await dirOf(kind);
+			await removeIfThere(dir, file + META);
 			await removeIfThere(dir, file);
-			await removeIfThere(dir, file + MIME);
+			await removeIfThere(dir, file + PART);
 		},
 		async clear() {
+			const root = await rootP;
 			for (const kind of KINDS) {
 				try {
 					await root.removeEntry(kind, { recursive: true });
-				} catch {
-					// Already gone.
+					continue;
+				} catch (e) {
+					if ((e as DOMException)?.name === 'NotFoundError') continue;
+				}
+				// The folder would not go whole (a file in it still open): one entry at a time,
+				// the vouches first, so whatever stays reads as missing.
+				const dir = await dirOf(kind);
+				const all = await names(dir);
+				for (const n of [...all.filter((n) => n.endsWith(META)), ...all]) {
+					await removeIfThere(dir, n);
 				}
 			}
 		},
@@ -219,10 +257,9 @@ export async function opfsMediaStore(): Promise<MediaStore | null> {
 			let n = 0;
 			for (const kind of KINDS) {
 				const dir = await dirOf(kind);
-				for (const file of await wholeNames(kind)) n += (await exists(dir, file))?.size ?? 0;
+				for (const file of await fileNames(kind)) n += (await whole(dir, file))?.body.size ?? 0;
 			}
 			return n;
 		}
 	};
-	return store;
 }
