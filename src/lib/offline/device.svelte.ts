@@ -87,7 +87,8 @@ const waiting = new Set<() => void>();
 function setState(state: DeviceState | 'off'): void {
 	own = state;
 	showState();
-	if (state !== 'waiting') relayTo?.announce(state as DeviceState, sync.summary);
+	// A plain copy: a $state proxy cannot cross a BroadcastChannel.
+	if (state !== 'waiting') relayTo?.announce(state as DeviceState, $state.snapshot(sync.summary));
 }
 
 /** What this page shows: its own state, or the owning tab's while its own waits for the lock. */
