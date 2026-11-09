@@ -73,6 +73,16 @@ backup; not in the repo). The picks:
 - Tapping either opens the Sync page. Every screen with a band shows it,
   on the phone and the desktop (the desktop's band row).
 
+**Changed after the phone test (2026-11-09, look C2):** "· 3 waiting" in the
+band did not say the phone was offline. What waits moved to an amber strip
+(the theme's warn colours) above the page's own bottom bar (the figure
+switcher, Done, Save) and the tab bar, on every screen: offline "Offline · 5
+changes waiting" (or just "Offline"); online and still waiting after the grace,
+"5 changes waiting to be sent"; back online "Sending 5 …", then "All sent" for
+2 s, then gone. "See ›" opens the Sync page; toasts sit above the strip. The
+band keeps only the pills (couldn't sync, sign in). `src/lib/sync/strip.ts`,
+`components/system/OfflineStrip.svelte`.
+
 ### The Sync page (2B)
 
 A full page (a route, e.g. `/{dance}/sync`), reached only from the status:

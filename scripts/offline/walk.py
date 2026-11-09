@@ -297,6 +297,14 @@ def device_data(page, path):
     )
 
 
+def shot(page, name):
+    """With WALK_SHOTS=<dir>, a picture of the page as the walk sees it (the offline strip, for a look)."""
+    out = os.environ.get("WALK_SHOTS")
+    if out:
+        os.makedirs(out, exist_ok=True)
+        page.screenshot(path=os.path.join(out, f"{name}.png"))
+
+
 def outbox(page):
     """The device's outbox as the page knows it (offline phase 3)."""
     return page.evaluate("() => (window.__device && window.__device.outbox) || null")
@@ -537,6 +545,7 @@ def walk(base, db_path, v, lines, net):
                         strip = page.locator("[data-offline-strip]")
                         said = strip.inner_text() if strip.count() else ""
                         report("Offline" in said and "1 change waiting" in said, "offline write: the strip says offline and that 1 change waits", f"strip {said!r}")
+                        shot(page, "offline-exercise")
                         errs = [e for e in watch.take() if "Failed to load resource" not in e]
                         report(not errs, "offline write: no errors", "; ".join(errs[:3]))
 
@@ -603,6 +612,7 @@ def walk(base, db_path, v, lines, net):
                     if strip.count() and bar.count():
                         sb, bb = strip.bounding_box(), bar.bounding_box()
                         report(sb["y"] + sb["height"] <= bb["y"] + 1, "offline edit: the strip sits above the figure switcher", f"strip {sb}, bar {bb}")
+                        shot(page, "offline-figure")
                     else:
                         report(False, "offline edit: the strip above the figure switcher", f"strip {strip.count()}, bar {bar.count()}")
                 except Exception as e:

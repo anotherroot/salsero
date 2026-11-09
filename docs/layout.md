@@ -603,7 +603,8 @@ src/lib/sync/        PURE, client-safe, shared by the server, the device and the
                      Phase 3: owners.ts (`OWNERS`, `ownerOf`: a captured row's person or group),
                      outbox.ts (the push's wire types, `foldCaptured`, `mintedIn`, `dependsOn`/`heldBy`,
                      `queuedMarks`, `entryLabel`, `bodyFields`; PUSH_BATCH, PUSH_RETRY_MS, OUTBOX_HEADER),
-                     status.ts (`syncStatus`, the 2 s grace, `waitingMark`), view.ts (the status's,
+                     status.ts (`syncStatus`, `bandStatus`, the 2 s grace, `waitingMark`), strip.ts
+                     (`stripState`, `nextMarks`: the offline strip's words by the clock), view.ts (the status's,
                      a label's and a reason's words; Discard's and Sign out's questions), resolve.ts
                      (`resendFields`: a clash's Mine sent again)
 src/lib/server/sync/  log.ts (`change_log`: head, oldest, `changedSince`, the 30-day prune in
@@ -658,8 +659,10 @@ src/service-worker.ts  network first for reads; on a failure: navigations → th
                      shell (ssr = false)
 src/routes/[dance]/sync/  the Sync page (2B): Couldn't sync first (Retry or Compare, Discard),
                      then Waiting; components/sync/SyncEntry.svelte one change. The band's status:
-                     components/system/SyncStatus.svelte (in BandHeader: every phone header, the
-                     desktop's band row); ui/WaitingBadge.svelte (lesson, song, link and comment
+                     components/system/SyncStatus.svelte (in BandHeader: the pills, every phone
+                     header, the desktop's band row); system/OfflineStrip.svelte (offline and what
+                     waits, above the bottom bars: `pinned.height` from BottomBar and VariationBar,
+                     `--strip-h` lifts toasts); ui/WaitingBadge.svelte (lesson, song, link and comment
                      rows); system/NeedsConnectionNote.svelte (a menu's one note, `offlineMenu`)
 scripts/offline/     serve.sh + walk.py: every page offline in a real browser, the timing, and changes made
                      offline landing once, dated, with their ids (phase 3)
