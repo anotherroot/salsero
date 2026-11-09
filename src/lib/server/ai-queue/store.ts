@@ -178,7 +178,7 @@ export function propose(
 	who: Who,
 	input: ActionIn,
 	now: number
-): { ok: true; actionId: number } | Fail {
+): { ok: true; actionId: number; groupId: number } | Fail {
 	if (!titleOk(input.title, TITLE_MAX))
 		return fail(`title must be text of 1 to ${TITLE_MAX} characters.`);
 	const prepared = prepareLines(db, who, input.lines);
@@ -232,7 +232,7 @@ export function propose(
 			.returning({ id: aiActions.id })
 			.get().id;
 		insertLines(tx, actionId, prepared.rows);
-		return { ok: true as const, actionId };
+		return { ok: true as const, actionId, groupId };
 	});
 }
 
