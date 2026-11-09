@@ -167,3 +167,17 @@ describe('token', () => {
 		expect(other.status).toBe(200);
 	});
 });
+
+describe('body size', () => {
+	it('refuses a registration body over 16 KB before reading it', async () => {
+		const big = registerReq({ ...registerBody, client_name: 'x'.repeat(20_000) });
+		const res = await register(ev(big));
+		expect(res.status).toBe(413);
+	});
+	it('refuses a token body over 16 KB', async () => {
+		const res = await token(
+			ev(form({ grant_type: 'refresh_token', client_id: 'c', refresh_token: 'x'.repeat(20_000) }))
+		);
+		expect(res.status).toBe(413);
+	});
+});

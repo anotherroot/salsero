@@ -17,7 +17,9 @@ const CARD = new Set([
 	'/welcome/start',
 	'/app',
 	'/device/pair',
-	'/g/[code]'
+	'/g/[code]',
+	// The AI connector's consent page.
+	'/oauth/authorize'
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the signature the frame's callers use

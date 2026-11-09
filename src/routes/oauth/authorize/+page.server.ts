@@ -8,7 +8,7 @@ import { approve } from '$lib/server/oauth/store';
 import { backToClient, parseAuthorizeParams } from '$lib/server/oauth/authorize';
 import { mcpResource } from '$lib/server/oauth/metadata';
 import { isLoopback, redirectMatches } from '$lib/server/oauth/redirect';
-import { resolveClient } from '$lib/server/oauth/register';
+import { clientHost, resolveClient } from '$lib/server/oauth/register';
 import { serverNow } from '$lib/server/server-clock';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -72,7 +72,8 @@ async function check(params: URLSearchParams, url: URL): Promise<Checked> {
 		};
 	return {
 		kind: 'ok',
-		host: client.host,
+		// The host the code goes to for a registered client (it may list several), else the document's.
+		host: clientHost(clientId, redirectUri),
 		name: client.doc.clientName,
 		clientId,
 		redirectUri,

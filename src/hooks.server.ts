@@ -57,7 +57,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const device = deviceRuntime();
 	const session = device ? null : validateSession(event.cookies.get(SESSION_COOKIE));
-	const path = event.url.pathname;
+	// Every gate below judges the routed path: an encoded `/api/%77orker/` is still the worker's.
+	const path = routed;
 	// No session: a paired Android app may still sign in with its device
 	// token — on the API only, never a page and never the worker's prefix.
 	// On the device the user is the copy's own person: no session, no token.

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { registrations } from '$lib/server/oauth/limits';
+import { readCapped, registrations } from '$lib/server/oauth/limits';
 import { registerClient } from '$lib/server/oauth/register';
 import { serverNow } from '$lib/server/server-clock';
 import type { RequestHandler } from './$types';
@@ -20,9 +20,15 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			{ error: 'invalid_request', error_description: 'Too many registrations. Wait an hour.' },
 			{ status: 429, headers: NO_STORE }
 		);
+	const text = await readCapped(request);
+	if (text === null)
+		return json(
+			{ error: 'invalid_client_metadata', error_description: 'The body is too large.' },
+			{ status: 413, headers: NO_STORE }
+		);
 	let body: unknown;
 	try {
-		body = await request.json();
+		body = JSON.parse(text);
 	} catch {
 		body = null;
 	}

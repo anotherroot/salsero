@@ -67,7 +67,8 @@ export const NETWORK_ENDPOINTS = [
 	'/health',
 	'/manifest-[dance].webmanifest',
 	'/.well-known/assetlinks.json',
-	// The AI connector's discovery documents (machines, the network's).
+	// The AI connector: `/mcp` (POST only; GET is a 405) and its discovery documents.
+	'/mcp',
 	'/.well-known/oauth-authorization-server',
 	'/.well-known/oauth-protected-resource',
 	'/.well-known/oauth-protected-resource/mcp'

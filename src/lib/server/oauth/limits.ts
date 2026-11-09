@@ -37,3 +37,29 @@ export function resetOAuthLimits() {
 	tokenFailures.reset();
 	registrations.reset();
 }
+
+/** The most an open OAuth endpoint reads: a registration or a token request is a few hundred bytes. */
+export const MAX_BODY = 16 * 1024;
+
+/**
+ * The body as text, or null when it is larger than `MAX_BODY`: refused by its
+ * declared length first, and counted while streaming (a chunked body declares none).
+ */
+export async function readCapped(request: Request): Promise<string | null> {
+	if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY) return null;
+	if (!request.body) return '';
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let size = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		size += value.byteLength;
+		if (size > MAX_BODY) {
+			await reader.cancel();
+			return null;
+		}
+		chunks.push(value);
+	}
+	return Buffer.concat(chunks).toString('utf8');
+}

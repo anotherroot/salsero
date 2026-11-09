@@ -437,3 +437,36 @@ describe('the AI connector at the hook', () => {
 		expect(same.resolved).toBe(1);
 	});
 });
+
+describe('encoded paths at the hook', () => {
+	it('an encoded /api/worker/ path still needs the worker token', async () => {
+		const db = openDb(':memory:');
+		handleDb.db = db;
+		db.insert(users)
+			.values({
+				id: 'u1',
+				email: 'a@example.com',
+				passwordHash: 'x',
+				dance: 'salsa',
+				firstName: 'Ana',
+				level: 'all'
+			})
+			.run();
+		const session = createSession('u1', db).id;
+		const url = new URL('https://salsa.example/api/%77orker/claim');
+		const event = {
+			url,
+			request: new Request(url, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			}),
+			cookies: { get: (n: string) => (n === SESSION_COOKIE ? session : undefined), set: () => {} },
+			locals: {} as App.Locals
+		} as unknown as RequestEvent;
+		const resolve = vi.fn(async () => new Response('ok'));
+		const res = await handle({ event, resolve });
+		expect(res.status).toBe(401);
+		expect(resolve).not.toHaveBeenCalled();
+	});
+});

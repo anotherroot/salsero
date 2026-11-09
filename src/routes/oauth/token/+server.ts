@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { tokenFailures } from '$lib/server/oauth/limits';
+import { readCapped, tokenFailures } from '$lib/server/oauth/limits';
 import { mcpResource } from '$lib/server/oauth/metadata';
 import { exchangeCode, refresh } from '$lib/server/oauth/store';
 import { serverNow } from '$lib/server/server-clock';
@@ -25,7 +25,9 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
 	const type = (request.headers.get('content-type') ?? '').toLowerCase();
 	if (!type.startsWith('application/x-www-form-urlencoded'))
 		return oauthError(400, 'invalid_request', 'Send application/x-www-form-urlencoded.');
-	const form = await request.formData();
+	const text = await readCapped(request);
+	if (text === null) return oauthError(413, 'invalid_request', 'The body is too large.');
+	const form = new URLSearchParams(text);
 	const get = (k: string) => {
 		const v = form.get(k);
 		return typeof v === 'string' ? v : '';

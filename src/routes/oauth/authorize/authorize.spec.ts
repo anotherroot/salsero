@@ -159,3 +159,24 @@ describe('the consent page', () => {
 		expect((await outcome(() => actions.approve(post.event))).status).toBe(403);
 	});
 });
+
+describe('a registered client with more than one redirect URI', () => {
+	it('shows the host the code will go to, not its first registered one', async () => {
+		const r = registerClient(
+			db,
+			{
+				client_name: 'Claude',
+				redirect_uris: ['https://claude.ai/api/mcp/auth_callback', 'https://evil.example/cb'],
+				token_endpoint_auth_method: 'none'
+			},
+			0
+		);
+		if (!r.ok) throw new Error('registration refused');
+		const p = params({
+			client_id: String(r.response.client_id),
+			redirect_uri: 'https://evil.example/cb'
+		});
+		const { event } = loadEvent(p);
+		expect(((await load(event)) as { host: string }).host).toBe('evil.example');
+	});
+});
