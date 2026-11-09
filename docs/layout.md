@@ -464,6 +464,19 @@ src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByD
 src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
                      deleted voice take); a take's wav is unlinked when its hold expires
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
+src/lib/server/csrf.ts  PURE: the hook's form check (kit's own is off, vite.config.ts), `routedPath`
+                     (the path kit routes on) and SELF_AUTHED_PATHS (the AI connector's endpoints:
+                     no session, no login or host redirect)
+src/lib/mcp/         PURE: the MCP protocol by hand (protocol.ts, http.ts: stateless, JSON only);
+                     sdk-compat.spec.ts drives it with the official client (a devDependency)
+src/lib/server/oauth/  the AI connector's sign-in: discovery (metadata.ts), clients from any origin
+                     (client.ts, fetch-client.ts through safe-fetch.ts, the SSRF guard; register.ts,
+                     RFC 7591), PKCE, the consent checks (authorize.ts), the token store (store.ts,
+                     hashes only), in-memory rate limits (limits.ts)
+src/lib/server/mcp/  the connector's tools: view.ts (what the person may read = `syncScope`),
+                     read.ts (search, list, get_*, list_groups, vocabulary), args.ts, host.ts, modules.ts
+src/routes/mcp/, src/routes/oauth/{authorize,token,register}/, src/routes/.well-known/oauth-*/
+                     the connector's endpoints; /oauth/authorize is the consent page
 src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
                      (refuses at or over the limit), and `listStorageItems` for What uses space
 src/lib/server/invites.ts  one-time invites into one dance, and joining with one
