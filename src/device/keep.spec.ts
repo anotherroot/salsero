@@ -11,6 +11,7 @@ import {
 	readKeep,
 	spaceRows,
 	originalRows,
+	pruneKeep,
 	wantedVideos,
 	writeKeep,
 	KEEP_META
@@ -245,5 +246,18 @@ describe('originalRows: the rows of the originals held here (offline phase 4c)',
 				uploaded: true
 			}
 		]);
+	});
+});
+
+describe('pruneKeep: a group left drops out of the settings (4b minor 11)', () => {
+	it("a space that is no longer the person's goes; theirs and My lessons stay", () => {
+		team(7, 'Salsa', true);
+		team(9, 'Left', false);
+		const s = {
+			spaces: ['mine', 'team:7', 'team:9'],
+			wifiOnly: false,
+			videos: ['lesson-videos/x.mp4']
+		};
+		expect(pruneKeep(db, U, s)).toEqual({ ...s, spaces: ['mine', 'team:7'] });
 	});
 });

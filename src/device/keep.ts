@@ -233,3 +233,22 @@ export function originalRows(db: SqliteDb, files: readonly string[]): OriginalRo
 	}
 	return out;
 }
+
+/**
+ * The settings without a group the person has left (4b minor 11): its switch went
+ * with the group's rows, so it drops out of what the page shows and keeps.
+ */
+export function pruneKeep(db: SqliteDb, userId: string, s: KeepSettings): KeepSettings {
+	const teams = new Set(
+		(
+			db
+				.prepare(
+					`SELECT tm.team_id AS id FROM team_members tm JOIN teams t ON t.id = tm.team_id
+					 WHERE tm.user_id = ? AND t.deleted_at IS NULL`
+				)
+				.all(userId) as { id: number }[]
+		).map((r) => `team:${r.id}`)
+	);
+	const spaces = s.spaces.filter((id) => id === 'mine' || teams.has(id));
+	return spaces.length === s.spaces.length ? s : { ...s, spaces };
+}
