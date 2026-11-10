@@ -33,6 +33,7 @@ import {
 } from './db/schema';
 import { ownedBy, type Space, type TeamSpace, type Wall } from './scope';
 import { listMyTeams } from './teams';
+import type { DanceSlug } from '$lib/dances/dances';
 import { teamReader } from './access';
 import { memberIn } from './clones/genes';
 import { foldNamed, foldVersions, twinsOf } from './twins';
@@ -308,4 +309,21 @@ export function staysBehind(db: Db, kind: ElsewhereKind, id: number): number {
 			.where(and(eq(col, id), isNotNull(videoSpots.lessonVideoId)))
 			.get()?.n ?? 0
 	);
+}
+
+/**
+ * The group a person may copy into and link in, as the space they act in:
+ * a live group of `dance` they own or edit. Null otherwise (a member, another
+ * dance, a deleted or missing group): the routes answer it with a 404.
+ */
+export function elsewhereGroup(
+	db: Db,
+	userId: string,
+	dance: DanceSlug,
+	teamId: number
+): TeamSpace | null {
+	const team = listMyTeams(db, userId, dance).find((t) => t.id === teamId);
+	if (!team || team.deletedAt !== null) return null;
+	if (team.role !== 'owner' && team.role !== 'editor') return null;
+	return { teamId, actorId: userId, dance };
 }

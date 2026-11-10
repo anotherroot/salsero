@@ -115,3 +115,53 @@ export function spotLinker(kind: ElsewhereKind, space: TeamSpace, spotId: number
 		}
 	};
 }
+
+export type CopyLinkRequest = {
+	kind: ElsewhereKind;
+	id: number;
+	use: Record<string, number>;
+	/** The family's archived member to restore first (Restore and link), or null. */
+	restore: number | null;
+};
+
+const KINDS: readonly ElsewhereKind[] = ['figure', 'routine', 'drill', 'position'];
+
+const posId = (v: unknown): number | null => {
+	const n = typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v;
+	return typeof n === 'number' && Number.isSafeInteger(n) && n > 0 ? n : null;
+};
+
+/**
+ * What a Copy and link asks, from a form's fields or a JSON body: `kind`,
+ * `id`, `use` (Copy to…'s twin answers, an object or its JSON), `restore`.
+ * Null for anything malformed.
+ */
+export function copyLinkRequest(raw: unknown): CopyLinkRequest | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const r = raw as Record<string, unknown>;
+	if (!KINDS.includes(r.kind as ElsewhereKind)) return null;
+	const id = posId(r.id);
+	if (id === null) return null;
+	const rawRestore = r.restore ?? null;
+	const restore = rawRestore === null || rawRestore === '' ? null : posId(rawRestore);
+	if (restore === null && rawRestore !== null && rawRestore !== '') return null;
+	let use: unknown = r.use ?? {};
+	if (typeof use === 'string') {
+		if (use === '') use = {};
+		else {
+			try {
+				use = JSON.parse(use);
+			} catch {
+				return null;
+			}
+		}
+	}
+	if (!use || typeof use !== 'object' || Array.isArray(use)) return null;
+	const answers: Record<string, number> = {};
+	for (const [key, v] of Object.entries(use)) {
+		const n = typeof v === 'number' ? posId(v) : null;
+		if (n === null) return null;
+		answers[key] = n;
+	}
+	return { kind: r.kind as ElsewhereKind, id, use: answers, restore };
+}

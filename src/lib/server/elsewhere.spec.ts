@@ -22,7 +22,7 @@ import type { Space, TeamSpace } from './scope';
 import type { PositionInput } from '$lib/types';
 import type { PositionRow } from './db/schema';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
-import { findElsewhere, staysBehind } from './elsewhere';
+import { elsewhereGroup, findElsewhere, staysBehind } from './elsewhere';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const ROOMY = 1024 ** 4;
@@ -212,5 +212,16 @@ describe('copyHereView', () => {
 		const L = createLesson(db, U1_SALSA, { lessonDay: '2026-11-01', title: 'W1', notes: null })
 			.lesson.id;
 		expect(copyHereView(db, 'u1', 'lesson', L, T1_SALSA, 'UTC').staysBehind).toBe(0);
+	});
+});
+
+describe('elsewhereGroup', () => {
+	it('only a person who edits a live group of the dance gets it', () => {
+		expect(elsewhereGroup(db, 'u1', 'salsa', 1)).toEqual(T1_SALSA);
+		expect(elsewhereGroup(db, 'u1', 'salsa', 2)).toEqual(T2_SALSA);
+		// A member only reads Tuesday class.
+		expect(elsewhereGroup(db, 'u1', 'salsa', 3)).toBeNull();
+		expect(elsewhereGroup(db, 'u1', 'bachata', 1)).toBeNull();
+		expect(elsewhereGroup(db, 'u1', 'salsa', 99)).toBeNull();
 	});
 });

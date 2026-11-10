@@ -615,6 +615,8 @@ export type LinkContext =
 /** Everything the Link popup shows for one section, or one point (`endMs` null: positions only). */
 export interface LinkOptions {
 	dance: DanceSlug;
+	/** The group whose video this is, null for a person's own: Link from other places offers a copy into it. */
+	team: { id: number; name: string } | null;
 	spot: { id: number; startMs: number; endMs: number | null; label: string | null };
 	context: LinkContext;
 	linked: LinkedTarget[];

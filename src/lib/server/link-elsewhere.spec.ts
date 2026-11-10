@@ -6,7 +6,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { figures, lessonFigures, spotLinks, spotPositionLinks, users } from './db/schema';
+import {
+	figures,
+	lessonFigures,
+	spotLinks,
+	spotPositionLinks,
+	teamChanges,
+	users
+} from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { setRole } from './membership';
 import { archiveVariation, createFigure } from './figures';
@@ -20,7 +27,13 @@ import { geneOf } from './clones/genes';
 import type { Space, TeamSpace } from './scope';
 import type { PositionRow } from './db/schema';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
-import { copyAndLink, lessonLinker, restoreAndLink, spotLinker } from './link-elsewhere';
+import {
+	copyAndLink,
+	copyLinkRequest,
+	lessonLinker,
+	restoreAndLink,
+	spotLinker
+} from './link-elsewhere';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const ROOMY = 1024 ** 4;
@@ -74,6 +87,18 @@ describe('copyAndLink', () => {
 		const id = (res as { id: number }).id;
 		expect(linked()).toEqual([id]);
 		expect(geneOf(db, 'figure', id)).toBe(geneOf(db, 'figure', F));
+	});
+
+	it('History has the copy and the link, by who acted', async () => {
+		const F = figure(U1_SALSA, 'Cradle entry');
+		const lines = () => db.select().from(teamChanges).where(eq(teamChanges.teamId, 1)).all();
+		const before = new Set(lines().map((l) => l.id));
+		expect(await run(F)).toMatchObject({ ok: true, made: true });
+		const added = lines().filter((l) => !before.has(l.id));
+		expect(added.map((l) => [l.rootKind, l.verb, l.actorId]).sort()).toEqual([
+			['figure', 'add', 'u1'],
+			['lesson', 'add', 'u1']
+		]);
 	});
 
 	it('a refused link leaves no copy', async () => {
@@ -210,5 +235,31 @@ describe('spotLinker', () => {
 		const refused = await run(figure(U1_SALSA, 'Setenta'), spotLinker('figure', T1_SALSA, point));
 		expect(refused).toMatchObject({ ok: false, reason: 'refused' });
 		expect(teamFigures().length).toBe(before);
+	});
+});
+
+describe('copyLinkRequest', () => {
+	it('reads a form’s or a body’s kind, id, use and restore', () => {
+		expect(copyLinkRequest({ kind: 'figure', id: '12', use: '{"g":3}', restore: '' })).toEqual({
+			kind: 'figure',
+			id: 12,
+			use: { g: 3 },
+			restore: null
+		});
+		expect(copyLinkRequest({ kind: 'drill', id: 4, use: { g: 3 }, restore: 9 })).toEqual({
+			kind: 'drill',
+			id: 4,
+			use: { g: 3 },
+			restore: 9
+		});
+		expect(copyLinkRequest({ kind: 'position', id: 4 })).toMatchObject({ use: {}, restore: null });
+	});
+
+	it('refuses anything else', () => {
+		expect(copyLinkRequest({ kind: 'song', id: 1 })).toBeNull();
+		expect(copyLinkRequest({ kind: 'figure', id: '-1' })).toBeNull();
+		expect(copyLinkRequest({ kind: 'figure', id: 1, use: '{"g":-1}' })).toBeNull();
+		expect(copyLinkRequest({ kind: 'figure', id: 1, restore: 'x' })).toBeNull();
+		expect(copyLinkRequest(null)).toBeNull();
 	});
 });
