@@ -23,7 +23,14 @@ import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
 import { mediaKeeper, type PassOut } from './media';
 import { opfsMediaStore, SONG_KINDS, VIDEO_KINDS, type MediaStore } from '$lib/offline/media-store';
-import { canTellWifi, freeOf, isLow, linkOf, videosMayCome } from '$lib/offline/network';
+import {
+	canTellWifi,
+	freeOf,
+	isLow,
+	linkOf,
+	onLinkChange,
+	videosMayCome
+} from '$lib/offline/network';
 import { migrateDevice } from './migrate';
 import { deviceMigrations } from './migrations';
 import { openCopy } from './pool';
@@ -99,7 +106,10 @@ const media = mediaKeeper({
 	log: console
 });
 const syncSongs = () => media.sync();
-nav.connection?.addEventListener?.('change', () => void media.restart());
+nav.connection?.addEventListener?.(
+	'change',
+	onLinkChange(nav, () => void media.restart())
+);
 
 /** What the On this phone page shows; null without a ready copy or a store. */
 async function keepStatus(): Promise<KeepStatus | null> {

@@ -46,3 +46,18 @@ export function isLow(free: number | null): boolean {
 export function fits(free: number | null, bytes: number): boolean {
 	return free === null || free - bytes >= LOW_SPACE_BYTES;
 }
+
+/**
+ * A `change` listener for `navigator.connection` that tells only when the link
+ * kind moves (Wi-Fi to mobile data or back): `change` also fires when the speed
+ * estimates move, which would stop and restart a long download for nothing.
+ */
+export function onLinkChange(nav: Nav, tell: (link: Link) => void): () => void {
+	let last = linkOf(nav);
+	return () => {
+		const now = linkOf(nav);
+		if (now === last) return;
+		last = now;
+		tell(now);
+	};
+}

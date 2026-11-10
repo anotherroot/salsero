@@ -5,6 +5,7 @@ import {
 	freeOf,
 	isLow,
 	linkOf,
+	onLinkChange,
 	LOW_SPACE_BYTES,
 	videosMayCome
 } from './network';
@@ -52,5 +53,21 @@ describe('free space', () => {
 		expect(fits(LOW_SPACE_BYTES + 10, 10)).toBe(true);
 		expect(fits(LOW_SPACE_BYTES + 10, 11)).toBe(false);
 		expect(fits(null, 1e12)).toBe(true);
+	});
+});
+
+describe('onLinkChange (final review 2)', () => {
+	it('tells only when Wi-Fi turns to mobile data or back, not when the speed estimate moves', () => {
+		const nav: { connection: { type?: string } } = { connection: { type: 'wifi' } };
+		const told: string[] = [];
+		const handler = onLinkChange(nav, (l) => told.push(l));
+		handler(); // rtt or downlink moved: still Wi-Fi
+		expect(told).toEqual([]);
+		nav.connection.type = 'cellular';
+		handler();
+		handler();
+		nav.connection.type = 'wifi';
+		handler();
+		expect(told).toEqual(['metered', 'unmetered']);
 	});
 });
