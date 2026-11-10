@@ -678,6 +678,15 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `memoryMediaStore` for specs; `mediaOf`/`mediaPath`), media-range.ts
                      (`rangeResponse`, PURE: a file answered with Range; `FROM_HEADER`);
                      routes.ts `MEDIA_ENDPOINTS` (/audio, /count: the phone's file first)
+                     Phase 4b: the store also holds `lesson-videos` and `recordings` (`VIDEO_KINDS`;
+                     a video's `.part` stays to resume, committed every 8 MiB), both MEDIA_ENDPOINTS;
+                     network.ts (PURE: `linkOf` Wi-Fi or mobile data, `canTellWifi`, `freeOf`,
+                     `isLow`, `fits`, `LOW_SPACE_BYTES`); kept-view.ts (PURE: `videoKeep`,
+                     `keepWord`, `spaceLine`, `suggestions`, `lessonOnPhone`, `phoneRowLine`);
+                     kept.svelte.ts (`kept`, the worker's `KeepStatus`; `changeKeep`); low-space.ts
+                     (the sheet once); protocol.ts `KeepSettings`/`KeepChange`/`KeepStatus`.
+                     The look: routes/settings/phone (On this phone), components/ui/KeepButton,
+                     components/settings/LowSpaceCard, components/shell/LowSpaceSheet
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,
@@ -691,7 +700,9 @@ src/device/          bundled for the device worker only (vite.device.config.ts �
                      (`recordEntry`, `toSend`, `applyResults`, `outboxSummary`, `outboxItems`,
                      `retryEntry`, `discardEntry`, `forgetPerson`), media.ts (phase 4a:
                      `wantedMedia`, the copy's songs and count takes; `syncMedia`, the store
-                     brought to them after each sync), node-stubs/
+                     brought to them after each sync; 4b: videos on Wi-Fi, while there is space,
+                     resumed with Range; `mediaKeeper.restart`), keep.ts (phase 4b: `device_meta`
+                     `keep`, `wantedVideos`, `spaceRows`, `keptVideos`, `keptBySpace`), node-stubs/
 src/service-worker.ts  network first for reads; on a failure: navigations → the cached /shell,
                      reads → the device, writes → "Needs a connection". Phase 3: device/queued
                      writes go to the device first; reads come from the device while entries

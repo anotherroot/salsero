@@ -206,3 +206,26 @@ dropped the lesson question: "2 is covered by 3.1".
   and "Later"; then only a dot on You and the same warning and suggestions
   at the top of the On this phone page, until there is space again.
 - "Upload first" for a phone-only video comes with 4c.
+
+## Decided while building 4b (2026-11-10)
+
+- Lesson videos and recordings live in the same store as songs
+  (`media/lesson-videos/`, `media/recordings/`), answered by the service
+  worker with Range, online too. A video's `.part` stays when a download is
+  cut off and the next pass asks for the rest with `Range`; a 200 starts
+  over. Chrome's `createWritable` commits only on close, so a long download
+  commits every 8 MiB: an app closed half way keeps what came.
+- The settings are this device's (`device_meta` `keep`) and go with the copy:
+  another person, or Forget, starts from none.
+- Free space is `navigator.storage.estimate()` (quota − usage) until 4c's
+  APK. Below 500 MiB the phone is short of space; no download starts that
+  would leave less, and a video that doesn't fit is skipped while smaller
+  ones still come.
+- Only on Wi-Fi reads `navigator.connection.type` (Android's WebView says
+  it); where the browser says nothing (iPhone, desktop) the note shows and
+  videos download on any connection. A switch to mobile data stops the
+  file in flight.
+- Clear kept videos asks nothing (they stay on the server) and switches
+  every space and kept video off; a toast says it is done.
+- The button and the page show wherever the store is, a computer's browser
+  too, as 4a's songs do.
