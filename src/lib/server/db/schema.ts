@@ -1498,6 +1498,8 @@ export const feedback = sqliteTable(
 		errors: text('errors').notNull().default('[]'),
 		/** The page's build (SvelteKit's `version`: the build time in ms, as text). */
 		siteVersion: text('site_version'),
+		/** The screenshot's file in `$DATA_DIR/feedback` (`<id>.jpg`), when one came with it. */
+		shot: text('shot'),
 		/** The Android app's version code and channel, when sent from the app. */
 		appVersion: integer('app_version'),
 		appChannel: text('app_channel'),

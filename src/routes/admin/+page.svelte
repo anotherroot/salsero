@@ -38,6 +38,8 @@
 	const f = $derived(t().feedback.admin);
 	/** The done feedback, folded away until asked for. */
 	let showDone = $state(false);
+	/** The message whose screenshot is open full size. */
+	let viewing = $state<PageData['feedback']['open'][number] | null>(null);
 	let marking = $state(false);
 	let feedbackError = $state('');
 	let person = $state<PageData['people'][number] | null>(null);
@@ -106,10 +108,27 @@
 			<span class="text-[13px] break-all text-muted">{m.email} · {m.sent}</span>
 		</div>
 		<p class="text-[15px] break-words whitespace-pre-wrap text-ink">{m.message}</p>
-		<div class="flex flex-col">
-			{#each m.lines as line, i (i)}
-				<span class="text-[13px] break-all text-muted">{line}</span>
-			{/each}
+		<div class="flex items-start gap-3">
+			<div class="flex min-w-0 flex-1 flex-col">
+				{#each m.lines as line, i (i)}
+					<span class="text-[13px] break-all text-muted">{line}</span>
+				{/each}
+			</div>
+			{#if m.shot}
+				<button
+					type="button"
+					class="flex-none cursor-pointer"
+					aria-label={f.shotOf(m.who)}
+					onclick={() => (viewing = m)}
+				>
+					<img
+						src={m.shot}
+						alt={f.shot}
+						loading="lazy"
+						class="h-[121px] w-14 rounded-lg object-cover object-top ring-1 ring-hairline"
+					/>
+				</button>
+			{/if}
 		</div>
 		{#if m.errors.length}
 			<div class="flex flex-col">
@@ -519,5 +538,20 @@
 				{a.shownOnce}
 			</p>
 		</div>
+	{/if}
+</Sheet>
+
+<Sheet
+	title={viewing ? f.shotOf(viewing.who) : f.shot}
+	sub={viewing?.sent}
+	open={viewing !== null}
+	onclose={() => (viewing = null)}
+>
+	{#if viewing?.shot}
+		<img
+			src={viewing.shot}
+			alt={f.shot}
+			class="mx-auto mb-4 max-h-[72dvh] w-auto rounded-xl ring-1 ring-hairline"
+		/>
 	{/if}
 </Sheet>

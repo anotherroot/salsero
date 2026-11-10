@@ -32,7 +32,14 @@ import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
 import { parseLocale } from '$lib/i18n/locale';
 import { t } from '$lib/i18n/catalog';
 import { setLocale, setLocaleCookie } from '$lib/server/locale';
-import { openFeedbackCount, readFeedback, sendFeedback } from '$lib/server/feedback';
+import {
+	keepShot,
+	openFeedbackCount,
+	readFeedback,
+	readShot,
+	sendFeedback
+} from '$lib/server/feedback';
+import { feedbackDir } from '$lib/server/files';
 import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -248,18 +255,22 @@ export const actions: Actions = {
 	 */
 	feedback: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
-		const input = readFeedback(await request.formData());
+		const form = await request.formData();
+		const input = readFeedback(form);
 		if (input === 'empty') return fail(400, { message: t().feedback.refusals.empty });
 		if (input === 'long') return fail(400, { message: t().feedback.refusals.tooLong });
+		// A screenshot the page made wrong is left out, never a refusal: the message still counts.
+		const shot = await readShot(form);
 		const userAgent = request.headers.get('user-agent');
 		const agent = parseAppAgent(userAgent) ?? parseAppVersion(request.headers.get('x-app-version'));
-		sendFeedback(
+		const id = sendFeedback(
 			getDb(),
 			{ userId: locals.user.id, dance: locals.user.dance },
 			input,
 			{ agent, userAgent },
 			serverNow()
 		);
+		if (shot instanceof Uint8Array) keepShot(getDb(), feedbackDir(), id, shot);
 		return { sent: true };
 	}
 };

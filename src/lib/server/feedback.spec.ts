@@ -1,14 +1,21 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { users } from './db/schema';
 import {
 	DONE_SHOWN,
 	MESSAGE_MAX,
+	SHOT_MAX_BYTES,
 	feedbackFor,
+	keepShot,
 	markFeedback,
 	openFeedbackCount,
 	readFeedback,
+	readShot,
 	sendFeedback,
+	shotOf,
 	type FeedbackInput
 } from './feedback';
 import { feedbackView } from '$lib/admin-view';
@@ -184,5 +191,46 @@ describe('feedback for the admin', () => {
 			'Window 390×844',
 			'Site of Mon 10 Nov, 11:20'
 		]);
+	});
+});
+
+describe('the screenshot', () => {
+	const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+	const withShot = (blob: Blob | string | null) => {
+		const f = new FormData();
+		if (blob !== null) f.set('shot', blob);
+		return f;
+	};
+
+	it('reads a JPEG, and leaves out the rest', async () => {
+		expect(await readShot(withShot(new Blob([JPEG], { type: 'image/jpeg' })))).toEqual(JPEG);
+		expect(await readShot(withShot(null))).toBeNull();
+		expect(await readShot(withShot(''))).toBeNull();
+		expect(await readShot(withShot(new Blob([])))).toBeNull();
+		expect(await readShot(withShot(new Blob(['<svg/>'], { type: 'image/jpeg' })))).toBe('bad');
+		const huge = new Uint8Array(SHOT_MAX_BYTES + 1);
+		huge.set(JPEG);
+		expect(await readShot(withShot(new Blob([huge])))).toBe('bad');
+	});
+
+	it('is kept beside the message and found only in its dance', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'feedback-'));
+		try {
+			const id = sendFeedback(
+				db,
+				{ userId: 'a', dance: 'salsa' },
+				input('look'),
+				{ agent: null, userAgent: null },
+				T0
+			);
+			keepShot(db, dir, id, JPEG);
+			expect(readFileSync(join(dir, `${id}.jpg`))).toEqual(Buffer.from(JPEG));
+			expect(shotOf(db, 'salsa', id)).toBe(`${id}.jpg`);
+			expect(shotOf(db, 'bachata', id)).toBeNull();
+			const [row] = feedbackFor(db, 'salsa').open;
+			expect(feedbackView(row, 'UTC').shot).toBe(`/admin/feedback/${id}/shot`);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });

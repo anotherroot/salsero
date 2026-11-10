@@ -116,6 +116,8 @@ export interface FeedbackView {
 	lines: string[];
 	errors: string[];
 	userAgent: string | null;
+	/** The screenshot's address on the admin page, when one came with it. */
+	shot: string | null;
 	done: boolean;
 }
 
@@ -139,6 +141,7 @@ export function feedbackView(
 		appChannel: string | null;
 		userAgent: string | null;
 		viewport: string | null;
+		shot: string | null;
 		createdAt: number;
 		doneAt: number | null;
 	},
@@ -169,6 +172,7 @@ export function feedbackView(
 		lines,
 		errors: row.errors,
 		userAgent: row.userAgent,
+		shot: row.shot === null ? null : `/admin/feedback/${row.id}/shot`,
 		done: row.doneAt !== null
 	};
 }
