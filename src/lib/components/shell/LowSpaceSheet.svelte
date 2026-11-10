@@ -11,6 +11,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import { kept } from '$lib/offline/kept.svelte';
 	import { lowShown, setLowShown, shouldOpenLowSheet } from '$lib/offline/low-space';
+	import { suggestions } from '$lib/offline/kept-view';
 
 	const w = $derived(t().settings.onPhone.low);
 	const status = $derived(kept.status);
@@ -20,7 +21,7 @@
 		const low = status?.low ?? false;
 		// Space came back: the next shortage opens the sheet once more. No status (not ready): leave it.
 		if (status && !low) setLowShown(false);
-		if (shouldOpenLowSheet(low, lowShown())) {
+		if (status && shouldOpenLowSheet(low, lowShown(), suggestions(status).length)) {
 			setLowShown(true);
 			open = true;
 		}

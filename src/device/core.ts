@@ -20,7 +20,7 @@ import {
 import { installCapture, startCapture, stopCapture } from './capture';
 import { wantedMedia } from './media';
 import type { MediaFile } from '$lib/offline/media-store';
-import type { KeepChange, KeepSettings, KeepStatus } from '$lib/offline/protocol';
+import type { KeepChange, KeepSettings, KeepStatus, OriginalRow } from '$lib/offline/protocol';
 import {
 	applyKeepChange,
 	keptBySpace,
@@ -28,7 +28,8 @@ import {
 	readKeep,
 	spaceRows,
 	wantedVideos,
-	writeKeep
+	writeKeep,
+	originalRows
 } from './keep';
 import {
 	applyResults,
@@ -130,6 +131,8 @@ export type Device = {
 		/** Originals whose row the server had, as last noted. */
 		landed: Set<string>;
 	};
+	/** The rows of originals held here, for the low-space list (offline phase 4c). */
+	originalRows(files: readonly string[]): OriginalRow[];
 	/** Keeps which originals have landed (`landedOriginals`), with the copy. */
 	noteLanded(files: ReadonlySet<string>): void;
 	/** One change to it, saved; a kept video gone from the copy drops out. */
@@ -731,6 +734,8 @@ export function createDevice(deps: DeviceDeps): Device {
 				landed
 			};
 		},
+
+		originalRows: (files) => originalRows(db, files),
 
 		noteLanded(files) {
 			writeMetaValue(db, LANDED_META, JSON.stringify([...files]));

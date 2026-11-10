@@ -111,6 +111,9 @@ export const settings = {
 				`Kept · ${plural(n, 'video', 'videos')} · ${size}`,
 			videoSub: (i: number, size: string): string => `Video ${i} · ${size}`,
 			recordingSub: (size: string): string => `Recording · ${size}`,
+			/** Your own video kept here (offline phase 4c). */
+			originalSub: (uploaded: boolean, size: string): string =>
+				uploaded ? `On this phone and the server · ${size}` : `Only on this phone · ${size}`,
 			turnOff: 'Turn off',
 			remove: 'Remove',
 			sheetTitle: 'This phone is running out of space',
