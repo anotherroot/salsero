@@ -17,7 +17,9 @@ import {
 	tellsNeedsConnection,
 	holdsUpdate,
 	OUTBOX_STATE_CACHE,
-	CACHE_PREFIX
+	CACHE_PREFIX,
+	deviceFailed,
+	readPlan
 } from './sw-route';
 
 const ORIGIN = 'https://salsa.test';
@@ -409,5 +411,52 @@ describe('the AI connector', () => {
 		expect(route('POST', '/oauth/authorize?/approve', 'navigate')).toBe('pass');
 		expect(route('POST', '/oauth/token')).toBe('pass');
 		expect(route('GET', '/.well-known/oauth-authorization-server')).toBe('pass');
+	});
+});
+
+describe('device first (online reads)', () => {
+	it('a ready page with nothing unpulled reads the device first', () =>
+		expect(readPlan({ networkFirst: false, fromDevice: false, deviceFirst: true })).toBe(
+			'device-then-network'
+		));
+
+	it('changes waiting read the device, as before', () =>
+		expect(readPlan({ networkFirst: true, fromDevice: true, deviceFirst: false })).toBe('device'));
+
+	it('Settings reads the network first', () =>
+		expect(readPlan({ networkFirst: true, fromDevice: false, deviceFirst: true })).toBe(
+			'network-then-device'
+		));
+
+	it('a page whose device is not ready reads the network first', () =>
+		expect(readPlan({ networkFirst: false, fromDevice: false, deviceFirst: false })).toBe(
+			'network-then-device'
+		));
+
+	it('a page dirty from a server save reads the network until a pull covers it', () => {
+		const d = new DeviceClients();
+		d.setState('p', 'ready', null);
+		expect(d.readsDeviceFirst('p')).toBe(true);
+		d.changed('p', 100);
+		expect(d.readsDeviceFirst('p')).toBe(false);
+		d.pulled('p', 100);
+		expect(d.readsDeviceFirst('p')).toBe(true);
+	});
+
+	it('a starting, empty or unknown device reads the network', () => {
+		const d = new DeviceClients();
+		d.setState('s', 'starting', null);
+		d.setState('e', 'empty', null);
+		expect(d.readsDeviceFirst('s')).toBe(false);
+		expect(d.readsDeviceFirst('e')).toBe(false);
+		expect(d.readsDeviceFirst('nobody')).toBe(false);
+	});
+
+	it("the device's own failure goes to the network, a page's answer does not", () => {
+		expect(deviceFailed(null)).toBe(true);
+		expect(deviceFailed(new Response('', { status: 500 }))).toBe(true);
+		expect(deviceFailed(new Response('', { status: 503 }))).toBe(true);
+		expect(deviceFailed(new Response('', { status: 404 }))).toBe(false);
+		expect(deviceFailed(new Response('', { status: 200 }))).toBe(false);
 	});
 });

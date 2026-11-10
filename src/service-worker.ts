@@ -3,10 +3,12 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 /*
- * The service worker. Reads go to the network first; only when the network
- * fails does a page load get the cached shell (`/shell`) and a read the
- * device's copy (via the page that sent it, which relays to its device
- * worker). Since offline phase 3 a write the device can make goes to it first,
+ * The service worker. A read the device can answer goes to the device's copy
+ * first, online too (device first, 2026-11-10), via the page that sent it,
+ * which relays to its device worker; the network answers when the device is
+ * not ready, fails, or is behind a save the page sent to the server, and for
+ * the network-first pages (Settings). A page load gets the network, and the
+ * cached shell (`/shell`) when the network fails. Since offline phase 3 a write the device can make goes to it first,
  * online too, and its outbox carries it to the server; while the outbox
  * waits, reads come from the device, which has what the server does not yet.
  * Anything else goes to the network, and offline says "Needs a connection".
@@ -19,7 +21,7 @@ import { build, files, prerendered, version } from '$service-worker';
 import { offlineRead, offlineWrite, type OfflineAnswer } from '$lib/offline/needs-connection';
 import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/offline/protocol';
 import { PAGE_EPOCH } from '$lib/epoch';
-import { writeClass } from '$lib/offline/routes';
+import { isNetworkFirstPage, writeClass } from '$lib/offline/routes';
 import { FROM_HEADER, rangeResponse } from '$lib/offline/media-range';
 import { mediaOf, opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
 import { OUTBOX_HEADER } from '$lib/sync/outbox';
@@ -32,6 +34,8 @@ import {
 	SHELL,
 	cachesToDelete,
 	changedTo,
+	deviceFailed,
+	readPlan,
 	installOrClean,
 	isNetworkFailure,
 	navigationTimeout,
@@ -310,16 +314,35 @@ async function navigate(event: FetchEvent): Promise<Response> {
 }
 
 /**
- * A read the device can answer: the network first. When its page's device is
- * ready, with every write of that page pulled (`DeviceClients`), the network
- * gets NETWORK_TIMEOUT_MS; then whichever answers first, the
- * device or a late network, wins. A network that fails outright goes to the
+ * A read the device can answer, in `readPlan`'s order. Device first: the
+ * page's ready device answers, and the network only when it fails. Otherwise
+ * (a network-first page, a device not ready or behind its page's save) the
+ * network first: when the page's device is ready with every write pulled, the
+ * network gets NETWORK_TIMEOUT_MS; then whichever answers first, the device or
+ * a late network, wins. A network that fails outright goes to the
  * device alone (it may still be starting). Neither: "needs a connection".
  */
 async function deviceRead(event: FetchEvent): Promise<Response> {
 	const request = event.request;
+	const plan = readPlan({
+		networkFirst: isNetworkFirstPage(new URL(request.url).pathname),
+		fromDevice: devices.readsFromDevice(event.clientId),
+		deviceFirst: devices.readsDeviceFirst(event.clientId)
+	});
+	if (plan === 'device-then-network') {
+		// Device first: the copy answers, online too; the network only when the device fails.
+		const mine = await viaDevice(request, event.clientId);
+		if (mine && !deviceFailed(mine)) return mine;
+		try {
+			const res = await fetch(request);
+			if (!isNetworkFailure(res)) return res;
+		} catch (e) {
+			console.warn('[sw] the device failed and the network cannot be reached', request.url, e);
+		}
+		return offline(offlineRead());
+	}
 	// The server lacks this page's device's changes yet: the device first.
-	if (devices.readsFromDevice(event.clientId)) {
+	if (plan === 'device') {
 		const mine = await viaDevice(request, event.clientId);
 		if (mine) return mine;
 	}

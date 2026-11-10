@@ -1,8 +1,8 @@
 /*
  * What the service worker does with a request (offline phase 2). PURE,
- * client-safe: src/service-worker.ts asks it, the spec pins it. Online
- * nothing changes: every answer is the network's first, and the cache or the
- * device answers only when the network fails.
+ * client-safe: src/service-worker.ts asks it, the spec pins it. Since device
+ * first (2026-11-10) a read the device can answer goes to it first, online
+ * too (`readPlan`); page loads and writes are as before.
  */
 import type { DeviceState } from './protocol';
 import {
@@ -228,6 +228,15 @@ export class DeviceClients {
 	}
 
 	/**
+	 * Whether this page's reads go to its device first (device first): its device
+	 * is ready, and no save of the page went to the server since its last pull
+	 * (a group's row online), or the copy would draw the page from before it.
+	 */
+	readsDeviceFirst(id: string): boolean {
+		return this.#states.get(id) === 'ready' && !this.#dirtyAt.has(id);
+	}
+
+	/**
 	 * Whether a write from this page tries its device first: yes unless the page
 	 * said its device is anything but ready. A page the service worker knows
 	 * nothing of (it was stopped and started again) is tried: the device falls
@@ -345,4 +354,32 @@ export async function installOrClean(
  */
 export function pullCovers(startedAt: number, changedAt: number): boolean {
 	return startedAt >= changedAt;
+}
+
+/**
+ * Where a read the device can answer goes first (device first):
+ * - `device`: changes wait in the outbox, so only the device has them (phase 3);
+ * - `device-then-network`: the page's device is ready with nothing unpulled:
+ *   online too, the network only when the device fails (`deviceFailed`);
+ * - `network-then-device`: a network-first page (`NETWORK_FIRST_PAGES`), or a
+ *   device not ready or behind its page's save: phase 2's timed race.
+ */
+export type ReadPlan = 'device' | 'device-then-network' | 'network-then-device';
+
+export function readPlan(a: {
+	networkFirst: boolean;
+	fromDevice: boolean;
+	deviceFirst: boolean;
+}): ReadPlan {
+	if (a.fromDevice) return 'device';
+	if (a.networkFirst) return 'network-then-device';
+	return a.deviceFirst ? 'device-then-network' : 'network-then-device';
+}
+
+/**
+ * The device could not answer, or its own code failed (a 5xx): the network
+ * answers instead. A 404 or a 403 is the page's own answer and stands.
+ */
+export function deviceFailed(res: Response | null): boolean {
+	return res === null || res.status >= 500;
 }

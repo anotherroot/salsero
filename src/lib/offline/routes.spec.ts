@@ -13,6 +13,8 @@ import {
 	MEDIA_ENDPOINTS,
 	NETWORK_ENDPOINTS,
 	NETWORK_PAGES,
+	NETWORK_FIRST_PAGES,
+	isNetworkFirstPage,
 	deviceAnswers,
 	routePattern
 } from './routes';
@@ -48,6 +50,24 @@ describe('endpoint lists', () => {
 				existsSync(`${dir}/${f}`)
 			);
 			expect(has, id).toBe(true);
+		}
+	});
+});
+
+describe('pages read network first', () => {
+	it('Settings reads its own server-only facts from the network first', () => {
+		expect(isNetworkFirstPage('/settings')).toBe(true);
+		expect(isNetworkFirstPage('/settings/__data.json')).toBe(true);
+		expect(isNetworkFirstPage('/salsa')).toBe(false);
+		expect(isNetworkFirstPage('/salsa/songs')).toBe(false);
+	});
+
+	it('picking from a pasted list is a network page', () =>
+		expect(NETWORK_PAGES).toContain('/[dance]/songs/imports/[id]'));
+
+	it('names only routes that exist', () => {
+		for (const id of NETWORK_FIRST_PAGES) {
+			expect(existsSync('src/routes' + id + '/+page.svelte'), id).toBe(true);
 		}
 	});
 });
