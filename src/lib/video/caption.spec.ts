@@ -12,6 +12,9 @@ const rec = (o: Partial<RecordingRow>): RecordingRow => ({
 	kind: 'video',
 	sizeBytes: 1_000_000,
 	sourceUrl: null,
+	serverCopy: true,
+	originSlot: null,
+	originBytes: null,
 	createdAt: 0,
 	...o
 });
@@ -21,6 +24,9 @@ const vid = (o: Partial<LessonVideoRow>): LessonVideoRow => ({
 	mime: 'video/mp4',
 	sizeBytes: 1_000_000,
 	sourceUrl: null,
+	serverCopy: true,
+	originSlot: null,
+	originBytes: null,
 	createdAt: 0,
 	...o
 });

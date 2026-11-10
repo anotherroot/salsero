@@ -722,6 +722,9 @@ export function getLesson(db: Db, id: number, userId: string, opts: { copies?: b
 			mime: lessonVideos.mime,
 			sizeBytes: lessonVideos.sizeBytes,
 			sourceUrl: lessonVideos.sourceUrl,
+			serverCopy: lessonVideos.serverCopy,
+			originSlot: lessonVideos.originSlot,
+			originBytes: lessonVideos.originBytes,
 			createdAt: lessonVideos.createdAt
 		})
 		.from(lessonVideos)

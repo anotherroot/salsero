@@ -509,7 +509,16 @@ export const recordings = sqliteTable(
 		sourceUrl: text('source_url'),
 		createdAt: createdAt(),
 		geneId: text('gene_id'),
-		clonedFrom: integer('cloned_from')
+		clonedFrom: integer('cloned_from'),
+		/**
+		 * Offline phase 4c: false while the recording is only on the phone that holds
+		 * the original (a phone-only video): no file on the server, nothing counted.
+		 */
+		serverCopy: integer('server_copy', { mode: 'boolean' }).notNull().default(true),
+		/** The id slot of the device holding the original (`device_slots`); null: none known. */
+		originSlot: integer('origin_slot'),
+		/** The original's size; `sizeBytes` is the server copy's once uploaded. Null: never phone-only. */
+		originBytes: integer('origin_bytes')
 	},
 	(t) => [index('recordings_figure_idx').on(t.figureId), index('recordings_gene_idx').on(t.geneId)]
 );
@@ -1109,7 +1118,16 @@ export const lessonVideos = sqliteTable(
 		sourceUrl: text('source_url'),
 		createdAt: createdAt(),
 		geneId: text('gene_id'),
-		clonedFrom: integer('cloned_from')
+		clonedFrom: integer('cloned_from'),
+		/**
+		 * Offline phase 4c: false while the video is only on the phone that holds
+		 * the original (a phone-only video): no file on the server, nothing counted.
+		 */
+		serverCopy: integer('server_copy', { mode: 'boolean' }).notNull().default(true),
+		/** The id slot of the device holding the original (`device_slots`); null: none known. */
+		originSlot: integer('origin_slot'),
+		/** The original's size; `sizeBytes` is the server copy's once uploaded. Null: never phone-only. */
+		originBytes: integer('origin_bytes')
 	},
 	(t) => [
 		index('lesson_videos_lesson_idx').on(t.lessonId),
@@ -1786,7 +1804,9 @@ export const deviceSlots = sqliteTable('device_slots', {
 	slot: integer('slot').primaryKey(),
 	deviceKey: text('device_key').notNull().unique(),
 	userId: text('user_id').notNull(),
-	createdAt: integer('created_at').notNull()
+	createdAt: integer('created_at').notNull(),
+	/** What the device is, from its user agent (`DeviceLabel` as JSON, `$lib/devices/label`): "On Pixel 8". */
+	label: text('label')
 });
 
 /**

@@ -2,7 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
 import { openDb, type Db } from './db';
 import { eq } from 'drizzle-orm';
-import { songs, storageRequests, teams, teamTrash, users } from './db/schema';
+import {
+	lessonVideos,
+	recordings,
+	songs,
+	storageRequests,
+	teams,
+	teamTrash,
+	users
+} from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { addRecording, archiveVariation, createFigure } from './figures';
 import { addLessonVideo, createLesson } from './lessons';
@@ -667,5 +675,37 @@ describe('room and storage words in Slovenian (What uses space)', () => {
 			title: 'Posnetek',
 			context: 'Old lesson · v »Nedavno izbrisano«'
 		});
+	});
+});
+
+describe('a phone-only video counts nothing (offline phase 4c)', () => {
+	const phoneOnly = () => {
+		db.update(recordings).set({ serverCopy: false }).where(eq(recordings.file, 'Phone.mp4')).run();
+		db.update(lessonVideos).set({ serverCopy: false }).where(eq(lessonVideos.file, 'pv.mp4')).run();
+	};
+
+	it("a person's usage and list leave it out", () => {
+		recording(U1_SALSA, 'Up', 100);
+		recording(U1_SALSA, 'Phone', 500);
+		const lesson = createLesson(db, U1_SALSA, {
+			title: 'L',
+			lessonDay: '2026-11-01',
+			notes: null
+		}).lesson;
+		addLessonVideo(db, { lessonId: lesson.id, file: 'pv.mp4', mime: 'video/mp4', sizeBytes: 700 });
+		phoneOnly();
+		expect(usedBytes(db, 'u1')).toBe(100);
+		expect(withLocale('en', () => listStorageItems(db, 'u1')).map((i) => i.sizeBytes)).toEqual([
+			100
+		]);
+	});
+
+	it("a group's sum leaves it out", () => {
+		const made = createTeam(db, 'u1', 'salsa', 'G', 1);
+		if (!made.ok) throw new Error('no team');
+		recording(T1_SALSA, 'Phone', 500);
+		recording(T1_SALSA, 'Up', 100);
+		phoneOnly();
+		expect(usedBytesOf(db, { teamId: made.teamId })).toBe(100);
 	});
 });

@@ -146,6 +146,9 @@ export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
 					kind: r.kind,
 					sizeBytes: r.sizeBytes,
 					sourceUrl: r.sourceUrl,
+					serverCopy: r.serverCopy,
+					originSlot: r.originSlot,
+					originBytes: r.originBytes,
 					createdAt: r.createdAt
 				})),
 				sections: sectionsFor(db, { figureId: figure.id }, seen.visible)

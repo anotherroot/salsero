@@ -262,6 +262,12 @@ export interface LessonVideoRow {
 	sizeBytes: number;
 	/** The YouTube URL it was saved from; null for an upload. */
 	sourceUrl: string | null;
+	/** Offline phase 4c: false while the video is only on the phone holding the original. */
+	serverCopy: boolean;
+	/** The id slot of the device holding the original; null: none known. */
+	originSlot: number | null;
+	/** The original's size once a smaller copy is uploaded (`sizeBytes` is then the copy's). */
+	originBytes: number | null;
 	createdAt: number;
 }
 
@@ -284,6 +290,12 @@ export interface RecordingRow {
 	sizeBytes: number;
 	/** The YouTube URL it was saved from; null for an upload. */
 	sourceUrl: string | null;
+	/** Offline phase 4c: false while the video is only on the phone holding the original. */
+	serverCopy: boolean;
+	/** The id slot of the device holding the original; null: none known. */
+	originSlot: number | null;
+	/** The original's size once a smaller copy is uploaded (`sizeBytes` is then the copy's). */
+	originBytes: number | null;
 	createdAt: number;
 }
 

@@ -1,5 +1,6 @@
 /** What the pull sends (offline phase 2). PURE types, client-safe: the device imports them. */
 import type { Release } from '$lib/app-update/agent';
+import type { DeviceLabel } from '$lib/devices/label';
 import type { SongImportRow } from '$lib/types';
 
 export type TableRows = { cols: string[]; rows: unknown[][] };
@@ -57,6 +58,11 @@ export type ServerExtras = {
 	teamTrashBytes: Record<string, number>;
 	/** The last change History holds per group lesson (`team_changes`), keyed `lesson:<id>`: "Edited by". */
 	lastEdits: Record<string, { actorId: string; at: number }>;
+	/**
+	 * What each device holding one of the person's phone-only originals is, by id slot
+	 * (offline phase 4c: "On Pixel 8"). Absent from an older server.
+	 */
+	devices?: Record<string, DeviceLabel>;
 };
 /** A `clone_pairs` row as stored (raw column names). */
 export type ClonePairRow = {
