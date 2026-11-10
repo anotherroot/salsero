@@ -229,3 +229,33 @@ dropped the lesson question: "2 is covered by 3.1".
   every space and kept video off; a toast says it is done.
 - The button and the page show wherever the store is, a computer's browser
   too, as 4a's songs do.
+
+## 4c's looks, picked by the user (2026-11-10)
+
+From the mockups on real screenshots (your video A/B, on another device A/B,
+iPhone A/B), the user picked **1B, 2A, 3B**.
+
+- **1B, one "Where is it" button:** on a person's own video the 4b phone
+  button's place holds one button that opens a sheet, "Where is this video":
+  this phone (the original, its size, plays from here) and the server (not
+  uploaded, with Upload; or the 720p copy and its size, with Remove). A line
+  under the sheet says Upload sends a smaller copy (the size from Settings →
+  Video) and the original always stays on the phone. The line under the
+  video's name says where it is ("only on this phone", "uploading 40 %", "on
+  this phone and the server"); while it uploads, the button shows how far.
+  A recording's row has the same button before its chevron.
+- **2A, a grey frame:** on another device a phone-only video keeps a frame
+  the video's size, dark, with a phone icon, "On <device name>" and a line
+  saying it plays there, or here once uploaded there. Its name line says
+  "on <device name>"; its sections list below as today. A recording's row
+  shows a dimmed phone disc and "on <device name>".
+- **3B, a card under the video, once:** the first time a video stays only on
+  an iPhone, a warm card under it explains (iOS may delete it when short of
+  space or when the app isn't opened for long; a video only here would be
+  lost; it is safe once uploaded) with Upload and Got it, until closed. After
+  that, an ⓘ after "only on this iPhone" opens the same words.
+- **The same in every option** (shown, not asked): after adding, a toast
+  "Saved on this phone" with Upload; deleting a phone-only video says it is
+  permanent, and on Android asks "Delete from the gallery too"; a video
+  deleted from the gallery reads "no longer in the gallery" with Remove; the
+  On this phone page adds "Your videos in the gallery" to its bar and line.
