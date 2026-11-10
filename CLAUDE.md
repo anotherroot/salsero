@@ -59,8 +59,10 @@ check must pass at the end of every task".
 - The full `npm run check` runs before the final review, and again after
   merging master in, right before the merge into master.
 - Vitest at most `--maxWorkers=4`. A build killed with exit 143 (memory):
-  `nix develop -c sh -c "systemd-run --user --scope -q -p MemoryMax=5G npx vite build"`,
-  then `./scripts/deploy.sh --skip-build`.
+  `nix develop -c sh -c "systemd-run --user --scope -q -p MemoryMax=5G npm run build"`,
+  then `./scripts/deploy.sh --skip-build`. Never `vite build` alone: it leaves out
+  the device worker (`build/client/_device/`), and every phone loses its copy
+  (deploy.sh now refuses such a build).
 
 ## Layout in short (full map: docs/layout.md)
 
