@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { withView } from '$lib/teams/group-view';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
@@ -274,7 +275,7 @@
 {#snippet toPick()}
 	{#if sections.toPick.length}
 		<h2 class="{SECTION_LABEL} pt-2.5">{t().songs.imports.toPick} · {sections.toPick.length}</h2>
-		<ul class={GROUP}>
+		<FlipList class={GROUP} keys={sections.toPick.map((r) => r.id)}>
 			{#each sections.toPick as r (r.id)}
 				<ImportRow
 					row={r}
@@ -283,7 +284,7 @@
 					current={page.url.pathname === importHref(r.id)}
 				/>
 			{/each}
-		</ul>
+		</FlipList>
 	{/if}
 {/snippet}
 

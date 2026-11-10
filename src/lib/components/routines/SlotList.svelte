@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flipList } from '$lib/motion/flip.svelte';
 	/**
 	 * The slots, the seams between them, the + at either end — and the drag.
 	 *
@@ -161,6 +162,8 @@
 	}
 
 	let list = $state<HTMLElement>();
+	// Slots fold and open as they come and go, and a dropped one glides into place (motion round 1).
+	flipList({ container: () => list, keys: () => rows.map((r) => r.id) });
 
 	/**
 	 * ↑/↓ on a handle. The keyed `{#each}` may move the focused handle's node
@@ -246,6 +249,7 @@
 			<li
 				bind:this={items[i]}
 				data-slot={row.id}
+				data-flip={row.id}
 				class="flex flex-col gap-2 rounded-2xl {lifted
 					? 'relative z-10 shadow-[0_18px_40px_rgb(0_0_0/0.22)] transition-[scale,rotate,box-shadow] duration-150 motion-safe:scale-[1.03] motion-safe:-rotate-[0.8deg] motion-reduce:transition-none'
 					: ''} {drag && !lifted

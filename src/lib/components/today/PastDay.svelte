@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import Face from '$lib/components/exercises/Face.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -62,10 +63,16 @@
 <div class="flex flex-col gap-3.5">
 	{#if groups.length > 0 && !today}<DayTiles tiles={pastTiles(groups.map((g) => g.entry))} />{/if}
 
-	<ul class={GROUP}>
+	<FlipList
+		class={GROUP}
+		keys={[
+			...(groups.length > 0 ? groups.map((g) => g.exerciseId) : ['none']),
+			...(adding ? ['add'] : [])
+		]}
+	>
 		{#each groups as g (g.exerciseId)}
 			{@const live = !!kinds[g.exerciseId]}
-			<li>
+			<li data-flip={g.exerciseId}>
 				{#if live && adding}
 					<button
 						type="button"
@@ -84,7 +91,7 @@
 				{/if}
 			</li>
 		{:else}
-			<li class="flex flex-col items-center gap-1 px-5 pt-5 pb-4 text-center">
+			<li data-flip="none" class="flex flex-col items-center gap-1 px-5 pt-5 pb-4 text-center">
 				<span class="text-[16px] font-bold text-ink"
 					>{today ? t().today.past.nothingToday : t().today.past.nothingThatDay}</span
 				>
@@ -92,7 +99,7 @@
 			</li>
 		{/each}
 		{#if adding}
-			<li>
+			<li data-flip="add">
 				<button
 					type="button"
 					class="flex min-h-14 w-full cursor-pointer items-center justify-center gap-1.5 px-4 text-[15px] font-extrabold text-accent-text"
@@ -102,7 +109,7 @@
 				>
 			</li>
 		{/if}
-	</ul>
+	</FlipList>
 </div>
 
 {#if adding}

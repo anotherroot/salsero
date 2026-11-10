@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { withView } from '$lib/teams/group-view';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
@@ -279,7 +280,7 @@
 					{sectionHeading(t().lesson.page.videos, videos.length)}
 				</h2>
 				{#if videos.length}
-					<ul class="flex flex-col gap-3">
+					<FlipList keys={videos.map((video) => video.id)} class="flex flex-col gap-3">
 						{#each videos as video, i (video.id)}
 							{#snippet videoTrash()}
 								{#if canEdit}<button
@@ -291,7 +292,7 @@
 										onclick={() => ondeletevideo(video.id)}><Icon name="trash" size={22} /></button
 									>{/if}
 							{/snippet}
-							<li class="{CLIP} rounded-[22px] bg-surface">
+							<li data-flip={video.id} class="{CLIP} rounded-[22px] bg-surface">
 								{#if broken[video.id] === 'missing'}
 									<VideoProblem
 										title={t().lesson.page.missingTitle}
@@ -341,7 +342,7 @@
 								{/if}
 							</li>
 						{/each}
-					</ul>
+					</FlipList>
 				{:else if !canEdit}
 					<p class="px-1 text-[15px] text-muted">{t().lesson.page.noVideos}</p>
 				{/if}
@@ -383,9 +384,9 @@
 			{#if practising.length > 0}
 				<section class="flex flex-col gap-2 pt-2.5">
 					<h2 class={SECTION_LABEL}>{t().lesson.page.practising}</h2>
-					<ul class={GROUP}>
+					<FlipList keys={practising.map((row) => row.id)} class={GROUP}>
 						{#each practising as row (row.id)}
-							<li>
+							<li data-flip={row.id}>
 								<a
 									href={resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(row.id) })}
 									class="flex min-h-[60px] items-center gap-3 py-2 pr-3.5 pl-4"
@@ -398,7 +399,7 @@
 								</a>
 							</li>
 						{/each}
-					</ul>
+					</FlipList>
 				</section>
 			{/if}
 			{#if team && comments}<CommentsCard {comments} />{/if}
