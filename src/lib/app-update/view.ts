@@ -54,7 +54,15 @@ export function parseBridge(message: string): BridgeStatus | null {
 	return Object.hasOwn(WORDS, message) ? WORDS[message] : null;
 }
 
-export function updateView(status: BridgeStatus): {
+/**
+ * `compact`: Today's small button, which says only the download's share; the
+ * whole "Downloading… 40%" goes to the line beneath the title, so the button
+ * never grows and squeezes the title.
+ */
+export function updateView(
+	status: BridgeStatus,
+	compact = false
+): {
 	label: string;
 	working: boolean;
 	line: string | null;
@@ -62,7 +70,9 @@ export function updateView(status: BridgeStatus): {
 	const w = t().shell.update;
 	const retry = t().common.retry;
 	if (typeof status === 'object') {
-		return { label: w.downloading(status.progress), working: true, line: null };
+		return compact
+			? { label: w.percent(status.progress), working: true, line: w.downloading(status.progress) }
+			: { label: w.downloading(status.progress), working: true, line: null };
 	}
 	switch (status) {
 		case 'confirming':

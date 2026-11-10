@@ -9,6 +9,7 @@ import type { OutboxItem } from '$lib/offline/protocol';
 import type { EntryLabel } from './outbox';
 import type { SyncStatus } from './status';
 import type { Strip } from './strip';
+import type { SyncPhase } from './sync-button';
 
 /** The band's words for a status; null when it says nothing. */
 export function statusText(s: SyncStatus): string | null {
@@ -83,12 +84,26 @@ export function reasonText(
 	}
 }
 
+/** When it last synced: "10:42" today, "Mon 10:42" before; null: never. */
+export function lastSyncedWhen(at: number | null, now: number, tz: string): string | null {
+	if (at === null) return null;
+	return localDay(now, tz) === localDay(at, tz) ? timeOfDay(at, tz) : when(at, tz);
+}
+
 /** "Last synced 10:42" today, "Last synced Mon 10:42" before; "Not synced yet". */
 export function lastSyncedText(at: number | null, now: number, tz: string): string {
 	const w = t().sync;
-	if (at === null) return w.never;
-	const today = localDay(now, tz) === localDay(at, tz);
-	return w.lastSynced(today ? timeOfDay(at, tz) : when(at, tz));
+	const time = lastSyncedWhen(at, now, tz);
+	return time === null ? w.never : w.lastSynced(time);
+}
+
+/** What Sync now says while it works ($lib/sync/sync-button). */
+export function syncButtonWord(phase: SyncPhase): string {
+	const w = t().sync;
+	if (phase === 'syncing') return w.pull.syncing;
+	if (phase === 'done') return w.pull.done;
+	if (phase === 'offline') return w.pull.offline;
+	return w.button.now;
 }
 
 export function discardQuestion(dependents: number): { title: string; body: string } {

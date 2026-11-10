@@ -121,7 +121,9 @@ the server logs every change, a device pulls its person's copy into SQLite on th
 SvelteKit's own server code answers from it, online too (device first, 2026-11-10: opening a
 page never waits on the network; the pull every 5 min, on focus, on reconnect and after a save
 keeps the copy fresh and re-reads the open page when it brought changes; pull down to refresh
-on the phone says "Pull to sync" in the band; Settings reads the network first; see
+on the phone says "Pull to sync" in the band; when it last synced and Sync now sit in the
+phone's Settings (with the tip that a pull does the same) and above Settings on the desktop's
+side (last-synced, 2026-11-10, looks A and E); Settings reads the network first; see
 [`docs/superpowers/specs/2026-11-10-device-first-design.md`](docs/superpowers/specs/2026-11-10-device-first-design.md)); a change made with no
 signal saves on the phone and syncs later, dated when it was made: an amber strip above the
 bottom bars says "Offline · 5 changes waiting" (then "Sending 5 …", "All sent"), the band

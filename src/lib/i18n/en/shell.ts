@@ -65,6 +65,8 @@ export const shell = {
 	},
 	update: {
 		downloading: (pct: number): string => `Downloading… ${pct}%`,
+		/** The download's share alone, on Today's small button. */
+		percent: (pct: number): string => `${pct}%`,
 		installing: 'Installing…',
 		update: 'Update',
 		fromPlay: 'Update from Google Play',

@@ -5,6 +5,7 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GroupCard from './GroupCard.svelte';
+	import SideSync from './SideSync.svelte';
 	import type { GroupMode } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import { levelShown, litAt, sideTabsFor } from '$lib/levels/levels';
@@ -112,12 +113,15 @@
 			{/each}
 		</ul>
 	</div>
-	<a
-		href={resolve('/settings')}
-		aria-current={lit === 'settings' ? 'page' : undefined}
-		class={lit === 'settings' ? ON : OFF}
-	>
-		<Icon name="settings" size={24} filled={lit === 'settings'} />
-		{t().shell.settings}
-	</a>
+	<div class="flex flex-col">
+		<SideSync />
+		<a
+			href={resolve('/settings')}
+			aria-current={lit === 'settings' ? 'page' : undefined}
+			class={lit === 'settings' ? ON : OFF}
+		>
+			<Icon name="settings" size={24} filled={lit === 'settings'} />
+			{t().shell.settings}
+		</a>
+	</div>
 </nav>
