@@ -467,6 +467,16 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
                      derived, never stored; lessons.ts and spot-links.ts read it
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
+src/lib/server/elsewhere.ts  link from other places: what a group's pickers find in your
+                     own app and other groups (`findElsewhere`, GET /api/elsewhere), who may
+                     (`elsewhereGroup`), what stays behind (`staysBehind`)
+src/lib/server/link-elsewhere.ts  Copy and link: `copyTo` with the link as its `after`
+                     hook (`copyAndLink`, `restoreAndLink`, lesson and spot linkers, the request
+                     parser); copy-link-form.ts runs it with real files (?/copyLink,
+                     /api/video-spots/[id]/copy-link)
+src/lib/picker/elsewhere.ts  PURE: the places found as picker groups (`elsewhereGroups`);
+                     elsewhere-search.svelte.ts the debounced search; elsewhere-api.ts its fetch
+src/lib/clones/copy-here.ts  PURE: the Copy and link card's words (components/links/CopyHereCard)
 src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
                      available / required (`updateState`), the device from the user agent
                      (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,

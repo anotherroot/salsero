@@ -56,6 +56,9 @@ import {
 } from '$lib/server/take-form';
 import { moveOffer } from '$lib/server/clones/move';
 import { copyOffer } from '$lib/server/clones/copy-to';
+import { elsewhereGroup } from '$lib/server/elsewhere';
+import { copyLinkRequest, lessonLinker } from '$lib/server/link-elsewhere';
+import { runCopyLink } from '$lib/server/copy-link-form';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { keepView, stepStatus } from '$lib/server/clones/step';
@@ -316,6 +319,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		linkableRoutines: canEdit ? listLinkableRoutines(db, found.lesson.id) : [],
 		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
 		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],
+		/** Link from other places: the group a group lesson's pickers copy into, for its editors. */
+		elsewhere: canEdit && team ? { teamId: team.id, name: team.name } : null,
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		/** Music (spec B): its suggested songs, and what "+ Add" offers an editor. */
 		music: listMusic(db, { lessonId: found.lesson.id }, wallOf(params, locals).userId),
@@ -644,6 +649,38 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			return fail(400, { action: 'linkFigure', message: t().lesson.refused.figureLink });
 		}
 		return { action: 'linkFigure', ok: true };
+	},
+
+	/**
+	 * Link from other places: copy a row from the person's own app or another
+	 * group into this lesson's group, as a clone, and link the copy; or Restore
+	 * and link the family's archived member here. Only a group's lesson, only
+	 * for its editors; network (a copy writes many rows and files).
+	 */
+	copyLink: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		const db = getDb();
+		const group = isTeam(space)
+			? elsewhereGroup(db, actorOf(space), space.dance, space.teamId)
+			: null;
+		if (!group) throw error(404, t().refusals.notFound);
+		const form = await request.formData();
+		const req = copyLinkRequest({
+			kind: form.get('kind'),
+			id: form.get('id'),
+			use: form.get('use'),
+			restore: form.get('restore')
+		});
+		if (!req)
+			return fail(400, { action: 'copyLink' as const, message: t().lesson.refused.copyLink });
+		const res = await runCopyLink(db, group, req, lessonLinker(req.kind, lesson.id, group.actorId));
+		if (res.ok) return { action: 'copyLink' as const, ok: true, id: res.id, made: res.made };
+		if ('restore' in res) return { action: 'copyLink' as const, restore: res.restore };
+		if (res.reason === 'denied') throw error(404, t().refusals.notFound);
+		return fail(res.reason === 'room' ? 413 : 409, {
+			action: 'copyLink' as const,
+			message: res.message ?? t().lesson.refused.copyLink
+		});
 	},
 
 	unlinkFigure: async ({ params, request, locals }) => {

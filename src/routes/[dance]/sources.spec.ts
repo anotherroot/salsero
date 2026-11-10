@@ -654,7 +654,11 @@ describe('positions through the clone routes', () => {
 			goes: 'Just the position',
 			bytes: 0,
 			already: [],
-			twins: []
+			twins: [],
+			// The Copy and link card's (link from other places): nothing links it from a lesson video.
+			staysBehind: 0,
+			usedBytes: 0,
+			limitBytes: expect.any(Number)
 		});
 		expect(
 			await run(copyApi.GET, as('u2', `/api/clones/copy?kind=position&id=${P}&into=1`))
