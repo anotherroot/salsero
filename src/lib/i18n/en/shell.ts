@@ -117,7 +117,14 @@ export const shell = {
 		/** The dialog's Save failed with no message from the server. */
 		didNotSave: 'It did not save.',
 		/** The dialog's Save was stopped by the form itself, with no field to point at. */
-		notSent: 'It was not sent.'
+		notSent: 'It was not sent.',
+		/** The same question for a message not sent yet (Send feedback). */
+		unsentTitle: 'Not sent',
+		unsentLine: (labels: string, many: boolean): string =>
+			`${labels} ${many ? 'are' : 'is'} not sent yet.`,
+		send: 'Send',
+		sendingNow: 'Sending…',
+		withoutSending: (verb: string): string => `${verb} without sending`
 	},
 	clash: {
 		goneSub: 'Nothing was saved. Copy what you typed before you close this.',
