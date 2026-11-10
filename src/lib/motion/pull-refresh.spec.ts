@@ -6,7 +6,8 @@ import {
 	doneWord,
 	mayStart,
 	phaseWhilePulling,
-	pullDistance
+	pullDistance,
+	watchesMove
 } from './pull-refresh';
 
 const start = { pointerType: 'touch', scrollY: 0, dx: 0, dy: 20, inside: false };
@@ -56,5 +57,13 @@ describe('doneWord', () => {
 		expect(doneWord({ waiting: 2, refused: 0, signedOut: false })).toBe(false);
 		expect(doneWord({ waiting: 0, refused: 1, signedOut: false })).toBe(false);
 		expect(doneWord({ waiting: 0, refused: 0, signedOut: true })).toBe(false);
+	});
+});
+
+describe('watchesMove', () => {
+	it('holds the scroll only for a touch that starts at the very top', () => {
+		expect(watchesMove(0)).toBe(true);
+		expect(watchesMove(1)).toBe(false);
+		expect(watchesMove(800)).toBe(false);
 	});
 });

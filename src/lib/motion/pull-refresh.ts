@@ -60,3 +60,12 @@ export function doneWord(
 ): boolean {
 	return summary === null || (summary.waiting === 0 && summary.refused === 0 && !summary.signedOut);
 }
+
+/**
+ * Whether a touch that starts at `scrollY` gets the pull's non-passive
+ * `touchmove`: only at the very top. Elsewhere the page scrolls without
+ * waiting on the main thread.
+ */
+export function watchesMove(scrollY: number): boolean {
+	return scrollY <= 0;
+}

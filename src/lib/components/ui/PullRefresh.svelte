@@ -23,6 +23,7 @@
 		mayStart,
 		phaseWhilePulling,
 		pullDistance,
+		watchesMove,
 		type PullPhase
 	} from '$lib/motion/pull-refresh';
 
@@ -106,6 +107,9 @@
 
 		const onStart = (e: TouchEvent) => {
 			if (phase !== 'idle' || e.touches.length !== 1) return;
+			// Scrolled down, the page scrolls freely: no listener it would wait on.
+			if (!watchesMove(window.scrollY)) return;
+			window.addEventListener('touchmove', onMove, { passive: false });
 			const touch = e.touches[0];
 			start = {
 				x: touch.clientX,
@@ -145,6 +149,7 @@
 			void place(to, false);
 		};
 		const onEnd = () => {
+			window.removeEventListener('touchmove', onMove);
 			const was = pulling;
 			start = null;
 			decided = false;
@@ -153,7 +158,6 @@
 		};
 
 		window.addEventListener('touchstart', onStart, { passive: true });
-		window.addEventListener('touchmove', onMove, { passive: false });
 		window.addEventListener('touchend', onEnd);
 		window.addEventListener('touchcancel', onEnd);
 		return () => {
