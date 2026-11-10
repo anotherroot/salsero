@@ -274,6 +274,9 @@ network page and stays as it is.
   phone, so the builder first measures today's master on the phone (adb and
   `chrome://inspect`, as the spike did; if the phone is not reachable, ask
   the user to plug it in) and that is the bar.
+  **Skipped by the user (2026-11-10):** both steps ship untimed; the user
+  judges the open by feel, and if it feels slower, step 2's first page from
+  the shell (`navigatePlan` in `navigate`) is taken back on its own.
 - The settings that come from the server only (the Music dot, the AI count,
   the theme row, the Android app's video hand-off, the update screen) still
   show online on a page the device drew.
