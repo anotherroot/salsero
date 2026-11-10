@@ -4,6 +4,8 @@
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { deviceReady, pullNow } from '$lib/offline/device.svelte';
+	import { pollStep } from '$lib/offline/poll';
 	import { resolve } from '$app/paths';
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
@@ -197,7 +199,10 @@
 
 	$effect(() => {
 		if (!song.status.startsWith('waiting')) return;
-		const timer = setInterval(() => invalidateAll(), 10_000);
+		const timer = setInterval(
+			() => (pollStep(deviceReady()) === 'pull' ? pullNow() : void invalidateAll()),
+			10_000
+		);
 		return () => clearInterval(timer);
 	});
 

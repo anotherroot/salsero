@@ -421,7 +421,7 @@
 {/snippet}
 
 {#snippet body()}
-	<div class="flex h-full min-h-0 flex-col gap-2">
+	<div class="flex min-h-0 flex-1 flex-col gap-2">
 		<!-- No name: it filters, it is not posted. Enter must not submit a surrounding form. -->
 		<SearchField
 			{placeholder}
@@ -507,6 +507,7 @@
 			{back}
 			{z}
 			{tall}
+			fill
 			{level}
 			footer={hasCreate || hasDone ? footer : undefined}
 			{onclose}
@@ -522,6 +523,7 @@
 		{back}
 		{sub}
 		{tall}
+		fill
 		{level}
 		footer={hasCreate || hasDone ? footer : undefined}
 	>

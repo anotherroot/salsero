@@ -17,7 +17,11 @@ import {
 	tellsNeedsConnection,
 	holdsUpdate,
 	OUTBOX_STATE_CACHE,
-	CACHE_PREFIX
+	CACHE_PREFIX,
+	clearsCopy,
+	deviceFailed,
+	navigatePlan,
+	readPlan
 } from './sw-route';
 
 const ORIGIN = 'https://salsa.test';
@@ -27,13 +31,11 @@ const route = (method: string, path: string, mode: RequestMode = 'cors', origin 
 	swRoute(method, at(path, origin), mode, ORIGIN, PRECACHED);
 
 describe('swRoute', () => {
-	it('passes other origins and media', () => {
+	it('passes other origins', () => {
 		expect(route('GET', 'https://other.test/x.js', 'cors', 'https://other.test')).toBe('pass');
 		expect(route('GET', 'https://www.youtube.com/', 'navigate', 'https://www.youtube.com')).toBe(
 			'pass'
 		);
-		expect(route('GET', '/recordings/x.mp4')).toBe('pass');
-		expect(route('GET', '/lesson-videos/x.mp4')).toBe('pass');
 	});
 
 	it('songs and count takes: the phone first (offline phase 4a)', () => {
@@ -46,9 +48,14 @@ describe('swRoute', () => {
 		expect(route('HEAD', SONG)).toBe('pass');
 		expect(route('POST', SONG)).toBe('write');
 		expect(route('GET', SONG, 'navigate')).toBe('pass');
-		// Videos are 4b and 4c: the network, as before.
-		expect(route('GET', '/recordings/x.mp4')).toBe('pass');
-		expect(route('GET', '/lesson-videos/x.mp4')).toBe('pass');
+	});
+
+	it('lesson videos and recordings: the phone first (offline phase 4b)', () => {
+		for (const path of ['/lesson-videos/x.mp4', '/recordings/x.mp4']) {
+			expect(route('GET', path), path).toBe('media');
+			// Opened in a tab or downloaded: the browser's, as before.
+			expect(route('GET', path, 'navigate'), path).toBe('pass');
+		}
 	});
 
 	it('serves the build from the cache', () => {
@@ -409,5 +416,97 @@ describe('the AI connector', () => {
 		expect(route('POST', '/oauth/authorize?/approve', 'navigate')).toBe('pass');
 		expect(route('POST', '/oauth/token')).toBe('pass');
 		expect(route('GET', '/.well-known/oauth-authorization-server')).toBe('pass');
+	});
+});
+
+describe('device first (online reads)', () => {
+	it('a ready page with nothing unpulled reads the device first', () =>
+		expect(readPlan({ networkFirst: false, fromDevice: false, deviceFirst: true })).toBe(
+			'device-then-network'
+		));
+
+	it('changes waiting read the device, as before', () =>
+		expect(readPlan({ networkFirst: true, fromDevice: true, deviceFirst: false })).toBe('device'));
+
+	it('Settings reads the network first', () =>
+		expect(readPlan({ networkFirst: true, fromDevice: false, deviceFirst: true })).toBe(
+			'network-then-device'
+		));
+
+	it('a page whose device is not ready reads the network first', () =>
+		expect(readPlan({ networkFirst: false, fromDevice: false, deviceFirst: false })).toBe(
+			'network-then-device'
+		));
+
+	it('a page dirty from a server save reads the network until a pull covers it', () => {
+		const d = new DeviceClients();
+		d.setState('p', 'ready', null);
+		expect(d.readsDeviceFirst('p')).toBe(true);
+		d.changed('p', 100);
+		expect(d.readsDeviceFirst('p')).toBe(false);
+		d.pulled('p', 100);
+		expect(d.readsDeviceFirst('p')).toBe(true);
+	});
+
+	it('a starting, empty or unknown device reads the network', () => {
+		const d = new DeviceClients();
+		d.setState('s', 'starting', null);
+		d.setState('e', 'empty', null);
+		expect(d.readsDeviceFirst('s')).toBe(false);
+		expect(d.readsDeviceFirst('e')).toBe(false);
+		expect(d.readsDeviceFirst('nobody')).toBe(false);
+	});
+
+	it("the device's own failure, or a row it lacks, goes to the network; a refusal stands", () => {
+		expect(deviceFailed(null)).toBe(true);
+		expect(deviceFailed(new Response('', { status: 500 }))).toBe(true);
+		expect(deviceFailed(new Response('', { status: 503 }))).toBe(true);
+		// Not found on the device: the copy may be behind (a link shared before the pull).
+		expect(deviceFailed(new Response('', { status: 404 }))).toBe(true);
+		expect(deviceFailed(new Response('', { status: 403 }))).toBe(false);
+		expect(deviceFailed(new Response('', { status: 200 }))).toBe(false);
+	});
+});
+
+describe('the first page of an open (device first, step 2)', () => {
+	const base = { shell: true, copy: true, networkPage: false, waiting: 0, online: true };
+	it('draws from the shell when a copy is on this browser', () =>
+		expect(navigatePlan(base)).toBe('shell'));
+	it('asks the network without a copy', () =>
+		expect(navigatePlan({ ...base, copy: false })).toBe('network'));
+	it('asks the network for a network page', () =>
+		expect(navigatePlan({ ...base, networkPage: true })).toBe('network'));
+	it('draws from the shell while changes wait, copy or not', () =>
+		expect(navigatePlan({ ...base, copy: false, waiting: 2 })).toBe('shell'));
+	it('asks the network without a cached shell', () =>
+		expect(navigatePlan({ ...base, shell: false })).toBe('network'));
+	it('draws from the shell offline', () =>
+		expect(navigatePlan({ ...base, copy: false, online: false })).toBe('shell'));
+
+	it('a page just opened reads its device first when a copy is there, as it starts', () => {
+		const d = new DeviceClients();
+		expect(d.readsDeviceFirst('new', true)).toBe(true);
+		expect(d.readsDeviceFirst('new', false)).toBe(false);
+		d.setState('s', 'starting', null);
+		expect(d.readsDeviceFirst('s', true)).toBe(true);
+		d.setState('e', 'empty', null);
+		expect(d.readsDeviceFirst('e', true)).toBe(false);
+		d.setState('f', 'failed', null);
+		expect(d.readsDeviceFirst('f', true)).toBe(false);
+		d.setState('w', 'ready', null);
+		d.changed('w', 5);
+		expect(d.readsDeviceFirst('w', true)).toBe(false);
+	});
+});
+
+describe('signing in or out forgets the copy mark (device first, step 2)', () => {
+	it('on a post to sign in, join, a group invite or sign out', () => {
+		for (const p of ['/login', '/login/', '/join', '/g/ABC123', '/logout'])
+			expect(clearsCopy('POST', p), p).toBe(true);
+	});
+	it('never on a read, nor on another write', () => {
+		expect(clearsCopy('GET', '/login')).toBe(false);
+		expect(clearsCopy('POST', '/salsa/figures/1')).toBe(false);
+		expect(clearsCopy('POST', '/settings')).toBe(false);
 	});
 });

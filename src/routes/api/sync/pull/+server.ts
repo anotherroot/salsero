@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { pull } from '$lib/server/sync/pull';
+import { serverExtras } from '$lib/server/sync/extras';
 import { THEME_COOKIE } from '$lib/theme/scheme';
 import { APP_COOKIE } from '$lib/app-mode';
 import { LOCALE_COOKIE } from '$lib/i18n/locale';
@@ -49,5 +50,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const v = cookies.get(name);
 		if (v !== undefined) out.cookies[name] = v;
 	}
+	// What the layouts drawn on the device cannot read from the copy (device first).
+	out.extras = serverExtras(getDb(), session.userId);
 	return json(out);
 };

@@ -3,10 +3,12 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 /*
- * The service worker. Reads go to the network first; only when the network
- * fails does a page load get the cached shell (`/shell`) and a read the
- * device's copy (via the page that sent it, which relays to its device
- * worker). Since offline phase 3 a write the device can make goes to it first,
+ * The service worker. A read the device can answer goes to the device's copy
+ * first, online too (device first, 2026-11-10), via the page that sent it,
+ * which relays to its device worker; the network answers when the device is
+ * not ready, fails, or is behind a save the page sent to the server, and for
+ * the network-first pages (Settings). A page load gets the network, and the
+ * cached shell (`/shell`) when the network fails. Since offline phase 3 a write the device can make goes to it first,
  * online too, and its outbox carries it to the server; while the outbox
  * waits, reads come from the device, which has what the server does not yet.
  * Anything else goes to the network, and offline says "Needs a connection".
@@ -19,7 +21,7 @@ import { build, files, prerendered, version } from '$service-worker';
 import { offlineRead, offlineWrite, type OfflineAnswer } from '$lib/offline/needs-connection';
 import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/offline/protocol';
 import { PAGE_EPOCH } from '$lib/epoch';
-import { writeClass } from '$lib/offline/routes';
+import { isNetworkFirstPage, isNetworkPage, writeClass } from '$lib/offline/routes';
 import { FROM_HEADER, rangeResponse } from '$lib/offline/media-range';
 import { mediaOf, opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
 import { OUTBOX_HEADER } from '$lib/sync/outbox';
@@ -32,6 +34,10 @@ import {
 	SHELL,
 	cachesToDelete,
 	changedTo,
+	clearsCopy,
+	deviceFailed,
+	navigatePlan,
+	readPlan,
 	installOrClean,
 	isNetworkFailure,
 	navigationTimeout,
@@ -58,7 +64,8 @@ const NULL_BODY = new Set([101, 204, 205, 304]);
  */
 const devices = new DeviceClients();
 
-type OutboxState = { waiting: number; epochs: number[] };
+/** `copy`: this browser holds a copy (device first, step 2); absent before a page said. */
+type OutboxState = { waiting: number; epochs: number[]; copy?: boolean };
 
 /** The outbox's last word, kept across this worker's restarts. */
 async function outboxState(): Promise<OutboxState> {
@@ -71,7 +78,16 @@ async function outboxState(): Promise<OutboxState> {
 	}
 }
 
-async function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
+/** Writes one after another: two read-modify-writes at once would lose one (a sign-out's `copy: false`). */
+let stateWrites: Promise<unknown> = Promise.resolve();
+
+function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
+	const run = stateWrites.then(() => writeOutboxState(next));
+	stateWrites = run.catch(() => {});
+	return run;
+}
+
+async function writeOutboxState(next: Partial<OutboxState>): Promise<void> {
 	const cache = await caches.open(OUTBOX_STATE_CACHE);
 	const state = { ...(await outboxState()), ...next };
 	await cache.put(OUTBOX_STATE_KEY, Response.json(state));
@@ -84,6 +100,14 @@ async function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
 
 /** This build installed while the outbox held older entries, and waits for them. */
 let heldInstall = false;
+
+/** Whether this browser holds a copy, as the pages last said (null: not read from the cache yet). */
+let copyKnown: boolean | null = null;
+
+async function hasCopy(): Promise<boolean> {
+	if (copyKnown === null) copyKnown = (await outboxState()).copy ?? false;
+	return copyKnown;
+}
 
 sw.addEventListener('install', (event) => {
 	// A failed install deletes its half-filled cache (`installOrClean`).
@@ -151,7 +175,10 @@ sw.addEventListener('message', (event) => {
 		);
 		if (data.waiting !== undefined) event.waitUntil(keepOutboxState({ waiting: data.waiting }));
 	} else if (data?.type === 'device-pulled') devices.pulled(source.id, data.startedAt);
-	else if (data?.type === 'outbox') {
+	else if (data?.type === 'copy') {
+		copyKnown = data.has;
+		event.waitUntil(keepOutboxState({ copy: data.has }));
+	} else if (data?.type === 'outbox') {
 		event.waitUntil(keepOutboxState({ waiting: data.waiting, epochs: data.epochs }));
 	} else return;
 	// Closed pages leave their entries behind; sweep now and then.
@@ -166,6 +193,11 @@ sw.addEventListener('message', (event) => {
 
 sw.addEventListener('fetch', (event) => {
 	const request = event.request;
+	// Who is signed in may change: the next page load asks the server (device first, step 2).
+	if (clearsCopy(request.method, new URL(request.url).pathname)) {
+		copyKnown = false;
+		event.waitUntil(keepOutboxState({ copy: false }).catch(() => {}));
+	}
 	let route: SwRoute;
 	try {
 		route = swRoute(
@@ -210,7 +242,8 @@ function answer(route: Exclude<SwRoute, 'pass'>, event: FetchEvent): Promise<Res
 let mediaStore: Promise<MediaStore | null> | undefined;
 
 /**
- * Song audio and count takes (offline phase 4a): the phone's file first, with
+ * Song audio, count takes (offline phase 4a), lesson videos and recordings
+ * (4b): the phone's file first, with
  * Range, online too (no data, no wait); else the network as before. A store
  * that fails is never worse than no store.
  */
@@ -279,8 +312,16 @@ async function aDeviceAnswers(): Promise<boolean> {
 async function navigate(event: FetchEvent): Promise<Response> {
 	const shell = await cachedShell();
 	const preload = event.preloadResponse as Promise<Response | undefined> | undefined;
-	// Changes still on their way: the device draws them, the server does not have them yet.
-	if (shell && (await outboxState()).waiting > 0) {
+	// Device first (step 2): a copy on this browser draws the page, online too; so do changes
+	// still on their way (the server does not have them yet), and offline.
+	const plan = navigatePlan({
+		shell: !!shell,
+		copy: await hasCopy(),
+		networkPage: isNetworkPage(new URL(event.request.url).pathname),
+		waiting: (await outboxState()).waiting,
+		online: navigator.onLine
+	});
+	if (shell && plan === 'shell') {
 		event.waitUntil(Promise.resolve(preload).catch(() => undefined));
 		return shell;
 	}
@@ -310,16 +351,35 @@ async function navigate(event: FetchEvent): Promise<Response> {
 }
 
 /**
- * A read the device can answer: the network first. When its page's device is
- * ready, with every write of that page pulled (`DeviceClients`), the network
- * gets NETWORK_TIMEOUT_MS; then whichever answers first, the
- * device or a late network, wins. A network that fails outright goes to the
+ * A read the device can answer, in `readPlan`'s order. Device first: the
+ * page's ready device answers, and the network only when it fails. Otherwise
+ * (a network-first page, a device not ready or behind its page's save) the
+ * network first: when the page's device is ready with every write pulled, the
+ * network gets NETWORK_TIMEOUT_MS; then whichever answers first, the device or
+ * a late network, wins. A network that fails outright goes to the
  * device alone (it may still be starting). Neither: "needs a connection".
  */
 async function deviceRead(event: FetchEvent): Promise<Response> {
 	const request = event.request;
+	const plan = readPlan({
+		networkFirst: isNetworkFirstPage(new URL(request.url).pathname),
+		fromDevice: devices.readsFromDevice(event.clientId),
+		deviceFirst: devices.readsDeviceFirst(event.clientId, await hasCopy())
+	});
+	if (plan === 'device-then-network') {
+		// Device first: the copy answers, online too; the network only when the device fails.
+		const mine = await viaDevice(request, event.clientId);
+		if (mine && !deviceFailed(mine)) return mine;
+		try {
+			const res = await fetch(request);
+			if (!isNetworkFailure(res)) return res;
+		} catch (e) {
+			console.warn('[sw] the device failed and the network cannot be reached', request.url, e);
+		}
+		return offline(offlineRead());
+	}
 	// The server lacks this page's device's changes yet: the device first.
-	if (devices.readsFromDevice(event.clientId)) {
+	if (plan === 'device') {
 		const mine = await viaDevice(request, event.clientId);
 		if (mine) return mine;
 	}
@@ -383,10 +443,13 @@ async function viaDevice(request: Request, clientId: string): Promise<Response |
 	const r = await reply;
 	channel.port1.close();
 	if (!r || 'fallback' in r) return null;
-	return new Response(NULL_BODY.has(r.status) ? null : r.body, {
+	const res = new Response(NULL_BODY.has(r.status) ? null : r.body, {
 		status: r.status,
 		headers: r.headers
 	});
+	// Who answered, for the walk and for debugging (device first): the phone's copy.
+	res.headers.set(FROM_HEADER, 'device');
+	return res;
 }
 
 /**

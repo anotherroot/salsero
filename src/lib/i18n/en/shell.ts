@@ -162,5 +162,10 @@ export const shell = {
 		needsConnection: 'Needs a connection. Nothing was changed.',
 		/** At the top of a sheet whose actions need a connection (offline phase 3). */
 		needsConnectionFor: 'Needs a connection for these'
+	},
+	/** A page change that waits long: under the dots on the lifted card (page changes spec). */
+	wait: {
+		still: 'Still trying…',
+		back: 'Go back'
 	}
 };

@@ -4,6 +4,7 @@
  * phone's SQLite WASM shim, or better-sqlite3 in a spec. The device keeps its
  * own bookkeeping in `device_migrations` and `device_meta`; neither is synced.
  */
+import type { ServerExtras } from '$lib/sync/wire';
 
 /** The slice of better-sqlite3's API the device code uses (the shim provides the same). */
 export type SqliteDb = {
@@ -29,6 +30,8 @@ export type DeviceMeta = {
 	deviceKey: string | null;
 	/** Its id slot, from the server; kept through a wipe. */
 	slot: number | null;
+	/** What only the server knows (`ServerExtras`), from the last pull that carried it; null: none yet. */
+	extras: ServerExtras | null;
 };
 
 const BREAKPOINT = '--> statement-breakpoint';
@@ -47,7 +50,8 @@ export function readMeta(db: SqliteDb): DeviceMeta {
 		// A copy that was never pulled, or was wiped, has nothing to be incremental over.
 		full: m.has('full') ? m.get('full') === '1' : true,
 		deviceKey: m.get('deviceKey') ?? null,
-		slot: m.has('slot') ? Number(m.get('slot')) : null
+		slot: m.has('slot') ? Number(m.get('slot')) : null,
+		extras: m.has('extras') ? (JSON.parse(m.get('extras')!) as ServerExtras) : null
 	};
 }
 

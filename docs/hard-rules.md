@@ -64,10 +64,22 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   Device-first needs a ready device with a slot, the page's person and the
   page's `PAGE_EPOCH`; otherwise the write goes to the network as in phase 2.
   Reads come from the device while entries wait, so a page never shows the
-  server's older state over a change it made. GETs the device answers only
-  when the network fails, as before. Server code never reads the request
+  server's older state over a change it made. Server code never reads the request
   store across an await (`getRequestEvent`, `$app/server`): the device's
   `AsyncLocalStorage` is a stub.
+- **Reads go to the device first, online too** (device first, 2026-11-10,
+  `docs/superpowers/specs/2026-11-10-device-first-design.md`): a page's ready
+  device answers its reads (`readPlan` in `sw-route.ts`), and the network
+  only when the device fails, is not ready, or is behind a save the page sent
+  to the server. A pull that brings changes re-reads the open page once
+  nothing is open over it (`refreshWhenIdle`). So **a device-drawn load never
+  reads a table that does not reach a device** (`NEVER_SYNCED`) or the
+  server's disk: such a fact travels with the pull (`ServerExtras`,
+  `src/lib/server/sync/extras.ts`) and the load reads `deviceRuntime().extras`
+  on the device, or the pull fills the table on the device (`clone_pairs`:
+  `clonePairs`, the pairs among the person's rows), or the page goes in `NETWORK_FIRST_PAGES` (online the
+  network first; Settings) or `NETWORK_PAGES`. `server-only.spec.ts` fails on
+  a device-drawn load importing a known server-only reader.
 - **A cookie-setting action is network-only** (Settings' theme and
   language): a service worker's answer cannot set the
   browser's cookie. So is Sign out (`/logout` must reach the server), and the

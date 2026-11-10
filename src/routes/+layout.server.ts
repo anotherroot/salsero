@@ -27,7 +27,9 @@ export const load: LayoutServerLoad = ({ locals, cookies, url, depends }) => {
 	let appUpdate: AppUpdate | null = null;
 	const agent = locals.appAgent;
 	if (agent) {
-		const release = currentRelease(agent.dance);
+		const device = deviceRuntime();
+		// The release lives on the server's disk: on the device, the last pull says (device first).
+		const release = device ? (device.extras?.release ?? null) : currentRelease(agent.dance);
 		appUpdate = {
 			state: updateState(agent, release),
 			channel: agent.channel,

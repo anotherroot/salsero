@@ -14,7 +14,7 @@ import { addFigureSlot, moveSlotTo } from '$lib/server/routines';
 import { makeWorld, type World } from '$lib/server/sync/test-world';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { SYNCED } from '$lib/sync/tables';
-import type { PullResponse } from '$lib/sync/wire';
+import type { PullResponse, ServerExtras } from '$lib/sync/wire';
 import { migrateDevice, readMeta } from './migrate';
 import { applyPull, deviceDigests, ensureDeviceKey, pullRequestOf, wipeCopy } from './apply';
 import { repoMigrations } from './test-migrations';
@@ -264,5 +264,118 @@ describe('pullRequestOf', () => {
 		if ('refused' in again) throw new Error('refused');
 		expect(again.full).toEqual([]);
 		expect(again.changed).toEqual({});
+	});
+});
+
+describe('what a pull changed', () => {
+	it('counts the rows a pull wrote', () => {
+		const res = pull('u1');
+		const rows = Object.values(res.changed).reduce((n, t) => n + t.rows.length, 0);
+		expect(applyPull(device, res)).toBe(rows);
+	});
+
+	it('counts nothing for a pull that brings nothing', () => {
+		const res = pull('u1');
+		applyPull(device, res);
+		expect(applyPull(device, { ...res, full: [], changed: {} })).toBe(0);
+	});
+
+	it('counts one row an upsert brings', () => {
+		const res = pull('u1');
+		applyPull(device, res);
+		const f = res.changed.figures;
+		expect(
+			applyPull(device, {
+				...res,
+				full: [],
+				changed: { figures: { cols: f.cols, rows: [f.rows[0]] } }
+			})
+		).toBe(1);
+	});
+
+	it('counts a changed cookie jar once', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, cookies: { theme: 'dark' } });
+		const empty = { ...res, full: [], changed: {} };
+		expect(applyPull(device, { ...empty, cookies: { theme: 'light' } })).toBe(1);
+		expect(applyPull(device, { ...empty, cookies: { theme: 'light' } })).toBe(0);
+	});
+});
+
+describe('what a pull changed, removing', () => {
+	it('counts a table resent whole without a row', () => {
+		const res = pull('u1');
+		applyPull(device, res);
+		const f = res.changed.figures;
+		const fewer = { cols: f.cols, rows: f.rows.slice(1) };
+		expect(
+			applyPull(device, { ...res, full: ['figures'], changed: { figures: fewer } })
+		).toBeGreaterThan(0);
+	});
+});
+
+describe('what only the server knows', () => {
+	const extras = (aiPending: number): ServerExtras => ({
+		musicToPick: false,
+		aiPending,
+		aiConnected: false,
+		release: null,
+		imports: { own: [], teams: {} },
+		teamTrashBytes: {},
+		lastEdits: {}
+	});
+
+	it('keeps the extras of a pull, and counts a change in them', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, extras: extras(1) });
+		expect(readMeta(device).extras).toEqual(extras(1));
+		const empty = { ...res, full: [], changed: {} };
+		expect(applyPull(device, { ...empty, extras: extras(1) })).toBe(0);
+		expect(applyPull(device, { ...empty, extras: extras(2) })).toBe(1);
+		expect(readMeta(device).extras?.aiPending).toBe(2);
+	});
+
+	it('keeps the extras it has when a pull carries none', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, extras: extras(1) });
+		applyPull(device, { ...res, full: [], changed: {} });
+		expect(readMeta(device).extras).toEqual(extras(1));
+	});
+
+	it('has none before its first pull', () => expect(readMeta(device).extras).toBeNull());
+});
+
+describe('clone pairs', () => {
+	const pair = (a: number, b: number, at = 1) => ({
+		kind: 'figure',
+		a_id: a,
+		b_id: b,
+		base_json: '{"fields":{},"skip":[]}',
+		at
+	});
+	const pairs = () =>
+		device.prepare('SELECT kind, a_id, b_id, base_json, at FROM clone_pairs ORDER BY a_id').all();
+
+	it("replaces the copy's pairs with the pull's, and counts a change", () => {
+		const res = pull('u1');
+		expect(applyPull(device, { ...res, clonePairs: [pair(1, 5)] })).toBeGreaterThan(0);
+		expect(pairs()).toEqual([pair(1, 5)]);
+		const empty = { ...res, full: [], changed: {} };
+		expect(applyPull(device, { ...empty, clonePairs: [pair(1, 5)] })).toBe(0);
+		expect(applyPull(device, { ...empty, clonePairs: [pair(2, 6, 9)] })).toBe(1);
+		expect(pairs()).toEqual([pair(2, 6, 9)]);
+	});
+
+	it('keeps its pairs when a pull carries none (an older server)', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, clonePairs: [pair(1, 5)] });
+		applyPull(device, { ...res, full: [], changed: {}, clonePairs: undefined });
+		expect(pairs()).toEqual([pair(1, 5)]);
+	});
+
+	it('a wipe empties them', () => {
+		applyPull(device, { ...pull('u1'), clonePairs: [pair(1, 5)] });
+		wipeCopy(device);
+		expect(pairs()).toEqual([]);
 	});
 });

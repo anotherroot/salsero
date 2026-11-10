@@ -19,6 +19,16 @@ import {
 import { installCapture, startCapture, stopCapture } from './capture';
 import { wantedMedia } from './media';
 import type { MediaFile } from '$lib/offline/media-store';
+import type { KeepChange, KeepSettings, KeepStatus } from '$lib/offline/protocol';
+import {
+	applyKeepChange,
+	keptBySpace,
+	keptVideos,
+	readKeep,
+	spaceRows,
+	wantedVideos,
+	writeKeep
+} from './keep';
 import {
 	applyResults,
 	discardEntry,
@@ -43,7 +53,7 @@ import type {
 	WireResponse
 } from '$lib/offline/protocol';
 import type { PushResponse } from '$lib/sync/outbox';
-import type { PullResponse } from '$lib/sync/wire';
+import type { PullResponse, ServerExtras } from '$lib/sync/wire';
 import { applyPull, ensureDeviceKey, pullRequestOf, wipeCopy } from './apply';
 import { readMeta, writeMetaValue, type SqliteDb } from './migrate';
 import { DeviceRequest } from './request';
@@ -54,6 +64,8 @@ export type DeviceRuntime = {
 	cookies: Record<string, string>;
 	/** The id slot new rows are minted in (offline phase 3); null until the server hands one out. */
 	slot: number | null;
+	/** What only the server knows, from the last pull (device first). */
+	extras: ServerExtras | null;
 };
 
 /** SvelteKit's `server.respond`, bound to the device's client address. */
@@ -96,8 +108,14 @@ export type Device = {
 	/** Push the outbox, then pull once nothing waits (offline phase 3). */
 	sync(): Promise<SyncResult>;
 	summary(): OutboxSummary;
-	/** The files the copy wants on the phone (offline phase 4a); none without a copy. */
+	/** The files the copy wants on the phone: songs (4a) and kept videos (4b); none without a copy. */
 	wantedMedia(): MediaFile[];
+	/** This device's choice of videos to keep (offline phase 4b). */
+	keepSettings(): KeepSettings;
+	/** One change to it, saved; a kept video gone from the copy drops out. */
+	keepSet(change: KeepChange): KeepSettings;
+	/** The rows the On this phone page draws, given the video files on the phone. */
+	keepRows(held: ReadonlySet<string>): Pick<KeepStatus, 'spaces' | 'kept' | 'bySpace'>;
 	outboxList(): Promise<OutboxItem[]>;
 	/** A refused entry and those held by it wait again; then a sync. How many. */
 	retry(id: string): Promise<number>;
@@ -163,6 +181,28 @@ export function deviceHeaders(
 	else h.delete('cookie');
 	h.set('user-agent', userAgent);
 	return h;
+}
+
+/**
+ * Whether a page's data the device drew (`__data.json`) failed in a way the
+ * network may not (device first): a load that crashed (SvelteKit answers it 200
+ * with an error node and no status, its 500) or a row not found (the copy may be
+ * behind). A page's own refusal (a 403) stands. Only the first line is read (a
+ * streamed answer's promises follow it); an answer it cannot read passes.
+ */
+export function dataFailed(text: string): boolean {
+	const bad = (n: unknown) => {
+		if (!n || typeof n !== 'object' || (n as { type?: unknown }).type !== 'error') return false;
+		const status = (n as { status?: unknown }).status;
+		return typeof status !== 'number' || status >= 500 || status === 404;
+	};
+	try {
+		const first = JSON.parse(text.split('\n', 1)[0]) as { type?: unknown; nodes?: unknown };
+		if (first.type === 'error') return bad(first);
+		return Array.isArray(first.nodes) && first.nodes.some(bad);
+	} catch {
+		return false;
+	}
 }
 
 /** Whether the copy holds its person as the hook needs them (`deviceUser`): a row with a dance. */
@@ -272,9 +312,21 @@ export function createDevice(deps: DeviceDeps): Device {
 		if (meta.userId === null) throw new Error('serve() with no copy');
 		// One object, updated in place: the server reads it on every request.
 		if (runtime)
-			Object.assign(runtime, { userId: meta.userId, cookies: meta.cookies, slot: meta.slot });
+			Object.assign(runtime, {
+				userId: meta.userId,
+				cookies: meta.cookies,
+				slot: meta.slot,
+				extras: meta.extras
+			});
 		else
-			deps.setRuntime((runtime = { userId: meta.userId, cookies: meta.cookies, slot: meta.slot }));
+			deps.setRuntime(
+				(runtime = {
+					userId: meta.userId,
+					cookies: meta.cookies,
+					slot: meta.slot,
+					extras: meta.extras
+				})
+			);
 		serverStart ??= deps.startServer().then(
 			(r) => {
 				respond = r;
@@ -331,12 +383,25 @@ export function createDevice(deps: DeviceDeps): Device {
 			log.warn("[device] pull: the answer is not the page's person's, not taken");
 			return 'done';
 		}
+		const holder = copyUser();
+		if (holder !== null && body.userId !== holder) {
+			// Someone else is signed in on this browser now, and no page has said who (device
+			// first draws pages from the copy): the server's word goes. The copy and its files
+			// go first; the outbox keeps the first person's entries for them.
+			await exclusive(async () => {
+				wipeCopy(db);
+				await deps.clearMedia();
+			});
+			log.info('[device] pull: another person is signed in, the copy is wiped');
+			return 'again';
+		}
+		let changed = 0;
 		try {
 			const applied = await exclusive(async () => {
 				// A write recorded while the answer was on its way is not in it: applying would erase it.
 				const sum = outboxSummary(db, copyUser());
 				if (sum.seq !== seqBefore || sum.waiting > 0) return false;
-				applyPull(db, body);
+				changed = applyPull(db, body);
 				writeMetaValue(db, 'signedOut', '0');
 				writeMetaValue(db, 'lastSyncedAt', String(deps.now()));
 				return true;
@@ -352,7 +417,7 @@ export function createDevice(deps: DeviceDeps): Device {
 		}
 		await serve();
 		postSummary();
-		deps.post({ type: 'pulled', cursor: body.cursor, startedAt, landed: lastLanded });
+		deps.post({ type: 'pulled', cursor: body.cursor, startedAt, landed: lastLanded, changed });
 		lastLanded = 0;
 		return 'done';
 	}
@@ -603,7 +668,30 @@ export function createDevice(deps: DeviceDeps): Device {
 
 		wantedMedia: () => {
 			const user = copyUser();
-			return user === null ? [] : wantedMedia(db, user);
+			return user === null
+				? []
+				: [...wantedMedia(db, user), ...wantedVideos(db, user, readKeep(db))];
+		},
+
+		keepSettings: () => readKeep(db),
+
+		keepSet(change) {
+			const next = applyKeepChange(readKeep(db), change);
+			const there = new Set(keptVideos(db, next, new Set()).map((k) => k.key));
+			const s = { ...next, videos: next.videos.filter((k) => there.has(k)) };
+			writeKeep(db, s);
+			return s;
+		},
+
+		keepRows(held) {
+			const user = copyUser();
+			if (user === null) return { spaces: [], kept: [], bySpace: {} };
+			const s = readKeep(db);
+			return {
+				spaces: spaceRows(db, user, s, held),
+				kept: keptVideos(db, s, held),
+				bySpace: keptBySpace(db, user, s)
+			};
 		},
 
 		outboxList: async () => {
@@ -688,7 +776,12 @@ export function createDevice(deps: DeviceDeps): Device {
 						deviceHeaders(wire.headers, runtime.cookies, deps.userAgent)
 					)
 				);
-				return { status: res.status, headers: [...res.headers], body: await res.arrayBuffer() };
+				const body = await res.arrayBuffer();
+				// A page's data that failed here goes to the network (device first): the server may have it.
+				if (url.pathname.endsWith('/__data.json') && dataFailed(new TextDecoder().decode(body))) {
+					return fallback('the page failed on the device');
+				}
+				return { status: res.status, headers: [...res.headers], body };
 			} catch (e) {
 				log.error('[device] answering failed', wire.url, e);
 				return fallback(String(e));

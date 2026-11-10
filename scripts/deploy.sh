@@ -102,6 +102,11 @@ else
 	(cd "$REPO_ROOT" && npm run build >/dev/null) || die "build failed. Run 'npm run build' to see why."
 	ok "built"
 fi
+# The device worker (offline) is a second build, `vite build -c vite.device.config.ts`
+# (`npm run build` runs both). `vite build` alone leaves it out, and a build without
+# it ships pages that look for a worker that is not there: every phone loses its copy.
+ls "$REPO_ROOT"/build/client/_device/*/worker.js >/dev/null 2>&1 ||
+	die "build/ has no device worker (build/client/_device/<version>/worker.js). Build with 'npm run build', not 'vite build' alone."
 
 # ── ship ────────────────────────────────────────────────────────────────────
 info "syncing"

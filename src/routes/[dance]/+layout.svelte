@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SavedToast from '$lib/components/exercises/SavedToast.svelte';
+	import LowSpaceSheet from '$lib/components/shell/LowSpaceSheet.svelte';
 	let { data, children } = $props();
 </script>
 
@@ -22,3 +23,6 @@
 
 <!-- A save's "Saved · back in 12 days · Undo", on the screen after the one that saved. -->
 <SavedToast />
+
+<!-- The phone short of space: a sheet once (offline phase 4b). -->
+<LowSpaceSheet />

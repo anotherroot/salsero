@@ -108,6 +108,12 @@ const CANONICAL = {
 		'<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"></path><path d="M15 16.5L19.5 12 15 7.5M19.5 12H9"></path>',
 	phone:
 		'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path>',
+	'phone-check':
+		'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="m9.5 12 2 2 3.5-3.5"></path>',
+	'phone-down':
+		'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M12 7v7"></path><path d="m9.5 11.5 2.5 2.5 2.5-2.5"></path>',
+	'wifi-off':
+		'<path d="M12 20h.01"></path><path d="M8.5 16.43a5 5 0 0 1 7 0"></path><path d="M5 12.86a10 10 0 0 1 5.17-2.69"></path><path d="M19 12.86a10 10 0 0 0-2-1.52"></path><path d="M2 8.82a15 15 0 0 1 4.18-2.64"></path><path d="M22 8.82a15 15 0 0 0-11.29-3.76"></path><path d="m2 2 20 20"></path>',
 	bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5h-15z"></path><path d="M10 21a2 2 0 0 0 4 0"></path>',
 	note: '<path d="M6.5 3.5h8L19 8v11.5a1 1 0 0 1-1 1H6.5a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"></path><path d="M14 3.5V8h5"></path><path d="M9 12.5h6M9 16h4"></path>',
 	speed: '<path d="M4.5 17.5a8 8 0 1 1 15 0"></path><path d="M12 14l3.5-4.5"></path>',

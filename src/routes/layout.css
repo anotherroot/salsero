@@ -282,6 +282,8 @@ body {
  */
 html {
 	touch-action: pan-x pan-y;
+	/* The page's own pull to refresh (`PullRefresh`): never the browser's, nor a bounce under it. */
+	overscroll-behavior-y: none;
 }
 
 /*
@@ -703,5 +705,30 @@ a[href]:active {
 	from {
 		opacity: 0;
 		transform: scale(0.55);
+	}
+}
+
+/*
+ * Motion round 2: the dots on a lifted card while a page is slow (`PageWait`).
+ * Still under reduced motion.
+ */
+.wait-dot {
+	opacity: 0.6;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.wait-dot {
+		animation: wait-dot 900ms ease-in-out infinite;
+	}
+}
+@keyframes wait-dot {
+	0%,
+	80%,
+	100% {
+		opacity: 0.3;
+		transform: scale(0.6);
+	}
+	40% {
+		opacity: 0.9;
+		transform: none;
 	}
 }

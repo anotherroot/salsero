@@ -794,6 +794,12 @@ would save a scroll of zero and break Back. A refused or failed navigation also
 finds the old page exactly as it was. The cover stops at the top of the bottom
 nav when the destination shows one, and sits above the bars pinned over a page's end (z-30).
 
+**On the phone this is now the lifted card** (motion round 2,
+[`2026-11-10-page-transitions-design.md`](2026-11-10-page-transitions-design.md)): the card lifts on
+the tap and holds empty while the page loads, with dots after 0.5 s and "Still trying… Go back"
+after 8 s; no skeleton and no bar. The desktop keeps the bar and the skeleton above, plus Go back
+after 8 s.
+
 Links already preload on touchstart (`data-sveltekit-preload-data="hover"` in
 `app.html`), so the 100 ms is usually enough for a page to land without a grey
 flash. If a page still feels slow behind its skeleton, the next step is to

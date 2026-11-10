@@ -47,7 +47,8 @@ export function errorView(
 			tone: 'accent',
 			heading: own ?? w.notFoundHeading,
 			body: w.notFoundBody,
-			code,
+			// The band and the heading say it already (page changes spec, error screens).
+			code: null,
 			retry: false,
 			today: true
 		};
