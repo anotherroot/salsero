@@ -61,6 +61,8 @@
 	/** The exercise open: the URL's (the page beside the list on the desktop, the page itself on the phone). */
 	// None on a route without an id (Done for today).
 	const currentId = $derived(isList || !page.params.id ? null : Number(page.params.id));
+	// The list column is in sight: always on the desktop; on the phone only on the list route (an exercise page covers it).
+	const listShown = $derived(isList || desk.current);
 
 	let creating = $state(false);
 	// The layout's toast: Not today, Coming up's +, a refused Next.
@@ -345,6 +347,7 @@
 			oncreate={() => (creating = true)}
 			onrefused={say}
 			onskip={(id) => void notToday(id)}
+			shown={listShown}
 		/>
 	{/if}
 {/snippet}

@@ -20,6 +20,7 @@
 	import { longPress } from '$lib/longpress';
 	import { actAt } from '$lib/act';
 	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
+	import { flipList } from '$lib/motion/flip.svelte';
 
 	/**
 	 * Today's list: one "Today · N" card (done, to do, picked: `dayList`'s order),
@@ -40,7 +41,8 @@
 		appUpdate,
 		oncreate,
 		onrefused,
-		onskip
+		onskip,
+		shown = true
 	}: {
 		day: DayList<ExerciseItem>;
 		/** No live exercise at all: the first run. */
@@ -59,6 +61,8 @@
 		onrefused: (message: string) => void;
 		/** Not today, from a row's swipe: the layout posts it and shows the toast. */
 		onskip: (exerciseId: number) => void;
+		/** False while the list is hidden (the phone, an exercise open over it): its rows keep where they were last seen. */
+		shown?: boolean;
 	} = $props();
 
 	/** The row whose "Not today" is showing (one at a time); a tap anywhere else closes it. */
@@ -75,6 +79,7 @@
 		null
 	);
 	let warmList = $state<HTMLElement>();
+	let practiceList = $state<HTMLElement>();
 	let lastDownY = 0;
 
 	const shownWarm = $derived.by(() => {
@@ -189,6 +194,21 @@
 		if (refused) onrefused(refused);
 	}
 
+	// Rows fold and open as they come and go (spec 2026-11-10-motion-round-1).
+	flipList({
+		container: () => warmList,
+		keys: () => shownWarm.map((r) => r.exercise.id),
+		shown: () => shown
+	});
+	flipList({
+		container: () => practiceList,
+		keys: () => [
+			...day.rows.filter((r) => r.list === 'practice').map((r) => r.exercise.id),
+			...(day.showNext ? ['next'] : [])
+		],
+		shown: () => shown
+	});
+
 	const dragOf = (i: number, id: number) =>
 		({
 			offset: !drag ? 0 : drag.id === id ? drag.dy : shiftFor(i, drag.from, drag.to, drag.step),
@@ -294,7 +314,7 @@
 	{#if practiceRows.length > 0 || day.showNext}
 		<section aria-labelledby="today-list-h" class="flex flex-col gap-2">
 			<h2 id="today-list-h" class={SECTION_LABEL}>{labels.practice}</h2>
-			<ul class={GROUP}>
+			<ul class={GROUP} bind:this={practiceList}>
 				{@render rowsOf(practiceRows)}
 				{#if day.showNext}<NextRow {dance} {daily} {onrefused} />{/if}
 			</ul>

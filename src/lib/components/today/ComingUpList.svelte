@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { resolve } from '$app/paths';
 	import { actAt } from '$lib/act';
 	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
@@ -72,11 +73,12 @@
 			<span>{head.title}</span>
 			{#if head.away}<span class="font-semibold">{head.away}</span>{/if}
 		</h2>
-		<ul class={GROUP}>
+		<FlipList class={GROUP} keys={group.rows.map((r) => r.exercise.id)}>
 			{#each group.rows as row (row.exercise.id)}
 				{@const ex = row.exercise}
 				{@const lit = ex.id === currentId}
 				<li
+					data-flip={ex.id}
 					class="flex min-h-[66px] items-center pr-1.5 pl-4 {lit
 						? 'bg-accent-soft shadow-[inset_4px_0_0_var(--color-accent)]'
 						: ''}"
@@ -129,6 +131,6 @@
 					{/if}
 				</li>
 			{/each}
-		</ul>
+		</FlipList>
 	</section>
 {/each}

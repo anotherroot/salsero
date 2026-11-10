@@ -49,6 +49,7 @@
 	the `translate` property, so nothing else about its layout changes.
 -->
 <li
+	data-flip={ex.id}
 	data-warm-row={drag ? ex.id : undefined}
 	class="{drag?.lifted ? 'relative z-10 shadow-[0_8px_24px_rgb(0_0_0/0.22)]' : ''} {drag?.moving &&
 	!drag.lifted
