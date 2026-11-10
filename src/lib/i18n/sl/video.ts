@@ -1,7 +1,22 @@
 import type { Catalog } from '../catalog';
+import { slForm } from '../plural';
+import type { DeviceLabel } from '$lib/devices/label';
 
 /** A number with a decimal comma, as many decimals as it has: 0.25 → "0,25", 2 → "2". */
 const num = (x: number): string => String(x).replace('.', ',');
+
+/** Kje je video samo na telefonu, za »na«: »na telefonu Pixel 8«. */
+const naNapravi = (d: DeviceLabel | null): string => {
+	if (!d) return 'na drugi napravi';
+	if (d.kind === 'android') return d.model ? `na telefonu ${d.model}` : 'na telefonu Android';
+	const other: Record<string, string> = {
+		iphone: 'na iPhonu',
+		ipad: 'na iPadu',
+		computer: 'na računalniku'
+	};
+	return other[d.kind] ?? 'na drugi napravi';
+};
+const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export const video: Catalog['video'] = {
 	rate: (r) => `${num(r)}×`,
@@ -149,5 +164,62 @@ export const video: Catalog['video'] = {
 		sectionNeedsEnd: 'Odsek potrebuje konec.',
 		linked: (labels) => `Povezano: ${labels}. Najprej odstranite povezavo.`,
 		failed: (status) => `Ni uspelo (napaka ${status}).`
+	},
+
+	place: {
+		onlyHere: 'samo na tem telefonu',
+		onlyIphone: 'samo na tem iPhonu',
+		uploading: (pct) => `nalagam ${pct} %`,
+		both: 'na telefonu in na strežniku',
+		on: (d) => naNapravi(d),
+		missingGallery: 'ni več v galeriji',
+		missingHere: 'ni več na tem telefonu',
+		sheetTitle: 'Kje je ta video',
+		thisPhone: 'Ta telefon',
+		original: (size) => `Izvirnik · ${size} · predvaja se od tu`,
+		server: 'Strežnik',
+		notUploaded: 'Ni naložen. Računalnik in druge naprave ga ne morejo predvajati.',
+		copy: (size, p) => `Kopija ${p}p · ${size}`,
+		upload: 'Naloži',
+		remove: 'Odstrani',
+		sheetNote:
+			'Naloži pošlje manjšo kopijo (velikost iz Nastavitev → Video). Izvirnik vedno ostane na telefonu.',
+		sheetNoteIphone: 'Naloži pošlje izvirnik. Ta ostane tudi na iPhonu.',
+		frameTitle: (d) => capital(naNapravi(d)),
+		frameBody:
+			'Video je samo tam. Odseki so spodaj; predvajate ga lahko na tisti napravi ali tu, ko ga tam naložite.',
+		iphoneTitle: 'Video je samo v tem iPhonu',
+		iphoneBody:
+			'iPhone lahko shranjene datoteke izbriše, ko mu zmanjka prostora ali ko aplikacije dolgo ne odprete. Video, ki je samo tu, bi izgubili. Varno je, ko ga naložite.',
+		gotIt: 'Razumem',
+		iphoneWhy: 'Zakaj je to pomembno',
+		close: 'Zapri',
+		saved: 'Shranjeno na tem telefonu',
+		deleteOnly:
+			'Video je samo na tem telefonu. V aplikaciji ga ne bo več, tudi njegovih odsekov ne.',
+		deleteOnlyIphone:
+			'Video je samo v tem iPhonu: izbris je dokončen, tudi njegovih odsekov ne bo več.',
+		alsoGallery: 'Izbriši tudi iz galerije',
+		removeDone: 'Kopija s strežnika je odstranjena',
+		uploadFailed: 'Nalaganje ni uspelo. Video ostane na telefonu.',
+		copyLeaves: (n, d) => {
+			const kje = naNapravi(d);
+			const f = slForm(n);
+			if (f === 'one') return `1 video je samo ${kje}: ostane, dokler ga tam ne naložite.`;
+			if (f === 'two') return `${n} videa sta samo ${kje}: ostaneta, dokler ju tam ne naložite.`;
+			if (f === 'few') return `${n} videi so samo ${kje}: ostanejo, dokler jih tam ne naložite.`;
+			return `${n} videov je samo ${kje}: ostanejo, dokler jih tam ne naložite.`;
+		},
+		refusal: {
+			tooBig: 'Video je večji od 1 GB, ne morem ga naložiti.',
+			notHolder: 'Kopijo s strežnika lahko odstrani samo naprava z izvirnikom.',
+			onServer: 'Ta video je že na strežniku.',
+			noServerCopy: 'Ta video nima kopije na strežniku.',
+			badFile: 'Navedite datoteko videa.',
+			badSize: 'Navedite velikost videa.',
+			badSlot: 'Navedite to napravo.',
+			groupUploads: 'Videi skupine se vedno naložijo.',
+			onDevice: 'Ta video je samo na napravi, tu ga ni mogoče prebrati.'
+		}
 	}
 };
