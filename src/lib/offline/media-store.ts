@@ -111,18 +111,20 @@ const ROOT = 'media';
 type Meta = { mime: string; size: number };
 type SyncHandle = {
 	truncate(n: number): void;
-	write(data: BufferSource, opts?: { at: number }): number;
+	write(data: Uint8Array, opts?: { at: number }): number;
 	flush(): void;
 	close(): void;
 };
 /** Chrome's: writes land in a swap file, committed by `close()`. */
 type Writable = {
-	write(data: BufferSource): Promise<void>;
+	write(data: Uint8Array): Promise<void>;
 	seek(at: number): Promise<void>;
 	truncate(n: number): Promise<void>;
 	close(): Promise<void>;
 };
-type FileHandle = FileSystemFileHandle & {
+/** The parts of a file handle used here; each browser has some of them. */
+type FileHandle = {
+	getFile(): Promise<File>;
 	createWritable?: (opts?: { keepExistingData?: boolean }) => Promise<Writable>;
 	createSyncAccessHandle?: () => Promise<SyncHandle>;
 	move?: (name: string) => Promise<void>;
@@ -153,7 +155,7 @@ async function writeFile(
 	from = 0,
 	checkpoint = CHECKPOINT
 ): Promise<void> {
-	const handle = (await dir.getFileHandle(name, { create: true })) as FileHandle;
+	const handle = (await dir.getFileHandle(name, { create: true })) as unknown as FileHandle;
 	const reader = res.body?.getReader();
 	const chunks = async (each: (chunk: Uint8Array) => Promise<void>) => {
 		if (!reader) return;
@@ -207,7 +209,7 @@ async function writeFile(
 
 /** `from` under the name `to`: `move()` where there is one, else a copy (the meta, written after, vouches for it). */
 async function rename(dir: FileSystemDirectoryHandle, from: string, to: string): Promise<void> {
-	const handle = (await dir.getFileHandle(from)) as FileHandle;
+	const handle = (await dir.getFileHandle(from)) as unknown as FileHandle;
 	if (handle.move) {
 		await handle.move(to);
 		return;

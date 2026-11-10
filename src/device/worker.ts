@@ -12,11 +12,18 @@
  */
 import { PAGE_EPOCH } from '$lib/epoch';
 import type { Server as KitServer, SSRManifest } from '@sveltejs/kit';
-import type { DeviceIn, DeviceOut, WireFallback, WireRequest } from '$lib/offline/protocol';
+import type {
+	DeviceIn,
+	DeviceOut,
+	KeepStatus,
+	WireFallback,
+	WireRequest
+} from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
-import { mediaKeeper } from './media';
-import { opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
+import { mediaKeeper, type PassOut } from './media';
+import { opfsMediaStore, SONG_KINDS, VIDEO_KINDS, type MediaStore } from '$lib/offline/media-store';
+import { canTellWifi, freeOf, isLow, linkOf, videosMayCome } from '$lib/offline/network';
 import { migrateDevice } from './migrate';
 import { deviceMigrations } from './migrations';
 import { openCopy } from './pool';
@@ -38,15 +45,93 @@ let device: Device | null = null;
 /** The media store (offline phase 4a), opened once; null where this browser has none. */
 let mediaStore: Promise<MediaStore | null> | undefined;
 const store = () => (mediaStore ??= opfsMediaStore());
-/** The songs on the phone: one pass at a time; `clear` stops a pass in flight before it empties the store. */
-const songs = mediaKeeper({
+
+/** What the worker's navigator says about the connection (not in TypeScript's lib). */
+const nav = navigator as unknown as {
+	connection?: { type?: string; addEventListener?(type: 'change', f: () => void): void };
+};
+
+async function free(): Promise<number | null> {
+	try {
+		return freeOf(await navigator.storage.estimate());
+	} catch {
+		return null;
+	}
+}
+
+/** The last pass's result, the file in flight, and the status last posted (offline phase 4b). */
+let lastPass: PassOut | null = null;
+let inFlight: KeepStatus['inFlight'] = null;
+let lastStatus: KeepStatus | null = null;
+let progressPostedAt = 0;
+
+/**
+ * The songs (4a) and kept videos (4b) on the phone: one pass at a time;
+ * `restart` after a settings or connection change; `clear` stops a pass in
+ * flight before it empties the store.
+ */
+const media = mediaKeeper({
 	store,
 	wanted: () => (device && device.state() === 'ready' ? device.wantedMedia() : null),
-	fetchMedia: (path, signal) => fetch(path, { credentials: 'same-origin', signal }),
+	fetchMedia: (path, signal, range) =>
+		fetch(path, {
+			credentials: 'same-origin',
+			signal,
+			headers: range ? { Range: `bytes=${range}-` } : undefined
+		}),
 	online: () => navigator.onLine,
+	videosMayCome: () => videosMayCome(linkOf(nav), device?.keepSettings().wifiOnly ?? true),
+	free,
+	onProgress: (key, received, total) => {
+		inFlight = received < total ? { key, received, total } : null;
+		// The whole status is costly (every file's meta): only the progress changes here.
+		const now = Date.now();
+		if (lastStatus && (inFlight === null || now - progressPostedAt >= 1000)) {
+			progressPostedAt = now;
+			post({ type: 'keep', status: { ...lastStatus, inFlight } });
+		}
+	},
+	onPass: (out) => {
+		lastPass = out;
+		inFlight = null;
+		void postKeep();
+	},
 	log: console
 });
-const syncSongs = () => songs.sync();
+const syncSongs = () => media.sync();
+nav.connection?.addEventListener?.('change', () => void media.restart());
+
+/** What the On this phone page shows; null without a ready copy or a store. */
+async function keepStatus(): Promise<KeepStatus | null> {
+	if (!device || device.state() !== 'ready') return null;
+	const s = await store();
+	if (!s) return null;
+	const held = (await s.list())
+		.filter((f) => VIDEO_KINDS.includes(f.kind))
+		.map((f) => `${f.kind}/${f.file}`);
+	const room = await free();
+	return {
+		settings: device.keepSettings(),
+		...device.keepRows(new Set(held)),
+		held,
+		inFlight,
+		waiting: lastPass?.waiting ?? null,
+		canTellWifi: canTellWifi(nav),
+		bytes: { songs: await s.usage(SONG_KINDS), videos: await s.usage(VIDEO_KINDS) },
+		free: room,
+		low: isLow(room)
+	};
+}
+
+async function postKeep(): Promise<KeepStatus | null> {
+	const status = await keepStatus().catch((e) => {
+		console.warn('[device] media status', String(e));
+		return null;
+	});
+	lastStatus = status;
+	if (status) post({ type: 'keep', status });
+	return status;
+}
 
 /** The page's person, kept for a device that opens later (`Device.person`). */
 let person: string | null | undefined = undefined;
@@ -108,7 +193,7 @@ async function open(): Promise<Device> {
 		now: () => Date.now(),
 		epoch: PAGE_EPOCH,
 		newId: () => crypto.randomUUID(),
-		clearMedia: () => songs.clear(),
+		clearMedia: () => media.clear(),
 		onRecorded: () => {
 			if (device) post({ type: 'outbox', summary: device.summary() });
 			syncSoon();
@@ -206,6 +291,13 @@ async function answerPort(port: MessagePort, message: DeviceIn): Promise<void> {
 			} else if (message.type === 'forget') {
 				await device.forget();
 				out = true;
+			} else if (message.type === 'keep-get') {
+				out = lastStatus ?? (await postKeep());
+			} else if (message.type === 'keep-set') {
+				device.keepSet(message.change);
+				if ('clear' in message.change) await media.clear(VIDEO_KINDS);
+				out = await postKeep();
+				void media.restart();
 			}
 		}
 	} catch (e) {

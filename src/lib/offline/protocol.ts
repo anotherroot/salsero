@@ -53,7 +53,10 @@ export type DeviceIn =
 	| { type: 'discard'; id: string }
 	| { type: 'resolve'; id: string }
 	| { type: 'sync-now' }
-	| { type: 'forget' };
+	| { type: 'forget' }
+	/** Videos kept on the phone (offline phase 4b); each carries a reply port, answered with `KeepStatus | null`. */
+	| { type: 'keep-get' }
+	| { type: 'keep-set'; change: KeepChange };
 
 /**
  * From the worker. `pulled`: a pull landed; `startedAt` is when its request
@@ -64,7 +67,9 @@ export type DeviceOut =
 	/** `landed`: how many outbox entries the pushes before this pull landed. */
 	| { type: 'pulled'; cursor: number; startedAt: number; landed: number }
 	/** After every change to the outbox or its meta (offline phase 3). */
-	| { type: 'outbox'; summary: OutboxSummary };
+	| { type: 'outbox'; summary: OutboxSummary }
+	/** After every media pass and settings change, and while a file comes (offline phase 4b). */
+	| { type: 'keep'; status: KeepStatus };
 
 /**
  * From the service worker to the page. `device-fetch` carries a reply port and

@@ -8,7 +8,7 @@ export type Caps = { move: boolean; writable: boolean; sync: boolean };
 export type Fail = (op: 'write' | 'move' | 'remove', name: string) => boolean;
 
 /** `d` written into `buf` at `at`, growing it. */
-function put(buf: Uint8Array, d: Uint8Array, at: number): Uint8Array {
+function put(buf: Uint8Array, d: Uint8Array, at: number): Uint8Array<ArrayBuffer> {
 	const out = new Uint8Array(Math.max(buf.byteLength, at + d.byteLength));
 	out.set(buf);
 	out.set(d, at);
