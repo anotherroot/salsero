@@ -121,7 +121,10 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             val out = store.compressed(job.id)
             if (!out.exists()) {
                 val part = store.compressing(job.id)
-                val error = Compressor.compress(ctx, source, info, config.shortSide, part) { show(words.compressing, it) }
+                val error = Compressor.compress(ctx, source, info, config.shortSide, part) {
+                    show(words.compressing, it)
+                    job.original?.let { file -> UploadEvents.progress(file, overallPercent(it, compressing = true, compressed = true)) }
+                }
                 if (error != null) return Step.Fail(words.couldNotCompress(error))
                 if (!part.renameTo(out)) return Step.Fail(words.couldNotKeep)
                 // New bytes: a new upload on the server, never a resume of the old one.
@@ -144,7 +147,9 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         while (true) {
             if (isStopped) throw CancellationException("stopped")
             show(words.uploading, (send.start * 100 / total).toInt())
-            job.original?.let { UploadEvents.progress(it, (send.start * 100 / total).toInt()) }
+            job.original?.let {
+                UploadEvents.progress(it, overallPercent((send.start * 100 / total).toInt(), compressing = false, compressed = body is Body.OfFile))
+            }
             val (status, received, message) = try {
                 putChunk(job, serverId, body, send, total)
             } catch (e: CancellationException) {
