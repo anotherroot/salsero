@@ -16,12 +16,14 @@
 	import { dropOriginal, kept, putOriginal } from '$lib/offline/device.svelte';
 	import { addOnPhone, type AddTarget } from '$lib/offline/add-phone';
 	import { uploadOriginal } from '$lib/offline/upload-original';
+	import { addFromApp } from '$lib/offline/app-originals.svelte';
 
 	let {
 		target,
 		label,
 		multiple = false,
 		bare = false,
+		viaApp = false,
 		// eslint-disable-next-line no-useless-assignment -- the parent reads it back
 		chooser = $bindable()
 	}: {
@@ -29,6 +31,8 @@
 		label: string;
 		multiple?: boolean;
 		bare?: boolean;
+		/** The Android app keeps the original in the gallery: its picker, not a file input (part 2). */
+		viaApp?: boolean;
 		/** Set on mount: opens the file chooser (from a user's tap). */
 		chooser?: () => void;
 	} = $props();
@@ -36,8 +40,24 @@
 	const w = $derived(t().video.place);
 	let input: HTMLInputElement | undefined = $state();
 	$effect(() => {
-		chooser = () => input?.click();
+		chooser = viaApp ? () => void addViaApp() : () => input?.click();
 	});
+
+	async function addViaApp() {
+		failed = null;
+		busy = true;
+		try {
+			const out = await addFromApp(target, multiple);
+			if (out.refused > 0) failed = w.notSaved;
+			if (out.added.length > 0) {
+				last = out.added[out.added.length - 1];
+				toast = { id: ++seq, message: w.saved, action: w.upload, icon: 'check', tone: 'done' };
+				await refreshWhenSettled();
+			}
+		} finally {
+			busy = false;
+		}
+	}
 	let busy = $state(false);
 	let failed = $state<string | null>(null);
 	let toast = $state<{
@@ -101,18 +121,28 @@
 	}
 </script>
 
-<label class={DASHED_ADD} class:hidden={bare} aria-busy={busy}>
-	<Icon name="upload" size={20} />{label}
-	<input
-		bind:this={input}
-		type="file"
-		accept="video/*"
-		{multiple}
-		class="sr-only"
-		disabled={busy}
-		onchange={(e) => void add([...(e.currentTarget.files ?? [])])}
-	/>
-</label>
+{#if viaApp}
+	{#if !bare}
+		<button
+			type="button"
+			class={DASHED_ADD}
+			aria-busy={busy}
+			disabled={busy}
+			onclick={() => void addViaApp()}><Icon name="upload" size={20} />{label}</button
+		>
+	{/if}
+{:else}<label class={DASHED_ADD} class:hidden={bare} aria-busy={busy}>
+		<Icon name="upload" size={20} />{label}
+		<input
+			bind:this={input}
+			type="file"
+			accept="video/*"
+			{multiple}
+			class="sr-only"
+			disabled={busy}
+			onchange={(e) => void add([...(e.currentTarget.files ?? [])])}
+		/>
+	</label>{/if}
 {#if failed}
 	<div class="mt-2"><Banner kind="error" title={failed} /></div>
 {/if}

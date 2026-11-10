@@ -27,7 +27,7 @@
 	import { currentAddMode } from '$lib/offline/add-mode.svelte';
 	import { phoneOnlyDeleteNote } from '$lib/offline/delete-words';
 	import { onIphone } from '$lib/offline/iphone-card.svelte';
-	import { dropOriginal } from '$lib/offline/device.svelte';
+	import { letOriginalGo } from '$lib/offline/app-originals.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import { spotLabel } from '$lib/video/spots';
@@ -256,7 +256,7 @@
 			// Already gone: show the list as it is now.
 			if (result.type === 'failure' && result.status === 404) await invalidateAll();
 			if (result.type === 'success') {
-				if (original) void dropOriginal(original);
+				if (original) void letOriginalGo(original);
 				await focusAfterRemoval(keys, gone, 'stop-editing');
 			}
 		};
@@ -727,12 +727,13 @@
 			<!-- Keyed: the upload's state must not carry over to another variation. Mounted
 			     in and out of edit mode, so a started upload is never remounted; it draws
 			     only its progress card and a failure. -->
-			{#if data.canEdit && !data.app}
+			{#if data.canEdit && (!data.app || addVideo === 'app-phone')}
 				{#key variation.id}
-					{#if addVideo === 'phone'}
+					{#if addVideo === 'phone' || addVideo === 'app-phone'}
 						<!-- Offline phase 4c: on a phone, the person's own video stays there. -->
 						<PhoneAddButton
 							bare
+							viaApp={addVideo === 'app-phone'}
 							bind:chooser={chooseVideo}
 							target={{ figureId: variation.id }}
 							label={t().figure.recordings.addVideo}
@@ -1042,7 +1043,7 @@
 		open={adding}
 		onclose={() => (adding = false)}
 		figureLabel="{figure.name} · {variation.name}"
-		app={!!data.app}
+		app={addVideo === 'app-link'}
 		{uploading}
 		appHref={uploadLink(
 			{ figure: variation.id },

@@ -36,7 +36,7 @@
 	import { currentAddMode } from '$lib/offline/add-mode.svelte';
 	import { phoneOnlyDeleteNote } from '$lib/offline/delete-words';
 	import { onIphone } from '$lib/offline/iphone-card.svelte';
-	import { dropOriginal } from '$lib/offline/device.svelte';
+	import { letOriginalGo } from '$lib/offline/app-originals.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
@@ -258,6 +258,8 @@
 	}
 
 	const styleLabel = $derived(styleLabelOf(data.dance.styleLabel));
+	/** What adding a video does here (offline phase 4c). */
+	const lessonAdd = $derived(currentAddMode(!!data.app, data.lesson.teamId === null));
 
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
@@ -1124,7 +1126,7 @@
 								<p class="px-1 text-[15px] text-muted">{w.page.noVideos}</p>
 							{/if}
 						{:else}<div class={data.videos.length ? 'mt-3' : ''}>
-								{#if data.app}
+								{#if lessonAdd === 'app-link'}
 									<AppUploadLink
 										kind="dashed"
 										href={uploadLink(
@@ -1133,9 +1135,10 @@
 										)}
 										label={w.page.addVideos}
 									/>
-								{:else if currentAddMode(false, lesson.teamId === null) === 'phone'}
+								{:else if lessonAdd === 'phone' || lessonAdd === 'app-phone'}
 									<!-- Offline phase 4c: on a phone, the person's own videos stay there. -->
 									<PhoneAddButton
+										viaApp={lessonAdd === 'app-phone'}
 										target={{ lessonId: lesson.id }}
 										label={w.page.addVideos}
 										multiple
@@ -1381,7 +1384,7 @@
 						deleteBusy = false;
 						deletingVideo = null;
 					}
-					if (result.type === 'success' && original) void dropOriginal(original);
+					if (result.type === 'success' && original) void letOriginalGo(original);
 					if (result.type === 'success' && id !== undefined)
 						await focusAfterRemoval(keys, `video-${id}`, 'videos-heading');
 				};

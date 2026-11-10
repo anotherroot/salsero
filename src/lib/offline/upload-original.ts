@@ -7,6 +7,8 @@
 import { putChunks } from '$lib/upload-chunks';
 import { getOriginal, syncNow } from './device.svelte';
 import { startUpload } from './uploads.svelte';
+import { appOriginals } from './places.svelte';
+import { uploadFromApp } from './app-originals.svelte';
 
 export type OriginalTarget = { table: 'recordings' | 'lesson_videos'; id: number; file: string };
 
@@ -37,6 +39,11 @@ export async function uploadOriginal(
 	v: OriginalTarget,
 	deps: Deps = DEFAULTS
 ): Promise<{ ok: true } | { ok: false; reason: string | null }> {
+	// The Android app holds it in the gallery: the app compresses and sends it (part 2).
+	if (deps === DEFAULTS && appOriginals.files.includes(v.file))
+		return (await uploadFromApp(v.table, v.id, v.file))
+			? { ok: true }
+			: { ok: false, reason: null };
 	let out: { ok: true } | { ok: false; reason: string | null } = { ok: false, reason: null };
 	await startUpload(v.file, async (onPct) => {
 		const blob = await deps.get(v.file);

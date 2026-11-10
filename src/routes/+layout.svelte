@@ -52,6 +52,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
 	import { pagePerson } from '$lib/offline/person';
+	import { readAppOriginals } from '$lib/offline/app-originals.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
 	import ShotOffer from '$lib/components/feedback/ShotOffer.svelte';
@@ -332,6 +333,11 @@
 	$effect(() => {
 		const person = pagePerson(data);
 		if (person !== undefined) setPerson(person);
+	});
+	// The Android app's gallery originals for this person (offline phase 4c part 2).
+	$effect(() => {
+		const person = pagePerson(data);
+		if (person) void readAppOriginals(person);
 	});
 	$effect(() => {
 		const show = () =>

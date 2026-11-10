@@ -104,6 +104,8 @@
 		ondeletevideo,
 		onmenu
 	}: Props = $props();
+	/** What adding a video does here (offline phase 4c). */
+	const lessonAdd = $derived(currentAddMode(!!app, team === null));
 
 	let broken = $state<Record<number, MediaProblem>>({});
 
@@ -351,7 +353,7 @@
 				{/if}
 				{#if canEdit}
 					<div class={videos.length ? 'mt-3' : ''}>
-						{#if app}
+						{#if lessonAdd === 'app-link'}
 							<AppUploadLink
 								kind="dashed"
 								href={uploadLink(
@@ -360,8 +362,9 @@
 								)}
 								label={t().lesson.page.addVideos}
 							/>
-						{:else if currentAddMode(false, team === null) === 'phone'}
+						{:else if lessonAdd === 'phone' || lessonAdd === 'app-phone'}
 							<PhoneAddButton
+								viaApp={lessonAdd === 'app-phone'}
 								target={{ lessonId: lesson.id }}
 								label={t().lesson.page.addVideos}
 								multiple

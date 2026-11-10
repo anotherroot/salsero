@@ -16,13 +16,26 @@
 	import { t } from '$lib/i18n/catalog';
 	import { changeKeep, kept } from '$lib/offline/kept.svelte';
 	import { spaceLine } from '$lib/offline/kept-view';
+	import { onMount } from 'svelte';
+	import { appVideos } from '$lib/offline/app-videos';
 
 	const w = $derived(t().settings.onPhone);
 	const status = $derived(kept.status);
 	/** The person's own videos kept only here (offline phase 4c). */
 	const originals = $derived(status?.bytes.originals ?? 0);
-	const used = $derived(status ? status.bytes.songs + status.bytes.videos + originals : 0);
-	const whole = $derived(status ? used + (status.free ?? 0) : 0);
+	/** The Android app: its gallery originals' bytes and the phone's own free space (part 2). */
+	let app = $state<{ free: number; gallery: number } | null>(null);
+	onMount(() => {
+		void appVideos()
+			?.space()
+			.then((s) => (app = s && s.free >= 0 ? s : null));
+	});
+	const gallery = $derived(app?.gallery ?? 0);
+	const free = $derived(app ? app.free : (status?.free ?? null));
+	const used = $derived(
+		status ? status.bytes.songs + status.bytes.videos + originals + gallery : 0
+	);
+	const whole = $derived(status ? used + (free ?? 0) : 0);
 	const share = (n: number) => (whole > 0 ? `${(n / whole) * 100}%` : '0%');
 	const nothingKept = $derived(
 		!status ||
@@ -57,12 +70,15 @@
 
 			<div class="rounded-2xl bg-surface p-4">
 				<div class="text-[16px] font-bold text-ink">
-					{w.used(byteSize(used), status.free === null ? null : byteSize(status.free))}
+					{w.used(byteSize(used), free === null ? null : byteSize(free))}
 				</div>
 				<div class="{CLIP} mt-2.5 flex h-3.5 gap-0.5 rounded-full" aria-hidden="true">
 					<span class="bg-accent/40" style:width={share(status.bytes.songs)}></span>
 					<span class="bg-accent" style:width={share(status.bytes.videos)}></span>
-					{#if originals > 0}<span class="bg-ink-2" style:width={share(originals)}></span>{/if}
+					{#if originals + gallery > 0}<span
+							class="bg-ink-2"
+							style:width={share(originals + gallery)}
+						></span>{/if}
 					<span class="flex-1 bg-track"></span>
 				</div>
 				<div class="mt-2.5 flex flex-col gap-1 text-[13px] font-semibold text-muted">
@@ -76,6 +92,13 @@
 							byteSize(status.bytes.videos)
 						)}</span
 					>
+					{#if gallery > 0}
+						<span class="flex items-center gap-1.5" data-gallery
+							><i class="size-2.5 rounded-[3px] bg-ink-2"></i>{w.legendGallery(
+								byteSize(gallery)
+							)}</span
+						>
+					{/if}
 					{#if originals > 0}
 						<span class="flex items-center gap-1.5" data-originals
 							><i class="size-2.5 rounded-[3px] bg-ink-2"></i>{w.legendOriginals(
