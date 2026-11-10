@@ -68,7 +68,7 @@
 	});
 
 	/** The words' swap: the old line lifts away, the new one rises in. */
-	const swap = () => (reducedMotion() ? 0 : MS.short);
+	const swapMs = () => (reducedMotion() ? 0 : MS.short);
 
 	const cls =
 		'flex min-h-[84px] w-full flex-none items-center gap-[14px] rounded-[22px] bg-surface py-[14px] pr-[14px] pl-5 text-left shadow-[0_4px_16px_rgb(0_0_0/0.12)]';
@@ -84,8 +84,8 @@
 			{#key view.title}<span
 					aria-hidden="true"
 					class="[grid-area:1/1]"
-					in:fly={{ y: 8, duration: swap(), delay: swap() * 0.6 }}
-					out:fly={{ y: -8, duration: swap() }}>{view.title}</span
+					in:fly={{ y: 8, duration: swapMs(), delay: swapMs() * 0.6 }}
+					out:fly={{ y: -8, duration: swapMs() }}>{view.title}</span
 				>{/key}
 		</span>
 		{#if view.bar}
@@ -101,8 +101,8 @@
 			{#key view.meta}<span
 					aria-hidden="true"
 					class="[grid-area:1/1]"
-					in:fly={{ y: 8, duration: swap(), delay: swap() * 0.6 }}
-					out:fly={{ y: -8, duration: swap() }}>{view.meta}</span
+					in:fly={{ y: 8, duration: swapMs(), delay: swapMs() * 0.6 }}
+					out:fly={{ y: -8, duration: swapMs() }}>{view.meta}</span
 				>{/key}
 		</span>
 	</div>
