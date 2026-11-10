@@ -51,7 +51,11 @@ export function noteError(reason: unknown): void {
 	errors = pushed(errors, errorLine(reason), KEEP_ERRORS);
 }
 
-/** What Send feedback sends from this tab. */
-export function report(): { page: string | null; trail: string[]; errors: string[] } {
-	return { page: pageBefore(pages), trail: [...pages], errors: [...errors] };
+/**
+ * What Send feedback sends from this tab. `here`: sent from the page itself (after
+ * a screenshot), so the page is the one open, not the one before it.
+ */
+export function report(here = false): { page: string | null; trail: string[]; errors: string[] } {
+	const page = here ? (pages[pages.length - 1] ?? null) : pageBefore(pages);
+	return { page, trail: [...pages], errors: [...errors] };
 }

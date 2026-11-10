@@ -11,6 +11,13 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
+// Screenshots go to a temporary folder, never $DATA_DIR.
+const shots = vi.hoisted(() => ({ dir: '' }));
+vi.mock('$lib/server/files', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/files')>('$lib/server/files');
+	return { ...actual, feedbackDir: () => shots.dir };
+});
+
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
@@ -32,6 +39,9 @@ import { createHash } from 'node:crypto';
 import { approve, exchangeCode, listGrants } from '$lib/server/oauth/store';
 import { serverNow } from '$lib/server/server-clock';
 import { feedbackFor } from '$lib/server/feedback';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const USER = {
 	id: 'u1',
@@ -383,5 +393,49 @@ describe('feedback', () => {
 		expect(r.status).toBe(400);
 		expect(r.data.message).toBe('Najprej kaj napišite.');
 		expect(feedbackFor(db, 'bachata').open).toEqual([]);
+	});
+});
+
+describe('feedback with a screenshot', () => {
+	it('keeps the screenshot beside the message', async () => {
+		shots.dir = mkdtempSync(join(tmpdir(), 'shots-'));
+		try {
+			const body = new FormData();
+			body.set('message', 'Look at this');
+			body.set('shot', new Blob([new Uint8Array([0xff, 0xd8, 0xff, 1])], { type: 'image/jpeg' }));
+			const e = post({});
+			const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+			expect(await call(actions.feedback, event)).toEqual({ sent: true });
+			const [row] = feedbackFor(db, 'bachata').open;
+			expect(row.shot).toBe(`${row.id}.jpg`);
+			expect(readdirSync(shots.dir)).toEqual([`${row.id}.jpg`]);
+		} finally {
+			rmSync(shots.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('keeps the message when the screenshot cannot be written', async () => {
+		shots.dir = join(tmpdir(), 'no-such-folder-' + Math.random().toString(36).slice(2), 'x');
+		const body = new FormData();
+		body.set('message', 'Disk full');
+		body.set('shot', new Blob([new Uint8Array([0xff, 0xd8, 0xff, 1])], { type: 'image/jpeg' }));
+		const e = post({});
+		const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+		const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		quiet.mockRestore();
+		expect(feedbackFor(db, 'bachata').open.map((r) => [r.message, r.shot])).toEqual([
+			['Disk full', null]
+		]);
+	});
+
+	it('keeps the message and leaves out a screenshot that is not one', async () => {
+		const body = new FormData();
+		body.set('message', 'No picture');
+		body.set('shot', new Blob(['not a jpeg'], { type: 'image/jpeg' }));
+		const e = post({});
+		const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		expect(feedbackFor(db, 'bachata').open[0].shot).toBeNull();
 	});
 });

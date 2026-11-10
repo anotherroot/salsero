@@ -337,6 +337,13 @@
       "when": 1794314732070,
       "tag": "0047_nervous_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794324311043,
+      "tag": "0048_burly_riptide",
+      "breakpoints": true
     }
   ]
 }

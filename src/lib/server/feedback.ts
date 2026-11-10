@@ -2,6 +2,8 @@ import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { AppAgent } from '$lib/app-update/agent';
 import type { DanceSlug } from '$lib/dances/dances';
 import { ERROR_CHARS, KEEP_ERRORS, KEEP_PAGES } from '$lib/feedback/trail';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Db } from './db';
 import { feedback, users } from './db/schema';
 
@@ -108,6 +110,8 @@ export interface FeedbackRow {
 	appChannel: string | null;
 	userAgent: string | null;
 	viewport: string | null;
+	/** The screenshot's file name, when one came with it. */
+	shot: string | null;
 	createdAt: number;
 	doneAt: number | null;
 }
@@ -137,6 +141,7 @@ function rows(db: Db, dance: DanceSlug, done: boolean, limit?: number): Feedback
 			appChannel: feedback.appChannel,
 			userAgent: feedback.userAgent,
 			viewport: feedback.viewport,
+			shot: feedback.shot,
 			createdAt: feedback.createdAt,
 			doneAt: feedback.doneAt
 		})
@@ -190,4 +195,39 @@ export function markFeedback(db: Db, dance: DanceSlug, id: number, doneAt: numbe
 		.where(and(eq(feedback.id, id), eq(feedback.dance, dance)))
 		.run();
 	return res.changes > 0;
+}
+
+/** The largest screenshot taken: the page sends a JPEG of at most 1280 px on its long side. */
+export const SHOT_MAX_BYTES = 3 * 1024 * 1024;
+
+/**
+ * The screenshot in the form (`shot`), as its bytes: null when none came, 'bad'
+ * when it is not a JPEG or is too large. The page always sends a JPEG (the
+ * Android app's capture, or a picked picture redrawn in the page).
+ */
+export async function readShot(form: FormData): Promise<Uint8Array | null | 'bad'> {
+	const file = form.get('shot');
+	if (file === null || typeof file === 'string') return null;
+	if (file.size === 0) return null;
+	if (file.size > SHOT_MAX_BYTES) return 'bad';
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+	return jpeg ? bytes : 'bad';
+}
+
+/** Write a message's screenshot to `dir` as `<id>.jpg` and note it on the row. */
+export function keepShot(db: Db, dir: string, id: number, bytes: Uint8Array): void {
+	const name = `${id}.jpg`;
+	writeFileSync(join(dir, name), bytes);
+	db.update(feedback).set({ shot: name }).where(eq(feedback.id, id)).run();
+}
+
+/** The screenshot's file name of one of the dance's messages; null when it has none or is not the dance's. */
+export function shotOf(db: Db, dance: DanceSlug, id: number): string | null {
+	const row = db
+		.select({ shot: feedback.shot })
+		.from(feedback)
+		.where(and(eq(feedback.id, id), eq(feedback.dance, dance)))
+		.get();
+	return row?.shot ?? null;
 }

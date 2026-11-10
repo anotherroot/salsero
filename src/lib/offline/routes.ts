@@ -85,6 +85,8 @@ export const NETWORK_ENDPOINTS = [
 	'/api/worker/songs/[id]/audio',
 	'/api/worker/starts',
 	'/api/worker/timelines/[id]/source',
+	// A feedback message's screenshot: the admin's, from the server alone.
+	'/admin/feedback/[id]/shot',
 	'/releases/[dance]/[file]',
 	'/health',
 	'/manifest-[dance].webmanifest',

@@ -14,6 +14,21 @@ export const feedback: Catalog['feedback'] = {
 	sending: 'Pošiljam',
 	sent: 'Hvala! Poslano.',
 	couldNotSend: 'Ni se poslalo. Poskusite znova.',
+	offer: {
+		title: 'Je tu kaj narobe?',
+		sub: 'Pošljite ta posnetek zaslona z opombo',
+		report: 'Sporoči',
+		close: 'Ne zdaj'
+	},
+	shot: {
+		title: 'Posnetek tega zaslona',
+		picked: 'Vaš posnetek zaslona',
+		goes: 'Pošlje se z vašim sporočilom',
+		remove: 'Odstrani posnetek zaslona',
+		add: 'Dodajte posnetek zaslona',
+		addSub: 'Iz fotografij ali datotek',
+		unreadable: 'Te slike ni bilo mogoče odpreti.'
+	},
 	refusals: {
 		empty: 'Najprej kaj napišite.',
 		tooLong: 'Predolgo je: največ 4000 znakov.'
@@ -35,6 +50,8 @@ export const feedback: Catalog['feedback'] = {
 		inBrowser: 'V brskalniku',
 		window: (size) => `Okno ${size}`,
 		site: (when) => `Spletna stran z dne ${when}`,
+		shot: 'Posnetek zaslona',
+		shotOf: (who) => `Posnetek zaslona: ${who}`,
 		didNotSave: 'Ni se shranilo.',
 		gone: 'Tega sporočila ni več.'
 	}

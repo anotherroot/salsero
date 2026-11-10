@@ -2,6 +2,7 @@ package eu.anotherroot.salsa
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -9,10 +10,15 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Base64
+import android.view.PixelCopy
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
@@ -36,6 +42,7 @@ import androidx.activity.result.contract.ActivityResultContracts.StartActivityFo
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -47,6 +54,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONException
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.util.Locale
 
 /**
@@ -112,6 +120,12 @@ abstract class WebShell : ComponentActivity() {
 
     /** Tells the page's `speechSynthesis` shim when an utterance starts and ends. */
     private var speechReply: JavaScriptReplyProxy? = null
+
+    /** The page that asked to be told about screenshots ([shotBridge]); a new page asks again. */
+    private var shotReply: JavaScriptReplyProxy? = null
+
+    /** Android 14's screenshot callback, made once ([watchScreenshots]). */
+    private var screenshotCallback: Any? = null
 
     private val pickFiles = registerForActivityResult(StartActivityForResult()) { result ->
         fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
@@ -198,6 +212,7 @@ abstract class WebShell : ComponentActivity() {
         speechBridge(web)
         barsBridge(web)
         turnBridge(web)
+        shotBridge(web)
         // The Update button (direct build; the Play build's does nothing).
         installUpdateBridge(this, web)
     }
@@ -208,6 +223,16 @@ abstract class WebShell : ComponentActivity() {
         // A notification or the link activity asks for a page; a plain icon tap keeps the one open.
         val data = intent.dataString ?: return
         if (alive) web.loadUrl(startUrl(data))
+    }
+
+    override fun onStart() {
+        super.onStart()
+        watchScreenshots(true)
+    }
+
+    override fun onStop() {
+        watchScreenshots(false)
+        super.onStop()
     }
 
     override fun onResume() {
@@ -272,6 +297,7 @@ abstract class WebShell : ComponentActivity() {
         // A new page starts with the screen free to dim, and upright: its player asks again.
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             keepAwake(false)
+            shotReply = null
             pageTurns = false
             turn()
         }
@@ -446,6 +472,78 @@ abstract class WebShell : ComponentActivity() {
     }
 
     /**
+     * Send feedback ([Shot.kt]): the page posts [SHOT_LISTEN] to `SalsaShot` and
+     * is told, from then on, about each screenshot taken while it shows.
+     */
+    private fun shotBridge(web: WebView) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        WebViewCompat.addWebMessageListener(web, SHOT_OBJECT, setOf(BuildConfig.SITE)) { _, message, _, isMainFrame, reply ->
+            if (isMainFrame && message.data == SHOT_LISTEN) shotReply = reply
+        }
+    }
+
+    /** Android 14 and later say when a screenshot is taken while this screen shows; earlier ones never do. */
+    private fun watchScreenshots(on: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        val callback = (screenshotCallback as? Activity.ScreenCaptureCallback)
+            ?: Activity.ScreenCaptureCallback { captureShot() }.also { screenshotCallback = it }
+        try {
+            if (on) registerScreenCaptureCallback(mainExecutor, callback) else unregisterScreenCaptureCallback(callback)
+        } catch (e: RuntimeException) {
+            // Not registered (a stop before a start) or not allowed: no offer, nothing else changes.
+        }
+    }
+
+    /**
+     * Copies this window as it is now (the system's own screenshot is its own
+     * window, not in it), shrinks it and posts the page a JPEG data URL. The
+     * page's video shows only when the WebView draws it; a full-screen video
+     * may come out black.
+     */
+    private fun captureShot() {
+        val reply = shotReply ?: return
+        val view = window.decorView
+        if (!alive || view.width == 0 || view.height == 0) return
+        val full = try {
+            createBitmap(view.width, view.height)
+        } catch (e: OutOfMemoryError) {
+            return
+        }
+        val copied = { result: Int ->
+            if (result != PixelCopy.SUCCESS) {
+                full.recycle()
+            } else {
+                Thread {
+                    // A low-memory phone may fail here: no offer, never a crash.
+                    val url = try {
+                        jpegDataUrl(full)
+                    } catch (e: Throwable) {
+                        null
+                    } finally {
+                        full.recycle()
+                    }
+                    if (url != null) runOnUiThread { if (shotReply === reply && alive) reply.postMessage(url) }
+                }.start()
+            }
+        }
+        try {
+            PixelCopy.request(window, full, copied, Handler(Looper.getMainLooper()))
+        } catch (e: IllegalArgumentException) {
+            // The window has no surface any more (the app went to the background as the callback ran).
+            full.recycle()
+        }
+    }
+
+    private fun jpegDataUrl(bitmap: Bitmap): String {
+        val size = shotSize(bitmap.width, bitmap.height)
+        val small = if (size.width == bitmap.width) bitmap else bitmap.scale(size.width, size.height)
+        val out = ByteArrayOutputStream()
+        small.compress(Bitmap.CompressFormat.JPEG, 75, out)
+        if (small !== bitmap) small.recycle()
+        return "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
+
+    /**
      * `speechSynthesis` for our pages, spoken by Android's TextToSpeech: the
      * engine Chrome on Android speaks with, so rate, pitch, volume and the
      * default voice behave as they did there. No voice list: a page gets the
@@ -539,6 +637,9 @@ abstract class WebShell : ComponentActivity() {
         const val BARS_OBJECT = "SalsaBars"
 
         const val TURN_OBJECT = "SalsaTurn"
+
+        /** Send feedback's screenshots ([shotBridge]); the page's `offer.svelte.ts` reads the same name. */
+        const val SHOT_OBJECT = "SalsaShot"
 
         const val WAKE_LOCK_OBJECT = "appWakeLock"
 
