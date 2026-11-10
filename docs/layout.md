@@ -630,8 +630,13 @@ src/lib/server/feedback.ts  Send feedback: `readFeedback` (the form; what the pa
                      never refused), `sendFeedback`, `feedbackFor` (the admin's open and last done),
                      `markFeedback`, `openFeedbackCount` (the Admin row on Settings). Table
                      `feedback`, never synced, never deleted; posted to `/settings?/feedback` (network)
-src/lib/components/feedback/FeedbackRow.svelte  the Send feedback row and its sheet, on You
-                     (`YouSettings`) and Settings
+src/lib/components/feedback/  FeedbackRow (the row on You and Settings), FeedbackSheet (the sheet: the
+                     screenshot tile, the text box, Send), ShotOffer (the card after an Android
+                     screenshot, mounted in the root layout)
+src/lib/feedback/shot.ts, shrink.ts, offer.svelte.ts  the screenshot: JPEG data URLs, a picked
+                     picture redrawn (canvas), the app's `SalsaShot` bridge; android/…/Shot.kt and
+                     WebShell `captureShot` take it (PixelCopy) after Android 14's screenshot callback
+src/routes/admin/feedback/[id]/shot/  a feedback screenshot, the admin of its dance only
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
 src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the

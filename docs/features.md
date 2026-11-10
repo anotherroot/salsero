@@ -140,7 +140,12 @@ message goes to the dance's admin with the page before the one it was written fr
 and script errors of the tab, the site's build, the window, and the Android app's version and the
 browser from the request; the admin page lists them first, each with Done (and Open again under
 "Done (N)"), and Settings' Admin row says "N new messages"; table `feedback`, migration 0047, never
-synced, network-only: offline the Send button says it needs a connection).
+synced, network-only: offline the Send button says it needs a connection; since 2026-11-10 also a
+screenshot: a tile at the top of the sheet (option S1 of the board
+https://claude.ai/artifact/LDr9EG7QwBJx6damw4eg4x) takes a picked picture, redrawn as a JPEG of at most
+1280 px, and after a screenshot in the Android app (1.9, Android 14+: `SalsaShot`) a card over the
+bottom bars, "Something wrong here?" (option C), opens the sheet over that page with the screenshot on
+it; kept in `$DATA_DIR/feedback`, migration 0048, shown on the admin card and whole on a tap).
 
 
 ## Specs
