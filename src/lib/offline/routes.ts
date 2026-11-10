@@ -39,8 +39,18 @@ export const NETWORK_PAGES = [
 	// The AI connector's consent page: the server's own answer, never the device's.
 	'/oauth/authorize',
 	// The AI's queue: the server's alone (its tables are never synced).
-	'/[dance]/suggestions'
+	'/[dance]/suggestions',
+	// Picking from a pasted list reads its items (`song_imports`, never synced; device first).
+	'/[dance]/songs/imports/[id]'
 ];
+
+/**
+ * Pages the device draws only offline (device first): online their data comes
+ * from the network first, as in phase 2, because their own load reads tables
+ * that never reach a device. Settings: paired phones (`device_tokens`),
+ * connected AI apps (`oauth_grants`), storage (`storage_requests`).
+ */
+export const NETWORK_FIRST_PAGES = ['/settings'];
 
 /** GET endpoints answerable from synced rows. */
 export const DEVICE_ENDPOINTS = [
@@ -51,10 +61,16 @@ export const DEVICE_ENDPOINTS = [
 ];
 
 /**
- * GET endpoints whose files the device keeps (offline phase 4a): the service
+ * GET endpoints whose files the device keeps (song audio and count takes, 4a;
+ * lesson videos and recordings, 4b): the service
  * worker answers them from the media store (`media-store.ts`), else the network.
  */
-export const MEDIA_ENDPOINTS = ['/audio/[file]', '/count/[file]'];
+export const MEDIA_ENDPOINTS = [
+	'/audio/[file]',
+	'/count/[file]',
+	'/lesson-videos/[file]',
+	'/recordings/[file]'
+];
 
 /** Every other GET endpoint: the server's alone. */
 export const NETWORK_ENDPOINTS = [
@@ -69,8 +85,8 @@ export const NETWORK_ENDPOINTS = [
 	'/api/worker/songs/[id]/audio',
 	'/api/worker/starts',
 	'/api/worker/timelines/[id]/source',
-	'/lesson-videos/[file]',
-	'/recordings/[file]',
+	// A feedback message's screenshot: the admin's, from the server alone.
+	'/admin/feedback/[id]/shot',
 	'/releases/[dance]/[file]',
 	'/health',
 	'/manifest-[dance].webmanifest',
@@ -84,11 +100,18 @@ export const NETWORK_ENDPOINTS = [
 
 const DATA = '/__data.json';
 const networkPages = NETWORK_PAGES.map(routePattern);
+const networkFirstPages = NETWORK_FIRST_PAGES.map(routePattern);
 const deviceEndpoints = DEVICE_ENDPOINTS.map(routePattern);
 
 /** Whether a page path is a network page (`NETWORK_PAGES`): the device never draws it. */
 export function isNetworkPage(path: string): boolean {
 	return networkPages.some((re) => re.test(path));
+}
+
+/** Whether a page (or its `__data.json`) reads the network first online (`NETWORK_FIRST_PAGES`). */
+export function isNetworkFirstPage(path: string): boolean {
+	const page = path.endsWith(DATA) ? path.slice(0, -DATA.length) || '/' : path;
+	return networkFirstPages.some((re) => re.test(page));
 }
 
 /** Whether the device may answer this request from its copy. */
@@ -358,6 +381,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 	},
 	'/admin': {
 		decline: 'network',
+		feedbackDone: 'network',
+		feedbackOpen: 'network',
 		grant: 'network',
 		invite: 'network',
 		setGroupLimit: 'network',
@@ -397,6 +422,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		ask: 'network',
 		dailyCount: 'device',
 		disconnectApp: 'network',
+		// Send feedback: to the admin, on the server only (never synced).
+		feedback: 'network',
 		language: 'network',
 		level: 'device',
 		name: 'device',

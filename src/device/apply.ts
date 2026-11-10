@@ -7,7 +7,7 @@
  */
 import { SYNCED } from '$lib/sync/tables';
 import { digestInput, keyString } from '$lib/sync/digest';
-import type { PullRequest, PullResponse } from '$lib/sync/wire';
+import type { ClonePairRow, PullRequest, PullResponse } from '$lib/sync/wire';
 import { readMeta, writeMetaValue, type SqliteDb } from './migrate';
 
 const q = (name: string) => `"${name.replaceAll('"', '""')}"`;
@@ -23,6 +23,8 @@ export function wipeCopy(db: SqliteDb): void {
 	db.exec('BEGIN');
 	try {
 		for (const t of Object.keys(SYNCED)) db.exec(`DELETE FROM ${q(t)}`);
+		// The person's clone pairs come with the pull too (device first).
+		db.exec('DELETE FROM clone_pairs');
 		db.exec("DELETE FROM device_meta WHERE key NOT IN ('deviceKey', 'slot')");
 		db.exec('COMMIT');
 	} catch (e) {
@@ -45,15 +47,25 @@ function upsertSql(table: string, cols: string[]): string {
 		: `${insert} ${on} DO NOTHING`;
 }
 
-export function applyPull(db: SqliteDb, res: PullResponse): void {
+/**
+ * Applies a pull and says how much it changed: the rows it wrote, plus one
+ * when the page cookies it carries differ from the copy's, and one when its
+ * server-only facts (`extras`) do. A table resent whole
+ * counts every row (its digest differed, so something in it changed).
+ */
+export function applyPull(db: SqliteDb, res: PullResponse): number {
 	const before = readMeta(db);
+	let changes = 0;
 	if (before.userId !== null && before.userId !== res.userId) wipeCopy(db);
 
 	db.pragma('foreign_keys = OFF');
 	db.exec('BEGIN');
 	try {
 		for (const t of res.full) {
-			if (t in SYNCED) db.exec(`DELETE FROM ${q(t)}`);
+			if (!(t in SYNCED)) continue;
+			// A row gone from a table resent whole is a change too, with no row to count.
+			changes += (db.prepare(`SELECT count(*) AS n FROM ${q(t)}`).get() as { n: number }).n;
+			db.exec(`DELETE FROM ${q(t)}`);
 		}
 		for (const [table, { cols, rows }] of Object.entries(res.changed)) {
 			if (!(table in SYNCED)) continue;
@@ -72,6 +84,7 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 					throw new Error(`a row of ${table} has ${row.length} values for ${cols.length} columns`);
 				}
 				stmt.run(...keep.map(([, i]) => row[i]));
+				changes += 1;
 			}
 		}
 		// The device logs nothing in phase 2.
@@ -79,7 +92,14 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 		writeMetaValue(db, 'userId', res.userId);
 		writeMetaValue(db, 'cursor', String(res.cursor));
 		writeMetaValue(db, 'schema', res.schema);
+		if (JSON.stringify(before.cookies) !== JSON.stringify(res.cookies)) changes += 1;
 		writeMetaValue(db, 'cookies', JSON.stringify(res.cookies));
+		if (res.clonePairs !== undefined) changes += replacePairs(db, res.clonePairs);
+		// An older server sends none: the copy keeps what it has.
+		if (res.extras !== undefined) {
+			if (JSON.stringify(before.extras) !== JSON.stringify(res.extras)) changes += 1;
+			writeMetaValue(db, 'extras', JSON.stringify(res.extras));
+		}
 		writeMetaValue(db, 'full', '0');
 		if (res.slot !== undefined) writeMetaValue(db, 'slot', String(res.slot));
 		db.exec('COMMIT');
@@ -101,6 +121,7 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 		throw e;
 	}
 	db.pragma('foreign_keys = ON');
+	return changes;
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -142,4 +163,25 @@ export function ensureDeviceKey(db: SqliteDb, newKey: () => string): string {
 	const key = newKey();
 	writeMetaValue(db, 'deviceKey', key);
 	return key;
+}
+
+/**
+ * The copy's `clone_pairs` become the pull's (device first: never synced as a
+ * table, sent whole with each pull). 1 when they differ, else 0.
+ */
+function replacePairs(db: SqliteDb, pairs: ClonePairRow[]): number {
+	const key = (p: ClonePairRow) => `${p.kind}|${p.a_id}|${p.b_id}|${p.base_json}|${p.at}`;
+	const had = (
+		db.prepare('SELECT kind, a_id, b_id, base_json, at FROM clone_pairs').all() as ClonePairRow[]
+	)
+		.map(key)
+		.sort();
+	const now = pairs.map(key).sort();
+	if (had.length === now.length && had.every((k, i) => k === now[i])) return 0;
+	db.exec('DELETE FROM clone_pairs');
+	const insert = db.prepare(
+		'INSERT INTO clone_pairs (kind, a_id, b_id, base_json, at) VALUES (?, ?, ?, ?, ?)'
+	);
+	for (const p of pairs) insert.run(p.kind, p.a_id, p.b_id, p.base_json, p.at);
+	return 1;
 }

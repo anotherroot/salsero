@@ -8,6 +8,8 @@
 	import { resolve } from '$app/paths';
 	import { keepFilter, keepSearch, keptFilter } from '$lib/nav/trail.svelte';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { deviceReady, pullNow } from '$lib/offline/device.svelte';
+	import { pollStep } from '$lib/offline/poll';
 	import { entryState } from '$lib/sheets/history.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -187,7 +189,10 @@
 	);
 	$effect(() => {
 		if (!waiting || !(isList || desk.current)) return;
-		const t = setInterval(() => invalidate('app:songs'), 10_000);
+		const t = setInterval(
+			() => (pollStep(deviceReady()) === 'pull' ? pullNow() : void invalidate('app:songs')),
+			10_000
+		);
 		return () => clearInterval(t);
 	});
 

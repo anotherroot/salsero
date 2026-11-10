@@ -1475,6 +1475,43 @@ export const storageRequests = sqliteTable(
 	(t) => [index('storage_requests_user_idx').on(t.userId, t.resolvedAt)]
 );
 
+/**
+ * A tester's message to the admin (Send feedback on You and Settings), with what
+ * the page knew when it was sent: where they were, the site's build, the app,
+ * the browser. The admin of the dance reads it and marks it done (`done_at`);
+ * never synced, never deleted.
+ */
+export const feedback = sqliteTable(
+	'feedback',
+	{
+		id: mintedId('feedback'),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		message: text('message').notNull(),
+		/** The page before the one they wrote from: the one they most likely mean. */
+		page: text('page'),
+		/** The last pages opened, oldest first, as a JSON array of paths. */
+		trail: text('trail').notNull().default('[]'),
+		/** The last script errors the page met, as a JSON array of strings. */
+		errors: text('errors').notNull().default('[]'),
+		/** The page's build (SvelteKit's `version`: the build time in ms, as text). */
+		siteVersion: text('site_version'),
+		/** The screenshot's file in `$DATA_DIR/feedback` (`<id>.jpg`), when one came with it. */
+		shot: text('shot'),
+		/** The Android app's version code and channel, when sent from the app. */
+		appVersion: integer('app_version'),
+		appChannel: text('app_channel'),
+		userAgent: text('user_agent'),
+		/** "390×844": the window in CSS pixels. */
+		viewport: text('viewport'),
+		createdAt: createdAt(),
+		doneAt: integer('done_at')
+	},
+	(t) => [index('feedback_dance_idx').on(t.dance, t.doneAt)]
+);
+
 /* ── Groups (in code, teams: `figure_groups` already means a figure) ───── */
 
 /** A group: a class that shares its lessons. Its rows carry `team_id` instead of `user_id`. */

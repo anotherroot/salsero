@@ -11,6 +11,13 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
+// Screenshots go to a temporary folder, never $DATA_DIR.
+const shots = vi.hoisted(() => ({ dir: '' }));
+vi.mock('$lib/server/files', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/files')>('$lib/server/files');
+	return { ...actual, feedbackDir: () => shots.dir };
+});
+
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
@@ -31,6 +38,10 @@ import { actions, load } from './+page.server';
 import { createHash } from 'node:crypto';
 import { approve, exchangeCode, listGrants } from '$lib/server/oauth/store';
 import { serverNow } from '$lib/server/server-clock';
+import { feedbackFor } from '$lib/server/feedback';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const USER = {
 	id: 'u1',
@@ -338,5 +349,93 @@ describe('Connected AI apps', () => {
 			status: 404
 		});
 		expect((await apps()).map((a) => a.id)).toEqual([id]);
+	});
+});
+
+describe('feedback', () => {
+	it('keeps the message with the app and browser of the request, in the account’s dance', async () => {
+		const e = post({
+			message: 'The count stops',
+			page: '/bachata/moves/3',
+			trail: JSON.stringify(['/bachata/moves/3', '/bachata/groups']),
+			version: '1762770000000',
+			viewport: '390×844'
+		});
+		const ua =
+			'Mozilla/5.0 (Linux; Android 14; wv) Chrome/131.0 Mobile SalsaApp/9 (bachata; direct)';
+		const event = {
+			...e,
+			request: new Request(e.request, {
+				headers: {
+					'content-type': 'application/x-www-form-urlencoded',
+					'user-agent': ua
+				}
+			})
+		};
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		const [row] = feedbackFor(db, 'bachata').open;
+		expect(row).toMatchObject({
+			email: 'u1@example.com',
+			message: 'The count stops',
+			page: '/bachata/moves/3',
+			appVersion: 9,
+			appChannel: 'direct',
+			userAgent: ua,
+			viewport: '390×844'
+		});
+	});
+
+	it('refuses an empty message, in the person’s language', async () => {
+		const r = (await runInLocale('sl', () => call(actions.feedback, post({ message: ' ' })))) as {
+			status: number;
+			data: { message: string };
+		};
+		expect(r.status).toBe(400);
+		expect(r.data.message).toBe('Najprej kaj napišite.');
+		expect(feedbackFor(db, 'bachata').open).toEqual([]);
+	});
+});
+
+describe('feedback with a screenshot', () => {
+	it('keeps the screenshot beside the message', async () => {
+		shots.dir = mkdtempSync(join(tmpdir(), 'shots-'));
+		try {
+			const body = new FormData();
+			body.set('message', 'Look at this');
+			body.set('shot', new Blob([new Uint8Array([0xff, 0xd8, 0xff, 1])], { type: 'image/jpeg' }));
+			const e = post({});
+			const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+			expect(await call(actions.feedback, event)).toEqual({ sent: true });
+			const [row] = feedbackFor(db, 'bachata').open;
+			expect(row.shot).toBe(`${row.id}.jpg`);
+			expect(readdirSync(shots.dir)).toEqual([`${row.id}.jpg`]);
+		} finally {
+			rmSync(shots.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('keeps the message when the screenshot cannot be written', async () => {
+		shots.dir = join(tmpdir(), 'no-such-folder-' + Math.random().toString(36).slice(2), 'x');
+		const body = new FormData();
+		body.set('message', 'Disk full');
+		body.set('shot', new Blob([new Uint8Array([0xff, 0xd8, 0xff, 1])], { type: 'image/jpeg' }));
+		const e = post({});
+		const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+		const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		quiet.mockRestore();
+		expect(feedbackFor(db, 'bachata').open.map((r) => [r.message, r.shot])).toEqual([
+			['Disk full', null]
+		]);
+	});
+
+	it('keeps the message and leaves out a screenshot that is not one', async () => {
+		const body = new FormData();
+		body.set('message', 'No picture');
+		body.set('shot', new Blob(['not a jpeg'], { type: 'image/jpeg' }));
+		const e = post({});
+		const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		expect(feedbackFor(db, 'bachata').open[0].shot).toBeNull();
 	});
 });

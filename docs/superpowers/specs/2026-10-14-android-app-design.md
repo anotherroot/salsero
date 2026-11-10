@@ -6,6 +6,19 @@
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md)'s and is not
 > changed; this document adds a second client for it.
 
+## A screenshot offers a report (2026-11-10, 1.9)
+
+On Android 14 and later the app registers a screen-capture callback while its
+screen shows (`DETECT_SCREEN_CAPTURE`, a normal permission: no prompt). When the
+person takes a screenshot, the app copies its own window (`PixelCopy`; the
+system's screenshot preview is another window), shrinks it to 1280 px on the
+long side (`Shot.kt`), and posts it as a JPEG data URL to the page that asked
+on `SalsaShot` (`listen`). The page shows "Something wrong here?" over the
+bottom bars and opens Send feedback with it (`src/lib/feedback/offer.svelte.ts`,
+`ShotOffer.svelte`). Older Android versions never call back: the You row and the
+sheet's Add a screenshot are the way there. A video the page shows in the
+system's full screen may come out black.
+
 ## The app's own words follow the account (2026-11-08, 1.8)
 
 The app's own text — notifications and their channel names, toasts, the share

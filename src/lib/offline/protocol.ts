@@ -53,7 +53,10 @@ export type DeviceIn =
 	| { type: 'discard'; id: string }
 	| { type: 'resolve'; id: string }
 	| { type: 'sync-now' }
-	| { type: 'forget' };
+	| { type: 'forget' }
+	/** Videos kept on the phone (offline phase 4b); each carries a reply port, answered with `KeepStatus | null`. */
+	| { type: 'keep-get' }
+	| { type: 'keep-set'; change: KeepChange };
 
 /**
  * From the worker. `pulled`: a pull landed; `startedAt` is when its request
@@ -61,10 +64,15 @@ export type DeviceIn =
  */
 export type DeviceOut =
 	| { type: 'state'; state: DeviceState }
-	/** `landed`: how many outbox entries the pushes before this pull landed. */
-	| { type: 'pulled'; cursor: number; startedAt: number; landed: number }
+	/**
+	 * `landed`: how many outbox entries the pushes before this pull landed;
+	 * `changed`: how much the pull changed in the copy (`applyPull`), 0 for nothing.
+	 */
+	| { type: 'pulled'; cursor: number; startedAt: number; landed: number; changed: number }
 	/** After every change to the outbox or its meta (offline phase 3). */
-	| { type: 'outbox'; summary: OutboxSummary };
+	| { type: 'outbox'; summary: OutboxSummary }
+	/** After every media pass and settings change, and while a file comes (offline phase 4b). */
+	| { type: 'keep'; status: KeepStatus };
 
 /**
  * From the service worker to the page. `device-fetch` carries a reply port and
@@ -96,7 +104,9 @@ export type SwIn =
 	  }
 	| { type: 'device-pulled'; startedAt: number }
 	/** The outbox changed: what the service worker keeps across its restarts. */
-	| { type: 'outbox'; waiting: number; epochs: number[] };
+	| { type: 'outbox'; waiting: number; epochs: number[] }
+	/** Whether this browser holds a copy (device first, step 2): a page load is drawn from it. */
+	| { type: 'copy'; has: boolean };
 
 /** What the band and the Sync page need to know about the outbox (offline phase 3). */
 export type OutboxSummary = {
@@ -131,4 +141,52 @@ export type OutboxItem = {
 	heldBy: string | null;
 	dependents: number;
 	fields: [string, string][];
+};
+
+/*
+ * Videos kept on the phone (offline phase 4b). The settings are this device's
+ * (`device_meta` `keep`): a space is `mine` or `team:<id>`; a kept video is
+ * `<kind>/<file>`, its media path without the first slash.
+ */
+export type SpaceId = string;
+export type KeepSettings = { spaces: SpaceId[]; wifiOnly: boolean; videos: string[] };
+export type KeepChange =
+	| { space: SpaceId; on: boolean }
+	| { wifiOnly: boolean }
+	| { video: string; on: boolean }
+	| { clear: true };
+/** A space's row on the On this phone page. `name` null: My lessons. */
+export type SpaceRow = {
+	id: SpaceId;
+	name: string | null;
+	on: boolean;
+	videos: number;
+	bytes: number;
+	held: number;
+	heldBytes: number;
+};
+/** A video kept by itself; `index` is its place on its lesson (1-based), null for a recording. */
+export type KeptVideo = {
+	key: string;
+	title: string;
+	index: number | null;
+	bytes: number;
+	held: boolean;
+};
+export type KeepStatus = {
+	settings: KeepSettings;
+	spaces: SpaceRow[];
+	kept: KeptVideo[];
+	/** Video keys a switched-on space keeps → its id. */
+	bySpace: Record<string, SpaceId>;
+	/** Whole video files on the phone, `<kind>/<file>`. */
+	held: string[];
+	inFlight: { key: string; received: number; total: number } | null;
+	/** Why wanted videos are not coming now. */
+	waiting: 'wifi' | 'offline' | 'space' | null;
+	canTellWifi: boolean;
+	bytes: { songs: number; videos: number };
+	/** Free for this app (quota − usage); null where the browser won't say. */
+	free: number | null;
+	low: boolean;
 };

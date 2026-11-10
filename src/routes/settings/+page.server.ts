@@ -32,6 +32,15 @@ import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
 import { parseLocale } from '$lib/i18n/locale';
 import { t } from '$lib/i18n/catalog';
 import { setLocale, setLocaleCookie } from '$lib/server/locale';
+import {
+	keepShot,
+	openFeedbackCount,
+	readFeedback,
+	readShot,
+	sendFeedback
+} from '$lib/server/feedback';
+import { feedbackDir } from '$lib/server/files';
+import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import type { Actions, PageServerLoad } from './$types';
 
 import { serverNow } from '$lib/server/server-clock';
@@ -54,6 +63,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		dance,
 		isAdmin: locals.user.isAdmin,
+		// The Admin row's line: how many feedback messages wait (the admin's dance).
+		feedbackWaiting: locals.user.isAdmin ? openFeedbackCount(db, dance) : 0,
 		name: { firstName: locals.user.firstName ?? '', lastName: locals.user.lastName ?? '' },
 		defaultStyle: defaultStyle(db, locals.user.id, dance),
 		device: deviceSettings(db, locals.user.id),
@@ -236,5 +247,38 @@ export const actions: Actions = {
 		if (id === undefined || !restoreGrant(getDb(), locals.user.id, id, serverNow()))
 			return fail(410, { message: t().settings.refusals.tooLate });
 		return { ok: true };
+	},
+
+	/**
+	 * Send feedback (You and Settings): the message to the dance's admin, with the
+	 * page's trail and build from the form, the app and the browser from the request.
+	 */
+	feedback: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const form = await request.formData();
+		const input = readFeedback(form);
+		if (input === 'empty') return fail(400, { message: t().feedback.refusals.empty });
+		if (input === 'long') return fail(400, { message: t().feedback.refusals.tooLong });
+		// A screenshot the page made wrong is left out, never a refusal: the message still counts.
+		const shot = await readShot(form);
+		const userAgent = request.headers.get('user-agent');
+		const agent = parseAppAgent(userAgent) ?? parseAppVersion(request.headers.get('x-app-version'));
+		const id = sendFeedback(
+			getDb(),
+			{ userId: locals.user.id, dance: locals.user.dance },
+			input,
+			{ agent, userAgent },
+			serverNow()
+		);
+		// The message is kept: a screenshot that cannot be written is left out, not a failure
+		// (one would bring the same message again).
+		if (shot instanceof Uint8Array) {
+			try {
+				keepShot(getDb(), feedbackDir(), id, shot);
+			} catch (e) {
+				console.error('feedback: the screenshot was not kept', e);
+			}
+		}
+		return { sent: true };
 	}
 };

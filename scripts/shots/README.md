@@ -17,6 +17,7 @@ answers it prints the server log and exits 1. It exits 1 too if any page is not 
 a full-page shot draws them once at the top, so desktop pages are compared with their boards (1440×900) this way.
 Phone baselines stay full-page.
 `BAND_LIVE_DIR=<dir>` (an environment variable): the `band-*` scenes also shoot each frame there before the rig stops animations (the phone band's fold runs on scroll timelines, which the rig's `animation:none` would freeze at rest).
+`SHOTS_TOUCH=1` (an environment variable) gives the scenes' browser a touch screen (`has_touch`, `is_mobile`), so a scene can drag a finger with CDP touch events (`ext_link_other.py`'s `_drag`; `lo-only-list` checks a picker scrolls its list, not its sheet).
 `SHOTS_SCROLLBARS=1` (an environment variable) keeps the window's scrollbars, which headless Chromium hides: for
 checking the desktop's scrollbar (it starts under the band row) with `--viewport`.
 `SHOTS_DANCE=bachata` (an environment variable) shoots the other dance: `{dance}` and the placeholders use it.
@@ -37,7 +38,7 @@ window): the phone must have none, and a desktop page none from 1024.
 
 `DELAY_FROM=<path>` (an environment variable, a template line like those in `pages.txt`) shoots each
 page while it loads: it opens `<path>`, follows a link to the page with its `__data.json` held unanswered,
-and shoots 1.2 s later, skeleton up. Its line then says `SIDE live` when every link of the desktop's
+and shoots 1.2 s later, skeleton up (on the desktop; the phone shows the lifted card and its dots, page changes spec). Its line then says `SIDE live` when every link of the desktop's
 side is what a click at its centre hits, and `SIDE BLOCKED by <element>` (a failure) when the
 skeleton covers it; no `SIDE` where no side shows (the phone).
 

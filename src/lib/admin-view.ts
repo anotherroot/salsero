@@ -1,6 +1,8 @@
 /** PURE: the admin page's wording and the limit presets. Client-safe. */
 import type { Channel } from './app-update/agent';
-import { daysBetween } from './day/day';
+import { daysBetween, localDay, timeOfDay } from './day/day';
+import { deviceLine } from './feedback/device';
+import { fullName } from './names';
 import { DANCES, type DanceSlug } from './dances/dances';
 import { byteSize, dateLabel, dayLabel } from './format';
 import { t } from './i18n/catalog';
@@ -95,4 +97,82 @@ export function appsLines(
 		const play = s.channel === 'play' ? ' (Play)' : '';
 		return c.admin.app(label, s.versionCode, play, when);
 	});
+}
+
+/** "10 Nov, 13:04" in the admin's zone. */
+function whenLabel(at: number, tz: string): string {
+	return `${dayLabel(localDay(at, tz))}, ${timeOfDay(at, tz)}`;
+}
+
+/** What the admin page shows of one feedback message (the server reads the row). */
+export interface FeedbackView {
+	id: number;
+	who: string;
+	email: string;
+	message: string;
+	/** "Sent 10 Nov, 13:04". */
+	sent: string;
+	/** The facts under it, one per line: the page, the pages before, the app or browser, the window, the site's build. */
+	lines: string[];
+	errors: string[];
+	userAgent: string | null;
+	/** The screenshot's address on the admin page, when one came with it. */
+	shot: string | null;
+	done: boolean;
+}
+
+/**
+ * One message for the admin: who sent it, when, and what the page knew, as
+ * lines. The page they wrote from (You, Settings) is left out of "Before"; the
+ * site's build is its time (SvelteKit's `version`), shown as a date.
+ */
+export function feedbackView(
+	row: {
+		id: number;
+		email: string;
+		firstName: string | null;
+		lastName: string | null;
+		message: string;
+		page: string | null;
+		trail: string[];
+		errors: string[];
+		siteVersion: string | null;
+		appVersion: number | null;
+		appChannel: string | null;
+		userAgent: string | null;
+		viewport: string | null;
+		shot: string | null;
+		createdAt: number;
+		doneAt: number | null;
+	},
+	tz: string
+): FeedbackView {
+	const w = t().feedback.admin;
+	const lines: string[] = [];
+	if (row.page) lines.push(w.page(row.page));
+	// The pages before the one they mean, newest last; the page they wrote from is the trail's end.
+	const at = row.page === null ? -1 : row.trail.lastIndexOf(row.page);
+	const before = at > 0 ? row.trail.slice(Math.max(0, at - 3), at) : [];
+	if (before.length) lines.push(w.trail(before.join(' → ')));
+	const device = deviceLine(row.userAgent);
+	const where =
+		row.appVersion !== null
+			? w.app(row.appVersion, row.appChannel === 'play' ? ' (Play)' : '')
+			: w.inBrowser;
+	lines.push([where, device].filter(Boolean).join(' · '));
+	if (row.viewport) lines.push(w.window(row.viewport));
+	const built = row.siteVersion === null ? NaN : Number(row.siteVersion);
+	if (Number.isFinite(built) && built > 0) lines.push(w.site(whenLabel(built, tz)));
+	return {
+		id: row.id,
+		who: fullName(row),
+		email: row.email,
+		message: row.message,
+		sent: w.sent(whenLabel(row.createdAt, tz)),
+		lines,
+		errors: row.errors,
+		userAgent: row.userAgent,
+		shot: row.shot === null ? null : `/admin/feedback/${row.id}/shot`,
+		done: row.doneAt !== null
+	};
 }

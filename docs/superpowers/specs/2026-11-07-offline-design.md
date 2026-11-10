@@ -357,7 +357,9 @@ own block:
   with them off and never checks them.
 - **Synced and not:** `clone_sync` is synced (Keep in step shows on pages);
   `clone_marks` and `change_log` are never synced, like `id_marks`.
-- **Network first in phase 2.** Online, every request reaches the server as
+- **Network first in phase 2** (superseded 2026-11-10 by device first, see
+  `2026-11-10-device-first-design.md`: online, reads go to the device first).
+  Online, every request reaches the server as
   without a service worker. The device answers only when the network fails (a
   rejected fetch, 502/503/504/520–530, or 4 s with no answer while the device is
   ready); after a save, a page's reads wait for the network until the device has

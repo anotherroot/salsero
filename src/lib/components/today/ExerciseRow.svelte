@@ -11,6 +11,7 @@
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import { PRESS_ROW } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
+	import { settledIn } from '$lib/motion/page-move.svelte';
 
 	interface Props {
 		row: DayRow<ExerciseItem>;
@@ -44,6 +45,8 @@
 		onswipe,
 		drag
 	}: Props = $props();
+	// The check pops once the card has landed (page changes spec): read once, as the row is drawn.
+	const popDelay = settledIn();
 
 	const ex = $derived(row.exercise);
 	const done = $derived(row.kind === 'done');
@@ -92,7 +95,9 @@
 		>
 			<!-- The row opens the exercise: its page is where it is practised and saved. -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
-				<span class="flex flex-none {landed ? 'motion-pop' : ''}"
+				<span
+					class="flex flex-none {landed ? 'motion-pop' : ''}"
+					style:animation-delay={landed ? `${popDelay}ms` : undefined}
 					><TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} /></span
 				>
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">

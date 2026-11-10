@@ -19,6 +19,14 @@ export const sync = {
 		sent: 'All sent',
 		see: 'See'
 	},
+	/** Pull down to refresh (device first, look C): the words in the band's gap. */
+	pull: {
+		pull: 'Pull to sync',
+		release: 'Let go to sync',
+		syncing: 'Syncing…',
+		done: 'Up to date',
+		offline: 'Offline'
+	},
 	refusedHeading: "Couldn't sync",
 	waitingHeading: 'Waiting',
 	retry: 'Retry',

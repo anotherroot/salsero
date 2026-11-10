@@ -19,6 +19,7 @@
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { MS, reducedMotion } from '$lib/motion/motion';
+	import { settledIn } from '$lib/motion/page-move.svelte';
 
 	/**
 	 * The bar card over Today's list (board "Today"): "3 left for today", a bar
@@ -59,12 +60,19 @@
 			drawn = lastSeen = next;
 			return;
 		}
-		const frame = requestAnimationFrame(() => {
-			// The old state is on screen now: its style computed first, so the change can transition.
-			void card?.offsetWidth;
-			drawn = lastSeen = next;
-		});
-		return () => cancelAnimationFrame(frame);
+		// Once the card has landed (page changes spec), then a frame later, so the old state painted first.
+		let frame = 0;
+		const timer = setTimeout(() => {
+			frame = requestAnimationFrame(() => {
+				// The old state is on screen now: its style computed first, so the change can transition.
+				void card?.offsetWidth;
+				drawn = lastSeen = next;
+			});
+		}, untrack(settledIn));
+		return () => {
+			clearTimeout(timer);
+			cancelAnimationFrame(frame);
+		};
 	});
 
 	/** The words' swap: the old line lifts away, the new one rises in. */

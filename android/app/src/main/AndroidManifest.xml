@@ -10,6 +10,8 @@
     <!-- The voice page records the user's own count (mic). Asked when first used. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- Send feedback: told when the person takes a screenshot (Android 14+), to offer a report. -->
+    <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
 
     <application
         android:allowBackup="false"

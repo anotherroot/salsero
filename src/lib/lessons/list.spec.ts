@@ -11,9 +11,11 @@ import {
 	lessonCounts,
 	monthGroups,
 	byMonth,
+	onPhoneMark,
 	splitDrafts,
 	videoMeta
 } from './list';
+import type { KeepStatus } from '$lib/offline/protocol';
 import { byteSize } from '$lib/format';
 
 const lesson = (lessonDay: string, over: Partial<LessonItem> = {}): LessonItem => ({
@@ -209,5 +211,16 @@ describe('the Lessons list in Slovenian', () => {
 			'Dodajte jo po naslednji uri tečaja: videe in opombe. Vidijo jo vsi v tečaju, ko jo objavite.'
 		);
 		expect(sl(() => pickLesson().title)).toBe('Izberite lekcijo');
+	});
+});
+
+describe('onPhoneMark (offline phase 4b)', () => {
+	const status = { held: ['lesson-videos/a.mp4', 'lesson-videos/b.mp4'] } as KeepStatus;
+	it('says so only when every video of the lesson is on the phone', () => {
+		expect(onPhoneMark({ videoFiles: ['a.mp4', 'b.mp4'] }, status)).toBe('on this phone');
+		expect(onPhoneMark({ videoFiles: ['a.mp4', 'c.mp4'] }, status)).toBeNull();
+		expect(onPhoneMark({ videoFiles: [] }, status)).toBeNull();
+		expect(onPhoneMark({}, status)).toBeNull();
+		expect(onPhoneMark({ videoFiles: ['a.mp4'] }, null)).toBeNull();
 	});
 });

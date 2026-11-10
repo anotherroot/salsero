@@ -316,6 +316,8 @@ scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoo
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from; its colours are the first, brighter ones (tokens.ts is the source since the warm palette, 2026-11-07)
+src/lib/sheets/idle-refresh.ts  `refreshWhenIdle()`: a pull with changes re-reads the page once no sheet,
+                     unsaved form, save on its way or the player is over it (device first)
 src/lib/sheets/      `whenSettled(fn)` (history.svelte.ts) runs fn after the sheets' Back has landed; with
                      `backWhenSettled(fallback, {replace})` in `nav/trail.svelte.ts` it is how a save closes
                      its sheet and goes back. stack.ts is PURE: one history entry per open Sheet behind a
@@ -498,7 +500,17 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
 src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
                      loaded (it stays under way for good, the skeleton over the old page); the
                      root layout watches `navigating`, goes again, and loads whole after 2 tries
-src/lib/motion/       motion round 1 (spec 2026-11-10-motion-round-1). motion.ts: the vocabulary (MS
+src/lib/motion/pull-refresh.ts  PURE: pull down to refresh (device first, look C): `pullDistance`,
+                     `mayStart`, `doneWord`, the numbers; `components/ui/PullRefresh.svelte` draws
+                     it under `Screen` (prop `pull`)
+src/lib/motion/       page changes (round 2, spec 2026-11-10-page-transitions): page-move.ts PURE
+                     (where the card's edge is, where it waits, which move a navigation gets,
+                     PAGE_MOVE's values) and page-move.svelte.ts (the runtime, wired once by the
+                     root layout: lifts the Screen's <main>, holds it, lands it in afterNavigate;
+                     `settledIn`, `goBack`, `stepInPage`). components/shell/PageWait.svelte (the
+                     dots, phone), DeskWait.svelte (the desktop's Go back), StillTrying.svelte (the
+                     line both draw).
+                     motion round 1 (spec 2026-11-10-motion-round-1). motion.ts: the vocabulary (MS
                      150/260/380, ARRIVE, SETTLE, LEAVE; layout.css has the same as --motion-*
                      and --ease-*) and `play()`, still under reduced motion. flip.ts PURE: a
                      keyed list's change as moves (`flipPlan`), and `kept`, what a list with an
@@ -561,8 +573,8 @@ src/lib/dances/hosts.ts  PURE: which host serves which dance (`parseDanceHosts`,
 src/lib/server/dance-split.ts  `splitAccounts`, at boot before the admin: places every account in
                      one dance; one that held both keeps salsa and its bachata half moves to a
                      new account. `danceIntegrity` (integrity.ts) reports what is on the wrong side
-src/routes/admin/    the admin page of one dance: its people, limits, invites, requests for more
-                     space (`adminReaches` before every change)
+src/routes/admin/    the admin page of one dance: testers' feedback (Done / Open again), its people,
+                     limits, invites, requests for more space (`adminReaches` before every change)
 src/routes/join/     Join: a person creates their account from an invite link (public)
 src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figures / Routines /
                      Positions switch, the three lists in a 360 column beside the open item,
@@ -621,7 +633,22 @@ src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archive
                      POST behind a picker's "Archived by … · Restore" (a group's figure,
                      routine or drill); it lists nothing
 src/routes/settings/storage/  What uses space: the person's files biggest first, Delete, Ask for more
-src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe
+src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe;
+                     `feedbackView`: one feedback message as the admin's lines
+src/lib/feedback/    PURE, client-safe: device.ts reads a user agent as "Android 14 · Chrome 131";
+                     trail.ts keeps this tab's last pages and script errors (the root layout
+                     records them) for Send feedback
+src/lib/server/feedback.ts  Send feedback: `readFeedback` (the form; what the page adds is cut,
+                     never refused), `sendFeedback`, `feedbackFor` (the admin's open and last done),
+                     `markFeedback`, `openFeedbackCount` (the Admin row on Settings). Table
+                     `feedback`, never synced, never deleted; posted to `/settings?/feedback` (network)
+src/lib/components/feedback/  FeedbackRow (the row on You and Settings), FeedbackSheet (the sheet: the
+                     screenshot tile, the text box, Send), ShotOffer (the card after an Android
+                     screenshot, mounted in the root layout)
+src/lib/feedback/shot.ts, shrink.ts, offer.svelte.ts  the screenshot: JPEG data URLs, a picked
+                     picture redrawn (canvas), the app's `SalsaShot` bridge; android/…/Shot.kt and
+                     WebShell `captureShot` take it (PixelCopy) after Android 14's screenshot callback
+src/routes/admin/feedback/[id]/shot/  a feedback screenshot, the admin of its dance only
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
 src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
@@ -672,7 +699,10 @@ src/lib/sync/        PURE, client-safe, shared by the server, the device and the
                      a label's and a reason's words; Discard's and Sign out's questions), resolve.ts
                      (`resendFields`: a clash's Mine sent again)
 src/lib/server/sync/  log.ts (`change_log`: head, oldest, `changedSince`, the 30-day prune in
-                     `startTrashPurge`), scope.ts (`syncScope`: every row a person may read,
+                     `startTrashPurge`), extras.ts (`serverExtras`: what only the server knows, sent
+                     with every pull for the layouts the device draws: the Music dot, the AI count,
+                     a connected AI app, the APK release, To pick, a group's trash bytes, lessons'
+                     last edits; device first), scope.ts (`syncScope`: every row a person may read,
                      redacted — other people's users rows, a group's code, deleted comments),
                      pull.ts (`pull`: changes since the cursor, whole tables when a key-set digest
                      differs), test-world.ts (specs only). Served by POST /api/sync/pull (cookie
@@ -707,6 +737,20 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `memoryMediaStore` for specs; `mediaOf`/`mediaPath`), media-range.ts
                      (`rangeResponse`, PURE: a file answered with Range; `FROM_HEADER`);
                      routes.ts `MEDIA_ENDPOINTS` (/audio, /count: the phone's file first)
+                     Device first (2026-11-10): routes.ts `NETWORK_FIRST_PAGES` (Settings) and
+                     `isNetworkFirstPage`; sw-route.ts `readPlan`, `deviceFailed`,
+                     `DeviceClients.readsDeviceFirst`; poll.ts (`pollStep`: a page waiting on the
+                     worker pulls, `pullNow`); server-only.spec.ts (a device-drawn load reads no
+                     server-only table)
+                     Phase 4b: the store also holds `lesson-videos` and `recordings` (`VIDEO_KINDS`;
+                     a video's `.part` stays to resume, committed every 8 MiB), both MEDIA_ENDPOINTS;
+                     network.ts (PURE: `linkOf` Wi-Fi or mobile data, `canTellWifi`, `freeOf`,
+                     `isLow`, `fits`, `LOW_SPACE_BYTES`); kept-view.ts (PURE: `videoKeep`,
+                     `keepWord`, `spaceLine`, `suggestions`, `lessonOnPhone`, `phoneRowLine`);
+                     kept.svelte.ts (`kept`, the worker's `KeepStatus`; `changeKeep`); low-space.ts
+                     (the sheet once); protocol.ts `KeepSettings`/`KeepChange`/`KeepStatus`.
+                     The look: routes/settings/phone (On this phone), components/ui/KeepButton,
+                     components/settings/LowSpaceCard, components/shell/LowSpaceSheet
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,
@@ -720,7 +764,9 @@ src/device/          bundled for the device worker only (vite.device.config.ts �
                      (`recordEntry`, `toSend`, `applyResults`, `outboxSummary`, `outboxItems`,
                      `retryEntry`, `discardEntry`, `forgetPerson`), media.ts (phase 4a:
                      `wantedMedia`, the copy's songs and count takes; `syncMedia`, the store
-                     brought to them after each sync), node-stubs/
+                     brought to them after each sync; 4b: videos on Wi-Fi, while there is space,
+                     resumed with Range; `mediaKeeper.restart`), keep.ts (phase 4b: `device_meta`
+                     `keep`, `wantedVideos`, `spaceRows`, `keptVideos`, `keptBySpace`), node-stubs/
 src/service-worker.ts  network first for reads; on a failure: navigations → the cached /shell,
                      reads → the device, writes → "Needs a connection". Phase 3: device/queued
                      writes go to the device first; reads come from the device while entries

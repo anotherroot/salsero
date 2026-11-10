@@ -145,7 +145,8 @@ may refine how, not what.
   online too: the server doesn't have them yet, so a page reloading after a
   save must not show the old state. With nothing waiting, reads go network
   first as in phase 2 (the service worker learns the outbox count from the
-  device's state).
+  device's state). Superseded 2026-11-10: reads go to the device first online
+  too (`2026-11-10-device-first-design.md`).
 - **A pull waits for the outbox:** the device pulls only once every entry
   has landed or been refused, so a pull never overwrites a change still on
   its way. Offline there is no pull anyway; online the outbox drains in

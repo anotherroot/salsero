@@ -23,6 +23,8 @@ values to the walk.
    5 warm opens of `/{dance}` (load event; a second's pause before each so the last page's device worker is
    not still starting) with the service worker and 5 in a context with `service_workers='block'`, prints
    both medians, and fails when the first is more than 100 ms over the second.
+   Then (device first) it taps each tab online and fails if any page data (`__data.json`) came from the
+   server rather than the device (`X-Salsa-From: device`).
 2. **Offline, every page.** `context.set_offline(True)`, then a full `goto` of every line of
    `scripts/shots/pages.txt`, placeholders filled by `shots.py`'s `placeholders`. A page passes with no
    `pageerror`, no console error (media files are phase 4's), no error page (`[data-error-screen]`) and a
@@ -59,7 +61,11 @@ values to the walk.
     person's first song's audio into the server's `DATA_DIR` (a name the server would refuse gets a uuid
     one, in the copy only). Online the device keeps it (`media/audio/<file>` in OPFS, 30 s cap); a
     `Range: bytes=0-99` fetch of `/audio/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`,
-    online and offline; Settings shows "Songs and your count · …".
+    online and offline; Settings' On this phone row says "Songs … · videos …".
+14. **A lesson video with no signal** (phase 4b). Before the walk, `put_video` finds a lesson of the walk
+    person's (or a group's they are in) with one video whose file is in `DATA_DIR`, and sets its row's size to the file's. Its
+    page's phone button under the video keeps it (`data-keep` off → on); a `Range: bytes=0-99` fetch of
+    `/lesson-videos/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`, online and offline.
 
 The walk writes to the server's copy (10's archive), so run it on a fresh `serve.sh` each time.
 `WALK_SHOTS=<dir>` (an environment variable) saves a picture of the offline strip on the exercise and

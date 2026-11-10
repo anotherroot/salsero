@@ -118,13 +118,21 @@ step; a YouTube or Spotify playlist or album is read by the worker into a pick l
 [`docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md`](docs/superpowers/specs/2026-11-08-spotify-and-playlists-design.md))
 and the app offline (offline phases 1–3: ids from slots and one server clock;
 the server logs every change, a device pulls its person's copy into SQLite on the phone, and
-SvelteKit's own server code answers from it when the network fails; a change made with no
+SvelteKit's own server code answers from it, online too (device first, 2026-11-10: opening a
+page never waits on the network; the pull every 5 min, on focus, on reconnect and after a save
+keeps the copy fresh and re-reads the open page when it brought changes; pull down to refresh
+on the phone says "Pull to sync" in the band; Settings reads the network first; see
+[`docs/superpowers/specs/2026-11-10-device-first-design.md`](docs/superpowers/specs/2026-11-10-device-first-design.md)); a change made with no
 signal saves on the phone and syncs later, dated when it was made: an amber strip above the
 bottom bars says "Offline · 5 changes waiting" (then "Sending 5 …", "All sent"), the band
 "1 couldn't sync ›", a Sync page with Retry and Discard, a Waiting badge on
 queued group things, and what needs a connection greyed; songs and the count play with no signal
-(the phone keeps every song's audio by itself; Settings → On this phone says how much); the rest of
-phase 4 (videos) and phase 5 to come; see
+(the phone keeps every song's audio by itself); lesson videos and recordings kept on the phone
+(Settings → On this phone, its own page: a switch per space, My lessons and each group, keeps all
+its lessons' videos, Only on Wi-Fi where the phone says which, Clear kept videos; a phone button
+under any video keeps that one; downloads resume where they were cut off; short of space, a sheet
+once and a dot on You; see the phase 4 spec's 4b); phase 4c (your videos only on the phone) and
+phase 5 to come; see
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)
 and [`docs/superpowers/specs/2026-11-09-offline-phase-3-design.md`](docs/superpowers/specs/2026-11-09-offline-phase-3-design.md)).
 and the group view (2026-11-09: the group's look follows where you are, not a switch: a page
@@ -135,6 +143,17 @@ band, the badge in the slim band, the tab bar filled with the band's colour and 
 side's cream card; navy and the group cookie are gone; a group drill shows the view while
 edited; see
 [`docs/superpowers/specs/2026-11-09-group-view-design.md`](docs/superpowers/specs/2026-11-09-group-view-design.md)).
+and Send feedback (2026-11-10: a row on You and on Settings opens a sheet with one text box; the
+message goes to the dance's admin with the page before the one it was written from, the last few pages
+and script errors of the tab, the site's build, the window, and the Android app's version and the
+browser from the request; the admin page lists them first, each with Done (and Open again under
+"Done (N)"), and Settings' Admin row says "N new messages"; table `feedback`, migration 0047, never
+synced, network-only: offline the Send button says it needs a connection; since 2026-11-10 also a
+screenshot: a tile at the top of the sheet (option S1 of the board
+https://claude.ai/artifact/LDr9EG7QwBJx6damw4eg4x) takes a picked picture, redrawn as a JPEG of at most
+1280 px, and after a screenshot in the Android app (1.9, Android 14+: `SalsaShot`) a card over the
+bottom bars, "Something wrong here?" (option C), opens the sheet over that page with the screenshot on
+it; kept in `$DATA_DIR/feedback`, migration 0048, shown on the admin card and whole on a tap).
 
 
 ## Specs
@@ -317,4 +336,12 @@ links, sections, recordings, Music's To pick, comments, Suggestions and a past d
 slide away and toasts rise; Done lands on Today (the row lifts into its done place, its
 check pops, the bar fills, the words swap); the player's count pushes on the beat (every count
 alike, the 1 is drawn like the rest), the lit dot grows, and Next rises into the call on a new figure. Nothing waits
-on motion, and reduced motion turns it all off. Page transitions are for a later round.
+on motion, and reduced motion turns it all off. Changing pages (round 2,
+[`docs/superpowers/specs/2026-11-10-page-transitions-design.md`](docs/superpowers/specs/2026-11-10-page-transitions-design.md)):
+on the phone the page's card lifts on the tap and its words fade, holds empty while the page
+loads (three dots after half a second, "Still trying… Go back" after 8 s), and lands where the
+new page's band ends as its words fade in; scrolled down it holds square under the slim band; a
+figure's switcher steps change only the words; Practice and the map fade in and out; Done's
+landing plays once the card has settled. The phone has no skeleton or progress bar now; the
+desktop keeps both and offers Go back after 8 s. The Offline layer leaves the tab bar showing,
+and Not found no longer says "ERROR 404".

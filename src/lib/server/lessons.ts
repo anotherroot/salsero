@@ -11,6 +11,7 @@ import {
 	ne,
 	notInArray,
 	or,
+	sql,
 	sum
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
@@ -592,6 +593,7 @@ function lessonRows(
 			videos: count(lessonVideos.id),
 			// `sum` is null when a lesson has no videos; the cast keeps the shape honest.
 			videoBytes: sum(lessonVideos.sizeBytes),
+			videoFiles: sql<string | null>`group_concat(${lessonVideos.file}, '/')`,
 			createdAt: lessons.createdAt,
 			publishedAt: lessons.publishedAt
 		})
@@ -606,6 +608,8 @@ function lessonRows(
 			// A person's copy of a group's lesson says whose it was (the group's name stays).
 			copyOf: copyOf.get(r.id) ?? null,
 			videoBytes: Number(r.videoBytes ?? 0),
+			// A file name has no slash (`LESSON_VIDEO_FILE_RE`), so it can join them.
+			videoFiles: r.videoFiles ? r.videoFiles.split('/') : [],
 			sections: sections.get(r.id) ?? 0,
 			routines: routineCounts.get(r.id) ?? 0,
 			figures: figureGroupsOf.get(r.id)?.size ?? 0

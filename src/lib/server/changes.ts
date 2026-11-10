@@ -20,6 +20,7 @@
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from './db';
+import { deviceRuntime } from './device-runtime';
 import {
 	exercises,
 	figures,
@@ -276,14 +277,17 @@ export function lastEdit(
 	rootKind: ChangeRootKind,
 	rootId: number
 ): { actorId: string; at: number } | null {
-	return (
+	const here =
 		db
 			.select({ actorId: teamChanges.actorId, at: teamChanges.at })
 			.from(teamChanges)
 			.where(ofRoot(teamId, rootKind, rootId))
 			.orderBy(desc(teamChanges.at), desc(teamChanges.id))
-			.get() ?? null
-	);
+			.get() ?? null;
+	// History never reaches a device: the last pull says, unless a change made here since is later.
+	const pulled = deviceRuntime()?.extras?.lastEdits?.[`${rootKind}:${rootId}`] ?? null;
+	if (!pulled) return here;
+	return here && here.at > pulled.at ? here : pulled;
 }
 
 /**

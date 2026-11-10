@@ -26,8 +26,10 @@ import type { PullRequest } from '$lib/sync/wire';
 import type { DeviceOut, WireRequest } from '$lib/offline/protocol';
 import { migrateDevice, readMeta } from './migrate';
 import { repoMigrations } from './test-migrations';
+import { DEFAULT_KEEP, readKeep } from './keep';
 import {
 	copyHasUser,
+	dataFailed,
 	createDevice,
 	deviceHeaders,
 	oneAtATime,
@@ -193,12 +195,30 @@ describe('start', () => {
 		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled' });
 		expect(count('figures')).toBeGreaterThan(0);
 		expect(h.runtimes).toEqual([
-			{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' }, slot: 1 }
+			{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' }, slot: 1, extras: null }
 		]);
 		expect(h.startServer).toHaveBeenCalledTimes(1);
 		expect(h.bodies).toEqual([
 			{ cursor: 0, schema: SCHEMA_TAG, userId: null, device: expect.any(String) }
 		]);
+	});
+
+	it("hands the pull's server-only facts to the runtime", async () => {
+		const extras = {
+			musicToPick: true,
+			aiPending: 2,
+			aiConnected: false,
+			release: null,
+			imports: { own: [], teams: {} }
+		};
+		const h = harness({
+			fetchPull: async (body) => {
+				const res = answerAsServer(body);
+				return Response.json({ ...(await res.json()), extras });
+			}
+		});
+		await h.dev.start();
+		expect(h.runtimes.at(-1)?.extras).toEqual(extras);
 	});
 
 	it('with no copy and offline, is empty and asks nothing', async () => {
@@ -294,6 +314,18 @@ describe('pull', () => {
 		expect(pulled).toEqual([100, 200, 300]);
 	});
 
+	it('posts how much each pull changed', async () => {
+		const h = harness();
+		await h.dev.start();
+		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled', changed: expect.any(Number) });
+		expect((h.posted.at(-1) as { changed: number }).changed).toBeGreaterThan(0);
+		await h.dev.pull();
+		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled', changed: 0 });
+		server.run(sql`UPDATE figures SET name = 'Renamed' WHERE id = ${world.own.u1.figure}`);
+		await h.dev.pull();
+		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled', changed: 1 });
+	});
+
 	it('signed out (a 401): keeps the copy and the outbox, and says sign in', async () => {
 		let status = 200;
 		const h = harness({
@@ -305,6 +337,8 @@ describe('pull', () => {
 		status = 401;
 		await h.dev.pull();
 		expect(count('figures')).toBe(figures);
+		// The copy keeps answering (device first: nothing sends the person to sign in on its own).
+		expect(h.dev.state()).toBe('ready');
 		expect(readMeta(device).userId).toBe('u1');
 		expect(h.dev.summary().signedOut).toBe(true);
 		// Signed in again: the next pull brings the copy back and serves it.
@@ -505,6 +539,22 @@ describe('the songs on the phone follow the copy (offline phase 4a)', () => {
 		expect(h.readyFor.at(-1)).toBe('u4');
 	});
 
+	it('a pull for another person, the page not knowing who it is, wipes the copy and its files first', async () => {
+		let who = 'u1';
+		const clearMedia = vi.fn(async () => {});
+		const h = harness({ fetchPull: async (body) => answerAsServer(body, who), clearMedia });
+		await h.dev.start();
+		expect(readMeta(device).userId).toBe('u1');
+		// Someone else signed in on this browser (the page was drawn from the copy: no person said).
+		who = 'u4';
+		await h.dev.pull();
+		expect(clearMedia).toHaveBeenCalledTimes(1);
+		expect(readMeta(device).userId).toBe('u4');
+		// The server code now answers as u4.
+		expect(h.runtimes.at(-1)?.userId).toBe('u4');
+		expect(h.dev.state()).toBe('ready');
+	});
+
 	it('the same person keeps them', async () => {
 		const clearMedia = vi.fn(async () => {});
 		const h = harness({ clearMedia });
@@ -526,6 +576,52 @@ describe('the songs on the phone follow the copy (offline phase 4a)', () => {
 		expect(h.dev.wantedMedia()).toEqual([]);
 		await h.dev.start();
 		expect(Array.isArray(h.dev.wantedMedia())).toBe(true);
+	});
+});
+
+describe('videos kept on the phone (offline phase 4b)', () => {
+	it("a switched-on space's videos are wanted, and the settings stay", async () => {
+		const h = harness();
+		await h.dev.start();
+		const user = readMeta(device).userId;
+		device.pragma('foreign_keys = OFF');
+		device
+			.prepare(
+				`INSERT INTO lessons (id, lesson_day, user_id, title, created_at) VALUES (990001, '2026-11-01', ?, 'K', 0)`
+			)
+			.run(user);
+		device
+			.prepare(
+				`INSERT INTO lesson_videos (id, lesson_id, file, mime, size_bytes, created_at) VALUES (990002, 990001, 'k.mp4', 'video/mp4', 5, 0)`
+			)
+			.run();
+		device.pragma('foreign_keys = ON');
+		const K = { kind: 'lesson-videos', file: 'k.mp4', mime: 'video/mp4', size: 5 };
+		expect(h.dev.wantedMedia()).not.toContainEqual(K);
+		expect(h.dev.keepSet({ space: 'mine', on: true }).spaces).toEqual(['mine']);
+		expect(h.dev.wantedMedia()).toContainEqual(K);
+		expect(readKeep(device).spaces).toEqual(['mine']);
+		expect(h.dev.keepSettings().spaces).toEqual(['mine']);
+		const rows = h.dev.keepRows(new Set(['lesson-videos/k.mp4']));
+		expect(rows.spaces[0]).toMatchObject({ id: 'mine', on: true, held: 1 });
+		expect(rows.bySpace['lesson-videos/k.mp4']).toBe('mine');
+	});
+
+	it('a kept video no longer in the copy drops out of the settings when they are next written', async () => {
+		const h = harness();
+		await h.dev.start();
+		h.dev.keepSet({ video: 'recordings/gone.webm', on: true });
+		expect(h.dev.keepSet({ wifiOnly: false }).videos).toEqual([]);
+	});
+
+	it('another person starts from the default', async () => {
+		const first = harness();
+		await first.dev.start();
+		first.dev.keepSet({ space: 'mine', on: true });
+		const h = harness({ fetchPull: async (body) => answerAsServer(body, 'u4') });
+		await h.dev.start();
+		await h.dev.person('u4');
+		expect(h.dev.keepSettings()).toEqual(DEFAULT_KEEP);
 	});
 });
 
@@ -1126,5 +1222,27 @@ describe('writes on the device', () => {
 			expect(bodies.length).toBeGreaterThan(before);
 			refuse = false;
 		});
+	});
+});
+
+describe('dataFailed (device first: a failed load goes to the network)', () => {
+	const data = (...nodes: unknown[]) => JSON.stringify({ type: 'data', nodes });
+	it('passes a page whose every node loaded', () =>
+		expect(dataFailed(data({ type: 'data', data: [] }, { type: 'skip' }))).toBe(false));
+	it("fails a node whose load crashed (no status: SvelteKit's 500)", () =>
+		expect(dataFailed(data({ type: 'data' }, { type: 'error', error: { message: 'x' } }))).toBe(
+			true
+		));
+	it('fails a node that is not found: the copy may be behind', () =>
+		expect(dataFailed(data({ type: 'error', error: {}, status: 404 }))).toBe(true));
+	it("keeps a page's own refusal", () =>
+		expect(dataFailed(data({ type: 'error', error: {}, status: 403 }))).toBe(false));
+	it('fails a whole-request error, and reads only the first line of a streamed answer', () => {
+		expect(dataFailed(JSON.stringify({ type: 'error', error: {} }))).toBe(true);
+		expect(dataFailed(data({ type: 'data' }) + '\n{"type":"chunk","id":1}')).toBe(false);
+	});
+	it('passes a redirect, and an answer it cannot read', () => {
+		expect(dataFailed(JSON.stringify({ type: 'redirect', location: '/x' }))).toBe(false);
+		expect(dataFailed('not json')).toBe(false);
 	});
 });

@@ -8,6 +8,7 @@ import { getDb } from '$lib/server/db';
 import { whatsNew } from '$lib/server/whats-new';
 import { importsWaiting } from '$lib/server/song-imports';
 import { groupChoices, viewOf } from '$lib/server/group-mode';
+import { deviceRuntime } from '$lib/server/device-runtime';
 import type { GroupChoice, GroupMode } from '$lib/types';
 import type { LayoutServerLoad } from './$types';
 
@@ -48,11 +49,19 @@ export const load: LayoutServerLoad = ({ params, url, route, locals }) => {
 				}
 			: undefined;
 		groupsNew = whatsNew(db, locals.user.id, dance, opening).byTeam.size > 0;
-		// Derived, never stored: a read playlist of theirs, or of a group they edit, not yet picked.
-		musicToPick = importsWaiting(db, locals.user.id, dance);
-		// The AI's suggestions waiting to be run (the You tab's dot and its row).
-		aiPending = pendingCount(db, locals.user.id, dance);
-		aiConnected = listGrants(db, locals.user.id, serverNow()).length > 0;
+		const device = deviceRuntime();
+		if (device) {
+			// Their tables never reach the copy: the last pull says (device first).
+			musicToPick = device.extras?.musicToPick ?? false;
+			aiPending = device.extras?.aiPending ?? 0;
+			aiConnected = device.extras?.aiConnected ?? false;
+		} else {
+			// Derived, never stored: a read playlist of theirs, or of a group they edit, not yet picked.
+			musicToPick = importsWaiting(db, locals.user.id, dance);
+			// The AI's suggestions waiting to be run (the You tab's dot and its row).
+			aiPending = pendingCount(db, locals.user.id, dance);
+			aiConnected = listGrants(db, locals.user.id, serverNow()).length > 0;
+		}
 	}
 	return {
 		dance: getDance(dance),
