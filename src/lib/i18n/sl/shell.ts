@@ -55,6 +55,7 @@ export const shell: Catalog['shell'] = {
 	},
 	update: {
 		downloading: (pct) => `Prenašanje\u00a0… ${pct}\u00a0%`,
+		percent: (pct) => `${pct}\u00a0%`,
 		installing: 'Nameščanje\u00a0…',
 		update: 'Posodobi',
 		fromPlay: 'Posodobi prek Google Play',

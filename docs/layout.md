@@ -503,6 +503,10 @@ src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that 
 src/lib/motion/pull-refresh.ts  PURE: pull down to refresh (device first, look C): `pullDistance`,
                      `mayStart`, `doneWord`, the numbers; `components/ui/PullRefresh.svelte` draws
                      it under `Screen` (prop `pull`)
+src/lib/sync/sync-button.ts  PURE: Sync now pressed (last-synced): `runSyncButton` (phases idle,
+                     syncing, done, offline); `offline/sync-button.svelte.ts` holds the shared
+                     state; `components/sync/SyncNowRow.svelte` (phone Settings, look A) and
+                     `components/shell/SideSync.svelte` (desktop side, look E) draw it
 src/lib/motion/       page changes (round 2, spec 2026-11-10-page-transitions): page-move.ts PURE
                      (where the card's edge is, where it waits, which move a navigation gets,
                      PAGE_MOVE's values) and page-move.svelte.ts (the runtime, wired once by the

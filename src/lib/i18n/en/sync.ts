@@ -27,6 +27,12 @@ export const sync = {
 		done: 'Up to date',
 		offline: 'Offline'
 	},
+	/** Sync now (last-synced): a row in the phone's Settings, a line on the desktop's side. */
+	button: {
+		now: 'Sync now',
+		last: 'Last synced',
+		tip: 'On every screen you can also pull the page down to sync.'
+	},
 	refusedHeading: "Couldn't sync",
 	waitingHeading: 'Waiting',
 	retry: 'Retry',

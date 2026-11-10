@@ -32,7 +32,7 @@
 
 	// Another page, or the app closed or put away: the card goes.
 	afterNavigate((nav) => {
-		if (nav.from?.url.pathname !== nav.to?.url.pathname) shown = null;
+		if (nav.from?.url?.pathname !== nav.to?.url?.pathname) shown = null;
 	});
 	$effect(() => {
 		const away = () => {
