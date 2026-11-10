@@ -373,31 +373,28 @@ def put_song(db_path):
 
 
 def put_video(db_path):
-    """Check 14's video: a lesson of the walk person's (or a group's they are in) with one video, its file
-    made small and real in the server's DATA_DIR, its row's size to match (the phone checks it), in this
-    copy only. (lesson id, file name), or None when there is no such lesson."""
+    """Check 14's video: a lesson of the walk person's (or a group's they are in) with one video whose file
+    is in the server's DATA_DIR (a playable one: a junk file reads as unplayable and draws no button), its
+    row's size made the file's (the phone checks it), in this copy only. (lesson id, file name), or None."""
+    folder = os.path.join(os.path.dirname(db_path), "lesson-videos")
     db = sqlite3.connect(db_path)
     try:
-        row = db.execute(
+        rows = db.execute(
             "select lv.id, lv.lesson_id, lv.file from lesson_videos lv join lessons l on l.id = lv.lesson_id "
             "join sessions se on se.id = 'walk' "
             "where l.archived_at is null and (l.published_at is not null or l.user_id is not null) and ("
             "l.user_id = se.user_id or l.team_id in (select team_id from team_members where user_id = se.user_id)) "
             "and (select count(*) from lesson_videos o where o.lesson_id = l.id) = 1 order by lv.id"
-        ).fetchone()
-        if row is None:
-            return None
-        name = row[2] if UUID_FILE.match(row[2]) else f"{uuid.uuid4()}.webm"
-        data = bytes(range(256)) * 64
-        db.execute("update lesson_videos set file = ?, mime = 'video/webm', size_bytes = ? where id = ?", (name, len(data), row[0]))
-        db.commit()
+        ).fetchall()
+        for vid, lesson, name in rows:
+            path = os.path.join(folder, name)
+            if os.path.isfile(path):
+                db.execute("update lesson_videos set size_bytes = ? where id = ?", (os.path.getsize(path), vid))
+                db.commit()
+                return lesson, name
+        return None
     finally:
         db.close()
-    folder = os.path.join(os.path.dirname(db_path), "lesson-videos")
-    os.makedirs(folder, exist_ok=True)
-    with open(os.path.join(folder, name), "wb") as f:
-        f.write(data)
-    return row[1], name
 
 
 def main():
@@ -790,6 +787,9 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                     else:
                         report(not note, "needs a connection: a menu with nothing that needs one has no note", "the note shows")
                     page.keyboard.press("Escape")
+                    # Escape closes the sheet by going back: let that land before the next goto.
+                    page.locator("dialog[open]").first.wait_for(state="detached", timeout=5000)
+                    page.wait_for_timeout(300)
                 else:
                     report(False, "needs a connection: the figure's menu", "no ⋯ menu")
                 page.goto(f"{base}/settings", wait_until="load", timeout=60_000)
@@ -845,7 +845,7 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                 # 14. A lesson video kept on the phone (offline phase 4b): its button under the video keeps it,
                 # and the service worker answers it from the phone, online and offline, with Range.
                 if video is None:
-                    report(False, "videos on the phone", "the walk person has no lesson with one video")
+                    report(False, "videos on the phone", "the walk person has no lesson with one video whose file is in DATA_DIR")
                 else:
                     lesson, vfile = video
                     page.goto(f"{base}/{DANCE}/lessons/{lesson}", wait_until="load", timeout=60_000)

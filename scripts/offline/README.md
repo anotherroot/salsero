@@ -60,8 +60,8 @@ values to the walk.
     one, in the copy only). Online the device keeps it (`media/audio/<file>` in OPFS, 30 s cap); a
     `Range: bytes=0-99` fetch of `/audio/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`,
     online and offline; Settings' On this phone row says "Songs … · videos …".
-14. **A lesson video with no signal** (phase 4b). Before the walk, `put_video` gives a lesson of the walk
-    person's (or a group's they are in) with one video a small real file and the row's size to match. Its
+14. **A lesson video with no signal** (phase 4b). Before the walk, `put_video` finds a lesson of the walk
+    person's (or a group's they are in) with one video whose file is in `DATA_DIR`, and sets its row's size to the file's. Its
     page's phone button under the video keeps it (`data-keep` off → on); a `Range: bytes=0-99` fetch of
     `/lesson-videos/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`, online and offline.
 
