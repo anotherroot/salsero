@@ -59,7 +59,11 @@ values to the walk.
     person's first song's audio into the server's `DATA_DIR` (a name the server would refuse gets a uuid
     one, in the copy only). Online the device keeps it (`media/audio/<file>` in OPFS, 30 s cap); a
     `Range: bytes=0-99` fetch of `/audio/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`,
-    online and offline; Settings shows "Songs and your count · …".
+    online and offline; Settings' On this phone row says "Songs … · videos …".
+14. **A lesson video with no signal** (phase 4b). Before the walk, `put_video` gives a lesson of the walk
+    person's (or a group's they are in) with one video a small real file and the row's size to match. Its
+    page's phone button under the video keeps it (`data-keep` off → on); a `Range: bytes=0-99` fetch of
+    `/lesson-videos/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`, online and offline.
 
 The walk writes to the server's copy (10's archive), so run it on a fresh `serve.sh` each time.
 `WALK_SHOTS=<dir>` (an environment variable) saves a picture of the offline strip on the exercise and
