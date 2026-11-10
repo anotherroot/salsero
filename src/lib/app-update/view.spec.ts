@@ -39,6 +39,14 @@ describe('updateView', () => {
 	it.each(rows)('%j', (status, label, working, line) => {
 		expect(updateView(status)).toEqual({ label, working, line });
 	});
+	it("Today's small button says only the share; the line says the rest", () => {
+		expect(updateView({ progress: 51 }, true)).toEqual({
+			label: '51%',
+			working: true,
+			line: 'Downloading… 51%'
+		});
+		expect(updateView('busy', true)).toEqual(updateView('busy'));
+	});
 });
 
 describe('parseBridge', () => {
