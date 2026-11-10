@@ -1,7 +1,7 @@
 /**
  * What the Settings screen decides before it posts. PURE and client-safe.
  */
-import { daysBetween } from '$lib/day/day';
+import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
 import { dateLabel } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 
@@ -36,4 +36,33 @@ export function appMeta(connected: string, lastUsed: string | null, today: strin
 	const ago = daysBetween(lastUsed, today);
 	const when = ago <= 0 ? w.format.today : ago === 1 ? w.format.yesterday : dateLabel(lastUsed);
 	return w.settings.connector.apps.lastUsed(base, when);
+}
+
+/** The website's version line in Settings → About: `Version 1805`. */
+export function siteVersionLabel(version: number): string {
+	return t().settings.about.version(String(version));
+}
+
+/**
+ * The installed Android app's version: `Version 1.9 (10)` when it is the current
+ * release (the only one whose name the server knows), else `Version 8`.
+ */
+export function appVersionLabel(
+	installed: number,
+	latest: { versionCode: number; versionName: string } | null
+): string {
+	const name =
+		latest && latest.versionCode === installed
+			? `${latest.versionName} (${installed})`
+			: String(installed);
+	return t().settings.about.version(name);
+}
+
+/**
+ * When a build came out, in the person's zone: `Published 10 Nov 2026, 19:26`,
+ * or the day alone (`withTime` false: the app, released once a day at most).
+ */
+export function publishedLine(at: number, timeZone: string, withTime: boolean): string {
+	const day = dateLabel(localDay(at, timeZone));
+	return t().settings.about.published(withTime ? `${day}, ${timeOfDay(at, timeZone)}` : day);
 }

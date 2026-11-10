@@ -23,6 +23,9 @@ interface SessionUser {
 }
 
 declare global {
+	/** The website's version: commits behind the build (vite.config.ts, `$lib/build-info`). */
+	const __SITE_VERSION__: number;
+
 	namespace App {
 		interface Locals {
 			user: SessionUser | null;

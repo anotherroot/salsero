@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
 import { t } from '$lib/i18n/catalog';
-import { DEFAULT_REMINDER, deviceMeta, reminderToSave } from './view';
+import {
+	DEFAULT_REMINDER,
+	appVersionLabel,
+	deviceMeta,
+	publishedLine,
+	reminderToSave,
+	siteVersionLabel
+} from './view';
 
 describe('reminderToSave', () => {
 	it('posts off, a valid time, or nothing', () => {
@@ -57,5 +64,31 @@ describe('in Slovenian', () => {
 		);
 		expect(t().settings.devices.appLabel('Salsa')).toBe('Salsa app');
 		expect(t().settings.devices.removed('Salsa app')).toBe('Salsa app removed');
+	});
+});
+
+describe('Settings → About', () => {
+	// 10 Nov 2026, 18:26 UTC: 19:26 in Ljubljana.
+	const AT = Date.UTC(2026, 10, 10, 18, 26);
+	const latest = { versionCode: 10, versionName: '1.9' };
+
+	it('names the website’s version and when it came out, in the person’s zone', () => {
+		expect(siteVersionLabel(1805)).toBe('Version 1805');
+		expect(publishedLine(AT, 'Europe/Ljubljana', true)).toBe('Published 10 Nov 2026, 19:26');
+		expect(publishedLine(AT, 'UTC', true)).toBe('Published 10 Nov 2026, 18:26');
+	});
+
+	it('names the app by its release when it is the current one, else by its number', () => {
+		expect(appVersionLabel(10, latest)).toBe('Version 1.9 (10)');
+		expect(appVersionLabel(8, latest)).toBe('Version 8');
+		expect(appVersionLabel(8, null)).toBe('Version 8');
+		expect(publishedLine(AT, 'Europe/Ljubljana', false)).toBe('Published 10 Nov 2026');
+	});
+
+	it('in Slovenian', () => {
+		withLocale('sl', () => {
+			expect(appVersionLabel(10, latest)).toBe('Različica 1.9 (10)');
+			expect(publishedLine(AT, 'Europe/Ljubljana', true)).toBe('Objavljeno 10. nov. 2026, 19:26');
+		});
 	});
 });

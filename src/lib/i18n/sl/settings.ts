@@ -167,6 +167,13 @@ export const settings: Catalog['settings'] = {
 	},
 	admin: { label: 'Skrbništvo', sub: 'Povabite nekoga' },
 	account: { label: 'Račun', name: 'Ime', signedIn: 'Prijavljeni ste', signOut: 'Odjava' },
+	about: {
+		label: 'O aplikaciji',
+		website: 'Spletna stran',
+		app: 'Aplikacija za Android',
+		version: (v) => `Različica ${v}`,
+		published: (when) => `Objavljeno ${when}`
+	},
 	refusals: {
 		theme: 'Izberite eno od tem.',
 		style: 'Izberite enega od slogov.',

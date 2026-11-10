@@ -73,6 +73,9 @@ nixos-rebuild switch --flake .#my-hetzner-vm --target-host tilen@49.13.76.224 --
 Then from this repo: `./scripts/deploy.sh prod`. It builds locally, rsyncs
 `build/`, `package.json`, the lockfile and `drizzle/`, runs `npm ci --omit=dev`
 on the box, restarts the unit and health-checks `/health` over loopback.
+Its last lines, "live now", say the website's version and build time (from `/health`)
+and each dance's Android release with the day its APK went up (`scripts/live-versions.mjs`), the
+same numbers as Settings → About: after a deploy, tell the user those lines.
 Migrations run at boot.
 
 **The offline device** (since offline phase 2): `npm run build` also builds the

@@ -39,3 +39,16 @@ export function currentRelease(dance: DanceSlug): Release | null {
 	cache.set(key, { mtime, release });
 	return release;
 }
+
+/**
+ * When a release came out: its APK's time on disk (put there by the release
+ * script, and never touched again). Null when that APK is not on disk.
+ */
+export function releasedAt(dance: DanceSlug, versionCode: number, dir?: string): number | null {
+	// Inside the try: on the phone (device first) there is no disk, and no releases.
+	try {
+		return Math.round(statSync(apkPath(dir ?? releasesDir(), dance, versionCode)).mtimeMs);
+	} catch {
+		return null;
+	}
+}
