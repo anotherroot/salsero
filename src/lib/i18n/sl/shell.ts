@@ -136,6 +136,7 @@ export const shell: Catalog['shell'] = {
 	},
 	offline: {
 		needsConnection: 'Potrebna je povezava. Nič se ni spremenilo.',
+		pageNeedsConnection: 'Za to stran je potrebna povezava.',
 		/** At the top of a sheet whose actions need a connection (offline phase 3). */
 		needsConnectionFor: 'Za te je potrebna povezava'
 	},

@@ -95,8 +95,8 @@
 	 * Filtered client-side as you type: the whole library is already here. On the
 	 * list route it also goes into the URL as `q` once typing pauses, so a reload
 	 * and the trail bring the search back like Figures'. A shallow replace, not a
-	 * `goto`: a navigation would stop a playing sample and, offline, raise the
-	 * Offline screen. `page.url` does not follow a shallow replace, so the URL
+	 * `goto`: a navigation would stop a playing sample and, offline with no copy,
+	 * be stopped (the page needs a connection). `page.url` does not follow a shallow replace, so the URL
 	 * is read from `location`. Beside a song the URL is the song's: the search is
 	 * kept in the trail instead, for the list (its filter and its kept search).
 	 *

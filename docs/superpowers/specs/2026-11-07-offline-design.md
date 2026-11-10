@@ -83,7 +83,9 @@ something couldn't sync.
 
 The old offline screen ("This page needs the server") goes away, except for
 the blocked actions below, which say "Needs a connection" where they
-are.
+are. (Done in phase 5: a link with no signal and no copy on the phone yet
+stays on its page and the toast says "This page needs a connection", the
+user's pick, 2026-11-10.)
 
 ### Clashes (agreed)
 
@@ -538,7 +540,11 @@ whole-page offline screen.
    `docs/superpowers/plans/2026-11-10-offline-phase-4c-own-videos.md`); part 2, the Android app's
    gallery originals (app 1.10), built 2026-11-10 with it.
 5. **Cleanup:** the old offline screen goes, and CLAUDE.md, the design spec
-   and the affected specs are brought up to date.
+   and the affected specs are brought up to date. Done 2026-11-10: the
+   Offline layer is gone; with no signal and no device to answer (its copy
+   not ready yet, or none in this browser), a link is stopped where it is and
+   the toast says "This page needs a connection" (the user picked the toast
+   over keeping the screen). Every phase is built.
 
 ## Left to the builder
 

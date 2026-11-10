@@ -188,8 +188,9 @@ Music", "Group mode: the group's positions"):
   or signed out: there is no side to keep. *My call while building.*
 - **Error pages** inside a dance (404, server error) keep the frame and the
   side; the error sits in the sheet, centred, 560 px wide. The side lights the
-  tab of the page that was asked for. The Offline layer covers the whole
-  window, side included, its content centred at 560 px.
+  tab of the page that was asked for. (The Offline layer that covered the
+  whole window is gone since offline phase 5: a toast says the page needs a
+  connection, `docs/superpowers/specs/2026-11-07-offline-design.md`.)
 
 ### Pointer and hover
 

@@ -31,7 +31,6 @@
 	import { openPickersOnClick } from '$lib/native-picker';
 	import { noteError, notePage } from '$lib/feedback/trail';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
-	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
 	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
 	import {
@@ -46,8 +45,6 @@
 	import { held } from '$lib/nav/fresh.svelte';
 	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
 	import { holdsBack, staleMove } from '$lib/page-epoch';
-	import { errorBack, errorView } from '$lib/nav/error-view';
-	import { levelShown } from '$lib/levels/levels';
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
 	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
@@ -282,42 +279,32 @@
 	});
 
 	/*
-	 * Offline. The root layout has a server load, so a client navigation that
+	 * Offline with no device to answer (its copy not ready yet, or none in this
+	 * browser). The root layout has a server load, so a client navigation that
 	 * cannot reach the server falls back to a full page load and the browser's
 	 * own error page, never `+error.svelte`. So the navigation is stopped before
-	 * it starts and the Offline screen is laid OVER the page (not instead of it,
-	 * so whatever was typed stays). Registered after `guardNavigation()` so the
-	 * unsaved-changes guard has already had its say on the same navigation.
-	 *
-	 * Only while the device cannot answer instead (`deviceReady`, offline phase
-	 * 2): once it can, the navigation goes ahead and the service worker hands its
-	 * data to the device.
+	 * it starts and the page stays (whatever was typed with it); the toast says
+	 * the page needs a connection (offline phase 5: in place of the old Offline
+	 * screen). Registered after `guardNavigation()` so the unsaved-changes guard
+	 * has already had its say on the same navigation. Once the device can answer,
+	 * the navigation goes ahead and the service worker hands its data to it.
 	 */
 	const cannotLoad = () => !navigator.onLine && !deviceReady();
-	let offline = $state<URL | null>(null);
 	/** The offline strip's height (`--strip-h`): toasts sit above it, the page ends in a spacer as tall. */
 	let stripH = $state(0);
-	let layer = $state<HTMLDialogElement>();
-	// Taken before the layer mounts: its own <title> is already in place by then.
-	let titleBefore = '';
 	beforeNavigate((nav) => {
 		const { to, willUnload, cancel } = nav;
-		// The layer is up: Back (or forward) dismisses it and goes nowhere.
-		if (offline && nav.type === 'popstate') {
-			cancel();
-			offline = null;
-			return;
-		}
 		if (!to?.route.id || willUnload || to.url.origin !== page.url.origin) return;
 		if (to.url.href === page.url.href) return;
 		if (!cannotLoad()) return;
 		// The unsaved-changes guard is asking: leaving is not decided yet.
 		if (prompt.ask) return;
 		cancel();
-		titleBefore = document.title;
-		offline = to.url;
+		needsConnection = {
+			id: (needsConnection?.id ?? 0) + 1,
+			message: t().shell.offline.pageNeedsConnection
+		};
 	});
-	afterNavigate(() => (offline = null));
 	/*
 	 * A write that could not reach the server (the service worker's
 	 * `needs-connection`, `$lib/offline/device.svelte.ts`): nothing changed, and
@@ -386,35 +373,6 @@
 			window.removeEventListener('offline', sync);
 		};
 	});
-	/*
-	 * A modal <dialog>, like a Sheet: it sits in the top layer ABOVE an open
-	 * sheet, makes the page behind inert, traps focus and holds back the scroll.
-	 * The title the layer sets is put back when it goes.
-	 */
-	$effect(() => {
-		if (!layer) return;
-		const scroll = document.documentElement.style.overflow;
-		document.documentElement.style.overflow = 'hidden';
-		layer.showModal();
-		// SvelteKit hears no navigation in a Back that only closes a sheet, so listen too.
-		const dismiss = () => (offline = null);
-		window.addEventListener('popstate', dismiss);
-		// Found by its mark, not its word: the word is the reader's language.
-		layer.querySelector<HTMLButtonElement>('button[data-retry]')?.focus();
-		return () => {
-			window.removeEventListener('popstate', dismiss);
-			document.title = titleBefore;
-			document.documentElement.style.overflow = scroll;
-		};
-	});
-	const retryOffline = () => {
-		const url = offline;
-		offline = null;
-		// invalidateAll: a link tapped offline already tried to preload its data and
-		// failed; SvelteKit would reuse that failure for this navigation.
-		if (url) void goto(url, { invalidateAll: true });
-	};
-
 	/*
 	 * A deploy. SvelteKit polls `version.json` (`version.pollInterval` in
 	 * vite.config.ts) and `updated.current` turns true once a new build is out;
@@ -657,40 +615,6 @@
 {#snippet needsConnectionToast()}
 	<Toast toast={needsConnection} duration={4000} ondismiss={() => (needsConnection = null)} />
 {/snippet}
-
-{#if offline}
-	<!--
-		On the desktop it covers the whole window, side included: a band row across
-		the top, and under it a sheet rounded at both top corners (a bare frame, so
-		no side offsets the band row's title), the message centred at 560.
-	-->
-	<dialog
-		bind:this={layer}
-		data-dance={navDance.slug}
-		data-frame="bare"
-		aria-label={t().shell.error.offlineTitle}
-		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:!bg-transparent desk:bg-band"
-		style:height={tabs && !desk.current ? 'calc(100dvh - var(--tab-bar-space))' : undefined}
-		oncancel={(e) => {
-			e.preventDefault();
-			offline = null;
-		}}
-	>
-		<div
-			class="mx-auto max-w-[560px] desk:mt-[var(--band-row-h)] desk:min-h-[calc(100dvh-var(--band-row-h))] desk:max-w-none desk:rounded-t-[28px] desk:bg-ground"
-		>
-			<ErrorScreen
-				view={errorView(0, undefined, true)}
-				back={{
-					label: errorBack(page.url.pathname, navDance.slug, levelShown(data.user?.level)).label,
-					onclick: () => (offline = null)
-				}}
-				todayHref={`/${navDance.slug}`}
-				onretry={retryOffline}
-			/>
-		</div>
-	</dialog>
-{/if}
 
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
 <!-- The phone shows them only when the card is not the one waiting (a filter, leaving Practice, signing in). -->

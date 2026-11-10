@@ -50,7 +50,7 @@ describe('fullLoadFor', () => {
 		expect(fullLoadFor({ ...link, toPath: null }, state)).toBe(false);
 	});
 
-	it('leaves it to the offline screen when there is no connection', () => {
+	it('leaves it to the layout when there is no connection (it stops the page and says so)', () => {
 		expect(fullLoadFor(link, { ...state, online: false })).toBe(false);
 	});
 
