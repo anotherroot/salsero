@@ -571,7 +571,7 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   the only way a practice becomes a set. The Voice row says Built-in or Yours (Yours: a recorded set fits the
   run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
   count returns here once it reads them, plan 12; as `&from=…` after the other
-  parameters). The running screen is the stage on the band (count disc, dots,
+  parameters). The running screen is the stage on the band (count, dots,
   the figure on now in Follow, the time), a sheet under it and Stop and Pause pinned; it
   does not scroll the page. A landscape phone puts the stage left and the sheet
   right; from 1024 px the desktop splits the running screen, the

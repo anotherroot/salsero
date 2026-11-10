@@ -18,8 +18,8 @@
 	let { time, beats, counts, paused, quiet = [] }: Props = $props();
 	let off = $state(false);
 	let index = $state(-1);
-	// The count on the beat (motion round 1): each plain step pushes the digit, the 1's disc pops.
-	const pulse = beatPulse({ disc: true });
+	// The count on the beat (motion round 1): each plain step pushes the digit, every count alike.
+	const pulse = beatPulse();
 	let digitEl = $state<HTMLElement>();
 	/** How long a dot takes to grow: 40 % of a beat, 110 ms at most. */
 	let dotMs = $state(110);
@@ -65,8 +65,7 @@
 
 <!--
 	Cream only: the band is the background, and accent on it fails contrast.
-	The 1 is what you look for across a room, so it flips to a cream disc
-	with the number in the band's colour.
+	The 1 looks like every other count (the user's call; it was a cream disc).
 -->
 <div
 	class="flex min-h-0 w-full flex-1 flex-col items-center gap-3 desk:flex-none desk:gap-[26px]"
@@ -83,11 +82,9 @@
 		>
 			<span
 				bind:this={digitEl}
-				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
-					? 'rounded-full bg-band-ink text-band shadow-[0_10px_30px_rgb(0_0_0/0.22)]'
-					: digit.dim
-						? 'text-band-ink/75'
-						: 'text-band-ink'}">{digit.text}</span
+				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.dim
+					? 'text-band-ink/75'
+					: 'text-band-ink'}">{digit.text}</span
 			>
 		</span>
 	</span>

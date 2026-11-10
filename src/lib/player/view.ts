@@ -17,9 +17,9 @@ export function stageDigit(
 	count: number | null,
 	paused: boolean,
 	off = false
-): { text: string; disc: boolean; dim: boolean } {
-	if (count === null || off) return { text: '–', disc: false, dim: true };
-	return { text: String(count), disc: count === 1 && !paused, dim: paused };
+): { text: string; dim: boolean } {
+	if (count === null || off) return { text: '–', dim: true };
+	return { text: String(count), dim: paused };
 }
 
 export function stageDots(

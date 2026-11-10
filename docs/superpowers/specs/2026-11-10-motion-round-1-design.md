@@ -30,7 +30,7 @@ when a page is built and B feels too much there.
 2. **Lists fold and open.** A row that leaves slides out and its gap folds
    shut. The rows under it slide up. Undo opens the gap and the row comes back.
 3. **The player's count moves on the beat.** Every count gets a small push,
-   the 5 lands a little harder and the 1 hardest, the lit dot grows,
+   every count alike (the 1 and the 5 too), the lit dot grows,
    and on a new figure's 1, Next rises into the call.
 4. **Taps dip.** Rows, buttons, chips and tabs scale down a little under the
    finger and settle back when it lets go.
@@ -161,8 +161,7 @@ on a new figure.
 | Moment | What moves | Timing |
 |---|---|---|
 | Each count | the digit starts at 1.045× and settles to 1 | 85 % of the beat, ARRIVE |
-| The 5 | the same push, harder: 1.09× | 85 % of the beat |
-| The 1 | the hardest push, with its cream disc: 1.12× (it grew in from .8× with a bounce at first; that put the 1's accent late, changed after the user tried it) | 85 % of the beat, ARRIVE |
+| The 1 and the 5 | the same push as every count. The 1 is drawn like the rest, no cream disc (the user's call after trying it: the 1 first grew in from .8× with a bounce and felt late, then a harder 1 and 5 still felt off) | 85 % of the beat |
 | The dots | the lit dot grows 10 → 16 px, and the last one shrinks back | min(110 ms, 40 % of the beat) |
 | A new figure, on its 1 | the old call lifts 24 px and fades. Next rises and grows from its 15 px into the call's size and place, and the new Next fades in under it once the move is 40 % done | min(long, 1.4 beats) |
 
@@ -182,8 +181,7 @@ one push is gone before the next. A pause stops it where it is. A count-off
 (quiet) section has no pushes, and its dash and plain dots stay still.
 
 Where it applies: the player's stage on a phone, landscape and desktop, in a
-run and with a song. `RunLayer`'s strip count gets the push too, but not the
-1's harder push. It is small.
+run and with a song. `RunLayer`'s strip count gets the push too.
 
 ## 4. Taps dip
 

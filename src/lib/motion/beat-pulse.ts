@@ -11,7 +11,7 @@ import { play } from './motion';
 let lastStep: number | null = null;
 export const stepMs = (): number | null => lastStep;
 
-export function beatPulse(o: { disc: boolean }) {
+export function beatPulse() {
 	let prev = -1;
 	let at: number | null = null;
 	let running: Animation | null = null;
@@ -33,8 +33,6 @@ export function beatPulse(o: { disc: boolean }) {
 		if (kind === 'none' || !el) return;
 		running?.cancel();
 		const duration = beatLife(lastStep);
-		const from =
-			kind === 'disc' && o.disc ? PUSH.disc : kind === 'strong' ? PUSH.strong : PUSH.push;
-		running = play(el, [{ transform: `scale(${from})` }, { transform: 'none' }], { duration });
+		running = play(el, [{ transform: `scale(${PUSH})` }, { transform: 'none' }], { duration });
 	};
 }

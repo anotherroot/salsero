@@ -85,8 +85,8 @@
 	}
 
 	/* The strip's own count: read every frame, like StageCount. */
-	// It pushes on the beat as the stage does; its 1 has no disc to pop (motion round 1).
-	const pulse = beatPulse({ disc: false });
+	// It pushes on the beat as the stage does (motion round 1).
+	const pulse = beatPulse();
 	let stripDigit = $state<HTMLElement>();
 	let count = $state<number | null>(null);
 	let off = $state(false);

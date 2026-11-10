@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { PUSH, beatLife, callMoves, stepMotion } from './beat-motion';
 
 describe('stepMotion: a count moves only on a plain step forward', () => {
-	it('the 5 lands harder, the 1 pops its disc, the rest push', () => {
-		expect(stepMotion(3, 4, 5, false, false)).toBe('strong');
-		expect(stepMotion(7, 8, 1, false, false)).toBe('disc');
+	it('every count pushes the same, the 1 and the 5 too', () => {
+		expect(stepMotion(3, 4, 5, false, false)).toBe('push');
+		expect(stepMotion(7, 8, 1, false, false)).toBe('push');
 		expect(stepMotion(3, 4, 2, false, false)).toBe('push');
 	});
 
@@ -18,11 +18,11 @@ describe('stepMotion: a count moves only on a plain step forward', () => {
 		expect(stepMotion(3, 4, 2, true, false)).toBe('none');
 		expect(stepMotion(3, 4, 2, false, true)).toBe('none');
 		expect(stepMotion(3, 4, null, false, false)).toBe('none');
-		expect(stepMotion(-1, 0, 1, false, false)).toBe('disc');
+		expect(stepMotion(-1, 0, 1, false, false)).toBe('push');
 	});
 
-	it('pushes by the spec’s amounts', () => {
-		expect(PUSH).toEqual({ push: 1.045, strong: 1.09, disc: 1.12 });
+	it('pushes by the spec’s amount', () => {
+		expect(PUSH).toBe(1.045);
 	});
 });
 

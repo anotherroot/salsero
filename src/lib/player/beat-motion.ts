@@ -6,14 +6,14 @@
  * once, still.
  */
 
-export type StepMotion = 'none' | 'push' | 'strong' | 'disc';
+export type StepMotion = 'none' | 'push';
 
 /**
- * How big a count starts before it settles to its size: a push, the 5's harder
- * one, the 1's hardest. Every count is largest on its beat; the 1 once grew in
- * from .8 and felt late.
+ * How big a count starts before it settles to its size, so it is largest on
+ * its beat. Every count the same, the 1 and the 5 too (the user's call: the
+ * 1's disc and the harder 5 and 1 felt off).
  */
-export const PUSH = { push: 1.045, strong: 1.09, disc: 1.12 } as const;
+export const PUSH = 1.045;
 
 export function stepMotion(
 	prev: number,
@@ -23,8 +23,6 @@ export function stepMotion(
 	off: boolean
 ): StepMotion {
 	if (index !== prev + 1 || paused || off || count === null) return 'none';
-	if (count === 1) return 'disc';
-	if (count === 5) return 'strong';
 	return 'push';
 }
 
