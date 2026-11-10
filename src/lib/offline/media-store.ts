@@ -167,7 +167,31 @@ async function writeFile(
 	};
 	let at = from;
 	let since = 0;
-	if (handle.createWritable) {
+	try {
+		// A sync handle first, where there is one (a dedicated worker: the device's):
+		// it writes in place. Chrome's `createWritable` copies the whole file into a
+		// swap at every reopen, gigabytes over a long video's checkpoints.
+		if (handle.createSyncAccessHandle) {
+			const h = await handle.createSyncAccessHandle();
+			try {
+				h.truncate(from);
+				await chunks(async (chunk) => {
+					h.write(chunk, { at });
+					at += chunk.byteLength;
+					since += chunk.byteLength;
+					if (since >= checkpoint) {
+						since = 0;
+						h.flush();
+					}
+				});
+			} finally {
+				h.flush();
+				h.close();
+			}
+			return;
+		}
+		// A window or the service worker (no sync handle there): a swap file, committed on close.
+		if (!handle.createWritable) throw new Error('this browser cannot write files here');
 		let w = await openAt(handle, at);
 		try {
 			await chunks(async (chunk) => {
@@ -185,25 +209,10 @@ async function writeFile(
 			throw e;
 		}
 		await w.close();
-		return;
-	}
-	// Safari before createWritable: a sync handle, which only a dedicated worker has.
-	if (!handle.createSyncAccessHandle) throw new Error('this browser cannot write files here');
-	const h = await handle.createSyncAccessHandle();
-	try {
-		h.truncate(from);
-		await chunks(async (chunk) => {
-			h.write(chunk, { at });
-			at += chunk.byteLength;
-			since += chunk.byteLength;
-			if (since >= checkpoint) {
-				since = 0;
-				h.flush();
-			}
-		});
-	} finally {
-		h.flush();
-		h.close();
+	} catch (e) {
+		// A write that failed (a full disk) leaves the body open: let it go.
+		await reader?.cancel().catch(() => {});
+		throw e;
 	}
 }
 

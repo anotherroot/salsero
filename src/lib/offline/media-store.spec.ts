@@ -231,3 +231,23 @@ describe('the media store on Safari before createWritable (offline phase 4b)', (
 		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
 	});
 });
+
+describe('the media store where a sync handle exists (the device worker; final review 1)', () => {
+	it('writes in place: a long video makes no swap copies at its checkpoints', async () => {
+		const root = new FakeDir({ move: true, writable: true, sync: true });
+		const store = mediaStoreIn(asRoot(root), { checkpoint: 100 });
+		const body = new ReadableStream<Uint8Array>({
+			start(c) {
+				for (let i = 0; i < 3; i++) c.enqueue(bytes.slice(i * 100, (i + 1) * 100));
+				c.close();
+			}
+		});
+		await store.write(VIDEO, new Response(body));
+		const dir = (await (
+			await root.getDirectoryHandle('media')
+		).getDirectoryHandle('lesson-videos')) as FakeDir;
+		expect(dir.swapCopies).toBe(0);
+		const got = await store.read('lesson-videos', VIDEO.file);
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+	});
+});

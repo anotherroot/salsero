@@ -30,6 +30,7 @@ export class FakeFile {
 		if (this.dir.caps.writable) {
 			// As Chrome's: writes go to a swap file, committed on close, dropped on abort.
 			h.createWritable = async (opts?: { keepExistingData?: boolean }) => {
+				this.dir.swapCopies += opts?.keepExistingData ? 1 : 0;
 				if (this.dir.fail('write', this.name)) throw new Error(`disk full at ${this.name}`);
 				let buf = opts?.keepExistingData
 					? new Uint8Array(await this.data.arrayBuffer())
@@ -85,6 +86,8 @@ export class FakeFile {
 export class FakeDir {
 	entries = new Map<string, FakeFile | FakeDir>();
 	refuseRecursive = false;
+	/** `createWritable` opens that copy the file into a swap first (Chrome does). */
+	swapCopies = 0;
 	/** Every sync-handle write: which file, at which offset. */
 	syncLog: { name: string; at: number }[] = [];
 	constructor(
