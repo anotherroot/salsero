@@ -299,3 +299,33 @@ Two steps, each deployable on its own:
   for falling back to the network.
 - Which other pages poll for the worker.
 - The pull gesture's thresholds and resistance, within the picked look.
+
+## Decided while building
+
+Step 1 built 2026-11-10 (plan `docs/superpowers/plans/2026-11-10-device-first.md`):
+
+- **The page cookies already travelled with the pull** (`ECHOED` in
+  `/api/sync/pull`), so nothing changed for the theme, the Android app mark or
+  the language.
+- **The extras grew while auditing the device-drawn loads:** besides the
+  Music dot, the AI count, a connected AI app, the APK release and To pick,
+  they carry each group's Recently deleted bytes (a group's usage on its page
+  and the lessons list counts them) and every group lesson's last edit ("Edited
+  by Ana · 10 min ago"). `teamTrashBytes` (`storage.ts`) and `lastEdit`
+  (`changes.ts`) read them on the device; a change made on the device since
+  wins over the pulled last edit. To pick for a group view covers the groups a
+  person may open the view of (owner and editor, `groupChoices`).
+- **Settings is network first** online (`NETWORK_FIRST_PAGES`): its load reads
+  paired phones, connected AI apps and storage, none of which reach a device.
+  **Picking from a pasted list** (`/[dance]/songs/imports/[id]`) is a network
+  page (its items are `song_imports`).
+- **A device answer says so:** `X-Salsa-From: device` on every read the copy
+  answers (the walk counts a tab tap's server reads with it: none).
+- **A failed device read** (a fallback, or a 5xx from the copy's own code) goes
+  to the network untimed; a 404 or 403 is the page's answer.
+- **Pull to refresh** listens to touch events on the window (a non-passive
+  `touchmove` stops the scroll under it), decides after 8 px (sideways is a
+  row's swipe), and fills the band under a hero and the sheet's rounded corners.
+  "Up to date" shows only when nothing waits, nothing was refused and the
+  session is live; otherwise the sheet springs back without a word (the band's
+  pills say what is wrong).
