@@ -406,10 +406,13 @@ async function viaDevice(request: Request, clientId: string): Promise<Response |
 	const r = await reply;
 	channel.port1.close();
 	if (!r || 'fallback' in r) return null;
-	return new Response(NULL_BODY.has(r.status) ? null : r.body, {
+	const res = new Response(NULL_BODY.has(r.status) ? null : r.body, {
 		status: r.status,
 		headers: r.headers
 	});
+	// Who answered, for the walk and for debugging (device first): the phone's copy.
+	res.headers.set(FROM_HEADER, 'device');
+	return res;
 }
 
 /**
