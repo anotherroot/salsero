@@ -54,6 +54,7 @@
 	import { pagePerson } from '$lib/offline/person';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
+	import ShotOffer from '$lib/components/feedback/ShotOffer.svelte';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { moveState, pageMove } from '$lib/motion/page-move.svelte';
 	import PageWait from '$lib/components/shell/PageWait.svelte';
@@ -612,6 +613,8 @@
 			<BottomNav dance={navDance.slug} path={shownPath} />
 		{/if}
 		<OfflineStrip dance={navDance.slug} onheight={(px) => (stripH = px)} />
+		<!-- The Android app's screenshots, offered for a report (Send feedback). -->
+		<ShotOffer />
 		<!-- After the content, in the tab bar's place (desktop spec, "Keyboard and focus"). -->
 		{#if frame === 'side'}
 			<Side dance={navDance.slug} path={shownPath} />

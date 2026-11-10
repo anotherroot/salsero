@@ -389,3 +389,15 @@ export function releasesDir(): string {
 	mkdirSync(dir, { recursive: true });
 	return dir;
 }
+
+/**
+ * `$DATA_DIR/feedback`, created on first use: the screenshots sent with
+ * feedback, `<feedback id>.jpg`. Only the admin page reads them; never counted
+ * as anyone's storage.
+ */
+export function feedbackDir(): string {
+	if (!env.DATA_DIR) throw new Error('DATA_DIR is not set');
+	const dir = join(env.DATA_DIR, 'feedback');
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}
