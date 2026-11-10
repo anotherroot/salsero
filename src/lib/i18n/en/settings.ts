@@ -64,7 +64,6 @@ export const settings = {
 	/** The device's own space (offline phase 4a); sizes as `byteSize` writes them. */
 	onPhone: {
 		label: 'On this phone',
-		songs: (size: string): string => `Songs and your count · ${size}`,
 		// Videos kept on the phone (offline phase 4b): the Settings row, its own page, the button under a video.
 		row: (songs: string, videos: string, free: string | null): string =>
 			free
@@ -75,6 +74,7 @@ export const settings = {
 			free ? `${used} used · ${free} free` : `${used} used`,
 		legendSongs: (size: string): string => `Songs and count · ${size}`,
 		legendVideos: (size: string): string => `Kept videos · ${size}`,
+		notReady: 'Not ready on this phone yet: the app is still getting its copy here.',
 		spacesLabel: 'Lesson videos on this phone',
 		myLessons: 'My lessons',
 		videos: (n: number, size: string): string => `${plural(n, 'video', 'videos')} · ${size}`,

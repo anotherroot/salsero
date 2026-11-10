@@ -110,3 +110,12 @@ export function suggestions(status: KeepStatus): Suggestion[] {
 	];
 	return out.sort((a, b) => b.bytes - a.bytes);
 }
+
+/** Settings' row: songs, kept videos, and what is free. */
+export function phoneRowLine(status: KeepStatus): string {
+	return t().settings.onPhone.row(
+		byteSize(status.bytes.songs),
+		byteSize(status.bytes.videos),
+		status.free === null ? null : byteSize(status.free)
+	);
+}

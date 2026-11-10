@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { KeepStatus, SpaceRow } from './protocol';
-import { lessonOnPhone, spaceLine, suggestions, videoKeep } from './kept-view';
+import { lessonOnPhone, phoneRowLine, spaceLine, suggestions, videoKeep } from './kept-view';
 
 const MB = 1024 * 1024;
 const row = (over: Partial<SpaceRow> = {}): SpaceRow => ({
@@ -133,5 +133,12 @@ describe('suggestions: what to remove when space is short', () => {
 			},
 			{ kind: 'space', id: 'team:7', name: 'Salsa', videos: 4, bytes: 63 * MB }
 		]);
+	});
+});
+
+describe("phoneRowLine: Settings' row", () => {
+	it('songs, videos and what is free', () => {
+		expect(phoneRowLine(status())).toBe('Songs 34 MB · videos 152 MB · free 8.8 GB');
+		expect(phoneRowLine(status({ free: null }))).toBe('Songs 34 MB · videos 152 MB');
 	});
 });

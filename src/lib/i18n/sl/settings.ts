@@ -51,7 +51,6 @@ export const settings: Catalog['settings'] = {
 	},
 	onPhone: {
 		label: 'Na tem telefonu',
-		songs: (size) => `Pesmi in vaše štetje · ${size}`,
 		row: (songs, videos, free) =>
 			free
 				? `Pesmi ${songs} · videi ${videos} · prosto ${free}`
@@ -60,6 +59,7 @@ export const settings: Catalog['settings'] = {
 		used: (used, free) => (free ? `Zasedeno ${used} · prosto ${free}` : `Zasedeno ${used}`),
 		legendSongs: (size) => `Pesmi in štetje · ${size}`,
 		legendVideos: (size) => `Shranjeni videi · ${size}`,
+		notReady: 'Na tem telefonu še ni pripravljeno: aplikacija si šele prenaša svojo kopijo.',
 		spacesLabel: 'Videi lekcij na telefonu',
 		myLessons: 'Moje lekcije',
 		videos: (n, size) => `${slCount(n, ['video', 'videa', 'videi', 'videov'])} · ${size}`,
