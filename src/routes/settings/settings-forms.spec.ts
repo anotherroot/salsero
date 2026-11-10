@@ -164,6 +164,17 @@ describe('level', () => {
 	});
 });
 
+describe('theme', () => {
+	it('keeps the choice in a cookie the page’s script can read (the shell has none)', async () => {
+		const set: [string, string, { httpOnly?: boolean }][] = [];
+		const event = post({ theme: 'light' });
+		event.cookies.set = (n: string, v: string, o?: { httpOnly?: boolean }) =>
+			void set.push([n, v, o ?? {}]);
+		expect(await call(actions.theme, event)).toEqual({ ok: true });
+		expect(set).toEqual([['theme', 'light', expect.objectContaining({ httpOnly: false })]]);
+	});
+});
+
 describe('language', () => {
 	it('stores a known language on the account and in the cookie', async () => {
 		expect(await call(actions.language, post({ locale: 'sl' }))).toEqual({ ok: true });

@@ -4,7 +4,7 @@ import { getDb } from '$lib/server/db';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { pull } from '$lib/server/sync/pull';
 import { serverExtras } from '$lib/server/sync/extras';
-import { THEME_COOKIE } from '$lib/theme/scheme';
+import { THEME_COOKIE, THEME_COOKIE_OPTIONS, isThemeChoice } from '$lib/theme/scheme';
 import { APP_COOKIE } from '$lib/app-mode';
 import { LOCALE_COOKIE } from '$lib/i18n/locale';
 import type { PullRequest } from '$lib/sync/wire';
@@ -50,6 +50,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const v = cookies.get(name);
 		if (v !== undefined) out.cookies[name] = v;
 	}
+	// Set again, readable by app.html's script: one set before 2026-11-10 was
+	// `httpOnly`, and a page drawn from the shell could not see it (dark on a dark phone).
+	const theme = cookies.get(THEME_COOKIE);
+	if (isThemeChoice(theme)) cookies.set(THEME_COOKIE, theme, THEME_COOKIE_OPTIONS);
 	// What the layouts drawn on the device cannot read from the copy (device first).
 	out.extras = serverExtras(getDb(), session.userId);
 	return json(out);

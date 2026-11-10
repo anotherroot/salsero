@@ -8,10 +8,23 @@
  * `data-theme="light|dark"` before the first paint, asking `prefers-color-scheme`
  * when the choice is System. The dark colours in `src/routes/layout.css` hang
  * off that attribute.
+ *
+ * With no cookie the attribute stays empty and the script reads the cookie
+ * itself: the shell the service worker serves for a page drawn from the
+ * device is cached signed out, with no cookie. So the cookie is readable by
+ * scripts (not `httpOnly`); it holds only a colour preference.
  */
 import { t } from '$lib/i18n/catalog';
 
 export const THEME_COOKIE = 'theme';
+
+/** How the theme cookie is set: a year, the whole site, readable by app.html's script. */
+export const THEME_COOKIE_OPTIONS = {
+	path: '/',
+	maxAge: 365 * 24 * 3600,
+	sameSite: 'lax',
+	httpOnly: false
+} as const;
 
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
@@ -33,9 +46,12 @@ export function themeChoice(raw: string | null | undefined): ThemeChoice {
 /** The placeholder in `src/app.html` the hook fills with the choice. */
 export const THEME_PLACEHOLDER = '%salsa.theme%';
 
-/** The page with the placeholder filled in. */
-export function fillTheme(html: string, choice: ThemeChoice): string {
-	return html.replace(THEME_PLACEHOLDER, choice);
+/**
+ * The page with the placeholder filled in from the cookie's raw value. No
+ * valid cookie leaves it empty, and app.html's script asks the cookie again.
+ */
+export function fillTheme(html: string, raw: string | null | undefined): string {
+	return html.replace(THEME_PLACEHOLDER, isThemeChoice(raw) ? raw : '');
 }
 
 /** Shows a new choice at once, without a reload: the app.html script re-resolves it. */
