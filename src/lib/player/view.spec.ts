@@ -34,11 +34,11 @@ const bachata = getDance('bachata');
 const EX = { id: 9, name: 'Casino drill' };
 
 describe('what the Practice page derives', () => {
-	it('puts the 1 in a disc, dims a paused count, shows – before the first beat', () => {
-		expect(stageDigit(1, false)).toEqual({ text: '1', disc: true, dim: false });
-		expect(stageDigit(1, true)).toEqual({ text: '1', disc: false, dim: true });
-		expect(stageDigit(6, false)).toEqual({ text: '6', disc: false, dim: false });
-		expect(stageDigit(null, false)).toEqual({ text: '–', disc: false, dim: true });
+	it('draws the 1 like every count, dims a paused count, shows – before the first beat', () => {
+		expect(stageDigit(1, false)).toEqual({ text: '1', dim: false, ghost: false });
+		expect(stageDigit(1, true)).toEqual({ text: '1', dim: true, ghost: false });
+		expect(stageDigit(6, false)).toEqual({ text: '6', dim: false, ghost: false });
+		expect(stageDigit(null, false)).toEqual({ text: '–', dim: true, ghost: false });
 	});
 	it('draws eight dots, the current one big, 4 and 8 quiet', () => {
 		const d = stageDots(1, false);
@@ -517,12 +517,32 @@ describe('the Practice page in Slovenian, more', () => {
 });
 
 describe('the count in a quiet section (count off)', () => {
-	it('shows a dash, never the number or the disc', () => {
-		expect(stageDigit(1, false, true)).toEqual({ text: '–', disc: false, dim: true });
+	it('shows a dash, never the number', () => {
+		expect(stageDigit(1, false, true)).toEqual({ text: '–', dim: true, ghost: false });
 		expect(stageDigit(5, false, true).text).toBe('–');
 	});
 	it('draws the eight dots alike: no beat lit, no 4 and 8 apart', () => {
 		const dots = stageDots(3, false, true);
 		expect(new Set(dots.map((d) => `${d.size}:${d.tone}`))).toEqual(new Set(['10:quiet']));
+	});
+});
+
+describe('the count-in before the main beat (5 6 7 8)', () => {
+	it('shows the count, drawn as not there yet, even inside a quiet part', () => {
+		expect(stageDigit(6, false, true, true)).toEqual({ text: '6', dim: false, ghost: true });
+		expect(stageDigit(null, false, true, true)).toEqual({ text: '–', dim: true, ghost: false });
+	});
+	it('holds the dot on now, the other count-in dots faint, 1–4 quiet', () => {
+		const dots = stageDots(6, false, true, true);
+		expect(dots.map((d) => `${d.size}:${d.tone}`)).toEqual([
+			'10:quiet',
+			'10:quiet',
+			'10:quiet',
+			'10:quiet',
+			'10:beat',
+			'16:held',
+			'10:beat',
+			'10:beat'
+		]);
 	});
 });

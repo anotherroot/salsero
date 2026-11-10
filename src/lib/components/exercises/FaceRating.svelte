@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { play } from '$lib/motion/motion';
 	import Face from './Face.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { t } from '$lib/i18n/catalog';
@@ -31,6 +32,13 @@
 	}: Props = $props();
 	const columns = $derived(faceColumns(preview));
 	const anyLearnt = $derived(columns.some((c) => c.learnt));
+
+	const POP: Keyframe[] = [
+		{ transform: 'none' },
+		{ transform: 'scale(.92)', offset: 0.25 },
+		{ transform: 'scale(1.08)', offset: 0.65 },
+		{ transform: 'none' }
+	];
 </script>
 
 <fieldset class="m-0 min-w-0 border-0 p-0">
@@ -50,7 +58,11 @@
 				aria-pressed={on}
 				aria-busy={busy === c.feel ? true : undefined}
 				disabled={busy !== null}
-				onclick={() => onchange(c.feel)}
+				onclick={(e) => {
+					// It pops as it is picked (motion round 1); the pick does not wait for it.
+					play(e.currentTarget, POP, { duration: 420, easing: 'ease-out' });
+					onchange(c.feel);
+				}}
 				class="grid min-w-0 cursor-pointer {anyLearnt
 					? 'grid-rows-[auto_2.5em_2.6em]'
 					: 'grid-rows-[auto_2.5em_1.4em]'} justify-items-center gap-1 rounded-[14px] px-1 pt-3 pb-2 text-center ring-inset {tone.bg} {tone.text} {tone.ring} {on

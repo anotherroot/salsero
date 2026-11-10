@@ -13,6 +13,8 @@ export interface Saved {
 	message: string;
 	/** What Today's `undoDone` takes; null: nothing to undo. */
 	undo: { setId: number; before: string | null } | null;
+	/** The exercise saved, for Today's landing (its row lifted, its check popping); none for a refusal. */
+	exerciseId?: number | null;
 }
 
 let current = $state<(Saved & { id: number }) | null>(null);

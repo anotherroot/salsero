@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { act, type Field } from '$lib/act';
@@ -104,12 +105,18 @@
 		/>
 	{/snippet}
 
-	<div class="flex flex-col gap-3 px-4 pb-28" data-focus="suggestions-top" tabindex="-1">
+	<FlipList
+		tag="div"
+		class="flex flex-col gap-3 px-4 pb-28"
+		data-focus="suggestions-top"
+		tabindex={-1}
+		keys={view.groups.flatMap((g) => [`g${g.id}`, ...g.actions.map((a) => `a${a.id}`)])}
+	>
 		{#if !view.groups.length}
 			<p class="px-1 py-6 text-center text-[15px] text-muted">{w.empty}</p>
 		{/if}
 		{#each view.groups as g (g.id)}
-			<div class="mt-2 flex items-center gap-2 px-1">
+			<div data-flip="g{g.id}" class="mt-2 flex items-center gap-2 px-1">
 				<h2 class="min-w-0 flex-1 font-display text-[20px] font-extrabold text-ink">{g.title}</h2>
 				{#if g.pending.length > 1}
 					<button
@@ -121,7 +128,7 @@
 				{/if}
 			</div>
 			{#each g.actions as a (a.id)}
-				<div class="flex" class:pl-6={a.waitsFor.length > 0}>
+				<div data-flip="a{a.id}" class="flex" class:pl-6={a.waitsFor.length > 0}>
 					<div class="min-w-0 flex-1">
 						<SuggestionCard
 							action={a}
@@ -136,7 +143,7 @@
 				</div>
 			{/each}
 		{/each}
-	</div>
+	</FlipList>
 
 	{#if view.waiting > 0}
 		<BottomBar width="narrow">

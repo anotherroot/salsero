@@ -4,6 +4,8 @@
 	import { actAt } from '$lib/act';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { saved } from '$lib/exercises/saved.svelte';
+	import { landedRow, shouldReplay } from '$lib/motion/landing';
 	import { pinned } from '$lib/nav/chrome.svelte';
 	import { page } from '$app/state';
 	import { levelShown, simple } from '$lib/levels/levels';
@@ -61,11 +63,25 @@
 	/** The exercise open: the URL's (the page beside the list on the desktop, the page itself on the phone). */
 	// None on a route without an id (Done for today).
 	const currentId = $derived(isList || !page.params.id ? null : Number(page.params.id));
+	// The list column is in sight: always on the desktop; on the phone only on the list route (an exercise page covers it).
+	const listShown = $derived(isList || desk.current);
 
 	let creating = $state(false);
 	// The layout's toast: Not today, Coming up's +, a refused Next.
 	let toast = $state<ToastState | null>(null);
 	let toastSeq = 0;
+	// The Done landing: right after a save (or Not today) Today plays what changed while it was
+	// hidden, the saved row lifted (spec 2026-11-10-motion-round-1).
+	const savedId = $derived(
+		saved.current?.dance === data.dance.slug ? (saved.current.exerciseId ?? null) : null
+	);
+	const landing = $derived(shouldReplay({ savedId, layoutToast: toast !== null }));
+	const landedId = $derived(
+		landedRow(
+			savedId,
+			data.list.day.rows.map((r) => ({ id: r.exercise.id, done: r.kind === 'done' }))
+		)
+	);
 
 	const day = $derived(data.list.day);
 	// No live exercise at all: the first run's page.
@@ -285,7 +301,7 @@
 </svelte:head>
 
 {#snippet heroCard()}
-	<TodayBar {hero} playLabel={t().today.hero.start} onplay={start} />
+	<TodayBar {hero} playLabel={t().today.hero.start} onplay={start} shown={listShown} />
 {/snippet}
 
 {#snippet bandRight()}
@@ -345,6 +361,9 @@
 			oncreate={() => (creating = true)}
 			onrefused={say}
 			onskip={(id) => void notToday(id)}
+			shown={listShown}
+			{landing}
+			{landedId}
 		/>
 	{/if}
 {/snippet}

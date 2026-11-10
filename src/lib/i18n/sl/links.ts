@@ -130,6 +130,7 @@ export const links: Catalog['links'] = {
 		sectionOnly: 'Povezati je mogoče le odsek, ne točke.',
 		otherDance: 'Ta odsek je iz drugega plesa.',
 		already: 'Že povezano.',
+		copyLink: 'Kopiranje in povezovanje ni uspelo. Nič ni bilo kopirano.',
 		pointPositions: 'Točko lahko povežete le s položaji.',
 		noName: 'Vpišite ime.',
 		typeDance: 'Ta slog ne spada k temu plesu.',

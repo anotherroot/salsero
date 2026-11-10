@@ -571,7 +571,7 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   the only way a practice becomes a set. The Voice row says Built-in or Yours (Yours: a recorded set fits the
   run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
   count returns here once it reads them, plan 12; as `&from=…` after the other
-  parameters). The running screen is the stage on the band (count disc, dots,
+  parameters). The running screen is the stage on the band (count, dots,
   the figure on now in Follow, the time), a sheet under it and Stop and Pause pinned; it
   does not scroll the page. A landscape phone puts the stage left and the sheet
   right; from 1024 px the desktop splits the running screen, the
@@ -641,10 +641,17 @@ fixed before shipping. Check here before hunting one of these as a new bug:
 - **Count steadiness on iOS is unproven.** `ctxAt()` re-derives the song →
   context offset from `audio.currentTime` on every tick rather than latching it,
   so a browser that quantises `currentTime` (Safari) feeds that straight into
-  each count. Nothing compensates for output latency either, which would read as
-  a constant ahead/behind offset. **First suspect if the count feels off**; the
-  fix differs depending on whether it is unsteady or merely displaced, so it
-  needs a real ear on a real phone first.
+  each count. **First suspect if the count feels unsteady.** Output latency
+  (the constant offset) is handled since 2026-11-10 (`src/lib/player/sound-delay.ts`):
+  the browser already holds a media element's `currentTime` back by the way to
+  the ear (tested on Android with Bluetooth: the song page's lit beat is on the
+  music), but the AudioContext clock is not, so the voice and the clave came
+  ~250 ms late. With a song they now START early by the phone's reported
+  latency (held still) plus the person's Sound delay correction from the Voice
+  layer, and the screen is the music's time; count only, nothing is ahead of
+  the voice but the screen, so `songTime()` waits instead. A first try (a few
+  hours, same day) held the screen back with a song too, which put it 250 ms
+  behind the music.
 - **The iPhone silent switch mutes the voice but not the music.** True and
   expected — but the hint this spec called for was never put on screen.
 - ~~A stray tap on the save sheet's backdrop discards a finished run.~~ Fixed
@@ -792,6 +799,16 @@ Links already preload on touchstart (`data-sveltekit-preload-data="hover"` in
 flash. If a page still feels slow behind its skeleton, the next step is to
 stream its slow queries (return them un-awaited from `load`) rather than to
 cache data on the client.
+
+## Motion
+
+The app moves a little (round 1, [`2026-11-10-motion-round-1-design.md`](2026-11-10-motion-round-1-design.md)):
+taps dip, lists fold and open, sheets slide away, toasts rise, Done lands on Today, and the
+player's count moves on the beat. Three durations (150, 260, 380 ms) and three easings
+(arrive, settle, leave) in `$lib/motion/motion.ts` and `layout.css`. Two rules: nothing
+waits on motion (an animation is drawn over a change that has already happened; a ghost
+copy on `<body>` draws what has gone), and reduced motion turns it all off. Page
+transitions are not in it yet.
 
 ## Settings
 

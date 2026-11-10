@@ -12,23 +12,34 @@ import { chooseTakes } from '$lib/scheduler/attach';
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 import type { CountTakeRow, RunDetails } from '$lib/types';
 
-/** `off`: a song's count-off section — a dash, as the song page draws it. */
+/**
+ * `off`: a song's count-off section or lead, a dash, as the song page draws it.
+ * `ghost`: a lead's count-in (5 6 7 8, `$lib/songs/count-in`): the count, drawn as not there yet.
+ */
 export function stageDigit(
 	count: number | null,
 	paused: boolean,
-	off = false
-): { text: string; disc: boolean; dim: boolean } {
-	if (count === null || off) return { text: '–', disc: false, dim: true };
-	return { text: String(count), disc: count === 1 && !paused, dim: paused };
+	off = false,
+	ghost = false
+): { text: string; dim: boolean; ghost: boolean } {
+	if (ghost && count !== null) return { text: String(count), dim: false, ghost: true };
+	if (count === null || off) return { text: '–', dim: true, ghost: false };
+	return { text: String(count), dim: paused, ghost: false };
 }
 
 export function stageDots(
 	count: number | null,
 	paused: boolean,
-	off = false
+	off = false,
+	ghost = false
 ): { n: number; size: 10 | 16; tone: 'now' | 'held' | 'beat' | 'quiet' }[] {
 	return Array.from({ length: 8 }, (_, i) => {
 		const n = i + 1;
+		// The count-in: its four counts faint, the one on now held, the rest quiet.
+		if (ghost)
+			return n === count
+				? { n, size: 16 as const, tone: 'held' as const }
+				: { n, size: 10 as const, tone: n >= 5 ? ('beat' as const) : ('quiet' as const) };
 		// A count-off section: eight alike, no beat lit.
 		if (off) return { n, size: 10 as const, tone: 'quiet' as const };
 		if (n === count)

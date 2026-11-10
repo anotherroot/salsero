@@ -48,7 +48,7 @@
 	}
 </script>
 
-<li>
+<li data-flip="next">
 	<button
 		type="button"
 		class="flex min-h-14 w-full cursor-pointer items-center justify-center gap-1.5 px-4 text-[15px] font-extrabold text-accent-text disabled:cursor-default"

@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
-	import { GROUP, ROW_TALL, SECTION_LABEL } from '$lib/components/ui/styles';
+	import { GROUP, ROW_TALL, SECTION_LABEL, PRESS_ROW } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 
 	/**
@@ -19,7 +19,7 @@
 {#if shown}
 	{#if heading}<h2 class={SECTION_LABEL}>{w.section}</h2>{/if}
 	<div class="{GROUP} mb-1">
-		<a href="/{dance}/suggestions" class={ROW_TALL}>
+		<a href="/{dance}/suggestions" class="{ROW_TALL} {PRESS_ROW}">
 			<LeadTile icon="list" />
 			<span class="flex min-w-0 flex-1 flex-col">
 				<span class="text-[16px] font-bold text-ink">{w.youRow}</span>

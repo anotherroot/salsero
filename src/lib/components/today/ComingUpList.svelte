@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { resolve } from '$app/paths';
 	import { actAt } from '$lib/act';
 	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
@@ -6,7 +7,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { GROUP, SECTION_LABEL, iconButton } from '$lib/components/ui/styles';
+	import { GROUP, SECTION_LABEL, iconButton, PRESS_ROW } from '$lib/components/ui/styles';
 	import { comingHeading } from '$lib/schedule/coming-view';
 	import type { ComingGroup } from '$lib/schedule/coming-up';
 	import type { PickReply } from '$lib/schedule/picks';
@@ -72,11 +73,12 @@
 			<span>{head.title}</span>
 			{#if head.away}<span class="font-semibold">{head.away}</span>{/if}
 		</h2>
-		<ul class={GROUP}>
+		<FlipList class={GROUP} keys={group.rows.map((r) => r.exercise.id)}>
 			{#each group.rows as row (row.exercise.id)}
 				{@const ex = row.exercise}
 				{@const lit = ex.id === currentId}
 				<li
+					data-flip={ex.id}
 					class="flex min-h-[66px] items-center pr-1.5 pl-4 {lit
 						? 'bg-accent-soft shadow-[inset_4px_0_0_var(--color-accent)]'
 						: ''}"
@@ -84,7 +86,7 @@
 					<a
 						href={href(ex.id)}
 						aria-current={lit ? 'page' : undefined}
-						class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
+						class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1 {PRESS_ROW}"
 					>
 						<TypeTile
 							exercise={ex}
@@ -129,6 +131,6 @@
 					{/if}
 				</li>
 			{/each}
-		</ul>
+		</FlipList>
 	</section>
 {/each}

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
+	import { countInAt, leadLook, type Lead } from '$lib/songs/count-in';
 	import { stageDigit, stageDots } from '$lib/player/view';
 	import { t } from '$lib/i18n/catalog';
+	import { beatPulse, stepMs } from '$lib/motion/beat-pulse';
 
 	interface Props {
 		/** Polled every animation frame; null when there is no position yet. */
@@ -12,11 +14,22 @@
 		paused: boolean;
 		/** A song's count-off sections (`quietRanges`): a dash and eight alike dots there. */
 		quiet?: QuietRange[];
+		/** A song's leads (`leadsOf`): the dash shrinks, then 5 6 7 8 grow, faint, on the coming tempo. */
+		leads?: Lead[];
 	}
 
-	let { time, beats, counts, paused, quiet = [] }: Props = $props();
+	let { time, beats, counts, paused, quiet = [], leads = [] }: Props = $props();
 	let off = $state(false);
 	let index = $state(-1);
+	/** The count-in's count (5–8) on now, or null. */
+	let ghost = $state<number | null>(null);
+	/** The lead's size (`leadLook`): the dash shrinking, 5 6 7 8 growing; 1 outside a lead. */
+	let scale = $state(1);
+	// The count on the beat (motion round 1): each plain step pushes the digit, every count alike.
+	const pulse = beatPulse();
+	let digitEl = $state<HTMLElement>();
+	/** How long a dot takes to grow: 40 % of a beat, 110 ms at most. */
+	let dotMs = $state(110);
 
 	/*
 	 * The same loop as LiveCount: read the playhead every animation frame.
@@ -27,17 +40,27 @@
 		let frame = 0;
 		const tick = () => {
 			const t = time();
-			index = t === null ? -1 : beatIndexAt(beats, t);
-			off = t !== null && isQuiet(quiet, t);
+			const c = t === null ? null : countInAt(leads, t);
+			ghost = c?.n ?? null;
+			const look = leadLook(c);
+			scale = look?.scale ?? 1;
+			// A lead's beats count back from the 1 on the coming tempo, so the 1 pushes as the next beat.
+			index = c ? c.index : t === null ? -1 : beatIndexAt(beats, t);
+			off = ghost === null && t !== null && isQuiet(quiet, t);
+			const shown = ghost ?? (index >= 0 ? (counts[index] ?? null) : null);
+			pulse(digitEl, index, shown, paused, off, look?.push);
+			const step = stepMs();
+			const ms = Math.round(Math.min(110, 0.4 * (step ?? 333)));
+			if (ms !== dotMs) dotMs = ms;
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
 	});
 
-	const count = $derived(index >= 0 ? (counts[index] ?? null) : null);
-	const digit = $derived(stageDigit(count, paused, off));
-	const dots = $derived(stageDots(count, paused, off));
+	const count = $derived(ghost ?? (index >= 0 ? (counts[index] ?? null) : null));
+	const digit = $derived(stageDigit(count, paused, off, ghost !== null));
+	const dots = $derived(stageDots(count, paused, off, ghost !== null));
 
 	/*
 	 * Raised for a phone in sunlight: beat is ≥ 3.4:1 on three bands, quiet
@@ -55,8 +78,7 @@
 
 <!--
 	Cream only: the band is the background, and accent on it fails contrast.
-	The 1 is what you look for across a room, so it flips to a cream disc
-	with the number in the band's colour.
+	The 1 looks like every other count (the user's call; it was a cream disc).
 -->
 <div
 	class="flex min-h-0 w-full flex-1 flex-col items-center gap-3 desk:flex-none desk:gap-[26px]"
@@ -72,20 +94,25 @@
 			class="stage flex items-center justify-center"
 		>
 			<span
-				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
-					? 'rounded-full bg-band-ink text-band shadow-[0_10px_30px_rgb(0_0_0/0.22)]'
+				bind:this={digitEl}
+				style:scale={scale === 1 ? undefined : scale}
+				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums transition-[scale] duration-200 ease-arrive motion-reduce:transition-none {digit.ghost
+					? 'text-band-ink/40'
 					: digit.dim
 						? 'text-band-ink/75'
 						: 'text-band-ink'}">{digit.text}</span
 			>
 		</span>
 	</span>
-	<span class="flex h-4 flex-none items-center gap-2.5 desk:h-[22px] desk:gap-4" aria-hidden="true">
+	<span class="flex h-4 flex-none items-center gap-1 desk:h-[22px] desk:gap-2" aria-hidden="true">
 		{#each dots as d (d.n)}
+			<!-- Every dot is the big size; a small one is scaled down, so the lit one grows (transform only). -->
 			<span
-				class="flex-none rounded-full {d.size === 16
-					? 'size-4 desk:size-[22px]'
-					: 'size-2.5 desk:size-3.5'} {DOT_TONE[d.tone]}"
+				class="size-4 flex-none rounded-full transition-[scale] ease-arrive motion-reduce:transition-none desk:size-[22px] {d.size ===
+				16
+					? ''
+					: 'scale-[.625] desk:scale-[.636]'} {DOT_TONE[d.tone]}"
+				style:transition-duration="{dotMs}ms"
 			></span>
 		{/each}
 	</span>

@@ -30,7 +30,7 @@
 <SwipeAway key={id} {ondismiss} {onhold}>
 	<div
 		role="status"
-		class="flex min-h-[52px] items-center gap-2.5 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.5)] {actions.length
+		class="motion-rise flex min-h-[52px] items-center gap-2.5 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.5)] {actions.length
 			? 'pr-1'
 			: 'pr-4'}"
 	>

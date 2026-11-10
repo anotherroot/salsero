@@ -407,6 +407,32 @@ export const clones = {
 		selfChanged: (changed: string): string => `This one · you changed ${changed}`
 	},
 	/** Copy to… (board C4). */
+	/** Link from other places: the Copy and link card over a group's picker. */
+	copyHere: {
+		title: (label: string, into: string): string => `Copy ${label} into ${into}?`,
+		/** `from` null: the person's own app. */
+		lead: (from: string | null): string =>
+			`It comes in as a clone of ${from === null ? 'yours' : `the one in ${from}`}, so the two can be kept in step. Then it is linked here.`,
+		comes: 'Comes along',
+		behind: 'Stays behind',
+		/** What links to the source from lesson videos, never copied. */
+		sections: (n: number): string =>
+			n === 1 ? '1 section from a lesson video' : `${n} sections from lesson videos`,
+		sectionsOrPoints: (n: number): string =>
+			n === 1
+				? '1 section or point from a lesson video'
+				: `${n} sections or points from lesson videos`,
+		sameName: (into: string, label: string, from: string | null): string =>
+			`${into} has its own ${label}, not a copy of ${from === null ? 'yours' : `the one in ${from}`}.`,
+		/** The family's member here is archived. */
+		archived: 'It was here before and is archived. Restore it and link it.',
+		copyAndLink: 'Copy and link',
+		restoreAndLink: 'Restore and link',
+		linkGroups: "Link the group's one",
+		copyAnyway: 'Copy anyway',
+		done: 'Copied and linked',
+		failed: 'It could not be copied here and linked. Nothing was copied.'
+	},
 	copy: {
 		/** The ⋯ menu's item. */
 		menu: 'Copy to…',

@@ -146,7 +146,8 @@ export interface Ahead {
 	beatsLeft: number;
 	/** The 1s in (beat, next.beat]. */
 	eightsLeft: number;
-	mode: 'eights' | 'last' | 'beats';
+	/** `one`: a lead's count-in, the section comes on the next 1 (`$lib/songs/count-in`). */
+	mode: 'eights' | 'last' | 'beats' | 'one';
 }
 
 /**
@@ -170,6 +171,7 @@ export function aheadLine(a: Ahead): string {
 	const words = t().songs.page.ahead;
 	const name = sectionName(a.next);
 	if (a.mode === 'beats') return words.beats(name, a.beatsLeft);
+	if (a.mode === 'one') return words.one(name);
 	if (a.mode === 'last') return words.last(name);
 	return words.eights(name, a.eightsLeft);
 }

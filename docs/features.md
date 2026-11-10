@@ -7,7 +7,8 @@ Moved out of CLAUDE.md on 2026-11-08. When a feature ships, add it to "What is l
 Live: phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, count-only runs; since 2026-11-08 a run logs
-nothing, Done on the exercise page does), phase 3a (positions, the figure graph, the gap report), phase 3b
+nothing, Done on the exercise page does; since 2026-11-10 the voice and clave allow for
+Bluetooth headphones: Sound delay in Voice), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
@@ -99,7 +100,8 @@ admin's per person; machines keep English (the worker's queue, the media servers
 and the song page (a minimal listening view: the section playing and what comes next;
 Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
 menu, suggestions from the downbeats, sections counted or not, the Song tab; a song starts
-where its music starts, measured by the worker; see
+where its music starts, measured by the worker; the part before the main beat counts in
+5 6 7 8 on the coming tempo; see
 [`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md))
 and a group's + and one figure form (a group page's lessons by month; the band's + opens
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
@@ -137,6 +139,12 @@ band, the badge in the slim band, the tab bar filled with the band's colour and 
 side's cream card; navy and the group cookie are gone; a group drill shows the view while
 edited; see
 [`docs/superpowers/specs/2026-11-09-group-view-design.md`](docs/superpowers/specs/2026-11-09-group-view-design.md)).
+and Send feedback (2026-11-10: a row on You and on Settings opens a sheet with one text box; the
+message goes to the dance's admin with the page before the one it was written from, the last few pages
+and script errors of the tab, the site's build, the window, and the Android app's version and the
+browser from the request; the admin page lists them first, each with Done (and Open again under
+"Done (N)"), and Settings' Admin row says "N new messages"; table `feedback`, migration 0047, never
+synced, network-only: offline the Send button says it needs a connection).
 
 
 ## Specs
@@ -223,6 +231,12 @@ snapshots (replaced by Sync, below), Drop my copy, Detach, Copy to… and Move t
 from your own rows, leaving and Keep, the rescue, twins, and what was decided
 while planning and building. It replaces the groups spec's reading after
 leaving and its Make my own copy.
+Linking from other places has its own,
+[`docs/superpowers/specs/2026-11-10-link-from-other-places-design.md`](docs/superpowers/specs/2026-11-10-link-from-other-places-design.md):
+a group lesson's pickers and the Link popup on a group's video find, while
+searching, your own rows and your other groups' (read-only ones marked); a
+tap opens a card (what comes along, what stays behind) and Copy and link
+copies the row into the group as a clone and links it, in one transaction.
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync
@@ -305,3 +319,12 @@ why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM)
 slots, the device's copy (pull: the change log, scope, digests), offline changes (push,
 phase 3), media on the device (phase 4) and the phases. The spike's findings are in
 [`docs/superpowers/specs/2026-11-07-offline-spike-findings.md`](docs/superpowers/specs/2026-11-07-offline-spike-findings.md).
+Motion, round 1, has its own,
+[`docs/superpowers/specs/2026-11-10-motion-round-1-design.md`](docs/superpowers/specs/2026-11-10-motion-round-1-design.md):
+taps dip under the finger (buttons 94 %, rows 98.5 %); lists fold and open (a row leaving
+slides off, the rows under it close the gap, Undo opens it) on Today, a routine's slots,
+links, sections, recordings, Music's To pick, comments, Suggestions and a past day; sheets
+slide away and toasts rise; Done lands on Today (the row lifts into its done place, its
+check pops, the bar fills, the words swap); the player's count pushes on the beat (every count
+alike, the 1 is drawn like the rest), the lit dot grows, and Next rises into the call on a new figure. Nothing waits
+on motion, and reduced motion turns it all off. Page transitions are for a later round.

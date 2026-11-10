@@ -69,7 +69,11 @@
 	</span>
 {/snippet}
 
-<li class="flex min-h-16 items-center gap-3 py-[9px] pr-3 pl-4" class:bg-accent-soft={current}>
+<li
+	data-flip={row.id}
+	class="flex min-h-16 items-center gap-3 py-[9px] pr-3 pl-4"
+	class:bg-accent-soft={current}
+>
 	{#if view.action === 'pick'}
 		<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 		<a

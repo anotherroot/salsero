@@ -30,7 +30,17 @@
 	import { figureRows, linkOptionGroups } from '$lib/picker/build';
 	import { isHeading, type PickGroup, type PickRow } from '$lib/picker/model';
 	import { linkRefusal } from '$lib/picker/view';
-	import { addLink, createLink, fetchLinkOptions, removeLink } from '$lib/video/links-api';
+	import {
+		addLink,
+		copyLink,
+		createLink,
+		fetchLinkOptions,
+		removeLink
+	} from '$lib/video/links-api';
+	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
+	import { elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
+	import CopyHereCard from './CopyHereCard.svelte';
+	import { copied } from '$lib/components/clones/copied.svelte';
 	import {
 		destination,
 		linkHeading,
@@ -50,6 +60,7 @@
 	import { SpotsApiError } from '$lib/video/spots-api';
 	import { restoreArchived } from '$lib/teams/restore-api';
 	import type {
+		ElsewhereRow,
 		LinkCreate,
 		LinkedTarget,
 		LinkFigureChoice,
@@ -261,6 +272,80 @@
 			: r.key.startsWith('position:')
 				? { positionId: r.value }
 				: { exerciseId: r.value };
+
+	/*
+	 * Link from other places (spec 2026-11-10-link-from-other-places): on a
+	 * group's video the picker also finds, while searching, the person's own
+	 * rows and their other groups'. A tap or + opens the card; Copy and link
+	 * copies the row into the group and links this section or point to it.
+	 */
+	let pickQuery = $state('');
+	const away = new ElsewhereSearch();
+	$effect(() => {
+		const team = options?.team;
+		if (!team || !picking) return away.reset();
+		away.search(team.id, point ? ['position'] : ['figure', 'drill', 'position'], pickQuery);
+	});
+	const awayPicker = $derived(
+		options?.team ? { here: options.team.name, state: away.state, groups: away.groups } : null
+	);
+	let card = $state<{
+		row: ElsewhereRow;
+		from: string | null;
+		keep: boolean;
+		restore: number | null;
+	} | null>(null);
+	let cardBusy = $state(false);
+	let cardMessage = $state<string | null>(null);
+	$effect(() => {
+		if (!picking) untrack(() => (card = null));
+	});
+
+	function openCard(pick: PickRow, keep: boolean) {
+		const row = elsewhereOf(away.places, pick.key);
+		if (!row) return;
+		card = { row, from: elsewhereFrom(away.places, pick.key), keep, restore: row.restore };
+		cardMessage = null;
+	}
+
+	/** Copy and link, or Restore and link with `restore`. */
+	async function sendCopy(use: Record<string, number>, restore: number | null) {
+		const c = card;
+		if (!c || cardBusy) return;
+		cardBusy = true;
+		cardMessage = null;
+		try {
+			const answer = await copyLink(spotId, { kind: c.row.kind, id: c.row.id, use, restore });
+			if ('restore' in answer) {
+				if (card === c) card = { ...c, restore: answer.restore };
+				return;
+			}
+			changed(answer.options);
+			card = null;
+			copied.show(t().clones.copyHere.done);
+			if (c.keep) {
+				added += 1;
+				away.refresh();
+			} else if (top === 'pick') onclose();
+		} catch (e) {
+			cardMessage =
+				e instanceof SpotsApiError && e.status < 500 ? e.message : t().clones.copyHere.failed;
+		} finally {
+			cardBusy = false;
+		}
+	}
+
+	/** The card's "Link the group's one": the group's same-named row, linked as any pick is. */
+	function linkGroups() {
+		const c = card;
+		if (!c || c.row.sameName === null) return;
+		card = null;
+		const prefix = c.row.kind === 'drill' ? 'exercise' : c.row.kind;
+		void link(
+			{ key: `${prefix}:${c.row.sameName}`, value: c.row.sameName, label: c.row.label },
+			c.keep
+		);
+	}
 
 	/** The opening's groups, with "✓ Linked" from the latest answer. */
 	const groups = $derived.by((): PickGroup[] => {
@@ -778,6 +863,9 @@
 	pending={inFlight}
 	message={pickMessage}
 	archived={archivedChoice}
+	bind:query={pickQuery}
+	elsewhere={awayPicker}
+	onelsewhere={openCard}
 	onpick={(row) => link(row, false)}
 	onadd={(row) => link(row, true)}
 	oncreate={startCreate}
@@ -789,6 +877,27 @@
 		if (theme === 'dark' || top === 'pick') onback();
 	}}
 />
+
+<!-- Link from other places: the card over the picker. -->
+{#if card && options?.team}
+	{@const c = card}
+	<CopyHereCard
+		{theme}
+		kind={c.row.kind}
+		id={c.row.id}
+		label={c.row.label}
+		from={c.from}
+		into={{ teamId: options.team.id, name: options.team.name }}
+		sameName={c.row.sameName}
+		restore={c.restore}
+		busy={cardBusy}
+		message={cardMessage}
+		oncopy={(use) => sendCopy(use, null)}
+		onrestore={(use) => sendCopy(use, c.restore)}
+		onlinkgroups={linkGroups}
+		onclose={() => (card = null)}
+	/>
+{/if}
 
 {#if createStep && options}
 	{@const o = options}

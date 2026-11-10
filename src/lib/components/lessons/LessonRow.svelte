@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PRESS_ROW } from '$lib/components/ui/styles';
 	import WaitingBadge from '$lib/components/ui/WaitingBadge.svelte';
 	import type { Snippet } from 'svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -51,7 +52,7 @@
 	<a
 		{href}
 		aria-current={current ? 'page' : undefined}
-		class="flex min-h-[84px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 active:bg-step {pad}"
+		class="flex min-h-[84px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 active:bg-step {pad} {PRESS_ROW}"
 	>
 		<span
 			aria-hidden="true"

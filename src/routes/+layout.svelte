@@ -29,6 +29,7 @@
 	import { columnOf } from '$lib/nav/moves-pane';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { openPickersOnClick } from '$lib/native-picker';
+	import { noteError, notePage } from '$lib/feedback/trail';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
@@ -133,6 +134,21 @@
 	let dropped = 0;
 	let watched: Promise<void> | null = null;
 	afterNavigate(() => (dropped = 0));
+
+	// What Send feedback carries: the pages opened in this tab and the script errors met.
+	afterNavigate((nav) => {
+		if (nav.to) notePage(nav.to.url);
+	});
+	$effect(() => {
+		const onError = (e: ErrorEvent) => noteError(e.error ?? e.message);
+		const onRejection = (e: PromiseRejectionEvent) => noteError(e.reason);
+		window.addEventListener('error', onError);
+		window.addEventListener('unhandledrejection', onRejection);
+		return () => {
+			window.removeEventListener('error', onError);
+			window.removeEventListener('unhandledrejection', onRejection);
+		};
+	});
 	$effect(() => {
 		const complete = navigating.complete;
 		const to = navigating.to;

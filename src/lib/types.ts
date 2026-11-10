@@ -617,6 +617,8 @@ export type LinkContext =
 /** Everything the Link popup shows for one section, or one point (`endMs` null: positions only). */
 export interface LinkOptions {
 	dance: DanceSlug;
+	/** The group whose video this is, null for a person's own: Link from other places offers a copy into it. */
+	team: { id: number; name: string } | null;
 	spot: { id: number; startMs: number; endMs: number | null; label: string | null };
 	context: LinkContext;
 	linked: LinkedTarget[];
@@ -1003,6 +1005,48 @@ export type CopyPlanView = {
 		from: number;
 		choices: TwinChoice[];
 	}[];
+};
+
+/**
+ * The Copy and link card's data (link from other places): Copy to…'s plan,
+ * what links to the source from lesson videos and stays behind (0 when none
+ * is counted), and the place's storage.
+ */
+export type CopyHereView = CopyPlanView & {
+	staysBehind: number;
+	usedBytes: number;
+	limitBytes: number;
+};
+
+/* ── Link from other places ─────────────────────────────────────────────── */
+
+/** What a group's linking pickers look for elsewhere. `drill` is an exercise row of a drill. */
+export type ElsewhereKind = 'figure' | 'routine' | 'drill' | 'position';
+
+/** One row found in another place, for a group's picker. */
+export type ElsewhereRow = {
+	kind: ElsewhereKind;
+	id: number;
+	/** "Cradle entry · Basic"; a routine's, drill's or position's name. */
+	label: string;
+	/** A figure's move ("Cradle entry"), else null. */
+	heading: string | null;
+	/** A figure's variation ("Basic"), else null. */
+	short: string | null;
+	/** The other places that hold the same family, by name, in place order. */
+	alsoIn: string[];
+	/** The family's archived member in the group: Restore and link. */
+	restore: number | null;
+	/** A live group row of the same name from another family: Link the group's one. */
+	sameName: number | null;
+};
+
+/** One place a group's picker found rows in: your own app or another group. */
+export type ElsewherePlace = {
+	place: { kind: 'mine' } | { kind: 'team'; teamId: number; name: string };
+	/** A group you only read. */
+	readOnly: boolean;
+	rows: ElsewhereRow[];
 };
 
 /** One thing a moved lesson brings (board C4 p3): keep yours as well, or use the group's. */

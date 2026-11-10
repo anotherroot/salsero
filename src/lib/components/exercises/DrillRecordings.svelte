@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -93,7 +94,10 @@
 			{/if}
 		</div>
 		{#if items > 0}
-			<ul class={GROUP}>
+			<FlipList
+				class={GROUP}
+				keys={[...sections.map((s) => `s${s.linkId}`), ...links.map((l) => `l${l.id}`)]}
+			>
 				{#each sections as s (s.linkId)}
 					{#snippet unlink()}
 						<form
@@ -110,7 +114,7 @@
 							>
 						</form>
 					{/snippet}
-					<li>
+					<li data-flip="s{s.linkId}">
 						<SectionRow
 							section={s}
 							focusKey="section-{s.linkId}"
@@ -120,11 +124,11 @@
 					</li>
 				{/each}
 				{#each links as link (link.id)}
-					<li>
+					<li data-flip="l{link.id}">
 						<LinkRow {link} canSave={false} {editing} onremove={removed(`link-${link.id}`)} />
 					</li>
 				{/each}
-			</ul>
+			</FlipList>
 		{/if}
 		{#if refusal}
 			<p class={FIELD_ERROR} role="alert">
