@@ -3,6 +3,7 @@
 	import { onMount, tick, type Snippet } from 'svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
+	import { countInAt, type Lead } from '$lib/songs/count-in';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { clock } from '$lib/format';
 	import { stageDigit } from '$lib/player/view';
@@ -33,6 +34,8 @@
 		paused?: boolean;
 		/** A song's count-off sections: the strip's count is a dash there. */
 		quiet?: QuietRange[];
+		/** A song's leads: the strip shows their count-in faint, as the stage does. */
+		leads?: Lead[];
 		/** A layer over another one draws over it. */
 		over?: boolean;
 		/** The close button's name. */
@@ -52,6 +55,7 @@
 		counts = [],
 		paused = false,
 		quiet = [],
+		leads = [],
 		over = false,
 		closeLabel,
 		onclose,
@@ -91,15 +95,18 @@
 	let count = $state<number | null>(null);
 	let off = $state(false);
 	let time = $state(0);
+	let ghost = $state(false);
 	$effect(() => {
 		const p = player;
 		if (!p) return;
 		let frame = 0;
 		const loop = () => {
 			time = p.songTime();
-			const i = beatIndexAt(beats, time);
-			off = isQuiet(quiet, time);
-			count = i >= 0 ? (counts[i] ?? null) : null;
+			const c = countInAt(leads, time);
+			ghost = c?.n != null;
+			const i = ghost && c ? c.index : beatIndexAt(beats, time);
+			off = !ghost && isQuiet(quiet, time);
+			count = c?.n ?? (i >= 0 ? (counts[i] ?? null) : null);
 			pulse(stripDigit, i, count, paused, off);
 			frame = requestAnimationFrame(loop);
 		};
@@ -128,8 +135,10 @@
 		{#if player}
 			<span
 				bind:this={stripDigit}
-				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden"
-				aria-hidden="true">{stageDigit(count, paused, off).text}</span
+				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden {ghost
+					? 'scale-[.78] text-band-ink/40'
+					: ''}"
+				aria-hidden="true">{stageDigit(count, paused, off, ghost).text}</span
 			>
 		{/if}
 		<span class="min-w-0 flex-1 text-[13px] leading-tight font-bold text-band-small tabular-nums">

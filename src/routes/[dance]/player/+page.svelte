@@ -18,6 +18,7 @@
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { quietRanges } from '$lib/scheduler/quiet';
+	import { countInCues, leadsOf } from '$lib/songs/count-in';
 	import { placeSections, type Placed } from '$lib/songs/sections';
 	import { playFrom } from '$lib/songs/music-start';
 	import { routinePlan } from '$lib/routines/plan';
@@ -227,7 +228,8 @@
 			const from = g0 ? playFrom(el.currentTime, g0.startS, el.duration) : null;
 			if (from !== null) el.currentTime = from;
 		}
-		// A song's sections with the count off play with no count and no clave.
+		// A song's sections with the count off, and its leads, play with no count and no clave;
+		// a lead counts in 5 6 7 8 on the coming tempo (`$lib/songs/count-in`).
 		const songSections = useSong && g0 ? g0.sections : [];
 
 		// Read once, before the closure below is built: the planner runs inside
@@ -243,6 +245,9 @@
 			grid,
 			toggles: { count: settings.count, clave: settings.clave },
 			quiet: quietRanges(songSections, grid.beats, grid.counts),
+			countIn: countInCues(
+				leadsOf(placeSections(songSections, grid.beats, grid.counts), grid.beats)
+			),
 			planner: shape
 				? (plan, through, rand, from) => routinePlan(plan, shape, graph, through, rand, from)
 				: undefined,

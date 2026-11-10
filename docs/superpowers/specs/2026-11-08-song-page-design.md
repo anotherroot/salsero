@@ -409,6 +409,15 @@ load, quietly behind a grep.)
   A move of exactly 2 beats reads as later.
 - **What's next:** a counted section reads in eights and its last eight
   "after this eight"; a count-off section reads in beats.
+- **The count-in (2026-11-10):** the song before its first section (when that
+  one is counted) and a count-off section before a counted one are a lead. A
+  lead's own beats are often loose (a rubato intro), so it is not counted on
+  them: it is quiet, with a dash, and "Verse in 2 eights" counts down in the
+  tempo of the coming section's first eight. Its last four beats are 5 6 7 8
+  on that tempo, faint and smaller ("not there yet"), spoken by the voice
+  unless the count is off; the 1 lands full. The player and the song page
+  both (`$lib/songs/count-in`). A song whose first section sits mid-song is
+  quiet up to it: put a section at the start to keep it counted.
 - **The grid:** a row is quiet (folded before the music) when it ends at or
   before the music start, so the row the music starts in shows under "Music
   starts". The fold reads 0:00 to the music start. An eight earlier or later
