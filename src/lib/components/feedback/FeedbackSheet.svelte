@@ -86,6 +86,8 @@
 		bind:this={form}
 		use:guarded={{
 			label: w.title,
+			// Closes without asking, typed or not: a short note, not worth a question.
+			dirty: () => false,
 			submit: ({ formData, cancel }) => {
 				// One message per tap: a second tap while the first is out is dropped.
 				if (busy) return cancel();
