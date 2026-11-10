@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
 import { askedLine, barFraction, itemMeta, usageLine } from './storage-view';
-import { byteSize } from './format';
 
 const MB = 1024 * 1024;
 
