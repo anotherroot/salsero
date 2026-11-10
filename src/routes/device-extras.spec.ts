@@ -40,6 +40,8 @@ const extras = (over: Partial<ServerExtras> = {}): ServerExtras => ({
 	aiConnected: true,
 	release: null,
 	imports: { own: [], teams: {} },
+	teamTrashBytes: {},
+	lastEdits: {},
 	...over
 });
 const onDevice = (x: ServerExtras | null) =>

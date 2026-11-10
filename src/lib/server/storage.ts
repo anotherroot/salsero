@@ -22,6 +22,7 @@ import type { StorageItem } from '$lib/types';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { Db } from './db';
 import { audioDir } from './files';
+import { deviceRuntime } from './device-runtime';
 import {
 	appFlags,
 	countTakes,
@@ -124,6 +125,16 @@ function teamUsedBytes(db: Db, teamId: number): number {
 		.from(songs)
 		.where(eq(songs.teamId, teamId))
 		.get();
+	return total(recs?.t) + total(vids?.t) + total(sg?.t) + teamTrashBytes(db, teamId);
+}
+
+/**
+ * What waits in a group's Recently deleted, in bytes. `team_trash` never reaches a
+ * device: there the last pull says (device first).
+ */
+export function teamTrashBytes(db: Db, teamId: number): number {
+	const device = deviceRuntime();
+	if (device) return device.extras?.teamTrashBytes?.[String(teamId)] ?? 0;
 	const trash = db
 		.select({ t: sum(teamTrash.sizeBytes) })
 		.from(teamTrash)
@@ -131,7 +142,7 @@ function teamUsedBytes(db: Db, teamId: number): number {
 			and(eq(teamTrash.teamId, teamId), isNull(teamTrash.purgedAt), isNull(teamTrash.restoredAt))
 		)
 		.get();
-	return total(recs?.t) + total(vids?.t) + total(sg?.t) + total(trash?.t);
+	return total(trash?.t);
 }
 
 export function usedBytesOf(db: Db, owner: Owner): number {

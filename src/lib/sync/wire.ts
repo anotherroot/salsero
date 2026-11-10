@@ -47,5 +47,9 @@ export type ServerExtras = {
 	release: Release | null;
 	/** Music's To pick: the person's own view, and each group's they may view by team id. */
 	imports: { own: SongImportRow[]; teams: Record<string, SongImportRow[]> };
+	/** Each group's Recently deleted bytes (`team_trash`), for its usage, by team id. */
+	teamTrashBytes: Record<string, number>;
+	/** The last change History holds per group lesson (`team_changes`), keyed `lesson:<id>`: "Edited by". */
+	lastEdits: Record<string, { actorId: string; at: number }>;
 };
 export type PullRefusal = { refused: 'schema'; schema: string };

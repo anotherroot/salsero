@@ -4,9 +4,11 @@
  * (`song_imports`, `ai_*`, `oauth_*`) never reach a device and the APK release
  * lives on the server's disk.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db';
-import { users } from '../db/schema';
+import { lessons, teamMembers, users } from '../db/schema';
+import { teamTrashBytes } from '../storage';
+import { lastEdit } from '../changes';
 import { isDanceSlug } from '$lib/dances/dances';
 import { pendingCount } from '$lib/server/ai-queue/store';
 import { listGrants } from '$lib/server/oauth/store';
@@ -21,7 +23,9 @@ const NONE: ServerExtras = {
 	aiPending: 0,
 	aiConnected: false,
 	release: null,
-	imports: { own: [], teams: {} }
+	imports: { own: [], teams: {} },
+	teamTrashBytes: {},
+	lastEdits: {}
 };
 
 export function serverExtras(db: Db, userId: string): ServerExtras {
@@ -33,15 +37,39 @@ export function serverExtras(db: Db, userId: string): ServerExtras {
 	if (!dance || !isDanceSlug(dance)) return NONE;
 	const own = { dance, userId };
 	const teams: Record<string, ServerExtras['imports']['own']> = {};
+	const teamTrash: Record<string, number> = {};
 	// The groups a person may view (`groupChoices`): the songs layout's group view lists theirs.
 	for (const g of groupChoices(db, userId, dance)) {
 		teams[String(g.teamId)] = listImports(db, { dance, teamId: g.teamId, actorId: userId });
+		teamTrash[String(g.teamId)] = teamTrashBytes(db, g.teamId);
 	}
 	return {
 		musicToPick: importsWaiting(db, userId, dance),
 		aiPending: pendingCount(db, userId, dance),
 		aiConnected: listGrants(db, userId, serverNow()).length > 0,
 		release: currentRelease(dance),
-		imports: { own: [...listImports(db, own), ...groupImportsToPick(db, userId, dance)], teams }
+		imports: { own: [...listImports(db, own), ...groupImportsToPick(db, userId, dance)], teams },
+		teamTrashBytes: teamTrash,
+		lastEdits: lessonEdits(db, userId, dance)
 	};
+}
+
+/** "Edited by" for every lesson of the groups a person is in: History's last change to each. */
+function lessonEdits(
+	db: Db,
+	userId: string,
+	dance: string
+): Record<string, { actorId: string; at: number }> {
+	const rows = db
+		.select({ id: lessons.id, teamId: lessons.teamId })
+		.from(lessons)
+		.innerJoin(teamMembers, eq(teamMembers.teamId, lessons.teamId))
+		.where(and(eq(teamMembers.userId, userId), eq(lessons.dance, dance)))
+		.all();
+	const out: Record<string, { actorId: string; at: number }> = {};
+	for (const r of rows) {
+		const last = r.teamId === null ? null : lastEdit(db, r.teamId, 'lesson', r.id);
+		if (last) out[`lesson:${r.id}`] = last;
+	}
+	return out;
 }
