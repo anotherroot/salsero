@@ -37,3 +37,57 @@ describe('toasts, sheets and faces (motion round 1)', () => {
 		expect(fn).toMatch(/reducedMotion\(\)/);
 	});
 });
+
+describe('review fixes (motion round 1)', () => {
+	it('a ghost copy loads no media and joins no radio group', async () => {
+		const { scrub } = await import('./ghost');
+		type Fake = {
+			tagName: string;
+			attrs: Map<string, string>;
+			kids: Fake[];
+			paused?: boolean;
+		};
+		const el = (tagName: string, attrs: Record<string, string>, kids: Fake[] = []): Fake => ({
+			tagName,
+			attrs: new Map(Object.entries(attrs)),
+			kids
+		});
+		const api = (f: Fake): Element =>
+			({
+				tagName: f.tagName,
+				removeAttribute: (n: string) => f.attrs.delete(n),
+				getAttributeNames: () => [...f.attrs.keys()],
+				querySelectorAll: () => {
+					const all: Element[] = [];
+					const walk = (x: Fake) => x.kids.forEach((k) => (all.push(api(k)), walk(k)));
+					walk(f);
+					return all;
+				}
+			}) as unknown as Element;
+		const video = el('VIDEO', { src: '/v/1', autoplay: '', class: 'x' }, [
+			el('SOURCE', { src: '/v/1.mp4' })
+		]);
+		const radio = el('INPUT', { type: 'radio', name: 'rhythm', id: 'r1', 'data-focus': 'f' });
+		const root = el('LI', { 'data-flip': '3' }, [video, radio]);
+		scrub(api(root));
+		expect([...root.attrs.keys()]).toEqual([]);
+		expect([...video.attrs.keys()]).toEqual(['class']);
+		expect([...video.kids[0].attrs.keys()]).toEqual([]);
+		expect([...radio.attrs.keys()]).toEqual(['type']);
+	});
+
+	it('the call does not rise over an open layer on the phone', () => {
+		const running = read('src/lib/components/player/Running.svelte');
+		const pre = running.slice(
+			running.indexOf('!callMoves(calls, now)'),
+			running.indexOf('return;', running.indexOf('!callMoves(calls, now)'))
+		);
+		expect(pre).toContain('(layer !== null && !desk.current)');
+	});
+
+	it('the bar card announces only the words it holds now', () => {
+		const bar = read('src/lib/components/today/TodayBar.svelte');
+		expect(bar).toContain('<span class="sr-only">{hero.title}');
+		expect(bar.match(/\{#key view\.(title|meta)\}<span\n\t*aria-hidden="true"/g)?.length).toBe(2);
+	});
+});

@@ -76,10 +76,13 @@
 
 <div bind:this={card} class={cls} role={hero.state === 'todo' ? undefined : 'status'}>
 	<div class="flex min-w-0 flex-1 flex-col gap-[7px]">
+		<!-- Read once, as they are now: the lines drawn below swap with an old and a new copy. -->
+		<span class="sr-only">{hero.title} · {hero.meta}</span>
 		<span
 			class="grid font-display text-[25px] leading-[1.1] font-extrabold tracking-[-0.01em] text-ink"
 		>
 			{#key view.title}<span
+					aria-hidden="true"
 					class="[grid-area:1/1]"
 					in:fly={{ y: 8, duration: swap(), delay: swap() * 0.6 }}
 					out:fly={{ y: -8, duration: swap() }}>{view.title}</span
@@ -96,6 +99,7 @@
 		{/if}
 		<span class="grid text-[14px] font-semibold text-muted">
 			{#key view.meta}<span
+					aria-hidden="true"
 					class="[grid-area:1/1]"
 					in:fly={{ y: 8, duration: swap(), delay: swap() * 0.6 }}
 					out:fly={{ y: -8, duration: swap() }}>{view.meta}</span

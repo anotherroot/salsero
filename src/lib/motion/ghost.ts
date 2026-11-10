@@ -12,10 +12,20 @@ import { LEAVE, MS, play, reducedMotion } from './motion';
 /** A ghost never outlasts this, whatever its animations do. */
 const MAX_MS = 2000;
 
-/** The copy must not answer to the page's own lookups (`data-focus`, ids, keys). */
-function scrub(node: Element): void {
+/**
+ * The copy must not answer to the page's own lookups (`data-focus`, ids, keys),
+ * join a radio group (a checked copy would uncheck the original), or load or
+ * play media (a video's `src`, `autoplay`).
+ */
+const MEDIA = new Set(['VIDEO', 'AUDIO', 'SOURCE', 'IFRAME']);
+export function scrub(node: Element): void {
 	for (const el of [node, ...node.querySelectorAll('*')]) {
 		el.removeAttribute('id');
+		el.removeAttribute('name');
+		if (MEDIA.has(el.tagName)) {
+			el.removeAttribute('src');
+			el.removeAttribute('autoplay');
+		}
 		for (const name of el.getAttributeNames())
 			if (name.startsWith('data-')) el.removeAttribute(name);
 	}

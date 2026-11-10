@@ -47,6 +47,7 @@
 	import StageCount from './StageCount.svelte';
 	import { callMoves } from '$lib/player/beat-motion';
 	import { stepMs } from '$lib/motion/beat-pulse';
+	import { desk } from '$lib/nav/desk.svelte';
 	import { ghost } from '$lib/motion/ghost';
 	import { MS, play, reducedMotion } from '$lib/motion/motion';
 
@@ -204,7 +205,16 @@
 	$effect.pre(() => {
 		const now = nowName;
 		untrack(() => {
-			if (!callMoves(calls, now) || !callEl || !nextEl || reducedMotion()) return;
+			// Not under an open layer (Routine, About, Voice cover the stage on the phone):
+			// its ghost would flash over the layer.
+			if (
+				!callMoves(calls, now) ||
+				!callEl ||
+				!nextEl ||
+				reducedMotion() ||
+				(layer !== null && !desk.current)
+			)
+				return;
 			const c = callEl.getBoundingClientRect();
 			const n = nextEl.getBoundingClientRect();
 			const ms = Math.min(MS.long, 1.4 * (stepMs() ?? 333));
