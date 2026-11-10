@@ -29,6 +29,11 @@ export function flipList(o: {
 	replayOnShow?: () => boolean;
 	/** The row lifted on a replay (the one just done). */
 	lift?: () => string | null;
+	/**
+	 * How long a replay waits before the rows move (ms): the card lands first (page changes
+	 * spec). The rows hold their old places meanwhile, so nothing paints in the new order.
+	 */
+	delay?: () => number;
 	/** Keeps what the list last showed across a remount (Today: each page draws its own list). */
 	id?: string;
 }): void {
@@ -90,7 +95,8 @@ export function flipList(o: {
 					fromHeight,
 					height,
 					replay ? MS.long : MS.medium,
-					replay ? (o.lift?.() ?? null) : null
+					replay ? (o.lift?.() ?? null) : null,
+					replay ? (o.delay?.() ?? 0) : 0
 				);
 			snapshot = { boxes: after, height };
 			drawnHere = true;
@@ -154,14 +160,20 @@ function animate(
 	fromHeight: number,
 	toHeight: number,
 	ms: number,
-	lift: string | null
+	lift: string | null,
+	wait = 0
 ): void {
+	// A delayed start holds each row where it starts (`backwards`) until it moves.
+	const at = { delay: wait, fill: 'backwards' } as const;
 	const plan = flipPlan(from, to);
 	const byKey = new Map(rows.map((row) => [row.dataset.flip ?? '', row]));
 	for (const { key, dy } of plan.moves) {
 		const row = byKey.get(key);
 		if (!row) continue;
-		play(row, [{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: ms });
+		play(row, [{ transform: `translateY(${dy}px)` }, { transform: 'none' }], {
+			duration: ms,
+			...at
+		});
 		if (key === lift) {
 			row.style.position ||= 'relative';
 			row.style.zIndex = '1';
@@ -172,7 +184,7 @@ function animate(
 					{ boxShadow: '0 8px 24px #0002', offset: 0.5 },
 					{ boxShadow: '0 8px 24px #0000' }
 				],
-				{ duration: ms }
+				{ duration: ms, ...at }
 			);
 			void a?.finished.finally(() => row.style.removeProperty('z-index')).catch(() => {});
 		}
@@ -187,9 +199,12 @@ function animate(
 				{ opacity: 0, offset: 0.45 },
 				{ opacity: 1, transform: 'none' }
 			],
-			{ duration: MS.medium + MS.short, easing: SETTLE }
+			{ duration: MS.medium + MS.short, easing: SETTLE, ...at }
 		);
 	}
 	if (Math.abs(fromHeight - toHeight) >= 0.5)
-		play(list, [{ height: `${fromHeight}px` }, { height: `${toHeight}px` }], { duration: ms });
+		play(list, [{ height: `${fromHeight}px` }, { height: `${toHeight}px` }], {
+			duration: ms,
+			...at
+		});
 }

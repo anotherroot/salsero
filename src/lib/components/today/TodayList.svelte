@@ -21,6 +21,7 @@
 	import { actAt } from '$lib/act';
 	import { offlineRefusal, refusalMessage } from '$lib/act-toast';
 	import { flipList } from '$lib/motion/flip.svelte';
+	import { settledIn } from '$lib/motion/page-move.svelte';
 
 	/**
 	 * Today's list: one "Today · N" card (done, to do, picked: `dayList`'s order),
@@ -207,7 +208,9 @@
 		keys: () => shownWarm.map((r) => r.exercise.id),
 		shown: () => shown,
 		replayOnShow: () => landing,
-		lift: () => (landedId === null ? null : String(landedId))
+		lift: () => (landedId === null ? null : String(landedId)),
+		// The card lands first (page changes spec), then the rows move.
+		delay: settledIn
 	});
 	flipList({
 		container: () => practiceList,
@@ -218,7 +221,9 @@
 		],
 		shown: () => shown,
 		replayOnShow: () => landing,
-		lift: () => (landedId === null ? null : String(landedId))
+		lift: () => (landedId === null ? null : String(landedId)),
+		// The card lands first (page changes spec), then the rows move.
+		delay: settledIn
 	});
 
 	const dragOf = (i: number, id: number) =>
