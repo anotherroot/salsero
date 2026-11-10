@@ -331,12 +331,13 @@ export function createDevice(deps: DeviceDeps): Device {
 			log.warn("[device] pull: the answer is not the page's person's, not taken");
 			return 'done';
 		}
+		let changed = 0;
 		try {
 			const applied = await exclusive(async () => {
 				// A write recorded while the answer was on its way is not in it: applying would erase it.
 				const sum = outboxSummary(db, copyUser());
 				if (sum.seq !== seqBefore || sum.waiting > 0) return false;
-				applyPull(db, body);
+				changed = applyPull(db, body);
 				writeMetaValue(db, 'signedOut', '0');
 				writeMetaValue(db, 'lastSyncedAt', String(deps.now()));
 				return true;
@@ -352,7 +353,7 @@ export function createDevice(deps: DeviceDeps): Device {
 		}
 		await serve();
 		postSummary();
-		deps.post({ type: 'pulled', cursor: body.cursor, startedAt, landed: lastLanded });
+		deps.post({ type: 'pulled', cursor: body.cursor, startedAt, landed: lastLanded, changed });
 		lastLanded = 0;
 		return 'done';
 	}

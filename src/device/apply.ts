@@ -45,15 +45,24 @@ function upsertSql(table: string, cols: string[]): string {
 		: `${insert} ${on} DO NOTHING`;
 }
 
-export function applyPull(db: SqliteDb, res: PullResponse): void {
+/**
+ * Applies a pull and says how much it changed: the rows it wrote, plus one
+ * when the page cookies it carries differ from the copy's. A table resent whole
+ * counts every row (its digest differed, so something in it changed).
+ */
+export function applyPull(db: SqliteDb, res: PullResponse): number {
 	const before = readMeta(db);
+	let changes = 0;
 	if (before.userId !== null && before.userId !== res.userId) wipeCopy(db);
 
 	db.pragma('foreign_keys = OFF');
 	db.exec('BEGIN');
 	try {
 		for (const t of res.full) {
-			if (t in SYNCED) db.exec(`DELETE FROM ${q(t)}`);
+			if (!(t in SYNCED)) continue;
+			// A row gone from a table resent whole is a change too, with no row to count.
+			changes += (db.prepare(`SELECT count(*) AS n FROM ${q(t)}`).get() as { n: number }).n;
+			db.exec(`DELETE FROM ${q(t)}`);
 		}
 		for (const [table, { cols, rows }] of Object.entries(res.changed)) {
 			if (!(table in SYNCED)) continue;
@@ -72,6 +81,7 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 					throw new Error(`a row of ${table} has ${row.length} values for ${cols.length} columns`);
 				}
 				stmt.run(...keep.map(([, i]) => row[i]));
+				changes += 1;
 			}
 		}
 		// The device logs nothing in phase 2.
@@ -79,6 +89,7 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 		writeMetaValue(db, 'userId', res.userId);
 		writeMetaValue(db, 'cursor', String(res.cursor));
 		writeMetaValue(db, 'schema', res.schema);
+		if (JSON.stringify(before.cookies) !== JSON.stringify(res.cookies)) changes += 1;
 		writeMetaValue(db, 'cookies', JSON.stringify(res.cookies));
 		writeMetaValue(db, 'full', '0');
 		if (res.slot !== undefined) writeMetaValue(db, 'slot', String(res.slot));
@@ -101,6 +112,7 @@ export function applyPull(db: SqliteDb, res: PullResponse): void {
 		throw e;
 	}
 	db.pragma('foreign_keys = ON');
+	return changes;
 }
 
 async function sha256Hex(text: string): Promise<string> {

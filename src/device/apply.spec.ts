@@ -266,3 +266,50 @@ describe('pullRequestOf', () => {
 		expect(again.changed).toEqual({});
 	});
 });
+
+describe('what a pull changed', () => {
+	it('counts the rows a pull wrote', () => {
+		const res = pull('u1');
+		const rows = Object.values(res.changed).reduce((n, t) => n + t.rows.length, 0);
+		expect(applyPull(device, res)).toBe(rows);
+	});
+
+	it('counts nothing for a pull that brings nothing', () => {
+		const res = pull('u1');
+		applyPull(device, res);
+		expect(applyPull(device, { ...res, full: [], changed: {} })).toBe(0);
+	});
+
+	it('counts one row an upsert brings', () => {
+		const res = pull('u1');
+		applyPull(device, res);
+		const f = res.changed.figures;
+		expect(
+			applyPull(device, {
+				...res,
+				full: [],
+				changed: { figures: { cols: f.cols, rows: [f.rows[0]] } }
+			})
+		).toBe(1);
+	});
+
+	it('counts a changed cookie jar once', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, cookies: { theme: 'dark' } });
+		const empty = { ...res, full: [], changed: {} };
+		expect(applyPull(device, { ...empty, cookies: { theme: 'light' } })).toBe(1);
+		expect(applyPull(device, { ...empty, cookies: { theme: 'light' } })).toBe(0);
+	});
+});
+
+describe('what a pull changed, removing', () => {
+	it('counts a table resent whole without a row', () => {
+		const res = pull('u1');
+		applyPull(device, res);
+		const f = res.changed.figures;
+		const fewer = { cols: f.cols, rows: f.rows.slice(1) };
+		expect(
+			applyPull(device, { ...res, full: ['figures'], changed: { figures: fewer } })
+		).toBeGreaterThan(0);
+	});
+});

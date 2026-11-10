@@ -294,6 +294,18 @@ describe('pull', () => {
 		expect(pulled).toEqual([100, 200, 300]);
 	});
 
+	it('posts how much each pull changed', async () => {
+		const h = harness();
+		await h.dev.start();
+		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled', changed: expect.any(Number) });
+		expect((h.posted.at(-1) as { changed: number }).changed).toBeGreaterThan(0);
+		await h.dev.pull();
+		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled', changed: 0 });
+		server.run(sql`UPDATE figures SET name = 'Renamed' WHERE id = ${world.own.u1.figure}`);
+		await h.dev.pull();
+		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled', changed: 1 });
+	});
+
 	it('signed out (a 401): keeps the copy and the outbox, and says sign in', async () => {
 		let status = 200;
 		const h = harness({
@@ -305,6 +317,8 @@ describe('pull', () => {
 		status = 401;
 		await h.dev.pull();
 		expect(count('figures')).toBe(figures);
+		// The copy keeps answering (device first: nothing sends the person to sign in on its own).
+		expect(h.dev.state()).toBe('ready');
 		expect(readMeta(device).userId).toBe('u1');
 		expect(h.dev.summary().signedOut).toBe(true);
 		// Signed in again: the next pull brings the copy back and serves it.
