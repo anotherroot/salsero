@@ -4,6 +4,8 @@
 	import { actAt } from '$lib/act';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { saved } from '$lib/exercises/saved.svelte';
+	import { landedRow, shouldReplay } from '$lib/motion/landing';
 	import { pinned } from '$lib/nav/chrome.svelte';
 	import { page } from '$app/state';
 	import { levelShown, simple } from '$lib/levels/levels';
@@ -63,6 +65,18 @@
 	const currentId = $derived(isList || !page.params.id ? null : Number(page.params.id));
 	// The list column is in sight: always on the desktop; on the phone only on the list route (an exercise page covers it).
 	const listShown = $derived(isList || desk.current);
+	// The Done landing: right after a save (or Not today) Today plays what changed while it was
+	// hidden, the saved row lifted (spec 2026-11-10-motion-round-1).
+	const savedId = $derived(
+		saved.current?.dance === data.dance.slug ? (saved.current.exerciseId ?? null) : null
+	);
+	const landing = $derived(shouldReplay({ savedId, layoutToast: toast !== null }));
+	const landedId = $derived(
+		landedRow(
+			savedId,
+			data.list.day.rows.map((r) => ({ id: r.exercise.id, done: r.kind === 'done' }))
+		)
+	);
 
 	let creating = $state(false);
 	// The layout's toast: Not today, Coming up's +, a refused Next.
@@ -287,7 +301,7 @@
 </svelte:head>
 
 {#snippet heroCard()}
-	<TodayBar {hero} playLabel={t().today.hero.start} onplay={start} />
+	<TodayBar {hero} playLabel={t().today.hero.start} onplay={start} shown={listShown} />
 {/snippet}
 
 {#snippet bandRight()}
@@ -348,6 +362,8 @@
 			onrefused={say}
 			onskip={(id) => void notToday(id)}
 			shown={listShown}
+			{landing}
+			{landedId}
 		/>
 	{/if}
 {/snippet}

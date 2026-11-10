@@ -21,6 +21,8 @@
 		lessonDay: string | null;
 		/** The exercise open beside the list (desktop): tinted, an accent bar at its left edge. */
 		current: boolean;
+		/** Just done, and Today in sight: its check pops in (the Done landing). */
+		landed?: boolean;
 		/** Not today (the swipe's button); absent on a done row. */
 		onskip?: () => void;
 		/** This row's swipe: open (left) or at rest. */
@@ -30,7 +32,18 @@
 		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
 
-	let { row, dance, today, lessonDay, current, onskip, swiped, onswipe, drag }: Props = $props();
+	let {
+		row,
+		dance,
+		today,
+		lessonDay,
+		current,
+		landed = false,
+		onskip,
+		swiped,
+		onswipe,
+		drag
+	}: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const done = $derived(row.kind === 'done');
@@ -79,7 +92,9 @@
 		>
 			<!-- The row opens the exercise: its page is where it is practised and saved. -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
-				<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
+				<span class="flex flex-none {landed ? 'motion-pop' : ''}"
+					><TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} /></span
+				>
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 					<!-- A done row's name is quieter (board "Today"); muted is under 4.5:1 on a tint. -->
 					<span

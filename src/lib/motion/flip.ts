@@ -29,3 +29,13 @@ export function flipPlan(before: Map<string, Box>, after: Map<string, Box>): Fli
 	const leaving = [...before.keys()].filter((key) => !after.has(key));
 	return { moves, entering, leaving };
 }
+
+/** What a list last showed: its rows' boxes and its height. */
+export type Shown = { boxes: Map<string, Box>; height: number };
+
+/**
+ * The one piece of state here: what each list with an `id` last showed, kept
+ * across a remount (the phone's Today is drawn anew by each page). Not
+ * reactive on purpose: nothing draws from it.
+ */
+export const kept = new Map<string, Shown>();

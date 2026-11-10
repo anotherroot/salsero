@@ -228,6 +228,7 @@
 		announceSaved({
 			dance: data.dance.slug,
 			message: savedMessage(r.backDays ?? 1),
+			exerciseId: data.exercise.id,
 			undo: { setId: r.setId, before: r.before }
 		});
 		doneOpen = false;

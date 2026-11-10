@@ -1,5 +1,5 @@
 import { untrack } from 'svelte';
-import { flipPlan, type Box } from './flip';
+import { flipPlan, kept, type Box, type Shown } from './flip';
 import { ghost } from './ghost';
 import { LEAVE, MS, SETTLE, play, reducedMotion } from './motion';
 
@@ -29,23 +29,27 @@ export function flipList(o: {
 	replayOnShow?: () => boolean;
 	/** The row lifted on a replay (the one just done). */
 	lift?: () => string | null;
+	/** Keeps what the list last showed across a remount (Today: each page draws its own list). */
+	id?: string;
 }): void {
 	/** What the list last showed: the replay's starting point. */
-	let snapshot: Map<string, Box> | null = null;
-	let snapshotHeight = 0;
+	let snapshot: Shown | null = (o.id ? kept.get(o.id) : null) ?? null;
 	/** Measured just before this change, while shown. */
 	let before: Map<string, Box> | null = null;
 	let beforeHeight = 0;
+	/** This instance has drawn the list once: only then is a measure before a change a "before". */
+	let drawnHere = false;
 
 	$effect.pre(() => {
 		const keys = o.keys().map(String);
 		o.shown?.();
+		// Followed too: the list is bound after the first run (`bind:this`).
+		const list = o.container();
 		untrack(() => {
 			before = null;
-			const list = o.container();
-			if (!list || !laidOut(list) || reducedMotion()) return;
+			if (!drawnHere || !list || !laidOut(list) || reducedMotion()) return;
 			// Where things are drawn now, mid-animation included, so a fast second
-			// change starts from there; then the old animations go.
+			// change starts from there.
 			const rows = rowsOf(list);
 			before = measure(list, rows);
 			beforeHeight = list.getBoundingClientRect().height;
@@ -53,27 +57,62 @@ export function flipList(o: {
 				const key = row.dataset.flip ?? '';
 				if (!keys.includes(key)) leave(row, list);
 			}
-			for (const a of [list, ...rows].flatMap((el) => el.getAnimations())) a.cancel();
 		});
 	});
 
 	$effect(() => {
 		o.keys();
 		o.shown?.();
+		const list = o.container();
 		untrack(() => {
-			const list = o.container();
 			if (!list || !laidOut(list)) return;
-			const rows = rowsOf(list);
+			let rows = rowsOf(list);
+			const from = before ?? (snapshot && o.replayOnShow?.() ? snapshot.boxes : null);
+			const fromHeight = before ? beforeHeight : (snapshot?.height ?? 0);
+			const replay = before === null;
+			before = null;
+			// Nothing moved (a reload with the same rows): what is playing plays on.
+			if (from && same(from, measure(list, rows), fromHeight, list)) {
+				drawnHere = true;
+				return;
+			}
+			// A change: the old animations go, and the rows' places are read without them.
+			for (const a of [list, ...rows].flatMap((el) => el.getAnimations())) a.cancel();
+			rows = rowsOf(list);
 			const after = measure(list, rows);
 			const height = list.getBoundingClientRect().height;
-			if (before) animate(list, rows, before, after, beforeHeight, height, MS.medium, null);
-			else if (snapshot && o.replayOnShow?.())
-				animate(list, rows, snapshot, after, snapshotHeight, height, MS.long, o.lift?.() ?? null);
-			before = null;
-			snapshot = after;
-			snapshotHeight = height;
+			if (from)
+				animate(
+					list,
+					rows,
+					from,
+					after,
+					fromHeight,
+					height,
+					replay ? MS.long : MS.medium,
+					replay ? (o.lift?.() ?? null) : null
+				);
+			snapshot = { boxes: after, height };
+			drawnHere = true;
+			if (o.id) kept.set(o.id, snapshot);
 		});
 	});
+}
+
+/** The rows and the list's height are where they were. */
+function same(
+	from: Map<string, Box>,
+	now: Map<string, Box>,
+	fromHeight: number,
+	list: HTMLElement
+) {
+	const plan = flipPlan(from, now);
+	return (
+		plan.moves.length === 0 &&
+		plan.entering.length === 0 &&
+		plan.leaving.length === 0 &&
+		Math.abs(fromHeight - list.getBoundingClientRect().height) < 0.5
+	);
 }
 
 const laidOut = (el: HTMLElement) => el.getClientRects().length > 0;

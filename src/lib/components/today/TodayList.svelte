@@ -42,7 +42,9 @@
 		oncreate,
 		onrefused,
 		onskip,
-		shown = true
+		shown = true,
+		landing = false,
+		landedId = null
 	}: {
 		day: DayList<ExerciseItem>;
 		/** No live exercise at all: the first run. */
@@ -63,6 +65,10 @@
 		onskip: (exerciseId: number) => void;
 		/** False while the list is hidden (the phone, an exercise open over it): its rows keep where they were last seen. */
 		shown?: boolean;
+		/** Shown again right after a save or Not today: play what changed while hidden (the Done landing). */
+		landing?: boolean;
+		/** The row just done: lifted as it lands, its check popping. */
+		landedId?: number | null;
 	} = $props();
 
 	/** The row whose "Not today" is showing (one at a time); a tap anywhere else closes it. */
@@ -197,16 +203,22 @@
 	// Rows fold and open as they come and go (spec 2026-11-10-motion-round-1).
 	flipList({
 		container: () => warmList,
+		id: 'today:warmup',
 		keys: () => shownWarm.map((r) => r.exercise.id),
-		shown: () => shown
+		shown: () => shown,
+		replayOnShow: () => landing,
+		lift: () => (landedId === null ? null : String(landedId))
 	});
 	flipList({
 		container: () => practiceList,
+		id: 'today:practice',
 		keys: () => [
 			...day.rows.filter((r) => r.list === 'practice').map((r) => r.exercise.id),
 			...(day.showNext ? ['next'] : [])
 		],
-		shown: () => shown
+		shown: () => shown,
+		replayOnShow: () => landing,
+		lift: () => (landedId === null ? null : String(landedId))
 	});
 
 	const dragOf = (i: number, id: number) =>
@@ -265,6 +277,7 @@
 				today={day.today}
 				lessonDay={lessonDayOf(row.exercise)}
 				current={row.exercise.id === currentId}
+				landed={shown && row.exercise.id === landedId}
 				onskip={row.kind === 'done' ? undefined : () => onskip(row.exercise.id)}
 				swiped={swiped?.key === `today:${row.exercise.id}` ? swiped.side : null}
 				onswipe={(side) => (swiped = side ? { key: `today:${row.exercise.id}`, side } : null)}
