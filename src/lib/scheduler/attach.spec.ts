@@ -364,7 +364,7 @@ describe("the sound's way to the ear", () => {
 			buffer: null,
 			playbackRate: { value: 1 },
 			connect: () => {},
-			start: (when: number) => void starts.push(when),
+			start: (...when: number[]) => void starts.push(when[0]),
 			stop: () => {},
 			onended: null
 		});
