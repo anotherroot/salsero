@@ -6,7 +6,7 @@
  */
 import { putChunks } from '$lib/upload-chunks';
 import { getOriginal, syncNow } from './device.svelte';
-import { startUpload } from './uploads.svelte';
+import { startUpload, uploadOf } from './uploads.svelte';
 import { appOriginals } from './places.svelte';
 import { uploadFromApp } from './app-originals.svelte';
 
@@ -22,12 +22,15 @@ type Deps = {
 	uuid: () => string;
 	/** After it lands: a sync, so the row's server copy reaches the copy. */
 	synced: () => void;
+	/** Before it: what waits in the outbox goes up, so the row is on the server (a fresh add's). */
+	pushFirst?: () => Promise<unknown>;
 };
 const DEFAULTS: Deps = {
 	get: getOriginal,
 	put: (url, blob, o) => putChunks(url, blob, o),
 	uuid: () => crypto.randomUUID(),
-	synced: () => void syncNow()
+	synced: () => void syncNow(),
+	pushFirst: () => syncNow()
 };
 
 export function fileRoute(v: OriginalTarget, uploadId: string): string {
@@ -44,8 +47,14 @@ export async function uploadOriginal(
 		return (await uploadFromApp(v.table, v.id, v.file))
 			? { ok: true }
 			: { ok: false, reason: null };
+	// A second Upload while one runs joins it: the first one's outcome is told by the first.
+	if (uploadOf(v.file) !== null) {
+		await startUpload(v.file, async () => {}).catch(() => {});
+		return { ok: true };
+	}
 	let out: { ok: true } | { ok: false; reason: string | null } = { ok: false, reason: null };
 	await startUpload(v.file, async (onPct) => {
+		await deps.pushFirst?.();
 		const blob = await deps.get(v.file);
 		if (!blob) return;
 		const res = await deps.put(fileRoute(v, deps.uuid()), blob, {

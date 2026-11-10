@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { placeWord } from './where-view';
+import { placeWord, uploadNote } from './where-view';
 
 describe("placeWord: the words after a video's name (offline phase 4c)", () => {
 	it('for each place', () => {
@@ -34,6 +34,16 @@ describe("placeWord: the words after a video's name (offline phase 4c)", () => {
 			expect(placeWord({ state: 'elsewhere', label: { kind: 'iphone', model: null } })?.text).toBe(
 				'na iPhonu'
 			);
+		});
+	});
+});
+
+describe('uploadNote: what Upload sends, said under the sheet', () => {
+	it('the app compresses; a browser (an iPhone, an Android browser) sends the original', () => {
+		withLocale('en', () => {
+			expect(uploadNote(true)).toContain('smaller copy');
+			expect(uploadNote(false)).toContain('the original');
+			expect(uploadNote(false)).not.toContain('iPhone');
 		});
 	});
 });

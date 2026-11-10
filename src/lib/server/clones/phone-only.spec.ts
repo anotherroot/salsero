@@ -14,6 +14,7 @@ import { NO_FILES, T2_SALSA, U1_SALSA } from '../test-walls';
 import { cloneInto } from './clone';
 import { copyOffer, copyTo } from './copy-to';
 import { leftBehind } from './phone-only';
+import { moveOffer } from './move';
 
 const T = 1_790_000_000_000;
 const NOW = T + 1000;
@@ -159,5 +160,38 @@ describe('the Copy to offer says what stays behind', () => {
 			notes: null
 		}).lesson;
 		expect(copyOffer(db, 'u1', 'lesson', lesson.id)?.stayBehind ?? null).toBeNull();
+	});
+});
+
+describe('the Move to offer says what stays behind too', () => {
+	it("a lesson's phone-only videos, and the device holding them", () => {
+		db.insert(deviceSlots)
+			.values({
+				slot: 3,
+				deviceKey: 'k3',
+				userId: 'u1',
+				createdAt: 1,
+				label: '{"kind":"iphone","model":null}'
+			})
+			.run();
+		const lesson = createLesson(db, U1_SALSA, {
+			title: 'L',
+			lessonDay: '2026-11-01',
+			notes: null
+		}).lesson;
+		const v = addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: 'pv.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 5
+		});
+		db.update(lessonVideos)
+			.set({ serverCopy: false, originSlot: 3 })
+			.where(eq(lessonVideos.id, v.id))
+			.run();
+		expect(moveOffer(db, U1_SALSA, lesson.id)?.stayBehind).toEqual({
+			count: 1,
+			label: { kind: 'iphone', model: null }
+		});
 	});
 });

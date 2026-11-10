@@ -15,7 +15,8 @@
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { uploadOriginal } from '$lib/offline/upload-original';
 	import type { Place } from '$lib/offline/where';
-	import type { PhoneVideo } from '$lib/offline/places.svelte';
+	import { appOriginals, type PhoneVideo } from '$lib/offline/places.svelte';
+	import { uploadNote } from '$lib/offline/where-view';
 
 	let {
 		open,
@@ -33,7 +34,6 @@
 	} = $props();
 
 	const w = $derived(t().video.place);
-	const iphone = $derived(place.state === 'only' && place.iphone);
 	const originalSize = $derived(byteSize(video.originBytes ?? video.sizeBytes));
 	let busy = $state(false);
 
@@ -123,7 +123,7 @@
 	</div>
 	{#if place.state !== 'missing'}
 		<p class="mt-3 px-1 text-[13px] font-medium text-muted">
-			{iphone ? w.sheetNoteIphone : w.sheetNote}
+			{uploadNote(appOriginals.android)}
 		</p>
 	{/if}
 </Sheet>

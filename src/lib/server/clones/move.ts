@@ -19,6 +19,7 @@
  */
 import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { CloneKind, MoveItem, MoveOffer, MovePreview } from '$lib/types';
+import { deviceLabelFor, leftBehind } from './phone-only';
 import { moveWhy } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
@@ -88,7 +89,10 @@ function moveTargets(db: Db, wall: Wall, lessonId: number) {
 export function moveOffer(db: Db, wall: Wall, lessonId: number): MoveOffer | null {
 	const targets = moveTargets(db, wall, lessonId);
 	if (targets.length === 0) return null;
-	return { title: ownLesson(db, wall, lessonId)!.title, targets };
+	const behind = leftBehind(db, 'lesson', lessonId);
+	const stayBehind =
+		behind.count > 0 ? { count: behind.count, label: deviceLabelFor(db, behind.slot) } : null;
+	return { title: ownLesson(db, wall, lessonId)!.title, targets, stayBehind };
 }
 
 /**
