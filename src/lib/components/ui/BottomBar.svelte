@@ -4,7 +4,8 @@
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 
 	/**
-	 * Pinned to the bottom of a page. `fade`: no border, the page scrolls under a fade. Callers add `pb-28` to their scroll content.
+	 * Pinned to the bottom of a page, on an opaque pane: the offline strip sits on its top
+	 * edge, never over the page between it and a floating button. Callers add `pb-28` to their scroll content.
 	 *
 	 * Without `mode` it sits above the tab bar when one shows (`--pin-bottom`, set by
 	 * the layout; 0 where there is none). With `mode` (an edit's Save) it takes the
@@ -15,14 +16,12 @@
 	 */
 	let {
 		children,
-		fade = false,
 		mode = false,
 		width = 'one',
 		card = false,
 		class: extra = ''
 	}: {
 		children: Snippet;
-		fade?: boolean;
 		mode?: boolean;
 		width?: PageWidth;
 		card?: boolean;
@@ -42,9 +41,7 @@
 </script>
 
 <div
-	class="{extra} fixed inset-x-0 z-20 px-4 desk:left-(--pane-left) {fade
-		? 'bg-linear-to-b from-ground/0 to-ground to-[34%] pt-7'
-		: 'border-t border-hairline bg-ground pt-3'} {card
+	class="{extra} fixed inset-x-0 z-20 border-t border-hairline bg-ground px-4 pt-3 desk:left-(--pane-left) {card
 		? 'pb-(--bar-pb) desk:static desk:z-auto desk:border-0 desk:bg-transparent desk:bg-none desk:p-0'
 		: ''}"
 	style:--bar-w="{PAGE_WIDTH[width]}px"
