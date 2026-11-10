@@ -251,3 +251,31 @@ describe('findElsewhere at scale (review I1, I2)', () => {
 		expect(mine.filter((r) => r.kind === 'position').map((r) => r.label)).toEqual(['Basic hold']);
 	});
 });
+
+describe('stays behind, for a group you only read (review M2)', () => {
+	it('counts only sections on lessons the reader reaches', () => {
+		const F = figure(T3_SALSA, 'Cradle walk', 'Slow');
+		const section = (title: string) => {
+			const L = createLesson(db, T3_SALSA, { lessonDay: '2026-11-01', title, notes: null }).lesson
+				.id;
+			const v = addLessonVideo(
+				db,
+				{ lessonId: L, file: `${title}.mp4`, mime: 'video/mp4', sizeBytes: 1 },
+				'u3'
+			).id;
+			const s = addSpot(
+				db,
+				{ lessonVideoId: v },
+				{ startMs: 0, endMs: 1000, label: null },
+				'u3'
+			)!.id;
+			linkSpot(db, 'u3', s, { figureId: F });
+			return L;
+		};
+		const shown = section('Published');
+		linkFigure(db, shown, F, 'u3');
+		expect(publishLesson(db, T3_SALSA, shown, T)).toBe(true);
+		section('Draft');
+		expect(copyHereView(db, 'u1', 'figure', F, T1_SALSA, 'UTC').staysBehind).toBe(1);
+	});
+});

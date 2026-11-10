@@ -11,7 +11,7 @@
  * link); one whose name the group already has, from another family, carries
  * that row (Link the group's one).
  */
-import { and, asc, count, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { fold } from '$lib/fold';
 import type {
 	ElsewhereKind,
@@ -25,6 +25,7 @@ import {
 	exercises,
 	figureGroups,
 	figures,
+	lessonVideos,
 	positions,
 	routines,
 	spotLinks,
@@ -322,29 +323,34 @@ function folded(
 /**
  * What links to a row from lesson videos, which a copy never brings: a
  * figure's or drill's sections, a position's sections and points. A routine:
- * 0 (no section links one).
+ * 0 (no section links one). With `reads`, only the lessons it passes count:
+ * a group's row the person only reads counts what they reach, never a
+ * draft's sections.
  */
-export function staysBehind(db: Db, kind: ElsewhereKind, id: number): number {
+export function staysBehind(
+	db: Db,
+	kind: ElsewhereKind,
+	id: number,
+	reads?: (lessonId: number) => boolean
+): number {
 	if (kind === 'routine') return 0;
-	if (kind === 'position') {
-		return (
-			db
-				.select({ n: count() })
-				.from(spotPositionLinks)
-				.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
-				.where(and(eq(spotPositionLinks.positionId, id), isNotNull(videoSpots.lessonVideoId)))
-				.get()?.n ?? 0
-		);
-	}
-	const col = kind === 'figure' ? spotLinks.figureId : spotLinks.exerciseId;
-	return (
-		db
-			.select({ n: count() })
-			.from(spotLinks)
-			.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
-			.where(and(eq(col, id), isNotNull(videoSpots.lessonVideoId)))
-			.get()?.n ?? 0
-	);
+	const lessonsOf =
+		kind === 'position'
+			? db
+					.select({ lessonId: lessonVideos.lessonId })
+					.from(spotPositionLinks)
+					.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
+					.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+					.where(eq(spotPositionLinks.positionId, id))
+					.all()
+			: db
+					.select({ lessonId: lessonVideos.lessonId })
+					.from(spotLinks)
+					.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
+					.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+					.where(eq(kind === 'figure' ? spotLinks.figureId : spotLinks.exerciseId, id))
+					.all();
+	return reads ? lessonsOf.filter((r) => reads(r.lessonId)).length : lessonsOf.length;
 }
 
 /**

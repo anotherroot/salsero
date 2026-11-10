@@ -67,6 +67,7 @@ import { logRoot } from './apply';
 import { makeMine, rowOf } from './edit';
 import type { CloneFiles } from './files';
 import { staysBehind } from '../elsewhere';
+import { teamReader } from '../access';
 
 const DENIED = { ok: false, reason: 'denied' } as const;
 
@@ -573,7 +574,14 @@ export function copyHereView(
 	tz = 'UTC'
 ): CopyHereView {
 	const target = targetOf(db, userId, kind, id, into);
-	const counted = kind === 'song' || kind === 'lesson' ? 0 : staysBehind(db, kind, id);
+	// A group's row the person only reads: only the lessons they reach count, never a draft's.
+	const row = rowOf(db, kind, id);
+	const reader =
+		row && row.teamId !== null && accessTo(db, userId, kind, id) === 'read'
+			? teamReader(db, userId, row.teamId)
+			: null;
+	const reads = reader ? (lessonId: number) => reader('lesson', lessonId) : undefined;
+	const counted = kind === 'song' || kind === 'lesson' ? 0 : staysBehind(db, kind, id, reads);
 	return {
 		...copyPlan(db, userId, kind, id, into, tz),
 		staysBehind: counted,
