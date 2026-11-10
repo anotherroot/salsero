@@ -220,13 +220,19 @@ describe('pull', () => {
 });
 
 describe('POST /api/sync/pull', () => {
+	/** What the endpoint set on its response: name, value, options. */
+	let setCookies: [string, string, { httpOnly?: boolean }][] = [];
 	function call(opts: { cookies?: Record<string, string>; body?: unknown; user?: boolean }) {
 		const jar = opts.cookies ?? {};
 		const request = new Request('http://x/api/sync/pull', {
 			method: 'POST',
 			body: typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body ?? {})
 		});
-		const cookies = { get: (n: string) => jar[n] };
+		setCookies = [];
+		const cookies = {
+			get: (n: string) => jar[n],
+			set: (n: string, v: string, o: { httpOnly?: boolean }) => void setCookies.push([n, v, o])
+		};
 		const locals = { user: opts.user ? { id: 'u1' } : null };
 		return (POST as unknown as (e: unknown) => Promise<Response>)({ request, cookies, locals });
 	}
@@ -264,6 +270,14 @@ describe('POST /api/sync/pull', () => {
 			lang: 'sl'
 		});
 		expect(out.userId).toBe('u1');
+		// The theme set again, readable by app.html's script (older ones were httpOnly).
+		expect(setCookies).toEqual([['theme', 'dark', expect.objectContaining({ httpOnly: false })]]);
+	});
+
+	it('sets no theme cookie the browser does not have', async () => {
+		const session = createSession('u1', db).id;
+		await call({ body, cookies: { [SESSION_COOKIE]: session, theme: 'pink' } });
+		expect(setCookies).toEqual([]);
 	});
 
 	it('carries what only the server knows', async () => {
