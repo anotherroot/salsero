@@ -4,7 +4,7 @@
  * (`song_imports`, `ai_*`, `oauth_*`) never reach a device and the APK release
  * lives on the server's disk.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import type { Db } from '../db';
 import { lessons, teamMembers, users } from '../db/schema';
 import { teamTrashBytes } from '../storage';
@@ -54,7 +54,7 @@ export function serverExtras(db: Db, userId: string): ServerExtras {
 	};
 }
 
-/** "Edited by" for every lesson of the groups a person is in: History's last change to each. */
+/** "Edited by" for every group lesson a person may read: History's last change to each. */
 function lessonEdits(
 	db: Db,
 	userId: string,
@@ -64,7 +64,14 @@ function lessonEdits(
 		.select({ id: lessons.id, teamId: lessons.teamId })
 		.from(lessons)
 		.innerJoin(teamMembers, eq(teamMembers.teamId, lessons.teamId))
-		.where(and(eq(teamMembers.userId, userId), eq(lessons.dance, dance)))
+		.where(
+			and(
+				eq(teamMembers.userId, userId),
+				eq(lessons.dance, dance),
+				// A plain member reads a group's published lessons only; its owner and editors, drafts too.
+				or(isNotNull(lessons.publishedAt), inArray(teamMembers.role, ['owner', 'editor']))
+			)
+		)
 		.all();
 	const out: Record<string, { actorId: string; at: number }> = {};
 	for (const r of rows) {

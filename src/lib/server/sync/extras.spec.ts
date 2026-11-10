@@ -14,6 +14,7 @@ import { createImport, storeImportItems } from '$lib/server/song-imports';
 import { teamTrash } from '$lib/server/db/schema';
 import { usedBytesOf } from '$lib/server/storage';
 import { lastEdit } from '$lib/server/changes';
+import { createLesson } from '$lib/server/lessons';
 import { serverExtras } from './extras';
 
 let db: Db;
@@ -144,3 +145,19 @@ describe("a group's facts the copy cannot count", () => {
 function serverExtrasWith(over: Partial<ReturnType<typeof serverExtras>>) {
 	return { ...serverExtras(db, 'u4'), ...over };
 }
+
+describe("lessons' last edits reach only who may read the lesson", () => {
+	it("a member gets the published lessons' edits, never a draft's", () => {
+		const draft = createLesson(db, CLASS_ED, {
+			lessonDay: '2026-11-02',
+			title: 'Draft',
+			notes: null
+		}).lesson.id;
+		// Luka edits the group: the draft's last edit reaches him.
+		expect(serverExtras(db, 'u2').lastEdits).toHaveProperty(`lesson:${draft}`);
+		// Maja is a member: published lessons only.
+		const maja = serverExtras(db, 'u3').lastEdits;
+		expect(maja).not.toHaveProperty(`lesson:${draft}`);
+		expect(Object.keys(maja).length).toBeGreaterThan(0);
+	});
+});
