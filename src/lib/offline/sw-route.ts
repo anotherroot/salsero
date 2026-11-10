@@ -20,8 +20,8 @@ import {
  * - `device-read`: the network first, else the device's copy;
  * - `network-read`: a network page's data (`NETWORK_PAGES`): the network, never
  *   timed; offline "needs a connection", which the error page draws as offline;
- * - `media`: song audio and count takes (offline phase 4a): the phone's file
- *   first, with Range, else the network;
+ * - `media`: song audio, count takes (offline phase 4a), lesson videos and
+ *   recordings (4b): the phone's file first, with Range, else the network;
  * - `write`: the network only; offline it gets "Needs a connection";
  * - `pass`: the service worker stays out of it (no `respondWith`).
  */

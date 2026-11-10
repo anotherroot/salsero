@@ -372,6 +372,31 @@ def put_song(db_path):
     return name
 
 
+def put_video(db_path):
+    """Check 14's video: a lesson of the walk person's (or a group's they are in) with one video whose file
+    is in the server's DATA_DIR (a playable one: a junk file reads as unplayable and draws no button), its
+    row's size made the file's (the phone checks it), in this copy only. (lesson id, file name), or None."""
+    folder = os.path.join(os.path.dirname(db_path), "lesson-videos")
+    db = sqlite3.connect(db_path)
+    try:
+        rows = db.execute(
+            "select lv.id, lv.lesson_id, lv.file from lesson_videos lv join lessons l on l.id = lv.lesson_id "
+            "join sessions se on se.id = 'walk' "
+            "where l.archived_at is null and (l.published_at is not null or l.user_id is not null) and ("
+            "l.user_id = se.user_id or l.team_id in (select team_id from team_members where user_id = se.user_id)) "
+            "and (select count(*) from lesson_videos o where o.lesson_id = l.id) = 1 order by lv.id"
+        ).fetchall()
+        for vid, lesson, name in rows:
+            path = os.path.join(folder, name)
+            if os.path.isfile(path):
+                db.execute("update lesson_videos set size_bytes = ? where id = ?", (os.path.getsize(path), vid))
+                db.commit()
+                return lesson, name
+        return None
+    finally:
+        db.close()
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit("usage: walk.py <port> <upstream> <db-copy>")
@@ -389,14 +414,15 @@ def main():
     lines = [l.strip() for l in open(os.path.join(ROOT, "scripts", "shots", "pages.txt")) if l.strip() and not l.startswith("#")]
 
     song = put_song(db_path)
+    video = put_video(db_path)
     net = Net(port, upstream)
     try:
-        walk(base, db_path, v, lines, net, song)
+        walk(base, db_path, v, lines, net, song, video)
     finally:
         net.close()
 
 
-def walk(base, db_path, v, lines, net, song=None):
+def walk(base, db_path, v, lines, net, song=None, video=None):
     def offline(ctx, on):
         # both: the page's navigator.onLine, and the connection itself
         if on:
@@ -799,9 +825,9 @@ def walk(base, db_path, v, lines, net, song=None):
                     else:
                         report(not note, "needs a connection: a menu with nothing that needs one has no note", "the note shows")
                     page.keyboard.press("Escape")
-                    # The menu's Back lands after it closes: a page load started under it is aborted.
+                    # Escape closes the sheet by going back: let that land before the next goto.
                     page.locator("dialog[open]").first.wait_for(state="detached", timeout=5000)
-                    page.wait_for_timeout(500)
+                    page.wait_for_timeout(300)
                 else:
                     report(False, "needs a connection: the figure's menu", "no ⋯ menu")
                 page.goto(f"{base}/settings", wait_until="load", timeout=60_000)
@@ -850,8 +876,36 @@ def walk(base, db_path, v, lines, net, song=None):
                     page.goto(f"{base}/settings", wait_until="load", timeout=60_000)
                     settle(page)
                     line = page.locator("[data-songs-on-phone]")
-                    shown = line.count() > 0 and line.first.inner_text().startswith("Songs and your count ·")
-                    report(shown, "songs on the phone: Settings says how much they take", line.first.inner_text() if line.count() else "no line")
+                    text = line.first.inner_text() if line.count() else ""
+                    shown = "Songs " in text and "videos " in text
+                    report(shown, "songs on the phone: Settings' On this phone row says how much they take", text or "no line")
+                    offline(ctx, False)
+
+                # 14. A lesson video kept on the phone (offline phase 4b): its button under the video keeps it,
+                # and the service worker answers it from the phone, online and offline, with Range.
+                if video is None:
+                    report(False, "videos on the phone", "the walk person has no lesson with one video whose file is in DATA_DIR")
+                else:
+                    lesson, vfile = video
+                    page.goto(f"{base}/{DANCE}/lessons/{lesson}", wait_until="load", timeout=60_000)
+                    settle(page)
+                    button = page.locator("[data-keep='off']")
+                    try:
+                        button.first.wait_for(timeout=30_000)
+                        button.first.click()
+                        page.locator("[data-keep='on']").first.wait_for(timeout=30_000)
+                        kept = True
+                    except Exception as e:  # noqa: BLE001 - reported as a failure
+                        kept = False
+                        print("   ", e)
+                    report(kept, "videos on the phone: the button under the video keeps it", "no button, or it never came")
+                    vprobe = """async (f) => { const r = await fetch('/lesson-videos/' + f, { headers: { Range: 'bytes=0-99' } });
+                        return [r.status, (await r.arrayBuffer()).byteLength, r.headers.get('X-Salsa-From')]; }"""
+                    got = page.evaluate(vprobe, vfile)
+                    report(got == [206, 100, "device"], "videos on the phone: online the phone's copy answers", f"{got}")
+                    offline(ctx, True)
+                    got = page.evaluate(vprobe, vfile)
+                    report(got == [206, 100, "device"], "videos on the phone: offline it plays from the phone", f"{got}")
                     offline(ctx, False)
             finally:
                 ctx.close()

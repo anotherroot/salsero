@@ -61,10 +61,16 @@ export const DEVICE_ENDPOINTS = [
 ];
 
 /**
- * GET endpoints whose files the device keeps (offline phase 4a): the service
+ * GET endpoints whose files the device keeps (song audio and count takes, 4a;
+ * lesson videos and recordings, 4b): the service
  * worker answers them from the media store (`media-store.ts`), else the network.
  */
-export const MEDIA_ENDPOINTS = ['/audio/[file]', '/count/[file]'];
+export const MEDIA_ENDPOINTS = [
+	'/audio/[file]',
+	'/count/[file]',
+	'/lesson-videos/[file]',
+	'/recordings/[file]'
+];
 
 /** Every other GET endpoint: the server's alone. */
 export const NETWORK_ENDPOINTS = [
@@ -74,12 +80,11 @@ export const NETWORK_ENDPOINTS = [
 	'/api/clones/sync',
 	'/api/device/config',
 	'/api/device/today',
+	'/api/elsewhere',
 	'/api/teams/[id]/keep',
 	'/api/worker/songs/[id]/audio',
 	'/api/worker/starts',
 	'/api/worker/timelines/[id]/source',
-	'/lesson-videos/[file]',
-	'/recordings/[file]',
 	'/releases/[dance]/[file]',
 	'/health',
 	'/manifest-[dance].webmanifest',
@@ -293,6 +298,7 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		addSong: 'device',
 		archive: 'device',
 		copyTo: 'network',
+		copyLink: 'network',
 		deleteLink: 'device',
 		deleteVideo: 'network',
 		detach: 'network',
@@ -373,6 +379,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 	},
 	'/admin': {
 		decline: 'network',
+		feedbackDone: 'network',
+		feedbackOpen: 'network',
 		grant: 'network',
 		invite: 'network',
 		setGroupLimit: 'network',
@@ -412,6 +420,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		ask: 'network',
 		dailyCount: 'device',
 		disconnectApp: 'network',
+		// Send feedback: to the admin, on the server only (never synced).
+		feedback: 'network',
 		language: 'network',
 		level: 'device',
 		name: 'device',
@@ -464,6 +474,7 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/trash/[id]': { POST: 'network' },
 	'/api/video-spots': { POST: 'device' },
 	'/api/video-spots/[id]': { DELETE: 'device', PATCH: 'device' },
+	'/api/video-spots/[id]/copy-link': { POST: 'network' },
 	'/api/video-spots/[id]/links': { POST: 'device' },
 	'/api/video-spots/[id]/links/[linkId]': { DELETE: 'device' },
 	'/api/worker/claim': { POST: 'network' },

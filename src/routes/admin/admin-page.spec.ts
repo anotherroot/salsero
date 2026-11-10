@@ -14,6 +14,7 @@ vi.mock('$lib/server/storage', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { invites, storageRequests, teams, users } from '$lib/server/db/schema';
 import { noteAppSeen } from '$lib/server/app-seen';
+import { feedbackFor, sendFeedback } from '$lib/server/feedback';
 import { askForMore, storageOf } from '$lib/server/storage';
 import { createLesson } from '$lib/server/lessons';
 import { T1_SALSA } from '$lib/server/test-walls';
@@ -458,5 +459,53 @@ describe('the admin page in Slovenian', () => {
 		expect(d.people.find((x) => x.email === 'p@example.com')!.apps).toEqual([
 			'Salsa: različica aplikacije 2 · danes'
 		]);
+	});
+});
+
+describe('feedback on the admin page', () => {
+	const send = (dance: 'salsa' | 'bachata') =>
+		sendFeedback(
+			db,
+			{ userId: 'p', dance },
+			{
+				message: 'It froze',
+				page: '/salsa',
+				trail: [],
+				errors: ['TypeError: x'],
+				siteVersion: null,
+				viewport: null
+			},
+			{ agent: null, userAgent: null },
+			Date.now()
+		);
+
+	it('loads the dance’s messages and moves one to done and back', async () => {
+		const id = send('salsa');
+		send('bachata');
+		type Data = { feedback: { open: { id: number; errors: string[] }[]; done: { id: number }[] } };
+		const before = (await (load as unknown as Ev)(ev(true))) as Data;
+		expect(before.feedback.open.map((m) => m.id)).toEqual([id]);
+		expect(before.feedback.open[0].errors).toEqual(['TypeError: x']);
+		expect(await (actions.feedbackDone as unknown as Ev)(ev(true, { id: String(id) }))).toEqual({
+			ok: true
+		});
+		const after = (await (load as unknown as Ev)(ev(true))) as Data;
+		expect(after.feedback.open).toEqual([]);
+		expect(after.feedback.done.map((m) => m.id)).toEqual([id]);
+		await (actions.feedbackOpen as unknown as Ev)(ev(true, { id: String(id) }));
+		expect(feedbackFor(db, 'salsa').open.map((m) => m.id)).toEqual([id]);
+	});
+
+	it('is the admin’s alone, and another dance’s message is gone', async () => {
+		const id = send('salsa');
+		await expect(
+			(actions.feedbackDone as unknown as Ev)(ev(false, { id: String(id) }))
+		).rejects.toMatchObject({ status: 404 });
+		const other = send('bachata');
+		const r = (await (actions.feedbackDone as unknown as Ev)(ev(true, { id: String(other) }))) as {
+			status: number;
+		};
+		expect(r.status).toBe(404);
+		expect(feedbackFor(db, 'bachata').open.map((m) => m.id)).toEqual([other]);
 	});
 });

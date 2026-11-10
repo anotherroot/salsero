@@ -384,12 +384,14 @@ describe('videos', () => {
 		const rows = listLessons(db, U1_SALSA);
 		expect(rows.find((r) => r.id === lesson.id)).toMatchObject({ videos: 2, videoBytes: 350 });
 		expect(rows.find((r) => r.id === other.id)).toMatchObject({ videos: 1, videoBytes: 5 });
+		expect(rows.find((r) => r.id === lesson.id)?.videoFiles?.sort()).toEqual(['a.mp4', 'b.mp4']);
 		expect(lessonVideoBytes(db, 'u1')).toBe(355);
 	});
 
 	it('reports zero for a lesson with no videos, not null', () => {
 		createLesson(db, U1_SALSA, lessonInput);
 		expect(listLessons(db, U1_SALSA)[0]).toMatchObject({ videos: 0, videoBytes: 0 });
+		expect(listLessons(db, U1_SALSA)[0].videoFiles).toEqual([]);
 		expect(lessonVideoBytes(db, 'u1')).toBe(0);
 	});
 

@@ -12,6 +12,7 @@ describe('frameOf', () => {
 		expect(frameOf('/login', false)).toBe('card');
 		expect(frameOf('/g/[code]', true)).toBe('card');
 		expect(frameOf('/settings/storage', true)).toBe('side');
+		expect(frameOf('/settings/phone', true)).toBe('side');
 		expect(frameOf('/admin', true)).toBe('side');
 		expect(frameOf('/voice', true)).toBe('side');
 		expect(frameOf('/dev/kit', true)).toBe('none');
@@ -91,6 +92,7 @@ describe('sideLit', () => {
 	it('lights a tab, Settings, or nothing', () => {
 		expect(sideLit('/salsa/figures/3', 'salsa')).toBe('moves');
 		expect(sideLit('/settings/storage', 'salsa')).toBe('settings');
+		expect(sideLit('/settings/phone', 'salsa')).toBe('settings');
 		expect(sideLit('/settings', 'salsa')).toBe('settings');
 		expect(sideLit('/voice', 'salsa')).toBe('settings');
 		expect(sideLit('/admin', 'salsa')).toBe('settings');

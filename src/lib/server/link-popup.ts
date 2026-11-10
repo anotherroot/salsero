@@ -388,6 +388,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 
 	return {
 		dance,
+		team: isTeam(space) ? (teamRefs(db, [space.teamId]).get(space.teamId) ?? null) : null,
 		spot,
 		context,
 		linked,

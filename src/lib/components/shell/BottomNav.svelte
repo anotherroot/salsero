@@ -6,6 +6,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { tabDot, tabDotLabel, tabFor } from '$lib/nav/tabs';
+	import { kept } from '$lib/offline/kept.svelte';
 	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
 	import { intend } from '$lib/nav/trail.svelte';
@@ -47,6 +48,8 @@
 		intend('tab');
 	}
 	const mine = $derived((page.data.mineHref as string | undefined) ?? minePath(path, dance));
+	/** The page's data and the phone short of space (offline phase 4b): what lights the dots. */
+	const dotData = $derived({ ...page.data, lowSpace: kept.status?.low ?? false });
 </script>
 
 <!--
@@ -95,8 +98,8 @@
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
-						aria-label={tabDot(tab.id, page.data)
-							? tabDotLabel(tab.id, tab.label)
+						aria-label={tabDot(tab.id, dotData)
+							? tabDotLabel(tab.id, tab.label, dotData)
 							: here
 								? undefined
 								: tab.label}
@@ -112,7 +115,7 @@
 						{#if here}
 							<span class="text-[14px] font-extrabold whitespace-nowrap">{tab.label}</span>
 						{/if}
-						{#if tabDot(tab.id, page.data)}
+						{#if tabDot(tab.id, dotData)}
 							<span
 								class="absolute top-1 right-1 h-[10px] w-[10px] rounded-full ring-2 {inGroup
 									? 'bg-band-ink ring-band'

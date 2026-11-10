@@ -19,6 +19,9 @@
 	import VideoPlayer from './VideoPlayer.svelte';
 	import Icon from './Icon.svelte';
 	import Spinner from './Spinner.svelte';
+	import KeepButton from './KeepButton.svelte';
+	import { kept } from '$lib/offline/kept.svelte';
+	import { keepWord, videoKeep } from '$lib/offline/kept-view';
 	import { CLIP, iconButton } from './styles';
 	import type { Spot, SpotOwner } from '$lib/types';
 
@@ -65,6 +68,8 @@
 	}: Props = $props();
 
 	const w = $derived(t().video);
+	/** On this phone, coming, or waiting (offline phase 4b): said after the caption's size. */
+	const keep = $derived(kind === 'video' ? keepWord(videoKeep(kept.status, src)) : null);
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -237,9 +242,19 @@
 	<div class="flex items-center gap-1 py-1.5 pr-1.5 pl-3.5">
 		<div class="flex min-w-0 flex-1 flex-col gap-px">
 			<span class="truncate text-[15px] font-bold">{caption.title}</span>
-			{#if caption.meta}<span class="text-[12px] text-muted">{caption.meta}</span>{/if}
+			{#if caption.meta || keep}<span class="text-[12px] text-muted"
+					>{caption.meta ?? ''}{#if keep}{caption.meta ? ' · ' : ''}<span
+							class="font-bold {keep.tone === 'done'
+								? 'text-done'
+								: keep.tone === 'warn'
+									? 'text-warn'
+									: ''}">{keep.text}</span
+						>{/if}</span
+				>{/if}
 		</div>
-		{#if action}{@render action()}{:else if owner && kind === 'video'}{@render fullScreen()}{/if}
+		{#if action}{@render action()}{:else if owner && kind === 'video'}<KeepButton
+				{src}
+			/>{@render fullScreen()}{/if}
 	</div>
 {/if}
 <div class="flex items-center gap-2 pr-3 pb-2.5 pl-2">
@@ -260,7 +275,7 @@
 			class={muted ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name={muted ? 'volume-off' : 'volume'} size={22} /></button
 		>
-		{#if owner && (!caption || action)}{@render fullScreen()}{/if}
+		{#if owner && (!caption || action)}<KeepButton {src} />{@render fullScreen()}{/if}
 	{/if}
 	<span class="flex-1"></span>
 	<span class="flex h-9 items-center rounded-full bg-chip px-px" role="group" aria-label={w.speed}>

@@ -15,6 +15,8 @@
  */
 import { dev, version } from '$app/environment';
 import type {
+	KeepChange,
+	KeepStatus,
 	DeviceIn,
 	DeviceOut,
 	DeviceState,
@@ -55,6 +57,11 @@ export const sync = $state<{ summary: OutboxSummary | null; now: number }>({
 	summary: null,
 	now: 0
 });
+
+/** Videos kept on the phone (offline phase 4b), as the worker last said; null without a ready device or a store. */
+export const kept = $state<{ status: KeepStatus | null }>({ status: null });
+/** Asked once each time the device gets ready. */
+let keepAsked = false;
 
 /** Whether the device answers reads on this page now. */
 export function deviceReady(): boolean {
@@ -100,6 +107,13 @@ function showState(): void {
 	device.state = owner ? owner.state : own;
 	if (owner) setSummary(owner.summary);
 	window.__device = { state: device.state, pulls, outbox: sync.summary };
+	if (device.state !== 'ready') {
+		kept.status = null;
+		keepAsked = false;
+	} else if (!keepAsked) {
+		keepAsked = true;
+		void keepGet();
+	}
 	tellServiceWorker();
 	for (const wake of [...waiting]) wake();
 }
@@ -179,6 +193,7 @@ function startWorker(): Worker | null {
 		else if (e.data?.type === 'pulled')
 			pulled(e.data.startedAt, e.data.landed, e.data.changed ?? 0);
 		else if (e.data?.type === 'outbox') onOutbox(e.data.summary);
+		else if (e.data?.type === 'keep') kept.status = e.data.status;
 	});
 	if (person !== undefined)
 		worker.postMessage({ type: 'person', userId: person } satisfies DeviceIn);
@@ -416,4 +431,18 @@ export async function unsyncedBeforeSignOut(): Promise<number> {
 export async function forgetCopy(): Promise<void> {
 	await ask({ type: 'forget' });
 	tellCopy(false);
+}
+
+/** What is kept on the phone now (offline phase 4b); null without a ready device. */
+export async function keepGet(): Promise<KeepStatus | null> {
+	const status = (await ask({ type: 'keep-get' })) as KeepStatus | null;
+	if (status) kept.status = status;
+	return status;
+}
+
+/** One change to what the phone keeps; the status after it. */
+export async function keepSet(change: KeepChange): Promise<KeepStatus | null> {
+	const status = (await ask({ type: 'keep-set', change })) as KeepStatus | null;
+	if (status) kept.status = status;
+	return status;
 }

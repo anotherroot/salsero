@@ -31,13 +31,11 @@ const route = (method: string, path: string, mode: RequestMode = 'cors', origin 
 	swRoute(method, at(path, origin), mode, ORIGIN, PRECACHED);
 
 describe('swRoute', () => {
-	it('passes other origins and media', () => {
+	it('passes other origins', () => {
 		expect(route('GET', 'https://other.test/x.js', 'cors', 'https://other.test')).toBe('pass');
 		expect(route('GET', 'https://www.youtube.com/', 'navigate', 'https://www.youtube.com')).toBe(
 			'pass'
 		);
-		expect(route('GET', '/recordings/x.mp4')).toBe('pass');
-		expect(route('GET', '/lesson-videos/x.mp4')).toBe('pass');
 	});
 
 	it('songs and count takes: the phone first (offline phase 4a)', () => {
@@ -50,9 +48,14 @@ describe('swRoute', () => {
 		expect(route('HEAD', SONG)).toBe('pass');
 		expect(route('POST', SONG)).toBe('write');
 		expect(route('GET', SONG, 'navigate')).toBe('pass');
-		// Videos are 4b and 4c: the network, as before.
-		expect(route('GET', '/recordings/x.mp4')).toBe('pass');
-		expect(route('GET', '/lesson-videos/x.mp4')).toBe('pass');
+	});
+
+	it('lesson videos and recordings: the phone first (offline phase 4b)', () => {
+		for (const path of ['/lesson-videos/x.mp4', '/recordings/x.mp4']) {
+			expect(route('GET', path), path).toBe('media');
+			// Opened in a tab or downloaded: the browser's, as before.
+			expect(route('GET', path, 'navigate'), path).toBe('pass');
+		}
 	});
 
 	it('serves the build from the cache', () => {

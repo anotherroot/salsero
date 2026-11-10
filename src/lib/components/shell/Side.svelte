@@ -11,6 +11,7 @@
 	import { sideLit } from '$lib/nav/frame';
 	import { minePath } from '$lib/teams/mode';
 	import { tabDot, tabDotLabel } from '$lib/nav/tabs';
+	import { kept } from '$lib/offline/kept.svelte';
 	import { intend } from '$lib/nav/trail.svelte';
 	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
 
@@ -54,6 +55,8 @@
 		'flex h-12 items-center gap-3 rounded-[24px] pr-[18px] pl-[14px] text-[16px] whitespace-nowrap';
 	const OFF = `${ITEM} font-bold text-band-small hover:bg-band-ink/10`;
 	const ON = `${ITEM} bg-band-ink font-extrabold text-on-cream`;
+	/** The page's data and the phone short of space (offline phase 4b): what lights the dots. */
+	const dotData = $derived({ ...page.data, lowSpace: kept.status?.low ?? false });
 </script>
 
 <!--
@@ -73,7 +76,7 @@
 			{#each tabs as tab, i (tab.id)}
 				{@const here = tab.id === lit}
 				{@const to = targets[i]}
-				{@const fresh = tabDot(tab.id, page.data)}
+				{@const fresh = tabDot(tab.id, dotData)}
 				<li>
 					{#if inGroup && tab.id === 'today'}
 						<!-- Mine: the tab bar's plain link out of the group's view (`BottomNav` says where), never lit. -->
@@ -90,7 +93,7 @@
 							href={to ?? resolve(tab.path, { dance })}
 							onclick={(e) => tapTab(e, to === null)}
 							aria-current={here ? 'page' : undefined}
-							aria-label={fresh ? tabDotLabel(tab.id, tab.label) : undefined}
+							aria-label={fresh ? tabDotLabel(tab.id, tab.label, dotData) : undefined}
 							class={here ? ON : OFF}
 						>
 							<Icon name={tab.icon} size={24} filled={here} />

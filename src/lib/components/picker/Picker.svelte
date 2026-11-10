@@ -29,11 +29,13 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, CLIP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { IconName } from '$lib/icons/icons';
-	import { segments, shown, type PickGroup, type PickRow } from '$lib/picker/model';
+	import { segments, shown, type PickGroup, type PickLine, type PickRow } from '$lib/picker/model';
+	import { hereGroups } from '$lib/picker/elsewhere';
 	import {
 		createLead,
 		doneLabel,
 		emptyText,
+		groupTitle,
 		lineGroups,
 		pickerBody,
 		pickerTall,
@@ -96,6 +98,19 @@
 		top?: Snippet;
 		/** Replaces the empty box's text (the routine editor's "Turn off Hold"). */
 		empty?: Snippet;
+		/**
+		 * Link from other places (a group's linking pickers): while a search is
+		 * typed, the group's own rows sit under `here`, then what the person's
+		 * other places hold (`groups`, already matched by the server); `state`
+		 * says whether they came. A tap or + on one of them is `onelsewhere`.
+		 */
+		elsewhere?: {
+			here: string;
+			state: 'loading' | 'offline' | 'ready';
+			groups: PickGroup[];
+		} | null;
+		/** A row from another place: a tap (`keep` false) or its + (`keep` true). */
+		onelsewhere?: (row: PickRow, keep: boolean) => void;
 		onpick: (row: PickRow) => void;
 		onadd?: (row: PickRow) => void;
 		onpreview?: (row: PickRow) => void;
@@ -134,6 +149,8 @@
 		query = $bindable(''),
 		top,
 		empty,
+		elsewhere = null,
+		onelsewhere,
 		onpick,
 		onadd,
 		onpreview,
@@ -156,15 +173,32 @@
 			search.focus();
 	});
 
-	const lines = $derived(shown(groups, prefiltered ? '' : query));
 	const typed = $derived(query.trim());
+	/** Other places show: a group's picker with something typed. */
+	const others = $derived(elsewhere !== null && typed !== '');
+	const lines = $derived(
+		shown(
+			others && elsewhere ? hereGroups(groups, elsewhere.here) : groups,
+			prefiltered ? '' : query
+		)
+	);
+	const otherGroups = $derived(
+		others && elsewhere
+			? elsewhere.groups.flatMap((g) => {
+					const [lg] = lineGroups(shown([g], ''));
+					return lg ? [{ group: g, lines: lg.lines }] : [];
+				})
+			: []
+	);
 	const failed = $derived(failure != null);
 	const shows = $derived(pickerBody({ loading, failed, lines: lines.length }));
 	// Decided once per opening: a prefiltered list shrinking as you type must not resize the sheet.
 	let tallOpen = $state(false);
 	$effect(() => {
 		if (!open) tallOpen = false;
-		else if (!loading) tallOpen = untrack(() => pickerTall({ loading, failed, groups }));
+		else if (!loading)
+			// A group's picker that can show other places opens tall: they come as you type.
+			tallOpen = untrack(() => elsewhere !== null || pickerTall({ loading, failed, groups }));
 	});
 	const tall = $derived(loading ? true : tallOpen);
 	const hasCreate = $derived(!!create && create.length > 0);
@@ -190,10 +224,15 @@
 				>{:else}{s.text}{/if}{/each}{:else}{text}{/if}
 {/snippet}
 
-{#snippet row(r: PickRow, text: string, indent: boolean, last: boolean)}
-	{@const trail = rowTrail(kind, r, chosen, pending)}
+{#snippet row(r: PickRow, text: string, indent: boolean, last: boolean, away = false)}
+	{@const trail = away
+		? pending.has(r.key)
+			? 'pending'
+			: 'add'
+		: rowTrail(kind, r, chosen, pending)}
 	{@const linked = trail === 'linked'}
 	{@const isChosen = trail === 'chosen'}
+	<!-- `away`: a row from another place (link from other places): + copies it here and links. -->
 	<div
 		class="flex items-center has-[[data-pick]:active]:bg-step {indent ? 'pl-8' : 'pl-4'} {isChosen
 			? 'bg-accent-soft'
@@ -218,7 +257,7 @@
 				disabled={linked}
 				aria-current={!many && isChosen ? 'true' : undefined}
 				aria-pressed={many ? isChosen : undefined}
-				onclick={() => onpick(r)}
+				onclick={() => (away ? onelsewhere?.(r, false) : onpick(r))}
 			>
 				<span
 					class="block max-w-full truncate text-[16px] leading-[1.3] font-bold {linked
@@ -238,8 +277,9 @@
 				<button
 					type="button"
 					class="{iconButton('bare', 'accent')} mr-1.5"
-					aria-label={t().picker.addKeep(r.label)}
-					onclick={() => onadd?.(r)}><Icon name="plus" size={24} /></button
+					aria-label={away ? t().picker.elsewhere.copyHere(r.label) : t().picker.addKeep(r.label)}
+					onclick={() => (away ? onelsewhere?.(r, true) : onadd?.(r))}
+					><Icon name="plus" size={24} /></button
 				>
 			{:else if trail === 'pending'}
 				<span
@@ -313,7 +353,7 @@
 		</div>
 	{:else if shows === 'failed' && failure}
 		<Banner kind="error" title={failure.title}>{failure.body}</Banner>
-	{:else if shows === 'empty'}
+	{:else if shows === 'empty' && !others}
 		<div role="status" class="flex flex-none items-start gap-3 rounded-2xl bg-surface p-4">
 			<span class="mt-px flex-none text-muted"
 				><Icon name={typed ? 'search' : emptyIcon} size={22} /></span
@@ -323,28 +363,65 @@
 			</div>
 		</div>
 	{:else}
+		{#if lines.length === 0 && elsewhere}
+			<!-- Other places show: the group's own empty line stays one line. -->
+			<h3 class={SECTION_LABEL}>{elsewhere.here}</h3>
+			<p
+				role="status"
+				class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] font-medium text-muted"
+			>
+				{t().picker.elsewhere.noneHere(typed)}
+			</p>
+		{/if}
 		{#each lineGroups(lines) as g, gi (gi)}
-			<h3 class="{SECTION_LABEL} {gi > 0 ? 'mt-2.5' : ''}">{g.title}</h3>
-			<div class="{CLIP} rounded-2xl bg-surface">
-				{#each g.lines as { line, last }, i (i)}
-					{#if line.kind === 'heading'}
-						<!-- A heading, not a choice: only the rows under it can be picked. -->
-						<p
-							class="truncate px-4 pt-3.5 pb-0.5 text-[13px] leading-[1.3] font-extrabold tracking-[0.01em] text-ink-2"
-						>
-							{@render marked(line.text)}
-						</p>
-					{:else}
-						{@render row(line.row, line.text, line.indent, last)}
-					{/if}
-				{/each}
-			</div>
+			{@render block(g.title, g.lines, gi > 0, false)}
 		{/each}
+		{#if others && elsewhere}
+			{#each otherGroups as o, oi (oi)}
+				{@render block(o.group.title, o.lines, true, true, o.group.icon, o.group.tone)}
+			{/each}
+			{#if elsewhere.state !== 'ready'}
+				<p
+					role="status"
+					class="mt-2.5 flex items-center gap-2 px-4 text-[14px] leading-[1.4] font-medium text-muted"
+				>
+					{#if elsewhere.state === 'loading'}<Spinner size={16} />{t().picker.elsewhere
+							.looking}{:else}<Icon name="cloud-off" size={16} />{t().picker.elsewhere.offline}{/if}
+				</p>
+			{/if}
+		{/if}
 	{/if}
 {/snippet}
 
+{#snippet block(
+	title: string,
+	glines: { line: PickLine; last: boolean }[],
+	gap: boolean,
+	away: boolean,
+	icon?: IconName,
+	tone?: 'warn'
+)}
+	<h3 class="{groupTitle(tone)} {gap ? 'mt-2.5' : ''} flex items-center gap-1.5">
+		{#if icon}<Icon name={icon} size={14} />{/if}{title}
+	</h3>
+	<div class="{CLIP} rounded-2xl bg-surface">
+		{#each glines as { line, last }, i (i)}
+			{#if line.kind === 'heading'}
+				<!-- A heading, not a choice: only the rows under it can be picked. -->
+				<p
+					class="truncate px-4 pt-3.5 pb-0.5 text-[13px] leading-[1.3] font-extrabold tracking-[0.01em] text-ink-2"
+				>
+					{@render marked(line.text)}
+				</p>
+			{:else if line.kind === 'row'}
+				{@render row(line.row, line.text, line.indent, last, away)}
+			{/if}
+		{/each}
+	</div>
+{/snippet}
+
 {#snippet body()}
-	<div class="flex h-full min-h-0 flex-col gap-2">
+	<div class="flex min-h-0 flex-1 flex-col gap-2">
 		<!-- No name: it filters, it is not posted. Enter must not submit a surrounding form. -->
 		<SearchField
 			{placeholder}
@@ -430,6 +507,7 @@
 			{back}
 			{z}
 			{tall}
+			fill
 			{level}
 			footer={hasCreate || hasDone ? footer : undefined}
 			{onclose}
@@ -445,6 +523,7 @@
 		{back}
 		{sub}
 		{tall}
+		fill
 		{level}
 		footer={hasCreate || hasDone ? footer : undefined}
 	>

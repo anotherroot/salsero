@@ -325,6 +325,7 @@ def scene(a):
             device_scale_factor=1,
             timezone_id="Europe/Ljubljana",
             permissions=["microphone"],
+            **({"has_touch": True, "is_mobile": True} if os.environ.get("SHOTS_TOUCH") else {}),
         )
         ctx.clock.set_fixed_time(INSTANT)
         ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])

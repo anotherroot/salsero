@@ -19,6 +19,16 @@ import {
 import { installCapture, startCapture, stopCapture } from './capture';
 import { wantedMedia } from './media';
 import type { MediaFile } from '$lib/offline/media-store';
+import type { KeepChange, KeepSettings, KeepStatus } from '$lib/offline/protocol';
+import {
+	applyKeepChange,
+	keptBySpace,
+	keptVideos,
+	readKeep,
+	spaceRows,
+	wantedVideos,
+	writeKeep
+} from './keep';
 import {
 	applyResults,
 	discardEntry,
@@ -98,8 +108,14 @@ export type Device = {
 	/** Push the outbox, then pull once nothing waits (offline phase 3). */
 	sync(): Promise<SyncResult>;
 	summary(): OutboxSummary;
-	/** The files the copy wants on the phone (offline phase 4a); none without a copy. */
+	/** The files the copy wants on the phone: songs (4a) and kept videos (4b); none without a copy. */
 	wantedMedia(): MediaFile[];
+	/** This device's choice of videos to keep (offline phase 4b). */
+	keepSettings(): KeepSettings;
+	/** One change to it, saved; a kept video gone from the copy drops out. */
+	keepSet(change: KeepChange): KeepSettings;
+	/** The rows the On this phone page draws, given the video files on the phone. */
+	keepRows(held: ReadonlySet<string>): Pick<KeepStatus, 'spaces' | 'kept' | 'bySpace'>;
 	outboxList(): Promise<OutboxItem[]>;
 	/** A refused entry and those held by it wait again; then a sync. How many. */
 	retry(id: string): Promise<number>;
@@ -652,7 +668,30 @@ export function createDevice(deps: DeviceDeps): Device {
 
 		wantedMedia: () => {
 			const user = copyUser();
-			return user === null ? [] : wantedMedia(db, user);
+			return user === null
+				? []
+				: [...wantedMedia(db, user), ...wantedVideos(db, user, readKeep(db))];
+		},
+
+		keepSettings: () => readKeep(db),
+
+		keepSet(change) {
+			const next = applyKeepChange(readKeep(db), change);
+			const there = new Set(keptVideos(db, next, new Set()).map((k) => k.key));
+			const s = { ...next, videos: next.videos.filter((k) => there.has(k)) };
+			writeKeep(db, s);
+			return s;
+		},
+
+		keepRows(held) {
+			const user = copyUser();
+			if (user === null) return { spaces: [], kept: [], bySpace: {} };
+			const s = readKeep(db);
+			return {
+				spaces: spaceRows(db, user, s, held),
+				kept: keptVideos(db, s, held),
+				bySpace: keptBySpace(db, user, s)
+			};
 		},
 
 		outboxList: async () => {
