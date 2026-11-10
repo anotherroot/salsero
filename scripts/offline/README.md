@@ -66,6 +66,12 @@ values to the walk.
     person's (or a group's they are in) with one video whose file is in `DATA_DIR`, and sets its row's size to the file's. Its
     page's phone button under the video keeps it (`data-keep` off → on); a `Range: bytes=0-99` fetch of
     `/lesson-videos/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`, online and offline.
+15. **Your video only on the phone** (phase 4c). On one of the walk person's own lessons (`own_lesson`),
+    the page's Add videos (phone first: a touch screen with the store) takes check 14's file as a new
+    video: the page says it is only on this phone (`data-where="only"`); its row syncs with
+    `server_copy` 0 and no file in `DATA_DIR`; `/lesson-videos/<file>` answers from the phone (206, 100
+    bytes, `X-Salsa-From: device`), offline too; Where is this video → Upload gives the server its copy
+    (`server_copy` 1, the file in `DATA_DIR`).
 
 The walk writes to the server's copy (10's archive), so run it on a fresh `serve.sh` each time.
 `WALK_SHOTS=<dir>` (an environment variable) saves a picture of the offline strip on the exercise and

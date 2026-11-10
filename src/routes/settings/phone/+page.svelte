@@ -19,7 +19,9 @@
 
 	const w = $derived(t().settings.onPhone);
 	const status = $derived(kept.status);
-	const used = $derived(status ? status.bytes.songs + status.bytes.videos : 0);
+	/** The person's own videos kept only here (offline phase 4c). */
+	const originals = $derived(status?.bytes.originals ?? 0);
+	const used = $derived(status ? status.bytes.songs + status.bytes.videos + originals : 0);
 	const whole = $derived(status ? used + (status.free ?? 0) : 0);
 	const share = (n: number) => (whole > 0 ? `${(n / whole) * 100}%` : '0%');
 	const nothingKept = $derived(
@@ -60,6 +62,7 @@
 				<div class="{CLIP} mt-2.5 flex h-3.5 gap-0.5 rounded-full" aria-hidden="true">
 					<span class="bg-accent/40" style:width={share(status.bytes.songs)}></span>
 					<span class="bg-accent" style:width={share(status.bytes.videos)}></span>
+					{#if originals > 0}<span class="bg-ink-2" style:width={share(originals)}></span>{/if}
 					<span class="flex-1 bg-track"></span>
 				</div>
 				<div class="mt-2.5 flex flex-col gap-1 text-[13px] font-semibold text-muted">
@@ -73,6 +76,13 @@
 							byteSize(status.bytes.videos)
 						)}</span
 					>
+					{#if originals > 0}
+						<span class="flex items-center gap-1.5" data-originals
+							><i class="size-2.5 rounded-[3px] bg-ink-2"></i>{w.legendOriginals(
+								byteSize(originals)
+							)}</span
+						>
+					{/if}
 				</div>
 			</div>
 

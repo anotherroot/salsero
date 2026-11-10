@@ -11,6 +11,10 @@
 	import WhereButton from '$lib/components/ui/WhereButton.svelte';
 	import { livePlace, type PhoneVideo } from '$lib/offline/places.svelte';
 	import { placeWord } from '$lib/offline/where-view';
+	import IphoneCard from '$lib/components/ui/IphoneCard.svelte';
+	import IphoneWhy from '$lib/components/ui/IphoneWhy.svelte';
+	import { iphoneCard } from '$lib/offline/iphone-card.svelte';
+	import { uploadOriginal } from '$lib/offline/upload-original';
 	import { kept } from '$lib/offline/kept.svelte';
 	import { keepWord, videoKeep } from '$lib/offline/kept-view';
 	import { button, iconButton } from '$lib/components/ui/styles';
@@ -76,6 +80,8 @@
 	const placed = $derived(place !== null && place.state !== 'server');
 	/** On another device, or gone from this one: nothing here to play. */
 	const away = $derived(place?.state === 'elsewhere' || place?.state === 'missing');
+	/** Only on this iPhone (offline phase 4c, 3B): the ⓘ, and the card until it is closed. */
+	const onIphone = $derived(place?.state === 'only' && place.iphone);
 	/** On this phone, coming, or waiting (offline phase 4b), or where it is (4c): after the meta. */
 	const keep = $derived(
 		!video || problem !== null
@@ -115,7 +121,7 @@
 								: keep.tone === 'ink'
 									? 'text-ink-2'
 									: ''}">{keep.text}</span
-				>{/if}</span
+				>{#if onIphone}<IphoneWhy />{/if}{/if}</span
 		>
 	</span>
 {/snippet}
@@ -167,6 +173,14 @@
 			>
 		{/if}
 	</div>
+	{#if onIphone && iphoneCard.shown}
+		<div class="pr-2.5 pb-3">
+			<IphoneCard
+				onupload={() =>
+					void uploadOriginal({ table: 'recordings', id: recording.id, file: recording.file })}
+			/>
+		</div>
+	{/if}
 	{#if video && away}
 		<!-- On another device or gone from this one (offline phase 4c): no file to ask about. -->
 	{:else if video}

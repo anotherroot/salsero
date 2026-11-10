@@ -259,3 +259,41 @@ iPhone A/B), the user picked **1B, 2A, 3B**.
   permanent, and on Android asks "Delete from the gallery too"; a video
   deleted from the gallery reads "no longer in the gallery" with Remove; the
   On this phone page adds "Your videos in the gallery" to its bar and line.
+
+## Decided while building 4c, part 1 (2026-11-10)
+
+Part 1 is the server, the device and the web (iPhone, a phone's browser,
+the computer); part 2 is the Android app's gallery originals and its APK.
+Until part 2, the Android app uploads at once as before.
+
+- **The row first, the bytes never through the outbox.** A phone-only video's
+  row is a device write (`POST …/recordings/phone`, `…/videos/phone`, JSON:
+  file, mime, size); the original is stored on the phone first and dropped if
+  the row is refused. Upload later is its own chunked route
+  (`PUT /api/recordings/[id]/file/[uploadId]`, `/api/lesson-videos/…`),
+  written under the row's file name; Remove server copy is
+  `DELETE …/server-copy` with the asking device's slot.
+- **Columns:** `server_copy` (default true), `origin_slot`, `origin_bytes` on
+  both tables (migration 0049); `size_bytes` is the server copy's once
+  uploaded, the original's while phone-only. The holder is the row id's
+  slot; a row the server made itself takes the slot the device claimed.
+- **Device names** come from the user agent, kept with the slot
+  (`device_slots.label`: "Pixel 8", an iPhone, a computer) and sent with the
+  pull to the person's devices (`ServerExtras.devices`).
+- **Originals on the phone** are the media store's `originals` kind, owner in
+  the meta: never listed, cleared or counted unless named, so Clear kept
+  videos, a person change and the keeper's sweep leave them. One goes only
+  when the person deleted its video (here: dropped after the delete; on
+  another device: after a pull that reached the server, and only the copy's
+  person's own). A video URL reads the original first.
+- **Copies leave phone-only videos behind** (clone, Copy to, Keep in step,
+  Take), and the Copy to sheet says how many and on which device. This
+  replaces the main design's "the holding device uploads them as part of
+  it" (the user agreed, 2026-11-10).
+- **Phone first** where the store is and the screen is a touch screen (an
+  iPhone web app, a phone's browser); a computer and a group's place upload
+  at once. An iPhone uploads the original whole (no compressing in a
+  browser); the server copy's line then says only its size.
+- **Deleting** a phone-only video still needs a connection, as every delete
+  of a video does; its question says it is final.
+- A computer's new recording goes up in chunks too (up to 1 GiB).

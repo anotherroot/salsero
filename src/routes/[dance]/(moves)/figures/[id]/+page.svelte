@@ -25,6 +25,9 @@
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
 	import { currentAddMode } from '$lib/offline/add-mode.svelte';
+	import { phoneOnlyDeleteNote } from '$lib/offline/delete-words';
+	import { onIphone } from '$lib/offline/iphone-card.svelte';
+	import { dropOriginal } from '$lib/offline/device.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import { spotLabel } from '$lib/video/spots';
@@ -234,12 +237,14 @@
 	}
 
 	// --- Deleting a recording: a question first, in place of the old confirm().
-	let deleting = $state<{ id: number; body: string } | null>(null);
+	/** `file`: a phone-only recording's, whose original goes from this phone after (offline phase 4c). */
+	let deleting = $state<{ id: number; body: string; file: string | null } | null>(null);
 	let deleteBusy = $state(false);
 	const deleteRecording: SubmitFunction = () => {
 		deleteBusy = true;
 		const keys = variation.recordings.map((r) => `recording-${r.id}`);
 		const gone = `recording-${deleting?.id}`;
+		const original = deleting?.file ?? null;
 		return async ({ update, result }) => {
 			try {
 				await update();
@@ -250,17 +255,26 @@
 			}
 			// Already gone: show the list as it is now.
 			if (result.type === 'failure' && result.status === 404) await invalidateAll();
-			if (result.type === 'success') await focusAfterRemoval(keys, gone, 'stop-editing');
+			if (result.type === 'success') {
+				if (original) void dropOriginal(original);
+				await focusAfterRemoval(keys, gone, 'stop-editing');
+			}
 		};
 	};
-	const askDelete = (rec: { id: number; sizeBytes: number }, day: string) => {
+	const askDelete = (
+		rec: { id: number; sizeBytes: number; serverCopy: boolean; file: string },
+		day: string
+	) => {
+		const base = deleteRecordingBody(
+			day,
+			byteSize(rec.sizeBytes),
+			(variation.recordingSections[rec.id] ?? []).length
+		);
+		const note = phoneOnlyDeleteNote(rec, onIphone());
 		deleting = {
 			id: rec.id,
-			body: deleteRecordingBody(
-				day,
-				byteSize(rec.sizeBytes),
-				(variation.recordingSections[rec.id] ?? []).length
-			)
+			body: note ? `${note} ${base}` : base,
+			file: rec.serverCopy ? null : rec.file
 		};
 	};
 	// Unlinking a section: focus goes to the next section, else the band's stop-editing.
@@ -404,7 +418,10 @@
 <svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
 
 <!-- A recording's delete, while editing: asks first, in the Dialog below. -->
-{#snippet trash(rec: { id: number; sizeBytes: number }, day: string)}
+{#snippet trash(
+	rec: { id: number; sizeBytes: number; serverCopy: boolean; file: string },
+	day: string
+)}
 	<button
 		data-focus="recording-{rec.id}"
 		type="button"

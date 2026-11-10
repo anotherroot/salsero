@@ -397,6 +397,27 @@ def put_video(db_path):
         db.close()
 
 
+def own_lesson(db_path):
+    """Check 15's lesson: one of the walk person's own live lessons (a phone-only video goes on it), or None."""
+    rows = server_rows(
+        db_path,
+        "select l.id from lessons l join sessions se on se.user_id = l.user_id "
+        "where se.id = 'walk' and l.team_id is null and l.archived_at is null order by l.id limit 1",
+    )
+    return rows[0][0] if rows else None
+
+
+def wait_rows(db_path, sql, args, test, seconds=60):
+    """The server's rows once `test` holds of them (the sync is the device's, in its own time), or the last read."""
+    rows = []
+    for _ in range(seconds * 2):
+        rows = server_rows(db_path, sql, *args)
+        if test(rows):
+            break
+        time.sleep(0.5)
+    return rows
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit("usage: walk.py <port> <upstream> <db-copy>")
@@ -415,14 +436,15 @@ def main():
 
     song = put_song(db_path)
     video = put_video(db_path)
+    mine = own_lesson(db_path)
     net = Net(port, upstream)
     try:
-        walk(base, db_path, v, lines, net, song, video)
+        walk(base, db_path, v, lines, net, song, video, mine)
     finally:
         net.close()
 
 
-def walk(base, db_path, v, lines, net, song=None, video=None):
+def walk(base, db_path, v, lines, net, song=None, video=None, mine=None):
     def offline(ctx, on):
         # both: the page's navigator.onLine, and the connection itself
         if on:
@@ -907,6 +929,60 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                     got = page.evaluate(vprobe, vfile)
                     report(got == [206, 100, "device"], "videos on the phone: offline it plays from the phone", f"{got}")
                     offline(ctx, False)
+
+                # 15. Your video only on the phone (offline phase 4c): on a phone, a new video on the person's
+                # own lesson stays there as the original; its row syncs with no server copy; it plays from the
+                # phone, offline too; Upload (Where is this video) gives the server its copy.
+                if mine is None or video is None:
+                    report(False, "your video on the phone", "no own lesson, or no video file to add")
+                else:
+                    vbytes = open(os.path.join(os.path.dirname(db_path), "lesson-videos", video[1]), "rb").read()
+                    page.goto(f"{base}/{DANCE}/lessons/{mine}", wait_until="load", timeout=60_000)
+                    settle(page)
+                    picker = page.locator("input[type=file][multiple][accept='video/*']")
+                    try:
+                        page.wait_for_function("() => !!document.querySelector('input[type=file][multiple]')", timeout=30_000)
+                        picker.first.set_input_files({"name": "clip.mp4", "mimeType": "video/mp4", "buffer": vbytes})
+                        page.locator("[data-where='only']").first.wait_for(timeout=30_000)
+                        added = True
+                    except Exception as e:  # noqa: BLE001 - reported as a failure
+                        added = False
+                        print("   ", e)
+                    report(added, "your video on the phone: added, it says it is only on this phone", "no Where button")
+                    rows = wait_rows(
+                        db_path,
+                        "select file, server_copy from lesson_videos where lesson_id = ? order by id desc limit 1",
+                        (mine,),
+                        lambda r: bool(r) and r[0][1] == 0,
+                    )
+                    synced = bool(rows) and rows[0][1] == 0 and rows[0][0] != video[1]
+                    report(synced, "your video on the phone: its row synced, with no server copy", f"{rows}")
+                    if synced:
+                        name = rows[0][0]
+                        on_disk = os.path.exists(os.path.join(os.path.dirname(db_path), "lesson-videos", name))
+                        report(not on_disk, "your video on the phone: no file on the server", "the file is there")
+                        got = page.evaluate(vprobe, name)
+                        report(got == [206, 100, "device"], "your video on the phone: it plays from the phone", f"{got}")
+                        offline(ctx, True)
+                        got = page.evaluate(vprobe, name)
+                        report(got == [206, 100, "device"], "your video on the phone: offline too", f"{got}")
+                        offline(ctx, False)
+                        try:
+                            page.locator("[data-where='only']").first.click()
+                            page.locator("[data-where-sheet]").get_by_role("button", name="Upload").click()
+                        except Exception as e:  # noqa: BLE001 - reported as a failure
+                            print("   ", e)
+                        rows = wait_rows(
+                            db_path,
+                            "select server_copy from lesson_videos where file = ?",
+                            (name,),
+                            lambda r: bool(r) and r[0][0] == 1,
+                        )
+                        report(
+                            bool(rows) and rows[0][0] == 1 and os.path.exists(os.path.join(os.path.dirname(db_path), "lesson-videos", name)),
+                            "your video on the phone: Upload gives the server its copy",
+                            f"{rows}",
+                        )
             finally:
                 ctx.close()
         finally:

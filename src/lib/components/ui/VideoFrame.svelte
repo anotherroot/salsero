@@ -24,6 +24,10 @@
 	import ElsewhereFrame from './ElsewhereFrame.svelte';
 	import { livePlace, type PhoneVideo } from '$lib/offline/places.svelte';
 	import { placeWord } from '$lib/offline/where-view';
+	import IphoneCard from './IphoneCard.svelte';
+	import IphoneWhy from './IphoneWhy.svelte';
+	import { iphoneCard } from '$lib/offline/iphone-card.svelte';
+	import { uploadOriginal } from '$lib/offline/upload-original';
 	import { kept } from '$lib/offline/kept.svelte';
 	import { keepWord, videoKeep } from '$lib/offline/kept-view';
 	import { CLIP, iconButton } from './styles';
@@ -80,6 +84,11 @@
 	const place = $derived(kind === 'video' && phone ? livePlace(phone) : null);
 	const placed = $derived(place !== null && place.state !== 'server');
 	const elsewhere = $derived(place?.state === 'elsewhere');
+	/** Only on this iPhone (offline phase 4c, 3B): the ⓘ, and the card until it is closed. */
+	const onIphone = $derived(place?.state === 'only' && place.iphone);
+	const uploadThis = () => {
+		if (phone) void uploadOriginal({ table: phone.table, id: phone.id, file: phone.file });
+	};
 	const keep = $derived(
 		kind !== 'video' ? null : placed ? placeWord(place) : keepWord(videoKeep(kept.status, src))
 	);
@@ -273,11 +282,14 @@
 										: keep.tone === 'ink'
 											? 'text-ink-2'
 											: ''}">{keep.text}</span
-						>{/if}</span
+						>{#if onIphone}<IphoneWhy />{/if}{/if}</span
 				>{/if}
 		</div>
 		{#if action}{@render action()}{:else if owner && kind === 'video' && !elsewhere}{@render keepOrWhere()}{@render fullScreen()}{/if}
 	</div>
+{/if}
+{#if onIphone && iphoneCard.shown}
+	<div class="px-3 pb-2"><IphoneCard onupload={uploadThis} /></div>
 {/if}
 <div class="flex items-center gap-2 pr-3 pb-2.5 pl-2" class:hidden={elsewhere}>
 	{#if kind === 'video'}
