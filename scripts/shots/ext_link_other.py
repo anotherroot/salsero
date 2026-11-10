@@ -30,6 +30,12 @@ def _figures_card(page):
     page.wait_for_timeout(900)
 
 
+def _card_copied(page):
+    _figures_card(page)
+    page.get_by_role("button", name="Copy and link").click()
+    page.wait_for_timeout(2500)
+
+
 def _popup(page):
     page.get_by_role("button", name=re.compile(r"^Link (?!a )")).first.click()
     page.wait_for_timeout(500)
@@ -44,6 +50,7 @@ SCENES = {
     "lo-figures": Scene("/{dance}/lessons/38", _figures),
     "lo-figures-cradle": Scene("/{dance}/lessons/38", _figures_cradle),
     "lo-card": Scene("/{dance}/lessons/38", _figures_card),
+    "lo-copied": Scene("/{dance}/lessons/38", _card_copied),
     "lo-popup": Scene("/{dance}/lessons/38", _popup),
     "lo-popup-cradle": Scene("/{dance}/lessons/38", _popup_cradle),
 }
