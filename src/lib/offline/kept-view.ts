@@ -60,8 +60,13 @@ export function spaceLine(row: SpaceRow, status: KeepStatus): SpaceLine {
 	if (row.held >= row.videos)
 		return { mark: { text: w.onPhone, tone: 'done' }, text: all, bar: null };
 	const flight = status.inFlight;
+	// What cut-off downloads of this space already have (the one coming counts its own).
+	let parts = 0;
+	for (const [k, n] of Object.entries(status.partial ?? {})) {
+		if (status.bySpace[k] === row.id && k !== flight?.key) parts += n;
+	}
 	if (flight && status.bySpace[flight.key] === row.id) {
-		const got = row.heldBytes + flight.received;
+		const got = row.heldBytes + parts + flight.received;
 		return {
 			mark: null,
 			text: w.coming(row.held + 1, row.videos, byteSize(got), byteSize(row.bytes)),
@@ -75,7 +80,10 @@ export function spaceLine(row: SpaceRow, status: KeepStatus): SpaceLine {
 				tone: 'warn' as const
 			}
 		: null;
-	return { mark, text: w.ofOnPhone(row.held, row.videos), bar: null };
+	const got = row.heldBytes + parts;
+	// Waiting keeps the bar where it was: what came stays on the phone and goes on from there.
+	const bar = row.bytes > 0 && got > 0 ? Math.min(1, got / row.bytes) : null;
+	return { mark, text: w.ofOnPhone(row.held, row.videos), bar };
 }
 
 export type Suggestion =

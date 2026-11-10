@@ -95,7 +95,8 @@ const media = mediaKeeper({
 		const now = Date.now();
 		if (lastStatus && (inFlight === null || now - progressPostedAt >= 1000)) {
 			progressPostedAt = now;
-			post({ type: 'keep', status: { ...lastStatus, inFlight } });
+			// Something is coming, so nothing waits for Wi-Fi or a connection now.
+			post({ type: 'keep', status: { ...lastStatus, inFlight, waiting: null } });
 		}
 	},
 	onPass: (out) => {
@@ -119,11 +120,17 @@ async function keepStatus(): Promise<KeepStatus | null> {
 	const held = (await s.list())
 		.filter((f) => VIDEO_KINDS.includes(f.kind))
 		.map((f) => `${f.kind}/${f.file}`);
+	const partial: Record<string, number> = {};
+	for (const p of await s.parts()) {
+		if (VIDEO_KINDS.includes(p.kind))
+			partial[`${p.kind}/${p.file}`] = await s.partSize(p.kind, p.file);
+	}
 	const room = await free();
 	return {
 		settings: device.keepSettings(),
 		...device.keepRows(new Set(held)),
 		held,
+		partial,
 		inFlight,
 		waiting: lastPass?.waiting ?? null,
 		canTellWifi: canTellWifi(nav),
