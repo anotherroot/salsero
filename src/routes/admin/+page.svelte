@@ -173,7 +173,7 @@
 					aria-expanded={showDone}
 					onclick={() => (showDone = !showDone)}
 				>
-					{showDone ? f.hideDone : f.showDone(data.feedback.done.length)}
+					{showDone ? f.hideDone : f.showDone(data.feedback.doneCount)}
 				</button>
 				{#if showDone}
 					{#each data.feedback.done as m (m.id)}

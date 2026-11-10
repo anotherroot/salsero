@@ -150,23 +150,36 @@ function rows(db: Db, dance: DanceSlug, done: boolean, limit?: number): Feedback
 	return all.map((r) => ({ ...r, trail: parsed(r.trail), errors: parsed(r.errors) }));
 }
 
-/** The dance's messages for its admin: the open ones newest first, then the last done ones. */
+/**
+ * The dance's messages for its admin: the open ones newest first, then the last
+ * done ones, and how many are done in all (the list stops at `DONE_SHOWN`).
+ */
 export function feedbackFor(
 	db: Db,
 	dance: DanceSlug
-): { open: FeedbackRow[]; done: FeedbackRow[] } {
-	return { open: rows(db, dance, false), done: rows(db, dance, true, DONE_SHOWN) };
+): { open: FeedbackRow[]; done: FeedbackRow[]; doneCount: number } {
+	return {
+		open: rows(db, dance, false),
+		done: rows(db, dance, true, DONE_SHOWN),
+		doneCount: countOf(db, dance, true)
+	};
 }
 
-/** How many messages wait for the dance's admin. */
-export function openFeedbackCount(db: Db, dance: DanceSlug): number {
+function countOf(db: Db, dance: DanceSlug, done: boolean): number {
 	return (
 		db
 			.select({ n: sql<number>`count(*)` })
 			.from(feedback)
-			.where(and(eq(feedback.dance, dance), isNull(feedback.doneAt)))
+			.where(
+				and(eq(feedback.dance, dance), done ? isNotNull(feedback.doneAt) : isNull(feedback.doneAt))
+			)
 			.get()?.n ?? 0
 	);
+}
+
+/** How many messages wait for the dance's admin. */
+export function openFeedbackCount(db: Db, dance: DanceSlug): number {
+	return countOf(db, dance, false);
 }
 
 /** Mark one of the dance's messages done (`doneAt`) or open again (null); false when it is not the dance's. */

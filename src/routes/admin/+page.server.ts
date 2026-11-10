@@ -47,7 +47,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// What testers sent (Send feedback): the open ones, then the last done.
 		feedback: {
 			open: notes.open.map((r) => feedbackView(r, tz)),
-			done: notes.done.map((r) => feedbackView(r, tz))
+			done: notes.done.map((r) => feedbackView(r, tz)),
+			doneCount: notes.doneCount
 		},
 		groups: listTeamsForAdmin(db, dance),
 		requests: listOpenRequests(db, dance).map((r) => ({ ...r, day: localDay(r.createdAt, tz) })),

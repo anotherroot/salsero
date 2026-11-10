@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { version } from '$app/environment';
+	import { applyAction } from '$app/forms';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -25,7 +26,7 @@
 	let open = $state(false);
 	let busy = $state(false);
 	let refusal = $state('');
-	let toast = $state<{ id: number; message: string } | null>(null);
+	let toast = $state<{ id: number; message: string; done: boolean } | null>(null);
 	let seq = 0;
 	let form = $state<HTMLFormElement>();
 
@@ -80,10 +81,18 @@
 					if (result.type === 'success') {
 						form?.reset();
 						close();
-						toast = { id: ++seq, message: w.sent };
-					} else if (result.type === 'failure') {
-						refusal = String(result.data?.message ?? w.couldNotSend);
-					} else refusal = w.couldNotSend;
+						toast = { id: ++seq, message: w.sent, done: true };
+						return;
+					}
+					// Signed out meanwhile: the hook sends the page to sign in.
+					if (result.type === 'redirect') return applyAction(result);
+					const message =
+						result.type === 'failure'
+							? String(result.data?.message ?? w.couldNotSend)
+							: w.couldNotSend;
+					// Closed while it was out: the sheet is gone, so the toast says it.
+					if (open) refusal = message;
+					else toast = { id: ++seq, message, done: false };
 				};
 			}
 		}}
@@ -116,6 +125,11 @@
 </Sheet>
 
 <Toast
-	toast={toast && { id: toast.id, message: toast.message, icon: 'check', tone: 'done' }}
+	toast={toast && {
+		id: toast.id,
+		message: toast.message,
+		icon: toast.done ? 'check' : 'warning',
+		tone: toast.done ? 'done' : undefined
+	}}
 	ondismiss={() => (toast = null)}
 />

@@ -158,6 +158,7 @@ describe('feedback for the admin', () => {
 		}
 		const done = feedbackFor(db, 'salsa').done;
 		expect(done).toHaveLength(DONE_SHOWN);
+		expect(feedbackFor(db, 'salsa').doneCount).toBe(DONE_SHOWN + 2);
 		expect(done[0].message).toBe(`m${DONE_SHOWN + 1}`);
 	});
 
