@@ -69,6 +69,24 @@
 	let tracking = $state<number | null>(null);
 	const rest = $derived(open === 'left' ? -reveal : 0);
 	const x = $derived(tracking ?? rest);
+
+	/*
+	 * Once it is a swipe, its touch moves are ours. `touch-pan-y` alone still lets the
+	 * phone take the sideways move as a scroll and fling it, and a tap that lands while
+	 * a fling runs only stops the fling: the first tap on the revealed button did
+	 * nothing. Not passive (Svelte makes `ontouchmove` passive). A pointer move comes
+	 * before its touch move, so `tracking` is set for the move that made it a swipe.
+	 */
+	let card = $state<HTMLElement>();
+	$effect(() => {
+		const el = card;
+		if (!el) return;
+		const own = (ev: TouchEvent) => {
+			if (tracking !== null && ev.cancelable) ev.preventDefault();
+		};
+		el.addEventListener('touchmove', own, { passive: false });
+		return () => el.removeEventListener('touchmove', own);
+	});
 </script>
 
 <div class="relative {CLIP} {rounded}" data-swipe={key}>
@@ -95,6 +113,7 @@
 	{/if}
 	<div
 		role="presentation"
+		bind:this={card}
 		data-swiping={tracking === null ? undefined : ''}
 		class="relative touch-pan-y {tracking === null
 			? 'transition-transform duration-200 motion-reduce:transition-none'
