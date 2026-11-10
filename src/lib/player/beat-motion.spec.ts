@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PUSH, beatLife, callMoves, stepMotion } from './beat-motion';
+import { PUSH, beatLife, callMoves, leadMotion, pushScale, stepMotion } from './beat-motion';
 
 describe('stepMotion: a count moves only on a plain step forward', () => {
 	it('every count pushes the same, the 1 and the 5 too', () => {
@@ -44,5 +44,19 @@ describe('callMoves: Next rises into the call only when the next figure comes', 
 		expect(callMoves({ now: 'B', next: 'C' }, 'A')).toBe(false);
 		expect(callMoves({ now: 'A', next: 'B' }, 'A')).toBe(false);
 		expect(callMoves({ now: 'A', next: null }, null)).toBe(false);
+	});
+});
+
+describe('a lead’s beat (the dash and 5 6 7 8)', () => {
+	it('moves on a plain step forward when it has any strength', () => {
+		expect(leadMotion(3, 4, false, 0.5)).toBe('push');
+		expect(leadMotion(3, 4, false, 0)).toBe('none');
+		expect(leadMotion(3, 5, false, 1)).toBe('none');
+		expect(leadMotion(3, 4, true, 1)).toBe('none');
+	});
+	it('pushes as hard as its strength says', () => {
+		expect(pushScale()).toBe(PUSH);
+		expect(pushScale(0)).toBe(1);
+		expect(pushScale(2)).toBeCloseTo(1 + 2 * (PUSH - 1));
 	});
 });

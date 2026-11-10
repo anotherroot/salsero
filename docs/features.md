@@ -100,7 +100,8 @@ admin's per person; machines keep English (the worker's queue, the media servers
 and the song page (a minimal listening view: the section playing and what comes next;
 Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
 menu, suggestions from the downbeats, sections counted or not, the Song tab; a song starts
-where its music starts, measured by the worker; see
+where its music starts, measured by the worker; the part before the main beat counts in
+5 6 7 8 on the coming tempo; see
 [`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md))
 and a group's + and one figure form (a group page's lessons by month; the band's + opens
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
@@ -134,6 +135,12 @@ band, the badge in the slim band, the tab bar filled with the band's colour and 
 side's cream card; navy and the group cookie are gone; a group drill shows the view while
 edited; see
 [`docs/superpowers/specs/2026-11-09-group-view-design.md`](docs/superpowers/specs/2026-11-09-group-view-design.md)).
+and Send feedback (2026-11-10: a row on You and on Settings opens a sheet with one text box; the
+message goes to the dance's admin with the page before the one it was written from, the last few pages
+and script errors of the tab, the site's build, the window, and the Android app's version and the
+browser from the request; the admin page lists them first, each with Done (and Open again under
+"Done (N)"), and Settings' Admin row says "N new messages"; table `feedback`, migration 0047, never
+synced, network-only: offline the Send button says it needs a connection).
 
 
 ## Specs

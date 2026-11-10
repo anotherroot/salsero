@@ -9,11 +9,20 @@
  * to main-thread jank. (The standard "A Tale of Two Clocks" pattern.)
  */
 import { isQuiet, type QuietRange } from './quiet';
+import { countInCuesIn, type CountInCue } from '$lib/songs/count-in';
 import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
 import { CLIPS, type Clip } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import { reportedDelayMs, steadyDelay, totalDelayMs } from '$lib/player/sound-delay';
-import { type PlanStep, type Timeline, type Toggles, cuesIn, timeAt, timeline } from './scheduler';
+import {
+	COUNT_CLIP,
+	type PlanStep,
+	type Timeline,
+	type Toggles,
+	cuesIn,
+	timeAt,
+	timeline
+} from './scheduler';
 
 export const TICK_MS = 25;
 /**
@@ -138,6 +147,8 @@ export interface PlayerOptions {
 	voiceVolume: number;
 	/** A song's parts with the count off (`quietRanges`): no count and no clave there. */
 	quiet?: QuietRange[];
+	/** A song's count-ins (`countInCues`): 5 6 7 8 on the coming tempo, spoken unless the count is off. */
+	countIn?: CountInCue[];
 	/**
 	 * The user's recorded half-bars for the chosen pattern, if any. An empty
 	 * list — or a tempo too far from every take — falls back to the shipped
@@ -366,6 +377,9 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		const found = cuesIn(tl, plan, toggles, cursor, until);
 		const quiet = opts.quiet ?? [];
 		const cues = found.cues.filter((c) => !isQuiet(quiet, c.at));
+		if (toggles.count !== 'off')
+			for (const c of countInCuesIn(opts.countIn ?? [], cursor, until))
+				cues.push({ at: c.at, clip: COUNT_CLIP[c.n] });
 		const due = found.phrases.filter((p) => !isQuiet(quiet, p.at));
 		const steps = found.steps;
 

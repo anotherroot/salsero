@@ -22,6 +22,7 @@
 	} from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
+	import FeedbackRow from '$lib/components/feedback/FeedbackRow.svelte';
 	import { fullName } from '$lib/names';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
@@ -488,6 +489,9 @@
 		</div>
 	{/if}
 
+	<span class="{SECTION_LABEL} mt-[14px]">{t().feedback.section}</span>
+	<FeedbackRow />
+
 	{#if data.isAdmin}
 		<span class="{SECTION_LABEL} mt-[14px]">{w.admin.label}</span>
 		<div class={GROUP}>
@@ -495,7 +499,13 @@
 				<LeadTile icon="people" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{w.admin.label}</span>
-					<span class="text-[13px] text-muted">{w.admin.sub}</span>
+					{#if data.feedbackWaiting > 0}
+						<span class="text-[13px] font-bold text-accent-text"
+							>{t().feedback.admin.waiting(data.feedbackWaiting)}</span
+						>
+					{:else}
+						<span class="text-[13px] text-muted">{w.admin.sub}</span>
+					{/if}
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>

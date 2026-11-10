@@ -164,7 +164,9 @@ export const songs = {
 			eights: (name: string, n: number): string =>
 				`${name} in ${n} ${n === 1 ? 'eight' : 'eights'}`,
 			last: (name: string): string => `${name} after this eight`,
-			beats: (name: string, n: number): string => `${name} in ${n} ${n === 1 ? 'beat' : 'beats'}`
+			beats: (name: string, n: number): string => `${name} in ${n} ${n === 1 ? 'beat' : 'beats'}`,
+			/** In a lead's count-in (5 6 7 8): the section comes on the next 1. */
+			one: (name: string): string => `${name} on the 1`
 		},
 		/** The listening page. */
 		listen: {

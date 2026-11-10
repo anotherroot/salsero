@@ -9,6 +9,7 @@
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
+	import FeedbackRow from '$lib/components/feedback/FeedbackRow.svelte';
 	import {
 		GROUP,
 		ROW,
@@ -184,6 +185,7 @@
 			</div>
 		{/if}
 	</div>
+	<FeedbackRow />
 	<a href="/settings" class="{button('secondary', 'md', true)} mt-1">
 		<Icon name="settings" size={20} />
 		{w.you.allSettings}

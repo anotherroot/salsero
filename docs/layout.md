@@ -253,7 +253,10 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      is the one song upload in flight, outliving the sheet. Client-safe
                      sections.ts is PURE: a song's sections (stored as seconds, `placeSections`
                      snaps them to the 1s in order), the grid's rows, what comes next
-                     (`aheadOf`) and the section writes. suggest.ts: where the downbeats say
+                     (`aheadOf`) and the section writes. count-in.ts: the lead before a
+                     counted section (the song before its first, or a count-off section):
+                     quiet, counted down in the coming tempo, 5 6 7 8 faint and spoken.
+                     suggest.ts: where the downbeats say
                      the 1 moves. music-start.ts: where a song starts (`musicStart`) and
                      `playFrom`, which every player calls before its first play(). listen.ts:
                      the count card's lines. song-edit.ts: Edit's words. grid-keys.ts: the
@@ -558,8 +561,8 @@ src/lib/dances/hosts.ts  PURE: which host serves which dance (`parseDanceHosts`,
 src/lib/server/dance-split.ts  `splitAccounts`, at boot before the admin: places every account in
                      one dance; one that held both keeps salsa and its bachata half moves to a
                      new account. `danceIntegrity` (integrity.ts) reports what is on the wrong side
-src/routes/admin/    the admin page of one dance: its people, limits, invites, requests for more
-                     space (`adminReaches` before every change)
+src/routes/admin/    the admin page of one dance: testers' feedback (Done / Open again), its people,
+                     limits, invites, requests for more space (`adminReaches` before every change)
 src/routes/join/     Join: a person creates their account from an invite link (public)
 src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figures / Routines /
                      Positions switch, the three lists in a 360 column beside the open item,
@@ -618,7 +621,17 @@ src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archive
                      POST behind a picker's "Archived by … · Restore" (a group's figure,
                      routine or drill); it lists nothing
 src/routes/settings/storage/  What uses space: the person's files biggest first, Delete, Ask for more
-src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe
+src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe;
+                     `feedbackView`: one feedback message as the admin's lines
+src/lib/feedback/    PURE, client-safe: device.ts reads a user agent as "Android 14 · Chrome 131";
+                     trail.ts keeps this tab's last pages and script errors (the root layout
+                     records them) for Send feedback
+src/lib/server/feedback.ts  Send feedback: `readFeedback` (the form; what the page adds is cut,
+                     never refused), `sendFeedback`, `feedbackFor` (the admin's open and last done),
+                     `markFeedback`, `openFeedbackCount` (the Admin row on Settings). Table
+                     `feedback`, never synced, never deleted; posted to `/settings?/feedback` (network)
+src/lib/components/feedback/FeedbackRow.svelte  the Send feedback row and its sheet, on You
+                     (`YouSettings`) and Settings
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
 src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the

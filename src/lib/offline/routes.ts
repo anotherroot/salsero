@@ -358,6 +358,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 	},
 	'/admin': {
 		decline: 'network',
+		feedbackDone: 'network',
+		feedbackOpen: 'network',
 		grant: 'network',
 		invite: 'network',
 		setGroupLimit: 'network',
@@ -397,6 +399,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		ask: 'network',
 		dailyCount: 'device',
 		disconnectApp: 'network',
+		// Send feedback: to the admin, on the server only (never synced).
+		feedback: 'network',
 		language: 'network',
 		level: 'device',
 		name: 'device',
