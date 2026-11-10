@@ -209,18 +209,21 @@ network page and stays as it is.
     Each is up to a pull old, like everything else (the user's rule). The
     Music page's "To pick" list (`song_imports`) comes along the same way, or
     that one list reads from the network; the builder picks.
-  - **The page's own cookies travel with each device request.** The theme
-    (`THEME_COOKIE`), the Android app mark (`APP_COOKIE`) and the language
-    are cookies the browser keeps. A service worker cannot read a request's
-    `Cookie` header, so the page sends its readable cookies along with each
-    `device-fetch`, and the device's `deviceHeaders` uses them in place of the
-    copy's empty jar. Any of them that is `httpOnly` today either stops being
-    so (it is not a secret) or travels in the pull's extras; the builder
-    checks which.
-  - **A new server-only field in either layout** must be added to the extras,
-    or it will silently go missing on the device. A spec pins this: every key
-    the two layouts return is either computed from synced tables, a cookie,
-    or listed in the extras.
+  - **The page's cookies already travel with the pull.** The theme, the
+    Android app mark and the language are echoed by `/api/sync/pull`
+    (`ECHOED`) into the device's meta, so nothing changes for them. A theme
+    or language change is a network write, which marks the page dirty, so it
+    reads the network until the next pull carries the new cookie.
+  - **Other pages whose own load reads a server-only table** (found while
+    planning): Settings (paired phones, connected AI apps, storage) stays
+    network first online, the device only offline. Picking from a pasted
+    playlist (`/[dance]/songs/imports/[id]`) becomes a network page. Music's
+    To pick list comes in the extras.
+  - **A new server-only read in a device-drawn load** must go through the
+    extras or a network page, or it will silently go missing on the device.
+    A spec pins this (`server-only.spec.ts`): a device-drawn route's load
+    imports none of the known server-only readers unless it is listed with
+    its reason.
 - **Who is signed in:** phase 2's `pagePerson` learns who the server says is
   signed in from the server's own answers. With every read from the device,
   the pull's answer (it carries `userId`, and a 401 says nobody) becomes the
