@@ -65,6 +65,11 @@
 	const currentId = $derived(isList || !page.params.id ? null : Number(page.params.id));
 	// The list column is in sight: always on the desktop; on the phone only on the list route (an exercise page covers it).
 	const listShown = $derived(isList || desk.current);
+
+	let creating = $state(false);
+	// The layout's toast: Not today, Coming up's +, a refused Next.
+	let toast = $state<ToastState | null>(null);
+	let toastSeq = 0;
 	// The Done landing: right after a save (or Not today) Today plays what changed while it was
 	// hidden, the saved row lifted (spec 2026-11-10-motion-round-1).
 	const savedId = $derived(
@@ -77,11 +82,6 @@
 			data.list.day.rows.map((r) => ({ id: r.exercise.id, done: r.kind === 'done' }))
 		)
 	);
-
-	let creating = $state(false);
-	// The layout's toast: Not today, Coming up's +, a refused Next.
-	let toast = $state<ToastState | null>(null);
-	let toastSeq = 0;
 
 	const day = $derived(data.list.day);
 	// No live exercise at all: the first run's page.
