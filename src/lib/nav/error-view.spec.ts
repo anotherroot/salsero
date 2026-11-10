@@ -13,7 +13,7 @@ describe('errorView', () => {
 			tone: 'accent',
 			heading: 'Nothing here',
 			body: 'This page does not exist, or what it showed was deleted.',
-			code: 'ERROR 404',
+			code: null,
 			retry: false,
 			today: true
 		});
@@ -99,9 +99,9 @@ describe('errorBack', () => {
 });
 
 describe('in Slovenian', () => {
-	it('names the page, the code and the way back in Slovenian', () => {
+	it('names the page and the way back in Slovenian; 404 has no code line', () => {
 		const v = withLocale('sl', () => errorView(404, undefined, false));
-		expect([v.title, v.heading, v.code]).toEqual(['Ni najdeno', 'Tu ni ničesar', 'NAPAKA 404']);
+		expect([v.title, v.heading, v.code]).toEqual(['Ni najdeno', 'Tu ni ničesar', null]);
 		expect(withLocale('sl', () => errorView(0, undefined, true).title)).toBe('Brez povezave');
 		expect(withLocale('sl', () => errorBack('/salsa/figures/3', 'salsa').label)).toBe(
 			'Nazaj: Figure'

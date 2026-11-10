@@ -53,6 +53,7 @@
 	import { pagePerson } from '$lib/offline/person';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
+	import { desk } from '$lib/nav/desk.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -626,7 +627,8 @@
 		data-dance={navDance.slug}
 		data-frame="bare"
 		aria-label={t().shell.error.offlineTitle}
-		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:bg-transparent desk:bg-band"
+		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:!bg-transparent desk:bg-band"
+		style:height={tabs && !desk.current ? 'calc(100dvh - var(--tab-bar-space))' : undefined}
 		oncancel={(e) => {
 			e.preventDefault();
 			offline = null;
