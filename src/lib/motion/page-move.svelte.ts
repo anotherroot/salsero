@@ -12,7 +12,15 @@ import { navigating, page } from '$app/state';
 import { tick, untrack } from 'svelte';
 import { desk } from '$lib/nav/desk.svelte';
 import { LEAVE, play, reducedMotion } from './motion';
-import { PAGE_MOVE, drawnEdge, heldEdge, moveKind, shapeOf, visibleEdge } from './page-move';
+import {
+	PAGE_MOVE,
+	drawnEdge,
+	heldEdge,
+	moveKind,
+	shapeOf,
+	visibleEdge,
+	type MoveKind
+} from './page-move';
 
 type Phase = 'idle' | 'up' | 'held' | 'down';
 
@@ -105,8 +113,8 @@ function holdScroll(on: boolean) {
 	}
 }
 
-/** The card lifts from where it is drawn (still moving from a last tap or not); its words fade. */
-function lift(): boolean {
+/** The card lifts from where it is drawn (still moving from a last tap or not), or stays (a step inside the page); its words fade. */
+function lift(kind: MoveKind): boolean {
 	const p = parts();
 	if (!p) return false;
 	const foot = slimFoot(p);
@@ -114,7 +122,8 @@ function lift(): boolean {
 	const ty = translateY(p.main);
 	const layoutTop = p.main.getBoundingClientRect().top - ty;
 	const edge = visibleEdge(drawnEdge(layoutTop, ty), foot);
-	const held = reducedMotion() ? edge.y : heldEdge(edge.y, foot);
+	// A step inside one page (`words`) keeps the card where it is; so does reduced motion.
+	const held = reducedMotion() || kind === 'words' ? edge.y : heldEdge(edge.y, foot);
 	const fades = words(p).map((el) => [el, getComputedStyle(el).opacity] as const);
 	stopAll();
 	const mine = ++gen;
@@ -238,7 +247,7 @@ export function pageMove(): void {
 				{ routeId: to.route.id, path: to.url.pathname },
 				{ desk: desk.current, inPage: step }
 			);
-			if (kind === 'lift') lift();
+			if (kind !== 'none') lift(kind);
 		});
 	});
 	afterNavigate(() => {

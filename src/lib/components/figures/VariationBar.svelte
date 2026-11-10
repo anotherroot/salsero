@@ -15,6 +15,7 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { button, iconButton, FIELD, GROUP, LABEL } from '$lib/components/ui/styles';
 	import type { SiblingSummary } from '$lib/types';
+	import { stepInPage } from '$lib/motion/page-move.svelte';
 
 	/**
 	 * The figure's variations, pinned to the bottom edge: ‹ and › step through
@@ -128,7 +129,11 @@
 		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 		e.preventDefault();
 		listing = false;
-		if (id !== currentId) void gotoWhenSettled(href(id), { replaceState: true });
+		if (id !== currentId) {
+			// A step inside the move's page: the words change, the card stays.
+			stepInPage();
+			void gotoWhenSettled(href(id), { replaceState: true });
+		}
 		// The variation already shown: no navigation follows, so the list's close goes now.
 		else releaseClick();
 	}
@@ -147,6 +152,7 @@
 		<a
 			href={href(to.id)}
 			data-sveltekit-replacestate
+			onclick={stepInPage}
 			class="{iconButton('step')} !h-12 !w-12"
 			aria-label="{label}: {to.name}"><Icon name={icon} size={22} /></a
 		>
