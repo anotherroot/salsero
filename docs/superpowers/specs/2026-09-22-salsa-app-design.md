@@ -793,6 +793,16 @@ flash. If a page still feels slow behind its skeleton, the next step is to
 stream its slow queries (return them un-awaited from `load`) rather than to
 cache data on the client.
 
+## Motion
+
+The app moves a little (round 1, [`2026-11-10-motion-round-1-design.md`](2026-11-10-motion-round-1-design.md)):
+taps dip, lists fold and open, sheets slide away, toasts rise, Done lands on Today, and the
+player's count moves on the beat. Three durations (150, 260, 380 ms) and three easings
+(arrive, settle, leave) in `$lib/motion/motion.ts` and `layout.css`. Two rules: nothing
+waits on motion (an animation is drawn over a change that has already happened; a ghost
+copy on `<body>` draws what has gone), and reduced motion turns it all off. Page
+transitions are not in it yet.
+
 ## Settings
 
 Settings is pushed from Today (no tab). It saves on change: no Save button. It

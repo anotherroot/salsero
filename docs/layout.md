@@ -480,6 +480,17 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
 src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
                      loaded (it stays under way for good, the skeleton over the old page); the
                      root layout watches `navigating`, goes again, and loads whole after 2 tries
+src/lib/motion/       motion round 1 (spec 2026-11-10-motion-round-1). motion.ts: the vocabulary (MS
+                     150/260/380, ARRIVE, SETTLE, LEAVE; layout.css has the same as --motion-*
+                     and --ease-*) and `play()`, still under reduced motion. flip.ts PURE: a
+                     keyed list's change as moves (`flipPlan`), and `kept`, what a list with an
+                     id last showed. flip.svelte.ts `flipList`: rows (`data-flip`) slide into
+                     place, leave as ghosts, fade in; components/ui/FlipList.svelte wraps a
+                     list inside an {#each}. ghost.ts: a copy on <body> that outlives its
+                     component (`ghost`), a sheet leaving (`sheetLeave`). landing.ts PURE: when
+                     Today plays what changed while hidden (the Done landing). beat-pulse.ts:
+                     the count's push on the beat (StageCount, RunLayer); the rules are
+                     src/lib/player/beat-motion.ts (PURE)
 src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
                      the APKs; app-seen.ts which app version each device last showed (table
                      `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the

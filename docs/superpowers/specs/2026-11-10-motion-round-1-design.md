@@ -218,11 +218,13 @@ settle on release is a CSS easing) is enough. It needs no script.
 
 ## Found in the code (builder check)
 
-- On the phone, `TodayList` stays mounted but hidden (`ListPane`) while an
-  exercise is open, and the save reloads its data before the page leaves.
-  By the time you land, Today is already in its new order. "Where it was" has
-  to come from Today's last visible draw or from the save handoff, not from
-  `animate:flip` when the data changes.
+- On the phone each page draws Today's list and bar anew (found while
+  building: the builder check thought they stayed mounted), and the save
+  reloads the data before the page leaves, so Today lands already in its new
+  order. "Where it was" is what the list last showed, kept outside the
+  component (`flipList`'s `id`, `kept` in `flip.ts`; TodayBar's last hero in
+  its module script). A Today never shown before the save has nothing to move
+  from: only the check pops.
 - The Done sheet lives in the exercise page and is removed as soon as Today
   shows. Its slide-down has to be drawn by something that outlives the page,
   such as a copy of it in the `[dance]` layout. The navigation doesn't wait for
