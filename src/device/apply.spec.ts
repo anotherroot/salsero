@@ -320,7 +320,9 @@ describe('what only the server knows', () => {
 		aiPending,
 		aiConnected: false,
 		release: null,
-		imports: { own: [], teams: {} }
+		imports: { own: [], teams: {} },
+		teamTrashBytes: {},
+		lastEdits: {}
 	});
 
 	it('keeps the extras of a pull, and counts a change in them', () => {
