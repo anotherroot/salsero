@@ -17,6 +17,7 @@ import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
 import { markTwins } from './twins';
 import { cloneInto } from './clones/clone';
+import { copyHereView, copyPlan, copyTargets } from './clones/copy-to';
 import type { Space, TeamSpace } from './scope';
 import type { PositionInput } from '$lib/types';
 import type { PositionRow } from './db/schema';
@@ -179,5 +180,37 @@ describe('staysBehind', () => {
 		linkSpot(db, 'u1', rs, { figureId: F });
 		expect(staysBehind(db, 'figure', F)).toBe(1);
 		expect(staysBehind(db, 'routine', F)).toBe(0);
+	});
+});
+
+describe('copyHereView', () => {
+	it('the plan carries stays-behind and the group’s storage', () => {
+		const F = figure(U1_SALSA, 'Cradle entry');
+		const L = createLesson(db, U1_SALSA, { lessonDay: '2026-11-01', title: 'W1', notes: null })
+			.lesson.id;
+		const v = addLessonVideo(db, {
+			lessonId: L,
+			file: 'l.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		const s = addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: 1000, label: null })!.id;
+		linkSpot(db, 'u1', s, { figureId: F });
+		const view = copyHereView(db, 'u1', 'figure', F, T1_SALSA, 'UTC');
+		const t1 = copyTargets(db, 'u1', 'figure', F).find(
+			(t) => t.place.kind === 'team' && t.place.teamId === 1
+		)!;
+		expect(view).toMatchObject({
+			staysBehind: 1,
+			usedBytes: t1.usedBytes,
+			limitBytes: t1.limitBytes
+		});
+		expect(view.goes).toBe(copyPlan(db, 'u1', 'figure', F, T1_SALSA, 'UTC').goes);
+	});
+
+	it('a song or a lesson counts nothing behind', () => {
+		const L = createLesson(db, U1_SALSA, { lessonDay: '2026-11-01', title: 'W1', notes: null })
+			.lesson.id;
+		expect(copyHereView(db, 'u1', 'lesson', L, T1_SALSA, 'UTC').staysBehind).toBe(0);
 	});
 });
