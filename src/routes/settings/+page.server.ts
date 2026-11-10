@@ -28,7 +28,7 @@ import { DAILY_MAX, DAILY_MIN, dailyCountOf, setDailyCount } from '$lib/server/t
 import { levelOf, setLevel } from '$lib/server/levels';
 import { parseLevel } from '$lib/levels/levels';
 import { isVideoShortSide } from '$lib/video-sizes';
-import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
+import { THEME_COOKIE, THEME_COOKIE_OPTIONS, isThemeChoice } from '$lib/theme/scheme';
 import { parseLocale } from '$lib/i18n/locale';
 import { t } from '$lib/i18n/catalog';
 import { setLocale, setLocaleCookie } from '$lib/server/locale';
@@ -142,12 +142,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		const theme = text(await request.formData(), 'theme');
 		if (!isThemeChoice(theme)) return fail(400, { message: t().settings.refusals.theme });
-		cookies.set(THEME_COOKIE, theme, {
-			path: '/',
-			maxAge: 365 * 24 * 3600,
-			sameSite: 'lax',
-			httpOnly: true
-		});
+		cookies.set(THEME_COOKIE, theme, THEME_COOKIE_OPTIONS);
 		return { ok: true };
 	},
 

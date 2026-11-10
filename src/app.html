@@ -13,7 +13,9 @@
 			 * Before the first paint, so nothing flashes the wrong colours.
 			 *
 			 * The theme: `data-theme-choice` (Settings, `$lib/theme/scheme.ts`)
-			 * becomes `data-theme="light|dark"`, which layout.css reads. System
+			 * becomes `data-theme="light|dark"`, which layout.css reads. Empty when
+			 * the server had no cookie: the shell the service worker serves is drawn
+			 * signed out, so the `theme` cookie decides then. System
 			 * follows `prefers-color-scheme`, live. The Android shell hears the
 			 * result (`SalsaBars`) to colour the navigation bar's icons; `data-bars`
 			 * ("dark": the root layout, a group's view's filled tab bar) overrides it.
@@ -28,6 +30,10 @@
 				var dark = matchMedia('(prefers-color-scheme: dark)');
 				window.salsaTheme = function () {
 					var choice = root.dataset.themeChoice;
+					if (!choice) {
+						var kept = /(?:^|;\s*)theme=([^;]*)/.exec(document.cookie || '');
+						choice = kept ? kept[1] : 'system';
+					}
 					var scheme =
 						choice === 'light' || choice === 'dark' ? choice : dark.matches ? 'dark' : 'light';
 					root.dataset.theme = scheme;

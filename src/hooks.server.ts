@@ -20,7 +20,7 @@ import { danceHosts } from '$lib/server/hosts';
 import { hostRedirect } from '$lib/dances/hosts';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
-import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
+import { THEME_COOKIE, fillTheme } from '$lib/theme/scheme';
 import { LOCALE_COOKIE, requestLocale } from '$lib/i18n/locale';
 import { catalogOf } from '$lib/i18n/catalog';
 // Imported for its side: it registers the per-request language with `$lib/i18n/current`.
@@ -193,7 +193,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Light or dark, as chosen in Settings, and the page epoch: written into
 	// <html> for app.html's script. The language goes into `<html lang>`.
-	const theme = themeChoice(event.cookies.get(THEME_COOKIE));
+	const theme = event.cookies.get(THEME_COOKIE);
 	// Every word drawn for this request reads its language from here (`runInLocale`).
 	return pass(() =>
 		Promise.resolve(
