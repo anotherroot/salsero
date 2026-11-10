@@ -89,8 +89,7 @@
 	<span class="min-w-0 py-2">
 		<span class="block truncate text-[16px] font-bold">{day}</span>
 		<span class="block truncate text-[13px] {problem ? 'font-bold text-status' : 'text-muted'}"
-			>{meta}{#if keep}
-				· <span
+			>{meta}{#if keep}<span> · </span><span
 					class="font-bold {keep.tone === 'done'
 						? 'text-done'
 						: keep.tone === 'warn'
