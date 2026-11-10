@@ -6,7 +6,8 @@
 	import GroupMark from '$lib/components/moves/GroupMark.svelte';
 	import { cloneChip, twinsChip } from '$lib/clones/twins';
 	import { copyChip, copyMeta } from '$lib/teams/leave-view';
-	import { dateTile, lessonCounts, videoMeta } from '$lib/lessons/list';
+	import { dateTile, lessonCounts, onPhoneMark, videoMeta } from '$lib/lessons/list';
+	import { kept } from '$lib/offline/kept.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import type { LessonItem } from '$lib/types';
 
@@ -41,6 +42,8 @@
 
 	const tile = $derived(dateTile(lesson.lessonDay));
 	const meta = $derived(videoMeta(lesson, !simple));
+	/** Every video of it on this phone (offline phase 4b). */
+	const onPhone = $derived(meta ? onPhoneMark(lesson, kept.status) : null);
 	const pad = $derived(aside ? 'pr-2' : 'pr-3');
 </script>
 
@@ -78,7 +81,12 @@
 			</span>
 			{#if group}<GroupMark name={group} />{/if}
 			{#if lesson.copyOf}<span class="text-[13px] text-muted">{copyMeta(lesson.copyOf)}</span>{/if}
-			{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
+			{#if meta}<span class="text-[13px] text-muted"
+					>{meta}{#if onPhone}
+						· <span class="inline-flex items-center gap-0.5 font-bold text-done"
+							><Icon name="phone-check" size={13} />{onPhone}</span
+						>{/if}</span
+				>{/if}
 			<!-- Always all three, in the same place: a zero is muted rather than vanishing, so a lesson still missing something shows it. -->
 			{#if !simple}
 				<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">

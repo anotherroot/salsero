@@ -1,5 +1,7 @@
 /** PURE, client-safe: what the Lessons list shows. */
 import { byteSize, monthLabel, weekdayShort, fullDateLabel } from '$lib/format';
+import { lessonOnPhone } from '$lib/offline/kept-view';
+import type { KeepStatus } from '$lib/offline/protocol';
 import { t } from '$lib/i18n/catalog';
 import type { LessonItem } from '$lib/types';
 
@@ -96,4 +98,12 @@ export function pickLesson(): { title: string; body: string } {
 /** A group's storage as the band's subtitle on the desktop (group mode). */
 export function groupVideosSubtitle(usedBytes: number, limitBytes: number): string {
 	return t().lesson.list.groupVideos(byteSize(usedBytes), byteSize(limitBytes));
+}
+
+/** "on this phone" when every video of the lesson is kept on the phone (offline phase 4b). */
+export function onPhoneMark(
+	l: Pick<LessonItem, 'videoFiles'>,
+	status: KeepStatus | null
+): string | null {
+	return lessonOnPhone(status, l.videoFiles ?? []) ? t().settings.onPhone.onPhone : null;
 }

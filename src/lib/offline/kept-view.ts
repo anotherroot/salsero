@@ -119,3 +119,15 @@ export function phoneRowLine(status: KeepStatus): string {
 		status.free === null ? null : byteSize(status.free)
 	);
 }
+
+/** The words after a video's size: on this phone, how far it has come, or what it waits for. */
+export function keepWord(
+	k: VideoKeep | null
+): { text: string; tone: 'done' | 'muted' | 'warn' } | null {
+	const w = t().settings.onPhone;
+	if (!k || k.state === 'off') return null;
+	if (k.state === 'on' || k.state === 'space') return { text: w.onPhone, tone: 'done' };
+	if (k.state === 'coming') return { text: w.comingShort(k.percent), tone: 'muted' };
+	const text = k.why === 'wifi' ? w.waitingWifi : k.why === 'space' ? w.noSpace : w.waitingNet;
+	return { text, tone: 'warn' };
+}

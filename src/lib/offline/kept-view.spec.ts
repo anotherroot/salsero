@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { KeepStatus, SpaceRow } from './protocol';
-import { lessonOnPhone, phoneRowLine, spaceLine, suggestions, videoKeep } from './kept-view';
+import {
+	keepWord,
+	lessonOnPhone,
+	phoneRowLine,
+	spaceLine,
+	suggestions,
+	videoKeep
+} from './kept-view';
 
 const MB = 1024 * 1024;
 const row = (over: Partial<SpaceRow> = {}): SpaceRow => ({
@@ -140,5 +147,27 @@ describe("phoneRowLine: Settings' row", () => {
 	it('songs, videos and what is free', () => {
 		expect(phoneRowLine(status())).toBe('Songs 34 MB · videos 152 MB · free 8.8 GB');
 		expect(phoneRowLine(status({ free: null }))).toBe('Songs 34 MB · videos 152 MB');
+	});
+});
+
+describe("keepWord: the words after a video's size", () => {
+	it('for each state', () => {
+		expect(keepWord(null)).toBeNull();
+		expect(keepWord({ state: 'off' })).toBeNull();
+		expect(keepWord({ state: 'on' })).toEqual({ text: 'on this phone', tone: 'done' });
+		expect(keepWord({ state: 'space', space: 'mine', name: null })).toEqual({
+			text: 'on this phone',
+			tone: 'done'
+		});
+		expect(keepWord({ state: 'coming', percent: 40 })).toEqual({
+			text: 'downloading 40 %',
+			tone: 'muted'
+		});
+		expect(keepWord({ state: 'waiting', why: 'wifi' })).toEqual({
+			text: 'waiting for Wi-Fi',
+			tone: 'warn'
+		});
+		expect(keepWord({ state: 'waiting', why: 'space' })?.text).toBe('no space');
+		expect(keepWord({ state: 'waiting', why: 'offline' })?.text).toBe('waiting for a connection');
 	});
 });

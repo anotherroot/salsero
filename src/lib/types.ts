@@ -227,6 +227,8 @@ export interface LessonItem {
 	title: string;
 	videos: number;
 	videoBytes: number;
+	/** Its video files (offline phase 4b: the Lessons list says when all are on the phone). */
+	videoFiles?: string[];
 	/** Sections (spots with an end) on its videos. Points do not count. */
 	sections: number;
 	/** Live routines linked to it. */
