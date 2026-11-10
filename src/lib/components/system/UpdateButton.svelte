@@ -22,7 +22,7 @@
 
 	let status = $state<BridgeStatus>('idle');
 	let bridge = $state<Bridge | null>(null);
-	const view = $derived(updateView(status));
+	const view = $derived(updateView(status, size === 'sm'));
 	$effect(() => {
 		onstatus?.(view.line);
 	});
