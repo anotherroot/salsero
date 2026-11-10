@@ -163,9 +163,9 @@
 	});
 
 	/*
-	 * The count's wait for the sound (Voice layer): what the phone reports, read
-	 * while the layer is open (headphones come and go), and the person's own
-	 * correction on top. The Stepper shows the whole wait.
+	 * Sound delay (Voice layer): what the phone reports, read while the layer is
+	 * open (headphones come and go), and the person's own correction on top. The
+	 * Stepper shows the whole delay; the player decides what it moves.
 	 */
 	let delay = $state(untrack(() => player.soundDelay()));
 	const delayTotal = $derived(totalDelayMs(delay.reportedMs, delay.correctionMs));
@@ -613,7 +613,9 @@
 						/>
 					</div>
 				</div>
-				<p class="px-1 text-[13px] text-muted">{w.countDelayNote(delay.reportedMs)}</p>
+				<p class="px-1 text-[13px] text-muted">
+					{w.countDelayNote(delay.reportedMs, delay.withSong)}
+				</p>
 			</div>
 		</RunLayer>
 	{:else if layer === 'about' && shown}

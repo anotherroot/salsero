@@ -126,7 +126,7 @@ SCENES = {
     "op-fig": Scene("/{dance}/player?exercise={opfig}", _run),
     "op-fig-about": Scene("/{dance}/player?exercise={opfig}", _row("About")),
     "op-voice": Scene("/{dance}/player?exercise={opdrill}", _row("Voice")),
-    # The Voice layer of a count-only run with no exercise: any db has it (Count delay, 2026-11-10).
+    # The Voice layer of a count-only run with no exercise: any db has it (Sound delay, 2026-11-10).
     "op-voice-plain": Scene("/{dance}/player", _row("Voice")),
     "op-voice-back": Scene("/{dance}/player?exercise={opdrill}", _setup_back),
     "op-routine": Scene("/{dance}/player?routine={longroutine}", _run),
