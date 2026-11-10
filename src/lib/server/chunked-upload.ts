@@ -6,7 +6,7 @@
  * and again on the whole file; a finished upload is remembered for a day so a
  * client that lost the 201 gets the same row back.
  */
-import { readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { link, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { json } from '@sveltejs/kit';
 import type { Db } from './db';
@@ -70,4 +70,19 @@ export async function finishedRow(name: string): Promise<unknown> {
 export async function finish(name: string, row: unknown): Promise<Response> {
 	await writeFile(join(uploadsDir(), `${name}.done`), JSON.stringify(row)).catch(() => {});
 	return json(row, { status: 201 });
+}
+
+/**
+ * Puts a finished upload under the row's own name, never over a file already
+ * there (a name another row or Recently deleted holds): false then, the upload dropped.
+ */
+export async function placeUpload(partial: string, target: string): Promise<boolean> {
+	try {
+		await link(partial, target);
+	} catch {
+		await unlink(partial).catch(() => {});
+		return false;
+	}
+	await unlink(partial).catch(() => {});
+	return true;
 }

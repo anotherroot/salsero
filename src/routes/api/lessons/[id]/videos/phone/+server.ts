@@ -13,6 +13,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if ('refused' in body) throw error(400, phoneRefusal(body.refused));
 	const video = addPhoneLessonVideo(getDb(), locals.user.id, lessonId, body);
 	if (!video) throw error(404, t().lesson.upload.noLesson);
+	if ('refused' in video) throw error(400, phoneRefusal(video.refused));
 	await flowAfter(locals.user.id, 'lesson', lessonId);
 	return json(video, { status: 201 });
 };

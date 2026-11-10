@@ -17,6 +17,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if ('refused' in body) throw error(400, phoneRefusal(body.refused));
 	const rec = addPhoneRecording(getDb(), locals.user.id, figureId, body);
 	if (!rec) throw error(404, t().refusals.figureNotFound);
+	if ('refused' in rec) throw error(400, phoneRefusal(rec.refused));
 	// Keep in step: the variation gained a recording; a phone-only one stays behind.
 	await flowAfter(locals.user.id, 'figure', figureId);
 	return json(rec, { status: 201 });

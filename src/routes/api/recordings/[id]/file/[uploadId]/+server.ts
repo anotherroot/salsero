@@ -1,4 +1,4 @@
-import { rename, unlink } from 'node:fs/promises';
+import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
@@ -7,7 +7,7 @@ import { t } from '$lib/i18n/catalog';
 import { failJson as fail, recordingsDir, UPLOAD_ID_RE } from '$lib/server/files';
 import { writeGate } from '$lib/server/sync/gate';
 import { attachServerCopy } from '$lib/server/phone-videos';
-import { finish, finishedRow, receiveChunk } from '$lib/server/chunked-upload';
+import { finish, finishedRow, placeUpload, receiveChunk } from '$lib/server/chunked-upload';
 import { flowAfter } from '$lib/server/clones/flow-hook';
 import type { RequestHandler } from './$types';
 
@@ -42,7 +42,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const got = await receiveChunk(db, request, { userId: locals.user.id }, name);
 	if (got instanceof Response) return got;
 	const target = join(recordingsDir(), row.rec.file);
-	await rename(got.partial, target);
+	if (!(await placeUpload(got.partial, target))) return fail(409, t().video.place.refusal.onServer);
 	let attached;
 	try {
 		attached = await writeGate.shared(async () => attachServerCopy(db, 'recordings', id, got.size));
@@ -50,7 +50,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		await unlink(target).catch(() => {});
 		return fail(500, t().lesson.upload.notSaved);
 	}
-	// Keep in step: the recording can travel now.
+	// Keep in step: uploaded, the recording is a piece now, and travels as a new one.
 	await writeGate.shared(() => flowAfter(locals.user?.id, 'figure', row.figure.id));
 	return finish(name, attached);
 };

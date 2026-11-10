@@ -51,13 +51,17 @@ const key = (kind: MediaKind, file: string) => `${kind}/${file}`;
 
 type SpaceVideo = { file: string; mime: string; size: number; space: SpaceId };
 
-/** Every lesson video of the person's spaces in the copy, newest lesson first. */
+/**
+ * Every lesson video of the person's spaces in the copy, newest lesson first. Never a
+ * phone-only one (offline phase 4c): its original is on the phone that holds it, and
+ * nowhere to download it from.
+ */
 function spaceVideos(db: SqliteDb, userId: string): SpaceVideo[] {
 	const rows = db
 		.prepare(
 			`SELECT lv.file, lv.mime, lv.size_bytes AS size, l.user_id AS user, l.team_id AS team
 			 FROM lesson_videos lv JOIN lessons l ON l.id = lv.lesson_id
-			 WHERE l.archived_at IS NULL
+			 WHERE l.archived_at IS NULL AND lv.server_copy = 1
 			   AND (l.user_id = ? OR l.team_id IN (
 			     SELECT tm.team_id FROM team_members tm JOIN teams t ON t.id = tm.team_id
 			     WHERE tm.user_id = ? AND t.deleted_at IS NULL))
@@ -91,7 +95,7 @@ export function wantedVideos(db: SqliteDb, userId: string, s: KeepSettings): Med
 		? (db
 				.prepare(
 					`SELECT file, mime, size_bytes AS size FROM recordings
-					 WHERE kind = 'video' AND file IN (${recordingFiles.map(() => '?').join(', ')})
+					 WHERE kind = 'video' AND server_copy = 1 AND file IN (${recordingFiles.map(() => '?').join(', ')})
 					 ORDER BY created_at DESC, id DESC`
 				)
 				.all(...recordingFiles) as { file: string; mime: string; size: number }[])

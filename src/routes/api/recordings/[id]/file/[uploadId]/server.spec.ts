@@ -62,14 +62,16 @@ afterEach(async () => {
 });
 
 const phoneRec = () =>
-	addPhoneRecording(db, 'u1', figureId, {
-		file: FILE,
-		mime: 'video/mp4',
-		sizeBytes: 900,
-		kind: 'video',
-		note: null,
-		slot: 3
-	})!.id;
+	(
+		addPhoneRecording(db, 'u1', figureId, {
+			file: FILE,
+			mime: 'video/mp4',
+			sizeBytes: 900,
+			kind: 'video',
+			note: null,
+			slot: 3
+		}) as { id: number }
+	).id;
 const recRow = (id: number) => db.select().from(recordings).where(eq(recordings.id, id)).get()!;
 
 type Handler = (e: unknown) => Promise<Response>;
@@ -159,7 +161,7 @@ describe('Upload later: a phone-only recording gets its server copy', () => {
 			sizeBytes: 900,
 			kind: 'video',
 			note: null
-		})!;
+		}) as { id: number };
 		const res = await chunk(videoFile, { id: String(v.id), uploadId: UPLOAD }, 0, 30, 30);
 		expect(res.status).toBe(201);
 		expect(await res.json()).toMatchObject({ serverCopy: true, sizeBytes: 30 });
@@ -225,5 +227,17 @@ describe('a new recording, chunked (and the old single POST still works)', () =>
 			locals: { user: { id: 'u1', email: 'u1@x.si', timezone: 'UTC', isAdmin: false } }
 		});
 		expect(res.status).toBe(201);
+	});
+});
+
+describe('an upload never overwrites a file the server holds (final review 6)', () => {
+	it('a file already there under that name: 409, the file as it was, the row phone-only', async () => {
+		const id = phoneRec();
+		await mkdir(join(envMock.DATA_DIR, 'recordings'), { recursive: true });
+		await writeFile(join(envMock.DATA_DIR, 'recordings', FILE), 'trashed');
+		const res = await chunk(recFile, { id: String(id), uploadId: UPLOAD }, 0, 10, 10);
+		expect(res.status).toBe(409);
+		expect((await stat(join(envMock.DATA_DIR, 'recordings', FILE))).size).toBe(7);
+		expect(recRow(id).serverCopy).toBe(false);
 	});
 });

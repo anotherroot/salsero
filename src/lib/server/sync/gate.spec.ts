@@ -108,3 +108,14 @@ describe('the write gate', () => {
 		expect(gatedRequest('POST', '/salsa', false, true)).toBe(false);
 	});
 });
+
+describe('the gate and offline phase 4c (final review 4)', () => {
+	it("the new uploads take it only around their write; a phone-only add's JSON post holds it", () => {
+		expect(gatedRequest('PUT', '/api/figures/3/recordings/abc', false, false)).toBe(false);
+		expect(gatedRequest('PUT', '/api/recordings/3/file/abc', false, false)).toBe(false);
+		expect(gatedRequest('PUT', '/api/lesson-videos/3/file/abc', false, false)).toBe(false);
+		expect(gatedRequest('POST', '/api/lessons/5/videos/phone', false, false)).toBe(true);
+		expect(gatedRequest('POST', '/api/figures/5/recordings/phone', false, false)).toBe(true);
+		expect(gatedRequest('DELETE', '/api/recordings/5/server-copy', false, false)).toBe(true);
+	});
+});

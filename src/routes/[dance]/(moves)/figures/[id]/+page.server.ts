@@ -921,7 +921,9 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// Row first, then file: a crash between the two leaves an orphan file,
 		// which is harmless, rather than a row pointing at nothing. A group's
 		// recording is in Recently deleted with its file: the purge deletes it.
-		if (rec.trashId === null) await unlink(join(recordingsDir(), rec.file)).catch(() => {});
+		// A phone-only recording has no file here (offline phase 4c): nothing to unlink.
+		if (rec.trashId === null && rec.serverCopy !== false)
+			await unlink(join(recordingsDir(), rec.file)).catch(() => {});
 		return { action: 'deleteRecording', ok: true };
 	},
 

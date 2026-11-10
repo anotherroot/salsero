@@ -22,7 +22,7 @@ import type {
 } from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
-import { mediaKeeper, sweepOriginals, type PassOut } from './media';
+import { landedOriginals, mediaKeeper, sweepOriginals, type PassOut } from './media';
 import { withStored } from '$lib/offline/kept-status';
 import {
 	opfsMediaStore,
@@ -274,10 +274,25 @@ scope.addEventListener('online', () => void syncNow());
 async function sweepMine(): Promise<void> {
 	const s = await store();
 	if (!s || !device || device.state() !== 'ready') return;
-	const { person, files } = device.originalsScope();
+	const scope = device.originalsScope();
+	const { person, files } = scope;
 	if (!person) return;
 	try {
-		const gone = await sweepOriginals({ store: s, person, pulledOnline: true, rowFiles: files });
+		const held = (await s.list(ORIGINALS)).filter((f) => f.owner === person).map((f) => f.file);
+		const landed = landedOriginals({
+			before: scope.landed,
+			held,
+			rowFiles: files,
+			pending: scope.pending
+		});
+		device.noteLanded(landed);
+		const gone = await sweepOriginals({
+			store: s,
+			person,
+			pulledOnline: true,
+			rowFiles: files,
+			landed
+		});
 		if (gone.length > 0) void postKeep();
 	} catch (e) {
 		console.warn('[device] originals sweep', String(e));

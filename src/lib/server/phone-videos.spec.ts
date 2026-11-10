@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { deviceSlots, recordings, users } from './db/schema';
+import { deviceSlots, recordings, teamTrash, users } from './db/schema';
 import { createFigure } from './figures';
 import { createLesson } from './lessons';
 import { createTeam } from './teams';
@@ -149,7 +149,7 @@ describe('the server copy: attached by Upload, removed by its holder', () => {
 			kind: 'video',
 			note: null,
 			slot: 3
-		})!;
+		}) as { id: number };
 		return rec.id;
 	}
 
@@ -173,5 +173,45 @@ describe('the server copy: attached by Upload, removed by its holder', () => {
 		attachServerCopy(db, 'recordings', id, 80);
 		expect(() => removeServerCopy(db, 'recordings', id, 4)).toThrow(NotHolderError);
 		expect(usedBytes(db, 'u1')).toBe(80);
+	});
+});
+
+describe('a name already taken is refused (final review 6)', () => {
+	it('by a file waiting in a group’s Recently deleted', () => {
+		db.insert(teamTrash)
+			.values({
+				teamId: 1,
+				kind: 'recording',
+				label: 'x',
+				rootKind: 'figure',
+				rootId: 1,
+				rowsJson: '{}',
+				filesJson: JSON.stringify([{ kind: 'recording', file: FILE }]),
+				sizeBytes: 5,
+				deletedAt: 1,
+				deletedBy: 'u1'
+			})
+			.run();
+		expect(
+			addPhoneRecording(
+				db,
+				'u1',
+				figure(),
+				{ file: FILE, mime: 'video/mp4', sizeBytes: 5, kind: 'video', note: null },
+				() => false
+			)
+		).toEqual({ refused: 'badFile' });
+	});
+
+	it('by a file on the server’s disk', () => {
+		expect(
+			addPhoneRecording(
+				db,
+				'u1',
+				figure(),
+				{ file: FILE, mime: 'video/mp4', sizeBytes: 5, kind: 'video', note: null },
+				(name) => name === FILE
+			)
+		).toEqual({ refused: 'badFile' });
 	});
 });

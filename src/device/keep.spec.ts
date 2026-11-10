@@ -192,3 +192,24 @@ describe('what the phone keeps', () => {
 		});
 	});
 });
+
+describe('a phone-only video is never kept as a copy (offline phase 4c, final review 3)', () => {
+	it('its space on, or kept by itself: not wanted (the phone holds the original, or nothing has it)', () => {
+		const own = lesson({ user: U, day: '2026-11-01' });
+		video(own, 'up.mp4', 100);
+		video(own, 'phone.mp4', 500);
+		db.prepare(`UPDATE lesson_videos SET server_copy = 0 WHERE file = 'phone.mp4'`).run();
+		recording('rphone.webm', 'video', 50, 10);
+		db.prepare(`UPDATE recordings SET server_copy = 0 WHERE file = 'rphone.webm'`).run();
+		const got = wantedVideos(db, U, {
+			spaces: ['mine'],
+			wifiOnly: true,
+			videos: ['lesson-videos/phone.mp4', 'recordings/rphone.webm']
+		});
+		expect(got.map((f) => f.file)).toEqual(['up.mp4']);
+		const row = spaceRows(db, U, { spaces: ['mine'], wifiOnly: true, videos: [] }, new Set()).find(
+			(r) => r.id === 'mine'
+		);
+		expect(row?.videos).toBe(1);
+	});
+});

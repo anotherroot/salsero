@@ -6,13 +6,16 @@
  * A group's videos always upload, so only a person's own figure or lesson
  * takes one.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Db } from './db';
-import { deviceSlots, figures, lessons, lessonVideos, recordings } from './db/schema';
+import { deviceSlots, figures, lessons, lessonVideos, recordings, teamTrash } from './db/schema';
+import { deviceRuntime } from './device-runtime';
 import { slotOf } from './db/ids';
 import { addRecording } from './figures';
 import { addLessonVideo } from './lessons';
-import { RECORDING_FILE_RE } from './files';
+import { lessonVideosDir, RECORDING_FILE_RE, recordingsDir } from './files';
 import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 import { t } from '$lib/i18n/catalog';
 
@@ -61,15 +64,41 @@ function originOf(db: Db, id: number, claimed: number | undefined): number | nul
 	return known ? claimed : null;
 }
 
+/**
+ * A file of this name is already the server's (final review 6): on its disk, or waiting
+ * in a group's Recently deleted. A phone-only row of that name would later overwrite or
+ * delete it. The device has no disk to ask; its replay on the server does.
+ */
+function serverHasFile(name: string): boolean {
+	if (deviceRuntime()) return false;
+	try {
+		return existsSync(join(recordingsDir(), name)) || existsSync(join(lessonVideosDir(), name));
+	} catch {
+		return false;
+	}
+}
+function nameTaken(db: Db, name: string, onDisk: (name: string) => boolean): boolean {
+	if (onDisk(name)) return true;
+	return (
+		db
+			.select({ id: teamTrash.id })
+			.from(teamTrash)
+			.where(like(teamTrash.filesJson, `%"${name}"%`))
+			.get() !== undefined
+	);
+}
+
 /** A phone-only recording on the person's own live figure; null for anything else (404). */
 export function addPhoneRecording(
 	db: Db,
 	userId: string,
 	figureId: number,
-	input: PhoneVideoInput
+	input: PhoneVideoInput,
+	onDisk: (name: string) => boolean = serverHasFile
 ) {
 	const row = db.select().from(figures).where(eq(figures.id, figureId)).get();
 	if (!row || row.userId !== userId || row.teamId !== null || row.archivedAt !== null) return null;
+	if (nameTaken(db, input.file, onDisk)) return { refused: 'badFile' as const };
 	return db.transaction((tx) => {
 		const rec = addRecording(tx, {
 			figureId,
@@ -96,10 +125,12 @@ export function addPhoneLessonVideo(
 	db: Db,
 	userId: string,
 	lessonId: number,
-	input: PhoneVideoInput
+	input: PhoneVideoInput,
+	onDisk: (name: string) => boolean = serverHasFile
 ) {
 	const row = db.select().from(lessons).where(eq(lessons.id, lessonId)).get();
 	if (!row || row.userId !== userId || row.teamId !== null || row.archivedAt !== null) return null;
+	if (nameTaken(db, input.file, onDisk)) return { refused: 'badFile' as const };
 	return db.transaction((tx) => {
 		const video = addLessonVideo(tx, {
 			lessonId,
