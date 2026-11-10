@@ -323,8 +323,6 @@ export interface GuardOptions {
 	 */
 	dirty?: (changed: boolean) => boolean;
 	blocked?: () => string | null;
-	/** Its save sends a message, not an edit: the question says "not sent" and offers Send. */
-	sends?: boolean;
 }
 
 function messageOf(result: ActionResult): string {
@@ -464,9 +462,6 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			return opts.dirty ? opts.dirty(changed) : changed;
 		},
 		sending: () => sending,
-		get sends() {
-			return opts.sends === true;
-		},
 		blocked: () => opts.blocked?.() ?? null,
 		save: () => {
 			// A `novalidate` form leaves its checks to the server, whose message shows under the field.

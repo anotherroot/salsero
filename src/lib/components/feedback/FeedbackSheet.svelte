@@ -85,9 +85,7 @@
 		class="flex flex-col gap-3.5"
 		bind:this={form}
 		use:guarded={{
-			// "Your message is not sent yet": Send, Stay, Close without sending.
-			label: w.label,
-			sends: true,
+			label: w.title,
 			submit: ({ formData, cancel }) => {
 				// One message per tap: a second tap while the first is out is dropped.
 				if (busy) return cancel();

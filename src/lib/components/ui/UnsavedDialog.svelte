@@ -26,30 +26,6 @@
 		return Object.entries(counts).map(([label, n]) => (n > 1 ? `${label} (${n})` : label));
 	});
 	const plural = $derived((ask?.entries.length ?? 0) > 1);
-	/** Only messages waiting to go (Send feedback): the question speaks of sending, not saving. */
-	const sends = $derived(
-		(ask?.entries.length ?? 0) > 0 && (ask?.entries.every((e) => e.sends) ?? false)
-	);
-	const u = $derived(t().shell.unsaved);
-	const words = $derived(
-		sends
-			? {
-					title: u.unsentTitle,
-					line: u.unsentLine(labels.join(', '), plural),
-					failed: u.notSent,
-					act: u.send,
-					acting: u.sendingNow,
-					without: (verb: string) => u.withoutSending(verb)
-				}
-			: {
-					title: u.title,
-					line: u.line(labels.join(', '), plural),
-					failed: u.notSaved,
-					act: t().common.save,
-					acting: u.saving,
-					without: (verb: string) => u.without(verb)
-				}
-	);
 	const savable = $derived(ask?.entries.some((e) => e.save) ?? false);
 	/** Why Save cannot run yet (the count is still playing); it clears when that stops. */
 	const blocked = $derived(ask?.entries.map((e) => e.blocked?.()).find((b) => b) ?? null);
@@ -140,7 +116,7 @@
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
-					{words.failed}
+					{t().shell.unsaved.notSaved}
 				</h2>
 				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-2 space-y-1" role="alert">
@@ -156,7 +132,9 @@
 					<button type="button" class={primary} onclick={stay}
 						>{t().shell.unsaved.stayAndFix}</button
 					>
-					<button type="button" class={danger} onclick={leave}>{words.without(ask.verb)}</button>
+					<button type="button" class={danger} onclick={leave}
+						>{t().shell.unsaved.without(ask.verb)}</button
+					>
 				</div>
 			{:else}
 				<span
@@ -167,10 +145,10 @@
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
-					{words.title}
+					{t().shell.unsaved.title}
 				</h2>
 				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">
-					{words.line}
+					{t().shell.unsaved.line(labels.join(', '), plural)}
 				</p>
 				{#if blocked}
 					<p class="mt-2 text-[13px] text-muted">{blocked}</p>
@@ -181,14 +159,15 @@
 							type="button"
 							class={primary}
 							disabled={phase === 'saving' || blocked !== null}
-							onclick={save}>{phase === 'saving' ? words.acting : words.act}</button
+							onclick={save}
+							>{phase === 'saving' ? t().shell.unsaved.saving : t().common.save}</button
 						>
 					{/if}
 					<button type="button" class={secondary} disabled={phase === 'saving'} onclick={stay}
 						>{t().shell.unsaved.stay}</button
 					>
 					<button type="button" class={danger} disabled={phase === 'saving'} onclick={leave}
-						>{words.without(ask.verb)}</button
+						>{t().shell.unsaved.without(ask.verb)}</button
 					>
 				</div>
 			{/if}
