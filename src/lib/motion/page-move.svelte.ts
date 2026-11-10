@@ -44,6 +44,54 @@ let gen = 0;
 let landingEnd = 0;
 let overflow: string | null = null;
 let shadowed: HTMLElement | null = null;
+/** The move began on a full-screen page (Practice, the map): there was no card to lift. */
+let fromScreen = false;
+/** The band's and the card's colours as the lift saw them, for a layer that outlives the page. */
+let paint = { band: '', ground: '' };
+
+/**
+ * A layer over everything, in the band's colour with the held card on it (or the band alone): the
+ * page under it is already the new one, and it fades off (a full-screen page coming or going).
+ */
+function ghost(band: string, card: { y: number; square: boolean; ground: string } | null) {
+	const g = document.createElement('div');
+	g.setAttribute('aria-hidden', 'true');
+	g.inert = true;
+	Object.assign(g.style, {
+		position: 'fixed',
+		inset: '0',
+		zIndex: '45',
+		pointerEvents: 'none',
+		background: band
+	});
+	if (card) {
+		const c = document.createElement('div');
+		Object.assign(c.style, {
+			position: 'absolute',
+			inset: `${card.y}px 0 0 0`,
+			background: card.ground,
+			borderRadius: card.square ? '0' : '28px 28px 0 0'
+		});
+		g.append(c);
+	}
+	document.body.append(g);
+	return g;
+}
+
+/** Fades a layer off and takes it away (never kept by a move that ends: it is not in `running`). */
+function fadeOff(g: HTMLElement) {
+	const a = play(g, [{ opacity: 1 }, { opacity: 0 }], {
+		duration: PAGE_MOVE.screenFade,
+		easing: 'ease-out',
+		fill: 'forwards'
+	});
+	if (!a) return g.remove();
+	a.finished.then(
+		() => g.remove(),
+		() => g.remove()
+	);
+	setTimeout(() => g.remove(), 2000);
+}
 
 /** How long until the card has landed: Today's own landing starts then (round 1). */
 export function settledIn(): number {
@@ -115,8 +163,26 @@ function holdScroll(on: boolean) {
 
 /** The card lifts from where it is drawn (still moving from a last tap or not), or stays (a step inside the page); its words fade. */
 function lift(kind: MoveKind): boolean {
+	if (shapeOf(page.route.id) === 'screen') {
+		// Leaving a full-screen page: no card to lift. The next page's card comes in held (`land`).
+		stopAll();
+		++gen;
+		fromScreen = true;
+		Object.assign(moveState, {
+			phase: 'held',
+			edge: null,
+			square: false,
+			since: performance.now()
+		});
+		return true;
+	}
 	const p = parts();
 	if (!p) return false;
+	fromScreen = false;
+	paint = {
+		band: p.header ? getComputedStyle(p.header).backgroundColor : '',
+		ground: getComputedStyle(p.main).backgroundColor
+	};
 	const foot = slimFoot(p);
 	// Where it is drawn now: its laid-out top plus whatever transform still runs on it.
 	const ty = translateY(p.main);
@@ -164,11 +230,23 @@ async function land() {
 	if (mine !== gen) return;
 	stopAll();
 	holdScroll(false);
+	const shape = shapeOf(page.route.id);
+	const leaving = fromScreen;
+	fromScreen = false;
+	if (shape === 'screen') {
+		// Into a full-screen page: it is there at once, and the band and the held card fade off it.
+		if (from !== null)
+			fadeOff(ghost(paint.band, { y: from, square: wasSquare, ground: paint.ground }));
+		return done(mine);
+	}
 	const p = parts();
-	if (!p || from === null || shapeOf(page.route.id) !== 'card') return done(mine);
+	if (!p || shape !== 'card' || (from === null && !leaving)) return done(mine);
 	const foot = slimFoot(p);
 	const to = visibleEdge(p.main.getBoundingClientRect().top, foot);
-	const shift = from - to.y;
+	// Out of a full-screen page the card comes in held, as if it had lifted, under band that fades off.
+	const start = from ?? heldEdge(to.y, foot);
+	if (leaving && p.header) fadeOff(ghost(getComputedStyle(p.header).backgroundColor, null));
+	const shift = start - to.y;
 	moveState.phase = 'down';
 	landingEnd = performance.now() + PAGE_MOVE.down;
 	const radius = (square: boolean) => (square ? '0px' : '28px');
