@@ -768,6 +768,10 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      server/chunked-upload.ts (`receiveChunk`), server/clones/phone-only.ts
                      (`leftBehind`, `deviceLabelFor`). The look: components/ui/WhereButton,
                      WhereSheet, ElsewhereFrame, PhoneAddButton, IphoneCard, IphoneWhy
+                     Phase 4c part 2: app-videos.ts (`appVideosOn`/`appVideos`: the app's
+                     `SalsaVideos` bridge, answers by id), app-originals.svelte.ts (`readAppOriginals`,
+                     `addFromApp`, `uploadFromApp`, `letOriginalGo`). Android: VideosBridge.kt,
+                     OriginalStore.kt, MediaServe.kt (`spanOf`, `sliceOf`), UploadEvents.kt
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,

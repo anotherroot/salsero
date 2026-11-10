@@ -297,3 +297,30 @@ Until part 2, the Android app uploads at once as before.
 - **Deleting** a phone-only video still needs a connection, as every delete
   of a video does; its question says it is final.
 - A computer's new recording goes up in chunks too (up to 1 GiB).
+
+## Decided while building 4c, part 2 (2026-11-10)
+
+- **The bridge** is `window.SalsaVideos` (a web message listener, the site's
+  origin only, like the others): `pick`, `held`, `forget`, `space`, `upload`,
+  answered by id; upload progress comes as `{event, file, pct}`. Its presence
+  is how the page knows the app keeps gallery originals (1.10 and later); an
+  older app keeps `salsa://upload`.
+- **The original stays in the gallery**: the photo picker's URI with a
+  lasting read permission, kept under the row's server file name
+  (`OriginalStore`, a small JSON file in no-backup storage). The app answers
+  the site's `/recordings/<file>` and `/lesson-videos/<file>` from the gallery
+  with Range, for the page (`shouldInterceptRequest`) and for the service
+  worker (its media route falls through to a network fetch, which the app's
+  service worker client answers).
+- **Upload** goes through the existing queue: compressed to Settings' size,
+  chunked to the row's file route, its gallery permission kept. Every app
+  upload is chunked now; the server keeps the single recording POST for 1.9.
+- **Deleting** a phone-only video: after the delete, the app lets the
+  original go and asks the system to delete the gallery file; the system's
+  own dialog is the "Delete from the gallery too" question. Where the system
+  will not delete a picker's file (or Android 10), it only lets go.
+- **A gallery file gone** reads as not held: the row (this device's slot)
+  says "no longer in the gallery".
+- **Free space** on the On this phone page is the phone's (`StatFs`), and
+  the bar counts the gallery originals; the low-space detection itself
+  still uses the WebView's estimate.
