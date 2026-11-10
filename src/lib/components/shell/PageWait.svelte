@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import { t } from '$lib/i18n/catalog';
-	import { goBack, moveState } from '$lib/motion/page-move.svelte';
+	import StillTrying from './StillTrying.svelte';
+	import { moveState } from '$lib/motion/page-move.svelte';
 	import { PAGE_MOVE } from '$lib/motion/page-move';
 	import { reducedMotion } from '$lib/motion/motion';
 
@@ -48,15 +48,7 @@
 			{/each}
 		</span>
 		{#if still}
-			<button
-				type="button"
-				class="pointer-events-auto cursor-pointer px-4 py-[14px] text-[16px] leading-[1.2] font-semibold text-muted"
-				onclick={goBack}
-				in:fade={fadeIn}
-			>
-				{t().shell.wait.still}
-				<b class="ml-1 font-bold text-band">{t().shell.wait.back}</b>
-			</button>
+			<StillTrying />
 		{/if}
 	</div>
 {/if}

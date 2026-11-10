@@ -56,6 +56,7 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import { pageMove } from '$lib/motion/page-move.svelte';
 	import PageWait from '$lib/components/shell/PageWait.svelte';
+	import DeskWait from '$lib/components/shell/DeskWait.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -661,4 +662,6 @@
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
 {#if ahead && desk.current}
 	<NavProgress />
+	<!-- A wait that lasts: the way back (page changes spec). Each new navigation counts again. -->
+	{#key ahead.url.href}<DeskWait />{/key}
 {/if}
