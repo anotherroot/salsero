@@ -1,6 +1,6 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
-import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
+import { APP_HEADER, parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
 import { EPOCH_HEADER, PAGE_EPOCH, fillEpoch, staleAnswer, staleEpoch } from '$lib/page-epoch';
 import { refusesOldApp } from '$lib/server/app-gate';
@@ -108,9 +108,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (isCrossSiteForm(formOf(event.request), event.url.origin, routed))
 		return new Response(catalogOf(loc).refusals.crossSite, { status: 403 });
 
-	// Which app asks: its user agent suffix, else the native header.
+	// Which app asks: its user agent suffix, else the page's own word for it (a request the
+	// service worker sent on carries the worker's user agent: `APP_HEADER`), else the native header.
 	const native = parseAppVersion(event.request.headers.get('x-app-version'));
-	const appAgent = parseAppAgent(event.request.headers.get('user-agent')) ?? native;
+	const appAgent =
+		parseAppAgent(event.request.headers.get('user-agent')) ??
+		parseAppAgent(event.request.headers.get(APP_HEADER)) ??
+		native;
 	event.locals.appAgent = appAgent;
 	// Only the native API is refused (426): a page's own `/api/` calls inside the
 	// WebView carry the user agent, not the header, and a page out of date is
