@@ -251,6 +251,14 @@ function pull(): void {
 }
 
 /**
+ * Push and pull now (`pollStep`): a page waiting on the home worker asks, and the
+ * pull re-reads it when it brought something. Nothing without a device.
+ */
+export function pullNow(): void {
+	pull();
+}
+
+/**
  * The device pulled, its request having left at `startedAt`. Every pull goes
  * to the service worker, which decides by its own mark whether it covers the
  * page's last save (`DeviceClients.pulled`); the page's own note clears by the
