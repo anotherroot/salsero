@@ -79,6 +79,11 @@
 	/* SCRIM behind a sheet or dialog (black at 45 %) and BAND_TRACK, the on-band switch track (black at 15 %). */
 	--color-scrim: #00000073;
 	--color-band-track: #00000026;
+
+	/* Motion (spec 2026-11-10-motion-round-1; $lib/motion/motion.ts holds the same): ease-arrive, ease-settle, ease-leave. */
+	--ease-arrive: cubic-bezier(0.2, 0, 0, 1);
+	--ease-settle: cubic-bezier(0.3, 1.35, 0.6, 1);
+	--ease-leave: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @layer theme {
@@ -319,6 +324,10 @@ body {
 }
 
 :root {
+	/* Motion durations ($lib/motion/motion.ts MS). */
+	--motion-short: 150ms;
+	--motion-medium: 260ms;
+	--motion-long: 380ms;
 	/* The tab bar's own height: 10 px above, the 44 px link, 8 px below, a 1 px line. Users add the safe area. */
 	--tab-bar-h: 63px;
 	/*
@@ -668,5 +677,31 @@ a[href]:active {
 	}
 	[data-fold='fly-in'] {
 		animation-name: band-fly, band-in;
+	}
+}
+
+/*
+ * Motion round 1: a toast rising in (`motion-rise`), a check popping in
+ * (`motion-pop`). Only when motion is welcome; a hidden element's animation
+ * waits and plays when it shows (Today's landing).
+ */
+@media (prefers-reduced-motion: no-preference) {
+	.motion-rise {
+		animation: motion-rise var(--motion-medium) var(--ease-arrive) both;
+	}
+	.motion-pop {
+		animation: motion-pop var(--motion-medium) var(--ease-settle) both;
+	}
+}
+@keyframes motion-rise {
+	from {
+		opacity: 0;
+		transform: translateY(24px);
+	}
+}
+@keyframes motion-pop {
+	from {
+		opacity: 0;
+		transform: scale(0.55);
 	}
 }
