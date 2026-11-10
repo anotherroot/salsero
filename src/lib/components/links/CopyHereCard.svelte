@@ -6,8 +6,9 @@
 	import LinkLevel from './LinkLevel.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { copyHereLines } from '$lib/clones/copy-here';
+	import { CopyHereLoad } from '$lib/clones/copy-here-load.svelte';
 	import { cancelLabel, loadFailed, twinChoiceLabel, whichTitle } from '$lib/clones/view';
-	import type { CopyHereView, ElsewhereKind } from '$lib/types';
+	import type { ElsewhereKind } from '$lib/types';
 
 	/**
 	 * Link from other places, the card (board option B2): a row from the
@@ -66,27 +67,15 @@
 
 	const uid = $props.id();
 	const w = $derived(t().clones.copyHere);
-	let view = $state<CopyHereView | null>(null);
-	let failed = $state(false);
-	let use = $state<Record<string, number>>({});
-
+	// The plan and the twin answers: a refresh that hands the card the same row again keeps them.
+	const plan = new CopyHereLoad();
+	const teamId = $derived(into.teamId);
 	$effect(() => {
-		const q = new URLSearchParams({ kind, id: String(id), into: String(into.teamId) });
-		const ask = new AbortController();
-		view = null;
-		failed = false;
-		fetch(`/api/clones/copy?${q}`, { signal: ask.signal })
-			.then(async (res) => {
-				if (!res.ok) throw new Error(String(res.status));
-				const v = (await res.json()) as CopyHereView;
-				view = v;
-				use = Object.fromEntries(v.twins.map((q) => [q.gene, q.from]));
-			})
-			.catch(() => {
-				if (!ask.signal.aborted) failed = true;
-			});
-		return () => ask.abort();
+		void plan.load(kind, id, teamId);
 	});
+	$effect(() => () => plan.stop());
+	const view = $derived(plan.view);
+	const failed = $derived(plan.failed);
 
 	const lines = $derived(
 		view
@@ -148,10 +137,10 @@
 									type="radio"
 									name="{uid}-twin-{qi}"
 									value={c.id}
-									checked={use[q.gene] === c.id}
+									checked={plan.use[q.gene] === c.id}
 									class="size-[22px] flex-none cursor-pointer"
 									style="accent-color: var(--color-accent)"
-									onchange={() => (use = { ...use, [q.gene]: c.id })}
+									onchange={() => (plan.use = { ...plan.use, [q.gene]: c.id })}
 								/>
 							</label>
 						{/each}
@@ -182,7 +171,7 @@
 					type="button"
 					class={button('tertiary', 'md', true)}
 					disabled={cannotCopy}
-					onclick={() => oncopy(use)}>{w.copyAnyway}</button
+					onclick={() => oncopy(plan.use)}>{w.copyAnyway}</button
 				>
 			</div>
 		{:else}
@@ -196,7 +185,7 @@
 						class={button('primary', 'md', true)}
 						disabled={busy}
 						aria-busy={busy}
-						onclick={() => onrestore(use)}
+						onclick={() => onrestore(plan.use)}
 						>{#if busy}<Spinner />{:else}<Icon
 								name="undo"
 								size={20}
@@ -208,7 +197,7 @@
 						class={button('primary', 'md', true)}
 						disabled={cannotCopy}
 						aria-busy={busy}
-						onclick={() => oncopy(use)}
+						onclick={() => oncopy(plan.use)}
 						>{#if busy}<Spinner />{:else}<Icon name="copy" size={20} />{w.copyAndLink}{/if}</button
 					>
 				{/if}
