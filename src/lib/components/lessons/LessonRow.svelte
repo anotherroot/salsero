@@ -83,7 +83,7 @@
 			{#if group}<GroupMark name={group} />{/if}
 			{#if lesson.copyOf}<span class="text-[13px] text-muted">{copyMeta(lesson.copyOf)}</span>{/if}
 			{#if meta}<span class="text-[13px] text-muted"
-					>{meta}{#if onPhone}<span> · </span><span
+					>{onPhone ? `${meta} · ` : meta}{#if onPhone}<span
 							class="inline-flex items-center gap-0.5 font-bold text-done"
 							><Icon name="phone-check" size={13} />{onPhone}</span
 						>{/if}</span

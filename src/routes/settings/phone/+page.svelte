@@ -93,7 +93,7 @@
 								{#if line.mark}<span
 										class="font-bold {line.mark.tone === 'done' ? 'text-done' : 'text-warn'}"
 										>{line.mark.text}</span
-									><span> · </span>{/if}{line.text}
+									>{/if}{line.mark ? ` · ${line.text}` : line.text}
 							</span>
 							{#if line.bar !== null}
 								<span class="{CLIP} mt-1.5 block h-1 rounded-full bg-track"
