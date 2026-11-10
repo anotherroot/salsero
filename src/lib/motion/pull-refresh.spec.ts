@@ -6,6 +6,7 @@ import {
 	doneWord,
 	mayStart,
 	phaseWhilePulling,
+	fillHeight,
 	pullDistance,
 	watchesMove
 } from './pull-refresh';
@@ -65,5 +66,18 @@ describe('watchesMove', () => {
 		expect(watchesMove(0)).toBe(true);
 		expect(watchesMove(1)).toBe(false);
 		expect(watchesMove(800)).toBe(false);
+	});
+});
+
+describe('fillHeight', () => {
+	it('keeps the band under the sheet while it springs, from where it was', () => {
+		// Let go at 113 px: the sheet springs to the hold; the band must not shrink first.
+		expect(fillHeight(113, PULL_HOLD, true)).toBe(113);
+		// Closing: the sheet springs from the hold to 0; the band stays until it lands.
+		expect(fillHeight(PULL_HOLD, 0, true)).toBe(PULL_HOLD);
+	});
+	it('follows the finger, and settles where the sheet lands', () => {
+		expect(fillHeight(40, 60, false)).toBe(60);
+		expect(fillHeight(113, PULL_HOLD, false)).toBe(PULL_HOLD);
 	});
 });
