@@ -196,7 +196,9 @@
 	let tallOpen = $state(false);
 	$effect(() => {
 		if (!open) tallOpen = false;
-		else if (!loading) tallOpen = untrack(() => pickerTall({ loading, failed, groups }));
+		else if (!loading)
+			// A group's picker that can show other places opens tall: they come as you type.
+			tallOpen = untrack(() => elsewhere !== null || pickerTall({ loading, failed, groups }));
 	});
 	const tall = $derived(loading ? true : tallOpen);
 	const hasCreate = $derived(!!create && create.length > 0);

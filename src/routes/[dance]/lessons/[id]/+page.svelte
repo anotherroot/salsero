@@ -20,6 +20,10 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
+	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
+	import { elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
+	import CopyHereCard from '$lib/components/links/CopyHereCard.svelte';
+	import { copied } from '$lib/components/clones/copied.svelte';
 	import { linkSubmit as makeLinkSubmit } from '$lib/picker/link-submit';
 	import { styleLabelOf } from '$lib/positions/view';
 	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
@@ -95,7 +99,7 @@
 	import type { MediaProblem } from '$lib/media';
 	import { reportOpen } from '$lib/teams/opens-api';
 	import { openOnce } from '$lib/teams/open-once';
-	import type { AddOffer, ViaSection } from '$lib/types';
+	import type { AddOffer, ElsewhereKind, ElsewhereRow, ViaSection } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 	import type { ActionData, PageData } from './$types';
 	// The page's group view (`?in=`, or its row's): links to the lists keep it.
@@ -499,6 +503,7 @@
 	function closePicker() {
 		opening += 1;
 		picking = null;
+		card = null;
 		added = 0;
 		pickMessage = null;
 		archivedPick = null;
@@ -576,6 +581,103 @@
 				pickMessage = null;
 			}
 		};
+	}
+
+	/*
+	 * Link from other places (spec 2026-11-10-link-from-other-places): a group
+	 * lesson's pickers also find, while searching, the person's own rows and
+	 * their other groups'. A tap or + there opens the card; Copy and link posts
+	 * `?/copyLink`, which copies the row into the group and links the copy. A
+	 * tap's copy closes the picker, a +'s keeps it open.
+	 */
+	const AWAY_KIND: Record<LinkKind, ElsewhereKind> = {
+		figure: 'figure',
+		routine: 'routine',
+		exercise: 'drill',
+		position: 'position'
+	};
+	let pickQuery = $state('');
+	const away = new ElsewhereSearch();
+	$effect(() => {
+		const group = data.elsewhere;
+		if (!group || !picking) return away.reset();
+		away.search(group.teamId, [AWAY_KIND[picking]], pickQuery);
+	});
+	const awayPicker = $derived(
+		data.elsewhere ? { here: data.elsewhere.name, state: away.state, groups: away.groups } : null
+	);
+
+	/** The card: the row from another place, where it was found, and whether a + opened it. */
+	let card = $state<{
+		kind: LinkKind;
+		row: ElsewhereRow;
+		from: string | null;
+		keep: boolean;
+		restore: number | null;
+	} | null>(null);
+	let cardBusy = $state(false);
+	let cardMessage = $state<string | null>(null);
+	let copyForm: HTMLFormElement | undefined = $state();
+
+	function openCard(kind: LinkKind, pick: PickRow, keep: boolean) {
+		const row = elsewhereOf(away.places, pick.key);
+		if (!row) return;
+		card = { kind, row, from: elsewhereFrom(away.places, pick.key), keep, restore: row.restore };
+		cardMessage = null;
+	}
+
+	/** Copy and link, or Restore and link with `restore`. */
+	function sendCopy(use: Record<string, number>, restore: number | null) {
+		const f = copyForm;
+		if (!card || !f || cardBusy) return;
+		const set = (name: string, value: string) => {
+			const input = f.elements.namedItem(name);
+			if (input instanceof HTMLInputElement) input.value = value;
+		};
+		set('kind', AWAY_KIND[card.kind]);
+		set('id', String(card.row.id));
+		set('use', JSON.stringify(use));
+		set('restore', restore === null ? '' : String(restore));
+		f.requestSubmit();
+	}
+
+	const copySubmit: SubmitFunction = () => {
+		cardBusy = true;
+		cardMessage = null;
+		const sent = card;
+		return async ({ result }) => {
+			cardBusy = false;
+			const data = (result.type === 'success' || result.type === 'failure' ? result.data : null) as
+				Record<string, unknown> | null | undefined;
+			if (result.type === 'success' && typeof data?.restore === 'number') {
+				// The family's member here is archived: the card offers Restore and link.
+				if (card && card === sent) card = { ...card, restore: data.restore };
+				return;
+			}
+			if (result.type === 'success' && data?.ok) {
+				card = null;
+				copied.show(t().clones.copyHere.done);
+				if (sent?.keep) {
+					added += 1;
+					away.refresh();
+				} else closePicker();
+				await invalidateAll();
+				return;
+			}
+			cardMessage = typeof data?.message === 'string' ? data.message : t().clones.copyHere.failed;
+		};
+	};
+
+	/** The card's "Link the group's one": the group's same-named row, linked as any pick is. */
+	function linkGroups() {
+		const c = card;
+		if (!c || c.row.sameName === null) return;
+		card = null;
+		link(
+			c.kind,
+			{ key: `${c.kind}:${c.row.sameName}`, value: c.row.sameName, label: c.row.label },
+			c.keep
+		);
 	}
 
 	/** A create row's button: the page's own sheet, on top of the still-open picker. */
@@ -1477,6 +1579,9 @@
 		{added}
 		message={picking === 'figure' ? pickMessage : null}
 		archived={picking === 'figure' ? archivedChoice('figure') : null}
+		bind:query={pickQuery}
+		elsewhere={awayPicker}
+		onelsewhere={(row, keep) => openCard('figure', row, keep)}
 		onpick={(row) => link('figure', row, false)}
 		onadd={(row) => link('figure', row, true)}
 		oncreate={(key, query) => createFrom('figure', key, query)}
@@ -1496,6 +1601,9 @@
 		{added}
 		message={picking === 'routine' ? pickMessage : null}
 		archived={picking === 'routine' ? archivedChoice('routine') : null}
+		bind:query={pickQuery}
+		elsewhere={awayPicker}
+		onelsewhere={(row, keep) => openCard('routine', row, keep)}
 		onpick={(row) => link('routine', row, false)}
 		onadd={(row) => link('routine', row, true)}
 		oncreate={(key, query) => createFrom('routine', key, query)}
@@ -1515,6 +1623,9 @@
 		{added}
 		message={picking === 'exercise' ? pickMessage : null}
 		archived={picking === 'exercise' ? archivedChoice('exercise') : null}
+		bind:query={pickQuery}
+		elsewhere={awayPicker}
+		onelsewhere={(row, keep) => openCard('exercise', row, keep)}
 		onpick={(row) => link('exercise', row, false)}
 		onadd={(row) => link('exercise', row, true)}
 		oncreate={(key, query) => createFrom('exercise', key, query)}
@@ -1533,12 +1644,42 @@
 		create={[{ key: 'position', label: w.pickers.position.create }]}
 		{added}
 		message={picking === 'position' ? pickMessage : null}
+		bind:query={pickQuery}
+		elsewhere={awayPicker}
+		onelsewhere={(row, keep) => openCard('position', row, keep)}
 		onpick={(row) => link('position', row, false)}
 		onadd={(row) => link('position', row, true)}
 		oncreate={(key, query) => createFrom('position', key, query)}
 		ondone={closePicker}
 		onclose={closePicker}
 	/>
+
+	<!-- Link from other places: the card over the picker, and what Copy and link posts. -->
+	{#if card && data.elsewhere}
+		{@const c = card}
+		<CopyHereCard
+			theme="light"
+			kind={AWAY_KIND[c.kind]}
+			id={c.row.id}
+			label={c.row.label}
+			from={c.from}
+			into={data.elsewhere}
+			sameName={c.row.sameName}
+			restore={c.restore}
+			busy={cardBusy}
+			message={cardMessage}
+			oncopy={(use) => sendCopy(use, null)}
+			onrestore={(use) => sendCopy(use, c.restore)}
+			onlinkgroups={linkGroups}
+			onclose={() => (card = null)}
+		/>
+	{/if}
+	<form bind:this={copyForm} method="POST" action="?/copyLink" hidden use:enhance={copySubmit}>
+		<input type="hidden" name="kind" />
+		<input type="hidden" name="id" />
+		<input type="hidden" name="use" />
+		<input type="hidden" name="restore" />
+	</form>
 {/if}
 
 {#if data.canEdit}

@@ -71,11 +71,10 @@ export function elsewhereOf(places: ElsewherePlace[], key: string): ElsewhereRow
 	return null;
 }
 
-/** The name of the place a row was found in: "Yours" or the group's. */
-export function elsewherePlaceOf(places: ElsewherePlace[], key: string): string | null {
+/** The group a row was found in, by name; null for the person's own app (or no such row). */
+export function elsewhereFrom(places: ElsewherePlace[], key: string): string | null {
 	for (const p of places)
-		if (p.rows.some((r) => keyOf(r) === key))
-			return p.place.kind === 'mine' ? t().picker.elsewhere.yours : p.place.name;
+		if (p.rows.some((r) => keyOf(r) === key)) return p.place.kind === 'team' ? p.place.name : null;
 	return null;
 }
 

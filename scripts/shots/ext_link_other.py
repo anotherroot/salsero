@@ -23,6 +23,13 @@ def _figures_cradle(page):
     _search(page, "cradle")
 
 
+def _figures_card(page):
+    _figures_cradle(page)
+    page.wait_for_timeout(600)
+    page.get_by_role("button", name=re.compile(r"^Cradle entry")).first.click()
+    page.wait_for_timeout(900)
+
+
 def _popup(page):
     page.get_by_role("button", name=re.compile(r"^Link (?!a )")).first.click()
     page.wait_for_timeout(500)
@@ -36,6 +43,7 @@ def _popup_cradle(page):
 SCENES = {
     "lo-figures": Scene("/{dance}/lessons/38", _figures),
     "lo-figures-cradle": Scene("/{dance}/lessons/38", _figures_cradle),
+    "lo-card": Scene("/{dance}/lessons/38", _figures_card),
     "lo-popup": Scene("/{dance}/lessons/38", _popup),
     "lo-popup-cradle": Scene("/{dance}/lessons/38", _popup_cradle),
 }

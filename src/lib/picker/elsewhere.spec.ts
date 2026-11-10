@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ElsewherePlace, ElsewhereRow } from '$lib/types';
 import { isHeading, type PickRow } from './model';
-import { elsewhereGroups, elsewhereRow, hereGroups } from './elsewhere';
+import { elsewhereFrom, elsewhereGroups, elsewhereOf, elsewhereRow, hereGroups } from './elsewhere';
 
 const row = (over: Partial<ElsewhereRow>): ElsewhereRow => ({
 	kind: 'figure',
@@ -91,5 +91,14 @@ describe('hereGroups', () => {
 			'Intenziuci · Drills',
 			'Intenziuci · Figures'
 		]);
+	});
+});
+
+describe('elsewhereOf and elsewhereFrom', () => {
+	it('a key’s row and the group it was found in (null for yours)', () => {
+		expect(elsewhereOf(places, 'elsewhere:drill:7')?.label).toBe('Cradle arms');
+		expect(elsewhereFrom(places, 'elsewhere:drill:7')).toBe('Sreda 17:30');
+		expect(elsewhereFrom(places, 'elsewhere:figure:1')).toBeNull();
+		expect(elsewhereOf(places, 'elsewhere:figure:99')).toBeNull();
 	});
 });

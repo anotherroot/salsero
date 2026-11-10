@@ -319,6 +319,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		linkableRoutines: canEdit ? listLinkableRoutines(db, found.lesson.id) : [],
 		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
 		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],
+		/** Link from other places: the group a group lesson's pickers copy into, for its editors. */
+		elsewhere: canEdit && team ? { teamId: team.id, name: team.name } : null,
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		/** Music (spec B): its suggested songs, and what "+ Add" offers an editor. */
 		music: listMusic(db, { lessonId: found.lesson.id }, wallOf(params, locals).userId),
