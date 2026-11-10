@@ -89,8 +89,12 @@
 		// A hero (Today's card) rises over the band: the band pins where the card
 		// meets it, so the card never covers the title still on its way up.
 		const hero = sheet.querySelector(':scope > [data-band-hero]')?.getBoundingClientRect();
-		const lead = hero && hero.height > 0 ? hero.top : Infinity;
-		return Math.min(sheet.getBoundingClientRect().top, lead) + window.scrollY - slimH;
+		// Where the sheet rests, not where a page change is moving it (`page-move.svelte.ts`
+		// lifts and lands it with a transform; the hero rides along): measured mid-move, the
+		// fold would keep the wrong pin until the next scroll.
+		const moved = new DOMMatrix(getComputedStyle(sheet).transform).m42;
+		const lead = hero && hero.height > 0 ? hero.top - moved : Infinity;
+		return Math.min(sheet.getBoundingClientRect().top - moved, lead) + window.scrollY - slimH;
 	});
 	const mode = $derived(bandMode(scrollY, compact, desk.current, pinAt));
 	const slim = $derived(mode === 'slim');
