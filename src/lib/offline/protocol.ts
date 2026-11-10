@@ -56,7 +56,17 @@ export type DeviceIn =
 	| { type: 'forget' }
 	/** Videos kept on the phone (offline phase 4b); each carries a reply port, answered with `KeepStatus | null`. */
 	| { type: 'keep-get' }
-	| { type: 'keep-set'; change: KeepChange };
+	| { type: 'keep-set'; change: KeepChange }
+	/**
+	 * A person's own video kept only on this phone (offline phase 4c), each with a
+	 * reply port: `OriginalPut`, `{ blob: Blob | null }`, `{ ok: boolean }`.
+	 */
+	| { type: 'original-put'; file: string; mime: string; blob: Blob }
+	| { type: 'original-get'; file: string }
+	| { type: 'original-drop'; file: string };
+
+/** `original-put`'s answer: stored, or why not (no room, or no store or person here). */
+export type OriginalPut = { ok: true } | { ok: false; reason: 'space' | 'store' };
 
 /**
  * From the worker. `pulled`: a pull landed; `startedAt` is when its request
@@ -187,7 +197,12 @@ export type KeepStatus = {
 	/** Why wanted videos are not coming now. */
 	waiting: 'wifi' | 'offline' | 'space' | null;
 	canTellWifi: boolean;
-	bytes: { songs: number; videos: number };
+	/** `originals`: the person's own phone-only videos held here (offline phase 4c). */
+	bytes: { songs: number; videos: number; originals?: number };
+	/** This device's id slot (offline phase 4c: which originals are its own); null until it has one. */
+	slot?: number | null;
+	/** The file names of the person's originals on this phone (offline phase 4c). */
+	originals?: string[];
 	/** Free for this app (quota − usage); null where the browser won't say. */
 	free: number | null;
 	low: boolean;

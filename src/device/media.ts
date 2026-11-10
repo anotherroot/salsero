@@ -9,6 +9,7 @@
  */
 import {
 	mediaPath,
+	ORIGINALS,
 	VIDEO_KINDS,
 	type MediaFile,
 	type MediaKind,
@@ -262,4 +263,25 @@ export function mediaKeeper(deps: {
 	}
 
 	return { sync, restart, clear };
+}
+
+/**
+ * The person's phone-only originals whose row is gone from the copy (offline
+ * phase 4c): deleted, here or on another device. Only after a pull that
+ * reached the server (an offline copy may simply not have the row yet), and
+ * only the copy's person's own: another person's originals stay, whatever this
+ * copy holds. Nothing else ever removes an original.
+ */
+export async function sweepOriginals(deps: {
+	store: MediaStore;
+	person: string;
+	pulledOnline: boolean;
+	rowFiles: ReadonlySet<string>;
+}): Promise<string[]> {
+	if (!deps.pulledOnline) return [];
+	const gone = (await deps.store.list(ORIGINALS)).filter(
+		(f) => f.owner === deps.person && !deps.rowFiles.has(f.file)
+	);
+	for (const f of gone) await deps.store.remove('originals', f.file);
+	return gone.map((f) => f.file);
 }

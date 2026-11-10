@@ -112,6 +112,11 @@ export type Device = {
 	wantedMedia(): MediaFile[];
 	/** This device's choice of videos to keep (offline phase 4b). */
 	keepSettings(): KeepSettings;
+	/**
+	 * Whose originals this copy may sweep, the video files its rows still name,
+	 * and this device's id slot (offline phase 4c).
+	 */
+	originalsScope(): { person: string | null; files: Set<string>; slot: number | null };
 	/** One change to it, saved; a kept video gone from the copy drops out. */
 	keepSet(change: KeepChange): KeepSettings;
 	/** The rows the On this phone page draws, given the video files on the phone. */
@@ -674,6 +679,15 @@ export function createDevice(deps: DeviceDeps): Device {
 		},
 
 		keepSettings: () => readKeep(db),
+
+		originalsScope() {
+			const files = new Set<string>();
+			for (const table of ['recordings', 'lesson_videos'])
+				for (const r of db.prepare(`SELECT file FROM ${table}`).all() as { file: string }[])
+					files.add(r.file);
+			const meta = readMeta(db);
+			return { person: meta.userId, files, slot: meta.slot };
+		},
 
 		keepSet(change) {
 			const next = applyKeepChange(readKeep(db), change);

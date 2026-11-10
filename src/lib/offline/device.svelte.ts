@@ -17,6 +17,7 @@ import { dev, version } from '$app/environment';
 import type {
 	KeepChange,
 	KeepStatus,
+	OriginalPut,
 	DeviceIn,
 	DeviceOut,
 	DeviceState,
@@ -445,4 +446,25 @@ export async function keepSet(change: KeepChange): Promise<KeepStatus | null> {
 	const status = (await ask({ type: 'keep-set', change })) as KeepStatus | null;
 	if (status) kept.status = status;
 	return status;
+}
+
+/**
+ * A person's own video kept only on this phone (offline phase 4c): stored
+ * whole by the device worker under the row's file name. No device: not stored.
+ */
+export async function putOriginal(file: string, mime: string, blob: Blob): Promise<OriginalPut> {
+	const out = (await ask({ type: 'original-put', file, mime, blob })) as OriginalPut | null;
+	return out ?? { ok: false, reason: 'store' };
+}
+
+/** The original's bytes (Upload reads them), or null when this phone has none. */
+export async function getOriginal(file: string): Promise<Blob | null> {
+	const out = (await ask({ type: 'original-get', file })) as { blob: Blob | null } | null;
+	return out?.blob ?? null;
+}
+
+/** Drops the original (after the person deleted its video). */
+export async function dropOriginal(file: string): Promise<boolean> {
+	const out = (await ask({ type: 'original-drop', file })) as { ok: boolean } | null;
+	return out?.ok ?? false;
 }

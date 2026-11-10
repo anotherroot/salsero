@@ -23,7 +23,7 @@ import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/
 import { PAGE_EPOCH } from '$lib/epoch';
 import { isNetworkFirstPage, isNetworkPage, writeClass } from '$lib/offline/routes';
 import { FROM_HEADER, rangeResponse } from '$lib/offline/media-range';
-import { mediaOf, opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
+import { mediaOf, opfsMediaStore, readMedia, type MediaStore } from '$lib/offline/media-store';
 import { OUTBOX_HEADER } from '$lib/sync/outbox';
 import {
 	CACHE_PREFIX,
@@ -252,7 +252,7 @@ async function media(request: Request): Promise<Response> {
 	if (want) {
 		try {
 			const store = await (mediaStore ??= opfsMediaStore());
-			const held = await store?.read(want.kind, want.file);
+			const held = store ? await readMedia(store, want.kind, want.file) : null;
 			if (held) {
 				const res = rangeResponse(held.body, request.headers.get('range'), held.mime);
 				res.headers.set(FROM_HEADER, 'device');
