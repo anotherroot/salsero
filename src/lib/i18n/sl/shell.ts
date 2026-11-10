@@ -103,7 +103,12 @@ export const shell: Catalog['shell'] = {
 		without: (verb) => `${verb} brez shranjevanja`,
 		leave: 'Zapusti',
 		didNotSave: 'Shranjevanje ni uspelo.',
-		notSent: 'Ni bilo poslano.'
+		notSent: 'Ni bilo poslano.',
+		unsentTitle: 'Ni poslano',
+		unsentLine: (labels) => `Še ni poslano: ${labels}.`,
+		send: 'Pošlji',
+		sendingNow: 'Pošiljanje\u00a0…',
+		withoutSending: (verb) => `${verb} brez pošiljanja`
 	},
 	clash: {
 		goneSub: 'Nič ni bilo shranjeno. Preden to zaprete, kopirajte svoje besedilo.',
