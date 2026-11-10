@@ -54,6 +54,8 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { pageMove } from '$lib/motion/page-move.svelte';
+	import PageWait from '$lib/components/shell/PageWait.svelte';
 
 	let { data, children } = $props();
 	// The language first, before any child reads a word (`$lib/i18n/current.ts`).
@@ -65,6 +67,8 @@
 	syncSheets();
 	// Tabs reopen where you left them; the band's back goes where you came from.
 	syncTrail();
+	// A page change lifts the card, waits and lands it (phone; page changes spec).
+	pageMove();
 	// A sample belongs to the page it was started on.
 	beforeNavigate(() => stopSample());
 	/*
@@ -123,7 +127,10 @@
 		const timer = setTimeout(() => (late = true), SKELETON_DELAY_MS);
 		return () => clearTimeout(timer);
 	});
-	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id, ahead.url.search) : null);
+	// The phone waits on the lifted card (`page-move.svelte.ts`, `PageWait`); the desktop keeps its skeleton.
+	const skeleton = $derived(
+		late && ahead && desk.current ? skeletonFor(ahead.route.id, ahead.url.search) : null
+	);
 	/*
 	 * A navigation SvelteKit dropped for a refresh that started while it loaded
 	 * stays under way for good, the skeleton over the old page
@@ -561,6 +568,7 @@
 				: ''} {SHEET[frame]}"
 		>
 			{@render children()}
+			<PageWait />
 			<div aria-hidden="true" style:height="var(--strip-h)"></div>
 		</div>
 		{#if skeleton}
@@ -651,6 +659,6 @@
 {/if}
 
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
-{#if ahead}
+{#if ahead && desk.current}
 	<NavProgress />
 {/if}
