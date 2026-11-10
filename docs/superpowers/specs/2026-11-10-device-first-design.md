@@ -157,10 +157,24 @@ network page and stays as it is.
 - Android's WebView has no pull-to-refresh of its own today (no
   `SwipeRefreshLayout`), and the web page must not trigger the browser's
   own (`overscroll-behavior-y` on the page). The gesture is the web page's.
-- **The look is designed the user's usual way before it is built:** real
-  screenshots of the pages as they are, 2–4 options on the phone, and the
-  build follows the pick. This spec fixes only what it does. Words go
-  through `t()` in both catalogs (en, sl).
+- **The look: words in the band (option C, picked 2026-11-10** from four
+  options drawn on the real Today screenshot, light and dark:
+  https://claude.ai/artifact/LY6oPhWtmXBegScvKuRppf). The page under the
+  band (the sheet, with a hero card such as Today's) slides down with the
+  finger, with growing resistance, and the band's colour fills the gap it
+  leaves. In the middle of that gap, words only, no icon, in the band's
+  small-text colour (`--color-band-small`), Manrope semibold ~14px:
+  - "Pull to sync" while pulling, short of the point where a release syncs;
+  - "Let go to sync" past it;
+  - "Syncing…" after the release, the page held open about a line's
+    height while the sync runs;
+  - "Up to date" for a moment when it is done, then the page springs back;
+  - "Offline" with no signal: shown for about a second, then it springs
+    back, and nothing is sent.
+
+  The gap's words fade in with the pull. Words go through `t()` in both
+  catalogs (en, sl); the Slovenian ones follow the glossary in
+  `sl/index.ts`.
 
 ## How it is built (Claude's calls; the plan may refine how, not what)
 
@@ -268,7 +282,7 @@ Two steps, each deployable on its own:
 1. **Taps read the device:** device-first reads, the server-only facts in the
    pull and the cookies with each device request, the re-read on a pull with
    changes, the song page's pulls, the expired-session rule, and pull down
-   to refresh (after the look is picked). The first page of an open still
+   to refresh (look C). The first page of an open still
    comes from the network, as today.
 2. **The first page from the device:** the device starting at once, the "a
    copy exists" mark, and the shell on navigate. Kept apart so it can be
