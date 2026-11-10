@@ -739,6 +739,11 @@ def walk(base, db_path, v, lines, net, song=None):
                 page.goto(f"{base}/{DANCE}/exercises/{v['exercise']}", wait_until="load", timeout=60_000)
                 wait_ready(page)
                 done = page.locator('[data-focus="exercise-done"]')
+                # Step 2 draws the page from the shell: Done shows once the device has answered.
+                try:
+                    done.first.wait_for(timeout=10_000)
+                except Exception:
+                    pass
                 if done.count():
                     done.first.click()
                     sheet = page.locator("dialog[open]")
