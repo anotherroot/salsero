@@ -3,7 +3,7 @@
  * your other groups while you search. Ana (u1) owns Salsa Tuesdays (T1),
  * edits Rueda club (T2, Maja's) and is a member of Tuesday class (T3, Maja's).
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb, type Db } from './db';
 import { users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
@@ -22,7 +22,7 @@ import type { Space, TeamSpace } from './scope';
 import type { PositionInput } from '$lib/types';
 import type { PositionRow } from './db/schema';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
-import { elsewhereGroup, findElsewhere, staysBehind } from './elsewhere';
+import { PER_KIND, elsewhereGroup, findElsewhere, staysBehind } from './elsewhere';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const ROOMY = 1024 ** 4;
@@ -223,5 +223,31 @@ describe('elsewhereGroup', () => {
 		expect(elsewhereGroup(db, 'u1', 'salsa', 3)).toBeNull();
 		expect(elsewhereGroup(db, 'u1', 'bachata', 1)).toBeNull();
 		expect(elsewhereGroup(db, 'u1', 'salsa', 99)).toBeNull();
+	});
+});
+
+describe('findElsewhere at scale (review I1, I2)', () => {
+	const prepares = () => {
+		const raw = (db as unknown as { $client: { prepare: (...a: unknown[]) => unknown } }).$client;
+		return vi.spyOn(raw, 'prepare');
+	};
+
+	it('does a fixed number of queries, not one or more per matching row', () => {
+		for (let i = 0; i < 40; i++) figure(U1_SALSA, `Basic move ${i}`);
+		const spy = prepares();
+		findElsewhere(db, T1_SALSA, ['figure'], 'basic');
+		expect(spy.mock.calls.length).toBeLessThan(40);
+		spy.mockRestore();
+	});
+
+	it('caps each place’s kind, so a long list never hides the other kinds or places', () => {
+		for (let i = 0; i < 30; i++) figure(U1_SALSA, `Basic move ${i}`);
+		position(U1_SALSA, 'Basic hold');
+		figure(T2_SALSA, 'Basic theirs');
+		const places = findElsewhere(db, T1_SALSA, ['figure', 'position'], 'basic');
+		expect(placeNames(places)).toEqual(['mine', 'Rueda club']);
+		const mine = places[0].rows;
+		expect(mine.filter((r) => r.kind === 'figure').length).toBe(PER_KIND);
+		expect(mine.filter((r) => r.kind === 'position').map((r) => r.label)).toEqual(['Basic hold']);
 	});
 });

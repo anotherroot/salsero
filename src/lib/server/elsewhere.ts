@@ -35,11 +35,10 @@ import { ownedBy, type Space, type TeamSpace, type Wall } from './scope';
 import { listMyTeams } from './teams';
 import type { DanceSlug } from '$lib/dances/dances';
 import { teamReader } from './access';
-import { memberIn } from './clones/genes';
-import { foldNamed, foldVersions, twinsOf } from './twins';
+import { foldNamed, foldVersions, storedTwinSets } from './twins';
 
-/** At most this many rows in all: a search narrows, a picker is not a list of everything. */
-const MAX_ROWS = 50;
+/** At most this many rows of a kind per place: a search narrows, a picker is not a list of everything. */
+export const PER_KIND = 15;
 
 type Found = {
 	kind: ElsewhereKind;
@@ -163,6 +162,11 @@ const placeName = (p: Place) => (p.place.kind === 'team' ? p.place.name : '');
  * What a group's pickers find elsewhere for `query`, per place, in place
  * order; places with nothing are left out. Empty for an empty query. The
  * caller has checked that `group.actorId` edits the group.
+ *
+ * A fixed number of queries per kind and place, whatever the library's size:
+ * the group's families and the person's twin sets are read once, and every
+ * row's checks are lookups. Each place shows at most `PER_KIND` rows of each
+ * kind, so a long list of one never hides the others.
  */
 export function findElsewhere(
 	db: Db,
@@ -179,8 +183,10 @@ export function findElsewhere(
 	const userId = group.actorId;
 	const wall: Wall = { userId, dance: group.dance };
 	const places = placesFor(db, group);
-	// Per kind, the group's live rows by folded name, for `sameName`.
+	// Per kind, what the group holds: its live rows by folded name (`sameName`)
+	// and its members, archived ones too, by family.
 	const sameNames = new Map<ElsewhereKind, Map<string, number>>();
+	const members = new Map<ElsewhereKind, Map<string, { id: number; archived: boolean }>>();
 
 	// Every matching row, tagged with its place (index into `places`).
 	const found: { row: Found; at: number }[] = [];
@@ -189,6 +195,9 @@ export function findElsewhere(
 		const hereIds = new Set(here.map((r) => r.id));
 		const hereByName = new Map<string, number>();
 		for (const r of here) if (!hereByName.has(fold(r.label))) hereByName.set(fold(r.label), r.id);
+		sameNames.set(kind, hereByName);
+		const byGene = familiesIn(db, kind, group);
+		members.set(kind, byGene);
 
 		let rows: { row: Found; at: number }[] = [];
 		places.forEach((p, at) => {
@@ -197,37 +206,36 @@ export function findElsewhere(
 			}
 		});
 		// The family lives in the group: the group's row stands for it.
-		rows = rows.filter(({ row }) => {
-			if (row.gene === null) return true;
-			const m = memberIn(db, kind, row.gene, group);
-			return m === null || m.archived;
-		});
+		rows = rows.filter(({ row }) => row.gene === null || byGene.get(row.gene)?.archived !== false);
 		// A twin lives in the group: likewise. Positions have no fold in a picker.
 		if (kind === 'figure' || kind === 'routine') {
-			rows = rows.filter(
-				({ row }) => !twinsOf(db, userId, kind, row.id).some((id) => hereIds.has(id))
-			);
+			const twinned = new Set<number>();
+			for (const set of storedTwinSets(db, userId, kind))
+				if (set.some((id) => hereIds.has(id))) for (const id of set) twinned.add(id);
+			rows = rows.filter(({ row }) => !twinned.has(row.id));
 			rows = folded(db, wall, kind, rows, places);
 		}
 		found.push(...rows);
-		sameNames.set(kind, hereByName);
 	}
 
 	// One row per family, in its first place; the others are named.
-	const byGene = new Map<string, ElsewhereRow>();
+	const byFamily = new Map<string, ElsewhereRow>();
 	const out: ElsewhereRow[][] = places.map(() => []);
+	const shown = new Map<string, number>();
 	found.sort((a, b) => a.at - b.at);
-	let total = 0;
 	for (const { row, at } of found) {
 		const key = row.gene === null ? null : `${row.kind}:${row.gene}`;
-		const first = key === null ? undefined : byGene.get(key);
+		const first = key === null ? undefined : byFamily.get(key);
 		if (first) {
 			const name = placeName(places[at]);
 			if (name && !first.alsoIn.includes(name)) first.alsoIn.push(name);
 			continue;
 		}
-		if (total >= MAX_ROWS) continue;
-		const archived = row.gene === null ? null : memberIn(db, row.kind, row.gene, group);
+		const slot = `${at}:${row.kind}`;
+		const n = shown.get(slot) ?? 0;
+		if (n >= PER_KIND) continue;
+		shown.set(slot, n + 1);
+		const member = row.gene === null ? undefined : members.get(row.kind)?.get(row.gene);
 		const made: ElsewhereRow = {
 			kind: row.kind,
 			id: row.id,
@@ -235,16 +243,44 @@ export function findElsewhere(
 			heading: row.heading,
 			short: row.short,
 			alsoIn: [],
-			restore: archived?.archived ? archived.id : null,
+			restore: member?.archived ? member.id : null,
 			sameName: sameNames.get(row.kind)?.get(fold(row.label)) ?? null
 		};
-		if (key !== null) byGene.set(key, made);
+		if (key !== null) byFamily.set(key, made);
 		out[at].push(made);
-		total += 1;
 	}
 	return places.flatMap((p, at) =>
 		out[at].length === 0 ? [] : [{ place: p.place, readOnly: p.readOnly, rows: out[at] }]
 	);
+}
+
+/** The group's members of a kind, archived ones too, by family (`memberIn` for every family at once). */
+function familiesIn(
+	db: Db,
+	kind: ElsewhereKind,
+	group: TeamSpace
+): Map<string, { id: number; archived: boolean }> {
+	const t = { figure: figures, routine: routines, drill: exercises, position: positions }[kind];
+	const rows = db
+		.select({ id: t.id, gene: t.geneId, archivedAt: t.archivedAt })
+		.from(t)
+		.where(
+			and(
+				ownedBy(t, group),
+				isNotNull(t.geneId),
+				kind === 'drill' ? eq(exercises.source, 'custom') : undefined
+			)
+		)
+		.orderBy(asc(t.id))
+		.all();
+	const out = new Map<string, { id: number; archived: boolean }>();
+	// One member per place; a live one wins if a family ever had two.
+	for (const r of rows) {
+		const had = out.get(r.gene!);
+		if (!had || (had.archived && r.archivedAt === null))
+			out.set(r.gene!, { id: r.id, archived: r.archivedAt !== null });
+	}
+	return out;
 }
 
 /** Twin sets folded as a person's pickers fold them: one row per set. */
