@@ -212,7 +212,8 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	/** Song time already scheduled up to. Reset on a seek. */
 	let cursor = 0;
 	let queued: AudioBufferSourceNode[] = [];
-	let stepTimers: ReturnType<typeof setTimeout>[] = [];
+	/** Figures queued to show, each waiting for its "1" to be heard. */
+	let stepTimers: { timer: ReturnType<typeof setTimeout>; at: number; step: PlanStep }[] = [];
 	/** Context origin for count-only, where there is no media element. */
 	let origin = 0;
 	/** Latches `onEnd`: the loop keeps ticking past the last beat, the callback must not. */
@@ -290,8 +291,22 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			}
 		}
 		queued = [];
-		for (const t of stepTimers) clearTimeout(t);
+		for (const t of stepTimers) clearTimeout(t.timer);
 		stepTimers = [];
+	}
+
+	/**
+	 * Show at once the figures whose "1" has already played but is still on
+	 * its way to the ear. Before a pause or a toggle change clears the queue:
+	 * the cursor restarts at the played position, so nothing would show them.
+	 */
+	function showPlayed() {
+		const now = songNow();
+		for (const t of stepTimers.filter((t) => t.at <= now)) {
+			clearTimeout(t.timer);
+			stepStarted(t.step, t.at);
+		}
+		stepTimers = stepTimers.filter((t) => t.at > now);
 	}
 
 	function stepStarted(step: PlanStep, at: number) {
@@ -373,7 +388,11 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		// reach the ear, as the count does.
 		for (const { at, step } of steps) {
 			const delay = Math.max(0, (ctxAt(at) - ctx.currentTime + heardDelayS()) * 1000);
-			stepTimers.push(setTimeout(() => stepStarted(step, at), delay));
+			const timer = setTimeout(() => {
+				stepTimers = stepTimers.filter((t) => t.timer !== timer);
+				stepStarted(step, at);
+			}, delay);
+			stepTimers.push({ timer, at, step });
 		}
 
 		cursor = until;
@@ -458,6 +477,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			heldAt = songNow();
 			clearInterval(tick);
 			tick = 0;
+			showPlayed();
 			clearQueued();
 			opts.audio?.pause();
 		},
@@ -491,6 +511,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 
 		setToggles(next) {
 			toggles = next;
+			showPlayed();
 			clearQueued();
 			cursor = songNow();
 		},
