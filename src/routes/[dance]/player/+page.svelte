@@ -24,6 +24,7 @@
 	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import { mayAutoPlay, runSubtitle, runTitle, type RoutineView } from '$lib/player/view';
+	import { loadDelayCorrection } from '$lib/player/sound-delay';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { t } from '$lib/i18n/catalog';
 	import type { PageData } from './$types';
@@ -249,6 +250,7 @@
 			// for a son run, whose words fall on different counts entirely.
 			takes: data.takes.filter((t) => t.pattern === settings.count),
 			voiceVolume: settings.voiceVolume,
+			delayCorrectionMs: loadDelayCorrection(),
 			onStep: (step, at) => {
 				nowFigureId = step.figureId;
 				activeSlot = step.slot;

@@ -17,7 +17,8 @@
 		ROW_TALL,
 		SECTION_LABEL,
 		TEXTAREA,
-		button
+		button,
+		PRESS_ROW
 	} from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
@@ -293,7 +294,11 @@
 					</div>
 				{/if}
 			</div>
-			<a href="/settings/storage" class={ROW_TALL} use:needsConnection={connection.online}>
+			<a
+				href="/settings/storage"
+				class="{ROW_TALL} {PRESS_ROW}"
+				use:needsConnection={connection.online}
+			>
 				<LeadTile icon="sliders" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{w.storage.whatUses}</span>
@@ -334,7 +339,7 @@
 			/>
 		</div>
 		{#if !few}
-			<a href="/voice" class={ROW_TALL}>
+			<a href="/voice" class="{ROW_TALL} {PRESS_ROW}">
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{t().shell.lists.myCount}</span>
@@ -367,7 +372,7 @@
 
 	{#if !data.app && !few}
 		<div class="{GROUP} mt-[14px]">
-			<a href="/app" class={ROW_TALL}>
+			<a href="/app" class="{ROW_TALL} {PRESS_ROW}">
 				<LeadTile icon="phone" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{t().shell.getApp.title}</span>
@@ -486,7 +491,7 @@
 	{#if data.isAdmin}
 		<span class="{SECTION_LABEL} mt-[14px]">{w.admin.label}</span>
 		<div class={GROUP}>
-			<a href="/admin" class={ROW_TALL}>
+			<a href="/admin" class="{ROW_TALL} {PRESS_ROW}">
 				<LeadTile icon="people" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{w.admin.label}</span>

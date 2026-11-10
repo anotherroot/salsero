@@ -9,6 +9,7 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import type { Side } from '$lib/gestures/swipe';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
+	import { PRESS_ROW } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
@@ -20,6 +21,8 @@
 		lessonDay: string | null;
 		/** The exercise open beside the list (desktop): tinted, an accent bar at its left edge. */
 		current: boolean;
+		/** Just done, and Today in sight: its check pops in (the Done landing). */
+		landed?: boolean;
 		/** Not today (the swipe's button); absent on a done row. */
 		onskip?: () => void;
 		/** This row's swipe: open (left) or at rest. */
@@ -29,7 +32,18 @@
 		drag?: { offset: number; lifted: boolean; moving: boolean };
 	}
 
-	let { row, dance, today, lessonDay, current, onskip, swiped, onswipe, drag }: Props = $props();
+	let {
+		row,
+		dance,
+		today,
+		lessonDay,
+		current,
+		landed = false,
+		onskip,
+		swiped,
+		onswipe,
+		drag
+	}: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const done = $derived(row.kind === 'done');
@@ -48,6 +62,7 @@
 	the `translate` property, so nothing else about its layout changes.
 -->
 <li
+	data-flip={ex.id}
 	data-warm-row={drag ? ex.id : undefined}
 	class="{drag?.lifted ? 'relative z-10 shadow-[0_8px_24px_rgb(0_0_0/0.22)]' : ''} {drag?.moving &&
 	!drag.lifted
@@ -71,13 +86,15 @@
 		reveal={96}
 	>
 		<div
-			class="flex min-h-[66px] items-center px-4 {tinted ? 'bg-accent-soft' : 'bg-surface'} {current
-				? 'shadow-[inset_4px_0_0_var(--color-accent)]'
-				: ''}"
+			class="flex min-h-[66px] items-center px-4 {PRESS_ROW} {tinted
+				? 'bg-accent-soft'
+				: 'bg-surface'} {current ? 'shadow-[inset_4px_0_0_var(--color-accent)]' : ''}"
 		>
 			<!-- The row opens the exercise: its page is where it is practised and saved. -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
-				<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
+				<span class="flex flex-none {landed ? 'motion-pop' : ''}"
+					><TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} /></span
+				>
 				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 					<!-- A done row's name is quieter (board "Today"); muted is under 4.5:1 on a tint. -->
 					<span

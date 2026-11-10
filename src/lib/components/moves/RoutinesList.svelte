@@ -15,7 +15,15 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
+	import {
+		FIELD,
+		GROUP,
+		LABEL,
+		SECTION_LABEL,
+		TEXTAREA,
+		button,
+		PRESS_ROW
+	} from '$lib/components/ui/styles';
 	import GroupMark from '$lib/components/moves/GroupMark.svelte';
 	import { mixGroups, newestFirst } from '$lib/moves/mix';
 	import {
@@ -117,7 +125,7 @@
 {#snippet routineRow(routine: RoutineRow & { team: TeamRef | null }, badges: RoutineBadge[])}
 	{@const lit = open?.kind === 'routine' && open.id === routine.id}
 	<a
-		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
+		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step {PRESS_ROW}"
 		class:bg-accent-soft={lit}
 		aria-current={lit ? 'page' : undefined}
 		href={resolve('/[dance]/(moves)/routines/[id]', {

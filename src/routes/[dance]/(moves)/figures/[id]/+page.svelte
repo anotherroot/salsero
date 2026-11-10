@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { withView } from '$lib/teams/group-view';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick, untrack } from 'svelte';
@@ -719,7 +720,14 @@
 				{/key}
 			{/if}
 			{#if !empty}
-				<ul class={GROUP}>
+				<FlipList
+					class={GROUP}
+					keys={[
+						...variation.sections.map((s) => `s${s.linkId}`),
+						...variation.recordings.map((r) => `r${r.id}`),
+						...data.links.map((l) => `l${l.id}`)
+					]}
+				>
 					{#each variation.sections as s (s.linkId)}
 						<!-- Unlinking is an edit, like deleting a recording. -->
 						{#snippet unlink()}
@@ -737,7 +745,7 @@
 								>
 							</form>
 						{/snippet}
-						<li>
+						<li data-flip="s{s.linkId}">
 							<SectionRow
 								section={s}
 								focusKey="section-{s.linkId}"
@@ -753,7 +761,7 @@
 						{@const taken = takeRefusal(rec.id)}
 						{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
 						{#snippet recTake()}{@render takeButton(rec)}{/snippet}
-						<li>
+						<li data-flip="r{rec.id}">
 							<RecordingRow
 								recording={rec}
 								{day}
@@ -781,11 +789,11 @@
 						</li>
 					{/each}
 					{#each data.links as link (link.id)}
-						<li>
+						<li data-flip="l{link.id}">
 							<LinkRow {link} canSave={data.canEdit} {editing} onremove={removeLink(link.id)} />
 						</li>
 					{/each}
-				</ul>
+				</FlipList>
 			{/if}
 			{#if failed('unlinkSection')}
 				<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />

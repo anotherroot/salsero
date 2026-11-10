@@ -6,6 +6,7 @@
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { clock } from '$lib/format';
 	import { stageDigit } from '$lib/player/view';
+	import { beatPulse } from '$lib/motion/beat-pulse';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 
@@ -84,6 +85,9 @@
 	}
 
 	/* The strip's own count: read every frame, like StageCount. */
+	// It pushes on the beat as the stage does (motion round 1).
+	const pulse = beatPulse();
+	let stripDigit = $state<HTMLElement>();
 	let count = $state<number | null>(null);
 	let off = $state(false);
 	let time = $state(0);
@@ -96,6 +100,7 @@
 			const i = beatIndexAt(beats, time);
 			off = isQuiet(quiet, time);
 			count = i >= 0 ? (counts[i] ?? null) : null;
+			pulse(stripDigit, i, count, paused, off);
 			frame = requestAnimationFrame(loop);
 		};
 		frame = requestAnimationFrame(loop);
@@ -122,6 +127,7 @@
 		<BandButton icon="close" label={closeLabel} onclick={close} focusKey="layer-close" />
 		{#if player}
 			<span
+				bind:this={stripDigit}
 				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden"
 				aria-hidden="true">{stageDigit(count, paused, off).text}</span
 			>

@@ -1,5 +1,6 @@
 <!-- src/lib/components/lessons/VideoSections.svelte -->
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import SectionPlayer from '$lib/components/ui/SectionPlayer.svelte';
 	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
@@ -69,9 +70,9 @@
 			{canEdit ? w.noneEdit : w.none}
 		</p>
 	{:else}
-		<ul>
+		<FlipList keys={sections.map((s) => s.id)}>
 			{#each sections as s (s.id)}
-				<li class="flex min-h-[58px] items-center gap-3 pr-1.5 pl-4">
+				<li data-flip={s.id} class="flex min-h-[58px] items-center gap-3 pr-1.5 pl-4">
 					<button
 						data-focus="section-{s.id}"
 						type="button"
@@ -125,7 +126,7 @@
 					{/if}
 				</li>
 			{/each}
-		</ul>
+		</FlipList>
 	{/if}
 </div>
 

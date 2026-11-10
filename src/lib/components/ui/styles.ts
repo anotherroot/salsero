@@ -27,8 +27,22 @@ export type ButtonKind =
 export type ButtonSize = 'sm' | 'md' | 'lg';
 export type IconButtonVariant = 'bare' | 'tonal' | 'filled' | 'step';
 
-const BUTTON_BASE =
-	'inline-flex flex-none cursor-pointer items-center justify-center whitespace-nowrap rounded-full font-sans font-extrabold transition-colors active:brightness-90 disabled:cursor-default disabled:active:brightness-100 aria-busy:cursor-default';
+/**
+ * A press (motion round 1): the colour change as before, and the control dips
+ * under the finger (short, arriving) and settles back when it lets go (medium,
+ * settling). Still with reduced motion, and while a swipe or a drag moves what
+ * holds it (`data-swiping`: Swipeable; `data-dragging`: a list with a lifted
+ * row). Only on the tap target, or on a box holding nothing else to press:
+ * `:active` also matches the ancestors of what is pressed.
+ */
+const PRESS_MOTION =
+	'transition duration-260 ease-settle active:duration-150 active:ease-arrive motion-reduce:active:scale-100 in-data-swiping:active:scale-100 in-data-dragging:active:scale-100';
+/** A button's press: down to 94 %, never while disabled or busy. */
+export const PRESS = `${PRESS_MOTION} active:scale-94 disabled:active:scale-100 aria-busy:active:scale-100`;
+/** A whole row's press (a list row that is one link or button): down to 98.5 %. */
+export const PRESS_ROW = `${PRESS_MOTION} active:scale-[.985]`;
+
+const BUTTON_BASE = `inline-flex flex-none cursor-pointer items-center justify-center whitespace-nowrap rounded-full font-sans font-extrabold ${PRESS} active:brightness-90 disabled:cursor-default disabled:active:brightness-100 aria-busy:cursor-default`;
 
 const BUTTON_KIND: Record<ButtonKind, string> = {
 	primary: 'bg-accent text-on-accent disabled:bg-disabled-bg disabled:text-disabled-ink',
@@ -92,7 +106,7 @@ export function iconButton(variant: 'tonal' | 'filled'): string;
 export function iconButton(variant: IconButtonVariant): string;
 export function iconButton(variant: IconButtonVariant, tone: IconTone = 'ink'): string {
 	const colour = variant === 'bare' || variant === 'step' ? ` ${ICON_TONE[tone]}` : '';
-	return `flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full transition-colors disabled:cursor-default ${ICON_BUTTON[variant]}${colour}`;
+	return `flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full ${PRESS} disabled:cursor-default ${ICON_BUTTON[variant]}${colour}`;
 }
 
 /**
@@ -107,8 +121,7 @@ export function iconButton(variant: IconButtonVariant, tone: IconTone = 'ink'): 
  */
 export type BandTone = 'band' | 'pane' | 'pane-back' | 'float';
 
-const BAND_BUTTON =
-	'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15';
+const BAND_BUTTON = `flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15 ${PRESS}`;
 
 /** Desk only, written out so Tailwind sees every class. `desk:active:` also turns the band's hover off (layout.css). */
 const BAND_TONE: Record<Exclude<BandTone, 'float'>, string> = {
@@ -118,8 +131,7 @@ const BAND_TONE: Record<Exclude<BandTone, 'float'>, string> = {
 };
 
 /** The map's floating buttons (`float`): ink on the surface, lifted off the map. */
-export const FLOAT_BUTTON =
-	'flex h-11 w-11 flex-none items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)] active:bg-step';
+export const FLOAT_BUTTON = `flex h-11 w-11 flex-none items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_20px_rgb(0_0_0/0.12)] active:bg-step ${PRESS}`;
 
 /** A band's 44 px icon button (BandButton); give it an aria-label. */
 export function bandButton(tone: BandTone = 'band'): string {
@@ -134,11 +146,9 @@ export const TEXTAREA = swap(FIELD, 'h-[52px]', 'h-auto min-h-[52px] py-3.5 lead
 export const FIELD_ERROR = 'mt-1.5 flex items-center gap-1.5 text-[13px] font-bold text-danger';
 export const LABEL = 'mb-1.5 block pl-1 text-[13px] font-bold text-ink-2';
 /** A radio styled as a chip: wrap the input (`sr-only`) and its text in a <label> with this. */
-export const CHIP =
-	'relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip has-checked:font-extrabold has-checked:text-on-accent has-checked:before:bg-accent has-focus-visible:before:outline-2 has-focus-visible:before:outline-offset-2 has-focus-visible:before:outline-accent has-disabled:text-disabled-ink has-disabled:before:bg-disabled-bg';
+export const CHIP = `relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip has-checked:font-extrabold has-checked:text-on-accent has-checked:before:bg-accent has-focus-visible:before:outline-2 has-focus-visible:before:outline-offset-2 has-focus-visible:before:outline-accent has-disabled:text-disabled-ink has-disabled:before:bg-disabled-bg ${PRESS_MOTION} active:scale-94 has-disabled:active:scale-100`;
 /** CHIP for a toggle button: lit by `aria-pressed` instead of a checked radio. Written out, since Tailwind only generates classes it can see literally. */
-export const SHORTCUT =
-	'relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip aria-pressed:font-extrabold aria-pressed:text-on-accent aria-pressed:before:bg-accent focus-visible:before:outline-2 focus-visible:before:outline-offset-2 focus-visible:before:outline-accent disabled:text-disabled-ink disabled:before:bg-disabled-bg';
+export const SHORTCUT = `relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip aria-pressed:font-extrabold aria-pressed:text-on-accent aria-pressed:before:bg-accent focus-visible:before:outline-2 focus-visible:before:outline-offset-2 focus-visible:before:outline-accent disabled:text-disabled-ink disabled:before:bg-disabled-bg ${PRESS}`;
 /** A tick box (the pick list's): the browser's own checkbox, in the accent colour. */
 export const TICK = 'size-6 flex-none cursor-pointer accent-accent';
 /** A card that clips its content to its rounded edge; the focus rings inside it draw inside the controls (layout.css). */

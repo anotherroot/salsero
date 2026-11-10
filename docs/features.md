@@ -7,7 +7,8 @@ Moved out of CLAUDE.md on 2026-11-08. When a feature ships, add it to "What is l
 Live: phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, count-only runs; since 2026-11-08 a run logs
-nothing, Done on the exercise page does), phase 3a (positions, the figure graph, the gap report), phase 3b
+nothing, Done on the exercise page does; since 2026-11-10 the voice and clave allow for
+Bluetooth headphones: Sound delay in Voice), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
@@ -307,3 +308,12 @@ why offline, the local runtime (SvelteKit's `Server` in a worker on SQLite WASM)
 slots, the device's copy (pull: the change log, scope, digests), offline changes (push,
 phase 3), media on the device (phase 4) and the phases. The spike's findings are in
 [`docs/superpowers/specs/2026-11-07-offline-spike-findings.md`](docs/superpowers/specs/2026-11-07-offline-spike-findings.md).
+Motion, round 1, has its own,
+[`docs/superpowers/specs/2026-11-10-motion-round-1-design.md`](docs/superpowers/specs/2026-11-10-motion-round-1-design.md):
+taps dip under the finger (buttons 94 %, rows 98.5 %); lists fold and open (a row leaving
+slides off, the rows under it close the gap, Undo opens it) on Today, a routine's slots,
+links, sections, recordings, Music's To pick, comments, Suggestions and a past day; sheets
+slide away and toasts rise; Done lands on Today (the row lifts into its done place, its
+check pops, the bar fills, the words swap); the player's count pushes on the beat (every count
+alike, the 1 is drawn like the rest), the lit dot grows, and Next rises into the call on a new figure. Nothing waits
+on motion, and reduced motion turns it all off. Page transitions are for a later round.

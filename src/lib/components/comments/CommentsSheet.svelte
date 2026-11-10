@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -186,10 +187,10 @@
 		{#if list.threads.length === 0}
 			<p class="py-6 text-center text-[15px] text-muted">{t().comments.empty}</p>
 		{/if}
-		<ul class="flex flex-col gap-4">
+		<FlipList keys={list.threads.map((thread) => thread.top.id)} class="flex flex-col gap-4">
 			{#each list.threads as thread (thread.top.id)}
 				{@const shown = openThreads.has(thread.top.id)}
-				<li class="flex flex-col gap-1">
+				<li data-flip={thread.top.id} class="flex flex-col gap-1">
 					<CommentItem
 						row={thread.top}
 						{dance}
@@ -210,9 +211,9 @@
 							<Icon name={shown ? 'chevron-up' : 'chevron-down'} size={18} />
 						</button>
 						{#if shown}
-							<ul class="ml-12 flex flex-col gap-3">
+							<FlipList keys={thread.replies.map((r) => r.id)} class="ml-12 flex flex-col gap-3">
 								{#each thread.replies as r (r.id)}
-									<li>
+									<li data-flip={r.id}>
 										<CommentItem
 											row={r}
 											{dance}
@@ -224,12 +225,12 @@
 										/>
 									</li>
 								{/each}
-							</ul>
+							</FlipList>
 						{/if}
 					{/if}
 				</li>
 			{/each}
-		</ul>
+		</FlipList>
 		<p class="pt-5 pb-2 text-center text-[13px] text-muted">
 			{whoSees(list.groupName || groupName)}
 		</p>

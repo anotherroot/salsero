@@ -34,11 +34,11 @@ const bachata = getDance('bachata');
 const EX = { id: 9, name: 'Casino drill' };
 
 describe('what the Practice page derives', () => {
-	it('puts the 1 in a disc, dims a paused count, shows – before the first beat', () => {
-		expect(stageDigit(1, false)).toEqual({ text: '1', disc: true, dim: false });
-		expect(stageDigit(1, true)).toEqual({ text: '1', disc: false, dim: true });
-		expect(stageDigit(6, false)).toEqual({ text: '6', disc: false, dim: false });
-		expect(stageDigit(null, false)).toEqual({ text: '–', disc: false, dim: true });
+	it('draws the 1 like every count, dims a paused count, shows – before the first beat', () => {
+		expect(stageDigit(1, false)).toEqual({ text: '1', dim: false });
+		expect(stageDigit(1, true)).toEqual({ text: '1', dim: true });
+		expect(stageDigit(6, false)).toEqual({ text: '6', dim: false });
+		expect(stageDigit(null, false)).toEqual({ text: '–', dim: true });
 	});
 	it('draws eight dots, the current one big, 4 and 8 quiet', () => {
 		const d = stageDots(1, false);
@@ -517,8 +517,8 @@ describe('the Practice page in Slovenian, more', () => {
 });
 
 describe('the count in a quiet section (count off)', () => {
-	it('shows a dash, never the number or the disc', () => {
-		expect(stageDigit(1, false, true)).toEqual({ text: '–', disc: false, dim: true });
+	it('shows a dash, never the number', () => {
+		expect(stageDigit(1, false, true)).toEqual({ text: '–', dim: true });
 		expect(stageDigit(5, false, true).text).toBe('–');
 	});
 	it('draws the eight dots alike: no beat lit, no 4 and 8 apart', () => {

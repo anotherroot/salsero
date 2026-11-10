@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { withView } from '$lib/teams/group-view';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick } from 'svelte';
@@ -1017,7 +1018,7 @@
 							{sectionHeading(w.page.videos, data.videos.length)}
 						</h2>
 						{#if data.videos.length}
-							<ul class="flex flex-col gap-3">
+							<FlipList keys={data.videos.map((video) => video.id)} class="flex flex-col gap-3">
 								{#each data.videos as video, i (video.id)}
 									{@const videoSections = data.sections[video.id] ?? []}
 									{#snippet videoTrash()}
@@ -1035,7 +1036,7 @@
 													)}><Icon name="trash" size={22} /></button
 											>{/if}
 									{/snippet}
-									<li class="{CLIP} rounded-[22px] bg-surface">
+									<li data-flip={video.id} class="{CLIP} rounded-[22px] bg-surface">
 										{#if broken[video.id] === 'missing'}
 											<VideoProblem
 												title={w.page.missingTitle}
@@ -1093,7 +1094,7 @@
 										/>
 									</li>
 								{/each}
-							</ul>
+							</FlipList>
 						{/if}
 						{#if !data.canEdit}
 							{#if data.videos.length === 0}
@@ -1145,9 +1146,9 @@
 					<section class="flex flex-col gap-2">
 						{@render labelRow(sectionHeading(w.full.figures, data.figures.length), 'figure')}
 						{#if data.figures.length > 0}
-							<ul class={GROUP}>
+							<FlipList keys={data.figures.map((figure) => figure.id)} class={GROUP}>
 								{#each data.figures as figure (figure.id)}
-									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<li data-flip={figure.id} class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 										<a
 											data-focus="figure-{figure.id}"
 											href={resolve('/[dance]/(moves)/figures/[id]', {
@@ -1165,15 +1166,15 @@
 										{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
 									</li>
 								{/each}
-							</ul>
+							</FlipList>
 						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
 						{@render labelRow(sectionHeading(w.full.routines, data.routines.length), 'routine')}
 						{#if data.routines.length > 0}
-							<ul class={GROUP}>
+							<FlipList keys={data.routines.map((routine) => routine.id)} class={GROUP}>
 								{#each data.routines as routine (routine.id)}
-									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<li data-flip={routine.id} class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 										<a
 											data-focus="routine-{routine.id}"
 											href={resolve('/[dance]/(moves)/routines/[id]', {
@@ -1195,15 +1196,18 @@
 										{@render unlinkButton('routine', routine.id, routine.name, [])}
 									</li>
 								{/each}
-							</ul>
+							</FlipList>
 						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
 						{@render labelRow(sectionHeading(w.full.exercises, data.exercises.length), 'exercise')}
 						{#if data.exercises.length > 0}
-							<ul class={GROUP}>
+							<FlipList keys={data.exercises.map((exercise) => exercise.id)} class={GROUP}>
 								{#each data.exercises as exercise (exercise.id)}
-									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<li
+										data-flip={exercise.id}
+										class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4"
+									>
 										<a
 											data-focus="exercise-{exercise.id}"
 											href={withView(
@@ -1237,15 +1241,18 @@
 										)}
 									</li>
 								{/each}
-							</ul>
+							</FlipList>
 						{/if}
 					</section>
 					<section class="flex flex-col gap-2">
 						{@render labelRow(sectionHeading(w.full.positions, data.positions.length), 'position')}
 						{#if data.positions.length > 0}
-							<ul class={GROUP}>
+							<FlipList keys={data.positions.map((position) => position.id)} class={GROUP}>
 								{#each data.positions as position (position.id)}
-									<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<li
+										data-flip={position.id}
+										class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4"
+									>
 										<a
 											data-focus="position-{position.id}"
 											href={resolve('/[dance]/(moves)/positions/[id]', {
@@ -1268,7 +1275,7 @@
 										)}
 									</li>
 								{/each}
-							</ul>
+							</FlipList>
 						{/if}
 					</section>
 					<!-- Music (spec B): the songs to practise to, each with a note. -->

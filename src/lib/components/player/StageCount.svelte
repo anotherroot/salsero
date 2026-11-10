@@ -3,6 +3,7 @@
 	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
 	import { stageDigit, stageDots } from '$lib/player/view';
 	import { t } from '$lib/i18n/catalog';
+	import { beatPulse, stepMs } from '$lib/motion/beat-pulse';
 
 	interface Props {
 		/** Polled every animation frame; null when there is no position yet. */
@@ -17,6 +18,11 @@
 	let { time, beats, counts, paused, quiet = [] }: Props = $props();
 	let off = $state(false);
 	let index = $state(-1);
+	// The count on the beat (motion round 1): each plain step pushes the digit, every count alike.
+	const pulse = beatPulse();
+	let digitEl = $state<HTMLElement>();
+	/** How long a dot takes to grow: 40 % of a beat, 110 ms at most. */
+	let dotMs = $state(110);
 
 	/*
 	 * The same loop as LiveCount: read the playhead every animation frame.
@@ -29,6 +35,10 @@
 			const t = time();
 			index = t === null ? -1 : beatIndexAt(beats, t);
 			off = t !== null && isQuiet(quiet, t);
+			pulse(digitEl, index, index >= 0 ? (counts[index] ?? null) : null, paused, off);
+			const step = stepMs();
+			const ms = Math.round(Math.min(110, 0.4 * (step ?? 333)));
+			if (ms !== dotMs) dotMs = ms;
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);
@@ -55,8 +65,7 @@
 
 <!--
 	Cream only: the band is the background, and accent on it fails contrast.
-	The 1 is what you look for across a room, so it flips to a cream disc
-	with the number in the band's colour.
+	The 1 looks like every other count (the user's call; it was a cream disc).
 -->
 <div
 	class="flex min-h-0 w-full flex-1 flex-col items-center gap-3 desk:flex-none desk:gap-[26px]"
@@ -72,20 +81,22 @@
 			class="stage flex items-center justify-center"
 		>
 			<span
-				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
-					? 'rounded-full bg-band-ink text-band shadow-[0_10px_30px_rgb(0_0_0/0.22)]'
-					: digit.dim
-						? 'text-band-ink/75'
-						: 'text-band-ink'}">{digit.text}</span
+				bind:this={digitEl}
+				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.dim
+					? 'text-band-ink/75'
+					: 'text-band-ink'}">{digit.text}</span
 			>
 		</span>
 	</span>
-	<span class="flex h-4 flex-none items-center gap-2.5 desk:h-[22px] desk:gap-4" aria-hidden="true">
+	<span class="flex h-4 flex-none items-center gap-1 desk:h-[22px] desk:gap-2" aria-hidden="true">
 		{#each dots as d (d.n)}
+			<!-- Every dot is the big size; a small one is scaled down, so the lit one grows (transform only). -->
 			<span
-				class="flex-none rounded-full {d.size === 16
-					? 'size-4 desk:size-[22px]'
-					: 'size-2.5 desk:size-3.5'} {DOT_TONE[d.tone]}"
+				class="size-4 flex-none rounded-full transition-[scale] ease-arrive motion-reduce:transition-none desk:size-[22px] {d.size ===
+				16
+					? ''
+					: 'scale-[.625] desk:scale-[.636]'} {DOT_TONE[d.tone]}"
+				style:transition-duration="{dotMs}ms"
 			></span>
 		{/each}
 	</span>

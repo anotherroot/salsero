@@ -26,6 +26,18 @@ export const player: Catalog['player'] = {
 	about: 'Podrobnosti',
 	next: (name) => `Naslednja: ${name}`,
 	closeLayer: 'Zapri',
+	countDelay: 'Zamik zvoka',
+	ms: 'ms',
+	countEarlier: 'Manjši zamik zvoka',
+	countLater: 'Večji zamik zvoka',
+	countDelayNote: (reportedMs, withSong) =>
+		withSong
+			? reportedMs > 0
+				? `Telefon sporoča, da njegov zvok do vas pride ${reportedMs} ms pozneje, zato glas in clave začneta toliko prej, da padeta na glasbo. Če še vedno zamujata, ga povečajte.`
+				: 'Telefon ne sporoča, da njegov zvok pride pozneje. Z brezžičnimi slušalkami ga povečujte, dokler glas in clave ne padeta na glasbo.'
+			: reportedMs > 0
+				? `Telefon sporoča, da njegov zvok do vas pride ${reportedMs} ms pozneje, zato štetje na zaslonu toliko počaka. Če je štetje na zaslonu še vedno pred glasom, ga povečajte.`
+				: 'Telefon ne sporoča, da njegov zvok pride pozneje. Z brezžičnimi slušalkami ga povečujte, dokler štetje na zaslonu ne pade skupaj z glasom.',
 	timing: (start, next, length) =>
 		`${start} → ${next} · ${slCount(length, ['doba', 'dobi', 'dobe', 'dob'])}`,
 	recording: 'Posnetek',

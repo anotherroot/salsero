@@ -102,7 +102,7 @@
 					const from = e.relatedTarget;
 					if (from instanceof HTMLElement && !card?.contains(from)) returnTo = from;
 				}}
-				class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)] {toast.action
+				class="motion-rise flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)] {toast.action
 					? 'pr-1'
 					: 'pr-4'}"
 			>

@@ -24,7 +24,7 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
 	import { figureRows } from '$lib/picker/build';
-	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { CHIP, GROUP, SECTION_LABEL, button, PRESS_ROW } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
 		figuresHeading,
@@ -243,7 +243,7 @@
 	{@const lit = isOpen('figure', f.id)}
 	{@const tag = tags.get(f.id)}
 	<a
-		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
+		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step {PRESS_ROW}"
 		class:bg-accent-soft={lit}
 		aria-current={lit ? 'page' : undefined}
 		href={resolve('/[dance]/(moves)/figures/[id]', { dance: dance.slug, id: String(f.id) })}

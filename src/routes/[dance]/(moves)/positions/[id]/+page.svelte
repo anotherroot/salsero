@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FlipList from '$lib/components/ui/FlipList.svelte';
 	import { withView } from '$lib/teams/group-view';
 	import { page } from '$app/state';
 	import { tick } from 'svelte';
@@ -476,10 +477,10 @@
 				{/if}
 			</div>
 			{#if data.spots.length > 0}
-				<ul class={GROUP}>
+				<FlipList keys={data.spots.map((s) => s.linkId)} class={GROUP}>
 					{#each data.spots as s (s.linkId)}
 						{#snippet unlinkThis()}{@render unlinkSpotButton(s)}{/snippet}
-						<li>
+						<li data-flip={s.linkId}>
 							{#if s.point}
 								<PointRow
 									spot={s}
@@ -498,7 +499,7 @@
 							{/if}
 						</li>
 					{/each}
-				</ul>
+				</FlipList>
 			{/if}
 			{#if refusal('unlinkSpot')}
 				<FieldError id="unlink-spot-error" message={refusal('unlinkSpot') ?? ''} />

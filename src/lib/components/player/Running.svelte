@@ -34,6 +34,14 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import {
+		DELAY_MAX_MS,
+		DELAY_STEP_MS,
+		correctionFor,
+		saveDelayCorrection,
+		totalDelayMs
+	} from '$lib/player/sound-delay';
 	import { CLIP, button, iconButton } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 	import { RUN_STOP as STOP } from './styles';
@@ -45,6 +53,11 @@
 	import RunRows, { type RunRow, type RunRowKey } from './RunRows.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import StageCount from './StageCount.svelte';
+	import { callMoves } from '$lib/player/beat-motion';
+	import { stepMs } from '$lib/motion/beat-pulse';
+	import { desk } from '$lib/nav/desk.svelte';
+	import { ghost } from '$lib/motion/ghost';
+	import { MS, play, reducedMotion } from '$lib/motion/motion';
 
 	interface Props {
 		player: PlayerHandle;
@@ -149,6 +162,26 @@
 		return () => clearInterval(t);
 	});
 
+	/*
+	 * Sound delay (Voice layer): what the phone reports, read while the layer is
+	 * open (headphones come and go), and the person's own correction on top. The
+	 * Stepper shows the whole delay; the player decides what it moves.
+	 */
+	let delay = $state(untrack(() => player.soundDelay()));
+	const delayTotal = $derived(totalDelayMs(delay.reportedMs, delay.correctionMs));
+	$effect(() => {
+		if (layer !== 'voice') return;
+		delay = player.soundDelay();
+		const t = setInterval(() => (delay = player.soundDelay()), 500);
+		return () => clearInterval(t);
+	});
+	function setDelay(total: number) {
+		const correctionMs = correctionFor(total, delay.reportedMs);
+		player.setDelayCorrection(correctionMs);
+		saveDelayCorrection(correctionMs);
+		delay = { ...delay, correctionMs };
+	}
+
 	// Pitch-corrected playback at slower speeds — a 0.7× salsa without this sounds drunk.
 	$effect(() => {
 		if (!audio) return;
@@ -187,6 +220,76 @@
 	const nextName = $derived(
 		lit !== null && lit + 1 < slots.length ? slots[lit + 1].figureIds.map(nameOf).join(' / ') : null
 	);
+
+	/*
+	 * A new figure on its 1: Next rises and grows into the call, the old call lifts
+	 * away (motion round 1). Only when the call becomes what Next said: a seek or a
+	 * jump back changes them at once. Nothing waits: the words are already new.
+	 */
+	let callEl = $state<HTMLElement>();
+	let nextEl = $state<HTMLElement>();
+	let calls: { now: string | null; next: string | null } = { now: null, next: null };
+	let rise: { dy: number; k: number; ms: number } | null = null;
+	$effect.pre(() => {
+		const now = nowName;
+		untrack(() => {
+			// Not under an open layer (Routine, About, Voice cover the stage on the phone):
+			// its ghost would flash over the layer.
+			if (
+				!callMoves(calls, now) ||
+				!callEl ||
+				!nextEl ||
+				reducedMotion() ||
+				(layer !== null && !desk.current)
+			)
+				return;
+			const c = callEl.getBoundingClientRect();
+			const n = nextEl.getBoundingClientRect();
+			const ms = Math.min(MS.long, 1.4 * (stepMs() ?? 333));
+			rise = {
+				dy: n.top + n.height / 2 - (c.top + c.height / 2),
+				k:
+					parseFloat(getComputedStyle(nextEl).fontSize) /
+					parseFloat(getComputedStyle(callEl).fontSize),
+				ms
+			};
+			play(
+				ghost(callEl, null),
+				[
+					{ opacity: 1, transform: 'none' },
+					{ opacity: 0, transform: 'translateY(-24px)' }
+				],
+				{ duration: ms * 0.7, fill: 'forwards' }
+			);
+		});
+	});
+	$effect(() => {
+		const now = nowName;
+		const next = nextName;
+		untrack(() => {
+			calls = { now, next };
+			const r = rise;
+			rise = null;
+			if (!r || !callEl || !nextEl) return;
+			play(
+				callEl,
+				[
+					{ opacity: 0.7, transform: `translateY(${r.dy}px) scale(${r.k})` },
+					{ opacity: 1, transform: 'none' }
+				],
+				{ duration: r.ms }
+			);
+			play(
+				nextEl,
+				[
+					{ opacity: 0, transform: 'translateY(8px)' },
+					{ opacity: 0, offset: 0.4 },
+					{ opacity: 1, transform: 'none' }
+				],
+				{ duration: r.ms }
+			);
+		});
+	});
 
 	/** About: the exercise's; in a routine, the lit figure's (Follow only). */
 	const about = $derived(
@@ -380,6 +483,7 @@
 			{#if lit !== null}
 				<!-- 32 px, a little less under 390 px wide: a long name stays two whole lines at 360. -->
 				<p
+					bind:this={callEl}
 					aria-live="polite"
 					class="run-call line-clamp-2 min-h-[2.2em] flex-none text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink desk:text-[44px] desk:leading-[1.15]"
 				>
@@ -387,6 +491,7 @@
 				</p>
 				<!-- Always there, empty on the last slot: the count keeps its size. -->
 				<p
+					bind:this={nextEl}
 					class="run-next line-clamp-1 min-h-[1.4em] flex-none text-center text-[15px] font-semibold text-band-small desk:text-[18px]"
 				>
 					{nextName ? w.next(nextName) : ''}
@@ -494,7 +599,23 @@
 							}}
 						/>
 					</div>
+					<div class="border-t border-hairline px-4 py-2.5">
+						<Stepper
+							value={delayTotal}
+							min={0}
+							max={DELAY_MAX_MS}
+							step={DELAY_STEP_MS}
+							label={w.countDelay}
+							unit={w.ms}
+							minusLabel={w.countEarlier}
+							plusLabel={w.countLater}
+							onchange={setDelay}
+						/>
+					</div>
 				</div>
+				<p class="px-1 text-[13px] text-muted">
+					{w.countDelayNote(delay.reportedMs, delay.withSong)}
+				</p>
 			</div>
 		</RunLayer>
 	{:else if layer === 'about' && shown}
@@ -612,7 +733,7 @@
 		</RunLayer>
 	{/if}
 
-	<BottomBar fade class="run-bar">
+	<BottomBar class="run-bar">
 		<div class="flex gap-2.5">
 			<button type="button" class={STOP} onclick={onstop}>
 				<Icon name="stop" size={22} filled />{t().exercise.panel.stop}

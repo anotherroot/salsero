@@ -9,7 +9,14 @@
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import LevelCards from '$lib/components/levels/LevelCards.svelte';
-	import { GROUP, ROW, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import {
+		GROUP,
+		ROW,
+		ROW_TALL,
+		SECTION_LABEL,
+		button,
+		PRESS_ROW
+	} from '$lib/components/ui/styles';
 	import { clockLabel } from '$lib/clock';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { THEME_CHOICES, showChoice, themeLabel, type ThemeChoice } from '$lib/theme/scheme';
@@ -135,7 +142,7 @@
 			/>
 		</div>
 		{#if !few}
-			<a href={myCountHref(from)} class={ROW_TALL}>
+			<a href={myCountHref(from)} class="{ROW_TALL} {PRESS_ROW}">
 				<LeadTile icon="mic" />
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold text-ink">{t().shell.lists.myCount}</span>
