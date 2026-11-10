@@ -28,6 +28,7 @@
 		whichTitle
 	} from '$lib/clones/view';
 	import type { CopyOffer, CopyPlanView, CopyTarget } from '$lib/types';
+	import { t } from '$lib/i18n/catalog';
 	import SyncSheet from './SyncSheet.svelte';
 	import { syncMenu } from '$lib/clones/step-view';
 
@@ -168,6 +169,13 @@
 >
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
+		{#if offer.stayBehind}
+			<!-- Phone-only videos (offline phase 4c) have no file to copy: they stay behind. -->
+			<p class="flex items-start gap-2 px-1 text-[13px] font-medium text-muted" data-stay-behind>
+				<span class="mt-px flex flex-none"><Icon name="phone" size={16} /></span>
+				<span>{t().video.place.copyLeaves(offer.stayBehind.count, offer.stayBehind.label)}</span>
+			</p>
+		{/if}
 		<fieldset class="flex flex-col gap-1.5">
 			<legend class="sr-only">{copyTitle(offer.title)}</legend>
 			<div class={GROUP}>

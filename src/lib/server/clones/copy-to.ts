@@ -67,6 +67,7 @@ import { logRoot } from './apply';
 import { makeMine, rowOf } from './edit';
 import type { CloneFiles } from './files';
 import { staysBehind } from '../elsewhere';
+import { deviceLabelFor, leftBehind } from './phone-only';
 import { teamReader } from '../access';
 
 const DENIED = { ok: false, reason: 'denied' } as const;
@@ -533,7 +534,10 @@ export function copyOffer(db: Db, userId: string, kind: CloneKind, id: number): 
 	const targets = copyTargets(db, userId, kind, id);
 	const row = rowOf(db, kind, id);
 	if (targets.length === 0 || !row) return null;
-	return { kind, title: row.title, fromMine: row.teamId === null, targets };
+	const behind = leftBehind(db, kind, id);
+	const stayBehind =
+		behind.count > 0 ? { count: behind.count, label: deviceLabelFor(db, behind.slot) } : null;
+	return { kind, title: row.title, fromMine: row.teamId === null, targets, stayBehind };
 }
 
 /**

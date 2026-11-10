@@ -1,4 +1,5 @@
 /** Row shapes that cross from server to page. Client-safe: no server imports. */
+import type { DeviceLabel } from '$lib/devices/label';
 import type {
 	CountPattern,
 	Partner,
@@ -996,6 +997,8 @@ export type CopyOffer = {
 	/** The page's row is the person's own. */
 	fromMine: boolean;
 	targets: CopyTarget[];
+	/** Its phone-only videos, which a copy leaves behind (offline phase 4c); null: none. */
+	stayBehind?: { count: number; label: DeviceLabel | null } | null;
 };
 
 /** One version a twins question offers: "Rueda club’s", "Last changed 2 Nov". */

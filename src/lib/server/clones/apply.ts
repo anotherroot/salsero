@@ -797,7 +797,8 @@ class Applier {
 			isRec ? { recordingId: id } : { lessonVideoId: id };
 
 		if (parts.part === 'piece') {
-			if (theirs && !mine) this.addPiece(isRec, theirs);
+			// A phone-only piece (offline phase 4c) has no file to bring: it stays behind.
+			if (theirs && !mine && theirs.serverCopy) this.addPiece(isRec, theirs);
 			else if (mine && !theirs) this.removePiece(isRec, mine.id);
 			return;
 		}
@@ -982,7 +983,7 @@ export function filesFor(
 				.from(recordings)
 				.where(and(eq(recordings.figureId, giverId), byRef(recordings, ref)))
 				.get();
-			if (r)
+			if (r?.serverCopy)
 				out.push({
 					key: fileKey('recording', r.file),
 					kind: 'recording',
@@ -995,7 +996,7 @@ export function filesFor(
 				.from(lessonVideos)
 				.where(and(eq(lessonVideos.lessonId, giverId), byRef(lessonVideos, ref)))
 				.get();
-			if (v)
+			if (v?.serverCopy)
 				out.push({
 					key: fileKey('lesson-video', v.file),
 					kind: 'lesson-video',

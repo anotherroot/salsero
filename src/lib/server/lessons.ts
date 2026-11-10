@@ -98,6 +98,9 @@ export interface LessonVideoInput {
 	file: string;
 	mime: string;
 	sizeBytes: number;
+	/** Offline phase 4c: false for a phone-only video (`phone-videos.ts`). */
+	serverCopy?: boolean;
+	originBytes?: number | null;
 }
 
 /**

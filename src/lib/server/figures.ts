@@ -899,6 +899,9 @@ export interface RecordingInput {
 	kind: 'video' | 'audio';
 	sizeBytes: number;
 	note: string | null;
+	/** Offline phase 4c: false for a phone-only video (`phone-videos.ts`). */
+	serverCopy?: boolean;
+	originBytes?: number | null;
 }
 
 /** A variation's new recording; in a group, History says who added it (`by`). */
