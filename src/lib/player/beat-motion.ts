@@ -26,6 +26,25 @@ export function stepMotion(
 	return 'push';
 }
 
+/**
+ * A lead's beat (`$lib/songs/count-in` `leadLook`): it moves on a plain step
+ * forward like a count, as hard as `strength` says, and not at 0.
+ */
+export function leadMotion(
+	prev: number,
+	index: number,
+	paused: boolean,
+	strength: number
+): StepMotion {
+	if (index !== prev + 1 || paused || !(strength > 0)) return 'none';
+	return 'push';
+}
+
+/** How big a push starts: a count's, times `strength`. */
+export function pushScale(strength = 1): number {
+	return 1 + (PUSH - 1) * strength;
+}
+
 /** A push lasts 85 % of a step (the last one seen, or 180 BPM's), so it is gone before the next. */
 export function beatLife(stepMs: number | null): number {
 	const step = Math.min(1000, Math.max(150, stepMs ?? 333));

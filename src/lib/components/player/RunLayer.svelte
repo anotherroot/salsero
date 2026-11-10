@@ -3,7 +3,7 @@
 	import { onMount, tick, type Snippet } from 'svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
-	import { countInAt, type Lead } from '$lib/songs/count-in';
+	import { countInAt, leadLook, type Lead } from '$lib/songs/count-in';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { clock } from '$lib/format';
 	import { stageDigit } from '$lib/player/view';
@@ -96,6 +96,7 @@
 	let off = $state(false);
 	let time = $state(0);
 	let ghost = $state(false);
+	let scale = $state(1);
 	$effect(() => {
 		const p = player;
 		if (!p) return;
@@ -104,10 +105,12 @@
 			time = p.songTime();
 			const c = countInAt(leads, time);
 			ghost = c?.n != null;
-			const i = ghost && c ? c.index : beatIndexAt(beats, time);
+			const look = leadLook(c);
+			scale = look?.scale ?? 1;
+			const i = c ? c.index : beatIndexAt(beats, time);
 			off = !ghost && isQuiet(quiet, time);
 			count = c?.n ?? (i >= 0 ? (counts[i] ?? null) : null);
-			pulse(stripDigit, i, count, paused, off);
+			pulse(stripDigit, i, count, paused, off, look?.push);
 			frame = requestAnimationFrame(loop);
 		};
 		frame = requestAnimationFrame(loop);
@@ -135,8 +138,9 @@
 		{#if player}
 			<span
 				bind:this={stripDigit}
-				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums desk:hidden {ghost
-					? 'scale-[.78] text-band-ink/40'
+				style:scale={scale === 1 ? undefined : scale}
+				class="w-9 flex-none text-center font-display text-[42px] leading-none font-extrabold tabular-nums transition-[scale] duration-200 ease-arrive motion-reduce:transition-none desk:hidden {ghost
+					? 'text-band-ink/40'
 					: ''}"
 				aria-hidden="true">{stageDigit(count, paused, off, ghost).text}</span
 			>

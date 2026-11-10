@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-	import { countInAt, type Lead } from '$lib/songs/count-in';
+	import { countInAt, leadLook, type Lead } from '$lib/songs/count-in';
 
 	interface Props {
 		/** Polled every animation frame; null when there is no position yet. */
@@ -11,7 +11,7 @@
 		off?: boolean;
 		/** Beats left in a count-off section or a lead. */
 		left?: number;
-		/** The song's leads: their 5 6 7 8, faint, on the coming tempo. */
+		/** The song's leads: the dash shrinks, then 5 6 7 8 grow, faint, on the coming tempo. */
 		leads?: Lead[];
 	}
 
@@ -19,6 +19,8 @@
 	let index = $state(-1);
 	/** The count-in's count (5–8) on now, or null. */
 	let ghost = $state<number | null>(null);
+	/** The lead's size (`leadLook`); 1 outside a lead. */
+	let scale = $state(1);
 
 	/*
 	 * Read the playhead every animation frame. `timeupdate` fires only ~4 times
@@ -29,7 +31,9 @@
 		const tick = () => {
 			const t = time();
 			index = t === null ? -1 : beatIndexAt(beats, t);
-			ghost = t === null ? null : (countInAt(leads, t)?.n ?? null);
+			const c = t === null ? null : countInAt(leads, t);
+			ghost = c?.n ?? null;
+			scale = leadLook(c)?.scale ?? 1;
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);
@@ -41,9 +45,10 @@
 
 <div class="flex flex-col items-center gap-3 pt-1.5 pb-1 text-center" aria-live="off">
 	<div
-		class="font-display text-[88px] leading-none font-extrabold tracking-[-0.02em] tabular-nums {ghost !==
+		style:scale={scale === 1 ? undefined : scale}
+		class="font-display text-[88px] leading-none font-extrabold tracking-[-0.02em] tabular-nums transition-[scale] duration-200 ease-arrive motion-reduce:transition-none {ghost !==
 		null
-			? 'scale-[.78] text-ink-2/40'
+			? 'text-ink-2/40'
 			: count === null
 				? 'text-muted'
 				: count === 1

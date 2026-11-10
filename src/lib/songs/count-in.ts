@@ -118,3 +118,25 @@ export function countInCuesIn(cues: readonly CountInCue[], from: number, to: num
 export function leadRanges(leads: readonly Lead[]): QuietRange[] {
 	return leads.map((l) => ({ from: l.from, to: l.one }));
 }
+
+/** The count-in's sizes: each count larger than the last, the 1 full (the user's pick, B2). */
+export const COUNT_IN_SCALE: Record<number, number> = { 5: 0.5, 6: 0.62, 7: 0.74, 8: 0.86 };
+
+/** How many beats before the 5 the dash starts to push and shrink. */
+export const DASH_BEATS = 8;
+
+/**
+ * How a lead's digit looks on its beat: `scale`, its size; `push`, how hard it
+ * pushes, as a share of a count's push (0: still). The dash pushes harder and
+ * shrinks a step on each of the last eight beats before the 5, down to near
+ * the 5's size, getting it ready; then 5 6 7 8 grow, each pushing a little
+ * harder than a count. Null outside a lead: a count's own look.
+ */
+export function leadLook(c: CountIn | null): { scale: number; push: number } | null {
+	if (!c) return null;
+	if (c.n !== null) return { scale: COUNT_IN_SCALE[c.n], push: 1.3 };
+	const step = COUNT_IN.length + DASH_BEATS + 1 - c.beatsLeft;
+	if (step < 1) return { scale: 1, push: 0 };
+	const p = step / DASH_BEATS;
+	return { scale: 1 - 0.45 * p, push: 1.2 * p };
+}

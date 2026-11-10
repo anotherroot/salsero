@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { countInAt, countInCues, countInCuesIn, leadAhead, leadsOf } from './count-in';
+import { countInAt, countInCues, countInCuesIn, leadAhead, leadLook, leadsOf } from './count-in';
 import { aheadLine, placeSections, type Section } from './sections';
 import { isQuiet, quietRanges } from '$lib/scheduler/quiet';
 
@@ -81,5 +81,33 @@ describe('the count-in before a song’s main beat', () => {
 		expect(ranges).toEqual([{ from: 0, to: 6 }]);
 		expect(isQuiet(ranges, 5.9)).toBe(true);
 		expect(isQuiet(ranges, 6)).toBe(false);
+	});
+});
+
+describe('how the lead’s digit looks (B2)', () => {
+	const ls = leads([verse]);
+	const look = (t: number) => leadLook(countInAt(ls, t));
+
+	it('is still at full size before the last eight beats before the 5', () => {
+		expect(look(-0.25)).toBeNull();
+		// This lead is 12 beats long: 13 left is a longer one's.
+		const early = { ...countInAt(ls, 0)!, beatsLeft: 13 };
+		expect(leadLook(early)).toEqual({ scale: 1, push: 0 });
+	});
+
+	it('shrinks and pushes harder on each of the dash’s last eight beats', () => {
+		const dash = [12, 11, 10, 9, 8, 7, 6, 5].map((left) => look(6 - left * 0.5 + 0.01)!);
+		dash.slice(1).forEach((d, i) => {
+			expect(d.scale).toBeLessThan(dash[i].scale);
+			expect(d.push).toBeGreaterThan(dash[i].push);
+		});
+		expect(dash[0].scale).toBeCloseTo(1 - 0.45 / 8);
+		expect(dash[7]).toEqual({ scale: 0.55, push: 1.2 });
+	});
+
+	it('grows 5 6 7 8, each larger than the last, short of the full 1', () => {
+		const sizes = [4, 3, 2, 1].map((left) => look(6 - left * 0.5 + 0.01)!.scale);
+		expect(sizes).toEqual([0.5, 0.62, 0.74, 0.86]);
+		expect(leadLook(null)).toBeNull();
 	});
 });

@@ -415,7 +415,10 @@ load, quietly behind a grep.)
   them: it is quiet, with a dash, and "Verse in 2 eights" counts down in the
   tempo of the coming section's first eight. Its last four beats are 5 6 7 8
   on that tempo, faint and smaller ("not there yet"), spoken by the voice
-  unless the count is off; the 1 lands full. The player and the song page
+  unless the count is off; the 1 lands full. On the last eight beats before
+  the 5 the dash pushes on the coming tempo, harder each beat, and shrinks a
+  step each time to near the 5's size; then 5 6 7 8 grow, each larger than
+  the last (half to most of full size), each with a push (the user's pick, B2). The player and the song page
   both (`$lib/songs/count-in`). A song whose first section sits mid-song is
   quiet up to it: put a section at the start to keep it counted.
 - **The grid:** a row is quiet (folded before the music) when it ends at or

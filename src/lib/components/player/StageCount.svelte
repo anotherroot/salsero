@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
-	import { countInAt, type Lead } from '$lib/songs/count-in';
+	import { countInAt, leadLook, type Lead } from '$lib/songs/count-in';
 	import { stageDigit, stageDots } from '$lib/player/view';
 	import { t } from '$lib/i18n/catalog';
 	import { beatPulse, stepMs } from '$lib/motion/beat-pulse';
@@ -14,7 +14,7 @@
 		paused: boolean;
 		/** A song's count-off sections (`quietRanges`): a dash and eight alike dots there. */
 		quiet?: QuietRange[];
-		/** A song's leads (`leadsOf`): 5 6 7 8 there, faint, on the coming tempo. */
+		/** A song's leads (`leadsOf`): the dash shrinks, then 5 6 7 8 grow, faint, on the coming tempo. */
 		leads?: Lead[];
 	}
 
@@ -23,6 +23,8 @@
 	let index = $state(-1);
 	/** The count-in's count (5–8) on now, or null. */
 	let ghost = $state<number | null>(null);
+	/** The lead's size (`leadLook`): the dash shrinking, 5 6 7 8 growing; 1 outside a lead. */
+	let scale = $state(1);
 	// The count on the beat (motion round 1): each plain step pushes the digit, every count alike.
 	const pulse = beatPulse();
 	let digitEl = $state<HTMLElement>();
@@ -40,10 +42,13 @@
 			const t = time();
 			const c = t === null ? null : countInAt(leads, t);
 			ghost = c?.n ?? null;
-			// A count-in beat's index counts back from the 1, so the 1 pushes as the next beat.
-			index = ghost !== null && c ? c.index : t === null ? -1 : beatIndexAt(beats, t);
+			const look = leadLook(c);
+			scale = look?.scale ?? 1;
+			// A lead's beats count back from the 1 on the coming tempo, so the 1 pushes as the next beat.
+			index = c ? c.index : t === null ? -1 : beatIndexAt(beats, t);
 			off = ghost === null && t !== null && isQuiet(quiet, t);
-			pulse(digitEl, index, ghost ?? (index >= 0 ? (counts[index] ?? null) : null), paused, off);
+			const shown = ghost ?? (index >= 0 ? (counts[index] ?? null) : null);
+			pulse(digitEl, index, shown, paused, off, look?.push);
 			const step = stepMs();
 			const ms = Math.round(Math.min(110, 0.4 * (step ?? 333)));
 			if (ms !== dotMs) dotMs = ms;
@@ -90,8 +95,9 @@
 		>
 			<span
 				bind:this={digitEl}
-				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums transition-[scale] duration-150 ease-arrive motion-reduce:transition-none {digit.ghost
-					? 'scale-[.78] text-band-ink/40'
+				style:scale={scale === 1 ? undefined : scale}
+				class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums transition-[scale] duration-200 ease-arrive motion-reduce:transition-none {digit.ghost
+					? 'text-band-ink/40'
 					: digit.dim
 						? 'text-band-ink/75'
 						: 'text-band-ink'}">{digit.text}</span
