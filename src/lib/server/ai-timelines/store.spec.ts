@@ -91,6 +91,24 @@ describe('timelineSource', () => {
 	});
 });
 
+describe('timelineSource: a phone-only video (offline phase 4c)', () => {
+	it('has no file here: null, a queued timeline is not cut', () => {
+		const { db, w } = setup();
+		const lv = askTimeline(db, { lessonVideoId: w.own.u1.video }, T);
+		db.update(lessonVideos)
+			.set({ serverCopy: false })
+			.where(eq(lessonVideos.id, w.own.u1.video))
+			.run();
+		expect(timelineSource(db, lv.id)).toBeNull();
+		const rec = askTimeline(db, { recordingId: w.own.u1.recording }, T);
+		db.update(recordings)
+			.set({ serverCopy: false })
+			.where(eq(recordings.id, w.own.u1.recording))
+			.run();
+		expect(timelineSource(db, rec.id)).toBeNull();
+	});
+});
+
 describe('the sweep', () => {
 	it('drops timelines unused for 30 days and those whose video is gone', () => {
 		const { db, w } = setup();

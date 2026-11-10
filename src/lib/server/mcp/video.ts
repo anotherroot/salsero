@@ -7,6 +7,7 @@
  * queued on the first look; the home worker prepares it.
  */
 import type { ToolDef, ToolResult } from '$lib/mcp/protocol';
+import { deviceLabelFor } from '../clones/phone-only';
 import type { SpotOwner } from '$lib/types';
 import { refuse, unknownKey, wholeNumber, type Parsed } from './args';
 import type { Impl, ToolModule } from './modules';
@@ -37,6 +38,8 @@ const ok = (data: unknown, extra: Partial<ToolResult> = {}): ToolResult => ({
 	...extra
 });
 const no = (text: string): ToolResult => ({ isError: true, text });
+/** A phone-only video (offline phase 4c): no file on the server to read. */
+const onDevice = (row: Row): boolean => row.server_copy === 0 || row.server_copy === false;
 
 /** A video row the person may read; a recording only when it has a picture. */
 function videoRow(v: View, video: SpotOwner): Row | undefined {
@@ -222,6 +225,7 @@ const videosImpl: Impl = async (args, ctx) => {
 			return {
 				[column]: row.id,
 				title: titleOf(v, video, row),
+				...(onDevice(row) ? { on_device: true } : {}),
 				owner: ownerOf(v, video, row),
 				sections: v.where('video_spots', column, row.id).filter((s) => s.end_ms !== null).length,
 				timeline: stateOf(t),
@@ -240,6 +244,14 @@ const timelineImpl: Impl = async (args, ctx) => {
 	const v = viewOf(ctx.db, ctx.userId);
 	const row = videoRow(v, video);
 	if (!row) return no(MISSING);
+	// Offline phase 4c: a phone-only video has no file here; nothing is queued.
+	if (onDevice(row))
+		return ok({
+			status: 'on a device',
+			device: deviceLabelFor(ctx.db, row.origin_slot === null ? null : Number(row.origin_slot)),
+			message:
+				'This video is only on one of the person’s devices and cannot be read until it is uploaded there. Tell the person.'
+		});
 
 	const t = askTimeline(ctx.db, video, ctx.now);
 	if (t.status === 'failed')

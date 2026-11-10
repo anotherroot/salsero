@@ -6,7 +6,7 @@
  * A group's videos always upload, so only a person's own figure or lesson
  * takes one.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { deviceSlots, figures, lessons, lessonVideos, recordings } from './db/schema';
 import { slotOf } from './db/ids';
@@ -122,4 +122,101 @@ export function addPhoneLessonVideo(
 /** A refusal's words, for the endpoints' 400. */
 export function phoneRefusal(why: PhoneRefusal): string {
 	return why === 'notVideo' ? t().figure.refused.onlyMedia : t().video.place.refusal[why];
+}
+
+export type VideoTable = 'recordings' | 'lesson_videos';
+const tableOf = (t: VideoTable) => (t === 'recordings' ? recordings : lessonVideos);
+
+/**
+ * Upload's last step: the row now has a server copy of `bytes` (the smaller
+ * copy that counts against storage); the original's size stays in `originBytes`.
+ */
+export function attachServerCopy(db: Db, table: VideoTable, id: number, bytes: number) {
+	const tb = tableOf(table);
+	const row = db.select().from(tb).where(eq(tb.id, id)).get();
+	if (!row) return null;
+	return db
+		.update(tb)
+		.set({ serverCopy: true, sizeBytes: bytes, originBytes: row.originBytes ?? row.sizeBytes })
+		.where(eq(tb.id, id))
+		.returning()
+		.get();
+}
+
+/** Remove the server copy, asked by a device that does not hold the original. */
+export class NotHolderError extends Error {
+	constructor() {
+		super('not the holder');
+	}
+}
+
+/**
+ * Remove the server copy: the row is phone-only again, its size the
+ * original's. Only the device holding the original may (`slot`). The caller
+ * unlinks the file after this write.
+ */
+export function removeServerCopy(db: Db, table: VideoTable, id: number, slot: number) {
+	const tb = tableOf(table);
+	const row = db.select().from(tb).where(eq(tb.id, id)).get();
+	if (!row) return null;
+	if (row.originSlot !== slot) throw new NotHolderError();
+	return db
+		.update(tb)
+		.set({ serverCopy: false, sizeBytes: row.originBytes ?? row.sizeBytes })
+		.where(eq(tb.id, id))
+		.returning()
+		.get();
+}
+
+/**
+ * Remove server copy as an endpoint answers it (offline phase 4c): the
+ * person's own video, from the device holding the original (`slot`, one of
+ * this person's). The file is unlinked by the caller after the write.
+ */
+export function removeServerCopyFor(
+	db: Db,
+	userId: string,
+	table: VideoTable,
+	id: number,
+	body: unknown
+):
+	| { ok: true; row: NonNullable<ReturnType<typeof removeServerCopy>>; file: string }
+	| { ok: false; status: 400 | 403 | 404 | 409; message: string } {
+	const w = t().video.place.refusal;
+	const tb = tableOf(table);
+	const row = db.select().from(tb).where(eq(tb.id, id)).get();
+	const parent =
+		row &&
+		(table === 'recordings'
+			? db
+					.select()
+					.from(figures)
+					.where(eq(figures.id, (row as { figureId: number }).figureId))
+					.get()
+			: db
+					.select()
+					.from(lessons)
+					.where(eq(lessons.id, (row as { lessonId: number }).lessonId))
+					.get());
+	if (!row || !parent || parent.userId !== userId || parent.teamId !== null)
+		return { ok: false, status: 404, message: t().video.refusal.noVideo };
+	if (!row.serverCopy) return { ok: false, status: 409, message: w.noServerCopy };
+	const slot = (body as { slot?: unknown } | null)?.slot;
+	const mine =
+		typeof slot === 'number' &&
+		db
+			.select({ slot: deviceSlots.slot })
+			.from(deviceSlots)
+			.where(and(eq(deviceSlots.slot, slot), eq(deviceSlots.userId, userId)))
+			.get();
+	if (!mine || typeof slot !== 'number') return { ok: false, status: 400, message: w.badSlot };
+	try {
+		const done = removeServerCopy(db, table, id, slot);
+		return done
+			? { ok: true, row: done, file: row.file }
+			: { ok: false, status: 404, message: t().video.refusal.noVideo };
+	} catch (e) {
+		if (e instanceof NotHolderError) return { ok: false, status: 403, message: w.notHolder };
+		throw e;
+	}
 }

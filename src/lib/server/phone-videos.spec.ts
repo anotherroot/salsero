@@ -8,7 +8,14 @@ import { createTeam } from './teams';
 import { usedBytes } from './storage';
 import { T1_SALSA, U1_SALSA } from './test-walls';
 import type { Space } from './scope';
-import { addPhoneLessonVideo, addPhoneRecording, readPhoneVideo } from './phone-videos';
+import {
+	addPhoneLessonVideo,
+	addPhoneRecording,
+	attachServerCopy,
+	NotHolderError,
+	readPhoneVideo,
+	removeServerCopy
+} from './phone-videos';
 
 const FILE = '0a1b2c3d-0000-4000-8000-000000000001.mp4';
 let db: Db;
@@ -130,5 +137,41 @@ describe('a phone-only video on the person’s own lesson', () => {
 				note: null
 			})
 		).toBeNull();
+	});
+});
+
+describe('the server copy: attached by Upload, removed by its holder', () => {
+	function phoneRec() {
+		const rec = addPhoneRecording(db, 'u1', figure(), {
+			file: FILE,
+			mime: 'video/mp4',
+			sizeBytes: 500,
+			kind: 'video',
+			note: null,
+			slot: 3
+		})!;
+		return rec.id;
+	}
+
+	it('attach: the server copy’s size counts, the original’s is kept', () => {
+		const id = phoneRec();
+		const row = attachServerCopy(db, 'recordings', id, 80);
+		expect(row).toMatchObject({ serverCopy: true, sizeBytes: 80, originBytes: 500 });
+		expect(usedBytes(db, 'u1')).toBe(80);
+	});
+
+	it('remove, from the holder: phone-only again, its original’s size back', () => {
+		const id = phoneRec();
+		attachServerCopy(db, 'recordings', id, 80);
+		const row = removeServerCopy(db, 'recordings', id, 3);
+		expect(row).toMatchObject({ serverCopy: false, sizeBytes: 500 });
+		expect(usedBytes(db, 'u1')).toBe(0);
+	});
+
+	it('remove, from another device: refused, nothing changes', () => {
+		const id = phoneRec();
+		attachServerCopy(db, 'recordings', id, 80);
+		expect(() => removeServerCopy(db, 'recordings', id, 4)).toThrow(NotHolderError);
+		expect(usedBytes(db, 'u1')).toBe(80);
 	});
 });
