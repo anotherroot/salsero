@@ -26,6 +26,7 @@ function status(over: Partial<KeepStatus> = {}): KeepStatus {
 		spaces: [row()],
 		kept: [],
 		bySpace: { 'lesson-videos/s.mp4': 'team:7', 'lesson-videos/held.mp4': 'team:7' },
+		partial: {},
 		held: ['lesson-videos/held.mp4', 'lesson-videos/mine.mp4'],
 		inFlight: null,
 		waiting: null,
@@ -103,7 +104,7 @@ describe("spaceLine: a space's line on the On this phone page", () => {
 		expect(spaceLine(row(), status({ waiting: 'wifi' }))).toEqual({
 			mark: { text: 'waiting for Wi-Fi', tone: 'warn' },
 			text: '4 of 12 on this phone',
-			bar: null
+			bar: 63 / 151
 		});
 	});
 });
@@ -169,5 +170,22 @@ describe("keepWord: the words after a video's size", () => {
 		});
 		expect(keepWord({ state: 'waiting', why: 'space' })?.text).toBe('no space');
 		expect(keepWord({ state: 'waiting', why: 'offline' })?.text).toBe('waiting for a connection');
+	});
+});
+
+describe('spaceLine keeps what a cut-off download already has (phone, 2026-11-10)', () => {
+	it('waiting: the bar stays where it was, the part counted', () => {
+		const s = status({ waiting: 'wifi', partial: { 'lesson-videos/s.mp4': 12 * MB } });
+		const line = spaceLine(row(), s);
+		expect(line.mark).toEqual({ text: 'waiting for Wi-Fi', tone: 'warn' });
+		expect(line.bar).toBeCloseTo(75 / 151);
+	});
+
+	it('coming again from the part: counted once, not twice', () => {
+		const s = status({
+			partial: { 'lesson-videos/s.mp4': 12 * MB },
+			inFlight: { key: 'lesson-videos/s.mp4', received: 20 * MB, total: 30 * MB }
+		});
+		expect(spaceLine(row(), s).bar).toBeCloseTo(83 / 151);
 	});
 });

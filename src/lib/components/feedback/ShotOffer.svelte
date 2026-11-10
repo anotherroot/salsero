@@ -4,7 +4,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { OFFER_MS } from '$lib/feedback/shot';
+	import { afterNavigate } from '$app/navigation';
 	import { listenForShots, offer } from '$lib/feedback/offer.svelte';
 	import { MS, reducedMotion } from '$lib/motion/motion';
 	import FeedbackSheet from './FeedbackSheet.svelte';
@@ -12,8 +12,8 @@
 
 	/**
 	 * After a screenshot in the Android app: "Something wrong here?" over the
-	 * bottom bars (option C of the report-a-problem board) for `OFFER_MS`, then
-	 * gone. Report opens Send feedback over this page with the screenshot on it.
+	 * bottom bars (option C of the report-a-problem board) until × is tapped, another
+	 * page opens or the app goes to the background. Report opens Send feedback over this page with the screenshot on it.
 	 * In a browser the app never offers one, and nothing shows.
 	 */
 	const w = $derived(t().feedback);
@@ -22,14 +22,24 @@
 
 	$effect(() => listenForShots());
 
-	// Each new screenshot shows the card again, for its own time; one from before
+	// Each new screenshot shows the card again; one from before
 	// this card was drawn (the layout drew it anew) never comes back.
 	const seen = untrack(() => offer.seq);
 	$effect(() => {
 		if (offer.seq <= seen || offer.shot === null) return;
 		shown = offer.shot;
-		const timer = setTimeout(() => (shown = null), OFFER_MS);
-		return () => clearTimeout(timer);
+	});
+
+	// Another page, or the app closed or put away: the card goes.
+	afterNavigate((nav) => {
+		if (nav.from?.url.pathname !== nav.to?.url.pathname) shown = null;
+	});
+	$effect(() => {
+		const away = () => {
+			if (document.visibilityState === 'hidden') shown = null;
+		};
+		document.addEventListener('visibilitychange', away);
+		return () => document.removeEventListener('visibilitychange', away);
 	});
 
 	function report() {
