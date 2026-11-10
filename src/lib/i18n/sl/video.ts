@@ -195,6 +195,8 @@ export const video: Catalog['video'] = {
 		iphoneWhy: 'Zakaj je to pomembno',
 		close: 'Zapri',
 		saved: 'Shranjeno na tem telefonu',
+		noSpace: 'Na telefonu ni dovolj prostora za ta video.',
+		notSaved: 'Videa ni bilo mogoče shraniti na telefon.',
 		deleteOnly:
 			'Video je samo na tem telefonu. V aplikaciji ga ne bo več, tudi njegovih odsekov ne.',
 		deleteOnlyIphone:

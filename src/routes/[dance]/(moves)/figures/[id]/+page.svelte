@@ -23,6 +23,8 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
+	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
+	import { currentAddMode } from '$lib/offline/add-mode.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import { spotLabel } from '$lib/video/spots';
@@ -107,6 +109,8 @@
 	/** Recordings' `+ Add`: the sheet, and the page's own upload it starts (`UploadButton` with `bare`). */
 	let adding = $state(false);
 	let chooseVideo = $state<(() => void) | undefined>();
+	/** What adding a video does here (offline phase 4c): on a phone, the person's own stays there. */
+	const addVideo = $derived(currentAddMode(!!data.app, !data.team));
 	/** Recordings whose file is missing or will not play here, as their rows found: never the top video. */
 	let broken = $state<number[]>([]);
 
@@ -708,15 +712,24 @@
 			     only its progress card and a failure. -->
 			{#if data.canEdit && !data.app}
 				{#key variation.id}
-					<UploadButton
-						bare
-						bind:chooser={chooseVideo}
-						url="/api/figures/{variation.id}/recordings"
-						accept="video/*"
-						label={t().figure.recordings.addVideo}
-						noun={t().shell.upload.nouns.recording}
-						bind:busy={uploading}
-					/>
+					{#if addVideo === 'phone'}
+						<!-- Offline phase 4c: on a phone, the person's own video stays there. -->
+						<PhoneAddButton
+							bare
+							bind:chooser={chooseVideo}
+							target={{ figureId: variation.id }}
+							label={t().figure.recordings.addVideo}
+						/>
+					{:else}<UploadButton
+							bare
+							chunked
+							bind:chooser={chooseVideo}
+							url="/api/figures/{variation.id}/recordings"
+							accept="video/*"
+							label={t().figure.recordings.addVideo}
+							noun={t().shell.upload.nouns.recording}
+							bind:busy={uploading}
+						/>{/if}
 				{/key}
 			{/if}
 			{#if !empty}

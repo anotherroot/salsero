@@ -32,6 +32,8 @@
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
+	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
+	import { currentAddMode } from '$lib/offline/add-mode.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
@@ -1110,6 +1112,13 @@
 											{ back: page.url.pathname, name: lesson.title }
 										)}
 										label={w.page.addVideos}
+									/>
+								{:else if currentAddMode(false, lesson.teamId === null) === 'phone'}
+									<!-- Offline phase 4c: on a phone, the person's own videos stay there. -->
+									<PhoneAddButton
+										target={{ lessonId: lesson.id }}
+										label={w.page.addVideos}
+										multiple
 									/>
 								{:else}
 									<ChunkedUploadButton

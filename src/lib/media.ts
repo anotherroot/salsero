@@ -39,11 +39,13 @@ export function watchMedia(url: string, onproblem: (problem: MediaProblem) => vo
  */
 export function uploadProblem(
 	file: { size: number; type: string },
-	accept: 'audio/*' | 'video/*' | 'video/*,audio/*'
+	accept: 'audio/*' | 'video/*' | 'video/*,audio/*',
+	/** The upload's cap: a single request's (95 MiB), or a chunked one's (offline phase 4c). */
+	cap: { bytes: number; label: string } = { bytes: MAX_RECORDING_BYTES, label: MAX_RECORDING_LABEL }
 ): { title: string; body?: string } | null {
 	const w = t().refusals.files;
-	if (file.size > MAX_RECORDING_BYTES) {
-		return { title: w.overLimit(Math.round(file.size / 1024 / 1024), MAX_RECORDING_LABEL) };
+	if (file.size > cap.bytes) {
+		return { title: w.overLimit(Math.round(file.size / 1024 / 1024), cap.label) };
 	}
 	if (accept === 'audio/*') {
 		return /^audio\//.test(file.type) ? null : { title: w.audioOnly, body: w.audioOnlyBody };

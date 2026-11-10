@@ -4,7 +4,8 @@
 	import { noteSaved } from '$lib/offline/device.svelte';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { holdReload } from '$lib/nav/fresh.svelte';
-	import { MAX_RECORDING_LABEL } from '$lib/limits';
+	import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL, MAX_RECORDING_LABEL } from '$lib/limits';
+	import { putChunks } from '$lib/upload-chunks';
 	import { uploadProblem } from '$lib/media';
 	import type { IconName } from '$lib/icons/icons';
 	import Icon from './Icon.svelte';
@@ -14,8 +15,10 @@
 	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
-		/** Endpoint taking the raw file as the POST body. */
+		/** Endpoint taking the raw file as the POST body; with `chunked`, the base of `PUT {url}/{uploadId}`. */
 		url: string;
+		/** In 8 MiB chunks, resumable, up to 1 GiB (offline phase 4c: recordings). */
+		chunked?: boolean;
 		accept: 'audio/*' | 'video/*' | 'video/*,audio/*';
 		label: string;
 		/** What goes up, for the progress bar's name: "Uploading recording". */
@@ -35,6 +38,7 @@
 
 	let {
 		url,
+		chunked = false,
 		accept,
 		label,
 		noun,
@@ -75,13 +79,21 @@
 	 */
 	function upload(file: File) {
 		message = null;
-		const problem = uploadProblem(file, accept);
+		const problem = uploadProblem(
+			file,
+			accept,
+			chunked ? { bytes: MAX_LESSON_VIDEO_BYTES, label: MAX_LESSON_VIDEO_LABEL } : undefined
+		);
 		if (problem) {
 			message = problem;
 			if (input) input.value = '';
 			return;
 		}
 
+		if (chunked) {
+			void uploadChunked(file);
+			return;
+		}
 		const xhr = new XMLHttpRequest();
 		xhr.open('POST', url);
 		xhr.setRequestHeader('content-type', file.type);
@@ -111,6 +123,28 @@
 		xhr.onloadend = holdReload();
 		progress = 0;
 		xhr.send(file);
+	}
+
+	/** The chunked way (offline phase 4c): `putChunks`, the same ending as the single request. */
+	async function uploadChunked(file: File) {
+		const release = holdReload();
+		progress = 0;
+		try {
+			const out = await putChunks(`${url}/${crypto.randomUUID()}`, file, {
+				type: file.type,
+				name: file.name,
+				onBytes: (n) => (progress = file.size > 0 ? n / file.size : 1)
+			});
+			progress = null;
+			if (input) input.value = '';
+			if (out.ok) {
+				noteSaved();
+				await invalidateAll();
+			} else message = { title: out.reason };
+		} finally {
+			progress = null;
+			release();
+		}
 	}
 </script>
 

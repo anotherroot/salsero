@@ -29,6 +29,8 @@
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
+	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
+	import { currentAddMode } from '$lib/offline/add-mode.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import {
@@ -357,6 +359,12 @@
 									{ back: page.url.pathname, name: lesson.title }
 								)}
 								label={t().lesson.page.addVideos}
+							/>
+						{:else if currentAddMode(false, team === null) === 'phone'}
+							<PhoneAddButton
+								target={{ lessonId: lesson.id }}
+								label={t().lesson.page.addVideos}
+								multiple
 							/>
 						{:else}
 							<ChunkedUploadButton

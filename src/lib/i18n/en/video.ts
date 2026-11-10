@@ -239,6 +239,8 @@ export const video = {
 		iphoneWhy: 'Why this matters',
 		close: 'Close',
 		saved: 'Saved on this phone',
+		noSpace: 'Not enough space on this phone for this video.',
+		notSaved: "Couldn't save the video on this phone.",
 		deleteOnly: 'The video is only on this phone. It goes from the app, its sections too.',
 		deleteOnlyIphone:
 			'The video is only on this iPhone: deleting it is final, its sections go too.',
