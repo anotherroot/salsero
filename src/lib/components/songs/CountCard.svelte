@@ -8,6 +8,7 @@
 	import { listenLines } from '$lib/songs/listen';
 	import { MUSIC_START_MIN_S } from '$lib/songs/music-start';
 	import type { Placed } from '$lib/songs/sections';
+	import { leadsOf } from '$lib/songs/count-in';
 
 	/*
 	 * The listening page's card (spec 2026-11-08, "Listening"): the section
@@ -47,11 +48,15 @@
 		onseek: (s: number) => void;
 	} = $props();
 
+	/** Before the main beat: a dash, then 5 6 7 8 faint on the coming tempo (`$lib/songs/count-in`). */
+	const leads = $derived(leadsOf(sections, beats));
 	const lines = $derived(
 		listenLines({
 			placed: sections,
 			counts,
 			beat: played ? beatIndexAt(beats, now) : -1,
+			t: played ? now : 0,
+			leads,
 			anchors,
 			startS,
 			played
@@ -65,7 +70,7 @@
 			{lines.name}
 		</p>
 	{/if}
-	<LiveCount {time} {beats} {counts} off={lines.off} left={lines.left} />
+	<LiveCount {time} {beats} {counts} off={lines.off} left={lines.left} {leads} />
 	{#if lines.ahead}
 		<p
 			class="flex items-center justify-center gap-2 text-[15px] font-bold text-ink-2"

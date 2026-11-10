@@ -148,6 +148,7 @@ export const links = {
 		sectionOnly: 'Only a section can be linked, not a point.',
 		otherDance: 'That section is from the other dance.',
 		already: 'Already linked.',
+		copyLink: 'It could not be copied here and linked. Nothing was copied.',
 		pointPositions: 'A point links positions only.',
 		noName: 'Give it a name.',
 		typeDance: 'That type does not belong to this dance.',

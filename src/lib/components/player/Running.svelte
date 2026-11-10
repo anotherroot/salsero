@@ -11,6 +11,8 @@
 		sectionName,
 		type Placed
 	} from '$lib/songs/sections';
+	import { leadAhead, leadsOf } from '$lib/songs/count-in';
+	import { quietOf } from '$lib/scheduler/quiet';
 	import type { CountPattern, Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
@@ -196,13 +198,16 @@
 	const sectionNow = $derived(
 		sections.length > 0 ? (sections[sectionIndexAt(sections, sectionBeat)] ?? null) : null
 	);
-	/** The count-off sections' spans: the count shows a dash there, its dots all alike. */
-	const quietSpans = $derived(
-		sections.flatMap((s, k) =>
-			s.countOff ? [{ from: s.t, to: sections[k + 1]?.t ?? Infinity }] : []
-		)
+	/** The count-off sections' spans and the leads: the count shows a dash there, its dots all alike. */
+	const quietSpans = $derived(quietOf(sections, beats));
+	/** Before the main beat: a dash, then 5 6 7 8 faint on the coming tempo (`$lib/songs/count-in`). */
+	const leads = $derived(leadsOf(sections, beats));
+	// In a lead the next section counts down in its own tempo, not the lead's loose beats.
+	const sectionNext = $derived(
+		sections.length > 0
+			? (leadAhead(leads, elapsed) ?? aheadOf(sections, counts, sectionBeat))
+			: null
 	);
-	const sectionNext = $derived(sections.length > 0 ? aheadOf(sections, counts, sectionBeat) : null);
 	const follow = $derived(view === 'follow');
 	/**
 	 * The slot lit, in Follow only. Before the first figure starts it is the first
@@ -479,7 +484,14 @@
 		<div
 			class="run-stage mt-2 flex min-h-0 flex-1 flex-col items-center gap-2.5 desk:absolute desk:top-(--band-row-h) desk:right-[520px] desk:bottom-0 desk:left-0 desk:mt-0 desk:justify-center-safe desk:gap-[22px] desk:px-8 desk:pb-10"
 		>
-			<StageCount time={() => player.songTime()} {beats} {counts} {paused} quiet={quietSpans} />
+			<StageCount
+				time={() => player.songTime()}
+				{beats}
+				{counts}
+				{paused}
+				quiet={quietSpans}
+				{leads}
+			/>
 			{#if lit !== null}
 				<!-- 32 px, a little less under 390 px wide: a long name stays two whole lines at 360. -->
 				<p
@@ -563,6 +575,7 @@
 			{counts}
 			{paused}
 			quiet={quietSpans}
+			{leads}
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
@@ -627,6 +640,7 @@
 			{counts}
 			{paused}
 			quiet={quietSpans}
+			{leads}
 			closeLabel={w.closeLayer}
 			onclose={closeLayer}
 		>
@@ -643,6 +657,7 @@
 			{counts}
 			{paused}
 			quiet={quietSpans}
+			{leads}
 			closeLabel={w.closeFull}
 			onclose={closeLayer}
 		>
@@ -717,6 +732,7 @@
 			{counts}
 			{paused}
 			quiet={quietSpans}
+			{leads}
 			closeLabel={w.closeLayer}
 			onclose={closeFigure}
 		>

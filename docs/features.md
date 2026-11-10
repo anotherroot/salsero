@@ -100,7 +100,8 @@ admin's per person; machines keep English (the worker's queue, the media servers
 and the song page (a minimal listening view: the section playing and what comes next;
 Edit, saving as you go with Undo: the whole song's count as a grid, hold a beat for its
 menu, suggestions from the downbeats, sections counted or not, the Song tab; a song starts
-where its music starts, measured by the worker; see
+where its music starts, measured by the worker; the part before the main beat counts in
+5 6 7 8 on the coming tempo; see
 [`docs/superpowers/specs/2026-11-08-song-page-design.md`](docs/superpowers/specs/2026-11-08-song-page-design.md))
 and a group's + and one figure form (a group page's lessons by month; the band's + opens
 Add to the group: Lesson and Drill made there, Music, Figure, Routine and Position by
@@ -226,6 +227,12 @@ snapshots (replaced by Sync, below), Drop my copy, Detach, Copy to… and Move t
 from your own rows, leaving and Keep, the rescue, twins, and what was decided
 while planning and building. It replaces the groups spec's reading after
 leaving and its Make my own copy.
+Linking from other places has its own,
+[`docs/superpowers/specs/2026-11-10-link-from-other-places-design.md`](docs/superpowers/specs/2026-11-10-link-from-other-places-design.md):
+a group lesson's pickers and the Link popup on a group's video find, while
+searching, your own rows and your other groups' (read-only ones marked); a
+tap opens a card (what comes along, what stays behind) and Copy and link
+copies the row into the group as a clone and links it, in one transaction.
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync

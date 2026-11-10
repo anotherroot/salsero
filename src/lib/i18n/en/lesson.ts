@@ -296,6 +296,7 @@ export const lesson = {
 		exerciseLink:
 			'That exercise could not be linked. A figure’s or routine’s exercise lives under it.',
 		exerciseUnlinked: 'That exercise was already unlinked.',
+		copyLink: 'It could not be copied here and linked. Nothing was copied.',
 		videoGone: 'That video was already removed.'
 	},
 

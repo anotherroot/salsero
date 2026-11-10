@@ -182,7 +182,11 @@ describe('a quiet part of a song', () => {
 	const beats = Array.from({ length: 32 }, (_, i) => i * 0.5);
 	const counts = beats.map((_, i) => (i % 8) + 1);
 
-	async function sounded(quiet: { from: number; to: number }[]) {
+	async function sounded(
+		quiet: { from: number; to: number }[],
+		countIn: { at: number; n: number }[] = [],
+		count: 'all' | 'off' = 'all'
+	) {
 		const ctx = fakeBrowser();
 		let started = 0;
 		ctx.createBufferSource = () => ({
@@ -196,9 +200,10 @@ describe('a quiet part of a song', () => {
 		const player = createPlayer({
 			audio: null,
 			grid: { beats, counts },
-			toggles: { count: 'all', clave: '2-3' },
+			toggles: { count, clave: '2-3' },
 			voiceVolume: 1,
 			quiet,
+			countIn,
 			onStep: () => {},
 			onEnd: () => {}
 		});
@@ -211,6 +216,15 @@ describe('a quiet part of a song', () => {
 	it('plays no count and no clave inside it, and both outside it', async () => {
 		expect(await sounded([{ from: 0, to: Infinity }])).toBe(0);
 		expect(await sounded([])).toBeGreaterThan(0);
+	});
+
+	it('speaks a lead’s count-in inside it, unless the count is off', async () => {
+		const countIn = [
+			{ at: 0.05, n: 7 },
+			{ at: 0.1, n: 8 }
+		];
+		expect(await sounded([{ from: 0, to: Infinity }], countIn)).toBe(2);
+		expect(await sounded([{ from: 0, to: Infinity }], countIn, 'off')).toBe(0);
 	});
 });
 

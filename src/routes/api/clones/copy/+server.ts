@@ -1,7 +1,7 @@
 import { t } from '$lib/i18n/catalog';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { copyPlan, intoOf } from '$lib/server/clones/copy-to';
+import { copyHereView, intoOf } from '$lib/server/clones/copy-to';
 import type { CloneKind } from '$lib/types';
 import type { RequestHandler } from './$types';
 
@@ -10,7 +10,8 @@ import type { RequestHandler } from './$types';
  * `?kind=lesson&id=<id>&into=mine|<group id>`, what would go, what the place
  * has already, and the twins questions (`copyPlan`). Flat like
  * `/api/clones/sync`: a row the person cannot read, or a place that is not
- * one of its targets, is a 404.
+ * one of its targets, is a 404. It also says what stays behind and the
+ * place's room (`copyHereView`), for the Copy and link card.
  */
 const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];
 
@@ -24,5 +25,5 @@ export const GET: RequestHandler = ({ url, locals }) => {
 	const db = getDb();
 	const into = intoOf(db, user.id, kind, id, url.searchParams.get('into'));
 	if (!into) throw error(404, t().refusals.notFound);
-	return json(copyPlan(db, user.id, kind, id, into, user.timezone));
+	return json(copyHereView(db, user.id, kind, id, into, user.timezone));
 };
