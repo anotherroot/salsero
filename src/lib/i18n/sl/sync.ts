@@ -29,6 +29,11 @@ export const sync: Catalog['sync'] = {
 		done: 'Posodobljeno',
 		offline: 'Brez povezave'
 	},
+	button: {
+		now: 'Sinhroniziraj zdaj',
+		last: 'Zadnja sinhronizacija',
+		tip: 'Na vsakem zaslonu lahko za sinhronizacijo stran tudi povlečete navzdol.'
+	},
 	refusedHeading: 'Ni sinhronizirano',
 	waitingHeading: 'V čakanju',
 	retry: 'Poskusi znova',

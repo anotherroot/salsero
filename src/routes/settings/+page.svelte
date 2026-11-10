@@ -23,6 +23,7 @@
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import FeedbackRow from '$lib/components/feedback/FeedbackRow.svelte';
+	import SyncNowRow from '$lib/components/sync/SyncNowRow.svelte';
 	import { fullName } from '$lib/names';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
@@ -261,6 +262,8 @@
 			() => (sheet = 'level')
 		)}
 	</div>
+
+	<SyncNowRow />
 
 	{#if !few}
 		<span class="{SECTION_LABEL} mt-[14px]">{w.storage.label}</span>
