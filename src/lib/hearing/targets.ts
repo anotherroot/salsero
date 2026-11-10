@@ -34,3 +34,13 @@ export function targetsFor(dance: Pick<Dance, 'clave'>): TargetId[] {
 export function isTargetId(v: unknown): v is TargetId {
 	return typeof v === 'string' && (TARGET_IDS as readonly string[]).includes(v);
 }
+
+/**
+ * Targets named by their counts: the same in every language, so outside the
+ * catalogs, like the voice's `COUNT_PATTERN_LABEL`.
+ */
+export const TARGET_DIGITS: Readonly<Partial<Record<TargetId, string>>> = {
+	ones: '1 · 5',
+	odd: '1 3 5 7',
+	fourEight: '4 · 8'
+};

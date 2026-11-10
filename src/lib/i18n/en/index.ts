@@ -8,6 +8,7 @@ import { entry } from './entry';
 import { exercise } from './exercise';
 import { figure } from './figure';
 import { feedback } from './feedback';
+import { hearing } from './hearing';
 import { format } from './format';
 import { groups } from './groups';
 import { lesson } from './lesson';
@@ -55,5 +56,6 @@ export const en = {
 	map,
 	suggestions,
 	sync,
-	feedback
+	feedback,
+	hearing
 };
