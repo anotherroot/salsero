@@ -390,7 +390,7 @@
 	</div>
 </Screen>
 
-<BottomBar fade width="song">
+<BottomBar width="song">
 	{#if ps.why}
 		<p class="mb-2 text-center text-[13px] font-bold text-muted">{ps.why}</p>
 	{/if}
