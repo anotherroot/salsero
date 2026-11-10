@@ -74,5 +74,7 @@ export const NEVER_SYNCED: readonly string[] = [
 	'ai_actions',
 	'ai_lines',
 	// The AI's view of a video (frames, sound): derived, prepared by the home worker.
-	'ai_timelines'
+	'ai_timelines',
+	// Testers' messages to the admin: the server's alone, sent with the network.
+	'feedback'
 ];

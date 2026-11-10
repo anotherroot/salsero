@@ -1,4 +1,4 @@
-import { PUSH, beatLife, stepMotion } from '$lib/player/beat-motion';
+import { beatLife, leadMotion, pushScale, stepMotion } from '$lib/player/beat-motion';
 import { play } from './motion';
 
 /**
@@ -16,23 +16,32 @@ export function beatPulse() {
 	let at: number | null = null;
 	let running: Animation | null = null;
 
-	/** Call every frame with the playhead's beat; it acts only when the beat changes. */
+	/**
+	 * Call every frame with the playhead's beat; it acts only when the beat changes.
+	 * `strength`: a lead's beat (`leadLook`), pushing that hard, the dash too.
+	 */
 	return (
 		el: Element | undefined,
 		index: number,
 		count: number | null,
 		paused: boolean,
-		off: boolean
+		off: boolean,
+		strength?: number
 	): void => {
 		if (index === prev) return;
 		const now = performance.now();
 		if (index === prev + 1 && at !== null) lastStep = now - at;
-		const kind = stepMotion(prev, index, count, paused, off);
+		const kind =
+			strength === undefined
+				? stepMotion(prev, index, count, paused, off)
+				: leadMotion(prev, index, paused, strength);
 		prev = index;
 		at = now;
 		if (kind === 'none' || !el) return;
 		running?.cancel();
 		const duration = beatLife(lastStep);
-		running = play(el, [{ transform: `scale(${PUSH})` }, { transform: 'none' }], { duration });
+		running = play(el, [{ transform: `scale(${pushScale(strength)})` }, { transform: 'none' }], {
+			duration
+		});
 	};
 }

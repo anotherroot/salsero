@@ -331,6 +331,24 @@ export const clones: Catalog['clones'] = {
 		same: 'usklajena',
 		selfChanged: (changed) => `Ta kopija · vaše spremembe: ${changed}`
 	},
+	copyHere: {
+		title: (label, into) => `Kopirati ${label} v ${into}?`,
+		lead: (from) =>
+			`Pride kot klon ${from === null ? 'vašega' : `tistega iz skupine ${from}`}, zato ju lahko usklajujete. Nato se poveže sem.`,
+		comes: 'Pride zraven',
+		behind: 'Ostane',
+		sections: (n) => `Odseki iz videov lekcij: ${n}`,
+		sectionsOrPoints: (n) => `Odseki in točke iz videov lekcij: ${n}`,
+		sameName: (into, label, from) =>
+			`Skupina ${into} že ima svojega: ${label}. Ni kopija ${from === null ? 'vašega' : `tistega iz skupine ${from}`}.`,
+		archived: 'Tu je že bil in je arhiviran. Obnovite ga in povežite.',
+		copyAndLink: 'Kopiraj in poveži',
+		restoreAndLink: 'Obnovi in poveži',
+		linkGroups: 'Poveži skupinskega',
+		copyAnyway: 'Vseeno kopiraj',
+		done: 'Kopirano in povezano',
+		failed: 'Kopiranje in povezovanje ni uspelo. Nič ni bilo kopirano.'
+	},
 	copy: {
 		menu: 'Kopiraj v …',
 		title: (name) => `Kam želite kopirati: ${name}?`,

@@ -282,6 +282,7 @@ export const lesson: Catalog['lesson'] = {
 		positionUnlinked: 'Povezava s položajem je že odstranjena.',
 		exerciseLink: 'Vaje ni bilo mogoče povezati. Vaja figure ali kombinacije je na njeni strani.',
 		exerciseUnlinked: 'Povezava z vajo je že odstranjena.',
+		copyLink: 'Kopiranje in povezovanje ni uspelo. Nič ni bilo kopirano.',
 		videoGone: 'Ta video je bil že odstranjen.'
 	},
 

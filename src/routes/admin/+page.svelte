@@ -35,6 +35,11 @@
 
 	let { data }: { data: PageData } = $props();
 	const a = $derived(t().admin);
+	const f = $derived(t().feedback.admin);
+	/** The done feedback, folded away until asked for. */
+	let showDone = $state(false);
+	let marking = $state(false);
+	let feedbackError = $state('');
 	let person = $state<PageData['people'][number] | null>(null);
 	let group = $state<PageData['groups'][number] | null>(null);
 	let formError = $state('');
@@ -94,6 +99,53 @@
 	</label>
 {/snippet}
 
+{#snippet feedbackCard(m: PageData['feedback']['open'][number])}
+	<div class="flex flex-col gap-2 rounded-2xl bg-surface p-4" class:opacity-70={m.done}>
+		<div class="flex flex-col">
+			<span class="text-[16px] font-bold break-words text-ink">{m.who}</span>
+			<span class="text-[13px] break-all text-muted">{m.email} · {m.sent}</span>
+		</div>
+		<p class="text-[15px] break-words whitespace-pre-wrap text-ink">{m.message}</p>
+		<div class="flex flex-col">
+			{#each m.lines as line, i (i)}
+				<span class="text-[13px] break-all text-muted">{line}</span>
+			{/each}
+		</div>
+		{#if m.errors.length}
+			<div class="flex flex-col">
+				<span class="text-[13px] font-bold text-ink-2">{f.errors}</span>
+				{#each m.errors as e, i (i)}
+					<code class="text-[12px] break-all text-muted">{e}</code>
+				{/each}
+			</div>
+		{/if}
+		<form
+			method="POST"
+			action={m.done ? '?/feedbackOpen' : '?/feedbackDone'}
+			use:enhance={({ cancel }) => {
+				if (marking) return cancel();
+				marking = true;
+				feedbackError = '';
+				return async ({ result, update }) => {
+					if (result.type === 'failure')
+						feedbackError = String(result.data?.message ?? f.didNotSave);
+					try {
+						await update();
+					} finally {
+						marking = false;
+					}
+				};
+			}}
+		>
+			<input type="hidden" name="id" value={m.id} />
+			<button type="submit" class={button(m.done ? 'tertiary' : 'secondary', 'sm')}>
+				{#if !m.done}<Icon name="check" size={18} />{/if}
+				{m.done ? f.reopen : f.done}
+			</button>
+		</form>
+	</div>
+{/snippet}
+
 <svelte:head><title>{a.title}</title></svelte:head>
 
 <Screen title={a.title} width="two">
@@ -107,8 +159,32 @@
 
 	<div class="contents desk:grid desk:grid-cols-2 desk:items-start desk:gap-8">
 		<div class="contents desk:flex desk:flex-col desk:gap-2">
+			<span class={SECTION_LABEL}>{f.section}</span>
+			{#if data.feedback.open.length === 0}
+				<p class="px-4 text-[14px] text-muted">{f.none}</p>
+			{/if}
+			{#each data.feedback.open as m (m.id)}
+				{@render feedbackCard(m)}
+			{/each}
+			{#if data.feedback.done.length > 0}
+				<button
+					type="button"
+					class="{button('tertiary', 'sm')} self-start"
+					aria-expanded={showDone}
+					onclick={() => (showDone = !showDone)}
+				>
+					{showDone ? f.hideDone : f.showDone(data.feedback.doneCount)}
+				</button>
+				{#if showDone}
+					{#each data.feedback.done as m (m.id)}
+						{@render feedbackCard(m)}
+					{/each}
+				{/if}
+			{/if}
+			{#if feedbackError}<Banner kind="error" title={feedbackError} />{/if}
+
 			{#if data.requests.length > 0}
-				<span class={SECTION_LABEL}>{a.waiting}</span>
+				<span class="{SECTION_LABEL} mt-[14px]">{a.waiting}</span>
 				{#each data.requests as r (r.id)}
 					<div class="{GROUP} flex flex-col gap-3 p-4">
 						<div class="flex flex-col">
@@ -174,7 +250,7 @@
 				{/each}
 			{/if}
 
-			<span class={SECTION_LABEL}>{a.inviteSomeone}</span>
+			<span class="{SECTION_LABEL} mt-[14px]">{a.inviteSomeone}</span>
 			<form
 				method="POST"
 				action="?/invite"

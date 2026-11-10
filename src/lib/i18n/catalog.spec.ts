@@ -20,7 +20,9 @@ const ALLOWED_SAME: ReadonlySet<string> = new Set([
 	'groups.history.subject.video',
 	'groups.history.field.tempoFactor',
 	// "AI" is the Slovenian short too (the label over You's AI suggestions row).
-	'suggestions.section'
+	'suggestions.section',
+	// "ms" (milliseconds) is the unit in both (the player's Count delay).
+	'player.ms'
 ]);
 
 /**

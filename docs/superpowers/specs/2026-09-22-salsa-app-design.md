@@ -641,10 +641,17 @@ fixed before shipping. Check here before hunting one of these as a new bug:
 - **Count steadiness on iOS is unproven.** `ctxAt()` re-derives the song →
   context offset from `audio.currentTime` on every tick rather than latching it,
   so a browser that quantises `currentTime` (Safari) feeds that straight into
-  each count. Nothing compensates for output latency either, which would read as
-  a constant ahead/behind offset. **First suspect if the count feels off**; the
-  fix differs depending on whether it is unsteady or merely displaced, so it
-  needs a real ear on a real phone first.
+  each count. **First suspect if the count feels unsteady.** Output latency
+  (the constant offset) is handled since 2026-11-10 (`src/lib/player/sound-delay.ts`):
+  the browser already holds a media element's `currentTime` back by the way to
+  the ear (tested on Android with Bluetooth: the song page's lit beat is on the
+  music), but the AudioContext clock is not, so the voice and the clave came
+  ~250 ms late. With a song they now START early by the phone's reported
+  latency (held still) plus the person's Sound delay correction from the Voice
+  layer, and the screen is the music's time; count only, nothing is ahead of
+  the voice but the screen, so `songTime()` waits instead. A first try (a few
+  hours, same day) held the screen back with a song too, which put it 250 ms
+  behind the music.
 - **The iPhone silent switch mutes the voice but not the music.** True and
   expected — but the hint this spec called for was never put on screen.
 - ~~A stray tap on the save sheet's backdrop discards a finished run.~~ Fixed

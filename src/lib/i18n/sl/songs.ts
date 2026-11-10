@@ -148,7 +148,8 @@ export const songs: Catalog['songs'] = {
 		ahead: {
 			eights: (name, n) => `${name} čez ${slCount(n, ['osmico', 'osmici', 'osmice', 'osmic'])}`,
 			last: (name) => `${name} po tej osmici`,
-			beats: (name, n) => `${name} čez ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])}`
+			beats: (name, n) => `${name} čez ${slCount(n, ['dobo', 'dobi', 'dobe', 'dob'])}`,
+			one: (name) => `${name} na 1`
 		},
 		listen: {
 			starts: (at) => `Začne se pri ${at}, kjer se začne glasba.`,

@@ -182,7 +182,11 @@ describe('a quiet part of a song', () => {
 	const beats = Array.from({ length: 32 }, (_, i) => i * 0.5);
 	const counts = beats.map((_, i) => (i % 8) + 1);
 
-	async function sounded(quiet: { from: number; to: number }[]) {
+	async function sounded(
+		quiet: { from: number; to: number }[],
+		countIn: { at: number; n: number }[] = [],
+		count: 'all' | 'off' = 'all'
+	) {
 		const ctx = fakeBrowser();
 		let started = 0;
 		ctx.createBufferSource = () => ({
@@ -196,9 +200,10 @@ describe('a quiet part of a song', () => {
 		const player = createPlayer({
 			audio: null,
 			grid: { beats, counts },
-			toggles: { count: 'all', clave: '2-3' },
+			toggles: { count, clave: '2-3' },
 			voiceVolume: 1,
 			quiet,
+			countIn,
 			onStep: () => {},
 			onEnd: () => {}
 		});
@@ -211,6 +216,15 @@ describe('a quiet part of a song', () => {
 	it('plays no count and no clave inside it, and both outside it', async () => {
 		expect(await sounded([{ from: 0, to: Infinity }])).toBe(0);
 		expect(await sounded([])).toBeGreaterThan(0);
+	});
+
+	it('speaks a lead’s count-in inside it, unless the count is off', async () => {
+		const countIn = [
+			{ at: 0.05, n: 7 },
+			{ at: 0.1, n: 8 }
+		];
+		expect(await sounded([{ from: 0, to: Infinity }], countIn)).toBe(2);
+		expect(await sounded([{ from: 0, to: Infinity }], countIn, 'off')).toBe(0);
 	});
 });
 
@@ -334,6 +348,186 @@ describe('a routine run', () => {
 		player.jumpTo(2);
 		expect(player.songTime()).toBeCloseTo(9.5);
 		expect(onStep).not.toHaveBeenCalled();
+		player.stop();
+	});
+});
+
+describe("the sound's way to the ear", () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	// 120 BPM: a beat every 0.5 s.
+	const beats = Array.from({ length: 80 }, (_, i) => i * 0.5);
+	const counts = beats.map((_, i) => (i % 8) + 1);
+	const fourStep = (plan: PlanStep[], through: number) => {
+		const out = [...plan];
+		for (let eight = (out.at(-1)?.eight ?? 0) + 1; eight <= through; eight++)
+			out.push({ eight, figureId: 100, slot: 0 });
+		return out;
+	};
+
+	/** A browser whose sound takes `latencyS` to reach the ear; records each start time. */
+	function lateBrowser(latencyS: number) {
+		const ctx = fakeBrowser();
+		Object.assign(ctx, { baseLatency: 0, outputLatency: latencyS });
+		const starts: number[] = [];
+		ctx.createBufferSource = () => ({
+			buffer: null,
+			playbackRate: { value: 1 },
+			connect: () => {},
+			start: (...when: number[]) => void starts.push(when[0]),
+			stop: () => {},
+			onended: null
+		});
+		return { ctx, starts };
+	}
+
+	/** A song element whose time walks with the context clock, as a playing one does. */
+	function songWith(ctx: { currentTime: number }, rate = 1) {
+		return {
+			get currentTime() {
+				return ctx.currentTime * rate;
+			},
+			set currentTime(_t: number) {},
+			playbackRate: rate,
+			ended: false,
+			play: async () => {},
+			pause() {}
+		};
+	}
+
+	async function walk(ctx: { currentTime: number }, from: number, to: number) {
+		for (let t = from; t <= to + 1e-9; t += TICK_MS / 1000) {
+			ctx.currentTime = t;
+			await vi.advanceTimersByTimeAsync(TICK_MS);
+		}
+	}
+
+	it('with a song, starts the clave early so it reaches the ear with the music', async () => {
+		const { ctx, starts } = lateBrowser(0.25);
+		const audio = songWith(ctx);
+		const player = createPlayer({
+			audio: audio as unknown as HTMLAudioElement,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: '2-3' },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {}
+		});
+		await player.start();
+		await walk(ctx, 0, 4);
+		// Every clave stroke sits on the grid, less the 250 ms: heard on the beat.
+		const late = starts.filter((s) => s > 1);
+		expect(late.length).toBeGreaterThan(3);
+		for (const s of late) expect(Math.abs(((s + 0.25) % 0.25) - 0)).toBeLessThan(1e-6);
+		// The screen is the music's own time, not held back.
+		expect(player.songTime()).toBeCloseTo(4);
+		player.stop();
+	});
+
+	it('with a song, skips the strokes it is too late to start early, instead of a burst', async () => {
+		const { ctx, starts } = lateBrowser(0.25);
+		const audio = songWith(ctx);
+		const player = createPlayer({
+			audio: audio as unknown as HTMLAudioElement,
+			grid: { beats, counts },
+			toggles: { count: 'all', clave: null },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {}
+		});
+		await player.start();
+		await walk(ctx, 0, 0.1);
+		// The beat at 0 had to start at -0.25 s: gone. None starts in the past.
+		for (const s of starts) expect(s).toBeGreaterThanOrEqual(-1e-9);
+		player.stop();
+	});
+
+	it('count only, holds the visual count back instead', async () => {
+		const { ctx, starts } = lateBrowser(0.2);
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'all', clave: null },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {},
+			delayCorrectionMs: 50
+		});
+		await player.start();
+		await walk(ctx, 0, 3);
+		expect(player.songTime()).toBeCloseTo(2.75);
+		// The count plays on its own grid: nothing moved early.
+		expect(starts.some((s) => Math.abs(s - 2) < 1e-6)).toBe(true);
+		expect(player.soundDelay()).toEqual({ reportedMs: 200, correctionMs: 50, withSong: false });
+
+		player.setDelayCorrection(-200);
+		expect(player.songTime()).toBeCloseTo(3);
+		player.stop();
+	});
+
+	it('count only, a pause and a resume pick up where the ear was', async () => {
+		const { ctx } = lateBrowser(0.2);
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {}
+		});
+		await player.start();
+		await walk(ctx, 0, 3);
+		player.pause();
+		const held = player.songTime();
+		ctx.currentTime = 10;
+		await player.resume();
+		expect(player.songTime()).toBeCloseTo(held);
+		player.stop();
+	});
+
+	it('shows a figure when its "1" is heard, and once across a pause', async () => {
+		const { ctx } = lateBrowser(0.2);
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			planner: fourStep,
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		// The first figure's "1" is at 4 s of the count, heard at 4.2 s of the clock.
+		await walk(ctx, 0, 4.1);
+		expect(onStep).not.toHaveBeenCalled();
+		player.pause();
+		await player.resume();
+		await walk(ctx, 4.1, 4.4);
+		expect(onStep).toHaveBeenCalledTimes(1);
+		expect(onStep.mock.calls[0][1]).toBe(4);
+		player.stop();
+	});
+
+	it('a slowed song starts the clave early by wall time, not song time', async () => {
+		const { ctx, starts } = lateBrowser(0.2);
+		const audio = songWith(ctx, 0.5);
+		const player = createPlayer({
+			audio: audio as unknown as HTMLAudioElement,
+			grid: { beats, counts },
+			toggles: { count: 'all', clave: null },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {}
+		});
+		await player.start();
+		await walk(ctx, 0, 3);
+		// Beat at song 1.0 s plays at clock 2.0 s; heard then if started at 1.8 s.
+		expect(starts.some((s) => Math.abs(s - 1.8) < 1e-6)).toBe(true);
 		player.stop();
 	});
 });

@@ -55,6 +55,12 @@
 		actions?: Snippet;
 		/** Fixed at 88dvh, so the footer sits at the bottom however short the body; the body ends in a fade. */
 		tall?: boolean;
+		/**
+		 * The body's content is exactly as tall as the body and scrolls inside itself
+		 * (the picker: only its list scrolls, the search stays put); the body never
+		 * scrolls. Without it the content grows and the body scrolls.
+		 */
+		fill?: boolean;
 		/** Desktop only: a 480 px dialog (a menu, a small form) in place of 560. Below 1024 px it changes nothing. */
 		size?: 'small';
 		/** Desktop only: drawn 480 tall (a Link popup level), so a stacked level covers the one below. */
@@ -74,6 +80,7 @@
 		actions,
 		tall,
 		size,
+		fill,
 		level
 	}: Props = $props();
 	/** The footer's height, so the toast can sit just above it. */
@@ -238,8 +245,9 @@
 			{/if}
 		</header>
 		<div class="body px-4 pt-3 pb-2 desk:px-7">
-			<!-- Grows to fill a tall body, so the fade lands at the body's bottom, not on the last line. -->
-			<div class="flex-[1_0_auto]">
+			<!-- Grows to fill a tall body, so the fade lands at the body's bottom, not on the last line;
+				with `fill`, exactly the body's height, its content scrolling inside itself. -->
+			<div class={fill ? 'flex min-h-0 flex-[1_1_0] flex-col' : 'flex-[1_0_auto]'}>
 				{#if open}{@render children()}{/if}
 			</div>
 			{#if tall}<div class="fade" aria-hidden="true"></div>{/if}
