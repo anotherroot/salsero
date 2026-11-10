@@ -8,6 +8,9 @@
 > and clones ([`2026-11-03-clones-and-twins-design.md`](2026-11-03-clones-and-twins-design.md),
 > Copy to… is its point 4).
 >
+> **Built 2026-11-10** on branch `link-other-figures` (plan
+> [`../plans/2026-11-10-link-from-other-places.md`](../plans/2026-11-10-link-from-other-places.md)).
+>
 > **Look picked 2026-11-10: option B** from the board
 > https://claude.ai/artifact/B7yJwAdMjH1Nft5dedsiUf (real screenshots of the
 > bachata backup of 6 Nov beside three options): a heading per place, and a

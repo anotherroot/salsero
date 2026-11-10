@@ -219,6 +219,12 @@ snapshots (replaced by Sync, below), Drop my copy, Detach, Copy to… and Move t
 from your own rows, leaving and Keep, the rescue, twins, and what was decided
 while planning and building. It replaces the groups spec's reading after
 leaving and its Make my own copy.
+Linking from other places has its own,
+[`docs/superpowers/specs/2026-11-10-link-from-other-places-design.md`](docs/superpowers/specs/2026-11-10-link-from-other-places-design.md):
+a group lesson's pickers and the Link popup on a group's video find, while
+searching, your own rows and your other groups' (read-only ones marked); a
+tap opens a card (what comes along, what stays behind) and Copy and link
+copies the row into the group as a clone and links it, in one transaction.
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync
