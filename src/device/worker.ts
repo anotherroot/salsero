@@ -22,7 +22,7 @@ import type {
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
 import { mediaKeeper, type PassOut } from './media';
-import { withStored } from '$lib/offline/kept-view';
+import { withStored } from '$lib/offline/kept-status';
 import { opfsMediaStore, SONG_KINDS, VIDEO_KINDS, type MediaStore } from '$lib/offline/media-store';
 import {
 	canTellWifi,

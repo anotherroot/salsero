@@ -3,12 +3,12 @@ import type { KeepStatus, SpaceRow } from './protocol';
 import {
 	keepWord,
 	lessonOnPhone,
-	withStored,
 	phoneRowLine,
 	spaceLine,
 	suggestions,
 	videoKeep
 } from './kept-view';
+import { withStored } from './kept-status';
 
 const MB = 1024 * 1024;
 const row = (over: Partial<SpaceRow> = {}): SpaceRow => ({
