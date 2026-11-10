@@ -34,6 +34,7 @@ import {
 	SHELL,
 	cachesToDelete,
 	changedTo,
+	clearsCopy,
 	deviceFailed,
 	navigatePlan,
 	readPlan,
@@ -77,7 +78,16 @@ async function outboxState(): Promise<OutboxState> {
 	}
 }
 
-async function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
+/** Writes one after another: two read-modify-writes at once would lose one (a sign-out's `copy: false`). */
+let stateWrites: Promise<unknown> = Promise.resolve();
+
+function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
+	const run = stateWrites.then(() => writeOutboxState(next));
+	stateWrites = run.catch(() => {});
+	return run;
+}
+
+async function writeOutboxState(next: Partial<OutboxState>): Promise<void> {
 	const cache = await caches.open(OUTBOX_STATE_CACHE);
 	const state = { ...(await outboxState()), ...next };
 	await cache.put(OUTBOX_STATE_KEY, Response.json(state));
@@ -183,6 +193,11 @@ sw.addEventListener('message', (event) => {
 
 sw.addEventListener('fetch', (event) => {
 	const request = event.request;
+	// Who is signed in may change: the next page load asks the server (device first, step 2).
+	if (clearsCopy(request.method, new URL(request.url).pathname)) {
+		copyKnown = false;
+		event.waitUntil(keepOutboxState({ copy: false }).catch(() => {}));
+	}
 	let route: SwRoute;
 	try {
 		route = swRoute(

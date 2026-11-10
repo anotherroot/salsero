@@ -367,6 +367,18 @@ export function createDevice(deps: DeviceDeps): Device {
 			log.warn("[device] pull: the answer is not the page's person's, not taken");
 			return 'done';
 		}
+		const holder = copyUser();
+		if (holder !== null && body.userId !== holder) {
+			// Someone else is signed in on this browser now, and no page has said who (device
+			// first draws pages from the copy): the server's word goes. The copy and its files
+			// go first; the outbox keeps the first person's entries for them.
+			await exclusive(async () => {
+				wipeCopy(db);
+				await deps.clearMedia();
+			});
+			log.info('[device] pull: another person is signed in, the copy is wiped');
+			return 'again';
+		}
 		let changed = 0;
 		try {
 			const applied = await exclusive(async () => {

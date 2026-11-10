@@ -18,6 +18,7 @@ import {
 	holdsUpdate,
 	OUTBOX_STATE_CACHE,
 	CACHE_PREFIX,
+	clearsCopy,
 	deviceFailed,
 	navigatePlan,
 	readPlan
@@ -492,5 +493,17 @@ describe('the first page of an open (device first, step 2)', () => {
 		d.setState('w', 'ready', null);
 		d.changed('w', 5);
 		expect(d.readsDeviceFirst('w', true)).toBe(false);
+	});
+});
+
+describe('signing in or out forgets the copy mark (device first, step 2)', () => {
+	it('on a post to sign in, join, a group invite or sign out', () => {
+		for (const p of ['/login', '/login/', '/join', '/g/ABC123', '/logout'])
+			expect(clearsCopy('POST', p), p).toBe(true);
+	});
+	it('never on a read, nor on another write', () => {
+		expect(clearsCopy('GET', '/login')).toBe(false);
+		expect(clearsCopy('POST', '/salsa/figures/1')).toBe(false);
+		expect(clearsCopy('POST', '/settings')).toBe(false);
 	});
 });

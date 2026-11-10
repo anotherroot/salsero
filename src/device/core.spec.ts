@@ -538,6 +538,22 @@ describe('the songs on the phone follow the copy (offline phase 4a)', () => {
 		expect(h.readyFor.at(-1)).toBe('u4');
 	});
 
+	it('a pull for another person, the page not knowing who it is, wipes the copy and its files first', async () => {
+		let who = 'u1';
+		const clearMedia = vi.fn(async () => {});
+		const h = harness({ fetchPull: async (body) => answerAsServer(body, who), clearMedia });
+		await h.dev.start();
+		expect(readMeta(device).userId).toBe('u1');
+		// Someone else signed in on this browser (the page was drawn from the copy: no person said).
+		who = 'u4';
+		await h.dev.pull();
+		expect(clearMedia).toHaveBeenCalledTimes(1);
+		expect(readMeta(device).userId).toBe('u4');
+		// The server code now answers as u4.
+		expect(h.runtimes.at(-1)?.userId).toBe('u4');
+		expect(h.dev.state()).toBe('ready');
+	});
+
 	it('the same person keeps them', async () => {
 		const clearMedia = vi.fn(async () => {});
 		const h = harness({ clearMedia });

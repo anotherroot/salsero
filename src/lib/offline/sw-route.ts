@@ -407,3 +407,17 @@ export function navigatePlan(a: {
 	if (a.waiting > 0 || !a.online) return 'shell';
 	return a.copy && !a.networkPage ? 'shell' : 'network';
 }
+
+const SIGNS = [/^\/login\/?$/, /^\/join\/?$/, /^\/g\/[^/]+\/?$/, /^\/logout\/?$/];
+
+/**
+ * Whether a request may change who is signed in on this browser (device first,
+ * step 2): a post to sign in, join, take a group invite or sign out. The
+ * service worker then forgets that a copy is here, so the next page load asks
+ * the server, which says who it is, and the device follows (another person:
+ * a wiped copy). Forgetting on the attempt is safe: the copy's next ready says
+ * so again.
+ */
+export function clearsCopy(method: string, path: string): boolean {
+	return method.toUpperCase() === 'POST' && SIGNS.some((re) => re.test(path));
+}
