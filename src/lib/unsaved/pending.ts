@@ -17,8 +17,6 @@ export interface Unsaved {
 	dirty: () => boolean;
 	/** Absent when there is nothing to save, only to lose (an upload). */
 	save?: () => Promise<SaveOutcome>;
-	/** Its save sends something (a message) rather than saving: the question says "not sent". */
-	sends?: boolean;
 	/** Why Save cannot run just now ("Stop the count first"), or null. */
 	blocked?: () => string | null;
 	/** Where it lives, so a sheet can ask about only what is inside it. */
