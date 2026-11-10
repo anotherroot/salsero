@@ -1,4 +1,7 @@
 /** What the pull sends (offline phase 2). PURE types, client-safe: the device imports them. */
+import type { Release } from '$lib/app-update/agent';
+import type { SongImportRow } from '$lib/types';
+
 export type TableRows = { cols: string[]; rows: unknown[][] };
 /**
  * `userId`: whose copy the cursor and digests are (null: none). The server
@@ -25,5 +28,24 @@ export type PullResponse = {
 	cookies: Record<string, string>;
 	/** The device's id slot: present when the request named its `device`. */
 	slot?: number;
+	/** What only the server knows, for the layouts drawn on the device (device first); absent from an older server. */
+	extras?: ServerExtras;
+};
+
+/**
+ * What the layouts read from tables the copy never holds (or the server's disk):
+ * the device draws them from the last pull, up to a pull old.
+ */
+export type ServerExtras = {
+	/** The Music dot (`importsWaiting`). */
+	musicToPick: boolean;
+	/** The AI's suggestions waiting to be run (`pendingCount`). */
+	aiPending: number;
+	/** An AI app is connected (`listGrants`). */
+	aiConnected: boolean;
+	/** The dance's current APK release (`currentRelease`). */
+	release: Release | null;
+	/** Music's To pick: the person's own view, and each group's they may view by team id. */
+	imports: { own: SongImportRow[]; teams: Record<string, SongImportRow[]> };
 };
 export type PullRefusal = { refused: 'schema'; schema: string };

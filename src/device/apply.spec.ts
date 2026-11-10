@@ -14,7 +14,7 @@ import { addFigureSlot, moveSlotTo } from '$lib/server/routines';
 import { makeWorld, type World } from '$lib/server/sync/test-world';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { SYNCED } from '$lib/sync/tables';
-import type { PullResponse } from '$lib/sync/wire';
+import type { PullResponse, ServerExtras } from '$lib/sync/wire';
 import { migrateDevice, readMeta } from './migrate';
 import { applyPull, deviceDigests, ensureDeviceKey, pullRequestOf, wipeCopy } from './apply';
 import { repoMigrations } from './test-migrations';
@@ -312,4 +312,33 @@ describe('what a pull changed, removing', () => {
 			applyPull(device, { ...res, full: ['figures'], changed: { figures: fewer } })
 		).toBeGreaterThan(0);
 	});
+});
+
+describe('what only the server knows', () => {
+	const extras = (aiPending: number): ServerExtras => ({
+		musicToPick: false,
+		aiPending,
+		aiConnected: false,
+		release: null,
+		imports: { own: [], teams: {} }
+	});
+
+	it('keeps the extras of a pull, and counts a change in them', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, extras: extras(1) });
+		expect(readMeta(device).extras).toEqual(extras(1));
+		const empty = { ...res, full: [], changed: {} };
+		expect(applyPull(device, { ...empty, extras: extras(1) })).toBe(0);
+		expect(applyPull(device, { ...empty, extras: extras(2) })).toBe(1);
+		expect(readMeta(device).extras?.aiPending).toBe(2);
+	});
+
+	it('keeps the extras it has when a pull carries none', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, extras: extras(1) });
+		applyPull(device, { ...res, full: [], changed: {} });
+		expect(readMeta(device).extras).toEqual(extras(1));
+	});
+
+	it('has none before its first pull', () => expect(readMeta(device).extras).toBeNull());
 });

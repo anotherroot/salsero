@@ -193,12 +193,30 @@ describe('start', () => {
 		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled' });
 		expect(count('figures')).toBeGreaterThan(0);
 		expect(h.runtimes).toEqual([
-			{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' }, slot: 1 }
+			{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' }, slot: 1, extras: null }
 		]);
 		expect(h.startServer).toHaveBeenCalledTimes(1);
 		expect(h.bodies).toEqual([
 			{ cursor: 0, schema: SCHEMA_TAG, userId: null, device: expect.any(String) }
 		]);
+	});
+
+	it("hands the pull's server-only facts to the runtime", async () => {
+		const extras = {
+			musicToPick: true,
+			aiPending: 2,
+			aiConnected: false,
+			release: null,
+			imports: { own: [], teams: {} }
+		};
+		const h = harness({
+			fetchPull: async (body) => {
+				const res = answerAsServer(body);
+				return Response.json({ ...(await res.json()), extras });
+			}
+		});
+		await h.dev.start();
+		expect(h.runtimes.at(-1)?.extras).toEqual(extras);
 	});
 
 	it('with no copy and offline, is empty and asks nothing', async () => {

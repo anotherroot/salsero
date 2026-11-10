@@ -43,7 +43,7 @@ import type {
 	WireResponse
 } from '$lib/offline/protocol';
 import type { PushResponse } from '$lib/sync/outbox';
-import type { PullResponse } from '$lib/sync/wire';
+import type { PullResponse, ServerExtras } from '$lib/sync/wire';
 import { applyPull, ensureDeviceKey, pullRequestOf, wipeCopy } from './apply';
 import { readMeta, writeMetaValue, type SqliteDb } from './migrate';
 import { DeviceRequest } from './request';
@@ -54,6 +54,8 @@ export type DeviceRuntime = {
 	cookies: Record<string, string>;
 	/** The id slot new rows are minted in (offline phase 3); null until the server hands one out. */
 	slot: number | null;
+	/** What only the server knows, from the last pull (device first). */
+	extras: ServerExtras | null;
 };
 
 /** SvelteKit's `server.respond`, bound to the device's client address. */
@@ -272,9 +274,21 @@ export function createDevice(deps: DeviceDeps): Device {
 		if (meta.userId === null) throw new Error('serve() with no copy');
 		// One object, updated in place: the server reads it on every request.
 		if (runtime)
-			Object.assign(runtime, { userId: meta.userId, cookies: meta.cookies, slot: meta.slot });
+			Object.assign(runtime, {
+				userId: meta.userId,
+				cookies: meta.cookies,
+				slot: meta.slot,
+				extras: meta.extras
+			});
 		else
-			deps.setRuntime((runtime = { userId: meta.userId, cookies: meta.cookies, slot: meta.slot }));
+			deps.setRuntime(
+				(runtime = {
+					userId: meta.userId,
+					cookies: meta.cookies,
+					slot: meta.slot,
+					extras: meta.extras
+				})
+			);
 		serverStart ??= deps.startServer().then(
 			(r) => {
 				respond = r;

@@ -22,6 +22,7 @@ import type { PullRefusal, PullRequest, PullResponse } from '$lib/sync/wire';
 import { pull as rawPull, serverDigest } from './pull';
 import { changedSince } from './log';
 import { syncScope } from './scope';
+import { serverExtras } from './extras';
 import { makeWorld, WORLD_T, type World } from './test-world';
 import { POST } from '../../../routes/api/sync/pull/+server';
 
@@ -262,6 +263,15 @@ describe('POST /api/sync/pull', () => {
 			lang: 'sl'
 		});
 		expect(out.userId).toBe('u1');
+	});
+
+	it('carries what only the server knows', async () => {
+		db.run(sql`UPDATE users SET dance = 'salsa' WHERE id = 'u1'`);
+		const session = createSession('u1', db).id;
+		const res = await call({ body, cookies: { [SESSION_COOKIE]: session } });
+		const out = (await res.json()) as PullResponse;
+		expect(out.extras).toEqual(serverExtras(db, 'u1'));
+		expect(out.extras?.imports.teams).toHaveProperty('1');
 	});
 
 	it('answers 409 for another schema and 400 for a malformed body', async () => {

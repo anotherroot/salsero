@@ -47,7 +47,8 @@ function upsertSql(table: string, cols: string[]): string {
 
 /**
  * Applies a pull and says how much it changed: the rows it wrote, plus one
- * when the page cookies it carries differ from the copy's. A table resent whole
+ * when the page cookies it carries differ from the copy's, and one when its
+ * server-only facts (`extras`) do. A table resent whole
  * counts every row (its digest differed, so something in it changed).
  */
 export function applyPull(db: SqliteDb, res: PullResponse): number {
@@ -91,6 +92,11 @@ export function applyPull(db: SqliteDb, res: PullResponse): number {
 		writeMetaValue(db, 'schema', res.schema);
 		if (JSON.stringify(before.cookies) !== JSON.stringify(res.cookies)) changes += 1;
 		writeMetaValue(db, 'cookies', JSON.stringify(res.cookies));
+		// An older server sends none: the copy keeps what it has.
+		if (res.extras !== undefined) {
+			if (JSON.stringify(before.extras) !== JSON.stringify(res.extras)) changes += 1;
+			writeMetaValue(db, 'extras', JSON.stringify(res.extras));
+		}
 		writeMetaValue(db, 'full', '0');
 		if (res.slot !== undefined) writeMetaValue(db, 'slot', String(res.slot));
 		db.exec('COMMIT');

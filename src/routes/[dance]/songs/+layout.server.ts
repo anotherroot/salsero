@@ -8,6 +8,7 @@ import { foldSongs } from '$lib/clones/twins';
 import { wallOf } from '$lib/server/scope';
 import { viewOf } from '$lib/server/group-mode';
 import { groupImportsToPick, listImports } from '$lib/server/song-imports';
+import { deviceRuntime } from '$lib/server/device-runtime';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -28,13 +29,17 @@ export const load: LayoutServerLoad = ({ params, locals, url, depends, route }) 
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const mode = viewOf(db, wall, locals.user?.level, { route, params, url });
+	// `song_imports` never reaches the copy: on the device, the last pull's lists (device first).
+	const device = deviceRuntime();
 	if (mode) {
 		const team = { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId };
 		const list = listSongs(db, team);
 		return {
 			songs: list,
 			/** The group's pasted playlists: reading, ready, failed. */
-			imports: listImports(db, team),
+			imports: device
+				? (device.extras?.imports.teams[String(mode.teamId)] ?? [])
+				: listImports(db, team),
 			groups: [],
 			twinned: [] as number[],
 			cloned: [] as number[],
@@ -55,7 +60,9 @@ export const load: LayoutServerLoad = ({ params, locals, url, depends, route }) 
 	return {
 		songs: folded.mine,
 		/** The person's own pasted playlists, then the ready lists of the groups they edit. */
-		imports: [...listImports(db, wall), ...groupImportsToPick(db, wall.userId, wall.dance)],
+		imports: device
+			? (device.extras?.imports.own ?? [])
+			: [...listImports(db, wall), ...groupImportsToPick(db, wall.userId, wall.dance)],
 		groups: folded.groups.map((g) => ({
 			team: g.team,
 			songs: g.rows.map((s) => ({ ...s, isNew: fresh.has(s.id) }))
