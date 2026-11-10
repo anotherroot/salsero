@@ -99,17 +99,23 @@ export async function syncMedia(deps: {
 	const held = await deps.store.list();
 	const have = new Set(held.map(key));
 	const missing = deps.wanted.filter((f) => !have.has(key(f)));
-	// Offline nothing changes: the copy may be behind, and nothing could come anyway.
-	if (!deps.online()) {
-		if (missing.some(isVideo)) out.waiting = 'offline';
-		return out;
-	}
 	const want = new Set(deps.wanted.map(key));
-	for (const f of held) {
+	const online = deps.online();
+	// What is not wanted goes. Offline only videos: the person took them off (a switch,
+	// the button, a low-space suggestion), which must free room on a train too; a song
+	// waits, as in 4a. A cut-off part of a video no longer wanted goes with it.
+	const unwanted = [
+		...held.filter((f) => !want.has(key(f)) && (online || isVideo(f))),
+		...(await deps.store.parts()).filter((p) => !want.has(key(p)) && !have.has(key(p)))
+	];
+	for (const f of unwanted) {
 		if (deps.signal?.aborted) return out;
-		if (want.has(key(f))) continue;
 		await deps.store.remove(f.kind, f.file);
 		out.removed++;
+	}
+	if (!online) {
+		if (missing.some(isVideo)) out.waiting = 'offline';
+		return out;
 	}
 	const ordered = [...missing.filter((f) => !isVideo(f)), ...missing.filter(isVideo)];
 	for (const f of ordered) {
@@ -123,7 +129,12 @@ export async function syncMedia(deps: {
 			out.waiting = 'wifi';
 			break;
 		}
-		const from = video ? await deps.store.partSize(f.kind, f.file) : 0;
+		let from = video ? await deps.store.partSize(f.kind, f.file) : 0;
+		if (f.size !== undefined && from >= f.size) {
+			// Whole but never committed (the app closed just then): asking past the end gets a 416.
+			await deps.store.remove(f.kind, f.file);
+			from = 0;
+		}
 		if (deps.free && !fits(await deps.free(), Math.max(0, (f.size ?? 0) - from))) {
 			if (video) out.waiting = 'space';
 			continue;

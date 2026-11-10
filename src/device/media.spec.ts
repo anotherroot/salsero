@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import {
 	mediaStoreIn,
 	memoryMediaStore,
+	VIDEO_KINDS,
 	type MediaFile,
 	type MediaStore
 } from '$lib/offline/media-store';
@@ -397,5 +398,38 @@ describe('mediaKeeper.restart (offline phase 4b)', () => {
 		release();
 		await Promise.all([running, again]);
 		expect((await store.list()).map((f) => f.file)).toEqual(['new.mp4']);
+	});
+});
+
+describe('syncMedia: parts and removals (final review 3, 4, 5)', () => {
+	const opfs = () => mediaStoreIn(asRoot(new FakeDir(CAPS[0][1])));
+
+	it("a cut-off part of a video no longer wanted goes, and the store's size counts parts", async () => {
+		const store = opfs();
+		await pass([V_NEW], store, { fetchMedia: async () => cutAfter(100) }).result;
+		expect(await store.usage(VIDEO_KINDS)).toBe(100);
+		expect(await pass([], store).result).toMatchObject({ removed: 1 });
+		expect(await store.partSize('lesson-videos', 'new.mp4')).toBe(0);
+		expect(await store.usage(VIDEO_KINDS)).toBe(0);
+	});
+
+	it('a part that reached the whole size starts over instead of asking past the end', async () => {
+		const store = opfs();
+		await pass([V_NEW], store, { fetchMedia: async () => cutAfter(300) }).result;
+		expect(await store.partSize('lesson-videos', 'new.mp4')).toBe(300);
+		const second = pass([V_NEW], store);
+		expect(await second.result).toMatchObject({ fetched: 1, failed: 0 });
+		expect(second.fetched).toEqual([{ path: '/lesson-videos/new.mp4', range: undefined }]);
+		const got = await store.read('lesson-videos', 'new.mp4');
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+	});
+
+	it('offline, a kept video no longer wanted goes (the person asked); a song stays', async () => {
+		const store = memoryMediaStore();
+		await store.write({ ...V_OLD, size: undefined }, new Response('v'));
+		await store.write(A, new Response('a'));
+		const { result } = pass([], store, { online: false });
+		expect(await result).toMatchObject({ removed: 1, fetched: 0 });
+		expect((await store.list()).map((f) => f.kind)).toEqual(['audio']);
 	});
 });

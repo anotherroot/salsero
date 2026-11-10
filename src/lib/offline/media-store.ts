@@ -34,6 +34,8 @@ export type MediaStore = {
 	write(f: MediaFile, res: Response, opts?: { from?: number }): Promise<void>;
 	/** Bytes of a cut-off download kept to go on from; 0 when none. */
 	partSize(kind: MediaKind, file: string): Promise<number>;
+	/** The cut-off downloads kept to go on from, by the name they will have. */
+	parts(): Promise<{ kind: MediaKind; file: string }[]>;
 	remove(kind: MediaKind, file: string): Promise<void>;
 	/** Every kind, or only `kinds`. */
 	clear(kinds?: readonly MediaKind[]): Promise<void>;
@@ -80,6 +82,9 @@ export function memoryMediaStore(): MediaStore {
 		},
 		async partSize() {
 			return 0;
+		},
+		async parts() {
+			return [];
 		},
 		async remove(kind, file) {
 			files.delete(key(kind, file));
@@ -335,6 +340,15 @@ export function mediaStoreIn(
 			if (!NAME.test(file)) return 0;
 			return (await fileOf(await dirOf(kind), file + PART))?.size ?? 0;
 		},
+		async parts() {
+			const out: { kind: MediaKind; file: string }[] = [];
+			for (const kind of KINDS) {
+				for (const n of await names(await dirOf(kind))) {
+					if (n.endsWith(PART)) out.push({ kind, file: n.slice(0, -PART.length) });
+				}
+			}
+			return out;
+		},
 		async remove(kind, file) {
 			const dir = await dirOf(kind);
 			await removeIfThere(dir, file + META);
@@ -364,6 +378,10 @@ export function mediaStoreIn(
 			for (const kind of kinds) {
 				const dir = await dirOf(kind);
 				for (const file of await fileNames(kind)) n += (await whole(dir, file))?.body.size ?? 0;
+				// A cut-off download takes room too (the On this phone page counts it, Clear frees it).
+				for (const part of (await names(dir)).filter((n) => n.endsWith(PART))) {
+					n += (await fileOf(dir, part))?.size ?? 0;
+				}
 			}
 			return n;
 		}
