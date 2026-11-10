@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Placed } from '$lib/songs/sections';
 import type { DropAnswer } from './drops';
-import { revealOf, songParts } from './round';
+import { revealOf, roundSpan, songParts } from './round';
 
 const placed = (name: string, t: number, countOff = false): Placed => ({
 	name,
@@ -50,5 +50,41 @@ describe('revealOf', () => {
 
 	it('says missed when the tap sat on a target count but too far off', () => {
 		expect(revealOf(answer({ offset: 0.24, count: 1 }), [1])).toEqual({ kind: 'missed' });
+	});
+});
+
+describe('roundSpan', () => {
+	it('plays a part from one eight before it, and judges from its 1', () => {
+		expect(roundSpan({ name: 'Coro', from: 33, to: 50 }, 2, 0.5)).toEqual({
+			play: 29,
+			judgeFrom: 33,
+			to: 50
+		});
+	});
+
+	it('gives the whole song one eight to listen before the first judged 1', () => {
+		expect(roundSpan(null, 2, 0.5)).toEqual({ play: 2, judgeFrom: 6, to: Infinity });
+	});
+
+	it('never plays before the music starts', () => {
+		expect(roundSpan({ name: 'Verse', from: 4, to: 20 }, 2, 0.5)).toEqual({
+			play: 2,
+			judgeFrom: 6,
+			to: 20
+		});
+	});
+});
+
+describe('revealOf a drop nobody tapped', () => {
+	it('says there was no tap', () => {
+		const none: DropAnswer = {
+			start: 0,
+			tap: null,
+			hit: false,
+			offset: null,
+			count: null,
+			listened: null
+		};
+		expect(revealOf(none, [1])).toEqual({ kind: 'none' });
 	});
 });

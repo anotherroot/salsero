@@ -26,10 +26,12 @@ export type Reveal =
 	| { kind: 'spot' }
 	| { kind: 'late' | 'early'; ms: number }
 	| { kind: 'other'; count: number }
-	| { kind: 'missed' };
+	| { kind: 'missed' }
+	| { kind: 'none' };
 
 /** What the stage says after a drop's tap. */
 export function revealOf(a: DropAnswer, positions: number[]): Reveal {
+	if (a.tap === null) return { kind: 'none' };
 	if (a.hit && a.offset !== null) {
 		if (Math.abs(a.offset) <= SPOT_ON_S + 1e-9) return { kind: 'spot' };
 		const ms = Math.round(Math.abs(a.offset) * 1000);
@@ -37,4 +39,23 @@ export function revealOf(a: DropAnswer, positions: number[]): Reveal {
 	}
 	if (a.count !== null && !positions.includes(a.count)) return { kind: 'other', count: a.count };
 	return { kind: 'missed' };
+}
+
+/** Eights of music a round plays before the first beat it judges: nobody can tap a 1 they have not heard coming. */
+const LEAD_IN_EIGHTS = 1;
+
+/**
+ * Where a tap-along round plays from, where its judging starts, and where it
+ * ends. A part plays from an eight before its 1 (never before the music
+ * starts); the judged stretch starts no sooner than an eight into what plays.
+ */
+export function roundSpan(
+	part: Part | null,
+	musicStart: number,
+	beatS: number
+): { play: number; judgeFrom: number; to: number } {
+	const lead = LEAD_IN_EIGHTS * 8 * beatS;
+	const from = part ? part.from : musicStart;
+	const play = Math.max(musicStart, from - lead);
+	return { play, judgeFrom: Math.max(from, play + lead), to: part ? part.to : Infinity };
 }

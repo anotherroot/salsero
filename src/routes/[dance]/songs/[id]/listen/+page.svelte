@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { goBack } from '$lib/nav/trail.svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { median } from '$lib/beatgrid/beatgrid';
 	import { button } from '$lib/components/ui/styles';
@@ -22,7 +22,7 @@
 		type DropsResult
 	} from '$lib/hearing/drops';
 	import { judgeTapAlong, type TapAlongResult } from '$lib/hearing/judge';
-	import { revealOf, songParts, type Reveal, type RoundKind } from '$lib/hearing/round';
+	import { revealOf, roundSpan, songParts, type Reveal, type RoundKind } from '$lib/hearing/round';
 	import { loadTapDelay, tapSongTime } from '$lib/hearing/tap-delay';
 	import { targetPositions, targetsFor, type TargetId } from '$lib/hearing/targets';
 	import { targetLabel } from '$lib/hearing/words';
@@ -31,7 +31,6 @@
 	import { loadDelayCorrection } from '$lib/player/sound-delay';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { quietRanges } from '$lib/scheduler/quiet';
-	import { playFrom } from '$lib/songs/music-start';
 	import { placeSections, sectionName } from '$lib/songs/sections';
 	import type { PageData } from './$types';
 
@@ -96,8 +95,11 @@
 		} else if (reveal !== null) {
 			if (now >= revealUntil) nextDrop();
 		} else if (now - starts[dropAt] > DROP_WAIT_S) {
-			answers.push(judgeDrop(grid, positions, starts[dropAt], null));
-			nextDrop();
+			// Nobody tapped: say so, and show the count for an eight like any answer.
+			const answer = judgeDrop(grid, positions, starts[dropAt], null);
+			answers.push(answer);
+			reveal = revealOf(answer, positions);
+			revealUntil = now + 8 * beatS;
 		}
 		raf = requestAnimationFrame(frame);
 	}
@@ -129,10 +131,10 @@
 		tapResult = null;
 		dropsResult = null;
 		if (kind === 'tapAlong') {
-			const p = part === null ? null : parts[part];
-			from = p ? p.from : (playFrom(0, data.grid.startS, el.duration) ?? 0);
-			to = p ? p.to : Infinity;
-			el.currentTime = from;
+			const span = roundSpan(part === null ? null : parts[part], data.grid.startS, beatS);
+			from = span.judgeFrom;
+			to = span.to;
+			el.currentTime = span.play;
 		} else {
 			starts = dropStarts(grid, quiet, { count: DROPS, from: data.grid.startS, rand: Math.random });
 			if (starts.length === 0) return;
@@ -152,6 +154,8 @@
 		player = handle;
 		view = 'run';
 		handle.start().catch((e) => {
+			// A Stop (or Again) while the song was still loading rejects this start: that round is over already.
+			if (player !== handle) return;
 			console.error(e);
 			stopPlayer();
 			view = 'setup';
@@ -206,7 +210,8 @@
 
 	function leave() {
 		stopPlayer();
-		void goto(songHref);
+		// Back through history, as the player does: a new entry would bring Back to this page again.
+		void goBack({ href: songHref, label: data.song.title }, { replace: true });
 	}
 
 	onDestroy(stopPlayer);
@@ -224,6 +229,7 @@
 		if (r.kind === 'late') return w.reveal.late(r.ms);
 		if (r.kind === 'early') return w.reveal.early(r.ms);
 		if (r.kind === 'other') return w.reveal.other(r.count);
+		if (r.kind === 'none') return w.result.noTap;
 		return w.reveal.missed;
 	}
 </script>
@@ -343,7 +349,9 @@
 			<div class="flex gap-2.5">
 				<button type="button" class={button('secondary', 'lg')} onclick={begin}>{w.again}</button>
 				<div class="flex min-w-0 flex-1">
-					<a href={songHref} class={button('primary', 'lg', true)}>{w.done}</a>
+					<button type="button" class={button('primary', 'lg', true)} onclick={leave}
+						>{w.done}</button
+					>
 				</div>
 			</div>
 		{/snippet}

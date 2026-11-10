@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { beatIndexAt, nearestBeat } from '$lib/beatgrid/beatgrid';
+	import { nearestBeat } from '$lib/beatgrid/beatgrid';
 	import { button } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
@@ -9,7 +9,7 @@
 	import { CHECK_BPM, CHECK_TAPS, saveTapDelay, tapDelayFrom } from '$lib/hearing/tap-delay';
 	import ListenShell from './ListenShell.svelte';
 	import TapPad from './TapPad.svelte';
-	import { STAGE_SIGN } from './styles';
+	import Icon from '$lib/components/ui/Icon.svelte';
 
 	/**
 	 * The tap delay check: the voice counts 1–8 at a slow tempo, the person taps
@@ -31,17 +31,7 @@
 	let player: PlayerHandle | null = null;
 	let running = $state(false);
 	let offsets = $state<number[]>([]);
-	let count = $state<number | null>(null);
 	let result = $state<{ ms: number; uneven: boolean } | null>(null);
-	let raf = 0;
-
-	function frame() {
-		if (!player) return;
-		const i = beatIndexAt(grid.beats, player.songTime());
-		count = i >= 0 ? grid.counts[i] : null;
-		raf = requestAnimationFrame(frame);
-	}
-
 	/** Runs inside the Start tap: nothing awaited before `start()` (iOS keeps audio locked otherwise). */
 	function start() {
 		offsets = [];
@@ -61,17 +51,12 @@
 			console.error(e);
 			stop();
 		});
-		raf = requestAnimationFrame(frame);
 	}
 
 	function stop() {
-		// Also runs on the server (onDestroy), where no frame was ever asked for.
-		if (raf) cancelAnimationFrame(raf);
-		raf = 0;
 		player?.stop();
 		player = null;
 		running = false;
-		count = null;
 	}
 
 	function tap(timeStamp: number) {
@@ -92,7 +77,8 @@
 
 <ListenShell title={w.check.title} {subtitle} backLabel={w.back} onback={() => (stop(), onback())}>
 	{#snippet stage()}
-		<span class={STAGE_SIGN}>{count ?? '–'}</span>
+		<!-- No digits while measuring: a tap timed to the screen would measure the eye, not the ear. -->
+		<span class="text-band-ink"><Icon name="ear" size={64} /></span>
 		<p class="max-w-[300px] text-[15px] font-semibold text-band-small">
 			{#if result}
 				{result.uneven ? w.check.uneven : w.check.result(result.ms)}

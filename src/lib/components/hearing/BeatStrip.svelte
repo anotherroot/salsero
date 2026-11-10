@@ -69,7 +69,8 @@
 					/>
 				{/if}
 			{/each}
-			{#each row.extras as e (e.at)}
+			<!-- By place: two fingers in one touch can land on the same instant. -->
+			{#each row.extras as e, i (i)}
 				<circle cx={x(e.count, e.offset)} cy={y} r="5" class="fill-danger" />
 			{/each}
 		{/each}
