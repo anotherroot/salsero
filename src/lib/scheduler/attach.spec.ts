@@ -337,3 +337,153 @@ describe('a routine run', () => {
 		player.stop();
 	});
 });
+
+describe("the sound's way to the ear", () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	const beats = Array.from({ length: 80 }, (_, i) => i * 0.5);
+	const counts = beats.map((_, i) => (i % 8) + 1);
+
+	function song() {
+		return {
+			currentTime: 0,
+			playbackRate: 1,
+			ended: false,
+			play: async () => {},
+			pause() {}
+		};
+	}
+
+	it('holds the count back by what the phone reports plus the correction', async () => {
+		const ctx = fakeBrowser();
+		Object.assign(ctx, { baseLatency: 0.01, outputLatency: 0.19 });
+		const audio = song();
+		const player = createPlayer({
+			audio: audio as unknown as HTMLAudioElement,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {},
+			delayCorrectionMs: 50
+		});
+		await player.start();
+		audio.currentTime = 10;
+		expect(player.songTime()).toBeCloseTo(9.75);
+		expect(player.soundDelay()).toEqual({ reportedMs: 200, correctionMs: 50 });
+
+		player.setDelayCorrection(-200);
+		expect(player.songTime()).toBeCloseTo(10);
+		player.stop();
+	});
+
+	it('waits in song time, so a slowed song waits fewer song seconds', async () => {
+		const ctx = fakeBrowser();
+		Object.assign(ctx, { outputLatency: 0.2 });
+		const audio = { ...song(), playbackRate: 0.5 };
+		const player = createPlayer({
+			audio: audio as unknown as HTMLAudioElement,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			voiceVolume: 1,
+			onStep: () => {},
+			onEnd: () => {}
+		});
+		await player.start();
+		audio.currentTime = 10;
+		expect(player.songTime()).toBeCloseTo(9.9);
+		player.stop();
+	});
+
+	it('shows a figure starting when its "1" is heard, not when it is played', async () => {
+		const ctx = fakeBrowser();
+		Object.assign(ctx, { outputLatency: 0.2 });
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			planner: (plan, through) => {
+				const out = [...plan];
+				for (let eight = (out.at(-1)?.eight ?? 0) + 1; eight <= through; eight++)
+					out.push({ eight, figureId: 100, slot: 0 });
+				return out;
+			},
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		// The first figure's "1" is at 4 s; walk the clock to just past it.
+		for (let t = 3.8; t <= 4.1; t += TICK_MS / 1000) {
+			ctx.currentTime = t;
+			await vi.advanceTimersByTimeAsync(TICK_MS);
+		}
+		expect(onStep).not.toHaveBeenCalled();
+		for (let t = 4.1; t <= 4.3; t += TICK_MS / 1000) {
+			ctx.currentTime = t;
+			await vi.advanceTimersByTimeAsync(TICK_MS);
+		}
+		expect(onStep).toHaveBeenCalledTimes(1);
+		player.stop();
+	});
+});
+
+describe('a figure played but not yet heard', () => {
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	const beats = Array.from({ length: 80 }, (_, i) => i * 0.5);
+	const counts = beats.map((_, i) => (i % 8) + 1);
+
+	async function playedTo(t: number) {
+		const ctx = fakeBrowser();
+		Object.assign(ctx, { outputLatency: 0.2 });
+		const onStep = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null },
+			planner: (plan, through) => {
+				const out = [...plan];
+				for (let eight = (out.at(-1)?.eight ?? 0) + 1; eight <= through; eight++)
+					out.push({ eight, figureId: 100, slot: 0 });
+				return out;
+			},
+			voiceVolume: 1,
+			onStep,
+			onEnd: () => {}
+		});
+		await player.start();
+		for (let s = 3.8; s <= t; s += TICK_MS / 1000) {
+			ctx.currentTime = s;
+			await vi.advanceTimersByTimeAsync(TICK_MS);
+		}
+		return { player, onStep };
+	}
+
+	// The first "1" is at 4 s and is heard at 4.2 s; at 4.1 s it has played, unheard.
+	it('shows on a pause, rather than being lost with the queue', async () => {
+		const { player, onStep } = await playedTo(4.1);
+		expect(onStep).not.toHaveBeenCalled();
+		player.pause();
+		expect(onStep).toHaveBeenCalledTimes(1);
+		player.stop();
+	});
+
+	it('shows on a change of count or clave, and only once', async () => {
+		const { player, onStep } = await playedTo(4.1);
+		player.setToggles({ count: 'all', clave: null });
+		expect(onStep).toHaveBeenCalledTimes(1);
+		await vi.advanceTimersByTimeAsync(500);
+		expect(onStep).toHaveBeenCalledTimes(1);
+		player.stop();
+	});
+});

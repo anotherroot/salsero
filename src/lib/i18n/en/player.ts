@@ -37,6 +37,16 @@ export const player = {
 	next: (name: string): string => `Next: ${name}`,
 	/** A layer's ✕. */
 	closeLayer: 'Close',
+	/** Voice: how long the count on screen waits for the sound (Bluetooth headphones are late). */
+	countDelay: 'Visual count delay',
+	ms: 'ms',
+	countEarlier: 'Show the visual count earlier',
+	countLater: 'Show the visual count later',
+	/** Under Visual count delay: what the phone says its sound takes, already counted in. */
+	countDelayNote: (reportedMs: number): string =>
+		reportedMs > 0
+			? `This phone says its sound arrives ${reportedMs} ms late, so the visual count waits that long. If the visual count is still ahead of the music, make it later.`
+			: 'This phone does not say its sound arrives late. With wireless headphones, make the visual count later until it lands with the music.',
 	/** A figure's timing in About: "1 → 1 · 8 counts". */
 	timing: (start: number, next: number, length: number): string =>
 		`${start} → ${next} · ${length} counts`,
