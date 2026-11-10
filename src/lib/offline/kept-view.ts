@@ -5,7 +5,7 @@
 import { byteSize } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import { mediaOf, VIDEO_KINDS } from './media-store';
-import type { KeepStatus, SpaceId, SpaceRow } from './protocol';
+import type { KeepStatus, OriginalRow, SpaceId, SpaceRow } from './protocol';
 
 export type VideoKeep =
 	| { state: 'off' }
@@ -88,7 +88,9 @@ export function spaceLine(row: SpaceRow, status: KeepStatus): SpaceLine {
 
 export type Suggestion =
 	| { kind: 'space'; id: SpaceId; name: string | null; videos: number; bytes: number }
-	| { kind: 'video'; key: string; title: string; index: number | null; bytes: number };
+	| { kind: 'video'; key: string; title: string; index: number | null; bytes: number }
+	/** A person's own video kept only here (offline phase 4c): Upload first, or, uploaded, take it off. */
+	| ({ kind: 'original' } & OriginalRow);
 
 /**
  * What to take off the phone when space is short, largest first: a switched-on
@@ -114,7 +116,8 @@ export function suggestions(status: KeepStatus): Suggestion[] {
 				title: k.title,
 				index: k.index,
 				bytes: k.bytes
-			}))
+			})),
+		...(status.originalRows ?? []).map((o): Suggestion => ({ kind: 'original', ...o }))
 	];
 	return out.sort((a, b) => b.bytes - a.bytes);
 }

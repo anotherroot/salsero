@@ -105,3 +105,13 @@ fun videoBitrate(shortSide: Int): Int = when {
     shortSide <= 720 -> 1_500_000
     else -> 3_000_000
 }
+
+/**
+ * A phone-only original's progress as the page shows it (offline phase 4c): compressing is
+ * the first half and sending the second; with nothing to compress, sending is all of it.
+ */
+fun overallPercent(stagePercent: Int, compressing: Boolean, compressed: Boolean): Int = when {
+    compressing -> stagePercent / 2
+    compressed -> 50 + stagePercent / 2
+    else -> stagePercent
+}

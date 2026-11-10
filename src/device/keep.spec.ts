@@ -10,6 +10,8 @@ import {
 	keptVideos,
 	readKeep,
 	spaceRows,
+	originalRows,
+	pruneKeep,
 	wantedVideos,
 	writeKeep,
 	KEEP_META
@@ -211,5 +213,51 @@ describe('a phone-only video is never kept as a copy (offline phase 4c, final re
 			(r) => r.id === 'mine'
 		);
 		expect(row?.videos).toBe(1);
+	});
+});
+
+describe('originalRows: the rows of the originals held here (offline phase 4c)', () => {
+	it('each with its title, its place in a lesson, its size and whether it is uploaded', () => {
+		const own = lesson({ user: U, day: '2026-11-01', title: 'Week 1' });
+		video(own, 'a.mp4', 100);
+		video(own, 'b.mp4', 500);
+		db.prepare(
+			`UPDATE lesson_videos SET server_copy = 0, origin_bytes = 500 WHERE file = 'b.mp4'`
+		).run();
+		recording('r.webm', 'video', 50, 10);
+		const rows = originalRows(db, ['b.mp4', 'r.webm', 'gone.mp4']);
+		expect(rows).toEqual([
+			{
+				file: 'b.mp4',
+				table: 'lesson_videos',
+				id: expect.any(Number),
+				title: 'Week 1',
+				index: 2,
+				bytes: 500,
+				uploaded: false
+			},
+			{
+				file: 'r.webm',
+				table: 'recordings',
+				id: expect.any(Number),
+				title: expect.any(String),
+				index: null,
+				bytes: 50,
+				uploaded: true
+			}
+		]);
+	});
+});
+
+describe('pruneKeep: a group left drops out of the settings (4b minor 11)', () => {
+	it("a space that is no longer the person's goes; theirs and My lessons stay", () => {
+		team(7, 'Salsa', true);
+		team(9, 'Left', false);
+		const s = {
+			spaces: ['mine', 'team:7', 'team:9'],
+			wifiOnly: false,
+			videos: ['lesson-videos/x.mp4']
+		};
+		expect(pruneKeep(db, U, s)).toEqual({ ...s, spaces: ['mine', 'team:7'] });
 	});
 });

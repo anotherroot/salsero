@@ -8,7 +8,14 @@
  * row gone from it (a group left, a lesson archived) is no longer wanted.
  */
 import type { MediaFile, MediaKind } from '$lib/offline/media-store';
-import type { KeepChange, KeepSettings, KeptVideo, SpaceId, SpaceRow } from '$lib/offline/protocol';
+import type {
+	KeepChange,
+	KeepSettings,
+	KeptVideo,
+	OriginalRow,
+	SpaceId,
+	SpaceRow
+} from '$lib/offline/protocol';
 import { writeMetaValue, type SqliteDb } from './migrate';
 
 export const KEEP_META = 'keep';
@@ -172,4 +179,76 @@ export function keptBySpace(
 		if (s.spaces.includes(v.space)) out[key('lesson-videos', v.file)] = v.space;
 	}
 	return out;
+}
+
+/** The rows of the originals held here (offline phase 4c): titled as the low-space list shows them. */
+export function originalRows(db: SqliteDb, files: readonly string[]): OriginalRow[] {
+	const out: OriginalRow[] = [];
+	for (const file of files) {
+		const v = db
+			.prepare(
+				`SELECT lv.id, l.title, lv.size_bytes AS size, lv.origin_bytes AS origin, lv.server_copy AS up,
+				   (SELECT count(*) FROM lesson_videos o WHERE o.lesson_id = lv.lesson_id AND o.id <= lv.id) AS place
+				 FROM lesson_videos lv JOIN lessons l ON l.id = lv.lesson_id WHERE lv.file = ?`
+			)
+			.get(file) as
+			| {
+					id: number;
+					title: string;
+					size: number;
+					origin: number | null;
+					up: number;
+					place: number;
+			  }
+			| undefined;
+		if (v) {
+			out.push({
+				file,
+				table: 'lesson_videos',
+				id: v.id,
+				title: v.title,
+				index: v.place,
+				bytes: v.origin ?? v.size,
+				uploaded: v.up === 1
+			});
+			continue;
+		}
+		const r = db
+			.prepare(
+				`SELECT r.id, f.name AS title, r.size_bytes AS size, r.origin_bytes AS origin, r.server_copy AS up
+				 FROM recordings r JOIN figures f ON f.id = r.figure_id WHERE r.file = ?`
+			)
+			.get(file) as
+			{ id: number; title: string; size: number; origin: number | null; up: number } | undefined;
+		if (r)
+			out.push({
+				file,
+				table: 'recordings',
+				id: r.id,
+				title: r.title,
+				index: null,
+				bytes: r.origin ?? r.size,
+				uploaded: r.up === 1
+			});
+	}
+	return out;
+}
+
+/**
+ * The settings without a group the person has left (4b minor 11): its switch went
+ * with the group's rows, so it drops out of what the page shows and keeps.
+ */
+export function pruneKeep(db: SqliteDb, userId: string, s: KeepSettings): KeepSettings {
+	const teams = new Set(
+		(
+			db
+				.prepare(
+					`SELECT tm.team_id AS id FROM team_members tm JOIN teams t ON t.id = tm.team_id
+					 WHERE tm.user_id = ? AND t.deleted_at IS NULL`
+				)
+				.all(userId) as { id: number }[]
+		).map((r) => `team:${r.id}`)
+	);
+	const spaces = s.spaces.filter((id) => id === 'mine' || teams.has(id));
+	return spaces.length === s.spaces.length ? s : { ...s, spaces };
 }

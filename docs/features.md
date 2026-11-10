@@ -138,7 +138,9 @@ on an iPhone or a phone's browser: a new video on your own figure or lesson stay
 original, Where is this video offers Upload and Remove the server copy, another device shows a
 dark frame "On Pixel 8", an iPhone warns once with a card; copies leave them behind; recordings
 upload in chunks up to 1 GB; in the Android app 1.10 the original stays in the gallery and the app
-serves and uploads it) and phase 5 to come; see
+serves and uploads it); phase 5 (2026-11-10) took the old Offline screen away: with no signal
+and no copy on the phone yet, a link stays on its page and a toast says the page needs a
+connection; see
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)
 and [`docs/superpowers/specs/2026-11-09-offline-phase-3-design.md`](docs/superpowers/specs/2026-11-09-offline-phase-3-design.md)).
 and the group view (2026-11-09: the group's look follows where you are, not a switch: a page
@@ -366,5 +368,5 @@ loads (three dots after half a second, "Still trying… Go back" after 8 s), and
 new page's band ends as its words fade in; scrolled down it holds square under the slim band; a
 figure's switcher steps change only the words; Practice and the map fade in and out; Done's
 landing plays once the card has settled. The phone has no skeleton or progress bar now; the
-desktop keeps both and offers Go back after 8 s. The Offline layer leaves the tab bar showing,
-and Not found no longer says "ERROR 404".
+desktop keeps both and offers Go back after 8 s. (The Offline layer that left the tab bar showing
+is gone since offline phase 5.) Not found no longer says "ERROR 404".

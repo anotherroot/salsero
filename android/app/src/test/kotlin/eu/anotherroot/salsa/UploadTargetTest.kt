@@ -22,3 +22,11 @@ class UploadTargetTest {
         assertFalse(releasesSource(Target.LessonVideo(1)))
     }
 }
+
+class OverallPercentTest {
+    @org.junit.Test fun `compressing is the first half and sending the second, or sending is all`() {
+        org.junit.Assert.assertEquals(20, overallPercent(40, compressing = true, compressed = true))
+        org.junit.Assert.assertEquals(70, overallPercent(40, compressing = false, compressed = true))
+        org.junit.Assert.assertEquals(40, overallPercent(40, compressing = false, compressed = false))
+    }
+}

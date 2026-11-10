@@ -184,7 +184,7 @@ export const video: Catalog['video'] = {
 		remove: 'Odstrani',
 		sheetNote:
 			'Naloži pošlje manjšo kopijo (velikost iz Nastavitev → Video). Izvirnik vedno ostane na telefonu.',
-		sheetNoteIphone: 'Naloži pošlje izvirnik. Ta ostane tudi na iPhonu.',
+		sheetNoteOriginal: 'Naloži pošlje izvirnik. Ta ostane tudi na telefonu.',
 		frameTitle: (d) => capital(naNapravi(d)),
 		frameBody:
 			'Video je samo tam. Odseki so spodaj; predvajate ga lahko na tisti napravi ali tu, ko ga tam naložite.',

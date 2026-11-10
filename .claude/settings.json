@@ -1,0 +1,20 @@
+{
+	"permissions": {
+		"ask": [
+			"Bash(./scripts/deploy.sh*)",
+			"Bash(scripts/deploy.sh*)",
+			"Bash(bash scripts/deploy.sh*)",
+			"Bash(bash ./scripts/deploy.sh*)",
+			"Bash(nix develop -c ./scripts/deploy.sh*)",
+			"Bash(nix develop -c scripts/deploy.sh*)",
+			"Bash(./scripts/release.sh*)",
+			"Bash(scripts/release.sh*)",
+			"Bash(bash scripts/release.sh*)",
+			"Bash(bash ./scripts/release.sh*)",
+			"Bash(nix develop -c ./scripts/release.sh*)",
+			"Bash(nix develop -c scripts/release.sh*)",
+			"Bash(nix develop .#android -c ./scripts/release.sh*)",
+			"Bash(nix develop .#android -c scripts/release.sh*)"
+		]
+	}
+}

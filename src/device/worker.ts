@@ -161,6 +161,7 @@ async function keepStatus(): Promise<KeepStatus | null> {
 		},
 		slot: scope.slot,
 		originals: originals.map((f) => f.file),
+		originalRows: device.originalRows(originals.map((f) => f.file)),
 		devices: scope.devices,
 		free: room,
 		low: isLow(room)
@@ -269,6 +270,8 @@ async function syncNow(): Promise<void> {
 }
 
 scope.addEventListener('online', () => void syncNow());
+// Gone offline (4b minor 6): a pass now, so the page says what waits for a connection at once.
+scope.addEventListener('offline', () => void media.restart());
 
 /** After a sync that reached the server: the person's originals whose row was deleted go (offline phase 4c). */
 async function sweepMine(): Promise<void> {

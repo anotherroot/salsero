@@ -204,9 +204,25 @@ export type KeepStatus = {
 	slot?: number | null;
 	/** The file names of the person's originals on this phone (offline phase 4c). */
 	originals?: string[];
+	/** The rows of the originals held here, for the low-space suggestions (offline phase 4c). */
+	originalRows?: OriginalRow[];
 	/** The person's devices that hold originals, by slot (the last pull's `ServerExtras.devices`). */
 	devices?: Record<string, DeviceLabel>;
 	/** Free for this app (quota − usage); null where the browser won't say. */
 	free: number | null;
 	low: boolean;
+};
+
+/** A person's own video kept only here, as the low-space list offers it (offline phase 4c). */
+export type OriginalRow = {
+	file: string;
+	table: 'recordings' | 'lesson_videos';
+	id: number;
+	title: string;
+	/** Its place among its lesson's videos; null for a recording. */
+	index: number | null;
+	/** The original's size on this phone. */
+	bytes: number;
+	/** The server has a copy: taking the original off loses nothing. */
+	uploaded: boolean;
 };

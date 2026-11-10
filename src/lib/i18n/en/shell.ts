@@ -162,6 +162,8 @@ export const shell = {
 	offline: {
 		/** The toast when a write can't reach the server: the device's copy is read only. */
 		needsConnection: 'Needs a connection. Nothing was changed.',
+		/** A link with no signal and no copy on the phone yet (offline phase 5). */
+		pageNeedsConnection: 'This page needs a connection.',
 		/** At the top of a sheet whose actions need a connection (offline phase 3). */
 		needsConnectionFor: 'Needs a connection for these'
 	},

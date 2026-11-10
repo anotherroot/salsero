@@ -69,8 +69,8 @@ const FULL_LOAD_TYPES = new Set(['link', 'goto', 'form']);
  *
  * Never a popstate (a sheet's Back, the player stepping up, Back to another
  * page all replay history and must stay in the app), never while the
- * unsaved-changes guard is asking, never offline (the offline screen takes
- * that one), and never while the page holds something the unload would cut
+ * unsaved-changes guard is asking, never offline (the layout stops it and says
+ * so), and never while the page holds something the unload would cut
  * short: the guard would ask the browser's own question about it, and a
  * sheet's or the player's Back, let go by the cancelled navigation, would
  * race the load. The navigation then goes on inside the app, and the next

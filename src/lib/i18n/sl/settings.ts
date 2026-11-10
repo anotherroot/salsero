@@ -93,6 +93,8 @@ export const settings: Catalog['settings'] = {
 				`Prostor vklopljen · ${slCount(n, ['video', 'videa', 'videi', 'videov'])} · ${size}`,
 			videoSub: (i, size) => `Video ${i} · ${size}`,
 			recordingSub: (size) => `Posnetek · ${size}`,
+			originalSub: (uploaded, size) =>
+				uploaded ? `Na telefonu in strežniku · ${size}` : `Samo na tem telefonu · ${size}`,
 			turnOff: 'Izklopi',
 			remove: 'Odstrani',
 			sheetTitle: 'Telefonu zmanjkuje prostora',

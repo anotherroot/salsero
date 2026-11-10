@@ -1082,7 +1082,12 @@ export type MoveItem = {
 export type MovePreview = CopyPlanView & { items: MoveItem[] };
 
 /** Move to… on the person's own lesson: its title and the groups it can go to. */
-export type MoveOffer = { title: string; targets: CopyTarget[] };
+export type MoveOffer = {
+	title: string;
+	targets: CopyTarget[];
+	/** Its phone-only videos, which a move leaves behind (offline phase 4c); null: none. */
+	stayBehind?: { count: number; label: DeviceLabel | null } | null;
+};
 
 /** One row of "Copies you can see" (board C3 p1): a member of the page's family. */
 export type FamilyEntry = {

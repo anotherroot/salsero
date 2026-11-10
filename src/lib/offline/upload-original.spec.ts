@@ -41,3 +41,41 @@ describe('uploadOriginal: Upload on a phone-only video (offline phase 4c)', () =
 		expect(sent).toBe(false);
 	});
 });
+
+describe('uploadOriginal: after the review (4c minors)', () => {
+	const deps = (log: string[], put: () => Promise<{ ok: true; body: string }>) => ({
+		get: async () => new Blob([new Uint8Array(5)], { type: 'video/mp4' }),
+		put: async () => {
+			log.push('put');
+			return put();
+		},
+		uuid: () => 'u',
+		synced: () => {},
+		pushFirst: async () => {
+			log.push('push');
+		}
+	});
+
+	it('pushes what waits first, so the row is on the server before its bytes', async () => {
+		const log: string[] = [];
+		await uploadOriginal(
+			{ table: 'recordings', id: 1, file: 'p.mp4' },
+			deps(log, async () => ({ ok: true, body: '' }))
+		);
+		expect(log).toEqual(['push', 'put']);
+	});
+
+	it('a second Upload while one runs joins it, and is no failure', async () => {
+		const log: string[] = [];
+		let finish: () => void = () => {};
+		const slow = () =>
+			new Promise<{ ok: true; body: string }>((r) => (finish = () => r({ ok: true, body: '' })));
+		const first = uploadOriginal({ table: 'recordings', id: 1, file: 'j.mp4' }, deps(log, slow));
+		await new Promise((r) => setTimeout(r, 0));
+		const second = uploadOriginal({ table: 'recordings', id: 1, file: 'j.mp4' }, deps(log, slow));
+		finish();
+		expect(await second).toEqual({ ok: true });
+		expect(await first).toEqual({ ok: true });
+		expect(log.filter((l) => l === 'put')).toHaveLength(1);
+	});
+});

@@ -207,3 +207,54 @@ describe('withStored: a video that just landed counts at once (phone, 2026-11-10
 		).toHaveLength(1);
 	});
 });
+
+describe('suggestions: your own videos kept only here (offline phase 4c)', () => {
+	it('not uploaded: Upload first; uploaded: take the original off; largest first with the rest', () => {
+		const s = status({
+			spaces: [],
+			kept: [],
+			originalRows: [
+				{
+					file: 'o1.mp4',
+					table: 'recordings',
+					id: 4,
+					title: 'Dile',
+					index: null,
+					bytes: 400 * MB,
+					uploaded: false
+				},
+				{
+					file: 'o2.mp4',
+					table: 'lesson_videos',
+					id: 5,
+					title: 'Week 1',
+					index: 2,
+					bytes: 90 * MB,
+					uploaded: true
+				}
+			]
+		});
+		expect(suggestions(s)).toEqual([
+			{
+				kind: 'original',
+				file: 'o1.mp4',
+				table: 'recordings',
+				id: 4,
+				title: 'Dile',
+				index: null,
+				bytes: 400 * MB,
+				uploaded: false
+			},
+			{
+				kind: 'original',
+				file: 'o2.mp4',
+				table: 'lesson_videos',
+				id: 5,
+				title: 'Week 1',
+				index: 2,
+				bytes: 90 * MB,
+				uploaded: true
+			}
+		]);
+	});
+});

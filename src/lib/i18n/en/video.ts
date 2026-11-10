@@ -226,7 +226,7 @@ export const video = {
 		remove: 'Remove',
 		sheetNote:
 			'Upload sends a smaller copy (the size from Settings → Video). The original always stays on the phone.',
-		sheetNoteIphone: 'Upload sends the original. It stays on this iPhone too.',
+		sheetNoteOriginal: 'Upload sends the original. It stays on this phone too.',
 		/** The grey frame on another device: "On Pixel 8". */
 		frameTitle: (d: DeviceLabel | null): string => capital(onDevice(d)),
 		frameBody:

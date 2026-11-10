@@ -20,7 +20,7 @@ import {
 import { installCapture, startCapture, stopCapture } from './capture';
 import { wantedMedia } from './media';
 import type { MediaFile } from '$lib/offline/media-store';
-import type { KeepChange, KeepSettings, KeepStatus } from '$lib/offline/protocol';
+import type { KeepChange, KeepSettings, KeepStatus, OriginalRow } from '$lib/offline/protocol';
 import {
 	applyKeepChange,
 	keptBySpace,
@@ -28,7 +28,9 @@ import {
 	readKeep,
 	spaceRows,
 	wantedVideos,
-	writeKeep
+	writeKeep,
+	originalRows,
+	pruneKeep
 } from './keep';
 import {
 	applyResults,
@@ -130,6 +132,8 @@ export type Device = {
 		/** Originals whose row the server had, as last noted. */
 		landed: Set<string>;
 	};
+	/** The rows of originals held here, for the low-space list (offline phase 4c). */
+	originalRows(files: readonly string[]): OriginalRow[];
 	/** Keeps which originals have landed (`landedOriginals`), with the copy. */
 	noteLanded(files: ReadonlySet<string>): void;
 	/** One change to it, saved; a kept video gone from the copy drops out. */
@@ -690,10 +694,13 @@ export function createDevice(deps: DeviceDeps): Device {
 			const user = copyUser();
 			return user === null
 				? []
-				: [...wantedMedia(db, user), ...wantedVideos(db, user, readKeep(db))];
+				: [...wantedMedia(db, user), ...wantedVideos(db, user, pruneKeep(db, user, readKeep(db)))];
 		},
 
-		keepSettings: () => readKeep(db),
+		keepSettings: () => {
+			const user = copyUser();
+			return user === null ? readKeep(db) : pruneKeep(db, user, readKeep(db));
+		},
 
 		originalsScope() {
 			const files = new Set<string>();
@@ -732,6 +739,8 @@ export function createDevice(deps: DeviceDeps): Device {
 			};
 		},
 
+		originalRows: (files) => originalRows(db, files),
+
 		noteLanded(files) {
 			writeMetaValue(db, LANDED_META, JSON.stringify([...files]));
 		},
@@ -747,7 +756,7 @@ export function createDevice(deps: DeviceDeps): Device {
 		keepRows(held) {
 			const user = copyUser();
 			if (user === null) return { spaces: [], kept: [], bySpace: {} };
-			const s = readKeep(db);
+			const s = pruneKeep(db, user, readKeep(db));
 			return {
 				spaces: spaceRows(db, user, s, held),
 				kept: keptVideos(db, s, held),

@@ -6,8 +6,9 @@
  */
 export const LOW_SHOWN_KEY = 'salsa:low-space-shown';
 
-export function shouldOpenLowSheet(low: boolean, shown: boolean): boolean {
-	return low && !shown;
+/** `suggestions`: how many things the sheet would offer to take off; none, no sheet (only the dot and the page). */
+export function shouldOpenLowSheet(low: boolean, shown: boolean, suggestions = 1): boolean {
+	return low && !shown && suggestions > 0;
 }
 
 export function lowShown(): boolean {

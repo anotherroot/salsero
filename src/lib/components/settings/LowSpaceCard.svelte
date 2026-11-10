@@ -11,6 +11,8 @@
 	import { t } from '$lib/i18n/catalog';
 	import { changeKeep } from '$lib/offline/kept.svelte';
 	import { suggestions } from '$lib/offline/kept-view';
+	import { dropOriginal } from '$lib/offline/device.svelte';
+	import { uploadOriginal } from '$lib/offline/upload-original';
 	import type { KeepStatus } from '$lib/offline/protocol';
 
 	let { status, warning = true }: { status: KeepStatus; warning?: boolean } = $props();
@@ -31,7 +33,7 @@
 {#if rows.length}
 	{#if warning}<h2 class="{SECTION_LABEL} mt-[14px] mb-2">{w.low.suggestions}</h2>{/if}
 	<div class={GROUP}>
-		{#each rows as s (s.kind === 'space' ? s.id : s.key)}
+		{#each rows as s (s.kind === 'space' ? s.id : s.kind === 'original' ? s.file : s.key)}
 			<div class="{ROW} pr-3">
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="flex items-center gap-1.5 text-[16px] font-bold text-ink">
@@ -41,19 +43,33 @@
 						<span class="truncate">{s.kind === 'space' ? (s.name ?? w.myLessons) : s.title}</span>
 					</span>
 					<span class="text-[13px] text-muted">
-						{#if s.kind === 'space'}{w.low.spaceSub(s.videos, byteSize(s.bytes))}
+						{#if s.kind === 'original'}{w.low.originalSub(s.uploaded, byteSize(s.bytes))}
+						{:else if s.kind === 'space'}{w.low.spaceSub(s.videos, byteSize(s.bytes))}
 						{:else if s.index !== null}{w.low.videoSub(s.index, byteSize(s.bytes))}
 						{:else}{w.low.recordingSub(byteSize(s.bytes))}{/if}
 					</span>
 				</span>
-				<button
-					type="button"
-					class={button('secondary', 'sm')}
-					onclick={() =>
-						void changeKeep(
-							s.kind === 'space' ? { space: s.id, on: false } : { video: s.key, on: false }
-						)}>{s.kind === 'space' ? w.low.turnOff : w.low.remove}</button
-				>
+				{#if s.kind === 'original'}
+					<!-- Offline phase 4c: not uploaded, Upload first (never removed unsent); uploaded, take it off. -->
+					<button
+						type="button"
+						class={button(s.uploaded ? 'secondary' : 'primary', 'sm')}
+						onclick={() =>
+							void (s.uploaded
+								? dropOriginal(s.file)
+								: uploadOriginal({ table: s.table, id: s.id, file: s.file }))}
+						>{s.uploaded ? w.low.remove : t().video.place.upload}</button
+					>
+				{:else}
+					<button
+						type="button"
+						class={button('secondary', 'sm')}
+						onclick={() =>
+							void changeKeep(
+								s.kind === 'space' ? { space: s.id, on: false } : { video: s.key, on: false }
+							)}>{s.kind === 'space' ? w.low.turnOff : w.low.remove}</button
+					>
+				{/if}
 			</div>
 		{/each}
 	</div>

@@ -22,3 +22,9 @@ export function placeWord(p: Place | null): { text: string; tone: PlaceTone } | 
 			return { text: p.gallery ? w.missingGallery : w.missingHere, tone: 'danger' };
 	}
 }
+
+/** What Upload sends: the app a smaller copy (compressed there), a browser the original. */
+export function uploadNote(app: boolean): string {
+	const w = t().video.place;
+	return app ? w.sheetNote : w.sheetNoteOriginal;
+}
