@@ -253,7 +253,10 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      is the one song upload in flight, outliving the sheet. Client-safe
                      sections.ts is PURE: a song's sections (stored as seconds, `placeSections`
                      snaps them to the 1s in order), the grid's rows, what comes next
-                     (`aheadOf`) and the section writes. suggest.ts: where the downbeats say
+                     (`aheadOf`) and the section writes. count-in.ts: the lead before a
+                     counted section (the song before its first, or a count-off section):
+                     quiet, counted down in the coming tempo, 5 6 7 8 faint and spoken.
+                     suggest.ts: where the downbeats say
                      the 1 moves. music-start.ts: where a song starts (`musicStart`) and
                      `playFrom`, which every player calls before its first play(). listen.ts:
                      the count card's lines. song-edit.ts: Edit's words. grid-keys.ts: the
