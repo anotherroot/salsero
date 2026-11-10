@@ -11,7 +11,7 @@ import { afterNavigate, goto, onNavigate } from '$app/navigation';
 import { navigating, page } from '$app/state';
 import { tick, untrack } from 'svelte';
 import { desk } from '$lib/nav/desk.svelte';
-import { LEAVE, play, reducedMotion } from './motion';
+import { ARRIVE, LEAVE, play, reducedMotion } from './motion';
 import {
 	PAGE_MOVE,
 	drawnEdge,
@@ -46,6 +46,9 @@ let overflow: string | null = null;
 let shadowed: HTMLElement | null = null;
 /** The faded page's card, made inert while it waits. */
 let inerted: HTMLElement | null = null;
+/** When the lift began, and where the card was drawn as the next page arrived (`onNavigate`). */
+let liftStart = 0;
+let drawnAt: number | null = null;
 
 function release() {
 	if (inerted) inerted.inert = false;
@@ -102,7 +105,9 @@ function fadeOff(g: HTMLElement) {
 
 /** How long until the card has landed: Today's own landing starts then (round 1). */
 export function settledIn(): number {
-	if (moveState.phase === 'up' || moveState.phase === 'held') return PAGE_MOVE.down;
+	// Waiting: the rest of the lift (it always goes the whole way up), then the landing.
+	if (moveState.phase === 'up' || moveState.phase === 'held')
+		return Math.max(0, liftStart + PAGE_MOVE.up - performance.now()) + PAGE_MOVE.down;
 	if (moveState.phase === 'down') return Math.max(0, landingEnd - performance.now());
 	return 0;
 }
@@ -220,6 +225,8 @@ function lift(kind: MoveKind): boolean {
 			})
 		);
 	if (up) holdScroll(true);
+	liftStart = up ? performance.now() : 0;
+	drawnAt = null;
 	// The faded page is still there under the empty card: nothing on it answers a tap meanwhile
 	// (the band's ‹ and buttons and the tabs stay live).
 	p.main.inert = true;
@@ -258,9 +265,18 @@ async function land() {
 	// Out of a full-screen page the card comes in held, as if it had lifted, under band that fades off.
 	const start = from ?? heldEdge(to.y, foot);
 	if (leaving && p.header) fadeOff(ghost(getComputedStyle(p.header).backgroundColor, null));
-	const shift = start - to.y;
+	// A page ready before the lift is up: the lift goes on from where the card is drawn to the
+	// top (the user's call: always the whole way up), and the landing follows it.
+	const drawn = drawnAt ?? start;
+	drawnAt = null;
+	const upLeft =
+		from !== null && liftStart ? Math.max(0, liftStart + PAGE_MOVE.up - performance.now()) : 0;
+	const wait = upLeft > 8 && drawn - start > 1 ? upLeft : 0;
+	const turn = wait / (wait + PAGE_MOVE.down);
+	// The lowest the card is on its way: what it may uncover under the band.
+	const shift = Math.max(drawn, start) - to.y;
 	moveState.phase = 'down';
-	landingEnd = performance.now() + PAGE_MOVE.down;
+	landingEnd = performance.now() + wait + PAGE_MOVE.down;
 	const radius = (square: boolean) => (square ? '0px' : '28px');
 	// Landing under the slim band (back to a scrolled page) the card's visible edge is the slim
 	// band's foot, which no transform of the card moves: a band strip from there shrinks away.
@@ -278,10 +294,18 @@ async function land() {
 			background: getComputedStyle(p.header).backgroundColor
 		});
 		document.body.append(strip);
-		const a = play(strip, [{ transform: 'none' }, { transform: 'scaleY(0)' }], {
-			duration: PAGE_MOVE.down,
-			fill: 'forwards'
-		});
+		const scale = (y: number) => `scaleY(${Math.max(0, y - foot) / shift})`;
+		const a = play(
+			strip,
+			wait
+				? [
+						{ transform: scale(drawn) },
+						{ transform: scale(start), offset: turn },
+						{ transform: 'scaleY(0)' }
+					]
+				: [{ transform: scale(start) }, { transform: 'scaleY(0)' }],
+			{ duration: wait + PAGE_MOVE.down, fill: 'forwards', easing: 'linear' }
+		);
 		if (a)
 			a.finished.then(
 				() => strip.remove(),
@@ -297,10 +321,21 @@ async function land() {
 	}
 	const anims = [
 		keep(
-			play(p.main, [{ transform: `translateY(${shift}px)` }, { transform: 'none' }], {
-				duration: PAGE_MOVE.down,
-				fill: 'backwards'
-			})
+			play(
+				p.main,
+				wait
+					? [
+							// The rest of the lift, then the landing.
+							{
+								transform: `translateY(${drawn - to.y}px)`,
+								easing: 'cubic-bezier(0.2, 0.6, 0.35, 1)'
+							},
+							{ transform: `translateY(${start - to.y}px)`, offset: turn, easing: ARRIVE },
+							{ transform: 'none' }
+						]
+					: [{ transform: `translateY(${start - to.y}px)` }, { transform: 'none' }],
+				{ duration: wait + PAGE_MOVE.down, fill: 'backwards', easing: wait ? 'linear' : ARRIVE }
+			)
 		),
 		keep(
 			play(
@@ -309,14 +344,14 @@ async function land() {
 					{ borderTopLeftRadius: radius(wasSquare), borderTopRightRadius: radius(wasSquare) },
 					{ borderTopLeftRadius: radius(to.square), borderTopRightRadius: radius(to.square) }
 				],
-				{ duration: PAGE_MOVE.corners, fill: 'backwards' }
+				{ duration: PAGE_MOVE.corners, delay: wait, fill: 'backwards' }
 			)
 		),
 		...words(p).map((el) =>
 			keep(
 				play(el, [{ opacity: 0 }, { opacity: 1 }], {
 					duration: PAGE_MOVE.wordsIn,
-					delay: PAGE_MOVE.wordsInDelay,
+					delay: wait + PAGE_MOVE.wordsInDelay,
 					easing: 'ease-out',
 					fill: 'backwards'
 				})
@@ -376,8 +411,7 @@ export function pageMove(): void {
 		const p = parts();
 		if (!p || moveState.edge === null) return;
 		const at = visibleEdge(p.main.getBoundingClientRect().top, slimFoot(p));
-		moveState.edge = at.y;
-		moveState.square = at.square;
+		drawnAt = at.y;
 	});
 	afterNavigate(() => {
 		if (moveState.phase === 'up' || moveState.phase === 'held') void land();
