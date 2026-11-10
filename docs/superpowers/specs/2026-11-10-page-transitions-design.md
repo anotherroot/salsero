@@ -167,10 +167,13 @@ still show, on the old page's card.
 
 ### Error screen changes (agreed with the user)
 
-1. **The offline and server-error screens keep the tab bar.** Today, when
-   the network fails, the error page loses the page frame (`frameOfError`
-   sees no signed-in user, because the layout's data never came) and draws a
-   bare card. Keep the frame the app last had, so only the card changes.
+1. **The Offline screen keeps the tab bar.** Found while building: the
+   "offline without the tab bar" screen was the Offline layer (a modal over
+   the whole page), not the error page. A page change that cannot reach the
+   server never draws `+error.svelte`: the layer stops it first, or the page
+   loads whole. On the phone the layer now stops above the tab bar, which
+   shows, inert while the layer is open. Its backdrop is truly transparent: the
+   app-wide scrim had beaten its own transparent class.
 2. **Add "Still trying… Go back"**, as above. New words in both catalogs
    (en, sl).
 3. **Drop the "ERROR 404" line** on Not found. The band ("Not found") and the

@@ -480,7 +480,14 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
 src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
                      loaded (it stays under way for good, the skeleton over the old page); the
                      root layout watches `navigating`, goes again, and loads whole after 2 tries
-src/lib/motion/       motion round 1 (spec 2026-11-10-motion-round-1). motion.ts: the vocabulary (MS
+src/lib/motion/       page changes (round 2, spec 2026-11-10-page-transitions): page-move.ts PURE
+                     (where the card's edge is, where it waits, which move a navigation gets,
+                     PAGE_MOVE's values) and page-move.svelte.ts (the runtime, wired once by the
+                     root layout: lifts the Screen's <main>, holds it, lands it in afterNavigate;
+                     `settledIn`, `goBack`, `stepInPage`). components/shell/PageWait.svelte (the
+                     dots, phone), DeskWait.svelte (the desktop's Go back), StillTrying.svelte (the
+                     line both draw).
+                     motion round 1 (spec 2026-11-10-motion-round-1). motion.ts: the vocabulary (MS
                      150/260/380, ARRIVE, SETTLE, LEAVE; layout.css has the same as --motion-*
                      and --ease-*) and `play()`, still under reduced motion. flip.ts PURE: a
                      keyed list's change as moves (`flipPlan`), and `kept`, what a list with an

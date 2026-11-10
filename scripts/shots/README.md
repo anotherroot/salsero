@@ -37,7 +37,7 @@ window): the phone must have none, and a desktop page none from 1024.
 
 `DELAY_FROM=<path>` (an environment variable, a template line like those in `pages.txt`) shoots each
 page while it loads: it opens `<path>`, follows a link to the page with its `__data.json` held unanswered,
-and shoots 1.2 s later, skeleton up. Its line then says `SIDE live` when every link of the desktop's
+and shoots 1.2 s later, skeleton up (on the desktop; the phone shows the lifted card and its dots, page changes spec). Its line then says `SIDE live` when every link of the desktop's
 side is what a click at its centre hits, and `SIDE BLOCKED by <element>` (a failure) when the
 skeleton covers it; no `SIDE` where no side shows (the phone).
 

@@ -309,4 +309,12 @@ links, sections, recordings, Music's To pick, comments, Suggestions and a past d
 slide away and toasts rise; Done lands on Today (the row lifts into its done place, its
 check pops, the bar fills, the words swap); the player's count pushes on the beat (every count
 alike, the 1 is drawn like the rest), the lit dot grows, and Next rises into the call on a new figure. Nothing waits
-on motion, and reduced motion turns it all off. Page transitions are for a later round.
+on motion, and reduced motion turns it all off. Changing pages (round 2,
+[`docs/superpowers/specs/2026-11-10-page-transitions-design.md`](docs/superpowers/specs/2026-11-10-page-transitions-design.md)):
+on the phone the page's card lifts on the tap and its words fade, holds empty while the page
+loads (three dots after half a second, "Still trying… Go back" after 8 s), and lands where the
+new page's band ends as its words fade in; scrolled down it holds square under the slim band; a
+figure's switcher steps change only the words; Practice and the map fade in and out; Done's
+landing plays once the card has settled. The phone has no skeleton or progress bar now; the
+desktop keeps both and offers Go back after 8 s. The Offline layer leaves the tab bar showing,
+and Not found no longer says "ERROR 404".
