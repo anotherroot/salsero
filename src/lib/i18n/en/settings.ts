@@ -64,7 +64,57 @@ export const settings = {
 	/** The device's own space (offline phase 4a); sizes as `byteSize` writes them. */
 	onPhone: {
 		label: 'On this phone',
-		songs: (size: string): string => `Songs and your count · ${size}`
+		// Videos kept on the phone (offline phase 4b): the Settings row, its own page, the button under a video.
+		row: (songs: string, videos: string, free: string | null): string =>
+			free
+				? `Songs ${songs} · videos ${videos} · free ${free}`
+				: `Songs ${songs} · videos ${videos}`,
+		sub: (songs: string, videos: string): string => `Songs ${songs} · videos ${videos}`,
+		used: (used: string, free: string | null): string =>
+			free ? `${used} used · ${free} free` : `${used} used`,
+		legendSongs: (size: string): string => `Songs and count · ${size}`,
+		legendVideos: (size: string): string => `Kept videos · ${size}`,
+		notReady: 'Not ready on this phone yet: the app is still getting its copy here.',
+		spacesLabel: 'Lesson videos on this phone',
+		myLessons: 'My lessons',
+		videos: (n: number, size: string): string => `${plural(n, 'video', 'videos')} · ${size}`,
+		onPhone: 'on this phone',
+		coming: (i: number, n: number, got: string, all: string): string =>
+			`Downloading ${i} of ${n} · ${got} of ${all}`,
+		ofOnPhone: (i: number, n: number): string => `${i} of ${n} on this phone`,
+		waitingWifi: 'waiting for Wi-Fi',
+		waitingNet: 'waiting for a connection',
+		noSpace: 'no space',
+		comingShort: (p: number): string => `downloading ${p} %`,
+		wifiOnly: 'Only on Wi-Fi',
+		wifiOnlySub: "Videos don't download on mobile data. Songs always do.",
+		cantTell:
+			"This phone doesn't tell the app whether it is on Wi-Fi or mobile data, so videos may download on mobile data: switch on only what you need.",
+		spaceNote:
+			"A space that is on keeps all its lessons' videos on this phone, old ones too, and each new one. Keep a single video with the button under it.",
+		clear: 'Clear kept videos',
+		clearSub: 'They stay on the server; you can download them again.',
+		cleared: 'Kept videos cleared',
+		keep: 'Keep on this phone',
+		stop: (p: number): string => `Downloading, ${p} %. Stop`,
+		remove: 'On this phone. Remove from the phone',
+		bySpace: (name: string): string => `On this phone, kept by ${name}. Settings`,
+		low: {
+			title: 'Little space left on this phone',
+			body: (free: string): string => `${free} free. Videos on the server can always come back.`,
+			suggestions: 'Suggestions, largest first',
+			spaceSub: (n: number, size: string): string =>
+				`Kept · ${plural(n, 'video', 'videos')} · ${size}`,
+			videoSub: (i: number, size: string): string => `Video ${i} · ${size}`,
+			recordingSub: (size: string): string => `Recording · ${size}`,
+			turnOff: 'Turn off',
+			remove: 'Remove',
+			sheetTitle: 'This phone is running out of space',
+			sheetBody: (free: string): string =>
+				`${free} free. These videos are on the server too: remove them from the phone and they can come back any time.`,
+			later: 'Later',
+			tabLabel: (label: string): string => `${label}, little space on this phone`
+		}
 	},
 	practice: {
 		label: 'Practice',

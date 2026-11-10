@@ -134,9 +134,12 @@
 	const ring = $derived(variant === 'pane' ? '' : '--focus-ring: var(--color-band-ink); ');
 </script>
 
+<!-- Clipped across: the slim title's twin is wider than the phone until it shrinks, and widened the page. -->
 <svelte:element
 	this={deskOnly ? 'div' : 'header'}
-	class="relative {deskOnly ? 'hidden' : 'flex'} flex-col gap-[6px] bg-band px-5 {compact
+	class="relative {deskOnly
+		? 'hidden'
+		: 'flex'} flex-col gap-[6px] overflow-x-clip bg-band px-5 {compact
 		? 'pt-[calc(22px+var(--safe-top))]'
 		: 'pt-[calc(30px+var(--safe-top))]'} {hero
 		? 'pb-[92px]'

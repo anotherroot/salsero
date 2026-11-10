@@ -30,9 +30,9 @@
 	import { styleLabelsOf } from '$lib/moves/figures';
 	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
-	import { barFraction, songsOnPhoneLine, usageLine } from '$lib/storage-view';
-	import { opfsMediaStore } from '$lib/offline/media-store';
-	import { onMount } from 'svelte';
+	import { barFraction, usageLine } from '$lib/storage-view';
+	import { kept } from '$lib/offline/kept.svelte';
+	import { phoneRowLine } from '$lib/offline/kept-view';
 	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UpdateButton from '$lib/components/system/UpdateButton.svelte';
@@ -77,16 +77,6 @@
 
 	const w = $derived(t().settings);
 
-	/** What the songs take on this phone (offline phase 4a); null: no store here, no line. */
-	let songsBytes = $state<number | null>(null);
-	onMount(() => {
-		void opfsMediaStore()
-			.then((store) => store?.usage())
-			.then((n) => {
-				if (n !== undefined) songsBytes = n;
-			})
-			.catch(() => {});
-	});
 	const themeOptions = $derived(THEME_CHOICES.map((c) => ({ value: c, label: themeLabel(c) })));
 	const languageOptions = LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }));
 
@@ -317,12 +307,22 @@
 		</div>
 	{/if}
 
-	{#if songsBytes !== null}
+	{#if kept.status}
+		<!-- What this phone holds (offline phase 4a, 4b): its own page, look 1B. -->
 		<span class="{SECTION_LABEL} mt-[14px]">{w.onPhone.label}</span>
 		<div class={GROUP}>
-			<div class="px-4 py-3 text-[16px] font-bold text-ink" data-songs-on-phone>
-				{songsOnPhoneLine(songsBytes)}
-			</div>
+			<a href="/settings/phone" class={ROW_TALL} data-songs-on-phone>
+				<LeadTile icon="phone" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">{w.onPhone.label}</span>
+					<span class="flex items-center gap-1 text-[13px] text-muted">
+						{#if kept.status.low}<span class="flex flex-none text-warn"
+								><Icon name="warning" size={14} /></span
+							>{/if}{phoneRowLine(kept.status)}
+					</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
 		</div>
 	{/if}
 

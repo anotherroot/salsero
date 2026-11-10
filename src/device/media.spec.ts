@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
-import { memoryMediaStore, type MediaFile, type MediaStore } from '$lib/offline/media-store';
+import {
+	mediaStoreIn,
+	memoryMediaStore,
+	VIDEO_KINDS,
+	type MediaFile,
+	type MediaStore
+} from '$lib/offline/media-store';
+import { LOW_SPACE_BYTES } from '$lib/offline/network';
+import { asRoot, CAPS, FakeDir } from '$lib/offline/test-opfs';
 import { migrateDevice } from './migrate';
 import { repoMigrations } from './test-migrations';
 import { mediaKeeper, syncMedia, wantedMedia } from './media';
@@ -86,7 +94,7 @@ describe('syncMedia: the store follows the copy', () => {
 		const store = memoryMediaStore();
 		await store.write(A, new Response('held'));
 		const { result, fetched } = run([A, B, T], store);
-		expect(await result).toEqual({ fetched: 2, removed: 0, failed: 0 });
+		expect(await result).toEqual({ fetched: 2, removed: 0, failed: 0, waiting: null });
 		expect(fetched).toEqual(['/audio/b.m4a', '/count/t.wav']);
 		const b = await store.read('audio', 'b.m4a');
 		expect(await b?.body.text()).toBe('bytes of /audio/b.m4a');
@@ -97,7 +105,12 @@ describe('syncMedia: the store follows the copy', () => {
 		const store = memoryMediaStore();
 		await store.write(A, new Response('a'));
 		await store.write(B, new Response('b'));
-		expect(await run([A], store).result).toEqual({ fetched: 0, removed: 1, failed: 0 });
+		expect(await run([A], store).result).toEqual({
+			fetched: 0,
+			removed: 1,
+			failed: 0,
+			waiting: null
+		});
 		expect((await store.list()).map((f) => f.file)).toEqual(['a.m4a']);
 	});
 
@@ -105,7 +118,7 @@ describe('syncMedia: the store follows the copy', () => {
 		const store = memoryMediaStore();
 		await store.write(A, new Response('old'));
 		const { result, fetched } = run([B], store);
-		expect(await result).toEqual({ fetched: 1, removed: 1, failed: 0 });
+		expect(await result).toEqual({ fetched: 1, removed: 1, failed: 0, waiting: null });
 		expect(fetched).toEqual(['/audio/b.m4a']);
 		expect((await store.list()).map((f) => f.file)).toEqual(['b.m4a']);
 	});
@@ -117,7 +130,7 @@ describe('syncMedia: the store follows the copy', () => {
 			if (p.endsWith('b.m4a')) throw new TypeError('Failed to fetch');
 			return new Response('take');
 		});
-		expect(await result).toEqual({ fetched: 1, removed: 0, failed: 2 });
+		expect(await result).toEqual({ fetched: 1, removed: 0, failed: 2, waiting: null });
 		expect((await store.list()).map((f) => f.file)).toEqual(['t.wav']);
 	});
 
@@ -133,7 +146,7 @@ describe('syncMedia: the store follows the copy', () => {
 				})
 			);
 		});
-		expect(await result).toEqual({ fetched: 0, removed: 0, failed: 1 });
+		expect(await result).toEqual({ fetched: 0, removed: 0, failed: 1, waiting: null });
 		expect(await store.list()).toEqual([]);
 	});
 
@@ -141,7 +154,7 @@ describe('syncMedia: the store follows the copy', () => {
 		const store = memoryMediaStore();
 		await store.write(A, new Response('a'));
 		const { result, fetched } = run([B], store, undefined, false);
-		expect(await result).toEqual({ fetched: 0, removed: 0, failed: 0 });
+		expect(await result).toEqual({ fetched: 0, removed: 0, failed: 0, waiting: null });
 		expect(fetched).toEqual([]);
 		expect((await store.list()).map((f) => f.file)).toEqual(['a.m4a']);
 	});
@@ -220,5 +233,203 @@ describe('mediaKeeper: another person mid-download (the final review)', () => {
 		slow.release();
 		await Promise.all([first, second]);
 		expect((await store.list()).map((f) => f.file).sort()).toEqual(['a.m4a', 'b.m4a']);
+	});
+});
+
+const V_NEW: MediaFile = { kind: 'lesson-videos', file: 'new.mp4', mime: 'video/mp4', size: 300 };
+const V_OLD: MediaFile = { kind: 'lesson-videos', file: 'old.mp4', mime: 'video/mp4', size: 10 };
+const bytes = Uint8Array.from({ length: 300 }, (_, i) => i % 7);
+
+/** syncMedia with 4b's deps; every fetch is logged with the range it asked for. */
+function pass(
+	wanted: MediaFile[],
+	store: MediaStore,
+	o: {
+		fetchMedia?: (path: string, range?: number) => Promise<Response>;
+		videosMayCome?: () => boolean;
+		free?: () => Promise<number | null>;
+		online?: boolean;
+	} = {}
+) {
+	const fetched: { path: string; range?: number }[] = [];
+	const progress: [string, number, number][] = [];
+	const result = syncMedia({
+		wanted,
+		store,
+		fetchMedia: (path, _signal, range) => {
+			fetched.push({ path, range });
+			return (o.fetchMedia ?? (async () => new Response(bytes)))(path, range);
+		},
+		online: () => o.online ?? true,
+		videosMayCome: o.videosMayCome,
+		free: o.free,
+		onProgress: (k, r, t) => progress.push([k, r, t]),
+		log: { warn: vi.fn() }
+	});
+	return { result, fetched, progress };
+}
+
+/** A body of `n` bytes of `bytes`, then the signal goes. */
+function cutAfter(n: number): Response {
+	let sent = false;
+	return new Response(
+		new ReadableStream<Uint8Array>({
+			pull(c) {
+				if (sent) return c.error(new Error('the signal went'));
+				sent = true;
+				c.enqueue(bytes.slice(0, n));
+			}
+		})
+	);
+}
+
+describe('syncMedia: kept videos (offline phase 4b)', () => {
+	it('songs come first, then videos in the order given (newest lesson first)', async () => {
+		const store = memoryMediaStore();
+		const { result, fetched } = pass([V_NEW, A, { ...V_OLD, size: 300 }], store);
+		await result;
+		expect(fetched.map((f) => f.path)).toEqual([
+			'/audio/a.m4a',
+			'/lesson-videos/new.mp4',
+			'/lesson-videos/old.mp4'
+		]);
+	});
+
+	it('on mobile data with Only on Wi-Fi, songs come and videos wait', async () => {
+		const store = memoryMediaStore();
+		await store.write({ ...V_OLD, size: undefined }, new Response('held'));
+		const { result, fetched } = pass([A, V_NEW, V_OLD], store, { videosMayCome: () => false });
+		expect(await result).toMatchObject({ fetched: 1, removed: 0, waiting: 'wifi' });
+		expect(fetched.map((f) => f.path)).toEqual(['/audio/a.m4a']);
+	});
+
+	it('offline: videos still missing wait for a connection', async () => {
+		const store = memoryMediaStore();
+		const { result, fetched } = pass([V_NEW], store, { online: false });
+		expect(await result).toMatchObject({ fetched: 0, waiting: 'offline' });
+		expect(fetched).toEqual([]);
+	});
+
+	it('a video that would leave too little space waits; a smaller one still comes', async () => {
+		const store = memoryMediaStore();
+		const { result, fetched } = pass([V_NEW, V_OLD], store, {
+			free: async () => LOW_SPACE_BYTES + 50,
+			fetchMedia: async () => new Response(bytes.slice(0, 10))
+		});
+		expect(await result).toMatchObject({ fetched: 1, waiting: 'space' });
+		expect(fetched.map((f) => f.path)).toEqual(['/lesson-videos/old.mp4']);
+	});
+
+	it.each(CAPS)('a cut-off video resumes from its part (%s)', async (_, caps) => {
+		const store = mediaStoreIn(asRoot(new FakeDir(caps)));
+		const first = pass([V_NEW], store, { fetchMedia: async () => cutAfter(100) });
+		expect(await first.result).toMatchObject({ fetched: 0, failed: 1 });
+		const second = pass([V_NEW], store, {
+			fetchMedia: async () =>
+				new Response(bytes.slice(100), {
+					status: 206,
+					headers: { 'Content-Range': 'bytes 100-299/300' }
+				})
+		});
+		expect(await second.result).toMatchObject({ fetched: 1, failed: 0 });
+		expect(second.fetched).toEqual([{ path: '/lesson-videos/new.mp4', range: 100 }]);
+		const got = await store.read('lesson-videos', 'new.mp4');
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+	});
+
+	it('a 200 to a resume starts over instead of appending', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(CAPS[0][1])));
+		await pass([V_NEW], store, { fetchMedia: async () => cutAfter(100) }).result;
+		const second = pass([V_NEW], store);
+		expect(await second.result).toMatchObject({ fetched: 1 });
+		const got = await store.read('lesson-videos', 'new.mp4');
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+	});
+
+	it('a 206 from another byte than asked is a failure, not a file', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(CAPS[0][1])));
+		await pass([V_NEW], store, { fetchMedia: async () => cutAfter(100) }).result;
+		const second = pass([V_NEW], store, {
+			fetchMedia: async () =>
+				new Response(bytes.slice(50), {
+					status: 206,
+					headers: { 'Content-Range': 'bytes 50-299/300' }
+				})
+		});
+		expect(await second.result).toMatchObject({ fetched: 0, failed: 1 });
+		expect(await store.read('lesson-videos', 'new.mp4')).toBeNull();
+	});
+
+	it('progress is told, ending at the whole size', async () => {
+		const store = memoryMediaStore();
+		const { result, progress } = pass([V_NEW], store);
+		await result;
+		expect(progress.at(-1)).toEqual(['lesson-videos/new.mp4', 300, 300]);
+	});
+});
+
+describe('mediaKeeper.restart (offline phase 4b)', () => {
+	it('stops the file in flight and runs again', async () => {
+		const store = memoryMediaStore();
+		const signals: AbortSignal[] = [];
+		let release: () => void = () => {};
+		const keeper = mediaKeeper({
+			store: async () => store,
+			wanted: () => [V_NEW],
+			fetchMedia: (path, signal) => {
+				signals.push(signal);
+				return new Promise<Response>((resolve, reject) => {
+					signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+					release = () => resolve(new Response(bytes));
+				});
+			},
+			online: () => true,
+			videosMayCome: () => true,
+			free: async () => null,
+			onProgress: () => {},
+			onPass: () => {},
+			log: { info: vi.fn(), warn: vi.fn() }
+		});
+		const running = keeper.sync();
+		await vi.waitFor(() => expect(signals).toHaveLength(1));
+		const again = keeper.restart();
+		await vi.waitFor(() => expect(signals).toHaveLength(2));
+		expect(signals[0].aborted).toBe(true);
+		release();
+		await Promise.all([running, again]);
+		expect((await store.list()).map((f) => f.file)).toEqual(['new.mp4']);
+	});
+});
+
+describe('syncMedia: parts and removals (final review 3, 4, 5)', () => {
+	const opfs = () => mediaStoreIn(asRoot(new FakeDir(CAPS[0][1])));
+
+	it("a cut-off part of a video no longer wanted goes, and the store's size counts parts", async () => {
+		const store = opfs();
+		await pass([V_NEW], store, { fetchMedia: async () => cutAfter(100) }).result;
+		expect(await store.usage(VIDEO_KINDS)).toBe(100);
+		expect(await pass([], store).result).toMatchObject({ removed: 1 });
+		expect(await store.partSize('lesson-videos', 'new.mp4')).toBe(0);
+		expect(await store.usage(VIDEO_KINDS)).toBe(0);
+	});
+
+	it('a part that reached the whole size starts over instead of asking past the end', async () => {
+		const store = opfs();
+		await pass([V_NEW], store, { fetchMedia: async () => cutAfter(300) }).result;
+		expect(await store.partSize('lesson-videos', 'new.mp4')).toBe(300);
+		const second = pass([V_NEW], store);
+		expect(await second.result).toMatchObject({ fetched: 1, failed: 0 });
+		expect(second.fetched).toEqual([{ path: '/lesson-videos/new.mp4', range: undefined }]);
+		const got = await store.read('lesson-videos', 'new.mp4');
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+	});
+
+	it('offline, a kept video no longer wanted goes (the person asked); a song stays', async () => {
+		const store = memoryMediaStore();
+		await store.write({ ...V_OLD, size: undefined }, new Response('v'));
+		await store.write(A, new Response('a'));
+		const { result } = pass([], store, { online: false });
+		expect(await result).toMatchObject({ removed: 1, fetched: 0 });
+		expect((await store.list()).map((f) => f.kind)).toEqual(['audio']);
 	});
 });

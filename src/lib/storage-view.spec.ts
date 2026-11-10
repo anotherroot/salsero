@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withLocale } from '$lib/i18n/current';
-import { askedLine, barFraction, itemMeta, songsOnPhoneLine, usageLine } from './storage-view';
-import { byteSize } from './format';
+import { askedLine, barFraction, itemMeta, usageLine } from './storage-view';
 
 const MB = 1024 * 1024;
 
@@ -41,15 +40,5 @@ describe('storage view in Slovenian', () => {
 		expect(sl(() => itemMeta({ context: 'Lekcija · Sreda', sizeBytes: 1229 * MB }))).toBe(
 			'Lekcija · Sreda · 1,2 GB'
 		);
-	});
-});
-
-describe('the songs on this phone (offline phase 4a)', () => {
-	it('says how much they take, in both languages', () => {
-		const size = 34 * MB;
-		expect(withLocale('en', () => songsOnPhoneLine(size))).toBe(
-			'Songs and your count · ' + byteSize(size)
-		);
-		expect(withLocale('sl', () => songsOnPhoneLine(size))).toMatch(/^Pesmi in vaše štetje · /);
 	});
 });
