@@ -32,6 +32,16 @@ export const picker: Catalog['picker'] = {
 		tag: 'Nov gib',
 		group: 'Gibi'
 	},
+	elsewhere: {
+		yours: 'Vaše',
+		readOnly: (name) => `${name} · samo berete`,
+		alsoIn: (names) => `tudi v: ${names}`,
+		hasOwn: 'Ta skupina ima svojo',
+		noneHere: (typed) => `Tu nič ne ustreza »${typed}«.`,
+		offline: 'Za druga mesta potrebujete povezavo.',
+		looking: 'Iskanje po vaših drugih mestih …',
+		copyHere: (label) => `Kopiraj sem in poveži: ${label}`
+	},
 	groups: {
 		figures: 'Figure',
 		routines: 'Kombinacije',

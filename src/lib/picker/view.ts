@@ -4,6 +4,7 @@
  */
 import { t } from '$lib/i18n/catalog';
 import type { PickGroup, PickLine, PickRow } from '$lib/picker/model';
+import { SECTION_LABEL, swap } from '$lib/components/ui/styles';
 
 export type PickKind = 'link' | 'field' | 'act';
 export type Trail = 'add' | 'pending' | 'linked' | 'chosen' | 'none';
@@ -97,3 +98,7 @@ export interface ArchivedChoice {
 	onrestore?: () => void;
 	onpickanother: () => void;
 }
+
+/** A picker group's title: muted, or the warn colour for a group you only read. */
+export const groupTitle = (tone?: 'warn'): string =>
+	tone === 'warn' ? swap(SECTION_LABEL, 'text-muted', 'text-warn') : SECTION_LABEL;
