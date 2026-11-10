@@ -9,7 +9,7 @@ export const hearing: Catalog['hearing'] = {
 		title: 'Ali najdete ena?',
 		sub: 'Tapkajte zraven ali začnite sredi skladbe',
 		try: 'Poskusite',
-		countFirst: 'Za to najprej nastavite štetje'
+		countFirst: 'Deluje, ko nekdo nastavi štetje skladbe'
 	},
 	setup: {
 		kind: 'Način',

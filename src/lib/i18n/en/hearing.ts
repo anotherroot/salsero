@@ -12,7 +12,7 @@ export const hearing = {
 		title: 'Can you find the 1?',
 		sub: 'Tap along, or get dropped in mid-song',
 		try: 'Try it',
-		countFirst: 'Set the count first to try this'
+		countFirst: "Works once someone sets the song's count"
 	},
 	setup: {
 		kind: 'Round',

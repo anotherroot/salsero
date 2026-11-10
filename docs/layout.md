@@ -182,6 +182,12 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      totals). log-view.ts is `lastTimeParts` only.
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
+src/lib/hearing/     PURE hearing rounds: targets.ts (positions in the eight), judge.ts (taps against
+                     the count, per eight and per part), drops.ts (Dropped in), tap-delay.ts (the
+                     finger's delay, kept in this browser), round.ts, words.ts (`targetLabel`)
+src/lib/components/hearing/  the listening player's screens: ListenShell (band stage + sheet + bar),
+                     ListenSetup, TapPad (answers on pointerdown), TapCheck, ListenResult, BeatStrip,
+                     FindTheOneCard (the song page's card). Page: /[dance]/songs/[id]/listen
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
                      there is an About (`hasDetails`), Play's state, Built-in or Yours,
