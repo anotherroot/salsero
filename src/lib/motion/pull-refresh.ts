@@ -69,3 +69,14 @@ export function doneWord(
 export function watchesMove(scrollY: number): boolean {
 	return scrollY <= 0;
 }
+
+/**
+ * How far the band's colour reaches under the sheet when the sheet moves from
+ * `from` to `to`. While it springs it stays at the larger of the two, so the
+ * band never lets go before the sheet has landed (a shorter band showed the
+ * page's ground in a flash on letting go and on closing); once it lands, or
+ * under the finger, it is where the sheet is.
+ */
+export function fillHeight(from: number, to: number, springing: boolean): number {
+	return springing ? Math.max(from, to) : to;
+}

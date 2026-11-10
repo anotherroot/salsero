@@ -20,6 +20,7 @@
 		PULL_HOLD,
 		SPRING_MS,
 		doneWord,
+		fillHeight,
 		mayStart,
 		phaseWhilePulling,
 		pullDistance,
@@ -30,6 +31,8 @@
 	let { sheet }: { sheet: HTMLElement | undefined } = $props();
 
 	let d = $state(0);
+	/** How far the band's colour reaches under the sheet (`fillHeight`): never short of the sheet as it springs. */
+	let fill = $state(0);
 	let phase = $state<PullPhase>('idle');
 	/** Where the gap starts (the hero's top, else the sheet's), in the viewport: the page is at its top. */
 	let origin = $state(0);
@@ -57,15 +60,21 @@
 
 	/** Moves the sheet to `to`, springing when `spring` (none for reduced motion). */
 	function place(to: number, spring: boolean): Promise<void> {
-		d = to;
-		if (!sheet) return Promise.resolve();
-		const el = sheet;
 		const animate = spring && !reducedMotion();
+		fill = fillHeight(d, to, animate);
+		d = to;
+		if (!sheet) {
+			fill = to;
+			return Promise.resolve();
+		}
+		const el = sheet;
 		el.style.transition = animate ? `transform ${SPRING_MS}ms cubic-bezier(.2,.8,.2,1)` : '';
 		el.style.transform = to > 0 ? `translateY(${to}px)` : '';
 		if (!animate) return Promise.resolve();
 		return wait(SPRING_MS).then(() => {
 			el.style.transition = '';
+			// Landed: the band ends where the sheet is (unless it moved on meanwhile).
+			if (d === to) fill = to;
 		});
 	}
 
@@ -171,7 +180,7 @@
 	});
 </script>
 
-{#if d > 0}
+{#if fill > 0}
 	<!--
 		The gap the sheet leaves: the band's colour, and the words in its middle.
 		Before the sheet in the page, so the sheet (later, positioned) paints over it.
@@ -180,7 +189,7 @@
 		aria-hidden={phase === 'pull' || phase === 'ready' ? 'true' : undefined}
 		role={phase === 'pull' || phase === 'ready' ? undefined : 'status'}
 		class="pointer-events-none fixed inset-x-0 bg-band text-[14px] font-semibold text-band-small desk:hidden"
-		style="top: {origin}px; height: {d + below + SHEET_RADIUS}px"
+		style="top: {origin}px; height: {fill + below + SHEET_RADIUS}px"
 	>
 		<!-- The words in the middle of what the pull opened, above the hero. -->
 		<span
