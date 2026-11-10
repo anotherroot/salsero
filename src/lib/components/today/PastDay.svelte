@@ -4,7 +4,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import DayTiles from './DayTiles.svelte';
-	import { GROUP } from '$lib/components/ui/styles';
+	import { GROUP, PRESS_ROW } from '$lib/components/ui/styles';
 	import { pastGroups, pastLine, pastTiles } from '$lib/exercises/today';
 	import { dayLabel } from '$lib/format';
 	import { feelOf } from '$lib/schedule/feel';
@@ -69,7 +69,7 @@
 				{#if live && adding}
 					<button
 						type="button"
-						class="flex min-h-[66px] w-full cursor-pointer items-center gap-3 py-2.5 pr-3 pl-4 text-left"
+						class="flex min-h-[66px] w-full cursor-pointer items-center gap-3 py-2.5 pr-3 pl-4 text-left {PRESS_ROW}"
 						aria-describedby="past-edit-hint"
 						onclick={() => onlog?.(g.exerciseId)}
 					>

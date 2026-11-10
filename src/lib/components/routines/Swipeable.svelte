@@ -95,6 +95,7 @@
 	{/if}
 	<div
 		role="presentation"
+		data-swiping={tracking === null ? undefined : ''}
 		class="relative touch-pan-y {tracking === null
 			? 'transition-transform duration-200 motion-reduce:transition-none'
 			: ''}"

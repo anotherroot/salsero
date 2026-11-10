@@ -26,8 +26,11 @@ import {
 	SELECT_ON_CARD,
 	STRIP_ACTION,
 	PUBLISH_ACTION,
-	TEXTAREA_ON_CARD
+	TEXTAREA_ON_CARD,
+	PRESS,
+	PRESS_ROW
 } from './styles';
+import { readFileSync } from 'node:fs';
 
 /** Whole class tokens, so `px-3` is not found inside `px-3.5`. */
 const tokens = (cls: string) => new Set(cls.split(/\s+/));
@@ -236,5 +239,54 @@ describe('the pane header classes', () => {
 				.join(' ');
 		expect(s.PANE_PAD_DESK).toBe(desk(s.PANE_PAD));
 		expect(s.PANE_TITLE_DESK).toBe(desk(s.PANE_TITLE));
+	});
+});
+
+describe('taps dip (motion round 1)', () => {
+	const pressed = (cls: string, scale: string) => {
+		const t = tokens(cls);
+		expect(t.has(`active:${scale}`)).toBe(true);
+		expect(t.has('motion-reduce:active:scale-100')).toBe(true);
+		expect(t.has('in-data-swiping:active:scale-100')).toBe(true);
+		expect(t.has('in-data-dragging:active:scale-100')).toBe(true);
+		expect(t.has('transition-colors')).toBe(false);
+		expect(t.has('transition')).toBe(true);
+	};
+
+	it('every button dips to 94 %', () => {
+		for (const c of [
+			button('primary'),
+			button('tertiary'),
+			rowButton('done'),
+			iconButton('bare'),
+			iconButton('filled'),
+			bandButton(),
+			bandButton('float'),
+			PLAY_ROUND,
+			PRESS
+		])
+			pressed(c, 'scale-94');
+	});
+
+	it('a disabled or busy button stays still', () => {
+		expect(tokens(button('primary')).has('disabled:active:scale-100')).toBe(true);
+		expect(tokens(button('primary')).has('aria-busy:active:scale-100')).toBe(true);
+	});
+
+	it('a whole row dips to 98.5 %', () => pressed(PRESS_ROW, 'scale-[.985]'));
+
+	it("Today's row dips, and a swipe or a drag stops it", () => {
+		expect(readFileSync('src/lib/components/today/ExerciseRow.svelte', 'utf8')).toContain(
+			'PRESS_ROW'
+		);
+		expect(readFileSync('src/lib/components/routines/Swipeable.svelte', 'utf8')).toContain(
+			'data-swiping'
+		);
+		expect(readFileSync('src/lib/components/today/TodayList.svelte', 'utf8')).toContain(
+			'data-dragging'
+		);
+		expect(readFileSync('src/lib/components/routines/SlotList.svelte', 'utf8')).toContain(
+			'data-dragging'
+		);
 	});
 });

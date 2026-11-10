@@ -262,6 +262,7 @@
 			-->
 			<ul
 				class="{GROUP} select-none [-webkit-touch-callout:none]"
+				data-dragging={drag ? '' : undefined}
 				bind:this={warmList}
 				onpointerdown={(e) => {
 					const id = (e.target as Element)

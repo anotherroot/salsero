@@ -18,7 +18,7 @@
 	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
 	import TemplatesSheet from '$lib/components/positions/TemplatesSheet.svelte';
 	import HowSheet from '$lib/components/positions/HowSheet.svelte';
-	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { CHIP, GROUP, SECTION_LABEL, button, PRESS_ROW } from '$lib/components/ui/styles';
 	import { mixGroups } from '$lib/moves/mix';
 	import { positionOrder } from '$lib/positions/order';
 	import { t } from '$lib/i18n/catalog';
@@ -286,7 +286,7 @@
 			{#if !l.inGroupMode && noneCount > 0}
 				{@const r = noPositionRow(noneCount)}
 				<a
-					class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
+					class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step {PRESS_ROW}"
 					class:bg-accent-soft={noneOpen}
 					aria-current={noneOpen ? 'page' : undefined}
 					href="{list}/none"
@@ -304,7 +304,7 @@
 			{/if}
 			{#if view.rows.length + view.groups.length > 0}
 				<a
-					class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
+					class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step {PRESS_ROW}"
 					class:bg-accent-soft={mapOpen}
 					aria-current={mapOpen ? 'page' : undefined}
 					href="{list}/map"

@@ -16,7 +16,8 @@
 		ROW_TALL,
 		SECTION_LABEL,
 		TEXTAREA,
-		button
+		button,
+		PRESS_ROW
 	} from '$lib/components/ui/styles';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { barFraction, itemMeta, usageLine } from '$lib/storage-view';
@@ -92,7 +93,11 @@
 			{#if data.asked}
 				<div class="{ROW_TALL} text-[15px] font-semibold text-muted">{data.asked}</div>
 			{:else}
-				<button type="button" class="{ROW_TALL} w-full text-left" onclick={() => (askOpen = true)}>
+				<button
+					type="button"
+					class="{ROW_TALL} w-full text-left {PRESS_ROW}"
+					onclick={() => (askOpen = true)}
+				>
 					<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{s.askForMore}</span>
 				</button>
 			{/if}

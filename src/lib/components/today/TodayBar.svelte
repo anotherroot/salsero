@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { PRESS } from '$lib/components/ui/styles';
 	import type { TodayHero } from '$lib/exercises/today';
 
 	/**
@@ -43,7 +44,7 @@
 	{#if hero.state === 'todo'}
 		<button
 			type="button"
-			class="flex h-[54px] w-[54px] flex-none cursor-pointer items-center justify-center rounded-full bg-accent text-on-accent"
+			class="flex h-[54px] w-[54px] flex-none cursor-pointer items-center justify-center rounded-full bg-accent text-on-accent {PRESS}"
 			style:--icon-knockout="var(--color-accent)"
 			aria-label={playLabel}
 			onclick={onplay}

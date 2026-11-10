@@ -22,7 +22,15 @@
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { FIELD, GROUP, LABEL, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import {
+		FIELD,
+		GROUP,
+		LABEL,
+		ROW_TALL,
+		SECTION_LABEL,
+		button,
+		PRESS_ROW
+	} from '$lib/components/ui/styles';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -193,7 +201,7 @@
 						bind:value={inviteLocale}
 					/>
 				</div>
-				<button class="{ROW_TALL} w-full text-left" aria-busy={busy}>
+				<button class="{ROW_TALL} w-full text-left {PRESS_ROW}" aria-busy={busy}>
 					<LeadTile icon="plus" />
 					<span class="flex min-w-0 flex-1 flex-col">
 						<span class="text-[16px] font-bold text-ink">{a.inviteSomeone}</span>
@@ -214,7 +222,7 @@
 					{#each data.groups as g (g.id)}
 						<button
 							type="button"
-							class="{ROW_TALL} w-full text-left"
+							class="{ROW_TALL} w-full text-left {PRESS_ROW}"
 							onclick={() => {
 								formError = '';
 								group = g;
@@ -237,7 +245,7 @@
 				{#each data.people as p (p.id)}
 					<button
 						type="button"
-						class="{ROW_TALL} w-full text-left"
+						class="{ROW_TALL} w-full text-left {PRESS_ROW}"
 						onclick={() => {
 							formError = '';
 							person = p;

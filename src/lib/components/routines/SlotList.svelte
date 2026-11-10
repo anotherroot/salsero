@@ -223,7 +223,7 @@
 			>
 		</button>
 	</div>
-	<ul class="relative flex flex-col gap-2" bind:this={list}>
+	<ul class="relative flex flex-col gap-2" bind:this={list} data-dragging={drag ? '' : undefined}>
 		{#if drag}
 			<!-- Where the lifted card will land. Absolute, so it takes no room of its
 			     own: the cards around it slide to open the space it marks. -->

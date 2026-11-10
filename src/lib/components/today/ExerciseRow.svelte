@@ -9,6 +9,7 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import type { Side } from '$lib/gestures/swipe';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
+	import { PRESS_ROW } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 
 	interface Props {
@@ -71,9 +72,9 @@
 		reveal={96}
 	>
 		<div
-			class="flex min-h-[66px] items-center px-4 {tinted ? 'bg-accent-soft' : 'bg-surface'} {current
-				? 'shadow-[inset_4px_0_0_var(--color-accent)]'
-				: ''}"
+			class="flex min-h-[66px] items-center px-4 {PRESS_ROW} {tinted
+				? 'bg-accent-soft'
+				: 'bg-surface'} {current ? 'shadow-[inset_4px_0_0_var(--color-accent)]' : ''}"
 		>
 			<!-- The row opens the exercise: its page is where it is practised and saved. -->
 			<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>

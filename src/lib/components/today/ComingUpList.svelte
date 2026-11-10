@@ -6,7 +6,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { GROUP, SECTION_LABEL, iconButton } from '$lib/components/ui/styles';
+	import { GROUP, SECTION_LABEL, iconButton, PRESS_ROW } from '$lib/components/ui/styles';
 	import { comingHeading } from '$lib/schedule/coming-view';
 	import type { ComingGroup } from '$lib/schedule/coming-up';
 	import type { PickReply } from '$lib/schedule/picks';
@@ -84,7 +84,7 @@
 					<a
 						href={href(ex.id)}
 						aria-current={lit ? 'page' : undefined}
-						class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
+						class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1 {PRESS_ROW}"
 					>
 						<TypeTile
 							exercise={ex}
