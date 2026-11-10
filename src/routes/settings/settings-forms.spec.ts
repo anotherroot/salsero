@@ -414,6 +414,21 @@ describe('feedback with a screenshot', () => {
 		}
 	});
 
+	it('keeps the message when the screenshot cannot be written', async () => {
+		shots.dir = join(tmpdir(), 'no-such-folder-' + Math.random().toString(36).slice(2), 'x');
+		const body = new FormData();
+		body.set('message', 'Disk full');
+		body.set('shot', new Blob([new Uint8Array([0xff, 0xd8, 0xff, 1])], { type: 'image/jpeg' }));
+		const e = post({});
+		const event = { ...e, request: new Request('http://localhost/', { method: 'POST', body }) };
+		const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		quiet.mockRestore();
+		expect(feedbackFor(db, 'bachata').open.map((r) => [r.message, r.shot])).toEqual([
+			['Disk full', null]
+		]);
+	});
+
 	it('keeps the message and leaves out a screenshot that is not one', async () => {
 		const body = new FormData();
 		body.set('message', 'No picture');

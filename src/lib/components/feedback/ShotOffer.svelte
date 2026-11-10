@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -21,9 +22,11 @@
 
 	$effect(() => listenForShots());
 
-	// Each new screenshot shows the card again, for its own time.
+	// Each new screenshot shows the card again, for its own time; one from before
+	// this card was drawn (the layout drew it anew) never comes back.
+	const seen = untrack(() => offer.seq);
 	$effect(() => {
-		if (offer.seq === 0 || offer.shot === null) return;
+		if (offer.seq <= seen || offer.shot === null) return;
 		shown = offer.shot;
 		const timer = setTimeout(() => (shown = null), OFFER_MS);
 		return () => clearTimeout(timer);

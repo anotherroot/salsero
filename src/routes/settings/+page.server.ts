@@ -270,7 +270,15 @@ export const actions: Actions = {
 			{ agent, userAgent },
 			serverNow()
 		);
-		if (shot instanceof Uint8Array) keepShot(getDb(), feedbackDir(), id, shot);
+		// The message is kept: a screenshot that cannot be written is left out, not a failure
+		// (one would bring the same message again).
+		if (shot instanceof Uint8Array) {
+			try {
+				keepShot(getDb(), feedbackDir(), id, shot);
+			} catch (e) {
+				console.error('feedback: the screenshot was not kept', e);
+			}
+		}
 		return { sent: true };
 	}
 };

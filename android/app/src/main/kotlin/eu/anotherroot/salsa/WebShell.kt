@@ -504,23 +504,34 @@ abstract class WebShell : ComponentActivity() {
         val reply = shotReply ?: return
         val view = window.decorView
         if (!alive || view.width == 0 || view.height == 0) return
-        val full = createBitmap(view.width, view.height)
-        PixelCopy.request(window, full, { result ->
+        val full = try {
+            createBitmap(view.width, view.height)
+        } catch (e: OutOfMemoryError) {
+            return
+        }
+        val copied = { result: Int ->
             if (result != PixelCopy.SUCCESS) {
                 full.recycle()
-                return@request
+            } else {
+                Thread {
+                    // A low-memory phone may fail here: no offer, never a crash.
+                    val url = try {
+                        jpegDataUrl(full)
+                    } catch (e: Throwable) {
+                        null
+                    } finally {
+                        full.recycle()
+                    }
+                    if (url != null) runOnUiThread { if (shotReply === reply && alive) reply.postMessage(url) }
+                }.start()
             }
-            Thread {
-                val url = try {
-                    jpegDataUrl(full)
-                } catch (e: RuntimeException) {
-                    null
-                } finally {
-                    full.recycle()
-                }
-                if (url != null) runOnUiThread { if (shotReply === reply && alive) reply.postMessage(url) }
-            }.start()
-        }, Handler(Looper.getMainLooper()))
+        }
+        try {
+            PixelCopy.request(window, full, copied, Handler(Looper.getMainLooper()))
+        } catch (e: IllegalArgumentException) {
+            // The window has no surface any more (the app went to the background as the callback ran).
+            full.recycle()
+        }
     }
 
     private fun jpegDataUrl(bitmap: Bitmap): String {
