@@ -134,6 +134,12 @@ band, the badge in the slim band, the tab bar filled with the band's colour and 
 side's cream card; navy and the group cookie are gone; a group drill shows the view while
 edited; see
 [`docs/superpowers/specs/2026-11-09-group-view-design.md`](docs/superpowers/specs/2026-11-09-group-view-design.md)).
+and Send feedback (2026-11-10: a row on You and on Settings opens a sheet with one text box; the
+message goes to the dance's admin with the page before the one it was written from, the last few pages
+and script errors of the tab, the site's build, the window, and the Android app's version and the
+browser from the request; the admin page lists them first, each with Done (and Open again under
+"Done (N)"), and Settings' Admin row says "N new messages"; table `feedback`, migration 0047, never
+synced, network-only: offline the Send button says it needs a connection).
 
 
 ## Specs

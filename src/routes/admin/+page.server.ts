@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { appsLines, gbToBytes } from '$lib/admin-view';
+import { appsLines, feedbackView, gbToBytes } from '$lib/admin-view';
 import { inviteLink } from '$lib/dances/hosts';
 import { localDay } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
@@ -11,6 +11,7 @@ import { int } from '$lib/server/form';
 import { localeOf, setLocale } from '$lib/server/locale';
 import { danceHosts } from '$lib/server/hosts';
 import { createInvite, inviteQr } from '$lib/server/invites';
+import { feedbackFor, markFeedback } from '$lib/server/feedback';
 import { requireAdmin } from '$lib/server/scope';
 import { teamLimit, teamsMade } from '$lib/server/teams';
 import {
@@ -37,11 +38,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const now = serverNow();
 	const today = localDay(now, tz);
 	const seen = listAppsSeen(db);
+	const notes = feedbackFor(db, dance);
 	return {
 		dance,
 		// Numbers and names only: never a lesson title or anything a person made.
 		limitsTotalBytes: limitsTotal(db),
 		freeBytes: await freeDisk(),
+		// What testers sent (Send feedback): the open ones, then the last done.
+		feedback: {
+			open: notes.open.map((r) => feedbackView(r, tz)),
+			done: notes.done.map((r) => feedbackView(r, tz))
+		},
 		groups: listTeamsForAdmin(db, dance),
 		requests: listOpenRequests(db, dance).map((r) => ({ ...r, day: localDay(r.createdAt, tz) })),
 		people: listPeople(db, dance).map((p) => ({
@@ -185,6 +192,26 @@ export const actions: Actions = {
 		const reach = !!userId && adminReaches(getDb(), locals.user!.dance, { userId });
 		if (!reach || !setGroupLimit(getDb(), userId, n)) {
 			return fail(404, { message: t().admin.refused.personGone });
+		}
+		return { ok: true };
+	},
+
+	/** A feedback message read and dealt with: it moves to Done. */
+	feedbackDone: async ({ locals, request }) => {
+		requireAdmin(locals);
+		const id = int(await request.formData(), 'id');
+		if (id === undefined || !markFeedback(getDb(), locals.user!.dance, id, serverNow())) {
+			return fail(404, { message: t().feedback.admin.gone });
+		}
+		return { ok: true };
+	},
+
+	/** A done message back among the open ones. */
+	feedbackOpen: async ({ locals, request }) => {
+		requireAdmin(locals);
+		const id = int(await request.formData(), 'id');
+		if (id === undefined || !markFeedback(getDb(), locals.user!.dance, id, null)) {
+			return fail(404, { message: t().feedback.admin.gone });
 		}
 		return { ok: true };
 	}
