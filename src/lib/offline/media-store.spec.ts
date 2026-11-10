@@ -1,20 +1,30 @@
-import { describe, expect, it } from 'vitest';
-import { mediaOf, mediaPath, mediaStoreIn, memoryMediaStore, type MediaFile } from './media-store';
+import { describe, expect, it, vi } from 'vitest';
+import {
+	mediaOf,
+	mediaPath,
+	mediaStoreIn,
+	memoryMediaStore,
+	VIDEO_KINDS,
+	type MediaFile
+} from './media-store';
 
 const SONG: MediaFile = {
 	kind: 'audio',
 	file: '54e60e0a-b733-4b4b-aef7-477f3ae68086.m4a',
 	mime: 'audio/mp4'
 };
+const VIDEO: MediaFile = { kind: 'lesson-videos', file: 'v.mp4', mime: 'video/mp4', size: 300 };
 const bytes = Uint8Array.from({ length: 300 }, (_, i) => i % 7);
 
 /** A body that gives some bytes, then fails: a download cut off half way. */
 function cutOff(): Response {
+	let sent = false;
 	return new Response(
 		new ReadableStream<Uint8Array>({
-			start(c) {
+			pull(c) {
+				if (sent) return c.error(new Error('the signal went'));
+				sent = true;
 				c.enqueue(bytes.slice(0, 100));
-				c.error(new Error('the signal went'));
 			}
 		})
 	);
@@ -55,11 +65,35 @@ describe('the media store (offline phase 4a)', () => {
 	it('a path to a file and back', () => {
 		expect(mediaOf('/audio/x.wav')).toEqual({ kind: 'audio', file: 'x.wav' });
 		expect(mediaOf('/count/y.wav')).toEqual({ kind: 'count', file: 'y.wav' });
-		for (const path of ['/recordings/x.mp4', '/audio/../x', '/audio/a/b', '/audio/', '/audio']) {
+		expect(mediaOf('/lesson-videos/x.mp4')).toEqual({ kind: 'lesson-videos', file: 'x.mp4' });
+		expect(mediaOf('/recordings/y.webm')).toEqual({ kind: 'recordings', file: 'y.webm' });
+		for (const path of [
+			'/videos/x.mp4',
+			'/lesson-videos/../x',
+			'/audio/../x',
+			'/audio/a/b',
+			'/audio/',
+			'/audio'
+		]) {
 			expect(mediaOf(path), path).toBeNull();
 		}
 		expect(mediaPath('audio', 'x.wav')).toBe('/audio/x.wav');
 		expect(mediaPath('count', 'y.wav')).toBe('/count/y.wav');
+		expect(mediaPath('recordings', 'y.webm')).toBe('/recordings/y.webm');
+	});
+
+	it('in memory: from, partSize, usage and clear by kind (offline phase 4b)', async () => {
+		const store = memoryMediaStore();
+		await expect(store.write(VIDEO, cutOff())).rejects.toThrow();
+		expect(await store.partSize('lesson-videos', VIDEO.file)).toBe(0);
+		await store.write(SONG, new Response(bytes));
+		// Short of the size its row says: refused.
+		await expect(store.write(VIDEO, new Response(bytes.slice(0, 100)))).rejects.toThrow();
+		expect(await store.read('lesson-videos', VIDEO.file)).toBeNull();
+		await store.write(VIDEO, new Response(bytes));
+		expect(await store.usage(VIDEO_KINDS)).toBe(300);
+		await store.clear(VIDEO_KINDS);
+		expect((await store.list()).map((f) => f.kind)).toEqual(['audio']);
 	});
 });
 
@@ -70,6 +104,14 @@ describe('the media store (offline phase 4a)', () => {
  */
 type Caps = { move: boolean; writable: boolean; sync: boolean };
 type Fail = (op: 'write' | 'move' | 'remove', name: string) => boolean;
+
+/** `d` written into `buf` at `at`, growing it. */
+function put(buf: Uint8Array, d: Uint8Array, at: number): Uint8Array {
+	const out = new Uint8Array(Math.max(buf.byteLength, at + d.byteLength));
+	out.set(buf);
+	out.set(d, at);
+	return out;
+}
 
 class FakeFile {
 	data = new Blob([]);
@@ -84,23 +126,41 @@ class FakeFile {
 			getFile: async () => new File([this.data], this.name)
 		};
 		if (this.dir.caps.writable) {
-			h.createWritable = async () => {
+			// As Chrome's: writes go to a swap file, committed on close, dropped on abort.
+			h.createWritable = async (opts?: { keepExistingData?: boolean }) => {
 				if (this.dir.fail('write', this.name)) throw new Error(`disk full at ${this.name}`);
-				const parts: BlobPart[] = [];
-				return new WritableStream<Uint8Array>({
-					write: (c) => void parts.push(new Uint8Array(c)),
-					close: () => void (this.data = new Blob(parts))
+				let buf = opts?.keepExistingData
+					? new Uint8Array(await this.data.arrayBuffer())
+					: new Uint8Array(0);
+				let at = 0;
+				const stream = new WritableStream<Uint8Array>({
+					write: (c) => {
+						buf = put(buf, new Uint8Array(c), at);
+						at += c.byteLength;
+					},
+					close: () => void (this.data = new Blob([buf]))
+				});
+				return Object.assign(stream, {
+					write: async (c: Uint8Array) => {
+						buf = put(buf, new Uint8Array(c), at);
+						at += c.byteLength;
+					},
+					seek: async (n: number) => void (at = n),
+					truncate: async (n: number) => void (buf = buf.slice(0, n))
 				});
 			};
 		}
 		if (this.dir.caps.sync) {
 			h.createSyncAccessHandle = async () => {
 				if (this.dir.fail('write', this.name)) throw new Error(`disk full at ${this.name}`);
-				let buf = new Uint8Array(0);
+				let buf = new Uint8Array(await this.data.arrayBuffer());
 				return {
-					truncate: () => void (buf = new Uint8Array(0)),
-					write: (d: Uint8Array) => {
-						buf = new Uint8Array(d);
+					getSize: () => buf.byteLength,
+					truncate: (n: number) => void (buf = buf.slice(0, n)),
+					write: (d: Uint8Array, opts?: { at?: number }) => {
+						const at = opts?.at ?? 0;
+						this.dir.syncLog.push({ name: this.name, at });
+						buf = put(buf, new Uint8Array(d), at);
 						return d.byteLength;
 					},
 					flush: () => void (this.data = new Blob([buf])),
@@ -123,6 +183,8 @@ class FakeFile {
 class FakeDir {
 	entries = new Map<string, FakeFile | FakeDir>();
 	refuseRecursive = false;
+	/** Every sync-handle write: which file, at which offset. */
+	syncLog: { name: string; at: number }[] = [];
 	constructor(
 		public caps: Caps,
 		public fail: Fail = () => false
@@ -222,5 +284,80 @@ describe.each(CAPS)('the media store in OPFS: %s', (_, caps) => {
 		await store.clear();
 		expect(await store.list()).toEqual([]);
 		expect(await store.read('audio', SONG.file)).toBeNull();
+	});
+
+	it('a video cut off half way keeps its part, and the next write goes on from it', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(caps)));
+		await expect(store.write(VIDEO, cutOff())).rejects.toThrow();
+		expect(await store.partSize('lesson-videos', 'v.mp4')).toBe(100);
+		expect(await store.read('lesson-videos', 'v.mp4')).toBeNull();
+		expect(await store.list()).toEqual([]);
+		await store.write(VIDEO, new Response(bytes.slice(100)), { from: 100 });
+		const got = await store.read('lesson-videos', 'v.mp4');
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+		expect(await store.partSize('lesson-videos', 'v.mp4')).toBe(0);
+	});
+
+	it('a song cut off half way keeps nothing (4a, unchanged)', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(caps)));
+		await expect(store.write(SONG, cutOff())).rejects.toThrow();
+		expect(await store.partSize('audio', SONG.file)).toBe(0);
+	});
+
+	it('a whole file of another size than the row says is refused and dropped', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(caps)));
+		await expect(store.write({ ...VIDEO, size: 999 }, new Response(bytes))).rejects.toThrow();
+		expect(await store.read('lesson-videos', 'v.mp4')).toBeNull();
+		expect(await store.partSize('lesson-videos', 'v.mp4')).toBe(0);
+	});
+
+	it('a long download commits its part as it goes, so a killed app keeps it', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(caps)), { checkpoint: 100 });
+		let c!: ReadableStreamDefaultController<Uint8Array>;
+		const body = new ReadableStream<Uint8Array>({ start: (ctl) => void (c = ctl) });
+		const writing = store.write(VIDEO, new Response(body));
+		c.enqueue(bytes.slice(0, 100));
+		c.enqueue(bytes.slice(100, 200));
+		// Never closed: the app is killed here.
+		await vi.waitFor(async () =>
+			expect(await store.partSize('lesson-videos', 'v.mp4')).toBeGreaterThanOrEqual(100)
+		);
+		c.error(new Error('killed'));
+		await expect(writing).rejects.toThrow();
+	});
+
+	it('usage and clear by kind: clearing videos leaves the songs', async () => {
+		const store = mediaStoreIn(asRoot(new FakeDir(caps)));
+		await store.write(SONG, new Response(bytes));
+		await store.write(VIDEO, new Response(bytes));
+		expect(await store.usage(VIDEO_KINDS)).toBe(300);
+		expect(await store.usage()).toBe(600);
+		await store.clear(VIDEO_KINDS);
+		expect((await store.list()).map((f) => f.kind)).toEqual(['audio']);
+	});
+});
+
+describe('the media store on Safari before createWritable (offline phase 4b)', () => {
+	it('writes each chunk as it comes, never the whole file at once', async () => {
+		const root = new FakeDir({ move: false, writable: false, sync: true });
+		const store = mediaStoreIn(asRoot(root));
+		const body = new ReadableStream<Uint8Array>({
+			start(c) {
+				c.enqueue(bytes.slice(0, 100));
+				c.enqueue(bytes.slice(100, 200));
+				c.enqueue(bytes.slice(200));
+				c.close();
+			}
+		});
+		await store.write(VIDEO, new Response(body));
+		const dir = (await (
+			await root.getDirectoryHandle('media')
+		).getDirectoryHandle('lesson-videos')) as FakeDir;
+		const file = dir.entries.get(VIDEO.file) as FakeFile;
+		expect(new Uint8Array(await file.data.arrayBuffer())).toEqual(bytes);
+		const partWrites = dir.syncLog.filter((w) => w.name === `${VIDEO.file}.part`);
+		expect(partWrites.map((w) => w.at)).toEqual([0, 100, 200]);
+		const got = await store.read('lesson-videos', VIDEO.file);
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
 	});
 });
