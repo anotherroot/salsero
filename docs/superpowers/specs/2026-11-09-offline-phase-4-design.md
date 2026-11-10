@@ -178,3 +178,31 @@ order 4b's downloads run in (newest lesson first is the obvious one).
   the store before the new copy serves; a download in flight then stops
   between files, and one more pass removes a file that landed after.
 - Settings → On this phone shows only where the browser has the store.
+
+## 4b's looks, picked by the user (2026-11-10)
+
+From the mockups on real screenshots (Settings A/B, lesson A/B, mark 1/2,
+low space A/B), the user picked **Settings B, mark 1, low space B**, and
+dropped the lesson question: "2 is covered by 3.1".
+
+- **Settings B:** Settings keeps one row, "On this phone" (songs · videos ·
+  free), which opens its own page: a bar of the space taken (songs and
+  count, kept videos) with what is free, the switch per space ("My lessons",
+  each group), "Only on Wi-Fi" or the can't-tell note, a note on what a
+  space keeps, and "Clear kept videos".
+- **Mark 1, the button under the video:** a phone button left of Full
+  screen on every video (a lesson's, a figure's top video, a recording's
+  row). One tap keeps that video on the phone, another removes it; while it
+  comes it shows how far. The line under the video's name says "on this
+  phone" (or how far it is, or what it waits for). A lesson whose videos
+  are all on the phone says so in the Lessons list.
+- **No lesson-wide button.** This changes "On a lesson … a Keep on this
+  phone button keeps that lesson's videos, and new videos added to it"
+  above: a video is kept one at a time, a whole space by its switch.
+  A video its space keeps shows the button lit; it opens the page, since
+  the switch is what keeps it.
+- **Low space B:** the first time space runs short, a sheet opens once
+  with the suggestions (largest first: switch a space off, remove a video)
+  and "Later"; then only a dot on You and the same warning and suggestions
+  at the top of the On this phone page, until there is space again.
+- "Upload first" for a phone-only video comes with 4c.
