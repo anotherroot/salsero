@@ -83,6 +83,7 @@ export const hearing: Catalog['hearing'] = {
 		wholeSong: 'Skladba',
 		drop: (n) => `Mesto ${n}`,
 		noTap: 'Brez tapa',
+		tooShort: 'Prekratko za oceno. Tapkajte malo dlje.',
 		strip: 'Vaši tapi na štetju, ena vrstica na osmico'
 	},
 	again: 'Še enkrat',

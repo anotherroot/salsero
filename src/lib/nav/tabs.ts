@@ -88,7 +88,7 @@ export function rootsOf(tab: TabId, dance: DanceSlug): string[] {
 }
 
 /** Inside a dance the bar stays, except where the app is the whole screen. */
-const BARE = new Set(['/[dance]/player', '/[dance]/share']);
+const BARE = new Set(['/[dance]/player', '/[dance]/share', '/[dance]/songs/[id]/listen']);
 
 /**
  * The bar shows on every screen of a dance but Practice and share: pushed

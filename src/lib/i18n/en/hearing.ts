@@ -89,6 +89,7 @@ export const hearing = {
 		wholeSong: 'The song',
 		drop: (n: number) => `Drop ${n}`,
 		noTap: 'No tap',
+		tooShort: 'Too short to judge. Tap a little longer.',
 		strip: 'Your taps on the count, one row per eight'
 	},
 	again: 'Again',
