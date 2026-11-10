@@ -30,6 +30,12 @@ export type PullResponse = {
 	slot?: number;
 	/** What only the server knows, for the layouts drawn on the device (device first); absent from an older server. */
 	extras?: ServerExtras;
+	/**
+	 * The clone pairs among the person's rows (`clone_pairs` is never synced, but what
+	 * differs between copies and what was skipped is drawn from it): the device
+	 * replaces its own table with them. Absent from an older server.
+	 */
+	clonePairs?: ClonePairRow[];
 };
 
 /**
@@ -52,4 +58,13 @@ export type ServerExtras = {
 	/** The last change History holds per group lesson (`team_changes`), keyed `lesson:<id>`: "Edited by". */
 	lastEdits: Record<string, { actorId: string; at: number }>;
 };
+/** A `clone_pairs` row as stored (raw column names). */
+export type ClonePairRow = {
+	kind: string;
+	a_id: number;
+	b_id: number;
+	base_json: string;
+	at: number;
+};
+
 export type PullRefusal = { refused: 'schema'; schema: string };

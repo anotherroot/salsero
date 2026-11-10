@@ -344,3 +344,38 @@ describe('what only the server knows', () => {
 
 	it('has none before its first pull', () => expect(readMeta(device).extras).toBeNull());
 });
+
+describe('clone pairs', () => {
+	const pair = (a: number, b: number, at = 1) => ({
+		kind: 'figure',
+		a_id: a,
+		b_id: b,
+		base_json: '{"fields":{},"skip":[]}',
+		at
+	});
+	const pairs = () =>
+		device.prepare('SELECT kind, a_id, b_id, base_json, at FROM clone_pairs ORDER BY a_id').all();
+
+	it("replaces the copy's pairs with the pull's, and counts a change", () => {
+		const res = pull('u1');
+		expect(applyPull(device, { ...res, clonePairs: [pair(1, 5)] })).toBeGreaterThan(0);
+		expect(pairs()).toEqual([pair(1, 5)]);
+		const empty = { ...res, full: [], changed: {} };
+		expect(applyPull(device, { ...empty, clonePairs: [pair(1, 5)] })).toBe(0);
+		expect(applyPull(device, { ...empty, clonePairs: [pair(2, 6, 9)] })).toBe(1);
+		expect(pairs()).toEqual([pair(2, 6, 9)]);
+	});
+
+	it('keeps its pairs when a pull carries none (an older server)', () => {
+		const res = pull('u1');
+		applyPull(device, { ...res, clonePairs: [pair(1, 5)] });
+		applyPull(device, { ...res, full: [], changed: {}, clonePairs: undefined });
+		expect(pairs()).toEqual([pair(1, 5)]);
+	});
+
+	it('a wipe empties them', () => {
+		applyPull(device, { ...pull('u1'), clonePairs: [pair(1, 5)] });
+		wipeCopy(device);
+		expect(pairs()).toEqual([]);
+	});
+});

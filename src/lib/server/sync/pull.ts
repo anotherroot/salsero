@@ -10,7 +10,13 @@ import { sql } from 'drizzle-orm';
 import type { Db } from '../db';
 import { digestInput, keyString } from '$lib/sync/digest';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
-import type { PullRefusal, PullRequest, PullResponse, TableRows } from '$lib/sync/wire';
+import type {
+	ClonePairRow,
+	PullRefusal,
+	PullRequest,
+	PullResponse,
+	TableRows
+} from '$lib/sync/wire';
 import { changedSince, logHead, logOldest } from './log';
 import { syncScope, type Row } from './scope';
 import { slotFor } from './slots';
@@ -78,10 +84,31 @@ export function pull(db: Db, userId: string, req: PullRequest): PullResponse | P
 			schema: SCHEMA_TAG,
 			full,
 			changed,
-			cookies: {}
+			cookies: {},
+			clonePairs: pairsIn(tx, scope)
 		};
 		// A device that names itself gets its id slot (offline phase 3).
 		if (req.device !== undefined) out.slot = slotFor(tx, userId, req.device, serverNow());
 		return out;
 	});
+}
+
+/** Each clone kind's table. */
+const PAIR_TABLE: Record<string, string> = {
+	figure: 'figures',
+	routine: 'routines',
+	drill: 'exercises',
+	song: 'songs',
+	lesson: 'lessons',
+	position: 'positions'
+};
+
+/** The clone pairs whose two rows are both in the person's scope (device first). */
+function pairsIn(db: Db, scope: Map<string, Map<string, Row>>): ClonePairRow[] {
+	return db
+		.all<ClonePairRow>(sql`SELECT kind, a_id, b_id, base_json, at FROM clone_pairs`)
+		.filter((p) => {
+			const rows = scope.get(PAIR_TABLE[p.kind] ?? '');
+			return !!rows && rows.has(String(p.a_id)) && rows.has(String(p.b_id));
+		});
 }

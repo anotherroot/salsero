@@ -23,6 +23,7 @@ import { pull as rawPull, serverDigest } from './pull';
 import { changedSince } from './log';
 import { syncScope } from './scope';
 import { serverExtras } from './extras';
+import { writePair } from '../clones/pairs';
 import { makeWorld, WORLD_T, type World } from './test-world';
 import { POST } from '../../../routes/api/sync/pull/+server';
 
@@ -296,5 +297,20 @@ describe('POST /api/sync/pull', () => {
 		const first = (await (await call({ cookies, body })).json()) as PullResponse;
 		const again = await call({ cookies, body: { ...synced('u1', first), schema: SCHEMA_TAG } });
 		expect(((await again.json()) as PullResponse).full).toEqual([]);
+	});
+});
+
+describe('clone pairs (device first)', () => {
+	it("carries the pairs among the person's rows, and none reaching outside them", () => {
+		const base = { fields: {}, skip: [] };
+		// u1's own figure paired with the class's published figure (both in u1's scope)…
+		writePair(db, 'figure', w.own.u1.figure, w.group.figure, base, 1);
+		// …and u4's figure with the class's (u1 cannot read u4's rows).
+		writePair(db, 'figure', w.own.u4.figure, w.group.figure, base, 1);
+		const u1 = pull('u1');
+		const pairs = (u1.clonePairs ?? []).map((p) => [p.a_id, p.b_id].sort((x, y) => x - y));
+		const lo = (a: number, b: number) => [a, b].sort((x, y) => x - y);
+		expect(pairs).toContainEqual(lo(w.own.u1.figure, w.group.figure));
+		expect(pairs).not.toContainEqual(lo(w.own.u4.figure, w.group.figure));
 	});
 });
