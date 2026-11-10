@@ -181,6 +181,8 @@ export type KeepStatus = {
 	bySpace: Record<string, SpaceId>;
 	/** Whole video files on the phone, `<kind>/<file>`. */
 	held: string[];
+	/** Cut-off downloads kept to go on from: video key → bytes so far. */
+	partial: Record<string, number>;
 	inFlight: { key: string; received: number; total: number } | null;
 	/** Why wanted videos are not coming now. */
 	waiting: 'wifi' | 'offline' | 'space' | null;
