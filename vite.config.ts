@@ -2,8 +2,19 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { execSync } from 'node:child_process';
+
+/** The website's version (`$lib/build-info`): commits behind this build; 0 without git. */
+function siteVersion(): number {
+	try {
+		return Number(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim()) || 0;
+	} catch {
+		return 0;
+	}
+}
 
 export default defineConfig({
+	define: { __SITE_VERSION__: JSON.stringify(siteVersion()) },
 	plugins: [
 		tailwindcss(),
 		sveltekit({

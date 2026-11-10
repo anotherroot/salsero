@@ -30,7 +30,14 @@
 	import { t } from '$lib/i18n/catalog';
 	import { styleLabelsOf } from '$lib/moves/figures';
 	import { LOCALES, LOCALE_NAME, type Locale } from '$lib/i18n/locale';
-	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
+	import {
+		DEFAULT_REMINDER,
+		appVersionLabel,
+		publishedLine,
+		reminderToSave,
+		siteVersionLabel
+	} from '$lib/settings/view';
+	import { SITE_BUILT_AT, SITE_VERSION } from '$lib/build-info';
 	import { barFraction, usageLine } from '$lib/storage-view';
 	import { kept } from '$lib/offline/kept.svelte';
 	import { phoneRowLine } from '$lib/offline/kept-view';
@@ -77,6 +84,8 @@
 	let askError = $state('');
 
 	const w = $derived(t().settings);
+	// Dates in the person’s zone, as everywhere (`localDay`).
+	const zone = $derived(data.user?.timezone ?? 'UTC');
 
 	const themeOptions = $derived(THEME_CHOICES.map((c) => ({ value: c, label: themeLabel(c) })));
 	const languageOptions = LOCALES.map((l) => ({ value: l, label: LOCALE_NAME[l] }));
@@ -389,14 +398,15 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">{w.android.label}</span>
 	<div class={GROUP}>
-		{#if data.appUpdate && !few}
+		{#if data.appUpdate && data.appUpdate.state !== 'none' && !few}
+			<!-- Only with an update to offer: the version itself is always under About. The
+			     installed number: the app tells the server only that (its user agent), and the
+			     admin page counts the same way ("Salsa app 2"). -->
 			<div class="{ROW} min-h-16 pr-3.5">
-				<!-- The installed number, always: the app tells the server only that (its user
-				     agent), and the admin page counts the same way ("Salsa app 2"). -->
 				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
 					>{w.android.version(data.appUpdate.installed)}</span
 				>
-				{#if data.appUpdate.state !== 'none'}<UpdateButton update={data.appUpdate} />{/if}
+				<UpdateButton update={data.appUpdate} />
 			</div>
 		{/if}
 		<div class="{ROW} pr-1.5">
@@ -549,7 +559,35 @@
 			</form>
 		</div>
 	</div>
+
+	<!-- Which build runs here (`$lib/build-info`): the page's own, so a phone still on an
+	     older one shows it. The app's row only inside the app. -->
+	<span class="{SECTION_LABEL} mt-[14px]">{w.about.label}</span>
+	<div class={GROUP}>
+		{@render version(
+			w.about.website,
+			SITE_BUILT_AT ? publishedLine(SITE_BUILT_AT, zone, true) : null,
+			siteVersionLabel(SITE_VERSION)
+		)}
+		{#if data.appUpdate}
+			{@render version(
+				w.about.app,
+				data.appReleasedAt === null ? null : publishedLine(data.appReleasedAt, zone, false),
+				appVersionLabel(data.appUpdate.installed, data.appUpdate.latest)
+			)}
+		{/if}
+	</div>
 </Screen>
+
+{#snippet version(label: string, line: string | null, value: string)}
+	<div class="{ROW} min-h-16">
+		<span class="flex min-w-0 flex-1 flex-col">
+			<span class="text-[16px] font-bold text-ink">{label}</span>
+			{#if line}<span class="text-[13px] text-muted">{line}</span>{/if}
+		</span>
+		<span class="flex-none text-[15px] font-semibold text-muted">{value}</span>
+	</div>
+{/snippet}
 
 <Sheet
 	title={t().entry.firstRun.level.title}

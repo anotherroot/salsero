@@ -45,6 +45,10 @@ scripts/offline/serve.sh <db> + walk.py   # every page offline (scripts/offline/
 In dev `DANCE_HOSTS` is unset, so the path decides the dance (bachata login:
 `/login?dance=bachata`); `ADMIN_EMAIL`/`ADMIN_PASSWORD` create an admin per dance.
 
+After every deploy or app release, tell the user the "live now" lines `deploy.sh`
+prints (website version + build time, each dance's Android version + date): they
+compare them with Settings → About.
+
 ## Building in a slot
 
 Several slots share one 8-core machine, and the full check takes 10–40 minutes,

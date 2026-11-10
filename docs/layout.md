@@ -490,6 +490,9 @@ src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.js
                      Drawn by components/system/AppUpdateBar.svelte (Today's "Update
                      available"), UpdateButton.svelte (the `salsaUpdate` bridge, or a link to
                      the file or Google Play) and UpdateNeeded.svelte (the full-screen block)
+src/lib/build-info.ts  SITE_VERSION (commits behind the build, `__SITE_VERSION__` from
+                     vite.config.ts) and SITE_BUILT_AT (SvelteKit's version name): Settings → About,
+                     `/health`, the end of deploy.sh (`scripts/live-versions.mjs`)
 src/lib/page-epoch.ts  PAGE_EPOCH: raised when older open pages would send what the server no
                      longer takes; they reload instead of failing
 src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a deploy, and

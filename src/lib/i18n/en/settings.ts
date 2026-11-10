@@ -199,6 +199,14 @@ export const settings = {
 	},
 	admin: { label: 'Admin', sub: 'Invite someone' },
 	account: { label: 'Account', name: 'Name', signedIn: 'Signed in', signOut: 'Sign out' },
+	/** Which build runs here: the website's and the Android app's version, and when each came out. */
+	about: {
+		label: 'About',
+		website: 'Website',
+		app: 'Android app',
+		version: (v: string): string => `Version ${v}`,
+		published: (when: string): string => `Published ${when}`
+	},
 	refusals: {
 		theme: 'Pick one of the themes.',
 		style: 'Pick one of the styles.',

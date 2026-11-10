@@ -155,6 +155,23 @@ for i in $(seq 1 20); do
 		ok "healthy after ${i}s"
 		echo
 		ok "deployed. https://${PUBLIC_HOST:-salsa.anotherroot.eu}"
+		# What is live now, as Settings → About says it: tell the person these lines.
+		echo
+		info "live now"
+		{
+			ssh "$TARGET" "curl -fsS http://127.0.0.1:${APP_PORT}/health" 2>/dev/null || echo
+			echo
+			ssh "$TARGET" "R='$(dirname "$SERVER_PATH")/releases' bash -s" <<'REMOTE' 2>/dev/null || true
+for d in salsa bachata; do
+	f="$R/$d/current.json"
+	sudo test -f "$f" || continue
+	json="$(sudo cat "$f" | tr -d '\n\t')"
+	code="$(printf '%s' "$json" | grep -o '"versionCode": *[0-9]*' | grep -o '[0-9]*$')"
+	at="$(sudo stat -c %Y "$R/$d/$code.apk" 2>/dev/null || echo 0)"
+	printf '%s\t%s\t%s\n' "$d" "$json" "$at"
+done
+REMOTE
+		} | node "$SCRIPT_DIR/live-versions.mjs" | sed 's/^/     /'
 		exit 0
 	fi
 	sleep 1

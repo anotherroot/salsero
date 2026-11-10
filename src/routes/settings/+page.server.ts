@@ -40,6 +40,7 @@ import {
 	sendFeedback
 } from '$lib/server/feedback';
 import { feedbackDir } from '$lib/server/files';
+import { releasedAt } from '$lib/server/releases';
 import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -92,7 +93,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		})),
 		ownVoice: ownVoiceSummary(listCountTakes(db, locals.user.id)),
 		storage: storageOf(db, locals.user.id),
-		asked: asked ? askedLine(localDay(asked.createdAt, tz)) : null
+		asked: asked ? askedLine(localDay(asked.createdAt, tz)) : null,
+		// Settings → About: when the installed Android app came out (null in a browser).
+		appReleasedAt: locals.appAgent
+			? releasedAt(locals.appAgent.dance, locals.appAgent.versionCode)
+			: null
 	};
 };
 

@@ -161,6 +161,14 @@ https://claude.ai/artifact/LDr9EG7QwBJx6damw4eg4x) takes a picked picture, redra
 bottom bars, "Something wrong here?" (option C), opens the sheet over that page with the screenshot on
 it; kept in `$DATA_DIR/feedback`, migration 0048, shown on the admin card and whole on a tap).
 
+Which build runs (2026-11-10): Settings ends in an About section (option A of the board
+https://claude.ai/artifact/4gDJQQef4aJuydeujgEUoy) with the website's version, the commits behind its
+build (`$lib/build-info`, `__SITE_VERSION__` from vite.config.ts), and its build time in the person's
+zone, from the page's own bundle, so a phone still on an older build shows it; inside the Android app a
+second row, the installed version (`1.9 (10)` when it is the current release) and the day its APK went
+up (`releasedAt`, the APK's time on disk). The Android section keeps its version row only while an
+update waits. `/health` says the version too, and `deploy.sh` ends by printing what is live.
+
 
 ## Specs
 
