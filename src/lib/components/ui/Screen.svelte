@@ -9,6 +9,7 @@
 	import { page } from '$app/state';
 	import { frameView } from '$lib/teams/frame-view.svelte';
 	import { inPane } from '$lib/components/shell/pane-context';
+	import PullRefresh from '$lib/components/ui/PullRefresh.svelte';
 
 	let {
 		title,
@@ -26,6 +27,7 @@
 		below,
 		hero,
 		heroDesk = true,
+		pull = true,
 		children
 	}: {
 		title: string;
@@ -69,6 +71,8 @@
 		 * group routine's Practise), so its wrapper is not drawn there either.
 		 */
 		heroDesk?: boolean;
+		/** Pull down to refresh on the phone (`PullRefresh`); false where a downward drag means something else. */
+		pull?: boolean;
 		children: Snippet;
 	} = $props();
 
@@ -286,6 +290,8 @@
 	{extra}
 	{below}
 />
+
+{#if pull && split !== 'item'}<PullRefresh {sheet} />{/if}
 
 <!--
 	The sheet. On the desktop the content stops at its width, centred, under the band

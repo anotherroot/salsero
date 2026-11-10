@@ -282,6 +282,8 @@ body {
  */
 html {
 	touch-action: pan-x pan-y;
+	/* The page's own pull to refresh (`PullRefresh`): never the browser's, nor a bounce under it. */
+	overscroll-behavior-y: none;
 }
 
 /*

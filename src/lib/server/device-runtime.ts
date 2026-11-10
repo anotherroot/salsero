@@ -4,6 +4,7 @@ import { parseLevel } from '$lib/levels/levels';
 import { parseLocale } from '$lib/i18n/locale';
 import type { Db } from './db';
 import { users } from './db/schema';
+import type { ServerExtras } from '$lib/sync/wire';
 
 /**
  * Set by the device worker (offline phase 2) before it builds SvelteKit's
@@ -15,6 +16,8 @@ export type DeviceRuntime = {
 	userId: string;
 	cookies: Record<string, string>;
 	slot: number | null;
+	/** What only the server knows, from the last pull (device first); null: an older copy with none yet. */
+	extras?: ServerExtras | null;
 };
 
 export function deviceRuntime(): DeviceRuntime | null {

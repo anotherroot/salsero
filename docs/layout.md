@@ -316,6 +316,8 @@ scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoo
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from; its colours are the first, brighter ones (tokens.ts is the source since the warm palette, 2026-11-07)
+src/lib/sheets/idle-refresh.ts  `refreshWhenIdle()`: a pull with changes re-reads the page once no sheet,
+                     unsaved form, save on its way or the player is over it (device first)
 src/lib/sheets/      `whenSettled(fn)` (history.svelte.ts) runs fn after the sheets' Back has landed; with
                      `backWhenSettled(fallback, {replace})` in `nav/trail.svelte.ts` it is how a save closes
                      its sheet and goes back. stack.ts is PURE: one history entry per open Sheet behind a
@@ -498,6 +500,9 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
 src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
                      loaded (it stays under way for good, the skeleton over the old page); the
                      root layout watches `navigating`, goes again, and loads whole after 2 tries
+src/lib/motion/pull-refresh.ts  PURE: pull down to refresh (device first, look C): `pullDistance`,
+                     `mayStart`, `doneWord`, the numbers; `components/ui/PullRefresh.svelte` draws
+                     it under `Screen` (prop `pull`)
 src/lib/motion/       page changes (round 2, spec 2026-11-10-page-transitions): page-move.ts PURE
                      (where the card's edge is, where it waits, which move a navigation gets,
                      PAGE_MOVE's values) and page-move.svelte.ts (the runtime, wired once by the
@@ -689,7 +694,10 @@ src/lib/sync/        PURE, client-safe, shared by the server, the device and the
                      a label's and a reason's words; Discard's and Sign out's questions), resolve.ts
                      (`resendFields`: a clash's Mine sent again)
 src/lib/server/sync/  log.ts (`change_log`: head, oldest, `changedSince`, the 30-day prune in
-                     `startTrashPurge`), scope.ts (`syncScope`: every row a person may read,
+                     `startTrashPurge`), extras.ts (`serverExtras`: what only the server knows, sent
+                     with every pull for the layouts the device draws: the Music dot, the AI count,
+                     a connected AI app, the APK release, To pick, a group's trash bytes, lessons'
+                     last edits; device first), scope.ts (`syncScope`: every row a person may read,
                      redacted — other people's users rows, a group's code, deleted comments),
                      pull.ts (`pull`: changes since the cursor, whole tables when a key-set digest
                      differs), test-world.ts (specs only). Served by POST /api/sync/pull (cookie
@@ -724,6 +732,11 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `memoryMediaStore` for specs; `mediaOf`/`mediaPath`), media-range.ts
                      (`rangeResponse`, PURE: a file answered with Range; `FROM_HEADER`);
                      routes.ts `MEDIA_ENDPOINTS` (/audio, /count: the phone's file first)
+                     Device first (2026-11-10): routes.ts `NETWORK_FIRST_PAGES` (Settings) and
+                     `isNetworkFirstPage`; sw-route.ts `readPlan`, `deviceFailed`,
+                     `DeviceClients.readsDeviceFirst`; poll.ts (`pollStep`: a page waiting on the
+                     worker pulls, `pullNow`); server-only.spec.ts (a device-drawn load reads no
+                     server-only table)
                      Phase 4b: the store also holds `lesson-videos` and `recordings` (`VIDEO_KINDS`;
                      a video's `.part` stays to resume, committed every 8 MiB), both MEDIA_ENDPOINTS;
                      network.ts (PURE: `linkOf` Wi-Fi or mobile data, `canTellWifi`, `freeOf`,

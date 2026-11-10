@@ -64,8 +64,11 @@ export type DeviceIn =
  */
 export type DeviceOut =
 	| { type: 'state'; state: DeviceState }
-	/** `landed`: how many outbox entries the pushes before this pull landed. */
-	| { type: 'pulled'; cursor: number; startedAt: number; landed: number }
+	/**
+	 * `landed`: how many outbox entries the pushes before this pull landed;
+	 * `changed`: how much the pull changed in the copy (`applyPull`), 0 for nothing.
+	 */
+	| { type: 'pulled'; cursor: number; startedAt: number; landed: number; changed: number }
 	/** After every change to the outbox or its meta (offline phase 3). */
 	| { type: 'outbox'; summary: OutboxSummary }
 	/** After every media pass and settings change, and while a file comes (offline phase 4b). */
@@ -101,7 +104,9 @@ export type SwIn =
 	  }
 	| { type: 'device-pulled'; startedAt: number }
 	/** The outbox changed: what the service worker keeps across its restarts. */
-	| { type: 'outbox'; waiting: number; epochs: number[] };
+	| { type: 'outbox'; waiting: number; epochs: number[] }
+	/** Whether this browser holds a copy (device first, step 2): a page load is drawn from it. */
+	| { type: 'copy'; has: boolean };
 
 /** What the band and the Sync page need to know about the outbox (offline phase 3). */
 export type OutboxSummary = {

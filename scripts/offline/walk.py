@@ -458,6 +458,30 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                 report(m_with <= m_without + 100, "online: opens no slower with the service worker", f"{m_with} > {m_without} + 100 ms")
                 judge(page, watch, f"online: /{DANCE}")
 
+                # 1b. Online, device first: every tab tap's data comes from the device (X-Salsa-From), none
+                # from the server. The pulls are POSTs to /api/sync/pull, never page data.
+                from_server = []
+
+                def seen(res):
+                    if "__data.json" in res.url and res.headers.get("x-salsa-from") != "device":
+                        from_server.append(res.url.replace(base, ""))
+
+                wait_ready(page)
+                page.on("response", seen)
+                tabs = page.locator("nav[data-tab-bar] a")
+                for i in range(tabs.count()):
+                    href = tabs.nth(i).get_attribute("href")
+                    try:
+                        tabs.nth(i).click(timeout=5000)
+                        page.wait_for_url(lambda u: href.split("?")[0] in u, timeout=PAGE_CAP_MS)
+                        settle(page)
+                    except Exception as e:
+                        report(False, f"online tap: tab {href}", str(e)[:160])
+                    tabs = page.locator("nav[data-tab-bar] a")
+                page.remove_listener("response", seen)
+                report(not from_server, "online: every tab tap reads the device, none the server", ", ".join(from_server[:5]))
+                judge(page, watch, "online: the tab taps")
+
                 # 2. Offline, a full load of every page.
                 offline(ctx, True)
                 sw = ctx.service_workers[0] if ctx.service_workers else None
@@ -741,6 +765,11 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                 page.goto(f"{base}/{DANCE}/exercises/{v['exercise']}", wait_until="load", timeout=60_000)
                 wait_ready(page)
                 done = page.locator('[data-focus="exercise-done"]')
+                # Step 2 draws the page from the shell: Done shows once the device has answered.
+                try:
+                    done.first.wait_for(timeout=10_000)
+                except Exception:
+                    pass
                 if done.count():
                     done.first.click()
                     sheet = page.locator("dialog[open]")
@@ -758,13 +787,22 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                             nag = True
                     report(not nag, "online: a log never shows the strip", "the strip showed")
                     report(wait_outbox(page, "o.waiting === 0"), "online: the log lands", f"outbox {outbox(page)}")
-                    # Once all has landed, the page's reads go to the server again: a change made on the
-                    # server alone (the device has not pulled it) shows.
+                    # Device first: once all has landed the page still reads the device's copy, so a change
+                    # made on the server alone shows only when a pull brings it (an `online` event asks for one).
                     server_only = f"Server {int(time.time()) % 100000}"
                     server_write(db_path, "update figures set name = ? where id = ?", server_only, v["figure"])
                     page.wait_for_timeout(300)
-                    fresh = device_data(page, f"/{DANCE}/figures/{v['figure']}")
-                    report(server_only in fresh, "online: after the landing, reads come from the server again", "the device answered")
+                    fig_data = f"/{DANCE}/figures/{v['figure']}"
+                    stale = device_data(page, fig_data)
+                    report(server_only not in stale, "online: after the landing, reads still come from the device", "the server answered")
+                    pulls = page.evaluate("window.__device?.pulls ?? 0")
+                    page.evaluate("dispatchEvent(new Event('online'))")
+                    try:
+                        page.wait_for_function("(n) => (window.__device?.pulls ?? 0) > n", arg=pulls, timeout=20_000)
+                    except Exception:
+                        pass
+                    fresh = device_data(page, fig_data)
+                    report(server_only in fresh, "online: a pull brings the server's change", "still the copy from before")
                 else:
                     report(False, "online: a log", "no Done on the exercise page")
 
@@ -794,6 +832,7 @@ def walk(base, db_path, v, lines, net, song=None, video=None):
                     report(False, "needs a connection: the figure's menu", "no ⋯ menu")
                 page.goto(f"{base}/settings", wait_until="load", timeout=60_000)
                 settle(page)
+                shot(page, "settings-offline")
                 storage = page.locator("a[href='/settings/storage']")
                 if storage.count():
                     page.evaluate("() => { window.__nc = 0; addEventListener('salsa:needs-connection', () => window.__nc++); }")

@@ -22,6 +22,13 @@ export const sync: Catalog['sync'] = {
 		sent: 'Vse poslano',
 		see: 'Poglej'
 	},
+	pull: {
+		pull: 'Povlecite za sinhronizacijo',
+		release: 'Spustite za sinhronizacijo',
+		syncing: 'Sinhroniziram …',
+		done: 'Posodobljeno',
+		offline: 'Brez povezave'
+	},
 	refusedHeading: 'Ni sinhronizirano',
 	waitingHeading: 'V čakanju',
 	retry: 'Poskusi znova',
