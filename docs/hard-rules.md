@@ -76,7 +76,8 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   reads a table that does not reach a device** (`NEVER_SYNCED`) or the
   server's disk: such a fact travels with the pull (`ServerExtras`,
   `src/lib/server/sync/extras.ts`) and the load reads `deviceRuntime().extras`
-  on the device, or the page goes in `NETWORK_FIRST_PAGES` (online the
+  on the device, or the pull fills the table on the device (`clone_pairs`:
+  `clonePairs`, the pairs among the person's rows), or the page goes in `NETWORK_FIRST_PAGES` (online the
   network first; Settings) or `NETWORK_PAGES`. `server-only.spec.ts` fails on
   a device-drawn load importing a known server-only reader.
 - **A cookie-setting action is network-only** (Settings' theme and
