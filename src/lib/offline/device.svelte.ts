@@ -28,7 +28,7 @@ import type {
 import { unpulledAfterPull, unpulledAfterSave } from './sw-route';
 import { createRelay } from './relay';
 import { graceEndsAt } from '$lib/sync/status';
-import { refreshWhenSettled } from '$lib/sheets/history.svelte';
+import { refreshWhenIdle } from '$lib/sheets/idle-refresh';
 
 /** How long a relayed read waits, from the worker's start, for the device to be ready. */
 export const DEVICE_START_LIMIT_MS = 10_000;
@@ -168,7 +168,8 @@ function startWorker(): Worker | null {
 	}
 	worker.addEventListener('message', (e: MessageEvent<DeviceOut>) => {
 		if (e.data?.type === 'state') setState(e.data.state);
-		else if (e.data?.type === 'pulled') pulled(e.data.startedAt, e.data.landed);
+		else if (e.data?.type === 'pulled')
+			pulled(e.data.startedAt, e.data.landed, e.data.changed ?? 0);
 		else if (e.data?.type === 'outbox') onOutbox(e.data.summary);
 	});
 	if (person !== undefined)
@@ -255,11 +256,11 @@ function pull(): void {
  * page's last save (`DeviceClients.pulled`); the page's own note clears by the
  * same rule.
  */
-function pulled(startedAt: number, landed = 0): void {
+function pulled(startedAt: number, landed = 0, changed = 0): void {
 	pulls += 1;
 	if (window.__device) window.__device.pulls = pulls;
-	// Changes went up and the server's state came back: draw it.
-	if (landed > 0) void refreshWhenSettled();
+	// Changes went up, or the pull brought some: draw them once nothing is open over the page.
+	if (landed > 0 || changed > 0) refreshWhenIdle();
 	unpulledSince = unpulledAfterPull(unpulledSince, startedAt);
 	const sw = navigator.serviceWorker.controller;
 	sw?.postMessage({ type: 'device-pulled', startedAt } satisfies SwIn);
