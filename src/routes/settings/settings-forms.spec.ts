@@ -31,6 +31,7 @@ import { actions, load } from './+page.server';
 import { createHash } from 'node:crypto';
 import { approve, exchangeCode, listGrants } from '$lib/server/oauth/store';
 import { serverNow } from '$lib/server/server-clock';
+import { feedbackFor } from '$lib/server/feedback';
 
 const USER = {
 	id: 'u1',
@@ -338,5 +339,49 @@ describe('Connected AI apps', () => {
 			status: 404
 		});
 		expect((await apps()).map((a) => a.id)).toEqual([id]);
+	});
+});
+
+describe('feedback', () => {
+	it('keeps the message with the app and browser of the request, in the account’s dance', async () => {
+		const e = post({
+			message: 'The count stops',
+			page: '/bachata/moves/3',
+			trail: JSON.stringify(['/bachata/moves/3', '/bachata/groups']),
+			version: '1762770000000',
+			viewport: '390×844'
+		});
+		const ua =
+			'Mozilla/5.0 (Linux; Android 14; wv) Chrome/131.0 Mobile SalsaApp/9 (bachata; direct)';
+		const event = {
+			...e,
+			request: new Request(e.request, {
+				headers: {
+					'content-type': 'application/x-www-form-urlencoded',
+					'user-agent': ua
+				}
+			})
+		};
+		expect(await call(actions.feedback, event)).toEqual({ sent: true });
+		const [row] = feedbackFor(db, 'bachata').open;
+		expect(row).toMatchObject({
+			email: 'u1@example.com',
+			message: 'The count stops',
+			page: '/bachata/moves/3',
+			appVersion: 9,
+			appChannel: 'direct',
+			userAgent: ua,
+			viewport: '390×844'
+		});
+	});
+
+	it('refuses an empty message, in the person’s language', async () => {
+		const r = (await runInLocale('sl', () => call(actions.feedback, post({ message: ' ' })))) as {
+			status: number;
+			data: { message: string };
+		};
+		expect(r.status).toBe(400);
+		expect(r.data.message).toBe('Najprej kaj napišite.');
+		expect(feedbackFor(db, 'bachata').open).toEqual([]);
 	});
 });
