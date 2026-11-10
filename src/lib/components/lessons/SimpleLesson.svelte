@@ -322,6 +322,7 @@
 								{:else}
 									<VideoFrame
 										src="/lesson-videos/{video.file}"
+										phone={{ ...video, table: 'lesson_videos' }}
 										sourceUrl={video.sourceUrl}
 										owner={{ lessonVideoId: video.id }}
 										title={lesson.title}

@@ -221,7 +221,7 @@ export const video = {
 		original: (size: string): string => `Original · ${size} · plays from here`,
 		server: 'Server',
 		notUploaded: "Not uploaded. A computer and your other devices can't play it.",
-		copy: (size: string, p: number): string => `${p}p copy · ${size}`,
+		copy: (size: string): string => `Copy · ${size}`,
 		upload: 'Upload',
 		remove: 'Remove',
 		sheetNote:

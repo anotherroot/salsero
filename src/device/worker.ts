@@ -161,6 +161,7 @@ async function keepStatus(): Promise<KeepStatus | null> {
 		},
 		slot: scope.slot,
 		originals: originals.map((f) => f.file),
+		devices: scope.devices,
 		free: room,
 		low: isLow(room)
 	};

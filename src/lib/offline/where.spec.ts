@@ -15,7 +15,6 @@ const ctx = (over: Partial<PlaceCtx> = {}): PlaceCtx => ({
 	devices: { '3': { kind: 'android', model: 'Pixel 8' }, '4': { kind: 'iphone', model: null } },
 	iphone: false,
 	android: true,
-	shortSide: 720,
 	...over
 });
 
@@ -42,9 +41,9 @@ describe('placeOf: where a video is (offline phase 4c)', () => {
 		});
 	});
 
-	it('held here and uploaded: both, with the copy’s size and the setting’s p', () => {
+	it('held here and uploaded: both, with the copy’s size', () => {
 		expect(placeOf({ ...ROW, serverCopy: true, sizeBytes: 80 }, ctx({ held: () => true }))).toEqual(
-			{ state: 'both', copyBytes: 80, copyP: 720 }
+			{ state: 'both', copyBytes: 80 }
 		);
 	});
 

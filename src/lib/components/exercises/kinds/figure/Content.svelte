@@ -43,6 +43,7 @@
 				{:else}
 					<VideoFrame
 						src="/recordings/{rec.file}"
+						phone={{ ...rec, table: 'recordings' }}
 						{canEdit}
 						linking={canEdit && !simple}
 						onclosed={() => void refreshWhenSettled()}

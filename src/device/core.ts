@@ -7,6 +7,7 @@
  * outbox.
  */
 import { isDanceSlug } from '$lib/dances/dances';
+import type { DeviceLabel } from '$lib/devices/label';
 import { deviceAnswers, writeClass } from '$lib/offline/routes';
 import { OWNERS, ownerOf } from '$lib/sync/owners';
 import {
@@ -116,7 +117,12 @@ export type Device = {
 	 * Whose originals this copy may sweep, the video files its rows still name,
 	 * and this device's id slot (offline phase 4c).
 	 */
-	originalsScope(): { person: string | null; files: Set<string>; slot: number | null };
+	originalsScope(): {
+		person: string | null;
+		files: Set<string>;
+		slot: number | null;
+		devices: Record<string, DeviceLabel>;
+	};
 	/** One change to it, saved; a kept video gone from the copy drops out. */
 	keepSet(change: KeepChange): KeepSettings;
 	/** The rows the On this phone page draws, given the video files on the phone. */
@@ -686,7 +692,7 @@ export function createDevice(deps: DeviceDeps): Device {
 				for (const r of db.prepare(`SELECT file FROM ${table}`).all() as { file: string }[])
 					files.add(r.file);
 			const meta = readMeta(db);
-			return { person: meta.userId, files, slot: meta.slot };
+			return { person: meta.userId, files, slot: meta.slot, devices: meta.extras?.devices ?? {} };
 		},
 
 		keepSet(change) {

@@ -11,7 +11,7 @@ export type Place =
 	| { state: 'server' }
 	| { state: 'only'; iphone: boolean }
 	| { state: 'uploading'; pct: number }
-	| { state: 'both'; copyBytes: number; copyP: 480 | 720 | 1080 }
+	| { state: 'both'; copyBytes: number }
 	| { state: 'elsewhere'; label: DeviceLabel | null }
 	/** This device was the holder, but the original is gone (the gallery on Android). */
 	| { state: 'missing'; gallery: boolean };
@@ -26,8 +26,6 @@ export type PlaceCtx = {
 	devices: Record<string, DeviceLabel>;
 	iphone: boolean;
 	android: boolean;
-	/** Settings → video size: what Upload sends. */
-	shortSide: 480 | 720 | 1080;
 };
 
 export type PlaceRow = {
@@ -42,7 +40,7 @@ export function placeOf(row: PlaceRow, ctx: PlaceCtx): Place {
 	if (ctx.held(row.file)) {
 		const pct = ctx.uploading(row.file);
 		if (pct !== null) return { state: 'uploading', pct };
-		if (row.serverCopy) return { state: 'both', copyBytes: row.sizeBytes, copyP: ctx.shortSide };
+		if (row.serverCopy) return { state: 'both', copyBytes: row.sizeBytes };
 		return { state: 'only', iphone: ctx.iphone };
 	}
 	if (!row.serverCopy) {

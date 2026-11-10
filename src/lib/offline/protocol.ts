@@ -4,6 +4,7 @@
  * and the page all import them.
  */
 import type { ClashInfo, GoneInfo } from '$lib/clash/clash';
+import type { DeviceLabel } from '$lib/devices/label';
 import type { EntryLabel, RefusalReason } from '$lib/sync/outbox';
 
 /** A request as it crosses a `MessagePort`: the service worker's `Request`, taken apart. */
@@ -203,6 +204,8 @@ export type KeepStatus = {
 	slot?: number | null;
 	/** The file names of the person's originals on this phone (offline phase 4c). */
 	originals?: string[];
+	/** The person's devices that hold originals, by slot (the last pull's `ServerExtras.devices`). */
+	devices?: Record<string, DeviceLabel>;
 	/** Free for this app (quota − usage); null where the browser won't say. */
 	free: number | null;
 	low: boolean;

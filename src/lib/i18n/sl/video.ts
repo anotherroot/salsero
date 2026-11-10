@@ -179,7 +179,7 @@ export const video: Catalog['video'] = {
 		original: (size) => `Izvirnik · ${size} · predvaja se od tu`,
 		server: 'Strežnik',
 		notUploaded: 'Ni naložen. Računalnik in druge naprave ga ne morejo predvajati.',
-		copy: (size, p) => `Kopija ${p}p · ${size}`,
+		copy: (size) => `Kopija · ${size}`,
 		upload: 'Naloži',
 		remove: 'Odstrani',
 		sheetNote:
