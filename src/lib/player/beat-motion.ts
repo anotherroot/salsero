@@ -8,8 +8,12 @@
 
 export type StepMotion = 'none' | 'push' | 'strong' | 'disc';
 
-/** How far a count starts from its size: a push, the 5's harder one, the 1's disc popping in. */
-export const PUSH = { push: 1.045, strong: 1.09, disc: 0.8 } as const;
+/**
+ * How big a count starts before it settles to its size: a push, the 5's harder
+ * one, the 1's hardest. Every count is largest on its beat; the 1 once grew in
+ * from .8 and felt late.
+ */
+export const PUSH = { push: 1.045, strong: 1.09, disc: 1.12 } as const;
 
 export function stepMotion(
 	prev: number,

@@ -22,7 +22,7 @@ describe('stepMotion: a count moves only on a plain step forward', () => {
 	});
 
 	it('pushes by the spec’s amounts', () => {
-		expect(PUSH).toEqual({ push: 1.045, strong: 1.09, disc: 0.8 });
+		expect(PUSH).toEqual({ push: 1.045, strong: 1.09, disc: 1.12 });
 	});
 });
 

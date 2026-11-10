@@ -307,6 +307,6 @@ taps dip under the finger (buttons 94 %, rows 98.5 %); lists fold and open (a ro
 slides off, the rows under it close the gap, Undo opens it) on Today, a routine's slots,
 links, sections, recordings, Music's To pick, comments, Suggestions and a past day; sheets
 slide away and toasts rise; Done lands on Today (the row lifts into its done place, its
-check pops, the bar fills, the words swap); the player's count pushes on the beat, the 1's
-disc pops, the lit dot grows, and Next rises into the call on a new figure. Nothing waits
+check pops, the bar fills, the words swap); the player's count pushes on the beat, the 5 and
+the 1 push harder, the lit dot grows, and Next rises into the call on a new figure. Nothing waits
 on motion, and reduced motion turns it all off. Page transitions are for a later round.

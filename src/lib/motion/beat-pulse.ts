@@ -1,5 +1,5 @@
 import { PUSH, beatLife, stepMotion } from '$lib/player/beat-motion';
-import { SETTLE, play } from './motion';
+import { play } from './motion';
 
 /**
  * The count's push on each beat, for a digit read every animation frame from
@@ -33,19 +33,8 @@ export function beatPulse(o: { disc: boolean }) {
 		if (kind === 'none' || !el) return;
 		running?.cancel();
 		const duration = beatLife(lastStep);
-		running =
-			kind === 'disc' && o.disc
-				? play(el, [{ transform: `scale(${PUSH.disc})` }, { transform: 'none' }], {
-						duration,
-						easing: SETTLE
-					})
-				: play(
-						el,
-						[
-							{ transform: `scale(${kind === 'strong' ? PUSH.strong : PUSH.push})` },
-							{ transform: 'none' }
-						],
-						{ duration }
-					);
+		const from =
+			kind === 'disc' && o.disc ? PUSH.disc : kind === 'strong' ? PUSH.strong : PUSH.push;
+		running = play(el, [{ transform: `scale(${from})` }, { transform: 'none' }], { duration });
 	};
 }

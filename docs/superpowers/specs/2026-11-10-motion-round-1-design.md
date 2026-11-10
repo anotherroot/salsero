@@ -30,7 +30,7 @@ when a page is built and B feels too much there.
 2. **Lists fold and open.** A row that leaves slides out and its gap folds
    shut. The rows under it slide up. Undo opens the gap and the row comes back.
 3. **The player's count moves on the beat.** Every count gets a small push,
-   the 1's cream disc pops in, the 5 lands a little harder, the lit dot grows,
+   the 5 lands a little harder and the 1 hardest, the lit dot grows,
    and on a new figure's 1, Next rises into the call.
 4. **Taps dip.** Rows, buttons, chips and tabs scale down a little under the
    finger and settle back when it lets go.
@@ -162,7 +162,7 @@ on a new figure.
 |---|---|---|
 | Each count | the digit starts at 1.045× and settles to 1 | 85 % of the beat, ARRIVE |
 | The 5 | the same push, harder: 1.09× | 85 % of the beat |
-| The 1 | the cream disc pops in from .8× | 85 % of the beat, SETTLE |
+| The 1 | the hardest push, with its cream disc: 1.12× (it grew in from .8× with a bounce at first; that put the 1's accent late, changed after the user tried it) | 85 % of the beat, ARRIVE |
 | The dots | the lit dot grows 10 → 16 px, and the last one shrinks back | min(110 ms, 40 % of the beat) |
 | A new figure, on its 1 | the old call lifts 24 px and fades. Next rises and grows from its 15 px into the call's size and place, and the new Next fades in under it once the move is 40 % done | min(long, 1.4 beats) |
 
@@ -183,7 +183,7 @@ one push is gone before the next. A pause stops it where it is. A count-off
 
 Where it applies: the player's stage on a phone, landscape and desktop, in a
 run and with a song. `RunLayer`'s strip count gets the push too, but not the
-disc pop. It is small.
+1's harder push. It is small.
 
 ## 4. Taps dip
 
