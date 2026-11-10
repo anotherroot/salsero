@@ -73,6 +73,17 @@ fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, message
         else -> Step.Retry
     }
 
+/** Where a job's chunks go: every upload is chunked (recordings too, since offline phase 4c). */
+fun uploadPath(target: Target, serverId: String): String = when (target) {
+    is Target.Lesson -> "/api/lessons/${target.id}/videos/$serverId"
+    is Target.Figure -> "/api/figures/${target.id}/recordings/$serverId"
+    is Target.Recording -> "/api/recordings/${target.id}/file/$serverId"
+    is Target.LessonVideo -> "/api/lesson-videos/${target.id}/file/$serverId"
+}
+
+/** A picked video's lasting permission goes when its upload ends, unless it is a phone-only original. */
+fun releasesSource(target: Target): Boolean = target is Target.Lesson || target is Target.Figure
+
 fun fitsRecording(bytes: Long) = bytes <= MAX_RECORDING_BYTES
 
 /** A video is re-encoded only when its short side is above the target; never upscaled. */

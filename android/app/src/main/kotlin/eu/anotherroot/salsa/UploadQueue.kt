@@ -40,6 +40,27 @@ object UploadQueue {
     }
 
     /**
+     * A phone-only original's server copy (offline phase 4c): compressed as any
+     * upload, sent to its existing row; its gallery permission stays.
+     */
+    fun addOriginal(context: Context, source: Uri, target: Target, file: String): Boolean {
+        store(context).add(
+            Job(
+                id = UUID.randomUUID().toString(),
+                source = source.toString(),
+                shareKey = null,
+                target = target,
+                back = "",
+                name = Prefs.words(context).theLesson,
+                queuedAt = System.currentTimeMillis(),
+                original = file,
+            ),
+        )
+        kick(context)
+        return true
+    }
+
+    /**
      * Makes sure a runner will drain the queue. Call it from the foreground when
      * possible. A runner already running gets one queued behind it, in case it
      * is just finishing; one waiting out a backoff is replaced, so it runs now.

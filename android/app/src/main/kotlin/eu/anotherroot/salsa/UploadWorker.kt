@@ -79,7 +79,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 Step.Retry
             }
             when (step) {
-                Step.Done -> finish(job, words.addedTo(job.name), video)
+                Step.Done -> finish(job, words.addedTo(job.name), video, ok = true)
                 is Step.Fail -> finish(job, words.couldNotAdd(video, job.name), step.reason)
                 Step.Unpaired -> {
                     // Kept, all of them: pairing again resumes the queue (LinkActivity kicks it).
@@ -130,7 +130,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         } else {
             Body.OfUri(ctx, source, info.mime, info.name, info.sizeBytes)
         }
-        return if (job.target is Target.Lesson) uploadChunks(job, body) else uploadWhole(job, body)
+        return uploadChunks(job, body)
     }
 
     /** The lesson protocol, chunk by chunk, from the saved offset. */
@@ -142,6 +142,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         while (true) {
             if (isStopped) throw CancellationException("stopped")
             show(words.uploading, (send.start * 100 / total).toInt())
+            job.original?.let { UploadEvents.progress(it, (send.start * 100 / total).toInt()) }
             val (status, received, message) = try {
                 putChunk(job, serverId, body, send, total)
             } catch (e: CancellationException) {
@@ -161,7 +162,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     private fun putChunk(job: Job, serverId: String, body: Body, send: Step.Send, total: Long): Triple<Int, Long?, String> {
         val length = send.end - send.start + 1
-        val conn = Api.open(ctx, "/api/lessons/${job.target.id}/videos/$serverId", "PUT")
+        val conn = Api.open(ctx, uploadPath(job.target, serverId), "PUT")
         try {
             conn.doOutput = true
             conn.setFixedLengthStreamingMode(length)
@@ -181,42 +182,15 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
     }
 
-    /** A figure recording: one request, under the 95 MiB edge limit. */
-    private fun uploadWhole(job: Job, body: Body): Step {
-        if (!fitsRecording(body.size)) return Step.Fail(words.tooBigForRecording)
-        show(words.uploading, 0)
-        val conn = Api.open(ctx, "/api/figures/${job.target.id}/recordings", "POST")
-        try {
-            val status = try {
-                conn.doOutput = true
-                conn.setFixedLengthStreamingMode(body.size)
-                conn.setRequestProperty("content-type", body.mime)
-                conn.setRequestProperty("x-filename", encodeName(body.name))
-                body.open(0).use { input ->
-                    conn.outputStream.use { out -> copy(input, out, body.size) { show(words.uploading, (it * 100 / body.size).toInt()) } }
-                }
-                conn.responseCode
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: IOException) {
-                NETWORK_ERROR
-            }
-            val message = if (status >= 400) Api.errorBody(conn) else ""
-            return when (val step = nextStep(status, null, Step.Send(0, body.size - 1), body.size, message, words)) {
-                is Step.Send -> Step.Retry // a 204 or 409 cannot happen here; try again
-                else -> step
-            }
-        } finally {
-            conn.disconnect()
-        }
-    }
-
     /** Posts the outcome and forgets the job: its folder, and the source it no longer needs. */
-    private fun finish(job: Job, title: String, text: String?) {
+    private fun finish(job: Job, title: String, text: String?, ok: Boolean = false) {
         Notify.result(ctx, 100 + (job.id.hashCode() and 0xffff), title, text, job.back)
         store.remove(job.id)
+        job.original?.let { UploadEvents.ended(it, ok) }
         val source = Uri.parse(job.source)
-        if (job.shareKey != null) {
+        if (!releasesSource(job.target)) {
+            // A phone-only original (offline phase 4c): the app keeps pointing at it.
+        } else if (job.shareKey != null) {
             val file = File(requireNotNull(source.path))
             file.delete()
             file.parentFile?.takeIf { it.listFiles().isNullOrEmpty() }?.delete()

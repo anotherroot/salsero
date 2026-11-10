@@ -13,6 +13,8 @@ data class Job(
     val back: String,
     val name: String,
     val queuedAt: Long,
+    /** A phone-only original's server file name (offline phase 4c): its page is told how far. */
+    val original: String? = null,
 )
 
 /**
@@ -33,11 +35,12 @@ class JobStore(private val root: File) {
             .put("id", job.id)
             .put("source", job.source)
             .put("shareKey", job.shareKey ?: JSONObject.NULL)
-            .put("target", if (job.target is Target.Lesson) "lesson" else "figure")
+            .put("target", targetName(job.target))
             .put("targetId", job.target.id)
             .put("back", job.back)
             .put("name", job.name)
             .put("queuedAt", job.queuedAt)
+            .put("original", job.original ?: JSONObject.NULL)
         File(d, "job.json.tmp").apply { writeText(o.toString()) }.renameTo(File(d, "job.json"))
     }
 
@@ -97,12 +100,27 @@ class JobStore(private val root: File) {
             id = o.getString("id"),
             source = o.getString("source"),
             shareKey = if (o.isNull("shareKey")) null else o.getString("shareKey"),
-            target = if (o.getString("target") == "lesson") Target.Lesson(targetId) else Target.Figure(targetId),
+            target = targetOf(o.getString("target"), targetId),
             back = o.getString("back"),
             name = o.getString("name"),
             queuedAt = o.getLong("queuedAt"),
+            original = if (o.isNull("original") || !o.has("original")) null else o.getString("original"),
         )
     } catch (e: Exception) {
         null
     }
+}
+
+private fun targetName(t: Target) = when (t) {
+    is Target.Lesson -> "lesson"
+    is Target.Figure -> "figure"
+    is Target.Recording -> "recording"
+    is Target.LessonVideo -> "lesson-video"
+}
+
+private fun targetOf(name: String, id: Long): Target = when (name) {
+    "lesson" -> Target.Lesson(id)
+    "recording" -> Target.Recording(id)
+    "lesson-video" -> Target.LessonVideo(id)
+    else -> Target.Figure(id)
 }
