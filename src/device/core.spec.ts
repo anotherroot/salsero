@@ -26,6 +26,7 @@ import type { PullRequest } from '$lib/sync/wire';
 import type { DeviceOut, WireRequest } from '$lib/offline/protocol';
 import { migrateDevice, readMeta } from './migrate';
 import { repoMigrations } from './test-migrations';
+import { DEFAULT_KEEP, readKeep } from './keep';
 import {
 	copyHasUser,
 	createDevice,
@@ -526,6 +527,52 @@ describe('the songs on the phone follow the copy (offline phase 4a)', () => {
 		expect(h.dev.wantedMedia()).toEqual([]);
 		await h.dev.start();
 		expect(Array.isArray(h.dev.wantedMedia())).toBe(true);
+	});
+});
+
+describe('videos kept on the phone (offline phase 4b)', () => {
+	it("a switched-on space's videos are wanted, and the settings stay", async () => {
+		const h = harness();
+		await h.dev.start();
+		const user = readMeta(device).userId;
+		device.pragma('foreign_keys = OFF');
+		device
+			.prepare(
+				`INSERT INTO lessons (id, lesson_day, user_id, title, created_at) VALUES (990001, '2026-11-01', ?, 'K', 0)`
+			)
+			.run(user);
+		device
+			.prepare(
+				`INSERT INTO lesson_videos (id, lesson_id, file, mime, size_bytes, created_at) VALUES (990002, 990001, 'k.mp4', 'video/mp4', 5, 0)`
+			)
+			.run();
+		device.pragma('foreign_keys = ON');
+		const K = { kind: 'lesson-videos', file: 'k.mp4', mime: 'video/mp4', size: 5 };
+		expect(h.dev.wantedMedia()).not.toContainEqual(K);
+		expect(h.dev.keepSet({ space: 'mine', on: true }).spaces).toEqual(['mine']);
+		expect(h.dev.wantedMedia()).toContainEqual(K);
+		expect(readKeep(device).spaces).toEqual(['mine']);
+		expect(h.dev.keepSettings().spaces).toEqual(['mine']);
+		const rows = h.dev.keepRows(new Set(['lesson-videos/k.mp4']));
+		expect(rows.spaces[0]).toMatchObject({ id: 'mine', on: true, held: 1 });
+		expect(rows.bySpace['lesson-videos/k.mp4']).toBe('mine');
+	});
+
+	it('a kept video no longer in the copy drops out of the settings when they are next written', async () => {
+		const h = harness();
+		await h.dev.start();
+		h.dev.keepSet({ video: 'recordings/gone.webm', on: true });
+		expect(h.dev.keepSet({ wifiOnly: false }).videos).toEqual([]);
+	});
+
+	it('another person starts from the default', async () => {
+		const first = harness();
+		await first.dev.start();
+		first.dev.keepSet({ space: 'mine', on: true });
+		const h = harness({ fetchPull: async (body) => answerAsServer(body, 'u4') });
+		await h.dev.start();
+		await h.dev.person('u4');
+		expect(h.dev.keepSettings()).toEqual(DEFAULT_KEEP);
 	});
 });
 

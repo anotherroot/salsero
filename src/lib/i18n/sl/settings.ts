@@ -51,7 +51,54 @@ export const settings: Catalog['settings'] = {
 	},
 	onPhone: {
 		label: 'Na tem telefonu',
-		songs: (size) => `Pesmi in vaše štetje · ${size}`
+		row: (songs, videos, free) =>
+			free
+				? `Pesmi ${songs} · videi ${videos} · prosto ${free}`
+				: `Pesmi ${songs} · videi ${videos}`,
+		sub: (songs, videos) => `Pesmi ${songs} · videi ${videos}`,
+		used: (used, free) => (free ? `Zasedeno ${used} · prosto ${free}` : `Zasedeno ${used}`),
+		legendSongs: (size) => `Pesmi in štetje · ${size}`,
+		legendVideos: (size) => `Shranjeni videi · ${size}`,
+		notReady: 'Na tem telefonu še ni pripravljeno: aplikacija si šele prenaša svojo kopijo.',
+		spacesLabel: 'Videi lekcij na telefonu',
+		myLessons: 'Moje lekcije',
+		videos: (n, size) => `${slCount(n, ['video', 'videa', 'videi', 'videov'])} · ${size}`,
+		onPhone: 'na telefonu',
+		coming: (i, n, got, all) => `Prenašam ${i} od ${n} · ${got} od ${all}`,
+		ofOnPhone: (i, n) => `${i} od ${n} na telefonu`,
+		waitingWifi: 'čaka na Wi-Fi',
+		waitingNet: 'čaka na povezavo',
+		noSpace: 'ni prostora',
+		comingShort: (p) => `prenašam ${p} %`,
+		wifiOnly: 'Samo prek Wi-Fi',
+		wifiOnlySub: 'Videi se na mobilnih podatkih ne prenašajo. Pesmi se vedno.',
+		cantTell:
+			'Ta telefon aplikaciji ne pove, ali je na Wi-Fi ali na mobilnih podatkih. Videi se zato lahko prenašajo tudi prek mobilnih podatkov: vklopite le, kar res potrebujete.',
+		spaceNote:
+			'Vklopljen prostor obdrži na telefonu vse videe svojih lekcij, tudi stare, in vsakega novega. Posamezen video obdržite z gumbom pod njim.',
+		clear: 'Počisti shranjene videe',
+		clearSub: 'Na strežniku ostanejo, lahko jih spet prenesete.',
+		cleared: 'Shranjeni videi so počiščeni',
+		keep: 'Obdrži na telefonu',
+		stop: (p) => `Prenašam, ${p} %. Ustavi`,
+		remove: 'Na telefonu. Odstrani s telefona',
+		bySpace: (name) => `Na telefonu, obdrži ga »${name}«. Nastavitve`,
+		low: {
+			title: 'Na telefonu je malo prostora',
+			body: (free) => `Prosto je še ${free}. Videi na strežniku se lahko vedno spet prenesejo.`,
+			suggestions: 'Predlogi, največji najprej',
+			spaceSub: (n, size) =>
+				`Prostor vklopljen · ${slCount(n, ['video', 'videa', 'videi', 'videov'])} · ${size}`,
+			videoSub: (i, size) => `Video ${i} · ${size}`,
+			recordingSub: (size) => `Posnetek · ${size}`,
+			turnOff: 'Izklopi',
+			remove: 'Odstrani',
+			sheetTitle: 'Telefonu zmanjkuje prostora',
+			sheetBody: (free) =>
+				`Prosto je še ${free}. Ti videi so tudi na strežniku: če jih odstranite s telefona, jih lahko kadarkoli spet prenesete.`,
+			later: 'Kasneje',
+			tabLabel: (label) => `${label}, na telefonu je malo prostora`
+		}
 	},
 	practice: {
 		label: 'Vadenje',

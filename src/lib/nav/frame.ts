@@ -8,7 +8,13 @@ import { tabFor, type TabId } from './tabs';
  */
 export type Frame = 'side' | 'bare' | 'card' | 'none';
 
-const SHARED_SIDE = new Set(['/settings', '/settings/storage', '/voice', '/admin']);
+const SHARED_SIDE = new Set([
+	'/settings',
+	'/settings/storage',
+	'/settings/phone',
+	'/voice',
+	'/admin'
+]);
 const BARE = new Set(['/[dance]/player', '/[dance]/share']);
 const CARD = new Set([
 	'/login',

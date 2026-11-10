@@ -7,6 +7,9 @@
 	import { recordingMetaLine } from '$lib/figures/page';
 	import VideoPlayer from '$lib/components/ui/VideoPlayer.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import KeepButton from '$lib/components/ui/KeepButton.svelte';
+	import { kept } from '$lib/offline/kept.svelte';
+	import { keepWord, videoKeep } from '$lib/offline/kept-view';
 	import { button, iconButton } from '$lib/components/ui/styles';
 	import type { RecordingRow } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
@@ -64,6 +67,8 @@
 						recording.sourceUrl !== null
 					))
 	);
+	/** On this phone, coming, or waiting (offline phase 4b): after the meta, while the file is fine. */
+	const keep = $derived(video && problem === null ? keepWord(videoKeep(kept.status, src)) : null);
 	/** A video that can play opens the player; anything else is a plain row. */
 	const opens = $derived(video && problem === null);
 
@@ -84,7 +89,13 @@
 	<span class="min-w-0 py-2">
 		<span class="block truncate text-[16px] font-bold">{day}</span>
 		<span class="block truncate text-[13px] {problem ? 'font-bold text-status' : 'text-muted'}"
-			>{meta}</span
+			>{keep ? `${meta} · ` : meta}{#if keep}<span
+					class="font-bold {keep.tone === 'done'
+						? 'text-done'
+						: keep.tone === 'warn'
+							? 'text-warn'
+							: ''}">{keep.text}</span
+				>{/if}</span
 		>
 	</span>
 {/snippet}
@@ -107,6 +118,7 @@
 				{@render lead()}{@render words()}
 			</div>
 		{/if}
+		{#if opens && !trailing}<KeepButton {src} />{/if}
 		{#if trailing}
 			{@render trailing()}
 		{:else if problem === 'unplayable'}

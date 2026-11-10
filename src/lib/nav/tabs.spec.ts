@@ -130,4 +130,11 @@ describe('tabDot', () => {
 	it("says why in the tab's name", () => {
 		expect(tabDotLabel('music', 'Music')).toBe('Music, a playlist to pick');
 	});
+
+	it('lights You while the phone is short of space (offline phase 4b), and says so', () => {
+		expect(tabDot('you', { lowSpace: true })).toBe(true);
+		expect(tabDot('today', { lowSpace: true })).toBe(false);
+		expect(tabDot('you', {})).toBe(false);
+		expect(tabDotLabel('you', 'You', { lowSpace: true })).toBe('You, little space on this phone');
+	});
 });

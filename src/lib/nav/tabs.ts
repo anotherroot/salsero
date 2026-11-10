@@ -116,21 +116,28 @@ export function tapKind(
 
 /**
  * A tab's dot: Groups while something is new there, Music while a read playlist
- * waits to be picked, You while the AI's suggestions wait to be run. `data` is the
- * page's data, as the tab bar has it (the `[dance]` layout's `groupsNew`,
- * `musicToPick` and `aiPending`).
+ * waits to be picked, You while the AI's suggestions wait to be run or the
+ * phone is short of space. `data` is the page's data, as the tab bar has it
+ * (the `[dance]` layout's `groupsNew`, `musicToPick` and `aiPending`), plus
+ * `lowSpace`, which the tab bar adds from the device (offline phase 4b).
  */
 export function tabDot(id: TabId, data: Record<string, unknown>): boolean {
 	if (id === 'groups') return !!data.groupsNew || Number(data.aiPending ?? 0) > 0;
 	if (id === 'music') return !!data.musicToPick;
-	if (id === 'you') return Number(data.aiPending ?? 0) > 0;
+	if (id === 'you') return Number(data.aiPending ?? 0) > 0 || !!data.lowSpace;
 	return false;
 }
 
 /** A dotted tab's name for a screen reader: what the dot means. */
-export function tabDotLabel(id: TabId, label: string): string {
+export function tabDotLabel(id: TabId, label: string, data: Record<string, unknown> = {}): string {
 	if (id === 'groups') return groupsTabLabel(true, label);
 	if (id === 'music') return t().shell.tabs.musicToPick(label);
-	if (id === 'you') return t().suggestions.tabLabel(label);
+	if (id === 'you') {
+		// Short of space says so unless suggestions wait too (that dot was there first).
+		if (data.lowSpace && !(Number(data.aiPending ?? 0) > 0)) {
+			return t().settings.onPhone.low.tabLabel(label);
+		}
+		return t().suggestions.tabLabel(label);
+	}
 	return label;
 }

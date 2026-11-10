@@ -210,7 +210,8 @@ function answer(route: Exclude<SwRoute, 'pass'>, event: FetchEvent): Promise<Res
 let mediaStore: Promise<MediaStore | null> | undefined;
 
 /**
- * Song audio and count takes (offline phase 4a): the phone's file first, with
+ * Song audio, count takes (offline phase 4a), lesson videos and recordings
+ * (4b): the phone's file first, with
  * Range, online too (no data, no wait); else the network as before. A store
  * that fails is never worse than no store.
  */
