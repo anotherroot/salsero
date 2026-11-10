@@ -7,8 +7,8 @@ Moved out of CLAUDE.md on 2026-11-08. When a feature ships, add it to "What is l
 Live: phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, count-only runs; since 2026-11-08 a run logs
-nothing, Done on the exercise page does; since 2026-11-10 the count waits for
-Bluetooth headphones: Count delay in Voice), phase 3a (positions, the figure graph, the gap report), phase 3b
+nothing, Done on the exercise page does; since 2026-11-10 the voice and clave allow for
+Bluetooth headphones: Sound delay in Voice), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the

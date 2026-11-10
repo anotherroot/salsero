@@ -189,10 +189,11 @@ src/lib/player/      PURE view.ts: what the Practice page shows — the dots, th
                      Practise (`routinePractiseHref`). Client-safe.
                      video-sound.svelte.ts: which About video has the sound (`claimSound`,
                      `releaseSound`); the run pauses for it (`pauseForVideo`), Setup stops a sample
-                     sound-delay.ts: how late the sound reaches the ear (Bluetooth), so the
-                     count waits for it: what the phone reports (`reportedDelayMs`) plus the
-                     person's correction, kept in this browser (`sound.delayMs`); the Voice
-                     layer's Count delay. `attach.ts` `songTime()` is the HEARD position
+                     sound-delay.ts: how late the player's own sound (voice, clave) reaches the ear
+                     (Bluetooth ~250 ms): what the phone reports (`reportedDelayMs`, held still by
+                     `steadyDelay`) plus the person's correction, kept in this browser
+                     (`sound.correctionMs`); the Voice layer's Sound delay. With a song the voice and
+                     clave start early (`ctxAt`); count only, `songTime()` (the HEARD position) waits
 src/lib/server/run-details.ts  what the player's About shows, read-only, through access.ts:
                      a figure's timing, positions, notes, sections, videos and links;
                      a drill's; a lesson's notes, figures (`RunDetails.figures`, each with
