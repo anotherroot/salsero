@@ -24,3 +24,8 @@ export function itemMeta(item: { context: string; sizeBytes: number }): string {
 export function askedLine(day: string): string {
 	return t().settings.storage.asked(dateLabel(day));
 }
+
+/** How much the songs and the count takes take on this phone (offline phase 4a). */
+export function songsOnPhoneLine(bytes: number): string {
+	return t().settings.onPhone.songs(byteSize(bytes));
+}

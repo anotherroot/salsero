@@ -61,6 +61,11 @@ export const settings = {
 			inDeleted: (label: string): string => `${label} · in Recently deleted`
 		}
 	},
+	/** The device's own space (offline phase 4a); sizes as `byteSize` writes them. */
+	onPhone: {
+		label: 'On this phone',
+		songs: (size: string): string => `Songs and your count · ${size}`
+	},
 	practice: {
 		label: 'Practice',
 		perDay: 'Exercises a day',

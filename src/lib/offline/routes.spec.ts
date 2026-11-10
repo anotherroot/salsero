@@ -10,6 +10,7 @@ import {
 	ENDPOINT_WRITES,
 	writeClass,
 	DEVICE_ENDPOINTS,
+	MEDIA_ENDPOINTS,
 	NETWORK_ENDPOINTS,
 	NETWORK_PAGES,
 	deviceAnswers,
@@ -30,12 +31,12 @@ const sources = Object.fromEntries(
 const u = (p: string) => new URL(p, 'https://x.test');
 
 describe('endpoint lists', () => {
-	it('lists every GET endpoint as device or network, exactly once', () => {
+	it('lists every GET endpoint as device, media or network, exactly once', () => {
 		const ids = Object.entries(sources)
 			.filter(([, src]) => /export (const|async function|function) GET\b/.test(src))
 			.map(([file]) => file.replace(/^\/src\/routes/, '').replace(/\/\+server\.ts$/, ''))
 			.sort();
-		const listed = [...DEVICE_ENDPOINTS, ...NETWORK_ENDPOINTS];
+		const listed = [...DEVICE_ENDPOINTS, ...MEDIA_ENDPOINTS, ...NETWORK_ENDPOINTS];
 		expect(new Set(listed).size).toBe(listed.length);
 		expect([...listed].sort()).toEqual(ids);
 	});

@@ -55,6 +55,11 @@ values to the walk.
 12. **Needs a connection.** Offline, the figure's ⋯: with a group's Copy to, it is greyed under one note;
     without one (nothing of its own needs a connection), no note. Settings' Storage is greyed
     (`data-offline`) and a tap says so (`salsa:needs-connection`) and stays on Settings.
+13. **A song with no signal** (phase 4a). Before the walk, `put_song` writes a 1-second WAV as the walk
+    person's first song's audio into the server's `DATA_DIR` (a name the server would refuse gets a uuid
+    one, in the copy only). Online the device keeps it (`media/audio/<file>` in OPFS, 30 s cap); a
+    `Range: bytes=0-99` fetch of `/audio/<file>` answers 206 with 100 bytes and `X-Salsa-From: device`,
+    online and offline; Settings shows "Songs and your count · …".
 
 The walk writes to the server's copy (10's archive), so run it on a fresh `serve.sh` each time.
 `WALK_SHOTS=<dir>` (an environment variable) saves a picture of the offline strip on the exercise and

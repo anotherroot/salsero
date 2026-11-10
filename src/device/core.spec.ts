@@ -99,6 +99,7 @@ function harness(over: Partial<DeviceDeps> = {}) {
 		fetchPush: async () => {
 			throw new Error('no push in this spec');
 		},
+		clearMedia: async () => {},
 		...over
 	};
 	const wrapped = deps.fetchPull;
@@ -479,6 +480,52 @@ describe("the page's person", () => {
 			'fallback'
 		);
 		expect(await h.dev.answer(get('/salsa/figures/__data.json'))).not.toHaveProperty('fallback');
+	});
+});
+
+describe('the songs on the phone follow the copy (offline phase 4a)', () => {
+	it("another person: the first one's files go before the new copy serves", async () => {
+		await harness().dev.start();
+		const order: string[] = [];
+		const h = harness({
+			fetchPull: async (body) => {
+				order.push('pull');
+				return answerAsServer(body, 'u4');
+			},
+			clearMedia: async () => {
+				await Promise.resolve();
+				order.push('clear');
+			}
+		});
+		await h.dev.start();
+		order.length = 0;
+		await h.dev.person('u4');
+		expect(order[0]).toBe('clear');
+		expect(order.filter((o) => o === 'clear')).toHaveLength(1);
+		expect(h.readyFor.at(-1)).toBe('u4');
+	});
+
+	it('the same person keeps them', async () => {
+		const clearMedia = vi.fn(async () => {});
+		const h = harness({ clearMedia });
+		await h.dev.start();
+		await h.dev.person('u1');
+		expect(clearMedia).not.toHaveBeenCalled();
+	});
+
+	it('forget clears them', async () => {
+		const clearMedia = vi.fn(async () => {});
+		const h = harness({ clearMedia });
+		await h.dev.start();
+		await h.dev.forget();
+		expect(clearMedia).toHaveBeenCalledTimes(1);
+	});
+
+	it('wantedMedia reads the copy for its person; none without a copy', async () => {
+		const h = harness();
+		expect(h.dev.wantedMedia()).toEqual([]);
+		await h.dev.start();
+		expect(Array.isArray(h.dev.wantedMedia())).toBe(true);
 	});
 });
 

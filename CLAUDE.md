@@ -156,7 +156,7 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
   one gets its triggers in a NEW custom migration, `scripts/sync-triggers.ts <table>`;
   never edit 0042); no row
   leaves the server outside `syncScope`; every GET endpoint is classified in
-  `src/lib/offline/routes.ts`, and every write too (`ACTIONS`, `ENDPOINT_WRITES`):
+  `src/lib/offline/routes.ts` (device, media or network), and every write too (`ACTIONS`, `ENDPOINT_WRITES`):
   device/queued writes run on the device first and replay via `/api/sync/push`
   (made-at clock, device ids, per-field merge on own rows, `replayName`); a
   group's row online goes to the server; cookie-setting actions and Sign out are

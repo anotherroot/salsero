@@ -17,6 +17,8 @@ import struct
 import sys
 import threading
 import time
+import uuid
+import wave
 from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
@@ -340,6 +342,36 @@ def server_write(db_path, sql, *args):
         db.close()
 
 
+UUID_FILE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,5}$")
+
+
+def put_song(db_path):
+    """Check 13's song: a 1-second WAV as the walk person's first song's audio, in the server's DATA_DIR
+    (the db's own dir, serve.sh). A name the server would refuse (not a uuid) is given a uuid one, in this
+    copy only. Its name, or None when the person has no song with an audio file."""
+    db = sqlite3.connect(db_path)
+    try:
+        row = db.execute(
+            "select s.id, s.audio_file from songs s join sessions se on se.user_id = s.user_id "
+            "where se.id = 'walk' and s.audio_file is not null and s.archived_at is null order by s.id"
+        ).fetchone()
+        if row is None:
+            return None
+        name = row[1] if UUID_FILE.match(row[1]) else f"{uuid.uuid4()}.wav"
+        db.execute("update songs set audio_file = ?, mime = 'audio/wav' where id = ?", (name, row[0]))
+        db.commit()
+    finally:
+        db.close()
+    folder = os.path.join(os.path.dirname(db_path), "audio")
+    os.makedirs(folder, exist_ok=True)
+    with wave.open(os.path.join(folder, name), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(8000)
+        w.writeframes(b"\x00\x00" * 8000)
+    return name
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit("usage: walk.py <port> <upstream> <db-copy>")
@@ -356,14 +388,15 @@ def main():
         db.close()
     lines = [l.strip() for l in open(os.path.join(ROOT, "scripts", "shots", "pages.txt")) if l.strip() and not l.startswith("#")]
 
+    song = put_song(db_path)
     net = Net(port, upstream)
     try:
-        walk(base, db_path, v, lines, net)
+        walk(base, db_path, v, lines, net, song)
     finally:
         net.close()
 
 
-def walk(base, db_path, v, lines, net):
+def walk(base, db_path, v, lines, net, song=None):
     def offline(ctx, on):
         # both: the page's navigator.onLine, and the connection itself
         if on:
@@ -743,6 +776,41 @@ def walk(base, db_path, v, lines, net):
                     report(marked and told and stayed, "needs a connection: Settings' Storage is greyed and says so", f"greyed {marked}, told {told}, at {page.url.replace(base, '')}")
                 else:
                     report(False, "needs a connection: Settings' Storage", "no Storage row")
+
+                # 13. A song with no signal (offline phase 4a): online the device keeps the song's audio, and
+                # the service worker answers it from the phone, online and offline, with Range.
+                offline(ctx, False)
+                if song is None:
+                    report(False, "songs on the phone", "the walk person has no song with an audio file")
+                else:
+                    page.goto(f"{base}/{DANCE}", wait_until="load", timeout=60_000)
+                    settle(page)
+                    held = False
+                    for _ in range(60):
+                        held = page.evaluate(
+                            """async (f) => { try {
+                                const d = await (await (await navigator.storage.getDirectory())
+                                    .getDirectoryHandle('media')).getDirectoryHandle('audio');
+                                await d.getFileHandle(f); return true; } catch { return false; } }""",
+                            song,
+                        )
+                        if held:
+                            break
+                        page.wait_for_timeout(500)
+                    report(held, "songs on the phone: the device keeps the song's audio", "not in the store after 30 s")
+                    probe = """async (f) => { const r = await fetch('/audio/' + f, { headers: { Range: 'bytes=0-99' } });
+                        return [r.status, (await r.arrayBuffer()).byteLength, r.headers.get('X-Salsa-From')]; }"""
+                    got = page.evaluate(probe, song)
+                    report(got == [206, 100, "device"], "songs on the phone: online the phone's copy answers", f"{got}")
+                    offline(ctx, True)
+                    got = page.evaluate(probe, song)
+                    report(got == [206, 100, "device"], "songs on the phone: offline it plays from the phone", f"{got}")
+                    page.goto(f"{base}/settings", wait_until="load", timeout=60_000)
+                    settle(page)
+                    line = page.locator("[data-songs-on-phone]")
+                    shown = line.count() > 0 and line.first.inner_text().startswith("Songs and your count ·")
+                    report(shown, "songs on the phone: Settings says how much they take", line.first.inner_text() if line.count() else "no line")
+                    offline(ctx, False)
             finally:
                 ctx.close()
         finally:

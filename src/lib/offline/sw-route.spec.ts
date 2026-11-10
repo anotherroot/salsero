@@ -33,7 +33,21 @@ describe('swRoute', () => {
 			'pass'
 		);
 		expect(route('GET', '/recordings/x.mp4')).toBe('pass');
-		expect(route('GET', '/audio/x.m4a')).toBe('pass');
+		expect(route('GET', '/lesson-videos/x.mp4')).toBe('pass');
+	});
+
+	it('songs and count takes: the phone first (offline phase 4a)', () => {
+		const SONG = '/audio/54e60e0a-b733-4b4b-aef7-477f3ae68086.m4a';
+		const TAKE = '/count/54e60e0a-b733-4b4b-aef7-477f3ae68086.wav';
+		for (const mode of ['cors', 'no-cors', 'same-origin'] as RequestMode[]) {
+			expect(route('GET', SONG, mode), mode).toBe('media');
+			expect(route('GET', TAKE, mode), mode).toBe('media');
+		}
+		expect(route('HEAD', SONG)).toBe('pass');
+		expect(route('POST', SONG)).toBe('write');
+		expect(route('GET', SONG, 'navigate')).toBe('pass');
+		// Videos are 4b and 4c: the network, as before.
+		expect(route('GET', '/recordings/x.mp4')).toBe('pass');
 		expect(route('GET', '/lesson-videos/x.mp4')).toBe('pass');
 	});
 

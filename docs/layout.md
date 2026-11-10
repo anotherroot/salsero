@@ -673,7 +673,11 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `unsyncedBeforeSignOut`, `forgetCopy`; relay.ts (`createRelay`: a second tab
                      reaches the device over a BroadcastChannel), connection.svelte.ts (online or
                      not), needs-connection-action.ts (`use:needsConnection`: greyed offline, a tap
-                     toasts); `src/lib/epoch.ts` holds PAGE_EPOCH for the SW and the device
+                     toasts); `src/lib/epoch.ts` holds PAGE_EPOCH for the SW and the device.
+                     Phase 4a: media-store.ts (`MediaStore`, OPFS `media/<kind>/`, whole files only;
+                     `memoryMediaStore` for specs; `mediaOf`/`mediaPath`), media-range.ts
+                     (`rangeResponse`, PURE: a file answered with Range; `FROM_HEADER`);
+                     routes.ts `MEDIA_ENDPOINTS` (/audio, /count: the phone's file first)
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,
@@ -685,7 +689,9 @@ src/device/          bundled for the device worker only (vite.device.config.ts �
                      request.ts, capture.ts (`installCapture`: the capture triggers into
                      `capture_rows`; the device-only `outbox`, `outbox_capture`), outbox.ts
                      (`recordEntry`, `toSend`, `applyResults`, `outboxSummary`, `outboxItems`,
-                     `retryEntry`, `discardEntry`, `forgetPerson`), node-stubs/
+                     `retryEntry`, `discardEntry`, `forgetPerson`), media.ts (phase 4a:
+                     `wantedMedia`, the copy's songs and count takes; `syncMedia`, the store
+                     brought to them after each sync), node-stubs/
 src/service-worker.ts  network first for reads; on a failure: navigations → the cached /shell,
                      reads → the device, writes → "Needs a connection". Phase 3: device/queued
                      writes go to the device first; reads come from the device while entries

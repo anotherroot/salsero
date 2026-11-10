@@ -525,7 +525,12 @@ whole-page offline screen.
 4. **Videos on the device:** phone-only by default, Upload, Download,
    Remove server copy, Keep on this phone, the space in Settings, the iPhone
    popup, Android's native store and the chunked recording upload (designed
-   first).
+   first). Split in three (spec
+   `docs/superpowers/specs/2026-11-09-offline-phase-4-design.md`); 4a, songs
+   on the phone, built 2026-11-10 (plan
+   `docs/superpowers/plans/2026-11-09-offline-phase-4a-songs.md`): the device
+   keeps every song's audio and the count takes, the service worker plays
+   them from the phone first.
 5. **Cleanup:** the old offline screen goes, and CLAUDE.md, the design spec
    and the affected specs are brought up to date.
 

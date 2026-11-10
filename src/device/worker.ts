@@ -15,6 +15,8 @@ import type { Server as KitServer, SSRManifest } from '@sveltejs/kit';
 import type { DeviceIn, DeviceOut, WireFallback, WireRequest } from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
+import { mediaKeeper } from './media';
+import { opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
 import { migrateDevice } from './migrate';
 import { deviceMigrations } from './migrations';
 import { openCopy } from './pool';
@@ -26,12 +28,26 @@ import Database, { initDeviceSqlite, openPool, pausePool } from './sqlite-shim';
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const LOCK = 'salsa-device';
 const DB_PATH = '/salsa.db';
-/** The server code's `DATA_DIR`: media paths resolve under it and find nothing (phase 4). */
+/** The server code's `DATA_DIR`: media paths resolve under it and find nothing (the media store is the service worker's to serve). */
 const DATA_DIR = '/device';
 
 const post = (message: DeviceOut) => scope.postMessage(message);
 
 let device: Device | null = null;
+
+/** The media store (offline phase 4a), opened once; null where this browser has none. */
+let mediaStore: Promise<MediaStore | null> | undefined;
+const store = () => (mediaStore ??= opfsMediaStore());
+/** The songs on the phone: one pass at a time; `clear` stops a pass in flight before it empties the store. */
+const songs = mediaKeeper({
+	store,
+	wanted: () => (device && device.state() === 'ready' ? device.wantedMedia() : null),
+	fetchMedia: (path, signal) => fetch(path, { credentials: 'same-origin', signal }),
+	online: () => navigator.onLine,
+	log: console
+});
+const syncSongs = () => songs.sync();
+
 /** The page's person, kept for a device that opens later (`Device.person`). */
 let person: string | null | undefined = undefined;
 
@@ -92,6 +108,7 @@ async function open(): Promise<Device> {
 		now: () => Date.now(),
 		epoch: PAGE_EPOCH,
 		newId: () => crypto.randomUUID(),
+		clearMedia: () => songs.clear(),
 		onRecorded: () => {
 			if (device) post({ type: 'outbox', summary: device.summary() });
 			syncSoon();
@@ -114,6 +131,7 @@ async function syncNow(): Promise<void> {
 	if (!device) return;
 	clearTimeout(retry);
 	const out = await device.sync();
+	if (out !== 'offline') void syncSongs();
 	if (out === 'offline' && navigator.onLine)
 		retry = setTimeout(() => void syncNow(), PUSH_RETRY_MS);
 }
@@ -134,6 +152,7 @@ async function run(): Promise<void> {
 		}
 		if (person !== undefined) await device.person(person);
 		await device.start();
+		void syncSongs();
 		// Held for the worker's life: closing the tab ends the worker and frees it.
 		await new Promise<never>(() => {});
 	});
@@ -163,7 +182,7 @@ scope.addEventListener('message', (e: MessageEvent<DeviceIn>) => {
 		if (port) void reply(port, message.request, message.person);
 	} else if (message?.type === 'person') {
 		person = message.userId;
-		void device?.person(message.userId);
+		void device?.person(message.userId).then(() => syncSongs());
 	} else if (message?.type === 'pull') {
 		// Before the lock is ours there is nothing to pull into; start pulls anyway.
 		void syncNow();
