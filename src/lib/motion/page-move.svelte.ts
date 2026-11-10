@@ -7,7 +7,7 @@
  * one loads, and the landing sets the new page's start before it paints.
  * The rules (edges, which move) are `page-move.ts`; the dots and Go back `PageWait`.
  */
-import { afterNavigate, goto } from '$app/navigation';
+import { afterNavigate, goto, onNavigate } from '$app/navigation';
 import { navigating, page } from '$app/state';
 import { tick, untrack } from 'svelte';
 import { desk } from '$lib/nav/desk.svelte';
@@ -44,6 +44,13 @@ let gen = 0;
 let landingEnd = 0;
 let overflow: string | null = null;
 let shadowed: HTMLElement | null = null;
+/** The faded page's card, made inert while it waits. */
+let inerted: HTMLElement | null = null;
+
+function release() {
+	if (inerted) inerted.inert = false;
+	inerted = null;
+}
 /** The move began on a full-screen page (Practice, the map): there was no card to lift. */
 let fromScreen = false;
 /** The band's and the card's colours as the lift saw them, for a layer that outlives the page. */
@@ -213,6 +220,10 @@ function lift(kind: MoveKind): boolean {
 			})
 		);
 	if (up) holdScroll(true);
+	// The faded page is still there under the empty card: nothing on it answers a tap meanwhile
+	// (the band's ‹ and buttons and the tabs stay live).
+	p.main.inert = true;
+	inerted = p.main;
 	const held_ = () => {
 		if (mine === gen && moveState.phase === 'up') moveState.phase = 'held';
 	};
@@ -230,6 +241,7 @@ async function land() {
 	if (mine !== gen) return;
 	stopAll();
 	holdScroll(false);
+	release();
 	const shape = shapeOf(page.route.id);
 	const leaving = fromScreen;
 	fromScreen = false;
@@ -250,8 +262,36 @@ async function land() {
 	moveState.phase = 'down';
 	landingEnd = performance.now() + PAGE_MOVE.down;
 	const radius = (square: boolean) => (square ? '0px' : '28px');
+	// Landing under the slim band (back to a scrolled page) the card's visible edge is the slim
+	// band's foot, which no transform of the card moves: a band strip from there shrinks away.
+	if (shift > 0 && to.square && p.header && foot !== null) {
+		const strip = document.createElement('div');
+		strip.setAttribute('aria-hidden', 'true');
+		Object.assign(strip.style, {
+			position: 'fixed',
+			insetInline: '0',
+			top: `${foot}px`,
+			height: `${shift}px`,
+			zIndex: '29',
+			pointerEvents: 'none',
+			transformOrigin: 'top',
+			background: getComputedStyle(p.header).backgroundColor
+		});
+		document.body.append(strip);
+		const a = play(strip, [{ transform: 'none' }, { transform: 'scaleY(0)' }], {
+			duration: PAGE_MOVE.down,
+			fill: 'forwards'
+		});
+		if (a)
+			a.finished.then(
+				() => strip.remove(),
+				() => strip.remove()
+			);
+		else strip.remove();
+		setTimeout(() => strip.remove(), 2000);
+	}
 	// A card that starts lower than its place uncovers the space under the band: band there.
-	if (shift > 0 && p.header) {
+	else if (shift > 0 && p.header) {
 		shadowed = p.header;
 		p.header.style.boxShadow = `0 ${shift}px 0 0 ${getComputedStyle(p.header).backgroundColor}`;
 	}
@@ -292,6 +332,7 @@ function done(mine: number) {
 	if (mine !== gen) return;
 	stopAll();
 	holdScroll(false);
+	release();
 	if (shadowed) shadowed.style.boxShadow = '';
 	shadowed = null;
 	moveState.phase = 'idle';
@@ -327,6 +368,16 @@ export function pageMove(): void {
 			);
 			if (kind !== 'none') lift(kind);
 		});
+	});
+	// Just before the new page is drawn: where the card really is (a page ready mid-lift lands
+	// from there, not from where the lift was heading).
+	onNavigate(() => {
+		if (moveState.phase !== 'up' && moveState.phase !== 'held') return;
+		const p = parts();
+		if (!p || moveState.edge === null) return;
+		const at = visibleEdge(p.main.getBoundingClientRect().top, slimFoot(p));
+		moveState.edge = at.y;
+		moveState.square = at.square;
 	});
 	afterNavigate(() => {
 		if (moveState.phase === 'up' || moveState.phase === 'held') void land();

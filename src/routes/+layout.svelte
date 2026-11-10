@@ -54,7 +54,7 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
 	import { desk } from '$lib/nav/desk.svelte';
-	import { pageMove } from '$lib/motion/page-move.svelte';
+	import { moveState, pageMove } from '$lib/motion/page-move.svelte';
 	import PageWait from '$lib/components/shell/PageWait.svelte';
 	import DeskWait from '$lib/components/shell/DeskWait.svelte';
 
@@ -660,7 +660,8 @@
 {/if}
 
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
-{#if ahead && desk.current}
+<!-- The phone shows them only when the card is not the one waiting (a filter, leaving Practice, signing in). -->
+{#if ahead && (desk.current || moveState.edge === null)}
 	<NavProgress />
 	<!-- A wait that lasts: the way back (page changes spec). Each new navigation counts again. -->
 	{#key ahead.url.href}<DeskWait />{/key}
