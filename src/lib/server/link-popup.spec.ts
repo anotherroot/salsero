@@ -925,3 +925,19 @@ describe('the Link popup’s server words in Slovenian', () => {
 		);
 	});
 });
+
+describe('the spot’s group (link from other places)', () => {
+	it('a group video’s options name the group; a person’s own name none', () => {
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'W1', notes: null })
+			.lesson.id;
+		const v = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'g.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const s = addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: 1000, label: null }, 'u1')!.id;
+		expect(linkOptions(db, s, 'salsa')!.team).toEqual({ id: 1, name: 'Salsa Tuesdays' });
+		expect(linkOptions(db, section, 'salsa')!.team).toBeNull();
+	});
+});

@@ -21,6 +21,7 @@ import { and, desc, eq, or } from 'drizzle-orm';
 import type {
 	CloneKind,
 	CopyOffer,
+	CopyHereView,
 	CopyPlanView,
 	CopyTarget,
 	PlaceRef,
@@ -65,6 +66,8 @@ import { accessTo, geneOf, memberIn, placeOfRow } from './genes';
 import { logRoot } from './apply';
 import { makeMine, rowOf } from './edit';
 import type { CloneFiles } from './files';
+import { staysBehind } from '../elsewhere';
+import { teamReader } from '../access';
 
 const DENIED = { ok: false, reason: 'denied' } as const;
 
@@ -555,4 +558,34 @@ export function intoOf(
 	if (!place) return null;
 	const space = spaceOf(userId, row.dance, place);
 	return targetOf(db, userId, kind, id, space) ? space : null;
+}
+
+/**
+ * The Copy and link card (link from other places): `copyPlan`, what links to
+ * the row from lesson videos and stays behind (`staysBehind`; 0 for a song or
+ * a lesson), and the place's storage as `copyTargets` gives it.
+ */
+export function copyHereView(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	id: number,
+	into: Space,
+	tz = 'UTC'
+): CopyHereView {
+	const target = targetOf(db, userId, kind, id, into);
+	// A group's row the person only reads: only the lessons they reach count, never a draft's.
+	const row = rowOf(db, kind, id);
+	const reader =
+		row && row.teamId !== null && accessTo(db, userId, kind, id) === 'read'
+			? teamReader(db, userId, row.teamId)
+			: null;
+	const reads = reader ? (lessonId: number) => reader('lesson', lessonId) : undefined;
+	const counted = kind === 'song' || kind === 'lesson' ? 0 : staysBehind(db, kind, id, reads);
+	return {
+		...copyPlan(db, userId, kind, id, into, tz),
+		staysBehind: counted,
+		usedBytes: target?.usedBytes ?? 0,
+		limitBytes: target?.limitBytes ?? 0
+	};
 }

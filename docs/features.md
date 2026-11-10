@@ -7,8 +7,8 @@ Moved out of CLAUDE.md on 2026-11-08. When a feature ships, add it to "What is l
 Live: phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, count-only runs; since 2026-11-08 a run logs
-nothing, Done on the exercise page does; since 2026-11-10 the count waits for
-Bluetooth headphones: Count delay in Voice), phase 3a (positions, the figure graph, the gap report), phase 3b
+nothing, Done on the exercise page does; since 2026-11-10 the voice and clave allow for
+Bluetooth headphones: Sound delay in Voice), phase 3a (positions, the figure graph, the gap report), phase 3b
 (routines: slots, variants, one-level embedding, and the player walking one),
 phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
 four-band Today), multi-dance (bachata beside salsa: the
@@ -221,6 +221,12 @@ snapshots (replaced by Sync, below), Drop my copy, Detach, Copy to… and Move t
 from your own rows, leaving and Keep, the rescue, twins, and what was decided
 while planning and building. It replaces the groups spec's reading after
 leaving and its Make my own copy.
+Linking from other places has its own,
+[`docs/superpowers/specs/2026-11-10-link-from-other-places-design.md`](docs/superpowers/specs/2026-11-10-link-from-other-places-design.md):
+a group lesson's pickers and the Link popup on a group's video find, while
+searching, your own rows and your other groups' (read-only ones marked); a
+tap opens a card (what comes along, what stays behind) and Copy and link
+copies the row into the group as a clone and links it, in one transaction.
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync

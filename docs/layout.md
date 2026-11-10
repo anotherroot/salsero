@@ -189,10 +189,11 @@ src/lib/player/      PURE view.ts: what the Practice page shows — the dots, th
                      Practise (`routinePractiseHref`). Client-safe.
                      video-sound.svelte.ts: which About video has the sound (`claimSound`,
                      `releaseSound`); the run pauses for it (`pauseForVideo`), Setup stops a sample
-                     sound-delay.ts: how late the sound reaches the ear (Bluetooth), so the
-                     count waits for it: what the phone reports (`reportedDelayMs`) plus the
-                     person's correction, kept in this browser (`sound.delayMs`); the Voice
-                     layer's Count delay. `attach.ts` `songTime()` is the HEARD position
+                     sound-delay.ts: how late the player's own sound (voice, clave) reaches the ear
+                     (Bluetooth ~250 ms): what the phone reports (`reportedDelayMs`, held still by
+                     `steadyDelay`) plus the person's correction, kept in this browser
+                     (`sound.correctionMs`); the Voice layer's Sound delay. With a song the voice and
+                     clave start early (`ctxAt`); count only, `songTime()` (the HEARD position) waits
 src/lib/server/run-details.ts  what the player's About shows, read-only, through access.ts:
                      a figure's timing, positions, notes, sections, videos and links;
                      a drill's; a lesson's notes, figures (`RunDetails.figures`, each with
@@ -469,6 +470,16 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
                      derived, never stored; lessons.ts and spot-links.ts read it
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
+src/lib/server/elsewhere.ts  link from other places: what a group's pickers find in your
+                     own app and other groups (`findElsewhere`, GET /api/elsewhere), who may
+                     (`elsewhereGroup`), what stays behind (`staysBehind`)
+src/lib/server/link-elsewhere.ts  Copy and link: `copyTo` with the link as its `after`
+                     hook (`copyAndLink`, `restoreAndLink`, lesson and spot linkers, the request
+                     parser); copy-link-form.ts runs it with real files (?/copyLink,
+                     /api/video-spots/[id]/copy-link)
+src/lib/picker/elsewhere.ts  PURE: the places found as picker groups (`elsewhereGroups`);
+                     elsewhere-search.svelte.ts the debounced search; elsewhere-api.ts its fetch
+src/lib/clones/copy-here.ts  PURE: the Copy and link card's words (components/links/CopyHereCard)
 src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
                      available / required (`updateState`), the device from the user agent
                      (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,

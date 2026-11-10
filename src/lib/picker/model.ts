@@ -5,6 +5,7 @@
  * knows nothing else about figures, videos or drills.
  */
 import { fold } from '$lib/fold';
+import type { IconName } from '$lib/icons/icons';
 
 /** One pickable row. `key` is unique in the picker ("figure:12", "exercise:3", "spot:7", "group:4", "routine:2"). */
 export interface PickRow {
@@ -21,6 +22,8 @@ export interface PickRow {
 	linked?: boolean;
 	/** A section: ▶ previews it. */
 	preview?: boolean;
+	/** `meta` is a warning (link from other places: "This group has its own"). */
+	warn?: boolean;
 }
 
 /** A heading over rows: a figure over its variations, a video over its sections. */
@@ -35,6 +38,10 @@ export type PickEntry = PickRow | PickHeading;
 
 export interface PickGroup {
 	title: string;
+	/** An icon before the title (link from other places: yours, a group, a lock). */
+	icon?: IconName;
+	/** A group you only read: the title in the warn colour. */
+	tone?: 'warn';
 	entries: PickEntry[];
 }
 

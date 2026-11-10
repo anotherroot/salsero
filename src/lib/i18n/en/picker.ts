@@ -46,6 +46,22 @@ export const picker = {
 		/** The picker's group of moves. */
 		group: 'Moves'
 	},
+	/** Link from other places: a group's pickers, while searching (spec 2026-11-10). */
+	elsewhere: {
+		yours: 'Yours',
+		/** A group you only read, as its heading. */
+		readOnly: (name: string): string => `${name} · you only read it`,
+		/** A row whose family lives in other places too. */
+		alsoIn: (names: string): string => `also in ${names}`,
+		/** A row whose name the group already has, from another family. */
+		hasOwn: 'This group has its own',
+		/** The group's own rows, when none match. */
+		noneHere: (typed: string): string => `Nothing here matches “${typed}”.`,
+		offline: 'Other places need a connection.',
+		looking: 'Looking in your other places…',
+		/** A row's +. */
+		copyHere: (label: string): string => `Copy ${label} here and link`
+	},
 	/** The builders' group titles. */
 	groups: {
 		figures: 'Figures',
