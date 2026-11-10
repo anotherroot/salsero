@@ -12,6 +12,7 @@ import { isQuiet, type QuietRange } from './quiet';
 import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
 import { CLIPS, type Clip } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
+import { reportedDelayMs, totalDelayMs } from '$lib/player/sound-delay';
 import { type PlanStep, type Timeline, type Toggles, cuesIn, timeAt, timeline } from './scheduler';
 
 export const TICK_MS = 25;
@@ -151,6 +152,12 @@ export interface PlayerOptions {
 	 */
 	onStep: (step: PlanStep, at: number) => void;
 	onEnd: () => void;
+	/**
+	 * The person's own correction to how long the sound takes to reach them,
+	 * in ms, on top of what the phone reports (`sound-delay.ts`). The screen
+	 * waits for the sound; the sound itself is never moved.
+	 */
+	delayCorrectionMs?: number;
 }
 
 export interface PlayerHandle {
@@ -172,8 +179,15 @@ export interface PlayerHandle {
 	 * the place being left, so it goes, and the cursor restarts at the target.
 	 */
 	seek(songTime: number): void;
-	/** Current position in song seconds — read every frame for the on-screen count. */
+	/**
+	 * The song position being HEARD, in song seconds — read every frame for the
+	 * on-screen count. Behind the position being played by the sound's way to
+	 * the ear (Bluetooth: ~200 ms), so the count lands with the music.
+	 */
 	songTime(): number;
+	/** What the phone reports for its sound now, and the person's correction, in ms. */
+	soundDelay(): { reportedMs: number; correctionMs: number };
+	setDelayCorrection(ms: number): void;
 	/** The figures that have started, in order, for "save as set". */
 	danced(): number[];
 }
@@ -205,6 +219,10 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	let ended = false;
 	/** Song position held while paused — count-only has no element to remember it. */
 	let heldAt: number | null = null;
+	let delayCorrectionMs = opts.delayCorrectionMs ?? 0;
+
+	/** Seconds from a sound leaving the context to it being heard. Read live: headphones come and go. */
+	const heardDelayS = () => totalDelayMs(reportedDelayMs(ctx), delayCorrectionMs) / 1000;
 
 	const rate = () => opts.audio?.playbackRate ?? 1;
 
@@ -351,9 +369,10 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		}
 
 		// Shown, not heard: a timer is near enough for the eye, and it is
-		// cleared with everything queued on a seek.
+		// cleared with everything queued on a seek. It waits for the sound to
+		// reach the ear, as the count does.
 		for (const { at, step } of steps) {
-			const delay = Math.max(0, (ctxAt(at) - ctx.currentTime) * 1000);
+			const delay = Math.max(0, (ctxAt(at) - ctx.currentTime + heardDelayS()) * 1000);
 			stepTimers.push(setTimeout(() => stepStarted(step, at), delay));
 		}
 
@@ -497,7 +516,11 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 
 		seek,
 
-		songTime: songNow,
+		songTime: () => Math.max(0, songNow() - heardDelayS() * rate()),
+		soundDelay: () => ({ reportedMs: reportedDelayMs(ctx), correctionMs: delayCorrectionMs }),
+		setDelayCorrection(ms) {
+			delayCorrectionMs = ms;
+		},
 		danced: () => [...dancedIds]
 	};
 }

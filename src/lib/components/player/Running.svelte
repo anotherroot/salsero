@@ -34,6 +34,14 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import {
+		DELAY_MAX_MS,
+		DELAY_STEP_MS,
+		correctionFor,
+		saveDelayCorrection,
+		totalDelayMs
+	} from '$lib/player/sound-delay';
 	import { CLIP, button, iconButton } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 	import { RUN_STOP as STOP } from './styles';
@@ -153,6 +161,26 @@
 		const t = setInterval(() => (elapsed = player.songTime()), 250);
 		return () => clearInterval(t);
 	});
+
+	/*
+	 * The count's wait for the sound (Voice layer): what the phone reports, read
+	 * while the layer is open (headphones come and go), and the person's own
+	 * correction on top. The Stepper shows the whole wait.
+	 */
+	let delay = $state(untrack(() => player.soundDelay()));
+	const delayTotal = $derived(totalDelayMs(delay.reportedMs, delay.correctionMs));
+	$effect(() => {
+		if (layer !== 'voice') return;
+		delay = player.soundDelay();
+		const t = setInterval(() => (delay = player.soundDelay()), 500);
+		return () => clearInterval(t);
+	});
+	function setDelay(total: number) {
+		const correctionMs = correctionFor(total, delay.reportedMs);
+		player.setDelayCorrection(correctionMs);
+		saveDelayCorrection(correctionMs);
+		delay = { ...delay, correctionMs };
+	}
 
 	// Pitch-corrected playback at slower speeds — a 0.7× salsa without this sounds drunk.
 	$effect(() => {
@@ -571,7 +599,21 @@
 							}}
 						/>
 					</div>
+					<div class="border-t border-hairline px-4 py-2.5">
+						<Stepper
+							value={delayTotal}
+							min={0}
+							max={DELAY_MAX_MS}
+							step={DELAY_STEP_MS}
+							label={w.countDelay}
+							unit={w.ms}
+							minusLabel={w.countEarlier}
+							plusLabel={w.countLater}
+							onchange={setDelay}
+						/>
+					</div>
 				</div>
+				<p class="px-1 text-[13px] text-muted">{w.countDelayNote(delay.reportedMs)}</p>
 			</div>
 		</RunLayer>
 	{:else if layer === 'about' && shown}
