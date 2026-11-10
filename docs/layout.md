@@ -488,7 +488,9 @@ src/lib/server/link-elsewhere.ts  Copy and link: `copyTo` with the link as its `
 src/lib/picker/elsewhere.ts  PURE: the places found as picker groups (`elsewhereGroups`);
                      elsewhere-search.svelte.ts the debounced search; elsewhere-api.ts its fetch
 src/lib/clones/copy-here.ts  PURE: the Copy and link card's words (components/links/CopyHereCard)
-src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
+src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing; `APP_HEADER` x-salsa-app, the page's own
+                     word for its app, sent by app.html's fetch wrapper because the Android service
+                     worker's requests carry no app in their user agent; `current.json`, none /
                      available / required (`updateState`), the device from the user agent
                      (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,
                      when Update needed takes the page: `updateNeededNow`), get-app.ts (the

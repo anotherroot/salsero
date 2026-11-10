@@ -38,6 +38,14 @@ export function parseAppAgent(ua: string | null): AppAgent | null {
 	return m ? agentOf(m[1], m[2], m[3]) : null;
 }
 
+/**
+ * The page's own word for which app it runs in: the `SalsaApp/…` part of its user
+ * agent, sent by app.html's fetch wrapper. The Android app's service worker has no
+ * user agent of its own to set, so a request it sends on reaches the server without
+ * the app's; the hook reads this one then.
+ */
+export const APP_HEADER = 'x-salsa-app';
+
 /** `x-app-version: <versionCode>; <dance>; <channel>` */
 export function parseAppVersion(header: string | null): AppAgent | null {
 	const m = header?.trim().match(/^(\d+); ([a-z]+); ([a-z]+)$/);
