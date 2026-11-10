@@ -433,3 +433,19 @@ describe('syncMedia: parts and removals (final review 3, 4, 5)', () => {
 		expect((await store.list()).map((f) => f.kind)).toEqual(['audio']);
 	});
 });
+
+describe('syncMedia tells each file as it lands (phone, 2026-11-10)', () => {
+	it('onStored after every write, in order', async () => {
+		const store = memoryMediaStore();
+		const stored: string[] = [];
+		await syncMedia({
+			wanted: [V_NEW, { ...V_OLD, size: 300 }],
+			store,
+			fetchMedia: async () => new Response(bytes),
+			online: () => true,
+			onStored: (f) => stored.push(f.file),
+			log: { warn: vi.fn() }
+		});
+		expect(stored).toEqual(['new.mp4', 'old.mp4']);
+	});
+});

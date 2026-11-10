@@ -3,6 +3,7 @@ import type { KeepStatus, SpaceRow } from './protocol';
 import {
 	keepWord,
 	lessonOnPhone,
+	withStored,
 	phoneRowLine,
 	spaceLine,
 	suggestions,
@@ -187,5 +188,22 @@ describe('spaceLine keeps what a cut-off download already has (phone, 2026-11-10
 			inFlight: { key: 'lesson-videos/s.mp4', received: 20 * MB, total: 30 * MB }
 		});
 		expect(spaceLine(row(), s).bar).toBeCloseTo(83 / 151);
+	});
+});
+
+describe('withStored: a video that just landed counts at once (phone, 2026-11-10)', () => {
+	it('is held, its part and the file in flight are gone, the videos grow', () => {
+		const s = status({
+			partial: { 'lesson-videos/s.mp4': 5 },
+			inFlight: { key: 'lesson-videos/s.mp4', received: 10, total: 10 }
+		});
+		const after = withStored(s, 'lesson-videos/s.mp4', 10);
+		expect(after.held).toContain('lesson-videos/s.mp4');
+		expect(after.partial).toEqual({});
+		expect(after.inFlight).toBeNull();
+		expect(after.bytes.videos).toBe(152 * MB + 10);
+		expect(
+			withStored(after, 'lesson-videos/s.mp4', 10).held.filter((k) => k.endsWith('s.mp4'))
+		).toHaveLength(1);
 	});
 });

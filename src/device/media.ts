@@ -91,6 +91,8 @@ export async function syncMedia(deps: {
 	/** Free bytes now, or null when the browser won't say. */
 	free?: () => Promise<number | null>;
 	onProgress?: (key: string, received: number, total: number) => void;
+	/** A file landed whole (the page counts it at once). */
+	onStored?: (f: MediaFile) => void;
 	log: Pick<Console, 'warn'>;
 	/** Aborted: stop now, the file in flight included (the store is being emptied, or the settings changed). */
 	signal?: AbortSignal;
@@ -162,6 +164,7 @@ export async function syncMedia(deps: {
 				: res;
 			await deps.store.write(f, body, { from: start });
 			out.fetched++;
+			deps.onStored?.(f);
 		} catch (e) {
 			if (deps.signal?.aborted) break;
 			deps.log.warn(`[device] media: ${f.kind}/${f.file} did not come`, String(e));
@@ -188,6 +191,8 @@ export function mediaKeeper(deps: {
 	videosMayCome?: () => boolean;
 	free?: () => Promise<number | null>;
 	onProgress?: (key: string, received: number, total: number) => void;
+	/** A file landed whole. */
+	onStored?: (f: MediaFile) => void;
 	/** After every pass that ran. */
 	onPass?: (out: PassOut) => void;
 	log: Pick<Console, 'info' | 'warn'>;
@@ -213,6 +218,7 @@ export function mediaKeeper(deps: {
 			videosMayCome: deps.videosMayCome,
 			free: deps.free,
 			onProgress: deps.onProgress,
+			onStored: deps.onStored,
 			log: deps.log,
 			signal
 		});

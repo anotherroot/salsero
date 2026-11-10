@@ -139,3 +139,21 @@ export function keepWord(
 	const text = k.why === 'wifi' ? w.waitingWifi : k.why === 'space' ? w.noSpace : w.waitingNet;
 	return { text, tone: 'warn' };
 }
+
+/**
+ * The status after a video landed, before the pass ends: held at once, so a
+ * space's count and bytes go up file by file instead of jumping at the end.
+ * The worker then redraws the spaces' rows from it (`keepRows`).
+ */
+export function withStored(status: KeepStatus, key: string, size: number): KeepStatus {
+	const partial = { ...status.partial };
+	delete partial[key];
+	const fresh = !status.held.includes(key);
+	return {
+		...status,
+		held: fresh ? [...status.held, key] : status.held,
+		partial,
+		inFlight: status.inFlight?.key === key ? null : status.inFlight,
+		bytes: { ...status.bytes, videos: status.bytes.videos + (fresh ? size : 0) }
+	};
+}

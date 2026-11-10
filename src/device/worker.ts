@@ -22,6 +22,7 @@ import type {
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
 import { mediaKeeper, type PassOut } from './media';
+import { withStored } from '$lib/offline/kept-view';
 import { opfsMediaStore, SONG_KINDS, VIDEO_KINDS, type MediaStore } from '$lib/offline/media-store';
 import {
 	canTellWifi,
@@ -98,6 +99,14 @@ const media = mediaKeeper({
 			// Something is coming, so nothing waits for Wi-Fi or a connection now.
 			post({ type: 'keep', status: { ...lastStatus, inFlight, waiting: null } });
 		}
+	},
+	onStored: (f) => {
+		// A video landed: counted at once, so a space goes up file by file (a full scan waits for the pass's end).
+		if (!lastStatus || !device || !VIDEO_KINDS.includes(f.kind)) return;
+		const next = withStored(lastStatus, `${f.kind}/${f.file}`, f.size ?? 0);
+		inFlight = null;
+		lastStatus = { ...next, ...device.keepRows(new Set(next.held)) };
+		post({ type: 'keep', status: { ...lastStatus, waiting: null } });
 	},
 	onPass: (out) => {
 		lastPass = out;
