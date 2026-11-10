@@ -321,11 +321,31 @@ Step 1 built 2026-11-10 (plan `docs/superpowers/plans/2026-11-10-device-first.md
   page (its items are `song_imports`).
 - **A device answer says so:** `X-Salsa-From: device` on every read the copy
   answers (the walk counts a tab tap's server reads with it: none).
-- **A failed device read** (a fallback, or a 5xx from the copy's own code) goes
-  to the network untimed; a 404 or 403 is the page's answer.
+- **A failed or missing device read goes to the network** untimed: a fallback,
+  a 5xx, a load that crashed (SvelteKit answers it 200 with an error node,
+  `dataFailed`), and a 404 (the copy may be behind: a link shared before the
+  pull). A refusal (403) is the page's own answer and stands. Offline the
+  network fails too, and the page says it is offline.
 - **Pull to refresh** listens to touch events on the window (a non-passive
-  `touchmove` stops the scroll under it), decides after 8 px (sideways is a
+  `touchmove`, added only for a touch that starts at the very top, stops the
+  scroll under it; elsewhere the page scrolls without waiting on it), decides after 8 px (sideways is a
   row's swipe), and fills the band under a hero and the sheet's rounded corners.
   "Up to date" shows only when nothing waits, nothing was refused and the
   session is live; otherwise the sheet springs back without a word (the band's
   pills say what is wrong).
+- **Clone pairs come with the pull** (found by the final review): the Moves
+  lists' copy counts, Keep in step's differences and skips, Drop's options and
+  a song's copies in step read `clone_pairs`, which is never synced. Each pull
+  carries the pairs whose two rows are both in the person's scope
+  (`clonePairs`), and the device replaces its own `clone_pairs` table with
+  them. A device-drawn load may read a never-synced table only when the pull
+  fills it, so `server-only.spec.ts` (direct imports) is not the whole guard;
+  the audit for a new reader follows its calls.
+- **The "Edited by" facts** reach only lessons the person may read (a plain
+  member: published ones).
+- **Who is signed in, step 2** (found by the final review): pages drawn from
+  the copy never tell the device who the server says is signed in. So the
+  service worker forgets the copy mark on any post to `/login`, `/join`,
+  `/g/<code>` or `/logout` (`clearsCopy`: the next page load asks the server),
+  and a pull answered for another person than the copy's wipes the copy and
+  its files before taking it.
