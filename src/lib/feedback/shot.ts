@@ -7,8 +7,6 @@
 
 /** The long side a screenshot is shrunk to: sharp enough to read, about 200 KB. */
 export const SHOT_LONG_SIDE = 1280;
-/** How long the "Something wrong here?" card stays after a screenshot. */
-export const OFFER_MS = 8000;
 
 const JPEG_URL = 'data:image/jpeg;base64,';
 
