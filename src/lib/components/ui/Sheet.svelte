@@ -27,6 +27,7 @@
 </script>
 
 <script lang="ts">
+	import { sheetLeave } from '$lib/motion/ghost';
 	import type { Snippet } from 'svelte';
 	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { refreshIfSent, sheetStack } from '$lib/sheets/history.svelte';
@@ -92,10 +93,21 @@
 	 * Each open sheet holds one history entry (`$lib/sheets/stack.ts`), so Back
 	 * closes the topmost sheet, not the page.
 	 */
+	/** Its leave already drawn (closed through the stack): not drawn again when the owner follows. */
+	let left = false;
+	// Closed by its owner: the ghost is taken before the DOM updates, while the body
+	// (`{#if open}`) is still there to copy.
+	$effect.pre(() => {
+		if (!open && dialog?.open && !left) {
+			sheetLeave(dialog);
+			left = true;
+		}
+	});
 	$effect(() => {
 		if (!dialog) return;
 		if (open && !dialog.open) {
 			dialog.showModal();
+			left = false;
 			const d = dialog;
 			track(d, true);
 			tracked = d;
@@ -108,12 +120,20 @@
 			key = sheetStack.open({
 				tryLeave: (leave) => leaveOrAsk(d, leave, t().common.close),
 				close: () => {
+					// ×, the backdrop, Escape, Back: the owner may unmount the sheet at once, so it
+					// leaves now, while it is still on the page (motion round 1).
+					if (d.open && !left) {
+						sheetLeave(d);
+						left = true;
+					}
 					onclose();
 					refreshIfSent();
 				}
 			});
 		}
 		if (!open && dialog.open) {
+			if (!left) sheetLeave(dialog);
+			left = false;
 			dialog.close();
 			release();
 			refreshIfSent();

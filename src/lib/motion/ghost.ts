@@ -1,3 +1,5 @@
+import { LEAVE, MS, play, reducedMotion } from './motion';
+
 /**
  * A ghost: a picture of an element the page has already dropped (a row that
  * left its list, a sheet that closed), drawn where it was so it can move away.
@@ -75,4 +77,49 @@ export function ghost(el: HTMLElement, clip: HTMLElement | null): HTMLElement {
 		});
 	});
 	return copy;
+}
+
+const CLEAR = new Set(['', 'transparent', 'rgba(0, 0, 0, 0)']);
+
+/**
+ * A sheet closed by its owner (a face saved, Cancel) leaves instead of
+ * vanishing: on the phone it slides down off the screen, from 640 px (a
+ * centred dialog) it fades and shrinks a little; its dim fades with it. Called
+ * just before `dialog.close()`, which still happens at once: focus, history and
+ * the page under it never wait for this.
+ */
+export function sheetLeave(dialog: HTMLDialogElement): void {
+	if (reducedMotion() || typeof dialog.animate !== 'function') return;
+	const wide = globalThis.matchMedia?.('(min-width: 640px)').matches ?? false;
+	const ms = wide ? MS.short : MS.medium;
+
+	const dim = getComputedStyle(dialog, '::backdrop').backgroundColor;
+	if (!CLEAR.has(dim)) {
+		const veil = document.createElement('div');
+		veil.setAttribute('aria-hidden', 'true');
+		Object.assign(veil.style, {
+			position: 'fixed',
+			inset: '0',
+			background: dim,
+			pointerEvents: 'none',
+			zIndex: '29'
+		});
+		document.body.append(veil);
+		const fade = veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, fill: 'forwards' });
+		void fade.finished.finally(() => veil.remove()).catch(() => {});
+	}
+
+	const copy = ghost(dialog, null);
+	// The copy keeps the dialog's classes: not its opening animation, nor its size limits.
+	Object.assign(copy.style, { animation: 'none', maxHeight: 'none', maxWidth: 'none' });
+	play(
+		copy,
+		wide
+			? [
+					{ opacity: 1, transform: 'none' },
+					{ opacity: 0, transform: 'scale(.97)' }
+				]
+			: [{ transform: 'none' }, { transform: 'translateY(100%)' }],
+		{ duration: ms, easing: LEAVE, fill: 'forwards' }
+	);
 }
