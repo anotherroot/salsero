@@ -19,6 +19,7 @@ import {
 	OUTBOX_STATE_CACHE,
 	CACHE_PREFIX,
 	deviceFailed,
+	navigatePlan,
 	readPlan
 } from './sw-route';
 
@@ -458,5 +459,36 @@ describe('device first (online reads)', () => {
 		expect(deviceFailed(new Response('', { status: 503 }))).toBe(true);
 		expect(deviceFailed(new Response('', { status: 404 }))).toBe(false);
 		expect(deviceFailed(new Response('', { status: 200 }))).toBe(false);
+	});
+});
+
+describe('the first page of an open (device first, step 2)', () => {
+	const base = { shell: true, copy: true, networkPage: false, waiting: 0, online: true };
+	it('draws from the shell when a copy is on this browser', () =>
+		expect(navigatePlan(base)).toBe('shell'));
+	it('asks the network without a copy', () =>
+		expect(navigatePlan({ ...base, copy: false })).toBe('network'));
+	it('asks the network for a network page', () =>
+		expect(navigatePlan({ ...base, networkPage: true })).toBe('network'));
+	it('draws from the shell while changes wait, copy or not', () =>
+		expect(navigatePlan({ ...base, copy: false, waiting: 2 })).toBe('shell'));
+	it('asks the network without a cached shell', () =>
+		expect(navigatePlan({ ...base, shell: false })).toBe('network'));
+	it('draws from the shell offline', () =>
+		expect(navigatePlan({ ...base, copy: false, online: false })).toBe('shell'));
+
+	it('a page just opened reads its device first when a copy is there, as it starts', () => {
+		const d = new DeviceClients();
+		expect(d.readsDeviceFirst('new', true)).toBe(true);
+		expect(d.readsDeviceFirst('new', false)).toBe(false);
+		d.setState('s', 'starting', null);
+		expect(d.readsDeviceFirst('s', true)).toBe(true);
+		d.setState('e', 'empty', null);
+		expect(d.readsDeviceFirst('e', true)).toBe(false);
+		d.setState('f', 'failed', null);
+		expect(d.readsDeviceFirst('f', true)).toBe(false);
+		d.setState('w', 'ready', null);
+		d.changed('w', 5);
+		expect(d.readsDeviceFirst('w', true)).toBe(false);
 	});
 });

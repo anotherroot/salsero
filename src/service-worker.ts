@@ -21,7 +21,7 @@ import { build, files, prerendered, version } from '$service-worker';
 import { offlineRead, offlineWrite, type OfflineAnswer } from '$lib/offline/needs-connection';
 import type { SwIn, SwOut, WireFallback, WireRequest, WireResponse } from '$lib/offline/protocol';
 import { PAGE_EPOCH } from '$lib/epoch';
-import { isNetworkFirstPage, writeClass } from '$lib/offline/routes';
+import { isNetworkFirstPage, isNetworkPage, writeClass } from '$lib/offline/routes';
 import { FROM_HEADER, rangeResponse } from '$lib/offline/media-range';
 import { mediaOf, opfsMediaStore, type MediaStore } from '$lib/offline/media-store';
 import { OUTBOX_HEADER } from '$lib/sync/outbox';
@@ -35,6 +35,7 @@ import {
 	cachesToDelete,
 	changedTo,
 	deviceFailed,
+	navigatePlan,
 	readPlan,
 	installOrClean,
 	isNetworkFailure,
@@ -62,7 +63,8 @@ const NULL_BODY = new Set([101, 204, 205, 304]);
  */
 const devices = new DeviceClients();
 
-type OutboxState = { waiting: number; epochs: number[] };
+/** `copy`: this browser holds a copy (device first, step 2); absent before a page said. */
+type OutboxState = { waiting: number; epochs: number[]; copy?: boolean };
 
 /** The outbox's last word, kept across this worker's restarts. */
 async function outboxState(): Promise<OutboxState> {
@@ -88,6 +90,14 @@ async function keepOutboxState(next: Partial<OutboxState>): Promise<void> {
 
 /** This build installed while the outbox held older entries, and waits for them. */
 let heldInstall = false;
+
+/** Whether this browser holds a copy, as the pages last said (null: not read from the cache yet). */
+let copyKnown: boolean | null = null;
+
+async function hasCopy(): Promise<boolean> {
+	if (copyKnown === null) copyKnown = (await outboxState()).copy ?? false;
+	return copyKnown;
+}
 
 sw.addEventListener('install', (event) => {
 	// A failed install deletes its half-filled cache (`installOrClean`).
@@ -155,7 +165,10 @@ sw.addEventListener('message', (event) => {
 		);
 		if (data.waiting !== undefined) event.waitUntil(keepOutboxState({ waiting: data.waiting }));
 	} else if (data?.type === 'device-pulled') devices.pulled(source.id, data.startedAt);
-	else if (data?.type === 'outbox') {
+	else if (data?.type === 'copy') {
+		copyKnown = data.has;
+		event.waitUntil(keepOutboxState({ copy: data.has }));
+	} else if (data?.type === 'outbox') {
 		event.waitUntil(keepOutboxState({ waiting: data.waiting, epochs: data.epochs }));
 	} else return;
 	// Closed pages leave their entries behind; sweep now and then.
@@ -283,8 +296,16 @@ async function aDeviceAnswers(): Promise<boolean> {
 async function navigate(event: FetchEvent): Promise<Response> {
 	const shell = await cachedShell();
 	const preload = event.preloadResponse as Promise<Response | undefined> | undefined;
-	// Changes still on their way: the device draws them, the server does not have them yet.
-	if (shell && (await outboxState()).waiting > 0) {
+	// Device first (step 2): a copy on this browser draws the page, online too; so do changes
+	// still on their way (the server does not have them yet), and offline.
+	const plan = navigatePlan({
+		shell: !!shell,
+		copy: await hasCopy(),
+		networkPage: isNetworkPage(new URL(event.request.url).pathname),
+		waiting: (await outboxState()).waiting,
+		online: navigator.onLine
+	});
+	if (shell && plan === 'shell') {
 		event.waitUntil(Promise.resolve(preload).catch(() => undefined));
 		return shell;
 	}
@@ -327,7 +348,7 @@ async function deviceRead(event: FetchEvent): Promise<Response> {
 	const plan = readPlan({
 		networkFirst: isNetworkFirstPage(new URL(request.url).pathname),
 		fromDevice: devices.readsFromDevice(event.clientId),
-		deviceFirst: devices.readsDeviceFirst(event.clientId)
+		deviceFirst: devices.readsDeviceFirst(event.clientId, await hasCopy())
 	});
 	if (plan === 'device-then-network') {
 		// Device first: the copy answers, online too; the network only when the device fails.

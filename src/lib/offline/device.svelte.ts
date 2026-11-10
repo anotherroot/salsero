@@ -87,6 +87,9 @@ const waiting = new Set<() => void>();
 function setState(state: DeviceState | 'off'): void {
 	own = state;
 	showState();
+	// Device first (step 2): the service worker draws a page load from the copy while one is here.
+	if (state === 'ready') tellCopy(true);
+	else if (state === 'empty') tellCopy(false);
 	// A plain copy: a $state proxy cannot cross a BroadcastChannel.
 	if (state !== 'waiting') relayTo?.announce(state as DeviceState, $state.snapshot(sync.summary));
 }
@@ -99,6 +102,11 @@ function showState(): void {
 	window.__device = { state: device.state, pulls, outbox: sync.summary };
 	tellServiceWorker();
 	for (const wake of [...waiting]) wake();
+}
+
+/** Whether this browser holds a copy, for the service worker's page loads (device first, step 2). */
+function tellCopy(has: boolean): void {
+	navigator.serviceWorker.controller?.postMessage({ type: 'copy', has } satisfies SwIn);
 }
 
 /** The service worker keeps each page's state: a read waits for the network less when the device is ready. */
@@ -315,7 +323,7 @@ function onServiceWorkerMessage(e: MessageEvent<SwOut>): void {
 
 /**
  * Starts the device on this page: the service worker registered, the worker
- * started (at once offline, else when the page is idle), the pulls scheduled.
+ * started (at once, online too: device first), the pulls scheduled.
  * Nothing in dev, nor in a browser without service workers or workers.
  */
 export function startDevice(): void {
@@ -345,10 +353,8 @@ export function startDevice(): void {
 			});
 		}
 
-		if (!navigator.onLine) startWorker();
-		else if ('requestIdleCallback' in window)
-			requestIdleCallback(() => startWorker(), { timeout: 2000 });
-		else setTimeout(startWorker, 2000);
+		// At once, online too (device first, step 2): the page's reads wait for it.
+		startWorker();
 
 		window.addEventListener('online', pull);
 		document.addEventListener('visibilitychange', () => {
@@ -409,4 +415,5 @@ export async function unsyncedBeforeSignOut(): Promise<number> {
 /** Sign out, confirmed: the copy and this person's changes go. */
 export async function forgetCopy(): Promise<void> {
 	await ask({ type: 'forget' });
+	tellCopy(false);
 }

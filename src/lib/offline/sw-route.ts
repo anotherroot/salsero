@@ -232,8 +232,13 @@ export class DeviceClients {
 	 * is ready, and no save of the page went to the server since its last pull
 	 * (a group's row online), or the copy would draw the page from before it.
 	 */
-	readsDeviceFirst(id: string): boolean {
-		return this.#states.get(id) === 'ready' && !this.#dirtyAt.has(id);
+	readsDeviceFirst(id: string, copy = false): boolean {
+		if (this.#dirtyAt.has(id)) return false;
+		const state = this.#states.get(id);
+		if (state === 'ready') return true;
+		// A page just opened (the shell drawing the first page of an open, step 2): its device is
+		// still starting, and a copy is on this browser, so the read waits for it.
+		return copy && state !== 'empty' && state !== 'failed';
 	}
 
 	/**
@@ -382,4 +387,22 @@ export function readPlan(a: {
  */
 export function deviceFailed(res: Response | null): boolean {
 	return res === null || res.status >= 500;
+}
+
+/**
+ * Where a page load goes (device first, step 2): the cached shell, which
+ * draws the page from the device, when a copy is on this browser (`copy`, the
+ * service worker's mark), while changes wait, or offline; the network for a
+ * network page, with no copy, or with no shell cached.
+ */
+export function navigatePlan(a: {
+	shell: boolean;
+	copy: boolean;
+	networkPage: boolean;
+	waiting: number;
+	online: boolean;
+}): 'shell' | 'network' {
+	if (!a.shell) return 'network';
+	if (a.waiting > 0 || !a.online) return 'shell';
+	return a.copy && !a.networkPage ? 'shell' : 'network';
 }
