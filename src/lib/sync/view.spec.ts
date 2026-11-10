@@ -5,6 +5,8 @@ import {
 	discardQuestion,
 	labelText,
 	lastSyncedText,
+	lastSyncedWhen,
+	syncButtonWord,
 	reasonText,
 	signOutQuestion,
 	statusText,
@@ -104,6 +106,21 @@ describe('the Sync words', () => {
 			`Last synced ${timeOfDay(TUE - 3600_000, 'UTC')}`
 		);
 		expect(en(() => lastSyncedText(TUE - 86_400_000, TUE, 'UTC'))).toBe('Last synced Mon 10:04');
+	});
+
+	it("gives the last sync's time alone, for the desktop's two lines", () => {
+		expect(lastSyncedWhen(null, TUE, 'UTC')).toBeNull();
+		expect(lastSyncedWhen(TUE - 3600_000, TUE, 'UTC')).toBe(timeOfDay(TUE - 3600_000, 'UTC'));
+		expect(en(() => lastSyncedWhen(TUE - 86_400_000, TUE, 'UTC'))).toBe('Mon 10:04');
+	});
+
+	it('names the Sync now button by what it is doing, in both languages', () => {
+		const sl = <T>(fn: () => T) => withLocale('sl', fn);
+		expect(en(() => syncButtonWord('idle'))).toBe('Sync now');
+		expect(en(() => syncButtonWord('syncing'))).toBe('Syncing…');
+		expect(en(() => syncButtonWord('done'))).toBe('Up to date');
+		expect(en(() => syncButtonWord('offline'))).toBe('Offline');
+		expect(sl(() => syncButtonWord('idle'))).toBe('Sinhroniziraj zdaj');
 	});
 
 	it('asks before discarding, counting what waits on it', () => {
