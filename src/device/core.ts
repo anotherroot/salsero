@@ -167,6 +167,28 @@ export function deviceHeaders(
 	return h;
 }
 
+/**
+ * Whether a page's data the device drew (`__data.json`) failed in a way the
+ * network may not (device first): a load that crashed (SvelteKit answers it 200
+ * with an error node and no status, its 500) or a row not found (the copy may be
+ * behind). A page's own refusal (a 403) stands. Only the first line is read (a
+ * streamed answer's promises follow it); an answer it cannot read passes.
+ */
+export function dataFailed(text: string): boolean {
+	const bad = (n: unknown) => {
+		if (!n || typeof n !== 'object' || (n as { type?: unknown }).type !== 'error') return false;
+		const status = (n as { status?: unknown }).status;
+		return typeof status !== 'number' || status >= 500 || status === 404;
+	};
+	try {
+		const first = JSON.parse(text.split('\n', 1)[0]) as { type?: unknown; nodes?: unknown };
+		if (first.type === 'error') return bad(first);
+		return Array.isArray(first.nodes) && first.nodes.some(bad);
+	} catch {
+		return false;
+	}
+}
+
 /** Whether the copy holds its person as the hook needs them (`deviceUser`): a row with a dance. */
 export function copyHasUser(db: SqliteDb, userId: string): boolean {
 	const row = db.prepare('SELECT dance FROM users WHERE id = ?').get(userId) as
@@ -703,7 +725,12 @@ export function createDevice(deps: DeviceDeps): Device {
 						deviceHeaders(wire.headers, runtime.cookies, deps.userAgent)
 					)
 				);
-				return { status: res.status, headers: [...res.headers], body: await res.arrayBuffer() };
+				const body = await res.arrayBuffer();
+				// A page's data that failed here goes to the network (device first): the server may have it.
+				if (url.pathname.endsWith('/__data.json') && dataFailed(new TextDecoder().decode(body))) {
+					return fallback('the page failed on the device');
+				}
+				return { status: res.status, headers: [...res.headers], body };
 			} catch (e) {
 				log.error('[device] answering failed', wire.url, e);
 				return fallback(String(e));

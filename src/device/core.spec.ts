@@ -28,6 +28,7 @@ import { migrateDevice, readMeta } from './migrate';
 import { repoMigrations } from './test-migrations';
 import {
 	copyHasUser,
+	dataFailed,
 	createDevice,
 	deviceHeaders,
 	oneAtATime,
@@ -1158,5 +1159,27 @@ describe('writes on the device', () => {
 			expect(bodies.length).toBeGreaterThan(before);
 			refuse = false;
 		});
+	});
+});
+
+describe('dataFailed (device first: a failed load goes to the network)', () => {
+	const data = (...nodes: unknown[]) => JSON.stringify({ type: 'data', nodes });
+	it('passes a page whose every node loaded', () =>
+		expect(dataFailed(data({ type: 'data', data: [] }, { type: 'skip' }))).toBe(false));
+	it("fails a node whose load crashed (no status: SvelteKit's 500)", () =>
+		expect(dataFailed(data({ type: 'data' }, { type: 'error', error: { message: 'x' } }))).toBe(
+			true
+		));
+	it('fails a node that is not found: the copy may be behind', () =>
+		expect(dataFailed(data({ type: 'error', error: {}, status: 404 }))).toBe(true));
+	it("keeps a page's own refusal", () =>
+		expect(dataFailed(data({ type: 'error', error: {}, status: 403 }))).toBe(false));
+	it('fails a whole-request error, and reads only the first line of a streamed answer', () => {
+		expect(dataFailed(JSON.stringify({ type: 'error', error: {} }))).toBe(true);
+		expect(dataFailed(data({ type: 'data' }) + '\n{"type":"chunk","id":1}')).toBe(false);
+	});
+	it('passes a redirect, and an answer it cannot read', () => {
+		expect(dataFailed(JSON.stringify({ type: 'redirect', location: '/x' }))).toBe(false);
+		expect(dataFailed('not json')).toBe(false);
 	});
 });

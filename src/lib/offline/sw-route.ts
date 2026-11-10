@@ -382,11 +382,12 @@ export function readPlan(a: {
 }
 
 /**
- * The device could not answer, or its own code failed (a 5xx): the network
- * answers instead. A 404 or a 403 is the page's own answer and stands.
+ * The device could not answer, its own code failed (a 5xx), or it has no such
+ * row (a 404: the copy may be behind, as for a link shared before the pull): the
+ * network answers instead. A refusal (a 403) is the page's own answer and stands.
  */
 export function deviceFailed(res: Response | null): boolean {
-	return res === null || res.status >= 500;
+	return res === null || res.status >= 500 || res.status === 404;
 }
 
 /**

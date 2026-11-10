@@ -453,11 +453,13 @@ describe('device first (online reads)', () => {
 		expect(d.readsDeviceFirst('nobody')).toBe(false);
 	});
 
-	it("the device's own failure goes to the network, a page's answer does not", () => {
+	it("the device's own failure, or a row it lacks, goes to the network; a refusal stands", () => {
 		expect(deviceFailed(null)).toBe(true);
 		expect(deviceFailed(new Response('', { status: 500 }))).toBe(true);
 		expect(deviceFailed(new Response('', { status: 503 }))).toBe(true);
-		expect(deviceFailed(new Response('', { status: 404 }))).toBe(false);
+		// Not found on the device: the copy may be behind (a link shared before the pull).
+		expect(deviceFailed(new Response('', { status: 404 }))).toBe(true);
+		expect(deviceFailed(new Response('', { status: 403 }))).toBe(false);
 		expect(deviceFailed(new Response('', { status: 200 }))).toBe(false);
 	});
 });
