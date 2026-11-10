@@ -679,7 +679,7 @@
 		</RunLayer>
 	{/if}
 
-	<BottomBar fade class="run-bar">
+	<BottomBar class="run-bar">
 		<div class="flex gap-2.5">
 			<button type="button" class={STOP} onclick={onstop}>
 				<Icon name="stop" size={22} filled />{t().exercise.panel.stop}

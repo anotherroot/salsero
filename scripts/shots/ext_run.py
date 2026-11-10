@@ -476,3 +476,25 @@ def _band_redrawn(page):
 
 
 SCENES.update({"band-redrawn": Scene("/{dance}/figures/73?in=1", _band_redrawn)})
+
+
+def _back_online(page):
+    page.context.set_offline(False)
+
+
+def _player_offline(page, running=False):
+    """The player offline: the amber strip sits on the bar's opaque pane, no page peeking between them."""
+    _settle(page, 1000)
+    if running:
+        page.get_by_role("button", name=re.compile("^Play")).last.click()
+        page.wait_for_timeout(1500)
+    page.context.set_offline(True)
+    page.wait_for_selector("[data-offline-strip]", timeout=10000)
+    page.mouse.wheel(0, 300)
+    page.wait_for_timeout(600)
+
+
+SCENES.update({
+    "player-offline": Scene("/{dance}/player", lambda p: _player_offline(p), after=_back_online),
+    "player-offline-running": Scene("/{dance}/player", lambda p: _player_offline(p, True), after=_back_online),
+})
