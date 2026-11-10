@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 	const req = readRequest(body);
 	if (!req) return json({ message: 'Bad request' }, { status: 400 });
-	const out = pull(getDb(), session.userId, req);
+	const out = pull(getDb(), session.userId, req, request.headers.get('user-agent') ?? undefined);
 	if ('refused' in out) return json(out, { status: 409 });
 	for (const name of ECHOED) {
 		const v = cookies.get(name);

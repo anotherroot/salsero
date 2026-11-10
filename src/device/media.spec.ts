@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import {
 	mediaStoreIn,
 	memoryMediaStore,
+	ORIGINALS,
 	VIDEO_KINDS,
 	type MediaFile,
 	type MediaStore
@@ -11,7 +12,7 @@ import { LOW_SPACE_BYTES } from '$lib/offline/network';
 import { asRoot, CAPS, FakeDir } from '$lib/offline/test-opfs';
 import { migrateDevice } from './migrate';
 import { repoMigrations } from './test-migrations';
-import { mediaKeeper, syncMedia, wantedMedia } from './media';
+import { landedOriginals, mediaKeeper, sweepOriginals, syncMedia, wantedMedia } from './media';
 
 let db: Database.Database;
 beforeEach(() => {
@@ -447,5 +448,96 @@ describe('syncMedia tells each file as it lands (phone, 2026-11-10)', () => {
 			log: { warn: vi.fn() }
 		});
 		expect(stored).toEqual(['new.mp4', 'old.mp4']);
+	});
+});
+
+describe('sweepOriginals: an original goes only when the person deleted it (offline phase 4c)', () => {
+	const O = (file: string, owner: string): MediaFile => ({
+		kind: 'originals',
+		file,
+		mime: 'video/mp4',
+		owner
+	});
+	async function storeWith(...fs: MediaFile[]) {
+		const store = memoryMediaStore();
+		for (const f of fs) await store.write(f, new Response(new Uint8Array(3)));
+		return store;
+	}
+	const names = async (s: Awaited<ReturnType<typeof storeWith>>) =>
+		(await s.list(ORIGINALS)).map((f) => f.file).sort();
+	const sweep = (
+		store: MediaStore,
+		o: { rowFiles: string[]; landed: string[]; online?: boolean; person?: string }
+	) =>
+		sweepOriginals({
+			store,
+			person: o.person ?? 'u1',
+			pulledOnline: o.online ?? true,
+			rowFiles: new Set(o.rowFiles),
+			landed: new Set(o.landed)
+		});
+
+	it('landed on the server, then its row gone after an online pull (deleted): the original goes', async () => {
+		const store = await storeWith(O('kept.mp4', 'u1'), O('gone.mp4', 'u1'));
+		expect(
+			await sweep(store, { rowFiles: ['kept.mp4'], landed: ['kept.mp4', 'gone.mp4'] })
+		).toEqual(['gone.mp4']);
+		expect(await names(store)).toEqual(['kept.mp4']);
+	});
+
+	it('never landed (its add refused or held, or not sent yet): it stays, row or no row (final review 1, 2)', async () => {
+		const store = await storeWith(O('refused.mp4', 'u1'), O('new.mp4', 'u1'));
+		expect(await sweep(store, { rowFiles: [], landed: [] })).toEqual([]);
+		expect(await names(store)).toEqual(['new.mp4', 'refused.mp4']);
+	});
+
+	it('offline: nothing goes', async () => {
+		const store = await storeWith(O('gone.mp4', 'u1'));
+		await sweep(store, { rowFiles: [], landed: ['gone.mp4'], online: false });
+		expect(await names(store)).toEqual(['gone.mp4']);
+	});
+
+	it("another person's original stays, whatever this copy holds", async () => {
+		const store = await storeWith(O('theirs.mp4', 'u2'), O('none.mp4', ''));
+		await sweep(store, { rowFiles: [], landed: ['theirs.mp4', 'none.mp4'] });
+		expect(await names(store)).toEqual(['none.mp4', 'theirs.mp4']);
+	});
+
+	it("the keeper's not-wanted sweep never touches originals", async () => {
+		const store = await storeWith(O('mine.mp4', 'u1'));
+		await syncMedia({
+			wanted: [],
+			store,
+			fetchMedia: async () => new Response(null, { status: 404 }),
+			online: () => true,
+			log: console
+		});
+		expect(await names(store)).toEqual(['mine.mp4']);
+	});
+});
+
+describe('landedOriginals: which originals the server has the rows of', () => {
+	it('held here, its row in the copy, and no change waiting that names it', () => {
+		expect(
+			[
+				...landedOriginals({
+					before: new Set(['old.mp4']),
+					held: ['old.mp4', 'synced.mp4', 'waiting.mp4', 'norow.mp4'],
+					rowFiles: new Set(['old.mp4', 'synced.mp4', 'waiting.mp4']),
+					pending: new Set(['waiting.mp4'])
+				})
+			].sort()
+		).toEqual(['old.mp4', 'synced.mp4']);
+	});
+
+	it('one no longer held drops out', () => {
+		expect([
+			...landedOriginals({
+				before: new Set(['gone.mp4']),
+				held: [],
+				rowFiles: new Set(),
+				pending: new Set()
+			})
+		]).toEqual([]);
 	});
 });

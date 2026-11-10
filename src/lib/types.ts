@@ -1,4 +1,5 @@
 /** Row shapes that cross from server to page. Client-safe: no server imports. */
+import type { DeviceLabel } from '$lib/devices/label';
 import type {
 	CountPattern,
 	Partner,
@@ -262,6 +263,12 @@ export interface LessonVideoRow {
 	sizeBytes: number;
 	/** The YouTube URL it was saved from; null for an upload. */
 	sourceUrl: string | null;
+	/** Offline phase 4c: false while the video is only on the phone holding the original. */
+	serverCopy: boolean;
+	/** The id slot of the device holding the original; null: none known. */
+	originSlot: number | null;
+	/** The original's size once a smaller copy is uploaded (`sizeBytes` is then the copy's). */
+	originBytes: number | null;
 	createdAt: number;
 }
 
@@ -284,6 +291,12 @@ export interface RecordingRow {
 	sizeBytes: number;
 	/** The YouTube URL it was saved from; null for an upload. */
 	sourceUrl: string | null;
+	/** Offline phase 4c: false while the video is only on the phone holding the original. */
+	serverCopy: boolean;
+	/** The id slot of the device holding the original; null: none known. */
+	originSlot: number | null;
+	/** The original's size once a smaller copy is uploaded (`sizeBytes` is then the copy's). */
+	originBytes: number | null;
 	createdAt: number;
 }
 
@@ -984,6 +997,8 @@ export type CopyOffer = {
 	/** The page's row is the person's own. */
 	fromMine: boolean;
 	targets: CopyTarget[];
+	/** Its phone-only videos, which a copy leaves behind (offline phase 4c); null: none. */
+	stayBehind?: { count: number; label: DeviceLabel | null } | null;
 };
 
 /** One version a twins question offers: "Rueda club’s", "Last changed 2 Nov". */

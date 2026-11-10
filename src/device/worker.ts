@@ -17,13 +17,20 @@ import type {
 	DeviceOut,
 	KeepStatus,
 	WireFallback,
-	WireRequest
+	WireRequest,
+	OriginalPut
 } from '$lib/offline/protocol';
 import { SCHEMA_TAG } from '$lib/sync/schema-tag';
 import { createDevice, type Device, type DeviceRuntime, type Responder } from './core';
-import { mediaKeeper, type PassOut } from './media';
+import { landedOriginals, mediaKeeper, sweepOriginals, type PassOut } from './media';
 import { withStored } from '$lib/offline/kept-status';
-import { opfsMediaStore, SONG_KINDS, VIDEO_KINDS, type MediaStore } from '$lib/offline/media-store';
+import {
+	opfsMediaStore,
+	ORIGINALS,
+	SONG_KINDS,
+	VIDEO_KINDS,
+	type MediaStore
+} from '$lib/offline/media-store';
 import {
 	canTellWifi,
 	freeOf,
@@ -135,6 +142,10 @@ async function keepStatus(): Promise<KeepStatus | null> {
 			partial[`${p.kind}/${p.file}`] = await s.partSize(p.kind, p.file);
 	}
 	const room = await free();
+	const scope = device.originalsScope();
+	const originals = (await s.list(ORIGINALS)).filter((f) => f.owner === scope.person);
+	let originalBytes = 0;
+	for (const f of originals) originalBytes += (await s.read('originals', f.file))?.body.size ?? 0;
 	return {
 		settings: device.keepSettings(),
 		...device.keepRows(new Set(held)),
@@ -143,7 +154,14 @@ async function keepStatus(): Promise<KeepStatus | null> {
 		inFlight,
 		waiting: lastPass?.waiting ?? null,
 		canTellWifi: canTellWifi(nav),
-		bytes: { songs: await s.usage(SONG_KINDS), videos: await s.usage(VIDEO_KINDS) },
+		bytes: {
+			songs: await s.usage(SONG_KINDS),
+			videos: await s.usage(VIDEO_KINDS),
+			originals: originalBytes
+		},
+		slot: scope.slot,
+		originals: originals.map((f) => f.file),
+		devices: scope.devices,
 		free: room,
 		low: isLow(room)
 	};
@@ -242,12 +260,67 @@ async function syncNow(): Promise<void> {
 	if (!device) return;
 	clearTimeout(retry);
 	const out = await device.sync();
-	if (out !== 'offline') void syncSongs();
+	if (out !== 'offline') {
+		void syncSongs();
+		void sweepMine();
+	}
 	if (out === 'offline' && navigator.onLine)
 		retry = setTimeout(() => void syncNow(), PUSH_RETRY_MS);
 }
 
 scope.addEventListener('online', () => void syncNow());
+
+/** After a sync that reached the server: the person's originals whose row was deleted go (offline phase 4c). */
+async function sweepMine(): Promise<void> {
+	const s = await store();
+	if (!s || !device || device.state() !== 'ready') return;
+	const scope = device.originalsScope();
+	const { person, files } = scope;
+	if (!person) return;
+	try {
+		const held = (await s.list(ORIGINALS)).filter((f) => f.owner === person).map((f) => f.file);
+		const landed = landedOriginals({
+			before: scope.landed,
+			held,
+			rowFiles: files,
+			pending: scope.pending
+		});
+		device.noteLanded(landed);
+		const gone = await sweepOriginals({
+			store: s,
+			person,
+			pulledOnline: true,
+			rowFiles: files,
+			landed
+		});
+		if (gone.length > 0) void postKeep();
+	} catch (e) {
+		console.warn('[device] originals sweep', String(e));
+	}
+}
+
+/** A person's own video kept only here (offline phase 4c): stored whole under the row's file name. */
+async function putOriginal(file: string, mime: string, blob: Blob): Promise<OriginalPut> {
+	const s = await store();
+	const person = device?.originalsScope().person ?? null;
+	if (!s || !person) return { ok: false, reason: 'store' };
+	const room = await free();
+	if (room !== null && blob.size > room) return { ok: false, reason: 'space' };
+	try {
+		await s.write(
+			{ kind: 'originals', file, mime, size: blob.size, owner: person },
+			new Response(blob)
+		);
+	} catch (e) {
+		console.warn('[device] original not stored', String(e));
+		return {
+			ok: false,
+			reason: (e as DOMException)?.name === 'QuotaExceededError' ? 'space' : 'store'
+		};
+	}
+	void postKeep();
+	return { ok: true };
+}
 
 async function run(): Promise<void> {
 	post({ type: 'state', state: 'waiting' });
@@ -317,6 +390,15 @@ async function answerPort(port: MessagePort, message: DeviceIn): Promise<void> {
 			} else if (message.type === 'forget') {
 				await device.forget();
 				out = true;
+			} else if (message.type === 'original-put') {
+				out = await putOriginal(message.file, message.mime, message.blob);
+			} else if (message.type === 'original-get') {
+				const held = await (await store())?.read('originals', message.file);
+				out = { blob: held ? held.body : null };
+			} else if (message.type === 'original-drop') {
+				await (await store())?.remove('originals', message.file);
+				void postKeep();
+				out = { ok: true };
 			} else if (message.type === 'keep-get') {
 				out = lastStatus ?? (await postKeep());
 			} else if (message.type === 'keep-set') {

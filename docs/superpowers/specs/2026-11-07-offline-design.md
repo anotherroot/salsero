@@ -532,7 +532,11 @@ whole-page offline screen.
    on the phone, built 2026-11-10 (plan
    `docs/superpowers/plans/2026-11-09-offline-phase-4a-songs.md`): the device
    keeps every song's audio and the count takes, the service worker plays
-   them from the phone first.
+   them from the phone first. 4b, lesson videos and recordings kept on the phone, built 2026-11-10
+   (plan `docs/superpowers/plans/2026-11-10-offline-phase-4b.md`); 4c part 1, your own
+   videos only on the phone (web), built 2026-11-10 (plan
+   `docs/superpowers/plans/2026-11-10-offline-phase-4c-own-videos.md`); part 2, the Android app's
+   gallery originals (app 1.10), built 2026-11-10 with it.
 5. **Cleanup:** the old offline screen goes, and CLAUDE.md, the design spec
    and the affected specs are brought up to date.
 

@@ -74,6 +74,7 @@ export const POST: RequestHandler = async (event) => {
 	return json(
 		await push(getDb(), (r) => event.fetch(r, { credentials: 'omit' }), session.userId, req, {
 			now: serverNow(),
+			ua: event.request.headers.get('user-agent') ?? undefined,
 			origin: event.url.origin,
 			// The replay's only session: the push's other cookies never fill in what an entry lacked.
 			session: `${SESSION_COOKIE}=${event.cookies.get(SESSION_COOKIE)}`

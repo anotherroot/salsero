@@ -66,13 +66,19 @@ export class WriteGate {
 	}
 }
 
-/** The routes whose body is a file: their database write takes the gate itself. */
-const UPLOADS = [
-	/^\/api\/figures\/[^/]+\/recordings$/,
-	/^\/api\/songs$/,
-	/^\/api\/lessons\/[^/]+\/videos\/[^/]+$/,
-	/^\/api\/worker\/songs\/[^/]+\/audio$/,
-	/^\/api\/worker\/videos\/[^/]+\/file$/
+/**
+ * The routes whose body is a file, by method: their database write takes the gate
+ * itself. A phone-only add (offline phase 4c, `POST …/videos/phone`) is JSON: gated.
+ */
+const UPLOADS: [method: string, path: RegExp][] = [
+	['POST', /^\/api\/figures\/[^/]+\/recordings$/],
+	['POST', /^\/api\/songs$/],
+	['PUT', /^\/api\/lessons\/[^/]+\/videos\/[^/]+$/],
+	['PUT', /^\/api\/figures\/[^/]+\/recordings\/[^/]+$/],
+	['PUT', /^\/api\/recordings\/[^/]+\/file\/[^/]+$/],
+	['PUT', /^\/api\/lesson-videos\/[^/]+\/file\/[^/]+$/],
+	['*', /^\/api\/worker\/songs\/[^/]+\/audio$/],
+	['*', /^\/api\/worker\/videos\/[^/]+\/file$/]
 ];
 
 /** The server's one gate. */
@@ -92,6 +98,6 @@ export function gatedRequest(
 	if (path === '/api/sync/push') return false;
 	// An upload holds the gate only around its database write (in the route): a slow
 	// body on a weak signal must not keep every replay waiting.
-	if (UPLOADS.some((re) => re.test(path))) return false;
+	if (UPLOADS.some(([um, re]) => (um === '*' || um === m) && re.test(path))) return false;
 	return true;
 }

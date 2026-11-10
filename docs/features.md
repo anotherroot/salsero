@@ -133,8 +133,12 @@ queued group things, and what needs a connection greyed; songs and the count pla
 (Settings → On this phone, its own page: a switch per space, My lessons and each group, keeps all
 its lessons' videos, Only on Wi-Fi where the phone says which, Clear kept videos; a phone button
 under any video keeps that one; downloads resume where they were cut off; short of space, a sheet
-once and a dot on You; see the phase 4 spec's 4b); phase 4c (your videos only on the phone) and
-phase 5 to come; see
+once and a dot on You; see the phase 4 spec's 4b); your own videos only on the phone (4c part 1,
+on an iPhone or a phone's browser: a new video on your own figure or lesson stays there as the
+original, Where is this video offers Upload and Remove the server copy, another device shows a
+dark frame "On Pixel 8", an iPhone warns once with a card; copies leave them behind; recordings
+upload in chunks up to 1 GB; in the Android app 1.10 the original stays in the gallery and the app
+serves and uploads it) and phase 5 to come; see
 [`docs/superpowers/specs/2026-11-07-offline-design.md`](docs/superpowers/specs/2026-11-07-offline-design.md)
 and [`docs/superpowers/specs/2026-11-09-offline-phase-3-design.md`](docs/superpowers/specs/2026-11-09-offline-phase-3-design.md)).
 and the group view (2026-11-09: the group's look follows where you are, not a switch: a page

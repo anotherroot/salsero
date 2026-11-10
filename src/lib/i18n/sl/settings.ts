@@ -59,6 +59,8 @@ export const settings: Catalog['settings'] = {
 		used: (used, free) => (free ? `Zasedeno ${used} · prosto ${free}` : `Zasedeno ${used}`),
 		legendSongs: (size) => `Pesmi in štetje · ${size}`,
 		legendVideos: (size) => `Shranjeni videi · ${size}`,
+		legendGallery: (size) => `Vaši videi v galeriji · ${size}`,
+		legendOriginals: (size) => `Vaši videi samo tu · ${size}`,
 		notReady: 'Na tem telefonu še ni pripravljeno: aplikacija si šele prenaša svojo kopijo.',
 		spacesLabel: 'Videi lekcij na telefonu',
 		myLessons: 'Moje lekcije',

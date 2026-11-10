@@ -39,6 +39,7 @@ import { flatOf } from './trees';
 import { markNow, readMark } from './marks';
 import { setSyncSettings } from './sync-settings';
 import { flowFrom } from './flow';
+import { attachServerCopy } from '../phone-videos';
 import { landKeys } from './apply';
 
 const T = Date.UTC(2026, 10, 7, 12);
@@ -486,5 +487,28 @@ describe('flowFrom', () => {
 		save(F, { notes: 'Hips first' });
 		expect(await flow('u2', F)).toEqual({ landed: [], refused: [] });
 		expect(row(G1f).notes).toBe('Old notes');
+	});
+});
+
+describe('a phone-only recording and Keep in step (offline phase 4c, final review 5)', () => {
+	it('does not flow while it is only on the phone; once uploaded, it flows like a new one', async () => {
+		settings('u1', G1f, { media: true });
+		const id = recording(F, 'p.mp4');
+		db.update(recordings)
+			.set({ serverCopy: false, originBytes: 50 })
+			.where(eq(recordings.id, id))
+			.run();
+		const before = await flow('u1', F);
+		expect(before.landed).toEqual([]);
+		expect(recsOn(G1f)).toHaveLength(0);
+		// Nothing reads as removed on the group's side.
+		expect(Object.keys(flatOf(db, 'figure', G1f)).some((k) => k.startsWith('rec:'))).toBe(false);
+		expect(Object.keys(flatOf(db, 'figure', F)).some((k) => k.startsWith('rec:'))).toBe(false);
+
+		attachServerCopy(db, 'recordings', id, 20);
+		const after = await flow('u1', F);
+		expect(after.landed).toEqual([G1f]);
+		expect(recsOn(G1f).map((r) => r.file)).toEqual([`copy-${named}-p.mp4`]);
+		expect(familyIntegrity(db)).toEqual([]);
 	});
 });

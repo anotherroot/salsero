@@ -120,10 +120,12 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	tagFields(db, id, b);
 	linkFields(db, eq(links.figureId, id), b);
 
+	// A phone-only recording (offline phase 4c) is no piece yet: nothing to flow or to miss.
+	// Once uploaded it appears, and flows as a new one.
 	const recs = db
 		.select()
 		.from(recordings)
-		.where(eq(recordings.figureId, id))
+		.where(and(eq(recordings.figureId, id), eq(recordings.serverCopy, true)))
 		.orderBy(asc(recordings.id))
 		.all();
 	for (const r of recs) {
@@ -463,10 +465,11 @@ function lessonFlat(db: Db, id: number, b: Builder): void {
 		.all())
 		b.add(`pos:${ref(p.gene, p.id)}`, '1', p.name);
 
+	// A phone-only video (offline phase 4c) is no piece yet, as a recording.
 	const videos = db
 		.select()
 		.from(lessonVideos)
-		.where(eq(lessonVideos.lessonId, id))
+		.where(and(eq(lessonVideos.lessonId, id), eq(lessonVideos.serverCopy, true)))
 		.orderBy(asc(lessonVideos.id))
 		.all();
 	videos.forEach((v, i) => {

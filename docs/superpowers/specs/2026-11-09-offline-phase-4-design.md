@@ -229,3 +229,98 @@ dropped the lesson question: "2 is covered by 3.1".
   every space and kept video off; a toast says it is done.
 - The button and the page show wherever the store is, a computer's browser
   too, as 4a's songs do.
+
+## 4c's looks, picked by the user (2026-11-10)
+
+From the mockups on real screenshots (your video A/B, on another device A/B,
+iPhone A/B), the user picked **1B, 2A, 3B**.
+
+- **1B, one "Where is it" button:** on a person's own video the 4b phone
+  button's place holds one button that opens a sheet, "Where is this video":
+  this phone (the original, its size, plays from here) and the server (not
+  uploaded, with Upload; or the 720p copy and its size, with Remove). A line
+  under the sheet says Upload sends a smaller copy (the size from Settings →
+  Video) and the original always stays on the phone. The line under the
+  video's name says where it is ("only on this phone", "uploading 40 %", "on
+  this phone and the server"); while it uploads, the button shows how far.
+  A recording's row has the same button before its chevron.
+- **2A, a grey frame:** on another device a phone-only video keeps a frame
+  the video's size, dark, with a phone icon, "On <device name>" and a line
+  saying it plays there, or here once uploaded there. Its name line says
+  "on <device name>"; its sections list below as today. A recording's row
+  shows a dimmed phone disc and "on <device name>".
+- **3B, a card under the video, once:** the first time a video stays only on
+  an iPhone, a warm card under it explains (iOS may delete it when short of
+  space or when the app isn't opened for long; a video only here would be
+  lost; it is safe once uploaded) with Upload and Got it, until closed. After
+  that, an ⓘ after "only on this iPhone" opens the same words.
+- **The same in every option** (shown, not asked): after adding, a toast
+  "Saved on this phone" with Upload; deleting a phone-only video says it is
+  permanent, and on Android asks "Delete from the gallery too"; a video
+  deleted from the gallery reads "no longer in the gallery" with Remove; the
+  On this phone page adds "Your videos in the gallery" to its bar and line.
+
+## Decided while building 4c, part 1 (2026-11-10)
+
+Part 1 is the server, the device and the web (iPhone, a phone's browser,
+the computer); part 2 is the Android app's gallery originals and its APK.
+Until part 2, the Android app uploads at once as before.
+
+- **The row first, the bytes never through the outbox.** A phone-only video's
+  row is a device write (`POST …/recordings/phone`, `…/videos/phone`, JSON:
+  file, mime, size); the original is stored on the phone first and dropped if
+  the row is refused. Upload later is its own chunked route
+  (`PUT /api/recordings/[id]/file/[uploadId]`, `/api/lesson-videos/…`),
+  written under the row's file name; Remove server copy is
+  `DELETE …/server-copy` with the asking device's slot.
+- **Columns:** `server_copy` (default true), `origin_slot`, `origin_bytes` on
+  both tables (migration 0049); `size_bytes` is the server copy's once
+  uploaded, the original's while phone-only. The holder is the row id's
+  slot; a row the server made itself takes the slot the device claimed.
+- **Device names** come from the user agent, kept with the slot
+  (`device_slots.label`: "Pixel 8", an iPhone, a computer) and sent with the
+  pull to the person's devices (`ServerExtras.devices`).
+- **Originals on the phone** are the media store's `originals` kind, owner in
+  the meta: never listed, cleared or counted unless named, so Clear kept
+  videos, a person change and the keeper's sweep leave them. One goes only
+  when the person deleted its video (here: dropped after the delete; on
+  another device: after a pull that reached the server, and only the copy's
+  person's own). A video URL reads the original first.
+- **Copies leave phone-only videos behind** (clone, Copy to, Keep in step,
+  Take), and the Copy to sheet says how many and on which device. This
+  replaces the main design's "the holding device uploads them as part of
+  it" (the user agreed, 2026-11-10).
+- **Phone first** where the store is and the screen is a touch screen (an
+  iPhone web app, a phone's browser); a computer and a group's place upload
+  at once. An iPhone uploads the original whole (no compressing in a
+  browser); the server copy's line then says only its size.
+- **Deleting** a phone-only video still needs a connection, as every delete
+  of a video does; its question says it is final.
+- A computer's new recording goes up in chunks too (up to 1 GiB).
+
+## Decided while building 4c, part 2 (2026-11-10)
+
+- **The bridge** is `window.SalsaVideos` (a web message listener, the site's
+  origin only, like the others): `pick`, `held`, `forget`, `space`, `upload`,
+  answered by id; upload progress comes as `{event, file, pct}`. Its presence
+  is how the page knows the app keeps gallery originals (1.10 and later); an
+  older app keeps `salsa://upload`.
+- **The original stays in the gallery**: the photo picker's URI with a
+  lasting read permission, kept under the row's server file name
+  (`OriginalStore`, a small JSON file in no-backup storage). The app answers
+  the site's `/recordings/<file>` and `/lesson-videos/<file>` from the gallery
+  with Range, for the page (`shouldInterceptRequest`) and for the service
+  worker (its media route falls through to a network fetch, which the app's
+  service worker client answers).
+- **Upload** goes through the existing queue: compressed to Settings' size,
+  chunked to the row's file route, its gallery permission kept. Every app
+  upload is chunked now; the server keeps the single recording POST for 1.9.
+- **Deleting** a phone-only video: after the delete, the app lets the
+  original go and asks the system to delete the gallery file; the system's
+  own dialog is the "Delete from the gallery too" question. Where the system
+  will not delete a picker's file (or Android 10), it only lets go.
+- **A gallery file gone** reads as not held: the row (this device's slot)
+  says "no longer in the gallery".
+- **Free space** on the On this phone page is the phone's (`StatFs`), and
+  the bar counts the gallery originals; the low-space detection itself
+  still uses the WebView's estimate.

@@ -6,7 +6,16 @@
  */
 import { and, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import type { Db } from '../db';
-import { lessons, teamMembers, users } from '../db/schema';
+import {
+	deviceSlots,
+	figures,
+	lessons,
+	lessonVideos,
+	recordings,
+	teamMembers,
+	users
+} from '../db/schema';
+import { parseDeviceLabel, type DeviceLabel } from '$lib/devices/label';
 import { teamTrashBytes } from '../storage';
 import { lastEdit } from '../changes';
 import { isDanceSlug } from '$lib/dances/dances';
@@ -25,7 +34,8 @@ const NONE: ServerExtras = {
 	release: null,
 	imports: { own: [], teams: {} },
 	teamTrashBytes: {},
-	lastEdits: {}
+	lastEdits: {},
+	devices: {}
 };
 
 export function serverExtras(db: Db, userId: string): ServerExtras {
@@ -50,7 +60,8 @@ export function serverExtras(db: Db, userId: string): ServerExtras {
 		release: currentRelease(dance),
 		imports: { own: [...listImports(db, own), ...groupImportsToPick(db, userId, dance)], teams },
 		teamTrashBytes: teamTrash,
-		lastEdits: lessonEdits(db, userId, dance)
+		lastEdits: lessonEdits(db, userId, dance),
+		devices: originDevices(db, userId)
 	};
 }
 
@@ -77,6 +88,36 @@ function lessonEdits(
 	for (const r of rows) {
 		const last = r.teamId === null ? null : lastEdit(db, r.teamId, 'lesson', r.id);
 		if (last) out[`lesson:${r.id}`] = last;
+	}
+	return out;
+}
+
+/** The devices holding the person's phone-only originals, by id slot (offline phase 4c). */
+function originDevices(db: Db, userId: string): Record<string, DeviceLabel> {
+	const slots = new Set<number>();
+	for (const r of db
+		.select({ slot: recordings.originSlot })
+		.from(recordings)
+		.innerJoin(figures, eq(figures.id, recordings.figureId))
+		.where(and(eq(figures.userId, userId), isNotNull(recordings.originSlot)))
+		.all())
+		if (r.slot !== null) slots.add(r.slot);
+	for (const r of db
+		.select({ slot: lessonVideos.originSlot })
+		.from(lessonVideos)
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(and(eq(lessons.userId, userId), isNotNull(lessonVideos.originSlot)))
+		.all())
+		if (r.slot !== null) slots.add(r.slot);
+	if (slots.size === 0) return {};
+	const out: Record<string, DeviceLabel> = {};
+	for (const d of db
+		.select({ slot: deviceSlots.slot, label: deviceSlots.label })
+		.from(deviceSlots)
+		.where(inArray(deviceSlots.slot, [...slots]))
+		.all()) {
+		const label = parseDeviceLabel(d.label);
+		if (label) out[String(d.slot)] = label;
 	}
 	return out;
 }

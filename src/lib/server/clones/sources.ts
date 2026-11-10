@@ -269,7 +269,8 @@ export async function takeRecording(
 	freeDiskBytes: number
 ): Promise<TakeResult> {
 	const rec = db.select().from(recordings).where(eq(recordings.id, recordingId)).get();
-	if (!rec || rec.figureId === intoFigureId) return DENIED;
+	// A phone-only recording (offline phase 4c) has no file to take.
+	if (!rec || !rec.serverCopy || rec.figureId === intoFigureId) return DENIED;
 	const source = db.select().from(figures).where(eq(figures.id, rec.figureId)).get();
 	if (!source || source.archivedAt !== null || source.dance !== wall.dance) return DENIED;
 	if (accessTo(db, wall.userId, 'figure', source.id) === null) return DENIED;

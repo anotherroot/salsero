@@ -13,6 +13,12 @@ sealed interface Target {
 
     data class Lesson(override val id: Long) : Target
     data class Figure(override val id: Long) : Target
+
+    /** A phone-only recording's server copy (offline phase 4c): its row exists, the bytes attach to it. */
+    data class Recording(override val id: Long) : Target
+
+    /** A phone-only lesson video's server copy (offline phase 4c). */
+    data class LessonVideo(override val id: Long) : Target
 }
 
 sealed interface Link {

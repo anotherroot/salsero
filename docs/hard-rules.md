@@ -169,8 +169,9 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   `/api/figures/[id]/recordings`; served with HTTP Range (iOS requires it). The
   size cap is `src/lib/limits.ts` — Cloudflare's 100 MB body limit is why it is
   95 MiB; nginx and `BODY_SIZE_LIMIT` in the host config sit just above it.
-- **Lesson videos are chunked, recordings are not.** A recording is one request,
-  so Cloudflare's 100 MB edge limit IS its cap. A lesson video is sliced into
+- **Lesson videos and recordings are chunked** (recordings since offline phase
+  4c: `PUT /api/figures/[id]/recordings/[uploadId]`; the single POST stays for
+  older Android apps, so its 95 MiB cap stays too). A lesson video is sliced into
   8 MiB chunks (`PUT .../videos/[uploadId]` with `content-range`), so its cap is
   the disk instead: 1 GiB, in `src/lib/limits.ts`. The partial file on disk is
   the only state — its size is the resume offset, a chunk must start exactly

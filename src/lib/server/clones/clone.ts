@@ -694,11 +694,15 @@ const pause = (tx: Db, exerciseId: number) =>
 
 /* ── Figures ────────────────────────────────────────────────────────────── */
 
+/**
+ * A figure's recordings a copy can bring. A phone-only one (offline phase 4c)
+ * has no file on the server: it stays behind until it is uploaded.
+ */
 export const recordingsOf = (db: Db, figureId: number) =>
 	db
 		.select()
 		.from(recordings)
-		.where(eq(recordings.figureId, figureId))
+		.where(and(eq(recordings.figureId, figureId), eq(recordings.serverCopy, true)))
 		.orderBy(asc(recordings.id))
 		.all();
 
@@ -1229,11 +1233,12 @@ function handLinks(db: Db, lessonId: number) {
 	};
 }
 
+/** A lesson's videos a copy can bring: never a phone-only one (`recordingsOf`). */
 export const videosOf = (db: Db, lessonId: number) =>
 	db
 		.select()
 		.from(lessonVideos)
-		.where(eq(lessonVideos.lessonId, lessonId))
+		.where(and(eq(lessonVideos.lessonId, lessonId), eq(lessonVideos.serverCopy, true)))
 		.orderBy(asc(lessonVideos.id))
 		.all();
 

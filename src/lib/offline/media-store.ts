@@ -14,17 +14,33 @@
  * videos (`/lesson-videos/<file>`) and recordings (`/recordings/<file>`), 4b.
  * The kind is the URL's first segment.
  */
-export type MediaKind = 'audio' | 'count' | 'lesson-videos' | 'recordings';
-/** `size`, when the row knows it (videos): a whole file of another size is refused. */
-export type MediaFile = { kind: MediaKind; file: string; mime: string; size?: number };
+export type MediaKind = 'audio' | 'count' | 'lesson-videos' | 'recordings' | 'originals';
+/**
+ * `size`, when the row knows it (videos): a whole file of another size is refused.
+ * `owner`: whose original it is (offline phase 4c), kept in its meta.
+ */
+export type MediaFile = {
+	kind: MediaKind;
+	file: string;
+	mime: string;
+	size?: number;
+	owner?: string;
+};
 
 export const SONG_KINDS: readonly MediaKind[] = ['audio', 'count'];
 /** Kept videos: big, so a download cut off keeps its part and goes on from it. */
 export const VIDEO_KINDS: readonly MediaKind[] = ['lesson-videos', 'recordings'];
+/**
+ * A person's own phone-only videos (offline phase 4c): the only copy there is,
+ * under the row's file name. Never a URL of its own (a video URL reads one
+ * first, `readMedia`), never listed, cleared or counted unless asked by name:
+ * Clear kept videos, a person change and the keeper's sweep leave them.
+ */
+export const ORIGINALS: readonly MediaKind[] = ['originals'];
 
 export type MediaStore = {
-	/** What the store holds, whole files only. */
-	list(): Promise<MediaFile[]>;
+	/** What the store holds, whole files only: kept media, or only `kinds` (`ORIGINALS`). */
+	list(kinds?: readonly MediaKind[]): Promise<MediaFile[]>;
 	/** The file and its type, or null. */
 	read(kind: MediaKind, file: string): Promise<{ body: Blob; mime: string } | null>;
 	/**
@@ -37,12 +53,13 @@ export type MediaStore = {
 	/** The cut-off downloads kept to go on from, by the name they will have. */
 	parts(): Promise<{ kind: MediaKind; file: string }[]>;
 	remove(kind: MediaKind, file: string): Promise<void>;
-	/** Every kind, or only `kinds`. */
+	/** Every kept kind (never originals), or only `kinds`. */
 	clear(kinds?: readonly MediaKind[]): Promise<void>;
-	/** Bytes held, of every kind or only `kinds`. */
+	/** Bytes held, of every kept kind or only `kinds`. */
 	usage(kinds?: readonly MediaKind[]): Promise<number>;
 };
 
+/** What the device keeps as copies of the server's files: the URL kinds. */
 const KINDS: readonly MediaKind[] = [...SONG_KINDS, ...VIDEO_KINDS];
 const resumable = (kind: MediaKind) => VIDEO_KINDS.includes(kind);
 /** A server name: no slashes, no dot first (so never `..`). */
@@ -64,8 +81,8 @@ export function memoryMediaStore(): MediaStore {
 	const files = new Map<string, { f: MediaFile; body: Blob }>();
 	const key = (kind: MediaKind, file: string) => `${kind}/${file}`;
 	return {
-		async list() {
-			return [...files.values()].map((e) => e.f);
+		async list(kinds = KINDS) {
+			return [...files.values()].filter((e) => kinds.includes(e.f.kind)).map((e) => e.f);
 		},
 		async read(kind, file) {
 			const e = files.get(key(kind, file));
@@ -113,7 +130,7 @@ const PART = '.part';
 const META = '.meta';
 const ROOT = 'media';
 
-type Meta = { mime: string; size: number };
+type Meta = { mime: string; size: number; owner?: string };
 type SyncHandle = {
 	truncate(n: number): void;
 	write(data: Uint8Array, opts?: { at: number }): number;
@@ -297,13 +314,16 @@ export function mediaStoreIn(
 		(await names(await dirOf(kind))).filter((n) => !n.endsWith(PART) && !n.endsWith(META));
 
 	return {
-		async list() {
+		async list(kinds = KINDS) {
 			const out: MediaFile[] = [];
-			for (const kind of KINDS) {
+			for (const kind of kinds) {
 				const dir = await dirOf(kind);
 				for (const file of await fileNames(kind)) {
 					const w = await whole(dir, file);
-					if (w) out.push({ kind, file, mime: w.meta.mime });
+					if (!w) continue;
+					const f: MediaFile = { kind, file, mime: w.meta.mime };
+					if (typeof w.meta.owner === 'string') f.owner = w.meta.owner;
+					out.push(f);
 				}
 			}
 			return out;
@@ -334,6 +354,7 @@ export function mediaStoreIn(
 			await removeIfThere(dir, f.file);
 			await rename(dir, part, f.file);
 			const meta: Meta = { mime: f.mime, size };
+			if (f.owner !== undefined) meta.owner = f.owner;
 			await writeFile(dir, f.file + META, new Response(JSON.stringify(meta)));
 		},
 		async partSize(kind, file) {
@@ -386,4 +407,20 @@ export function mediaStoreIn(
 			return n;
 		}
 	};
+}
+
+/**
+ * What a media URL's kind and name read from the store: for a video, the
+ * person's original first (offline phase 4c), then a kept copy; null for neither.
+ */
+export async function readMedia(
+	store: MediaStore,
+	kind: MediaKind,
+	file: string
+): Promise<{ body: Blob; mime: string } | null> {
+	if (VIDEO_KINDS.includes(kind)) {
+		const original = await store.read('originals', file);
+		if (original) return original;
+	}
+	return store.read(kind, file);
 }

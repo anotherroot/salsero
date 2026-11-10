@@ -3,6 +3,7 @@ import {
 	mediaOf,
 	mediaPath,
 	mediaStoreIn,
+	readMedia,
 	memoryMediaStore,
 	VIDEO_KINDS,
 	type MediaFile
@@ -249,5 +250,53 @@ describe('the media store where a sync handle exists (the device worker; final r
 		expect(dir.swapCopies).toBe(0);
 		const got = await store.read('lesson-videos', VIDEO.file);
 		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+	});
+});
+
+describe.each([
+	['memory', () => memoryMediaStore()],
+	['OPFS', () => mediaStoreIn(asRoot(new FakeDir(CAPS[0][1])))]
+])('originals in the store, %s (offline phase 4c)', (_, make) => {
+	const ORIGINAL: MediaFile = {
+		kind: 'originals',
+		file: '0a1b2c3d-0000-4000-8000-000000000001.mp4',
+		mime: 'video/mp4',
+		owner: 'u1'
+	};
+
+	it('kept with their owner, read back', async () => {
+		const store = make();
+		await store.write(ORIGINAL, new Response(bytes));
+		expect(await store.list(['originals'])).toEqual([
+			{ kind: 'originals', file: ORIGINAL.file, mime: 'video/mp4', owner: 'u1' }
+		]);
+		expect(await store.usage(['originals'])).toBe(300);
+	});
+
+	it('Clear and a person change (clear with no kinds) leave them; the plain list never shows them', async () => {
+		const store = make();
+		await store.write(ORIGINAL, new Response(bytes));
+		await store.write(VIDEO, new Response(bytes));
+		await store.clear(VIDEO_KINDS);
+		await store.clear();
+		expect(await store.list()).toEqual([]);
+		expect(await store.usage()).toBe(0);
+		expect((await store.list(['originals'])).map((f) => f.file)).toEqual([ORIGINAL.file]);
+	});
+
+	it('a video URL reads the original first, then a kept copy', async () => {
+		const store = make();
+		const other = new Uint8Array(300).fill(1);
+		await store.write({ ...VIDEO, file: ORIGINAL.file, kind: 'recordings' }, new Response(other));
+		await store.write(ORIGINAL, new Response(bytes));
+		const got = await readMedia(store, 'recordings', ORIGINAL.file);
+		expect(new Uint8Array(await got!.body.arrayBuffer())).toEqual(bytes);
+		expect(await readMedia(store, 'audio', ORIGINAL.file)).toBeNull();
+	});
+});
+
+describe('originals are never a URL kind', () => {
+	it('/originals/<file> is no media path', () => {
+		expect(mediaOf('/originals/0a1b2c3d-0000-4000-8000-000000000001.mp4')).toBeNull();
 	});
 });

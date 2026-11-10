@@ -20,6 +20,14 @@
 	import Icon from './Icon.svelte';
 	import Spinner from './Spinner.svelte';
 	import KeepButton from './KeepButton.svelte';
+	import WhereButton from './WhereButton.svelte';
+	import ElsewhereFrame from './ElsewhereFrame.svelte';
+	import { livePlace, type PhoneVideo } from '$lib/offline/places.svelte';
+	import { placeWord } from '$lib/offline/where-view';
+	import IphoneCard from './IphoneCard.svelte';
+	import IphoneWhy from './IphoneWhy.svelte';
+	import { iphoneCard } from '$lib/offline/iphone-card.svelte';
+	import { uploadOriginal } from '$lib/offline/upload-original';
 	import { kept } from '$lib/offline/kept.svelte';
 	import { keepWord, videoKeep } from '$lib/offline/kept-view';
 	import { CLIP, iconButton } from './styles';
@@ -49,6 +57,8 @@
 		action?: Snippet;
 		/** The page's own list of this video's sections: when it changes (a section edited from the list), the bar fetches its bands again. */
 		sections?: unknown;
+		/** The person's own video row (offline phase 4c): where it is, the Where button, the grey frame. */
+		phone?: PhoneVideo;
 	}
 
 	let {
@@ -64,12 +74,24 @@
 		simple = false,
 		caption,
 		action,
-		sections
+		sections,
+		phone
 	}: Props = $props();
 
 	const w = $derived(t().video);
 	/** On this phone, coming, or waiting (offline phase 4b): said after the caption's size. */
-	const keep = $derived(kind === 'video' ? keepWord(videoKeep(kept.status, src)) : null);
+	/** Where the person's own video is (offline phase 4c); null: the server's, 4b's rules. */
+	const place = $derived(kind === 'video' && phone ? livePlace(phone) : null);
+	const placed = $derived(place !== null && place.state !== 'server');
+	const elsewhere = $derived(place?.state === 'elsewhere');
+	/** Only on this iPhone (offline phase 4c, 3B): the ⓘ, and the card until it is closed. */
+	const onIphone = $derived(place?.state === 'only' && place.iphone);
+	const uploadThis = () => {
+		if (phone) void uploadOriginal({ table: phone.table, id: phone.id, file: phone.file });
+	};
+	const keep = $derived(
+		kind !== 'video' ? null : placed ? placeWord(place) : keepWord(videoKeep(kept.status, src))
+	);
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -137,7 +159,9 @@
 	}
 </script>
 
-{#if kind === 'video'}
+{#if elsewhere && place?.state === 'elsewhere'}
+	<ElsewhereFrame label={place.label} />
+{:else if kind === 'video'}
 	<div class="{CLIP} relative aspect-video w-full bg-black desk:max-h-[70dvh]">
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
@@ -230,6 +254,11 @@
 		{@attach keepPitch}
 	></audio>
 {/if}
+{#snippet keepOrWhere()}
+	{#if placed && place && phone}<WhereButton {place} video={phone} />{:else}<KeepButton
+			{src}
+		/>{/if}
+{/snippet}
 {#snippet fullScreen()}
 	<button
 		type="button"
@@ -248,16 +277,21 @@
 								? 'text-done'
 								: keep.tone === 'warn'
 									? 'text-warn'
-									: ''}">{keep.text}</span
-						>{/if}</span
+									: keep.tone === 'danger'
+										? 'text-danger'
+										: keep.tone === 'ink'
+											? 'text-ink-2'
+											: ''}">{keep.text}</span
+						>{#if onIphone}<IphoneWhy />{/if}{/if}</span
 				>{/if}
 		</div>
-		{#if action}{@render action()}{:else if owner && kind === 'video'}<KeepButton
-				{src}
-			/>{@render fullScreen()}{/if}
+		{#if action}{@render action()}{:else if owner && kind === 'video' && !elsewhere}{@render keepOrWhere()}{@render fullScreen()}{/if}
 	</div>
 {/if}
-<div class="flex items-center gap-2 pr-3 pb-2.5 pl-2">
+{#if onIphone && iphoneCard.shown}
+	<div class="px-3 pb-2"><IphoneCard onupload={uploadThis} /></div>
+{/if}
+<div class="flex items-center gap-2 pr-3 pb-2.5 pl-2" class:hidden={elsewhere}>
 	{#if kind === 'video'}
 		<button
 			type="button"
@@ -275,7 +309,7 @@
 			class={muted ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name={muted ? 'volume-off' : 'volume'} size={22} /></button
 		>
-		{#if owner && (!caption || action)}<KeepButton {src} />{@render fullScreen()}{/if}
+		{#if owner && (!caption || action)}{@render keepOrWhere()}{@render fullScreen()}{/if}
 	{/if}
 	<span class="flex-1"></span>
 	<span class="flex h-9 items-center rounded-full bg-chip px-px" role="group" aria-label={w.speed}>

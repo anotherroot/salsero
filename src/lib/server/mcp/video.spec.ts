@@ -235,3 +235,33 @@ describe('videos', () => {
 		).toBe(false);
 	});
 });
+
+describe('a phone-only video (offline phase 4c)', () => {
+	const phoneOnly = () =>
+		db.run(
+			sql`update lesson_videos set server_copy = 0, origin_slot = 3 where id = ${w.own.u1.video}`
+		);
+
+	it('video_timeline says it is on a device, and queues nothing', async () => {
+		phoneOnly();
+		db.run(
+			sql`insert into device_slots (slot, device_key, user_id, created_at, label) values (3, 'k3', 'u1', 1, '{"kind":"android","model":"Pixel 8"}')`
+		);
+		const before = counts();
+		const r = await call('video_timeline', { lesson_video_id: w.own.u1.video });
+		expect(r.data).toMatchObject({
+			status: 'on a device',
+			device: { kind: 'android', model: 'Pixel 8' }
+		});
+		expect(counts()).toEqual(before);
+	});
+
+	it('videos marks it', async () => {
+		phoneOnly();
+		const r = await call('videos', {});
+		const row = r.data.videos.find(
+			(x: { lesson_video_id?: number }) => x.lesson_video_id === w.own.u1.video
+		);
+		expect(row.on_device).toBe(true);
+	});
+});

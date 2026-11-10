@@ -7,6 +7,7 @@
  * outbox.
  */
 import { isDanceSlug } from '$lib/dances/dances';
+import type { DeviceLabel } from '$lib/devices/label';
 import { deviceAnswers, writeClass } from '$lib/offline/routes';
 import { OWNERS, ownerOf } from '$lib/sync/owners';
 import {
@@ -100,6 +101,9 @@ export type DeviceDeps = {
 	clearMedia: () => Promise<void>;
 };
 
+/** The originals whose row the server has (offline phase 4c), kept in `device_meta`; gone with the copy. */
+const LANDED_META = 'originals_landed';
+
 export type Device = {
 	/** Inside the lock: the first pull when there is no copy, then the server. */
 	start(): Promise<void>;
@@ -112,6 +116,22 @@ export type Device = {
 	wantedMedia(): MediaFile[];
 	/** This device's choice of videos to keep (offline phase 4b). */
 	keepSettings(): KeepSettings;
+	/**
+	 * Whose originals this copy may sweep, the video files its rows still name,
+	 * and this device's id slot (offline phase 4c).
+	 */
+	originalsScope(): {
+		person: string | null;
+		files: Set<string>;
+		slot: number | null;
+		devices: Record<string, DeviceLabel>;
+		/** Originals named by a change still in the outbox (any state): not landed. */
+		pending: Set<string>;
+		/** Originals whose row the server had, as last noted. */
+		landed: Set<string>;
+	};
+	/** Keeps which originals have landed (`landedOriginals`), with the copy. */
+	noteLanded(files: ReadonlySet<string>): void;
 	/** One change to it, saved; a kept video gone from the copy drops out. */
 	keepSet(change: KeepChange): KeepSettings;
 	/** The rows the On this phone page draws, given the video files on the phone. */
@@ -674,6 +694,47 @@ export function createDevice(deps: DeviceDeps): Device {
 		},
 
 		keepSettings: () => readKeep(db),
+
+		originalsScope() {
+			const files = new Set<string>();
+			for (const table of ['recordings', 'lesson_videos'])
+				for (const r of db.prepare(`SELECT file FROM ${table}`).all() as { file: string }[])
+					files.add(r.file);
+			const meta = readMeta(db);
+			const pending = new Set<string>();
+			for (const r of db.prepare(`SELECT body FROM outbox WHERE url LIKE '%/phone'`).all() as {
+				body: Uint8Array | null;
+			}[]) {
+				if (!r.body) continue;
+				try {
+					const file = (JSON.parse(new TextDecoder().decode(r.body)) as { file?: unknown }).file;
+					if (typeof file === 'string') pending.add(file);
+				} catch {
+					// Not a phone add's body.
+				}
+			}
+			const landed = new Set<string>();
+			const row = db.prepare('SELECT value FROM device_meta WHERE key = ?').get(LANDED_META) as
+				{ value: string } | undefined;
+			try {
+				for (const f of JSON.parse(row?.value ?? '[]') as unknown[])
+					if (typeof f === 'string') landed.add(f);
+			} catch {
+				// None noted.
+			}
+			return {
+				person: meta.userId,
+				files,
+				slot: meta.slot,
+				devices: meta.extras?.devices ?? {},
+				pending,
+				landed
+			};
+		},
+
+		noteLanded(files) {
+			writeMetaValue(db, LANDED_META, JSON.stringify([...files]));
+		},
 
 		keepSet(change) {
 			const next = applyKeepChange(readKeep(db), change);

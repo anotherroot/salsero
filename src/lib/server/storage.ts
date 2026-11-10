@@ -80,13 +80,15 @@ export function usedBytes(db: Db, userId: string): number {
 		.select({ t: sum(recordings.sizeBytes) })
 		.from(recordings)
 		.innerJoin(figures, eq(figures.id, recordings.figureId))
-		.where(and(eq(figures.userId, userId), isNull(figures.teamId)))
+		.where(and(eq(figures.userId, userId), isNull(figures.teamId), eq(recordings.serverCopy, true)))
 		.get();
 	const vids = db
 		.select({ t: sum(lessonVideos.sizeBytes) })
 		.from(lessonVideos)
 		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(and(eq(lessons.userId, userId), isNull(lessons.teamId)))
+		.where(
+			and(eq(lessons.userId, userId), isNull(lessons.teamId), eq(lessonVideos.serverCopy, true))
+		)
 		.get();
 	const sg = db
 		.select({ t: sum(songs.sizeBytes) })
@@ -112,13 +114,13 @@ function teamUsedBytes(db: Db, teamId: number): number {
 		.select({ t: sum(recordings.sizeBytes) })
 		.from(recordings)
 		.innerJoin(figures, eq(figures.id, recordings.figureId))
-		.where(eq(figures.teamId, teamId))
+		.where(and(eq(figures.teamId, teamId), eq(recordings.serverCopy, true)))
 		.get();
 	const vids = db
 		.select({ t: sum(lessonVideos.sizeBytes) })
 		.from(lessonVideos)
 		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(eq(lessons.teamId, teamId))
+		.where(and(eq(lessons.teamId, teamId), eq(lessonVideos.serverCopy, true)))
 		.get();
 	const sg = db
 		.select({ t: sum(songs.sizeBytes) })
@@ -334,7 +336,7 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 		.from(recordings)
 		.innerJoin(figures, eq(figures.id, recordings.figureId))
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(eq(figures.userId, userId))
+		.where(and(eq(figures.userId, userId), eq(recordings.serverCopy, true)))
 		.all();
 	for (const r of recs) {
 		items.push({
@@ -362,7 +364,7 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 		})
 		.from(lessonVideos)
 		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(eq(lessons.userId, userId))
+		.where(and(eq(lessons.userId, userId), eq(lessonVideos.serverCopy, true)))
 		.all();
 	for (const v of vids) {
 		items.push({

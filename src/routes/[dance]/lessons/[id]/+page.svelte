@@ -32,6 +32,11 @@
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
+	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
+	import { currentAddMode } from '$lib/offline/add-mode.svelte';
+	import { phoneOnlyDeleteNote } from '$lib/offline/delete-words';
+	import { onIphone } from '$lib/offline/iphone-card.svelte';
+	import { letOriginalGo } from '$lib/offline/app-originals.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
@@ -221,7 +226,8 @@
 	/** Why a video cannot go, by video id; cleared by the next tap of its trash. */
 	let videoRefused = $state<Record<number, string>>({});
 	/** The video the dialog asks about, with how many sections go with it. */
-	let deletingVideo = $state<{ id: number; sections: number } | null>(null);
+	/** `file`: a phone-only video's, whose original goes from this phone after (offline phase 4c). */
+	let deletingVideo = $state<{ id: number; sections: number; file: string | null } | null>(null);
 	let deleteBusy = $state(false);
 	function askDeleteVideo(
 		id: number,
@@ -232,10 +238,28 @@
 		videoRefused = blocked
 			? { ...videoRefused, [id]: blocked }
 			: Object.fromEntries(Object.entries(videoRefused).filter(([k]) => Number(k) !== id));
-		if (!blocked) deletingVideo = { id, sections: sections.length };
+		const row = data.videos.find((v) => v.id === id);
+		if (!blocked)
+			deletingVideo = {
+				id,
+				sections: sections.length,
+				file: row && !row.serverCopy ? row.file : null
+			};
+	}
+
+	/** The question's words; a phone-only video's say deleting it is final (offline phase 4c). */
+	function deleteVideoNote(
+		d: { id: number; sections: number; file: string | null } | null
+	): string {
+		const base = deleteVideoBody(d?.sections ?? 0);
+		const row = d ? data.videos.find((v) => v.id === d.id) : undefined;
+		const note = row ? phoneOnlyDeleteNote(row, onIphone()) : null;
+		return note ? `${note} ${base}` : base;
 	}
 
 	const styleLabel = $derived(styleLabelOf(data.dance.styleLabel));
+	/** What adding a video does here (offline phase 4c). */
+	const lessonAdd = $derived(currentAddMode(!!data.app, data.lesson.teamId === null));
 
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
@@ -1066,6 +1090,7 @@
 										{:else}
 											<VideoFrame
 												src="/lesson-videos/{video.file}"
+												phone={{ ...video, table: 'lesson_videos' }}
 												sourceUrl={video.sourceUrl}
 												owner={{ lessonVideoId: video.id }}
 												title={lesson.title}
@@ -1101,7 +1126,7 @@
 								<p class="px-1 text-[15px] text-muted">{w.page.noVideos}</p>
 							{/if}
 						{:else}<div class={data.videos.length ? 'mt-3' : ''}>
-								{#if data.app}
+								{#if lessonAdd === 'app-link'}
 									<AppUploadLink
 										kind="dashed"
 										href={uploadLink(
@@ -1109,6 +1134,14 @@
 											{ back: page.url.pathname, name: lesson.title }
 										)}
 										label={w.page.addVideos}
+									/>
+								{:else if lessonAdd === 'phone' || lessonAdd === 'app-phone'}
+									<!-- Offline phase 4c: on a phone, the person's own videos stay there. -->
+									<PhoneAddButton
+										viaApp={lessonAdd === 'app-phone'}
+										target={{ lessonId: lesson.id }}
+										label={w.page.addVideos}
+										multiple
 									/>
 								{:else}
 									<ChunkedUploadButton
@@ -1318,7 +1351,7 @@
 <Dialog
 	open={deletingVideo !== null}
 	title={w.full.deleteVideo.title}
-	body={deleteVideoBody(deletingVideo?.sections ?? 0)}
+	body={deleteVideoNote(deletingVideo)}
 	icon="trash"
 	tone="danger"
 	onclose={() => (deletingVideo = null)}
@@ -1333,6 +1366,7 @@
 			use:enhance={() => {
 				deleteBusy = true;
 				const id = deletingVideo?.id;
+				const original = deletingVideo?.file ?? null;
 				const keys = data.videos.map((v) => `video-${v.id}`);
 				return async ({ update, result }) => {
 					try {
@@ -1350,6 +1384,7 @@
 						deleteBusy = false;
 						deletingVideo = null;
 					}
+					if (result.type === 'success' && original) void letOriginalGo(original);
 					if (result.type === 'success' && id !== undefined)
 						await focusAfterRemoval(keys, `video-${id}`, 'videos-heading');
 				};

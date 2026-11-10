@@ -33,7 +33,13 @@ function columnsOf(db: Db, table: string): string[] {
 		.map((c) => c.name);
 }
 
-export function pull(db: Db, userId: string, req: PullRequest): PullResponse | PullRefusal {
+/** `ua`: the device's user agent, kept with its slot (offline phase 4c: "On Pixel 8"). */
+export function pull(
+	db: Db,
+	userId: string,
+	req: PullRequest,
+	ua?: string
+): PullResponse | PullRefusal {
 	if (req.schema !== SCHEMA_TAG) return { refused: 'schema', schema: SCHEMA_TAG };
 	return db.transaction((tx) => {
 		const head = logHead(tx);
@@ -88,7 +94,7 @@ export function pull(db: Db, userId: string, req: PullRequest): PullResponse | P
 			clonePairs: pairsIn(tx, scope)
 		};
 		// A device that names itself gets its id slot (offline phase 3).
-		if (req.device !== undefined) out.slot = slotFor(tx, userId, req.device, serverNow());
+		if (req.device !== undefined) out.slot = slotFor(tx, userId, req.device, serverNow(), ua);
 		return out;
 	});
 }

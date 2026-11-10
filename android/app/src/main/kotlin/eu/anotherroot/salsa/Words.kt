@@ -49,6 +49,8 @@ interface Words {
     fun downloading(name: String): String
     /** What an upload link without a name calls its lesson. */
     val theLesson: String
+    /** A phone-only recording's upload names its figure so (offline phase 4c). */
+    val theFigure: String
     /** What a video is called before its file name is known. */
     val theVideo: String
     /** The progress line's percentage: Slovenian puts a no-break space before the sign. */
@@ -97,6 +99,7 @@ private object En : Words {
     override val noAppForLink = "No app on this phone can open that link"
     override fun downloading(name: String) = "Downloading $name"
     override val theLesson = "the lesson"
+    override val theFigure = "the figure"
     override val theVideo = "the video"
     override fun percent(n: Int) = "$n%"
 }
@@ -139,6 +142,7 @@ private object Sl : Words {
     override val noAppForLink = "Te povezave ne more odpreti nobena aplikacija na tem telefonu"
     override fun downloading(name: String) = "Prenašanje: $name"
     override val theLesson = "lekcija"
+    override val theFigure = "figura"
     override val theVideo = "video"
     override fun percent(n: Int) = "$n\u00A0%"
 }

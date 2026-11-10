@@ -11,10 +11,11 @@ vi.mock('$lib/server/releases', () => ({ currentRelease: () => fakes.release }))
 import { openDb, type Db } from '$lib/server/db';
 import { makeClass, CLASS_ED } from '$lib/server/test-class';
 import { createImport, storeImportItems } from '$lib/server/song-imports';
-import { teamTrash } from '$lib/server/db/schema';
+import { deviceSlots, lessonVideos, teamTrash } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { usedBytesOf } from '$lib/server/storage';
 import { lastEdit } from '$lib/server/changes';
-import { createLesson } from '$lib/server/lessons';
+import { addLessonVideo, createLesson } from '$lib/server/lessons';
 import { serverExtras } from './extras';
 
 let db: Db;
@@ -45,7 +46,8 @@ describe('serverExtras', () => {
 			release: null,
 			imports: { own: [], teams: {} },
 			teamTrashBytes: {},
-			lastEdits: {}
+			lastEdits: {},
+			devices: {}
 		});
 	});
 
@@ -159,5 +161,49 @@ describe("lessons' last edits reach only who may read the lesson", () => {
 		const maja = serverExtras(db, 'u3').lastEdits;
 		expect(maja).not.toHaveProperty(`lesson:${draft}`);
 		expect(Object.keys(maja).length).toBeGreaterThan(0);
+	});
+});
+
+describe("devices: what holds the person's phone-only originals (offline phase 4c)", () => {
+	it('names each slot a phone-only row points at, and no other', () => {
+		db.insert(deviceSlots)
+			.values([
+				{
+					slot: 3,
+					deviceKey: 'k3',
+					userId: 'u4',
+					createdAt: 1,
+					label: '{"kind":"android","model":"Pixel 8"}'
+				},
+				{
+					slot: 4,
+					deviceKey: 'k4',
+					userId: 'u4',
+					createdAt: 1,
+					label: '{"kind":"iphone","model":null}'
+				}
+			])
+			.run();
+		const lesson = createLesson(
+			db,
+			{ userId: 'u4', dance: 'salsa' },
+			{
+				title: 'L',
+				lessonDay: '2026-11-01',
+				notes: null
+			}
+		).lesson;
+		const v = addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: 'a.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 5
+		});
+		db.update(lessonVideos)
+			.set({ serverCopy: false, originSlot: 3 })
+			.where(eq(lessonVideos.id, v.id))
+			.run();
+		expect(serverExtras(db, 'u4').devices).toEqual({ '3': { kind: 'android', model: 'Pixel 8' } });
+		expect(serverExtras(db, 'u1').devices).toEqual({});
 	});
 });

@@ -1246,3 +1246,21 @@ describe('dataFailed (device first: a failed load goes to the network)', () => {
 		expect(dataFailed('not json')).toBe(false);
 	});
 });
+
+describe('originalsScope: which originals have landed (offline phase 4c, final review 1)', () => {
+	it('a phone add still in the outbox (any state) names its file pending; noted landings come back', async () => {
+		const h = harness();
+		await h.dev.start();
+		device
+			.prepare(
+				`INSERT INTO outbox (id, user_id, made_at, epoch, cls, url, method, headers_json, minted_json, rows_json, label_json, body, state)
+				 VALUES ('e1', 'u1', 0, 0, 'device', 'https://salsa.test/api/figures/1/recordings/phone', 'POST', '[]', '[]', '{}', 'null', ?, 'refused')`
+			)
+			.run(
+				new TextEncoder().encode(JSON.stringify({ file: 'a.mp4', mime: 'video/mp4', sizeBytes: 5 }))
+			);
+		expect([...h.dev.originalsScope().pending]).toEqual(['a.mp4']);
+		h.dev.noteLanded(new Set(['b.mp4']));
+		expect([...h.dev.originalsScope().landed]).toEqual(['b.mp4']);
+	});
+});

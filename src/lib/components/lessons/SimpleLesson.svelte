@@ -29,6 +29,8 @@
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
+	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
+	import { currentAddMode } from '$lib/offline/add-mode.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import {
@@ -102,6 +104,8 @@
 		ondeletevideo,
 		onmenu
 	}: Props = $props();
+	/** What adding a video does here (offline phase 4c). */
+	const lessonAdd = $derived(currentAddMode(!!app, team === null));
 
 	let broken = $state<Record<number, MediaProblem>>({});
 
@@ -322,6 +326,7 @@
 								{:else}
 									<VideoFrame
 										src="/lesson-videos/{video.file}"
+										phone={{ ...video, table: 'lesson_videos' }}
 										sourceUrl={video.sourceUrl}
 										owner={{ lessonVideoId: video.id }}
 										title={lesson.title}
@@ -348,7 +353,7 @@
 				{/if}
 				{#if canEdit}
 					<div class={videos.length ? 'mt-3' : ''}>
-						{#if app}
+						{#if lessonAdd === 'app-link'}
 							<AppUploadLink
 								kind="dashed"
 								href={uploadLink(
@@ -356,6 +361,13 @@
 									{ back: page.url.pathname, name: lesson.title }
 								)}
 								label={t().lesson.page.addVideos}
+							/>
+						{:else if lessonAdd === 'phone' || lessonAdd === 'app-phone'}
+							<PhoneAddButton
+								viaApp={lessonAdd === 'app-phone'}
+								target={{ lessonId: lesson.id }}
+								label={t().lesson.page.addVideos}
+								multiple
 							/>
 						{:else}
 							<ChunkedUploadButton

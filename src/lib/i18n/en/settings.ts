@@ -74,6 +74,10 @@ export const settings = {
 			free ? `${used} used · ${free} free` : `${used} used`,
 		legendSongs: (size: string): string => `Songs and count · ${size}`,
 		legendVideos: (size: string): string => `Kept videos · ${size}`,
+		/** Android: the person's phone-only originals, left in the gallery (offline phase 4c). */
+		legendGallery: (size: string): string => `Your videos in the gallery · ${size}`,
+		/** iPhone and browser: the originals the app holds itself. */
+		legendOriginals: (size: string): string => `Your videos only here · ${size}`,
 		notReady: 'Not ready on this phone yet: the app is still getting its copy here.',
 		spacesLabel: 'Lesson videos on this phone',
 		myLessons: 'My lessons',

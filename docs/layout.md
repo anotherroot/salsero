@@ -758,6 +758,23 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      (the sheet once); protocol.ts `KeepSettings`/`KeepChange`/`KeepStatus`.
                      The look: routes/settings/phone (On this phone), components/ui/KeepButton,
                      components/settings/LowSpaceCard, components/shell/LowSpaceSheet
+                     Phase 4c: the store's `originals` (`ORIGINALS`, owner in the meta; never
+                     listed, cleared or counted unless named; `readMedia`: a video URL reads it
+                     first); where.ts (PURE: `placeOf`, `Place`), where-view.ts (`placeWord`),
+                     places.svelte.ts (`livePlace`, `PhoneVideo`, `appOriginals`), uploads.svelte.ts
+                     (`startUpload`, `uploadOf`), upload-original.ts (`uploadOriginal`, `fileRoute`),
+                     phone-first.ts (`phoneFirst`, `isIphone`), add-phone.ts (`addMode`, `addOnPhone`,
+                     `phoneFileName`), add-mode.svelte.ts (`currentAddMode`), iphone-warned.ts and
+                     iphone-card.svelte.ts (the card once), delete-words.ts; $lib/upload-chunks.ts
+                     (`putChunks`); $lib/devices/label.ts (`deviceLabelOf`). Server:
+                     server/phone-videos.ts (phone-only rows, `attachServerCopy`, `removeServerCopy`),
+                     server/chunked-upload.ts (`receiveChunk`), server/clones/phone-only.ts
+                     (`leftBehind`, `deviceLabelFor`). The look: components/ui/WhereButton,
+                     WhereSheet, ElsewhereFrame, PhoneAddButton, IphoneCard, IphoneWhy
+                     Phase 4c part 2: app-videos.ts (`appVideosOn`/`appVideos`: the app's
+                     `SalsaVideos` bridge, answers by id), app-originals.svelte.ts (`readAppOriginals`,
+                     `addFromApp`, `uploadFromApp`, `letOriginalGo`). Android: VideosBridge.kt,
+                     OriginalStore.kt, MediaServe.kt (`spanOf`, `sliceOf`), UploadEvents.kt
 src/device/          bundled for the device worker only (vite.device.config.ts → build/client/
                      _device/<version>/, checked by scripts/check-device-build.mjs): sqlite-shim.ts
                      (better-sqlite3 over SQLite WASM, opfs-sahpool), migrate.ts (`migrateDevice`,

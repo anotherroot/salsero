@@ -9,6 +9,7 @@
  */
 import {
 	mediaPath,
+	ORIGINALS,
 	VIDEO_KINDS,
 	type MediaFile,
 	type MediaKind,
@@ -262,4 +263,44 @@ export function mediaKeeper(deps: {
 	}
 
 	return { sync, restart, clear };
+}
+
+/**
+ * The originals whose row the server has (offline phase 4c): held here, their row in
+ * the copy after a sync that reached the server, and no change in the outbox (waiting,
+ * refused or held) that names them. Once landed, an original stays landed while held.
+ */
+export function landedOriginals(o: {
+	before: ReadonlySet<string>;
+	held: readonly string[];
+	rowFiles: ReadonlySet<string>;
+	pending: ReadonlySet<string>;
+}): Set<string> {
+	const out = new Set<string>();
+	for (const f of o.held)
+		if (o.before.has(f) || (o.rowFiles.has(f) && !o.pending.has(f))) out.add(f);
+	return out;
+}
+
+/**
+ * The person's phone-only originals whose row is gone from the copy (offline
+ * phase 4c): deleted, here or on another device. Only after a pull that
+ * reached the server, only the copy's person's own, and only one that had
+ * landed: an add refused or held on replay (its row then leaves the copy), or
+ * not sent yet, never loses its only copy (final review 1, 2). Nothing else
+ * ever removes an original.
+ */
+export async function sweepOriginals(deps: {
+	store: MediaStore;
+	person: string;
+	pulledOnline: boolean;
+	rowFiles: ReadonlySet<string>;
+	landed: ReadonlySet<string>;
+}): Promise<string[]> {
+	if (!deps.pulledOnline) return [];
+	const gone = (await deps.store.list(ORIGINALS)).filter(
+		(f) => f.owner === deps.person && deps.landed.has(f.file) && !deps.rowFiles.has(f.file)
+	);
+	for (const f of gone) await deps.store.remove('originals', f.file);
+	return gone.map((f) => f.file);
 }

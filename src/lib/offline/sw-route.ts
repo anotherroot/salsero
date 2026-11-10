@@ -66,6 +66,9 @@ const CONNECTOR = (path: string) =>
  */
 const UPLOADS: [method: string, pattern: RegExp][] = [
 	['PUT', routePattern('/api/lessons/[id]/videos/[uploadId]')],
+	['PUT', routePattern('/api/figures/[id]/recordings/[uploadId]')],
+	['PUT', routePattern('/api/recordings/[id]/file/[uploadId]')],
+	['PUT', routePattern('/api/lesson-videos/[id]/file/[uploadId]')],
 	['POST', routePattern('/api/figures/[id]/recordings')],
 	['POST', routePattern('/api/songs')]
 ];

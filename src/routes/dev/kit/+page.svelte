@@ -25,6 +25,9 @@
 	import { FEELS, type Feel } from '$lib/schedule/feel';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import WhereButton from '$lib/components/ui/WhereButton.svelte';
+	import ElsewhereFrame from '$lib/components/ui/ElsewhereFrame.svelte';
+	import type { Place } from '$lib/offline/where';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import PickerMultiField from '$lib/components/picker/PickerMultiField.svelte';
@@ -220,6 +223,26 @@
 		{/snippet}
 
 		<div class="flex flex-col gap-8 px-4 pb-24">
+			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Where is this video (offline 4c)</h2>
+				<div class="flex flex-wrap items-center gap-2">
+					{#each [{ state: 'only', iphone: false }, { state: 'uploading', pct: 40 }, { state: 'both', copyBytes: 48_000_000 }, { state: 'missing', gallery: true }] as Place[] as place, i (i)}
+						<WhereButton
+							{place}
+							video={{
+								id: 1,
+								table: 'recordings',
+								file: 'kit.mp4',
+								serverCopy: place.state === 'both',
+								originSlot: 1,
+								sizeBytes: 48_000_000,
+								originBytes: 312_000_000
+							}}
+						/>
+					{/each}
+				</div>
+				<ElsewhereFrame label={{ kind: 'android', model: 'Pixel 8' }} />
+			</section>
 			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Hero card</h2>
 				<HeroCard title="7 for today" meta="3 due · 4 not yet due" />

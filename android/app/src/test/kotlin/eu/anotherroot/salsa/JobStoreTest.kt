@@ -86,3 +86,34 @@ class JobStoreTest {
         assertTrue(store.isEmpty().not())
     }
 }
+
+class JobStoreOriginalTest {
+    @org.junit.Test fun `an original's job reads back with its target and file`() {
+        val root = java.nio.file.Files.createTempDirectory("jobs").toFile()
+        try {
+            val store = JobStore(root)
+            val job = Job("a", "content://media/picker/0/x/media/1", null, Target.Recording(40), "", "Video", 1, original = "0f8fad5b-d9cb-469f-a165-70867728950e.mp4")
+            store.add(job)
+            org.junit.Assert.assertEquals(listOf(job), store.jobs())
+            val video = job.copy(id = "b", target = Target.LessonVideo(41), queuedAt = 2)
+            store.add(video)
+            org.junit.Assert.assertEquals(Target.LessonVideo(41), store.jobs().last().target)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+}
+
+class JobStoreQueuedOriginalTest {
+    @org.junit.Test fun `an original already queued is known by its file`() {
+        val root = java.nio.file.Files.createTempDirectory("jobs").toFile()
+        try {
+            val store = JobStore(root)
+            store.add(Job("a", "content://x/1", null, Target.Recording(40), "", "Video", 1, original = "f.mp4"))
+            org.junit.Assert.assertTrue(store.queuedOriginal("f.mp4"))
+            org.junit.Assert.assertFalse(store.queuedOriginal("g.mp4"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+}

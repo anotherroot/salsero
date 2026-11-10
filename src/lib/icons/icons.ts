@@ -112,6 +112,11 @@ const CANONICAL = {
 		'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="m9.5 12 2 2 3.5-3.5"></path>',
 	'phone-down':
 		'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"></rect><path d="M12 7v7"></path><path d="m9.5 11.5 2.5 2.5 2.5-2.5"></path>',
+	cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>',
+	'cloud-up':
+		'<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"></path><path d="M12 12v9"></path><path d="m16 16-4-4-4 4"></path>',
+	'cloud-check':
+		'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path><path d="m9.5 14 2 2 3.5-3.5"></path>',
 	'wifi-off':
 		'<path d="M12 20h.01"></path><path d="M8.5 16.43a5 5 0 0 1 7 0"></path><path d="M5 12.86a10 10 0 0 1 5.17-2.69"></path><path d="M19 12.86a10 10 0 0 0-2-1.52"></path><path d="M2 8.82a15 15 0 0 1 4.18-2.64"></path><path d="M22 8.82a15 15 0 0 0-11.29-3.76"></path><path d="m2 2 20 20"></path>',
 	bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5h-15z"></path><path d="M10 21a2 2 0 0 0 4 0"></path>',

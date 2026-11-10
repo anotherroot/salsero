@@ -55,3 +55,14 @@ describe('uploadProblem in Slovenian', () => {
 		});
 	});
 });
+
+describe('uploadProblem with a chunked upload’s cap (offline phase 4c: recordings up to 1 GiB)', () => {
+	it('120 MiB is fine under 1 GiB; 2 GiB is not', () => {
+		const cap = { bytes: 1024 * MiB, label: '1 GB' };
+		expect(uploadProblem({ size: 120 * MiB, type: 'video/mp4' }, 'video/*', cap)).toBeNull();
+		expect(
+			withLocale('en', () => uploadProblem({ size: 2048 * MiB, type: 'video/mp4' }, 'video/*', cap))
+				?.title
+		).toContain('1 GB');
+	});
+});

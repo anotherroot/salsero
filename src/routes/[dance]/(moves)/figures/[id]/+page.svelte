@@ -23,6 +23,11 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
+	import PhoneAddButton from '$lib/components/ui/PhoneAddButton.svelte';
+	import { currentAddMode } from '$lib/offline/add-mode.svelte';
+	import { phoneOnlyDeleteNote } from '$lib/offline/delete-words';
+	import { onIphone } from '$lib/offline/iphone-card.svelte';
+	import { letOriginalGo } from '$lib/offline/app-originals.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import { spotLabel } from '$lib/video/spots';
@@ -107,6 +112,8 @@
 	/** Recordings' `+ Add`: the sheet, and the page's own upload it starts (`UploadButton` with `bare`). */
 	let adding = $state(false);
 	let chooseVideo = $state<(() => void) | undefined>();
+	/** What adding a video does here (offline phase 4c): on a phone, the person's own stays there. */
+	const addVideo = $derived(currentAddMode(!!data.app, !data.team));
 	/** Recordings whose file is missing or will not play here, as their rows found: never the top video. */
 	let broken = $state<number[]>([]);
 
@@ -230,12 +237,14 @@
 	}
 
 	// --- Deleting a recording: a question first, in place of the old confirm().
-	let deleting = $state<{ id: number; body: string } | null>(null);
+	/** `file`: a phone-only recording's, whose original goes from this phone after (offline phase 4c). */
+	let deleting = $state<{ id: number; body: string; file: string | null } | null>(null);
 	let deleteBusy = $state(false);
 	const deleteRecording: SubmitFunction = () => {
 		deleteBusy = true;
 		const keys = variation.recordings.map((r) => `recording-${r.id}`);
 		const gone = `recording-${deleting?.id}`;
+		const original = deleting?.file ?? null;
 		return async ({ update, result }) => {
 			try {
 				await update();
@@ -246,17 +255,26 @@
 			}
 			// Already gone: show the list as it is now.
 			if (result.type === 'failure' && result.status === 404) await invalidateAll();
-			if (result.type === 'success') await focusAfterRemoval(keys, gone, 'stop-editing');
+			if (result.type === 'success') {
+				if (original) void letOriginalGo(original);
+				await focusAfterRemoval(keys, gone, 'stop-editing');
+			}
 		};
 	};
-	const askDelete = (rec: { id: number; sizeBytes: number }, day: string) => {
+	const askDelete = (
+		rec: { id: number; sizeBytes: number; serverCopy: boolean; file: string },
+		day: string
+	) => {
+		const base = deleteRecordingBody(
+			day,
+			byteSize(rec.sizeBytes),
+			(variation.recordingSections[rec.id] ?? []).length
+		);
+		const note = phoneOnlyDeleteNote(rec, onIphone());
 		deleting = {
 			id: rec.id,
-			body: deleteRecordingBody(
-				day,
-				byteSize(rec.sizeBytes),
-				(variation.recordingSections[rec.id] ?? []).length
-			)
+			body: note ? `${note} ${base}` : base,
+			file: rec.serverCopy ? null : rec.file
 		};
 	};
 	// Unlinking a section: focus goes to the next section, else the band's stop-editing.
@@ -400,7 +418,10 @@
 <svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
 
 <!-- A recording's delete, while editing: asks first, in the Dialog below. -->
-{#snippet trash(rec: { id: number; sizeBytes: number }, day: string)}
+{#snippet trash(
+	rec: { id: number; sizeBytes: number; serverCopy: boolean; file: string },
+	day: string
+)}
 	<button
 		data-focus="recording-{rec.id}"
 		type="button"
@@ -706,17 +727,27 @@
 			<!-- Keyed: the upload's state must not carry over to another variation. Mounted
 			     in and out of edit mode, so a started upload is never remounted; it draws
 			     only its progress card and a failure. -->
-			{#if data.canEdit && !data.app}
+			{#if data.canEdit && (!data.app || addVideo === 'app-phone')}
 				{#key variation.id}
-					<UploadButton
-						bare
-						bind:chooser={chooseVideo}
-						url="/api/figures/{variation.id}/recordings"
-						accept="video/*"
-						label={t().figure.recordings.addVideo}
-						noun={t().shell.upload.nouns.recording}
-						bind:busy={uploading}
-					/>
+					{#if addVideo === 'phone' || addVideo === 'app-phone'}
+						<!-- Offline phase 4c: on a phone, the person's own video stays there. -->
+						<PhoneAddButton
+							bare
+							viaApp={addVideo === 'app-phone'}
+							bind:chooser={chooseVideo}
+							target={{ figureId: variation.id }}
+							label={t().figure.recordings.addVideo}
+						/>
+					{:else}<UploadButton
+							bare
+							chunked
+							bind:chooser={chooseVideo}
+							url="/api/figures/{variation.id}/recordings"
+							accept="video/*"
+							label={t().figure.recordings.addVideo}
+							noun={t().shell.upload.nouns.recording}
+							bind:busy={uploading}
+						/>{/if}
 				{/key}
 			{/if}
 			{#if !empty}
@@ -1012,7 +1043,7 @@
 		open={adding}
 		onclose={() => (adding = false)}
 		figureLabel="{figure.name} · {variation.name}"
-		app={!!data.app}
+		app={addVideo === 'app-link'}
 		{uploading}
 		appHref={uploadLink(
 			{ figure: variation.id },

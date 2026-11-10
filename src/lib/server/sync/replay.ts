@@ -40,6 +40,8 @@ export type ReplayOptions = {
 	origin: string;
 	/** writeGate when absent. */
 	gate?: WriteGate;
+	/** The device's user agent, kept with its slot (offline phase 4c). */
+	ua?: string;
 	/** How long a replay waits for the gate; GATE_WAIT_MS when absent. */
 	waitMs?: number;
 	/**
@@ -195,7 +197,7 @@ export async function push(
 ): Promise<PushResponse> {
 	// Under the gate: never a savepoint inside another device's open replay, rolled back with it.
 	const slot = await (o.gate ?? writeGate).shared(async () =>
-		slotFor(db, userId, req.device, o.now)
+		slotFor(db, userId, req.device, o.now, o.ua)
 	);
 	const results: EntryResult[] = [];
 	/** Refused or held entries of this push, and the refused root each one waits on. */

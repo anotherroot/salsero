@@ -876,7 +876,9 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 			return fail(404, { action: 'deleteVideo', message: t().lesson.refused.videoGone });
 		}
 		// A group's video is in Recently deleted with its file: the purge deletes it (risk 19).
-		if (row.trashId === null) await unlink(join(lessonVideosDir(), row.file)).catch(() => {});
+		// A phone-only video has no file here (offline phase 4c): nothing to unlink.
+		if (row.trashId === null && row.serverCopy !== false)
+			await unlink(join(lessonVideosDir(), row.file)).catch(() => {});
 		return { action: 'deleteVideo', ok: true };
 	},
 

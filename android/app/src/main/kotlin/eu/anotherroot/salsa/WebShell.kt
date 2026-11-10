@@ -29,6 +29,8 @@ import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.provider.MediaStore
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -37,7 +39,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
@@ -50,6 +58,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ScriptHandler
+import androidx.webkit.ServiceWorkerClientCompat
+import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONException
@@ -130,6 +140,16 @@ abstract class WebShell : ComponentActivity() {
     private val pickFiles = registerForActivityResult(StartActivityForResult()) { result ->
         fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
         fileCallback = null
+    }
+
+    /** A person's own videos left in the gallery (offline phase 4c, [VideosBridge]). */
+    private lateinit var videos: VideosBridge
+    /** Android 13+: an original's upload shows its progress in a notification (asked once, on Upload). */
+    private val askNotify = registerForActivityResult(RequestPermission()) {}
+    private val pickOneVideo = registerForActivityResult(PickVisualMedia()) { uri -> videos.picked(listOfNotNull(uri)) }
+    private val pickVideos = registerForActivityResult(PickMultipleVisualMedia()) { uris -> videos.picked(uris) }
+    private val deleteFromGallery = registerForActivityResult(StartIntentSenderForResult()) { result ->
+        videos.galleryAnswer(result.resultCode == RESULT_OK)
     }
 
     private val askAndroid = registerForActivityResult(RequestMultiplePermissions()) {
@@ -213,6 +233,7 @@ abstract class WebShell : ComponentActivity() {
         barsBridge(web)
         turnBridge(web)
         shotBridge(web)
+        videosBridge(web)
         // The Update button (direct build; the Play build's does nothing).
         installUpdateBridge(this, web)
     }
@@ -254,6 +275,7 @@ abstract class WebShell : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        UploadEvents.listener = null
         tts?.shutdown()
         if (alive) web.destroy()
         super.onDestroy()
@@ -301,6 +323,10 @@ abstract class WebShell : ComponentActivity() {
             pageTurns = false
             turn()
         }
+
+        // A gallery original (offline phase 4c) answers from the phone, with Range.
+        override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+            original(request) ?: super.shouldInterceptRequest(view, request)
 
         // A page that started before the first insets arrived still gets them.
         override fun onPageCommitVisible(view: WebView, url: String?) {
@@ -479,6 +505,63 @@ abstract class WebShell : ComponentActivity() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         WebViewCompat.addWebMessageListener(web, SHOT_OBJECT, setOf(BuildConfig.SITE)) { _, message, _, isMainFrame, reply ->
             if (isMainFrame && message.data == SHOT_LISTEN) shotReply = reply
+        }
+    }
+
+    /**
+     * Your videos only on the phone (offline phase 4c, [VideosBridge]): the page asks
+     * on `SalsaVideos`; the gallery's originals answer the page's and the service
+     * worker's requests for them; an upload's progress reaches the page.
+     */
+    private fun videosBridge(web: WebView) {
+        val request = PickVisualMediaRequest(PickVisualMedia.VideoOnly)
+        videos = VideosBridge(
+            this,
+            launchPick = { multiple -> if (multiple) pickVideos.launch(request) else pickOneVideo.launch(request) },
+            launchDelete = { uri -> askToDelete(uri) },
+            askNotifications = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+            },
+        )
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        WebViewCompat.addWebMessageListener(web, VIDEOS_OBJECT, setOf(BuildConfig.SITE)) { _, message, _, isMainFrame, reply ->
+            if (isMainFrame) videos.onMessage(message.data, reply)
+        }
+        UploadEvents.listener = { event, file, pct ->
+            runOnUiThread {
+                videos.tell(JSONObject().put("event", event).put("file", file).put("pct", pct ?: JSONObject.NULL))
+            }
+        }
+        // The service worker's fetches (its media route falls through to the network) too.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) &&
+            WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)
+        ) {
+            ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? = original(request)
+            })
+        }
+    }
+
+    /** The site's request for a gallery original, answered from the phone; null for anything else. */
+    private fun original(request: WebResourceRequest): WebResourceResponse? {
+        if (!::videos.isInitialized) return null
+        val site = BuildConfig.SITE.toUri()
+        val url = request.url
+        if (url.scheme != site.scheme || url.host != site.host) return null
+        return videos.serve(url.path ?: return null, request.method, request.requestHeaders)
+    }
+
+    /** Android 11+: the system asks to delete a gallery video. False where it cannot (then only let go). */
+    private fun askToDelete(uri: Uri): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+        return try {
+            val pending = MediaStore.createDeleteRequest(contentResolver, listOf(uri))
+            deleteFromGallery.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 

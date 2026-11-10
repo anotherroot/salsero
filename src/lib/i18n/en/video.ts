@@ -2,6 +2,21 @@
 // marking, the section view, the editor, the list, the sheets, the toasts, the keys) and what
 // the spots API says when it refuses. Times and lengths are built in `video/spots.ts`.
 
+import type { DeviceLabel } from '$lib/devices/label';
+
+/** Where a phone-only video is, after "on": "on Pixel 8". */
+const onDevice = (d: DeviceLabel | null): string => {
+	if (!d) return 'on another device';
+	if (d.kind === 'android') return d.model ? `on ${d.model}` : 'on an Android phone';
+	const other: Record<string, string> = {
+		iphone: 'on an iPhone',
+		ipad: 'on an iPad',
+		computer: 'on a computer'
+	};
+	return other[d.kind] ?? 'on another device';
+};
+const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
 const RATE_CHIP: Record<number, string> = { 0.25: '¼×', 0.5: '½×', 0.75: '¾×' };
 
 export const video = {
@@ -186,5 +201,67 @@ export const video = {
 		linked: (labels: string): string => `Linked to ${labels} — unlink it first.`,
 		/** A refusal with nothing in its body. */
 		failed: (status: number): string => `video-spots: ${status}`
+	},
+
+	/**
+	 * Where a person's own video is (offline phase 4c): only on this phone, on the
+	 * server too, or on another device; the Where is this video sheet and its refusals.
+	 */
+	place: {
+		onlyHere: 'only on this phone',
+		onlyIphone: 'only on this iPhone',
+		uploading: (pct: number): string => `uploading ${pct}%`,
+		both: 'on this phone and the server',
+		/** "on Pixel 8", "on an iPhone". */
+		on: (d: DeviceLabel | null): string => onDevice(d),
+		missingGallery: 'no longer in the gallery',
+		missingHere: 'no longer on this phone',
+		sheetTitle: 'Where is this video',
+		thisPhone: 'This phone',
+		original: (size: string): string => `Original · ${size} · plays from here`,
+		server: 'Server',
+		notUploaded: "Not uploaded. A computer and your other devices can't play it.",
+		copy: (size: string): string => `Copy · ${size}`,
+		upload: 'Upload',
+		remove: 'Remove',
+		sheetNote:
+			'Upload sends a smaller copy (the size from Settings → Video). The original always stays on the phone.',
+		sheetNoteIphone: 'Upload sends the original. It stays on this iPhone too.',
+		/** The grey frame on another device: "On Pixel 8". */
+		frameTitle: (d: DeviceLabel | null): string => capital(onDevice(d)),
+		frameBody:
+			'The video is only there. Its sections are below; play it on that device, or here once it is uploaded there.',
+		iphoneTitle: 'This video is only on this iPhone',
+		iphoneBody:
+			"An iPhone may delete stored files when it runs short of space, or when the app isn't opened for a long while. A video only here would be lost. It is safe once uploaded.",
+		gotIt: 'Got it',
+		/** The ⓘ after "only on this iPhone", for a screen reader. */
+		iphoneWhy: 'Why this matters',
+		close: 'Close',
+		saved: 'Saved on this phone',
+		noSpace: 'Not enough space on this phone for this video.',
+		notSaved: "Couldn't save the video on this phone.",
+		deleteOnly: 'The video is only on this phone. It goes from the app, its sections too.',
+		deleteOnlyIphone:
+			'The video is only on this iPhone: deleting it is final, its sections go too.',
+		alsoGallery: 'Delete it from the gallery too',
+		removeDone: 'The server copy is removed',
+		uploadFailed: "Couldn't upload. The video stays on this phone.",
+		/** Copy to or Move to a group: "2 videos are only on Pixel 8: they stay until uploaded there." */
+		copyLeaves: (n: number, d: DeviceLabel | null): string =>
+			n === 1
+				? `1 video is only ${onDevice(d)}: it stays behind until it is uploaded there.`
+				: `${n} videos are only ${onDevice(d)}: they stay behind until they are uploaded there.`,
+		refusal: {
+			tooBig: 'The video is over 1 GB; it cannot be uploaded.',
+			notHolder: 'Only the device holding the original can remove the server copy.',
+			onServer: 'This video is already on the server.',
+			noServerCopy: 'This video has no server copy.',
+			badFile: 'Name the video file.',
+			badSize: 'Give the video’s size.',
+			badSlot: 'Name this device.',
+			groupUploads: "A group's videos always upload.",
+			onDevice: 'This video is only on a device; it cannot be read here.'
+		}
 	}
 };

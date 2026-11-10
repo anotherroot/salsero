@@ -187,7 +187,10 @@ export function finishTimeline(
 	return done.changes > 0;
 }
 
-/** The video file a timeline is cut from; null when the timeline or its video is gone, or it is sound only. */
+/**
+ * The video file a timeline is cut from; null when the timeline or its video is gone, it is sound
+ * only, or it is only on a phone (offline phase 4c: no file here).
+ */
 export function timelineSource(
 	db: Db,
 	id: number
@@ -196,18 +199,20 @@ export function timelineSource(
 	if (!r) return null;
 	if (r.lessonVideoId !== null) {
 		const v = db
-			.select({ file: lessonVideos.file })
+			.select({ file: lessonVideos.file, serverCopy: lessonVideos.serverCopy })
 			.from(lessonVideos)
 			.where(eq(lessonVideos.id, r.lessonVideoId))
 			.get();
-		return v ? { kind: 'lesson-video', file: v.file } : null;
+		return v?.serverCopy ? { kind: 'lesson-video', file: v.file } : null;
 	}
 	const rec = db
-		.select({ file: recordings.file, kind: recordings.kind })
+		.select({ file: recordings.file, kind: recordings.kind, serverCopy: recordings.serverCopy })
 		.from(recordings)
 		.where(eq(recordings.id, r.recordingId!))
 		.get();
-	return rec && rec.kind === 'video' ? { kind: 'recording', file: rec.file } : null;
+	return rec && rec.kind === 'video' && rec.serverCopy
+		? { kind: 'recording', file: rec.file }
+		: null;
 }
 
 /** A use of a ready timeline: `used_at` moves at most hourly. */
