@@ -103,3 +103,17 @@ class JobStoreOriginalTest {
         }
     }
 }
+
+class JobStoreQueuedOriginalTest {
+    @org.junit.Test fun `an original already queued is known by its file`() {
+        val root = java.nio.file.Files.createTempDirectory("jobs").toFile()
+        try {
+            val store = JobStore(root)
+            store.add(Job("a", "content://x/1", null, Target.Recording(40), "", "Video", 1, original = "f.mp4"))
+            org.junit.Assert.assertTrue(store.queuedOriginal("f.mp4"))
+            org.junit.Assert.assertFalse(store.queuedOriginal("g.mp4"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawnBy, pagePerson } from './person';
+import { drawnBy, galleryPerson, pagePerson } from './person';
 import { SHELL } from './sw-route';
 
 describe('drawnBy', () => {
@@ -25,5 +25,14 @@ describe('pagePerson', () => {
 		expect(pagePerson({ user: null, drawnBy: 'shell' })).toBeUndefined();
 		expect(pagePerson({ user: null })).toBeUndefined();
 		expect(pagePerson({})).toBeUndefined();
+	});
+});
+
+describe('galleryPerson: whose gallery originals the app is asked about (offline 4c, part 2 review C1)', () => {
+	it('the server’s or the copy’s person; the empty shell knows none', () => {
+		expect(galleryPerson({ user: { id: 'u1' }, drawnBy: 'server' })).toBe('u1');
+		expect(galleryPerson({ user: { id: 'u1' }, drawnBy: 'device' })).toBe('u1');
+		expect(galleryPerson({ user: null, drawnBy: 'device' })).toBeNull();
+		expect(galleryPerson({ user: { id: 'u1' }, drawnBy: 'shell' })).toBeUndefined();
 	});
 });

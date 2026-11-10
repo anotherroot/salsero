@@ -27,3 +27,16 @@ export function pagePerson(data: {
 	if (data.drawnBy !== 'server') return undefined;
 	return data.user?.id ?? null;
 }
+
+/**
+ * Whose gallery originals the Android app is asked about (offline phase 4c): the
+ * signed-in id from the server's or the copy's root data (the copy is wiped on a
+ * person change, so its person is the signed-in one); undefined from the shell.
+ */
+export function galleryPerson(data: {
+	user?: { id: string } | null;
+	drawnBy?: DrawnBy;
+}): string | null | undefined {
+	if (data.drawnBy === 'shell') return undefined;
+	return data.user?.id ?? null;
+}

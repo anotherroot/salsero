@@ -231,12 +231,12 @@ describe('a new recording, chunked (and the old single POST still works)', () =>
 });
 
 describe('an upload never overwrites a file the server holds (final review 6)', () => {
-	it('a file already there under that name: 409, the file as it was, the row phone-only', async () => {
+	it('a file already there under that name: 400 (final), the file as it was, the row phone-only', async () => {
 		const id = phoneRec();
 		await mkdir(join(envMock.DATA_DIR, 'recordings'), { recursive: true });
 		await writeFile(join(envMock.DATA_DIR, 'recordings', FILE), 'trashed');
 		const res = await chunk(recFile, { id: String(id), uploadId: UPLOAD }, 0, 10, 10);
-		expect(res.status).toBe(409);
+		expect(res.status).toBe(400);
 		expect((await stat(join(envMock.DATA_DIR, 'recordings', FILE))).size).toBe(7);
 		expect(recRow(id).serverCopy).toBe(false);
 	});

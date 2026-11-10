@@ -44,6 +44,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.core.content.ContextCompat
@@ -143,6 +144,8 @@ abstract class WebShell : ComponentActivity() {
 
     /** A person's own videos left in the gallery (offline phase 4c, [VideosBridge]). */
     private lateinit var videos: VideosBridge
+    /** Android 13+: an original's upload shows its progress in a notification (asked once, on Upload). */
+    private val askNotify = registerForActivityResult(RequestPermission()) {}
     private val pickOneVideo = registerForActivityResult(PickVisualMedia()) { uri -> videos.picked(listOfNotNull(uri)) }
     private val pickVideos = registerForActivityResult(PickMultipleVisualMedia()) { uris -> videos.picked(uris) }
     private val deleteFromGallery = registerForActivityResult(StartIntentSenderForResult()) { result ->
@@ -516,6 +519,11 @@ abstract class WebShell : ComponentActivity() {
             this,
             launchPick = { multiple -> if (multiple) pickVideos.launch(request) else pickOneVideo.launch(request) },
             launchDelete = { uri -> askToDelete(uri) },
+            askNotifications = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+            },
         )
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         WebViewCompat.addWebMessageListener(web, VIDEOS_OBJECT, setOf(BuildConfig.SITE)) { _, message, _, isMainFrame, reply ->

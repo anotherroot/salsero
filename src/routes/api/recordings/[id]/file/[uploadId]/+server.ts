@@ -42,7 +42,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const got = await receiveChunk(db, request, { userId: locals.user.id }, name);
 	if (got instanceof Response) return got;
 	const target = join(recordingsDir(), row.rec.file);
-	if (!(await placeUpload(got.partial, target))) return fail(409, t().video.place.refusal.onServer);
+	// Final, not 409: an uploader reads 409 as "go on from x-received-bytes" and tries again.
+	if (!(await placeUpload(got.partial, target))) return fail(400, t().video.place.refusal.onServer);
 	let attached;
 	try {
 		attached = await writeGate.shared(async () => attachServerCopy(db, 'recordings', id, got.size));

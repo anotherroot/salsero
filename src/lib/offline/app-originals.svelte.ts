@@ -25,6 +25,8 @@ export async function readAppOriginals(userId: string | null): Promise<void> {
 		listening = true;
 		app.on((e) => {
 			if (e.event === 'progress') noteUpload(e.file, e.pct ?? 0);
+			// Waiting (to pair, or for an app update): no percentage that never moves.
+			else if (e.event === 'waiting') noteUpload(e.file, null);
 			else {
 				noteUpload(e.file, null);
 				if (e.event === 'done') {
@@ -44,7 +46,8 @@ export async function addFromApp(
 	multiple: boolean
 ): Promise<{ added: { id: number; file: string }[]; refused: number }> {
 	const app = appVideos();
-	if (!app || !person) return { added: [], refused: 0 };
+	// No person known yet (part 2 review C1): say so, never a silent nothing.
+	if (!app || !person) return { added: [], refused: 1 };
 	const picked = (await app.pick(multiple, person)) ?? [];
 	const added: { id: number; file: string }[] = [];
 	let refused = 0;
@@ -101,6 +104,7 @@ export async function forgetInApp(file: string): Promise<void> {
 
 /** After a phone-only video is deleted: its original goes, wherever this phone holds it. */
 export async function letOriginalGo(file: string): Promise<void> {
-	if (appOriginals.files.includes(file)) await forgetInApp(file);
-	else await dropOriginal(file);
+	// The app may hold it though its gallery file is gone (not in `appOriginals`): always ask it.
+	if (appVideos()) await forgetInApp(file);
+	await dropOriginal(file);
 }

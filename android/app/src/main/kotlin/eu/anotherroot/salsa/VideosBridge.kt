@@ -36,12 +36,16 @@ class VideosBridge(
     private val context: Context,
     private val launchPick: (multiple: Boolean) -> Unit,
     private val launchDelete: (uri: Uri) -> Boolean,
+    /** Android 13+: asks once to post notifications (an upload's progress and outcome). */
+    private val askNotifications: () -> Unit = {},
 ) {
     val store = OriginalStore(File(context.noBackupFilesDir, "originals.json"))
     private val resolver: ContentResolver get() = context.contentResolver
     private var reply: JavaScriptReplyProxy? = null
     private var pending: Pair<String, String>? = null // the pick's id and owner
     private var deleting: Pair<String, String>? = null // the forget's id and file
+    /** The person the page last named (`pick`, `held`): whose originals count and serve. */
+    private var person: String? = null
 
     fun onMessage(data: String?, from: JavaScriptReplyProxy) {
         reply = from
@@ -53,15 +57,24 @@ class VideosBridge(
         val id = asked.optString("id")
         when (asked.optString("op")) {
             "pick" -> {
+                person = asked.optString("userId")
                 pending = id to asked.optString("userId")
                 launchPick(asked.optBoolean("multiple"))
             }
-            "held" -> answer(id, JSONObject().put("files", heldJson(asked.optString("userId"))))
+            "held" -> {
+                person = asked.optString("userId")
+                answer(id, JSONObject().put("files", heldJson(asked.optString("userId"))))
+            }
             "forget" -> forget(id, asked.optString("file"), asked.optBoolean("gallery"))
-            "space" -> answer(id, JSONObject().put("free", freeBytes()).put("gallery", store.all().sumOf { it.size }))
+            "space" -> answer(
+                id,
+                JSONObject().put("free", freeBytes())
+                    .put("gallery", person?.let { p -> store.of(p).sumOf { maxOf(0L, it.size) } } ?: 0L),
+            )
             "upload" -> {
                 val file = asked.optString("file")
-                val o = store.get(file)
+                val o = store.get(file)?.takeIf { person == null || it.owner == person }
+                askNotifications()
                 val queued = o != null && UploadQueue.addOriginal(
                     context,
                     Uri.parse(o.uri),
@@ -69,7 +82,14 @@ class VideosBridge(
                     else Target.LessonVideo(asked.optLong("rowId")),
                     file,
                 )
-                answer(id, JSONObject().put("queued", queued))
+                // Never paired (an own place no longer goes through salsa://upload): pair now;
+                // the job waits, and pairing resumes the queue (part 2 review I1).
+                val pairing = queued && Prefs.token(context) == null
+                if (pairing) {
+                    startPairing(context, null)
+                    UploadEvents.waiting(file)
+                }
+                answer(id, JSONObject().put("queued", queued).put("pairing", pairing))
             }
         }
     }
@@ -145,10 +165,21 @@ class VideosBridge(
         -1
     }
 
-    private fun sizeOf(uri: Uri): Long = try {
-        resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: 0
-    } catch (e: Exception) {
-        0
+    /** The file's size: its descriptor's, else what the provider says (a cloud item's pipe has none). */
+    private fun sizeOf(uri: Uri): Long {
+        val fromFd = try {
+            resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1
+        } catch (e: Exception) {
+            -1
+        }
+        if (fromFd >= 0) return fromFd
+        return try {
+            resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1
+            } ?: -1
+        } catch (e: Exception) {
+            -1
+        }
     }
 
     private fun displayName(uri: Uri): String? = try {
@@ -175,17 +206,27 @@ class VideosBridge(
      * app holds: the gallery's bytes, with Range. Null for anything else (the
      * request goes on as usual); 404 when the gallery file is gone.
      */
-    fun serve(path: String, method: String, headers: Map<String, String>): WebResourceResponse? {
+    fun serve(path: String, method: String, headers: Map<String, String>): WebResourceResponse? = try {
+        answerOriginal(path, method, headers)
+    } catch (e: Exception) {
+        // Anything wrong here: the request goes on to the network, never a crashed WebView thread.
+        null
+    }
+
+    private fun answerOriginal(path: String, method: String, headers: Map<String, String>): WebResourceResponse? {
         if (method != "GET") return null
         val file = originalPathFile(path) ?: return null
-        val o = store.get(file) ?: return null
+        val o = store.get(file)?.takeIf { person == null || it.owner == person } ?: return null
         val uri = Uri.parse(o.uri)
         val size = sizeOf(uri)
+        // The gallery file gone, or of no known size: the server's copy (if any) answers
+        // instead (part 2 review I2); the page reads a 404 from there as missing.
+        if (size < 0) return null
         val stream = try {
             resolver.openInputStream(uri)
         } catch (e: Exception) {
             null
-        } ?: return WebResourceResponse(o.mime, null, 404, "Not Found", mapOf(FROM_DEVICE), ByteArrayInputStream(ByteArray(0)))
+        } ?: return null
         val range = headers.entries.firstOrNull { it.key.equals("range", ignoreCase = true) }?.value
         val base = mapOf("Accept-Ranges" to "bytes", FROM_DEVICE, "Cache-Control" to "no-store")
         return when (val span = spanOf(range, size)) {

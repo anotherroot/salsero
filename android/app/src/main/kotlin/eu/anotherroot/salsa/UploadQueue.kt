@@ -44,14 +44,20 @@ object UploadQueue {
      * upload, sent to its existing row; its gallery permission stays.
      */
     fun addOriginal(context: Context, source: Uri, target: Target, file: String): Boolean {
-        store(context).add(
+        val store = store(context)
+        if (store.queuedOriginal(file)) {
+            kick(context)
+            return true
+        }
+        val words = Prefs.words(context)
+        store.add(
             Job(
                 id = UUID.randomUUID().toString(),
                 source = source.toString(),
                 shareKey = null,
                 target = target,
                 back = "",
-                name = Prefs.words(context).theLesson,
+                name = if (target is Target.Recording) words.theFigure else words.theLesson,
                 queuedAt = System.currentTimeMillis(),
                 original = file,
             ),

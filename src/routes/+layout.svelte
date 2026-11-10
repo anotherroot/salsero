@@ -51,7 +51,7 @@
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
 	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
-	import { pagePerson } from '$lib/offline/person';
+	import { galleryPerson, pagePerson } from '$lib/offline/person';
 	import { readAppOriginals } from '$lib/offline/app-originals.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import OfflineStrip from '$lib/components/system/OfflineStrip.svelte';
@@ -334,10 +334,18 @@
 		const person = pagePerson(data);
 		if (person !== undefined) setPerson(person);
 	});
-	// The Android app's gallery originals for this person (offline phase 4c part 2).
+	// The Android app's gallery originals for this person (offline phase 4c part 2): asked
+	// again on a person change and when the app comes back (a gallery file may have gone).
+	const galleryOwner = $derived(galleryPerson(data));
 	$effect(() => {
-		const person = pagePerson(data);
-		if (person) void readAppOriginals(person);
+		const person = galleryOwner;
+		if (!person) return;
+		void readAppOriginals(person);
+		const back = () => {
+			if (document.visibilityState === 'visible') void readAppOriginals(person);
+		};
+		document.addEventListener('visibilitychange', back);
+		return () => document.removeEventListener('visibilitychange', back);
 	});
 	$effect(() => {
 		const show = () =>

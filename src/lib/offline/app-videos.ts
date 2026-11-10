@@ -8,7 +8,7 @@
 export type Picked = { file: string; mime: string; size: number; name: string };
 export type HeldOriginal = { file: string; size: number; readable: boolean };
 export type UploadEvent = {
-	event: 'progress' | 'done' | 'failed';
+	event: 'progress' | 'done' | 'failed' | 'waiting';
 	file: string;
 	pct: number | null;
 };

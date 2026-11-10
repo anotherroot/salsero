@@ -12,6 +12,11 @@ object UploadEvents {
         listener?.invoke("progress", file, pct)
     }
 
+    /** Waiting to pair, or for an app update (part 2 review I1): the page shows no percentage. */
+    fun waiting(file: String) {
+        listener?.invoke("waiting", file, null)
+    }
+
     fun ended(file: String, ok: Boolean) {
         listener?.invoke(if (ok) "done" else "failed", file, null)
     }

@@ -50,6 +50,9 @@ class JobStore(private val root: File) {
 
     fun isEmpty() = jobs().isEmpty()
 
+    /** A phone-only original's upload already waiting (offline phase 4c): a second Upload joins it. */
+    fun queuedOriginal(file: String) = jobs().any { it.original == file }
+
     fun remove(id: String) {
         dir(id).deleteRecursively()
     }

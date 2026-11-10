@@ -82,6 +82,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 Step.Done -> finish(job, words.addedTo(job.name), video, ok = true)
                 is Step.Fail -> finish(job, words.couldNotAdd(video, job.name), step.reason)
                 Step.Unpaired -> {
+                    job.original?.let { UploadEvents.waiting(it) }
                     // Kept, all of them: pairing again resumes the queue (LinkActivity kicks it).
                     Prefs.setToken(ctx, null)
                     Notify.unpaired(ctx)
@@ -92,6 +93,7 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                     finish(job, words.couldNotAdd(video, job.name), words.keptFailing)
                 }
                 Step.UpdateNeeded -> {
+                    job.original?.let { UploadEvents.waiting(it) }
                     // Kept, not stalled: an update (or the site relaxing its minimum) lets it carry on.
                     Notify.updateNeeded(ctx, job.id.hashCode() and 0xffff, ctx.getString(R.string.app_name), video, job.back)
                     return@withContext Result.retry()
