@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
-import { deviceSlots, lessonVideos, recordings, users } from '../db/schema';
+import { deviceSlots, lessons, lessonVideos, recordings, users } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
 import { setRole } from '../membership';
 import { addRecording, createFigure } from '../figures';
@@ -14,7 +14,8 @@ import { NO_FILES, T2_SALSA, U1_SALSA } from '../test-walls';
 import { cloneInto } from './clone';
 import { copyOffer, copyTo } from './copy-to';
 import { leftBehind } from './phone-only';
-import { moveOffer } from './move';
+import { moveLesson, moveOffer } from './move';
+import { attachServerCopy } from '../phone-videos';
 
 const T = 1_790_000_000_000;
 const NOW = T + 1000;
@@ -193,5 +194,67 @@ describe('the Move to offer says what stays behind too', () => {
 			count: 1,
 			label: { kind: 'iphone', model: null }
 		});
+	});
+});
+
+describe('Move uploads first (a moved lesson is archived: what stays behind is lost to sight)', () => {
+	function lessonWithPhoneVideo() {
+		const lesson = createLesson(db, U1_SALSA, {
+			title: 'L',
+			lessonDay: '2026-11-01',
+			notes: null
+		}).lesson;
+		const v = addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: 'pv.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 5
+		});
+		db.update(lessonVideos)
+			.set({ serverCopy: false, originSlot: 3, originBytes: 700 })
+			.where(eq(lessonVideos.id, v.id))
+			.run();
+		return { lesson: lesson.id, video: v.id };
+	}
+	const videosIn = (lessonId: number) =>
+		db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, lessonId)).all();
+
+	it('the offer lists each phone-only video, as the page tells where it is', () => {
+		const { lesson, video } = lessonWithPhoneVideo();
+		expect(moveOffer(db, U1_SALSA, lesson)?.phoneOnly).toEqual([
+			{
+				id: video,
+				table: 'lesson_videos',
+				file: 'pv.mp4',
+				serverCopy: false,
+				originSlot: 3,
+				sizeBytes: 5,
+				originBytes: 700
+			}
+		]);
+	});
+
+	it('refused while one is only on a phone, writing nothing', async () => {
+		const { lesson } = lessonWithPhoneVideo();
+		const res = await moveLesson(db, U1_SALSA, lesson, 2, {}, {}, NO_FILES, NOW, ROOMY);
+		expect(res).toEqual({ ok: false, reason: 'phoneOnly' });
+		expect(db.select().from(lessons).where(eq(lessons.id, lesson)).get()?.archivedAt).toBeNull();
+	});
+
+	it('moved without it when the person says so: it stays with the archived lesson', async () => {
+		const { lesson } = lessonWithPhoneVideo();
+		const res = await moveLesson(db, U1_SALSA, lesson, 2, {}, {}, NO_FILES, NOW, ROOMY, {
+			leaveVideos: true
+		});
+		expect(res.ok).toBe(true);
+		expect(videosIn(res.ok ? res.id : -1)).toEqual([]);
+	});
+
+	it('once uploaded, the video moves with the lesson', async () => {
+		const { lesson, video } = lessonWithPhoneVideo();
+		attachServerCopy(db, 'lesson_videos', video, 80);
+		const res = await moveLesson(db, U1_SALSA, lesson, 2, {}, {}, NO_FILES, NOW, ROOMY);
+		expect(res.ok).toBe(true);
+		expect(videosIn(res.ok ? res.id : -1).map((v) => v.file)).toEqual(['copy-pv.mp4']);
 	});
 });

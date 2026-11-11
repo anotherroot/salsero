@@ -2,8 +2,6 @@
  * The pieces of a round the page needs that are not judging. PURE and client-safe.
  */
 import type { Placed } from '$lib/songs/sections';
-import { SPOT_ON_S } from './judge';
-import type { DropAnswer } from './drops';
 
 export type RoundKind = 'tapAlong' | 'dropped';
 
@@ -20,25 +18,6 @@ export function songParts(placed: Placed[]): Part[] {
 	return sorted.flatMap((s, i) =>
 		s.countOff ? [] : [{ name: s.name, from: s.t, to: sorted[i + 1]?.t ?? Infinity }]
 	);
-}
-
-export type Reveal =
-	| { kind: 'spot' }
-	| { kind: 'late' | 'early'; ms: number }
-	| { kind: 'other'; count: number }
-	| { kind: 'missed' }
-	| { kind: 'none' };
-
-/** What the stage says after a drop's tap. */
-export function revealOf(a: DropAnswer, positions: number[]): Reveal {
-	if (a.tap === null) return { kind: 'none' };
-	if (a.hit && a.offset !== null) {
-		if (Math.abs(a.offset) <= SPOT_ON_S + 1e-9) return { kind: 'spot' };
-		const ms = Math.round(Math.abs(a.offset) * 1000);
-		return { kind: a.offset > 0 ? 'late' : 'early', ms };
-	}
-	if (a.count !== null && !positions.includes(a.count)) return { kind: 'other', count: a.count };
-	return { kind: 'missed' };
 }
 
 /** Eights of music a round plays before the first beat it judges: nobody can tap a 1 they have not heard coming. */
@@ -58,4 +37,41 @@ export function roundSpan(
 	const from = part ? part.from : musicStart;
 	const play = Math.max(musicStart, from - lead);
 	return { play, judgeFrom: Math.max(from, play + lead), to: part ? part.to : Infinity };
+}
+
+/**
+ * A target circle on screen. While tapping only future, next and filled are
+ * used: how close a tap was shows only when the drop ends (spot, close, miss,
+ * and skip for the first eight's beats before the first tap).
+ */
+export type CircleState = 'future' | 'next' | 'filled' | 'skip' | 'spot' | 'close' | 'miss';
+
+/** A drop (or, in a tap-along round, a part of the song) as the result shows it. */
+export interface FinishedDrop {
+	answer: import('./drops').DropAnswer;
+	restarts: number;
+	skipped: boolean;
+	/** Eights listened before the first tap of the last attempt. */
+	listenEights: number;
+	/** The song's section the drop was in ('' when the song has none). */
+	section: string;
+}
+
+/**
+ * A tap-along round's one row: filled in order, the next circle marked. A row
+ * just finished (`full`) shows full for a moment before it empties.
+ */
+export function tapRow(
+	positions: number[],
+	fill: number,
+	full: boolean
+): Record<number, CircleState> {
+	const n = positions.length;
+	const k = full && fill > 0 && fill % n === 0 ? n : fill % n;
+	return Object.fromEntries(
+		positions.map((p, i): [number, CircleState] => [
+			p,
+			i < k ? 'filled' : i === k ? 'next' : 'future'
+		])
+	);
 }

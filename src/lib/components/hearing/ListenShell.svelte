@@ -17,16 +17,29 @@
 		stage: Snippet;
 		bar: Snippet;
 		children: Snippet;
+		/** A long sheet (the result): the band takes only what it needs and the sheet scrolls. */
+		scroll?: boolean;
 	}
 
-	let { title, subtitle, backLabel, onback, stage, bar, children }: Props = $props();
+	let {
+		title,
+		subtitle,
+		backLabel,
+		onback,
+		stage,
+		bar,
+		children,
+		scroll = false
+	}: Props = $props();
 </script>
 
 <div
 	class="fixed inset-y-0 left-1/2 z-10 flex w-full max-w-[560px] -translate-x-1/2 flex-col bg-band"
 >
 	<header
-		class="flex min-h-0 flex-1 flex-col gap-1.5 bg-band px-4 pt-[calc(var(--safe-top)+12px)] pb-9"
+		class="flex flex-col gap-1.5 bg-band px-4 pt-[calc(var(--safe-top)+12px)] pb-9 {scroll
+			? 'flex-none'
+			: 'min-h-0 flex-1'}"
 		style="--focus-ring: var(--color-band-ink)"
 	>
 		<div class="-ml-[10px] flex min-w-0 items-center gap-1">
@@ -40,11 +53,19 @@
 			</h1>
 		</div>
 		<p class="truncate pl-[38px] text-[15px] font-semibold text-band-small">{subtitle}</p>
-		<div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
+		<div
+			class="flex flex-col gap-3 {scroll
+				? 'items-start pt-2 text-left'
+				: 'min-h-0 flex-1 items-center justify-center text-center'}"
+		>
 			{@render stage()}
 		</div>
 	</header>
-	<div class="-mt-7 flex flex-none flex-col rounded-t-[28px] bg-ground">
+	<div
+		class="-mt-7 flex flex-col rounded-t-[28px] bg-ground {scroll
+			? 'min-h-0 flex-1 overflow-y-auto overscroll-contain'
+			: 'flex-none'}"
+	>
 		<div class="flex flex-col gap-3 px-4 pt-4 pb-[100px]">
 			{@render children()}
 		</div>

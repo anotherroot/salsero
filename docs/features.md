@@ -140,7 +140,8 @@ under any video keeps that one; downloads resume where they were cut off; short 
 once and a dot on You; see the phase 4 spec's 4b); your own videos only on the phone (4c part 1,
 on an iPhone or a phone's browser: a new video on your own figure or lesson stays there as the
 original, Where is this video offers Upload and Remove the server copy, another device shows a
-dark frame "On Pixel 8", an iPhone warns once with a card; copies leave them behind; recordings
+dark frame "On Pixel 8", an iPhone warns once with a card; copies leave them behind, but Move to… uploads the ones on
+this phone first and then moves the lesson with them (look B, 2026-11-11); recordings
 upload in chunks up to 1 GB; in the Android app 1.10 the original stays in the gallery and the app
 serves and uploads it); phase 5 (2026-11-10) took the old Offline screen away: with no signal
 and no copy on the phone yet, a link stays on its page and a toast says the page needs a
@@ -178,11 +179,16 @@ update waits. `/health` says the version too, and `deploy.sh` ends by printing w
 Can you find the 1? (2026-11-11, hearing drills phase 1): a card on a song's page opens the listening
 player (`/[dance]/songs/[id]/listen`) on a song a person counted (anchors set; the computer's guess alone
 never grades anyone). Tap along (the whole song or one part, the count hidden) or Dropped in (up to ten
-random spots, tap the next one), listening for the 1, every beat, 1 · 5, 1 3 5 7, 4 · 8 or the clave; a
-one-time tap delay check per browser (`hearing.tapDelayMs`); the result in words per part or per drop and a
-beat strip. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
+random spots, tap the next one), listening for the 1, every beat, 1 · 5, 1 3 5 7, 4 · 8, the clave or your own counts (any of 1–8, kept in
+this browser); a target of several beats is tapped for two eights per drop; a
+one-time tap delay check per browser (`hearing.tapDelayMs`). Phase 1b (2026-11-11): the target drawn as circles on
+the eight that taps fill in order with no hint of how close; a drop is the first tap's eight and the next; a spot
+starts over after four eights without a tap, after a long gap, or on Reset, and Skip shows after three
+start-overs; colours only when a drop ends, then the next spot slides in; result B with a 0–100 score (timing,
+less restarts and listening), every tap stacked under its circle, one sentence on what to work on, and ▶
+replay per drop; the clave card with Hear it in the setup. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
 [`docs/superpowers/specs/2026-11-10-hearing-drills-design.md`](docs/superpowers/specs/2026-11-10-hearing-drills-design.md),
-boards https://claude.ai/artifact/WBkgBLMuE8ADXoqgLgtfou and https://claude.ai/artifact/LKHBYc9NEjWToSesUy7FoD.
+boards https://claude.ai/artifact/WBkgBLMuE8ADXoqgLgtfou and https://claude.ai/artifact/Wdspg2ZuajQvwVgAfvdB9N (1b).
 
 
 ## Specs

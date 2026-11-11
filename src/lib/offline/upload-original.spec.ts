@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { uploadOriginal } from './upload-original';
+import { landOriginal, uploadOriginal } from './upload-original';
 import { uploadOf } from './uploads.svelte';
 
 describe('uploadOriginal: Upload on a phone-only video (offline phase 4c)', () => {
@@ -77,5 +77,63 @@ describe('uploadOriginal: after the review (4c minors)', () => {
 		expect(await second).toEqual({ ok: true });
 		expect(await first).toEqual({ ok: true });
 		expect(log.filter((l) => l === 'put')).toHaveLength(1);
+	});
+});
+
+describe('landOriginal: Upload, and wait until it is on the server (Move to)', () => {
+	const V = { table: 'lesson_videos' as const, id: 3, file: 'm.mp4' };
+
+	it('the app holds it: queued, then waits for the app to say it landed', async () => {
+		const order: string[] = [];
+		let land!: (ok: boolean) => void;
+		const out = landOriginal(V, {
+			inApp: () => true,
+			ended: () => {
+				order.push('listen');
+				return new Promise((r) => (land = r));
+			},
+			upload: async () => {
+				order.push('queue');
+				return { ok: true };
+			}
+		});
+		await Promise.resolve();
+		await Promise.resolve();
+		// Listening starts before the queue, so a fast done is never missed.
+		expect(order).toEqual(['listen', 'queue']);
+		land(true);
+		expect(await out).toEqual({ ok: true });
+	});
+
+	it('the app says it failed: not landed', async () => {
+		const out = await landOriginal(V, {
+			inApp: () => true,
+			ended: async () => false,
+			upload: async () => ({ ok: true })
+		});
+		expect(out).toEqual({ ok: false, reason: null });
+	});
+
+	it('the app could not queue it: its answer, without waiting', async () => {
+		const out = await landOriginal(V, {
+			inApp: () => true,
+			ended: () => new Promise(() => {}),
+			upload: async () => ({ ok: false, reason: 'x' })
+		});
+		expect(out).toEqual({ ok: false, reason: 'x' });
+	});
+
+	it('this phone’s store holds it: Upload itself is the landing', async () => {
+		let listened = false;
+		const out = await landOriginal(V, {
+			inApp: () => false,
+			ended: async () => {
+				listened = true;
+				return true;
+			},
+			upload: async () => ({ ok: true })
+		});
+		expect(out).toEqual({ ok: true });
+		expect(listened).toBe(false);
 	});
 });

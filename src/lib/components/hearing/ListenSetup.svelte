@@ -3,8 +3,9 @@
 	import { CHIP, GROUP, ROW, SECTION_LABEL } from '$lib/components/ui/styles';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
-	import type { TargetId } from '$lib/hearing/targets';
+	import { ownCounts, type TargetId } from '$lib/hearing/targets';
 	import { targetLabel } from '$lib/hearing/words';
+	import ClaveCard from './ClaveCard.svelte';
 	import type { RoundKind } from '$lib/hearing/round';
 
 	/** The round's choices, in the sheet under the stage. Start is the page's bar. */
@@ -12,23 +13,29 @@
 		kind: RoundKind;
 		target: TargetId;
 		clave: ClavePattern;
+		/** The counts for the `own` target. */
+		own: number[];
 		/** The chosen part of the song (an index into `parts`), or null for the whole song. */
 		part: number | null;
 		targets: TargetId[];
 		parts: string[];
 		tapDelayMs: number | null;
 		oncheck: () => void;
+		/** Hear the clave: two eights of the count with the clave on (the page's, inside the tap). */
+		onhearclave: () => void;
 	}
 
 	let {
 		kind = $bindable(),
 		target = $bindable(),
 		clave = $bindable(),
+		own = $bindable(),
 		part = $bindable(),
 		targets,
 		parts,
 		tapDelayMs,
-		oncheck
+		oncheck,
+		onhearclave
 	}: Props = $props();
 	const w = $derived(t().hearing);
 	const KINDS: RoundKind[] = ['tapAlong', 'dropped'];
@@ -64,7 +71,7 @@
 					checked={target === id}
 					onchange={() => (target = id)}
 				/>
-				{targetLabel(id)}
+				{id === 'own' ? w.targets.own : targetLabel(id)}
 			</label>
 		{/each}
 	</div>
@@ -78,6 +85,23 @@
 						class="sr-only"
 						checked={clave === c}
 						onchange={() => (clave = c)}
+					/>
+					{c}
+				</label>
+			{/each}
+		</div>
+		<ClaveCard {clave} onhear={onhearclave} />
+	{/if}
+	{#if target === 'own'}
+		<div role="group" aria-label={w.setup.ownCounts} class="flex flex-wrap gap-x-1.5 gap-y-1">
+			{#each [1, 2, 3, 4, 5, 6, 7, 8] as c (c)}
+				<label class={CHIP}>
+					<input
+						type="checkbox"
+						class="sr-only"
+						checked={own.includes(c)}
+						onchange={(e) =>
+							(own = e.currentTarget.checked ? ownCounts([...own, c]) : own.filter((x) => x !== c))}
 					/>
 					{c}
 				</label>

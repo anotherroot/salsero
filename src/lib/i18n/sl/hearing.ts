@@ -1,4 +1,5 @@
 import type { Catalog } from '../catalog';
+import { slCount } from '../plural';
 
 const seconds = (s: number) => s.toFixed(1).replace('.', ',');
 
@@ -16,6 +17,7 @@ export const hearing: Catalog['hearing'] = {
 		target: 'Poslušajte za',
 		part: 'Del skladbe',
 		wholeSong: 'Cela skladba',
+		ownCounts: 'Vaše številke',
 		start: 'Začni'
 	},
 	kinds: {
@@ -24,20 +26,13 @@ export const hearing: Catalog['hearing'] = {
 	},
 	kindSub: {
 		tapAlong: 'Štetje je skrito. Tapkajte zraven do konca.',
-		dropped: 'Deset naključnih mest v skladbi. Vsakič poiščite naslednjo.'
+		dropped: 'Deset naključnih mest v skladbi. Poiščite udarec in ga tapkajte dve osmici.'
 	},
 	targets: {
 		one: 'Ena',
 		every: 'Vsak udarec',
-		clave: 'Klava'
-	},
-	onTarget: {
-		one: 'na ena',
-		every: 'na udarec',
-		ones: 'na 1 in 5',
-		odd: 'na 1 3 5 7',
-		fourEight: 'na 4 in 8',
-		clave: 'na klavo'
+		clave: 'Klava',
+		own: 'Svoje'
 	},
 	tapOn: {
 		one: 'Tapnite na ena',
@@ -45,46 +40,77 @@ export const hearing: Catalog['hearing'] = {
 		ones: 'Tapnite na 1 in 5',
 		odd: 'Tapnite na 1 3 5 7',
 		fourEight: 'Tapnite na 4 in 8',
-		clave: 'Tapkajte klavo'
-	},
-	tapNext: {
-		one: 'Tapnite naslednjo ena',
-		every: 'Tapnite naslednji udarec',
-		ones: 'Tapnite naslednjo 1 ali 5',
-		odd: 'Tapnite naslednjo 1, 3, 5 ali 7',
-		fourEight: 'Tapnite naslednjo 4 ali 8',
-		clave: 'Tapnite naslednji udarec klave'
+		clave: 'Tapkajte klavo',
+		own: 'Tapnite na svoje številke'
 	},
 	anywhere: 'kjerkoli tukaj',
 	hidden: 'Štetje je skrito do konca',
 	drop: (n, of) => `Mesto ${n} od ${of}`,
 	listen: 'Poslušajte, nato tapnite',
-	reveal: {
-		spot: 'Točno',
-		late: (ms) => `Najdeno · ${ms} ms prepozno`,
-		early: (ms) => `Najdeno · ${ms} ms prezgodaj`,
-		other: (count) => `To je bila ${count}`,
-		missed: 'Ni na udarcu'
-	},
+	keepTapping: 'Tapkajte še dve osmici',
 	result: {
-		title: 'Kako blizu ste bili',
-		score: (hit, of) => `${hit} od ${of}`,
-		late: (ms) => `V povprečju ${ms} ms prepozno`,
-		early: (ms) => `V povprečju ${ms} ms prezgodaj`,
-		onTime: 'V povprečju pravočasno',
-		listened: (s) => `Pred tapom ste poslušali približno ${seconds(s)} s`,
+		title: 'Kako blizu ste bili'
+	},
+	eightRow: (n) => `Osmica ${n}`,
+	reset: 'Znova',
+	skip: 'Preskoči',
+	startOver: {
+		noTap: 'Štiri osmice brez tapa: znova od začetka mesta',
+		stopped: 'Nehali ste: znova od začetka mesta',
+		reset: 'Od začetka tega mesta'
+	},
+	listening: 'Poslušajte …',
+	listenFirst: 'najprej poslušajte',
+	nextSpot: 'prihaja naslednje mesto',
+	restartsLine: (n) => slCount(n, ['ponovitev', 'ponovitvi', 'ponovitve', 'ponovitev']),
+	firstTry: 'V prvo',
+	posName: (whole, and) => (and ? `»in« po ${whole}` : `${whole}`),
+	score: {
+		title: (n) => `Ocena ${n}`,
+		onBeat: (hit, of) => `${hit} od ${of} na udarcu`,
+		findEach: (s) => `približno ${seconds(s)} s za vsako mesto`,
+		timing: 'Natančnost',
+		restarts: 'Ponovitve',
+		listening: 'Poslušanje',
+		stackTitle: 'Vse vaše osmice, ena čez drugo',
+		stackLabel: 'Vsak tap igre pod udarcem, za katerega je bil',
+		early: '◂ prezgodaj',
+		late: 'prepozno ▸',
+		dropRow: (n, section) => (section ? `Mesto ${n} · ${section}` : `Mesto ${n}`),
+		counted: (hit, of) => `${hit} od ${of}`,
+		skipped: 'preskočeno',
+		replayDrop: (n) => `Znova predvajaj mesto ${n}`,
 		verdict: {
-			on: 'Pravočasno',
-			late: (ms) => `Prepozno, ${ms} ms`,
-			early: (ms) => `Prezgodaj, ${ms} ms`,
-			other: (count) => `Na ${count}`,
-			missed: 'Zgrešeno'
-		},
-		wholeSong: 'Skladba',
-		drop: (n) => `Mesto ${n}`,
-		noTap: 'Brez tapa',
-		tooShort: 'Prekratko za oceno. Tapkajte malo dlje.',
-		strip: 'Vaši tapi na štetju, ena vrstica na osmico'
+			late: (pos) => `Zamujate na ${pos}`,
+			early: (pos) => `Prehitevate na ${pos}`,
+			offSub: (ms) => `Približno ${ms} ms, skoraj vsakič. Drugo je pravočasno.`,
+			missed: (pos) => `Najpogosteje zgrešite ${pos}`,
+			missedSub: (n, of) => `${n}-krat od ${of}.`,
+			onTime: 'Vse pravočasno',
+			onTimeSub: 'Vsak udarec znotraj 60 ms.'
+		}
+	},
+	replay: {
+		title: (n) => `Znova · mesto ${n}`,
+		countOn: 'Štetje je vključeno',
+		yourTap: 'vaš tap',
+		onTime: 'pravočasno',
+		close: 'blizu',
+		missed: 'zgrešeno',
+		now: 'zdaj',
+		back: 'Nazaj na rezultat',
+		prev: 'Udarec nazaj',
+		next: 'Udarec naprej',
+		play: 'Predvajaj',
+		pause: 'Premor',
+		slower: 'Počasneje'
+	},
+	clave: {
+		t23: 'Klava 2-3: dva udarca, nato trije',
+		p23: 'Na 2 in na 3, nato na 5, na »in« po 6 (med 6 in 7) in na 8.',
+		t32: 'Klava 3-2: trije udarci, nato dva',
+		p32: 'Na 1, na »in« po 2 (med 2 in 3) in na 4, nato na 6 in na 7.',
+		hear: 'Poslušaj'
 	},
 	again: 'Še enkrat',
 	done: 'Končano',

@@ -324,10 +324,14 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 		use,
 		realCloneFiles(),
 		serverNow(),
-		await freeDisk()
+		await freeDisk(),
+		// The person chose to move without the videos only on another device.
+		{ leaveVideos: form.get('without') === '1' }
 	);
 	if (res.ok) throw redirect(303, itemHref(wall, 'lesson', res.id));
 	switch (res.reason) {
+		case 'phoneOnly':
+			return fail(409, { action: 'move' as const, message: t().video.place.move.notUploaded });
 		case 'room':
 			if (res.room.ok) throw error(500, 'Refused without a reason');
 			return fail(413, { action: 'move' as const, message: res.room.message });

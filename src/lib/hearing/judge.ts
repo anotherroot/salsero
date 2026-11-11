@@ -25,11 +25,11 @@ export interface Expected {
 /** Within this, a tap is spot on. */
 export const SPOT_ON_S = 0.06;
 /** The farthest a tap may sit from its beat and still count. */
-const WINDOW_MAX_S = 0.15;
+export const WIN_S = 0.15;
 
 /** How far from a target a tap still counts: 150 ms, or under half a beat when beats are short. */
 export function windowS(beatS: number): number {
-	return Math.min(WINDOW_MAX_S, 0.45 * beatS);
+	return Math.min(WIN_S, 0.45 * beatS);
 }
 
 /** Every position of the target in every eight whose time falls in [from, to), outside the quiet parts. */
