@@ -7,8 +7,8 @@
  */
 import { nearestBeat } from '$lib/beatgrid/beatgrid';
 import { isQuiet, type QuietRange } from '$lib/scheduler/quiet';
-import { timeAt, timeline } from '$lib/scheduler/scheduler';
-import { matchTaps, windowS, type Expected, type Grid } from './judge';
+import { timeline } from '$lib/scheduler/scheduler';
+import { matchTaps, type Expected, type Grid } from './judge';
 
 /** Drops in a round. */
 export const DROPS = 10;
@@ -44,38 +44,98 @@ export function dropStarts(
 	return picked.map((i) => grid.beats[i]);
 }
 
-const beatLength = (grid: Grid, i: number) =>
-	i >= 0 && i + 1 < grid.beats.length ? grid.beats[i + 1] - grid.beats[i] : 0.5;
+/**
+ * How far, in counts, the person's count sits from the music's: the first tap
+ * fills the pattern's first circle (`firstPos`), and it landed on `musicCount`.
+ */
+export function shiftOf(musicCount: number, firstPos: number): number {
+	return (((musicCount - Math.floor(firstPos)) % 8) + 8) % 8;
+}
 
-/** The two eights a drop judges: `eight` (the music's eight index), its 1, and the 1 two eights on. */
+/**
+ * What a drop keeps when the count was off (spec 1c.3): 4 off happens (the two
+ * halves of an eight sound alike), 2 off is worse, odd and even swapped worst.
+ */
+export function countKeep(shift: number): number {
+	const s = ((shift % 8) + 8) % 8;
+	if (s === 0) return 1;
+	if (s === 4) return 0.5;
+	if (s % 2 === 0) return 0.25;
+	return 0.1;
+}
+
+/**
+ * The two eights a drop judges, in the person's count: `startIndex` is the beat
+ * the person counted as 1, `shift` how far that is from the music's 1, `from`
+ * the first tap's beat, `end` the last expected beat, `eight` the music's eight
+ * of the first expected beat (the rows are drawn from there).
+ */
 export interface DropWindow {
 	eight: number;
 	from: number;
 	end: number;
+	startIndex: number;
+	shift: number;
 }
 
-/**
- * The eight the first tap falls in, and the next: the eight of the beat nearest
- * the tap. A tap just before a 1 belongs to that 1's eight, one just after an 8
- * to the 8's (the tap window is under half a beat).
- */
-export function dropWindow(grid: Grid, first: number): DropWindow {
+interface Planned {
+	index: number;
+	at: number;
+	pos: number;
+	yours: number;
+	k: number;
+}
+
+/** The expected beats of two person-eights from `startIndex`; beats past the song are left out. */
+function planned(grid: Grid, positions: number[], startIndex: number): Planned[] {
+	const out: Planned[] = [];
+	const sorted = [...positions].sort((a, b) => a - b);
+	for (let k = 0; k < PATTERN_EIGHTS; k++) {
+		for (const p of sorted) {
+			const whole = Math.floor(p);
+			const frac = p - whole;
+			const index = startIndex + 8 * k + whole - 1;
+			if (index < 0 || index >= grid.beats.length) continue;
+			if (frac && index + 1 >= grid.beats.length) continue;
+			const at = frac
+				? grid.beats[index] + (grid.beats[index + 1] - grid.beats[index]) * frac
+				: grid.beats[index];
+			out.push({ index, at, pos: grid.counts[index] + frac, yours: p, k });
+		}
+	}
+	return out;
+}
+
+/** The drop's window from its first tap: the beat nearest it is the pattern's first position. */
+export function dropWindow(grid: Grid, first: number, positions: number[]): DropWindow {
 	const tl = timeline(grid);
-	const i = nearestBeat(grid.beats, first);
-	const eight = Math.max(0, tl.eights[i] ?? 0);
-	const from = grid.beats[tl.starts[eight]] ?? grid.beats[0];
-	const next = tl.starts[eight + PATTERN_EIGHTS];
-	const last = grid.beats.length - 1;
-	const end = next !== undefined ? grid.beats[next] : grid.beats[last] + beatLength(grid, last - 1);
-	return { eight, from, end };
+	const i = Math.max(0, nearestBeat(grid.beats, first));
+	const firstPos = Math.min(...positions);
+	const startIndex = i - (Math.floor(firstPos) - 1);
+	const plan = planned(grid, positions, startIndex);
+	const eight = plan.length
+		? Math.max(0, tl.eights[plan[0].index] ?? 0)
+		: Math.max(0, tl.eights[i] ?? 0);
+	return {
+		eight,
+		from: grid.beats[i],
+		end: plan.length ? Math.max(...plan.map((x) => x.at)) : grid.beats[i],
+		startIndex,
+		shift: shiftOf(grid.counts[i], firstPos)
+	};
 }
 
 export type BeatState = 'spot' | 'close' | 'miss' | 'skip';
 
-/** One target beat of a drop, as judged: `row` 0 is the first tap's eight. */
+/**
+ * One target beat of a drop, as judged. `row`: the music's eight from the
+ * window's first (0–2); `pos`: where it sits in the music's count (drawn);
+ * `yours`: the count the person meant it as.
+ */
 export interface DropBeat {
-	row: 0 | 1;
+	row: 0 | 1 | 2;
 	pos: number;
+	yours: number;
 	at: number;
 	state: BeatState;
 	offset: number | null;
@@ -101,12 +161,15 @@ export interface DropAnswer {
 	beats: DropBeat[];
 	eight: number | null;
 	taps: number[];
+	/** How many counts the person's count was off (0 without a tap). */
+	shift: number;
 }
 
 /**
- * A drop, judged: every target beat of the first tap's eight (from the first
- * tap on) and of the next eight, matched with the taps as in a tap-along
- * round. No tap: all of them missed.
+ * A drop, judged in the person's count (spec 1c.3): two eights of the target from
+ * the first tap, the first tap being the pattern's first position; each expected
+ * beat takes the nearest tap within the window, as in a tap-along round, so one
+ * forgotten tap misses one circle. No tap: all of them missed.
  */
 export function judgeDropPattern(
 	grid: Grid,
@@ -130,27 +193,26 @@ export function judgeDropPattern(
 			close: 0,
 			beats: [],
 			eight: null,
-			taps: []
+			taps: [],
+			shift: 0
 		};
 	}
 	const tl = timeline(grid);
 	const near = nearestBeat(grid.beats, first);
-	const w = windowS(beatLength(grid, near));
-	const win = dropWindow(grid, first);
-	const beats: DropBeat[] = [];
-	const counted: Expected[] = [];
-	for (let row = 0; row < PATTERN_EIGHTS; row++) {
-		for (const pos of positions) {
-			const at = timeAt(tl, win.eight + row, pos);
-			if (at === null) continue;
-			const skip = row === 0 && at < first - w;
-			beats.push({ row: row as 0 | 1, pos, at, state: skip ? 'skip' : 'miss', offset: null });
-			if (!skip) counted.push({ at, eight: win.eight + row, pos });
-		}
-	}
+	const win = dropWindow(grid, first, positions);
+	const plan = planned(grid, positions, win.startIndex);
+	const beats: DropBeat[] = plan.map((x) => ({
+		row: Math.min(2, Math.max(0, (tl.eights[x.index] ?? win.eight) - win.eight)) as 0 | 1 | 2,
+		pos: x.pos,
+		yours: x.yours,
+		at: x.at,
+		state: 'miss',
+		offset: null
+	}));
+	const counted: Expected[] = plan.map((x) => ({ at: x.at, eight: x.k, pos: x.yours }));
 	const { matches } = matchTaps(grid, counted, sorted);
 	for (const m of matches) {
-		const b = beats.find((x) => x.at === m.expected.at && x.pos === m.expected.pos);
+		const b = beats.find((x) => x.at === m.expected.at && x.yours === m.expected.pos);
 		if (!b || m.mark === 'missed') continue;
 		b.state = m.mark;
 		b.offset = m.offset;
@@ -170,7 +232,8 @@ export function judgeDropPattern(
 		close: beats.filter((b) => b.state === 'close').length,
 		beats,
 		eight: win.eight,
-		taps: sorted
+		taps: sorted,
+		shift: win.shift
 	};
 }
 
