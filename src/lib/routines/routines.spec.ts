@@ -426,6 +426,7 @@ describe('rowEdges', () => {
 			starts: [1],
 			startCounts: [1],
 			ends: [2],
+			endState: 'single',
 			next: 1,
 			start: 1
 		});
@@ -436,6 +437,7 @@ describe('rowEdges', () => {
 			starts: [],
 			startCounts: [1],
 			ends: [],
+			endState: 'none',
 			next: 1,
 			start: 1
 		});
@@ -671,5 +673,61 @@ describe('a slot whose alternatives cannot all start on the incoming count (spec
 		const ok: RoutineShape = { slots: [slot([30]), slot([31, 34])] };
 		expect(timingBreaks(g2, ok)).toEqual([]);
 		expect(timingSeams(g2, ok)).toEqual([]);
+	});
+});
+
+describe('a slot’s end along the routine (spec 2026-11-11, slot end)', () => {
+	// 15 ends closed|hammerlock. 12 starts closed only. 13 starts open|closed.
+	const o = (id: number, end?: number) => ({
+		kind: 'options' as const,
+		figureIds: [id],
+		...(end !== undefined ? { end } : {})
+	});
+
+	it('narrows to the chosen end', () => {
+		const rows = rowEdgesIn(g, { slots: [o(15, 2), o(13)] });
+		expect(rows[0]).toMatchObject({ ends: [2], endState: 'chosen' });
+	});
+
+	it('is decided by the slot below, over a stored end', () => {
+		expect(rowEdgesIn(g, { slots: [o(15), o(12)] })[0]).toMatchObject({
+			ends: [2],
+			endState: 'decided'
+		});
+		expect(rowEdgesIn(g, { slots: [o(15, 3), o(12)] })[0]).toMatchObject({
+			ends: [2],
+			endState: 'decided'
+		});
+	});
+
+	it('makes a seam of a chosen end the slot below cannot take', () => {
+		const shape = { slots: [o(15, 3), o(13)] };
+		expect(positionSeams(g, shape)).toEqual([{ after: 0, next: 1 }]);
+		expect(breaks(g, shape)).toEqual([0]);
+		expect(positionSeams(g, { slots: [o(15), o(13)] })).toEqual([]);
+	});
+
+	it('reads as today with nothing chosen', () => {
+		expect(rowEdgesIn(g, { slots: [o(15), o(13)] })[0]).toMatchObject({
+			ends: [2, 3],
+			endState: 'open'
+		});
+	});
+
+	it('is decided by an embedded routine below', () => {
+		const shape: RoutineShape = {
+			slots: [o(15), { kind: 'child', routineId: 7, slots: [o(12)] }]
+		};
+		expect(rowEdgesIn(g, shape)[0]).toMatchObject({ ends: [2], endState: 'decided' });
+		expect(rowEdgesIn(g, shape)[1].endState).toBeUndefined();
+	});
+
+	it('skips an archived-only slot to find the slot below', () => {
+		const shape = { slots: [o(15), o(999), o(12)] };
+		expect(rowEdgesIn(g, shape)[0]).toMatchObject({ ends: [2], endState: 'decided' });
+	});
+
+	it('is where the routine leaves the hands', () => {
+		expect(routineEnds(g, { slots: [o(11), o(15, 2)] })).toEqual([2]);
 	});
 });

@@ -5,15 +5,16 @@
  * PURE and client-safe, like the rest of `src/lib/routines/`: the load hands
  * over candidates with their positions, and nothing here knows dances exist.
  * An untagged side fits anything: every comparison of hands goes through
- * `meet` (`src/lib/graph/graph.ts`), and alternatives compare their ends with
- * `sameSet`.
+ * `meet` (`src/lib/graph/graph.ts`), and an alternative's ends must fit the
+ * slot's end (`endFits`, `end.ts`).
  *
  * Fitting is ONE-SIDED on purpose. Building down from a slot matches where it
  * lands; building up into one matches where it starts. A gap often takes more
  * than one figure to close, so filtering by both neighbours at once would hide
  * exactly the figure that starts the bridge.
  */
-import { meet, sameSet } from '$lib/graph/graph';
+import { meet } from '$lib/graph/graph';
+import { endFits } from './end';
 import { LENGTH_CHOICES, nextCount } from '$lib/graph/timing';
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
@@ -69,7 +70,10 @@ export type Anchor =
 			kind: 'alternative';
 			starts: number[];
 			startCount: number;
+			/** Where the slot ends (its effective end: `end.ts`), what an alternative must reach. */
 			ends: number[];
+			/** The main figure's own ends: the rule while the slot's end is not one position. */
+			mainEnds: number[];
 			next: number;
 			exclude: number[];
 	  };
@@ -172,7 +176,7 @@ function standsIn(c: Candidate, a: Extract<Anchor, { kind: 'alternative' }>): bo
 	return (
 		c.kind === 'figure' &&
 		!a.exclude.includes(c.id) &&
-		sameSet(c.ends, a.ends) &&
+		endFits(c.ends, a.ends, a.mainEnds) &&
 		c.startCounts.includes(a.startCount) &&
 		(c.free === true || landsFrom(c, a.startCount) === a.next) &&
 		meet(c.starts, a.starts)
@@ -300,7 +304,15 @@ export function anchorAlternative(
 	const startCount = row?.start ?? main.startCounts[0];
 	const next = row ? row.next : main.next;
 	if (next === null) return null;
-	return { kind: 'alternative', starts: main.starts, startCount, ends: main.ends, next, exclude };
+	return {
+		kind: 'alternative',
+		starts: main.starts,
+		startCount,
+		ends: row?.ends ?? main.ends,
+		mainEnds: main.ends,
+		next,
+		exclude
+	};
 }
 
 /** Whether `n` counts from `start` leave the next slot on `want` (null: anything goes). */

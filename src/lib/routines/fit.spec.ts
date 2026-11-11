@@ -184,6 +184,7 @@ describe('pickList', () => {
 			starts: [1],
 			startCount: 1,
 			ends: [2],
+			mainEnds: [2],
 			next: 1,
 			exclude: [1]
 		};
@@ -256,6 +257,7 @@ describe('anchors', () => {
 			starts: [1],
 			startCount: 1,
 			ends: [2],
+			mainEnds: [2],
 			next: 1,
 			exclude: [1]
 		});
@@ -267,6 +269,7 @@ describe('anchors', () => {
 			starts: [],
 			startCount: 1,
 			ends: [],
+			mainEnds: [],
 			next: 1,
 			exclude: [1]
 		});
@@ -502,5 +505,25 @@ describe('lengthChoices', () => {
 		expect(preselect(1, null)).toBeNull();
 		// From 1, landing on 2 takes 9, 17… counts: none offered.
 		expect(preselect(1, 2)).toBeNull();
+	});
+});
+
+describe('an alternative where the slot’s end is set (spec 2026-11-11, slot end)', () => {
+	const main = fig(1, 'Main', { ends: [2, 3] });
+	const pool = [
+		main,
+		fig(2, 'Ends closed or open', { ends: [2, 1] }),
+		fig(3, 'Ends open', { ends: [1] })
+	];
+	const row = (ends: number[]) => ({ starts: [1], startCounts: [1], ends, next: 1, start: 1 });
+
+	it('takes one that can end there', () => {
+		const alt = anchorAlternative(main, [1], row([2]))!;
+		expect(ids(pickList(pool, alt, all)).figures.map((g) => g[0])).toEqual([2]);
+	});
+
+	it('keeps the old rule while nothing is set', () => {
+		const alt = anchorAlternative(main, [1], row([2, 3]))!;
+		expect(ids(pickList(pool, alt, all)).figures).toEqual([]);
 	});
 });

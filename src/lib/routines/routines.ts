@@ -17,6 +17,7 @@
  */
 import { countsOf, figureById, meet, sameSet, type Graph } from '$lib/graph/graph';
 import { nextCount, startOn } from '$lib/graph/timing';
+import { slotEnd, type EndState, type SlotEnd } from './end';
 
 /** A slot filled by interchangeable figures — the alternatives. */
 export interface OptionsSlot {
@@ -274,6 +275,12 @@ export interface RowEdges {
 	startCounts: number[];
 	/** `[]`: anything can follow. Null: unknown (options disagree, or nothing danceable). */
 	ends: number[] | null;
+	/**
+	 * How the end was reached (`end.ts`), for a row of one options slot; absent
+	 * for an embedded routine or a row with nothing danceable. `ends` is then
+	 * the slot's effective end (spec 2026-11-11, slot end).
+	 */
+	endState?: EndState;
 	next: number | null;
 	/**
 	 * Where the row's main figure starts as the routine walks (`walk`): the
@@ -286,14 +293,21 @@ export interface RowEdges {
 
 const NO_EDGES: RowEdges = { starts: [], startCounts: [], ends: null, next: null, start: null };
 
-function edgesOf(g: Graph, flat: OptionsSlot[], walked: Walked[]): RowEdges {
+function edgesOf(
+	g: Graph,
+	slot: Slot,
+	flat: OptionsSlot[],
+	walked: Walked[],
+	ends: SlotEnd[]
+): RowEdges {
 	if (flat.length === 0) return { ...NO_EDGES };
 	const first = flat[0];
-	const last = flat[flat.length - 1];
+	const end = ends[ends.length - 1];
 	return {
 		starts: slotStarts(g, first),
 		startCounts: slotStartCounts(g, first),
-		ends: slotEnds(g, last),
+		ends: end.ends,
+		...(slot.kind === 'options' ? { endState: end.state } : {}),
 		next: walked[walked.length - 1].next,
 		start: walked[0].start
 	};
@@ -302,7 +316,16 @@ function edgesOf(g: Graph, flat: OptionsSlot[], walked: Walked[]): RowEdges {
 /** One row read on its own, entered on no particular count. */
 export function rowEdges(g: Graph, slot: Slot): RowEdges {
 	const flat = flatten(g, { slots: [slot] });
-	return edgesOf(g, flat, walk(g, flat));
+	return edgesOf(g, slot, flat, walk(g, flat), slotEndsIn(g, flat));
+}
+
+/**
+ * Each flat slot's effective end (`end.ts`), the slot below being the next
+ * one in the run: an embedded routine's first slot, archived-only slots
+ * already gone. The last has none below.
+ */
+export function slotEndsIn(g: Graph, flat: OptionsSlot[]): SlotEnd[] {
+	return flat.map((s, i) => slotEnd(g, s, i + 1 < flat.length ? slotStarts(g, flat[i + 1]) : null));
 }
 
 /**
@@ -311,11 +334,19 @@ export function rowEdges(g: Graph, slot: Slot): RowEdges {
  * it. Parallel to `shape.slots`.
  */
 export function rowEdgesIn(g: Graph, shape: RoutineShape): RowEdges[] {
-	const walked = walk(g, flatten(g, shape));
+	const all = flatten(g, shape);
+	const walked = walk(g, all);
+	const ends = slotEndsIn(g, all);
 	let at = 0;
 	return shape.slots.map((slot) => {
 		const flat = flatten(g, { slots: [slot] });
-		const edges = edgesOf(g, flat, walked.slice(at, at + flat.length));
+		const edges = edgesOf(
+			g,
+			slot,
+			flat,
+			walked.slice(at, at + flat.length),
+			ends.slice(at, at + flat.length)
+		);
 		at += flat.length;
 		return edges;
 	});
@@ -336,7 +367,7 @@ export function routineStarts(g: Graph, shape: RoutineShape): number[] {
  */
 export function routineEnds(g: Graph, shape: RoutineShape): number[] | null {
 	const flat = flatten(g, shape);
-	return flat.length === 0 ? null : slotEnds(g, flat[flat.length - 1]);
+	return flat.length === 0 ? null : slotEndsIn(g, flat)[flat.length - 1].ends;
 }
 
 /**
@@ -350,9 +381,10 @@ export function routineEnds(g: Graph, shape: RoutineShape): number[] | null {
  */
 export function breaks(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
+	const flatEnds = slotEndsIn(g, flat);
 	const out: number[] = [];
 	for (let i = 0; i + 1 < flat.length; i++) {
-		const ends = slotEnds(g, flat[i]);
+		const ends = flatEnds[i].ends;
 		if (ends === null) continue;
 		if (!meet(ends, slotStarts(g, flat[i + 1]))) out.push(i);
 	}
@@ -418,7 +450,7 @@ export type PositionSeam = TimingSeam;
  * rows; `breaks` still counts it.
  */
 export function positionSeams(g: Graph, shape: RoutineShape): PositionSeam[] {
-	const rows = shape.slots.map((s) => rowEdges(g, s));
+	const rows = rowEdgesIn(g, shape);
 	const out: PositionSeam[] = [];
 	for (let i = 0; i < rows.length; i++) {
 		const ends = rows[i].ends;
@@ -438,7 +470,7 @@ export function positionSeams(g: Graph, shape: RoutineShape): PositionSeam[] {
  * routine is not a seam between rows, as with `positionSeams`.
  */
 export function through(g: Graph, shape: RoutineShape, positionId: number): [number, number][] {
-	const rows = shape.slots.map((s) => rowEdges(g, s));
+	const rows = rowEdgesIn(g, shape);
 	const out: [number, number][] = [];
 	for (let i = 0; i < rows.length; i++) {
 		if (!rows[i].ends?.includes(positionId)) continue;
@@ -460,8 +492,7 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 	const flat = flatten(g, shape);
 	if (flat.length === 0) return false;
 	const first = flat[0];
-	const last = flat[flat.length - 1];
-	const ends = slotEnds(g, last);
+	const ends = slotEndsIn(g, flat)[flat.length - 1].ends;
 	const next = walk(g, flat)[flat.length - 1].next;
 	return (
 		ends !== null &&
