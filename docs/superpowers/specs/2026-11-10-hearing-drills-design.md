@@ -183,9 +183,13 @@ a replay. Phase 1's own-counts target and two-eights pattern drops (built 2026-1
    - The band: **Score N** large; one line under it: "89 of 100 on the beat · 7 restarts ·
      about 2.4 s to find each spot" (tap along: "… on the beat" only).
    - A small card: "Timing 86 · Restarts −9 · Listening −3".
-   - **The stack:** one eight of the target drawn as in 1, every judged tap of the round a
-     dot over its circle, moved left or right by how early or late it was (to scale),
-     coloured green/amber.
+   - **The stack** (the user's pick of the layout, 2026-11-11, board
+     https://claude.ai/artifact/Wdspg2ZuajQvwVgAfvdB9N): top to bottom inside one card, the
+     title, the target's circles with the counts 1–8 under them, then every judged tap of
+     the round as a dot **below** its circle: a faint line down from each circle marks the
+     beat, a tap sits left or right of it by how early or late it was (to scale, clamped
+     to ±0.45 beat), taps on one circle stack downward (at most ten rows, then wrap), green
+     or amber. "◂ early" and "late ▸" under it. Nothing is drawn outside the card.
    - **A verdict sentence** on the target position that went worst: the one with the
      largest average offset beyond 60 ms ("Late on the and of 6, about 74 ms"), else the
      one most often missed ("The 2 is missed most: 6 of 20"), else "All on time".
