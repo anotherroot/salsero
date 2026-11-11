@@ -4,6 +4,7 @@
 	import MusicSection from '$lib/components/songs/MusicSection.svelte';
 	import { practiseHref as musicHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
+	import { claimBottom } from '$lib/nav/chrome.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { routinePractiseHref } from '$lib/player/view';
@@ -715,6 +716,10 @@
 			selected
 		)
 	);
+	/** The selection's toolbar docks at the foot unless the selection is one run, which carries it. */
+	const docked = $derived(selecting && shape.runs.length !== 1);
+	// The tab bar steps aside for the whole selection, docked or not.
+	claimBottom(() => selecting);
 
 	/**
 	 * Add above / below the one selected slot. The selection is KEPT while the
@@ -1277,10 +1282,9 @@
 	{/snippet}
 </Dialog>
 
-{#if selecting}
+{#if docked}
 	<SelectionBar
 		bind:height={barHeight}
-		count={selected.length}
 		blocks={actionBlocks(selected.length, shape.runs.length === 1, extractBlocked)}
 		onabove={() => addAround('before')}
 		onbelow={() => addAround('after')}
@@ -1423,7 +1427,7 @@
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: t().common.undo }}
-	bottom={selecting
+	bottom={docked
 		? `calc(${barHeight}px + 0.5rem)`
 		: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'}
 	onaction={() => {

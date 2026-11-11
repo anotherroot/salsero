@@ -5,6 +5,7 @@
  */
 import type { Side } from '$lib/gestures/swipe';
 import type { ResolvedPathname } from '$app/types';
+import type { IconName } from '$lib/icons/icons';
 
 export interface AltView {
 	id: number;
@@ -54,6 +55,21 @@ export interface RowView {
  */
 export type PickFrom =
 	{ row: number; side: 'after' | 'before' } | { row: number; side: 'between'; next: number };
+
+/**
+ * One cell of a lifted card's toolbar (spec 2026-11-11, routine lift): the
+ * open slot's and the selection's. `why`: greyed, and a tap says this instead.
+ */
+export interface ToolItem {
+	key: string;
+	label: string;
+	icon: IconName;
+	/** The accessible name, when the label alone is too short to say it. */
+	name?: string;
+	why?: string | null;
+	danger?: boolean;
+	onclick: () => void;
+}
 
 /** The one card swiped open on the page, by key: `slot:<id>` or `alt:<stepId>:<figureId>`. */
 export type Swiped = { key: string; side: Side } | null;
