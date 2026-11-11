@@ -213,6 +213,53 @@ a replay. Phase 1's own-counts target and two-eights pattern drops (built 2026-1
    eights at the song's tempo with the count and the clave (count-only player, the clave
    on). Words through `t()`, both catalogs.
 
+### Phase 1c — your count, where you tapped, and the feel between spots
+
+From the user trying 1b on the phone (2026-11-11) and the boards
+[where you tapped](https://claude.ai/artifact/Q2hRhgSPzEYLM6vpL72uvP) and
+[when your count is off](https://claude.ai/artifact/C8r1VgMBNzh28TTLLRRBNZ).
+
+1. **Two full eights from the first tap.** A drop judges the sixteen beats (or two eights of
+   the target) from the first tap: started on the 5, it runs to the 4 two eights later. The
+   rows follow the music's eights, so a drop that starts mid-eight shows three rows: the
+   first from the first tap on, a full one, and the last up to before the starting count.
+   Replaces 1b.3's "the first tap's eight and the next" (it ended after 12 beats when the
+   first tap was on the 5).
+2. **The drop ends right after its last counted beat** (plus the tap window), not on the
+   next 1: the clave's drop no longer waits after its 8.
+3. **Your count.** Every target is judged by the counts the person meant, not the nearest
+   beat. The first tap fills the pattern's first circle, so it says where the person thinks
+   the pattern starts (the 1 for every beat, the 2 for the clave 2-3). The shift between
+   that and the music's count is found once per drop, from the first tap; every later tap
+   is judged against the target in the person's count, so one forgotten tap is one missed
+   circle, not every later tap one off. A drop keeps, of its timing:
+
+   | Shift | Example | Keeps |
+   | --- | --- | --- |
+   | 0 | the 1 is the 1 | 100 % |
+   | 4 | the person's 1 is the music's 5; the clave 2-3 tapped as 3-2 | 50 % |
+   | 2 or 6 | the person's 1 is the 3 or the 7 | 25 % |
+   | 1, 3, 5, 7 | odd and even swapped | 10 % |
+   | not on a beat | further than the tap window from every beat | missed, as now |
+
+   The reversed clave is no exception (the user, 2026-11-11): 4 off, 50 %.
+4. **How it shows.** The music's eights as now; a tap on a beat but in the wrong count is
+   **blue** (apart from red: missed or between beats), with what the person counted written
+   small over the circle ("you 1"). The band: the hits, then "4 counts off" with a "keeps
+   50 %" chip. The verdict names the shift: "Your 1 was the music's 5", with a tip (4 off:
+   the bass and the piano land together on the 1; 1 off: try 1 3 5 7).
+5. **Result B** gets a fourth part on the score card, **Count** (what the shifts took off),
+   beside Timing, Restarts and Listening; the line under the score counts the drops off the
+   count; each drop row carries a small blue tag ("4 off", "2 off"); the verdict names the
+   commonest shift when there is one ("Your 1 was often the 5").
+6. **Where each tap fell** is shown at a drop's end and on its replay: one of the four looks
+   on the "where you tapped" board (to be picked by the user).
+7. **Between spots, the sound fades:** the old spot's music fades out (~400 ms) as it slides
+   away, the next fades in (~400 ms) as it slides in (`audio.volume`; where a phone ignores
+   it, the cut stays).
+8. **Circles before the first tap** that do not count are drawn clearly faded (they read as
+   mistakes in the dark theme).
+
 ### Phase 2 — the hearing drill as an exercise type
 
 1. **Type.** `EXERCISE_TYPES` gains `'hearing'`. A hearing drill is a drill row
