@@ -367,6 +367,7 @@
 					)
 				: []}
 			marks={view?.marks ?? []}
+			room={view !== null}
 			labels={rowLabels}
 			{pop}
 			label={padLabel}

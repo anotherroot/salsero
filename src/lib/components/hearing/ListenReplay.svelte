@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-	import { button } from '$lib/components/ui/styles';
 	import type { Grid } from '$lib/hearing/judge';
 	import {
 		cueHorizon,
@@ -19,7 +18,7 @@
 	import { timeline } from '$lib/scheduler/scheduler';
 	import ListenShell from './ListenShell.svelte';
 	import PatternRows from './PatternRows.svelte';
-	import { STAGE_SIGN } from './styles';
+	import { REPLAY_PLAY, REPLAY_SMALL, STAGE_SIGN } from './styles';
 
 	/**
 	 * A drop again (spec 1b.7): the song from two beats before it to the end of
@@ -179,6 +178,7 @@
 		labels={view.rows.map((_, i) => t().hearing.eightRow(i + 1))}
 		{head}
 		marks={view.marks}
+		room
 		label={w.title(n)}
 	/>
 	<div class="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11.5px] text-muted">
@@ -192,25 +192,25 @@
 		<div class="flex gap-2">
 			<button
 				type="button"
-				class={button('secondary', 'lg')}
+				class={REPLAY_SMALL}
 				aria-label={w.slower}
 				aria-pressed={slow}
 				onclick={toggleSlow}>{slow ? '0.75×' : '1×'}</button
 			>
 			<button
 				type="button"
-				class={button('secondary', 'lg')}
+				class={REPLAY_SMALL}
 				aria-label={w.prev}
 				onclick={() => seek(stepBeat(grid, now, -1))}>‹</button
 			>
 			<div class="flex min-w-0 flex-1">
-				<button type="button" class={button('primary', 'lg', true)} onclick={toggle}
+				<button type="button" class={REPLAY_PLAY} onclick={toggle}
 					>{playing ? w.pause : w.play}</button
 				>
 			</div>
 			<button
 				type="button"
-				class={button('secondary', 'lg')}
+				class={REPLAY_SMALL}
 				aria-label={w.next}
 				onclick={() => seek(stepBeat(grid, now, 1))}>›</button
 			>
