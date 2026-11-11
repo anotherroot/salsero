@@ -45,3 +45,36 @@ export function nextCount(start: number, length: number): number {
 export function eightsSpan(length: number): number {
 	return Math.max(1, Math.ceil(length / COUNTS_PER_EIGHT));
 }
+
+/**
+ * A set of start counts as the `figures.start_counts` mask: bit `n - 1` is
+ * count n. Counts outside 1..8 are ignored.
+ */
+export function maskOf(counts: readonly number[]): number {
+	let mask = 0;
+	for (const n of counts) if (isStartCount(n)) mask |= 1 << (n - 1);
+	return mask;
+}
+
+/**
+ * The counts a figure can start on, ascending. A null or empty mask is a
+ * figure nobody gave a set: it starts on its one `start_count` (null reads as 1).
+ */
+export function countsOfMask(mask: number | null, start: number | null): number[] {
+	if (!mask) return [start ?? DEFAULT_START_COUNT];
+	const out: number[] = [];
+	for (let n = 1; n <= COUNTS_PER_EIGHT; n++) if (mask & (1 << (n - 1))) out.push(n);
+	return out;
+}
+
+/**
+ * The count a figure begins on in a routine: where the figure before leaves
+ * off when its set holds that count, else its usual start (the routine then
+ * shows a timing break there, as it always has).
+ */
+export function startOn(counts: readonly number[], usual: number, incoming: number | null): number {
+	return incoming !== null && counts.includes(incoming) ? incoming : usual;
+}
+
+/** The lengths the How long? sheet offers for a figure whose length is set in the routine. */
+export const LENGTH_CHOICES = [2, 4, 6, 8, 12, 16, 24] as const;

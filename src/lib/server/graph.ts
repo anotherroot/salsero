@@ -31,6 +31,7 @@ import {
 } from './db/schema';
 import type { Graph } from '$lib/graph/graph';
 import {
+	countsOfMask,
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
 	isLengthCounts,
@@ -172,7 +173,9 @@ export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceG
 		.select({
 			id: figures.id,
 			startCount: figures.startCount,
-			lengthCounts: figures.lengthCounts
+			lengthCounts: figures.lengthCounts,
+			startCounts: figures.startCounts,
+			lengthFree: figures.lengthFree
 		})
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
@@ -227,7 +230,9 @@ export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceG
 			starts: starts.get(r.id) ?? [],
 			ends: ends.get(r.id) ?? [],
 			start: r.startCount ?? DEFAULT_START_COUNT,
-			length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+			length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+			...(r.startCounts ? { startCounts: countsOfMask(r.startCounts, r.startCount) } : {}),
+			...(r.lengthFree ? { free: true } : {})
 		})),
 		positions: live
 			.filter((p) => canon.get(p.id) === p.id)

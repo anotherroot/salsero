@@ -36,6 +36,13 @@ export interface GraphFigure {
 	start: number;
 	/** How many counts it takes. Resolved the same way; null reads as 8. */
 	length: number;
+	/**
+	 * Every count it can start on, ascending; `start` is the lowest. Absent: `[start]`
+	 * alone, which is every figure nobody gave a set. Read it through `countsOf`.
+	 */
+	startCounts?: number[];
+	/** Its length is chosen per routine slot; `length` is then its length practised alone. */
+	free?: boolean;
 }
 
 /** A position as the graph names it. Carried, not read, by the pure code here. */
@@ -75,6 +82,11 @@ export function sameSet(a: readonly number[], b: readonly number[]): boolean {
 
 export function figureById(g: Graph, id: number): GraphFigure | null {
 	return g.figures.find((f) => f.id === id) ?? null;
+}
+
+/** Every count the figure can start on, ascending. */
+export function countsOf(f: GraphFigure): number[] {
+	return f.startCounts ?? [f.start];
 }
 
 /** The count the figure leaves the next one to begin on. */

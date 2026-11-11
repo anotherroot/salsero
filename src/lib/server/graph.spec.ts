@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { follows, taggedCount } from '$lib/graph/graph';
+import { countsOf, follows, taggedCount } from '$lib/graph/graph';
 import { openDb, type Db } from './db';
 import { eq } from 'drizzle-orm';
 import {
@@ -559,5 +559,28 @@ describe('timing defaults', () => {
 		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		db.update(figures).set({ lengthCounts: null }).where(eq(figures.id, made.figure.id)).run();
 		expect(buildGraph(db, U1_SALSA).figures[0].length).toBe(8);
+	});
+});
+
+describe('start sets and free length', () => {
+	it('reads a figure nobody changed as one start, fixed length', () => {
+		const { db } = setup();
+		createFigure(db, U1_SALSA, figureInput('enchufla'));
+		const f = buildGraph(db, U1_SALSA).figures[0];
+		expect(countsOf(f)).toEqual([1]);
+		expect(f.free ?? false).toBe(false);
+	});
+
+	it('reads the start mask and the free length', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		db.update(figures)
+			.set({ startCounts: 0b10001, lengthFree: 1 })
+			.where(eq(figures.id, made.figure.id))
+			.run();
+		const f = buildGraph(db, U1_SALSA).figures[0];
+		expect(countsOf(f)).toEqual([1, 5]);
+		expect(f.start).toBe(1);
+		expect(f.free).toBe(true);
 	});
 });
