@@ -5,6 +5,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import { ownCounts, type TargetId } from '$lib/hearing/targets';
 	import { targetLabel } from '$lib/hearing/words';
+	import ClaveCard from './ClaveCard.svelte';
 	import type { RoundKind } from '$lib/hearing/round';
 
 	/** The round's choices, in the sheet under the stage. Start is the page's bar. */
@@ -20,6 +21,8 @@
 		parts: string[];
 		tapDelayMs: number | null;
 		oncheck: () => void;
+		/** Hear the clave: two eights of the count with the clave on (the page's, inside the tap). */
+		onhearclave: () => void;
 	}
 
 	let {
@@ -31,7 +34,8 @@
 		targets,
 		parts,
 		tapDelayMs,
-		oncheck
+		oncheck,
+		onhearclave
 	}: Props = $props();
 	const w = $derived(t().hearing);
 	const KINDS: RoundKind[] = ['tapAlong', 'dropped'];
@@ -86,6 +90,7 @@
 				</label>
 			{/each}
 		</div>
+		<ClaveCard {clave} onhear={onhearclave} />
 	{/if}
 	{#if target === 'own'}
 		<div role="group" aria-label={w.setup.ownCounts} class="flex flex-wrap gap-x-1.5 gap-y-1">

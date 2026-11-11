@@ -99,6 +99,68 @@ export const hearing = {
 		tooShort: 'Too short to judge. Tap a little longer.',
 		strip: 'Your taps on the count, one row per eight'
 	},
+	eightRow: (n: number) => `Eight ${n}`,
+	reset: 'Reset',
+	skip: 'Skip',
+	startOver: {
+		noTap: 'No tap in four eights: from the start of the spot again',
+		stopped: 'You stopped: from the start of the spot again',
+		reset: 'From the start of this spot'
+	},
+	listening: 'Listen…',
+	listenFirst: 'listen first',
+	nextSpot: 'next spot coming',
+	restartsLine: (n: number) => (n === 1 ? '1 start-over' : `${n} start-overs`),
+	firstTry: 'First try',
+	/** A target position in a sentence: "the 1", "the and of 6". */
+	posName: (whole: number, and: boolean) => (and ? `the and of ${whole}` : `the ${whole}`),
+	score: {
+		title: (n: number) => `Score ${n}`,
+		onBeat: (hit: number, of: number) => `${hit} of ${of} on the beat`,
+		findEach: (s: number) => `about ${seconds(s)} s to find each spot`,
+		timing: 'Timing',
+		restarts: 'Restarts',
+		listening: 'Listening',
+		stackTitle: 'All your eights, on top of each other',
+		stackLabel: 'Every tap of the round, under the beat it was for',
+		early: '◂ early',
+		late: 'late ▸',
+		dropRow: (n: number, section: string) => (section ? `Drop ${n} · ${section}` : `Drop ${n}`),
+		counted: (hit: number, of: number) => `${hit} of ${of}`,
+		skipped: 'skipped',
+		replayDrop: (n: number) => `Replay drop ${n}`,
+		verdict: {
+			late: (pos: string) => `Late on ${pos}`,
+			early: (pos: string) => `Early on ${pos}`,
+			offSub: (ms: number) => `About ${ms} ms, nearly every time. The rest is on time.`,
+			missed: (pos: string) => `${pos.charAt(0).toUpperCase()}${pos.slice(1)} is missed most`,
+			missedSub: (n: number, of: number) => `${n} of ${of} times.`,
+			onTime: 'All on time',
+			onTimeSub: 'Every beat within 60 ms.'
+		}
+	},
+	replay: {
+		title: (n: number) => `Replay · drop ${n}`,
+		countOn: 'The count is on',
+		yourTap: 'your tap',
+		onTime: 'on time',
+		close: 'close',
+		missed: 'missed',
+		now: 'now',
+		back: 'Back to the result',
+		prev: 'One beat back',
+		next: 'One beat on',
+		play: 'Play',
+		pause: 'Pause',
+		slower: 'Slower'
+	},
+	clave: {
+		t23: '2-3 clave: two hits, then three',
+		p23: 'On 2 and on 3, then on 5, on the and of 6 (between 6 and 7), and on 8.',
+		t32: '3-2 clave: three hits, then two',
+		p32: 'On 1, on the and of 2 (between 2 and 3), and on 4, then on 6 and on 7.',
+		hear: 'Hear it'
+	},
 	again: 'Again',
 	done: 'Done',
 	stop: 'Stop',

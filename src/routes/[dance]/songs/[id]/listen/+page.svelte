@@ -39,6 +39,7 @@
 	import { loadDelayCorrection } from '$lib/player/sound-delay';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { quietRanges } from '$lib/scheduler/quiet';
+	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import { placeSections, sectionName } from '$lib/songs/sections';
 	import type { PageData } from './$types';
 
@@ -138,6 +139,26 @@
 		if (dropAt + 1 >= starts.length) return finish(now);
 		dropAt += 1;
 		player?.seek(starts[dropAt]);
+	}
+
+	/** Hear the clave: two eights of the count with the clave on, at the song's tempo. Runs inside the tap. */
+	let hearing: PlayerHandle | null = null;
+	function hearClave() {
+		hearing?.stop();
+		const handle = createPlayer({
+			audio: null,
+			grid: syntheticGrid(Math.round(60 / beatS), 2),
+			toggles: { count: 'all', clave },
+			voiceVolume: 1,
+			delayCorrectionMs: loadDelayCorrection(),
+			onStep: () => {},
+			onEnd: () => {
+				handle.stop();
+				if (hearing === handle) hearing = null;
+			}
+		});
+		hearing = handle;
+		handle.start().catch((e) => console.error(e));
 	}
 
 	/** The Start tap: the check first on a browser never checked, else the round. */
@@ -248,7 +269,10 @@
 		void goBack({ href: songHref, label: data.song.title }, { replace: true });
 	}
 
-	onDestroy(stopPlayer);
+	onDestroy(() => {
+		stopPlayer();
+		hearing?.stop();
+	});
 
 	const score = $derived(tapResult ?? dropsResult);
 	const average = $derived.by(() => {
@@ -302,6 +326,7 @@
 			targets={targetsFor(data.dance)}
 			parts={parts.map((p) => sectionName(p))}
 			{tapDelayMs}
+			onhearclave={hearClave}
 			oncheck={() => {
 				afterCheck = 'setup';
 				view = 'check';

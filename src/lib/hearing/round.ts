@@ -38,3 +38,10 @@ export function roundSpan(
 	const play = Math.max(musicStart, from - lead);
 	return { play, judgeFrom: Math.max(from, play + lead), to: part ? part.to : Infinity };
 }
+
+/**
+ * A target circle on screen. While tapping only future, next and filled are
+ * used: how close a tap was shows only when the drop ends (spot, close, miss,
+ * and skip for the first eight's beats before the first tap).
+ */
+export type CircleState = 'future' | 'next' | 'filled' | 'skip' | 'spot' | 'close' | 'miss';

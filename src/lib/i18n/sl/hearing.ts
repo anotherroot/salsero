@@ -1,4 +1,5 @@
 import type { Catalog } from '../catalog';
+import { slCount } from '../plural';
 
 const seconds = (s: number) => s.toFixed(1).replace('.', ',');
 
@@ -92,6 +93,67 @@ export const hearing: Catalog['hearing'] = {
 		noTap: 'Brez tapa',
 		tooShort: 'Prekratko za oceno. Tapkajte malo dlje.',
 		strip: 'Vaši tapi na štetju, ena vrstica na osmico'
+	},
+	eightRow: (n) => `Osmica ${n}`,
+	reset: 'Znova',
+	skip: 'Preskoči',
+	startOver: {
+		noTap: 'Štiri osmice brez tapa: znova od začetka mesta',
+		stopped: 'Nehali ste: znova od začetka mesta',
+		reset: 'Od začetka tega mesta'
+	},
+	listening: 'Poslušajte …',
+	listenFirst: 'najprej poslušajte',
+	nextSpot: 'prihaja naslednje mesto',
+	restartsLine: (n) => slCount(n, ['ponovitev', 'ponovitvi', 'ponovitve', 'ponovitev']),
+	firstTry: 'V prvo',
+	posName: (whole, and) => (and ? `»in« po ${whole}` : `${whole}`),
+	score: {
+		title: (n) => `Ocena ${n}`,
+		onBeat: (hit, of) => `${hit} od ${of} na udarcu`,
+		findEach: (s) => `približno ${seconds(s)} s za vsako mesto`,
+		timing: 'Natančnost',
+		restarts: 'Ponovitve',
+		listening: 'Poslušanje',
+		stackTitle: 'Vse vaše osmice, ena čez drugo',
+		stackLabel: 'Vsak tap igre pod udarcem, za katerega je bil',
+		early: '◂ prezgodaj',
+		late: 'prepozno ▸',
+		dropRow: (n, section) => (section ? `Mesto ${n} · ${section}` : `Mesto ${n}`),
+		counted: (hit, of) => `${hit} od ${of}`,
+		skipped: 'preskočeno',
+		replayDrop: (n) => `Znova predvajaj mesto ${n}`,
+		verdict: {
+			late: (pos) => `Zamujate na ${pos}`,
+			early: (pos) => `Prehitevate na ${pos}`,
+			offSub: (ms) => `Približno ${ms} ms, skoraj vsakič. Drugo je pravočasno.`,
+			missed: (pos) => `Najpogosteje zgrešite ${pos}`,
+			missedSub: (n, of) => `${n}-krat od ${of}.`,
+			onTime: 'Vse pravočasno',
+			onTimeSub: 'Vsak udarec znotraj 60 ms.'
+		}
+	},
+	replay: {
+		title: (n) => `Znova · mesto ${n}`,
+		countOn: 'Štetje je vključeno',
+		yourTap: 'vaš tap',
+		onTime: 'pravočasno',
+		close: 'blizu',
+		missed: 'zgrešeno',
+		now: 'zdaj',
+		back: 'Nazaj na rezultat',
+		prev: 'Udarec nazaj',
+		next: 'Udarec naprej',
+		play: 'Predvajaj',
+		pause: 'Premor',
+		slower: 'Počasneje'
+	},
+	clave: {
+		t23: 'Klava 2-3: dva udarca, nato trije',
+		p23: 'Na 2 in na 3, nato na 5, na »in« po 6 (med 6 in 7) in na 8.',
+		t32: 'Klava 3-2: trije udarci, nato dva',
+		p32: 'Na 1, na »in« po 2 (med 2 in 3) in na 4, nato na 6 in na 7.',
+		hear: 'Poslušaj'
 	},
 	again: 'Še enkrat',
 	done: 'Končano',
