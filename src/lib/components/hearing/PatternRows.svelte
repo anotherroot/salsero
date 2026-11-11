@@ -26,6 +26,12 @@
 		rowPositions?: (number[] | undefined)[];
 		/** Per row, a word over a circle (what the person counted: "you 1"). */
 		over?: (Record<number, string> | undefined)[];
+		/**
+		 * Room above the circles for the tap marks and "you N" (a judged drop): the
+		 * word sits over the mark, never under it. Fixed for a screen, so the rows
+		 * do not jump when the first mark appears.
+		 */
+		room?: boolean;
 		/** The accessible name of the whole drawing. */
 		label: string;
 	}
@@ -39,12 +45,14 @@
 		marks = [],
 		rowPositions = [],
 		over = [],
+		room = false,
 		label
 	}: Props = $props();
 
 	const W = 280;
 	const LEFT = 16;
-	const CY = 18;
+	/** The circles' centre: lower when there is room for marks and words above them. */
+	const CY = $derived(room ? 34 : 18);
 	const x = (p: number) => LEFT + ((p - 1) / 7) * (W - LEFT - 14);
 	const COUNTS = [1, 2, 3, 4, 5, 6, 7, 8];
 	const FILL: Record<CircleState, string> = {
@@ -80,7 +88,11 @@
 	aria-label={label}
 >
 	{#each rows as row, r (r)}
-		<svg viewBox="0 0 {W} 46" class="block h-auto w-full overflow-visible" aria-hidden="true">
+		<svg
+			viewBox="0 0 {W} {CY + 28}"
+			class="block h-auto w-full overflow-visible"
+			aria-hidden="true"
+		>
 			{#if labels[r]}
 				<text x="0" y="6" class="fill-muted text-[9.5px] font-bold">{labels[r]}</text>
 			{/if}
@@ -132,7 +144,7 @@
 						{#if over[r]?.[p]}
 							<text
 								x={x(p)}
-								y={CY - 13}
+								y={CY - 22}
 								text-anchor="middle"
 								class="fill-easy text-[7.5px] font-extrabold">{over[r]?.[p]}</text
 							>

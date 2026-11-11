@@ -13,7 +13,7 @@ export const TAP_RING =
 
 /** The stage's big sign: the hidden count's dash, a drop's "?", the count during a reveal. */
 export const STAGE_SIGN =
-	'font-display text-[min(120px,30vw)] leading-none font-extrabold tracking-[-0.02em] text-band-ink tabular-nums';
+	'font-display text-[min(120px,30vw,13svh)] leading-none font-extrabold tracking-[-0.02em] text-band-ink tabular-nums';
 
 /**
  * Reset and Skip on a round's bar: they share the row with Stop and grow to
@@ -24,3 +24,10 @@ export const BAR_SHARED = swap(
 	'px-7',
 	'px-3'
 );
+
+/**
+ * The replay's bar: four buttons on one row. The small ones keep less padding and
+ * Play takes the rest, so a long word ("Predvajaj") fits on a narrow phone.
+ */
+export const REPLAY_SMALL = swap(button('secondary', 'lg'), 'px-7', 'px-4');
+export const REPLAY_PLAY = swap(button('primary', 'lg', true), 'px-7', 'px-3');

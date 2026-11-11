@@ -56,17 +56,17 @@
 		<div
 			class="flex flex-col gap-3 {scroll
 				? 'items-start pt-2 text-left'
-				: 'min-h-0 flex-1 items-center justify-center text-center'}"
+				: 'min-h-0 flex-1 items-center justify-center-safe text-center'}"
 		>
 			{@render stage()}
 		</div>
 	</header>
 	<div
-		class="-mt-7 flex flex-col rounded-t-[28px] bg-ground {scroll
+		class="relative -mt-7 flex flex-col rounded-t-[28px] bg-ground {scroll
 			? 'min-h-0 flex-1 overflow-y-auto overscroll-contain'
 			: 'flex-none'}"
 	>
-		<div class="flex flex-col gap-3 px-4 pt-4 pb-[100px]">
+		<div class="flex flex-col gap-3 px-4 pt-4 pb-[calc(100px+var(--safe-bottom))]">
 			{@render children()}
 		</div>
 	</div>
