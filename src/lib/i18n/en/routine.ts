@@ -19,6 +19,19 @@ export const routine = {
 		why: (next: number): string =>
 			`Its alternatives go on to ${next}, so only lengths that land there fit.`
 	},
+	/** A slot's end chosen in the routine: its chip, its cell and the Where does it end? sheet (spec 2026-11-11, slot end). */
+	end: {
+		title: 'Where does it end?',
+		sub: (figure: string, n: number): string => `${figure} · slot ${n}`,
+		/** The chip and the cell while nothing is chosen. */
+		ask: 'Ends?',
+		clear: 'No choice — any end',
+		altNot: (name: string): string => `Alternative ${name} doesn’t end here`,
+		belowNot: (n: number): string => `Slot ${n} doesn’t start here`,
+		/** The chip's name for a screen reader. */
+		change: (name: string): string => `Ends in ${name}. Change it`,
+		choose: 'Choose where it ends'
+	},
 	/** The facts line: "Starts from Open · ends at Closed". */
 	facts: {
 		from: 'Starts from',

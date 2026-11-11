@@ -9,10 +9,11 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { routinePractiseHref } from '$lib/player/view';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
+	import { entryState, sheetStack } from '$lib/sheets/history.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, pushState } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
@@ -48,6 +49,7 @@
 	} from '$lib/routines/fit';
 	import { startOn } from '$lib/graph/timing';
 	import LengthSheet from '$lib/components/routines/LengthSheet.svelte';
+	import EndSheet from '$lib/components/routines/EndSheet.svelte';
 	import { actionBlocks, extractBlock, inOrder, selectionShape } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
@@ -65,6 +67,7 @@
 		alternativeAnchor,
 		type OwnSend
 	} from '$lib/routines/page';
+	import type { RowEdges } from '$lib/routines/routines';
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
@@ -147,6 +150,8 @@
 		pre: number | null;
 		onpick: (n: number) => void;
 	} | null>(null);
+	/** Where does it end? (spec 2026-11-11, slot end): the slot it is open for. */
+	let endFor = $state<number | null>(null);
 	let toast = $state<{ id: number; message: string; undo: () => void } | null>(null);
 	let toastSeq = 0;
 	/** The selection bar's height: the Undo toast sits above it while selecting. */
@@ -354,8 +359,10 @@
 				meta: slotMeta(
 					edges,
 					posName,
-					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null
+					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null,
+					k === 0
 				),
+				end: endView(i, edges, isRoutine),
 				empty: !isRoutine && main === undefined,
 				note: slot.note,
 				href: isRoutine
@@ -605,6 +612,41 @@
 		return { start, want: null, pre: preselect(start, below) };
 	}
 
+	/**
+	 * A row's end as its card draws it (spec 2026-11-11, slot end): the state
+	 * from the load, the name from the row's effective end. Null with nothing
+	 * to show, and for data from before the end existed.
+	 */
+	function endView(i: number, edges: RowEdges, isRoutine: boolean): RowView['end'] {
+		const e = data.slotEnds?.[i];
+		if (!e || isRoutine || e.state === 'none') return null;
+		const one = edges.ends?.length === 1 ? edges.ends[0] : null;
+		const name = e.state === 'open' || one === null ? null : posName(one) || null;
+		return { state: e.state, name };
+	}
+
+	/** The Where does it end? sheet's rows for the slot it is open for. */
+	const endSheet = $derived.by(() => {
+		if (endFor === null) return null;
+		const k = shown.findIndex((s) => s.slot.id === endFor);
+		const e = k === -1 ? null : data.slotEnds?.[shown[k].i];
+		if (!e) return null;
+		const ends = shown[k].edges.ends;
+		const pressed = ends?.length === 1 ? ends[0] : null;
+		return {
+			figure: rows[k].title,
+			n: k + 1,
+			canClear: e.state === 'chosen',
+			choices: e.choices.map((c) => ({
+				id: c.id,
+				name: posName(c.id),
+				pressed: c.id === pressed,
+				why: c.blockedBy === null ? null : t().routine.end.altNot(optionName(c.blockedBy)),
+				warn: c.belowMisses ? t().routine.end.belowNot(k + 2) : null
+			}))
+		};
+	});
+
 	/** A slot option's length chip: How long? with its length lit, then save it. */
 	function openLength(stepId: number, figureId: number, current: number) {
 		const row = shown.find((s) => s.slot.id === stepId);
@@ -646,6 +688,9 @@
 			// The picker's opener (a seam, a slot's Add) is gone or elsewhere now.
 			await tick();
 			document.querySelector<HTMLElement>(`[data-slot="${id}"] [role=button]`)?.focus();
+			// Where does it end? right after it (spec 2026-11-11, slot end), when the
+			// figure has ends to choose and the slot below does not decide.
+			if (rows.find((r) => r.id === id)?.end?.state === 'open') endFor = id;
 		}
 	}
 
@@ -727,6 +772,82 @@
 		void keepInPlace(slotEl(touched), stopSelecting);
 		focusBand('item-menu');
 	}
+
+	/*
+	 * Back closes an open slot or leaves selection before it leaves the page
+	 * (asked for with spec 2026-11-11, slot end). Opening either pushes one
+	 * shallow entry (`routineFocus`, the entry's other values spread in, as the
+	 * sheets and the video player do); closing it any other way takes that
+	 * entry back off. The entry is read from history itself (`entryState`):
+	 * a refresh empties `page.state` while the entry keeps its own.
+	 */
+	const focused = $derived(expanded !== null || selecting);
+	/** This page's own Back (a close by tap), so its popstate holds the scroll too. */
+	let ownBack = false;
+	/** This page pushed its entry and has not taken it back: only then is a Back its own to close. */
+	let pushed = false;
+	/** What Back closes, run once the scroll is held (below). */
+	let closeLater: (() => void) | null = null;
+	$effect(() => {
+		const on = focused;
+		// Once the sheets' own Back moves have landed: a pick from the ⋯ sheet closes
+		// it and opens a selection at once, and its Back must not take this entry.
+		untrack(() =>
+			sheetStack.settled(() => {
+				if (on !== focused) return;
+				const held = entryState().routineFocus === true;
+				if (on && !held) {
+					pushState('', { ...entryState(), routineFocus: true });
+					pushed = true;
+				} else if (!on && held) {
+					pushed = false;
+					ownBack = true;
+					history.back();
+				}
+			})
+		);
+	});
+	$effect(() => {
+		void page.state;
+		untrack(() => {
+			if (entryState().routineFocus === true) return;
+			// Not ours: a sheet's Back, or this page's entry not pushed yet.
+			if (!pushed) return;
+			pushed = false;
+			if (!selecting && expanded === null) return;
+			// Back took the entry: close what it held, the card under the finger staying put.
+			closeLater = () => {
+				if (selecting) leaveSelecting();
+				else if (expanded !== null) {
+					const id = expanded;
+					void keepInPlace(slotEl(id), () => (expanded = null));
+				}
+			};
+		});
+	});
+	/*
+	 * A shallow Back makes SvelteKit scroll to where the page was when the entry
+	 * was pushed; since then the page kept the touched card in place
+	 * (`keepInPlace`), so that scroll would jump. The scroll is read before any
+	 * popstate listener runs (capture runs first at the window) and put back in
+	 * the next frame, after SvelteKit's; only then does Back's close run, so it
+	 * measures the page where it stands.
+	 */
+	$effect(() => {
+		const before = () => {
+			const y = ownBack || (focused && pushed) ? window.scrollY : null;
+			ownBack = false;
+			if (y === null) return;
+			requestAnimationFrame(() => {
+				window.scrollTo(window.scrollX, y);
+				const close = closeLater;
+				closeLater = null;
+				close?.();
+			});
+		};
+		window.addEventListener('popstate', before, true);
+		return () => window.removeEventListener('popstate', before, true);
+	});
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
 	/** How the selection lifts: each row's piece, and the runs of neighbours (spec 2026-11-11, routine lift). */
@@ -1228,6 +1349,7 @@
 						onremoveAlt={removeAlternative}
 						onaddAlt={openAlternative}
 						onlength={openLength}
+						onend={(id) => (endFor = id)}
 						onnote={(id, note) => send('note', { stepId: id, note })}
 						onadd={openPicker}
 					/>
@@ -1415,6 +1537,20 @@
 		h?.onpick(n);
 	}}
 	onclose={() => (howLong = null)}
+/>
+
+<EndSheet
+	open={endSheet !== null}
+	figure={endSheet?.figure ?? ''}
+	slot={endSheet?.n ?? 1}
+	choices={endSheet?.choices ?? []}
+	canClear={endSheet?.canClear ?? false}
+	onpick={(id) => {
+		const stepId = endFor;
+		endFor = null;
+		if (stepId !== null) void send('end', { stepId, positionId: id ?? '' });
+	}}
+	onclose={() => (endFor = null)}
 />
 
 <Sheet title={t().routine.make.title} open={naming} onclose={() => (naming = false)}>

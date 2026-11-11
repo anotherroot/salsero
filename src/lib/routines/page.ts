@@ -78,13 +78,24 @@ export function handsLine(starts: number[], ends: number[], name: (id: number) =
  * for a routine. A side with no position shows nothing ("1→1 · Open →"): it
  * fits anywhere. Ends the options disagree on (`ends` null) say so ("Open →
  * ends differ"), so they never read as "anything follows"; never a "?" for a hold.
+ *
+ * A row that knows its end (`endState`, spec 2026-11-11, slot end) leaves it
+ * to the card, which draws it as a chip or a word, and names no start: the
+ * start is where the slot above ended. Only the routine's `first` row says
+ * where it starts ("1→1 · Open →").
  */
 export function slotMeta(
 	e: RowEdges,
 	name: (id: number) => string,
-	childSlots: number | null
+	childSlots: number | null,
+	first = false
 ): string {
 	const from = handsLine(e.starts, [], name);
+	if (childSlots === null && e.endState !== undefined) {
+		if (e.startCounts.length === 0) return '';
+		const counts = `${e.start ?? e.startCounts.join('/')}→${e.next ?? '?'}`;
+		return first && from !== '' ? `${counts} · ${from}` : counts;
+	}
 	const differ = t().routine.endsDiffer;
 	const hands =
 		e.ends !== null

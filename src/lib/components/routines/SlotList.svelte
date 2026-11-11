@@ -48,6 +48,8 @@
 		onaddAlt: (id: number) => void;
 		/** A slot option's length chip (spec 2026-11-11). */
 		onlength: (id: number, figureId: number, current: number) => void;
+		/** A slot's end chip or cell (spec 2026-11-11, slot end). */
+		onend: (id: number) => void;
 		onnote: (id: number, note: string | null) => unknown;
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
@@ -71,6 +73,7 @@
 		onremoveAlt,
 		onaddAlt,
 		onlength,
+		onend,
 		onnote,
 		onadd
 	}: Props = $props();
@@ -341,6 +344,7 @@
 						onaddBefore={() => onadd(i, { row: i, side: 'before' })}
 						onaddAfter={() => onadd(i + 1, { row: i, side: 'after' })}
 						onlength={(figureId, current) => onlength(row.id, figureId, current)}
+						onend={() => onend(row.id)}
 						onnote={(note) => onnote(row.id, note)}
 					/>
 					{#if seamInside}

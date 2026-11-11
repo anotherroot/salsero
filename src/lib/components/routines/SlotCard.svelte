@@ -12,7 +12,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { iconButton, LENGTH_CHIP } from '$lib/components/ui/styles';
+	import { END_ASK, END_CHIP, iconButton, LENGTH_CHIP } from '$lib/components/ui/styles';
 	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { openTools } from '$lib/routines/tools';
@@ -43,6 +43,8 @@
 		onaddAfter: () => void;
 		/** The length chip of an option whose length the routine sets: opens How long? (spec 2026-11-11). */
 		onlength: (figureId: number, current: number) => void;
+		/** The end chip or cell: opens Where does it end? (spec 2026-11-11, slot end). */
+		onend: () => void;
 		/** May return a promise (the save), which the unsaved-changes guard awaits. */
 		onnote: (note: string | null) => unknown;
 	}
@@ -68,6 +70,7 @@
 		onaddBefore,
 		onaddAfter,
 		onlength,
+		onend,
 		onnote
 	}: Props = $props();
 
@@ -86,6 +89,16 @@
 					name: t().routine.length.change(length.n),
 					icon: 'clock',
 					onclick: () => onlength(length.figureId, length.n)
+				};
+			}
+			if (tool === 'end') {
+				const chosen = row.end?.state === 'chosen' ? row.end.name : null;
+				return {
+					key: tool,
+					label: chosen ?? t().routine.end.ask,
+					name: chosen ? t().routine.end.change(chosen) : t().routine.end.choose,
+					icon: 'ends-at',
+					onclick: onend
 				};
 			}
 			if (tool === 'alternative') {
@@ -244,6 +257,37 @@
 							: 'text-muted'}"
 					>
 						<span class="truncate">{row.meta}</span>
+						{#if row.end && (row.end.name || (!selecting && !expanded))}
+							{@const end = row.end}
+							<!-- Spec 2026-11-11, slot end: a chosen end is a chip, an end still to
+							     choose a dashed one, an end with nothing to choose its name alone.
+							     Open or selecting, the chips give way to the name. -->
+							{#if !row.meta.endsWith('→')}<span class="ml-1 flex-none" aria-hidden="true">·</span
+								>{/if}
+							{#if !selecting && !expanded && (end.state === 'chosen' || end.state === 'open')}
+								<button
+									type="button"
+									class={end.state === 'chosen' ? END_CHIP : END_ASK}
+									aria-label={end.state === 'chosen' && end.name
+										? t().routine.end.change(end.name)
+										: t().routine.end.choose}
+									onpointerdown={(e) => e.stopPropagation()}
+									onclick={(e) => {
+										e.stopPropagation();
+										onend();
+									}}
+									>{#if end.state === 'chosen' && end.name}<Icon name="ends-at" size={14} /><span
+											class="max-w-36 truncate">{end.name}</span
+										>{:else}{t().routine.end.ask}{/if}<Icon name="chevron-down" size={14} /></button
+								>
+							{:else if end.name}
+								<span
+									class="ml-1.5 inline-flex min-w-0 flex-none items-center gap-0.5 font-extrabold text-accent-text"
+									><Icon name="ends-at" size={14} /><span class="max-w-36 truncate">{end.name}</span
+									></span
+								>
+							{/if}
+						{/if}
 						{#if row.length && !selecting && !expanded}
 							{@const length = row.length}
 							<!-- Board C: the length on the closed slot; a tap opens How long?. -->

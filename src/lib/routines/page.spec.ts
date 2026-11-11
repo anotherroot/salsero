@@ -85,6 +85,15 @@ describe('routine page derivations', () => {
 			'Routine · 1 slot'
 		);
 	});
+	it('leaves the end to the card when the row knows it (spec 2026-11-11, slot end)', () => {
+		const e = { starts: [1], startCounts: [1], ends: [2], next: 5, start: 1 };
+		expect(slotMeta({ ...e, endState: 'chosen' as const }, name, null)).toBe('1→5');
+		expect(slotMeta({ ...e, endState: 'single' as const }, name, null, true)).toBe('1→5 · Open →');
+		expect(slotMeta({ ...e, starts: [], endState: 'open' as const }, name, null, true)).toBe('1→5');
+		// Without it (an embedded row, an older page's data): as before.
+		expect(slotMeta(e, name, null)).toBe('1→5 · Open → Closed');
+	});
+
 	it('shows the start the routine walk resolved, not every count it could take', () => {
 		expect(
 			slotMeta({ starts: [], startCounts: [1, 5], ends: [], next: 1, start: 5 }, name, null)

@@ -331,31 +331,71 @@ describe('anchorText', () => {
 		);
 		expect(
 			anchorText(
-				{ kind: 'alternative', starts: [2], startCount: 1, ends: [1], next: 1, exclude: [] },
+				{
+					kind: 'alternative',
+					starts: [2],
+					startCount: 1,
+					ends: [1],
+					mainEnds: [1],
+					next: 1,
+					exclude: []
+				},
 				name
 			)
 		).toBe('Closed → Open, 1→1');
 		expect(
 			anchorText(
-				{ kind: 'alternative', starts: [2], startCount: 1, ends: [1, 3], next: 1, exclude: [] },
+				{
+					kind: 'alternative',
+					starts: [2],
+					startCount: 1,
+					ends: [1, 3],
+					mainEnds: [1, 3],
+					next: 1,
+					exclude: []
+				},
 				name
 			)
 		).toBe('Closed → Open or Hammerlock, 1→1');
 		expect(
 			anchorText(
-				{ kind: 'alternative', starts: [], startCount: 1, ends: [3], next: 1, exclude: [] },
+				{
+					kind: 'alternative',
+					starts: [],
+					startCount: 1,
+					ends: [3],
+					mainEnds: [3],
+					next: 1,
+					exclude: []
+				},
 				name
 			)
 		).toBe('Anywhere → Hammerlock, 1→1');
 		expect(
 			anchorText(
-				{ kind: 'alternative', starts: [2], startCount: 1, ends: [], next: 1, exclude: [] },
+				{
+					kind: 'alternative',
+					starts: [2],
+					startCount: 1,
+					ends: [],
+					mainEnds: [],
+					next: 1,
+					exclude: []
+				},
 				name
 			)
 		).toBe('Closed → anywhere, 1→1');
 		expect(
 			anchorText(
-				{ kind: 'alternative', starts: [], startCount: 5, ends: [], next: 1, exclude: [] },
+				{
+					kind: 'alternative',
+					starts: [],
+					startCount: 5,
+					ends: [],
+					mainEnds: [],
+					next: 1,
+					exclude: []
+				},
 				name
 			)
 		).toBe('5→1');
@@ -422,10 +462,26 @@ describe('anchorText in Slovenian', () => {
 			})
 		).toBe('Začne na 1, v položaju: Open · konča na 8, v položaju: Closed');
 		expect(
-			sl({ kind: 'alternative', starts: [], startCount: 1, ends: [3], next: 1, exclude: [] })
+			sl({
+				kind: 'alternative',
+				starts: [],
+				startCount: 1,
+				ends: [3],
+				mainEnds: [3],
+				next: 1,
+				exclude: []
+			})
 		).toBe('Kjerkoli → Hammerlock, 1→1');
 		expect(
-			sl({ kind: 'alternative', starts: [2], startCount: 1, ends: [], next: 1, exclude: [] })
+			sl({
+				kind: 'alternative',
+				starts: [2],
+				startCount: 1,
+				ends: [],
+				mainEnds: [],
+				next: 1,
+				exclude: []
+			})
 		).toBe('Closed → kjerkoli, 1→1');
 	});
 

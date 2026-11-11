@@ -21,3 +21,22 @@ describe('openTools: the open slot’s toolbar', () => {
 		]);
 	});
 });
+
+describe('openTools: the end cell (spec 2026-11-11, slot end)', () => {
+	const row = { isRoutine: false, length: { figureId: 1, n: 4 }, canAddAlternative: true };
+	it('comes after the length when there is an end to choose', () => {
+		expect(openTools({ ...row, end: { state: 'chosen' } })).toEqual([
+			'length',
+			'end',
+			'alternative',
+			'before',
+			'after'
+		]);
+		expect(openTools({ ...row, end: { state: 'open' } })).toContain('end');
+	});
+	it('is not there when nothing can be chosen', () => {
+		expect(openTools({ ...row, end: { state: 'decided' } })).not.toContain('end');
+		expect(openTools({ ...row, end: { state: 'single' } })).not.toContain('end');
+		expect(openTools({ ...row, end: null })).not.toContain('end');
+	});
+});

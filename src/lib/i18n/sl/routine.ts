@@ -20,6 +20,16 @@ export const routine: Catalog['routine'] = {
 		why: (next) =>
 			`Alternative nadaljujejo na ${next}, zato ustrezajo le dolžine, ki pristanejo tam.`
 	},
+	end: {
+		title: 'Kje konča?',
+		sub: (figure, n) => `${figure} · mesto ${n}`,
+		ask: 'Konča?',
+		clear: 'Ne izberem — katerikoli konec',
+		altNot: (name) => `Alternativa ${name} ne konča tu`,
+		belowNot: (n) => `Mesto ${n} ne začne tu`,
+		change: (name) => `Konča v: ${name}. Spremenite`,
+		choose: 'Izberite, kje konča'
+	},
 	facts: {
 		from: 'Začetek:',
 		to: 'konec:',

@@ -31,6 +31,12 @@ export interface RowView {
 	empty: boolean;
 	/** The main figure's length in this slot when a routine sets it (spec 2026-11-11): its chip. */
 	length: { figureId: number; n: number } | null;
+	/**
+	 * Where the slot ends (spec 2026-11-11, slot end): `chosen` and `open` draw a
+	 * chip that opens the Where does it end? sheet, `single` and `decided` the
+	 * name alone. Null: no positions, an embedded routine, an older page's data.
+	 */
+	end: { state: 'chosen' | 'open' | 'single' | 'decided'; name: string | null } | null;
 	note: string | null;
 	/** Where swiping right or "Open →" goes; null when there is nothing to open.
 	 *  A `resolve()` result, not a bare string. */
