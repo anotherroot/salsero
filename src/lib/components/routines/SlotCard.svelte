@@ -15,6 +15,7 @@
 	import { iconButton, LENGTH_CHIP } from '$lib/components/ui/styles';
 	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
+	import type { IconName } from '$lib/icons/icons';
 	import type { RowView, Swiped } from './types';
 
 	interface Props {
@@ -34,6 +35,9 @@
 		ondelete: () => void;
 		onremoveAlt: (figureId: number, label: string) => void;
 		onaddAlt: () => void;
+		/** Add a slot before / after this one: the open card's ↑ and ↓. */
+		onaddBefore: () => void;
+		onaddAfter: () => void;
 		/** The length chip of an option whose length the routine sets: opens How long? (spec 2026-11-11). */
 		onlength: (figureId: number, current: number) => void;
 		/** May return a promise (the save), which the unsaved-changes guard awaits. */
@@ -57,6 +61,8 @@
 		ondelete,
 		onremoveAlt,
 		onaddAlt,
+		onaddBefore,
+		onaddAfter,
 		onlength,
 		onnote
 	}: Props = $props();
@@ -311,75 +317,86 @@
 	</div>
 </Swipeable>
 
-{#if expanded && !row.isRoutine && (row.alternatives.length > 0 || row.canAddAlternative)}
-	<div
-		role="group"
-		aria-label={t().routine.slot.alternatives(index + 1)}
-		class="ml-7 flex flex-col gap-2 border-l-2 border-accent/25 py-0.5 pl-3"
-	>
-		{#each row.alternatives as alt (alt.id)}
-			{@const key = `alt:${row.id}:${alt.id}`}
-			<!--
+{#if expanded}
+	<!-- Left of the alternatives' line: a new slot above this one, and one below
+	     (a seam's Pred / Za, for a slot with no seam). -->
+	<div class="flex">
+		<div class="flex w-11 flex-none flex-col justify-between">
+			{@render add('add-above', t().routine.seam.addBefore(index + 1), onaddBefore)}
+			{@render add('add-below', t().routine.seam.addAfter(index + 1), onaddAfter)}
+		</div>
+		{#if !row.isRoutine && (row.alternatives.length > 0 || row.canAddAlternative)}
+			<div
+				role="group"
+				aria-label={t().routine.slot.alternatives(index + 1)}
+				class="flex min-w-0 flex-1 flex-col gap-2 border-l-2 border-accent/25 py-0.5 pl-3"
+			>
+				{#each row.alternatives as alt (alt.id)}
+					{@const key = `alt:${row.id}:${alt.id}`}
+					<!--
 				The name, then Open and Remove as square buttons the tile's height and
 				rounding. No timing: an alternative starts and lands exactly like the
 				slot's main figure, so it would only repeat the line above. A swipe
 				left still removes it too. `accent-soft` is opaque, so the red under a
 				swiped tile does not show through.
 			-->
-			<div class="flex items-center gap-1.5">
-				<div class="min-w-0 flex-1">
-					<Swipeable
-						{key}
-						rounded="rounded-xl"
-						reveal={88}
-						open={sideOf(key)}
-						onchange={(side) => onswipe(key, side)}
-						end={{ label: t().common.remove, onclick: () => onremoveAlt(alt.id, alt.label) }}
-					>
-						<p
-							class="h-11 truncate rounded-xl bg-accent-soft px-3.5 text-[15px] leading-[44px] font-bold text-ink"
-						>
-							{alt.label}
-							{#if alt.source}
-								<span class="ml-1.5 align-middle"
-									><Badge tone="neutral"><Icon name="group" size={14} />{alt.source}</Badge></span
+					<div class="flex items-center gap-1.5">
+						<div class="min-w-0 flex-1">
+							<Swipeable
+								{key}
+								rounded="rounded-xl"
+								reveal={88}
+								open={sideOf(key)}
+								onchange={(side) => onswipe(key, side)}
+								end={{ label: t().common.remove, onclick: () => onremoveAlt(alt.id, alt.label) }}
+							>
+								<p
+									class="h-11 truncate rounded-xl bg-accent-soft px-3.5 text-[15px] leading-[44px] font-bold text-ink"
 								>
-							{/if}
-						</p>
-					</Swipeable>
-				</div>
-				{#if alt.length !== null}
-					{@const n = alt.length}
-					<!-- Each alternative keeps its own length (spec 2026-11-11). -->
+									{alt.label}
+									{#if alt.source}
+										<span class="ml-1.5 align-middle"
+											><Badge tone="neutral"><Icon name="group" size={14} />{alt.source}</Badge
+											></span
+										>
+									{/if}
+								</p>
+							</Swipeable>
+						</div>
+						{#if alt.length !== null}
+							{@const n = alt.length}
+							<!-- Each alternative keeps its own length (spec 2026-11-11). -->
+							<button
+								type="button"
+								class="grid h-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-accent-soft px-2.5 text-[13px] font-extrabold text-accent-text"
+								aria-label={t().routine.length.change(n)}
+								onclick={() => onlength(alt.id, n)}>{t().routine.length.chip(n)}</button
+							>
+						{/if}
+						<a
+							href={alt.href}
+							data-focus="alt-{row.id}-{alt.id}"
+							class="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text"
+							aria-label={t().routine.slot.open(alt.label)}
+							title={t().figure.practice.open}><Icon name="external" size={18} /></a
+						>
+						<button
+							type="button"
+							class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-danger-soft text-danger"
+							aria-label={t().routine.slot.remove(alt.label)}
+							title={t().common.remove}
+							onclick={() => onremoveAlt(alt.id, alt.label)}><Icon name="trash" size={18} /></button
+						>
+					</div>
+				{/each}
+				{#if row.canAddAlternative}
 					<button
 						type="button"
-						class="grid h-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-accent-soft px-2.5 text-[13px] font-extrabold text-accent-text"
-						aria-label={t().routine.length.change(n)}
-						onclick={() => onlength(alt.id, n)}>{t().routine.length.chip(n)}</button
+						class="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-accent/50 text-[15px] font-extrabold text-accent-text"
+						onclick={onaddAlt}><Icon name="plus" size={18} />{t().routine.slot.alternative}</button
 					>
 				{/if}
-				<a
-					href={alt.href}
-					data-focus="alt-{row.id}-{alt.id}"
-					class="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text"
-					aria-label={t().routine.slot.open(alt.label)}
-					title={t().figure.practice.open}><Icon name="external" size={18} /></a
-				>
-				<button
-					type="button"
-					class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-danger-soft text-danger"
-					aria-label={t().routine.slot.remove(alt.label)}
-					title={t().common.remove}
-					onclick={() => onremoveAlt(alt.id, alt.label)}><Icon name="trash" size={18} /></button
-				>
 			</div>
-		{/each}
-		{#if row.canAddAlternative}
-			<button
-				type="button"
-				class="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-accent/50 text-[15px] font-extrabold text-accent-text"
-				onclick={onaddAlt}><Icon name="plus" size={18} />{t().routine.slot.alternative}</button
-			>
 		{/if}
 	</div>
 {/if}
@@ -387,3 +404,18 @@
 {#if row.failure}
 	<Banner kind="error" title={row.failure} />
 {/if}
+
+{#snippet add(icon: IconName, label: string, onclick: () => void)}
+	<button
+		type="button"
+		class="group grid size-11 cursor-pointer place-items-center"
+		aria-label={label}
+		title={label}
+		{onclick}
+	>
+		<span
+			class="grid size-9 place-items-center rounded-full border-[1.5px] border-dashed border-accent/50 text-accent-text"
+			><Icon name={icon} size={18} /></span
+		>
+	</button>
+{/snippet}

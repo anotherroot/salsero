@@ -4,7 +4,8 @@
 	 * The slots, the seams between them, the + at either end — and the drag.
 	 *
 	 * A drag starts the moment the handle is pressed. It first lets the page
-	 * collapse the open card and hide the seams (both would be wrong mid-drag),
+	 * collapse the open card (it would be wrong mid-drag; the seams stay, so
+	 * nothing jumps and no warning blinks away),
 	 * waits for that layout, and corrects for how far the grabbed card moved, so
 	 * the card stays under the finger. Then it measures every card ONCE, and on
 	 * each move asks `$lib/gestures/drag` where the card would land, how far
@@ -277,10 +278,12 @@
 					ondelete={() => ondelete(row.id)}
 					onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
 					onaddAlt={() => onaddAlt(row.id)}
+					onaddBefore={() => onadd(i, { row: i, side: 'before' })}
+					onaddAfter={() => onadd(i + 1, { row: i, side: 'after' })}
 					onlength={(figureId, current) => onlength(row.id, figureId, current)}
 					onnote={(note) => onnote(row.id, note)}
 				/>
-				{#if row.seam && !selecting}
+				{#if row.seam}
 					{@const next = row.seam.next}
 					<Seam
 						label={row.seam.label}

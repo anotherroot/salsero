@@ -152,13 +152,12 @@
 	/*
 	 * Optimistic overlays, cleared when their action returns — by which time
 	 * `act` has re-run the load, so the server's state takes over. While any is
-	 * in flight the seams are hidden: they were computed for the order on the
-	 * server, not the one on screen.
+	 * in flight a seam shows only where it still holds for the slots on screen
+	 * (`seamOf`): the seams were computed for the server's order.
 	 */
 	let order = $state<number[] | null>(null);
 	let gone = $state<number[]>([]);
 	let goneOptions = $state<string[]>([]);
-	let pending = $state(0);
 
 	const routine = $derived(data.routine);
 	/**
@@ -283,10 +282,35 @@
 		return figuresById.has(id) ? name : t().routine.slot.archived(name);
 	}
 
-	/** What does not connect below server row `i`, worded; null when it connects. */
-	function seamOf(i: number): RowView['seam'] {
-		const p = data.positionSeams.find((s) => s.after === i);
-		const t = data.timingSeams.find((s) => s.after === i);
+	/**
+	 * Whether the server's seam between its rows `i` and `j` still holds with
+	 * server row `i` drawn at `k`: the same rows follow it, and neither side lost
+	 * an option on the way. Timing also needs every row above unchanged — where
+	 * a slot leaves off depends on the whole run before it. Everything holds when
+	 * nothing is in flight; a seam the change would make waits for the server.
+	 */
+	function holds(i: number, j: number, k: number, timing: boolean): boolean {
+		if (timing && k !== i) return false;
+		const server = data.slots.map((s) => s.id);
+		const ids = shown.map((s) => s.slot.id);
+		const lost = new Set(goneOptions.map((key) => Number(key.split(':')[0])));
+		// Server rows `from…j` drawn in order, each `k - i` places from where the server has it.
+		const from = timing ? 0 : i;
+		for (let n = from; n <= j; n++) {
+			const id = ids[k - i + n];
+			if (id === undefined || id !== server[n] || lost.has(id)) return false;
+		}
+		return true;
+	}
+
+	/**
+	 * What does not connect below server row `i`, drawn at `k`, worded; null
+	 * when it connects. Shown through a drag and a selection, so the page never
+	 * jumps under the finger (and the warning never blinks away).
+	 */
+	function seamOf(i: number, k: number): RowView['seam'] {
+		const p = data.positionSeams.find((s) => s.after === i && holds(i, s.next, k, false));
+		const t = data.timingSeams.find((s) => s.after === i && holds(i, s.next, k, true));
 		const next = (p ?? t)?.next;
 		if (next === undefined) return null;
 		const a = data.edges[i];
@@ -298,7 +322,7 @@
 					: null,
 				t ? { ready: a.next, next: b.startCounts } : null
 			),
-			next,
+			next: k + next - i,
 			bridge: canBridge(data.candidates, anchorBetween(a, b))
 		};
 	}
@@ -311,10 +335,9 @@
 		);
 		return ids.map((id) => byId.get(id)!);
 	});
-	const stale = $derived(pending > 0 || dragging);
 
 	const rows: RowView[] = $derived(
-		shown.map(({ slot, edges, i }) => {
+		shown.map(({ slot, edges, i }, k) => {
 			const isRoutine = slot.childId !== null;
 			const main = slot.figureIds[0] as number | undefined;
 			return {
@@ -357,7 +380,7 @@
 					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
 						? place.message
 						: null,
-				seam: stale ? null : seamOf(i)
+				seam: seamOf(i, k)
 			};
 		})
 	);
@@ -399,7 +422,6 @@
 	/** This page's own actions not yet answered, in the order they were sent. */
 	let queued: OwnSend[] = [];
 	async function send(name: string, fields: Record<string, Field>) {
-		pending++;
 		const aimed = data.fingerprint;
 		const ahead = [...queued];
 		const mine: OwnSend = { sent: null, after: null };
@@ -417,7 +439,6 @@
 			return await run;
 		} finally {
 			queued = queued.filter((q) => q !== mine);
-			pending--;
 		}
 	}
 
@@ -817,17 +838,19 @@
 	/>
 {/snippet}
 
+<!-- Selecting keeps the whole page, band and hero included (only the title and the band's
+     buttons change), so nothing moves under the finger that pressed. -->
 <Screen
 	title={selecting
 		? selectionTitle(selected.length)
 		: editing
 			? t().routine.band.editTitle
 			: routine.name}
-	compact={selecting || (!editing && bandCompact(routine.name))}
-	subtitle={selecting || editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
+	compact={!editing && bandCompact(routine.name)}
+	subtitle={editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
 	right={selecting || editing ? undefined : data.canEdit ? actions : readerActions}
-	hero={selecting || editing || !danceable ? undefined : practise}
+	hero={editing || !danceable ? undefined : practise}
 	heroDesk={!data.makeMine}
 >
 	<div
@@ -941,77 +964,74 @@
 				</li>
 			</ul>
 		{:else}
-			<!-- Selecting shows only the slots. -->
-			{#if !selecting}
-				<Versions
-					sources={data.sources}
-					kind="routine"
-					dance={data.dance.slug}
-					current={routine.id}
-					mineId={data.mineId}
-					self={data.cloneLine.self}
-					title={routine.name}
-					family={data.family}
-					step={data.step}
-					keep={data.keep}
-					taking={sourcePlace}
-				/>
-				{#if bannerMessage}
-					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
-				{/if}
-				{#if archivedForm && form?.message}
-					<!-- "Archived by Ana": Restore and put it in, or pick another. -->
-					<Banner kind="error" title={form.message} ondismiss={() => (dismissed = form)}>
-						{#if restoreRefusal}{restoreRefusal}{/if}
-						{#snippet action()}
-							<div class="flex flex-wrap gap-1">
-								{#if archivedForm.restorable}
-									<button
-										type="button"
-										class={button('tertiary', 'sm')}
-										aria-busy={restoring}
-										disabled={restoring}
-										onclick={restoreAndPick}
-										>{#if restoring}<Spinner /><span class="sr-only"
-												>{t().routine.archived.restoring}</span
-											>{:else}{t().routine.archived.restore}{/if}</button
-									>
-								{/if}
-								<button type="button" class={button('tertiary', 'sm')} onclick={pickAnother}
-									>{t().routine.archived.pickAnother}</button
+			<Versions
+				sources={data.sources}
+				kind="routine"
+				dance={data.dance.slug}
+				current={routine.id}
+				mineId={data.mineId}
+				self={data.cloneLine.self}
+				title={routine.name}
+				family={data.family}
+				step={data.step}
+				keep={data.keep}
+				taking={sourcePlace}
+			/>
+			{#if bannerMessage}
+				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+			{/if}
+			{#if archivedForm && form?.message}
+				<!-- "Archived by Ana": Restore and put it in, or pick another. -->
+				<Banner kind="error" title={form.message} ondismiss={() => (dismissed = form)}>
+					{#if restoreRefusal}{restoreRefusal}{/if}
+					{#snippet action()}
+						<div class="flex flex-wrap gap-1">
+							{#if archivedForm.restorable}
+								<button
+									type="button"
+									class={button('tertiary', 'sm')}
+									aria-busy={restoring}
+									disabled={restoring}
+									onclick={restoreAndPick}
+									>{#if restoring}<Spinner /><span class="sr-only"
+											>{t().routine.archived.restoring}</span
+										>{:else}{t().routine.archived.restore}{/if}</button
 								>
-							</div>
-						{/snippet}
-					</Banner>
-				{/if}
-				{#if routine.notes}
-					<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">
-						{routine.notes}
-					</p>
-				{/if}
-				<!-- With no position anywhere there is no hand fact, but the badges (loops, breaks) still show. -->
-				{#if facts || badges.length > 0}
-					<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
-						{#if facts}
-							<p class="text-[14px] font-semibold text-ink-2">
-								{#if facts.from !== null}{t().routine.facts.from}
-									<b class="font-extrabold text-ink">{facts.from}</b>{#if facts.to !== null}&nbsp;· {t()
-											.routine.facts.to}
-										<b class="font-extrabold text-ink">{facts.to}</b>{/if}{:else}{t().routine.facts
-										.endsAt} <b class="font-extrabold text-ink">{facts.to}</b>{/if}
-							</p>
-						{/if}
-						{#if badges.length > 0}
-							<div class="flex flex-wrap gap-1.5">
-								{#each badges as b (b.text)}
-									<Badge tone={b.tone}
-										>{#if b.loop}<Icon name="repeat" size={14} />{/if}{b.text}</Badge
-									>
-								{/each}
-							</div>
-						{/if}
-					</div>
-				{/if}
+							{/if}
+							<button type="button" class={button('tertiary', 'sm')} onclick={pickAnother}
+								>{t().routine.archived.pickAnother}</button
+							>
+						</div>
+					{/snippet}
+				</Banner>
+			{/if}
+			{#if routine.notes}
+				<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">
+					{routine.notes}
+				</p>
+			{/if}
+			<!-- With no position anywhere there is no hand fact, but the badges (loops, breaks) still show. -->
+			{#if facts || badges.length > 0}
+				<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
+					{#if facts}
+						<p class="text-[14px] font-semibold text-ink-2">
+							{#if facts.from !== null}{t().routine.facts.from}
+								<b class="font-extrabold text-ink">{facts.from}</b>{#if facts.to !== null}&nbsp;· {t()
+										.routine.facts.to}
+									<b class="font-extrabold text-ink">{facts.to}</b>{/if}{:else}{t().routine.facts
+									.endsAt} <b class="font-extrabold text-ink">{facts.to}</b>{/if}
+						</p>
+					{/if}
+					{#if badges.length > 0}
+						<div class="flex flex-wrap gap-1.5">
+							{#each badges as b (b.text)}
+								<Badge tone={b.tone}
+									>{#if b.loop}<Icon name="repeat" size={14} />{/if}{b.text}</Badge
+								>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			{/if}
 
 			{#if !data.canEdit}
@@ -1105,24 +1125,22 @@
 				</section>
 			{/if}
 
-			{#if !selecting}
-				<!-- Music (spec B): the songs to practise this routine to, each with a note. -->
-				<div class="pt-3.5">
-					<MusicSection
-						rows={data.music}
-						canEdit={data.canEdit}
-						choices={data.musicChoices}
-						practise={(songId) =>
-							musicHref(
-								data.dance.slug,
-								{ routineId: data.routine.id, entryId: data.exerciseId ?? null },
-								songId
-							)}
-					/>
-				</div>
-			{/if}
+			<!-- Music (spec B): the songs to practise this routine to, each with a note. -->
+			<div class="pt-3.5">
+				<MusicSection
+					rows={data.music}
+					canEdit={data.canEdit}
+					choices={data.musicChoices}
+					practise={(songId) =>
+						musicHref(
+							data.dance.slug,
+							{ routineId: data.routine.id, entryId: data.exerciseId ?? null },
+							songId
+						)}
+				/>
+			</div>
 
-			{#if !selecting && (data.exerciseId !== null || data.taughtIn.length > 0)}
+			{#if data.exerciseId !== null || data.taughtIn.length > 0}
 				<h2 class="{SECTION_LABEL} pt-3.5">{t().routine.edit.more}</h2>
 				<ul class={GROUP}>
 					{#if data.exerciseId !== null}
