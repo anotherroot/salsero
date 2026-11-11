@@ -33,7 +33,7 @@
  */
 import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
-import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
+import { countsOfMask, DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
@@ -294,7 +294,9 @@ class Applier {
 		if (has('timing') || tags.length > 0) {
 			const timing = (f: typeof t) => ({
 				startCount: f.startCount ?? DEFAULT_START_COUNT,
-				lengthCounts: f.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+				lengthCounts: f.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+				startCounts: countsOfMask(f.startCounts, f.startCount),
+				lengthFree: f.lengthFree === 1
 			});
 			const written = writeFigureShape(tx, targetId, {
 				...this.sidesAfter(tags),

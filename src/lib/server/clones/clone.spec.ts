@@ -199,6 +199,23 @@ describe('cloneInto: figures', () => {
 		expect(db.select().from(exercises).where(eq(exercises.figureId, r.id)).all()).toEqual([]);
 	});
 
+	it('a figure copy keeps its start set and You choose (spec 2026-11-11)', async () => {
+		const src = groupFigure();
+		db.update(figures).set({ startCounts: 17, lengthFree: 1 }).where(eq(figures.id, src.id)).run();
+		const r = await cloneInto(
+			db,
+			{ kind: 'figure', id: src.id, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!r.ok) throw new Error('expected a clone');
+		expect(figureRow(r.id)).toMatchObject({ startCounts: 17, lengthFree: 1 });
+		// The flat timing carries both, so Keep in step sees a later change.
+		expect(flatOf(db, 'figure', r.id).timing).toEqual(flatOf(db, 'figure', src.id).timing);
+		db.update(figures).set({ startCounts: null }).where(eq(figures.id, src.id)).run();
+		expect(flatOf(db, 'figure', r.id).timing).not.toEqual(flatOf(db, 'figure', src.id).timing);
+	});
+
 	it('files under my live move of that name, any case', async () => {
 		const src = groupFigure();
 		const mine = figure(U2_SALSA, ' enchufla ', 'Basic');

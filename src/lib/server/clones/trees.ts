@@ -116,7 +116,11 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	b.add('style', style, styleShow(f.dance, style));
 	const start = f.startCount ?? DEFAULT_START_COUNT;
 	const length = f.lengthCounts ?? DEFAULT_LENGTH_COUNTS;
-	b.add('timing', `${start}|${length}`, timingLine(start, length).main);
+	// A start set or You choose (spec 2026-11-11) joins the value only when set, so a
+	// figure nobody changed compares exactly as before.
+	const set = f.startCounts ? `|s${f.startCounts}` : '';
+	const free = f.lengthFree === 1 ? '|free' : '';
+	b.add('timing', `${start}|${length}${set}${free}`, timingLine(start, length).main);
 	tagFields(db, id, b);
 	linkFields(db, eq(links.figureId, id), b);
 

@@ -39,6 +39,7 @@ import type { PickGroup } from '$lib/picker/model';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
+	countsOfMask,
 	isLengthCounts,
 	isStartCount,
 	MAX_LENGTH_COUNTS
@@ -52,7 +53,7 @@ import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
 import { practiceLine, recordingsCount } from '$lib/figures/page';
-import { figureById, follows, precedes } from '$lib/graph/graph';
+import { countsOf, figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import {
@@ -237,7 +238,10 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 
 	const shape = {
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
-		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+		// Spec 2026-11-11: every count it can start on, and whether a routine sets its length.
+		startCounts: countsOfMask(figure.startCounts, figure.startCount),
+		lengthFree: figure.lengthFree === 1
 	};
 
 	// Every live variation of the figure, this one included, as its sheet lists
@@ -464,7 +468,9 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		// What is actually danced: the timing the graph reads.
 		effective: {
 			startCount: node?.start ?? shape.startCount,
-			lengthCounts: node?.length ?? shape.lengthCounts
+			lengthCounts: node?.length ?? shape.lengthCounts,
+			startCounts: node ? countsOf(node) : shape.startCounts,
+			lengthFree: node ? node.free === true : shape.lengthFree
 		},
 		// Derived per request, never stored — the same rule the schedule follows.
 		leadsTo: link(follows(graph, id)),
@@ -582,8 +588,14 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// Starts in / Ends in post every chosen id, each side under its own name.
 		const startIds = ints(form, 'startIds');
 		const endIds = ints(form, 'endIds');
-		const startCount = int(form, 'startCount');
+		// The timing form (spec 2026-11-11) posts one `startCount` per count it can
+		// start on and `lengthFree`, under `timingSet`; an older page posts one
+		// `startCount` alone, and the stored set and You choose are kept.
+		const counts = ints(form, 'startCount');
+		const timingSet = form.has('timingSet');
+		const startCount = counts.length > 0 ? Math.min(...counts) : null;
 		const lengthCounts = int(form, 'lengthCounts');
+		const lengthFree = form.get('lengthFree') === '1';
 
 		if ((renames && !figureName) || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
@@ -591,7 +603,7 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 				message: t().figure.refused.names
 			});
 		}
-		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
+		if (!isStartCount(startCount) || !counts.every(isStartCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
 				action: 'update',
 				message: t().figure.refused.timing(MAX_LENGTH_COUNTS)
@@ -626,7 +638,10 @@ export const actions: Actions = flowing('figure', (e) => variationId(e.params.id
 		// the other dance or another owner, and that is a 404 rather than a message,
 		// the same answer every other cross-dance id gets here. Tags the form never
 		// showed (archived, not read) are not posted and are kept (ruling 4).
-		if (!setFigureShape(db, figure.id, { startIds, endIds, startCount, lengthCounts }, by)) {
+		const timing = timingSet ? { startCounts: counts, lengthFree } : {};
+		if (
+			!setFigureShape(db, figure.id, { startIds, endIds, startCount, lengthCounts, ...timing }, by)
+		) {
 			throw error(404, t().refusals.figureNotFound);
 		}
 		if (!updateVariation(db, figure.id, { name, partner, style, notes }, by)) {

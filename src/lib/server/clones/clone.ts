@@ -811,6 +811,8 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 			styleTag: src.styleTag,
 			startCount: src.startCount,
 			lengthCounts: src.lengthCounts,
+			startCounts: src.startCounts,
+			lengthFree: src.lengthFree,
 			createdAt: now,
 			geneId: gene,
 			clonedFrom: src.id

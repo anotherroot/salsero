@@ -227,6 +227,8 @@ export const groups = {
 			frame: 'frame',
 			pictureSpotId: 'picture',
 			startCount: 'start count',
+			startCounts: 'start counts',
+			lengthFree: 'length set in the routine',
 			lengthCounts: 'length',
 			note: 'slot’s note',
 			artist: 'artist',
@@ -407,6 +409,8 @@ export const groups = {
 			// An older clash or History row's single end.
 			endId: 'Ends in',
 			startCount: 'Starts on count',
+			startCounts: 'Can start on',
+			lengthFree: 'Length set in the routine',
 			lengthCounts: 'Length',
 			comesBack: 'Comes back',
 			active: 'Active',

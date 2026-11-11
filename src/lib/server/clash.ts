@@ -19,7 +19,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { figureGroups, figures, positions } from './db/schema';
 import { figurePositions } from './graph';
-import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
+import { countsOfMask, DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { asSeen, changedFields, clashTitle, goneTitle, type Seen } from '$lib/clash/clash';
 import { t } from '$lib/i18n/catalog';
 import { serverNow } from '$lib/server/server-clock';
@@ -231,7 +231,10 @@ export function variationSeen(db: Db, figureId: number, withMove = false): Seen 
 		startIds: tags.startIds.join(','),
 		endIds: tags.endIds.join(','),
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
-		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+		// Spec 2026-11-11: the start set and You choose, as the form writes them.
+		startCounts: countsOfMask(figure.startCounts, figure.startCount).join(','),
+		lengthFree: figure.lengthFree === 1 ? 1 : 0
 	};
 }
 
