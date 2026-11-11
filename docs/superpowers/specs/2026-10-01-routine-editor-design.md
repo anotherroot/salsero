@@ -70,6 +70,12 @@ options exactly as before.
 
 ### Tap: expand in place
 
+> Since 2026-11-11 an open card lifts and the rest dims, its alternatives and a
+> toolbar (length, + Alternative, Before n, After n) inside it: see
+> [`2026-11-11-routine-lift-design.md`](2026-11-11-routine-lift-design.md)
+> (T3). It replaces the rail of alternative cards and the dashed + Alternative
+> below; the note field and Open → stay as written here.
+
 Tapping a card's body expands it; one card is open at a time, and tapping it
 again — or another card — collapses it. An open card shows, top to bottom:
 
@@ -170,6 +176,12 @@ Alternative cards swipe the same way: left removes that alternative. Swiping the
 **whole slot**, alternatives included.
 
 ### Long-press: select
+
+> Since 2026-11-11 selected slots lift, neighbours join into one piece with
+> the toolbar at its foot, and the bar docks only for slots apart; Before and
+> After work for any run of neighbours; nothing jumps: see
+> [`2026-11-11-routine-lift-design.md`](2026-11-11-routine-lift-design.md)
+> (S6–S8). The actions and their reasons below still hold.
 
 A ~450 ms press on a card's body enters selection mode with that slot selected,
 through the existing `src/lib/longpress.ts` (the coverage page's). Selection

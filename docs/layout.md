@@ -152,7 +152,9 @@ src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
                      version (`routinesUsing`, coverage.ts), the picker's fitting
-                     (fit.ts), the selection's rules, the delete snapshot, and the routine
+                     (fit.ts), the selection's rules and shape (`selectionShape`: each row's
+                     piece, the runs of neighbours), the open slot's toolbar (tools.ts), the delete
+                     snapshot, and the routine
                      page's wording and where a refusal shows (page.ts).
                      Client-safe
 src/lib/figures/     PURE: a figure page's lines — timing, the practice line, the
@@ -166,6 +168,11 @@ src/lib/figures/     PURE: a figure page's lines — timing, the practice line, 
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
                      page's lines — via-section badges, row metas, the delete and unlink
                      questions. Client-safe
+src/lib/components/routines/  the routine editor: SlotList (the drag, the lifted pieces: an open slot,
+                     a selection, joined runs; spec 2026-11-11 routine lift), SlotCard, Seam,
+                     CardToolbar (a lifted card's toolbar: the open slot's and the selection's),
+                     SelectionBar (that toolbar docked when the selection is not one run),
+                     lift.ts (LIFTED, RING, the dims, `pieceRound`, `faceRound`), SlotPicker
 src/lib/components/links/AddLinkSheet.svelte  "Add a link": one link, what it found (`linkFound`),
                      a title; the lesson page's, and the figure page's to reuse
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
@@ -517,6 +524,8 @@ src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a 
 src/lib/nav/dropped.ts  PURE: a navigation SvelteKit dropped for a refresh that started while it
                      loaded (it stays under way for good, the skeleton over the old page); the
                      root layout watches `navigating`, goes again, and loads whole after 2 tries
+src/lib/motion/anchor.ts  `keepInPlace`: the card under the finger stays put on screen across a
+                     layout change (routine lift, spec 2026-11-11: open, select, ×)
 src/lib/motion/pull-refresh.ts  PURE: pull down to refresh (device first, look C): `pullDistance`,
                      `mayStart`, `doneWord`, the numbers; `components/ui/PullRefresh.svelte` draws
                      it under `Screen` (prop `pull`)
