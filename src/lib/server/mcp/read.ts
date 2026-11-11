@@ -19,6 +19,7 @@ import {
 } from './args';
 import type { Impl, ToolCtx, ToolModule } from './modules';
 import { viewOf, type Row, type View } from './view';
+import { countsOfMask } from '$lib/graph/timing';
 
 const TABLE: Record<Kind, string> = {
 	move: 'figure_groups',
@@ -149,6 +150,16 @@ function figureDetail(v: View, f: Row) {
 		name: f.name,
 		start_count: f.start_count,
 		length_counts: f.length_counts,
+		// Spec 2026-11-11: only when set, so an untouched figure reads as before.
+		...(f.start_counts
+			? {
+					start_counts: countsOfMask(
+						Number(f.start_counts),
+						f.start_count === null ? null : Number(f.start_count)
+					)
+				}
+			: {}),
+		...(f.length_free ? { length_set_in_routine: true } : {}),
 		starts: positionNames(v, 'figure_start_positions', f.id),
 		ends: positionNames(v, 'figure_end_positions', f.id),
 		notes: f.notes,
@@ -323,9 +334,13 @@ const TOOLS: Tool[] = [
 								routine: String(v.byId('routines', s.child_routine_id)?.name ?? ''),
 								routine_id: s.child_routine_id
 							}),
-					alternatives: v
-						.where('routine_step_options', 'step_id', s.id)
-						.map((o) => ({ figure: v.label(o.figure_id), figure_id: o.figure_id })),
+					alternatives: v.where('routine_step_options', 'step_id', s.id).map((o) => ({
+						figure: v.label(o.figure_id),
+						figure_id: o.figure_id,
+						...(o.length_counts !== null && o.length_counts !== undefined
+							? { length_counts: o.length_counts }
+							: {})
+					})),
 					note: s.note
 				}))
 		})

@@ -15,7 +15,11 @@ four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (links with YouTube embeds, a practice panel on the exercise
 page, an exercise page) and figure timing (a start count and a
-length in counts; routines report timing breaks) and figures and moves (a
+length in counts; routines report timing breaks) and flexible figures (a figure can start on
+several counts and have its length set per routine slot: tap the counts on the figure, How long?
+when adding it to a routine, a length chip on the slot; each slot starts where the one before leaves
+off; spec
+[`docs/superpowers/specs/2026-11-11-flexible-figures-design.md`](docs/superpowers/specs/2026-11-11-flexible-figures-design.md)) and figures and moves (a
 move is a name holding self-contained figures; Move to… another move or a new
 one; switcher at the bottom; a move's page)
 and figure coverage (figures have no exercise by default; a page of figure
