@@ -51,6 +51,10 @@ export const routine = {
 		above: 'Add above',
 		below: 'Add below',
 		duplicate: 'Duplicate',
+		/** The header of selected neighbours, joined into one piece. */
+		run: (from: number, to: number): string => `Slots ${from}–${to}`,
+		/** Under one selected slot. */
+		tip: 'Tap other slots to add them.',
 		/** Why an action is greyed. */
 		blocked: {
 			embedded: (names: string): string =>
@@ -58,7 +62,6 @@ export const routine = {
 			none: 'Select the slots to make into a routine.',
 			slotIsRoutine: (n: number): string => `Slot ${n} is a routine — embedding is one level.`,
 			apart: 'Select slots next to each other.',
-			one: 'Select one slot to add next to it.',
 			first: 'Select slots first.'
 		}
 	},

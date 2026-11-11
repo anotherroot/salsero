@@ -45,7 +45,7 @@
 	} from '$lib/routines/fit';
 	import { startOn } from '$lib/graph/timing';
 	import LengthSheet from '$lib/components/routines/LengthSheet.svelte';
-	import { actionBlocks, extractBlock, inOrder } from '$lib/routines/selection';
+	import { actionBlocks, extractBlock, inOrder, selectionShape } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
 	import {
@@ -708,6 +708,13 @@
 	}
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
+	/** How the selection lifts: each row's piece, and the runs of neighbours (spec 2026-11-11, routine lift). */
+	const shape = $derived(
+		selectionShape(
+			rows.map((r) => r.id),
+			selected
+		)
+	);
 
 	/**
 	 * Add above / below the one selected slot. The selection is KEPT while the
@@ -1274,7 +1281,7 @@
 	<SelectionBar
 		bind:height={barHeight}
 		count={selected.length}
-		blocks={actionBlocks(selected.length, extractBlocked)}
+		blocks={actionBlocks(selected.length, shape.runs.length === 1, extractBlocked)}
 		onabove={() => addAround('before')}
 		onbelow={() => addAround('after')}
 		onduplicate={() => {
