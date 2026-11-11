@@ -6,6 +6,11 @@
 > This document owns how a routine is **edited** on
 > `/[dance]/routines/[id]`, and tightens one rule there: a new alternative must
 > also agree with the slot's main figure on where and on which count it starts.
+>
+> **Since 2026-11-11** ([`2026-11-11-slot-end-design.md`](2026-11-11-slot-end-design.md)): a slot's
+> line names only where it ends (a chip when chosen, »Konča?« when there is one to choose, the name
+> alone when nothing is), the open card's toolbar has an end cell, Where does it end? follows
+> adding a figure with ends to choose, and Back closes an open slot or a selection first.
 
 ## Purpose
 

@@ -19,7 +19,11 @@ length in counts; routines report timing breaks) and flexible figures (a figure 
 several counts and have its length set per routine slot: tap the counts on the figure, How long?
 when adding it to a routine, a length chip on the slot; each slot starts where the one before leaves
 off; spec
-[`docs/superpowers/specs/2026-11-11-flexible-figures-design.md`](docs/superpowers/specs/2026-11-11-flexible-figures-design.md)) and figures and moves (a
+[`docs/superpowers/specs/2026-11-11-flexible-figures-design.md`](docs/superpowers/specs/2026-11-11-flexible-figures-design.md)) and a slot's end (a figure with several
+ends gets one chosen per routine slot, like its length: a chip on the slot, Where does it end? after
+adding it, decided by the slot below when that starts in one of them; the slot's line shows only where
+it ends; Back closes an open slot or a selection first; spec
+[`docs/superpowers/specs/2026-11-11-slot-end-design.md`](docs/superpowers/specs/2026-11-11-slot-end-design.md)) and figures and moves (a
 move is a name holding self-contained figures; Move to… another move or a new
 one; switcher at the bottom; a move's page)
 and figure coverage (figures have no exercise by default; a page of figure

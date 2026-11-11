@@ -149,6 +149,9 @@ src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the walk on the count (`walk`, `rowEdgesIn`: each slot starts where
                      the one before leaves off, an option's length in its slot, spec 2026-11-11),
+                     a slot's end (end.ts: the ends its options share, the one chosen or decided
+                     by the slot below, the Where does it end? rows; `slotEndsIn`, `rowEndsIn`;
+                     spec 2026-11-11 slot end),
                      the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
                      version (`routinesUsing`, coverage.ts), the picker's fitting
@@ -172,7 +175,8 @@ src/lib/components/routines/  the routine editor: SlotList (the drag, the lifted
                      a selection, joined runs; spec 2026-11-11 routine lift), SlotCard, Seam,
                      CardToolbar (a lifted card's toolbar: the open slot's and the selection's),
                      SelectionBar (that toolbar docked when the selection is not one run),
-                     lift.ts (LIFTED, RING, the dims, `pieceRound`, `faceRound`), SlotPicker
+                     lift.ts (LIFTED, RING, the dims, `pieceRound`, `faceRound`), SlotPicker,
+                     LengthSheet (How long?), EndSheet (Where does it end?, spec 2026-11-11 slot end)
 src/lib/components/links/AddLinkSheet.svelte  "Add a link": one link, what it found (`linkFound`),
                      a title; the lesson page's, and the figure page's to reuse
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
