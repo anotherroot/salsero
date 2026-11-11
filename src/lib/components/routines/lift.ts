@@ -5,13 +5,21 @@
  *
  * The shadow sits on a `before:` layer at `-z-10`, under every card of the
  * list (whose `<ul>` is `isolate`), so the pieces of a joined run never shade
- * each other where they meet. The ring is an `after:` layer on top, so the
+ * each other where they meet. A lone piece's ring (`RING`) is an `after:` layer on top, so the
  * cards inside never cover it. Neither may sit on an element that clips.
  */
 import type { Piece } from '$lib/routines/selection';
 
 export const LIFTED =
-	"relative bg-surface before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:shadow-[0_14px_34px_rgb(0_0_0/0.18)] before:content-[''] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] after:content-['']";
+	"relative bg-surface before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:shadow-[0_14px_34px_rgb(0_0_0/0.18)] before:content-['']";
+
+/**
+ * The 1 px accent ring of a piece that stands alone. Not on a run's pieces:
+ * each one's ring would draw again where they meet, a double line where a
+ * hairline belongs.
+ */
+export const RING =
+	"after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_12%,transparent)] after:content-['']";
 
 /** The rest of the list beside an open slot, and beside a selection. */
 export const DIM_OPEN = 'opacity-45';

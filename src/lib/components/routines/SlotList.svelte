@@ -23,7 +23,7 @@
 	import Seam from './Seam.svelte';
 	import type { Snippet } from 'svelte';
 	import type { SelectionShape } from '$lib/routines/selection';
-	import { DIM_OPEN, DIM_SELECT, FADE, faceRound, LIFTED, pieceRound } from './lift';
+	import { DIM_OPEN, DIM_SELECT, FADE, faceRound, LIFTED, pieceRound, RING } from './lift';
 	import type { PickFrom, RowView, Swiped } from './types';
 
 	interface Props {
@@ -312,7 +312,7 @@
 				     never drawn anew between the two. -->
 				<div
 					class={piece
-						? `${LIFTED} ${pieceRound(piece)} ${sel === 'mid' || sel === 'bottom' ? 'border-t border-hairline' : ''}`
+						? `${LIFTED} ${pieceRound(piece)} ${piece === 'single' ? RING : ''} ${sel === 'mid' || sel === 'bottom' ? 'border-t border-hairline' : ''}`
 						: 'contents'}
 				>
 					{#if sel === 'top' && run}

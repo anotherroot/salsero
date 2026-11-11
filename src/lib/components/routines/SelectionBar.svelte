@@ -10,7 +10,7 @@
 	import { PAGE_WIDTH } from '$lib/nav/frame';
 	import type { SelectionAction } from '$lib/routines/selection';
 	import CardToolbar from './CardToolbar.svelte';
-	import { LIFTED } from './lift';
+	import { LIFTED, RING } from './lift';
 
 	interface Props {
 		/** Why each action cannot run, or null when it can. */
@@ -41,7 +41,7 @@
 	style="padding-bottom: calc(20px + var(--safe-bottom)); --bar-w: {PAGE_WIDTH.one}px"
 >
 	<!-- On the desk the piece is centred in the pane, as wide as the page (as Coverage's bar). -->
-	<div class="pointer-events-auto mx-auto rounded-[20px] {LIFTED} desk:max-w-(--bar-w)">
+	<div class="pointer-events-auto mx-auto rounded-[20px] {LIFTED} {RING} desk:max-w-(--bar-w)">
 		<CardToolbar
 			label={t().routine.selection.bar}
 			edge={false}
