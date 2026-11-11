@@ -646,3 +646,25 @@ describe('slotStartCounts with start sets', () => {
 		]);
 	});
 });
+
+describe('a slot whose alternatives cannot all start on the incoming count (spec 2026-11-11)', () => {
+	// 30 leaves the next on 5. 31 can start on 1 or 5; 36 only on 1, 8 counts, so
+	// both still land on 1 — but 36 would be danced from the wrong count.
+	const g2: Graph = {
+		positions: [],
+		figures: [...fx.figures, { id: 36, starts: [], ends: [], start: 1, length: 8 }]
+	};
+	const shape: RoutineShape = { slots: [slot([30]), slot([31, 36])] };
+
+	it('shows a timing break there', () => {
+		expect(walk(g2, flatten(g2, shape))[1].next).toBe(1);
+		expect(timingBreaks(g2, shape)).toEqual([0]);
+		expect(timingSeams(g2, shape)).toEqual([{ after: 0, next: 1 }]);
+	});
+
+	it('shows none when every alternative can', () => {
+		const ok: RoutineShape = { slots: [slot([30]), slot([31, 34])] };
+		expect(timingBreaks(g2, ok)).toEqual([]);
+		expect(timingSeams(g2, ok)).toEqual([]);
+	});
+});

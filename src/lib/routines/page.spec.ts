@@ -11,8 +11,10 @@ import {
 	makeRoutineCaption,
 	seamLabel,
 	selectionTitle,
-	slotMeta
+	slotMeta,
+	alternativeAnchor
 } from './page';
+import { pickList, type Candidate } from './fit';
 
 const name = (id: number) => ({ 1: 'Open', 2: 'Closed', 3: 'Hammerlock' })[id] ?? '?';
 
@@ -293,5 +295,40 @@ describe('the routine page in Slovenian', () => {
 		expect(sl(() => makeRoutineCaption(102))).toBe(
 			'102 mesti se premakneta v novo kombinacijo, ta pa ju tukaj nadomesti kot eno mesto.'
 		);
+	});
+});
+
+describe('alternativeAnchor: an alternative where the routine puts the slot (spec 2026-11-11)', () => {
+	const basic: Candidate = {
+		kind: 'figure',
+		id: 10,
+		groupId: 10,
+		figure: 'Basic step',
+		label: 'Basic step · Open',
+		starts: [],
+		startCounts: [1, 5],
+		ends: [],
+		next: 5,
+		length: 4
+	};
+	const onFive: Candidate = { ...basic, id: 11, groupId: 11, label: 'On five', startCounts: [5] };
+	const onOne: Candidate = { ...basic, id: 12, groupId: 12, label: 'On one', startCounts: [1] };
+
+	it('starts on the count the slot is entered on, not the main figure’s usual start', () => {
+		const slots = [{ id: 7, figureIds: [10] }];
+		// The routine enters this slot on 5; from 5 the basic leaves the next on 1.
+		const edges = [{ starts: [], startCounts: [1, 5], ends: [], next: 1, start: 5 }];
+		const anchor = alternativeAnchor(7, slots, edges, new Map([[10, basic]]))!;
+		expect(anchor).toMatchObject({ kind: 'alternative', startCount: 5, next: 1 });
+		const ids = pickList([basic, onFive, onOne], anchor, {
+			count: true,
+			hold: true,
+			query: ''
+		}).figures.flatMap((g) => g.variations.map((v) => v.id));
+		expect(ids).toEqual([11]);
+	});
+
+	it('is null for a slot that is gone', () => {
+		expect(alternativeAnchor(99, [], [], new Map())).toBeNull();
 	});
 });

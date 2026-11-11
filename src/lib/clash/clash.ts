@@ -80,11 +80,20 @@ export function routineFingerprint(
 		childRoutineId: number | null;
 		figureIds: number[];
 		note?: string | null;
+		/** Each option's length (spec 2026-11-11); only a slot that has any adds to the string. */
+		lengths?: Record<number, number>;
 	}[]
 ): string {
+	const lengthsOf = (l: Record<number, number> | undefined) => {
+		const pairs = Object.entries(l ?? {}).sort(([a], [b]) => Number(a) - Number(b));
+		return pairs.length === 0 ? '' : `:${pairs.map(([id, n]) => `${id}=${n}`).join(',')}`;
+	};
 	const canonical = [...slots]
 		.sort((a, b) => a.position - b.position)
-		.map((s) => `${s.childRoutineId ?? ''}:${s.figureIds.join(',')}:${s.note ?? ''}`)
+		.map(
+			(s) =>
+				`${s.childRoutineId ?? ''}:${s.figureIds.join(',')}:${s.note ?? ''}${lengthsOf(s.lengths)}`
+		)
 		.join('|');
 	return hash(`${slots.length}|${canonical}`);
 }

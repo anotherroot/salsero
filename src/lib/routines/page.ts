@@ -6,6 +6,7 @@
 import { isClash } from '$lib/clash/clash';
 import { t } from '$lib/i18n/catalog';
 import type { RowEdges } from './routines';
+import { anchorAlternative, type Anchor, type Candidate } from './fit';
 
 /** Between the positions of one side: " or ", read at call time. */
 const or = () => ` ${t().figure.or} `;
@@ -164,4 +165,22 @@ export function fingerprintToSend(aimed: string, ahead: OwnSend[]): string {
 	let fp = aimed;
 	for (const r of ahead) if (r.sent === fp && r.after !== null) fp = r.after;
 	return fp;
+}
+
+/**
+ * The picker's anchor for a slot's + Alternative: the main figure as the routine
+ * walks the slot (spec 2026-11-11) — starting where the slot is entered, going
+ * on where the slot does — so the picker offers what `addOption` takes. Null
+ * when the slot is gone or its main figure is archived.
+ */
+export function alternativeAnchor(
+	stepId: number,
+	slots: { id: number; figureIds: number[] }[],
+	edges: RowEdges[],
+	figures: ReadonlyMap<number, Candidate>
+): Anchor | null {
+	const i = slots.findIndex((s) => s.id === stepId);
+	if (i === -1) return null;
+	const slot = slots[i];
+	return anchorAlternative(figures.get(slot.figureIds[0]), slot.figureIds, edges[i]);
 }

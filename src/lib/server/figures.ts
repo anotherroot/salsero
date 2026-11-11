@@ -329,7 +329,9 @@ export function createVariationFrom(
 				styleTag: src.styleTag,
 				groupId: src.groupId,
 				startCount: src.startCount,
-				lengthCounts: src.lengthCounts
+				lengthCounts: src.lengthCounts,
+				startCounts: src.startCounts,
+				lengthFree: src.lengthFree
 			})
 			.returning()
 			.get();

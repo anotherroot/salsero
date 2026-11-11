@@ -140,6 +140,24 @@ export function slotStartCounts(g: Graph, slot: OptionsSlot): number[] {
 }
 
 /**
+ * Whether every option in the slot can start on `count` — a timing break
+ * otherwise (spec 2026-11-11): an alternative that cannot is danced from the
+ * wrong count even when it lands with the others. A slot with nothing danceable
+ * has nothing to break.
+ */
+export function everyOptionStartsOn(
+	g: Graph,
+	slot: OptionsSlot | undefined,
+	count: number
+): boolean {
+	if (!slot) return true;
+	return slot.figureIds.every((id) => {
+		const f = figureById(g, id);
+		return !f || countsOf(f).includes(count);
+	});
+}
+
+/**
  * How many counts an option takes in this slot: the slot's own length for a
  * figure whose length is free and that has one, else the figure's length. A
  * length kept from when the figure was free is not used once it is fixed.
@@ -346,7 +364,7 @@ export function timingBreaks(g: Graph, shape: RoutineShape): number[] {
 	for (let i = 0; i + 1 < flat.length; i++) {
 		const next = walked[i].next;
 		if (next === null) continue;
-		if (!slotStartCounts(g, flat[i + 1]).includes(next)) out.push(i);
+		if (!everyOptionStartsOn(g, flat[i + 1], next)) out.push(i);
 	}
 	return out;
 }
@@ -375,7 +393,9 @@ export function timingSeams(g: Graph, shape: RoutineShape): TimingSeam[] {
 		if (next === null) continue;
 		const j = rows.findIndex((r, k) => k > i && danceable(r));
 		if (j === -1) continue;
-		if (!rows[j].startCounts.includes(next)) out.push({ after: i, next: j });
+		if (!everyOptionStartsOn(g, flatten(g, { slots: [shape.slots[j]] })[0], next)) {
+			out.push({ after: i, next: j });
+		}
 	}
 	return out;
 }

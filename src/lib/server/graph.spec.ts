@@ -642,3 +642,16 @@ describe('History of a start set (spec 2026-11-11)', () => {
 		expect(rows[rows.length - 1].subject).toBe('lengthFree');
 	});
 });
+
+describe('a figure made from another (spec 2026-11-11)', () => {
+	it('keeps its start set and You choose', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		setFigureShape(db, made.figure.id, { ...shape([], []), startCounts: [1, 5], lengthFree: true });
+		const other = createVariationFrom(db, made.figure.id, 'Closed')!;
+		expect(db.select().from(figures).where(eq(figures.id, other.id)).get()).toMatchObject({
+			startCounts: 17,
+			lengthFree: 1
+		});
+	});
+});

@@ -36,7 +36,6 @@
 	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
-		anchorAlternative,
 		anchorBefore,
 		anchorBetween,
 		canBridge,
@@ -60,6 +59,7 @@
 		seamLabel,
 		selectionTitle,
 		slotMeta,
+		alternativeAnchor,
 		type OwnSend
 	} from '$lib/routines/page';
 	import { longDayLabel } from '$lib/format';
@@ -508,7 +508,8 @@
 		const slot = data.slots.find((s) => s.id === stepId);
 		if (!slot) return;
 		const main = figuresById.get(slot.figureIds[0]);
-		const anchor = anchorAlternative(main, slot.figureIds);
+		// The slot as the routine walks it (spec 2026-11-11), the way `addOption` judges it.
+		const anchor = alternativeAnchor(stepId, data.slots, data.edges, figuresById);
 		if (!main || !anchor) return;
 		picker = { title: t().routine.picker.alternative(main.label), anchor, insertAt: null, stepId };
 	}
