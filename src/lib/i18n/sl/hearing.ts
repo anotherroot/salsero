@@ -113,6 +113,7 @@ export const hearing: Catalog['hearing'] = {
 		hear: 'Poslušaj'
 	},
 	count: {
+		startOn: (pos) => `Poslušajte, nato začnite na svoji ${pos}`,
 		off: (n) => `Zamaknjeno za ${slCount(n, ['štetje', 'štetji', 'štetja', 'štetij'])}`,
 		right: 'Pravo štetje',
 		keeps: (pct) => `obdrži ${pct} %`,

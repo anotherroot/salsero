@@ -167,3 +167,36 @@ describe('judgeDrops', () => {
 		expect(r).toMatchObject({ of: 16 });
 	});
 });
+
+describe('a re-anchored count', () => {
+	// A short bar: 1–8, then 1–5, then 1–8 again (the count re-anchored on a new 1).
+	const counts = [...EVERY, 1, 2, 3, 4, 5, ...EVERY, ...EVERY, ...EVERY];
+	const g = { beats: counts.map((_, i) => i * 0.5), counts };
+
+	it('follows the music’s new 1, every beat drawn where it is counted', () => {
+		const d = judgeDropPattern(g, EVERY, 0, onBeats(0, 16));
+		expect(d).toMatchObject({ shift: 0, of: 16, hits: 16 });
+		expect(d.beats.every((b) => b.pos === b.yours)).toBe(true);
+		expect(new Set(d.beats.map((b) => b.row))).toEqual(new Set([0, 1, 2]));
+	});
+
+	it('judges the 1 where the music has it', () => {
+		const d = judgeDropPattern(g, [1], 0, [0, 4, 6.5]);
+		expect(d).toMatchObject({ shift: 0, hits: 3, of: 3 });
+	});
+});
+
+describe('the clave from wherever the first tap fits', () => {
+	it('reads 3-2 tapped from the music’s 1 as 2-3 four counts off', () => {
+		// 3-2 in the music: 1, 2.5, 4, 6, 7 — the person meant 2-3.
+		const taps = [1, 2.5, 4, 6, 7]
+			.flatMap((c) => [(c - 1) * 0.5, (c - 1 + 8) * 0.5])
+			.sort((a, b) => a - b);
+		const d = judgeDropPattern(grid(400), CLAVE_23, 0, taps);
+		expect(d).toMatchObject({ shift: 4, hits: 10, of: 10 });
+	});
+
+	it('keeps the first circle as the first tap when several fit as well (every beat from the 5)', () => {
+		expect(judgeDropPattern(grid(400), EVERY, 0, onBeats(4, 20)).shift).toBe(4);
+	});
+});

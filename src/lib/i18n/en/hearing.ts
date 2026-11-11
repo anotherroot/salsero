@@ -117,6 +117,7 @@ export const hearing = {
 		hear: 'Hear it'
 	},
 	count: {
+		startOn: (pos: string) => `Listen, then start on your ${pos}`,
 		off: (n: number) => (n === 1 ? '1 count off' : `${n} counts off`),
 		right: 'Right count',
 		keeps: (pct: number) => `keeps ${pct} %`,

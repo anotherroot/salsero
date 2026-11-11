@@ -61,11 +61,23 @@ export function roundScore(drops: DropScore[]): DropScore {
 	};
 }
 
-/** The shift seen in most drops (not 0), for the result's verdict; null when every drop was on the count. */
+/**
+ * The shift that is a habit, for the result's verdict: seen in at least two
+ * drops and in as many as were on the count. Null otherwise. A tie goes to the
+ * smaller shift.
+ */
 export function commonShift(shifts: number[]): { shift: number; drops: number } | null {
 	const tally = new Map<number, number>();
 	for (const s of shifts) if (s !== 0) tally.set(s, (tally.get(s) ?? 0) + 1);
+	const onCount = shifts.filter((s) => s === 0).length;
 	let best: { shift: number; drops: number } | null = null;
-	for (const [shift, drops] of tally) if (!best || drops > best.drops) best = { shift, drops };
-	return best;
+	for (const [shift, drops] of [...tally].sort((a, b) => a[0] - b[0]))
+		if (!best || drops > best.drops) best = { shift, drops };
+	return best && best.drops >= 2 && best.drops >= onCount ? best : null;
+}
+
+/** How many counts off, whichever way round: 7 off is 1 off the other way. */
+export function shownShift(shift: number): number {
+	const s = ((shift % 8) + 8) % 8;
+	return Math.min(s, 8 - s);
 }

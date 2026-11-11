@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { button, GROUP } from '$lib/components/ui/styles';
 	import type { FinishedDrop, RoundKind } from '$lib/hearing/round';
-	import { commonShift, roundScore, scoreDrop } from '$lib/hearing/score';
+	import { commonShift, roundScore, scoreDrop, shownShift } from '$lib/hearing/score';
 	import { stackDepth, stackDots } from '$lib/hearing/stack';
 	import { verdictOf } from '$lib/hearing/verdict';
 	import { posLabel, posName } from '$lib/hearing/words';
@@ -122,7 +122,7 @@
 				</span>
 				{#if !d.skipped && d.answer.shift}
 					<span class="rounded-full bg-easy-soft px-2 text-[11px] font-extrabold text-easy"
-						>{w.count.tag(d.answer.shift)}</span
+						>{w.count.tag(shownShift(d.answer.shift))}</span
 					>
 				{/if}
 				<span class="text-[13px] text-muted tabular-nums">

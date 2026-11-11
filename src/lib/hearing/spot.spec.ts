@@ -10,7 +10,7 @@ import {
 	tapSpot
 } from './spot';
 
-const RULES = { eightS: 4, gapS: 1, winS: 0.15, beatS: 0.5 };
+const RULES = { eightS: 4, gapS: 1, winS: 0.15, beatS: 0.5, lagS: 0 };
 const WINDOW = { eight: 3, from: 12, end: 20, startIndex: 24, shift: 0 };
 
 describe('longestGapBeats', () => {
@@ -93,10 +93,19 @@ describe('a spot', () => {
 	});
 });
 
+describe('the end waits for a late last tap', () => {
+	it('gives the last beat the tap delay and the touch lag too', () => {
+		const rules = { eightS: 4, gapS: 1, winS: 0.15, beatS: 0.5, lagS: 0.3 };
+		const s = tapSpot(newSpot(10), 12, WINDOW, 10);
+		expect(stepSpot(s, 20.4, rules)).toBe('keep');
+		expect(stepSpot(s, 20.46, rules)).toBe('end');
+	});
+});
+
 describe('a spot on the 1', () => {
 	it('ends rather than starting over when its only tap came just before a 1', () => {
 		// The 1 at 120 BPM: an eight is 4 s, the longest gap 4 s. A tap at 15.9 opens the eight at 16; it ends at 24.
-		const rules = { eightS: 4, gapS: 4, winS: 0.15, beatS: 0.5 };
+		const rules = { eightS: 4, gapS: 4, winS: 0.15, beatS: 0.5, lagS: 0 };
 		const s = tapSpot(
 			newSpot(10),
 			15.9,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commonShift, roundScore, scoreDrop } from './score';
+import { commonShift, roundScore, scoreDrop, shownShift } from './score';
 
 const perfect = {
 	spot: 10,
@@ -87,5 +87,22 @@ describe('roundScore', () => {
 			listenLoss: 0,
 			countLoss: 0
 		});
+	});
+});
+
+describe('commonShift needs a habit', () => {
+	it('needs two drops, and at least as many as were on the count', () => {
+		expect(commonShift([4, 0, 0, 0])).toBeNull();
+		expect(commonShift([4, 4, 0, 0])).toEqual({ shift: 4, drops: 2 });
+		expect(commonShift([4, 4, 0, 0, 0])).toBeNull();
+	});
+});
+
+describe('shownShift', () => {
+	it('says how far off, whichever way round', () => {
+		expect(shownShift(7)).toBe(1);
+		expect(shownShift(6)).toBe(2);
+		expect(shownShift(4)).toBe(4);
+		expect(shownShift(0)).toBe(0);
 	});
 });

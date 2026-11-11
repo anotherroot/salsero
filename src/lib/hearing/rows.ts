@@ -5,7 +5,7 @@
  * every tap fell, tied to the circle it counted for (look A). `until` shows only
  * what had happened by then (the replay). PURE.
  */
-import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+import { beatIndexAt, nearestBeat } from '$lib/beatgrid/beatgrid';
 import { timeline } from '$lib/scheduler/scheduler';
 import type { DropAnswer } from './drops';
 import type { Grid } from './judge';
@@ -64,15 +64,23 @@ export function judgedRows(
 		const i = beatIndexAt(grid.beats, tap);
 		if (i < 0) continue;
 		const len = i + 1 < grid.beats.length ? grid.beats[i + 1] - grid.beats[i] : 0.5;
+		const b = answer.beats.find((x) => x.offset !== null && Math.abs(x.at + x.offset - tap) < 1e-6);
+		if (b) {
+			// A counted tap sits by its own circle, in its row: one just before a 1 belongs to that 1.
+			const k = nearestBeat(grid.beats, b.at);
+			const beat = k + 1 < grid.beats.length ? grid.beats[k + 1] - grid.beats[k] : len;
+			marks.push({
+				row: b.row,
+				pos: b.pos + (tap - b.at) / beat,
+				stray: false,
+				tie: b.pos,
+				tieState: shown(b.state)
+			});
+			continue;
+		}
 		const row = (tl.eights[i] ?? -1) - answer.eight;
 		if (row < 0 || row >= n) continue;
-		const pos = grid.counts[i] + (tap - grid.beats[i]) / len;
-		const b = answer.beats.find((x) => x.offset !== null && Math.abs(x.at + x.offset - tap) < 1e-6);
-		marks.push(
-			b
-				? { row, pos, stray: false, tie: b.pos, tieState: shown(b.state) }
-				: { row, pos, stray: true }
-		);
+		marks.push({ row, pos: grid.counts[i] + (tap - grid.beats[i]) / len, stray: true });
 	}
 	return { rows, marks };
 }

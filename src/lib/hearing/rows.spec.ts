@@ -33,6 +33,14 @@ describe('judgedRows', () => {
 		expect(stray[0].tie).toBeUndefined();
 	});
 
+	it('puts a tap just before a 1 on that 1, in its row', () => {
+		const d = judgeDropPattern(grid, EVERY, 0, [3.9, ...onBeats(9, 24)]);
+		const r = judgedRows(grid, d, EVERY);
+		const first = r.marks.find((m) => !m.stray && m.tie === 1 && m.row === 0);
+		expect(first).toBeDefined();
+		expect(first!.pos).toBeCloseTo(0.8, 6);
+	});
+
 	it('shows only what has happened by `until` (the replay)', () => {
 		const d = judgeDropPattern(grid, EVERY, 0, onBeats(0, 16));
 		const r = judgedRows(grid, d, EVERY, 2.1);

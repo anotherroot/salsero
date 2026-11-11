@@ -4,8 +4,9 @@
 	import { RUN_STOP } from '$lib/components/player/styles';
 	import { countKeep, dropWindow, judgeDropPattern, type DropAnswer } from '$lib/hearing/drops';
 	import { judgedRows } from '$lib/hearing/rows';
+	import { shownShift } from '$lib/hearing/score';
 	import { posLabel } from '$lib/hearing/words';
-	import { fadeTo } from './fade';
+	import { fadeTo, fullVolume } from './fade';
 	import type { Grid } from '$lib/hearing/judge';
 	import type { CircleState, FinishedDrop } from '$lib/hearing/round';
 	import {
@@ -79,7 +80,14 @@
 
 	const circles = $derived(positions.length * 2);
 	const eightS = $derived(8 * beatS);
-	const rules = $derived({ eightS, gapS: longestGapBeats(positions) * beatS, winS: WIN_S, beatS });
+	// lagS: the tap delay and the touch's lag (~80 ms), in song time, so an on-time last tap still counts.
+	const rules = $derived({
+		eightS,
+		gapS: longestGapBeats(positions) * beatS,
+		winS: WIN_S,
+		beatS,
+		lagS: ((tapDelayMs + 80) / 1000) * (audio.playbackRate || 1)
+	});
 
 	let index = $state(0);
 	// The first spot: the page seeked there; a new round mounts this anew.
@@ -138,6 +146,8 @@
 		const until = shown >= order.length ? Infinity : shown > 0 ? order[shown - 1].at : -Infinity;
 		return judgedRows(grid, judged, positions, until);
 	});
+	/** Before the first tap: the first tap says where the person starts, so the round says where to start. */
+	const startOn = $derived(w.count.startOn(posLabel(Math.min(...positions))));
 	const rowLabels = $derived(
 		(view?.rows.length ? view.rows : [0, 1]).map((_, i) => w.eightRow(i + 1))
 	);
@@ -160,7 +170,7 @@
 			if (spot.phase === 'over') return;
 			locked = false;
 			bounce++;
-			line = w.listen;
+			line = startOn;
 		});
 	}
 
@@ -232,7 +242,7 @@
 		big = `${answer.hits}/${answer.of}`;
 		const keeps = Math.round(countKeep(answer.shift) * 100);
 		line = answer.shift
-			? `${w.count.off(answer.shift)} · ${w.count.keeps(keeps)}`
+			? `${w.count.off(shownShift(answer.shift))} · ${w.count.keeps(keeps)}`
 			: spot.restarts
 				? w.restartsLine(spot.restarts)
 				: w.firstTry;
@@ -298,13 +308,14 @@
 			if (spot.phase === 'over' || index !== 0) return;
 			locked = false;
 			bounce++;
-			line = w.listen;
+			line = startOn;
 		});
 		line = w.listening;
 		raf = requestAnimationFrame(frame);
 	});
 
 	onDestroy(() => {
+		if (typeof window !== 'undefined') fullVolume(audio);
 		if (raf) cancelAnimationFrame(raf);
 		timers.forEach((id) => clearTimeout(id));
 	});
