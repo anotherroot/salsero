@@ -14,6 +14,7 @@
  * exactly the figure that starts the bridge.
  */
 import { meet, sameSet } from '$lib/graph/graph';
+import { LENGTH_CHOICES, nextCount } from '$lib/graph/timing';
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
 import { fromTags } from '$lib/clones/from-tag';
@@ -35,6 +36,10 @@ export interface Candidate {
 	/** Where it leaves the hands. Empty: anything can follow. */
 	ends: number[];
 	next: number | null;
+	/** A figure's own length in counts; absent: read `next` as it is. */
+	length?: number;
+	/** A figure whose length is set in the routine: it can land on any count. */
+	free?: boolean;
 	/** A group's row a person may use: whose it is. */
 	team?: TeamRef;
 	/** The person's twins of it that this candidate stands for (`clones/twins.ts`). */
@@ -123,12 +128,31 @@ function toggles(a: Anchor): { count: boolean; hold: boolean } {
 	return { count: false, hold: false };
 }
 
+/** Where a candidate leaves the next figure when it starts on `start`; a routine (or a figure read without its length) by its own `next`. */
+function landsFrom(c: Candidate, start: number): number | null {
+	return c.kind === 'figure' && c.length !== undefined ? nextCount(start, c.length) : c.next;
+}
+
+/**
+ * Whether a candidate can leave the slot below on one of its counts. `start`
+ * is the count the slot above gives it; null: any of its own starts. A figure
+ * whose length is set in the routine can land anywhere (its length is settled
+ * in the How long? sheet).
+ */
+function landsBefore(c: Candidate, a: Before, start: number | null): boolean {
+	if (a.startCounts.length === 0 || c.free) return true;
+	const from = start !== null ? [start] : c.startCounts.length > 0 ? c.startCounts : [];
+	const lands =
+		from.length > 0 && c.length !== undefined ? from.map((s) => landsFrom(c, s)) : [c.next];
+	return lands.some((n) => n !== null && a.startCounts.includes(n));
+}
+
 function fitsCount(c: Candidate, a: Anchor): boolean {
-	if (a.kind === 'between') return fitsCount(c, a.after) && fitsCount(c, a.before);
-	if (a.kind === 'after') return a.next === null || c.startCounts.includes(a.next);
-	if (a.kind === 'before') {
-		return a.startCounts.length === 0 || (c.next !== null && a.startCounts.includes(c.next));
+	if (a.kind === 'between') {
+		return fitsCount(c, a.after) && landsBefore(c, a.before, a.after.next);
 	}
+	if (a.kind === 'after') return a.next === null || c.startCounts.includes(a.next);
+	if (a.kind === 'before') return landsBefore(c, a, null);
 	return true;
 }
 
@@ -149,8 +173,8 @@ function standsIn(c: Candidate, a: Extract<Anchor, { kind: 'alternative' }>): bo
 		c.kind === 'figure' &&
 		!a.exclude.includes(c.id) &&
 		sameSet(c.ends, a.ends) &&
-		c.next === a.next &&
 		c.startCounts.includes(a.startCount) &&
+		(c.free === true || landsFrom(c, a.startCount) === a.next) &&
 		meet(c.starts, a.starts)
 	);
 }
@@ -262,17 +286,41 @@ export function canBridge(candidates: Candidate[], anchor: Anchor | null): boole
  * Standing in for a main figure. Null when it is archived or gone: nothing to
  * match. A main figure with no position has an anchor like any other: its
  * alternatives must have no ends either, and may start anywhere.
+ *
+ * `row` is the slot as the routine walks it (`rowEdgesIn`): an alternative
+ * starts where the main figure does there, and leaves the next slot where the
+ * slot does. Without it, the main figure on its own usual start.
  */
-export function anchorAlternative(main: Candidate | undefined, exclude: number[]): Anchor | null {
-	if (!main || main.next === null || main.startCounts.length === 0) return null;
-	return {
-		kind: 'alternative',
-		starts: main.starts,
-		startCount: main.startCounts[0],
-		ends: main.ends,
-		next: main.next,
-		exclude
-	};
+export function anchorAlternative(
+	main: Candidate | undefined,
+	exclude: number[],
+	row?: RowEdges
+): Anchor | null {
+	if (!main || main.startCounts.length === 0) return null;
+	const startCount = row?.start ?? main.startCounts[0];
+	const next = row ? row.next : main.next;
+	if (next === null) return null;
+	return { kind: 'alternative', starts: main.starts, startCount, ends: main.ends, next, exclude };
+}
+
+/** Whether `n` counts from `start` leave the next slot on `want` (null: anything goes). */
+export function fitsLength(start: number, n: number, want: number | null): boolean {
+	return want === null || nextCount(start, n) === want;
+}
+
+/**
+ * The How long? sheet's buttons for a figure starting on `start`: each length
+ * it offers, greyed (`ok` false) when it would leave the next slot on another
+ * count than `want` — the count the slot's other options leave it on.
+ */
+export function lengthChoices(start: number, want: number | null): { n: number; ok: boolean }[] {
+	return LENGTH_CHOICES.map((n) => ({ n, ok: fitsLength(start, n, want) }));
+}
+
+/** The shortest offered length that lands where the slot below starts; null when none does, or nothing waits below. */
+export function preselect(start: number, want: number | null): number | null {
+	if (want === null) return null;
+	return LENGTH_CHOICES.find((n) => fitsLength(start, n, want)) ?? null;
 }
 
 /** The count before `n`: a slot starting on 1 is reached by a figure ending on 8. */

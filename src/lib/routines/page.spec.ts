@@ -83,6 +83,14 @@ describe('routine page derivations', () => {
 			'Routine · 1 slot'
 		);
 	});
+	it('shows the start the routine walk resolved, not every count it could take', () => {
+		expect(
+			slotMeta({ starts: [], startCounts: [1, 5], ends: [], next: 1, start: 5 }, name, null)
+		).toBe('5→1');
+		expect(slotMeta({ starts: [], startCounts: [1, 5], ends: [], next: 5 }, name, null)).toBe(
+			'1/5→5'
+		);
+	});
 	it('shows nothing for a side with no position, and never a “?” for an end', () => {
 		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, null)).toBe('1→1');
 		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, 2)).toBe(

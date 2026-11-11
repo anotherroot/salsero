@@ -94,7 +94,9 @@ export function slotMeta(
 	const core =
 		e.startCounts.length === 0
 			? ''
-			: [`${e.startCounts.join('/')}→${e.next ?? '?'}`, hands].filter((p) => p !== '').join(' · ');
+			: [`${e.start ?? e.startCounts.join('/')}→${e.next ?? '?'}`, hands]
+					.filter((p) => p !== '')
+					.join(' · ');
 	if (childSlots === null) return core;
 	const w = t();
 	return [w.moves.move.routine, w.nouns.slots(childSlots), core]

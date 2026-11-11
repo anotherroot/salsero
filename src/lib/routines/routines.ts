@@ -254,8 +254,9 @@ export interface RowEdges {
 	 * Where the row's main figure starts as the routine walks (`walk`): the
 	 * slot's "1→5". Null when nothing in it is danceable. `startCounts` is every
 	 * count it COULD begin on, which is what a slot built before it fits against.
+	 * Every producer here sets it; absent reads as the old "every count" form.
 	 */
-	start: number | null;
+	start?: number | null;
 }
 
 const NO_EDGES: RowEdges = { starts: [], startCounts: [], ends: null, next: null, start: null };
