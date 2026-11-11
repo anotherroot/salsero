@@ -106,10 +106,10 @@ function optionsSlot(
  * A slot's options, main figure first: the order they were added in.
  *
  * The first option added is the slot's MAIN figure — the one the editor shows
- * on the card, with the others hung under it as alternatives. `created_at` is
- * epoch ms, so two options added in one transaction (every copy path) tie;
- * `rowid` breaks the tie in insertion order, which is why every path that
- * copies options inserts them in THIS order.
+ * on the card, with the others hung under it as alternatives. A path that
+ * writes several at once stamps them a millisecond apart (`insertOptions`), so
+ * `created_at` decides on the server and on a phone alike. `rowid` is only the
+ * last tie-break, for the server: a phone's copy has the rows in key order.
  */
 const MAIN_FIRST = [asc(routineStepOptions.createdAt), sql`routine_step_options.rowid`];
 
@@ -710,6 +710,29 @@ function slotIds(tx: Tx, routineId: number): number[] {
 		.orderBy(asc(routineSteps.position))
 		.all()
 		.map((s) => s.id);
+}
+
+/**
+ * One slot's options written at once, in order, main figure first: every path
+ * that copies a slot. The k-th is stamped `at + k` ms, so `created_at` alone
+ * says which is main. A tie used to fall to the server's rowid, which a phone
+ * never sees — its copy holds the rows in key order, `(step_id, figure_id)` —
+ * so there a group's copy could show its alternative as the main figure and
+ * "your copies differ" with nothing to sync (2026-11-11, migration 0051).
+ */
+export function insertOptions(
+	tx: Db | Tx,
+	stepId: number,
+	figureIds: readonly number[],
+	lengthOf: (figureId: number) => number | null,
+	at: number = serverNow()
+): void {
+	figureIds.forEach((figureId, k) =>
+		tx
+			.insert(routineStepOptions)
+			.values({ stepId, figureId, lengthCounts: lengthOf(figureId), createdAt: at + k })
+			.run()
+	);
 }
 
 /** These steps' options, main figure first, grouped by step. */
@@ -1374,16 +1397,10 @@ export function restoreSlots(
 				.values({ routineId, position: ids.length, childRoutineId: s.childId, note: s.note })
 				.returning({ id: routineSteps.id })
 				.get();
-			for (const figureId of s.figureIds) {
+			insertOptions(tx, step.id, s.figureIds, (figureId) => {
 				const length = s.lengths?.[figureId];
-				tx.insert(routineStepOptions)
-					.values({
-						stepId: step.id,
-						figureId,
-						lengthCounts: isLengthCounts(length) ? length : null
-					})
-					.run();
-			}
+				return isLengthCounts(length) ? length : null;
+			});
 			back.push(step.id);
 			ids.splice(Math.min(s.position, ids.length), 0, step.id);
 			order(tx, ids);
@@ -1486,10 +1503,12 @@ export function duplicateSlots(
 				.values({ routineId, position: ids.length + k, childRoutineId: s.childId, note: s.note })
 				.returning({ id: routineSteps.id })
 				.get();
-			for (const figureId of options.get(s.id) ?? []) {
-				const lengthCounts = lengths.get(s.id)?.[figureId] ?? null;
-				tx.insert(routineStepOptions).values({ stepId: copy.id, figureId, lengthCounts }).run();
-			}
+			insertOptions(
+				tx,
+				copy.id,
+				options.get(s.id) ?? [],
+				(figureId) => lengths.get(s.id)?.[figureId] ?? null
+			);
 			return copy.id;
 		});
 		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
@@ -1638,10 +1657,7 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 				})
 				.returning({ id: routineSteps.id })
 				.get();
-			for (const figureId of slot.figureIds) {
-				const lengthCounts = slot.lengths[figureId] ?? null;
-				tx.insert(routineStepOptions).values({ stepId: step.id, figureId, lengthCounts }).run();
-			}
+			insertOptions(tx, step.id, slot.figureIds, (figureId) => slot.lengths[figureId] ?? null);
 		}
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });
 		return routine;

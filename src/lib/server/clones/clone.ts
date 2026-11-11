@@ -48,7 +48,6 @@ import {
 	links,
 	recordings,
 	routines,
-	routineStepOptions,
 	routineSteps,
 	songs,
 	spotLinks,
@@ -60,7 +59,7 @@ import { getTeam, roleOf } from '../teams';
 import { roomForOwner, type Owner, type Room } from '../storage';
 import { logChange, type ChangeEntry } from '../changes';
 import { figureNameTaken, moveFor } from '../figures';
-import { insertRoutine, routineSlots } from '../routines';
+import { insertOptions, insertRoutine, routineSlots } from '../routines';
 import { insertLesson } from '../lessons';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
@@ -1183,17 +1182,8 @@ function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 			})
 			.returning({ id: routineSteps.id })
 			.get();
-		// In the slot's order, main figure first: one instant, so rowid keeps it (`MAIN_FIRST`).
-		for (const figureId of options) {
-			tx.insert(routineStepOptions)
-				.values({
-					stepId: step.id,
-					figureId,
-					lengthCounts: lengthOf.get(figureId) ?? null,
-					createdAt: now
-				})
-				.run();
-		}
+		// In the slot's order, main figure first, a millisecond apart (`insertOptions`).
+		insertOptions(tx, step.id, options, (figureId) => lengthOf.get(figureId) ?? null, now);
 	}
 	return {
 		id,
