@@ -252,8 +252,9 @@ From the user trying 1b on the phone (2026-11-11) and the boards
    beside Timing, Restarts and Listening; the line under the score counts the drops off the
    count; each drop row carries a small blue tag ("4 off", "2 off"); the verdict names the
    commonest shift when there is one ("Your 1 was often the 5").
-6. **Where each tap fell** is shown at a drop's end and on its replay: one of the four looks
-   on the "where you tapped" board (to be picked by the user).
+6. **Where each tap fell** is shown at a drop's end and on its replay, look **A** (the user's
+   pick): a small ▼ over the eight exactly where each tap fell, tied by a thin line to the
+   circle it was counted for; a tap counted for nothing is a red ▼.
 7. **Between spots, the sound fades:** the old spot's music fades out (~400 ms) as it slides
    away, the next fades in (~400 ms) as it slides in (`audio.volume`; where a phone ignores
    it, the cut stays).
