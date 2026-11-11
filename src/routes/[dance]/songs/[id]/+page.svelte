@@ -18,6 +18,7 @@
 	import SongTab from '$lib/components/songs/SongTab.svelte';
 	import GridTab from '$lib/components/songs/GridTab.svelte';
 	import SectionSheet from '$lib/components/songs/SectionSheet.svelte';
+	import FindTheOneCard from '$lib/components/hearing/FindTheOneCard.svelte';
 	import { tick, untrack } from 'svelte';
 	import { sheetStack } from '$lib/sheets/history.svelte';
 	import type { ToastState } from '$lib/act-toast';
@@ -493,6 +494,13 @@
 				onseek={seek}
 			/>
 			{#if audioProblem}<Banner kind="error" title={audioProblem} />{/if}
+
+			<div class="pt-3.5">
+				<FindTheOneCard
+					href={resolve(`/${data.dance.slug}/songs/${song.id}/listen`)}
+					counted={data.anchors.length > 0}
+				/>
+			</div>
 
 			{#if data.sample}
 				<h2 class="{SECTION_LABEL} pt-3.5">{t().songs.page.listen.sample}</h2>

@@ -59,8 +59,13 @@
 				 * A listener that cancels it holds the answer back from the caller,
 				 * which then never hears it (the page is going away, or SvelteKit
 				 * would swap the page for its error page).
+				 *
+				 * Inside the Android app it also says which app it is, in `x-salsa-app`
+				 * (`APP_HEADER`, `$lib/app-update/agent.ts`): a request the service worker
+				 * sends on carries the worker's user agent, which never names the app.
 				 */
 				var epoch = root.dataset.pageEpoch;
+				var app = /SalsaApp\/\d+ \([a-z]+; [a-z]+\)/.exec(navigator.userAgent || '');
 				var send = window.fetch;
 				if (!send || !/^\d+$/.test(epoch || '')) return;
 				window.fetch = function (input, init) {
@@ -79,6 +84,7 @@
 								: undefined
 					);
 					headers.set('x-page-epoch', epoch);
+					if (app) headers.set('x-salsa-app', app[0]);
 					return send
 						.call(window, input, Object.assign({}, init, { headers: headers }))
 						.then(function (res) {

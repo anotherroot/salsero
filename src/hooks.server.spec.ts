@@ -499,3 +499,47 @@ describe('encoded paths at the hook', () => {
 		expect(resolve).not.toHaveBeenCalled();
 	});
 });
+
+/*
+ * The Android app's service worker has no user agent of its own to set
+ * (ServiceWorkerWebSettings has none), so a request it sends on for the page
+ * reaches the server as a plain WebView. The page says which app it is in
+ * `x-salsa-app` (app.html's fetch wrapper), and the hook reads that too.
+ */
+describe('the app behind the service worker', () => {
+	const PLAIN_WEBVIEW =
+		'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36';
+
+	async function agentOf(headers: Record<string, string>) {
+		handleDb.db = openDb(':memory:');
+		const url = new URL('https://salsa.example/health');
+		const event = {
+			url,
+			request: new Request(url, { headers }),
+			cookies: { get: () => undefined, set: () => {} },
+			locals: {}
+		} as unknown as RequestEvent;
+		await handle({ event, resolve: vi.fn(async () => new Response('ok')) });
+		return (event.locals as App.Locals).appAgent;
+	}
+
+	it('knows the app from the page’s header when the user agent lacks it', async () => {
+		expect(
+			await agentOf({ 'user-agent': PLAIN_WEBVIEW, 'x-salsa-app': 'SalsaApp/11 (salsa; direct)' })
+		).toEqual({ versionCode: 11, dance: 'salsa', channel: 'direct' });
+	});
+
+	it('takes the user agent first, and no app without either', async () => {
+		expect(
+			await agentOf({ 'user-agent': OLD_WEBVIEW_UA, 'x-salsa-app': 'SalsaApp/11 (salsa; direct)' })
+		).toMatchObject({ versionCode: 2 });
+		expect(await agentOf({ 'user-agent': PLAIN_WEBVIEW })).toBeNull();
+		expect(await agentOf({ 'user-agent': PLAIN_WEBVIEW, 'x-salsa-app': 'junk' })).toBeNull();
+	});
+
+	it('never refuses on the page’s header: the 426 is the native API’s', async () => {
+		expect(
+			await status('/api/device/today', { 'x-salsa-app': 'SalsaApp/2 (salsa; direct)' })
+		).not.toBe(426);
+	});
+});

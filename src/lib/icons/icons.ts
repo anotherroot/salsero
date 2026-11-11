@@ -74,6 +74,7 @@ const CANONICAL = {
 	sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5"></path><path d="M17 20V4M13.5 7.5L17 4l3.5 3.5"></path>',
 	warning:
 		'<path d="M10.3 4.6a2 2 0 0 1 3.4 0l7.5 13a2 2 0 0 1-1.7 3H4.5a2 2 0 0 1-1.7-3z"></path><path d="M12 10v4M12 17h.01"></path>',
+	ear: '<path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path>',
 	info: '<circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path>',
 	'check-circle':
 		'<circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.8 2.8L16.5 9.5"></path>',

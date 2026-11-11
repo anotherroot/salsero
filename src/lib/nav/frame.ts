@@ -15,7 +15,7 @@ const SHARED_SIDE = new Set([
 	'/voice',
 	'/admin'
 ]);
-const BARE = new Set(['/[dance]/player', '/[dance]/share']);
+const BARE = new Set(['/[dance]/player', '/[dance]/share', '/[dance]/songs/[id]/listen']);
 const CARD = new Set([
 	'/login',
 	'/join',

@@ -16,6 +16,8 @@ const NO_BAND: Record<string, string> = {
 	'src/routes/[dance]/(moves)/positions/map/+page.svelte':
 		'the map draws its title floating over itself (spec 2026-11-08)',
 	'src/routes/[dance]/player/+page.svelte': 'Setup draws the band, Running draws the stage',
+	'src/routes/[dance]/songs/[id]/listen/+page.svelte':
+		'ListenShell draws the stage, like the player',
 	'src/routes/[dance]/lessons/+page.svelte':
 		'the lessons layout draws the band (ListPane); this is only the title',
 	'src/routes/[dance]/groups/+page.svelte':

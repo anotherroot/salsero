@@ -182,6 +182,12 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      totals). log-view.ts is `lastTimeParts` only.
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
+src/lib/hearing/     PURE hearing rounds: targets.ts (positions in the eight), judge.ts (taps against
+                     the count, per eight and per part), drops.ts (Dropped in), tap-delay.ts (the
+                     finger's delay, kept in this browser), round.ts, words.ts (`targetLabel`)
+src/lib/components/hearing/  the listening player's screens: ListenShell (band stage + sheet + bar),
+                     ListenSetup, TapPad (answers on pointerdown), TapCheck, ListenResult, BeatStrip,
+                     FindTheOneCard (the song page's card). Page: /[dance]/songs/[id]/listen
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
                      there is an About (`hasDetails`), Play's state, Built-in or Yours,
@@ -482,7 +488,9 @@ src/lib/server/link-elsewhere.ts  Copy and link: `copyTo` with the link as its `
 src/lib/picker/elsewhere.ts  PURE: the places found as picker groups (`elsewhereGroups`);
                      elsewhere-search.svelte.ts the debounced search; elsewhere-api.ts its fetch
 src/lib/clones/copy-here.ts  PURE: the Copy and link card's words (components/links/CopyHereCard)
-src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
+src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing; `APP_HEADER` x-salsa-app, the page's own
+                     word for its app, sent by app.html's fetch wrapper because the Android service
+                     worker's requests carry no app in their user agent; `current.json`, none /
                      available / required (`updateState`), the device from the user agent
                      (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,
                      when Update needed takes the page: `updateNeededNow`), get-app.ts (the
@@ -728,7 +736,9 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `NETWORK_PAGES`, `DEVICE_ENDPOINTS`; every GET endpoint classified),
                      sw-route.ts (PURE: what the service worker does with a request, the 4 s
                      timeout, which caches go, a page's unpulled save), needs-connection.ts (the
-                     offline answers), protocol.ts (the messages), device.svelte.ts (the page side:
+                     offline answers), sw-update.ts (`newBuildReady`: a new build's service worker
+                     fetched once the page sees the build, and a reload for it waits until that
+                     worker took over, so one reload gets it), protocol.ts (the messages), device.svelte.ts (the page side:
                      registers the SW, starts the device worker, relays, pulls; `noteSaved` after
                      an upload; `setPerson`), person.ts (PURE: `pagePerson`, who the server says
                      is signed in, from the root layout's `drawnBy`; the device wipes for anyone

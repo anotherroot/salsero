@@ -81,6 +81,7 @@ const DETAILS = new Set([
 	'/[dance]/songs/[id]',
 	'/[dance]/(today)/exercises/[id]',
 	'/[dance]/player',
+	'/[dance]/songs/[id]/listen',
 	'/[dance]/(moves)/positions/[id]',
 	'/[dance]/(moves)/positions/map'
 ]);
