@@ -12,6 +12,7 @@
 	import ResultB from '$lib/components/hearing/ResultB.svelte';
 	import TapAlongRun from '$lib/components/hearing/TapAlongRun.svelte';
 	import TapCheck from '$lib/components/hearing/TapCheck.svelte';
+	import { fullVolume } from '$lib/components/hearing/fade';
 	import { DROPS, dropStarts } from '$lib/hearing/drops';
 	import { replayPlan, type ReplayPlan } from '$lib/hearing/replay';
 	import { roundSpan, songParts, type FinishedDrop, type RoundKind } from '$lib/hearing/round';
@@ -151,6 +152,7 @@
 			if (starts.length === 0) return;
 			el.currentTime = starts[0];
 		}
+		fullVolume(el);
 		startPlayer(songPlayer(el), () => (view = 'setup'));
 		view = 'run';
 	}
@@ -175,6 +177,7 @@
 		plan = p;
 		replayAt = i;
 		el.currentTime = p.from;
+		fullVolume(el);
 		startPlayer(songPlayer(el), () => (view = 'result'));
 		view = 'replay';
 	}

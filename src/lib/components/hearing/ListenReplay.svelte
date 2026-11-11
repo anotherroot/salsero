@@ -2,7 +2,6 @@
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 	import { button } from '$lib/components/ui/styles';
-	import { PATTERN_EIGHTS } from '$lib/hearing/drops';
 	import type { Grid } from '$lib/hearing/judge';
 	import {
 		cueHorizon,
@@ -12,7 +11,8 @@
 		type ReplayPlan
 	} from '$lib/hearing/replay';
 	import { totalDelayMs } from '$lib/player/sound-delay';
-	import type { CircleState, FinishedDrop } from '$lib/hearing/round';
+	import type { FinishedDrop } from '$lib/hearing/round';
+	import { judgedRows } from '$lib/hearing/rows';
 	import { posLabel } from '$lib/hearing/words';
 	import { t } from '$lib/i18n/catalog';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
@@ -63,26 +63,14 @@
 		const i = beatIndexAt(grid.beats, at);
 		if (i < 0 || drop.answer.eight === null) return null;
 		const row = tl.eights[i] - drop.answer.eight;
-		if (row < 0 || row >= PATTERN_EIGHTS) return null;
+		if (row < 0 || row >= rowCount) return null;
 		const len = i + 1 < grid.beats.length ? grid.beats[i + 1] - grid.beats[i] : 0.5;
 		return { row, pos: grid.counts[i] + (at - grid.beats[i]) / len };
 	}
 
-	const rows = $derived.by((): Record<number, CircleState>[] => {
-		const out: Record<number, CircleState>[] = [{}, {}];
-		for (const b of drop.answer.beats)
-			out[b.row][b.pos] = b.state === 'skip' ? 'skip' : now >= b.at ? b.state : 'future';
-		return out;
-	});
-	const matched = $derived(
-		new Set(drop.answer.beats.flatMap((b) => (b.offset === null ? [] : [b.at + b.offset])))
-	);
-	const marks = $derived(
-		drop.answer.taps.flatMap((at) => {
-			const p = at <= now ? place(at) : null;
-			return p ? [{ ...p, stray: ![...matched].some((m) => Math.abs(m - at) < 1e-6) }] : [];
-		})
-	);
+	/** The drop as at its end, revealed up to now: the same rows and marks (spec 1c.4, 1c.6). */
+	const view = $derived(judgedRows(grid, drop.answer, positions, now));
+	const rowCount = $derived(Math.max(1, view.rows.length));
 	const head = $derived(now >= eightStart ? place(now) : null);
 	const count = $derived.by(() => {
 		const i = beatIndexAt(grid.beats, now);
@@ -181,10 +169,16 @@
 	{/snippet}
 	<PatternRows
 		{positions}
-		{rows}
-		labels={[t().hearing.eightRow(1), t().hearing.eightRow(2)]}
+		rows={view.rows.map((r) => r.states)}
+		rowPositions={view.rows.map((r) => r.positions)}
+		over={view.rows.map((r) =>
+			Object.fromEntries(
+				Object.entries(r.yours).map(([p, y]) => [p, t().hearing.count.you(posLabel(y))])
+			)
+		)}
+		labels={view.rows.map((_, i) => t().hearing.eightRow(i + 1))}
 		{head}
-		{marks}
+		marks={view.marks}
 		label={w.title(n)}
 	/>
 	<div class="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11.5px] text-muted">

@@ -112,6 +112,23 @@ export const hearing: Catalog['hearing'] = {
 		p32: 'Na 1, na »in« po 2 (med 2 in 3) in na 4, nato na 6 in na 7.',
 		hear: 'Poslušaj'
 	},
+	count: {
+		startOn: (pos) => `Poslušajte, nato začnite na svoji ${pos}`,
+		off: (n) => `Zamaknjeno za ${slCount(n, ['štetje', 'štetji', 'štetja', 'štetij'])}`,
+		right: 'Pravo štetje',
+		keeps: (pct) => `obdrži ${pct} %`,
+		tag: (n) => `zamik ${n}`,
+		you: (n) => `vi ${n}`,
+		verdict: (yours, music) => `Vaša ${yours} je bila glasbena ${music}`,
+		tip4: 'Poslušajte, kje bas in klavir pristaneta skupaj: tam je ena.',
+		tip2: 'Vsak tap na udarcu, zamaknjeno za dve štetji.',
+		tip1: 'Lihe in sode ste zamenjali. Poskusite 1 3 5 7, da slišite, kateri udarci vodijo.',
+		part: 'Štetje',
+		dropsOff: (n) => `${slCount(n, ['mesto', 'mesti', 'mesta', 'mest'])} z zamikom`,
+		often: (yours, music) => `Vaša ${yours} je bila pogosto ${music}`,
+		oftenSub: (n) =>
+			`${slCount(n, ['mesto', 'mesti', 'mesta', 'mest'])} šteto od tam. Udarec je, delo je ena.`
+	},
 	again: 'Še enkrat',
 	done: 'Končano',
 	stop: 'Ustavi',

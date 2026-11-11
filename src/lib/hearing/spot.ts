@@ -73,18 +73,19 @@ export type SpotStep = 'keep' | 'restart' | 'end';
  * What happens at song time `now`. `gapS`: the longest gap between two target
  * beats in seconds; the person has stopped once a whole eight and a beat more
  * than that pass without a tap (the beat: a first tap just before a 1 opens
- * that 1's eight, so the drop may end a moment after the gap).
+ * that 1's eight, so the drop may end a moment after the gap). `lagS`: the tap delay
+ * and the touch's lag, in song time, so a last tap on time still arrives.
  */
 export function stepSpot(
 	s: Spot,
 	now: number,
-	rules: { eightS: number; gapS: number; winS: number; beatS: number }
+	rules: { eightS: number; gapS: number; winS: number; beatS: number; lagS: number }
 ): SpotStep {
 	if (s.phase === 'listening') {
 		return now - s.attemptStart > LISTEN_EIGHTS * rules.eightS ? 'restart' : 'keep';
 	}
 	if (s.phase === 'tapping' && s.window && s.lastTap !== null) {
-		if (now > s.window.end + rules.winS) return 'end';
+		if (now > s.window.end + rules.winS + rules.lagS) return 'end';
 		if (now < s.window.end && now - s.lastTap > rules.eightS + rules.gapS + rules.beatS)
 			return 'restart';
 	}

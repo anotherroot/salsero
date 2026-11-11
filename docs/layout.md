@@ -196,10 +196,12 @@ src/lib/hearing/     PURE hearing rounds: targets.ts (positions in the eight), j
                      finger's delay, kept in this browser), round.ts (kinds, parts, CircleState,
                      FinishedDrop), spot.ts (a spot's start-overs and Skip), score.ts (0–100), verdict.ts
                      (what to work on), stack.ts (result B's dots), replay.ts (a drop's replay cues),
+                     rows.ts (a judged drop as drawn: rows, states, "you N", tap marks),
                      words.ts (`targetLabel`, `posLabel`, `posName`)
 src/lib/components/hearing/  the listening player's screens: ListenShell (band stage + sheet + bar),
                      ListenSetup, ClaveCard, TapPad (answers on pointerdown), TapCheck, PatternRows
                      (the target's circles), DropRun, TapAlongRun, ResultB, ListenStack, ListenReplay,
+                     fade.ts (the music fading between spots),
                      FindTheOneCard (the song page's card). Page: /[dance]/songs/[id]/listen
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether

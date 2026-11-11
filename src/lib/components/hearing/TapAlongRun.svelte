@@ -125,6 +125,7 @@
 			group.beats.push({
 				row: 0,
 				pos: m.expected.pos,
+				yours: m.expected.pos,
 				at: m.expected.at,
 				state: m.mark === 'missed' ? 'miss' : m.mark,
 				offset: m.offset
@@ -147,7 +148,8 @@
 				close,
 				beats: g.beats,
 				eight: null,
-				taps: []
+				taps: [],
+				shift: 0
 			};
 			return {
 				answer,

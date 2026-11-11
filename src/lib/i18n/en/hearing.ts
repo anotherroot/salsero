@@ -116,6 +116,23 @@ export const hearing = {
 		p32: 'On 1, on the and of 2 (between 2 and 3), and on 4, then on 6 and on 7.',
 		hear: 'Hear it'
 	},
+	count: {
+		startOn: (pos: string) => `Listen, then start on your ${pos}`,
+		off: (n: number) => (n === 1 ? '1 count off' : `${n} counts off`),
+		right: 'Right count',
+		keeps: (pct: number) => `keeps ${pct} %`,
+		tag: (n: number) => `${n} off`,
+		you: (n: string) => `you ${n}`,
+		verdict: (yours: string, music: string) => `Your ${yours} was the music's ${music}`,
+		tip4: 'Listen for where the bass and the piano land together: that is the 1.',
+		tip2: 'Every tap on a beat, two counts off.',
+		tip1: 'Odd and even swapped. Try 1 3 5 7 to hear which beats lead.',
+		part: 'Count',
+		dropsOff: (n: number) => (n === 1 ? '1 drop off the count' : `${n} drops off the count`),
+		often: (yours: string, music: string) => `Your ${yours} was often the ${music}`,
+		oftenSub: (n: number) =>
+			`${n === 1 ? '1 drop' : `${n} drops`} counted from there. The beat is there; the 1 is the work.`
+	},
 	again: 'Again',
 	done: 'Done',
 	stop: 'Stop',

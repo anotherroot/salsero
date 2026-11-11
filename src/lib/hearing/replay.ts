@@ -1,11 +1,10 @@
 /**
- * What a drop's replay plays: from two beats before its first 1 to just after
- * its two eights (never past the song's end), with a cue for every counted
+ * What a drop's replay plays: from two beats before its first beat to just
+ * after its last (never past the song's end), with a cue for every counted
  * target beat (a knock) and every tap (a tick). PURE. Spec: "Phase 1b", 7.
  */
-import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-import { timeline } from '$lib/scheduler/scheduler';
-import { PATTERN_EIGHTS, type DropAnswer } from './drops';
+import { beatIndexAt, nearestBeat } from '$lib/beatgrid/beatgrid';
+import type { DropAnswer } from './drops';
 import type { Grid } from './judge';
 
 /** Beats played before the drop's first 1. */
@@ -29,14 +28,11 @@ export function replayPlan(
 	drop: Pick<DropAnswer, 'eight' | 'beats' | 'taps'>,
 	songEnd: number
 ): ReplayPlan | null {
-	if (drop.eight === null) return null;
-	const tl = timeline(grid);
-	const startIdx = tl.starts[drop.eight];
-	if (startIdx === undefined) return null;
-	const from = grid.beats[Math.max(0, startIdx - LEAD_BEATS)];
-	const endIdx = tl.starts[drop.eight + PATTERN_EIGHTS];
-	const end = endIdx !== undefined ? grid.beats[endIdx] : grid.beats[grid.beats.length - 1];
-	const to = Math.min(end + TAIL_S, songEnd);
+	if (drop.eight === null || drop.beats.length === 0) return null;
+	const first = Math.min(...drop.beats.map((b) => b.at));
+	const last = Math.max(...drop.beats.map((b) => b.at));
+	const from = grid.beats[Math.max(0, nearestBeat(grid.beats, first) - LEAD_BEATS)];
+	const to = Math.min(last + TAIL_S, songEnd);
 	const cues: ReplayCue[] = [
 		...drop.beats
 			.filter((b) => b.state !== 'skip')

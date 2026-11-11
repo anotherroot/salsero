@@ -9,6 +9,7 @@ const g = {
 const b = (row: 0 | 1, pos: number, at: number, state: DropBeat['state']): DropBeat => ({
 	row,
 	pos,
+	yours: pos,
 	at,
 	state,
 	offset: null
@@ -20,10 +21,10 @@ const drop = {
 };
 
 describe('replayPlan', () => {
-	it('plays from two beats before the drop to just after its two eights', () => {
+	it('plays from two beats before the drop to just after its last beat', () => {
 		const plan = replayPlan(g, drop, 100)!;
 		expect(plan.from).toBe(11);
-		expect(plan.to).toBe(20.5);
+		expect(plan.to).toBe(18.5);
 		expect(plan.cues.filter((c) => c.kind === 'beat').map((c) => c.at)).toEqual([14, 16, 18]);
 		expect(plan.cues.filter((c) => c.kind === 'tap').map((c) => c.at)).toEqual([14.01, 18.1]);
 	});
