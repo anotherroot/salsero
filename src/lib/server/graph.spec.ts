@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { follows, taggedCount } from '$lib/graph/graph';
+import { countsOf, follows, taggedCount } from '$lib/graph/graph';
 import { openDb, type Db } from './db';
 import { eq } from 'drizzle-orm';
 import {
@@ -9,6 +9,7 @@ import {
 	figureStartPositions,
 	lessonPositions,
 	positions,
+	teamChanges,
 	twins
 } from './db/schema';
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
@@ -559,5 +560,98 @@ describe('timing defaults', () => {
 		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		db.update(figures).set({ lengthCounts: null }).where(eq(figures.id, made.figure.id)).run();
 		expect(buildGraph(db, U1_SALSA).figures[0].length).toBe(8);
+	});
+});
+
+describe('start sets and free length', () => {
+	it('reads a figure nobody changed as one start, fixed length', () => {
+		const { db } = setup();
+		createFigure(db, U1_SALSA, figureInput('enchufla'));
+		const f = buildGraph(db, U1_SALSA).figures[0];
+		expect(countsOf(f)).toEqual([1]);
+		expect(f.free ?? false).toBe(false);
+	});
+
+	it('reads the start mask and the free length', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		db.update(figures)
+			.set({ startCounts: 0b10001, lengthFree: 1 })
+			.where(eq(figures.id, made.figure.id))
+			.run();
+		const f = buildGraph(db, U1_SALSA).figures[0];
+		expect(countsOf(f)).toEqual([1, 5]);
+		expect(f.start).toBe(1);
+		expect(f.free).toBe(true);
+	});
+});
+
+describe('setFigureShape: start sets and a length set in the routine (spec 2026-11-11)', () => {
+	const row = (db: Db, id: number) => db.select().from(figures).where(eq(figures.id, id)).get()!;
+
+	it('saves the counts a figure can start on, the lowest as its usual start', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		expect(setFigureShape(db, made.figure.id, { ...shape([], []), startCounts: [5, 1] })).toBe(
+			true
+		);
+		const f = buildGraph(db, U1_SALSA).figures[0];
+		expect(countsOf(f)).toEqual([1, 5]);
+		expect(row(db, made.figure.id)).toMatchObject({ startCount: 1, startCounts: 17 });
+	});
+
+	it('keeps one count as before: no mask', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		expect(setFigureShape(db, made.figure.id, { ...shape([], []), startCounts: [3] })).toBe(true);
+		expect(row(db, made.figure.id)).toMatchObject({ startCount: 3, startCounts: null });
+	});
+
+	it('refuses an empty set or a count off the eight', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		expect(setFigureShape(db, made.figure.id, { ...shape([], []), startCounts: [] })).toBe(false);
+		expect(setFigureShape(db, made.figure.id, { ...shape([], []), startCounts: [9] })).toBe(false);
+	});
+
+	it('saves You choose, and an older page that sends neither keeps both', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('walk'))!;
+		const id = made.figure.id;
+		setFigureShape(db, id, { ...shape([], []), startCounts: [1, 5], lengthFree: true });
+		expect(buildGraph(db, U1_SALSA).figures[0].free).toBe(true);
+		// An older open page posts one start count and nothing else.
+		expect(setFigureShape(db, id, shape([], [], { startCount: 1, lengthCounts: 8 }))).toBe(true);
+		expect(row(db, id)).toMatchObject({ startCount: 1, startCounts: 17, lengthFree: 1 });
+		setFigureShape(db, id, { ...shape([], []), startCounts: [1], lengthFree: false });
+		expect(row(db, id)).toMatchObject({ startCounts: null, lengthFree: null });
+	});
+});
+
+describe('History of a start set (spec 2026-11-11)', () => {
+	it('logs turning You choose on in a group', () => {
+		const { db } = setup();
+		createTeam(db, 'u1', 'salsa', 'G', 1);
+		const made = createFigure(db, T1_SALSA, figureInput('walk'))!;
+		const before = db.select().from(teamChanges).all().length;
+		expect(setFigureShape(db, made.figure.id, { ...shape([], []), lengthFree: true }, 'u1')).toBe(
+			true
+		);
+		const rows = db.select().from(teamChanges).all();
+		expect(rows.length).toBe(before + 1);
+		expect(rows[rows.length - 1].subject).toBe('lengthFree');
+	});
+});
+
+describe('a figure made from another (spec 2026-11-11)', () => {
+	it('keeps its start set and You choose', () => {
+		const { db } = setup();
+		const made = createFigure(db, U1_SALSA, figureInput('basic'))!;
+		setFigureShape(db, made.figure.id, { ...shape([], []), startCounts: [1, 5], lengthFree: true });
+		const other = createVariationFrom(db, made.figure.id, 'Closed')!;
+		expect(db.select().from(figures).where(eq(figures.id, other.id)).get()).toMatchObject({
+			startCounts: 17,
+			lengthFree: 1
+		});
 	});
 });

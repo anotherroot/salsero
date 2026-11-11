@@ -326,6 +326,11 @@ existing lever if Today gets noisy.
   saves anyway: this is a personal app and the dancer may know something the
   graph does not.
 
+> **Since 2026-11-11** (flexible figures, [`2026-11-11-flexible-figures-design.md`](2026-11-11-flexible-figures-design.md)):
+> a figure can start on several counts, and a figure whose length is set in the routine keeps a
+> length per slot option (`routine_step_options.length_counts`). Each slot starts where the one
+> before leaves off (`walk`), and the plan spaces by the option's length.
+
 A slot needs no length of its own. The plan is built per run *after* options
 are resolved, so the chosen figure's `eights` is what feeds the spacing rule
 below — see [Playing a routine](#playing-a-routine).

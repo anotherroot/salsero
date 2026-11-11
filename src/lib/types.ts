@@ -550,6 +550,8 @@ export interface SlotRow {
 	childName: string | null;
 	/** Empty for a child slot. */
 	figureIds: number[];
+	/** Each option's length in this slot, by figure id: only those that have one (spec 2026-11-11). */
+	lengths: Record<number, number>;
 }
 
 /**

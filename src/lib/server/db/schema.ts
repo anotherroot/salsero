@@ -465,6 +465,19 @@ export const figures = sqliteTable(
 		 */
 		lengthCounts: integer('length_counts'),
 		/**
+		 * Every count the figure can start on, as a mask: bit `n - 1` is count n.
+		 * Null (or 0) reads as `start_count` alone, so a figure nobody changed
+		 * keeps its one start. `start_count` stays the lowest count of the set —
+		 * the usual start. See `countsOfMask` in `src/lib/graph/timing.ts`;
+		 * `writeFigureShape` is the enforcement (no CHECK, for the reason above).
+		 */
+		startCounts: integer('start_counts'),
+		/**
+		 * 1: the length is chosen per routine slot (`routine_step_options.length_counts`);
+		 * `length_counts` is then the length practised alone. Null or 0: fixed.
+		 */
+		lengthFree: integer('length_free'),
+		/**
 		 * VESTIGIAL since migration 0017 (figures became groups): read by nothing.
 		 * Not dropped for the same reason `style` is not.
 		 */
@@ -765,6 +778,12 @@ export const routineStepOptions = sqliteTable(
 		figureId: integer('figure_id')
 			.notNull()
 			.references(() => figures.id),
+		/**
+		 * How many counts this figure takes in this slot. Only read when the
+		 * figure's length is free (`figures.length_free`); null reads as the
+		 * figure's own length. See `optionLength` in `src/lib/routines/routines.ts`.
+		 */
+		lengthCounts: integer('length_counts'),
 		createdAt: createdAt()
 	},
 	(t) => [

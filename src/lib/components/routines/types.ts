@@ -13,6 +13,8 @@ export interface AltView {
 	href: ResolvedPathname;
 	/** The group's name when this option is a group's figure. */
 	source: string | null;
+	/** Its length in this slot when a routine sets it (spec 2026-11-11): the chip that opens How long?. */
+	length: number | null;
 }
 
 export interface RowView {
@@ -26,6 +28,8 @@ export interface RowView {
 	meta: string;
 	/** No option and no child: the title says so, muted. */
 	empty: boolean;
+	/** The main figure's length in this slot when a routine sets it (spec 2026-11-11): its chip. */
+	length: { figureId: number; n: number } | null;
 	note: string | null;
 	/** Where swiping right or "Open →" goes; null when there is nothing to open.
 	 *  A `resolve()` result, not a bare string. */

@@ -12,7 +12,8 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { figures, users } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { addFigureExercise, createFigure, createVariationIn } from '$lib/server/figures';
 import { runInLocale } from '$lib/server/i18n-request';
 import { U1_SALSA } from '$lib/server/test-walls';
@@ -154,5 +155,52 @@ describe('the figure page in Slovenian', () => {
 		expect(await act('practise', doble).then(() => act('practise', doble))).toMatchObject({
 			data: { message: 'This figure is already practised on its own.' }
 		});
+	});
+});
+
+describe('the timing form (spec 2026-11-11)', () => {
+	const timing = async (pairs: [string, string][]) => {
+		const body = new URLSearchParams(Object.entries(save({})).filter(([k]) => k !== 'startCount'));
+		for (const [k, v] of pairs) body.append(k, v);
+		const event = {
+			...post({}, doble),
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body
+			})
+		};
+		return (actions.update as (e: unknown) => Promise<unknown>)(event).catch((e) => e);
+	};
+	const row = () => db.select().from(figures).where(eq(figures.id, doble)).get()!;
+
+	it('saves every count it can start on, and You choose', async () => {
+		await timing([
+			['startCount', '5'],
+			['startCount', '1'],
+			['timingSet', '1'],
+			['lengthFree', '1']
+		]);
+		expect(row()).toMatchObject({ startCount: 1, startCounts: 17, lengthFree: 1 });
+	});
+
+	it('an older page posting one start count keeps the set and You choose', async () => {
+		await timing([
+			['startCount', '5'],
+			['startCount', '1'],
+			['timingSet', '1'],
+			['lengthFree', '1']
+		]);
+		await timing([['startCount', '1']]);
+		expect(row()).toMatchObject({ startCount: 1, startCounts: 17, lengthFree: 1 });
+	});
+
+	it('refuses a count off the eight', async () => {
+		const r = (await timing([
+			['startCount', '1'],
+			['startCount', '9'],
+			['timingSet', '1']
+		])) as { status?: number };
+		expect(r.status).toBe(400);
 	});
 });

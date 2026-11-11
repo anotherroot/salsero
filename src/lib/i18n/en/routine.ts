@@ -4,6 +4,21 @@
 // Routines list is `moves`; the shared Picker is `picker`.
 
 export const routine = {
+	/** A slot's length set in the routine: its chip and the How long? sheet (spec 2026-11-11). */
+	length: {
+		chip: (n: number): string => `${n} counts`,
+		change: (n: number): string => `Length ${n} counts. Change it`,
+		title: 'How long?',
+		from: (figure: string, start: number): string => `${figure}, from ${start}`,
+		/** Under the number on each button. */
+		unit: (n: number): string => (n === 1 ? 'count' : 'counts'),
+		other: 'Other',
+		otherLabel: 'How many counts',
+		done: 'Done',
+		/** Why some lengths are greyed: the slot's other options go on to this count. */
+		why: (next: number): string =>
+			`Its alternatives go on to ${next}, so only lengths that land there fit.`
+	},
 	/** The facts line: "Starts from Open · ends at Closed". */
 	facts: {
 		from: 'Starts from',
@@ -163,6 +178,9 @@ export const routine = {
 		notThisRoutine: 'That slot does not belong to this routine.',
 		notAlternative:
 			'That figure does not start and land like this slot’s figure, so it is not an alternative.',
+		/** The How long? sheet's save (spec 2026-11-11). */
+		length:
+			'That length does not fit this slot: its alternatives go on to another count, or its length is not set in the routine.',
 		holdSomething: 'A slot has to hold something.',
 		note: 'Keep the note to 200 characters.',
 		readInsert: 'Could not read what to add, or where.',

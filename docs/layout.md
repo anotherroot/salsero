@@ -147,7 +147,9 @@ src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
                      `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
                      (figures with no start)
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
-                     loops, the routine as the player's plan, coverage
+                     loops, the walk on the count (`walk`, `rowEdgesIn`: each slot starts where
+                     the one before leaves off, an option's length in its slot, spec 2026-11-11),
+                     the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
                      version (`routinesUsing`, coverage.ts), the picker's fitting
                      (fit.ts), the selection's rules, the delete snapshot, and the routine
@@ -689,7 +691,7 @@ src/lib/components/exercises/  the exercise page's parts: `DoneSheet` (+ `done-s
                      `HistoryDaySheet`, `DrillRecordings`, `kinds/<type>/Content.svelte` and `Practice.svelte`
                      (`contentFor`/`practiceFor`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/ routines/ moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
+                     exercises/ links/ routines/ (the slot cards, the picker, `LengthSheet`: How long?) moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
                      (error, offline, choice sheet, status block, lead tile) clones/ (`Versions`:
                      the whose-version row and its list; `ItemMenu`: a family page's ⋯ with the
                      copy actions; the clone and twin sheets) teams/ (Add, the code, Leave).

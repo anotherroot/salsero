@@ -235,3 +235,10 @@ export const PANE_TITLE_DESK = 'desk:text-[30px] desk:leading-[1.05] desk:tracki
 export const TAP_ONE = swap(button('primary', 'lg'), 'flex-none', 'min-w-0 flex-1');
 /** + Section beside it: the md pill, a little narrower. */
 export const ADD_SECTION = swap(button('secondary', 'md'), 'px-6', 'px-4');
+
+/**
+ * A routine slot's length chip, "4 counts ▾" after its timing (spec 2026-11-11,
+ * board C): taps open How long?. Small on purpose, with a hit area grown past
+ * its edges to touch size.
+ */
+export const LENGTH_CHIP = `relative ml-1.5 inline-flex flex-none cursor-pointer items-center gap-0.5 rounded-full bg-accent-soft px-2.5 py-0.5 text-[13px] font-extrabold text-accent-text after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${PRESS}`;

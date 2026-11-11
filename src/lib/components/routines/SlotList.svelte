@@ -38,6 +38,8 @@
 		ondelete: (id: number) => void;
 		onremoveAlt: (id: number, figureId: number, label: string) => void;
 		onaddAlt: (id: number) => void;
+		/** A slot option's length chip (spec 2026-11-11). */
+		onlength: (id: number, figureId: number, current: number) => void;
 		onnote: (id: number, note: string | null) => unknown;
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
@@ -58,6 +60,7 @@
 		ondelete,
 		onremoveAlt,
 		onaddAlt,
+		onlength,
 		onnote,
 		onadd
 	}: Props = $props();
@@ -274,6 +277,7 @@
 					ondelete={() => ondelete(row.id)}
 					onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
 					onaddAlt={() => onaddAlt(row.id)}
+					onlength={(figureId, current) => onlength(row.id, figureId, current)}
 					onnote={(note) => onnote(row.id, note)}
 				/>
 				{#if row.seam && !selecting}

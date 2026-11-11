@@ -9,7 +9,7 @@
 import { figureById, fitsAfter, type Graph } from '$lib/graph/graph';
 import { eightsSpan } from '$lib/graph/timing';
 import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
-import { flatten, type OptionsSlot, type RoutineShape } from './routines';
+import { flatten, optionLength, type OptionsSlot, type RoutineShape } from './routines';
 
 /** Where a jump restarts the walk: this slot, on this 8-count. */
 export interface PlanFrom {
@@ -38,13 +38,16 @@ export function routinePlan(
 ): PlanStep[] {
 	const flat = flatten(g, shape);
 	if (flat.length === 0) return plan;
-	const eightsOf = (id: number) => {
-		const f = figureById(g, id);
-		return f ? eightsSpan(f.length) : 1;
-	};
+	// A slot's own length for a figure whose length is set in the routine.
+	const eightsOf = (id: number, slot: number) =>
+		figureById(g, id) ? eightsSpan(optionLength(g, flat[slot % flat.length], id)) : 1;
 	const out = from ? plan.filter((s) => s.eight < from.eight) : [...plan];
 	const prev = out.length === 0 ? null : out[out.length - 1];
-	let eight = from ? from.eight : prev ? prev.eight + eightsOf(prev.figureId) : LEAD_IN_8S;
+	let eight = from
+		? from.eight
+		: prev
+			? prev.eight + eightsOf(prev.figureId, prev.slot)
+			: LEAD_IN_8S;
 	let slot = from
 		? ((from.slot % flat.length) + flat.length) % flat.length
 		: prev
@@ -55,7 +58,7 @@ export function routinePlan(
 		const figureId = choose(g, flat[slot], last, rand());
 		if (figureId === null) break;
 		out.push({ eight, figureId, slot });
-		eight += eightsOf(figureId);
+		eight += eightsOf(figureId, slot);
 		slot = (slot + 1) % flat.length;
 	}
 	return out;

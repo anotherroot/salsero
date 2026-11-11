@@ -6,7 +6,10 @@ import {
 	canBridge,
 	anchorBefore,
 	anchorText,
+	fitsLength,
 	groupTags,
+	lengthChoices,
+	preselect,
 	pickList,
 	variationName,
 	type Anchor,
@@ -433,5 +436,71 @@ describe('anchorText in Slovenian', () => {
 			'Nič, kar poznate, ne ustreza: začne na 1, v položaju: Open · konča na 8, v položaju: Closed.'
 		);
 		expect(t().routine.picker.nothingFits('Starts on 1')).toBe('Nothing you know starts on 1.');
+	});
+});
+
+describe('start sets and free lengths in the picker', () => {
+	// 1 or 5, 4 counts; any count, length set in the routine.
+	const basic = fig(10, 'Basic step · Closed', { startCounts: [1, 5], length: 4, next: 5 });
+	const walk = fig(11, 'Cradle walk · Slow', {
+		startCounts: [1, 2, 3, 4, 5, 6, 7, 8],
+		length: 8,
+		free: true,
+		next: 1
+	});
+	const fixed = fig(12, 'Cross body lead', { length: 8 });
+	const pool = [basic, walk, fixed];
+	const figureIds = (l: ReturnType<typeof pickList>) =>
+		l.figures.flatMap((g) => g.variations.map((v) => v.id));
+
+	it('fits after a slot on any count of its set', () => {
+		expect(figureIds(pickList(pool, { kind: 'after', ends: [1], next: 5 }, all))).toEqual([10, 11]);
+	});
+
+	it('fits before a slot when one of its starts lands there, and a free figure always', () => {
+		const before: Anchor = { kind: 'before', starts: [1], startCounts: [1] };
+		// basic from 5 lands on 1; the walk can be any length; the lead from 1 lands on 1.
+		expect(figureIds(pickList(pool, before, all))).toEqual([10, 11, 12]);
+		const on3: Anchor = { kind: 'before', starts: [1], startCounts: [3] };
+		expect(figureIds(pickList(pool, on3, all))).toEqual([11]);
+	});
+
+	it('between two rows, judges the landing from the start the row above gives', () => {
+		const above = { starts: [1], startCounts: [1], ends: [1], next: 5, start: 1 };
+		const below = { starts: [1], startCounts: [5], ends: [1], next: 1, start: 5 };
+		// basic from 5 lands on 1, not 5; the walk fits any length.
+		expect(figureIds(pickList(pool, anchorBetween(above, below)!, all))).toEqual([11]);
+	});
+
+	it('stands in for a main figure on the start the routine gives it', () => {
+		const main = fig(13, 'Basic step · Open', { startCounts: [1, 5], length: 4, next: 5 });
+		const row = { starts: [1], startCounts: [1, 5], ends: [1], next: 1, start: 5 };
+		const alt = anchorAlternative(main, [13], row)!;
+		expect(alt).toMatchObject({ startCount: 5, next: 1 });
+		expect(figureIds(pickList([main, basic, walk, fixed], alt, all))).toEqual([10, 11]);
+	});
+});
+
+describe('lengthChoices', () => {
+	it('offers every length when nothing waits below', () => {
+		expect(lengthChoices(1, null).every((c) => c.ok)).toBe(true);
+		expect(lengthChoices(1, null).map((c) => c.n)).toEqual([2, 4, 6, 8, 12, 16, 24]);
+	});
+
+	it('greys the lengths that would land on another count', () => {
+		expect(
+			lengthChoices(1, 5)
+				.filter((c) => c.ok)
+				.map((c) => c.n)
+		).toEqual([4, 12]);
+		expect(fitsLength(1, 20, 5)).toBe(true);
+		expect(fitsLength(1, 8, 5)).toBe(false);
+	});
+
+	it('preselects the shortest that lands where the slot below starts', () => {
+		expect(preselect(1, 5)).toBe(4);
+		expect(preselect(1, null)).toBeNull();
+		// From 1, landing on 2 takes 9, 17… counts: none offered.
+		expect(preselect(1, 2)).toBeNull();
 	});
 });

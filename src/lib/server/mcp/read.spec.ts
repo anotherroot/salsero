@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db';
+import { figures, routineStepOptions } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { makeWorld } from '../sync/test-world';
 import { readTools } from './read';
 import type { ToolCtx } from './modules';
@@ -129,5 +131,31 @@ describe('the read tools', () => {
 		expect(b.text).toMatch(/Unknown argument "extra"/);
 		const c = await run('list', { kind: 'song' });
 		expect(c.text).toMatch(/kind must be one of/);
+	});
+});
+
+describe('flexible figures in the read tools (spec 2026-11-11)', () => {
+	it('get_figure gives the counts it can start on and a length set in the routine', async () => {
+		db.update(figures)
+			.set({ startCounts: 17, lengthFree: 1 })
+			.where(eq(figures.id, world.own.u1.figure))
+			.run();
+		const r = await run('get_figure', { id: world.own.u1.figure });
+		expect(r.data.start_counts).toEqual([1, 5]);
+		expect(r.data.length_set_in_routine).toBe(true);
+	});
+
+	it('get_routine gives a slot option its own length', async () => {
+		db.update(routineStepOptions)
+			.set({ lengthCounts: 12 })
+			.where(eq(routineStepOptions.figureId, world.own.u1.figure))
+			.run();
+		const r = await run('get_routine', { id: world.own.u1.routine });
+		const alts = r.data.slots.flatMap(
+			(s: { alternatives: { figure_id: number; length_counts?: number }[] }) => s.alternatives
+		);
+		expect(
+			alts.find((a: { figure_id: number }) => a.figure_id === world.own.u1.figure)
+		).toMatchObject({ length_counts: 12 });
 	});
 });

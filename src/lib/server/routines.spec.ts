@@ -21,6 +21,7 @@ import {
 	restoreSlots,
 	routineShapes,
 	routineSlots,
+	setOptionLength,
 	setSlotNote,
 	updateRoutine,
 	duplicateRoutine,
@@ -33,7 +34,7 @@ import { listPositions } from './positions';
 import { insertFixturePositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
 import { flatten } from '$lib/routines/routines';
-import { exercises, routineStepOptions } from './db/schema';
+import { exercises, figures, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import { NO_FILES, T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
@@ -160,8 +161,8 @@ describe('addFigureSlot', () => {
 		]);
 		expect(routineShapes(db, U1_SALSA).get(routine.id)).toEqual({
 			slots: [
-				{ kind: 'options', figureIds: [f1.id], note: null },
-				{ kind: 'options', figureIds: [f2.id], note: null }
+				{ kind: 'options', figureIds: [f1.id], note: null, stepId: expect.any(Number) },
+				{ kind: 'options', figureIds: [f2.id], note: null, stepId: expect.any(Number) }
 			]
 		});
 	});
@@ -425,7 +426,7 @@ describe('embedding, one level', () => {
 					kind: 'child',
 					routineId: child.id,
 					note: null,
-					slots: [{ kind: 'options', figureIds: [f.id], note: null }]
+					slots: [{ kind: 'options', figureIds: [f.id], note: null, stepId: expect.any(Number) }]
 				}
 			]
 		});
@@ -1181,5 +1182,117 @@ describe('a personal routine and a group’s figures and routines', () => {
 		const snapshot = deleteSlots(db, P, [at])!;
 		expect(snapshot[0].figureIds).toEqual([F]);
 		expect(restoreSlots(db, P, snapshot)).toBe(true);
+	});
+});
+
+describe('flexible figures in routines (spec 2026-11-11)', () => {
+	/** A figure with its own timing: a start set, a length, and whether the routine sets it. */
+	const shaped = (
+		db: ReturnType<typeof openDb>,
+		name: string,
+		o: { counts: number[]; length: number; free?: boolean }
+	) => {
+		const f = figure(db, name);
+		db.update(figures)
+			.set({
+				startCount: Math.min(...o.counts),
+				startCounts: o.counts.length > 1 ? o.counts.reduce((m, n) => m | (1 << (n - 1)), 0) : null,
+				lengthCounts: o.length,
+				lengthFree: o.free ? 1 : null
+			})
+			.where(eq(figures.id, f.id))
+			.run();
+		return f;
+	};
+	const lengthsOf = (db: ReturnType<typeof openDb>, routineId: number) =>
+		routineSlots(db, routineId).map((s) => s.lengths);
+
+	it('stores the length a free figure is added with, and ignores one for a fixed figure', () => {
+		const db = openDb(':memory:');
+		const walk = shaped(db, 'Cradle walk', {
+			counts: [1, 2, 3, 4, 5, 6, 7, 8],
+			length: 8,
+			free: true
+		});
+		const lead = shaped(db, 'Cross body lead', { counts: [1], length: 8 });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
+		insertSlot(db, routine.id, 0, { figureId: walk.id, length: 4 });
+		insertSlot(db, routine.id, 1, { figureId: lead.id, length: 4 });
+		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 4 }, {}]);
+		const shape = routineShapes(db, U1_SALSA).get(routine.id)!;
+		const first = shape.slots[0];
+		expect(first.kind === 'options' && first.lengths).toEqual({ [walk.id]: 4 });
+		expect(first.kind === 'options' && typeof first.stepId).toBe('number');
+	});
+
+	it('judges an alternative on the start the routine gives the slot', () => {
+		const db = openDb(':memory:');
+		const four = shaped(db, 'Four', { counts: [1], length: 4 });
+		const basic = shaped(db, 'Basic', { counts: [1, 5], length: 4 });
+		const onFive = shaped(db, 'On five', { counts: [5], length: 4 });
+		const onOne = shaped(db, 'On one', { counts: [1], length: 4 });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
+		addFigureSlot(db, routine.id, four.id);
+		const step = addFigureSlot(db, routine.id, basic.id)!;
+		// Basic starts on 5 here (Four leaves it there): so must its alternatives.
+		expect(addOption(db, step, onFive.id)).toBe(true);
+		expect(addOption(db, step, onOne.id)).toBe(false);
+	});
+
+	it('takes a free alternative only at a length that lands with the slot', () => {
+		const db = openDb(':memory:');
+		const basic = shaped(db, 'Basic', { counts: [1], length: 4 });
+		const walk = shaped(db, 'Walk', { counts: [1], length: 8, free: true });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
+		const step = addFigureSlot(db, routine.id, basic.id)!;
+		expect(addOption(db, step, walk.id, undefined, 8)).toBe(false);
+		expect(addOption(db, step, walk.id, undefined, 12)).toBe(true);
+		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 12 }]);
+	});
+
+	it('sets an option’s length, and refuses what would split the slot', () => {
+		const db = openDb(':memory:');
+		const walk = shaped(db, 'Walk', { counts: [1], length: 8, free: true });
+		const lead = shaped(db, 'Lead', { counts: [1], length: 8 });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
+		const step = addFigureSlot(db, routine.id, walk.id)!;
+		expect(setOptionLength(db, step, walk.id, 12)).toBe(true);
+		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 12 }]);
+		expect(setOptionLength(db, step, walk.id, 0)).toBe(false);
+		expect(setOptionLength(db, step, walk.id, 65)).toBe(false);
+		const other = addFigureSlot(db, routine.id, lead.id)!;
+		expect(setOptionLength(db, other, lead.id, 4)).toBe(false);
+		// With a fixed alternative that leaves the next on 1, only lengths landing on 1 go.
+		expect(setOptionLength(db, step, walk.id, 8)).toBe(true);
+		expect(addOption(db, step, lead.id)).toBe(true);
+		expect(setOptionLength(db, step, walk.id, 4)).toBe(false);
+		expect(setOptionLength(db, step, walk.id, 16)).toBe(true);
+	});
+
+	it('keeps each length through delete and Undo, duplicate, and a copy of the routine', () => {
+		const db = openDb(':memory:');
+		const walk = shaped(db, 'Walk', { counts: [1], length: 8, free: true });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
+		const step = insertSlot(db, routine.id, 0, { figureId: walk.id, length: 4 })!;
+		const copies = duplicateSlots(db, routine.id, [step])!;
+		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 4 }, { [walk.id]: 4 }]);
+		const snapshot = deleteSlots(db, routine.id, [copies[0]])!;
+		expect(snapshot[0].lengths).toEqual({ [walk.id]: 4 });
+		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
+		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 4 }, { [walk.id]: 4 }]);
+		const copy = withLocale('en', () => duplicateRoutine(db, routine.id))!;
+		expect(lengthsOf(db, copy.id)).toEqual([{ [walk.id]: 4 }, { [walk.id]: 4 }]);
+	});
+
+	it('puts a removed alternative back with its length', () => {
+		const db = openDb(':memory:');
+		const basic = shaped(db, 'Basic', { counts: [1], length: 4 });
+		const walk = shaped(db, 'Walk', { counts: [1], length: 8, free: true });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
+		const step = addFigureSlot(db, routine.id, basic.id)!;
+		addOption(db, step, walk.id, undefined, 12);
+		removeOption(db, step, walk.id);
+		expect(restoreOption(db, step, walk.id, undefined, undefined, 12)).toBe(true);
+		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 12 }]);
 	});
 });

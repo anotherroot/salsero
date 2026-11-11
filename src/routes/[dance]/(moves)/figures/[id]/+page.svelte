@@ -148,7 +148,12 @@
 	// A position's own page. Built from a path, not the route id: `/[dance]/positions/[id]`
 	// lands with the position page.
 	const positionHref = (id: number) => resolve(`/${slug}/positions/${id}`);
-	const timing = $derived(timingLine(data.effective.startCount, data.effective.lengthCounts));
+	const timing = $derived(
+		timingLine(data.effective.startCount, data.effective.lengthCounts, {
+			counts: data.effective.startCounts,
+			free: data.effective.lengthFree
+		})
+	);
 	const archive = $derived(archiveCopy(figure.name, variation.name, last));
 	let practising = $state(false);
 	/** A reader's Edit: the Make it mine sheet (ruling 1). */
@@ -597,7 +602,11 @@
 						styleLabel={styleLabelOf(data.dance.styleLabel)}
 						figureId={variation.id}
 					/>
-					<FigureTiming startCount={data.shape.startCount} lengthCounts={data.shape.lengthCounts} />
+					<FigureTiming
+						startCounts={data.shape.startCounts}
+						lengthCounts={data.shape.lengthCounts}
+						lengthFree={data.shape.lengthFree}
+					/>
 					{#if refusal}
 						<!-- Keyed on the answer: each refusal is brought into view as it arrives. -->
 						{#key refusal}
@@ -651,13 +660,16 @@
 				</div>
 				<div
 					role="img"
-					aria-label={t().figure.timing.startsOnCount(data.effective.startCount)}
+					aria-label={data.effective.startCounts.length > 1
+						? t().figure.timing.startsOnCounts(data.effective.startCounts.join(', '))
+						: t().figure.timing.startsOnCount(data.effective.startCount)}
 					class="flex gap-1"
 				>
 					{#each [1, 2, 3, 4, 5, 6, 7, 8] as count (count)}
 						<span
-							class="flex h-[30px] flex-1 items-center justify-center rounded-lg text-[14px] font-extrabold tabular-nums {count ===
-							data.effective.startCount
+							class="flex h-[30px] flex-1 items-center justify-center rounded-lg text-[14px] font-extrabold tabular-nums {data.effective.startCounts.includes(
+								count
+							)
 								? 'bg-accent text-on-accent'
 								: 'bg-chip text-ink-2'}">{count}</span
 						>

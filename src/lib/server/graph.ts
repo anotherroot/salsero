@@ -31,6 +31,8 @@ import {
 } from './db/schema';
 import type { Graph } from '$lib/graph/graph';
 import {
+	countsOfMask,
+	maskOf,
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
 	isLengthCounts,
@@ -172,7 +174,9 @@ export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceG
 		.select({
 			id: figures.id,
 			startCount: figures.startCount,
-			lengthCounts: figures.lengthCounts
+			lengthCounts: figures.lengthCounts,
+			startCounts: figures.startCounts,
+			lengthFree: figures.lengthFree
 		})
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
@@ -227,7 +231,9 @@ export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceG
 			starts: starts.get(r.id) ?? [],
 			ends: ends.get(r.id) ?? [],
 			start: r.startCount ?? DEFAULT_START_COUNT,
-			length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+			length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+			...(r.startCounts ? { startCounts: countsOfMask(r.startCounts, r.startCount) } : {}),
+			...(r.lengthFree ? { free: true } : {})
 		})),
 		positions: live
 			.filter((p) => canon.get(p.id) === p.id)
@@ -283,6 +289,14 @@ export interface FigureShape {
 	startCount: number;
 	/** 1..MAX_LENGTH_COUNTS counts. */
 	lengthCounts: number;
+	/**
+	 * Every count it can start on (spec 2026-11-11); `startCount` is then their
+	 * lowest. Absent (an older page): the stored set stays while `startCount`
+	 * is still its usual start, else it is that one count.
+	 */
+	startCounts?: number[];
+	/** Its length is set in each routine slot. Absent (an older page): kept. */
+	lengthFree?: boolean;
 }
 
 /**
@@ -354,7 +368,11 @@ export function setFigureShapeIn(
  * may be posted back (an older page does): it is kept, not refused.
  */
 export function writeFigureShape(tx: Db, figureId: number, shape: FigureShape) {
-	const { startCount, lengthCounts } = shape;
+	const { lengthCounts } = shape;
+	if (shape.startCounts !== undefined) {
+		if (shape.startCounts.length === 0 || !shape.startCounts.every(isStartCount)) return null;
+	}
+	const startCount = shape.startCounts ? Math.min(...shape.startCounts) : shape.startCount;
 	if (!isStartCount(startCount)) return null;
 	if (!isLengthCounts(lengthCounts)) return null;
 
@@ -365,8 +383,19 @@ export function writeFigureShape(tx: Db, figureId: number, shape: FigureShape) {
 	const before = shapeFields({
 		...current,
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
-		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+		startCounts: countsOfMask(figure.startCounts, figure.startCount),
+		lengthFree: figure.lengthFree === 1
 	});
+	// An older page sends one start count and no You choose: the stored set
+	// stays while that count is still its usual start.
+	const counts =
+		shape.startCounts ??
+		(startCount === (figure.startCount ?? DEFAULT_START_COUNT)
+			? countsOfMask(figure.startCounts, figure.startCount)
+			: [startCount]);
+	const lengthFree = shape.lengthFree ?? figure.lengthFree === 1;
+	const mask = counts.length === 1 ? null : maskOf(counts);
 
 	const owner = spaceOfRow(figure, '');
 	const all = [
@@ -414,8 +443,17 @@ export function writeFigureShape(tx: Db, figureId: number, shape: FigureShape) {
 				.run();
 		}
 	}
-	tx.update(figures).set({ startCount, lengthCounts }).where(eq(figures.id, figureId)).run();
-	const after = shapeFields({ ...figurePositions(tx, figureId), startCount, lengthCounts });
+	tx.update(figures)
+		.set({ startCount, lengthCounts, startCounts: mask, lengthFree: lengthFree ? 1 : null })
+		.where(eq(figures.id, figureId))
+		.run();
+	const after = shapeFields({
+		...figurePositions(tx, figureId),
+		startCount,
+		lengthCounts,
+		startCounts: counts,
+		lengthFree
+	});
 	return { figure, before, after };
 }
 
@@ -425,6 +463,9 @@ function shapeFields(s: FigureShape) {
 		startIds: [...s.startIds].sort((a, b) => a - b).join(','),
 		endIds: [...s.endIds].sort((a, b) => a - b).join(','),
 		startCount: s.startCount,
-		lengthCounts: s.lengthCounts
+		lengthCounts: s.lengthCounts,
+		// Spec 2026-11-11. Always present: a change is only a key whose value differs.
+		startCounts: (s.startCounts ?? [s.startCount]).join(','),
+		lengthFree: s.lengthFree ? 1 : 0
 	};
 }

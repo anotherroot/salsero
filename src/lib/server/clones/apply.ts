@@ -33,7 +33,7 @@
  */
 import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
-import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
+import { countsOfMask, DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from '$lib/clones/flat';
@@ -294,7 +294,9 @@ class Applier {
 		if (has('timing') || tags.length > 0) {
 			const timing = (f: typeof t) => ({
 				startCount: f.startCount ?? DEFAULT_START_COUNT,
-				lengthCounts: f.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+				lengthCounts: f.lengthCounts ?? DEFAULT_LENGTH_COUNTS,
+				startCounts: countsOfMask(f.startCounts, f.startCount),
+				lengthFree: f.lengthFree === 1
 			});
 			const written = writeFigureShape(tx, targetId, {
 				...this.sidesAfter(tags),
@@ -548,6 +550,7 @@ class Applier {
 		for (const slot of routineSlots(tx, this.giverId)) {
 			let child: number | null = null;
 			let options: number[] = [];
+			const lengthOf = new Map<number, number>();
 			if (slot.childId !== null) {
 				// Checked before the mapper runs, so a child that would drop is never copied here.
 				if (embedded || embeds(tx, slot.childId)) continue;
@@ -557,6 +560,11 @@ class Applier {
 			} else {
 				const ids = slot.figureIds.map((f) => m.ref('figure', f));
 				options = [...new Set(ids.filter((f): f is number => f !== null))];
+				// Each copy keeps its source option's length (spec 2026-11-11).
+				slot.figureIds.forEach((f, k) => {
+					const to = ids[k];
+					if (to !== null && slot.lengths[f] !== undefined) lengthOf.set(to, slot.lengths[f]);
+				});
 				if (options.length === 0) continue;
 				for (const f of options) newIds.add(`f${f}`);
 			}
@@ -573,7 +581,14 @@ class Applier {
 				.get();
 			// In the slot's order, main figure first: one instant, so rowid keeps it.
 			for (const figureId of options)
-				tx.insert(routineStepOptions).values({ stepId: step.id, figureId, createdAt: now }).run();
+				tx.insert(routineStepOptions)
+					.values({
+						stepId: step.id,
+						figureId,
+						lengthCounts: lengthOf.get(figureId) ?? null,
+						createdAt: now
+					})
+					.run();
 		}
 		this.changed('slots', old.length, position);
 		if ([...oldIds].some((id) => !newIds.has(id))) this.removals = true;

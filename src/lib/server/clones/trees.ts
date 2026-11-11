@@ -116,7 +116,11 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	b.add('style', style, styleShow(f.dance, style));
 	const start = f.startCount ?? DEFAULT_START_COUNT;
 	const length = f.lengthCounts ?? DEFAULT_LENGTH_COUNTS;
-	b.add('timing', `${start}|${length}`, timingLine(start, length).main);
+	// A start set or You choose (spec 2026-11-11) joins the value only when set, so a
+	// figure nobody changed compares exactly as before.
+	const set = f.startCounts ? `|s${f.startCounts}` : '';
+	const free = f.lengthFree === 1 ? '|free' : '';
+	b.add('timing', `${start}|${length}${set}${free}`, timingLine(start, length).main);
 	tagFields(db, id, b);
 	linkFields(db, eq(links.figureId, id), b);
 
@@ -393,9 +397,17 @@ function routineFlat(db: Db, id: number, b: Builder): void {
 		.orderBy(asc(routineSteps.position))
 		.all();
 	const options = new Map<number, string[]>();
+	// A slot's lengths (spec 2026-11-11), by the same refs: only slots that have one, so a
+	// routine without any reads exactly as it did.
+	const lengths = new Map<number, Record<string, number>>();
 	if (steps.length > 0) {
 		for (const o of db
-			.select({ stepId: routineStepOptions.stepId, id: figures.id, gene: figures.geneId })
+			.select({
+				stepId: routineStepOptions.stepId,
+				id: figures.id,
+				gene: figures.geneId,
+				length: routineStepOptions.lengthCounts
+			})
 			.from(routineStepOptions)
 			.innerJoin(figures, eq(figures.id, routineStepOptions.figureId))
 			.where(
@@ -409,12 +421,16 @@ function routineFlat(db: Db, id: number, b: Builder): void {
 			const list = options.get(o.stepId);
 			if (list) list.push(ref(o.gene, o.id));
 			else options.set(o.stepId, [ref(o.gene, o.id)]);
+			if (o.length !== null) {
+				lengths.set(o.stepId, { ...lengths.get(o.stepId), [ref(o.gene, o.id)]: o.length });
+			}
 		}
 	}
 	const slots = steps.map((s) => ({
 		child: s.childId === null ? null : ref(s.childGene, s.childId),
 		options: options.get(s.id) ?? [],
-		note: s.note || null
+		note: s.note || null,
+		...(lengths.has(s.id) ? { lengths: lengths.get(s.id) } : {})
 	}));
 	b.add('slots', JSON.stringify(slots), t().nouns.slots(slots.length));
 }

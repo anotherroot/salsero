@@ -49,7 +49,14 @@ import {
 	linkRoutine,
 	publishLesson
 } from '../lessons';
-import { addChildSlot, addFigureSlot, addOption, createRoutine, routineSlots } from '../routines';
+import {
+	addChildSlot,
+	addFigureSlot,
+	addOption,
+	createRoutine,
+	insertSlot,
+	routineSlots
+} from '../routines';
 import { addLesson } from '../entries';
 import { addLinks } from '../links';
 import { addSpot } from '../spots';
@@ -190,6 +197,23 @@ describe('cloneInto: figures', () => {
 		);
 		// No exercise: practice is opt-in.
 		expect(db.select().from(exercises).where(eq(exercises.figureId, r.id)).all()).toEqual([]);
+	});
+
+	it('a figure copy keeps its start set and You choose (spec 2026-11-11)', async () => {
+		const src = groupFigure();
+		db.update(figures).set({ startCounts: 17, lengthFree: 1 }).where(eq(figures.id, src.id)).run();
+		const r = await cloneInto(
+			db,
+			{ kind: 'figure', id: src.id, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!r.ok) throw new Error('expected a clone');
+		expect(figureRow(r.id)).toMatchObject({ startCounts: 17, lengthFree: 1 });
+		// The flat timing carries both, so Keep in step sees a later change.
+		expect(flatOf(db, 'figure', r.id).timing).toEqual(flatOf(db, 'figure', src.id).timing);
+		db.update(figures).set({ startCounts: null }).where(eq(figures.id, src.id)).run();
+		expect(flatOf(db, 'figure', r.id).timing).not.toEqual(flatOf(db, 'figure', src.id).timing);
 	});
 
 	it('files under my live move of that name, any case', async () => {
@@ -839,6 +863,23 @@ describe('cloneInto: routines and lessons', () => {
 	const routineRow = (id: number) => db.select().from(routines).where(eq(routines.id, id)).get()!;
 	const memberOf = (kind: 'figure' | 'routine' | 'drill', id: number, place: Space) =>
 		memberIn(db, kind, geneOf(db, kind, id)!, place)?.id;
+
+	it("a routine copy keeps each slot's length (spec 2026-11-11)", async () => {
+		const walk = figure(T1_SALSA, 'Walk', 'Slow').figure.id;
+		db.update(figures).set({ lengthFree: 1 }).where(eq(figures.id, walk)).run();
+		const r = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		expect(insertSlot(db, r, 0, { figureId: walk, length: 12 }, 'u1')).not.toBeNull();
+		publishWith({ routines: [r] });
+		const res = await cloneInto(
+			db,
+			{ kind: 'routine', id: r, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!res.ok) throw new Error('expected a clone');
+		const copy = memberOf('figure', walk, U2_SALSA)!;
+		expect(routineSlots(db, res.id).map((s) => s.lengths)).toEqual([{ [copy]: 12 }]);
+	});
 
 	it('a routine brings its figures and its embedded routine', async () => {
 		const doble = figure(T1_SALSA, 'Enchufla', 'Doble');

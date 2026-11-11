@@ -1,58 +1,85 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { COUNTS_PER_EIGHT, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
-	import { lengthError } from '$lib/figures/page';
+	import { lengthError, startsLine } from '$lib/figures/page';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { SHORTCUT, FIELD, LABEL } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 
 	/**
-	 * Which count a variation begins on, and how many counts it takes. Both are
-	 * its own — a variation holds everything it is.
+	 * Which counts a variation can begin on, how many counts it takes, and
+	 * whether a routine sets that length instead (spec 2026-11-11, board 1).
+	 * All its own — a variation holds everything it is.
+	 *
+	 * Posts one `startCount` per count that is on, `lengthCounts`, `lengthFree`
+	 * when You choose is on, and `timingSet` so the server knows this form sent
+	 * the set (an older page sends one `startCount` alone).
 	 *
 	 * Seeds its own state once, like `PositionTags`, so key it on the
 	 * variation's id wherever it is rendered.
 	 */
 	let {
-		startCount,
-		lengthCounts
+		startCounts,
+		lengthCounts,
+		lengthFree
 	}: {
-		startCount: number;
+		startCounts: number[];
 		lengthCounts: number;
+		lengthFree: boolean;
 	} = $props();
 
-	// Strings, so they bind to a radio group and a text input alike.
-	let start = $state(untrack(() => String(startCount)));
+	const all = Array.from({ length: COUNTS_PER_EIGHT }, (_, i) => i + 1);
+	let on = $state(untrack(() => [...startCounts].sort((a, b) => a - b)));
 	let length = $state(untrack(() => String(lengthCounts)));
+	let free = $state(untrack(() => lengthFree));
 	/** The check speaks only once the field has been typed in; it never blocks Save. */
 	let touched = $state(false);
 	const error = $derived(touched ? lengthError(length) : null);
+	const everything = $derived(on.length === COUNTS_PER_EIGHT);
 
-	const counts = Array.from({ length: COUNTS_PER_EIGHT }, (_, i) => String(i + 1));
+	/** Tap a count on or off. The last one on stays: a figure starts somewhere. */
+	function toggle(n: number) {
+		if (on.includes(n)) {
+			if (on.length > 1) on = on.filter((x) => x !== n);
+		} else on = [...on, n].sort((a, b) => a - b);
+	}
+
 	const shortcuts = ['4', '8', '16'];
 	const uid = $props.id();
 </script>
 
-<fieldset role="radiogroup" aria-label={t().figure.length.startsOn}>
-	<legend class={LABEL}>{t().figure.length.startsOn}</legend>
+<input type="hidden" name="timingSet" value="1" />
+{#each on as n (n)}
+	<input type="hidden" name="startCount" value={n} />
+{/each}
+{#if free}
+	<input type="hidden" name="lengthFree" value="1" />
+{/if}
+
+<div role="group" aria-labelledby="{uid}-starts">
+	<div class="flex items-baseline justify-between gap-3">
+		<span id="{uid}-starts" class={LABEL}>{t().figure.length.canStartOn}</span>
+		<button
+			type="button"
+			onclick={() => (on = everything ? [1] : [...all])}
+			class="text-[13px] font-bold text-accent-text"
+			>{everything ? t().figure.length.onlyOne : t().figure.length.all}</button
+		>
+	</div>
 	<div class="flex gap-1">
-		{#each counts as n (n)}
-			<label
-				class="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl bg-surface text-[16px] font-extrabold text-ink shadow-[inset_0_0_0_1px_var(--color-field-line)] has-checked:bg-accent has-checked:text-on-accent has-checked:shadow-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
+		{#each all as n (n)}
+			<button
+				type="button"
+				aria-pressed={on.includes(n)}
+				aria-label={t().figure.length.count(n)}
+				onclick={() => toggle(n)}
+				class="flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl bg-surface text-[16px] font-extrabold text-ink shadow-[inset_0_0_0_1px_var(--color-field-line)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent aria-pressed:bg-accent aria-pressed:text-on-accent aria-pressed:shadow-none"
+				>{n}</button
 			>
-				<input
-					type="radio"
-					name="startCount"
-					value={n}
-					required
-					bind:group={start}
-					class="sr-only"
-				/>
-				{n}
-			</label>
 		{/each}
 	</div>
-</fieldset>
+	<p class="mt-1.5 pl-1 text-[13px] text-muted" aria-live="polite">{startsLine(on)}</p>
+</div>
 
 <div>
 	<label class={LABEL} for="{uid}-length">{t().figure.length.counts}</label>
@@ -78,10 +105,15 @@
 		<FieldError id="{uid}-length-error" message={error} />
 	{:else}
 		<p id="{uid}-length-help" class="mt-1.5 pl-1 text-[13px] text-muted">
-			{t().figure.length.help(MAX_LENGTH_COUNTS)}
+			{free
+				? t().figure.length.youChooseHint(Number(length) || lengthCounts)
+				: t().figure.length.help(MAX_LENGTH_COUNTS)}
 		</p>
 	{/if}
 	<div class="mt-1 flex flex-wrap gap-2" role="group" aria-label={t().figure.length.shortcuts}>
+		<button type="button" aria-pressed={free} onclick={() => (free = !free)} class={SHORTCUT}
+			>{t().figure.length.youChoose}</button
+		>
 		{#each shortcuts as n (n)}
 			<button
 				type="button"
