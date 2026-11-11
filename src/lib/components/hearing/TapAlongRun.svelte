@@ -4,7 +4,7 @@
 	import { RUN_STOP } from '$lib/components/player/styles';
 	import type { DropAnswer, DropBeat } from '$lib/hearing/drops';
 	import { expectedTaps, matchTaps, type Grid } from '$lib/hearing/judge';
-	import type { CircleState, FinishedDrop } from '$lib/hearing/round';
+	import { tapRow, type FinishedDrop } from '$lib/hearing/round';
 	import { tapSongTime } from '$lib/hearing/tap-delay';
 	import { t } from '$lib/i18n/catalog';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
@@ -66,12 +66,17 @@
 	let raf = 0;
 	let wake: ReturnType<typeof setTimeout> | undefined;
 
-	const row = $derived.by((): Record<number, CircleState> => {
-		const k = fill % positions.length;
-		return Object.fromEntries(
-			positions.map((p, i) => [p, i < k ? 'filled' : i === k ? 'next' : 'future'] as const)
-		);
-	});
+	/** A row just filled shows full until the next tap, or a moment later. */
+	let full = $state(false);
+	let emptyLater: ReturnType<typeof setTimeout> | undefined;
+	const row = $derived(tapRow(positions, fill, full));
+	function empty() {
+		clearTimeout(emptyLater);
+		if (!full) return;
+		full = false;
+		// The full row empties, sliding back in.
+		refill++;
+	}
 	const part = $derived(sections.findLast((s) => s.t <= now) ?? null);
 
 	function wakeLater() {
@@ -88,16 +93,21 @@
 		taps.push(
 			tapSongTime(player.songTime(), performance.now() - timeStamp, tapDelayMs, audio.playbackRate)
 		);
+		empty();
 		fill++;
 		const k = (fill - 1) % positions.length;
 		pop = { row: 0, pos: positions[k], key: ++popKey };
-		// A full row empties, sliding back in.
-		if (fill % positions.length === 0) refill++;
+		if (fill % positions.length === 0) {
+			full = true;
+			emptyLater = setTimeout(empty, 300);
+		}
 	}
 
 	function reset() {
 		taps = [];
 		fill = 0;
+		full = false;
+		clearTimeout(emptyLater);
 		player.seek(span.play);
 		wakeLater();
 	}
@@ -164,6 +174,7 @@
 	onDestroy(() => {
 		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(wake);
+		clearTimeout(emptyLater);
 	});
 </script>
 

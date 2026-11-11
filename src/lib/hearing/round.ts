@@ -56,3 +56,22 @@ export interface FinishedDrop {
 	/** The song's section the drop was in ('' when the song has none). */
 	section: string;
 }
+
+/**
+ * A tap-along round's one row: filled in order, the next circle marked. A row
+ * just finished (`full`) shows full for a moment before it empties.
+ */
+export function tapRow(
+	positions: number[],
+	fill: number,
+	full: boolean
+): Record<number, CircleState> {
+	const n = positions.length;
+	const k = full && fill > 0 && fill % n === 0 ? n : fill % n;
+	return Object.fromEntries(
+		positions.map((p, i): [number, CircleState] => [
+			p,
+			i < k ? 'filled' : i === k ? 'next' : 'future'
+		])
+	);
+}

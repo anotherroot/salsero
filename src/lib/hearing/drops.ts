@@ -55,13 +55,13 @@ export interface DropWindow {
 }
 
 /**
- * The eight the first tap falls in, and the next. A tap up to the tap window
- * before a 1 belongs to that 1's eight: it was meant for it.
+ * The eight the first tap falls in, and the next: the eight of the beat nearest
+ * the tap. A tap just before a 1 belongs to that 1's eight, one just after an 8
+ * to the 8's (the tap window is under half a beat).
  */
 export function dropWindow(grid: Grid, first: number): DropWindow {
 	const tl = timeline(grid);
-	const near = nearestBeat(grid.beats, first);
-	const i = nearestBeat(grid.beats, first + windowS(beatLength(grid, near)));
+	const i = nearestBeat(grid.beats, first);
 	const eight = Math.max(0, tl.eights[i] ?? 0);
 	const from = grid.beats[tl.starts[eight]] ?? grid.beats[0];
 	const next = tl.starts[eight + PATTERN_EIGHTS];

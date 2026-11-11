@@ -10,7 +10,7 @@ import {
 	tapSpot
 } from './spot';
 
-const RULES = { eightS: 4, gapS: 1, winS: 0.15 };
+const RULES = { eightS: 4, gapS: 1, winS: 0.15, beatS: 0.5 };
 const WINDOW = { eight: 3, from: 12, end: 20 };
 
 describe('longestGapBeats', () => {
@@ -32,8 +32,8 @@ describe('a spot', () => {
 		let s = tapSpot(newSpot(10), 12, WINDOW, 10);
 		s = tapSpot(s, 13, WINDOW, 10);
 		expect(s.phase).toBe('tapping');
-		expect(stepSpot(s, 17.9, RULES)).toBe('keep');
-		expect(stepSpot(s, 18.01, RULES)).toBe('restart');
+		expect(stepSpot(s, 18.4, RULES)).toBe('keep');
+		expect(stepSpot(s, 18.51, RULES)).toBe('restart');
 	});
 
 	it('ends when its two eights are over', () => {
@@ -85,5 +85,15 @@ describe('a spot', () => {
 		expect(restartSpot(over)).toBe(over);
 		expect(stepSpot(over, 99, RULES)).toBe('keep');
 		expect(canSkip({ ...over, restarts: 5 })).toBe(false);
+	});
+});
+
+describe('a spot on the 1', () => {
+	it('ends rather than starting over when its only tap came just before a 1', () => {
+		// The 1 at 120 BPM: an eight is 4 s, the longest gap 4 s. A tap at 15.9 opens the eight at 16; it ends at 24.
+		const rules = { eightS: 4, gapS: 4, winS: 0.15, beatS: 0.5 };
+		const s = tapSpot(newSpot(10), 15.9, { eight: 4, from: 16, end: 24 }, 2);
+		expect(stepSpot(s, 23.95, rules)).toBe('keep');
+		expect(stepSpot(s, 24.16, rules)).toBe('end');
 	});
 });

@@ -66,7 +66,10 @@ def _restart(page):
     _pick(page, "Dropped in", "The 1")
     _start(page)
     page.get_by_text("No tap in four eights: from the start of the spot again", exact=True).wait_for(timeout=30000)
-    page.wait_for_timeout(200)
+    page.wait_for_timeout(1500)
+    # One start-over is one: Skip waits for the third (a paused player once kept restarting every frame).
+    if page.get_by_role("button", name="Skip").count():
+        raise AssertionError("Skip after a single start-over")
 
 
 def _skip(page):

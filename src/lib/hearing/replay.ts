@@ -60,3 +60,26 @@ export function stepBeat(grid: Grid, t: number, dir: -1 | 1): number {
 	const onBeat = i >= 0 && Math.abs(grid.beats[i] - t) < 1e-9;
 	return grid.beats[Math.max(0, onBeat ? i - 1 : i)];
 }
+
+/**
+ * How far (song time) the ticks must be queued from `now`: the look-ahead plus
+ * the sound's way to the ear, since a tick is started that much early.
+ */
+export function cueHorizon(now: number, aheadS: number, delayS: number, rate: number): number {
+	return now + (aheadS + delayS) * rate;
+}
+
+/**
+ * When to start a cue on the audio clock (`ctxNow`) so it is heard at its song
+ * time: `now` is the song time heard now, so the cue leaves the speaker early
+ * by the sound delay.
+ */
+export function cueStart(
+	ctxNow: number,
+	cueAt: number,
+	now: number,
+	rate: number,
+	delayS: number
+): number {
+	return ctxNow + (cueAt - now) / rate - delayS;
+}

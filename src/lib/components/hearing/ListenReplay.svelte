@@ -4,7 +4,14 @@
 	import { button } from '$lib/components/ui/styles';
 	import { PATTERN_EIGHTS } from '$lib/hearing/drops';
 	import type { Grid } from '$lib/hearing/judge';
-	import { cuesBetween, stepBeat, type ReplayPlan } from '$lib/hearing/replay';
+	import {
+		cueHorizon,
+		cueStart,
+		cuesBetween,
+		stepBeat,
+		type ReplayPlan
+	} from '$lib/hearing/replay';
+	import { totalDelayMs } from '$lib/player/sound-delay';
 	import type { CircleState, FinishedDrop } from '$lib/hearing/round';
 	import { posLabel } from '$lib/hearing/words';
 	import { t } from '$lib/i18n/catalog';
@@ -109,14 +116,15 @@
 		if (playing && ctx) {
 			// `songTime()` is the time heard: a tick must leave the speaker that much early.
 			const d = player.soundDelay();
-			const delayS = (d.reportedMs + d.correctionMs) / 1000;
+			const delayS = totalDelayMs(d.reportedMs, d.correctionMs) / 1000;
 			const rate = audio.playbackRate || 1;
-			for (const c of cuesBetween(plan, scheduled, now + AHEAD_S)) {
-				const at = Math.max(ctx.currentTime, ctx.currentTime + (c.at - now) / rate - delayS);
+			const horizon = cueHorizon(now, AHEAD_S, delayS, rate);
+			for (const c of cuesBetween(plan, scheduled, horizon)) {
+				const at = Math.max(ctx.currentTime, cueStart(ctx.currentTime, c.at, now, rate, delayS));
 				if (c.kind === 'tap') tone(at, 2600, 0.2, 0.03);
 				else tone(at, 520, 0.3, 0.09);
 			}
-			scheduled = Math.max(scheduled, now + AHEAD_S);
+			scheduled = Math.max(scheduled, horizon);
 		}
 		if (playing && now >= plan.to) {
 			player.pause();

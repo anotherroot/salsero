@@ -76,7 +76,7 @@
 
 	const circles = $derived(positions.length * 2);
 	const eightS = $derived(8 * beatS);
-	const rules = $derived({ eightS, gapS: longestGapBeats(positions) * beatS, winS: WIN_S });
+	const rules = $derived({ eightS, gapS: longestGapBeats(positions) * beatS, winS: WIN_S, beatS });
 
 	let index = $state(0);
 	// The first spot: the page seeked there; a new round mounts this anew.
@@ -96,10 +96,19 @@
 	let raf = 0;
 	/** Every timer still to run: cleared when the round goes. */
 	let timers: ReturnType<typeof setTimeout>[] = [];
+	/**
+	 * The attempt a timer belongs to: a start-over, a Skip, the end of a spot and
+	 * the move to the next each start a new one, and a timer from an older attempt
+	 * does nothing (it would seek, play or unlock the wrong spot).
+	 */
+	let attempt = 0;
+	/** A start-over is under way (sliding, seeking): no other one, and the rules wait. */
+	let restarting = $state(false);
 	function later(ms: number, fn: () => void) {
+		const mine = attempt;
 		const id = setTimeout(() => {
 			timers = timers.filter((x) => x !== id);
-			fn();
+			if (mine === attempt) fn();
 		}, ms);
 		timers.push(id);
 	}
@@ -137,7 +146,7 @@
 
 	function frame() {
 		const now = player.songTime();
-		if (spot.phase !== 'over') {
+		if (spot.phase !== 'over' && !restarting) {
 			const step = stepSpot(spot, now, rules);
 			const songOver = Number.isFinite(audio.duration) && now >= audio.duration - 0.05;
 			if (step === 'restart' && !songOver)
@@ -169,14 +178,19 @@
 	}
 
 	function restart(why: string) {
-		if (spot.phase === 'over') return;
+		if (spot.phase === 'over' || restarting) return;
+		attempt++;
+		restarting = true;
 		const wasSkippable = canSkip(spot);
 		spot = restartSpot(spot);
 		if (canSkip(spot) && !wasSkippable) skipBounce++;
 		locked = true;
+		// Paused, the player holds its place: seek now, or the rules would see the old place and start over again.
 		player.pause();
+		player.seek(spot.start);
 		slide = 'out';
 		later(SLIDE_MS, () => {
+			restarting = false;
 			slide = 'in';
 			play(why);
 		});
@@ -188,6 +202,7 @@
 	}
 
 	function end() {
+		attempt++;
 		const answer = judgeDropPattern(grid, positions, spot.start, spot.taps);
 		spot = endSpot(spot);
 		locked = true;
@@ -213,6 +228,8 @@
 
 	function skip() {
 		if (!canSkip(spot)) return;
+		attempt++;
+		restarting = false;
 		spot = skipSpot(spot);
 		finished.push({
 			answer: judgeDropPattern(grid, positions, spot.start, []),
@@ -226,6 +243,7 @@
 
 	/** The old spot slides away; the next slides in, or the round is over. */
 	function next() {
+		attempt++;
 		player.pause();
 		slide = 'out';
 		later(SLIDE_MS, () => {
@@ -311,7 +329,7 @@
 			<button
 				type="button"
 				class={BAR_SHARED}
-				disabled={spot.phase === 'over'}
+				disabled={spot.phase === 'over' || restarting}
 				onclick={() => restart(w.startOver.reset)}>↺ {w.reset}</button
 			>
 			{#if canSkip(spot)}

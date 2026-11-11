@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DropBeat } from './drops';
-import { cuesBetween, replayPlan, stepBeat } from './replay';
+import { cueHorizon, cueStart, cuesBetween, replayPlan, stepBeat } from './replay';
 
 const g = {
 	beats: Array.from({ length: 200 }, (_, i) => i * 0.5),
@@ -52,5 +52,17 @@ describe('stepBeat', () => {
 		expect(stepBeat(g, 12.2, -1)).toBe(12);
 		expect(stepBeat(g, 12, -1)).toBe(11.5);
 		expect(stepBeat(g, 12, 1)).toBe(12.5);
+	});
+});
+
+describe('scheduling the ticks', () => {
+	it('looks ahead by the sound delay too, so a tick is never queued late', () => {
+		expect(cueHorizon(10, 0.15, 0.25, 1)).toBeCloseTo(10.4, 9);
+		expect(cueHorizon(10, 0.15, 0.25, 0.75)).toBeCloseTo(10.3, 9);
+	});
+
+	it('starts a tick early by the sound delay, so it is heard on its beat', () => {
+		expect(cueStart(100, 10.3, 10, 1, 0.25)).toBeCloseTo(100.05, 9);
+		expect(cueStart(100, 10.3, 10, 0.75, 0)).toBeCloseTo(100.4, 9);
 	});
 });

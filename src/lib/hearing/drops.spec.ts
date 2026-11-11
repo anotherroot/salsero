@@ -106,6 +106,10 @@ describe('dropWindow', () => {
 	it('takes a tap just before a 1 as that 1', () => {
 		expect(dropWindow(grid(400), 15.9).eight).toBe(4);
 	});
+
+	it('keeps a tap a little late on the 8 in the eight of that 8', () => {
+		expect(dropWindow(grid(400), 15.62).eight).toBe(3);
+	});
 });
 
 describe('judgeDropPattern in its window', () => {
