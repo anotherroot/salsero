@@ -5,6 +5,7 @@
 	import { practiseHref as musicHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { claimBottom } from '$lib/nav/chrome.svelte';
+	import { keepInPlace } from '$lib/motion/anchor';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { routinePractiseHref } from '$lib/player/view';
@@ -656,16 +657,30 @@
 
 	/* ── Selection ─────────────────────────────────────────────────────── */
 
+	/*
+	 * Nothing jumps (spec 2026-11-11, routine lift): opening, closing or
+	 * selecting a slot moves what is around it — a card closing above, a tip
+	 * or a toolbar coming and going, neighbours joining — so each change keeps
+	 * the touched slot's card where it is on screen.
+	 */
+	const slotEl = (id: number | null) =>
+		id === null ? null : document.querySelector(`[data-slot="${id}"]`);
+	/** The slot last tapped or pressed: × leaves the selection around it. */
+	let touched: number | null = null;
+
 	const press = longPress({
 		ms: 450,
 		// Under the swipe's 10 px lock, so a locked swipe has always cancelled it.
 		tolerancePx: 9.5,
 		enabled: () => !selecting && !dragging,
 		onLongPress: (id) => {
-			selecting = true;
-			selected = [id];
-			expanded = null;
-			swiped = null;
+			touched = id;
+			void keepInPlace(slotEl(id), () => {
+				selecting = true;
+				selected = [id];
+				expanded = null;
+				swiped = null;
+			});
 		}
 	});
 
@@ -674,12 +689,15 @@
 			swiped = null;
 			return;
 		}
-		if (selecting) {
-			selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
-			if (selected.length === 0) selecting = false;
-			return;
-		}
-		expanded = expanded === id ? null : id;
+		touched = id;
+		void keepInPlace(slotEl(id), () => {
+			if (selecting) {
+				selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
+				if (selected.length === 0) selecting = false;
+				return;
+			}
+			expanded = expanded === id ? null : id;
+		});
 	}
 
 	/*
@@ -705,7 +723,7 @@
 	}
 	/** × or Escape: the band's ⋯ takes the focus the × had. */
 	function leaveSelecting() {
-		stopSelecting();
+		void keepInPlace(slotEl(touched), stopSelecting);
 		focusBand('item-menu');
 	}
 
