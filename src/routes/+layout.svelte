@@ -48,6 +48,7 @@
 	import { locale, setClientLocale } from '$lib/i18n/current';
 	import { t } from '$lib/i18n/catalog';
 	import { device, deviceReady, setPerson } from '$lib/offline/device.svelte';
+	import { newBuildReady } from '$lib/offline/sw-update';
 	import { galleryPerson, pagePerson } from '$lib/offline/person';
 	import { readAppOriginals } from '$lib/offline/app-originals.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
@@ -446,8 +447,16 @@
 	 * page reloads by itself; anything open, unsaved or running gets the
 	 * Reload bar instead. `reloading` keeps the bar from flashing up for the
 	 * moment before a reload that is going to happen.
+	 *
+	 * The reload waits for the new build's service worker (`newBuildReady`): a
+	 * reload under the old one drew the old build again. Still quiet after the
+	 * wait, or the bar shows instead.
 	 */
 	let reloading = $state(false);
+	// Noticed (the poll or a check): the new worker starts installing now, not at the reload.
+	$effect(() => {
+		if (updated.current) void newBuildReady();
+	});
 	$effect(() => {
 		let checking = false;
 		const back = async () => {
@@ -456,8 +465,11 @@
 			const quiet = () => mayReloadNow({ routeId: page.route.id, ...quietNow() });
 			reloading = quiet();
 			if ((await updated.check()) && quiet()) {
-				location.reload();
-				return;
+				await newBuildReady();
+				if (document.visibilityState === 'visible' && quiet()) {
+					location.reload();
+					return;
+				}
 			}
 			reloading = false;
 			checking = false;

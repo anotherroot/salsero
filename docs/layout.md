@@ -736,7 +736,9 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `NETWORK_PAGES`, `DEVICE_ENDPOINTS`; every GET endpoint classified),
                      sw-route.ts (PURE: what the service worker does with a request, the 4 s
                      timeout, which caches go, a page's unpulled save), needs-connection.ts (the
-                     offline answers), protocol.ts (the messages), device.svelte.ts (the page side:
+                     offline answers), sw-update.ts (`newBuildReady`: a new build's service worker
+                     fetched once the page sees the build, and a reload for it waits until that
+                     worker took over, so one reload gets it), protocol.ts (the messages), device.svelte.ts (the page side:
                      registers the SW, starts the device worker, relays, pulls; `noteSaved` after
                      an upload; `setPerson`), person.ts (PURE: `pagePerson`, who the server says
                      is signed in, from the root layout's `drawnBy`; the device wipes for anyone
