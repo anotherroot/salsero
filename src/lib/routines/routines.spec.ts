@@ -90,6 +90,11 @@ describe('slotEnds', () => {
 });
 
 describe('flatten', () => {
+	it('keeps a slot’s end', () => {
+		const slot = { kind: 'options' as const, figureIds: [15], end: 7 };
+		expect(flatten(g, { slots: [slot] })[0].end).toBe(7);
+	});
+
 	it('splices an embedded routine in place', () => {
 		const shape: RoutineShape = {
 			slots: [

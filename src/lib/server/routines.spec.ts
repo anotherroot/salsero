@@ -31,10 +31,10 @@ import {
 } from './routines';
 import { archiveVariation, createFigure, createVariationFrom, figureLabels } from './figures';
 import { listPositions } from './positions';
-import { insertFixturePositions } from './test-positions';
+import { addPosition, insertFixturePositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
 import { flatten } from '$lib/routines/routines';
-import { exercises, figures, routineStepOptions } from './db/schema';
+import { exercises, figures, routineStepOptions, routineSteps } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import { NO_FILES, T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
@@ -1294,5 +1294,19 @@ describe('flexible figures in routines (spec 2026-11-11)', () => {
 		removeOption(db, step, walk.id);
 		expect(restoreOption(db, step, walk.id, undefined, undefined, 12)).toBe(true);
 		expect(lengthsOf(db, routine.id)).toEqual([{ [walk.id]: 12 }]);
+	});
+});
+
+describe('routineShapes carries a slot’s end (spec 2026-11-11, slot end)', () => {
+	it('reads the stored end, and leaves it out when there is none', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
+		const a = addFigureSlot(db, routine.id, figure(db, 'Enchufla').id)!;
+		addFigureSlot(db, routine.id, figure(db, 'Dile que no').id);
+		const p = addPosition(db, U1_SALSA, 'Closed');
+		db.update(routineSteps).set({ endPositionId: p }).where(eq(routineSteps.id, a)).run();
+		const [first, second] = routineShapes(db, U1_SALSA).get(routine.id)!.slots;
+		expect(first).toMatchObject({ end: p });
+		expect('end' in second).toBe(false);
 	});
 });

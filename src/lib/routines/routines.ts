@@ -29,6 +29,12 @@ export interface OptionsSlot {
 	 * whose length is free (`optionLength`). Absent: every option its own length.
 	 */
 	lengths?: Record<number, number>;
+	/**
+	 * The end chosen for this slot (spec 2026-11-11, slot end): a real position
+	 * id, read through the graph's `canon` (`src/lib/routines/end.ts`). Absent:
+	 * nothing chosen.
+	 */
+	end?: number;
 	/** The `routine_steps` row, when the data layer knows it (`stepIncoming`). */
 	stepId?: number;
 }
@@ -78,6 +84,7 @@ export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
 					figureIds,
 					note: s.note ?? slot.note ?? null,
 					...(s.lengths ? { lengths: s.lengths } : {}),
+					...(s.end !== undefined ? { end: s.end } : {}),
 					...(s.stepId !== undefined ? { stepId: s.stepId } : {})
 				});
 			}

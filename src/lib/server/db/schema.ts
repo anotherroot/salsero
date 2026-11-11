@@ -753,6 +753,13 @@ export const routineSteps = sqliteTable(
 		childRoutineId: integer('child_routine_id').references((): AnySQLiteColumn => routines.id),
 		/** A reminder for this slot — "hand change here". */
 		note: text('note'),
+		/**
+		 * Where this slot ends, chosen in the routine (spec 2026-11-11, slot end):
+		 * one of the ends every option shares. Null: nothing chosen. A real
+		 * position id, compared by family on read (`src/lib/routines/end.ts`); an
+		 * end that stops fitting is ignored there, never rewritten.
+		 */
+		endPositionId: integer('end_position_id').references((): AnySQLiteColumn => positions.id),
 		createdAt: createdAt()
 	},
 	(t) => [

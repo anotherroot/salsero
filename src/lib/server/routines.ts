@@ -88,7 +88,7 @@ function lengthsIn(db: Db | Tx, stepIds: number[]): Map<number, Record<number, n
 
 /** A shape's option slot for one step: its options, note, step id and the lengths it has. */
 function optionsSlot(
-	s: { id: number; note: string | null },
+	s: { id: number; note: string | null; end?: number | null },
 	byStep: Map<number, number[]>,
 	lengths: Map<number, Record<number, number>>
 ): OptionsSlot {
@@ -98,7 +98,8 @@ function optionsSlot(
 		figureIds: byStep.get(s.id) ?? [],
 		note: s.note,
 		stepId: s.id,
-		...(own ? { lengths: own } : {})
+		...(own ? { lengths: own } : {}),
+		...(s.end != null ? { end: s.end } : {})
 	};
 }
 
@@ -459,7 +460,8 @@ export function routineShapes(
 			id: routineSteps.id,
 			routineId: routineSteps.routineId,
 			childRoutineId: routineSteps.childRoutineId,
-			note: routineSteps.note
+			note: routineSteps.note,
+			end: routineSteps.endPositionId
 		})
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
@@ -577,7 +579,8 @@ function shapesOf(
 						id: routineSteps.id,
 						routineId: routineSteps.routineId,
 						childRoutineId: routineSteps.childRoutineId,
-						note: routineSteps.note
+						note: routineSteps.note,
+						end: routineSteps.endPositionId
 					})
 					.from(routineSteps)
 					.where(inArray(routineSteps.routineId, routineIds))
