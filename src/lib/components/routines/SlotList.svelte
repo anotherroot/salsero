@@ -21,6 +21,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
+	import { DIM_OPEN, FADE, LIFTED, pieceRound } from './lift';
 	import type { PickFrom, RowView, Swiped } from './types';
 
 	interface Props {
@@ -230,7 +231,11 @@
 			>
 		</button>
 	</div>
-	<ul class="relative flex flex-col gap-2" bind:this={list} data-dragging={drag ? '' : undefined}>
+	<ul
+		class="relative isolate flex flex-col gap-2"
+		bind:this={list}
+		data-dragging={drag ? '' : undefined}
+	>
 		{#if drag}
 			<!-- Where the lifted card will land. Absolute, so it takes no room of its
 			     own: the cards around it slide to open the space it marks. -->
@@ -247,9 +252,12 @@
 		{/if}
 		{#each rows as row, i (row.id)}
 			{@const lifted = drag?.id === row.id}
+			{@const piece = !selecting && !drag && expanded === row.id ? 'single' : null}
 			<!-- The offset is the `translate` property, not `transform`: CSS applies
 			     `translate` outside `scale`, so the lifted card's 1.03 does not
-			     stretch its offset and pull it off the finger. -->
+			     stretch its offset and pull it off the finger. Only while dragging:
+			     a `translate` makes the row a stacking context, and a piece's shadow
+			     must sit under every card of the list, not inside its own row. -->
 			<li
 				bind:this={items[i]}
 				data-slot={row.id}
@@ -258,31 +266,38 @@
 					? 'relative z-10 shadow-[0_18px_40px_rgb(0_0_0/0.22)] transition-[scale,rotate,box-shadow] duration-150 motion-safe:scale-[1.03] motion-safe:-rotate-[0.8deg] motion-reduce:transition-none'
 					: ''} {drag && !lifted
 					? 'transition-transform duration-150 motion-reduce:transition-none'
+					: FADE} {!selecting && expanded !== null && expanded !== row.id
+					? DIM_OPEN
 					: ''} {flash === row.id ? 'flash' : ''}"
-				style="translate: 0 {offsetOf(i, row.id)}px"
+				style={drag ? `translate: 0 ${offsetOf(i, row.id)}px` : undefined}
 			>
-				<SlotCard
-					{row}
-					index={i}
-					count={rows.length}
-					expanded={expanded === row.id}
-					{selecting}
-					selected={selected.includes(row.id)}
-					{lifted}
-					{swiped}
-					{press}
-					{onswipe}
-					ontap={() => ontap(row.id)}
-					ongrab={(e) => grab(e, i)}
-					onkeymove={(delta) => keymove(row.id, i + delta)}
-					ondelete={() => ondelete(row.id)}
-					onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
-					onaddAlt={() => onaddAlt(row.id)}
-					onaddBefore={() => onadd(i, { row: i, side: 'before' })}
-					onaddAfter={() => onadd(i + 1, { row: i, side: 'after' })}
-					onlength={(figureId, current) => onlength(row.id, figureId, current)}
-					onnote={(note) => onnote(row.id, note)}
-				/>
+				<!-- Open, the card lifts in a piece of its own (spec 2026-11-11, T3); else the
+				     wrapper is `contents`, so the card is never drawn anew between the two. -->
+				<div class={piece ? `${LIFTED} ${pieceRound(piece)}` : 'contents'}>
+					<SlotCard
+						{row}
+						index={i}
+						count={rows.length}
+						expanded={expanded === row.id}
+						rounded={piece ? 'rounded-t-[20px]' : 'rounded-2xl'}
+						{selecting}
+						selected={selected.includes(row.id)}
+						{lifted}
+						{swiped}
+						{press}
+						{onswipe}
+						ontap={() => ontap(row.id)}
+						ongrab={(e) => grab(e, i)}
+						onkeymove={(delta) => keymove(row.id, i + delta)}
+						ondelete={() => ondelete(row.id)}
+						onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
+						onaddAlt={() => onaddAlt(row.id)}
+						onaddBefore={() => onadd(i, { row: i, side: 'before' })}
+						onaddAfter={() => onadd(i + 1, { row: i, side: 'after' })}
+						onlength={(figureId, current) => onlength(row.id, figureId, current)}
+						onnote={(note) => onnote(row.id, note)}
+					/>
+				</div>
 				{#if row.seam}
 					{@const next = row.seam.next}
 					<Seam

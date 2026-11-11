@@ -94,6 +94,7 @@ export const routine: Catalog['routine'] = {
 		noteUnsaved: 'Opomba mesta',
 		noteFailed: 'Opomba ni bila shranjena.',
 		alternatives: (n) => `Alternative za mesto ${n}`,
+		toolbar: (n) => `Mesto ${n}`,
 		alternative: 'Alternativa',
 		open: (label) => `Odpri: ${label}`,
 		remove: (label) => `Odstrani: ${label}`,

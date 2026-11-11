@@ -91,6 +91,8 @@ export const routine = {
 		noteUnsaved: 'Slot note',
 		noteFailed: 'The note did not save.',
 		alternatives: (n: number): string => `Alternatives for slot ${n}`,
+		/** The open slot's toolbar, by name. */
+		toolbar: (n: number): string => `Slot ${n}`,
 		alternative: 'Alternative',
 		open: (label: string): string => `Open ${label}`,
 		remove: (label: string): string => `Remove ${label}`,
