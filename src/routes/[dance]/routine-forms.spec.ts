@@ -536,3 +536,54 @@ describe('a length set in the routine (spec 2026-11-11)', () => {
 		).toMatchObject({ status: 400, data: { stepId: a } });
 	});
 });
+
+describe('a slot’s end (spec 2026-11-11, slot end)', () => {
+	let step: number;
+	let A: number;
+	let B: number;
+	beforeEach(() => {
+		A = addPosition(db, U1_SALSA, 'Closed');
+		B = addPosition(db, U1_SALSA, 'Open');
+		const m = createFigure(db, U1_SALSA, {
+			figureName: 'Basic step',
+			name: 'Closed',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		setFigureShape(db, m, { startIds: [], endIds: [A, B], startCount: 1, lengthCounts: 8 });
+		step = addFigureSlot(db, r, m)!;
+	});
+	const endOf = () => routineSlots(db, r)[2].end;
+	const send = (positionId: string) =>
+		call(routinePage.actions.end, post('salsa', { stepId: String(step), positionId }, String(r)));
+
+	it('sets it, and clears it with no position', async () => {
+		expect(await send(String(B))).toMatchObject({ ok: true });
+		expect(endOf()).toBe(B);
+		expect(await send('')).toMatchObject({ ok: true });
+		expect(endOf()).toBeNull();
+	});
+
+	it('refuses an end the slot cannot take, aimed at the slot', async () => {
+		const X = addPosition(db, U1_SALSA, 'Cross-hand');
+		expect(await send(String(X))).toMatchObject({ status: 400, data: { stepId: step } });
+		expect(endOf()).toBeNull();
+	});
+
+	it('loads each row’s end: an options row its state and choices', async () => {
+		await send(String(B));
+		const data = (await (
+			routinePage.load as unknown as (e: unknown) => Promise<{
+				slotEnds: ({ state: string; choices: { id: number }[] } | null)[];
+			}>
+		)({
+			params: { dance: 'salsa', id: String(r) },
+			locals: { user: USER },
+			url: new URL(`http://localhost/salsa/routines/${r}`)
+		})) as { slotEnds: ({ state: string; choices: { id: number }[] } | null)[] };
+		expect(data.slotEnds[2]).toMatchObject({ state: 'chosen' });
+		expect(data.slotEnds[2]!.choices.map((c) => c.id).sort()).toEqual([A, B].sort());
+		expect(data.slotEnds[0]).toMatchObject({ state: 'none', choices: [] });
+	});
+});

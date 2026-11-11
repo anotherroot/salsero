@@ -11,6 +11,7 @@ import { routineTaughtIn } from '$lib/server/lessons';
 import {
 	addOption,
 	setOptionLength,
+	setSlotEnd,
 	archiveRoutine,
 	deleteSlots,
 	duplicateRoutine,
@@ -37,6 +38,7 @@ import {
 	routineStarts,
 	rowEdges,
 	rowEdgesIn,
+	rowEndsIn,
 	timingBreaks,
 	timingSeams,
 	type OptionsSlot
@@ -345,6 +347,9 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		// anchors and the seams' labels.
 		// As the routine walks (spec 2026-11-11): each row entered where the one before leaves off.
 		edges: rowEdgesIn(graph, shape),
+		// Per row, parallel to `slots`: its end's state and the Where does it end? sheet's
+		// rows (spec 2026-11-11, slot end); null for an embedded or empty row.
+		slotEnds: rowEndsIn(graph, shape),
 		positionSeams: positionSeams(graph, shape),
 		// Why "Make routine" is greyed, named.
 		embeddedIn: embeddedIn(db, routine.id)
@@ -539,6 +544,29 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		}
 		if (!setOptionLength(db, stepId, figureId, length, by(params, locals))) {
 			return slotFail(t().routine.refused.length, stepId);
+		}
+		return done(routine.id);
+	},
+
+	/** A slot's end: the Where does it end? sheet (spec 2026-11-11, slot end). No position clears it. */
+	end: async ({ params, request, locals }) => {
+		const db = getDb();
+		const form = await request.formData();
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
+		if (stale) return stale;
+		const stepId = int(form, 'stepId');
+		const raw = String(form.get('positionId') ?? '').trim();
+		const positionId = raw === '' ? null : int(form, 'positionId');
+		if (stepId === undefined || positionId === undefined) {
+			return slotFail(t().routine.refused.readSlot, stepId);
+		}
+		if (!ownsSlot(db, routine.id, stepId)) {
+			return slotFail(t().routine.refused.notThisRoutine, stepId);
+		}
+		if (!setSlotEnd(db, stepId, positionId, by(params, locals))) {
+			return slotFail(t().routine.refused.end, stepId);
 		}
 		return done(routine.id);
 	},

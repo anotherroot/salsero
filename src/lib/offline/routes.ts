@@ -209,6 +209,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		drop: 'network',
 		duplicate: 'device',
 		duplicateMany: 'device',
+		// A slot's end (spec 2026-11-11, slot end), like its length.
+		end: 'device',
 		extract: 'device',
 		insert: 'device',
 		keep: 'device',

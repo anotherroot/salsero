@@ -17,7 +17,7 @@
  */
 import { countsOf, figureById, meet, sameSet, type Graph } from '$lib/graph/graph';
 import { nextCount, startOn } from '$lib/graph/timing';
-import { slotEnd, type EndState, type SlotEnd } from './end';
+import { endChoices, slotEnd, type EndChoice, type EndState, type SlotEnd } from './end';
 
 /** A slot filled by interchangeable figures — the alternatives. */
 export interface OptionsSlot {
@@ -349,6 +349,31 @@ export function rowEdgesIn(g: Graph, shape: RoutineShape): RowEdges[] {
 		);
 		at += flat.length;
 		return edges;
+	});
+}
+
+/** An options row's end as the editor shows it: its state and the Where does it end? sheet's rows. */
+export interface RowEnd {
+	state: EndState;
+	choices: EndChoice[];
+}
+
+/**
+ * Each editor row's end (spec 2026-11-11, slot end), parallel to
+ * `shape.slots`: null for an embedded routine or a row with nothing
+ * danceable. The slot below is the next one in the run, as in `slotEndsIn`.
+ */
+export function rowEndsIn(g: Graph, shape: RoutineShape): (RowEnd | null)[] {
+	const all = flatten(g, shape);
+	const ends = slotEndsIn(g, all);
+	let at = 0;
+	return shape.slots.map((slot) => {
+		const n = flatten(g, { slots: [slot] }).length;
+		const i = at;
+		at += n;
+		if (slot.kind !== 'options' || n === 0) return null;
+		const below = i + 1 < all.length ? slotStarts(g, all[i + 1]) : null;
+		return { state: ends[i].state, choices: endChoices(g, all[i], below) };
 	});
 }
 

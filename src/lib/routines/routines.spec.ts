@@ -17,6 +17,7 @@ import {
 	timingSeams,
 	through,
 	rowEdgesIn,
+	rowEndsIn,
 	walk,
 	stepIncoming,
 	optionLength,
@@ -729,5 +730,32 @@ describe('a slot’s end along the routine (spec 2026-11-11, slot end)', () => {
 
 	it('is where the routine leaves the hands', () => {
 		expect(routineEnds(g, { slots: [o(11), o(15, 2)] })).toEqual([2]);
+	});
+});
+
+describe('rowEndsIn (spec 2026-11-11, slot end)', () => {
+	it('gives each options row its end’s state and the sheet’s choices; an embedded row none', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [15], end: 2 },
+				{ kind: 'options', figureIds: [13] },
+				{ kind: 'child', routineId: 7, slots: [{ kind: 'options', figureIds: [14] }] }
+			]
+		};
+		expect(rowEndsIn(g, shape)).toEqual([
+			{
+				state: 'chosen',
+				choices: [
+					{ id: 2, blockedBy: null, belowMisses: false },
+					{ id: 3, blockedBy: null, belowMisses: true }
+				]
+			},
+			{ state: 'single', choices: [{ id: 3, blockedBy: null, belowMisses: false }] },
+			null
+		]);
+	});
+
+	it('is null for a row with nothing danceable', () => {
+		expect(rowEndsIn(g, { slots: [{ kind: 'options', figureIds: [999] }] })).toEqual([null]);
 	});
 });
