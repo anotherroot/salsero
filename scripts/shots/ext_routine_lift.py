@@ -79,6 +79,26 @@ def _run(p):
     _still(p, 4, _tap)
 
 
+def _run_up(p):
+    # The run grows upward: its header comes in above the tapped card, inside its row.
+    _still(p, 4, _press)
+    _still(p, 3, _tap)
+
+
+def _drop_top(p):
+    # The run loses its top slot: the header leaves the card that stays.
+    _still(p, 3, _press)
+    _still(p, 4, _tap)
+    _still(p, 3, _tap)
+
+
+def _leave(p):
+    # × after growing upward: the slot last touched stays put as the run comes apart.
+    _still(p, 4, _press)
+    _still(p, 3, _tap)
+    _still(p, 3, lambda card: card.page.locator('[data-focus="stop-selecting"]:visible').first.evaluate("e => e.click()"))
+
+
 def _run_seam(p):
     # The first slot with a seam under it, and the one after it.
     rows = p.locator("[data-slot]")
@@ -116,6 +136,9 @@ SCENES = {
     "lift-open-switch": Scene(PATH, act=_open_switch),
     "lift-press": Scene(PATH, act=_select),
     "lift-run": Scene(PATH, act=_run),
+    "lift-run-up": Scene(PATH, act=_run_up),
+    "lift-drop-top": Scene(PATH, act=_drop_top),
+    "lift-leave": Scene(PATH, act=_leave),
     "lift-run-seam": Scene(PATH, act=_run_seam),
     "lift-apart": Scene(PATH, act=_apart),
     "lift-select-empty": Scene(PATH, act=_empty),

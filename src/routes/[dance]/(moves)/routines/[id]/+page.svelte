@@ -661,10 +661,11 @@
 	 * Nothing jumps (spec 2026-11-11, routine lift): opening, closing or
 	 * selecting a slot moves what is around it — a card closing above, a tip
 	 * or a toolbar coming and going, neighbours joining — so each change keeps
-	 * the touched slot's card where it is on screen.
+	 * the touched slot's card where it is on screen. The card, not its row: a
+	 * run's header is drawn in its top row, above the card.
 	 */
 	const slotEl = (id: number | null) =>
-		id === null ? null : document.querySelector(`[data-slot="${id}"]`);
+		id === null ? null : document.querySelector(`[data-swipe="slot:${id}"]`);
 	/** The slot last tapped or pressed: × leaves the selection around it. */
 	let touched: number | null = null;
 

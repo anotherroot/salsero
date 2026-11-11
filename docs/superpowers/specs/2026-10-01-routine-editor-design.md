@@ -93,12 +93,9 @@ again — or another card — collapses it. An open card shows, top to bottom:
    alternative starts and lands exactly like the main figure. Beside each, two
    square icon buttons the card's height and rounding: **open** (↗) and
    **remove** (trash). A swipe left removes it too.
-4. **+ Alternative**, a dashed button below them, which opens the picker in
-   its alternative mode.
-5. **Add above / Add below**, two dashed round buttons in a column left of the
-   alternatives' rail (↥ on top, ↧ under it): the picker anchored as
-   **↑ Before** / **↓ After** this slot, the same as a seam's buttons, for a
-   slot with no seam (2026-11-11).
+4. Since 2026-11-11 the toolbar across the open card's foot replaces the
+   dashed **+ Alternative** and the add-above / add-below circles: length,
+   + Alternative, Before *n*, After *n* (routine lift, T3).
 
 A slot holding an embedded routine expands to its note, "Open →" and the two
 add buttons only. It has no alternatives and no **+ Alternative** — a slot holds figure options or
@@ -199,8 +196,8 @@ reason ("Select slots first."). While selecting:
 
 | Action           | When                                     | Does                                                                                                 |
 | ---------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Add above**    | exactly one selected                     | the picker, anchored as **↑ Before** that slot                                                      |
-| **Add below**    | exactly one selected                     | the picker, anchored as **↓ After** that slot                                                       |
+| **Before** *n*   | one run of neighbours (since 2026-11-11) | the picker, anchored as **↑ Before** the run's first slot                                         |
+| **After** *n*    | one run of neighbours (since 2026-11-11) | the picker, anchored as **↓ After** the run's last slot                                           |
 | **Duplicate**    | any                                      | copies of the selected slots, in their order, directly after the last selected slot                 |
 | **Make routine** | a contiguous run, no embedded slot in it, and this routine not itself embedded | asks for a name, then replaces the run with one slot embedding a new routine made of it |
 | **Delete**       | any                                      | deletes them all, with undo                                                                          |
