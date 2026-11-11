@@ -16,6 +16,10 @@ import {
 	timingBreaks,
 	timingSeams,
 	through,
+	rowEdgesIn,
+	walk,
+	stepIncoming,
+	optionLength,
 	type RoutineShape,
 	type Slot
 } from './routines';
@@ -417,7 +421,8 @@ describe('rowEdges', () => {
 			starts: [1],
 			startCounts: [1],
 			ends: [2],
-			next: 1
+			next: 1,
+			start: 1
 		});
 	});
 
@@ -426,7 +431,8 @@ describe('rowEdges', () => {
 			starts: [],
 			startCounts: [1],
 			ends: [],
-			next: 1
+			next: 1,
+			start: 1
 		});
 	});
 
@@ -447,7 +453,8 @@ describe('rowEdges', () => {
 			starts: [],
 			startCounts: [],
 			ends: null,
-			next: null
+			next: null,
+			start: null
 		});
 	});
 });
@@ -522,5 +529,120 @@ describe('through', () => {
 
 	it('skips a row with nothing danceable', () => {
 		expect(through(g, opts(13, 999, 14), 3)).toEqual([[0, 2]]);
+	});
+});
+
+/**
+ * Flexible figures (spec 2026-11-11). 30 starts on 1, 4 counts. 31 starts on 1
+ * or 5, 4 counts. 32 has its length set in the routine (8 alone). 33 starts on
+ * any count, 4 counts. 34 starts on 5, 4 counts.
+ */
+const fx: Graph = {
+	positions: [],
+	figures: [
+		{ id: 30, starts: [], ends: [], start: 1, length: 4 },
+		{ id: 31, starts: [], ends: [], start: 1, length: 4, startCounts: [1, 5] },
+		{ id: 32, starts: [], ends: [], start: 1, length: 8, free: true },
+		{ id: 33, starts: [], ends: [], start: 1, length: 4, startCounts: [1, 2, 3, 4, 5, 6, 7, 8] },
+		{ id: 34, starts: [], ends: [], start: 5, length: 4 }
+	]
+};
+
+const slot = (figureIds: number[], lengths?: Record<number, number>, stepId?: number): Slot => ({
+	kind: 'options',
+	figureIds,
+	...(lengths ? { lengths } : {}),
+	...(stepId !== undefined ? { stepId } : {})
+});
+
+describe('the walk', () => {
+	it('starts a figure where the one before leaves off, when its set holds that count', () => {
+		const flat = flatten(fx, opts(30, 31));
+		expect(walk(fx, flat)[1]).toEqual({ incoming: 5, start: 5, next: 1 });
+		expect(timingBreaks(fx, opts(30, 31))).toEqual([]);
+	});
+
+	it('falls back to the usual start and reports the break when it does not', () => {
+		expect(walk(fx, flatten(fx, opts(30, 30)))[1]).toEqual({ incoming: 5, start: 1, next: 5 });
+		expect(timingBreaks(fx, opts(30, 30))).toEqual([0]);
+	});
+
+	it('takes a free figure’s length from the slot', () => {
+		const shape: RoutineShape = { slots: [slot([32], { 32: 4 }), slot([33])] };
+		const w = walk(fx, flatten(fx, shape));
+		expect(w[0].next).toBe(5);
+		expect(w[1]).toEqual({ incoming: 5, start: 5, next: 1 });
+	});
+
+	it('runs every figure untouched exactly as before', () => {
+		expect(rowEdgesIn(t, opts(21, 22, 23)).map((e) => [e.start, e.next])).toEqual([
+			[1, 5],
+			[5, 1],
+			[5, 5]
+		]);
+		expect(timingSeams(t, opts(21, 22, 23))).toEqual([{ after: 1, next: 2 }]);
+		expect(timingBreaks(t, opts(20, 22))).toEqual([0]);
+		expect(loops(t, opts(21, 22))).toBe(true);
+	});
+
+	it('after a slot whose options disagree, starts on the usual start and reports nothing', () => {
+		// 30 leaves the next on 5, 32 at 8 counts on 1: the slot's next is unknown.
+		const shape: RoutineShape = { slots: [slot([30, 32], { 32: 8 }), slot([31])] };
+		const w = walk(fx, flatten(fx, shape));
+		expect(w[0].next).toBeNull();
+		expect(w[1]).toEqual({ incoming: null, start: 1, next: 5 });
+		expect(timingBreaks(fx, shape)).toEqual([]);
+	});
+
+	it('resolves an embedded routine from where the parent enters it', () => {
+		const shape: RoutineShape = {
+			slots: [
+				slot([30]),
+				{
+					kind: 'child',
+					routineId: 9,
+					slots: [
+						{ kind: 'options', figureIds: [33] },
+						{ kind: 'options', figureIds: [31] }
+					]
+				}
+			]
+		};
+		const rows = rowEdgesIn(fx, shape);
+		expect(rows[1].start).toBe(5);
+		// 33 from 5 leaves 1; 31 from 1 leaves 5.
+		expect(rows[1].next).toBe(5);
+	});
+
+	it('loops only when the walked count comes back round', () => {
+		expect(loops(fx, opts(30, 31))).toBe(true);
+		expect(loops(fx, { slots: [slot([32], { 32: 4 })] })).toBe(false);
+	});
+
+	it('names the count a step is entered on', () => {
+		const shape: RoutineShape = { slots: [slot([30], undefined, 7), slot([31], undefined, 8)] };
+		expect(stepIncoming(fx, shape, 7)).toBeNull();
+		expect(stepIncoming(fx, shape, 8)).toBe(5);
+		expect(stepIncoming(fx, shape, 99)).toBeUndefined();
+	});
+});
+
+describe('optionLength', () => {
+	it('is the slot’s length for a free figure, else the figure’s own', () => {
+		expect(optionLength(fx, { kind: 'options', figureIds: [32], lengths: { 32: 12 } }, 32)).toBe(
+			12
+		);
+		expect(optionLength(fx, { kind: 'options', figureIds: [32] }, 32)).toBe(8);
+		// A length kept from when the figure was free is not used once it is fixed.
+		expect(optionLength(fx, { kind: 'options', figureIds: [30], lengths: { 30: 12 } }, 30)).toBe(4);
+	});
+});
+
+describe('slotStartCounts with start sets', () => {
+	it('unions every count of every option', () => {
+		expect(slotStartCounts(fx, { kind: 'options', figureIds: [31] })).toEqual([1, 5]);
+		expect(slotStartCounts(fx, { kind: 'options', figureIds: [33, 34] })).toEqual([
+			1, 2, 3, 4, 5, 6, 7, 8
+		]);
 	});
 });

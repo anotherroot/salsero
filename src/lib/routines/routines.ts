@@ -15,7 +15,8 @@
  * comparison of two sides goes through `meet` (`src/lib/graph/graph.ts`), so a
  * repertoire nobody has tagged is all seams and no breaks — which is honest.
  */
-import { figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
+import { countsOf, figureById, meet, sameSet, type Graph } from '$lib/graph/graph';
+import { nextCount, startOn } from '$lib/graph/timing';
 
 /** A slot filled by interchangeable figures — the alternatives. */
 export interface OptionsSlot {
@@ -23,6 +24,13 @@ export interface OptionsSlot {
 	figureIds: number[];
 	/** The slot's reminder, shown beside it while practising. */
 	note?: string | null;
+	/**
+	 * Each option's length in this slot, by figure id: read only for a figure
+	 * whose length is free (`optionLength`). Absent: every option its own length.
+	 */
+	lengths?: Record<number, number>;
+	/** The `routine_steps` row, when the data layer knows it (`stepIncoming`). */
+	stepId?: number;
 }
 
 /**
@@ -65,7 +73,13 @@ export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
 			// child applies to the whole child, so it stands in where an inner slot
 			// has nothing of its own to say.
 			if (figureIds.length > 0) {
-				out.push({ kind: 'options', figureIds, note: s.note ?? slot.note ?? null });
+				out.push({
+					kind: 'options',
+					figureIds,
+					note: s.note ?? slot.note ?? null,
+					...(s.lengths ? { lengths: s.lengths } : {}),
+					...(s.stepId !== undefined ? { stepId: s.stepId } : {})
+				});
 			}
 		}
 	}
@@ -120,26 +134,84 @@ export function slotStartCounts(g: Graph, slot: OptionsSlot): number[] {
 	const out = new Set<number>();
 	for (const id of slot.figureIds) {
 		const f = figureById(g, id);
-		if (f) out.add(f.start);
+		if (f) for (const n of countsOf(f)) out.add(n);
 	}
 	return [...out].sort((a, b) => a - b);
 }
 
 /**
- * The count every option leaves the next figure to begin on, or null when they
- * disagree. Disagreement is refused on write (`addOption`); pure code reads a
- * row that got past it as "unknown", exactly as `slotEnds` does.
+ * How many counts an option takes in this slot: the slot's own length for a
+ * figure whose length is free and that has one, else the figure's length. A
+ * length kept from when the figure was free is not used once it is fixed.
  */
-export function sharedNextCount(g: Graph, slot: OptionsSlot): number | null {
+export function optionLength(g: Graph, slot: OptionsSlot, figureId: number): number {
+	const f = figureById(g, figureId);
+	if (!f) return 0;
+	const own = slot.lengths?.[figureId];
+	return f.free && own !== undefined ? own : f.length;
+}
+
+/**
+ * The count every option leaves the next figure to begin on, each option
+ * starting where `incoming` says it can (`startOn`), or null when they
+ * disagree. Disagreement is refused on write (`addOption`, `setOptionLength`);
+ * pure code reads a row that got past it — or one an edit further up has since
+ * split — as "unknown", exactly as `slotEnds` does.
+ */
+export function slotNext(g: Graph, slot: OptionsSlot, incoming: number | null): number | null {
 	let next: number | null = null;
 	for (const id of slot.figureIds) {
 		const f = figureById(g, id);
 		if (!f) continue;
-		const n = nextCountOf(f);
+		const n = nextCount(startOn(countsOf(f), f.start, incoming), optionLength(g, slot, id));
 		if (next === null) next = n;
 		else if (next !== n) return null;
 	}
 	return next;
+}
+
+/** `slotNext` with each option on its usual start: a slot read on its own. */
+export function sharedNextCount(g: Graph, slot: OptionsSlot): number | null {
+	return slotNext(g, slot, null);
+}
+
+/** One slot of the walk: the count it is entered on, where its main figure starts, where it leaves the next. */
+export interface Walked {
+	/** The count the slot before leaves it on; null for the first, and after an unknown. */
+	incoming: number | null;
+	/** Where the main (first) option starts; null when nothing in the slot is danceable. */
+	start: number | null;
+	next: number | null;
+}
+
+/**
+ * The routine's run on the count (spec 2026-11-11): each slot starts where the
+ * one before leaves off when its figures can, else on their usual start, and
+ * takes its own length. Every timing reader goes through this, so a figure
+ * nobody changed reads exactly as it always has: one start, its own length.
+ */
+export function walk(g: Graph, flat: OptionsSlot[]): Walked[] {
+	const out: Walked[] = [];
+	let incoming: number | null = null;
+	for (const s of flat) {
+		const main = s.figureIds.map((id) => figureById(g, id)).find((f) => f !== null) ?? null;
+		const start = main ? startOn(countsOf(main), main.start, incoming) : null;
+		const next = slotNext(g, s, incoming);
+		out.push({ incoming, start, next });
+		incoming = next;
+	}
+	return out;
+}
+
+/** The count the flat slot holding `stepId` is entered on; undefined when no slot holds it. */
+export function stepIncoming(
+	g: Graph,
+	shape: RoutineShape,
+	stepId: number
+): number | null | undefined {
+	const flat = flatten(g, shape);
+	const i = flat.findIndex((s) => s.stepId === stepId);
+	return i === -1 ? undefined : walk(g, flat)[i].incoming;
 }
 
 export interface SlotTiming {
@@ -158,7 +230,7 @@ export function slotTiming(g: Graph, slot: Slot): SlotTiming {
 	if (flat.length === 0) return { starts: [], next: null };
 	return {
 		starts: slotStartCounts(g, flat[0]),
-		next: sharedNextCount(g, flat[flat.length - 1])
+		next: walk(g, flat)[flat.length - 1].next
 	};
 }
 
@@ -178,19 +250,49 @@ export interface RowEdges {
 	/** `[]`: anything can follow. Null: unknown (options disagree, or nothing danceable). */
 	ends: number[] | null;
 	next: number | null;
+	/**
+	 * Where the row's main figure starts as the routine walks (`walk`): the
+	 * slot's "1→5". Null when nothing in it is danceable. `startCounts` is every
+	 * count it COULD begin on, which is what a slot built before it fits against.
+	 */
+	start: number | null;
 }
 
-export function rowEdges(g: Graph, slot: Slot): RowEdges {
-	const flat = flatten(g, { slots: [slot] });
-	if (flat.length === 0) return { starts: [], startCounts: [], ends: null, next: null };
+const NO_EDGES: RowEdges = { starts: [], startCounts: [], ends: null, next: null, start: null };
+
+function edgesOf(g: Graph, flat: OptionsSlot[], walked: Walked[]): RowEdges {
+	if (flat.length === 0) return { ...NO_EDGES };
 	const first = flat[0];
 	const last = flat[flat.length - 1];
 	return {
 		starts: slotStarts(g, first),
 		startCounts: slotStartCounts(g, first),
 		ends: slotEnds(g, last),
-		next: sharedNextCount(g, last)
+		next: walked[walked.length - 1].next,
+		start: walked[0].start
 	};
+}
+
+/** One row read on its own, entered on no particular count. */
+export function rowEdges(g: Graph, slot: Slot): RowEdges {
+	const flat = flatten(g, { slots: [slot] });
+	return edgesOf(g, flat, walk(g, flat));
+}
+
+/**
+ * Every editor row's edges, as the routine walks: each row is entered where
+ * the row before leaves off, an embedded routine from where the parent enters
+ * it. Parallel to `shape.slots`.
+ */
+export function rowEdgesIn(g: Graph, shape: RoutineShape): RowEdges[] {
+	const walked = walk(g, flatten(g, shape));
+	let at = 0;
+	return shape.slots.map((slot) => {
+		const flat = flatten(g, { slots: [slot] });
+		const edges = edgesOf(g, flat, walked.slice(at, at + flat.length));
+		at += flat.length;
+		return edges;
+	});
 }
 
 /** Whether a row has anything danceable: every danceable row has a start count. */
@@ -238,9 +340,10 @@ export function breaks(g: Graph, shape: RoutineShape): number[] {
  */
 export function timingBreaks(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
+	const walked = walk(g, flat);
 	const out: number[] = [];
 	for (let i = 0; i + 1 < flat.length; i++) {
-		const next = sharedNextCount(g, flat[i]);
+		const next = walked[i].next;
 		if (next === null) continue;
 		if (!slotStartCounts(g, flat[i + 1]).includes(next)) out.push(i);
 	}
@@ -264,14 +367,14 @@ export interface TimingSeam {
  * INSIDE a child is not a seam between two rows; `timingBreaks` still counts it.
  */
 export function timingSeams(g: Graph, shape: RoutineShape): TimingSeam[] {
-	const rows = shape.slots.map((s) => slotTiming(g, s));
+	const rows = rowEdgesIn(g, shape);
 	const out: TimingSeam[] = [];
 	for (let i = 0; i < rows.length; i++) {
 		const next = rows[i].next;
 		if (next === null) continue;
-		const j = rows.findIndex((r, k) => k > i && r.starts.length > 0);
+		const j = rows.findIndex((r, k) => k > i && danceable(r));
 		if (j === -1) continue;
-		if (!rows[j].starts.includes(next)) out.push({ after: i, next: j });
+		if (!rows[j].startCounts.includes(next)) out.push({ after: i, next: j });
 	}
 	return out;
 }
@@ -331,7 +434,7 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 	const first = flat[0];
 	const last = flat[flat.length - 1];
 	const ends = slotEnds(g, last);
-	const next = sharedNextCount(g, last);
+	const next = walk(g, flat)[flat.length - 1].next;
 	return (
 		ends !== null &&
 		next !== null &&

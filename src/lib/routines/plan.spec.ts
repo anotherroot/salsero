@@ -198,3 +198,26 @@ describe('routinePlan', () => {
 		expect(routinePlan([], opts(11), g, 3, seeded([1])).map((s) => s.figureId)).toEqual([11, 11]);
 	});
 });
+
+describe('routinePlan with a slot length', () => {
+	it('spaces a free figure by the length its slot gives it', () => {
+		const free: Graph = {
+			positions: [],
+			figures: [
+				{ id: 40, starts: [], ends: [], start: 1, length: 8, free: true },
+				{ id: 41, starts: [], ends: [], start: 1, length: 8 }
+			]
+		};
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [40], lengths: { 40: 12 } },
+				{ kind: 'options', figureIds: [41] }
+			]
+		};
+		const plan = routinePlan([], shape, free, LEAD_IN_8S + 2, seeded([0]));
+		expect(plan.slice(0, 2)).toEqual([
+			{ eight: LEAD_IN_8S, figureId: 40, slot: 0 },
+			{ eight: LEAD_IN_8S + 2, figureId: 41, slot: 1 }
+		]);
+	});
+});
