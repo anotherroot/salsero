@@ -153,6 +153,9 @@ a replay. Phase 1's own-counts target and two-eights pattern drops (built 2026-1
      starts over (the person stopped). The clave: 8 + 2 beats; the 1: 8 + 8, which the
      drop never reaches, so a missed second 1 is judged as missed, not restarted.
    - **↺ Reset** on the bottom bar starts the spot over any time during a drop.
+   - **Skip this spot** (the user's yes, 2026-11-11): after the third start-over of a spot a
+     Skip button joins the bar. A skipped spot scores 0 and its row reads "skipped"; its
+     target beats count in "N of M on the beat" as missed. Then the next spot as usual.
    - Starting over: the pad locks, the circles slide out and come back empty, the music
      goes back to the spot's start, and the pad unlocks once it plays (as between drops,
      lighter). Each start-over is counted for the drop (its **restarts**).
