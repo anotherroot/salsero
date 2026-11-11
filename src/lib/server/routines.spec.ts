@@ -35,7 +35,7 @@ import { listPositions } from './positions';
 import { addPosition, insertFixturePositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
 import { flatten } from '$lib/routines/routines';
-import { exercises, figures, routineStepOptions, routineSteps } from './db/schema';
+import { exercises, figures, positions, routineStepOptions, routineSteps } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import { NO_FILES, T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
@@ -1180,6 +1180,21 @@ describe('a personal routine and a group’s figures and routines', () => {
 		const other = addPosition(db, { ...T1_SALSA, teamId: 2 }, 'Elsewhere');
 		db.update(routineSteps).set({ endPositionId: other }).where(eq(routineSteps.id, s)).run();
 		expect(crossRefs(db)).not.toEqual([]);
+	});
+
+	it('leaving the group keeps a slot’s end, on the person’s own copy of the hold', async () => {
+		const { db, F, P } = setup();
+		const ga = addPosition(db, T1_SALSA, 'Closed');
+		const gb = addPosition(db, T1_SALSA, 'Open');
+		const ends = { startIds: [], endIds: [ga, gb], startCount: 1, lengthCounts: 8 };
+		setFigureShape(db, F, ends, 'u1');
+		const s = addFigureSlot(db, P, F)!;
+		expect(setSlotEnd(db, s, gb)).toBe(true);
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, T + 1)).toBe('left');
+		expect(crossRefs(db)).toEqual([]);
+		const end = routineSlots(db, P).find((x) => x.id === s)!.end!;
+		const row = db.select().from(positions).where(eq(positions.id, end)).get()!;
+		expect(row).toMatchObject({ userId: 'u2', name: 'Open' });
 	});
 
 	it('a former member cannot put that group’s figure in a slot', async () => {

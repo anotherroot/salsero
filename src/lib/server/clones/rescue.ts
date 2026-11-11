@@ -46,7 +46,8 @@ export type Use = Used & { by: 'routine' | 'lesson' | 'figure'; byId: number; by
  * the slot options and embeds of their routines, the section links on their
  * own videos (a recording of their figure, a video of their lesson) and their
  * lessons' hand links; for a position, their figures' start and end tags,
- * their lessons' hand links and their sections' and points' links. Archived
+ * their lessons' hand links, their sections' and points' links and their routine
+ * slots' ends (spec 2026-11-11, slot end). Archived
  * owners included (`crossRefs` checks those too). One row per person, target and using row, sorted by person, then
  * routines first, then kind, target and the using row's name.
  */
@@ -120,6 +121,12 @@ export function usesOf(tx: Db, teamId: number, userId?: string): Use[] {
 		  left join figure_groups fg on fg.id = f.group_id
 		  join positions t on t.id = x.position_id
 		 where f.team_id is null and f.user_id is not null and t.team_id = ${teamId}${who('f.user_id')}
+		union
+		select r.user_id, t.dance, 'position', t.id, 'routine', r.id, r.name
+		  from routine_steps x
+		  join routines r on r.id = x.routine_id
+		  join positions t on t.id = x.end_position_id
+		 where r.team_id is null and r.user_id is not null and t.team_id = ${teamId}${who('r.user_id')}
 		union
 		select l.user_id, t.dance, 'position', t.id, 'lesson', l.id, l.title
 		  from lesson_positions x
