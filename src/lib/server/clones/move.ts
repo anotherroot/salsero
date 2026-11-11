@@ -19,7 +19,7 @@
  */
 import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { CloneKind, MoveItem, MoveOffer, MovePreview } from '$lib/types';
-import { deviceLabelFor, leftBehind } from './phone-only';
+import { deviceLabelFor, leftBehind, phoneOnlyVideos } from './phone-only';
 import { moveWhy } from '$lib/clones/view';
 import type { Db } from '../db';
 import {
@@ -92,7 +92,12 @@ export function moveOffer(db: Db, wall: Wall, lessonId: number): MoveOffer | nul
 	const behind = leftBehind(db, 'lesson', lessonId);
 	const stayBehind =
 		behind.count > 0 ? { count: behind.count, label: deviceLabelFor(db, behind.slot) } : null;
-	return { title: ownLesson(db, wall, lessonId)!.title, targets, stayBehind };
+	return {
+		title: ownLesson(db, wall, lessonId)!.title,
+		targets,
+		stayBehind,
+		phoneOnly: phoneOnlyVideos(db, lessonId)
+	};
 }
 
 /**
@@ -356,7 +361,10 @@ class Refused extends Error {}
  * re-pointed onto the group's copy without their practice, and theirs
  * archived; then the lesson archived, with its practice. `denied` for a
  * lesson or group `movePreview` would not show, or a choice it does not
- * offer; `room` and `name` as the copy's. Answers the group's new lesson.
+ * offer; `room` and `name` as the copy's. `phoneOnly` while a video of the
+ * lesson is only on a phone and the person did not say `leaveVideos`: a
+ * moved lesson is archived, so what stays behind would be lost to sight
+ * (the page uploads those first). Answers the group's new lesson.
  */
 export async function moveLesson(
 	db: Db,
@@ -367,10 +375,13 @@ export async function moveLesson(
 	use: Record<string, number>,
 	files: CloneFiles,
 	now: number,
-	freeDiskBytes: number
-): Promise<CloneResult> {
+	freeDiskBytes: number,
+	opts: { leaveVideos?: boolean } = {}
+): Promise<CloneResult | { ok: false; reason: 'phoneOnly' }> {
 	const preview = movePreview(db, wall, lessonId, teamId);
 	if (!preview) return DENIED;
+	if (!opts.leaveVideos && phoneOnlyVideos(db, lessonId).length > 0)
+		return { ok: false, reason: 'phoneOnly' };
 	const offered = new Map(preview.items.map((i) => [moveKey(i.kind, i.id), i]));
 	for (const [key, choice] of Object.entries(choices))
 		if (!offered.has(key) || (choice !== 'keep' && choice !== 'group')) return DENIED;

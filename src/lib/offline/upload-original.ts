@@ -9,6 +9,7 @@ import { getOriginal, syncNow } from './device.svelte';
 import { startUpload, uploadOf } from './uploads.svelte';
 import { appOriginals } from './places.svelte';
 import { uploadFromApp } from './app-originals.svelte';
+import { appVideos, uploadEnd } from './app-videos';
 
 export type OriginalTarget = { table: 'recordings' | 'lesson_videos'; id: number; file: string };
 
@@ -66,4 +67,32 @@ export async function uploadOriginal(
 	}).catch(() => {});
 	if (out.ok) deps.synced();
 	return out;
+}
+
+type LandDeps = {
+	/** The Android app holds it: its upload runs in the app's queue, past Upload's answer. */
+	inApp: (file: string) => boolean;
+	/** Whether the app's upload of the file landed; listened to before it is queued. */
+	ended: (file: string) => Promise<boolean>;
+	upload: (v: OriginalTarget) => Promise<{ ok: true } | { ok: false; reason: string | null }>;
+};
+const LAND: LandDeps = {
+	inApp: (file) => appOriginals.files.includes(file),
+	ended: (file) => {
+		const app = appVideos();
+		return app ? uploadEnd(app, file) : Promise.resolve(false);
+	},
+	upload: (v) => uploadOriginal(v)
+};
+
+/** Upload, answered once the video is on the server (Move to uploads first, then moves). */
+export async function landOriginal(
+	v: OriginalTarget,
+	deps: LandDeps = LAND
+): Promise<{ ok: true } | { ok: false; reason: string | null }> {
+	if (!deps.inApp(v.file)) return deps.upload(v);
+	const ended = deps.ended(v.file);
+	const out = await deps.upload(v);
+	if (!out.ok) return out;
+	return (await ended) ? { ok: true } : { ok: false, reason: null };
 }

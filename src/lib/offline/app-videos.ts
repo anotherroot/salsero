@@ -100,3 +100,14 @@ export function appVideosOn(scope: { SalsaVideos?: unknown }, wait = 30_000): Ap
 export function appVideos(): AppVideos | null {
 	return typeof window === 'undefined' ? null : appVideosOn(window as { SalsaVideos?: unknown });
 }
+
+/** Resolves when the app's upload of the file lands (true) or fails (false). Listen before queueing it. */
+export function uploadEnd(app: AppVideos, file: string): Promise<boolean> {
+	return new Promise((resolve) => {
+		const off = app.on((e) => {
+			if (e.file !== file || (e.event !== 'done' && e.event !== 'failed')) return;
+			off();
+			resolve(e.event === 'done');
+		});
+	});
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { appVideosOn } from './app-videos';
+import { appVideosOn, uploadEnd } from './app-videos';
 
 /** The app's bridge as a page sees it: postMessage out, onmessage in. */
 function fakeBridge() {
@@ -57,5 +57,20 @@ describe('appVideos: the Android app keeps originals in the gallery (offline pha
 			{ event: 'progress', file: 'a.mp4', pct: 40 },
 			{ event: 'done', file: 'a.mp4', pct: null }
 		]);
+	});
+});
+
+describe('uploadEnd: an app upload has landed or failed (Move waits on it)', () => {
+	it('true on its file’s done, false on its failed; other files pass by', async () => {
+		const f = fakeBridge();
+		const app = appVideosOn({ SalsaVideos: f.bridge })!;
+		const done = uploadEnd(app, 'a.mp4');
+		const failed = uploadEnd(app, 'b.mp4');
+		f.reply({ event: 'progress', file: 'a.mp4', pct: 50 });
+		f.reply({ event: 'done', file: 'c.mp4', pct: null });
+		f.reply({ event: 'failed', file: 'b.mp4', pct: null });
+		f.reply({ event: 'done', file: 'a.mp4', pct: null });
+		expect(await done).toBe(true);
+		expect(await failed).toBe(false);
 	});
 });

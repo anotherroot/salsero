@@ -204,6 +204,40 @@ export const video: Catalog['video'] = {
 		alsoGallery: 'Izbriši tudi iz galerije',
 		removeDone: 'Kopija s strežnika je odstranjena',
 		uploadFailed: 'Nalaganje ni uspelo. Video ostane na telefonu.',
+		move: {
+			here: 'Videi s tega telefona · naložijo se v skupino',
+			name: (n) => `Video ${n}`,
+			onlyHere: (size) => `Samo na tem telefonu · ${size}`,
+			button: 'Naloži in premakni',
+			landed: 'Naložen',
+			uploading: 'Nalaganje …',
+			after: (n) => {
+				const f = slForm(n);
+				if (f === 'one')
+					return 'Ko se naloži, se lekcija premakne sama. Če okno zaprete, se video vseeno naloži, lekcija pa ostane tu.';
+				if (f === 'two')
+					return 'Ko se naložita, se lekcija premakne sama. Če okno zaprete, se videa vseeno naložita, lekcija pa ostane tu.';
+				return 'Ko se naložijo, se lekcija premakne sama. Če okno zaprete, se videi vseeno naložijo, lekcija pa ostane tu.';
+			},
+			elsewhere: (n, d) => {
+				const kje = naNapravi(d);
+				const f = slForm(n);
+				if (f === 'one') return `1 video je ${kje}`;
+				if (f === 'two') return `${n} videa sta ${kje}`;
+				if (f === 'few') return `${n} videi so ${kje}`;
+				return `${n} videov je ${kje}`;
+			},
+			elsewhereBody: (n) => {
+				const f = slForm(n);
+				if (f === 'one')
+					return 'Na strežniku ga ni, zato se od tu ne more naložiti. Na tisti napravi odprite video in tapnite Naloži, potem lekcijo premaknite. Če jo premaknete zdaj, videa v aplikaciji ne boste več videli.';
+				if (f === 'two')
+					return 'Na strežniku ju ni, zato se od tu ne moreta naložiti. Na tisti napravi ju odprite in tapnite Naloži, potem lekcijo premaknite. Če jo premaknete zdaj, ju v aplikaciji ne boste več videli.';
+				return 'Na strežniku jih ni, zato se od tu ne morejo naložiti. Na tisti napravi jih odprite in tapnite Naloži, potem lekcijo premaknite. Če jo premaknete zdaj, jih v aplikaciji ne boste več videli.';
+			},
+			without: (n) => (n === 1 ? 'Premakni brez videa' : 'Premakni brez videov'),
+			notUploaded: 'Video s telefona še ni naložen. Naložite ga ali premaknite brez njega.'
+		},
 		copyLeaves: (n, d) => {
 			const kje = naNapravi(d);
 			const f = slForm(n);

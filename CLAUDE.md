@@ -127,7 +127,8 @@ worker/ android/ scripts/ static/clips static/icons   $DATA_DIR/ holds the media
   offset (409 + `x-received-bytes`); older Android apps keep the single 95 MiB
   recording POST. Both served with HTTP Range. `BODY_SIZE_LIMIT` on the host.
 - A person's own video may be phone-only (`server_copy` 0, offline 4c): no file
-  on the server, nothing counted; copies leave it behind; only the device
+  on the server, nothing counted; copies leave it behind, Move to uploads it
+  first (a moved lesson is archived); only the device
   holding the original removes a server copy. Never delete an original unasked.
 - The server runs no Python and no ML: the home worker drains `/api/worker/*`.
   Never judge the worker against `vite dev` (no cross-site POST check there).

@@ -736,7 +736,9 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      `NETWORK_PAGES`, `DEVICE_ENDPOINTS`; every GET endpoint classified),
                      sw-route.ts (PURE: what the service worker does with a request, the 4 s
                      timeout, which caches go, a page's unpulled save), needs-connection.ts (the
-                     offline answers), protocol.ts (the messages), device.svelte.ts (the page side:
+                     offline answers), sw-update.ts (`newBuildReady`: a new build's service worker
+                     fetched once the page sees the build, and a reload for it waits until that
+                     worker took over, so one reload gets it), protocol.ts (the messages), device.svelte.ts (the page side:
                      registers the SW, starts the device worker, relays, pulls; `noteSaved` after
                      an upload; `setPerson`), person.ts (PURE: `pagePerson`, who the server says
                      is signed in, from the root layout's `drawnBy`; the device wipes for anyone
@@ -770,7 +772,9 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      listed, cleared or counted unless named; `readMedia`: a video URL reads it
                      first); where.ts (PURE: `placeOf`, `Place`), where-view.ts (`placeWord`),
                      places.svelte.ts (`livePlace`, `PhoneVideo`, `appOriginals`), uploads.svelte.ts
-                     (`startUpload`, `uploadOf`), upload-original.ts (`uploadOriginal`, `fileRoute`),
+                     (`startUpload`, `uploadOf`), upload-original.ts (`uploadOriginal`, `fileRoute`,
+                     `landOriginal`: Upload answered once on the server, Move to waits on it),
+                     move-videos.ts (PURE: `splitMoveVideos`, which upload first on Move to),
                      phone-first.ts (`phoneFirst`, `isIphone`), add-phone.ts (`addMode`, `addOnPhone`,
                      `phoneFileName`), add-mode.svelte.ts (`currentAddMode`), iphone-warned.ts and
                      iphone-card.svelte.ts (the card once), delete-words.ts; $lib/upload-chunks.ts

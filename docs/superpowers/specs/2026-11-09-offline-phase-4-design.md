@@ -290,6 +290,15 @@ Until part 2, the Android app uploads at once as before.
   Take), and the Copy to sheet says how many and on which device. This
   replaces the main design's "the holding device uploads them as part of
   it" (the user agreed, 2026-11-10).
+- **Move to is the exception** (2026-11-11, look B, picked by the user): a
+  moved lesson is archived, so a video left behind would be lost to sight.
+  The Move sheet lists the videos this phone holds ("Videos from this phone
+  · they upload to the group"), its button is Upload and move: each uploads
+  (`landOriginal`, which waits for the Android app's queue to say done),
+  then the lesson moves with them. Closing the sheet stops the move, not the
+  uploads. Videos on another device get a warning card and Move without the
+  video(s); `moveLesson` refuses (`phoneOnly`) unless the form says
+  `without`.
 - **Phone first** where the store is and the screen is a touch screen (an
   iPhone web app, a phone's browser); a computer and a group's place upload
   at once. An iPhone uploads the original whole (no compressing in a

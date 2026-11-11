@@ -181,7 +181,7 @@ const newPosition = (name: string): PositionInput => ({
 /** A fake `CloneFiles`: nothing on disk. */
 const cloneFiles: CloneFiles = { link: async (_, file) => `copy-${file}`, unlink: async () => {} };
 /** A clone's result when it made a row, else null, so a refusal fails the case. */
-const ok = (r: CloneResult) => (r.ok && r.made ? r : null);
+const ok = (r: CloneResult | { ok: false; reason: 'phoneOnly' }) => (r.ok && r.made ? r : null);
 
 /** One of everything in a space, for a mutation to act on. */
 function world(space: Space) {
