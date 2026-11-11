@@ -31,6 +31,11 @@
 	} from '$lib/clones/view';
 	import type { CopyTarget, MoveItem, MoveOffer, MovePreview } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
+	import { byteSize } from '$lib/format';
+	import { livePlace } from '$lib/offline/places.svelte';
+	import { splitMoveVideos } from '$lib/offline/move-videos';
+	import { landOriginal } from '$lib/offline/upload-original';
+	import { uploadOf } from '$lib/offline/uploads.svelte';
 	import { dropped } from './dropped.svelte';
 
 	/**
@@ -116,9 +121,55 @@
 
 	const question = $derived(preview?.twins[step] ?? null);
 
+	/*
+	 * Videos only on a phone (offline phase 4c, look B): the moved lesson is
+	 * archived, so those this phone holds upload first and the lesson moves
+	 * once they are up; those on another device can only stay behind.
+	 */
+	const videos = $derived(offer.phoneOnly ?? []);
+	const split = $derived(splitMoveVideos(videos, (v) => livePlace(v)));
+	const numberOf = (id: number) => videos.findIndex((v) => v.id === id) + 1;
+	const pw = $derived(t().video.place.move);
+	let uploading = $state(false);
+	let without = $state('');
+	/** The videos up so far in this run: each shows Uploaded while the next goes. */
+	let landed = $state<number[]>([]);
+	/** Counts the runs: one the sheet was closed on never moves the lesson. */
+	let run = 0;
+	/** Only videos on another device: the move goes without them, said on its button. */
+	const onlyWithout = $derived(split.here.length === 0 && split.elsewhere.length > 0);
+
 	function close() {
 		asking = false;
+		run += 1;
+		uploading = false;
 		onclose();
+	}
+
+	/** Upload what this phone holds, then send the move. */
+	async function submit() {
+		const { here, elsewhere } = split;
+		const mine = ++run;
+		if (here.length > 0) {
+			uploading = true;
+			refused = null;
+			landed = [];
+			for (const v of here) {
+				const out = await landOriginal({ table: v.table, id: v.id, file: v.file });
+				// Closed meanwhile: the uploads go on, the lesson stays.
+				if (mine !== run) return;
+				if (!out.ok) {
+					uploading = false;
+					refused = out.reason ?? t().video.place.uploadFailed;
+					return;
+				}
+				landed = [...landed, v.id];
+			}
+			uploading = false;
+		}
+		without = elsewhere.length > 0 ? '1' : '';
+		await tick();
+		form?.requestSubmit();
 	}
 
 	/** Move: through the twins questions first, when there are any. */
@@ -128,7 +179,7 @@
 			asking = true;
 			return;
 		}
-		form?.requestSubmit();
+		void submit();
 	}
 
 	async function next() {
@@ -139,7 +190,7 @@
 		}
 		asking = false;
 		await tick();
-		form?.requestSubmit();
+		void submit();
 	}
 
 	const NOTE =
@@ -149,12 +200,60 @@
 <Sheet title={moveTitle(offer.title, target.place)} sub={moveSub()} {open} onclose={close} tall>
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
-		{#if offer.stayBehind}
-			<!-- Phone-only videos (offline phase 4c) have no file to move: they stay behind. -->
-			<p class="flex items-start gap-2 px-1 text-[13px] font-medium text-muted" data-stay-behind>
-				<span class="mt-px flex flex-none"><Icon name="phone" size={16} /></span>
-				<span>{t().video.place.copyLeaves(offer.stayBehind.count, offer.stayBehind.label)}</span>
-			</p>
+		{#if split.elsewhere.length > 0}
+			<!-- On another device: no file here or on the server, so it can only stay behind. -->
+			<div class="rounded-2xl bg-warn-soft px-4 py-3.5" role="status" data-stay-behind>
+				<div class="flex items-center gap-2 text-[16px] font-extrabold text-warn">
+					<Icon name="phone" size={18} />{pw.elsewhere(split.elsewhere.length, split.label)}
+				</div>
+				<p class="mt-1.5 text-[13.5px] font-medium text-ink-2">
+					{pw.elsewhereBody(split.elsewhere.length)}
+				</p>
+			</div>
+		{/if}
+		{#if split.here.length > 0}
+			<section class="flex flex-col gap-1.5" data-upload-first>
+				<h3 class={SECTION_LABEL}>{pw.here}</h3>
+				<ul class={GROUP}>
+					{#each split.here as v (v.id)}
+						{@const pct = uploadOf(v.file)}
+						<li class="flex min-h-[60px] items-center gap-3 px-4 py-2.5">
+							<span
+								class="grid h-10 w-16 flex-none place-items-center rounded-lg bg-black text-white"
+								><Icon name="play" size={16} filled /></span
+							>
+							<span class="flex min-w-0 flex-1 flex-col gap-1">
+								<span class="flex items-baseline gap-2">
+									<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
+										>{pw.name(numberOf(v.id))}</span
+									>
+									{#if pct !== null}<span class="text-[13px] font-extrabold text-accent-text"
+											>{pct} %</span
+										>{/if}
+								</span>
+								{#if landed.includes(v.id)}
+									<span class="flex items-center gap-1 text-[13px] font-bold text-done"
+										><Icon name="check" size={14} />{pw.landed}</span
+									>
+								{:else if pct !== null}
+									<span class="block h-1 overflow-hidden rounded-full bg-track" aria-hidden="true"
+										><span class="block h-full bg-accent" style="width: {pct}%"></span></span
+									>
+								{:else}
+									<span class="flex items-center gap-1 text-[13px] font-medium text-muted"
+										><Icon name="phone" size={14} />{pw.onlyHere(
+											byteSize(v.originBytes ?? v.sizeBytes)
+										)}</span
+									>
+								{/if}
+							</span>
+						</li>
+					{/each}
+				</ul>
+				{#if uploading}
+					<p class="px-1 text-[13px] font-medium text-muted">{pw.after(split.here.length)}</p>
+				{/if}
+			</section>
 		{/if}
 		{#if offer.targets.length > 1}
 			<fieldset class="flex flex-col gap-1.5">
@@ -191,36 +290,38 @@
 		{:else if !preview}
 			<div class="grid place-items-center py-6 text-muted"><Spinner /></div>
 		{:else}
-			{#if preview.items.length > 0}
-				<ul class={GROUP}>
-					{#each preview.items as item (keyOf(item))}
-						<li class="flex flex-col gap-2 px-4 py-3">
-							<div class="flex items-baseline gap-3">
-								<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{item.label}</span>
-								<span class="flex-none text-right text-[13px] text-muted">{item.why}</span>
-							</div>
-							<Segmented
-								items={options}
-								bind:value={choices[keyOf(item)]}
-								name="{uid}-{keyOf(item)}"
-								label={item.label}
-							/>
-						</li>
-					{/each}
-				</ul>
-				<p class={NOTE}>
-					<span class="mt-px flex-none text-muted"><Icon name="undo" size={20} /></span>
-					<span class="min-w-0 flex-1">{moveNote()}</span>
-				</p>
-				{#if practiceStays}
+			<div class="flex flex-col gap-3 {uploading ? 'pointer-events-none opacity-60' : ''}">
+				{#if preview.items.length > 0}
+					<ul class={GROUP}>
+						{#each preview.items as item (keyOf(item))}
+							<li class="flex flex-col gap-2 px-4 py-3">
+								<div class="flex items-baseline gap-3">
+									<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">{item.label}</span>
+									<span class="flex-none text-right text-[13px] text-muted">{item.why}</span>
+								</div>
+								<Segmented
+									items={options}
+									bind:value={choices[keyOf(item)]}
+									name="{uid}-{keyOf(item)}"
+									label={item.label}
+								/>
+							</li>
+						{/each}
+					</ul>
 					<p class={NOTE}>
-						<span class="mt-px flex-none text-muted"><Icon name="info" size={20} /></span>
-						<span class="min-w-0 flex-1">{practiceStaysLine()}</span>
+						<span class="mt-px flex-none text-muted"><Icon name="undo" size={20} /></span>
+						<span class="min-w-0 flex-1">{moveNote()}</span>
 					</p>
+					{#if practiceStays}
+						<p class={NOTE}>
+							<span class="mt-px flex-none text-muted"><Icon name="info" size={20} /></span>
+							<span class="min-w-0 flex-1">{practiceStaysLine()}</span>
+						</p>
+					{/if}
+				{:else}
+					<p class={NOTE}>{preview.goes}</p>
 				{/if}
-			{:else}
-				<p class={NOTE}>{preview.goes}</p>
-			{/if}
+			</div>
 		{/if}
 	</div>
 
@@ -265,18 +366,25 @@
 			<input type="hidden" name="into" value={teamId(target)} />
 			<input type="hidden" name="choices" value={JSON.stringify(choices)} />
 			<input type="hidden" name="use" value={JSON.stringify(use)} />
+			<input type="hidden" name="without" value={without} />
 			<button type="button" class={button('tertiary', 'md', true)} onclick={close}
 				>{cancelLabel()}</button
 			>
 			<button
 				type="button"
-				class={button('primary', 'md', true)}
-				disabled={busy || !preview}
-				aria-busy={busy}
+				class={button(onlyWithout ? 'secondary' : 'primary', 'md', true)}
+				disabled={busy || uploading || !preview}
+				aria-busy={busy || uploading}
 				onclick={go}
 			>
-				{#if busy}
+				{#if uploading}
+					{pw.uploading}
+				{:else if busy}
 					<Spinner />
+				{:else if split.here.length > 0}
+					<Icon name="cloud-up" size={20} />{pw.button}
+				{:else if onlyWithout}
+					{pw.without(split.elsewhere.length)}
 				{:else}
 					<Icon name="move-to" size={20} />{moveButton()}
 				{/if}

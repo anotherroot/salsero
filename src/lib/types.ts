@@ -1087,6 +1087,19 @@ export type MoveOffer = {
 	targets: CopyTarget[];
 	/** Its phone-only videos, which a move leaves behind (offline phase 4c); null: none. */
 	stayBehind?: { count: number; label: DeviceLabel | null } | null;
+	/** Each of them: Move uploads the ones this phone holds first (the moved lesson is archived). */
+	phoneOnly?: PhoneOnlyVideo[];
+};
+
+/** A lesson video only on the phone holding its original (offline phase 4c). */
+export type PhoneOnlyVideo = {
+	id: number;
+	table: 'lesson_videos';
+	file: string;
+	serverCopy: false;
+	originSlot: number | null;
+	sizeBytes: number;
+	originBytes: number | null;
 };
 
 /** One row of "Copies you can see" (board C3 p1): a member of the page's family. */

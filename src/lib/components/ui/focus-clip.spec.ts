@@ -11,6 +11,11 @@ const CLIPS = /\boverflow-(hidden|clip)\b/;
 
 const ALLOWED: [file: string, line: string, why: string][] = [
 	['src/lib/components/shell/NavProgress.svelte', 'overflow-hidden', 'a bar, nothing inside'],
+	[
+		'src/lib/components/clones/MoveToSheet.svelte',
+		'overflow-hidden rounded-full bg-track',
+		'an upload bar, nothing inside'
+	],
 	['src/lib/components/ui/UploadCard.svelte', 'h-1.5 overflow-hidden', 'progress track'],
 	['src/lib/components/songs/UploadRow.svelte', 'h-1.5 overflow-hidden', 'progress track'],
 	['src/routes/voice/+page.svelte', 'h-1.5 flex-1 overflow-hidden', 'progress track'],

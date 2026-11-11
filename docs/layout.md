@@ -762,7 +762,9 @@ src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page
                      listed, cleared or counted unless named; `readMedia`: a video URL reads it
                      first); where.ts (PURE: `placeOf`, `Place`), where-view.ts (`placeWord`),
                      places.svelte.ts (`livePlace`, `PhoneVideo`, `appOriginals`), uploads.svelte.ts
-                     (`startUpload`, `uploadOf`), upload-original.ts (`uploadOriginal`, `fileRoute`),
+                     (`startUpload`, `uploadOf`), upload-original.ts (`uploadOriginal`, `fileRoute`,
+                     `landOriginal`: Upload answered once on the server, Move to waits on it),
+                     move-videos.ts (PURE: `splitMoveVideos`, which upload first on Move to),
                      phone-first.ts (`phoneFirst`, `isIphone`), add-phone.ts (`addMode`, `addOnPhone`,
                      `phoneFileName`), add-mode.svelte.ts (`currentAddMode`), iphone-warned.ts and
                      iphone-card.svelte.ts (the card once), delete-words.ts; $lib/upload-chunks.ts

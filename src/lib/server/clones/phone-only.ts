@@ -6,7 +6,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { Db } from '../db';
 import { deviceSlots, lessonVideos, recordings } from '../db/schema';
-import type { CloneKind } from '$lib/types';
+import type { CloneKind, PhoneOnlyVideo } from '$lib/types';
 import { deviceRuntime } from '../device-runtime';
 import { parseDeviceLabel, type DeviceLabel } from '$lib/devices/label';
 
@@ -50,4 +50,21 @@ export function leftBehind(
 						.all()
 				: [];
 	return { count: rows.length, slot: rows.find((r) => r.slot !== null)?.slot ?? null };
+}
+
+/** A lesson's phone-only videos, as the page tells where each is (`livePlace`): Move uploads them first. */
+export function phoneOnlyVideos(db: Db, lessonId: number): PhoneOnlyVideo[] {
+	return db
+		.select({
+			id: lessonVideos.id,
+			file: lessonVideos.file,
+			originSlot: lessonVideos.originSlot,
+			sizeBytes: lessonVideos.sizeBytes,
+			originBytes: lessonVideos.originBytes
+		})
+		.from(lessonVideos)
+		.where(and(eq(lessonVideos.lessonId, lessonId), eq(lessonVideos.serverCopy, false)))
+		.orderBy(lessonVideos.id)
+		.all()
+		.map((r) => ({ ...r, table: 'lesson_videos' as const, serverCopy: false }));
 }

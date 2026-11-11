@@ -136,7 +136,8 @@ under any video keeps that one; downloads resume where they were cut off; short 
 once and a dot on You; see the phase 4 spec's 4b); your own videos only on the phone (4c part 1,
 on an iPhone or a phone's browser: a new video on your own figure or lesson stays there as the
 original, Where is this video offers Upload and Remove the server copy, another device shows a
-dark frame "On Pixel 8", an iPhone warns once with a card; copies leave them behind; recordings
+dark frame "On Pixel 8", an iPhone warns once with a card; copies leave them behind, but Move to… uploads the ones on
+this phone first and then moves the lesson with them (look B, 2026-11-11); recordings
 upload in chunks up to 1 GB; in the Android app 1.10 the original stays in the gallery and the app
 serves and uploads it); phase 5 (2026-11-10) took the old Offline screen away: with no signal
 and no copy on the phone yet, a link stays on its page and a toast says the page needs a

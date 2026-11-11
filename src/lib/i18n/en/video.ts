@@ -247,6 +247,31 @@ export const video = {
 		alsoGallery: 'Delete it from the gallery too',
 		removeDone: 'The server copy is removed',
 		uploadFailed: "Couldn't upload. The video stays on this phone.",
+		/** Move to a group with videos only on a phone: those here upload first (look B). */
+		move: {
+			/** Above the videos this phone holds. */
+			here: 'Videos from this phone · they upload to the group',
+			name: (n: number): string => `Video ${n}`,
+			onlyHere: (size: string): string => `Only on this phone · ${size}`,
+			button: 'Upload and move',
+			/** A video up while the next one goes. */
+			landed: 'Uploaded',
+			uploading: 'Uploading…',
+			after: (n: number): string =>
+				n === 1
+					? 'Once it is uploaded, the lesson moves by itself. If you close this, the video still uploads and the lesson stays here.'
+					: 'Once they are uploaded, the lesson moves by itself. If you close this, the videos still upload and the lesson stays here.',
+			elsewhere: (n: number, d: DeviceLabel | null): string =>
+				`${n === 1 ? '1 video is' : `${n} videos are`} ${onDevice(d)}`,
+			elsewhereBody: (n: number): string =>
+				n === 1
+					? "It isn't on the server, so it can't be uploaded from here. Open it on that device and tap Upload, then move the lesson. Move it now and you won't see the video in the app again."
+					: "They aren't on the server, so they can't be uploaded from here. Open them on that device and tap Upload, then move the lesson. Move it now and you won't see those videos in the app again.",
+			without: (n: number): string =>
+				n === 1 ? 'Move without the video' : 'Move without the videos',
+			/** The server's refusal: a video is still only on a phone. */
+			notUploaded: 'A video from the phone is not uploaded yet. Upload it, or move without it.'
+		},
 		/** Copy to or Move to a group: "2 videos are only on Pixel 8: they stay until uploaded there." */
 		copyLeaves: (n: number, d: DeviceLabel | null): string =>
 			n === 1
