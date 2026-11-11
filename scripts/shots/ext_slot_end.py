@@ -53,3 +53,36 @@ SCENES = {
     "end-sheet": Scene(PATH, act=_sheet),
     "end-ask": Scene(PATH, act=_ask),
 }
+
+
+ASKS = re.compile(r"^(Where does it end\?|Kje konča\?)$")
+
+
+def _end_sheet_open(p):
+    return p.locator("dialog[open]").filter(has=p.get_by_text(ASKS)).count() > 0
+
+
+def _add_back(p):
+    # A figure with two ends added at the foot: Where does it end? opens over the new
+    # slot. Back closes the sheet first, the slot second, and stays on the routine.
+    p.locator('[data-focus="add-slot"]').last.evaluate("e => e.click()")
+    p.wait_for_timeout(600)
+    p.locator("dialog[open] input").first.fill("Enchufla")
+    p.wait_for_timeout(400)
+    p.locator("dialog[open]").get_by_text(re.compile("Enchufla")).first.click()
+    p.wait_for_timeout(1200)
+    if not _end_sheet_open(p):
+        raise AssertionError("Where does it end? did not open after the add")
+    p.go_back()
+    p.wait_for_timeout(600)
+    if _end_sheet_open(p):
+        raise AssertionError("back left the sheet open")
+    if p.locator("[data-slot] [aria-expanded=true]").count() == 0:
+        raise AssertionError("back closed the new slot before the sheet")
+    p.go_back()
+    p.wait_for_timeout(600)
+    if p.locator("[data-slot] [aria-expanded=true]").count() > 0 or "/routines/" not in p.url:
+        raise AssertionError(f"the second back did not just close the slot: {p.url}")
+
+
+SCENES["end-add-back"] = Scene(PATH, act=_add_back)

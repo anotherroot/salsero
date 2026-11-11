@@ -690,7 +690,11 @@
 			document.querySelector<HTMLElement>(`[data-slot="${id}"] [role=button]`)?.focus();
 			// Where does it end? right after it (spec 2026-11-11, slot end), when the
 			// figure has ends to choose and the slot below does not decide.
-			if (rows.find((r) => r.id === id)?.end?.state === 'open') endFor = id;
+			// Only once the open slot's Back entry is in (pushed when the sheets settle):
+			// the sheet's own entry must sit above it, so Back closes the sheet first.
+			if (rows.find((r) => r.id === id)?.end?.state !== 'open') return;
+			await new Promise<void>((done) => sheetStack.settled(done));
+			if (expanded === id) endFor = id;
 		}
 	}
 

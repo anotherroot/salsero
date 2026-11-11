@@ -72,8 +72,9 @@ catalogs (`refusals-guard.spec.ts`). An options slot only; an embedded
 routine's slot refuses.
 
 **Which id is stored, and how it compares** (my call). The stored id is a real
-`positions.id`: the main option's own end tag (`figure_end_positions` of the
-slot's first option, `MAIN_FIRST`), never the graph's canonical id. It is
+`positions.id`: the one the sheet posts, the family's canonical member in the
+owner's graph (the person's own position when they have one; built so: the plan
+said the main option's tag, either reads the same). It is
 compared by family on read: through the same canonical map `buildGraph` uses
 (`canon`, twins merged), so a choice survives twinning and a main figure
 swapped for one whose tag is a twin of the same hold. A person's routine may
