@@ -89,9 +89,13 @@ again — or another card — collapses it. An open card shows, top to bottom:
    **remove** (trash). A swipe left removes it too.
 4. **+ Alternative**, a dashed button below them, which opens the picker in
    its alternative mode.
+5. **Add above / Add below**, two dashed round buttons in a column left of the
+   alternatives' rail (↥ on top, ↧ under it): the picker anchored as
+   **↑ Before** / **↓ After** this slot, the same as a seam's buttons, for a
+   slot with no seam (2026-11-11).
 
-A slot holding an embedded routine expands to its note and "Open →" only. It
-has no alternatives and no **+ Alternative** — a slot holds figure options or
+A slot holding an embedded routine expands to its note, "Open →" and the two
+add buttons only. It has no alternatives and no **+ Alternative** — a slot holds figure options or
 one routine, never a choice between routines (see the routines design,
 "Deliberately not included").
 
@@ -138,9 +142,11 @@ or bottom edge. Release applies the new order optimistically and saves it;
 Escape or `pointercancel` puts it back.
 
 An open card collapses when its drag starts. A dashed gap shows where the card
-will land (`gapTop`). Seams are hidden for the duration
-of a drag and return with the server's answer — mid-drag they describe an order
-that does not exist.
+will land (`gapTop`). Seams stay through the drag, on the cards they were
+drawn on, so nothing jumps under the finger and no warning blinks away. While
+the new order is saving, a seam shows where it still holds for the order on
+screen (the same slots follow it, and for a timing seam nothing above it
+moved); one the move makes appears with the server's answer (2026-11-11).
 
 With the handle focused, **↑ / ↓** on the keyboard move the slot one place.
 This replaces today's ↑/↓ buttons.
@@ -171,6 +177,9 @@ can also start from **Select slots** in the band's ⋯ sheet, with nothing
 selected: the band reads "Select slots" and every action is greyed with its
 reason ("Select slots first."). While selecting:
 
+- nothing on the page hides or moves — the band keeps its Practise card and
+  subtitle, the seams, the facts, music and More stay — so the slot under the
+  finger stays where it was pressed (2026-11-11);
 - the band reads **"2 selected"** with ×; × or Escape leaves;
 - taps toggle slots in and out of the selection;
 - handles, swipes and expansion are off;
