@@ -5,7 +5,7 @@ import { fold } from '$lib/fold';
 import { longDayLabel } from '$lib/format';
 import { t } from '$lib/i18n/catalog';
 import type { MetaPart } from '$lib/exercises/today';
-import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
+import { COUNTS_PER_EIGHT, isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { MenuItem } from '$lib/menu';
 import { parseLink, youtubeWatch } from '$lib/links';
 import type { LinkRow } from '$lib/types';
@@ -42,11 +42,33 @@ export function practiceLine(
  * The facts card's timing: "Starts on 1 · 16 counts", and in a lighter weight
  * " · 2 eights" (whole eights past one) or " · one 8-count".
  */
-export function timingLine(start: number, length: number): { main: string; extra: string } {
+export function timingLine(
+	start: number,
+	length: number,
+	more: { counts?: number[]; free?: boolean } = {}
+): { main: string; extra: string } {
 	const w = t().figure.timing;
 	const extra =
 		length === 8 ? w.oneEight : length % 8 === 0 && length > 8 ? w.eights(length / 8) : '';
+	const counts = more.counts ?? [start];
+	// Spec 2026-11-11: several start counts, or a length set in the routine.
+	if (counts.length > 1 || more.free) {
+		const starts = startsLine(counts);
+		return more.free
+			? { main: `${starts} · ${w.youChoose}`, extra: '' }
+			: { main: `${starts} · ${w.counts(length)}`, extra };
+	}
 	return { main: w.line(start, length), extra };
+}
+
+/** "Starts on 1", "Starts on 1 or 5", "Starts on 1, 3 or 5", "Starts on any count". */
+export function startsLine(counts: number[]): string {
+	const w = t().figure.timing;
+	if (counts.length === COUNTS_PER_EIGHT) return w.anyCount;
+	if (counts.length === 1) return w.starts(String(counts[0]));
+	return w.starts(
+		`${counts.slice(0, -1).join(', ')} ${t().figure.or} ${counts[counts.length - 1]}`
+	);
 }
 
 /**

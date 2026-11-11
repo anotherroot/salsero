@@ -25,7 +25,15 @@ export const figure = {
 		oneEight: ' · one 8-count',
 		eights: (n: number): string => ` · ${n} eights`,
 		/** The eight count chips, for a screen reader. */
-		startsOnCount: (n: number): string => `Starts on count ${n}`
+		startsOnCount: (n: number): string => `Starts on count ${n}`,
+		/** A figure that can start on several counts (spec 2026-11-11): "Starts on 1, 3 or 5". */
+		starts: (list: string): string => `Starts on ${list}`,
+		anyCount: 'Starts on any count',
+		counts: (n: number): string => `${n} counts`,
+		/** Its length is set in each routine slot. */
+		youChoose: 'length you choose',
+		/** The count chips, for a screen reader, when it can start on several. */
+		startsOnCounts: (list: string): string => `Can start on count ${list}`
 	},
 	facts: 'Facts',
 	positions: 'Positions',
@@ -49,7 +57,17 @@ export const figure = {
 		unit: 'counts',
 		help: (max: number): string => `How long it takes, 1 to ${max}. One 8-count is 8.`,
 		error: (max: number): string => `1 to ${max} counts. One 8-count is 8.`,
-		shortcuts: 'Length shortcuts'
+		shortcuts: 'Length shortcuts',
+		/** The counts a figure can start on: tap several, or All (spec 2026-11-11). */
+		canStartOn: 'Can start on',
+		all: 'All',
+		onlyOne: 'Only 1',
+		/** A count, for a screen reader: "Count 5". */
+		count: (n: number): string => `Count ${n}`,
+		/** The length is set in each routine slot. */
+		youChoose: 'You choose',
+		youChooseHint: (n: number): string =>
+			`Set in each routine. Practised alone it runs ${n} counts.`
 	},
 	edit: {
 		stop: 'Stop editing',

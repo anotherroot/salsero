@@ -52,7 +52,7 @@ import { scheduleStateOf } from '$lib/server/schedule';
 import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
-import { practiceLine, recordingsCount } from '$lib/figures/page';
+import { practiceLine, recordingsCount, timingLine } from '$lib/figures/page';
 import { countsOf, figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -312,10 +312,10 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			copies: copies.get(s.id) ?? 0,
 			twins: twinned.has(s.id),
 			holds: holdsLine(names(h.starts), names(h.ends)),
-			timing: t().figure.timing.line(
-				n?.start ?? DEFAULT_START_COUNT,
-				n?.length ?? DEFAULT_LENGTH_COUNTS
-			),
+			timing: timingLine(n?.start ?? DEFAULT_START_COUNT, n?.length ?? DEFAULT_LENGTH_COUNTS, {
+				counts: n ? countsOf(n) : undefined,
+				free: n?.free
+			}).main,
 			videos: videosOf(s.id)
 		};
 	});

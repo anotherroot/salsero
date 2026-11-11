@@ -23,6 +23,7 @@ import {
 	recordingDay,
 	recordingsLine,
 	routineUseMeta,
+	startsLine,
 	timingLine,
 	variationNav
 } from './page';
@@ -584,5 +585,35 @@ describe('in Slovenian', () => {
 		expect(recordingsLine(0)).toBe('no recordings');
 		expect(recordingsLine(1)).toBe('1 recording');
 		expect(recordingsLine(3)).toBe('3 recordings');
+	});
+});
+
+describe('startsLine and a flexible figure’s timing (spec 2026-11-11)', () => {
+	it('names the counts a figure can start on', () => {
+		expect(startsLine([1])).toBe('Starts on 1');
+		expect(startsLine([1, 5])).toBe('Starts on 1 or 5');
+		expect(startsLine([1, 3, 5])).toBe('Starts on 1, 3 or 5');
+		expect(startsLine([1, 2, 3, 4, 5, 6, 7, 8])).toBe('Starts on any count');
+	});
+
+	it('reads them in Slovenian', () => {
+		withLocale('sl', () => {
+			expect(startsLine([1])).toBe('Začne na 1');
+			expect(startsLine([1, 3, 5])).toBe('Začne na 1, 3 ali 5');
+			expect(startsLine([1, 2, 3, 4, 5, 6, 7, 8])).toBe('Začne na katerokoli dobo');
+		});
+	});
+
+	it('says the length is chosen in the routine', () => {
+		expect(timingLine(1, 8, { counts: [1, 5], free: true })).toEqual({
+			main: 'Starts on 1 or 5 · length you choose',
+			extra: ''
+		});
+		expect(timingLine(1, 16, { counts: [1, 5] })).toEqual({
+			main: 'Starts on 1 or 5 · 16 counts',
+			extra: ' · 2 eights'
+		});
+		// Nothing set: exactly as before.
+		expect(timingLine(1, 16, { counts: [1] })).toEqual(timingLine(1, 16));
 	});
 });

@@ -18,7 +18,12 @@ export const figure: Catalog['figure'] = {
 		line: (start, length) => `Začne na ${start} · ${nouns.counts(length)}`,
 		oneEight: ' · ena osmica',
 		eights: (n) => ` · ${slCount(n, ['osmica', 'osmici', 'osmice', 'osmic'])}`,
-		startsOnCount: (n) => `Začne na ${n}`
+		startsOnCount: (n) => `Začne na ${n}`,
+		starts: (list) => `Začne na ${list}`,
+		anyCount: 'Začne na katerokoli dobo',
+		counts: (n) => nouns.counts(n),
+		youChoose: 'dolžino izberete v kombinaciji',
+		startsOnCounts: (list) => `Lahko začne na ${list}`
 	},
 	facts: 'Podatki',
 	positions: 'Položaji',
@@ -38,7 +43,14 @@ export const figure: Catalog['figure'] = {
 		unit: 'dob',
 		help: (max) => `Koliko dob traja, od 1 do ${max}. Ena osmica je 8.`,
 		error: (max) => `Od 1 do ${max} dob. Ena osmica je 8.`,
-		shortcuts: 'Hitre dolžine'
+		shortcuts: 'Hitre dolžine',
+		canStartOn: 'Lahko začne na',
+		all: 'Vse',
+		onlyOne: 'Samo 1',
+		count: (n) => `Doba ${n}`,
+		youChoose: 'Izberete sami',
+		youChooseHint: (n) =>
+			`Določite jo v vsaki kombinaciji. Ko jo vadite samo, traja ${nouns.counts(n)}.`
 	},
 	edit: {
 		stop: 'Končaj urejanje',
