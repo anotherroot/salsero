@@ -95,7 +95,8 @@ function fingerprintOf(db: Db, routineId: number): string {
 			note: s.note,
 			// A slot's lengths (spec 2026-11-11), only when it has any: a routine without
 			// them keeps the fingerprint it had.
-			...(Object.keys(s.lengths).length > 0 ? { lengths: s.lengths } : {})
+			...(Object.keys(s.lengths).length > 0 ? { lengths: s.lengths } : {}),
+			end: s.end
 		}))
 	);
 }

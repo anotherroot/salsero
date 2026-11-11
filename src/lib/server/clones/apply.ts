@@ -575,6 +575,9 @@ class Applier {
 					position: position++,
 					childRoutineId: child,
 					note: slot.note,
+					// Its end, as this place's member of the family (spec 2026-11-11, slot end).
+					endPositionId:
+						slot.end === null || slot.childId !== null ? null : m.ref('position', slot.end),
 					createdAt: now
 				})
 				.returning({ id: routineSteps.id })

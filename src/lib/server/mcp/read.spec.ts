@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db';
-import { figures, routineStepOptions } from '../db/schema';
+import { figures, routineStepOptions, routineSteps } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { makeWorld } from '../sync/test-world';
 import { readTools } from './read';
@@ -157,5 +157,21 @@ describe('flexible figures in the read tools (spec 2026-11-11)', () => {
 		expect(
 			alts.find((a: { figure_id: number }) => a.figure_id === world.own.u1.figure)
 		).toMatchObject({ length_counts: 12 });
+	});
+
+	it('get_routine gives a slot the end chosen for it (spec 2026-11-11, slot end)', async () => {
+		const step = db
+			.select({ id: routineSteps.id })
+			.from(routineSteps)
+			.where(eq(routineSteps.routineId, world.own.u1.routine))
+			.get()!.id;
+		db.update(routineSteps)
+			.set({ endPositionId: world.own.u1.position })
+			.where(eq(routineSteps.id, step))
+			.run();
+		const r = await run('get_routine', { id: world.own.u1.routine });
+		expect(r.data.slots.find((s: { id: number }) => s.id === step)).toMatchObject({
+			ends_in: 'Cerrada u1'
+		});
 	});
 });

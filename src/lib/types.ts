@@ -552,6 +552,8 @@ export interface SlotRow {
 	figureIds: number[];
 	/** Each option's length in this slot, by figure id: only those that have one (spec 2026-11-11). */
 	lengths: Record<number, number>;
+	/** The end chosen for the slot, a real position id (spec 2026-11-11, slot end). */
+	end: number | null;
 }
 
 /**

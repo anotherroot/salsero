@@ -319,7 +319,7 @@ const TOOLS: Tool[] = [
 	getOne(
 		'routine',
 		'Get a routine',
-		'A routine`s slots in order: each slot`s figure (or embedded routine), its alternatives and note; and the routine`s notes.',
+		'A routine`s slots in order: each slot`s figure (or embedded routine), its alternatives, note and the position it ends in when one is chosen (ends_in); and the routine`s notes.',
 		(v, r) => ({
 			...item(v, 'routine', r),
 			notes: r.notes,
@@ -341,7 +341,11 @@ const TOOLS: Tool[] = [
 							? { length_counts: o.length_counts }
 							: {})
 					})),
-					note: s.note
+					note: s.note,
+					// The end chosen for the slot (spec 2026-11-11, slot end).
+					...(s.end_position_id !== null && s.end_position_id !== undefined
+						? { ends_in: String(v.byId('positions', s.end_position_id)?.name ?? '') }
+						: {})
 				}))
 		})
 	),

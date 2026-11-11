@@ -1382,3 +1382,38 @@ describe('setSlotEnd (spec 2026-11-11, slot end)', () => {
 		expect(addOption(db, step, k)).toBe(true);
 	});
 });
+
+describe('a slot’s end within its own routine (spec 2026-11-11, slot end)', () => {
+	function setup() {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
+		const A = addPosition(db, U1_SALSA, 'Closed');
+		const B = addPosition(db, U1_SALSA, 'Open');
+		const m = figure(db, 'Main').id;
+		setFigureShape(db, m, { startIds: [], endIds: [A, B], startCount: 1, lengthCounts: 8 });
+		const step = addFigureSlot(db, routine.id, m)!;
+		expect(setSlotEnd(db, step, B)).toBe(true);
+		return { db, routine, step, B };
+	}
+
+	it('is in the editor’s slot rows', () => {
+		const { db, routine, B } = setup();
+		expect(routineSlots(db, routine.id)[0].end).toBe(B);
+	});
+
+	it('travels with a duplicated routine and duplicated slots', () => {
+		const { db, routine, step, B } = setup();
+		const copy = duplicateRoutine(db, routine.id)!;
+		expect(routineSlots(db, copy.id)[0].end).toBe(B);
+		duplicateSlots(db, routine.id, [step]);
+		expect(routineSlots(db, routine.id).map((s) => s.end)).toEqual([B, B]);
+	});
+
+	it('comes back with an undone delete', () => {
+		const { db, routine, step, B } = setup();
+		const snapshot = deleteSlots(db, routine.id, [step])!;
+		expect(snapshot[0].end).toBe(B);
+		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].end).toBe(B);
+	});
+});

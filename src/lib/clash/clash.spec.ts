@@ -55,6 +55,14 @@ describe('routineFingerprint', () => {
 		{ position: 0, childRoutineId: null, figureIds: [1, 2] },
 		{ position: 1, childRoutineId: 7, figureIds: [] }
 	];
+	it('changes with a slot’s end, and stays without one (spec 2026-11-11, slot end)', () => {
+		const fp = routineFingerprint(slots);
+		expect(routineFingerprint([{ ...slots[0], end: null }, slots[1]])).toBe(fp);
+		expect(routineFingerprint([{ ...slots[0], end: 5 }, slots[1]])).not.toBe(fp);
+		expect(routineFingerprint([{ ...slots[0], end: 5 }, slots[1]])).not.toBe(
+			routineFingerprint([{ ...slots[0], end: 6 }, slots[1]])
+		);
+	});
 	it('is the same for the same slots, in any order given', () => {
 		expect(routineFingerprint(slots)).toBe(routineFingerprint([slots[1], slots[0]]));
 	});

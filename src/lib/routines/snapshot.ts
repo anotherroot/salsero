@@ -19,6 +19,8 @@ export interface SlotSnapshot {
 	figureIds: number[];
 	/** Each option's length in the slot, by figure id: only those that had one (spec 2026-11-11). */
 	lengths?: Record<number, number>;
+	/** The end chosen for the slot, a position id (spec 2026-11-11, slot end). */
+	end?: number;
 	/**
 	 * When the delete happened: in a group, Undo brings back the members'
 	 * entries that delete took off Today (archived at exactly this time).
@@ -55,7 +57,7 @@ export function parseSnapshots(raw: string): SlotSnapshot[] | null {
 	const out: SlotSnapshot[] = [];
 	for (const entry of value) {
 		if (typeof entry !== 'object' || entry === null) return null;
-		const { position, childId, note, figureIds, deletedAt, lengths } = entry as Record<
+		const { position, childId, note, figureIds, deletedAt, lengths, end } = entry as Record<
 			string,
 			unknown
 		>;
@@ -69,12 +71,14 @@ export function parseSnapshots(raw: string): SlotSnapshot[] | null {
 		if ((childId === null) === (figureIds.length === 0)) return null;
 		const kept = lengths === undefined ? undefined : parseLengths(lengths, figureIds);
 		if (kept === null) return null;
+		if (end !== undefined && (!isId(end) || childId !== null)) return null;
 		out.push({
 			position,
 			childId,
 			note,
 			figureIds,
 			...(kept ? { lengths: kept } : {}),
+			...(isId(end) ? { end } : {}),
 			...(isId(deletedAt) ? { deletedAt } : {})
 		});
 	}

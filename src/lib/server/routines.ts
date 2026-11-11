@@ -638,7 +638,8 @@ export function routineSlots(db: Db, routineId: number, usable?: Usable): SlotRo
 			id: routineSteps.id,
 			position: routineSteps.position,
 			note: routineSteps.note,
-			childId: routineSteps.childRoutineId
+			childId: routineSteps.childRoutineId,
+			end: routineSteps.endPositionId
 		})
 		.from(routineSteps)
 		.where(eq(routineSteps.routineId, routineId))
@@ -1366,7 +1367,8 @@ export function deleteSlots(
 				id: routineSteps.id,
 				position: routineSteps.position,
 				childId: routineSteps.childRoutineId,
-				note: routineSteps.note
+				note: routineSteps.note,
+				end: routineSteps.endPositionId
 			})
 			.from(routineSteps)
 			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
@@ -1381,6 +1383,7 @@ export function deleteSlots(
 			note: s.note,
 			figureIds: options.get(s.id) ?? [],
 			...(lengths.has(s.id) ? { lengths: lengths.get(s.id) } : {}),
+			...(s.end !== null ? { end: s.end } : {}),
 			deletedAt: now
 		}));
 		// Options first: `routine_step_options.step_id` references the step and
@@ -1445,13 +1448,23 @@ export function restoreSlots(
 	if (snapshot.some((s) => s.childId !== null && !canEmbed(db, routineId, s.childId, usable))) {
 		return false;
 	}
+	// A posted-back end is kept only when it is a live position the routine's owner
+	// may use; whether the slot can end there is read later, like any stored end.
+	const inReach = snapshot.some((s) => s.end !== undefined) ? graphFor(db, space).canon : null;
+	const endOf = (s: SlotSnapshot) => (s.end !== undefined && inReach?.has(s.end) ? s.end : null);
 	return db.transaction((tx) => {
 		const back: number[] = [];
 		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
 			const ids = slotIds(tx, routineId);
 			const step = tx
 				.insert(routineSteps)
-				.values({ routineId, position: ids.length, childRoutineId: s.childId, note: s.note })
+				.values({
+					routineId,
+					position: ids.length,
+					childRoutineId: s.childId,
+					note: s.note,
+					endPositionId: endOf(s)
+				})
 				.returning({ id: routineSteps.id })
 				.get();
 			insertOptions(tx, step.id, s.figureIds, (figureId) => {
@@ -1544,7 +1557,8 @@ export function duplicateSlots(
 			.select({
 				id: routineSteps.id,
 				childId: routineSteps.childRoutineId,
-				note: routineSteps.note
+				note: routineSteps.note,
+				end: routineSteps.endPositionId
 			})
 			.from(routineSteps)
 			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
@@ -1557,7 +1571,13 @@ export function duplicateSlots(
 		const copies = steps.map((s, k) => {
 			const copy = tx
 				.insert(routineSteps)
-				.values({ routineId, position: ids.length + k, childRoutineId: s.childId, note: s.note })
+				.values({
+					routineId,
+					position: ids.length + k,
+					childRoutineId: s.childId,
+					note: s.note,
+					endPositionId: s.end
+				})
 				.returning({ id: routineSteps.id })
 				.get();
 			insertOptions(
@@ -1710,7 +1730,8 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 					routineId: routine.id,
 					position: slot.position,
 					childRoutineId: slot.childId,
-					note: slot.note
+					note: slot.note,
+					endPositionId: slot.end
 				})
 				.returning({ id: routineSteps.id })
 				.get();

@@ -316,6 +316,7 @@ class Planner {
 				for (const slot of routineSlots(db, row.id)) {
 					if (slot.childId !== null) this.ref('routine', slot.childId);
 					for (const f of slot.figureIds) this.ref('figure', f);
+					if (slot.end !== null) this.ref('position', slot.end);
 				}
 				return;
 			case 'lesson': {
@@ -1178,6 +1179,8 @@ function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 				position: position++,
 				childRoutineId: child,
 				note: slot.note,
+				// Its end, as that place's member of the family (spec 2026-11-11, slot end).
+				endPositionId: slot.end === null ? null : m.ref('position', slot.end),
 				createdAt: now
 			})
 			.returning({ id: routineSteps.id })
