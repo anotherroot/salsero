@@ -184,9 +184,13 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      Client-safe
 src/lib/hearing/     PURE hearing rounds: targets.ts (positions in the eight), judge.ts (taps against
                      the count, per eight and per part), drops.ts (Dropped in), tap-delay.ts (the
-                     finger's delay, kept in this browser), round.ts, words.ts (`targetLabel`)
+                     finger's delay, kept in this browser), round.ts (kinds, parts, CircleState,
+                     FinishedDrop), spot.ts (a spot's start-overs and Skip), score.ts (0–100), verdict.ts
+                     (what to work on), stack.ts (result B's dots), replay.ts (a drop's replay cues),
+                     words.ts (`targetLabel`, `posLabel`, `posName`)
 src/lib/components/hearing/  the listening player's screens: ListenShell (band stage + sheet + bar),
-                     ListenSetup, TapPad (answers on pointerdown), TapCheck, ListenResult, BeatStrip,
+                     ListenSetup, ClaveCard, TapPad (answers on pointerdown), TapCheck, PatternRows
+                     (the target's circles), DropRun, TapAlongRun, ResultB, ListenStack, ListenReplay,
                      FindTheOneCard (the song page's card). Page: /[dance]/songs/[id]/listen
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether

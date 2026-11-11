@@ -177,10 +177,14 @@ player (`/[dance]/songs/[id]/listen`) on a song a person counted (anchors set; t
 never grades anyone). Tap along (the whole song or one part, the count hidden) or Dropped in (up to ten
 random spots, tap the next one), listening for the 1, every beat, 1 · 5, 1 3 5 7, 4 · 8, the clave or your own counts (any of 1–8, kept in
 this browser); a target of several beats is tapped for two eights per drop; a
-one-time tap delay check per browser (`hearing.tapDelayMs`); the result in words per part or per drop and a
-beat strip. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
+one-time tap delay check per browser (`hearing.tapDelayMs`). Phase 1b (2026-11-11): the target drawn as circles on
+the eight that taps fill in order with no hint of how close; a drop is the first tap's eight and the next; a spot
+starts over after four eights without a tap, after a long gap, or on Reset, and Skip shows after three
+start-overs; colours only when a drop ends, then the next spot slides in; result B with a 0–100 score (timing,
+less restarts and listening), every tap stacked under its circle, one sentence on what to work on, and ▶
+replay per drop; the clave card with Hear it in the setup. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
 [`docs/superpowers/specs/2026-11-10-hearing-drills-design.md`](docs/superpowers/specs/2026-11-10-hearing-drills-design.md),
-boards https://claude.ai/artifact/WBkgBLMuE8ADXoqgLgtfou and https://claude.ai/artifact/LKHBYc9NEjWToSesUy7FoD.
+boards https://claude.ai/artifact/WBkgBLMuE8ADXoqgLgtfou and https://claude.ai/artifact/Wdspg2ZuajQvwVgAfvdB9N (1b).
 
 
 ## Specs

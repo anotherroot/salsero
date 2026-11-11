@@ -28,23 +28,13 @@ export const hearing = {
 	},
 	kindSub: {
 		tapAlong: 'The count is hidden. Tap along all the way.',
-		dropped: 'Ten random spots in the song. Find the next one each time.'
+		dropped: 'Ten random spots in the song. Find the beat and tap it for two eights.'
 	},
 	targets: {
 		one: 'The 1',
 		every: 'Every beat',
 		clave: 'The clave',
 		own: 'Your own'
-	},
-	/** After a score: "7 of 10 on the 1". */
-	onTarget: {
-		one: 'on the 1',
-		every: 'on the beat',
-		ones: 'on 1 and 5',
-		odd: 'on 1 3 5 7',
-		fourEight: 'on 4 and 8',
-		clave: 'on the clave',
-		own: 'on your counts'
 	},
 	/** The tap area while tapping along. */
 	tapOn: {
@@ -56,48 +46,13 @@ export const hearing = {
 		clave: 'Tap the clave',
 		own: 'Tap on your counts'
 	},
-	/** The tap area when dropped in. */
-	tapNext: {
-		one: 'Tap the next 1',
-		every: 'Tap the next beat',
-		ones: 'Tap the next 1 or 5',
-		odd: 'Tap the next 1, 3, 5 or 7',
-		fourEight: 'Tap the next 4 or 8',
-		clave: 'Tap the next clave hit',
-		own: 'Tap your counts'
-	},
 	anywhere: 'anywhere here',
 	hidden: 'The count is hidden until the end',
 	drop: (n: number, of: number) => `Drop ${n} of ${of}`,
 	listen: 'Listen, then tap',
 	keepTapping: 'Keep tapping for two eights',
-	reveal: {
-		spot: 'Spot on',
-		late: (ms: number) => `Found it · ${ms} ms late`,
-		early: (ms: number) => `Found it · ${ms} ms early`,
-		other: (count: number) => `That was the ${count}`,
-		missed: 'Not on a beat',
-		pattern: (hits: number, of: number) => `${hits} of ${of} on the beat`
-	},
 	result: {
-		title: 'How close you were',
-		score: (hit: number, of: number) => `${hit} of ${of}`,
-		late: (ms: number) => `${ms} ms late on average`,
-		early: (ms: number) => `${ms} ms early on average`,
-		onTime: 'On time on average',
-		listened: (s: number) => `You listened about ${seconds(s)} s before tapping`,
-		verdict: {
-			on: 'On time',
-			late: (ms: number) => `Late, ${ms} ms`,
-			early: (ms: number) => `Early, ${ms} ms`,
-			other: (count: number) => `On the ${count}`,
-			missed: 'Missed'
-		},
-		wholeSong: 'The song',
-		drop: (n: number) => `Drop ${n}`,
-		noTap: 'No tap',
-		tooShort: 'Too short to judge. Tap a little longer.',
-		strip: 'Your taps on the count, one row per eight'
+		title: 'How close you were'
 	},
 	eightRow: (n: number) => `Eight ${n}`,
 	reset: 'Reset',

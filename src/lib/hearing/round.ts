@@ -45,3 +45,14 @@ export function roundSpan(
  * and skip for the first eight's beats before the first tap).
  */
 export type CircleState = 'future' | 'next' | 'filled' | 'skip' | 'spot' | 'close' | 'miss';
+
+/** A drop (or, in a tap-along round, a part of the song) as the result shows it. */
+export interface FinishedDrop {
+	answer: import('./drops').DropAnswer;
+	restarts: number;
+	skipped: boolean;
+	/** Eights listened before the first tap of the last attempt. */
+	listenEights: number;
+	/** The song's section the drop was in ('' when the song has none). */
+	section: string;
+}
