@@ -10,6 +10,7 @@ import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
 	addOption,
+	setOptionLength,
 	archiveRoutine,
 	deleteSlots,
 	duplicateRoutine,
@@ -35,11 +36,12 @@ import {
 	routineEnds,
 	routineStarts,
 	rowEdges,
+	rowEdgesIn,
 	timingBreaks,
 	timingSeams,
 	type OptionsSlot
 } from '$lib/routines/routines';
-import { figureById, nextCountOf, type Graph } from '$lib/graph/graph';
+import { countsOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
@@ -222,9 +224,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 							label: v.label,
 							from: v.from,
 							starts: node.starts,
-							startCounts: [node.start],
+							startCounts: countsOf(node),
 							ends: node.ends,
 							next: nextCountOf(node),
+							// Spec 2026-11-11: its own length, and whether a routine sets it.
+							length: node.length,
+							...(node.free ? { free: true } : {}),
 							...(v.team ? { team: v.team } : {}),
 							...(v.twins ? { twins: v.twins } : {})
 						}
@@ -334,7 +339,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		candidates,
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
 		// anchors and the seams' labels.
-		edges: shape.slots.map((s) => rowEdges(graph, s)),
+		// As the routine walks (spec 2026-11-11): each row entered where the one before leaves off.
+		edges: rowEdgesIn(graph, shape),
 		positionSeams: positionSeams(graph, shape),
 		// Why "Make routine" is greyed, named.
 		embeddedIn: embeddedIn(db, routine.id)
@@ -500,11 +506,35 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
-		if (!addOption(db, stepId, figureId, by(params, locals))) {
+		// A figure whose length is set in the routine comes with the length its sheet chose.
+		if (!addOption(db, stepId, figureId, by(params, locals), int(form, 'length'))) {
 			const space = spaceOfRow(routine, by(params, locals));
 			const archived = archivedRefusal(db, space, { figureId }, { stepId });
 			if (archived) return archived;
 			return slotFail(t().routine.refused.notAlternative, stepId);
+		}
+		return done(routine.id);
+	},
+
+	/** An option's length in its slot: the How long? sheet from the slot's chip (spec 2026-11-11). */
+	length: async ({ params, request, locals }) => {
+		const db = getDb();
+		const form = await request.formData();
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
+		if (stale) return stale;
+		const stepId = int(form, 'stepId');
+		const figureId = int(form, 'figureId');
+		const length = int(form, 'length');
+		if (stepId === undefined || figureId === undefined || length === undefined) {
+			return slotFail(t().routine.refused.readSlot, stepId);
+		}
+		if (!ownsSlot(db, routine.id, stepId)) {
+			return slotFail(t().routine.refused.notThisRoutine, stepId);
+		}
+		if (!setOptionLength(db, stepId, figureId, length, by(params, locals))) {
+			return slotFail(t().routine.refused.length, stepId);
 		}
 		return done(routine.id);
 	},
@@ -601,7 +631,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			db,
 			routine.id,
 			at,
-			{ figureId: figureId as number },
+			{ figureId: figureId as number, length: int(form, 'length') },
 			by(params, locals)
 		);
 		if (stepId === null) {
@@ -678,7 +708,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
 		const removedAt = int(form, 'removedAt');
-		if (!restoreOption(db, stepId, figureId, by(params, locals), removedAt)) {
+		if (!restoreOption(db, stepId, figureId, by(params, locals), removedAt, int(form, 'length'))) {
 			return slotFail(t().routine.refused.altPutBack, stepId);
 		}
 		return done(routine.id);

@@ -8,6 +8,18 @@ import { slForm } from '../plural';
 import { nouns } from './nouns';
 
 export const routine: Catalog['routine'] = {
+	length: {
+		chip: (n) => nouns.counts(n),
+		change: (n) => `Dolžina ${nouns.counts(n)}. Spremenite jo`,
+		title: 'Kako dolgo?',
+		from: (figure, start) => `${figure}, od ${start}`,
+		unit: (n) => ({ one: 'doba', two: 'dobi', few: 'dobe', other: 'dob' })[slForm(n)],
+		other: 'Drugo',
+		otherLabel: 'Koliko dob',
+		done: 'Končano',
+		why: (next) =>
+			`Alternative nadaljujejo na ${next}, zato ustrezajo le dolžine, ki pristanejo tam.`
+	},
 	facts: {
 		from: 'Začetek:',
 		to: 'konec:',
@@ -164,6 +176,8 @@ export const routine: Catalog['routine'] = {
 		notThisRoutine: 'To mesto ni del te kombinacije.',
 		notAlternative:
 			'Ta figura se ne začne in konča tako kot figura na tem mestu, zato ni alternativa.',
+		length:
+			'Ta dolžina ne ustreza temu mestu: alternative nadaljujejo na drugi dobi ali pa dolžina figure ni določena v kombinaciji.',
 		holdSomething: 'Mesto ne sme biti prazno.',
 		note: 'Opomba ima lahko največ 200 znakov.',
 		readInsert: 'Ni bilo mogoče prebrati, kaj dodati in kam.',

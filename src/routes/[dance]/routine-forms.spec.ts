@@ -14,6 +14,8 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
+import { figures } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { createFigure } from '$lib/server/figures';
 import {
 	addChildSlot,
@@ -461,5 +463,50 @@ describe('positions are optional in routines', () => {
 		expect(opened.graph.figures.map((f) => f.id)).toEqual([G]);
 		expect(opened.graph.positions.map((p) => p.name).sort()).toEqual(['Abierta', 'Cerrada']);
 		expect(opened.graph).not.toHaveProperty('canon');
+	});
+});
+
+describe('a length set in the routine (spec 2026-11-11)', () => {
+	let walk: number;
+	beforeEach(() => {
+		walk = createFigure(db, U1_SALSA, {
+			figureName: 'Cradle walk',
+			name: 'Slow',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		db.update(figures).set({ lengthFree: 1 }).where(eq(figures.id, walk)).run();
+	});
+	const lengths = () => routineSlots(db, r).map((s) => s.lengths);
+
+	it('adds a slot at the length the sheet chose', async () => {
+		await call(
+			routinePage.actions.insert,
+			post('salsa', { at: '2', figureId: String(walk), length: '4' }, String(r))
+		);
+		expect(lengths()).toEqual([{}, {}, { [walk]: 4 }]);
+	});
+
+	it('changes it from the slot’s chip, and refuses a fixed figure’s', async () => {
+		const step = addFigureSlot(db, r, walk)!;
+		expect(
+			await call(
+				routinePage.actions.length,
+				post('salsa', { stepId: String(step), figureId: String(walk), length: '12' }, String(r))
+			)
+		).toMatchObject({ ok: true });
+		expect(lengths()[2]).toEqual({ [walk]: 12 });
+		const fixed = routineSlots(db, r)[0];
+		expect(
+			await call(
+				routinePage.actions.length,
+				post(
+					'salsa',
+					{ stepId: String(a), figureId: String(fixed.figureIds[0]), length: '12' },
+					String(r)
+				)
+			)
+		).toMatchObject({ status: 400, data: { stepId: a } });
 	});
 });

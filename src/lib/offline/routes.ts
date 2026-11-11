@@ -212,6 +212,7 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		extract: 'device',
 		insert: 'device',
 		keep: 'device',
+		length: 'device',
 		makeMine: 'network',
 		note: 'device',
 		noteSong: 'device',

@@ -12,7 +12,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { iconButton } from '$lib/components/ui/styles';
+	import { iconButton, LENGTH_CHIP } from '$lib/components/ui/styles';
 	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import type { RowView, Swiped } from './types';
@@ -34,6 +34,8 @@
 		ondelete: () => void;
 		onremoveAlt: (figureId: number, label: string) => void;
 		onaddAlt: () => void;
+		/** The length chip of an option whose length the routine sets: opens How long? (spec 2026-11-11). */
+		onlength: (figureId: number, current: number) => void;
 		/** May return a promise (the save), which the unsaved-changes guard awaits. */
 		onnote: (note: string | null) => unknown;
 	}
@@ -55,6 +57,7 @@
 		ondelete,
 		onremoveAlt,
 		onaddAlt,
+		onlength,
 		onnote
 	}: Props = $props();
 
@@ -198,11 +201,25 @@
 				{/if}
 				{#if row.meta}
 					<p
-						class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
+						class="mt-0.5 flex min-w-0 items-center text-[13px] leading-[1.35] {selected
 							? 'text-ink-2'
 							: 'text-muted'}"
 					>
-						{row.meta}
+						<span class="truncate">{row.meta}</span>
+						{#if row.length && !selecting}
+							{@const length = row.length}
+							<!-- Board C: the length on the closed slot; a tap opens How long?. -->
+							<button
+								type="button"
+								class={LENGTH_CHIP}
+								aria-label={t().routine.length.change(length.n)}
+								onpointerdown={(e) => e.stopPropagation()}
+								onclick={(e) => {
+									e.stopPropagation();
+									onlength(length.figureId, length.n);
+								}}>{t().routine.length.chip(length.n)}<Icon name="chevron-down" size={14} /></button
+							>
+						{/if}
 					</p>
 				{/if}
 				{#if !expanded}
@@ -331,6 +348,16 @@
 						</p>
 					</Swipeable>
 				</div>
+				{#if alt.length !== null}
+					{@const n = alt.length}
+					<!-- Each alternative keeps its own length (spec 2026-11-11). -->
+					<button
+						type="button"
+						class="grid h-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-accent-soft px-2.5 text-[13px] font-extrabold text-accent-text"
+						aria-label={t().routine.length.change(n)}
+						onclick={() => onlength(alt.id, n)}>{t().routine.length.chip(n)}</button
+					>
+				{/if}
 				<a
 					href={alt.href}
 					data-focus="alt-{row.id}-{alt.id}"

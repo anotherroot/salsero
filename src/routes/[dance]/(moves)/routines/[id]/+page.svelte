@@ -40,9 +40,12 @@
 		anchorBefore,
 		anchorBetween,
 		canBridge,
+		preselect,
 		type Anchor,
 		type Candidate
 	} from '$lib/routines/fit';
+	import { startOn } from '$lib/graph/timing';
+	import LengthSheet from '$lib/components/routines/LengthSheet.svelte';
 	import { actionBlocks, extractBlock, inOrder } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
@@ -128,6 +131,18 @@
 		anchor: Anchor;
 		insertAt: number | null;
 		stepId: number | null;
+	} | null>(null);
+	/**
+	 * How long? (spec 2026-11-11): open for a figure whose length the routine
+	 * sets, after it is picked or from a slot's length chip. `onpick` sends.
+	 */
+	let howLong = $state<{
+		figure: string;
+		start: number;
+		want: number | null;
+		current: number | null;
+		pre: number | null;
+		onpick: (n: number) => void;
 	} | null>(null);
 	let toast = $state<{ id: number; message: string; undo: () => void } | null>(null);
 	let toastSeq = 0;
@@ -256,6 +271,13 @@
 	);
 	const sourceOf = (id: number): string | null => data.groupFigures[id]?.team ?? null;
 
+	/** An option's length in its slot when the routine sets it (spec 2026-11-11); null for a fixed figure. */
+	function lengthIn(slot: { lengths: Record<number, number> }, id: number): number | null {
+		const c = figuresById.get(id);
+		if (!c?.free) return null;
+		return slot.lengths[id] ?? c.length ?? null;
+	}
+
 	function optionName(id: number): string {
 		const name = data.labels[id] ?? t().routine.slot.aFigure;
 		return figuresById.has(id) ? name : t().routine.slot.archived(name);
@@ -323,8 +345,13 @@
 						id: f,
 						label: optionName(f),
 						href: figureHref(f),
-						source: sourceOf(f)
+						source: sourceOf(f),
+						length: lengthIn(slot, f)
 					})),
+				length: (() => {
+					const n = main === undefined || isRoutine ? null : lengthIn(slot, main);
+					return n === null ? null : { figureId: main as number, n };
+				})(),
 				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
 				failure:
 					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
@@ -440,6 +467,8 @@
 			.slice(1)
 			.map((f) => `alt-${stepId}-${f}`);
 		const key = `${stepId}:${figureId}`;
+		// Its length in the slot comes back with it (spec 2026-11-11).
+		const length = data.slots.find((s) => s.id === stepId)?.lengths[figureId] ?? '';
 		goneOptions = [...goneOptions, key];
 		swiped = null;
 		const result = await send('removeOption', { stepId, figureId });
@@ -448,7 +477,7 @@
 			// When it went: in a group, Undo brings back what the remove took off members' Today.
 			const removedAt = typeof result.data?.removedAt === 'number' ? result.data.removedAt : '';
 			showToast(t().routine.slot.removed(label), () =>
-				send('restoreOption', { stepId, figureId, removedAt })
+				send('restoreOption', { stepId, figureId, removedAt, length })
 			);
 			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
 		}
@@ -518,17 +547,68 @@
 		const p = picker;
 		picker = null;
 		if (!p) return;
+		// A figure whose length the routine sets asks How long? first (spec 2026-11-11).
+		if (c.kind === 'figure' && c.free) {
+			howLong = {
+				figure: c.label,
+				...whereItGoes(p, c),
+				current: null,
+				onpick: (n) => put(p, c, n)
+			};
+			return;
+		}
 		await put(p, c);
 	}
 
-	async function put(p: PickerState, c: Candidate) {
+	/**
+	 * Where a picked figure would start and what its length must land on: an
+	 * alternative where the slot's main figure starts, going on where the slot
+	 * does; a new slot where the row above leaves off, preselecting the length
+	 * that lands where the row below starts.
+	 */
+	function whereItGoes(
+		p: PickerState,
+		c: Candidate
+	): { start: number; want: number | null; pre: number | null } {
+		if (p.anchor.kind === 'alternative') {
+			return { start: p.anchor.startCount, want: p.anchor.next, pre: null };
+		}
+		const at = p.insertAt ?? rows.length;
+		const incoming = shown[at - 1]?.edges.next ?? null;
+		const start = startOn(c.startCounts, c.startCounts[0] ?? 1, incoming);
+		const below = shown[at]?.edges.start ?? null;
+		return { start, want: null, pre: preselect(start, below) };
+	}
+
+	/** A slot option's length chip: How long? with its length lit, then save it. */
+	function openLength(stepId: number, figureId: number, current: number) {
+		const row = shown.find((s) => s.slot.id === stepId);
+		if (!row) return;
+		const c = figuresById.get(figureId);
+		const start = row.edges.start ?? c?.startCounts[0] ?? 1;
+		// With other options, a new length must still go on where they do.
+		const want = row.slot.figureIds.length > 1 ? row.edges.next : null;
+		howLong = {
+			figure: optionName(figureId),
+			start,
+			want,
+			current,
+			pre: null,
+			onpick: (n) => {
+				if (n !== current) void send('length', { stepId, figureId, length: n });
+			}
+		};
+	}
+
+	async function put(p: PickerState, c: Candidate, length?: number) {
 		lastPick = { p, c };
+		const sized: Record<string, Field> = length === undefined ? {} : { length };
 		if (p.stepId !== null) {
-			await send('addOption', { stepId: p.stepId, figureId: c.id });
+			await send('addOption', { stepId: p.stepId, figureId: c.id, ...sized });
 			return;
 		}
 		const content: Record<string, Field> =
-			c.kind === 'figure' ? { figureId: c.id } : { childId: c.id };
+			c.kind === 'figure' ? { figureId: c.id, ...sized } : { childId: c.id };
 		const result = await send('insert', { at: p.insertAt ?? rows.length, ...content });
 		if (result.type === 'success' && typeof result.data?.stepId === 'number') {
 			const id = result.data.stepId;
@@ -1016,6 +1096,7 @@
 						ondelete={removeSlot}
 						onremoveAlt={removeAlternative}
 						onaddAlt={openAlternative}
+						onlength={openLength}
 						onnote={(id, note) => send('note', { stepId: id, note })}
 						onadd={openPicker}
 					/>
@@ -1206,6 +1287,21 @@
 	positionName={posName}
 	onpick={pick}
 	onclose={() => (picker = null)}
+/>
+
+<LengthSheet
+	open={howLong !== null}
+	figure={howLong?.figure ?? ''}
+	start={howLong?.start ?? 1}
+	want={howLong?.want ?? null}
+	current={howLong?.current ?? null}
+	pre={howLong?.pre ?? null}
+	onpick={(n) => {
+		const h = howLong;
+		howLong = null;
+		h?.onpick(n);
+	}}
+	onclose={() => (howLong = null)}
 />
 
 <Sheet title={t().routine.make.title} open={naming} onclose={() => (naming = false)}>
