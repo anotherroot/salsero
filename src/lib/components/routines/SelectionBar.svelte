@@ -69,7 +69,7 @@
 				},
 				{
 					key: 'extract',
-					label: t().routine.make.action,
+					label: t().routine.selection.make,
 					icon: 'route',
 					why: blocks.extract,
 					onclick: onextract

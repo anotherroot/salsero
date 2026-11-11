@@ -49,6 +49,7 @@ export const routine: Catalog['routine'] = {
 		duplicate: 'Podvoji',
 		run: (from, to) => `${to - from === 1 ? 'Mesti' : 'Mesta'} ${from}–${to}`,
 		tip: 'Tapnite še druga mesta, da jih dodate.',
+		make: 'Kombinacija',
 		blocked: {
 			embedded: (names) =>
 				`Ta kombinacija je že vstavljena drugam: ${names}. Vstavljanje gre le eno raven globoko.`,

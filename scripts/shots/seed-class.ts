@@ -70,6 +70,16 @@ it('seeds the class into the copy', async () => {
 		.all()
 		.map((f) => f.id);
 	if (mine.length) createRoutineFromFigures(db, wall, { name: 'Doma', notes: null }, mine);
+	// for the routine-lift scenes (ext_routine_lift.py): a longer one, after Doma so {routine} stays Doma
+	const six = db
+		.select({ id: figures.id })
+		.from(figures)
+		.where(and(eq(figures.userId, me.id), isNull(figures.archivedAt)))
+		.orderBy(figures.id)
+		.limit(6)
+		.all()
+		.map((f) => f.id);
+	if (six.length === 6) createRoutineFromFigures(db, wall, { name: 'Dolga', notes: null }, six);
 	db.update(exercises).set({ archivedAt: now }).where(eq(exercises.userId, me.id)).run();
 	setLevel(db, me.id, 'follow');
 

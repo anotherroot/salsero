@@ -21,7 +21,9 @@
 	import { t } from '$lib/i18n/catalog';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
-	import { DIM_OPEN, FADE, LIFTED, pieceRound } from './lift';
+	import type { Snippet } from 'svelte';
+	import type { SelectionShape } from '$lib/routines/selection';
+	import { DIM_OPEN, DIM_SELECT, FADE, faceRound, LIFTED, pieceRound } from './lift';
 	import type { PickFrom, RowView, Swiped } from './types';
 
 	interface Props {
@@ -29,6 +31,10 @@
 		expanded: number | null;
 		selecting: boolean;
 		selected: number[];
+		/** How the selection lifts: each row's piece and the runs of neighbours. */
+		shape: SelectionShape;
+		/** The selection's toolbar, drawn at the foot of its only run; none when docked. */
+		tools?: Snippet;
 		swiped: Swiped;
 		flash: number | null;
 		press: LongPress;
@@ -51,6 +57,8 @@
 		expanded,
 		selecting,
 		selected,
+		shape,
+		tools,
 		swiped,
 		flash,
 		press,
@@ -212,6 +220,22 @@
 		'flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-accent/50 text-[15px] font-extrabold text-accent-text disabled:cursor-default disabled:border-field-line disabled:text-disabled-ink';
 </script>
 
+{#snippet seam(row: RowView, i: number)}
+	{#if row.seam}
+		{@const next = row.seam.next}
+		<Seam
+			label={row.seam.label}
+			above={i + 1}
+			below={next + 1}
+			onafter={() => onadd(i + 1, { row: i, side: 'after' })}
+			onbefore={() => onadd(next, { row: next, side: 'before' })}
+			onbetween={row.seam.bridge
+				? () => onadd(i + 1, { row: i, side: 'between', next })
+				: undefined}
+		/>
+	{/if}
+{/snippet}
+
 {#if rows.length === 0}
 	<button type="button" class={addEnd} data-focus="add-slot" onclick={() => onadd(0, null)}
 		><Icon name="plus" size={20} />{t().routine.slots.addFigure}</button
@@ -252,7 +276,14 @@
 		{/if}
 		{#each rows as row, i (row.id)}
 			{@const lifted = drag?.id === row.id}
-			{@const piece = !selecting && !drag && expanded === row.id ? 'single' : null}
+			{@const sel = selecting ? (shape.pieces[i] ?? null) : null}
+			{@const piece = sel ?? (!selecting && !drag && expanded === row.id ? 'single' : null)}
+			{@const run = sel ? shape.runs.find((r) => r.from <= i && i <= r.to) : undefined}
+			{@const runEnd = run?.to === i}
+			<!-- The only run's last slot carries the tip and the selection's toolbar. -->
+			{@const foot = runEnd && shape.runs.length === 1}
+			<!-- A seam between two selected neighbours is drawn inside their piece. -->
+			{@const seamInside = sel !== null && !runEnd}
 			<!-- The offset is the `translate` property, not `transform`: CSS applies
 			     `translate` outside `scale`, so the lifted card's 1.03 does not
 			     stretch its offset and pull it off the finger. Only while dragging:
@@ -266,20 +297,35 @@
 					? 'relative z-10 shadow-[0_18px_40px_rgb(0_0_0/0.22)] transition-[scale,rotate,box-shadow] duration-150 motion-safe:scale-[1.03] motion-safe:-rotate-[0.8deg] motion-reduce:transition-none'
 					: ''} {drag && !lifted
 					? 'transition-transform duration-150 motion-reduce:transition-none'
-					: FADE} {!selecting && expanded !== null && expanded !== row.id
-					? DIM_OPEN
-					: ''} {flash === row.id ? 'flash' : ''}"
+					: FADE} {(!selecting && expanded !== null && expanded !== row.id) ||
+				(selecting && sel === null && selected.length > 0)
+					? selecting
+						? DIM_SELECT
+						: DIM_OPEN
+					: ''} {sel === 'mid' || sel === 'bottom' ? '-mt-2' : ''} {flash === row.id
+					? 'flash'
+					: ''}"
 				style={drag ? `translate: 0 ${offsetOf(i, row.id)}px` : undefined}
 			>
-				<!-- Open, the card lifts in a piece of its own (spec 2026-11-11, T3); else the
-				     wrapper is `contents`, so the card is never drawn anew between the two. -->
-				<div class={piece ? `${LIFTED} ${pieceRound(piece)}` : 'contents'}>
+				<!-- Open or selected, the card lifts in a piece (spec 2026-11-11, T3, S6–S8);
+				     neighbours join theirs. Else the wrapper is `contents`, so the card is
+				     never drawn anew between the two. -->
+				<div
+					class={piece
+						? `${LIFTED} ${pieceRound(piece)} ${sel === 'mid' || sel === 'bottom' ? 'border-t border-hairline' : ''}`
+						: 'contents'}
+				>
+					{#if sel === 'top' && run}
+						<p class="px-4 pt-3 text-[12px] font-extrabold tracking-[0.03em] text-muted uppercase">
+							{t().routine.selection.run(run.from + 1, run.to + 1)}
+						</p>
+					{/if}
 					<SlotCard
 						{row}
 						index={i}
 						count={rows.length}
 						expanded={expanded === row.id}
-						rounded={piece ? 'rounded-t-[20px]' : 'rounded-2xl'}
+						rounded={faceRound(piece, foot || (piece !== null && !selecting))}
 						{selecting}
 						selected={selected.includes(row.id)}
 						{lifted}
@@ -297,19 +343,20 @@
 						onlength={(figureId, current) => onlength(row.id, figureId, current)}
 						onnote={(note) => onnote(row.id, note)}
 					/>
+					{#if seamInside}
+						<div class="px-2 pb-2">{@render seam(row, i)}</div>
+					{/if}
+					{#if foot}
+						{#if selected.length === 1}
+							<p class="pr-4 pb-2.5 pl-[80px] text-[13px] font-semibold text-muted">
+								{t().routine.selection.tip}
+							</p>
+						{/if}
+						{@render tools?.()}
+					{/if}
 				</div>
-				{#if row.seam}
-					{@const next = row.seam.next}
-					<Seam
-						label={row.seam.label}
-						above={i + 1}
-						below={next + 1}
-						onafter={() => onadd(i + 1, { row: i, side: 'after' })}
-						onbefore={() => onadd(next, { row: next, side: 'before' })}
-						onbetween={row.seam.bridge
-							? () => onadd(i + 1, { row: i, side: 'between', next })
-							: undefined}
-					/>
+				{#if !seamInside}
+					{@render seam(row, i)}
 				{/if}
 			</li>
 		{/each}

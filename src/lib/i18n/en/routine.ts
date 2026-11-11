@@ -55,6 +55,8 @@ export const routine = {
 		run: (from: number, to: number): string => `Slots ${from}–${to}`,
 		/** Under one selected slot. */
 		tip: 'Tap other slots to add them.',
+		/** Make routine, in a fifth of the toolbar. */
+		make: 'Make routine',
 		/** Why an action is greyed. */
 		blocked: {
 			embedded: (names: string): string =>

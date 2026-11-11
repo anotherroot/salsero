@@ -30,3 +30,15 @@ const ROUND: Record<Piece, string> = {
 export function pieceRound(piece: Piece): string {
 	return ROUND[piece];
 }
+
+/**
+ * A card's own corners inside the piece lifting it: where it meets the
+ * piece's corners. `followed`: something under it in the piece (an open
+ * slot's alternatives and tools, a run's tip and toolbar).
+ */
+export function faceRound(piece: Piece | null, followed: boolean): string {
+	if (piece === null) return 'rounded-2xl';
+	if (piece === 'single') return followed ? 'rounded-t-[20px]' : 'rounded-[20px]';
+	if (piece === 'bottom' && !followed) return 'rounded-b-[20px]';
+	return 'rounded-none';
+}
