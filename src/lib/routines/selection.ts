@@ -30,13 +30,47 @@ export function extractBlock(
 
 export type SelectionAction = 'above' | 'below' | 'duplicate' | 'extract' | 'delete';
 
-/** Why each action of the selection bar is greyed, or null when it is open. */
+/**
+ * Why each action of the selection's toolbar is greyed, or null when it is
+ * open. `together`: the selection is one run of neighbours, so Before and
+ * After have a first and a last slot to build from.
+ */
 export function actionBlocks(
 	count: number,
+	together: boolean,
 	extractBlocked: string | null
 ): Record<SelectionAction, string | null> {
 	const w = t().routine.selection.blocked;
-	const beside = count === 1 ? null : w.one;
 	const some = count === 0 ? w.first : null;
+	const beside = some ?? (together ? null : w.apart);
 	return { above: beside, below: beside, duplicate: some, extract: extractBlocked, delete: some };
+}
+
+/** A selected slot's place in its run: alone, or the top, a middle or the bottom of neighbours. */
+export type Piece = 'single' | 'top' | 'mid' | 'bottom';
+
+export interface SelectionShape {
+	/** Each row's place in the selection, by row index; null when it is not selected. */
+	pieces: (Piece | null)[];
+	/** The runs of selected neighbours, in row order, as inclusive row indices. */
+	runs: { from: number; to: number }[];
+}
+
+/** How the selected rows lift (spec 2026-11-11, routine lift): alone, or joined with their neighbours. */
+export function selectionShape(rowIds: number[], selected: number[]): SelectionShape {
+	const on = rowIds.map((id) => selected.includes(id));
+	const runs: SelectionShape['runs'] = [];
+	on.forEach((s, i) => {
+		if (!s) return;
+		const last = runs[runs.length - 1];
+		if (last && last.to === i - 1) last.to = i;
+		else runs.push({ from: i, to: i });
+	});
+	const pieces: (Piece | null)[] = rowIds.map(() => null);
+	for (const { from, to } of runs) {
+		for (let i = from; i <= to; i++) {
+			pieces[i] = from === to ? 'single' : i === from ? 'top' : i === to ? 'bottom' : 'mid';
+		}
+	}
+	return { pieces, runs };
 }

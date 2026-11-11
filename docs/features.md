@@ -213,7 +213,8 @@ the per-type exercise page content, links, and the practice panel (since 2026-11
 The routine editor has its own,
 [`docs/superpowers/specs/2026-10-01-routine-editor-design.md`](docs/superpowers/specs/2026-10-01-routine-editor-design.md):
 the main figure, the start rule for alternatives, the picker's anchors, and the
-gestures.
+gestures; an open slot and the selection lift out of the list since 2026-11-11,
+[`docs/superpowers/specs/2026-11-11-routine-lift-design.md`](docs/superpowers/specs/2026-11-11-routine-lift-design.md).
 The full-screen video player has its own,
 [`docs/superpowers/specs/2026-10-01-video-player-design.md`](docs/superpowers/specs/2026-10-01-video-player-design.md):
 spots, the loop, and why it is not the browser's fullscreen.

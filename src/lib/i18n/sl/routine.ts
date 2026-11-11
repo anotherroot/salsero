@@ -47,13 +47,15 @@ export const routine: Catalog['routine'] = {
 		above: 'Dodaj zgoraj',
 		below: 'Dodaj spodaj',
 		duplicate: 'Podvoji',
+		run: (from, to) => `${to - from === 1 ? 'Mesti' : 'Mesta'} ${from}–${to}`,
+		tip: 'Tapnite še druga mesta, da jih dodate.',
+		make: 'Kombinacija',
 		blocked: {
 			embedded: (names) =>
 				`Ta kombinacija je že vstavljena drugam: ${names}. Vstavljanje gre le eno raven globoko.`,
 			none: 'Izberite mesta, iz katerih naj nastane kombinacija.',
 			slotIsRoutine: (n) => `Mesto ${n} je kombinacija — vstavljanje gre le eno raven globoko.`,
 			apart: 'Izberite sosednja mesta.',
-			one: 'Izberite eno mesto, ob katerem želite dodati.',
 			first: 'Najprej izberite mesta.'
 		}
 	},
@@ -93,6 +95,7 @@ export const routine: Catalog['routine'] = {
 		noteUnsaved: 'Opomba mesta',
 		noteFailed: 'Opomba ni bila shranjena.',
 		alternatives: (n) => `Alternative za mesto ${n}`,
+		toolbar: (n) => `Mesto ${n}`,
 		alternative: 'Alternativa',
 		open: (label) => `Odpri: ${label}`,
 		remove: (label) => `Odstrani: ${label}`,

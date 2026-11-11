@@ -4,6 +4,8 @@
 	import MusicSection from '$lib/components/songs/MusicSection.svelte';
 	import { practiseHref as musicHref } from '$lib/songs/music';
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
+	import { claimBottom } from '$lib/nav/chrome.svelte';
+	import { keepInPlace } from '$lib/motion/anchor';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { routinePractiseHref } from '$lib/player/view';
@@ -30,10 +32,11 @@
 	import SlotList from '$lib/components/routines/SlotList.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
+	import CardToolbar from '$lib/components/routines/CardToolbar.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { act, type Field } from '$lib/act';
 	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
-	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
+	import type { PickFrom, RowView, Swiped, ToolItem } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
 		anchorBefore,
@@ -45,7 +48,7 @@
 	} from '$lib/routines/fit';
 	import { startOn } from '$lib/graph/timing';
 	import LengthSheet from '$lib/components/routines/LengthSheet.svelte';
-	import { actionBlocks, extractBlock, inOrder } from '$lib/routines/selection';
+	import { actionBlocks, extractBlock, inOrder, selectionShape } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
 	import {
@@ -654,16 +657,31 @@
 
 	/* ── Selection ─────────────────────────────────────────────────────── */
 
+	/*
+	 * Nothing jumps (spec 2026-11-11, routine lift): opening, closing or
+	 * selecting a slot moves what is around it — a card closing above, a tip
+	 * or a toolbar coming and going, neighbours joining — so each change keeps
+	 * the touched slot's card where it is on screen. The card, not its row: a
+	 * run's header is drawn in its top row, above the card.
+	 */
+	const slotEl = (id: number | null) =>
+		id === null ? null : document.querySelector(`[data-swipe="slot:${id}"]`);
+	/** The slot last tapped or pressed: × leaves the selection around it. */
+	let touched: number | null = null;
+
 	const press = longPress({
 		ms: 450,
 		// Under the swipe's 10 px lock, so a locked swipe has always cancelled it.
 		tolerancePx: 9.5,
 		enabled: () => !selecting && !dragging,
 		onLongPress: (id) => {
-			selecting = true;
-			selected = [id];
-			expanded = null;
-			swiped = null;
+			touched = id;
+			void keepInPlace(slotEl(id), () => {
+				selecting = true;
+				selected = [id];
+				expanded = null;
+				swiped = null;
+			});
 		}
 	});
 
@@ -672,12 +690,15 @@
 			swiped = null;
 			return;
 		}
-		if (selecting) {
-			selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
-			if (selected.length === 0) selecting = false;
-			return;
-		}
-		expanded = expanded === id ? null : id;
+		touched = id;
+		void keepInPlace(slotEl(id), () => {
+			if (selecting) {
+				selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
+				if (selected.length === 0) selecting = false;
+				return;
+			}
+			expanded = expanded === id ? null : id;
+		});
 	}
 
 	/*
@@ -703,22 +724,104 @@
 	}
 	/** × or Escape: the band's ⋯ takes the focus the × had. */
 	function leaveSelecting() {
-		stopSelecting();
+		void keepInPlace(slotEl(touched), stopSelecting);
 		focusBand('item-menu');
 	}
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
+	/** How the selection lifts: each row's piece, and the runs of neighbours (spec 2026-11-11, routine lift). */
+	const shape = $derived(
+		selectionShape(
+			rows.map((r) => r.id),
+			selected
+		)
+	);
+	/** The selection's toolbar docks at the foot unless the selection is one run, which carries it. */
+	const docked = $derived(selecting && shape.runs.length !== 1);
+	// The tab bar steps aside for the whole selection, docked or not.
+	claimBottom(() => selecting);
+
+	/** The one run of neighbours the selection is, or null (apart, or none yet). */
+	const run = $derived(shape.runs.length === 1 ? shape.runs[0] : null);
+	const blocks = $derived(actionBlocks(selected.length, run !== null, extractBlocked));
 
 	/**
-	 * Add above / below the one selected slot. The selection is KEPT while the
-	 * picker is open: closing it without picking leaves you where you were.
-	 * Picking ends selection and opens the new slot expanded (see `pick`).
+	 * Add before the run's first slot / after its last. The selection is KEPT
+	 * while the picker is open: closing it without picking leaves you where you
+	 * were. Picking ends selection and opens the new slot expanded (see `pick`).
 	 */
 	function addAround(side: 'after' | 'before') {
-		const i = rows.findIndex((r) => r.id === selected[0]);
-		if (i < 0) return;
+		if (run === null) return;
+		const i = side === 'after' ? run.to : run.from;
 		openPicker(side === 'after' ? i + 1 : i, { row: i, side });
 	}
+
+	function duplicateSelected() {
+		// Selection from ⋯ starts empty: nothing to post yet.
+		if (selected.length === 0) return;
+		const ids = inOrder(rows, selected);
+		stopSelecting();
+		send('duplicateMany', { stepIds: ids });
+	}
+
+	function extractSelected() {
+		// A refused earlier Make routine (or rename) must not greet this one.
+		dismissed = form;
+		naming = true;
+	}
+
+	function deleteSelected() {
+		if (selected.length === 0) return;
+		const ids = inOrder(rows, selected);
+		stopSelecting();
+		remove(ids);
+	}
+
+	/** The toolbar at the foot of a run of selected neighbours (spec 2026-11-11, S6/S7). */
+	const runTools: ToolItem[] = $derived(
+		run === null
+			? []
+			: [
+					{
+						key: 'above',
+						label: t().routine.seam.before(run.from + 1),
+						name: t().routine.seam.addBefore(run.from + 1),
+						icon: 'arrow-up',
+						why: blocks.above,
+						onclick: () => addAround('before')
+					},
+					{
+						key: 'below',
+						label: t().routine.seam.after(run.to + 1),
+						name: t().routine.seam.addAfter(run.to + 1),
+						icon: 'arrow-down',
+						why: blocks.below,
+						onclick: () => addAround('after')
+					},
+					{
+						key: 'duplicate',
+						label: t().routine.selection.duplicate,
+						icon: 'copy',
+						why: blocks.duplicate,
+						onclick: duplicateSelected
+					},
+					{
+						key: 'extract',
+						label: t().routine.selection.make,
+						icon: 'route',
+						why: blocks.extract,
+						onclick: extractSelected
+					},
+					{
+						key: 'delete',
+						label: t().common.delete,
+						icon: 'trash',
+						why: blocks.delete,
+						danger: true,
+						onclick: deleteSelected
+					}
+				]
+	);
 
 	/**
 	 * The Make routine form's enhance callback. The form goes through
@@ -767,6 +870,11 @@
 			<span>{note}</span>
 		</p>
 	{/each}
+{/snippet}
+
+<!-- The selection's toolbar at the foot of its run (spec 2026-11-11, S6/S7). -->
+{#snippet runToolbar()}
+	<CardToolbar label={t().routine.selection.bar} items={runTools} />
 {/snippet}
 
 {#snippet back()}
@@ -1102,6 +1210,8 @@
 						{expanded}
 						{selecting}
 						{selected}
+						{shape}
+						tools={selecting && run !== null ? runToolbar : undefined}
 						{swiped}
 						{flash}
 						{press}
@@ -1270,31 +1380,15 @@
 	{/snippet}
 </Dialog>
 
-{#if selecting}
+{#if docked}
 	<SelectionBar
 		bind:height={barHeight}
-		count={selected.length}
-		blocks={actionBlocks(selected.length, extractBlocked)}
+		{blocks}
 		onabove={() => addAround('before')}
 		onbelow={() => addAround('after')}
-		onduplicate={() => {
-			// Selection from ⋯ starts empty: nothing to post yet.
-			if (selected.length === 0) return;
-			const ids = inOrder(rows, selected);
-			stopSelecting();
-			send('duplicateMany', { stepIds: ids });
-		}}
-		onextract={() => {
-			// A refused earlier Make routine (or rename) must not greet this one.
-			dismissed = form;
-			naming = true;
-		}}
-		ondelete={() => {
-			if (selected.length === 0) return;
-			const ids = inOrder(rows, selected);
-			stopSelecting();
-			remove(ids);
-		}}
+		onduplicate={duplicateSelected}
+		onextract={extractSelected}
+		ondelete={deleteSelected}
 	/>
 {/if}
 
@@ -1416,7 +1510,7 @@
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: t().common.undo }}
-	bottom={selecting
+	bottom={docked
 		? `calc(${barHeight}px + 0.5rem)`
 		: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'}
 	onaction={() => {

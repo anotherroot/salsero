@@ -77,7 +77,7 @@ import {
 	unlinkRoutine
 } from '../lessons';
 import { unlinkSpotFromPosition } from '../position-links';
-import { routineSlots } from '../routines';
+import { insertOptions, routineSlots } from '../routines';
 import { AUDIO_RESET } from '../songs';
 import { deleteLink, type LinkOwner } from '../links';
 import { deleteSpot } from '../spots';
@@ -579,16 +579,8 @@ class Applier {
 				})
 				.returning({ id: routineSteps.id })
 				.get();
-			// In the slot's order, main figure first: one instant, so rowid keeps it.
-			for (const figureId of options)
-				tx.insert(routineStepOptions)
-					.values({
-						stepId: step.id,
-						figureId,
-						lengthCounts: lengthOf.get(figureId) ?? null,
-						createdAt: now
-					})
-					.run();
+			// In the slot's order, main figure first, a millisecond apart (`insertOptions`).
+			insertOptions(tx, step.id, options, (figureId) => lengthOf.get(figureId) ?? null, now);
 		}
 		this.changed('slots', old.length, position);
 		if ([...oldIds].some((id) => !newIds.has(id))) this.removals = true;
