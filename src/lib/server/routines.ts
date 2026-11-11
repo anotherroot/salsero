@@ -33,8 +33,17 @@ import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
-import { figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
-import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
+import { countsOf, figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
+import { isLengthCounts, nextCount, startOn } from '$lib/graph/timing';
+import {
+	flatten,
+	loops,
+	optionLength,
+	stepIncoming,
+	type OptionsSlot,
+	type RoutineShape,
+	type Slot
+} from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
@@ -48,6 +57,49 @@ function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, 
 		else byStep.set(row.stepId, [row.figureId]);
 	}
 	return byStep;
+}
+
+/**
+ * The lengths these steps' options carry (`routine_step_options.length_counts`),
+ * by step, then by figure: only rows that have one. Read only for a figure
+ * whose length is free (`optionLength`), but kept for every row so turning
+ * the figure free again brings them back.
+ */
+function lengthsIn(db: Db | Tx, stepIds: number[]): Map<number, Record<number, number>> {
+	const out = new Map<number, Record<number, number>>();
+	if (stepIds.length === 0) return out;
+	for (const row of db
+		.select({
+			stepId: routineStepOptions.stepId,
+			figureId: routineStepOptions.figureId,
+			length: routineStepOptions.lengthCounts
+		})
+		.from(routineStepOptions)
+		.where(
+			and(inArray(routineStepOptions.stepId, stepIds), isNotNull(routineStepOptions.lengthCounts))
+		)
+		.all()) {
+		const of = out.get(row.stepId) ?? {};
+		of[row.figureId] = row.length!;
+		out.set(row.stepId, of);
+	}
+	return out;
+}
+
+/** A shape's option slot for one step: its options, note, step id and the lengths it has. */
+function optionsSlot(
+	s: { id: number; note: string | null },
+	byStep: Map<number, number[]>,
+	lengths: Map<number, Record<number, number>>
+): OptionsSlot {
+	const own = lengths.get(s.id);
+	return {
+		kind: 'options',
+		figureIds: byStep.get(s.id) ?? [],
+		note: s.note,
+		stepId: s.id,
+		...(own ? { lengths: own } : {})
+	};
 }
 
 /**
@@ -425,15 +477,19 @@ export function routineShapes(
 		.all();
 
 	const byStep = groupByStep(options);
+	const lengths = lengthsIn(
+		db,
+		steps.map((s) => s.id)
+	);
 
-	// A routine's own option slots, in order. Embedding is one level, so a
+	// A routine’s own option slots, in order. Embedding is one level, so a
 	// routine that IS embedded has none of its own children to worry about and
 	// this is its whole shape.
 	const own = new Map<number, OptionsSlot[]>();
 	for (const s of steps) {
 		if (s.childRoutineId !== null) continue;
 		const list = own.get(s.routineId) ?? [];
-		list.push({ kind: 'options', figureIds: byStep.get(s.id) ?? [], note: s.note });
+		list.push(optionsSlot(s, byStep, lengths));
 		own.set(s.routineId, list);
 	}
 
@@ -468,7 +524,7 @@ export function routineShapes(
 		const other = s.childRoutineId === null ? undefined : others.get(s.childRoutineId);
 		const slot: Slot =
 			s.childRoutineId === null
-				? { kind: 'options', figureIds: byStep.get(s.id) ?? [], note: s.note }
+				? optionsSlot(s, byStep, lengths)
 				: {
 						kind: 'child',
 						routineId: s.childRoutineId,
@@ -544,11 +600,9 @@ function shapesOf(
 					.orderBy(...MAIN_FIRST)
 					.all()
 	);
-	const optionsOf = (s: { id: number; note: string | null }): OptionsSlot => ({
-		kind: 'options',
-		figureIds: byStep.get(s.id) ?? [],
-		note: s.note
-	});
+	const lengths = lengthsIn(db, stepIds);
+	const optionsOf = (s: { id: number; note: string | null }): OptionsSlot =>
+		optionsSlot(s, byStep, lengths);
 	const inner = new Map<number, OptionsSlot[]>();
 	for (const s of nested) inner.set(s.routineId, [...(inner.get(s.routineId) ?? []), optionsOf(s)]);
 	for (const id of live) out.set(id, { slots: [] });
@@ -608,11 +662,13 @@ export function routineSlots(db: Db, routineId: number, usable?: Usable): SlotRo
 					.all();
 
 	const byStep = groupByStep(options);
+	const lengths = lengthsIn(db, ids);
 
 	return steps.map((s) => ({
 		...s,
 		childName: s.childId === null ? null : (child.get(s.childId) ?? null),
-		figureIds: byStep.get(s.id) ?? []
+		figureIds: byStep.get(s.id) ?? [],
+		lengths: lengths.get(s.id) ?? {}
 	}));
 }
 
@@ -686,8 +742,17 @@ function landingIn(
 	return f ? { starts: f.starts, start: f.start, ends: f.ends, next: nextCountOf(f) } : null;
 }
 
-/** What a new slot holds: one figure (its main figure), or one embedded routine. */
-export type SlotContent = { figureId: number } | { childId: number };
+/**
+ * What a new slot holds: one figure (its main figure), or one embedded routine.
+ * `length` is the figure's length in this slot, kept only for a figure whose
+ * length is set in the routine (spec 2026-11-11); ignored for any other.
+ */
+export type SlotContent = { figureId: number; length?: number } | { childId: number };
+
+/** The length to store for an option: the one asked for, when the figure's length is free and it is in range. */
+function storedLength(g: Graph, figureId: number, length: number | undefined): number | null {
+	return figureById(g, figureId)?.free && isLengthCounts(length) ? length : null;
+}
 
 /**
  * Insert a slot at index `at`. The new slot's id, or null when the figure is not
@@ -709,10 +774,13 @@ export function insertSlot(
 ): number | null {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
+	let length: number | null = null;
 	if ('childId' in content) {
 		if (!canEmbed(db, routineId, content.childId)) return null;
-	} else if (landingIn(graphFor(db, ownerSpace(routine)), content.figureId) === null) {
-		return null;
+	} else {
+		const g = graphFor(db, ownerSpace(routine));
+		if (landingIn(g, content.figureId) === null) return null;
+		length = storedLength(g, content.figureId, content.length);
 	}
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
@@ -729,7 +797,9 @@ export function insertSlot(
 			.returning({ id: routineSteps.id })
 			.get();
 		if ('figureId' in content) {
-			tx.insert(routineStepOptions).values({ stepId: step.id, figureId: content.figureId }).run();
+			tx.insert(routineStepOptions)
+				.values({ stepId: step.id, figureId: content.figureId, lengthCounts: length })
+				.run();
 		}
 		ids.splice(Math.min(Math.max(at, 0), ids.length), 0, step.id);
 		order(tx, ids);
@@ -911,6 +981,54 @@ export function embeddable(
 	});
 }
 
+/** A slot as the routine walks it: the count it is entered on, and its options' lengths. */
+interface SlotHere {
+	incoming: number | null;
+	slot: OptionsSlot;
+}
+
+/**
+ * Where the routine puts this step (spec 2026-11-11): the count the slot
+ * before leaves it on (null for the first, after an unknown, or a step the
+ * shape no longer holds) and the lengths its options carry.
+ */
+function slotHere(db: Db, routine: Routine, g: Graph, stepId: number): SlotHere {
+	const shape = routineShapes(db, ownerSpace(routine)).get(routine.id) ?? { slots: [] };
+	const slot = flatten(g, shape).find((s) => s.stepId === stepId);
+	return {
+		incoming: stepIncoming(g, shape, stepId) ?? null,
+		slot: slot ?? {
+			kind: 'options',
+			figureIds: [],
+			stepId,
+			lengths: lengthsIn(db, [stepId]).get(stepId)
+		}
+	};
+}
+
+/**
+ * Where one option starts and leaves the next figure in this slot. `length`:
+ * the length it would have (an option being added or changed); undefined:
+ * the one it has. Null when the figure is not in the graph.
+ */
+function timingIn(
+	g: Graph,
+	here: SlotHere,
+	figureId: number,
+	length?: number | null
+): { start: number; next: number } | null {
+	const f = figureById(g, figureId);
+	if (!f) return null;
+	const start = startOn(countsOf(f), f.start, here.incoming);
+	const own =
+		length === undefined
+			? optionLength(g, here.slot, figureId)
+			: f.free && length !== null
+				? length
+				: f.length;
+	return { start, next: nextCount(start, own) };
+}
+
 /**
  * Add an interchangeable figure to a slot.
  *
@@ -922,7 +1040,13 @@ export function embeddable(
  * slot's main figure, when it begins on another count or from no hold the
  * main figure begins from.
  */
-export function addOption(db: Db, stepId: number, figureId: number, by?: string): boolean {
+export function addOption(
+	db: Db,
+	stepId: number,
+	figureId: number,
+	by?: string,
+	length?: number
+): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
 		.from(routineSteps)
@@ -943,9 +1067,22 @@ export function addOption(db: Db, stepId: number, figureId: number, by?: string)
 	// Idempotent on purpose: (step_id, figure_id) is a composite primary key, so
 	// falling through to the insert would throw rather than refuse.
 	if (existing.some((o) => o.figureId === figureId)) return true;
+	// Every option is judged where the routine puts this slot (spec 2026-11-11):
+	// it starts on the count the slot before leaves it, when its set holds it,
+	// and takes its own length in the slot.
+	const here = slotHere(db, routine, g, stepId);
+	const lengthCounts = storedLength(g, figureId, length);
+	const mine = timingIn(g, here, figureId, lengthCounts);
+	if (mine === null) return false;
 	for (const o of existing) {
 		const other = landingIn(g, o.figureId);
-		if (other === null || !sameSet(other.ends, landing.ends) || other.next !== landing.next) {
+		const at = timingIn(g, here, o.figureId);
+		if (
+			other === null ||
+			at === null ||
+			!sameSet(other.ends, landing.ends) ||
+			at.next !== mine.next
+		) {
 			return false;
 		}
 	}
@@ -954,12 +1091,69 @@ export function addOption(db: Db, stepId: number, figureId: number, by?: string)
 	// never be danced where the main one is. An untagged side meets anything (ruling 3). Older slots that predate this rule
 	// are left as they are — it governs adding, it is not a migration.
 	const main = existing.length > 0 ? landingIn(g, existing[0].figureId) : null;
-	if (main && (main.start !== landing.start || !meet(main.starts, landing.starts))) {
+	const mainAt = existing.length > 0 ? timingIn(g, here, existing[0].figureId) : null;
+	if (main && (mainAt?.start !== mine.start || !meet(main.starts, landing.starts))) {
 		return false;
 	}
 	db.transaction((tx) => {
-		tx.insert(routineStepOptions).values({ stepId, figureId }).run();
+		tx.insert(routineStepOptions).values({ stepId, figureId, lengthCounts }).run();
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+	});
+	return true;
+}
+
+/**
+ * An option's length in its slot: the How long? sheet (spec 2026-11-11).
+ * False, writing nothing, when the option is gone, its figure's length is not
+ * set in the routine, the length is out of range, or the slot's other options
+ * would then leave the next figure on another count — the rule `addOption`
+ * keeps. In a group, `by` is who, for History.
+ */
+export function setOptionLength(
+	db: Db,
+	stepId: number,
+	figureId: number,
+	length: number,
+	by?: string
+): boolean {
+	if (!isLengthCounts(length)) return false;
+	const step = db
+		.select({ routineId: routineSteps.routineId })
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	const routine = step ? getRoutine(db, step.routineId) : null;
+	if (!routine) return false;
+	const options = db
+		.select({ figureId: routineStepOptions.figureId, length: routineStepOptions.lengthCounts })
+		.from(routineStepOptions)
+		.where(eq(routineStepOptions.stepId, stepId))
+		.all();
+	const was = options.find((o) => o.figureId === figureId);
+	if (!was) return false;
+	const g = graphFor(db, ownerSpace(routine));
+	if (!figureById(g, figureId)?.free) return false;
+	const here = slotHere(db, routine, g, stepId);
+	const mine = timingIn(g, here, figureId, length);
+	if (mine === null) return false;
+	for (const o of options) {
+		if (o.figureId === figureId) continue;
+		const at = timingIn(g, here, o.figureId);
+		if (at !== null && at.next !== mine.next) return false;
+	}
+	if (was.length === length) return true;
+	db.transaction((tx) => {
+		tx.update(routineStepOptions)
+			.set({ lengthCounts: length })
+			.where(and(eq(routineStepOptions.stepId, stepId), eq(routineStepOptions.figureId, figureId)))
+			.run();
+		logRoutine(tx, routine, by, {
+			verb: 'change',
+			subject: 'option',
+			subjectId: stepId,
+			before: { length: was.length },
+			after: { length }
+		});
 	});
 	return true;
 }
@@ -1014,7 +1208,8 @@ export function restoreOption(
 	stepId: number,
 	figureId: number,
 	by?: string,
-	removedAt?: number
+	removedAt?: number,
+	length?: number
 ): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
@@ -1037,7 +1232,7 @@ export function restoreOption(
 	db.transaction((tx) => {
 		const put = tx
 			.insert(routineStepOptions)
-			.values({ stepId, figureId })
+			.values({ stepId, figureId, lengthCounts: isLengthCounts(length) ? length : null })
 			.onConflictDoNothing()
 			.run();
 		if (put.changes > 0) {
@@ -1099,11 +1294,13 @@ export function deleteSlots(
 			.all();
 		if (steps.length !== wanted.length) return null;
 		const options = optionsIn(tx, wanted);
+		const lengths = lengthsIn(tx, wanted);
 		const snapshot = steps.map((s) => ({
 			position: s.position,
 			childId: s.childId,
 			note: s.note,
 			figureIds: options.get(s.id) ?? [],
+			...(lengths.has(s.id) ? { lengths: lengths.get(s.id) } : {}),
 			deletedAt: now
 		}));
 		// Options first: `routine_step_options.step_id` references the step and
@@ -1178,7 +1375,14 @@ export function restoreSlots(
 				.returning({ id: routineSteps.id })
 				.get();
 			for (const figureId of s.figureIds) {
-				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+				const length = s.lengths?.[figureId];
+				tx.insert(routineStepOptions)
+					.values({
+						stepId: step.id,
+						figureId,
+						lengthCounts: isLengthCounts(length) ? length : null
+					})
+					.run();
 			}
 			back.push(step.id);
 			ids.splice(Math.min(s.position, ids.length), 0, step.id);
@@ -1274,6 +1478,7 @@ export function duplicateSlots(
 			.all();
 		if (steps.length !== wanted.length) return null;
 		const options = optionsIn(tx, wanted);
+		const lengths = lengthsIn(tx, wanted);
 		const ids = slotIds(tx, routineId);
 		const copies = steps.map((s, k) => {
 			const copy = tx
@@ -1282,7 +1487,8 @@ export function duplicateSlots(
 				.returning({ id: routineSteps.id })
 				.get();
 			for (const figureId of options.get(s.id) ?? []) {
-				tx.insert(routineStepOptions).values({ stepId: copy.id, figureId }).run();
+				const lengthCounts = lengths.get(s.id)?.[figureId] ?? null;
+				tx.insert(routineStepOptions).values({ stepId: copy.id, figureId, lengthCounts }).run();
 			}
 			return copy.id;
 		});
@@ -1433,7 +1639,8 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 				.returning({ id: routineSteps.id })
 				.get();
 			for (const figureId of slot.figureIds) {
-				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+				const lengthCounts = slot.lengths[figureId] ?? null;
+				tx.insert(routineStepOptions).values({ stepId: step.id, figureId, lengthCounts }).run();
 			}
 		}
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });

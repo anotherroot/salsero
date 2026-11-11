@@ -25,3 +25,17 @@ describe('parseSnapshots', () => {
 		expect(parseSnapshots(raw)).toBeNull();
 	});
 });
+
+describe('parseSnapshots and lengths', () => {
+	const slot = { position: 0, childId: null, note: null, figureIds: [3, 4] };
+	it('keeps the lengths of the slot’s own figures', () => {
+		expect(parseSnapshots(JSON.stringify([{ ...slot, lengths: { 3: 12 } }]))).toEqual([
+			{ ...slot, lengths: { 3: 12 } }
+		]);
+	});
+	it('refuses a length for a figure the slot does not hold, or out of range', () => {
+		expect(parseSnapshots(JSON.stringify([{ ...slot, lengths: { 9: 4 } }]))).toBeNull();
+		expect(parseSnapshots(JSON.stringify([{ ...slot, lengths: { 3: 65 } }]))).toBeNull();
+		expect(parseSnapshots(JSON.stringify([{ ...slot, lengths: [4] }]))).toBeNull();
+	});
+});

@@ -1156,12 +1156,18 @@ function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 	for (const slot of routineSlots(tx, src.id)) {
 		let child: number | null = null;
 		let options: number[] = [];
+		const lengthOf = new Map<number, number>();
 		if (slot.childId !== null) {
 			child = m.ref('routine', slot.childId);
 			if (child === null || embeds(tx, child)) continue;
 		} else {
 			const mappedIds = slot.figureIds.map((f) => m.ref('figure', f));
 			options = [...new Set(mappedIds.filter((f): f is number => f !== null))];
+			// Each copy keeps its source option's length (spec 2026-11-11).
+			slot.figureIds.forEach((f, k) => {
+				const to = mappedIds[k];
+				if (to !== null && slot.lengths[f] !== undefined) lengthOf.set(to, slot.lengths[f]);
+			});
 			if (options.length === 0) continue;
 		}
 		const step = tx
@@ -1177,7 +1183,14 @@ function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 			.get();
 		// In the slot's order, main figure first: one instant, so rowid keeps it (`MAIN_FIRST`).
 		for (const figureId of options) {
-			tx.insert(routineStepOptions).values({ stepId: step.id, figureId, createdAt: now }).run();
+			tx.insert(routineStepOptions)
+				.values({
+					stepId: step.id,
+					figureId,
+					lengthCounts: lengthOf.get(figureId) ?? null,
+					createdAt: now
+				})
+				.run();
 		}
 	}
 	return {

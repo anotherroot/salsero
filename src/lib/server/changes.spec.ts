@@ -90,6 +90,7 @@ import {
 	moveSlotTo,
 	removeOption,
 	restoreOption,
+	setOptionLength,
 	restoreRoutine,
 	restoreSlots,
 	setSlotNote,
@@ -668,6 +669,15 @@ const MUTATIONS: {
 		rootId: (w) => w.routine,
 		prep: (w) => addOption(db, w.step, w.V2, w.by) && removeOption(db, w.step, w.V2, 5, w.by),
 		run: (w) => restoreOption(db, w.step, w.V2, w.by)
+	},
+	{
+		name: 'setOptionLength',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		// The slot's figure has its length set in the routine (spec 2026-11-11).
+		prep: (w) => db.update(figures).set({ lengthFree: 1 }).where(eq(figures.id, w.V)).run(),
+		run: (w) => setOptionLength(db, w.step, w.V, 12, w.by)
 	},
 	{
 		name: 'setSlotNote',

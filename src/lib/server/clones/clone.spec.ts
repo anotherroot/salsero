@@ -49,7 +49,14 @@ import {
 	linkRoutine,
 	publishLesson
 } from '../lessons';
-import { addChildSlot, addFigureSlot, addOption, createRoutine, routineSlots } from '../routines';
+import {
+	addChildSlot,
+	addFigureSlot,
+	addOption,
+	createRoutine,
+	insertSlot,
+	routineSlots
+} from '../routines';
 import { addLesson } from '../entries';
 import { addLinks } from '../links';
 import { addSpot } from '../spots';
@@ -839,6 +846,23 @@ describe('cloneInto: routines and lessons', () => {
 	const routineRow = (id: number) => db.select().from(routines).where(eq(routines.id, id)).get()!;
 	const memberOf = (kind: 'figure' | 'routine' | 'drill', id: number, place: Space) =>
 		memberIn(db, kind, geneOf(db, kind, id)!, place)?.id;
+
+	it("a routine copy keeps each slot's length (spec 2026-11-11)", async () => {
+		const walk = figure(T1_SALSA, 'Walk', 'Slow').figure.id;
+		db.update(figures).set({ lengthFree: 1 }).where(eq(figures.id, walk)).run();
+		const r = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		expect(insertSlot(db, r, 0, { figureId: walk, length: 12 }, 'u1')).not.toBeNull();
+		publishWith({ routines: [r] });
+		const res = await cloneInto(
+			db,
+			{ kind: 'routine', id: r, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!res.ok) throw new Error('expected a clone');
+		const copy = memberOf('figure', walk, U2_SALSA)!;
+		expect(routineSlots(db, res.id).map((s) => s.lengths)).toEqual([{ [copy]: 12 }]);
+	});
 
 	it('a routine brings its figures and its embedded routine', async () => {
 		const doble = figure(T1_SALSA, 'Enchufla', 'Doble');
