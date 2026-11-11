@@ -182,7 +182,11 @@ the eight that taps fill in order with no hint of how close; a drop is the first
 starts over after four eights without a tap, after a long gap, or on Reset, and Skip shows after three
 start-overs; colours only when a drop ends, then the next spot slides in; result B with a 0–100 score (timing,
 less restarts and listening), every tap stacked under its circle, one sentence on what to work on, and ▶
-replay per drop; the clave card with Hear it in the setup. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
+replay per drop; the clave card with Hear it in the setup. Phase 1c (2026-11-11): a drop is two full
+eights from the first tap, judged in the person's own count (the shift from the first tap keeps 100 / 50 / 25 / 10 %
+for right / 4 / 2 / 1 off; a reversed clave is 4 off), ends right after its last beat, shows blue circles with "you
+N" for a wrong count and a mark where each tap fell (look A), Count on the score card; the music fades between
+spots. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
 [`docs/superpowers/specs/2026-11-10-hearing-drills-design.md`](docs/superpowers/specs/2026-11-10-hearing-drills-design.md),
 boards https://claude.ai/artifact/WBkgBLMuE8ADXoqgLgtfou and https://claude.ai/artifact/Wdspg2ZuajQvwVgAfvdB9N (1b).
 

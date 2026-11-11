@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { button, GROUP } from '$lib/components/ui/styles';
 	import type { FinishedDrop, RoundKind } from '$lib/hearing/round';
-	import { roundScore, scoreDrop } from '$lib/hearing/score';
+	import { commonShift, roundScore, scoreDrop } from '$lib/hearing/score';
 	import { stackDepth, stackDots } from '$lib/hearing/stack';
 	import { verdictOf } from '$lib/hearing/verdict';
-	import { posName } from '$lib/hearing/words';
+	import { posLabel, posName } from '$lib/hearing/words';
 	import { t } from '$lib/i18n/catalog';
 	import ListenShell from './ListenShell.svelte';
 	import ListenStack from './ListenStack.svelte';
@@ -36,12 +36,23 @@
 				of: d.answer.of,
 				restarts: d.restarts,
 				listenEights: d.listenEights,
-				skipped: d.skipped
+				skipped: d.skipped,
+				shift: d.skipped ? 0 : d.answer.shift
 			})
 		)
 	);
 	const total = $derived(roundScore(scores));
-	const counted = $derived(drops.flatMap((d) => d.answer.beats.filter((b) => b.state !== 'skip')));
+	// Each beat under the count the person meant it as: the stack and the verdict are about their timing.
+	const counted = $derived(
+		drops.flatMap((d) =>
+			d.answer.beats
+				.filter((b) => b.state !== 'skip')
+				.map((b) => ({ pos: b.yours, offset: b.offset, state: b.state }))
+		)
+	);
+	const off = $derived(drops.filter((d) => !d.skipped && d.answer.shift !== 0).length);
+	const common = $derived(commonShift(drops.filter((d) => !d.skipped).map((d) => d.answer.shift)));
+	const first = $derived(Math.min(...positions));
 	const dots = $derived(stackDots(counted, beatS));
 	const hit = $derived(drops.reduce((s, d) => s + d.answer.hits, 0));
 	const of = $derived(drops.reduce((s, d) => s + d.answer.of, 0));
@@ -52,6 +63,7 @@
 			? w.score.onBeat(hit, of)
 			: [
 					w.score.onBeat(hit, of),
+					...(off ? [w.count.dropsOff(off)] : []),
 					w.restartsLine(restarts),
 					...(listened.length
 						? [
@@ -64,6 +76,11 @@
 	);
 	const verdict = $derived(verdictOf(counted, positions));
 	const verdictText = $derived.by(() => {
+		if (common)
+			return [
+				w.count.often(posLabel(first), posLabel(((first - 1 + common.shift) % 8) + 1)),
+				w.count.oftenSub(common.drops)
+			];
 		const v = w.score.verdict;
 		if (verdict.kind === 'late') return [v.late(posName(verdict.pos)), v.offSub(verdict.ms)];
 		if (verdict.kind === 'early') return [v.early(posName(verdict.pos)), v.offSub(verdict.ms)];
@@ -80,10 +97,10 @@
 		</p>
 		<p class="text-[13px] font-semibold text-band-small">{line}</p>
 	{/snippet}
-	<div class="grid grid-cols-3 divide-x divide-hairline rounded-2xl bg-surface">
-		{#each [[total.timing, w.score.timing], [-total.restartsLoss, w.score.restarts], [-total.listenLoss, w.score.listening]] as [n, label] (label)}
-			<div class="px-3 py-2">
-				<p class="font-display text-[20px] font-extrabold text-ink tabular-nums">
+	<div class="grid grid-cols-4 divide-x divide-hairline rounded-2xl bg-surface">
+		{#each [[total.timing, w.score.timing], [-total.countLoss, w.count.part], [-total.restartsLoss, w.score.restarts], [-total.listenLoss, w.score.listening]] as [n, label] (label)}
+			<div class="px-2.5 py-2">
+				<p class="font-display text-[18px] font-extrabold text-ink tabular-nums">
 					{Number(n) < 0 ? `−${-Number(n)}` : n}
 				</p>
 				<p class="text-[11px] text-muted">{label}</p>
@@ -103,6 +120,11 @@
 						? d.section || w.score.dropRow(i + 1, '')
 						: w.score.dropRow(i + 1, d.section)}
 				</span>
+				{#if !d.skipped && d.answer.shift}
+					<span class="rounded-full bg-easy-soft px-2 text-[11px] font-extrabold text-easy"
+						>{w.count.tag(d.answer.shift)}</span
+					>
+				{/if}
 				<span class="text-[13px] text-muted tabular-nums">
 					{d.skipped
 						? w.score.skipped

@@ -2,7 +2,10 @@
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { RUN_STOP } from '$lib/components/player/styles';
-	import { dropWindow, judgeDropPattern, type DropAnswer } from '$lib/hearing/drops';
+	import { countKeep, dropWindow, judgeDropPattern, type DropAnswer } from '$lib/hearing/drops';
+	import { judgedRows } from '$lib/hearing/rows';
+	import { posLabel } from '$lib/hearing/words';
+	import { fadeTo } from './fade';
 	import type { Grid } from '$lib/hearing/judge';
 	import type { CircleState, FinishedDrop } from '$lib/hearing/round';
 	import {
@@ -86,6 +89,8 @@
 	let pop = $state<{ row: number; pos: number; key: number } | null>(null);
 	let popKey = 0;
 	let line = $state('');
+	/** Under the line after a drop counted off: the verdict and a tip. */
+	let tip = $state('');
 	let big = $state('?');
 	let slide = $state<'' | 'out' | 'in'>('in');
 	/** The judged drop while its colours arrive; `shown` of its beats are coloured so far. */
@@ -113,29 +118,44 @@
 		timers.push(id);
 	}
 
-	const rows = $derived.by((): Record<number, CircleState>[] => {
+	/** While tapping: the person's two eights, filled in order, nothing about how close. */
+	const tapping = $derived.by((): Record<number, CircleState>[] => {
 		const out: Record<number, CircleState>[] = [{}, {}];
 		const n = positions.length;
 		positions.forEach((p, i) => {
 			for (let r = 0; r < 2; r++) {
 				const k = r * n + i;
-				out[r][p] = k < spot.fill ? 'filled' : k === spot.fill && !judged ? 'next' : 'future';
+				out[r][p] = k < spot.fill ? 'filled' : k === spot.fill ? 'next' : 'future';
 			}
 		});
-		if (judged) {
-			// The colours arrive one by one, in the order of the eight.
-			judged.beats.slice(0, shown).forEach((b) => (out[b.row][b.pos] = b.state));
-		}
 		return out;
 	});
+	/** The judged beats in the order they come, for the colours arriving one by one. */
+	const order = $derived(judged ? [...judged.beats].sort((a, b) => a.at - b.at) : []);
+	/** After the drop: the music's eights it ran over, revealed up to the `shown`th beat (spec 1c.4, 1c.6). */
+	const view = $derived.by(() => {
+		if (!judged) return null;
+		const until = shown >= order.length ? Infinity : shown > 0 ? order[shown - 1].at : -Infinity;
+		return judgedRows(grid, judged, positions, until);
+	});
+	const rowLabels = $derived(
+		(view?.rows.length ? view.rows : [0, 1]).map((_, i) => w.eightRow(i + 1))
+	);
 
-	/** A spot's music from its start; the pad wakes once it plays. */
+	/** A spot's music from its start, fading in; the pad wakes once it plays. */
 	function play(why: string) {
 		locked = true;
 		line = why;
+		tip = '';
 		big = '?';
 		player.seek(spot.start);
+		try {
+			audio.volume = 0;
+		} catch {
+			// Read-only volume (iOS): it starts at full.
+		}
 		void player.resume();
+		void fadeTo(audio, 1);
 		later(WAKE_MS, () => {
 			if (spot.phase === 'over') return;
 			locked = false;
@@ -165,7 +185,7 @@
 			audio.playbackRate
 		);
 		const before = spot.fill;
-		spot = tapSpot(spot, at, spot.first === null ? dropWindow(grid, at) : null, circles);
+		spot = tapSpot(spot, at, spot.first === null ? dropWindow(grid, at, positions) : null, circles);
 		line = w.keepTapping;
 		if (spot.fill > before) {
 			const k = spot.fill - 1;
@@ -185,11 +205,12 @@
 		spot = restartSpot(spot);
 		if (canSkip(spot) && !wasSkippable) skipBounce++;
 		locked = true;
-		// Paused, the player holds its place: seek now, or the rules would see the old place and start over again.
-		player.pause();
-		player.seek(spot.start);
+		// The rules wait while `restarting`: the old place, still playing as it fades, starts nothing over.
+		void fadeTo(audio, 0);
 		slide = 'out';
 		later(SLIDE_MS, () => {
+			player.pause();
+			player.seek(spot.start);
 			restarting = false;
 			slide = 'in';
 			play(why);
@@ -209,13 +230,26 @@
 		judged = answer;
 		shown = 0;
 		big = `${answer.hits}/${answer.of}`;
-		line = spot.restarts ? w.restartsLine(spot.restarts) : w.firstTry;
-		answer.beats.forEach((b, i) =>
-			later((i + 1) * REVEAL_STEP_MS, () => {
-				shown = i + 1;
-				pop = { row: b.row, pos: b.pos, key: ++popKey };
-			})
-		);
+		const keeps = Math.round(countKeep(answer.shift) * 100);
+		line = answer.shift
+			? `${w.count.off(answer.shift)} · ${w.count.keeps(keeps)}`
+			: spot.restarts
+				? w.restartsLine(spot.restarts)
+				: w.firstTry;
+		const first = Math.min(...positions);
+		tip = answer.shift
+			? `${w.count.verdict(posLabel(first), posLabel(((first - 1 + answer.shift) % 8) + 1))}. ${
+					answer.shift === 4 ? w.count.tip4 : answer.shift % 2 ? w.count.tip1 : w.count.tip2
+				}`
+			: '';
+		[...answer.beats]
+			.sort((a, b) => a.at - b.at)
+			.forEach((b, i) =>
+				later((i + 1) * REVEAL_STEP_MS, () => {
+					shown = i + 1;
+					pop = { row: b.row, pos: b.pos, key: ++popKey };
+				})
+			);
 		finished.push({
 			answer,
 			restarts: spot.restarts,
@@ -244,9 +278,10 @@
 	/** The old spot slides away; the next slides in, or the round is over. */
 	function next() {
 		attempt++;
-		player.pause();
+		void fadeTo(audio, 0);
 		slide = 'out';
 		later(SLIDE_MS, () => {
+			player.pause();
 			if (index + 1 >= starts.length) return onfinish(finished);
 			index++;
 			judged = null;
@@ -290,6 +325,9 @@
 			>
 				{line}
 			</p>
+			{#if tip}
+				<p class="max-w-[300px] text-[13px] font-semibold text-band-small">{tip}</p>
+			{/if}
 		</div>
 		<div class="flex gap-1.5" aria-hidden="true">
 			{#each starts, i (i)}
@@ -308,8 +346,17 @@
 	<div class:slide-out={slide === 'out'} class:slide-in={slide === 'in'}>
 		<PatternRows
 			{positions}
-			{rows}
-			labels={[w.eightRow(1), w.eightRow(2)]}
+			rows={view ? view.rows.map((r) => r.states) : tapping}
+			rowPositions={view ? view.rows.map((r) => r.positions) : []}
+			over={view
+				? view.rows.map((r) =>
+						Object.fromEntries(
+							Object.entries(r.yours).map(([p, y]) => [p, w.count.you(posLabel(y))])
+						)
+					)
+				: []}
+			marks={view?.marks ?? []}
+			labels={rowLabels}
 			{pop}
 			label={padLabel}
 		/>
