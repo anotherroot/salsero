@@ -129,19 +129,14 @@ ends and its counts fit as today; its other ends do not matter. Without one,
 the rule stays `sameSet`. (My call: it follows from "all alternatives end in
 the same end".) `C` above is then the intersection of the options' ends.
 
-Keeping that safe when the choice goes away (my calls):
-
-- Adding an alternative while the end is only `decided` (by the slot below)
-  and the new option's ends differ from the slot's: the decided end is stored
-  in the same write. The person saw that end and picked an alternative for it;
-  this is the one write of an end the person did not tap, and it is theirs in
-  effect. Without the difference nothing is stored.
-- Clearing the end ("No choice") is refused, and its button hidden, while the
-  options' end sets differ: the choice is what holds them together.
-- A stored end that goes stale (figure edited) with differing options: `C`
-  is the intersection, which may be unknown (null): no new seam, state
-  `open`, the person picks again.
-- An alternative with no ends fits any chosen end.
+Keeping that safe when the choice goes away (my calls): because `C` is the
+intersection, an alternative admitted for `E` keeps `E` in `C` whatever
+happens to the choice afterwards. Clearing the choice, the slot below no
+longer deciding, or a stale stored end all leave `C` ⊇ {`E`}: the slot reads
+`single` (only `E` shared) or `open` (pick again), never a new warning. No
+implicit write, no refused clear. Only a figure edited to drop `E` can empty
+`C`; then it is unknown (null) as above. An alternative with no ends fits any
+chosen end.
 
 ### Copies and groups
 
