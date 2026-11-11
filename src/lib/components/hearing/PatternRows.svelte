@@ -16,12 +16,31 @@
 		/** `key` changes on every pop, so the same circle can pop again. */
 		pop?: { row: number; pos: number; key: number } | null;
 		head?: { row: number; pos: number } | null;
-		marks?: { row: number; pos: number; stray: boolean }[];
+		/**
+		 * Where taps fell (look A, spec 1c.6): a small mark over the line; `tie` is
+		 * the position of the circle it counted for, joined by a thin line in
+		 * `tieState`'s colour. A stray tap (counted for nothing) is red.
+		 */
+		marks?: { row: number; pos: number; stray: boolean; tie?: number; tieState?: CircleState }[];
+		/** Per row, positions in place of `positions` (a judged drop's, in the music's count). */
+		rowPositions?: (number[] | undefined)[];
+		/** Per row, a word over a circle (what the person counted: "you 1"). */
+		over?: (Record<number, string> | undefined)[];
 		/** The accessible name of the whole drawing. */
 		label: string;
 	}
 
-	let { positions, rows, labels, pop = null, head = null, marks = [], label }: Props = $props();
+	let {
+		positions,
+		rows,
+		labels,
+		pop = null,
+		head = null,
+		marks = [],
+		rowPositions = [],
+		over = [],
+		label
+	}: Props = $props();
 
 	const W = 280;
 	const LEFT = 16;
@@ -35,7 +54,8 @@
 		skip: 'fill-field stroke-track',
 		spot: 'fill-done stroke-done',
 		close: 'fill-warn stroke-warn',
-		miss: 'fill-surface stroke-danger'
+		miss: 'fill-surface stroke-danger',
+		shifted: 'fill-easy stroke-easy'
 	};
 	const TEXT: Record<CircleState, string> = {
 		future: 'fill-ink-2',
@@ -44,7 +64,13 @@
 		skip: 'fill-disabled-ink',
 		spot: 'fill-on-done',
 		close: 'fill-on-accent',
-		miss: 'fill-danger'
+		miss: 'fill-danger',
+		shifted: 'fill-surface'
+	};
+	const TIE: Partial<Record<CircleState, string>> = {
+		spot: 'stroke-done',
+		close: 'stroke-warn',
+		shifted: 'stroke-easy'
 	};
 </script>
 
@@ -69,11 +95,11 @@
 				/>
 				<text x={x(c)} y={CY + 26} text-anchor="middle" class="fill-muted text-[9px]">{c}</text>
 			{/each}
-			{#each positions as p (p)}
+			{#each rowPositions[r] ?? positions as p (p)}
 				{@const st = row[p] ?? 'future'}
 				{@const popping = pop !== null && pop.row === r && pop.pos === p}
 				{#key popping ? pop?.key : -1}
-					<g class:pop={popping}>
+					<g class:pop={popping} class:faded={st === 'skip'}>
 						{#if st === 'next'}<circle
 								cx={x(p)}
 								cy={CY}
@@ -103,10 +129,28 @@
 							dominant-baseline="central"
 							class="text-[8.5px] font-extrabold {TEXT[st]}">{posLabel(p)}</text
 						>
+						{#if over[r]?.[p]}
+							<text
+								x={x(p)}
+								y={CY - 13}
+								text-anchor="middle"
+								class="fill-easy text-[7.5px] font-extrabold">{over[r]?.[p]}</text
+							>
+						{/if}
 					</g>
 				{/key}
 			{/each}
 			{#each marks.filter((m) => m.row === r) as m, i (i)}
+				{#if m.tie !== undefined && m.tieState && TIE[m.tieState]}
+					<line
+						x1={x(m.pos)}
+						x2={x(m.tie)}
+						y1={CY - 13}
+						y2={CY - 9}
+						stroke-width="1.5"
+						class={TIE[m.tieState]}
+					/>
+				{/if}
 				<path
 					d="M{x(m.pos)} {CY - 13} l-3.5 -6 h7 z"
 					class={m.stray ? 'fill-danger' : 'fill-ink'}
@@ -135,6 +179,9 @@
 	}
 	.burst {
 		opacity: 0;
+	}
+	.faded {
+		opacity: 0.35;
 	}
 	.pulse {
 		animation: pulse 1.4s ease-out infinite;

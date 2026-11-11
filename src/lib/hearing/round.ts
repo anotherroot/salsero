@@ -44,7 +44,16 @@ export function roundSpan(
  * used: how close a tap was shows only when the drop ends (spot, close, miss,
  * and skip for the first eight's beats before the first tap).
  */
-export type CircleState = 'future' | 'next' | 'filled' | 'skip' | 'spot' | 'close' | 'miss';
+export type CircleState =
+	| 'future'
+	| 'next'
+	| 'filled'
+	| 'skip'
+	| 'spot'
+	| 'close'
+	| 'miss'
+	/** On a beat, but in the wrong count (spec 1c.4): blue. */
+	| 'shifted';
 
 /** A drop (or, in a tap-along round, a part of the song) as the result shows it. */
 export interface FinishedDrop {
