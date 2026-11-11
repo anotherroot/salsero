@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isTargetId, targetPositions, targetsFor } from './targets';
+import { isTargetId, parseOwnCounts, targetPositions, targetsFor } from './targets';
 
 describe('targetPositions', () => {
 	it('gives the counts in the eight each target listens for', () => {
@@ -24,9 +24,17 @@ describe('targetsFor', () => {
 			'ones',
 			'odd',
 			'fourEight',
-			'clave'
+			'clave',
+			'own'
 		]);
-		expect(targetsFor({ clave: false })).toEqual(['one', 'every', 'ones', 'odd', 'fourEight']);
+		expect(targetsFor({ clave: false })).toEqual([
+			'one',
+			'every',
+			'ones',
+			'odd',
+			'fourEight',
+			'own'
+		]);
 	});
 });
 
@@ -35,5 +43,26 @@ describe('isTargetId', () => {
 		expect(isTargetId('one')).toBe(true);
 		expect(isTargetId('two')).toBe(false);
 		expect(isTargetId(null)).toBe(false);
+	});
+});
+
+describe('your own counts', () => {
+	it('listens for the counts picked, in order, each once', () => {
+		expect(targetPositions('own', null, [7, 3, 6, 3])).toEqual([3, 6, 7]);
+		expect(targetPositions('own', null, [0, 9, 4])).toEqual([4]);
+	});
+
+	it('is offered in every dance, last', () => {
+		expect(targetsFor({ clave: true }).at(-1)).toBe('own');
+		expect(targetsFor({ clave: false }).at(-1)).toBe('own');
+	});
+});
+
+describe('parseOwnCounts', () => {
+	it('reads stored counts, and falls back to the 3', () => {
+		expect(parseOwnCounts('3,6,7')).toEqual([3, 6, 7]);
+		expect(parseOwnCounts('nonsense')).toEqual([3]);
+		expect(parseOwnCounts(null)).toEqual([3]);
+		expect(parseOwnCounts('')).toEqual([3]);
 	});
 });

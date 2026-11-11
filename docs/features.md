@@ -174,7 +174,8 @@ update waits. `/health` says the version too, and `deploy.sh` ends by printing w
 Can you find the 1? (2026-11-11, hearing drills phase 1): a card on a song's page opens the listening
 player (`/[dance]/songs/[id]/listen`) on a song a person counted (anchors set; the computer's guess alone
 never grades anyone). Tap along (the whole song or one part, the count hidden) or Dropped in (up to ten
-random spots, tap the next one), listening for the 1, every beat, 1 · 5, 1 3 5 7, 4 · 8 or the clave; a
+random spots, tap the next one), listening for the 1, every beat, 1 · 5, 1 3 5 7, 4 · 8, the clave or your own counts (any of 1–8, kept in
+this browser); a target of several beats is tapped for two eights per drop; a
 one-time tap delay check per browser (`hearing.tapDelayMs`); the result in words per part or per drop and a
 beat strip. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
 [`docs/superpowers/specs/2026-11-10-hearing-drills-design.md`](docs/superpowers/specs/2026-11-10-hearing-drills-design.md),

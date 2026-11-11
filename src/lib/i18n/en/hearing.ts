@@ -19,6 +19,7 @@ export const hearing = {
 		target: 'Listen for',
 		part: 'Part of the song',
 		wholeSong: 'Whole song',
+		ownCounts: 'Your counts',
 		start: 'Start'
 	},
 	kinds: {
@@ -32,7 +33,8 @@ export const hearing = {
 	targets: {
 		one: 'The 1',
 		every: 'Every beat',
-		clave: 'The clave'
+		clave: 'The clave',
+		own: 'Your own'
 	},
 	/** After a score: "7 of 10 on the 1". */
 	onTarget: {
@@ -41,7 +43,8 @@ export const hearing = {
 		ones: 'on 1 and 5',
 		odd: 'on 1 3 5 7',
 		fourEight: 'on 4 and 8',
-		clave: 'on the clave'
+		clave: 'on the clave',
+		own: 'on your counts'
 	},
 	/** The tap area while tapping along. */
 	tapOn: {
@@ -50,7 +53,8 @@ export const hearing = {
 		ones: 'Tap on 1 and 5',
 		odd: 'Tap on 1 3 5 7',
 		fourEight: 'Tap on 4 and 8',
-		clave: 'Tap the clave'
+		clave: 'Tap the clave',
+		own: 'Tap on your counts'
 	},
 	/** The tap area when dropped in. */
 	tapNext: {
@@ -59,18 +63,21 @@ export const hearing = {
 		ones: 'Tap the next 1 or 5',
 		odd: 'Tap the next 1, 3, 5 or 7',
 		fourEight: 'Tap the next 4 or 8',
-		clave: 'Tap the next clave hit'
+		clave: 'Tap the next clave hit',
+		own: 'Tap your counts'
 	},
 	anywhere: 'anywhere here',
 	hidden: 'The count is hidden until the end',
 	drop: (n: number, of: number) => `Drop ${n} of ${of}`,
 	listen: 'Listen, then tap',
+	keepTapping: 'Keep tapping for two eights',
 	reveal: {
 		spot: 'Spot on',
 		late: (ms: number) => `Found it · ${ms} ms late`,
 		early: (ms: number) => `Found it · ${ms} ms early`,
 		other: (count: number) => `That was the ${count}`,
-		missed: 'Not on a beat'
+		missed: 'Not on a beat',
+		pattern: (hits: number, of: number) => `${hits} of ${of} on the beat`
 	},
 	result: {
 		title: 'How close you were',

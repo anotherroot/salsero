@@ -8,3 +8,10 @@ describe('targetLabel', () => {
 		expect(targetLabel('clave')).toBe('The clave');
 	});
 });
+
+describe('targetLabel for your own counts', () => {
+	it('names them by their counts', () => {
+		expect(targetLabel('own', [3, 6, 7])).toBe('3 6 7');
+		expect(targetLabel('own', [])).toBe('Your own');
+	});
+});

@@ -17,6 +17,8 @@
 		DROPS,
 		dropStarts,
 		judgeDrop,
+		judgeDropPattern,
+		PATTERN_EIGHTS,
 		judgeDrops,
 		type DropAnswer,
 		type DropsResult
@@ -24,7 +26,13 @@
 	import { judgeTapAlong, type TapAlongResult } from '$lib/hearing/judge';
 	import { revealOf, roundSpan, songParts, type Reveal, type RoundKind } from '$lib/hearing/round';
 	import { loadTapDelay, tapSongTime } from '$lib/hearing/tap-delay';
-	import { targetPositions, targetsFor, type TargetId } from '$lib/hearing/targets';
+	import {
+		loadOwnCounts,
+		saveOwnCounts,
+		targetPositions,
+		targetsFor,
+		type TargetId
+	} from '$lib/hearing/targets';
 	import { targetLabel } from '$lib/hearing/words';
 	import { t } from '$lib/i18n/catalog';
 	import type { ClavePattern } from '$lib/labels';
@@ -51,7 +59,10 @@
 	let target = $state<TargetId>('one');
 	let clave = $state<ClavePattern>('2-3');
 	let part = $state<number | null>(null);
-	const positions = $derived(targetPositions(target, target === 'clave' ? clave : null));
+	let own = $state<number[]>([3]);
+	const positions = $derived(targetPositions(target, target === 'clave' ? clave : null, own));
+	/** A target of several beats: a drop is tapped for two eights, one tap cannot answer it. */
+	const pattern = $derived(positions.length > 1);
 
 	let view = $state<'setup' | 'check' | 'run' | 'result'>('setup');
 	/** Null until read in the browser, and while never checked. */
@@ -61,7 +72,10 @@
 	/** Where the check goes when it is done: back to the setup, or on into the round. */
 	let afterCheck: 'setup' | 'run' = 'setup';
 
-	onMount(() => (tapDelayMs = loadTapDelay()));
+	onMount(() => {
+		tapDelayMs = loadTapDelay();
+		own = loadOwnCounts();
+	});
 
 	// The round.
 	let audio = $state<HTMLAudioElement>();
@@ -76,6 +90,9 @@
 	let answers: DropAnswer[] = [];
 	let reveal = $state<Reveal | null>(null);
 	let revealUntil = 0;
+	/** A pattern drop's taps so far, and when its two eights end (song time). */
+	let dropTaps: number[] = [];
+	let collectUntil = $state<number | null>(null);
 	let tapResult = $state<TapAlongResult | null>(null);
 	let dropsResult = $state<DropsResult | null>(null);
 	/** A drop nobody answers moves on after this many seconds. */
@@ -94,14 +111,26 @@
 			if (now >= to) return finish(to);
 		} else if (reveal !== null) {
 			if (now >= revealUntil) nextDrop();
+		} else if (collectUntil !== null) {
+			if (now >= collectUntil) answer(judgeDropPattern(grid, positions, starts[dropAt], dropTaps));
 		} else if (now - starts[dropAt] > DROP_WAIT_S) {
 			// Nobody tapped: say so, and show the count for an eight like any answer.
-			const answer = judgeDrop(grid, positions, starts[dropAt], null);
-			answers.push(answer);
-			reveal = revealOf(answer, positions);
-			revealUntil = now + 8 * beatS;
+			answer(
+				pattern
+					? judgeDropPattern(grid, positions, starts[dropAt], [])
+					: judgeDrop(grid, positions, starts[dropAt], null)
+			);
 		}
 		raf = requestAnimationFrame(frame);
+	}
+
+	/** A drop is answered: show what it was, with the count, for one eight. */
+	function answer(a: DropAnswer) {
+		answers.push(a);
+		collectUntil = null;
+		dropTaps = [];
+		reveal = revealOf(a, positions);
+		revealUntil = now + 8 * beatS;
 	}
 
 	function nextDrop() {
@@ -127,6 +156,9 @@
 		if (!el) return;
 		taps = [];
 		answers = [];
+		dropTaps = [];
+		collectUntil = null;
+		if (target === 'own') saveOwnCounts(own);
 		reveal = null;
 		tapResult = null;
 		dropsResult = null;
@@ -172,11 +204,12 @@
 			return;
 		}
 		if (reveal !== null) return;
-		const answer = judgeDrop(grid, positions, starts[dropAt], at);
-		answers.push(answer);
-		reveal = revealOf(answer, positions);
-		// The count shows for one eight, then the next drop.
-		revealUntil = at + 8 * beatS;
+		if (!pattern) {
+			now = at;
+			return answer(judgeDrop(grid, positions, starts[dropAt], at));
+		}
+		dropTaps.push(at);
+		if (collectUntil === null) collectUntil = at + PATTERN_EIGHTS * 8 * beatS;
 	}
 
 	function stopPlayer() {
@@ -204,6 +237,7 @@
 		} else {
 			dropsResult = judgeDrops(answers);
 		}
+		collectUntil = null;
 		reveal = null;
 		view = 'result';
 	}
@@ -263,6 +297,7 @@
 			bind:kind
 			bind:target
 			bind:clave
+			bind:own
 			bind:part
 			targets={targetsFor(data.dance)}
 			parts={parts.map((p) => sectionName(p))}
@@ -273,7 +308,12 @@
 			}}
 		/>
 		{#snippet bar()}
-			<button type="button" class={button('primary', 'lg', true)} onclick={begin}>
+			<button
+				type="button"
+				class={button('primary', 'lg', true)}
+				disabled={positions.length === 0}
+				onclick={begin}
+			>
 				<Icon name="play" size={22} filled />{w.setup.start}
 			</button>
 		{/snippet}
@@ -281,7 +321,7 @@
 {:else if view === 'run'}
 	<ListenShell
 		title={w.kinds[kind]}
-		subtitle="{data.song.title} · {targetLabel(target)}"
+		subtitle="{data.song.title} · {targetLabel(target, own)}"
 		backLabel={w.back}
 		onback={leave}
 	>
@@ -298,12 +338,12 @@
 				>
 				<p class="text-[15px] font-extrabold text-band-ink">{w.drop(dropAt + 1, starts.length)}</p>
 				<p class="min-h-[1.4em] text-[15px] font-semibold text-band-small" aria-live="polite">
-					{reveal ? revealText(reveal) : w.listen}
+					{reveal ? revealText(reveal) : collectUntil !== null ? w.keepTapping : w.listen}
 				</p>
 			{/if}
 		{/snippet}
 		<TapPad
-			label={kind === 'tapAlong' ? w.tapOn[target] : w.tapNext[target]}
+			label={kind === 'tapAlong' || pattern ? w.tapOn[target] : w.tapNext[target]}
 			sub={w.anywhere}
 			disabled={kind === 'dropped' && reveal !== null}
 			ontap={tap}

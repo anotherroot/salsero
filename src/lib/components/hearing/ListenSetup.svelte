@@ -3,7 +3,7 @@
 	import { CHIP, GROUP, ROW, SECTION_LABEL } from '$lib/components/ui/styles';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
-	import type { TargetId } from '$lib/hearing/targets';
+	import { ownCounts, type TargetId } from '$lib/hearing/targets';
 	import { targetLabel } from '$lib/hearing/words';
 	import type { RoundKind } from '$lib/hearing/round';
 
@@ -12,6 +12,8 @@
 		kind: RoundKind;
 		target: TargetId;
 		clave: ClavePattern;
+		/** The counts for the `own` target. */
+		own: number[];
 		/** The chosen part of the song (an index into `parts`), or null for the whole song. */
 		part: number | null;
 		targets: TargetId[];
@@ -24,6 +26,7 @@
 		kind = $bindable(),
 		target = $bindable(),
 		clave = $bindable(),
+		own = $bindable(),
 		part = $bindable(),
 		targets,
 		parts,
@@ -64,7 +67,7 @@
 					checked={target === id}
 					onchange={() => (target = id)}
 				/>
-				{targetLabel(id)}
+				{id === 'own' ? w.targets.own : targetLabel(id)}
 			</label>
 		{/each}
 	</div>
@@ -78,6 +81,22 @@
 						class="sr-only"
 						checked={clave === c}
 						onchange={() => (clave = c)}
+					/>
+					{c}
+				</label>
+			{/each}
+		</div>
+	{/if}
+	{#if target === 'own'}
+		<div role="group" aria-label={w.setup.ownCounts} class="flex flex-wrap gap-x-1.5 gap-y-1">
+			{#each [1, 2, 3, 4, 5, 6, 7, 8] as c (c)}
+				<label class={CHIP}>
+					<input
+						type="checkbox"
+						class="sr-only"
+						checked={own.includes(c)}
+						onchange={(e) =>
+							(own = e.currentTarget.checked ? ownCounts([...own, c]) : own.filter((x) => x !== c))}
 					/>
 					{c}
 				</label>

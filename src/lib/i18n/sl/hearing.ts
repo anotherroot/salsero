@@ -16,6 +16,7 @@ export const hearing: Catalog['hearing'] = {
 		target: 'Poslušajte za',
 		part: 'Del skladbe',
 		wholeSong: 'Cela skladba',
+		ownCounts: 'Vaše številke',
 		start: 'Začni'
 	},
 	kinds: {
@@ -29,7 +30,8 @@ export const hearing: Catalog['hearing'] = {
 	targets: {
 		one: 'Ena',
 		every: 'Vsak udarec',
-		clave: 'Klava'
+		clave: 'Klava',
+		own: 'Svoje'
 	},
 	onTarget: {
 		one: 'na ena',
@@ -37,7 +39,8 @@ export const hearing: Catalog['hearing'] = {
 		ones: 'na 1 in 5',
 		odd: 'na 1 3 5 7',
 		fourEight: 'na 4 in 8',
-		clave: 'na klavo'
+		clave: 'na klavo',
+		own: 'na vaših številkah'
 	},
 	tapOn: {
 		one: 'Tapnite na ena',
@@ -45,7 +48,8 @@ export const hearing: Catalog['hearing'] = {
 		ones: 'Tapnite na 1 in 5',
 		odd: 'Tapnite na 1 3 5 7',
 		fourEight: 'Tapnite na 4 in 8',
-		clave: 'Tapkajte klavo'
+		clave: 'Tapkajte klavo',
+		own: 'Tapnite na svoje številke'
 	},
 	tapNext: {
 		one: 'Tapnite naslednjo ena',
@@ -53,18 +57,21 @@ export const hearing: Catalog['hearing'] = {
 		ones: 'Tapnite naslednjo 1 ali 5',
 		odd: 'Tapnite naslednjo 1, 3, 5 ali 7',
 		fourEight: 'Tapnite naslednjo 4 ali 8',
-		clave: 'Tapnite naslednji udarec klave'
+		clave: 'Tapnite naslednji udarec klave',
+		own: 'Tapnite svoje številke'
 	},
 	anywhere: 'kjerkoli tukaj',
 	hidden: 'Štetje je skrito do konca',
 	drop: (n, of) => `Mesto ${n} od ${of}`,
 	listen: 'Poslušajte, nato tapnite',
+	keepTapping: 'Tapkajte še dve osmici',
 	reveal: {
 		spot: 'Točno',
 		late: (ms) => `Najdeno · ${ms} ms prepozno`,
 		early: (ms) => `Najdeno · ${ms} ms prezgodaj`,
 		other: (count) => `To je bila ${count}`,
-		missed: 'Ni na udarcu'
+		missed: 'Ni na udarcu',
+		pattern: (hits, of) => `${hits} od ${of} na udarcu`
 	},
 	result: {
 		title: 'Kako blizu ste bili',

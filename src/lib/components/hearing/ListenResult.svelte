@@ -35,6 +35,7 @@
 		if (r.kind === 'late') return w.reveal.late(r.ms);
 		if (r.kind === 'early') return w.reveal.early(r.ms);
 		if (r.kind === 'other') return w.reveal.other(r.count);
+		if (r.kind === 'pattern') return w.reveal.pattern(r.hits, r.of);
 		return w.reveal.missed;
 	}
 
@@ -58,7 +59,7 @@
 		{#each drops.drops as d, i (d.start)}
 			<li class="flex min-h-12 items-center gap-3 px-4 py-2">
 				<span class="flex-1 text-[15px] font-bold text-ink">{w.result.drop(i + 1)}</span>
-				<span class="text-[14px] font-semibold {tone(d.hit)}">{reveal(i)}</span>
+				<span class="text-[14px] font-semibold {tone(d.hits * 4 >= d.of * 3)}">{reveal(i)}</span>
 			</li>
 		{/each}
 	</ul>

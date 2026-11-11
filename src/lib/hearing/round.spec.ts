@@ -29,6 +29,8 @@ describe('revealOf', () => {
 		offset: null,
 		count: null,
 		listened: 1,
+		hits: 0,
+		of: 1,
 		...a
 	});
 
@@ -83,8 +85,26 @@ describe('revealOf a drop nobody tapped', () => {
 			hit: false,
 			offset: null,
 			count: null,
-			listened: null
+			listened: null,
+			hits: 0,
+			of: 1
 		};
 		expect(revealOf(none, [1])).toEqual({ kind: 'none' });
+	});
+});
+
+describe('revealOf a pattern drop', () => {
+	it('says how many of its beats were hit', () => {
+		const a: DropAnswer = {
+			start: 0,
+			tap: 1,
+			hit: false,
+			offset: 0,
+			count: 1,
+			listened: 1,
+			hits: 4,
+			of: 5
+		};
+		expect(revealOf(a, [2, 3, 5, 6.5, 8])).toEqual({ kind: 'pattern', hits: 4, of: 5 });
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dropStarts, judgeDrop, judgeDrops } from './drops';
+import { dropStarts, judgeDrop, judgeDropPattern, judgeDrops } from './drops';
 import type { Grid } from './judge';
 
 function grid(n: number): Grid {
@@ -75,7 +75,9 @@ describe('judgeDrop', () => {
 			hit: false,
 			offset: null,
 			count: null,
-			listened: null
+			listened: null,
+			hits: 0,
+			of: 1
 		});
 	});
 });
@@ -90,5 +92,44 @@ describe('judgeDrops', () => {
 		]);
 		expect(r).toMatchObject({ hit: 2, of: 3, meanMs: 50 });
 		expect(r.meanListened).toBeCloseTo(3.05, 9);
+	});
+});
+
+describe('judgeDropPattern', () => {
+	it('judges two eights of taps from the first one', () => {
+		// 1 3 5 7 from 12 s: the 1s of the next two eights are at 12 and 16.
+		const d = judgeDropPattern(grid(400), [1, 3, 5, 7], 10, [12.02, 13.0, 14.04, 15.0]);
+		expect(d).toMatchObject({ start: 10, tap: 12.02, hits: 4, of: 8, hit: false });
+		expect(d.listened).toBeCloseTo(2.02, 9);
+		expect(d.offset).toBeCloseTo(0.015, 9);
+	});
+
+	it('counts every target beat of the two eights as missed without a tap', () => {
+		expect(judgeDropPattern(grid(400), [2, 3, 5, 6.5, 8], 10, [])).toMatchObject({
+			tap: null,
+			hits: 0,
+			of: 10,
+			hit: false
+		});
+	});
+
+	it('calls a drop found when every beat was hit', () => {
+		const taps = [12, 13, 14, 15, 16, 17, 18, 19];
+		expect(judgeDropPattern(grid(400), [1, 3, 5, 7], 10, taps)).toMatchObject({
+			hits: 8,
+			of: 8,
+			hit: true
+		});
+	});
+});
+
+describe('judgeDrops with patterns', () => {
+	it('adds up the beats of every drop', () => {
+		const g = grid(400);
+		const r = judgeDrops([
+			judgeDropPattern(g, [1, 3, 5, 7], 10, [12, 13, 14, 15]),
+			judgeDropPattern(g, [1, 3, 5, 7], 40, [])
+		]);
+		expect(r).toMatchObject({ hit: 4, of: 16 });
 	});
 });

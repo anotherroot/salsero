@@ -69,12 +69,36 @@ def _dropped(page):
     page.wait_for_timeout(300)
 
 
+
+def _own(page):
+    _skip_check(page)
+    page.get_by_text("Your own", exact=True).click()
+    page.get_by_text("6", exact=True).click()
+    page.get_by_text("7", exact=True).click()
+    page.wait_for_timeout(200)
+
+
+def _drop_clave(page):
+    _skip_check(page)
+    page.get_by_text("Dropped in", exact=True).click()
+    page.get_by_text("The clave", exact=True).click()
+    page.get_by_role("button", name="Start").click()
+    page.wait_for_selector("text=anywhere here")
+    page.wait_for_timeout(1500)
+    pad = page.get_by_role("button", name="Tap the next clave hit").first
+    for _ in range(3):
+        pad.dispatch_event("pointerdown")
+        page.wait_for_timeout(400)
+
+
 SCENES = {
     "listen-setup": Scene(LISTEN, _skip_check),
     "listen-check": Scene(LISTEN, _check),
     "listen-run": Scene(LISTEN, _tap_along),
     "listen-result": Scene(LISTEN, _result),
     "listen-drop": Scene(LISTEN, _dropped),
+    "listen-own": Scene(LISTEN, _own),
+    "listen-drop-clave": Scene(LISTEN, _drop_clave),
 }
 
 
