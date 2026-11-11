@@ -181,6 +181,7 @@ export const routine: Catalog['routine'] = {
 			'Ta figura se ne začne in konča tako kot figura na tem mestu, zato ni alternativa.',
 		length:
 			'Ta dolžina ne ustreza temu mestu: alternative nadaljujejo na drugi dobi ali pa dolžina figure ni določena v kombinaciji.',
+		end: 'Ta konec ne ustreza temu mestu.',
 		holdSomething: 'Mesto ne sme biti prazno.',
 		note: 'Opomba ima lahko največ 200 znakov.',
 		readInsert: 'Ni bilo mogoče prebrati, kaj dodati in kam.',

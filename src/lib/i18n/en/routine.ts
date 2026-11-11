@@ -188,6 +188,8 @@ export const routine = {
 		/** The How long? sheet's save (spec 2026-11-11). */
 		length:
 			'That length does not fit this slot: its alternatives go on to another count, or its length is not set in the routine.',
+		/** The Where does it end? sheet's save (spec 2026-11-11, slot end). */
+		end: 'That end doesn’t fit this slot.',
 		holdSomething: 'A slot has to hold something.',
 		note: 'Keep the note to 200 characters.',
 		readInsert: 'Could not read what to add, or where.',

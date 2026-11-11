@@ -197,6 +197,14 @@ const REFS: RefQuery[] = [
 		from: 'routine_steps x join routines r on r.id = x.routine_id',
 		tid: 'x.child_routine_id'
 	},
+	{
+		ot: 'routines',
+		via: 'slot end',
+		tk: 'position',
+		...ROUTINE_OWNER,
+		from: 'routine_steps x join routines r on r.id = x.routine_id',
+		tid: 'x.end_position_id'
+	},
 	...(['figure', 'drill'] as const).map((tk): RefQuery => ({
 		ot: 'spot_links',
 		via: `linked ${tk}`,

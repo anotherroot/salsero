@@ -93,6 +93,7 @@ import {
 	setOptionLength,
 	restoreRoutine,
 	restoreSlots,
+	setSlotEnd,
 	setSlotNote,
 	updateRoutine
 } from './routines';
@@ -678,6 +679,21 @@ const MUTATIONS: {
 		// The slot's figure has its length set in the routine (spec 2026-11-11).
 		prep: (w) => db.update(figures).set({ lengthFree: 1 }).where(eq(figures.id, w.V)).run(),
 		run: (w) => setOptionLength(db, w.step, w.V, 12, w.by)
+	},
+	{
+		name: 'setSlotEnd',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		// The slot's figure ends in the group's position (spec 2026-11-11, slot end).
+		prep: (w) =>
+			setFigureShape(
+				db,
+				w.V,
+				{ startIds: [], endIds: [w.position], startCount: 1, lengthCounts: 8 },
+				w.by
+			),
+		run: (w) => setSlotEnd(db, w.step, w.position, w.by)
 	},
 	{
 		name: 'setSlotNote',

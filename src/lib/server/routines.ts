@@ -33,17 +33,19 @@ import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
-import { countsOf, figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
+import { countsOf, figureById, meet, nextCountOf, type Graph } from '$lib/graph/graph';
 import { isLengthCounts, nextCount, startOn } from '$lib/graph/timing';
 import {
 	flatten,
 	loops,
 	optionLength,
+	slotEndsIn,
 	stepIncoming,
 	type OptionsSlot,
 	type RoutineShape,
 	type Slot
 } from '$lib/routines/routines';
+import { endFits, sharedEnds, type SlotEnd } from '$lib/routines/end';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
@@ -1011,6 +1013,8 @@ export function embeddable(
 interface SlotHere {
 	incoming: number | null;
 	slot: OptionsSlot;
+	/** Where the routine has this slot end (`end.ts`); null when the shape no longer holds it. */
+	end: SlotEnd | null;
 }
 
 /**
@@ -1020,9 +1024,12 @@ interface SlotHere {
  */
 function slotHere(db: Db, routine: Routine, g: Graph, stepId: number): SlotHere {
 	const shape = routineShapes(db, ownerSpace(routine)).get(routine.id) ?? { slots: [] };
-	const slot = flatten(g, shape).find((s) => s.stepId === stepId);
+	const flat = flatten(g, shape);
+	const at = flat.findIndex((s) => s.stepId === stepId);
+	const slot = at === -1 ? undefined : flat[at];
 	return {
 		incoming: stepIncoming(g, shape, stepId) ?? null,
+		end: at === -1 ? null : slotEndsIn(g, flat)[at],
 		slot: slot ?? {
 			kind: 'options',
 			figureIds: [],
@@ -1103,12 +1110,7 @@ export function addOption(
 	for (const o of existing) {
 		const other = landingIn(g, o.figureId);
 		const at = timingIn(g, here, o.figureId);
-		if (
-			other === null ||
-			at === null ||
-			!sameSet(other.ends, landing.ends) ||
-			at.next !== mine.next
-		) {
+		if (other === null || at === null || at.next !== mine.next) {
 			return false;
 		}
 	}
@@ -1118,12 +1120,64 @@ export function addOption(
 	// are left as they are — it governs adding, it is not a migration.
 	const main = existing.length > 0 ? landingIn(g, existing[0].figureId) : null;
 	const mainAt = existing.length > 0 ? timingIn(g, here, existing[0].figureId) : null;
+	// Ends (spec 2026-11-11, slot end): with one end fixed, an alternative need only
+	// reach it; otherwise the main figure's set of ends, compared by family.
+	if (main && !endFits(landing.ends, here.end?.ends ?? null, main.ends)) return false;
 	if (main && (mainAt?.start !== mine.start || !meet(main.starts, landing.starts))) {
 		return false;
 	}
 	db.transaction((tx) => {
 		tx.insert(routineStepOptions).values({ stepId, figureId, lengthCounts }).run();
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+	});
+	return true;
+}
+
+/**
+ * Where a slot ends: the Where does it end? sheet (spec 2026-11-11, slot end).
+ * `positionId` is a real position id, kept as given; null clears. False,
+ * writing nothing, when the step or its routine is gone, the step embeds a
+ * routine, or the position is not one the routine's owner may use (live, in
+ * reach: the graph's `canon`) and every option can end in (`sharedEnds`, by
+ * family). In a group, `by` is who, for History.
+ */
+export function setSlotEnd(
+	db: Db,
+	stepId: number,
+	positionId: number | null,
+	by?: string
+): boolean {
+	const step = db
+		.select({
+			routineId: routineSteps.routineId,
+			childId: routineSteps.childRoutineId,
+			end: routineSteps.endPositionId
+		})
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	if (!step || step.childId !== null) return false;
+	const routine = getRoutine(db, step.routineId);
+	if (!routine) return false;
+	if (positionId !== null) {
+		const g = graphFor(db, ownerSpace(routine));
+		const family = g.canon.get(positionId);
+		const shared = sharedEnds(g, slotHere(db, routine, g, stepId).slot) ?? [];
+		if (family === undefined || !shared.includes(family)) return false;
+	}
+	if (step.end === positionId) return true;
+	db.transaction((tx) => {
+		tx.update(routineSteps)
+			.set({ endPositionId: positionId })
+			.where(eq(routineSteps.id, stepId))
+			.run();
+		logRoutine(tx, routine, by, {
+			verb: 'change',
+			subject: 'slot',
+			subjectId: stepId,
+			before: { end: step.end },
+			after: { end: positionId }
+		});
 	});
 	return true;
 }

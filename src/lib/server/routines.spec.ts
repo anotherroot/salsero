@@ -22,6 +22,7 @@ import {
 	routineShapes,
 	routineSlots,
 	setOptionLength,
+	setSlotEnd,
 	setSlotNote,
 	updateRoutine,
 	duplicateRoutine,
@@ -1019,7 +1020,6 @@ describe('listAddedRoutines', () => {
 		expect(names).toEqual(['Linked']);
 	});
 });
-
 describe('a personal routine and a group’s figures and routines', () => {
 	const T = 1_790_000_000_000;
 	const NONE = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
@@ -1167,6 +1167,21 @@ describe('a personal routine and a group’s figures and routines', () => {
 		expect(routineSlots(db, P)).toHaveLength(1);
 	});
 
+	it('a slot may end on a group’s position while the person may use it', async () => {
+		const { db, F, P } = setup();
+		const ga = addPosition(db, T1_SALSA, 'Closed');
+		const gb = addPosition(db, T1_SALSA, 'Open');
+		setFigureShape(db, F, { startIds: [], endIds: [ga, gb], startCount: 1, lengthCounts: 8 }, 'u1');
+		const s = addFigureSlot(db, P, F)!;
+		expect(setSlotEnd(db, s, gb)).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+		// A group u2 is not in: the integrity check sees the slot's end.
+		createTeam(db, 'u1', 'salsa', 'Other', T);
+		const other = addPosition(db, { ...T1_SALSA, teamId: 2 }, 'Elsewhere');
+		db.update(routineSteps).set({ endPositionId: other }).where(eq(routineSteps.id, s)).run();
+		expect(crossRefs(db)).not.toEqual([]);
+	});
+
 	it('a former member cannot put that group’s figure in a slot', async () => {
 		const { db, F, P, slot } = setup();
 		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, T + 1)).toBe('left');
@@ -1308,5 +1323,62 @@ describe('routineShapes carries a slot’s end (spec 2026-11-11, slot end)', () 
 		const [first, second] = routineShapes(db, U1_SALSA).get(routine.id)!.slots;
 		expect(first).toMatchObject({ end: p });
 		expect('end' in second).toBe(false);
+	});
+});
+
+describe('setSlotEnd (spec 2026-11-11, slot end)', () => {
+	function setup() {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
+		const A = addPosition(db, U1_SALSA, 'Closed');
+		const B = addPosition(db, U1_SALSA, 'Open');
+		const X = addPosition(db, U1_SALSA, 'Cross-hand');
+		const shape = (id: number, endIds: number[]) =>
+			setFigureShape(db, id, { startIds: [], endIds, startCount: 1, lengthCounts: 8 });
+		const m = figure(db, 'Main').id;
+		shape(m, [A, B]);
+		const step = addFigureSlot(db, routine.id, m)!;
+		const endOf = () =>
+			db
+				.select({ end: routineSteps.endPositionId })
+				.from(routineSteps)
+				.where(eq(routineSteps.id, step))
+				.get()!.end;
+		return { db, routine, step, m, A, B, X, shape, endOf };
+	}
+
+	it('stores an end every option shares, and clears it', () => {
+		const { db, step, B, endOf } = setup();
+		expect(setSlotEnd(db, step, B)).toBe(true);
+		expect(endOf()).toBe(B);
+		expect(setSlotEnd(db, step, null)).toBe(true);
+		expect(endOf()).toBeNull();
+	});
+
+	it('refuses an end an option lacks, or no option has', () => {
+		const { db, step, A, B, X, shape, endOf } = setup();
+		const k = figure(db, 'K').id;
+		shape(k, [A, X]);
+		expect(setSlotEnd(db, step, A)).toBe(true);
+		expect(addOption(db, step, k)).toBe(true);
+		expect(setSlotEnd(db, step, B)).toBe(false);
+		expect(setSlotEnd(db, step, X)).toBe(false);
+		expect(endOf()).toBe(A);
+	});
+
+	it('refuses on a slot that embeds a routine', () => {
+		const { db, routine, A } = setup();
+		const child = createRoutine(db, U1_SALSA, { name: 'C', notes: null }).routine.id;
+		const s = addChildSlot(db, routine.id, child)!;
+		expect(setSlotEnd(db, s, A)).toBe(false);
+	});
+
+	it('takes an alternative that can end where the slot is set', () => {
+		const { db, step, A, X, shape } = setup();
+		const k = figure(db, 'K').id;
+		shape(k, [A, X]);
+		expect(addOption(db, step, k)).toBe(false);
+		expect(setSlotEnd(db, step, A)).toBe(true);
+		expect(addOption(db, step, k)).toBe(true);
 	});
 });
