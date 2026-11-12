@@ -33,9 +33,12 @@ def main() -> int:
     timeline_tools = jobs.TimelineTools(
         frames=media.timeline_frames, sound=media.timeline_sound, duration=media.timeline_duration
     )
+    loop_tools = jobs.LoopTools(cut=media.loop_strip)
     try:
         n = jobs.run(
-            api, tools, video_tools=video_tools, import_tools=import_tools, timeline_tools=timeline_tools
+            api, tools, video_tools=video_tools, import_tools=import_tools,
+            timeline_tools=timeline_tools,
+            loop_tools=loop_tools,
         )
     except Exception as e:  # server unreachable, laptop offline, token refused: the next tick tries again
         logging.exception("worker run failed: %s", e)

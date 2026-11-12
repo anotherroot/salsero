@@ -195,6 +195,35 @@ def process_timeline(job: dict, api, tools: TimelineTools, workdir: Path) -> boo
         api.fail_timeline(job_id, f"{type(e).__name__}: {e}", False)
     return False
 
+@dataclass(frozen=True)
+class LoopTools:
+    cut: Callable[[str, int, int, Path, dict], tuple[Path, Path]]
+
+
+def process_loop(job: dict, api, tools: LoopTools, workdir: Path) -> bool:
+    """A figure's loop: 12 frames of the section, cut over HTTP, uploaded as a strip and a still.
+    Failures are reported, never raised. True unless it failed."""
+    job_id = job["id"]
+    try:
+        url, headers = api.loop_source_url(job_id)
+        strip, still = tools.cut(url, job["start_ms"], job["end_ms"], workdir, headers)
+        api.put_loop(job_id, "strip", strip)
+        api.put_loop(job_id, "still", still)
+        api.finish_loop(job_id)
+        log.info("loop %s: %d + %d bytes", job_id, strip.stat().st_size, still.stat().st_size)
+        return True
+    except JobGone:
+        log.info("loop %s: no longer wanted", job_id)
+        return True
+    except PermanentError as e:
+        log.warning("loop %s failed for good: %s", job_id, e)
+        api.fail_loop(job_id, str(e), True)
+    except Exception as e:  # noqa: BLE001 — anything else is worth another try
+        log.exception("loop %s failed, will retry", job_id)
+        api.fail_loop(job_id, f"{type(e).__name__}: {e}", False)
+    return False
+
+
 def measure_start(song_id: int, api, tools: Tools, workdir: Path) -> None:
     """The one-off pass for a ready song that has no music start yet: fetch, decode, measure, report.
     Audio that will not decode is reported as 0.0, so it is never asked for again; a download that
@@ -218,6 +247,7 @@ def run(
     video_tools: VideoTools | None = None,
     import_tools: ImportTools | None = None,
     timeline_tools: TimelineTools | None = None,
+    loop_tools: LoopTools | None = None,
     max_jobs: int = 20,
 ) -> int:
     """Claim and process jobs until the queues are empty or a job fails. Returns how many were processed.
@@ -261,6 +291,16 @@ def run(
             break
         with tempfile.TemporaryDirectory(prefix="salsa-timeline-") as tmp:
             ok = process_timeline(job, api, timeline_tools, Path(tmp))
+        done += 1
+        if not ok:
+            return done
+    # Figure loops for the pickers: twelve frames of a section each, seconds of work.
+    while loop_tools is not None and done < max_jobs:
+        job = api.claim_loop()
+        if job is None:
+            break
+        with tempfile.TemporaryDirectory(prefix="salsa-loop-") as tmp:
+            ok = process_loop(job, api, loop_tools, Path(tmp))
         done += 1
         if not ok:
             return done
