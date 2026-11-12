@@ -107,6 +107,8 @@ export const routine = {
 		where: 'Where you are',
 		sectioned: (n: number): string => `Made a section of ${plural(n, 'slot', 'slots')}`,
 		unpacked: (name: string): string => `Unpacked ${name || 'the section'}`,
+		added: (name: string, n: number): string =>
+			n > 1 ? `Added to ${name} · shows in ${n} routines` : `Added to ${name}`,
 		copied: (n: number, after: number): string =>
 			`${plural(n, 'slot', 'slots')} copied after slot ${after}`
 	},
@@ -236,6 +238,8 @@ export const routine = {
 		demote: 'Only a routine another routine uses can become a section.',
 		unpack: 'That slot holds no section or routine to unpack.',
 		detachHere: 'Only a section can be detached here.',
+		moveInto:
+			'That slot cannot go in there: it would end up inside itself, or it is not part of this routine.',
 		extract: 'Those slots cannot become a section: they have to sit next to each other.'
 	}
 };

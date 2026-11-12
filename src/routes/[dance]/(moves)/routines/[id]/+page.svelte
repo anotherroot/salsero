@@ -96,6 +96,21 @@
 	const toggleOpen = (stepId: number) =>
 		(opened = opened.includes(stepId) ? opened.filter((x) => x !== stepId) : [...opened, stepId]);
 
+	/** Spring-open drop (spec 2026-11-12): the slot goes inside the section it was held over, which opens. */
+	async function moveInto(stepId: number, targetStep: number) {
+		const target = rows.find((r) => r.id === targetStep);
+		if (!target?.childId) return;
+		const at = rows.findIndex((r) => r.id === stepId);
+		const result = await send('moveInto', { stepId, targetId: target.childId });
+		if (result.type !== 'success') return;
+		if (!opened.includes(targetStep)) opened = [...opened, targetStep];
+		const view = data.children[target.childId];
+		const name = view?.name || t().routine.section.unnamed;
+		showToast(t().routine.section.added(name, view?.holders ?? 1), () =>
+			send('moveInto', { stepId, targetId: data.routine.id, index: at })
+		);
+	}
+
 	/** Unpack (spec 2026-11-12): the slot's section or routine opens into its slots here, with Undo. */
 	async function unpack(stepId: number) {
 		const name = rows.find((r) => r.id === stepId)?.title ?? '';
@@ -900,7 +915,6 @@
 		remove(ids);
 	}
 
-
 	/**
 	 * The Make routine form's enhance callback. The form goes through
 	 * `use:guarded`, so a typed name is unsaved work the sheet asks about before
@@ -1276,6 +1290,7 @@
 						ontoggle={toggleOpen}
 						onunpack={unpack}
 						{glow}
+						onmoveinto={moveInto}
 						{expanded}
 						{selecting}
 						{selected}

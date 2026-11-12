@@ -2046,3 +2046,44 @@ export function detachSection(
 		return copy;
 	});
 }
+
+/**
+ * Drag into a section, or out of one (spec 2026-11-12): the slot's row moves to
+ * `targetId` at `index` (clamped), both routines compacted. Refused when the
+ * target is the slot's own routine (that is a reorder), another dance or wall
+ * (`canEmbed`'s `mayHold`), or the slot's child would hold the target (a
+ * cycle). A section whose last slot leaves stays where it is held, empty.
+ */
+export function moveSlotInto(
+	db: Db,
+	stepId: number,
+	targetId: number,
+	index: number,
+	by?: string,
+	now = serverNow()
+): boolean {
+	const step = db.select().from(routineSteps).where(eq(routineSteps.id, stepId)).get();
+	const target = getRoutine(db, targetId);
+	if (!step || !target || step.routineId === targetId) return false;
+	const source = getRoutine(db, step.routineId);
+	if (!source || source.dance !== target.dance) return false;
+	if (step.childRoutineId !== null) {
+		if (step.childRoutineId === targetId || holds(db, step.childRoutineId, targetId)) return false;
+		if (!canEmbed(db, targetId, step.childRoutineId)) return false;
+	}
+	const sameOwner = source.userId === target.userId && source.teamId === target.teamId;
+	if (!sameOwner) return false;
+	return db.transaction((tx) => {
+		const from = slotIds(tx, step.routineId).filter((id) => id !== stepId);
+		const to = slotIds(tx, targetId);
+		tx.update(routineSteps)
+			.set({ routineId: targetId, position: to.length + 1000 })
+			.where(eq(routineSteps.id, stepId))
+			.run();
+		order(tx, from);
+		to.splice(Math.max(0, Math.min(index, to.length)), 0, stepId);
+		order(tx, to);
+		logRoutine(tx, target, by, { verb: 'change', ...slotSubject([stepId], 'after') }, now);
+		return true;
+	});
+}

@@ -86,6 +86,7 @@ import {
 	duplicateRoutine,
 	duplicateSlots,
 	makeSection,
+	moveSlotInto,
 	promoteSection,
 	unpackSlot,
 	packSlots,
@@ -785,6 +786,16 @@ const MUTATIONS: {
 			packStep = makeSection(db, w.routine, [w.step], w.by)!.stepId;
 		},
 		run: (w) => detachSection(db, w.routine, packStep, w.by)
+	},
+	{
+		name: 'moveSlotInto',
+		root: 'routine',
+		verb: 'change',
+		rootId: () => 0,
+		prep: (w) => {
+			sectionOf = makeSection(db, w.routine, [w.step], w.by)!.sectionId;
+		},
+		run: (w) => moveSlotInto(db, w.step2, sectionOf, 0, w.by)
 	},
 	{
 		name: 'promoteSection',

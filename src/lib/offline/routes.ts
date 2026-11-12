@@ -207,6 +207,7 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		// Make routine and Turn into a section (spec 2026-11-12).
 		demote: 'device',
 		detachHere: 'device',
+		moveInto: 'device',
 		detach: 'network',
 		drop: 'network',
 		duplicate: 'device',

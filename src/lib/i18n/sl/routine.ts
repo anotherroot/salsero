@@ -105,6 +105,8 @@ export const routine: Catalog['routine'] = {
 		where: 'Kje ste',
 		sectioned: (n) => `Sklop iz ${nouns.slots(n)}`,
 		unpacked: (name) => `Razpakirano: ${name || 'sklop'}`,
+		added: (name, n) =>
+			n > 1 ? `Dodano v ${name} · vidno v ${n} kombinacijah` : `Dodano v ${name}`,
 		copied: (n, after) => `Kopirano za mestom ${after}: ${nouns.slots(n)}`
 	},
 	slot: {
@@ -222,6 +224,7 @@ export const routine: Catalog['routine'] = {
 		demote: 'V sklop lahko spremenite le kombinacijo, ki jo uporablja druga kombinacija.',
 		unpack: 'To mesto nima sklopa ali kombinacije, ki bi jo lahko razpakirali.',
 		detachHere: 'Tu lahko ločite le sklop.',
+		moveInto: 'To mesto ne more tja: znašlo bi se v samem sebi ali pa ni del te kombinacije.',
 		extract: 'Iz teh mest ni mogoče narediti sklopa: biti morajo sosednja.'
 	}
 };

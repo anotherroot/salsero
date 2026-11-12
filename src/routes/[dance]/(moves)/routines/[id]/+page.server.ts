@@ -18,6 +18,8 @@ import {
 	embeddable,
 	embeddedIn,
 	makeSection,
+	moveSlotInto,
+	holds,
 	promoteSection,
 	unpackSlot,
 	packSlots,
@@ -80,6 +82,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 import { demoteRoutine } from '$lib/server/sections';
 import { childViews } from '$lib/server/section-views';
+import { eq } from 'drizzle-orm';
+import { routineSteps } from '$lib/server/db/schema';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -720,6 +724,36 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			stepId === undefined ? null : unpackSlot(getDb(), routine.id, stepId, by(params, locals));
 		if (!out) return fail(400, { message: t().routine.refused.unpack });
 		return done(routine.id, { unpacked: out });
+	},
+	// Drag into a section held here, or back out (spec 2026-11-12): both ends must be this
+	// routine or something it holds.
+	moveInto: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const db = getDb();
+		const stepId = int(form, 'stepId');
+		const targetId = int(form, 'targetId');
+		const index = int(form, 'index') ?? 1_000_000;
+		const within = (id: number) => id === routine.id || holds(db, routine.id, id);
+		const from =
+			stepId === undefined
+				? undefined
+				: db
+						.select({ r: routineSteps.routineId })
+						.from(routineSteps)
+						.where(eq(routineSteps.id, stepId))
+						.get()?.r;
+		if (
+			stepId === undefined ||
+			targetId === undefined ||
+			from === undefined ||
+			!within(from) ||
+			!within(targetId) ||
+			!moveSlotInto(db, stepId, targetId, index, by(params, locals))
+		) {
+			return fail(400, { message: t().routine.refused.moveInto });
+		}
+		return done(routine.id, { from });
 	},
 	// Unpack's Undo.
 	pack: async ({ params, request, locals }) => {

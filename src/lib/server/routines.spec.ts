@@ -18,6 +18,7 @@ import {
 	listAddedRoutines,
 	listRoutines,
 	makeSection,
+	moveSlotInto,
 	unpackSlot,
 	packSlots,
 	detachSection,
@@ -1705,5 +1706,38 @@ describe('the drop-alternatives migration (spec 2026-11-12)', () => {
 		const sql = readFileSync('drizzle/0054_drop-alternatives.sql', 'utf8');
 		(db as unknown as { $client: { exec: (s: string) => void } }).$client.exec(sql);
 		expect(routineSlots(db, r.id)[0].figureIds).toEqual([b.id]);
+	});
+});
+
+describe('moveSlotInto (spec 2026-11-12, drag into a section)', () => {
+	const setup = () => {
+		const db = openDb(':memory:');
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const f = [figure(db, 'A'), figure(db, 'B'), figure(db, 'C')];
+		const steps = f.map((x) => addFigureSlot(db, r.id, x.id)!);
+		const made = makeSection(db, r.id, [steps[1]])!;
+		return { db, r, steps, made };
+	};
+
+	it('moves a figure slot into a section, at the index', () => {
+		const { db, r, steps, made } = setup();
+		expect(moveSlotInto(db, steps[2], made.sectionId, 0)).toBe(true);
+		expect(routineSlots(db, made.sectionId).map((s) => s.id)).toEqual([steps[2], steps[1]]);
+		expect(routineSlots(db, r.id).map((s) => s.id)).toEqual([steps[0], made.stepId]);
+	});
+
+	it('refuses moving a section into itself or into what it holds', () => {
+		const { db, r, made } = setup();
+		const inner = makeSection(db, made.sectionId, [routineSlots(db, made.sectionId)[0].id])!;
+		expect(moveSlotInto(db, made.stepId, made.sectionId, 0)).toBe(false);
+		expect(moveSlotInto(db, made.stepId, inner.sectionId, 0)).toBe(false);
+		expect(routineSlots(db, r.id).map((s) => s.childId)).toContain(made.sectionId);
+	});
+
+	it('moves a slot out of a section to its parent', () => {
+		const { db, r, steps, made } = setup();
+		expect(moveSlotInto(db, steps[1], r.id, 0)).toBe(true);
+		expect(routineSlots(db, r.id)[0].id).toBe(steps[1]);
+		expect(routineSlots(db, made.sectionId)).toEqual([]);
 	});
 });

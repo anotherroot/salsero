@@ -56,6 +56,8 @@
 		onunpack: (stepId: number) => void;
 		/** New cards that glow a moment (spec 2026-11-12, D1). */
 		glow?: number[];
+		/** Drop onto a section after holding over it (spec 2026-11-12, spring-open). */
+		onmoveinto?: (stepId: number, targetStep: number) => void;
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
 
@@ -82,6 +84,7 @@
 		ontoggle,
 		onunpack,
 		glow = [],
+		onmoveinto,
 		onadd
 	}: Props = $props();
 
@@ -98,6 +101,29 @@
 	);
 	/** Each live card's top (relative to the list) and height, measured at grab. */
 	let measured = $state.raw<{ tops: number[]; heights: number[] }>({ tops: [], heights: [] });
+
+	/** The section card a drag has held over long enough to drop into (spec 2026-11-12). */
+	let springing = $state<number | null>(null);
+	let into = $state<number | null>(null);
+
+	let springTimer: ReturnType<typeof setTimeout> | undefined;
+	/**
+	 * Spring-open (spec 2026-11-12): over the middle third of a closed section's or
+	 * routine's card, held 600 ms, the drop goes inside it. Off the middle, cancelled.
+	 */
+	function spring(y: number, dragged: number) {
+		let over: number | null = null;
+		rows.forEach((r, k) => {
+			if (r.kind === 'figure' || r.id === dragged || opened.includes(r.id)) return;
+			const b = items[k]?.getBoundingClientRect();
+			if (b && y > b.top + b.height / 3 && y < b.bottom - b.height / 3) over = r.id;
+		});
+		if (over === springing) return;
+		clearTimeout(springTimer);
+		springing = over;
+		into = null;
+		if (over !== null) springTimer = setTimeout(() => (into = over), 600);
+	}
 
 	async function grab(e: PointerEvent, index: number) {
 		// A right or middle press on the handle is not a drag.
@@ -160,9 +186,25 @@
 		const onmove = (ev: PointerEvent) => {
 			y = ev.clientY;
 			update();
+			spring(ev.clientY, id);
 		};
 		const finish = (commit: boolean) => {
 			cancelAnimationFrame(frame);
+			clearTimeout(springTimer);
+			const target = into;
+			springing = null;
+			into = null;
+			if (commit && target !== null && onmoveinto) {
+				const done = drag;
+				window.removeEventListener('pointermove', onmove);
+				window.removeEventListener('pointerup', onup);
+				window.removeEventListener('pointercancel', oncancel);
+				window.removeEventListener('keydown', onkey);
+				drag = null;
+				ondragend();
+				if (done) onmoveinto(done.id, target);
+				return;
+			}
 			window.removeEventListener('pointermove', onmove);
 			window.removeEventListener('pointerup', onup);
 			window.removeEventListener('pointercancel', oncancel);
@@ -322,7 +364,11 @@
 						: DIM_OPEN
 					: ''} {sel === 'mid' || sel === 'bottom' ? 'joined' : ''} {flash === row.id
 					? 'flash'
-					: ''} {glow.includes(row.id) ? 'glow' : ''}"
+					: ''} {glow.includes(row.id) ? 'glow' : ''} {springing === row.id
+					? into === row.id
+						? 'spring-in'
+						: 'spring'
+					: ''}"
 				style={drag ? `translate: 0 ${offsetOf(i, row.id)}px` : undefined}
 			>
 				<!-- Open or selected, the card lifts in a piece (spec 2026-11-11, T3, S6–S8);
@@ -397,6 +443,13 @@
 <style>
 	/* J1 (spec 2026-11-12): a selected neighbour fills the gap above it, so the run reads as one
 	   piece with no card moving. */
+	/* Spring-open (spec 2026-11-12): held over, the card rings; ready to take the drop, it fills. */
+	.spring :global([role='button']) {
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 35%, transparent);
+	}
+	.spring-in :global([role='button']) {
+		box-shadow: 0 0 0 3px var(--color-accent);
+	}
 	/* D1 (spec 2026-11-12): a new card glows with the accent, then fades. */
 	.glow :global([role='button']) {
 		animation: glow 2s ease-out;
