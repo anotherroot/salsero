@@ -57,6 +57,9 @@ export const DEVICE_ENDPOINTS = [
 	'/api/lessons/[id]/comments',
 	'/api/video-spots',
 	'/api/video-spots/[id]/links',
+	// The pickers' preview sheets (picker preview).
+	'/api/figures/[id]/look',
+	'/api/moves/[id]/look',
 	'/[dance]/songs/[id]/grid'
 ];
 

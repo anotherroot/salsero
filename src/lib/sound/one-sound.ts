@@ -41,3 +41,19 @@ export function focusWord<T>(all: Iterable<T>, look: (t: T) => Playing): 'on' | 
 	for (const t of all) if (audible(look(t))) return 'on';
 	return 'off';
 }
+
+/**
+ * A preview sheet opening over a player (picker preview): every other one that
+ * counts stops now, before the sheet's own video has started (`quietFor` asks
+ * the starter to play first); on Back the plain ones it stopped (`plain`: a
+ * bare media element, not a run or a holder) play again.
+ */
+export function whileOpen<T>(
+	all: Iterable<T>,
+	from: T,
+	look: (t: T) => Playing,
+	plain: (t: T) => boolean
+): { stop: T[]; resume: T[] } {
+	const stop = [...all].filter((t) => t !== from && takesPart(look(t)));
+	return { stop, resume: stop.filter(plain) };
+}

@@ -77,6 +77,25 @@ export const picker = {
 	/** Picker preview: a figure's picture on its row, and the sheet it opens. */
 	look: {
 		/** The picture's button, named by its row. */
-		preview: (label: string): string => `Preview ${label}`
+		preview: (label: string): string => `Preview ${label}`,
+		/** The sheet's main button: what a tap on the row does (link, slot, field picker). */
+		linkThis: 'Link this',
+		addThis: 'Add this',
+		pickThis: 'Pick this',
+		/** Over the start positions: "Starts on 1", "Starts on 1/5". */
+		startsOn: (count: string): string => `Starts on ${count}`,
+		/** Over the end positions. */
+		endsAfter: (n: number): string => `Ends after ${nouns.counts(n)}`,
+		/** Over the end positions when a routine slot sets the length. */
+		ends: 'Ends',
+		noPositions: 'No positions set',
+		noVideo: 'No video yet',
+		/** Under the video: it is one of the figure's own recordings. */
+		yourRecording: 'Your recording',
+		soundOn: 'Turn the sound on',
+		soundOff: 'Turn the sound off',
+		/** A move's sheet, after its first variations. */
+		andMore: (n: number): string => `and ${n} more`,
+		failed: 'This could not be loaded.'
 	}
 };

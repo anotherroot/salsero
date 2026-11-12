@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { audible, focusWord, quietFor, quietForApp, takesPart, type Playing } from './one-sound';
+import {
+	audible,
+	focusWord,
+	quietFor,
+	quietForApp,
+	takesPart,
+	whileOpen,
+	type Playing
+} from './one-sound';
 
 const p = (playing: boolean, muted = false, ambient = false): Playing => ({
 	playing,
@@ -48,5 +56,28 @@ describe('one sound at a time', () => {
 		expect(focusWord([p(false), p(true, true)], look)).toBe('off');
 		expect(focusWord([p(false), p(true)], look)).toBe('on');
 		expect(audible(p(true, true))).toBe(false);
+	});
+});
+
+describe('a preview sheet over a player (picker preview)', () => {
+	it('stops every other one that counts, before its own has started', () => {
+		const lesson = p(true);
+		const paused = p(false);
+		const loop = p(true, true, true);
+		const sheet = p(false);
+		expect(whileOpen([lesson, paused, loop, sheet], sheet, look, () => true)).toEqual({
+			stop: [lesson],
+			resume: [lesson]
+		});
+	});
+
+	it('resumes on Back only the plain media it stopped, never a run or a holder', () => {
+		const lesson = p(true);
+		const run = p(true);
+		const sheet = p(false);
+		expect(whileOpen([lesson, run, sheet], sheet, look, (x) => x !== run)).toEqual({
+			stop: [lesson, run],
+			resume: [lesson]
+		});
 	});
 });

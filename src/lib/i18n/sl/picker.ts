@@ -52,6 +52,19 @@ export const picker: Catalog['picker'] = {
 	},
 	routineMeta: (slots, loops) => `${nouns.slots(slots)}${loops ? ' · se sklene' : ''}`,
 	look: {
-		preview: (label) => `Predogled: ${label}`
+		preview: (label) => `Predogled: ${label}`,
+		linkThis: 'Poveži to',
+		addThis: 'Dodaj to',
+		pickThis: 'Izberi to',
+		startsOn: (count) => `Začne na ${count}`,
+		endsAfter: (n) => `Traja ${nouns.counts(n)}`,
+		ends: 'Konča',
+		noPositions: 'Položaji niso nastavljeni',
+		noVideo: 'Še ni videa',
+		yourRecording: 'Vaš posnetek',
+		soundOn: 'Vklopi zvok',
+		soundOff: 'Izklopi zvok',
+		andMore: (n) => `in še ${n}`,
+		failed: 'Tega ni bilo mogoče naložiti.'
 	}
 };

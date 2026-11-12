@@ -16,7 +16,7 @@
  * when nothing is; the app posts `pause` when another app takes the sound.
  * In a browser there is no `SalsaAudio`; the browser does its own.
  */
-import { focusWord, quietFor, quietForApp, type Playing } from './one-sound';
+import { focusWord, quietFor, quietForApp, whileOpen, type Playing } from './one-sound';
 
 /** Something that plays and is not a media element: a YouTube embed. */
 export interface Holder {
@@ -145,5 +145,27 @@ export function holdSound(holder: Holder): () => void {
 	return () => {
 		holders.delete(holder);
 		tell();
+	};
+}
+
+/**
+ * A preview sheet's video is about to play (picker preview): what plays now
+ * stops, and the returned `resume` plays again the bare media elements it
+ * stopped that are still paused there (Back carries the lesson video on).
+ */
+export function quietWhile(from: HTMLMediaElement): () => void {
+	if (typeof document === 'undefined') return () => {};
+	const { stop: stopping, resume } = whileOpen(
+		sources(),
+		from,
+		look,
+		(s) => isMedia(s) && !stoppers.has(s)
+	);
+	for (const s of stopping) stop(s);
+	tell();
+	return () => {
+		for (const s of resume) {
+			if (isMedia(s) && s.isConnected && s.paused) void s.play().catch(() => {});
+		}
 	};
 }

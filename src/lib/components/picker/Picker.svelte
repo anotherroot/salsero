@@ -27,6 +27,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import PreviewButton from './PreviewButton.svelte';
+	import LookSheet from './LookSheet.svelte';
 	import { PREVIEW_LOOK } from '$lib/picker/preview';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, CLIP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
@@ -164,9 +165,22 @@
 		onclose
 	}: Props = $props();
 
-	/** A row's picture was tapped: its preview sheet. */
-	function look(r: PickRow) {
-		onlook?.(r);
+	/** The row whose preview sheet is open over the picker (picker preview), and whether it is from another place. */
+	let looking = $state<{ row: PickRow; away: boolean } | null>(null);
+
+	/** A row's picture was tapped: its preview sheet, the picker kept as it is underneath. */
+	function look(r: PickRow, away = false) {
+		if (onlook) return onlook(r);
+		if (r.look) looking = { row: r, away };
+	}
+
+	/** The sheet's verb: exactly what a tap on its row does, then the sheet goes with the picker. */
+	function pickLooked() {
+		const l = looking;
+		looking = null;
+		if (!l) return;
+		if (l.away) onelsewhere?.(l.row, false);
+		else onpick(l.row);
 	}
 
 	let search: HTMLInputElement | undefined = $state();
@@ -259,7 +273,7 @@
 		{#if r.picture !== undefined && PREVIEW_LOOK === 'tile'}
 			<!-- Picker preview: the figure's moving picture; a tap opens its sheet, the row still picks. -->
 			<span class="mr-3 flex flex-none">
-				<PreviewButton picture={r.picture} label={r.label} onclick={() => look(r)} />
+				<PreviewButton picture={r.picture} label={r.label} onclick={() => look(r, away)} />
 			</span>
 		{/if}
 		<div class="flex min-w-0 flex-1 items-center {last ? '' : 'border-b border-hairline'}">
@@ -290,7 +304,12 @@
 				{/if}
 			</button>
 			{#if r.picture !== undefined && PREVIEW_LOOK === 'eye'}
-				<PreviewButton picture={r.picture} label={r.label} look="eye" onclick={() => look(r)} />
+				<PreviewButton
+					picture={r.picture}
+					label={r.label}
+					look="eye"
+					onclick={() => look(r, away)}
+				/>
 			{/if}
 			{#if trail === 'add'}
 				<button
@@ -516,6 +535,25 @@
 		>
 	{/if}
 {/snippet}
+
+{#if looking?.row.look}
+	{@const l = looking}
+	{@const lk = looking.row.look}
+	<!-- Picker preview: the row's sheet, a level over the picker (S1). -->
+	<LookSheet
+		open={open && looking !== null}
+		look={lk}
+		label={l.row.label}
+		picture={l.row.picture ?? null}
+		verb={kind === 'act' ? 'act' : kind === 'link' ? 'link' : 'field'}
+		linked={l.row.linked === true}
+		{theme}
+		z="z-[60]"
+		{level}
+		onpick={pickLooked}
+		onclose={() => (looking = null)}
+	/>
+{/if}
 
 {#if theme === 'dark'}
 	{#if open}

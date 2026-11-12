@@ -35,7 +35,7 @@ describe('the picker draws it', () => {
 
 	it("a row with a picture gets a PreviewButton of its own, not the row's pick", () => {
 		expect(picker).toMatch(/r\.picture !== undefined/);
-		expect(picker).toMatch(/<PreviewButton[\s\S]*?onclick=\{\(\) => look\(r\)\}/);
+		expect(picker).toMatch(/<PreviewButton[\s\S]*?onclick=\{\(\) => look\(r, away\)\}/);
 	});
 
 	it('the button is named for its row, loads lazily, and the strip steps through 12 frames', () => {

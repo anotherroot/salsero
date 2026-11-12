@@ -63,7 +63,8 @@ describe('the Link popup picker is a level', () => {
 		expect(readFileSync(`${ROOT}/links/LinkPopup.svelte`, 'utf8')).toMatch(/<Picker\s+level\s/);
 		const p = readFileSync(`${ROOT}/picker/Picker.svelte`, 'utf8');
 		expect(p).toContain('level?: boolean');
-		expect(p.match(/^\s*\{level\}$/gm)?.length).toBe(2);
+		// Both branches, and the preview sheet over the picker (picker preview).
+		expect(p.match(/^\s*\{level\}$/gm)?.length).toBe(3);
 	});
 	it('a level wins over tall on desk, in the layer and in the sheet', () => {
 		const layer = readFileSync(`${ROOT}/ui/PlayerLayer.svelte`, 'utf8');

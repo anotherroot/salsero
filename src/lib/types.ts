@@ -425,6 +425,37 @@ export interface PickRoutine {
 	twins?: TwinNote[];
 }
 
+/** A figure's preview sheet over a picker (picker preview, S1). */
+export interface FigureSheet {
+	id: number;
+	/** "Adios · Con la prima". */
+	label: string;
+	notes: string | null;
+	/** Position names, each side as the figure has them; empty: none set. */
+	starts: string[];
+	ends: string[];
+	/** "1", or "1/5" for a figure that can start on several. */
+	startCount: string;
+	/** Counts, null when set per routine slot. */
+	length: number | null;
+	from: { kind: 'mine' } | { kind: 'group'; name: string; readOnly: boolean };
+	/** The section its row's picture was cut from, when the viewer may watch it. */
+	video: {
+		src: string;
+		startMs: number;
+		endMs: number;
+		from: { kind: 'lesson'; title: string; lessonDay: string } | { kind: 'recording' };
+	} | null;
+	picture: Picture;
+}
+
+/** A move's preview sheet: its live variations, each with its look. */
+export interface MoveSheet {
+	id: number;
+	name: string;
+	variations: { id: number; name: string; look: FigureLook }[];
+}
+
 /** A figure's moving picture in the pickers: the strip of 12 frames and its first as a still. Null: none. */
 export type Picture = { strip: string; still: string } | null;
 
