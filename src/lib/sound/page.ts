@@ -11,7 +11,7 @@
  * - something that is no media element at all (a YouTube embed): `holdSound`,
  *   and `soundFrom` when it starts.
  *
- * In the Android app the page tells `SalsaAudio` `on` while anything of ours
+ * (Turned off, `APP_AUDIO_FOCUS`.) In the Android app the page tells `SalsaAudio` `on` while anything of ours
  * is audible (the app takes the phone's audio focus: Spotify pauses) and `off`
  * when nothing is; the app posts `pause` when another app takes the sound.
  * In a browser there is no `SalsaAudio`; the browser does its own.
@@ -33,6 +33,8 @@ interface Bridge {
 
 const stoppers = new Map<HTMLMediaElement, () => void>();
 const holders = new Set<Holder>();
+/** Off: see `oneSoundAtATime`. */
+export const APP_AUDIO_FOCUS = false;
 let told: 'on' | 'off' = 'off';
 let bridge: Bridge | undefined;
 
@@ -91,7 +93,13 @@ export function oneSoundAtATime(): () => void {
 	document.addEventListener('play', onPlay, true);
 	document.addEventListener('volumechange', onPlay, true);
 	for (const type of ['pause', 'ended', 'emptied']) document.addEventListener(type, onQuiet, true);
-	bridge = (window as unknown as { SalsaAudio?: Bridge }).SalsaAudio;
+	/*
+	 * The app's audio focus is OFF (2026-11-12): in app 1.12 a song or video with
+	 * sound played a split second and paused — the app's focus request took the
+	 * sound from its own WebView. Never talk to `SalsaAudio`, so 1.12 apps hold
+	 * no focus. Turn it back on only after it works on a real phone.
+	 */
+	bridge = APP_AUDIO_FOCUS ? (window as unknown as { SalsaAudio?: Bridge }).SalsaAudio : undefined;
 	if (bridge) {
 		bridge.onmessage = (event) => {
 			if (event.data !== 'pause') return;
