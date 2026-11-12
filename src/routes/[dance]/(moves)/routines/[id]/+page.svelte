@@ -191,7 +191,7 @@
 				: { key: 'name', icon: 'pencil', label: w.name, onclick: () => (editing = true) }
 		];
 		const from = data.fromSlot;
-		if (from && data.holders.length > 1) {
+		if (from && data.uses > 1) {
 			items.push({
 				key: 'detach',
 				icon: 'copy',

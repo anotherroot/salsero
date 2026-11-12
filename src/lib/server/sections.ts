@@ -31,13 +31,24 @@ export interface DemoteImpact {
 }
 
 /** Real (not section) live routines holding `id` anywhere above it. */
-export function routinesHolding(db: Db, id: number): { id: number; name: string }[] {
+/** `owner`: only routines of that owner (review I1: never another person's names). */
+export function routinesHolding(
+	db: Db,
+	id: number,
+	owner?: { userId: string | null; teamId: number | null }
+): { id: number; name: string }[] {
 	const seen = new Set<number>([id]);
 	const out = new Map<number, string>();
 	let frontier = [id];
 	while (frontier.length > 0) {
 		const parents = db
-			.selectDistinct({ id: routines.id, name: routines.name, isSection: routines.isSection })
+			.selectDistinct({
+				id: routines.id,
+				name: routines.name,
+				isSection: routines.isSection,
+				userId: routines.userId,
+				teamId: routines.teamId
+			})
 			.from(routineSteps)
 			.innerJoin(routines, eq(routines.id, routineSteps.routineId))
 			.where(and(inArray(routineSteps.childRoutineId, frontier), isNull(routines.archivedAt)))
@@ -47,7 +58,8 @@ export function routinesHolding(db: Db, id: number): { id: number; name: string 
 			if (seen.has(p.id)) continue;
 			seen.add(p.id);
 			frontier.push(p.id);
-			if (p.isSection === 0) out.set(p.id, p.name);
+			const theirs = owner && (p.userId !== owner.userId || p.teamId !== owner.teamId);
+			if (p.isSection === 0 && !theirs) out.set(p.id, p.name);
 		}
 	}
 	return [...out]
@@ -76,7 +88,7 @@ export function demoteImpact(db: Db, routineId: number): DemoteImpact {
 			? null
 			: (db.select({ name: teams.name }).from(teams).where(eq(teams.id, routine.teamId)).get()
 					?.name ?? null);
-	return { routines: routinesHolding(db, routineId), lessons: linked, practised, team };
+	return { routines: routinesHolding(db, routineId, routine), lessons: linked, practised, team };
 }
 
 /**

@@ -36,7 +36,7 @@ export function childViews(
 			name: routine.name,
 			isSection: routine.isSection === 1,
 			...routineSize(graph, shape),
-			holders: routinesHolding(db, id).length,
+			holders: routinesHolding(db, id, routine).length,
 			rows: slots.map((s, i) => {
 				const e = edges[i];
 				const counts =

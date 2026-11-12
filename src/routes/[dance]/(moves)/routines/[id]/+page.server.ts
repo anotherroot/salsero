@@ -83,8 +83,8 @@ import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 import { childViews } from '$lib/server/section-views';
-import { eq } from 'drizzle-orm';
-import { routineSteps } from '$lib/server/db/schema';
+import { and, eq, isNull } from 'drizzle-orm';
+import { routineSteps, routines } from '$lib/server/db/schema';
 import { demoteImpact, demoteRoutine, routinesHolding } from '$lib/server/sections';
 
 /**
@@ -294,7 +294,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		mineHref: inGroupMode ? mineTarget(db, wall, 'routine', routine.id) : null,
 		sameAs: sameAsOffer(db, wall, 'routine', routine.id, routine.name, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
-		copyTo: copyOffer(db, wall.userId, 'routine', routine.id),
+		// A section is copied with the routine that holds it, never alone (review I4).
+		copyTo: routine.isSection === 1 ? null : copyOffer(db, wall.userId, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null
@@ -338,7 +339,10 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		// A section's page (spec 2026-11-12): the slot it was opened from (`?from=`), the
 		// routines holding it, its size; a routine's: what Turn into a section would touch.
 		fromSlot: fromSlot(db, url, routine.id),
-		holders: routine.isSection === 1 ? routinesHolding(db, routine.id) : [],
+		holders: routine.isSection === 1 ? routinesHolding(db, routine.id, routine) : [],
+		// Slots holding it in its owner's routines: Detach here needs two (review; the same
+		// section twice in one routine counts twice).
+		uses: routine.isSection === 1 ? usesOf(db, routine) : 0,
 		size: routineSize(graph, shape),
 		demote: canEdit && routine.isSection === 0 ? demoteImpact(db, routine.id) : null,
 		// Names for every figure a slot can hold, archived ones included, so a slot
@@ -758,7 +762,7 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			from === undefined ||
 			!within(from) ||
 			!within(targetId) ||
-			!moveSlotInto(db, stepId, targetId, index, by(params, locals))
+			!moveSlotInto(db, stepId, targetId, index, by(params, locals), undefined, routine.id)
 		) {
 			return fail(400, { message: t().routine.refused.moveInto });
 		}
@@ -859,4 +863,18 @@ function pickOrder<T extends { id: number; isSection: boolean; holders: { id: nu
 		);
 	}
 	return [...out, ...sections.filter((s) => !out.includes(s))];
+}
+
+/** How many live slots of its owner's routines hold this section. */
+function usesOf(
+	db: ReturnType<typeof getDb>,
+	section: { id: number; userId: string | null; teamId: number | null }
+) {
+	return db
+		.select({ id: routineSteps.id, userId: routines.userId, teamId: routines.teamId })
+		.from(routineSteps)
+		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+		.where(and(eq(routineSteps.childRoutineId, section.id), isNull(routines.archivedAt)))
+		.all()
+		.filter((s) => s.userId === section.userId && s.teamId === section.teamId).length;
 }

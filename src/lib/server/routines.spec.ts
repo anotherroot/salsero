@@ -1754,3 +1754,80 @@ describe('routinesHolding (spec 2026-11-12)', () => {
 		expect(routinesHolding(db, s.id)).toEqual([{ id: r.id, name: 'R' }]);
 	});
 });
+
+describe('review fixes (spec 2026-11-12)', () => {
+	const base = () => {
+		const db = openDb(':memory:');
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const f = [figure(db, 'A'), figure(db, 'B')];
+		const steps = f.map((x) => addFigureSlot(db, r.id, x.id)!);
+		return { db, r, f, steps };
+	};
+
+	it('C1: pack refuses another person’s routine and a cycle', () => {
+		const { db, r, steps } = base();
+		const theirs = createRoutine(db, U2_SALSA, { name: 'Theirs', notes: null }).routine;
+		expect(packSlots(db, r.id, [steps[0]], theirs.id)).toBeNull();
+		const s = insertRoutine(db, U1_SALSA, { name: 'S', notes: null, isSection: true }).routine;
+		const at = addChildSlot(db, r.id, s.id)!;
+		const out = unpackSlot(db, r.id, at)!;
+		addChildSlot(db, s.id, r.id); // R now inside S
+		expect(packSlots(db, r.id, out.stepIds, out.sectionId)).toBeNull();
+	});
+
+	it('C2: moveSlotInto refuses rows whose owner is not the acting routine’s', () => {
+		const { db, r } = base();
+		const gs = insertRoutine(db, T1_SALSA, { name: 'GS', notes: null, isSection: true }).routine;
+		const gt = insertRoutine(db, T1_SALSA, { name: 'GT', notes: null, isSection: true }).routine;
+		const step = db
+			.insert(routineSteps)
+			.values({ routineId: gs.id, position: 0 })
+			.returning({ id: routineSteps.id })
+			.get().id;
+		expect(moveSlotInto(db, step, gt.id, 0, 'u1', undefined, r.id)).toBe(false);
+		// The control: without an acting routine of another owner, the same move goes.
+		expect(moveSlotInto(db, step, gt.id, 0, 'u1')).toBe(true);
+	});
+
+	it('C3: Turn into a section, then Make routine, brings its exercise back', () => {
+		const { db, r } = base();
+		const top = createRoutine(db, U1_SALSA, { name: 'Top', notes: null }).routine;
+		addChildSlot(db, top.id, r.id);
+		expect(demoteRoutine(db, r.id)).toBe(true);
+		expect(promoteSection(db, r.id, null)).toBe(true);
+		const ex = db.select().from(exercises).where(eq(exercises.routineId, r.id)).all();
+		expect(ex).toHaveLength(1);
+		expect(ex[0].archivedAt).toBeNull();
+	});
+
+	it('I1: routinesHolding with an owner leaves other people’s routines out', () => {
+		const { db, r } = base();
+		const s = insertRoutine(db, U1_SALSA, { name: 'S', notes: null, isSection: true }).routine;
+		addChildSlot(db, r.id, s.id);
+		const theirs = createRoutine(db, U2_SALSA, { name: 'Theirs', notes: null }).routine;
+		db.insert(routineSteps)
+			.values({ routineId: theirs.id, position: 0, childRoutineId: s.id })
+			.run();
+		expect(routinesHolding(db, s.id, { userId: 'u1', teamId: null }).map((x) => x.name)).toEqual([
+			'R'
+		]);
+	});
+
+	it('I2: removing a slot never archives a section of another owner', () => {
+		const { db, r } = base();
+		const gs = insertRoutine(db, T1_SALSA, { name: 'GS', notes: null, isSection: true }).routine;
+		const at = db
+			.insert(routineSteps)
+			.values({ routineId: r.id, position: 2, childRoutineId: gs.id })
+			.returning({ id: routineSteps.id })
+			.get().id;
+		deleteSlots(db, r.id, [at]);
+		expect(getRoutine(db, gs.id)!.archivedAt).toBeNull();
+	});
+
+	it('I4: a section is not duplicated into an orphan', () => {
+		const { db, r, steps } = base();
+		const { sectionId } = makeSection(db, r.id, [steps[0]])!;
+		expect(duplicateRoutine(db, sectionId)).toBeNull();
+	});
+});

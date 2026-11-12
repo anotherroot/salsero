@@ -161,13 +161,27 @@ function inside(
 		routineIds.map((id) => sql`${id}`),
 		sql`, `
 	);
-	const children = db
-		.all<{ id: number }>(
-			sql`select distinct x.child_routine_id as id
-			      from routine_steps x join routines t on t.id = x.child_routine_id
-			     where x.routine_id in (${ids}) and t.team_id = ${teamId}`
-		)
-		.map((r) => r.id);
+	// Children at any depth (spec 2026-11-12, review I3): a section inside a section plays too.
+	const seen = new Set(routineIds);
+	const children: number[] = [];
+	let frontier = ids;
+	for (;;) {
+		const next = db
+			.all<{ id: number }>(
+				sql`select distinct x.child_routine_id as id
+				      from routine_steps x join routines t on t.id = x.child_routine_id
+				     where x.routine_id in (${frontier}) and t.team_id = ${teamId}`
+			)
+			.map((r) => r.id)
+			.filter((id) => !seen.has(id));
+		if (next.length === 0) break;
+		for (const id of next) seen.add(id);
+		children.push(...next);
+		frontier = sql.join(
+			next.map((id) => sql`${id}`),
+			sql`, `
+		);
+	}
 	const all = sql.join(
 		[...routineIds, ...children].map((id) => sql`${id}`),
 		sql`, `

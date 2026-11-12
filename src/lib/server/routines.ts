@@ -1061,7 +1061,11 @@ export function embeddable(
 		.filter((r) => canEmbed(db, routineId, r.id, usable));
 	const holders = holdersOf(
 		db,
-		rows.filter((r) => r.isSection === 1).map((r) => r.id)
+		rows.filter((r) => r.isSection === 1).map((r) => r.id),
+		[
+			routine,
+			...rows.filter((r) => r.teamId !== null).map((r) => ({ userId: null, teamId: r.teamId }))
+		]
 	);
 	// A group's routine the person may use carries its group, for the picker's heading.
 	const teams = teamRefs(
@@ -1075,17 +1079,31 @@ export function embeddable(
 	});
 }
 
-/** The live routines (and sections) that directly hold each of `ids`, by name. */
-export function holdersOf(db: Db, ids: number[]): Map<number, { id: number; name: string }[]> {
+/**
+ * The live routines (and sections) that directly hold each of `ids`, by name: only
+ * those of `owners` (review I1: never another person's routine names).
+ */
+export function holdersOf(
+	db: Db,
+	ids: number[],
+	owners: { userId: string | null; teamId: number | null }[]
+): Map<number, { id: number; name: string }[]> {
 	const out = new Map<number, { id: number; name: string }[]>();
 	if (ids.length === 0) return out;
 	for (const r of db
-		.selectDistinct({ child: routineSteps.childRoutineId, id: routines.id, name: routines.name })
+		.selectDistinct({
+			child: routineSteps.childRoutineId,
+			id: routines.id,
+			name: routines.name,
+			userId: routines.userId,
+			teamId: routines.teamId
+		})
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
 		.where(and(inArray(routineSteps.childRoutineId, ids), isNull(routines.archivedAt)))
 		.orderBy(asc(routines.name), asc(routines.id))
 		.all()) {
+		if (!owners.some((o) => o.userId === r.userId && o.teamId === r.teamId)) continue;
 		out.set(r.child!, [...(out.get(r.child!) ?? []), { id: r.id, name: r.name }]);
 	}
 	return out;
@@ -1474,7 +1492,10 @@ export function deleteSlots(
 		order(tx, slotIds(tx, routineId));
 		reconcileRoutine(tx, routineId, now);
 		// A section whose last use this was goes to Recently deleted (spec 2026-11-12).
-		for (const s of steps) if (s.childId !== null) archiveIfUnused(tx, s.childId, now);
+		{
+			const owner = getRoutine(tx, routineId)!;
+			for (const s of steps) if (s.childId !== null) archiveIfUnused(tx, s.childId, now, owner);
+		}
 		const routine = getRoutine(tx, routineId)!;
 		logRoutine(
 			tx,
@@ -1763,6 +1784,8 @@ export function makeSection(
 export function duplicateRoutine(db: Db, id: number, by?: string) {
 	const source = getRoutine(db, id);
 	if (!source) return null;
+	// A section is held, never listed: a copy would be one nothing holds (review I4).
+	if (source.isSection === 1) return null;
 	const { dance, userId, teamId, isSection } = source;
 
 	return db.transaction((tx) => {
@@ -1823,7 +1846,15 @@ export function promoteSection(
 			.returning()
 			.get()!;
 		const owner = ownerSpace(routine);
-		if (!isTeam(owner)) insertExercise(tx, owner, routine, 3);
+		if (!isTeam(owner)) {
+			// Back from Turn into a section: its exercise and history return (review C3).
+			const back = tx
+				.update(exercises)
+				.set({ archivedAt: null, name: routine.name })
+				.where(and(eq(exercises.routineId, routine.id), eq(exercises.userId, owner.userId)))
+				.run();
+			if (back.changes === 0) insertExercise(tx, owner, routine, 3);
+		}
 		logRoutine(tx, routine, space, {
 			verb: 'change',
 			subject: 'promote',
@@ -1901,9 +1932,16 @@ function copySection(tx: Tx, sectionId: number, space: Space, name: string): num
  * Recently deleted, restorable; pickers stop offering it. Routines are never
  * touched: they stand on their own in the list.
  */
-export function archiveIfUnused(tx: Db, sectionId: number, now = serverNow()): void {
+export function archiveIfUnused(
+	tx: Db,
+	sectionId: number,
+	now = serverNow(),
+	/** The routine that lost the use: only a section of its owner is archived (review I2). */
+	owner?: { userId: string | null; teamId: number | null }
+): void {
 	const section = getRoutine(tx, sectionId);
 	if (!section || section.isSection !== 1 || section.archivedAt !== null) return;
+	if (owner && (section.userId !== owner.userId || section.teamId !== owner.teamId)) return;
 	const held = tx
 		.select({ id: routineSteps.id })
 		.from(routineSteps)
@@ -1963,7 +2001,7 @@ export function unpackSlot(
 		const rest = ids.filter((id) => id !== stepId);
 		rest.splice(at, 0, ...moved);
 		order(tx, rest);
-		archiveIfUnused(tx, child.id, now);
+		archiveIfUnused(tx, child.id, now, routine);
 		logRoutine(tx, routine, by, { verb: 'change', subject: 'unpack', subjectId: child.id }, now);
 		return { stepIds: moved, sectionId: child.id };
 	});
@@ -1984,6 +2022,9 @@ export function packSlots(
 	const routine = getRoutine(db, routineId);
 	const section = getRoutine(db, sectionId);
 	if (!routine || !section || stepIds.length === 0) return null;
+	// Review C1: never another owner's row, never a cycle.
+	if (section.userId !== routine.userId || section.teamId !== routine.teamId) return null;
+	if (sectionId === routineId || holds(db, sectionId, routineId)) return null;
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
 		if (stepIds.some((id) => !ids.includes(id))) return null;
@@ -2006,7 +2047,8 @@ export function packSlots(
 				.all();
 			tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, stepIds)).run();
 			tx.delete(routineSteps).where(inArray(routineSteps.id, stepIds)).run();
-			for (const c of children) if (c.child !== null) archiveIfUnused(tx, c.child);
+			for (const c of children)
+				if (c.child !== null) archiveIfUnused(tx, c.child, serverNow(), routine);
 		}
 		const rest = ids.filter((id) => !stepIds.includes(id));
 		order(tx, rest);
@@ -2041,7 +2083,7 @@ export function detachSection(
 		if (!found || found.child.isSection !== 1) return null;
 		const copy = copySection(tx, found.child.id, space, found.child.name);
 		tx.update(routineSteps).set({ childRoutineId: copy }).where(eq(routineSteps.id, stepId)).run();
-		archiveIfUnused(tx, found.child.id);
+		archiveIfUnused(tx, found.child.id, serverNow(), routine);
 		logRoutine(tx, routine, by, { verb: 'change', subject: 'detach', subjectId: copy });
 		return copy;
 	});
@@ -2060,7 +2102,9 @@ export function moveSlotInto(
 	targetId: number,
 	index: number,
 	by?: string,
-	now = serverNow()
+	now = serverNow(),
+	/** The routine whose page acts: both ends must be its owner's (review C2). */
+	actingId?: number
 ): boolean {
 	const step = db.select().from(routineSteps).where(eq(routineSteps.id, stepId)).get();
 	const target = getRoutine(db, targetId);
@@ -2073,6 +2117,10 @@ export function moveSlotInto(
 	}
 	const sameOwner = source.userId === target.userId && source.teamId === target.teamId;
 	if (!sameOwner) return false;
+	if (actingId !== undefined) {
+		const acting = getRoutine(db, actingId);
+		if (!acting || acting.userId !== target.userId || acting.teamId !== target.teamId) return false;
+	}
 	return db.transaction((tx) => {
 		const from = slotIds(tx, step.routineId).filter((id) => id !== stepId);
 		const to = slotIds(tx, targetId);
