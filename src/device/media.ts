@@ -16,7 +16,7 @@ import {
 	type MediaStore
 } from '$lib/offline/media-store';
 import { fits } from '$lib/offline/network';
-import { loopName, type LoopSpan } from '$lib/video/loops';
+import { loopName, type LoopSpan } from '$lib/video/loop-names';
 import type { SqliteDb } from './migrate';
 
 /** The copy's songs with audio (not archived), the person's count takes and its figure loops, as files. */

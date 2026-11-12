@@ -15,7 +15,7 @@ import type { Db } from '../db';
 import { lessonVideos, recordings, videoLoops, videoSpots } from '../db/schema';
 import { LEASE_MS, MAX_ATTEMPTS } from '../songs';
 import { loopsDir } from '../files';
-import { loopName, type LoopSpan } from '$lib/video/loops';
+import { loopName, type LoopSpan } from '$lib/video/loop-names';
 
 type Span = { spotId: number; startMs: number; endMs: number };
 const spanOf = (r: Span): LoopSpan => ({ id: r.spotId, startMs: r.startMs, endMs: r.endMs });

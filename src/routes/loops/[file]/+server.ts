@@ -6,7 +6,7 @@ import { lessonVideos, recordings, videoSpots } from '$lib/server/db/schema';
 import { allows, lessonVideoAccess, recordingAccess } from '$lib/server/access';
 import { loopsDir, serveFile } from '$lib/server/files';
 import { catalogOf } from '$lib/i18n/catalog';
-import { parseLoopName } from '$lib/video/loops';
+import { parseLoopName } from '$lib/video/loop-names';
 import type { RequestHandler } from './$types';
 
 /**

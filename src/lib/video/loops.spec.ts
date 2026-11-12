@@ -38,3 +38,12 @@ describe('pictureOf and lookLine', () => {
 		expect(lookLine({ hands: '', length: null, picture: null })).toBe('');
 	});
 });
+
+describe('loop names on the phone', () => {
+	it('import nothing: the device worker bundles them, and it has no app environment', async () => {
+		const { readFileSync } = await import('node:fs');
+		const src = readFileSync('src/lib/video/loop-names.ts', 'utf8');
+		expect(src).not.toMatch(/^import /m);
+		expect(readFileSync('src/device/media.ts', 'utf8')).toMatch(/from '\$lib\/video\/loop-names'/);
+	});
+});
