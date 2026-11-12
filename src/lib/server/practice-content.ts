@@ -19,6 +19,7 @@ import { sectionsFor, type Visible } from './spot-links';
 import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
+import { hearingContentOf } from './hearing';
 import { DEFAULT_LENGTH_COUNTS, eightsSpan } from '$lib/graph/timing';
 import { spaceOfRow, type Space } from './scope';
 import type { PracticeContent, PracticePayload } from '$lib/types';
@@ -46,14 +47,19 @@ export function drillPayload(
 	entryId: number | null,
 	tz: string,
 	now: number,
-	visible?: Visible
+	visible?: Visible,
+	/** Who reads it: a hearing drill's songs are judged for them. */
+	viewerId = ''
 ): PracticePayload {
 	return {
 		content: {
 			type: 'drill',
 			notes: drill.notes,
 			links: listLinks(db, { exerciseId: drill.id }),
-			sections: sectionsFor(db, { exerciseId: drill.id }, visible)
+			sections: sectionsFor(db, { exerciseId: drill.id }, visible),
+			...(typeOf(drill) === 'hearing'
+				? { hearing: hearingContentOf(db, drill, viewerId, entryId) }
+				: {})
 		},
 		last: entryId === null ? null : lastOf(db, entryId, tz, now)
 	};
@@ -187,7 +193,10 @@ export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
 				type: 'drill',
 				notes: drill.notes,
 				links: listLinks(db, { exerciseId: drill.id }),
-				sections: sectionsFor(db, { exerciseId: drill.id }, seen.visible)
+				sections: sectionsFor(db, { exerciseId: drill.id }, seen.visible),
+				...(typeOf(drill) === 'hearing'
+					? { hearing: hearingContentOf(db, drill, exercise.userId ?? '', exercise.id) }
+					: {})
 			};
 		}
 	}

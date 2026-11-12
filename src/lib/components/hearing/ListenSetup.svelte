@@ -23,6 +23,8 @@
 		oncheck: () => void;
 		/** Hear the clave: two eights of the count with the clave on (the page's, inside the tap). */
 		onhearclave: () => void;
+		/** The tap delay row: off in a hearing drill's settings (phase 2), where the round checks it. */
+		check?: boolean;
 	}
 
 	let {
@@ -35,7 +37,8 @@
 		parts,
 		tapDelayMs,
 		oncheck,
-		onhearclave
+		onhearclave,
+		check = true
 	}: Props = $props();
 	const w = $derived(t().hearing);
 	const KINDS: RoundKind[] = ['tapAlong', 'dropped'];
@@ -49,6 +52,7 @@
 				<input
 					type="radio"
 					name="kind"
+					value={k}
 					class="sr-only"
 					checked={kind === k}
 					onchange={() => (kind = k)}
@@ -67,6 +71,7 @@
 				<input
 					type="radio"
 					name="target"
+					value={id}
 					class="sr-only"
 					checked={target === id}
 					onchange={() => (target = id)}
@@ -82,6 +87,7 @@
 					<input
 						type="radio"
 						name="clave"
+						value={c}
 						class="sr-only"
 						checked={clave === c}
 						onchange={() => (clave = c)}
@@ -93,6 +99,8 @@
 		<ClaveCard {clave} onhear={onhearclave} />
 	{/if}
 	{#if target === 'own'}
+		<!-- In a form (a hearing drill's settings) the counts post as one field. -->
+		<input type="hidden" name="positions" value={own.join(',')} />
 		<div role="group" aria-label={w.setup.ownCounts} class="flex flex-wrap gap-x-1.5 gap-y-1">
 			{#each [1, 2, 3, 4, 5, 6, 7, 8] as c (c)}
 				<label class={CHIP}>
@@ -140,14 +148,16 @@
 	</div>
 {/if}
 
-<div class={GROUP}>
-	<button
-		type="button"
-		class="{ROW} focus-inset w-full cursor-pointer text-left active:bg-step"
-		onclick={oncheck}
-	>
-		<span class="flex-1 text-[16px] font-bold text-ink">{w.check.row}</span>
-		<span class="text-[15px] text-muted tabular-nums">{w.check.rowValue(tapDelayMs)}</span>
-		<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-	</button>
-</div>
+{#if check}
+	<div class={GROUP}>
+		<button
+			type="button"
+			class="{ROW} focus-inset w-full cursor-pointer text-left active:bg-step"
+			onclick={oncheck}
+		>
+			<span class="flex-1 text-[16px] font-bold text-ink">{w.check.row}</span>
+			<span class="text-[15px] text-muted tabular-nums">{w.check.rowValue(tapDelayMs)}</span>
+			<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
+	</div>
+{/if}

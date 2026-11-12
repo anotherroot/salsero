@@ -165,6 +165,8 @@ export const exercise: Catalog['exercise'] = {
 		changed: (day) => `Spremenjeno za ${day}`,
 		doneToday: 'Opravljeno danes',
 		tapFace: 'Pritisnite obraz, da ga shranite',
+		suggested: 'predlog',
+		suggests: (score, face) => `Ocena ${score} predlaga »${face}«.`,
 		place: (at, of) => `${at} od ${of}`,
 		next: (name) => `Naslednja: ${name}`,
 		skip: 'Preskoči',

@@ -10,7 +10,7 @@
  */
 import { and, asc, eq } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, songLinks, songs } from './db/schema';
+import { exercises, sets, songLinks, songs } from './db/schema';
 import { practiceSong } from './access';
 import { actingIn, fieldChange, logChange } from './changes';
 import { createCustomExercise, MusicRefused, type SettingsInput } from './exercises';
@@ -20,6 +20,7 @@ import { serverNow } from './server-clock';
 import {
 	HEARING_DEFAULT,
 	hearingOf,
+	roundsOf,
 	settingsFrom,
 	settingsQuery,
 	withHearing,
@@ -31,7 +32,7 @@ import { counted } from '$lib/songs/counted';
 import { musicStart } from '$lib/songs/music-start';
 import { parseSections } from '$lib/songs/sections';
 import { t } from '$lib/i18n/catalog';
-import type { SongGrid } from '$lib/types';
+import type { HearingContent, SongGrid } from '$lib/types';
 
 export interface HearingInput {
 	settings: HearingSettings;
@@ -162,6 +163,8 @@ export function hearingSongsOf(
 ): {
 	usable: ListenSongData[];
 	blocked: { id: number; title: string; why: 'count' | 'shared' }[];
+	/** Every song in the drill's order, marked. */
+	all: HearingContent['songs'];
 } {
 	const rows = db
 		.select({ song: songs })
@@ -172,12 +175,16 @@ export function hearingSongsOf(
 		.all();
 	const usable: ListenSongData[] = [];
 	const blocked: { id: number; title: string; why: 'count' | 'shared' }[] = [];
+	const all: HearingContent['songs'] = [];
 	for (const { song } of rows) {
 		if (song.status !== 'ready' || !song.audioFile || !practiceSong(db, viewerId, song)) {
 			blocked.push({ id: song.id, title: song.title, why: 'shared' });
+			all.push({ id: song.id, title: song.title, usable: false, why: 'shared' });
 		} else if (!counted(song)) {
 			blocked.push({ id: song.id, title: song.title, why: 'count' });
+			all.push({ id: song.id, title: song.title, usable: false, why: 'count' });
 		} else {
+			all.push({ id: song.id, title: song.title, usable: true });
 			usable.push({
 				id: song.id,
 				title: song.title,
@@ -190,10 +197,38 @@ export function hearingSongsOf(
 			});
 		}
 	}
-	return { usable, blocked };
+	return { usable, blocked, all };
 }
 
 /** What Spremeni's Shrani saw of a hearing drill (the clash check): its settings, as a link reads them. */
 export function hearingSeen(row: { practiceJson: string | null }): Record<string, string | null> {
 	return { hearing: settingsQuery(hearingOf(row.practiceJson)) };
+}
+
+/**
+ * A hearing drill's page content (phase 2): the drill's settings, the rounds
+ * the person played on their exercise (`exerciseId`, oldest first; none on a
+ * group drill's page without an entry), and the songs as `viewerId` may play them.
+ */
+export function hearingContentOf(
+	db: Db,
+	drill: { id: number; practiceJson: string | null },
+	viewerId: string,
+	exerciseId: number | null
+): HearingContent {
+	const rounds =
+		exerciseId === null
+			? []
+			: db
+					.select({ playerJson: sets.playerJson })
+					.from(sets)
+					.where(eq(sets.exerciseId, exerciseId))
+					.orderBy(asc(sets.doneAt), asc(sets.id))
+					.all()
+					.flatMap((s) => roundsOf(s.playerJson));
+	return {
+		settings: hearingOf(drill.practiceJson),
+		rounds,
+		songs: hearingSongsOf(db, viewerId, drill.id).all
+	};
 }

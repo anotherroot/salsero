@@ -336,7 +336,14 @@ export type PracticeContent =
 			recordings: RecordingRow[];
 			sections: LinkedSection[];
 	  }
-	| { type: 'drill'; notes: string | null; links: LinkRow[]; sections: LinkedSection[] }
+	| {
+			type: 'drill';
+			notes: string | null;
+			links: LinkRow[];
+			sections: LinkedSection[];
+			/** A hearing drill's settings, rounds and songs (phase 2); absent on a plain drill. */
+			hearing?: HearingContent;
+	  }
 	| {
 			type: 'routine';
 			routine: { id: number; name: string; notes: string | null };
@@ -1503,4 +1510,13 @@ export interface SuggestionLine {
 	warning: string | null;
 	refusal: string | null;
 	canUndo: boolean;
+}
+
+/** A hearing drill's page (phase 2): its settings, the person's rounds, and its songs as they may play them. */
+export interface HearingContent {
+	settings: import('$lib/hearing/drill').HearingSettings;
+	/** The person's rounds on it, oldest first. */
+	rounds: import('$lib/hearing/drill').HearingRound[];
+	/** The drill's songs, in order; `why` says why one cannot play. */
+	songs: { id: number; title: string; usable: boolean; why?: 'count' | 'shared' }[];
 }

@@ -69,6 +69,9 @@
 	import { levelShown, simple as simpleOf } from '$lib/levels/levels';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { comesBackWords } from '$lib/exercises/comes-back-view';
+	import { takeRound } from '$lib/hearing/handoff';
+	import { roundsLine, type HearingRound } from '$lib/hearing/drill';
+	import { kindLine } from '$lib/hearing/words';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Versions from '$lib/components/clones/Versions.svelte';
 	import ItemMenu from '$lib/components/clones/ItemMenu.svelte';
@@ -135,6 +138,22 @@
 	 * the page left as it unloaded. Reached any other way, the trip is not this
 	 * visit's.
 	 */
+	/** A hearing drill's round just played (phase 2): Done saves it with the face; gone once saved. */
+	let round = $state<HearingRound | null>(null);
+	const hearingRounds = $derived(
+		data.practice.content.type === 'drill' ? (data.practice.content.hearing?.rounds ?? []) : []
+	);
+	const roundsBefore = $derived(roundsLine(hearingRounds).last);
+	const roundLine = $derived(
+		round
+			? [
+					roundsBefore === null ? null : `${t().hearing.drill.last} ${roundsBefore}`,
+					kindLine(round)
+				]
+					.filter(Boolean)
+					.join(' · ')
+			: ''
+	);
 	afterNavigate(({ from }) => {
 		try {
 			if (
@@ -144,6 +163,11 @@
 			) {
 				const carried = backFromPlayer(sessionStorage, data.exercise.id, Date.now());
 				if (carried) clock.carry(carried);
+				// Back from a hearing drill's round with Done: the score goes with the face (phase 2).
+				if (from?.route.id === '/[dance]/hearing/[id]') {
+					round = takeRound(sessionStorage, data.exercise.id);
+					if (round && data.canLog) void tick().then(done);
+				}
 			} else dropTrip(sessionStorage, data.exercise.id);
 		} catch {
 			// No storage (a private window): the time starts over.
@@ -211,7 +235,8 @@
 			const result = await act('done', {
 				exerciseId: data.exercise.id,
 				durationS: clock.seconds,
-				rating: ''
+				rating: '',
+				...(round ? { hearing: JSON.stringify(round) } : {})
 			});
 			if (pageId !== at) return;
 			const refused = refusalMessage(result, t().exercise.log.didNotSave);
@@ -229,6 +254,7 @@
 	 * in a run the next (or Done for today), else back where the page was opened from.
 	 */
 	function saved(r: DoneResult): void {
+		round = null;
 		announceSaved({
 			dance: data.dance.slug,
 			message: savedMessage(r.backDays ?? 1),
@@ -280,7 +306,7 @@
 	 * that is edited, by its editors.
 	 */
 	const ownsItself = $derived(
-		type === 'drill' && (data.drill !== null || exercise.source !== 'added')
+		(type === 'drill' || type === 'hearing') && (data.drill !== null || exercise.source !== 'added')
 	);
 	/**
 	 * A group's drill: its name and description are the group's, and how often
@@ -487,6 +513,7 @@
 				songs={data.songs}
 				playerFrom={run?.playerFrom ?? 'from=exercise'}
 				onleave={tripLeave}
+				canEdit={data.canEditContent}
 			/>
 		{/key}
 	{/if}
@@ -731,6 +758,7 @@
 	{#if data.musicShown && !editing}
 		<MusicSection
 			rows={data.music}
+			needsCount={type === 'hearing'}
 			canEdit={data.musicEdit}
 			choices={data.musicChoices}
 			practise={(songId) =>
@@ -1026,6 +1054,7 @@
 			{simple}
 			current={data.entryToday}
 			onsaved={saved}
+			hearing={round ? { round, before: roundsBefore, line: roundLine } : null}
 		/>
 	{/if}
 

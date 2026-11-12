@@ -11,6 +11,14 @@ export const FEEL_TONE: Record<Feel, { text: string; bg: string; ring: string }>
 	easy: { text: 'text-easy', bg: 'bg-easy-soft', ring: 'ring-easy' }
 };
 
+/** The "suggested" tag over a face a hearing round's score suggests (phase 2): the face's colour, solid. */
+export const SUGGEST_TAG: Record<Feel, string> = {
+	hard: 'bg-danger text-on-danger',
+	getting: 'bg-warn text-on-accent',
+	gotit: 'bg-done text-on-done',
+	easy: 'bg-easy text-on-accent'
+};
+
 export interface FaceColumn {
 	feel: Feel;
 	word: string;
@@ -32,3 +40,9 @@ export function faceColumns(preview: (FacePreview & { learnt?: boolean })[] | nu
 		};
 	});
 }
+
+/** A hearing round's score against the one before, as a chip beside it (+14 / −6). */
+export const GAIN_CHIP: Record<'up' | 'down', string> = {
+	up: 'ml-1.5 inline-block rounded-full bg-done-soft px-2 align-[3px] font-sans text-[13px] font-bold text-done',
+	down: 'ml-1.5 inline-block rounded-full bg-danger-soft px-2 align-[3px] font-sans text-[13px] font-bold text-danger'
+};

@@ -273,7 +273,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			rowData ? rowData.exercise.id : null,
 			tz,
 			now,
-			visible ?? undefined
+			visible ?? undefined,
+			wall.userId
 		),
 		...(rowData
 			? practised(db, rowData.exercise.id, rowData.sets, tz, now)

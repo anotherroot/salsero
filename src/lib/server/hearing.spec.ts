@@ -144,9 +144,60 @@ describe('hearingSongsOf', () => {
 		db.insert(songLinks)
 			.values({ songId: c.draft, exerciseId: c.drill, sortOrder: 1, createdAt: CLASS_T })
 			.run();
-		expect(hearingSongsOf(db, MAJA.userId, c.drill)).toEqual({
+		expect(hearingSongsOf(db, MAJA.userId, c.drill)).toMatchObject({
 			usable: [],
 			blocked: [{ id: c.draft, title: 'Draft', why: 'shared' }]
 		});
+	});
+});
+
+describe("a hearing drill's page content", () => {
+	it("gives a member's entry the drill's settings, its own rounds and every song, marked", async () => {
+		const { practiceContentOf } = await import('./practice-content');
+		const { saveDay } = await import('./exercises');
+		const two = song('Casa Mía', '00000000-0000-4000-8000-0000000000d1.mp3');
+		db.update(songs).set({ sharedAt: CLASS_T }).where(eq(songs.id, two)).run();
+		counted(c.shared);
+		db.update(exercises)
+			.set({ kind: 'hearing', practiceJson: JSON.stringify({ hearing: SETTINGS }) })
+			.where(eq(exercises.id, c.drill))
+			.run();
+		for (const [i, id] of [c.shared, two].entries())
+			db.insert(songLinks)
+				.values({ songId: id, exerciseId: c.drill, sortOrder: i, createdAt: CLASS_T })
+				.run();
+		const round = {
+			kind: 'dropped' as const,
+			target: 'one' as const,
+			drops: 10,
+			songIds: [c.shared],
+			score: 64,
+			timing: 70,
+			count: 0,
+			restarts: 3,
+			listening: 3,
+			changed: false
+		};
+		saveDay(
+			db,
+			{
+				exerciseId: c.entry,
+				doneAt: CLASS_T,
+				durationS: 60,
+				reps: null,
+				rating: 3,
+				playerJson: null,
+				hearingRound: round
+			},
+			'Europe/Ljubljana'
+		);
+		const content = practiceContentOf(db, getExercise(db, c.entry)!);
+		if (content.type !== 'drill' || !content.hearing) throw new Error('expected a hearing drill');
+		expect(content.hearing.settings).toEqual(SETTINGS);
+		expect(content.hearing.rounds).toEqual([round]);
+		expect(content.hearing.songs).toEqual([
+			{ id: c.shared, title: 'Chan Chan', usable: true },
+			{ id: two, title: 'Casa Mía', usable: false, why: 'count' }
+		]);
 	});
 });

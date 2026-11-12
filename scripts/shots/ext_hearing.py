@@ -115,6 +115,48 @@ def _result_tap(page):
     page.wait_for_selector("text=Score")
 
 
+# ---- phase 2: a hearing drill (Run these last or alone: they add an exercise to the copy.) ----
+
+def _make_drill(page):
+    """A hearing drill of the song in the URL's fragment (`#h<song>`), made through Today's own action."""
+    song = page.url.split("#h")[-1]
+    dance = page.url.split("/")[3].split("#")[0].split("?")[0]
+    status = page.evaluate(
+        """async ([dance, song]) => {
+            const f = new FormData();
+            for (const [k, v] of [['name', 'Kje je ena?'], ['notes', ''], ['type', 'hearing'],
+                ['kind', 'dropped'], ['target', 'one'], ['drops', '5'], ['songId', song]]) f.append(k, v);
+            const r = await fetch(`/?/createExercise`, { method: 'POST', body: f,
+                headers: { 'x-sveltekit-action': 'true' } });
+            const j = await r.json(); return j.type === "success" ? "success" : JSON.stringify(j);
+        }""",
+        [dance, song],
+    )
+    if status != "success":
+        raise RuntimeError(f"the hearing drill was not made: {status}")
+    page.goto(page.url.split("#")[0])
+    page.get_by_text("Kje je ena?", exact=True).first.click()
+    page.get_by_text("You listen", exact=True).wait_for()
+    page.wait_for_timeout(300)
+
+
+def _drill_done(page):
+    _make_drill(page)
+    page.evaluate("localStorage.setItem('hearing.tapDelayMs', '70')")
+    page.get_by_role("link", name="Start").click()
+    page.get_by_role("button", name="Start").click()
+    page.get_by_text("anywhere here", exact=True).first.wait_for(timeout=10000)
+    page.wait_for_timeout(300)
+    _taps(page, 1)
+    page.get_by_text("next spot coming", exact=True).wait_for(timeout=20000)
+    page.wait_for_selector("text=Drop 2 of", timeout=10000)
+    page.get_by_role("button", name="Stop").click()
+    page.wait_for_selector("text=Score")
+    page.get_by_role("button", name="Done").click()
+    page.get_by_text("suggests", exact=False).first.wait_for(timeout=10000)
+    page.wait_for_timeout(600)
+
+
 SCENES = {
     "listen-setup-clave": Scene(LISTEN, _setup_clave),
     "listen-drop-tapping": Scene(LISTEN, _drop_tapping),
@@ -124,4 +166,6 @@ SCENES = {
     "listen-result": Scene(LISTEN, _result),
     "listen-replay": Scene(LISTEN, _replay),
     "listen-result-tap": Scene(LISTEN, _result_tap),
+    "hearing-page": Scene("/{dance}#h{listensong}", _make_drill),
+    "hearing-done": Scene("/{dance}#h{listensong}", _drill_done),
 }

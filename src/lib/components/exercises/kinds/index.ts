@@ -15,6 +15,7 @@ import FigurePractice from './figure/Practice.svelte';
 import DrillPractice from './drill/Practice.svelte';
 import RoutinePractice from './routine/Practice.svelte';
 import LessonPractice from './lesson/Practice.svelte';
+import HearingPractice from './hearing/Practice.svelte';
 
 export interface ContentProps {
 	dance: Dance;
@@ -69,6 +70,8 @@ export interface PracticeProps {
 	playerFrom: string;
 	/** A link into the player was tapped: the page is about to be left. */
 	onleave?: () => void;
+	/** Whether the person may edit the exercise's content (a hearing drill's Shrani). */
+	canEdit?: boolean;
 }
 
 const PRACTICE: Record<ExerciseType, Component<PracticeProps> | null> = {
@@ -76,7 +79,7 @@ const PRACTICE: Record<ExerciseType, Component<PracticeProps> | null> = {
 	figure: FigurePractice,
 	drill: DrillPractice,
 	routine: RoutinePractice,
-	hearing: DrillPractice
+	hearing: HearingPractice
 };
 
 /** The type's Practise card: the same card on every type (practise-card design). */

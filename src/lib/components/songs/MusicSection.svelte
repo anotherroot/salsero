@@ -39,9 +39,11 @@
 		choices: PickerSong[];
 		/** Where "Practise to this" goes for a song, or null when it cannot. */
 		practise: (songId: number) => string | null;
+		/** A hearing drill's songs (phase 2): one without a count of its own says so. */
+		needsCount?: boolean;
 	}
 
-	let { rows, canEdit, choices, practise }: Props = $props();
+	let { rows, canEdit, choices, practise, needsCount = false }: Props = $props();
 	const uid = $props.id();
 	const w = $derived(music());
 
@@ -128,6 +130,10 @@
 							<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{row.title}</span>
 							{#if !row.shared}
 								<span class="text-[13px] leading-[1.35] font-bold text-warn">{w.notShared}</span>
+							{:else if needsCount && row.counted === false}
+								<span class="text-[13px] leading-[1.35] font-bold text-warn"
+									>{t().hearing.drill.whyCount}</span
+								>
 							{:else if row.note}
 								<span class="flex min-w-0 items-center gap-1 text-[13px] leading-[1.35] text-muted">
 									<Icon name="note" size={16} /><span class="truncate">{row.note}</span>

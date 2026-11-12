@@ -154,6 +154,30 @@ export const hearing = {
 	/** A hearing drill (phase 2): making one, its page, its round. */
 	drill: {
 		noSongs: 'Pick at least one song',
-		notCounted: (title: string) => `${title} has no count of its own yet: set it first`
+		notCounted: (title: string) => `${title} has no count of its own yet: set it first`,
+		listen: 'You listen',
+		spots: (n: number) => (n === 1 ? '1 spot' : `${n} spots`),
+		length: 'Length',
+		change: 'Change',
+		changeTitle: 'Change this round',
+		changeSub: 'For this round only, unless you save it for the drill.',
+		startWith: 'Start with these',
+		save: 'Save for the drill',
+		rounds: (n: number) => `Your rounds · ${n}`,
+		last: 'last time',
+		noRounds: 'No rounds yet.',
+		scoresLabel: (scores: string) => `Scores of your rounds, oldest first: ${scores}`,
+		songs: 'Songs',
+		songsHint: 'Each spot comes from one of them, at random.',
+		addSong: 'Add a song',
+		removeSong: (title: string) => `Remove ${title}`,
+		hiddenUncounted: (n: number) =>
+			n === 1
+				? 'A song without a count of its own is not listed: count it first.'
+				: `${n} songs without a count of their own are not listed: count them first.`,
+		whyCount: 'Count it first',
+		whyShared: 'No longer shared',
+		make: 'Make a drill',
+		inDrills: 'In drills:'
 	}
 };
