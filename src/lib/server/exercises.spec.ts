@@ -209,6 +209,25 @@ describe('a song of their own, picked after a drop', () => {
 	});
 });
 
+describe("the practice panel's write on a hearing drill", () => {
+	it('keeps the hearing settings', () => {
+		const id = createCustomExercise(db, U1_SALSA, { name: 'Kje je ena?', notes: null }).id;
+		const hearing = { kind: 'dropped', target: 'odd', drops: 5 };
+		db.update(exercises)
+			.set({ kind: 'hearing', practiceJson: JSON.stringify({ hearing }) })
+			.where(eq(exercises.id, id))
+			.run();
+		const config = { count: 'son' as const, clave: '2-3' as const, speed: 1 as const };
+		expect(
+			setPracticeSettings(db, id, { mode: 'count', songId: null, countBpm: 120, config })
+		).toBe(true);
+		const json = JSON.parse(
+			db.select().from(exercises).where(eq(exercises.id, id)).get()!.practiceJson!
+		);
+		expect(json).toEqual({ ...config, hearing });
+	});
+});
+
 describe('listExercises: comes back and warm-up', () => {
 	const MAJA = { userId: 'u3', dance: 'salsa' as const };
 	const EVERY_2 = JSON.stringify({ kind: 'every', days: 2 });

@@ -39,6 +39,7 @@ import type {
 	SetSnapshot
 } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
+import { keepHearing } from '$lib/hearing/drill';
 
 /**
  * Every exercise that has not been archived, with its figure's partner flag
@@ -306,7 +307,8 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 				practiceMode: input.mode,
 				songId: input.songId,
 				countBpm: input.countBpm,
-				practiceJson: JSON.stringify(input.config)
+				// A hearing drill keeps its settings beside the panel's (`withHearing`).
+				practiceJson: keepHearing(current.practiceJson, JSON.stringify(input.config))
 			})
 			.where(eq(exercises.id, id))
 			.run();
