@@ -241,12 +241,19 @@ src/lib/exercises/clock-trip.ts  PURE: the exercise page's time across a trip to
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
                      gives the picker (build.ts); view.ts is what a row ends in, the create
-                     row's lead, the body's state and the height. Client-safe
+                     row's lead, the body's state and the height. Client-safe.
+                     Picker preview: preview.ts (`PREVIEW_LOOK`, what a row's tile draws),
+                     motion.ts (one IntersectionObserver: tiles move only on screen),
+                     look-view.ts (the sheet's verb, request and words)
 src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
                      PickerField.svelte (a form field that opens it) and
                      PickerMultiField.svelte (a form field that takes any number: a
                      figure's Starts in) and
                      PickerOpener.svelte (the full-width tonal button that opens one).
+                     Picker preview: PreviewButton.svelte (a row's moving picture, or the
+                     eye), LookSheet.svelte (the sheet over the picker, light or dark),
+                     LookVideo.svelte (its muted section loop; Back resumes what it stopped,
+                     `quietWhile` in src/lib/sound/page.ts)
                      components/figures/PositionTags.svelte is a figure's Starts in / Ends in
 src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
                      full-screen player (`.theme-media`), not a second top-layer dialog
@@ -618,6 +625,9 @@ src/lib/server/loops/  figure loops for the pickers (picker preview): store.ts (
                      fail). Files $DATA_DIR/loops/<spot>-<start>-<end>.jpg and …-still.jpg, never counted
 src/routes/api/worker/loops/  the worker's side: claim, source (Range), strip, still, done, fail
 src/routes/loops/[file]  a loop to who may read its video, for the spot's current span only
+src/lib/server/loops/pictures.ts  a figure's look in the pickers (`looksFor`: the figure page's top
+                     section, batched; `withLooks`, `withPictures` at each loader), look.ts the
+                     sheet's data (/api/figures/[id]/look, /api/moves/[id]/look, device endpoints)
 src/lib/ai-queue/measure.ts  PURE: the AI's sections against the person's (pairs, missed, extra);
                      scripts/ai-sections/measure.ts runs it on a backup copy
 src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,

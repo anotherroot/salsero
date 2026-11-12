@@ -248,6 +248,14 @@ One picker for every list has its own,
 [`docs/superpowers/specs/2026-10-30-unified-pickers-design.md`](docs/superpowers/specs/2026-10-30-unified-pickers-design.md):
 the rules every picker follows, linking pickers and field pickers, the near
 group, and the Link popup as levels.
+Picker preview (2026-11-12, rows C and sheet S1 of the board
+https://claude.ai/artifact/Sst9B6MoFRGS9gd8nzpQvm) has its own,
+[`docs/superpowers/specs/2026-11-12-picker-preview-design.md`](docs/superpowers/specs/2026-11-12-picker-preview-design.md):
+every figure and move row in a picker shows a moving picture (12 frames of the figure's top
+section, cut by the home worker into `$DATA_DIR/loops`, ~25 KB, kept on the phone with its copy)
+and a positions line; a tap on the picture opens a sheet over the picker with the section
+playing muted, start → end, length, notes, where it is from, Back and the picker's verb.
+`PREVIEW_LOOK` (`src/lib/picker/preview.ts`) turns the pictures into an eye icon instead.
 The Link popup has its own,
 [`docs/superpowers/specs/2026-10-29-section-link-popup-design.md`](docs/superpowers/specs/2026-10-29-section-link-popup-design.md):
 why a lesson's figures are derived from its sections rather than copied, and

@@ -1,6 +1,7 @@
 # Picker preview: see the figure before you pick it — design
 
-> **Status:** picked 2026-11-12 from the board
+> **Status:** built 2026-11-12 (plan `docs/superpowers/plans/2026-11-12-picker-preview.md`).
+> Picked 2026-11-12 from the board
 > https://claude.ai/artifact/Sst9B6MoFRGS9gd8nzpQvm (rows **C**, sheet
 > **S1**). The board's "now" column is real screenshots of today's pickers
 > (`scripts/shots/ext_picker_preview.py` on a copy of the 6 Nov backup). Where
