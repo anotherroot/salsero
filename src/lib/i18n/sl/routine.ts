@@ -59,11 +59,11 @@ export const routine: Catalog['routine'] = {
 		duplicate: 'Podvoji',
 		run: (from, to) => `${to - from === 1 ? 'Mesti' : 'Mesta'} ${from}–${to}`,
 		tip: 'Tapnite še druga mesta, da jih dodate.',
-		make: 'Kombinacija',
+		make: 'Sklop',
 		blocked: {
 			embedded: (names) =>
 				`Ta kombinacija je že vstavljena drugam: ${names}. Vstavljanje gre le eno raven globoko.`,
-			none: 'Izberite mesta, iz katerih naj nastane kombinacija.',
+			none: 'Izberite mesta, iz katerih naj nastane sklop.',
 			slotIsRoutine: (n) => `Mesto ${n} je kombinacija — vstavljanje gre le eno raven globoko.`,
 			apart: 'Izberite sosednja mesta.',
 			first: 'Najprej izberite mesta.'

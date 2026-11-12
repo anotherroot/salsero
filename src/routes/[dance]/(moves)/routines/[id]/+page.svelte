@@ -34,11 +34,10 @@
 	import WhereBar from '$lib/components/routines/WhereBar.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
-	import CardToolbar from '$lib/components/routines/CardToolbar.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { act, type Field } from '$lib/act';
 	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
-	import type { PickFrom, RowView, Swiped, ToolItem } from '$lib/components/routines/types';
+	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
 		anchorBefore,
@@ -825,7 +824,7 @@
 		return () => window.removeEventListener('popstate', before, true);
 	});
 
-	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
+	const extractBlocked = $derived(extractBlock(rows, selected));
 	/** How the selection lifts: each row's piece, and the runs of neighbours (spec 2026-11-11, routine lift). */
 	const shape = $derived(
 		selectionShape(
@@ -834,7 +833,8 @@
 		)
 	);
 	/** The selection's toolbar docks at the foot unless the selection is one run, which carries it. */
-	const docked = $derived(selecting && shape.runs.length !== 1);
+	// J1 (spec 2026-11-12): always docked at the foot, so no card changes height.
+	const docked = $derived(selecting);
 	// The tab bar steps aside for the whole selection, docked or not.
 	claimBottom(() => selecting);
 
@@ -853,18 +853,44 @@
 		openPicker(side === 'after' ? i + 1 : i, { row: i, side });
 	}
 
-	function duplicateSelected() {
+	/** New cards glow a moment where they landed (spec 2026-11-12, D1). */
+	let glow = $state<number[]>([]);
+	function glowOn(ids: number[]) {
+		glow = ids;
+		setTimeout(() => (glow = glow.filter((id) => !ids.includes(id))), 2000);
+		void tick().then(() =>
+			document
+				.querySelector<HTMLElement>(`[data-slot="${ids[0]}"]`)
+				?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+		);
+	}
+
+	async function duplicateSelected() {
 		// Selection from ⋯ starts empty: nothing to post yet.
 		if (selected.length === 0) return;
 		const ids = inOrder(rows, selected);
+		const after = Math.max(...ids.map((id) => rows.findIndex((r) => r.id === id))) + 1;
 		stopSelecting();
-		send('duplicateMany', { stepIds: ids });
+		const result = await send('duplicateMany', { stepIds: ids });
+		const copies =
+			result.type === 'success' ? (result.data?.copies as number[] | undefined) : undefined;
+		if (!copies) return;
+		glowOn(copies);
+		showToast(t().routine.section.copied(copies.length, after), () =>
+			send('deleteMany', { stepIds: copies })
+		);
 	}
 
-	function extractSelected() {
-		// A refused earlier Make routine (or rename) must not greet this one.
-		dismissed = form;
-		naming = true;
+	/** Section (spec 2026-11-12): the run becomes one unnamed section at once, with Undo. */
+	async function extractSelected() {
+		if (selected.length === 0) return;
+		const ids = inOrder(rows, selected);
+		stopSelecting();
+		const result = await send('extract', { stepIds: ids });
+		const stepId = result.type === 'success' ? result.data?.stepId : undefined;
+		if (typeof stepId !== 'number') return;
+		glowOn([stepId]);
+		showToast(t().routine.section.sectioned(ids.length), () => send('unpack', { stepId }));
 	}
 
 	function deleteSelected() {
@@ -874,51 +900,6 @@
 		remove(ids);
 	}
 
-	/** The toolbar at the foot of a run of selected neighbours (spec 2026-11-11, S6/S7). */
-	const runTools: ToolItem[] = $derived(
-		run === null
-			? []
-			: [
-					{
-						key: 'above',
-						label: t().routine.seam.before(run.from + 1),
-						name: t().routine.seam.addBefore(run.from + 1),
-						icon: 'arrow-up',
-						why: blocks.above,
-						onclick: () => addAround('before')
-					},
-					{
-						key: 'below',
-						label: t().routine.seam.after(run.to + 1),
-						name: t().routine.seam.addAfter(run.to + 1),
-						icon: 'arrow-down',
-						why: blocks.below,
-						onclick: () => addAround('after')
-					},
-					{
-						key: 'duplicate',
-						label: t().routine.selection.duplicate,
-						icon: 'copy',
-						why: blocks.duplicate,
-						onclick: duplicateSelected
-					},
-					{
-						key: 'extract',
-						label: t().routine.selection.make,
-						icon: 'route',
-						why: blocks.extract,
-						onclick: extractSelected
-					},
-					{
-						key: 'delete',
-						label: t().common.delete,
-						icon: 'trash',
-						why: blocks.delete,
-						danger: true,
-						onclick: deleteSelected
-					}
-				]
-	);
 
 	/**
 	 * The Make routine form's enhance callback. The form goes through
@@ -967,11 +948,6 @@
 			<span>{note}</span>
 		</p>
 	{/each}
-{/snippet}
-
-<!-- The selection's toolbar at the foot of its run (spec 2026-11-11, S6/S7). -->
-{#snippet runToolbar()}
-	<CardToolbar label={t().routine.selection.bar} items={runTools} />
 {/snippet}
 
 {#snippet back()}
@@ -1299,11 +1275,11 @@
 						{opened}
 						ontoggle={toggleOpen}
 						onunpack={unpack}
+						{glow}
 						{expanded}
 						{selecting}
 						{selected}
 						{shape}
-						tools={selecting && run !== null ? runToolbar : undefined}
 						{swiped}
 						{flash}
 						{press}

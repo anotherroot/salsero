@@ -752,13 +752,13 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
-		if (
-			stepIds.length === 0 ||
-			duplicateSlots(getDb(), routine.id, stepIds, by(params, locals)) === null
-		) {
-			return fail(400, { message: t().routine.refused.copySlots });
-		}
-		return done(routine.id);
+		const copies =
+			stepIds.length === 0
+				? null
+				: duplicateSlots(getDb(), routine.id, stepIds, by(params, locals));
+		if (copies === null) return fail(400, { message: t().routine.refused.copySlots });
+		// The copies glow where they landed, and Undo removes them (spec 2026-11-12, D1).
+		return done(routine.id, { copies });
 	},
 
 	extract: async ({ params, request, locals }) => {

@@ -70,12 +70,12 @@ export const routine = {
 		/** Under one selected slot. */
 		tip: 'Tap other slots to add them.',
 		/** Make routine, in a fifth of the toolbar. */
-		make: 'Make routine',
+		make: 'Section',
 		/** Why an action is greyed. */
 		blocked: {
 			embedded: (names: string): string =>
 				`This routine is embedded in ${names} — embedding is one level.`,
-			none: 'Select the slots to make into a routine.',
+			none: 'Select the slots to make into a section.',
 			slotIsRoutine: (n: number): string => `Slot ${n} is a routine — embedding is one level.`,
 			apart: 'Select slots next to each other.',
 			first: 'Select slots first.'

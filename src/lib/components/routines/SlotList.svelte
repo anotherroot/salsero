@@ -21,7 +21,6 @@
 	import { t } from '$lib/i18n/catalog';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
-	import type { Snippet } from 'svelte';
 	import type { SelectionShape } from '$lib/routines/selection';
 	import { DIM_OPEN, DIM_SELECT, FADE, faceRound, LIFTED, pieceRound, RING } from './lift';
 	import type { PickFrom, RowView, Swiped } from './types';
@@ -36,8 +35,6 @@
 		selected: number[];
 		/** How the selection lifts: each row's piece and the runs of neighbours. */
 		shape: SelectionShape;
-		/** The selection's toolbar, drawn at the foot of its only run; none when docked. */
-		tools?: Snippet;
 		swiped: Swiped;
 		flash: number | null;
 		press: LongPress;
@@ -57,6 +54,8 @@
 		opened: number[];
 		ontoggle: (stepId: number) => void;
 		onunpack: (stepId: number) => void;
+		/** New cards that glow a moment (spec 2026-11-12, D1). */
+		glow?: number[];
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
 
@@ -66,7 +65,6 @@
 		selecting,
 		selected,
 		shape,
-		tools,
 		swiped,
 		flash,
 		press,
@@ -83,6 +81,7 @@
 		opened,
 		ontoggle,
 		onunpack,
+		glow = [],
 		onadd
 	}: Props = $props();
 
@@ -299,7 +298,8 @@
 			<!-- The only run's last slot carries the tip and the selection's toolbar. -->
 			{@const foot = runEnd && shape.runs.length === 1}
 			<!-- A seam between two selected neighbours is drawn inside their piece. -->
-			{@const seamInside = sel !== null && !runEnd}
+			<!-- J1 (spec 2026-11-12): the seam stays where it is, selected or not. -->
+			{@const seamInside = false}
 			<!-- The offset is the `translate` property, not `transform`: CSS applies
 			     `translate` outside `scale`, so the lifted card's 1.03 does not
 			     stretch its offset and pull it off the finger. Only while dragging:
@@ -320,9 +320,9 @@
 					? selecting
 						? DIM_SELECT
 						: DIM_OPEN
-					: ''} {sel === 'mid' || sel === 'bottom' ? '-mt-2' : ''} {flash === row.id
+					: ''} {sel === 'mid' || sel === 'bottom' ? 'joined' : ''} {flash === row.id
 					? 'flash'
-					: ''}"
+					: ''} {glow.includes(row.id) ? 'glow' : ''}"
 				style={drag ? `translate: 0 ${offsetOf(i, row.id)}px` : undefined}
 			>
 				<!-- Open or selected, the card lifts in a piece (spec 2026-11-11, T3, S6–S8);
@@ -330,14 +330,9 @@
 				     never drawn anew between the two. -->
 				<div
 					class={piece
-						? `${LIFTED} ${pieceRound(piece)} ${piece === 'single' ? RING : ''} ${sel === 'mid' || sel === 'bottom' ? 'border-t border-hairline' : ''}`
+						? `${LIFTED} ${pieceRound(piece)} ${piece === 'single' ? RING : ''} ${sel === 'mid' || sel === 'bottom' ? 'shadow-[inset_0_1px_0_var(--color-hairline)]' : ''}`
 						: 'contents'}
 				>
-					{#if sel === 'top' && run}
-						<p class="px-4 pt-3 text-[12px] font-extrabold tracking-[0.03em] text-muted uppercase">
-							{t().routine.selection.run(run.from + 1, run.to + 1)}
-						</p>
-					{/if}
 					<SlotCard
 						{row}
 						open={opened.includes(row.id)}
@@ -365,14 +360,6 @@
 					/>
 					{#if seamInside}
 						<div class="px-2 pb-2">{@render seam(row, i)}</div>
-					{/if}
-					{#if foot}
-						{#if selected.length === 1}
-							<p class="pr-4 pb-2.5 pl-[80px] text-[13px] font-semibold text-muted">
-								{t().routine.selection.tip}
-							</p>
-						{/if}
-						{@render tools?.()}
 					{/if}
 				</div>
 				{#if openChild(row)}
@@ -408,6 +395,36 @@
 {/if}
 
 <style>
+	/* J1 (spec 2026-11-12): a selected neighbour fills the gap above it, so the run reads as one
+	   piece with no card moving. */
+	/* D1 (spec 2026-11-12): a new card glows with the accent, then fades. */
+	.glow :global([role='button']) {
+		animation: glow 2s ease-out;
+	}
+	@keyframes glow {
+		0%,
+		35% {
+			background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+		}
+		100% {
+			background: var(--color-surface);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.glow :global([role='button']) {
+			animation: none;
+		}
+	}
+	.joined {
+		position: relative;
+	}
+	.joined::before {
+		content: '';
+		position: absolute;
+		inset: -0.5rem 0 auto;
+		height: 0.5rem;
+		background: var(--color-surface);
+	}
 	/*
 	 * A ring, not a background: the card face (`bg-surface`) is opaque and sits
 	 * on top of the `<li>`, so a background flash here is invisible. A
