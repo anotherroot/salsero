@@ -91,6 +91,11 @@ src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, de
                      the day's picks (`today_picks`: next, add, skip): `addPicks`, `removePick`,
                      `dayInputOf` — what `dayList`, `inLine` and Coming up need. The Today
                      layout, its `next` action and the reminder (`dueByDance`) read the same
+src/lib/server/sections.ts  a routine becomes a section (spec 2026-11-12): `demoteImpact`, `demoteRoutine`, and
+                     `routinesHolding` (real routines holding one at any depth); apart from
+                     routines.ts because it unlinks lessons through lessons.ts.
+src/lib/server/section-views.ts  what the routine editor draws for the sections and routines its
+                     slots hold, opened in place (`childViews`).
 src/lib/server/positions.ts  owned positions: list (by type, then name), create, edit,
                      archive, restore, Templates (`addTemplates`), "from Week 6" (`positionsFrom`)
 src/lib/server/section-names.ts  the one-time boot step: an unnamed linked section or point
@@ -146,7 +151,9 @@ src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
                      figures (`figs`; a group row whose label collides says its group,
                      `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
                      (figures with no start)
-src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
+src/lib/routines/    PURE routine algebra (children at any depth: `optionSlots`, `flatten`; spec 2026-11-12;
+                     `routineSize` for the list; panels.ts: a panel's colour per level, `openable`,
+                     the "where am I" rows), slots, breaks, whether it
                      loops, the walk on the count (`walk`, `rowEdgesIn`: each slot starts where
                      the one before leaves off, an option's length in its slot, spec 2026-11-11),
                      a slot's end (end.ts: the ends its options share, the one chosen or decided
@@ -172,6 +179,8 @@ src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and count
                      page's lines — via-section badges, row metas, the delete and unlink
                      questions. Client-safe
 src/lib/components/routines/  the routine editor: SlotList (the drag, the lifted pieces: an open slot,
+                     SectionPanel (a section or routine opened in place, recursive; spec 2026-11-12),
+                     WhereBar (the "where am I" bar under the band),
                      a selection, joined runs; spec 2026-11-11 routine lift), SlotCard, Seam,
                      CardToolbar (a lifted card's toolbar: the open slot's and the selection's),
                      SelectionBar (that toolbar docked when the selection is not one run),

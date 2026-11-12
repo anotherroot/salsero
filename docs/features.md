@@ -219,6 +219,12 @@ The routine editor has its own,
 the main figure, the start rule for alternatives, the picker's anchors, and the
 gestures; an open slot and the selection lift out of the list since 2026-11-11,
 [`docs/superpowers/specs/2026-11-11-routine-lift-design.md`](docs/superpowers/specs/2026-11-11-routine-lift-design.md).
+Sections, nesting at any depth and the calmer editor (2026-11-12) — a slot holds one
+figure, section or routine (alternatives are gone); select slots and tap Section;
+Unpack, Detach here, Make routine and Turn into a section; panels opened in place
+with a "where am I" bar; selection that never moves a card; Duplicate that glows;
+the Routines list as start → end · figures · eights —
+[`docs/superpowers/specs/2026-11-12-routine-sections-design.md`](docs/superpowers/specs/2026-11-12-routine-sections-design.md).
 The full-screen video player has its own,
 [`docs/superpowers/specs/2026-10-01-video-player-design.md`](docs/superpowers/specs/2026-10-01-video-player-design.md):
 spots, the loop, and why it is not the browser's fullscreen.

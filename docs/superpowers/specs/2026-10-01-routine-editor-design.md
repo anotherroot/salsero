@@ -1,5 +1,7 @@
 # The routine editor — design
 
+> **Amended 2026-11-12** ([routine sections](2026-11-12-routine-sections-design.md)): embedding is any depth (never into itself), sections exist, and alternatives are gone — a slot holds one figure, section or routine. Where this document says otherwise, that one wins.
+
 > **Status:** approved in brainstorming, 2026-10-01. Extends
 > [`2026-09-24-routines-design.md`](2026-09-24-routines-design.md), which stays
 > the design of routines themselves — slots, alternatives, embedding, playing.

@@ -1,5 +1,7 @@
 # Routines and the figure graph — design
 
+> **Amended 2026-11-12** ([routine sections](2026-11-12-routine-sections-design.md)): embedding is any depth (never into itself), sections exist, and alternatives are gone — a slot holds one figure, section or routine. Where this document says otherwise, that one wins.
+
 > **Status:** approved in brainstorming, 2026-09-24. Extends
 > [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md), which
 > stays the overall design; this document owns positions, the figure graph,
