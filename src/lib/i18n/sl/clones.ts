@@ -223,7 +223,7 @@ export const clones: Catalog['clones'] = {
 		button: 'Odklopi',
 		title: (place) => `Želite nehati slediti: ${place}?`,
 		titleGroup: 'Želite odklopiti od kopij?',
-		mine: 'Vaša kopija ostane vaša, kakršna je. Še naprej je prikazana skupaj z njihovo, kot dvojčka.',
+		mine: 'Vaša kopija ostane vaša, kakršna je, samostojna. Če jo želite še vedno videti skupaj z njihovo, uporabite »Enako kot …«.',
 		noMore: 'Brez obvestil o razlikah in brez nehotenega usklajevanja.',
 		group: (kind) =>
 			`V skupini »Odklopi« le prekine povezavo s kopijami: ostane ${KIND[kind]} skupine.`,

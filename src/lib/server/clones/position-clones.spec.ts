@@ -300,7 +300,7 @@ describe('Drop my copy of a position', () => {
 });
 
 describe('Detach a position', () => {
-	it('leaves the family and becomes a twin of the group’s', async () => {
+	it('leaves the family and makes no twin of the group’s', async () => {
 		const { P } = story();
 		const C = (
 			(await makeMine(db, U2_SALSA, 'position', P, files, NOW, Infinity)) as { id: number }
@@ -314,7 +314,7 @@ describe('Detach a position', () => {
 			.all()
 			.map((r) => r.item)
 			.sort((a, b) => a - b);
-		expect(set).toEqual([P, C].sort((a, b) => a - b));
+		expect(set).toEqual([]);
 		expect(crossRefs(db)).toEqual([]);
 	});
 });

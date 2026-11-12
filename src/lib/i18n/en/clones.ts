@@ -254,7 +254,7 @@ export const clones = {
 		title: (place: string): string => `Stop following ${place}?`,
 		/** A group's row follows nobody (the others are its copies). */
 		titleGroup: 'Detach from its copies?',
-		mine: 'Your copy stays yours, as it is. It stays shown together with theirs, as twins.',
+		mine: 'Your copy stays yours, as it is, on its own. To still show it with theirs, use Same as…',
 		noMore: 'No more “updated since”, and no Take theirs to hit by mistake.',
 		/** Under the title: what Detach is in a group, in the kind's noun. */
 		group: (kind: CloneKind): string =>
