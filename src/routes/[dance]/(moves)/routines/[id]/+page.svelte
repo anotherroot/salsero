@@ -359,8 +359,7 @@
 				meta: slotMeta(
 					edges,
 					posName,
-					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null,
-					k === 0
+					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null
 				),
 				end: endView(i, edges, isRoutine),
 				empty: !isRoutine && main === undefined,

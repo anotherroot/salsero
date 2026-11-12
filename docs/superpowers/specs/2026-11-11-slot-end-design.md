@@ -29,8 +29,9 @@ slot, for figures with more than one end.
      shown to the user on the board without objection).
    - A figure with no positions (ends anywhere) or one end: nothing to choose.
 3. The slot's line shows only where it ends, not where it starts: the start is
-   the end of the slot above. The first slot of the routine keeps its start
-   (»Closed → Closed«), since nothing is above it.
+   the end of the slot above. The first slot names none either (changed
+   2026-11-12, user pick): the routine's start is in the facts line above the
+   slots, and on the first card it crowded out the end.
 4. Seams, the picker and everything else that reads where a slot ends read the
    slot's effective end (below), not every end the figure knows.
 5. The system back button (Android back, browser back) closes an open slot or
@@ -156,7 +157,7 @@ chosen end.
 
 ### The slot's line (`SlotCard`, board »Izbrano · samo konec«)
 
-`counts · <end>`, and for the first slot `counts · <starts> → <end>`.
+`counts · <end>`, on every slot (the first too, since 2026-11-12).
 `<end>` by state:
 
 - `chosen`: a chip, the length chip's look (`LENGTH_CHIP`), with the end icon
