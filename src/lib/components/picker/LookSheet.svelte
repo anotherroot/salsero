@@ -181,16 +181,16 @@
 {/snippet}
 
 {#snippet footer()}
-	<div class="flex gap-2.5">
-		<button type="button" class="{button('secondary', 'md')} flex-1" onclick={onclose}
+	<div class="grid grid-cols-2 gap-2.5">
+		<button type="button" class={button('secondary', 'md', true)} onclick={onclose}
 			>{t().common.back}</button
 		>
 		{#if linked}
-			<button type="button" class="{button('primary', 'md')} flex-1" disabled
+			<button type="button" class={button('primary', 'md', true)} disabled
 				><Icon name="check" size={18} />{t().picker.linked}</button
 			>
 		{:else}
-			<button type="button" class="{button('primary', 'md')} flex-1" onclick={onpick}
+			<button type="button" class={button('primary', 'md', true)} onclick={onpick}
 				>{verbOf(verb)}</button
 			>
 		{/if}

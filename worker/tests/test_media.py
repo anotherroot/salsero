@@ -331,6 +331,9 @@ def test_loop_strip_reuses_the_last_good_frame(tmp_path: Path):
     assert (tmp_path / "f11.jpg").read_bytes() == (tmp_path / "f10.jpg").read_bytes()
 
 
-def test_loop_strip_without_any_frame_is_permanent(tmp_path: Path):
-    with pytest.raises(media.PermanentError, match="No picture in this section"):
+def test_loop_strip_without_any_frame_is_tried_again(tmp_path: Path):
+    # No frame at all is most often the source not answering (network, a server restart): the
+    # queue's attempts (5) end it, never a first failure. Measured: a missing file read as permanent.
+    with pytest.raises(RuntimeError, match="No picture in this section") as e:
         media.loop_strip("v.mp4", 0, 3000, tmp_path, run=loop_run(fail_frames=set(range(12))))
+    assert not isinstance(e.value, media.PermanentError)

@@ -69,3 +69,34 @@ SCENES = {
     "pp-move-field": Scene("/{dance}/figures", _move_field),
     "pp-group-lesson": Scene("/{dance}/lessons/38", _add_figure),
 }
+
+
+# After the build: the sheet over the picker (S1), on a copy seeded with loops (see the plan's Task 10).
+def _look(page):
+    _add_figure(page)
+    page.get_by_role("button", name="Preview Pa ti, pa mi · Basic").first.click()
+    page.wait_for_timeout(1500)
+
+
+def _look_short(page):
+    _add_figure(page)
+    page.get_by_role("button", name="Preview Adios · Con la prima").first.click()
+    page.wait_for_timeout(1500)
+
+
+def _move_look(page):
+    _move_field(page)
+    page.get_by_role("button", name="Preview Adios").first.click()
+    page.wait_for_timeout(1500)
+
+
+def _slot_look(page):
+    _slot(page)
+    page.get_by_role("button", name="Preview Enchufla · Basic").first.click()
+    page.wait_for_timeout(1500)
+
+
+SCENES["pp-look"] = Scene("/{dance}/lessons/{pplesson}", _look)
+SCENES["pp-look-short"] = Scene("/{dance}/lessons/{pplesson}", _look_short)
+SCENES["pp-move-look"] = Scene("/{dance}/figures", _move_look)
+SCENES["pp-slot-look"] = Scene("/{dance}/routines/{pproutine}", _slot_look)

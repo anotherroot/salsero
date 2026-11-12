@@ -413,6 +413,7 @@ def loop_strip(
     span = end_ms - start_ms
     good: Path | None = None
     missing: list[Path] = []
+    last_err = ""
     for k in range(LOOP_FRAMES):
         t = (start_ms + (k + 0.5) * span / LOOP_FRAMES) / 1000
         out = outdir / f"f{k:02d}.jpg"
@@ -431,12 +432,16 @@ def loop_strip(
             for m in missing:
                 shutil.copyfile(out, m)
             missing = []
-        elif good is not None:
+            continue
+        last_err = _last_line(p.stderr)
+        if good is not None:
             shutil.copyfile(good, out)
         else:
             missing.append(out)
     if good is None:
-        raise PermanentError("No picture in this section.")
+        # Most often the source not answering (network, a restart): tried again, and the
+        # queue's attempts end it. Not PermanentError: a first failure must not be the last.
+        raise RuntimeError(f"No picture in this section: {last_err}")
     strip = outdir / "strip.jpg"
     p = run(
         [
