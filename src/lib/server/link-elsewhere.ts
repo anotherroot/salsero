@@ -89,6 +89,12 @@ function linkOnly(db: Db, id: number, link: Linker): CopyLinkResult {
 	return link(db, id) ? { ok: true, id, made: false } : { ok: false, reason: 'refused' };
 }
 
+/**
+ * Copy and use (a group's field pickers: a figure's positions, a routine's
+ * slots): nothing to link, the page uses the copy itself.
+ */
+export const useOnly: Linker = () => true;
+
 /** A lesson's link of a kind (`linkFigure`, `linkRoutine`, `linkExercise`, `linkPosition`). */
 export function lessonLinker(kind: ElsewhereKind, lessonId: number, by: string): Linker {
 	const fn = {

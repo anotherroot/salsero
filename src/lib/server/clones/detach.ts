@@ -3,19 +3,19 @@
  * is, but has no gene, no `cloned_from` and no pair snapshots, so nothing
  * says "updated since" and nothing offers Take theirs into it.
  *
- * On a person's own row the family's other readable members become its
- * TWINS (`markTwins`, for the kinds that have twins; a drill just leaves),
- * so the person still sees them shown together. On a group's row Detach is
- * an ordinary group edit: it is logged as a `change`.
+ * On a person's own row it just leaves: it makes no twins. (It once made
+ * the family's other members its twins; a row has one twin set, so they
+ * joined whatever set the row was in and Detach grew the list instead of
+ * shrinking it, Shadow Closed 2026-11-12. Same as… is the way to show them
+ * together.) On a group's row Detach is an ordinary group edit: it is
+ * logged as a `change`.
  */
 import { eq } from 'drizzle-orm';
-import type { CloneKind, DetachOffer, TwinKind } from '$lib/types';
+import type { CloneKind, DetachOffer } from '$lib/types';
 import type { Db } from '../db';
 import { exercises, figures, lessons, positions, routines, songs } from '../db/schema';
 import { logChange } from '../changes';
-import type { DanceSlug } from '$lib/dances/dances';
 import { isTeam, spaceOfRow } from '../scope';
-import { markTwins } from '../twins';
 import { accessTo, geneOf, visibleMembers } from './genes';
 import { rowOf } from './edit';
 import { dropPairs } from './pairs';
@@ -74,7 +74,6 @@ export function detachOffer(
 export function detach(db: Db, actorId: string, kind: CloneKind, id: number, now: number): boolean {
 	const d = detachable(db, actorId, kind, id);
 	if (!d) return false;
-	const { row, others } = d;
 	return db.transaction((t) => {
 		const tx = t as unknown as Db;
 		const table = TABLES[kind];
@@ -94,12 +93,6 @@ export function detach(db: Db, actorId: string, kind: CloneKind, id: number, now
 		if (isTeam(space)) {
 			const { thing, ...root } = logRoot(kind, raw);
 			logChange(tx, space, { ...root, verb: 'change', subject: thing }, now);
-		} else if (kind !== 'drill') {
-			const same = others.filter((m) => rowOf(tx, kind, m.id)?.dance === row.dance);
-			markTwins(tx, { userId: actorId, dance: row.dance as DanceSlug }, kind as TwinKind, [
-				id,
-				...same.map((m) => m.id)
-			]);
 		}
 		return true;
 	});

@@ -472,6 +472,7 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/comments/[id]/heart': { POST: 'queued' },
 	'/api/comments/[id]/restore': { POST: 'queued' },
 	'/api/count-takes': { POST: 'network' },
+	'/api/elsewhere/copy': { POST: 'network' },
 	'/api/figures/[id]/recordings': { POST: 'pass' },
 	// A phone-only video's row (offline phase 4c): made on the device first, no file in it.
 	'/api/figures/[id]/recordings/phone': { POST: 'device' },

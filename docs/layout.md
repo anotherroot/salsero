@@ -514,14 +514,17 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
 src/lib/server/elsewhere.ts  link from other places: what a group's pickers find in your
-                     own app and other groups (`findElsewhere`, GET /api/elsewhere), who may
-                     (`elsewhereGroup`), what stays behind (`staysBehind`)
+                     own app and other groups (`findElsewhere`, GET /api/elsewhere; `move`: names
+                     only, for New figure's Move field), who may (`elsewhereGroup`), what stays
+                     behind (`staysBehind`)
 src/lib/server/link-elsewhere.ts  Copy and link: `copyTo` with the link as its `after`
-                     hook (`copyAndLink`, `restoreAndLink`, lesson and spot linkers, the request
-                     parser); copy-link-form.ts runs it with real files (?/copyLink,
-                     /api/video-spots/[id]/copy-link)
+                     hook (`copyAndLink`, `restoreAndLink`, lesson and spot linkers, `useOnly`
+                     for the field pickers' Copy and use, the request parser); copy-link-form.ts
+                     runs it with real files (?/copyLink, /api/video-spots/[id]/copy-link,
+                     POST /api/elsewhere/copy)
 src/lib/picker/elsewhere.ts  PURE: the places found as picker groups (`elsewhereGroups`);
                      elsewhere-search.svelte.ts the debounced search; elsewhere-api.ts its fetch
+                     and Copy and use (`copyToUse`)
 src/lib/clones/copy-here.ts  PURE: the Copy and link card's words (components/links/CopyHereCard)
 src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing; `APP_HEADER` x-salsa-app, the page's own
                      word for its app, sent by app.html's fetch wrapper because the Android service

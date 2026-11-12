@@ -8,7 +8,7 @@
  * PURE and client-safe.
  */
 import { t } from '$lib/i18n/catalog';
-import type { ElsewhereKind, ElsewherePlace, ElsewhereRow } from '$lib/types';
+import type { CopyableRow, ElsewhereKind, ElsewherePlace, ElsewhereRow } from '$lib/types';
 import type { PickEntry, PickGroup, PickHeading, PickRow } from './model';
 
 const KINDS: readonly ElsewhereKind[] = ['figure', 'routine', 'drill', 'position'];
@@ -18,11 +18,13 @@ const keyOf = (r: ElsewhereRow) => `elsewhere:${r.kind}:${r.id}`;
 function pickRow(r: ElsewhereRow): PickRow {
 	const w = t().picker.elsewhere;
 	const meta =
-		r.sameName !== null
-			? w.hasOwn
-			: r.alsoIn.length > 0
-				? w.alsoIn(r.alsoIn.join(', '))
-				: undefined;
+		r.kind === 'move'
+			? w.newMove
+			: r.sameName !== null
+				? w.hasOwn
+				: r.alsoIn.length > 0
+					? w.alsoIn(r.alsoIn.join(', '))
+					: undefined;
 	return {
 		key: keyOf(r),
 		value: r.id,
@@ -70,6 +72,9 @@ export function elsewhereOf(places: ElsewherePlace[], key: string): ElsewhereRow
 	for (const p of places) for (const r of p.rows) if (keyOf(r) === key) return r;
 	return null;
 }
+
+/** A row a copy can bring here: any but a move (a name only). */
+export const copyable = (r: ElsewhereRow): r is CopyableRow => r.kind !== 'move';
 
 /** The group a row was found in, by name; null for the person's own app (or no such row). */
 export function elsewhereFrom(places: ElsewherePlace[], key: string): string | null {

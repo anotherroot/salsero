@@ -61,6 +61,7 @@ import { missingSeen, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
+import { elsewhereGroup } from '$lib/server/elsewhere';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import {
 	copyToFrom,
@@ -377,6 +378,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			(l) => !visible || visible.lessons.has(l.id)
 		),
 		candidates,
+		/** A group's routine, for an editor: its slot picker also finds other places' (link from other places). */
+		elsewhere: (() => {
+			if (!canEdit || routine.teamId === null) return null;
+			if (!elsewhereGroup(db, wall.userId, wall.dance, routine.teamId)) return null;
+			const team = getTeam(db, routine.teamId);
+			return team ? { teamId: team.id, name: team.name } : null;
+		})(),
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
 		// anchors and the seams' labels.
 		// As the routine walks (spec 2026-11-11): each row entered where the one before leaves off.

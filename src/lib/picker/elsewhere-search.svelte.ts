@@ -7,7 +7,7 @@
 import { elsewhereGroups } from './elsewhere';
 import { fetchElsewhere } from './elsewhere-api';
 import type { PickGroup } from './model';
-import type { ElsewhereKind, ElsewherePlace } from '$lib/types';
+import type { ElsewhereFind, ElsewherePlace } from '$lib/types';
 
 export const DEBOUNCE_MS = 300;
 
@@ -18,10 +18,10 @@ export class ElsewhereSearch {
 
 	#timer: ReturnType<typeof setTimeout> | null = null;
 	#ask: AbortController | null = null;
-	#last: { into: number; kinds: ElsewhereKind[]; q: string } | null = null;
+	#last: { into: number; kinds: ElsewhereFind[]; q: string } | null = null;
 
 	/** Search for `q` after a pause; an empty `q` clears at once. */
-	search(into: number, kinds: ElsewhereKind[], q: string) {
+	search(into: number, kinds: ElsewhereFind[], q: string) {
 		const query = q.trim();
 		if (
 			this.#last &&

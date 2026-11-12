@@ -254,7 +254,7 @@ export const clones = {
 		title: (place: string): string => `Stop following ${place}?`,
 		/** A group's row follows nobody (the others are its copies). */
 		titleGroup: 'Detach from its copies?',
-		mine: 'Your copy stays yours, as it is. It stays shown together with theirs, as twins.',
+		mine: 'Your copy stays yours, as it is, on its own. To still show it with theirs, use Same as…',
 		noMore: 'No more “updated since”, and no Take theirs to hit by mistake.',
 		/** Under the title: what Detach is in a group, in the kind's noun. */
 		group: (kind: CloneKind): string =>
@@ -435,7 +435,16 @@ export const clones = {
 		linkGroups: "Link the group's one",
 		copyAnyway: 'Copy anyway',
 		done: 'Copied and linked',
-		failed: 'It could not be copied here and linked. Nothing was copied.'
+		failed: 'It could not be copied here and linked. Nothing was copied.',
+		/** Copy and use: a group's field pickers (a figure's positions, a routine's slots). */
+		leadUse: (from: string | null): string =>
+			`It comes in as a clone of ${from === null ? 'yours' : `the one in ${from}`}, so the two can be kept in step. Then it is used here.`,
+		archivedUse: 'It was here before and is archived. Restore it and use it.',
+		copyAndUse: 'Copy and use',
+		restoreAndUse: 'Restore and use',
+		useGroups: "Use the group's one",
+		doneUse: 'Copied',
+		failedUse: 'It could not be copied here. Nothing was copied.'
 	},
 	copy: {
 		/** The ⋯ menu's item. */

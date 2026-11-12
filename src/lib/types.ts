@@ -1041,10 +1041,16 @@ export type CopyHereView = CopyPlanView & {
 
 /** What a group's linking pickers look for elsewhere. `drill` is an exercise row of a drill. */
 export type ElsewhereKind = 'figure' | 'routine' | 'drill' | 'position';
+/**
+ * What a group's pickers search elsewhere: the copyable kinds, and `move`, a
+ * move's name only (New figure's Move field: a pick makes a new move of that
+ * name in the group; nothing is copied).
+ */
+export type ElsewhereFind = ElsewhereKind | 'move';
 
 /** One row found in another place, for a group's picker. */
 export type ElsewhereRow = {
-	kind: ElsewhereKind;
+	kind: ElsewhereFind;
 	id: number;
 	/** "Cradle entry · Basic"; a routine's, drill's or position's name. */
 	label: string;
@@ -1059,6 +1065,9 @@ export type ElsewhereRow = {
 	/** A live group row of the same name from another family: Link the group's one. */
 	sameName: number | null;
 };
+
+/** A row a Copy and link (or use) can copy: any but a move. */
+export type CopyableRow = ElsewhereRow & { kind: ElsewhereKind };
 
 /** One place a group's picker found rows in: your own app or another group. */
 export type ElsewherePlace = {

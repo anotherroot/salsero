@@ -300,6 +300,9 @@ a group lesson's pickers and the Link popup on a group's video find, while
 searching, your own rows and your other groups' (read-only ones marked); a
 tap opens a card (what comes along, what stays behind) and Copy and link
 copies the row into the group as a clone and links it, in one transaction.
+Three field pickers search there too (amended 2026-11-12): New figure's Move
+field in a group's view (a pick makes a new move of that name), a group
+figure's Starts in / Ends in and a group routine's slot picker (Copy and use).
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync

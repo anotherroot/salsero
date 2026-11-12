@@ -99,10 +99,11 @@
 		/** Replaces the empty box's text (the routine editor's "Turn off Hold"). */
 		empty?: Snippet;
 		/**
-		 * Link from other places (a group's linking pickers): while a search is
-		 * typed, the group's own rows sit under `here`, then what the person's
-		 * other places hold (`groups`, already matched by the server); `state`
-		 * says whether they came. A tap or + on one of them is `onelsewhere`.
+		 * Link from other places (a group's pickers): while a search is typed,
+		 * the group's own rows sit under `here`, then what the person's other
+		 * places hold (`groups`, already matched by the server); `state` says
+		 * whether they came. A tap or + on one of them is `onelsewhere`; only a
+		 * linking picker's rows have the + (a field's or an act's: a tap).
 		 */
 		elsewhere?: {
 			here: string;
@@ -226,9 +227,11 @@
 
 {#snippet row(r: PickRow, text: string, indent: boolean, last: boolean, away = false)}
 	{@const trail = away
-		? pending.has(r.key)
-			? 'pending'
-			: 'add'
+		? kind !== 'link'
+			? 'none'
+			: pending.has(r.key)
+				? 'pending'
+				: 'add'
 		: rowTrail(kind, r, chosen, pending)}
 	{@const linked = trail === 'linked'}
 	{@const isChosen = trail === 'chosen'}

@@ -601,6 +601,7 @@
 						figureStyle={variation.styleTag}
 						styleLabel={styleLabelOf(data.dance.styleLabel)}
 						figureId={variation.id}
+						into={data.elsewhere}
 					/>
 					<FigureTiming
 						startCounts={data.shape.startCounts}
