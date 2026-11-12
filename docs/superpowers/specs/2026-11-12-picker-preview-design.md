@@ -195,9 +195,11 @@ that has none, has no picture: the empty tile. *(My call: the backup holds no
 recordings, and a recording-keyed job would be a second job type with a
 duration probe; a later round can add it.)*
 
-Share one pure function between the figure page and the pickers (extract
-from `topVideo`; client-safe, with specs), fed by the server and by the
-device's copy alike.
+The pickers pick it in one batched query per load (`looksFor`, plan task 6),
+and a spec proves it picks exactly what `topVideo(sectionsFor(...))` picks on
+the figure page, for an owner, a group editor and a group reader. *(Plan
+decision: a proven equivalence instead of one shared function, because the
+figure page builds its sections one figure at a time.)*
 
 ## The loop
 
@@ -221,9 +223,10 @@ device's copy alike.
   worker token header), so a 1 GiB lesson video is never downloaded whole.
   *(If seeking over HTTP proves unreliable, downloading the file as the
   timeline does is acceptable; say so.)*
-- **When:** a job is queued when a section gets linked to a figure, when a
-  linked section's start or end changes, and once for every linked section
-  that has none (a backfill, run at boot after the migration, idempotent). A
+- **When:** one sweep (`queueLoops`, run on every worker claim and in the
+  hourly sweep) queues every figure-linked section whose current span has no
+  loop. That covers a new link, an edited span, a copy, an offline replay and
+  the backfill alike, without touching each write path. A
   loop belongs to a spot **and its span**: a changed span makes the old loop
   stale (it is no longer shown) and queues a new one. Unlinking does not
   delete it (a loop is cheap and the section may be linked again); deleting
@@ -252,19 +255,17 @@ device's copy alike.
 
 ### The data it needs
 
-Recommended shape (the builder may choose another that keeps the rules):
+Decided in the plan:
 
 - A worker queue table, never synced, like `ai_timelines`: one row per spot
   (`spot_id`, the span it was cut for, status queued/ready/failed, lease,
   attempts, error, file).
-- What the pickers read: the ready loop's file for the spot's current span.
-  Offline the device must know it too, from synced rows. Either add a nullable
-  column to `video_spots` that the server sets when a loop is ready and clears
-  when the span changes (`ADD COLUMN` only; the device never writes it), or
-  sync the queue's ready rows. **Check before choosing:** a server write to a
-  group's spot is not a person's mutation; confirm what `changes.spec.ts` /
-  `MUTATIONS` and the sync triggers expect of such a write, and say which way
-  was taken and why.
+- What the pickers and the phone read: nothing new. A loop's file name is
+  derived from synced columns, `<spotId>-<startMs>-<endMs>.jpg` and
+  `…-still.jpg`, so a page or the phone builds the URL from the spot itself;
+  a loop not cut yet answers 404 and the row shows the empty tile. No server
+  write touches a synced row, so the group change log and sync triggers are
+  untouched.
 - A new hard delete (the loop row and file, with its spot) goes into the
   hard-delete list in `docs/hard-rules.md`. The worker endpoints go into
   `NETWORK_ENDPOINTS`; the loop and still URLs into `MEDIA_ENDPOINTS`, so the
