@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { openDb } from './db';
-import { demoteImpact, demoteRoutine } from './sections';
+import { demoteImpact, demoteRoutine, routinesHolding } from './sections';
 import {
 	addChildSlot,
 	addFigureSlot,
@@ -1739,5 +1739,18 @@ describe('moveSlotInto (spec 2026-11-12, drag into a section)', () => {
 		expect(moveSlotInto(db, steps[1], r.id, 0)).toBe(true);
 		expect(routineSlots(db, r.id)[0].id).toBe(steps[1]);
 		expect(routineSlots(db, made.sectionId)).toEqual([]);
+	});
+});
+
+describe('routinesHolding (spec 2026-11-12)', () => {
+	it('counts a routine once though it holds the section twice and through another section', () => {
+		const db = openDb(':memory:');
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const mid = insertRoutine(db, U1_SALSA, { name: 'Mid', notes: null, isSection: true }).routine;
+		const s = insertRoutine(db, U1_SALSA, { name: 'S', notes: null, isSection: true }).routine;
+		addChildSlot(db, r.id, s.id);
+		addChildSlot(db, r.id, mid.id);
+		addChildSlot(db, mid.id, s.id);
+		expect(routinesHolding(db, s.id)).toEqual([{ id: r.id, name: 'R' }]);
 	});
 });

@@ -103,6 +103,28 @@ export const routine: Catalog['routine'] = {
 		more: (n) => `še ${n} više`,
 		level: (n) => `raven ${n}`,
 		where: 'Kje ste',
+		subtitle: (figures, eights) => `Sklop · ${nouns.figures(figures)} · ${nouns.eights(eights)}`,
+		inRoutines: (n) => `V ${n} kombinacijah:`,
+		name: 'Poimenuj',
+		makeRoutine: 'Naredi kombinacijo',
+		makeRoutineMeta: 'Pokaže se med kombinacijami in jo lahko vadite',
+		detachHere: 'Loči tukaj',
+		detachMeta: (routine) => `${routine} dobi svojo kopijo`,
+		unpackInto: (routine) => `Razpakiraj v ${routine}`,
+		unpackMeta: 'Njegova mesta gredo nazaj, kjer je bil',
+		demote: 'Spremeni v sklop',
+		demoteMeta: 'Izgine s seznama kombinacij; ostane, kjer je uporabljena',
+		demoteTitle: (name) => `Spremenim ${name} v sklop?`,
+		demoteBody: (routines, lessons, practised) =>
+			[
+				`Izgine s seznama kombinacij in ostane v: ${routines}.`,
+				lessons ? `Povezave v lekcijah ${lessons} izginejo.` : '',
+				practised > 0 ? `Vadili ste jo ${practised}-krat: izgine iz Danes, zgodovina ostane.` : ''
+			]
+				.filter(Boolean)
+				.join(' '),
+		demoteDo: 'Spremeni v sklop',
+		sectionOf: (routines) => (routines ? `Sklop iz ${routines}` : 'Sklop'),
 		sectioned: (n) => `Sklop iz ${nouns.slots(n)}`,
 		unpacked: (name) => `Razpakirano: ${name || 'sklop'}`,
 		added: (name, n) =>

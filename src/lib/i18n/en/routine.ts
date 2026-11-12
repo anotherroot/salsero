@@ -105,6 +105,29 @@ export const routine = {
 		more: (n: number): string => `${n} more above`,
 		level: (n: number): string => `level ${n}`,
 		where: 'Where you are',
+		subtitle: (figures: number, eights: number): string =>
+			`Section · ${plural(figures, 'figure', 'figures')} · ${plural(eights, 'eight', 'eights')}`,
+		inRoutines: (n: number): string => `In ${n} routines:`,
+		name: 'Name',
+		makeRoutine: 'Make routine',
+		makeRoutineMeta: 'Shows up in Routines and can be practised',
+		detachHere: 'Detach here',
+		detachMeta: (routine: string): string => `${routine} gets its own copy`,
+		unpackInto: (routine: string): string => `Unpack into ${routine}`,
+		unpackMeta: 'Its slots go back where it was',
+		demote: 'Turn into a section',
+		demoteMeta: 'Leaves Routines; stays where it is used',
+		demoteTitle: (name: string): string => `Turn ${name} into a section?`,
+		demoteBody: (routines: string, lessons: string, practised: number): string =>
+			[
+				`It leaves the Routines list and stays in ${routines}.`,
+				lessons ? `The links in ${lessons} go.` : '',
+				practised > 0 ? `Practised ${practised} times: it leaves Today, the history stays.` : ''
+			]
+				.filter(Boolean)
+				.join(' '),
+		demoteDo: 'Turn into a section',
+		sectionOf: (routines: string): string => (routines ? `Section of ${routines}` : 'Section'),
 		sectioned: (n: number): string => `Made a section of ${plural(n, 'slot', 'slots')}`,
 		unpacked: (name: string): string => `Unpacked ${name || 'the section'}`,
 		added: (name: string, n: number): string =>

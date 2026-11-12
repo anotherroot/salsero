@@ -51,7 +51,7 @@ export function childViews(
 						childId: s.childId,
 						title: child?.name ?? '',
 						meta,
-						href: `/${dance}/routines/${s.childId}`
+						href: `/${dance}/routines/${s.childId}?from=${s.id}`
 					};
 				}
 				const main = s.figureIds[0];

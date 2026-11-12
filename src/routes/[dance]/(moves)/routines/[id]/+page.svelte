@@ -13,8 +13,8 @@
 	import { entryState, sheetStack } from '$lib/sheets/history.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
-	import { afterNavigate, pushState } from '$app/navigation';
-	import { enhance } from '$app/forms';
+	import { afterNavigate, goto, invalidateAll, pushState } from '$app/navigation';
+	import { deserialize, enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -138,12 +138,12 @@
 	/** The band's ⋯ sheet. */
 	let menuOpen = $state(false);
 	/** The routine's own ⋯ item: Select slots, the way into selection without a long-press. */
-	const routineOwn = $derived<MenuItem[]>(
-		data.canEdit && data.slots.length > 0
+	const routineOwn = $derived<MenuItem[]>([
+		...(data.canEdit && data.slots.length > 0
 			? [
 					{
 						key: 'select',
-						icon: 'check-circle',
+						icon: 'check-circle' as const,
 						label: t().routine.selection.item,
 						meta: t().routine.selection.itemMeta,
 						onclick: () => {
@@ -155,8 +155,94 @@
 						}
 					}
 				]
-			: []
-	);
+			: []),
+		...(data.canEdit ? sectionItems() : [])
+	]);
+
+	/**
+	 * A section's and a routine's own ⋯ items (spec 2026-11-12, P1, page 8): Name, Make
+	 * routine, Detach here and Unpack into for a section (the last two act on the slot it
+	 * was opened from); Turn into a section for a routine some other routine uses.
+	 */
+	function sectionItems(): MenuItem[] {
+		const w = t().routine.section;
+		if (!data.isSection) {
+			return data.demote && data.demote.routines.length > 0
+				? [
+						{
+							key: 'demote',
+							icon: 'brace',
+							label: w.demote,
+							meta: w.demoteMeta,
+							onclick: () => (demoting = true)
+						}
+					]
+				: [];
+		}
+		const items: MenuItem[] = [
+			routine.name
+				? {
+						key: 'promote',
+						icon: 'route',
+						label: w.makeRoutine,
+						meta: w.makeRoutineMeta,
+						onclick: promote
+					}
+				: { key: 'name', icon: 'pencil', label: w.name, onclick: () => (editing = true) }
+		];
+		const from = data.fromSlot;
+		if (from && data.holders.length > 1) {
+			items.push({
+				key: 'detach',
+				icon: 'copy',
+				label: w.detachHere,
+				meta: w.detachMeta(from.name),
+				onclick: () => atParent('detachHere')
+			});
+		}
+		if (from) {
+			items.push({
+				key: 'unpack',
+				icon: 'add-below',
+				label: w.unpackInto(from.name),
+				meta: w.unpackMeta,
+				onclick: () => atParent('unpack')
+			});
+		}
+		return items;
+	}
+
+	let demoting = $state(false);
+
+	async function promote() {
+		const result = await send('promote', {});
+		if (result.type === 'success') await invalidateAll();
+	}
+
+	/** Detach here and Unpack act on the parent's slot, through the parent routine's own page actions. */
+	async function atParent(action: 'detachHere' | 'unpack') {
+		const from = data.fromSlot;
+		if (!from) return;
+		const body = new FormData();
+		body.set('stepId', String(from.stepId));
+		const href = resolve('/[dance]/(moves)/routines/[id]', {
+			dance: data.dance.slug,
+			id: String(from.routineId)
+		});
+		const res = await fetch(`${href}?/${action}`, {
+			method: 'POST',
+			body,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+		const result = deserialize(await res.text());
+		if (result.type !== 'success') return;
+		if (action === 'unpack') await goto(href);
+		else if (typeof result.data?.sectionId === 'number') {
+			await goto(
+				`${resolve('/[dance]/(moves)/routines/[id]', { dance: data.dance.slug, id: String(result.data.sectionId) })}?from=${from.stepId}`
+			);
+		}
+	}
 	let editForm = $state<HTMLFormElement>();
 	/**
 	 * The `form` whose page banner was dismissed. Raw, not a deep proxy, so it
@@ -401,7 +487,9 @@
 				empty: !isRoutine && main === undefined,
 				note: slot.note,
 				href: isRoutine
-					? routineHref(slot.childId as number)
+					? (`${routineHref(slot.childId as number)}?from=${slot.id}` as ReturnType<
+							typeof routineHref
+						>)
 					: main === undefined
 						? null
 						: figureHref(main),
@@ -943,7 +1031,9 @@
 	});
 </script>
 
-<svelte:head><title>{routine.name} · {data.dance.label}</title></svelte:head>
+<svelte:head
+	><title>{routine.name || t().routine.section.unnamed} · {data.dance.label}</title></svelte:head
+>
 
 <svelte:window
 	onkeydown={(e) => {
@@ -1040,12 +1130,16 @@
 		? selectionTitle(selected.length)
 		: editing
 			? t().routine.band.editTitle
-			: routine.name}
+			: routine.name || t().routine.section.unnamed}
 	compact={!editing && bandCompact(routine.name)}
-	subtitle={editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
+	subtitle={editing
+		? undefined
+		: data.isSection
+			? t().routine.section.subtitle(data.size.figures, data.size.eights)
+			: (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
 	right={selecting || editing ? undefined : data.canEdit ? actions : readerActions}
-	hero={editing || !danceable ? undefined : practise}
+	hero={editing || !danceable || data.isSection ? undefined : practise}
 	heroDesk={!data.makeMine}
 >
 	<div
@@ -1053,6 +1147,21 @@
 			? 'flex flex-col gap-3.5 pt-1 pb-28'
 			: `flex flex-col gap-2 ${selecting ? 'pb-36' : data.makeMine ? 'pb-4 desk:pb-28' : 'pb-4'}`}
 	>
+		{#if !editing && data.isSection && data.holders.length > 1}
+			<!-- Where this shared section is used (spec 2026-11-12, P1). -->
+			<p
+				class="flex flex-wrap items-center gap-1.5 self-start rounded-full bg-accent-soft px-3 py-1 text-[12.5px] font-bold text-accent-text"
+			>
+				<Icon name="brace" size={15} />{t().routine.section.inRoutines(data.holders.length)}
+				{#each data.holders as h, k (h.id)}{k > 0 ? ', ' : ''}<a
+						class="underline"
+						href={resolve('/[dance]/(moves)/routines/[id]', {
+							dance: data.dance.slug,
+							id: String(h.id)
+						})}>{h.name}</a
+					>{/each}
+			</p>
+		{/if}
 		{#if editing}
 			{#if bannerMessage}
 				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
@@ -1416,6 +1525,36 @@
 		</button>
 	</BottomBar>
 {/if}
+
+<Dialog
+	open={demoting}
+	icon="brace"
+	tone="danger"
+	title={t().routine.section.demoteTitle(routine.name)}
+	body={data.demote
+		? t().routine.section.demoteBody(
+				data.demote.routines.map((r) => r.name).join(', '),
+				data.demote.lessons.map((l) => l.title).join(', '),
+				data.demote.practised
+			)
+		: ''}
+	onclose={() => (demoting = false)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('secondary', 'md')} onclick={() => (demoting = false)}
+			>{t().common.cancel}</button
+		>
+		<button
+			type="button"
+			class={button('danger', 'md')}
+			onclick={async () => {
+				demoting = false;
+				const result = await send('demote', {});
+				if (result.type === 'success') await invalidateAll();
+			}}>{t().routine.section.demoteDo}</button
+		>
+	{/snippet}
+</Dialog>
 
 <Dialog
 	open={archiving}

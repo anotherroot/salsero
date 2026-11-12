@@ -18,6 +18,7 @@ import {
 	embeddable,
 	embeddedIn,
 	makeSection,
+	getRoutine,
 	moveSlotInto,
 	holds,
 	promoteSection,
@@ -45,6 +46,7 @@ import {
 	timingBreaks,
 	timingSeams,
 	type OptionsSlot,
+	routineSize,
 	optionSlots
 } from '$lib/routines/routines';
 import { countsOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
@@ -80,10 +82,10 @@ import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
-import { demoteRoutine } from '$lib/server/sections';
 import { childViews } from '$lib/server/section-views';
 import { eq } from 'drizzle-orm';
 import { routineSteps } from '$lib/server/db/schema';
+import { demoteImpact, demoteRoutine, routinesHolding } from '$lib/server/sections';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -248,26 +250,27 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 					];
 				}),
 				// Twins show as one here too: a set is one routine to embed.
-				...foldNamed(db, space, 'routine', embeddable(db, routine.id, usable)).map(
-					(r): Candidate => {
-						// An embeddable routine embeds nothing, so its own slots are all options.
-						const own = (shapes.get(r.id)?.slots ?? []).filter(
-							(s): s is OptionsSlot => s.kind === 'options'
-						);
-						const edges = rowEdges(graph, { kind: 'child', routineId: r.id, slots: own });
-						return {
-							kind: 'routine',
-							id: r.id,
-							groupId: null,
-							figure: null,
-							label: r.name,
-							...(r.team ? { team: r.team } : {}),
-							...(r.twins ? { twins: r.twins } : {}),
-							...edges,
-							ends: edges.ends ?? unionOfEnds(graph, own)
-						};
-					}
-				)
+				...pickOrder(
+					routine.id,
+					foldNamed(db, space, 'routine', embeddable(db, routine.id, usable))
+				).map((r): Candidate => {
+					// Its slots at any depth (spec 2026-11-12).
+					const slots = shapes.get(r.id)?.slots ?? [];
+					const own = slots.flatMap((s) => optionSlots(s));
+					const edges = rowEdges(graph, { kind: 'child', routineId: r.id, slots });
+					return {
+						kind: 'routine',
+						id: r.id,
+						groupId: null,
+						figure: null,
+						label: r.name,
+						...(r.team ? { team: r.team } : {}),
+						...(r.twins ? { twins: r.twins } : {}),
+						...(r.isSection ? { section: r.holders.map((h) => h.name).join(', ') } : {}),
+						...edges,
+						ends: edges.ends ?? unionOfEnds(graph, own)
+					};
+				})
 			];
 
 	return {
@@ -332,6 +335,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			usable
 		),
 		isSection: routine.isSection === 1,
+		// A section's page (spec 2026-11-12): the slot it was opened from (`?from=`), the
+		// routines holding it, its size; a routine's: what Turn into a section would touch.
+		fromSlot: fromSlot(db, url, routine.id),
+		holders: routine.isSection === 1 ? routinesHolding(db, routine.id) : [],
+		size: routineSize(graph, shape),
+		demote: canEdit && routine.isSection === 0 ? demoteImpact(db, routine.id) : null,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(labels),
@@ -815,3 +824,39 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return done(routine.id, { stepId: made.stepId });
 	}
 } satisfies Actions);
+
+/** The slot a section's page was opened from (`?from=<step id>`), when it holds this one. */
+function fromSlot(db: ReturnType<typeof getDb>, url: URL, id: number) {
+	const stepId = Number(url.searchParams.get('from'));
+	if (!Number.isInteger(stepId) || stepId <= 0) return null;
+	const step = db
+		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	if (!step || step.childId !== id) return null;
+	const parent = getRoutine(db, step.routineId);
+	return parent
+		? { stepId, routineId: parent.id, name: parent.name || t().routine.section.unnamed }
+		: null;
+}
+
+/**
+ * The picker's routines (spec 2026-11-12, P2): this routine's own named sections
+ * first, then each routine followed by the named sections it holds, then any
+ * section held only elsewhere.
+ */
+function pickOrder<T extends { id: number; isSection: boolean; holders: { id: number }[] }>(
+	routineId: number,
+	rows: T[]
+): T[] {
+	const sections = rows.filter((r) => r.isSection);
+	const out: T[] = sections.filter((s) => s.holders.some((h) => h.id === routineId));
+	for (const r of rows.filter((x) => !x.isSection)) {
+		out.push(
+			r,
+			...sections.filter((s) => !out.includes(s) && s.holders.some((h) => h.id === r.id))
+		);
+	}
+	return [...out, ...sections.filter((s) => !out.includes(s))];
+}

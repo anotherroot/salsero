@@ -69,6 +69,7 @@
 		const timing = `${c.startCounts.join('/') || '?'}→${c.next ?? '?'}`;
 		const hands = handsLine(c.starts, c.ends, positionName);
 		const where = hands === '' ? timing : `${timing} · ${hands}`;
+		if (c.section !== undefined) return `${t().routine.section.sectionOf(c.section)} · ${where}`;
 		if (c.twins && c.twins.length > 0) return `${twinPickMeta(c, c.twins)} · ${where}`;
 		return c.team ? `${usedAsIs(c.team.name)} · ${where}` : where;
 	}

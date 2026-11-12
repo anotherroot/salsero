@@ -43,6 +43,8 @@ export interface Candidate {
 	team?: TeamRef;
 	/** The person's twins of it that this candidate stands for (`clones/twins.ts`). */
 	twins?: TwinNote[];
+	/** A named section (spec 2026-11-12): the routines it sits in, by name. */
+	section?: string;
 	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
 	from?: string | null;
 }

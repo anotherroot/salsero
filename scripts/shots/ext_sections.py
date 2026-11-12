@@ -15,7 +15,14 @@ def placeholders(db, admin, dance):
         "order by id limit 1",
         (admin, dance),
     ).fetchone()
-    return {"gnezdo": row[0] if row else None}
+    out = {"gnezdo": row[0] if row else None}
+    step = db.execute(
+        "select id, child_routine_id from routine_steps where routine_id = ? and child_routine_id is not null limit 1",
+        (out["gnezdo"],),
+    ).fetchone() if row else None
+    out["gstep"] = step[0] if step else None
+    out["gsec"] = step[1] if step else None
+    return out
 
 
 def _closed(p):
@@ -36,6 +43,7 @@ def _tap(p):
 
 
 SCENES = {
+    "sections-page": Scene("/salsa/routines/{gsec}?from={gstep}", act=_closed),
     "sections-closed": Scene(PATH, act=_closed),
     "sections-open": Scene(PATH, act=_open),
     "sections-tap": Scene(PATH, act=_tap),
