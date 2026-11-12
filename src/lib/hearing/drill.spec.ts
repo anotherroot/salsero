@@ -42,7 +42,7 @@ describe("a hearing drill's settings", () => {
 			target: 'odd',
 			drops: 10
 		});
-		const own = { kind: 'dropped', target: 'own', positions: [3, 6, 7], drops: 5 } as const;
+		const own: HearingSettings = { kind: 'dropped', target: 'own', positions: [3, 6, 7], drops: 5 };
 		expect(hearingOf(withHearing(null, own))).toEqual(own);
 	});
 
