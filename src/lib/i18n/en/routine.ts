@@ -3,6 +3,7 @@
 // context line too), Edit, Duplicate, Archive and the page's refusals. The
 // Routines list is `moves`; the shared Picker is `picker`.
 
+import { plural } from './plural';
 export const routine = {
 	/** A slot's length set in the routine: its chip and the How long? sheet (spec 2026-11-11). */
 	length: {
@@ -93,7 +94,25 @@ export const routine = {
 				: `The ${n} slots move into the new routine, and it takes their place here as one slot.`
 	},
 	/** A slot's card and the reader's list. */
+	// Sections (spec 2026-11-12, routine sections).
+	section: {
+		unnamed: 'Section',
+		open: (name: string): string => `Open ${name || 'the section'} here`,
+		close: (name: string): string => `Close ${name || 'the section'}`,
+		deeper: (level: number): string => `Level ${level}: opens on its own page`,
+		inside: (name: string, n: number): string =>
+			n > 1 ? `In ${name} · changes show in ${n} routines` : `In ${name}`,
+		more: (n: number): string => `${n} more above`,
+		level: (n: number): string => `level ${n}`,
+		where: 'Where you are',
+		sectioned: (n: number): string => `Made a section of ${plural(n, 'slot', 'slots')}`,
+		unpacked: (name: string): string => `Unpacked ${name || 'the section'}`,
+		copied: (n: number, after: number): string =>
+			`${plural(n, 'slot', 'slots')} copied after slot ${after}`
+	},
 	slot: {
+		openCell: 'Open',
+		unpack: 'Unpack',
 		aFigure: 'a figure',
 		aRoutine: 'a routine',
 		archived: (name: string): string => `${name} (archived)`,

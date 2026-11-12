@@ -1500,3 +1500,26 @@ export interface SuggestionLine {
 	refusal: string | null;
 	canUndo: boolean;
 }
+
+/** A slot inside a section or routine opened in place (spec 2026-11-12): drawn, not walked. */
+export interface InnerRow {
+	id: number;
+	childId: number | null;
+	title: string;
+	/** "1→1 · ⇥ Cerrada", composed in the request's language. */
+	meta: string;
+	href: string | null;
+}
+
+/** A section or routine held in a slot, as the editor opens it in place (spec 2026-11-12). */
+export interface ChildView {
+	id: number;
+	/** '' for an unnamed section. */
+	name: string;
+	isSection: boolean;
+	figures: number;
+	eights: number;
+	/** Real routines holding it at any depth: "changes show in n routines". */
+	holders: number;
+	rows: InnerRow[];
+}

@@ -107,11 +107,9 @@ export function slotMeta(
 			: [`${e.start ?? e.startCounts.join('/')}→${e.next ?? '?'}`, hands]
 					.filter((p) => p !== '')
 					.join(' · ');
-	if (childSlots === null) return core;
-	const w = t();
-	return [w.moves.move.routine, w.nouns.slots(childSlots), core]
-		.filter((p) => p !== '')
-		.join(' · ');
+	// A section's or routine's card says what it is with its icon and its size
+	// line (spec 2026-11-12), so its meta is only counts and hands.
+	return core;
 }
 
 /** The text on a seam: how the hands and the count meet the next slot. */

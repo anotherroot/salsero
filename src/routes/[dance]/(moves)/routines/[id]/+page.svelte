@@ -31,6 +31,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
 	import SlotList from '$lib/components/routines/SlotList.svelte';
+	import WhereBar from '$lib/components/routines/WhereBar.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
 	import CardToolbar from '$lib/components/routines/CardToolbar.svelte';
@@ -91,6 +92,24 @@
 	let archivingNow = $state(false);
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
+	/** Sections and routines opened in place, by step id, at any level (spec 2026-11-12); per view, never stored. */
+	let opened = $state<number[]>([]);
+	const toggleOpen = (stepId: number) =>
+		(opened = opened.includes(stepId) ? opened.filter((x) => x !== stepId) : [...opened, stepId]);
+
+	/** Unpack (spec 2026-11-12): the slot's section or routine opens into its slots here, with Undo. */
+	async function unpack(stepId: number) {
+		const name = rows.find((r) => r.id === stepId)?.title ?? '';
+		const result = await send('unpack', { stepId });
+		if (result.type !== 'success') return;
+		const out = result.data?.unpacked as { stepIds: number[]; sectionId: number } | undefined;
+		expanded = null;
+		if (out) {
+			showToast(t().routine.section.unpacked(name), () =>
+				send('pack', { sectionId: out.sectionId, stepIds: out.stepIds })
+			);
+		}
+	}
 	let selecting = $state(false);
 	/** A reader's Edit: the Make it mine sheet (ruling 1). */
 	let makingMine = $state(false);
@@ -347,7 +366,11 @@
 		shown.map(({ slot, edges, i }, k) => {
 			const isRoutine = slot.childId !== null;
 			const main = slot.figureIds[0] as number | undefined;
+			const child = isRoutine ? data.children[slot.childId as number] : undefined;
 			return {
+				kind: !isRoutine ? 'figure' : child?.isSection ? 'section' : 'routine',
+				size: child ? { figures: child.figures, eights: child.eights } : null,
+				childId: slot.childId,
 				id: slot.id,
 				source: isRoutine || main === undefined ? null : sourceOf(main),
 				title: isRoutine
@@ -1269,8 +1292,13 @@
 			{:else}
 				<section>
 					<h2 class="{SECTION_LABEL} mb-2 pt-1.5">{t().routine.slots.title(rows.length)}</h2>
+					<WhereBar />
 					<SlotList
 						{rows}
+						children={data.children}
+						{opened}
+						ontoggle={toggleOpen}
+						onunpack={unpack}
 						{expanded}
 						{selecting}
 						{selected}

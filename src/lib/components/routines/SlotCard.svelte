@@ -5,6 +5,7 @@
 	 * what an open card shows below it (the note field, the alternative cards)
 	 * takes its own taps and must not collapse the card.
 	 */
+	import { goto } from '$app/navigation';
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
 	import Swipeable from './Swipeable.svelte';
@@ -21,6 +22,10 @@
 
 	interface Props {
 		row: RowView;
+		/** A section or routine opened in place below the card (spec 2026-11-12). */
+		open?: boolean;
+		onopen?: () => void;
+		onunpack?: () => void;
 		index: number;
 		count: number;
 		expanded: boolean;
@@ -49,6 +54,9 @@
 
 	let {
 		row,
+		open = false,
+		onopen,
+		onunpack,
 		index,
 		count,
 		expanded,
@@ -73,10 +81,28 @@
 	const sideOf = (key: string): Side => (swiped?.key === key ? swiped.side : null);
 	const slotKey = $derived(`slot:${row.id}`);
 
-	/** The open card's toolbar: length, + Alternative, Before n, After n (spec 2026-11-11, T3). */
+	/** The open card's toolbar: Open, length, end or Unpack, Before n, After n (spec 2026-11-12). */
 	const tools: ToolItem[] = $derived(
 		openTools(row).map((tool): ToolItem => {
 			const n = index + 1;
+			if (tool === 'open') {
+				return {
+					key: tool,
+					label: t().routine.slot.openCell,
+					icon: 'arrow-up-right',
+					onclick: () => {
+						if (row.href) void goto(row.href);
+					}
+				};
+			}
+			if (tool === 'unpack') {
+				return {
+					key: tool,
+					label: t().routine.slot.unpack,
+					icon: 'add-below',
+					onclick: () => onunpack?.()
+				};
+			}
 			if (tool === 'length') {
 				const length = row.length!;
 				return {
@@ -234,9 +260,11 @@
 							: 'text-muted'
 						: 'text-ink'}"
 				>
-					{#if row.isRoutine}<span class="mr-1.5 inline-block align-[-3px] text-accent-text"
-							><Icon name="route" size={18} /></span
-						>{/if}{row.title}
+					{#if row.kind !== 'figure'}<span class="mr-1.5 inline-block align-[-3px] text-accent-text"
+							><Icon name={row.kind === 'section' ? 'brace' : 'route'} size={18} /></span
+						>{/if}{#if row.kind === 'section' && row.title === ''}<span class="text-muted italic"
+							>{t().routine.section.unnamed}</span
+						>{:else}{row.title}{/if}
 				</p>
 				{#if row.source}
 					<p class="mt-1">
@@ -297,6 +325,12 @@
 						{/if}
 					</p>
 				{/if}
+				{#if row.size}
+					<!-- A section's or routine's size (spec 2026-11-12). -->
+					<p class="mt-0.5 truncate text-[13px] leading-[1.35] text-muted">
+						{t().nouns.figures(row.size.figures)} · {t().nouns.eights(row.size.eights)}
+					</p>
+				{/if}
 				{#if !expanded}
 					{#if row.note}
 						<p class="mt-[3px] truncate text-[13px] leading-[1.35] text-ink-2 italic">
@@ -306,11 +340,23 @@
 				{/if}
 			</div>
 
-			{#if expanded && row.href}
-				<a
-					href={row.href}
-					class="flex h-11 shrink-0 items-center gap-0.5 pr-1.5 pl-2.5 text-[15px] font-extrabold text-accent-text"
-					>{t().figure.practice.open}<Icon name="chevron-right" size={18} /></a
+			{#if row.kind !== 'figure' && onopen}
+				<!-- Opens and closes it in place, and nothing else (spec 2026-11-12, K1/K2). -->
+				<button
+					type="button"
+					class="grid size-11 shrink-0 cursor-pointer place-items-center"
+					aria-expanded={open}
+					aria-label={open
+						? t().routine.section.close(row.title)
+						: t().routine.section.open(row.title)}
+					onclick={(e) => {
+						e.stopPropagation();
+						onopen();
+					}}
+					><span
+						class="grid size-[30px] place-items-center rounded-full bg-accent-soft text-accent-text"
+						><Icon name={open ? 'chevron-up' : 'chevron-down'} size={16} /></span
+					></button
 				>
 			{/if}
 

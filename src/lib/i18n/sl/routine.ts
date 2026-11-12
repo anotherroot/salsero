@@ -93,7 +93,23 @@ export const routine: Catalog['routine'] = {
 			}
 		}
 	},
+	section: {
+		unnamed: 'Sklop',
+		open: (name) => `Odpri ${name || 'sklop'} tukaj`,
+		close: (name) => `Zapri ${name || 'sklop'}`,
+		deeper: (level) => `Raven ${level}: odpre se na svoji strani`,
+		inside: (name, n) =>
+			n > 1 ? `V sklopu ${name} · spremembe se pokažejo v ${n} kombinacijah` : `V sklopu ${name}`,
+		more: (n) => `še ${n} više`,
+		level: (n) => `raven ${n}`,
+		where: 'Kje ste',
+		sectioned: (n) => `Sklop iz ${nouns.slots(n)}`,
+		unpacked: (name) => `Razpakirano: ${name || 'sklop'}`,
+		copied: (n, after) => `Kopirano za mestom ${after}: ${nouns.slots(n)}`
+	},
 	slot: {
+		openCell: 'Odpri',
+		unpack: 'Razpakiraj',
 		aFigure: 'figura',
 		aRoutine: 'kombinacija',
 		archived: (name) => `${name} (arhivirana)`,

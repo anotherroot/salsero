@@ -73,15 +73,13 @@ describe('routine page derivations', () => {
 		const e = { starts: [1], startCounts: [1], ends: [2], next: 1 };
 		expect(slotMeta(e, name, null)).toBe('1→1 · Open → Closed');
 		expect(slotMeta({ starts: [1], startCounts: [1], ends: [1], next: 1 }, name, 3)).toBe(
-			'Routine · 3 slots · 1→1 · Open → Open'
+			'1→1 · Open → Open'
 		);
 		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: [2, 3], next: 1 }, name, null)).toBe(
 			'1→1 · Open or Closed → Closed or Hammerlock'
 		);
 		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, null)).toBe('');
-		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, 1)).toBe(
-			'Routine · 1 slot'
-		);
+		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, 1)).toBe('');
 	});
 	it('leaves the end to the card when the row knows it (spec 2026-11-11, slot end)', () => {
 		const e = { starts: [1], startCounts: [1], ends: [2], next: 5, start: 1 };
@@ -101,9 +99,7 @@ describe('routine page derivations', () => {
 	});
 	it('shows nothing for a side with no position, and never a “?” for an end', () => {
 		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, null)).toBe('1→1');
-		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, 2)).toBe(
-			'Routine · 2 slots · 1→1'
-		);
+		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, 2)).toBe('1→1');
 		expect(slotMeta({ starts: [1], startCounts: [1], ends: [], next: 1 }, name, null)).toBe(
 			'1→1 · Open →'
 		);
@@ -118,7 +114,7 @@ describe('routine page derivations', () => {
 			'1→1 · ends differ'
 		);
 		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: null, next: 1 }, name, 2)).toBe(
-			'Routine · 2 slots · 1→1 · Open or Closed → ends differ'
+			'1→1 · Open or Closed → ends differ'
 		);
 	});
 	it('words a seam', () => {
@@ -250,18 +246,9 @@ describe('the routine page in Slovenian', () => {
 		expect(sl(() => handsLine([1, 2], [3], name))).toBe('Open ali Closed → Hammerlock');
 	});
 
-	it('leads a routine’s slot with its counted slots', () => {
+	it("gives a section's or routine's slot only counts and hands (spec 2026-11-12)", () => {
 		const e = { starts: [1], startCounts: [1], ends: [1], next: 1 };
-		expect(sl(() => slotMeta(e, name, 1))).toBe('Kombinacija · 1 mesto · 1→1 · Open → Open');
-		expect(sl(() => slotMeta(e, name, 2))).toBe('Kombinacija · 2 mesti · 1→1 · Open → Open');
-		expect(sl(() => slotMeta(e, name, 3))).toBe('Kombinacija · 3 mesta · 1→1 · Open → Open');
-		expect(sl(() => slotMeta(e, name, 5))).toBe('Kombinacija · 5 mest · 1→1 · Open → Open');
-		expect(
-			sl(() => slotMeta({ starts: [1], startCounts: [1], ends: null, next: 1 }, name, null))
-		).toBe('1→1 · Open → različni konci');
-		expect(
-			sl(() => slotMeta({ starts: [], startCounts: [1], ends: null, next: 1 }, name, null))
-		).toBe('1→1 · različni konci');
+		expect(sl(() => slotMeta(e, name, 3))).toBe('1→1 · Open → Open');
 	});
 
 	it('words a seam, the names after a colon', () => {

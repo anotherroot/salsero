@@ -31,6 +31,12 @@ export interface RowView {
 	 *  A `resolve()` result, not a bare string. */
 	href: ResolvedPathname | null;
 	isRoutine: boolean;
+	/** What the slot holds (spec 2026-11-12): a figure, a section or a routine. */
+	kind: 'figure' | 'section' | 'routine';
+	/** A section's or routine's size; null for a figure. */
+	size: { figures: number; eights: number } | null;
+	/** The section or routine the slot holds; null for a figure. */
+	childId: number | null;
 	/** Every option but the main figure, in the order they were added. */
 	/** A refusal aimed at this slot. */
 	failure: string | null;

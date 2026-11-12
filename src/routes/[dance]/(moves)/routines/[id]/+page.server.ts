@@ -79,6 +79,7 @@ import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
 import { demoteRoutine } from '$lib/server/sections';
+import { childViews } from '$lib/server/section-views';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -312,6 +313,21 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				s.childId === null ? [] : [[s.childId, shapes.get(s.childId)?.slots.length ?? 0]]
 			)
 		) as Record<number, number>,
+		// The sections and routines the slots hold, at any depth, as the editor
+		// opens them in place (spec 2026-11-12).
+		children: childViews(
+			db,
+			wall.dance,
+			graph,
+			shapes,
+			slots.flatMap((s) => (s.childId === null ? [] : [s.childId])),
+			(
+				(m) => (id: number) =>
+					m.get(id) ?? ''
+			)(new Map(labels)),
+			usable
+		),
+		isSection: routine.isSection === 1,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(labels),

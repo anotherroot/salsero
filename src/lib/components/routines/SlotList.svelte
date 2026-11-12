@@ -25,6 +25,9 @@
 	import type { SelectionShape } from '$lib/routines/selection';
 	import { DIM_OPEN, DIM_SELECT, FADE, faceRound, LIFTED, pieceRound, RING } from './lift';
 	import type { PickFrom, RowView, Swiped } from './types';
+	import SectionPanel from './SectionPanel.svelte';
+	import { panelHue } from '$lib/routines/panels';
+	import type { ChildView } from '$lib/types';
 
 	interface Props {
 		rows: RowView[];
@@ -49,6 +52,11 @@
 		/** A slot's end chip or cell (spec 2026-11-11, slot end). */
 		onend: (id: number) => void;
 		onnote: (id: number, note: string | null) => unknown;
+		/** Sections and routines opened in place (spec 2026-11-12): their views and which are open. */
+		children: Record<number, ChildView>;
+		opened: number[];
+		ontoggle: (stepId: number) => void;
+		onunpack: (stepId: number) => void;
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
 
@@ -71,12 +79,21 @@
 		onlength,
 		onend,
 		onnote,
+		children,
+		opened,
+		ontoggle,
+		onunpack,
 		onadd
 	}: Props = $props();
 
 	/** The vertical gap between cards: the list's `gap-2`. */
 	const GAP = 8;
 	const items = $state<HTMLElement[]>([]);
+	/** The view of a slot's section or routine while it is open in place (spec 2026-11-12). */
+	const openChild = (row: RowView): ChildView | undefined => {
+		const id = row.childId;
+		return id !== null && opened.includes(row.id) ? children[id] : undefined;
+	};
 	let drag = $state<{ id: number; from: number; to: number; dy: number; step: number } | null>(
 		null
 	);
@@ -292,7 +309,9 @@
 				bind:this={items[i]}
 				data-slot={row.id}
 				data-flip={row.id}
-				class="flex flex-col gap-2 rounded-2xl {lifted
+				class="flex flex-col gap-2 rounded-2xl {openChild(row)
+					? `panel hue-${panelHue(1, !openChild(row)!.isSection)}`
+					: ''} {lifted
 					? 'relative z-10 shadow-[0_18px_40px_rgb(0_0_0/0.22)] transition-[scale,rotate,box-shadow] duration-150 motion-safe:scale-[1.03] motion-safe:-rotate-[0.8deg] motion-reduce:transition-none'
 					: ''} {drag && !lifted
 					? 'transition-transform duration-150 motion-reduce:transition-none'
@@ -321,6 +340,9 @@
 					{/if}
 					<SlotCard
 						{row}
+						open={opened.includes(row.id)}
+						onopen={() => ontoggle(row.id)}
+						onunpack={() => onunpack(row.id)}
 						index={i}
 						count={rows.length}
 						expanded={expanded === row.id}
@@ -353,6 +375,19 @@
 						{@render tools?.()}
 					{/if}
 				</div>
+				{#if openChild(row)}
+					{@const view = openChild(row)!}
+					<SectionPanel
+						{view}
+						depth={1}
+						{children}
+						{opened}
+						{ontoggle}
+						path={[
+							{ name: view.name || t().routine.section.unnamed, hue: panelHue(1, !view.isSection) }
+						]}
+					/>
+				{/if}
 				{#if !seamInside}
 					{@render seam(row, i)}
 				{/if}
