@@ -26,6 +26,11 @@ describe('exerciseTile', () => {
 			icon: 'metronome',
 			label: 'Drill'
 		});
+		expect(exerciseTile({ source: 'custom', partner: null, kind: 'hearing' })).toEqual({
+			icon: 'ear',
+			label: 'Hearing'
+		});
+		expect(exerciseTile({ source: 'added', partner: null, kind: 'hearing' }).icon).toBe('ear');
 	});
 
 	it('only returns icons that exist', () => {

@@ -19,6 +19,7 @@ export const exercise: Catalog['exercise'] = {
 		figure: 'Vaja z figuro',
 		drill: 'Vaja',
 		routine: 'Kombinacija',
+		hearing: 'Sluh',
 		howItWent: 'Kako je šlo?'
 	},
 	log: {

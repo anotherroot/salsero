@@ -2,12 +2,18 @@
 import { t } from '$lib/i18n/catalog';
 import type { IconName } from '$lib/icons/icons';
 import type { Partner, Source } from '$lib/labels';
+import { typeOf } from './kinds';
 
-export function exerciseTile(e: { source: Source; partner: Partner | null }): {
+export function exerciseTile(e: {
+	source: Source;
+	partner: Partner | null;
+	kind?: string | null;
+}): {
 	icon: IconName;
 	label: string;
 } {
 	const w = t().today.tile;
+	if (typeOf(e) === 'hearing') return { icon: 'ear', label: w.hearing };
 	switch (e.source) {
 		case 'figure':
 			return e.partner === 'solo'

@@ -104,6 +104,7 @@ export const today: Catalog['today'] = {
 		routine: 'Kombinacija',
 		lesson: 'Ponavljanje lekcije',
 		drill: 'Vaja',
+		hearing: 'Sluh',
 		doneToday: (label) => `${label}, opravljeno danes`,
 		done: 'Opravljeno'
 	},

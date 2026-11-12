@@ -53,7 +53,9 @@ const CONTENT: Record<ExerciseType, Component<ContentProps>> = {
 	lesson: LessonContent,
 	figure: FigureContent,
 	drill: DrillContent,
-	routine: RoutineContent
+	routine: RoutineContent,
+	// A hearing drill reads as a drill: its description, recordings and links.
+	hearing: DrillContent
 };
 
 export const contentFor = (type: ExerciseType) => CONTENT[type];
@@ -73,7 +75,8 @@ const PRACTICE: Record<ExerciseType, Component<PracticeProps> | null> = {
 	lesson: LessonPractice,
 	figure: FigurePractice,
 	drill: DrillPractice,
-	routine: RoutinePractice
+	routine: RoutinePractice,
+	hearing: DrillPractice
 };
 
 /** The type's Practise card: the same card on every type (practise-card design). */

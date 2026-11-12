@@ -293,8 +293,9 @@
 	/** What the run is for, first in the band's subtitle: a lesson's review is none of the three. */
 	const runKind = $derived.by(() => {
 		if (!data.exercise) return data.routine ? ('routine' as const) : null;
-		const type = typeOf(data.exercise.source);
-		return type === 'lesson' ? null : type;
+		const type = typeOf(data.exercise);
+		// A hearing drill plays in its own listening player, never here.
+		return type === 'lesson' || type === 'hearing' ? null : type;
 	});
 
 	let setup: ReturnType<typeof Setup> | undefined = $state();

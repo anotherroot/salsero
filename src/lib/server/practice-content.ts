@@ -96,7 +96,7 @@ function seenBy(
 
 /** What the exercise's page shows of its target, read through the person's reach. */
 export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
-	switch (typeOf(exercise.source)) {
+	switch (typeOf(exercise)) {
 		case 'lesson': {
 			const found =
 				exercise.lessonId === null ? null : getLesson(db, exercise.lessonId, exercise.userId ?? '');
@@ -174,6 +174,8 @@ export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
 				}))
 			};
 		}
+		// A hearing drill's content is a drill's (its page adds the round, Practise with).
+		case 'hearing':
 		case 'drill': {
 			// An entry for a group's drill shows the drill's content, read through
 			// the person's reach; a drill of one's own is its own content.

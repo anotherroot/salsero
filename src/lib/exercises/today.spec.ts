@@ -27,6 +27,7 @@ function ex(id: number, name = `E${id}`): ExerciseItem {
 		id,
 		name,
 		source: 'custom',
+		kind: null,
 		figureId: null,
 		lessonId: null,
 		routineId: null,

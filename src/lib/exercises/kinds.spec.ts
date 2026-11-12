@@ -8,14 +8,23 @@ import { EXERCISE_TYPES, TYPES, typeOf } from './kinds';
 
 describe('exercise types', () => {
 	it('maps every source to exactly one type, and every type is reachable', () => {
-		const types = SOURCES.map(typeOf);
+		const types = [
+			...SOURCES.map((source) => typeOf({ source })),
+			typeOf({ source: 'custom', kind: 'hearing' })
+		];
 		expect(new Set(types)).toEqual(new Set(EXERCISE_TYPES));
-		expect(typeOf('custom')).toBe('drill');
+		expect(typeOf({ source: 'custom' })).toBe('drill');
 		// A group drill's entry opens the drill page, like a drill of one's own.
-		expect(typeOf('added')).toBe('drill');
-		expect(typeOf('lesson')).toBe('lesson');
-		expect(typeOf('figure')).toBe('figure');
-		expect(typeOf('routine')).toBe('routine');
+		expect(typeOf({ source: 'added' })).toBe('drill');
+		expect(typeOf({ source: 'lesson' })).toBe('lesson');
+		expect(typeOf({ source: 'figure' })).toBe('figure');
+		expect(typeOf({ source: 'routine' })).toBe('routine');
+	});
+
+	it('a drill of the hearing kind is a hearing drill, an entry for one too', () => {
+		expect(typeOf({ source: 'custom', kind: 'hearing' })).toBe('hearing');
+		expect(typeOf({ source: 'added', kind: 'hearing' })).toBe('hearing');
+		expect(typeOf({ source: 'custom', kind: null })).toBe('drill');
 	});
 
 	it('a type is its name and its label, nothing else', () => {
@@ -32,7 +41,8 @@ describe('exercise types in Slovenian', () => {
 			'Ponavljanje lekcije',
 			'Vaja z figuro',
 			'Vaja',
-			'Kombinacija'
+			'Kombinacija',
+			'Sluh'
 		]);
 		// Read at call time: the same object answers in English outside.
 		expect(TYPES.drill.label).toBe('Drill');
@@ -45,7 +55,7 @@ describe('the type registry: Practise with', () => {
 	it('has a practice component for every type, a lesson included', () => {
 		expect(src).toMatch(/export const practiceFor/);
 		const map = /const PRACTICE[^=]*=\s*\{([^}]*)\}/.exec(src)?.[1] ?? '';
-		for (const type of ['figure', 'drill', 'routine', 'lesson'])
+		for (const type of ['figure', 'drill', 'routine', 'lesson', 'hearing'])
 			expect(map).toMatch(new RegExp(`${type}:\\s*\\w+Practice`));
 	});
 

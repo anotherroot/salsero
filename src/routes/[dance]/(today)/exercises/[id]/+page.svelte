@@ -89,7 +89,7 @@
 	 */
 	const simple = $derived(simpleOf(levelShown(data.user?.level)));
 	const parts = $derived(pageParts(simple, data.fromClass !== null));
-	const type = $derived(typeOf(exercise.source));
+	const type = $derived(typeOf(exercise));
 	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
 	const sourcePlace = $derived(
 		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null

@@ -52,6 +52,7 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 			id: exercises.id,
 			name: exercises.name,
 			source: exercises.source,
+			kind: sql<'hearing' | null>`coalesce(${drills.kind}, ${exercises.kind})`,
 			figureId: exercises.figureId,
 			lessonId: exercises.lessonId,
 			routineId: exercises.routineId,

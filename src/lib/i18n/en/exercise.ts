@@ -10,6 +10,7 @@ export const exercise = {
 		figure: 'Figure practice',
 		drill: 'Drill',
 		routine: 'Routine',
+		hearing: 'Hearing',
 		howItWent: 'How did it go?'
 	},
 	/** The Done sheet's small words. */

@@ -214,6 +214,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		id: row.id,
 		name: row.name,
 		source: row.source,
+		kind: row.kind,
 		figureId: null,
 		lessonId: null,
 		routineId: null,

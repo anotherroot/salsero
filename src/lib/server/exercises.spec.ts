@@ -228,6 +228,14 @@ describe('listExercises: comes back and warm-up', () => {
 		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
 	});
 
+	it("gives an entry its class drill's kind: a teacher's hearing drill is one for the class too", () => {
+		const c = makeClass(db);
+		const entry = () => listExercises(db, MAJA).find((e) => e.id === c.entry)!;
+		expect(entry().kind).toBeNull();
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, c.drill)).run();
+		expect(entry().kind).toBe('hearing');
+	});
+
 	it('reads a lesson review by its own Comes back (any type has it), and junk as faces', () => {
 		const c = makeClass(db);
 		const reviewId = db

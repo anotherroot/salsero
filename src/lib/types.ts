@@ -42,6 +42,8 @@ export interface ExerciseItem {
 	id: number;
 	name: string;
 	source: ExerciseSource;
+	/** A drill's other kind (`'hearing'`); an entry carries its drill's. Read through `typeOf`. */
+	kind: 'hearing' | null;
 	figureId: number | null;
 	/** Set iff `source === 'lesson'`: which lesson this reviews. */
 	lessonId: number | null;

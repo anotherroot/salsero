@@ -5,7 +5,8 @@
  * already are the four types, one to one, and a `kind` column that could only
  * ever repeat `source` would be a second copy of one fact. The day two
  * exercises of one source need different fields, that is a new type — and
- * then, only then, a column.
+ * then, only then, a column. That day came with hearing drills (2026-11-12):
+ * a drill row with `exercises.kind = 'hearing'` is the fifth type.
  *
  * The rule from the guitar app: the type fixes which fields exist; instances
  * differ only in content. Two figure exercises never differ in whether they
@@ -14,7 +15,7 @@
 import { t } from '$lib/i18n/catalog';
 import type { Source } from '$lib/labels';
 
-export const EXERCISE_TYPES = ['lesson', 'figure', 'drill', 'routine'] as const;
+export const EXERCISE_TYPES = ['lesson', 'figure', 'drill', 'routine', 'hearing'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
 
 export interface TypeInfo {
@@ -60,8 +61,22 @@ export const TYPES: Record<ExerciseType, TypeInfo> = {
 		get label() {
 			return t().exercise.types.routine;
 		}
+	},
+	hearing: {
+		type: 'hearing',
+		get label() {
+			return t().exercise.types.hearing;
+		}
 	}
 };
 
-export const typeOf = (source: Source): ExerciseType => BY_SOURCE[source];
-export const typeInfo = (source: Source): TypeInfo => TYPES[typeOf(source)];
+/**
+ * The type of an exercise row or item. A drill whose `kind` is `'hearing'` is a
+ * hearing drill (spec 2026-11-10 phase 2, the first source with two types); an
+ * entry carries its drill's kind (`listExercises`).
+ */
+export function typeOf(e: { source: Source; kind?: string | null }): ExerciseType {
+	if (e.kind === 'hearing' && (e.source === 'custom' || e.source === 'added')) return 'hearing';
+	return BY_SOURCE[e.source];
+}
+export const typeInfo = (e: { source: Source; kind?: string | null }): TypeInfo => TYPES[typeOf(e)];

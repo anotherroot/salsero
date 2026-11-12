@@ -126,6 +126,7 @@ export const today = {
 		routine: 'Routine',
 		lesson: 'Lesson review',
 		drill: 'Drill',
+		hearing: 'Hearing',
 		doneToday: (label: string): string => `${label}, done today`,
 		done: 'Done'
 	},
