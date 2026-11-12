@@ -273,3 +273,64 @@ def test_timeline_duration_unknown_is_permanent(tmp_path: Path):
     answers = [subprocess.CompletedProcess([], 0, "N/A\n", ""), subprocess.CompletedProcess([], 1, "", "Invalid data")]
     with pytest.raises(media.PermanentError, match="length"):
         media.timeline_duration(tmp_path / "v.webm", run=lambda cmd, **kw: answers.pop(0))
+
+
+def loop_run(fail_frames=()):
+    """A fake ffmpeg for loop_strip: writes its output file (the last argument) unless asked to fail."""
+    calls = []
+
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        out = Path(cmd[-1])
+        if out.name.startswith("f") and int(out.stem[1:]) in fail_frames:
+            return subprocess.CompletedProcess(cmd, 1, "", "Invalid data")
+        out.write_bytes(out.name.encode())
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    run.calls = calls
+    return run
+
+
+def test_loop_strip_seeks_each_frame(tmp_path: Path):
+    run = loop_run()
+    media.loop_strip("v.mp4", 1000, 7000, tmp_path, run=run)
+    frames = [c for c in run.calls if "-frames:v" in c]
+    assert len(frames) == media.LOOP_FRAMES == 12
+    times = [float(c[c.index("-ss") + 1]) for c in frames]
+    assert times == [1.25 + 0.5 * k for k in range(12)]
+    for c in frames:
+        # Input seeking: -ss before -i, so only the needed bytes are read.
+        assert c.index("-ss") < c.index("-i")
+        assert c[c.index("-frames:v") + 1] == "1"
+        # Fit, not cover: a portrait phone video keeps the dancers whole, in dark bars.
+        assert "scale=128:80:force_original_aspect_ratio=decrease,pad=128:80:(ow-iw)/2:(oh-ih)/2:color=0x1f1b18" in c
+
+
+def test_loop_strip_tiles_into_one(tmp_path: Path):
+    run = loop_run()
+    strip, still = media.loop_strip("v.mp4", 0, 3000, tmp_path, run=run)
+    tile = run.calls[-1]
+    assert "tile=12x1" in tile
+    assert strip == tmp_path / "strip.jpg" and strip.exists()
+    # The still is frame 0, as its own file.
+    assert still == tmp_path / "still.jpg"
+    assert still.read_bytes() == (tmp_path / "f00.jpg").read_bytes()
+
+
+def test_loop_strip_passes_headers_for_url(tmp_path: Path):
+    run = loop_run()
+    media.loop_strip("https://x/api/worker/loops/1/source", 0, 3000, tmp_path, {"Authorization": "Bearer t"}, run=run)
+    c = run.calls[0]
+    assert c[c.index("-headers") + 1] == "Authorization: Bearer t\r\n"
+    assert c.index("-headers") < c.index("-i")
+
+
+def test_loop_strip_reuses_the_last_good_frame(tmp_path: Path):
+    run = loop_run(fail_frames={11})
+    media.loop_strip("v.mp4", 0, 3000, tmp_path, run=run)
+    assert (tmp_path / "f11.jpg").read_bytes() == (tmp_path / "f10.jpg").read_bytes()
+
+
+def test_loop_strip_without_any_frame_is_permanent(tmp_path: Path):
+    with pytest.raises(media.PermanentError, match="No picture in this section"):
+        media.loop_strip("v.mp4", 0, 3000, tmp_path, run=loop_run(fail_frames=set(range(12))))

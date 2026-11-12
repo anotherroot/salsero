@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Strip: 12 frames, each 128 × 80, frame k at `start + (k + 0.5)·(end − start)/12`, scale to cover + centre crop, JPEG q ≈ 75; still = frame 0 as its own JPEG. Played at 3 frames/s (`steps(12)`, 4 s).
+- Strip: 12 frames, each 128 × 80, frame k at `start + (k + 0.5)·(end − start)/12`, scale to FIT + pad on 0x1f1b18 (Task 1 ruling), ffmpeg `-q:v 5`; still = frame 0 as its own JPEG. Measured: ~25 KB a strip, ~2 KB a still. Played at 3 frames/s (`steps(12)`, 4 s).
 - Tile 64 × 40, radius 8 (`rounded-lg` = the `xs` radius in this app's scale; check `ui/styles.ts`), its own button, label "Preview <label>". No video: the tile in `accent-soft` with a film icon, still a button.
 - Still instead of moving: `prefers-reduced-motion: reduce` or `navigator.connection?.saveData`.
 - The sheet's video is NOT `data-ambient`; muted at start; closing stops it; Back resumes what it paused (only what was playing).

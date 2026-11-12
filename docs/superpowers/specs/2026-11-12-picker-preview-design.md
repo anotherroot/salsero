@@ -205,11 +205,13 @@ figure page builds its sections one figure at a time.)*
 
 - **What:** one JPEG, a horizontal strip of **12 frames**, each **128 × 80**
   (twice the tile), cut evenly across the section (frame k at
-  `start + (k + 0.5) · (end − start) / 12`), scaled to cover and centred, JPEG
-  quality about 75. Played at **3 frames a second**: a 4 s loop whatever the
+  `start + (k + 0.5) · (end − start) / 12`), scaled to FIT and centred on dark bars (a portrait phone video keeps the
+  dancers whole; a crop to cover cut heads and feet), ffmpeg `-q:v 5`. Played at **3 frames a second**: a 4 s loop whatever the
   section's length (a long section plays sped up; the sheet plays the real
   speed).
-- **Size:** about 40 KB a loop, 4 KB the still (estimates). **Measure first:**
+- **Size (measured 2026-11-12** on the 480p "15 salsa cubana moves" video, its
+  16 linked sections, 3–15 s): **about 25 KB a strip** (14 KB from a portrait
+  crop), **about 2 KB a still**. Before measuring: about 40 KB and 4 KB. **Measure first:**
   the first worker task cuts loops from a few real lesson videos and reports
   sizes; above 60 KB a loop, lower the quality or the frame size before
   building the rest, and tell the user the numbers.
