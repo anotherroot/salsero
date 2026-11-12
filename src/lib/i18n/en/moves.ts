@@ -89,6 +89,9 @@ export const moves = {
 		empty: 'No routines yet',
 		emptyBody: 'String some figures together and call them as one.',
 		badLoop: 'does not loop',
+		// L4 (spec 2026-11-12): the ↻ of a routine that ends where it starts, and a side with no position.
+		loops: 'loops',
+		anywhere: 'anywhere',
 		fromClass: (label: string): string => `From class ${label}`,
 		name: 'Name',
 		namePlaceholder: 'Basic combo',

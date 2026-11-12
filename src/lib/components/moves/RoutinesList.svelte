@@ -68,7 +68,14 @@
 	} = $props();
 
 	/** A row: the person's own carry what the graph says of them; a group's do not. */
-	type RoutineRow = RoutineItem & { loops?: boolean; breaks?: number };
+	type RoutineRow = RoutineItem & {
+		loops?: boolean;
+		breaks?: number;
+		start?: string | null;
+		end?: string | null;
+		figures?: number;
+		eights?: number;
+	};
 	type Refusal = { field?: 'name' | 'notes'; message?: string; name?: string; notes?: string };
 
 	// `?new=1` opens the sheet on arrival, as it does on Figures.
@@ -137,10 +144,30 @@
 			<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{routine.name}</span>
 			<!-- A group's routine: its group, as a group's lesson shows it on the Lessons list. -->
 			{#if routine.team}<GroupMark name={routine.team.name} />{/if}
+			<!-- L4 (spec 2026-11-12): where it starts → where it ends; once with ↻ when it loops. -->
+			{#if routine.start || routine.end}
+				<span class="truncate text-[13px] leading-[1.35] text-muted">
+					{#if routine.loops && routine.start}<span class="font-semibold text-ink-2"
+							>{routine.start}</span
+						>
+						<span class="font-extrabold text-done" aria-label={t().moves.routines.loops}>↻</span>
+					{:else}<span class="font-semibold text-ink-2"
+							>{routine.start ?? t().moves.routines.anywhere}</span
+						>
+						<span aria-hidden="true">→</span>
+						<span class="font-semibold text-accent-text"
+							>{routine.end ?? t().moves.routines.anywhere}</span
+						>{/if}
+				</span>
+			{/if}
 			<span
 				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
 			>
-				<span>{t().nouns.slots(routine.slots)}</span>
+				{#if routine.figures !== undefined && routine.eights !== undefined}
+					<span>{t().nouns.figures(routine.figures)} · {t().nouns.eights(routine.eights)}</span>
+				{:else}
+					<span>{t().nouns.slots(routine.slots)}</span>
+				{/if}
 				{#if routine.classDay}
 					<!-- Spec A5 (A2): the latest class it is from. Not a link: the row is the one link. -->
 					<span aria-hidden="true" class="-mx-0.5">·</span>

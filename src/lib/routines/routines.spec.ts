@@ -22,7 +22,8 @@ import {
 	stepIncoming,
 	optionLength,
 	type RoutineShape,
-	type Slot
+	type Slot,
+	routineSize
 } from './routines';
 
 /**
@@ -782,5 +783,25 @@ describe('rowEndsIn (spec 2026-11-11, slot end)', () => {
 
 	it('is null for a row with nothing danceable', () => {
 		expect(rowEndsIn(g, { slots: [{ kind: 'options', figureIds: [999] }] })).toEqual([null]);
+	});
+});
+
+describe('routineSize (spec 2026-11-12, the Routines list)', () => {
+	it('counts figures and eights through sections at any depth', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [11] },
+				{
+					kind: 'child',
+					routineId: 7,
+					slots: [
+						{ kind: 'options', figureIds: [12] },
+						{ kind: 'child', routineId: 8, slots: [{ kind: 'options', figureIds: [13] }] }
+					]
+				}
+			]
+		};
+		// 8 + 8 + 16 counts: 3 figures, 4 eights.
+		expect(routineSize(g, shape)).toEqual({ figures: 3, eights: 4 });
 	});
 });

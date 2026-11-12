@@ -537,3 +537,14 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 		slotStartCounts(g, first).includes(next)
 	);
 }
+
+/**
+ * How big a routine is, for the Routines list (spec 2026-11-12, L4): the
+ * figures it calls, children at any depth, and the eights they take (each
+ * slot's main figure at its length in the slot, rounded up to whole eights).
+ */
+export function routineSize(g: Graph, shape: RoutineShape): { figures: number; eights: number } {
+	const flat = flatten(g, shape);
+	const counts = flat.reduce((n, s) => n + optionLength(g, s, s.figureIds[0]), 0);
+	return { figures: flat.length, eights: Math.ceil(counts / 8) };
+}
