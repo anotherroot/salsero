@@ -494,7 +494,7 @@ describe('Sync knows Music', () => {
 		expect(tab?.status).toBe('same');
 		const group = familyStatus(db, 'u2', 'lesson', mine).find((e) => e.member.id === lesson);
 		expect(group?.theirs).toEqual([]);
-		expect(stepStatus(db, 'u2', 'lesson', mine)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u2', 'lesson', mine)).toEqual({ lines: [], sending: 0 });
 		expect(songRows('lesson', mine, 'u2')).toEqual([]);
 	});
 

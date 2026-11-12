@@ -1410,8 +1410,12 @@ export type StepLine = {
 	fields: string[];
 	how?: 'added' | 'removed';
 };
-/** Where a page's copies stand (`stepStatus`); empty `lines` when they agree. */
-export type StepView = { lines: StepLine[] };
+/**
+ * Where a page's copies stand (`stepStatus`); empty `lines` when they agree.
+ * `sending`: how many copies Keep in step will bring up to the page by itself
+ * once the device's changes reach the server (their rows are no lines meanwhile).
+ */
+export type StepView = { lines: StepLine[]; sending: number };
 
 /**
  * Keep in step on a page (`keepView`): the page row's settings, whether the

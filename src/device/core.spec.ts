@@ -195,7 +195,13 @@ describe('start', () => {
 		expect(h.posted.at(-1)).toMatchObject({ type: 'pulled' });
 		expect(count('figures')).toBeGreaterThan(0);
 		expect(h.runtimes).toEqual([
-			{ userId: 'u1', cookies: { theme: 'dark', group_salsa: 'a b' }, slot: 1, extras: null }
+			{
+				userId: 'u1',
+				cookies: { theme: 'dark', group_salsa: 'a b' },
+				slot: 1,
+				extras: null,
+				onWay: expect.any(Function)
+			}
 		]);
 		expect(h.startServer).toHaveBeenCalledTimes(1);
 		expect(h.bodies).toEqual([
@@ -996,6 +1002,30 @@ describe('writes on the device', () => {
 			expect(bodies.length).toBe(pullsBefore + 1);
 			expect(entries()).toHaveLength(0);
 			expect(Number(meta('lastSyncedAt'))).toBe(now);
+		});
+
+		it('changes are on their way from the write until the pull after their push lands', async () => {
+			const { fetchPush } = pusher();
+			let pullOffline = false;
+			const { dev, runtimes } = await writer({
+				fetchPush,
+				fetchPull: async (body) => {
+					if (pullOffline) throw new TypeError('Failed to fetch');
+					const json = (await answerAsServer(body).json()) as Record<string, unknown>;
+					return Response.json({ ...json, slot: 5 });
+				}
+			});
+			const onWay = () => runtimes.at(-1)!.onWay();
+			expect(onWay()).toBe(false);
+			pullOffline = true;
+			await dev.answer(done(world.own.u1.exercise), 'u1');
+			expect(onWay()).toBe(true); // waiting
+			await dev.sync();
+			expect(entries()).toHaveLength(0);
+			expect(onWay()).toBe(true); // landed, the server's answer not pulled yet
+			pullOffline = false;
+			await dev.sync();
+			expect(onWay()).toBe(false);
 		});
 
 		it('never pulls while an entry waits', async () => {

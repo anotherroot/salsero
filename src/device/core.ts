@@ -69,6 +69,8 @@ export type DeviceRuntime = {
 	slot: number | null;
 	/** What only the server knows, from the last pull (device first). */
 	extras: ServerExtras | null;
+	/** Changes are on their way (waiting, or landed and not pulled yet): Keep in step's notice waits for them. */
+	onWay: () => boolean;
 };
 
 /** SvelteKit's `server.respond`, bound to the device's client address. */
@@ -348,7 +350,9 @@ export function createDevice(deps: DeviceDeps): Device {
 					userId: meta.userId,
 					cookies: meta.cookies,
 					slot: meta.slot,
-					extras: meta.extras
+					extras: meta.extras,
+					// Waiting, or landed and not pulled yet: the server's flow is not in the copy.
+					onWay: () => lastLanded > 0 || outboxSummary(db, copyUser()).waiting > 0
 				})
 			);
 		serverStart ??= deps.startServer().then(

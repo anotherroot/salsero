@@ -90,7 +90,7 @@ describe('detach on a person’s own copy', () => {
 		expect(twinsOf(db, 'u2', 'figure', C)).toEqual([F]);
 		expect(syncView(db, 'u2', 'figure', C)).toBeNull();
 		// No notice: nothing was copied from anything any more.
-		expect(stepStatus(db, 'u2', 'figure', C)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u2', 'figure', C)).toEqual({ lines: [], sending: 0 });
 		expect(crossRefs(db)).toEqual([]);
 	});
 

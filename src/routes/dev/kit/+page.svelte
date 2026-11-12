@@ -68,14 +68,14 @@
 	const YOURS_SRC = kitSource(1, 'Yours', 'self');
 	const KIT_KEEP: KeepView = { settings: DEFAULT_SYNC, editable: true, mode: 'sync' };
 	const KIT_VERSIONS: { sources: Source[]; step: StepView }[] = [
-		{ sources: [YOURS_SRC], step: { lines: [] } },
+		{ sources: [YOURS_SRC], step: { lines: [], sending: 0 } },
 		{
 			sources: [
 				YOURS_SRC,
 				kitSource(2, 'Intenziuci poletje 2026', 'clone'),
 				kitSource(3, 'Sreda 17:30', 'clone')
 			],
-			step: { lines: [] }
+			step: { lines: [], sending: 0 }
 		},
 		{
 			sources: [
@@ -87,8 +87,18 @@
 				lines: [
 					{ id: 2, place: 'Intenziuci poletje 2026', state: 'changed', fields: ['Timing'] },
 					{ id: 3, place: 'Sreda 17:30', state: 'behind', fields: ['Notes', '1 recording'] }
-				]
+				],
+				sending: 0
 			}
+		},
+		{
+			sources: [
+				YOURS_SRC,
+				kitSource(2, 'Intenziuci poletje 2026', 'clone'),
+				kitSource(3, 'Sreda 17:30', 'clone')
+			],
+			// Saved on the device, Keep in step's flow on its way: "Sending to 2 copies…".
+			step: { lines: [], sending: 2 }
 		}
 	];
 	let kitMenu = $state(false);
@@ -482,7 +492,9 @@
 			</section>
 
 			<section class="flex flex-col gap-3">
-				<h2 class={SECTION_LABEL}>Whose version (one, three, three that disagree)</h2>
+				<h2 class={SECTION_LABEL}>
+					Whose version (one, three, three that disagree, three sending)
+				</h2>
 				{#each KIT_VERSIONS as v, i (i)}
 					<Versions
 						sources={v.sources}

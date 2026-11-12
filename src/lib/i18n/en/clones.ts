@@ -268,6 +268,10 @@ export const clones = {
 		yours: 'Yours',
 		/** The notice's title, and its button. */
 		noticeTitle: 'Your copies don’t agree',
+		/** The version row while Keep in step's changes are on their way, over its "Also: …". */
+		sending: (n: number): string => `Sending to ${n === 1 ? '1 copy' : `${n} copies`}…`,
+		/** Then, for a moment, once they went and the copies agree. */
+		sent: (n: number): string => (n === 1 ? 'Copy updated' : 'Copies updated'),
 		sync: 'Sync',
 		/** The ⋯ menu's item and the Versions list's footer. */
 		menu: 'Sync…',
