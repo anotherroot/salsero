@@ -20,6 +20,7 @@ export const refusals = {
 	positionNotFound: 'Position not found',
 	noAnalysedSong: 'No analysed song here',
 	notCounted: 'This song has no count of its own yet',
+	noHearingSongs: "None of the drill's songs can be played: set their count first",
 	nothingShared: 'Nothing was shared',
 	/** A move refused by name whose own name is gone. */
 	thatMove: 'That move',

@@ -137,7 +137,11 @@
 	 */
 	afterNavigate(({ from }) => {
 		try {
-			if (from === null || from.route.id === '/[dance]/player') {
+			if (
+				from === null ||
+				from.route.id === '/[dance]/player' ||
+				from.route.id === '/[dance]/hearing/[id]'
+			) {
 				const carried = backFromPlayer(sessionStorage, data.exercise.id, Date.now());
 				if (carried) clock.carry(carried);
 			} else dropTrip(sessionStorage, data.exercise.id);

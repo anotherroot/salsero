@@ -21,6 +21,7 @@ export const refusals: Catalog['refusals'] = {
 	positionNotFound: 'Položaj ne obstaja',
 	noAnalysedSong: 'Tu ni analizirane skladbe',
 	notCounted: 'Ta skladba še nima svojega štetja',
+	noHearingSongs: 'Nobene pesmi te vaje ni mogoče predvajati: najprej nastavite njihovo štetje',
 	nothingShared: 'Nič ni prispelo',
 	// After a colon, mid-sentence: »… že obstaja: ta gib · Doble.«
 	thatMove: 'ta gib',
