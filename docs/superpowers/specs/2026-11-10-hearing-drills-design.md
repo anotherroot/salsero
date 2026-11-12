@@ -270,39 +270,91 @@ From the user trying 1b on the phone (2026-11-11) and the boards
    (`source = 'added'`) takes its type from the drill it points to (`drill_id`), so the
    class's hearing drills reach Today the way drills do. `typeOf` takes what it needs to
    see the kind; nothing outside the type branches on it (`contentFor`/`practiceFor`).
-2. **The song** is the exercise's own `song_id` with `practice_mode = 'song'`, as a drill's
-   Practise with a song is, so `songAccess`, `song_drops`, the walls and `syncScope` cover it
-   (my call; not an id inside JSON). A class's hearing drill can only pick the group's songs,
-   as for any group row (`crossRefs` stays `[]`). **The rest of the settings** live in
-   `exercises.practice_json` under its own key, `{ hearing: { kind, target, clave?, section?,
-   drops? } }`; the practice panel's writes (`{count, clave, speed}`) must keep that key.
-3. **When the song stops being usable** (unshared, deleted, its count cleared): the drill
-   stays on Today, and its page says why in place of Start ("The song is no longer shared
-   with the class" / "Set the song's count first"), with no fallback to count only (my
-   call). The check runs when the page and the listening player load, not only when the
-   drill is made, so a cleared count never grades anyone.
+2. **The songs (agreed 2026-11-12): several, picked by hand.** A hearing drill's songs are its
+   music, the `song_links` rows a drill already has ("Glasba", `src/lib/server/song-links.ts`),
+   in their order (my call: no new table and no ids inside JSON, so `songAccess`, the walls,
+   `syncScope`, a class's group-songs-only rule and `logChange` come with it). A drill needs at
+   least one usable song to start. No "all my counted songs" pool: the user chose a fixed list.
+   Dropped in: every spot is a random spot in a random song of the list (a song may come up
+   more than once). Tap along: each round takes one random song of the list, from its music
+   start (my call). **The rest of the settings** live in `exercises.practice_json` under its
+   own key, `{ hearing: { kind, target, clave?, positions?, drops? } }` (`positions` for the
+   target Svoje/own); the practice panel's writes (`{count, clave, speed}`) must keep that key.
+   The exercise's own `song_id`/`practice_mode` are not used by a hearing drill.
+3. **When a song stops being usable** (unshared, deleted, its count cleared): the round uses
+   the usable ones and the page's song list marks the others ("Set the song's count first" /
+   "No longer shared with the class"). When none is usable, the drill stays on Today and its
+   page says why in place of Start, with no fallback to count only (my call). The check runs
+   when the page and the listening player load, not only when the drill is made, so a
+   cleared count never grades anyone.
 4. **A class member's Change** changes this one round only (another target, a shorter
    round); nothing is saved on their row, and the teacher's settings stay the drill's (my
    call). So every score in "Your rounds" is on the teacher's settings, and a teacher's edit
    reaches everyone. A round played on changed settings is still a round; its set records
    the settings it ran with.
 5. **The score** of a round goes into the set's `player_json` (already free-form):
-   `{ hearing: { kind, target, songId, hit, of, meanMs } }`. The set's `rating` is the face,
-   as now.
-6. **New hearing drill:** from Today's +, from a song page's "Make a drill", and for a
-   teacher from a group lesson's + (next to New drill). Fields: name, song (only counted
-   songs can be picked; others say "Only the computer's guess · count it first"), kind,
-   target, length (5 / 10 / 20 drops, or whole song / a section). Description optional.
-7. **Its page:** like a drill's (`kinds/drill/`): description, the Practise card ("Listen to:
-   Chan Chan · Dropped in · the 1 · 10 drops", Change, ▶ Start), comments on the class for a
-   class drill, "Your rounds" (last score, count of rounds, a small line of scores), Done.
-8. **Start** opens the listening player with the drill's settings. At the end, the result,
-   then **Done** opens the exercise's Done sheet with the score on top ("7/10 on the 1 ·
-   last time 6/10") and one face lightly marked as a suggestion. The person taps the face.
-   Suggestion, my call: under 50 % Still hard, 50–74 % Getting there, 75–89 % I've got it,
-   90 % and up Easy.
-9. **Today:** the row has an ear icon (lucide `ear`); the subline as for drills.
+   `{ hearing: { kind, target, songIds, score, timing, count, restarts, listening, drops } }`
+   (the phase 1b/1c score and its parts; `drops` = how many). The set's `rating` is the face,
+   as now. A Done without a round (the page's own Done) saves no `hearing` key.
+6. **New hearing drill** (board 4–6): from Today's +, from a song page, and for a teacher from
+   a group lesson's + (next to New drill).
+   - Today's New exercise sheet gets a two-way switch on top, **Vaja | Za sluh** (Drill |
+     Hearing); Za sluh swaps the fields: name, **Pesmi** (the picked songs, each with ×, and
+     "+ Dodaj pesem"), **Način** (Sredi skladbe | Tapkajte zraven), **Poslušajte za** (the
+     dance's targets as chips; Svoje opens the position picker as in phase 1), **Dolžina**
+     (5 / 10 / 20 mest; Dropped in only), then Comes back as for any exercise, and "Dodaj
+     vajo". Description optional (later, from Edit, like a drill's).
+   - **The song picker** (board 5): the dance's music picker, ticks, a search field; songs a
+     person counted first, the computer-guess-only songs at the bottom, greyed and not
+     tickable ("Samo računalnikova ocena · najprej jo preštejte"); "Končano · N pesmi".
+   - **The song page** (board 6): the "Ali najdete ena?" card gets **Naredi vajo** beside
+     Poskusite (Poskusite stays the unsaved round); it opens the sheet with Za sluh on and
+     this song picked. Under the buttons, "V vajah: <name>" when a hearing drill of the
+     person's already has this song.
+7. **Its page** (board 2): like a drill's (`kinds/drill/`): description; the Practise card
+   with the ear ("Poslušate · Sredi skladbe · Ena · 10 mest", the song names under it,
+   Spremeni, ▶ Začni); comments on the class for a class drill; **Vaši krogi · N** (the last
+   score, its date, a small line of the scores, oldest left); Glasba (the songs, as a drill's
+   music list); Not today; Done.
+8. **Start** opens the listening player with the drill's settings. At the end, result B, then
+   **Done** opens the exercise's Done sheet (board 3) with the score on top ("Ocena 78", a
+   +/− chip against last time, "zadnjič 64 · Sredi skladbe · Ena · 10 mest") and one face
+   marked as the suggestion (a ring and a small "predlog" tag); the line under the faces says
+   which face the score suggests. The person taps the face; nothing is picked for them.
+   Suggestion (my call): under 50 Še težko, 50–74 Napredujem, 75–89 Obvladam, 90 and up Lahko.
+   Again on the result starts another round; only Done saves.
+9. **Today** (board 1): the row has the ear icon (lucide `ear`); the subline is "Nova" or
+   "Zadnjič <score> · N pesmi". In Today's run (▶), a hearing drill opens its page like any
+   exercise; the round starts from Začni (my call).
 10. **Levels:** the entry points follow `levelShown` like drills'.
+
+11. **Several rounds in one day** (my call): one entry per exercise per day stays
+    (`saveDay`), and each Done adds its round to that day's set,
+    `player_json.hearing.rounds: [...]` (each as in 5), never overwriting the earlier ones.
+    Vaši krogi counts rounds; "last time", the chip and Today's subline read the last round
+    before this one.
+12. **Rounds on changed settings** (my call): saved with the settings they ran with, but left
+    out of Vaši krogi's line, the chip and Today's subline, which compare only rounds on the
+    drill's own settings.
+13. **Spremeni and Edit** (my call, as for drills): on a drill the person may edit (their own,
+    or a teacher on the group's), Spremeni saves to `practice_json.hearing` (the same write as
+    the practice panel's, keeping the other keys; a group row with `logChange` and `seen`). A
+    class member's Spremeni is this round only (4). The drill's Edit page shows the Za sluh
+    fields; songs are added and removed in its Glasba list, as for any drill.
+14. **The AI connector** (my call): a hearing drill reads as a drill with its kind and
+    settings shown; `propose` does not write `practice_json.hearing`.
+
+15. **Keep, leaving a group (agreed 2026-11-12):** a kept hearing drill keeps its songs. Keep
+    counts a hearing drill's `song_links` like a practised song (`clones/keep.ts`): those group
+    songs are copied, audio included, and its music links point at the copies, so the drill
+    still plays after leaving.
+16. **Offline (agreed 2026-11-12):** a hearing drill on Today keeps all its songs on the phone
+    by itself, as the phone already keeps what Today needs; offline, a song that is still not
+    on the phone is left out of the round and marked "Ni na telefonu" in the page's list
+    (none on the phone: the page says so in place of Start).
+
+Board: [Vaja za sluh na Danes](https://claude.ai/artifact/WruT4iPcQqcmEDTJnSK2BG) (2026-11-12,
+light, the user's phone; "Super je").
 
 ### Phase 3 — styles per section, and the style rounds
 
