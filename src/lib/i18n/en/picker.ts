@@ -73,5 +73,10 @@ export const picker = {
 	},
 	/** A routine row's second line: "4 slots · loops", "1 slot". */
 	routineMeta: (slots: number, loops: boolean): string =>
-		`${nouns.slots(slots)}${loops ? ' · loops' : ''}`
+		`${nouns.slots(slots)}${loops ? ' · loops' : ''}`,
+	/** Picker preview: a figure's picture on its row, and the sheet it opens. */
+	look: {
+		/** The picture's button, named by its row. */
+		preview: (label: string): string => `Preview ${label}`
+	}
 };

@@ -50,5 +50,8 @@ export const picker: Catalog['picker'] = {
 		positions: 'Položaji',
 		otherVideos: 'Drugi videi'
 	},
-	routineMeta: (slots, loops) => `${nouns.slots(slots)}${loops ? ' · se sklene' : ''}`
+	routineMeta: (slots, loops) => `${nouns.slots(slots)}${loops ? ' · se sklene' : ''}`,
+	look: {
+		preview: (label) => `Predogled: ${label}`
+	}
 };

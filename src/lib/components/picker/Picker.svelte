@@ -26,6 +26,8 @@
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import PreviewButton from './PreviewButton.svelte';
+	import { PREVIEW_LOOK } from '$lib/picker/preview';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, CLIP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { IconName } from '$lib/icons/icons';
@@ -114,6 +116,8 @@
 		onpick: (row: PickRow) => void;
 		onadd?: (row: PickRow) => void;
 		onpreview?: (row: PickRow) => void;
+		/** A row's picture was tapped (picker preview): its sheet. */
+		onlook?: (row: PickRow) => void;
 		oncreate?: (key: string, query: string) => void;
 		ondone?: () => void;
 		/** ×, Back, Escape, the backdrop: one level back (rule 8). */
@@ -154,10 +158,16 @@
 		onpick,
 		onadd,
 		onpreview,
+		onlook,
 		oncreate,
 		ondone,
 		onclose
 	}: Props = $props();
+
+	/** A row's picture was tapped: its preview sheet. */
+	function look(r: PickRow) {
+		onlook?.(r);
+	}
 
 	let search: HTMLInputElement | undefined = $state();
 
@@ -246,6 +256,12 @@
 				onclick={() => onpreview?.(r)}><Icon name="play" size={18} filled /></button
 			>
 		{/if}
+		{#if r.picture !== undefined && PREVIEW_LOOK === 'tile'}
+			<!-- Picker preview: the figure's moving picture; a tap opens its sheet, the row still picks. -->
+			<span class="mr-3 flex flex-none">
+				<PreviewButton picture={r.picture} label={r.label} onclick={() => look(r)} />
+			</span>
+		{/if}
 		<div class="flex min-w-0 flex-1 items-center {last ? '' : 'border-b border-hairline'}">
 			<button
 				type="button"
@@ -273,6 +289,9 @@
 					>
 				{/if}
 			</button>
+			{#if r.picture !== undefined && PREVIEW_LOOK === 'eye'}
+				<PreviewButton picture={r.picture} label={r.label} look="eye" onclick={() => look(r)} />
+			{/if}
 			{#if trail === 'add'}
 				<button
 					type="button"
