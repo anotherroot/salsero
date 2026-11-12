@@ -9,6 +9,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -134,6 +137,12 @@ abstract class WebShell : ComponentActivity() {
     /** The page that asked to be told about screenshots ([shotBridge]); a new page asks again. */
     private var shotReply: JavaScriptReplyProxy? = null
 
+    /** The page that plays aloud ([audioBridge]), told when another app takes the sound. */
+    private var audioReply: JavaScriptReplyProxy? = null
+
+    /** The audio focus while a page of ours plays aloud; null when we do not hold it. */
+    private var focus: AudioFocusRequest? = null
+
     /** Android 14's screenshot callback, made once ([watchScreenshots]). */
     private var screenshotCallback: Any? = null
 
@@ -234,6 +243,7 @@ abstract class WebShell : ComponentActivity() {
         turnBridge(web)
         shotBridge(web)
         videosBridge(web)
+        audioBridge(web)
         // The Update button (direct build; the Play build's does nothing).
         installUpdateBridge(this, web)
     }
@@ -276,6 +286,7 @@ abstract class WebShell : ComponentActivity() {
 
     override fun onDestroy() {
         UploadEvents.listener = null
+        giveFocus()
         tts?.shutdown()
         if (alive) web.destroy()
         super.onDestroy()
@@ -506,6 +517,50 @@ abstract class WebShell : ComponentActivity() {
         WebViewCompat.addWebMessageListener(web, SHOT_OBJECT, setOf(BuildConfig.SITE)) { _, message, _, isMainFrame, reply ->
             if (isMainFrame && message.data == SHOT_LISTEN) shotReply = reply
         }
+    }
+
+    /**
+     * One sound at a time across the phone ([AudioFocus.kt]): the page says `on`
+     * while it plays aloud and the app takes the audio focus, so Spotify pauses;
+     * another app taking it back stops ours ([AUDIO_PAUSE]).
+     */
+    private fun audioBridge(web: WebView) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        WebViewCompat.addWebMessageListener(web, AUDIO_OBJECT, setOf(BuildConfig.SITE)) { _, message, _, isMainFrame, reply ->
+            if (!isMainFrame) return@addWebMessageListener
+            val sounding = soundingFor(message.data) ?: return@addWebMessageListener
+            runOnUiThread {
+                audioReply = reply
+                if (sounding) takeFocus() else giveFocus()
+            }
+        }
+    }
+
+    private val onFocusChange = AudioManager.OnAudioFocusChangeListener { change ->
+        if (!stopsOn(change)) return@OnAudioFocusChangeListener
+        giveFocus()
+        if (alive) audioReply?.postMessage(AUDIO_PAUSE)
+    }
+
+    private fun takeFocus() {
+        if (focus != null) return
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                    .build()
+            )
+            .setOnAudioFocusChangeListener(onFocusChange)
+            .build()
+        val audio = getSystemService(AudioManager::class.java) ?: return
+        if (audio.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) focus = request
+    }
+
+    private fun giveFocus() {
+        val held = focus ?: return
+        focus = null
+        getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(held)
     }
 
     /**

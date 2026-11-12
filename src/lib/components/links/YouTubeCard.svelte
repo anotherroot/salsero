@@ -1,6 +1,7 @@
 <!-- src/lib/components/links/YouTubeCard.svelte -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { holdSound, soundFrom, type Holder } from '$lib/sound/page';
 	import { youtubeEmbed, youtubeThumb, youtubeWatch } from '$lib/links';
 	import { loadVideoPrefs, saveVideoPrefs } from '$lib/video-prefs';
 	import { clock } from '$lib/format';
@@ -22,9 +23,17 @@
 
 	let { id, start, title, compact = false, playing = $bindable(false), onplay }: Props = $props();
 
+	/** An open embed counts as playing (what it does inside is out of reach); another sound closes it. */
+	const holder: Holder = {
+		playing: () => playing,
+		stop: () => (playing = false)
+	};
+	onMount(() => holdSound(holder));
+
 	function play() {
 		playing = true;
 		onplay?.();
+		soundFrom(holder);
 	}
 
 	/** The site's name under the title: the same in every language. */

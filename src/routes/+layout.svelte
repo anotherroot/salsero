@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { frameView } from '$lib/teams/frame-view.svelte';
 	import './layout.css';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
 	import { DANCES, DEFAULT_DANCE, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { deskSkeletonMode, leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
@@ -28,6 +28,7 @@
 	import { listOpener, openerAhead, syncTrail } from '$lib/nav/trail.svelte';
 	import { columnOf } from '$lib/nav/moves-pane';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
+	import { oneSoundAtATime } from '$lib/sound/page';
 	import { openPickersOnClick } from '$lib/native-picker';
 	import { noteError, notePage } from '$lib/feedback/trail';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
@@ -73,6 +74,8 @@
 	pageMove();
 	// A sample belongs to the page it was started on.
 	beforeNavigate(() => stopSample());
+	// One sound at a time: what starts playing stops the rest (and, in the app, Spotify).
+	onMount(oneSoundAtATime);
 	/*
 	 * This layout sits ABOVE `[dance]`, so no load of its own hands it the
 	 * dance — `/settings`, `/voice` and `/login` live out here too. The URL is

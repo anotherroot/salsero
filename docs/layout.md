@@ -298,6 +298,13 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      its Undo (over `act`). Their screens are components/songs/ CountCard,
                      SectionsList, SongEdit, GridTab, EditGrid, BeatMenu, SuggestionCard,
                      SectionSheet and SongTab
+src/lib/sound/       one sound at a time: one-sound.ts is PURE (who stops when something starts,
+                     `quietFor`; what another app taking the sound stops; `focusWord`); page.ts
+                     wires it: the root layout's `oneSoundAtATime` watches every <audio>/<video>
+                     from the document; `stopsBy` (an element whose stop is not pause(): the
+                     run's song, an About clip, the detached sample), `holdSound`/`soundFrom`
+                     (a YouTube embed), `data-ambient` (a muted loop that never takes part);
+                     the Android app's `SalsaAudio` (audio focus, android AudioFocus.kt)
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
                      and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
                      `.theme-media` in `layout.css` (the player's palette).

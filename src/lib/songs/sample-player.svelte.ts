@@ -9,6 +9,7 @@
  */
 import type { SampleSong } from '$lib/types';
 import { SAMPLE_LENGTH_S, sampleGain } from './sample';
+import { stopsBy } from '$lib/sound/page';
 
 export const sampling = $state<{ id: number | null; startS: number; nonce: number }>({
 	id: null,
@@ -44,6 +45,8 @@ function element(): HTMLAudioElement {
 		 * still ends on time when the page is not visible.
 		 */
 		audio.addEventListener('timeupdate', tick);
+		// Outside the page: one sound at a time hears it only this way.
+		stopsBy(stopSample)(audio);
 	}
 	return audio;
 }

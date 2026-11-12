@@ -34,7 +34,10 @@ delete that asks and undoes, Back up one level, pinch zoom, double-tap jumps,
 the screen kept on, and portrait (built for upright videos: Hide, a row of
 sections), landscape and desktop layouts; 0.25–1×, mirror, saved points and
 sections), and the inline video with our own controls: play, the time, a seek
-bar with the sections, and the routine editor
+bar with the sections; one sound at a time (2026-11-12): whatever starts playing — a video, the
+full-screen player, a song, a sample, a YouTube card — stops whatever else plays (a muted background
+loop in the player's About plays on), and in the Android app (`SalsaAudio`, app 1.12) ours takes the
+phone's audio focus, so Spotify pauses, and another app taking it pauses ours; and the routine editor
 (drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
