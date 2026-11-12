@@ -66,13 +66,11 @@ const call = (action: unknown, event: ReturnType<typeof post>) => (action as Inv
 let db: Db;
 let r: number;
 let a: number;
-let other: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	r = createRoutine(db, U1_SALSA, { name: 'Friday', notes: null }).routine.id;
-	other = createRoutine(db, U1_SALSA, { name: 'Other', notes: null }).routine.id;
 	const make = (figureName: string) =>
 		createFigure(db, U1_SALSA, {
 			figureName,
@@ -86,28 +84,15 @@ beforeEach(() => {
 });
 
 describe('Make routine', () => {
-	it('puts a nameless Make routine under its Name', async () => {
-		expect(
-			await call(
-				routinePage.actions.extract,
-				post('salsa', { stepIds: String(a), name: ' ' }, String(r))
-			)
-		).toMatchObject({
-			status: 400,
-			data: {
-				action: 'extract',
-				field: 'name',
-				message: 'Give the new routine a name (up to 200 characters).'
-			}
-		});
-		expect(routineSlots(db, r)).toHaveLength(2);
+	it('makes an unnamed section at once, no name asked (spec 2026-11-12)', async () => {
+		await call(routinePage.actions.extract, post('salsa', { stepIds: String(a) }, String(r)));
+		expect(routineSlots(db, r).filter((s) => s.childId !== null)).toHaveLength(1);
 	});
 
-	it('refuses a run that cannot become a routine as the sheet’s banner', async () => {
-		addChildSlot(db, other, r); // r is now embedded, so it cannot embed a new routine
+	it('refuses an empty run as the banner', async () => {
 		const result = (await call(
 			routinePage.actions.extract,
-			post('salsa', { stepIds: String(a), name: 'Opener' }, String(r))
+			post('salsa', { stepIds: '' }, String(r))
 		)) as { status: number; data: Record<string, unknown> };
 		expect(result).toMatchObject({ status: 400, data: { action: 'extract' } });
 		expect(result.data).not.toHaveProperty('field');
@@ -160,20 +145,10 @@ describe('the routine page’s refusals in Slovenian', () => {
 	const sl = (action: unknown, fields: Record<string, string>) =>
 		runInLocale('sl', () => call(action, post('salsa', fields, String(r))));
 
-	it('refuses Make routine under its Name and in its banner', async () => {
-		expect(await sl(routinePage.actions.extract, { stepIds: String(a), name: ' ' })).toMatchObject({
+	it('refuses Section in its banner', async () => {
+		expect(await sl(routinePage.actions.extract, { stepIds: '' })).toMatchObject({
 			status: 400,
-			data: { message: 'Vpišite ime nove kombinacije (do 200 znakov).' }
-		});
-		addChildSlot(db, other, r);
-		expect(
-			await sl(routinePage.actions.extract, { stepIds: String(a), name: 'Opener' })
-		).toMatchObject({
-			status: 400,
-			data: {
-				message:
-					'Iz teh mest ni mogoče narediti kombinacije: biti morajo sosednja in ne smejo vsebovati kombinacije, ta kombinacija pa sama ne sme biti vstavljena nikamor.'
-			}
+			data: { message: 'Iz teh mest ni mogoče narediti sklopa: biti morajo sosednja.' }
 		});
 	});
 

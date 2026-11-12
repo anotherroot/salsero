@@ -154,7 +154,17 @@ export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDa
 		.returning()
 		.get();
 	if (isTeam(space) || input.isSection) return { routine, exercise: null };
-	const exercise = tx
+	return { routine, exercise: insertExercise(tx, space, routine, everyDays) };
+}
+
+/** A person's routine's exercise; the only writer of `exercises.routine_id`. */
+function insertExercise(
+	tx: Db,
+	space: Space & { userId: string },
+	routine: Routine,
+	everyDays: number
+): Exercise {
+	return tx
 		.insert(exercises)
 		.values({
 			name: routine.name,
@@ -166,7 +176,6 @@ export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDa
 		})
 		.returning()
 		.get();
-	return { routine, exercise };
 }
 
 /**
@@ -1690,26 +1699,24 @@ export function embeddedIn(db: Db, routineId: number): { id: number; name: strin
 }
 
 /**
- * "Make routine": pull a contiguous run of slots out into a new routine — with
- * its exercise, as every routine has — and put one slot embedding it where the
- * run was. The slots MOVE (their rows change routine), so options, the main
- * figure and notes come along untouched.
+ * Section (spec 2026-11-12): pull a contiguous run of slots out into a new
+ * unnamed section (no exercise, never listed) and put one slot embedding it
+ * where the run was. The slots MOVE (their rows change routine), so options,
+ * notes and embedded children come along untouched. Any depth: a run may hold
+ * embedded slots, and this routine may itself be embedded.
  *
  * Null, with nothing written, when the run has a gap (pulling slots 2 and 5 out
- * would silently reorder the routine), holds an embedded routine, or this
- * routine is itself embedded somewhere — the one-level rule seen from the new
- * routine's side, so no new rule is introduced.
+ * would silently reorder the routine).
  */
-export function extractRoutine(
+export function makeSection(
 	db: Db,
 	routineId: number,
 	stepIds: number[],
-	name: string,
 	by?: string
-): { routineId: number; stepId: number } | null {
+): { sectionId: number; stepId: number } | null {
 	const routine = getRoutine(db, routineId);
 	const wanted = [...new Set(stepIds)];
-	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
+	if (!routine || wanted.length === 0) return null;
 	const space = actingIn(routine, by);
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
@@ -1719,11 +1726,11 @@ export function extractRoutine(
 			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
 			.orderBy(asc(routineSteps.position))
 			.all();
-		if (run.length !== wanted.length || run.some((s) => s.childId !== null)) return null;
+		if (run.length !== wanted.length) return null;
 		const at = ids.indexOf(run[0].id);
 		if (ids.indexOf(run[run.length - 1].id) - at !== run.length - 1) return null;
 
-		const made = insertRoutine(tx, space, { name, notes: null }, 3);
+		const made = insertRoutine(tx, space, { name: '', notes: null, isSection: true });
 		run.forEach((s, k) =>
 			tx
 				.update(routineSteps)
@@ -1747,9 +1754,9 @@ export function extractRoutine(
 			verb: 'add',
 			subject: 'extract',
 			subjectId: made.routine.id,
-			after: { name }
+			after: { name: '' }
 		});
-		return { routineId: made.routine.id, stepId: step.id };
+		return { sectionId: made.routine.id, stepId: step.id };
 	});
 }
 
@@ -1811,5 +1818,40 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 		}
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });
 		return routine;
+	});
+}
+
+/**
+ * Make routine (spec 2026-11-12): a section becomes a routine, in the Routines
+ * list and practisable, with a fresh exercise in a person's space (a group's
+ * routine has none). An unnamed section takes `name`; refused without one.
+ */
+export function promoteSection(
+	db: Db,
+	sectionId: number,
+	name: string | null,
+	by?: string
+): boolean {
+	const section = getRoutine(db, sectionId);
+	if (!section || section.isSection !== 1) return false;
+	const named = (name ?? '').trim() || section.name;
+	if (!named) return false;
+	const space = actingIn(section, by);
+	return db.transaction((tx) => {
+		const routine = tx
+			.update(routines)
+			.set({ isSection: 0, name: named })
+			.where(eq(routines.id, sectionId))
+			.returning()
+			.get()!;
+		const owner = ownerSpace(routine);
+		if (!isTeam(owner)) insertExercise(tx, owner, routine, 3);
+		logRoutine(tx, routine, space, {
+			verb: 'change',
+			subject: 'promote',
+			before: { name: section.name },
+			after: { name: named }
+		});
+		return true;
 	});
 }

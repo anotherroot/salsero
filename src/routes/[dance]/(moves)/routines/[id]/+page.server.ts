@@ -18,7 +18,8 @@ import {
 	duplicateSlots,
 	embeddable,
 	embeddedIn,
-	extractRoutine,
+	makeSection,
+	promoteSection,
 	insertSlot,
 	moveSlotTo,
 	removeOption,
@@ -77,6 +78,7 @@ import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
+import { demoteRoutine } from '$lib/server/sections';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -486,6 +488,24 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return copyToFrom(getDb(), wallOf(params, locals), 'routine', routine.id, request);
 	},
 
+	// Make routine (spec 2026-11-12): a section joins the Routines list; an unnamed one takes `name`.
+	promote: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const name = text(form, 'name');
+		if (!promoteSection(getDb(), routine.id, name ?? null, by(params, locals))) {
+			return fail(400, { action: 'promote', field: 'name', message: t().routine.refused.newName });
+		}
+		return done(routine.id);
+	},
+	// Turn into a section (spec 2026-11-12): refused when no routine uses it.
+	demote: async ({ params, locals }) => {
+		const routine = routineOf(params, locals);
+		if (!demoteRoutine(getDb(), routine.id, by(params, locals))) {
+			return fail(400, { action: 'demote', message: t().routine.refused.demote });
+		}
+		return done(routine.id);
+	},
 	archive: async ({ params, locals }) => {
 		const routine = routineOf(params, locals);
 		// The boolean is deliberately ignored: archiving twice is idempotent — the
@@ -769,20 +789,10 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const routine = routineOf(params, locals);
 		const stale = staleSlots(db, routine, form, 'extract');
 		if (stale) return stale;
+		// Section (spec 2026-11-12): no name asked; an unnamed section at once.
 		const stepIds = ints(form, 'stepIds');
-		const name = text(form, 'name');
-		if (!name) {
-			return fail(400, {
-				action: 'extract',
-				field: 'name',
-				message: t().routine.refused.newName,
-				name: String(form.get('name') ?? '')
-			});
-		}
 		const made =
-			stepIds.length === 0
-				? null
-				: extractRoutine(getDb(), routine.id, stepIds, name, by(params, locals));
+			stepIds.length === 0 ? null : makeSection(getDb(), routine.id, stepIds, by(params, locals));
 		if (!made) {
 			return fail(400, {
 				action: 'extract',

@@ -214,7 +214,7 @@ export const routine = {
 		altPutBack: 'That alternative could not be put back.',
 		copySlots: 'Those slots could not be copied.',
 		newName: 'Give the new routine a name (up to 200 characters).',
-		extract:
-			'Those slots cannot become a routine: they have to sit next to each other and hold no routine, and this routine cannot itself be embedded anywhere.'
+		demote: 'Only a routine another routine uses can become a section.',
+		extract: 'Those slots cannot become a section: they have to sit next to each other.'
 	}
 };

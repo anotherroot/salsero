@@ -85,7 +85,8 @@ import {
 	deleteSlots,
 	duplicateRoutine,
 	duplicateSlots,
-	extractRoutine,
+	makeSection,
+	promoteSection,
 	insertSlot,
 	moveSlotTo,
 	removeOption,
@@ -136,6 +137,7 @@ import { syncAll, syncView } from './clones/sync';
 import { detach } from './clones/detach';
 import { copyTo } from './clones/copy-to';
 import { moveLesson } from './clones/move';
+import { demoteRoutine } from './sections';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -279,6 +281,8 @@ const musicLinkOf = (lesson: number) =>
 /** The pasted playlist `addFromImport`'s prep made. */
 let importId = 0;
 
+/** The section `promoteSection` runs on, made in its `prep`. */
+let sectionOf = 0;
 const MUTATIONS: {
 	name: string;
 	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'position';
@@ -735,11 +739,31 @@ const MUTATIONS: {
 		run: (w) => duplicateSlots(db, w.routine, [w.step], w.by)
 	},
 	{
-		name: 'extractRoutine',
+		name: 'makeSection',
 		root: 'routine',
 		verb: 'add',
 		rootId: (w) => w.routine,
-		run: (w) => extractRoutine(db, w.routine, [w.step], 'Bit', w.by)
+		run: (w) => makeSection(db, w.routine, [w.step], w.by)
+	},
+	{
+		name: 'promoteSection',
+		root: 'routine',
+		verb: 'change',
+		rootId: () => 0,
+		prep: (w) => {
+			sectionOf = makeSection(db, w.routine, [w.step], w.by)!.sectionId;
+		},
+		run: (w) => promoteSection(db, sectionOf, 'Bit', w.by)
+	},
+	{
+		name: 'demoteRoutine',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.child,
+		prep: (w) => {
+			addChildSlot(db, w.routine, w.child, w.by);
+		},
+		run: (w) => demoteRoutine(db, w.child, w.by)
 	},
 	{
 		name: 'duplicateRoutine',

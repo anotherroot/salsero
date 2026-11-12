@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
+import { demoteImpact, demoteRoutine } from './sections';
 import {
 	addChildSlot,
 	addFigureSlot,
@@ -15,6 +16,8 @@ import {
 	listPickRoutines,
 	listAddedRoutines,
 	listRoutines,
+	makeSection,
+	promoteSection,
 	holds,
 	insertRoutine,
 	moveSlotTo,
@@ -29,8 +32,7 @@ import {
 	updateRoutine,
 	duplicateRoutine,
 	duplicateSlots,
-	embeddedIn,
-	extractRoutine
+	embeddedIn
 } from './routines';
 import { archiveVariation, createFigure, createVariationFrom, figureLabels } from './figures';
 import { listPositions } from './positions';
@@ -846,7 +848,7 @@ describe('duplicateSlots', () => {
 	});
 });
 
-describe('extractRoutine', () => {
+describe('makeSection', () => {
 	const fourSlots = () => {
 		const db = openDb(':memory:');
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
@@ -855,54 +857,36 @@ describe('extractRoutine', () => {
 	};
 	const routineCount = (db: ReturnType<typeof openDb>) => listRoutines(db, U1_SALSA).length;
 
-	it('moves a contiguous run into a new routine and embeds it in its place', () => {
+	it('moves a contiguous run into a new section and embeds it in its place', () => {
 		const { db, routine, ids } = fourSlots();
 		setSlotNote(db, ids[2], 'spin here');
-		const made = extractRoutine(db, routine.id, [ids[2], ids[1]], 'Combo')!;
+		const made = makeSection(db, routine.id, [ids[2], ids[1]])!;
 		const rows = routineSlots(db, routine.id);
 		expect(rows.map((s) => s.id)).toEqual([ids[0], made.stepId, ids[3]]);
-		expect(rows[1].childId).toBe(made.routineId);
+		expect(rows[1].childId).toBe(made.sectionId);
 		// Moved, not copied: the same step rows, options and notes intact.
-		const inner = routineSlots(db, made.routineId);
+		const inner = routineSlots(db, made.sectionId);
 		expect(inner.map((s) => s.id)).toEqual([ids[1], ids[2]]);
 		expect(inner[1].note).toBe('spin here');
-		expect(getRoutine(db, made.routineId)!.name).toBe('Combo');
-		const exercise = db
-			.select()
-			.from(exercises)
-			.where(eq(exercises.routineId, made.routineId))
-			.get();
-		expect(exercise).toMatchObject({ source: 'routine', name: 'Combo' });
+		expect(getRoutine(db, made.sectionId)).toMatchObject({ name: '', isSection: 1 });
+		expect(
+			db.select().from(exercises).where(eq(exercises.routineId, made.sectionId)).get()
+		).toBeUndefined();
 	});
 
 	it('refuses a run with a gap and writes nothing', () => {
 		const { db, routine, ids } = fourSlots();
 		const before = routineCount(db);
-		expect(extractRoutine(db, routine.id, [ids[0], ids[2]], 'Combo')).toBeNull();
+		expect(makeSection(db, routine.id, [ids[0], ids[2]])).toBeNull();
 		expect(routineCount(db)).toBe(before);
 		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual(ids);
-	});
-
-	it('refuses a run holding an embedded routine', () => {
-		const { db, routine, ids } = fourSlots();
-		const child = createRoutine(db, U1_SALSA, { name: 'C', notes: null }).routine;
-		const embedded = insertSlot(db, routine.id, 1, { childId: child.id })!;
-		expect(extractRoutine(db, routine.id, [ids[0], embedded], 'Combo')).toBeNull();
-	});
-
-	it('refuses when the routine is itself embedded somewhere', () => {
-		const { db, routine, ids } = fourSlots();
-		const parent = createRoutine(db, U1_SALSA, { name: 'Social mix', notes: null }).routine;
-		addChildSlot(db, parent.id, routine.id);
-		expect(embeddedIn(db, routine.id).map((r) => r.name)).toEqual(['Social mix']);
-		expect(extractRoutine(db, routine.id, [ids[0]], 'Combo')).toBeNull();
 	});
 
 	it('refuses a slot of another routine', () => {
 		const { db, routine } = fourSlots();
 		const other = createRoutine(db, U1_SALSA, { name: 'O', notes: null }).routine;
 		const foreign = addFigureSlot(db, other.id, figure(db, 'E').id)!;
-		expect(extractRoutine(db, routine.id, [foreign], 'Combo')).toBeNull();
+		expect(makeSection(db, routine.id, [foreign])).toBeNull();
 		expect(routineSlots(db, other.id).map((s) => s.id)).toEqual([foreign]);
 	});
 });
@@ -979,8 +963,8 @@ describe('in a group', () => {
 		const copy = duplicateRoutine(db, made.routine.id, 'u1')!;
 		expect(copy).toMatchObject({ userId: null, teamId: 1 });
 		const steps = routineSlots(db, made.routine.id).map((s) => s.id);
-		const pulled = extractRoutine(db, made.routine.id, [steps[0]], 'Part', 'u1')!;
-		expect(getRoutine(db, pulled.routineId)).toMatchObject({ userId: null, teamId: 1 });
+		const pulled = makeSection(db, made.routine.id, [steps[0]], 'u1')!;
+		expect(getRoutine(db, pulled.sectionId)).toMatchObject({ userId: null, teamId: 1 });
 		expect(db.select().from(exercises).all()).toEqual([]);
 	});
 });
@@ -1525,5 +1509,83 @@ describe('canEmbed at any depth (spec 2026-11-12)', () => {
 			isSection: true,
 			holders: [{ id: r.id, name: 'R' }]
 		});
+	});
+});
+
+describe('section ↔ routine (spec 2026-11-12)', () => {
+	const base = (db: ReturnType<typeof openDb>) => {
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const f = [figure(db, 'A'), figure(db, 'B'), figure(db, 'C')];
+		const steps = f.map((x) => addFigureSlot(db, r.id, x.id)!);
+		return { r, f, steps };
+	};
+
+	it('makeSection keeps order and allows a run with an embedded slot', () => {
+		const db = openDb(':memory:');
+		const { r, steps } = base(db);
+		const c = createRoutine(db, U1_SALSA, { name: 'C', notes: null }).routine;
+		const child = addChildSlot(db, r.id, c.id)!;
+		const made = makeSection(db, r.id, [steps[2], child])!;
+		expect(made).not.toBeNull();
+		const rows = routineSlots(db, r.id);
+		expect(rows.map((x) => x.childId)).toEqual([null, null, made.sectionId]);
+		expect(routineSlots(db, made.sectionId).map((x) => x.id)).toEqual([steps[2], child]);
+		const sec = getRoutine(db, made.sectionId)!;
+		expect([sec.isSection, sec.name]).toEqual([1, '']);
+		expect(db.select().from(exercises).where(eq(exercises.routineId, sec.id)).all()).toHaveLength(
+			0
+		);
+	});
+
+	it('makeSection works inside an embedded routine, and refuses a gap', () => {
+		const db = openDb(':memory:');
+		const { r, steps } = base(db);
+		const outer = createRoutine(db, U1_SALSA, { name: 'O', notes: null }).routine;
+		addChildSlot(db, outer.id, r.id);
+		expect(makeSection(db, r.id, [steps[0], steps[2]])).toBeNull();
+		expect(makeSection(db, r.id, [steps[0], steps[1]])).not.toBeNull();
+	});
+
+	it('promoteSection gives an exercise, and refuses an unnamed one without a name', () => {
+		const db = openDb(':memory:');
+		const { r, steps } = base(db);
+		const { sectionId } = makeSection(db, r.id, [steps[0]])!;
+		expect(promoteSection(db, sectionId, null)).toBe(false);
+		expect(promoteSection(db, sectionId, 'Guapea run')).toBe(true);
+		const sec = getRoutine(db, sectionId)!;
+		expect([sec.isSection, sec.name]).toEqual([0, 'Guapea run']);
+		expect(
+			db.select().from(exercises).where(eq(exercises.routineId, sectionId)).all()
+		).toHaveLength(1);
+	});
+
+	it('demoteRoutine archives the exercise and unlinks lessons; demoteImpact counts at any depth', () => {
+		const db = openDb(':memory:');
+		const { r } = base(db);
+		const top = createRoutine(db, U1_SALSA, { name: 'Top', notes: null }).routine;
+		const mid = insertRoutine(db, U1_SALSA, { name: 'Mid', notes: null, isSection: true }).routine;
+		addChildSlot(db, top.id, mid.id);
+		addChildSlot(db, mid.id, r.id);
+		const lessonId = createLesson(db, U1_SALSA, {
+			lessonDay: '2026-11-01',
+			title: 'Class 12',
+			notes: null
+		}).lesson.id;
+		linkRoutine(db, lessonId, r.id);
+		const impact = demoteImpact(db, r.id);
+		expect(impact.routines.map((x) => x.name)).toEqual(['Top']);
+		expect(impact.lessons.map((x) => x.id)).toEqual([lessonId]);
+		expect(demoteRoutine(db, r.id)).toBe(true);
+		expect(getRoutine(db, r.id)!.isSection).toBe(1);
+		const ex = db.select().from(exercises).where(eq(exercises.routineId, r.id)).get()!;
+		expect(ex.archivedAt).not.toBeNull();
+		expect(demoteImpact(db, r.id).lessons).toEqual([]);
+	});
+
+	it('demoteRoutine refuses a routine used nowhere', () => {
+		const db = openDb(':memory:');
+		const { r } = base(db);
+		expect(demoteRoutine(db, r.id)).toBe(false);
+		expect(getRoutine(db, r.id)!.isSection).toBe(0);
 	});
 });

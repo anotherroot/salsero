@@ -203,7 +203,7 @@ export const routine: Catalog['routine'] = {
 		altPutBack: 'Te alternative ni bilo mogoče vrniti.',
 		copySlots: 'Teh mest ni bilo mogoče kopirati.',
 		newName: 'Vpišite ime nove kombinacije (do 200 znakov).',
-		extract:
-			'Iz teh mest ni mogoče narediti kombinacije: biti morajo sosednja in ne smejo vsebovati kombinacije, ta kombinacija pa sama ne sme biti vstavljena nikamor.'
+		demote: 'V sklop lahko spremenite le kombinacijo, ki jo uporablja druga kombinacija.',
+		extract: 'Iz teh mest ni mogoče narediti sklopa: biti morajo sosednja.'
 	}
 };

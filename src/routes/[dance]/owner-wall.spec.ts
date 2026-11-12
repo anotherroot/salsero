@@ -942,7 +942,7 @@ import {
 	createRoutine,
 	duplicateRoutine,
 	embeddable,
-	extractRoutine,
+	makeSection,
 	listPickRoutines,
 	listRoutines,
 	restoreOption,
@@ -984,8 +984,9 @@ describe('routines: the data functions stand behind a wall', () => {
 		const copy = duplicateRoutine(db, mine)!;
 		addFigureSlot(db, mine, figureId);
 		const stepId = routineSlots(db, mine)[0].id;
-		const extracted = extractRoutine(db, mine, [stepId], 'Extracted')!;
-		for (const id of [mine, fromFigures.routine.id, copy.id, extracted.routineId]) {
+		const section = makeSection(db, mine, [stepId])!;
+		expect(getRoutineRow(section.sectionId).userId).toBe('u1');
+		for (const id of [mine, fromFigures.routine.id, copy.id]) {
 			expect(getRoutineRow(id).userId).toBe('u1');
 			expect(exerciseOwner(id)).toBe('u1');
 		}

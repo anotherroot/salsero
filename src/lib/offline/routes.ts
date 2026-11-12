@@ -205,6 +205,8 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		archive: 'device',
 		copyTo: 'network',
 		deleteMany: 'device',
+		// Make routine and Turn into a section (spec 2026-11-12).
+		demote: 'device',
 		detach: 'network',
 		drop: 'network',
 		duplicate: 'device',
@@ -218,6 +220,7 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		makeMine: 'network',
 		note: 'device',
 		noteSong: 'device',
+		promote: 'device',
 		removeOption: 'device',
 		removeSong: 'device',
 		rename: 'device',
