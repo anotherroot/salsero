@@ -62,14 +62,16 @@ export const DEVICE_ENDPOINTS = [
 
 /**
  * GET endpoints whose files the device keeps (song audio and count takes, 4a;
- * lesson videos and recordings, 4b): the service
+ * lesson videos and recordings, 4b; figure loops): the service
  * worker answers them from the media store (`media-store.ts`), else the network.
  */
 export const MEDIA_ENDPOINTS = [
 	'/audio/[file]',
 	'/count/[file]',
 	'/lesson-videos/[file]',
-	'/recordings/[file]'
+	'/recordings/[file]',
+	// Figure loops (picker preview): the device worker keeps every one of its copy.
+	'/loops/[file]'
 ];
 
 /** Every other GET endpoint: the server's alone. */

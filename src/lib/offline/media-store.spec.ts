@@ -300,3 +300,9 @@ describe('originals are never a URL kind', () => {
 		expect(mediaOf('/originals/0a1b2c3d-0000-4000-8000-000000000001.mp4')).toBeNull();
 	});
 });
+
+describe('mediaOf: figure loops', () => {
+	it('reads a loop path', () => {
+		expect(mediaOf('/loops/900-0-1000.jpg')).toEqual({ kind: 'loops', file: '900-0-1000.jpg' });
+	});
+});

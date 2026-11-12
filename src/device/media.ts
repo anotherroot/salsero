@@ -16,9 +16,10 @@ import {
 	type MediaStore
 } from '$lib/offline/media-store';
 import { fits } from '$lib/offline/network';
+import { loopName, type LoopSpan } from '$lib/video/loops';
 import type { SqliteDb } from './migrate';
 
-/** The copy's songs with audio (not archived) and the person's count takes, as files. */
+/** The copy's songs with audio (not archived), the person's count takes and its figure loops, as files. */
 export function wantedMedia(db: SqliteDb, userId: string): MediaFile[] {
 	const songs = db
 		.prepare(
@@ -29,9 +30,26 @@ export function wantedMedia(db: SqliteDb, userId: string): MediaFile[] {
 	const takes = db.prepare('SELECT file FROM count_takes WHERE user_id = ?').all(userId) as {
 		file: string;
 	}[];
+	// Figure loops (picker preview): every section in the copy linked to a figure, on a video the
+	// server holds — what the server's `queueLoops` cuts. One not cut yet answers 404: not yet.
+	const spans = db
+		.prepare(
+			`SELECT DISTINCT v.id, v.start_ms AS startMs, v.end_ms AS endMs
+			 FROM video_spots v
+			 JOIN spot_links s ON s.spot_id = v.id AND s.figure_id IS NOT NULL
+			 LEFT JOIN lesson_videos lv ON lv.id = v.lesson_video_id
+			 LEFT JOIN recordings r ON r.id = v.recording_id
+			 WHERE v.end_ms IS NOT NULL
+			   AND (lv.server_copy = 1 OR (r.server_copy = 1 AND r.kind = 'video'))`
+		)
+		.all() as LoopSpan[];
 	return [
 		...songs.map((s): MediaFile => ({ kind: 'audio', file: s.file, mime: s.mime })),
-		...takes.map((t): MediaFile => ({ kind: 'count', file: t.file, mime: 'audio/wav' }))
+		...takes.map((t): MediaFile => ({ kind: 'count', file: t.file, mime: 'audio/wav' })),
+		...spans.flatMap((s): MediaFile[] => [
+			{ kind: 'loops', file: loopName(s), mime: 'image/jpeg' },
+			{ kind: 'loops', file: loopName(s, true), mime: 'image/jpeg' }
+		])
 	];
 }
 
@@ -154,6 +172,9 @@ export async function syncMedia(deps: {
 					throw new Error(`the server answered from byte ${rangeStart(res)}, not ${from}`);
 				}
 				start = from;
+			} else if (res.status === 404 && f.kind === 'loops') {
+				// Not cut yet (the home worker gets to it): neither fetched nor failed.
+				continue;
 			} else if (!res.ok) {
 				throw new Error(`the server answered ${res.status}`);
 			}

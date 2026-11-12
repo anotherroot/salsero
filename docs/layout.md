@@ -383,6 +383,7 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      strip), screens.ts (the player's stack of levels and the
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts
+                     loops.ts: a figure loop's file names (`loopName`, `parseLoopName`)
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
                      (the wake lock, injected), turning.ts (the Android app
                      stands upright; the player lets it turn), caption.ts (a recording's
@@ -611,6 +612,12 @@ src/lib/server/ai-timelines/  a video made ready for the AI: store.ts (ask, clai
                      files.ts ($DATA_DIR/timelines/<id>/<k>.json, never counted as storage)
 src/lib/server/worker-seen.ts  when the home worker last called (in memory: online, offline, unknown)
 src/routes/api/worker/timelines/  the worker's side: claim, source (the video), pieces/[k], done, fail
+src/lib/server/loops/  figure loops for the pickers (picker preview): store.ts (`queueLoops`, the one
+                     sweep that queues every figure-linked section whose span has no loop and drops
+                     stale ones, run on each claim and by the hourly purge; claim, source, finish,
+                     fail). Files \$DATA_DIR/loops/<spot>-<start>-<end>.jpg and …-still.jpg, never counted
+src/routes/api/worker/loops/  the worker's side: claim, source (Range), strip, still, done, fail
+src/routes/loops/[file]  a loop to who may read its video, for the spot's current span only
 src/lib/ai-queue/measure.ts  PURE: the AI's sections against the person's (pairs, missed, extra);
                      scripts/ai-sections/measure.ts runs it on a backup copy
 src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,
