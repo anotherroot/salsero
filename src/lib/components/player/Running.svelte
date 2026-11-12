@@ -51,6 +51,7 @@
 	import CountChips from './CountChips.svelte';
 	import DetailsBody from './DetailsBody.svelte';
 	import { pauseForVideo, releaseSound, videoSound } from '$lib/player/video-sound.svelte';
+	import { stopsBy } from '$lib/sound/page';
 	import RunLayer from './RunLayer.svelte';
 	import RunRows, { type RunRow, type RunRowKey } from './RunRows.svelte';
 	import SongProgress from './SongProgress.svelte';
@@ -425,6 +426,17 @@
 				paused = true;
 			}
 		});
+	});
+
+	// Another sound started (a video elsewhere, another app in the phone): the
+	// run pauses as a whole, never its song alone, and waits for Resume.
+	$effect(() => {
+		if (!audio) return;
+		return stopsBy(() => {
+			if (paused) return;
+			player.pause();
+			paused = true;
+		})(audio);
 	});
 
 	function togglePause() {
