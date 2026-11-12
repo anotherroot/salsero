@@ -32,7 +32,7 @@
  * the pair's next snapshot, History and the reconcile.
  */
 import { t } from '$lib/i18n/catalog';
-import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
+import { and, eq, inArray, isNull, type Column } from 'drizzle-orm';
 import { countsOfMask, DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, PairBase, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
@@ -77,7 +77,7 @@ import {
 	unlinkRoutine
 } from '../lessons';
 import { unlinkSpotFromPosition } from '../position-links';
-import { insertOptions, routineSlots } from '../routines';
+import { holds, insertOptions, routineSlots } from '../routines';
 import { AUDIO_RESET } from '../songs';
 import { deleteLink, type LinkOwner } from '../links';
 import { deleteSpot } from '../spots';
@@ -539,12 +539,6 @@ class Applier {
 			tx.delete(routineStepOptions).where(eq(routineStepOptions.stepId, id)).run();
 		tx.delete(routineSteps).where(eq(routineSteps.routineId, targetId)).run();
 
-		const embedded =
-			tx
-				.select({ id: routineSteps.id })
-				.from(routineSteps)
-				.where(eq(routineSteps.childRoutineId, targetId))
-				.get() !== undefined;
 		const newIds = new Set<string>();
 		let position = 0;
 		for (const slot of routineSlots(tx, this.giverId)) {
@@ -552,10 +546,9 @@ class Applier {
 			let options: number[] = [];
 			const lengthOf = new Map<number, number>();
 			if (slot.childId !== null) {
-				// Checked before the mapper runs, so a child that would drop is never copied here.
-				if (embedded || embeds(tx, slot.childId)) continue;
+				// Any depth (spec 2026-11-12); a mapped child that would hold the target is a cycle.
 				child = m.ref('routine', slot.childId);
-				if (child === null || child === targetId || embeds(tx, child)) continue;
+				if (child === null || child === targetId || holds(tx, child, targetId)) continue;
 				newIds.add(`r${child}`);
 			} else {
 				const ids = slot.figureIds.map((f) => m.ref('figure', f));
@@ -940,14 +933,6 @@ function taggedWith(tx: Db, side: 'start' | 'end', figureId: number, ref: string
 		.all()
 		.map((r) => r.id);
 }
-
-/** Whether a routine embeds another: such a routine is never embedded itself (depth ≤ 2). */
-const embeds = (tx: Db, routineId: number) =>
-	tx
-		.select({ id: routineSteps.id })
-		.from(routineSteps)
-		.where(and(eq(routineSteps.routineId, routineId), isNotNull(routineSteps.childRoutineId)))
-		.get() !== undefined;
 
 /* ── The whole flow ─────────────────────────────────────────────────────── */
 

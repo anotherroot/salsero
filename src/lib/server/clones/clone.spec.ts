@@ -56,7 +56,8 @@ import {
 	createRoutine,
 	insertSlot,
 	setSlotEnd,
-	routineSlots
+	routineSlots,
+	insertRoutine
 } from '../routines';
 import { addLesson } from '../entries';
 import { addLinks } from '../links';
@@ -880,6 +881,31 @@ describe('cloneInto: routines and lessons', () => {
 		if (!res.ok) throw new Error('expected a clone');
 		const copy = memberOf('figure', walk, U2_SALSA)!;
 		expect(routineSlots(db, res.id).map((s) => s.lengths)).toEqual([{ [copy]: 12 }]);
+	});
+
+	it('a routine copy brings a 3-level nest, sections staying sections (spec 2026-11-12)', async () => {
+		const walk = figure(T1_SALSA, 'Walk', 'Slow').figure.id;
+		const r = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		const s = insertRoutine(db, T1_SALSA, { name: 'S', notes: null, isSection: true }).routine.id;
+		const u = insertRoutine(db, T1_SALSA, { name: '', notes: null, isSection: true }).routine.id;
+		insertSlot(db, u, 0, { figureId: walk }, 'u1');
+		insertSlot(db, s, 0, { childId: u }, 'u1');
+		insertSlot(db, r, 0, { childId: s }, 'u1');
+		publishWith({ routines: [r] });
+		const res = await cloneInto(
+			db,
+			{ kind: 'routine', id: r, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!res.ok) throw new Error('expected a clone');
+		const s2 = routineSlots(db, res.id)[0].childId!;
+		const u2 = routineSlots(db, s2)[0].childId!;
+		expect([routineRow(s2).isSection, routineRow(s2).userId]).toEqual([1, 'u2']);
+		expect(routineRow(u2).isSection).toBe(1);
+		expect(routineSlots(db, u2).map((x) => x.figureIds)).toEqual([
+			[memberOf('figure', walk, U2_SALSA)]
+		]);
 	});
 
 	it('a routine brings its figures and its embedded routine', async () => {

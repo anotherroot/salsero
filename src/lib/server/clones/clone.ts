@@ -28,7 +28,7 @@
  * the write alone, for callers already inside a transaction (the rescue,
  * Keep), and runs in a savepoint so a refusal leaves nothing behind.
  */
-import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
 import type { CloneKind, PieceKind } from '$lib/types';
 import { initialBase } from '$lib/clones/diff';
 import type { Db } from '../db';
@@ -59,7 +59,7 @@ import { getTeam, roleOf } from '../teams';
 import { roomForOwner, type Owner, type Room } from '../storage';
 import { logChange, type ChangeEntry } from '../changes';
 import { figureNameTaken, moveFor } from '../figures';
-import { insertOptions, insertRoutine, routineSlots } from '../routines';
+import { holds, insertOptions, insertRoutine, routineSlots } from '../routines';
 import { insertLesson } from '../lessons';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
@@ -1129,25 +1129,22 @@ function copySong(m: Mapper, sourceId: number, gene: string): Copied {
 
 /* ── Routines ───────────────────────────────────────────────────────────── */
 
-/** Whether a routine embeds another: such a routine is never embedded itself (depth ≤ 2). */
-const embeds = (tx: Db, routineId: number) =>
-	tx
-		.select({ id: routineSteps.id })
-		.from(routineSteps)
-		.where(and(eq(routineSteps.routineId, routineId), isNotNull(routineSteps.childRoutineId)))
-		.get() !== undefined;
-
 /**
  * A routine, made as a new one is (a person's comes with its exercise,
  * paused when they practise the source through an entry), then its slots in
  * order: an embedded routine through the mapper, the options too, main figure
  * first; slot notes kept. A slot whose embedded routine or every option
- * dropped goes, and so does one whose embedded routine here embeds another.
+ * dropped goes, and so does one whose child would hold this routine (a cycle).
  */
 function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 	const { tx, into, now } = m;
 	const src = tx.select().from(routines).where(eq(routines.id, sourceId)).get()!;
-	const made = insertRoutine(tx, into, { name: src.name, notes: src.notes });
+	// A section stays a section (spec 2026-11-12): no exercise, never listed.
+	const made = insertRoutine(tx, into, {
+		name: src.name,
+		notes: src.notes,
+		isSection: src.isSection === 1
+	});
 	const id = made.routine.id;
 	tx.update(routines).set({ geneId: gene, clonedFrom: src.id }).where(eq(routines.id, id)).run();
 	m.started('routine', src.id, id);
@@ -1160,8 +1157,9 @@ function copyRoutine(m: Mapper, sourceId: number, gene: string): Copied {
 		let options: number[] = [];
 		const lengthOf = new Map<number, number>();
 		if (slot.childId !== null) {
+			// Any depth (spec 2026-11-12); a mapped child that would hold this one is a cycle.
 			child = m.ref('routine', slot.childId);
-			if (child === null || embeds(tx, child)) continue;
+			if (child === null || child === id || holds(tx, child, id)) continue;
 		} else {
 			const mappedIds = slot.figureIds.map((f) => m.ref('figure', f));
 			options = [...new Set(mappedIds.filter((f): f is number => f !== null))];

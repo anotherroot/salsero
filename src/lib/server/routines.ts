@@ -1763,8 +1763,7 @@ export function makeSection(
 export function duplicateRoutine(db: Db, id: number, by?: string) {
 	const source = getRoutine(db, id);
 	if (!source) return null;
-	const { dance, userId, teamId } = source;
-	const slots = routineSlots(db, id);
+	const { dance, userId, teamId, isSection } = source;
 
 	return db.transaction((tx) => {
 		const routine = tx
@@ -1774,12 +1773,13 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 				userId,
 				teamId,
 				name: t().routine.copyName(source.name),
-				notes: source.notes
+				notes: source.notes,
+				isSection
 			})
 			.returning()
 			.get();
 		// A group's routine has no exercise of its own: see `insertRoutine`.
-		if (teamId === null) {
+		if (teamId === null && isSection === 0) {
 			tx.insert(exercises)
 				.values({
 					name: routine.name,
@@ -1792,20 +1792,8 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 				.run();
 		}
 
-		for (const slot of slots) {
-			const step = tx
-				.insert(routineSteps)
-				.values({
-					routineId: routine.id,
-					position: slot.position,
-					childRoutineId: slot.childId,
-					note: slot.note,
-					endPositionId: slot.end
-				})
-				.returning({ id: routineSteps.id })
-				.get();
-			insertOptions(tx, step.id, slot.figureIds, (figureId) => slot.lengths[figureId] ?? null);
-		}
+		// Named sections and routines by reference, unnamed sections deep-copied (spec 2026-11-12).
+		copyRows(tx, rowsOf(tx, id), routine.id, ownerSpace(routine));
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });
 		return routine;
 	});

@@ -1675,3 +1675,20 @@ describe('unpack, detach, last use (spec 2026-11-12)', () => {
 		expect(figs(db, copyOf)).toEqual(figs(db, made.sectionId));
 	});
 });
+
+describe('duplicateRoutine at any depth (spec 2026-11-12)', () => {
+	it('deep-copies unnamed sections and references named ones and routines', () => {
+		const db = openDb(':memory:');
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const a = figure(db, 'A');
+		const step = addFigureSlot(db, r.id, a.id)!;
+		const unnamed = makeSection(db, r.id, [step])!.sectionId;
+		const named = insertRoutine(db, U1_SALSA, { name: 'N', notes: null, isSection: true }).routine;
+		addChildSlot(db, r.id, named.id);
+		const copy = duplicateRoutine(db, r.id)!;
+		const kids = routineSlots(db, copy.id).map((s) => s.childId);
+		expect(kids[0]).not.toBe(unnamed);
+		expect(getRoutine(db, kids[0]!)).toMatchObject({ name: '', isSection: 1 });
+		expect(kids[1]).toBe(named.id);
+	});
+});

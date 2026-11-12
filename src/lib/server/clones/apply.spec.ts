@@ -488,7 +488,7 @@ describe('slots', () => {
 		).toBeDefined();
 	});
 
-	it('never clones an embedded routine it would drop: this routine is embedded elsewhere', async () => {
+	it('brings a nested routine along though this routine is embedded elsewhere (any depth, spec 2026-11-12)', async () => {
 		const { F } = await world();
 		const R = createRoutine(db, T1_SALSA, { name: 'Show', notes: null }).routine.id;
 		addFigureSlot(db, R, F, 'u1');
@@ -500,14 +500,13 @@ describe('slots', () => {
 		expect(addChildSlot(db, R, K, 'u1')).not.toBeNull();
 
 		expect(apply('routine', mine, R, ['slots']).ok).toBe(true);
-		expect(routineSlots(db, mine).map((s) => s.childId)).toEqual([null]);
-		expect(
-			db
-				.select()
-				.from(routines)
-				.where(and(eq(routines.userId, 'u1'), eq(routines.name, 'Shine break')))
-				.all()
-		).toEqual([]);
+		const brought = db
+			.select()
+			.from(routines)
+			.where(and(eq(routines.userId, 'u1'), eq(routines.name, 'Shine break')))
+			.all();
+		expect(brought).toHaveLength(1);
+		expect(routineSlots(db, mine).map((s) => s.childId)).toEqual([null, brought[0].id]);
 	});
 });
 
