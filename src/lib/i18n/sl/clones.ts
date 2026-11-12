@@ -233,6 +233,14 @@ export const clones: Catalog['clones'] = {
 	sync: {
 		yours: 'Vaša',
 		noticeTitle: 'Vaše kopije se razlikujejo',
+		sending: (n) => `Pošiljanje v ${slCount(n, ['kopijo', 'kopiji', 'kopije', 'kopij'])} …`,
+		sent: (n) =>
+			({
+				one: 'Kopija posodobljena',
+				two: 'Kopiji posodobljeni',
+				few: 'Kopije posodobljene',
+				other: 'Kopije posodobljene'
+			})[slForm(n)],
 		sync: 'Uskladi',
 		menu: 'Uskladi …',
 		updateMine: 'Posodobi svojo',

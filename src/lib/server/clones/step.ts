@@ -18,11 +18,29 @@
  * person only reads, likewise, their own copy gets no `changed` or `held` line:
  * Update mine only pulls, so there is nothing for it to bring.
  * A name that differs only by a copy suffix is no difference.
+ *
+ * While the device has changes on their way (`changesOnWay`: saved on the
+ * device, the server's flow not pulled yet), a `behind` row Keep in step will
+ * carry by itself is no line: the page's switch is on, M's is on and its
+ * options allow the key (`allows`), and the person edits both. Its copy is
+ * counted in `sending` instead (the version row's "Sending to 2 copies…"). Once
+ * the pull lands, whatever still differs is a line again: what the flow could
+ * not carry, or refused.
  */
-import type { CloneKind, Flat, KeepView, MergeRow, StepLine, StepView } from '$lib/types';
+import type {
+	CloneKind,
+	Flat,
+	KeepView,
+	MergeRow,
+	StepLine,
+	StepView,
+	SyncSettings
+} from '$lib/types';
 import { isCopySuffix, NAME_KEYS } from '$lib/clones/diff';
+import { allows } from '$lib/clones/sync';
 import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
+import { changesOnWay } from '../device-runtime';
 import { accessTo, familyRows, geneOf, visibleMembers } from './genes';
 import { familyOf, placeLabel, rowsOf } from './sync';
 import { syncSettingsOf } from './sync-settings';
@@ -54,18 +72,36 @@ function stateOf(r: MergeRow, page: number, m: number): State | null {
 	return 'both';
 }
 
-export function stepStatus(db: Db, userId: string, kind: CloneKind, id: number): StepView {
+/** Whether Keep in step's flow from the page would carry row `r` into copy `m` (a `behind` row). */
+function carried(r: MergeRow, page: number, m: number, settings: SyncSettings): boolean {
+	const vp = r.values.find((v) => v.holders.includes(page));
+	const vm = r.values.find((v) => v.holders.includes(m));
+	if (!vp || !vm) return false;
+	return allows(settings, r.key, vp.field === null, vp.field !== null && vm.field !== null);
+}
+
+export function stepStatus(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	id: number,
+	onWay: boolean = changesOnWay()
+): StepView {
 	// The same gate as the Sync sheet: no notice where Sync would have no sheet.
 	const fam = familyOf(db, userId, kind, id);
-	if (!fam) return { lines: [] };
+	if (!fam) return { lines: [], sending: 0 };
 	const flats = new Map<number, Flat>(fam.members.map((m) => [m.id, flatOf(db, kind, m.id)]));
 	const rows = rowsOf(db, userId, kind, id, fam.members, flats);
 	const lines: StepLine[] = [];
+	const sending = new Set<number>();
 	const readPage = fam.page.access !== 'edit';
+	// A save here flows only while the page's own switch is on (and the person edits it).
+	const flows = onWay && !readPage && syncSettingsOf(db, kind, id).on;
 	for (const m of fam.members) {
 		if (m.id === id) continue;
 		// Their own change, seen from a page they only read: nothing to pull.
 		const ownFromRead = readPage && m.place.kind === 'mine';
+		const settings = flows && m.access === 'edit' ? syncSettingsOf(db, kind, m.id) : null;
 		// One line per state the copy is in (a held one per way), with its rows in that state.
 		const byState = new Map<
 			string,
@@ -75,6 +111,11 @@ export function stepStatus(db: Db, userId: string, kind: CloneKind, id: number):
 			const s = stateOf(r, id, m.id);
 			if (s === null || (s === 'behind' && m.access !== 'edit')) continue;
 			if (ownFromRead && (s === 'changed' || s === 'held')) continue;
+			// On its way: the flow lands it by itself once the device's changes go up.
+			if (s === 'behind' && settings && carried(r, id, m.id, settings)) {
+				sending.add(m.id);
+				continue;
+			}
 			const how =
 				s === 'held'
 					? r.values.find((v) => v.holders.includes(m.id))?.field === null
@@ -96,7 +137,10 @@ export function stepStatus(db: Db, userId: string, kind: CloneKind, id: number):
 			});
 	}
 	// Most urgent first (both > changed > held > behind); the sort is stable, so places keep their order.
-	return { lines: lines.sort((a, b) => URGENCY[b.state] - URGENCY[a.state]) };
+	return {
+		lines: lines.sort((a, b) => URGENCY[b.state] - URGENCY[a.state]),
+		sending: sending.size
+	};
 }
 
 /**
@@ -131,16 +175,21 @@ function withLiveCopies(db: Db, kind: CloneKind, ids: number[]): number[] {
 	});
 }
 
-/** id → how many other copies differ; only ids whose gene has another live copy are worked out. */
+/**
+ * id → how many other copies differ; only ids whose gene has another live copy
+ * are worked out. A copy whose only difference is on its way (`sending`) does
+ * not count.
+ */
 export function outOfStep(
 	db: Db,
 	userId: string,
 	kind: CloneKind,
-	ids: number[]
+	ids: number[],
+	onWay: boolean = changesOnWay()
 ): Map<number, number> {
 	const out = new Map<number, number>();
 	for (const id of withLiveCopies(db, kind, ids)) {
-		const n = new Set(stepStatus(db, userId, kind, id).lines.map((l) => l.id)).size;
+		const n = new Set(stepStatus(db, userId, kind, id, onWay).lines.map((l) => l.id)).size;
 		if (n > 0) out.set(id, n);
 	}
 	return out;

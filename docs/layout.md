@@ -474,7 +474,7 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      `flowAfter` for flat routes; runs after the commit and never fails the save;
                      its spec lists every save path), sync.ts (`syncView`, `syncAll`: the sheet's
                      rows and the landing on every ticked copy, then the flow onward) and step.ts
-                     (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, from the
+                     (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, less what is on its way (`sending`), from the
                      same merge rows; `copyCounts`, a figure row's "N copies"). The routes' side: `take-form.ts`, `make-mine-form.ts`,
                      `keep-form.ts`, the page action `keep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
 src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
@@ -752,7 +752,8 @@ src/lib/server/replay-context.ts  the replay's AsyncLocalStorage: `replaying()` 
                      `serverNow()`, the device's minted ids for `mintId`, deferred flows),
                      `runReplaying`, `replayName` (a taken name gets a suffix on replay)
 src/lib/server/device-runtime.ts  `deviceRuntime()`: set only inside the device worker; the hook
-                     then takes the user from the copy (`deviceUser`) and bootstrap does nothing
+                     then takes the user from the copy (`deviceUser`) and bootstrap does nothing;
+                     `changesOnWay()`: the device has changes waiting or not yet pulled back
 src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page data but
                      `NETWORK_PAGES`, `DEVICE_ENDPOINTS`; every GET endpoint classified),
                      sw-route.ts (PURE: what the service worker does with a request, the 4 s

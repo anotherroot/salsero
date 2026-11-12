@@ -59,7 +59,7 @@ and clones and twins (a gene id and cloned-from on every copyable row; Copy
 to…, Edit makes your copy, Drop my copy, Detach, Move to…
 a group; your own routines, lessons and sections use a group's things without
 copying; leaving keeps copies; Same as… shows twins as one; see
-[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and keeping copies in step (Keep in step: a per-copy switch with four options, so a save goes through the club's copy to the others by itself; one Sync sheet in place of Compare, Take and Send mine; a notice on the page, an out-of-sync card on the Moves lists, "Basic · Sreda 17:30" for same-named copies; see
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and keeping copies in step (Keep in step: a per-copy switch with four options, so a save goes through the club's copy to the others by itself; one Sync sheet in place of Compare, Take and Send mine; a notice on the page (while a phone's change is on its way, only a quiet "Sending to 2 copies…" on the version row), an out-of-sync card on the Moves lists, "Basic · Sreda 17:30" for same-named copies; see
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md)) and the dance split (two apps on one backend: an account belongs to one dance,
 `salsa.anotherroot.eu` and `bachata.anotherroot.eu`, each with its own login,
 invites, admin, storage, settings and My count; see

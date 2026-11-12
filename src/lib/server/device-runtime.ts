@@ -18,10 +18,21 @@ export type DeviceRuntime = {
 	slot: number | null;
 	/** What only the server knows, from the last pull (device first); null: an older copy with none yet. */
 	extras?: ServerExtras | null;
+	/**
+	 * Changes are on their way: entries wait in the outbox, or went up and the
+	 * pull that brings what the server did with them (Keep in step's flow) has
+	 * not landed yet.
+	 */
+	onWay?: () => boolean;
 };
 
 export function deviceRuntime(): DeviceRuntime | null {
 	return (globalThis as { __salsaDevice?: DeviceRuntime }).__salsaDevice ?? null;
+}
+
+/** Whether the device has changes on their way (`DeviceRuntime.onWay`); never on the server. */
+export function changesOnWay(): boolean {
+	return deviceRuntime()?.onWay?.() ?? false;
 }
 
 /** The signed-in user the copy stands for: the shape a session gives the hook, or null. */

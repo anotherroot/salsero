@@ -4,7 +4,7 @@
  * and Keep in step under the Versions list (4A, 4b A). PURE, client-safe.
  * Every word is read from the catalog at call time (`t().clones`).
  */
-import type { MergeRow, StepLine, SyncSettings, SyncView } from '$lib/types';
+import type { MergeRow, StepLine, StepView, SyncSettings, SyncView } from '$lib/types';
 import { t } from '$lib/i18n/catalog';
 
 /** The server's label for the person's own copy: data, never shown as it is. */
@@ -15,6 +15,28 @@ const shown = (label: string) => (label === YOURS ? t().clones.sync.yours : labe
 
 /** The notice's title, and its button. */
 export const noticeTitle = (): string => t().clones.sync.noticeTitle;
+
+/**
+ * The version row's status, over its "Also: …" (which stays, see-through, so
+ * the row keeps its height): `sending` while Keep in step's changes are on
+ * their way (`StepView.sending`), `sent` for a moment once they went and
+ * nothing differs, else nothing (`idle`; what still differs is the notice's).
+ */
+export type StepPhase = 'idle' | 'sending' | 'sent';
+
+/** How long "Copies updated" stays before it fades out. */
+export const SENT_MS = 2000;
+
+/** The phase once the page's step is `step`, coming from `prev`. `sent` ends by its timer. */
+export function nextPhase(prev: StepPhase, step: StepView | null | undefined): StepPhase {
+	if (step && step.sending > 0) return 'sending';
+	if (prev === 'sending') return step && step.lines.length === 0 ? 'sent' : 'idle';
+	return prev;
+}
+
+/** "Sending to 2 copies…", "Copies updated". */
+export const sendingLabel = (n: number): string => t().clones.sync.sending(n);
+export const sentLabel = (n: number): string => t().clones.sync.sent(n);
 export const syncLabel = (): string => t().clones.sync.sync;
 /** The ⋯ menu's item and the Versions list's footer. */
 export const syncMenu = (): string => t().clones.sync.menu;

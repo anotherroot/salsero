@@ -109,7 +109,7 @@ const recording = (figureId: number) =>
 
 describe('stepStatus', () => {
 	it('copies that agree: no lines', () => {
-		expect(stepStatus(db, 'u1', 'figure', T)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u1', 'figure', T)).toEqual({ lines: [], sending: 0 });
 	});
 
 	it('G1 changed timing, G2 behind on notes and a recording: two lines', () => {
@@ -149,7 +149,7 @@ describe('stepStatus', () => {
 		await db.delete(figures).where(eq(figures.id, F2)).run();
 		save(G1, { notes: 'One' });
 		save(G2, { notes: 'Two' });
-		expect(stepStatus(db, 'u2', 'figure', G1)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u2', 'figure', G1)).toEqual({ lines: [], sending: 0 });
 		expect(outOfStep(db, 'u2', 'figure', [G1, G2])).toEqual(new Map());
 		// Ana, who edits them, is told.
 		expect(stepStatus(db, 'u1', 'figure', G1).lines.length).toBeGreaterThan(0);
@@ -187,7 +187,7 @@ describe('stepStatus', () => {
 
 	it('Luka, who only reads the club’s: its copy behind his is no line', () => {
 		save(F2, { notes: 'Luka notes' }, 'u2');
-		expect(stepStatus(db, 'u2', 'figure', F2)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u2', 'figure', F2)).toEqual({ lines: [], sending: 0 });
 		// Ana, who edits both, is told the club is behind.
 		expect(stepStatus(db, 'u1', 'figure', G1).lines).toEqual([]); // her view never shows Luka's copy
 	});
@@ -204,7 +204,7 @@ describe('stepStatus', () => {
 	it('Luka on the club’s page: his own change is no line, the club’s is', () => {
 		save(F2, { notes: 'Luka notes' }, 'u2');
 		// His own deliberate change: nothing for Update mine to bring, so no line.
-		expect(stepStatus(db, 'u2', 'figure', G1)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u2', 'figure', G1)).toEqual({ lines: [], sending: 0 });
 		// The club's own change still shows: his copy is behind it.
 		setStart(G1, 3);
 		expect(stepStatus(db, 'u2', 'figure', G1).lines).toEqual([
@@ -217,8 +217,68 @@ describe('stepStatus', () => {
 		const club = await copy(old, T1_SALSA);
 		save(club, { name: 'Basic' });
 		expect(row(club).name).toBe('Basic');
-		expect(stepStatus(db, 'u1', 'figure', old)).toEqual({ lines: [] });
-		expect(stepStatus(db, 'u1', 'figure', club)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u1', 'figure', old)).toEqual({ lines: [], sending: 0 });
+		expect(stepStatus(db, 'u1', 'figure', club)).toEqual({ lines: [], sending: 0 });
+	});
+});
+
+describe('stepStatus while the device has changes on their way', () => {
+	it('copies behind on what the flow carries: no lines, counted as sending', () => {
+		save(T, { notes: 'New notes' });
+		expect(stepStatus(db, 'u1', 'figure', T).lines.map((l) => l.state)).toEqual([
+			'behind',
+			'behind'
+		]);
+		expect(stepStatus(db, 'u1', 'figure', T, true)).toEqual({ lines: [], sending: 2 });
+		// The Moves lists count them neither.
+		expect(outOfStep(db, 'u1', 'figure', [T], true)).toEqual(new Map());
+	});
+
+	it('the page’s switch off: nothing flows, the lines stay', () => {
+		setSyncSettings(db, 'u1', 'figure', T, { ...DEFAULT_SYNC, on: false }, T0);
+		save(T, { notes: 'New notes' });
+		const s = stepStatus(db, 'u1', 'figure', T, true);
+		expect(s.sending).toBe(0);
+		expect(s.lines).toHaveLength(2);
+	});
+
+	it('a copy whose switch is off keeps its line; the other is sending', () => {
+		setSyncSettings(db, 'u1', 'figure', G2, { ...DEFAULT_SYNC, on: false }, T0);
+		save(T, { notes: 'New notes' });
+		const s = stepStatus(db, 'u1', 'figure', T, true);
+		expect(s.sending).toBe(1);
+		expect(s.lines).toEqual([expect.objectContaining({ id: G2, state: 'behind' })]);
+		expect(outOfStep(db, 'u1', 'figure', [T], true).get(T)).toBe(1);
+	});
+
+	it('what a copy’s options keep out (a recording, media off) stays a line', () => {
+		recording(T);
+		const s = stepStatus(db, 'u1', 'figure', T, true);
+		expect(s.sending).toBe(0);
+		expect(s.lines.map((l) => [l.id, l.fields])).toEqual([
+			[G2, ['1 recording']],
+			[G1, ['1 recording']]
+		]);
+	});
+
+	it('a copy’s own change is never on its way: changed and both stay', () => {
+		save(T, { notes: 'Ana notes' });
+		save(G1, { notes: 'Club notes' });
+		setStart(G2, 3);
+		const s = stepStatus(db, 'u1', 'figure', T, true);
+		expect(s.lines.map((l) => [l.id, l.state])).toEqual([
+			[G1, 'both'],
+			[G2, 'changed']
+		]);
+		// G2 is behind on the notes too: that part is on its way.
+		expect(s.sending).toBe(1);
+	});
+
+	it('a page the person only reads sends nothing', () => {
+		setStart(G1, 3);
+		const s = stepStatus(db, 'u2', 'figure', G1, true);
+		expect(s.sending).toBe(0);
+		expect(s.lines).toEqual([expect.objectContaining({ id: F2, state: 'behind' })]);
 	});
 });
 
