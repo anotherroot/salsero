@@ -47,6 +47,7 @@ const ID_TABLES = [
 	'ai_actions',
 	'ai_lines',
 	'ai_timelines',
+	'video_loops',
 	'feedback'
 ] as const;
 

@@ -320,6 +320,37 @@ export const aiTimelines = sqliteTable(
 );
 
 /**
+ * A figure's loop for the pickers (spec 2026-11-12-picker-preview): 12 small
+ * frames of a section linked to a figure, cut by the home worker into
+ * `$DATA_DIR/loops/<spot>-<start>-<end>.jpg` (and `…-still.jpg`). One row per
+ * spot AND span: an edited section is a new row, and the sweep
+ * (`queueLoops`) drops the old one with its files. Derived and never synced:
+ * the file name comes from the spot itself, so pages and phones need no row.
+ * Lease and attempts as `ai_timelines`. A NEW table, so its CHECK is safe.
+ */
+export const videoLoops = sqliteTable(
+	'video_loops',
+	{
+		id: mintedId('video_loops'),
+		spotId: integer('spot_id').notNull(),
+		startMs: integer('start_ms').notNull(),
+		endMs: integer('end_ms').notNull(),
+		status: text('status', { enum: ['queued', 'ready', 'failed'] }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		/** The worker's lease, epoch ms. */
+		claimedAt: integer('claimed_at'),
+		failedAt: integer('failed_at'),
+		readyAt: integer('ready_at'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check('video_loops_status_ck', sql`${t.status} in ('queued', 'ready', 'failed')`),
+		uniqueIndex('video_loops_span_idx').on(t.spotId, t.startMs, t.endMs)
+	]
+);
+
+/**
  * The newest app version each person has opened, per dance. Written by the
  * request hook (`app-seen.ts`), read by the admin's list of who needs an update.
  */
