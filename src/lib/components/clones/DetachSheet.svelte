@@ -20,10 +20,10 @@
 
 	/**
 	 * Detach (board C8 p1): the copy stops following its source. Your own
-	 * copy stays yours and stays shown with theirs, as twins; a group's row
-	 * just becomes an ordinary group row. The page stays where it is and
-	 * refreshes: its tabs now show the others as twins, and the "updated
-	 * since" line is gone.
+	 * copy stays yours, on its own (no twins: Same as… shows it with theirs);
+	 * a group's row just becomes an ordinary group row. The page stays where
+	 * it is and refreshes: the others' tabs and the "updated since" line are
+	 * gone.
 	 */
 	let {
 		open,

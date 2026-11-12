@@ -304,7 +304,7 @@ src/lib/sound/       one sound at a time: one-sound.ts is PURE (who stops when s
                      from the document; `stopsBy` (an element whose stop is not pause(): the
                      run's song, an About clip, the detached sample), `holdSound`/`soundFrom`
                      (a YouTube embed), `data-ambient` (a muted loop that never takes part);
-                     the Android app's `SalsaAudio` (audio focus, android AudioFocus.kt)
+                     `APP_AUDIO_FOCUS` (off): the 1.12 app's `SalsaAudio` focus paused our own sound; app 1.13 has none
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
                      and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
                      `.theme-media` in `layout.css` (the player's palette).

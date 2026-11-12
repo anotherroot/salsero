@@ -506,7 +506,7 @@ describe('Detach and reconnecting (board C8)', () => {
 			'In a group, Detach just makes it an ordinary group routine.'
 		);
 		expect(detachMine()).toBe(
-			'Your copy stays yours, as it is. It stays shown together with theirs, as twins.'
+			'Your copy stays yours, as it is, on its own. To still show it with theirs, use Same as…'
 		);
 		expect(detachNoMore()).toBe('No more “updated since”, and no Take theirs to hit by mistake.');
 		expect(detachButton()).toBe('Detach');
