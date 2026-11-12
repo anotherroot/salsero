@@ -7,17 +7,6 @@ import type { Side } from '$lib/gestures/swipe';
 import type { ResolvedPathname } from '$app/types';
 import type { IconName } from '$lib/icons/icons';
 
-export interface AltView {
-	id: number;
-	label: string;
-	/** A `resolve()` result, not a bare string — see `RowView.href`. */
-	href: ResolvedPathname;
-	/** The group's name when this option is a group's figure. */
-	source: string | null;
-	/** Its length in this slot when a routine sets it (spec 2026-11-11): the chip that opens How long?. */
-	length: number | null;
-}
-
 export interface RowView {
 	/** The slot's id. */
 	id: number;
@@ -43,8 +32,6 @@ export interface RowView {
 	href: ResolvedPathname | null;
 	isRoutine: boolean;
 	/** Every option but the main figure, in the order they were added. */
-	alternatives: AltView[];
-	canAddAlternative: boolean;
 	/** A refusal aimed at this slot. */
 	failure: string | null;
 	/**

@@ -64,7 +64,6 @@
 		seamLabel,
 		selectionTitle,
 		slotMeta,
-		alternativeAnchor,
 		type OwnSend
 	} from '$lib/routines/page';
 	import type { RowEdges } from '$lib/routines/routines';
@@ -370,21 +369,10 @@
 						? null
 						: figureHref(main),
 				isRoutine,
-				alternatives: slot.figureIds
-					.slice(1)
-					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
-					.map((f) => ({
-						id: f,
-						label: optionName(f),
-						href: figureHref(f),
-						source: sourceOf(f),
-						length: lengthIn(slot, f)
-					})),
 				length: (() => {
 					const n = main === undefined || isRoutine ? null : lengthIn(slot, main);
 					return n === null ? null : { figureId: main as number, n };
 				})(),
-				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
 				failure:
 					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
 						? place.message
@@ -492,27 +480,6 @@
 		await done;
 	}
 
-	async function removeAlternative(stepId: number, figureId: number, label: string) {
-		const keys = (data.slots.find((s) => s.id === stepId)?.figureIds ?? [])
-			.slice(1)
-			.map((f) => `alt-${stepId}-${f}`);
-		const key = `${stepId}:${figureId}`;
-		// Its length in the slot comes back with it (spec 2026-11-11).
-		const length = data.slots.find((s) => s.id === stepId)?.lengths[figureId] ?? '';
-		goneOptions = [...goneOptions, key];
-		swiped = null;
-		const result = await send('removeOption', { stepId, figureId });
-		goneOptions = goneOptions.filter((k) => k !== key);
-		if (result.type === 'success') {
-			// When it went: in a group, Undo brings back what the remove took off members' Today.
-			const removedAt = typeof result.data?.removedAt === 'number' ? result.data.removedAt : '';
-			showToast(t().routine.slot.removed(label), () =>
-				send('restoreOption', { stepId, figureId, removedAt, length })
-			);
-			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
-		}
-	}
-
 	function openPicker(at: number, from: PickFrom | null) {
 		const edges = from === null ? null : shown[from.row]?.edges;
 		const anchor: Anchor =
@@ -532,16 +499,6 @@
 						? t().routine.picker.after(from.row + 1)
 						: t().routine.picker.before(from.row + 1);
 		picker = { title, anchor, insertAt: at, stepId: null };
-	}
-
-	function openAlternative(stepId: number) {
-		const slot = data.slots.find((s) => s.id === stepId);
-		if (!slot) return;
-		const main = figuresById.get(slot.figureIds[0]);
-		// The slot as the routine walks it (spec 2026-11-11), the way `addOption` judges it.
-		const anchor = alternativeAnchor(stepId, data.slots, data.edges, figuresById);
-		if (!main || !anchor) return;
-		picker = { title: t().routine.picker.alternative(main.label), anchor, insertAt: null, stepId };
 	}
 
 	type PickerState = NonNullable<typeof picker>;
@@ -601,9 +558,6 @@
 		p: PickerState,
 		c: Candidate
 	): { start: number; want: number | null; pre: number | null } {
-		if (p.anchor.kind === 'alternative') {
-			return { start: p.anchor.startCount, want: p.anchor.next, pre: null };
-		}
 		const at = p.insertAt ?? rows.length;
 		const incoming = shown[at - 1]?.edges.next ?? null;
 		const start = startOn(c.startCounts, c.startCounts[0] ?? 1, incoming);
@@ -669,18 +623,14 @@
 	async function put(p: PickerState, c: Candidate, length?: number) {
 		lastPick = { p, c };
 		const sized: Record<string, Field> = length === undefined ? {} : { length };
-		if (p.stepId !== null) {
-			await send('addOption', { stepId: p.stepId, figureId: c.id, ...sized });
-			return;
-		}
 		const content: Record<string, Field> =
 			c.kind === 'figure' ? { figureId: c.id, ...sized } : { childId: c.id };
 		const result = await send('insert', { at: p.insertAt ?? rows.length, ...content });
 		if (result.type === 'success' && typeof result.data?.stepId === 'number') {
 			const id = result.data.stepId;
 			flash = id;
-			// The new slot opens expanded, as if tapped — its note field and
-			// + Alternative ready. Expansion is off while selecting, so a pick made
+			// The new slot opens expanded, as if tapped — its note field
+			// ready. Expansion is off while selecting, so a pick made
 			// from Add above / below ends selection mode first.
 			if (selecting) stopSelecting();
 			expanded = id;
@@ -1296,16 +1246,6 @@
 												></span
 											>{/if}
 										{#if row.meta}<span class="text-[13px] text-muted">{row.meta}</span>{/if}
-										{#if row.alternatives.length > 0}
-											<span class="text-[13px] text-ink-2"
-												>{t().figure.or}
-												{#each row.alternatives as a, k (a.id)}{k > 0
-														? ', '
-														: ''}{a.label}{#if a.source}
-														<Badge tone="neutral"><Icon name="group" size={14} />{a.source}</Badge
-														>{/if}{/each}</span
-											>
-										{/if}
 										{#if row.note}<span class="text-[13px] text-ink-2 italic">{row.note}</span>{/if}
 									</span>
 								</li>
@@ -1349,8 +1289,6 @@
 						ondragend={() => (dragging = false)}
 						onreorder={reorder}
 						ondelete={removeSlot}
-						onremoveAlt={removeAlternative}
-						onaddAlt={openAlternative}
 						onlength={openLength}
 						onend={(id) => (endFor = id)}
 						onnote={(id, note) => send('note', { stepId: id, note })}

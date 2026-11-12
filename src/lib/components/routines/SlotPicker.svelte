@@ -52,7 +52,6 @@
 	const context = $derived(anchorText(anchor, positionName));
 
 	const emptyText = $derived.by(() => {
-		if (anchor.kind === 'alternative') return t().routine.picker.noAlternative;
 		if (query.trim() !== '' && list.emptiedBy.length === 0)
 			return t().routine.picker.noMatch(query.trim());
 		if (context) return t().routine.picker.nothingFits(context);

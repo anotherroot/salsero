@@ -938,14 +938,12 @@ describe('count takes are per person', () => {
 import {
 	addChildSlot,
 	addFigureSlot,
-	addOption,
 	createRoutine,
 	duplicateRoutine,
 	embeddable,
 	makeSection,
 	listPickRoutines,
 	listRoutines,
-	restoreOption,
 	restoreSlots,
 	routineShapes,
 	routineSlots
@@ -1039,42 +1037,9 @@ describe('routines: the data functions stand behind a wall', () => {
 
 	describe('ids in a form body from the other side of the wall', () => {
 		let theirFigure: number;
-		let sibling: number;
 
 		beforeEach(() => {
 			theirFigure = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Theirs' })!.figure.id;
-			// Same landing as figureId, in u1's own wall: the control that a refusal
-			// below comes from the wall and not from the alternative rules.
-			sibling = createVariationIn(db, groupId, {
-				name: 'Doble',
-				partner: 'partner',
-				style: 'salsa',
-				notes: null
-			})!.id;
-		});
-
-		it('accepts u1’s own sibling variation as an alternative (the control)', () => {
-			const stepId = addFigureSlot(db, mine, figureId)!;
-			expect(addOption(db, stepId, sibling)).toBe(true);
-		});
-
-		it("addOption, restoreOption and insertSlot refuse another person's figure", async () => {
-			const stepId = addFigureSlot(db, mine, figureId)!;
-			expect(addOption(db, stepId, theirFigure)).toBe(false);
-			expect(restoreOption(db, stepId, theirFigure)).toBe(false);
-			expect(addFigureSlot(db, mine, theirFigure)).toBeNull();
-			const res = (await call(
-				routinePage.actions.addOption,
-				post(U1, 'salsa', { stepId: String(stepId), figureId: String(theirFigure) }, String(mine))
-			)) as { status: number };
-			expect(res.status).toBe(400);
-			const inserted = (await call(
-				routinePage.actions.insert,
-				post(U1, 'salsa', { at: '0', figureId: String(theirFigure) }, String(mine))
-			)) as { status: number };
-			expect(inserted.status).toBe(400);
-			expect(routineSlots(db, mine)).toHaveLength(1);
-			expect(routineSlots(db, mine)[0].figureIds).toEqual([figureId]);
 		});
 
 		it('restoreSlots refuses a snapshot holding another person’s figure or routine', async () => {
@@ -1166,8 +1131,6 @@ describe("the routine pages refuse another person's routine", () => {
 		['rename', { name: 'Hijacked', notes: '' }],
 		['duplicate', {}],
 		['archive', {}],
-		['addOption', { figureId: '1' }],
-		['removeOption', { figureId: '1' }],
 		['note', { note: 'Hijacked' }],
 		['insert', { at: '0', figureId: '1' }],
 		['reorder', { index: '1' }],
@@ -1176,7 +1139,6 @@ describe("the routine pages refuse another person's routine", () => {
 			'restore',
 			{ snapshot: JSON.stringify([{ position: 0, childId: null, note: null, figureIds: [1] }]) }
 		],
-		['restoreOption', { figureId: '1' }],
 		['duplicateMany', {}],
 		['extract', { name: 'Taken' }]
 	])('%s on u1’s routine as u2 is a 404 and changes nothing', async (action, extra) => {
@@ -1883,14 +1845,11 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		['rename', { name: 'Hijacked', notes: '' }],
 		['duplicate', {}],
 		['archive', {}],
-		['addOption', { stepId: '1', figureId: '1' }],
-		['removeOption', { stepId: '1', figureId: '1' }],
 		['note', { stepId: '1', note: 'x' }],
 		['insert', { at: '0', figureId: '1' }],
 		['reorder', { stepId: '1', index: '0' }],
 		['deleteMany', { stepIds: '1' }],
 		['restore', { snapshot: '[]' }],
-		['restoreOption', { stepId: '1', figureId: '1' }],
 		['duplicateMany', { stepIds: '1' }],
 		['extract', { stepIds: '1', name: 'X' }]
 	])('%s on a group routine is a 404 for a member, and changes nothing', async (action, fields) => {

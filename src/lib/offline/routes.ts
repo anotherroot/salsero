@@ -200,7 +200,6 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		create: 'device'
 	},
 	'/[dance]/(moves)/routines/[id]': {
-		addOption: 'device',
 		addSong: 'device',
 		archive: 'device',
 		copyTo: 'network',
@@ -223,13 +222,11 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		noteSong: 'device',
 		pack: 'device',
 		promote: 'device',
-		removeOption: 'device',
 		removeSong: 'device',
 		unpack: 'device',
 		rename: 'device',
 		reorder: 'device',
 		restore: 'device',
-		restoreOption: 'device',
 		sameAs: 'device',
 		separate: 'device',
 		sync: 'network'

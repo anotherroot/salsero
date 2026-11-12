@@ -5,8 +5,7 @@
  * PURE and client-safe, like the rest of `src/lib/routines/`: the load hands
  * over candidates with their positions, and nothing here knows dances exist.
  * An untagged side fits anything: every comparison of hands goes through
- * `meet` (`src/lib/graph/graph.ts`), and an alternative's ends must fit the
- * slot's end (`endFits`, `end.ts`).
+ * `meet` (`src/lib/graph/graph.ts`).
  *
  * Fitting is ONE-SIDED on purpose. Building down from a slot matches where it
  * lands; building up into one matches where it starts. A gap often takes more
@@ -14,7 +13,6 @@
  * exactly the figure that starts the bridge.
  */
 import { meet } from '$lib/graph/graph';
-import { endFits } from './end';
 import { LENGTH_CHOICES, nextCount } from '$lib/graph/timing';
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
@@ -64,19 +62,7 @@ export type Anchor =
 	 * filter applies to both sides at once — Count means it starts on the count
 	 * the slot above leaves AND leaves the slot below on its count.
 	 */
-	| { kind: 'between'; after: After; before: Before }
-	/** Standing in for a slot's main figure. `exclude` is what the slot already holds. */
-	| {
-			kind: 'alternative';
-			starts: number[];
-			startCount: number;
-			/** Where the slot ends (its effective end: `end.ts`), what an alternative must reach. */
-			ends: number[];
-			/** The main figure's own ends: the rule while the slot's end is not one position. */
-			mainEnds: number[];
-			next: number;
-			exclude: number[];
-	  };
+	| { kind: 'between'; after: After; before: Before };
 
 export interface Filters {
 	count: boolean;
@@ -167,22 +153,6 @@ function fitsHold(c: Candidate, a: Anchor): boolean {
 	return true;
 }
 
-/**
- * The server's rule for an alternative (`addOption`), mirrored: the same set of
- * ends, the same counts, and starts that meet the main figure's. Not
- * switchable — the server would refuse anything else.
- */
-function standsIn(c: Candidate, a: Extract<Anchor, { kind: 'alternative' }>): boolean {
-	return (
-		c.kind === 'figure' &&
-		!a.exclude.includes(c.id) &&
-		endFits(c.ends, a.ends, a.mainEnds) &&
-		c.startCounts.includes(a.startCount) &&
-		(c.free === true || landsFrom(c, a.startCount) === a.next) &&
-		meet(c.starts, a.starts)
-	);
-}
-
 export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filters): PickList {
 	const t = toggles(anchor);
 	// Word by word, in any order: a variation's label is "Enchufla · Doble", so
@@ -195,10 +165,7 @@ export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filte
 
 	const build = (on: { count: boolean; hold: boolean }) => {
 		const ok = (c: Candidate) =>
-			matches(c) &&
-			(anchor.kind === 'alternative'
-				? standsIn(c, anchor)
-				: (!on.count || fitsCount(c, anchor)) && (!on.hold || fitsHold(c, anchor)));
+			matches(c) && (!on.count || fitsCount(c, anchor)) && (!on.hold || fitsHold(c, anchor));
 		const groups = new Map<
 			number,
 			{ name: string; team?: TeamRef; total: number; fitting: Candidate[] }
@@ -226,8 +193,7 @@ export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filte
 				});
 			}
 		}
-		const routines =
-			anchor.kind === 'alternative' ? [] : candidates.filter((c) => c.kind === 'routine' && ok(c));
+		const routines = candidates.filter((c) => c.kind === 'routine' && ok(c));
 		return { figures, routines };
 	};
 	const isEmpty = (l: ReturnType<typeof build>) =>
@@ -286,35 +252,6 @@ export function canBridge(candidates: Candidate[], anchor: Anchor | null): boole
 	return l.figures.length > 0 || l.routines.length > 0;
 }
 
-/**
- * Standing in for a main figure. Null when it is archived or gone: nothing to
- * match. A main figure with no position has an anchor like any other: its
- * alternatives must have no ends either, and may start anywhere.
- *
- * `row` is the slot as the routine walks it (`rowEdgesIn`): an alternative
- * starts where the main figure does there, and leaves the next slot where the
- * slot does. Without it, the main figure on its own usual start.
- */
-export function anchorAlternative(
-	main: Candidate | undefined,
-	exclude: number[],
-	row?: RowEdges
-): Anchor | null {
-	if (!main || main.startCounts.length === 0) return null;
-	const startCount = row?.start ?? main.startCounts[0];
-	const next = row ? row.next : main.next;
-	if (next === null) return null;
-	return {
-		kind: 'alternative',
-		starts: main.starts,
-		startCount,
-		ends: row?.ends ?? main.ends,
-		mainEnds: main.ends,
-		next,
-		exclude
-	};
-}
-
 /** Whether `n` counts from `start` leave the next slot on `want` (null: anything goes). */
 export function fitsLength(start: number, n: number, want: number | null): boolean {
 	return want === null || nextCount(start, n) === want;
@@ -362,13 +299,6 @@ export function anchorText(a: Anchor, name: (id: number) => string): string | nu
 		const to = anchorText(a.before, name);
 		if (from && to) return `${from} · ${to[0].toLowerCase()}${to.slice(1)}`;
 		return from ?? to;
-	}
-	if (a.kind === 'alternative') {
-		const counts = `${a.startCount}→${a.next}`;
-		if (a.starts.length === 0 && a.ends.length === 0) return counts;
-		const from = a.starts.length > 0 ? names(a.starts) : w.anywhereFrom;
-		const to = a.ends.length > 0 ? names(a.ends) : w.anywhereTo;
-		return `${from} → ${to}, ${counts}`;
 	}
 	return null;
 }

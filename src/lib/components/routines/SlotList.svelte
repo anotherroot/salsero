@@ -44,8 +44,6 @@
 		ondragend: () => void;
 		onreorder: (id: number, to: number) => Promise<void>;
 		ondelete: (id: number) => void;
-		onremoveAlt: (id: number, figureId: number, label: string) => void;
-		onaddAlt: (id: number) => void;
 		/** A slot option's length chip (spec 2026-11-11). */
 		onlength: (id: number, figureId: number, current: number) => void;
 		/** A slot's end chip or cell (spec 2026-11-11, slot end). */
@@ -70,8 +68,6 @@
 		ondragend,
 		onreorder,
 		ondelete,
-		onremoveAlt,
-		onaddAlt,
 		onlength,
 		onend,
 		onnote,
@@ -339,8 +335,6 @@
 						ongrab={(e) => grab(e, i)}
 						onkeymove={(delta) => keymove(row.id, i + delta)}
 						ondelete={() => ondelete(row.id)}
-						onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
-						onaddAlt={() => onaddAlt(row.id)}
 						onaddBefore={() => onadd(i, { row: i, side: 'before' })}
 						onaddAfter={() => onadd(i + 1, { row: i, side: 'after' })}
 						onlength={(figureId, current) => onlength(row.id, figureId, current)}

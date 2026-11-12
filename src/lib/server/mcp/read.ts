@@ -319,7 +319,7 @@ const TOOLS: Tool[] = [
 	getOne(
 		'routine',
 		'Get a routine',
-		'A routine`s slots in order: each slot`s figure (or embedded routine), its alternatives, note and the position it ends in when one is chosen (ends_in); and the routine`s notes.',
+		'A routine`s slots in order: each slot`s figure (or embedded routine or section), its figure option with its length (alternatives), note and the position it ends in when one is chosen (ends_in); and the routine`s notes. Slots no longer have alternatives: one figure each.',
 		(v, r) => ({
 			...item(v, 'routine', r),
 			notes: r.notes,

@@ -9,7 +9,6 @@ import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
-	addOption,
 	setOptionLength,
 	setSlotEnd,
 	archiveRoutine,
@@ -25,8 +24,6 @@ import {
 	detachSection,
 	insertSlot,
 	moveSlotTo,
-	removeOption,
-	restoreOption,
 	restoreSlots,
 	routineShapes,
 	routineSlots,
@@ -522,31 +519,6 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		);
 	},
 
-	addOption: async ({ params, request, locals }) => {
-		const db = getDb();
-		const form = await request.formData();
-		// Read after the body: the routine as it is now, not before the wait.
-		const routine = routineOf(params, locals);
-		const stale = staleSlots(db, routine, form);
-		if (stale) return stale;
-		const stepId = int(form, 'stepId');
-		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined) {
-			return slotFail(t().routine.refused.readSlot, stepId);
-		}
-		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail(t().routine.refused.notThisRoutine, stepId);
-		}
-		// A figure whose length is set in the routine comes with the length its sheet chose.
-		if (!addOption(db, stepId, figureId, by(params, locals), int(form, 'length'))) {
-			const space = spaceOfRow(routine, by(params, locals));
-			const archived = archivedRefusal(db, space, { figureId }, { stepId });
-			if (archived) return archived;
-			return slotFail(t().routine.refused.notAlternative, stepId);
-		}
-		return done(routine.id);
-	},
-
 	/** An option's length in its slot: the How long? sheet from the slot's chip (spec 2026-11-11). */
 	length: async ({ params, request, locals }) => {
 		const db = getDb();
@@ -591,29 +563,6 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			return slotFail(t().routine.refused.end, stepId);
 		}
 		return done(routine.id);
-	},
-
-	removeOption: async ({ params, request, locals }) => {
-		const db = getDb();
-		const form = await request.formData();
-		// Read after the body: the routine as it is now, not before the wait.
-		const routine = routineOf(params, locals);
-		const stale = staleSlots(db, routine, form);
-		if (stale) return stale;
-		const stepId = int(form, 'stepId');
-		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined) {
-			return slotFail(t().routine.refused.readSlot, stepId);
-		}
-		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail(t().routine.refused.notThisRoutine, stepId);
-		}
-		const now = serverNow();
-		if (!removeOption(db, stepId, figureId, now, by(params, locals))) {
-			return slotFail(t().routine.refused.holdSomething, stepId);
-		}
-		// Handed back so Undo can bring back the entries this remove took (R10).
-		return done(routine.id, { removedAt: now });
 	},
 
 	addSong: async ({ params, request, locals }) => {
@@ -742,28 +691,6 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const snapshot = parseSnapshots(String(form.get('snapshot') ?? ''));
 		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot, by(params, locals))) {
 			return fail(400, { message: t().routine.refused.putBack });
-		}
-		return done(routine.id);
-	},
-
-	restoreOption: async ({ params, request, locals }) => {
-		const db = getDb();
-		const form = await request.formData();
-		// Read after the body: the routine as it is now, not before the wait.
-		const routine = routineOf(params, locals);
-		const stale = staleSlots(db, routine, form);
-		if (stale) return stale;
-		const stepId = int(form, 'stepId');
-		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined) {
-			return slotFail(t().routine.refused.readSlot, stepId);
-		}
-		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail(t().routine.refused.notThisRoutine, stepId);
-		}
-		const removedAt = int(form, 'removedAt');
-		if (!restoreOption(db, stepId, figureId, by(params, locals), removedAt, int(form, 'length'))) {
-			return slotFail(t().routine.refused.altPutBack, stepId);
 		}
 		return done(routine.id);
 	},

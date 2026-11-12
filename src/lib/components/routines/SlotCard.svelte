@@ -36,8 +36,6 @@
 		ongrab: (e: PointerEvent) => void;
 		onkeymove: (delta: -1 | 1) => void;
 		ondelete: () => void;
-		onremoveAlt: (figureId: number, label: string) => void;
-		onaddAlt: () => void;
 		/** Add a slot before / after this one: the open card's ↑ and ↓. */
 		onaddBefore: () => void;
 		onaddAfter: () => void;
@@ -65,8 +63,6 @@
 		ongrab,
 		onkeymove,
 		ondelete,
-		onremoveAlt,
-		onaddAlt,
 		onaddBefore,
 		onaddAfter,
 		onlength,
@@ -100,9 +96,6 @@
 					icon: 'ends-at',
 					onclick: onend
 				};
-			}
-			if (tool === 'alternative') {
-				return { key: tool, label: t().routine.slot.alternative, icon: 'plus', onclick: onaddAlt };
 			}
 			if (tool === 'before') {
 				return {
@@ -310,16 +303,6 @@
 							{row.note}
 						</p>
 					{/if}
-					{#if row.alternatives.length > 0}
-						<p
-							class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
-								? 'text-ink-2'
-								: 'text-muted'}"
-						>
-							<b class="font-bold">{t().figure.or}</b>
-							{row.alternatives.map((a) => a.label).join(', ')}
-						</p>
-					{/if}
 				{/if}
 			</div>
 
@@ -392,61 +375,6 @@
 		{/if}
 	</div>
 </Swipeable>
-
-{#if expanded && !row.isRoutine && row.alternatives.length > 0}
-	<!-- The alternatives inside the lifted card, under "OR" (spec 2026-11-11, routine lift, T3). -->
-	<div
-		role="group"
-		aria-label={t().routine.slot.alternatives(index + 1)}
-		class="flex flex-col gap-1.5 pt-1 pr-3 pb-3 pl-[80px]"
-	>
-		<p class="text-[12px] font-extrabold tracking-[0.03em] text-muted uppercase">
-			{t().figure.or}
-		</p>
-		{#each row.alternatives as alt (alt.id)}
-			{@const key = `alt:${row.id}:${alt.id}`}
-			<!-- A swipe left still removes it too. `accent-soft` is opaque, so the red
-			     under a swiped row does not show through. -->
-			<Swipeable
-				{key}
-				rounded="rounded-xl"
-				reveal={88}
-				open={sideOf(key)}
-				onchange={(side) => onswipe(key, side)}
-				end={{ label: t().common.remove, onclick: () => onremoveAlt(alt.id, alt.label) }}
-			>
-				<div class="flex h-11 items-center rounded-xl bg-accent-soft pl-3.5">
-					<a
-						href={alt.href}
-						data-focus="alt-{row.id}-{alt.id}"
-						class="min-w-0 flex-1 truncate text-[15px] leading-[44px] font-bold text-ink"
-						>{alt.label}{#if alt.source}
-							<span class="ml-1.5 align-middle"
-								><Badge tone="neutral"><Icon name="group" size={14} />{alt.source}</Badge></span
-							>{/if}</a
-					>
-					{#if alt.length !== null}
-						{@const n = alt.length}
-						<!-- Each alternative keeps its own length (spec 2026-11-11). -->
-						<button
-							type="button"
-							class="h-11 shrink-0 cursor-pointer px-2 text-[13px] font-extrabold text-accent-text"
-							aria-label={t().routine.length.change(n)}
-							onclick={() => onlength(alt.id, n)}>{t().routine.length.chip(n)}</button
-						>
-					{/if}
-					<button
-						type="button"
-						class="grid size-11 shrink-0 cursor-pointer place-items-center text-muted"
-						aria-label={t().routine.slot.remove(alt.label)}
-						title={t().common.remove}
-						onclick={() => onremoveAlt(alt.id, alt.label)}><Icon name="close" size={18} /></button
-					>
-				</div>
-			</Swipeable>
-		{/each}
-	</div>
-{/if}
 
 {#if expanded}
 	<CardToolbar label={t().routine.slot.toolbar(index + 1)} items={tools} />

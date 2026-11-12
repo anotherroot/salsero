@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { openDb } from './db';
 import { demoteImpact, demoteRoutine } from './sections';
 import {
@@ -1690,5 +1691,19 @@ describe('duplicateRoutine at any depth (spec 2026-11-12)', () => {
 		expect(kids[0]).not.toBe(unnamed);
 		expect(getRoutine(db, kids[0]!)).toMatchObject({ name: '', isSection: 1 });
 		expect(kids[1]).toBe(named.id);
+	});
+});
+
+describe('the drop-alternatives migration (spec 2026-11-12)', () => {
+	it('keeps each slot’s main option and removes the rest', () => {
+		const db = openDb(':memory:');
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const [a, b, c] = [figure(db, 'A'), figure(db, 'B'), figure(db, 'C')];
+		const step = addFigureSlot(db, r.id, a.id)!;
+		db.insert(routineStepOptions).values({ stepId: step, figureId: b.id, createdAt: 1 }).run();
+		db.insert(routineStepOptions).values({ stepId: step, figureId: c.id, createdAt: 1 }).run();
+		const sql = readFileSync('drizzle/0054_drop-alternatives.sql', 'utf8');
+		(db as unknown as { $client: { exec: (s: string) => void } }).$client.exec(sql);
+		expect(routineSlots(db, r.id)[0].figureIds).toEqual([b.id]);
 	});
 });
