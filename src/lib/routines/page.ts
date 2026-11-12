@@ -81,20 +81,19 @@ export function handsLine(starts: number[], ends: number[], name: (id: number) =
  *
  * A row that knows its end (`endState`, spec 2026-11-11, slot end) leaves it
  * to the card, which draws it as a chip or a word, and names no start: the
- * start is where the slot above ended. Only the routine's `first` row says
- * where it starts ("1→1 · Open →").
+ * start is where the slot above ended, and the routine's own start is in the
+ * facts line above the slots.
  */
 export function slotMeta(
 	e: RowEdges,
 	name: (id: number) => string,
-	childSlots: number | null,
-	first = false
+	childSlots: number | null
 ): string {
 	const from = handsLine(e.starts, [], name);
 	if (childSlots === null && e.endState !== undefined) {
 		if (e.startCounts.length === 0) return '';
 		const counts = `${e.start ?? e.startCounts.join('/')}→${e.next ?? '?'}`;
-		return first && from !== '' ? `${counts} · ${from}` : counts;
+		return counts;
 	}
 	const differ = t().routine.endsDiffer;
 	const hands =
