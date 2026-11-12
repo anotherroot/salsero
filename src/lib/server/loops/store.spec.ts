@@ -131,3 +131,21 @@ describe('claim, source, finish, fail', () => {
 		expect(finishLoop(db, id, T + 2)).toBeNull();
 	});
 });
+
+describe('a failed loop gets another day (review)', () => {
+	it('is queued again a day after it failed, its attempts fresh', () => {
+		const { db } = setup();
+		queueLoops(db, T);
+		failLoop(db, claimLoop(db, T)!.id, 'source did not answer', true, T + 1);
+		queueLoops(db, T + 3600_000);
+		expect(rows(db)[0]).toMatchObject({ status: 'failed' });
+		queueLoops(db, T + 25 * 3600_000);
+		expect(rows(db)[0]).toMatchObject({
+			status: 'queued',
+			attempts: 0,
+			error: null,
+			failedAt: null
+		});
+		expect(claimLoop(db, T + 25 * 3600_000)).not.toBeNull();
+	});
+});

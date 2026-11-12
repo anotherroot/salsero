@@ -22,3 +22,11 @@ export function tileShows(picture: Picture, s: { still: boolean; failed: boolean
 	if (!picture || s.failed) return { kind: 'empty' };
 	return s.still ? { kind: 'still', src: picture.still } : { kind: 'strip', src: picture.strip };
 }
+
+/**
+ * Whether this picture failed to load: the tile remembers WHICH picture failed
+ * (`failedFor`, its strip), since a row's tile is reused for another figure as
+ * a search narrows the list.
+ */
+export const failedNow = (failedFor: string | null, picture: Picture): boolean =>
+	picture !== null && failedFor === picture.strip;

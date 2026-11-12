@@ -54,6 +54,9 @@ export function wantedMedia(db: SqliteDb, userId: string): MediaFile[] {
 }
 
 const key = (f: { kind: string; file: string }) => `${f.kind}/${f.file}`;
+
+/** A figure loop that answered 404 is asked for again after this long. */
+export const LOOP_RETRY_MS = 3600_000;
 const isVideo = (f: MediaFile) => VIDEO_KINDS.includes(f.kind);
 
 /** Why wanted videos are not coming now (offline phase 4b). */
@@ -115,7 +118,21 @@ export async function syncMedia(deps: {
 	log: Pick<Console, 'warn'>;
 	/** Aborted: stop now, the file in flight included (the store is being emptied, or the settings changed). */
 	signal?: AbortSignal;
+	/**
+	 * Figure loops that answered 404 (not cut yet, or failed), by key, when: not asked
+	 * again for `LOOP_RETRY_MS`. The keeper holds one map across passes.
+	 */
+	loopMisses?: Map<string, number>;
+	now?: () => number;
 }): Promise<PassOut> {
+	const now = deps.now ?? (() => Date.now());
+	const misses = deps.loopMisses ?? new Map<string, number>();
+	/** This loop answered 404 a while ago, or its strip did (its still waits with it). */
+	const missedLately = (f: MediaFile): boolean => {
+		const t =
+			misses.get(key(f)) ?? misses.get(key({ ...f, file: f.file.replace(/-still\.jpg$/, '.jpg') }));
+		return t !== undefined && now() - t < LOOP_RETRY_MS;
+	};
 	const out: PassOut = { fetched: 0, removed: 0, failed: 0, waiting: null };
 	const held = await deps.store.list();
 	const have = new Set(held.map(key));
@@ -145,6 +162,7 @@ export async function syncMedia(deps: {
 			if (isVideo(f)) out.waiting = 'offline';
 			break;
 		}
+		if (f.kind === 'loops' && missedLately(f)) continue;
 		const video = isVideo(f);
 		if (video && deps.videosMayCome && !deps.videosMayCome()) {
 			out.waiting = 'wifi';
@@ -173,7 +191,9 @@ export async function syncMedia(deps: {
 				}
 				start = from;
 			} else if (res.status === 404 && f.kind === 'loops') {
-				// Not cut yet (the home worker gets to it): neither fetched nor failed.
+				// Not cut yet (the home worker gets to it): neither fetched nor failed, and not
+				// asked again for a while.
+				misses.set(key(f), now());
 				continue;
 			} else if (!res.ok) {
 				throw new Error(`the server answered ${res.status}`);
@@ -225,6 +245,8 @@ export function mediaKeeper(deps: {
 } {
 	let running: Promise<void> | null = null;
 	let again = false;
+	/** Loops not cut yet, across passes: `syncMedia` waits an hour before asking again. */
+	const loopMisses = new Map<string, number>();
 	let controller: AbortController | null = null;
 
 	async function pass(): Promise<void> {
@@ -242,7 +264,8 @@ export function mediaKeeper(deps: {
 			onProgress: deps.onProgress,
 			onStored: deps.onStored,
 			log: deps.log,
-			signal
+			signal,
+			loopMisses
 		});
 		if (out.fetched || out.removed || out.failed) deps.log.info('[device] media on the phone', out);
 		deps.onPass?.(out);

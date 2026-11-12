@@ -17,6 +17,9 @@ import { LEASE_MS, MAX_ATTEMPTS } from '../songs';
 import { loopsDir } from '../files';
 import { loopName, type LoopSpan } from '$lib/video/loop-names';
 
+/** A loop that failed is queued again this long after. */
+export const RETRY_FAILED_MS = 24 * 3600_000;
+
 type Span = { spotId: number; startMs: number; endMs: number };
 const spanOf = (r: Span): LoopSpan => ({ id: r.spotId, startMs: r.startMs, endMs: r.endMs });
 const namesOf = (r: Span) => [loopName(spanOf(r)), loopName(spanOf(r), true)];
@@ -32,6 +35,12 @@ export function queueLoops(db: Db, now: number): { queued: number; stale: string
 				WHERE v.id = l.spot_id AND v.start_ms = l.start_ms AND v.end_ms = l.end_ms
 			)`);
 		for (const g of gone) tx.delete(videoLoops).where(eq(videoLoops.id, g.id)).run();
+		// A loop that failed gets another try a day later: most failures are the source
+		// not answering (a restart, the network), and a blank tile forever is worse.
+		tx.update(videoLoops)
+			.set({ status: 'queued', attempts: 0, error: null, failedAt: null, claimedAt: null })
+			.where(and(eq(videoLoops.status, 'failed'), lt(videoLoops.failedAt, now - RETRY_FAILED_MS)))
+			.run();
 		const wanted = tx.all<Span>(sql`
 			SELECT DISTINCT v.id AS spotId, v.start_ms AS startMs, v.end_ms AS endMs
 			FROM video_spots v

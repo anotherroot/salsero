@@ -17,11 +17,12 @@ import {
 	spotLinks,
 	videoSpots
 } from '../db/schema';
-import { judgeFigure } from '../access';
+import { allows, judgeFigure } from '../access';
 import { keepUsable, spotsByVideo, videosOf } from '../spot-links';
 import { isTeam, spaceOfRow, type Space, type Wall } from '../scope';
 import { handsLine } from '$lib/routines/page';
 import { pictureOf } from '$lib/video/loops';
+import type { LoopSpan } from '$lib/video/loop-names';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { FigureLook, Picture, SectionVideo, SpotOwner } from '$lib/types';
 
@@ -115,14 +116,32 @@ export function looksFor(
 		return null;
 	};
 
+	const look = (r: (typeof rows)[number], section: LoopSpan | null): FigureLook => ({
+		hands: handsLine(starts.get(r.id) ?? [], ends.get(r.id) ?? [], (id) => names.get(id) ?? ''),
+		length: r.lengthFree ? null : r.lengthCounts,
+		picture: pictureOf(section)
+	});
+
 	for (const r of rows) {
-		let section = null;
+		let section: LoopSpan | null = null;
 		if (linked.size > 0) {
 			const space = spaceOfRow(r, opts.viewer);
 			if (isTeam(space)) {
-				if (!reachOf.has(r.teamId!))
-					reachOf.set(r.teamId!, judgeFigure(db, opts.viewer, r).reach ?? undefined);
-				const visible = reachOf.get(r.teamId!);
+				// Each group figure judged as the viewer: one they may not read gets no picture,
+				// and only a readable one's judgement sets the group's reach for the rest.
+				let visible = reachOf.get(r.teamId!);
+				if (!reachOf.has(r.teamId!)) {
+					const judged = judgeFigure(db, opts.viewer, r);
+					if (!allows(judged.access, 'read')) {
+						out.set(r.id, look(r, null));
+						continue;
+					}
+					visible = judged.reach ?? undefined;
+					reachOf.set(r.teamId!, visible);
+				} else if (visible && !visible.variations.has(r.id)) {
+					out.set(r.id, look(r, null));
+					continue;
+				}
 				section = first(videosIn(space, `t${r.teamId}:${visible ? 'r' : 'a'}`, visible), r.id);
 				if (
 					!section &&
@@ -134,11 +153,7 @@ export function looksFor(
 				section = first(videosIn(space, `o${r.userId}:${r.dance}`), r.id);
 			}
 		}
-		out.set(r.id, {
-			hands: handsLine(starts.get(r.id) ?? [], ends.get(r.id) ?? [], (id) => names.get(id) ?? ''),
-			length: r.lengthFree ? null : r.lengthCounts,
-			picture: pictureOf(section)
-		});
+		out.set(r.id, look(r, section));
 	}
 	return out;
 }
@@ -147,11 +162,20 @@ export function looksFor(
 const viewerOf = (space: Space) => (isTeam(space) ? space.actorId : space.userId);
 
 /** `looksFor` as a space's own lists read it: a group's alone in group mode, a person's own with theirs. */
-export const looksIn = (db: Db, figureIds: number[], space: Space): Map<number, FigureLook> =>
-	looksFor(db, figureIds, { viewer: viewerOf(space), ownSections: !isTeam(space) });
+export const looksIn = (
+	db: Db,
+	figureIds: number[],
+	space: Space,
+	viewer = viewerOf(space)
+): Map<number, FigureLook> => looksFor(db, figureIds, { viewer, ownSections: !isTeam(space) });
 
 /** Each move's picture: its first live variation's, in id order, that has one; null when none has. */
-export function movePictures(db: Db, moveIds: number[], space: Space): Map<number, Picture> {
+export function movePictures(
+	db: Db,
+	moveIds: number[],
+	space: Space,
+	viewer = viewerOf(space)
+): Map<number, Picture> {
 	const out = new Map<number, Picture>();
 	if (moveIds.length === 0) return out;
 	const vs = db
@@ -163,7 +187,8 @@ export function movePictures(db: Db, moveIds: number[], space: Space): Map<numbe
 	const looks = looksIn(
 		db,
 		vs.map((v) => v.id),
-		space
+		space,
+		viewer
 	);
 	for (const id of moveIds) out.set(id, null);
 	for (const v of vs) {
@@ -194,12 +219,14 @@ export function withLooks<T extends { id: number }>(
 export function withPictures<T extends { id: number }>(
 	db: Db,
 	moves: T[],
-	space: Space
+	space: Space,
+	viewer = viewerOf(space)
 ): (T & { picture: Picture })[] {
 	const pictures = movePictures(
 		db,
 		moves.map((m) => m.id),
-		space
+		space,
+		viewer
 	);
 	return moves.map((m) => ({ ...m, picture: pictures.get(m.id) ?? null }));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { PREVIEW_LOOK, stillOnly, tileShows } from './preview';
+import { PREVIEW_LOOK, failedNow, stillOnly, tileShows } from './preview';
 
 const picture = { strip: '/loops/9-0-1000.jpg', still: '/loops/9-0-1000-still.jpg' };
 
@@ -42,5 +42,28 @@ describe('the picker draws it', () => {
 		expect(button).toMatch(/t\(\)\.picker\.look\.preview\(label\)/);
 		expect(button).toMatch(/loading="lazy"/);
 		expect(button).toMatch(/steps\(12\)/);
+	});
+});
+
+describe('the sheet goes with its picker (review)', () => {
+	it('a picker that closes (Android Back in the player) forgets its open sheet', () => {
+		const picker = readFileSync('src/lib/components/picker/Picker.svelte', 'utf8');
+		expect(picker).toMatch(/if \(!open\) looking = null;/);
+	});
+});
+
+describe('a failed picture is that picture only (review)', () => {
+	it('a tile reused for another figure (rows keyed by place while searching) draws the new one', () => {
+		const a = { strip: '/loops/1-0-1000.jpg', still: '/loops/1-0-1000-still.jpg' };
+		const b = { strip: '/loops/2-0-1000.jpg', still: '/loops/2-0-1000-still.jpg' };
+		expect(failedNow(a.strip, a)).toBe(true);
+		expect(failedNow(a.strip, b)).toBe(false);
+		expect(failedNow(null, a)).toBe(false);
+		expect(failedNow(a.strip, null)).toBe(false);
+	});
+
+	it('the button keeps which picture failed, not a bare flag', () => {
+		const button = readFileSync('src/lib/components/picker/PreviewButton.svelte', 'utf8');
+		expect(button).toMatch(/failedNow\(failedFor, picture\)/);
 	});
 });

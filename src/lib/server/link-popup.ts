@@ -206,7 +206,13 @@ function lessonSide(db: Db, lessonId: number) {
  * or figures to make. `defaultStyle` is what New figure starts on (the
  * user's, from Settings — the route reads it).
  */
-export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkOptions | null {
+export function linkOptions(
+	db: Db,
+	spotId: number,
+	defaultStyle: string,
+	/** Who asks: the pictures are read as them (picker preview). */
+	viewer = ''
+): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
 	if (!video || (video.userId === null && video.teamId === null)) return null;
 	const point = !video.isSection;
@@ -303,7 +309,8 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const looks = looksIn(
 		db,
 		folded.map((v) => v.id),
-		space
+		space,
+		viewer || undefined
 	);
 	const variations = folded.map((v) => {
 		const behind = v.twins ?? [];
@@ -370,7 +377,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		variations.filter(near).flatMap((v) => v.groups.filter((g) => g !== null))
 	);
 	const figureChoices = (
-		point ? [] : withPictures(db, listMoveTargets(db, space, null), space)
+		point ? [] : withPictures(db, listMoveTargets(db, space, null), space, viewer || undefined)
 	).map((g) => {
 		const first = listGroupVariations(db, g.id)[0];
 		return {
@@ -531,7 +538,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 export function linkOptionsFor(db: Db, spotId: number, userId: string): LinkOptions | null {
 	const space = sectionSpace(db, userId, spotId);
 	if (!space) return null;
-	return linkOptions(db, spotId, defaultStyle(db, actorOf(space), space.dance));
+	return linkOptions(db, spotId, defaultStyle(db, actorOf(space), space.dance), userId);
 }
 
 const isId = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0;

@@ -609,3 +609,36 @@ describe('wantedMedia: figure loops (picker preview)', () => {
 		expect(await result).toEqual({ fetched: 1, removed: 0, failed: 0, waiting: null });
 	});
 });
+
+describe('syncMedia: a loop not cut yet is not asked for again soon (review)', () => {
+	const strip: MediaFile = { kind: 'loops', file: '900-0-1000.jpg', mime: 'image/jpeg' };
+	const still: MediaFile = { kind: 'loops', file: '900-0-1000-still.jpg', mime: 'image/jpeg' };
+
+	it('skips the still when the strip was missing, and both for an hour', async () => {
+		const store = memoryMediaStore();
+		const misses = new Map<string, number>();
+		const asked: string[] = [];
+		let now = 1_000_000;
+		const pass = () =>
+			syncMedia({
+				wanted: [strip, still],
+				store,
+				fetchMedia: async (p) => {
+					asked.push(p);
+					return new Response('Not found', { status: 404 });
+				},
+				online: () => true,
+				log: { warn: vi.fn() },
+				loopMisses: misses,
+				now: () => now
+			});
+		expect(await pass()).toEqual({ fetched: 0, removed: 0, failed: 0, waiting: null });
+		expect(asked).toEqual(['/loops/900-0-1000.jpg']);
+		now += 30 * 60_000;
+		await pass();
+		expect(asked).toHaveLength(1);
+		now += 31 * 60_000;
+		await pass();
+		expect(asked).toEqual(['/loops/900-0-1000.jpg', '/loops/900-0-1000.jpg']);
+	});
+});

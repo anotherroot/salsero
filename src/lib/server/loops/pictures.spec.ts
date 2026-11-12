@@ -4,7 +4,8 @@ import { figures } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { makeWorld, type World } from '../sync/test-world';
 import { CLASS_ED } from '../test-class';
-import { createLesson, addLessonVideo } from '../lessons';
+import { createLesson, addLessonVideo, linkFigure } from '../lessons';
+import { createFigure } from '../figures';
 import { addSpot } from '../spots';
 import { judgeFigure } from '../access';
 import { addLesson } from '../entries';
@@ -144,5 +145,27 @@ describe('movePictures', () => {
 		const { db, w } = setup();
 		const move = db.select().from(figures).where(eq(figures.id, w.own.u1.twin)).get()!.groupId!;
 		expect(movePictures(db, [move], u1).get(move)).toBeNull();
+	});
+});
+
+describe('looksFor: a reader, figures out of reach first (review)', () => {
+	it("an unreadable figure gets no picture, and never sets the group's reach for the rest", () => {
+		const { db, w } = setup();
+		// A readable figure made AFTER the draft one: rows come back by id, the draft figure first.
+		const made = createFigure(db, CLASS_ED, {
+			figureName: 'Later',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		linkFigure(db, w.group.published, made, 'u2');
+		linkInSpace(db, CLASS_ED, w.group.spot, { figureId: made });
+		linkInSpace(db, CLASS_ED, w.group.draftSpot, { figureId: made });
+		linkInSpace(db, CLASS_ED, w.group.draftSpot, { figureId: w.group.draftFigure });
+		expect(w.group.draftFigure).toBeLessThan(made);
+		const looks = looksFor(db, [w.group.draftFigure, made], { viewer: 'u3', ownSections: true });
+		expect(looks.get(w.group.draftFigure)?.picture ?? null).toBeNull();
+		expect(looks.get(made)!.picture!.strip).toBe(`/loops/${w.group.spot}-0-1000.jpg`);
 	});
 });

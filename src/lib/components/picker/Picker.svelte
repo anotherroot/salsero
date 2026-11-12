@@ -190,6 +190,12 @@
 		if (open) query = '';
 	});
 
+	// A picker that closes under its sheet (Android Back in the player) forgets it, so
+	// the next opening shows the list, not the old sheet over it (picker preview).
+	$effect(() => {
+		if (!open) looking = null;
+	});
+
 	// Focus the search on desktop (no on-screen keyboard) or with a mouse: on a
 	// phone the keyboard would cover the list, which is what the picker was opened to see.
 	$effect(() => {

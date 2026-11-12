@@ -10,7 +10,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { CLIP, iconButton } from '$lib/components/ui/styles';
-	import { tileShows } from '$lib/picker/preview';
+	import { failedNow, tileShows } from '$lib/picker/preview';
 	import { onScreen, stillHere } from '$lib/picker/motion';
 	import type { Picture } from '$lib/types';
 
@@ -26,9 +26,13 @@
 
 	let { picture, label, look = 'tile', decorative = false, onclick }: Props = $props();
 
-	let failed = $state(false);
+	/** The strip of the picture that would not load: a reused tile draws the next one afresh. */
+	let failedFor = $state<string | null>(null);
 	let visible = $state(false);
-	const shows = $derived(tileShows(picture, { still: stillHere(), failed }));
+	const shows = $derived(
+		tileShows(picture, { still: stillHere(), failed: failedNow(failedFor, picture) })
+	);
+	const fail = () => (failedFor = picture?.strip ?? null);
 </script>
 
 {#snippet tile()}
@@ -42,7 +46,7 @@
 			alt=""
 			loading="lazy"
 			class="block size-full object-cover"
-			onerror={() => (failed = true)}
+			onerror={fail}
 		/>
 	{:else}
 		<img
@@ -51,7 +55,7 @@
 			loading="lazy"
 			class="strip absolute inset-y-0 left-0 h-full w-[1200%] max-w-none"
 			class:moving={visible}
-			onerror={() => (failed = true)}
+			onerror={fail}
 		/>
 	{/if}
 	{#if shows.kind !== 'empty' && !decorative}
