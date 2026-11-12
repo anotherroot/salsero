@@ -3,6 +3,11 @@
 	import { invalidate } from '$app/navigation';
 	import PickerMultiField from '$lib/components/picker/PickerMultiField.svelte';
 	import PositionFields from '$lib/components/positions/PositionFields.svelte';
+	import CopyHereCard from '$lib/components/links/CopyHereCard.svelte';
+	import { t } from '$lib/i18n/catalog';
+	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
+	import { copyable, elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
+	import { copyToUse } from '$lib/picker/elsewhere-api';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -22,7 +27,7 @@
 	} from '$lib/positions/view';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { PickGroup, PickRow } from '$lib/picker/model';
-	import type { PositionSummary } from '$lib/types';
+	import type { CopyableRow, PositionSummary } from '$lib/types';
 
 	/**
 	 * A figure's Starts in and Ends in: two pickers that take any number of
@@ -38,6 +43,12 @@
 	 * the button back; a made position is chosen in the picker it came from and
 	 * offered in both.
 	 *
+	 * In a group (`into`, for an editor), a search also finds the positions of
+	 * the person's own app and other groups (link from other places): a tap
+	 * opens the card, and Copy and use copies the position into the group
+	 * (`POST /api/elsewhere/copy`) and chooses the copy in the picker it was
+	 * tapped in, offered in both.
+	 *
 	 * **Key this component on the figure's id**: it seeds its values once.
 	 */
 	let {
@@ -48,7 +59,8 @@
 		figureLabel,
 		figureStyle,
 		styleLabel,
-		figureId
+		figureId,
+		into = null
 	}: {
 		dance: DanceSlug;
 		startIds: number[];
@@ -59,6 +71,8 @@
 		figureStyle: string | null;
 		styleLabel: StyleLabel;
 		figureId: number;
+		/** A group's figure, for an editor: the group the other places' positions copy into. */
+		into?: { teamId: number; name: string } | null;
 	} = $props();
 
 	let starts = $state<number[]>(untrack(() => [...startIds]));
@@ -69,6 +83,70 @@
 		made.reduce((gs, p) => withPositionRow(gs, p, figureStyle, styleLabel), groups)
 	);
 	const sub = $derived(tagsSub(figureLabel, figureStyle ? styleLabel(figureStyle) : null));
+
+	/* Link from other places: one search for whichever picker is open. */
+	type Side = 'start' | 'end';
+	let open = $state<Record<Side, boolean>>({ start: false, end: false });
+	let query = $state<Record<Side, string>>({ start: '', end: '' });
+	const away = new ElsewhereSearch();
+	const side = $derived<Side | null>(open.start ? 'start' : open.end ? 'end' : null);
+	$effect(() => {
+		if (!into || side === null) return away.reset();
+		away.search(into.teamId, ['position'], query[side]);
+	});
+	const awayPicker = $derived(
+		into ? { here: into.name, state: away.state, groups: away.groups } : null
+	);
+
+	/** The card: the position from another place, the picker it was tapped in, where it was found. */
+	let card = $state<{
+		side: Side;
+		row: CopyableRow;
+		from: string | null;
+		restore: number | null;
+	} | null>(null);
+	let cardBusy = $state(false);
+	let cardMessage = $state<string | null>(null);
+
+	function openCard(at: Side, pick: PickRow) {
+		const row = elsewhereOf(away.places, pick.key);
+		if (!row || !copyable(row)) return;
+		card = { side: at, row, from: elsewhereFrom(away.places, pick.key), restore: row.restore };
+		cardMessage = null;
+	}
+
+	/** Choose `id` in the picker on `at`. */
+	function choose(at: Side, id: number) {
+		if (at === 'start' && !starts.includes(id)) starts = [...starts, id];
+		if (at === 'end' && !ends.includes(id)) ends = [...ends, id];
+	}
+
+	/** Copy and use, or Restore and use with `restore`. */
+	async function sendCopy(use: Record<string, number>, restore: number | null) {
+		const sent = card;
+		if (!sent || !into || cardBusy) return;
+		cardBusy = true;
+		cardMessage = null;
+		const res = await copyToUse(into.teamId, 'position', sent.row.id, use, restore);
+		cardBusy = false;
+		if (card !== sent) return;
+		if (res.ok) {
+			if (res.position) made = [...made, res.position];
+			choose(sent.side, res.id);
+			card = null;
+			away.refresh();
+			void invalidate('app:moves');
+		} else if ('restore' in res) card = { ...sent, restore: res.restore };
+		else cardMessage = res.message ?? t().clones.copyHere.failedUse;
+	}
+
+	/** The card's "Use the group's one": the group's same-named position, chosen. */
+	function useGroups() {
+		const c = card;
+		if (!c || c.row.sameName === null) return;
+		card = null;
+		choose(c.side, c.row.sameName);
+	}
 
 	/**
 	 * The create step, while open: what was typed, the picker waiting for it,
@@ -188,6 +266,10 @@
 		groups={offered}
 		clear={TAGS_CLEAR}
 		bind:values={starts}
+		bind:open={open.start}
+		bind:query={query.start}
+		elsewhere={awayPicker}
+		onelsewhere={(row) => openCard('start', row)}
 		create={{ label: TAGS_PICKER.create, key: 'position' }}
 		{oncreate}
 		nothingLeft={TAGS_PICKER.nothingLeft}
@@ -202,12 +284,38 @@
 		groups={offered}
 		clear={TAGS_CLEAR}
 		bind:values={ends}
+		bind:open={open.end}
+		bind:query={query.end}
+		elsewhere={awayPicker}
+		onelsewhere={(row) => openCard('end', row)}
 		create={{ label: TAGS_PICKER.create, key: 'position' }}
 		{oncreate}
 		nothingLeft={TAGS_PICKER.nothingLeft}
 	/>
 	<p class="-mt-1.5 pl-1 text-[13px] leading-[1.4] text-muted">{tagsHelp()}</p>
 </div>
+
+<!-- Link from other places: the card over the picker it was tapped in. -->
+{#if card && into}
+	{@const c = card}
+	<CopyHereCard
+		theme="light"
+		kind="position"
+		then="use"
+		id={c.row.id}
+		label={c.row.label}
+		from={c.from}
+		{into}
+		sameName={c.row.sameName}
+		restore={c.restore}
+		busy={cardBusy}
+		message={cardMessage}
+		oncopy={(use) => sendCopy(use, null)}
+		onrestore={(use) => sendCopy(use, c.restore)}
+		onlinkgroups={useGroups}
+		onclose={() => (card = null)}
+	/>
+{/if}
 
 <!--
 	Always mounted, `open` driven: a native dialog's close hands focus back to

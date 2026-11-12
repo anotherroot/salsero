@@ -6,6 +6,7 @@
 	 * under `name`. Picking fills the field and returns to the form; nothing
 	 * else in the form is touched.
 	 */
+	import type { ComponentProps } from 'svelte';
 	import Picker from './Picker.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
@@ -43,6 +44,14 @@
 		create?: { label: string; tag: string; name: string };
 		/** The new row's name while one is held; a pick clears it. Bindable. */
 		newName?: string | null;
+		/**
+		 * Link from other places (a group's field): the person's other places
+		 * while a search is typed (`Picker`'s `elsewhere`); a tap on one of
+		 * their rows is `onelsewhere`. `query` is the search, bindable.
+		 */
+		elsewhere?: ComponentProps<typeof Picker>['elsewhere'];
+		onelsewhere?: (row: PickRow) => void;
+		query?: string;
 	}
 
 	let {
@@ -59,7 +68,10 @@
 		theme = 'light',
 		open = $bindable(false),
 		create,
-		newName = $bindable(null)
+		newName = $bindable(null),
+		elsewhere = null,
+		onelsewhere,
+		query = $bindable('')
 	}: Props = $props();
 
 	const id = $props.id();
@@ -164,7 +176,10 @@
 	{theme}
 	back
 	create={create ? [{ key: 'create', label: create.label }] : undefined}
-	oncreate={(_key, query) => createFrom(query)}
+	oncreate={(_key, typed) => createFrom(typed)}
+	bind:query
+	{elsewhere}
+	onelsewhere={(row) => onelsewhere?.(row)}
 	onpick={(row) => {
 		value = row.value;
 		newName = null;

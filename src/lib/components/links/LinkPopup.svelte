@@ -38,7 +38,7 @@
 		removeLink
 	} from '$lib/video/links-api';
 	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
-	import { elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
+	import { copyable, elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
 	import CopyHereCard from './CopyHereCard.svelte';
 	import { copied } from '$lib/components/clones/copied.svelte';
 	import {
@@ -60,7 +60,7 @@
 	import { SpotsApiError } from '$lib/video/spots-api';
 	import { restoreArchived } from '$lib/teams/restore-api';
 	import type {
-		ElsewhereRow,
+		CopyableRow,
 		LinkCreate,
 		LinkedTarget,
 		LinkFigureChoice,
@@ -290,7 +290,7 @@
 		options?.team ? { here: options.team.name, state: away.state, groups: away.groups } : null
 	);
 	let card = $state<{
-		row: ElsewhereRow;
+		row: CopyableRow;
 		from: string | null;
 		keep: boolean;
 		restore: number | null;
@@ -303,7 +303,7 @@
 
 	function openCard(pick: PickRow, keep: boolean) {
 		const row = elsewhereOf(away.places, pick.key);
-		if (!row) return;
+		if (!row || !copyable(row)) return;
 		card = { row, from: elsewhereFrom(away.places, pick.key), keep, restore: row.restore };
 		cardMessage = null;
 	}

@@ -435,7 +435,16 @@ export const clones = {
 		linkGroups: "Link the group's one",
 		copyAnyway: 'Copy anyway',
 		done: 'Copied and linked',
-		failed: 'It could not be copied here and linked. Nothing was copied.'
+		failed: 'It could not be copied here and linked. Nothing was copied.',
+		/** Copy and use: a group's field pickers (a figure's positions, a routine's slots). */
+		leadUse: (from: string | null): string =>
+			`It comes in as a clone of ${from === null ? 'yours' : `the one in ${from}`}, so the two can be kept in step. Then it is used here.`,
+		archivedUse: 'It was here before and is archived. Restore it and use it.',
+		copyAndUse: 'Copy and use',
+		restoreAndUse: 'Restore and use',
+		useGroups: "Use the group's one",
+		doneUse: 'Copied',
+		failedUse: 'It could not be copied here. Nothing was copied.'
 	},
 	copy: {
 		/** The ⋯ menu's item. */

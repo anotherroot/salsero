@@ -355,7 +355,15 @@ export const clones: Catalog['clones'] = {
 		linkGroups: 'Poveži skupinskega',
 		copyAnyway: 'Vseeno kopiraj',
 		done: 'Kopirano in povezano',
-		failed: 'Kopiranje in povezovanje ni uspelo. Nič ni bilo kopirano.'
+		failed: 'Kopiranje in povezovanje ni uspelo. Nič ni bilo kopirano.',
+		leadUse: (from) =>
+			`Pride kot klon ${from === null ? 'vašega' : `tistega iz skupine ${from}`}, zato ju lahko usklajujete. Nato se uporabi tu.`,
+		archivedUse: 'Tu je že bil in je arhiviran. Obnovite ga in uporabite.',
+		copyAndUse: 'Kopiraj in uporabi',
+		restoreAndUse: 'Obnovi in uporabi',
+		useGroups: 'Uporabi skupinskega',
+		doneUse: 'Kopirano',
+		failedUse: 'Kopiranje ni uspelo. Nič ni bilo kopirano.'
 	},
 	copy: {
 		menu: 'Kopiraj v …',

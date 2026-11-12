@@ -24,6 +24,9 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
 	import { figureRows } from '$lib/picker/build';
+	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
+	import { elsewhereOf } from '$lib/picker/elsewhere';
+	import type { PickRow } from '$lib/picker/model';
 	import { CHIP, GROUP, SECTION_LABEL, button, PRESS_ROW } from '$lib/components/ui/styles';
 	import {
 		figuresEmpty,
@@ -124,6 +127,33 @@
 	const moveGroups = $derived([
 		{ title: t().picker.moveField.group, entries: figureRows(lists.moveTargets) }
 	]);
+
+	/*
+	 * Link from other places, in a group's New figure: the Move field's search
+	 * also finds the moves of the person's own app and other groups, by name.
+	 * A pick makes a new move of that name here, with the figure; nothing is
+	 * copied (a move is only a name holding figures).
+	 */
+	const groupMode = $derived(
+		(page.data.groupMode ?? null) as { teamId: number; name: string } | null
+	);
+	let moveOpen = $state(false);
+	let moveQuery = $state('');
+	const away = new ElsewhereSearch();
+	$effect(() => {
+		if (!groupMode || !moveOpen) return away.reset();
+		away.search(groupMode.teamId, ['move'], moveQuery);
+	});
+	const awayMoves = $derived(
+		groupMode ? { here: groupMode.name, state: away.state, groups: away.groups } : null
+	);
+	function pickAwayMove(row: PickRow) {
+		const found = elsewhereOf(away.places, row.key);
+		if (!found) return;
+		moveId = null;
+		newMove = found.label;
+		moveOpen = false;
+	}
 	// A refusal about one field names it; the rest (a style that is not the dance's) do not.
 	const field = $derived(refusal?.field);
 	const otherError = $derived(refusal?.message && !field ? refusal.message : null);
@@ -468,6 +498,10 @@
 				nothingLeft={t().picker.moveField.none}
 				bind:value={moveId}
 				bind:newName={newMove}
+				bind:open={moveOpen}
+				bind:query={moveQuery}
+				elsewhere={awayMoves}
+				onelsewhere={pickAwayMove}
 				create={{
 					label: t().picker.moveField.label,
 					tag: t().picker.moveField.tag,

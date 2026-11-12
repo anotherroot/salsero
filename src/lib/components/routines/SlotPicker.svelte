@@ -4,7 +4,13 @@
 	 * either end, Add above / below, and + Alternative. One tap inserts and
 	 * closes — there is no confirm step. The sheet is the shared Picker; what
 	 * fits (and the Count / Hold chips) stays here, in fit.ts.
+	 *
+	 * A group's routine (`elsewhere`, link from other places): a search also
+	 * finds the figures and routines of the person's own app and other groups,
+	 * unfiltered by fit; a tap on one is `onelsewhere` (the page's Copy and
+	 * use card). `query` is the search, bindable.
 	 */
+	import type { ComponentProps } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { moveHeading, usedAsIs } from '$lib/clones/view';
@@ -30,14 +36,27 @@
 		positionName: (id: number) => string;
 		onpick: (c: Candidate) => void;
 		onclose: () => void;
+		elsewhere?: ComponentProps<typeof Picker>['elsewhere'];
+		onelsewhere?: (row: PickRow) => void;
+		query?: string;
 	}
 
-	let { open, title, anchor, candidates, positionName, onpick, onclose }: Props = $props();
+	let {
+		open,
+		title,
+		anchor,
+		candidates,
+		positionName,
+		onpick,
+		onclose,
+		elsewhere = null,
+		onelsewhere,
+		query = $bindable('')
+	}: Props = $props();
 
 	const RESCUE =
 		'min-h-6 cursor-pointer font-extrabold text-accent-text underline underline-offset-[3px]';
 
-	let query = $state('');
 	let count = $state(true);
 	let hold = $state(true);
 
@@ -120,6 +139,8 @@
 	bind:query
 	nothingLeft={emptyText}
 	onpick={pick}
+	{elsewhere}
+	onelsewhere={(row) => onelsewhere?.(row)}
 	{onclose}
 >
 	{#snippet top()}

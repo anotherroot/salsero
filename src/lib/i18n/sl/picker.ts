@@ -40,7 +40,8 @@ export const picker: Catalog['picker'] = {
 		noneHere: (typed) => `Tu nič ne ustreza »${typed}«.`,
 		offline: 'Za druga mesta potrebujete povezavo.',
 		looking: 'Iskanje po vaših drugih mestih …',
-		copyHere: (label) => `Kopiraj sem in poveži: ${label}`
+		copyHere: (label) => `Kopiraj sem in poveži: ${label}`,
+		newMove: 'Nov gib tu, z istim imenom'
 	},
 	groups: {
 		figures: 'Figure',

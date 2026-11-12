@@ -26,6 +26,7 @@ import {
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
 import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
+import { elsewhereGroup } from '$lib/server/elsewhere';
 import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
 import { listPositions, positionSummary, withCopiedFrom } from '$lib/server/positions';
 import { mergedMoveRows } from '$lib/server/moves-lists';
@@ -479,7 +480,12 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		taughtIn: taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id)),
 		// What linking and Move… offer: an editor's only.
 		linkable: canEdit ? linkableSections(db, { figureId: id }) : [],
-		moveTargets: canEdit ? listMoveTargets(db, space, group.id) : []
+		moveTargets: canEdit ? listMoveTargets(db, space, group.id) : [],
+		/** A group's figure, for an editor: its position pickers also find other places' (link from other places). */
+		elsewhere:
+			canEdit && groupTeam && elsewhereGroup(db, wall.userId, wall.dance, groupTeam.id)
+				? { teamId: groupTeam.id, name: groupTeam.name }
+				: null
 	};
 };
 

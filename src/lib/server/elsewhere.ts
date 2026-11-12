@@ -10,10 +10,16 @@
  * whose family's member in the group is archived carries it (Restore and
  * link); one whose name the group already has, from another family, carries
  * that row (Link the group's one).
+ *
+ * `move` finds moves by their own name, for New figure's Move field: no family,
+ * one row per name (in its first place, naming the rest), never a name the
+ * group's moves already have (the group's own row stands for it). A group you
+ * only read shows a move once you read one of its figures.
  */
 import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { fold } from '$lib/fold';
 import type {
+	ElsewhereFind,
 	ElsewhereKind,
 	ElsewherePlace,
 	ElsewhereRow,
@@ -42,18 +48,46 @@ import { foldNamed, foldVersions, storedTwinSets } from './twins';
 export const PER_KIND = 15;
 
 type Found = {
-	kind: ElsewhereKind;
+	kind: ElsewhereFind;
 	id: number;
 	label: string;
 	heading: string | null;
 	short: string | null;
 	groupId: number | null;
 	gene: string | null;
+	/** A move's live figures: a group you only read shows it once you read one. */
+	figureIds?: number[];
 };
 
 /** A space's live rows of a kind, as a picker shows them. */
-function rowsOf(db: Db, kind: ElsewhereKind, space: Space): Found[] {
+function rowsOf(db: Db, kind: ElsewhereFind, space: Space): Found[] {
 	switch (kind) {
+		case 'move': {
+			const moves = new Map<number, Found>();
+			const rows = db
+				.select({ id: figureGroups.id, name: figureGroups.name, figureId: figures.id })
+				.from(figureGroups)
+				.innerJoin(figures, eq(figures.groupId, figureGroups.id))
+				.where(
+					and(
+						ownedBy(figureGroups, space),
+						isNull(figureGroups.archivedAt),
+						isNull(figures.archivedAt)
+					)
+				)
+				.orderBy(asc(figureGroups.name), asc(figureGroups.id))
+				.all();
+			for (const r of rows) {
+				const m = moves.get(r.id);
+				if (m) m.figureIds!.push(r.figureId);
+				else
+					moves.set(r.id, {
+						...named(kind, [{ id: r.id, name: r.name, gene: null }])[0],
+						figureIds: [r.figureId]
+					});
+			}
+			return [...moves.values()];
+		}
 		case 'figure':
 			return db
 				.select({
@@ -118,7 +152,7 @@ function rowsOf(db: Db, kind: ElsewhereKind, space: Space): Found[] {
 	}
 }
 
-function named(kind: ElsewhereKind, rows: { id: number; name: string; gene: string | null }[]) {
+function named(kind: ElsewhereFind, rows: { id: number; name: string; gene: string | null }[]) {
 	return rows.map((r) => ({
 		kind,
 		id: r.id,
@@ -136,6 +170,12 @@ type Place = {
 	space: Space;
 	reads: (kind: ElsewhereKind, id: number) => boolean;
 };
+
+/** The place shows the row to the person: a move, once they read one of its figures. */
+const readsRow = (p: Place, row: Found) =>
+	row.kind === 'move'
+		? (row.figureIds ?? []).some((id) => p.reads('figure', id))
+		: p.reads(row.kind, row.id);
 
 /** Yours, the groups you edit, then the groups you only read; never `group` itself, never a deleted one. */
 function placesFor(db: Db, group: TeamSpace): Place[] {
@@ -172,7 +212,7 @@ const placeName = (p: Place) => (p.place.kind === 'team' ? p.place.name : '');
 export function findElsewhere(
 	db: Db,
 	group: TeamSpace,
-	kinds: ElsewhereKind[],
+	kinds: ElsewhereFind[],
 	query: string
 ): ElsewherePlace[] {
 	const words = fold(query).split(/\s+/).filter(Boolean);
@@ -186,8 +226,8 @@ export function findElsewhere(
 	const places = placesFor(db, group);
 	// Per kind, what the group holds: its live rows by folded name (`sameName`)
 	// and its members, archived ones too, by family.
-	const sameNames = new Map<ElsewhereKind, Map<string, number>>();
-	const members = new Map<ElsewhereKind, Map<string, { id: number; archived: boolean }>>();
+	const sameNames = new Map<ElsewhereFind, Map<string, number>>();
+	const members = new Map<ElsewhereFind, Map<string, { id: number; archived: boolean }>>();
 
 	// Every matching row, tagged with its place (index into `places`).
 	const found: { row: Found; at: number }[] = [];
@@ -197,15 +237,20 @@ export function findElsewhere(
 		const hereByName = new Map<string, number>();
 		for (const r of here) if (!hereByName.has(fold(r.label))) hereByName.set(fold(r.label), r.id);
 		sameNames.set(kind, hereByName);
-		const byGene = familiesIn(db, kind, group);
-		members.set(kind, byGene);
-
 		let rows: { row: Found; at: number }[] = [];
 		places.forEach((p, at) => {
 			for (const row of rowsOf(db, kind, p.space)) {
-				if (matches(row) && p.reads(kind, row.id)) rows.push({ row, at });
+				if (matches(row) && readsRow(p, row)) rows.push({ row, at });
 			}
 		});
+		if (kind === 'move') {
+			// A name only: the group's move of that name stands for it.
+			found.push(...rows.filter(({ row }) => !hereByName.has(fold(row.label))));
+			continue;
+		}
+		const byGene = familiesIn(db, kind, group);
+		members.set(kind, byGene);
+
 		// The family lives in the group: the group's row stands for it.
 		rows = rows.filter(({ row }) => row.gene === null || byGene.get(row.gene)?.archived !== false);
 		// A twin lives in the group: likewise. Positions have no fold in a picker.
@@ -225,7 +270,13 @@ export function findElsewhere(
 	const shown = new Map<string, number>();
 	found.sort((a, b) => a.at - b.at);
 	for (const { row, at } of found) {
-		const key = row.gene === null ? null : `${row.kind}:${row.gene}`;
+		// A family is one row; so is a move's name.
+		const key =
+			row.kind === 'move'
+				? `move:${fold(row.label)}`
+				: row.gene === null
+					? null
+					: `${row.kind}:${row.gene}`;
 		const first = key === null ? undefined : byFamily.get(key);
 		if (first) {
 			const name = placeName(places[at]);
