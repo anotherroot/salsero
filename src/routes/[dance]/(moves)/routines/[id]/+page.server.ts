@@ -20,6 +20,9 @@ import {
 	embeddedIn,
 	makeSection,
 	promoteSection,
+	unpackSlot,
+	packSlots,
+	detachSection,
 	insertSlot,
 	moveSlotTo,
 	removeOption,
@@ -765,6 +768,39 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return done(routine.id);
 	},
 
+	// Unpack (spec 2026-11-12): the slot's section or routine opens into its slots here.
+	unpack: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const stepId = int(form, 'stepId');
+		const out =
+			stepId === undefined ? null : unpackSlot(getDb(), routine.id, stepId, by(params, locals));
+		if (!out) return fail(400, { message: t().routine.refused.unpack });
+		return done(routine.id, { unpacked: out });
+	},
+	// Unpack's Undo.
+	pack: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const sectionId = int(form, 'sectionId');
+		const stepIds = ints(form, 'stepIds');
+		const step =
+			sectionId === undefined
+				? null
+				: packSlots(getDb(), routine.id, stepIds, sectionId, by(params, locals));
+		if (step === null) return fail(400, { message: t().routine.refused.unpack });
+		return done(routine.id, { stepId: step });
+	},
+	// Detach here (spec 2026-11-12): this one slot gets its own copy of the section.
+	detachHere: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const stepId = int(form, 'stepId');
+		const copy =
+			stepId === undefined ? null : detachSection(getDb(), routine.id, stepId, by(params, locals));
+		if (copy === null) return fail(400, { message: t().routine.refused.detachHere });
+		return done(routine.id, { sectionId: copy });
+	},
 	duplicateMany: async ({ params, request, locals }) => {
 		const db = getDb();
 		const form = await request.formData();

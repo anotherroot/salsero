@@ -1473,6 +1473,8 @@ export function deleteSlots(
 		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
 		order(tx, slotIds(tx, routineId));
 		reconcileRoutine(tx, routineId, now);
+		// A section whose last use this was goes to Recently deleted (spec 2026-11-12).
+		for (const s of steps) if (s.childId !== null) archiveIfUnused(tx, s.childId, now);
 		const routine = getRoutine(tx, routineId)!;
 		logRoutine(
 			tx,
@@ -1534,6 +1536,14 @@ export function restoreSlots(
 	const inReach = snapshot.some((s) => s.end !== undefined) ? graphFor(db, space).canon : null;
 	const endOf = (s: SlotSnapshot) => (s.end !== undefined && inReach?.has(s.end) ? s.end : null);
 	return db.transaction((tx) => {
+		// Sections archived by the delete come back with their slot (spec 2026-11-12).
+		const childIds = snapshot.flatMap((s) => (s.childId === null ? [] : [s.childId]));
+		if (childIds.length > 0) {
+			tx.update(routines)
+				.set({ archivedAt: null })
+				.where(and(inArray(routines.id, childIds), eq(routines.isSection, 1)))
+				.run();
+		}
 		const back: number[] = [];
 		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
 			const ids = slotIds(tx, routineId);
@@ -1646,29 +1656,9 @@ export function duplicateSlots(
 			.orderBy(asc(routineSteps.position))
 			.all();
 		if (steps.length !== wanted.length) return null;
-		const options = optionsIn(tx, wanted);
-		const lengths = lengthsIn(tx, wanted);
 		const ids = slotIds(tx, routineId);
-		const copies = steps.map((s, k) => {
-			const copy = tx
-				.insert(routineSteps)
-				.values({
-					routineId,
-					position: ids.length + k,
-					childRoutineId: s.childId,
-					note: s.note,
-					endPositionId: s.end
-				})
-				.returning({ id: routineSteps.id })
-				.get();
-			insertOptions(
-				tx,
-				copy.id,
-				options.get(s.id) ?? [],
-				(figureId) => lengths.get(s.id)?.[figureId] ?? null
-			);
-			return copy.id;
-		});
+		// An unnamed section is deep-copied: it belongs to its one place (spec 2026-11-12).
+		const copies = copyRows(tx, steps, routineId, ownerSpace(getRoutine(tx, routineId)!));
 		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
 		ids.splice(last + 1, 0, ...copies);
 		order(tx, ids);
@@ -1853,5 +1843,218 @@ export function promoteSection(
 			after: { name: named }
 		});
 		return true;
+	});
+}
+
+/** A routine's step rows, in order, as copies and moves read them. */
+function rowsOf(tx: Db, routineId: number) {
+	return tx
+		.select({
+			id: routineSteps.id,
+			childId: routineSteps.childRoutineId,
+			note: routineSteps.note,
+			end: routineSteps.endPositionId
+		})
+		.from(routineSteps)
+		.where(eq(routineSteps.routineId, routineId))
+		.orderBy(asc(routineSteps.position))
+		.all();
+}
+
+const isUnnamedSection = (r: { isSection: number; name: string } | null) =>
+	r !== null && r.isSection === 1 && r.name === '';
+
+/**
+ * Copies step rows into `routineId`, appended (callers place them): options in
+ * order with their lengths, notes, ends; a named section or routine child by
+ * reference, an unnamed section deep-copied (it belongs to its one place, spec
+ * 2026-11-12). The copies' ids, in order.
+ */
+function copyRows(
+	tx: Tx,
+	rows: { id: number; childId: number | null; note: string | null; end: number | null }[],
+	routineId: number,
+	space: Space
+): number[] {
+	const ids = rows.map((r) => r.id);
+	const options = optionsIn(tx, ids);
+	const lengths = lengthsIn(tx, ids);
+	let at = slotIds(tx, routineId).length;
+	return rows.map((s) => {
+		const child =
+			s.childId !== null && isUnnamedSection(getRoutine(tx, s.childId))
+				? copySection(tx, s.childId, space, '')
+				: s.childId;
+		const copy = tx
+			.insert(routineSteps)
+			.values({
+				routineId,
+				position: at++,
+				childRoutineId: child,
+				note: s.note,
+				endPositionId: s.end
+			})
+			.returning({ id: routineSteps.id })
+			.get();
+		insertOptions(tx, copy.id, options.get(s.id) ?? [], (f) => lengths.get(s.id)?.[f] ?? null);
+		return copy.id;
+	});
+}
+
+/** A plain copy of a section (no gene: not a clone), its rows copied in. */
+function copySection(tx: Tx, sectionId: number, space: Space, name: string): number {
+	const made = insertRoutine(tx, space, { name, notes: null, isSection: true });
+	copyRows(tx, rowsOf(tx, sectionId), made.routine.id, space);
+	return made.routine.id;
+}
+
+/**
+ * A section no live slot holds any more is archived (spec 2026-11-12): to
+ * Recently deleted, restorable; pickers stop offering it. Routines are never
+ * touched: they stand on their own in the list.
+ */
+export function archiveIfUnused(tx: Db, sectionId: number, now = serverNow()): void {
+	const section = getRoutine(tx, sectionId);
+	if (!section || section.isSection !== 1 || section.archivedAt !== null) return;
+	const held = tx
+		.select({ id: routineSteps.id })
+		.from(routineSteps)
+		.where(eq(routineSteps.childRoutineId, sectionId))
+		.get();
+	if (!held) tx.update(routines).set({ archivedAt: now }).where(eq(routines.id, sectionId)).run();
+}
+
+/** The slot `stepId` of `routineId` and what it embeds, or null. */
+function childStep(tx: Db, routineId: number, stepId: number) {
+	const step = tx
+		.select({ id: routineSteps.id, childId: routineSteps.childRoutineId })
+		.from(routineSteps)
+		.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
+		.get();
+	if (!step || step.childId === null) return null;
+	const child = getRoutine(tx, step.childId);
+	return child ? { step, child } : null;
+}
+
+/**
+ * Unpack (spec 2026-11-12): the child's slots take the slot's place. An unnamed
+ * section's rows MOVE and it is archived; a named section's or a routine's are
+ * COPIED and it stays where else it is used (a named section whose last use
+ * this was is archived). Acts on this one slot only.
+ */
+export function unpackSlot(
+	db: Db,
+	routineId: number,
+	stepId: number,
+	by?: string,
+	now = serverNow()
+): { stepIds: number[]; sectionId: number } | null {
+	const routine = getRoutine(db, routineId);
+	if (!routine) return null;
+	const space = ownerSpace(routine);
+	return db.transaction((tx) => {
+		const found = childStep(tx, routineId, stepId);
+		if (!found) return null;
+		const { child } = found;
+		const ids = slotIds(tx, routineId);
+		const at = ids.indexOf(stepId);
+		let moved: number[];
+		if (isUnnamedSection(child)) {
+			moved = rowsOf(tx, child.id).map((r) => r.id);
+			moved.forEach((id, k) =>
+				tx
+					.update(routineSteps)
+					.set({ routineId, position: ids.length + 1000 + k })
+					.where(eq(routineSteps.id, id))
+					.run()
+			);
+		} else {
+			moved = copyRows(tx, rowsOf(tx, child.id), routineId, space);
+		}
+		tx.delete(routineSteps).where(eq(routineSteps.id, stepId)).run();
+		const rest = ids.filter((id) => id !== stepId);
+		rest.splice(at, 0, ...moved);
+		order(tx, rest);
+		archiveIfUnused(tx, child.id, now);
+		logRoutine(tx, routine, by, { verb: 'change', subject: 'unpack', subjectId: child.id }, now);
+		return { stepIds: moved, sectionId: child.id };
+	});
+}
+
+/**
+ * Unpack's Undo: the slots go back into `sectionId` (moved back for an unnamed
+ * one, the copies removed for a named one or a routine) and one slot holding
+ * it takes their place; the section is unarchived. The new slot's id, or null.
+ */
+export function packSlots(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	sectionId: number,
+	by?: string
+): number | null {
+	const routine = getRoutine(db, routineId);
+	const section = getRoutine(db, sectionId);
+	if (!routine || !section || stepIds.length === 0) return null;
+	return db.transaction((tx) => {
+		const ids = slotIds(tx, routineId);
+		if (stepIds.some((id) => !ids.includes(id))) return null;
+		const at = Math.min(...stepIds.map((id) => ids.indexOf(id)));
+		tx.update(routines).set({ archivedAt: null }).where(eq(routines.id, sectionId)).run();
+		if (isUnnamedSection(section)) {
+			stepIds.forEach((id, k) =>
+				tx
+					.update(routineSteps)
+					.set({ routineId: sectionId, position: 100000 + k })
+					.where(eq(routineSteps.id, id))
+					.run()
+			);
+			order(tx, stepIds);
+		} else {
+			const children = tx
+				.select({ child: routineSteps.childRoutineId })
+				.from(routineSteps)
+				.where(inArray(routineSteps.id, stepIds))
+				.all();
+			tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, stepIds)).run();
+			tx.delete(routineSteps).where(inArray(routineSteps.id, stepIds)).run();
+			for (const c of children) if (c.child !== null) archiveIfUnused(tx, c.child);
+		}
+		const rest = ids.filter((id) => !stepIds.includes(id));
+		order(tx, rest);
+		const step = tx
+			.insert(routineSteps)
+			.values({ routineId, position: rest.length, childRoutineId: sectionId })
+			.returning({ id: routineSteps.id })
+			.get();
+		rest.splice(at, 0, step.id);
+		order(tx, rest);
+		logRoutine(tx, routine, by, { verb: 'change', subject: 'pack', subjectId: sectionId });
+		return step.id;
+	});
+}
+
+/**
+ * Detach here (spec 2026-11-12): this one slot gets its own plain copy of the
+ * section (same name, rows copied, no gene: not a clone), and edits stop
+ * flowing between the two. The copy's id, or null.
+ */
+export function detachSection(
+	db: Db,
+	routineId: number,
+	stepId: number,
+	by?: string
+): number | null {
+	const routine = getRoutine(db, routineId);
+	if (!routine) return null;
+	const space = ownerSpace(routine);
+	return db.transaction((tx) => {
+		const found = childStep(tx, routineId, stepId);
+		if (!found || found.child.isSection !== 1) return null;
+		const copy = copySection(tx, found.child.id, space, found.child.name);
+		tx.update(routineSteps).set({ childRoutineId: copy }).where(eq(routineSteps.id, stepId)).run();
+		archiveIfUnused(tx, found.child.id);
+		logRoutine(tx, routine, by, { verb: 'change', subject: 'detach', subjectId: copy });
+		return copy;
 	});
 }

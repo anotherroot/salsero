@@ -87,6 +87,9 @@ import {
 	duplicateSlots,
 	makeSection,
 	promoteSection,
+	unpackSlot,
+	packSlots,
+	detachSection,
 	insertSlot,
 	moveSlotTo,
 	removeOption,
@@ -283,6 +286,9 @@ let importId = 0;
 
 /** The section `promoteSection` runs on, made in its `prep`. */
 let sectionOf = 0;
+/** The slot and the unpacked run the unpack, pack and detach entries use. */
+let packStep = 0;
+let packOut = { stepIds: [] as number[], sectionId: 0 };
 const MUTATIONS: {
 	name: string;
 	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'position';
@@ -744,6 +750,41 @@ const MUTATIONS: {
 		verb: 'add',
 		rootId: (w) => w.routine,
 		run: (w) => makeSection(db, w.routine, [w.step], w.by)
+	},
+	{
+		name: 'unpackSlot',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		prep: (w) => {
+			packStep = addChildSlot(db, w.routine, w.child, w.by)!;
+		},
+		run: (w) => unpackSlot(db, w.routine, packStep, w.by)
+	},
+	{
+		name: 'packSlots',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		prep: (w) => {
+			packOut = unpackSlot(
+				db,
+				w.routine,
+				makeSection(db, w.routine, [w.step], w.by)!.stepId,
+				w.by
+			)!;
+		},
+		run: (w) => packSlots(db, w.routine, packOut.stepIds, packOut.sectionId, w.by)
+	},
+	{
+		name: 'detachSection',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		prep: (w) => {
+			packStep = makeSection(db, w.routine, [w.step], w.by)!.stepId;
+		},
+		run: (w) => detachSection(db, w.routine, packStep, w.by)
 	},
 	{
 		name: 'promoteSection',

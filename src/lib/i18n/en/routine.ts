@@ -215,6 +215,8 @@ export const routine = {
 		copySlots: 'Those slots could not be copied.',
 		newName: 'Give the new routine a name (up to 200 characters).',
 		demote: 'Only a routine another routine uses can become a section.',
+		unpack: 'That slot holds no section or routine to unpack.',
+		detachHere: 'Only a section can be detached here.',
 		extract: 'Those slots cannot become a section: they have to sit next to each other.'
 	}
 };

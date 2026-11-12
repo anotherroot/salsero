@@ -17,6 +17,9 @@ import {
 	listAddedRoutines,
 	listRoutines,
 	makeSection,
+	unpackSlot,
+	packSlots,
+	detachSection,
 	promoteSection,
 	holds,
 	insertRoutine,
@@ -1587,5 +1590,88 @@ describe('section ↔ routine (spec 2026-11-12)', () => {
 		const { r } = base(db);
 		expect(demoteRoutine(db, r.id)).toBe(false);
 		expect(getRoutine(db, r.id)!.isSection).toBe(0);
+	});
+});
+
+describe('unpack, detach, last use (spec 2026-11-12)', () => {
+	const setup = () => {
+		const db = openDb(':memory:');
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const f = [figure(db, 'A'), figure(db, 'B'), figure(db, 'C')];
+		const steps = f.map((x) => addFigureSlot(db, r.id, x.id)!);
+		return { db, r, f, steps };
+	};
+	const named = (db: ReturnType<typeof openDb>, name: string, figureIds: number[]) => {
+		const s = insertRoutine(db, U1_SALSA, { name, notes: null, isSection: true }).routine;
+		for (const id of figureIds) addFigureSlot(db, s.id, id);
+		return s;
+	};
+	const figs = (db: ReturnType<typeof openDb>, id: number) =>
+		routineSlots(db, id).map((s) => s.figureIds[0] ?? s.childId);
+
+	it('unpack an unnamed section moves its rows and archives it', () => {
+		const { db, r, steps } = setup();
+		const made = makeSection(db, r.id, [steps[1], steps[2]])!;
+		const out = unpackSlot(db, r.id, made.stepId)!;
+		expect(out.stepIds).toEqual([steps[1], steps[2]]);
+		expect(routineSlots(db, r.id).map((s) => s.id)).toEqual(steps);
+		expect(getRoutine(db, made.sectionId)!.archivedAt).not.toBeNull();
+	});
+
+	it('unpack a named section copies its slots and keeps it for its other use', () => {
+		const { db, r, f } = setup();
+		const s = named(db, 'Combo', [f[0].id, f[1].id]);
+		const other = createRoutine(db, U1_SALSA, { name: 'Other', notes: null }).routine;
+		addChildSlot(db, other.id, s.id);
+		const at = addChildSlot(db, r.id, s.id)!;
+		unpackSlot(db, r.id, at);
+		expect(figs(db, r.id)).toEqual([f[0].id, f[1].id, f[2].id, f[0].id, f[1].id]);
+		expect(getRoutine(db, s.id)!.archivedAt).toBeNull();
+		expect(routineSlots(db, s.id)).toHaveLength(2);
+	});
+
+	it('unpack the last use of a named section archives it, and pack brings it back', () => {
+		const { db, r, f } = setup();
+		const s = named(db, 'Combo', [f[0].id]);
+		const at = addChildSlot(db, r.id, s.id)!;
+		const out = unpackSlot(db, r.id, at)!;
+		expect(getRoutine(db, s.id)!.archivedAt).not.toBeNull();
+		const back = packSlots(db, r.id, out.stepIds, out.sectionId)!;
+		expect(getRoutine(db, s.id)!.archivedAt).toBeNull();
+		expect(routineSlots(db, r.id).map((x) => x.childId)).toEqual([null, null, null, s.id]);
+		expect(routineSlots(db, r.id)[3].id).toBe(back);
+	});
+
+	it('the same section twice in one routine: detach acts on one slot', () => {
+		const { db, r, f } = setup();
+		const s = named(db, 'Combo', [f[0].id]);
+		const one = addChildSlot(db, r.id, s.id)!;
+		const two = addChildSlot(db, r.id, s.id)!;
+		const copy = detachSection(db, r.id, two)!;
+		const rows = routineSlots(db, r.id);
+		expect(rows.find((x) => x.id === one)!.childId).toBe(s.id);
+		expect(rows.find((x) => x.id === two)!.childId).toBe(copy);
+		expect(getRoutine(db, copy)).toMatchObject({ name: 'Combo', isSection: 1, geneId: null });
+		expect(figs(db, copy)).toEqual([f[0].id]);
+	});
+
+	it('deleting the slot of a named section’s last use archives it; restore unarchives', () => {
+		const { db, r, f } = setup();
+		const s = named(db, 'Combo', [f[0].id]);
+		const at = addChildSlot(db, r.id, s.id)!;
+		const snapshot = deleteSlots(db, r.id, [at])!;
+		expect(getRoutine(db, s.id)!.archivedAt).not.toBeNull();
+		expect(restoreSlots(db, r.id, snapshot)).toBe(true);
+		expect(getRoutine(db, s.id)!.archivedAt).toBeNull();
+	});
+
+	it('duplicateSlots of an unnamed section slot gives an independent copy', () => {
+		const { db, r, steps } = setup();
+		const made = makeSection(db, r.id, [steps[0]])!;
+		const [copyStep] = duplicateSlots(db, r.id, [made.stepId])!;
+		const copyOf = routineSlots(db, r.id).find((x) => x.id === copyStep)!.childId!;
+		expect(copyOf).not.toBe(made.sectionId);
+		expect(getRoutine(db, copyOf)).toMatchObject({ name: '', isSection: 1 });
+		expect(figs(db, copyOf)).toEqual(figs(db, made.sectionId));
 	});
 });
