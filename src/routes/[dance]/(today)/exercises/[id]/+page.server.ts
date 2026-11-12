@@ -60,6 +60,8 @@ type FromClass = ReturnType<typeof fromClassOf>;
 import { addSongFrom, noteSongFrom, removeSongFrom } from '$lib/server/music-form';
 import { listMusic, musicChoices } from '$lib/server/song-links';
 import { serverNow } from '$lib/server/server-clock';
+import { hearingSeen, setHearingSettings } from '$lib/server/hearing';
+import { hearingOf, settingsFrom } from '$lib/hearing/drill';
 
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
@@ -447,6 +449,38 @@ export const actions: Actions = flowing('drill', (e) => idParam(e.params.id), {
 			throw error(404, t().refusals.noExercise);
 		}
 		return { action: 'update', ok: true };
+	},
+
+	/**
+	 * Spremeni → Shrani on a hearing drill (phase 2, spec 13): its kind, target
+	 * and length, for whoever may edit it. A class member's change is the round's
+	 * own (a link), never this. A save that saw other settings is refused (409).
+	 */
+	hearing: async ({ params, request, locals }) => {
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'edit');
+		if (row.kind !== 'hearing') throw error(404, t().refusals.noExercise);
+		const form = await request.formData();
+		const stored = getExercise(db, row.id);
+		const clash = seenRefusal(
+			form,
+			{ team: row.teamId !== null, copies: hasCopies(db, 'drill', row.id) },
+			stored && stored.archivedAt === null ? hearingSeen(stored) : null,
+			{ action: 'hearing' as const },
+			serverNow(),
+			() => editedBy(db, row.teamId, 'drill', row.id)
+		);
+		if (clash) return clash;
+		const params2 = new URLSearchParams();
+		for (const k of ['kind', 'target', 'clave', 'positions', 'drops']) {
+			const v = form.get(k);
+			if (typeof v === 'string' && v !== '') params2.set(k, v);
+		}
+		const { settings } = settingsFrom(params2, hearingOf(row.practiceJson));
+		if (!setHearingSettings(db, row.id, settings, me(params, locals))) {
+			throw error(404, t().refusals.noExercise);
+		}
+		return { action: 'hearing', ok: true };
 	},
 
 	archive: ({ params, locals }) => {

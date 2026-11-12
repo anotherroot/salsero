@@ -19,6 +19,8 @@ import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
+import { createHearingDrill, readHearingForm } from '$lib/server/hearing';
+import { DANCES } from '$lib/dances/dances';
 
 const DAY_MS = 86_400_000;
 
@@ -166,12 +168,28 @@ export const actions: Actions = {
 				notes: notes ?? ''
 			});
 		}
-		createCustomExercise(getDb(), wall, {
+		const input = {
 			name,
 			notes,
 			warmup: readWarmup(form),
 			comesBack: comesBack === 'teacher' ? undefined : comesBack
-		});
-		return { action: 'createExercise', ok: true };
+		};
+		// Za sluh (phase 2): a hearing drill, its songs picked by hand.
+		const hearing = readHearingForm(form, DANCES[wall.dance]);
+		if (typeof hearing === 'string')
+			return fail(400, { action: 'createExercise', message: hearing, name, notes: notes ?? '' });
+		if (hearing) {
+			const made = createHearingDrill(getDb(), wall, input, hearing);
+			if (!made.ok)
+				return fail(400, {
+					action: 'createExercise',
+					message: made.message,
+					name,
+					notes: notes ?? ''
+				});
+			return { action: 'createExercise', ok: true, id: made.drill.id };
+		}
+		const drill = createCustomExercise(getDb(), wall, input);
+		return { action: 'createExercise', ok: true, id: drill.id };
 	}
 };

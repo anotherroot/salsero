@@ -146,5 +146,9 @@ export const hearing: Catalog['hearing'] = {
 		start: 'Začni',
 		row: 'Preveri zakasnitev tapa',
 		rowValue: (ms) => (ms === null ? 'Ni preverjeno' : `${ms} ms`)
+	},
+	drill: {
+		noSongs: 'Izberite vsaj eno pesem',
+		notCounted: (title) => `Pesem ${title} še nima svojega štetja: najprej ga nastavite`
 	}
 };

@@ -150,5 +150,10 @@ export const hearing = {
 		start: 'Start',
 		row: 'Check my tap delay',
 		rowValue: (ms: number | null) => (ms === null ? 'Not checked' : `${ms} ms`)
+	},
+	/** A hearing drill (phase 2): making one, its page, its round. */
+	drill: {
+		noSongs: 'Pick at least one song',
+		notCounted: (title: string) => `${title} has no count of its own yet: set it first`
 	}
 };

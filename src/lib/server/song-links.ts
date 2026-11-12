@@ -10,6 +10,7 @@
  * sees it marked not `shared`. A group's add, note change and remove are
  * logged (`logChange`, subject `song`). Remove is a hard delete, not trashed.
  */
+import { counted } from '$lib/songs/counted';
 import { and, asc, eq, inArray, max, or, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, lessons, routines, songLinks, songs } from './db/schema';
@@ -123,6 +124,7 @@ export function listMusic(db: Db, parent: MusicParent, viewerId: string): MusicR
 			sample,
 			note: link.note,
 			shared: song.archivedAt === null && (song.teamId === null || song.sharedAt !== null),
+			counted: counted(song),
 			seen: JSON.stringify(musicSeen(link))
 		});
 	}
@@ -157,6 +159,7 @@ export function musicChoices(db: Db, space: Space): PickerSong[] {
 					durationS: s.durationS,
 					sample,
 					recentRank: null,
+					counted: counted(s),
 					group: null,
 					groupId: null
 				}

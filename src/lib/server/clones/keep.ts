@@ -89,6 +89,8 @@ type Scope = {
 	uses: Map<string, Use>;
 	/** Each added lesson's reach, by lesson id ascending. */
 	lessons: Map<number, Reach>;
+	/** A group hearing drill's songs, by drill: kept with the drill. */
+	drillSongs: Map<number, number[]>;
 };
 
 const keyOf = (kind: CloneKind, id: number) => `${kind}:${id}`;
@@ -155,6 +157,27 @@ function scopeOf(db: Db, userId: string, teamId: number): Scope {
 	`);
 	for (const p of practised) all[p.kind].add(p.id);
 
+	// A hearing drill plays its Music and nothing else (phase 2): the group songs
+	// of their own hearing drills are used, and a group hearing drill brings its
+	// songs wherever it is kept (`itemsOf`).
+	const hearingSong = sql`t.team_id = ${teamId} and t.status = 'ready' and t.audio_file is not null`;
+	for (const s of db.all<{ id: number }>(sql`
+		select distinct t.id as id from exercises x join song_links l on l.exercise_id = x.id
+		  join songs t on t.id = l.song_id
+		 where x.user_id = ${userId} and x.team_id is null and x.archived_at is null
+		   and x.kind = 'hearing' and ${hearingSong}
+	`)) {
+		used.song.add(s.id);
+		all.song.add(s.id);
+	}
+	const drillSongs = new Map<number, number[]>();
+	for (const r of db.all<{ drill: number; song: number }>(sql`
+		select d.id as drill, t.id as song from exercises d join song_links l on l.exercise_id = d.id
+		  join songs t on t.id = l.song_id
+		 where d.team_id = ${teamId} and d.kind = 'hearing' and ${hearingSong}
+	`))
+		drillSongs.set(r.drill, [...(drillSongs.get(r.drill) ?? []), r.song]);
+
 	const uses = new Map<string, Use>();
 	for (const u of usesOf(db, teamId, userId)) {
 		used[u.kind].add(u.id);
@@ -178,7 +201,7 @@ function scopeOf(db: Db, userId: string, teamId: number): Scope {
 		.all())
 		all.song.add(s.id);
 
-	return { teamId, wall, all, used, uses, lessons: perLesson };
+	return { teamId, wall, all, used, uses, lessons: perLesson, drillSongs };
 }
 
 /**
@@ -207,6 +230,8 @@ function itemsOf(scope: Scope, choice: KeepChoice): Item[] {
 			pick('song', choice.songs);
 		}
 	}
+	for (const drill of [...ids.drill])
+		for (const song of scope.drillSongs.get(drill) ?? []) ids.song.add(song);
 	return KINDS.flatMap((kind) => [...ids[kind]].sort((a, b) => a - b).map((id) => ({ kind, id })));
 }
 

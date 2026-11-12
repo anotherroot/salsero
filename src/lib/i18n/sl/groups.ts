@@ -242,6 +242,7 @@ export const groups: Catalog['groups'] = {
 			practiceMode: 'vadenje',
 			countBpm: 'tempo vadenja',
 			comesBack: 'kdaj pride spet na vrsto',
+			hearing: 'nastavitve sluha',
 			slots: 'mesta'
 		},
 		subject: {
@@ -383,6 +384,7 @@ export const groups: Catalog['groups'] = {
 			lengthFree: 'Dolžina v kombinaciji',
 			lengthCounts: 'Dolžina',
 			comesBack: 'Kdaj pride spet na vrsto',
+			hearing: 'Nastavitve sluha',
 			active: 'Aktivna',
 			label: 'Ime',
 			startMs: 'Začetek',

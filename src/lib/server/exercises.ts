@@ -39,7 +39,14 @@ import type {
 	SetSnapshot
 } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
-import { keepHearing } from '$lib/hearing/drill';
+import {
+	appendRound,
+	keepHearing,
+	withHearing,
+	type HearingRound,
+	type HearingSettings
+} from '$lib/hearing/drill';
+import { addMusic } from './song-links';
 
 /**
  * Every exercise that has not been archived, with its figure's partner flag
@@ -185,14 +192,24 @@ const storedComesBack = (c: ComesBack | 'teacher') =>
  * group's never gets one: songs are personal, and a group drill holding its
  * editor's song would play it to everyone (see `setPracticeSettings`).
  */
-export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
-	const { warmup, comesBack, ...rest } = input;
+export function createCustomExercise(
+	db: Db,
+	space: Space,
+	input: Omit<SettingsInput, 'active'> & {
+		hearing?: { settings: HearingSettings; songIds: number[] };
+	}
+) {
+	const { warmup, comesBack, hearing, ...rest } = input;
 	return db.transaction((tx) => {
 		const drill = tx
 			.insert(exercises)
 			.values({
 				...rest,
 				source: 'custom',
+				// A hearing drill (phase 2): its kind and settings; its songs follow as Music.
+				...(hearing
+					? { kind: 'hearing' as const, practiceJson: withHearing(null, hearing.settings) }
+					: {}),
 				...ownerValues(space),
 				songId: null,
 				// Warm-up is a person's own; a group's drill never holds it.
@@ -207,9 +224,16 @@ export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsI
 			{ ...ofDrill(drill.id), verb: 'add', subject: 'drill', after: { name: drill.name } },
 			serverNow()
 		);
+		for (const songId of hearing?.songIds ?? []) {
+			const added = addMusic(tx, space, { exerciseId: drill.id }, songId, null, serverNow());
+			if (!added.ok) throw new MusicRefused(added.message);
+		}
 		return drill;
 	});
 }
+
+/** A song `addMusic` refused while a hearing drill was made: the make rolls back with its words. */
+export class MusicRefused extends Error {}
 
 /** A drill's root in History, and the drill as its own subject. */
 const ofDrill = (id: number) => ({ rootKind: 'drill' as const, rootId: id, subjectId: id });
@@ -391,6 +415,8 @@ export interface SetInput {
 	/** undefined: not posted — saveDay keeps the day's old note; '' or null clears it. */
 	note?: string | null;
 	playerJson: string | null;
+	/** A hearing round (phase 2): appended to the day's `player_json.hearing.rounds`, never replacing one. */
+	hearingRound?: HearingRound;
 }
 
 export function logSet(db: Db, input: SetInput) {
@@ -434,13 +460,18 @@ export function saveDay(
 	tz: string
 ): { set: typeof sets.$inferSelect; before: SetSnapshot | null } {
 	return db.transaction((tx) => {
+		const { hearingRound, ...row } = input;
 		const rows = dayRows(tx, input.exerciseId, localDay(input.doneAt, tz), tz);
 		const old = rows[rows.length - 1];
 		if (!old)
 			return {
 				set: tx
 					.insert(sets)
-					.values({ ...input, note: input.note === '' ? null : (input.note ?? null) })
+					.values({
+						...row,
+						note: row.note === '' ? null : (row.note ?? null),
+						playerJson: hearingRound ? appendRound(row.playerJson, hearingRound) : row.playerJson
+					})
 					.returning()
 					.get(),
 				before: null
@@ -455,7 +486,9 @@ export function saveDay(
 				durationS,
 				rating: input.rating,
 				note: input.note === undefined ? old.note : input.note === '' ? null : input.note,
-				playerJson: input.playerJson ?? old.playerJson
+				playerJson: hearingRound
+					? appendRound(old.playerJson, hearingRound)
+					: (input.playerJson ?? old.playerJson)
 			})
 			.where(eq(sets.id, old.id))
 			.returning()

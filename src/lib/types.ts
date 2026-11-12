@@ -183,6 +183,8 @@ export interface MusicRow {
 	note: string | null;
 	/** Playable now: false for a group song unshared or archived since (only editors get such rows). */
 	shared: boolean;
+	/** A person set its count (`counted`): a hearing drill can play it. */
+	counted?: boolean;
 	/** What a note save saw (the clash check), as the form posts it. */
 	seen: string;
 }
@@ -191,6 +193,8 @@ export interface MusicRow {
 export interface PickerSong {
 	id: number;
 	title: string;
+	/** A person set its count (`counted`): only such a song goes in a hearing drill. */
+	counted?: boolean;
 	artist: string | null;
 	style: string;
 	/** As the Songs list shows it: bpm × tempoFactor, rounded; null when unknown. */

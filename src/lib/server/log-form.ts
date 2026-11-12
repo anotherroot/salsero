@@ -12,6 +12,7 @@ import { daysBetween, isValidDay, localDay, noonOf } from '$lib/day/day';
 import { t } from '$lib/i18n/catalog';
 import type { DoneResult, SetSnapshot } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
+import { parseRound, type HearingRound } from '$lib/hearing/drill';
 
 export type LogEvent = { params: { dance: string }; request: Request; locals: App.Locals };
 
@@ -106,7 +107,9 @@ export async function saveDoneFrom({
 				rating: fixed ? null : rating,
 				note: posted ? typed : undefined,
 				// The player logs nothing (one-player design): a set carries no run.
-				playerJson: null
+				playerJson: null,
+				// A hearing drill's round (phase 2), when one came back with the page; a broken one is left out.
+				hearingRound: hearingRoundOf(form) ?? undefined
 			},
 			tz
 		);
@@ -203,4 +206,15 @@ export async function restoreDayFrom({ params, request, locals }: LogEvent) {
 		return fail(400, { action: 'restoreDay', message: t().exercise.refused.dayPutBack });
 	}
 	return { action: 'restoreDay' as const, ok: true as const };
+}
+
+/** The posted `hearing` round (a JSON object, under 4000 characters), or null when none or broken. */
+function hearingRoundOf(form: FormData): HearingRound | null {
+	const raw = form.get('hearing');
+	if (typeof raw !== 'string' || raw === '' || raw.length > 4000) return null;
+	try {
+		return parseRound(JSON.parse(raw));
+	} catch {
+		return null;
+	}
 }

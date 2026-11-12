@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, songDrops, teamChanges } from './db/schema';
+import { exercises, sets, songDrops, teamChanges } from './db/schema';
 import { checkSeen, exerciseSeen } from './clash';
 import {
 	archiveExercise,
@@ -30,6 +30,7 @@ import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 import { readComesBack } from './comes-back-form';
 import { postedFields } from '$lib/exercises/comes-back-view';
 import { scheduleStateOf } from './schedule';
+import { roundsOf } from '$lib/hearing/drill';
 
 let db: Db;
 beforeEach(() => {
@@ -452,6 +453,31 @@ describe('one entry a day', () => {
 	it('a first save with an empty note stores null', () => {
 		const r = saveDay(db, input({ note: '' }), TZ);
 		expect(r.set.note).toBeNull();
+	});
+
+	it('two rounds of a hearing drill in one day: both kept, and Undo of the second keeps the first', () => {
+		const round = (score: number) => ({
+			kind: 'dropped' as const,
+			target: 'one' as const,
+			drops: 10,
+			songIds: [1],
+			score,
+			timing: score,
+			count: 0,
+			restarts: 0,
+			listening: 0,
+			changed: false
+		});
+		saveDay(db, input({ rating: 2, hearingRound: round(40) }), TZ);
+		const second = saveDay(
+			db,
+			input({ doneAt: at('2026-11-07', 20), rating: 3, hearingRound: round(70) }),
+			TZ
+		);
+		const stored = () => db.select().from(sets).where(eq(sets.exerciseId, ex)).get()!.playerJson;
+		expect(roundsOf(stored()).map((r) => r.score)).toEqual([40, 70]);
+		expect(undoSave(db, second.set.id, second.before)).toBe(true);
+		expect(roundsOf(stored()).map((r) => r.score)).toEqual([40]);
 	});
 
 	it('a second save that day adds the time and replaces face and note', () => {

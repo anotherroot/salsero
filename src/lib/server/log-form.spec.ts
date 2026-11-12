@@ -148,6 +148,30 @@ describe('saveDoneFrom', () => {
 		expect(only()).toMatchObject({ durationS: 90, playerJson: null });
 	});
 
+	it('a hearing round goes with the face; a broken one is left out and the face still saves', async () => {
+		const round = {
+			kind: 'dropped',
+			target: 'one',
+			drops: 10,
+			songIds: [3],
+			score: 78,
+			timing: 90,
+			count: 0,
+			restarts: 5,
+			listening: 7,
+			changed: false
+		};
+		await saveDoneFrom(
+			post('salsa', { exerciseId: String(drillId), rating: '4', hearing: JSON.stringify(round) })
+		);
+		expect(JSON.parse(only().playerJson!)).toEqual({ hearing: { rounds: [round] } });
+		await saveDoneFrom(
+			post('salsa', { exerciseId: String(drillId), rating: '3', hearing: '{"score":900}' })
+		);
+		expect(only().rating).toBe(3);
+		expect(JSON.parse(only().playerJson!).hearing.rounds).toHaveLength(1);
+	});
+
 	it('backfills a past day at noon with no time and no run', async () => {
 		const res = await saveDoneFrom(
 			post('salsa', {

@@ -649,3 +649,54 @@ describe("keepFromTeam: Music on u2's own rows", () => {
 		expect(crossRefs(db).filter((l) => l.startsWith('song_links'))).toEqual([]);
 	});
 });
+
+describe('keepFromTeam: a hearing drill keeps its songs (phase 2)', () => {
+	/** A second class song, counted by a person, that nothing else of u2's practises. */
+	const hearingSong = () => {
+		const id = createSongFromUpload(db, T1_SALSA, {
+			file: 'h.mp3',
+			mime: 'audio/mpeg',
+			title: 'Casa Mía',
+			style: 'salsa',
+			sizeBytes: 200
+		}).id;
+		db.update(songs)
+			.set({ status: 'ready', sharedAt: T, anchorsJson: '[0]' })
+			.where(eq(songs.id, id))
+			.run();
+		return id;
+	};
+
+	it("the teacher's hearing drill comes with its songs: kept with its lesson, no song ticked", async () => {
+		const s = story();
+		const H = hearingSong();
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, s.D)).run();
+		expect(addMusic(db, T1_SALSA, { exerciseId: s.D }, H, null, T)).toMatchObject({ ok: true });
+		await keepFromTeam(
+			db,
+			'u2',
+			1,
+			{ mode: 'chosen', lessons: [s.L], figures: [], routines: [], songs: [] },
+			fakeFiles().files,
+			NOW
+		);
+		expect(copyOf('drill', s.D)).toHaveLength(1);
+		expect(copyOf('song', H)).toHaveLength(1);
+	});
+
+	it("u2's own hearing drill with a class song: the song is kept and its link points at the copy", async () => {
+		story();
+		const H = hearingSong();
+		const own = createCustomExercise(db, U2_SALSA, { name: 'Kje je ena?', notes: null }).id;
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, own)).run();
+		expect(addMusic(db, U2_SALSA, { exerciseId: own }, H, null, T)).toMatchObject({ ok: true });
+		await keepFromTeam(db, 'u2', 1, { mode: 'used' }, fakeFiles().files, NOW);
+		const [copy] = copyOf('song', H)!;
+		expect(db.select().from(songLinks).where(eq(songLinks.exerciseId, own)).all()).toEqual([
+			expect.objectContaining({ songId: copy.id })
+		]);
+		leave();
+		// Only Music's lines: the entries a real leave settles are not this test's.
+		expect(crossRefs(db).filter((l) => l.startsWith('song_links'))).toEqual([]);
+	});
+});
