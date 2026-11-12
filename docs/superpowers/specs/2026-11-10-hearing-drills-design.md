@@ -339,8 +339,10 @@ From the user trying 1b on the phone (2026-11-11) and the boards
 13. **Spremeni and Edit** (my call, as for drills): on a drill the person may edit (their own,
     or a teacher on the group's), Spremeni saves to `practice_json.hearing` (the same write as
     the practice panel's, keeping the other keys; a group row with `logChange` and `seen`). A
-    class member's Spremeni is this round only (4). The drill's Edit page shows the Za sluh
-    fields; songs are added and removed in its Glasba list, as for any drill.
+    class member's Spremeni is this round only (4). Spremeni's sheet has the kind, target and
+    length, with ▶ Začni (this round) and, for an editor, Shrani (the drill's settings): one
+    place for them, so the in-page Edit keeps name, notes and Comes back only (plan ruling,
+    2026-11-12). Songs are added and removed in its Glasba list, as for any drill.
 14. **The AI connector** (my call): a hearing drill reads as a drill with its kind and
     settings shown; `propose` does not write `practice_json.hearing`.
 
