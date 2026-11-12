@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loopName, parseLoopName } from './loops';
+import { lookLine, loopName, parseLoopName, pictureOf } from './loops';
 
 describe('loop names', () => {
 	it('name a section and its still', () => {
@@ -17,5 +17,24 @@ describe('loop names', () => {
 		expect(parseLoopName('12-1000-7000-still.jpg')).toMatchObject({ still: true });
 		for (const bad of ['../12-0-1.jpg', '12-1000-1000.jpg', '12-0-1.png', '12-0.jpg', 'x-0-1.jpg'])
 			expect(parseLoopName(bad)).toBeNull();
+	});
+});
+
+describe('pictureOf and lookLine', () => {
+	it('a section is a strip and a still under /loops/', () => {
+		expect(pictureOf({ id: 12, startMs: 1000, endMs: 7000 })).toEqual({
+			strip: '/loops/12-1000-7000.jpg',
+			still: '/loops/12-1000-7000-still.jpg'
+		});
+		expect(pictureOf(null)).toBeNull();
+	});
+
+	it('positions, then the length', () => {
+		expect(lookLine({ hands: 'Abierta (una mano) → Cerrada', length: 8, picture: null })).toBe(
+			'Abierta (una mano) → Cerrada · 8 counts'
+		);
+		expect(lookLine({ hands: '', length: 8, picture: null })).toBe('8 counts');
+		expect(lookLine({ hands: 'Cerrada →', length: null, picture: null })).toBe('Cerrada →');
+		expect(lookLine({ hands: '', length: null, picture: null })).toBe('');
 	});
 });

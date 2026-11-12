@@ -425,6 +425,18 @@ export interface PickRoutine {
 	twins?: TwinNote[];
 }
 
+/** A figure's moving picture in the pickers: the strip of 12 frames and its first as a still. Null: none. */
+export type Picture = { strip: string; still: string } | null;
+
+/** What a picker row shows of a figure: positions, length and its picture (picker preview). */
+export interface FigureLook {
+	/** "Abierta (una mano) → Cerrada", "" when no position is set. */
+	hands: string;
+	/** Counts, null when set per routine slot. */
+	length: number | null;
+	picture: Picture;
+}
+
 /** One variation of a figure, as a picker offers it. */
 export interface FigureVersion {
 	id: number;

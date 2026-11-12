@@ -615,7 +615,7 @@ src/routes/api/worker/timelines/  the worker's side: claim, source (the video), 
 src/lib/server/loops/  figure loops for the pickers (picker preview): store.ts (`queueLoops`, the one
                      sweep that queues every figure-linked section whose span has no loop and drops
                      stale ones, run on each claim and by the hourly purge; claim, source, finish,
-                     fail). Files \$DATA_DIR/loops/<spot>-<start>-<end>.jpg and …-still.jpg, never counted
+                     fail). Files $DATA_DIR/loops/<spot>-<start>-<end>.jpg and …-still.jpg, never counted
 src/routes/api/worker/loops/  the worker's side: claim, source (Range), strip, still, done, fail
 src/routes/loops/[file]  a loop to who may read its video, for the spot's current span only
 src/lib/ai-queue/measure.ts  PURE: the AI's sections against the person's (pairs, missed, extra);

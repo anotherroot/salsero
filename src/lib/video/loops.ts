@@ -3,6 +3,8 @@
  * names come from the section itself, so a page or a phone builds the URL from
  * synced columns alone. PURE and client-safe.
  */
+import { t } from '$lib/i18n/catalog';
+import type { FigureLook, Picture } from '$lib/types';
 
 /** A section, as far as its loop goes. */
 export type LoopSpan = { id: number; startMs: number; endMs: number };
@@ -19,3 +21,13 @@ export function parseLoopName(name: string): (LoopSpan & { still: boolean }) | n
 	if (!Number.isSafeInteger(id) || endMs <= startMs) return null;
 	return { id, startMs, endMs, still: m[4] !== undefined };
 }
+
+/** A section's picture: its strip and its still, or null without a section. */
+export const pictureOf = (spot: LoopSpan | null): Picture =>
+	spot ? { strip: `/loops/${loopName(spot)}`, still: `/loops/${loopName(spot, true)}` } : null;
+
+/** A figure row's second line: "Abierta (una mano) → Cerrada · 8 counts", either part alone, or "". */
+export const lookLine = (look: FigureLook): string =>
+	[look.hands, look.length === null ? '' : t().nouns.counts(look.length)]
+		.filter((p) => p !== '')
+		.join(' · ');
