@@ -1,0 +1,1 @@
+ALTER TABLE `routines` ADD `is_section` integer DEFAULT 0 NOT NULL;

@@ -119,6 +119,8 @@ const MAIN_FIRST = [asc(routineStepOptions.createdAt), sql`routine_step_options.
 export interface RoutineInput {
 	name: string;
 	notes: string | null;
+	/** A section (spec 2026-11-12): no exercise, never listed as a routine. */
+	isSection?: boolean;
 }
 /**
  * The space a routine row stands in, for the figure graph and the routines it
@@ -143,10 +145,15 @@ type Made = { routine: Routine; exercise: Exercise | null };
 export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
 	const routine = tx
 		.insert(routines)
-		.values({ ...input, ...ownerValues(space) })
+		.values({
+			name: input.name,
+			notes: input.notes,
+			isSection: input.isSection ? 1 : 0,
+			...ownerValues(space)
+		})
 		.returning()
 		.get();
-	if (isTeam(space)) return { routine, exercise: null };
+	if (isTeam(space) || input.isSection) return { routine, exercise: null };
 	const exercise = tx
 		.insert(exercises)
 		.values({
@@ -318,7 +325,7 @@ export function listRoutines(db: Db, space: Space): RoutineItem[] {
 		})
 		.from(routines)
 		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
-		.where(and(ownedBy(routines, space), isNull(routines.archivedAt)))
+		.where(and(ownedBy(routines, space), isNull(routines.archivedAt), eq(routines.isSection, 0)))
 		.groupBy(routines.id)
 		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
@@ -347,7 +354,7 @@ export function listAddedRoutines(
 			})
 			.from(routines)
 			.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
-			.where(and(inArray(routines.id, ids), isNull(routines.archivedAt)))
+			.where(and(inArray(routines.id, ids), isNull(routines.archivedAt), eq(routines.isSection, 0)))
 			.groupBy(routines.id)
 			.orderBy(desc(routines.createdAt), desc(routines.id))
 			.all();
@@ -401,7 +408,8 @@ export function listUsableRoutines(
 				inArray(routines.id, ids),
 				eq(routines.dance, wall.dance),
 				isNotNull(routines.teamId),
-				isNull(routines.archivedAt)
+				isNull(routines.archivedAt),
+				eq(routines.isSection, 0)
 			)
 		)
 		.groupBy(routines.id)

@@ -713,7 +713,13 @@ export const routines = sqliteTable(
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt(),
 		geneId: text('gene_id'),
-		clonedFrom: integer('cloned_from')
+		clonedFrom: integer('cloned_from'),
+		/**
+		 * 1: a section (spec 2026-11-12, routine sections): a block that lives only
+		 * inside routines, never practised, so no exercise and never in the
+		 * Routines list. Unnamed sections store name ''. Additive, no CHECK.
+		 */
+		isSection: integer('is_section').notNull().default(0)
 	},
 	(t) => [
 		index('routines_dance_idx').on(t.dance, t.archivedAt),

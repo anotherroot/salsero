@@ -15,6 +15,7 @@ import {
 	listPickRoutines,
 	listAddedRoutines,
 	listRoutines,
+	insertRoutine,
 	moveSlotTo,
 	removeOption,
 	restoreOption,
@@ -1430,5 +1431,24 @@ describe('a slot’s end within its own routine (spec 2026-11-11, slot end)', ()
 		expect(snapshot[0].end).toBe(B);
 		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
 		expect(routineSlots(db, routine.id)[0].end).toBe(B);
+	});
+});
+
+describe('sections (spec 2026-11-12)', () => {
+	it('insertRoutine with isSection makes no exercise', () => {
+		const db = openDb(':memory:');
+		const made = insertRoutine(db, U1_SALSA, { name: '', notes: null, isSection: true });
+		expect(made.exercise).toBeNull();
+		expect(made.routine.isSection).toBe(1);
+		expect(
+			db.select().from(exercises).where(eq(exercises.routineId, made.routine.id)).all()
+		).toHaveLength(0);
+	});
+
+	it('listRoutines leaves sections out', () => {
+		const db = openDb(':memory:');
+		createRoutine(db, U1_SALSA, { name: 'Social mix', notes: null });
+		insertRoutine(db, U1_SALSA, { name: 'Enchufla → Dile', notes: null, isSection: true });
+		expect(listRoutines(db, U1_SALSA).map((r) => r.name)).toEqual(['Social mix']);
 	});
 });
