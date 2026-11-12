@@ -206,6 +206,16 @@ export interface PlayerHandle {
 	setDelayCorrection(ms: number): void;
 	/** The figures that have started, in order, for "save as set". */
 	danced(): number[];
+	/**
+	 * Play another song from here on (a hearing round over several songs): the
+	 * run is held, the old element paused, and the new one waits for `seek` and
+	 * `resume`. Its element must have been played once inside a tap (iOS).
+	 */
+	setSong(next: {
+		audio: HTMLAudioElement;
+		grid: { beats: number[]; counts: number[] };
+		quiet?: QuietRange[];
+	}): void;
 }
 
 export function createPlayer(opts: PlayerOptions): PlayerHandle {
@@ -215,7 +225,9 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	let tick = 0;
 	let wakeLock: WakeLockSentinel | null = null;
 
-	const tl: Timeline = timeline(opts.grid);
+	/** The song the run plays; a hearing round over several songs swaps it between spots (`setSong`). */
+	const song = { audio: opts.audio, quiet: opts.quiet };
+	let tl: Timeline = timeline(opts.grid);
 	let toggles = opts.toggles;
 	let volume = opts.voiceVolume;
 	let plan: PlanStep[] = [];
@@ -247,7 +259,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	 */
 	const heardDelayS = () => totalDelayMs(reported.ms, delayCorrectionMs) / 1000;
 
-	const rate = () => opts.audio?.playbackRate ?? 1;
+	const rate = () => song.audio?.playbackRate ?? 1;
 
 	/**
 	 * The song position being HEARD. With a song, the element's own time; with
@@ -259,8 +271,8 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 				// the only honest answer — otherwise the on-screen count would keep
 				// climbing through a pause.
 				heldAt
-			: opts.audio
-				? opts.audio.currentTime
+			: song.audio
+				? song.audio.currentTime
 				: ctx
 					? (ctx.currentTime - heardDelayS() - origin) * rate()
 					: 0;
@@ -273,8 +285,8 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	 */
 	const ctxAt = (songTime: number) => {
 		if (!ctx) return 0;
-		return opts.audio
-			? ctx.currentTime - heardDelayS() + (songTime - opts.audio.currentTime) / rate()
+		return song.audio
+			? ctx.currentTime - heardDelayS() + (songTime - song.audio.currentTime) / rate()
 			: origin + songTime / rate();
 	};
 
@@ -346,7 +358,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		reported.read(reportedDelayMs(ctx));
 		const now = songNow();
 		/** With a song, cues start early by this much, so the window reaches that much further. */
-		const lead = opts.audio ? heardDelayS() * rate() : 0;
+		const lead = song.audio ? heardDelayS() * rate() : 0;
 
 		// A run ends either because the song ran out or because a count-only grid
 		// did. Both have to be noticed here, or the music stops and the screen
@@ -356,7 +368,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		// moment before `ended` turns true, so a tick can land in between. The
 		// tick keeps firing 40 times a second, so this has to latch.
 		if (ended) return;
-		if (opts.audio ? opts.audio.ended : now > lastBeat()) {
+		if (song.audio ? song.audio.ended : now > lastBeat()) {
 			ended = true;
 			opts.onEnd();
 			return;
@@ -375,7 +387,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		if (opts.planner) plan = opts.planner(plan, eightAt(until) + 2, Math.random);
 
 		const found = cuesIn(tl, plan, toggles, cursor, until);
-		const quiet = opts.quiet ?? [];
+		const quiet = song.quiet ?? [];
 		const cues = found.cues.filter((c) => !isQuiet(quiet, c.at));
 		if (toggles.count !== 'off')
 			for (const c of countInCuesIn(opts.countIn ?? [], cursor, until))
@@ -431,7 +443,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	function seek(to: number) {
 		const t = Math.max(0, to);
 		clearQueued();
-		if (opts.audio) opts.audio.currentTime = t;
+		if (song.audio) song.audio.currentTime = t;
 		else if (ctx) origin = ctx.currentTime - heardDelayS() - t / rate();
 		// Paused, the held position IS the run's position: without this the
 		// count on screen would stay where it was, and resume would schedule
@@ -480,7 +492,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 				reported.read(reportedDelayMs(ctx));
 				origin = ctx.currentTime;
 				cursor = songNow();
-				await opts.audio?.play();
+				await song.audio?.play();
 			} catch (e) {
 				// A clip that 404s, or a play() the browser refuses, must not leave
 				// an open context behind: the caller will show an error and the user
@@ -509,7 +521,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			clearInterval(tick);
 			tick = 0;
 			clearQueued();
-			opts.audio?.pause();
+			song.audio?.pause();
 		},
 
 		async resume() {
@@ -517,10 +529,10 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			// Count-only measures the song from `origin`, and the context clock ran
 			// on through the pause; move the origin so the count picks up where it
 			// left off rather than jumping forward by however long the break was.
-			if (!opts.audio) origin = ctx.currentTime - heardDelayS() - heldAt / rate();
+			if (!song.audio) origin = ctx.currentTime - heardDelayS() - heldAt / rate();
 			cursor = heldAt;
 			heldAt = null;
-			await opts.audio?.play();
+			await song.audio?.play();
 			tick = setInterval(schedule, TICK_MS) as unknown as number;
 		},
 
@@ -530,7 +542,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			heldAt = null;
 			clearQueued();
 			document.removeEventListener('visibilitychange', onVisible);
-			opts.audio?.pause();
+			song.audio?.pause();
 			void wakeLock?.release();
 			wakeLock = null;
 			void ctx?.close();
@@ -570,11 +582,24 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		soundDelay: () => ({
 			reportedMs: reported.ms,
 			correctionMs: delayCorrectionMs,
-			withSong: opts.audio !== null
+			withSong: song.audio !== null
 		}),
 		setDelayCorrection(ms) {
 			delayCorrectionMs = ms;
 		},
-		danced: () => [...dancedIds]
+		danced: () => [...dancedIds],
+
+		setSong(next) {
+			// Only while held: the old element stops, the new one waits at its start for `seek` and `resume`.
+			if (heldAt === null) this.pause();
+			song.audio?.pause();
+			song.audio = next.audio;
+			song.quiet = next.quiet;
+			tl = timeline(next.grid);
+			ended = false;
+			clearQueued();
+			heldAt = next.audio.currentTime;
+			cursor = heldAt;
+		}
 	};
 }

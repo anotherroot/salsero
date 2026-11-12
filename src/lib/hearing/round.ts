@@ -2,6 +2,8 @@
  * The pieces of a round the page needs that are not judging. PURE and client-safe.
  */
 import type { Placed } from '$lib/songs/sections';
+import type { QuietRange } from '$lib/scheduler/quiet';
+import type { Grid } from './judge';
 
 export type RoundKind = 'tapAlong' | 'dropped';
 
@@ -64,6 +66,17 @@ export interface FinishedDrop {
 	listenEights: number;
 	/** The song's section the drop was in ('' when the song has none). */
 	section: string;
+	/** Which of the round's songs it was in (an index; absent: the first). */
+	song?: number;
+}
+
+/** A song of a round as the run plays it: its element, grid, sections and beat. */
+export interface DropRig {
+	audio: HTMLAudioElement;
+	grid: Grid;
+	sections: Placed[];
+	quiet: QuietRange[];
+	beatS: number;
 }
 
 /**

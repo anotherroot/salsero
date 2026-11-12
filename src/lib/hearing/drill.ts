@@ -10,7 +10,8 @@
  */
 import { CLAVE_PATTERNS, type ClavePattern } from '$lib/labels';
 import type { Feel } from '$lib/schedule/feel';
-import type { RoundKind } from './round';
+import type { FinishedDrop, RoundKind } from './round';
+import { roundScore, scoreDrop } from './score';
 import { isTargetId, ownCounts, type TargetId } from './targets';
 
 export const HEARING_LENGTHS = [5, 10, 20] as const;
@@ -196,4 +197,45 @@ export function settingsFrom(
 export function keepHearing(old: string | null, next: string): string {
 	const before = parseJson(old);
 	return before.hearing === undefined ? next : withHearing(next, settingsOf(before.hearing));
+}
+
+/**
+ * What Done saves of a finished round: its score and the parts it lost
+ * (`scoreDrop`, `roundScore`, as result B shows them), what it ran with, and
+ * the songs its drops were in (`songIds` by the drops' `song` index).
+ */
+export function hearingRound(
+	drops: readonly FinishedDrop[],
+	s: Pick<HearingSettings, 'kind' | 'target' | 'clave' | 'positions'> & { drops?: number },
+	songIds: readonly number[],
+	changed: boolean
+): HearingRound {
+	const total = roundScore(
+		drops.map((d) =>
+			scoreDrop({
+				spot: d.answer.spot,
+				close: d.answer.close,
+				of: d.answer.of,
+				restarts: d.restarts,
+				listenEights: d.listenEights,
+				skipped: d.skipped,
+				shift: d.skipped ? 0 : d.answer.shift
+			})
+		)
+	);
+	const round: HearingRound = {
+		kind: s.kind,
+		target: s.target,
+		drops: drops.length,
+		songIds: [...new Set(drops.map((d) => songIds[d.song ?? 0]).filter((id) => id !== undefined))],
+		score: total.score,
+		timing: total.timing,
+		count: total.countLoss,
+		restarts: total.restartsLoss,
+		listening: total.listenLoss,
+		changed
+	};
+	if (s.target === 'clave' && s.clave) round.clave = s.clave;
+	if (s.target === 'own' && s.positions) round.positions = [...s.positions];
+	return round;
 }

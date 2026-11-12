@@ -111,3 +111,28 @@ describe('settings in a link', () => {
 		expect(settingsFrom(new URLSearchParams(''), base)).toEqual({ settings: base, changed: false });
 	});
 });
+
+describe('hearingRound: what Done saves of a round', () => {
+	it('scores the drops and names the songs they were in', async () => {
+		const { hearingRound } = await import('./drill');
+		const answer = { spot: 2, close: 0, of: 2, shift: 0 } as never;
+		const drop = (song: number) => ({
+			answer,
+			restarts: 0,
+			skipped: false,
+			listenEights: 1,
+			section: '',
+			song
+		});
+		const r = hearingRound(
+			[drop(1), drop(1), drop(0)],
+			{ kind: 'dropped', target: 'one', drops: 10 },
+			[11, 22],
+			true
+		);
+		expect(r).toMatchObject({ kind: 'dropped', target: 'one', drops: 3, changed: true });
+		expect(r.songIds).toEqual([22, 11]);
+		expect(r.score).toBeGreaterThan(0);
+		expect(r.score).toBeLessThanOrEqual(100);
+	});
+});
