@@ -37,6 +37,7 @@ import type {
 	SyncSettings
 } from '$lib/types';
 import { isCopySuffix, NAME_KEYS } from '$lib/clones/diff';
+import { pieceParts } from '$lib/clones/flat';
 import { allows } from '$lib/clones/sync';
 import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
@@ -80,6 +81,14 @@ function carried(r: MergeRow, page: number, m: number, settings: SyncSettings): 
 	return allows(settings, r.key, vp.field === null, vp.field !== null && vm.field !== null);
 }
 
+/** A recording or video the page has and copy `m` lacks, which `m`'s options keep out. */
+function refusedPiece(r: MergeRow, page: number, m: number, settings: SyncSettings): boolean {
+	const vp = r.values.find((v) => v.holders.includes(page));
+	const vm = r.values.find((v) => v.holders.includes(m));
+	if (!vp?.field || !vm || vm.field !== null) return false;
+	return pieceParts(r.key)?.part === 'piece' && !allows(settings, r.key, false);
+}
+
 export function stepStatus(
 	db: Db,
 	userId: string,
@@ -102,6 +111,10 @@ export function stepStatus(
 		// Their own change, seen from a page they only read: nothing to pull.
 		const ownFromRead = readPage && m.place.kind === 'mine';
 		const settings = flows && m.access === 'edit' ? syncSettingsOf(db, kind, m.id) : null;
+		// As the flow's `holdLinkRemovals`: a new piece M's options refuse keeps the link removals back.
+		const holdsLinks =
+			settings !== null &&
+			rows.some((r) => stateOf(r, id, m.id) === 'behind' && refusedPiece(r, id, m.id, settings));
 		// One line per state the copy is in (a held one per way), with its rows in that state.
 		const byState = new Map<
 			string,
@@ -112,7 +125,8 @@ export function stepStatus(
 			if (s === null || (s === 'behind' && m.access !== 'edit')) continue;
 			if (ownFromRead && (s === 'changed' || s === 'held')) continue;
 			// On its way: the flow lands it by itself once the device's changes go up.
-			if (s === 'behind' && settings && carried(r, id, m.id, settings)) {
+			const heldLink = holdsLinks && r.key.startsWith('link:');
+			if (s === 'behind' && settings && !heldLink && carried(r, id, m.id, settings)) {
 				sending.add(m.id);
 				continue;
 			}

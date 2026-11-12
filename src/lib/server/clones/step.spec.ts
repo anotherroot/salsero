@@ -261,6 +261,28 @@ describe('stepStatus while the device has changes on their way', () => {
 		]);
 	});
 
+	it('a link removed for a recording the copy keeps out is held back with it', async () => {
+		const D = mk('Doble', 'Dile');
+		addLinks(db, { figureId: D }, ['https://example.org/doble'], 'Doble', 'u1');
+		const C = await copy(D, T1_SALSA);
+		const [link] = db.select().from(links).where(eq(links.figureId, D)).all();
+		// The link became a recording: removed, and a recording added (media off on C).
+		expect(deleteLink(db, { figureId: D }, link.id, 'u1')).toBe(true);
+		recording(D);
+		const s = stepStatus(db, 'u1', 'figure', D, true);
+		expect(s.sending).toBe(0);
+		expect(s.lines).toEqual([
+			expect.objectContaining({ id: C, state: 'behind', fields: ['1 recording', '1 link'] })
+		]);
+		// Without the recording the removal flows by itself.
+		const E = mk('Doble', 'Paseo');
+		addLinks(db, { figureId: E }, ['https://example.org/paseo'], 'Paseo', 'u1');
+		await copy(E, T1_SALSA);
+		const [l2] = db.select().from(links).where(eq(links.figureId, E)).all();
+		expect(deleteLink(db, { figureId: E }, l2.id, 'u1')).toBe(true);
+		expect(stepStatus(db, 'u1', 'figure', E, true)).toEqual({ lines: [], sending: 1 });
+	});
+
 	it('a copy’s own change is never on its way: changed and both stay', () => {
 		save(T, { notes: 'Ana notes' });
 		save(G1, { notes: 'Club notes' });

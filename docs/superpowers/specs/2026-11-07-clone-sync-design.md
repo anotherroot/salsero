@@ -471,11 +471,14 @@ not say. Each line: what, and why.
   mockups): "Sending to 2 copies…" with a spinner fades in over its
   "Also: …", which stays in place, see-through, so the row keeps its
   height; once the pull lands and nothing differs, "Copies updated" for
-  2 s, then it fades out. Whatever still differs then (the flow refused, or
-  two hops the guess did not see) is the notice again. Only the device
-  guesses: the server flows before it answers. The guess is the whole outbox,
-  not this family's entries, so offline the row says "Sending…" until the
-  changes go up.
+  2 s, then it fades out. Whatever still differs then is the notice again.
+  Only the device guesses (the server flows before it answers), and the
+  guess is generous, always for a while only: it reads the whole outbox, not
+  this family's entries, and every behind row the options allow, not only
+  this save's keys, so offline an old difference (a hop refused earlier)
+  says "Sending…" until the changes go up; a copy reached through another
+  copy is judged by its own options alone. A link removal held back for a
+  refused new piece (`holdLinkRemovals`) is no guess: it stays a line.
 - **The Moves cards filter in place** on Figures, Routines and Positions
   (also on desktop beside an open item); the filter can always be cleared,
   and `differ` stays optional on list rows (a list that forgets it shows
