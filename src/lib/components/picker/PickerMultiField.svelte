@@ -15,6 +15,7 @@
 	 * sheet stays open. While it is pending the create button is
 	 * busy; it re-enables when it settles, and a refusal shows in the sheet.
 	 */
+	import type { ComponentProps } from 'svelte';
 	import Picker from './Picker.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -48,6 +49,14 @@
 		error?: string | null;
 		/** Bindable, so a host can tie it to history. */
 		open?: boolean;
+		/**
+		 * Link from other places (a group's field): the person's other places
+		 * while a search is typed (`Picker`'s `elsewhere`); a tap on one of
+		 * their rows is `onelsewhere`. `query` is the search, bindable.
+		 */
+		elsewhere?: ComponentProps<typeof Picker>['elsewhere'];
+		onelsewhere?: (row: PickRow) => void;
+		query?: string;
 	}
 
 	let {
@@ -64,7 +73,10 @@
 		oncreate,
 		nothingLeft,
 		error = null,
-		open = $bindable(false)
+		open = $bindable(false),
+		elsewhere = null,
+		onelsewhere,
+		query = $bindable('')
 	}: Props = $props();
 
 	const id = $props.id();
@@ -170,6 +182,9 @@
 	{creating}
 	{nothingLeft}
 	back
+	bind:query
+	{elsewhere}
+	onelsewhere={(row) => onelsewhere?.(row)}
 	onpick={toggle}
 	onclose={() => {
 		sheetEpoch++;

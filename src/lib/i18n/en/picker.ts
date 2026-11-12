@@ -60,7 +60,9 @@ export const picker = {
 		offline: 'Other places need a connection.',
 		looking: 'Looking in your other places…',
 		/** A row's +. */
-		copyHere: (label: string): string => `Copy ${label} here and link`
+		copyHere: (label: string): string => `Copy ${label} here and link`,
+		/** A move found elsewhere, in New figure's Move field: a pick makes one of that name here. */
+		newMove: 'A new move here, same name'
 	},
 	/** The builders' group titles. */
 	groups: {

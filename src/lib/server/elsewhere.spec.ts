@@ -8,7 +8,7 @@ import { openDb, type Db } from './db';
 import { users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { setRole } from './membership';
-import { addRecording, archiveVariation, createFigure } from './figures';
+import { addRecording, archiveVariation, createFigure, createVariationIn } from './figures';
 import { addLessonVideo, createLesson, linkFigure, publishLesson } from './lessons';
 import { createRoutine } from './routines';
 import { createCustomExercise } from './exercises';
@@ -101,6 +101,36 @@ describe('findElsewhere', () => {
 		const places = findElsewhere(db, T1_SALSA, ['figure'], 'cradle');
 		expect(placeNames(places)).toEqual(['Tuesday class']);
 		expect(places[0].readOnly).toBe(true);
+	});
+
+	it('finds moves by their own name, one row per name, never one the group has', () => {
+		const mine = createFigure(db, U1_SALSA, {
+			figureName: 'Cradle entry',
+			name: 'Basic',
+			...shape
+		})!;
+		createVariationIn(db, mine.group.id, { name: 'Fast', ...shape });
+		figure(U1_SALSA, 'Setenta', 'Cradle-ish');
+		figure(T2_SALSA, 'Cradle entry', 'With turn');
+		figure(T2_SALSA, 'Cradle exit');
+		figure(T1_SALSA, 'CRÁDLE EXIT');
+		const places = findElsewhere(db, T1_SALSA, ['move'], 'cradle');
+		// Setenta's figure matches, its name does not; Cradle exit is the group's own.
+		expect(placeNames(places)).toEqual(['mine']);
+		expect(places[0].rows).toMatchObject([
+			{ kind: 'move', label: 'Cradle entry', heading: null, alsoIn: ['Rueda club'] }
+		]);
+	});
+
+	it('a read-only group’s move shows once the person reads one of its figures', () => {
+		const F = figure(T3_SALSA, 'Cradle walk', 'Slow');
+		expect(findElsewhere(db, T1_SALSA, ['move'], 'cradle')).toEqual([]);
+		const L = createLesson(db, T3_SALSA, { lessonDay: '2026-11-01', title: 'W1', notes: null })
+			.lesson.id;
+		linkFigure(db, L, F, 'u3');
+		expect(publishLesson(db, T3_SALSA, L, T)).toBe(true);
+		const places = findElsewhere(db, T1_SALSA, ['move'], 'cradle');
+		expect(places).toMatchObject([{ readOnly: true, rows: [{ label: 'Cradle walk' }] }]);
 	});
 
 	it('a family live in the group is left out; an archived one carries restore', async () => {

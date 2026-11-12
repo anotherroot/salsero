@@ -114,8 +114,11 @@ edit a class figure into their own). A teacher uses both.
    that version's family. Twins never travel.
 6. **Detach** a clone and it leaves its family *(user)*: it stops syncing
    (no "updated since", no "Take theirs" to hit by mistake). In your own app
-   it becomes your twin of what it was cloned from, so it keeps being shown
-   together. In a group, where there are no twins, it just becomes an
+   it just leaves and makes no twins *(user, 2026-11-12)*; Same as… shows it
+   with theirs again if you want that. (It used to become your twin of its
+   whole family; a row has one twin set, so the family joined whatever set
+   the row was already in, and Detach on Shadow Closed grew the Copies list
+   from 2 to 6.) In a group, where there are no twins, it just becomes an
    ordinary group row *(my call)*.
 7. **Drop my copy** *(user)* removes your clone and puts you back on a
    version you can still read. Your example: you start editing a class

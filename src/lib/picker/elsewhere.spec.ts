@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ElsewherePlace, ElsewhereRow } from '$lib/types';
 import { isHeading, type PickRow } from './model';
-import { elsewhereFrom, elsewhereGroups, elsewhereOf, elsewhereRow, hereGroups } from './elsewhere';
+import {
+	copyable,
+	elsewhereFrom,
+	elsewhereGroups,
+	elsewhereOf,
+	elsewhereRow,
+	hereGroups
+} from './elsewhere';
 
 const row = (over: Partial<ElsewhereRow>): ElsewhereRow => ({
 	kind: 'figure',
@@ -123,5 +130,29 @@ describe('picker preview: a figure from another place carries its look', () => {
 			picture: look.picture,
 			look: { kind: 'figure', id: 1 }
 		});
+	});
+});
+
+describe('a move found elsewhere (New figure’s Move field)', () => {
+	const move = row({
+		kind: 'move',
+		id: 12,
+		label: 'Setenta',
+		heading: null,
+		short: null,
+		alsoIn: ['Rueda club']
+	});
+
+	it('is a plain row that says a pick makes a new move here', () => {
+		const [g] = elsewhereGroups([{ place: { kind: 'mine' }, readOnly: false, rows: [move] }]);
+		expect(g.entries).toEqual([
+			{ key: 'elsewhere:move:12', value: 12, label: 'Setenta', meta: 'A new move here, same name' }
+		]);
+	});
+
+	it('is no row a copy can bring', () => {
+		expect(copyable(move)).toBe(false);
+		expect(copyable(row({}))).toBe(true);
+		expect(elsewhereRow('elsewhere:move:12')).toBeNull();
 	});
 });

@@ -76,6 +76,12 @@
 	import { menuLabel } from '$lib/menu';
 	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
+	import CopyHereCard from '$lib/components/links/CopyHereCard.svelte';
+	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
+	import { copyable, elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
+	import { copyToUse } from '$lib/picker/elsewhere-api';
+	import type { PickRow } from '$lib/picker/model';
+	import type { CopyableRow } from '$lib/types';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 	// The page's group view (`?in=`, or its row's): links to the lists keep it.
 	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
@@ -627,6 +633,72 @@
 	}
 
 	type PickerState = NonNullable<typeof picker>;
+
+	/*
+	 * Link from other places, in a group's routine: the slot picker's search
+	 * also finds the figures and routines of the person's own app and other
+	 * groups. A tap opens the card; Copy and use copies the row into the group
+	 * (`POST /api/elsewhere/copy`), and the copy goes in as a pick does.
+	 */
+	let pickQuery = $state('');
+	const away = new ElsewhereSearch();
+	$effect(() => {
+		const group = data.elsewhere;
+		if (!group || picker === null) return away.reset();
+		away.search(group.teamId, ['figure', 'routine'], pickQuery);
+	});
+	const awayPicker = $derived(
+		data.elsewhere ? { here: data.elsewhere.name, state: away.state, groups: away.groups } : null
+	);
+	let card = $state<{ row: CopyableRow; from: string | null; restore: number | null } | null>(null);
+	let cardBusy = $state(false);
+	let cardMessage = $state<string | null>(null);
+
+	function openCard(pick: PickRow) {
+		const row = elsewhereOf(away.places, pick.key);
+		if (!row || !copyable(row)) return;
+		card = { row, from: elsewhereFrom(away.places, pick.key), restore: row.restore };
+		cardMessage = null;
+	}
+
+	/** The group's row `id` of the card's kind, picked as the picker picks it (after the page has it). */
+	async function pickGroups(kind: 'figure' | 'routine', id: number) {
+		await invalidateAll();
+		const c = data.candidates.find((x) => x.kind === kind && x.id === id);
+		if (c && picker !== null) await pick(c);
+	}
+
+	/** Copy and use, or Restore and use with `restore`. */
+	async function sendCopy(use: Record<string, number>, restore: number | null) {
+		const sent = card;
+		const group = data.elsewhere;
+		if (!sent || !group || cardBusy) return;
+		const kind = sent.row.kind === 'routine' ? 'routine' : 'figure';
+		cardBusy = true;
+		cardMessage = null;
+		const res = await copyToUse(group.teamId, kind, sent.row.id, use, restore);
+		if (card !== sent) {
+			cardBusy = false;
+			return;
+		}
+		if (res.ok) {
+			await pickGroups(kind, res.id);
+			cardBusy = false;
+			card = null;
+		} else {
+			cardBusy = false;
+			if ('restore' in res) card = { ...sent, restore: res.restore };
+			else cardMessage = res.message ?? t().clones.copyHere.failedUse;
+		}
+	}
+
+	/** The card's "Use the group's one": the group's same-named row, picked. */
+	function useGroups() {
+		const c = card;
+		if (!c || c.row.sameName === null) return;
+		card = null;
+		void pickGroups(c.row.kind === 'routine' ? 'routine' : 'figure', c.row.sameName);
+	}
 	/** The last pick sent, so "Archived by Ana" can Restore and put it in, or reopen the picker. */
 	let lastPick: { p: PickerState; c: Candidate } | null = null;
 	let restoring = $state(false);
@@ -1621,7 +1693,32 @@
 	positionName={posName}
 	onpick={pick}
 	onclose={() => (picker = null)}
+	bind:query={pickQuery}
+	elsewhere={awayPicker}
+	onelsewhere={openCard}
 />
+
+<!-- Link from other places: the card over the slot picker. -->
+{#if card && data.elsewhere}
+	{@const c = card}
+	<CopyHereCard
+		theme="light"
+		kind={c.row.kind === 'routine' ? 'routine' : 'figure'}
+		then="use"
+		id={c.row.id}
+		label={c.row.label}
+		from={c.from}
+		into={data.elsewhere}
+		sameName={c.row.sameName}
+		restore={c.restore}
+		busy={cardBusy}
+		message={cardMessage}
+		oncopy={(use) => sendCopy(use, null)}
+		onrestore={(use) => sendCopy(use, c.restore)}
+		onlinkgroups={useGroups}
+		onclose={() => (card = null)}
+	/>
+{/if}
 
 <LengthSheet
 	open={howLong !== null}

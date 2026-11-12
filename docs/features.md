@@ -36,7 +36,8 @@ sections), landscape and desktop layouts; 0.25–1×, mirror, saved points and
 sections), and the inline video with our own controls: play, the time, a seek
 bar with the sections; one sound at a time (2026-11-12): whatever starts playing — a video, the
 full-screen player, a song, a sample, a YouTube card — stops whatever else plays (a muted background
-loop in the player's About plays on), and in the Android app (`SalsaAudio`, app 1.12) ours takes the
+loop in the player's About plays on). The Android app's audio focus (`SalsaAudio`, app 1.12) is TURNED OFF
+from the page (`APP_AUDIO_FOCUS`) and gone from app 1.13: it paused our own sound a split second in; meant: ours takes the
 phone's audio focus, so Spotify pauses, and another app taking it pauses ours; and the routine editor
 (drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
@@ -307,6 +308,9 @@ a group lesson's pickers and the Link popup on a group's video find, while
 searching, your own rows and your other groups' (read-only ones marked); a
 tap opens a card (what comes along, what stays behind) and Copy and link
 copies the row into the group as a clone and links it, in one transaction.
+Three field pickers search there too (amended 2026-11-12): New figure's Move
+field in a group's view (a pick makes a new move of that name), a group
+figure's Starts in / Ends in and a group routine's slot picker (Copy and use).
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync
