@@ -15,6 +15,7 @@ import {
 	listPickRoutines,
 	listAddedRoutines,
 	listRoutines,
+	holds,
 	insertRoutine,
 	moveSlotTo,
 	removeOption,
@@ -371,8 +372,10 @@ describe('insertSlot', () => {
 		addFigureSlot(db, parent.id, figure(db, 'A').id);
 		const step = insertSlot(db, parent.id, 0, { childId: child.id })!;
 		expect(routineSlots(db, parent.id)[0]).toMatchObject({ id: step, childId: child.id });
-		// `parent` now embeds, so it cannot itself be embedded.
-		expect(insertSlot(db, grand.id, 0, { childId: parent.id })).toBeNull();
+		// Any depth (spec 2026-11-12): `parent` embeds and may itself be embedded,
+		// but `child` may not take `parent` in (a cycle).
+		expect(insertSlot(db, grand.id, 0, { childId: parent.id })).not.toBeNull();
+		expect(insertSlot(db, child.id, 0, { childId: parent.id })).toBeNull();
 	});
 });
 
@@ -414,7 +417,7 @@ describe('setSlotNote', () => {
 	});
 });
 
-describe('embedding, one level', () => {
+describe('embedding', () => {
 	it('splices the child into the parent shape', () => {
 		const db = openDb(':memory:');
 		const parent = createRoutine(db, U1_SALSA, { name: 'P', notes: null }).routine;
@@ -436,24 +439,24 @@ describe('embedding, one level', () => {
 		expect(routineSlots(db, parent.id)[0].childName).toBe('C');
 	});
 
-	it('refuses a child that embeds something itself', () => {
+	it('embeds a child that embeds something itself (any depth)', () => {
 		const db = openDb(':memory:');
 		const a = createRoutine(db, U1_SALSA, { name: 'A', notes: null }).routine;
 		const b = createRoutine(db, U1_SALSA, { name: 'B', notes: null }).routine;
 		const c = createRoutine(db, U1_SALSA, { name: 'C', notes: null }).routine;
 		addChildSlot(db, b.id, c.id);
-		expect(canEmbed(db, a.id, b.id)).toBe(false);
-		expect(addChildSlot(db, a.id, b.id)).toBeNull();
+		expect(canEmbed(db, a.id, b.id)).toBe(true);
+		expect(addChildSlot(db, a.id, b.id)).not.toBeNull();
 	});
 
-	it('refuses to embed into a routine that is itself embedded', () => {
+	it('embeds into a routine that is itself embedded (any depth)', () => {
 		const db = openDb(':memory:');
 		const a = createRoutine(db, U1_SALSA, { name: 'A', notes: null }).routine;
 		const b = createRoutine(db, U1_SALSA, { name: 'B', notes: null }).routine;
 		const c = createRoutine(db, U1_SALSA, { name: 'C', notes: null }).routine;
 		addChildSlot(db, a.id, b.id);
-		expect(canEmbed(db, b.id, c.id)).toBe(false);
-		expect(addChildSlot(db, b.id, c.id)).toBeNull();
+		expect(canEmbed(db, b.id, c.id)).toBe(true);
+		expect(addChildSlot(db, b.id, c.id)).not.toBeNull();
 	});
 
 	it('refuses a routine inside itself', () => {
@@ -500,7 +503,7 @@ describe('routineShapes across the dance wall', () => {
 		const gone = createRoutine(db, U1_SALSA, { name: 'Gone', notes: null }).routine;
 		addChildSlot(db, nested.id, ok.id);
 		archiveRoutine(db, gone.id, 1000);
-		expect(embeddable(db, parent.id).map((r) => r.id)).toEqual([ok.id]);
+		expect(embeddable(db, parent.id).map((r) => r.id)).toEqual([nested.id, ok.id]);
 	});
 });
 
@@ -806,9 +809,8 @@ describe('deleteSlots and restoreSlots', () => {
 		const db = openDb(':memory:');
 		const parent = createRoutine(db, U1_SALSA, { name: 'P', notes: null }).routine;
 		const child = createRoutine(db, U1_SALSA, { name: 'C', notes: null }).routine;
-		const inner = createRoutine(db, U1_SALSA, { name: 'I', notes: null }).routine;
 		const snapshot = deleteSlots(db, parent.id, [addChildSlot(db, parent.id, child.id)!])!;
-		addChildSlot(db, child.id, inner.id); // the child now embeds: one level only
+		addChildSlot(db, child.id, parent.id); // the child now holds the parent: a cycle
 		expect(restoreSlots(db, parent.id, snapshot)).toBe(false);
 		expect(routineSlots(db, parent.id)).toHaveLength(0);
 	});
@@ -1481,5 +1483,47 @@ describe('routineShapes at any depth (spec 2026-11-12)', () => {
 		const { r, t } = nest(db);
 		db.insert(routineSteps).values({ routineId: t.id, position: 1, childRoutineId: r.id }).run();
 		expect(() => routineShapes(db, U1_SALSA)).not.toThrow();
+	});
+});
+
+describe('canEmbed at any depth (spec 2026-11-12)', () => {
+	const three = (db: ReturnType<typeof openDb>) => {
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const s = insertRoutine(db, U1_SALSA, { name: 'S', notes: null, isSection: true }).routine;
+		const t = insertRoutine(db, U1_SALSA, { name: 'T', notes: null, isSection: true }).routine;
+		return { r, s, t };
+	};
+
+	it('embeds two levels deep', () => {
+		const db = openDb(':memory:');
+		const { r, s, t } = three(db);
+		expect(addChildSlot(db, r.id, s.id)).not.toBeNull();
+		expect(canEmbed(db, s.id, t.id)).toBe(true);
+		expect(addChildSlot(db, s.id, t.id)).not.toBeNull();
+		expect(holds(db, r.id, t.id)).toBe(true);
+	});
+
+	it('refuses a cycle through a share, and itself', () => {
+		const db = openDb(':memory:');
+		const { r, s, t } = three(db);
+		addChildSlot(db, r.id, s.id);
+		addChildSlot(db, s.id, t.id);
+		expect(canEmbed(db, t.id, r.id)).toBe(false);
+		expect(canEmbed(db, s.id, s.id)).toBe(false);
+	});
+
+	it('embeddable leaves out unnamed sections and the routine’s ancestors', () => {
+		const db = openDb(':memory:');
+		const { r, s, t } = three(db);
+		const unnamed = insertRoutine(db, U1_SALSA, { name: '', notes: null, isSection: true }).routine;
+		addChildSlot(db, r.id, s.id);
+		const offered = embeddable(db, s.id).map((x) => x.id);
+		expect(offered).toContain(t.id);
+		expect(offered).not.toContain(r.id);
+		expect(offered).not.toContain(unnamed.id);
+		expect(embeddable(db, r.id).find((x) => x.id === s.id)).toMatchObject({
+			isSection: true,
+			holders: [{ id: r.id, name: 'R' }]
+		});
 	});
 });

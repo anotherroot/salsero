@@ -990,13 +990,29 @@ export function canEmbed(db: Db, parentId: number, childId: number, usable?: Usa
 	const parent = getRoutine(db, parentId);
 	const child = getRoutine(db, childId);
 	if (!parent || !child || !mayHold(db, parent, 'routines', child, usable)) return false;
-	const childEmbeds = db
-		.select({ id: routineSteps.id })
-		.from(routineSteps)
-		.where(and(eq(routineSteps.routineId, childId), isNotNull(routineSteps.childRoutineId)))
-		.get();
-	if (childEmbeds) return false;
-	return embeddedIn(db, parentId).length === 0;
+	// Any depth (spec 2026-11-12): the one rule is that nothing ends up inside itself.
+	return !holds(db, childId, parentId);
+}
+
+/**
+ * Whether `innerId` sits anywhere inside `outerId`, at any depth. Archival is not
+ * consulted: an archived child still plays where it is held.
+ */
+export function holds(db: Db, outerId: number, innerId: number): boolean {
+	const seen = new Set<number>([outerId]);
+	let frontier = [outerId];
+	while (frontier.length > 0) {
+		const children = db
+			.selectDistinct({ id: routineSteps.childRoutineId })
+			.from(routineSteps)
+			.where(and(inArray(routineSteps.routineId, frontier), isNotNull(routineSteps.childRoutineId)))
+			.all()
+			.map((r) => r.id!);
+		if (children.includes(innerId)) return true;
+		frontier = children.filter((id) => !seen.has(id));
+		for (const id of frontier) seen.add(id);
+	}
+	return false;
 }
 
 /**
@@ -1008,28 +1024,62 @@ export function embeddable(
 	db: Db,
 	routineId: number,
 	given?: Usable
-): { id: number; name: string; team?: TeamRef }[] {
+): {
+	id: number;
+	name: string;
+	team?: TeamRef;
+	isSection: boolean;
+	holders: { id: number; name: string }[];
+}[] {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return [];
 	const space = ownerSpace(routine);
 	const usable = isTeam(space) ? undefined : (given ?? usableOf(db, space));
 	const whose = ownedOrUsable(routines, space, usable?.routines);
 	const rows = db
-		.select({ id: routines.id, name: routines.name, teamId: routines.teamId })
+		.select({
+			id: routines.id,
+			name: routines.name,
+			teamId: routines.teamId,
+			isSection: routines.isSection
+		})
 		.from(routines)
 		.where(and(whose, isNull(routines.archivedAt)))
 		.orderBy(asc(routines.name), asc(routines.id))
 		.all()
+		// An unnamed section belongs to its one place: never offered (spec 2026-11-12).
+		.filter((r) => !(r.isSection === 1 && r.name === ''))
 		.filter((r) => canEmbed(db, routineId, r.id, usable));
+	const holders = holdersOf(
+		db,
+		rows.filter((r) => r.isSection === 1).map((r) => r.id)
+	);
 	// A group's routine the person may use carries its group, for the picker's heading.
 	const teams = teamRefs(
 		db,
 		rows.flatMap((r) => (r.teamId === null || isTeam(space) ? [] : [r.teamId]))
 	);
-	return rows.map(({ teamId, ...r }) => {
+	return rows.map(({ teamId, isSection, ...r }) => {
 		const team = teamId === null ? undefined : teams.get(teamId);
-		return team ? { ...r, team } : r;
+		const row = { ...r, isSection: isSection === 1, holders: holders.get(r.id) ?? [] };
+		return team ? { ...row, team } : row;
 	});
+}
+
+/** The live routines (and sections) that directly hold each of `ids`, by name. */
+export function holdersOf(db: Db, ids: number[]): Map<number, { id: number; name: string }[]> {
+	const out = new Map<number, { id: number; name: string }[]>();
+	if (ids.length === 0) return out;
+	for (const r of db
+		.selectDistinct({ child: routineSteps.childRoutineId, id: routines.id, name: routines.name })
+		.from(routineSteps)
+		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+		.where(and(inArray(routineSteps.childRoutineId, ids), isNull(routines.archivedAt)))
+		.orderBy(asc(routines.name), asc(routines.id))
+		.all()) {
+		out.set(r.child!, [...(out.get(r.child!) ?? []), { id: r.id, name: r.name }]);
+	}
+	return out;
 }
 
 /** A slot as the routine walks it: the count it is entered on, and its options' lengths. */
