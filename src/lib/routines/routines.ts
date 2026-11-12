@@ -43,13 +43,16 @@ export interface OptionsSlot {
 /**
  * A slot filled by an embedded routine.
  *
- * Its own slots are always `OptionsSlot`: embedding is one level, enforced on
- * write, so the type says so too and nothing downstream has to recurse.
+ * Its own slots may hold children of their own, at any depth (spec 2026-11-12,
+ * routine sections); `optionSlots` and `flatten` splice them in. A cycle is
+ * refused on write (`canEmbed`) and stopped on read (the loader).
  */
 export interface ChildSlot {
 	kind: 'child';
 	routineId: number;
-	slots: OptionsSlot[];
+	slots: Slot[];
+	/** The `routine_steps` row that embeds the child, when the data layer knows it. */
+	stepId?: number;
 	/** A note on the embedding slot, which applies to the child as a whole. */
 	note?: string | null;
 }
@@ -71,19 +74,27 @@ export interface RoutineShape {
  * none disappears with it. Archiving a figure must not be able to stop a
  * routine playing, and a slot that can call nothing is not a slot.
  */
+/**
+ * A slot's option slots at any depth, children spliced in place, without the
+ * graph. A child's own slot note wins; the note on the slot that EMBEDS a child
+ * applies to the whole child, so it stands in where an inner slot has nothing
+ * of its own to say (the nearest embedding note first).
+ */
+export function optionSlots(slot: Slot, note: string | null = null): OptionsSlot[] {
+	if (slot.kind === 'options') return [{ ...slot, note: slot.note ?? note }];
+	return slot.slots.flatMap((s) => optionSlots(s, slot.note ?? note));
+}
+
 export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
 	const out: OptionsSlot[] = [];
 	for (const slot of shape.slots) {
-		for (const s of slot.kind === 'child' ? slot.slots : [slot]) {
+		for (const s of optionSlots(slot)) {
 			const figureIds = s.figureIds.filter((id) => figureById(g, id) !== null);
-			// A child's own slot note wins; the note on the slot that EMBEDS the
-			// child applies to the whole child, so it stands in where an inner slot
-			// has nothing of its own to say.
 			if (figureIds.length > 0) {
 				out.push({
 					kind: 'options',
 					figureIds,
-					note: s.note ?? slot.note ?? null,
+					note: s.note ?? null,
 					...(s.lengths ? { lengths: s.lengths } : {}),
 					...(s.end !== undefined ? { end: s.end } : {}),
 					...(s.stepId !== undefined ? { stepId: s.stepId } : {})

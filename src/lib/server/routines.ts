@@ -234,9 +234,17 @@ export function updateRoutine(
 	return db.transaction((tx) => {
 		const before = getRoutine(tx, id);
 		if (!before) return null;
-		const routine = tx.update(routines).set(input).where(eq(routines.id, id)).returning().get()!;
+		const routine = tx
+			.update(routines)
+			.set({ name: input.name, notes: input.notes })
+			.where(eq(routines.id, id))
+			.returning()
+			.get()!;
 		tx.update(exercises).set({ name: routine.name }).where(eq(exercises.routineId, id)).run();
-		const fields = (r: RoutineInput) => ({ name: r.name, notes: r.notes });
+		const fields = (r: { name: string; notes: string | null }) => ({
+			name: r.name,
+			notes: r.notes
+		});
 		const change = fieldChange(fields(before), fields(routine), 'routine');
 		if (change) logRoutine(tx, routine, by, { verb, ...change }, now);
 		return routine;
@@ -494,17 +502,6 @@ export function routineShapes(
 		steps.map((s) => s.id)
 	);
 
-	// A routine’s own option slots, in order. Embedding is one level, so a
-	// routine that IS embedded has none of its own children to worry about and
-	// this is its whole shape.
-	const own = new Map<number, OptionsSlot[]>();
-	for (const s of steps) {
-		if (s.childRoutineId !== null) continue;
-		const list = own.get(s.routineId) ?? [];
-		list.push(optionsSlot(s, byStep, lengths));
-		own.set(s.routineId, list);
-	}
-
 	const out = new Map<number, RoutineShape>();
 	for (const r of db
 		.select({ id: routines.id })
@@ -513,15 +510,19 @@ export function routineShapes(
 		.all()) {
 		out.set(r.id, { slots: [] });
 	}
-	// Routines of another owner: the group's children of a person's slots, and
-	// `extra`. Read only when the person may use them (`usableOf`, worked out only
-	// when there is one): a group routine they no longer read stays closed, its
-	// slots empty. A group's routine reads no other owner's.
+	// Routines of another owner: the group's children of a person's slots, at
+	// any depth, and `extra`. Read only when the person may use them
+	// (`usableOf`, worked out only when there is one): a group routine they no
+	// longer read stays closed, its slots empty. A group's routine reads no
+	// other owner's.
 	let usable = opts.usable;
 	const readable = (id: number) =>
 		!isTeam(space) && (usable ??= usableOf(db, space)).routines.has(id);
 	const more = [...(opts.extra ?? [])];
-	const others = shapesOf(
+	const raw = new Map<number, RawStep[]>();
+	for (const s of steps) raw.set(s.routineId, [...(raw.get(s.routineId) ?? []), s]);
+	for (const id of out.keys()) if (!raw.has(id)) raw.set(id, []);
+	const others = stepsOf(
 		db,
 		space.dance,
 		[
@@ -530,79 +531,110 @@ export function routineShapes(
 			),
 			...more.filter((id) => !out.has(id))
 		].filter(readable),
-		readable
+		readable,
+		new Set(out.keys())
 	);
-	for (const s of steps) {
-		const other = s.childRoutineId === null ? undefined : others.get(s.childRoutineId);
-		const slot: Slot =
+	for (const [id, list] of others.raw) raw.set(id, list);
+	for (const [id, list] of others.byStep) byStep.set(id, list);
+	for (const [id, l] of others.lengths) lengths.set(id, l);
+	const build = shapeBuilder(raw, byStep, lengths);
+	for (const id of out.keys()) out.set(id, { slots: build(id) });
+	for (const id of more) if (!out.has(id) && raw.has(id)) out.set(id, { slots: build(id) });
+	return out;
+}
+
+type RawStep = {
+	id: number;
+	routineId: number;
+	childRoutineId: number | null;
+	note: string | null;
+	end: number | null;
+};
+
+/**
+ * Builds shapes from raw steps, children at any depth (spec 2026-11-12). A
+ * routine met again on its own way down is a cycle the writes refuse
+ * (`canEmbed`); a hand-made one stops here with an empty child instead of
+ * looping.
+ */
+function shapeBuilder(
+	raw: Map<number, RawStep[]>,
+	byStep: Map<number, number[]>,
+	lengths: Map<number, Record<number, number>>
+): (id: number) => Slot[] {
+	const memo = new Map<number, Slot[]>();
+	const visiting = new Set<number>();
+	const build = (id: number): Slot[] => {
+		const known = memo.get(id);
+		if (known) return known;
+		if (visiting.has(id)) return [];
+		visiting.add(id);
+		const slots: Slot[] = (raw.get(id) ?? []).map((s) =>
 			s.childRoutineId === null
 				? optionsSlot(s, byStep, lengths)
 				: {
 						kind: 'child',
 						routineId: s.childRoutineId,
-						slots: other ? flatSlots(other) : (own.get(s.childRoutineId) ?? []),
-						note: s.note
-					};
-		out.get(s.routineId)?.slots.push(slot);
-	}
-	for (const id of more) {
-		const shape = others.get(id);
-		if (shape && !out.has(id)) out.set(id, shape);
-	}
-	return out;
-}
-
-/** A shape's slots as one run of option slots: an embedded routine's spliced in, its note standing in. */
-function flatSlots(shape: RoutineShape): OptionsSlot[] {
-	return shape.slots.flatMap((s) =>
-		s.kind === 'options' ? [s] : s.slots.map((c) => ({ ...c, note: c.note ?? s.note ?? null }))
-	);
+						slots: raw.has(s.childRoutineId) ? build(s.childRoutineId) : [],
+						note: s.note,
+						stepId: s.id
+					}
+		);
+		visiting.delete(id);
+		memo.set(id, slots);
+		return slots;
+	};
+	return build;
 }
 
 /**
- * These routines of the dance, whoever owns them, as shapes: their slots, and
- * an embedded routine's own option slots when `readable` says it may be read
- * (else that child has none). Ids of another dance are left out; the caller has
- * checked `ids` themselves.
+ * The raw steps of other owners' routines (`ids`, read only when `readable`),
+ * and of their children at any depth, with their options and lengths. `have`
+ * are routines already loaded, never fetched again.
  */
-function shapesOf(
+function stepsOf(
 	db: Db,
 	dance: string,
 	ids: number[],
-	readable: (id: number) => boolean
-): Map<number, RoutineShape> {
-	const out = new Map<number, RoutineShape>();
-	const wanted = [...new Set(ids)];
-	if (wanted.length === 0) return out;
-	const live = db
-		.select({ id: routines.id })
-		.from(routines)
-		.where(and(inArray(routines.id, wanted), eq(routines.dance, dance)))
-		.all()
-		.map((r) => r.id);
-	if (live.length === 0) return out;
-	const stepsIn = (routineIds: number[]) =>
-		routineIds.length === 0
-			? []
-			: db
-					.select({
-						id: routineSteps.id,
-						routineId: routineSteps.routineId,
-						childRoutineId: routineSteps.childRoutineId,
-						note: routineSteps.note,
-						end: routineSteps.endPositionId
-					})
-					.from(routineSteps)
-					.where(inArray(routineSteps.routineId, routineIds))
-					.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
-					.all();
-	const top = stepsIn(live);
-	const nested = stepsIn(
-		[...new Set(top.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))].filter(
-			readable
-		)
-	).filter((s) => s.childRoutineId === null);
-	const stepIds = [...top, ...nested].map((s) => s.id);
+	readable: (id: number) => boolean,
+	have: Set<number>
+): {
+	raw: Map<number, RawStep[]>;
+	byStep: Map<number, number[]>;
+	lengths: Map<number, Record<number, number>>;
+} {
+	const raw = new Map<number, RawStep[]>();
+	const all: RawStep[] = [];
+	let frontier = [...new Set(ids)].filter((id) => !have.has(id));
+	while (frontier.length > 0) {
+		const live = db
+			.select({ id: routines.id })
+			.from(routines)
+			.where(and(inArray(routines.id, frontier), eq(routines.dance, dance)))
+			.all()
+			.map((r) => r.id);
+		for (const id of frontier) have.add(id);
+		if (live.length === 0) break;
+		for (const id of live) raw.set(id, []);
+		const found = db
+			.select({
+				id: routineSteps.id,
+				routineId: routineSteps.routineId,
+				childRoutineId: routineSteps.childRoutineId,
+				note: routineSteps.note,
+				end: routineSteps.endPositionId
+			})
+			.from(routineSteps)
+			.where(inArray(routineSteps.routineId, live))
+			.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
+			.all();
+		for (const s of found) raw.get(s.routineId)!.push(s);
+		all.push(...found);
+		frontier = [
+			...new Set(found.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))
+		].filter((id) => !have.has(id) && readable(id));
+	}
+	const stepIds = all.map((s) => s.id);
 	const byStep = groupByStep(
 		stepIds.length === 0
 			? []
@@ -613,25 +645,7 @@ function shapesOf(
 					.orderBy(...MAIN_FIRST)
 					.all()
 	);
-	const lengths = lengthsIn(db, stepIds);
-	const optionsOf = (s: { id: number; note: string | null }): OptionsSlot =>
-		optionsSlot(s, byStep, lengths);
-	const inner = new Map<number, OptionsSlot[]>();
-	for (const s of nested) inner.set(s.routineId, [...(inner.get(s.routineId) ?? []), optionsOf(s)]);
-	for (const id of live) out.set(id, { slots: [] });
-	for (const s of top) {
-		out.get(s.routineId)!.slots.push(
-			s.childRoutineId === null
-				? optionsOf(s)
-				: {
-						kind: 'child',
-						routineId: s.childRoutineId,
-						slots: inner.get(s.childRoutineId) ?? [],
-						note: s.note
-					}
-		);
-	}
-	return out;
+	return { raw, byStep, lengths: lengthsIn(db, stepIds) };
 }
 
 /**

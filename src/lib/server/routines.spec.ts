@@ -35,7 +35,7 @@ import { archiveVariation, createFigure, createVariationFrom, figureLabels } fro
 import { listPositions } from './positions';
 import { addPosition, insertFixturePositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
-import { flatten } from '$lib/routines/routines';
+import { flatten, optionSlots } from '$lib/routines/routines';
 import { exercises, figures, positions, routineStepOptions, routineSteps } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
@@ -428,6 +428,7 @@ describe('embedding, one level', () => {
 					kind: 'child',
 					routineId: child.id,
 					note: null,
+					stepId: expect.any(Number),
 					slots: [{ kind: 'options', figureIds: [f.id], note: null, stepId: expect.any(Number) }]
 				}
 			]
@@ -1146,8 +1147,8 @@ describe('a personal routine and a group’s figures and routines', () => {
 		const child = routineShapes(db, U2_SALSA)
 			.get(P)!
 			.slots.find((s) => s.kind === 'child');
-		// The nested routine's slots are spliced in flat, in order.
-		expect(child).toMatchObject({ slots: [{ figureIds: [G] }, { figureIds: [H] }] });
+		// The nested routine's slots play in order, at any depth (spec 2026-11-12).
+		expect(optionSlots(child!).map((s) => s.figureIds)).toEqual([[G], [H]]);
 		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === H)).toBe(true);
 		expect(crossRefs(db)).toEqual([]);
 	});
@@ -1450,5 +1451,35 @@ describe('sections (spec 2026-11-12)', () => {
 		createRoutine(db, U1_SALSA, { name: 'Social mix', notes: null });
 		insertRoutine(db, U1_SALSA, { name: 'Enchufla → Dile', notes: null, isSection: true });
 		expect(listRoutines(db, U1_SALSA).map((r) => r.name)).toEqual(['Social mix']);
+	});
+});
+
+describe('routineShapes at any depth (spec 2026-11-12)', () => {
+	const nest = (db: ReturnType<typeof openDb>) => {
+		const f = [figure(db, 'Guapea'), figure(db, 'Enchufla'), figure(db, 'Setenta')];
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const s = insertRoutine(db, U1_SALSA, { name: 'S', notes: null, isSection: true }).routine;
+		const t = insertRoutine(db, U1_SALSA, { name: '', notes: null, isSection: true }).routine;
+		addFigureSlot(db, r.id, f[0].id);
+		db.insert(routineSteps).values({ routineId: r.id, position: 1, childRoutineId: s.id }).run();
+		addFigureSlot(db, s.id, f[1].id);
+		db.insert(routineSteps).values({ routineId: s.id, position: 1, childRoutineId: t.id }).run();
+		addFigureSlot(db, t.id, f[2].id);
+		return { f, r, s, t };
+	};
+
+	it('loads a three-level nest', () => {
+		const db = openDb(':memory:');
+		const { f, r } = nest(db);
+		const shape = routineShapes(db, U1_SALSA).get(r.id)!;
+		const g = graphFor(db, U1_SALSA);
+		expect(flatten(g, shape).map((x) => x.figureIds[0])).toEqual(f.map((x) => x.id));
+	});
+
+	it('stops at a hand-made cycle instead of looping', () => {
+		const db = openDb(':memory:');
+		const { r, t } = nest(db);
+		db.insert(routineSteps).values({ routineId: t.id, position: 1, childRoutineId: r.id }).run();
+		expect(() => routineShapes(db, U1_SALSA)).not.toThrow();
 	});
 });

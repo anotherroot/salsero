@@ -107,6 +107,31 @@ describe('flatten', () => {
 		expect(flatten(g, shape).map((s) => s.figureIds)).toEqual([[11], [12], [13]]);
 	});
 
+	it('splices three levels in place (spec 2026-11-12, any depth)', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [11] },
+				{
+					kind: 'child',
+					routineId: 7,
+					slots: [
+						{ kind: 'options', figureIds: [12] },
+						{
+							kind: 'child',
+							routineId: 8,
+							note: 'inner',
+							slots: [{ kind: 'options', figureIds: [13] }]
+						}
+					]
+				},
+				{ kind: 'options', figureIds: [15] }
+			]
+		};
+		const flat = flatten(g, shape);
+		expect(flat.map((s) => s.figureIds)).toEqual([[11], [12], [13], [15]]);
+		expect(flat[2].note).toBe('inner');
+	});
+
 	it('drops options the graph does not know, and slots left empty', () => {
 		const shape: RoutineShape = {
 			slots: [

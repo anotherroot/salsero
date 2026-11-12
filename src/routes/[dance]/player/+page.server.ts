@@ -17,6 +17,7 @@ import { hasDetails } from '$lib/player/view';
 import type { RunDetails } from '$lib/types';
 import { t } from '$lib/i18n/catalog';
 import type { PageServerLoad } from './$types';
+import { optionSlots } from '$lib/routines/routines';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	if (!locals.user) throw error(401);
@@ -72,13 +73,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// Every figure the routine can call: the run's pool, and what the voice has
 	// a name for.
 	const figureIds = shape
-		? [
-				...new Set(
-					shape.slots.flatMap((s) =>
-						s.kind === 'child' ? s.slots.flatMap((c) => c.figureIds) : s.figureIds
-					)
-				)
-			]
+		? [...new Set(shape.slots.flatMap((s) => optionSlots(s).flatMap((c) => c.figureIds)))]
 		: [];
 
 	const from = url.searchParams.get('from');

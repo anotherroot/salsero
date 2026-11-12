@@ -41,7 +41,8 @@ import {
 	rowEndsIn,
 	timingBreaks,
 	timingSeams,
-	type OptionsSlot
+	type OptionsSlot,
+	optionSlots
 } from '$lib/routines/routines';
 import { countsOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
@@ -180,9 +181,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const slots = routineSlots(db, routine.id, usable);
 	// A reader is told the names this routine's own slots use, and no other: its
 	// slots (and its embedded routines') are in their reach by construction.
-	const named = new Set(
-		shape.slots.flatMap((s) => (s.kind === 'options' ? [s] : s.slots).flatMap((o) => o.figureIds))
-	);
+	const named = new Set(shape.slots.flatMap((s) => optionSlots(s).flatMap((o) => o.figureIds)));
 	const labels = [...figureLabels(db, space, usable)].filter(([id]) => !visible || named.has(id));
 
 	// The group figures this person's routine uses: each one's group and move,

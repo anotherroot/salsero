@@ -24,6 +24,7 @@ import { usedInMeta } from '$lib/moves/move-page';
 import { t } from '$lib/i18n/catalog';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
+import { optionSlots } from '$lib/routines/routines';
 
 const moveTaken = (name: string) => t().moves.refused.moveTaken(name);
 
@@ -44,7 +45,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		if (!shape) continue;
 		const used: string[] = [];
 		for (const slot of shape.slots) {
-			for (const s of slot.kind === 'child' ? slot.slots : [slot]) {
+			for (const s of optionSlots(slot)) {
 				for (const fid of s.figureIds) {
 					const n = nameOf.get(fid);
 					if (n !== undefined && !used.includes(n)) used.push(n);

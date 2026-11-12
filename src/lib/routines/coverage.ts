@@ -11,7 +11,7 @@
  * (`listRoutines` excludes archived), so `shapes` may safely hold more.
  */
 import type { Graph } from '$lib/graph/graph';
-import { loops, type RoutineShape } from './routines';
+import { loops, optionSlots, type RoutineShape } from './routines';
 import { t } from '$lib/i18n/catalog';
 
 export interface CoverageRow {
@@ -32,7 +32,7 @@ export interface CoverageGroup {
 function idsIn(shape: RoutineShape): Set<number> {
 	const ids = new Set<number>();
 	for (const slot of shape.slots) {
-		const options = slot.kind === 'options' ? [slot] : slot.slots;
+		const options = optionSlots(slot);
 		for (const o of options) for (const id of o.figureIds) ids.add(id);
 	}
 	return ids;
@@ -99,7 +99,7 @@ export function routinesUsing(
 		if (!shape) continue;
 		const slots: number[] = [];
 		shape.slots.forEach((slot, i) => {
-			const options = slot.kind === 'options' ? [slot] : slot.slots;
+			const options = optionSlots(slot);
 			if (options.some((o) => o.figureIds.includes(versionId))) slots.push(i + 1);
 		});
 		if (slots.length === 0) continue;
