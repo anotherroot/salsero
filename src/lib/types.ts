@@ -454,6 +454,8 @@ export interface FigureVersion {
 	twins?: TwinNote[];
 	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
 	from?: string | null;
+	/** Its positions, length and picture, where a picker shows them (picker preview). */
+	look?: FigureLook;
 }
 
 /**
@@ -498,6 +500,8 @@ export interface MoveTarget {
 	id: number;
 	name: string;
 	variations: string[];
+	/** Its first variation's picture, in id order, that has one (picker preview). */
+	picture?: Picture;
 }
 
 /**
@@ -617,6 +621,8 @@ export interface LinkOption {
 	hold?: Hold;
 	/** A variation's place of origin when it is a copy the viewer can trace; drawn beside a same name. */
 	from?: string | null;
+	/** A variation's positions, length and picture (picker preview). */
+	look?: FigureLook;
 }
 
 /** One of a section's or point's links, in the Link popup. */
@@ -634,6 +640,8 @@ export interface LinkFigureChoice {
 	variations: string[];
 	/** This lesson's, or the recording's own: offered first. */
 	near: boolean;
+	/** Its first variation's picture that has one (picker preview). */
+	picture?: Picture;
 	/** What a new figure in this move starts on: its first figure's Danced and Style. */
 	partner: Partner;
 	style: string | null;
@@ -1070,6 +1078,8 @@ export type ElsewhereRow = {
 	restore: number | null;
 	/** A live group row of the same name from another family: Link the group's one. */
 	sameName: number | null;
+	/** A figure's positions, length and picture (picker preview). */
+	look?: FigureLook;
 };
 
 /** One place a group's picker found rows in: your own app or another group. */

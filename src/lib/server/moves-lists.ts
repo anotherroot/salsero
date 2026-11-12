@@ -38,6 +38,7 @@ import type { PositionsLists } from '$lib/positions/filter';
 import type { RoutinesLists } from '$lib/moves/routines';
 import type { PositionListRow, TeamRef } from '$lib/types';
 import type { PositionRow } from './db/schema';
+import { withPictures } from './loops/pictures';
 
 /** The Not linked chip counts figures, as the heading does, not the moves holding them. */
 const figureCount = (moves: { figures: unknown[] }[]) =>
@@ -95,7 +96,7 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
 			unrouted: null,
 			defaultStyle: defStyle,
-			moveTargets: listMoveTargets(db, space, null)
+			moveTargets: withPictures(db, listMoveTargets(db, space, null), space)
 		};
 	}
 	return {
@@ -117,7 +118,7 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 			listRoutines(db, wall)
 		).filter((r) => r.routines.length === 0).length,
 		defaultStyle: defStyle,
-		moveTargets: listMoveTargets(db, wall, null)
+		moveTargets: withPictures(db, listMoveTargets(db, wall, null), wall)
 	};
 }
 

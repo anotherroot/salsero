@@ -279,3 +279,11 @@ describe('stays behind, for a group you only read (review M2)', () => {
 		expect(copyHereView(db, 'u1', 'figure', F, T1_SALSA, 'UTC').staysBehind).toBe(1);
 	});
 });
+
+describe('findElsewhere: picker preview', () => {
+	it('a figure row carries its look; a drill row none', () => {
+		figure(U1_SALSA, 'Cradle entry');
+		const [mine] = findElsewhere(db, T1_SALSA, ['figure'], 'cradle');
+		expect(mine.rows[0].look).toEqual({ hands: '', length: 8, picture: null });
+	});
+});

@@ -37,6 +37,7 @@ import { listMyTeams } from './teams';
 import type { DanceSlug } from '$lib/dances/dances';
 import { teamReader } from './access';
 import { foldNamed, foldVersions, storedTwinSets } from './twins';
+import { looksFor } from './loops/pictures';
 
 /** At most this many rows of a kind per place: a search narrows, a picker is not a list of everything. */
 export const PER_KIND = 15;
@@ -249,6 +250,17 @@ export function findElsewhere(
 		};
 		if (key !== null) byFamily.set(key, made);
 		out[at].push(made);
+	}
+	// Picker preview: each figure's positions, length and picture, as the person reads it.
+	const figureRows = out.flat().filter((r) => r.kind === 'figure');
+	const looks = looksFor(
+		db,
+		figureRows.map((r) => r.id),
+		{ viewer: userId, ownSections: true }
+	);
+	for (const r of figureRows) {
+		const look = looks.get(r.id);
+		if (look) r.look = look;
 	}
 	return places.flatMap((p, at) =>
 		out[at].length === 0 ? [] : [{ place: p.place, readOnly: p.readOnly, rows: out[at] }]

@@ -10,7 +10,7 @@ import { judgeFigure } from '../access';
 import { addLesson } from '../entries';
 import { linkInSpace, linkSpot, sectionsFor } from '../spot-links';
 import type { Space } from '../scope';
-import { looksFor } from './pictures';
+import { looksFor, movePictures } from './pictures';
 
 const u1 = { userId: 'u1', dance: 'salsa' } as const;
 
@@ -125,5 +125,24 @@ describe('looksFor: hands and length', () => {
 			looksFor(db, [w.own.u1.figure], { viewer: 'u1', ownSections: true }).get(w.own.u1.figure)!
 				.length
 		).toBeNull();
+	});
+});
+
+describe('movePictures', () => {
+	it("a move's picture is its first variation's, in id order, that has one", () => {
+		const { db, w } = setup();
+		const move = db.select().from(figures).where(eq(figures.id, w.own.u1.figure)).get()!.groupId!;
+		// u1's figure has its recording section linked: the move takes it.
+		const got = movePictures(db, [move], u1);
+		expect(got.get(move)).toEqual({
+			strip: `/loops/${w.own.u1.spot}-0-1000.jpg`,
+			still: `/loops/${w.own.u1.spot}-0-1000-still.jpg`
+		});
+	});
+
+	it('a move with no picture at all: null', () => {
+		const { db, w } = setup();
+		const move = db.select().from(figures).where(eq(figures.id, w.own.u1.twin)).get()!.groupId!;
+		expect(movePictures(db, [move], u1).get(move)).toBeNull();
 	});
 });

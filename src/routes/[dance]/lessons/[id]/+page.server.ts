@@ -104,6 +104,7 @@ import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
+import { withLooks, withPictures } from '$lib/server/loops/pictures';
 
 function zone(locals: App.Locals): string {
 	if (!locals.user) throw error(401);
@@ -313,9 +314,9 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				)
 			: {},
 		// Everything a picker offers is for linking, which a reader never does.
-		linkableFigures: canEdit ? listLinkableFigures(db, found.lesson.id) : [],
+		linkableFigures: canEdit ? withLooks(db, listLinkableFigures(db, found.lesson.id), space) : [],
 		// The figures "Variation of a figure" can add to, with their variations' names.
-		figureGroups: canEdit ? listMoveTargets(db, space, null) : [],
+		figureGroups: canEdit ? withPictures(db, listMoveTargets(db, space, null), space) : [],
 		linkableRoutines: canEdit ? listLinkableRoutines(db, found.lesson.id) : [],
 		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
 		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],

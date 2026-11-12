@@ -94,6 +94,7 @@ import { t } from '$lib/i18n/catalog';
 import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
+import { withPictures } from '$lib/server/loops/pictures';
 
 /**
  * A figure's handholds as its page shows them: its own tags by their real ids
@@ -479,7 +480,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		taughtIn: taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id)),
 		// What linking and Move… offer: an editor's only.
 		linkable: canEdit ? linkableSections(db, { figureId: id }) : [],
-		moveTargets: canEdit ? listMoveTargets(db, space, group.id) : []
+		moveTargets: canEdit ? withPictures(db, listMoveTargets(db, space, group.id), space) : []
 	};
 };
 

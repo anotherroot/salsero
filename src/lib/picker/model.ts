@@ -6,6 +6,7 @@
  */
 import { fold } from '$lib/fold';
 import type { IconName } from '$lib/icons/icons';
+import type { Picture } from '$lib/types';
 
 /** One pickable row. `key` is unique in the picker ("figure:12", "exercise:3", "spot:7", "group:4", "routine:2"). */
 export interface PickRow {
@@ -24,6 +25,10 @@ export interface PickRow {
 	preview?: boolean;
 	/** `meta` is a warning (link from other places: "This group has its own"). */
 	warn?: boolean;
+	/** A figure's or a move's picture (picker preview): null draws the empty tile, absent no button. */
+	picture?: Picture;
+	/** What its preview sheet shows. */
+	look?: { kind: 'figure' | 'move'; id: number };
 }
 
 /** A heading over rows: a figure over its variations, a video over its sections. */

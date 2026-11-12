@@ -361,7 +361,8 @@
 	const asTarget = (c: LinkFigureChoice) => ({
 		id: c.groupId,
 		name: c.name,
-		variations: c.variations
+		variations: c.variations,
+		...(c.picture !== undefined ? { picture: c.picture } : {})
 	});
 	const figureGroups = $derived(
 		options

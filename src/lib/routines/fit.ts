@@ -18,7 +18,7 @@ import type { RowEdges } from './routines';
 import { fold } from '../fold';
 import { fromTags } from '$lib/clones/from-tag';
 import { t } from '$lib/i18n/catalog';
-import type { TeamRef, TwinNote } from '$lib/types';
+import type { Picture, TeamRef, TwinNote } from '$lib/types';
 
 export interface Candidate {
 	kind: 'figure' | 'routine';
@@ -47,6 +47,8 @@ export interface Candidate {
 	section?: string;
 	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
 	from?: string | null;
+	/** A figure's picture in the picker (picker preview); null: the empty tile. */
+	picture?: Picture;
 }
 
 /** `ends`: `[]` anything can follow, null unknown (the row's options disagree). */

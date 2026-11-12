@@ -86,6 +86,7 @@ import { childViews } from '$lib/server/section-views';
 import { and, eq, isNull } from 'drizzle-orm';
 import { routineSteps, routines } from '$lib/server/db/schema';
 import { demoteImpact, demoteRoutine, routinesHolding } from '$lib/server/sections';
+import { withLooks } from '$lib/server/loops/pictures';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -218,14 +219,19 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		? []
 		: [
 				// Twins show as one (board C7): a set is one candidate; a group's routine folds nothing.
-				...withFigureOrigins(
+				// Each with its picture (picker preview).
+				...withLooks(
 					db,
-					wall.userId,
-					foldVersions(db, space, [
-						...listVersions(db, space),
-						// A person's routine may use the group figures they reach, each under its group.
-						...(usable ? usableVersions(db, wall, usable) : [])
-					])
+					withFigureOrigins(
+						db,
+						wall.userId,
+						foldVersions(db, space, [
+							...listVersions(db, space),
+							// A person's routine may use the group figures they reach, each under its group.
+							...(usable ? usableVersions(db, wall, usable) : [])
+						])
+					),
+					space
 				).flatMap((v): Candidate[] => {
 					const node = figureById(graph, v.id);
 					if (!node) return [];
@@ -245,7 +251,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 							length: node.length,
 							...(node.free ? { free: true } : {}),
 							...(v.team ? { team: v.team } : {}),
-							...(v.twins ? { twins: v.twins } : {})
+							...(v.twins ? { twins: v.twins } : {}),
+							picture: v.look?.picture ?? null
 						}
 					];
 				}),

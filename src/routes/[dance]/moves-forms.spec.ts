@@ -234,7 +234,7 @@ describe('New figure in a move that exists', () => {
 			depends: () => {}
 		}).lists.figures;
 		expect(lists.moveTargets).toEqual([
-			{ id: made.group.id, name: 'Hammerlock', variations: ['Basic'] }
+			{ id: made.group.id, name: 'Hammerlock', variations: ['Basic'], picture: null }
 		]);
 	});
 });

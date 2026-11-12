@@ -53,7 +53,7 @@ const put = (bytes: Uint8Array) =>
 	new Request('http://localhost/', {
 		method: 'PUT',
 		headers: { 'content-type': 'image/jpeg' },
-		body: bytes
+		body: new Blob([bytes as Uint8Array<ArrayBuffer>])
 	});
 const claimed = async () =>
 	(await claim(ev({}, post({})))).json() as Promise<{

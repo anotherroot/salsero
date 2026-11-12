@@ -7,7 +7,7 @@
  * sections by start), and the viewer's own sections after a group's.
  * `pictures.spec.ts` holds the two to the same answer.
  */
-import { and, inArray, isNotNull } from 'drizzle-orm';
+import { and, asc, inArray, isNotNull, isNull } from 'drizzle-orm';
 import type { Db } from '../db';
 import {
 	figureEndPositions,
@@ -23,7 +23,7 @@ import { isTeam, spaceOfRow, type Space, type Wall } from '../scope';
 import { handsLine } from '$lib/routines/page';
 import { pictureOf } from '$lib/video/loops';
 import type { DanceSlug } from '$lib/dances/dances';
-import type { FigureLook, SectionVideo, SpotOwner } from '$lib/types';
+import type { FigureLook, Picture, SectionVideo, SpotOwner } from '$lib/types';
 
 const ownerKey = (o: SpotOwner) =>
 	'recordingId' in o ? `r${o.recordingId}` : `l${o.lessonVideoId}`;
@@ -141,4 +141,65 @@ export function looksFor(
 		});
 	}
 	return out;
+}
+
+/** The viewer `looksFor` reads as in a space: its person, or the group editor acting there. */
+const viewerOf = (space: Space) => (isTeam(space) ? space.actorId : space.userId);
+
+/** `looksFor` as a space's own lists read it: a group's alone in group mode, a person's own with theirs. */
+export const looksIn = (db: Db, figureIds: number[], space: Space): Map<number, FigureLook> =>
+	looksFor(db, figureIds, { viewer: viewerOf(space), ownSections: !isTeam(space) });
+
+/** Each move's picture: its first live variation's, in id order, that has one; null when none has. */
+export function movePictures(db: Db, moveIds: number[], space: Space): Map<number, Picture> {
+	const out = new Map<number, Picture>();
+	if (moveIds.length === 0) return out;
+	const vs = db
+		.select({ id: figures.id, groupId: figures.groupId })
+		.from(figures)
+		.where(and(inArray(figures.groupId, moveIds), isNull(figures.archivedAt)))
+		.orderBy(asc(figures.id))
+		.all();
+	const looks = looksIn(
+		db,
+		vs.map((v) => v.id),
+		space
+	);
+	for (const id of moveIds) out.set(id, null);
+	for (const v of vs) {
+		const picture = looks.get(v.id)?.picture ?? null;
+		if (picture && out.get(v.groupId!) === null) out.set(v.groupId!, picture);
+	}
+	return out;
+}
+
+/** Variations with their look, as a space's pickers show them. */
+export function withLooks<T extends { id: number }>(
+	db: Db,
+	rows: T[],
+	space: Space
+): (T & { look?: FigureLook })[] {
+	const looks = looksIn(
+		db,
+		rows.map((r) => r.id),
+		space
+	);
+	return rows.map((r) => {
+		const look = looks.get(r.id);
+		return look ? { ...r, look } : r;
+	});
+}
+
+/** Moves with their picture, as a space's pickers show them. */
+export function withPictures<T extends { id: number }>(
+	db: Db,
+	moves: T[],
+	space: Space
+): (T & { picture: Picture })[] {
+	const pictures = movePictures(
+		db,
+		moves.map((m) => m.id),
+		space
+	);
+	return moves.map((m) => ({ ...m, picture: pictures.get(m.id) ?? null }));
 }

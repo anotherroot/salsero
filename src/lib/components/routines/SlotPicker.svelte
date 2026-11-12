@@ -79,7 +79,11 @@
 		value: c.id,
 		label: tag ? `${c.label} ${tag}` : c.label,
 		short: short && tag ? `${short} ${tag}` : short,
-		meta: meta(c)
+		meta: meta(c),
+		// Picker preview: a figure's picture opens its sheet; its timing line stays the meta.
+		...(c.kind === 'figure' && c.picture !== undefined
+			? { picture: c.picture, look: { kind: 'figure' as const, id: c.id } }
+			: {})
 	});
 
 	// fit.ts has already filtered by query and chips: these are the groups as shown.

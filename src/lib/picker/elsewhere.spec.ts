@@ -102,3 +102,26 @@ describe('elsewhereOf and elsewhereFrom', () => {
 		expect(elsewhereOf(places, 'elsewhere:figure:99')).toBeNull();
 	});
 });
+
+describe('picker preview: a figure from another place carries its look', () => {
+	it('the positions line first, the picture, what the sheet opens', () => {
+		const look = {
+			hands: 'Cradle →',
+			length: 4,
+			picture: { strip: '/loops/3-0-1000.jpg', still: '/loops/3-0-1000-still.jpg' }
+		};
+		const [g] = elsewhereGroups([
+			{
+				place: { kind: 'mine' },
+				readOnly: false,
+				rows: [row({ id: 1, alsoIn: ['Sreda 17:30'], look })]
+			}
+		]);
+		const r = g.entries.flatMap((e) => (isHeading(e) ? e.rows : [e]))[0];
+		expect(r).toMatchObject({
+			meta: 'Cradle → · 4 counts · also in Sreda 17:30',
+			picture: look.picture,
+			look: { kind: 'figure', id: 1 }
+		});
+	});
+});

@@ -18,11 +18,13 @@ import type {
 	LinkOptions,
 	PickExercise,
 	PickRoutine,
+	Picture,
 	PositionSummary,
 	SectionGroup,
 	TeamRef
 } from '$lib/types';
 import { fromTags } from '$lib/clones/from-tag';
+import { lookLine } from '$lib/video/loops';
 import { isHeading, type PickEntry, type PickGroup, type PickHeading, type PickRow } from './model';
 
 /** Only a row that says so carries `linked`: field and act pickers have no such idea. */
@@ -43,6 +45,14 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 			heading = { heading: moveHeading(v.figure, v.team), rows: [], collapse: true };
 			byGroup.set(v.groupId, heading);
 		}
+		const own =
+			v.twins && v.twins.length > 0
+				? twinPickMeta(v, v.twins)
+				: v.team
+					? usedAsIs(v.team.name)
+					: undefined;
+		// Picker preview: the positions line goes first, a row's own second line after it.
+		const meta = [v.look ? lookLine(v.look) : '', own ?? ''].filter((m) => m !== '').join(' · ');
 		heading.rows.push(
 			withLinked(
 				{
@@ -50,11 +60,10 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 					value: v.id,
 					label: v.label,
 					short: v.name,
-					...(v.twins && v.twins.length > 0
-						? { meta: twinPickMeta(v, v.twins) }
-						: v.team
-							? { meta: usedAsIs(v.team.name) }
-							: {})
+					...(meta !== '' ? { meta } : {}),
+					...(v.look
+						? { picture: v.look.picture, look: { kind: 'figure' as const, id: v.id } }
+						: {})
 				},
 				v.linked
 			)
@@ -75,12 +84,17 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 }
 
 /** A figure picked as a figure: key `group:{id}`, meta variations joined ', '. Takes `MoveTarget`s as they are; a `LinkFigureChoice` maps `groupId` to `id`. */
-export function figureRows(ts: { id: number; name: string; variations: string[] }[]): PickRow[] {
+export function figureRows(
+	ts: { id: number; name: string; variations: string[]; picture?: Picture }[]
+): PickRow[] {
 	return ts.map((t) => ({
 		key: `group:${t.id}`,
 		value: t.id,
 		label: t.name,
-		meta: t.variations.join(', ')
+		meta: t.variations.join(', '),
+		...(t.picture !== undefined
+			? { picture: t.picture, look: { kind: 'move' as const, id: t.id } }
+			: {})
 	}));
 }
 
@@ -231,7 +245,8 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 						...(x.team ? { team: x.team } : {}),
 						...(x.twins ? { twins: x.twins } : {}),
 						from: x.from ?? null,
-						linked: x.linked
+						linked: x.linked,
+						...(x.look ? { look: x.look } : {})
 					};
 				})
 		);

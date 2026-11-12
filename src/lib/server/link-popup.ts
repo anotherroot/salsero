@@ -62,6 +62,7 @@ import type {
 	TeamRef
 } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
+import { looksIn, withPictures } from './loops/pictures';
 
 const key = (t: LinkTarget) =>
 	'figureId' in t ? `f${t.figureId}` : 'exerciseId' in t ? `e${t.exerciseId}` : `p${t.positionId}`;
@@ -297,27 +298,33 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	// Twins show as one (board C7): a set is one row, linked when any of it is,
 	// near when any of it is. A group's section folds nothing.
 	const groupOf = new Map(versions.map((v) => [v.id, v.groupId]));
-	const variations = withFigureOrigins(db, actorOf(space), foldVersions(db, space, versions)).map(
-		(v) => {
-			const behind = v.twins ?? [];
-			const ids = [v.id, ...behind.map((t) => t.id)];
-			return {
-				option: {
-					target: { figureId: v.id },
-					label: v.label,
-					drill: false,
-					figure: v.figure,
-					name: v.name,
-					linked: ids.some((id) => taken.has(key({ figureId: id }))),
-					from: v.from,
-					...(v.team ? { team: v.team } : {}),
-					...(behind.length > 0 ? { twins: behind } : {})
-				} as LinkOption,
-				groupId: v.groupId as number | null,
-				groups: ids.map((id) => groupOf.get(id) ?? null)
-			};
-		}
+	const folded = withFigureOrigins(db, actorOf(space), foldVersions(db, space, versions));
+	// Picker preview: each variation's positions, length and picture, as the spot's space sees them.
+	const looks = looksIn(
+		db,
+		folded.map((v) => v.id),
+		space
 	);
+	const variations = folded.map((v) => {
+		const behind = v.twins ?? [];
+		const ids = [v.id, ...behind.map((t) => t.id)];
+		return {
+			option: {
+				target: { figureId: v.id },
+				label: v.label,
+				drill: false,
+				figure: v.figure,
+				name: v.name,
+				linked: ids.some((id) => taken.has(key({ figureId: id }))),
+				from: v.from,
+				...(v.team ? { team: v.team } : {}),
+				...(behind.length > 0 ? { twins: behind } : {}),
+				...(looks.has(v.id) ? { look: looks.get(v.id)! } : {})
+			} as LinkOption,
+			groupId: v.groupId as number | null,
+			groups: ids.map((id) => groupOf.get(id) ?? null)
+		};
+	});
 	const ownDrills: { id: number; name: string; team?: TeamRef }[] = point
 		? []
 		: db
@@ -362,12 +369,15 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const nearGroups = new Set(
 		variations.filter(near).flatMap((v) => v.groups.filter((g) => g !== null))
 	);
-	const figureChoices = (point ? [] : listMoveTargets(db, space, null)).map((g) => {
+	const figureChoices = (
+		point ? [] : withPictures(db, listMoveTargets(db, space, null), space)
+	).map((g) => {
 		const first = listGroupVariations(db, g.id)[0];
 		return {
 			groupId: g.id,
 			name: g.name,
 			variations: g.variations,
+			picture: g.picture,
 			near: nearGroups.has(g.id),
 			partner: first?.partner ?? ('partner' as const),
 			style: first?.styleTag ?? null

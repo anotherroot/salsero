@@ -10,6 +10,7 @@
 import { t } from '$lib/i18n/catalog';
 import type { ElsewhereKind, ElsewherePlace, ElsewhereRow } from '$lib/types';
 import type { PickEntry, PickGroup, PickHeading, PickRow } from './model';
+import { lookLine } from '$lib/video/loops';
 
 const KINDS: readonly ElsewhereKind[] = ['figure', 'routine', 'drill', 'position'];
 
@@ -23,13 +24,16 @@ function pickRow(r: ElsewhereRow): PickRow {
 			: r.alsoIn.length > 0
 				? w.alsoIn(r.alsoIn.join(', '))
 				: undefined;
+	// Picker preview: a figure's positions line goes first.
+	const line = [r.look ? lookLine(r.look) : '', meta ?? ''].filter((m) => m !== '').join(' · ');
 	return {
 		key: keyOf(r),
 		value: r.id,
 		label: r.label,
 		...(r.short !== null ? { short: r.short } : {}),
-		...(meta ? { meta } : {}),
-		...(r.sameName !== null ? { warn: true } : {})
+		...(line !== '' ? { meta: line } : {}),
+		...(r.sameName !== null ? { warn: true } : {}),
+		...(r.look ? { picture: r.look.picture, look: { kind: 'figure' as const, id: r.id } } : {})
 	};
 }
 
