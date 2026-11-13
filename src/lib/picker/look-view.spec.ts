@@ -43,7 +43,13 @@ describe('the sheet keeps the rules', () => {
 
 	it('when the video cannot play, the loop plays as a muted background clip over its still', () => {
 		const fallback = video.slice(video.lastIndexOf('<video'), video.lastIndexOf('</video>'));
-		for (const a of ['src={picture.clip}', 'poster={picture.still}', 'muted', 'loop', 'data-ambient'])
+		for (const a of [
+			'src={picture.clip}',
+			'poster={picture.still}',
+			'muted',
+			'loop',
+			'data-ambient'
+		])
 			expect(fallback).toContain(a);
 	});
 });
