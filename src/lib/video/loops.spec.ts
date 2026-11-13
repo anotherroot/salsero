@@ -3,27 +3,35 @@ import { lookLine, loopName, parseLoopName, pictureOf } from './loops';
 
 describe('loop names', () => {
 	it('name a section and its still', () => {
-		expect(loopName({ id: 12, startMs: 1000, endMs: 7000 })).toBe('12-1000-7000.jpg');
+		expect(loopName({ id: 12, startMs: 1000, endMs: 7000 })).toBe('12-1000-7000.mp4');
 		expect(loopName({ id: 12, startMs: 1000, endMs: 7000 }, true)).toBe('12-1000-7000-still.jpg');
 	});
 
 	it('parse back, and refuse what is not one', () => {
-		expect(parseLoopName('12-1000-7000.jpg')).toEqual({
+		expect(parseLoopName('12-1000-7000.mp4')).toEqual({
 			id: 12,
 			startMs: 1000,
 			endMs: 7000,
 			still: false
 		});
 		expect(parseLoopName('12-1000-7000-still.jpg')).toMatchObject({ still: true });
-		for (const bad of ['../12-0-1.jpg', '12-1000-1000.jpg', '12-0-1.png', '12-0.jpg', 'x-0-1.jpg'])
+		for (const bad of [
+			'../12-0-1.mp4',
+			'12-1000-1000.mp4',
+			'12-0-1.png',
+			'12-0.mp4',
+			'x-0-1.mp4',
+			'12-0-1.jpg',
+			'12-0-1-still.mp4'
+		])
 			expect(parseLoopName(bad)).toBeNull();
 	});
 });
 
 describe('pictureOf and lookLine', () => {
-	it('a section is a strip and a still under /loops/', () => {
+	it('a section is a clip and a still under /loops/', () => {
 		expect(pictureOf({ id: 12, startMs: 1000, endMs: 7000 })).toEqual({
-			strip: '/loops/12-1000-7000.jpg',
+			clip: '/loops/12-1000-7000.mp4',
 			still: '/loops/12-1000-7000-still.jpg'
 		});
 		expect(pictureOf(null)).toBeNull();

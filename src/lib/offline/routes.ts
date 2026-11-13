@@ -513,7 +513,7 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/worker/loops/[id]/done': { POST: 'network' },
 	'/api/worker/loops/[id]/fail': { POST: 'network' },
 	'/api/worker/loops/[id]/still': { PUT: 'network' },
-	'/api/worker/loops/[id]/strip': { PUT: 'network' },
+	'/api/worker/loops/[id]/clip': { PUT: 'network' },
 	'/api/worker/loops/claim': { POST: 'network' },
 	'/api/worker/timelines/[id]/done': { POST: 'network' },
 	'/api/worker/timelines/[id]/fail': { POST: 'network' },

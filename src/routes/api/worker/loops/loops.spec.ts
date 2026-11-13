@@ -25,7 +25,7 @@ import { unlinkSpot } from '$lib/server/spot-links';
 import { updateSpot } from '$lib/server/spots';
 import { POST as claim } from './claim/+server';
 import { GET as source } from './[id]/source/+server';
-import { PUT as putStrip } from './[id]/strip/+server';
+import { PUT as putClip } from './[id]/clip/+server';
 import { PUT as putStill } from './[id]/still/+server';
 import { POST as done } from './[id]/done/+server';
 import { POST as fail } from './[id]/fail/+server';
@@ -49,10 +49,11 @@ const ev = (params: Record<string, string>, request: Request) => ({ params, requ
 const post = (body: unknown) =>
 	new Request('http://localhost/', { method: 'POST', body: JSON.stringify(body) });
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+/** An MP4's start: a box size, then `ftyp`. */
+const MP4 = new Uint8Array([0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]);
 const put = (bytes: Uint8Array) =>
 	new Request('http://localhost/', {
 		method: 'PUT',
-		headers: { 'content-type': 'image/jpeg' },
 		body: new Blob([bytes as Uint8Array<ArrayBuffer>])
 	});
 const claimed = async () =>
@@ -81,32 +82,33 @@ describe('the worker loop routes', () => {
 		expect(await r.text()).toBe('video');
 	});
 
-	it('strip, still, done: ready, files under their names', async () => {
+	it('clip, still, done: ready, files under their names', async () => {
 		const { id } = await claimed();
-		expect((await putStrip(ev({ id: String(id) }, put(JPEG)))).status).toBe(204);
+		expect((await putClip(ev({ id: String(id) }, put(MP4)))).status).toBe(204);
 		expect((await done(ev({ id: String(id) }, post({})))).status).toBe(409);
 		expect((await putStill(ev({ id: String(id) }, put(JPEG)))).status).toBe(204);
 		expect((await done(ev({ id: String(id) }, post({})))).status).toBe(201);
 		expect(row().status).toBe('ready');
 		const spot = w.own.u1.spot;
-		expect(existsSync(join(loopsDir(), `${spot}-0-1000.jpg`))).toBe(true);
+		expect(existsSync(join(loopsDir(), `${spot}-0-1000.mp4`))).toBe(true);
 		expect(existsSync(join(loopsDir(), `${spot}-0-1000-still.jpg`))).toBe(true);
 	});
 
-	it('a strip that is not a JPEG is 400, one too large 413', async () => {
+	it('a clip that is not an MP4 is 400 (a JPEG neither, nor a still that is not one), one too large 413', async () => {
 		const { id } = await claimed();
-		expect((await putStrip(ev({ id: String(id) }, put(new Uint8Array([1, 2, 3]))))).status).toBe(
-			400
-		);
-		const big = new Uint8Array(512 * 1024 + 1);
-		big.set(JPEG);
-		expect((await putStrip(ev({ id: String(id) }, put(big)))).status).toBe(413);
+		const status = async (r: Response | Promise<Response>) => (await r).status;
+		expect(await status(putClip(ev({ id: String(id) }, put(new Uint8Array([1, 2, 3])))))).toBe(400);
+		expect(await status(putClip(ev({ id: String(id) }, put(JPEG))))).toBe(400);
+		expect(await status(putStill(ev({ id: String(id) }, put(MP4))))).toBe(400);
+		const big = new Uint8Array(1024 * 1024 + 1);
+		big.set(MP4);
+		expect(await status(putClip(ev({ id: String(id) }, put(big))))).toBe(413);
 	});
 
 	it('a span edited after the claim is 410', async () => {
 		const { id } = await claimed();
 		updateSpot(db, w.own.u1.spot, { startMs: 100, endMs: 1000 }, 'u1');
-		expect((await putStrip(ev({ id: String(id) }, put(JPEG)))).status).toBe(410);
+		expect((await putClip(ev({ id: String(id) }, put(MP4)))).status).toBe(410);
 		expect((await source(ev({ id: String(id) }, new Request('http://localhost/')))).status).toBe(
 			410
 		);

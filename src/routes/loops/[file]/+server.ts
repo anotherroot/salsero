@@ -10,7 +10,7 @@ import { parseLoopName } from '$lib/video/loop-names';
 import type { RequestHandler } from './$types';
 
 /**
- * A figure's loop for the pickers (`<spot>-<start>-<end>.jpg`, `…-still.jpg`),
+ * A figure's loop for the pickers (`<spot>-<start>-<end>.mp4`, `…-still.jpg`),
  * cut by the home worker. Behind the session guard in hooks.server.ts. Only
  * to who may read the section's video, and only for the spot's current span:
  * anything else, and a loop not cut yet, is the same 404. Cached for good,
@@ -34,7 +34,9 @@ export const GET: RequestHandler = async ({ params, request, locals }) => {
 		readable = !!r && allows(recordingAccess(db, userId, r), 'read');
 	}
 	if (!readable) throw notFound();
-	const res = await serveFile(join(loopsDir(), params.file), 'image/jpeg', request);
+	// A clip is a video (Range, for the <video> that plays it), a still a picture.
+	const mime = loop.still ? 'image/jpeg' : 'video/mp4';
+	const res = await serveFile(join(loopsDir(), params.file), mime, request);
 	if (res.status === 404) throw notFound();
 	return res;
 };

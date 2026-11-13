@@ -1,0 +1,1 @@
+ALTER TABLE `video_loops` ADD `version` integer DEFAULT 1 NOT NULL;

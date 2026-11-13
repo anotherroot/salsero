@@ -10,7 +10,7 @@ describe('the preview sheet', () => {
 	});
 
 	it("asks for the figure with the section its row's picture was cut from; a move by itself", () => {
-		const picture = { strip: '/loops/9-1000-7000.jpg', still: '/loops/9-1000-7000-still.jpg' };
+		const picture = { clip: '/loops/9-1000-7000.mp4', still: '/loops/9-1000-7000-still.jpg' };
 		expect(sheetUrl({ kind: 'figure', id: 4 }, picture)).toBe('/api/figures/4/look?spot=9');
 		expect(sheetUrl({ kind: 'figure', id: 4 }, null)).toBe('/api/figures/4/look');
 		expect(sheetUrl({ kind: 'move', id: 3 }, picture)).toBe('/api/moves/3/look');

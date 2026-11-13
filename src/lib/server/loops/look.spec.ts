@@ -35,7 +35,7 @@ describe('figureSheet', () => {
 			from: { kind: 'mine' },
 			video: { src: `/recordings/${file}`, startMs: 0, endMs: 1000, from: { kind: 'recording' } },
 			picture: {
-				strip: `/loops/${w.own.u1.spot}-0-1000.jpg`,
+				clip: `/loops/${w.own.u1.spot}-0-1000.mp4`,
 				still: `/loops/${w.own.u1.spot}-0-1000-still.jpg`
 			}
 		});

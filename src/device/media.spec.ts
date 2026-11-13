@@ -585,7 +585,7 @@ describe('wantedMedia: figure loops (picker preview)', () => {
 			.map((f) => f.file)
 			.sort();
 
-	it('the strip and the still of every section linked to a figure, on a video the server has', () => {
+	it('the clip and the still of every section linked to a figure, on a video the server has', () => {
 		section({ spot: 900, start: 1000, end: 7000, on: 'lesson' });
 		section({ spot: 901, on: 'recording' });
 		section({ spot: 902, on: 'lesson', serverCopy: 0 });
@@ -593,15 +593,17 @@ describe('wantedMedia: figure loops (picker preview)', () => {
 		section({ spot: 904, on: 'lesson', link: null });
 		expect(loops()).toEqual([
 			'900-1000-7000-still.jpg',
-			'900-1000-7000.jpg',
+			'900-1000-7000.mp4',
 			'901-0-1000-still.jpg',
-			'901-0-1000.jpg'
+			'901-0-1000.mp4'
 		]);
-		expect(wantedMedia(db, 'u1').find((f) => f.kind === 'loops')?.mime).toBe('image/jpeg');
+		const files = wantedMedia(db, 'u1').filter((f) => f.kind === 'loops');
+		expect(files.find((f) => f.file.endsWith('.mp4'))?.mime).toBe('video/mp4');
+		expect(files.find((f) => f.file.endsWith('-still.jpg'))?.mime).toBe('image/jpeg');
 	});
 
 	it('a loop not cut yet (404) is neither fetched nor failed, and the next file still comes', async () => {
-		const L: MediaFile = { kind: 'loops', file: '900-0-1000.jpg', mime: 'image/jpeg' };
+		const L: MediaFile = { kind: 'loops', file: '900-0-1000.mp4', mime: 'video/mp4' };
 		const store = memoryMediaStore();
 		const { result } = run([L, A], store, async (p) =>
 			p.startsWith('/loops/') ? new Response('Not found', { status: 404 }) : new Response('song')
@@ -611,17 +613,17 @@ describe('wantedMedia: figure loops (picker preview)', () => {
 });
 
 describe('syncMedia: a loop not cut yet is not asked for again soon (review)', () => {
-	const strip: MediaFile = { kind: 'loops', file: '900-0-1000.jpg', mime: 'image/jpeg' };
+	const clip: MediaFile = { kind: 'loops', file: '900-0-1000.mp4', mime: 'video/mp4' };
 	const still: MediaFile = { kind: 'loops', file: '900-0-1000-still.jpg', mime: 'image/jpeg' };
 
-	it('skips the still when the strip was missing, and both for an hour', async () => {
+	it('skips the still when the clip was missing, and both for an hour', async () => {
 		const store = memoryMediaStore();
 		const misses = new Map<string, number>();
 		const asked: string[] = [];
 		let now = 1_000_000;
 		const pass = () =>
 			syncMedia({
-				wanted: [strip, still],
+				wanted: [clip, still],
 				store,
 				fetchMedia: async (p) => {
 					asked.push(p);
@@ -633,12 +635,12 @@ describe('syncMedia: a loop not cut yet is not asked for again soon (review)', (
 				now: () => now
 			});
 		expect(await pass()).toEqual({ fetched: 0, removed: 0, failed: 0, waiting: null });
-		expect(asked).toEqual(['/loops/900-0-1000.jpg']);
+		expect(asked).toEqual(['/loops/900-0-1000.mp4']);
 		now += 30 * 60_000;
 		await pass();
 		expect(asked).toHaveLength(1);
 		now += 31 * 60_000;
 		await pass();
-		expect(asked).toEqual(['/loops/900-0-1000.jpg', '/loops/900-0-1000.jpg']);
+		expect(asked).toEqual(['/loops/900-0-1000.mp4', '/loops/900-0-1000.mp4']);
 	});
 });

@@ -62,7 +62,7 @@ function pageTop(db: Db, viewer: string, figureId: number, own = true): number |
 }
 const picked = (db: Db, viewer: string, figureId: number, own = true) => {
 	const p = looksFor(db, [figureId], { viewer, ownSections: own }).get(figureId)?.picture;
-	return p ? Number(/\/loops\/(\d+)-/.exec(p.strip)![1]) : null;
+	return p ? Number(/\/loops\/(\d+)-/.exec(p.clip)![1]) : null;
 };
 
 describe('looksFor: the picture', () => {
@@ -136,7 +136,7 @@ describe('movePictures', () => {
 		// u1's figure has its recording section linked: the move takes it.
 		const got = movePictures(db, [move], u1);
 		expect(got.get(move)).toEqual({
-			strip: `/loops/${w.own.u1.spot}-0-1000.jpg`,
+			clip: `/loops/${w.own.u1.spot}-0-1000.mp4`,
 			still: `/loops/${w.own.u1.spot}-0-1000-still.jpg`
 		});
 	});
@@ -166,6 +166,6 @@ describe('looksFor: a reader, figures out of reach first (review)', () => {
 		expect(w.group.draftFigure).toBeLessThan(made);
 		const looks = looksFor(db, [w.group.draftFigure, made], { viewer: 'u3', ownSections: true });
 		expect(looks.get(w.group.draftFigure)?.picture ?? null).toBeNull();
-		expect(looks.get(made)!.picture!.strip).toBe(`/loops/${w.group.spot}-0-1000.jpg`);
+		expect(looks.get(made)!.picture!.clip).toBe(`/loops/${w.group.spot}-0-1000.mp4`);
 	});
 });

@@ -20,7 +20,7 @@ export type TileShows = { kind: 'empty' } | { kind: 'still' | 'strip'; src: stri
 /** What the tile draws: the strip, the still, or the empty tile (no picture, or it would not load). */
 export function tileShows(picture: Picture, s: { still: boolean; failed: boolean }): TileShows {
 	if (!picture || s.failed) return { kind: 'empty' };
-	return s.still ? { kind: 'still', src: picture.still } : { kind: 'strip', src: picture.strip };
+	return s.still ? { kind: 'still', src: picture.still } : { kind: 'strip', src: picture.clip };
 }
 
 /**
@@ -29,4 +29,4 @@ export function tileShows(picture: Picture, s: { still: boolean; failed: boolean
  * a search narrows the list.
  */
 export const failedNow = (failedFor: string | null, picture: Picture): boolean =>
-	picture !== null && failedFor === picture.strip;
+	picture !== null && failedFor === picture.clip;

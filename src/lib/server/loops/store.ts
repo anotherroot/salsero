@@ -17,20 +17,28 @@ import { LEASE_MS, MAX_ATTEMPTS } from '../songs';
 import { loopsDir } from '../files';
 import { loopName, type LoopSpan } from '$lib/video/loop-names';
 
+/** What a loop is cut as now: 2, a clip (revision 2026-11-13); 1 was a strip of 12 JPEG frames. */
+export const LOOP_VERSION = 2;
+
 /** A loop that failed is queued again this long after. */
 export const RETRY_FAILED_MS = 24 * 3600_000;
 
 type Span = { spotId: number; startMs: number; endMs: number };
 const spanOf = (r: Span): LoopSpan => ({ id: r.spotId, startMs: r.startMs, endMs: r.endMs });
-const namesOf = (r: Span) => [loopName(spanOf(r)), loopName(spanOf(r), true)];
+/** A row's files: a clip and its still, or a first-version strip and its still. */
+const namesOf = (r: Span & { version?: number }) =>
+	(r.version ?? LOOP_VERSION) < 2
+		? [`${r.spotId}-${r.startMs}-${r.endMs}.jpg`, loopName(spanOf(r), true)]
+		: [loopName(spanOf(r)), loopName(spanOf(r), true)];
 
 /** Queue what has no loop yet, drop what no longer matches its spot. */
 export function queueLoops(db: Db, now: number): { queued: number; stale: string[] } {
 	return db.transaction((tx) => {
-		const gone = tx.all<Span & { id: number }>(sql`
-			SELECT l.id, l.spot_id AS spotId, l.start_ms AS startMs, l.end_ms AS endMs
+		// Gone: the spot went or moved, or the loop was cut in an older version (cut again below).
+		const gone = tx.all<Span & { id: number; version: number }>(sql`
+			SELECT l.id, l.spot_id AS spotId, l.start_ms AS startMs, l.end_ms AS endMs, l.version
 			FROM video_loops l
-			WHERE NOT EXISTS (
+			WHERE l.version < ${LOOP_VERSION} OR NOT EXISTS (
 				SELECT 1 FROM video_spots v
 				WHERE v.id = l.spot_id AND v.start_ms = l.start_ms AND v.end_ms = l.end_ms
 			)`);
@@ -57,7 +65,7 @@ export function queueLoops(db: Db, now: number): { queued: number; stale: string
 		// One new row per statement: `mintedId` works its default out once per statement.
 		for (const w of wanted) {
 			tx.insert(videoLoops)
-				.values({ ...w, status: 'queued', createdAt: now })
+				.values({ ...w, status: 'queued', createdAt: now, version: LOOP_VERSION })
 				.run();
 		}
 		return { queued: wanted.length, stale: gone.flatMap(namesOf) };
@@ -131,14 +139,14 @@ export function loopSource(
 }
 
 /** A queued loop's file names, while it still matches its spot: what the worker may write. */
-export function loopFiles(db: Db, id: number): { strip: string; still: string } | null {
+export function loopFiles(db: Db, id: number): { clip: string; still: string } | null {
 	const c = current(db, id);
 	if (!c || c.r.status !== 'queued') return null;
-	const [strip, still] = namesOf(c.r);
-	return { strip, still };
+	const [clip, still] = namesOf(c.r);
+	return { clip, still };
 }
 
-/** Both files are in: ready. Returns the strip's name, or null when gone or not queued. */
+/** Both files are in: ready. Returns the clip's name, or null when gone or not queued. */
 export function finishLoop(db: Db, id: number, now: number): string | null {
 	const files = loopFiles(db, id);
 	if (!files) return null;
@@ -146,7 +154,7 @@ export function finishLoop(db: Db, id: number, now: number): string | null {
 		.set({ status: 'ready', readyAt: now, claimedAt: null, error: null })
 		.where(eq(videoLoops.id, id))
 		.run();
-	return files.strip;
+	return files.clip;
 }
 
 /** A failure: for good, or tried again on the next claim. */

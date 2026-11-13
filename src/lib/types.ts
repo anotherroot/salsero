@@ -456,8 +456,8 @@ export interface MoveSheet {
 	variations: { id: number; name: string; look: FigureLook }[];
 }
 
-/** A figure's moving picture in the pickers: the strip of 12 frames and its first as a still. Null: none. */
-export type Picture = { strip: string; still: string } | null;
+/** A figure's moving picture in the pickers: a tiny muted clip of its section, and a still. Null: none. */
+export type Picture = { clip: string; still: string } | null;
 
 /** What a picker row shows of a figure: positions, length and its picture (picker preview). */
 export interface FigureLook {

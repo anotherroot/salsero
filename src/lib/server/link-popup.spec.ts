@@ -953,7 +953,7 @@ describe('linkOptions: picker preview', () => {
 			hands: '',
 			length: 8,
 			picture: {
-				strip: `/loops/${recSection}-0-3000.jpg`,
+				clip: `/loops/${recSection}-0-3000.mp4`,
 				still: `/loops/${recSection}-0-3000-still.jpg`
 			}
 		});

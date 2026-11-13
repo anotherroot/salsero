@@ -342,7 +342,12 @@ export const videoLoops = sqliteTable(
 		claimedAt: integer('claimed_at'),
 		failedAt: integer('failed_at'),
 		readyAt: integer('ready_at'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		/**
+		 * Which cut this is: 1 a strip of 12 JPEG frames (the first deploy), 2 a clip
+		 * (revision 2026-11-13). The sweep cuts every older one again.
+		 */
+		version: integer('version').notNull().default(1)
 	},
 	(t) => [
 		check('video_loops_status_ck', sql`${t.status} in ('queued', 'ready', 'failed')`),

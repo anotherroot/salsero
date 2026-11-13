@@ -32,7 +32,7 @@
 	const shows = $derived(
 		tileShows(picture, { still: stillHere(), failed: failedNow(failedFor, picture) })
 	);
-	const fail = () => (failedFor = picture?.strip ?? null);
+	const fail = () => (failedFor = picture?.clip ?? null);
 </script>
 
 {#snippet tile()}

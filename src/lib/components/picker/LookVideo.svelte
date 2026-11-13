@@ -79,7 +79,7 @@
 		>
 	{:else if picture && !stripFailed}
 		<img
-			src={picture.strip}
+			src={picture.clip}
 			alt=""
 			class="strip absolute inset-y-0 left-0 h-full w-[1200%] max-w-none"
 			onerror={() => (stripFailed = true)}

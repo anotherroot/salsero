@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PREVIEW_LOOK, failedNow, stillOnly, tileShows } from './preview';
 
-const picture = { strip: '/loops/9-0-1000.jpg', still: '/loops/9-0-1000-still.jpg' };
+const picture = { clip: '/loops/9-0-1000.mp4', still: '/loops/9-0-1000-still.jpg' };
 
 describe('the picture on a row', () => {
 	it('moves only on screen, with motion allowed and data not saved', () => {
@@ -14,7 +14,7 @@ describe('the picture on a row', () => {
 	it('draws the strip while moving, else the still; none or a failed load is the empty tile', () => {
 		expect(tileShows(picture, { still: false, failed: false })).toEqual({
 			kind: 'strip',
-			src: picture.strip
+			src: picture.clip
 		});
 		expect(tileShows(picture, { still: true, failed: false })).toEqual({
 			kind: 'still',
@@ -54,12 +54,12 @@ describe('the sheet goes with its picker (review)', () => {
 
 describe('a failed picture is that picture only (review)', () => {
 	it('a tile reused for another figure (rows keyed by place while searching) draws the new one', () => {
-		const a = { strip: '/loops/1-0-1000.jpg', still: '/loops/1-0-1000-still.jpg' };
-		const b = { strip: '/loops/2-0-1000.jpg', still: '/loops/2-0-1000-still.jpg' };
-		expect(failedNow(a.strip, a)).toBe(true);
-		expect(failedNow(a.strip, b)).toBe(false);
+		const a = { clip: '/loops/1-0-1000.mp4', still: '/loops/1-0-1000-still.jpg' };
+		const b = { clip: '/loops/2-0-1000.mp4', still: '/loops/2-0-1000-still.jpg' };
+		expect(failedNow(a.clip, a)).toBe(true);
+		expect(failedNow(a.clip, b)).toBe(false);
 		expect(failedNow(null, a)).toBe(false);
-		expect(failedNow(a.strip, null)).toBe(false);
+		expect(failedNow(a.clip, null)).toBe(false);
 	});
 
 	it('the button keeps which picture failed, not a bare flag', () => {

@@ -58,7 +58,7 @@ describe('/loops/[file]', () => {
 		const still = await cut(w.own.u1.spot, 0, 1000, true);
 		const r = await get('u1', strip);
 		expect(r.status).toBe(200);
-		expect(r.headers.get('content-type')).toBe('image/jpeg');
+		expect(r.headers.get('content-type')).toBe('video/mp4');
 		expect(r.headers.get('cache-control')).toContain('immutable');
 		expect((await get('u1', still)).status).toBe(200);
 	});
@@ -85,5 +85,7 @@ describe('/loops/[file]', () => {
 		).toBe(404);
 		expect((await get('u1', '../x.jpg')).status).toBe(404);
 		expect((await get('u1', `${w.own.u1.spot}-100-1000.png`)).status).toBe(404);
+		// A strip of the first version is no loop any more.
+		expect((await get('u1', `${w.own.u1.spot}-100-1000.jpg`)).status).toBe(404);
 	});
 });

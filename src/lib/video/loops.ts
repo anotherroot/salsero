@@ -9,9 +9,9 @@ import type { FigureLook, Picture } from '$lib/types';
 export { loopName, parseLoopName, type LoopSpan } from './loop-names';
 import { loopName, type LoopSpan } from './loop-names';
 
-/** A section's picture: its strip and its still, or null without a section. */
+/** A section's picture: its clip and its still, or null without a section. */
 export const pictureOf = (spot: LoopSpan | null): Picture =>
-	spot ? { strip: `/loops/${loopName(spot)}`, still: `/loops/${loopName(spot, true)}` } : null;
+	spot ? { clip: `/loops/${loopName(spot)}`, still: `/loops/${loopName(spot, true)}` } : null;
 
 /** A figure row's second line: "Abierta (una mano) → Cerrada · 8 counts", either part alone, or "". */
 export const lookLine = (look: FigureLook): string =>

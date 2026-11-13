@@ -7,7 +7,7 @@ import { CLASS_ED } from '../test-class';
 import { linkInSpace, unlinkSpot } from '../spot-links';
 import { updateSpot, deleteSpot } from '../spots';
 import { LEASE_MS, MAX_ATTEMPTS } from '../songs';
-import { claimLoop, failLoop, finishLoop, loopSource, queueLoops } from './store';
+import { claimLoop, failLoop, finishLoop, LOOP_VERSION, loopSource, queueLoops } from './store';
 
 const T = 1_800_000_000_000;
 
@@ -69,7 +69,7 @@ describe('queueLoops', () => {
 		const out = queueLoops(db, T + 3);
 		expect(out.stale.sort()).toEqual([
 			`${w.own.u1.spot}-0-1000-still.jpg`,
-			`${w.own.u1.spot}-0-1000.jpg`
+			`${w.own.u1.spot}-0-1000.mp4`
 		]);
 		expect(out.queued).toBe(1);
 		expect(rows(db)).toMatchObject([
@@ -99,7 +99,7 @@ describe('claim, source, finish, fail', () => {
 		expect(claimLoop(db, T + 1000)).toBeNull();
 		expect(claimLoop(db, T + LEASE_MS + 1)?.id).toBe(job!.id);
 		expect(loopSource(db, job!.id)).toMatchObject({ kind: 'recording' });
-		expect(finishLoop(db, job!.id, T + 2)).toBe(`${w.own.u1.spot}-0-1000.jpg`);
+		expect(finishLoop(db, job!.id, T + 2)).toBe(`${w.own.u1.spot}-0-1000.mp4`);
 		expect(rows(db)[0].status).toBe('ready');
 	});
 
@@ -147,5 +147,21 @@ describe('a failed loop gets another day (review)', () => {
 			failedAt: null
 		});
 		expect(claimLoop(db, T + 25 * 3600_000)).not.toBeNull();
+	});
+});
+
+describe('a loop of an older version is cut again (revision 2026-11-13)', () => {
+	it('drops the strip-era row with its files and queues the section again', () => {
+		const { db, w } = setup();
+		queueLoops(db, T);
+		finishLoop(db, claimLoop(db, T)!.id, T + 1);
+		db.update(videoLoops).set({ version: 1 }).run();
+		const out = queueLoops(db, T + 2);
+		expect(out.stale.sort()).toEqual([
+			`${w.own.u1.spot}-0-1000-still.jpg`,
+			`${w.own.u1.spot}-0-1000.jpg`
+		]);
+		expect(out.queued).toBe(1);
+		expect(rows(db)).toMatchObject([{ status: 'queued', version: LOOP_VERSION }]);
 	});
 });

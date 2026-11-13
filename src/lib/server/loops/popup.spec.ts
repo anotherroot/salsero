@@ -14,6 +14,6 @@ describe("a group's Link popup: pictures read as the editor (review)", () => {
 		const row = [...o.near, ...o.figures].find(
 			(x) => 'figureId' in x.target && x.target.figureId === w.group.figure
 		)!;
-		expect(row.look?.picture?.strip).toBe(`/loops/${w.group.spot}-0-1000.jpg`);
+		expect(row.look?.picture?.clip).toBe(`/loops/${w.group.spot}-0-1000.mp4`);
 	});
 });

@@ -47,7 +47,7 @@ export function wantedMedia(db: SqliteDb, userId: string): MediaFile[] {
 		...songs.map((s): MediaFile => ({ kind: 'audio', file: s.file, mime: s.mime })),
 		...takes.map((t): MediaFile => ({ kind: 'count', file: t.file, mime: 'audio/wav' })),
 		...spans.flatMap((s): MediaFile[] => [
-			{ kind: 'loops', file: loopName(s), mime: 'image/jpeg' },
+			{ kind: 'loops', file: loopName(s), mime: 'video/mp4' },
 			{ kind: 'loops', file: loopName(s, true), mime: 'image/jpeg' }
 		])
 	];
@@ -130,7 +130,7 @@ export async function syncMedia(deps: {
 	/** This loop answered 404 a while ago, or its strip did (its still waits with it). */
 	const missedLately = (f: MediaFile): boolean => {
 		const t =
-			misses.get(key(f)) ?? misses.get(key({ ...f, file: f.file.replace(/-still\.jpg$/, '.jpg') }));
+			misses.get(key(f)) ?? misses.get(key({ ...f, file: f.file.replace(/-still\.jpg$/, '.mp4') }));
 		return t !== undefined && now() - t < LOOP_RETRY_MS;
 	};
 	const out: PassOut = { fetched: 0, removed: 0, failed: 0, waiting: null };

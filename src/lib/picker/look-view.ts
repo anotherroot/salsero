@@ -19,7 +19,7 @@ export function verbOf(kind: 'link' | 'act' | 'field'): string {
 /** The sheet's data: a figure with the section its row's picture was cut from, or a move. */
 export function sheetUrl(look: { kind: 'figure' | 'move'; id: number }, picture: Picture): string {
 	if (look.kind === 'move') return `/api/moves/${look.id}/look`;
-	const spot = picture ? parseLoopName(picture.strip.slice('/loops/'.length)) : null;
+	const spot = picture ? parseLoopName(picture.clip.slice('/loops/'.length)) : null;
 	return `/api/figures/${look.id}/look${spot ? `?spot=${spot.id}` : ''}`;
 }
 
