@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { MAX_PLAYING, PREVIEW_LOOK, failedNow, granted, stillOnly, tileShows } from './preview';
+import { MAX_PLAYING, PREVIEW_LOOK, failedNow, slots, stillOnly, tileShows } from './preview';
 
 const picture = { clip: '/loops/9-0-1000.mp4', still: '/loops/9-0-1000-frame.jpg' };
-const fine = { reducedMotion: false, saveData: false, deviceMemory: 8, cores: 8 };
+const fine = { reducedMotion: false, saveData: false, deviceMemory: 8, cores: 8, mobile: true };
 
 describe('when tiles move (revision 2026-11-13)', () => {
 	it('never with Reduce motion or Data Saver', () => {
@@ -16,36 +16,54 @@ describe('when tiles move (revision 2026-11-13)', () => {
 		expect(stillOnly({ ...fine, deviceMemory: 2 })).toBe(true);
 		expect(stillOnly({ ...fine, cores: 4 })).toBe(true);
 		expect(stillOnly({ ...fine, deviceMemory: 4, cores: 6 })).toBe(false);
-		expect(stillOnly({ reducedMotion: false, saveData: false })).toBe(false);
+		expect(stillOnly({ reducedMotion: false, saveData: false, mobile: true })).toBe(false);
 	});
 
-	it('at most four play: the first ones on screen, in the list order; none while it scrolls', () => {
+	it('a 4-core office PC still plays (the core count speaks only on a phone) (review)', () => {
+		expect(stillOnly({ ...fine, cores: 4, mobile: false })).toBe(false);
+		expect(stillOnly({ ...fine, deviceMemory: 2, mobile: false })).toBe(true);
+	});
+
+	it('at most four have a clip: the first ones on screen, in the list order', () => {
 		expect(MAX_PLAYING).toBe(4);
-		expect([...granted(['a', 'b', 'c', 'd', 'e', 'f'], false)]).toEqual(['a', 'b', 'c', 'd']);
-		expect([...granted(['a', 'b'], false)]).toEqual(['a', 'b']);
-		expect(granted(['a', 'b'], true).size).toBe(0);
+		expect([...slots(['a', 'b', 'c', 'd', 'e', 'f'], false).keys()]).toEqual(['a', 'b', 'c', 'd']);
+		expect([...slots(['a', 'b'], false).entries()]).toEqual([
+			['a', 'play'],
+			['b', 'play']
+		]);
+	});
+
+	it('while the list scrolls they pause where they are, never unmount and restart (review)', () => {
+		expect([...slots(['a', 'b'], true).entries()]).toEqual([
+			['a', 'pause'],
+			['b', 'pause']
+		]);
 	});
 });
 
 describe('what a tile draws', () => {
 	it('the clip over its still while it may play; else the still', () => {
-		expect(tileShows(picture, { playing: true, failed: null })).toEqual({
+		expect(tileShows(picture, { slot: 'play', failed: null })).toEqual({
 			kind: 'clip',
 			...picture
 		});
-		expect(tileShows(picture, { playing: false, failed: null })).toEqual({
+		expect(tileShows(picture, { slot: 'pause', failed: null })).toEqual({
+			kind: 'clip',
+			...picture
+		});
+		expect(tileShows(picture, { slot: 'off', failed: null })).toEqual({
 			kind: 'still',
 			still: picture.still
 		});
 	});
 
 	it('a clip that will not play falls back to the still; a still that will not load, or none, is the empty tile', () => {
-		expect(tileShows(picture, { playing: true, failed: 'clip' })).toEqual({
+		expect(tileShows(picture, { slot: 'play', failed: 'clip' })).toEqual({
 			kind: 'still',
 			still: picture.still
 		});
-		expect(tileShows(picture, { playing: true, failed: 'still' })).toEqual({ kind: 'empty' });
-		expect(tileShows(null, { playing: true, failed: null })).toEqual({ kind: 'empty' });
+		expect(tileShows(picture, { slot: 'play', failed: 'still' })).toEqual({ kind: 'empty' });
+		expect(tileShows(null, { slot: 'play', failed: null })).toEqual({ kind: 'empty' });
 	});
 
 	it('is the tile today; the eye is the fallback (spec "Building for the fallback")', () => {

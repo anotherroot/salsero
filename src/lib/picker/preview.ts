@@ -16,23 +16,33 @@ export const PREVIEW_LOOK: 'tile' | 'eye' = 'tile';
 export const MAX_PLAYING = 4;
 
 /**
- * Stills only, never a clip: Reduce motion, Data Saver, or a weak phone (2 GB of
- * memory or less, 4 cores or fewer, as the browser reports them; unknown is not weak).
+ * Stills only, never a clip: Reduce motion, Data Saver, or a weak device (2 GB of
+ * memory or less; on a phone, 4 cores or fewer: a 4-core office PC plays), as the
+ * browser reports them; unknown is not weak.
  */
 export function stillOnly(env: {
 	reducedMotion: boolean;
 	saveData: boolean;
 	deviceMemory?: number;
 	cores?: number;
+	/** A touch phone (`pointer: coarse`): only there does the core count speak. */
+	mobile: boolean;
 }): boolean {
 	if (env.reducedMotion || env.saveData) return true;
 	if (env.deviceMemory !== undefined && env.deviceMemory <= 2) return true;
-	return env.cores !== undefined && env.cores <= 4;
+	return env.mobile && env.cores !== undefined && env.cores <= 4;
 }
 
-/** The tiles that may play: the first `MAX_PLAYING` on screen, in list order; none while the list scrolls. */
-export function granted<T>(onScreen: readonly T[], scrolling: boolean): Set<T> {
-	return new Set(scrolling ? [] : onScreen.slice(0, MAX_PLAYING));
+/** A tile's clip: playing, paused where it is (the list scrolls), or none (the still alone). */
+export type Slot = 'play' | 'pause' | 'off';
+
+/**
+ * The tiles that have a clip: the first `MAX_PLAYING` on screen, in list order;
+ * while the list scrolls they pause where they are (never unmount and restart).
+ * Every other tile is 'off'.
+ */
+export function slots<T>(onScreen: readonly T[], scrolling: boolean): Map<T, Slot> {
+	return new Map(onScreen.slice(0, MAX_PLAYING).map((t) => [t, scrolling ? 'pause' : 'play']));
 }
 
 export type TileShows =
@@ -40,13 +50,13 @@ export type TileShows =
 	| { kind: 'still'; still: string }
 	| { kind: 'clip'; clip: string; still: string };
 
-/** What the tile draws: the clip over its still while it may play, the still, or the empty tile. */
+/** What the tile draws: the clip over its still while it has a slot, the still, or the empty tile. */
 export function tileShows(
 	picture: Picture,
-	s: { playing: boolean; failed: 'clip' | 'still' | null }
+	s: { slot: Slot; failed: 'clip' | 'still' | null }
 ): TileShows {
 	if (!picture || s.failed === 'still') return { kind: 'empty' };
-	if (s.playing && s.failed !== 'clip') return { kind: 'clip', ...picture };
+	if (s.slot !== 'off' && s.failed !== 'clip') return { kind: 'clip', ...picture };
 	return { kind: 'still', still: picture.still };
 }
 
