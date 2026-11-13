@@ -42,7 +42,7 @@ export function timelinesDir(): string {
 
 /**
  * `$DATA_DIR/loops`, created on first use: the pickers' figure loops
- * (`<spot>-<start>-<end>.jpg` and `…-still.jpg`), cut by the home worker.
+ * (`<spot>-<start>-<end>.mp4` and `…-frame.jpg`), cut by the home worker.
  * Derived; never counted as storage.
  */
 export function loopsDir(): string {

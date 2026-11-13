@@ -68,7 +68,7 @@ describe('queueLoops', () => {
 		updateSpot(db, w.own.u1.spot, { startMs: 200, endMs: 1000 }, 'u1', T + 2);
 		const out = queueLoops(db, T + 3);
 		expect(out.stale.sort()).toEqual([
-			`${w.own.u1.spot}-0-1000-still.jpg`,
+			`${w.own.u1.spot}-0-1000-frame.jpg`,
 			`${w.own.u1.spot}-0-1000.mp4`
 		]);
 		expect(out.queued).toBe(1);

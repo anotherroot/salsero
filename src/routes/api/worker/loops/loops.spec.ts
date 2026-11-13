@@ -91,7 +91,7 @@ describe('the worker loop routes', () => {
 		expect(row().status).toBe('ready');
 		const spot = w.own.u1.spot;
 		expect(existsSync(join(loopsDir(), `${spot}-0-1000.mp4`))).toBe(true);
-		expect(existsSync(join(loopsDir(), `${spot}-0-1000-still.jpg`))).toBe(true);
+		expect(existsSync(join(loopsDir(), `${spot}-0-1000-frame.jpg`))).toBe(true);
 	});
 
 	it('a clip that is not an MP4 is 400 (a JPEG neither, nor a still that is not one), one too large 413', async () => {

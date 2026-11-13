@@ -130,7 +130,7 @@ export async function syncMedia(deps: {
 	/** This loop answered 404 a while ago, or its strip did (its still waits with it). */
 	const missedLately = (f: MediaFile): boolean => {
 		const t =
-			misses.get(key(f)) ?? misses.get(key({ ...f, file: f.file.replace(/-still\.jpg$/, '.mp4') }));
+			misses.get(key(f)) ?? misses.get(key({ ...f, file: f.file.replace(/-frame\.jpg$/, '.mp4') }));
 		return t !== undefined && now() - t < LOOP_RETRY_MS;
 	};
 	const out: PassOut = { fetched: 0, removed: 0, failed: 0, waiting: null };

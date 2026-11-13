@@ -28,7 +28,7 @@ const spanOf = (r: Span): LoopSpan => ({ id: r.spotId, startMs: r.startMs, endMs
 /** A row's files: a clip and its still, or a first-version strip and its still. */
 const namesOf = (r: Span & { version?: number }) =>
 	(r.version ?? LOOP_VERSION) < 2
-		? [`${r.spotId}-${r.startMs}-${r.endMs}.jpg`, loopName(spanOf(r), true)]
+		? [`${r.spotId}-${r.startMs}-${r.endMs}.jpg`, `${r.spotId}-${r.startMs}-${r.endMs}-still.jpg`]
 		: [loopName(spanOf(r)), loopName(spanOf(r), true)];
 
 /** Queue what has no loop yet, drop what no longer matches its spot. */

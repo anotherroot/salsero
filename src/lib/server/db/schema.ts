@@ -322,7 +322,7 @@ export const aiTimelines = sqliteTable(
 /**
  * A figure's loop for the pickers (spec 2026-11-12-picker-preview): 12 small
  * frames of a section linked to a figure, cut by the home worker into
- * `$DATA_DIR/loops/<spot>-<start>-<end>.jpg` (and `…-still.jpg`). One row per
+ * `$DATA_DIR/loops/<spot>-<start>-<end>.mp4` (and `…-frame.jpg`). One row per
  * spot AND span: an edited section is a new row, and the sweep
  * (`queueLoops`) drops the old one with its files. Derived and never synced:
  * the file name comes from the spot itself, so pages and phones need no row.

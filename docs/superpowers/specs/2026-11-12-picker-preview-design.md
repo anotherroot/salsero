@@ -354,7 +354,7 @@ picks, 2026-11-13:
   speed, 12 frames a second, capped at 60 s.
 - **A tiny muted video, not a strip of pictures:** at 12 fps a strip costs ~35 KB a second, a video ~4 KB
   a second (measured: 6 s → 26 KB, 8 s → 31 KB). H.264 baseline, 128 × 128, one keyframe at the start,
-  no sound, `+faststart`. `<spot>-<start>-<end>.mp4`; the still stays (`…-still.jpg`, 128 × 128, a
+  no sound, `+faststart`. `<spot>-<start>-<end>.mp4`; the still is renamed (`…-frame.jpg`: a phone and a browser keep files by name; 128 × 128, a
   quarter into the section).
 - **Older phones** (the user asked): the still first, and the clip loads only when its row is on screen
   (`preload="none"` until then); at most 4 clips play at once, the rest show their still; all pause while

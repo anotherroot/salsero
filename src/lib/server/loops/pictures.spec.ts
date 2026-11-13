@@ -137,7 +137,7 @@ describe('movePictures', () => {
 		const got = movePictures(db, [move], u1);
 		expect(got.get(move)).toEqual({
 			clip: `/loops/${w.own.u1.spot}-0-1000.mp4`,
-			still: `/loops/${w.own.u1.spot}-0-1000-still.jpg`
+			still: `/loops/${w.own.u1.spot}-0-1000-frame.jpg`
 		});
 	});
 

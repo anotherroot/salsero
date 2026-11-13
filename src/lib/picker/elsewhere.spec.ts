@@ -115,7 +115,7 @@ describe('picker preview: a figure from another place carries its look', () => {
 		const look = {
 			hands: 'Cradle →',
 			length: 4,
-			picture: { clip: '/loops/3-0-1000.mp4', still: '/loops/3-0-1000-still.jpg' }
+			picture: { clip: '/loops/3-0-1000.mp4', still: '/loops/3-0-1000-frame.jpg' }
 		};
 		const [g] = elsewhereGroups([
 			{

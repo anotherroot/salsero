@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { MAX_PLAYING, PREVIEW_LOOK, failedNow, granted, stillOnly, tileShows } from './preview';
 
-const picture = { clip: '/loops/9-0-1000.mp4', still: '/loops/9-0-1000-still.jpg' };
+const picture = { clip: '/loops/9-0-1000.mp4', still: '/loops/9-0-1000-frame.jpg' };
 const fine = { reducedMotion: false, saveData: false, deviceMemory: 8, cores: 8 };
 
 describe('when tiles move (revision 2026-11-13)', () => {
@@ -55,8 +55,8 @@ describe('what a tile draws', () => {
 
 describe('a failure belongs to its picture (review)', () => {
 	it('a tile reused for another figure (rows keyed by place while searching) draws the new one', () => {
-		const a = { clip: '/loops/1-0-1000.mp4', still: '/loops/1-0-1000-still.jpg' };
-		const b = { clip: '/loops/2-0-1000.mp4', still: '/loops/2-0-1000-still.jpg' };
+		const a = { clip: '/loops/1-0-1000.mp4', still: '/loops/1-0-1000-frame.jpg' };
+		const b = { clip: '/loops/2-0-1000.mp4', still: '/loops/2-0-1000-frame.jpg' };
 		expect(failedNow({ for: a.clip, what: 'clip' }, a)).toBe('clip');
 		expect(failedNow({ for: a.clip, what: 'still' }, a)).toBe('still');
 		expect(failedNow({ for: a.clip, what: 'clip' }, b)).toBeNull();

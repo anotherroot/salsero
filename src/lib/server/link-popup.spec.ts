@@ -954,7 +954,7 @@ describe('linkOptions: picker preview', () => {
 			length: 8,
 			picture: {
 				clip: `/loops/${recSection}-0-3000.mp4`,
-				still: `/loops/${recSection}-0-3000-still.jpg`
+				still: `/loops/${recSection}-0-3000-frame.jpg`
 			}
 		});
 		expect(of(doble).look?.picture).toBeNull();

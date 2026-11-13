@@ -678,7 +678,7 @@ describe('picker preview: rows carry the look', () => {
 	const look = {
 		hands: 'Abierta (una mano) → Cerrada',
 		length: 8,
-		picture: { clip: '/loops/9-0-1000.mp4', still: '/loops/9-0-1000-still.jpg' }
+		picture: { clip: '/loops/9-0-1000.mp4', still: '/loops/9-0-1000-frame.jpg' }
 	};
 
 	it('a variation with a look: the positions line first, its picture, what the sheet opens', () => {

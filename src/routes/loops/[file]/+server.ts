@@ -10,7 +10,7 @@ import { parseLoopName } from '$lib/video/loop-names';
 import type { RequestHandler } from './$types';
 
 /**
- * A figure's loop for the pickers (`<spot>-<start>-<end>.mp4`, `…-still.jpg`),
+ * A figure's loop for the pickers (`<spot>-<start>-<end>.mp4`, `…-frame.jpg`),
  * cut by the home worker. Behind the session guard in hooks.server.ts. Only
  * to who may read the section's video, and only for the spot's current span:
  * anything else, and a loop not cut yet, is the same 404. Cached for good,
