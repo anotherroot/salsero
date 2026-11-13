@@ -178,6 +178,7 @@ export const hearing = {
 		whyCount: 'Count it first',
 		whyShared: 'No longer shared',
 		make: 'Make a drill',
-		inDrills: 'In drills:'
+		inDrills: 'In drills:',
+		kindOf: 'What kind of drill'
 	}
 };

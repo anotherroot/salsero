@@ -42,43 +42,6 @@
 	const titleOf = (id: number) => songs?.choices.find((s) => s.id === id)?.title ?? '';
 </script>
 
-<ListenSetup
-	bind:kind
-	bind:target
-	bind:clave
-	bind:own
-	bind:part
-	targets={targetsFor(dance)}
-	parts={[]}
-	tapDelayMs={null}
-	check={false}
-	oncheck={() => {}}
-	{onhearclave}
-/>
-
-{#if kind === 'dropped'}
-	<div class="flex flex-col gap-1.5">
-		<h2 class={SECTION_LABEL}>{w.length}</h2>
-		<div role="radiogroup" aria-label={w.length} class="flex flex-wrap gap-x-2 gap-y-1">
-			{#each HEARING_LENGTHS as n (n)}
-				<label class={CHIP}>
-					<input
-						type="radio"
-						name="drops"
-						value={n}
-						class="sr-only"
-						checked={drops === n}
-						onchange={() => (drops = n)}
-					/>
-					{w.spots(n)}
-				</label>
-			{/each}
-		</div>
-	</div>
-{:else}
-	<input type="hidden" name="drops" value={drops} />
-{/if}
-
 {#if songs}
 	<div class="flex flex-col gap-1.5">
 		<h2 class={SECTION_LABEL}>{w.songs}</h2>
@@ -122,4 +85,41 @@
 			picking = false;
 		}}
 	/>
+{/if}
+
+<ListenSetup
+	bind:kind
+	bind:target
+	bind:clave
+	bind:own
+	bind:part
+	targets={targetsFor(dance)}
+	parts={[]}
+	tapDelayMs={null}
+	check={false}
+	oncheck={() => {}}
+	{onhearclave}
+/>
+
+{#if kind === 'dropped'}
+	<div class="flex flex-col gap-1.5">
+		<h2 class={SECTION_LABEL}>{w.length}</h2>
+		<div role="radiogroup" aria-label={w.length} class="flex flex-wrap gap-x-2 gap-y-1">
+			{#each HEARING_LENGTHS as n (n)}
+				<label class={CHIP}>
+					<input
+						type="radio"
+						name="drops"
+						value={n}
+						class="sr-only"
+						checked={drops === n}
+						onchange={() => (drops = n)}
+					/>
+					{w.spots(n)}
+				</label>
+			{/each}
+		</div>
+	</div>
+{:else}
+	<input type="hidden" name="drops" value={drops} />
 {/if}

@@ -117,27 +117,20 @@ def _result_tap(page):
 
 # ---- phase 2: a hearing drill (Run these last or alone: they add an exercise to the copy.) ----
 
+def _new_sheet(page):
+    page.get_by_role("radio", name="Hearing").wait_for()
+    page.get_by_label("Name").fill("Kje je ena?")
+    page.wait_for_timeout(400)
+
+
 def _make_drill(page):
-    """A hearing drill of the song in the URL's fragment (`#h<song>`), made through Today's own action."""
-    song = page.url.split("#h")[-1]
-    dance = page.url.split("/")[3].split("#")[0].split("?")[0]
-    status = page.evaluate(
-        """async ([dance, song]) => {
-            const f = new FormData();
-            for (const [k, v] of [['name', 'Kje je ena?'], ['notes', ''], ['type', 'hearing'],
-                ['kind', 'dropped'], ['target', 'one'], ['drops', '5'], ['songId', song]]) f.append(k, v);
-            const r = await fetch(`/?/createExercise`, { method: 'POST', body: f,
-                headers: { 'x-sveltekit-action': 'true' } });
-            const j = await r.json(); return j.type === "success" ? "success" : JSON.stringify(j);
-        }""",
-        [dance, song],
-    )
-    if status != "success":
-        raise RuntimeError(f"the hearing drill was not made: {status}")
-    page.goto(page.url.split("#")[0])
-    page.get_by_text("Kje je ena?", exact=True).first.click()
-    page.get_by_text("You listen", exact=True).wait_for()
-    page.wait_for_timeout(300)
+    """A hearing drill of the listening song, made through Today's sheet as Naredi vajo opens it."""
+    page.get_by_role("radio", name="Hearing").wait_for()
+    page.get_by_label("Name").fill("Kje je ena?")
+    page.get_by_text("5 spots", exact=True).click()
+    page.get_by_role("button", name="Add exercise").click()
+    page.get_by_text("You listen", exact=True).wait_for(timeout=15000)
+    page.wait_for_timeout(400)
 
 
 def _drill_done(page):
@@ -166,6 +159,7 @@ SCENES = {
     "listen-result": Scene(LISTEN, _result),
     "listen-replay": Scene(LISTEN, _replay),
     "listen-result-tap": Scene(LISTEN, _result_tap),
-    "hearing-page": Scene("/{dance}#h{listensong}", _make_drill),
-    "hearing-done": Scene("/{dance}#h{listensong}", _drill_done),
+    "hearing-new": Scene("/{dance}?new=hearing&song={listensong}", _new_sheet),
+    "hearing-page": Scene("/{dance}?new=hearing&song={listensong}", _make_drill),
+    "hearing-done": Scene("/{dance}?new=hearing&song={listensong}", _drill_done),
 }

@@ -201,3 +201,21 @@ describe("a hearing drill's page content", () => {
 		]);
 	});
 });
+
+describe('hearingDrillsWith', () => {
+	it("names the person's own hearing drills that play the song", async () => {
+		const { hearingDrillsWith } = await import('./hearing');
+		counted(c.shared);
+		const made = createHearingDrill(
+			db,
+			MAJA,
+			{ name: 'Kje je ena?', notes: null },
+			{ settings: SETTINGS, songIds: [c.shared] }
+		);
+		if (!made.ok) throw new Error(made.message);
+		expect(hearingDrillsWith(db, MAJA, c.shared)).toEqual([
+			{ id: made.drill.id, name: 'Kje je ena?' }
+		]);
+		expect(hearingDrillsWith(db, MAJA, c.draft)).toEqual([]);
+	});
+});

@@ -8,13 +8,13 @@
  * Music (`song_links`), so walls, sharing and History come with them. Only a
  * song a person counted ever plays in a round (`counted`).
  */
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, sets, songLinks, songs } from './db/schema';
 import { practiceSong } from './access';
 import { actingIn, fieldChange, logChange } from './changes';
 import { createCustomExercise, MusicRefused, type SettingsInput } from './exercises';
-import type { Space } from './scope';
+import type { Space, Wall } from './scope';
 import { songGrid } from './grid';
 import { serverNow } from './server-clock';
 import {
@@ -231,4 +231,27 @@ export function hearingContentOf(
 		rounds,
 		songs: hearingSongsOf(db, viewerId, drill.id).all
 	};
+}
+
+/** The person's own hearing drills that play `songId` (the song page's "V vajah: …"). */
+export function hearingDrillsWith(
+	db: Db,
+	wall: Wall,
+	songId: number
+): { id: number; name: string }[] {
+	return db
+		.select({ id: exercises.id, name: exercises.name })
+		.from(exercises)
+		.innerJoin(songLinks, eq(songLinks.exerciseId, exercises.id))
+		.where(
+			and(
+				eq(songLinks.songId, songId),
+				eq(exercises.kind, 'hearing'),
+				eq(exercises.dance, wall.dance),
+				eq(exercises.userId, wall.userId),
+				isNull(exercises.archivedAt)
+			)
+		)
+		.orderBy(asc(exercises.name))
+		.all();
 }

@@ -173,6 +173,7 @@ export const hearing: Catalog['hearing'] = {
 		whyCount: 'Najprej jo preštejte',
 		whyShared: 'Ni več deljena',
 		make: 'Naredi vajo',
-		inDrills: 'V vajah:'
+		inDrills: 'V vajah:',
+		kindOf: 'Vrsta vaje'
 	}
 };
