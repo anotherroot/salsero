@@ -14,7 +14,7 @@ import { exercises, sets, songLinks, songs } from './db/schema';
 import { practiceSong } from './access';
 import { actingIn, fieldChange, logChange } from './changes';
 import { createCustomExercise, MusicRefused, type SettingsInput } from './exercises';
-import type { Space, Wall } from './scope';
+import { ownedBy, type Space, type Wall } from './scope';
 import { songGrid } from './grid';
 import { serverNow } from './server-clock';
 import {
@@ -247,8 +247,7 @@ export function hearingDrillsWith(
 			and(
 				eq(songLinks.songId, songId),
 				eq(exercises.kind, 'hearing'),
-				eq(exercises.dance, wall.dance),
-				eq(exercises.userId, wall.userId),
+				ownedBy(exercises, wall),
 				isNull(exercises.archivedAt)
 			)
 		)
