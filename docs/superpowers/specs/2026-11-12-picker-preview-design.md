@@ -340,3 +340,27 @@ Marked *(builder's call)* above, plus: the exact table and column names; how
 the IntersectionObserver is shared across rows; the sheet's desktop width;
 whether the backfill runs once at boot or as a script. Anything not covered
 here that changes what the user sees: ask.
+
+## Revision 2026-11-13: square tiles, smooth clips
+
+Seen on the phone after the first deploy: the bachata videos are upright (576 × 1024), and a whole
+frame fitted into a 64 × 40 tile left the dancers a sliver. Board rounds 2 and 3
+(https://claude.ai/artifact/Sst9B6MoFRGS9gd8nzpQvm) with real loops of the user's videos; the user's
+picks, 2026-11-13:
+
+- **Tile A:** 64 × 64, the middle of the frame (scale to cover, centre crop). Rows grow to about 76 px.
+- **Frames at a constant time, not spread over the section** (the user: "each frame should be a
+  constant time … so for longer videos we don't miss things"): a loop is the whole section at its real
+  speed, 12 frames a second, capped at 60 s.
+- **A tiny muted video, not a strip of pictures:** at 12 fps a strip costs ~35 KB a second, a video ~4 KB
+  a second (measured: 6 s → 26 KB, 8 s → 31 KB). H.264 baseline, 128 × 128, one keyframe at the start,
+  no sound, `+faststart`. `<spot>-<start>-<end>.mp4`; the still stays (`…-still.jpg`, 128 × 128, a
+  quarter into the section).
+- **Older phones** (the user asked): the still first, and the clip loads only when its row is on screen
+  (`preload="none"` until then); at most 4 clips play at once, the rest show their still; all pause while
+  the list scrolls and play again once it settles; a row far off screen drops its `<video>` (memory); a
+  weak phone (`navigator.deviceMemory` ≤ 2 or `hardwareConcurrency` ≤ 4) shows stills only, as Reduce
+  motion and Data Saver do. *(My calls: the cap of 4 and the two thresholds.)*
+- Tiles are muted background loops (`data-ambient`): one sound at a time leaves them alone.
+- `video_loops.version` (ADD COLUMN, default 1): the sweep drops every row cut in an older version, with
+  its files, and queues it again, so the worker re-cuts everything once.
