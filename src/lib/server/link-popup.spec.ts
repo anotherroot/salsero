@@ -140,6 +140,7 @@ describe('linkOptions', () => {
 			name: 'Enchufla',
 			variations: ['Basic', 'Doble'],
 			near: true,
+			picture: null,
 			partner: 'solo',
 			style: 'son'
 		});
@@ -939,5 +940,26 @@ describe('the spot’s group (link from other places)', () => {
 		const s = addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: 1000, label: null }, 'u1')!.id;
 		expect(linkOptions(db, s, 'salsa')!.team).toEqual({ id: 1, name: 'Salsa Tuesdays' });
 		expect(linkOptions(db, section, 'salsa')!.team).toBeNull();
+	});
+});
+
+describe('linkOptions: picker preview', () => {
+	it('each variation carries its look, each move its picture', () => {
+		linkSpot(db, 'u1', recSection, { figureId: basic });
+		const o = linkOptions(db, section, 'salsa')!;
+		const all = [...o.near, ...o.figures];
+		const of = (id: number) => all.find((x) => 'figureId' in x.target && x.target.figureId === id)!;
+		expect(of(basic).look).toEqual({
+			hands: '',
+			length: 8,
+			picture: {
+				strip: `/loops/${recSection}-0-3000.jpg`,
+				still: `/loops/${recSection}-0-3000-still.jpg`
+			}
+		});
+		expect(of(doble).look?.picture).toBeNull();
+		expect(o.figureChoices.find((c) => c.groupId === enchufla)?.picture).toEqual(
+			of(basic).look!.picture
+		);
 	});
 });

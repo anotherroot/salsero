@@ -259,3 +259,42 @@ class Api:
 
     def fail_timeline(self, job_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/timelines/{job_id}/fail", {"error": error[:500], "permanent": permanent})
+
+    # ── Loops: a figure's moving picture for the pickers (see src/lib/server/loops in the app) ──
+
+    def claim_loop(self) -> dict | None:
+        """None when there is nothing to cut, and on a 404: a server older than loops."""
+        try:
+            with self._request("POST", "/api/worker/loops/claim", data=b"{}") as r:
+                return None if r.status == 204 else json.load(r)
+        except ApiError as e:
+            if e.status == 404:
+                return None
+            raise
+
+    def _loop(self, method: str, path: str, data=None, headers=None, timeout: int = 60):
+        """A 410: the section moved or went meanwhile; the job is gone."""
+        try:
+            return self._request(method, path, data=data, headers=headers, timeout=timeout)
+        except ApiError as e:
+            if e.status == 410:
+                raise JobGone(e.message) from e
+            raise
+
+    def loop_source_url(self, job_id: int) -> tuple[str, dict[str, str]]:
+        """The video to cut from, for ffmpeg to seek over HTTP (Range), with the headers it needs."""
+        return (
+            f"{self.base}/api/worker/loops/{job_id}/source",
+            {"User-Agent": USER_AGENT, "Authorization": f"Bearer {self.token}"},
+        )
+
+    def put_loop(self, job_id: int, which: str, path: Path) -> None:
+        self._loop(
+            "PUT", f"/api/worker/loops/{job_id}/{which}", data=path.read_bytes(), headers={"Content-Type": "image/jpeg"}
+        ).close()
+
+    def finish_loop(self, job_id: int) -> None:
+        self._loop("POST", f"/api/worker/loops/{job_id}/done", data=b"{}").close()
+
+    def fail_loop(self, job_id: int, error: str, permanent: bool) -> None:
+        self._json(f"/api/worker/loops/{job_id}/fail", {"error": error[:500], "permanent": permanent})

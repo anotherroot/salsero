@@ -29,6 +29,7 @@ import type { PositionRow } from './db/schema';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
 import {
 	copyAndLink,
+	useOnly,
 	copyLinkRequest,
 	lessonLinker,
 	restoreAndLink,
@@ -99,6 +100,16 @@ describe('copyAndLink', () => {
 			['figure', 'add', 'u1'],
 			['lesson', 'add', 'u1']
 		]);
+	});
+
+	it('Copy and use (a field picker): copied as a clone, nothing linked; again, the member', async () => {
+		const F = figure(U1_SALSA, 'Cradle entry');
+		const res = await run(F, useOnly);
+		expect(res).toMatchObject({ ok: true, made: true });
+		const id = (res as { id: number }).id;
+		expect(linked()).toEqual([]);
+		expect(geneOf(db, 'figure', id)).toBe(geneOf(db, 'figure', F));
+		expect(await run(F, useOnly)).toEqual({ ok: true, id, made: false });
 	});
 
 	it('a refused link leaves no copy', async () => {

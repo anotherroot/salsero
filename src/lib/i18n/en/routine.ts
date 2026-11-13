@@ -3,6 +3,7 @@
 // context line too), Edit, Duplicate, Archive and the page's refusals. The
 // Routines list is `moves`; the shared Picker is `picker`.
 
+import { plural } from './plural';
 export const routine = {
 	/** A slot's length set in the routine: its chip and the How long? sheet (spec 2026-11-11). */
 	length: {
@@ -18,6 +19,19 @@ export const routine = {
 		/** Why some lengths are greyed: the slot's other options go on to this count. */
 		why: (next: number): string =>
 			`Its alternatives go on to ${next}, so only lengths that land there fit.`
+	},
+	/** A slot's end chosen in the routine: its chip, its cell and the Where does it end? sheet (spec 2026-11-11, slot end). */
+	end: {
+		title: 'Where does it end?',
+		sub: (figure: string, n: number): string => `${figure} · slot ${n}`,
+		/** The chip and the cell while nothing is chosen. */
+		ask: 'Ends?',
+		clear: 'No choice — any end',
+		altNot: (name: string): string => `Alternative ${name} doesn’t end here`,
+		belowNot: (n: number): string => `Slot ${n} doesn’t start here`,
+		/** The chip's name for a screen reader. */
+		change: (name: string): string => `Ends in ${name}. Change it`,
+		choose: 'Choose where it ends'
 	},
 	/** The facts line: "Starts from Open · ends at Closed". */
 	facts: {
@@ -56,12 +70,12 @@ export const routine = {
 		/** Under one selected slot. */
 		tip: 'Tap other slots to add them.',
 		/** Make routine, in a fifth of the toolbar. */
-		make: 'Make routine',
+		make: 'Section',
 		/** Why an action is greyed. */
 		blocked: {
 			embedded: (names: string): string =>
 				`This routine is embedded in ${names} — embedding is one level.`,
-			none: 'Select the slots to make into a routine.',
+			none: 'Select the slots to make into a section.',
 			slotIsRoutine: (n: number): string => `Slot ${n} is a routine — embedding is one level.`,
 			apart: 'Select slots next to each other.',
 			first: 'Select slots first.'
@@ -80,7 +94,50 @@ export const routine = {
 				: `The ${n} slots move into the new routine, and it takes their place here as one slot.`
 	},
 	/** A slot's card and the reader's list. */
+	// Sections (spec 2026-11-12, routine sections).
+	section: {
+		unnamed: 'Section',
+		open: (name: string): string => `Open ${name || 'the section'} here`,
+		close: (name: string): string => `Close ${name || 'the section'}`,
+		deeper: (level: number): string => `Level ${level}: opens on its own page`,
+		inside: (name: string, n: number): string =>
+			n > 1 ? `In ${name} · changes show in ${n} routines` : `In ${name}`,
+		more: (n: number): string => `${n} more above`,
+		level: (n: number): string => `level ${n}`,
+		where: 'Where you are',
+		subtitle: (figures: number, eights: number): string =>
+			`Section · ${plural(figures, 'figure', 'figures')} · ${plural(eights, 'eight', 'eights')}`,
+		inRoutines: (n: number): string => `In ${n} routines:`,
+		name: 'Name',
+		makeRoutine: 'Make routine',
+		makeRoutineMeta: 'Shows up in Routines and can be practised',
+		detachHere: 'Detach here',
+		detachMeta: (routine: string): string => `${routine} gets its own copy`,
+		unpackInto: (routine: string): string => `Unpack into ${routine}`,
+		unpackMeta: 'Its slots go back where it was',
+		demote: 'Turn into a section',
+		demoteMeta: 'Leaves Routines; stays where it is used',
+		demoteTitle: (name: string): string => `Turn ${name} into a section?`,
+		demoteBody: (routines: string, lessons: string, practised: number): string =>
+			[
+				`It leaves the Routines list and stays in ${routines}.`,
+				lessons ? `The links in ${lessons} go.` : '',
+				practised > 0 ? `Practised ${practised} times: it leaves Today, the history stays.` : ''
+			]
+				.filter(Boolean)
+				.join(' '),
+		demoteDo: 'Turn into a section',
+		sectionOf: (routines: string): string => (routines ? `Section of ${routines}` : 'Section'),
+		sectioned: (n: number): string => `Made a section of ${plural(n, 'slot', 'slots')}`,
+		unpacked: (name: string): string => `Unpacked ${name || 'the section'}`,
+		added: (name: string, n: number): string =>
+			n > 1 ? `Added to ${name} · shows in ${n} routines` : `Added to ${name}`,
+		copied: (n: number, after: number): string =>
+			`${plural(n, 'slot', 'slots')} copied after slot ${after}`
+	},
 	slot: {
+		openCell: 'Open',
+		unpack: 'Unpack',
 		aFigure: 'a figure',
 		aRoutine: 'a routine',
 		archived: (name: string): string => `${name} (archived)`,
@@ -188,6 +245,8 @@ export const routine = {
 		/** The How long? sheet's save (spec 2026-11-11). */
 		length:
 			'That length does not fit this slot: its alternatives go on to another count, or its length is not set in the routine.',
+		/** The Where does it end? sheet's save (spec 2026-11-11, slot end). */
+		end: 'That end doesn’t fit this slot.',
 		holdSomething: 'A slot has to hold something.',
 		note: 'Keep the note to 200 characters.',
 		readInsert: 'Could not read what to add, or where.',
@@ -199,7 +258,11 @@ export const routine = {
 		altPutBack: 'That alternative could not be put back.',
 		copySlots: 'Those slots could not be copied.',
 		newName: 'Give the new routine a name (up to 200 characters).',
-		extract:
-			'Those slots cannot become a routine: they have to sit next to each other and hold no routine, and this routine cannot itself be embedded anywhere.'
+		demote: 'Only a routine another routine uses can become a section.',
+		unpack: 'That slot holds no section or routine to unpack.',
+		detachHere: 'Only a section can be detached here.',
+		moveInto:
+			'That slot cannot go in there: it would end up inside itself, or it is not part of this routine.',
+		extract: 'Those slots cannot become a section: they have to sit next to each other.'
 	}
 };

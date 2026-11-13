@@ -5,6 +5,7 @@
 	import { CLIP } from '$lib/components/ui/styles';
 	import { t } from '$lib/i18n/catalog';
 	import { claimSound, releaseSound, videoSound } from '$lib/player/video-sound.svelte';
+	import { stopsBy } from '$lib/sound/page';
 	import type { RunClip } from '$lib/types';
 
 	/*
@@ -118,6 +119,7 @@
 			preload="metadata"
 			onplay={() => claimSound(key)}
 			onended={() => releaseSound(key)}
+			{@attach stopsBy(() => releaseSound(key))}
 		></video>
 	{:else}
 		<video
@@ -125,6 +127,7 @@
 			class="block aspect-video w-full object-contain desk:max-h-[70dvh]"
 			src={clip.src}
 			muted
+			data-ambient
 			playsinline
 			loop={endS === null && !loud}
 			preload="metadata"
@@ -135,6 +138,7 @@
 				else toStart();
 				void video?.play().catch(() => {});
 			}}
+			{@attach stopsBy(() => releaseSound(key))}
 		></video>
 		<button
 			type="button"

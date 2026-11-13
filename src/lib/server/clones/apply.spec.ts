@@ -51,7 +51,7 @@ import {
 	unlinkFigure,
 	unlinkPosition
 } from '../lessons';
-import { addChildSlot, addFigureSlot, createRoutine, routineSlots } from '../routines';
+import { addChildSlot, addFigureSlot, createRoutine, routineSlots, setSlotEnd } from '../routines';
 import { addLesson, entryFor } from '../entries';
 import { addLinks, deleteLink } from '../links';
 import { addSpot } from '../spots';
@@ -60,7 +60,7 @@ import { linkPositionInSpace } from '../position-links';
 import { crossRefs } from '../integrity';
 import { createSongFromUpload } from '../songs';
 import { insertFixturePositions } from '../test-positions';
-import { figurePositions } from '../graph';
+import { figurePositions, setFigureShape } from '../graph';
 import { ownerValues, type Space } from '../scope';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import type { CloneKind } from '$lib/types';
@@ -464,6 +464,29 @@ describe('pieces', () => {
 });
 
 describe('slots', () => {
+	it('carry the slot’s end (spec 2026-11-11, slot end)', async () => {
+		const { F } = await world();
+		const [open, closed] = db
+			.select()
+			.from(positions)
+			.where(and(eq(positions.teamId, 1), eq(positions.dance, 'salsa')))
+			.all();
+		const ends = { startIds: [], endIds: [open.id, closed.id], startCount: 1, lengthCounts: 8 };
+		expect(setFigureShape(db, F, ends, 'u1')).toBe(true);
+		const R = createRoutine(db, T1_SALSA, { name: 'Show', notes: null }).routine.id;
+		const step = addFigureSlot(db, R, F, 'u1')!;
+		const mine = await copy('routine', R, U1_SALSA);
+		expect(setSlotEnd(db, step, closed.id, 'u1')).toBe(true);
+
+		expect(differing('routine', mine, R)).toEqual(['slots']);
+		expect(apply('routine', mine, R, ['slots']).ok).toBe(true);
+		const family = geneOf(db, 'position', closed.id);
+		const mineClosed = (family && memberIn(db, 'position', family, U1_SALSA)?.id) ?? closed.id;
+		expect(routineSlots(db, mine).map((s) => s.end)).toEqual([mineClosed]);
+		expect(differing('routine', mine, R)).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
 	it('replace the routine’s slot list, each option the target place’s member', async () => {
 		const { F } = await world();
 		const R = createRoutine(db, T1_SALSA, { name: 'Show', notes: null }).routine.id;
@@ -488,7 +511,7 @@ describe('slots', () => {
 		).toBeDefined();
 	});
 
-	it('never clones an embedded routine it would drop: this routine is embedded elsewhere', async () => {
+	it('brings a nested routine along though this routine is embedded elsewhere (any depth, spec 2026-11-12)', async () => {
 		const { F } = await world();
 		const R = createRoutine(db, T1_SALSA, { name: 'Show', notes: null }).routine.id;
 		addFigureSlot(db, R, F, 'u1');
@@ -500,14 +523,13 @@ describe('slots', () => {
 		expect(addChildSlot(db, R, K, 'u1')).not.toBeNull();
 
 		expect(apply('routine', mine, R, ['slots']).ok).toBe(true);
-		expect(routineSlots(db, mine).map((s) => s.childId)).toEqual([null]);
-		expect(
-			db
-				.select()
-				.from(routines)
-				.where(and(eq(routines.userId, 'u1'), eq(routines.name, 'Shine break')))
-				.all()
-		).toEqual([]);
+		const brought = db
+			.select()
+			.from(routines)
+			.where(and(eq(routines.userId, 'u1'), eq(routines.name, 'Shine break')))
+			.all();
+		expect(brought).toHaveLength(1);
+		expect(routineSlots(db, mine).map((s) => s.childId)).toEqual([null, brought[0].id]);
 	});
 });
 

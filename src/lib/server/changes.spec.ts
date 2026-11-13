@@ -86,7 +86,12 @@ import {
 	deleteSlots,
 	duplicateRoutine,
 	duplicateSlots,
-	extractRoutine,
+	makeSection,
+	moveSlotInto,
+	promoteSection,
+	unpackSlot,
+	packSlots,
+	detachSection,
 	insertSlot,
 	moveSlotTo,
 	removeOption,
@@ -94,6 +99,7 @@ import {
 	setOptionLength,
 	restoreRoutine,
 	restoreSlots,
+	setSlotEnd,
 	setSlotNote,
 	updateRoutine
 } from './routines';
@@ -137,6 +143,7 @@ import { syncAll, syncView } from './clones/sync';
 import { detach } from './clones/detach';
 import { copyTo } from './clones/copy-to';
 import { moveLesson } from './clones/move';
+import { demoteRoutine } from './sections';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -280,6 +287,11 @@ const musicLinkOf = (lesson: number) =>
 /** The pasted playlist `addFromImport`'s prep made. */
 let importId = 0;
 
+/** The section `promoteSection` runs on, made in its `prep`. */
+let sectionOf = 0;
+/** The slot and the unpacked run the unpack, pack and detach entries use. */
+let packStep = 0;
+let packOut = { stepIds: [] as number[], sectionId: 0 };
 const MUTATIONS: {
 	name: string;
 	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'position';
@@ -682,6 +694,21 @@ const MUTATIONS: {
 		run: (w) => setOptionLength(db, w.step, w.V, 12, w.by)
 	},
 	{
+		name: 'setSlotEnd',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		// The slot's figure ends in the group's position (spec 2026-11-11, slot end).
+		prep: (w) =>
+			setFigureShape(
+				db,
+				w.V,
+				{ startIds: [], endIds: [w.position], startCount: 1, lengthCounts: 8 },
+				w.by
+			),
+		run: (w) => setSlotEnd(db, w.step, w.position, w.by)
+	},
+	{
 		name: 'setSlotNote',
 		root: 'routine',
 		verb: 'change',
@@ -721,11 +748,76 @@ const MUTATIONS: {
 		run: (w) => duplicateSlots(db, w.routine, [w.step], w.by)
 	},
 	{
-		name: 'extractRoutine',
+		name: 'makeSection',
 		root: 'routine',
 		verb: 'add',
 		rootId: (w) => w.routine,
-		run: (w) => extractRoutine(db, w.routine, [w.step], 'Bit', w.by)
+		run: (w) => makeSection(db, w.routine, [w.step], w.by)
+	},
+	{
+		name: 'unpackSlot',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		prep: (w) => {
+			packStep = addChildSlot(db, w.routine, w.child, w.by)!;
+		},
+		run: (w) => unpackSlot(db, w.routine, packStep, w.by)
+	},
+	{
+		name: 'packSlots',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		prep: (w) => {
+			packOut = unpackSlot(
+				db,
+				w.routine,
+				makeSection(db, w.routine, [w.step], w.by)!.stepId,
+				w.by
+			)!;
+		},
+		run: (w) => packSlots(db, w.routine, packOut.stepIds, packOut.sectionId, w.by)
+	},
+	{
+		name: 'detachSection',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.routine,
+		prep: (w) => {
+			packStep = makeSection(db, w.routine, [w.step], w.by)!.stepId;
+		},
+		run: (w) => detachSection(db, w.routine, packStep, w.by)
+	},
+	{
+		name: 'moveSlotInto',
+		root: 'routine',
+		verb: 'change',
+		rootId: () => 0,
+		prep: (w) => {
+			sectionOf = makeSection(db, w.routine, [w.step], w.by)!.sectionId;
+		},
+		run: (w) => moveSlotInto(db, w.step2, sectionOf, 0, w.by)
+	},
+	{
+		name: 'promoteSection',
+		root: 'routine',
+		verb: 'change',
+		rootId: () => 0,
+		prep: (w) => {
+			sectionOf = makeSection(db, w.routine, [w.step], w.by)!.sectionId;
+		},
+		run: (w) => promoteSection(db, sectionOf, 'Bit', w.by)
+	},
+	{
+		name: 'demoteRoutine',
+		root: 'routine',
+		verb: 'change',
+		rootId: (w) => w.child,
+		prep: (w) => {
+			addChildSlot(db, w.routine, w.child, w.by);
+		},
+		run: (w) => demoteRoutine(db, w.child, w.by)
 	},
 	{
 		name: 'duplicateRoutine',

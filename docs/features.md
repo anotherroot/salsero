@@ -19,7 +19,11 @@ length in counts; routines report timing breaks) and flexible figures (a figure 
 several counts and have its length set per routine slot: tap the counts on the figure, How long?
 when adding it to a routine, a length chip on the slot; each slot starts where the one before leaves
 off; spec
-[`docs/superpowers/specs/2026-11-11-flexible-figures-design.md`](docs/superpowers/specs/2026-11-11-flexible-figures-design.md)) and figures and moves (a
+[`docs/superpowers/specs/2026-11-11-flexible-figures-design.md`](docs/superpowers/specs/2026-11-11-flexible-figures-design.md)) and a slot's end (a figure with several
+ends gets one chosen per routine slot, like its length: a chip on the slot, Where does it end? after
+adding it, decided by the slot below when that starts in one of them; the slot's line shows only where
+it ends; Back closes an open slot or a selection first; spec
+[`docs/superpowers/specs/2026-11-11-slot-end-design.md`](docs/superpowers/specs/2026-11-11-slot-end-design.md)) and figures and moves (a
 move is a name holding self-contained figures; Move to… another move or a new
 one; switcher at the bottom; a move's page)
 and figure coverage (figures have no exercise by default; a page of figure
@@ -30,7 +34,11 @@ delete that asks and undoes, Back up one level, pinch zoom, double-tap jumps,
 the screen kept on, and portrait (built for upright videos: Hide, a row of
 sections), landscape and desktop layouts; 0.25–1×, mirror, saved points and
 sections), and the inline video with our own controls: play, the time, a seek
-bar with the sections, and the routine editor
+bar with the sections; one sound at a time (2026-11-12): whatever starts playing — a video, the
+full-screen player, a song, a sample, a YouTube card — stops whatever else plays (a muted background
+loop in the player's About plays on). The Android app's audio focus (`SalsaAudio`, app 1.12) is TURNED OFF
+from the page (`APP_AUDIO_FOCUS`) and gone from app 1.13: it paused our own sound a split second in; meant: ours takes the
+phone's audio focus, so Spotify pauses, and another app taking it pauses ours; and the routine editor
 (drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
@@ -55,7 +63,7 @@ and clones and twins (a gene id and cloned-from on every copyable row; Copy
 to…, Edit makes your copy, Drop my copy, Detach, Move to…
 a group; your own routines, lessons and sections use a group's things without
 copying; leaving keeps copies; Same as… shows twins as one; see
-[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and keeping copies in step (Keep in step: a per-copy switch with four options, so a save goes through the club's copy to the others by itself; one Sync sheet in place of Compare, Take and Send mine; a notice on the page, an out-of-sync card on the Moves lists, "Basic · Sreda 17:30" for same-named copies; see
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)) and keeping copies in step (Keep in step: a per-copy switch with four options, so a save goes through the club's copy to the others by itself; one Sync sheet in place of Compare, Take and Send mine; a notice on the page (while a phone's change is on its way, only a quiet "Sending to 2 copies…" on the version row), an out-of-sync card on the Moves lists, "Basic · Sreda 17:30" for same-named copies; see
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md)) and the dance split (two apps on one backend: an account belongs to one dance,
 `salsa.anotherroot.eu` and `bachata.anotherroot.eu`, each with its own login,
 invites, admin, storage, settings and My count; see
@@ -223,6 +231,12 @@ The routine editor has its own,
 the main figure, the start rule for alternatives, the picker's anchors, and the
 gestures; an open slot and the selection lift out of the list since 2026-11-11,
 [`docs/superpowers/specs/2026-11-11-routine-lift-design.md`](docs/superpowers/specs/2026-11-11-routine-lift-design.md).
+Sections, nesting at any depth and the calmer editor (2026-11-12) — a slot holds one
+figure, section or routine (alternatives are gone); select slots and tap Section;
+Unpack, Detach here, Make routine and Turn into a section; panels opened in place
+with a "where am I" bar; selection that never moves a card; Duplicate that glows;
+the Routines list as start → end · figures · eights —
+[`docs/superpowers/specs/2026-11-12-routine-sections-design.md`](docs/superpowers/specs/2026-11-12-routine-sections-design.md).
 The full-screen video player has its own,
 [`docs/superpowers/specs/2026-10-01-video-player-design.md`](docs/superpowers/specs/2026-10-01-video-player-design.md):
 spots, the loop, and why it is not the browser's fullscreen.
@@ -243,6 +257,14 @@ One picker for every list has its own,
 [`docs/superpowers/specs/2026-10-30-unified-pickers-design.md`](docs/superpowers/specs/2026-10-30-unified-pickers-design.md):
 the rules every picker follows, linking pickers and field pickers, the near
 group, and the Link popup as levels.
+Picker preview (2026-11-12, rows C and sheet S1 of the board
+https://claude.ai/artifact/Sst9B6MoFRGS9gd8nzpQvm) has its own,
+[`docs/superpowers/specs/2026-11-12-picker-preview-design.md`](docs/superpowers/specs/2026-11-12-picker-preview-design.md):
+every figure and move row in a picker shows a moving picture (12 frames of the figure's top
+section, cut by the home worker into `$DATA_DIR/loops`, ~25 KB, kept on the phone with its copy)
+and a positions line; a tap on the picture opens a sheet over the picker with the section
+playing muted, start → end, length, notes, where it is from, Back and the picker's verb.
+`PREVIEW_LOOK` (`src/lib/picker/preview.ts`) turns the pictures into an eye icon instead.
 The Link popup has its own,
 [`docs/superpowers/specs/2026-10-29-section-link-popup-design.md`](docs/superpowers/specs/2026-10-29-section-link-popup-design.md):
 why a lesson's figures are derived from its sections rather than copied, and
@@ -294,6 +316,9 @@ a group lesson's pickers and the Link popup on a group's video find, while
 searching, your own rows and your other groups' (read-only ones marked); a
 tap opens a card (what comes along, what stays behind) and Copy and link
 copies the row into the group as a clone and links it, in one transaction.
+Three field pickers search there too (amended 2026-11-12): New figure's Move
+field in a group's view (a pick makes a new move of that name), a group
+figure's Starts in / Ends in and a group routine's slot picker (Copy and use).
 Keeping copies in step has its own,
 [`docs/superpowers/specs/2026-11-07-clone-sync-design.md`](docs/superpowers/specs/2026-11-07-clone-sync-design.md):
 Keep in step (the switch and its four options), the flow after a save, one Sync

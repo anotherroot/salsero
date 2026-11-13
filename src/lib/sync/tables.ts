@@ -75,6 +75,8 @@ export const NEVER_SYNCED: readonly string[] = [
 	'ai_lines',
 	// The AI's view of a video (frames, sound): derived, prepared by the home worker.
 	'ai_timelines',
+	// A figure's loop for the pickers: derived, cut by the home worker; its file name comes from the spot.
+	'video_loops',
 	// Testers' messages to the admin: the server's alone, sent with the network.
 	'feedback'
 ];

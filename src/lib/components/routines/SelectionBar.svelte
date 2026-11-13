@@ -70,7 +70,7 @@
 				{
 					key: 'extract',
 					label: t().routine.selection.make,
-					icon: 'route',
+					icon: 'brace',
 					why: blocks.extract,
 					onclick: onextract
 				},

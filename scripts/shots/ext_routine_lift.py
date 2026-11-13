@@ -47,12 +47,17 @@ def _still(p, n, act):
         raise AssertionError(f"slot {n} jumped {after - before:+.1f}px")
 
 
+def _title(card):
+    """The card's title: its centre may hold a chip (an end, a length) that opens a sheet."""
+    return card.locator("p").first
+
+
 def _tap(card):
-    card.click()
+    _title(card).click()
 
 
 def _press(card):
-    box = card.bounding_box()
+    box = _title(card).bounding_box()
     page = card.page
     page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     page.mouse.down()
@@ -65,7 +70,7 @@ def _open(p):
 
 
 def _open_switch(p):
-    _card(p, 2).click()
+    _tap(_card(p, 2))
     p.wait_for_timeout(300)
     _still(p, 4, _tap)
 
@@ -125,6 +130,45 @@ def _empty(p):
     p.wait_for_timeout(300)
 
 
+def _expanded(p):
+    return p.locator("[data-slot] [aria-expanded=true]").count() > 0
+
+
+def _selecting(p):
+    return p.locator("[data-slot] [aria-pressed]").count() > 0
+
+
+def _on_routine(p):
+    return "/routines/" in p.url
+
+
+def _back_open(p):
+    # Back closes the open slot and stays on the routine.
+    _still(p, 3, _tap)
+    assert _expanded(p), "slot 3 did not open"
+    p.go_back()
+    p.wait_for_timeout(500)
+    if _expanded(p) or not _on_routine(p):
+        raise AssertionError(f"back did not just close the slot: {p.url}")
+
+
+def _back_select(p):
+    _still(p, 3, _press)
+    assert _selecting(p), "slot 3 did not select"
+    p.go_back()
+    p.wait_for_timeout(500)
+    if _selecting(p) or not _on_routine(p):
+        raise AssertionError(f"back did not just leave selection: {p.url}")
+
+
+def _back_twice(p):
+    # The second Back leaves the page, as it would with nothing open.
+    _back_open(p)
+    p.go_back()
+    p.wait_for_timeout(800)
+    if _on_routine(p):
+        raise AssertionError("the second back stayed on the routine")
+
 def _bottom(p):
     p.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
     p.wait_for_timeout(300)
@@ -143,4 +187,7 @@ SCENES = {
     "lift-apart": Scene(PATH, act=_apart),
     "lift-select-empty": Scene(PATH, act=_empty),
     "lift-press-bottom": Scene(PATH, act=_bottom),
+    "lift-back-open": Scene(PATH, act=_back_open),
+    "lift-back-select": Scene(PATH, act=_back_select),
+    "lift-back-twice": Scene(PATH, act=_back_twice),
 }

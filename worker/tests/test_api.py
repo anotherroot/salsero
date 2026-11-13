@@ -303,3 +303,48 @@ def test_put_piece_410_is_gone():
 def test_claim_timeline_on_an_older_server_is_none():
     assert Api("http://s", "t", urlopen=fake_urlopen(error=http_error(404, b"{}"))).claim_timeline() is None
     assert Api("http://s", "t", urlopen=fake_urlopen(204)).claim_timeline() is None
+
+
+def test_loop_routes(tmp_path):
+    urlopen = scripted_urlopen(
+        Response(200, b'{"id": 4, "start_ms": 0, "end_ms": 1000}'),
+        Response(204),
+        Response(204),
+        Response(201, b"{}"),
+        Response(204),
+    )
+    api = Api("http://s", "t", urlopen=urlopen)
+    assert api.claim_loop() == {"id": 4, "start_ms": 0, "end_ms": 1000}
+    url, headers = api.loop_source_url(4)
+    assert url == "http://s/api/worker/loops/4/source"
+    assert headers["Authorization"] == "Bearer t"
+    strip = tmp_path / "strip.jpg"
+    strip.write_bytes(b"\xff\xd8\xffjpg")
+    api.put_loop(4, "strip", strip)
+    api.put_loop(4, "still", strip)
+    api.finish_loop(4)
+    api.fail_loop(4, "boom", True)
+    assert [r.full_url for r in urlopen.requests] == [
+        "http://s/api/worker/loops/claim",
+        "http://s/api/worker/loops/4/strip",
+        "http://s/api/worker/loops/4/still",
+        "http://s/api/worker/loops/4/done",
+        "http://s/api/worker/loops/4/fail",
+    ]
+    put = urlopen.requests[1]
+    assert put.get_method() == "PUT"
+    assert content_type(put) == "image/jpeg"
+    assert put.data == b"\xff\xd8\xffjpg"
+
+
+def test_claim_loop_none_on_204_and_on_an_older_server():
+    assert Api("http://s", "t", urlopen=fake_urlopen(204)).claim_loop() is None
+    assert Api("http://s", "t", urlopen=fake_urlopen(error=http_error(404, b"Not found"))).claim_loop() is None
+
+
+def test_put_loop_410_is_gone(tmp_path):
+    p = tmp_path / "s.jpg"
+    p.write_bytes(b"x")
+    api = Api("http://s", "t", urlopen=fake_urlopen(error=http_error(410, b'{"message": "gone"}')))
+    with pytest.raises(JobGone):
+        api.put_loop(4, "strip", p)

@@ -61,7 +61,7 @@ The pickers it covers:
   ruling 2). Unchanged.
 - **Field pickers** (Move to…'s "Or join a figure", the Link popup's
   `+ Variation` Figure field, the routine editor's slots). Only linking
-  pickers change.
+  pickers change. *Amended 2026-11-12, below: three field pickers do now.*
 - **One page for every version** (the second round, below).
 - Any change to Copy to… itself, its sheet, or what a copy brings.
 
@@ -209,6 +209,29 @@ The exact data shapes, where the candidate lists are built (a new
 `src/lib/server/` module is fine), component names, the toast's words, and
 whether the card reuses parts of the Copy to… sheet. Screens to shoot after:
 the board's scenes in `scripts/shots/ext_link_other.py`, light and dark.
+
+## Field pickers too (2026-11-12)
+
+Reported as a bug *(user)*: in a group, the field pickers still found only
+the group's rows. Three now search other places as the linking pickers do
+(the user picked these three; Move to…'s "Or join a figure" and the Link
+popup's `+ Variation` field stay as they were):
+
+| Picker | Finds | A tap |
+|---|---|---|
+| New figure's **Move** field, in a group's view | moves, by their own name (`move`) | the field holds a **new move of that name** here; nothing is copied *(user: a move is only a name)* |
+| A group figure's **Starts in / Ends in** | positions | the card, **Copy and use**: the copy is chosen in the picker it was tapped in, offered in both |
+| A group routine's **slot picker** | figures and routines, unfiltered by fit | the card, **Copy and use**: the copy goes in as a pick does (How long? first for a free length) |
+
+- A field's or an act's other-place rows have no +: a tap.
+- The card's words say *use*, not *link* (`then="use"`): Copy and use,
+  Restore and use, Use the group's one.
+- `POST /api/elsewhere/copy` (`{ into, kind, id, use, restore }`, network)
+  copies with nothing to link (`useOnly`) and answers the copy's id, and a
+  position's summary. 409 `{ restore }` for Restore and use.
+- `move` rows: one per name over all places (first place, `alsoIn` the
+  rest), never a name the group's moves already have; a group you only read
+  shows a move once you read one of its figures.
 
 ## Second round (not here)
 

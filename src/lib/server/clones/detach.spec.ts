@@ -1,6 +1,7 @@
 /**
  * Detach (board C8): u2's copy of a class's figure stops following it and
- * becomes its twin; a group's row just becomes an ordinary group figure
+ * just leaves, making no twin (a twin made here joined the copy's own twin
+ * set and grew it, 2026-11-12); a group's row just becomes an ordinary group figure
  * (one `change` in History). And reconnecting: u2 leaves keeping their copy,
  * rejoins, and the source says the group changed while they were away.
  */
@@ -12,7 +13,7 @@ import { createTeam, joinTeam } from '../teams';
 import { leaveTeam } from '../membership';
 import { createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, listMyLessons, publishLesson } from '../lessons';
-import { twinsOf } from '../twins';
+import { markTwins, twinsOf } from '../twins';
 import type { Space, TeamSpace } from '../scope';
 import { NO_FILES, T1_SALSA, U2_SALSA } from '../test-walls';
 import { crossRefs } from '../integrity';
@@ -78,19 +79,15 @@ describe('detach on a person’s own copy', () => {
 		expect(geneOf(db, 'figure', F)).not.toBeNull();
 	});
 
-	it('shows the class’s as a twin tab with no status, and offers no Sync', async () => {
+	it('makes no twin of the class’s: no tabs, and no Sync', async () => {
 		const F = published();
 		const C = await mine(F);
 		expect(detach(db, 'u2', 'figure', C, LATER)).toBe(true);
-		const tabs = sourcesOf(db, 'u2', 'figure', C);
-		expect(tabs.map((s) => [s.id, s.relation, s.status])).toEqual([
-			[C, 'self', null],
-			[F, 'twin', null]
-		]);
-		expect(twinsOf(db, 'u2', 'figure', C)).toEqual([F]);
+		expect(sourcesOf(db, 'u2', 'figure', C)).toEqual([]);
+		expect(twinsOf(db, 'u2', 'figure', C)).toEqual([]);
 		expect(syncView(db, 'u2', 'figure', C)).toBeNull();
 		// No notice: nothing was copied from anything any more.
-		expect(stepStatus(db, 'u2', 'figure', C)).toEqual({ lines: [] });
+		expect(stepStatus(db, 'u2', 'figure', C)).toEqual({ lines: [], sending: 0 });
 		expect(crossRefs(db)).toEqual([]);
 	});
 
@@ -108,6 +105,19 @@ describe('detach on a person’s own copy', () => {
 		// Out of its family: a second Detach has nothing to do.
 		expect(detachOffer(db, 'u2', 'figure', C)).toBeNull();
 		expect(detach(db, 'u2', 'figure', C, LATER)).toBe(false);
+	});
+
+	it('never grows a twin set the copy is already in (Shadow Closed, 2026-11-12)', async () => {
+		// u2's copy C of the class's figure, marked the same as another of their own (O).
+		const F = published();
+		const C = await mine(F);
+		const O = figure(U2_SALSA, 'Setenta doble');
+		expect(markTwins(db, U2_SALSA, 'figure', [C, O])).toBe(true);
+		expect(detach(db, 'u2', 'figure', C, LATER)).toBe(true);
+		// C left the class's family; its set is still just C and O, the class's not pulled in.
+		expect(twinsOf(db, 'u2', 'figure', O)).toEqual([C]);
+		expect(twinsOf(db, 'u2', 'figure', F)).toEqual([]);
+		expect(sourcesOf(db, 'u2', 'figure', O).map((s) => s.id)).toEqual([O, C]);
 	});
 
 	it('writes no History for a person’s own row', async () => {

@@ -89,6 +89,8 @@ export const moves: Catalog['moves'] = {
 		empty: 'Še ni kombinacij',
 		emptyBody: 'Nanizajte nekaj figur in jih napovejte kot celoto.',
 		badLoop: 'se ne sklene',
+		loops: 'se sklene',
+		anywhere: 'kjer koli',
 		fromClass: (label) => `Z lekcije ${label}`,
 		name: 'Ime',
 		namePlaceholder: 'Osnovna kombinacija',

@@ -175,6 +175,8 @@ type Found = {
 	ends: number[];
 	/** Position: its links on the person's sections and points. */
 	spotPositionLinkIds: number[];
+	/** Position: the person's routine slots ending in it (spec 2026-11-11, slot end). */
+	endSteps: { stepId: number; routineId: number }[];
 };
 
 function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
@@ -191,7 +193,8 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 		twin: null,
 		starts: [],
 		ends: [],
-		spotPositionLinkIds: []
+		spotPositionLinkIds: [],
+		endSteps: []
 	};
 	const mine = ownedBy(exercises, wall);
 
@@ -214,6 +217,12 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 	}
 
 	if (kind === 'position') {
+		found.endSteps = db
+			.select({ stepId: routineSteps.id, routineId: routineSteps.routineId })
+			.from(routineSteps)
+			.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+			.where(and(eq(routineSteps.endPositionId, fromId), ownedBy(routines, wall)))
+			.all();
 		for (const [table, list] of [
 			[figureStartPositions, found.starts],
 			[figureEndPositions, found.ends]
@@ -350,7 +359,9 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 }
 
 function reportOf(db: Db, kind: CloneKind, found: Found, entries: boolean): RepointReport {
-	const routineIds = [...new Set([...found.options, ...found.embeds].map((s) => s.routineId))];
+	const routineIds = [
+		...new Set([...found.options, ...found.embeds, ...found.endSteps].map((s) => s.routineId))
+	];
 	const lessonIds = [...new Set(found.lessonIds)];
 	const practice = kind === 'song' ? found.songPicks.length : found.entries.length;
 	const figureIds = [...new Set([...found.starts, ...found.ends])];
@@ -721,6 +732,19 @@ export function repoint(
 				if (db.select().from(table).where(of(toId)).get()) db.delete(table).where(of(fromId)).run();
 				else db.update(table).set({ positionId: toId }).where(of(fromId)).run();
 			}
+		}
+
+		// A routine slot's end (spec 2026-11-11, slot end): one per slot, nothing to merge.
+		if (found.endSteps.length > 0) {
+			db.update(routineSteps)
+				.set({ endPositionId: toId })
+				.where(
+					inArray(
+						routineSteps.id,
+						found.endSteps.map((s) => s.stepId)
+					)
+				)
+				.run();
 		}
 
 		for (const id of found.spotPositionLinkIds) {

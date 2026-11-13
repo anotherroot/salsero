@@ -41,6 +41,18 @@ export function timelinesDir(): string {
 }
 
 /**
+ * `$DATA_DIR/loops`, created on first use: the pickers' figure loops
+ * (`<spot>-<start>-<end>.jpg` and `…-still.jpg`), cut by the home worker.
+ * Derived; never counted as storage.
+ */
+export function loopsDir(): string {
+	if (!env.DATA_DIR) throw new Error('DATA_DIR is not set');
+	const dir = join(env.DATA_DIR, 'loops');
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}
+
+/**
  * `$DATA_DIR/uploads`, created on first use — where a chunked upload
  * accumulates before it is renamed into place. Nothing here is referenced by a
  * row, so `sweepUploads` can delete anything stale.

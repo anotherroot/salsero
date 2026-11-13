@@ -5,6 +5,7 @@
 	 * what an open card shows below it (the note field, the alternative cards)
 	 * takes its own taps and must not collapse the card.
 	 */
+	import { goto } from '$app/navigation';
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
 	import Swipeable from './Swipeable.svelte';
@@ -12,7 +13,7 @@
 	import { t } from '$lib/i18n/catalog';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
-	import { iconButton, LENGTH_CHIP } from '$lib/components/ui/styles';
+	import { END_ASK, END_CHIP, iconButton, LENGTH_CHIP } from '$lib/components/ui/styles';
 	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { openTools } from '$lib/routines/tools';
@@ -21,6 +22,10 @@
 
 	interface Props {
 		row: RowView;
+		/** A section or routine opened in place below the card (spec 2026-11-12). */
+		open?: boolean;
+		onopen?: () => void;
+		onunpack?: () => void;
 		index: number;
 		count: number;
 		expanded: boolean;
@@ -36,19 +41,22 @@
 		ongrab: (e: PointerEvent) => void;
 		onkeymove: (delta: -1 | 1) => void;
 		ondelete: () => void;
-		onremoveAlt: (figureId: number, label: string) => void;
-		onaddAlt: () => void;
 		/** Add a slot before / after this one: the open card's ↑ and ↓. */
 		onaddBefore: () => void;
 		onaddAfter: () => void;
 		/** The length chip of an option whose length the routine sets: opens How long? (spec 2026-11-11). */
 		onlength: (figureId: number, current: number) => void;
+		/** The end chip or cell: opens Where does it end? (spec 2026-11-11, slot end). */
+		onend: () => void;
 		/** May return a promise (the save), which the unsaved-changes guard awaits. */
 		onnote: (note: string | null) => unknown;
 	}
 
 	let {
 		row,
+		open = false,
+		onopen,
+		onunpack,
 		index,
 		count,
 		expanded,
@@ -63,21 +71,38 @@
 		ongrab,
 		onkeymove,
 		ondelete,
-		onremoveAlt,
-		onaddAlt,
 		onaddBefore,
 		onaddAfter,
 		onlength,
+		onend,
 		onnote
 	}: Props = $props();
 
 	const sideOf = (key: string): Side => (swiped?.key === key ? swiped.side : null);
 	const slotKey = $derived(`slot:${row.id}`);
 
-	/** The open card's toolbar: length, + Alternative, Before n, After n (spec 2026-11-11, T3). */
+	/** The open card's toolbar: Open, length, end or Unpack, Before n, After n (spec 2026-11-12). */
 	const tools: ToolItem[] = $derived(
 		openTools(row).map((tool): ToolItem => {
 			const n = index + 1;
+			if (tool === 'open') {
+				return {
+					key: tool,
+					label: t().routine.slot.openCell,
+					icon: 'arrow-up-right',
+					onclick: () => {
+						if (row.href) void goto(row.href);
+					}
+				};
+			}
+			if (tool === 'unpack') {
+				return {
+					key: tool,
+					label: t().routine.slot.unpack,
+					icon: 'add-below',
+					onclick: () => onunpack?.()
+				};
+			}
 			if (tool === 'length') {
 				const length = row.length!;
 				return {
@@ -88,8 +113,15 @@
 					onclick: () => onlength(length.figureId, length.n)
 				};
 			}
-			if (tool === 'alternative') {
-				return { key: tool, label: t().routine.slot.alternative, icon: 'plus', onclick: onaddAlt };
+			if (tool === 'end') {
+				const chosen = row.end?.state === 'chosen' ? row.end.name : null;
+				return {
+					key: tool,
+					label: chosen ?? t().routine.end.ask,
+					name: chosen ? t().routine.end.change(chosen) : t().routine.end.choose,
+					icon: 'ends-at',
+					onclick: onend
+				};
 			}
 			if (tool === 'before') {
 				return {
@@ -228,9 +260,11 @@
 							: 'text-muted'
 						: 'text-ink'}"
 				>
-					{#if row.isRoutine}<span class="mr-1.5 inline-block align-[-3px] text-accent-text"
-							><Icon name="route" size={18} /></span
-						>{/if}{row.title}
+					{#if row.kind !== 'figure'}<span class="mr-1.5 inline-block align-[-3px] text-accent-text"
+							><Icon name={row.kind === 'section' ? 'brace' : 'route'} size={18} /></span
+						>{/if}{#if row.kind === 'section' && row.title === ''}<span class="text-muted italic"
+							>{t().routine.section.unnamed}</span
+						>{:else}{row.title}{/if}
 				</p>
 				{#if row.source}
 					<p class="mt-1">
@@ -244,6 +278,37 @@
 							: 'text-muted'}"
 					>
 						<span class="truncate">{row.meta}</span>
+						{#if row.end && (row.end.name || (!selecting && !expanded))}
+							{@const end = row.end}
+							<!-- Spec 2026-11-11, slot end: a chosen end is a chip, an end still to
+							     choose a dashed one, an end with nothing to choose its name alone.
+							     Open or selecting, the chips give way to the name. -->
+							{#if !row.meta.endsWith('→')}<span class="ml-1 flex-none" aria-hidden="true">·</span
+								>{/if}
+							{#if !selecting && !expanded && (end.state === 'chosen' || end.state === 'open')}
+								<button
+									type="button"
+									class={end.state === 'chosen' ? END_CHIP : END_ASK}
+									aria-label={end.state === 'chosen' && end.name
+										? t().routine.end.change(end.name)
+										: t().routine.end.choose}
+									onpointerdown={(e) => e.stopPropagation()}
+									onclick={(e) => {
+										e.stopPropagation();
+										onend();
+									}}
+									>{#if end.state === 'chosen' && end.name}<Icon name="ends-at" size={14} /><span
+											class="max-w-36 truncate">{end.name}</span
+										>{:else}{t().routine.end.ask}{/if}<Icon name="chevron-down" size={14} /></button
+								>
+							{:else if end.name}
+								<span
+									class="ml-1.5 inline-flex min-w-0 flex-none items-center gap-0.5 font-extrabold text-accent-text"
+									><Icon name="ends-at" size={14} /><span class="max-w-36 truncate">{end.name}</span
+									></span
+								>
+							{/if}
+						{/if}
 						{#if row.length && !selecting && !expanded}
 							{@const length = row.length}
 							<!-- Board C: the length on the closed slot; a tap opens How long?. -->
@@ -260,30 +325,38 @@
 						{/if}
 					</p>
 				{/if}
+				{#if row.size}
+					<!-- A section's or routine's size (spec 2026-11-12). -->
+					<p class="mt-0.5 truncate text-[13px] leading-[1.35] text-muted">
+						{t().nouns.figures(row.size.figures)} · {t().nouns.eights(row.size.eights)}
+					</p>
+				{/if}
 				{#if !expanded}
 					{#if row.note}
 						<p class="mt-[3px] truncate text-[13px] leading-[1.35] text-ink-2 italic">
 							{row.note}
 						</p>
 					{/if}
-					{#if row.alternatives.length > 0}
-						<p
-							class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
-								? 'text-ink-2'
-								: 'text-muted'}"
-						>
-							<b class="font-bold">{t().figure.or}</b>
-							{row.alternatives.map((a) => a.label).join(', ')}
-						</p>
-					{/if}
 				{/if}
 			</div>
 
-			{#if expanded && row.href}
-				<a
-					href={row.href}
-					class="flex h-11 shrink-0 items-center gap-0.5 pr-1.5 pl-2.5 text-[15px] font-extrabold text-accent-text"
-					>{t().figure.practice.open}<Icon name="chevron-right" size={18} /></a
+			{#if row.kind !== 'figure' && onopen}
+				<!-- Opens and closes it in place, and nothing else (spec 2026-11-12, K1/K2). -->
+				<button
+					type="button"
+					class="grid size-11 shrink-0 cursor-pointer place-items-center"
+					aria-expanded={open}
+					aria-label={open
+						? t().routine.section.close(row.title)
+						: t().routine.section.open(row.title)}
+					onclick={(e) => {
+						e.stopPropagation();
+						onopen();
+					}}
+					><span
+						class="grid size-[30px] place-items-center rounded-full bg-accent-soft text-accent-text"
+						><Icon name={open ? 'chevron-up' : 'chevron-down'} size={16} /></span
+					></button
 				>
 			{/if}
 
@@ -348,61 +421,6 @@
 		{/if}
 	</div>
 </Swipeable>
-
-{#if expanded && !row.isRoutine && row.alternatives.length > 0}
-	<!-- The alternatives inside the lifted card, under "OR" (spec 2026-11-11, routine lift, T3). -->
-	<div
-		role="group"
-		aria-label={t().routine.slot.alternatives(index + 1)}
-		class="flex flex-col gap-1.5 pt-1 pr-3 pb-3 pl-[80px]"
-	>
-		<p class="text-[12px] font-extrabold tracking-[0.03em] text-muted uppercase">
-			{t().figure.or}
-		</p>
-		{#each row.alternatives as alt (alt.id)}
-			{@const key = `alt:${row.id}:${alt.id}`}
-			<!-- A swipe left still removes it too. `accent-soft` is opaque, so the red
-			     under a swiped row does not show through. -->
-			<Swipeable
-				{key}
-				rounded="rounded-xl"
-				reveal={88}
-				open={sideOf(key)}
-				onchange={(side) => onswipe(key, side)}
-				end={{ label: t().common.remove, onclick: () => onremoveAlt(alt.id, alt.label) }}
-			>
-				<div class="flex h-11 items-center rounded-xl bg-accent-soft pl-3.5">
-					<a
-						href={alt.href}
-						data-focus="alt-{row.id}-{alt.id}"
-						class="min-w-0 flex-1 truncate text-[15px] leading-[44px] font-bold text-ink"
-						>{alt.label}{#if alt.source}
-							<span class="ml-1.5 align-middle"
-								><Badge tone="neutral"><Icon name="group" size={14} />{alt.source}</Badge></span
-							>{/if}</a
-					>
-					{#if alt.length !== null}
-						{@const n = alt.length}
-						<!-- Each alternative keeps its own length (spec 2026-11-11). -->
-						<button
-							type="button"
-							class="h-11 shrink-0 cursor-pointer px-2 text-[13px] font-extrabold text-accent-text"
-							aria-label={t().routine.length.change(n)}
-							onclick={() => onlength(alt.id, n)}>{t().routine.length.chip(n)}</button
-						>
-					{/if}
-					<button
-						type="button"
-						class="grid size-11 shrink-0 cursor-pointer place-items-center text-muted"
-						aria-label={t().routine.slot.remove(alt.label)}
-						title={t().common.remove}
-						onclick={() => onremoveAlt(alt.id, alt.label)}><Icon name="close" size={18} /></button
-					>
-				</div>
-			</Swipeable>
-		{/each}
-	</div>
-{/if}
 
 {#if expanded}
 	<CardToolbar label={t().routine.slot.toolbar(index + 1)} items={tools} />

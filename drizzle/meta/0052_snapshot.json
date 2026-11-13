@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9d7a09fa-7c94-47d0-adb0-971ef87797d6",
+  "id": "47361b40-a45e-440e-b1ea-0ccff0c1fd76",
   "prevId": "70ce1f77-dc74-4b72-820b-890aabdc25ae",
   "tables": {
     "ai_actions": {
@@ -1167,13 +1167,6 @@
         },
         "practice_json": {
           "name": "practice_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -3978,6 +3971,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "end_position_id": {
+          "name": "end_position_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -4023,6 +4023,19 @@
           "tableTo": "routines",
           "columnsFrom": [
             "child_routine_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "routine_steps_end_position_id_positions_id_fk": {
+          "name": "routine_steps_end_position_id_positions_id_fk",
+          "tableFrom": "routine_steps",
+          "tableTo": "positions",
+          "columnsFrom": [
+            "end_position_id"
           ],
           "columnsTo": [
             "id"

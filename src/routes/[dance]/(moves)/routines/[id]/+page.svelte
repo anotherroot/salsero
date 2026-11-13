@@ -9,11 +9,12 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { routinePractiseHref } from '$lib/player/view';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
+	import { entryState, sheetStack } from '$lib/sheets/history.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
-	import { afterNavigate } from '$app/navigation';
-	import { enhance } from '$app/forms';
+	import { afterNavigate, goto, invalidateAll, pushState } from '$app/navigation';
+	import { deserialize, enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -30,13 +31,13 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
 	import SlotList from '$lib/components/routines/SlotList.svelte';
+	import WhereBar from '$lib/components/routines/WhereBar.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
-	import CardToolbar from '$lib/components/routines/CardToolbar.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { act, type Field } from '$lib/act';
 	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
-	import type { PickFrom, RowView, Swiped, ToolItem } from '$lib/components/routines/types';
+	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
 		anchorBefore,
@@ -48,6 +49,7 @@
 	} from '$lib/routines/fit';
 	import { startOn } from '$lib/graph/timing';
 	import LengthSheet from '$lib/components/routines/LengthSheet.svelte';
+	import EndSheet from '$lib/components/routines/EndSheet.svelte';
 	import { actionBlocks, extractBlock, inOrder, selectionShape } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
@@ -62,9 +64,9 @@
 		seamLabel,
 		selectionTitle,
 		slotMeta,
-		alternativeAnchor,
 		type OwnSend
 	} from '$lib/routines/page';
+	import type { RowEdges } from '$lib/routines/routines';
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
@@ -74,6 +76,12 @@
 	import { menuLabel } from '$lib/menu';
 	import type { MenuItem } from '$lib/menu';
 	import { cloneSubtitle } from '$lib/clones/view';
+	import CopyHereCard from '$lib/components/links/CopyHereCard.svelte';
+	import { ElsewhereSearch } from '$lib/picker/elsewhere-search.svelte';
+	import { copyable, elsewhereFrom, elsewhereOf } from '$lib/picker/elsewhere';
+	import { copyToUse } from '$lib/picker/elsewhere-api';
+	import type { PickRow } from '$lib/picker/model';
+	import type { CopyableRow } from '$lib/types';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 	// The page's group view (`?in=`, or its row's): links to the lists keep it.
 	const viewTeam = $derived(page.data.groupMode?.teamId ?? null);
@@ -89,6 +97,39 @@
 	let archivingNow = $state(false);
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
+	/** Sections and routines opened in place, by step id, at any level (spec 2026-11-12); per view, never stored. */
+	let opened = $state<number[]>([]);
+	const toggleOpen = (stepId: number) =>
+		(opened = opened.includes(stepId) ? opened.filter((x) => x !== stepId) : [...opened, stepId]);
+
+	/** Spring-open drop (spec 2026-11-12): the slot goes inside the section it was held over, which opens. */
+	async function moveInto(stepId: number, targetStep: number) {
+		const target = rows.find((r) => r.id === targetStep);
+		if (!target?.childId) return;
+		const at = rows.findIndex((r) => r.id === stepId);
+		const result = await send('moveInto', { stepId, targetId: target.childId });
+		if (result.type !== 'success') return;
+		if (!opened.includes(targetStep)) opened = [...opened, targetStep];
+		const view = data.children[target.childId];
+		const name = view?.name || t().routine.section.unnamed;
+		showToast(t().routine.section.added(name, view?.holders ?? 1), () =>
+			send('moveInto', { stepId, targetId: data.routine.id, index: at })
+		);
+	}
+
+	/** Unpack (spec 2026-11-12): the slot's section or routine opens into its slots here, with Undo. */
+	async function unpack(stepId: number) {
+		const name = rows.find((r) => r.id === stepId)?.title ?? '';
+		const result = await send('unpack', { stepId });
+		if (result.type !== 'success') return;
+		const out = result.data?.unpacked as { stepIds: number[]; sectionId: number } | undefined;
+		expanded = null;
+		if (out) {
+			showToast(t().routine.section.unpacked(name), () =>
+				send('pack', { sectionId: out.sectionId, stepIds: out.stepIds })
+			);
+		}
+	}
 	let selecting = $state(false);
 	/** A reader's Edit: the Make it mine sheet (ruling 1). */
 	let makingMine = $state(false);
@@ -103,12 +144,12 @@
 	/** The band's ⋯ sheet. */
 	let menuOpen = $state(false);
 	/** The routine's own ⋯ item: Select slots, the way into selection without a long-press. */
-	const routineOwn = $derived<MenuItem[]>(
-		data.canEdit && data.slots.length > 0
+	const routineOwn = $derived<MenuItem[]>([
+		...(data.canEdit && data.slots.length > 0
 			? [
 					{
 						key: 'select',
-						icon: 'check-circle',
+						icon: 'check-circle' as const,
 						label: t().routine.selection.item,
 						meta: t().routine.selection.itemMeta,
 						onclick: () => {
@@ -120,8 +161,94 @@
 						}
 					}
 				]
-			: []
-	);
+			: []),
+		...(data.canEdit ? sectionItems() : [])
+	]);
+
+	/**
+	 * A section's and a routine's own ⋯ items (spec 2026-11-12, P1, page 8): Name, Make
+	 * routine, Detach here and Unpack into for a section (the last two act on the slot it
+	 * was opened from); Turn into a section for a routine some other routine uses.
+	 */
+	function sectionItems(): MenuItem[] {
+		const w = t().routine.section;
+		if (!data.isSection) {
+			return data.demote && data.demote.routines.length > 0
+				? [
+						{
+							key: 'demote',
+							icon: 'brace',
+							label: w.demote,
+							meta: w.demoteMeta,
+							onclick: () => (demoting = true)
+						}
+					]
+				: [];
+		}
+		const items: MenuItem[] = [
+			routine.name
+				? {
+						key: 'promote',
+						icon: 'route',
+						label: w.makeRoutine,
+						meta: w.makeRoutineMeta,
+						onclick: promote
+					}
+				: { key: 'name', icon: 'pencil', label: w.name, onclick: () => (editing = true) }
+		];
+		const from = data.fromSlot;
+		if (from && data.uses > 1) {
+			items.push({
+				key: 'detach',
+				icon: 'copy',
+				label: w.detachHere,
+				meta: w.detachMeta(from.name),
+				onclick: () => atParent('detachHere')
+			});
+		}
+		if (from) {
+			items.push({
+				key: 'unpack',
+				icon: 'add-below',
+				label: w.unpackInto(from.name),
+				meta: w.unpackMeta,
+				onclick: () => atParent('unpack')
+			});
+		}
+		return items;
+	}
+
+	let demoting = $state(false);
+
+	async function promote() {
+		const result = await send('promote', {});
+		if (result.type === 'success') await invalidateAll();
+	}
+
+	/** Detach here and Unpack act on the parent's slot, through the parent routine's own page actions. */
+	async function atParent(action: 'detachHere' | 'unpack') {
+		const from = data.fromSlot;
+		if (!from) return;
+		const body = new FormData();
+		body.set('stepId', String(from.stepId));
+		const href = resolve('/[dance]/(moves)/routines/[id]', {
+			dance: data.dance.slug,
+			id: String(from.routineId)
+		});
+		const res = await fetch(`${href}?/${action}`, {
+			method: 'POST',
+			body,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+		const result = deserialize(await res.text());
+		if (result.type !== 'success') return;
+		if (action === 'unpack') await goto(href);
+		else if (typeof result.data?.sectionId === 'number') {
+			await goto(
+				`${resolve('/[dance]/(moves)/routines/[id]', { dance: data.dance.slug, id: String(result.data.sectionId) })}?from=${from.stepId}`
+			);
+		}
+	}
 	let editForm = $state<HTMLFormElement>();
 	/**
 	 * The `form` whose page banner was dismissed. Raw, not a deep proxy, so it
@@ -147,6 +274,8 @@
 		pre: number | null;
 		onpick: (n: number) => void;
 	} | null>(null);
+	/** Where does it end? (spec 2026-11-11, slot end): the slot it is open for. */
+	let endFor = $state<number | null>(null);
 	let toast = $state<{ id: number; message: string; undo: () => void } | null>(null);
 	let toastSeq = 0;
 	/** The selection bar's height: the Undo toast sits above it while selecting. */
@@ -343,7 +472,11 @@
 		shown.map(({ slot, edges, i }, k) => {
 			const isRoutine = slot.childId !== null;
 			const main = slot.figureIds[0] as number | undefined;
+			const child = isRoutine ? data.children[slot.childId as number] : undefined;
 			return {
+				kind: !isRoutine ? 'figure' : child?.isSection ? 'section' : 'routine',
+				size: child ? { figures: child.figures, eights: child.eights } : null,
+				childId: slot.childId,
 				id: slot.id,
 				source: isRoutine || main === undefined ? null : sourceOf(main),
 				title: isRoutine
@@ -356,29 +489,21 @@
 					posName,
 					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null
 				),
+				end: endView(i, edges, isRoutine),
 				empty: !isRoutine && main === undefined,
 				note: slot.note,
 				href: isRoutine
-					? routineHref(slot.childId as number)
+					? (`${routineHref(slot.childId as number)}?from=${slot.id}` as ReturnType<
+							typeof routineHref
+						>)
 					: main === undefined
 						? null
 						: figureHref(main),
 				isRoutine,
-				alternatives: slot.figureIds
-					.slice(1)
-					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
-					.map((f) => ({
-						id: f,
-						label: optionName(f),
-						href: figureHref(f),
-						source: sourceOf(f),
-						length: lengthIn(slot, f)
-					})),
 				length: (() => {
 					const n = main === undefined || isRoutine ? null : lengthIn(slot, main);
 					return n === null ? null : { figureId: main as number, n };
 				})(),
-				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
 				failure:
 					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
 						? place.message
@@ -486,27 +611,6 @@
 		await done;
 	}
 
-	async function removeAlternative(stepId: number, figureId: number, label: string) {
-		const keys = (data.slots.find((s) => s.id === stepId)?.figureIds ?? [])
-			.slice(1)
-			.map((f) => `alt-${stepId}-${f}`);
-		const key = `${stepId}:${figureId}`;
-		// Its length in the slot comes back with it (spec 2026-11-11).
-		const length = data.slots.find((s) => s.id === stepId)?.lengths[figureId] ?? '';
-		goneOptions = [...goneOptions, key];
-		swiped = null;
-		const result = await send('removeOption', { stepId, figureId });
-		goneOptions = goneOptions.filter((k) => k !== key);
-		if (result.type === 'success') {
-			// When it went: in a group, Undo brings back what the remove took off members' Today.
-			const removedAt = typeof result.data?.removedAt === 'number' ? result.data.removedAt : '';
-			showToast(t().routine.slot.removed(label), () =>
-				send('restoreOption', { stepId, figureId, removedAt, length })
-			);
-			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
-		}
-	}
-
 	function openPicker(at: number, from: PickFrom | null) {
 		const edges = from === null ? null : shown[from.row]?.edges;
 		const anchor: Anchor =
@@ -528,17 +632,73 @@
 		picker = { title, anchor, insertAt: at, stepId: null };
 	}
 
-	function openAlternative(stepId: number) {
-		const slot = data.slots.find((s) => s.id === stepId);
-		if (!slot) return;
-		const main = figuresById.get(slot.figureIds[0]);
-		// The slot as the routine walks it (spec 2026-11-11), the way `addOption` judges it.
-		const anchor = alternativeAnchor(stepId, data.slots, data.edges, figuresById);
-		if (!main || !anchor) return;
-		picker = { title: t().routine.picker.alternative(main.label), anchor, insertAt: null, stepId };
+	type PickerState = NonNullable<typeof picker>;
+
+	/*
+	 * Link from other places, in a group's routine: the slot picker's search
+	 * also finds the figures and routines of the person's own app and other
+	 * groups. A tap opens the card; Copy and use copies the row into the group
+	 * (`POST /api/elsewhere/copy`), and the copy goes in as a pick does.
+	 */
+	let pickQuery = $state('');
+	const away = new ElsewhereSearch();
+	$effect(() => {
+		const group = data.elsewhere;
+		if (!group || picker === null) return away.reset();
+		away.search(group.teamId, ['figure', 'routine'], pickQuery);
+	});
+	const awayPicker = $derived(
+		data.elsewhere ? { here: data.elsewhere.name, state: away.state, groups: away.groups } : null
+	);
+	let card = $state<{ row: CopyableRow; from: string | null; restore: number | null } | null>(null);
+	let cardBusy = $state(false);
+	let cardMessage = $state<string | null>(null);
+
+	function openCard(pick: PickRow) {
+		const row = elsewhereOf(away.places, pick.key);
+		if (!row || !copyable(row)) return;
+		card = { row, from: elsewhereFrom(away.places, pick.key), restore: row.restore };
+		cardMessage = null;
 	}
 
-	type PickerState = NonNullable<typeof picker>;
+	/** The group's row `id` of the card's kind, picked as the picker picks it (after the page has it). */
+	async function pickGroups(kind: 'figure' | 'routine', id: number) {
+		await invalidateAll();
+		const c = data.candidates.find((x) => x.kind === kind && x.id === id);
+		if (c && picker !== null) await pick(c);
+	}
+
+	/** Copy and use, or Restore and use with `restore`. */
+	async function sendCopy(use: Record<string, number>, restore: number | null) {
+		const sent = card;
+		const group = data.elsewhere;
+		if (!sent || !group || cardBusy) return;
+		const kind = sent.row.kind === 'routine' ? 'routine' : 'figure';
+		cardBusy = true;
+		cardMessage = null;
+		const res = await copyToUse(group.teamId, kind, sent.row.id, use, restore);
+		if (card !== sent) {
+			cardBusy = false;
+			return;
+		}
+		if (res.ok) {
+			await pickGroups(kind, res.id);
+			cardBusy = false;
+			card = null;
+		} else {
+			cardBusy = false;
+			if ('restore' in res) card = { ...sent, restore: res.restore };
+			else cardMessage = res.message ?? t().clones.copyHere.failedUse;
+		}
+	}
+
+	/** The card's "Use the group's one": the group's same-named row, picked. */
+	function useGroups() {
+		const c = card;
+		if (!c || c.row.sameName === null) return;
+		card = null;
+		void pickGroups(c.row.kind === 'routine' ? 'routine' : 'figure', c.row.sameName);
+	}
 	/** The last pick sent, so "Archived by Ana" can Restore and put it in, or reopen the picker. */
 	let lastPick: { p: PickerState; c: Candidate } | null = null;
 	let restoring = $state(false);
@@ -595,15 +755,47 @@
 		p: PickerState,
 		c: Candidate
 	): { start: number; want: number | null; pre: number | null } {
-		if (p.anchor.kind === 'alternative') {
-			return { start: p.anchor.startCount, want: p.anchor.next, pre: null };
-		}
 		const at = p.insertAt ?? rows.length;
 		const incoming = shown[at - 1]?.edges.next ?? null;
 		const start = startOn(c.startCounts, c.startCounts[0] ?? 1, incoming);
 		const below = shown[at]?.edges.start ?? null;
 		return { start, want: null, pre: preselect(start, below) };
 	}
+
+	/**
+	 * A row's end as its card draws it (spec 2026-11-11, slot end): the state
+	 * from the load, the name from the row's effective end. Null with nothing
+	 * to show, and for data from before the end existed.
+	 */
+	function endView(i: number, edges: RowEdges, isRoutine: boolean): RowView['end'] {
+		const e = data.slotEnds?.[i];
+		if (!e || isRoutine || e.state === 'none') return null;
+		const one = edges.ends?.length === 1 ? edges.ends[0] : null;
+		const name = e.state === 'open' || one === null ? null : posName(one) || null;
+		return { state: e.state, name };
+	}
+
+	/** The Where does it end? sheet's rows for the slot it is open for. */
+	const endSheet = $derived.by(() => {
+		if (endFor === null) return null;
+		const k = shown.findIndex((s) => s.slot.id === endFor);
+		const e = k === -1 ? null : data.slotEnds?.[shown[k].i];
+		if (!e) return null;
+		const ends = shown[k].edges.ends;
+		const pressed = ends?.length === 1 ? ends[0] : null;
+		return {
+			figure: rows[k].title,
+			n: k + 1,
+			canClear: e.state === 'chosen',
+			choices: e.choices.map((c) => ({
+				id: c.id,
+				name: posName(c.id),
+				pressed: c.id === pressed,
+				why: c.blockedBy === null ? null : t().routine.end.altNot(optionName(c.blockedBy)),
+				warn: c.belowMisses ? t().routine.end.belowNot(k + 2) : null
+			}))
+		};
+	});
 
 	/** A slot option's length chip: How long? with its length lit, then save it. */
 	function openLength(stepId: number, figureId: number, current: number) {
@@ -628,24 +820,27 @@
 	async function put(p: PickerState, c: Candidate, length?: number) {
 		lastPick = { p, c };
 		const sized: Record<string, Field> = length === undefined ? {} : { length };
-		if (p.stepId !== null) {
-			await send('addOption', { stepId: p.stepId, figureId: c.id, ...sized });
-			return;
-		}
 		const content: Record<string, Field> =
 			c.kind === 'figure' ? { figureId: c.id, ...sized } : { childId: c.id };
 		const result = await send('insert', { at: p.insertAt ?? rows.length, ...content });
 		if (result.type === 'success' && typeof result.data?.stepId === 'number') {
 			const id = result.data.stepId;
 			flash = id;
-			// The new slot opens expanded, as if tapped — its note field and
-			// + Alternative ready. Expansion is off while selecting, so a pick made
+			// The new slot opens expanded, as if tapped — its note field
+			// ready. Expansion is off while selecting, so a pick made
 			// from Add above / below ends selection mode first.
 			if (selecting) stopSelecting();
 			expanded = id;
 			// The picker's opener (a seam, a slot's Add) is gone or elsewhere now.
 			await tick();
 			document.querySelector<HTMLElement>(`[data-slot="${id}"] [role=button]`)?.focus();
+			// Where does it end? right after it (spec 2026-11-11, slot end), when the
+			// figure has ends to choose and the slot below does not decide.
+			// Only once the open slot's Back entry is in (pushed when the sheets settle):
+			// the sheet's own entry must sit above it, so Back closes the sheet first.
+			if (rows.find((r) => r.id === id)?.end?.state !== 'open') return;
+			await new Promise<void>((done) => sheetStack.settled(done));
+			if (expanded === id) endFor = id;
 		}
 	}
 
@@ -728,7 +923,83 @@
 		focusBand('item-menu');
 	}
 
-	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
+	/*
+	 * Back closes an open slot or leaves selection before it leaves the page
+	 * (asked for with spec 2026-11-11, slot end). Opening either pushes one
+	 * shallow entry (`routineFocus`, the entry's other values spread in, as the
+	 * sheets and the video player do); closing it any other way takes that
+	 * entry back off. The entry is read from history itself (`entryState`):
+	 * a refresh empties `page.state` while the entry keeps its own.
+	 */
+	const focused = $derived(expanded !== null || selecting);
+	/** This page's own Back (a close by tap), so its popstate holds the scroll too. */
+	let ownBack = false;
+	/** This page pushed its entry and has not taken it back: only then is a Back its own to close. */
+	let pushed = false;
+	/** What Back closes, run once the scroll is held (below). */
+	let closeLater: (() => void) | null = null;
+	$effect(() => {
+		const on = focused;
+		// Once the sheets' own Back moves have landed: a pick from the ⋯ sheet closes
+		// it and opens a selection at once, and its Back must not take this entry.
+		untrack(() =>
+			sheetStack.settled(() => {
+				if (on !== focused) return;
+				const held = entryState().routineFocus === true;
+				if (on && !held) {
+					pushState('', { ...entryState(), routineFocus: true });
+					pushed = true;
+				} else if (!on && held) {
+					pushed = false;
+					ownBack = true;
+					history.back();
+				}
+			})
+		);
+	});
+	$effect(() => {
+		void page.state;
+		untrack(() => {
+			if (entryState().routineFocus === true) return;
+			// Not ours: a sheet's Back, or this page's entry not pushed yet.
+			if (!pushed) return;
+			pushed = false;
+			if (!selecting && expanded === null) return;
+			// Back took the entry: close what it held, the card under the finger staying put.
+			closeLater = () => {
+				if (selecting) leaveSelecting();
+				else if (expanded !== null) {
+					const id = expanded;
+					void keepInPlace(slotEl(id), () => (expanded = null));
+				}
+			};
+		});
+	});
+	/*
+	 * A shallow Back makes SvelteKit scroll to where the page was when the entry
+	 * was pushed; since then the page kept the touched card in place
+	 * (`keepInPlace`), so that scroll would jump. The scroll is read before any
+	 * popstate listener runs (capture runs first at the window) and put back in
+	 * the next frame, after SvelteKit's; only then does Back's close run, so it
+	 * measures the page where it stands.
+	 */
+	$effect(() => {
+		const before = () => {
+			const y = ownBack || (focused && pushed) ? window.scrollY : null;
+			ownBack = false;
+			if (y === null) return;
+			requestAnimationFrame(() => {
+				window.scrollTo(window.scrollX, y);
+				const close = closeLater;
+				closeLater = null;
+				close?.();
+			});
+		};
+		window.addEventListener('popstate', before, true);
+		return () => window.removeEventListener('popstate', before, true);
+	});
+
+	const extractBlocked = $derived(extractBlock(rows, selected));
 	/** How the selection lifts: each row's piece, and the runs of neighbours (spec 2026-11-11, routine lift). */
 	const shape = $derived(
 		selectionShape(
@@ -737,7 +1008,8 @@
 		)
 	);
 	/** The selection's toolbar docks at the foot unless the selection is one run, which carries it. */
-	const docked = $derived(selecting && shape.runs.length !== 1);
+	// J1 (spec 2026-11-12): always docked at the foot, so no card changes height.
+	const docked = $derived(selecting);
 	// The tab bar steps aside for the whole selection, docked or not.
 	claimBottom(() => selecting);
 
@@ -756,18 +1028,44 @@
 		openPicker(side === 'after' ? i + 1 : i, { row: i, side });
 	}
 
-	function duplicateSelected() {
+	/** New cards glow a moment where they landed (spec 2026-11-12, D1). */
+	let glow = $state<number[]>([]);
+	function glowOn(ids: number[]) {
+		glow = ids;
+		setTimeout(() => (glow = glow.filter((id) => !ids.includes(id))), 2000);
+		void tick().then(() =>
+			document
+				.querySelector<HTMLElement>(`[data-slot="${ids[0]}"]`)
+				?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+		);
+	}
+
+	async function duplicateSelected() {
 		// Selection from ⋯ starts empty: nothing to post yet.
 		if (selected.length === 0) return;
 		const ids = inOrder(rows, selected);
+		const after = Math.max(...ids.map((id) => rows.findIndex((r) => r.id === id))) + 1;
 		stopSelecting();
-		send('duplicateMany', { stepIds: ids });
+		const result = await send('duplicateMany', { stepIds: ids });
+		const copies =
+			result.type === 'success' ? (result.data?.copies as number[] | undefined) : undefined;
+		if (!copies) return;
+		glowOn(copies);
+		showToast(t().routine.section.copied(copies.length, after), () =>
+			send('deleteMany', { stepIds: copies })
+		);
 	}
 
-	function extractSelected() {
-		// A refused earlier Make routine (or rename) must not greet this one.
-		dismissed = form;
-		naming = true;
+	/** Section (spec 2026-11-12): the run becomes one unnamed section at once, with Undo. */
+	async function extractSelected() {
+		if (selected.length === 0) return;
+		const ids = inOrder(rows, selected);
+		stopSelecting();
+		const result = await send('extract', { stepIds: ids });
+		const stepId = result.type === 'success' ? result.data?.stepId : undefined;
+		if (typeof stepId !== 'number') return;
+		glowOn([stepId]);
+		showToast(t().routine.section.sectioned(ids.length), () => send('unpack', { stepId }));
 	}
 
 	function deleteSelected() {
@@ -776,52 +1074,6 @@
 		stopSelecting();
 		remove(ids);
 	}
-
-	/** The toolbar at the foot of a run of selected neighbours (spec 2026-11-11, S6/S7). */
-	const runTools: ToolItem[] = $derived(
-		run === null
-			? []
-			: [
-					{
-						key: 'above',
-						label: t().routine.seam.before(run.from + 1),
-						name: t().routine.seam.addBefore(run.from + 1),
-						icon: 'arrow-up',
-						why: blocks.above,
-						onclick: () => addAround('before')
-					},
-					{
-						key: 'below',
-						label: t().routine.seam.after(run.to + 1),
-						name: t().routine.seam.addAfter(run.to + 1),
-						icon: 'arrow-down',
-						why: blocks.below,
-						onclick: () => addAround('after')
-					},
-					{
-						key: 'duplicate',
-						label: t().routine.selection.duplicate,
-						icon: 'copy',
-						why: blocks.duplicate,
-						onclick: duplicateSelected
-					},
-					{
-						key: 'extract',
-						label: t().routine.selection.make,
-						icon: 'route',
-						why: blocks.extract,
-						onclick: extractSelected
-					},
-					{
-						key: 'delete',
-						label: t().common.delete,
-						icon: 'trash',
-						why: blocks.delete,
-						danger: true,
-						onclick: deleteSelected
-					}
-				]
-	);
 
 	/**
 	 * The Make routine form's enhance callback. The form goes through
@@ -851,7 +1103,9 @@
 	});
 </script>
 
-<svelte:head><title>{routine.name} · {data.dance.label}</title></svelte:head>
+<svelte:head
+	><title>{routine.name || t().routine.section.unnamed} · {data.dance.label}</title></svelte:head
+>
 
 <svelte:window
 	onkeydown={(e) => {
@@ -870,11 +1124,6 @@
 			<span>{note}</span>
 		</p>
 	{/each}
-{/snippet}
-
-<!-- The selection's toolbar at the foot of its run (spec 2026-11-11, S6/S7). -->
-{#snippet runToolbar()}
-	<CardToolbar label={t().routine.selection.bar} items={runTools} />
 {/snippet}
 
 {#snippet back()}
@@ -953,12 +1202,16 @@
 		? selectionTitle(selected.length)
 		: editing
 			? t().routine.band.editTitle
-			: routine.name}
+			: routine.name || t().routine.section.unnamed}
 	compact={!editing && bandCompact(routine.name)}
-	subtitle={editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
+	subtitle={editing
+		? undefined
+		: data.isSection
+			? t().routine.section.subtitle(data.size.figures, data.size.eights)
+			: (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
 	right={selecting || editing ? undefined : data.canEdit ? actions : readerActions}
-	hero={editing || !danceable ? undefined : practise}
+	hero={editing || !danceable || data.isSection ? undefined : practise}
 	heroDesk={!data.makeMine}
 >
 	<div
@@ -966,6 +1219,21 @@
 			? 'flex flex-col gap-3.5 pt-1 pb-28'
 			: `flex flex-col gap-2 ${selecting ? 'pb-36' : data.makeMine ? 'pb-4 desk:pb-28' : 'pb-4'}`}
 	>
+		{#if !editing && data.isSection && data.holders.length > 1}
+			<!-- Where this shared section is used (spec 2026-11-12, P1). -->
+			<p
+				class="flex flex-wrap items-center gap-1.5 self-start rounded-full bg-accent-soft px-3 py-1 text-[12.5px] font-bold text-accent-text"
+			>
+				<Icon name="brace" size={15} />{t().routine.section.inRoutines(data.holders.length)}
+				{#each data.holders as h, k (h.id)}{k > 0 ? ', ' : ''}<a
+						class="underline"
+						href={resolve('/[dance]/(moves)/routines/[id]', {
+							dance: data.dance.slug,
+							id: String(h.id)
+						})}>{h.name}</a
+					>{/each}
+			</p>
+		{/if}
 		{#if editing}
 			{#if bannerMessage}
 				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
@@ -1172,16 +1440,6 @@
 												></span
 											>{/if}
 										{#if row.meta}<span class="text-[13px] text-muted">{row.meta}</span>{/if}
-										{#if row.alternatives.length > 0}
-											<span class="text-[13px] text-ink-2"
-												>{t().figure.or}
-												{#each row.alternatives as a, k (a.id)}{k > 0
-														? ', '
-														: ''}{a.label}{#if a.source}
-														<Badge tone="neutral"><Icon name="group" size={14} />{a.source}</Badge
-														>{/if}{/each}</span
-											>
-										{/if}
 										{#if row.note}<span class="text-[13px] text-ink-2 italic">{row.note}</span>{/if}
 									</span>
 								</li>
@@ -1205,13 +1463,19 @@
 			{:else}
 				<section>
 					<h2 class="{SECTION_LABEL} mb-2 pt-1.5">{t().routine.slots.title(rows.length)}</h2>
+					<WhereBar />
 					<SlotList
 						{rows}
+						children={data.children}
+						{opened}
+						ontoggle={toggleOpen}
+						onunpack={unpack}
+						{glow}
+						onmoveinto={moveInto}
 						{expanded}
 						{selecting}
 						{selected}
 						{shape}
-						tools={selecting && run !== null ? runToolbar : undefined}
 						{swiped}
 						{flash}
 						{press}
@@ -1225,9 +1489,8 @@
 						ondragend={() => (dragging = false)}
 						onreorder={reorder}
 						ondelete={removeSlot}
-						onremoveAlt={removeAlternative}
-						onaddAlt={openAlternative}
 						onlength={openLength}
+						onend={(id) => (endFor = id)}
 						onnote={(id, note) => send('note', { stepId: id, note })}
 						onadd={openPicker}
 					/>
@@ -1336,6 +1599,36 @@
 {/if}
 
 <Dialog
+	open={demoting}
+	icon="brace"
+	tone="danger"
+	title={t().routine.section.demoteTitle(routine.name)}
+	body={data.demote
+		? t().routine.section.demoteBody(
+				data.demote.routines.map((r) => r.name).join(', '),
+				data.demote.lessons.map((l) => l.title).join(', '),
+				data.demote.practised
+			)
+		: ''}
+	onclose={() => (demoting = false)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('secondary', 'md')} onclick={() => (demoting = false)}
+			>{t().common.cancel}</button
+		>
+		<button
+			type="button"
+			class={button('danger', 'md')}
+			onclick={async () => {
+				demoting = false;
+				const result = await send('demote', {});
+				if (result.type === 'success') await invalidateAll();
+			}}>{t().routine.section.demoteDo}</button
+		>
+	{/snippet}
+</Dialog>
+
+<Dialog
 	open={archiving}
 	icon="trash"
 	tone="danger"
@@ -1400,7 +1693,32 @@
 	positionName={posName}
 	onpick={pick}
 	onclose={() => (picker = null)}
+	bind:query={pickQuery}
+	elsewhere={awayPicker}
+	onelsewhere={openCard}
 />
+
+<!-- Link from other places: the card over the slot picker. -->
+{#if card && data.elsewhere}
+	{@const c = card}
+	<CopyHereCard
+		theme="light"
+		kind={c.row.kind === 'routine' ? 'routine' : 'figure'}
+		then="use"
+		id={c.row.id}
+		label={c.row.label}
+		from={c.from}
+		into={data.elsewhere}
+		sameName={c.row.sameName}
+		restore={c.restore}
+		busy={cardBusy}
+		message={cardMessage}
+		oncopy={(use) => sendCopy(use, null)}
+		onrestore={(use) => sendCopy(use, c.restore)}
+		onlinkgroups={useGroups}
+		onclose={() => (card = null)}
+	/>
+{/if}
 
 <LengthSheet
 	open={howLong !== null}
@@ -1415,6 +1733,20 @@
 		h?.onpick(n);
 	}}
 	onclose={() => (howLong = null)}
+/>
+
+<EndSheet
+	open={endSheet !== null}
+	figure={endSheet?.figure ?? ''}
+	slot={endSheet?.n ?? 1}
+	choices={endSheet?.choices ?? []}
+	canClear={endSheet?.canClear ?? false}
+	onpick={(id) => {
+		const stepId = endFor;
+		endFor = null;
+		if (stepId !== null) void send('end', { stepId, positionId: id ?? '' });
+	}}
+	onclose={() => (endFor = null)}
 />
 
 <Sheet title={t().routine.make.title} open={naming} onclose={() => (naming = false)}>

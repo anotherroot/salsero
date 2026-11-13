@@ -211,11 +211,12 @@ describe('the figure page', () => {
 describe('the notice and Keep in step', () => {
 	it('your copy’s page says the group changed it; a Sync clears it', async () => {
 		const { F, C } = await setenta();
-		expect((await run(figurePage.load, ev('u2', C))).step).toEqual({ lines: [] });
+		expect((await run(figurePage.load, ev('u2', C))).step).toEqual({ lines: [], sending: 0 });
 		db.update(figures).set({ startCount: 3 }).where(eq(figures.id, F)).run();
 		const page = await run(figurePage.load, ev('u2', C));
 		expect(page.step).toEqual({
-			lines: [{ id: F, place: 'Salsa Tuesdays', state: 'changed', fields: ['Timing'] }]
+			lines: [{ id: F, place: 'Salsa Tuesdays', state: 'changed', fields: ['Timing'] }],
+			sending: 0
 		});
 		expect(page.keep).toMatchObject({ editable: true, mode: 'update' });
 		expect(page.compare).toBeUndefined();

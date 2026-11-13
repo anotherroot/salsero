@@ -17,16 +17,13 @@ describe('inOrder', () => {
 });
 
 describe('extractBlock', () => {
-	it('allows a contiguous run of figure slots', () => {
-		expect(extractBlock(rows, [11, 10], [])).toBeNull();
+	it('allows any run of neighbours, sections and routines in it too (spec 2026-11-12)', () => {
+		expect(extractBlock(rows, [11, 10])).toBeNull();
+		expect(extractBlock(rows, [11, 12])).toBeNull();
 	});
 
 	it('names the reason it cannot', () => {
-		expect(extractBlock(rows, [10, 13], [])).toBe('Select slots next to each other.');
-		expect(extractBlock(rows, [11, 12], [])).toBe('Slot 3 is a routine — embedding is one level.');
-		expect(extractBlock(rows, [10], ['Social mix'])).toBe(
-			'This routine is embedded in Social mix — embedding is one level.'
-		);
+		expect(extractBlock(rows, [10, 13])).toBe('Select slots next to each other.');
 	});
 });
 
@@ -109,17 +106,9 @@ describe('the run’s header and the tip', () => {
 describe('the selection in Slovenian', () => {
 	const sl = <T>(fn: () => T) => withLocale('sl', fn);
 
-	it('names why Make routine is greyed, a routine’s name after a colon', () => {
-		expect(sl(() => extractBlock(rows, [], []))).toBe(
-			'Izberite mesta, iz katerih naj nastane kombinacija.'
-		);
-		expect(sl(() => extractBlock(rows, [10, 13], []))).toBe('Izberite sosednja mesta.');
-		expect(sl(() => extractBlock(rows, [11, 12], []))).toBe(
-			'Mesto 3 je kombinacija — vstavljanje gre le eno raven globoko.'
-		);
-		expect(sl(() => extractBlock(rows, [10], ['Social mix', 'Friday']))).toBe(
-			'Ta kombinacija je že vstavljena drugam: Social mix, Friday. Vstavljanje gre le eno raven globoko.'
-		);
+	it('names why Section is greyed', () => {
+		expect(sl(() => extractBlock(rows, []))).toBe('Izberite mesta, iz katerih naj nastane sklop.');
+		expect(sl(() => extractBlock(rows, [10, 13]))).toBe('Izberite sosednja mesta.');
 	});
 
 	it('names why each action is greyed', () => {

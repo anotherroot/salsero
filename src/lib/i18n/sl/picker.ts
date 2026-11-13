@@ -40,7 +40,8 @@ export const picker: Catalog['picker'] = {
 		noneHere: (typed) => `Tu nič ne ustreza »${typed}«.`,
 		offline: 'Za druga mesta potrebujete povezavo.',
 		looking: 'Iskanje po vaših drugih mestih …',
-		copyHere: (label) => `Kopiraj sem in poveži: ${label}`
+		copyHere: (label) => `Kopiraj sem in poveži: ${label}`,
+		newMove: 'Nov gib tu, z istim imenom'
 	},
 	groups: {
 		figures: 'Figure',
@@ -50,5 +51,21 @@ export const picker: Catalog['picker'] = {
 		positions: 'Položaji',
 		otherVideos: 'Drugi videi'
 	},
-	routineMeta: (slots, loops) => `${nouns.slots(slots)}${loops ? ' · se sklene' : ''}`
+	routineMeta: (slots, loops) => `${nouns.slots(slots)}${loops ? ' · se sklene' : ''}`,
+	look: {
+		preview: (label) => `Predogled: ${label}`,
+		linkThis: 'Poveži to',
+		addThis: 'Dodaj to',
+		pickThis: 'Izberi to',
+		startsOn: (count) => `Začne na ${count}`,
+		endsAfter: (n) => `Traja ${nouns.counts(n)}`,
+		ends: 'Konča',
+		noPositions: 'Položaji niso nastavljeni',
+		noVideo: 'Še ni videa',
+		yourRecording: 'Vaš posnetek',
+		soundOn: 'Vklopi zvok',
+		soundOff: 'Izklopi zvok',
+		andMore: (n) => `in še ${n}`,
+		failed: 'Tega ni bilo mogoče naložiti.'
+	}
 };

@@ -24,7 +24,14 @@ import { createTeam, joinTeam } from '../../src/lib/server/teams';
 import { joinClass } from '../../src/lib/server/auto-add';
 import { setLevel } from '../../src/lib/server/levels';
 import { createFigure } from '../../src/lib/server/figures';
-import { createRoutineFromFigures } from '../../src/lib/server/routines';
+import {
+	createRoutineFromFigures,
+	makeSection,
+	routineSlots,
+	setSlotEnd
+} from '../../src/lib/server/routines';
+import { listPositions } from '../../src/lib/server/positions';
+import { figurePositions, setFigureShape } from '../../src/lib/server/graph';
 import { createCustomExercise, logSet } from '../../src/lib/server/exercises';
 import {
 	addLessonVideo,
@@ -79,7 +86,36 @@ it('seeds the class into the copy', async () => {
 		.limit(6)
 		.all()
 		.map((f) => f.id);
-	if (six.length === 6) createRoutineFromFigures(db, wall, { name: 'Dolga', notes: null }, six);
+	if (six.length === 6) {
+		const dolga = createRoutineFromFigures(db, wall, { name: 'Dolga', notes: null }, six);
+		// A routine nested three deep for the section scenes (spec 2026-11-12): slots 2–5 a
+		// section, and inside it slots 2–3 another.
+		const nest = createRoutineFromFigures(db, wall, { name: 'Gnezdo', notes: null }, six);
+		if (nest) {
+			const ids = routineSlots(db, nest.routine.id).map((s) => s.id);
+			const outer = makeSection(db, nest.routine.id, ids.slice(1, 5))!;
+			const inner = routineSlots(db, outer.sectionId).map((s) => s.id);
+			makeSection(db, outer.sectionId, inner.slice(1, 3));
+		}
+		// for the slot-end scenes (ext_slot_end.py): slot 2's and 4's figures end in two holds,
+		// slot 2 chosen, slot 4 not yet
+		const [p1, p2] = listPositions(db, wall);
+		if (dolga && p1 && p2) {
+			for (const f of [six[1], six[3]]) {
+				const { startIds, endIds } = figurePositions(db, f);
+				const ends = [...new Set([...endIds, p1.id, p2.id])];
+				const timing = db.select().from(figures).where(eq(figures.id, f)).get()!;
+				setFigureShape(db, f, {
+					startIds,
+					endIds: ends,
+					startCount: timing.startCount ?? 1,
+					lengthCounts: timing.lengthCounts ?? 8
+				});
+			}
+			const steps = routineSlots(db, dolga.routine.id);
+			setSlotEnd(db, steps[1].id, p2.id);
+		}
+	}
 	db.update(exercises).set({ archivedAt: now }).where(eq(exercises.userId, me.id)).run();
 	setLevel(db, me.id, 'follow');
 

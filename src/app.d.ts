@@ -47,6 +47,8 @@ declare global {
 		interface PageState {
 			videoPlayer?: number;
 			sheets?: number;
+			/** An open slot or a selection on a routine page: Back closes it first. */
+			routineFocus?: true;
 		}
 	}
 }

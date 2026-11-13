@@ -21,10 +21,12 @@
 	import { t } from '$lib/i18n/catalog';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
-	import type { Snippet } from 'svelte';
 	import type { SelectionShape } from '$lib/routines/selection';
 	import { DIM_OPEN, DIM_SELECT, FADE, faceRound, LIFTED, pieceRound, RING } from './lift';
 	import type { PickFrom, RowView, Swiped } from './types';
+	import SectionPanel from './SectionPanel.svelte';
+	import { panelHue } from '$lib/routines/panels';
+	import type { ChildView } from '$lib/types';
 
 	interface Props {
 		rows: RowView[];
@@ -33,8 +35,6 @@
 		selected: number[];
 		/** How the selection lifts: each row's piece and the runs of neighbours. */
 		shape: SelectionShape;
-		/** The selection's toolbar, drawn at the foot of its only run; none when docked. */
-		tools?: Snippet;
 		swiped: Swiped;
 		flash: number | null;
 		press: LongPress;
@@ -44,11 +44,20 @@
 		ondragend: () => void;
 		onreorder: (id: number, to: number) => Promise<void>;
 		ondelete: (id: number) => void;
-		onremoveAlt: (id: number, figureId: number, label: string) => void;
-		onaddAlt: (id: number) => void;
 		/** A slot option's length chip (spec 2026-11-11). */
 		onlength: (id: number, figureId: number, current: number) => void;
+		/** A slot's end chip or cell (spec 2026-11-11, slot end). */
+		onend: (id: number) => void;
 		onnote: (id: number, note: string | null) => unknown;
+		/** Sections and routines opened in place (spec 2026-11-12): their views and which are open. */
+		children: Record<number, ChildView>;
+		opened: number[];
+		ontoggle: (stepId: number) => void;
+		onunpack: (stepId: number) => void;
+		/** New cards that glow a moment (spec 2026-11-12, D1). */
+		glow?: number[];
+		/** Drop onto a section after holding over it (spec 2026-11-12, spring-open). */
+		onmoveinto?: (stepId: number, targetStep: number) => void;
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
 
@@ -58,7 +67,6 @@
 		selecting,
 		selected,
 		shape,
-		tools,
 		swiped,
 		flash,
 		press,
@@ -68,21 +76,54 @@
 		ondragend,
 		onreorder,
 		ondelete,
-		onremoveAlt,
-		onaddAlt,
 		onlength,
+		onend,
 		onnote,
+		children,
+		opened,
+		ontoggle,
+		onunpack,
+		glow = [],
+		onmoveinto,
 		onadd
 	}: Props = $props();
 
 	/** The vertical gap between cards: the list's `gap-2`. */
 	const GAP = 8;
 	const items = $state<HTMLElement[]>([]);
+	/** The view of a slot's section or routine while it is open in place (spec 2026-11-12). */
+	const openChild = (row: RowView): ChildView | undefined => {
+		const id = row.childId;
+		return id !== null && opened.includes(row.id) ? children[id] : undefined;
+	};
 	let drag = $state<{ id: number; from: number; to: number; dy: number; step: number } | null>(
 		null
 	);
 	/** Each live card's top (relative to the list) and height, measured at grab. */
 	let measured = $state.raw<{ tops: number[]; heights: number[] }>({ tops: [], heights: [] });
+
+	/** The section card a drag has held over long enough to drop into (spec 2026-11-12). */
+	let springing = $state<number | null>(null);
+	let into = $state<number | null>(null);
+
+	let springTimer: ReturnType<typeof setTimeout> | undefined;
+	/**
+	 * Spring-open (spec 2026-11-12): over the middle third of a closed section's or
+	 * routine's card, held 600 ms, the drop goes inside it. Off the middle, cancelled.
+	 */
+	function spring(y: number, dragged: number) {
+		let over: number | null = null;
+		rows.forEach((r, k) => {
+			if (r.kind === 'figure' || r.id === dragged || opened.includes(r.id)) return;
+			const b = items[k]?.getBoundingClientRect();
+			if (b && y > b.top + b.height / 3 && y < b.bottom - b.height / 3) over = r.id;
+		});
+		if (over === springing) return;
+		clearTimeout(springTimer);
+		springing = over;
+		into = null;
+		if (over !== null) springTimer = setTimeout(() => (into = over), 600);
+	}
 
 	async function grab(e: PointerEvent, index: number) {
 		// A right or middle press on the handle is not a drag.
@@ -145,9 +186,25 @@
 		const onmove = (ev: PointerEvent) => {
 			y = ev.clientY;
 			update();
+			spring(ev.clientY, id);
 		};
 		const finish = (commit: boolean) => {
 			cancelAnimationFrame(frame);
+			clearTimeout(springTimer);
+			const target = into;
+			springing = null;
+			into = null;
+			if (commit && target !== null && onmoveinto) {
+				const done = drag;
+				window.removeEventListener('pointermove', onmove);
+				window.removeEventListener('pointerup', onup);
+				window.removeEventListener('pointercancel', oncancel);
+				window.removeEventListener('keydown', onkey);
+				drag = null;
+				ondragend();
+				if (done) onmoveinto(done.id, target);
+				return;
+			}
 			window.removeEventListener('pointermove', onmove);
 			window.removeEventListener('pointerup', onup);
 			window.removeEventListener('pointercancel', oncancel);
@@ -283,7 +340,8 @@
 			<!-- The only run's last slot carries the tip and the selection's toolbar. -->
 			{@const foot = runEnd && shape.runs.length === 1}
 			<!-- A seam between two selected neighbours is drawn inside their piece. -->
-			{@const seamInside = sel !== null && !runEnd}
+			<!-- J1 (spec 2026-11-12): the seam stays where it is, selected or not. -->
+			{@const seamInside = false}
 			<!-- The offset is the `translate` property, not `transform`: CSS applies
 			     `translate` outside `scale`, so the lifted card's 1.03 does not
 			     stretch its offset and pull it off the finger. Only while dragging:
@@ -293,7 +351,9 @@
 				bind:this={items[i]}
 				data-slot={row.id}
 				data-flip={row.id}
-				class="flex flex-col gap-2 rounded-2xl {lifted
+				class="flex flex-col gap-2 rounded-2xl {openChild(row)
+					? `panel hue-${panelHue(1, !openChild(row)!.isSection)}`
+					: ''} {lifted
 					? 'relative z-10 shadow-[0_18px_40px_rgb(0_0_0/0.22)] transition-[scale,rotate,box-shadow] duration-150 motion-safe:scale-[1.03] motion-safe:-rotate-[0.8deg] motion-reduce:transition-none'
 					: ''} {drag && !lifted
 					? 'transition-transform duration-150 motion-reduce:transition-none'
@@ -302,8 +362,12 @@
 					? selecting
 						? DIM_SELECT
 						: DIM_OPEN
-					: ''} {sel === 'mid' || sel === 'bottom' ? '-mt-2' : ''} {flash === row.id
+					: ''} {sel === 'mid' || sel === 'bottom' ? 'joined' : ''} {flash === row.id
 					? 'flash'
+					: ''} {glow.includes(row.id) ? 'glow' : ''} {springing === row.id
+					? into === row.id
+						? 'spring-in'
+						: 'spring'
 					: ''}"
 				style={drag ? `translate: 0 ${offsetOf(i, row.id)}px` : undefined}
 			>
@@ -312,16 +376,14 @@
 				     never drawn anew between the two. -->
 				<div
 					class={piece
-						? `${LIFTED} ${pieceRound(piece)} ${piece === 'single' ? RING : ''} ${sel === 'mid' || sel === 'bottom' ? 'border-t border-hairline' : ''}`
+						? `${LIFTED} ${pieceRound(piece)} ${piece === 'single' ? RING : ''} ${sel === 'mid' || sel === 'bottom' ? 'shadow-[inset_0_1px_0_var(--color-hairline)]' : ''}`
 						: 'contents'}
 				>
-					{#if sel === 'top' && run}
-						<p class="px-4 pt-3 text-[12px] font-extrabold tracking-[0.03em] text-muted uppercase">
-							{t().routine.selection.run(run.from + 1, run.to + 1)}
-						</p>
-					{/if}
 					<SlotCard
 						{row}
+						open={opened.includes(row.id)}
+						onopen={() => ontoggle(row.id)}
+						onunpack={() => onunpack(row.id)}
 						index={i}
 						count={rows.length}
 						expanded={expanded === row.id}
@@ -336,25 +398,29 @@
 						ongrab={(e) => grab(e, i)}
 						onkeymove={(delta) => keymove(row.id, i + delta)}
 						ondelete={() => ondelete(row.id)}
-						onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
-						onaddAlt={() => onaddAlt(row.id)}
 						onaddBefore={() => onadd(i, { row: i, side: 'before' })}
 						onaddAfter={() => onadd(i + 1, { row: i, side: 'after' })}
 						onlength={(figureId, current) => onlength(row.id, figureId, current)}
+						onend={() => onend(row.id)}
 						onnote={(note) => onnote(row.id, note)}
 					/>
 					{#if seamInside}
 						<div class="px-2 pb-2">{@render seam(row, i)}</div>
 					{/if}
-					{#if foot}
-						{#if selected.length === 1}
-							<p class="pr-4 pb-2.5 pl-[80px] text-[13px] font-semibold text-muted">
-								{t().routine.selection.tip}
-							</p>
-						{/if}
-						{@render tools?.()}
-					{/if}
 				</div>
+				{#if openChild(row)}
+					{@const view = openChild(row)!}
+					<SectionPanel
+						{view}
+						depth={1}
+						{children}
+						{opened}
+						{ontoggle}
+						path={[
+							{ name: view.name || t().routine.section.unnamed, hue: panelHue(1, !view.isSection) }
+						]}
+					/>
+				{/if}
 				{#if !seamInside}
 					{@render seam(row, i)}
 				{/if}
@@ -375,6 +441,43 @@
 {/if}
 
 <style>
+	/* J1 (spec 2026-11-12): a selected neighbour fills the gap above it, so the run reads as one
+	   piece with no card moving. */
+	/* Spring-open (spec 2026-11-12): held over, the card rings; ready to take the drop, it fills. */
+	.spring :global([role='button']) {
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 35%, transparent);
+	}
+	.spring-in :global([role='button']) {
+		box-shadow: 0 0 0 3px var(--color-accent);
+	}
+	/* D1 (spec 2026-11-12): a new card glows with the accent, then fades. */
+	.glow :global([role='button']) {
+		animation: glow 2s ease-out;
+	}
+	@keyframes glow {
+		0%,
+		35% {
+			background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+		}
+		100% {
+			background: var(--color-surface);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.glow :global([role='button']) {
+			animation: none;
+		}
+	}
+	.joined {
+		position: relative;
+	}
+	.joined::before {
+		content: '';
+		position: absolute;
+		inset: -0.5rem 0 auto;
+		height: 0.5rem;
+		background: var(--color-surface);
+	}
 	/*
 	 * A ring, not a background: the card face (`bg-surface`) is opaque and sits
 	 * on top of the `<li>`, so a background flash here is invisible. A

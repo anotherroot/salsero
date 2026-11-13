@@ -20,7 +20,14 @@ import type { CloneKind, GroupMode, MoveRow } from '$lib/types';
 import type { Space, Wall } from './scope';
 import { copyCounts, outOfStep } from './clones/step';
 import { coverage } from '$lib/routines/coverage';
-import { breaks, loops, timingBreaks } from '$lib/routines/routines';
+import {
+	breaks,
+	loops,
+	routineEnds,
+	routineSize,
+	routineStarts,
+	timingBreaks
+} from '$lib/routines/routines';
 import { noPosition, positionCounts, taggedCount } from '$lib/graph/graph';
 import { foldMoves, foldSections } from '$lib/clones/twins';
 import { DANCES } from '$lib/dances/dances';
@@ -31,6 +38,7 @@ import type { PositionsLists } from '$lib/positions/filter';
 import type { RoutinesLists } from '$lib/moves/routines';
 import type { PositionListRow, TeamRef } from '$lib/types';
 import type { PositionRow } from './db/schema';
+import { withPictures } from './loops/pictures';
 
 /** The Not linked chip counts figures, as the heading does, not the moves holding them. */
 const figureCount = (moves: { figures: unknown[] }[]) =>
@@ -88,7 +96,7 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
 			unrouted: null,
 			defaultStyle: defStyle,
-			moveTargets: listMoveTargets(db, space, null)
+			moveTargets: withPictures(db, listMoveTargets(db, space, null), space)
 		};
 	}
 	return {
@@ -110,7 +118,7 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 			listRoutines(db, wall)
 		).filter((r) => r.routines.length === 0).length,
 		defaultStyle: defStyle,
-		moveTargets: listMoveTargets(db, wall, null)
+		moveTargets: withPictures(db, listMoveTargets(db, wall, null), wall)
 	};
 }
 
@@ -203,6 +211,11 @@ export function routinesList(
 	const reach = mode ? publishedReach(db, mode.teamId) : null;
 	// A person's routines may hold group figures they may use (`graphFor`).
 	const graph = graphFor(db, space);
+	/** Positions by name, several joined; null when the routine has none to name. */
+	const placeName = (ids: number[]) => {
+		const names = ids.flatMap((id) => graph.positions.find((p) => p.id === id)?.name ?? []);
+		return names.length === 0 ? null : names.join(' / ');
+	};
 	const shapes = routineShapes(db, space);
 	// Derived per request, never stored — the same rule the schedule follows. A tag
 	// edited on a figure page changes these answers with no routine touched.
@@ -251,7 +264,11 @@ export function routinesList(
 				...(reach ? { membersSee: reach.routines.has(r.id) } : {}),
 				loops: loops(graph, shape),
 				// A seam that breaks in the hands AND on the count is one problem, not two.
-				breaks: new Set([...breaks(graph, shape), ...timingBreaks(graph, shape)]).size
+				breaks: new Set([...breaks(graph, shape), ...timingBreaks(graph, shape)]).size,
+				// L4 (spec 2026-11-12): where it starts and ends, and how big it is.
+				start: placeName(routineStarts(graph, shape)),
+				end: placeName(routineEnds(graph, shape) ?? []),
+				...routineSize(graph, shape)
 			};
 		})
 	};

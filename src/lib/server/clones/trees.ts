@@ -396,10 +396,13 @@ function routineFlat(db: Db, id: number, b: Builder): void {
 			id: routineSteps.id,
 			note: routineSteps.note,
 			childId: routineSteps.childRoutineId,
-			childGene: routines.geneId
+			childGene: routines.geneId,
+			end: routineSteps.endPositionId,
+			endGene: positions.geneId
 		})
 		.from(routineSteps)
 		.leftJoin(routines, eq(routines.id, routineSteps.childRoutineId))
+		.leftJoin(positions, eq(positions.id, routineSteps.endPositionId))
 		.where(eq(routineSteps.routineId, id))
 		.orderBy(asc(routineSteps.position))
 		.all();
@@ -437,7 +440,9 @@ function routineFlat(db: Db, id: number, b: Builder): void {
 		child: s.childId === null ? null : ref(s.childGene, s.childId),
 		options: options.get(s.id) ?? [],
 		note: s.note || null,
-		...(lengths.has(s.id) ? { lengths: lengths.get(s.id) } : {})
+		...(lengths.has(s.id) ? { lengths: lengths.get(s.id) } : {}),
+		// Its end (spec 2026-11-11, slot end), by its family: only slots that have one.
+		...(s.end !== null ? { end: ref(s.endGene, s.end) } : {})
 	}));
 	b.add('slots', JSON.stringify(slots), t().nouns.slots(slots.length));
 }

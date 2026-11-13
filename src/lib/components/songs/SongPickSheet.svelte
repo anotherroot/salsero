@@ -131,8 +131,8 @@
 	</ul>
 {/snippet}
 
-<Sheet title={title ?? t().songs.picker.title} {open} onclose={close} tall={songs.length > 0}>
-	<div class="flex h-full min-h-0 flex-col gap-2">
+<Sheet title={title ?? t().songs.picker.title} {open} onclose={close} tall={songs.length > 0} fill>
+	<div class="flex min-h-0 flex-1 flex-col gap-2">
 		<SearchField placeholder={t().songs.picker.search} bind:value={query} bind:input={search} />
 		<p class="flex justify-between gap-2 px-1 text-[13px] text-muted">
 			<span class="font-bold">{countText}</span>

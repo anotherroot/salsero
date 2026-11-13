@@ -29,9 +29,12 @@ import {
 	notSynced,
 	syncLabel,
 	syncMenu,
-	updateMine
+	updateMine,
+	nextPhase,
+	sendingLabel,
+	sentLabel
 } from './step-view';
-import type { MergeRow, StepLine, SyncView } from '$lib/types';
+import type { MergeRow, StepLine, StepView, SyncView } from '$lib/types';
 import type { SheetRow } from './step-view';
 
 const line = (l: Partial<StepLine>): StepLine => ({
@@ -501,5 +504,40 @@ describe('in Slovenian', () => {
 			'Posodobi svojo',
 			'Naloži znova'
 		]);
+	});
+});
+
+describe('the version row’s status (Keep in step on its way)', () => {
+	const step = (sending: number, lines: StepLine[] = []): StepView => ({ lines, sending });
+
+	it('sending while copies are on their way, from any phase', () => {
+		expect(nextPhase('idle', step(2))).toBe('sending');
+		expect(nextPhase('sent', step(1))).toBe('sending');
+		expect(nextPhase('sending', step(2))).toBe('sending');
+	});
+
+	it('they went and nothing differs: sent; something still differs: idle (the notice says it)', () => {
+		expect(nextPhase('sending', step(0))).toBe('sent');
+		expect(nextPhase('sending', step(0, [line({})]))).toBe('idle');
+	});
+
+	it('nothing was on its way: it stays as it was (sent ends by its timer)', () => {
+		expect(nextPhase('idle', step(0))).toBe('idle');
+		expect(nextPhase('idle', step(0, [line({})]))).toBe('idle');
+		expect(nextPhase('sent', step(0))).toBe('sent');
+		expect(nextPhase('idle', null)).toBe('idle');
+	});
+
+	it('the words, in both languages', () => {
+		expect(sendingLabel(1)).toBe('Sending to 1 copy…');
+		expect(sendingLabel(2)).toBe('Sending to 2 copies…');
+		expect(sentLabel(1)).toBe('Copy updated');
+		expect(sentLabel(3)).toBe('Copies updated');
+		withLocale('sl', () => {
+			expect(sendingLabel(1)).toBe('Pošiljanje v 1 kopijo …');
+			expect(sendingLabel(2)).toBe('Pošiljanje v 2 kopiji …');
+			expect(sendingLabel(5)).toBe('Pošiljanje v 5 kopij …');
+			expect(sentLabel(2)).toBe('Kopiji posodobljeni');
+		});
 	});
 });

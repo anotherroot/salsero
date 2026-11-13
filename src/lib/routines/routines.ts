@@ -17,6 +17,7 @@
  */
 import { countsOf, figureById, meet, sameSet, type Graph } from '$lib/graph/graph';
 import { nextCount, startOn } from '$lib/graph/timing';
+import { endChoices, slotEnd, type EndChoice, type EndState, type SlotEnd } from './end';
 
 /** A slot filled by interchangeable figures — the alternatives. */
 export interface OptionsSlot {
@@ -29,6 +30,12 @@ export interface OptionsSlot {
 	 * whose length is free (`optionLength`). Absent: every option its own length.
 	 */
 	lengths?: Record<number, number>;
+	/**
+	 * The end chosen for this slot (spec 2026-11-11, slot end): a real position
+	 * id, read through the graph's `canon` (`src/lib/routines/end.ts`). Absent:
+	 * nothing chosen.
+	 */
+	end?: number;
 	/** The `routine_steps` row, when the data layer knows it (`stepIncoming`). */
 	stepId?: number;
 }
@@ -36,13 +43,16 @@ export interface OptionsSlot {
 /**
  * A slot filled by an embedded routine.
  *
- * Its own slots are always `OptionsSlot`: embedding is one level, enforced on
- * write, so the type says so too and nothing downstream has to recurse.
+ * Its own slots may hold children of their own, at any depth (spec 2026-11-12,
+ * routine sections); `optionSlots` and `flatten` splice them in. A cycle is
+ * refused on write (`canEmbed`) and stopped on read (the loader).
  */
 export interface ChildSlot {
 	kind: 'child';
 	routineId: number;
-	slots: OptionsSlot[];
+	slots: Slot[];
+	/** The `routine_steps` row that embeds the child, when the data layer knows it. */
+	stepId?: number;
 	/** A note on the embedding slot, which applies to the child as a whole. */
 	note?: string | null;
 }
@@ -64,20 +74,29 @@ export interface RoutineShape {
  * none disappears with it. Archiving a figure must not be able to stop a
  * routine playing, and a slot that can call nothing is not a slot.
  */
+/**
+ * A slot's option slots at any depth, children spliced in place, without the
+ * graph. A child's own slot note wins; the note on the slot that EMBEDS a child
+ * applies to the whole child, so it stands in where an inner slot has nothing
+ * of its own to say (the nearest embedding note first).
+ */
+export function optionSlots(slot: Slot, note: string | null = null): OptionsSlot[] {
+	if (slot.kind === 'options') return [{ ...slot, note: slot.note ?? note }];
+	return slot.slots.flatMap((s) => optionSlots(s, slot.note ?? note));
+}
+
 export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
 	const out: OptionsSlot[] = [];
 	for (const slot of shape.slots) {
-		for (const s of slot.kind === 'child' ? slot.slots : [slot]) {
+		for (const s of optionSlots(slot)) {
 			const figureIds = s.figureIds.filter((id) => figureById(g, id) !== null);
-			// A child's own slot note wins; the note on the slot that EMBEDS the
-			// child applies to the whole child, so it stands in where an inner slot
-			// has nothing of its own to say.
 			if (figureIds.length > 0) {
 				out.push({
 					kind: 'options',
 					figureIds,
-					note: s.note ?? slot.note ?? null,
+					note: s.note ?? null,
 					...(s.lengths ? { lengths: s.lengths } : {}),
+					...(s.end !== undefined ? { end: s.end } : {}),
 					...(s.stepId !== undefined ? { stepId: s.stepId } : {})
 				});
 			}
@@ -267,6 +286,12 @@ export interface RowEdges {
 	startCounts: number[];
 	/** `[]`: anything can follow. Null: unknown (options disagree, or nothing danceable). */
 	ends: number[] | null;
+	/**
+	 * How the end was reached (`end.ts`), for a row of one options slot; absent
+	 * for an embedded routine or a row with nothing danceable. `ends` is then
+	 * the slot's effective end (spec 2026-11-11, slot end).
+	 */
+	endState?: EndState;
 	next: number | null;
 	/**
 	 * Where the row's main figure starts as the routine walks (`walk`): the
@@ -279,14 +304,21 @@ export interface RowEdges {
 
 const NO_EDGES: RowEdges = { starts: [], startCounts: [], ends: null, next: null, start: null };
 
-function edgesOf(g: Graph, flat: OptionsSlot[], walked: Walked[]): RowEdges {
+function edgesOf(
+	g: Graph,
+	slot: Slot,
+	flat: OptionsSlot[],
+	walked: Walked[],
+	ends: SlotEnd[]
+): RowEdges {
 	if (flat.length === 0) return { ...NO_EDGES };
 	const first = flat[0];
-	const last = flat[flat.length - 1];
+	const end = ends[ends.length - 1];
 	return {
 		starts: slotStarts(g, first),
 		startCounts: slotStartCounts(g, first),
-		ends: slotEnds(g, last),
+		ends: end.ends,
+		...(slot.kind === 'options' ? { endState: end.state } : {}),
 		next: walked[walked.length - 1].next,
 		start: walked[0].start
 	};
@@ -295,7 +327,16 @@ function edgesOf(g: Graph, flat: OptionsSlot[], walked: Walked[]): RowEdges {
 /** One row read on its own, entered on no particular count. */
 export function rowEdges(g: Graph, slot: Slot): RowEdges {
 	const flat = flatten(g, { slots: [slot] });
-	return edgesOf(g, flat, walk(g, flat));
+	return edgesOf(g, slot, flat, walk(g, flat), slotEndsIn(g, flat));
+}
+
+/**
+ * Each flat slot's effective end (`end.ts`), the slot below being the next
+ * one in the run: an embedded routine's first slot, archived-only slots
+ * already gone. The last has none below.
+ */
+export function slotEndsIn(g: Graph, flat: OptionsSlot[]): SlotEnd[] {
+	return flat.map((s, i) => slotEnd(g, s, i + 1 < flat.length ? slotStarts(g, flat[i + 1]) : null));
 }
 
 /**
@@ -304,13 +345,46 @@ export function rowEdges(g: Graph, slot: Slot): RowEdges {
  * it. Parallel to `shape.slots`.
  */
 export function rowEdgesIn(g: Graph, shape: RoutineShape): RowEdges[] {
-	const walked = walk(g, flatten(g, shape));
+	const all = flatten(g, shape);
+	const walked = walk(g, all);
+	const ends = slotEndsIn(g, all);
 	let at = 0;
 	return shape.slots.map((slot) => {
 		const flat = flatten(g, { slots: [slot] });
-		const edges = edgesOf(g, flat, walked.slice(at, at + flat.length));
+		const edges = edgesOf(
+			g,
+			slot,
+			flat,
+			walked.slice(at, at + flat.length),
+			ends.slice(at, at + flat.length)
+		);
 		at += flat.length;
 		return edges;
+	});
+}
+
+/** An options row's end as the editor shows it: its state and the Where does it end? sheet's rows. */
+export interface RowEnd {
+	state: EndState;
+	choices: EndChoice[];
+}
+
+/**
+ * Each editor row's end (spec 2026-11-11, slot end), parallel to
+ * `shape.slots`: null for an embedded routine or a row with nothing
+ * danceable. The slot below is the next one in the run, as in `slotEndsIn`.
+ */
+export function rowEndsIn(g: Graph, shape: RoutineShape): (RowEnd | null)[] {
+	const all = flatten(g, shape);
+	const ends = slotEndsIn(g, all);
+	let at = 0;
+	return shape.slots.map((slot) => {
+		const n = flatten(g, { slots: [slot] }).length;
+		const i = at;
+		at += n;
+		if (slot.kind !== 'options' || n === 0) return null;
+		const below = i + 1 < all.length ? slotStarts(g, all[i + 1]) : null;
+		return { state: ends[i].state, choices: endChoices(g, all[i], below) };
 	});
 }
 
@@ -329,7 +403,7 @@ export function routineStarts(g: Graph, shape: RoutineShape): number[] {
  */
 export function routineEnds(g: Graph, shape: RoutineShape): number[] | null {
 	const flat = flatten(g, shape);
-	return flat.length === 0 ? null : slotEnds(g, flat[flat.length - 1]);
+	return flat.length === 0 ? null : slotEndsIn(g, flat)[flat.length - 1].ends;
 }
 
 /**
@@ -343,9 +417,10 @@ export function routineEnds(g: Graph, shape: RoutineShape): number[] | null {
  */
 export function breaks(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
+	const flatEnds = slotEndsIn(g, flat);
 	const out: number[] = [];
 	for (let i = 0; i + 1 < flat.length; i++) {
-		const ends = slotEnds(g, flat[i]);
+		const ends = flatEnds[i].ends;
 		if (ends === null) continue;
 		if (!meet(ends, slotStarts(g, flat[i + 1]))) out.push(i);
 	}
@@ -411,7 +486,7 @@ export type PositionSeam = TimingSeam;
  * rows; `breaks` still counts it.
  */
 export function positionSeams(g: Graph, shape: RoutineShape): PositionSeam[] {
-	const rows = shape.slots.map((s) => rowEdges(g, s));
+	const rows = rowEdgesIn(g, shape);
 	const out: PositionSeam[] = [];
 	for (let i = 0; i < rows.length; i++) {
 		const ends = rows[i].ends;
@@ -431,7 +506,7 @@ export function positionSeams(g: Graph, shape: RoutineShape): PositionSeam[] {
  * routine is not a seam between rows, as with `positionSeams`.
  */
 export function through(g: Graph, shape: RoutineShape, positionId: number): [number, number][] {
-	const rows = shape.slots.map((s) => rowEdges(g, s));
+	const rows = rowEdgesIn(g, shape);
 	const out: [number, number][] = [];
 	for (let i = 0; i < rows.length; i++) {
 		if (!rows[i].ends?.includes(positionId)) continue;
@@ -453,8 +528,7 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 	const flat = flatten(g, shape);
 	if (flat.length === 0) return false;
 	const first = flat[0];
-	const last = flat[flat.length - 1];
-	const ends = slotEnds(g, last);
+	const ends = slotEndsIn(g, flat)[flat.length - 1].ends;
 	const next = walk(g, flat)[flat.length - 1].next;
 	return (
 		ends !== null &&
@@ -462,4 +536,15 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 		meet(ends, slotStarts(g, first)) &&
 		slotStartCounts(g, first).includes(next)
 	);
+}
+
+/**
+ * How big a routine is, for the Routines list (spec 2026-11-12, L4): the
+ * figures it calls, children at any depth, and the eights they take (each
+ * slot's main figure at its length in the slot, rounded up to whole eights).
+ */
+export function routineSize(g: Graph, shape: RoutineShape): { figures: number; eights: number } {
+	const flat = flatten(g, shape);
+	const counts = flat.reduce((n, s) => n + optionLength(g, s, s.figureIds[0]), 0);
+	return { figures: flat.length, eights: Math.ceil(counts / 8) };
 }

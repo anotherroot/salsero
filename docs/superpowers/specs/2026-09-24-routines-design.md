@@ -1,5 +1,7 @@
 # Routines and the figure graph — design
 
+> **Amended 2026-11-12** ([routine sections](2026-11-12-routine-sections-design.md)): embedding is any depth (never into itself), sections exist, and alternatives are gone — a slot holds one figure, section or routine. Where this document says otherwise, that one wins.
+
 > **Status:** approved in brainstorming, 2026-09-24. Extends
 > [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md), which
 > stays the overall design; this document owns positions, the figure graph,
@@ -330,6 +332,12 @@ existing lever if Today gets noisy.
 > a figure can start on several counts, and a figure whose length is set in the routine keeps a
 > length per slot option (`routine_step_options.length_counts`). Each slot starts where the one
 > before leaves off (`walk`), and the plan spaces by the option's length.
+>
+> **Since 2026-11-11** (slot end, [`2026-11-11-slot-end-design.md`](2026-11-11-slot-end-design.md)):
+> a slot can hold one chosen end (`routine_steps.end_position_id`), for all its options; the slot
+> below decides it when it starts in exactly one of the shared ends. Seams, breaks, the picker and
+> `routineEnds` read that effective end, and an alternative need only reach a fixed end, no longer
+> share every end of the main figure.
 
 A slot needs no length of its own. The plan is built per run *after* options
 are resolved, so the chosen figure's `eights` is what feeds the spacing rule

@@ -57,19 +57,24 @@ export const DEVICE_ENDPOINTS = [
 	'/api/lessons/[id]/comments',
 	'/api/video-spots',
 	'/api/video-spots/[id]/links',
+	// The pickers' preview sheets (picker preview).
+	'/api/figures/[id]/look',
+	'/api/moves/[id]/look',
 	'/[dance]/songs/[id]/grid'
 ];
 
 /**
  * GET endpoints whose files the device keeps (song audio and count takes, 4a;
- * lesson videos and recordings, 4b): the service
+ * lesson videos and recordings, 4b; figure loops): the service
  * worker answers them from the media store (`media-store.ts`), else the network.
  */
 export const MEDIA_ENDPOINTS = [
 	'/audio/[file]',
 	'/count/[file]',
 	'/lesson-videos/[file]',
-	'/recordings/[file]'
+	'/recordings/[file]',
+	// Figure loops (picker preview): the device worker keeps every one of its copy.
+	'/loops/[file]'
 ];
 
 /** Every other GET endpoint: the server's alone. */
@@ -85,6 +90,7 @@ export const NETWORK_ENDPOINTS = [
 	'/api/worker/songs/[id]/audio',
 	'/api/worker/starts',
 	'/api/worker/timelines/[id]/source',
+	'/api/worker/loops/[id]/source',
 	// A feedback message's screenshot: the admin's, from the server alone.
 	'/admin/feedback/[id]/shot',
 	'/releases/[dance]/[file]',
@@ -200,15 +206,20 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		create: 'device'
 	},
 	'/[dance]/(moves)/routines/[id]': {
-		addOption: 'device',
 		addSong: 'device',
 		archive: 'device',
 		copyTo: 'network',
 		deleteMany: 'device',
+		// Make routine and Turn into a section (spec 2026-11-12).
+		demote: 'device',
+		detachHere: 'device',
+		moveInto: 'device',
 		detach: 'network',
 		drop: 'network',
 		duplicate: 'device',
 		duplicateMany: 'device',
+		// A slot's end (spec 2026-11-11, slot end), like its length.
+		end: 'device',
 		extract: 'device',
 		insert: 'device',
 		keep: 'device',
@@ -216,12 +227,13 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		makeMine: 'network',
 		note: 'device',
 		noteSong: 'device',
-		removeOption: 'device',
+		pack: 'device',
+		promote: 'device',
 		removeSong: 'device',
+		unpack: 'device',
 		rename: 'device',
 		reorder: 'device',
 		restore: 'device',
-		restoreOption: 'device',
 		sameAs: 'device',
 		separate: 'device',
 		sync: 'network'
@@ -467,6 +479,7 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/comments/[id]/heart': { POST: 'queued' },
 	'/api/comments/[id]/restore': { POST: 'queued' },
 	'/api/count-takes': { POST: 'network' },
+	'/api/elsewhere/copy': { POST: 'network' },
 	'/api/figures/[id]/recordings': { POST: 'pass' },
 	// A phone-only video's row (offline phase 4c): made on the device first, no file in it.
 	'/api/figures/[id]/recordings/phone': { POST: 'device' },
@@ -498,6 +511,11 @@ export const ENDPOINT_WRITES: Readonly<
 	'/api/worker/songs/[id]/audio': { PUT: 'network' },
 	'/api/worker/songs/[id]/fail': { POST: 'network' },
 	'/api/worker/songs/[id]/start': { POST: 'network' },
+	'/api/worker/loops/[id]/done': { POST: 'network' },
+	'/api/worker/loops/[id]/fail': { POST: 'network' },
+	'/api/worker/loops/[id]/still': { PUT: 'network' },
+	'/api/worker/loops/[id]/strip': { PUT: 'network' },
+	'/api/worker/loops/claim': { POST: 'network' },
 	'/api/worker/timelines/[id]/done': { POST: 'network' },
 	'/api/worker/timelines/[id]/fail': { POST: 'network' },
 	'/api/worker/timelines/[id]/pieces/[k]': { PUT: 'network' },

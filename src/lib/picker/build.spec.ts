@@ -673,3 +673,66 @@ describe('the builders’ words in Slovenian', () => {
 		expect(out.at(-1)?.title).toBe('Skupina: Salsa Tuesdays');
 	});
 });
+
+describe('picker preview: rows carry the look', () => {
+	const look = {
+		hands: 'Abierta (una mano) → Cerrada',
+		length: 8,
+		picture: { strip: '/loops/9-0-1000.jpg', still: '/loops/9-0-1000-still.jpg' }
+	};
+
+	it('a variation with a look: the positions line first, its picture, what the sheet opens', () => {
+		const [h] = variationEntries([{ ...version(4, 1, 'Adios', 'Basic'), look }]);
+		expect(h.rows[0]).toMatchObject({
+			meta: 'Abierta (una mano) → Cerrada · 8 counts',
+			picture: look.picture,
+			look: { kind: 'figure', id: 4 }
+		});
+	});
+
+	it("the look's line goes before a row's own second line", () => {
+		const [h] = variationEntries([
+			{ ...version(4, 1, 'Adios', 'Basic'), look, team: { id: 7, name: 'Intenziuc' } }
+		]);
+		expect(h.rows[0].meta).toMatch(/^Abierta \(una mano\) → Cerrada · 8 counts · Intenziuc/);
+	});
+
+	it('no picture is the empty tile (null), no look is no button at all', () => {
+		const [a] = variationEntries([
+			{ ...version(4, 1, 'Adios', 'Basic'), look: { hands: '', length: 8, picture: null } }
+		]);
+		expect(a.rows[0]).toMatchObject({ meta: '8 counts', picture: null });
+		const [b] = variationEntries([version(5, 2, 'Arriba', 'Basic')]);
+		expect('picture' in b.rows[0]).toBe(false);
+		expect('look' in b.rows[0]).toBe(false);
+	});
+
+	it('a move with a picture opens its own sheet', () => {
+		const [r] = figureRows([
+			{ id: 3, name: 'Adios', variations: ['Basic'], picture: look.picture }
+		]);
+		expect(r).toMatchObject({ picture: look.picture, look: { kind: 'move', id: 3 } });
+		const [s] = figureRows([{ id: 4, name: 'Arriba', variations: ['Basic'] }]);
+		expect('picture' in s).toBe(false);
+	});
+
+	it("the Link popup's variations carry their look", () => {
+		const groups = linkOptionGroups(
+			linkOpts({
+				figures: [
+					{
+						target: { figureId: 4 },
+						label: 'Adios · Basic',
+						drill: false,
+						figure: 'Adios',
+						name: 'Basic',
+						linked: false,
+						look
+					}
+				]
+			})
+		);
+		const rows = groups.flatMap((g) => g.entries).flatMap((e) => (isHeading(e) ? e.rows : [e]));
+		expect(rows[0]).toMatchObject({ picture: look.picture, look: { kind: 'figure', id: 4 } });
+	});
+});

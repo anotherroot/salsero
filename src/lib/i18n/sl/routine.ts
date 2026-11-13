@@ -20,6 +20,16 @@ export const routine: Catalog['routine'] = {
 		why: (next) =>
 			`Alternative nadaljujejo na ${next}, zato ustrezajo le dolžine, ki pristanejo tam.`
 	},
+	end: {
+		title: 'Kje konča?',
+		sub: (figure, n) => `${figure} · mesto ${n}`,
+		ask: 'Konča?',
+		clear: 'Ne izberem — katerikoli konec',
+		altNot: (name) => `Alternativa ${name} ne konča tu`,
+		belowNot: (n) => `Mesto ${n} ne začne tu`,
+		change: (name) => `Konča v: ${name}. Spremenite`,
+		choose: 'Izberite, kje konča'
+	},
 	facts: {
 		from: 'Začetek:',
 		to: 'konec:',
@@ -49,11 +59,11 @@ export const routine: Catalog['routine'] = {
 		duplicate: 'Podvoji',
 		run: (from, to) => `${to - from === 1 ? 'Mesti' : 'Mesta'} ${from}–${to}`,
 		tip: 'Tapnite še druga mesta, da jih dodate.',
-		make: 'Kombinacija',
+		make: 'Sklop',
 		blocked: {
 			embedded: (names) =>
 				`Ta kombinacija je že vstavljena drugam: ${names}. Vstavljanje gre le eno raven globoko.`,
-			none: 'Izberite mesta, iz katerih naj nastane kombinacija.',
+			none: 'Izberite mesta, iz katerih naj nastane sklop.',
 			slotIsRoutine: (n) => `Mesto ${n} je kombinacija — vstavljanje gre le eno raven globoko.`,
 			apart: 'Izberite sosednja mesta.',
 			first: 'Najprej izberite mesta.'
@@ -83,7 +93,47 @@ export const routine: Catalog['routine'] = {
 			}
 		}
 	},
+	section: {
+		unnamed: 'Sklop',
+		open: (name) => `Odpri ${name || 'sklop'} tukaj`,
+		close: (name) => `Zapri ${name || 'sklop'}`,
+		deeper: (level) => `Raven ${level}: odpre se na svoji strani`,
+		inside: (name, n) =>
+			n > 1 ? `V sklopu ${name} · spremembe se pokažejo v ${n} kombinacijah` : `V sklopu ${name}`,
+		more: (n) => `še ${n} više`,
+		level: (n) => `raven ${n}`,
+		where: 'Kje ste',
+		subtitle: (figures, eights) => `Sklop · ${nouns.figures(figures)} · ${nouns.eights(eights)}`,
+		inRoutines: (n) => `V ${n} kombinacijah:`,
+		name: 'Poimenuj',
+		makeRoutine: 'Naredi kombinacijo',
+		makeRoutineMeta: 'Pokaže se med kombinacijami in jo lahko vadite',
+		detachHere: 'Loči tukaj',
+		detachMeta: (routine) => `${routine} dobi svojo kopijo`,
+		unpackInto: (routine) => `Razpakiraj v ${routine}`,
+		unpackMeta: 'Njegova mesta gredo nazaj, kjer je bil',
+		demote: 'Spremeni v sklop',
+		demoteMeta: 'Izgine s seznama kombinacij; ostane, kjer je uporabljena',
+		demoteTitle: (name) => `Spremenim ${name} v sklop?`,
+		demoteBody: (routines, lessons, practised) =>
+			[
+				`Izgine s seznama kombinacij in ostane v: ${routines}.`,
+				lessons ? `Povezave v lekcijah ${lessons} izginejo.` : '',
+				practised > 0 ? `Vadili ste jo ${practised}-krat: izgine iz Danes, zgodovina ostane.` : ''
+			]
+				.filter(Boolean)
+				.join(' '),
+		demoteDo: 'Spremeni v sklop',
+		sectionOf: (routines) => (routines ? `Sklop iz ${routines}` : 'Sklop'),
+		sectioned: (n) => `Sklop iz ${nouns.slots(n)}`,
+		unpacked: (name) => `Razpakirano: ${name || 'sklop'}`,
+		added: (name, n) =>
+			n > 1 ? `Dodano v ${name} · vidno v ${n} kombinacijah` : `Dodano v ${name}`,
+		copied: (n, after) => `Kopirano za mestom ${after}: ${nouns.slots(n)}`
+	},
 	slot: {
+		openCell: 'Odpri',
+		unpack: 'Razpakiraj',
 		aFigure: 'figura',
 		aRoutine: 'kombinacija',
 		archived: (name) => `${name} (arhivirana)`,
@@ -181,6 +231,7 @@ export const routine: Catalog['routine'] = {
 			'Ta figura se ne začne in konča tako kot figura na tem mestu, zato ni alternativa.',
 		length:
 			'Ta dolžina ne ustreza temu mestu: alternative nadaljujejo na drugi dobi ali pa dolžina figure ni določena v kombinaciji.',
+		end: 'Ta konec ne ustreza temu mestu.',
 		holdSomething: 'Mesto ne sme biti prazno.',
 		note: 'Opomba ima lahko največ 200 znakov.',
 		readInsert: 'Ni bilo mogoče prebrati, kaj dodati in kam.',
@@ -192,7 +243,10 @@ export const routine: Catalog['routine'] = {
 		altPutBack: 'Te alternative ni bilo mogoče vrniti.',
 		copySlots: 'Teh mest ni bilo mogoče kopirati.',
 		newName: 'Vpišite ime nove kombinacije (do 200 znakov).',
-		extract:
-			'Iz teh mest ni mogoče narediti kombinacije: biti morajo sosednja in ne smejo vsebovati kombinacije, ta kombinacija pa sama ne sme biti vstavljena nikamor.'
+		demote: 'V sklop lahko spremenite le kombinacijo, ki jo uporablja druga kombinacija.',
+		unpack: 'To mesto nima sklopa ali kombinacije, ki bi jo lahko razpakirali.',
+		detachHere: 'Tu lahko ločite le sklop.',
+		moveInto: 'To mesto ne more tja: znašlo bi se v samem sebi ali pa ni del te kombinacije.',
+		extract: 'Iz teh mest ni mogoče narediti sklopa: biti morajo sosednja.'
 	}
 };

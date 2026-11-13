@@ -57,6 +57,11 @@ export interface GraphPosition {
 export interface Graph {
 	figures: GraphFigure[];
 	positions: GraphPosition[];
+	/**
+	 * Each real position id's canonical id, when the graph was built from a
+	 * place (`SpaceGraph`): what a stored id (a slot's end) is read through.
+	 */
+	canon?: ReadonlyMap<number, number>;
 }
 
 /**

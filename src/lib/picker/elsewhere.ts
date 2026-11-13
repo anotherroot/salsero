@@ -8,8 +8,9 @@
  * PURE and client-safe.
  */
 import { t } from '$lib/i18n/catalog';
-import type { ElsewhereKind, ElsewherePlace, ElsewhereRow } from '$lib/types';
+import type { CopyableRow, ElsewhereKind, ElsewherePlace, ElsewhereRow } from '$lib/types';
 import type { PickEntry, PickGroup, PickHeading, PickRow } from './model';
+import { lookLine } from '$lib/video/loops';
 
 const KINDS: readonly ElsewhereKind[] = ['figure', 'routine', 'drill', 'position'];
 
@@ -18,18 +19,23 @@ const keyOf = (r: ElsewhereRow) => `elsewhere:${r.kind}:${r.id}`;
 function pickRow(r: ElsewhereRow): PickRow {
 	const w = t().picker.elsewhere;
 	const meta =
-		r.sameName !== null
-			? w.hasOwn
-			: r.alsoIn.length > 0
-				? w.alsoIn(r.alsoIn.join(', '))
-				: undefined;
+		r.kind === 'move'
+			? w.newMove
+			: r.sameName !== null
+				? w.hasOwn
+				: r.alsoIn.length > 0
+					? w.alsoIn(r.alsoIn.join(', '))
+					: undefined;
+	// Picker preview: a figure's positions line goes first.
+	const line = [r.look ? lookLine(r.look) : '', meta ?? ''].filter((m) => m !== '').join(' · ');
 	return {
 		key: keyOf(r),
 		value: r.id,
 		label: r.label,
 		...(r.short !== null ? { short: r.short } : {}),
-		...(meta ? { meta } : {}),
-		...(r.sameName !== null ? { warn: true } : {})
+		...(line !== '' ? { meta: line } : {}),
+		...(r.sameName !== null ? { warn: true } : {}),
+		...(r.look ? { picture: r.look.picture, look: { kind: 'figure' as const, id: r.id } } : {})
 	};
 }
 
@@ -70,6 +76,9 @@ export function elsewhereOf(places: ElsewherePlace[], key: string): ElsewhereRow
 	for (const p of places) for (const r of p.rows) if (keyOf(r) === key) return r;
 	return null;
 }
+
+/** A row a copy can bring here: any but a move (a name only). */
+export const copyable = (r: ElsewhereRow): r is CopyableRow => r.kind !== 'move';
 
 /** The group a row was found in, by name; null for the person's own app (or no such row). */
 export function elsewhereFrom(places: ElsewherePlace[], key: string): string | null {

@@ -9,10 +9,9 @@ describe('routineBadges', () => {
 		]);
 	});
 
-	it('adds "does not loop" as warn after the breaks', () => {
+	it('shows only breaks: the loop reads from the start → end line (spec 2026-11-12, L4)', () => {
 		expect(routineBadges({ slots: 5, breaks: 1, loops: false })).toEqual([
-			{ tone: 'danger', text: '1 break' },
-			{ tone: 'warn', text: 'does not loop' }
+			{ tone: 'danger', text: '1 break' }
 		]);
 	});
 
@@ -34,13 +33,12 @@ describe('fromClass', () => {
 describe('in Slovenian', () => {
 	const sl = <T>(fn: () => T) => withLocale('sl', fn);
 
-	it('counts breaks in four forms and words the loop', () => {
+	it('counts breaks in four forms', () => {
 		expect(sl(() => routineBadges({ slots: 8, breaks: 2, loops: true }))).toEqual([
 			{ tone: 'danger', text: '2 prekinitvi' }
 		]);
 		expect(sl(() => routineBadges({ slots: 5, breaks: 5, loops: false }))).toEqual([
-			{ tone: 'danger', text: '5 prekinitev' },
-			{ tone: 'warn', text: 'se ne sklene' }
+			{ tone: 'danger', text: '5 prekinitev' }
 		]);
 	});
 

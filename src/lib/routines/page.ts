@@ -6,7 +6,6 @@
 import { isClash } from '$lib/clash/clash';
 import { t } from '$lib/i18n/catalog';
 import type { RowEdges } from './routines';
-import { anchorAlternative, type Anchor, type Candidate } from './fit';
 
 /** Between the positions of one side: " or ", read at call time. */
 const or = () => ` ${t().figure.or} `;
@@ -78,6 +77,11 @@ export function handsLine(starts: number[], ends: number[], name: (id: number) =
  * for a routine. A side with no position shows nothing ("1→1 · Open →"): it
  * fits anywhere. Ends the options disagree on (`ends` null) say so ("Open →
  * ends differ"), so they never read as "anything follows"; never a "?" for a hold.
+ *
+ * A row that knows its end (`endState`, spec 2026-11-11, slot end) leaves it
+ * to the card, which draws it as a chip or a word, and names no start: the
+ * start is where the slot above ended, and the routine's own start is in the
+ * facts line above the slots.
  */
 export function slotMeta(
 	e: RowEdges,
@@ -85,6 +89,11 @@ export function slotMeta(
 	childSlots: number | null
 ): string {
 	const from = handsLine(e.starts, [], name);
+	if (childSlots === null && e.endState !== undefined) {
+		if (e.startCounts.length === 0) return '';
+		const counts = `${e.start ?? e.startCounts.join('/')}→${e.next ?? '?'}`;
+		return counts;
+	}
 	const differ = t().routine.endsDiffer;
 	const hands =
 		e.ends !== null
@@ -98,11 +107,9 @@ export function slotMeta(
 			: [`${e.start ?? e.startCounts.join('/')}→${e.next ?? '?'}`, hands]
 					.filter((p) => p !== '')
 					.join(' · ');
-	if (childSlots === null) return core;
-	const w = t();
-	return [w.moves.move.routine, w.nouns.slots(childSlots), core]
-		.filter((p) => p !== '')
-		.join(' · ');
+	// A section's or routine's card says what it is with its icon and its size
+	// line (spec 2026-11-12), so its meta is only counts and hands.
+	return core;
 }
 
 /** The text on a seam: how the hands and the count meet the next slot. */
@@ -165,22 +172,4 @@ export function fingerprintToSend(aimed: string, ahead: OwnSend[]): string {
 	let fp = aimed;
 	for (const r of ahead) if (r.sent === fp && r.after !== null) fp = r.after;
 	return fp;
-}
-
-/**
- * The picker's anchor for a slot's + Alternative: the main figure as the routine
- * walks the slot (spec 2026-11-11) — starting where the slot is entered, going
- * on where the slot does — so the picker offers what `addOption` takes. Null
- * when the slot is gone or its main figure is archived.
- */
-export function alternativeAnchor(
-	stepId: number,
-	slots: { id: number; figureIds: number[] }[],
-	edges: RowEdges[],
-	figures: ReadonlyMap<number, Candidate>
-): Anchor | null {
-	const i = slots.findIndex((s) => s.id === stepId);
-	if (i === -1) return null;
-	const slot = slots[i];
-	return anchorAlternative(figures.get(slot.figureIds[0]), slot.figureIds, edges[i]);
 }

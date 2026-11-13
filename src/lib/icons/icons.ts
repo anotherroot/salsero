@@ -21,6 +21,8 @@ const CANONICAL = {
 	copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"></rect><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"></path>',
 	'arrow-up': '<path d="M12 19V5M6.5 10.5L12 5l5.5 5.5"></path>',
 	'arrow-down': '<path d="M12 5v14M6.5 13.5L12 19l5.5-5.5"></path>',
+	// Arrives at a hold: a slot's end (spec 2026-11-11, slot end).
+	'ends-at': '<path d="M4 12h11M11 7.5l4.5 4.5-4.5 4.5"></path><path d="M20 5v14"></path>',
 	minus: '<path d="M5 12h14"></path>',
 	back: '<path d="M15 5l-7 7 7 7"></path>',
 	'chevron-right': '<path d="M9 6l6 6-6 6"></path>',
@@ -95,6 +97,11 @@ const CANONICAL = {
 	grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="2"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="2"></rect>',
 	graph:
 		'<circle cx="5" cy="6" r="2"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="12" cy="18" r="2.5"></circle><path d="M7 6h10M6.1 7.8l4.6 8.1M17.9 7.8l-4.6 8.1"></path>',
+	// A section (spec 2026-11-12, I3): a brace around lines.
+	brace:
+		'<path d="M7 4.5c-1.8 0-2.5.8-2.5 2.6v2.6L3 12l1.5 2.3v2.6c0 1.8.7 2.6 2.5 2.6"></path><path d="M10 8h10M10 12h10M10 16h10"></path>',
+	// Open (spec 2026-11-12): the toolbar's go-to-its-page.
+	'arrow-up-right': '<path d="M7 17L17 7"></path><path d="M9 7h8v8"></path>',
 	route:
 		'<circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="5" r="2.2"></circle><path d="M8.2 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.8"></path>',
 	undo: '<path d="M9 14L4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path>',

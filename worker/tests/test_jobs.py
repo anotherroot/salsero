@@ -520,3 +520,76 @@ def test_run_prepares_timelines_after_songs_before_videos():
     assert jobs.run(api, tools(), video_tools(), timeline_tools=timeline_tools(duration=10.0, sounds=1)) == 3
     kinds = [c[0] for c in api.calls]
     assert kinds.index("post_analysis") < kinds.index("finish") < kinds.index("upload_video")
+
+
+class LoopApi(TimelineApi):
+    def __init__(self, loops=(), gone_on_strip=False, **kw):
+        super().__init__(**kw)
+        self.loops = list(loops)
+        self.gone_on_strip = gone_on_strip
+
+    def claim_loop(self):
+        return self.loops.pop(0) if self.loops else None
+
+    def loop_source_url(self, job_id):
+        return f"http://s/api/worker/loops/{job_id}/source", {"Authorization": "Bearer t"}
+
+    def put_loop(self, job_id, which, path):
+        if self.gone_on_strip:
+            raise JobGone("no longer wanted")
+        self.calls.append(("put_loop", job_id, which, path.name))
+
+    def finish_loop(self, job_id):
+        self.calls.append(("finish_loop", job_id))
+
+    def fail_loop(self, job_id, error, permanent):
+        self.calls.append(("fail_loop", job_id, error, permanent))
+
+
+def loop_tools(error=None):
+    def cut(src, start_ms, end_ms, out, headers):
+        if error:
+            raise error
+        out.mkdir(exist_ok=True)
+        (out / "strip.jpg").write_bytes(b"strip")
+        (out / "still.jpg").write_bytes(b"still")
+        cut.args = (src, start_ms, end_ms, headers)
+        return out / "strip.jpg", out / "still.jpg"
+
+    return jobs.LoopTools(cut=cut)
+
+
+def test_process_loop_uploads_strip_still_then_finishes(tmp_path):
+    api = LoopApi()
+    tools = loop_tools()
+    assert jobs.process_loop({"id": 4, "start_ms": 1000, "end_ms": 7000}, api, tools, tmp_path) is True
+    assert tools.cut.args == ("http://s/api/worker/loops/4/source", 1000, 7000, {"Authorization": "Bearer t"})
+    assert api.calls == [
+        ("put_loop", 4, "strip", "strip.jpg"),
+        ("put_loop", 4, "still", "still.jpg"),
+        ("finish_loop", 4),
+    ]
+
+
+def test_a_gone_loop_is_not_a_failure(tmp_path):
+    api = LoopApi(gone_on_strip=True)
+    assert jobs.process_loop({"id": 4, "start_ms": 0, "end_ms": 1000}, api, loop_tools(), tmp_path) is True
+    assert not [c for c in api.calls if c[0] == "fail_loop"]
+
+
+def test_a_loop_without_any_picture_fails_for_good(tmp_path):
+    api = LoopApi()
+    err = media.PermanentError("No picture in this section.")
+    assert jobs.process_loop({"id": 4, "start_ms": 0, "end_ms": 1000}, api, loop_tools(err), tmp_path) is False
+    assert api.calls[-1] == ("fail_loop", 4, "No picture in this section.", True)
+
+
+def test_run_cuts_loops_after_timelines_and_stops_on_a_transient_failure():
+    api = LoopApi(timelines=[{"id": 3}], loops=[{"id": 4, "start_ms": 0, "end_ms": 1000}, {"id": 5, "start_ms": 0, "end_ms": 1000}])
+    n = jobs.run(
+        api, tools(), timeline_tools=timeline_tools(duration=10.0, sounds=1), loop_tools=loop_tools(RuntimeError("net"))
+    )
+    kinds = [c[0] for c in api.calls]
+    assert kinds.index("finish") < kinds.index("fail_loop")
+    assert [c for c in api.calls if c[0] == "fail_loop"] == [("fail_loop", 4, "RuntimeError: net", False)]
+    assert n == 2

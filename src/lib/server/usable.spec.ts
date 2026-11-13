@@ -5,7 +5,14 @@ import { addRecording, createFigure } from './figures';
 import { createTeam, joinTeam } from './teams';
 import { archiveLesson, createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
 import { addLesson, removeLesson } from './entries';
-import { addChildSlot, addFigureSlot, createRoutine, createRoutineFromFigures } from './routines';
+import {
+	addChildSlot,
+	addFigureSlot,
+	createRoutine,
+	createRoutineFromFigures,
+	insertRoutine
+} from './routines';
+import { routineSteps } from './db/schema';
 import { NO_FILES, T1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
 import {
@@ -65,6 +72,18 @@ describe('usableOf', () => {
 		expect([...u.figures].sort((a, b) => a - b)).toEqual([F, G].sort((a, b) => a - b));
 		expect([...u.routines]).toEqual([R]);
 		expect([...u.drills]).toEqual([]);
+	});
+
+	it('holds a group routine sections at any depth (spec 2026-11-12, review I3)', () => {
+		const { db, R, L } = setup();
+		const S1 = insertRoutine(db, T1_SALSA, { name: 'S1', notes: null, isSection: true }).routine.id;
+		const S2 = insertRoutine(db, T1_SALSA, { name: 'S2', notes: null, isSection: true }).routine.id;
+		db.insert(routineSteps).values({ routineId: R, position: 50, childRoutineId: S1 }).run();
+		db.insert(routineSteps).values({ routineId: S1, position: 0, childRoutineId: S2 }).run();
+		addLesson(db, 'u2', L, NONE, T);
+		const u = usableOf(db, U2_SALSA);
+		expect(u.routines.has(S1)).toBe(true);
+		expect(u.routines.has(S2)).toBe(true);
 	});
 
 	it('gives nothing for a published lesson the person did not add', () => {

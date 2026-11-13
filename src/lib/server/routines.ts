@@ -33,17 +33,19 @@ import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
-import { countsOf, figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
+import { countsOf, figureById, meet, nextCountOf, type Graph } from '$lib/graph/graph';
 import { isLengthCounts, nextCount, startOn } from '$lib/graph/timing';
 import {
 	flatten,
 	loops,
 	optionLength,
+	slotEndsIn,
 	stepIncoming,
 	type OptionsSlot,
 	type RoutineShape,
 	type Slot
 } from '$lib/routines/routines';
+import { endFits, sharedEnds, type SlotEnd } from '$lib/routines/end';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
@@ -88,7 +90,7 @@ function lengthsIn(db: Db | Tx, stepIds: number[]): Map<number, Record<number, n
 
 /** A shape's option slot for one step: its options, note, step id and the lengths it has. */
 function optionsSlot(
-	s: { id: number; note: string | null },
+	s: { id: number; note: string | null; end?: number | null },
 	byStep: Map<number, number[]>,
 	lengths: Map<number, Record<number, number>>
 ): OptionsSlot {
@@ -98,7 +100,8 @@ function optionsSlot(
 		figureIds: byStep.get(s.id) ?? [],
 		note: s.note,
 		stepId: s.id,
-		...(own ? { lengths: own } : {})
+		...(own ? { lengths: own } : {}),
+		...(s.end != null ? { end: s.end } : {})
 	};
 }
 
@@ -116,6 +119,8 @@ const MAIN_FIRST = [asc(routineStepOptions.createdAt), sql`routine_step_options.
 export interface RoutineInput {
 	name: string;
 	notes: string | null;
+	/** A section (spec 2026-11-12): no exercise, never listed as a routine. */
+	isSection?: boolean;
 }
 /**
  * The space a routine row stands in, for the figure graph and the routines it
@@ -140,11 +145,26 @@ type Made = { routine: Routine; exercise: Exercise | null };
 export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
 	const routine = tx
 		.insert(routines)
-		.values({ ...input, ...ownerValues(space) })
+		.values({
+			name: input.name,
+			notes: input.notes,
+			isSection: input.isSection ? 1 : 0,
+			...ownerValues(space)
+		})
 		.returning()
 		.get();
-	if (isTeam(space)) return { routine, exercise: null };
-	const exercise = tx
+	if (isTeam(space) || input.isSection) return { routine, exercise: null };
+	return { routine, exercise: insertExercise(tx, space, routine, everyDays) };
+}
+
+/** A person's routine's exercise; the only writer of `exercises.routine_id`. */
+function insertExercise(
+	tx: Db,
+	space: Space & { userId: string },
+	routine: Routine,
+	everyDays: number
+): Exercise {
+	return tx
 		.insert(exercises)
 		.values({
 			name: routine.name,
@@ -156,7 +176,6 @@ export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDa
 		})
 		.returning()
 		.get();
-	return { routine, exercise };
 }
 
 /**
@@ -224,9 +243,17 @@ export function updateRoutine(
 	return db.transaction((tx) => {
 		const before = getRoutine(tx, id);
 		if (!before) return null;
-		const routine = tx.update(routines).set(input).where(eq(routines.id, id)).returning().get()!;
+		const routine = tx
+			.update(routines)
+			.set({ name: input.name, notes: input.notes })
+			.where(eq(routines.id, id))
+			.returning()
+			.get()!;
 		tx.update(exercises).set({ name: routine.name }).where(eq(exercises.routineId, id)).run();
-		const fields = (r: RoutineInput) => ({ name: r.name, notes: r.notes });
+		const fields = (r: { name: string; notes: string | null }) => ({
+			name: r.name,
+			notes: r.notes
+		});
 		const change = fieldChange(fields(before), fields(routine), 'routine');
 		if (change) logRoutine(tx, routine, by, { verb, ...change }, now);
 		return routine;
@@ -315,7 +342,7 @@ export function listRoutines(db: Db, space: Space): RoutineItem[] {
 		})
 		.from(routines)
 		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
-		.where(and(ownedBy(routines, space), isNull(routines.archivedAt)))
+		.where(and(ownedBy(routines, space), isNull(routines.archivedAt), eq(routines.isSection, 0)))
 		.groupBy(routines.id)
 		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
@@ -344,7 +371,7 @@ export function listAddedRoutines(
 			})
 			.from(routines)
 			.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
-			.where(and(inArray(routines.id, ids), isNull(routines.archivedAt)))
+			.where(and(inArray(routines.id, ids), isNull(routines.archivedAt), eq(routines.isSection, 0)))
 			.groupBy(routines.id)
 			.orderBy(desc(routines.createdAt), desc(routines.id))
 			.all();
@@ -398,7 +425,8 @@ export function listUsableRoutines(
 				inArray(routines.id, ids),
 				eq(routines.dance, wall.dance),
 				isNotNull(routines.teamId),
-				isNull(routines.archivedAt)
+				isNull(routines.archivedAt),
+				eq(routines.isSection, 0)
 			)
 		)
 		.groupBy(routines.id)
@@ -459,7 +487,8 @@ export function routineShapes(
 			id: routineSteps.id,
 			routineId: routineSteps.routineId,
 			childRoutineId: routineSteps.childRoutineId,
-			note: routineSteps.note
+			note: routineSteps.note,
+			end: routineSteps.endPositionId
 		})
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
@@ -482,17 +511,6 @@ export function routineShapes(
 		steps.map((s) => s.id)
 	);
 
-	// A routine’s own option slots, in order. Embedding is one level, so a
-	// routine that IS embedded has none of its own children to worry about and
-	// this is its whole shape.
-	const own = new Map<number, OptionsSlot[]>();
-	for (const s of steps) {
-		if (s.childRoutineId !== null) continue;
-		const list = own.get(s.routineId) ?? [];
-		list.push(optionsSlot(s, byStep, lengths));
-		own.set(s.routineId, list);
-	}
-
 	const out = new Map<number, RoutineShape>();
 	for (const r of db
 		.select({ id: routines.id })
@@ -501,15 +519,19 @@ export function routineShapes(
 		.all()) {
 		out.set(r.id, { slots: [] });
 	}
-	// Routines of another owner: the group's children of a person's slots, and
-	// `extra`. Read only when the person may use them (`usableOf`, worked out only
-	// when there is one): a group routine they no longer read stays closed, its
-	// slots empty. A group's routine reads no other owner's.
+	// Routines of another owner: the group's children of a person's slots, at
+	// any depth, and `extra`. Read only when the person may use them
+	// (`usableOf`, worked out only when there is one): a group routine they no
+	// longer read stays closed, its slots empty. A group's routine reads no
+	// other owner's.
 	let usable = opts.usable;
 	const readable = (id: number) =>
 		!isTeam(space) && (usable ??= usableOf(db, space)).routines.has(id);
 	const more = [...(opts.extra ?? [])];
-	const others = shapesOf(
+	const raw = new Map<number, RawStep[]>();
+	for (const s of steps) raw.set(s.routineId, [...(raw.get(s.routineId) ?? []), s]);
+	for (const id of out.keys()) if (!raw.has(id)) raw.set(id, []);
+	const others = stepsOf(
 		db,
 		space.dance,
 		[
@@ -518,78 +540,110 @@ export function routineShapes(
 			),
 			...more.filter((id) => !out.has(id))
 		].filter(readable),
-		readable
+		readable,
+		new Set(out.keys())
 	);
-	for (const s of steps) {
-		const other = s.childRoutineId === null ? undefined : others.get(s.childRoutineId);
-		const slot: Slot =
+	for (const [id, list] of others.raw) raw.set(id, list);
+	for (const [id, list] of others.byStep) byStep.set(id, list);
+	for (const [id, l] of others.lengths) lengths.set(id, l);
+	const build = shapeBuilder(raw, byStep, lengths);
+	for (const id of out.keys()) out.set(id, { slots: build(id) });
+	for (const id of more) if (!out.has(id) && raw.has(id)) out.set(id, { slots: build(id) });
+	return out;
+}
+
+type RawStep = {
+	id: number;
+	routineId: number;
+	childRoutineId: number | null;
+	note: string | null;
+	end: number | null;
+};
+
+/**
+ * Builds shapes from raw steps, children at any depth (spec 2026-11-12). A
+ * routine met again on its own way down is a cycle the writes refuse
+ * (`canEmbed`); a hand-made one stops here with an empty child instead of
+ * looping.
+ */
+function shapeBuilder(
+	raw: Map<number, RawStep[]>,
+	byStep: Map<number, number[]>,
+	lengths: Map<number, Record<number, number>>
+): (id: number) => Slot[] {
+	const memo = new Map<number, Slot[]>();
+	const visiting = new Set<number>();
+	const build = (id: number): Slot[] => {
+		const known = memo.get(id);
+		if (known) return known;
+		if (visiting.has(id)) return [];
+		visiting.add(id);
+		const slots: Slot[] = (raw.get(id) ?? []).map((s) =>
 			s.childRoutineId === null
 				? optionsSlot(s, byStep, lengths)
 				: {
 						kind: 'child',
 						routineId: s.childRoutineId,
-						slots: other ? flatSlots(other) : (own.get(s.childRoutineId) ?? []),
-						note: s.note
-					};
-		out.get(s.routineId)?.slots.push(slot);
-	}
-	for (const id of more) {
-		const shape = others.get(id);
-		if (shape && !out.has(id)) out.set(id, shape);
-	}
-	return out;
-}
-
-/** A shape's slots as one run of option slots: an embedded routine's spliced in, its note standing in. */
-function flatSlots(shape: RoutineShape): OptionsSlot[] {
-	return shape.slots.flatMap((s) =>
-		s.kind === 'options' ? [s] : s.slots.map((c) => ({ ...c, note: c.note ?? s.note ?? null }))
-	);
+						slots: raw.has(s.childRoutineId) ? build(s.childRoutineId) : [],
+						note: s.note,
+						stepId: s.id
+					}
+		);
+		visiting.delete(id);
+		memo.set(id, slots);
+		return slots;
+	};
+	return build;
 }
 
 /**
- * These routines of the dance, whoever owns them, as shapes: their slots, and
- * an embedded routine's own option slots when `readable` says it may be read
- * (else that child has none). Ids of another dance are left out; the caller has
- * checked `ids` themselves.
+ * The raw steps of other owners' routines (`ids`, read only when `readable`),
+ * and of their children at any depth, with their options and lengths. `have`
+ * are routines already loaded, never fetched again.
  */
-function shapesOf(
+function stepsOf(
 	db: Db,
 	dance: string,
 	ids: number[],
-	readable: (id: number) => boolean
-): Map<number, RoutineShape> {
-	const out = new Map<number, RoutineShape>();
-	const wanted = [...new Set(ids)];
-	if (wanted.length === 0) return out;
-	const live = db
-		.select({ id: routines.id })
-		.from(routines)
-		.where(and(inArray(routines.id, wanted), eq(routines.dance, dance)))
-		.all()
-		.map((r) => r.id);
-	if (live.length === 0) return out;
-	const stepsIn = (routineIds: number[]) =>
-		routineIds.length === 0
-			? []
-			: db
-					.select({
-						id: routineSteps.id,
-						routineId: routineSteps.routineId,
-						childRoutineId: routineSteps.childRoutineId,
-						note: routineSteps.note
-					})
-					.from(routineSteps)
-					.where(inArray(routineSteps.routineId, routineIds))
-					.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
-					.all();
-	const top = stepsIn(live);
-	const nested = stepsIn(
-		[...new Set(top.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))].filter(
-			readable
-		)
-	).filter((s) => s.childRoutineId === null);
-	const stepIds = [...top, ...nested].map((s) => s.id);
+	readable: (id: number) => boolean,
+	have: Set<number>
+): {
+	raw: Map<number, RawStep[]>;
+	byStep: Map<number, number[]>;
+	lengths: Map<number, Record<number, number>>;
+} {
+	const raw = new Map<number, RawStep[]>();
+	const all: RawStep[] = [];
+	let frontier = [...new Set(ids)].filter((id) => !have.has(id));
+	while (frontier.length > 0) {
+		const live = db
+			.select({ id: routines.id })
+			.from(routines)
+			.where(and(inArray(routines.id, frontier), eq(routines.dance, dance)))
+			.all()
+			.map((r) => r.id);
+		for (const id of frontier) have.add(id);
+		if (live.length === 0) break;
+		for (const id of live) raw.set(id, []);
+		const found = db
+			.select({
+				id: routineSteps.id,
+				routineId: routineSteps.routineId,
+				childRoutineId: routineSteps.childRoutineId,
+				note: routineSteps.note,
+				end: routineSteps.endPositionId
+			})
+			.from(routineSteps)
+			.where(inArray(routineSteps.routineId, live))
+			.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
+			.all();
+		for (const s of found) raw.get(s.routineId)!.push(s);
+		all.push(...found);
+		frontier = [
+			...new Set(found.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))
+		].filter((id) => !have.has(id) && readable(id));
+	}
+	const stepIds = all.map((s) => s.id);
 	const byStep = groupByStep(
 		stepIds.length === 0
 			? []
@@ -600,25 +654,7 @@ function shapesOf(
 					.orderBy(...MAIN_FIRST)
 					.all()
 	);
-	const lengths = lengthsIn(db, stepIds);
-	const optionsOf = (s: { id: number; note: string | null }): OptionsSlot =>
-		optionsSlot(s, byStep, lengths);
-	const inner = new Map<number, OptionsSlot[]>();
-	for (const s of nested) inner.set(s.routineId, [...(inner.get(s.routineId) ?? []), optionsOf(s)]);
-	for (const id of live) out.set(id, { slots: [] });
-	for (const s of top) {
-		out.get(s.routineId)!.slots.push(
-			s.childRoutineId === null
-				? optionsOf(s)
-				: {
-						kind: 'child',
-						routineId: s.childRoutineId,
-						slots: inner.get(s.childRoutineId) ?? [],
-						note: s.note
-					}
-		);
-	}
-	return out;
+	return { raw, byStep, lengths: lengthsIn(db, stepIds) };
 }
 
 /**
@@ -633,7 +669,8 @@ export function routineSlots(db: Db, routineId: number, usable?: Usable): SlotRo
 			id: routineSteps.id,
 			position: routineSteps.position,
 			note: routineSteps.note,
-			childId: routineSteps.childRoutineId
+			childId: routineSteps.childRoutineId,
+			end: routineSteps.endPositionId
 		})
 		.from(routineSteps)
 		.where(eq(routineSteps.routineId, routineId))
@@ -962,13 +999,29 @@ export function canEmbed(db: Db, parentId: number, childId: number, usable?: Usa
 	const parent = getRoutine(db, parentId);
 	const child = getRoutine(db, childId);
 	if (!parent || !child || !mayHold(db, parent, 'routines', child, usable)) return false;
-	const childEmbeds = db
-		.select({ id: routineSteps.id })
-		.from(routineSteps)
-		.where(and(eq(routineSteps.routineId, childId), isNotNull(routineSteps.childRoutineId)))
-		.get();
-	if (childEmbeds) return false;
-	return embeddedIn(db, parentId).length === 0;
+	// Any depth (spec 2026-11-12): the one rule is that nothing ends up inside itself.
+	return !holds(db, childId, parentId);
+}
+
+/**
+ * Whether `innerId` sits anywhere inside `outerId`, at any depth. Archival is not
+ * consulted: an archived child still plays where it is held.
+ */
+export function holds(db: Db, outerId: number, innerId: number): boolean {
+	const seen = new Set<number>([outerId]);
+	let frontier = [outerId];
+	while (frontier.length > 0) {
+		const children = db
+			.selectDistinct({ id: routineSteps.childRoutineId })
+			.from(routineSteps)
+			.where(and(inArray(routineSteps.routineId, frontier), isNotNull(routineSteps.childRoutineId)))
+			.all()
+			.map((r) => r.id!);
+		if (children.includes(innerId)) return true;
+		frontier = children.filter((id) => !seen.has(id));
+		for (const id of frontier) seen.add(id);
+	}
+	return false;
 }
 
 /**
@@ -980,34 +1033,88 @@ export function embeddable(
 	db: Db,
 	routineId: number,
 	given?: Usable
-): { id: number; name: string; team?: TeamRef }[] {
+): {
+	id: number;
+	name: string;
+	team?: TeamRef;
+	isSection: boolean;
+	holders: { id: number; name: string }[];
+}[] {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return [];
 	const space = ownerSpace(routine);
 	const usable = isTeam(space) ? undefined : (given ?? usableOf(db, space));
 	const whose = ownedOrUsable(routines, space, usable?.routines);
 	const rows = db
-		.select({ id: routines.id, name: routines.name, teamId: routines.teamId })
+		.select({
+			id: routines.id,
+			name: routines.name,
+			teamId: routines.teamId,
+			isSection: routines.isSection
+		})
 		.from(routines)
 		.where(and(whose, isNull(routines.archivedAt)))
 		.orderBy(asc(routines.name), asc(routines.id))
 		.all()
+		// An unnamed section belongs to its one place: never offered (spec 2026-11-12).
+		.filter((r) => !(r.isSection === 1 && r.name === ''))
 		.filter((r) => canEmbed(db, routineId, r.id, usable));
+	const holders = holdersOf(
+		db,
+		rows.filter((r) => r.isSection === 1).map((r) => r.id),
+		[
+			routine,
+			...rows.filter((r) => r.teamId !== null).map((r) => ({ userId: null, teamId: r.teamId }))
+		]
+	);
 	// A group's routine the person may use carries its group, for the picker's heading.
 	const teams = teamRefs(
 		db,
 		rows.flatMap((r) => (r.teamId === null || isTeam(space) ? [] : [r.teamId]))
 	);
-	return rows.map(({ teamId, ...r }) => {
+	return rows.map(({ teamId, isSection, ...r }) => {
 		const team = teamId === null ? undefined : teams.get(teamId);
-		return team ? { ...r, team } : r;
+		const row = { ...r, isSection: isSection === 1, holders: holders.get(r.id) ?? [] };
+		return team ? { ...row, team } : row;
 	});
+}
+
+/**
+ * The live routines (and sections) that directly hold each of `ids`, by name: only
+ * those of `owners` (review I1: never another person's routine names).
+ */
+export function holdersOf(
+	db: Db,
+	ids: number[],
+	owners: { userId: string | null; teamId: number | null }[]
+): Map<number, { id: number; name: string }[]> {
+	const out = new Map<number, { id: number; name: string }[]>();
+	if (ids.length === 0) return out;
+	for (const r of db
+		.selectDistinct({
+			child: routineSteps.childRoutineId,
+			id: routines.id,
+			name: routines.name,
+			userId: routines.userId,
+			teamId: routines.teamId
+		})
+		.from(routineSteps)
+		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+		.where(and(inArray(routineSteps.childRoutineId, ids), isNull(routines.archivedAt)))
+		.orderBy(asc(routines.name), asc(routines.id))
+		.all()) {
+		if (!owners.some((o) => o.userId === r.userId && o.teamId === r.teamId)) continue;
+		out.set(r.child!, [...(out.get(r.child!) ?? []), { id: r.id, name: r.name }]);
+	}
+	return out;
 }
 
 /** A slot as the routine walks it: the count it is entered on, and its options' lengths. */
 interface SlotHere {
 	incoming: number | null;
 	slot: OptionsSlot;
+	/** Where the routine has this slot end (`end.ts`); null when the shape no longer holds it. */
+	end: SlotEnd | null;
 }
 
 /**
@@ -1017,9 +1124,12 @@ interface SlotHere {
  */
 function slotHere(db: Db, routine: Routine, g: Graph, stepId: number): SlotHere {
 	const shape = routineShapes(db, ownerSpace(routine)).get(routine.id) ?? { slots: [] };
-	const slot = flatten(g, shape).find((s) => s.stepId === stepId);
+	const flat = flatten(g, shape);
+	const at = flat.findIndex((s) => s.stepId === stepId);
+	const slot = at === -1 ? undefined : flat[at];
 	return {
 		incoming: stepIncoming(g, shape, stepId) ?? null,
+		end: at === -1 ? null : slotEndsIn(g, flat)[at],
 		slot: slot ?? {
 			kind: 'options',
 			figureIds: [],
@@ -1100,12 +1210,7 @@ export function addOption(
 	for (const o of existing) {
 		const other = landingIn(g, o.figureId);
 		const at = timingIn(g, here, o.figureId);
-		if (
-			other === null ||
-			at === null ||
-			!sameSet(other.ends, landing.ends) ||
-			at.next !== mine.next
-		) {
+		if (other === null || at === null || at.next !== mine.next) {
 			return false;
 		}
 	}
@@ -1115,12 +1220,64 @@ export function addOption(
 	// are left as they are — it governs adding, it is not a migration.
 	const main = existing.length > 0 ? landingIn(g, existing[0].figureId) : null;
 	const mainAt = existing.length > 0 ? timingIn(g, here, existing[0].figureId) : null;
+	// Ends (spec 2026-11-11, slot end): with one end fixed, an alternative need only
+	// reach it; otherwise the main figure's set of ends, compared by family.
+	if (main && !endFits(landing.ends, here.end?.ends ?? null, main.ends)) return false;
 	if (main && (mainAt?.start !== mine.start || !meet(main.starts, landing.starts))) {
 		return false;
 	}
 	db.transaction((tx) => {
 		tx.insert(routineStepOptions).values({ stepId, figureId, lengthCounts }).run();
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+	});
+	return true;
+}
+
+/**
+ * Where a slot ends: the Where does it end? sheet (spec 2026-11-11, slot end).
+ * `positionId` is a real position id, kept as given; null clears. False,
+ * writing nothing, when the step or its routine is gone, the step embeds a
+ * routine, or the position is not one the routine's owner may use (live, in
+ * reach: the graph's `canon`) and every option can end in (`sharedEnds`, by
+ * family). In a group, `by` is who, for History.
+ */
+export function setSlotEnd(
+	db: Db,
+	stepId: number,
+	positionId: number | null,
+	by?: string
+): boolean {
+	const step = db
+		.select({
+			routineId: routineSteps.routineId,
+			childId: routineSteps.childRoutineId,
+			end: routineSteps.endPositionId
+		})
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	if (!step || step.childId !== null) return false;
+	const routine = getRoutine(db, step.routineId);
+	if (!routine) return false;
+	if (positionId !== null) {
+		const g = graphFor(db, ownerSpace(routine));
+		const family = g.canon.get(positionId);
+		const shared = sharedEnds(g, slotHere(db, routine, g, stepId).slot) ?? [];
+		if (family === undefined || !shared.includes(family)) return false;
+	}
+	if (step.end === positionId) return true;
+	db.transaction((tx) => {
+		tx.update(routineSteps)
+			.set({ endPositionId: positionId })
+			.where(eq(routineSteps.id, stepId))
+			.run();
+		logRoutine(tx, routine, by, {
+			verb: 'change',
+			subject: 'slot',
+			subjectId: stepId,
+			before: { end: step.end },
+			after: { end: positionId }
+		});
 	});
 	return true;
 }
@@ -1309,7 +1466,8 @@ export function deleteSlots(
 				id: routineSteps.id,
 				position: routineSteps.position,
 				childId: routineSteps.childRoutineId,
-				note: routineSteps.note
+				note: routineSteps.note,
+				end: routineSteps.endPositionId
 			})
 			.from(routineSteps)
 			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
@@ -1324,6 +1482,7 @@ export function deleteSlots(
 			note: s.note,
 			figureIds: options.get(s.id) ?? [],
 			...(lengths.has(s.id) ? { lengths: lengths.get(s.id) } : {}),
+			...(s.end !== null ? { end: s.end } : {}),
 			deletedAt: now
 		}));
 		// Options first: `routine_step_options.step_id` references the step and
@@ -1332,6 +1491,11 @@ export function deleteSlots(
 		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
 		order(tx, slotIds(tx, routineId));
 		reconcileRoutine(tx, routineId, now);
+		// A section whose last use this was goes to Recently deleted (spec 2026-11-12).
+		{
+			const owner = getRoutine(tx, routineId)!;
+			for (const s of steps) if (s.childId !== null) archiveIfUnused(tx, s.childId, now, owner);
+		}
 		const routine = getRoutine(tx, routineId)!;
 		logRoutine(
 			tx,
@@ -1388,13 +1552,31 @@ export function restoreSlots(
 	if (snapshot.some((s) => s.childId !== null && !canEmbed(db, routineId, s.childId, usable))) {
 		return false;
 	}
+	// A posted-back end is kept only when it is a live position the routine's owner
+	// may use; whether the slot can end there is read later, like any stored end.
+	const inReach = snapshot.some((s) => s.end !== undefined) ? graphFor(db, space).canon : null;
+	const endOf = (s: SlotSnapshot) => (s.end !== undefined && inReach?.has(s.end) ? s.end : null);
 	return db.transaction((tx) => {
+		// Sections archived by the delete come back with their slot (spec 2026-11-12).
+		const childIds = snapshot.flatMap((s) => (s.childId === null ? [] : [s.childId]));
+		if (childIds.length > 0) {
+			tx.update(routines)
+				.set({ archivedAt: null })
+				.where(and(inArray(routines.id, childIds), eq(routines.isSection, 1)))
+				.run();
+		}
 		const back: number[] = [];
 		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
 			const ids = slotIds(tx, routineId);
 			const step = tx
 				.insert(routineSteps)
-				.values({ routineId, position: ids.length, childRoutineId: s.childId, note: s.note })
+				.values({
+					routineId,
+					position: ids.length,
+					childRoutineId: s.childId,
+					note: s.note,
+					endPositionId: endOf(s)
+				})
 				.returning({ id: routineSteps.id })
 				.get();
 			insertOptions(tx, step.id, s.figureIds, (figureId) => {
@@ -1487,30 +1669,17 @@ export function duplicateSlots(
 			.select({
 				id: routineSteps.id,
 				childId: routineSteps.childRoutineId,
-				note: routineSteps.note
+				note: routineSteps.note,
+				end: routineSteps.endPositionId
 			})
 			.from(routineSteps)
 			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
 			.orderBy(asc(routineSteps.position))
 			.all();
 		if (steps.length !== wanted.length) return null;
-		const options = optionsIn(tx, wanted);
-		const lengths = lengthsIn(tx, wanted);
 		const ids = slotIds(tx, routineId);
-		const copies = steps.map((s, k) => {
-			const copy = tx
-				.insert(routineSteps)
-				.values({ routineId, position: ids.length + k, childRoutineId: s.childId, note: s.note })
-				.returning({ id: routineSteps.id })
-				.get();
-			insertOptions(
-				tx,
-				copy.id,
-				options.get(s.id) ?? [],
-				(figureId) => lengths.get(s.id)?.[figureId] ?? null
-			);
-			return copy.id;
-		});
+		// An unnamed section is deep-copied: it belongs to its one place (spec 2026-11-12).
+		const copies = copyRows(tx, steps, routineId, ownerSpace(getRoutine(tx, routineId)!));
 		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
 		ids.splice(last + 1, 0, ...copies);
 		order(tx, ids);
@@ -1541,26 +1710,24 @@ export function embeddedIn(db: Db, routineId: number): { id: number; name: strin
 }
 
 /**
- * "Make routine": pull a contiguous run of slots out into a new routine — with
- * its exercise, as every routine has — and put one slot embedding it where the
- * run was. The slots MOVE (their rows change routine), so options, the main
- * figure and notes come along untouched.
+ * Section (spec 2026-11-12): pull a contiguous run of slots out into a new
+ * unnamed section (no exercise, never listed) and put one slot embedding it
+ * where the run was. The slots MOVE (their rows change routine), so options,
+ * notes and embedded children come along untouched. Any depth: a run may hold
+ * embedded slots, and this routine may itself be embedded.
  *
  * Null, with nothing written, when the run has a gap (pulling slots 2 and 5 out
- * would silently reorder the routine), holds an embedded routine, or this
- * routine is itself embedded somewhere — the one-level rule seen from the new
- * routine's side, so no new rule is introduced.
+ * would silently reorder the routine).
  */
-export function extractRoutine(
+export function makeSection(
 	db: Db,
 	routineId: number,
 	stepIds: number[],
-	name: string,
 	by?: string
-): { routineId: number; stepId: number } | null {
+): { sectionId: number; stepId: number } | null {
 	const routine = getRoutine(db, routineId);
 	const wanted = [...new Set(stepIds)];
-	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
+	if (!routine || wanted.length === 0) return null;
 	const space = actingIn(routine, by);
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
@@ -1570,11 +1737,11 @@ export function extractRoutine(
 			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
 			.orderBy(asc(routineSteps.position))
 			.all();
-		if (run.length !== wanted.length || run.some((s) => s.childId !== null)) return null;
+		if (run.length !== wanted.length) return null;
 		const at = ids.indexOf(run[0].id);
 		if (ids.indexOf(run[run.length - 1].id) - at !== run.length - 1) return null;
 
-		const made = insertRoutine(tx, space, { name, notes: null }, 3);
+		const made = insertRoutine(tx, space, { name: '', notes: null, isSection: true });
 		run.forEach((s, k) =>
 			tx
 				.update(routineSteps)
@@ -1598,9 +1765,9 @@ export function extractRoutine(
 			verb: 'add',
 			subject: 'extract',
 			subjectId: made.routine.id,
-			after: { name }
+			after: { name: '' }
 		});
-		return { routineId: made.routine.id, stepId: step.id };
+		return { sectionId: made.routine.id, stepId: step.id };
 	});
 }
 
@@ -1617,8 +1784,9 @@ export function extractRoutine(
 export function duplicateRoutine(db: Db, id: number, by?: string) {
 	const source = getRoutine(db, id);
 	if (!source) return null;
-	const { dance, userId, teamId } = source;
-	const slots = routineSlots(db, id);
+	// A section is held, never listed: a copy would be one nothing holds (review I4).
+	if (source.isSection === 1) return null;
+	const { dance, userId, teamId, isSection } = source;
 
 	return db.transaction((tx) => {
 		const routine = tx
@@ -1628,12 +1796,13 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 				userId,
 				teamId,
 				name: t().routine.copyName(source.name),
-				notes: source.notes
+				notes: source.notes,
+				isSection
 			})
 			.returning()
 			.get();
 		// A group's routine has no exercise of its own: see `insertRoutine`.
-		if (teamId === null) {
+		if (teamId === null && isSection === 0) {
 			tx.insert(exercises)
 				.values({
 					name: routine.name,
@@ -1646,20 +1815,323 @@ export function duplicateRoutine(db: Db, id: number, by?: string) {
 				.run();
 		}
 
-		for (const slot of slots) {
-			const step = tx
-				.insert(routineSteps)
-				.values({
-					routineId: routine.id,
-					position: slot.position,
-					childRoutineId: slot.childId,
-					note: slot.note
-				})
-				.returning({ id: routineSteps.id })
-				.get();
-			insertOptions(tx, step.id, slot.figureIds, (figureId) => slot.lengths[figureId] ?? null);
-		}
+		// Named sections and routines by reference, unnamed sections deep-copied (spec 2026-11-12).
+		copyRows(tx, rowsOf(tx, id), routine.id, ownerSpace(routine));
 		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });
 		return routine;
+	});
+}
+
+/**
+ * Make routine (spec 2026-11-12): a section becomes a routine, in the Routines
+ * list and practisable, with a fresh exercise in a person's space (a group's
+ * routine has none). An unnamed section takes `name`; refused without one.
+ */
+export function promoteSection(
+	db: Db,
+	sectionId: number,
+	name: string | null,
+	by?: string
+): boolean {
+	const section = getRoutine(db, sectionId);
+	if (!section || section.isSection !== 1) return false;
+	const named = (name ?? '').trim() || section.name;
+	if (!named) return false;
+	const space = actingIn(section, by);
+	return db.transaction((tx) => {
+		const routine = tx
+			.update(routines)
+			.set({ isSection: 0, name: named })
+			.where(eq(routines.id, sectionId))
+			.returning()
+			.get()!;
+		const owner = ownerSpace(routine);
+		if (!isTeam(owner)) {
+			// Back from Turn into a section: its exercise and history return (review C3).
+			const back = tx
+				.update(exercises)
+				.set({ archivedAt: null, name: routine.name })
+				.where(and(eq(exercises.routineId, routine.id), eq(exercises.userId, owner.userId)))
+				.run();
+			if (back.changes === 0) insertExercise(tx, owner, routine, 3);
+		}
+		logRoutine(tx, routine, space, {
+			verb: 'change',
+			subject: 'promote',
+			before: { name: section.name },
+			after: { name: named }
+		});
+		return true;
+	});
+}
+
+/** A routine's step rows, in order, as copies and moves read them. */
+function rowsOf(tx: Db, routineId: number) {
+	return tx
+		.select({
+			id: routineSteps.id,
+			childId: routineSteps.childRoutineId,
+			note: routineSteps.note,
+			end: routineSteps.endPositionId
+		})
+		.from(routineSteps)
+		.where(eq(routineSteps.routineId, routineId))
+		.orderBy(asc(routineSteps.position))
+		.all();
+}
+
+const isUnnamedSection = (r: { isSection: number; name: string } | null) =>
+	r !== null && r.isSection === 1 && r.name === '';
+
+/**
+ * Copies step rows into `routineId`, appended (callers place them): options in
+ * order with their lengths, notes, ends; a named section or routine child by
+ * reference, an unnamed section deep-copied (it belongs to its one place, spec
+ * 2026-11-12). The copies' ids, in order.
+ */
+function copyRows(
+	tx: Tx,
+	rows: { id: number; childId: number | null; note: string | null; end: number | null }[],
+	routineId: number,
+	space: Space
+): number[] {
+	const ids = rows.map((r) => r.id);
+	const options = optionsIn(tx, ids);
+	const lengths = lengthsIn(tx, ids);
+	let at = slotIds(tx, routineId).length;
+	return rows.map((s) => {
+		const child =
+			s.childId !== null && isUnnamedSection(getRoutine(tx, s.childId))
+				? copySection(tx, s.childId, space, '')
+				: s.childId;
+		const copy = tx
+			.insert(routineSteps)
+			.values({
+				routineId,
+				position: at++,
+				childRoutineId: child,
+				note: s.note,
+				endPositionId: s.end
+			})
+			.returning({ id: routineSteps.id })
+			.get();
+		insertOptions(tx, copy.id, options.get(s.id) ?? [], (f) => lengths.get(s.id)?.[f] ?? null);
+		return copy.id;
+	});
+}
+
+/** A plain copy of a section (no gene: not a clone), its rows copied in. */
+function copySection(tx: Tx, sectionId: number, space: Space, name: string): number {
+	const made = insertRoutine(tx, space, { name, notes: null, isSection: true });
+	copyRows(tx, rowsOf(tx, sectionId), made.routine.id, space);
+	return made.routine.id;
+}
+
+/**
+ * A section no live slot holds any more is archived (spec 2026-11-12): to
+ * Recently deleted, restorable; pickers stop offering it. Routines are never
+ * touched: they stand on their own in the list.
+ */
+export function archiveIfUnused(
+	tx: Db,
+	sectionId: number,
+	now = serverNow(),
+	/** The routine that lost the use: only a section of its owner is archived (review I2). */
+	owner?: { userId: string | null; teamId: number | null }
+): void {
+	const section = getRoutine(tx, sectionId);
+	if (!section || section.isSection !== 1 || section.archivedAt !== null) return;
+	if (owner && (section.userId !== owner.userId || section.teamId !== owner.teamId)) return;
+	const held = tx
+		.select({ id: routineSteps.id })
+		.from(routineSteps)
+		.where(eq(routineSteps.childRoutineId, sectionId))
+		.get();
+	if (!held) tx.update(routines).set({ archivedAt: now }).where(eq(routines.id, sectionId)).run();
+}
+
+/** The slot `stepId` of `routineId` and what it embeds, or null. */
+function childStep(tx: Db, routineId: number, stepId: number) {
+	const step = tx
+		.select({ id: routineSteps.id, childId: routineSteps.childRoutineId })
+		.from(routineSteps)
+		.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
+		.get();
+	if (!step || step.childId === null) return null;
+	const child = getRoutine(tx, step.childId);
+	return child ? { step, child } : null;
+}
+
+/**
+ * Unpack (spec 2026-11-12): the child's slots take the slot's place. An unnamed
+ * section's rows MOVE and it is archived; a named section's or a routine's are
+ * COPIED and it stays where else it is used (a named section whose last use
+ * this was is archived). Acts on this one slot only.
+ */
+export function unpackSlot(
+	db: Db,
+	routineId: number,
+	stepId: number,
+	by?: string,
+	now = serverNow()
+): { stepIds: number[]; sectionId: number } | null {
+	const routine = getRoutine(db, routineId);
+	if (!routine) return null;
+	const space = ownerSpace(routine);
+	return db.transaction((tx) => {
+		const found = childStep(tx, routineId, stepId);
+		if (!found) return null;
+		const { child } = found;
+		const ids = slotIds(tx, routineId);
+		const at = ids.indexOf(stepId);
+		let moved: number[];
+		if (isUnnamedSection(child)) {
+			moved = rowsOf(tx, child.id).map((r) => r.id);
+			moved.forEach((id, k) =>
+				tx
+					.update(routineSteps)
+					.set({ routineId, position: ids.length + 1000 + k })
+					.where(eq(routineSteps.id, id))
+					.run()
+			);
+		} else {
+			moved = copyRows(tx, rowsOf(tx, child.id), routineId, space);
+		}
+		tx.delete(routineSteps).where(eq(routineSteps.id, stepId)).run();
+		const rest = ids.filter((id) => id !== stepId);
+		rest.splice(at, 0, ...moved);
+		order(tx, rest);
+		archiveIfUnused(tx, child.id, now, routine);
+		logRoutine(tx, routine, by, { verb: 'change', subject: 'unpack', subjectId: child.id }, now);
+		return { stepIds: moved, sectionId: child.id };
+	});
+}
+
+/**
+ * Unpack's Undo: the slots go back into `sectionId` (moved back for an unnamed
+ * one, the copies removed for a named one or a routine) and one slot holding
+ * it takes their place; the section is unarchived. The new slot's id, or null.
+ */
+export function packSlots(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	sectionId: number,
+	by?: string
+): number | null {
+	const routine = getRoutine(db, routineId);
+	const section = getRoutine(db, sectionId);
+	if (!routine || !section || stepIds.length === 0) return null;
+	// Review C1: never another owner's row, never a cycle.
+	if (section.userId !== routine.userId || section.teamId !== routine.teamId) return null;
+	if (sectionId === routineId || holds(db, sectionId, routineId)) return null;
+	return db.transaction((tx) => {
+		const ids = slotIds(tx, routineId);
+		if (stepIds.some((id) => !ids.includes(id))) return null;
+		const at = Math.min(...stepIds.map((id) => ids.indexOf(id)));
+		tx.update(routines).set({ archivedAt: null }).where(eq(routines.id, sectionId)).run();
+		if (isUnnamedSection(section)) {
+			stepIds.forEach((id, k) =>
+				tx
+					.update(routineSteps)
+					.set({ routineId: sectionId, position: 100000 + k })
+					.where(eq(routineSteps.id, id))
+					.run()
+			);
+			order(tx, stepIds);
+		} else {
+			const children = tx
+				.select({ child: routineSteps.childRoutineId })
+				.from(routineSteps)
+				.where(inArray(routineSteps.id, stepIds))
+				.all();
+			tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, stepIds)).run();
+			tx.delete(routineSteps).where(inArray(routineSteps.id, stepIds)).run();
+			for (const c of children)
+				if (c.child !== null) archiveIfUnused(tx, c.child, serverNow(), routine);
+		}
+		const rest = ids.filter((id) => !stepIds.includes(id));
+		order(tx, rest);
+		const step = tx
+			.insert(routineSteps)
+			.values({ routineId, position: rest.length, childRoutineId: sectionId })
+			.returning({ id: routineSteps.id })
+			.get();
+		rest.splice(at, 0, step.id);
+		order(tx, rest);
+		logRoutine(tx, routine, by, { verb: 'change', subject: 'pack', subjectId: sectionId });
+		return step.id;
+	});
+}
+
+/**
+ * Detach here (spec 2026-11-12): this one slot gets its own plain copy of the
+ * section (same name, rows copied, no gene: not a clone), and edits stop
+ * flowing between the two. The copy's id, or null.
+ */
+export function detachSection(
+	db: Db,
+	routineId: number,
+	stepId: number,
+	by?: string
+): number | null {
+	const routine = getRoutine(db, routineId);
+	if (!routine) return null;
+	const space = ownerSpace(routine);
+	return db.transaction((tx) => {
+		const found = childStep(tx, routineId, stepId);
+		if (!found || found.child.isSection !== 1) return null;
+		const copy = copySection(tx, found.child.id, space, found.child.name);
+		tx.update(routineSteps).set({ childRoutineId: copy }).where(eq(routineSteps.id, stepId)).run();
+		archiveIfUnused(tx, found.child.id, serverNow(), routine);
+		logRoutine(tx, routine, by, { verb: 'change', subject: 'detach', subjectId: copy });
+		return copy;
+	});
+}
+
+/**
+ * Drag into a section, or out of one (spec 2026-11-12): the slot's row moves to
+ * `targetId` at `index` (clamped), both routines compacted. Refused when the
+ * target is the slot's own routine (that is a reorder), another dance or wall
+ * (`canEmbed`'s `mayHold`), or the slot's child would hold the target (a
+ * cycle). A section whose last slot leaves stays where it is held, empty.
+ */
+export function moveSlotInto(
+	db: Db,
+	stepId: number,
+	targetId: number,
+	index: number,
+	by?: string,
+	now = serverNow(),
+	/** The routine whose page acts: both ends must be its owner's (review C2). */
+	actingId?: number
+): boolean {
+	const step = db.select().from(routineSteps).where(eq(routineSteps.id, stepId)).get();
+	const target = getRoutine(db, targetId);
+	if (!step || !target || step.routineId === targetId) return false;
+	const source = getRoutine(db, step.routineId);
+	if (!source || source.dance !== target.dance) return false;
+	if (step.childRoutineId !== null) {
+		if (step.childRoutineId === targetId || holds(db, step.childRoutineId, targetId)) return false;
+		if (!canEmbed(db, targetId, step.childRoutineId)) return false;
+	}
+	const sameOwner = source.userId === target.userId && source.teamId === target.teamId;
+	if (!sameOwner) return false;
+	if (actingId !== undefined) {
+		const acting = getRoutine(db, actingId);
+		if (!acting || acting.userId !== target.userId || acting.teamId !== target.teamId) return false;
+	}
+	return db.transaction((tx) => {
+		const from = slotIds(tx, step.routineId).filter((id) => id !== stepId);
+		const to = slotIds(tx, targetId);
+		tx.update(routineSteps)
+			.set({ routineId: targetId, position: to.length + 1000 })
+			.where(eq(routineSteps.id, stepId))
+			.run();
+		order(tx, from);
+		to.splice(Math.max(0, Math.min(index, to.length)), 0, stepId);
+		order(tx, to);
+		logRoutine(tx, target, by, { verb: 'change', ...slotSubject([stepId], 'after') }, now);
+		return true;
 	});
 }

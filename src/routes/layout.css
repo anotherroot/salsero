@@ -732,3 +732,39 @@ a[href]:active {
 		transform: none;
 	}
 }
+
+/*
+ * A section or routine opened in place (spec 2026-11-12, routine sections, G2):
+ * a solid, light panel per level, never darker however deep; its colour repeats
+ * every four levels (clay, ochre, wine, blue), and a routine inside is grey.
+ * Each level sits 3 px further in.
+ */
+.panel {
+	--panel: var(--color-accent);
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 8px;
+	margin: 0 -8px;
+	border-radius: 18px;
+	background: color-mix(in srgb, var(--panel) 9%, var(--color-ground));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--panel) 28%, transparent);
+}
+.panel .panel {
+	margin: 0 -5px;
+}
+.panel.hue-h1 {
+	--panel: var(--color-accent);
+}
+.panel.hue-h2 {
+	--panel: var(--color-warn);
+}
+.panel.hue-h3 {
+	--panel: #7c3b61;
+}
+.panel.hue-h4 {
+	--panel: var(--color-easy);
+}
+.panel.hue-rt {
+	--panel: var(--color-muted);
+}

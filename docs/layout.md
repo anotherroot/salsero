@@ -91,6 +91,11 @@ src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, de
                      the day's picks (`today_picks`: next, add, skip): `addPicks`, `removePick`,
                      `dayInputOf` — what `dayList`, `inLine` and Coming up need. The Today
                      layout, its `next` action and the reminder (`dueByDance`) read the same
+src/lib/server/sections.ts  a routine becomes a section (spec 2026-11-12): `demoteImpact`, `demoteRoutine`, and
+                     `routinesHolding` (real routines holding one at any depth); apart from
+                     routines.ts because it unlinks lessons through lessons.ts.
+src/lib/server/section-views.ts  what the routine editor draws for the sections and routines its
+                     slots hold, opened in place (`childViews`).
 src/lib/server/positions.ts  owned positions: list (by type, then name), create, edit,
                      archive, restore, Templates (`addTemplates`), "from Week 6" (`positionsFrom`)
 src/lib/server/section-names.ts  the one-time boot step: an unnamed linked section or point
@@ -146,9 +151,14 @@ src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
                      figures (`figs`; a group row whose label collides says its group,
                      `fromTags`), `anyFrom` (figures with no end, per start) and `noStart`
                      (figures with no start)
-src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
+src/lib/routines/    PURE routine algebra (children at any depth: `optionSlots`, `flatten`; spec 2026-11-12;
+                     `routineSize` for the list; panels.ts: a panel's colour per level, `openable`,
+                     the "where am I" rows), slots, breaks, whether it
                      loops, the walk on the count (`walk`, `rowEdgesIn`: each slot starts where
                      the one before leaves off, an option's length in its slot, spec 2026-11-11),
+                     a slot's end (end.ts: the ends its options share, the one chosen or decided
+                     by the slot below, the Where does it end? rows; `slotEndsIn`, `rowEndsIn`;
+                     spec 2026-11-11 slot end),
                      the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
                      version (`routinesUsing`, coverage.ts), the picker's fitting
@@ -169,10 +179,13 @@ src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and count
                      page's lines — via-section badges, row metas, the delete and unlink
                      questions. Client-safe
 src/lib/components/routines/  the routine editor: SlotList (the drag, the lifted pieces: an open slot,
+                     SectionPanel (a section or routine opened in place, recursive; spec 2026-11-12),
+                     WhereBar (the "where am I" bar under the band),
                      a selection, joined runs; spec 2026-11-11 routine lift), SlotCard, Seam,
                      CardToolbar (a lifted card's toolbar: the open slot's and the selection's),
                      SelectionBar (that toolbar docked when the selection is not one run),
-                     lift.ts (LIFTED, RING, the dims, `pieceRound`, `faceRound`), SlotPicker
+                     lift.ts (LIFTED, RING, the dims, `pieceRound`, `faceRound`), SlotPicker,
+                     LengthSheet (How long?), EndSheet (Where does it end?, spec 2026-11-11 slot end)
 src/lib/components/links/AddLinkSheet.svelte  "Add a link": one link, what it found (`linkFound`),
                      a title; the lesson page's, and the figure page's to reuse
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
@@ -236,12 +249,19 @@ src/lib/exercises/clock-trip.ts  PURE: the exercise page's time across a trip to
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
                      gives the picker (build.ts); view.ts is what a row ends in, the create
-                     row's lead, the body's state and the height. Client-safe
+                     row's lead, the body's state and the height. Client-safe.
+                     Picker preview: preview.ts (`PREVIEW_LOOK`, what a row's tile draws),
+                     motion.ts (one IntersectionObserver: tiles move only on screen),
+                     look-view.ts (the sheet's verb, request and words)
 src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
                      PickerField.svelte (a form field that opens it) and
                      PickerMultiField.svelte (a form field that takes any number: a
                      figure's Starts in) and
                      PickerOpener.svelte (the full-width tonal button that opens one).
+                     Picker preview: PreviewButton.svelte (a row's moving picture, or the
+                     eye), LookSheet.svelte (the sheet over the picker, light or dark),
+                     LookVideo.svelte (its muted section loop; Back resumes what it stopped,
+                     `quietWhile` in src/lib/sound/page.ts)
                      components/figures/PositionTags.svelte is a figure's Starts in / Ends in
 src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
                      full-screen player (`.theme-media`), not a second top-layer dialog
@@ -293,6 +313,13 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      its Undo (over `act`). Their screens are components/songs/ CountCard,
                      SectionsList, SongEdit, GridTab, EditGrid, BeatMenu, SuggestionCard,
                      SectionSheet and SongTab
+src/lib/sound/       one sound at a time: one-sound.ts is PURE (who stops when something starts,
+                     `quietFor`; what another app taking the sound stops; `focusWord`); page.ts
+                     wires it: the root layout's `oneSoundAtATime` watches every <audio>/<video>
+                     from the document; `stopsBy` (an element whose stop is not pause(): the
+                     run's song, an About clip, the detached sample), `holdSound`/`soundFrom`
+                     (a YouTube embed), `data-ambient` (a muted loop that never takes part);
+                     `APP_AUDIO_FOCUS` (off): the 1.12 app's `SalsaAudio` focus paused our own sound; app 1.13 has none
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
                      and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
                      `.theme-media` in `layout.css` (the player's palette).
@@ -371,6 +398,7 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      strip), screens.ts (the player's stack of levels and the
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts
+                     loops.ts: a figure loop's file names (`loopName`, `parseLoopName`)
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
                      (the wake lock, injected), turning.ts (the Android app
                      stands upright; the player lets it turn), caption.ts (a recording's
@@ -478,7 +506,7 @@ src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, 
                      `flowAfter` for flat routes; runs after the commit and never fails the save;
                      its spec lists every save path), sync.ts (`syncView`, `syncAll`: the sheet's
                      rows and the landing on every ticked copy, then the flow onward) and step.ts
-                     (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, from the
+                     (`stepStatus`, `outOfStep`: the notice's lines and the Moves counts, less what is on its way (`sending`), from the
                      same merge rows; `copyCounts`, a figure row's "N copies"). The routes' side: `take-form.ts`, `make-mine-form.ts`,
                      `keep-form.ts`, the page action `keep` (each item page); the sheets (SyncNotice, SyncSheet, KeepInStep) are components/clones/
 src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
@@ -502,14 +530,17 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
 src/lib/server/elsewhere.ts  link from other places: what a group's pickers find in your
-                     own app and other groups (`findElsewhere`, GET /api/elsewhere), who may
-                     (`elsewhereGroup`), what stays behind (`staysBehind`)
+                     own app and other groups (`findElsewhere`, GET /api/elsewhere; `move`: names
+                     only, for New figure's Move field), who may (`elsewhereGroup`), what stays
+                     behind (`staysBehind`)
 src/lib/server/link-elsewhere.ts  Copy and link: `copyTo` with the link as its `after`
-                     hook (`copyAndLink`, `restoreAndLink`, lesson and spot linkers, the request
-                     parser); copy-link-form.ts runs it with real files (?/copyLink,
-                     /api/video-spots/[id]/copy-link)
+                     hook (`copyAndLink`, `restoreAndLink`, lesson and spot linkers, `useOnly`
+                     for the field pickers' Copy and use, the request parser); copy-link-form.ts
+                     runs it with real files (?/copyLink, /api/video-spots/[id]/copy-link,
+                     POST /api/elsewhere/copy)
 src/lib/picker/elsewhere.ts  PURE: the places found as picker groups (`elsewhereGroups`);
                      elsewhere-search.svelte.ts the debounced search; elsewhere-api.ts its fetch
+                     and Copy and use (`copyToUse`)
 src/lib/clones/copy-here.ts  PURE: the Copy and link card's words (components/links/CopyHereCard)
 src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing; `APP_HEADER` x-salsa-app, the page's own
                      word for its app, sent by app.html's fetch wrapper because the Android service
@@ -599,6 +630,15 @@ src/lib/server/ai-timelines/  a video made ready for the AI: store.ts (ask, clai
                      files.ts ($DATA_DIR/timelines/<id>/<k>.json, never counted as storage)
 src/lib/server/worker-seen.ts  when the home worker last called (in memory: online, offline, unknown)
 src/routes/api/worker/timelines/  the worker's side: claim, source (the video), pieces/[k], done, fail
+src/lib/server/loops/  figure loops for the pickers (picker preview): store.ts (`queueLoops`, the one
+                     sweep that queues every figure-linked section whose span has no loop and drops
+                     stale ones, run on each claim and by the hourly purge; claim, source, finish,
+                     fail). Files $DATA_DIR/loops/<spot>-<start>-<end>.jpg and …-still.jpg, never counted
+src/routes/api/worker/loops/  the worker's side: claim, source (Range), strip, still, done, fail
+src/routes/loops/[file]  a loop to who may read its video, for the spot's current span only
+src/lib/server/loops/pictures.ts  a figure's look in the pickers (`looksFor`: the figure page's top
+                     section, batched; `withLooks`, `withPictures` at each loader), look.ts the
+                     sheet's data (/api/figures/[id]/look, /api/moves/[id]/look, device endpoints)
 src/lib/ai-queue/measure.ts  PURE: the AI's sections against the person's (pairs, missed, extra);
                      scripts/ai-sections/measure.ts runs it on a backup copy
 src/routes/[dance]/suggestions/  the Suggestions page; components/suggestions/ its card, diff,
@@ -756,7 +796,8 @@ src/lib/server/replay-context.ts  the replay's AsyncLocalStorage: `replaying()` 
                      `serverNow()`, the device's minted ids for `mintId`, deferred flows),
                      `runReplaying`, `replayName` (a taken name gets a suffix on replay)
 src/lib/server/device-runtime.ts  `deviceRuntime()`: set only inside the device worker; the hook
-                     then takes the user from the copy (`deviceUser`) and bootstrap does nothing
+                     then takes the user from the copy (`deviceUser`) and bootstrap does nothing;
+                     `changesOnWay()`: the device has changes waiting or not yet pulled back
 src/lib/offline/     client-safe: routes.ts (which GETs the device answers: page data but
                      `NETWORK_PAGES`, `DEVICE_ENDPOINTS`; every GET endpoint classified),
                      sw-route.ts (PURE: what the service worker does with a request, the 4 s

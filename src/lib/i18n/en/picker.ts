@@ -60,7 +60,9 @@ export const picker = {
 		offline: 'Other places need a connection.',
 		looking: 'Looking in your other places…',
 		/** A row's +. */
-		copyHere: (label: string): string => `Copy ${label} here and link`
+		copyHere: (label: string): string => `Copy ${label} here and link`,
+		/** A move found elsewhere, in New figure's Move field: a pick makes one of that name here. */
+		newMove: 'A new move here, same name'
 	},
 	/** The builders' group titles. */
 	groups: {
@@ -73,5 +75,29 @@ export const picker = {
 	},
 	/** A routine row's second line: "4 slots · loops", "1 slot". */
 	routineMeta: (slots: number, loops: boolean): string =>
-		`${nouns.slots(slots)}${loops ? ' · loops' : ''}`
+		`${nouns.slots(slots)}${loops ? ' · loops' : ''}`,
+	/** Picker preview: a figure's picture on its row, and the sheet it opens. */
+	look: {
+		/** The picture's button, named by its row. */
+		preview: (label: string): string => `Preview ${label}`,
+		/** The sheet's main button: what a tap on the row does (link, slot, field picker). */
+		linkThis: 'Link this',
+		addThis: 'Add this',
+		pickThis: 'Pick this',
+		/** Over the start positions: "Starts on 1", "Starts on 1/5". */
+		startsOn: (count: string): string => `Starts on ${count}`,
+		/** Over the end positions. */
+		endsAfter: (n: number): string => `Ends after ${nouns.counts(n)}`,
+		/** Over the end positions when a routine slot sets the length. */
+		ends: 'Ends',
+		noPositions: 'No positions set',
+		noVideo: 'No video yet',
+		/** Under the video: it is one of the figure's own recordings. */
+		yourRecording: 'Your recording',
+		soundOn: 'Turn the sound on',
+		soundOff: 'Turn the sound off',
+		/** A move's sheet, after its first variations. */
+		andMore: (n: number): string => `and ${n} more`,
+		failed: 'This could not be loaded.'
+	}
 };

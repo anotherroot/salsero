@@ -440,6 +440,49 @@ export interface PickRoutine {
 	twins?: TwinNote[];
 }
 
+/** A figure's preview sheet over a picker (picker preview, S1). */
+export interface FigureSheet {
+	id: number;
+	/** "Adios · Con la prima". */
+	label: string;
+	notes: string | null;
+	/** Position names, each side as the figure has them; empty: none set. */
+	starts: string[];
+	ends: string[];
+	/** "1", or "1/5" for a figure that can start on several. */
+	startCount: string;
+	/** Counts, null when set per routine slot. */
+	length: number | null;
+	from: { kind: 'mine' } | { kind: 'group'; name: string; readOnly: boolean };
+	/** The section its row's picture was cut from, when the viewer may watch it. */
+	video: {
+		src: string;
+		startMs: number;
+		endMs: number;
+		from: { kind: 'lesson'; title: string; lessonDay: string } | { kind: 'recording' };
+	} | null;
+	picture: Picture;
+}
+
+/** A move's preview sheet: its live variations, each with its look. */
+export interface MoveSheet {
+	id: number;
+	name: string;
+	variations: { id: number; name: string; look: FigureLook }[];
+}
+
+/** A figure's moving picture in the pickers: the strip of 12 frames and its first as a still. Null: none. */
+export type Picture = { strip: string; still: string } | null;
+
+/** What a picker row shows of a figure: positions, length and its picture (picker preview). */
+export interface FigureLook {
+	/** "Abierta (una mano) → Cerrada", "" when no position is set. */
+	hands: string;
+	/** Counts, null when set per routine slot. */
+	length: number | null;
+	picture: Picture;
+}
+
 /** One variation of a figure, as a picker offers it. */
 export interface FigureVersion {
 	id: number;
@@ -457,6 +500,8 @@ export interface FigureVersion {
 	twins?: TwinNote[];
 	/** The place of the copy's source when the viewer reads it; drawn beside a same name. */
 	from?: string | null;
+	/** Its positions, length and picture, where a picker shows them (picker preview). */
+	look?: FigureLook;
 }
 
 /**
@@ -501,6 +546,8 @@ export interface MoveTarget {
 	id: number;
 	name: string;
 	variations: string[];
+	/** Its first variation's picture, in id order, that has one (picker preview). */
+	picture?: Picture;
 }
 
 /**
@@ -567,6 +614,8 @@ export interface SlotRow {
 	figureIds: number[];
 	/** Each option's length in this slot, by figure id: only those that have one (spec 2026-11-11). */
 	lengths: Record<number, number>;
+	/** The end chosen for the slot, a real position id (spec 2026-11-11, slot end). */
+	end: number | null;
 }
 
 /**
@@ -618,6 +667,8 @@ export interface LinkOption {
 	hold?: Hold;
 	/** A variation's place of origin when it is a copy the viewer can trace; drawn beside a same name. */
 	from?: string | null;
+	/** A variation's positions, length and picture (picker preview). */
+	look?: FigureLook;
 }
 
 /** One of a section's or point's links, in the Link popup. */
@@ -635,6 +686,8 @@ export interface LinkFigureChoice {
 	variations: string[];
 	/** This lesson's, or the recording's own: offered first. */
 	near: boolean;
+	/** Its first variation's picture that has one (picker preview). */
+	picture?: Picture;
 	/** What a new figure in this move starts on: its first figure's Danced and Style. */
 	partner: Partner;
 	style: string | null;
@@ -1054,10 +1107,16 @@ export type CopyHereView = CopyPlanView & {
 
 /** What a group's linking pickers look for elsewhere. `drill` is an exercise row of a drill. */
 export type ElsewhereKind = 'figure' | 'routine' | 'drill' | 'position';
+/**
+ * What a group's pickers search elsewhere: the copyable kinds, and `move`, a
+ * move's name only (New figure's Move field: a pick makes a new move of that
+ * name in the group; nothing is copied).
+ */
+export type ElsewhereFind = ElsewhereKind | 'move';
 
 /** One row found in another place, for a group's picker. */
 export type ElsewhereRow = {
-	kind: ElsewhereKind;
+	kind: ElsewhereFind;
 	id: number;
 	/** "Cradle entry · Basic"; a routine's, drill's or position's name. */
 	label: string;
@@ -1071,7 +1130,12 @@ export type ElsewhereRow = {
 	restore: number | null;
 	/** A live group row of the same name from another family: Link the group's one. */
 	sameName: number | null;
+	/** A figure's positions, length and picture (picker preview). */
+	look?: FigureLook;
 };
+
+/** A row a Copy and link (or use) can copy: any but a move. */
+export type CopyableRow = ElsewhereRow & { kind: ElsewhereKind };
 
 /** One place a group's picker found rows in: your own app or another group. */
 export type ElsewherePlace = {
@@ -1423,8 +1487,12 @@ export type StepLine = {
 	fields: string[];
 	how?: 'added' | 'removed';
 };
-/** Where a page's copies stand (`stepStatus`); empty `lines` when they agree. */
-export type StepView = { lines: StepLine[] };
+/**
+ * Where a page's copies stand (`stepStatus`); empty `lines` when they agree.
+ * `sending`: how many copies Keep in step will bring up to the page by itself
+ * once the device's changes reach the server (their rows are no lines meanwhile).
+ */
+export type StepView = { lines: StepLine[]; sending: number };
 
 /**
  * Keep in step on a page (`keepView`): the page row's settings, whether the
@@ -1521,4 +1589,27 @@ export interface HearingContent {
 	rounds: import('$lib/hearing/drill').HearingRound[];
 	/** The drill's songs, in order; `why` says why one cannot play. */
 	songs: { id: number; title: string; usable: boolean; why?: 'count' | 'shared' }[];
+}
+
+/** A slot inside a section or routine opened in place (spec 2026-11-12): drawn, not walked. */
+export interface InnerRow {
+	id: number;
+	childId: number | null;
+	title: string;
+	/** "1→1 · ⇥ Cerrada", composed in the request's language. */
+	meta: string;
+	href: string | null;
+}
+
+/** A section or routine held in a slot, as the editor opens it in place (spec 2026-11-12). */
+export interface ChildView {
+	id: number;
+	/** '' for an unnamed section. */
+	name: string;
+	isSection: boolean;
+	figures: number;
+	eights: number;
+	/** Real routines holding it at any depth: "changes show in n routines". */
+	holders: number;
+	rows: InnerRow[];
 }

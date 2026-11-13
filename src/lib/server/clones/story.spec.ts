@@ -185,7 +185,7 @@ it('Ana’s Enchufla, from her app through two groups to Pia and back', async ()
 		'Hips first'
 	]);
 	expect([start(H), start(T1f), start(T2f)]).toEqual([3, 3, 3]);
-	expect(stepStatus(db, 'u1', 'figure', H)).toEqual({ lines: [] });
+	expect(stepStatus(db, 'u1', 'figure', H)).toEqual({ lines: [], sending: 0 });
 	whole('4. one Sync: notes from hers, timing from Rueda club');
 
 	// 6. Pia's routine plays Salsa Tuesdays' Doble, on the new timing.
@@ -252,7 +252,8 @@ it('Ana’s Enchufla, from her app through two groups to Pia and back', async ()
 	]);
 	expect(view.sources.find((s) => s.id === T1f)?.rejoined).toBe(true);
 	expect(stepStatus(db, 'u2', 'figure', mine)).toEqual({
-		lines: [{ id: T1f, place: 'Salsa Tuesdays', state: 'changed', fields: ['Notes'] }]
+		lines: [{ id: T1f, place: 'Salsa Tuesdays', state: 'changed', fields: ['Notes'] }],
+		sending: 0
 	});
 	whole('10. rejoined');
 });

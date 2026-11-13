@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -383,3 +384,76 @@ def timeline_duration(src: Path, run=subprocess.run) -> float:
         raise PermanentError(f"Could not find the video's length: {_last_line(p.stderr)}")
     h, m, s = times[-1]
     return int(h) * 3600 + int(m) * 60 + float(s)
+
+
+# A figure's loop for the pickers (spec 2026-11-12-picker-preview): 12 small frames spread over a
+# section, side by side in one JPEG strip the page steps through, and the first one as a still.
+LOOP_FRAMES = 12
+LOOP_W = 128
+LOOP_H = 80
+LOOP_Q = 5
+
+
+def loop_strip(
+    src: str, start_ms: int, end_ms: int, outdir: Path, headers: dict[str, str] | None = None, run=subprocess.run
+) -> tuple[Path, Path]:
+    """Cut a section's loop: frame k at start + (k + 0.5) * span / 12, covering 128x80, tiled 12x1.
+    `src` is a file or an http(s) URL (the worker's source endpoint, with Range): each frame seeks
+    on its own (-ss before -i), so only the bytes it needs are read. A frame that fails takes the
+    last good one; none at all fails for good. Returns (strip, still)."""
+    outdir.mkdir(parents=True, exist_ok=True)
+    head = []
+    if headers and src.startswith(("http://", "https://")):
+        head = ["-headers", "".join(f"{k}: {v}\r\n" for k, v in headers.items())]
+    # Fit, not cover: a portrait phone video would lose heads and feet to a crop.
+    scale = (
+        f"scale={LOOP_W}:{LOOP_H}:force_original_aspect_ratio=decrease,"
+        f"pad={LOOP_W}:{LOOP_H}:(ow-iw)/2:(oh-ih)/2:color=0x1f1b18"
+    )
+    span = end_ms - start_ms
+    good: Path | None = None
+    missing: list[Path] = []
+    last_err = ""
+    for k in range(LOOP_FRAMES):
+        t = (start_ms + (k + 0.5) * span / LOOP_FRAMES) / 1000
+        out = outdir / f"f{k:02d}.jpg"
+        p = run(
+            [
+                "ffmpeg", "-nostdin", "-loglevel", "error", "-y", *head,
+                "-ss", f"{t:.3f}".rstrip("0").rstrip("."), "-i", src,
+                "-frames:v", "1", "-vf", scale, "-q:v", str(LOOP_Q), str(out),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if p.returncode == 0 and out.exists():
+            good = out
+            for m in missing:
+                shutil.copyfile(out, m)
+            missing = []
+            continue
+        last_err = _last_line(p.stderr)
+        if good is not None:
+            shutil.copyfile(good, out)
+        else:
+            missing.append(out)
+    if good is None:
+        # Most often the source not answering (network, a restart): tried again, and the
+        # queue's attempts end it. Not PermanentError: a first failure must not be the last.
+        raise RuntimeError(f"No picture in this section: {last_err}")
+    strip = outdir / "strip.jpg"
+    p = run(
+        [
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(outdir / "f%02d.jpg"),
+            "-vf", f"tile={LOOP_FRAMES}x1", "-q:v", str(LOOP_Q), str(strip),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if p.returncode != 0 or not strip.exists():
+        raise PermanentError(f"Could not make the strip: {_last_line(p.stderr)}")
+    still = outdir / "still.jpg"
+    shutil.copyfile(outdir / "f00.jpg", still)
+    return strip, still

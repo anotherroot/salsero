@@ -4,7 +4,13 @@
 	 * either end, Add above / below, and + Alternative. One tap inserts and
 	 * closes — there is no confirm step. The sheet is the shared Picker; what
 	 * fits (and the Count / Hold chips) stays here, in fit.ts.
+	 *
+	 * A group's routine (`elsewhere`, link from other places): a search also
+	 * finds the figures and routines of the person's own app and other groups,
+	 * unfiltered by fit; a tap on one is `onelsewhere` (the page's Copy and
+	 * use card). `query` is the search, bindable.
 	 */
+	import type { ComponentProps } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/i18n/catalog';
 	import { moveHeading, usedAsIs } from '$lib/clones/view';
@@ -30,14 +36,27 @@
 		positionName: (id: number) => string;
 		onpick: (c: Candidate) => void;
 		onclose: () => void;
+		elsewhere?: ComponentProps<typeof Picker>['elsewhere'];
+		onelsewhere?: (row: PickRow) => void;
+		query?: string;
 	}
 
-	let { open, title, anchor, candidates, positionName, onpick, onclose }: Props = $props();
+	let {
+		open,
+		title,
+		anchor,
+		candidates,
+		positionName,
+		onpick,
+		onclose,
+		elsewhere = null,
+		onelsewhere,
+		query = $bindable('')
+	}: Props = $props();
 
 	const RESCUE =
 		'min-h-6 cursor-pointer font-extrabold text-accent-text underline underline-offset-[3px]';
 
-	let query = $state('');
 	let count = $state(true);
 	let hold = $state(true);
 
@@ -52,7 +71,6 @@
 	const context = $derived(anchorText(anchor, positionName));
 
 	const emptyText = $derived.by(() => {
-		if (anchor.kind === 'alternative') return t().routine.picker.noAlternative;
 		if (query.trim() !== '' && list.emptiedBy.length === 0)
 			return t().routine.picker.noMatch(query.trim());
 		if (context) return t().routine.picker.nothingFits(context);
@@ -70,6 +88,7 @@
 		const timing = `${c.startCounts.join('/') || '?'}→${c.next ?? '?'}`;
 		const hands = handsLine(c.starts, c.ends, positionName);
 		const where = hands === '' ? timing : `${timing} · ${hands}`;
+		if (c.section !== undefined) return `${t().routine.section.sectionOf(c.section)} · ${where}`;
 		if (c.twins && c.twins.length > 0) return `${twinPickMeta(c, c.twins)} · ${where}`;
 		return c.team ? `${usedAsIs(c.team.name)} · ${where}` : where;
 	}
@@ -79,7 +98,11 @@
 		value: c.id,
 		label: tag ? `${c.label} ${tag}` : c.label,
 		short: short && tag ? `${short} ${tag}` : short,
-		meta: meta(c)
+		meta: meta(c),
+		// Picker preview: a figure's picture opens its sheet; its timing line stays the meta.
+		...(c.kind === 'figure' && c.picture !== undefined
+			? { picture: c.picture, look: { kind: 'figure' as const, id: c.id } }
+			: {})
 	});
 
 	// fit.ts has already filtered by query and chips: these are the groups as shown.
@@ -120,6 +143,8 @@
 	bind:query
 	nothingLeft={emptyText}
 	onpick={pick}
+	{elsewhere}
+	onelsewhere={(row) => onelsewhere?.(row)}
 	{onclose}
 >
 	{#snippet top()}

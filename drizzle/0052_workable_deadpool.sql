@@ -1,0 +1,1 @@
+ALTER TABLE `routine_steps` ADD `end_position_id` integer REFERENCES positions(id);

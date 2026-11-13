@@ -55,7 +55,9 @@ import {
 	addOption,
 	createRoutine,
 	insertSlot,
-	routineSlots
+	setSlotEnd,
+	routineSlots,
+	insertRoutine
 } from '../routines';
 import { addLesson } from '../entries';
 import { addLinks } from '../links';
@@ -883,6 +885,31 @@ describe('cloneInto: routines and lessons', () => {
 		expect(routineSlots(db, res.id).map((s) => s.lengths)).toEqual([{ [copy]: 12 }]);
 	});
 
+	it('a routine copy brings a 3-level nest, sections staying sections (spec 2026-11-12)', async () => {
+		const walk = figure(T1_SALSA, 'Walk', 'Slow').figure.id;
+		const r = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		const s = insertRoutine(db, T1_SALSA, { name: 'S', notes: null, isSection: true }).routine.id;
+		const u = insertRoutine(db, T1_SALSA, { name: '', notes: null, isSection: true }).routine.id;
+		insertSlot(db, u, 0, { figureId: walk }, 'u1');
+		insertSlot(db, s, 0, { childId: u }, 'u1');
+		insertSlot(db, r, 0, { childId: s }, 'u1');
+		publishWith({ routines: [r] });
+		const res = await cloneInto(
+			db,
+			{ kind: 'routine', id: r, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!res.ok) throw new Error('expected a clone');
+		const s2 = routineSlots(db, res.id)[0].childId!;
+		const u2 = routineSlots(db, s2)[0].childId!;
+		expect([routineRow(s2).isSection, routineRow(s2).userId]).toEqual([1, 'u2']);
+		expect(routineRow(u2).isSection).toBe(1);
+		expect(routineSlots(db, u2).map((x) => x.figureIds)).toEqual([
+			[memberOf('figure', walk, U2_SALSA)]
+		]);
+	});
+
 	it('a routine brings its figures and its embedded routine', async () => {
 		const doble = figure(T1_SALSA, 'Enchufla', 'Doble');
 		const basica = createVariationIn(db, doble.group.id, { name: 'Básica', ...shape }, 'u1')!.id;
@@ -1554,6 +1581,28 @@ describe('cloneInto: positions', () => {
 		const tags = figurePositions(db, res.id);
 		const owners = [...tags.startIds, ...tags.endIds].map((id) => row(id).userId);
 		expect(owners).toEqual(['u2', 'u2']);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a routine copy keeps its slot’s end, in the place it goes to (spec 2026-11-11, slot end)', async () => {
+		const cerrada = position(U1_SALSA, 'Cerrada');
+		const sombra = position(U1_SALSA, 'Sombra', { styleTag: null, crossed: false });
+		const doble = figure(U1_SALSA, 'Enchufla', 'Doble').figure.id;
+		tag(doble, 'end', cerrada.id);
+		tag(doble, 'end', sombra.id);
+		const r = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine.id;
+		const step = addFigureSlot(db, r, doble)!;
+		expect(setSlotEnd(db, step, sombra.id)).toBe(true);
+
+		const res = await cloneInto(
+			db,
+			{ kind: 'routine', id: r, into: T1_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!res.ok) throw new Error('expected a clone');
+		const theirs = memberIn(db, 'position', geneOf(db, 'position', sombra.id)!, T1_SALSA)!.id;
+		expect(routineSlots(db, res.id).map((s) => s.end)).toEqual([theirs]);
 		expect(crossRefs(db)).toEqual([]);
 	});
 });

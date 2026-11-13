@@ -541,3 +541,104 @@ describe('landedOriginals: which originals the server has the rows of', () => {
 		]).toEqual([]);
 	});
 });
+
+describe('wantedMedia: figure loops (picker preview)', () => {
+	function section(o: {
+		spot: number;
+		start?: number;
+		end?: number | null;
+		on: 'lesson' | 'recording';
+		serverCopy?: 0 | 1;
+		link?: 'figure' | 'drill' | null;
+	}): void {
+		const video = ids++;
+		if (o.on === 'lesson') {
+			db.prepare(
+				`INSERT INTO lesson_videos (id, lesson_id, file, mime, size_bytes, created_at, server_copy)
+				 VALUES (?, 1, ?, 'video/mp4', 10, 0, ?)`
+			).run(video, `${video}.mp4`, o.serverCopy ?? 1);
+		} else {
+			db.prepare(
+				`INSERT INTO recordings (id, figure_id, file, mime, kind, size_bytes, created_at, server_copy)
+				 VALUES (?, 1, ?, 'video/mp4', 'video', 10, 0, ?)`
+			).run(video, `${video}.mp4`, o.serverCopy ?? 1);
+		}
+		db.prepare(
+			`INSERT INTO video_spots (id, lesson_video_id, recording_id, start_ms, end_ms, created_at)
+			 VALUES (?, ?, ?, ?, ?, 0)`
+		).run(
+			o.spot,
+			o.on === 'lesson' ? video : null,
+			o.on === 'recording' ? video : null,
+			o.start ?? 0,
+			o.end === undefined ? 1000 : o.end
+		);
+		const link = o.link === undefined ? 'figure' : o.link;
+		if (link)
+			db.prepare(
+				`INSERT INTO spot_links (id, spot_id, figure_id, exercise_id, created_at) VALUES (?, ?, ?, ?, 0)`
+			).run(ids++, o.spot, link === 'figure' ? 1 : null, link === 'drill' ? 1 : null);
+	}
+	const loops = () =>
+		wantedMedia(db, 'u1')
+			.filter((f) => f.kind === 'loops')
+			.map((f) => f.file)
+			.sort();
+
+	it('the strip and the still of every section linked to a figure, on a video the server has', () => {
+		section({ spot: 900, start: 1000, end: 7000, on: 'lesson' });
+		section({ spot: 901, on: 'recording' });
+		section({ spot: 902, on: 'lesson', serverCopy: 0 });
+		section({ spot: 903, on: 'lesson', link: 'drill' });
+		section({ spot: 904, on: 'lesson', link: null });
+		expect(loops()).toEqual([
+			'900-1000-7000-still.jpg',
+			'900-1000-7000.jpg',
+			'901-0-1000-still.jpg',
+			'901-0-1000.jpg'
+		]);
+		expect(wantedMedia(db, 'u1').find((f) => f.kind === 'loops')?.mime).toBe('image/jpeg');
+	});
+
+	it('a loop not cut yet (404) is neither fetched nor failed, and the next file still comes', async () => {
+		const L: MediaFile = { kind: 'loops', file: '900-0-1000.jpg', mime: 'image/jpeg' };
+		const store = memoryMediaStore();
+		const { result } = run([L, A], store, async (p) =>
+			p.startsWith('/loops/') ? new Response('Not found', { status: 404 }) : new Response('song')
+		);
+		expect(await result).toEqual({ fetched: 1, removed: 0, failed: 0, waiting: null });
+	});
+});
+
+describe('syncMedia: a loop not cut yet is not asked for again soon (review)', () => {
+	const strip: MediaFile = { kind: 'loops', file: '900-0-1000.jpg', mime: 'image/jpeg' };
+	const still: MediaFile = { kind: 'loops', file: '900-0-1000-still.jpg', mime: 'image/jpeg' };
+
+	it('skips the still when the strip was missing, and both for an hour', async () => {
+		const store = memoryMediaStore();
+		const misses = new Map<string, number>();
+		const asked: string[] = [];
+		let now = 1_000_000;
+		const pass = () =>
+			syncMedia({
+				wanted: [strip, still],
+				store,
+				fetchMedia: async (p) => {
+					asked.push(p);
+					return new Response('Not found', { status: 404 });
+				},
+				online: () => true,
+				log: { warn: vi.fn() },
+				loopMisses: misses,
+				now: () => now
+			});
+		expect(await pass()).toEqual({ fetched: 0, removed: 0, failed: 0, waiting: null });
+		expect(asked).toEqual(['/loops/900-0-1000.jpg']);
+		now += 30 * 60_000;
+		await pass();
+		expect(asked).toHaveLength(1);
+		now += 31 * 60_000;
+		await pass();
+		expect(asked).toEqual(['/loops/900-0-1000.jpg', '/loops/900-0-1000.jpg']);
+	});
+});

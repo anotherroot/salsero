@@ -39,3 +39,18 @@ describe('parseSnapshots and lengths', () => {
 		expect(parseSnapshots(JSON.stringify([{ ...slot, lengths: [4] }]))).toBeNull();
 	});
 });
+
+describe('parseSnapshots and a slot’s end (spec 2026-11-11, slot end)', () => {
+	const slot = { position: 0, childId: null, note: null, figureIds: [3] };
+
+	it('keeps an end', () => {
+		expect(parseSnapshots(JSON.stringify([{ ...slot, end: 5 }]))).toEqual([{ ...slot, end: 5 }]);
+	});
+
+	it('refuses an end that is not an id, or on a slot holding a routine', () => {
+		expect(parseSnapshots(JSON.stringify([{ ...slot, end: -1 }]))).toBeNull();
+		expect(
+			parseSnapshots(JSON.stringify([{ ...slot, childId: 4, figureIds: [], end: 5 }]))
+		).toBeNull();
+	});
+});

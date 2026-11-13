@@ -269,7 +269,7 @@ def drop(t, versions, lost, send_first=True, follows=None):
 
 def detach(t, place='Salsa Tuesdays', kind='figure'):
     """Detach (board C8 p1)."""
-    inner = (note(t, 'Your copy stays yours, as it is. It stays shown together with theirs, as twins.', 'link')
+    inner = (note(t, 'Your copy stays yours, as it is, on its own. To still show it with theirs, use Same as…', 'link')
              + note(t, 'No more “updated since”, and no Take theirs to hit by mistake.'))
     foot = (kit.button(t, 'Detach', 'primary', icon_name='unlink', full=True, on=t['sheet_bg'])
             + kit.button(t, 'Cancel', 'tertiary', full=True, on=t['sheet_bg']))

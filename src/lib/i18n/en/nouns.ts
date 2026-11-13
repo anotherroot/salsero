@@ -20,6 +20,8 @@ export const nouns = {
 	/** A figure's length. */
 	counts: (n: number): string => plural(n, 'count', 'counts'),
 	slots: (n: number): string => plural(n, 'slot', 'slots'),
+	/** A routine's length in eights (spec 2026-11-12). */
+	eights: (n: number): string => plural(n, 'eight', 'eights'),
 	breaks: (n: number): string => plural(n, 'break', 'breaks'),
 	timingBreaks: (n: number): string => plural(n, 'timing break', 'timing breaks'),
 	changes: (n: number): string => plural(n, 'change', 'changes'),

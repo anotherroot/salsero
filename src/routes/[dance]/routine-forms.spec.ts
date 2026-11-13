@@ -66,13 +66,11 @@ const call = (action: unknown, event: ReturnType<typeof post>) => (action as Inv
 let db: Db;
 let r: number;
 let a: number;
-let other: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	r = createRoutine(db, U1_SALSA, { name: 'Friday', notes: null }).routine.id;
-	other = createRoutine(db, U1_SALSA, { name: 'Other', notes: null }).routine.id;
 	const make = (figureName: string) =>
 		createFigure(db, U1_SALSA, {
 			figureName,
@@ -86,28 +84,15 @@ beforeEach(() => {
 });
 
 describe('Make routine', () => {
-	it('puts a nameless Make routine under its Name', async () => {
-		expect(
-			await call(
-				routinePage.actions.extract,
-				post('salsa', { stepIds: String(a), name: ' ' }, String(r))
-			)
-		).toMatchObject({
-			status: 400,
-			data: {
-				action: 'extract',
-				field: 'name',
-				message: 'Give the new routine a name (up to 200 characters).'
-			}
-		});
-		expect(routineSlots(db, r)).toHaveLength(2);
+	it('makes an unnamed section at once, no name asked (spec 2026-11-12)', async () => {
+		await call(routinePage.actions.extract, post('salsa', { stepIds: String(a) }, String(r)));
+		expect(routineSlots(db, r).filter((s) => s.childId !== null)).toHaveLength(1);
 	});
 
-	it('refuses a run that cannot become a routine as the sheet’s banner', async () => {
-		addChildSlot(db, other, r); // r is now embedded, so it cannot embed a new routine
+	it('refuses an empty run as the banner', async () => {
 		const result = (await call(
 			routinePage.actions.extract,
-			post('salsa', { stepIds: String(a), name: 'Opener' }, String(r))
+			post('salsa', { stepIds: '' }, String(r))
 		)) as { status: number; data: Record<string, unknown> };
 		expect(result).toMatchObject({ status: 400, data: { action: 'extract' } });
 		expect(result.data).not.toHaveProperty('field');
@@ -160,20 +145,10 @@ describe('the routine page’s refusals in Slovenian', () => {
 	const sl = (action: unknown, fields: Record<string, string>) =>
 		runInLocale('sl', () => call(action, post('salsa', fields, String(r))));
 
-	it('refuses Make routine under its Name and in its banner', async () => {
-		expect(await sl(routinePage.actions.extract, { stepIds: String(a), name: ' ' })).toMatchObject({
+	it('refuses Section in its banner', async () => {
+		expect(await sl(routinePage.actions.extract, { stepIds: '' })).toMatchObject({
 			status: 400,
-			data: { message: 'Vpišite ime nove kombinacije (do 200 znakov).' }
-		});
-		addChildSlot(db, other, r);
-		expect(
-			await sl(routinePage.actions.extract, { stepIds: String(a), name: 'Opener' })
-		).toMatchObject({
-			status: 400,
-			data: {
-				message:
-					'Iz teh mest ni mogoče narediti kombinacije: biti morajo sosednja in ne smejo vsebovati kombinacije, ta kombinacija pa sama ne sme biti vstavljena nikamor.'
-			}
+			data: { message: 'Iz teh mest ni mogoče narediti sklopa: biti morajo sosednja.' }
 		});
 	});
 
@@ -534,5 +509,56 @@ describe('a length set in the routine (spec 2026-11-11)', () => {
 				)
 			)
 		).toMatchObject({ status: 400, data: { stepId: a } });
+	});
+});
+
+describe('a slot’s end (spec 2026-11-11, slot end)', () => {
+	let step: number;
+	let A: number;
+	let B: number;
+	beforeEach(() => {
+		A = addPosition(db, U1_SALSA, 'Closed');
+		B = addPosition(db, U1_SALSA, 'Open');
+		const m = createFigure(db, U1_SALSA, {
+			figureName: 'Basic step',
+			name: 'Closed',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		setFigureShape(db, m, { startIds: [], endIds: [A, B], startCount: 1, lengthCounts: 8 });
+		step = addFigureSlot(db, r, m)!;
+	});
+	const endOf = () => routineSlots(db, r)[2].end;
+	const send = (positionId: string) =>
+		call(routinePage.actions.end, post('salsa', { stepId: String(step), positionId }, String(r)));
+
+	it('sets it, and clears it with no position', async () => {
+		expect(await send(String(B))).toMatchObject({ ok: true });
+		expect(endOf()).toBe(B);
+		expect(await send('')).toMatchObject({ ok: true });
+		expect(endOf()).toBeNull();
+	});
+
+	it('refuses an end the slot cannot take, aimed at the slot', async () => {
+		const X = addPosition(db, U1_SALSA, 'Cross-hand');
+		expect(await send(String(X))).toMatchObject({ status: 400, data: { stepId: step } });
+		expect(endOf()).toBeNull();
+	});
+
+	it('loads each row’s end: an options row its state and choices', async () => {
+		await send(String(B));
+		const data = (await (
+			routinePage.load as unknown as (e: unknown) => Promise<{
+				slotEnds: ({ state: string; choices: { id: number }[] } | null)[];
+			}>
+		)({
+			params: { dance: 'salsa', id: String(r) },
+			locals: { user: USER },
+			url: new URL(`http://localhost/salsa/routines/${r}`)
+		})) as { slotEnds: ({ state: string; choices: { id: number }[] } | null)[] };
+		expect(data.slotEnds[2]).toMatchObject({ state: 'chosen' });
+		expect(data.slotEnds[2]!.choices.map((c) => c.id).sort()).toEqual([A, B].sort());
+		expect(data.slotEnds[0]).toMatchObject({ state: 'none', choices: [] });
 	});
 });

@@ -22,6 +22,10 @@
 	 *
 	 * Stacked over the picker (Back closes only the card), light or dark as
 	 * the picker is. Mounted while open; it loads the plan as it mounts.
+	 *
+	 * `then` 'use' (a group's field pickers: a figure's positions, a routine's
+	 * slots): nothing is linked, the copy is used, and the card says so (Copy
+	 * and use, Restore and use, Use the group's one).
 	 */
 	interface Props {
 		theme: 'light' | 'dark';
@@ -41,6 +45,8 @@
 		message: string | null;
 		/** Dark only: above the picker's layer. */
 		z?: string;
+		/** What follows the copy: a link (the default), or the field using it. */
+		then?: 'link' | 'use';
 		oncopy: (use: Record<string, number>) => void;
 		onrestore: (use: Record<string, number>) => void;
 		onlinkgroups: () => void;
@@ -59,6 +65,7 @@
 		busy,
 		message,
 		z = 'z-50',
+		then = 'link',
 		oncopy,
 		onrestore,
 		onlinkgroups,
@@ -67,6 +74,7 @@
 
 	const uid = $props.id();
 	const w = $derived(t().clones.copyHere);
+	const using = $derived(then === 'use');
 	// The plan and the twin answers: a refresh that hands the card the same row again keeps them.
 	const plan = new CopyHereLoad();
 	const teamId = $derived(into.teamId);
@@ -103,9 +111,9 @@
 			<Banner kind="warning">{w.sameName(into.name, label, from)}</Banner>
 		{/if}
 		{#if restore !== null}
-			<Banner kind="info">{w.archived}</Banner>
+			<Banner kind="info">{using ? w.archivedUse : w.archived}</Banner>
 		{/if}
-		<p class="text-[15px] leading-[1.45] text-ink-2">{w.lead(from)}</p>
+		<p class="text-[15px] leading-[1.45] text-ink-2">{using ? w.leadUse(from) : w.lead(from)}</p>
 		{#if failed}
 			<Banner kind="error">{loadFailed()}</Banner>
 		{:else if !lines || !view}
@@ -161,7 +169,9 @@
 				disabled={busy}
 				aria-busy={busy}
 				onclick={onlinkgroups}
-				>{#if busy}<Spinner />{:else}<Icon name="link" size={20} />{w.linkGroups}{/if}</button
+				>{#if busy}<Spinner />{:else}<Icon name="link" size={20} />{using
+						? w.useGroups
+						: w.linkGroups}{/if}</button
 			>
 			<div class="grid grid-cols-2 gap-2">
 				<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}
@@ -186,10 +196,9 @@
 						disabled={busy}
 						aria-busy={busy}
 						onclick={() => onrestore(plan.use)}
-						>{#if busy}<Spinner />{:else}<Icon
-								name="undo"
-								size={20}
-							/>{w.restoreAndLink}{/if}</button
+						>{#if busy}<Spinner />{:else}<Icon name="undo" size={20} />{using
+								? w.restoreAndUse
+								: w.restoreAndLink}{/if}</button
 					>
 				{:else}
 					<button
@@ -198,7 +207,9 @@
 						disabled={cannotCopy}
 						aria-busy={busy}
 						onclick={() => oncopy(plan.use)}
-						>{#if busy}<Spinner />{:else}<Icon name="copy" size={20} />{w.copyAndLink}{/if}</button
+						>{#if busy}<Spinner />{:else}<Icon name="copy" size={20} />{using
+								? w.copyAndUse
+								: w.copyAndLink}{/if}</button
 					>
 				{/if}
 			</div>

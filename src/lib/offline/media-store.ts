@@ -11,10 +11,11 @@
 
 /**
  * Song audio (`/audio/<file>`) and count takes (`/count/<file>`), 4a; lesson
- * videos (`/lesson-videos/<file>`) and recordings (`/recordings/<file>`), 4b.
+ * videos (`/lesson-videos/<file>`) and recordings (`/recordings/<file>`), 4b;
+ * figure loops (`/loops/<file>`), the pickers' moving pictures.
  * The kind is the URL's first segment.
  */
-export type MediaKind = 'audio' | 'count' | 'lesson-videos' | 'recordings' | 'originals';
+export type MediaKind = 'audio' | 'count' | 'lesson-videos' | 'recordings' | 'originals' | 'loops';
 /**
  * `size`, when the row knows it (videos): a whole file of another size is refused.
  * `owner`: whose original it is (offline phase 4c), kept in its meta.
@@ -30,6 +31,8 @@ export type MediaFile = {
 export const SONG_KINDS: readonly MediaKind[] = ['audio', 'count'];
 /** Kept videos: big, so a download cut off keeps its part and goes on from it. */
 export const VIDEO_KINDS: readonly MediaKind[] = ['lesson-videos', 'recordings'];
+/** Figure loops for the pickers (`/loops/<file>`): small pictures, kept like songs. */
+export const LOOP_KINDS: readonly MediaKind[] = ['loops'];
 /**
  * A person's own phone-only videos (offline phase 4c): the only copy there is,
  * under the row's file name. Never a URL of its own (a video URL reads one
@@ -60,7 +63,7 @@ export type MediaStore = {
 };
 
 /** What the device keeps as copies of the server's files: the URL kinds. */
-const KINDS: readonly MediaKind[] = [...SONG_KINDS, ...VIDEO_KINDS];
+const KINDS: readonly MediaKind[] = [...SONG_KINDS, ...VIDEO_KINDS, ...LOOP_KINDS];
 const resumable = (kind: MediaKind) => VIDEO_KINDS.includes(kind);
 /** A server name: no slashes, no dot first (so never `..`). */
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;

@@ -117,7 +117,9 @@ Moved out of CLAUDE.md on 2026-11-08. CLAUDE.md keeps each rule in a line or two
   `twins` rows (Separate), `clone_pairs` (Detach), `today_picks` (Undo of a
   pick, and an add or next taking the day's skip away), `song_links` (a
   Music row's Remove, and every link to a song deleted for good, first) and
-  `lesson_comment_hearts` (un-hearting) are bookkeeping, deleted too. A song
+  `lesson_comment_hearts` (un-hearting) are bookkeeping, deleted too, and so are
+  `video_loops` rows and their files in `$DATA_DIR/loops` (derived: dropped by
+  `queueLoops` once their spot is gone or its span changed). A song
   link never copies a song: a copy keeps it only where the new place can play
   it (`songInPlace`). A comment (`lesson_comments`) is deleted softly
   (`deleted_at`, `deleted_by`; Undo clears them); only a group's purge

@@ -239,6 +239,20 @@ export const ADD_SECTION = swap(button('secondary', 'md'), 'px-6', 'px-4');
 /**
  * A routine slot's length chip, "4 counts ▾" after its timing (spec 2026-11-11,
  * board C): taps open How long?. Small on purpose, with a hit area grown past
- * its edges to touch size.
+ * its edges to touch size: down and sideways, not up, where the slot's title is (a
+ * tap aimed at the title must open the slot, spec 2026-11-11 slot end).
  */
-export const LENGTH_CHIP = `relative ml-1.5 inline-flex flex-none cursor-pointer items-center gap-0.5 rounded-full bg-accent-soft px-2.5 py-0.5 text-[13px] font-extrabold text-accent-text after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${PRESS}`;
+export const LENGTH_CHIP = `relative ml-1.5 inline-flex flex-none cursor-pointer items-center gap-0.5 rounded-full bg-accent-soft px-2.5 py-0.5 text-[13px] font-extrabold text-accent-text after:absolute after:-inset-x-1 after:-top-1 after:-bottom-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${PRESS}`;
+
+/**
+ * A routine slot's chosen end, "⇥ Closed ▾" (spec 2026-11-11, slot end): the
+ * length chip, as it is.
+ */
+export const END_CHIP = LENGTH_CHIP;
+
+/**
+ * A routine slot's end chip while nothing is chosen, "Ends? ▾" (spec
+ * 2026-11-11, slot end): `END_CHIP`'s size and hit area, a dashed ring in
+ * place of its fill.
+ */
+export const END_ASK = `relative ml-1.5 inline-flex flex-none cursor-pointer items-center gap-0.5 rounded-full border-[1.5px] border-dashed border-accent-text/50 px-2 py-px text-[13px] font-extrabold text-accent-text after:absolute after:-inset-x-1 after:-top-1 after:-bottom-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${PRESS}`;

@@ -11,10 +11,8 @@ import {
 	makeRoutineCaption,
 	seamLabel,
 	selectionTitle,
-	slotMeta,
-	alternativeAnchor
+	slotMeta
 } from './page';
-import { pickList, type Candidate } from './fit';
 
 const name = (id: number) => ({ 1: 'Open', 2: 'Closed', 3: 'Hammerlock' })[id] ?? '?';
 
@@ -75,16 +73,22 @@ describe('routine page derivations', () => {
 		const e = { starts: [1], startCounts: [1], ends: [2], next: 1 };
 		expect(slotMeta(e, name, null)).toBe('1→1 · Open → Closed');
 		expect(slotMeta({ starts: [1], startCounts: [1], ends: [1], next: 1 }, name, 3)).toBe(
-			'Routine · 3 slots · 1→1 · Open → Open'
+			'1→1 · Open → Open'
 		);
 		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: [2, 3], next: 1 }, name, null)).toBe(
 			'1→1 · Open or Closed → Closed or Hammerlock'
 		);
 		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, null)).toBe('');
-		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, 1)).toBe(
-			'Routine · 1 slot'
-		);
+		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, 1)).toBe('');
 	});
+	it('leaves the end to the card when the row knows it (spec 2026-11-11, slot end)', () => {
+		const e = { starts: [1], startCounts: [1], ends: [2], next: 5, start: 1 };
+		expect(slotMeta({ ...e, endState: 'chosen' as const }, name, null)).toBe('1→5');
+		expect(slotMeta({ ...e, endState: 'single' as const }, name, null)).toBe('1→5');
+		// Without it (an embedded row, an older page's data): as before.
+		expect(slotMeta(e, name, null)).toBe('1→5 · Open → Closed');
+	});
+
 	it('shows the start the routine walk resolved, not every count it could take', () => {
 		expect(
 			slotMeta({ starts: [], startCounts: [1, 5], ends: [], next: 1, start: 5 }, name, null)
@@ -95,9 +99,7 @@ describe('routine page derivations', () => {
 	});
 	it('shows nothing for a side with no position, and never a “?” for an end', () => {
 		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, null)).toBe('1→1');
-		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, 2)).toBe(
-			'Routine · 2 slots · 1→1'
-		);
+		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, 2)).toBe('1→1');
 		expect(slotMeta({ starts: [1], startCounts: [1], ends: [], next: 1 }, name, null)).toBe(
 			'1→1 · Open →'
 		);
@@ -112,7 +114,7 @@ describe('routine page derivations', () => {
 			'1→1 · ends differ'
 		);
 		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: null, next: 1 }, name, 2)).toBe(
-			'Routine · 2 slots · 1→1 · Open or Closed → ends differ'
+			'1→1 · Open or Closed → ends differ'
 		);
 	});
 	it('words a seam', () => {
@@ -244,18 +246,9 @@ describe('the routine page in Slovenian', () => {
 		expect(sl(() => handsLine([1, 2], [3], name))).toBe('Open ali Closed → Hammerlock');
 	});
 
-	it('leads a routine’s slot with its counted slots', () => {
+	it("gives a section's or routine's slot only counts and hands (spec 2026-11-12)", () => {
 		const e = { starts: [1], startCounts: [1], ends: [1], next: 1 };
-		expect(sl(() => slotMeta(e, name, 1))).toBe('Kombinacija · 1 mesto · 1→1 · Open → Open');
-		expect(sl(() => slotMeta(e, name, 2))).toBe('Kombinacija · 2 mesti · 1→1 · Open → Open');
-		expect(sl(() => slotMeta(e, name, 3))).toBe('Kombinacija · 3 mesta · 1→1 · Open → Open');
-		expect(sl(() => slotMeta(e, name, 5))).toBe('Kombinacija · 5 mest · 1→1 · Open → Open');
-		expect(
-			sl(() => slotMeta({ starts: [1], startCounts: [1], ends: null, next: 1 }, name, null))
-		).toBe('1→1 · Open → različni konci');
-		expect(
-			sl(() => slotMeta({ starts: [], startCounts: [1], ends: null, next: 1 }, name, null))
-		).toBe('1→1 · različni konci');
+		expect(sl(() => slotMeta(e, name, 3))).toBe('1→1 · Open → Open');
 	});
 
 	it('words a seam, the names after a colon', () => {
@@ -295,40 +288,5 @@ describe('the routine page in Slovenian', () => {
 		expect(sl(() => makeRoutineCaption(102))).toBe(
 			'102 mesti se premakneta v novo kombinacijo, ta pa ju tukaj nadomesti kot eno mesto.'
 		);
-	});
-});
-
-describe('alternativeAnchor: an alternative where the routine puts the slot (spec 2026-11-11)', () => {
-	const basic: Candidate = {
-		kind: 'figure',
-		id: 10,
-		groupId: 10,
-		figure: 'Basic step',
-		label: 'Basic step · Open',
-		starts: [],
-		startCounts: [1, 5],
-		ends: [],
-		next: 5,
-		length: 4
-	};
-	const onFive: Candidate = { ...basic, id: 11, groupId: 11, label: 'On five', startCounts: [5] };
-	const onOne: Candidate = { ...basic, id: 12, groupId: 12, label: 'On one', startCounts: [1] };
-
-	it('starts on the count the slot is entered on, not the main figure’s usual start', () => {
-		const slots = [{ id: 7, figureIds: [10] }];
-		// The routine enters this slot on 5; from 5 the basic leaves the next on 1.
-		const edges = [{ starts: [], startCounts: [1, 5], ends: [], next: 1, start: 5 }];
-		const anchor = alternativeAnchor(7, slots, edges, new Map([[10, basic]]))!;
-		expect(anchor).toMatchObject({ kind: 'alternative', startCount: 5, next: 1 });
-		const ids = pickList([basic, onFive, onOne], anchor, {
-			count: true,
-			hold: true,
-			query: ''
-		}).figures.flatMap((g) => g.variations.map((v) => v.id));
-		expect(ids).toEqual([11]);
-	});
-
-	it('is null for a slot that is gone', () => {
-		expect(alternativeAnchor(99, [], [], new Map())).toBeNull();
 	});
 });

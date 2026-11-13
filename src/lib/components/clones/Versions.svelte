@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { GROUP } from '$lib/components/ui/styles';
 	import KeepInStep from './KeepInStep.svelte';
@@ -12,6 +14,13 @@
 	import { dropped } from './dropped.svelte';
 	import { versionList, versionRow } from '$lib/clones/versions';
 	import { openLabel, sourceNote } from '$lib/clones/view';
+	import {
+		nextPhase,
+		SENT_MS,
+		sendingLabel,
+		sentLabel,
+		type StepPhase
+	} from '$lib/clones/step-view';
 	import { t } from '$lib/i18n/catalog';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { CloneKind, FamilyView, KeepView, PlaceRef, Source, StepView } from '$lib/types';
@@ -20,7 +29,9 @@
 	 * Whose version (spec 2026-11-06, option D), at the top of a family page's
 	 * body: one row, "Your version · Also: Sreda 17:30 · 2 ▾", that opens the
 	 * Versions list; under it the notice when the person's copies disagree
-	 * ("Your copies don't agree" · Sync, spec 2026-11-07), and the read-only
+	 * ("Your copies don't agree" · Sync, spec 2026-11-07; while Keep in step's
+	 * changes are on their way, only "Sending to 2 copies…" over the row's
+	 * "Also: …"), and the read-only
 	 * note on a source's page. The Versions list ends in Sync… and the quiet
 	 * Keep in step line, which opens its level over the list. No row with one
 	 * version. Mount it wherever the page shows its versions, even with one: it
@@ -72,6 +83,28 @@
 	let keeping = $state(false);
 	let syncing = $state(false);
 
+	/**
+	 * Keep in step's changes on their way (device first): "Sending to 2
+	 * copies…" fades in over the row's "Also: …", then "Copies updated" for a
+	 * moment once they went, then it fades out. `shown` and `count` outlast the
+	 * phase, so the words stay while they fade.
+	 */
+	let phase = $state<StepPhase>('idle');
+	let shown = $state<StepPhase>('idle');
+	let count = $state(0);
+	let sentTimer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const prev = untrack(() => phase);
+		const next = nextPhase(prev, step);
+		if (step && step.sending > 0) count = step.sending;
+		if (next === prev) return;
+		clearTimeout(sentTimer);
+		if (next === 'sent') sentTimer = setTimeout(() => (phase = 'idle'), SENT_MS);
+		if (next !== 'idle') shown = next;
+		phase = next;
+	});
+	$effect(() => () => clearTimeout(sentTimer));
+
 	/** "Back on Sreda 17:30’s. Your copy is archived.": left by a drop for the page it opened. */
 	let landed = $state<{ id: number; message: string } | null>(null);
 	let seq = 0;
@@ -97,7 +130,31 @@
 			>
 			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span class="text-[16px] leading-tight font-bold text-ink">{row.title}</span>
-				<span class="text-[13px] text-muted">{row.meta}</span>
+				<!-- The status lies over "Also: …", which stays (see-through) so the row keeps its height. -->
+				<span class="grid text-[13px]">
+					<span
+						class="col-start-1 row-start-1 text-muted transition-opacity duration-300 motion-reduce:transition-none {phase ===
+						'idle'
+							? ''
+							: 'opacity-0'}"
+						aria-hidden={phase === 'idle' ? undefined : 'true'}>{row.meta}</span
+					>
+					<span
+						role="status"
+						class="col-start-1 row-start-1 flex items-start gap-1.5 font-semibold transition-opacity duration-300 motion-reduce:transition-none {phase ===
+						'idle'
+							? 'opacity-0'
+							: ''} {shown === 'sent' ? 'text-done' : 'text-accent-text'}"
+						aria-hidden={phase === 'idle' ? 'true' : undefined}
+					>
+						{#if shown === 'sending'}
+							<span class="mt-[2px] flex-none"><Spinner size={14} /></span>{sendingLabel(count)}
+						{:else if shown === 'sent'}
+							<span class="mt-[2px] flex-none"><Icon name="check" size={14} stroke={3} /></span
+							>{sentLabel(count)}
+						{/if}
+					</span>
+				</span>
 			</span>
 			<span class="flex flex-none items-center gap-0.5 text-[15px] font-bold text-accent-text"
 				><span class="sr-only">{t().clones.versions.count}</span>{row.count}<Icon

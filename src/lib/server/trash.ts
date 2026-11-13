@@ -72,6 +72,7 @@ import { trashRefusalLine, type TrashRefusal } from '$lib/teams/deleted';
 import type { ChangeRootKind, DeletedItem, DeletedKind, TrashKind } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
 import { removeTimelineFiles, sweepTimelines } from './ai-timelines/store';
+import { queueLoops, removeLoopFiles } from './loops/store';
 
 /** Where a trashed or purged file lives: a lesson video's folder, a recording's, or a song's. */
 export type TrashDir = 'lessonVideos' | 'recordings' | 'audio';
@@ -648,6 +649,9 @@ export function startTrashPurge(db: () => Db, afterSettle: () => void = () => {}
 		await Promise.resolve()
 			.then(() => removeTimelineFiles(sweepTimelines(db(), now)))
 			.catch((err) => console.warn('[timelines] sweep failed', err));
+		await Promise.resolve()
+			.then(() => removeLoopFiles(queueLoops(db(), now).stale))
+			.catch((err) => console.warn('[loops] sweep failed', err));
 	};
 	const settle = async () => {
 		const n = await settleFormerMembers(db(), realCloneFiles(), serverNow());

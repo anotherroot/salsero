@@ -9,19 +9,24 @@ import { mineTarget } from '$lib/server/mine-target';
 import { groupModeFor, listInViewOf } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import {
-	addOption,
 	setOptionLength,
+	setSlotEnd,
 	archiveRoutine,
 	deleteSlots,
 	duplicateRoutine,
 	duplicateSlots,
 	embeddable,
 	embeddedIn,
-	extractRoutine,
+	makeSection,
+	getRoutine,
+	moveSlotInto,
+	holds,
+	promoteSection,
+	unpackSlot,
+	packSlots,
+	detachSection,
 	insertSlot,
 	moveSlotTo,
-	removeOption,
-	restoreOption,
 	restoreSlots,
 	routineShapes,
 	routineSlots,
@@ -37,9 +42,12 @@ import {
 	routineStarts,
 	rowEdges,
 	rowEdgesIn,
+	rowEndsIn,
 	timingBreaks,
 	timingSeams,
-	type OptionsSlot
+	type OptionsSlot,
+	routineSize,
+	optionSlots
 } from '$lib/routines/routines';
 import { countsOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
@@ -53,6 +61,7 @@ import { missingSeen, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
+import { elsewhereGroup } from '$lib/server/elsewhere';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import {
 	copyToFrom,
@@ -74,6 +83,11 @@ import { flowing, idParam } from '$lib/server/clones/flow-hook';
 import { hasCopies } from '$lib/server/clones/genes';
 import type { Actions, PageServerLoad } from './$types';
 import { serverNow } from '$lib/server/server-clock';
+import { childViews } from '$lib/server/section-views';
+import { and, eq, isNull } from 'drizzle-orm';
+import { routineSteps, routines } from '$lib/server/db/schema';
+import { demoteImpact, demoteRoutine, routinesHolding } from '$lib/server/sections';
+import { withLooks } from '$lib/server/loops/pictures';
 
 /**
  * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
@@ -95,7 +109,8 @@ function fingerprintOf(db: Db, routineId: number): string {
 			note: s.note,
 			// A slot's lengths (spec 2026-11-11), only when it has any: a routine without
 			// them keeps the fingerprint it had.
-			...(Object.keys(s.lengths).length > 0 ? { lengths: s.lengths } : {})
+			...(Object.keys(s.lengths).length > 0 ? { lengths: s.lengths } : {}),
+			end: s.end
 		}))
 	);
 }
@@ -177,9 +192,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const slots = routineSlots(db, routine.id, usable);
 	// A reader is told the names this routine's own slots use, and no other: its
 	// slots (and its embedded routines') are in their reach by construction.
-	const named = new Set(
-		shape.slots.flatMap((s) => (s.kind === 'options' ? [s] : s.slots).flatMap((o) => o.figureIds))
-	);
+	const named = new Set(shape.slots.flatMap((s) => optionSlots(s).flatMap((o) => o.figureIds)));
 	const labels = [...figureLabels(db, space, usable)].filter(([id]) => !visible || named.has(id));
 
 	// The group figures this person's routine uses: each one's group and move,
@@ -207,14 +220,19 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		? []
 		: [
 				// Twins show as one (board C7): a set is one candidate; a group's routine folds nothing.
-				...withFigureOrigins(
+				// Each with its picture (picker preview).
+				...withLooks(
 					db,
-					wall.userId,
-					foldVersions(db, space, [
-						...listVersions(db, space),
-						// A person's routine may use the group figures they reach, each under its group.
-						...(usable ? usableVersions(db, wall, usable) : [])
-					])
+					withFigureOrigins(
+						db,
+						wall.userId,
+						foldVersions(db, space, [
+							...listVersions(db, space),
+							// A person's routine may use the group figures they reach, each under its group.
+							...(usable ? usableVersions(db, wall, usable) : [])
+						])
+					),
+					space
 				).flatMap((v): Candidate[] => {
 					const node = figureById(graph, v.id);
 					if (!node) return [];
@@ -234,31 +252,33 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 							length: node.length,
 							...(node.free ? { free: true } : {}),
 							...(v.team ? { team: v.team } : {}),
-							...(v.twins ? { twins: v.twins } : {})
+							...(v.twins ? { twins: v.twins } : {}),
+							picture: v.look?.picture ?? null
 						}
 					];
 				}),
 				// Twins show as one here too: a set is one routine to embed.
-				...foldNamed(db, space, 'routine', embeddable(db, routine.id, usable)).map(
-					(r): Candidate => {
-						// An embeddable routine embeds nothing, so its own slots are all options.
-						const own = (shapes.get(r.id)?.slots ?? []).filter(
-							(s): s is OptionsSlot => s.kind === 'options'
-						);
-						const edges = rowEdges(graph, { kind: 'child', routineId: r.id, slots: own });
-						return {
-							kind: 'routine',
-							id: r.id,
-							groupId: null,
-							figure: null,
-							label: r.name,
-							...(r.team ? { team: r.team } : {}),
-							...(r.twins ? { twins: r.twins } : {}),
-							...edges,
-							ends: edges.ends ?? unionOfEnds(graph, own)
-						};
-					}
-				)
+				...pickOrder(
+					routine.id,
+					foldNamed(db, space, 'routine', embeddable(db, routine.id, usable))
+				).map((r): Candidate => {
+					// Its slots at any depth (spec 2026-11-12).
+					const slots = shapes.get(r.id)?.slots ?? [];
+					const own = slots.flatMap((s) => optionSlots(s));
+					const edges = rowEdges(graph, { kind: 'child', routineId: r.id, slots });
+					return {
+						kind: 'routine',
+						id: r.id,
+						groupId: null,
+						figure: null,
+						label: r.name,
+						...(r.team ? { team: r.team } : {}),
+						...(r.twins ? { twins: r.twins } : {}),
+						...(r.isSection ? { section: r.holders.map((h) => h.name).join(', ') } : {}),
+						...edges,
+						ends: edges.ends ?? unionOfEnds(graph, own)
+					};
+				})
 			];
 
 	return {
@@ -282,7 +302,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		mineHref: inGroupMode ? mineTarget(db, wall, 'routine', routine.id) : null,
 		sameAs: sameAsOffer(db, wall, 'routine', routine.id, routine.name, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
-		copyTo: copyOffer(db, wall.userId, 'routine', routine.id),
+		// A section is copied with the routine that holds it, never alone (review I4).
+		copyTo: routine.isSection === 1 ? null : copyOffer(db, wall.userId, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null
@@ -308,6 +329,30 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 				s.childId === null ? [] : [[s.childId, shapes.get(s.childId)?.slots.length ?? 0]]
 			)
 		) as Record<number, number>,
+		// The sections and routines the slots hold, at any depth, as the editor
+		// opens them in place (spec 2026-11-12).
+		children: childViews(
+			db,
+			wall.dance,
+			graph,
+			shapes,
+			slots.flatMap((s) => (s.childId === null ? [] : [s.childId])),
+			(
+				(m) => (id: number) =>
+					m.get(id) ?? ''
+			)(new Map(labels)),
+			usable
+		),
+		isSection: routine.isSection === 1,
+		// A section's page (spec 2026-11-12): the slot it was opened from (`?from=`), the
+		// routines holding it, its size; a routine's: what Turn into a section would touch.
+		fromSlot: fromSlot(db, url, routine.id),
+		holders: routine.isSection === 1 ? routinesHolding(db, routine.id, routine) : [],
+		// Slots holding it in its owner's routines: Detach here needs two (review; the same
+		// section twice in one routine counts twice).
+		uses: routine.isSection === 1 ? usesOf(db, routine) : 0,
+		size: routineSize(graph, shape),
+		demote: canEdit && routine.isSection === 0 ? demoteImpact(db, routine.id) : null,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(labels),
@@ -340,10 +385,20 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			(l) => !visible || visible.lessons.has(l.id)
 		),
 		candidates,
+		/** A group's routine, for an editor: its slot picker also finds other places' (link from other places). */
+		elsewhere: (() => {
+			if (!canEdit || routine.teamId === null) return null;
+			if (!elsewhereGroup(db, wall.userId, wall.dance, routine.teamId)) return null;
+			const team = getTeam(db, routine.teamId);
+			return team ? { teamId: team.id, name: team.name } : null;
+		})(),
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
 		// anchors and the seams' labels.
 		// As the routine walks (spec 2026-11-11): each row entered where the one before leaves off.
 		edges: rowEdgesIn(graph, shape),
+		// Per row, parallel to `slots`: its end's state and the Where does it end? sheet's
+		// rows (spec 2026-11-11, slot end); null for an embedded or empty row.
+		slotEnds: rowEndsIn(graph, shape),
 		positionSeams: positionSeams(graph, shape),
 		// Why "Make routine" is greyed, named.
 		embeddedIn: embeddedIn(db, routine.id)
@@ -481,6 +536,24 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return copyToFrom(getDb(), wallOf(params, locals), 'routine', routine.id, request);
 	},
 
+	// Make routine (spec 2026-11-12): a section joins the Routines list; an unnamed one takes `name`.
+	promote: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const name = text(form, 'name');
+		if (!promoteSection(getDb(), routine.id, name ?? null, by(params, locals))) {
+			return fail(400, { action: 'promote', field: 'name', message: t().routine.refused.newName });
+		}
+		return done(routine.id);
+	},
+	// Turn into a section (spec 2026-11-12): refused when no routine uses it.
+	demote: async ({ params, locals }) => {
+		const routine = routineOf(params, locals);
+		if (!demoteRoutine(getDb(), routine.id, by(params, locals))) {
+			return fail(400, { action: 'demote', message: t().routine.refused.demote });
+		}
+		return done(routine.id);
+	},
 	archive: async ({ params, locals }) => {
 		const routine = routineOf(params, locals);
 		// The boolean is deliberately ignored: archiving twice is idempotent — the
@@ -492,31 +565,6 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 			303,
 			listInViewOf(getDb(), wall, locals.user?.level, routine.teamId, `/${params.dance}/routines`)
 		);
-	},
-
-	addOption: async ({ params, request, locals }) => {
-		const db = getDb();
-		const form = await request.formData();
-		// Read after the body: the routine as it is now, not before the wait.
-		const routine = routineOf(params, locals);
-		const stale = staleSlots(db, routine, form);
-		if (stale) return stale;
-		const stepId = int(form, 'stepId');
-		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined) {
-			return slotFail(t().routine.refused.readSlot, stepId);
-		}
-		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail(t().routine.refused.notThisRoutine, stepId);
-		}
-		// A figure whose length is set in the routine comes with the length its sheet chose.
-		if (!addOption(db, stepId, figureId, by(params, locals), int(form, 'length'))) {
-			const space = spaceOfRow(routine, by(params, locals));
-			const archived = archivedRefusal(db, space, { figureId }, { stepId });
-			if (archived) return archived;
-			return slotFail(t().routine.refused.notAlternative, stepId);
-		}
-		return done(routine.id);
 	},
 
 	/** An option's length in its slot: the How long? sheet from the slot's chip (spec 2026-11-11). */
@@ -542,7 +590,8 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return done(routine.id);
 	},
 
-	removeOption: async ({ params, request, locals }) => {
+	/** A slot's end: the Where does it end? sheet (spec 2026-11-11, slot end). No position clears it. */
+	end: async ({ params, request, locals }) => {
 		const db = getDb();
 		const form = await request.formData();
 		// Read after the body: the routine as it is now, not before the wait.
@@ -550,19 +599,18 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepId = int(form, 'stepId');
-		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined) {
+		const raw = String(form.get('positionId') ?? '').trim();
+		const positionId = raw === '' ? null : int(form, 'positionId');
+		if (stepId === undefined || positionId === undefined) {
 			return slotFail(t().routine.refused.readSlot, stepId);
 		}
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail(t().routine.refused.notThisRoutine, stepId);
 		}
-		const now = serverNow();
-		if (!removeOption(db, stepId, figureId, now, by(params, locals))) {
-			return slotFail(t().routine.refused.holdSomething, stepId);
+		if (!setSlotEnd(db, stepId, positionId, by(params, locals))) {
+			return slotFail(t().routine.refused.end, stepId);
 		}
-		// Handed back so Undo can bring back the entries this remove took (R10).
-		return done(routine.id, { removedAt: now });
+		return done(routine.id);
 	},
 
 	addSong: async ({ params, request, locals }) => {
@@ -695,28 +743,69 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return done(routine.id);
 	},
 
-	restoreOption: async ({ params, request, locals }) => {
-		const db = getDb();
+	// Unpack (spec 2026-11-12): the slot's section or routine opens into its slots here.
+	unpack: async ({ params, request, locals }) => {
 		const form = await request.formData();
-		// Read after the body: the routine as it is now, not before the wait.
 		const routine = routineOf(params, locals);
-		const stale = staleSlots(db, routine, form);
-		if (stale) return stale;
 		const stepId = int(form, 'stepId');
-		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined) {
-			return slotFail(t().routine.refused.readSlot, stepId);
-		}
-		if (!ownsSlot(db, routine.id, stepId)) {
-			return slotFail(t().routine.refused.notThisRoutine, stepId);
-		}
-		const removedAt = int(form, 'removedAt');
-		if (!restoreOption(db, stepId, figureId, by(params, locals), removedAt, int(form, 'length'))) {
-			return slotFail(t().routine.refused.altPutBack, stepId);
-		}
-		return done(routine.id);
+		const out =
+			stepId === undefined ? null : unpackSlot(getDb(), routine.id, stepId, by(params, locals));
+		if (!out) return fail(400, { message: t().routine.refused.unpack });
+		return done(routine.id, { unpacked: out });
 	},
-
+	// Drag into a section held here, or back out (spec 2026-11-12): both ends must be this
+	// routine or something it holds.
+	moveInto: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const db = getDb();
+		const stepId = int(form, 'stepId');
+		const targetId = int(form, 'targetId');
+		const index = int(form, 'index') ?? 1_000_000;
+		const within = (id: number) => id === routine.id || holds(db, routine.id, id);
+		const from =
+			stepId === undefined
+				? undefined
+				: db
+						.select({ r: routineSteps.routineId })
+						.from(routineSteps)
+						.where(eq(routineSteps.id, stepId))
+						.get()?.r;
+		if (
+			stepId === undefined ||
+			targetId === undefined ||
+			from === undefined ||
+			!within(from) ||
+			!within(targetId) ||
+			!moveSlotInto(db, stepId, targetId, index, by(params, locals), undefined, routine.id)
+		) {
+			return fail(400, { message: t().routine.refused.moveInto });
+		}
+		return done(routine.id, { from });
+	},
+	// Unpack's Undo.
+	pack: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const sectionId = int(form, 'sectionId');
+		const stepIds = ints(form, 'stepIds');
+		const step =
+			sectionId === undefined
+				? null
+				: packSlots(getDb(), routine.id, stepIds, sectionId, by(params, locals));
+		if (step === null) return fail(400, { message: t().routine.refused.unpack });
+		return done(routine.id, { stepId: step });
+	},
+	// Detach here (spec 2026-11-12): this one slot gets its own copy of the section.
+	detachHere: async ({ params, request, locals }) => {
+		const form = await request.formData();
+		const routine = routineOf(params, locals);
+		const stepId = int(form, 'stepId');
+		const copy =
+			stepId === undefined ? null : detachSection(getDb(), routine.id, stepId, by(params, locals));
+		if (copy === null) return fail(400, { message: t().routine.refused.detachHere });
+		return done(routine.id, { sectionId: copy });
+	},
 	duplicateMany: async ({ params, request, locals }) => {
 		const db = getDb();
 		const form = await request.formData();
@@ -725,13 +814,13 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
-		if (
-			stepIds.length === 0 ||
-			duplicateSlots(getDb(), routine.id, stepIds, by(params, locals)) === null
-		) {
-			return fail(400, { message: t().routine.refused.copySlots });
-		}
-		return done(routine.id);
+		const copies =
+			stepIds.length === 0
+				? null
+				: duplicateSlots(getDb(), routine.id, stepIds, by(params, locals));
+		if (copies === null) return fail(400, { message: t().routine.refused.copySlots });
+		// The copies glow where they landed, and Undo removes them (spec 2026-11-12, D1).
+		return done(routine.id, { copies });
 	},
 
 	extract: async ({ params, request, locals }) => {
@@ -741,20 +830,10 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		const routine = routineOf(params, locals);
 		const stale = staleSlots(db, routine, form, 'extract');
 		if (stale) return stale;
+		// Section (spec 2026-11-12): no name asked; an unnamed section at once.
 		const stepIds = ints(form, 'stepIds');
-		const name = text(form, 'name');
-		if (!name) {
-			return fail(400, {
-				action: 'extract',
-				field: 'name',
-				message: t().routine.refused.newName,
-				name: String(form.get('name') ?? '')
-			});
-		}
 		const made =
-			stepIds.length === 0
-				? null
-				: extractRoutine(getDb(), routine.id, stepIds, name, by(params, locals));
+			stepIds.length === 0 ? null : makeSection(getDb(), routine.id, stepIds, by(params, locals));
 		if (!made) {
 			return fail(400, {
 				action: 'extract',
@@ -764,3 +843,53 @@ export const actions: Actions = flowing('routine', (e) => idParam(e.params.id), 
 		return done(routine.id, { stepId: made.stepId });
 	}
 } satisfies Actions);
+
+/** The slot a section's page was opened from (`?from=<step id>`), when it holds this one. */
+function fromSlot(db: ReturnType<typeof getDb>, url: URL, id: number) {
+	const stepId = Number(url.searchParams.get('from'));
+	if (!Number.isInteger(stepId) || stepId <= 0) return null;
+	const step = db
+		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	if (!step || step.childId !== id) return null;
+	const parent = getRoutine(db, step.routineId);
+	return parent
+		? { stepId, routineId: parent.id, name: parent.name || t().routine.section.unnamed }
+		: null;
+}
+
+/**
+ * The picker's routines (spec 2026-11-12, P2): this routine's own named sections
+ * first, then each routine followed by the named sections it holds, then any
+ * section held only elsewhere.
+ */
+function pickOrder<T extends { id: number; isSection: boolean; holders: { id: number }[] }>(
+	routineId: number,
+	rows: T[]
+): T[] {
+	const sections = rows.filter((r) => r.isSection);
+	const out: T[] = sections.filter((s) => s.holders.some((h) => h.id === routineId));
+	for (const r of rows.filter((x) => !x.isSection)) {
+		out.push(
+			r,
+			...sections.filter((s) => !out.includes(s) && s.holders.some((h) => h.id === r.id))
+		);
+	}
+	return [...out, ...sections.filter((s) => !out.includes(s))];
+}
+
+/** How many live slots of its owner's routines hold this section. */
+function usesOf(
+	db: ReturnType<typeof getDb>,
+	section: { id: number; userId: string | null; teamId: number | null }
+) {
+	return db
+		.select({ id: routineSteps.id, userId: routines.userId, teamId: routines.teamId })
+		.from(routineSteps)
+		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+		.where(and(eq(routineSteps.childRoutineId, section.id), isNull(routines.archivedAt)))
+		.all()
+		.filter((s) => s.userId === section.userId && s.teamId === section.teamId).length;
+}

@@ -5,7 +5,15 @@ import { outOfSync } from './sync';
 /** The Routines list as the (moves) layout loads it. */
 export interface RoutinesLists {
 	/** The space's own, with what the graph says of each. */
-	routines: (RoutineItem & { loops: boolean; breaks: number })[];
+	routines: (RoutineItem & {
+		loops: boolean;
+		breaks: number;
+		/** L4 (spec 2026-11-12): where it starts and ends, by name; null when unnamed. */
+		start: string | null;
+		end: string | null;
+		figures: number;
+		eights: number;
+	})[];
 	/** Each group's routines from the lessons the person added (none in group mode). */
 	groups: { team: TeamRef; routines: RoutineItem[] }[];
 	/** The routines that stand for their twins: the "Twins" chip. */
@@ -15,9 +23,8 @@ export interface RoutinesLists {
 export type RoutineBadge = { tone: 'danger' | 'warn'; text: string };
 
 /**
- * The badges after a routine's slot count on the Routines list: breaks
- * (danger), then "does not loop" (warn). An empty routine has nothing to
- * loop, so it is not called out for it. PURE.
+ * The badges on a Routines list row: breaks (danger) only. Whether it loops
+ * reads from its start → end line, ↻ when it does (spec 2026-11-12, L4). PURE.
  */
 export function routineBadges(r: {
 	slots: number;
@@ -26,7 +33,6 @@ export function routineBadges(r: {
 }): RoutineBadge[] {
 	const out: RoutineBadge[] = [];
 	if (r.breaks > 0) out.push({ tone: 'danger', text: t().nouns.breaks(r.breaks) });
-	if (!r.loops && r.slots > 0) out.push({ tone: 'warn', text: t().moves.routines.badLoop });
 	return out;
 }
 

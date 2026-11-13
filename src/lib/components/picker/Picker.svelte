@@ -26,6 +26,9 @@
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import PreviewButton from './PreviewButton.svelte';
+	import LookSheet from './LookSheet.svelte';
+	import { PREVIEW_LOOK } from '$lib/picker/preview';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, CLIP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { IconName } from '$lib/icons/icons';
@@ -99,10 +102,11 @@
 		/** Replaces the empty box's text (the routine editor's "Turn off Hold"). */
 		empty?: Snippet;
 		/**
-		 * Link from other places (a group's linking pickers): while a search is
-		 * typed, the group's own rows sit under `here`, then what the person's
-		 * other places hold (`groups`, already matched by the server); `state`
-		 * says whether they came. A tap or + on one of them is `onelsewhere`.
+		 * Link from other places (a group's pickers): while a search is typed,
+		 * the group's own rows sit under `here`, then what the person's other
+		 * places hold (`groups`, already matched by the server); `state` says
+		 * whether they came. A tap or + on one of them is `onelsewhere`; only a
+		 * linking picker's rows have the + (a field's or an act's: a tap).
 		 */
 		elsewhere?: {
 			here: string;
@@ -114,6 +118,8 @@
 		onpick: (row: PickRow) => void;
 		onadd?: (row: PickRow) => void;
 		onpreview?: (row: PickRow) => void;
+		/** A row's picture was tapped (picker preview): its sheet. */
+		onlook?: (row: PickRow) => void;
 		oncreate?: (key: string, query: string) => void;
 		ondone?: () => void;
 		/** ×, Back, Escape, the backdrop: one level back (rule 8). */
@@ -154,16 +160,41 @@
 		onpick,
 		onadd,
 		onpreview,
+		onlook,
 		oncreate,
 		ondone,
 		onclose
 	}: Props = $props();
+
+	/** The row whose preview sheet is open over the picker (picker preview), and whether it is from another place. */
+	let looking = $state<{ row: PickRow; away: boolean } | null>(null);
+
+	/** A row's picture was tapped: its preview sheet, the picker kept as it is underneath. */
+	function look(r: PickRow, away = false) {
+		if (onlook) return onlook(r);
+		if (r.look) looking = { row: r, away };
+	}
+
+	/** The sheet's verb: exactly what a tap on its row does, then the sheet goes with the picker. */
+	function pickLooked() {
+		const l = looking;
+		looking = null;
+		if (!l) return;
+		if (l.away) onelsewhere?.(l.row, false);
+		else onpick(l.row);
+	}
 
 	let search: HTMLInputElement | undefined = $state();
 
 	// Every opening starts with an empty search.
 	$effect(() => {
 		if (open) query = '';
+	});
+
+	// A picker that closes under its sheet (Android Back in the player) forgets it, so
+	// the next opening shows the list, not the old sheet over it (picker preview).
+	$effect(() => {
+		if (!open) looking = null;
 	});
 
 	// Focus the search on desktop (no on-screen keyboard) or with a mouse: on a
@@ -226,9 +257,11 @@
 
 {#snippet row(r: PickRow, text: string, indent: boolean, last: boolean, away = false)}
 	{@const trail = away
-		? pending.has(r.key)
-			? 'pending'
-			: 'add'
+		? kind !== 'link'
+			? 'none'
+			: pending.has(r.key)
+				? 'pending'
+				: 'add'
 		: rowTrail(kind, r, chosen, pending)}
 	{@const linked = trail === 'linked'}
 	{@const isChosen = trail === 'chosen'}
@@ -245,6 +278,12 @@
 				aria-label={t().picker.play(r.label)}
 				onclick={() => onpreview?.(r)}><Icon name="play" size={18} filled /></button
 			>
+		{/if}
+		{#if r.picture !== undefined && PREVIEW_LOOK === 'tile'}
+			<!-- Picker preview: the figure's moving picture; a tap opens its sheet, the row still picks. -->
+			<span class="mr-3 flex flex-none">
+				<PreviewButton picture={r.picture} label={r.label} onclick={() => look(r, away)} />
+			</span>
 		{/if}
 		<div class="flex min-w-0 flex-1 items-center {last ? '' : 'border-b border-hairline'}">
 			<button
@@ -273,6 +312,14 @@
 					>
 				{/if}
 			</button>
+			{#if r.picture !== undefined && PREVIEW_LOOK === 'eye'}
+				<PreviewButton
+					picture={r.picture}
+					label={r.label}
+					look="eye"
+					onclick={() => look(r, away)}
+				/>
+			{/if}
 			{#if trail === 'add'}
 				<button
 					type="button"
@@ -497,6 +544,25 @@
 		>
 	{/if}
 {/snippet}
+
+{#if looking?.row.look}
+	{@const l = looking}
+	{@const lk = looking.row.look}
+	<!-- Picker preview: the row's sheet, a level over the picker (S1). -->
+	<LookSheet
+		open={open && looking !== null}
+		look={lk}
+		label={l.row.label}
+		picture={l.row.picture ?? null}
+		verb={kind === 'act' ? 'act' : kind === 'link' ? 'link' : 'field'}
+		linked={l.row.linked === true}
+		{theme}
+		z="z-[60]"
+		{level}
+		onpick={pickLooked}
+		onclose={() => (looking = null)}
+	/>
+{/if}
 
 {#if theme === 'dark'}
 	{#if open}

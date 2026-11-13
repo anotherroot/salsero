@@ -20,6 +20,7 @@ export const nouns: Catalog['nouns'] = {
 	/** A figure's length: "8 dob". */
 	counts: (n) => slCount(n, ['doba', 'dobi', 'dobe', 'dob']),
 	slots: (n) => slCount(n, ['mesto', 'mesti', 'mesta', 'mest']),
+	eights: (n) => slCount(n, ['osmica', 'osmici', 'osmice', 'osmic']),
 	breaks: (n) => slCount(n, ['prekinitev', 'prekinitvi', 'prekinitve', 'prekinitev']),
 	timingBreaks: (n) =>
 		slCount(n, [

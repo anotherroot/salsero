@@ -16,9 +16,10 @@ import {
 	type MediaStore
 } from '$lib/offline/media-store';
 import { fits } from '$lib/offline/network';
+import { loopName, type LoopSpan } from '$lib/video/loop-names';
 import type { SqliteDb } from './migrate';
 
-/** The copy's songs with audio (not archived) and the person's count takes, as files. */
+/** The copy's songs with audio (not archived), the person's count takes and its figure loops, as files. */
 export function wantedMedia(db: SqliteDb, userId: string): MediaFile[] {
 	const songs = db
 		.prepare(
@@ -29,13 +30,33 @@ export function wantedMedia(db: SqliteDb, userId: string): MediaFile[] {
 	const takes = db.prepare('SELECT file FROM count_takes WHERE user_id = ?').all(userId) as {
 		file: string;
 	}[];
+	// Figure loops (picker preview): every section in the copy linked to a figure, on a video the
+	// server holds — what the server's `queueLoops` cuts. One not cut yet answers 404: not yet.
+	const spans = db
+		.prepare(
+			`SELECT DISTINCT v.id, v.start_ms AS startMs, v.end_ms AS endMs
+			 FROM video_spots v
+			 JOIN spot_links s ON s.spot_id = v.id AND s.figure_id IS NOT NULL
+			 LEFT JOIN lesson_videos lv ON lv.id = v.lesson_video_id
+			 LEFT JOIN recordings r ON r.id = v.recording_id
+			 WHERE v.end_ms IS NOT NULL
+			   AND (lv.server_copy = 1 OR (r.server_copy = 1 AND r.kind = 'video'))`
+		)
+		.all() as LoopSpan[];
 	return [
 		...songs.map((s): MediaFile => ({ kind: 'audio', file: s.file, mime: s.mime })),
-		...takes.map((t): MediaFile => ({ kind: 'count', file: t.file, mime: 'audio/wav' }))
+		...takes.map((t): MediaFile => ({ kind: 'count', file: t.file, mime: 'audio/wav' })),
+		...spans.flatMap((s): MediaFile[] => [
+			{ kind: 'loops', file: loopName(s), mime: 'image/jpeg' },
+			{ kind: 'loops', file: loopName(s, true), mime: 'image/jpeg' }
+		])
 	];
 }
 
 const key = (f: { kind: string; file: string }) => `${f.kind}/${f.file}`;
+
+/** A figure loop that answered 404 is asked for again after this long. */
+export const LOOP_RETRY_MS = 3600_000;
 const isVideo = (f: MediaFile) => VIDEO_KINDS.includes(f.kind);
 
 /** Why wanted videos are not coming now (offline phase 4b). */
@@ -97,7 +118,21 @@ export async function syncMedia(deps: {
 	log: Pick<Console, 'warn'>;
 	/** Aborted: stop now, the file in flight included (the store is being emptied, or the settings changed). */
 	signal?: AbortSignal;
+	/**
+	 * Figure loops that answered 404 (not cut yet, or failed), by key, when: not asked
+	 * again for `LOOP_RETRY_MS`. The keeper holds one map across passes.
+	 */
+	loopMisses?: Map<string, number>;
+	now?: () => number;
 }): Promise<PassOut> {
+	const now = deps.now ?? (() => Date.now());
+	const misses = deps.loopMisses ?? new Map<string, number>();
+	/** This loop answered 404 a while ago, or its strip did (its still waits with it). */
+	const missedLately = (f: MediaFile): boolean => {
+		const t =
+			misses.get(key(f)) ?? misses.get(key({ ...f, file: f.file.replace(/-still\.jpg$/, '.jpg') }));
+		return t !== undefined && now() - t < LOOP_RETRY_MS;
+	};
 	const out: PassOut = { fetched: 0, removed: 0, failed: 0, waiting: null };
 	const held = await deps.store.list();
 	const have = new Set(held.map(key));
@@ -127,6 +162,7 @@ export async function syncMedia(deps: {
 			if (isVideo(f)) out.waiting = 'offline';
 			break;
 		}
+		if (f.kind === 'loops' && missedLately(f)) continue;
 		const video = isVideo(f);
 		if (video && deps.videosMayCome && !deps.videosMayCome()) {
 			out.waiting = 'wifi';
@@ -154,6 +190,11 @@ export async function syncMedia(deps: {
 					throw new Error(`the server answered from byte ${rangeStart(res)}, not ${from}`);
 				}
 				start = from;
+			} else if (res.status === 404 && f.kind === 'loops') {
+				// Not cut yet (the home worker gets to it): neither fetched nor failed, and not
+				// asked again for a while.
+				misses.set(key(f), now());
+				continue;
 			} else if (!res.ok) {
 				throw new Error(`the server answered ${res.status}`);
 			}
@@ -204,6 +245,8 @@ export function mediaKeeper(deps: {
 } {
 	let running: Promise<void> | null = null;
 	let again = false;
+	/** Loops not cut yet, across passes: `syncMedia` waits an hour before asking again. */
+	const loopMisses = new Map<string, number>();
 	let controller: AbortController | null = null;
 
 	async function pass(): Promise<void> {
@@ -221,7 +264,8 @@ export function mediaKeeper(deps: {
 			onProgress: deps.onProgress,
 			onStored: deps.onStored,
 			log: deps.log,
-			signal
+			signal,
+			loopMisses
 		});
 		if (out.fetched || out.removed || out.failed) deps.log.info('[device] media on the phone', out);
 		deps.onPass?.(out);

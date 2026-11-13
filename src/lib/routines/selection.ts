@@ -12,18 +12,11 @@ export function inOrder(rows: { id: number }[], selected: number[]): number[] {
 	return rows.filter((r) => selected.includes(r.id)).map((r) => r.id);
 }
 
-/** Why the selection cannot become a routine, or null when it can. */
-export function extractBlock(
-	rows: { id: number; isRoutine: boolean }[],
-	selected: number[],
-	embeddedIn: string[]
-): string | null {
+/** Why the selection cannot become a section, or null when it can: any run of neighbours, at any depth (spec 2026-11-12). */
+export function extractBlock(rows: { id: number }[], selected: number[]): string | null {
 	const w = t().routine.selection.blocked;
-	if (embeddedIn.length > 0) return w.embedded(embeddedIn.join(', '));
 	const at = rows.map((r, i) => (selected.includes(r.id) ? i : -1)).filter((i) => i >= 0);
 	if (at.length === 0) return w.none;
-	const routine = at.find((i) => rows[i].isRoutine);
-	if (routine !== undefined) return w.slotIsRoutine(routine + 1);
 	if (at[at.length - 1] - at[0] !== at.length - 1) return w.apart;
 	return null;
 }

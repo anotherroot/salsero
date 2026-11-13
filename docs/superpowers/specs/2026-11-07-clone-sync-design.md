@@ -458,6 +458,27 @@ not say. Each line: what, and why.
 - **No notice where the person edits no copy** and has nothing to update
   from (no Sync to open).
 - **A suffixed old copy** is no difference, no notice, no Moves mark.
+- **What is on its way is no notice** *(user, 2026-11-12)*. A save on the
+  phone lands on the device first; the server flows it on replay, and only
+  the pull brings the copies back. Meanwhile the page used to read its
+  copies as behind and showed the notice for a change Keep in step was
+  about to carry. Now, while the device has changes on their way (waiting
+  in the outbox, or landed and not pulled yet: `DeviceRuntime.onWay`), a
+  "behind" row the flow would carry (the page's switch on and the person
+  edits it; the copy's switch on, its options allow the key, the person
+  edits it) is no line and no Moves mark; its copy is counted in
+  `StepView.sending`. The version row says so quietly (option C of the
+  mockups): "Sending to 2 copies…" with a spinner fades in over its
+  "Also: …", which stays in place, see-through, so the row keeps its
+  height; once the pull lands and nothing differs, "Copies updated" for
+  2 s, then it fades out. Whatever still differs then is the notice again.
+  Only the device guesses (the server flows before it answers), and the
+  guess is generous, always for a while only: it reads the whole outbox, not
+  this family's entries, and every behind row the options allow, not only
+  this save's keys, so offline an old difference (a hop refused earlier)
+  says "Sending…" until the changes go up; a copy reached through another
+  copy is judged by its own options alone. A link removal held back for a
+  refused new piece (`holdLinkRemovals`) is no guess: it stays a line.
 - **The Moves cards filter in place** on Figures, Routines and Positions
   (also on desktop beside an open item); the filter can always be cleared,
   and `differ` stays optional on list rows (a list that forgets it shows
