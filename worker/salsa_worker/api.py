@@ -289,9 +289,9 @@ class Api:
         )
 
     def put_loop(self, job_id: int, which: str, path: Path) -> None:
-        self._loop(
-            "PUT", f"/api/worker/loops/{job_id}/{which}", data=path.read_bytes(), headers={"Content-Type": "image/jpeg"}
-        ).close()
+        """`which`: "clip" (the section, H.264) or "still" (a JPEG)."""
+        kind = "video/mp4" if which == "clip" else "image/jpeg"
+        self._loop("PUT", f"/api/worker/loops/{job_id}/{which}", data=path.read_bytes(), headers={"Content-Type": kind}).close()
 
     def finish_loop(self, job_id: int) -> None:
         self._loop("POST", f"/api/worker/loops/{job_id}/done", data=b"{}").close()

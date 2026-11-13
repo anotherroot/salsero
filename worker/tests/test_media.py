@@ -275,15 +275,16 @@ def test_timeline_duration_unknown_is_permanent(tmp_path: Path):
         media.timeline_duration(tmp_path / "v.webm", run=lambda cmd, **kw: answers.pop(0))
 
 
-def loop_run(fail_frames=()):
-    """A fake ffmpeg for loop_strip: writes its output file (the last argument) unless asked to fail."""
+
+def clip_run(fail=()):
+    """A fake ffmpeg for loop_clip: writes its output (the last argument) unless that file's name is in `fail`."""
     calls = []
 
     def run(cmd, **kwargs):
         calls.append(cmd)
         out = Path(cmd[-1])
-        if out.name.startswith("f") and int(out.stem[1:]) in fail_frames:
-            return subprocess.CompletedProcess(cmd, 1, "", "Invalid data")
+        if out.name in fail:
+            return subprocess.CompletedProcess(cmd, 1, "", "Server returned 404 Not Found")
         out.write_bytes(out.name.encode())
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
@@ -291,49 +292,47 @@ def loop_run(fail_frames=()):
     return run
 
 
-def test_loop_strip_seeks_each_frame(tmp_path: Path):
-    run = loop_run()
-    media.loop_strip("v.mp4", 1000, 7000, tmp_path, run=run)
-    frames = [c for c in run.calls if "-frames:v" in c]
-    assert len(frames) == media.LOOP_FRAMES == 12
-    times = [float(c[c.index("-ss") + 1]) for c in frames]
-    assert times == [1.25 + 0.5 * k for k in range(12)]
-    for c in frames:
-        # Input seeking: -ss before -i, so only the needed bytes are read.
-        assert c.index("-ss") < c.index("-i")
-        assert c[c.index("-frames:v") + 1] == "1"
-        # Fit, not cover: a portrait phone video keeps the dancers whole, in dark bars.
-        assert "scale=128:80:force_original_aspect_ratio=decrease,pad=128:80:(ow-iw)/2:(oh-ih)/2:color=0x1f1b18" in c
+def test_loop_clip_is_the_whole_section_at_12_fps(tmp_path: Path):
+    run = clip_run()
+    clip, still = media.loop_clip("v.mp4", 1000, 7000, tmp_path, run=run)
+    c = next(c for c in run.calls if c[-1].endswith("clip.mp4"))
+    # Input seeking, the section's length, real speed: frames at a constant time.
+    assert c.index("-ss") < c.index("-i") and c[c.index("-ss") + 1] == "1"
+    assert c[c.index("-t") + 1] == "6"
+    vf = c[c.index("-vf") + 1]
+    assert vf.startswith("fps=12,") and "scale=128:128:force_original_aspect_ratio=increase,crop=128:128" in vf
+    # Small and cheap to decode everywhere: H.264 baseline, no sound, one keyframe, streamable.
+    assert c[c.index("-c:v") + 1] == "libx264" and c[c.index("-profile:v") + 1] == "baseline"
+    assert "-an" in c and c[c.index("-movflags") + 1] == "+faststart"
+    assert c[c.index("-g") + 1] == "9999"
+    assert (clip, still) == (tmp_path / "clip.mp4", tmp_path / "still.jpg")
 
 
-def test_loop_strip_tiles_into_one(tmp_path: Path):
-    run = loop_run()
-    strip, still = media.loop_strip("v.mp4", 0, 3000, tmp_path, run=run)
-    tile = run.calls[-1]
-    assert "tile=12x1" in tile
-    assert strip == tmp_path / "strip.jpg" and strip.exists()
-    # The still is frame 0, as its own file.
-    assert still == tmp_path / "still.jpg"
-    assert still.read_bytes() == (tmp_path / "f00.jpg").read_bytes()
+def test_loop_clip_caps_a_long_section_at_60_s(tmp_path: Path):
+    run = clip_run()
+    media.loop_clip("v.mp4", 0, 95_000, tmp_path, run=run)
+    c = next(c for c in run.calls if c[-1].endswith("clip.mp4"))
+    assert c[c.index("-t") + 1] == "60"
 
 
-def test_loop_strip_passes_headers_for_url(tmp_path: Path):
-    run = loop_run()
-    media.loop_strip("https://x/api/worker/loops/1/source", 0, 3000, tmp_path, {"Authorization": "Bearer t"}, run=run)
-    c = run.calls[0]
-    assert c[c.index("-headers") + 1] == "Authorization: Bearer t\r\n"
-    assert c.index("-headers") < c.index("-i")
+def test_loop_clip_still_is_a_quarter_in(tmp_path: Path):
+    run = clip_run()
+    media.loop_clip("v.mp4", 1000, 9000, tmp_path, run=run)
+    s = next(c for c in run.calls if c[-1].endswith("still.jpg"))
+    assert s[s.index("-ss") + 1] == "3" and s[s.index("-frames:v") + 1] == "1"
+    assert "crop=128:128" in s[s.index("-vf") + 1]
 
 
-def test_loop_strip_reuses_the_last_good_frame(tmp_path: Path):
-    run = loop_run(fail_frames={11})
-    media.loop_strip("v.mp4", 0, 3000, tmp_path, run=run)
-    assert (tmp_path / "f11.jpg").read_bytes() == (tmp_path / "f10.jpg").read_bytes()
+def test_loop_clip_passes_headers_for_url(tmp_path: Path):
+    run = clip_run()
+    media.loop_clip("https://x/api/worker/loops/1/source", 0, 3000, tmp_path, {"Authorization": "Bearer t"}, run=run)
+    for c in run.calls:
+        assert c[c.index("-headers") + 1] == "Authorization: Bearer t\r\n"
+        assert c.index("-headers") < c.index("-i")
 
 
-def test_loop_strip_without_any_frame_is_tried_again(tmp_path: Path):
-    # No frame at all is most often the source not answering (network, a server restart): the
-    # queue's attempts (5) end it, never a first failure. Measured: a missing file read as permanent.
-    with pytest.raises(RuntimeError, match="No picture in this section") as e:
-        media.loop_strip("v.mp4", 0, 3000, tmp_path, run=loop_run(fail_frames=set(range(12))))
+def test_loop_clip_that_fails_is_tried_again(tmp_path: Path):
+    # Most often the source not answering: the queue's attempts end it, never a first failure.
+    with pytest.raises(RuntimeError, match="No clip of this section") as e:
+        media.loop_clip("v.mp4", 0, 3000, tmp_path, run=clip_run(fail={"clip.mp4"}))
     assert not isinstance(e.value, media.PermanentError)

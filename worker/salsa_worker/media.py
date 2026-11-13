@@ -386,74 +386,57 @@ def timeline_duration(src: Path, run=subprocess.run) -> float:
     return int(h) * 3600 + int(m) * 60 + float(s)
 
 
-# A figure's loop for the pickers (spec 2026-11-12-picker-preview): 12 small frames spread over a
-# section, side by side in one JPEG strip the page steps through, and the first one as a still.
-LOOP_FRAMES = 12
-LOOP_W = 128
-LOOP_H = 80
-LOOP_Q = 5
+# A figure's loop for the pickers (spec 2026-11-12-picker-preview, revision 2026-11-13): the whole
+# section at its real speed, 12 frames a second, as a tiny muted H.264 clip, and a still a quarter in.
+LOOP_PX = 128
+LOOP_FPS = 12
+LOOP_MAX_MS = 60_000
+LOOP_CRF = 30
 
 
-def loop_strip(
+def _fmt_s(ms: float) -> str:
+    return f"{ms / 1000:.3f}".rstrip("0").rstrip(".")
+
+
+def loop_clip(
     src: str, start_ms: int, end_ms: int, outdir: Path, headers: dict[str, str] | None = None, run=subprocess.run
 ) -> tuple[Path, Path]:
-    """Cut a section's loop: frame k at start + (k + 0.5) * span / 12, covering 128x80, tiled 12x1.
-    `src` is a file or an http(s) URL (the worker's source endpoint, with Range): each frame seeks
-    on its own (-ss before -i), so only the bytes it needs are read. A frame that fails takes the
-    last good one; none at all fails for good. Returns (strip, still)."""
+    """Cut a section's loop: 128x128 (cover, centre), 12 fps at real speed, at most 60 s; H.264 baseline
+    with one keyframe and no sound, so any phone decodes it cheaply and it restarts cleanly. `src` is a file
+    or an http(s) URL (the worker's source endpoint, with Range): input seeking reads only the section.
+    Any failure is tried again (most often the source not answering). Returns (clip, still)."""
     outdir.mkdir(parents=True, exist_ok=True)
     head = []
     if headers and src.startswith(("http://", "https://")):
         head = ["-headers", "".join(f"{k}: {v}\r\n" for k, v in headers.items())]
-    # Fit, not cover: a portrait phone video would lose heads and feet to a crop.
-    scale = (
-        f"scale={LOOP_W}:{LOOP_H}:force_original_aspect_ratio=decrease,"
-        f"pad={LOOP_W}:{LOOP_H}:(ow-iw)/2:(oh-ih)/2:color=0x1f1b18"
-    )
-    span = end_ms - start_ms
-    good: Path | None = None
-    missing: list[Path] = []
-    last_err = ""
-    for k in range(LOOP_FRAMES):
-        t = (start_ms + (k + 0.5) * span / LOOP_FRAMES) / 1000
-        out = outdir / f"f{k:02d}.jpg"
-        p = run(
-            [
-                "ffmpeg", "-nostdin", "-loglevel", "error", "-y", *head,
-                "-ss", f"{t:.3f}".rstrip("0").rstrip("."), "-i", src,
-                "-frames:v", "1", "-vf", scale, "-q:v", str(LOOP_Q), str(out),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        if p.returncode == 0 and out.exists():
-            good = out
-            for m in missing:
-                shutil.copyfile(out, m)
-            missing = []
-            continue
-        last_err = _last_line(p.stderr)
-        if good is not None:
-            shutil.copyfile(good, out)
-        else:
-            missing.append(out)
-    if good is None:
-        # Most often the source not answering (network, a restart): tried again, and the
-        # queue's attempts end it. Not PermanentError: a first failure must not be the last.
-        raise RuntimeError(f"No picture in this section: {last_err}")
-    strip = outdir / "strip.jpg"
+    span = min(end_ms - start_ms, LOOP_MAX_MS)
+    square = f"scale={LOOP_PX}:{LOOP_PX}:force_original_aspect_ratio=increase,crop={LOOP_PX}:{LOOP_PX}"
+    clip = outdir / "clip.mp4"
     p = run(
         [
-            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(outdir / "f%02d.jpg"),
-            "-vf", f"tile={LOOP_FRAMES}x1", "-q:v", str(LOOP_Q), str(strip),
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", *head,
+            "-ss", _fmt_s(start_ms), "-t", _fmt_s(span), "-i", src,
+            "-an", "-vf", f"fps={LOOP_FPS},{square}",
+            "-c:v", "libx264", "-profile:v", "baseline", "-preset", "slow", "-crf", str(LOOP_CRF),
+            "-g", "9999", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(clip),
         ],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=600,
     )
-    if p.returncode != 0 or not strip.exists():
-        raise PermanentError(f"Could not make the strip: {_last_line(p.stderr)}")
+    if p.returncode != 0 or not clip.exists():
+        raise RuntimeError(f"No clip of this section: {_last_line(p.stderr)}")
     still = outdir / "still.jpg"
-    shutil.copyfile(outdir / "f00.jpg", still)
-    return strip, still
+    p = run(
+        [
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", *head,
+            "-ss", _fmt_s(start_ms + span / 4), "-i", src,
+            "-frames:v", "1", "-vf", square, "-q:v", "4", str(still),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if p.returncode != 0 or not still.exists():
+        raise RuntimeError(f"No still of this section: {_last_line(p.stderr)}")
+    return clip, still

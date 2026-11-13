@@ -318,23 +318,26 @@ def test_loop_routes(tmp_path):
     url, headers = api.loop_source_url(4)
     assert url == "http://s/api/worker/loops/4/source"
     assert headers["Authorization"] == "Bearer t"
-    strip = tmp_path / "strip.jpg"
-    strip.write_bytes(b"\xff\xd8\xffjpg")
-    api.put_loop(4, "strip", strip)
-    api.put_loop(4, "still", strip)
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"\x00\x00\x00\x20ftypisom")
+    still = tmp_path / "still.jpg"
+    still.write_bytes(b"\xff\xd8\xffjpg")
+    api.put_loop(4, "clip", clip)
+    api.put_loop(4, "still", still)
     api.finish_loop(4)
     api.fail_loop(4, "boom", True)
     assert [r.full_url for r in urlopen.requests] == [
         "http://s/api/worker/loops/claim",
-        "http://s/api/worker/loops/4/strip",
+        "http://s/api/worker/loops/4/clip",
         "http://s/api/worker/loops/4/still",
         "http://s/api/worker/loops/4/done",
         "http://s/api/worker/loops/4/fail",
     ]
     put = urlopen.requests[1]
     assert put.get_method() == "PUT"
-    assert content_type(put) == "image/jpeg"
-    assert put.data == b"\xff\xd8\xffjpg"
+    assert content_type(put) == "video/mp4"
+    assert put.data == b"\x00\x00\x00\x20ftypisom"
+    assert content_type(urlopen.requests[2]) == "image/jpeg"
 
 
 def test_claim_loop_none_on_204_and_on_an_older_server():
@@ -347,4 +350,4 @@ def test_put_loop_410_is_gone(tmp_path):
     p.write_bytes(b"x")
     api = Api("http://s", "t", urlopen=fake_urlopen(error=http_error(410, b'{"message": "gone"}')))
     with pytest.raises(JobGone):
-        api.put_loop(4, "strip", p)
+        api.put_loop(4, "clip", p)

@@ -551,21 +551,21 @@ def loop_tools(error=None):
         if error:
             raise error
         out.mkdir(exist_ok=True)
-        (out / "strip.jpg").write_bytes(b"strip")
+        (out / "clip.mp4").write_bytes(b"clip")
         (out / "still.jpg").write_bytes(b"still")
         cut.args = (src, start_ms, end_ms, headers)
-        return out / "strip.jpg", out / "still.jpg"
+        return out / "clip.mp4", out / "still.jpg"
 
     return jobs.LoopTools(cut=cut)
 
 
-def test_process_loop_uploads_strip_still_then_finishes(tmp_path):
+def test_process_loop_uploads_clip_still_then_finishes(tmp_path):
     api = LoopApi()
     tools = loop_tools()
     assert jobs.process_loop({"id": 4, "start_ms": 1000, "end_ms": 7000}, api, tools, tmp_path) is True
     assert tools.cut.args == ("http://s/api/worker/loops/4/source", 1000, 7000, {"Authorization": "Bearer t"})
     assert api.calls == [
-        ("put_loop", 4, "strip", "strip.jpg"),
+        ("put_loop", 4, "clip", "clip.mp4"),
         ("put_loop", 4, "still", "still.jpg"),
         ("finish_loop", 4),
     ]

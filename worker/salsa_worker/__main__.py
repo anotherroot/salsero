@@ -33,7 +33,7 @@ def main() -> int:
     timeline_tools = jobs.TimelineTools(
         frames=media.timeline_frames, sound=media.timeline_sound, duration=media.timeline_duration
     )
-    loop_tools = jobs.LoopTools(cut=media.loop_strip)
+    loop_tools = jobs.LoopTools(cut=media.loop_clip)
     try:
         n = jobs.run(
             api, tools, video_tools=video_tools, import_tools=import_tools,

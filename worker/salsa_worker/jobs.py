@@ -201,16 +201,16 @@ class LoopTools:
 
 
 def process_loop(job: dict, api, tools: LoopTools, workdir: Path) -> bool:
-    """A figure's loop: 12 frames of the section, cut over HTTP, uploaded as a strip and a still.
+    """A figure's loop: the section as a tiny clip, cut over HTTP, uploaded with its still.
     Failures are reported, never raised. True unless it failed."""
     job_id = job["id"]
     try:
         url, headers = api.loop_source_url(job_id)
-        strip, still = tools.cut(url, job["start_ms"], job["end_ms"], workdir, headers)
-        api.put_loop(job_id, "strip", strip)
+        clip, still = tools.cut(url, job["start_ms"], job["end_ms"], workdir, headers)
+        api.put_loop(job_id, "clip", clip)
         api.put_loop(job_id, "still", still)
         api.finish_loop(job_id)
-        log.info("loop %s: %d + %d bytes", job_id, strip.stat().st_size, still.stat().st_size)
+        log.info("loop %s: %d + %d bytes", job_id, clip.stat().st_size, still.stat().st_size)
         return True
     except JobGone:
         log.info("loop %s: no longer wanted", job_id)
