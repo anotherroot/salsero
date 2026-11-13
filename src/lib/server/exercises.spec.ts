@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, songDrops, teamChanges } from './db/schema';
+import { exercises, sets, songDrops, songLinks, teamChanges } from './db/schema';
 import { checkSeen, exerciseSeen } from './clash';
 import {
 	archiveExercise,
@@ -30,6 +30,7 @@ import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 import { readComesBack } from './comes-back-form';
 import { postedFields } from '$lib/exercises/comes-back-view';
 import { scheduleStateOf } from './schedule';
+import { roundsOf } from '$lib/hearing/drill';
 
 let db: Db;
 beforeEach(() => {
@@ -209,6 +210,25 @@ describe('a song of their own, picked after a drop', () => {
 	});
 });
 
+describe("the practice panel's write on a hearing drill", () => {
+	it('keeps the hearing settings', () => {
+		const id = createCustomExercise(db, U1_SALSA, { name: 'Kje je ena?', notes: null }).id;
+		const hearing = { kind: 'dropped', target: 'odd', drops: 5 };
+		db.update(exercises)
+			.set({ kind: 'hearing', practiceJson: JSON.stringify({ hearing }) })
+			.where(eq(exercises.id, id))
+			.run();
+		const config = { count: 'son' as const, clave: '2-3' as const, speed: 1 as const };
+		expect(
+			setPracticeSettings(db, id, { mode: 'count', songId: null, countBpm: 120, config })
+		).toBe(true);
+		const json = JSON.parse(
+			db.select().from(exercises).where(eq(exercises.id, id)).get()!.practiceJson!
+		);
+		expect(json).toEqual({ ...config, hearing });
+	});
+});
+
 describe('listExercises: comes back and warm-up', () => {
 	const MAJA = { userId: 'u3', dance: 'salsa' as const };
 	const EVERY_2 = JSON.stringify({ kind: 'every', days: 2 });
@@ -226,6 +246,55 @@ describe('listExercises: comes back and warm-up', () => {
 		expect(entry().comesBack).toEqual({ kind: 'every', days: 7 });
 		expect(entry().comesBackOwn).toEqual({ kind: 'every', days: 7 });
 		expect(entry().comesBackTeacher).toEqual({ kind: 'every', days: 2 });
+	});
+
+	it("gives an entry its class drill's kind: a teacher's hearing drill is one for the class too", () => {
+		const c = makeClass(db);
+		const entry = () => listExercises(db, MAJA).find((e) => e.id === c.entry)!;
+		expect(entry().kind).toBeNull();
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, c.drill)).run();
+		expect(entry().kind).toBe('hearing');
+	});
+
+	it("gives a hearing drill's row its last score and its songs; a plain drill none", () => {
+		const c = makeClass(db);
+		const entry = () => listExercises(db, MAJA).find((e) => e.id === c.entry)!;
+		expect(entry().hearing).toBeNull();
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, c.drill)).run();
+		db.insert(songLinks)
+			.values({ songId: c.shared, exerciseId: c.drill, sortOrder: 1, createdAt: CLASS_T })
+			.run();
+		expect(entry().hearing).toEqual({ last: null, songs: 1 });
+		const round = (score: number, changed = false) => ({
+			kind: 'dropped' as const,
+			target: 'one' as const,
+			drops: 10,
+			songIds: [c.shared],
+			score,
+			timing: score,
+			count: 0,
+			restarts: 0,
+			listening: 0,
+			changed
+		});
+		const set = (doneAt: number, r: ReturnType<typeof round>) =>
+			saveDay(
+				db,
+				{
+					exerciseId: c.entry,
+					doneAt,
+					durationS: 60,
+					reps: null,
+					rating: 3,
+					playerJson: null,
+					hearingRound: r
+				},
+				'Europe/Ljubljana'
+			);
+		set(CLASS_T, round(40));
+		set(CLASS_T + 3 * 86_400_000, round(64));
+		set(CLASS_T + 3 * 86_400_000 + 1000, round(90, true));
+		expect(entry().hearing).toEqual({ last: 64, songs: 1 });
 	});
 
 	it('reads a lesson review by its own Comes back (any type has it), and junk as faces', () => {
@@ -425,6 +494,31 @@ describe('one entry a day', () => {
 	it('a first save with an empty note stores null', () => {
 		const r = saveDay(db, input({ note: '' }), TZ);
 		expect(r.set.note).toBeNull();
+	});
+
+	it('two rounds of a hearing drill in one day: both kept, and Undo of the second keeps the first', () => {
+		const round = (score: number) => ({
+			kind: 'dropped' as const,
+			target: 'one' as const,
+			drops: 10,
+			songIds: [1],
+			score,
+			timing: score,
+			count: 0,
+			restarts: 0,
+			listening: 0,
+			changed: false
+		});
+		saveDay(db, input({ rating: 2, hearingRound: round(40) }), TZ);
+		const second = saveDay(
+			db,
+			input({ doneAt: at('2026-11-07', 20), rating: 3, hearingRound: round(70) }),
+			TZ
+		);
+		const stored = () => db.select().from(sets).where(eq(sets.exerciseId, ex)).get()!.playerJson;
+		expect(roundsOf(stored()).map((r) => r.score)).toEqual([40, 70]);
+		expect(undoSave(db, second.set.id, second.before)).toBe(true);
+		expect(roundsOf(stored()).map((r) => r.score)).toEqual([40]);
 	});
 
 	it('a second save that day adds the time and replaces face and note', () => {

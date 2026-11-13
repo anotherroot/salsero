@@ -3,6 +3,7 @@ import {
 	ROOM_BEATS,
 	countKeep,
 	dropStarts,
+	mixStarts,
 	dropWindow,
 	judgeDropPattern,
 	judgeDrops,
@@ -198,5 +199,33 @@ describe('the clave from wherever the first tap fits', () => {
 
 	it('keeps the first circle as the first tap when several fit as well (every beat from the 5)', () => {
 		expect(judgeDropPattern(grid(400), EVERY, 0, onBeats(4, 20)).shift).toBe(4);
+	});
+});
+
+describe('mixStarts: a round over several songs (phase 2)', () => {
+	it('gives each spot a song, its start inside that song, never the same spot twice in one song', () => {
+		const songs = [grid(400), grid(300)].map((g) => ({ grid: g, quiet: [], from: 0 }));
+		const spots = mixStarts(songs, { count: 10, rand: seeded(3) });
+		expect(spots).toHaveLength(10);
+		for (const s of spots) expect(songs[s.song].grid.beats).toContain(s.at);
+		for (const i of [0, 1]) {
+			const mine = spots.filter((s) => s.song === i).map((s) => s.at);
+			expect(new Set(mine).size).toBe(mine.length);
+		}
+		expect(new Set(spots.map((s) => s.song)).size).toBe(2);
+	});
+
+	it('a song with no room gives none: every spot from the other', () => {
+		const songs = [grid(40), grid(400)].map((g) => ({ grid: g, quiet: [], from: 0 }));
+		const spots = mixStarts(songs, { count: 5, rand: seeded() });
+		expect(spots).toHaveLength(5);
+		expect(spots.every((s) => s.song === 1)).toBe(true);
+	});
+
+	it('no song with room: no spots', () => {
+		expect(
+			mixStarts([{ grid: grid(40), quiet: [], from: 0 }], { count: 5, rand: seeded() })
+		).toEqual([]);
+		expect(mixStarts([], { count: 5, rand: seeded() })).toEqual([]);
 	});
 });

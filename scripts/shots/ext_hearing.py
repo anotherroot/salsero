@@ -115,6 +115,52 @@ def _result_tap(page):
     page.wait_for_selector("text=Score")
 
 
+# ---- phase 2: a hearing drill (Run these last or alone: they add an exercise to the copy.) ----
+
+def _new_sheet(page):
+    page.get_by_role("radio", name="Hearing").wait_for()
+    page.get_by_label("Name").fill("Kje je ena?")
+    page.wait_for_timeout(400)
+
+
+def _make_drill(page):
+    """A hearing drill of the listening song, made through Today's sheet as Naredi vajo opens it."""
+    page.get_by_role("radio", name="Hearing").wait_for()
+    page.get_by_label("Name").fill("Kje je ena?")
+    page.get_by_text("5 spots", exact=True).click()
+    page.get_by_role("button", name="Add exercise").click()
+    page.get_by_text("You listen", exact=True).wait_for(timeout=15000)
+    page.wait_for_timeout(400)
+
+
+def _drill_done(page):
+    _make_drill(page)
+    page.evaluate("localStorage.setItem('hearing.tapDelayMs', '70')")
+    page.get_by_role("link", name="Start").click()
+    page.get_by_role("button", name="Start").click()
+    page.get_by_text("anywhere here", exact=True).first.wait_for(timeout=10000)
+    page.wait_for_timeout(300)
+    _taps(page, 1)
+    page.get_by_text("next spot coming", exact=True).wait_for(timeout=20000)
+    page.wait_for_selector("text=Drop 2 of", timeout=10000)
+    page.get_by_role("button", name="Stop").click()
+    page.wait_for_selector("text=Score")
+    page.get_by_role("button", name="Done").click()
+    page.get_by_text("suggests", exact=False).first.wait_for(timeout=10000)
+    page.wait_for_timeout(600)
+
+
+def _change_start(page):
+    """Change → another target → Start with these: the round opens, no unsaved-changes dialog (review)."""
+    _make_drill(page)
+    page.get_by_role("button", name="Change").click()
+    page.get_by_text("Every beat", exact=True).click()
+    page.get_by_role("link", name="Start with these").click()
+    page.wait_for_url("**/hearing/**target=every**", timeout=10000)
+    page.get_by_role("button", name="Start").wait_for(timeout=10000)
+    page.wait_for_timeout(400)
+
+
 SCENES = {
     "listen-setup-clave": Scene(LISTEN, _setup_clave),
     "listen-drop-tapping": Scene(LISTEN, _drop_tapping),
@@ -124,4 +170,8 @@ SCENES = {
     "listen-result": Scene(LISTEN, _result),
     "listen-replay": Scene(LISTEN, _replay),
     "listen-result-tap": Scene(LISTEN, _result_tap),
+    "hearing-new": Scene("/{dance}?new=hearing&song={listensong}", _new_sheet),
+    "hearing-page": Scene("/{dance}?new=hearing&song={listensong}", _make_drill),
+    "hearing-done": Scene("/{dance}?new=hearing&song={listensong}", _drill_done),
+    "hearing-change-start": Scene("/{dance}?new=hearing&song={listensong}", _change_start),
 }

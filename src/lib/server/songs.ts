@@ -1,3 +1,4 @@
+import { counted } from '$lib/songs/counted';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, sets, songLinks, songs, teamMembers, teams, type Song } from './db/schema';
@@ -354,6 +355,7 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 			durationS: s.durationS,
 			sample,
 			recentRank: rank < 0 ? null : rank,
+			counted: counted(s),
 			group,
 			groupId
 		});

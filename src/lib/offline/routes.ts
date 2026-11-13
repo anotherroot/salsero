@@ -259,6 +259,7 @@ export const ACTIONS: Readonly<Record<string, Readonly<Record<string, WriteClass
 		detach: 'network',
 		done: 'device',
 		drop: 'network',
+		hearing: 'device',
 		keep: 'device',
 		linkSection: 'device',
 		makeMine: 'network',

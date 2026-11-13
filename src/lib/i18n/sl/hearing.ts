@@ -146,5 +146,34 @@ export const hearing: Catalog['hearing'] = {
 		start: 'Začni',
 		row: 'Preveri zakasnitev tapa',
 		rowValue: (ms) => (ms === null ? 'Ni preverjeno' : `${ms} ms`)
+	},
+	drill: {
+		noSongs: 'Izberite vsaj eno pesem',
+		notCounted: (title) => `Pesem ${title} še nima svojega štetja: najprej ga nastavite`,
+		listen: 'Poslušate',
+		spots: (n) => slCount(n, ['mesto', 'mesti', 'mesta', 'mest']),
+		length: 'Dolžina',
+		change: 'Spremeni',
+		changeTitle: 'Spremeni ta krog',
+		changeSub: 'Samo za ta krog, razen če ga shranite za vajo.',
+		startWith: 'Začni s temi',
+		save: 'Shrani za vajo',
+		rounds: (n) => `Vaši krogi · ${n}`,
+		last: 'zadnjič',
+		noRounds: 'Še noben krog.',
+		scoresLabel: (scores) => `Ocene vaših krogov, od najstarejše: ${scores}`,
+		songs: 'Pesmi',
+		songsHint: 'Vsako mesto je iz ene od njih, naključno.',
+		addSong: 'Dodaj pesem',
+		removeSong: (title) => `Odstrani ${title}`,
+		hiddenUncounted: (n) =>
+			n === 1
+				? 'Pesem brez svojega štetja ni na seznamu: najprej jo preštejte.'
+				: `Pesmi brez svojega štetja (${n}) niso na seznamu: najprej jih preštejte.`,
+		whyCount: 'Najprej jo preštejte',
+		whyShared: 'Ni več deljena',
+		make: 'Naredi vajo',
+		inDrills: 'V vajah:',
+		kindOf: 'Vrsta vaje'
 	}
 };

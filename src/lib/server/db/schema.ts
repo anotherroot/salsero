@@ -1024,6 +1024,14 @@ export const exercises = sqliteTable(
 		 */
 		practiceJson: text('practice_json'),
 		/**
+		 * A drill of another kind (hearing drills, spec 2026-11-10 phase 2): null is a
+		 * plain drill, `'hearing'` a hearing drill, whose settings live under
+		 * `practice_json.hearing` and songs in its music (`song_links`). Only on
+		 * `source = 'custom'`; an entry (`'added'`) takes its drill's (`typeOf`).
+		 * Plain ADD COLUMN, no CHECK (see below).
+		 */
+		kind: text('kind', { enum: ['hearing'] }),
+		/**
 		 * Set iff `source = 'lesson'`. Deliberately WITHOUT a mirror of
 		 * `exercises_source_ck`: a new CHECK on this table makes drizzle-kit rebuild
 		 * it, and the rebuild fails at migrate time (see the note below).

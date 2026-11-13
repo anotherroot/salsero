@@ -44,6 +44,35 @@ export function dropStarts(
 	return picked.map((i) => grid.beats[i]);
 }
 
+/** A spot of a round over several songs: which song (an index into the round's), and where. */
+export interface MixedStart {
+	song: number;
+	at: number;
+}
+
+/**
+ * Up to `count` spots over several songs (a hearing drill's, phase 2): each
+ * spot's song at random among those with a spot left, its spots as
+ * `dropStarts` picks them (far apart within the song). A song with no room
+ * gives none; no song with room, no spots.
+ */
+export function mixStarts(
+	songs: readonly { grid: Grid; quiet: readonly QuietRange[]; from: number }[],
+	opts: { count: number; rand: () => number }
+): MixedStart[] {
+	const left = songs.map((s) =>
+		dropStarts(s.grid, s.quiet, { count: opts.count, from: s.from, rand: opts.rand })
+	);
+	const out: MixedStart[] = [];
+	while (out.length < opts.count) {
+		const open = left.flatMap((starts, song) => (starts.length ? [song] : []));
+		if (open.length === 0) break;
+		const song = open[Math.min(open.length - 1, Math.floor(opts.rand() * open.length))];
+		out.push({ song, at: left[song].shift()! });
+	}
+	return out;
+}
+
 /**
  * How far, in counts, the person's count sits from the music's: the first tap
  * fills the pattern's first circle (`firstPos`), and it landed on `musicCount`.

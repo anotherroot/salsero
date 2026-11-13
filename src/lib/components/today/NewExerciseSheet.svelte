@@ -6,7 +6,12 @@
 	import WarmupRow from '$lib/components/exercises/WarmupRow.svelte';
 	import ComesBackCard from '$lib/components/exercises/ComesBackCard.svelte';
 	import { button, FIELD, FIELD_ERROR, LABEL, TEXTAREA } from '$lib/components/ui/styles';
-	import type { DanceSlug } from '$lib/dances/dances';
+	import { DANCES, type DanceSlug } from '$lib/dances/dances';
+	import { untrack } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import HearingSwitch from '$lib/components/hearing/HearingSwitch.svelte';
+	import type { PickerSong } from '$lib/types';
 	import { t } from '$lib/i18n/catalog';
 
 	/*
@@ -25,10 +30,15 @@
 		daily: number;
 		/** Follow my class has no Comes back. */
 		simple: boolean;
+		/** What a hearing drill's songs are picked from (phase 2). */
+		songs: PickerSong[];
+		/** Opened from a song page's Naredi vajo: Sluh, that song picked. */
+		preset?: { songId: number } | null;
 		onclose: () => void;
 	}
 
-	let { dance, message, values, daily, simple, onclose }: Props = $props();
+	let { dance, message, values, daily, simple, songs, preset = null, onclose }: Props = $props();
+	let hearing = $state(untrack(() => preset !== null));
 	let busy = $state(false);
 	let warmup = $state(false);
 	// The last submit's refusal, from its result: shown when the page form has none.
@@ -54,7 +64,11 @@
 							refused = typeof m === 'string' ? m : t().today.refused.addExercise;
 						}
 						await update();
-						if (result.type === 'success') onclose();
+						if (result.type !== 'success') return;
+						onclose();
+						// A hearing drill opens on its page: Začni is there.
+						const id = (result.data as { id?: unknown } | undefined)?.id;
+						if (hearing && typeof id === 'number') void goto(resolve(`/${dance}/exercises/${id}`));
 					} finally {
 						busy = false;
 					}
@@ -62,6 +76,7 @@
 			}
 		}}
 	>
+		<HearingSwitch dance={DANCES[dance]} choices={songs} bind:hearing part="switch" />
 		<div>
 			<label for="new-exercise-name" class={LABEL}>{t().today.newExercise.name}</label>
 			<input
@@ -82,6 +97,13 @@
 				</p>
 			{/if}
 		</div>
+		<HearingSwitch
+			dance={DANCES[dance]}
+			choices={songs}
+			picked={preset ? [preset.songId] : []}
+			bind:hearing
+			part="fields"
+		/>
 		<label class="block">
 			<span class={LABEL}
 				>{t().today.newExercise.notes}<span class="font-normal text-muted"

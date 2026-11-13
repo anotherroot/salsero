@@ -5,6 +5,7 @@
  * read answer the same words. Results are compact JSON for the AI; names and
  * notes are the person's own words, never translated.
  */
+import { hearingOf } from '$lib/hearing/drill';
 import type { ToolDef, ToolResult } from '$lib/mcp/protocol';
 import {
 	FIND_IDS,
@@ -360,6 +361,10 @@ const TOOLS: Tool[] = [
 			practice_mode: d.practice_mode,
 			comes_back: d.comes_back,
 			warmup: !!d.warmup,
+			// A hearing drill (phase 2): what its rounds play; its songs are its Music.
+			...(d.kind === 'hearing'
+				? { hearing: hearingOf(typeof d.practice_json === 'string' ? d.practice_json : null) }
+				: {}),
 			figure: d.figure_id !== null ? { id: d.figure_id, label: v.label(d.figure_id) } : null,
 			routine:
 				d.routine_id !== null

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { afterNavigate, invalidate, onNavigate } from '$app/navigation';
+	import { afterNavigate, invalidate, onNavigate, replaceState } from '$app/navigation';
 	import { actAt } from '$lib/act';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
@@ -67,6 +67,20 @@
 	const listShown = $derived(isList || desk.current);
 
 	let creating = $state(false);
+	/** Naredi vajo on a song page (`?new=hearing&song=<id>`): the sheet opens on Sluh with that song. */
+	let preset = $state<{ songId: number } | null>(null);
+	afterNavigate(() => {
+		const q = page.url.searchParams;
+		if (q.get('new') !== 'hearing') return;
+		const songId = Number(q.get('song'));
+		preset = Number.isInteger(songId) && songId > 0 ? { songId } : null;
+		creating = true;
+		// The link said it once: Back or a reload does not open the sheet again.
+		const url = new URL(page.url);
+		url.searchParams.delete('new');
+		url.searchParams.delete('song');
+		replaceState(url, page.state);
+	});
 	// The layout's toast: Not today, Coming up's +, a refused Next.
 	let toast = $state<ToastState | null>(null);
 	let toastSeq = 0;
@@ -420,9 +434,14 @@
 		message={failure('createExercise')}
 		daily={data.list.daily}
 		simple={simpleLog}
+		songs={data.list.songs}
+		{preset}
 		values={page.form?.action === 'createExercise' && 'name' in page.form
 			? { name: page.form.name as string, notes: page.form.notes as string }
 			: null}
-		onclose={() => (creating = false)}
+		onclose={() => {
+			creating = false;
+			preset = null;
+		}}
 	/>
 {/if}

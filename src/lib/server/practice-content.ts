@@ -19,6 +19,7 @@ import { sectionsFor, type Visible } from './spot-links';
 import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
+import { hearingContentOf } from './hearing';
 import { DEFAULT_LENGTH_COUNTS, eightsSpan } from '$lib/graph/timing';
 import { spaceOfRow, type Space } from './scope';
 import type { PracticeContent, PracticePayload } from '$lib/types';
@@ -46,14 +47,19 @@ export function drillPayload(
 	entryId: number | null,
 	tz: string,
 	now: number,
-	visible?: Visible
+	visible?: Visible,
+	/** Who reads it: a hearing drill's songs are judged for them. */
+	viewerId = ''
 ): PracticePayload {
 	return {
 		content: {
 			type: 'drill',
 			notes: drill.notes,
 			links: listLinks(db, { exerciseId: drill.id }),
-			sections: sectionsFor(db, { exerciseId: drill.id }, visible)
+			sections: sectionsFor(db, { exerciseId: drill.id }, visible),
+			...(typeOf(drill) === 'hearing'
+				? { hearing: hearingContentOf(db, drill, viewerId, entryId) }
+				: {})
 		},
 		last: entryId === null ? null : lastOf(db, entryId, tz, now)
 	};
@@ -96,7 +102,7 @@ function seenBy(
 
 /** What the exercise's page shows of its target, read through the person's reach. */
 export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
-	switch (typeOf(exercise.source)) {
+	switch (typeOf(exercise)) {
 		case 'lesson': {
 			const found =
 				exercise.lessonId === null ? null : getLesson(db, exercise.lessonId, exercise.userId ?? '');
@@ -174,6 +180,8 @@ export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
 				}))
 			};
 		}
+		// A hearing drill's content is a drill's (its page adds the round, Practise with).
+		case 'hearing':
 		case 'drill': {
 			// An entry for a group's drill shows the drill's content, read through
 			// the person's reach; a drill of one's own is its own content.
@@ -185,7 +193,10 @@ export function practiceContentOf(db: Db, exercise: Exercise): PracticeContent {
 				type: 'drill',
 				notes: drill.notes,
 				links: listLinks(db, { exerciseId: drill.id }),
-				sections: sectionsFor(db, { exerciseId: drill.id }, seen.visible)
+				sections: sectionsFor(db, { exerciseId: drill.id }, seen.visible),
+				...(typeOf(drill) === 'hearing'
+					? { hearing: hearingContentOf(db, drill, exercise.userId ?? '', exercise.id) }
+					: {})
 			};
 		}
 	}

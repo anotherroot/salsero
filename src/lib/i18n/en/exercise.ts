@@ -10,6 +10,7 @@ export const exercise = {
 		figure: 'Figure practice',
 		drill: 'Drill',
 		routine: 'Routine',
+		hearing: 'Hearing',
 		howItWent: 'How did it go?'
 	},
 	/** The Done sheet's small words. */
@@ -186,6 +187,8 @@ export const exercise = {
 		doneToday: 'Done today',
 		/** Under the Done sheet's faces: no button, a face saves. */
 		tapFace: 'Tap a face to save it',
+		suggested: 'suggested',
+		suggests: (score: number, face: string) => `Score ${score} suggests ${face}.`,
 		/** The run's place in the band: "Drill · 3 of 7 · 4:12". */
 		place: (at: number, of: number): string => `${at} of ${of}`,
 		/** The Done sheet's line in a run: "4:12 · Next: <name>". */

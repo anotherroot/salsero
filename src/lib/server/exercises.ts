@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import {
 	FACES,
 	effectiveComesBack,
@@ -39,6 +39,16 @@ import type {
 	SetSnapshot
 } from '$lib/types';
 import { serverNow } from '$lib/server/server-clock';
+import {
+	appendRound,
+	keepHearing,
+	roundsLine,
+	roundsOf,
+	withHearing,
+	type HearingRound,
+	type HearingSettings
+} from '$lib/hearing/drill';
+import { addMusic } from './song-links';
 
 /**
  * Every exercise that has not been archived, with its figure's partner flag
@@ -52,6 +62,7 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 			id: exercises.id,
 			name: exercises.name,
 			source: exercises.source,
+			kind: sql<'hearing' | null>`coalesce(${drills.kind}, ${exercises.kind})`,
 			figureId: exercises.figureId,
 			lessonId: exercises.lessonId,
 			routineId: exercises.routineId,
@@ -96,11 +107,16 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 					.all()
 					.map((t) => [t.id, t.name] as [number, string])
 	);
+	const hearing = hearingLines(
+		db,
+		rows.filter((r) => r.kind === 'hearing').map((r) => r.id)
+	);
 	return rows.map(({ teamId, ownComesBack, drillComesBack, ...r }) => {
 		const own = parseComesBack(ownComesBack);
 		const teacher = r.source === 'added' ? parseComesBack(drillComesBack) : null;
 		return {
 			...r,
+			hearing: hearing.get(r.id) ?? null,
 			comesBack: effectiveComesBack(own, teacher),
 			comesBackOwn: own,
 			comesBackTeacher: teacher,
@@ -183,14 +199,24 @@ const storedComesBack = (c: ComesBack | 'teacher') =>
  * group's never gets one: songs are personal, and a group drill holding its
  * editor's song would play it to everyone (see `setPracticeSettings`).
  */
-export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
-	const { warmup, comesBack, ...rest } = input;
+export function createCustomExercise(
+	db: Db,
+	space: Space,
+	input: Omit<SettingsInput, 'active'> & {
+		hearing?: { settings: HearingSettings; songIds: number[] };
+	}
+) {
+	const { warmup, comesBack, hearing, ...rest } = input;
 	return db.transaction((tx) => {
 		const drill = tx
 			.insert(exercises)
 			.values({
 				...rest,
 				source: 'custom',
+				// A hearing drill (phase 2): its kind and settings; its songs follow as Music.
+				...(hearing
+					? { kind: 'hearing' as const, practiceJson: withHearing(null, hearing.settings) }
+					: {}),
 				...ownerValues(space),
 				songId: null,
 				// Warm-up is a person's own; a group's drill never holds it.
@@ -205,9 +231,16 @@ export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsI
 			{ ...ofDrill(drill.id), verb: 'add', subject: 'drill', after: { name: drill.name } },
 			serverNow()
 		);
+		for (const songId of hearing?.songIds ?? []) {
+			const added = addMusic(tx, space, { exerciseId: drill.id }, songId, null, serverNow());
+			if (!added.ok) throw new MusicRefused(added.message);
+		}
 		return drill;
 	});
 }
+
+/** A song `addMusic` refused while a hearing drill was made: the make rolls back with its words. */
+export class MusicRefused extends Error {}
 
 /** A drill's root in History, and the drill as its own subject. */
 const ofDrill = (id: number) => ({ rootKind: 'drill' as const, rootId: id, subjectId: id });
@@ -305,7 +338,8 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 				practiceMode: input.mode,
 				songId: input.songId,
 				countBpm: input.countBpm,
-				practiceJson: JSON.stringify(input.config)
+				// A hearing drill keeps its settings beside the panel's (`withHearing`).
+				practiceJson: keepHearing(current.practiceJson, JSON.stringify(input.config))
 			})
 			.where(eq(exercises.id, id))
 			.run();
@@ -388,6 +422,8 @@ export interface SetInput {
 	/** undefined: not posted — saveDay keeps the day's old note; '' or null clears it. */
 	note?: string | null;
 	playerJson: string | null;
+	/** A hearing round (phase 2): appended to the day's `player_json.hearing.rounds`, never replacing one. */
+	hearingRound?: HearingRound;
 }
 
 export function logSet(db: Db, input: SetInput) {
@@ -431,13 +467,18 @@ export function saveDay(
 	tz: string
 ): { set: typeof sets.$inferSelect; before: SetSnapshot | null } {
 	return db.transaction((tx) => {
+		const { hearingRound, ...row } = input;
 		const rows = dayRows(tx, input.exerciseId, localDay(input.doneAt, tz), tz);
 		const old = rows[rows.length - 1];
 		if (!old)
 			return {
 				set: tx
 					.insert(sets)
-					.values({ ...input, note: input.note === '' ? null : (input.note ?? null) })
+					.values({
+						...row,
+						note: row.note === '' ? null : (row.note ?? null),
+						playerJson: hearingRound ? appendRound(row.playerJson, hearingRound) : row.playerJson
+					})
 					.returning()
 					.get(),
 				before: null
@@ -452,7 +493,9 @@ export function saveDay(
 				durationS,
 				rating: input.rating,
 				note: input.note === undefined ? old.note : input.note === '' ? null : input.note,
-				playerJson: input.playerJson ?? old.playerJson
+				playerJson: hearingRound
+					? appendRound(old.playerJson, hearingRound)
+					: (input.playerJson ?? old.playerJson)
 			})
 			.where(eq(sets.id, old.id))
 			.returning()
@@ -604,4 +647,35 @@ export function exerciseSummary(db: Db, id: number, tz: string): ExerciseSummary
 
 export function lastSet(db: Db, exerciseId: number): HistorySet | null {
 	return exerciseHistory(db, exerciseId, 1)[0] ?? null;
+}
+
+/**
+ * A hearing drill's Today line (phase 2), by exercise id: the last score of the
+ * rounds on its own settings (the person's sets, newest last) and how many
+ * songs its drill plays (an entry's: its class drill's).
+ */
+function hearingLines(db: Db, ids: number[]): Map<number, { last: number | null; songs: number }> {
+	const out = new Map<number, { last: number | null; songs: number }>();
+	if (ids.length === 0) return out;
+	const counts = db
+		.select({
+			id: exercises.id,
+			songs: sql<number>`(select count(*) from song_links l where l.exercise_id = coalesce(${exercises.drillId}, ${exercises.id}))`
+		})
+		.from(exercises)
+		.where(inArray(exercises.id, ids))
+		.all();
+	const played = db
+		.select({ exerciseId: sets.exerciseId, playerJson: sets.playerJson })
+		.from(sets)
+		.where(and(inArray(sets.exerciseId, ids), isNotNull(sets.playerJson)))
+		.orderBy(asc(sets.doneAt), asc(sets.id))
+		.all();
+	for (const c of counts) {
+		const rounds = played
+			.filter((s) => s.exerciseId === c.id)
+			.flatMap((s) => roundsOf(s.playerJson));
+		out.set(c.id, { last: roundsLine(rounds).last, songs: c.songs });
+	}
+	return out;
 }

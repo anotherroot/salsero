@@ -242,6 +242,7 @@ export const groups = {
 			practiceMode: 'practice',
 			countBpm: 'practice tempo',
 			comesBack: 'comes back',
+			hearing: 'hearing settings',
 			slots: 'slots'
 		},
 		/**
@@ -413,6 +414,7 @@ export const groups = {
 			lengthFree: 'Length set in the routine',
 			lengthCounts: 'Length',
 			comesBack: 'Comes back',
+			hearing: 'Hearing settings',
 			active: 'Active',
 			label: 'Name',
 			startMs: 'Start',

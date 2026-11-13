@@ -52,6 +52,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import HearingSwitch from '$lib/components/hearing/HearingSwitch.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
@@ -263,6 +264,8 @@
 
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
+	/** The New drill sheet is on Sluh (a hearing drill, phase 2). */
+	let lessonHearing = $state(false);
 	let addingRoutine = $state(false);
 	let addingPosition = $state(false);
 	/** The Add a link sheet, and the `form` there when it opened: an older refusal is not this opening's. */
@@ -1870,6 +1873,15 @@
 		use:guarded={{ label, submit: kind === 'newRoutine' ? routineSubmit : closeExerciseSheet }}
 	>
 		{#if bannerOf(kind)}<Banner kind="error">{bannerOf(kind)}</Banner>{/if}
+		{#if kind === 'newExercise'}
+			<!-- Phase 2: a hearing drill for the class, its songs the group's own. -->
+			<HearingSwitch
+				dance={data.dance}
+				choices={data.musicChoices}
+				bind:hearing={lessonHearing}
+				part="switch"
+			/>
+		{/if}
 		<div>
 			<label class={LABEL} for="{id}-name">{w.create.name}</label>
 			<input
@@ -1900,6 +1912,14 @@
 			>
 			{#if errors.notes}<FieldError id="{id}-notes-error" message={errors.notes} />{/if}
 		</div>
+		{#if kind === 'newExercise'}
+			<HearingSwitch
+				dance={data.dance}
+				choices={data.musicChoices}
+				bind:hearing={lessonHearing}
+				part="fields"
+			/>
+		{/if}
 	</form>
 {/snippet}
 

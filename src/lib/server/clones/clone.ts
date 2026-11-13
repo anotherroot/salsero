@@ -1035,6 +1035,7 @@ function copyDrill(m: Mapper, sourceId: number, gene: string): Copied {
 		.values({
 			...ownerValues(into),
 			source: 'custom',
+			kind: src.kind,
 			name: src.name,
 			notes: src.notes,
 			everyDays: src.everyDays,

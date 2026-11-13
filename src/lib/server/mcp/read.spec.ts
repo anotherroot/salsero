@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db';
-import { figures, routineStepOptions, routineSteps } from '../db/schema';
+import { exercises, figures, routineStepOptions, routineSteps } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { makeWorld } from '../sync/test-world';
 import { readTools } from './read';
@@ -173,5 +173,21 @@ describe('flexible figures in the read tools (spec 2026-11-11)', () => {
 		expect(r.data.slots.find((s: { id: number }) => s.id === step)).toMatchObject({
 			ends_in: 'Cerrada u1'
 		});
+	});
+});
+
+describe('a hearing drill in the read tools (phase 2)', () => {
+	it("get_drill gives a hearing drill's settings; a plain drill none", async () => {
+		const plain = await run('get_drill', { id: world.group.drill });
+		expect(plain.data.hearing).toBeUndefined();
+		db.update(exercises)
+			.set({
+				kind: 'hearing',
+				practiceJson: JSON.stringify({ hearing: { kind: 'dropped', target: 'odd', drops: 5 } })
+			})
+			.where(eq(exercises.id, world.group.drill))
+			.run();
+		const r = await run('get_drill', { id: world.group.drill });
+		expect(r.data.hearing).toEqual({ kind: 'dropped', target: 'odd', drops: 5 });
 	});
 });

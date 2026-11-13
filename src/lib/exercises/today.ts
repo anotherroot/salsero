@@ -57,7 +57,17 @@ export function rowMeta(
 	} else if (neverDone && lessonDay) {
 		parts = [...due, { text: w.fromClass(lessonDay), tone: null }];
 	} else parts = due;
-	return rhythm ? [...parts, rhythm] : parts;
+	const withRhythm = rhythm ? [...parts, rhythm] : parts;
+	return row.exercise.hearing ? [...withRhythm, ...hearingParts(row.exercise.hearing)] : withRhythm;
+}
+
+/** A hearing drill's row (phase 2): its last score, when it has one, and its songs. */
+function hearingParts(h: { last: number | null; songs: number }): MetaPart[] {
+	const w = t().today.row;
+	return [
+		...(h.last === null ? [] : [{ text: w.lastScore(h.last), tone: null }]),
+		{ text: w.songs(h.songs), tone: null }
+	];
 }
 
 /** A drill's rhythm or its learning, as a meta part; null for every other row. */

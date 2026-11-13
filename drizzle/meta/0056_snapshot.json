@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9078ea7c-eac2-4bea-a1ad-f5cfbee4564e",
+  "id": "f7c2a67f-bb4a-428a-b115-8bf5332d4d56",
   "prevId": "30294d5d-7ac3-4cb5-8247-86821d51c18d",
   "tables": {
     "ai_actions": {
@@ -1167,6 +1167,13 @@
         },
         "practice_json": {
           "name": "practice_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -6257,14 +6264,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
         }
       },
       "indexes": {

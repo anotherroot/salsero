@@ -42,6 +42,10 @@ export interface ExerciseItem {
 	id: number;
 	name: string;
 	source: ExerciseSource;
+	/** A drill's other kind (`'hearing'`); an entry carries its drill's. Read through `typeOf`. */
+	kind: 'hearing' | null;
+	/** A hearing drill's Today line (phase 2): its last score on its own settings, and how many songs. */
+	hearing: { last: number | null; songs: number } | null;
 	figureId: number | null;
 	/** Set iff `source === 'lesson'`: which lesson this reviews. */
 	lessonId: number | null;
@@ -181,6 +185,8 @@ export interface MusicRow {
 	note: string | null;
 	/** Playable now: false for a group song unshared or archived since (only editors get such rows). */
 	shared: boolean;
+	/** A person set its count (`counted`): a hearing drill can play it. */
+	counted?: boolean;
 	/** What a note save saw (the clash check), as the form posts it. */
 	seen: string;
 }
@@ -189,6 +195,8 @@ export interface MusicRow {
 export interface PickerSong {
 	id: number;
 	title: string;
+	/** A person set its count (`counted`): only such a song goes in a hearing drill. */
+	counted?: boolean;
 	artist: string | null;
 	style: string;
 	/** As the Songs list shows it: bpm × tempoFactor, rounded; null when unknown. */
@@ -330,7 +338,14 @@ export type PracticeContent =
 			recordings: RecordingRow[];
 			sections: LinkedSection[];
 	  }
-	| { type: 'drill'; notes: string | null; links: LinkRow[]; sections: LinkedSection[] }
+	| {
+			type: 'drill';
+			notes: string | null;
+			links: LinkRow[];
+			sections: LinkedSection[];
+			/** A hearing drill's settings, rounds and songs (phase 2); absent on a plain drill. */
+			hearing?: HearingContent;
+	  }
 	| {
 			type: 'routine';
 			routine: { id: number; name: string; notes: string | null };
@@ -1565,6 +1580,15 @@ export interface SuggestionLine {
 	warning: string | null;
 	refusal: string | null;
 	canUndo: boolean;
+}
+
+/** A hearing drill's page (phase 2): its settings, the person's rounds, and its songs as they may play them. */
+export interface HearingContent {
+	settings: import('$lib/hearing/drill').HearingSettings;
+	/** The person's rounds on it, oldest first. */
+	rounds: import('$lib/hearing/drill').HearingRound[];
+	/** The drill's songs, in order; `why` says why one cannot play. */
+	songs: { id: number; title: string; usable: boolean; why?: 'count' | 'shared' }[];
 }
 
 /** A slot inside a section or routine opened in place (spec 2026-11-12): drawn, not walked. */

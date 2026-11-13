@@ -499,6 +499,11 @@
 				<FindTheOneCard
 					href={resolve(`/${data.dance.slug}/songs/${song.id}/listen`)}
 					counted={data.anchors.length > 0}
+					makeHref={`${resolve(`/${data.dance.slug}`)}?new=hearing&song=${song.id}`}
+					drills={data.hearingDrills.map((d) => ({
+						name: d.name,
+						href: resolve(`/${data.dance.slug}/exercises/${d.id}`)
+					}))}
 				/>
 			</div>
 

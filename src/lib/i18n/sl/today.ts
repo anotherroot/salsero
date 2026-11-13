@@ -17,7 +17,9 @@ export const today: Catalog['today'] = {
 		added: 'Dodano',
 		ahead: 'Vnaprej',
 		fromClass: (day) => `z lekcije ${day}`,
-		notToday: 'Ne danes'
+		notToday: 'Ne danes',
+		lastScore: (n) => `Zadnjič ${n}`,
+		songs: (n) => slCount(n, ['pesem', 'pesmi', 'pesmi', 'pesmi'])
 	},
 	reviewOf: (title) => `Ponovitev: ${title}`,
 	hero: {
@@ -104,6 +106,7 @@ export const today: Catalog['today'] = {
 		routine: 'Kombinacija',
 		lesson: 'Ponavljanje lekcije',
 		drill: 'Vaja',
+		hearing: 'Sluh',
 		doneToday: (label) => `${label}, opravljeno danes`,
 		done: 'Opravljeno'
 	},

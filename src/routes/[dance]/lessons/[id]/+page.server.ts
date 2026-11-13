@@ -3,6 +3,7 @@ import { replayName } from '$lib/server/replay-context';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { createHearingDrill, readHearingForm } from '$lib/server/hearing';
 import { t } from '$lib/i18n/catalog';
 import { scheduleForShown } from '$lib/server/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
@@ -632,8 +633,16 @@ export const actions: Actions = flowing('lesson', (e) => idParam(e.params.id), {
 		if (notes === undefined) return refuse(t().moves.refused.notes, 'notes');
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, space, { name, notes });
-		linkExercise(db, id, exercise.id, actorOf(space));
+		// Za sluh (phase 2): a hearing drill for the class, its songs the group's own.
+		const hearing = readHearingForm(form, DANCES[space.dance]);
+		if (typeof hearing === 'string') return refuse(hearing);
+		let exerciseId: number;
+		if (hearing) {
+			const made = createHearingDrill(db, space, { name, notes }, hearing);
+			if (!made.ok) return refuse(made.message);
+			exerciseId = made.drill.id;
+		} else exerciseId = createCustomExercise(db, space, { name, notes }).id;
+		linkExercise(db, id, exerciseId, actorOf(space));
 		return { action: 'newExercise', ok: true };
 	},
 

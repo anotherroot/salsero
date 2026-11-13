@@ -2,13 +2,18 @@
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { RUN_STOP } from '$lib/components/player/styles';
-	import { countKeep, dropWindow, judgeDropPattern, type DropAnswer } from '$lib/hearing/drops';
+	import {
+		countKeep,
+		dropWindow,
+		judgeDropPattern,
+		type DropAnswer,
+		type MixedStart
+	} from '$lib/hearing/drops';
 	import { judgedRows } from '$lib/hearing/rows';
 	import { shownShift } from '$lib/hearing/score';
 	import { posLabel } from '$lib/hearing/words';
 	import { fadeTo, fullVolume } from './fade';
-	import type { Grid } from '$lib/hearing/judge';
-	import type { CircleState, FinishedDrop } from '$lib/hearing/round';
+	import type { CircleState, DropRig, FinishedDrop } from '$lib/hearing/round';
 	import {
 		canSkip,
 		endSpot,
@@ -24,7 +29,7 @@
 	import { WIN_S } from '$lib/hearing/judge';
 	import { t } from '$lib/i18n/catalog';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
-	import { sectionName, type Placed } from '$lib/songs/sections';
+	import { sectionName } from '$lib/songs/sections';
 	import ListenShell from './ListenShell.svelte';
 	import PatternRows from './PatternRows.svelte';
 	import TapPad from './TapPad.svelte';
@@ -38,12 +43,11 @@
 	 */
 	interface Props {
 		player: PlayerHandle;
-		audio: HTMLAudioElement;
-		grid: Grid;
-		sections: Placed[];
+		/** The round's songs (one, or a hearing drill's several): each spot plays its own. */
+		rigs: DropRig[];
 		positions: number[];
-		beatS: number;
-		starts: number[];
+		/** The spots, each in its song (`mixStarts`). */
+		starts: MixedStart[];
 		tapDelayMs: number;
 		title: string;
 		subtitle: string;
@@ -54,11 +58,8 @@
 
 	let {
 		player,
-		audio,
-		grid,
-		sections,
+		rigs,
 		positions,
-		beatS,
 		starts,
 		tapDelayMs,
 		title,
@@ -68,6 +69,14 @@
 		onleave
 	}: Props = $props();
 	const w = $derived(t().hearing);
+
+	let index = $state(0);
+	// The spot's song: what it plays, judges against and names its section from.
+	const rig = $derived(rigs[starts[index].song]);
+	const audio = $derived(rig.audio);
+	const grid = $derived(rig.grid);
+	const sections = $derived(rig.sections);
+	const beatS = $derived(rig.beatS);
 
 	/** The pad wakes this long after a spot's music starts. */
 	const WAKE_MS = 1100;
@@ -89,9 +98,8 @@
 		lagS: ((tapDelayMs + 80) / 1000) * (audio.playbackRate || 1)
 	});
 
-	let index = $state(0);
 	// The first spot: the page seeked there; a new round mounts this anew.
-	let spot = $state<Spot>(newSpot(untrack(() => starts[0])));
+	let spot = $state<Spot>(newSpot(untrack(() => starts[0].at)));
 	let locked = $state(true);
 	let bounce = $state(0);
 	let pop = $state<{ row: number; pos: number; key: number } | null>(null);
@@ -265,7 +273,8 @@
 			restarts: spot.restarts,
 			skipped: false,
 			listenEights: (answer.listened ?? 0) / eightS,
-			section: sectionAt(spot.window?.from ?? spot.start)
+			section: sectionAt(spot.window?.from ?? spot.start),
+			song: starts[index].song
 		});
 		later(answer.beats.length * REVEAL_STEP_MS + HOLD_MS, next);
 	}
@@ -280,7 +289,8 @@
 			restarts: spot.restarts,
 			skipped: true,
 			listenEights: 0,
-			section: sectionAt(spot.start)
+			section: sectionAt(spot.start),
+			song: starts[index].song
 		});
 		next();
 	}
@@ -293,10 +303,16 @@
 		later(SLIDE_MS, () => {
 			player.pause();
 			if (index + 1 >= starts.length) return onfinish(finished);
+			const was = starts[index].song;
 			index++;
 			judged = null;
 			pop = null;
-			spot = newSpot(starts[index]);
+			// Another song: the player swaps to its element, held, then `play` seeks there.
+			if (starts[index].song !== was) {
+				const r = rigs[starts[index].song];
+				player.setSong({ audio: r.audio, grid: r.grid, quiet: r.quiet });
+			}
+			spot = newSpot(starts[index].at);
 			slide = 'in';
 			play(w.listening);
 		});
@@ -315,7 +331,7 @@
 	});
 
 	onDestroy(() => {
-		if (typeof window !== 'undefined') fullVolume(audio);
+		if (typeof window !== 'undefined') for (const r of rigs) fullVolume(r.audio);
 		if (raf) cancelAnimationFrame(raf);
 		timers.forEach((id) => clearTimeout(id));
 	});

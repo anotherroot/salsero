@@ -210,12 +210,20 @@ src/lib/hearing/     PURE hearing rounds: targets.ts (positions in the eight), j
                      FinishedDrop), spot.ts (a spot's start-overs and Skip), score.ts (0–100), verdict.ts
                      (what to work on), stack.ts (result B's dots), replay.ts (a drop's replay cues),
                      rows.ts (a judged drop as drawn: rows, states, "you N", tap marks),
-                     words.ts (`targetLabel`, `posLabel`, `posName`)
+                     words.ts (`targetLabel`, `posLabel`, `posName`, `kindLine`),
+                     drill.ts (a hearing drill's settings under practice_json.hearing, its rounds
+                     in a set, the face a score suggests), handoff.ts (a round handed back to the
+                     drill's page, sessionStorage)
 src/lib/components/hearing/  the listening player's screens: ListenShell (band stage + sheet + bar),
                      ListenSetup, ClaveCard, TapPad (answers on pointerdown), TapCheck, PatternRows
                      (the target's circles), DropRun, TapAlongRun, ResultB, ListenStack, ListenReplay,
                      fade.ts (the music fading between spots),
-                     FindTheOneCard (the song page's card). Page: /[dance]/songs/[id]/listen
+                     ListenPage (the whole player, one song or a drill's several), HearingFields,
+                     HearingSwitch (Drill | Hearing in a new drill's form), HearingSettingsSheet (Change),
+                     FindTheOneCard (the song page's card). Pages: /[dance]/songs/[id]/listen,
+                     /[dance]/hearing/[id] (a hearing drill's round). Its Practise card:
+                     components/exercises/kinds/hearing/. Server: src/lib/server/hearing.ts (make,
+                     save, its songs as they may play); src/lib/songs/counted.ts (a person set the count)
 src/lib/player/      PURE view.ts: what the Practice page shows — the dots, the band's title
                      and subtitle (`runTitle`, `runSubtitle`), the rows' previews, whether
                      there is an About (`hasDetails`), Play's state, Built-in or Yours,

@@ -23,3 +23,16 @@ export function posLabel(p: number): string {
 export function posName(p: number): string {
 	return t().hearing.posName(Math.floor(p), p % 1 !== 0);
 }
+
+/** A hearing drill's settings in one line (phase 2): "Dropped in · The 1 · 10 spots". */
+export function kindLine(s: {
+	kind: 'tapAlong' | 'dropped';
+	target: TargetId;
+	positions?: number[];
+	drops: number;
+}): string {
+	const w = t().hearing;
+	const parts = [w.kinds[s.kind], targetLabel(s.target, s.positions ?? [])];
+	if (s.kind === 'dropped') parts.push(w.drill.spots(s.drops));
+	return parts.join(' · ');
+}

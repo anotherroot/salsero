@@ -18,6 +18,8 @@ const NO_BAND: Record<string, string> = {
 	'src/routes/[dance]/player/+page.svelte': 'Setup draws the band, Running draws the stage',
 	'src/routes/[dance]/songs/[id]/listen/+page.svelte':
 		'ListenShell draws the stage, like the player',
+	'src/routes/[dance]/hearing/[id]/+page.svelte':
+		"ListenShell draws the stage (ListenPage), like the song's listening page",
 	'src/routes/[dance]/lessons/+page.svelte':
 		'the lessons layout draws the band (ListPane); this is only the title',
 	'src/routes/[dance]/groups/+page.svelte':

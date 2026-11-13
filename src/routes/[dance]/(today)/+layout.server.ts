@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { listSetsBetween } from '$lib/server/exercises';
 import { lessonDays } from '$lib/server/lessons';
+import { songChoices } from '$lib/server/songs';
 import { wallOf } from '$lib/server/scope';
 import { dayInputOf } from '$lib/server/today-picks';
 import { shownExercise } from '$lib/exercises/name';
@@ -72,7 +73,9 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			// The person's zone: an entry's time of day on a past day and the day so far.
 			tz,
 			// The day of each class, for "New · from class Tue 3 Nov" on a lesson's row.
-			lessonDays: lessonDays(db, wall)
+			lessonDays: lessonDays(db, wall),
+			// What a new hearing drill's songs are picked from (phase 2).
+			songs: songChoices(db, wall)
 		}
 	};
 };

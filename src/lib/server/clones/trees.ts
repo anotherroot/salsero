@@ -12,6 +12,8 @@
  * practice settings, logs. A song's audio file is never a field; the person's
  * choice of link for it is (`audio`: Use another YouTube link).
  */
+import { hearingOf, settingsQuery } from '$lib/hearing/drill';
+import { kindLine } from '$lib/hearing/words';
 import { and, asc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import type { CloneKind, Facing, Flat, Frame, Hands } from '$lib/types';
 import { fieldLabel } from '$lib/clones/flat';
@@ -312,6 +314,11 @@ function drillFlat(db: Db, id: number, b: Builder): void {
 		cb.kind === 'every' ? `every:${cb.days}` : cb.kind === 'until' ? `until:${cb.good}` : 'faces',
 		comesBackWords(cb)
 	);
+	// A hearing drill's settings (phase 2) are the drill's, unlike what practising last played.
+	if (d.kind === 'hearing') {
+		const h = hearingOf(d.practiceJson);
+		b.add('hearing', settingsQuery(h), kindLine(h));
+	}
 	linkFields(db, eq(links.exerciseId, id), b);
 	musicFields(db, eq(songLinks.exerciseId, id), b);
 }

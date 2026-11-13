@@ -14,7 +14,10 @@ export const today = {
 		/** A lesson's row: "New · from class Tue 3 Nov". */
 		fromClass: (day: string): string => `from class ${day}`,
 		/** The swipe's button, and Coming up's skipped row. */
-		notToday: 'Not today'
+		notToday: 'Not today',
+		/** A hearing drill's row: "Last time 64 · 3 songs". */
+		lastScore: (n: number): string => `Last time ${n}`,
+		songs: (n: number): string => (n === 1 ? '1 song' : `${n} songs`)
 	},
 	/** A lesson's own exercise, named after the lesson (`shownExercise`, `src/lib/exercises/name.ts`). */
 	reviewOf: (title: string): string => `Review: ${title}`,
@@ -126,6 +129,7 @@ export const today = {
 		routine: 'Routine',
 		lesson: 'Lesson review',
 		drill: 'Drill',
+		hearing: 'Hearing',
 		doneToday: (label: string): string => `${label}, done today`,
 		done: 'Done'
 	},

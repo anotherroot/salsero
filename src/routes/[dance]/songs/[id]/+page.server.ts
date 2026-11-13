@@ -1,3 +1,4 @@
+import { hearingDrillsWith } from '$lib/server/hearing';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { oneOf, optionalText, text } from '$lib/server/form';
@@ -194,6 +195,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
 		/** Copies you can see, for the Versions list (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'song', song.id),
+		// "V vajah: …" under the hearing card (phase 2): the person's hearing drills with this song.
+		hearingDrills: hearingDrillsWith(db, wall, song.id),
 		step: stepStatus(db, wall.userId, 'song', song.id),
 		/** Keep in step under Versions, and how Sync opens (`clones/step.ts`). */
 		keep: keepView(db, wall.userId, 'song', song.id),

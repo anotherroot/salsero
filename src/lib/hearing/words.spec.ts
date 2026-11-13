@@ -27,3 +27,19 @@ describe('positions', () => {
 		expect(posName(1)).toBe('the 1');
 	});
 });
+
+describe('kindLine: a hearing drill in one line (phase 2)', () => {
+	it('says the kind, the target and, dropped in, the length', async () => {
+		const { kindLine } = await import('./words');
+		const { withLocale } = await import('$lib/i18n/current');
+		expect(kindLine({ kind: 'dropped', target: 'one', drops: 10 })).toBe(
+			'Dropped in · The 1 · 10 spots'
+		);
+		expect(kindLine({ kind: 'tapAlong', target: 'own', positions: [3, 6, 7], drops: 10 })).toBe(
+			'Tap along · 3 6 7'
+		);
+		expect(withLocale('sl', () => kindLine({ kind: 'dropped', target: 'one', drops: 5 }))).toBe(
+			'Sredi skladbe · Ena · 5 mest'
+		);
+	});
+});

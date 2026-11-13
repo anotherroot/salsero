@@ -18,15 +18,33 @@
 		drops: FinishedDrop[];
 		kind: RoundKind;
 		positions: number[];
-		beatS: number;
+		/** Each song's beat, by the song's index (`FinishedDrop.song`). */
+		beatS: number[];
+		/** The round's song names: a round over several names each drop's. */
+		songTitles?: string[];
 		subtitle: string;
 		onreplay: (i: number) => void;
 		onagain: () => void;
 		ondone: () => void;
 	}
 
-	let { drops, kind, positions, beatS, subtitle, onreplay, onagain, ondone }: Props = $props();
+	let {
+		drops,
+		kind,
+		positions,
+		beatS,
+		songTitles = [],
+		subtitle,
+		onreplay,
+		onagain,
+		ondone
+	}: Props = $props();
 	const w = $derived(t().hearing);
+	/** A drop's place: its section, and its song when the round had several. */
+	const where = (d: FinishedDrop) =>
+		songTitles.length > 1
+			? [songTitles[d.song ?? 0], d.section].filter(Boolean).join(' · ')
+			: d.section;
 
 	const scores = $derived(
 		drops.map((d) =>
@@ -47,13 +65,18 @@
 		drops.flatMap((d) =>
 			d.answer.beats
 				.filter((b) => b.state !== 'skip')
-				.map((b) => ({ pos: b.yours, offset: b.offset, state: b.state }))
+				// In beats of its own song, so songs at other tempos stack together.
+				.map((b) => ({
+					pos: b.yours,
+					offset: b.offset === null ? null : b.offset / (beatS[d.song ?? 0] ?? beatS[0]),
+					state: b.state
+				}))
 		)
 	);
 	const off = $derived(drops.filter((d) => !d.skipped && d.answer.shift !== 0).length);
 	const common = $derived(commonShift(drops.filter((d) => !d.skipped).map((d) => d.answer.shift)));
 	const first = $derived(Math.min(...positions));
-	const dots = $derived(stackDots(counted, beatS));
+	const dots = $derived(stackDots(counted, 1));
 	const hit = $derived(drops.reduce((s, d) => s + d.answer.hits, 0));
 	const of = $derived(drops.reduce((s, d) => s + d.answer.of, 0));
 	const restarts = $derived(drops.reduce((s, d) => s + d.restarts, 0));
@@ -118,7 +141,7 @@
 				<span class="min-w-0 flex-1 truncate text-[15px] font-bold text-ink">
 					{kind === 'tapAlong'
 						? d.section || w.score.dropRow(i + 1, '')
-						: w.score.dropRow(i + 1, d.section)}
+						: w.score.dropRow(i + 1, where(d))}
 				</span>
 				{#if !d.skipped && d.answer.shift}
 					<span class="rounded-full bg-easy-soft px-2 text-[11px] font-extrabold text-easy"

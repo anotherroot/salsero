@@ -631,6 +631,7 @@ describe('cloneInto: drills and songs', () => {
 				practiceMode: 'count',
 				countBpm: 90,
 				practiceJson: '{"count":true}',
+				kind: 'hearing',
 				comesBack: '{"kind":"every","days":2}',
 				warmup: true,
 				warmupOrder: 3
@@ -653,6 +654,7 @@ describe('cloneInto: drills and songs', () => {
 			teamId: 1,
 			userId: null,
 			practiceMode: 'count',
+			kind: 'hearing',
 			countBpm: 90,
 			comesBack: '{"kind":"every","days":2}',
 			warmup: false,
