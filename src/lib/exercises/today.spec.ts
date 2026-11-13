@@ -28,6 +28,7 @@ function ex(id: number, name = `E${id}`): ExerciseItem {
 		name,
 		source: 'custom',
 		kind: null,
+		hearing: null,
 		figureId: null,
 		lessonId: null,
 		routineId: null,
@@ -82,6 +83,20 @@ function row(
 const words = (m: { text: string }[]) => m.map((p) => p.text).join(' · ');
 
 describe('rowMeta', () => {
+	it('a hearing drill says its last score and its songs (phase 2)', () => {
+		const r = row('todo', { start: st(TODAY) });
+		r.exercise = { ...r.exercise, kind: 'hearing', hearing: { last: 64, songs: 3 } };
+		expect(rowMeta(r, TODAY, null)).toEqual([
+			{ text: 'Last time 64', tone: null },
+			{ text: '3 songs', tone: null }
+		]);
+		const fresh = row('todo', { neverDone: true, start: st(TODAY, 3, null) });
+		fresh.exercise = { ...fresh.exercise, kind: 'hearing', hearing: { last: null, songs: 1 } };
+		expect(rowMeta(fresh, TODAY, null)).toEqual([
+			{ text: 'New', tone: 'status' },
+			{ text: '1 song', tone: null }
+		]);
+	});
 	it('done: Done, then when it comes back', () => {
 		const m = rowMeta(row('done', { state: st('2026-11-12', 7, TODAY) }), TODAY, null);
 		expect(m).toEqual([

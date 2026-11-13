@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, sets, songDrops, teamChanges } from './db/schema';
+import { exercises, sets, songDrops, songLinks, teamChanges } from './db/schema';
 import { checkSeen, exerciseSeen } from './clash';
 import {
 	archiveExercise,
@@ -254,6 +254,47 @@ describe('listExercises: comes back and warm-up', () => {
 		expect(entry().kind).toBeNull();
 		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, c.drill)).run();
 		expect(entry().kind).toBe('hearing');
+	});
+
+	it("gives a hearing drill's row its last score and its songs; a plain drill none", () => {
+		const c = makeClass(db);
+		const entry = () => listExercises(db, MAJA).find((e) => e.id === c.entry)!;
+		expect(entry().hearing).toBeNull();
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, c.drill)).run();
+		db.insert(songLinks)
+			.values({ songId: c.shared, exerciseId: c.drill, sortOrder: 1, createdAt: CLASS_T })
+			.run();
+		expect(entry().hearing).toEqual({ last: null, songs: 1 });
+		const round = (score: number, changed = false) => ({
+			kind: 'dropped' as const,
+			target: 'one' as const,
+			drops: 10,
+			songIds: [c.shared],
+			score,
+			timing: score,
+			count: 0,
+			restarts: 0,
+			listening: 0,
+			changed
+		});
+		const set = (doneAt: number, r: ReturnType<typeof round>) =>
+			saveDay(
+				db,
+				{
+					exerciseId: c.entry,
+					doneAt,
+					durationS: 60,
+					reps: null,
+					rating: 3,
+					playerJson: null,
+					hearingRound: r
+				},
+				'Europe/Ljubljana'
+			);
+		set(CLASS_T, round(40));
+		set(CLASS_T + 3 * 86_400_000, round(64));
+		set(CLASS_T + 3 * 86_400_000 + 1000, round(90, true));
+		expect(entry().hearing).toEqual({ last: 64, songs: 1 });
 	});
 
 	it('reads a lesson review by its own Comes back (any type has it), and junk as faces', () => {

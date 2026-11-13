@@ -190,7 +190,15 @@ replay per drop; the clave card with Hear it in the setup. Phase 1c (2026-11-11)
 eights from the first tap, judged in the person's own count (the shift from the first tap keeps 100 / 50 / 25 / 10 %
 for right / 4 / 2 / 1 off; a reversed clave is 4 off), ends right after its last beat, shows blue circles with "you
 N" for a wrong count and a mark where each tap fell (look A), Count on the score card; the music fades between
-spots. Nothing is saved yet: the hearing drill as an exercise type is phase 2. Spec
+spots. Phase 2 (2026-11-13): the hearing drill is the fifth exercise type (`exercises.kind = 'hearing'`,
+migration 0052), with an ear on Today ("Last time 64 · 3 songs"). Made from Today's + (Drill | Hearing), a song
+page's Make a drill (`?new=hearing&song=`) or a lesson's New drill; its songs are its Music, picked by hand,
+only counted ones; its settings live under `practice_json.hearing`. Its page: the Practise card (Change: this
+round, or Save for the drill for an editor; ▶ Start opens `/[dance]/hearing/[id]`), Your rounds; Dropped in
+mixes random spots from all its songs, Tap along takes one at random. Done after a round opens the Done sheet
+with the score and the face it suggests (under 50 Still hard … 90+ Easy); every round of the day is kept in the
+set's `player_json.hearing.rounds`. A class member's Change is one round only; Keep keeps a hearing drill's
+songs. Spec
 [`docs/superpowers/specs/2026-11-10-hearing-drills-design.md`](docs/superpowers/specs/2026-11-10-hearing-drills-design.md),
 boards https://claude.ai/artifact/WBkgBLMuE8ADXoqgLgtfou and https://claude.ai/artifact/Wdspg2ZuajQvwVgAfvdB9N (1b).
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import {
 	FACES,
 	effectiveComesBack,
@@ -42,6 +42,8 @@ import { serverNow } from '$lib/server/server-clock';
 import {
 	appendRound,
 	keepHearing,
+	roundsLine,
+	roundsOf,
 	withHearing,
 	type HearingRound,
 	type HearingSettings
@@ -105,11 +107,16 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 					.all()
 					.map((t) => [t.id, t.name] as [number, string])
 	);
+	const hearing = hearingLines(
+		db,
+		rows.filter((r) => r.kind === 'hearing').map((r) => r.id)
+	);
 	return rows.map(({ teamId, ownComesBack, drillComesBack, ...r }) => {
 		const own = parseComesBack(ownComesBack);
 		const teacher = r.source === 'added' ? parseComesBack(drillComesBack) : null;
 		return {
 			...r,
+			hearing: hearing.get(r.id) ?? null,
 			comesBack: effectiveComesBack(own, teacher),
 			comesBackOwn: own,
 			comesBackTeacher: teacher,
@@ -640,4 +647,35 @@ export function exerciseSummary(db: Db, id: number, tz: string): ExerciseSummary
 
 export function lastSet(db: Db, exerciseId: number): HistorySet | null {
 	return exerciseHistory(db, exerciseId, 1)[0] ?? null;
+}
+
+/**
+ * A hearing drill's Today line (phase 2), by exercise id: the last score of the
+ * rounds on its own settings (the person's sets, newest last) and how many
+ * songs its drill plays (an entry's: its class drill's).
+ */
+function hearingLines(db: Db, ids: number[]): Map<number, { last: number | null; songs: number }> {
+	const out = new Map<number, { last: number | null; songs: number }>();
+	if (ids.length === 0) return out;
+	const counts = db
+		.select({
+			id: exercises.id,
+			songs: sql<number>`(select count(*) from song_links l where l.exercise_id = coalesce(${exercises.drillId}, ${exercises.id}))`
+		})
+		.from(exercises)
+		.where(inArray(exercises.id, ids))
+		.all();
+	const played = db
+		.select({ exerciseId: sets.exerciseId, playerJson: sets.playerJson })
+		.from(sets)
+		.where(and(inArray(sets.exerciseId, ids), isNotNull(sets.playerJson)))
+		.orderBy(asc(sets.doneAt), asc(sets.id))
+		.all();
+	for (const c of counts) {
+		const rounds = played
+			.filter((s) => s.exerciseId === c.id)
+			.flatMap((s) => roundsOf(s.playerJson));
+		out.set(c.id, { last: roundsLine(rounds).last, songs: c.songs });
+	}
+	return out;
 }
