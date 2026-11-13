@@ -1,17 +1,20 @@
 <script lang="ts">
 	/**
-	 * A picker row's preview (picker preview): the figure's moving picture, 64 × 40,
-	 * a tap opening its sheet — or, as the fallback (`PREVIEW_LOOK`), an eye. The
-	 * strip is one image of 12 frames, stepped by CSS while the row is on screen
-	 * (`motion.ts`); the still with Reduce motion or Data Saver; the empty
-	 * tile when there is no picture or it would not load (a loop not cut yet).
-	 * An image, never a video: outside one sound at a time.
+	 * A picker row's preview (picker preview, revision 2026-11-13): a 64 px square,
+	 * a tap opening the figure's sheet — or, as the fallback (`PREVIEW_LOOK`), an
+	 * eye. It shows the figure's still (loaded lazily), and while `motion.ts` lets
+	 * it play (on screen, among the first four, the list not scrolling, the phone
+	 * not one for stills) its clip over it: the section at real speed, muted and
+	 * looping. The <video> is there only while it may play, so a row off screen
+	 * holds no decoder. A muted background loop (`data-ambient`): one sound at a
+	 * time leaves it alone. A clip that will not play falls back to the still; a
+	 * still that will not load (a loop not cut yet) to the empty tile.
 	 */
 	import { t } from '$lib/i18n/catalog';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { CLIP, iconButton } from '$lib/components/ui/styles';
 	import { failedNow, tileShows } from '$lib/picker/preview';
-	import { onScreen, stillHere } from '$lib/picker/motion';
+	import { playSlot } from '$lib/picker/motion';
 	import type { Picture } from '$lib/types';
 
 	interface Props {
@@ -26,43 +29,47 @@
 
 	let { picture, label, look = 'tile', decorative = false, onclick }: Props = $props();
 
-	/** The strip of the picture that would not load: a reused tile draws the next one afresh. */
-	let failedFor = $state<string | null>(null);
-	let visible = $state(false);
-	const shows = $derived(
-		tileShows(picture, { still: stillHere(), failed: failedNow(failedFor, picture) })
-	);
-	const fail = () => (failedFor = picture?.clip ?? null);
+	/** What of which picture would not load: a reused tile draws the next one afresh. */
+	let failed = $state<{ for: string; what: 'clip' | 'still' } | null>(null);
+	let playing = $state(false);
+	const shows = $derived(tileShows(picture, { playing, failed: failedNow(failed, picture) }));
+	const fail = (what: 'clip' | 'still') => {
+		if (picture) failed = { for: picture.clip, what };
+	};
 </script>
 
 {#snippet tile()}
 	{#if shows.kind === 'empty'}
 		<span class="flex size-full items-center justify-center bg-accent-soft text-accent-text"
-			><Icon name="video" size={20} /></span
+			><Icon name="video" size={22} /></span
 		>
-	{:else if shows.kind === 'still'}
+	{:else}
 		<img
-			src={shows.src}
+			src={shows.still}
 			alt=""
 			loading="lazy"
 			class="block size-full object-cover"
-			onerror={fail}
+			onerror={() => fail('still')}
 		/>
-	{:else}
-		<img
-			src={shows.src}
-			alt=""
-			loading="lazy"
-			class="strip absolute inset-y-0 left-0 h-full w-[1200%] max-w-none"
-			class:moving={visible}
-			onerror={fail}
-		/>
-	{/if}
-	{#if shows.kind !== 'empty' && !decorative}
-		<span
-			class="absolute right-0.5 bottom-0.5 flex size-4 items-center justify-center rounded-full bg-black/55 text-white"
-			aria-hidden="true"><Icon name="eye" size={11} /></span
-		>
+		{#if shows.kind === 'clip'}
+			<video
+				src={shows.clip}
+				muted
+				loop
+				playsinline
+				autoplay
+				data-ambient
+				preload="auto"
+				class="absolute inset-0 block size-full object-cover"
+				onerror={() => fail('clip')}
+			></video>
+		{/if}
+		{#if !decorative}
+			<span
+				class="absolute right-0.5 bottom-0.5 flex size-4 items-center justify-center rounded-full bg-black/55 text-white"
+				aria-hidden="true"><Icon name="eye" size={11} /></span
+			>
+		{/if}
 	{/if}
 {/snippet}
 
@@ -73,36 +80,18 @@
 		aria-label={t().picker.look.preview(label)}
 		{onclick}><Icon name="eye" size={22} /></button
 	>
+{:else if decorative}
+	<span
+		class="{CLIP} relative block size-16 flex-none rounded-lg bg-black"
+		aria-hidden="true"
+		{@attach playSlot((on) => (playing = on))}>{@render tile()}</span
+	>
 {:else}
-	{#if decorative}
-		<span
-			class="{CLIP} relative block h-10 w-16 flex-none rounded-lg bg-black"
-			aria-hidden="true"
-			{@attach onScreen((on) => (visible = on))}>{@render tile()}</span
-		>
-	{:else}
-		<button
-			type="button"
-			class="{CLIP} relative block h-10 w-16 flex-none cursor-pointer rounded-lg bg-black"
-			aria-label={t().picker.look.preview(label)}
-			{onclick}
-			{@attach onScreen((on) => (visible = on))}>{@render tile()}</button
-		>
-	{/if}
+	<button
+		type="button"
+		class="{CLIP} relative block size-16 flex-none cursor-pointer rounded-lg bg-black"
+		aria-label={t().picker.look.preview(label)}
+		{onclick}
+		{@attach playSlot((on) => (playing = on))}>{@render tile()}</button
+	>
 {/if}
-
-<style>
-	/* 12 frames side by side: step through them, 3 a second (spec: a 4 s loop). */
-	.strip {
-		animation: loop12 4s steps(12) infinite;
-		animation-play-state: paused;
-	}
-	.strip.moving {
-		animation-play-state: running;
-	}
-	@keyframes loop12 {
-		to {
-			transform: translateX(-100%);
-		}
-	}
-</style>

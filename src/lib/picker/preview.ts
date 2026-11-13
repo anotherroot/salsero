@@ -1,6 +1,7 @@
 /**
- * The picture on a picker row (picker preview): what the tile draws. PURE and
- * client-safe; the component is `components/picker/PreviewButton.svelte`.
+ * The picture on a picker row (picker preview, revision 2026-11-13): what the
+ * tile draws and when its clip may play. PURE and client-safe; the component
+ * is `components/picker/PreviewButton.svelte`, the scheduler `motion.ts`.
  */
 import type { Picture } from '$lib/types';
 
@@ -11,22 +12,51 @@ import type { Picture } from '$lib/types';
  */
 export const PREVIEW_LOOK: 'tile' | 'eye' = 'tile';
 
-/** The still, never the strip: Reduce motion, or the browser asked to save data. */
-export const stillOnly = (env: { reducedMotion: boolean; saveData: boolean }): boolean =>
-	env.reducedMotion || env.saveData;
+/** At most this many tiles play their clip at once; the rest show their still (older phones). */
+export const MAX_PLAYING = 4;
 
-export type TileShows = { kind: 'empty' } | { kind: 'still' | 'strip'; src: string };
+/**
+ * Stills only, never a clip: Reduce motion, Data Saver, or a weak phone (2 GB of
+ * memory or less, 4 cores or fewer, as the browser reports them; unknown is not weak).
+ */
+export function stillOnly(env: {
+	reducedMotion: boolean;
+	saveData: boolean;
+	deviceMemory?: number;
+	cores?: number;
+}): boolean {
+	if (env.reducedMotion || env.saveData) return true;
+	if (env.deviceMemory !== undefined && env.deviceMemory <= 2) return true;
+	return env.cores !== undefined && env.cores <= 4;
+}
 
-/** What the tile draws: the strip, the still, or the empty tile (no picture, or it would not load). */
-export function tileShows(picture: Picture, s: { still: boolean; failed: boolean }): TileShows {
-	if (!picture || s.failed) return { kind: 'empty' };
-	return s.still ? { kind: 'still', src: picture.still } : { kind: 'strip', src: picture.clip };
+/** The tiles that may play: the first `MAX_PLAYING` on screen, in list order; none while the list scrolls. */
+export function granted<T>(onScreen: readonly T[], scrolling: boolean): Set<T> {
+	return new Set(scrolling ? [] : onScreen.slice(0, MAX_PLAYING));
+}
+
+export type TileShows =
+	| { kind: 'empty' }
+	| { kind: 'still'; still: string }
+	| { kind: 'clip'; clip: string; still: string };
+
+/** What the tile draws: the clip over its still while it may play, the still, or the empty tile. */
+export function tileShows(
+	picture: Picture,
+	s: { playing: boolean; failed: 'clip' | 'still' | null }
+): TileShows {
+	if (!picture || s.failed === 'still') return { kind: 'empty' };
+	if (s.playing && s.failed !== 'clip') return { kind: 'clip', ...picture };
+	return { kind: 'still', still: picture.still };
 }
 
 /**
- * Whether this picture failed to load: the tile remembers WHICH picture failed
- * (`failedFor`, its strip), since a row's tile is reused for another figure as
- * a search narrows the list.
+ * What of this picture would not load: the tile remembers WHICH picture failed
+ * (`for`, its clip), since a row's tile is reused for another figure as a search
+ * narrows the list.
  */
-export const failedNow = (failedFor: string | null, picture: Picture): boolean =>
-	picture !== null && failedFor === picture.clip;
+export const failedNow = (
+	failed: { for: string; what: 'clip' | 'still' } | null,
+	picture: Picture
+): 'clip' | 'still' | null =>
+	picture !== null && failed !== null && failed.for === picture.clip ? failed.what : null;

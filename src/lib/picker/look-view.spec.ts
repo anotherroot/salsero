@@ -34,7 +34,16 @@ describe('the sheet keeps the rules', () => {
 	it('its video is muted, loops its section, and takes part in one sound at a time (not ambient)', () => {
 		expect(video).toMatch(/muted/);
 		expect(video).toMatch(/playsinline/);
-		expect(video).not.toMatch(/data-ambient/);
+		// The section's own video (bound, `quietWhile`) takes part; only the fallback clip is ambient.
+		const main = video.slice(video.indexOf('<video'), video.indexOf('</video>'));
+		expect(main).toContain('bind:this={video}');
+		expect(main).not.toMatch(/data-ambient/);
 		expect(video).toMatch(/quietWhile\(/);
+	});
+
+	it('when the video cannot play, the loop plays as a muted background clip over its still', () => {
+		const fallback = video.slice(video.lastIndexOf('<video'), video.lastIndexOf('</video>'));
+		for (const a of ['src={picture.clip}', 'poster={picture.still}', 'muted', 'loop', 'data-ambient'])
+			expect(fallback).toContain(a);
 	});
 });

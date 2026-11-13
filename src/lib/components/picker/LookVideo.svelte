@@ -5,8 +5,9 @@
 	 * sound at a time: opening it stops what plays (`quietWhile`), and closing it
 	 * plays again the plain videos it stopped. The sound button only unmutes.
 	 * When it cannot play here (offline and not kept, a phone-only original on
-	 * another phone, a file gone) the loop strip moves in its place; with no
-	 * picture either, "No video yet". Adapted from `suggestions/SectionPreview`.
+	 * another phone, a file gone) the loop's clip plays in its place (a muted
+	 * background loop, kept on the phone), else its still; with no picture
+	 * either, "No video yet". Adapted from `suggestions/SectionPreview`.
 	 */
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n/catalog';
@@ -28,7 +29,8 @@
 	let video = $state<HTMLVideoElement | null>(null);
 	let muted = $state(true);
 	let failed = $state(false);
-	let stripFailed = $state(false);
+	/** The fallback's clip, then its still, would not load. */
+	let fallback = $state<'clip' | 'still' | 'none'>('clip');
 	const seconds = $derived(Math.max(1, Math.round((endMs - startMs) / 1000)));
 
 	onMount(() => {
@@ -77,12 +79,24 @@
 			class="pointer-events-none absolute bottom-2 left-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[12px] font-bold text-white tabular-nums"
 			>{t().video.secs(seconds)}</span
 		>
-	{:else if picture && !stripFailed}
-		<img
+	{:else if picture && fallback === 'clip'}
+		<video
 			src={picture.clip}
+			poster={picture.still}
+			muted
+			loop
+			playsinline
+			autoplay
+			data-ambient
+			class="block size-full object-contain"
+			onerror={() => (fallback = 'still')}
+		></video>
+	{:else if picture && fallback === 'still'}
+		<img
+			src={picture.still}
 			alt=""
-			class="strip absolute inset-y-0 left-0 h-full w-[1200%] max-w-none"
-			onerror={() => (stripFailed = true)}
+			class="block size-full object-contain"
+			onerror={() => (fallback = 'none')}
 		/>
 	{:else}
 		<div
@@ -92,20 +106,3 @@
 		</div>
 	{/if}
 </div>
-
-<style>
-	/* The loop strip, large: 12 frames, 3 a second (as on the row). */
-	.strip {
-		animation: loop12 4s steps(12) infinite;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.strip {
-			animation: none;
-		}
-	}
-	@keyframes loop12 {
-		to {
-			transform: translateX(-100%);
-		}
-	}
-</style>
