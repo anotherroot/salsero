@@ -227,6 +227,29 @@ describe('root fields', () => {
 		expect(differing('drill', D2, D)).toEqual([]);
 	});
 
+	it("a hearing drill's settings are a field: Compare lists them and Take writes theirs (phase 2)", async () => {
+		const D = createCustomExercise(db, U1_SALSA, { name: 'Kje je ena?', notes: null }).id;
+		const ten = JSON.stringify({
+			count: 'on',
+			hearing: { kind: 'dropped', target: 'one', drops: 10 }
+		});
+		db.update(exercises)
+			.set({ kind: 'hearing', practiceJson: ten })
+			.where(eq(exercises.id, D))
+			.run();
+		const D2 = await copy('drill', D, T1_SALSA);
+		expect(differing('drill', D2, D)).toEqual([]);
+		const twenty = JSON.stringify({ hearing: { kind: 'dropped', target: 'one', drops: 20 } });
+		db.update(exercises).set({ practiceJson: twenty }).where(eq(exercises.id, D)).run();
+		expect(differing('drill', D2, D)).toEqual(['hearing']);
+		expect(apply('drill', D2, D, ['hearing']).ok).toBe(true);
+		const got = JSON.parse(
+			db.select().from(exercises).where(eq(exercises.id, D2)).get()!.practiceJson!
+		);
+		expect(got).toEqual({ count: 'on', hearing: { kind: 'dropped', target: 'one', drops: 20 } });
+		expect(differing('drill', D2, D)).toEqual([]);
+	});
+
 	it('Take of an until setting starts it now, unless the receiver was already on until', async () => {
 		const D = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
 		const D2 = await copy('drill', D, T1_SALSA);

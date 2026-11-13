@@ -108,14 +108,13 @@
 		</div>
 	</div>
 
-	{#if changing}
-		<HearingSettingsSheet
-			{dance}
-			exerciseId={exercise.id}
-			settings={hearing.settings}
-			canSave={canEdit}
-			onclose={() => (changing = false)}
-			{onleave}
-		/>
-	{/if}
+	<HearingSettingsSheet
+		{dance}
+		exerciseId={exercise.id}
+		settings={hearing.settings}
+		canSave={canEdit}
+		open={changing}
+		onclose={() => (changing = false)}
+		{onleave}
+	/>
 {/if}

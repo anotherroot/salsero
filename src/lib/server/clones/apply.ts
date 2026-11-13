@@ -31,6 +31,7 @@
  * check, the picks, the files and room, then in one transaction the apply,
  * the pair's next snapshot, History and the reconcile.
  */
+import { hearingOf, settingsQuery, withHearing } from '$lib/hearing/drill';
 import { t } from '$lib/i18n/catalog';
 import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
 import { countsOfMask, DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
@@ -400,6 +401,15 @@ class Applier {
 			if (g.practiceMode !== 'song') set.songId = null;
 			this.changed('practiceMode', t.practiceMode, g.practiceMode);
 			this.changed('countBpm', t.countBpm, g.countBpm);
+		}
+		if (has('hearing')) {
+			// A hearing drill's settings, the receiver's other practice keys kept.
+			set.practiceJson = withHearing(t.practiceJson, hearingOf(g.practiceJson));
+			this.changed(
+				'hearing',
+				settingsQuery(hearingOf(t.practiceJson)),
+				settingsQuery(hearingOf(g.practiceJson))
+			);
 		}
 		if (has('comesBack')) {
 			// A received "until" is turned on for the receiver now, unless they were already learning.

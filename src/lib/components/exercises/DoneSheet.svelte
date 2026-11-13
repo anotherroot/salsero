@@ -62,7 +62,10 @@
 	}: Props = $props();
 	const suggest = $derived(hearing ? suggestFeel(hearing.round.score) : null);
 	const gain = $derived(
-		hearing && hearing.before !== null ? hearing.round.score - hearing.before : null
+		// Against the last round on the drill's settings; a round changed for once has no chip (spec 12).
+		hearing && !hearing.round.changed && hearing.before !== null
+			? hearing.round.score - hearing.before
+			: null
 	);
 
 	const title = $derived(t().exercise.types.howItWent);
@@ -159,7 +162,7 @@
 					<span class="font-display text-[22px] leading-tight font-extrabold text-ink"
 						>{t().hearing.score.title(hearing.round.score)}
 						{#if gain !== null && gain !== 0}<span class={GAIN_CHIP[gain > 0 ? 'up' : 'down']}
-								>{gain > 0 ? `+` : `−`}</span
+								>{gain > 0 ? `+${gain}` : `−${-gain}`}</span
 							>{/if}</span
 					>
 					<span class="text-[13px] text-ink-2">{hearing.line}</span>

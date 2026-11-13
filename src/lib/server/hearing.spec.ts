@@ -219,3 +219,17 @@ describe('hearingDrillsWith', () => {
 		expect(hearingDrillsWith(db, MAJA, c.draft)).toEqual([]);
 	});
 });
+
+describe('making a hearing drill with a song that is not yours (review)', () => {
+	it("answers another person's song like a missing one: no title", () => {
+		const theirs = song('Secret', '00000000-0000-4000-8000-0000000000d9.mp3');
+		const made = createHearingDrill(
+			db,
+			MAJA,
+			{ name: 'X', notes: null },
+			{ settings: SETTINGS, songIds: [theirs] }
+		);
+		expect(made.ok).toBe(false);
+		if (!made.ok) expect(made.message).not.toContain('Secret');
+	});
+});

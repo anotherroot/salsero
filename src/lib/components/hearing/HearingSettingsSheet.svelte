@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { guarded, passNext, unsaved } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -23,12 +22,13 @@
 		exerciseId: number;
 		settings: HearingSettings;
 		canSave: boolean;
+		open: boolean;
 		onclose: () => void;
 		/** The page is about to be left for the round. */
 		onleave?: () => void;
 	}
 
-	let { dance, exerciseId, settings, canSave, onclose, onleave }: Props = $props();
+	let { dance, exerciseId, settings, canSave, open, onclose, onleave }: Props = $props();
 	const w = $derived(t().hearing.drill);
 	let form: HTMLFormElement | undefined = $state();
 	let busy = $state(false);
@@ -46,13 +46,21 @@
 			.join('&');
 	}
 
-	function startWith() {
+	/**
+	 * The round takes the changes along, so nothing is lost: the sheet's
+	 * unsaved-changes guard lets this one navigation through (`passNext`).
+	 */
+	function startWith(e: MouseEvent & { currentTarget: HTMLAnchorElement }) {
+		const href = `${resolve(`/${dance.slug}/hearing/${exerciseId}`)}?${query()}`;
+		// The link's own navigation (a sheet holds its Back moves until it lands), to
+		// the fields as they are now; the guard lets this one through.
+		e.currentTarget.href = href;
+		passNext(href, unsaved(form ?? null));
 		onleave?.();
-		void goto(`${resolve(`/${dance.slug}/hearing/${exerciseId}`)}?${query()}`);
 	}
 </script>
 
-<Sheet title={w.changeTitle} sub={w.changeSub} open={true} {onclose}>
+<Sheet title={w.changeTitle} sub={w.changeSub} {open} {onclose}>
 	<form
 		bind:this={form}
 		id="hearing-settings"
@@ -85,9 +93,13 @@
 	</form>
 	{#snippet footer()}
 		<div class="flex flex-col gap-2">
-			<button type="button" class="{button('primary', 'md', true)} gap-2" onclick={startWith}>
+			<a
+				href={resolve(`/${dance.slug}/hearing/${exerciseId}`)}
+				class="{button('primary', 'md', true)} gap-2"
+				onclick={startWith}
+			>
 				<Icon name="play" size={20} filled />{w.startWith}
-			</button>
+			</a>
 			{#if canSave}
 				<button
 					type="submit"

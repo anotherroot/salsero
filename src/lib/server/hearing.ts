@@ -14,7 +14,7 @@ import { exercises, sets, songLinks, songs } from './db/schema';
 import { practiceSong } from './access';
 import { actingIn, fieldChange, logChange } from './changes';
 import { createCustomExercise, MusicRefused, type SettingsInput } from './exercises';
-import { ownedBy, type Space, type Wall } from './scope';
+import { isTeam, ownedBy, type Space, type Wall } from './scope';
 import { songGrid } from './grid';
 import { serverNow } from './server-clock';
 import {
@@ -75,8 +75,16 @@ export function readHearingForm(form: FormData, dance: Dance): HearingInput | st
 /** Why a song may not go in `space`'s hearing drill, or null when it may. */
 function songRefusal(db: Db, space: Space, songId: number): string | null {
 	const song = db.select().from(songs).where(eq(songs.id, songId)).get();
-	if (!song || song.status !== 'ready' || song.archivedAt !== null || song.dance !== space.dance)
-		return t().songs.music.cannotGo;
+	// One the space may not use reads like a missing one: no title of another's song (addMusic's rules).
+	const usable =
+		!!song &&
+		song.status === 'ready' &&
+		song.archivedAt === null &&
+		song.dance === space.dance &&
+		(isTeam(space)
+			? song.teamId === space.teamId && song.userId === null
+			: practiceSong(db, space.userId, song));
+	if (!song || !usable) return t().songs.music.cannotGo;
 	if (!counted(song)) return t().hearing.drill.notCounted(song.title);
 	return null;
 }

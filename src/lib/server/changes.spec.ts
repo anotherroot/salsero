@@ -14,7 +14,8 @@ import {
 	teamChanges,
 	teamTrash,
 	users,
-	videoSpots
+	videoSpots,
+	exercises
 } from './db/schema';
 import { linkSpotToPosition, unlinkSpotFromPosition } from './position-links';
 import { restoreTrash } from './trash';
@@ -97,6 +98,7 @@ import {
 	updateRoutine
 } from './routines';
 import { archiveExercise, createCustomExercise, restoreDrill, updateExercise } from './exercises';
+import { setHearingSettings } from './hearing';
 import { claimVideoJob, completeVideoJob, requestVideoDownload } from './video-downloads';
 import {
 	createSongFromUpload,
@@ -747,6 +749,15 @@ const MUTATIONS: {
 		rootId: (w) => w.drill,
 		run: (w) =>
 			updateExercise(db, w.drill, { name: 'Shines', everyDays: 3, notes: 'x', active: true }, w.by)
+	},
+	{
+		name: 'setHearingSettings',
+		root: 'drill',
+		verb: 'change',
+		rootId: (w) => w.drill,
+		prep: (w) =>
+			db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, w.drill)).run(),
+		run: (w) => setHearingSettings(db, w.drill, { kind: 'dropped', target: 'odd', drops: 5 }, w.by)
 	},
 	{
 		name: 'archiveExercise',

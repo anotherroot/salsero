@@ -204,11 +204,13 @@
 	function unlockOthers(first: number) {
 		audios.forEach((el, i) => {
 			if (i === first || !el) return;
+			// Paused in the same tick: a pause that waited for playback could land after a
+			// later spot switched to this song, and silence it.
 			el.muted = true;
-			el.play()
-				.then(() => el.pause())
-				.catch(() => {})
-				.finally(() => (el.muted = false));
+			const playing = el.play();
+			el.pause();
+			el.muted = false;
+			playing?.catch(() => {});
 		});
 	}
 

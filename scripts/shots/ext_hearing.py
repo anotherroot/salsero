@@ -150,6 +150,17 @@ def _drill_done(page):
     page.wait_for_timeout(600)
 
 
+def _change_start(page):
+    """Change → another target → Start with these: the round opens, no unsaved-changes dialog (review)."""
+    _make_drill(page)
+    page.get_by_role("button", name="Change").click()
+    page.get_by_text("Every beat", exact=True).click()
+    page.get_by_role("link", name="Start with these").click()
+    page.wait_for_url("**/hearing/**target=every**", timeout=10000)
+    page.get_by_role("button", name="Start").wait_for(timeout=10000)
+    page.wait_for_timeout(400)
+
+
 SCENES = {
     "listen-setup-clave": Scene(LISTEN, _setup_clave),
     "listen-drop-tapping": Scene(LISTEN, _drop_tapping),
@@ -162,4 +173,5 @@ SCENES = {
     "hearing-new": Scene("/{dance}?new=hearing&song={listensong}", _new_sheet),
     "hearing-page": Scene("/{dance}?new=hearing&song={listensong}", _make_drill),
     "hearing-done": Scene("/{dance}?new=hearing&song={listensong}", _drill_done),
+    "hearing-change-start": Scene("/{dance}?new=hearing&song={listensong}", _change_start),
 }

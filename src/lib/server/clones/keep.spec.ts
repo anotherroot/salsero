@@ -700,3 +700,43 @@ describe('keepFromTeam: a hearing drill keeps its songs (phase 2)', () => {
 		expect(crossRefs(db).filter((l) => l.startsWith('song_links'))).toEqual([]);
 	});
 });
+
+describe('keepFromTeam: a hearing drill never brings an unshared song (review)', () => {
+	it("leaves a song the teacher unshared behind, and the drill's copy points at the kept one", async () => {
+		const s = story();
+		const make = (title: string, file: string) => {
+			const id = createSongFromUpload(db, T1_SALSA, {
+				file,
+				mime: 'audio/mpeg',
+				title,
+				style: 'salsa',
+				sizeBytes: 200
+			}).id;
+			db.update(songs)
+				.set({ status: 'ready', sharedAt: T, anchorsJson: '[0]' })
+				.where(eq(songs.id, id))
+				.run();
+			return id;
+		};
+		const kept = make('Casa Mía', 'k.mp3');
+		const gone = make('Draft', 'g.mp3');
+		db.update(exercises).set({ kind: 'hearing' }).where(eq(exercises.id, s.D)).run();
+		expect(addMusic(db, T1_SALSA, { exerciseId: s.D }, kept, null, T)).toMatchObject({ ok: true });
+		expect(addMusic(db, T1_SALSA, { exerciseId: s.D }, gone, null, T)).toMatchObject({ ok: true });
+		db.update(songs).set({ sharedAt: null }).where(eq(songs.id, gone)).run();
+		await keepFromTeam(
+			db,
+			'u2',
+			1,
+			{ mode: 'chosen', lessons: [s.L], figures: [], routines: [], songs: [] },
+			fakeFiles().files,
+			NOW
+		);
+		expect(copyOf('song', gone) ?? []).toHaveLength(0);
+		const [song] = copyOf('song', kept)!;
+		const [drill] = copyOf('drill', s.D)!;
+		expect(db.select().from(songLinks).where(eq(songLinks.exerciseId, drill.id)).all()).toEqual([
+			expect.objectContaining({ songId: song.id })
+		]);
+	});
+});

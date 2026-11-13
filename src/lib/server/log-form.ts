@@ -39,7 +39,8 @@ export function parseSetSnapshot(raw: string, now: number): SetSnapshot | null {
 	if (!orNull(o.reps, (x) => intIn(x, 0, 10_000))) return null;
 	if (!orNull(o.rating, (x) => intIn(x, 1, 5))) return null;
 	if (!orNull(o.note, text(2000))) return null;
-	if (!orNull(o.playerJson, text(4000))) return null;
+	// Server-made JSON; a day of many hearing rounds (phase 2) runs past a few thousand characters.
+	if (!orNull(o.playerJson, text(64_000))) return null;
 	return {
 		exerciseId: o.exerciseId as number,
 		doneAt: o.doneAt as number,

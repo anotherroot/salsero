@@ -160,7 +160,8 @@ function scopeOf(db: Db, userId: string, teamId: number): Scope {
 	// A hearing drill plays its Music and nothing else (phase 2): the group songs
 	// of their own hearing drills are used, and a group hearing drill brings its
 	// songs wherever it is kept (`itemsOf`).
-	const hearingSong = sql`t.team_id = ${teamId} and t.status = 'ready' and t.audio_file is not null`;
+	const hearingSong = sql`t.team_id = ${teamId} and t.status = 'ready' and t.audio_file is not null
+		and t.shared_at is not null and t.archived_at is null`;
 	for (const s of db.all<{ id: number }>(sql`
 		select distinct t.id as id from exercises x join song_links l on l.exercise_id = x.id
 		  join songs t on t.id = l.song_id
@@ -230,8 +231,10 @@ function itemsOf(scope: Scope, choice: KeepChoice): Item[] {
 			pick('song', choice.songs);
 		}
 	}
+	// Only what "everything" holds: a song unshared or deleted since never comes along.
 	for (const drill of [...ids.drill])
-		for (const song of scope.drillSongs.get(drill) ?? []) ids.song.add(song);
+		for (const song of scope.drillSongs.get(drill) ?? [])
+			if (scope.all.song.has(song)) ids.song.add(song);
 	return KINDS.flatMap((kind) => [...ids[kind]].sort((a, b) => a - b).map((id) => ({ kind, id })));
 }
 

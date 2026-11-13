@@ -97,13 +97,20 @@ describe('parseSetSnapshot', () => {
 		expect(parseSetSnapshot(JSON.stringify(ok), 2_000)).toEqual(ok));
 	it('ignores an extra id key', () =>
 		expect(parseSetSnapshot(JSON.stringify({ ...ok, id: 5 }), 2_000)).toEqual(ok));
+	it('keeps a day of many hearing rounds (review: over 4000 characters)', () =>
+		expect(
+			parseSetSnapshot(JSON.stringify({ ...ok, playerJson: 'x'.repeat(5000) }), 2_000)
+		).toEqual({
+			...ok,
+			playerJson: 'x'.repeat(5000)
+		}));
 	it.each([
 		['a rating of 6', { ...ok, rating: 6 }],
 		['a set in the future', { ...ok, doneAt: 10_000_000 }],
 		['no exercise', { ...ok, exerciseId: undefined }],
 		['a fractional duration', { ...ok, durationS: 1.5 }],
 		['an overlong note', { ...ok, note: 'x'.repeat(2001) }],
-		['an overlong run', { ...ok, playerJson: 'x'.repeat(4001) }]
+		['an overlong run', { ...ok, playerJson: 'x'.repeat(64_001) }]
 	])('refuses %s', (_, v) => expect(parseSetSnapshot(JSON.stringify(v), 2_000)).toBeNull());
 });
 
