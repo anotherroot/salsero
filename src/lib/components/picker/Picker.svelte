@@ -281,7 +281,7 @@
 		{/if}
 		{#if r.picture !== undefined && PREVIEW_LOOK === 'tile'}
 			<!-- Picker preview: the figure's moving picture; a tap opens its sheet, the row still picks. -->
-			<span class="mr-3 flex flex-none">
+			<span class="mr-3 flex flex-none py-1.5">
 				<PreviewButton picture={r.picture} label={r.label} onclick={() => look(r, away)} />
 			</span>
 		{/if}
